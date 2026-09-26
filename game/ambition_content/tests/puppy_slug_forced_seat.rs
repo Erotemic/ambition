@@ -28,9 +28,9 @@ use ambition_platformer2d_actor_monolith::character_runtime::{
 fn seating_app_with_the_real_cast() -> App {
     let mut app = App::new();
     app.init_resource::<PreparedCharacterRegistry>();
-    // Registering the real catalog is what the shipped app does; it also
+    // Registering the real cast is what the shipped app does; it also
     // publishes the policy authority.
-    ambition_content::character_catalog::register(&mut app);
+    ambition_content::character_catalog::register_cast(&mut app);
     app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
     // A hand-built app installs no plugin, so it must add the ordinal itself.
     // `activate_the_prepared_match` takes `ResMut<SessionMatchOrdinal>`, not
@@ -63,7 +63,6 @@ fn seating_app_with_the_real_cast() -> App {
         )
             .chain(),
     );
-    ambition_content::player_robot_lineage::register_declared_cast(&mut app);
     app
 }
 

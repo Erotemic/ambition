@@ -74,8 +74,10 @@ fn every_migrated_fighter_the_game_builds_swings_its_file_s_numbers() {
              content file carries — something is still supplying a compiled one"
         );
         // Not vacuous: real moves with real timings, not two equal empty maps.
+        // v2's table is the theorem chain alone, by design (see
+        // `the_theorem_chain_is_two_hits_on_one_timeline`).
         assert!(
-            moveset.moves.len() >= 20,
+            moveset.moves.len() >= if id == "player_robot_v2" { 1 } else { 20 },
             "`{id}` was built with {} move(s) — a table nobody would notice \
              losing",
             moveset.moves.len()
@@ -92,36 +94,32 @@ fn every_migrated_fighter_the_game_builds_swings_its_file_s_numbers() {
     );
 }
 
-/// The robot lineage is excluded, for a reason a reader can check.
+/// The robot lineage takes its tables from the file, on its own road.
 ///
-/// `player_robot` has three cast ids (`player_robot_v3`,
-/// `player_robot_fable`, `player_robot_v2`). But
-/// `player_robot_lineage::register` builds its definitions with
-/// `definition_from(&catalog, incarnation)` and never calls
-/// `authored_intrinsics`, and `register_declared_cast` skips lineage ids.
+/// The lineage does not pass `register_declared_cast` (that loop skips it), so
+/// the test above does not prove its road. `player_robot_lineage::definition`
+/// is what that road builds, and it must apply the same seam.
+///
+/// The population is `LINEAGE` itself, not a prefix filter over the buildable
+/// cast, and v0 is in it with no table: a file entry for it would also have to
+/// arrive.
 #[test]
-fn the_robot_lineage_does_not_reach_the_seam_the_pack_applies_moves_at() {
+fn the_robot_lineage_wears_the_tables_its_file_carries() {
     let table = lowered_movesets(crate::pack::prepared()).expect("a move section");
-    // The population is `LINEAGE` itself, not a prefix filter over the
-    // buildable cast: the lineage registers on its own road, and not all its
-    // members are in that cast.
-    let lineage: Vec<&str> = crate::player_robot_lineage::LINEAGE
-        .iter()
-        .map(|incarnation| incarnation.id)
-        .collect();
+    let mut checked = 0usize;
+    for incarnation in crate::player_robot_lineage::LINEAGE {
+        let built = crate::player_robot_lineage::definition(incarnation).moveset;
+        assert_eq!(
+            built.as_ref(),
+            table.get(incarnation.id),
+            "`{}` is built with a move table that is not the one the pack \
+             carries for it, so something other than the file supplies its moves",
+            incarnation.id
+        );
+        checked += usize::from(built.is_some());
+    }
     assert!(
-        lineage.len() >= 3,
-        "{lineage:?} — the lineage this excludes is not the lineage"
-    );
-    let claimed: Vec<&str> = lineage
-        .iter()
-        .copied()
-        .filter(|id| table.contains_key(*id))
-        .collect();
-    assert!(
-        claimed.is_empty(),
-        "the pack carries move tables for {claimed:?}, which register on the \
-         lineage's own road and never pass through `authored_intrinsics` — so \
-         those tables would be loaded by nobody"
+        checked >= 2,
+        "only {checked} lineage member(s) have a move table; v2 and v3 both do"
     );
 }

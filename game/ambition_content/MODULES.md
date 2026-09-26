@@ -26,7 +26,7 @@
 | [`music`](src/music.rs) | Ambition's authored music-cue catalog + encounter bindings. |
 | [`pack`](src/pack.rs) | Ambition's own content pack: the compile that is the load path. |
 | [`player_robot_lineage`](src/player_robot_lineage.rs) | Player Robot incarnations generated from shared source. |
-| [`player_robot_moveset`](src/player_robot_moveset.rs) | The player robot's canonical move repertoire: the moves that are the protagonist, wherever it is seated. |
+| [`player_robot_moveset`](src/player_robot_moveset.rs) | The player robot's actions, and the tests that pin its two move tables. |
 | [`plugin`](src/plugin.rs) | Ambition game-content registration. |
 | [`portal`](src/portal/mod.rs) | Ambition-specific portal adapters. |
 | [`presentation`](src/presentation/mod.rs) | Content-owned presentation plugins — named Ambition looks layered onto the reusable renderer's PUBLIC seams. |

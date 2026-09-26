@@ -36,9 +36,9 @@ FLOOR: dict[str, int] = {
     "game/ambition_content/assets/data/movesets/officer.ron": 1,
     "game/ambition_content/assets/data/movesets/projectile_polygon.ron": 2,
     "game/ambition_content/assets/data/movesets/alice.ron": 3,
+    "game/ambition_content/assets/data/movesets/player_robot.ron": 1,
     # The performer's tests quote Jon beside the behaviour they pin.
     "game/ambition_content/src/performer_moveset.rs": 4,
-    "game/ambition_content/src/player_robot_moveset.rs": 1,
     # ⭐ ADDED 2026-09-05: "PCA needs to shoot a glider" was SATISFIED and
     # UNRECORDED, so nothing stopped a later pass from removing the ranged
     # glider without learning the maintainer had asked for it by name.

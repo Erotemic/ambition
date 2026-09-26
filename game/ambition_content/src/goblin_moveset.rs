@@ -209,7 +209,7 @@ mod tests {
     #[test]
     fn the_goblin_is_shorter_faster_and_weaker_than_the_robot() {
         let goblin = crate::authored_movesets::shipped("goblin");
-        let robot = crate::player_robot_moveset::player_robot_moveset();
+        let robot = crate::authored_movesets::shipped("player_robot_v3");
         let find = |set: &MovesetContract, id: &str| {
             set.moves
                 .iter()

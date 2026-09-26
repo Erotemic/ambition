@@ -53,6 +53,19 @@ pub fn register(app: &mut bevy::prelude::App) {
     );
 }
 
+/// Register the whole cast this provider ships, as the plugin does.
+///
+/// Three registrations make one cast: the catalog fragment, the robot lineage
+/// and the declared cast. A fixture that repeats them by hand can drop one and
+/// still get a cast with no error, but that cast is not the shipped cast. A cast
+/// with no lineage stages no robot, so a reload that edits the robot's move file
+/// is refused.
+pub fn register_cast(app: &mut bevy::prelude::App) {
+    register(app);
+    crate::player_robot_lineage::register(app);
+    crate::player_robot_lineage::register_declared_cast(app);
+}
+
 /// A curated cast of characters the player can start as. The character-select
 /// surface cycles through these; every id is a `character_catalog.ron` row
 /// with a renderable sheet. Hand-picked and small on purpose, not "every
@@ -205,8 +218,7 @@ mod tests {
     #[test]
     fn the_kernel_guide_authors_an_identity_and_no_combat_kit() {
         let mut app = bevy::prelude::App::new();
-        crate::character_catalog::register(&mut app);
-        crate::player_robot_lineage::register_declared_cast(&mut app);
+        crate::character_catalog::register_cast(&mut app);
         // A content question, not an admission one. This fixture installs no
         // technique handlers, so real admission would withhold characters that name a
         // native effect. The raw road is named explicitly.
@@ -273,8 +285,7 @@ mod tests {
     #[test]
     fn practice_target_characters_do_not_strike_back() {
         let mut app = bevy::prelude::App::new();
-        crate::character_catalog::register(&mut app);
-        crate::player_robot_lineage::register_declared_cast(&mut app);
+        crate::character_catalog::register_cast(&mut app);
         // A content question, not an admission one. This fixture installs no
         // technique handlers, so real admission would withhold characters that name a
         // native effect. The raw road is named explicitly.
@@ -502,10 +513,7 @@ mod tests {
     #[test]
     fn the_cast_that_states_its_own_moves_only_grows() {
         let mut app = bevy::prelude::App::new();
-        crate::character_catalog::register(&mut app);
-        // The lineage and declared cast are separate registration paths; include both.
-        crate::player_robot_lineage::register(&mut app);
-        crate::player_robot_lineage::register_declared_cast(&mut app);
+        crate::character_catalog::register_cast(&mut app);
         // A content question, not an admission one. This fixture installs no
         // technique handlers, so real admission would withhold characters that name a
         // native effect. The raw road is named explicitly.

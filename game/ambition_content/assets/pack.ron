@@ -32,15 +32,17 @@
         (path: "data/character_catalog.ron", schema: "character_catalog", version: 1),
         (path: "data/items.ron", schema: "item_catalog", version: 1),
         // ⭐⭐ EVERY MOVE TABLE THIS PROVIDER AUTHORS IS CONTENT, NOT CODE
-        // (fast-iteration I2, step 5). No `authored/*.rs` compiles a moveset
-        // into the host any more; `character_catalog::authored_intrinsics`
-        // takes each one from the pack. These files are the source: edit them.
+        // (fast-iteration I2, step 5). No `authored/*.rs` and no robot lineage
+        // code compiles a moveset into the host any more;
+        // `character_catalog::authored_intrinsics` takes each one from the pack.
+        // These files are the source: edit them.
         //
         // ⛔ THE FILE IS NAMED FOR THE TABLE AND KEYED BY THE CHARACTER, and
-        // those are not the same string for nine of these: `alice.ron` carries
-        // the entity `npc_alice`, and `cellular_automaton.ron` carries TWO. The
-        // entity ids in each document are the mapping. A fighter drawn on an
-        // archetype's rig `borrows` the archetype's table (`director.ron`).
+        // those are often not the same string: `alice.ron` carries the entity
+        // `npc_alice`, and `cellular_automaton.ron` and `player_robot.ron` carry
+        // TWO each. The entity ids in each document are the mapping. A fighter
+        // drawn on an archetype's rig `borrows` the archetype's table
+        // (`director.ron`).
         (path: "data/movesets/alice.ron", schema: "moveset", version: 1),
         (path: "data/movesets/bob.ron", schema: "moveset", version: 1),
         (path: "data/movesets/carl_stargan.ron", schema: "moveset", version: 1),
@@ -55,6 +57,7 @@
         (path: "data/movesets/patent_clerk.ron", schema: "moveset", version: 1),
         (path: "data/movesets/performer.ron", schema: "moveset", version: 1),
         (path: "data/movesets/pirate_admiral.ron", schema: "moveset", version: 1),
+        (path: "data/movesets/player_robot.ron", schema: "moveset", version: 1),
         (path: "data/movesets/pointed_polygon.ron", schema: "moveset", version: 1),
         (path: "data/movesets/projectile_polygon.ron", schema: "moveset", version: 1),
         (path: "data/movesets/pugnacious_polygon.ron", schema: "moveset", version: 1),

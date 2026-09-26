@@ -1034,7 +1034,7 @@ that constructor: fourteen files call it directly; medic, performer, author and
 officer are `under_own_name(<a repertoire-built moveset>, ..)` with one slot
 swapped.
 
-⛔ **That scope word is load-bearing.** `theorem_chain_moveset` binds **one verb**
+⛔ **That scope word is load-bearing.** The theorem chain (`player_robot.ron`, entity `player_robot_v2`) binds **one verb**
 and no repertoire — it is Robot **v2's**, for the duel arena, and
 `player_robot_v2` is not in `SMASH_ROSTER`. ⇒ The guarantee is a property of this
 grid's roster, not of the codebase: a one-verb contract is legitimate for a

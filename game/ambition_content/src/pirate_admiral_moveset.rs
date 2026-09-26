@@ -254,7 +254,7 @@ mod tests {
     fn the_admiral_is_longer_slower_and_heavier_than_the_other_two() {
         let admiral = crate::authored_movesets::shipped("npc_pirate_admiral");
         let goblin = crate::authored_movesets::shipped("goblin");
-        let robot = crate::player_robot_moveset::player_robot_moveset();
+        let robot = crate::authored_movesets::shipped("player_robot_v3");
 
         let jabs = |set: &MovesetContract| {
             let jab = find(set, "jab");

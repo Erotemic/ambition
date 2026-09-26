@@ -664,8 +664,7 @@ fn requesting_a_reload_of_an_unedited_export_asks_the_shell_for_nothing() {
 #[test]
 fn the_published_moveset_keeps_the_kit_moves_the_table_does_not_name() {
     let mut app = bevy::app::App::new();
-    crate::character_catalog::register(&mut app);
-    crate::player_robot_lineage::register_declared_cast(&mut app);
+    crate::character_catalog::register_cast(&mut app);
     ambition_characters::prepared::close_preparation_barrier_without_admission(app.world_mut());
 
     let shipped = crate::pack::compile_pack().expect("compiles");
@@ -725,8 +724,7 @@ const ITEMS_PATH: &str = "data/items.ron";
 /// compiles of the real pack.
 fn host_with_the_shipped_cast() -> bevy::app::App {
     let mut app = bevy::app::App::new();
-    crate::character_catalog::register(&mut app);
-    crate::player_robot_lineage::register_declared_cast(&mut app);
+    crate::character_catalog::register_cast(&mut app);
     ambition_characters::prepared::close_preparation_barrier_without_admission(app.world_mut());
     // An empty technique table would refuse 40+ authored effects. See
     // `support_for_the_live_cast`.

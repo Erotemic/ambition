@@ -41,8 +41,7 @@ fn half_a_second_longer(path: &str, text: String) -> String {
 fn app_selecting(pack: std::sync::Arc<PreparedContentPack>) -> bevy::prelude::App {
     let mut app = bevy::prelude::App::new();
     select_pack(&mut app, pack);
-    crate::character_catalog::register(&mut app);
-    crate::player_robot_lineage::register_declared_cast(&mut app);
+    crate::character_catalog::register_cast(&mut app);
     // The raw road, named. This fixture installs no technique handlers, so real
     // admission would withhold every character naming a native effect, which is
     // not what this test asks.
@@ -145,8 +144,7 @@ fn an_app_that_selects_nothing_reads_the_boot_pack() {
     let shipped = compile_pack().expect("compiles");
     let who = a_character_in_both(&shipped);
     let mut app = bevy::prelude::App::new();
-    crate::character_catalog::register(&mut app);
-    crate::player_robot_lineage::register_declared_cast(&mut app);
+    crate::character_catalog::register_cast(&mut app);
     ambition_characters::prepared::close_preparation_barrier_without_admission(app.world_mut());
 
     let expected = ambition_characters::moveset_content_schema::lowered_movesets(&shipped)

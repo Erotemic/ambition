@@ -133,8 +133,7 @@ mod tests {
         use ambition_platformer2d_ldtk::{LdtkProject, LdtkVocabulary};
 
         let mut app = bevy::prelude::App::new();
-        crate::character_catalog::register(&mut app);
-        crate::player_robot_lineage::register_declared_cast(&mut app);
+        crate::character_catalog::register_cast(&mut app);
         // ⛔ A LOW-LEVEL CONTENT QUESTION, NOT AN ADMISSION ONE. This fixture
         // installs no technique handlers, so real admission would correctly
         // withhold every character naming a native effect — the right answer to a
@@ -291,9 +290,7 @@ mod tests {
         use ambition_platformer2d_ldtk::{LdtkProject, LdtkVocabulary};
 
         let mut app = bevy::prelude::App::new();
-        crate::character_catalog::register(&mut app);
-        crate::player_robot_lineage::register(&mut app);
-        crate::player_robot_lineage::register_declared_cast(&mut app);
+        crate::character_catalog::register_cast(&mut app);
         // ⛔ A LOW-LEVEL CONTENT QUESTION, NOT AN ADMISSION ONE. This fixture
         // installs no technique handlers, so real admission would correctly
         // withhold every character naming a native effect — the right answer to a

@@ -29,8 +29,7 @@ pub fn shipped(character: &str) -> MovesetContract {
 ///
 /// The fighters' tables are content, read from the pack the game loads. Two ids
 /// that wear one table (the two cellular automatons) appear once, so a census
-/// does not count one table twice. The robot lineage's two tables are still
-/// compiled: the lineage builds its definitions without the pack seam.
+/// does not count one table twice.
 pub fn tables() -> Vec<(String, MovesetContract)> {
     let lowered =
         ambition_characters::moveset_content_schema::lowered_movesets(crate::pack::prepared())
@@ -41,14 +40,6 @@ pub fn tables() -> Vec<(String, MovesetContract)> {
             out.push((id.clone(), contract.clone()));
         }
     }
-    out.push((
-        "player_robot".to_string(),
-        crate::player_robot_moveset::player_robot_moveset(),
-    ));
-    out.push((
-        "theorem_chain".to_string(),
-        crate::player_robot_moveset::theorem_chain_moveset(),
-    ));
     out
 }
 

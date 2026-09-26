@@ -23,13 +23,8 @@ impl Plugin for AmbitionContentPlugin {
         // App-local authored audio registries.
         super::audio_registries::register(app);
 
-        // App-local character catalog fragment.
-        super::character_catalog::register(app);
-
-        // Register each robot incarnation as a complete character.
-        super::player_robot_lineage::register(app);
-        // Ensure every character offered by this provider is constructible.
-        super::player_robot_lineage::register_declared_cast(app);
+        // The catalog fragment, the robot lineage and the declared cast.
+        super::character_catalog::register_cast(app);
 
         // The reload transaction's publication half. `reload::request_reload`
         // stages a cast revision and asks the shell to re-prepare; this lets the

@@ -87,13 +87,18 @@ pub const LINEAGE: &[&Incarnation] = &[&V0, &V2, &V3];
 /// does not describe cannot be registered as a character, and inventing a name
 /// for it here would put the duplication back one `unwrap_or` at a time.
 pub fn definition(incarnation: &Incarnation) -> CharacterDefinition {
-    definition_from(&crate::character_catalog::load_catalog(), incarnation)
+    definition_from(
+        &crate::character_catalog::load_catalog(),
+        crate::pack::prepared(),
+        incarnation,
+    )
 }
 
 /// [`definition`] against an already-parsed catalog, so registering the whole
 /// lineage parses the roster ONCE instead of once per incarnation.
 fn definition_from(
     catalog: &ambition_characters::actor::character_catalog::CharacterCatalog,
+    pack: &ambition_content_pack::PreparedContentPack,
     incarnation: &Incarnation,
 ) -> CharacterDefinition {
     let row = catalog.get(incarnation.id).unwrap_or_else(|| {
@@ -195,13 +200,9 @@ fn definition_from(
     // Hold to charge, release to fire.
     definition = definition
         .with_ranged_execution(ambition_characters::brain::RangedExecution::ChargedProjectile);
-    // Incarnations share lineage while authoring different repertoires.
-    if incarnation.id == V2.id {
-        definition = definition.with_moveset(crate::player_robot_moveset::theorem_chain_moveset());
-    }
+    // V3 also states the action slots it exposes. Its move timelines, and
+    // v2's, come from the pack below.
     if incarnation.id == V3.id {
-        definition = definition.with_moveset(crate::player_robot_moveset::player_robot_moveset());
-        // V3 authors both move timelines and the action slots it exposes.
         definition =
             definition.with_action_set(crate::player_robot_moveset::player_robot_action_set());
     }
@@ -211,7 +212,10 @@ fn definition_from(
         generator_revision: None,
         source_fingerprint: None,
     });
-    definition
+    // The one seam where a pack's move table is applied, the same one the
+    // declared cast passes. Incarnations share lineage while authoring
+    // different repertoires, and each file entry names its incarnation.
+    crate::character_catalog::authored_intrinsics(incarnation.id, definition, pack)
 }
 
 /// Combat targets the torso rather than the full collision outline.
@@ -285,9 +289,11 @@ pub fn register(app: &mut bevy::prelude::App) {
     // Parsed ONCE for the whole lineage. Three strings do not justify three
     // parses of the roster, and the cast is only going to grow.
     let catalog = crate::character_catalog::load_catalog();
+    // The App's pack, read once, as in `register_declared_cast`.
+    let pack = crate::pack::select(app.world_mut()).clone();
     for incarnation in LINEAGE {
         app.try_register_character(
-            definition_from(&catalog, incarnation),
+            definition_from(&catalog, &pack, incarnation),
             // the seam fills the engine's sheet AND portrait vocabularies itself
             // (`with_engine_vocabularies`), so a target that names nothing is reported at load
             // with a did-you-mean rather than silently drawing the marked rectangle — whether
@@ -345,7 +351,7 @@ mod tests {
         use ambition_characters::actor::definition::BodySource;
 
         let catalog = crate::character_catalog::load_catalog();
-        let definition = definition_from(&catalog, &V3);
+        let definition = definition_from(&catalog, crate::pack::prepared(), &V3);
         let Some(BodySource::SpriteAuthored { world_per_pixel }) = definition.body else {
             panic!(
                 "v3 authors no sprite body, so their collision box is still the \
@@ -382,7 +388,7 @@ mod tests {
         use ambition_entity_catalog::VolumeShape;
 
         let catalog = crate::character_catalog::load_catalog();
-        let definition = definition_from(&catalog, &V3);
+        let definition = definition_from(&catalog, crate::pack::prepared(), &V3);
         let doc = definition.hurtboxes.as_ref().expect("v3 authors a hurtbox");
         let pixels =
             ambition_platformer2d::character_sprites::authored_body_pixel_size("player_robot_v3")
@@ -438,7 +444,7 @@ mod tests {
         use ambition_entity_catalog::VolumeShape;
 
         let catalog = crate::character_catalog::load_catalog();
-        let definition = definition_from(&catalog, &V3);
+        let definition = definition_from(&catalog, crate::pack::prepared(), &V3);
         let doc = definition
             .hurtboxes
             .as_ref()
@@ -508,7 +514,7 @@ mod tests {
                 continue; // someone authored it since; the rule opts it in.
             }
             assert!(
-                definition_from(&catalog, incarnation).body.is_none(),
+                definition_from(&catalog, crate::pack::prepared(), incarnation).body.is_none(),
                 "'{}' measured its box rather than authoring one, so scaling \
                  them by it would hand them a collision body that includes their \
                  outstretched arms",

@@ -112,6 +112,10 @@ const MIGRATED_MOVESETS: &[(&str, Option<&'static str>)] = &[
         Some(include_str!("../assets/data/movesets/pirate_admiral.ron")),
     ),
     (
+        "player_robot",
+        Some(include_str!("../assets/data/movesets/player_robot.ron")),
+    ),
+    (
         "pointed_polygon",
         Some(include_str!("../assets/data/movesets/pointed_polygon.ron")),
     ),
@@ -144,6 +148,7 @@ const MIGRATED_MOVESETS: &[(&str, Option<&'static str>)] = &[
     ("patent_clerk", None),
     ("performer", None),
     ("pirate_admiral", None),
+    ("player_robot", None),
     ("pointed_polygon", None),
     ("projectile_polygon", None),
     ("pugnacious_polygon", None),

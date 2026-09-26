@@ -40,8 +40,8 @@ pub use content_schema::{
 pub use entry::{
     ActionSetPreset, AxisTuningSpec, BarkSituation, BrainPreset, CharacterBarks, CharacterBodyKind,
     CharacterCatalogData, CharacterCatalogEntry, CharacterPortraitRef, CharacterTier,
-    CompositionLayer, MeleePreset, MomentumParamsSpec, MoveStylePreset, RangedPreset,
-    SpecialPreset, SpriteTuningSpec,
+    CompositionLayer, MeleePreset, MomentumParamsSpec, MoveStylePreset, PosedBodyScale,
+    RangedPreset, SpecialPreset, SpriteTuningSpec,
 };
 #[allow(
     unused_imports,

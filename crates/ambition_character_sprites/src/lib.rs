@@ -20,6 +20,7 @@ pub use attack_hitbox::{
 };
 pub use posed_body::{
     PosedBodyGeometry, authored_body_pixel_size, posed_body_geometry, sync_sprite_posed_bodies,
+    world_per_pixel_for_standing_height,
 };
 
 use bevy::prelude::{App, IntoScheduleConfigs, Plugin};

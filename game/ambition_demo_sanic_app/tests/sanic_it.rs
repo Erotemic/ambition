@@ -27,4 +27,5 @@ mod session_isolation;
 mod shell_cycle;
 mod spikes_spend_rings;
 mod standard_input_path;
+mod the_cast_is_its_pack;
 mod three_acts;

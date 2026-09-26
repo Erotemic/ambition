@@ -231,6 +231,43 @@ pub mod content {
         }
     }
 
+    /// The art-to-world scale that a row's `posed_body` names: the idle body of
+    /// the scale row's sheet stands as tall as that row's standing height.
+    ///
+    /// A scale that names a character outside the catalog, or a row with no
+    /// sheet or no standing height, is a refusal: the body would otherwise be
+    /// built at an invented size. A sheet with no baked art (a headless fixture)
+    /// reads 1.0, because nothing resolves a body from absent art.
+    fn posed_body_world_per_pixel(
+        catalog: &ambition_characters::actor::character_catalog::CharacterCatalogData,
+        id: &str,
+        scale: &ambition_characters::actor::character_catalog::PosedBodyScale,
+    ) -> f32 {
+        use ambition_characters::actor::character_catalog::PosedBodyScale;
+        let scale_id = match scale {
+            PosedBodyScale::OwnHeight => id,
+            PosedBodyScale::SameAs(other) => other.as_str(),
+        };
+        let Some(row) = catalog.characters.get(scale_id) else {
+            panic!(
+                "character `{id}` takes its body scale from `{scale_id}`, which is not \
+                 in the same catalog"
+            );
+        };
+        let (Some(sheet), Some(height)) = (
+            row.manifest_target(),
+            row.standing_height
+                .or_else(|| row.body_kind.default_standing_height()),
+        ) else {
+            panic!(
+                "character `{id}` takes its body scale from `{scale_id}`, whose row \
+                 states no sheet or no standing height"
+            );
+        };
+        ambition_character_sprites::world_per_pixel_for_standing_height(sheet, height)
+            .unwrap_or(1.0)
+    }
+
     /// A pack's cast, ready to register. See [`EmbeddedPack::cast`].
     pub struct PackCast {
         pack: &'static EmbeddedPack,
@@ -259,20 +296,31 @@ pub mod content {
             let movesets = ambition_characters::moveset_content_schema::lowered_movesets(pack);
             let fighters =
                 ambition_characters::smash_fighter::content_schema::lowered_smash_fighters(pack);
-            let characters: Vec<(String, String)> = self
-                .fragment
-                .catalog()
+            let catalog = self.fragment.catalog();
+            let characters: Vec<(String, String, Option<f32>)> = catalog
                 .characters
                 .iter()
-                .map(|(id, row)| (id.clone(), row.display_name.clone()))
+                .map(|(id, row)| {
+                    let scale = row
+                        .posed_body
+                        .as_ref()
+                        .map(|scale| posed_body_world_per_pixel(catalog, id, scale));
+                    (id.clone(), row.display_name.clone(), scale)
+                })
                 .collect();
             app.register_character_catalog_fragment(self.fragment);
-            for (id, display_name) in characters {
-                // The sheet, the grants, the feel and the health come from the
-                // catalog row at preparation, so the definition names only what
-                // the row cannot say.
+            for (id, display_name, posed_body_scale) in characters {
+                // The sheet, the grants, the feel, the health, the gait, the
+                // contact damage and the policy come from the catalog row at
+                // preparation, so the definition names only what the row
+                // cannot say.
                 let mut definition =
                     CharacterDefinition::new(id.clone(), display_name, self.provider.clone());
+                // The scale is asked of the baked sheet once, here, and the
+                // body is built with it (`BodySource::SpriteAuthored`).
+                if let Some(world_per_pixel) = posed_body_scale {
+                    definition = definition.with_sprite_authored_body(world_per_pixel);
+                }
                 if let Some(moveset) = movesets.and_then(|table| table.get(&id)) {
                     definition = definition.with_moveset(moveset.clone());
                 }

@@ -699,6 +699,40 @@ pub struct CharacterCatalogEntry {
     /// fragility in its row instead of forcing the whole host onto it.
     #[serde(default)]
     pub max_health: Option<i32>,
+    /// The sheet authors this body per pose (standing, crouched, curled), at one
+    /// art-to-world scale. `None` (the default) sizes the body from its
+    /// placement and [`standing_height`](Self::standing_height). See
+    /// [`PosedBodyScale`].
+    #[serde(default)]
+    pub posed_body: Option<PosedBodyScale>,
+    /// How this body moves under its own power: top speed, gait, surface
+    /// cling. Folded at preparation under a registered definition's own.
+    #[serde(default)]
+    pub locomotion: Option<crate::actor::CharacterLocomotion>,
+    /// What touching this body costs. `None` (the default): nothing.
+    /// Folded at preparation under a registered definition's own.
+    #[serde(default)]
+    pub contact_damage: Option<crate::actor::ContactDamage>,
+    /// This character's own autonomous policy. `None` (the default) leaves the
+    /// [`default_brain`](Self::default_brain) preset in charge. Folded at
+    /// preparation under a registered definition's own.
+    #[serde(default)]
+    pub autonomous_profile: Option<crate::brain::BrainProfile>,
+}
+
+/// The art-to-world scale of a body that its sheet authors per pose.
+///
+/// The scale is `standing_height / <idle body height, in sheet pixels>`, so the
+/// body stands as tall as its row says and every other pose follows from the
+/// art at the same scale.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+pub enum PosedBodyScale {
+    /// This row's own sheet and standing height set the scale.
+    OwnHeight,
+    /// Use the scale of the named character's row. The forms of one character
+    /// differ in size because their art differs, at one scale; a height per
+    /// form would state the ratio a second time.
+    SameAs(String),
 }
 
 impl CharacterCatalogEntry {

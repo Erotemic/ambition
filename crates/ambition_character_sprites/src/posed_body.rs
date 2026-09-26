@@ -25,7 +25,8 @@ use ambition_combat::components::{ActorRenderSize, ActorSpriteOffset};
 // scale, which is the defect this move exists to make unrepresentable. Both
 // roads now ask one function.
 pub use ambition_sprite_sheet::character::sheets::{
-    authored_body_pixel_size, posed_body_geometry, PosedBodyGeometry,
+    authored_body_pixel_size, posed_body_geometry, world_per_pixel_for_standing_height,
+    PosedBodyGeometry,
 };
 
 /// Keep every [`SpritePosedBody`] actor's collision box, sprite quad, and quad

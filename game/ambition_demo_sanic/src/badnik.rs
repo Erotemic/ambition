@@ -28,7 +28,7 @@ use ambition_platformer2d::platformer::markers::{PlayerEntity, PrimaryPlayer};
 /// The catalog `display_name` the badnik renders from; every LDtk enemy spawn
 /// is rebranded to this name in [`crate::sanic_speedway`] so the sprite
 /// resolves (the row points at the published `ai_slop` sheet under a
-/// demo-owned name — see `SANIC_CATALOG_RON`).
+/// demo-owned name — see `assets/data/character_catalog.ron`).
 pub const BADNIK_DISPLAY_NAME: &str = "Sanic Badnik";
 
 /// The roster brain key the LDtk `EnemySpawn` entities reference.
@@ -44,78 +44,6 @@ const BOUNCE_SPEED: f32 = 460.0;
 
 /// Vertical tolerance (px) for "feet on the badnik's head".
 const STOMP_BAND: f32 = 16.0;
-
-/// How tall a badnik stands: three fifths of Sanic, the proportion a classic
-/// badnik has to the hero. At his full 48 its wide art was 74 units across,
-/// over twice his width (Jon: "the badniks are always way too big").
-const BADNIK_STANDING_HEIGHT: f32 = crate::SANIC_STANDING_HEIGHT * 0.6;
-
-/// Register the badnik as a character.
-///
-/// A 1-HP wanderer that paces and reverses at walls, with no melee: its only
-/// offense is walking into you.
-pub fn register_badnik_character(app: &mut App) {
-    use ambition_platformer2d::actors::character_runtime::CharacterDefinitionAppExt;
-    use ambition_platformer2d::character::CharacterDefinition;
-    use ambition_platformer2d::characters::actor::{CharacterLocomotion, ContactDamage};
-    use ambition_platformer2d::characters::brain::{
-        BrainProfile, CharacterBrainTemplate, MoveStyleSpec,
-    };
-
-    let mut definition = CharacterDefinition::new(
-        BADNIK_BRAIN_KEY,
-        BADNIK_DISPLAY_NAME,
-        crate::provider::SANIC_EXPERIENCE,
-    )
-    // It wears the published `ai_slop` sheet under its own name — the catalog
-    // row says so, and a character states the target rather than the file.
-    .with_sheet("ai_slop")
-    // Its body is its art at one scale, so the quad sits on its feet (the
-    // catalog join sized the box right but published no offset, and the art
-    // floated ~3.6 units).
-    .with_sprite_authored_body(crate::world_per_pixel_for_height(
-        "ai_slop",
-        BADNIK_STANDING_HEIGHT,
-    ))
-    .with_locomotion(CharacterLocomotion {
-        run_speed: 60.0,
-        move_style: MoveStyleSpec::Walk,
-        ..Default::default()
-    })
-    // It rides the ground Sanic rides. On the axis kernel it collided only with
-    // the flat solids under the hills, so it walked THROUGH every hill; on the
-    // surface solver it follows the chain. `slope_factor: 0` makes it a walker,
-    // not a ball: gravity along a slope neither drags it downhill nor stalls
-    // it climbing, so it paces at one speed over any ground.
-    .with_motion_model(ae::MotionModelSpec::SurfaceMomentum(ae::MomentumParams {
-        ground_accel: 600.0,
-        brake: 1800.0,
-        friction: 1800.0,
-        slope_factor: 0.0,
-        top_speed: 60.0,
-        air_accel: 0.0,
-        jump_speed: 0.0,
-        stick_factor: 1.5,
-        ..ae::MomentumParams::default()
-    }))
-    .with_contact_damage(ContactDamage {
-        strength: 0.5,
-        amount: 1,
-    })
-    .with_autonomous_profile(BrainProfile {
-        template: CharacterBrainTemplate::Wanderer,
-        aggro_radius: 0.0,
-        attack_range: 0.0,
-        // Preserve the shipped patrol effort when constructing the character definition.
-        patrol_effort: 1.0,
-        // A badnik paces its stretch of ground: it turns at a pit lip or a
-        // slope it cannot climb rather than walking off.
-        turns_at_ledges: true,
-        ..Default::default()
-    });
-    definition.vitals.max_health = Some(1);
-    app.register_character(definition);
-}
 
 /// The defeat rule. A player descending onto a badnik's head bounces and
 /// squashes it. A rolling player squashes it on any overlap and keeps its

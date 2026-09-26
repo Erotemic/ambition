@@ -1580,6 +1580,15 @@ pub fn apply_actor_contact_damage(
                 Has<ambition_match::MatchSeat>,
                 Option<crate::actor_clusters::ActorClusterQueryData>,
                 Option<&ambition_combat::actor_tuning::ContactThreatWithdrawn>,
+                // ⛔ THE SADDLE IS NOT A CONTACT. A rider stands IN its mount's
+                // box — the seat is where its soles rest on the mount's back, so
+                // the two footprints overlap by construction, every tick they are
+                // paired. That overlap is the ride, not a body walking into a
+                // body; asked as a contact it killed a player piloting a wild
+                // shark in twelve ticks. Both ends of the one relation, because
+                // either body can be the one authoring contact damage.
+                Option<&ambition_mount::MountSlot>,
+                Option<&ambition_mount::RidingOn>,
             ),
             // Bosses are contact attackers through THIS shared system now (fable
             // AD2): their `body_contact_damage` tuning is driven from
@@ -1604,7 +1613,9 @@ pub fn apply_actor_contact_damage(
     // Pass 1 — snapshot each live contact attack while the attacker's clusters
     // are borrowed.
     let mut pending: Vec<(Entity, Entity, crate::features::enemies::ContactAttack)> = Vec::new();
-    for (actor_entity, target, driver, seated_in_a_match, clusters, withdrawn) in &mut set.p0() {
+    for (actor_entity, target, driver, seated_in_a_match, clusters, withdrawn, saddle, riding) in
+        &mut set.p0()
+    {
         let Some(mut cq) = clusters else {
             continue;
         };
@@ -1626,6 +1637,11 @@ pub fn apply_actor_contact_damage(
         let Some(target_entity) = target.entity else {
             continue;
         };
+        let carried = saddle.and_then(|slot| slot.rider);
+        let carrier = riding.map(|on| on.mount);
+        if carried == Some(target_entity) || carrier == Some(target_entity) {
+            continue;
+        }
         if let Some(attack) = em.contact_attack() {
             pending.push((actor_entity, target_entity, attack));
         }

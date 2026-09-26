@@ -173,11 +173,14 @@ fn fist_drawn_sides(sim: &mut Platformer2dSimHarness) -> [f32; 2] {
     })
 }
 
-/// The scholar's seat from the gnu's centre, as the gnu is drawn.
-const SEAT: ae::Vec2 = ae::Vec2::new(50.0, -65.0);
+/// The scholar's seat — where his soles rest — from the gnu's centre, as the gnu
+/// is drawn: its row's `saddle`.
+const SEAT: ae::Vec2 = ae::Vec2::new(50.0, -9.75);
 
 fn saddle(s: &Scene) -> ae::Vec2 {
+    // He stands on the seat: his centre half his height above it.
     s.giant.pos + ae::Vec2::new(SEAT.x * ae::mirror_side(s.giant.facing, s.giant_unmirrored), SEAT.y)
+        - ae::Vec2::new(0.0, s.scholar.size.y * 0.5)
 }
 
 /// The move his PATTERN has live (telegraph or strike), by key — what the
@@ -496,8 +499,9 @@ fn the_scholar_turns_and_the_gnu_under_him_does_not() {
             // he faces.
             assert_eq!(fist_drawn_sides(&mut sim), [-1.0, 1.0], "frame {frame} with the player at {x}");
             if s.performing.is_none() {
-                let seat = s.scholar.pos - s.giant.pos;
-                assert!((seat - SEAT).length() < 1.0, "frame {frame}: he sits at {seat:?}, the saddle is {SEAT:?}");
+                // His soles, from the gnu's centre.
+                let seat = s.scholar.pos + ae::Vec2::new(0.0, s.scholar.size.y * 0.5) - s.giant.pos;
+                assert!((seat - SEAT).length() < 1.0, "frame {frame}: he stands at {seat:?}, the seat is {SEAT:?}");
             }
         }
         let s = scene(&mut sim);

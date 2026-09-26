@@ -1271,7 +1271,12 @@
             death_traits: Some((charge_crash_explodes: true)),
             // A pirate can ride it. It rides nothing, and a dead shark drops its
             // rider unharmed.
-            mount: Some((class: Some("shark"))),
+            // Its seat is the saddle drawn on its back: the flat top of the brown
+            // seat at frame y 29, x 86.5 of a body box spanning x 0..160, y 2..68
+            // (centre 80, 35) at 1.137 wu/px — so a rider stands IN the saddle,
+            // not on the box top, which rises to the burning fin tips (37.5 wu up,
+            // and the riders stood ~30 wu above the saddle).
+            mount: Some((class: Some("shark"), saddle: Some((7.4, -6.8)))),
             // It dives at the target, crashes and recovers.
             autonomous_profile: Some((template: ChargeCrash, aggro_radius: 1200.0, attack_range: 200.0)),
             max_health: Some(6),
@@ -1310,13 +1315,13 @@
             locomotion: Some((run_speed: 0.0, move_style: WalkHeavy)),
             mount: Some((
                 class: Some("giant"),
-                // The scholar stands on the gnu's shoulders, at the base of its
-                // neck (x: the sheet's shoulder point, 388 px against the body-box
-                // centre's 350, is 49.4 wu). His soles rest ON the back the player
-                // stands on (`gnu_ton::conductor::back_platform`, top 7.5 px above
-                // the centre = 9.75 wu), lifted half his drawn height (126 px at
-                // 0.875 wu/px on his v2 sheet, 110.25 wu). He is body-centred.
-                saddle: Some((50.0, -65.0)),
+                // The seat: where a rider's soles rest. The scholar stands on the
+                // gnu's shoulders, at the base of its neck (x: the sheet's shoulder
+                // point, 388 px against the body-box centre's 350, is 49.4 wu), ON
+                // the back the player stands on (`gnu_ton::conductor::back_platform`,
+                // top 7.5 px above the centre at 1.3 wu/px = 9.75 wu). His own height
+                // is the mount sync's business, not this number.
+                saddle: Some((50.0, -9.75)),
                 // Its fists hover at shoulder height on each side, clear of its
                 // flanks: every beat of GNU-ton's starts and ends here.
                 hand_rest: Some((270.0, -70.0)),

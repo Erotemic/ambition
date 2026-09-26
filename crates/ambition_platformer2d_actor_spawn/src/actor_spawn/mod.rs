@@ -1849,16 +1849,17 @@ fn attach_mount_role_from(
     pilotable: &[String],
 ) {
     if let Some(class) = mount_class {
-        // The authored saddle, or the heuristic: the rider sits just above the
-        // mount's top.
+        // Where the rider's soles rest: the authored saddle, or the mount's
+        // top — a creature ridden on its back. The rider's own height is the
+        // sync's business, so no rider size is guessed here (it guessed 40).
         let mount_size = default_size.unwrap_or(ae::Vec2::new(64.0, 64.0));
-        let rider_offset = saddle.map_or_else(
-            || ae::Vec2::new(0.0, -(mount_size.y * 0.5 + 40.0)),
+        let seat = saddle.map_or_else(
+            || ae::Vec2::new(0.0, -mount_size.y * 0.5),
             |(x, y)| ae::Vec2::new(x, y),
         );
         scope.insert((
             ambition_mount::Mountable {
-                rider_offset,
+                seat,
                 class: ambition_mount::MountClass(class.to_string()),
                 control_grant: ambition_mount::ControlGrant::Total,
                 death_impact: match death_splash {

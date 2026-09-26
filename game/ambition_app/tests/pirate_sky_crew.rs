@@ -178,3 +178,39 @@ fn defeat_the_crew_leave_and_come_back_and_riders_and_mounts_are_all_back() {
         assert_eq!(*riding, before[id].2, "{id} came back {} its mount", if *riding { "on" } else { "off" });
     }
 }
+
+/// Each rider STANDS in its shark's saddle: its soles on the seat drawn on the
+/// shark's back, not on the top of the shark's box (which rises to the burning
+/// fin tips, 37.5 wu above its centre).
+///
+/// Jon: the riders "are more floating on top of them". A mount's seat is where
+/// a rider's soles rest (`Mountable::seat`), so any rider stands on it on its own
+/// feet; the shark's row authors its drawn saddle, ~7 wu above its centre.
+#[test]
+fn every_rider_stands_in_its_sharks_saddle() {
+    let mut sim = fixed_60hz_room_sim(ROOM);
+    sim.step_n(crate::common::base(), 30);
+    let world = sim.world_mut();
+    let mounts: BTreeMap<Entity, ae::BodyKinematics> = world
+        .query::<(Entity, &ae::BodyKinematics, &ambition_platformer2d::mount::Mountable)>()
+        .iter(world)
+        .map(|(entity, kin, _)| (entity, kin.clone()))
+        .collect();
+    let riders: Vec<(ae::BodyKinematics, Entity)> = world
+        .query::<(&ae::BodyKinematics, &RidingOn)>()
+        .iter(world)
+        .map(|(kin, riding)| (kin.clone(), riding.mount))
+        .collect();
+    assert_eq!(riders.len(), 4, "the premise: four riders mounted");
+    for (rider, mount) in riders {
+        let shark = &mounts[&mount];
+        let soles = rider.pos.y + rider.size.y * 0.5;
+        let box_top = shark.pos.y - shark.size.y * 0.5;
+        assert!(
+            soles - box_top > 25.0 && soles < shark.pos.y,
+            "a rider stands in the saddle on the shark's back (soles {soles:.1}), not on its box top \
+             ({box_top:.1}, fins included) nor inside its body (centre {:.1})",
+            shark.pos.y
+        );
+    }
+}

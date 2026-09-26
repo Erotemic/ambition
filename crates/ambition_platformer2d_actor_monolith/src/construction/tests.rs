@@ -1610,7 +1610,7 @@ fn related_actor_plan(
 /// the same reason a real room's archetypes do.
 fn equip_mount_pair(world: &mut World, rider: Entity, mount: Entity) {
     world.entity_mut(mount).insert(ambition_mount::Mountable {
-        rider_offset: ae::Vec2::ZERO,
+        seat: ae::Vec2::ZERO,
         class: ambition_mount::MountClass("giant".into()),
         control_grant: ambition_mount::ControlGrant::Total,
         death_impact: ambition_mount::MountDeathImpact::Dismount,
@@ -1959,7 +1959,7 @@ fn a_mount_link_with_an_incompatible_class_is_detected() {
     equip_mount_pair(&mut world, rider, mount);
     // The rider can pilot "giant" but the mount is now a "shark".
     world.entity_mut(mount).insert(ambition_mount::Mountable {
-        rider_offset: ae::Vec2::ZERO,
+        seat: ae::Vec2::ZERO,
         class: ambition_mount::MountClass("shark".into()),
         control_grant: ambition_mount::ControlGrant::Total,
         death_impact: ambition_mount::MountDeathImpact::Dismount,

@@ -975,9 +975,6 @@ impl Plugin for SanicRulesPlugin {
             // both the launch (insert) and the stand-up (remove) have settled,
             // so the looping `ball` row tracks the physical ball for the frame.
             ball_dash::mirror_ball_anim_fact,
-            // His transformation numbers ride his body, so the engine beat
-            // reads authored feel rather than a default.
-            ensure_sanic_transform_beat_policy,
             // The super form's derived traits (invincibility + sparkles) track
             // the worn identity every frame — toggle- and monitor-agnostic.
             sync_super_form_traits,
@@ -1243,31 +1240,15 @@ const SUPER_SPARKLE_RADIUS: f32 = 15.0;
 /// hover around the body rather than pooling at the feet.
 const SUPER_SPARKLE_RISE: f32 = 8.0;
 
-/// Sanic's transformation beat is shorter and lighter than Mary-O's so it does not interrupt
-/// the speed-focused demo.
-fn ensure_sanic_transform_beat_policy(
-    mut commands: bevy::prelude::Commands,
-    bodies: bevy::prelude::Query<
-        bevy::prelude::Entity,
-        (
-            bevy::prelude::With<ambition_platformer2d::platformer::markers::PrimaryPlayer>,
-            bevy::prelude::Without<
-                ambition_platformer2d::actors::features::transform_beat::TransformBeatPolicy,
-            >,
-        ),
-    >,
-) {
-    for entity in &bodies {
-        commands.entity(entity).try_insert(
-            ambition_platformer2d::actors::features::transform_beat::TransformBeatPolicy {
-                duration: 0.35,
-                anim: ambition_platformer2d::sprite_sheet::character::CharacterAnim::Taunt,
-                clock_scale: 0.5,
-                untouchable: true,
-            },
-        );
-    }
-}
+/// Sanic's transformation beat: shorter and lighter than Mary-O's so it does
+/// not interrupt the speed-focused demo.
+const SUPER_FORM_BEAT: ambition_platformer2d::actors::features::transform_beat::TransformBeatPolicy =
+    ambition_platformer2d::actors::features::transform_beat::TransformBeatPolicy {
+        duration: 0.35,
+        anim: ambition_platformer2d::sprite_sheet::character::CharacterAnim::Taunt,
+        clock_scale: 0.5,
+        untouchable: true,
+    };
 
 /// Present the super form from the worn identity each simulation frame.
 ///
@@ -1336,7 +1317,9 @@ fn sync_super_form_traits(
         if to_super {
             if let Some(body) = body {
                 commands.entity(body).try_insert(
-                    ambition_platformer2d::actors::features::transform_beat::TransformBeatRequested,
+                    ambition_platformer2d::actors::features::transform_beat::TransformBeatRequested(
+                        SUPER_FORM_BEAT,
+                    ),
                 );
             }
         }

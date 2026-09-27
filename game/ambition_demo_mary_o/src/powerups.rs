@@ -937,16 +937,17 @@ pub fn sync_grown_form(
     }
     // The transformation MOMENT, in BOTH directions. The shrink clip is about the form, so it gets
     // the same beat the growth does. Same shape as the cue above: the transition picks it.
-    commands.entity(body).try_insert((
-        transform_beat_policy(
-            catalog.as_deref(),
-            authored.as_deref(),
-            target_id,
-            power_tier(&previous_id),
-            power_tier(target_id),
+    commands.entity(body).try_insert(
+        ambition_platformer2d::actors::features::transform_beat::TransformBeatRequested(
+            transform_beat_policy(
+                catalog.as_deref(),
+                authored.as_deref(),
+                target_id,
+                power_tier(&previous_id),
+                power_tier(target_id),
+            ),
         ),
-        ambition_platformer2d::actors::features::transform_beat::TransformBeatRequested,
-    ));
+    );
     worn_char.0 = target_id.into();
     commands
         .entity(body)

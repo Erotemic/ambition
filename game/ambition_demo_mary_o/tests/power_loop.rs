@@ -25,7 +25,7 @@ use bevy::prelude::*;
 
 use ambition_platformer2d::actors::avatar::PlayerBodyFrameOutput;
 use ambition_platformer2d::actors::features::transform_beat::{
-    TransformBeatPolicy, TransformBeatRequested,
+    TransformBeat, TransformBeatPolicy, TransformBeatRequested,
 };
 use ambition_platformer2d::world_items::{collect_world_items, WorldItem};
 use ambition_platformer2d::characters::actor::WornCharacter;
@@ -289,20 +289,18 @@ impl Loop {
             .is_some()
     }
 
-    /// The transformation beat the last tier change asked for: the policy it
-    /// authored, and whether the request that starts it is on the body.
+    /// The transformation beat the last tier change asked for: the policy its
+    /// request carries, and whether that request is still on the body (else
+    /// the beat it started).
     fn requested_beat(&self) -> (TransformBeatPolicy, bool) {
-        let policy = *self
-            .app
-            .world()
-            .get::<TransformBeatPolicy>(self.body)
-            .expect("a tier change authors its transformation beat");
-        let requested = self
-            .app
-            .world()
-            .get::<TransformBeatRequested>(self.body)
-            .is_some();
-        (policy, requested)
+        let world = self.app.world();
+        if let Some(request) = world.get::<TransformBeatRequested>(self.body) {
+            return (request.0, true);
+        }
+        let beat = world
+            .get::<TransformBeat>(self.body)
+            .expect("a tier change asks for its transformation beat");
+        (beat.policy, false)
     }
 }
 

@@ -14,8 +14,10 @@ use ambition_time::{ClockDomain, WorldTime};
 
 use ambition_time::time_control::{ClockRequester, ClockScaleRequest};
 
-/// What a transformation looks like for THIS body.
-#[derive(Component, Clone, Copy, Debug, PartialEq)]
+/// What ONE transformation looks like. Carried by the
+/// [`TransformBeatRequested`] that asks for it, so the game that owns the
+/// change states it where it makes the change.
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct TransformBeatPolicy {
     /// Wall-clock seconds the beat holds.
     pub duration: f32,
@@ -40,8 +42,8 @@ impl Default for TransformBeatPolicy {
 
 /// A transformation beat in progress.
 ///
-/// Inserted by [`begin_requested_transform_beats`] from the body's policy, so a
-/// game never states the duration twice. Registered snapshot state: it gates
+/// Inserted by [`begin_requested_transform_beats`] from the request's policy,
+/// so a game never states the duration twice. Registered snapshot state: it gates
 /// whether the body can be hit, and anything that can cause an input or a hit to
 /// be IGNORED is simulation state regardless of which struct it lives on.
 #[derive(Component, Clone, Copy, Debug, PartialEq)]
@@ -64,32 +66,28 @@ pub struct TransformBeat {
 /// in exactly that gap, which restored the transformed identity and lost its
 /// beat permanently. As rollback-registered state it is restored with the
 /// identity that caused it.
+///
+/// ⛔ AND IT CARRIES HOW TO CELEBRATE, for the same reason. The policy was a
+/// separate component that no rollback row covered, written beside each
+/// request. A rewind restored a pending request under whatever policy the
+/// body held NOW, which is a later transformation's if a second one happened
+/// inside the window, and a re-created body lost the policy and transformed
+/// with no beat. One rollback value cannot disagree with itself.
 #[derive(Component, Clone, Copy, Debug, Default, PartialEq)]
-pub struct TransformBeatRequested;
+pub struct TransformBeatRequested(pub TransformBeatPolicy);
 
-/// Start a beat for each requesting body, if it authored one.
+/// Start a beat for each requesting body, with the policy its request carries.
 ///
 /// Re-requesting during a beat RESTARTS it rather than stacking: two powerups
 /// in half a second is one transformation as far as the player can see.
 pub fn begin_requested_transform_beats(
     mut commands: Commands,
-    mut bodies: Query<
-        (
-            Entity,
-            Option<&TransformBeatPolicy>,
-            Option<&mut BodyHealth>,
-        ),
-        With<TransformBeatRequested>,
-    >,
+    mut bodies: Query<(Entity, &TransformBeatRequested, Option<&mut BodyHealth>)>,
 ) {
-    for (body, policy, health) in &mut bodies {
-        // The request is consumed either way: an unauthored body transforms
-        // instantly, which is what every body did before this seam existed, and
-        // a request left behind would re-fire every frame.
+    for (body, request, health) in &mut bodies {
+        // Consumed, or it would re-fire every frame.
         commands.entity(body).remove::<TransformBeatRequested>();
-        let Some(policy) = policy else {
-            continue;
-        };
+        let policy = &request.0;
         // TAKE the transformation's own reason. Nothing is captured and
         // nothing is restored: a star burning through this transformation holds
         // `EMPOWERED` the whole time and is unaffected by us taking and releasing
@@ -225,34 +223,17 @@ mod tests {
     }
 
     #[test]
-    fn a_body_with_no_policy_transforms_instantly() {
-        let mut app = app();
-        let body = app.world_mut().spawn(()).id();
-        app.world_mut()
-            .entity_mut(body)
-            .insert(TransformBeatRequested);
-        advance(&mut app, 0.016);
-        assert!(
-            app.world().get::<TransformBeat>(body).is_none(),
-            "a body that authored no beat should not have acquired one",
-        );
-    }
-
-    #[test]
     fn the_beat_holds_its_pose_and_then_gives_it_back() {
         let mut app = app();
         let body = app
             .world_mut()
-            .spawn(TransformBeatPolicy {
+            .spawn(TransformBeatRequested(TransformBeatPolicy {
                 duration: 0.3,
                 anim: CharacterAnim::Taunt,
                 clock_scale: 1.0,
                 untouchable: true,
-            })
+            }))
             .id();
-        app.world_mut()
-            .entity_mut(body)
-            .insert(TransformBeatRequested);
 
         advance(&mut app, 0.1);
         assert_eq!(
@@ -282,16 +263,13 @@ mod tests {
         let mut app = app();
         let body = app
             .world_mut()
-            .spawn(TransformBeatPolicy {
+            .spawn(TransformBeatRequested(TransformBeatPolicy {
                 duration: 0.2,
                 anim: CharacterAnim::Idle,
                 clock_scale: 0.35,
                 untouchable: true,
-            })
+            }))
             .id();
-        app.world_mut()
-            .entity_mut(body)
-            .insert(TransformBeatRequested);
         advance(&mut app, 0.05);
 
         let requests = app.world().resource::<Messages<ClockScaleRequest>>();
@@ -331,16 +309,13 @@ mod tests {
             let body = app
                 .world_mut()
                 .spawn((
-                    TransformBeatPolicy {
+                    TransformBeatRequested(TransformBeatPolicy {
                         duration: 0.2,
                         ..Default::default()
-                    },
+                    }),
                     health,
                 ))
                 .id();
-            app.world_mut()
-                .entity_mut(body)
-                .insert(TransformBeatRequested);
 
             advance(&mut app, 0.05);
             let mid = app.world().get::<BodyHealth>(body).unwrap().health.invulnerable;
@@ -385,18 +360,18 @@ mod tests {
         let mut app = app();
         let body = app
             .world_mut()
-            .spawn(TransformBeatPolicy {
+            .spawn(TransformBeatRequested(TransformBeatPolicy {
                 duration: 0.3,
                 ..Default::default()
-            })
+            }))
             .id();
-        app.world_mut()
-            .entity_mut(body)
-            .insert(TransformBeatRequested);
         advance(&mut app, 0.2);
         app.world_mut()
             .entity_mut(body)
-            .insert(TransformBeatRequested);
+            .insert(TransformBeatRequested(TransformBeatPolicy {
+                duration: 0.3,
+                ..Default::default()
+            }));
         advance(&mut app, 0.05);
 
         let remaining = app

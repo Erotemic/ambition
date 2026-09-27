@@ -238,9 +238,14 @@ where
         "actor.transform_beat",
         |beat| beat.remaining.to_bits() as u64,
     );
-    registrar.rollback_component_clone::<crate::features::transform_beat::TransformBeatRequested>(
+    // Probed by value: the request carries the policy of the beat it asks for.
+    registrar.rollback_component_clone_probed::<crate::features::transform_beat::TransformBeatRequested>(
         OWNER,
         "actor.transform_beat_requested",
+        |request| {
+            (u64::from(request.0.duration.to_bits()) << 32)
+                | u64::from(request.0.clock_scale.to_bits())
+        },
     );
     // ⛔ THE STABLE NAME STAYS `mount.mass` THOUGH THE TYPE LEFT `mount`. It is
     // an IDENTITY on the wire, not an address: renaming it to match the new home

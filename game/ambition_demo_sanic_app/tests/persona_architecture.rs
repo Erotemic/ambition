@@ -528,6 +528,16 @@ fn the_super_form_s_traits_are_stated_by_its_row() {
         (true, true),
         "the super row makes him untouchable and his contact harmful"
     );
+    // The transformation asks for Sanic's own beat, carried by the request.
+    let beat = app
+        .world()
+        .get::<ambition_platformer2d::actors::features::transform_beat::TransformBeat>(body)
+        .map(|beat| (beat.policy.anim, beat.policy.clock_scale));
+    assert_eq!(
+        beat,
+        Some((ambition_platformer2d::sprite_sheet::character::CharacterAnim::Taunt, 0.5)),
+        "becoming super plays Sanic's beat, not a default one"
+    );
     assert!(!badnik_survives(&mut app), "so the badnik rule squashes what he touches");
     wear(&mut app, ambition_demo_sanic::SANIC_CHARACTER_ID);
     assert_eq!(traits(&app), (false, false), "and both leave with the form");

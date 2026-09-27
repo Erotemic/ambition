@@ -135,10 +135,11 @@ fn a_live_ai_slop_wears_the_size_its_character_authors() {
     let mut q = app.world_mut().query::<(
         &ambition_platformer2d::engine_core::BodyKinematics,
         &ambition_platformer2d::combat::components::CenteredAabb,
-        &ambition_demo_mary_o::ai_slop::AiSlop,
+        &ambition_platformer2d::combat::actor_tuning::ActorConfig,
     )>();
     let live: Vec<(bevy::prelude::Vec2, bevy::prelude::Vec2)> = q
         .iter(app.world())
+        .filter(|(_, _, config)| ambition_demo_mary_o::ai_slop::is_ai_slop_brain(&config.brain))
         .map(|(kin, aabb, _)| (kin.size, aabb.half_size))
         .collect();
 
@@ -146,7 +147,7 @@ fn a_live_ai_slop_wears_the_size_its_character_authors() {
     // agree with every assertion below by reading no subjects.
     assert!(
         !live.is_empty(),
-        "no tagged AI Slop is alive after 400 ticks, so this measured nothing"
+        "no AI Slop is alive after 400 ticks, so this measured nothing"
     );
 
     for (kin_size, half) in &live {

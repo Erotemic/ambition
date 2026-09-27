@@ -330,13 +330,19 @@ fn holding_run_does_not_repeat_fire() {
 #[test]
 fn she_may_have_max_live_sparks_out_at_once_and_not_one_more() {
     fn fires_with(live: usize) -> bool {
+        fires_with_shots(crate::powerups::SPARK_VISUAL, live)
+    }
+    fn fires_with_shots(visual: &str, live: usize) -> bool {
         let mut app = App::new();
         let body = body(&mut app);
         app.world_mut()
             .entity_mut(body)
             .insert(WornEquipment::new(vec![cinder_beacon()]));
         for _ in 0..live {
-            app.world_mut().spawn(crate::powerups::MaryOSpark);
+            app.world_mut()
+                .spawn(ambition_platformer2d::projectiles::ProjectileVisualId(
+                    visual.to_owned(),
+                ));
         }
         {
             let mut control = app.world_mut().get_mut::<ActorControl>(body).unwrap();
@@ -367,6 +373,10 @@ fn she_may_have_max_live_sparks_out_at_once_and_not_one_more() {
     assert!(
         !fires_with(MAX_LIVE_SPARKS),
         "she fires past the cap with {MAX_LIVE_SPARKS} already live"
+    );
+    assert!(
+        fires_with_shots("someone_elses_bolt", MAX_LIVE_SPARKS),
+        "another body's shots count against her spark cap"
     );
     assert!(
         MAX_LIVE_SPARKS >= 2,

@@ -954,8 +954,8 @@ pub fn install_mary_o_content(app: &mut App) {
     // construction plan's duplicate-id check could not see it.
     //
     // one authored placement, one root. The engine builds every authored
-    // enemy; this crate only decides what its own archetypes MEAN, in the tag
-    // passes, keyed off `ActorConfig.brain`. The staging registry itself is
+    // enemy; this crate only decides what its own archetypes MEAN, keyed off
+    // `ActorConfig.brain`. The staging registry itself is
     // untouched and still right for content a room does not author (the duel
     // arena uses it exactly that way) — Mary-O's enemies are simply not that
     // anymore.
@@ -1016,13 +1016,6 @@ pub fn install_mary_o_content(app: &mut App) {
                 "ambition_demo_mary_o",
                 "content.mary_o_snake_shell",
                 rollback_probes::snake_shell,
-            )
-            // The AI Slop marker rides on the enemy BODY (already anchored). It is a
-            // bare tag, but snapshotting it keeps the stomp-eligible set identical
-            // across a rollback rather than relying on the re-tag pass to converge.
-            .rollback_component_clone::<ai_slop::AiSlop>(
-                "ambition_demo_mary_o",
-                "content.mary_o_ai_slop",
             )
             // A burning star is authoritative sim state by the strictest reading
             // of it: while it runs, hits do not land, and anything that can make
@@ -1434,7 +1427,6 @@ impl Plugin for MaryORulesPlugin {
             // left behind. First in the chain so a snake reset this frame is a
             // walker for every rule that follows it.
             snake::tag_mary_o_snakes,
-            ai_slop::tag_mary_o_ai_slop,
             snake::run_snake_shells,
             ai_slop::bounce_squash_ai_slop,
         )
@@ -1477,7 +1469,6 @@ impl Plugin for MaryORulesPlugin {
             // the untouchable fact AFTER the transformation beat has had its say
             // on the same flag this tick (see `star`'s module docs).
             star::begin_star_power,
-            powerups::tag_mary_o_sparks,
         )
             .chain()
             .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::FeatureInteraction);

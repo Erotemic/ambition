@@ -681,7 +681,7 @@ fn install_twintrack_session(
     mut commands: Commands,
     mut spawns: MessageWriter<ambition_platformer2d::actor::SpawnActorRequest>,
     mut worldlines: ResMut<WorldlineHistoryView2d>,
-    roots: Query<(Entity, &SessionRoot, &RoomSet), Without<ActiveSpacetime2d>>,
+    roots: Query<(Entity, &SessionRoot), (With<RoomSet>, Without<ActiveSpacetime2d>)>,
     traveler: Query<
         Entity,
         (
@@ -690,14 +690,10 @@ fn install_twintrack_session(
         ),
     >,
 ) {
-    let (Ok((root_entity, root, rooms)), Ok(traveler_entity)) =
-        (roots.single(), traveler.single())
+    let (Ok((root_entity, root)), Ok(traveler_entity)) = (roots.single(), traveler.single())
     else {
         return;
     };
-    if rooms.active_metadata().mode.as_deref() != Some(TWINTRACK_EXPERIENCE) {
-        return;
-    }
 
     worldlines.capacity_per_track = TWINTRACK_WORLDLINE_HISTORY_SAMPLES;
 

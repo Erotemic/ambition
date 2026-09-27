@@ -237,8 +237,6 @@ enum PaneElement {
 }
 
 pub(crate) fn install(app: &mut App) {
-    // `twintrack_is_active` is copied by hand into three files; a shared gate
-    // would replace them.
     app.add_systems(
         Update,
         (
@@ -246,28 +244,15 @@ pub(crate) fn install(app: &mut App) {
             sync_split_observer_cameras,
             update_split_observer_panes,
         )
-            .run_if(twintrack_display_is_live),
+            .run_if(ambition_platformer2d::runtime::in_mode(TWINTRACK_EXPERIENCE)),
     );
 
-    // Not gated: `cleanup_split_observer_panes_when_inactive` returns early
-    // while TwinTrack is active and removes the panes when it ends. Gating it
-    // would leave them on screen forever.
-    app.add_systems(Update, cleanup_split_observer_panes_when_inactive);
-}
-
-/// Run condition: the split observer panes have something to show.
-fn twintrack_display_is_live(
-    roots: Query<&ambition_platformer2d::runtime::demo_fixture::RoomSet>,
-) -> bool {
-    twintrack_is_active(&roots)
-}
-
-fn twintrack_is_active(
-    roots: &Query<&ambition_platformer2d::runtime::demo_fixture::RoomSet>,
-) -> bool {
-    roots
-        .iter()
-        .any(|rooms| rooms.active_metadata().mode.as_deref() == Some(TWINTRACK_EXPERIENCE))
+    // The cleanup runs on the opposite gate: outside TwinTrack's rooms.
+    app.add_systems(
+        Update,
+        cleanup_split_observer_panes_when_inactive
+            .run_if(not(ambition_platformer2d::runtime::in_mode(TWINTRACK_EXPERIENCE))),
+    );
 }
 
 fn beacon_color(beacon: TwinTrackBeacon) -> Color {
@@ -279,10 +264,9 @@ fn beacon_color(beacon: TwinTrackBeacon) -> Color {
 
 fn spawn_split_observer_panes(
     mut commands: Commands,
-    roots: Query<&ambition_platformer2d::runtime::demo_fixture::RoomSet>,
     existing: Query<(), With<SplitObserverCamera>>,
 ) {
-    if !twintrack_is_active(&roots) || !existing.is_empty() {
+    if !existing.is_empty() {
         return;
     }
 
@@ -916,13 +900,9 @@ fn update_split_observer_panes(
 
 fn cleanup_split_observer_panes_when_inactive(
     mut commands: Commands,
-    roots: Query<&ambition_platformer2d::runtime::demo_fixture::RoomSet>,
     cameras: Query<Entity, With<SplitObserverCamera>>,
     visuals: Query<Entity, With<PaneElement>>,
 ) {
-    if twintrack_is_active(&roots) {
-        return;
-    }
     for entity in cameras.iter().chain(visuals.iter()) {
         commands.entity(entity).despawn();
     }

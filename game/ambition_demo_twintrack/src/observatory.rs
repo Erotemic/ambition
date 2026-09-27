@@ -185,32 +185,15 @@ pub(crate) fn install(app: &mut App) {
             update_lab_orbit_visuals,
             update_lab_beacon_visuals,
         )
-            .run_if(twintrack_display_is_live),
+            .run_if(ambition_platformer2d::runtime::in_mode(TWINTRACK_EXPERIENCE)),
     );
 
-    // The cleanup runs on the opposite condition and must stay ungated.
-    // `cleanup_visuals_when_inactive` returns early while TwinTrack is active
-    // and removes the observatory when it ends. Gating it would leave the
-    // visuals standing forever. Same as `spacetime_3d`.
-    app.add_systems(Update, cleanup_visuals_when_inactive);
-}
-
-/// Run condition: the observatory has something to draw.
-///
-/// The question [`twintrack_is_active`] answers, in the shape a run condition
-/// needs. Kept beside it so the two cannot drift.
-fn twintrack_display_is_live(
-    roots: Query<&ambition_platformer2d::runtime::demo_fixture::RoomSet>,
-) -> bool {
-    twintrack_is_active(&roots)
-}
-
-fn twintrack_is_active(
-    roots: &Query<&ambition_platformer2d::runtime::demo_fixture::RoomSet>,
-) -> bool {
-    roots
-        .iter()
-        .any(|rooms| rooms.active_metadata().mode.as_deref() == Some(TWINTRACK_EXPERIENCE))
+    // The cleanup runs on the opposite gate: outside TwinTrack's rooms.
+    app.add_systems(
+        Update,
+        cleanup_visuals_when_inactive
+            .run_if(not(ambition_platformer2d::runtime::in_mode(TWINTRACK_EXPERIENCE))),
+    );
 }
 
 fn spawn_clock_pair(commands: &mut Commands, target: ClockVisualTarget, name: &str) {
@@ -246,10 +229,9 @@ fn spawn_clock_pair(commands: &mut Commands, target: ClockVisualTarget, name: &s
 
 fn spawn_twintrack_visuals(
     mut commands: Commands,
-    roots: Query<&ambition_platformer2d::runtime::demo_fixture::RoomSet>,
     existing: Query<(), With<TwinTrackVisible>>,
 ) {
-    if !twintrack_is_active(&roots) || !existing.is_empty() {
+    if !existing.is_empty() {
         return;
     }
 
@@ -1710,12 +1692,8 @@ fn update_optical_proxies(
 
 fn cleanup_visuals_when_inactive(
     mut commands: Commands,
-    roots: Query<&ambition_platformer2d::runtime::demo_fixture::RoomSet>,
     visuals: Query<Entity, With<TwinTrackVisible>>,
 ) {
-    if twintrack_is_active(&roots) {
-        return;
-    }
     for entity in &visuals {
         commands.entity(entity).despawn();
     }

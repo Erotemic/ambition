@@ -128,6 +128,12 @@ pub struct ActorAnimFrame {
 pub struct ClipRequest {
     pub clip: String,
     pub fallbacks: Vec<String>,
+    /// The requesting move's normalized progress (`MoveSpec::phase_at`), when a
+    /// MOVE asked. The row is then SLAVED to the move — frame `floor(phase * n)`
+    /// — so a row fits its move's windows whatever its authored frame rate, and
+    /// hitstop or a slowed body freezes or slows the drawing with the hitbox.
+    /// `None` (a body state, a held charge) plays the row on its own clock.
+    pub phase: Option<f32>,
 }
 
 impl ClipRequest {
@@ -138,7 +144,24 @@ impl ClipRequest {
         Some(Self {
             clip: (*clip).to_string(),
             fallbacks: fallbacks.iter().map(|f| (*f).to_string()).collect(),
+            phase: None,
         })
+    }
+
+    /// The row a playing MOVE asks for, slaved to its progress.
+    ///
+    /// ⛔ This is the contract `MoveSpec` and `MovePlayback::phase` always
+    /// documented ("the clip is SLAVED to the move; it never runs its own
+    /// clock") and nothing implemented: the animator ran every move row on the
+    /// sheet's frame rate, so a 3-frame 180 ms tilt row froze on its last frame
+    /// for the rest of a 310 ms move, and a 496 ms throw row was cut off at
+    /// half. Both constructions of a move's request go through here.
+    pub fn for_move(binding: &ambition_entity_catalog::ClipBinding, phase: f32) -> Self {
+        Self {
+            clip: binding.clip.clone(),
+            fallbacks: binding.fallbacks.clone(),
+            phase: Some(phase),
+        }
     }
 
     /// The chain in preference order — the exact clip, then the author's
@@ -161,6 +184,9 @@ impl ClipRequest {
         Self {
             clip: clip.to_string(),
             fallbacks,
+            // The row placed ahead is a BODY STATE's (a held charge), and the
+            // move's progress is frozen while it shows — it runs its own clock.
+            phase: None,
         }
     }
 
@@ -170,6 +196,7 @@ impl ClipRequest {
         Self {
             clip: clip.to_string(),
             fallbacks: Vec::new(),
+            phase: None,
         }
     }
 }
@@ -340,10 +367,7 @@ pub fn rebuild_actor_anim_index(mut index: ResMut<ActorAnimIndex>, actors: Query
                 // that authors no charge row draws exactly what it drew before.
                 clip: a
                     .playback
-                    .map(|playback| ClipRequest {
-                        clip: playback.spec.clip.clip.clone(),
-                        fallbacks: playback.spec.clip.fallbacks.clone(),
-                    })
+                    .map(|playback| ClipRequest::for_move(&playback.spec.clip, playback.phase()))
                     .or_else(|| {
                         ClipRequest::from_chain(ambition_character_sprites::body_state_clip(
                             a.motion_facts,

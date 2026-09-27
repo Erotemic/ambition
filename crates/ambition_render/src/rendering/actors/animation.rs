@@ -82,6 +82,7 @@ pub(crate) fn apply_character_frame(
         conversation_held,
         barking,
     );
+    animator.slave_clip_to(clip.and_then(|request| request.phase));
     let index = animator.tick(dt);
     // Split sheets: select the page image the active animation draws from.
     // Single-page sheets (the common case) skip this entirely, so their

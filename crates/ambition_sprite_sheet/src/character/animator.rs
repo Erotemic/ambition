@@ -34,6 +34,10 @@ pub struct CharacterAnimator {
     /// is `Some`, the row decides the drawing and `current` does not.
     /// `None` means draw the semantic pose.
     clip_slot: Option<usize>,
+    /// When `Some`, the clip row is SLAVED to a move's normalized progress
+    /// (`floor(phase * frames)`) instead of the sheet's frame clock. Set each
+    /// frame by [`Self::slave_clip_to`]; cleared by any new request.
+    clip_phase: Option<f32>,
     pub frame: usize,
     pub elapsed: f32,
     /// Once a non-looping clip (Slash/Hit/Death) finishes its last frame
@@ -60,6 +64,7 @@ impl CharacterAnimator {
             current: CharacterAnim::Idle,
             // No move is playing on a body that has just been built.
             clip_slot: None,
+            clip_phase: None,
             frame: 0,
             elapsed: 0.0,
             clip_held: false,
@@ -137,6 +142,7 @@ impl CharacterAnimator {
         // A semantic request also clears the clip. A stale clip would pin the
         // body to one authored row.
         let had_clip = self.clip_slot.take().is_some();
+        self.clip_phase = None;
         if self.current == anim && !had_clip {
             return;
         }
@@ -216,6 +222,16 @@ impl CharacterAnimator {
         self.clip_held = false;
     }
 
+    /// Drive the current clip row by a move's normalized progress, or `None`
+    /// to let it run on the sheet's own frame clock.
+    ///
+    /// Call after the frame's request: a request that changes the drawing
+    /// clears it. A phase with no clip row showing is ignored — the body fell
+    /// back to a semantic pose, which keeps its own clock.
+    pub fn slave_clip_to(&mut self, phase: Option<f32>) {
+        self.clip_phase = self.clip_slot.and(phase);
+    }
+
     /// Advance the animation. Returns the flat atlas index for the current frame.
     pub fn tick(&mut self, dt: f32) -> usize {
         // An authored clip is keyed by row; all else by pose.
@@ -253,6 +269,14 @@ impl CharacterAnimator {
     /// the drawing holds the last frame, as `non_looping` does for attack poses.
     fn tick_slot(&mut self, slot: usize, dt: f32) -> usize {
         let row = self.spec.row_at(slot);
+        if let (Some(phase), true) = (self.clip_phase, row.frame_count > 0) {
+            // Slaved to the move: the row spans the move's duration exactly.
+            let frame = (phase.clamp(0.0, 1.0) * row.frame_count as f32) as usize;
+            self.frame = frame.min(row.frame_count - 1);
+            self.elapsed = 0.0;
+            self.clip_held = self.frame + 1 == row.frame_count;
+            return self.spec.flat_index_at(slot, self.frame);
+        }
         if row.frame_count == 0 || row.duration_secs <= 0.0 || self.clip_held {
             return self.spec.flat_index_at(slot, self.frame);
         }

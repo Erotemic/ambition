@@ -73,6 +73,14 @@ const WAIVED: &[(&str, &str)] = &[
     ("ambition_inventory_ui::", "UI"),
     ("ambition_ui_nav::", "UI"),
     ("ambition_dialog::", "narrative view state"),
+    // A HUD node is in the population only because it carries a transform
+    // that the rollback vocabulary names. The shipped host draws a HUD and the sandbox harness does not,
+    // so only a hosted sweep meets this tag.
+    (
+        "ambition_platformer2d_shared_tangle::gameplay_presentation::ScreenOccluder",
+        "screen occupancy on a UI node: the presentation layout reads it to keep \
+         the framing clear of the HUD; no simulation system reads it",
+    ),
     (
         "ambition_cutscene::",
         "scripted presentation sequence state. ⚠ the namespace waiver is NARROWER          than it reads: `ActiveCutscene` (`cutscene.playback`) and          `LastCutsceneRoom` (`cutscene.last_room`) are both REGISTERED, because          playback decides whether the participant can act and the room memory          decides whether a trigger fires. What this waives is the rest — the          library, the bindings table, the skip accumulator the HUD draws",
@@ -203,8 +211,8 @@ fn waiver(type_name: &str) -> Option<&'static str> {
 
 /// Every type name the rollback vocabulary mentions at all — state, anchors, and
 /// derived declarations alike.
-fn rollback_vocabulary(sim: &mut Platformer2dSimHarness) -> BTreeSet<String> {
-    sim.world()
+fn rollback_vocabulary(world: &World) -> BTreeSet<String> {
+    world
         .get_resource::<ambition_platformer2d::rollback::RollbackRegistry>()
         .expect("rollback registry is installed by the engine plugins")
         .descriptors()
@@ -217,8 +225,13 @@ fn rollback_vocabulary(sim: &mut Platformer2dSimHarness) -> BTreeSet<String> {
 /// rollback vocabulary. The last group includes transient rollback state such as
 /// strike volumes that carry neither of the broader entity markers.
 fn simulated_population(sim: &mut Platformer2dSimHarness) -> Vec<Entity> {
-    let vocabulary = rollback_vocabulary(sim);
-    let world = sim.world_mut();
+    simulated_population_in(sim.world_mut())
+}
+
+/// [`simulated_population`] over any world, so a test that composes its own
+/// app (a hosted match) can sweep the population it built.
+fn simulated_population_in(world: &mut World) -> Vec<Entity> {
+    let vocabulary = rollback_vocabulary(world);
     let mut found: BTreeSet<Entity> = BTreeSet::new();
     let mut tagged =
         world.query_filtered::<Entity, With<ambition_platformer2d::platformer::lifecycle::FeatureSimEntity>>();
@@ -230,11 +243,9 @@ fn simulated_population(sim: &mut Platformer2dSimHarness) -> Vec<Entity> {
     found.extend(body_hits);
 
     let all: Vec<Entity> = {
-        let world = sim.world_mut();
         let mut everything = world.query_filtered::<Entity, ()>();
         everything.iter(world).collect()
     };
-    let world = sim.world();
     for entity in all {
         if found.contains(&entity) {
             continue;
@@ -286,6 +297,11 @@ fn simulated_population(sim: &mut Platformer2dSimHarness) -> Vec<Entity> {
 /// is worth stating because the sweep's silence about a component reads exactly
 /// like a pass.
 pub(crate) fn unaccounted_components(sim: &mut Platformer2dSimHarness) -> BTreeMap<String, usize> {
+    unaccounted_components_in(sim.world_mut())
+}
+
+/// [`unaccounted_components`] over any world.
+pub(crate) fn unaccounted_components_in(world: &mut World) -> BTreeMap<String, usize> {
     // An ANCHOR is not coverage. `require_rollback` only installs the
     // `bevy_ggrs::Rollback` marker so the entity participates; it snapshots
     // nothing. Counting it as accounted is how `TransformBeat` shipped claiming
@@ -294,8 +310,7 @@ pub(crate) fn unaccounted_components(sim: &mut Platformer2dSimHarness) -> BTreeM
     // descriptor existed, without asking what kind. Every other anchored type
     // also carries a canonical or clone registration, so ignoring the anchor
     // kind here costs nothing and closes that hole.
-    let known: BTreeSet<String> = sim
-        .world()
+    let known: BTreeSet<String> = world
         .get_resource::<ambition_platformer2d::rollback::RollbackRegistry>()
         .expect("rollback registry is installed by the engine plugins")
         .descriptors()
@@ -303,7 +318,7 @@ pub(crate) fn unaccounted_components(sim: &mut Platformer2dSimHarness) -> BTreeM
         .map(|d| d.type_name.clone())
         .collect();
 
-    let sim_entities = simulated_population(sim);
+    let sim_entities = simulated_population_in(world);
     assert!(
         !sim_entities.is_empty(),
         "no simulated entities found — the fixture did not actually boot a world, \
@@ -311,7 +326,6 @@ pub(crate) fn unaccounted_components(sim: &mut Platformer2dSimHarness) -> BTreeM
     );
 
     let mut unaccounted: BTreeMap<String, usize> = BTreeMap::new();
-    let world = sim.world();
     for entity in sim_entities {
         let Ok(components) = world.inspect_entity(entity) else {
             continue;
@@ -539,6 +553,43 @@ fn every_component_in_unswept_populations_is_registered_derived_or_waived() {
         }
         assert_components_accounted(&mut sim, room);
     }
+}
+
+/// A body that crosses a portal holding a direction carries the held-input warp
+/// (`PortalInputWarp`) until the hold releases: state that exists only after a
+/// transit, so no sweep of a room at rest can see it. `portal_lab` authors a
+/// ground-ground pair that holding right walks into; this sweeps on the tick
+/// the warp is live and ASSERTS that it was.
+#[test]
+fn every_component_on_a_body_warped_through_a_portal_is_registered_derived_or_waived() {
+    let mut sim = Platformer2dSimHarness::new_with_options(
+        ambition_app::rl_sim::Platformer2dSimHarnessOptions::default()
+            .with_timestep(TimestepMode::fixed_60hz())
+            .with_required_start_room("portal_lab"),
+    )
+    .expect("sandbox sim builds in `portal_lab`");
+    let warped = |sim: &mut Platformer2dSimHarness| {
+        let world = sim.world_mut();
+        let mut q = world.query_filtered::<(), With<ambition_platformer2d::portal::PortalInputWarp>>();
+        q.iter(world).next().is_some()
+    };
+    let mut swept = false;
+    for _ in 0..240 {
+        sim.step(AgentAction {
+            move_x: 1.0,
+            ..AgentAction::default()
+        });
+        if warped(&mut sim) {
+            assert_components_accounted(&mut sim, "portal_lab (warped through the pair)");
+            swept = true;
+            break;
+        }
+    }
+    assert!(
+        swept,
+        "holding right never carried a body through `portal_lab`'s pair with its input \
+         warped, so this sweep inspected nothing it is named for"
+    );
 }
 
 /// Every sweep above inspects a room at rest, and a moveset strike volume exists

@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v239
+ggrs-rollback-schema-v240
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.player_mark	component-clone	PlayerMark	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -73,6 +73,7 @@ actor.worn_equipment	component-clone	WornEquipment	bevy_ggrs clone snapshot; not
 body.abilities	component-canonical	BodyAbilities	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 body.ability_base	component-clone	AbilityBase	bevy_ggrs clone snapshot; not in the session checksum
 body.action_buffer	component-canonical	BodyActionBuffer	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+body.authored_movement_tuning	component-clone	AuthoredMovementTuning	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 body.base_size	component-canonical	BodyBaseSize	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 body.blink	component-canonical	BodyBlinkState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 body.contact	component-clone	BodyContact	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -395,6 +396,7 @@ portal.emission	component-clone	PortalEmission	bevy_ggrs clone snapshot; not in 
 portal.gun	component-clone	PortalGun	bevy_ggrs clone snapshot; not in the session checksum
 portal.gun_pickup	component-clone	PortalGunPickup	bevy_ggrs clone snapshot; not in the session checksum
 portal.host_scanned	component-clone	PortalHostScanned	bevy_ggrs clone snapshot; not in the session checksum
+portal.input_warp	component-clone	PortalInputWarp	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 portal.owned_gun_pair	component-clone	OwnedPortalGunPair	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 portal.placed	component-clone	PlacedPortal	bevy_ggrs clone snapshot; not in the session checksum
 portal.shot	component-clone	PortalShot	bevy_ggrs clone snapshot; not in the session checksum

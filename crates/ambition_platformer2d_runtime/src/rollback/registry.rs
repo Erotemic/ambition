@@ -797,7 +797,11 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// join. Sanic's roll (the size to restore) and his timed shoes (the params
 /// to restore) were gameplay state outside the rollback set, and a sync-test
 /// session desynced on the frame a spin-dash launched.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 239;
+/// ⛔⛤ 239 -> 240: `portal.input_warp` and `body.authored_movement_tuning`
+/// join. A portal crossing inserts the held-input warp, and wearing another
+/// character changes the authored feel. Both are body state that no sweep of a
+/// room at rest held, so both were outside the rollback set.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 240;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

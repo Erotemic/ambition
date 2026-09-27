@@ -30,6 +30,14 @@ where
         |cooldown| cooldown.remaining.to_bits() as u64,
     );
     registrar.rollback_component_clone::<crate::PortalEmission>(OWNER, "portal.emission");
+    // A crossing inserts it and a released hold removes it, so a rollback
+    // across either edge must restore it with the body. The probe is the held
+    // direction the warp compares live input against.
+    registrar.rollback_component_clone_probed::<crate::PortalInputWarp>(
+        OWNER,
+        "portal.input_warp",
+        |warp| (u64::from(warp.anchor.x.to_bits()) << 32) | u64::from(warp.anchor.y.to_bits()),
+    );
     // A shot is a generic portal opener (any emitter of `PortalFireIntent`).
     //
     // The codec and the anchor are separate. `rollback_component_clone` says

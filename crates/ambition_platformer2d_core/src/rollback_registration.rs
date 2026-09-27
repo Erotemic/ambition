@@ -61,6 +61,13 @@ where
 
     // Value-bearing bookkeeping a recreated entity cannot re-derive.
     registrar.rollback_component_clone::<bc::AbilityBase>(OWNER, "body.ability_base");
+    // The feel the worn character authors. Wearing another character inserts,
+    // replaces or removes it, so it changes with rewound state.
+    registrar.rollback_component_clone_probed::<bc::AuthoredMovementTuning>(
+        OWNER,
+        "body.authored_movement_tuning",
+        |tuning| (u64::from(tuning.0.gravity.to_bits()) << 32) | u64::from(tuning.0.run_accel.to_bits()),
+    );
 
     // DECLARED DERIVED — not state, and each says what rebuilds it.
     registrar

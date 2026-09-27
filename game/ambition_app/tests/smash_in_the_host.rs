@@ -1807,6 +1807,48 @@ fn a_grid_fighter_that_authors_no_feel_is_seated_on_the_wandering_enemys_body() 
 /// correct behaviour — a host that composes only some providers shows only the
 //// GEORGE IS HEAVY BECAUSE HIS OWN PACKAGE SAYS SO.
 ///
+/// A hosted versus match holds a population no sandbox room holds: seated
+/// fighters carrying the movement feel their rows author, and the match's own
+/// bookkeeping. The rollback census sweeps rooms at rest, so it never saw this
+/// population. This sweeps the live match with the same rule.
+#[test]
+fn every_component_in_a_hosted_match_is_registered_derived_or_waived() {
+    use ambition_platformer2d::versus_match::MatchSeat;
+
+    let mut app = shell_host_app();
+    settle(&mut app);
+    launch_row(&mut app, "Smash");
+    decide_a_solo_match(&mut app);
+    settle(&mut app);
+    for _ in 0..40 {
+        app.update();
+        if active_route(&app).as_deref() == Some(ambition_demo_smash::SMASH_GAMEPLAY_ROUTE) {
+            break;
+        }
+    }
+    for _ in 0..60 {
+        app.update();
+    }
+    let seated = {
+        let world = app.world_mut();
+        let mut q = world.query_filtered::<(), (
+            With<MatchSeat>,
+            With<ambition_platformer2d::engine_core::AuthoredMovementTuning>,
+        )>();
+        q.iter(world).count()
+    };
+    assert_eq!(
+        seated, 2,
+        "the premise: two seated fighters carrying their movement feel"
+    );
+    let unaccounted = crate::rollback_coverage::unaccounted_components_in(app.world_mut());
+    assert!(
+        unaccounted.is_empty(),
+        "components on a hosted match's simulated entities that the rollback \
+         vocabulary does not register, derive, or waive: {unaccounted:#?}"
+    );
+}
+
 /// ⭐⭐ THE CLAIM IS PROVENANCE, NOT THE NUMBER. `Vitals::knockback_weight` is an
 /// ordinary character fact the engine has always owned, and George has always
 /// reached the stage at 1.35 — but until 2026-08-31 the number came from a

@@ -5,7 +5,7 @@
 use bevy::prelude::*;
 
 use ambition_portal2d::{
-    portal_half_extent, portal_transit, PlacedPortal, PortalChannel, PortalGunColor,
+    portal_half_extent, PlacedPortal, PortalChannel, PortalGunColor,
 };
 use ambition_projectiles::ProjectileGameplay;
 
@@ -24,38 +24,30 @@ fn straight_projectile() -> ProjectileGameplay {
         damage: 1,
         bounces_remaining: 0,
         world_hit: ambition_projectiles::WorldHitPolicy::ExpireOnContact,
-        accel: ambition_platformer2d::engine_core::Vec2::ZERO,
+        accel: ambition_platformer2d_core::Vec2::ZERO,
         hits_cleared_on_leg: 0,
         splash_half_extent: 0.0,
     }
 }
 
-/// Minimal app: the generic transit core and the projectile reconciliation, as
-/// in the real plugin. A projectile needs no tag to transit.
+/// The portal composition a game gets, `PortalSchedulePlugin`: the generic
+/// transit core and the body consequences. A projectile needs no tag to
+/// transit.
 fn app_with_transit() -> App {
+    use ambition_platformer2d_shared_tangle::schedule::{GameMode, SimScheduleExt};
     let mut app = App::new();
-    app.add_message::<ambition_portal2d::PortalBodyEntered>();
-    app.add_message::<ambition_portal2d::PortalBodyTransited>();
-    // ⛔ STATE THE CONVENTION. This fixture used to get Reflection by accident:
-    // the map read a process-global `AtomicBool` whose default was Reflection,
-    // while `PortalTuning::default()` says Rotation and a live App reconciled
-    // the two with a per-frame mirror system no fixture ran. With the global
-    // gone the tuning is the only answer, and under Rotation this pair's map is
-    // the IDENTITY — so the arm below could not tell "mapped" from "untouched".
+    app.set_sim_schedule(Update);
+    app.init_resource::<ambition_platformer2d_shared_tangle::time::SimDt>();
+    app.init_resource::<ambition_characters::control::SeatRawFrames>();
+    app.init_resource::<ambition_characters::control::SlotControls>();
+    app.insert_resource(State::new(GameMode::Playing));
+    // ⛔ STATE THE CONVENTION. Under Rotation this pair's map is the IDENTITY,
+    // so the arms below could not tell "mapped" from "untouched".
     app.insert_resource(ambition_portal2d::PortalTuning {
         convention: ambition_portal2d::PortalConvention::Reflection,
         ..Default::default()
     });
-    app.add_systems(
-        Update,
-        (
-            portal_transit,
-            // The projectile half of transit reconciliation — without it in the
-            // chain a test of a CARRIED vector measures nothing.
-            super::rotate_projectile_acceleration_after_portal_transit,
-        )
-            .chain(),
-    );
+    app.add_plugins(crate::PortalSchedulePlugin);
     app
 }
 

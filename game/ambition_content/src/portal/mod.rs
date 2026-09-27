@@ -22,7 +22,7 @@ mod reset_adapter;
 mod sfx_adapter;
 mod shot_adapter;
 mod transit_adapter;
-mod transit_body_adapter;
+mod reorient_setting;
 
 pub use ability_adapter::{
     withhold_wall_verbs_during_transit, SuppressWallAbilitiesInPortal, PORTAL_TRANSIT,

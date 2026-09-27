@@ -71,3 +71,64 @@ fn a_body_under_sideways_gravity_carries_no_run_from_a_fall_along_its_own_down()
         "a fall along the body's own gravity became carried run: {carried}"
     );
 }
+
+/// A game with portals gets the carried momentum from `PortalSchedulePlugin`
+/// alone: a body that falls into a floor portal and leaves a wall portal
+/// carries the fling as run it did not steer.
+#[test]
+fn portal_schedule_plugin_carries_a_fling_for_any_game() {
+    use ambition_platformer2d_shared_tangle::schedule::{GameMode, SimScheduleExt};
+    use ambition_portal2d::{portal_half_extent, PlacedPortal, PortalChannel, PortalGunColor};
+
+    let mut app = App::new();
+    app.set_sim_schedule(Update);
+    app.init_resource::<ambition_platformer2d_shared_tangle::time::SimDt>();
+    app.init_resource::<ambition_characters::control::SeatRawFrames>();
+    app.init_resource::<ambition_characters::control::SlotControls>();
+    app.insert_resource(State::new(GameMode::Playing));
+    app.add_plugins(crate::PortalSchedulePlugin);
+    for (color, pos, normal) in [
+        (PortalGunColor::BLUE, Vec2::new(100.0, 300.0), ENTER_NORMAL),
+        (PortalGunColor::ORANGE, Vec2::new(20.0, 600.0), EXIT_NORMAL),
+    ] {
+        app.world_mut().spawn(PlacedPortal::fixed(
+            PortalChannel::Gun(color),
+            pos,
+            normal,
+            portal_half_extent(normal),
+        ));
+    }
+    let mut frame = ResolvedMotionFrame::default();
+    frame.publish_resolved_frame(MotionFrame::from_direction(Vec2::new(0.0, 1.0), 1000.0));
+    let body = app
+        .world_mut()
+        .spawn((
+            BodyKinematics {
+                pos: Vec2::new(100.0, 300.0),
+                vel: Vec2::new(0.0, SPEED),
+                size: Vec2::new(16.0, 32.0),
+                facing: 1.0,
+            },
+            frame,
+            BodyFlightState::default(),
+        ))
+        .id();
+
+    let mut arrived = None;
+    for _ in 0..4 {
+        app.update();
+        let kin = *app.world().get::<BodyKinematics>(body).unwrap();
+        if kin.pos.x < 60.0 {
+            arrived = Some(kin);
+            break;
+        }
+    }
+    let kin = arrived.expect("the body must fall through the floor portal and leave the wall portal");
+    assert!(kin.vel.x > 0.0, "it leaves the wall portal moving out of it, vel={:?}", kin.vel);
+    let carried = app.world().get::<BodyFlightState>(body).unwrap().carried_run;
+    assert!(
+        (carried - kin.vel.x).abs() < 1e-3,
+        "the fling is carried run it did not steer: carried_run = {carried}, exit vel = {:?}",
+        kin.vel
+    );
+}

@@ -32,6 +32,8 @@ pub mod ldtk_world;
 mod mode_scope;
 mod player_schedule;
 #[cfg(feature = "portal")]
+mod portal_body;
+#[cfg(feature = "portal")]
 mod portal_schedule;
 #[cfg(feature = "portal")]
 mod portal_seat;
@@ -78,6 +80,8 @@ pub use mode_scope::{despawn_departed_mode_entities, in_base_mode, in_mode, Mode
 pub use player_schedule::PlayerSchedulePlugin;
 #[cfg(feature = "portal")]
 pub use portal_schedule::PortalSchedulePlugin;
+#[cfg(feature = "portal")]
+pub use portal_body::{apply_portal_carried_momentum, rotate_projectile_acceleration_after_portal_transit};
 #[cfg(feature = "portal")]
 pub use portal_seat::{
     guard_the_driven_body_after_portal_transit, turn_the_driven_body_around_after_portal_transit,

@@ -24,9 +24,7 @@ use super::reset_adapter::bridge_room_reset_to_clear_portals;
 use super::sfx_adapter::play_portal_sfx;
 use super::shot_adapter::portal_projectile_step;
 use super::transit_adapter::{sync_ground_items_to_transitable, sync_transitable_to_ground_items};
-use super::transit_body_adapter::{
-    apply_portal_carried_momentum, rotate_projectile_acceleration_after_portal_transit, sync_portal_reorient_from_settings,
-};
+use super::reorient_setting::sync_portal_reorient_from_settings;
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 
 pub fn register_rollback_state(
@@ -44,9 +42,10 @@ pub struct AmbitionPortalAdaptersPlugin;
 impl Plugin for AmbitionPortalAdaptersPlugin {
     fn build(&self, app: &mut App) {
         let sim = app.sim_schedule();
-        // The seat consequences of a transit (the input guards, the trace and
-        // trail notices, the turn-around) are the runtime's
-        // `PortalSchedulePlugin`, so every game with portals has them.
+        // The consequences of a transit for the seat (the input guards, the
+        // trace and trail notices, the turn-around) and for what the body
+        // carries (its carried run, a shot's carried acceleration) are the
+        // runtime's `PortalSchedulePlugin`, so every game with portals has them.
 
         // Play the portal audio cues from the portal-owned signals (Stage 19
         // Phase 5a — the crate emits `PortalShotFired` / `PortalBodyEntered` /
@@ -207,24 +206,6 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
             bevy::app::PreUpdate,
             sync_portal_reorient_from_settings
                 .in_set(ambition_platformer2d_core::MechanicalEditSet::Propose),
-        );
-        // The projectile half of the same reconciliation: a carried WORLD
-        // acceleration must rotate with the velocity it accompanies.
-        app.add_systems(
-            sim,
-            rotate_projectile_acceleration_after_portal_transit
-                .in_set(GameplayGated)
-                .in_set(PortalSet::Transited),
-        );
-        // Carried momentum: every transferred body's mapped exit velocity
-        // becomes its `carried_run` floor the same frame (conserved fling,
-        // tight ordinary control). Actor-generic — after portal_transit so
-        // `BodyKinematics::vel` is already the exit velocity.
-        app.add_systems(
-            sim,
-            apply_portal_carried_momentum
-                .in_set(GameplayGated)
-                .in_set(PortalSet::Transited),
         );
 
         // --- GroundItem <-> PortalTransitable bracketing around item transit ---

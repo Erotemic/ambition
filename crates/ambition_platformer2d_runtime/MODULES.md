@@ -19,6 +19,7 @@
 | [`ldtk_world`](src/ldtk_world.rs) | Opt-in host composition for games that use an LDtk world. |
 | [`mode_scope`](src/mode_scope.rs) | Scoped game-mode runtime for hosted demos/rulesets. |
 | [`player_schedule`](src/player_schedule.rs) | Engine-generic per-frame player lifecycle and its host extension slots. |
+| [`portal_body`](src/portal_body.rs) | What a portal transit means for the body it moved. |
 | [`portal_schedule`](src/portal_schedule.rs) | Portal simulation assembly and schedule placement. |
 | [`portal_seat`](src/portal_seat.rs) | What a portal transit means for the body a seat drives. |
 | [`progression_schedule`](src/progression_schedule.rs) | Progression-phase schedule plugin. |
@@ -35,7 +36,7 @@
 | [`verdict_census`](src/verdict_census.rs) | `[census] verdicts` — WHAT AUTHORED CONTENT ASKED, AND WHAT IS STUCK. |
 | [`world_gating`](src/world_gating.rs) | The two roads into `gate_solids`, registered in one place. |
 
-_28 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_29 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

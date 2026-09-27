@@ -1,65 +1,17 @@
-//! Ambition's reactions to a generic portal transit.
+//! What a portal transit means for the body it moved.
 //!
-//! The generic portal core drives every body through a placed pair without
-//! naming player, boss, enemy, or projectile. This module carries the portal
-//! gameplay setting into the tuning, and completes a transit for bodies with a
-//! flight cluster (carried momentum) and for projectiles (their carried
-//! acceleration). The seat's consequences are the runtime's.
+//! The portal core maps a body's position and velocity through a pair and
+//! states each transit on `PortalBodyTransited`. A body can carry more than
+//! its velocity: a flight cluster's carried run, a shot's carried world
+//! acceleration. These systems map what the body carries in the same frame.
+//! They are part of `PortalSchedulePlugin`, so every game with portals has
+//! them. What the transit means for the SEAT is `portal_seat`'s.
 
 use bevy::prelude::*;
 
 use ambition_platformer2d_core::body_clusters::BodyKinematics;
 use ambition_portal2d::{PortalBodyTransited, PortalTuning};
 use ambition_projectiles::ProjectileGameplay;
-
-/// Carry the `portal_reverses_facing` gameplay setting into the editable
-/// portal tuning, and propose it.
-///
-/// It writes `EditablePortalTuning`, not `PortalTuning`. Writing the
-/// authority from inside `GgrsSchedule` would do this:
-///
-/// ```text
-/// developer edits reorient_facing in the portal inspector
-///   -> proposed, admitted, published into PortalTuning
-///   -> GgrsSchedule runs
-///   -> THIS overwrites it from the persisted gameplay setting
-/// ```
-///
-/// Then the last writer wins. It would also read `UserSettings` inside the
-/// rollback window, so a replay of frame N would see the current setting.
-///
-/// `EditablePortalTuning` is where the field is authored, and
-/// `publish_editable_portal_tuning` is the only writer of the authority.
-///
-/// For `reorient_facing`, the gameplay setting is the author and the panel is
-/// not. This system is change-guarded on `editable.reorient_facing != want`,
-/// so it does nothing while they agree and republishes the persisted value
-/// when they differ. An inspector edit of this field is therefore reverted on
-/// the next pass, with no race. The panel's row states this.
-///
-/// The other `EditablePortalTuning` fields are panel-authored: this system
-/// touches one field only.
-///
-/// The gameplay setting defaults off, so by default the player keeps the same
-/// facing through a same-wall portal turn-around; the portal crate's own
-/// default stays on for standalone use. Change-guarded, so an untouched
-/// setting proposes nothing and never stops a rollback baseline.
-pub fn sync_portal_reorient_from_settings(
-    // Optional: headless / unit-test apps may run portal transit without the
-    // settings resource. Absent → leave the portal crate's default (ON).
-    settings: Option<Res<ambition_persistence::settings::UserSettings>>,
-    mut editable: ResMut<ambition_platformer2d::portal::EditablePortalTuning>,
-    mut pending: ResMut<ambition_platformer2d_core::PendingMechanicalEdits>,
-) {
-    let Some(settings) = settings else {
-        return;
-    };
-    let want = settings.gameplay.portal_reverses_facing;
-    if editable.reorient_facing != want {
-        editable.reorient_facing = want;
-        pending.propose(ambition_platformer2d::portal::portal_tuning_domain());
-    }
-}
 
 /// Give every transferred body its carried run momentum: the world-imparted
 /// part of the mapped exit velocity's run-axis component becomes
@@ -141,6 +93,6 @@ pub fn rotate_projectile_acceleration_after_portal_transit(
 }
 
 #[cfg(test)]
-mod projectile_transit_tests;
-#[cfg(test)]
 mod carried_momentum_tests;
+#[cfg(test)]
+mod projectile_transit_tests;

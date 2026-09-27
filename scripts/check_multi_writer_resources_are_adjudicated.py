@@ -444,7 +444,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_dev_tools/src/dev_tools/editable.rs",
         "crates/ambition_dev_tools/src/lib.rs",
         "crates/ambition_portal2d/src/tuning.rs",
-        "game/ambition_content/src/portal/transit_body_adapter.rs",
+        "game/ambition_content/src/portal/reorient_setting.rs",
     ),
     "RoomTransitionLoadState": (
         "crates/ambition_platformer2d_rollback_ggrs/src/lifecycle_commit.rs",
@@ -680,7 +680,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
     ),
     "EditablePortalTuning": (
         "game/ambition_app/src/dev/portal_inspector.rs",
-        "game/ambition_content/src/portal/transit_body_adapter.rs",
+        "game/ambition_content/src/portal/reorient_setting.rs",
     ),
     "EncounterView": (
         "crates/ambition_encounter_features/src/systems.rs",
@@ -2701,9 +2701,9 @@ ADJUDICATED: dict[str, str] = {
     "EditablePortalTuning": (
         "ONE FIELD HAS ONE AUTHOR, PROVED BY A CHANGE-GUARD RATHER THAN A "
         "COMMENT. `sync_portal_reorient_from_settings` "
-        "(`game/ambition_content/src/portal/transit_body_adapter.rs:124`) "
+        "(`game/ambition_content/src/portal/reorient_setting.rs:42`) "
         "runs `if editable.reorient_facing != want { editable.reorient_facing "
-        "= want; pending.propose(...) }` (`:135-137`) — it does nothing while "
+        "= want; pending.propose(...) }` (`:53-55`) — it does nothing while "
         "the field already agrees with the persisted "
         "`settings.gameplay.portal_reverses_facing`, and republishes that "
         "persisted value the instant it does not, which is exactly what a "
@@ -2937,7 +2937,7 @@ ADJUDICATED: dict[str, str] = {
         "(`crates/ambition_platformer2d_rollback_ggrs/src/local_session.rs:658`), "
         "sits under the `#[cfg(test)]` at `:610` and is not in this "
         "population. The remaining writer, "
-        "`game/ambition_content/src/portal/transit_body_adapter.rs:137`, "
+        "`game/ambition_content/src/portal/reorient_setting.rs:55`, "
         "deliberately reuses `PortalTuningDomain` alongside "
         "`crates/ambition_portal2d/src/tuning.rs:168` — inserting the same "
         "set element twice is still idempotent. The sole publisher, "
@@ -2945,7 +2945,7 @@ ADJUDICATED: dict[str, str] = {
         "(`crates/ambition_portal2d/src/tuning.rs:176-195`), is the only "
         "writer of the actual authority (`*active = editable.0`) and the "
         "only caller of `.take()` for that domain. ⚠ The draft of this row "
-        "also quoted `transit_body_adapter.rs:103-105` as calling the shape "
+        "also quoted `transit_body_adapter.rs:103-105` (now `reorient_setting.rs`) as calling the shape "
         "\"two authors of one authored value\"; that paragraph is correct "
         "for the OTHER fields but was retracted for `reorient_facing` in "
         "`38f05f5f9` — see the `EditablePortalTuning` row. The quote is "

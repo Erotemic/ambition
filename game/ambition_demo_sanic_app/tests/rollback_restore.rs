@@ -48,10 +48,10 @@ fn act_state(app: &mut App) -> Option<SanicActState> {
     query.iter(app.world()).next().copied()
 }
 
-#[test]
-fn a_dirty_act_state_mutation_is_rolled_back_by_restore() {
-    let mut app = build_rollback_demo_app();
-
+/// Boot until the shell activates gameplay, start a GGRS sync-test session,
+/// and step until the act owner exists: every frame after this is resimulated
+/// and checksum-compared.
+fn start_gameplay_under_sync_test(app: &mut App) {
     // Boot until the SHELL activates the gameplay session (the Update-side
     // fact; the sim is frozen until a GGRS session drives it).
     let mut activated = false;
@@ -85,7 +85,7 @@ fn a_dirty_act_state_mutation_is_rolled_back_by_restore() {
     let mut owner_exists = false;
     for _ in 0..300 {
         app.update();
-        if act_state(&mut app).is_some() {
+        if act_state(app).is_some() {
             owner_exists = true;
             break;
         }
@@ -94,6 +94,12 @@ fn a_dirty_act_state_mutation_is_rolled_back_by_restore() {
         owner_exists,
         "the act-state owner never spawned once GGRS started driving the sim"
     );
+}
+
+#[test]
+fn a_dirty_act_state_mutation_is_rolled_back_by_restore() {
+    let mut app = build_rollback_demo_app();
+    start_gameplay_under_sync_test(&mut app);
 
     // Every carrier has a canonical identity, so frame zero's rebase orders it
     // by name rather than by this App's construction order. The act owner was
@@ -151,4 +157,47 @@ fn a_dirty_act_state_mutation_is_rolled_back_by_restore() {
     );
     ambition_platformer2d::rollback::session_health(app.world())
         .expect("the run stays checksum-identical after the dirty write is rolled back");
+}
+
+/// A spin-dash launched and rolled under the sync-test session resimulates
+/// checksum-identical: the roll and what it carries are restored with the
+/// frame they belong to.
+#[test]
+fn a_spin_dash_rolls_checksum_identical_under_resimulation() {
+    use ambition_demo_sanic::ball_dash::Rolling;
+    use ambition_platformer2d::sim::ControlFrame;
+
+    let mut app = build_rollback_demo_app();
+    start_gameplay_under_sync_test(&mut app);
+
+    let rolling = |app: &mut App| {
+        let mut q = app
+            .world_mut()
+            .query_filtered::<(), (With<Rolling>, With<ambition_platformer2d::platformer::markers::PrimaryPlayer>)>();
+        q.iter(app.world()).next().is_some()
+    };
+    // Rev: Down held, the attack verb pressed every fourth frame, through the
+    // seat input GGRS publishes. Then release Down to launch.
+    let drive = |app: &mut App, frame: ControlFrame| {
+        ambition_platformer2d::sim::drive_control_frame(app.world_mut(), frame);
+        app.update();
+    };
+    for frame in 0..90 {
+        drive(
+            &mut app,
+            ControlFrame {
+                axis_y: 1.0,
+                attack_pressed: frame % 4 == 0,
+                ..Default::default()
+            },
+        );
+    }
+    let mut rolled = false;
+    for _ in 0..60 {
+        drive(&mut app, ControlFrame::default());
+        rolled |= rolling(&mut app);
+    }
+    assert!(rolled, "the premise: Down+X then releasing Down launches a roll under GGRS");
+    ambition_platformer2d::rollback::session_health(app.world())
+        .expect("a roll resimulates checksum-identical");
 }

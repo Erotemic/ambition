@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v238
+ggrs-rollback-schema-v239
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.player_mark	component-clone	PlayerMark	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -140,7 +140,9 @@ content.saddle_point_state	component-clone-cursor	SaddlePointState	bevy_ggrs clo
 content.sanic_act_state	component-clone	SanicActState	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 content.sanic_ball_dash	component-clone	BallDash	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 content.sanic_ball_dash_input	component-clone	BallDashInput	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
+content.sanic_rolling	component-clone	Rolling	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 content.sanic_scattered_ring	component-clone	ScatteredRing	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
+content.sanic_speed_shoes	component-clone	SpeedShoes	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 content.sanic_spent_monitors	resource-clone-custom-checksum	SpentMonitors	bevy_ggrs clone snapshot + an order-independent checksum over the spent names
 content.sanic_super_form_latch	component-clone	SuperFormLatch	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 content.seismic_stomp_state	component-canonical	SeismicStompState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection

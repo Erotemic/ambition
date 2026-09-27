@@ -88,7 +88,7 @@ impl SpentMonitors {
 
 /// The timed speed-shoes grant riding on the player body. Carries the saved
 /// authored params so expiry restores exactly what the catalog authored.
-#[derive(Component, Debug)]
+#[derive(Component, Clone, Copy, Debug)]
 pub struct SpeedShoes {
     pub remaining: f32,
     saved_top_speed: f32,

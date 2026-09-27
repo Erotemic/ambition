@@ -502,6 +502,19 @@ pub fn install_sanic_content(app: &mut App) {
                 "content.sanic_super_form_latch",
                 rollback_probes::super_form_latch,
             )
+            // The roll is the body's size to restore and the flag the ball
+            // physics reads, so a rewind across a launch must take it away.
+            .rollback_component_clone_probed::<ball_dash::Rolling>(
+                "ambition_demo_sanic",
+                "content.sanic_rolling",
+                rollback_probes::rolling,
+            )
+            // The shoes' timer and the params they restore on expiry.
+            .rollback_component_clone_probed::<monitors::SpeedShoes>(
+                "ambition_demo_sanic",
+                "content.sanic_speed_shoes",
+                rollback_probes::speed_shoes,
+            )
             // A scattered ring rides its currency pickup, which
             // `CenteredAabb`/`PickupFeature` already anchor and snapshot, so only
             // its own component needs registering.
@@ -2077,6 +2090,14 @@ mod rollback_probes {
 
     pub(super) fn super_form_latch(latch: &SuperFormLatch) -> u64 {
         latch.0 as u64
+    }
+
+    pub(super) fn rolling(rolling: &ball_dash::Rolling) -> u64 {
+        (u64::from(rolling.restore_size.x.to_bits()) << 32) | u64::from(rolling.restore_size.y.to_bits())
+    }
+
+    pub(super) fn speed_shoes(shoes: &monitors::SpeedShoes) -> u64 {
+        u64::from(shoes.remaining.to_bits())
     }
 
     pub(super) fn scattered_ring(ring: &ScatteredRing) -> u64 {

@@ -793,7 +793,11 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// beat it asks for, so it is probed by value. The policy was a separate
 /// component outside the rollback set, and a rewind could restore a request
 /// under a later transformation's policy.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 238;
+/// ⛔⛤ 238 -> 239: `content.sanic_rolling` and `content.sanic_speed_shoes`
+/// join. Sanic's roll (the size to restore) and his timed shoes (the params
+/// to restore) were gameplay state outside the rollback set, and a sync-test
+/// session desynced on the frame a spin-dash launched.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 239;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

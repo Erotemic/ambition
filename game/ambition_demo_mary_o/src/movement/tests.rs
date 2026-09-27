@@ -318,44 +318,6 @@ fn holding_run_does_not_repeat_fire() {
     );
 }
 
-/// The scheme names the slot's CURRENT role, so the prompt can describe one button
-/// doing two things.
-#[test]
-fn the_slot_label_follows_the_power_state() {
-    use ambition_platformer2d::characters::action_scheme::ActorTechniques;
-    use ambition_platformer2d::entity_catalog::action_scheme::ControlSlot;
-
-    let mut app = App::new();
-    let body = body(&mut app);
-    app.world_mut()
-        .entity_mut(body)
-        .insert(WornEquipment::new(vec![star_wand()]));
-    app.add_systems(Update, sync_run_action_scheme);
-    app.update();
-
-    let label = |app: &App| {
-        app.world()
-            .get::<ActorTechniques>(body)
-            .unwrap()
-            .0
-            .iter()
-            .find(|a| a.slot == ControlSlot::Modifier)
-            .and_then(|a| a.display_name.clone())
-    };
-    assert_eq!(label(&app).as_deref(), Some("Run"), "sparkless: run only");
-
-    app.world_mut()
-        .get_mut::<WornEquipment>(body)
-        .unwrap()
-        .equip(cinder_beacon());
-    app.update();
-    assert_eq!(
-        label(&app).as_deref(),
-        Some("Run / Spark"),
-        "with the beacon the same slot advertises both roles"
-    );
-}
-
 /// asserting `MAX_LIVE_SPARKS == 2` would be worthless. The rule is not
 /// the number, it is that the gate COUNTS her live shots against it; a version
 /// that read the constant and compared against something else would pass. So

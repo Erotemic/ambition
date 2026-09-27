@@ -993,6 +993,66 @@ fn the_rules_techniques_follow_the_driven_body() {
     );
 }
 
+/// A worn row's technique gates its slot on the body that wears it, driven or
+/// not, and only while the row is worn.
+#[test]
+fn a_worn_technique_gates_the_slot_of_the_body_that_wears_it() {
+    use ambition_characters::action_scheme::ResolvedTechniqueEdges;
+    use ambition_characters::actor::control::ActorControlFrame;
+    use ambition_characters::brain::ActionSet;
+    use ambition_characters::control::ActorControl;
+    use ambition_characters::equipment::{EquipmentGrant, EquipmentRow, WornEquipment};
+    use ambition_entity_catalog::action_scheme::{ActionGate, ActionId, ActionSpec, ControlSlot};
+    use bevy::prelude::*;
+
+    let mut app = App::new();
+    app.add_plugins(MinimalPlugins);
+    install_test_catalog(&mut app);
+    app.add_systems(Update, gate_body_control);
+    let body = app
+        .world_mut()
+        .spawn((
+            ambition_platformer2d_core::BodyAbilities::new(
+                ambition_platformer2d_core::AbilitySet::sandbox_all(),
+            ),
+            ActionSet::peaceful(),
+            ActorControl(ActorControlFrame::neutral()),
+            WornEquipment::new(vec![EquipmentRow {
+                id: "spinner".into(),
+                grants: vec![EquipmentGrant::Technique(ActionSpec {
+                    id: ActionId::new("spin_dash"),
+                    slot: ControlSlot::Attack,
+                    display_name: None,
+                    visual: None,
+                    gate: ActionGate::Technique("spin_dash".to_owned()),
+                })],
+                ..Default::default()
+            }]),
+        ))
+        .id();
+    let spun_after_a_press = |app: &mut App| {
+        app.world_mut()
+            .get_mut::<ActorControl>(body)
+            .unwrap()
+            .0
+            .melee_pressed = true;
+        app.update();
+        app.world()
+            .get::<ResolvedTechniqueEdges>(body)
+            .unwrap()
+            .pressed("spin_dash")
+    };
+    assert!(
+        spun_after_a_press(&mut app),
+        "the worn row's technique did not take the Attack edge"
+    );
+    app.world_mut().get_mut::<WornEquipment>(body).unwrap().rows.clear();
+    assert!(
+        !spun_after_a_press(&mut app),
+        "the row is off and its technique still gates the slot"
+    );
+}
+
 /// Gate 1: the canonical player's `Special("bubble_shield")` was
 /// a PHANTOM — `default_player_action_set` declared it, but the player's moveset
 /// was built melee-only, so `trigger_moveset_moves` (which fires `special_pressed`

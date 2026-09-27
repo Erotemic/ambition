@@ -259,6 +259,8 @@ pub fn rebuild_control_prompt(
         Option<Ref<ActorMoveset>>,
         Option<Ref<ActionSet>>,
         Option<Ref<ActorTechniques>>,
+        // A worn row can put a technique on a slot (`EquipmentGrant::Technique`).
+        Option<Ref<ambition_characters::equipment::WornEquipment>>,
         // ⭐ AN AUTHORITY LIKE THE OTHERS, and it belongs in this tuple for the
         // same reason they do: it changes which verbs the body HAS. A saddle
         // does not open a menu — a rider is still driving a body through the
@@ -288,7 +290,7 @@ pub fn rebuild_control_prompt(
     // `ControlledSubject` / `SeatBindings` / `SeatActiveDevices` would be
     // skipped and the prompt would keep describing a context that no longer
     // exists.
-    mut last: Local<Option<(Option<Entity>, [bool; 4], [bool; 6])>>,
+    mut last: Local<Option<(Option<Entity>, [bool; 5], [bool; 6])>>,
 ) {
     // A frontend context (startup cards, launcher) owns the participant's
     // actions: its provider (`publish_frontend_context_prompt`) writes the
@@ -359,7 +361,7 @@ pub fn rebuild_control_prompt(
         if matches!(*last, Some((_, _, seen)) if seen == resources) && !inputs_changed {
             return;
         }
-        *last = Some((None, [false; 4], resources));
+        *last = Some((None, [false; 5], resources));
         let (kind, fallback) = match mode.get() {
             GameMode::Dialogue => (ControlContextKind::Dialogue, "Advance"),
             _ => (ControlContextKind::Menu, "Select"),
@@ -379,7 +381,7 @@ pub fn rebuild_control_prompt(
         .as_deref()
         .and_then(|s| s.0)
         .or_else(|| primary.single().ok());
-    let Some((abilities, moveset, action_set, techniques, pose_is_held)) =
+    let Some((abilities, moveset, action_set, techniques, worn, pose_is_held)) =
         subject.and_then(|e| authorities.get(e).ok())
     else {
         // Cold start (no player yet) or a controlled body without authorities —
@@ -393,7 +395,7 @@ pub fn rebuild_control_prompt(
             None,
         );
         set_prompt(&mut prompt, context, Vec::new(), confirm);
-        *last = Some((subject, [false; 4], resources));
+        *last = Some((subject, [false; 5], resources));
         return;
     };
 
@@ -404,12 +406,14 @@ pub fn rebuild_control_prompt(
         moveset.is_some(),
         action_set.is_some(),
         techniques.is_some(),
+        worn.is_some(),
         pose_is_held,
     ];
     let authorities_changed = abilities.is_changed()
         || moveset.as_ref().is_some_and(|r| r.is_changed())
         || action_set.as_ref().is_some_and(|r| r.is_changed())
-        || techniques.as_ref().is_some_and(|r| r.is_changed());
+        || techniques.as_ref().is_some_and(|r| r.is_changed())
+        || worn.as_ref().is_some_and(|r| r.is_changed());
     if *last == Some((subject, presence, resources)) && !inputs_changed && !authorities_changed {
         return;
     }
@@ -427,6 +431,7 @@ pub fn rebuild_control_prompt(
     let techniques = ambition_characters::action_scheme::techniques_of(
         techniques.as_deref(),
         driven.as_ref().filter(|_| is_driven),
+        worn.as_deref(),
     );
     let scheme = derive_action_scheme(
         &available,
@@ -1285,6 +1290,72 @@ mod tests {
             attack(&app),
             None,
             "the primary player is shown but not driven, so the rule does not apply"
+        );
+    }
+
+    /// A worn row's technique names its slot, and a change of the worn set
+    /// alone (no action-set change) re-derives the label, including the first
+    /// row, which adds the component.
+    #[test]
+    fn a_worn_technique_names_its_slot_in_the_prompt() {
+        use ambition_characters::equipment::{EquipmentGrant, EquipmentRow, WornEquipment};
+        use ambition_entity_catalog::action_scheme::{ActionGate, ActionId, ActionSpec};
+
+        fn relabel(label: &str) -> EquipmentRow {
+            EquipmentRow {
+                id: label.to_owned(),
+                grants: vec![EquipmentGrant::Technique(ActionSpec {
+                    id: ActionId::new("run"),
+                    slot: ControlSlot::Modifier,
+                    display_name: Some(label.to_owned()),
+                    visual: None,
+                    gate: ActionGate::Technique("run".to_owned()),
+                })],
+                ..Default::default()
+            }
+        }
+        let modifier = |app: &App| {
+            app.world()
+                .resource::<ControlPrompt>()
+                .label_for(ControlSlot::Modifier)
+                .map(str::to_owned)
+        };
+
+        let mut app = app();
+        let body = app
+            .world_mut()
+            .spawn((PlayerEntity, PrimaryPlayer, authorities(true, None)))
+            .id();
+        app.update();
+        assert_eq!(modifier(&app), None);
+
+        app.world_mut()
+            .entity_mut(body)
+            .insert(WornEquipment::new(vec![relabel("Run")]));
+        app.update();
+        assert_eq!(
+            modifier(&app).as_deref(),
+            Some("Run"),
+            "the first worn row added the component, and the prompt did not see it"
+        );
+
+        app.world_mut()
+            .get_mut::<WornEquipment>(body)
+            .unwrap()
+            .equip(relabel("Run / Spark"));
+        app.update();
+        assert_eq!(
+            modifier(&app).as_deref(),
+            Some("Run / Spark"),
+            "the worn set changed and nothing else did, and the prompt kept the old label"
+        );
+
+        app.world_mut().entity_mut(body).remove::<WornEquipment>();
+        app.update();
+        assert_eq!(
+            modifier(&app),
+            None,
+            "a removal reports no change, and the prompt kept the worn label"
         );
     }
 

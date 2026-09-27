@@ -96,7 +96,8 @@ pub fn star_wand() -> EquipmentRow {
 
 /// The cinder beacon: a ranged verb AND the outer layer of armor.
 ///
-/// It grants a bouncing spark ([`EquipmentGrant::Ranged`]) and scales that shot's
+/// It grants a bouncing spark ([`EquipmentGrant::Ranged`]), relabels her run
+/// button `Run / Spark` ([`EquipmentGrant::Technique`]), and scales that shot's
 /// damage 1.5x at fire (a `Verb("ranged")`-scoped [`ranged_param::DAMAGE`]
 /// modifier, folded in [`ambition_platformer2d::characters::equipment::resolved_ranged`] at
 /// trigger-resolve).
@@ -117,7 +118,11 @@ pub fn cinder_beacon() -> EquipmentRow {
             op: ModifierOp::Mul(1.5),
             scope: ModifierScope::Verb("ranged".to_string()),
         }],
-        grants: vec![EquipmentGrant::Ranged(spark_shot())],
+        grants: vec![
+            EquipmentGrant::Ranged(spark_shot()),
+            // The run button also fires the spark now, and its label says so.
+            EquipmentGrant::Technique(crate::movement::run_technique("Run / Spark")),
+        ],
         on_hit: Some(OnHit::ConsumeAsArmor {
             downgrade_to: Some(Box::new(star_wand())),
         }),

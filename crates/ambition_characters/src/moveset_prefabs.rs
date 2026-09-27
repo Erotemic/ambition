@@ -854,7 +854,7 @@ pub fn build_actor_moveset(
 /// This is the A3 equip contract, and the split it encodes is the point: an
 /// equipment row is either
 ///
-/// - read-time only (no [`crate::equipment::EquipmentGrant`]s — a grow-cap, an armor plate, a
+/// - read-time only (no verb [`crate::equipment::EquipmentGrant`]s — a grow-cap, an armor plate, a
 ///   damage-scaling flower): it lands in [`crate::equipment::WornEquipment`] and nothing else moves.
 ///   Its effect is folded at the moment it matters, by
 ///   [`resolved_ranged`](crate::equipment::resolved_ranged) and
@@ -874,7 +874,7 @@ pub fn equip_equipment_row(
     signature: Option<&MovesetContract>,
     row: crate::equipment::EquipmentRow,
 ) -> Option<MovesetContract> {
-    let confers_capability = !row.grants.is_empty();
+    let confers_capability = row.grants.iter().any(crate::equipment::EquipmentGrant::is_verb);
     worn.equip(row);
     if !confers_capability {
         return None;

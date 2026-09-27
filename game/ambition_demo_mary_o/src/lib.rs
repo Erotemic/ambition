@@ -1329,6 +1329,14 @@ impl Plugin for MaryORulesPlugin {
                     hostile_wake_radius: MARY_O_WAKE_RADIUS,
                 },
             );
+            // The modifier runs, whichever body she drives. The cinder beacon
+            // relabels the same slot while she wears it (see `run_technique`).
+            app.declare_rules(
+                scope,
+                ambition_platformer2d::characters::action_scheme::DrivenTechniques(vec![
+                    movement::run_technique("Run"),
+                ]),
+            );
         }
         // The snake stager reads room-load facts and writes spawn requests; the
         // engine registers both in a full app, but a thin rules-only test harness
@@ -1509,7 +1517,6 @@ impl Plugin for MaryORulesPlugin {
             movement::walk_by_default_run_while_held,
             movement::tick_spark_cooldown,
             movement::fire_spark_on_run_press,
-            movement::sync_run_action_scheme,
         )
             .chain()
             .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::PlayerInput)

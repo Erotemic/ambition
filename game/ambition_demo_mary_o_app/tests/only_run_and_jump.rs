@@ -229,6 +229,9 @@ fn mary_o_at_home_can_only_run_and_jump() {
 /// beacon grants a `ranged` verb, so her fists stay empty while her hands are
 /// full, which is why fixing the melee gate above could not have paid for this
 /// one.
+///
+/// The prompt names both roles from the same data: her rules say `Run`, and the
+/// beacon's technique grant says `Run / Spark` on the same slot.
 #[test]
 fn the_run_button_throws_a_spark_only_while_she_wears_the_lantern() {
     let mut app = boot();
@@ -277,11 +280,19 @@ fn the_run_button_throws_a_spark_only_while_she_wears_the_lantern() {
         }
     }
 
+    fn run_label(app: &App) -> Option<String> {
+        app.world()
+            .resource::<ambition_platformer2d::sim_view::ControlPrompt>()
+            .label_for(ambition_platformer2d::entity_catalog::action_scheme::ControlSlot::Modifier)
+            .map(str::to_owned)
+    }
+
     assert_eq!(
         run_press_sparks(&mut app, body).0,
         0,
         "small Mary-O has no lantern — run is only run"
     );
+    assert_eq!(run_label(&app).as_deref(), Some("Run"), "her rules name the run");
 
     wear(&mut app, body, vec![star_wand()]);
     assert_eq!(
@@ -289,6 +300,7 @@ fn the_run_button_throws_a_spark_only_while_she_wears_the_lantern() {
         0,
         "the wand is armor only; the grown form still throws nothing"
     );
+    assert_eq!(run_label(&app).as_deref(), Some("Run"), "the wand grants no technique");
 
     wear(&mut app, body, vec![cinder_beacon()]);
     let (sparks, ran) = run_press_sparks(&mut app, body);
@@ -299,5 +311,10 @@ fn the_run_button_throws_a_spark_only_while_she_wears_the_lantern() {
     assert!(
         ran,
         "...while the SAME button's held level keeps meaning run"
+    );
+    assert_eq!(
+        run_label(&app).as_deref(),
+        Some("Run / Spark"),
+        "the beacon's grant names both roles of the one button"
     );
 }

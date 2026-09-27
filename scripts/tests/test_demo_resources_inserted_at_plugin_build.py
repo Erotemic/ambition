@@ -67,8 +67,9 @@ def test_an_overwriting_insert_of_a_foreign_type_is_flagged_and_a_variable_is_no
     difference is Jon's `99ab15e32` ("Smash was deleting another plugin's
     resources on the way out") arriving from the other direction.
 
-    ⚠ And the false positive that arm shipped with first: `insert_resource(goal_pole)`
-    passes a VARIABLE, not a type, and lowercase is how you tell.
+    ⚠ And the false positive that arm shipped with first: `insert_resource(goal_pole())`
+    passes a VALUE, not a type, and lowercase is how you tell. No demo inserts
+    one at build any more, so that half is asked of the rule directly.
     """
     module = _module()
     out = []
@@ -76,7 +77,15 @@ def test_an_overwriting_insert_of_a_foreign_type_is_flagged_and_a_variable_is_no
         out += [label for _f, label in hits]
     flagged = [o for o in out if "OVERWRITING" in o]
     assert any(o.startswith("RespawnInterval") for o in flagged), flagged
-    assert not any("goal_pole" in o for o in flagged), flagged
+    assert not module.is_overwriting_foreign_insert(
+        "insert_resource(goal_pole", "goal_pole", set()
+    )
+    assert module.is_overwriting_foreign_insert(
+        "insert_resource(GoalPole", "GoalPole", set()
+    )
+    assert not module.is_overwriting_foreign_insert(
+        "init_resource::<GoalPole", "GoalPole", set()
+    )
 
 
 def test_a_broken_signature_matcher_is_caught_by_an_INDEPENDENT_witness() -> None:

@@ -120,10 +120,8 @@ content.cut_rope_victory_npc	component-clone	SmirkingBehemothVictoryNpc	bevy_ggr
 content.echo_fan_state	component-canonical	EchoFanState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 content.exploding_gradient_state	component-canonical	ExplodingGradientState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 content.eye_beam_state	component-canonical	EyeBeamState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-content.flag_pole	derived	FlagPole	the ACTIVE room's goal geometry, mirroring its authored block; re-derived from RoomSet on every room change
 content.gnu_ton_conductor	component-clone-cursor	GnuTonConductor	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
 content.gradient_cascade_state	component-canonical	GradientCascadeState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-content.level_destination	derived	LevelDestination	where the ACTIVE room's goal leads; re-derived from RoomSet on every room change
 content.mary_o_ai_slop	component-clone	AiSlop	bevy_ggrs clone snapshot; not in the session checksum
 content.mary_o_broken_bricks	resource-clone-custom-checksum	BrokenBricks	bevy_ggrs clone snapshot + an order-independent checksum over the broken names
 content.mary_o_flag_sequence	component-clone	FlagSequence	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum

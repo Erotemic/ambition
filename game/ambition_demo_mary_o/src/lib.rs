@@ -815,19 +815,27 @@ pub fn authored_block_by_id<'a>(world: &'a ae::World, id: &ae::GeoId) -> Option<
 /// the shaft is the block named exactly `goal_pole`; the finial and the banner
 /// wear suffixes and are decoration hung off it.
 pub fn authored_pole(room: &RoomSpec) -> flag::FlagPole {
+    room_pole(room)
+        .unwrap_or_else(|| panic!("room `{}` authors no `{GOAL_POLE_PREFIX}` block", room.id))
+}
+
+/// A room's flag, or `None` when the room draws no shaft.
+///
+/// The flag reads it from the active room every tick, so the goal is always the
+/// goal of the room she is in, a rewind included.
+pub fn room_pole(room: &RoomSpec) -> Option<flag::FlagPole> {
     let aabb = room
         .world
         .blocks
         .iter()
-        .find(|block| block.name == GOAL_POLE_PREFIX)
-        .unwrap_or_else(|| panic!("room `{}` authors no `{GOAL_POLE_PREFIX}` block", room.id))
+        .find(|block| block.name == GOAL_POLE_PREFIX)?
         .aabb;
-    flag::FlagPole {
+    Some(flag::FlagPole {
         x: (aabb.min.x + aabb.max.x) * 0.5,
         top_y: aabb.min.y,
         base_y: aabb.max.y,
         half_width: (aabb.max.x - aabb.min.x) * 0.5,
-    }
+    })
 }
 
 /// World 1-1's flag.
@@ -845,8 +853,9 @@ pub fn goal_pole() -> flag::FlagPole {
 /// loud panic naming the room.
 pub fn pole_for_room(room_id: &str) -> flag::FlagPole {
     if room_id == test_course::TEST_COURSE_ROOM_ID {
-        // Not an authored area — a Rust-built probe room, pole included.
-        test_course::course_pole()
+        // Not an authored area: a Rust-built probe room, which draws its pole
+        // as a `goal_pole` block like any authored one.
+        authored_pole(&test_course::test_course())
     } else {
         authored_pole(&authored_room(room_id))
     }
@@ -858,7 +867,7 @@ pub fn pole_for_room(room_id: &str) -> flag::FlagPole {
 /// case. A level with no successor genuinely does loop — the fixture course
 /// does, and so did every Mary-O level until this existed — so "loops" and
 /// "leads to 1-2" are two destinations, not a feature and its absence.
-#[derive(bevy::prelude::Resource, Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum LevelDestination {
     /// Restart this room in place: the arcade loop.
     Replay,
@@ -885,45 +894,28 @@ pub enum LevelDestination {
 /// no world file holds, so it never reaches the metadata at all, and it loops
 /// for the same reason an authored level with a blank field does.
 pub fn exit_for_room(room_id: &str) -> LevelDestination {
-    match authored_area(room_id).and_then(|room| room.metadata.next_room.clone()) {
-        Some(next) => LevelDestination::Room(next),
+    authored_area(room_id).map_or(LevelDestination::Replay, |room| exit_of(&room))
+}
+
+/// Where this room's goal leads, from its own `next_room`.
+pub fn exit_of(room: &RoomSpec) -> LevelDestination {
+    match &room.metadata.next_room {
+        Some(next) => LevelDestination::Room(next.clone()),
         None => LevelDestination::Replay,
     }
 }
 
-/// Install the entry room's pole once the session's choice is readable.
+/// Start a fresh lap when the active room changes.
 ///
-/// Startup rather than plugin build, because [`provider::MaryOEntryRoom`] is a
-/// resource a host inserts into the built app — the same lifetime the world
-/// source reads it on. Absent means 1-1, for the reason the resource's own doc
-/// gives: a shipped game must not depend on something only a test inserts.
-fn install_goal_pole(
-    mut commands: bevy::prelude::Commands,
-    entry: Option<bevy::prelude::Res<provider::MaryOEntryRoom>>,
-) {
-    let room = entry
-        .as_ref()
-        .map_or(LEVEL_1_1_ROOM_ID, |room| room.0.as_str());
-    commands.insert_resource(pole_for_room(room));
-    // the pole and where it LEADS are answered together, off the same room id,
-    // because a goal you can reach in a room whose exit belongs to another one is
-    // the shape of bug that took a whole session to find the first time.
-    commands.insert_resource(exit_for_room(room));
-}
-
-/// Keep the goal pointed at the room you are actually in.
-///
-/// that is the exact failure `install_goal_pole`'s own comment warns about
-/// — *"a goal you can reach in a room whose exit belongs to another one"* — and
-/// it shipped anyway, because answering the question ONCE is what makes the two
-/// halves able to disagree. Answering it every time the active room changes is
-/// the only version that cannot.
+/// The goal and where it leads are not copied here: the flag and the departure
+/// read them from the active room where they use them. A copy made on a room
+/// change was one room behind for every tick a rewind resimulated before the
+/// copy was made again.
 ///
 /// `RoomSet` is the authority, not a change-detected id. It is the same
 /// value the transition itself resolves against, so "which room am I in" has one
 /// answer rather than two that must be kept in step.
 fn follow_the_active_room(
-    mut commands: bevy::prelude::Commands,
     room_set: Option<
         ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
             ambition_platformer2d::world::rooms::RoomSet,
@@ -950,8 +942,6 @@ fn follow_the_active_room(
         return;
     }
     let first_observation = departure.seen_room.is_none();
-    commands.insert_resource(pole_for_room(&active));
-    commands.insert_resource(exit_for_room(&active));
     // `FlagSequence::driven` is a POSITION IN THE SOURCE ROOM — the pole she slid down — and
     // `run_flag_sequence` writes it onto the body through `constrain_body_pose` every tick the
     // phase is not `Idle`. `Tallied` returns `Some(driven)`, and `cycle_level_on_flag_tally`
@@ -1063,27 +1053,6 @@ pub fn install_mary_o_content(app: &mut App) {
     // identity) includes these rows; a non-GGRS shell records metadata only.
     {
         use ambition_platformer2d::rollback::AmbitionRollbackApp;
-        // the pole and where it LEADS are DERIVED from the active room, and the rollback
-        // sweep is what made that explicit. Both are re-answered by `follow_the_active_room`
-        // whenever the active room id changes, out of `RoomSet` — so a rewind that crosses a
-        // room transition restores the room, and the next tick restores these from it.
-        // Snapshotting them would store a second copy of an answer the room already holds.
-        //
-        // the `Local` memo inside that system is a cache, NOT a gate on
-        // behaviour — the distinction this repo has been bitten by. It
-        // suppresses only a write that would be a no-op, and it cannot go out of
-        // step with the resources because none of the three rewinds: memo,
-        // resource and room all carry whatever the last tick left, together.
-        app.declare_rollback_derived_resource::<LevelDestination>(
-            "ambition_demo_mary_o",
-            "content.level_destination",
-            "where the ACTIVE room's goal leads; re-derived from RoomSet on every room change",
-        )
-        .declare_rollback_derived_resource::<flag::FlagPole>(
-            "ambition_demo_mary_o",
-            "content.flag_pole",
-            "the ACTIVE room's goal geometry, mirroring its authored block; re-derived from RoomSet on every room change",
-        );
         app.require_rollback::<MaryOLevelState>("ambition_demo_mary_o", "entity:mary_o_mode_owner")
             .rollback_component_clone_probed::<MaryOLevelState>(
                 "ambition_demo_mary_o",
@@ -1411,14 +1380,6 @@ impl Plugin for MaryORulesPlugin {
         // The vocabulary is a value handed to the conversion now ([`ldtk_vocabulary::vocabulary`]),
         // so a reader that forgets it cannot get a half-populated global — it does not compile.
         let sim = ambition_platformer2d::platformer::schedule::SimScheduleExt::sim_schedule(app);
-        // 1-1's pole up front so nothing that reads the resource before the first
-        // frame finds it missing; `install_goal_pole` re-answers it from the entry
-        // room, which is only readable once the host has finished building.
-        app.insert_resource(goal_pole());
-        app.add_systems(bevy::app::Startup, install_goal_pole);
-        // …and re-answered whenever the active room changes, which is what makes
-        // a level's goal belong to that level rather than to whichever one the
-        // session happened to open in.
 
         // The brick overlay contributor writes the collision overlay; a full app
         // inserts it (features/render plugins), but a thin rules-only harness may
@@ -1509,22 +1470,8 @@ impl Plugin for MaryORulesPlugin {
             mary_o_level_owner,
         );
         let rules = (
-            // `FlagPole` and `LevelDestination` are declared rollback-DERIVED,
-            // which is a promise that they are re-answered from rollback state
-            // before anything reads them. They were re-answered once per
-            // RENDERED frame, while ggrs resimulates many simulation ticks per
-            // rendered frame — so a rewind across a room transition restored
-            // `RoomSet` to 1-1 and then resimulated 1-1's ticks against 1-2's
-            // pole and destination. The resources corrected themselves on the
-            // next `Update`, long after the ticks that read them.
-            //
-            // The comment on the declaration claimed *"memo, resource and room all carry whatever
-            // the last tick left, together"*. Only the room did.
-            //
-            // Derived state has to be derived in the schedule that consumes it.
-            // The `Local` memo is still only a cache and still cannot drift: it
-            // compares against the ROOM, so a rewound room disagrees with a
-            // memo from the future and the answer is rebuilt.
+            // A new room starts a fresh lap before the flag reads that room's
+            // pole, so a sequence never drives the body to the last room's pole.
             follow_the_active_room,
             flag::run_flag_sequence,
             flag::play_victory_music,
@@ -2068,7 +2015,6 @@ fn cycle_level_on_flag_tally(
         &ambition_platformer2d::platformer::sim_id::SimId,
         ambition_platformer2d::platformer::markers::PrimaryPlayerOnly,
     >,
-    destination: Option<bevy::prelude::Res<LevelDestination>>,
     room_set: Option<
         ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
             ambition_platformer2d::world::rooms::RoomSet,
@@ -2107,13 +2053,11 @@ fn cycle_level_on_flag_tally(
         level.intro_card = INTRO_CARD_SECONDS;
     };
 
-    // Absent means loop, for the reason `MaryOEntryRoom`'s doc gives about its
-    // own absence: a shipped game must not depend on a resource only some hosts
-    // insert, and looping is what every Mary-O level did before this existed.
-    let destination = destination
+    // The room she is in says where its goal leads. No room means loop, which
+    // is what every Mary-O level did before a level could lead anywhere.
+    let destination = room_set
         .as_deref()
-        .cloned()
-        .unwrap_or(LevelDestination::Replay);
+        .map_or(LevelDestination::Replay, |set| exit_of(set.active_spec()));
     let LevelDestination::Room(target) = destination else {
         departure.dwell = 0.0;
         departure.target = None;
@@ -2124,10 +2068,9 @@ fn cycle_level_on_flag_tally(
         replay.write(ambition_platformer2d::actors::session::reset::RoomReplayRequested::manual());
         return;
     };
-    // once she is EN ROUTE, the remembered target wins over the resource.
-    // `LevelDestination` is re-derived from the ACTIVE room every tick, so the
-    // moment the transition commits it describes the next leg rather than this
-    // one. Asking it again mid-trip is what made the level ping-pong.
+    // once she is EN ROUTE, the remembered target wins over the room's.
+    // The destination is read from the ACTIVE room every tick, so the moment
+    // the transition commits it describes the next leg rather than this one. Asking it again mid-trip is what made the level ping-pong.
     let target = departure.target.clone().unwrap_or(target);
     // naming a room this world does not have is a WARNING and a REPLAY, not
     // a crash and not silence. Following the shrine's checkpoint resume, which
@@ -3602,6 +3545,59 @@ mod tests {
     /// and the clock refills — that reset is what the cycle emitter does on the
     /// same line it writes `RoomReplayRequested` (so observing the reset proves the
     /// emit ran), and it must NOT fire early or the tally would never be seen.
+    /// The flag is the pole of the room she is in, read where it is used.
+    ///
+    /// Nothing installs it: a session that opens in 1-2 grabs 1-2's pole on its
+    /// first ticks, and 1-1's pole means nothing there. The pole was a resource
+    /// installed from the entry room and copied again on each room change, so a
+    /// tick that read it before the copy read the last room's pole.
+    #[test]
+    fn the_flag_is_the_pole_of_the_room_she_is_in() {
+        fn grabs_at(at: flag::FlagPole) -> bool {
+            let mut app = App::new();
+            ambition_platformer2d::engine::add_headless_foundation(&mut app);
+            ambition_platformer2d::platformer::lifecycle::insert_session_world_component(
+                app.world_mut(),
+                ambition_platformer2d::world::rooms::RoomSet::from_parts_or_panic(
+                    level_1_2::LEVEL_1_2_ROOM_ID,
+                    vec![level_1_1(), level_1_2::level_1_2()],
+                    Vec::new(),
+                ),
+            );
+            app.init_resource::<ambition_platformer2d::time::WorldTime>();
+            app.add_plugins(MaryORulesPlugin::global());
+            let body = app
+                .world_mut()
+                .spawn(ambition_platformer2d::engine_core::BodyKinematics {
+                    pos: ambition_platformer2d::engine_core::Vec2::new(
+                        at.x,
+                        (at.top_y + at.base_y) * 0.5,
+                    ),
+                    vel: ambition_platformer2d::engine_core::Vec2::ZERO,
+                    size: ambition_platformer2d::engine_core::Vec2::new(24.0, 40.0),
+                    facing: 1.0,
+                })
+                .id();
+            app.insert_resource(ambition_platformer2d::platformer::markers::ControlledSubject(
+                Some(body),
+            ));
+            app.update();
+            app.update();
+            let mut sequences = app.world_mut().query::<&flag::FlagSequence>();
+            let phase = sequences.single(app.world()).expect("the mode owner").phase;
+            !matches!(phase, flag::FlagPhase::Idle)
+        }
+
+        let here = pole_for_room(level_1_2::LEVEL_1_2_ROOM_ID);
+        let elsewhere = pole_for_room(LEVEL_1_1_ROOM_ID);
+        assert_ne!(here.x, elsewhere.x, "the two levels' poles must stand apart");
+        assert!(grabs_at(here), "she touched 1-2's pole in 1-2 and did not grab it");
+        assert!(
+            !grabs_at(elsewhere),
+            "she grabbed at 1-1's pole while in 1-2: the flag read another room's goal"
+        );
+    }
+
     /// The level-end transition is a REQUEST, and a request can be dropped.
     ///
     /// maybe that you get to it in a weird way — you can keep playing after you
@@ -3631,9 +3627,6 @@ mod tests {
                 Vec::new(),
             ),
         );
-        app.insert_resource(LevelDestination::Room(
-            level_1_2::LEVEL_1_2_ROOM_ID.to_string(),
-        ));
         app.insert_resource(ambition_platformer2d::time::WorldTime {
             scaled_dt: LEVEL_CYCLE_DWELL * 0.5,
             ..Default::default()

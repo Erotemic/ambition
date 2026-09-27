@@ -83,6 +83,20 @@ MIN_DEMOS = 3
 MAX_OVERWRITING_FOREIGN_INSERTS = 1
 
 
+def is_overwriting_foreign_insert(call: str, name: str, mine: set[str]) -> bool:
+    """Whether `call` overwrites a resource of a type the demo does not define.
+
+    ⭐ `insert_resource` OVERWRITES; `init_resource` is a no-op when the
+    resource is already present. On a type the demo does NOT define, that
+    difference is Jon's `99ab15e32` ("Smash was deleting another plugin's
+    resources on the way out") arriving from the other direction.
+    ⚠ Lowercase names are VARIABLES or calls, not types
+    (`insert_resource(goal_pole())`) — counting them as foreign types was this
+    arm's first false positive.
+    """
+    return call.startswith("insert_resource") and name not in mine and name[:1].isupper()
+
+
 def body_of(src: str, start: int) -> str:
     """The `{ .. }` block opening at `start`, brace-balanced."""
     depth, i = 0, start
@@ -122,19 +136,7 @@ def inserted_at_build() -> dict[str, list[tuple[str, str]]]:
                 found.setdefault(crate, [])  # scanned, even if it inserts nothing
                 for hit in INSERT.finditer(body):
                     name = hit.group(1).split("::")[-1]
-                    # ⭐ `insert_resource` OVERWRITES; `init_resource` is a no-op
-                    # when the resource is already present. On a type the demo
-                    # does NOT define, that difference is Jon's `99ab15e32`
-                    # ("Smash was deleting another plugin's resources on the way
-                    # out") arriving from the other direction.
-                    # ⚠ Lowercase names are VARIABLES, not types
-                    # (`insert_resource(goal_pole)`) — counting them as foreign
-                    # types was this arm's first false positive.
-                    overwrites = (
-                        hit.group(0).startswith("insert_resource")
-                        and name not in mine
-                        and name[:1].isupper()
-                    )
+                    overwrites = is_overwriting_foreign_insert(hit.group(0), name, mine)
                     label = name + ("  ⚠ OVERWRITING insert of a foreign type" if overwrites else "")
                     found.setdefault(crate, []).append((path.name, label))
     return found

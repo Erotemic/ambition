@@ -24,9 +24,9 @@
 use ambition_platformer2d::engine_core as ae;
 use bevy::prelude::*;
 
-/// Where the pole is, how tall, and how thick. Mirrors the authored `goal_pole`
-/// block so the sequence never has to search the world for it — the level knows.
-#[derive(Resource, Clone, Copy, Debug, PartialEq)]
+/// Where the pole is, how tall, and how thick: the authored `goal_pole` block of
+/// the active room (see [`crate::room_pole`]).
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct FlagPole {
     /// World x of the pole's center.
     pub x: f32,
@@ -577,7 +577,11 @@ mod tests {
 /// player mashing jump from fighting the slide.
 pub fn run_flag_sequence(
     time: Res<ambition_platformer2d::time::WorldTime>,
-    pole: Option<Res<FlagPole>>,
+    rooms: Option<
+        ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
+            ambition_platformer2d::world::rooms::RoomSet,
+        >,
+    >,
     subject: Option<Res<ambition_platformer2d::platformer::markers::ControlledSubject>>,
     mut commands: Commands,
     mut sequences: Query<&mut FlagSequence>,
@@ -587,6 +591,7 @@ pub fn run_flag_sequence(
     // picker choose the clip.
     mut modes: Query<&mut ae::BodyModeState>,
 ) {
+    let pole = rooms.as_deref().and_then(|set| crate::room_pole(set.active_spec()));
     let (Some(pole), Some(entity)) = (pole, subject.and_then(|s| s.0)) else {
         return;
     };

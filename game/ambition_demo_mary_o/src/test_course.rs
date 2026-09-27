@@ -59,20 +59,6 @@ pub fn course_pole_x() -> f32 {
     COURSE_POLE_COLUMN * T + POLE_WIDTH * 0.5
 }
 
-/// The course's goal, in the shape [`crate::flag`] reads it.
-///
-/// The entry-room seam now picks the pole the same way it picks the world (`crate::pole_for_room`),
-/// so "which level am I playing" is answered once rather than in two places that can disagree.
-pub fn course_pole() -> crate::flag::FlagPole {
-    let ground_top = ground_top();
-    crate::flag::FlagPole {
-        x: course_pole_x(),
-        top_y: ground_top - POLE_TILES * T,
-        base_y: ground_top,
-        half_width: POLE_WIDTH * 0.5,
-    }
-}
-
 /// The fixture course.
 pub fn test_course() -> RoomSpec {
     let ground_top = ground_top();
@@ -203,18 +189,6 @@ mod tests {
             course_pole_x() > COURSE_SNAKE_COLUMN * T,
             "the goal is past the enemy, so reaching it means getting through"
         );
-        let pole = room
-            .world
-            .blocks
-            .iter()
-            .find(|b| b.name == "goal_pole")
-            .expect("the course authors a goal");
-        assert_eq!(
-            course_pole().x,
-            (pole.aabb.min.x + pole.aabb.max.x) * 0.5,
-            "the grab band is centred on the shaft the course actually draws"
-        );
-        assert_eq!(course_pole().base_y, pole.aabb.max.y);
-        assert_eq!(course_pole().top_y, pole.aabb.min.y);
+        assert!(crate::room_pole(&room).is_some(), "the course authors a goal");
     }
 }

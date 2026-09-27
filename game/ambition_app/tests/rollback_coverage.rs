@@ -592,6 +592,42 @@ fn every_component_on_a_body_warped_through_a_portal_is_registered_derived_or_wa
     );
 }
 
+/// A movement ability arms a cooldown on the body the first time it fires
+/// (`try_use_ability` inserts `AbilityCooldown`), so the cooldown exists only
+/// after a blink or a grapple and no sweep of a room at rest sees it.
+/// `blink_run` authors the blink on its start floor; this grabs it, blinks
+/// once, and sweeps while the cooldown runs. It asserts that the cooldown was
+/// seen.
+#[test]
+fn every_component_on_a_body_that_blinked_is_registered_derived_or_waived() {
+    use crate::common::{base, fixed_60hz_room_sim};
+
+    let mut sim = fixed_60hz_room_sim("blink_run");
+    for _ in 0..60 {
+        let at = sim.step(AgentAction { move_x: 1.0, ..base() }).player_pos.0;
+        if at >= 115.0 {
+            break;
+        }
+    }
+    // Attack while on the pickup grabs it; Attack with aim blinks.
+    sim.step(AgentAction { attack: true, ..base() });
+    sim.step(base());
+    sim.step(AgentAction { attack: true, aim_x: 1.0, ..base() });
+    sim.step(base());
+
+    let cooling = {
+        let world = sim.world_mut();
+        let mut q = world.query_filtered::<(), With<ambition_platformer2d::abilities::ability_cooldown::AbilityCooldown>>();
+        q.iter(world).count()
+    };
+    assert!(
+        cooling > 0,
+        "no body carries a movement-ability cooldown after grabbing and firing \
+         the blink, so this sweep inspected nothing it is named for"
+    );
+    assert_components_accounted(&mut sim, "blink_run (after one blink)");
+}
+
 /// Every sweep above inspects a room at rest, and a moveset strike volume exists
 /// only inside its authored active window — a handful of ticks. Those entities carry
 /// `Hitbox`, `HitboxHits`, `StrikeVolume` and optionally `HitboxOnHit`, and NONE of

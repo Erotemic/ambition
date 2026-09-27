@@ -682,6 +682,14 @@ where
                 None => 0,
             },
         );
+    registrar.rollback_component_clone_probed::<ambition_abilities::ability_cooldown::AbilityCooldown>(
+        OWNER,
+        "ability.cooldown",
+        // The time left, because it decides whether the next blink or grapple
+        // fires. The first use inserts it, so a rewind across that use must
+        // remove it again.
+        |cooldown| cooldown.remaining.to_bits() as u64,
+    );
     registrar.rollback_component_clone_probed::<ambition_abilities::ranged::bomb::BombFuse>(
         OWNER,
         "ability.bomb_fuse",

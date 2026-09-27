@@ -801,7 +801,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// join. A portal crossing inserts the held-input warp, and wearing another
 /// character changes the authored feel. Both are body state that no sweep of a
 /// room at rest held, so both were outside the rollback set.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 240;
+/// ⛔⛤ 240 -> 241: `ability.cooldown` joins. A blink or a grapple inserts the
+/// body's movement-ability cooldown on first use, and the cooldown decides
+/// whether the next use fires. It was outside the rollback set.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 241;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

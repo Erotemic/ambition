@@ -1,5 +1,6 @@
-ggrs-rollback-schema-v240
+ggrs-rollback-schema-v241
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
+ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.player_mark	component-clone	PlayerMark	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.puppy_slug_ally	component-clone	PuppySlugAlly	bevy_ggrs clone snapshot; not in the session checksum

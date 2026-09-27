@@ -89,14 +89,12 @@ pub fn dispatch_landed_hit_effects(
 // The `pogo_bounce` engine technique.
 // ---------------------------------------------------------------------------
 
-/// `POGO_BOUNCE_KEY`, `PogoBounceParams` and their three accessors sat in this
-/// module beside the system that executes the rebound. The moveset PREFABS name
-/// the key and call `set_pogo_sfx` while building a contract, and character
-/// PREPARATION calls the prefabs — so while the technique's SCHEMA lived in
-/// `ambition_combat`, which depends on `ambition_characters`, the authoritative
-/// character model could not follow it down. Those three lines were the last
-/// obstacle on that row.
-pub use ambition_characters::technique::{pogo_rise_from, set_pogo_sfx, POGO_BOUNCE_KEY};
+/// The technique's SCHEMA (`POGO_BOUNCE_KEY`, `PogoBounceParams` and its
+/// readers) lives in `ambition_characters::technique`: the moveset PREFABS name
+/// the key while building a contract, and character PREPARATION, which is below
+/// this crate, calls the prefabs. This module keeps the system that executes
+/// the rebound.
+pub use ambition_characters::technique::{pogo_rise_from, POGO_BOUNCE_KEY};
 
 /// The contact cue a `pogo_bounce` effect authored, as an [`SfxId`].
 ///

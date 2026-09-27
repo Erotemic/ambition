@@ -2799,6 +2799,70 @@ fn the_spawn_grant_and_the_persona_derive_resolve_one_authored_kit() {
     );
 }
 
+/// HOW A BODY FIRES SAYS NOTHING ABOUT HOW IT SOUNDS.
+///
+/// A charger seated with a stage's set and the same charger built from its own
+/// identical set wear one moveset, and its swing carries the cue the move
+/// builder authors. A character with its own sound family authors it in its
+/// moves; no road infers it from `ChargedProjectile`.
+#[test]
+fn a_charger_swings_with_the_builders_cue_on_a_seat_and_at_spawn() {
+    use ambition_characters::brain::{MeleeActionSpec, RangedExecution, SwipeSpec};
+    use ambition_entity_catalog::{MoveEventKind, MovesetContract};
+    let kit = ActionSet {
+        melee: Some(MeleeActionSpec::Swipe(SwipeSpec {
+            windup_s: 0.05,
+            active_s: 0.1,
+            recover_s: 0.2,
+            damage: 3,
+            reach_px: 40.0,
+        })),
+        ..ActionSet::default()
+    };
+    let finalized = crate::character_runtime::prepare_and_finalize_for_test(
+        ambition_characters::actor::definition::CharacterDefinition::new(
+            "sparker", "Sparker", "demo",
+        )
+        .with_action_set(kit.clone())
+        .with_ranged_execution(RangedExecution::ChargedProjectile),
+        &ambition_characters::prepared::CharacterBindings::default(),
+    );
+    let (_, spawned) = finalized.prepared.kit.baseline();
+    let mut registry = ambition_characters::prepared::PreparedCharacterRegistry::default();
+    registry.insert_prepared(finalized.prepared);
+    let seated =
+        ambition_combat::worn_kit::WornKit::resolve(Some(&registry), "sparker", Some(&kit));
+    assert!(
+        seated.execution.charges_projectiles(),
+        "the premise is a charger that borrows a stage's set"
+    );
+
+    fn swing_cue(moveset: &MovesetContract) -> Option<&str> {
+        moveset
+            .move_for_verb("attack")?
+            .events
+            .iter()
+            .find_map(|event| match &event.kind {
+                MoveEventKind::Sfx { cue } => Some(cue.as_str()),
+                _ => None,
+            })
+    }
+    assert_eq!(
+        swing_cue(&seated.moveset),
+        Some(ambition_combat::moveset::SWING_SFX_CUE),
+        "the seated charger's swing is not the cue its builder authored"
+    );
+    assert_eq!(
+        swing_cue(&spawned),
+        Some(ambition_combat::moveset::SWING_SFX_CUE),
+        "the spawned charger's swing is not the cue its builder authored"
+    );
+    assert_eq!(
+        seated.moveset, spawned,
+        "the seat and the spawn grant disagree about what `sparker` swings"
+    );
+}
+
 /// A CHARACTER THAT AUTHORED ONLY MOVES IS ONE KIT ON BOTH ROADS.
 ///
 /// The spawn grant used to put its authored moves on the body as a live

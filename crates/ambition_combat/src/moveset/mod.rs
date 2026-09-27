@@ -59,35 +59,14 @@ pub use ambition_entity_catalog::{
     CAPTURE_THROW_FORWARD_VERB, CAPTURE_THROW_UP_VERB, GRAB_VERB,
 };
 
-// These three ids are what the builders themselves author into every moveset, and `prefabs.rs`
-// had to become lowerable to `ambition_characters` so character preparation could call
-// `build_actor_moveset` from below. Plain `&str`s travel; what could NOT travel is the
-// compile-time assertions under them, which need `ambition_sfx`'s id table — so the low crate
-// owns the text and this one keeps the pin.
+// These three ids are what the builders themselves author into every moveset. Character
+// preparation calls `build_actor_moveset` from `ambition_characters`, so the low crate owns the
+// text. The pin below needs `ambition_sfx`'s id table, which the low crate does not see, so this
+// crate keeps it: a swing cue that names no engine cue fails the build, not the ear.
 pub use ambition_characters::moveset_prefabs::{SLASH_ARC_VFX, SLASH_POKE_VFX, SWING_SFX_CUE};
 
-// AND THE THREE `PLAYER_ROBOT_*` CUES CAME BACK UP. They went down with the builders because
-// they were adjacent in the file, not because preparation needed them: the overlay that reads them
-// has exactly one production caller, the protagonist road, and `prepare_character` never reaches
-// it. Text in the low crate and its compile-time proof in this one was the shape that move created;
-// both are here now. See `player_robot_slash`'s own doc.
-mod player_robot_slash;
-pub use player_robot_slash::{
-    apply_player_robot_slash_sfx, PLAYER_ROBOT_IMPACT_SFX_CUE, PLAYER_ROBOT_POGO_SFX_CUE,
-    PLAYER_ROBOT_SWING_SFX_CUE,
-};
-
 const _: () = assert!(
-    ambition_sfx::SfxId::from_static(PLAYER_ROBOT_SWING_SFX_CUE).hash()
-        == ambition_sfx::ids::PLAYER_ROBOT_SLASH_AIR.hash()
-);
-const _: () = assert!(
-    ambition_sfx::SfxId::from_static(PLAYER_ROBOT_IMPACT_SFX_CUE).hash()
-        == ambition_sfx::ids::PLAYER_ROBOT_SLASH_IMPACT.hash()
-);
-const _: () = assert!(
-    ambition_sfx::SfxId::from_static(PLAYER_ROBOT_POGO_SFX_CUE).hash()
-        == ambition_sfx::ids::PLAYER_ROBOT_SLASH_IMPACT_POGO.hash()
+    ambition_sfx::SfxId::from_static(SWING_SFX_CUE).hash() == ambition_sfx::ids::PLAYER_SLASH.hash()
 );
 
 // D-B split: the MoveSpec builders and actor-moveset construction live in

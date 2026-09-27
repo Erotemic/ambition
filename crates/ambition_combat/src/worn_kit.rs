@@ -16,7 +16,7 @@ use ambition_characters::prepared::{
 };
 use ambition_entity_catalog::MovesetContract;
 
-use crate::moveset::{apply_player_robot_slash_sfx, build_actor_moveset};
+use crate::moveset::build_actor_moveset;
 
 /// What a body carries once it wears a character.
 #[derive(Clone, Debug)]
@@ -102,10 +102,13 @@ impl WornKit {
 /// Derive a persona's moves from its action set, given HOW it fires.
 ///
 /// Under `ChargedProjectile` the charge mechanic already owns the ranged press,
-/// so the ranged preset contributes no move and the kit wears the robot blade's
-/// sound family; under `MovesetVerb` the ranged preset IS the ranged verb. The
-/// `authored` contract overlays the derivation ([`overlay_authored_moves`]) —
-/// after the blade stamp, so authored cues are never retargeted.
+/// so the ranged preset contributes no move; under `MovesetVerb` the ranged
+/// preset IS the ranged verb. The `authored` contract overlays the derivation
+/// ([`overlay_authored_moves`]).
+///
+/// HOW A BODY FIRES SAYS NOTHING ABOUT HOW IT SOUNDS. A derived move carries the
+/// builder's cues on this road and in preparation alike. A character with its
+/// own sound family authors it in its moveset, as `player_robot.ron` does.
 ///
 /// `pub` for fixtures: a body's swing is built HERE, at spawn, from its action
 /// set, so a harness that mutates `ActionSet.melee` afterwards changes nothing
@@ -119,11 +122,8 @@ pub fn derive_persona_moveset(
         RangedExecution::ChargedProjectile => (None, set.special.as_ref()),
         RangedExecution::MovesetVerb => (set.ranged.as_ref(), set.special.as_ref()),
     };
-    let mut derived =
+    let derived =
         build_actor_moveset(None, set.melee.as_ref(), ranged, special).unwrap_or_default();
-    if execution.charges_projectiles() {
-        apply_player_robot_slash_sfx(&mut derived);
-    }
     overlay_authored_moves(derived, authored)
 }
 

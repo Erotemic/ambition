@@ -215,6 +215,56 @@ mod tests {
              pogo mode has to reinterpret: {launch:?}"
         );
     }
+
+    /// The robot's blade sound is authored in its own table, not given to it
+    /// because it charges its shots.
+    ///
+    /// The swing, the slash contact and the pogo rebound each name the robot's
+    /// cue, and the runtime readers turn each into the engine id. A table that
+    /// fell back to the builder's `player.slash` would sound like every other
+    /// body, and nothing else puts the robot's family back.
+    #[test]
+    fn the_robot_authors_its_own_blade_sounds() {
+        use ambition_entity_catalog::MoveEventKind;
+        use ambition_sfx::{ids, SfxId};
+        let set = shipped("player_robot_v3");
+        let jab = set.move_for_verb("attack").expect("the repertoire binds a jab");
+        let swing = jab
+            .events
+            .iter()
+            .find_map(|event| match &event.kind {
+                MoveEventKind::Sfx { cue } => Some(SfxId::new(cue)),
+                _ => None,
+            })
+            .expect("the jab sounds its swing");
+        assert_eq!(swing, ids::PLAYER_ROBOT_SLASH_AIR, "the jab's swing cue");
+        let jab_contact = jab
+            .windows
+            .iter()
+            .flat_map(|window| &window.volumes)
+            .find_map(|volume| volume.hit_sfx.as_deref())
+            .expect("the jab's blade names its contact cue");
+        assert_eq!(
+            SfxId::new(jab_contact),
+            ids::PLAYER_ROBOT_SLASH_IMPACT,
+            "the jab's contact cue selects the robot's material family"
+        );
+
+        let d_air = set
+            .move_for_verb("attack_air_down")
+            .expect("the repertoire binds a down-air");
+        let rebound = d_air
+            .windows
+            .iter()
+            .flat_map(|window| &window.volumes)
+            .find_map(|volume| volume.on_hit.as_ref())
+            .expect("the down-air carries its pogo effect");
+        assert_eq!(
+            ambition_combat::on_hit::pogo_sfx_from(rebound),
+            Some(ids::PLAYER_ROBOT_SLASH_IMPACT_POGO),
+            "the down-air's rebound cue"
+        );
+    }
 }
 
 #[cfg(test)]

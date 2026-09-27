@@ -28,6 +28,55 @@ pub enum RulesScope {
     EveryRoom,
 }
 
+/// Where the process is, as a rule scope sees it.
+///
+/// Three states, not an `Option` of a mode tag: "no room" and "a room with no
+/// tag" are different facts. The host's rules govern the host's rooms, and
+/// there are none before a session exists.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ActiveRoom<'a> {
+    /// No live session, so no room.
+    NoRoom,
+    /// A live room with no mode tag: a room of the host.
+    Untagged,
+    /// A live room tagged with a game's mode.
+    Mode(&'a str),
+}
+
+impl<'a> ActiveRoom<'a> {
+    /// A live room with this mode tag.
+    pub fn live(tag: Option<&'a str>) -> Self {
+        tag.map_or(Self::Untagged, Self::Mode)
+    }
+}
+
+impl RulesScope {
+    /// Whether this scope governs `room`. System gates and rule resolution both
+    /// ask this, so a game's systems run exactly where its rules govern.
+    ///
+    /// `EveryRoom` governs with no room too: a standalone game's rules are the
+    /// binary's rules, and its setup runs before the first room exists.
+    pub fn governs(self, room: ActiveRoom<'_>) -> bool {
+        match (self, room) {
+            (Self::EveryRoom, _) => true,
+            (Self::UntaggedRooms, ActiveRoom::Untagged) => true,
+            (Self::Mode(mode), ActiveRoom::Mode(tag)) => mode == tag,
+            _ => false,
+        }
+    }
+
+    /// Narrower scopes win: a room's own mode, then the untagged rooms, then
+    /// the whole process. No room is both tagged and untagged, so the first
+    /// two never compete.
+    fn breadth(self) -> u8 {
+        match self {
+            Self::Mode(_) => 0,
+            Self::UntaggedRooms => 1,
+            Self::EveryRoom => 2,
+        }
+    }
+}
+
 /// Every game's statement of one kind of rule `T` in this binary, and the
 /// rooms each statement governs.
 ///
@@ -71,28 +120,16 @@ impl<T: Copy + std::fmt::Debug> DeclaredRules<T> {
     }
 
     /// THE ONE PLACE the question "whose rules govern here?" is answered.
-    /// `mode` is the active room's mode tag.
     ///
-    /// Most specific first: the room's own mode, then the untagged-room
-    /// declaration for an untagged room, then a standalone game's
-    /// whole-process claim. A room that no game claimed reads `None`: the rules
-    /// of a different game are never the fallback.
-    pub fn governing(&self, mode: Option<&str>) -> Option<T> {
-        let find = |wanted: RulesScope| {
-            self.declarations
-                .iter()
-                .find(|(scope, _)| *scope == wanted)
-                .map(|(_, rules)| *rules)
-        };
-        let own = match mode {
-            Some(mode) => self
-                .declarations
-                .iter()
-                .find(|(scope, _)| matches!(scope, RulesScope::Mode(m) if *m == mode))
-                .map(|(_, rules)| *rules),
-            None => find(RulesScope::UntaggedRooms),
-        };
-        own.or_else(|| find(RulesScope::EveryRoom))
+    /// The narrowest declared scope that governs `room` wins (see
+    /// [`RulesScope::governs`]). A room that no game claimed reads `None`: the
+    /// rules of a different game are never the fallback.
+    pub fn governing(&self, room: ActiveRoom<'_>) -> Option<T> {
+        self.declarations
+            .iter()
+            .filter(|(scope, _)| scope.governs(room))
+            .min_by_key(|(scope, _)| scope.breadth())
+            .map(|(_, rules)| *rules)
     }
 
     /// Change the rules one scope states, in place. Returns `false` when no
@@ -156,9 +193,22 @@ mod tests {
         declared.declare(RulesScope::UntaggedRooms, 1);
         declared.declare(RulesScope::Mode("mary_o"), 2);
 
-        assert_eq!(declared.governing(Some("mary_o")), Some(2));
-        assert_eq!(declared.governing(None), Some(1));
-        assert_eq!(declared.governing(Some("smash")), None);
+        assert_eq!(declared.governing(ActiveRoom::Mode("mary_o")), Some(2));
+        assert_eq!(declared.governing(ActiveRoom::Untagged), Some(1));
+        assert_eq!(declared.governing(ActiveRoom::Mode("smash")), None);
+    }
+
+    /// The host's rules govern its live untagged rooms, and nothing before a
+    /// session exists: "no room" is not an untagged room.
+    #[test]
+    fn no_room_is_not_an_untagged_room() {
+        let mut declared = DeclaredRules::<u8>::default();
+        declared.declare(RulesScope::UntaggedRooms, 1);
+        declared.declare(RulesScope::Mode("mary_o"), 2);
+
+        assert_eq!(declared.governing(ActiveRoom::NoRoom), None);
+        assert!(!RulesScope::UntaggedRooms.governs(ActiveRoom::NoRoom));
+        assert!(!RulesScope::Mode("mary_o").governs(ActiveRoom::NoRoom));
     }
 
     /// A standalone game's claim is the whole process, including its own
@@ -171,8 +221,10 @@ mod tests {
         let mut declared = DeclaredRules::<u8>::default();
         declared.declare(RulesScope::EveryRoom, 3);
 
-        assert_eq!(declared.governing(None), Some(3));
-        assert_eq!(declared.governing(Some("mary_o")), Some(3));
+        assert_eq!(declared.governing(ActiveRoom::Untagged), Some(3));
+        assert_eq!(declared.governing(ActiveRoom::Mode("mary_o")), Some(3));
+        // Before the first room too: its setup runs under its own rules.
+        assert_eq!(declared.governing(ActiveRoom::NoRoom), Some(3));
     }
 
     /// A mode's own claim outranks a whole-process one, so a composition that
@@ -183,7 +235,8 @@ mod tests {
         declared.declare(RulesScope::EveryRoom, 9);
         declared.declare(RulesScope::Mode("mary_o"), 2);
 
-        assert_eq!(declared.governing(Some("mary_o")), Some(2));
+        assert_eq!(declared.governing(ActiveRoom::Mode("mary_o")), Some(2));
+        assert_eq!(declared.governing(ActiveRoom::Untagged), Some(9));
     }
 
     /// Two games that claim one set of rooms is a contradiction at build time,
@@ -206,7 +259,7 @@ mod tests {
 
         let bytes = app.world().resource::<DeclaredRules<u8>>();
         let words = app.world().resource::<DeclaredRules<u16>>();
-        assert_eq!(bytes.governing(Some("mary_o")), Some(2));
-        assert_eq!(words.governing(Some("mary_o")), Some(7));
+        assert_eq!(bytes.governing(ActiveRoom::Mode("mary_o")), Some(2));
+        assert_eq!(words.governing(ActiveRoom::Mode("mary_o")), Some(7));
     }
 }

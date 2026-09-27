@@ -524,15 +524,15 @@ pub fn install_sanic_content(app: &mut App) {
                 "content.sanic_scattered_ring",
                 rollback_probes::scattered_ring,
             )
-            // The shield is a projection of the worn row and the room's mode.
-            // `sync_sanic_wallet_shield` runs every tick, in every room, before
+            // The shield is a projection of the worn row and the rules' scope.
+            // One of its two writers runs every tick, in every room, before
             // hit resolution reads it, so a restored snapshot needs no copy.
             .declare_rollback_derived_component::<
                 ambition_platformer2d::characters::actor::BodyWalletShield,
             >(
                 "ambition_demo_sanic",
                 "derived.sanic_wallet_shield",
-                "re-derived from the worn row and the active room's mode every tick, before hit resolution reads it",
+                "re-derived from the worn row and the rules' scope every tick, before hit resolution reads it",
             )
             // The overlay subtracts spent monitors from collision every frame,
             // so a rewind that does not restore the set disagrees with the
@@ -965,12 +965,15 @@ impl Plugin for SanicRulesPlugin {
         let gate = ambition_platformer2d::runtime::in_rules_scope(self.scope);
         app.add_systems(sim, sanic_pre_gate.run_if(gate.clone()));
         app.add_systems(sim, sanic_post_gate.run_if(gate));
-        // The marker is derived from identity and room: leaving the Sanic
-        // rooms removes the shield even if the same persona stays selected,
-        // because no ring-scatter consumer runs there.
+        // The marker is derived from identity and the rules' scope: leaving
+        // the scope removes the shield even if the same persona stays selected.
+        let in_scope = ambition_platformer2d::runtime::in_rules_scope(self.scope);
         app.add_systems(
             sim,
-            sync_sanic_wallet_shield
+            (
+                project_sanic_wallet_shield.run_if(in_scope.clone()),
+                retract_sanic_wallet_shield.run_if(bevy::prelude::not(in_scope)),
+            )
                 .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::PlayerInput)
                 // Order against `Persona`, the contract, not against
                 // `apply_worn_character_gameplay`, which may be renamed.
@@ -1505,39 +1508,28 @@ type SanicShieldBodies<'w, 's> = bevy::prelude::Query<
     ambition_platformer2d::platformer::markers::PrimaryPlayerOnly,
 >;
 
-/// The one system that decides whether a body's wallet absorbs a hit.
+/// Whether a body's wallet absorbs a hit, where Sanic's rules govern.
 ///
-/// Yes for a character whose row states `wallet_shield`, in a Sanic room; no
-/// for the other bodies this rule covers. `in_sanic_rooms` reads the active room's mode tag, not a
-/// constructor flag, so hosted and standalone use one system.
+/// Yes for a character whose row states `wallet_shield`, no for the other
+/// bodies this rule covers. It runs only inside the plugin's scope, and
+/// [`retract_sanic_wallet_shield`] runs only outside it, so the scope is the
+/// one answer to "do Sanic's rules apply here" for both.
 ///
 /// Derived state, not an input edge: rebuilding it every frame avoids a
 /// rollback latch and keeps the shared damage resolver content-agnostic.
-fn sync_sanic_wallet_shield(
+fn project_sanic_wallet_shield(
     mut commands: bevy::prelude::Commands,
-    rooms: Option<
-        ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
-            ambition_platformer2d::world::rooms::RoomSet,
-        >,
-    >,
     cast: Option<
         bevy::prelude::Res<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>,
     >,
     bodies: SanicShieldBodies<'_, '_>,
 ) {
-    let in_sanic_rooms =
-        rooms.is_some_and(|rooms| rooms.active_metadata().mode.as_deref() == Some(SANIC_MODE));
     for (entity, worn, shielded) in &bodies {
         let row_shields = cast
             .as_deref()
             .and_then(|cast| cast.get(worn.id()))
             .is_some_and(|character| character.wallet_shield);
-        // Not this ruleset's body (see `SanicShieldBodies`).
-        if !row_shields && !shielded {
-            continue;
-        }
-        let enabled = in_sanic_rooms && row_shields;
-        match (enabled, shielded) {
+        match (row_shields, shielded) {
             (true, false) => {
                 commands
                     .entity(entity)
@@ -1549,6 +1541,21 @@ fn sync_sanic_wallet_shield(
                     .remove::<ambition_platformer2d::characters::actor::BodyWalletShield>();
             }
             _ => {}
+        }
+    }
+}
+
+/// Outside Sanic's rooms no body's wallet absorbs a hit, because no
+/// ring-scatter consumer runs there.
+fn retract_sanic_wallet_shield(
+    mut commands: bevy::prelude::Commands,
+    bodies: SanicShieldBodies<'_, '_>,
+) {
+    for (entity, _, shielded) in &bodies {
+        if shielded {
+            commands
+                .entity(entity)
+                .remove::<ambition_platformer2d::characters::actor::BodyWalletShield>();
         }
     }
 }

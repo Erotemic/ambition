@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v243
+ggrs-rollback-schema-v244
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -189,7 +189,7 @@ derived.resolved_hurtboxes	derived	ResolvedHurtboxes	recomputed from AuthoredHur
 derived.resolved_motion_frame	derived	ResolvedMotionFrame	published every tick from the live environment
 derived.resolved_switch_activations	derived	ResolvedSwitchActivations	this tick's drained switch activations with their post-toggle values; rebuilt every drain
 derived.resolved_technique_edges	derived	ResolvedTechniqueEdges	cleared and republished from current input every frame
-derived.sanic_wallet_shield	derived	BodyWalletShield	re-derived from the worn row and the active room's mode every tick, before hit resolution reads it
+derived.sanic_wallet_shield	derived	BodyWalletShield	re-derived from the worn row and the rules' scope every tick, before hit resolution reads it
 derived.slot_controls	derived	SlotControls	republished from GGRS PlayerInputs at the head of every frame
 derived.surface_upright	derived	SurfaceUpright	republished from support facts every movement step
 dynamic.projectile	dynamic-anchor	ProjectileGameplay	Rollback entity recreation plus the complete projectile component family

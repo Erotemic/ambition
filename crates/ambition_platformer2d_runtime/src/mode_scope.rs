@@ -12,6 +12,7 @@ use ambition_platformer2d_shared_tangle::lifecycle::{despawn_scoped_entity, Mode
 use ambition_platformer2d_shared_tangle::schedule::{
     Platformer2dSimulationPhaseMonolith, SimScheduleExt as _,
 };
+use ambition_platformer2d_actor_monolith::session::governing_rules::CurrentRoom;
 use ambition_platformer2d_world::rooms::RoomSet;
 
 /// Run condition: the active room belongs to the game mode `name`.
@@ -19,10 +20,7 @@ use ambition_platformer2d_world::rooms::RoomSet;
 /// The absent-resource case is `false`: an app with no world installed is in no
 /// mode, so a hosted ruleset stays asleep rather than panicking. `None` mode
 /// metadata is the base game, and matches no named mode.
-pub fn in_mode(
-    name: &'static str,
-) -> impl FnMut(Option<ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<RoomSet>>) -> bool
-       + Clone {
+pub fn in_mode(name: &'static str) -> impl FnMut(CurrentRoom) -> bool + Clone {
     in_rules_scope(RulesScope::Mode(name))
 }
 
@@ -31,23 +29,12 @@ pub fn in_mode(
 /// and gates both its declared rules and its systems with that one value, so a
 /// hosted and a standalone composition differ in the scope and in nothing else.
 ///
-/// `EveryRoom` is `true` with no world at all, because a standalone game's rules
-/// are the binary's rules.
-pub fn in_rules_scope(
-    scope: RulesScope,
-) -> impl FnMut(Option<ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<RoomSet>>) -> bool
-       + Clone {
-    move |rooms: Option<ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<RoomSet>>| {
-        match scope {
-            RulesScope::Mode(name) => {
-                rooms.is_some_and(|rooms| rooms.active_metadata().mode.as_deref() == Some(name))
-            }
-            RulesScope::UntaggedRooms => {
-                rooms.is_some_and(|rooms| rooms.active_metadata().mode.is_none())
-            }
-            RulesScope::EveryRoom => true,
-        }
-    }
+/// It asks [`RulesScope::governs`], the question `GoverningRules` asks, so a
+/// gated system runs exactly where the same scope's rules govern. `EveryRoom`
+/// is `true` with no world at all, because a standalone game's rules are the
+/// binary's rules.
+pub fn in_rules_scope(scope: RulesScope) -> impl FnMut(CurrentRoom) -> bool + Clone {
+    move |room: CurrentRoom| room.in_scope(scope)
 }
 
 /// Run condition: a live session is in Ambition's OWN base mode — an active room
@@ -62,10 +49,8 @@ pub fn in_rules_scope(
 /// mode". Pair it with the canonical session gate
 /// [`ambition_platformer2d_shared_tangle::lifecycle::simulation_authorized`] when a
 /// system also needs the full scope-identity guarantee.
-pub fn in_base_mode(
-    rooms: Option<ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<RoomSet>>,
-) -> bool {
-    rooms.is_some_and(|rooms| rooms.active_metadata().mode.is_none())
+pub fn in_base_mode(room: CurrentRoom) -> bool {
+    room.in_scope(RulesScope::UntaggedRooms)
 }
 
 /// Despawn every [`ModeScopedEntity`] whose mode is not the active room's.

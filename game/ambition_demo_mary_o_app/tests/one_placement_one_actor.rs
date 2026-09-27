@@ -126,7 +126,7 @@ fn every_authored_enemy_sleeps_when_she_is_far() {
     let rule = app
         .world()
         .get_resource::<DeclaredRules<DormancyRule>>()
-        .and_then(|rules| rules.governing(Some(ambition_demo_mary_o::MARY_O_MODE)))
+        .and_then(|rules| rules.governing(ambition_platformer2d::combat::scoped_rules::ActiveRoom::live(Some(ambition_demo_mary_o::MARY_O_MODE))))
         .expect("Mary-O states a dormancy rule for her rooms");
     assert_eq!(rule.hostile_wake_radius, ambition_demo_mary_o::MARY_O_WAKE_RADIUS);
 

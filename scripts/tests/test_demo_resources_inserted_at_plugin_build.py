@@ -72,11 +72,6 @@ def test_an_overwriting_insert_of_a_foreign_type_is_flagged_and_a_variable_is_no
     one at build any more, so that half is asked of the rule directly.
     """
     module = _module()
-    out = []
-    for _crate, hits in module.inserted_at_build().items():
-        out += [label for _f, label in hits]
-    flagged = [o for o in out if "OVERWRITING" in o]
-    assert any(o.startswith("RespawnInterval") for o in flagged), flagged
     assert not module.is_overwriting_foreign_insert(
         "insert_resource(goal_pole", "goal_pole", set()
     )

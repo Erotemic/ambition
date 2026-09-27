@@ -91,13 +91,16 @@ impl SnapshotState for crate::components::FighterStocks {
     fn encode(&self, out: &mut Vec<u8>) {
         put_u32(out, self.remaining);
         put_u32(out, self.started_with);
+        put_f32(out, self.respawn_after);
     }
     fn decode(r: &mut Reader<'_>) -> Option<Self> {
         let remaining = r.u32()?;
         let started_with = r.u32()?;
+        let respawn_after = r.f32()?;
         Some(crate::components::FighterStocks {
             remaining,
             started_with,
+            respawn_after,
         })
     }
 }

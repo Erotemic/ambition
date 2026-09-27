@@ -75,12 +75,11 @@ MIN_DEMOS = 3
 #: ⚠ A COUNT AND NEVER AN ALLOWLIST OF NAMES. A name list is an amnesty: the way
 #: to silence a real one becomes adding a row, and the diff reads as housekeeping.
 #: A ceiling can only be raised deliberately, with a reason, in a commit.
-#: ⚠ Today's one is `ambition_demo_smash` inserting `ambition_combat`'s
-#: `RespawnInterval` -- a per-MATCH knob whose own doc says no shipped room
-#: carries both it and `DeathRules`, so smash is the sole production owner.
+#: ⚠ None today: AP104 moved the last one, Smash's `RespawnInterval`, onto the
+#: seats its match builds.
 #: (Formulation from the fighter lane, which hit the same blindness the same day:
 #: a floor catches a mechanic being REMOVED and cannot see a plain one ADDED.)
-MAX_OVERWRITING_FOREIGN_INSERTS = 1
+MAX_OVERWRITING_FOREIGN_INSERTS = 0
 
 
 def is_overwriting_foreign_insert(call: str, name: str, mine: set[str]) -> bool:

@@ -809,7 +809,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// one is the spawn guard, and the attempt reset retires by the other.
 /// ⛔⛤ 242 -> 243: `scope.mode` joins. The mode owner is anchored, so a rewind
 /// can re-create it, and the mode sweep finds the owner only by this marker.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 243;
+/// ⛔⛤ 243 -> 244: `FighterStocks` encodes `respawn_after`. The match states a
+/// fighter's respawn interval, and the seat carries it on its stocks, so the
+/// interval is on the body and in its bytes.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 244;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

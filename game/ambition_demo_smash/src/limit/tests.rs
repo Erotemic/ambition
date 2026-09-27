@@ -8,10 +8,10 @@ fn app(fill: LimitMeterFill) -> App {
     app.add_message::<ResolvedBodyHit>();
     app.add_message::<BlockedBodyHit>();
     app.init_resource::<ambition_platformer2d::time::WorldTime>();
-    // No session reads as an untagged room.
+    // No session here, so only a whole-process declaration governs.
     {
         use ambition_platformer2d::combat::scoped_rules::{DeclareRulesExt as _, RulesScope};
-        app.declare_rules(RulesScope::UntaggedRooms, SmashLimitFill(fill));
+        app.declare_rules(RulesScope::EveryRoom, SmashLimitFill(fill));
     }
     {
         let mut time = app
@@ -48,7 +48,7 @@ fn fighter(app: &mut App) -> Entity {
     let declaration = app
         .world()
         .resource::<ambition_platformer2d::combat::scoped_rules::DeclaredRules<SmashLimitFill>>()
-        .governing(None)
+        .governing(ambition_platformer2d::combat::scoped_rules::ActiveRoom::NoRoom)
         .expect("the test app declares a fill")
         .0
         .declaration();

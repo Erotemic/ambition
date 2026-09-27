@@ -517,7 +517,10 @@ pub fn activate_the_prepared_match(
             entity.try_insert(ambition_mount::CanPilot { classes });
         }
         if let Some(stocks) = rules.stocks {
-            entity.try_insert(ambition_combat::components::FighterStocks::new(stocks));
+            entity.try_insert(
+                ambition_combat::components::FighterStocks::new(stocks)
+                    .returning_after(rules.stock_respawn_seconds),
+            );
         }
         if let Some(contact) = rules.fighter_contact {
             entity.try_insert(contact);

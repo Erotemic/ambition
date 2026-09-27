@@ -166,6 +166,10 @@ pub struct PreparedSeat {
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct MatchRules {
     pub stocks: Option<u32>,
+    /// Seconds a fighter that spent a stock stays out of play before it is
+    /// placed again; `0` places it on the knockout tick. Each seat's
+    /// `FighterStocks` carries it, so only a stocks match reads it.
+    pub stock_respawn_seconds: f32,
     /// What this match says its fighters may do — a floor and a ceiling, or
     /// `None` to leave every character's own kit alone. See
     /// [`MatchAbilities`](ambition_platformer2d_core::MatchAbilities).

@@ -439,3 +439,50 @@ fn a_room_rule_projects_into_its_read_model_and_changes_only_with_the_answer() {
     );
     assert_eq!(seen(&mut app, "b"), (None, 3), "the tint followed the player out of its mode");
 }
+
+/// "No room" and "a live untagged room" are different facts, and a rule and
+/// the gate for its scope agree on both.
+///
+/// The host's rules (`UntaggedRooms`) govern its live untagged rooms and
+/// nothing before a session exists. A standalone game's rules (`EveryRoom`)
+/// govern with no room too, so its setup runs under them.
+#[test]
+fn a_rule_and_its_gate_agree_about_no_room_an_untagged_room_and_a_mode() {
+    use ambition_combat::scoped_rules::{DeclareRulesExt as _, RulesScope};
+    use ambition_platformer2d_actor_monolith::session::governing_rules::GoverningRules;
+    use bevy::ecs::system::RunSystemOnce as _;
+
+    fn read(app: &mut App) -> (Option<u8>, bool, Option<u16>, bool) {
+        app.world_mut()
+            .run_system_once(
+                |host: GoverningRules<u8>,
+                 standalone: GoverningRules<u16>,
+                 room: ambition_platformer2d_runtime::CurrentRoom| {
+                    (
+                        host.get(),
+                        room.in_scope(RulesScope::UntaggedRooms),
+                        standalone.get(),
+                        room.in_scope(RulesScope::EveryRoom),
+                    )
+                },
+            )
+            .expect("the readers run")
+    }
+
+    let mut app = App::new();
+    app.declare_rules(RulesScope::UntaggedRooms, 1u8);
+    app.declare_rules(RulesScope::Mode("a"), 2u8);
+    app.declare_rules(RulesScope::EveryRoom, 7u16);
+
+    assert_eq!(
+        read(&mut app),
+        (None, false, Some(7), true),
+        "(host rule, host gate, standalone rule, standalone gate) with no session: \
+         the host's untagged-room rules must not govern before a room exists"
+    );
+    insert_session_rooms(&mut app);
+    set_mode(&mut app, None);
+    assert_eq!(read(&mut app), (Some(1), true, Some(7), true), "a live untagged room");
+    set_mode(&mut app, Some("a"));
+    assert_eq!(read(&mut app).0, Some(2), "a live room of mode `a` reads `a`'s rules");
+}

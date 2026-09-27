@@ -143,14 +143,10 @@ fn compose_ambition_shell_host_inner(app: &mut App, initial_route: &str) {
 /// standalone demo app this bridge is absent and the flag stays `false`.
 #[cfg(feature = "basic_shell_presentation")]
 fn sync_shell_pause_suppression(
-    rooms: Option<
-        ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
-            ambition_platformer2d::world::rooms::RoomSet,
-        >,
-    >,
+    room: ambition_platformer2d::runtime::CurrentRoom,
     mut suppressed: ResMut<ambition_platformer2d::game_shell::ShellPauseMenuSuppressed>,
 ) {
-    suppressed.0 = ambition_platformer2d::runtime::in_base_mode(rooms);
+    suppressed.0 = ambition_platformer2d::runtime::in_base_mode(room);
 }
 
 /// The optional startup vanity sequence (engine card, then authorship card).

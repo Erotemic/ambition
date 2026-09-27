@@ -143,6 +143,7 @@ pub fn apply_smash_match_rules(roster: &mut MatchParticipantRoster, stocks: u32)
     // A parameter, not a constant or a resource read here: both roads
     // (`smash_roster` and `SmashSelect::roster_seeded`) must state the count.
     roster.rules.stocks = Some(stocks);
+    roster.rules.stock_respawn_seconds = RESPAWN_INTERVAL_SECONDS;
     // The match supplies one health pool for percent calculation so crossover
     // characters are measured against this ruleset rather than their home games.
     roster.rules.health_pool = Some(SMASH_PERCENT_REFERENCE);
@@ -628,11 +629,6 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         app.add_message::<ambition_platformer2d::actor::FighterStockSpent>();
         app.add_message::<ambition_platformer2d::actor::FighterRespawnDue>();
         app.add_message::<ambition_platformer2d::actor::StocksMatchDecided>();
-        // D192: this stage authors the respawn beat. The engine default is
-        // zero (same-tick placement).
-        app.insert_resource(ambition_platformer2d::actor::RespawnInterval {
-            seconds: RESPAWN_INTERVAL_SECONDS,
-        });
         // The combat rules and the prompt vocabulary govern Smash's rooms, and
         // no other room. A room that leaves the mode leaves the rules, so
         // nothing publishes them on entry or gives them back on exit.

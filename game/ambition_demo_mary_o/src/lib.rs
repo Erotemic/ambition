@@ -908,9 +908,8 @@ pub fn exit_of(room: &RoomSpec) -> LevelDestination {
 /// Start a fresh lap when the active room changes.
 ///
 /// The goal and where it leads are not copied here: the flag and the departure
-/// read them from the active room where they use them. A copy made on a room
-/// change was one room behind for every tick a rewind resimulated before the
-/// copy was made again.
+/// read them from the active room where they use them, so no copy can be a
+/// room behind.
 ///
 /// `RoomSet` is the authority, not a change-detected id. It is the same
 /// value the transition itself resolves against, so "which room am I in" has one

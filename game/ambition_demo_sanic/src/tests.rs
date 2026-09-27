@@ -2372,3 +2372,60 @@ fn every_painted_joint_can_be_ridden_past() {
         }
     }
 }
+
+/// The ring shield follows `SanicRulesPlugin`'s scope, the same answer that
+/// wakes the rest of Sanic's rules, for both the shield and its removal.
+///
+/// A standalone composition (`global()`) in a live room with no mode tag runs
+/// Sanic's gameplay, so Sanic's body carrying rings is shielded. The hosted
+/// composition is shielded in a Sanic room, and loses the shield in a room
+/// that is not Sanic's.
+#[test]
+fn the_ring_shield_follows_the_rules_scope() {
+    use ambition_platformer2d::characters::actor::{BodyWallet, BodyWalletShield, WornCharacter};
+
+    /// Whether Sanic's body is shielded after a visit to each room in turn.
+    fn shielded_through(rules: SanicRulesPlugin, rooms: &[Option<&str>]) -> Vec<bool> {
+        let mut app = App::new();
+        ambition_platformer2d::engine::add_headless_foundation(&mut app);
+        app.add_plugins(ambition_platformer2d::engine::PlatformerEnginePlugins::fixed_tick());
+        app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
+            std::time::Duration::from_secs_f64(1.0 / 60.0),
+        ));
+        install_sanic_content(&mut app);
+        app.add_plugins(rules);
+        let body = app
+            .world_mut()
+            .spawn((
+                ambition_platformer2d::platformer::markers::PlayerEntity,
+                ambition_platformer2d::platformer::markers::PrimaryPlayer,
+                WornCharacter::new(SANIC_CHARACTER_ID),
+                BodyWallet { balance: 10 },
+            ))
+            .id();
+        rooms
+            .iter()
+            .map(|mode| {
+                ambition_platformer2d::platformer::lifecycle::insert_session_world_component(
+                    app.world_mut(),
+                    rooms_in_mode(*mode),
+                );
+                for _ in 0..4 {
+                    app.update();
+                }
+                app.world().get::<BodyWalletShield>(body).is_some()
+            })
+            .collect()
+    }
+
+    assert_eq!(
+        shielded_through(SanicRulesPlugin::global(), &[None]),
+        vec![true],
+        "Sanic's rules govern this untagged room, and his row states the shield"
+    );
+    assert_eq!(
+        shielded_through(SanicRulesPlugin::hosted(), &[Some(SANIC_MODE), None]),
+        vec![true, false],
+        "a hosted Sanic is shielded in his own room and not in a room of the host"
+    );
+}

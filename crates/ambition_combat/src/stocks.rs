@@ -164,35 +164,6 @@ pub struct FighterStockSpent {
 #[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct PendingRespawn;
 
-/// How long a returning fighter waits, authored by the RULESET.
-///
-/// Default zero, which is the behaviour every existing ruleset already had: the
-/// body is placed on the tick the stock is spent. A mode that wants the beat
-/// inserts its own. ⛔ this is CONFIG, set once when the mode is built — it is
-/// not rollback state, and nothing in the sim writes it.
-///
-/// ⭐ SECONDS, and the same seconds
-/// [`DeathRules::interlude`](crate::death_rules::DeathRules::interlude) counts.
-/// D192 authored ticks and argued determinism for it; the engine's own window
-/// has counted seconds against `WorldTime` since ADR 0033 and rewinds correctly,
-/// so the tick spelling was a deviation defended by a premise its neighbour
-/// already disproves. One clock, or the beat is a different length depending on
-/// which half of it you ask.
-///
-/// ⛔ NOT folded into `DeathRules` itself, and the reason is a SCOPE difference
-/// rather than a layering excuse: `DeathRules` is declared per ROOM and answers
-/// "what does a participant's death cost the level", resolved through the
-/// active room's mode — which this crate cannot see. `RespawnInterval` is
-/// declared per MATCH RULESET. No room in the shipped composition carries both:
-/// the Smash arena declares no death rules at all, so the two knobs have never
-/// once had to agree. If a mode ever wants both, that is the moment to make the
-/// resolved `DeathRules` reach this seam, not before.
-#[derive(bevy::prelude::Resource, Clone, Copy, Debug, PartialEq, Default)]
-pub struct RespawnInterval {
-    /// Seconds the window stays open before the body is placed.
-    pub seconds: f32,
-}
-
 /// The interval elapsed — the ruleset's cue to PLACE the body.
 ///
 /// ⭐ THE SEAM. The engine owns *when* a fighter comes back; a ruleset owns
@@ -395,11 +366,7 @@ pub fn spend_fighter_stocks(
     // ruleset, which is why the beat is published HERE and not later.
     positions: Query<&ambition_platformer2d_core::BodyKinematics>,
     mut beat: MessageWriter<ambition_vfx::vfx::KnockoutBeatRequested>,
-    interval: Option<Res<RespawnInterval>>,
 ) {
-    // Absent resource == zero == the same-tick placement every ruleset had
-    // before D192. A missing knob must not change anybody's behaviour.
-    let interval = interval.map(|i| *i).unwrap_or_default();
     // Message order is write order, which is deterministic; nothing here sorts
     // or iterates a query, so there is no hash-order hazard to guard against.
     for knockout in knockouts.read() {
@@ -478,7 +445,7 @@ pub fn spend_fighter_stocks(
                 PendingRespawn,
                 crate::death_rules::OutOfPlay,
                 crate::death_rules::DeathInterlude {
-                    remaining: interval.seconds,
+                    remaining: stocks.respawn_after,
                     // ⛔ the LEVEL's consequence, which for a stocks match is
                     // none. `close_death_interlude` spends this once the window
                     // shuts and then asks the room's `LevelReset`; a versus
@@ -643,9 +610,10 @@ mod tests {
     const TEST_DT: f32 = 1.0 / 60.0;
 
     fn fighter(app: &mut App, stocks: u32) -> Entity {
+        let stocks = seat_stocks(app, stocks);
         app.world_mut()
             .spawn((
-                FighterStocks::new(stocks),
+                stocks,
                 BodyHealth::new(Health::new(50)).with_policy(DeathPolicy::Unbounded),
             ))
             .id()
@@ -684,9 +652,7 @@ mod tests {
         // The knockout beat the spend publishes. A presentation intent, but the
         // channel has to exist or the spend cannot run at all.
         app.add_message::<ambition_vfx::vfx::KnockoutBeatRequested>();
-        app.insert_resource(RespawnInterval {
-            seconds: interval_seconds,
-        });
+        app.insert_resource(HarnessInterval(interval_seconds));
         app.insert_resource(ambition_time::WorldTime {
             raw_dt: TEST_DT,
             scaled_dt: TEST_DT,
@@ -727,10 +693,20 @@ mod tests {
         body
     }
 
+    /// The interval the harness's match gives each fighter it seats.
+    #[derive(Resource, Clone, Copy)]
+    struct HarnessInterval(f32);
+
+    fn seat_stocks(app: &App, stocks: u32) -> FighterStocks {
+        let interval = app.world().get_resource::<HarnessInterval>().map_or(0.0, |i| i.0);
+        FighterStocks::new(stocks).returning_after(interval)
+    }
+
     fn combat_fighter(app: &mut App, stocks: u32) -> Entity {
+        let stocks = seat_stocks(app, stocks);
         app.world_mut()
             .spawn((
-                FighterStocks::new(stocks),
+                stocks,
                 BodyHealth::new(Health::new(50)).with_policy(DeathPolicy::Unbounded),
                 crate::components::ActiveCombatant,
             ))

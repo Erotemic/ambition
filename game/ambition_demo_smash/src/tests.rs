@@ -712,13 +712,13 @@ fn the_stage_declares_its_di_budget_for_its_own_rooms_only() {
 
     let declared = app.world().resource::<DeclaredRules<CombatRules>>();
     assert_eq!(
-        declared.governing(Some(SMASH_MODE)),
+        declared.governing(ambition_platformer2d::combat::scoped_rules::ActiveRoom::live(Some(SMASH_MODE))),
         Some(crate::smash_combat_rules()),
         "a Smash stage must play under the rules Smash declares"
     );
     for elsewhere in [None, Some("mary_o"), Some("ambition_versus")] {
         assert_eq!(
-            declared.governing(elsewhere),
+            declared.governing(ambition_platformer2d::combat::scoped_rules::ActiveRoom::live(elsewhere)),
             None,
             "⛔ the stage's DI budget governs a room it does not own ({elsewhere:?}) and \
              follows the player into a game that authored none"

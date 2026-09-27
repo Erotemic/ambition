@@ -1247,26 +1247,6 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "ambition_platformer2d_provider::lifecycle::CandidateSessionGateEvaluator",
         "a SystemId registered once at plugin build for the shell activation gate; never written again",
     ),
-    // The tier floor of the room the HOST is loading behind a cover.
-    //
-    // The authored respawn beat, in SECONDS.
-    //
-    // ⭐ CONFIG, NOT STATE, and structurally so: the ruleset inserts it once in
-    // its plugin `build` and NOTHING in the simulation writes it. A rewind
-    // restoring it would restore the same number it already holds.
-    //
-    // ⛔ WHAT IS ROLLBACK STATE IS `DeathInterlude::remaining`, the countdown
-    // this SEEDS — the window a body waits out is a position in time, so it
-    // rewinds. `PendingRespawn` beside it is a MARKER: it names the consequence
-    // the window owes when it closes and carries no countdown of its own.
-    //
-    // ⛔⛔ A WAIVER IS KEYED BY TYPE NAME, SO ITS REASON CAN GO STALE WITHOUT
-    // ANYTHING FAILING — and a stale reason hands the next rollback reviewer an
-    // architecture that is gone. Re-read the reason when the type moves.
-    (
-        "ambition_combat::stocks::RespawnInterval",
-        "authored config in seconds: inserted once at plugin build, never written by a system; the countdown it seeds (DeathInterlude::remaining) is registered",
-    ),
     // SOMEBODY ASKED TO STOP A MATCH, and this one is waived because rewinding
     // it would LOSE the request rather than preserve it.
     //
@@ -2057,30 +2037,10 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "ambition_characters::brain::fighter::profile::AuthoredFighterLadder",
         "authored difficulty rungs, lowered from the content pack; the one runtime          writer is the reload transaction, which the publication boundary refuses          while a timeline is live, so no tick a rewind can reach changed it",
     ),
-    // THE LIMIT METER'S AUTHORED RULES: its cap, its slow idle tick, and how
-    // much a damage instance adds on each side of the exchange. Jon's baseline
-    // (cap 60, +0.5/s, +1.0 and 0.1x dealt, +2.0 and 0.2x taken), lowered into
-    // the smash ruleset at plugin build.
-    //
-    // ⭐ SAME SHAPE AS `RespawnInterval` ABOVE, and for the same reason: the
-    // demo inserts it once in `build` and no system writes it, so there is no
-    // tick at which its value differs from the tick before.
-    //
-    // ⛔ WHAT IS ROLLBACK STATE IS THE METER IT FILLS — the Limit slot of the
-    // seat's `ActorResources`, registered `component-canonical` in the
-    // baseline, so a fighter's CURRENT charge
-    // rewinds with everything else. The rule for how fast it fills does not,
-    // because a resimulation reads the same rule and refills identically.
-    //
-    // ⚠ If a future move ever WRITES this (a character that permanently raises
-    // its own cap mid-match), the waiver is wrong and the resource becomes
-    // ordinary rollback state — the reason above is the thing to re-read, not
-    // the type name.
     // HOW FAST A DRIVEN BODY'S MANA REFILLS, as the composition's statement.
     //
-    // ⭐ SAME SHAPE AS THE TWO ABOVE: inserted once at plugin build, never
-    // written by a system. A rewind restoring it would restore the same number
-    // it already holds.
+    // ⭐ Inserted once at plugin build, never written by a system. A rewind
+    // restoring it would restore the same number it already holds.
     //
     // ⛔ WHAT IS ROLLBACK STATE IS THE METER ITSELF (the Mana level in the
     // body's `ActorResources`, `component-canonical`), which is exactly the

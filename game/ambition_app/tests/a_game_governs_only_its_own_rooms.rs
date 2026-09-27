@@ -64,7 +64,7 @@ fn a_smash_stage_does_not_inherit_mary_os_level_replay() {
     let rules = declared(&app);
 
     let hers = rules
-        .governing(Some(ambition_demo_mary_o::MARY_O_MODE))
+        .governing(ambition_platformer2d::combat::scoped_rules::ActiveRoom::live(Some(ambition_demo_mary_o::MARY_O_MODE)))
         .unwrap_or_default();
     assert_eq!(
         hers.interlude,
@@ -80,7 +80,7 @@ fn a_smash_stage_does_not_inherit_mary_os_level_replay() {
         "…and her level must still go back when nobody is left in play",
     );
 
-    let stage = rules.governing(Some(ambition_demo_smash::SMASH_MODE));
+    let stage = rules.governing(ambition_platformer2d::combat::scoped_rules::ActiveRoom::live(Some(ambition_demo_smash::SMASH_MODE)));
     assert_eq!(
         stage,
         None,
@@ -106,7 +106,7 @@ fn each_declared_mode_resolves_to_its_own_games_rules() {
             continue;
         };
         assert_eq!(
-            rules.governing(Some(mode)),
+            rules.governing(ambition_platformer2d::combat::scoped_rules::ActiveRoom::live(Some(mode))),
             Some(stated),
             "`{mode}` rooms must read the rules `{mode}` declared, not another \
              game's. Declared: {:?}",
@@ -117,7 +117,7 @@ fn each_declared_mode_resolves_to_its_own_games_rules() {
     // A mode nobody in this binary claims. Not a hypothetical: it is exactly the
     // position `smash` and `versus` are in.
     assert_eq!(
-        rules.governing(Some("a_mode_no_game_in_this_binary_declares")),
+        rules.governing(ambition_platformer2d::combat::scoped_rules::ActiveRoom::live(Some("a_mode_no_game_in_this_binary_declares"))),
         None,
         "an unclaimed room reads the engine default; a stranger's rules are \
          never the fallback",
@@ -172,7 +172,7 @@ fn each_game_sleeps_its_hostiles_at_its_own_distance_in_its_own_rooms() {
         .world()
         .get_resource::<DeclaredRules<DormancyRule>>()
         .expect("the shipped host's games declare dormancy rules");
-    let radius = |mode: Option<&str>| rules.governing(mode).map(|rule| rule.hostile_wake_radius);
+    let radius = |mode: Option<&str>| rules.governing(ambition_platformer2d::combat::scoped_rules::ActiveRoom::live(mode)).map(|rule| rule.hostile_wake_radius);
 
     for (mode, expected) in [
         (None, Some(ambition_content::dormancy::AMBITION_WAKE_RADIUS)),
@@ -227,7 +227,7 @@ fn each_fighting_stage_plays_under_its_own_combat_rules_in_its_own_rooms() {
         (Some(ambition_demo_mary_o::MARY_O_MODE), None),
     ] {
         assert_eq!(
-            rules.governing(mode),
+            rules.governing(ambition_platformer2d::combat::scoped_rules::ActiveRoom::live(mode)),
             expected,
             "rooms tagged {mode:?} must read their own game's combat rules. \
              Declared: {:?}",
@@ -257,7 +257,7 @@ fn only_smash_rooms_name_prompts_by_button() {
         (Some(ambition_demo_mary_o::MARY_O_MODE), None),
     ] {
         assert_eq!(
-            naming.governing(mode),
+            naming.governing(ambition_platformer2d::combat::scoped_rules::ActiveRoom::live(mode)),
             expected,
             "rooms tagged {mode:?} name prompts by the wrong vocabulary"
         );
@@ -284,13 +284,13 @@ fn smashs_presentation_and_limit_govern_only_smash_rooms() {
 
     let app = compose_the_shipped_host();
     let smash = Some(ambition_demo_smash::SMASH_MODE);
-    assert_eq!(table::<SmashLimitFill>(&app).governing(smash), Some(SmashLimitFill(SMASH_LIMIT)));
+    assert_eq!(table::<SmashLimitFill>(&app).governing(ambition_platformer2d::combat::scoped_rules::ActiveRoom::live(smash)), Some(SmashLimitFill(SMASH_LIMIT)));
     assert_eq!(
-        table::<PortalCameraTransitMode>(&app).governing(smash),
+        table::<PortalCameraTransitMode>(&app).governing(ambition_platformer2d::combat::scoped_rules::ActiveRoom::live(smash)),
         Some(PortalCameraTransitMode::Pop)
     );
     assert_eq!(
-        table::<PortalViewConeMode>(&app).governing(smash),
+        table::<PortalViewConeMode>(&app).governing(ambition_platformer2d::combat::scoped_rules::ActiveRoom::live(smash)),
         Some(PortalViewConeMode::Static)
     );
     for mode in [
@@ -301,9 +301,9 @@ fn smashs_presentation_and_limit_govern_only_smash_rooms() {
     ] {
         assert_eq!(
             (
-                table::<SmashLimitFill>(&app).governing(mode),
-                table::<PortalCameraTransitMode>(&app).governing(mode),
-                table::<PortalViewConeMode>(&app).governing(mode),
+                table::<SmashLimitFill>(&app).governing(ambition_platformer2d::combat::scoped_rules::ActiveRoom::live(mode)),
+                table::<PortalCameraTransitMode>(&app).governing(ambition_platformer2d::combat::scoped_rules::ActiveRoom::live(mode)),
+                table::<PortalViewConeMode>(&app).governing(ambition_platformer2d::combat::scoped_rules::ActiveRoom::live(mode)),
             ),
             (None, None, None),
             "rooms tagged {mode:?} read Smash's presentation or Limit"

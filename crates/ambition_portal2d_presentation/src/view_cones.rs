@@ -383,6 +383,52 @@ impl Default for PortalCaptureCameraMode {
     }
 }
 
+/// What the active room's game says about the view windows' mode, over the
+/// host's own [`PortalViewConeConfig`]. `None` means the host's mode stands.
+///
+/// The host projects it every frame from the rule the active room's game
+/// declared, so a game states its mode for its own rooms without writing the
+/// host's configuration, which a developer may have changed. Nothing else
+/// writes it.
+#[derive(Resource, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct PortalViewConeRule(pub Option<PortalViewConeMode>);
+
+impl From<Option<PortalViewConeMode>> for PortalViewConeRule {
+    fn from(mode: Option<PortalViewConeMode>) -> Self {
+        Self(mode)
+    }
+}
+
+impl PortalViewConeRule {
+    /// The configuration in force: the host's, with the rule's mode when the
+    /// rule states one. Every other field is the host's.
+    pub fn over(self, config: &PortalViewConeConfig) -> std::borrow::Cow<'_, PortalViewConeConfig> {
+        match self.0.filter(|mode| *mode != config.mode) {
+            Some(mode) => std::borrow::Cow::Owned(PortalViewConeConfig {
+                mode,
+                ..config.clone()
+            }),
+            None => std::borrow::Cow::Borrowed(config),
+        }
+    }
+}
+
+/// The view-window configuration in force: the active room's rule over the
+/// host's [`PortalViewConeConfig`]. Every reader of the live configuration
+/// reads it here, so the windows and their debug views cannot disagree.
+#[derive(bevy::ecs::system::SystemParam)]
+pub struct PortalViewCones<'w> {
+    config: Res<'w, PortalViewConeConfig>,
+    rule: Option<Res<'w, PortalViewConeRule>>,
+}
+
+impl PortalViewCones<'_> {
+    pub fn config(&self) -> std::borrow::Cow<'_, PortalViewConeConfig> {
+        let rule = self.rule.as_deref().copied().unwrap_or_default();
+        rule.over(&self.config)
+    }
+}
+
 /// Tuning for the view windows. A host overwrites the resource to retune; set
 /// [`PortalPresentationPlugin::view_cones`](crate::PortalPresentationPlugin)
 /// to `false` to drop the feature (and its capture passes) entirely.
@@ -757,7 +803,7 @@ pub struct ConeRigAssets<'w> {
 pub fn sync_portal_view_cones(
     mut commands: Commands,
     selection: Res<crate::PortalEffectSelection>,
-    config: Res<PortalViewConeConfig>,
+    view_cones: PortalViewCones,
     quality: Res<PortalCaptureQualityBudget>,
     viewer: Option<Res<PortalViewer>>,
     frame: Res<PortalWorldFrame>,
@@ -791,6 +837,8 @@ pub fn sync_portal_view_cones(
         .as_deref()
         .map(|tuning| tuning.convention.map_convention())
         .unwrap_or_default();
+    let config = view_cones.config();
+    let config: &PortalViewConeConfig = &config;
     if selection.active != crate::PortalVisualEffect::ViewCones {
         for (entity, rig, ..) in &rigs {
             retire_rig(&mut commands, entity, rig);
@@ -1144,4 +1192,46 @@ fn sync_cone_material_tint(
         return;
     };
     material.color = tint;
+}
+
+#[cfg(test)]
+mod rule_tests {
+    use super::*;
+
+    /// The room's rule changes only the mode. Every other field is the host's,
+    /// and the host's configuration is never written.
+    #[test]
+    fn a_rooms_cone_rule_changes_only_the_mode_of_the_host_configuration() {
+        use bevy::ecs::system::RunSystemOnce as _;
+
+        fn live(world: &mut World) -> PortalViewConeConfig {
+            world
+                .run_system_once(|cones: PortalViewCones| cones.config().into_owned())
+                .expect("the reader runs")
+        }
+
+        let hosts = PortalViewConeConfig {
+            mode: PortalViewConeMode::Dynamic,
+            dynamic_depth_close: 999.0,
+            ..Default::default()
+        };
+        let mut world = World::new();
+        world.insert_resource(hosts.clone());
+        assert_eq!(live(&mut world), hosts, "with no rule the host's configuration stands");
+
+        world.insert_resource(PortalViewConeRule(Some(PortalViewConeMode::Static)));
+        assert_eq!(
+            live(&mut world),
+            PortalViewConeConfig {
+                mode: PortalViewConeMode::Static,
+                ..hosts.clone()
+            },
+            "the room's rule must change the mode and keep every other host field"
+        );
+        assert_eq!(
+            world.resource::<PortalViewConeConfig>(),
+            &hosts,
+            "reading the rule wrote the host's configuration"
+        );
+    }
 }

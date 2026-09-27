@@ -8,7 +8,11 @@ fn app(fill: LimitMeterFill) -> App {
     app.add_message::<ResolvedBodyHit>();
     app.add_message::<BlockedBodyHit>();
     app.init_resource::<ambition_platformer2d::time::WorldTime>();
-    app.insert_resource(SmashLimitFill(fill));
+    // No session reads as an untagged room.
+    {
+        use ambition_platformer2d::combat::scoped_rules::{DeclareRulesExt as _, RulesScope};
+        app.declare_rules(RulesScope::UntaggedRooms, SmashLimitFill(fill));
+    }
     {
         let mut time = app
             .world_mut()
@@ -41,7 +45,13 @@ fn other_pool() -> ActorResources {
 
 /// A seat as the match builds it: the rule's Limit declaration, empty.
 fn fighter(app: &mut App) -> Entity {
-    let declaration = app.world().resource::<SmashLimitFill>().0.declaration();
+    let declaration = app
+        .world()
+        .resource::<ambition_platformer2d::combat::scoped_rules::DeclaredRules<SmashLimitFill>>()
+        .governing(None)
+        .expect("the test app declares a fill")
+        .0
+        .declaration();
     let seat = app
         .world_mut()
         .query::<&ambition_platformer2d::actor::MatchSeat>()

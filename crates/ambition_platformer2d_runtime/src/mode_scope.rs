@@ -91,6 +91,31 @@ pub fn despawn_departed_mode_entities(
     }
 }
 
+/// Project the active room's declared rule `T` into `R`, a resource that a
+/// crate which cannot see rooms reads.
+///
+/// `R` is rebuilt from the declaration and the active room every time this
+/// runs, so it is a read model: nothing else writes it. It is written only when
+/// the answer changes, so a reader that gates on change detection sees one
+/// change per room change. An app without `R` has no reader, and this does
+/// nothing.
+pub fn project_room_rule<T, R>(
+    rule: ambition_platformer2d_actor_monolith::session::governing_rules::GoverningRules<T>,
+    out: Option<ResMut<R>>,
+) where
+    T: Copy + std::fmt::Debug + Send + Sync + 'static,
+    R: Resource
+        + bevy::ecs::component::Component<Mutability = bevy::ecs::component::Mutable>
+        + PartialEq
+        + From<Option<T>>,
+{
+    let Some(mut out) = out else { return };
+    let next = R::from(rule.get());
+    if *out != next {
+        *out = next;
+    }
+}
+
 /// The set in which every declared mode owner is brought into being. It runs in
 /// `GameplayEffects`, and a game's rules that read their owner on the tick it
 /// is born run `.after` it.

@@ -26,7 +26,7 @@ pub fn handle_portal_view_cone_dump_hotkey(
 pub fn flush_portal_view_cone_debug_dump(
     mut request: ResMut<PortalViewConeDebugDumpRequest>,
     selection: Res<crate::PortalEffectSelection>,
-    config: Res<PortalViewConeConfig>,
+    cones: super::PortalViewCones,
     quality: Res<PortalCaptureQualityBudget>,
     viewer: Option<Res<PortalViewer>>,
     frame: Res<PortalWorldFrame>,
@@ -57,6 +57,8 @@ pub fn flush_portal_view_cone_debug_dump(
     // The session's portal map convention, from the resource that owns it.
     tuning: Option<Res<ambition_portal2d::PortalTuning>>,
 ) {
+    let config = cones.config();
+    let config: &PortalViewConeConfig = &config;
     if !request.pending {
         return;
     }
@@ -1180,7 +1182,7 @@ fn fmt_uvs(uvs: &[[f32; 2]]) -> String {
 /// from; the entry window shows where it is displayed.
 pub fn debug_portal_view_zones(
     selection: Res<crate::PortalEffectSelection>,
-    config: Res<PortalViewConeConfig>,
+    cones: super::PortalViewCones,
     debug: Res<PortalDebugOverlay>,
     viewer: Option<Res<PortalViewer>>,
     frame: Res<PortalWorldFrame>,
@@ -1196,6 +1198,8 @@ pub fn debug_portal_view_zones(
     // The session's portal map convention, from the resource that owns it.
     tuning: Option<Res<ambition_portal2d::PortalTuning>>,
 ) {
+    let config = cones.config();
+    let config: &PortalViewConeConfig = &config;
     if selection.active != crate::PortalVisualEffect::ViewCones
         || !debug.enabled
         || frame.size == Vec2::ZERO

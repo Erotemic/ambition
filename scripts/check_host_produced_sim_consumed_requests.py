@@ -275,9 +275,12 @@ def _expand_local_tuples(text: str, rest: str) -> str:
     LOWER bound, so under-expanding leaves the warning conservative, which is
     the safe direction.
     """
-    name = rest.strip()
-    if not re.fullmatch(r"[a-z_][a-z0-9_]*", name):
+    # A local may carry a run condition (`rules.run_if(gate.clone())`). The
+    # condition does not change the schedule, so the local's name is enough.
+    local = re.fullmatch(r"\s*([a-z_][a-z0-9_]*)\s*(?:\..*)?", rest, re.DOTALL)
+    if local is None:
         return rest
+    name = local.group(1)
     match = re.search(_LOCAL_TUPLE.format(name=re.escape(name)), text)
     if match is None:
         return rest

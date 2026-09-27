@@ -21,8 +21,8 @@ fn limit_of(bank: &mut ActorResources) -> Option<&mut ResourceLevel> {
     bank.level_of_mut(&LIMIT)
 }
 
-/// The match's Limit rule. A game that never inserts one fills nothing.
-#[derive(Resource, Debug, Clone, Copy, PartialEq, Default)]
+/// The match's Limit rule. A room whose game declares none fills nothing.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct SmashLimitFill(pub LimitMeterFill);
 
 /// This ruleset's Limit. Its declaration is also the match's seat resource, so
@@ -49,16 +49,15 @@ pub fn guarding_is_the_safe_option(fill: &LimitMeterFill) -> bool {
 }
 
 pub fn fill_limit_meters(
-    rule: Option<Res<SmashLimitFill>>,
+    rule: ambition_platformer2d::actors::session::governing_rules::GoverningRules<SmashLimitFill>,
     time: Res<ambition_platformer2d::time::WorldTime>,
     mut hits: MessageReader<ambition_platformer2d::combat::hitbox::ResolvedBodyHit>,
     mut blocks: MessageReader<ambition_platformer2d::combat::hitbox::BlockedBodyHit>,
     mut meters: Query<&mut ActorResources>,
 ) {
-    let Some(rule) = rule else {
+    let Some(SmashLimitFill(fill)) = rule.get() else {
         return;
     };
-    let fill = rule.0;
     if fill.cap <= 0.0 {
         return;
     }

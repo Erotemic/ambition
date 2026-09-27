@@ -263,3 +263,50 @@ fn only_smash_rooms_name_prompts_by_button() {
         );
     }
 }
+
+/// Smash's portal presentation and Limit fill govern Smash's rooms, and only
+/// there.
+///
+/// The stage inserted all three as process-wide resources on entry and put a
+/// saved copy back on exit. The portal ones overwrote the host's own
+/// configuration, which a developer may have changed, and a missed exit left
+/// all three in the next game.
+#[test]
+fn smashs_presentation_and_limit_govern_only_smash_rooms() {
+    use ambition_demo_smash::limit::{SmashLimitFill, SMASH_LIMIT};
+    use ambition_platformer2d::portal_presentation::{PortalCameraTransitMode, PortalViewConeMode};
+
+    fn table<T: Copy + std::fmt::Debug + Send + Sync + 'static>(app: &App) -> &DeclaredRules<T> {
+        app.world()
+            .get_resource::<DeclaredRules<T>>()
+            .unwrap_or_else(|| panic!("Smash declares {}", std::any::type_name::<T>()))
+    }
+
+    let app = compose_the_shipped_host();
+    let smash = Some(ambition_demo_smash::SMASH_MODE);
+    assert_eq!(table::<SmashLimitFill>(&app).governing(smash), Some(SmashLimitFill(SMASH_LIMIT)));
+    assert_eq!(
+        table::<PortalCameraTransitMode>(&app).governing(smash),
+        Some(PortalCameraTransitMode::Pop)
+    );
+    assert_eq!(
+        table::<PortalViewConeMode>(&app).governing(smash),
+        Some(PortalViewConeMode::Static)
+    );
+    for mode in [
+        None,
+        Some(ambition_app::app::versus::VERSUS_EXPERIENCE),
+        Some(ambition_demo_sanic::SANIC_MODE),
+        Some(ambition_demo_mary_o::MARY_O_MODE),
+    ] {
+        assert_eq!(
+            (
+                table::<SmashLimitFill>(&app).governing(mode),
+                table::<PortalCameraTransitMode>(&app).governing(mode),
+                table::<PortalViewConeMode>(&app).governing(mode),
+            ),
+            (None, None, None),
+            "rooms tagged {mode:?} read Smash's presentation or Limit"
+        );
+    }
+}

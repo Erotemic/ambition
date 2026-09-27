@@ -2089,10 +2089,6 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "ambition_platformer2d_actor_monolith::avatar::systems::PlayerManaRegen",
         "the composition's mana refill rate: a policy no system writes during play; the meter it fills (the Mana level in a body's ActorResources) is registered component-canonical",
     ),
-    (
-        "ambition_demo_smash::limit::SmashLimitFill",
-        "authored fill rules, ROUTE-SCOPED: inserted on entering the smash stage and given back on leaving, from a system in `Update` outside the rollback schedule. The Limit it fills (a seat's ActorResources) is registered component-canonical",
-    ),
     // Bevy wrapper resources around non-simulation machinery.
     ("bevy_asset::", "asset plumbing"),
     (

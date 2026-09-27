@@ -649,6 +649,25 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
                 ambition_platformer2d::combat::scoped_rules::RulesScope::Mode(SMASH_MODE),
                 ambition_platformer2d::sim_view::PromptNaming::ByButton,
             );
+            // Only the seats hold a Limit slot, so the fill reaches no other body.
+            app.declare_rules(
+                ambition_platformer2d::combat::scoped_rules::RulesScope::Mode(SMASH_MODE),
+                crate::limit::SmashLimitFill(crate::limit::SMASH_LIMIT),
+            );
+            // A viewer-dependent cone is undefined with no primary player, and
+            // seamless camera transit is a single-camera effect. The portal
+            // presentation's own configuration stays as its owner set it.
+            {
+                use ambition_platformer2d::portal_presentation as portal_view;
+                app.declare_rules(
+                    ambition_platformer2d::combat::scoped_rules::RulesScope::Mode(SMASH_MODE),
+                    portal_view::PortalCameraTransitMode::Pop,
+                );
+                app.declare_rules(
+                    ambition_platformer2d::combat::scoped_rules::RulesScope::Mode(SMASH_MODE),
+                    portal_view::PortalViewConeMode::Static,
+                );
+            }
         }
 
         let sim = ambition_platformer2d::platformer::schedule::SimScheduleExt::sim_schedule(app);
@@ -808,12 +827,8 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
                 .in_set(ambition_platformer2d::platformer::schedule::CombatSet::ContentSpecials),
         );
         // Limit meter: a set of independent sources, not one rule, so a
-        // mechanic can author only the source it wants.
-        //
-        // The rule is not inserted here: a rule inserted at plugin build reaches
-        // every body in the composing app, including Ambition's player. The stage
-        // declares it and gives it back; see
-        // `the_stage_declares_smashs_presentation_and_gives_it_back`.
+        // mechanic can author only the source it wants. The fill rule is
+        // declared above for Smash's rooms.
         //
         // The two halves run in different phases. `ContentSpecials` is inside
         // `Materialize`, before `Resolve`, so a damage reader there reads the
@@ -1756,91 +1771,6 @@ fn take_eliminated_fighters_out_of_play(
 /// The banner asks for 3.0s; this waits a little longer so players read it.
 const RETURN_TO_SELECT_AFTER: f32 = 4.5;
 
-/// What Smash's presentation override replaced, so leaving can put it back.
-///
-/// Restore, do not remove: `PortalPresentationPlugin` inits
-/// `PortalCameraContinuitySelection` and `PortalViewConeConfig`, and
-/// `sync_portal_view_cones` requires the config. A developer- or
-/// Ambition-owned configuration must come back unchanged.
-///
-/// Each field is an `Option` because absence is a real prior: restoring `None`
-/// removes the resource.
-#[derive(bevy::prelude::Resource, Clone, Debug)]
-struct SmashPresentationPrior {
-    transit: Option<ambition_platformer2d::portal_presentation::PortalCameraContinuitySelection>,
-    cone: Option<ambition_platformer2d::portal_presentation::PortalViewConeConfig>,
-    /// The Limit rule is stage state too: a process-wide fill rule would run in
-    /// every experience composed beside Smash.
-    limit: Option<crate::limit::SmashLimitFill>,
-}
-
-/// Smash's presentation and meter policy, for as long as Smash is on the stage.
-///
-/// The ruleset owns these, not the binary, so the standalone demo and the
-/// versus route draw the same portal cone.
-///
-/// The lifetime is the active route, not plugin install: `ambition_app`
-/// installs this plugin beside Ambition, Sanic and Mary-O, and a build-time
-/// insert would change their mana and portal presentation.
-///
-/// The saved prior's presence means "already declared". Do not infer it from
-/// one of the three resources.
-fn the_stage_declares_smashs_presentation_and_gives_it_back(
-    mut commands: bevy::prelude::Commands,
-    router: bevy::prelude::Res<ambition_platformer2d::game_shell::ShellRouter>,
-    prior: Option<bevy::prelude::Res<SmashPresentationPrior>>,
-    transit: Option<
-        bevy::prelude::Res<
-            ambition_platformer2d::portal_presentation::PortalCameraContinuitySelection,
-        >,
-    >,
-    cone: Option<
-        bevy::prelude::Res<ambition_platformer2d::portal_presentation::PortalViewConeConfig>,
-    >,
-    limit: Option<bevy::prelude::Res<crate::limit::SmashLimitFill>>,
-) {
-    use ambition_platformer2d::portal_presentation as portal_view;
-
-    let on_stage = router
-        .active
-        .as_ref()
-        .is_some_and(|active| active.route_id.as_str() == SMASH_GAMEPLAY_ROUTE);
-    let declared = prior.is_some();
-
-    if on_stage && !declared {
-        commands.insert_resource(SmashPresentationPrior {
-            transit: transit.map(|r| *r),
-            cone: cone.map(|r| r.clone()),
-            limit: limit.map(|r| *r),
-        });
-        commands.insert_resource(crate::limit::SmashLimitFill(crate::limit::SMASH_LIMIT));
-        // A viewer-dependent cone is undefined with no primary player, and
-        // seamless camera transit is a single-camera effect.
-        commands.insert_resource(portal_view::PortalCameraContinuitySelection {
-            mode: portal_view::PortalCameraTransitMode::Pop,
-        });
-        commands.insert_resource(portal_view::PortalViewConeConfig {
-            mode: portal_view::PortalViewConeMode::Static,
-            ..Default::default()
-        });
-    } else if !on_stage && declared {
-        let prior = prior.expect("checked").clone();
-        match prior.transit {
-            Some(value) => commands.insert_resource(value),
-            None => commands.remove_resource::<portal_view::PortalCameraContinuitySelection>(),
-        }
-        match prior.cone {
-            Some(value) => commands.insert_resource(value),
-            None => commands.remove_resource::<portal_view::PortalViewConeConfig>(),
-        }
-        match prior.limit {
-            Some(value) => commands.insert_resource(value),
-            None => commands.remove_resource::<crate::limit::SmashLimitFill>(),
-        }
-        commands.remove_resource::<SmashPresentationPrior>();
-    }
-}
-
 /// Return to character select after a decided match has shown its winner card
 /// for [`RETURN_TO_SELECT_AFTER`], or at once for a `NoContest`.
 ///
@@ -2263,7 +2193,6 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
                     select_screen::sync_select_chrome,
                     select_screen::sync_select_tokens_and_cursors,
                     start_the_battle_when_asked,
-                    the_stage_declares_smashs_presentation_and_gives_it_back,
                     // After the driver that sets the flag, in the same chain,
                     // so a press and its route change are at most a frame apart.
                     leave_the_select_screen_when_asked,

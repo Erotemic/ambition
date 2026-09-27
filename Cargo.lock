@@ -968,12 +968,14 @@ name = "ambition_platformer2d_host"
 version = "0.1.0"
 dependencies = [
  "ambition_characters",
+ "ambition_combat",
  "ambition_input",
  "ambition_menu",
  "ambition_platformer2d_core",
  "ambition_platformer2d_provider",
  "ambition_platformer2d_runtime",
  "ambition_platformer2d_shared_tangle",
+ "ambition_platformer2d_world",
  "ambition_portal2d",
  "ambition_portal2d_presentation",
  "ambition_render",

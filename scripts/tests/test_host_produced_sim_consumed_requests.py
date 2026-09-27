@@ -805,6 +805,24 @@ def test_a_system_tuple_bound_to_a_local_is_followed():
     assert "play_star_music" in expanded
 
 
+def test_a_local_tuple_with_a_run_condition_is_expanded():
+    """A local registered with a run condition is still that local.
+
+    Mary-O registers each of its rule tuples as `name.run_if(gate.clone())`.
+    Only a bare word was expanded, so every system in those tuples read as
+    unlocated again (42 became 59)."""
+    text = (
+        "let after_the_star = (\n"
+        "    empowerment::apply_contact_harm,\n"
+        "    star::play_star_music,\n"
+        ").chain();\n"
+        "app.add_systems(sim, after_the_star.run_if(gate.clone()));\n"
+    )
+    expanded = guard._expand_local_tuples(text, " after_the_star.run_if(gate.clone())")
+    assert "apply_contact_harm" in expanded
+    assert "play_star_music" in expanded
+
+
 def test_a_plain_system_name_is_left_alone():
     """A bare identifier that is a SYSTEM, not a local, must pass through
     unchanged — expanding it would find nothing and could only lose the name."""

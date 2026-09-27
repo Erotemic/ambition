@@ -1,12 +1,15 @@
 //! Optional portal camera continuity: presentation-only viewpoint mapping for
 //! the camera while a controlled body straddles a portal.
 //!
-//! The resource in this module is the single source of truth for the live mode.
-//! Hosts may surface it in a debug menu, but should not mirror the default into
-//! a second `DeveloperTools` or settings field. Ambition currently defaults the
+//! [`PortalCameraContinuitySelection`] is the host's choice of mode, and
+//! [`PortalCameraTransitRule`] is what the active room's game says over it.
+//! Read the live mode through [`PortalCameraTransit`], which folds the two.
+//! Hosts may surface the selection in a debug menu, but should not mirror the
+//! default into a second `DeveloperTools` or settings field. Ambition currently defaults the
 //! feature to `Continuous` because it is under active portal-lab debugging; flip
 //! only this resource default when promoting/demoting the feature.
 
+use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 
 /// How the host camera behaves around a portal transit.
@@ -45,6 +48,47 @@ impl Default for PortalCameraContinuitySelection {
         Self {
             mode: PortalCameraTransitMode::Continuous,
         }
+    }
+}
+
+/// What the active room's game says about camera transit, over the host's own
+/// [`PortalCameraContinuitySelection`]. `None` means the host's selection
+/// stands.
+///
+/// The host projects it every frame from the rule the active room's game
+/// declared, so a game states its transit for its own rooms without writing
+/// the host's selection, which a developer may have changed. Nothing else
+/// writes it.
+#[derive(Resource, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct PortalCameraTransitRule(pub Option<PortalCameraTransitMode>);
+
+impl From<Option<PortalCameraTransitMode>> for PortalCameraTransitRule {
+    fn from(mode: Option<PortalCameraTransitMode>) -> Self {
+        Self(mode)
+    }
+}
+
+impl PortalCameraTransitRule {
+    /// The transit mode in force: the rule's, else the host's selection.
+    pub fn over(self, selection: PortalCameraContinuitySelection) -> PortalCameraTransitMode {
+        self.0.unwrap_or(selection.mode)
+    }
+}
+
+/// The camera transit mode in force: the active room's rule over the host's
+/// selection. Every reader of the live mode reads it here, so two systems
+/// cannot disagree about the mode in the same frame.
+#[derive(SystemParam)]
+pub struct PortalCameraTransit<'w> {
+    selection: Option<Res<'w, PortalCameraContinuitySelection>>,
+    rule: Option<Res<'w, PortalCameraTransitRule>>,
+}
+
+impl PortalCameraTransit<'_> {
+    /// `None` when the host has no selection, so the feature is off.
+    pub fn mode(&self) -> Option<PortalCameraTransitMode> {
+        let selection = *self.selection.as_deref()?;
+        Some(self.rule.as_deref().map_or(selection.mode, |rule| rule.over(selection)))
     }
 }
 
@@ -293,6 +337,41 @@ pub struct PortalCameraContinuityFocus;
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The room's rule decides the live mode when it states one, and the host's
+    /// selection decides it otherwise. The selection itself is never written,
+    /// so a developer's choice returns when the room's game has no rule.
+    #[test]
+    fn a_rooms_transit_rule_overrides_the_host_selection_without_writing_it() {
+        use bevy::ecs::system::RunSystemOnce as _;
+
+        fn live(world: &mut World) -> Option<PortalCameraTransitMode> {
+            world
+                .run_system_once(|transit: PortalCameraTransit| transit.mode())
+                .expect("the reader runs")
+        }
+
+        let mut world = World::new();
+        assert_eq!(live(&mut world), None, "no selection means the feature is off");
+
+        world.insert_resource(PortalCameraContinuitySelection {
+            mode: PortalCameraTransitMode::Continuous,
+        });
+        world.insert_resource(PortalCameraTransitRule(None));
+        assert_eq!(live(&mut world), Some(PortalCameraTransitMode::Continuous));
+
+        world.insert_resource(PortalCameraTransitRule(Some(PortalCameraTransitMode::Pop)));
+        assert_eq!(
+            live(&mut world),
+            Some(PortalCameraTransitMode::Pop),
+            "the room's game stated `Pop` and the camera still transits seamlessly"
+        );
+        assert_eq!(
+            world.resource::<PortalCameraContinuitySelection>().mode,
+            PortalCameraTransitMode::Continuous,
+            "reading the rule wrote the host's selection"
+        );
+    }
 
     #[test]
     fn camera_mode_cycle_returns_to_default() {

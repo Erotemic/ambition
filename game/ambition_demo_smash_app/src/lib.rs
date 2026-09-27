@@ -119,7 +119,7 @@ fn compose_smash_shell(app: &mut App) {
 mod portal_presentation_tests {
     // No `use super::*`: this module builds no app. It checks the engine's
     // defaults; the behavioural half is
-    // `the_ruleset_states_the_portal_presentation_not_the_binary`.
+    // `the_stage_governs_its_own_rooms_and_writes_no_one_elses_configuration`.
 
     /// The smash ruleset turns the seamless portal camera off (`Pop`). This
     /// checks the premise: the engine still defaults to `Continuous`, so the
@@ -144,7 +144,7 @@ mod portal_presentation_tests {
         );
 
         // `SmashExperiencePlugin` states the presentation, and every composition
-        // installs it. `the_ruleset_states_the_portal_presentation_not_the_binary`
+        // installs it. `the_stage_governs_its_own_rooms_and_writes_no_one_elses_configuration`
         // asks the composed app. This test only checks the engine defaults above.
     }
 }

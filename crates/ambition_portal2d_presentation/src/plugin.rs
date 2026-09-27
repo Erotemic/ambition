@@ -88,10 +88,11 @@ impl Plugin for PortalPresentationPlugin {
         // The live effect choice (view cones / off), cycled from the host's
         // developer menu for in-session A/B profiling.
         app.init_resource::<PortalEffectSelection>();
-        // Optional camera/viewpoint continuity is controlled by this resource.
-        // It is the single source of truth surfaced by hosts; its resource
-        // default currently enables Continuous for portal-lab debugging.
+        // Optional camera/viewpoint continuity: the host's selection, and the
+        // active room's rule over it (read both through `PortalCameraTransit`).
+        // The selection's default enables Continuous for portal-lab debugging.
         app.init_resource::<PortalCameraContinuitySelection>();
+        app.init_resource::<crate::PortalCameraTransitRule>();
         app.init_resource::<PortalCameraContinuityConfig>();
         app.init_resource::<PortalCameraContinuityState>();
         app.init_resource::<PortalCameraContinuityHostView>();
@@ -149,6 +150,7 @@ impl Plugin for PortalPresentationPlugin {
         if self.view_cones {
             app.add_message::<ambition_platformer2d_shared_tangle::developer_hotkeys::DeveloperAction>();
             app.init_resource::<view_cones::PortalViewConeConfig>();
+            app.init_resource::<view_cones::PortalViewConeRule>();
             app.init_resource::<view_cones::PortalCaptureQualityBudget>();
             app.init_resource::<view_cones::PortalViewConeDebugDumpRequest>();
             // The viewer seam (host-synced each frame); empty or absent means the

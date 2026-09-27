@@ -83,10 +83,6 @@ fn a_live_match_with(regen: Option<f32>, before: impl FnOnce(&mut App)) -> App {
     for _ in 0..(countdown as usize + 30) {
         app.update();
     }
-    // Insert the override after the stage is live. Smash removes its
-    // declarations when the route is not the stage, so a value inserted on the
-    // select screen is removed on the next tick. On the stage the ruleset
-    // declares only when nothing is declared, so an override here survives.
     if let Some(rate) = regen {
         app.world_mut().insert_resource(
             ambition_platformer2d::actors::avatar::systems::PlayerManaRegen(rate),
@@ -232,9 +228,7 @@ fn probe_how_long_the_limit_takes() {
     const WINDOW: usize = 5_400;
     let mut app = a_live_match(None);
 
-    let cap = app
-        .world()
-        .get_resource::<ambition_demo_smash::limit::SmashLimitFill>()
+    let cap = governing::<ambition_demo_smash::limit::SmashLimitFill>(&mut app)
         .map(|fill| fill.0.cap)
         .unwrap_or(0.0);
 
@@ -318,42 +312,65 @@ fn probe_how_long_the_limit_takes() {
     }
 }
 
-/// Leaving Smash restores what was there; it does not delete it.
+/// The rule of kind `T` that governs the active room, read as a system reads it.
+fn governing<T: Copy + std::fmt::Debug + Send + Sync + 'static>(app: &mut App) -> Option<T> {
+    use bevy::ecs::system::RunSystemOnce as _;
+    app.world_mut()
+        .run_system_once(
+            |rules: ambition_platformer2d::actors::session::governing_rules::GoverningRules<T>| {
+                rules.get()
+            },
+        )
+        .expect("the rule reader runs")
+}
+
+/// Smash's rooms read Smash's presentation and Limit, and the stage writes
+/// neither the portal configuration nor any other owner's resource.
 ///
-/// Smash does not own the portal resources: `PortalPresentationPlugin`
-/// calls `init_resource` for `PortalCameraContinuitySelection` and
-/// `PortalViewConeConfig`, and `sync_portal_view_cones` requires
-/// `Res<PortalViewConeConfig>`. In the aggregate app, removing it on leaving
-/// would break that system and destroy a developer-selected configuration.
-///
-/// This demo has no portal plugin, so the test plants another owner's
-/// configuration before Smash runs. Otherwise it could only prove that
-/// `None` came back as `None`.
+/// The stage borrowed `PortalViewConeConfig` and
+/// `PortalCameraContinuitySelection` on entry and restored a saved copy on
+/// exit, and it inserted the Limit rule the same way. A missed exit left all
+/// three standing in the next game. This demo has no portal plugin, so the
+/// test plants another owner's configuration before Smash runs: a stage that
+/// wrote it would show here.
 #[test]
-fn leaving_the_stage_restores_another_owners_portal_config() {
+fn the_stage_governs_its_own_rooms_and_writes_no_one_elses_configuration() {
+    use ambition_demo_smash::limit::SmashLimitFill;
     use ambition_platformer2d::portal_presentation as portal_view;
 
+    let owners = portal_view::PortalViewConeConfig {
+        mode: portal_view::PortalViewConeMode::Dynamic,
+        dynamic_depth_close: 999.0,
+        ..Default::default()
+    };
     let mut app = a_live_match_from(|app| {
-        // Somebody else's baseline, standing before Smash ever runs.
-        app.world_mut().insert_resource(portal_view::PortalViewConeConfig {
-            mode: portal_view::PortalViewConeMode::Dynamic,
-            dynamic_depth_close: 999.0,
-            ..Default::default()
-        });
+        app.world_mut().insert_resource(owners.clone());
     });
 
-    // On the stage, Smash's answer wins.
-    let on_stage = app
-        .world()
-        .get_resource::<portal_view::PortalViewConeConfig>()
-        .map(|c| c.mode);
     assert_eq!(
-        on_stage,
+        governing::<SmashLimitFill>(&mut app),
+        Some(SmashLimitFill(ambition_demo_smash::limit::SMASH_LIMIT)),
+        "on the Smash stage the room reads no Limit rule, so the meter never \
+         fills and the move priced at the cap is unreachable"
+    );
+    assert_eq!(
+        governing::<portal_view::PortalViewConeMode>(&mut app),
         Some(portal_view::PortalViewConeMode::Static),
-        "Smash did not take the cone while on its own stage"
+        "`Dynamic` is the engine default and means a viewer-dependent window, \
+         which is undefined with two seats"
+    );
+    assert_eq!(
+        governing::<portal_view::PortalCameraTransitMode>(&mut app),
+        Some(portal_view::PortalCameraTransitMode::Pop),
+        "seamless camera transit is a single-camera effect"
+    );
+    assert_eq!(
+        app.world().get_resource::<portal_view::PortalViewConeConfig>(),
+        Some(&owners),
+        "the stage wrote the portal cone configuration. Its owner's value is \
+         the base that Smash's rule overrides, not Smash's to replace"
     );
 
-    // Leave.
     app.world_mut()
         .write_message(ambition_platformer2d::game_shell::ShellCommand::GoTo(
             ambition_platformer2d::game_shell::ShellRouteId::new(
@@ -363,49 +380,31 @@ fn leaving_the_stage_restores_another_owners_portal_config() {
     for _ in 0..30 {
         app.update();
     }
-
-    let after = app
-        .world()
-        .get_resource::<portal_view::PortalViewConeConfig>()
-        .cloned();
-    let after = after.expect(
-        "leaving Smash DELETED the portal cone config. Smash does not own it — \
-         `PortalPresentationPlugin` creates it and `sync_portal_view_cones` takes \
-         it as a required `Res`, so in the aggregate app that system now has a \
-         missing parameter.",
+    assert_eq!(
+        (
+            governing::<SmashLimitFill>(&mut app),
+            governing::<portal_view::PortalViewConeMode>(&mut app),
+            governing::<portal_view::PortalCameraTransitMode>(&mut app),
+        ),
+        (None, None, None),
+        "after the stage, the rules of a room Smash does not own must be none"
     );
     assert_eq!(
-        after.mode,
-        portal_view::PortalViewConeMode::Dynamic,
-        "the prior owner's cone MODE was not restored"
-    );
-    assert_eq!(
-        after.dynamic_depth_close, 999.0,
-        "the cone config came back as a DEFAULT rather than as the value that was \
-         there. Restoring a default is not restoring: a developer-selected \
-         configuration is still destroyed, just less visibly."
-    );
-    // The Limit rule must also go when the mode ends. The "declares nothing"
-    // test asks an app that never entered the stage, so it cannot see a rule
-    // that was declared and then left standing.
-    assert!(
-        app.world()
-            .get_resource::<ambition_demo_smash::limit::SmashLimitFill>()
-            .is_none(),
-        "leaving Smash left its Limit rule standing after the mode ended"
+        app.world().get_resource::<portal_view::PortalViewConeConfig>(),
+        Some(&owners),
+        "leaving the stage changed the portal cone configuration"
     );
 }
 
-/// What Smash declares, Smash gives back, and composing it declares nothing.
+/// Composing Smash changes no process-wide resource.
 ///
 /// `ambition_app` installs `SmashExperiencePlugin` beside Ambition, Sanic,
-/// and Mary-O. If `PlayerManaRegen(0.0)` and the portal presentation were
+/// and Mary-O. If `PlayerManaRegen(0.0)` or the portal presentation were
 /// inserted in `Plugin::build`, merely linking Smash would zero mana regen
 /// (which `ambition_abilities` consumers need) and set Smash's cones for
-/// every experience. Zero generic fill is a rule of a running ruleset. This
-/// asks the composed app before any match: nothing declared.
+/// every experience.
 #[test]
-fn composing_smash_declares_nothing_until_the_stage_is_active() {
+fn composing_smash_inserts_no_process_wide_policy() {
     let app = build_demo_app();
     assert!(
         app.world()
@@ -422,38 +421,5 @@ fn composing_smash_declares_nothing_until_the_stage_is_active() {
         "composing Smash chose the portal presentation for the whole process. \
          Ambition IS the portal game and would draw Smash's cones because Smash \
          happens to be linked."
-    );
-    // The Limit rule: declared at plugin build, it would run for a mode
-    // nobody is in.
-    assert!(
-        app.world()
-            .get_resource::<ambition_demo_smash::limit::SmashLimitFill>()
-            .is_none(),
-        "composing Smash declared its Limit rule for the whole process"
-    );
-}
-
-/// On the stage, the ruleset declares its answers. Without this, the test
-/// above is satisfied by a ruleset that declares nothing anywhere.
-#[test]
-fn the_stage_declares_the_rulesets_own_answers() {
-    let app = a_live_match(None);
-    let cone = app
-        .world()
-        .get_resource::<ambition_platformer2d::portal_presentation::PortalViewConeConfig>()
-        .map(|config| config.mode);
-    assert_eq!(
-        cone,
-        Some(ambition_platformer2d::portal_presentation::PortalViewConeMode::Static),
-        "on the Smash stage the cone is {cone:?}. `Dynamic` is the engine default \
-         and means a viewer-dependent window, which is undefined with two seats."
-    );
-    // Absent off-stage is meaningful only if present here.
-    assert!(
-        app.world()
-            .get_resource::<ambition_demo_smash::limit::SmashLimitFill>()
-            .is_some(),
-        "on the Smash stage the ruleset does not declare its Limit rule, so the \
-         meter never fills and the move priced at the cap is unreachable"
     );
 }

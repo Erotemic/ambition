@@ -13,7 +13,7 @@ mod host_adapter {
     use ambition_portal2d_presentation::{
         PortalAffordanceBody, PortalBodyView, PortalCameraContinuityCamera,
         PortalCameraContinuityConfig, PortalCameraContinuityFocus, PortalCameraContinuityHostView,
-        PortalCameraContinuitySelection, PortalCameraContinuityState, PortalCameraTransitMode,
+        PortalCameraContinuityState, PortalCameraTransitMode,
         PortalDebugOverlay, PortalGunArt, PortalObservationSet, PortalSceneBody, PortalViewer,
         PortalWorldFrame,
     };
@@ -234,7 +234,7 @@ mod host_adapter {
     /// immediately. Straight-through pairs are exact translation continuity by construction;
     /// quarter-turn pairs apply their roll immediately for the same aperture interval.
     pub fn apply_portal_camera_continuity(
-        selection: Option<Res<PortalCameraContinuitySelection>>,
+        transit: ambition_portal2d_presentation::PortalCameraTransit,
         config: Option<Res<PortalCameraContinuityConfig>>,
         host_view: Option<Res<PortalCameraContinuityHostView>>,
         world_frame: Option<Res<PortalWorldFrame>>,
@@ -262,7 +262,7 @@ mod host_adapter {
             .as_deref()
             .map(|tuning| tuning.convention.map_convention())
             .unwrap_or_default();
-        let Some(selection) = selection else {
+        let Some(transit) = transit.mode() else {
             return;
         };
         let Some(mut state) = state else {
@@ -309,7 +309,7 @@ mod host_adapter {
             "fallback_world_center"
         };
 
-        if selection.mode == PortalCameraTransitMode::Pop {
+        if transit == PortalCameraTransitMode::Pop {
             // Drain while disabled so toggling Continuous later cannot replay a
             // stale transit from the disabled interval. Keep the last visible
             // camera anchor fresh even while the effect is disabled.
@@ -798,6 +798,24 @@ mod host_adapter {
                     portal_dev_toggle_system,
                 ),
             );
+            // A game may state its portal presentation for its own rooms. The
+            // presentation crate cannot see rooms, so the active room's rules are
+            // projected into its two rule resources before anything reads them.
+            app.add_systems(
+                Update,
+                (
+                    ambition_platformer2d_runtime::project_room_rule::<
+                        PortalCameraTransitMode,
+                        ambition_portal2d_presentation::PortalCameraTransitRule,
+                    >,
+                    ambition_platformer2d_runtime::project_room_rule::<
+                        ambition_portal2d_presentation::PortalViewConeMode,
+                        ambition_portal2d_presentation::PortalViewConeRule,
+                    >,
+                )
+                    .in_set(PortalObservationSet)
+                    .before(apply_portal_camera_continuity),
+            );
         }
     }
 }
@@ -887,6 +905,92 @@ mod tests {
         assert!(
             app.world().get_entity(ghost).is_err(),
             "no resurrected shell"
+        );
+    }
+
+    /// The host projects the active room's portal rules into the two rule
+    /// resources that the presentation crate reads, and it follows the player
+    /// out of the room. The presentation crate cannot see rooms, so without the
+    /// projection a game's rule reaches no reader.
+    #[test]
+    fn the_host_projects_the_active_rooms_portal_rules() {
+        use ambition_combat::scoped_rules::{DeclareRulesExt as _, RulesScope};
+        use ambition_platformer2d_world::rooms::{RoomMetadata, RoomSet, RoomSpec};
+        use ambition_portal2d_presentation::{
+            PortalCameraTransitMode, PortalCameraTransitRule, PortalViewConeMode,
+            PortalViewConeRule,
+        };
+
+        let room = |id: &str, mode: Option<&str>| {
+            let mut spec = RoomSpec::new(
+                id,
+                ambition_platformer2d_core::World::new(
+                    id,
+                    ambition_platformer2d_core::Vec2::splat(64.0),
+                    ambition_platformer2d_core::Vec2::ZERO,
+                    Vec::new(),
+                ),
+            );
+            spec.metadata = RoomMetadata {
+                mode: mode.map(str::to_string),
+                ..Default::default()
+            };
+            spec
+        };
+        let mut app = App::new();
+        app.add_plugins((MinimalPlugins, bevy::asset::AssetPlugin::default()));
+        // The plugin loads the portal gun's art at startup.
+        app.init_asset::<bevy::image::Image>();
+        // The presentation plugin owns the two rule resources. Only its view
+        // windows are on, and they wait for a render stack this app does not have.
+        app.add_plugins(ambition_portal2d_presentation::PortalPresentationPlugin {
+            portal_quads: false,
+            body_pieces: false,
+            far_side_compositing: false,
+            gun_indicator: false,
+            disorientation: false,
+            view_cones: true,
+        });
+        app.add_plugins(super::PortalObservationPlugin);
+        // What the plugin's other observers read. This test reads none of them.
+        app.init_resource::<ControlledSubject>();
+        app.init_resource::<ambition_platformer2d_runtime::host_seams::DeveloperRuntimeState>();
+        app.declare_rules(RulesScope::Mode("fight"), PortalCameraTransitMode::Pop);
+        app.declare_rules(RulesScope::Mode("fight"), PortalViewConeMode::Static);
+        ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+            app.world_mut(),
+            RoomSet::from_parts_or_panic(
+                "home",
+                vec![room("home", None), room("arena", Some("fight"))],
+                Vec::new(),
+            ),
+        );
+        let visit = |app: &mut App, id: &str| {
+            ambition_platformer2d_shared_tangle::lifecycle::session_world_component_mut::<RoomSet>(
+                app.world_mut(),
+            )
+            .expect("session room set")
+            .set_active_by_id(id)
+            .expect("the fixture holds the room");
+            app.update();
+            (
+                *app.world().resource::<PortalCameraTransitRule>(),
+                *app.world().resource::<PortalViewConeRule>(),
+            )
+        };
+
+        assert_eq!(
+            visit(&mut app, "arena"),
+            (
+                PortalCameraTransitRule(Some(PortalCameraTransitMode::Pop)),
+                PortalViewConeRule(Some(PortalViewConeMode::Static)),
+            ),
+            "the arena's game stated its portal presentation and no reader got it"
+        );
+        assert_eq!(
+            visit(&mut app, "home"),
+            (PortalCameraTransitRule(None), PortalViewConeRule(None)),
+            "the arena's portal presentation followed the player home"
         );
     }
 }

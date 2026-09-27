@@ -36,7 +36,7 @@ pub use ambition_sim_view::CameraViewState;
 #[cfg(feature = "portal_render")]
 #[derive(SystemParam)]
 pub struct PortalCameraContinuityParams<'w> {
-    selection: Option<Res<'w, ambition_portal2d_presentation::PortalCameraContinuitySelection>>,
+    transit: ambition_portal2d_presentation::PortalCameraTransit<'w>,
     state: Option<ResMut<'w, ambition_portal2d_presentation::PortalCameraContinuityState>>,
     host_view: Option<ResMut<'w, ambition_portal2d_presentation::PortalCameraContinuityHostView>>,
 }
@@ -50,7 +50,7 @@ pub struct PortalCameraContinuityParams<'w> {
 /// base observer roll, which is known here.
 #[cfg(feature = "portal_render")]
 pub fn publish_portal_camera_clamp(
-    selection: Option<Res<ambition_portal2d_presentation::PortalCameraContinuitySelection>>,
+    transit: ambition_portal2d_presentation::PortalCameraTransit,
     state: Option<Res<ambition_portal2d_presentation::PortalCameraContinuityState>>,
     // One row per local view. The portal facts describe the world, so every
     // view of that world gets them.
@@ -63,9 +63,8 @@ pub fn publish_portal_camera_clamp(
         With<LocalView>,
     >,
 ) {
-    let enabled = selection.as_deref().is_some_and(|selection| {
-        selection.mode == ambition_portal2d_presentation::PortalCameraTransitMode::Continuous
-    });
+    let enabled =
+        transit.mode() == Some(ambition_portal2d_presentation::PortalCameraTransitMode::Continuous);
     let clamp_center = enabled
         .then(|| state.as_deref().and_then(|s| s.clamp_padding_center_world))
         .flatten();
@@ -183,14 +182,8 @@ pub fn camera_follow(
         // two cameras the last writer wins.
         #[cfg(feature = "portal_render")]
         {
-            let portal_continuity_enabled =
-                portal_continuity
-                    .selection
-                    .as_deref()
-                    .is_some_and(|selection| {
-                        selection.mode
-                            == ambition_portal2d_presentation::PortalCameraTransitMode::Continuous
-                    });
+            let portal_continuity_enabled = portal_continuity.transit.mode()
+                == Some(ambition_portal2d_presentation::PortalCameraTransitMode::Continuous);
             let ordinary_center_world = snapshot.center_world;
             let portal_clamp_padding_still_needed =
                 (ordinary_center_world - snapshot.unpadded_center_world).length() > 0.5;

@@ -87,6 +87,9 @@ portal_render = [
 ]
 
 [dev-dependencies]
+# The portal rule projection test declares a room's rules and builds the rooms.
+ambition_combat = { path = "../ambition_combat" }
+ambition_platformer2d_world = { path = "../ambition_platformer2d_world" }
 # The demo-shell smoke test (E5 step 6) assembles foundation + engine group +
 # this host group + a fixture content plugin (which builds a one-room world).
 ambition_characters = { path = "../ambition_characters" }

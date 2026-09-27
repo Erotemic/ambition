@@ -414,10 +414,9 @@ def main() -> int:
     print("   unclassified = no assertion this sweep recognises. Read it.\n")
 
     # ⛔⛔ **A POSITIVE CONTROL IS OFTEN A SIBLING TEST, NOT A SECOND ASSERTION.**
-    # The first cut of this sweep classified per FUNCTION and put
-    # `test_scoped_ruleset_policy_restores_everything` on the shortlist — a file
-    # whose `assert not offenders` is floored by a whole separate test named
-    # "THE POSITIVE CONTROL" three functions down. Counting the function alone
+    # The first cut of this sweep classified per FUNCTION and put a guard file
+    # on the shortlist whose `assert not offenders` was floored by a whole
+    # separate test named "THE POSITIVE CONTROL" three functions down. Counting the function alone
     # reports a guard as exposed because its anti-vacuity lives next door.
     shortlist = {
         name: literals

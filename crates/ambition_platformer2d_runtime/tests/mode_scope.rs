@@ -373,3 +373,69 @@ fn no_mode_owner_is_born_while_no_session_is_live() {
         "an owner was born with no live session to own it"
     );
 }
+
+/// A rule kind that a crate with no view of rooms reads.
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct Tint(u8);
+
+#[derive(Resource, Default, Debug, PartialEq)]
+struct TintInForce(Option<Tint>);
+
+impl From<Option<Tint>> for TintInForce {
+    fn from(tint: Option<Tint>) -> Self {
+        Self(tint)
+    }
+}
+
+#[derive(Resource, Default)]
+struct TintChanges(u32);
+
+/// The projection follows the active room's rule, and it writes only when the
+/// answer changes. A reader that gates on change detection then sees one change
+/// per rule change, not one per frame or per room.
+#[test]
+fn a_room_rule_projects_into_its_read_model_and_changes_only_with_the_answer() {
+    use ambition_combat::scoped_rules::{DeclareRulesExt as _, RulesScope};
+
+    fn count(mut changes: ResMut<TintChanges>) {
+        changes.0 += 1;
+    }
+
+    let mut app = App::new();
+    insert_session_rooms(&mut app);
+    app.declare_rules(RulesScope::Mode("a"), Tint(3));
+    app.init_resource::<TintInForce>();
+    app.init_resource::<TintChanges>();
+    app.add_systems(
+        Update,
+        (
+            ambition_platformer2d_runtime::project_room_rule::<Tint, TintInForce>,
+            count.run_if(resource_changed::<TintInForce>),
+        )
+            .chain(),
+    );
+    let seen = |app: &mut App, room: &str| {
+        enter_room(app, room);
+        app.update();
+        app.update();
+        (
+            app.world().resource::<TintInForce>().0,
+            app.world().resource::<TintChanges>().0,
+        )
+    };
+
+    // `init_resource` is itself a change, so the first frame counts one.
+    assert_eq!(
+        seen(&mut app, "base"),
+        (None, 1),
+        "(tint, changes): the base room declares no tint, and a projection that \
+         rewrites an unchanged answer counts a change every frame"
+    );
+    assert_eq!(seen(&mut app, "a"), (Some(Tint(3)), 2), "room `a` reads its game's tint");
+    assert_eq!(
+        seen(&mut app, "a_second_room"),
+        (Some(Tint(3)), 2),
+        "a room change inside the same mode must not rewrite the same answer"
+    );
+    assert_eq!(seen(&mut app, "b"), (None, 3), "the tint followed the player out of its mode");
+}

@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v244
+ggrs-rollback-schema-v245
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -125,7 +125,7 @@ content.gradient_cascade_state	component-canonical	GradientCascadeState	bevy_ggr
 content.mary_o_ai_slop	component-clone	AiSlop	bevy_ggrs clone snapshot; not in the session checksum
 content.mary_o_broken_bricks	resource-clone-custom-checksum	BrokenBricks	bevy_ggrs clone snapshot + an order-independent checksum over the broken names
 content.mary_o_flag_sequence	component-clone	FlagSequence	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
-content.mary_o_level_departure	component-clone	LevelDeparture	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
+content.mary_o_level_lap	component-clone	LevelLap	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 content.mary_o_level_state	component-clone	MaryOLevelState	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 content.mary_o_pipe_entry_latch	component-clone	PipeEntryLatch	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 content.mary_o_pipe_transit	component-clone	PipeTransit	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum

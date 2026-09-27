@@ -343,7 +343,6 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_runtime/src/room_transition/commit.rs",
         "crates/ambition_platformer2d_runtime/src/room_departure.rs",
         "crates/ambition_platformer2d_runtime/src/sandbox_reset.rs",
-        "game/ambition_demo_mary_o/src/lib.rs",
     ),
     "QuestRegistry": (
         "crates/ambition_boss_encounter/src/systems.rs",
@@ -2341,14 +2340,13 @@ ADJUDICATED: dict[str, str] = {
         "page states it. A reader asking *what happens if a player dies in a "
         "doorway on the frame a checkpoint resumes* has to rebuild this table "
         "from the schedule to find out. "
-        "⚠ TWO ARMERS DISCARD THE ADMISSION, AND BOTH MAY: Mary-O's "
-        "`cycle_level_on_flag_tally` (2026-09-24, act progression) and the "
-        "engine's shared `drive_departures` (`room_departure.rs`, every game's "
-        "\"go on\"; Sanic's act clear asks through it since 2026-09-25) write "
-        "`let _ = pending.record(..)`, but neither spends anything on the "
-        "strength of it. Mary-O leaves its phase `Tallied` and re-asks every "
-        "tick; a `Departure` stays `Leaving` and re-asks every tick until the "
-        "active room is its target. Its replay fallback is the same shape one "
+        "⚠ ONE ARMER DISCARDS THE ADMISSION, AND MAY: the engine's shared "
+        "`drive_departures` (`room_departure.rs`, every game's \"go on\"; Sanic's "
+        "act clear and Mary-O's flag ask through it) writes "
+        "`let _ = pending.record(..)`, but spends nothing on the strength of it. "
+        "A `Departure` stays `Leaving` and re-asks every tick until the active "
+        "room is its target, and Mary-O's flag stays `Tallied` meanwhile. Its "
+        "replay fallback is the same shape one "
         "road over: a `RoomReplayRequested` that `admit_room_replay` refuses is "
         "gone, so the departure waits in `Replaying` and re-requests every tick "
         "until a `RoomReplayAdmitted` arrives (witnessed by "

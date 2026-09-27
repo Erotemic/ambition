@@ -812,7 +812,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// ⛔⛤ 243 -> 244: `FighterStocks` encodes `respawn_after`. The match states a
 /// fighter's respawn interval, and the seat carries it on its stocks, so the
 /// interval is on the body and in its bytes.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 244;
+/// ⛔⛤ 244 -> 245: `content.mary_o_level_departure` becomes
+/// `content.mary_o_level_lap`. Mary-O leaves by the mode owner's `Departure`,
+/// so her own component keeps only the tally dwell and the room she last saw.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 245;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

@@ -635,32 +635,67 @@ enum BlockPayout {
 /// `currency:1` in the level file.
 const COINS_PER_BLOCK: i32 = 1;
 
-/// How strong a form this equipment row is. Small is 0 and wears nothing.
-///
-/// the ladder is a Mary-O rule and lives in Mary-O. The engine's exclusive-slot replacement
-/// is correct and general — a new row in a slot replaces the old one — and "a weaker form may
-/// not replace a stronger one" is a statement about THIS game's progression, not about
-/// equipment.
-fn form_rank(row_id: &str) -> u8 {
-    match row_id {
-        id if id == CINDER_BEACON_ID => 2,
-        id if id == STAR_WAND_ID => 1,
-        _ => 0,
-    }
+/// One rung of her power ladder: the form row she wears on it (none on the
+/// bottom rung) and the catalog row she is drawn as.
+struct FormRung {
+    row: Option<&'static str>,
+    character: &'static str,
 }
 
-/// The rank of the form she is in now.
+/// Her power ladder, bottom rung first. A rung's index is its rank.
+///
+/// Every question about her form reads this one list: which rung the worn rows
+/// put her on, which character that rung draws, how far a transformation moves,
+/// and whether a pickup would lower her. A new form is one row here.
+///
+/// The ladder is a Mary-O rule and lives in Mary-O. The engine's exclusive-slot
+/// replacement is correct and general (a new row in a slot replaces the old
+/// one), and "a weaker form may not replace a stronger one" is a statement
+/// about this game's progression, not about equipment.
+const FORM_LADDER: [FormRung; 3] = [
+    FormRung {
+        row: None,
+        character: MARY_O_CHARACTER_ID,
+    },
+    FormRung {
+        row: Some(STAR_WAND_ID),
+        character: TALL_CHARACTER_ID,
+    },
+    FormRung {
+        row: Some(CINDER_BEACON_ID),
+        character: SPARK_CHARACTER_ID,
+    },
+];
+
+/// The top rung. Arriving here is the same-size transformation, not a growth.
+const TOP_RUNG: u8 = (FORM_LADDER.len() - 1) as u8;
+
+/// The rung this equipment row puts her on. A row that is not a form is the
+/// bottom rung.
+fn form_rank(row_id: &str) -> u8 {
+    FORM_LADDER
+        .iter()
+        .position(|rung| rung.row == Some(row_id))
+        .unwrap_or(0) as u8
+}
+
+/// The rung she is on now: the highest rung whose row she wears.
 fn worn_form_rank(worn: Option<&WornEquipment>) -> u8 {
-    let Some(worn) = worn else {
-        return 0;
-    };
-    if worn.wears(CINDER_BEACON_ID) {
-        2
-    } else if worn.wears(STAR_WAND_ID) {
-        1
-    } else {
-        0
-    }
+    FORM_LADDER
+        .iter()
+        .rposition(|rung| {
+            rung.row
+                .is_some_and(|row| worn.is_some_and(|worn| worn.wears(row)))
+        })
+        .unwrap_or(0) as u8
+}
+
+/// The rung a worn-character id draws. An id off the ladder is the bottom rung.
+fn power_tier(character_id: &str) -> u8 {
+    FORM_LADDER
+        .iter()
+        .position(|rung| rung.character == character_id)
+        .unwrap_or(0) as u8
 }
 
 /// Is she SMALL? — the bottom rung, wearing no form row at all.
@@ -761,12 +796,11 @@ fn pickup_reward(pickup: MaryOPickup) -> Option<PowerReward> {
 
 /// The next rung on the way to `target`, given the form she is in.
 ///
-/// the ladder is small and explicit rather than a table, because the rungs are
-/// not interchangeable: the quasar is not on it at all (any form takes one), and
-/// the top rung REPEATS rather than answering nothing — see [`next_power_reward`]
-/// for why that matters.
+/// The pickups stay an explicit match, not a column of [`FORM_LADDER`], because
+/// they are not interchangeable: the quasar is not on the ladder at all (any
+/// form takes one), and the top rung REPEATS rather than answering nothing (see
+/// [`beacon_reward`] for why that matters).
 fn next_rung_toward(target: MaryOPickup, worn: Option<&WornEquipment>) -> Option<PowerReward> {
-    let wears = |id: &str| worn.is_some_and(|w| w.wears(id));
     match target {
         // Levelling toward the quasar is levelling toward something off the
         // ladder, so it is just the quasar.
@@ -779,10 +813,10 @@ fn next_rung_toward(target: MaryOPickup, worn: Option<&WornEquipment>) -> Option
         // Toward the wand: she gets the wand until she has it, then it repeats.
         MaryOPickup::Wand => Some(wand_reward()),
         // Toward the lantern: the full classic progression.
-        MaryOPickup::Lantern => Some(if wears(STAR_WAND_ID) || wears(CINDER_BEACON_ID) {
-            beacon_reward()
-        } else {
+        MaryOPickup::Lantern => Some(if is_small(worn) {
             wand_reward()
+        } else {
+            beacon_reward()
         }),
     }
 }
@@ -900,18 +934,11 @@ pub fn sync_grown_form(
     let Ok((body, mut worn_char, kin, worn)) = players.single_mut() else {
         return;
     };
-    // THREE forms, chosen from what she wears. The fire (beacon) and grown (wand)
-    // forms are the SAME height — the beacon downgrades INTO the wand on a hit, so
-    // across that transition she stays continuously tall and only her look + spark
-    // loadout change; the size flickers on neither the grow nor the spark→grown
-    // downgrade, only on the final grown→small hit.
-    let target_id = if worn.is_some_and(|w| w.wears(CINDER_BEACON_ID)) {
-        SPARK_CHARACTER_ID
-    } else if worn.is_some_and(|w| w.wears(STAR_WAND_ID)) {
-        TALL_CHARACTER_ID
-    } else {
-        MARY_O_CHARACTER_ID
-    };
+    // The form is the rung her worn rows put her on. The fire (beacon) and grown
+    // (wand) forms are the SAME height: the beacon downgrades INTO the wand on a
+    // hit, so across that transition she stays tall and only her look and spark
+    // loadout change. Only the final grown -> small hit changes her size.
+    let target_id = FORM_LADDER[worn_form_rank(worn) as usize].character;
     if worn_char.id() == target_id {
         return;
     }
@@ -1006,7 +1033,7 @@ fn transition_anim(from_tier: u8, to_tier: u8) -> CharacterAnim {
     if to_tier > from_tier {
         // Arriving at fire is a same-size palette transformation; arriving at
         // grown is the silhouette flicker.
-        if to_tier == FIRE_TIER {
+        if to_tier == TOP_RUNG {
             CharacterAnim::Transform
         } else {
             CharacterAnim::Grow
@@ -1040,21 +1067,6 @@ fn clip_seconds(
     .map(|spec| spec.clip_seconds(anim))
     .filter(|secs| *secs > 0.0)
     .unwrap_or(UNREADABLE_CLIP_SECS)
-}
-
-/// The top of the power ladder — arriving HERE is the same-size transformation
-/// rather than a growth.
-const FIRE_TIER: u8 = 2;
-
-/// Power-tier of a worn-character id: small (0) < grown (1) < fire (2). The
-/// direction and distance along this ladder pick both the transition clip and
-/// whether the moment slows the world.
-fn power_tier(character_id: &str) -> u8 {
-    match character_id {
-        SPARK_CHARACTER_ID => FIRE_TIER,
-        TALL_CHARACTER_ID => 1,
-        _ => 0,
-    }
 }
 
 /// The exact authored sound for a form transition.
@@ -1179,7 +1191,7 @@ mod tests {
         let authored = AuthoredSheets::default();
         let source = include_str!("../assets/data/character_catalog.ron");
         let catalog = CharacterCatalog::from_data(parse_catalog(source));
-        let anim = transition_anim(0, FIRE_TIER);
+        let anim = transition_anim(0, TOP_RUNG);
 
         // ⛔ THE PREMISE. A form whose sheet cannot be read answers with
         // `UNREADABLE_CLIP_SECS`, and every assertion below would then be
@@ -1400,8 +1412,25 @@ mod tests {
     /// Damage walks the ladder back down, one rung per hit, through the
     /// ordinary armor spend. Spark-powered -> grown (loses the spark, stays tall)
     /// -> small.
+    ///
+    /// The armor chain (`downgrade_to`) and [`FORM_LADDER`] both state the
+    /// order, so the first half walks the chain against the ladder: a rung added
+    /// to one and not the other fails there.
     #[test]
     fn damage_downgrades_spark_to_grown_then_grown_to_small() {
+        let mut worn = WornEquipment::new(vec![cinder_beacon()]);
+        assert_eq!(worn_form_rank(Some(&worn)), TOP_RUNG, "the beacon is the top rung");
+        for rung in (0..TOP_RUNG).rev() {
+            assert!(worn.consume_armor().is_some(), "rung {} absorbs a hit", rung + 1);
+            assert_eq!(
+                worn_form_rank(Some(&worn)),
+                rung,
+                "a hit on rung {} did not land on the rung below",
+                rung + 1
+            );
+        }
+        assert_eq!(worn.consume_armor(), None, "the bottom rung holds no armor");
+
         let mut worn = WornEquipment::new(vec![cinder_beacon()]);
 
         // Hit one: the beacon is spent and leaves the wand in its place.

@@ -12,12 +12,11 @@
 use bevy::prelude::*;
 
 use ambition_platformer2d::characters::control::ActorControl;
-use ambition_platformer2d::characters::equipment::WornEquipment;
+use ambition_platformer2d::characters::equipment::{EquipmentGrant, WornEquipment};
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::platformer::frame_env::ResolvedMotionFrame;
 use ambition_platformer2d::platformer::markers::PrimaryPlayer;
 
-use crate::powerups::CINDER_BEACON_ID;
 
 /// Walking is 60% of Mary-O's run speed: 180 px/s versus 300 px/s in the
 /// initial classic profile. Her catalog row owns the absolute cap; this system
@@ -182,7 +181,7 @@ pub fn fire_spark_on_run_press(
     live_sparks: Query<&crate::powerups::MaryOSpark>,
 ) {
     for (mut control, mut spark, kin, worn) in &mut bodies {
-        if !worn.wears(CINDER_BEACON_ID) {
+        if !armed(worn) {
             continue;
         }
         let frame = &mut control.0;
@@ -201,6 +200,15 @@ pub fn fire_spark_on_run_press(
             ),
         );
     }
+}
+
+/// Whether a worn row grants her a ranged verb. The spark is the beacon row's
+/// own grant, so the button asks for the grant, not for the row's id.
+fn armed(worn: &WornEquipment) -> bool {
+    worn.rows
+        .iter()
+        .flat_map(|row| &row.grants)
+        .any(|grant| matches!(grant, EquipmentGrant::Ranged(_)))
 }
 
 /// The slot's label follows what it currently does.
@@ -225,8 +233,7 @@ pub fn sync_run_action_scheme(
     >,
 ) {
     for (entity, techniques, worn) in &mut bodies {
-        let armed = worn.is_some_and(|w| w.wears(CINDER_BEACON_ID));
-        let label = if armed { "Run / Spark" } else { "Run" };
+        let label = if worn.is_some_and(armed) { "Run / Spark" } else { "Run" };
         match techniques {
             Some(mut techniques) => {
                 let current = techniques

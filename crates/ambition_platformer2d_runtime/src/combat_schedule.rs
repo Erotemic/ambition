@@ -653,6 +653,16 @@ impl Plugin for CombatSchedulePlugin {
                 .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::PlayerInput),
         );
 
+        // One body holds an edge. It resolves after the kernel, so it sees
+        // this tick's grabs: before `PlayerSimulation` it would judge last
+        // tick's occupancy and leave both bodies hanging for a frame.
+        app.add_systems(
+            sim,
+            ambition_combat::ledge_trump::resolve_ledge_trumps
+                .in_set(ambition_combat::ledge_trump::LedgeTrumpsResolved)
+                .in_set(CombatSet::Settle),
+        );
+
         install_technique(
             app,
             ambition_characters::technique::POGO_BOUNCE_KEY,
@@ -1068,9 +1078,10 @@ mod tests {
 
     /// A ruleset turns footstools and respawn protection on in DATA: a
     /// `FootstoolTuning` on its bodies, a `RespawnGrace` on a returning
-    /// fighter. The engine must run the rule that reads each, exactly once,
-    /// or the data does nothing (zero) or runs twice (two). Both were installed
-    /// by `ambition_demo_smash` alone, so an app without Smash had neither.
+    /// fighter, a `ledge_occupancy` for a contested edge. The engine must run
+    /// the rule that reads each, exactly once,
+    /// or the data does nothing (zero) or runs twice (two). Each was installed
+    /// by `ambition_demo_smash` alone, so an app without Smash had none of them.
     ///
     /// The grace's retraction is an observer, so it is asked by behaviour: a
     /// grace removed by something other than its clock must clear the reason
@@ -1100,6 +1111,12 @@ mod tests {
                         &ambition_combat::stocks::RespawnGraceTicked,
                     ),
                     "tick_respawn_grace",
+                ),
+                (
+                    bevy::ecs::schedule::SystemSet::intern(
+                        &ambition_combat::ledge_trump::LedgeTrumpsResolved,
+                    ),
+                    "resolve_ledge_trumps",
                 ),
             ] {
                 let installed = schedule

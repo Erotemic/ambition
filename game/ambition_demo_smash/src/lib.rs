@@ -1032,15 +1032,6 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
             crate::shark_ride::tick_departures
                 .in_set(ambition_platformer2d::platformer::schedule::WorldPrepSet::BeforeIntegrate),
         );
-        // Ledge trump resolves after the kernel, so it sees this tick's grabs.
-        // Before `PlayerSimulation` it would judge last tick's occupancy and
-        // leave both bodies hanging for a frame. `Settle` is the post-kernel
-        // bookkeeping slot.
-        app.add_systems(
-            sim,
-            ambition_platformer2d::combat::ledge_trump::resolve_ledge_trumps
-                .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Settle),
-        );
         // The capture interruption release is in `CombatSchedulePlugin`. Do
         // not add it here; it would run twice.
         //

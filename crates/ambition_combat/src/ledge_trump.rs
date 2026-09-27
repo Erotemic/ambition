@@ -20,6 +20,12 @@ use ambition_platformer2d_shared_tangle::sim_id::SimId;
 /// bodies, so this is a float-equality tolerance rather than a reach.
 const SAME_EDGE_EPSILON: f32 = 1.0;
 
+/// The set [`resolve_ledge_trumps`] runs in. The engine installs it, so a
+/// ruleset chooses who keeps an edge in data (`ledge_occupancy`,
+/// `ledge_trump_pop`) and schedules nothing.
+#[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct LedgeTrumpsResolved;
+
 /// Keep the newest holder of each edge and knock older holders off.
 ///
 /// Sorting by `(elapsed, SimId)` gives same-tick grabs a deterministic winner

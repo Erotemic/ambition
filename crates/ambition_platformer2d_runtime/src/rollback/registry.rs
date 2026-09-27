@@ -815,7 +815,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// ⛔⛤ 244 -> 245: `content.mary_o_level_departure` becomes
 /// `content.mary_o_level_lap`. Mary-O leaves by the mode owner's `Departure`,
 /// so her own component keeps only the tally dwell and the room she last saw.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 245;
+/// ⛔⛤ 245 -> 246: `session.mode_visit` joins and `content.mary_o_level_lap`
+/// leaves. Every mode owner carries the engine's `ModeVisit`, so a game keeps
+/// no room memory of its own, and Mary-O's tally dwell rides `MaryOLevelState`.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 246;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

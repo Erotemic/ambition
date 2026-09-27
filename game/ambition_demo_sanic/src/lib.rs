@@ -844,10 +844,6 @@ pub struct SanicActState {
     /// cue. Mode-scoped with the act, so leaving and re-entering the demo resets
     /// the audible ruler without a global resource leak.
     pub next_milestone: usize,
-    /// Which room of the session's room set this act is being run in. An act
-    /// that finds itself in a different room has ARRIVED in the next one, and
-    /// starts over there (`begin_act_on_arrival`).
-    pub room: Option<usize>,
 }
 
 /// Where the act is. `Cleared` holds the numbers the results card reads,
@@ -1922,27 +1918,24 @@ pub fn cycle_act_after_clear(
         if reading_the_card {
             departure.leave(ambition_platformer2d::session::Destination::NextRoom);
         } else if !departure.is_leaving() {
-            *state = SanicActState {
-                room: state.room,
-                ..SanicActState::default()
-            };
+            *state = SanicActState::default();
         }
     }
 }
 
-/// An act that finds itself in a different room has arrived in the next act:
-/// its clock, its milestones and its results start over there. The first tick
-/// of a session is an arrival too, and it has a sound.
+/// An act that arrives in a room starts over there: its clock, its milestones
+/// and its results. The room it is in, and whether it has just arrived, is the
+/// engine's `ModeVisit` on the same owner. The first room has a sound.
 pub fn begin_act_on_arrival(
-    mut act: bevy::prelude::Query<&mut SanicActState>,
-    rooms: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
-        ambition_platformer2d::world::rooms::RoomSet,
-    >,
+    mut acts: bevy::prelude::Query<(
+        &mut SanicActState,
+        &ambition_platformer2d::session::ModeVisit,
+    )>,
     mut sfx: ambition_platformer2d::sfx::BodySfxWriter,
 ) {
-    let active = rooms.active();
-    for mut state in &mut act {
-        if state.room.is_none() {
+    use ambition_platformer2d::session::Arrival;
+    for (mut state, visit) in &mut acts {
+        if visit.arrival() == Arrival::First {
             // Audible confirmation that the shell drains the standard
             // SfxMessage seam at room entry. H2/I3: the course's sound, by name.
             // `write_global` would make it the host's.
@@ -1953,11 +1946,8 @@ pub fn begin_act_on_arrival(
                 },
             );
         }
-        if state.room != Some(active) {
-            *state = SanicActState {
-                room: Some(active),
-                ..SanicActState::default()
-            };
+        if visit.arrival() != Arrival::Staying {
+            *state = SanicActState::default();
         }
     }
 }
@@ -1999,7 +1989,6 @@ mod rollback_probes {
         (state.elapsed.to_bits() as u64)
             ^ phase.rotate_left(17)
             ^ ((state.next_milestone as u64) << 48)
-            ^ (state.room.map_or(0, |room| room as u64 + 1) << 56)
     }
 
     pub(super) fn super_form_latch(latch: &SuperFormLatch) -> u64 {

@@ -850,48 +850,39 @@ pub fn pole_for_room(room_id: &str) -> flag::FlagPole {
     }
 }
 
-/// Start a fresh lap when the active room changes, or when the replay the
-/// level asked for is admitted.
+/// Start a fresh lap when the mode arrives in another room, or when the replay
+/// the level asked for is admitted.
 ///
 /// The goal and where it leads are not copied here: the flag and the departure
 /// read them from the active room where they use them, so no copy can be a
-/// room behind.
+/// room behind. Which room the mode is in, and whether it has just arrived, is
+/// the engine's `ModeVisit` on the same owner.
 ///
-/// A replay starts the lap in the tick it is admitted, before the flag runs. The
-/// replay has already put her at the spawn, and a sequence still `Tallied` would
-/// put her back at the pole. Only the level's own replay does this: a death also
-/// replays the room, and a death keeps the lap it spent (see
-/// `spend_lives_on_death`).
+/// ⛔ A LAP THAT OUTLIVES ITS ROOM KILLS HER. `FlagSequence::driven` is a position
+/// in the source room, the pole she slid down, and `run_flag_sequence` writes it
+/// onto the body every tick the phase is not `Idle`. The sequence stays
+/// `Tallied` while she leaves, so without this the transition put her at the new
+/// room's spawn and the next tick put her back at the old pole's coordinates,
+/// inside the new geometry. This runs before the flag for that reason.
 ///
-/// `RoomSet` is the authority, not a change-detected id. It is the same
-/// value the transition itself resolves against, so "which room am I in" has one
-/// answer rather than two that must be kept in step.
-fn follow_the_active_room(
-    room_set: Option<
-        ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
-            ambition_platformer2d::world::rooms::RoomSet,
-        >,
-    >,
+/// A replay starts the lap in the tick it is admitted, for the same reason: the
+/// replay has put her at the spawn. Only the level's own replay does this. A
+/// death also replays the room, and a death keeps the lap it spent (see
+/// `spend_lives_on_death`). The first room is not an arrival from anywhere: the
+/// owner was built with a fresh lap.
+fn begin_a_lap_on_arrival(
     mut replays: bevy::prelude::MessageReader<
         ambition_platformer2d::combat::events::RoomReplayAdmitted,
     >,
     mut owners: bevy::prelude::Query<(
         &mut flag::FlagSequence,
         &mut MaryOLevelState,
-        &mut LevelLap,
         &ambition_platformer2d::session::Departure,
+        &ambition_platformer2d::session::ModeVisit,
     )>,
 ) {
     let replayed = replays.read().count() > 0;
-    let Some(active) = room_set.as_deref().map(|set| set.active_spec().id.clone()) else {
-        return;
-    };
-    // ⛔ THE MEMORY IS THE MODE OWNER'S, NOT THIS SYSTEM'S. See
-    // [`LevelLap`]: a `Local` here compared a NOT-rewound room id against a
-    // rewound `RoomSet`, so the re-arm below fired on one timeline and not the
-    // other. Reading it needs the owner, so a world with no mode owner has
-    // nothing to remember with and nothing to re-arm.
-    let Ok((mut sequence, mut level, mut lap, departure)) = owners.single_mut() else {
+    let Ok((mut sequence, mut level, departure, visit)) = owners.single_mut() else {
         return;
     };
     let own_replay = replayed
@@ -899,35 +890,18 @@ fn follow_the_active_room(
             departure.state,
             ambition_platformer2d::session::DepartureState::Replaying { .. }
         );
-    if own_replay {
-        start_a_lap(&mut sequence, &mut level, &mut lap);
+    let arrived = visit.arrival() == ambition_platformer2d::session::Arrival::FromAnotherRoom;
+    if own_replay || arrived {
+        start_a_lap(&mut sequence, &mut level);
     }
-    if lap.seen_room.as_deref() == Some(active.as_str()) {
-        return;
-    }
-    let first_observation = lap.seen_room.is_none();
-    // `FlagSequence::driven` is a POSITION IN THE SOURCE ROOM — the pole she slid down — and
-    // `run_flag_sequence` writes it onto the body through `constrain_body_pose` every tick the
-    // phase is not `Idle`. `Tallied` returns `Some(driven)`, and `cycle_level_on_flag_tally`
-    // deliberately STAYS `Tallied` while departing so the transition keeps being asked for. So the
-    // sequence of events was: the transition placed her at the target room's spawn, and the very
-    // next run of the driver put her back at the old room's pole coordinates — inside the new
-    // geometry, where 1-1's x=3240 is 1300px past the end of 1-2.
-    //
-    // The first observation is not a change, and rearming the level clock on
-    // session start would restate `MaryOLevelState`'s own construction.
-    if !first_observation {
-        start_a_lap(&mut sequence, &mut level, &mut lap);
-    }
-    lap.seen_room = Some(active);
 }
 
 /// A fresh lap: the flag back to `Idle`, a full clock and the intro card.
-fn start_a_lap(sequence: &mut flag::FlagSequence, level: &mut MaryOLevelState, lap: &mut LevelLap) {
+fn start_a_lap(sequence: &mut flag::FlagSequence, level: &mut MaryOLevelState) {
     *sequence = flag::FlagSequence::default();
     level.time_remaining = STARTING_TIME;
     level.intro_card = INTRO_CARD_SECONDS;
-    lap.dwell = 0.0;
+    level.tally_dwell = 0.0;
 }
 
 /// The demo's cast as a catalog resource, for a fixture that wants the forms'
@@ -1031,20 +1005,6 @@ pub fn install_mary_o_content(app: &mut App) {
                 "ambition_demo_mary_o",
                 "content.mary_o_flag_sequence",
                 rollback_probes::flag_sequence,
-            )
-            // ⛔⛔ THE LEVEL'S DEPARTURE MEMORY WAS THREE `Local`s AND DESYNCED
-            // THE DEMO. A dwell timer accumulated on the sim clock, the room the
-            // level asked for, and the room the mode last saw — every one of them
-            // gating a write to `MaryOLevelState`, `FlagSequence` or
-            // `PendingLifecycleCommit`, and not one of them rewound. Measured on
-            // the demo's own sync-test host: a goal-pole slide desynced at frames
-            // 92-93 on exactly the two checksummed types the dwell threshold
-            // gates. Probed by VALUE, because a presence probe sees the component
-            // and nothing of the timer inside it.
-            .rollback_component_clone_probed::<LevelLap>(
-                "ambition_demo_mary_o",
-                "content.mary_o_level_lap",
-                rollback_probes::level_lap,
             )
             // It is engine state now — `DeathInterlude` / `OutOfPlay` on the body — and the engine
             // registers it, so a game that states death rules cannot forget to make them
@@ -1250,6 +1210,16 @@ pub struct MaryOLevelState {
     /// the card is published only while it is positive — an unpublished HUD
     /// slot draws nothing, so the card retires itself.
     pub intro_card: f32,
+    /// Seconds the flag tally has been on screen. The level asks to leave on the
+    /// tick this crosses [`LEVEL_CYCLE_DWELL`].
+    ///
+    /// ⛔⛔ IT WAS A `Local` AND DESYNCED THE DEMO: a Bevy local is not rollback
+    /// state. Measured 2026-08-30 on the demo's own sync-test host: riding the
+    /// goal pole desynced at frames 92-93 on exactly `MaryOLevelState` and
+    /// `PendingLifecycleCommit`, which are what this threshold gates. The
+    /// resimulation started from a dwell that had never been rewound, so the
+    /// level asked for its successor on one timeline and not the other.
+    pub tally_dwell: f32,
 }
 
 impl Default for MaryOLevelState {
@@ -1259,43 +1229,9 @@ impl Default for MaryOLevelState {
             score: 0,
             lives: STARTING_LIVES,
             intro_card: INTRO_CARD_SECONDS,
+            tally_dwell: 0.0,
         }
     }
-}
-
-/// How long the tally has been on screen, and which room the mode last saw
-/// itself in. Where the level goes, and the trip there, are the engine's
-/// [`Departure`](ambition_platformer2d::session::Departure) on the same owner.
-///
-/// ⛔⛔ THESE WERE `Local`s ON SIM SYSTEMS, and a Bevy local is not
-/// rollback state. Measured 2026-08-30 on the demo's own sync-test host: riding
-/// the goal pole desynced at frames 92-93 on exactly two checksummed types,
-/// `MaryOLevelState` and `PendingLifecycleCommit` — which are precisely what the
-/// [`dwell`](Self::dwell) threshold gates. The first simulation accumulated the
-/// dwell, GGRS rewound the world, and the resimulation started from a dwell that
-/// had never been rewound: the threshold crossed on a different tick, so the
-/// level re-armed and asked for its successor on one timeline and not the other.
-///
-/// ⭐ IT RIDES THE MODE OWNER, beside `MaryOLevelState` and `FlagSequence`,
-/// because it is the same object's memory of the same lifecycle. It is a
-/// separate component only because `MaryOLevelState` is `Copy` and a room id is
-/// not.
-///
-/// The engine fixed this exact defect once before, for cutscene triggers, with
-/// `ambition_cutscene::LastCutsceneRoom` — a `Local<Option<String>>` room memory
-/// that left a rewind past a room entry claiming the room, so resimulation
-/// emitted nothing.
-#[derive(bevy::prelude::Component, Clone, Debug, Default, PartialEq)]
-pub struct LevelLap {
-    /// Seconds the tally has been on screen. The level asks to leave on the tick
-    /// this crosses [`LEVEL_CYCLE_DWELL`]. Advances on the SIM clock, so it is
-    /// simulation state in the plainest sense.
-    pub dwell: f32,
-    /// The room the mode last saw itself in. `follow_the_active_room` compares
-    /// it against the rewound `RoomSet` to decide whether the level's clock and
-    /// flag sequence are re-armed — a decision that must be the same decision on
-    /// both timelines.
-    pub seen_room: Option<String>,
 }
 
 /// Mary-O's level rules. ONE system list; a constructor flag decides its gating —
@@ -1428,7 +1364,7 @@ impl Plugin for MaryORulesPlugin {
         let rules = (
             // A new room starts a fresh lap before the flag reads that room's
             // pole, so a sequence never drives the body to the last room's pole.
-            follow_the_active_room,
+            begin_a_lap_on_arrival,
             flag::run_flag_sequence,
             flag::play_victory_music,
             tick_level_clock,
@@ -1620,15 +1556,8 @@ impl Plugin for MaryORulesPlugin {
 /// The sequence rides the same entity as the clock. The owner is owned by BOTH
 /// the mode (it survives in-session room changes) and the active session (it
 /// is torn down on a shell relaunch, which a same-mode reload is NOT).
-fn mary_o_level_owner() -> (MaryOLevelState, flag::FlagSequence, LevelLap) {
-    (
-        MaryOLevelState::default(),
-        flag::FlagSequence::default(),
-        // The mode owner's memory of its own level lifecycle. It rides here
-        // rather than in a system `Local` because it decides authoritative
-        // writes and therefore has to rewind with them — see [`LevelLap`].
-        LevelLap::default(),
-    )
+fn mary_o_level_owner() -> (MaryOLevelState, flag::FlagSequence) {
+    (MaryOLevelState::default(), flag::FlagSequence::default())
 }
 
 /// The level clock runs on the SIM clock, so pause and bullet-time slow it exactly
@@ -1839,7 +1768,7 @@ fn warp_through_secret_pipe(
     // THE TUBES OF THE ROOM SHE IS STANDING IN. This read one flat
     // process-global list built from 1-1, so every tube in the game was 1-1's
     // and a pipe authored anywhere else was scenery. `RoomSet` is the same
-    // authority `follow_the_active_room` asks — read live rather than cached,
+    // authority the flag and the departure ask — read live rather than cached,
     // because a remembered room id is exactly how the goal pole and the level
     // destination each drifted one room behind.
     //
@@ -1945,30 +1874,28 @@ fn at_mouth(body: ae::Aabb, mouth: ae::Aabb) -> bool {
 ///
 /// The tally stays `Tallied` while she leaves, so she is held at the pole and
 /// cannot walk away from a finished level. The lap starts again on arrival or on
-/// the admitted replay (`follow_the_active_room`), and here when the trip ends
+/// the admitted replay (`begin_a_lap_on_arrival`), and here when the trip ends
 /// with neither.
 fn cycle_level_on_flag_tally(
     time: bevy::prelude::Res<ambition_platformer2d::time::WorldTime>,
     // ⛔ THE DWELL IS THE MODE OWNER'S, NOT THIS SYSTEM'S. It was a `Local`, and
-    // a Bevy local does not rewind: see [`LevelLap`] for the measured desync
-    // that produced.
+    // a Bevy local does not rewind: see [`MaryOLevelState::tally_dwell`].
     mut owners: bevy::prelude::Query<(
         &mut flag::FlagSequence,
         &mut MaryOLevelState,
-        &mut LevelLap,
         &mut ambition_platformer2d::session::Departure,
     )>,
 ) {
-    let Ok((mut sequence, mut level, mut lap, mut departure)) = owners.single_mut() else {
+    let Ok((mut sequence, mut level, mut departure)) = owners.single_mut() else {
         return;
     };
     if !matches!(sequence.phase, flag::FlagPhase::Tallied { .. }) {
-        lap.dwell = 0.0;
+        level.tally_dwell = 0.0;
         return;
     }
-    let reading_the_tally = lap.dwell < LEVEL_CYCLE_DWELL;
-    lap.dwell += time.scaled_dt;
-    if lap.dwell < LEVEL_CYCLE_DWELL {
+    let reading_the_tally = level.tally_dwell < LEVEL_CYCLE_DWELL;
+    level.tally_dwell += time.scaled_dt;
+    if level.tally_dwell < LEVEL_CYCLE_DWELL {
         return;
     }
     if reading_the_tally {
@@ -1986,7 +1913,7 @@ fn cycle_level_on_flag_tally(
         departure.leave(ambition_platformer2d::session::Destination::NextRoom);
     } else if !departure.is_leaving() {
         // The trip ended with no new room and no admitted replay.
-        start_a_lap(&mut sequence, &mut level, &mut lap);
+        start_a_lap(&mut sequence, &mut level);
     }
 }
 
@@ -3799,20 +3726,7 @@ mod rollback_probes {
             ^ ((state.score as u64) << 8)
             ^ ((state.lives as u64) << 40)
             ^ ((state.intro_card.to_bits() as u64) << 1)
-    }
-
-    /// ⭐ THE TIMER AND THE ROOM ID. A probe that hashed only the dwell would
-    /// miss a lap that remembers a different room, and one that hashed only the
-    /// room would miss the threshold the departure is gated on.
-    pub(super) fn level_lap(lap: &LevelLap) -> u64 {
-        // A stable FNV-1a over the bytes: `DefaultHasher` is not a cross-build
-        // promise, and a room id is a short ASCII string.
-        let room = lap.seen_room.as_ref().map_or(0, |id| {
-            id.bytes().fold(0xcbf2_9ce4_8422_2325_u64, |h, b| {
-                (h ^ u64::from(b)).wrapping_mul(0x100_0000_01b3)
-            })
-        });
-        (lap.dwell.to_bits() as u64) ^ room.rotate_left(41)
+            ^ (state.tally_dwell.to_bits() as u64).rotate_left(23)
     }
 
     pub(super) fn flag_sequence(sequence: &flag::FlagSequence) -> u64 {

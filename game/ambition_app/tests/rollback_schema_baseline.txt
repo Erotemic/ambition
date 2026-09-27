@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v245
+ggrs-rollback-schema-v246
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -125,7 +125,6 @@ content.gradient_cascade_state	component-canonical	GradientCascadeState	bevy_ggr
 content.mary_o_ai_slop	component-clone	AiSlop	bevy_ggrs clone snapshot; not in the session checksum
 content.mary_o_broken_bricks	resource-clone-custom-checksum	BrokenBricks	bevy_ggrs clone snapshot + an order-independent checksum over the broken names
 content.mary_o_flag_sequence	component-clone	FlagSequence	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
-content.mary_o_level_lap	component-clone	LevelLap	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 content.mary_o_level_state	component-clone	MaryOLevelState	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 content.mary_o_pipe_entry_latch	component-clone	PipeEntryLatch	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 content.mary_o_pipe_transit	component-clone	PipeTransit	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -470,6 +469,7 @@ root:room_set	required-rollback	RoomSet	component presence automatically install
 scope.mode	component-canonical	ModeScopedEntity	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 scope.room	component-canonical	RoomScopedEntity	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 scope.session	component-clone	SessionScopedEntity	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
+session.mode_visit	component-clone	ModeVisit	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 session.room_departure	component-clone	Departure	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 smash.body_mark	component-clone	BodyMark	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 smash.departing_mount	component-clone	Departing	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum

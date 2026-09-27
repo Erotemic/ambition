@@ -296,7 +296,8 @@ fn a_game_with_a_mode_owner() -> App {
     let mut app = App::new();
     app.set_sim_schedule(Update);
     insert_session_rooms(&mut app);
-    app.add_systems(Update, despawn_departed_mode_entities);
+    // The sweep and the room follow, as the engine group installs them.
+    app.add_plugins(ambition_platformer2d_runtime::ModeScopePlugin);
     ambition_platformer2d_runtime::install_mode_owner(
         &mut app,
         ambition_combat::scoped_rules::RulesScope::Mode("a"),
@@ -357,6 +358,44 @@ fn a_declared_mode_owner_is_born_once_per_visit_to_its_mode() {
         app.world_mut().query::<&ActClock>().single(app.world()).ok(),
         Some(&ActClock(0)),
         "a new visit must start from the authored state, not the last visit's"
+    );
+}
+
+/// A mode owner knows the room it is in and whether it has just arrived: its
+/// first room on the tick it is born, then each room it comes into. Two games
+/// declare owners here, and the engine follows the room once per tick for both.
+#[test]
+fn a_mode_owner_is_told_when_it_arrives_in_a_room() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{Arrival, ModeVisit};
+
+    let mut app = a_game_with_a_mode_owner();
+    ambition_platformer2d_runtime::install_mode_owner(
+        &mut app,
+        ambition_combat::scoped_rules::RulesScope::Mode("b"),
+        "b",
+        ActClock::default,
+    );
+    let mut visits = Vec::new();
+    for room in ["a", "a", "a_second_room", "a_second_room"] {
+        enter_room(&mut app, room);
+        app.update();
+        let visit = app
+            .world_mut()
+            .query::<&ModeVisit>()
+            .single(app.world())
+            .expect("mode `a`'s owner")
+            .clone();
+        visits.push((visit.room().map(str::to_owned), visit.arrival()));
+    }
+    let at = |room: &str, arrival| (Some(room.to_owned()), arrival);
+    assert_eq!(
+        visits,
+        [
+            at("a", Arrival::First),
+            at("a", Arrival::Staying),
+            at("a_second_room", Arrival::FromAnotherRoom),
+            at("a_second_room", Arrival::Staying),
+        ]
     );
 }
 

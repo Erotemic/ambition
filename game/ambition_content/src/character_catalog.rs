@@ -107,7 +107,9 @@ pub fn register_characters(app: &mut bevy::prelude::App) {
         {
             definition = definition.with_hurtboxes(doc);
         }
-        let definition = with_pack_moveset(id, definition, &pack);
+        // Every character facet the pack authors, folded by its capability.
+        let definition =
+            ambition_characters::pack_facets::fold_character_facets(&pack, definition);
         // A refusal stops the composition. A stable id authored by two
         // providers, or a display name shared by two characters, is two
         // authorities for one character; skipping the second registration would
@@ -130,30 +132,6 @@ fn rows_with_a_body() -> impl Iterator<Item = &'static str> {
         .iter()
         .filter(|(_, row)| row.locomotion.is_some() || row.locomotion_preset.is_some())
         .map(|(id, _)| id.as_str())
-}
-
-/// `definition` wearing the move table the pack authors for `id`, if it has one.
-///
-/// Every other fact of a character is its catalog row, folded at preparation;
-/// the move table is its own content family (`assets/data/movesets/*.ron`,
-/// declared in `pack.ron`). It replaces the definition's table and does not
-/// merge, because a merge would need a per-verb rule for which side wins.
-///
-/// `pack` is a parameter because the move table is a migrated family
-/// (fast-iteration I3, step 1). A process-global `OnceLock` would make every
-/// App in a process share one move table and give a reload nowhere to put a
-/// new one. The caller reads its App's selection once and passes it down.
-pub fn with_pack_moveset(
-    id: &str,
-    definition: ambition_platformer2d::character::CharacterDefinition,
-    pack: &ambition_content_pack::PreparedContentPack,
-) -> ambition_platformer2d::character::CharacterDefinition {
-    match ambition_characters::moveset_content_schema::lowered_movesets(pack)
-        .and_then(|table| table.get(id))
-    {
-        Some(contract) => definition.with_moveset(contract.clone()),
-        None => definition,
-    }
 }
 
 /// Every id this game registers as a buildable character: every row that
@@ -1062,7 +1040,8 @@ mod tests {
     /// and nothing fails.
     ///
     /// Pass a bare definition for every character in the assembled catalog and
-    /// see if [`with_pack_moveset`] changes it. An id it changes has a table.
+    /// see if the pack's facet fold (`pack_facets::fold_character_facets`)
+    /// gives it a move table.
     #[test]
     fn every_character_with_a_pack_move_table_is_registered_as_buildable() {
         // An unregistered body is never built, so nothing fails at runtime.
@@ -1077,7 +1056,9 @@ mod tests {
                 "unused",
                 crate::AMBITION_CONTENT_PROVIDER,
             );
-            if with_pack_moveset(id.as_str(), bare.clone(), crate::pack::prepared()) != bare
+            if ambition_characters::pack_facets::fold_character_facets(crate::pack::prepared(), bare)
+                .moveset
+                .is_some()
                 && !registered.contains(id.as_str())
             {
                 unregistered.push(id.clone());
@@ -1107,15 +1088,17 @@ mod tests {
              remove them from `KNOWN_UNREGISTERED`: {stale:?}"
         );
 
-        // Control: if `with_pack_moveset` became the identity for every id, the
-        // loop above would find nothing and pass.
+        // Control: if the fold became the identity for every id, the loop above
+        // would find nothing and pass.
         let authors_someone = catalog.data().characters.keys().any(|id| {
             let bare = ambition_platformer2d::character::CharacterDefinition::new(
                 id.as_str(),
                 "unused",
                 crate::AMBITION_CONTENT_PROVIDER,
             );
-            with_pack_moveset(id.as_str(), bare.clone(), crate::pack::prepared()) != bare
+            ambition_characters::pack_facets::fold_character_facets(crate::pack::prepared(), bare)
+                .moveset
+                .is_some()
         });
         assert!(
             authors_someone,

@@ -16,6 +16,7 @@
 | [`load_demand`](src/load_demand.rs) | What characters a composition has asked to have realized. |
 | [`moveset_content_schema`](src/moveset_content_schema.rs) | The `moveset` authored-content schema — fast-iteration I2, step 4. |
 | [`moveset_prefabs`](src/moveset_prefabs.rs) | Move authoring — the build-time half of the Smash model: the functions that turn authored specs (`MeleeActionSpec`/`RangedActionSpec`), tunable params (`Simple{Melee,Ranged,Charge}Params`), and the `MovePrefabRegistry` into `MoveSpec`s, plus `build_actor_moveset` which assembles an actor's full `MovesetContract` from its catalog + worn equipment. |
+| [`pack_facets`](src/pack_facets.rs) | The character facets a content pack authors, folded into a definition. |
 | [`perception`](src/perception.rs) | Controller-neutral per-body perception. |
 | [`prepared`](src/prepared.rs) | Character registration and preparation. |
 | [`prepared_fixtures`](src/prepared_fixtures.rs) | Fixture builders shared by preparation's own tests and the registration tests one crate up. |
@@ -26,7 +27,7 @@
 | [`snapshot_impls`](src/snapshot_impls.rs) | `SnapshotState` for this crate's own types — the rollback wire format. |
 | [`technique`](src/technique.rs) | THE AUTHORED SCHEMAS OF ENGINE TECHNIQUES — the params an `on_hit` effect carries, and nothing that executes one. |
 
-_19 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_20 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

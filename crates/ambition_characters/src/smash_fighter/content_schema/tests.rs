@@ -72,6 +72,34 @@ fn a_compiled_pack_carries_the_fighter_book_the_runtime_will_load() {
     assert_eq!(facet.body.and_then(|body| body.gravity), Some(1900.0));
 }
 
+/// The facet's owner is its one reader. A character fact (the weight) folds
+/// into the definition; the match fact (the body) layers over the player-grade
+/// body, not the actor baseline; and a character with no facet is untouched.
+#[test]
+fn the_facet_s_owner_folds_its_weight_and_gives_its_body_over_a_fighter() {
+    let pack = compile(
+        &draft(&[("fighters/george.ron", GEORGE_SHAPED)]),
+        &registry(),
+        &AssetsUnchecked,
+    )
+    .expect("a well-formed facet compiles");
+    let bare = |id: &str| crate::actor::definition::CharacterDefinition::new(id, id, "test");
+
+    let george = fold_into_definition(&pack, bare("test_george"));
+    assert_eq!(george.vitals.knockback_weight, Some(1.35));
+    assert_eq!(fold_into_definition(&pack, bare("test_nobody")), bare("test_nobody"));
+
+    let body = fighter_body(&pack, "test_george").expect("the facet states a body");
+    let base = ambition_platformer2d_core::DEFAULT_TUNING;
+    assert_eq!((body.gravity, body.max_fall_speed), (1900.0, 640.0));
+    assert_eq!(
+        (body.run_accel, body.jump_speed),
+        (base.run_accel, base.jump_speed),
+        "what the facet does not state is the player-grade body's"
+    );
+    assert_eq!(fighter_body(&pack, "test_nobody"), None);
+}
+
 /// the aggregate runs for ONE source too. Without that the artifact's
 /// TYPE would depend on how many files an author happened to write — see the
 /// same rule on `ContentSchemaHandler::aggregate` — and the test above would be

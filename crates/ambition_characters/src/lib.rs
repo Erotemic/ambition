@@ -38,6 +38,9 @@ pub mod prepared_fixtures;
 /// a compiler.
 #[cfg(feature = "content_pack")]
 pub mod moveset_content_schema;
+/// Every character facet a pack authors, folded into a definition by one call.
+#[cfg(feature = "content_pack")]
+pub mod pack_facets;
 pub mod smash_fighter;
 pub mod smash_hold_state;
 mod snapshot_impls;

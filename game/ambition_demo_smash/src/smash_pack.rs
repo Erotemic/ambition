@@ -5,8 +5,7 @@
 //! fighter's platform-fighter facet. George's authored values live with the
 //! character in the sprite-authoring submodule; this demo selects them.
 
-use ambition_platformer2d::characters::smash_fighter::content_schema::lowered_smash_fighters;
-use ambition_platformer2d::characters::smash_fighter::SmashFighterFacet;
+use ambition_platformer2d::characters::smash_fighter::content_schema::fighter_body as fighter_body_in;
 use ambition_platformer2d::content::EmbeddedPack;
 
 /// The George paths leave the demo on purpose: the demo selects George's
@@ -54,40 +53,10 @@ pub static PACK: EmbeddedPack = EmbeddedPack::new(
     ],
 );
 
-/// One character's authored platform-fighter facet, or `None` if this pack does
-/// not author one for them.
-pub fn fighter_facet(character: &str) -> Option<&'static SmashFighterFacet> {
-    lowered_smash_fighters(PACK.prepared())?.get(character)
-}
-
-/// The body a character's authored facet states for its fighter self, layered
-/// over the base platform-fighter body.
-///
-/// This is the other half of `MatchParticipant::body`. A catalog row's feel
-/// applies everywhere the character appears, so a character that also fights
-/// states its fighter body in its own package, and the roster gives it to the
-/// seat.
-///
-/// `None` when the pack has no facet for the character or the facet states no
-/// body: keep the current body.
+/// The body a character plays on as a fighter, as this pack's facet states
+/// it: the other half of `MatchParticipant::body`. The facet's owner
+/// (`smash_fighter::content_schema::fighter_body`) says what the facet means;
+/// this names the pack.
 pub fn fighter_body(character: &str) -> Option<ambition_platformer2d::engine_core::MovementTuning> {
-    fighter_facet(character)?
-        .body
-        .as_ref()
-        // The base is the player-grade body, not the actor baseline
-        // (`BodyMovementTuning::BASELINE`, the wandering-enemy body with an
-        // eighth of the player's ground acceleration). An authored body states
-        // its differences from a fighter, so they layer onto a fighter.
-        .map(|body| body.over(ambition_platformer2d::engine_core::DEFAULT_TUNING))
-}
-
-/// How hard a character is to launch, where its authored facet states it.
-///
-/// The character owns its weight; a game must not set `Vitals::knockback_weight`
-/// from outside (see `character-authoring-package.md`).
-///
-/// `None` when the pack has no facet for the character or the facet states no
-/// weight: keep the current weight (the reference body by default).
-pub fn fighter_knockback_weight(character: &str) -> Option<f32> {
-    fighter_facet(character)?.knockback_weight
+    fighter_body_in(PACK.prepared(), character)
 }

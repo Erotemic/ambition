@@ -388,6 +388,23 @@ pub fn lowered_movesets(
     pack.lowered::<MoveSectionData>(&SchemaId::new(MOVESET_SCHEMA))
 }
 
+/// Give `definition` the move table `pack` authors for its id, if the pack
+/// authors one. One of the folds in [`crate::pack_facets`].
+///
+/// The table replaces the definition's table and does not merge, because a
+/// merge would need a per-verb rule for which side wins. `pack` is a parameter
+/// because a reload selects a new pack per App; a process-global table would
+/// give a reload nowhere to put a new one.
+pub fn fold_moveset(
+    pack: &ambition_content_pack::PreparedContentPack,
+    definition: crate::actor::definition::CharacterDefinition,
+) -> crate::actor::definition::CharacterDefinition {
+    match lowered_movesets(pack).and_then(|table| table.get(definition.id.as_str())) {
+        Some(contract) => definition.with_moveset(contract.clone()),
+        None => definition,
+    }
+}
+
 /// Every entity whose authored moveset the live cast is playing that `candidate`
 /// stops naming.
 ///

@@ -12,7 +12,7 @@ use ambition_characters::moveset_content_schema::lowered_movesets;
 /// Every character a move file names is one this game builds.
 ///
 /// A file names its characters by entity id. A table under a wrong id fails
-/// silently: `with_pack_moveset` gets `None` from `table.get(id)` and leaves
+/// silently: `fold_moveset` gets `None` from `table.get(id)` and leaves
 /// the fighter with no authored moves.
 #[test]
 fn every_character_the_move_section_names_is_one_this_game_builds() {
@@ -42,9 +42,9 @@ fn every_character_the_move_section_names_is_one_this_game_builds() {
 /// The host takes its table from the file.
 ///
 /// This asks the character definition the game builds.
-/// `with_pack_moveset` is the one seam every buildable character passes
-/// through (`register_characters`'s loop calls it), so what it returns is
-/// what the cast is registered with.
+/// `pack_facets::fold_character_facets` is the one seam every buildable
+/// character passes through (`register_characters`'s loop calls it), so what
+/// it returns is what the cast is registered with.
 ///
 /// It runs over every character the move files name, not a sample.
 #[test]
@@ -53,14 +53,13 @@ fn every_migrated_fighter_the_game_builds_swings_its_file_s_numbers() {
         lowered_movesets(crate::pack::prepared()).expect("the shipped pack carries a move section");
     let mut checked = 0usize;
     for id in table.keys().map(String::as_str) {
-        let definition = crate::character_catalog::with_pack_moveset(
-            id,
+        let definition = ambition_characters::pack_facets::fold_character_facets(
+            crate::pack::prepared(),
             ambition_platformer2d::character::CharacterDefinition::new(
                 id,
                 id,
                 crate::AMBITION_CONTENT_PROVIDER,
             ),
-            crate::pack::prepared(),
         );
         let moveset = definition.moveset.as_ref().unwrap_or_else(|| {
             panic!("`{id}` is built with no moveset, so the pack did not reach it")

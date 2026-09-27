@@ -213,8 +213,9 @@ pub mod content {
         ///
         /// Each character is built from what the pack says about it and from
         /// nothing else: its catalog row (name, sheet, ability grants, feel,
-        /// health), its move table if the pack authors one, and its knockback
-        /// weight if its platform-fighter facet states one. A game registers
+        /// health) and every character facet the pack authors for it (its
+        /// move table, its platform-fighter weight), each folded by the
+        /// capability that owns it (`pack_facets`). A game registers
         /// its cast with one call and writes no per-character Rust.
         ///
         /// # Panics
@@ -277,9 +278,6 @@ pub mod content {
             use ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinitionAppExt;
 
             let pack = self.pack.prepared();
-            let movesets = ambition_characters::moveset_content_schema::lowered_movesets(pack);
-            let fighters =
-                ambition_characters::smash_fighter::content_schema::lowered_smash_fighters(pack);
             let catalog = self.fragment.catalog();
             let characters: Vec<_> = catalog
                 .characters
@@ -307,12 +305,10 @@ pub mod content {
                 if let Some(doc) = inset_hurtboxes {
                     definition = definition.with_hurtboxes(doc);
                 }
-                if let Some(moveset) = movesets.and_then(|table| table.get(&id)) {
-                    definition = definition.with_moveset(moveset.clone());
-                }
-                definition.vitals.knockback_weight = fighters
-                    .and_then(|book| book.get(&id))
-                    .and_then(|facet| facet.knockback_weight);
+                // The move table and every other facet the pack authors for
+                // this character, each folded by the capability that owns it.
+                let definition =
+                    ambition_characters::pack_facets::fold_character_facets(pack, definition);
                 app.register_character(definition);
             }
         }

@@ -1823,10 +1823,18 @@ fn a_grid_fighter_that_authors_no_feel_is_seated_on_the_wandering_enemys_body() 
 #[test]
 fn george_carries_the_knockback_weight_his_own_facet_authors() {
     use ambition_demo_smash::{SMASH_CHARACTER_ID, SMASH_GEORGE_BOOUL, SMASH_OPPONENT_ID};
+    // The facet as its owning capability reads it from the demo's pack.
+    let authored_weight = |id: &str| {
+        ambition_platformer2d::characters::smash_fighter::content_schema::facet(
+            ambition_demo_smash::smash_pack::PACK.prepared(),
+            id,
+        )
+        .and_then(|facet| facet.knockback_weight)
+    };
 
     // The AUTHORED end: his package states it, and the pack reads it back.
     assert_eq!(
-        ambition_demo_smash::smash_pack::fighter_knockback_weight(SMASH_GEORGE_BOOUL),
+        authored_weight(SMASH_GEORGE_BOOUL),
         Some(1.35),
         "George's `smash_fighter.ron` must state his weight — with it gone the \
          heaviest fighter on the grid launches like the reference body and \
@@ -1835,7 +1843,7 @@ fn george_carries_the_knockback_weight_his_own_facet_authors() {
     // The two stand-ins state theirs in their own facet files.
     for (id, weight) in [(SMASH_CHARACTER_ID, 1.0), (SMASH_OPPONENT_ID, 0.85)] {
         assert_eq!(
-            ambition_demo_smash::smash_pack::fighter_knockback_weight(id),
+            authored_weight(id),
             Some(weight),
             "`{id}`'s facet (`data/fighters/{id}.ron`) must state its weight"
         );

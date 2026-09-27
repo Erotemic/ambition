@@ -919,6 +919,27 @@ ABSENCE_CONTRACTS: list[dict] = [
         ),
     },
     {
+        "id": "the-smash-fighter-facet-is-read-only-by-its-owner",
+        "paths": [
+            "crates/",
+            "game/",
+            "fixtures/",
+            ":!crates/ambition_characters/src/smash_fighter/",
+        ],
+        "patterns": [r"\blowered_smash_fighters\b", r"\bSmashFighterFacet\b"],
+        "reason": (
+            "The platform-fighter facet has one reader, its capability "
+            "(`ambition_characters::smash_fighter`): `fold_into_definition` folds "
+            "its character facts through `pack_facets::fold_character_facets`, "
+            "and `fighter_body` gives its match fact to a composition (queue "
+            "AP78). Before, the generic `PackCast::register` read the book and "
+            "folded the weight, and the Smash demo read it again for the body. A "
+            "registration road that names one facet capability is the precedent "
+            "for naming the next; a demo that reads the facet is a second "
+            "interpreter of it."
+        ),
+    },
+    {
         "id": "the-catalog-default-action-set-is-confined-to-one-file",
         "paths": [
             "crates/",

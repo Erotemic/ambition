@@ -7,16 +7,15 @@
 //! give a character two weights and the winner would be map iteration
 //! order.
 //!
-//! this schema does NOT emit a reference to the character it names, and the
-//! omission is deliberate. A `PendingRef` resolves against identities the same
-//! pack defines, and the demo that authors the first facet registers its cast in
-//! Rust rather than in a `character_catalog` source — so a reference would
-//! refuse content that is entirely correct. The place "no such character" is
-//! actually discoverable is the LOOKUP, where a fighter's registration asks for
-//! its own facet by id and can say what the pack does define; see
-//! `ambition_demo_smash::smash_pack`. do not add the reference until a pack
-//! authors both halves — an unresolvable-by-construction reference trains
-//! authors to ignore the diagnostic that is supposed to be rare.
+//! this schema does NOT emit a reference to the character it names. A
+//! `PendingRef` resolves against identities the same pack defines, and a facet
+//! was first authored in a pack with no `character_catalog` source. The Smash
+//! pack now authors both halves, so the reference can be added; queue row AP78
+//! records it.
+//!
+//! This module is the one reader of the facet: [`fold_into_definition`] folds
+//! its character facts, and [`fighter_body`] gives its match fact to a
+//! composition.
 
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -126,6 +125,49 @@ pub fn lowered_smash_fighters(
     pack: &ambition_content_pack::PreparedContentPack,
 ) -> Option<&SmashFighterBook> {
     pack.lowered::<SmashFighterBook>(&SchemaId::new(SMASH_FIGHTER_SCHEMA))
+}
+
+/// `character`'s facet in `pack`, or `None` when the pack authors none.
+pub fn facet<'a>(
+    pack: &'a ambition_content_pack::PreparedContentPack,
+    character: &str,
+) -> Option<&'a SmashFighterFacet> {
+    lowered_smash_fighters(pack)?.get(character)
+}
+
+/// Fold the facet's CHARACTER facts into `definition`: its knockback weight,
+/// which applies wherever the character appears. One of the folds in
+/// [`crate::pack_facets`]. The fighter body is a match fact; see
+/// [`fighter_body`].
+pub fn fold_into_definition(
+    pack: &ambition_content_pack::PreparedContentPack,
+    mut definition: crate::actor::definition::CharacterDefinition,
+) -> crate::actor::definition::CharacterDefinition {
+    if let Some(weight) = facet(pack, definition.id.as_str()).and_then(|f| f.knockback_weight) {
+        definition.vitals.knockback_weight = Some(weight);
+    }
+    definition
+}
+
+/// The body `character` plays on as a fighter: its facet's body layered over
+/// the player-grade body. A composition gives it to the seat as
+/// `MatchParticipant::body`.
+///
+/// The base is `DEFAULT_TUNING`, not the actor baseline
+/// (`BodyMovementTuning::BASELINE`, the wandering-enemy body with an eighth of
+/// the player's ground acceleration): an authored body states its differences
+/// from a fighter, so they layer onto a fighter.
+///
+/// `None` when the pack has no facet for the character or the facet states no
+/// body: keep the current body.
+pub fn fighter_body(
+    pack: &ambition_content_pack::PreparedContentPack,
+    character: &str,
+) -> Option<ambition_platformer2d_core::MovementTuning> {
+    facet(pack, character)?
+        .body
+        .as_ref()
+        .map(|body| body.over(ambition_platformer2d_core::DEFAULT_TUNING))
 }
 
 pub fn smash_fighter_schema() -> SchemaRegistration {

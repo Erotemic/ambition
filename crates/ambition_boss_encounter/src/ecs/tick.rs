@@ -160,14 +160,6 @@ pub fn trigger_boss_attack_moves(
     >,
 ) {
     use ambition_characters::brain::BossAttackProfile;
-    use ambition_entity_catalog::WindowTag;
-    let active_start = |spec: &ambition_entity_catalog::MoveSpec| -> f32 {
-        spec.windows
-            .iter()
-            .find(|w| matches!(w.tag, WindowTag::Active))
-            .map(|w| w.start_s)
-            .unwrap_or(0.0)
-    };
     for (entity, attack_intent, moveset, (kin, unmirrored), playback) in &mut bosses {
         // This frame's intent, written by the boss pattern or possession
         // before the combat phase. A Telegraph step starts the move at its
@@ -180,20 +172,21 @@ pub fn trigger_boss_attack_moves(
             .or_else(|| attack_intent.active_profile.as_ref().map(|p| (p, false)));
 
         // An interrupted windup must not strike. A move already in its Active
-        // window is committed and runs to completion.
+        // window is committed and runs to completion. The cancel frees the
+        // body, so this tick's intent starts below on the same tick.
         if let Some(mut pb) = playback {
             let move_profile = BossAttackProfile::from_move_id(&pb.spec.id);
             let in_windup = pb.t < active_start(&pb.spec);
             let intent_wants_this = intent.is_some_and(|(p, _)| *p == move_profile);
-            if in_windup && !intent_wants_this {
-                ambition_combat::moveset::cancel_move_playback(
-                    &mut commands,
-                    entity,
-                    &mut pb,
-                    ambition_combat::moveset::MoveEnd::Interrupted,
-                );
+            if !(in_windup && !intent_wants_this) {
+                continue;
             }
-            continue;
+            ambition_combat::moveset::cancel_move_playback(
+                &mut commands,
+                entity,
+                &mut pb,
+                ambition_combat::moveset::MoveEnd::Interrupted,
+            );
         }
 
         let Some((profile, from_telegraph)) = intent else {
@@ -241,7 +234,9 @@ pub fn trigger_boss_attack_moves(
 /// Project [`BossAttackState`] from the live boss [`MovePlayback`].
 /// `BossAttackState` is the boss telegraph/strike read-model
 /// (`telegraph_profile` / `active_profile` and their remaining/elapsed), and
-/// this projection is its only writer. While a boss move plays, the
+/// this projection's rule (`project_boss_attack_state`) is its only writer;
+/// [`interrupt_boss_windups_on_phase_change`] applies the same rule again after
+/// a phase change. While a boss move plays, the
 /// read-model is derived from the move (the shared move runtime is the
 /// authority); with no move playing, it is cleared. The boss brain publishes
 /// a `BossAttackIntent`, the trigger starts a move from it, and this projects
@@ -263,44 +258,101 @@ pub fn project_boss_attack_state_from_move(
         With<FeatureSimEntity>,
     >,
 ) {
-    use ambition_characters::brain::BossAttackProfile;
     for (playback, mut attack_state) in &mut bosses {
-        let Some(playback) = playback else {
-            attack_state.clear();
+        project_boss_attack_state(playback, &mut attack_state);
+    }
+}
+
+/// The start of a move's strike window: its windup ends here. A move with no
+/// Active window has no windup.
+fn active_start(spec: &ambition_entity_catalog::MoveSpec) -> f32 {
+    spec.windows
+        .iter()
+        .find(|w| matches!(w.tag, ambition_entity_catalog::WindowTag::Active))
+        .map(|w| w.start_s)
+        .unwrap_or(0.0)
+}
+
+/// A phase change interrupts the boss move that is still in its windup.
+///
+/// The boss chose that move from the old phase's pattern earlier in the tick,
+/// and this tick's damage then ended the phase. The next tick's pattern does
+/// not want the move, but systems that run before the trigger (the GNU-ton
+/// conductor, in `WorldPrep`) would read the old phase's telegraph first. A
+/// move in its strike window is committed and runs to its end.
+///
+/// The read model is projected again here, from no move, because this tick's
+/// projection ran in the combat phase, before the phase changed.
+pub fn interrupt_boss_windups_on_phase_change(
+    mut commands: Commands,
+    mut changes: bevy::prelude::MessageReader<crate::BossPhaseChanged>,
+    mut bosses: Query<
+        (
+            &mut ambition_combat::moveset::MovePlayback,
+            &mut BossAttackState,
+        ),
+        With<FeatureSimEntity>,
+    >,
+) {
+    for change in changes.read() {
+        let Ok((mut playback, mut attack_state)) = bosses.get_mut(change.boss) else {
             continue;
         };
-        let t = playback.t;
-        let Some(active) = playback
-            .spec
-            .windows
-            .iter()
-            .find(|w| matches!(w.tag, ambition_entity_catalog::WindowTag::Active))
-        else {
-            // A move with no Active window projects no strike state.
-            attack_state.clear();
+        if playback.t >= active_start(&playback.spec) {
             continue;
-        };
-        let profile = BossAttackProfile::from_move_id(&playback.spec.id);
-        if t < active.start_s {
-            // Windup: the move is playing its telegraph (no hitbox yet).
-            attack_state.telegraph_profile = Some(profile);
-            attack_state.telegraph_remaining = (active.start_s - t).max(0.0);
-            attack_state.telegraph_elapsed = t;
-            attack_state.active_profile = None;
-            attack_state.active_remaining = 0.0;
-            attack_state.active_elapsed = 0.0;
-        } else if t < active.end_s {
-            // Strike: the hitbox is live; active_elapsed folds in the telegraph.
-            attack_state.telegraph_profile = None;
-            attack_state.telegraph_remaining = 0.0;
-            attack_state.telegraph_elapsed = 0.0;
-            attack_state.active_profile = Some(profile);
-            attack_state.active_remaining = (active.end_s - t).max(0.0);
-            attack_state.active_elapsed = t;
-        } else {
-            // Spent tail (t >= end; the move is about to be removed): no live strike.
-            attack_state.clear();
         }
+        ambition_combat::moveset::cancel_move_playback(
+            &mut commands,
+            change.boss,
+            &mut playback,
+            ambition_combat::moveset::MoveEnd::Interrupted,
+        );
+        project_boss_attack_state(None, &mut attack_state);
+    }
+}
+
+/// The projection of one boss: its read model from its live move, or cleared
+/// when no move plays.
+fn project_boss_attack_state(
+    playback: Option<&ambition_combat::moveset::MovePlayback>,
+    attack_state: &mut BossAttackState,
+) {
+    use ambition_characters::brain::BossAttackProfile;
+    let Some(playback) = playback else {
+        attack_state.clear();
+        return;
+    };
+    let t = playback.t;
+    let Some(active) = playback
+        .spec
+        .windows
+        .iter()
+        .find(|w| matches!(w.tag, ambition_entity_catalog::WindowTag::Active))
+    else {
+        // A move with no Active window projects no strike state.
+        attack_state.clear();
+        return;
+    };
+    let profile = BossAttackProfile::from_move_id(&playback.spec.id);
+    if t < active.start_s {
+        // Windup: the move is playing its telegraph (no hitbox yet).
+        attack_state.telegraph_profile = Some(profile);
+        attack_state.telegraph_remaining = (active.start_s - t).max(0.0);
+        attack_state.telegraph_elapsed = t;
+        attack_state.active_profile = None;
+        attack_state.active_remaining = 0.0;
+        attack_state.active_elapsed = 0.0;
+    } else if t < active.end_s {
+        // Strike: the hitbox is live; active_elapsed folds in the telegraph.
+        attack_state.telegraph_profile = None;
+        attack_state.telegraph_remaining = 0.0;
+        attack_state.telegraph_elapsed = 0.0;
+        attack_state.active_profile = Some(profile);
+        attack_state.active_remaining = (active.end_s - t).max(0.0);
+        attack_state.active_elapsed = t;
+    } else {
+        // Spent tail (t >= end; the move is about to be removed): no live strike.
+        attack_state.clear();
     }
 }
 

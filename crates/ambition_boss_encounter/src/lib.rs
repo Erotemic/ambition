@@ -126,6 +126,8 @@ impl bevy::prelude::Plugin for BossEncounterSimulationPlugin {
                 // the phase driver so the swap is same-frame (Q19).
                 notify_bosses_on_mount_death,
                 update_boss_encounters,
+                // The phase this tick ended must not keep a move it chose.
+                crate::ecs::interrupt_boss_windups_on_phase_change,
                 sync_boss_encounter_entities,
                 update_encounter_progress,
             )

@@ -235,6 +235,103 @@ fn interrupted_windup_is_aborted_before_the_strike() {
     );
 }
 
+/// A phase change ends the move the old phase chose while it is still in its
+/// windup, and the read model says so on the same tick.
+///
+/// The phase ends in the progression phase, after the combat phase started and
+/// projected the windup. A reader early in the next tick (the GNU-ton conductor)
+/// must not see the old phase's telegraph. A move in its strike window is
+/// committed and keeps running.
+#[test]
+fn a_phase_change_ends_the_old_phase_s_windup_on_the_same_tick() {
+    use ambition_characters::brain::BossEncounterPhase;
+    use ambition_combat::moveset::MovePlayback;
+    let phase_change_after = |updates_before: usize| {
+        let (mut app, boss) = telegraph_boss_app();
+        app.add_message::<crate::BossPhaseChanged>();
+        app.add_systems(
+            Update,
+            interrupt_boss_windups_on_phase_change.after(project_boss_attack_state_from_move),
+        );
+        for _ in 0..updates_before {
+            app.update();
+        }
+        app.world_mut()
+            .resource_mut::<Messages<crate::BossPhaseChanged>>()
+            .write(crate::BossPhaseChanged {
+                boss,
+                from: BossEncounterPhase::Phase1,
+                to: BossEncounterPhase::Phase2,
+            });
+        app.update();
+        let playing = app.world().get::<MovePlayback>(boss).map(|pb| pb.spec.id.clone());
+        let state = app.world().get::<BossAttackState>(boss).unwrap().clone();
+        (playing, state)
+    };
+
+    // In the windup (0.05 s into the 0.2 s telegraph when the phase changes).
+    let (playing, state) = phase_change_after(1);
+    assert_eq!(playing, None, "the old phase's windup still plays after the phase changed");
+    assert_eq!(
+        (state.telegraph_profile, state.active_profile),
+        (None, None),
+        "the read model still shows the old phase's move after the phase changed"
+    );
+
+    // In the strike window (0.25 s): committed, so it keeps running.
+    let (playing, state) = phase_change_after(4);
+    assert_eq!(playing.as_deref(), Some("floor_slam"), "a committed strike was cut by the phase change");
+    assert_eq!(
+        state.active_profile,
+        Some(BossAttackProfile::Strike("floor_slam".to_string())),
+        "a committed strike's read model was cleared by the phase change"
+    );
+}
+
+/// The tick that cancels a windup the pattern no longer wants also starts the
+/// move the pattern wants now, so the body does not stand idle for one tick.
+#[test]
+fn a_cancelled_windup_gives_way_to_the_wanted_move_on_the_same_tick() {
+    let (mut app, boss) = telegraph_boss_app();
+    // The fixture's telegraphed slam, and a second move to change to.
+    let cap = BossCapability {
+        specials: vec![
+            (BossAttackProfile::Strike("floor_slam".to_string()), 0.3),
+            (BossAttackProfile::Special("apple_rain".to_string()), 2.0),
+        ],
+    };
+    let moveset = crate::attack_moveset::boss_attack_moveset(
+        &cap,
+        &warden_behavior(),
+        ambition_platformer2d_core::Vec2::new(80.0, 80.0),
+        &[(BossAttackProfile::Strike("floor_slam".to_string()), 0.2, None)],
+    )
+    .expect("a boss with strikes -> a moveset");
+    app.world_mut().entity_mut(boss).insert(moveset);
+    app.update();
+    assert_eq!(
+        app.world()
+            .get::<ambition_combat::moveset::MovePlayback>(boss)
+            .map(|pb| pb.spec.id.clone())
+            .as_deref(),
+        Some("floor_slam"),
+        "the fixture's windup did not start"
+    );
+    *app.world_mut().get_mut::<BossAttackIntent>(boss).unwrap() = BossAttackIntent {
+        telegraph_profile: Some(BossAttackProfile::Special("apple_rain".to_string())),
+        ..Default::default()
+    };
+    app.update();
+    assert_eq!(
+        app.world()
+            .get::<ambition_combat::moveset::MovePlayback>(boss)
+            .map(|pb| pb.spec.id.clone())
+            .as_deref(),
+        Some("apple_rain"),
+        "the cancel left the body without the move its pattern wants"
+    );
+}
+
 /// The boss's authored `strike_speed_scale` is the move's motion lock: baked
 /// onto the strike's Active window as `MoveWindow::motion_scale` and read back
 /// through `MoveSpec::motion_scale_at`, so body integration damps the boss's

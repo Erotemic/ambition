@@ -636,3 +636,60 @@ fn nothing_can_strike_the_gnu() {
         .count();
     assert!(reachable > 0, "the fists stay reachable; only the gnu stepped back");
 }
+
+/// A phase that ends during a windup takes that windup with it on the same
+/// tick, so the next phase does not open with one tick of the old phase's move.
+///
+/// The pattern chooses in `WorldPrep` and the trigger starts the move in
+/// `Combat`; the phase changes later in the tick, in `Progression` (a blow
+/// crosses a trigger with no tell beat, or a tell beat ends). The conductor
+/// reads the scholar's move early in the next tick, before the trigger could
+/// cancel it, so the move must be gone when the phase-change tick ends.
+#[test]
+fn a_phase_that_ends_during_a_windup_takes_the_windup_with_it() {
+    use ambition_platformer2d::boss_encounter::BossEncounter;
+    fn scholar_state(sim: &mut Platformer2dSimHarness) -> (String, Option<String>) {
+        let world = sim.world_mut();
+        let mut q = world.query::<(&BossConfig, &BossAttackState, &BossEncounter)>();
+        let (_, state, encounter) = q
+            .iter(world)
+            .find(|(config, ..)| config.behavior.id == "gnu_ton_rider")
+            .expect("GNU-ton is in the arena");
+        let phase = format!("{:?}", encounter.encounter_phase());
+        let windup = state.telegraph_profile.as_ref().map(|p| match p {
+            BossAttackProfile::Strike(key) | BossAttackProfile::Special(key) => key.clone(),
+        });
+        (phase, windup)
+    }
+    fn set_scholar_hp_fraction(sim: &mut Platformer2dSimHarness, fraction: f32) {
+        let world = sim.world_mut();
+        let mut q = world.query::<(&BossConfig, &mut BodyHealth)>();
+        let (_, mut health) = q
+            .iter_mut(world)
+            .find(|(config, _)| config.behavior.id == "gnu_ton_rider")
+            .expect("the scholar");
+        health.health.current = ((health.max() as f32) * fraction).ceil() as i32;
+    }
+
+    let mut sim = arena();
+    untouchable_player(&mut sim);
+    // Into Phase 2 (`gnu_ton_rider.ron`: below 0.65, after a 2 s tell beat).
+    step_until(&mut sim, 600, "the fight to start", |sim| scholar_state(sim).0 == "Phase1");
+    set_scholar_hp_fraction(&mut sim, 0.5);
+    step_until(&mut sim, 600, "Phase 2", |sim| scholar_state(sim).0 == "Phase2");
+    // The first tick of a Phase 2 windup, so the whole telegraph is still ahead.
+    step_until(&mut sim, 900, "a Phase 2 windup", |sim| scholar_state(sim).1.is_some());
+    let windup = scholar_state(&mut sim).1.unwrap();
+
+    // A blow lands on the next tick and crosses Enrage's trigger (below 0.28,
+    // no tell beat), so Phase 2 ends in that tick's progression phase.
+    set_scholar_hp_fraction(&mut sim, 0.2);
+    sim.step(AgentAction::default());
+    let (now, still) = scholar_state(&mut sim);
+    assert_eq!(now, "Enrage", "the fixture did not end Phase 2");
+    assert_ne!(
+        still.as_deref(),
+        Some(windup.as_str()),
+        "`{windup}`, chosen in Phase 2, still winds up after the phase became {now}"
+    );
+}

@@ -75,7 +75,7 @@ pub use content_identity::{
 pub use mode_scope::{despawn_departed_mode_entities, in_base_mode, in_mode, ModeScopePlugin};
 pub use player_schedule::PlayerSchedulePlugin;
 #[cfg(feature = "portal")]
-pub use portal_schedule::PortalSchedulePlugin;
+pub use portal_schedule::{turn_the_driven_body_around_after_portal_transit, PortalSchedulePlugin};
 pub use progression_schedule::ProgressionSchedulePlugin;
 pub use room_schedule::RoomTransitionSchedulePlugin;
 pub use room_transition::RoomTransitionComposerPlugin;

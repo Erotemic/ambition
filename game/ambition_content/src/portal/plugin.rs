@@ -11,7 +11,7 @@ use bevy::prelude::*;
 
 use ambition_platformer2d_shared_tangle::schedule::GameplayGated;
 use ambition_portal2d::{
-    clear_portals_on_reset, portal_fire_system, portal_teleport_ground_items, portal_transit,
+    clear_portals_on_reset, portal_fire_system, portal_teleport_ground_items,
     publish_portal_carves, PortalSet,
 };
 
@@ -57,14 +57,13 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
         // Play the portal audio cues from the portal-owned signals (Stage 19
         // Phase 5a — the crate emits `PortalShotFired` / `PortalBodyEntered` /
         // `PortalBodyTransited`, this adapter maps them to sfx). Runs in
-        // `PortalSet::Transit` after `portal_transit` so the ENTER/EXIT signals
+        // `PortalSet::Transited`, after the core's transit, so the ENTER/EXIT signals
         // emitted this frame are played the same frame; the FIRE signal from
         // `portal_fire_system` (an earlier set in the frame) is read here too.
         app.add_systems(
             sim,
             play_portal_sfx
-                .in_set(PortalSet::Transit)
-                .after(portal_transit),
+                .in_set(PortalSet::Transited),
         );
 
         // An ability contribution, so it is Ambition ability glue, registered in
@@ -223,8 +222,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
             sim,
             portal_player_input_adapter
                 .in_set(GameplayGated)
-                .in_set(PortalSet::Transit)
-                .after(portal_transit),
+                .in_set(PortalSet::Transited),
         );
         // The projectile half of the same reconciliation: a carried WORLD
         // acceleration must rotate with the velocity it accompanies.
@@ -232,8 +230,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
             sim,
             rotate_projectile_acceleration_after_portal_transit
                 .in_set(GameplayGated)
-                .in_set(PortalSet::Transit)
-                .after(portal_transit),
+                .in_set(PortalSet::Transited),
         );
         // Carried momentum: every transferred body's mapped exit velocity
         // becomes its `carried_run` floor the same frame (conserved fling,
@@ -243,8 +240,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
             sim,
             apply_portal_carried_momentum
                 .in_set(GameplayGated)
-                .in_set(PortalSet::Transit)
-                .after(portal_transit),
+                .in_set(PortalSet::Transited),
         );
 
         // --- GroundItem <-> PortalTransitable bracketing around item transit ---

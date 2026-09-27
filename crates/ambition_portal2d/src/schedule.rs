@@ -36,4 +36,9 @@ pub enum PortalSet {
     Frame,
     /// PlacedPortal cooldown, body transit, item transit, and actor roll updates.
     Transit,
+    /// The consequences of this tick's body transits, in [`PortalSet::Transit`]
+    /// after [`portal_transit`](crate::portal_transit) has moved the bodies. A
+    /// host that reads `PortalBodyTransited` puts its system here, so it does
+    /// not name the core's system.
+    Transited,
 }

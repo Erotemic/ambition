@@ -164,6 +164,12 @@ impl Plugin for PortalSimulationPlugin {
         // integrated body positions are what cross the portal.
         app.init_resource::<crate::PortalFrameHistory>();
         app.configure_sets(sim, PortalSet::Frame.before(PortalSet::Transit));
+        app.configure_sets(
+            sim,
+            PortalSet::Transited
+                .in_set(PortalSet::Transit)
+                .after(portal_transit),
+        );
         app.add_systems(
             sim,
             (

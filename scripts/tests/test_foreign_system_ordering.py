@@ -142,7 +142,12 @@ CAPABILITY_ORDERING_CEILING = 10
 # step". `ProjectileStepSet` is half of that and lives in the composition, so the
 # monolith cannot order against it. Precedent for the shape is `MountPlugin`
 # above — 7 -> 2 by shipping the install as a plugin.
-TOTAL_ORDERING_CEILING = 78
+#
+# ⭐ 78 -> 76 ON 2026-09-26 (AP77). The portal crate publishes
+# `PortalSet::Transited` for the consequences of a body transit. The runtime's
+# driven-body turn-around and Ambition's four transit consumers are in that set,
+# so no crate names `ambition_portal2d::portal_transit` now.
+TOTAL_ORDERING_CEILING = 76
 
 
 def _module():
@@ -273,9 +278,10 @@ def test_the_measure_still_sees_a_bare_imported_name() -> None:
     happened the first time.
 
     ⇒ Pin one edge that exists ONLY in the bare spelling.
-    `game/ambition_content/src/portal/plugin.rs` writes `.after(portal_transit)`
-    against a name imported from `ambition_portal2d`; there is no `::` in that
-    call, so a census that cannot resolve the file's `use` tree cannot see it.
+    `game/ambition_content/src/portal/plugin.rs` writes
+    `.before(portal_teleport_ground_items)` against a name imported from
+    `ambition_portal2d`; there is no `::` in that call, so a census that cannot
+    resolve the file's `use` tree cannot see it.
     """
     module = _module()
     rows = {
@@ -285,11 +291,11 @@ def test_the_measure_still_sees_a_bare_imported_name() -> None:
     }
     bare = (
         "ambition_content",
-        "ambition_portal2d::portal_transit",
+        "ambition_portal2d::portal_teleport_ground_items",
         "game/ambition_content/src/portal/plugin.rs",
     )
     assert bare in rows, (
-        "the measure no longer sees `.after(portal_transit)` — a foreign "
+        "the measure no longer sees `.before(portal_teleport_ground_items)` — a foreign "
         "ordering written through a bare `use` import. Either alias resolution "
         "regressed and the census is back to counting one import style, or that "
         "edge was genuinely repaired, in which case repoint this control at "

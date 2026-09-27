@@ -165,12 +165,13 @@ pub struct PortalBodyTransited {
 /// carved opening. It transfers when the centroid crosses (with rotated
 /// momentum and a roll) and clears when the trailing edge is out.
 ///
-/// How a body takes part is derived from what it is, so no system tags a body
-/// before it can transit:
-/// - Every body carries its momentum: the rotated exit velocity is written.
-/// - Only a body in the player population reorients: on a same-wall
-///   turn-around its facing flips, because its facing follows its seat's input.
-///   A brain decides the facing of any other body.
+/// Every body transits the same way, so no system tags a body before it can
+/// transit, and every body carries its momentum: the rotated exit velocity is
+/// written. Facing is not written here. On a same-wall turn-around the event
+/// states `facing_flip`, and the host turns around the body a seat drives,
+/// whose facing follows that seat's input; a brain decides the facing of any
+/// other body. Who drives a body is control authority, which this core does not
+/// know.
 ///
 /// Transit does not need the [`PortalGun`](super::gun::PortalGun). The
 /// anti-ping-pong cooldown is on the body ([`PortalTransitCooldown`]).
@@ -181,7 +182,6 @@ pub fn portal_transit(
         (
             Entity,
             &mut BodyKinematics,
-            Has<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
             Option<&mut PortalTransit>,
             Option<&mut ActorRoll>,
             Option<&PortalTransitCooldown>,
@@ -208,7 +208,7 @@ pub fn portal_transit(
         return;
     }
 
-    for (entity, mut kin, reorients, mut transit, mut roll, cooldown, sweep) in &mut bodies {
+    for (entity, mut kin, mut transit, mut roll, cooldown, sweep) in &mut bodies {
         // Per body, not once for all: `placement::wall_to_wall` classifies each
         // aperture as wall or floor/ceiling relative to this body's down.
         let gravity_dir = gravity.dir_for(ambition_platformer2d_core::Aabb::new(
@@ -267,12 +267,6 @@ pub fn portal_transit(
                     log.record(entity, ClassBRemap::PortalTransit);
                 }
                 kin.vel = vel;
-                // Flip facing on a same-wall turn-around only for a body that
-                // reorients, and only if `tuning.reorient_facing` (mirrors the
-                // `portal_reverses_facing` setting) allows it.
-                if reorients && facing_flip && tuning.reorient_facing {
-                    kin.facing = -kin.facing;
-                }
                 if let Some(roll) = roll.as_deref_mut() {
                     roll.angle += roll_delta;
                 }

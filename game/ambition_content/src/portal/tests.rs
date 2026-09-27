@@ -425,68 +425,6 @@ fn portals_teleport_a_fitting_actor_and_skip_an_oversized_one() {
     );
 }
 
-/// The portal core decides how a body takes part from what it is, so neither
-/// body here carries a tag. Through a same-wall turn-around both bodies carry
-/// their momentum out of the exit, and only the body in the player population
-/// flips its facing: its facing follows its seat's input, and a brain decides
-/// the facing of any other body.
-#[test]
-fn only_a_player_body_turns_around_through_a_same_wall_pair() {
-    use ambition_platformer2d_core::body_clusters::BodyKinematics;
-    let run = |player: bool| {
-        let mut app = App::new();
-        app.add_message::<ambition_portal2d::PortalBodyEntered>();
-        app.add_message::<ambition_portal2d::PortalBodyTransited>();
-        // The reflection convention supplies the mirror of a same-wall
-        // turn-around as a facing flip rather than a roll.
-        app.insert_resource(ambition_portal2d::PortalTuning {
-            convention: ambition_portal2d::PortalConvention::Reflection,
-            reorient_facing: true,
-            ..Default::default()
-        });
-        app.add_systems(Update, portal_transit);
-        for (channel, y) in [(BLUE, 200.0), (ORANGE, 600.0)] {
-            app.world_mut().spawn(PlacedPortal::fixed(
-                channel,
-                Vec2::new(20.0, y),
-                Vec2::new(1.0, 0.0),
-                portal_half_extent(Vec2::new(1.0, 0.0)),
-            ));
-        }
-        let mut body = app.world_mut().spawn(BodyKinematics {
-            pos: Vec2::new(20.0, 200.0),
-            vel: Vec2::new(-100.0, 0.0),
-            size: Vec2::new(24.0, 40.0),
-            facing: -1.0,
-        });
-        if player {
-            body.insert(PlayerEntity);
-        }
-        let body = body.id();
-        app.update();
-        app.update();
-        *app.world().get::<BodyKinematics>(body).unwrap()
-    };
-
-    for (player, facing) in [(true, 1.0), (false, -1.0)] {
-        let kin = run(player);
-        assert!(
-            kin.pos.y > 400.0,
-            "the body (player: {player}) must transit to the orange portal, pos={:?}",
-            kin.pos
-        );
-        assert!(
-            kin.vel.x > 0.0,
-            "the body (player: {player}) must carry its momentum out of the exit, vel={:?}",
-            kin.vel
-        );
-        assert_eq!(
-            kin.facing, facing,
-            "only a body in the player population turns around (player: {player})"
-        );
-    }
-}
-
 #[test]
 fn n_pairs_transit_routes_to_the_matching_partner() {
     let he = portal_half_extent(Vec2::new(0.0, -1.0));

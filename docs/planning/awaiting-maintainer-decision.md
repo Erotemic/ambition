@@ -1601,3 +1601,15 @@ it anyway would be the sweep this row warned against: the guard's waivers each
 state a measurement — 18 of them when this paragraph was written, 27 as of
 2026-09-19 — and a fourth row added because its three neighbours moved would be
 a waiver with the opposite sign and no measurement behind it.
+
+## Q148 — which track should Mode Collapse fight to?
+
+Decided for now, so it is not blocking: `crooked_ascent_boss`. Until
+2026-09-27 `mode_collapse_boss.ron` named the Flying Spaghetti Monster's choir
+track for all four phases (a placeholder from before the FSM had a fight of
+its own), so both Mode Collapse arenas played the FSM's music. `crooked_ascent_boss`
+is an authored boss track that nothing else used. The spec's own note wanted a
+bespoke "mode collapse" track (a loop that degenerates); that is still a
+handoff. To change it for every Mode Collapse fight, edit the four `music_*`
+fields; to change it in one room, set that room's `fight_music_track`
+(`docs/recipes/room-music.md`).

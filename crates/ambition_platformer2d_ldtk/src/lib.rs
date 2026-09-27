@@ -338,7 +338,7 @@ impl LdtkProject {
         report
     }
 
-    /// Check level `music_track` fields against the audio track ids from
+    /// Check level `music_track` and `fight_music_track` fields against the audio track ids from
     /// `Platformer2dGameplayDefaults`. Returns one warning per (level, unknown_id)
     /// pair, so all typos show in one startup pass.
     ///
@@ -353,18 +353,20 @@ impl LdtkProject {
         let valid: BTreeSet<&str> = valid_track_ids.into_iter().collect();
         let mut warnings = Vec::new();
         for level in &self.levels {
-            let Some(track) = level.field_string("music_track") else {
-                continue;
-            };
-            let trimmed = track.trim();
-            if trimmed.is_empty() {
-                continue;
-            }
-            if !valid.contains(trimmed) {
-                warnings.push(format!(
-                    "level '{}' references unknown music_track '{}' — add it to the audio music_tracks catalog or fix the typo",
-                    level.identifier, trimmed
-                ));
+            for field in ["music_track", "fight_music_track"] {
+                let Some(track) = level.field_string(field) else {
+                    continue;
+                };
+                let trimmed = track.trim();
+                if trimmed.is_empty() {
+                    continue;
+                }
+                if !valid.contains(trimmed) {
+                    warnings.push(format!(
+                        "level '{}' references unknown {field} '{}' — add it to the audio music_tracks catalog or fix the typo",
+                        level.identifier, trimmed
+                    ));
+                }
             }
         }
         warnings

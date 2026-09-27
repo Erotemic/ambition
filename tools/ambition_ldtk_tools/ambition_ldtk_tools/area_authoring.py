@@ -339,12 +339,15 @@ def build_active_area_field(project: dict, area_id: str) -> dict:
 
 
 # Optional level-field identifiers handled by `build_level_field_instances`.
-# These map directly to `defs.levelFields` entries created by
-# `tools/add_biome_level_fields.py`. Specs may set any subset; missing
+# These map directly to `defs.levelFields` entries that every shipped project
+# declares (`tests/test_level_field_defs.py`). Specs may set any subset; missing
 # fields are simply not emitted as level field instances.
 OPTIONAL_LEVEL_FIELDS = (
     "biome",
     "music_track",
+    # What plays while a fight is on in the room, in place of the fight's own
+    # track. See docs/recipes/room-music.md.
+    "fight_music_track",
     "ambient_profile",
     "visual_theme",
     "nameplate_full_opacity_count",
@@ -390,8 +393,8 @@ def build_level_field_instances(project: dict, spec: dict) -> list[dict]:
         if field_def is None:
             raise SystemExit(
                 f"spec sets level field '{ident}' but the project has no "
-                f"matching levelField def. Run "
-                f"`python tools/add_biome_level_fields.py <ldtk>` first."
+                f"matching levelField def. Declare it in the project's "
+                f"`defs.levelFields` first."
             )
         coerced = coerce_field_value(field_def.get("__type", "String"), value)
         instances.append(make_field_instance(field_def, coerced))

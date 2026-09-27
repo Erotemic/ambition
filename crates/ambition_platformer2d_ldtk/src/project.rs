@@ -130,6 +130,7 @@ impl LdtkLevel {
         ambition_platformer2d_world::rooms::RoomMetadata {
             biome: take("biome"),
             music_track: take("music_track"),
+            fight_music_track: take("fight_music_track"),
             ambient_profile: take("ambient_profile"),
             visual_theme: take("visual_theme"),
             visual_profile: ambition_platformer2d_world::rooms::RoomVisualProfile {

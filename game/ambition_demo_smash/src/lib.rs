@@ -27,7 +27,6 @@ mod george_booul_moveset;
 pub mod homing;
 pub mod limit;
 pub mod mark;
-pub mod match_scope;
 pub mod mine;
 pub mod motion;
 #[cfg(test)]
@@ -837,14 +836,6 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         // A latching reader (sets booleans, like
         // `mark_move_playback_resolved_hits`) can read a frame late. An
         // accumulator (`+=`) cannot.
-        // Sweep objects from ended matches in `CombatSet::Trigger`, the
-        // earliest combat phase, so no fighter can trip a leftover mine. The
-        // match owns cleanup: techniques stamp a marker; they do not despawn.
-        app.add_systems(
-            sim,
-            crate::match_scope::sweep_objects_from_ended_matches
-                .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Trigger),
-        );
         app.add_systems(
             sim,
             crate::limit::fill_limit_meters
@@ -2017,14 +2008,6 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
                 "ambition_demo_smash",
                 "smash.move_placed_portal",
                 crate::portal::move_placed_portal_probe,
-            );
-            // Which match each spawned object belongs to, so the sweep never
-            // sees a restored object without an identity. Clone-snapshotted:
-            // it is a stable identity copied at spawn.
-            app.rollback_component_clone_probed::<ambition_platformer2d::versus_match::MatchScoped>(
-                "ambition_demo_smash",
-                "smash.match_scoped",
-                crate::match_scope::match_scoped_probe,
             );
             // The mine's arming clock: a restore without it could answer a
             // press the confirmed timeline ignored.

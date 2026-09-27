@@ -82,8 +82,10 @@ pub fn compute_music_intent(
         _ => None,
     };
 
+    let room = rooms.active_metadata();
     let candidates = simple_track_candidates(
-        rooms.active_metadata().music_track.as_deref(),
+        room.music_track.as_deref(),
+        room.fight_music_track.as_deref(),
         narrative_music.as_deref(),
         radio.as_deref(),
         &audio_selection,
@@ -105,14 +107,17 @@ pub fn compute_music_intent(
     intent.authority = authority;
 }
 
-/// Build the simple-track priority list. Priority: encounter music (boss beats
-/// wave, resolved inside `EncounterMusicRequest::desired_track`) > a track a
-/// conversation asked for > radio > room default > sandbox default. The director
-/// plays the first id that exists in its `AudioLibrary`, so this stays a pure
-/// list of candidate ids (no audio backend access here).
-
+/// Build the simple-track priority list. Priority, while a fight is on: the
+/// room's `fight_music_track`, then the fight's own track (boss beats wave,
+/// resolved inside `EncounterMusicRequest::desired_track`). Then a track a
+/// conversation asked for > radio > the room's `music_track` > the provider's
+/// default. The director plays the first id that exists in its
+/// `AudioLibrary`, so this stays a pure list of candidate ids (no audio backend
+/// access here), and a room fight track that does not exist falls through to
+/// the fight's own.
 pub(super) fn simple_track_candidates(
     room_track: Option<&str>,
+    room_fight_track: Option<&str>,
     narrative_music: Option<&ambition_conversation::NarrativeMusicRequest>,
     radio: Option<&RadioStationState>,
     audio_selection: &ActiveAudioSelection,
@@ -120,6 +125,11 @@ pub(super) fn simple_track_candidates(
 ) -> Vec<String> {
     let mut candidates = Vec::new();
     if let Some(track) = encounter_music.desired_track() {
+        // A fight is on. The room says what its fights sound like, before the
+        // boss or wave does.
+        if let Some(room_fight) = room_fight_track {
+            candidates.push(room_fight.to_string());
+        }
         candidates.push(track.to_string());
     }
     if let Some(track) = narrative_music.and_then(|music| music.track()) {

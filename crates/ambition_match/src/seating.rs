@@ -120,11 +120,14 @@ impl SessionMatchOrdinal {
 ///
 /// Objects a ruleset spawns (bomb, bolt, mine, portal, spring) otherwise end
 /// only by their own rule (fuse, trigger, lifetime), so they could outlive
-/// the match. Stamp once at spawn and sweep once by the match owner, instead
-/// of a despawn in each spawner or a sweep that knows every component type.
-/// Same idea as `StocksMatchSettled` and `SuddenDeathEntered`, on an entity.
+/// the match. A ruleset stamps once at spawn and the engine sweeps once
+/// (`crate::lifetime`), instead of a despawn in each spawner or a sweep that
+/// knows every component type. Same idea as `StocksMatchSettled` and
+/// `SuddenDeathEntered`, on an entity.
 ///
-/// The sweep belongs to the ruleset. `ambition_match` only records ownership.
+/// The stamp is the ruleset's statement that an object ends with its match;
+/// every stamped object is swept by the same rule, so the sweep is the
+/// engine's, like the mode-scoped despawn.
 #[derive(bevy::prelude::Component, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct MatchScoped(pub MatchInstance);
 

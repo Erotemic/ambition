@@ -55,7 +55,7 @@ pub fn translate_bomb_drops(
     mut actions: MessageReader<ActorActionMessage>,
     bodies: Query<&ae::BodyKinematics>,
     // The running match, so what this spawns dies with it (see
-    // `crate::match_scope`).
+    // `ambition_platformer2d::versus_match::lifetime`).
     active_match: Option<Res<ambition_platformer2d::versus_match::ActiveMatch>>,
 ) {
     for message in actions.read() {
@@ -107,8 +107,8 @@ pub fn translate_bomb_drops(
                 },
             ))
             .id();
-        // The match owns this object's end; see `crate::match_scope`.
-        crate::match_scope::stamp(&mut commands, spawned, active_match.as_deref());
+        // The match owns this object's end; see `ambition_platformer2d::versus_match::lifetime`.
+        ambition_platformer2d::versus_match::stamp_match_object(&mut commands, spawned, active_match.as_deref());
     }
 }
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Set level field instance values on existing LDtk levels.
 
-Use this to update level-scoped metadata (biome, music_track,
+Use this to update level-scoped metadata (biome, music_track, fight_music_track,
 ambient_profile, visual_theme, parallax_theme, lighting_hint, etc.)
 without hand-editing the LDtk JSON. The tool reuses
 `build_level_field_instances`-style coercion through the existing
@@ -28,8 +28,7 @@ Spec form (multiple levels / multiple fields per spec):
 
 The tool errors out if:
   * the level doesn't exist;
-  * a named field isn't declared on `defs.levelFields` (add it via
-    `tools/add_biome_level_fields.py` or the relevant scaffold script
+  * a named field isn't declared on `defs.levelFields` (declare it
     first — silent write-through would leave the LDtk editor refusing
     to load the field next time).
 """
@@ -86,7 +85,7 @@ def find_level_field_def(project: dict, field_name: str) -> dict:
     known = [fd.get("identifier") for fd in defs.get("levelFields") or []]
     raise SystemExit(
         f"level field '{field_name}' is not declared in defs.levelFields. "
-        f"Known: {known}. Add it first (e.g. `tools/add_biome_level_fields.py`)."
+        f"Known: {known}. Declare it in the project's `defs.levelFields` first."
     )
 
 

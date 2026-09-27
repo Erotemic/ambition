@@ -226,6 +226,7 @@ fn room(track: &str) -> Option<&str> {
 fn a_conversations_track_beats_the_rooms_own() {
     let candidates = simple_track_candidates(
         room("for_emmy_forever_ago"),
+        None,
         Some(&narrative("super_smash_siblings_theme")),
         None,
         &ActiveAudioSelection::default(),
@@ -248,6 +249,7 @@ fn a_fight_outranks_a_conversations_track() {
     encounter.claim_priority("test_boss", "you_are_too_slow");
     let candidates = simple_track_candidates(
         room("for_emmy_forever_ago"),
+        None,
         Some(&narrative("super_smash_siblings_theme")),
         None,
         &ActiveAudioSelection::default(),
@@ -259,11 +261,52 @@ fn a_fight_outranks_a_conversations_track() {
     );
 }
 
+/// A room says what its fights sound like. The room's fight track outranks
+/// the boss's own, only while a fight is on, and the boss's track stays a
+/// candidate underneath (the director plays the first id it has).
+#[test]
+fn a_rooms_fight_track_beats_the_fights_own_only_during_a_fight() {
+    let mut fight = EncounterMusicRequest::default();
+    fight.claim_priority("test_boss", "flying_spaghetti_monster_roots_boss_choir_backing");
+    let candidates = simple_track_candidates(
+        room("for_emmy_forever_ago"),
+        room("crooked_ascent_boss"),
+        None,
+        None,
+        &ActiveAudioSelection::default(),
+        &fight,
+    );
+    assert_eq!(
+        candidates.iter().map(String::as_str).take(2).collect::<Vec<_>>(),
+        ["crooked_ascent_boss", "flying_spaghetti_monster_roots_boss_choir_backing"],
+        "the room's fight track must come first, with the boss's own as the fallback"
+    );
+
+    let quiet = simple_track_candidates(
+        room("for_emmy_forever_ago"),
+        room("crooked_ascent_boss"),
+        None,
+        None,
+        &ActiveAudioSelection::default(),
+        &EncounterMusicRequest::default(),
+    );
+    assert_eq!(
+        quiet.first().map(String::as_str),
+        Some("for_emmy_forever_ago"),
+        "with no fight on, the room plays its own music, not its fight track"
+    );
+    assert!(
+        !quiet.contains(&"crooked_ascent_boss".to_string()),
+        "the fight track is a candidate only during a fight: {quiet:?}"
+    );
+}
+
 /// An empty id hands the room its own music back without a second command.
 #[test]
 fn an_empty_id_is_not_a_claim() {
     let candidates = simple_track_candidates(
         room("for_emmy_forever_ago"),
+        None,
         Some(&narrative("")),
         None,
         &ActiveAudioSelection::default(),

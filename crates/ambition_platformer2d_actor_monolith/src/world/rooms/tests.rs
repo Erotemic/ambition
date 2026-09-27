@@ -467,6 +467,7 @@ fn active_metadata_returns_active_room_metadata() {
     let m1 = RoomMetadata {
         biome: Some("hub".into()),
         music_track: Some("hub_loop".into()),
+        fight_music_track: None,
         ambient_profile: None,
         visual_theme: None,
         visual_profile: Default::default(),
@@ -481,6 +482,7 @@ fn active_metadata_returns_active_room_metadata() {
     let m2 = RoomMetadata {
         biome: Some("cave".into()),
         music_track: Some("cave_loop".into()),
+        fight_music_track: None,
         ambient_profile: Some("damp".into()),
         visual_theme: None,
         visual_profile: Default::default(),
@@ -520,6 +522,7 @@ fn room_metadata_is_empty_false_when_any_field_set() {
     let m = RoomMetadata {
         biome: None,
         music_track: Some("loop".into()),
+        fight_music_track: None,
         ambient_profile: None,
         visual_theme: None,
         visual_profile: Default::default(),
@@ -551,6 +554,7 @@ fn room_metadata_merge_preserves_existing_values() {
     let mut a = RoomMetadata {
         biome: Some("hub".into()),
         music_track: None,
+        fight_music_track: None,
         ambient_profile: None,
         visual_theme: Some("blue".into()),
         visual_profile: Default::default(),
@@ -565,6 +569,7 @@ fn room_metadata_merge_preserves_existing_values() {
     let b = RoomMetadata {
         biome: Some("CONFLICT".into()),        // ignored — a.biome wins
         music_track: Some("hub_loop".into()),  // takes effect — a.music_track was None
+        fight_music_track: Some("boss_loop".into()), // takes effect — a had none
         ambient_profile: Some("damp".into()),  // takes effect
         visual_theme: Some("CONFLICT".into()), // ignored
         visual_profile: Default::default(),
@@ -588,6 +593,7 @@ fn room_metadata_merge_preserves_existing_values() {
     assert_eq!(a.biome.as_deref(), Some("hub"));
     assert!(a.gallery, "merge ORs the gallery flag from a member level");
     assert_eq!(a.music_track.as_deref(), Some("hub_loop"));
+    assert_eq!(a.fight_music_track.as_deref(), Some("boss_loop"));
     assert_eq!(a.ambient_profile.as_deref(), Some("damp"));
     assert_eq!(a.visual_theme.as_deref(), Some("blue"));
     assert_eq!(a.nameplate_policy.full_opacity_count, Some(100));

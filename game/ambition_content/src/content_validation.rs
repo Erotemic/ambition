@@ -680,6 +680,48 @@ mod tests {
         report.panic_if_errors();
     }
 
+    /// A room's `fight_music_track` is read into its metadata, and an id the
+    /// music registry does not have is refused with the field named, the same
+    /// as `music_track`.
+    #[test]
+    fn a_rooms_fight_music_track_is_read_and_checked() {
+        let music = crate::audio_registries::load_music_registry();
+        let mut project = LdtkProject::load_default_for_dev(&crate::worlds::world_manifest())
+            .expect("embedded LDtk loads");
+        let mut set_fight_track = |project: &mut LdtkProject, track: &str| {
+            let level = project
+                .levels
+                .iter_mut()
+                .find(|level| level.identifier == "mode_collapse_arena")
+                .expect("the sandbox has a Mode Collapse arena");
+            let field = level
+                .field_instances
+                .iter_mut()
+                .find(|field| field.identifier == "fight_music_track")
+                .expect("every level carries the declared fight_music_track field");
+            field.value = serde_json::Value::String(track.to_owned());
+            level.level_metadata()
+        };
+
+        let metadata = set_fight_track(&mut project, "crooked_ascent_boss");
+        assert_eq!(metadata.fight_music_track.as_deref(), Some("crooked_ascent_boss"));
+        let mut report = ContentValidationReport::default();
+        validate_room_music_tracks(&project, &music, &mut report);
+        assert!(report.errors.is_empty(), "a known track was refused: {:?}", report.errors);
+
+        set_fight_track(&mut project, "no_such_track");
+        let mut report = ContentValidationReport::default();
+        validate_room_music_tracks(&project, &music, &mut report);
+        assert!(
+            report
+                .errors
+                .iter()
+                .any(|error| error.contains("unknown fight_music_track 'no_such_track'")),
+            "an unknown fight track must be refused with its field named: {:?}",
+            report.errors
+        );
+    }
+
     #[test]
     fn validates_ldtk_loading_zone_targets() {
         let music = crate::audio_registries::load_music_registry();

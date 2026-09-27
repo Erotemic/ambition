@@ -3,7 +3,7 @@
 
 /// Optional declarative room metadata authored on LDtk levels.
 ///
-/// LDtk level fields `biome` / `music_track` / `ambient_profile` /
+/// LDtk level fields `biome` / `music_track` / `fight_music_track` / `ambient_profile` /
 /// `visual_theme`, explicit room-visual-profile fields, and small
 /// presentation-policy overrides land here.
 /// Every field is optional so existing levels keep working
@@ -108,7 +108,14 @@ impl RoomNameplatePolicy {
 #[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct RoomMetadata {
     pub biome: Option<String>,
+    /// What plays in this room when nothing louder asks: a fight, a
+    /// conversation, or the radio outrank it. LDtk level field `music_track`.
     pub music_track: Option<String>,
+    /// What plays in this room while a fight is on, whichever boss or wave it
+    /// is. It outranks the fight's own track (a boss's `music_phase*`, a
+    /// wave's `music_track`), so one boss can sound different in two rooms.
+    /// LDtk level field `fight_music_track`.
+    pub fight_music_track: Option<String>,
     pub ambient_profile: Option<String>,
     pub visual_theme: Option<String>,
     pub visual_profile: RoomVisualProfile,
@@ -183,6 +190,7 @@ impl RoomMetadata {
     pub fn is_empty(&self) -> bool {
         self.biome.is_none()
             && self.music_track.is_none()
+            && self.fight_music_track.is_none()
             && self.ambient_profile.is_none()
             && self.visual_theme.is_none()
             && self.visual_profile.is_empty()
@@ -204,6 +212,9 @@ impl RoomMetadata {
         }
         if self.music_track.is_none() {
             self.music_track = other.music_track;
+        }
+        if self.fight_music_track.is_none() {
+            self.fight_music_track = other.fight_music_track;
         }
         if self.ambient_profile.is_none() {
             self.ambient_profile = other.ambient_profile;

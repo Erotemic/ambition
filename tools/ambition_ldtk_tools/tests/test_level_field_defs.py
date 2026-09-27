@@ -30,6 +30,7 @@ ENGINE_READ_LEVEL_FIELDS = {
     "activeArea",
     "biome",
     "music_track",
+    "fight_music_track",
     "ambient_profile",
     "visual_theme",
     "gallery",

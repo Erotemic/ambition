@@ -77,6 +77,12 @@ PYTHONPATH=tools/ambition_ldtk_tools python3 -m ambition_ldtk_tools entity add \
 area wipes the second pass, so re-run `entity add` after every `area create`.
 Worked example: `mary_o_1_3_area.ron` + `mary_o_1_3_named_blocks.yaml`.
 
+## Room music
+
+A level's `music_track` is what plays in it, and its `fight_music_track` is what
+plays while a fight is on in it. See [`room-music.md`](room-music.md) for the
+priority order and the command that sets either field.
+
 ## Safe manual edit loop
 
 ```bash

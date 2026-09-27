@@ -37,6 +37,8 @@ When a command changes, update or delete the recipe in the same patch.
 - [`extending-brains-and-action-sets.md`](extending-brains-and-action-sets.md)
 - [`add-showcase-room.md`](add-showcase-room.md)
 - [`goblin-encounter.md`](goblin-encounter.md)
+- [`room-music.md`](room-music.md) — what plays in a room and during a fight
+  there, and which one field to edit for each.
 - [`generated-music-workflow.md`](generated-music-workflow.md)
 
 ## Platform and diagnostics

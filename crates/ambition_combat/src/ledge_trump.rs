@@ -4,7 +4,7 @@
 //! ledge-grab intangibility. This implements the contested-edge rule without the
 //! outward helpless pop used by some platform fighters.
 //!
-//! ⭐ IT LIVES BESIDE THE RULE IT ENFORCES. `DeclaredCombatRules::ledge_trump_pop`
+//! ⭐ IT LIVES BESIDE THE RULE IT ENFORCES. `CombatRules::ledge_trump_pop`
 //! was already this crate's; the resolver that reads it sat in the actor monolith
 //! for no reason anyone had written down. Moved 2026-08-28 (D33) — 152 lines that
 //! reached the monolith through no `crate::` path, no `super::` path and no glob,

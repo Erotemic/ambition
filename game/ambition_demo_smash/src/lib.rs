@@ -633,6 +633,16 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         app.insert_resource(ambition_platformer2d::actor::RespawnInterval {
             seconds: RESPAWN_INTERVAL_SECONDS,
         });
+        // The combat rules govern Smash's rooms, and no other room. A room
+        // that leaves the mode leaves the rules, so nothing publishes them on
+        // entry or gives them back on exit.
+        {
+            use ambition_platformer2d::combat::scoped_rules::DeclareRulesExt as _;
+            app.declare_rules(
+                ambition_platformer2d::combat::scoped_rules::RulesScope::Mode(SMASH_MODE),
+                smash_combat_rules(),
+            );
+        }
 
         let sim = ambition_platformer2d::platformer::schedule::SimScheduleExt::sim_schedule(app);
         // Sing, in `ContentSpecials`: its effect must exist before the effect
@@ -1137,16 +1147,11 @@ pub const SMASH_TRACKS: &[(&str, &str)] = &[
     ),
 ];
 
-/// The combat rules this stage declares, in one place so the publisher and its
-/// guard use the same copy.
-///
-/// A function, not a resource read: on a second visit the resource holds the
-/// previous match's declaration.
-pub fn smash_declared_combat_rules() -> ambition_platformer2d::combat::rules::DeclaredCombatRules {
-    ambition_platformer2d::combat::rules::DeclaredCombatRules {
-        // By owner. The versus route also declares combat rules, and a
-        // giveback by type would delete its live rules when smash left.
-        declared_by: SMASH_EXPERIENCE.to_string(),
+/// The combat rules Smash plays under. [`SmashRulesPlugin`] declares them for
+/// the rooms tagged [`SMASH_MODE`]; tools that fold them outside a match read
+/// this function.
+pub fn smash_combat_rules() -> ambition_platformer2d::combat::rules::CombatRules {
+    ambition_platformer2d::combat::rules::CombatRules {
         di_max_angle: SMASH_DI_MAX_ANGLE,
         knockback_growth: SMASH_KNOCKBACK_GROWTH,
         // The robot's down-air can rebound its attacker. Ambition uses that;
@@ -1242,7 +1247,7 @@ pub fn smash_declared_combat_rules() -> ambition_platformer2d::combat::rules::De
 
 /// The kit this experience gives a fighter that authors none.
 ///
-/// A roster-preparation policy, not a combat rule: `DeclaredCombatRules` does
+/// A roster-preparation policy, not a combat rule: `CombatRules` does
 /// not own a kit. Many of Ambition's cast author `default_action_set:
 /// "peaceful"`; seating one in an arena adapts it into a fighter.
 /// `roster_seeded` folds this into the seat's `ActionSet` at seating time, so
@@ -1743,27 +1748,6 @@ fn take_eliminated_fighters_out_of_play(
 ///
 /// The banner asks for 3.0s; this waits a little longer so players read it.
 const RETURN_TO_SELECT_AFTER: f32 = 4.5;
-
-/// Ensure the Smash gameplay route carries Smash-owned combat rules. The lobby
-/// normally publishes them when a battle starts; this is a safety net for
-/// direct or stale entry and does not rewrite a correct declaration.
-fn the_stage_always_plays_by_smash_rules(
-    mut commands: bevy::prelude::Commands,
-    router: bevy::prelude::Res<ambition_platformer2d::game_shell::ShellRouter>,
-    declared: Option<bevy::prelude::Res<ambition_platformer2d::combat::rules::DeclaredCombatRules>>,
-) {
-    let on_stage = router
-        .active
-        .as_ref()
-        .is_some_and(|active| active.route_id.as_str() == SMASH_GAMEPLAY_ROUTE);
-    if !on_stage {
-        return;
-    }
-    if declared.is_some_and(|rules| rules.declared_by == SMASH_EXPERIENCE) {
-        return;
-    }
-    commands.insert_resource(smash_declared_combat_rules());
-}
 
 /// What Smash's presentation override replaced, so leaving can put it back.
 ///
@@ -2272,9 +2256,6 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
                     select_screen::sync_select_chrome,
                     select_screen::sync_select_tokens_and_cursors,
                     start_the_battle_when_asked,
-                    // Safety net for entries that skip the lobby (dev bins,
-                    // stage tests).
-                    the_stage_always_plays_by_smash_rules,
                     the_stage_declares_smashs_presentation_and_gives_it_back,
                     // After the driver that sets the flag, in the same chain,
                     // so a press and its route change are at most a frame apart.
@@ -2678,7 +2659,6 @@ fn start_the_battle_when_asked(
     // variation needs a nonce the peers agree on at setup, which needs a
     // handshake the project does not have yet.
     let seed = agreed_match_seed(&select);
-    let declared_rules = smash_declared_combat_rules();
 
     let Some(decided) = select.roster_seeded(
         &fighters,
@@ -2695,8 +2675,7 @@ fn start_the_battle_when_asked(
                     .map(|(id, _)| id.to_string())
                     .collect()
             }),
-        // The value, not a `DeclaredCombatRules` read: this system inserts
-        // that resource below, and `insert_resource` is deferred.
+        // The kit a fighter that authors none is seated with.
         Some(smash_seating_melee()),
         // What the lobby's stocks button decided.
         stocks.count(),
@@ -2715,7 +2694,6 @@ fn start_the_battle_when_asked(
         decided.local_channel_plan(),
     ));
     commands.insert_resource(decided);
-    commands.insert_resource(declared_rules);
     // The Smash pad layout, declared for this experience and released on the
     // way out; `insert_gamepad_bindings` is unchanged (A=Jump stays right for
     // Ambition). The layout permutes the fully assigned default pad, which is
@@ -2860,15 +2838,6 @@ impl bevy::prelude::Plugin for SmashExperiencePlugin {
                 .releasing_owned::<
                     ambition_platformer2d::versus_match::PreparedMatch,
                 >(|plan, owner| plan.is_published_by(owner.as_str()))
-                // The rules leave with the match. Removing the declaration is
-                // the exit (AE6): the projection folds it over the baseline each
-                // tick, so there is nothing to restore. Otherwise this DI budget
-                // would follow the player into Ambition's PvE. Owned, not
-                // `resetting`: readers take `Option<Res<_>>`, and ownership stops
-                // two stages deleting each other's rules.
-                .releasing_owned::<
-                    ambition_platformer2d::combat::rules::DeclaredCombatRules,
-                >(|rules, owner| rules.is_declared_by(owner.as_str()))
                 // The pad layout goes back too: it is a layer inside
                 // `BindingRecipe::build`, so the next rebuild returns every seat
                 // to the base preset.
@@ -2933,7 +2902,7 @@ pub const SMASH_KNOCKBACK_GROWTH: f32 = 0.02;
 /// cell by 1.248). A launch past the tumble threshold is not a ring-out, so
 /// calibrate on the stage's knockout verdict.
 ///
-/// The companion is `DeclaredCombatRules::stale_knockback_influence`: that
+/// The companion is `CombatRules::stale_knockback_influence`: that
 /// makes a worn move still convert; this makes percent itself convert.
 pub const SMASH_VICTIM_PERCENT_KNOCKBACK_SCALE: f32 = 1.25;
 

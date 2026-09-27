@@ -593,24 +593,28 @@ impl KoProbe {
         // binary, so no tree difference enters the comparison.
         //
         // Write the declaration, not `ResolvedCombatTuning`: the resolved
-        // resource is re-derived from `DeclaredCombatRules` every tick. The
+        // resource is re-derived from the declared `CombatRules` every tick. The
         // override is read back through the fold and asserted, because a silent
         // failure would look like "the curve does nothing".
         if std::env::args().any(|a| a == "identity") {
-            {
-                let mut declared = app
-                    .world_mut()
-                    .get_resource_mut::<ambition_platformer2d::combat::rules::DeclaredCombatRules>(
-                    )
-                    .expect(
-                        "the smash experience declares combat rules on entry; without that \
-                         resource there is no curve to turn off and this run would be \
-                         measuring an undeclared world",
-                    );
-                // `None` resolves to `GrowthBaseCurve::IDENTITY` — the law exactly
-                // as first written, and what every undeclared Ambition room uses.
-                declared.growth_base = None;
-            }
+            let amended = app
+                .world_mut()
+                .resource_mut::<ambition_platformer2d::combat::scoped_rules::DeclaredRules<
+                    ambition_platformer2d::combat::rules::CombatRules,
+                >>()
+                .amend(
+                    ambition_platformer2d::combat::scoped_rules::RulesScope::Mode(
+                        ambition_demo_smash::SMASH_MODE,
+                    ),
+                    // `None` resolves to `GrowthBaseCurve::IDENTITY` — the law exactly
+                    // as first written, and what every undeclared Ambition room uses.
+                    |rules| rules.growth_base = None,
+                );
+            assert!(
+                amended,
+                "Smash declares no combat rules for its rooms, so there is no curve to \
+                 turn off and this run would be measuring an undeclared world"
+            );
             // One tick for the projection system to re-fold the declaration.
             app.update();
             let live = app
@@ -2483,13 +2487,13 @@ fn main() {
     let registry = world
         .get_resource::<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>()
         .expect("the composed host has a prepared-character registry");
-    // Not the live resource. `project_combat_rules` folds `DeclaredCombatRules`
-    // every tick, but the Smash declaration exists only after the Smash
-    // experience is entered. Before that the resolved resource is `Default`
+    // Not the live resource. `project_combat_rules` folds the active room's
+    // `CombatRules` every tick, and Smash's rules govern only Smash's rooms.
+    // Before a stage is entered the resolved resource is `Default`
     // (for example `knockback_growth=0`, which zeroes every unauthored growth).
     // Ask the declaration and fold it as the engine does. The stage probe also
     // asserts it against the live resource inside a real match.
-    let declared = ambition_demo_smash::smash_declared_combat_rules();
+    let declared = ambition_demo_smash::smash_combat_rules();
     let rules = ambition_platformer2d::combat::rules::ResolvedCombatTuning::resolve(
         Some(declared),
         0.0,

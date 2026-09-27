@@ -2025,7 +2025,7 @@ pub fn advance_move_playback(
 ///
 /// ⛔ Gated on a declared rule, so a world that never asked keeps its lag
 /// running wherever the body is — see
-/// [`crate::rules::DeclaredCombatRules::edge_cancel_recovery`].
+/// [`crate::rules::CombatRules::edge_cancel_recovery`].
 pub fn edge_cancel_landing_recovery(
     rules: Option<bevy::prelude::Res<crate::rules::ResolvedCombatTuning>>,
     mut bodies: bevy::prelude::Query<(

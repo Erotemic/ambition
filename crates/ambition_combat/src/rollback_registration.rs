@@ -278,7 +278,7 @@ where
     registrar.declare_rollback_derived_resource::<crate::rules::ResolvedCombatTuning>(
         OWNER,
         "derived.resolved_combat_tuning",
-        "refolded from DeclaredCombatRules over the world baseline every WorldPrep",
+        "refolded from the active room's CombatRules over the world baseline every WorldPrep",
     );
     // CAPTURE: the relationship is state; the requests are not.
     //

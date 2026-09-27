@@ -95,6 +95,25 @@ impl<T: Copy + std::fmt::Debug> DeclaredRules<T> {
         own.or_else(|| find(RulesScope::EveryRoom))
     }
 
+    /// Change the rules one scope states, in place. Returns `false` when no
+    /// game declared that scope.
+    ///
+    /// For calibration sweeps that turn one knob on a live declaration. A game
+    /// states its rules with [`Self::declare`], and no system amends them.
+    pub fn amend(&mut self, scope: RulesScope, change: impl FnOnce(&mut T)) -> bool {
+        match self
+            .declarations
+            .iter_mut()
+            .find(|(declared, _)| *declared == scope)
+        {
+            Some((_, rules)) => {
+                change(rules);
+                true
+            }
+            None => false,
+        }
+    }
+
     /// Every declaration, for diagnostics and for the composition guard that
     /// reads them all at once.
     pub fn iter(&self) -> impl Iterator<Item = (RulesScope, T)> + '_ {

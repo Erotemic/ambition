@@ -17,7 +17,7 @@
 //! boots — and asks the world.
 
 use ambition_app::app::StartRoomOverride;
-use ambition_platformer2d::combat::rules::{DeclaredCombatRules, ResolvedCombatTuning};
+use ambition_platformer2d::combat::rules::{CombatRules, ResolvedCombatTuning};
 use bevy::app::{PluginGroup, ScheduleRunnerPlugin};
 use bevy::asset::AssetPlugin;
 use bevy::image::ImagePlugin;
@@ -125,7 +125,10 @@ fn a_declaration_wins_and_the_world_it_plays_over_is_untouched() {
         .resource_mut::<ambition_platformer2d::combat::targeting::FriendlyFire>()
         .enabled = true;
 
-    app.world_mut().insert_resource(DeclaredCombatRules {
+    // `portal_lab` has no mode tag, so a declaration for untagged rooms is
+    // the one that governs it.
+    use ambition_platformer2d::combat::scoped_rules::{DeclareRulesExt as _, RulesScope};
+    app.declare_rules(RulesScope::UntaggedRooms, CombatRules {
         bark_chance: None,
         // This fixture is about DI and knockback growth reaching the resolved
         // tuning; the base-referenced kill curve is a separate knob and stays
@@ -138,9 +141,6 @@ fn a_declaration_wins_and_the_world_it_plays_over_is_untouched() {
         edge_cancel_recovery: None,
         special_turn: None,
         special_turn_reverses_drift: None,
-        // A declaration names its declarer, so a stage's giveback can ask
-        // whether the live rules are its own before removing them.
-        declared_by: "a_declaring_stage".to_string(),
         di_max_angle: DECLARED_DI,
         knockback_growth: 0.0,
         friendly_fire: false,
@@ -196,14 +196,24 @@ fn a_declaration_wins_and_the_world_it_plays_over_is_untouched() {
         "same for friendly fire: the baseline is not a match's to write"
     );
 
-    // Dropping the declaration IS the exit. No restore step runs, and the world
-    // is already what it always was.
-    app.world_mut().remove_resource::<DeclaredCombatRules>();
+    // A room no game governs plays the baseline. No restore step runs, and the
+    // world is already what it always was. The other games' declarations stay.
+    {
+        use ambition_platformer2d::combat::scoped_rules::DeclaredRules;
+        let kept = app.world().resource::<DeclaredRules<CombatRules>>().clone();
+        let mut without_untagged = DeclaredRules::<CombatRules>::default();
+        for (scope, rules) in kept.iter() {
+            if scope != RulesScope::UntaggedRooms {
+                without_untagged.declare(scope, rules);
+            }
+        }
+        app.world_mut().insert_resource(without_untagged);
+    }
     app.update();
     assert_eq!(
         resolved(&app).di_max_angle,
         AUTHORED_BASELINE_DI,
-        "the match's DI outlived the declaration that asked for it"
+        "the declared DI governs a room that no game declares rules for"
     );
     assert!(resolved(&app).friendly_fire);
 }

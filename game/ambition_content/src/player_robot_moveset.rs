@@ -10,7 +10,7 @@
 //! frames, recovery, hitbox geometry, damage, base launch, growth, landing lag
 //! and auto-cancel belong to the swing. Percent, stocks, blast zones, DI and
 //! knockback-growth strength belong to the ruleset, declared per stage
-//! (`DeclaredCombatRules`). So Ambition reads this table as Hollow-Knight
+//! (`CombatRules`). So Ambition reads this table as Hollow-Knight
 //! combat and Smash reads it as a platform fighter.
 
 #[cfg(test)]

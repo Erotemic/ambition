@@ -1,10 +1,10 @@
 //! The combat rules a match plays under — resolved, not borrowed. (AE6)
 //!
 //! A route mutating global tuning and undoing it afterwards is a lifecycle borrowing an authority
-//! it does not own. So the match DECLARES its rules ([`DeclaredCombatRules`]), a projection folds
-//! them over the world's baseline every tick, and combat reads the result
-//! ([`ResolvedCombatTuning`]). Nothing is written back, so there is nothing to restore and no
-//! window in which the restore has not happened yet: removing the declaration IS the exit.
+//! it does not own. So a game DECLARES its rules ([`CombatRules`]) for the rooms it governs, with
+//! `declare_rules` (see [`crate::scoped_rules`]). A projection folds the active room's rules over
+//! the world's baseline every tick, and combat reads the result ([`ResolvedCombatTuning`]).
+//! Nothing is written back and nothing is published or released, so leaving the rooms IS the exit.
 //!
 //! ## Why the type is here and the projection is not
 //!
@@ -17,17 +17,8 @@
 
 use bevy::prelude::Resource;
 
-/// What a match asks for. Present means a match (or any other owner of a
-/// combat lifecycle) has declared rules; absent means the world's baseline
-/// stands on its own.
-///
-/// Deliberately not `Option` fields: a rule a match does not care about is the
-/// baseline's, and expressing that as "declare the baseline's value" would make
-/// the declaration a snapshot of the world at declaration time — which is the
-/// borrow again, wearing a different hat. A declarer that wants the world's DI
-/// omits the whole resource, or reads it and re-declares deliberately.
 /// WHO KEEPS A CONTESTED LEDGE. See
-/// [`DeclaredCombatRules::ledge_occupancy`].
+/// [`CombatRules::ledge_occupancy`].
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum LedgeOccupancy {
     /// The NEWEST grab wins and the older holder is knocked off — Ultimate's
@@ -46,15 +37,17 @@ pub enum LedgeOccupancy {
 /// See its module doc for the measurement that separated them.
 pub use ambition_entity_catalog::launch::GrowthBaseCurve;
 
-#[derive(Resource, Clone, Debug, PartialEq)]
-pub struct DeclaredCombatRules {
-    /// Which shell experience declared these rules.
-    ///
-    /// required, not optional, and it is a LIFECYCLE field rather than a label. Two stages
-    /// declare combat rules — the versus route and the smash demo — and each gives its
-    /// declaration back when its experience leaves. Naming the declarer is what lets the
-    /// release ask *is this mine* instead of assuming it.
-    pub declared_by: String,
+/// The combat rules one game states for the rooms it governs.
+///
+/// A game states them once, with `declare_rules(scope, rules)`, when its plugin
+/// is built. A room that no game claimed plays the world's baseline.
+///
+/// Most fields are not `Option`: a game that does not care about a rule states
+/// the value its game plays under. Stating "the baseline's value" would make the
+/// declaration a copy of the world at build time, which is the borrow again.
+/// A game that wants the world's DI declares no combat rules at all.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct CombatRules {
     /// How far a launched body may steer its own trajectory (CM2). `0.0`
     /// disables directional influence entirely, which is Ambition's PvE answer.
     pub di_max_angle: f32,
@@ -383,76 +376,76 @@ pub struct DeclaredCombatRules {
 
 /// The rules combat actually reads this tick.
 ///
-/// Derived every tick from [`DeclaredCombatRules`] folded over the world's
+/// Derived every tick from [`CombatRules`] folded over the world's
 /// baseline. A reader must never consult the baseline resources directly: that
 /// is how a stage's rules and the world's rules got to disagree.
 #[derive(Resource, Clone, Copy, Debug, PartialEq)]
 pub struct ResolvedCombatTuning {
     pub di_max_angle: f32,
-    /// See [`DeclaredCombatRules::knockback_growth`]. `0.0` = flat knockback.
+    /// See [`CombatRules::knockback_growth`]. `0.0` = flat knockback.
     pub knockback_growth: f32,
-    /// See [`DeclaredCombatRules::downward_hit`].
+    /// See [`CombatRules::downward_hit`].
     pub downward_hit: DownwardHitStyle,
-    /// See [`DeclaredCombatRules::meteor_lock_time`].
+    /// See [`CombatRules::meteor_lock_time`].
     pub meteor_lock_time: f32,
-    /// See [`DeclaredCombatRules::rage_per_damage`].
+    /// See [`CombatRules::rage_per_damage`].
     pub rage_per_damage: f32,
-    /// See [`DeclaredCombatRules::rage_max_scale`].
+    /// See [`CombatRules::rage_max_scale`].
     pub rage_max_scale: f32,
-    /// See [`DeclaredCombatRules::stale_step`].
+    /// See [`CombatRules::stale_step`].
     pub stale_step: f32,
-    /// See [`DeclaredCombatRules::stale_floor`].
+    /// See [`CombatRules::stale_floor`].
     pub stale_floor: f32,
-    /// See [`DeclaredCombatRules::stale_knockback_influence`]. `1.0` = a stale
+    /// See [`CombatRules::stale_knockback_influence`]. `1.0` = a stale
     /// move's launch is weakened as hard as its damage is.
     pub stale_knockback_influence: f32,
-    /// See [`DeclaredCombatRules::victim_percent_knockback_scale`]. `1.0` = the
+    /// See [`CombatRules::victim_percent_knockback_scale`]. `1.0` = the
     /// percent term as first written.
     pub victim_percent_knockback_scale: f32,
-    /// See [`DeclaredCombatRules::growth_base`].
+    /// See [`CombatRules::growth_base`].
     /// [`GrowthBaseCurve::IDENTITY`] = the law exactly as it was first written.
     pub growth_base: GrowthBaseCurve,
-    /// See [`DeclaredCombatRules::crouch_cancel_scale`].
+    /// See [`CombatRules::crouch_cancel_scale`].
     pub crouch_cancel_scale: f32,
-    /// See [`DeclaredCombatRules::hit_repeat_window_scale`].
+    /// See [`CombatRules::hit_repeat_window_scale`].
     pub hit_repeat_window_scale: f32,
-    /// See [`DeclaredCombatRules::edge_cancel_recovery`].
+    /// See [`CombatRules::edge_cancel_recovery`].
     pub edge_cancel_recovery: bool,
-    /// See [`DeclaredCombatRules::special_turn`].
+    /// See [`CombatRules::special_turn`].
     pub special_turn: bool,
-    /// See [`DeclaredCombatRules::special_turn_reverses_drift`].
+    /// See [`CombatRules::special_turn_reverses_drift`].
     pub special_turn_reverses_drift: bool,
-    /// See [`DeclaredCombatRules::clank_damage_window`]. `0.0` = attacks pass
+    /// See [`CombatRules::clank_damage_window`]. `0.0` = attacks pass
     /// through each other, which is what an undeclared world does.
     pub clank_damage_window: f32,
-    /// See [`DeclaredCombatRules::clank_rebound_speed`].
+    /// See [`CombatRules::clank_rebound_speed`].
     pub clank_rebound_speed: f32,
-    /// See [`DeclaredCombatRules::sudden_death_damage`].
+    /// See [`CombatRules::sudden_death_damage`].
     pub sudden_death_damage: Option<i32>,
-    /// See [`DeclaredCombatRules::bark_chance`]. RESOLVED, so `1.0` — every hit
+    /// See [`CombatRules::bark_chance`]. RESOLVED, so `1.0` — every hit
     /// barks — is what a world that declared nothing gets, which is what every
     /// body did before the knob existed.
     pub bark_chance: f32,
-    /// See [`DeclaredCombatRules::ledge_trump_pop`]. RESOLVED, so `0.0` — drop
+    /// See [`CombatRules::ledge_trump_pop`]. RESOLVED, so `0.0` — drop
     /// the trumped body in place — is what a world that declared nothing gets.
     pub ledge_trump_pop: f32,
-    /// See [`DeclaredCombatRules::ledge_occupancy`].
+    /// See [`CombatRules::ledge_occupancy`].
     pub ledge_occupancy: LedgeOccupancy,
-    /// See [`DeclaredCombatRules::double_jump_cancel`].
+    /// See [`CombatRules::double_jump_cancel`].
     pub double_jump_cancel: bool,
-    /// See [`DeclaredCombatRules::grab_hold_base_seconds`].
+    /// See [`CombatRules::grab_hold_base_seconds`].
     pub grab_hold_base_seconds: f32,
-    /// See [`DeclaredCombatRules::grab_hold_per_damage`].
+    /// See [`CombatRules::grab_hold_per_damage`].
     pub grab_hold_per_damage: f32,
-    /// See [`DeclaredCombatRules::grab_hold_max_seconds`].
+    /// See [`CombatRules::grab_hold_max_seconds`].
     pub grab_hold_max_seconds: f32,
-    /// See [`DeclaredCombatRules::grab_mash_seconds`].
+    /// See [`CombatRules::grab_mash_seconds`].
     pub grab_mash_seconds: f32,
     pub friendly_fire: bool,
 }
 
 /// How this game reads a downward attack. See
-/// [`DeclaredCombatRules::downward_hit`].
+/// [`CombatRules::downward_hit`].
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum DownwardHitStyle {
     /// The ATTACKER rebounds off what it hit — Hollow Knight's down-slash, and
@@ -464,14 +457,6 @@ pub enum DownwardHitStyle {
     /// fighter's spike, which is a kill offstage and would be nonsense if it
     /// also bounced you back to safety.
     Spike,
-}
-
-impl DeclaredCombatRules {
-    /// Whether `owner` is the experience that declared these rules — the
-    /// question `releasing_owned` asks on the way out.
-    pub fn is_declared_by(&self, owner: &str) -> bool {
-        self.declared_by == owner
-    }
 }
 
 pub const FLAT_GRAB_HOLD_SECONDS: f32 = 4.0;
@@ -534,7 +519,7 @@ impl ResolvedCombatTuning {
     /// resource stands at its type's default, so a world without the tuning
     /// resources resolves the same as one with them untouched.
     pub fn resolve_over(
-        declared: Option<DeclaredCombatRules>,
+        declared: Option<CombatRules>,
         baseline_feel: Option<&crate::feel::Platformer2dFeelTuningMonolith>,
         baseline_ff: Option<&crate::targeting::FriendlyFire>,
     ) -> Self {
@@ -548,7 +533,7 @@ impl ResolvedCombatTuning {
 
     /// The fold: a declaration wins outright, the baseline stands otherwise.
     pub fn resolve(
-        declared: Option<DeclaredCombatRules>,
+        declared: Option<CombatRules>,
         baseline_di: f32,
         baseline_ff: bool,
     ) -> Self {
@@ -866,7 +851,7 @@ mod tests {
     fn a_declaration_wins_without_disturbing_the_baseline() {
         let baseline_di = 0.12;
         let resolved = ResolvedCombatTuning::resolve(
-            Some(DeclaredCombatRules {
+            Some(CombatRules {
                 stale_knockback_influence: None,
                 victim_percent_knockback_scale: None,
                 // This fixture is about a declaration not disturbing the
@@ -876,7 +861,6 @@ mod tests {
                 ledge_trump_pop: None,
                 ledge_occupancy: None,
                 double_jump_cancel: None,
-                declared_by: "a_stage".to_string(),
                 di_max_angle: 0.30,
                 knockback_growth: 0.0,
                 downward_hit: DownwardHitStyle::Pogo,
@@ -914,7 +898,7 @@ mod tests {
     /// which the restore has not happened yet.
     #[test]
     fn dropping_the_declaration_returns_to_the_baseline_with_no_restore_step() {
-        let declared = Some(DeclaredCombatRules {
+        let declared = Some(CombatRules {
             stale_knockback_influence: None,
             victim_percent_knockback_scale: None,
             growth_base: None,
@@ -922,7 +906,6 @@ mod tests {
             ledge_trump_pop: None,
             ledge_occupancy: None,
             double_jump_cancel: None,
-            declared_by: "a_stage".to_string(),
             di_max_angle: 0.30,
             knockback_growth: 0.0,
             downward_hit: DownwardHitStyle::Pogo,

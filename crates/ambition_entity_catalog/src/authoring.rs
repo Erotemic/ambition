@@ -562,7 +562,7 @@ pub struct Strike<'a> {
     pub launch_dir: Option<(f32, f32)>,
     /// What landing this hit can do beyond damage. The down-air uses it to say
     /// it can rebound its attacker; the ruleset
-    /// (`DeclaredCombatRules::downward_hit`) decides whether to use that or
+    /// (`CombatRules::downward_hit`) decides whether to use that or
     /// read the swing as a spike.
     pub on_hit: Option<EffectRef>,
 }

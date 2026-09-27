@@ -678,14 +678,17 @@ fn a_host_composing_this_plugin_can_route_to_the_stage() {
     assert_eq!(authored.starting_character, SMASH_CHARACTER_ID);
 }
 
-/// The stage declares a DI budget and gives it back on the way out.
+/// The stage declares a DI budget for its own rooms and for no other room.
 ///
 /// Without a declaration `di_max_angle` falls to the engine baseline `0.0`,
-/// and a launched fighter has no influence. The release matters as much: left
-/// standing, the budget would follow the player into Ambition's PvE.
+/// and a launched fighter has no influence. The scope matters as much: a
+/// budget that governed other rooms would follow the player into Ambition's
+/// PvE.
 #[test]
-fn the_stage_declares_its_di_budget_and_releases_it() {
-    use ambition_platformer2d::game_shell::{MinimalShellPlugins, ShellExperienceScopes};
+fn the_stage_declares_its_di_budget_for_its_own_rooms_only() {
+    use ambition_platformer2d::combat::rules::CombatRules;
+    use ambition_platformer2d::combat::scoped_rules::DeclaredRules;
+    use ambition_platformer2d::game_shell::MinimalShellPlugins;
     use bevy::prelude::*;
 
     assert!(
@@ -707,19 +710,20 @@ fn the_stage_declares_its_di_budget_and_releases_it() {
     app.add_plugins(ambition_platformer2d::load::AmbitionLoadPlugin);
     app.add_plugins(SmashExperiencePlugin);
 
-    let rules = std::any::type_name::<ambition_platformer2d::combat::rules::DeclaredCombatRules>();
-    let released: Vec<&str> = app
-        .world()
-        .resource::<ShellExperienceScopes>()
-        .iter()
-        .filter(|scope| scope.owner().as_str() == SMASH_EXPERIENCE)
-        .flat_map(|scope| scope.released_state())
-        .collect();
-    assert!(
-        released.contains(&rules),
-        "⛔ the stage's DI budget outlives its own experience and follows the player into a \
-         game that authored none. Released: {released:?}"
+    let declared = app.world().resource::<DeclaredRules<CombatRules>>();
+    assert_eq!(
+        declared.governing(Some(SMASH_MODE)),
+        Some(crate::smash_combat_rules()),
+        "a Smash stage must play under the rules Smash declares"
     );
+    for elsewhere in [None, Some("mary_o"), Some("ambition_versus")] {
+        assert_eq!(
+            declared.governing(elsewhere),
+            None,
+            "⛔ the stage's DI budget governs a room it does not own ({elsewhere:?}) and \
+             follows the player into a game that authored none"
+        );
+    }
 }
 
 /// Run the preparation source as the system it is, with one stage choice.

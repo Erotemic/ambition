@@ -300,7 +300,7 @@ pub(crate) fn apply_actor_hit(
                 hit_flash: 0.16,
                 // SCALED BY THE MATCH'S RULE, so a game whose moves author
                 // their own multi-hit cadence can say it has no blanket window
-                // — see `DeclaredCombatRules::hit_repeat_window_scale`. An
+                // — see `CombatRules::hit_repeat_window_scale`. An
                 // undeclared world multiplies by `1.0`.
                 damage_invuln_time: crate::actor_clusters::ACTOR_DAMAGE_IFRAME_S
                     * feel.hit_repeat_window_scale,

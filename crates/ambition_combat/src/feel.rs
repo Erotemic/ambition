@@ -134,18 +134,18 @@ pub struct Platformer2dFeelTuningMonolith {
     /// addition: a meteor is a longer version of the same silence.
     ///
     ///  the value here is a BASELINE that an experience overwrites, exactly
-    /// like `di_max_angle` beside it — `DeclaredCombatRules::meteor_lock_time`
+    /// like `di_max_angle` beside it — `CombatRules::meteor_lock_time`
     /// is the authority and the damage road folds it in before use. `0.0` is no
     /// meteor rule, which is what an exploration game wants.
     pub meteor_lock_time: f32,
     /// What a CROUCHING victim multiplies an incoming launch by — crouch
-    /// cancel. Folded in from `DeclaredCombatRules::crouch_cancel_scale` by the
+    /// cancel. Folded in from `CombatRules::crouch_cancel_scale` by the
     /// damage road, exactly like `meteor_lock_time` beside it. `1.0` is no
     /// crouch cancel, which is what an exploration game wants.
     pub crouch_cancel_scale: f32,
     /// What this body's POST-HIT MERCY WINDOW is multiplied by — the fraction
     /// of its road's own window that survives. Folded in from
-    /// `DeclaredCombatRules::hit_repeat_window_scale` by the damage road,
+    /// `CombatRules::hit_repeat_window_scale` by the damage road,
     /// exactly like `crouch_cancel_scale` beside it. `1.0` is the window the
     /// road authors, which is what an exploration game wants; `0.0` is a game
     /// with no blanket window, where a strike's own per-target dedup is the

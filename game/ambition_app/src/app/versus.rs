@@ -502,121 +502,121 @@ fn track_versus_roster(
             // A NEW roster is not yet a match. Activation is seating's to
             // publish, once every participant has a body.
             commands.remove_resource::<ambition_platformer2d::versus_match::ActiveMatch>();
-            // The stage DID switch on global `FriendlyFire` for a day, because
-            // `effective_faction` maps any player-brained body to Player and two
-            // humans are therefore always the same faction. That works for a
-            // free-for-all and is wrong the moment a 2v2 exists: it makes
-            // teammates hittable too, and it is a world-wide rule change made by
-            // one stage. Teams say the same thing locally and correctly.
-            //
-            // DECLARE, don't borrow (AE6). The stage says what IT plays under
-            // and writes nothing global, so there is no capture to get wrong on
-            // re-entry, no restore to skip on a crash, and no window in which
-            // another writer can win. `project_combat_rules` folds this over the
-            // world's baseline every tick; removing it below IS the exit.
-            //
-            // DI ON. A launched fighter can steer its own trajectory, which is
-            // the difference between a knock-off that is a read and one that is a
-            // coin flip. Inert everywhere else: Ambition's PvE keeps 0.0.
-            commands.insert_resource(ambition_platformer2d::combat::rules::DeclaredCombatRules {
-                // The versus route says nothing about barks: every hit speaks,
-                // which is what it did before the rate existed.
-                bark_chance: None,
-                // ⛔ AND IT SAYS NOTHING ABOUT THE KILL CURVE EITHER. The
-                // base-referenced steepening is a SMASH answer to a measured
-                // Smash problem (its roster authors `growth ~= 0.02 * base`
-                // across every role, so a kill move is a jab times a constant).
-                // Versus authors its own fighters and has not been measured;
-                // declining here keeps its launches exactly as they are.
-                growth_base: None,
-                // The versus route drops a trumped body where it hung.
-                ledge_trump_pop: None,
-                // The versus route says nothing: its edges trump, which is what
-                // they always did.
-                ledge_occupancy: None,
-                // The versus route's air jumps run their full arc.
-                double_jump_cancel: None,
-                // The versus route says nothing about the edge cancel either:
-                // its landing lag runs out wherever the body is, which is what
-                // it did before the rule existed.
-                edge_cancel_recovery: None,
-                // The versus route's specials come out the way the body faces.
-                special_turn: None,
-                special_turn_reverses_drift: None,
-                // Third time this repo has learned it: the participant roster, the prepared
-                // match, now the rules.
-                declared_by: VERSUS_EXPERIENCE.to_string(),
-                di_max_angle: VERSUS_DI_MAX_ANGLE,
-                // no meteor rule here for the same reason the knockback stays
-                // flat: rounds end on health, not on a blast zone, so a spike
-                // has nowhere to send you and a window you cannot recover in
-                // would be a stun with no payoff.
-                meteor_lock_time: 0.0,
-                // and no rage, for the third time the same reason: health
-                // rounds have no percent mechanic to mirror.
-                rage_per_damage: 0.0,
-                rage_max_scale: 1.0,
-                // and no staling: rounds this short do not repeat a move
-                // enough for a queue to mean anything.
-                stale_step: 0.0,
-                stale_floor: 1.0,
-                // and so nothing to attenuate on its way to the launch: with no
-                // staling declared above there is no weakening for an influence
-                // to soften, and a rule nothing can reach is the kind that lies
-                // about what the stage does.
-                stale_knockback_influence: None,
-                // and no percent curve to steepen, for the reason the knockback
-                // stays flat: rounds end on health, not on a blast zone, so
-                // there is no "percent matters more here" to say.
-                victim_percent_knockback_scale: None,
-                // and no crouch cancel: this stage has no crouch verb to
-                // reward, and a rule nothing can reach is a rule that lies about
-                // what the stage does.
-                crouch_cancel_scale: 1.0,
-                // and no clanking, for the reason the meteor rule is absent:
-                // these duelists author four moves between them and none of the
-                // reads a trade opens — bait a clank, win the recoil — exists on
-                // this stage. A rule nothing can reach lies about what the stage
-                // does.
-                clank_damage_window: 0.0,
-                clank_rebound_speed: 0.0,
-                sudden_death_damage: None,
-                // and the engine's own post-hit window stands. This stage's
-                // moves author no separated multi-hit window, so there is
-                // nothing here for a shorter window to make reachable, and
-                // shortening one to match another stage would be tuning this
-                // round against a game it is not.
-                hit_repeat_window_scale: 1.0,
-                // a versus round ends on health, and its grabs are the
-                // engine's flat hold rather than a percent mechanic.
-                grab_hold_base_seconds:
-                    ambition_platformer2d::combat::rules::FLAT_GRAB_HOLD_SECONDS,
-                grab_hold_per_damage: 0.0,
-                grab_hold_max_seconds: ambition_platformer2d::combat::rules::FLAT_GRAB_HOLD_SECONDS,
-                grab_mash_seconds: ambition_platformer2d::combat::rules::FLAT_GRAB_MASH_SECONDS,
-                // the generic versus stage stays FLAT for now: its rounds end
-                // on health rather than on a blast zone, so a launch that grows
-                // without bound is a different game's mechanic. Smash declares
-                // its own — see `SMASH_KNOCKBACK_GROWTH`.
-                knockback_growth: 0.0,
-                // the generic versus stage keeps the POGO reading, deliberately:
-                // its rounds end on health rather than on a blast zone, so a
-                // spike has nothing to kill you off and the rebound is the more
-                // useful of the two. Smash declares otherwise — see
-                // `SMASH_KNOCKBACK_GROWTH`'s neighbour.
-                downward_hit: ambition_platformer2d::combat::rules::DownwardHitStyle::Pogo,
-                friendly_fire: false,
-                // the versus route says NOTHING here. Its
-                // seats are the shipped cast, every one of which authors its own
-                // kit; a floor is what a stage needs when a body does not, and
-                // this stage does not have that body. `None` leaves the engine's
-                // exploration default standing, which nothing here reaches.
-            });
             *match_state = super::versus_rules::VersusMatch::opening();
         }
         // THE EXIT IS A DECLARATION, not a branch. Everything this route published leaves with
         // the experience — see the scope in [`compose_versus_experience`].
         _ => {}
+    }
+}
+
+/// The combat rules the versus stage plays under, declared for its room's mode.
+///
+/// The stage DID switch on global `FriendlyFire` for a day, because
+/// `effective_faction` maps any player-brained body to Player and two humans are
+/// therefore always the same faction. That works for a free-for-all and is wrong
+/// the moment a 2v2 exists: it makes teammates hittable too, and it is a
+/// world-wide rule change made by one stage. Teams say the same thing locally and
+/// correctly.
+///
+/// DECLARE, don't borrow (AE6). The stage states what IT plays under and writes
+/// nothing global. `project_combat_rules` folds the active room's rules over the
+/// world's baseline every tick, so a room outside the stage plays the baseline.
+///
+/// DI ON. A launched fighter can steer its own trajectory, which is the
+/// difference between a knock-off that is a read and one that is a coin flip.
+/// Inert everywhere else: Ambition's PvE keeps 0.0.
+pub fn versus_combat_rules() -> ambition_platformer2d::combat::rules::CombatRules {
+    ambition_platformer2d::combat::rules::CombatRules {
+        // The versus route says nothing about barks: every hit speaks,
+        // which is what it did before the rate existed.
+        bark_chance: None,
+        // ⛔ AND IT SAYS NOTHING ABOUT THE KILL CURVE EITHER. The
+        // base-referenced steepening is a SMASH answer to a measured
+        // Smash problem (its roster authors `growth ~= 0.02 * base`
+        // across every role, so a kill move is a jab times a constant).
+        // Versus authors its own fighters and has not been measured;
+        // declining here keeps its launches exactly as they are.
+        growth_base: None,
+        // The versus route drops a trumped body where it hung.
+        ledge_trump_pop: None,
+        // The versus route says nothing: its edges trump, which is what
+        // they always did.
+        ledge_occupancy: None,
+        // The versus route's air jumps run their full arc.
+        double_jump_cancel: None,
+        // The versus route says nothing about the edge cancel either:
+        // its landing lag runs out wherever the body is, which is what
+        // it did before the rule existed.
+        edge_cancel_recovery: None,
+        // The versus route's specials come out the way the body faces.
+        special_turn: None,
+        special_turn_reverses_drift: None,
+        di_max_angle: VERSUS_DI_MAX_ANGLE,
+        // no meteor rule here for the same reason the knockback stays
+        // flat: rounds end on health, not on a blast zone, so a spike
+        // has nowhere to send you and a window you cannot recover in
+        // would be a stun with no payoff.
+        meteor_lock_time: 0.0,
+        // and no rage, for the third time the same reason: health
+        // rounds have no percent mechanic to mirror.
+        rage_per_damage: 0.0,
+        rage_max_scale: 1.0,
+        // and no staling: rounds this short do not repeat a move
+        // enough for a queue to mean anything.
+        stale_step: 0.0,
+        stale_floor: 1.0,
+        // and so nothing to attenuate on its way to the launch: with no
+        // staling declared above there is no weakening for an influence
+        // to soften, and a rule nothing can reach is the kind that lies
+        // about what the stage does.
+        stale_knockback_influence: None,
+        // and no percent curve to steepen, for the reason the knockback
+        // stays flat: rounds end on health, not on a blast zone, so
+        // there is no "percent matters more here" to say.
+        victim_percent_knockback_scale: None,
+        // and no crouch cancel: this stage has no crouch verb to
+        // reward, and a rule nothing can reach is a rule that lies about
+        // what the stage does.
+        crouch_cancel_scale: 1.0,
+        // and no clanking, for the reason the meteor rule is absent:
+        // these duelists author four moves between them and none of the
+        // reads a trade opens — bait a clank, win the recoil — exists on
+        // this stage. A rule nothing can reach lies about what the stage
+        // does.
+        clank_damage_window: 0.0,
+        clank_rebound_speed: 0.0,
+        sudden_death_damage: None,
+        // and the engine's own post-hit window stands. This stage's
+        // moves author no separated multi-hit window, so there is
+        // nothing here for a shorter window to make reachable, and
+        // shortening one to match another stage would be tuning this
+        // round against a game it is not.
+        hit_repeat_window_scale: 1.0,
+        // a versus round ends on health, and its grabs are the
+        // engine's flat hold rather than a percent mechanic.
+        grab_hold_base_seconds:
+            ambition_platformer2d::combat::rules::FLAT_GRAB_HOLD_SECONDS,
+        grab_hold_per_damage: 0.0,
+        grab_hold_max_seconds: ambition_platformer2d::combat::rules::FLAT_GRAB_HOLD_SECONDS,
+        grab_mash_seconds: ambition_platformer2d::combat::rules::FLAT_GRAB_MASH_SECONDS,
+        // the generic versus stage stays FLAT for now: its rounds end
+        // on health rather than on a blast zone, so a launch that grows
+        // without bound is a different game's mechanic. Smash declares
+        // its own — see `SMASH_KNOCKBACK_GROWTH`.
+        knockback_growth: 0.0,
+        // the generic versus stage keeps the POGO reading, deliberately:
+        // its rounds end on health rather than on a blast zone, so a
+        // spike has nothing to kill you off and the rebound is the more
+        // useful of the two. Smash declares otherwise — see
+        // `SMASH_KNOCKBACK_GROWTH`'s neighbour.
+        downward_hit: ambition_platformer2d::combat::rules::DownwardHitStyle::Pogo,
+        friendly_fire: false,
+        // the versus route says NOTHING here. Its
+        // seats are the shipped cast, every one of which authors its own
+        // kit; a floor is what a stage needs when a body does not, and
+        // this stage does not have that body. `None` leaves the engine's
+        // exploration default standing, which nothing here reaches.
     }
 }
 
@@ -812,12 +812,25 @@ pub fn compose_versus_experience(app: &mut App) {
     );
 
     declare_versus_experience_scope(app);
+    declare_versus_rules(app);
+}
+
+/// The rules the versus stage's room plays under. A room outside the stage
+/// reads none of them, so leaving the stage is the exit.
+///
+/// A named function so the stage-rule tests compose THIS declaration.
+fn declare_versus_rules(app: &mut App) {
+    use ambition_platformer2d::combat::scoped_rules::DeclareRulesExt as _;
+    app.declare_rules(
+        ambition_platformer2d::combat::scoped_rules::RulesScope::Mode(VERSUS_EXPERIENCE),
+        versus_combat_rules(),
+    );
 }
 
 /// WHAT THIS EXPERIENCE OWNS, AND WHAT LEAVES WITH IT.
 ///
-/// A match's roster, its activation, its combat declaration and the seat
-/// count it decided are all global resources with the lifetime of one route
+/// A match's roster, its activation and the seat count it decided are all
+/// global resources with the lifetime of one route
 /// visit. Declaring them here means the exit is one list rather than a
 /// teardown arm inside the system that also builds them — and a teardown that
 /// lives inside the thing it tears down can only ever run while it is not
@@ -854,15 +867,6 @@ fn declare_versus_experience_scope(app: &mut App) {
             .releasing_owned::<ambition_platformer2d::versus_match::PreparedMatch>(
                 |plan, owner| plan.is_published_by(owner.as_str()),
             )
-            // DROP THE DECLARATION. A match rule that outlives its match is a
-            // rule the next game silently inherits, and "your allies can now
-            // shoot you" is a bad surprise to bring into a co-op level.
-            //
-            // there is nothing to put back, and that is the point: writing the
-            // engine defaults reads as a restore and is not one.
-            .releasing_owned::<ambition_platformer2d::combat::rules::DeclaredCombatRules>(
-                |rules, owner| rules.is_declared_by(owner.as_str()),
-            )
             .releasing_with("SessionSeatingSource", |world, owner| {
                 if let Some(mut seating) = world.get_resource_mut::<
                     ambition_platformer2d::input::SessionSeatingSource,
@@ -890,9 +894,10 @@ mod stage_rule_tests {
         // runs straight after the declarer, which is the same ORDER and all these tests need.
         // Asserting on the resolved value rather than on a global is the whole point of AE6 — a
         // test that read the baseline would be asserting the borrow it replaced. The REAL exit
-        // mechanism, not a fixture copy: the versus scope declaration (the same call
-        // `compose_versus_experience` makes) plus the shell's release system.
+        // mechanism, not a fixture copy: the versus scope and rules declarations (the same
+        // calls `compose_versus_experience` makes) plus the shell's release system.
         super::declare_versus_experience_scope(&mut app);
+        super::declare_versus_rules(&mut app);
         app.add_systems(
             Update,
             (
@@ -924,6 +929,22 @@ mod stage_rule_tests {
             load_authorization: None,
             prepared_session: None,
         });
+        app.update();
+    }
+
+    /// Make the session's active room the versus arena, or the same arena with
+    /// no mode tag (a room the stage does not govern).
+    fn stand_in(app: &mut App, versus_room: bool) {
+        let mut room = versus_arena();
+        if !versus_room {
+            room.id = "elsewhere".to_owned();
+            room.metadata.mode = None;
+        }
+        let id = room.id.clone();
+        ambition_platformer2d::platformer::lifecycle::insert_session_world_component(
+            app.world_mut(),
+            RoomSet::from_parts_or_panic(&id, vec![room], Vec::new()),
+        );
         app.update();
     }
 
@@ -1001,15 +1022,17 @@ mod stage_rule_tests {
         );
     }
 
-    /// DI is a rule of the fighting stage, and it leaves with the stage.
+    /// DI is a rule of the fighting stage, and it governs only the stage's room.
     ///
     /// wants Smash physics in the flagship, without naming a number. So the
-    /// budget is switched on by the versus route and gone again on the way out.
+    /// budget is on in the versus room and off in a room the stage does not
+    /// govern.
     ///
     /// asserted on the RESOLVED tuning, and on the baseline NOT MOVING (AE6).
     #[test]
-    fn di_switches_on_with_the_versus_route_and_off_again_when_it_ends() {
+    fn di_is_on_in_the_versus_room_and_off_in_any_other() {
         let mut app = stage_rule_app();
+        stand_in(&mut app, false);
 
         assert_eq!(
             resolved(&app).di_max_angle,
@@ -1018,7 +1041,7 @@ mod stage_rule_tests {
              actually returns to"
         );
 
-        enter_versus(&mut app);
+        stand_in(&mut app, true);
         assert_eq!(
             resolved(&app).di_max_angle,
             VERSUS_DI_MAX_ANGLE,
@@ -1033,11 +1056,11 @@ mod stage_rule_tests {
              again — the borrow AE6 removed"
         );
 
-        leave_versus(&mut app);
+        stand_in(&mut app, false);
         assert_eq!(
             resolved(&app).di_max_angle,
             0.0,
-            "DI outlived its match, so every knockback in the game it returns to \
+            "DI outlived its room, so every knockback in the game it returns to \
              now steers and nothing says why"
         );
     }
@@ -1055,6 +1078,7 @@ mod stage_rule_tests {
     #[test]
     fn a_match_never_touches_the_world_tuning_it_plays_over() {
         let mut app = stage_rule_app();
+        stand_in(&mut app, false);
 
         // Some other experience's authored tuning. Neither value is a default.
         const PRIOR_DI: f32 = 0.12;
@@ -1095,7 +1119,7 @@ mod stage_rule_tests {
         assert_eq!(resolved(&app).di_max_angle, PRIOR_DI);
         assert!(resolved(&app).friendly_fire);
 
-        enter_versus(&mut app);
+        stand_in(&mut app, true);
         // DURING.
         authored_is_intact(&app, "during the match");
         assert_eq!(
@@ -1108,21 +1132,16 @@ mod stage_rule_tests {
             "the stage runs on teams, not on global free-for-all"
         );
 
-        leave_versus(&mut app);
+        stand_in(&mut app, false);
         authored_is_intact(&app, "after");
         assert_eq!(
             resolved(&app).di_max_angle,
             PRIOR_DI,
-            "the match's DI outlived the match"
+            "the match's DI outlived its room"
         );
         assert!(
             resolved(&app).friendly_fire,
-            "the match's friendly-fire rule outlived the match"
-        );
-        assert!(
-            !app.world()
-                .contains_resource::<ambition_platformer2d::combat::rules::DeclaredCombatRules>(),
-            "the declaration must not outlive the match — dropping it IS the exit"
+            "the match's friendly-fire rule outlived its room"
         );
     }
 }

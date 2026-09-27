@@ -124,7 +124,7 @@ pub struct LaunchConditions {
     /// `knockback_growth` is `base * this`. Only [`launch_speed`] collapses the
     /// two; a caller must not collapse them first.
     ///
-    /// `0.0` is the undeclared world (the default of `DeclaredCombatRules`),
+    /// `0.0` is the undeclared world (the default of `CombatRules`),
     /// so an Ambition room resolves `None` to a set launch.
     pub ruleset_growth: f32,
     /// The attacker's rage multiplier, already resolved. Applied to the whole

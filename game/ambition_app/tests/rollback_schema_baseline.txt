@@ -186,7 +186,7 @@ derived.portal_host_depths	derived	PortalHostDepths	republished from the authori
 derived.portal_transitable	derived	PortalTransitable	mirrored from the item's authoritative body every frame, before transit reads it
 derived.projectile_view	derived	ProjectileView	SimView projection rebuilt every tick
 derived.resolved_attack_gesture	derived	ResolvedAttackGesture	republished from ActorControl and rollback-backed gesture history before move triggering
-derived.resolved_combat_tuning	derived	ResolvedCombatTuning	refolded from DeclaredCombatRules over the world baseline every WorldPrep
+derived.resolved_combat_tuning	derived	ResolvedCombatTuning	refolded from the active room's CombatRules over the world baseline every WorldPrep
 derived.resolved_hurtboxes	derived	ResolvedHurtboxes	recomputed from AuthoredHurtboxes plus the move and pose clocks each tick
 derived.resolved_motion_frame	derived	ResolvedMotionFrame	published every tick from the live environment
 derived.resolved_switch_activations	derived	ResolvedSwitchActivations	this tick's drained switch activations with their post-toggle values; rebuilt every drain

@@ -6399,8 +6399,8 @@ mod ring_out {
     /// Re-declare the percent scale on the LIVE ruleset, and CONFIRM IT LANDED.
     ///
     /// ⭐⭐ THIS IS WHAT MAKES THE SWEEP ONE BUILD INSTEAD OF FIVE.
-    /// `ResolvedCombatTuning` is re-derived from `DeclaredCombatRules` every
-    /// tick, so writing the RESOLVED resource would be overwritten before the
+    /// `ResolvedCombatTuning` is re-derived from the declared `CombatRules`
+    /// every tick, so writing the RESOLVED resource would be overwritten before the
     /// next hit — the declaration is the only writable end of that fold.
     ///
     /// ⛔ AND THE OVERRIDE IS NOT TRUSTED. A sweep whose lever silently failed
@@ -6411,17 +6411,22 @@ mod ring_out {
     /// back THROUGH the fold, off the resolved resource the combat road
     /// actually consults.
     fn declare_percent_scale(app: &mut App, scale: f32) {
-        {
-            let mut declared = app
-                .world_mut()
-                .get_resource_mut::<ambition_platformer2d::combat::rules::DeclaredCombatRules>()
-                .expect(
-                    "the smash experience declares combat rules on entry; without that \
-                     resource there is no percent curve to sweep and this fixture is \
-                     measuring an undeclared world",
-                );
-            declared.victim_percent_knockback_scale = Some(scale);
-        }
+        let amended = app
+            .world_mut()
+            .resource_mut::<ambition_platformer2d::combat::scoped_rules::DeclaredRules<
+                ambition_platformer2d::combat::rules::CombatRules,
+            >>()
+            .amend(
+                ambition_platformer2d::combat::scoped_rules::RulesScope::Mode(
+                    ambition_demo_smash::SMASH_MODE,
+                ),
+                |rules| rules.victim_percent_knockback_scale = Some(scale),
+            );
+        assert!(
+            amended,
+            "Smash declares no combat rules for its rooms, so there is no percent curve \
+             to sweep and this fixture is measuring an undeclared world"
+        );
         // One tick for `project_combat_rules` to re-fold the declaration.
         app.update();
         let live = app
@@ -6842,12 +6847,11 @@ mod ring_out {
         // ⛔⛔ THE OVERRIDE IS RE-CHECKED HERE, NOT ONLY WHERE IT WAS WRITTEN,
         // and the gap between those two points is why. `declare_percent_scale`
         // confirms the declaration reached the resolved rules — and then this
-        // fixture spends ~200 settle ticks before the strike. The smash
-        // experience INSERTS `DeclaredCombatRules` on entry
-        // (`demo_smash/src/lib.rs`), so anything that re-runs that insert
-        // inside the settle window would revert the override silently and
-        // every row of the sweep would report the demo's own declared value
-        // wearing another value's label — five identical readings that look
+        // fixture spends ~200 settle ticks before the strike. The resolved
+        // rules follow the ACTIVE ROOM, so anything that moved the session out
+        // of the Smash stage inside the settle window would drop the override
+        // silently, and every row of the sweep would report another room's
+        // value wearing this value's label — five identical readings that look
         // like a curve ignoring its own knob, whose honest reading would be
         // "keep raising it". A verification that happens before the thing it
         // protects is not a verification.

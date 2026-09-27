@@ -2,7 +2,7 @@
 //!
 //! The movement kernel never read a field of it.
 //!
-//! the behaviour was already opt-in (`DeclaredCombatRules::stale_step`
+//! the behaviour was already opt-in (`CombatRules::stale_step`
 //! of `0.0` is no staling), and that is exactly why the STATE did not need to
 //! be global: a rule being switchable is not a reason for its storage to be
 //! everywhere. `ActorMoveset` now `#[require]`s it, so the bodies that carry

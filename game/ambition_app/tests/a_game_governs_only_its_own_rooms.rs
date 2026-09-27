@@ -195,3 +195,43 @@ fn each_game_sleeps_its_hostiles_at_its_own_distance_in_its_own_rooms() {
         );
     }
 }
+
+/// Each fighting stage plays under its own combat rules, in its own rooms.
+///
+/// Smash and the versus stage each state combat rules. While the rules were a
+/// resource the stage published on entry and released on exit, a route that
+/// skipped the lobby needed a second publisher, and a release that missed left
+/// the rules in the next game. Declared by room, the host's own rooms and the
+/// hosted platformers read none: their knockback plays the world's baseline.
+#[test]
+fn each_fighting_stage_plays_under_its_own_combat_rules_in_its_own_rooms() {
+    use ambition_platformer2d::combat::rules::CombatRules;
+
+    let app = compose_the_shipped_host();
+    let rules = app
+        .world()
+        .get_resource::<DeclaredRules<CombatRules>>()
+        .expect("the shipped host's fighting stages declare combat rules");
+
+    for (mode, expected) in [
+        (
+            Some(ambition_demo_smash::SMASH_MODE),
+            Some(ambition_demo_smash::smash_combat_rules()),
+        ),
+        (
+            Some(ambition_app::app::versus::VERSUS_EXPERIENCE),
+            Some(ambition_app::app::versus::versus_combat_rules()),
+        ),
+        (None, None),
+        (Some(ambition_demo_sanic::SANIC_MODE), None),
+        (Some(ambition_demo_mary_o::MARY_O_MODE), None),
+    ] {
+        assert_eq!(
+            rules.governing(mode),
+            expected,
+            "rooms tagged {mode:?} must read their own game's combat rules. \
+             Declared: {:?}",
+            rules.iter().map(|(scope, _)| scope).collect::<Vec<_>>(),
+        );
+    }
+}

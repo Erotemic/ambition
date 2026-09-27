@@ -161,7 +161,7 @@ fn clear_gameplay_bindings_of(
 /// keeps one game's preference (smash: B=Jump) out of every game's default
 /// (Ambition: A=Jump).
 ///
-/// Like `DeclaredCombatRules`, the declaration records its owner, so an
+/// Like `CombatRules`, the declaration records its owner, so an
 /// experience that leaves removes only its own declaration. Two games in one
 /// binary is normal.
 #[derive(Resource, Clone, Debug, PartialEq, Eq)]

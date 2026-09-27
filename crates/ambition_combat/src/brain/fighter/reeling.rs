@@ -17,7 +17,7 @@ use ambition_platformer2d_core::{self as ae, Vec2};
 use ambition_characters::perception::{BodyPhase, Perceived};
 
 /// Comparison probe, in radians. The match's real DI budget is a rule of the
-/// match (`DeclaredCombatRules::di_max_angle`) and the brain does not read it:
+/// match (`CombatRules::di_max_angle`) and the brain does not read it:
 /// both candidates are rotated by the SAME angle, so the argmax is the same for
 /// every positive budget and this constant never leaks into the answer.
 const PROBE_ANGLE: f32 = 0.3;

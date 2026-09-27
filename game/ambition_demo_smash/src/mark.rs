@@ -215,7 +215,7 @@ pub fn detonate_body_marks(
                         Name::new("Seat credit stand-in"),
                     ))
                     .id();
-                crate::match_scope::stamp(&mut commands, stand_in, active_match.as_deref());
+                ambition_platformer2d::versus_match::stamp_match_object(&mut commands, stand_in, active_match.as_deref());
                 stand_in
             });
         effects.write(ambition_platformer2d::vfx::EffectRequest {

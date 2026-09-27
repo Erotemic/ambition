@@ -6,8 +6,9 @@ match should be cleaning everything up."* Five spawn sites, none of them saying
 what ended the object, and each ending only by its own rule — a fuse, a trigger, a
 lifetime. A match ending was not among them.
 
-⭐ THE FIX WAS ONE OWNER (`MatchScoped`, stamped at spawn and swept by whoever
-owns the match), AND THIS IS WHAT KEEPS IT ONE. The failure mode of that fix is
+⭐ THE FIX WAS ONE OWNER (`MatchScoped`, stamped at spawn with
+`ambition_match::stamp_match_object` and swept by the engine), AND THIS IS WHAT
+KEEPS IT ONE. The failure mode of that fix is
 not that it breaks; it is that the SIXTH technique somebody authors spawns
 something and nobody remembers to stamp it, which reproduces the original bug for
 one object while every existing test stays green.
@@ -29,7 +30,7 @@ REPO = pathlib.Path(__file__).resolve().parents[2]
 RULESET = REPO / "game/ambition_demo_smash/src"
 
 SPAWN = re.compile(r"\.spawn\w*\(")
-STAMP = "match_scope::stamp"
+STAMP = "stamp_match_object"
 
 # file -> why its spawns are not match-scoped. One line each, and each must say
 # what DOES end the object.
@@ -38,7 +39,6 @@ EXEMPT = {
         "the character-select UI, which exists BETWEEN matches and is torn down "
         "with the screen; a match-scoped select screen would delete itself"
     ),
-    "match_scope.rs": "the sweep itself spawns nothing; it only despawns",
 }
 
 
@@ -138,7 +138,8 @@ def test_every_spawn_in_the_ruleset_says_what_ends_it():
         "these spawns do not say what ends them:\n  "
         + "\n  ".join(unstamped)
         + "\n⇒ A world object a match creates must be stamped with "
-        "`crate::match_scope::stamp(...)`, so the match owns its end. Otherwise "
+        "`ambition_platformer2d::versus_match::stamp_match_object(...)`, so the "
+        "match owns its end. Otherwise "
         "it outlives the match exactly as the mine did — and it will be found by "
         "a player rather than by this suite. If the object genuinely outlives a "
         "match, add it to EXEMPT in this file with the reason and say what DOES "

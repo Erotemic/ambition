@@ -1,8 +1,9 @@
 //! Nothing a match put in the world outlives the match.
 //!
 //! Ending a match must clean up everything the match created, for example a
-//! mine laid during it. `MatchScoped` is stamped where an object is created,
-//! and `sweep_objects_from_ended_matches` in `CombatSet::Trigger` removes it.
+//! mine laid during it. The ruleset stamps `MatchScoped` where an object is
+//! created, and the engine's `sweep_objects_from_ended_matches` in
+//! `CombatSet::Trigger` removes it.
 //! The smash ruleset spawns world objects at five sites (`bomb.rs`,
 //! `bolt.rs`, `mine.rs`, `portal.rs`, `spring.rs`); without the sweep each
 //! ends only by its own rule (fuse, trigger, lifetime, next cast).

@@ -123,6 +123,14 @@ where
          ordinal, excluding the host-local session, seat-topology and activation-tick stamps",
         ambition_match::ActiveMatch::peer_stable_checksum,
     );
+    // Which match each stamped object belongs to, so the sweep never sees a
+    // restored object without an identity. Clone-snapshotted: it is a stable
+    // identity copied at spawn.
+    registrar.rollback_component_clone_probed::<ambition_match::MatchScoped>(
+        OWNER,
+        "match.scoped",
+        ambition_match::MatchScoped::localizer_probe,
+    );
     // ⭐ THE ORDINAL MINT. It rewinds for the same reason any counter does: a
     // resimulated activation must draw the ordinal it drew the first time, or
     // the match re-rolls its item table on every rollback.

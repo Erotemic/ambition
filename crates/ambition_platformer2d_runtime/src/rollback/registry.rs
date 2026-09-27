@@ -825,7 +825,11 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// ⛔⛤ 247 -> 248: `content.mary_o_ai_slop` leaves. Mary-O's stomp reads the
 /// body's authored brain, so no marker is copied onto an AI Slop after it is
 /// built.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 248;
+/// ⛔⛤ 248 -> 249: `smash.match_scoped` becomes `match.scoped`, registered by
+/// the engine. Every ruleset that stamps an object with its match gets the
+/// same sweep, so the sweep and the component's rollback row are the
+/// engine's, not Smash's.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 249;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

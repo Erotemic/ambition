@@ -6,9 +6,8 @@ fn app() -> App {
     app
 }
 
-/// Session is `None` here on purpose. This crate cannot name `SessionScopeId`
-/// (the umbrella does not re-export it), so the test that identity uses both
-/// facts lives in `ambition_match::seating`. These tests own the sweep.
+/// Session is `None` here: `seating`'s tests own the identity (session and
+/// tick together). These tests own the sweep.
 fn seated(seats: usize, tick: u64) -> ActiveMatch {
     ActiveMatch::activated(seats, None, None, Some(tick), None)
 }

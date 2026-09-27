@@ -11,6 +11,7 @@
 //! Split from the actor kernel's `character_runtime` (D33: character
 //! preparation versus actor simulation).
 
+pub mod lifetime;
 pub mod prepared;
 
 #[cfg(test)]
@@ -34,3 +35,4 @@ pub use staging::{
 };
 
 pub use settlement::{the_live_match_is_settled, StocksMatchSettled, SuddenDeathEntered};
+pub use lifetime::{stamp_match_object, sweep_objects_from_ended_matches};

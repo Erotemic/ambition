@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v248
+ggrs-rollback-schema-v249
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -302,6 +302,7 @@ marker.post_boss_npc	component-clone	PostBossNpc	bevy_ggrs clone snapshot; not i
 marker.primary_body	component-clone	PrimaryBody	bevy_ggrs clone snapshot; not in the session checksum
 marker.primary_player	component-clone	PrimaryPlayer	bevy_ggrs clone snapshot; not in the session checksum
 marker.runtime_staged_actor	component-clone	RuntimeStagedActor	bevy_ggrs clone snapshot; not in the session checksum
+match.scoped	component-clone	MatchScoped	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 message.actor_action	message-clear	ActorActionMessage	clear abandoned-future message buffer in LoadWorld::Mapping
 message.actor_died	message-clear	ActorDiedMessage	clear abandoned-future message buffer in LoadWorld::Mapping
 message.actor_stimulus	message-clear	ActorStimulus	clear abandoned-future message buffer in LoadWorld::Mapping
@@ -478,7 +479,6 @@ smash.departing_mount	component-clone	Departing	bevy_ggrs clone snapshot; value-
 smash.hold_state	component-canonical	SmashHoldState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 smash.homing_dash	component-clone	HomingDash	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 smash.live_bomb	component-clone	LiveBomb	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
-smash.match_scoped	component-clone	MatchScoped	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 smash.move_placed_portal	component-clone	MovePlacedPortal	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 smash.placed_mine	component-clone	PlacedMine	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 smash.placed_spring	component-clone	PlacedSpring	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum

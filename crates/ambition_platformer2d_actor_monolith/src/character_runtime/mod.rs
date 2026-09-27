@@ -1062,6 +1062,14 @@ impl Plugin for CharacterRuntimePlugin {
                     .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep),
             )
             .add_systems(
+                sim,
+                // What a match created ends with it. In `CombatSet::Trigger`,
+                // the earliest combat phase, so no fighter can trip a mine that
+                // an earlier match left behind.
+                ambition_match::sweep_objects_from_ended_matches
+                    .in_set(ambition_platformer2d_shared_tangle::schedule::CombatSet::Trigger),
+            )
+            .add_systems(
                 Update,
                 (
                     // The same requirement as the activation registration above,

@@ -6,13 +6,14 @@
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
+| [`lifetime`](src/lifetime.rs) | What a match created ends when the match does. |
 | [`prepared`](src/prepared.rs) | Match preparation resolves all fallible character, brain, and control-authority questions before construction. |
 | [`seating`](src/seating.rs) | Match-seat binding and the rollback-safe receipt for a live prepared match. |
 | [`settlement`](src/settlement.rs) | Rollback-safe match settlement state. |
 | [`snapshot_impls`](src/snapshot_impls.rs) | Rollback wire format for the match receipt and the per-body seat. |
 | [`staging`](src/staging.rs) | Three ways to stage a cast, one projection. |
 
-_5 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_6 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

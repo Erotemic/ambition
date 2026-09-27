@@ -1349,7 +1349,9 @@ fn the_second_pane_follows_its_participant_to_a_new_body() {
 /// and TwinTrack is one route in a host that also runs Mary-O and Smash.
 #[test]
 fn the_plaza_declares_two_seats_and_a_couch_policy_only_while_it_is_live() {
-    use ambition_platformer2d::input::{InputAssignmentPolicy, LocalSeatOffer};
+    use ambition_platformer2d::input::{
+        InputAssignmentPolicy, LocalInputSource, LocalSeatOffer, SessionSeatingSource,
+    };
 
     fn offer(app: &App) -> LocalSeatOffer {
         app.world()
@@ -1382,6 +1384,37 @@ fn the_plaza_declares_two_seats_and_a_couch_policy_only_while_it_is_live() {
         InputAssignmentPolicy::JoinToClaim,
         "the seats are declared but every device still drives seat zero: a \
          keyboard and one controller are two people at this exhibit",
+    );
+    // The session is sized once, from this plan, and never resized. Without it
+    // a one-pad session has one handle and the twin's seat is inert.
+    assert_eq!(
+        app.world()
+            .resource::<SessionSeatingSource>()
+            .channel_plan()
+            .map(|plan| plan.sources().to_vec()),
+        Some(vec![LocalInputSource::Keyboard, LocalInputSource::FIRST_PAD]),
+        "the plaza did not say that its two channels are the keyboard and the \
+         first pad",
+    );
+
+    app.world_mut()
+        .write_message(ambition_platformer2d::game_shell::ShellCommand::GoTo(
+            ambition_platformer2d::game_shell::ShellRouteId::new(
+                ambition_demo_twintrack::TWINTRACK_LAUNCHER_ROUTE,
+            ),
+        ));
+    for _ in 0..30 {
+        app.update();
+    }
+    assert_eq!(
+        (offer(&app).seats(), offer(&app).policy()),
+        (0, InputAssignmentPolicy::default()),
+        "leaving the plaza left its couch for the next game",
+    );
+    assert_eq!(
+        app.world().resource::<SessionSeatingSource>().channel_plan(),
+        None,
+        "leaving the plaza left its channel plan to size the next game's session",
     );
 }
 
@@ -1507,4 +1540,37 @@ fn the_twintrack_cast_is_prepared_from_its_pack_as_the_rust_registration_built_i
     for character in [traveler, emmy] {
         assert_eq!(character.vitals.max_health, Some(1), "{}", character.id);
     }
+}
+
+/// TwinTrack's display lives exactly as long as its rooms are active.
+///
+/// The display systems run under `in_mode(TWINTRACK_EXPERIENCE)` and their
+/// cleanup under its negation, so leaving for the launcher takes the observer
+/// panes down with the experience.
+/// The display compiles only with `visible`, so this runs under
+/// `--features visible`.
+#[cfg(feature = "visible")]
+#[test]
+fn the_observer_panes_come_and_go_with_twintracks_rooms() {
+    fn panes(app: &mut App) -> usize {
+        let mut query = app
+            .world_mut()
+            .query::<&ambition_demo_twintrack::SplitObserverCamera>();
+        query.iter(app.world()).count()
+    }
+
+    let mut app = ambition_demo_twintrack_app::build_demo_app();
+    activate(&mut app);
+    assert!(panes(&mut app) > 0, "an active TwinTrack draws its observer panes");
+
+    app.world_mut()
+        .write_message(ambition_platformer2d::game_shell::ShellCommand::GoTo(
+            ambition_platformer2d::game_shell::ShellRouteId::new(
+                ambition_demo_twintrack::TWINTRACK_LAUNCHER_ROUTE,
+            ),
+        ));
+    for _ in 0..30 {
+        app.update();
+    }
+    assert_eq!(panes(&mut app), 0, "leaving TwinTrack left its observer panes standing");
 }

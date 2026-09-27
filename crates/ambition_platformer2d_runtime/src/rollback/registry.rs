@@ -809,11 +809,20 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// one is the spawn guard, and the attempt reset retires by the other.
 /// ⛔⛤ 242 -> 243: `scope.mode` joins. The mode owner is anchored, so a rewind
 /// can re-create it, and the mode sweep finds the owner only by this marker.
-/// ⛔⛤ 243 -> 244: `combat.depicted_by_owner`, `content.fsm_conductor` and its
+/// ⛔⛤ 243 -> 244: `FighterStocks` encodes `respawn_after`. The match states a
+/// fighter's respawn interval, and the seat carries it on its stocks, so the
+/// interval is on the body and in its bytes.
+/// ⛔⛤ 244 -> 245: `content.mary_o_level_departure` becomes
+/// `content.mary_o_level_lap`. Mary-O leaves by the mode owner's `Departure`,
+/// so her own component keeps only the tally dwell and the room she last saw.
+/// ⛔⛤ 245 -> 246: `session.mode_visit` joins and `content.mary_o_level_lap`
+/// leaves. Every mode owner carries the engine's `ModeVisit`, so a game keeps
+/// no room memory of its own, and Mary-O's tally dwell rides `MaryOLevelState`.
+/// ⛔⛤ 246 -> 247: `combat.depicted_by_owner`, `content.fsm_conductor` and its
 /// entity mapping join. The Flying Spaghetti Monster flies itself: its
 /// conductor holds the move in progress, the dive and the stranding, and its
 /// hit volumes carry the marker that says the god's own art draws them.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 244;
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 247;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

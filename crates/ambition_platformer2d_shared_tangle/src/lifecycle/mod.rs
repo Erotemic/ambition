@@ -12,12 +12,14 @@ mod continuity;
 mod custody_horizon;
 pub mod horizon;
 mod markers;
+mod mode_visit;
 mod round;
 mod session;
 mod spawn_ext;
 
 pub use cleanup::despawn_scoped_entity;
 pub use departure::{Departure, DepartureState, Destination, DEPARTURE_GIVE_UP_S};
+pub use mode_visit::{Arrival, ModeVisit};
 pub use continuity::{
     capture_occurrence_baseline, project_custody_onto_authored_occurrences,
     restore_occurrence_baseline, AuthoredOccurrences, OccurrenceBaseline, OccurrenceDisposition,

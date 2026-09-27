@@ -927,6 +927,72 @@ fn gate_routes_a_technique_attack_slot_into_the_sanctioned_edge() {
     );
 }
 
+/// The rules' driven techniques go with the driven body. When the player drives
+/// another body, the first body loses them on the same tick; nothing wrote them
+/// onto it. `ActionSet` alone gives each body its edge sink.
+#[test]
+fn the_rules_techniques_follow_the_driven_body() {
+    use ambition_characters::action_scheme::{DrivenTechniques, ResolvedTechniqueEdges};
+    use ambition_characters::actor::control::ActorControlFrame;
+    use ambition_characters::brain::ActionSet;
+    use ambition_characters::control::ActorControl;
+    use ambition_combat::scoped_rules::{DeclareRulesExt, RulesScope};
+    use ambition_entity_catalog::action_scheme::{ActionGate, ActionId, ActionSpec, ControlSlot};
+    use ambition_platformer2d_shared_tangle::markers::ControlledSubject;
+    use bevy::prelude::*;
+
+    let mut app = App::new();
+    app.add_plugins(MinimalPlugins);
+    install_test_catalog(&mut app);
+    app.declare_rules(
+        RulesScope::EveryRoom,
+        DrivenTechniques(vec![ActionSpec {
+            id: ActionId::new("spin_dash"),
+            slot: ControlSlot::Attack,
+            display_name: None,
+            visual: None,
+            gate: ActionGate::Technique("spin_dash".to_owned()),
+        }]),
+    );
+    app.add_systems(Update, gate_body_control);
+    let mut body = || {
+        app.world_mut()
+            .spawn((
+                ambition_platformer2d_core::BodyAbilities::new(
+                    ambition_platformer2d_core::AbilitySet::sandbox_all(),
+                ),
+                ActionSet::peaceful(),
+                ActorControl(ActorControlFrame::neutral()),
+            ))
+            .id()
+    };
+    let (first, second) = (body(), body());
+
+    let spun_after_both_press = |app: &mut App, driven: Entity| -> [bool; 2] {
+        app.insert_resource(ControlledSubject(Some(driven)));
+        for entity in [first, second] {
+            app.world_mut()
+                .get_mut::<ActorControl>(entity)
+                .unwrap()
+                .0
+                .melee_pressed = true;
+        }
+        app.update();
+        [first, second].map(|entity| {
+            app.world()
+                .get::<ResolvedTechniqueEdges>(entity)
+                .expect("an action set brings its edge sink")
+                .pressed("spin_dash")
+        })
+    };
+    assert_eq!(spun_after_both_press(&mut app, first), [true, false]);
+    assert_eq!(
+        spun_after_both_press(&mut app, second),
+        [false, true],
+        "the body the player left kept the rules' technique",
+    );
+}
+
 /// Gate 1: the canonical player's `Special("bubble_shield")` was
 /// a PHANTOM — `default_player_action_set` declared it, but the player's moveset
 /// was built melee-only, so `trigger_moveset_moves` (which fires `special_pressed`

@@ -46,6 +46,36 @@ use crate::brain::action_set::ActionSet;
 #[require(ResolvedTechniqueEdges)]
 pub struct ActorTechniques(pub Vec<ActionSpec>);
 
+/// Techniques a game's rules give to the body a player drives, whichever body
+/// that is. Declared per rules scope (`declare_rules`), so they exist only in
+/// the rooms those rules govern.
+///
+/// The rule is not written onto a body. The gate and the prompt read it through
+/// [`techniques_of`], so a body that stops being driven, or leaves the rules'
+/// rooms, loses the techniques on the same tick.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct DrivenTechniques(pub Vec<ActionSpec>);
+
+/// The techniques a body exposes: its own, and, when it is the driven body, the
+/// rules' [`DrivenTechniques`]. A rule's technique replaces the body's own
+/// technique on the same slot.
+pub fn techniques_of<'a>(
+    own: Option<&'a ActorTechniques>,
+    driven: Option<&'a DrivenTechniques>,
+) -> std::borrow::Cow<'a, [ActionSpec]> {
+    let own = own.map_or(&[][..], |own| own.0.as_slice());
+    match driven {
+        None => std::borrow::Cow::Borrowed(own),
+        Some(driven) => std::borrow::Cow::Owned(
+            own.iter()
+                .filter(|mine| driven.0.iter().all(|rule| rule.slot != mine.slot))
+                .chain(driven.0.iter())
+                .cloned()
+                .collect(),
+        ),
+    }
+}
+
 /// The per-tick resolved edges for the content TECHNIQUES a body's scheme puts on
 /// its control slots — the SANCTIONED seam a content technique consumes, in place
 /// of intercepting a raw combat verb in a fragile schedule window.

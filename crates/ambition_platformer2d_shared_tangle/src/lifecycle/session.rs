@@ -838,7 +838,8 @@ pub trait SpawnSessionScopedExt {
     /// unnamed carrier.
     ///
     /// It carries a [`super::Departure`]: a mode's level that is done asks it
-    /// to leave for the next room.
+    /// to leave for the next room. It carries a [`super::ModeVisit`]: the room
+    /// it is in, and whether it has just arrived there.
     fn spawn_mode_owner<B: Bundle>(
         &mut self,
         scope: SessionSpawnScope,
@@ -909,6 +910,7 @@ impl SpawnSessionScopedExt for Commands<'_, '_> {
             super::markers::ModeScopedEntity(mode.to_string()),
             crate::sim_id::SimId::singleton("mode_owner", mode),
             super::Departure::default(),
+            super::ModeVisit::default(),
             bundle,
         ));
         scope.apply_to(&mut entity);

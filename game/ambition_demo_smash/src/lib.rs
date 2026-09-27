@@ -143,6 +143,7 @@ pub fn apply_smash_match_rules(roster: &mut MatchParticipantRoster, stocks: u32)
     // A parameter, not a constant or a resource read here: both roads
     // (`smash_roster` and `SmashSelect::roster_seeded`) must state the count.
     roster.rules.stocks = Some(stocks);
+    roster.rules.stock_respawn_seconds = RESPAWN_INTERVAL_SECONDS;
     // The match supplies one health pool for percent calculation so crossover
     // characters are measured against this ruleset rather than their home games.
     roster.rules.health_pool = Some(SMASH_PERCENT_REFERENCE);
@@ -628,11 +629,6 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         app.add_message::<ambition_platformer2d::actor::FighterStockSpent>();
         app.add_message::<ambition_platformer2d::actor::FighterRespawnDue>();
         app.add_message::<ambition_platformer2d::actor::StocksMatchDecided>();
-        // D192: this stage authors the respawn beat. The engine default is
-        // zero (same-tick placement).
-        app.insert_resource(ambition_platformer2d::actor::RespawnInterval {
-            seconds: RESPAWN_INTERVAL_SECONDS,
-        });
         // The combat rules and the prompt vocabulary govern Smash's rooms, and
         // no other room. A room that leaves the mode leaves the rules, so
         // nothing publishes them on entry or gives them back on exit.
@@ -2131,10 +2127,27 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
         // Headless apps and tests can then press buttons instead of setting
         // `SmashSelect` directly.
         app.init_resource::<ambition_platformer2d::input::SeatMenuFrames>();
-        // The seats it offers. A host seats input participants from the match
-        // roster, which this screen produces, so the screen must declare its
-        // seats. `LocalSeatOffer` carries the couch policy with the count.
-        app.init_resource::<ambition_platformer2d::input::LocalSeatOffer>();
+        // The seats each route offers. A host seats input participants from
+        // the match roster, which this screen produces, so the lobby offers
+        // one seat per source that can join. Gameplay seats come from the
+        // frozen roster, so its route offers none but keeps the couch policy.
+        {
+            use ambition_platformer2d::game_shell::{RouteSeating, RouteSeatingAppExt, SeatCount};
+            let couch = ambition_platformer2d::input::InputAssignmentPolicy::JoinToClaim;
+            app.declare_route_seating(
+                SMASH_SELECT_ROUTE,
+                RouteSeating::new(
+                    SeatCount::OnePerSource {
+                        max: select::MAX_SMASH_SEATS as u8,
+                    },
+                    couch,
+                ),
+            )
+            .declare_route_seating(
+                SMASH_GAMEPLAY_ROUTE,
+                RouteSeating::new(SeatCount::Fixed(0), couch),
+            );
+        }
         // One chain, in `InputSet::Consume`, ordered against:
         // 1. The producer: a windowed host rebuilds `SeatMenuFrames` every
         //    frame, so an unordered reader can miss presses.
@@ -2177,7 +2190,6 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
             bevy::prelude::Update,
             bevy::prelude::IntoScheduleConfigs::in_set(
                 bevy::prelude::IntoScheduleConfigs::chain((
-                    maintain_smash_local_seat_offer,
                     reset_select_frontend_on_arrival,
                     present_select_screen_ui,
                     bevy::prelude::IntoScheduleConfigs::run_if(
@@ -2353,42 +2365,6 @@ fn assemble_the_smash_roster(
     let assembled = select::SmashRoster::assemble(&registry);
     if *fighters != assembled {
         *fighters = assembled;
-    }
-}
-
-/// Maintain Smash's local-seat offer across its frontend and gameplay routes.
-///
-/// The lobby offers connected local seats; gameplay gets its seats from the
-/// frozen match roster but keeps the same JoinToClaim assignment policy. The
-/// claim is owner-scoped, so leaving Smash cannot retract another route's offer.
-fn maintain_smash_local_seat_offer(
-    router: bevy::prelude::Res<ambition_platformer2d::game_shell::ShellRouter>,
-    devices: Option<bevy::prelude::Res<ambition_platformer2d::input::LocalDeviceOrder>>,
-    mut offer: bevy::prelude::ResMut<ambition_platformer2d::input::LocalSeatOffer>,
-) {
-    let on_select = on_the_select_route(&router);
-    let on_smash_route = router.active.as_ref().is_some_and(|active| {
-        matches!(
-            active.route_id.as_str(),
-            SMASH_SELECT_ROUTE | SMASH_GAMEPLAY_ROUTE
-        )
-    });
-    let couch = ambition_platformer2d::input::sources::InputAssignmentPolicy::JoinToClaim;
-    let offered = devices
-        .as_deref()
-        .map(|devices| select::seats_offered_under(devices, couch))
-        .unwrap_or(1) as u8;
-
-    if on_smash_route {
-        let seats = if on_select { offered } else { 0 };
-        if !offer.is_owned_by(SMASH_SELECT_EXPERIENCE)
-            || offer.seats() != seats
-            || offer.policy() != couch
-        {
-            offer.claim(SMASH_SELECT_EXPERIENCE, seats, couch);
-        }
-    } else {
-        offer.release(SMASH_SELECT_EXPERIENCE);
     }
 }
 
@@ -2651,7 +2627,7 @@ fn start_the_battle_when_asked(
 /// this demo does not own.
 ///
 /// Nothing needs unwinding by hand. Each claim is keyed on the route:
-/// `maintain_smash_local_seat_offer` releases its seat claim,
+/// the shell withdraws the route's declared seat offer,
 /// `present_select_screen_ui` despawns the UI,
 /// `declare_the_select_input_context` retracts `SELECT_CONTEXT`,
 /// `publish_the_select_ui_cue` retracts the cue, and the experience scope in

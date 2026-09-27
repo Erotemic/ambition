@@ -272,6 +272,12 @@ pub fn rebuild_control_prompt(
     naming: ambition_platformer2d_actor_monolith::session::governing_rules::GoverningRules<
         PromptNaming,
     >,
+    // The techniques the active room's rules give the driven body, which the
+    // gate also reads.
+    driven: ambition_platformer2d_actor_monolith::session::governing_rules::GoverningRules<
+        ambition_characters::action_scheme::DrivenTechniques,
+    >,
+    mut last_driven: Local<Option<ambition_characters::action_scheme::DrivenTechniques>>,
     mut prompt: ResMut<ControlPrompt>,
     // (last subject, authority-presence bits, resource-presence bits) from the
     // previous rebuild. `None` = never rebuilt, so the first frame always
@@ -309,7 +315,14 @@ pub fn rebuild_control_prompt(
     // swap even one tick (the doc contract above). This was ~1.4% of frame
     // CPU re-deriving an identical scheme.
     let naming = naming.get().unwrap_or_default();
-    let inputs_changed = mode.is_changed()
+    // A room change can change the driven techniques without touching any body.
+    let driven = driven.get();
+    let driven_changed = *last_driven != driven;
+    if driven_changed {
+        *last_driven = driven.clone();
+    }
+    let inputs_changed = driven_changed
+        || mode.is_changed()
         || active_context.as_ref().is_some_and(|r| r.is_changed())
         || controlled.as_ref().is_some_and(|r| r.is_changed())
         || cues.as_ref().is_some_and(|r| r.is_changed())
@@ -410,11 +423,16 @@ pub fn rebuild_control_prompt(
     } else {
         abilities.abilities
     };
+    let is_driven = subject.is_some() && controlled.as_deref().and_then(|s| s.0) == subject;
+    let techniques = ambition_characters::action_scheme::techniques_of(
+        techniques.as_deref(),
+        driven.as_ref().filter(|_| is_driven),
+    );
     let scheme = derive_action_scheme(
         &available,
         moveset.as_deref().map(|m| &m.0),
         action_set.as_deref(),
-        techniques.as_deref().map_or(&[], |t| t.0.as_slice()),
+        &techniques,
     );
     let entries = scheme
         .iter()
@@ -1209,6 +1227,64 @@ mod tests {
                 .label_for(ControlSlot::Attack),
             Some("Cleave"),
             "possessed body's attack now labels the slot"
+        );
+    }
+
+    /// The prompt names the rules' technique on the driven body only, and a
+    /// change of the rule alone (as a room change makes) re-derives the label.
+    #[test]
+    fn the_driven_body_wears_the_rules_techniques_in_its_prompt() {
+        use ambition_characters::action_scheme::DrivenTechniques;
+        use ambition_combat::scoped_rules::{DeclareRulesExt, DeclaredRules, RulesScope};
+        use ambition_entity_catalog::action_scheme::{ActionGate, ActionId, ActionSpec};
+
+        fn dash(label: &str) -> DrivenTechniques {
+            DrivenTechniques(vec![ActionSpec {
+                id: ActionId::new("spin_dash"),
+                slot: ControlSlot::Attack,
+                display_name: Some(label.to_owned()),
+                visual: None,
+                gate: ActionGate::Technique("spin_dash".to_owned()),
+            }])
+        }
+        let attack = |app: &App| {
+            app.world()
+                .resource::<ControlPrompt>()
+                .label_for(ControlSlot::Attack)
+                .map(str::to_owned)
+        };
+
+        let mut app = app();
+        app.declare_rules(RulesScope::EveryRoom, dash("Spin Dash"));
+        let home = app
+            .world_mut()
+            .spawn((PlayerEntity, PrimaryPlayer, authorities(true, None)))
+            .id();
+        let other = app.world_mut().spawn(authorities(true, None)).id();
+
+        app.world_mut().resource_mut::<ControlledSubject>().0 = Some(home);
+        app.update();
+        assert_eq!(attack(&app).as_deref(), Some("Spin Dash"));
+
+        app.world_mut()
+            .resource_mut::<DeclaredRules<DrivenTechniques>>()
+            .amend(RulesScope::EveryRoom, |rule| *rule = dash("Roll"));
+        app.update();
+        assert_eq!(
+            attack(&app).as_deref(),
+            Some("Roll"),
+            "the rule changed and no body did, and the prompt kept the old label"
+        );
+
+        app.world_mut().resource_mut::<ControlledSubject>().0 = Some(other);
+        app.update();
+        assert_eq!(attack(&app).as_deref(), Some("Roll"));
+        app.world_mut().resource_mut::<ControlledSubject>().0 = None;
+        app.update();
+        assert_eq!(
+            attack(&app),
+            None,
+            "the primary player is shown but not driven, so the rule does not apply"
         );
     }
 

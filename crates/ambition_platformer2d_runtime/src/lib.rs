@@ -80,6 +80,7 @@ pub use mode_scope::{
     despawn_departed_mode_entities, in_base_mode, in_mode, in_rules_scope, install_mode_owner,
     project_room_rule, ModeOwnersSpawned, ModeScopePlugin,
 };
+pub use ambition_platformer2d_actor_monolith::session::governing_rules::CurrentRoom;
 pub use player_schedule::PlayerSchedulePlugin;
 #[cfg(feature = "portal")]
 pub use portal_schedule::PortalSchedulePlugin;

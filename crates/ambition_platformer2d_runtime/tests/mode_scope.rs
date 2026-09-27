@@ -296,7 +296,8 @@ fn a_game_with_a_mode_owner() -> App {
     let mut app = App::new();
     app.set_sim_schedule(Update);
     insert_session_rooms(&mut app);
-    app.add_systems(Update, despawn_departed_mode_entities);
+    // The sweep and the room follow, as the engine group installs them.
+    app.add_plugins(ambition_platformer2d_runtime::ModeScopePlugin);
     ambition_platformer2d_runtime::install_mode_owner(
         &mut app,
         ambition_combat::scoped_rules::RulesScope::Mode("a"),
@@ -357,6 +358,44 @@ fn a_declared_mode_owner_is_born_once_per_visit_to_its_mode() {
         app.world_mut().query::<&ActClock>().single(app.world()).ok(),
         Some(&ActClock(0)),
         "a new visit must start from the authored state, not the last visit's"
+    );
+}
+
+/// A mode owner knows the room it is in and whether it has just arrived: its
+/// first room on the tick it is born, then each room it comes into. Two games
+/// declare owners here, and the engine follows the room once per tick for both.
+#[test]
+fn a_mode_owner_is_told_when_it_arrives_in_a_room() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{Arrival, ModeVisit};
+
+    let mut app = a_game_with_a_mode_owner();
+    ambition_platformer2d_runtime::install_mode_owner(
+        &mut app,
+        ambition_combat::scoped_rules::RulesScope::Mode("b"),
+        "b",
+        ActClock::default,
+    );
+    let mut visits = Vec::new();
+    for room in ["a", "a", "a_second_room", "a_second_room"] {
+        enter_room(&mut app, room);
+        app.update();
+        let visit = app
+            .world_mut()
+            .query::<&ModeVisit>()
+            .single(app.world())
+            .expect("mode `a`'s owner")
+            .clone();
+        visits.push((visit.room().map(str::to_owned), visit.arrival()));
+    }
+    let at = |room: &str, arrival| (Some(room.to_owned()), arrival);
+    assert_eq!(
+        visits,
+        [
+            at("a", Arrival::First),
+            at("a", Arrival::Staying),
+            at("a_second_room", Arrival::FromAnotherRoom),
+            at("a_second_room", Arrival::Staying),
+        ]
     );
 }
 
@@ -438,4 +477,51 @@ fn a_room_rule_projects_into_its_read_model_and_changes_only_with_the_answer() {
         "a room change inside the same mode must not rewrite the same answer"
     );
     assert_eq!(seen(&mut app, "b"), (None, 3), "the tint followed the player out of its mode");
+}
+
+/// "No room" and "a live untagged room" are different facts, and a rule and
+/// the gate for its scope agree on both.
+///
+/// The host's rules (`UntaggedRooms`) govern its live untagged rooms and
+/// nothing before a session exists. A standalone game's rules (`EveryRoom`)
+/// govern with no room too, so its setup runs under them.
+#[test]
+fn a_rule_and_its_gate_agree_about_no_room_an_untagged_room_and_a_mode() {
+    use ambition_combat::scoped_rules::{DeclareRulesExt as _, RulesScope};
+    use ambition_platformer2d_actor_monolith::session::governing_rules::GoverningRules;
+    use bevy::ecs::system::RunSystemOnce as _;
+
+    fn read(app: &mut App) -> (Option<u8>, bool, Option<u16>, bool) {
+        app.world_mut()
+            .run_system_once(
+                |host: GoverningRules<u8>,
+                 standalone: GoverningRules<u16>,
+                 room: ambition_platformer2d_runtime::CurrentRoom| {
+                    (
+                        host.get(),
+                        room.in_scope(RulesScope::UntaggedRooms),
+                        standalone.get(),
+                        room.in_scope(RulesScope::EveryRoom),
+                    )
+                },
+            )
+            .expect("the readers run")
+    }
+
+    let mut app = App::new();
+    app.declare_rules(RulesScope::UntaggedRooms, 1u8);
+    app.declare_rules(RulesScope::Mode("a"), 2u8);
+    app.declare_rules(RulesScope::EveryRoom, 7u16);
+
+    assert_eq!(
+        read(&mut app),
+        (None, false, Some(7), true),
+        "(host rule, host gate, standalone rule, standalone gate) with no session: \
+         the host's untagged-room rules must not govern before a room exists"
+    );
+    insert_session_rooms(&mut app);
+    set_mode(&mut app, None);
+    assert_eq!(read(&mut app), (Some(1), true, Some(7), true), "a live untagged room");
+    set_mode(&mut app, Some("a"));
+    assert_eq!(read(&mut app).0, Some(2), "a live room of mode `a` reads `a`'s rules");
 }

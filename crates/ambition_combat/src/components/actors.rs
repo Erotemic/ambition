@@ -51,13 +51,19 @@ pub struct ActiveCombatant;
 ///
 /// Stocks are asymmetric per fighter and compose with unbounded damage plus
 /// [`RulesetOwnsDeath`]; reaching zero eliminates the fighter.
-#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Component, Clone, Copy, Debug, PartialEq)]
 pub struct FighterStocks {
     /// Stocks left. `0` means ELIMINATED — out of the match, not respawning.
     pub remaining: u32,
     /// What it started with, kept so a HUD can draw "2 of 3" rather than
     /// inferring a maximum it was never told.
     pub started_with: u32,
+    /// Seconds a fighter that spent a stock stays out of play before it is
+    /// placed again. `0` places it on the knockout tick. The match states it
+    /// with its stock count, so the fighter carries it and no global does.
+    /// The same seconds [`DeathRules::interlude`](crate::death_rules::DeathRules::interlude)
+    /// counts, against `WorldTime`.
+    pub respawn_after: f32,
 }
 
 impl FighterStocks {
@@ -65,6 +71,14 @@ impl FighterStocks {
         Self {
             remaining: stocks,
             started_with: stocks,
+            respawn_after: 0.0,
+        }
+    }
+
+    pub fn returning_after(self, seconds: f32) -> Self {
+        Self {
+            respawn_after: seconds,
+            ..self
         }
     }
 

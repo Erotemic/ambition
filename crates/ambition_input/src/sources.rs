@@ -47,6 +47,19 @@ pub enum InputAssignmentPolicy {
     ExplicitAssignment,
 }
 
+impl InputAssignmentPolicy {
+    /// How many local sources can each claim a seat with `pads` gamepads
+    /// connected. Under [`Self::UnifiedPrimary`] every source drives one seat,
+    /// so each pad is one seat. Under the other policies the keyboard is a
+    /// source like any other and brings its own seat: keyboard + one pad is two.
+    pub fn sources_that_can_claim(self, pads: usize) -> usize {
+        match self {
+            Self::UnifiedPrimary => pads,
+            Self::JoinToClaim | Self::ExplicitAssignment => pads + 1,
+        }
+    }
+}
+
 /// Who owns the keyboard, when ownership is a question at all.
 ///
 /// `None` means nobody owns it exclusively — under [`InputAssignmentPolicy::UnifiedPrimary`]

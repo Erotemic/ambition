@@ -17,12 +17,13 @@
 | [`pause_menu`](src/pause_menu.rs) | The universal shell/system menu the host offers every experience. |
 | [`plugin`](src/plugin.rs) | Bevy plugins that drive shell routing, sequences, and launcher commands. |
 | [`preparation`](src/preparation.rs) | Provider-authored fresh preparation plans and exact prepared-session identity. |
+| [`route_seating`](src/route_seating.rs) | The local seats a route offers, stated by the route's author. |
 | [`router`](src/router.rs) | Host-relative top-level route lifecycle, pending loads, focus, and scoped cleanup. |
 | [`scope`](src/scope.rs) | Route-scoped state ownership for one provider/experience family. |
 | [`sequence`](src/sequence.rs) | Neutral ordered presentation-sequence data and runtime. |
 | [`session`](src/session.rs) | Shell-to-gameplay-session lifecycle bridge. |
 
-_15 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_16 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

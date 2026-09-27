@@ -585,43 +585,11 @@ impl SmashSelect {
     }
 }
 
-/// How many local input sources this screen can offer, from the devices
-/// plugged in.
-///
-/// Reads the live device order: players plug controllers in on this screen.
-/// A rollback session freezes its seating so the match cannot change; the
-/// seam is the moment the roster is published.
-pub fn seats_offered(devices: &ambition_platformer2d::input::LocalDeviceOrder) -> usize {
-    seats_offered_under(
-        devices,
-        ambition_platformer2d::input::sources::InputAssignmentPolicy::UnifiedPrimary,
-    )
-}
-
-/// How many sources present can claim a slot, under a stated policy.
-///
-/// Under [`InputAssignmentPolicy::JoinToClaim`] the keyboard is a source like
-/// any other and brings its own slot: keyboard + one pad is two players.
-/// (`LocalDeviceOrder` holds only gamepads, so the keyboard is added here.)
-/// [`InputAssignmentPolicy::UnifiedPrimary`] offers one source per pad.
-pub fn seats_offered_under(
-    devices: &ambition_platformer2d::input::LocalDeviceOrder,
-    policy: ambition_platformer2d::input::sources::InputAssignmentPolicy,
-) -> usize {
-    let pads = devices.devices().len();
-    let seats = match policy {
-        ambition_platformer2d::input::sources::InputAssignmentPolicy::UnifiedPrimary => pads,
-        // The keyboard is player one and each pad brings its own slot.
-        _ => pads + 1,
-    };
-    seats.clamp(1, MAX_SMASH_SEATS)
-}
-
 /// Which input device a slot's person holds, as text (for debugging a couch
 /// match).
 ///
-/// Derived from the same authorities that chose the index
-/// ([`seats_offered_under`] and the policy), not a second table. The keyboard
+/// Derived from the same authorities that chose the index (the device order
+/// and the policy), not a second table. The keyboard
 /// is device zero only under the multi-source policies; `UnifiedPrimary` has
 /// no keyboard seat. That is why the policy is a parameter.
 pub fn source_name_under(

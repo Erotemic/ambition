@@ -106,7 +106,7 @@ pub fn mary_o_session_world() -> MaryOSessionWorld {
 /// behind them.
 pub fn mary_o_session_world_entering(entry: &str) -> MaryOSessionWorld {
     // The fixture course is neither of them: it is a self-contained probe room
-    // with no loading zones that loops on its own goal (`exit_for_room`), so a
+    // with no loading zones that loops on its own goal (it names no `next_room`), so a
     // session running it carries it INSTEAD of the shipped levels. Its links go
     // with its rooms — an edge naming a room the set does not hold is a
     // `try_from_parts` warning on stderr and nothing else, which is how the course

@@ -408,7 +408,7 @@ fn every_authored_badnik_sleeps_under_sanics_rule() {
     let rule = app
         .world()
         .get_resource::<DeclaredRules<DormancyRule>>()
-        .and_then(|rules| rules.governing(Some(ambition_demo_sanic::SANIC_MODE)))
+        .and_then(|rules| rules.governing(ambition_platformer2d::combat::scoped_rules::ActiveRoom::live(Some(ambition_demo_sanic::SANIC_MODE))))
         .expect("Sanic states a dormancy rule for his rooms");
     assert_eq!(
         rule.hostile_wake_radius,

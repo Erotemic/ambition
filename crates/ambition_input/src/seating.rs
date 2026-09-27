@@ -11,7 +11,7 @@
 //! two-player. The type means: a decider claimed local seating, and this is
 //! its answer.
 
-use bevy::prelude::Resource;
+use bevy::prelude::{Entity, Resource};
 
 /// Where this session's seats come from, whether they are decided yet, and
 /// whose answer it is.
@@ -115,11 +115,12 @@ impl SessionSeatingSource {
     }
 }
 
-/// Owner-scoped local-seat offer from the currently active surface.
+/// The local seats the active surface offers, and in whose name.
 ///
 /// Unlike [`SessionSeatingSource`], an offer follows surface lifetime and never
-/// freezes session topology. Ownership prevents one surface from releasing
-/// another surface's offer.
+/// freezes session topology. A route states its offer to the game shell, which
+/// writes this value while the route is active; the owner lets the shell
+/// withdraw only an offer that a route stated.
 #[derive(Resource, Clone, Debug, Default, PartialEq, Eq)]
 pub struct LocalSeatOffer {
     owner: Option<String>,
@@ -161,24 +162,29 @@ impl LocalSeatOffer {
     pub fn owner(&self) -> Option<&str> {
         self.owner.as_deref()
     }
+}
 
-    pub fn is_owned_by(&self, owner: &str) -> bool {
-        self.owner() == Some(owner)
+/// Connected controllers, oldest connection first.
+///
+/// A resource, not a derived sort: the order people picked up their
+/// controllers cannot be recovered from the world later.
+#[derive(Resource, Debug, Default)]
+pub struct LocalDeviceOrder(pub(crate) Vec<Entity>);
+
+impl LocalDeviceOrder {
+    /// The controller a seat in this slot owns, if one is connected.
+    pub fn device_for_slot(&self, slot: u8) -> Option<Entity> {
+        self.0.get(slot as usize).copied()
     }
 
-    /// Take the offer over, whatever it currently says and whoever holds it.
-    pub fn claim(&mut self, owner: &str, seats: u8, policy: crate::sources::InputAssignmentPolicy) {
-        *self = Self::offered(owner, seats, policy);
+    pub fn devices(&self) -> &[Entity] {
+        &self.0
     }
 
-    /// Withdraw the offer, if it is this owner's to withdraw.
-    ///
-    /// Returns whether anything was withdrawn.
-    pub fn release(&mut self, owner: &str) -> bool {
-        if !self.is_owned_by(owner) {
-            return false;
-        }
-        *self = Self::default();
-        true
+    /// Build an order from a known device list, for a caller that already holds
+    /// the devices (a session freezing its seating) and for tests. Only the
+    /// tracking system discovers devices.
+    pub fn from_devices(devices: Vec<Entity>) -> Self {
+        Self(devices)
     }
 }

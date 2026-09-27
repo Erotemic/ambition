@@ -2,30 +2,50 @@
 
 use bevy::prelude::*;
 
-use ambition_combat::scoped_rules::DeclaredRules;
+use ambition_combat::scoped_rules::{ActiveRoom, DeclaredRules, RulesScope};
 use ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef;
 use ambition_platformer2d_world::rooms::RoomSet;
 
-/// Resolve one kind of rule `T` from the active room's mode.
+/// The active room as a rule scope sees it: none, untagged, or in a mode.
+///
+/// The one reading of the session for rule scopes. [`GoverningRules`] and the
+/// run conditions that gate a game's systems both read it, so a game's systems
+/// run exactly where its rules govern.
+#[derive(bevy::ecs::system::SystemParam)]
+pub struct CurrentRoom<'w, 's> {
+    rooms: Option<SessionWorldRef<'w, 's, RoomSet>>,
+}
+
+impl CurrentRoom<'_, '_> {
+    pub fn get(&self) -> ActiveRoom<'_> {
+        self.rooms.as_ref().map_or(ActiveRoom::NoRoom, |rooms| {
+            ActiveRoom::live(rooms.active_metadata().mode.as_deref())
+        })
+    }
+
+    /// Whether `scope` governs the active room.
+    pub fn in_scope(&self, scope: RulesScope) -> bool {
+        scope.governs(self.get())
+    }
+}
+
+/// Resolve one kind of rule `T` from the active room.
 ///
 /// It stores nothing: the declarations are authored constants and the active
 /// room is session state, so a rewind that restores the room restores the
 /// answer. A resolved-rules resource written each tick would be a second copy
 /// that rollback must also restore.
 #[derive(bevy::ecs::system::SystemParam)]
-pub struct GoverningRules<'w, 's, T: Copy + std::fmt::Debug + Send + Sync + 'static> {
+pub struct GoverningRules<'w, 's, T: Clone + std::fmt::Debug + Send + Sync + 'static> {
     declared: Option<Res<'w, DeclaredRules<T>>>,
-    rooms: Option<SessionWorldRef<'w, 's, RoomSet>>,
+    room: CurrentRoom<'w, 's>,
 }
 
-impl<T: Copy + std::fmt::Debug + Send + Sync + 'static> GoverningRules<'_, '_, T> {
+impl<T: Clone + std::fmt::Debug + Send + Sync + 'static> GoverningRules<'_, '_, T> {
     /// The rules in force for the active room, or `None` when no game stated
-    /// them for it (or there is no session yet).
+    /// them for it. With no session, only a whole-process (`EveryRoom`)
+    /// declaration governs.
     pub fn get(&self) -> Option<T> {
-        let mode = self
-            .rooms
-            .as_ref()
-            .and_then(|rooms| rooms.active_metadata().mode.as_deref());
-        self.declared.as_ref()?.governing(mode)
+        self.declared.as_ref()?.governing(self.room.get())
     }
 }

@@ -524,15 +524,15 @@ pub fn install_sanic_content(app: &mut App) {
                 "content.sanic_scattered_ring",
                 rollback_probes::scattered_ring,
             )
-            // The shield is a projection of the worn row and the room's mode.
-            // `sync_sanic_wallet_shield` runs every tick, in every room, before
+            // The shield is a projection of the worn row and the rules' scope.
+            // One of its two writers runs every tick, in every room, before
             // hit resolution reads it, so a restored snapshot needs no copy.
             .declare_rollback_derived_component::<
                 ambition_platformer2d::characters::actor::BodyWalletShield,
             >(
                 "ambition_demo_sanic",
                 "derived.sanic_wallet_shield",
-                "re-derived from the worn row and the active room's mode every tick, before hit resolution reads it",
+                "re-derived from the worn row and the rules' scope every tick, before hit resolution reads it",
             )
             // The overlay subtracts spent monitors from collision every frame,
             // so a rewind that does not restore the set disagrees with the
@@ -844,10 +844,6 @@ pub struct SanicActState {
     /// cue. Mode-scoped with the act, so leaving and re-entering the demo resets
     /// the audible ruler without a global resource leak.
     pub next_milestone: usize,
-    /// Which room of the session's room set this act is being run in. An act
-    /// that finds itself in a different room has ARRIVED in the next one, and
-    /// starts over there (`begin_act_on_arrival`).
-    pub room: Option<usize>,
 }
 
 /// Where the act is. `Cleared` holds the numbers the results card reads,
@@ -929,6 +925,14 @@ impl Plugin for SanicRulesPlugin {
                     hostile_wake_radius: badnik::BADNIK_WAKE_RADIUS,
                 },
             );
+            // Whoever the player drives here can spin dash and transform.
+            app.declare_rules(
+                scope,
+                ambition_platformer2d::characters::action_scheme::DrivenTechniques(vec![
+                    ball_dash::spin_dash_technique(),
+                    transform_technique(),
+                ]),
+            );
         }
         app.init_resource::<ambition_platformer2d::world::FeatureEcsWorldOverlay>();
         use bevy::prelude::IntoScheduleConfigs;
@@ -943,7 +947,6 @@ impl Plugin for SanicRulesPlugin {
         // from also toggling a host flight ability.
         let sanic_pre_gate = (
             ball_dash::attach_ball_dash,
-            declare_sanic_techniques,
             // After a clear the goal takes the stick and brakes him, so he
             // does not coast off the end during his results card.
             take_the_controls_at_the_goal,
@@ -965,12 +968,15 @@ impl Plugin for SanicRulesPlugin {
         let gate = ambition_platformer2d::runtime::in_rules_scope(self.scope);
         app.add_systems(sim, sanic_pre_gate.run_if(gate.clone()));
         app.add_systems(sim, sanic_post_gate.run_if(gate));
-        // The marker is derived from identity and room: leaving the Sanic
-        // rooms removes the shield even if the same persona stays selected,
-        // because no ring-scatter consumer runs there.
+        // The marker is derived from identity and the rules' scope: leaving
+        // the scope removes the shield even if the same persona stays selected.
+        let in_scope = ambition_platformer2d::runtime::in_rules_scope(self.scope);
         app.add_systems(
             sim,
-            sync_sanic_wallet_shield
+            (
+                project_sanic_wallet_shield.run_if(in_scope.clone()),
+                retract_sanic_wallet_shield.run_if(bevy::prelude::not(in_scope)),
+            )
                 .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::PlayerInput)
                 // Order against `Persona`, the contract, not against
                 // `apply_worn_character_gameplay`, which may be renamed.
@@ -1114,56 +1120,6 @@ fn emit_sanic_skid_sfx(
 /// control: `ActionSpec::display` title-cases it to "Transform". No
 /// `display_name` override, so the label cannot drift from the id.
 const TRANSFORM_TECHNIQUE_ID: &str = "transform";
-
-/// Sanic's technique declarations: their names and controls. One writer for
-/// the whole set, upserting by slot, so no two systems race on
-/// `ActorTechniques`.
-fn declare_sanic_techniques(
-    mut commands: bevy::prelude::Commands,
-    subject: Option<
-        bevy::prelude::Res<ambition_platformer2d::platformer::markers::ControlledSubject>,
-    >,
-    mut bodies: bevy::prelude::Query<
-        Option<&mut ambition_platformer2d::characters::action_scheme::ActorTechniques>,
-        bevy::prelude::With<ae::BodyKinematics>,
-    >,
-) {
-    use ambition_platformer2d::entity_catalog::action_scheme as sch;
-
-    let Some(entity) = subject.and_then(|subject| subject.0) else {
-        return;
-    };
-    let Ok(techniques) = bodies.get_mut(entity) else {
-        return;
-    };
-    let declared = [ball_dash::spin_dash_technique(), transform_technique()];
-    match techniques {
-        Some(mut techniques) => {
-            // Skip the write in steady state; it would tick change detection
-            // and re-derive the scheme every frame.
-            let current: Vec<&sch::ActionSpec> = declared
-                .iter()
-                .filter_map(|spec| techniques.0.iter().find(|a| a.slot == spec.slot))
-                .collect();
-            if current.len() == declared.len()
-                && current.iter().zip(declared.iter()).all(|(a, b)| *a == b)
-            {
-                return;
-            }
-            for spec in declared {
-                techniques.0.retain(|a| a.slot != spec.slot);
-                techniques.0.push(spec);
-            }
-        }
-        None => {
-            commands.entity(entity).try_insert(
-                ambition_platformer2d::characters::action_scheme::ActorTechniques(
-                    declared.to_vec(),
-                ),
-            );
-        }
-    }
-}
 
 /// The transformation's identity in the action scheme: a technique on the
 /// mode-switch slot, which is where its input already lived.
@@ -1505,39 +1461,28 @@ type SanicShieldBodies<'w, 's> = bevy::prelude::Query<
     ambition_platformer2d::platformer::markers::PrimaryPlayerOnly,
 >;
 
-/// The one system that decides whether a body's wallet absorbs a hit.
+/// Whether a body's wallet absorbs a hit, where Sanic's rules govern.
 ///
-/// Yes for a character whose row states `wallet_shield`, in a Sanic room; no
-/// for the other bodies this rule covers. `in_sanic_rooms` reads the active room's mode tag, not a
-/// constructor flag, so hosted and standalone use one system.
+/// Yes for a character whose row states `wallet_shield`, no for the other
+/// bodies this rule covers. It runs only inside the plugin's scope, and
+/// [`retract_sanic_wallet_shield`] runs only outside it, so the scope is the
+/// one answer to "do Sanic's rules apply here" for both.
 ///
 /// Derived state, not an input edge: rebuilding it every frame avoids a
 /// rollback latch and keeps the shared damage resolver content-agnostic.
-fn sync_sanic_wallet_shield(
+fn project_sanic_wallet_shield(
     mut commands: bevy::prelude::Commands,
-    rooms: Option<
-        ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
-            ambition_platformer2d::world::rooms::RoomSet,
-        >,
-    >,
     cast: Option<
         bevy::prelude::Res<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>,
     >,
     bodies: SanicShieldBodies<'_, '_>,
 ) {
-    let in_sanic_rooms =
-        rooms.is_some_and(|rooms| rooms.active_metadata().mode.as_deref() == Some(SANIC_MODE));
     for (entity, worn, shielded) in &bodies {
         let row_shields = cast
             .as_deref()
             .and_then(|cast| cast.get(worn.id()))
             .is_some_and(|character| character.wallet_shield);
-        // Not this ruleset's body (see `SanicShieldBodies`).
-        if !row_shields && !shielded {
-            continue;
-        }
-        let enabled = in_sanic_rooms && row_shields;
-        match (enabled, shielded) {
+        match (row_shields, shielded) {
             (true, false) => {
                 commands
                     .entity(entity)
@@ -1549,6 +1494,21 @@ fn sync_sanic_wallet_shield(
                     .remove::<ambition_platformer2d::characters::actor::BodyWalletShield>();
             }
             _ => {}
+        }
+    }
+}
+
+/// Outside Sanic's rooms no body's wallet absorbs a hit, because no
+/// ring-scatter consumer runs there.
+fn retract_sanic_wallet_shield(
+    mut commands: bevy::prelude::Commands,
+    bodies: SanicShieldBodies<'_, '_>,
+) {
+    for (entity, _, shielded) in &bodies {
+        if shielded {
+            commands
+                .entity(entity)
+                .remove::<ambition_platformer2d::characters::actor::BodyWalletShield>();
         }
     }
 }
@@ -1958,27 +1918,24 @@ pub fn cycle_act_after_clear(
         if reading_the_card {
             departure.leave(ambition_platformer2d::session::Destination::NextRoom);
         } else if !departure.is_leaving() {
-            *state = SanicActState {
-                room: state.room,
-                ..SanicActState::default()
-            };
+            *state = SanicActState::default();
         }
     }
 }
 
-/// An act that finds itself in a different room has arrived in the next act:
-/// its clock, its milestones and its results start over there. The first tick
-/// of a session is an arrival too, and it has a sound.
+/// An act that arrives in a room starts over there: its clock, its milestones
+/// and its results. The room it is in, and whether it has just arrived, is the
+/// engine's `ModeVisit` on the same owner. The first room has a sound.
 pub fn begin_act_on_arrival(
-    mut act: bevy::prelude::Query<&mut SanicActState>,
-    rooms: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
-        ambition_platformer2d::world::rooms::RoomSet,
-    >,
+    mut acts: bevy::prelude::Query<(
+        &mut SanicActState,
+        &ambition_platformer2d::session::ModeVisit,
+    )>,
     mut sfx: ambition_platformer2d::sfx::BodySfxWriter,
 ) {
-    let active = rooms.active();
-    for mut state in &mut act {
-        if state.room.is_none() {
+    use ambition_platformer2d::session::Arrival;
+    for (mut state, visit) in &mut acts {
+        if visit.arrival() == Arrival::First {
             // Audible confirmation that the shell drains the standard
             // SfxMessage seam at room entry. H2/I3: the course's sound, by name.
             // `write_global` would make it the host's.
@@ -1989,11 +1946,8 @@ pub fn begin_act_on_arrival(
                 },
             );
         }
-        if state.room != Some(active) {
-            *state = SanicActState {
-                room: Some(active),
-                ..SanicActState::default()
-            };
+        if visit.arrival() != Arrival::Staying {
+            *state = SanicActState::default();
         }
     }
 }
@@ -2035,7 +1989,6 @@ mod rollback_probes {
         (state.elapsed.to_bits() as u64)
             ^ phase.rotate_left(17)
             ^ ((state.next_milestone as u64) << 48)
-            ^ (state.room.map_or(0, |room| room as u64 + 1) << 56)
     }
 
     pub(super) fn super_form_latch(latch: &SuperFormLatch) -> u64 {

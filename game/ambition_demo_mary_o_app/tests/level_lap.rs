@@ -70,7 +70,7 @@ fn finish_at_the_pole(app: &mut App, from: &str) -> String {
     panic!(
         "touched the authored pole of '{from}' and the room never changed within \
          {COMMIT_CAP} frames. ⚠ a room that never changes and a room that changes \
-         to ITSELF are different failures: `LevelDestination::Replay` restarts \
+         to ITSELF are different failures: a replay restarts \
          this level, which reads to a player as 'finishing sends me back to the \
          start' rather than as a wedge."
     );
@@ -87,7 +87,7 @@ fn leg(app: &mut App, from: &str, expected: &str) {
     assert_eq!(
         landed, expected,
         "finishing '{from}' put her in '{landed}'. ⛔ if that is '{from}' itself, \
-         `exit_for_room` answered `Replay` -- the level's authored `next_room` \
+         the departure replayed -- the level's authored `next_room` \
          did not resolve, which is exactly 'finishing 1-1 sends you back to 1-1'.",
     );
     // and she is actually IN it. A transition that swaps the room set

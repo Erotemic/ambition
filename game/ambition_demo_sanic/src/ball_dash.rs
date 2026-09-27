@@ -391,9 +391,7 @@ pub fn mirror_ball_anim_fact(
 /// and labels the button "Spin Dash". The behavior stays in this module (the
 /// crouch-rev-release chord on `ActorControl`).
 ///
-/// Handed to `declare_sanic_techniques`, which owns `ActorTechniques` for the
-/// whole demo. Inserting it here too would make two systems write the same
-/// component, and one declaration would be lost.
+/// Sanic's rules give it to the driven body as a `DrivenTechniques` rule.
 pub(crate) fn spin_dash_technique(
 ) -> ambition_platformer2d::entity_catalog::action_scheme::ActionSpec {
     use ambition_platformer2d::entity_catalog::action_scheme as sch;

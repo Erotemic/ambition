@@ -14,8 +14,8 @@
 //! 3. The chasm — a five-tile gap with no stepping stone. The only way over
 //!    is the moving platform, so the room's one new verb is load-bearing exactly
 //!    once, the same rule 1-1's stepping stone follows.
-//! 4. The goal — a pole at the far wall. Where finishing LEADS is
-//!    [`crate::exit_for_room`]'s answer rather than this room's.
+//! 4. The goal — a pole at the far wall. Where finishing LEADS is the room's
+//!    authored `next_room`, which the engine's departure reads.
 //!
 //! What is deleted is the shaft (`mary_o_1_1_descent`), its pad (`mary_o_1_2_arrival`), the alcove
 //! (`mary_o_1_2_exit`) and ITS pad (`mary_o_1_1_surface_return`).

@@ -153,7 +153,7 @@ fn finishing_the_first_level_in_the_host_lands_in_the_second() {
     assert_eq!(
         landed, LEVEL_1_2_ROOM_ID,
         "finishing 1-1 in the HOST put her in '{landed}'. ⛔ if that is 1-1 \
-         itself, `exit_for_room` answered `Replay` on the shipped path while \
+         itself, the departure replayed on the shipped path while \
          answering correctly in the demo binary — which is the shape of every \
          host-only bug in this tree.",
     );

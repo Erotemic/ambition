@@ -171,15 +171,13 @@ fn the_two_rooms_are_linked_both_ways() {
     // empty `for`.
     //
     //  so it asks the route that actually exists. Finishing a level is what
-    // moves you between them, `exit_for_room` is where each level says where
+    // moves you between them, each level's `next_room` is where it says where
     // that goes, and the property worth holding is unchanged and stronger than
     // "has a zone": follow the exits and you come back to where you started.
     let mut seen = vec![LEVEL_1_1_ROOM_ID.to_string()];
     let mut at = LEVEL_1_1_ROOM_ID.to_string();
     for _ in 0..set.rooms.len() {
-        let ambition_demo_mary_o::LevelDestination::Room(next) =
-            ambition_demo_mary_o::exit_for_room(&at)
-        else {
+        let Some(next) = ambition_demo_mary_o::authored_level(&at).metadata.next_room else {
             panic!("room '{at}' replays instead of leading anywhere, so the demo dead-ends there");
         };
         assert!(

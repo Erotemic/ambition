@@ -33,6 +33,13 @@ where
         "player.safety_state",
     );
     registrar.require_rollback::<crate::body::BodyKinematics>(OWNER, "entity:body_kinematics");
+    // The room a mode owner is in, and whether it has just arrived there: an
+    // arrival decides what a game's level starts over.
+    registrar.rollback_component_clone_probed::<crate::lifecycle::ModeVisit>(
+        OWNER,
+        "session.mode_visit",
+        crate::lifecycle::ModeVisit::checksum,
+    );
     registrar
         .require_rollback::<crate::lifecycle::FeatureSimEntity>(OWNER, "entity:feature_sim_entity");
     // `WorldTime` is the canonical clock; this is its mirror, written at the

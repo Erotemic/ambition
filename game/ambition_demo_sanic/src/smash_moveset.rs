@@ -6,10 +6,10 @@
 //! unreachable. On a stage that grants the verb (`MatchAbilities::levelled`)
 //! they are what he swings.
 //!
-//! This is not his spin dash. `declare_sanic_techniques` puts spin dash and
-//! the transform on his body as techniques, and they stay there. The side
-//! special in his move file is a separate move that looks like one, so a crossover stage
-//! gets a signature move without two authorities owning it.
+//! This is not his spin dash. Sanic's rules give the driven body spin dash and
+//! the transform as techniques, in his rooms only. The side special in his move
+//! file is a separate move that looks like one, so a crossover stage gets a
+//! signature move without two authorities owning it.
 //!
 //! ## The character
 //!

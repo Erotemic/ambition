@@ -1584,6 +1584,39 @@ fn a_match_that_declares_fighter_contact_seats_solid_fighters_and_no_other() {
     }
 }
 
+/// A stocks match states how long a knocked-out fighter stays out, and each
+/// seat carries it on its stocks. The stage inserted it as a process-wide
+/// resource, so every stocks match in the binary had one stage's beat.
+#[test]
+fn a_stocks_match_seats_fighters_with_its_own_respawn_interval() {
+    let mut app = seating_app();
+    app.register_character(CharacterDefinition::new("mary_o", "Mary-O", "mary_o_demo"));
+    app.register_character(CharacterDefinition::new("sanic", "Sanic", "sanic_demo"));
+    app.insert_resource(MatchParticipantRoster {
+        participants: vec![cpu("mary_o"), cpu("sanic")],
+        rules: ambition_match::MatchRules {
+            stocks: Some(3),
+            stock_respawn_seconds: 1.5,
+            ..Default::default()
+        },
+        ..Default::default()
+    });
+
+    finalize_and_update(&mut app);
+
+    let world = app.world_mut();
+    let mut stocks = world.query::<&ambition_combat::components::FighterStocks>();
+    let seated: Vec<_> = stocks.iter(world).copied().collect();
+    assert_eq!(seated.len(), 2, "both fighters must seat with stocks");
+    for stocks in seated {
+        assert_eq!(
+            (stocks.remaining, stocks.respawn_after),
+            (3, 1.5),
+            "a seat must carry its match's stock count and respawn interval"
+        );
+    }
+}
+
 /// H1 was the other case, and it is the common one: a character that authored no action set at
 /// all, whose kit comes from the catalog row. That fighter worked as the worn player and stood
 /// empty-handed as player two, for a day, with every test green — because the two paths had two

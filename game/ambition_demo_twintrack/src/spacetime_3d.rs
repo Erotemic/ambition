@@ -135,32 +135,15 @@ pub(crate) fn install(app: &mut App) {
             update_axes,
             update_legend,
         )
-            .run_if(twintrack_display_is_live),
+            .run_if(ambition_platformer2d::runtime::in_mode(TWINTRACK_EXPERIENCE)),
     );
 
-    // The cleanup is not gated. It removes the 3D visuals and restores the
-    // minimap flag when TwinTrack is not active (its first line is
-    // `if twintrack_is_active { return; }`). Inside the live-only gate it would
-    // never run, and the display would stay after the experience ends.
-    app.add_systems(Update, cleanup_spacetime_3d_when_inactive);
-}
-
-/// Run condition: the twintrack spacetime display has something to draw.
-///
-/// The same question [`twintrack_is_active`] answers, in the shape a run
-/// condition needs. Kept beside it so the two cannot drift.
-fn twintrack_display_is_live(
-    roots: Query<&ambition_platformer2d::runtime::demo_fixture::RoomSet>,
-) -> bool {
-    twintrack_is_active(&roots)
-}
-
-fn twintrack_is_active(
-    roots: &Query<&ambition_platformer2d::runtime::demo_fixture::RoomSet>,
-) -> bool {
-    roots
-        .iter()
-        .any(|rooms| rooms.active_metadata().mode.as_deref() == Some(TWINTRACK_EXPERIENCE))
+    // The cleanup runs on the opposite gate: outside TwinTrack's rooms.
+    app.add_systems(
+        Update,
+        cleanup_spacetime_3d_when_inactive
+            .run_if(not(ambition_platformer2d::runtime::in_mode(TWINTRACK_EXPERIENCE))),
+    );
 }
 
 fn track_color(label: &str) -> Color {
@@ -211,12 +194,11 @@ fn translucent_material(
 /// simulation test must run without a 3D overlay.
 fn spawn_spacetime_3d(
     mut commands: Commands,
-    roots: Query<&ambition_platformer2d::runtime::demo_fixture::RoomSet>,
     existing: Query<(), With<TwinTrackSpacetime3d>>,
     meshes: Option<ResMut<Assets<Mesh>>>,
     materials: Option<ResMut<Assets<StandardMaterial>>>,
 ) {
-    if !twintrack_is_active(&roots) || !existing.is_empty() {
+    if !existing.is_empty() {
         return;
     }
     // No render app, no meshes: the overlay does not exist in a headless
@@ -1034,13 +1016,9 @@ fn update_legend(
 
 fn cleanup_spacetime_3d_when_inactive(
     mut commands: Commands,
-    roots: Query<&ambition_platformer2d::runtime::demo_fixture::RoomSet>,
     visuals: Query<Entity, With<TwinTrackSpacetime3d>>,
     mut minimap: ResMut<SpacetimeMinimapState>,
 ) {
-    if twintrack_is_active(&roots) {
-        return;
-    }
     minimap.visible = true;
     for entity in &visuals {
         commands.entity(entity).despawn();

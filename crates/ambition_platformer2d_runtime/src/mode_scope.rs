@@ -8,10 +8,13 @@
 use bevy::prelude::*;
 
 use ambition_combat::scoped_rules::RulesScope;
-use ambition_platformer2d_shared_tangle::lifecycle::{despawn_scoped_entity, ModeScopedEntity};
+use ambition_platformer2d_shared_tangle::lifecycle::{
+    despawn_scoped_entity, ModeScopedEntity, ModeVisit, SessionWorldRef,
+};
 use ambition_platformer2d_shared_tangle::schedule::{
     Platformer2dSimulationPhaseMonolith, SimScheduleExt as _,
 };
+use ambition_platformer2d_actor_monolith::session::governing_rules::CurrentRoom;
 use ambition_platformer2d_world::rooms::RoomSet;
 
 /// Run condition: the active room belongs to the game mode `name`.
@@ -19,10 +22,7 @@ use ambition_platformer2d_world::rooms::RoomSet;
 /// The absent-resource case is `false`: an app with no world installed is in no
 /// mode, so a hosted ruleset stays asleep rather than panicking. `None` mode
 /// metadata is the base game, and matches no named mode.
-pub fn in_mode(
-    name: &'static str,
-) -> impl FnMut(Option<ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<RoomSet>>) -> bool
-       + Clone {
+pub fn in_mode(name: &'static str) -> impl FnMut(CurrentRoom) -> bool + Clone {
     in_rules_scope(RulesScope::Mode(name))
 }
 
@@ -31,23 +31,12 @@ pub fn in_mode(
 /// and gates both its declared rules and its systems with that one value, so a
 /// hosted and a standalone composition differ in the scope and in nothing else.
 ///
-/// `EveryRoom` is `true` with no world at all, because a standalone game's rules
-/// are the binary's rules.
-pub fn in_rules_scope(
-    scope: RulesScope,
-) -> impl FnMut(Option<ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<RoomSet>>) -> bool
-       + Clone {
-    move |rooms: Option<ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<RoomSet>>| {
-        match scope {
-            RulesScope::Mode(name) => {
-                rooms.is_some_and(|rooms| rooms.active_metadata().mode.as_deref() == Some(name))
-            }
-            RulesScope::UntaggedRooms => {
-                rooms.is_some_and(|rooms| rooms.active_metadata().mode.is_none())
-            }
-            RulesScope::EveryRoom => true,
-        }
-    }
+/// It asks [`RulesScope::governs`], the question `GoverningRules` asks, so a
+/// gated system runs exactly where the same scope's rules govern. `EveryRoom`
+/// is `true` with no world at all, because a standalone game's rules are the
+/// binary's rules.
+pub fn in_rules_scope(scope: RulesScope) -> impl FnMut(CurrentRoom) -> bool + Clone {
+    move |room: CurrentRoom| room.in_scope(scope)
 }
 
 /// Run condition: a live session is in Ambition's OWN base mode — an active room
@@ -62,10 +51,8 @@ pub fn in_rules_scope(
 /// mode". Pair it with the canonical session gate
 /// [`ambition_platformer2d_shared_tangle::lifecycle::simulation_authorized`] when a
 /// system also needs the full scope-identity guarantee.
-pub fn in_base_mode(
-    rooms: Option<ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<RoomSet>>,
-) -> bool {
-    rooms.is_some_and(|rooms| rooms.active_metadata().mode.is_none())
+pub fn in_base_mode(room: CurrentRoom) -> bool {
+    room.in_scope(RulesScope::UntaggedRooms)
 }
 
 /// Despawn every [`ModeScopedEntity`] whose mode is not the active room's.
@@ -103,7 +90,7 @@ pub fn project_room_rule<T, R>(
     rule: ambition_platformer2d_actor_monolith::session::governing_rules::GoverningRules<T>,
     out: Option<ResMut<R>>,
 ) where
-    T: Copy + std::fmt::Debug + Send + Sync + 'static,
+    T: Clone + std::fmt::Debug + Send + Sync + 'static,
     R: Resource
         + bevy::ecs::component::Component<Mutability = bevy::ecs::component::Mutable>
         + PartialEq
@@ -116,11 +103,53 @@ pub fn project_room_rule<T, R>(
     }
 }
 
-/// The set in which every declared mode owner is brought into being. It runs in
-/// `GameplayEffects`, and a game's rules that read their owner on the tick it
-/// is born run `.after` it.
+/// The set in which every declared mode owner is brought into being and told
+/// which room it is in ([`ModeVisit`]). It runs in `GameplayEffects`, and a
+/// game's rules that read their owner on the tick it is born run `.after` it.
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ModeOwnersSpawned;
+
+/// Record on each mode owner the room it is in this tick, and how it came there.
+///
+/// The one reading of "has the mode arrived in a room": each game read it by
+/// remembering a room on its own owner, one by index and one by id.
+pub fn follow_mode_owner_rooms(
+    rooms: Option<SessionWorldRef<RoomSet>>,
+    mut owners: Query<&mut ModeVisit>,
+) {
+    let Some(rooms) = rooms else {
+        return;
+    };
+    let active = rooms.active_spec().id.as_str();
+    for mut visit in &mut owners {
+        let next = visit.after(active);
+        if *visit != next {
+            *visit = next;
+        }
+    }
+}
+
+/// The two steps of [`ModeOwnersSpawned`]: owners are born, then each is told
+/// the room it is in, so an owner born this tick sees `Arrival::First`.
+#[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+enum ModeOwnerStep {
+    Born,
+    Placed,
+}
+
+fn configure_mode_owner_sets(app: &mut App) {
+    let sim = app.sim_schedule();
+    app.configure_sets(
+        sim,
+        ModeOwnersSpawned.in_set(Platformer2dSimulationPhaseMonolith::GameplayEffects),
+    );
+    app.configure_sets(
+        sim,
+        (ModeOwnerStep::Born, ModeOwnerStep::Placed)
+            .chain()
+            .in_set(ModeOwnersSpawned),
+    );
+}
 
 /// Bring `mode`'s owner into being on the first tick the rooms `scope` governs
 /// are live.
@@ -158,27 +187,28 @@ pub fn install_mode_owner<B: Bundle>(
             .map_or(SessionSpawnScope::UNSCOPED, |scope| scope.spawn_scope());
         commands.spawn_mode_owner(spawn_scope, mode, owner());
     };
+    configure_mode_owner_sets(app);
     let sim = app.sim_schedule();
-    app.configure_sets(
-        sim,
-        ModeOwnersSpawned.in_set(Platformer2dSimulationPhaseMonolith::GameplayEffects),
-    );
     app.add_systems(
         sim,
         spawn_owner
-            .in_set(ModeOwnersSpawned)
+            .in_set(ModeOwnerStep::Born)
             .run_if(in_rules_scope(scope)),
     );
 }
 
 /// Owns the mode-scope lifetime: the sweep that retires a departed mode's
-/// entities. The run condition [`in_mode`] is a free function because a rules
-/// plugin attaches it to its OWN systems.
+/// entities, and [`follow_mode_owner_rooms`], which tells each mode owner the
+/// room it is in. Installed once with the engine; a second follow in one tick
+/// would call every arrival a stay. The run condition [`in_mode`] is a free
+/// function because a rules plugin attaches it to its OWN systems.
 pub struct ModeScopePlugin;
 
 impl Plugin for ModeScopePlugin {
     fn build(&self, app: &mut App) {
+        configure_mode_owner_sets(app);
         let sim = app.sim_schedule();
+        app.add_systems(sim, follow_mode_owner_rooms.in_set(ModeOwnerStep::Placed));
         app.add_systems(
             sim,
             despawn_departed_mode_entities

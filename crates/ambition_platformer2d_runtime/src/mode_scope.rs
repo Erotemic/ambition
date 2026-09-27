@@ -7,6 +7,7 @@
 
 use bevy::prelude::*;
 
+use ambition_combat::scoped_rules::RulesScope;
 use ambition_platformer2d_shared_tangle::lifecycle::{despawn_scoped_entity, ModeScopedEntity};
 use ambition_platformer2d_shared_tangle::schedule::{
     Platformer2dSimulationPhaseMonolith, SimScheduleExt as _,
@@ -22,8 +23,30 @@ pub fn in_mode(
     name: &'static str,
 ) -> impl FnMut(Option<ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<RoomSet>>) -> bool
        + Clone {
+    in_rules_scope(RulesScope::Mode(name))
+}
+
+/// Run condition: the active room is one that `scope` governs, the same rooms a
+/// `declare_rules(scope, ..)` statement governs. A game states its scope once
+/// and gates both its declared rules and its systems with that one value, so a
+/// hosted and a standalone composition differ in the scope and in nothing else.
+///
+/// `EveryRoom` is `true` with no world at all, because a standalone game's rules
+/// are the binary's rules.
+pub fn in_rules_scope(
+    scope: RulesScope,
+) -> impl FnMut(Option<ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<RoomSet>>) -> bool
+       + Clone {
     move |rooms: Option<ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<RoomSet>>| {
-        rooms.is_some_and(|rooms| rooms.active_metadata().mode.as_deref() == Some(name))
+        match scope {
+            RulesScope::Mode(name) => {
+                rooms.is_some_and(|rooms| rooms.active_metadata().mode.as_deref() == Some(name))
+            }
+            RulesScope::UntaggedRooms => {
+                rooms.is_some_and(|rooms| rooms.active_metadata().mode.is_none())
+            }
+            RulesScope::EveryRoom => true,
+        }
     }
 }
 

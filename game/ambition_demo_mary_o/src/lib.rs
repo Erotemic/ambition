@@ -59,8 +59,8 @@ pub const LEVEL_1_1_ROOM_ID: &str = "mary_o_1_1";
 /// The game-MODE tag this demo's rooms carry (decomposition D-C).
 ///
 /// Ambition can host this demo alongside its own rooms; [`MaryORulesPlugin`] gates
-/// its systems on `ambition_platformer2d::runtime::in_mode(MARY_O_MODE)` so the level clock never
-/// ticks in a room that is not Mary-O's.
+/// its systems on `RulesScope::Mode(MARY_O_MODE)` so the level clock never ticks
+/// in a room that is not Mary-O's.
 pub const MARY_O_MODE: &str = "mary_o";
 
 /// How close an observer must be for a Mary-O enemy to keep thinking, in world units.
@@ -1373,18 +1373,24 @@ pub struct LevelDeparture {
 /// That two demos with nothing else in common share this exact shape is the D-C
 /// pattern's whole point: a mode is a ROOM property, not a latch some plugin owns.
 pub struct MaryORulesPlugin {
-    hosted: bool,
+    /// The rooms these rules govern. The declared rules and every system are
+    /// gated by this one value.
+    scope: ambition_platformer2d::combat::scoped_rules::RulesScope,
 }
 
 impl MaryORulesPlugin {
     /// Ambition hosts this demo: every rule sleeps outside Mary-O's rooms.
     pub fn hosted() -> Self {
-        Self { hosted: true }
+        Self {
+            scope: ambition_platformer2d::combat::scoped_rules::RulesScope::Mode(MARY_O_MODE),
+        }
     }
 
     /// The demo IS the game: the rules run unconditionally.
     pub fn global() -> Self {
-        Self { hosted: false }
+        Self {
+            scope: ambition_platformer2d::combat::scoped_rules::RulesScope::EveryRoom,
+        }
     }
 }
 
@@ -1445,12 +1451,8 @@ impl Plugin for MaryORulesPlugin {
         // control frame, and `run_snake_shells` writes the body's velocity on a
         // different channel.
         {
-            use ambition_platformer2d::combat::scoped_rules::{DeclareRulesExt as _, RulesScope};
-            let scope = if self.hosted {
-                RulesScope::Mode(MARY_O_MODE)
-            } else {
-                RulesScope::EveryRoom
-            };
+            use ambition_platformer2d::combat::scoped_rules::DeclareRulesExt as _;
+            let scope = self.scope;
             app.declare_rules(
                 scope,
                 ambition_platformer2d::combat::death_rules::DeathRules::replay_level_after(
@@ -1600,7 +1602,7 @@ impl Plugin for MaryORulesPlugin {
             pre_collect_sim,
             powerups::refuse_a_weaker_form_pickup
                 .in_set(ambition_platformer2d::platformer::schedule::WorldItemSet::PreCollect)
-                .run_if(ambition_platformer2d::runtime::in_mode(MARY_O_MODE)),
+                .run_if(ambition_platformer2d::runtime::in_rules_scope(self.scope)),
         );
         let powerups = (
             powerups::bonk_power_blocks,
@@ -1674,71 +1676,23 @@ impl Plugin for MaryORulesPlugin {
         // Aliased: the fully-qualified path wraps three ways at every call and
         // rustfmt then hides which type is being installed.
         use ambition_platformer2d::actors::session::reset::install_attempt_scoped;
-        if self.hosted {
-            app.add_systems(
-                sim,
-                rules.run_if(ambition_platformer2d::runtime::in_mode(MARY_O_MODE)),
-            );
-            app.add_systems(
-                sim,
-                pipe_input.run_if(ambition_platformer2d::runtime::in_mode(MARY_O_MODE)),
-            );
-            app.add_systems(
-                sim,
-                pipe_rules.run_if(ambition_platformer2d::runtime::in_mode(MARY_O_MODE)),
-            );
-            app.add_systems(
-                sim,
-                cronies.run_if(ambition_platformer2d::runtime::in_mode(MARY_O_MODE)),
-            );
-            app.add_systems(
-                sim,
-                powerups.run_if(ambition_platformer2d::runtime::in_mode(MARY_O_MODE)),
-            );
-            app.add_systems(
-                sim,
-                after_the_star.run_if(ambition_platformer2d::runtime::in_mode(MARY_O_MODE)),
-            );
-            app.add_systems(
-                sim,
-                bricks.run_if(ambition_platformer2d::runtime::in_mode(MARY_O_MODE)),
-            );
-            app.add_systems(
-                sim,
-                gait.run_if(ambition_platformer2d::runtime::in_mode(MARY_O_MODE)),
-            );
-            app.add_systems(
-                sim,
-                brick_overlay.run_if(ambition_platformer2d::runtime::in_mode(MARY_O_MODE)),
-            );
-            // Mary-O's per-attempt block state. Which bricks are smashed and which
-            // ?-blocks are spent is exactly the "content-named per-attempt state"
-            // `ContentRoomReplayResetSet` exists for; `install_attempt_scoped` puts the
-            // resource in the world and on that slot together, so neither can arrive
-            // without the other. The cut-rope boss reaches the slot the same way.
-            install_attempt_scoped::<bricks::BrokenBricks, _>(
-                app,
-                sim,
-                ambition_platformer2d::runtime::in_mode(MARY_O_MODE),
-            );
-            install_attempt_scoped::<powerups::SpentPowerBlocks, _>(
-                app,
-                sim,
-                ambition_platformer2d::runtime::in_mode(MARY_O_MODE),
-            );
-        } else {
-            app.add_systems(sim, rules);
-            app.add_systems(sim, pipe_input);
-            app.add_systems(sim, pipe_rules);
-            app.add_systems(sim, cronies);
-            app.add_systems(sim, powerups);
-            app.add_systems(sim, after_the_star);
-            app.add_systems(sim, bricks);
-            app.add_systems(sim, gait);
-            app.add_systems(sim, brick_overlay);
-            install_attempt_scoped::<bricks::BrokenBricks, _>(app, sim, || true);
-            install_attempt_scoped::<powerups::SpentPowerBlocks, _>(app, sim, || true);
-        }
+        let gate = ambition_platformer2d::runtime::in_rules_scope(self.scope);
+        app.add_systems(sim, rules.run_if(gate.clone()));
+        app.add_systems(sim, pipe_input.run_if(gate.clone()));
+        app.add_systems(sim, pipe_rules.run_if(gate.clone()));
+        app.add_systems(sim, cronies.run_if(gate.clone()));
+        app.add_systems(sim, powerups.run_if(gate.clone()));
+        app.add_systems(sim, after_the_star.run_if(gate.clone()));
+        app.add_systems(sim, bricks.run_if(gate.clone()));
+        app.add_systems(sim, gait.run_if(gate.clone()));
+        app.add_systems(sim, brick_overlay.run_if(gate.clone()));
+        // Mary-O's per-attempt block state. Which bricks are smashed and which
+        // ?-blocks are spent is exactly the "content-named per-attempt state"
+        // `ContentRoomReplayResetSet` exists for; `install_attempt_scoped` puts the
+        // resource in the world and on that slot together, so neither can arrive
+        // without the other. The cut-rope boss reaches the slot the same way.
+        install_attempt_scoped::<bricks::BrokenBricks, _>(app, sim, gate.clone());
+        install_attempt_scoped::<powerups::SpentPowerBlocks, _>(app, sim, gate);
     }
 }
 
@@ -3431,6 +3385,50 @@ mod tests {
             );
             x += 4.0;
         }
+    }
+
+    /// A standalone Mary-O (`global()`) refuses a weaker form pickup too. The
+    /// refusal was gated on her mode tag while every other rule read the
+    /// plugin's scope, so in an untagged room a loose wand demoted fire Mary-O.
+    #[test]
+    fn a_standalone_mary_o_refuses_a_weaker_form_pickup() {
+        let mut app = App::new();
+        ambition_platformer2d::engine::add_headless_foundation(&mut app);
+        ambition_platformer2d::platformer::lifecycle::insert_session_world_component(
+            app.world_mut(),
+            rooms_in_mode(None),
+        );
+        app.insert_resource(ambition_platformer2d::time::WorldTime::default());
+        app.add_message::<ambition_platformer2d::combat::death_rules::ActorDiedMessage>();
+        app.add_plugins(MaryORulesPlugin::global());
+        let at = ambition_platformer2d::engine_core::Vec2::new(100.0, 100.0);
+        let item = app
+            .world_mut()
+            .spawn(ambition_platformer2d::world_items::WorldItem::equipping(
+                powerups::star_wand(),
+                at,
+                ambition_platformer2d::engine_core::Vec2::splat(8.0),
+            ))
+            .id();
+        app.world_mut().spawn((
+            ambition_platformer2d::platformer::markers::PrimaryPlayer,
+            ambition_platformer2d::engine_core::BodyKinematics {
+                pos: at,
+                size: ambition_platformer2d::engine_core::Vec2::new(30.0, 48.0),
+                ..Default::default()
+            },
+            ambition_platformer2d::characters::equipment::WornEquipment::new(vec![
+                powerups::cinder_beacon(),
+            ]),
+        ));
+        for _ in 0..3 {
+            app.update();
+        }
+        assert!(
+            app.world().get_entity(item).is_err(),
+            "a standalone Mary-O left the redundant wand for the collector, which \
+             would demote her from fire to tall"
+        );
     }
 
     /// A death spends a life, and running out of time is a death.

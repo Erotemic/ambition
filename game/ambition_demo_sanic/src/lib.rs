@@ -33,9 +33,10 @@ pub const DARKNESS_WORLD_JSON: &str = include_str!("../assets/worlds/sanic_darkn
 /// The game-mode tag this demo's rooms carry (decomposition D-C).
 ///
 /// Ambition hosts this demo by loading its rooms alongside its own; a Sanic
-/// rules plugin gates its systems on `ambition_platformer2d::runtime::in_mode(SANIC_MODE)`
-/// so they sleep everywhere else. [`SanicRulesPlugin`] is that ruleset, and its
-/// `hosted()` / `global()` constructor flag is the D-C pattern made real.
+/// rules plugin gates its systems on `RulesScope::Mode(SANIC_MODE)` so they
+/// sleep everywhere else. [`SanicRulesPlugin`] is that ruleset, and its
+/// `hosted()` / `global()` constructors choose the scope: the D-C pattern made
+/// real.
 pub const SANIC_MODE: &str = "sanic";
 
 /// Authored soundtrack for the standalone Sanic demo. The rendered asset lives
@@ -858,18 +859,24 @@ pub enum SanicActPhase {
 /// [`SanicRulesPlugin::hosted`] when Ambition hosts the demo beside its own
 /// rooms, [`SanicRulesPlugin::global`] when the demo is the game.
 pub struct SanicRulesPlugin {
-    hosted: bool,
+    /// The rooms these rules govern. The declared rules and every system are
+    /// gated by this one value.
+    scope: ambition_platformer2d::combat::scoped_rules::RulesScope,
 }
 
 impl SanicRulesPlugin {
     /// Ambition hosts this demo: every rule sleeps outside the Sanic rooms.
     pub fn hosted() -> Self {
-        Self { hosted: true }
+        Self {
+            scope: ambition_platformer2d::combat::scoped_rules::RulesScope::Mode(SANIC_MODE),
+        }
     }
 
     /// The demo IS the game: the rules run unconditionally.
     pub fn global() -> Self {
-        Self { hosted: false }
+        Self {
+            scope: ambition_platformer2d::combat::scoped_rules::RulesScope::EveryRoom,
+        }
     }
 }
 
@@ -900,12 +907,8 @@ impl Plugin for SanicRulesPlugin {
         // The dormancy rule has the same scope: a far badnik does not walk off
         // a ledge while Sanic is at the start.
         {
-            use ambition_platformer2d::combat::scoped_rules::{DeclareRulesExt as _, RulesScope};
-            let scope = if self.hosted {
-                RulesScope::Mode(SANIC_MODE)
-            } else {
-                RulesScope::EveryRoom
-            };
+            use ambition_platformer2d::combat::scoped_rules::DeclareRulesExt as _;
+            let scope = self.scope;
             app.declare_rules(
                 scope,
                 ambition_platformer2d::combat::death_rules::DeathRules::replay_level_after(0.0),
@@ -949,19 +952,9 @@ impl Plugin for SanicRulesPlugin {
         )
             .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep)
             .after(ambition_platformer2d::actors::avatar::WornControlGateSet);
-        if self.hosted {
-            app.add_systems(
-                sim,
-                sanic_pre_gate.run_if(ambition_platformer2d::runtime::in_mode(SANIC_MODE)),
-            );
-            app.add_systems(
-                sim,
-                sanic_post_gate.run_if(ambition_platformer2d::runtime::in_mode(SANIC_MODE)),
-            );
-        } else {
-            app.add_systems(sim, sanic_pre_gate);
-            app.add_systems(sim, sanic_post_gate);
-        }
+        let gate = ambition_platformer2d::runtime::in_rules_scope(self.scope);
+        app.add_systems(sim, sanic_pre_gate.run_if(gate.clone()));
+        app.add_systems(sim, sanic_post_gate.run_if(gate));
         // The marker is derived from identity and room: leaving the Sanic
         // rooms removes the shield even if the same persona stays selected,
         // because no ring-scatter consumer runs there.
@@ -1047,55 +1040,20 @@ impl Plugin for SanicRulesPlugin {
         // Aliased: the fully-qualified path wraps three ways at every call and
         // rustfmt then hides which type is being installed.
         use ambition_platformer2d::actors::session::reset::install_attempt_scoped;
-        if self.hosted {
-            app.add_systems(
-                sim,
-                rules.run_if(ambition_platformer2d::runtime::in_mode(SANIC_MODE)),
-            );
-            app.add_systems(
-                sim,
-                milestone_sfx.run_if(ambition_platformer2d::runtime::in_mode(SANIC_MODE)),
-            );
-            app.add_systems(
-                sim,
-                badniks.run_if(ambition_platformer2d::runtime::in_mode(SANIC_MODE)),
-            );
-            app.add_systems(
-                sim,
-                ring_loss.run_if(ambition_platformer2d::runtime::in_mode(SANIC_MODE)),
-            );
-            app.add_systems(
-                sim,
-                scatter_arc.run_if(ambition_platformer2d::runtime::in_mode(SANIC_MODE)),
-            );
-            app.add_systems(
-                sim,
-                monitor_rules.run_if(ambition_platformer2d::runtime::in_mode(SANIC_MODE)),
-            );
-            // The re-arm is not in the monitor rules chain. It answers the
-            // admitted replay, and the host anchors `ContentRoomReplayResetSet`
-            // before its generic replay consumer: a pit death replays the room
-            // in place and never emits `RoomLoaded`. `install_attempt_scoped`
-            // pairs the resource with that slot in one statement.
-            install_attempt_scoped::<monitors::SpentMonitors, _>(
-                app,
-                sim,
-                ambition_platformer2d::runtime::in_mode(SANIC_MODE),
-            );
-            app.add_systems(
-                sim,
-                monitor_overlay.run_if(ambition_platformer2d::runtime::in_mode(SANIC_MODE)),
-            );
-        } else {
-            app.add_systems(sim, rules);
-            app.add_systems(sim, milestone_sfx);
-            app.add_systems(sim, badniks);
-            app.add_systems(sim, ring_loss);
-            app.add_systems(sim, scatter_arc);
-            app.add_systems(sim, monitor_rules);
-            install_attempt_scoped::<monitors::SpentMonitors, _>(app, sim, || true);
-            app.add_systems(sim, monitor_overlay);
-        }
+        let gate = ambition_platformer2d::runtime::in_rules_scope(self.scope);
+        app.add_systems(sim, rules.run_if(gate.clone()));
+        app.add_systems(sim, milestone_sfx.run_if(gate.clone()));
+        app.add_systems(sim, badniks.run_if(gate.clone()));
+        app.add_systems(sim, ring_loss.run_if(gate.clone()));
+        app.add_systems(sim, scatter_arc.run_if(gate.clone()));
+        app.add_systems(sim, monitor_rules.run_if(gate.clone()));
+        // The re-arm is not in the monitor rules chain. It answers the
+        // admitted replay, and the host anchors `ContentRoomReplayResetSet`
+        // before its generic replay consumer: a pit death replays the room
+        // in place and never emits `RoomLoaded`. `install_attempt_scoped`
+        // pairs the resource with that slot in one statement.
+        install_attempt_scoped::<monitors::SpentMonitors, _>(app, sim, gate.clone());
+        app.add_systems(sim, monitor_overlay.run_if(gate));
     }
 }
 

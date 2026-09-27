@@ -76,7 +76,9 @@ pub use content_identity::{
     PreparedContentSection, SelectedContentIdentity, SnapshotSchemaFingerprint,
 };
 /// The demo-hosting seam (D-C): gate a hosted ruleset on the active room's mode.
-pub use mode_scope::{despawn_departed_mode_entities, in_base_mode, in_mode, ModeScopePlugin};
+pub use mode_scope::{
+    despawn_departed_mode_entities, in_base_mode, in_mode, in_rules_scope, ModeScopePlugin,
+};
 pub use player_schedule::PlayerSchedulePlugin;
 #[cfg(feature = "portal")]
 pub use portal_schedule::PortalSchedulePlugin;

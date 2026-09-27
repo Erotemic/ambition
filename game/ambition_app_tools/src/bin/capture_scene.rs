@@ -14,6 +14,7 @@ use ambition_app::app::{PresentationSetupSet, StartRoomOverride};
 use ambition_platformer2d::actors::character_runtime::CharacterLoadStates;
 use ambition_platformer2d::characters::load_demand::CharacterLoadDemand;
 use ambition_platformer2d::engine_core as ae;
+use ambition_platformer2d::platformer::schedule::SimScheduleExt;
 use ambition_platformer2d::platformer::camera_layers::{FrontHudCamera, MainCamera};
 use ambition_platformer2d::render::rendering::{
     camera_follow, sync_parallax_layers, CameraViewState,
@@ -70,6 +71,10 @@ struct SceneCaptureConfig {
     /// turns on the `DebugViewMode::Combat` preset, the same state the menu
     /// produces, so the result is a configuration a player can reach.
     combat_overlay: bool,
+    /// Hold every boss's health at this fraction of its max (`--boss-hp 0.5`),
+    /// so art a boss wears by its wounds — the Flying Spaghetti Monster's sauce
+    /// — can be photographed without fighting it there.
+    boss_hp: Option<f32>,
     /// Screen post-process effects to force on (`--screen-effect crt,vignette`).
     ///
     /// Without this flag a capture cannot show post-process. The effects are
@@ -196,6 +201,8 @@ OPTIONS:
     --include-ui        keep the game's UI in the shot
     --dev-overlays      stop silencing the developer chrome
     --combat-overlay    force the COMBAT gizmos on (hitboxes, collision boxes)
+    --boss-hp F         hold every boss's health at fraction F of its max, to
+                        photograph art it wears by its wounds
     --screen-effect E   force screen post-process effects on, comma separated:
                         crt, grain, vignette, robot, underwater, deep_dream.
                         ⛔ PAIR IT WITH `AMBITION_QUALITY_PROFILE=ultra`: the
@@ -316,8 +323,29 @@ fn build_capture_app(config: &SceneCaptureConfig) -> App {
     app
 }
 
+/// `--boss-hp`: hold every boss at the configured fraction of its health, every
+/// frame, so nothing the fight does moves it off the state being photographed.
+/// A sim system: health is rollback state, and a write from outside the
+/// rewinding schedule would survive a rewind.
+fn hold_boss_health(
+    config: Res<SceneCaptureConfig>,
+    mut bosses: Query<&mut ambition_platformer2d::characters::actor::BodyHealth, With<ambition_platformer2d::boss_encounter::BossConfig>>,
+) {
+    let Some(fraction) = config.boss_hp else {
+        return;
+    };
+    for mut health in &mut bosses {
+        let want = ((health.max() as f32) * fraction).ceil().max(1.0) as i32;
+        if health.current() != want {
+            health.health.current = want;
+        }
+    }
+}
+
 /// The systems a room capture adds on top of [`build_capture_app`].
 fn install_room_capture(app: &mut App) {
+    let sim = app.sim_schedule();
+    app.add_systems(sim, hold_boss_health);
     app.add_systems(Startup, setup_capture_target.after(PresentationSetupSet));
     app.add_systems(
         Update,
@@ -475,6 +503,7 @@ impl SceneCaptureConfig {
         let mut include_ui = false;
         let mut dev_overlays = false;
         let mut combat_overlay = false;
+        let mut boss_hp: Option<f32> = None;
         let mut screen_effects: Vec<ScreenEffect> = Vec::new();
         // One shot every frame by default.
         let mut frames: usize = 1;
@@ -497,6 +526,19 @@ impl SceneCaptureConfig {
                 "--combat-overlay" => {
                     combat_overlay = true;
                     1
+                }
+                "--boss-hp" => {
+                    let Some(value) = args.get(i + 1) else {
+                        return Err("--boss-hp requires a fraction".to_string());
+                    };
+                    boss_hp = Some(
+                        value
+                            .parse::<f32>()
+                            .ok()
+                            .filter(|f| (0.0..=1.0).contains(f))
+                            .ok_or_else(|| format!("--boss-hp wants a fraction in [0, 1], got '{value}'"))?,
+                    );
+                    2
                 }
                 "--dev-overlays" => {
                     dev_overlays = true;
@@ -682,6 +724,7 @@ impl SceneCaptureConfig {
                 follow_player: false,
                 dev_overlays,
                 combat_overlay,
+                boss_hp,
                 screen_effects,
                 press,
                 press_during,
@@ -726,6 +769,7 @@ impl SceneCaptureConfig {
             character,
             dev_overlays,
             combat_overlay,
+            boss_hp,
             screen_effects,
             follow_player,
             route: None,

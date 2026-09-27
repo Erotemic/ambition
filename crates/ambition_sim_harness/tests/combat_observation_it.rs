@@ -80,6 +80,7 @@ fn a_seated_scenario_serializes_roles_identities_and_both_geometries() {
             owner: subject,
             damage: 7,
             anchored_to_body: true,
+            depicted_by_owner: false,
             // The runtime's own hit-once memory: this strike HAS connected.
             hit: vec![target],
         }],

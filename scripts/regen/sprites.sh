@@ -447,6 +447,9 @@ tackon_targets=(
     # shape as `goblin_cave_dagger` one array up: a target that no batch names
     # exists only on the machine that once rendered it.
     gnu_ton_apple
+    # The Flying Spaghetti Monster's thrown meatball, the `meatball` projectile
+    # visual, named here for the same reason as the apple above.
+    fsm_meatball
     # The two Fighting Polygons are named here because a `--target` render is
     # not a PUBLISH ROSTER. Both were rendered into this checkout one target at
     # a time (`scripts/regen/sprites.sh --target <name>`), which works and is the right
@@ -589,6 +592,8 @@ tackon_targets=(
     colonial_statesman
     dark_lord
     flying_spaghetti_monster_boss
+    # The god's lesser appendage, the minion its `lesser_appendages` summons.
+    fsm_noodling
     galwah
     ghoul_skulker
     girdle

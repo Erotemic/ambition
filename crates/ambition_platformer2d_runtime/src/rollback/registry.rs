@@ -809,7 +809,11 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// one is the spawn guard, and the attempt reset retires by the other.
 /// ⛔⛤ 242 -> 243: `scope.mode` joins. The mode owner is anchored, so a rewind
 /// can re-create it, and the mode sweep finds the owner only by this marker.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 243;
+/// ⛔⛤ 243 -> 244: `combat.depicted_by_owner`, `content.fsm_conductor` and its
+/// entity mapping join. The Flying Spaghetti Monster flies itself: its
+/// conductor holds the move in progress, the dive and the stranding, and its
+/// hit volumes carry the marker that says the god's own art draws them.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 244;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

@@ -133,6 +133,20 @@ WAIVERS = {
         "`Update` in `ActorOverlaySet`; the `Without<…>` is the attach pass's own "
         "idempotence, as its doc comment states"
     ),
+    "SauceOverlay": (
+        "the FSM's sauce quad (`presentation/fsm_sauce.rs`); filtered by "
+        "`sync_sauce_overlays` in `Update` under `ActorOverlaySet`"
+    ),
+    "SauceSource": (
+        "the sauce quad's back-pointer on the boss sprite; `attach_…`'s "
+        "`Without<…>` idempotence and `cleanup_sauce_overlays`, both `Update` in "
+        "`ActorOverlaySet`"
+    ),
+    "BossDrawnCell": (
+        "the boss sprite's drawn (row, frame), written by `animate_bosses` and "
+        "read by the sauce overlay, all in `Update`; rebuilt every frame from the "
+        "animator, as `BossAnimator` is"
+    ),
     "VanityCardStage": (
         "one site, `fit_card_to_display`, registered in `Update` under "
         "`run_if(resource_exists::<ActiveShellSequence>)`; it filters a "

@@ -427,6 +427,9 @@ where
         |hits| hits.hit.iter().copied().collect(),
     );
     registrar.rollback_map_entities::<crate::strike::HitboxHits>(OWNER, "map.hitbox_hits");
+    // Presentation, but it rides the strike entity family: a volume restored
+    // without it would grow the unauthored stand-in over its owner's own art.
+    registrar.rollback_component_clone::<crate::strike::DepictedByOwner>(OWNER, "combat.depicted_by_owner");
     registrar.rollback_component_clone_probed::<crate::strike::HitboxLifetime>(
         OWNER,
         "combat.hitbox_lifetime",

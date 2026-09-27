@@ -347,6 +347,7 @@ mod boss_pass {
             pages: vec![BossSpritePage { texture, layout }],
             record,
             spec,
+            layers: Vec::new(),
         });
         app.insert_resource(assets);
 

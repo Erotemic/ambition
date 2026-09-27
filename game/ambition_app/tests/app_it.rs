@@ -72,6 +72,7 @@ mod content_dormancy;
 mod crouch_stability;
 mod cut_rope_arena;
 mod gnu_ton_fight;
+mod fsm_fight;
 mod cut_rope_victory_identity;
 mod d71_transaction_census;
 mod dash_stability;

@@ -13,11 +13,18 @@
 {
     // idle->Rest, drift->DashEcho, noodle_whip->SideSweep,
     // meatball_volley->FloorSlam, eye_beam->SpikeHalo, hurt->Hit, death->Death.
-    // It floats, so `body_centered`.
+    // The sheet also ships `pulse`, `dive`, `grasp` and `summon` AFTER these seven; the
+    // fight's conductor pins them by name, so they need no `BossAnim`.
+    //
+    // It floats, so `body_centered`, and the generator puts the BELL'S CENTRE
+    // at the frame's centre: the noodles hang into the lower half and the
+    // lash reaches right, and the body, position and collision box coincide.
+    // `collision_scale` sizes the frame so one sheet pixel is ~1.04 world
+    // units: the 182 px bell draws ~190 wide, the width of `combat_size`.
     "flying_spaghetti_monster_boss": (
         label_width: 100,
-        frame_width: 393,
-        frame_height: 344,
+        frame_width: 748,
+        frame_height: 696,
         rows: [
             (Rest, (
                 frame_count: 6,
@@ -29,11 +36,11 @@
             )),
             (SideSweep, (
                 frame_count: 7,
-                duration_secs: 0.09,
+                duration_secs: 0.086,
             )),
             (FloorSlam, (
                 frame_count: 7,
-                duration_secs: 0.09,
+                duration_secs: 0.088,
             )),
             (SpikeHalo, (
                 frame_count: 7,
@@ -41,18 +48,21 @@
             )),
             (Hit, (
                 frame_count: 4,
-                duration_secs: 0.09,
+                duration_secs: 0.096,
             )),
             (Death, (
                 frame_count: 8,
-                duration_secs: 0.108,
+                duration_secs: 0.112,
             )),
         ],
-        collision_scale: 1.8,
+        collision_scale: 3.81,
         feet_anchor_y: 0.0,
         frame_sample_inset: 1,
         body_centered: true,
         authored_faces_left: false,
+        // Its marinara: a reveal map per cell, drawn over it up to its damage
+        // (`presentation::fsm_sauce`). Clean at full health, a splatter at the end.
+        layers: ["sauce"],
     ),
     // ADR 0020 mount/rider split (G1): the giant GNU MOUNT, without the
     // scholar (768x576, 6 rows, collision_scale 4.5). The collision anchor is

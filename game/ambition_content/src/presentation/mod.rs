@@ -14,6 +14,7 @@
 //! they never mount the renderer.
 
 pub mod deep_dream;
+pub mod fsm_sauce;
 pub mod dialog;
 pub mod vanity_card_made_this_meme;
 
@@ -33,5 +34,6 @@ impl Plugin for AmbitionPresentationPlugin {
         app.add_plugins(dialog::AmbitionDialogUiPlugin);
         app.add_plugins(vanity_card_made_this_meme::MadeThisMemeCardPlugin);
         deep_dream::install(app);
+        fsm_sauce::install(app);
     }
 }

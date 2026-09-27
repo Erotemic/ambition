@@ -90,6 +90,7 @@ pub fn upgrade_boss_sprites(
             sprite,
             anchor,
             BossAnimator::new(boss_asset).with_render_basis(render_size, anchor.0),
+            sprites::BossDrawnCell::default(),
         ));
     }
 }
@@ -121,6 +122,8 @@ pub fn animate_bosses(
             // in `boss_frames`.
             &BossAnimator,
             Option<&mut bevy::sprite::Anchor>,
+            // The cell drawn, published for the companion-layer overlays.
+            Option<&mut sprites::BossDrawnCell>,
         ),
         Without<PlayerVisual>,
     >,
@@ -132,7 +135,7 @@ pub fn animate_bosses(
     // ADR 0011: per-entity proper time. A boss with `ProperTimeScale > 1.0`
     // keeps animating while its `SimClock` request freezes the world
     // (ADR 0010, narrative authority).
-    for (visual, mut sprite, animator, anchor) in &mut query {
+    for (visual, mut sprite, animator, anchor, drawn) in &mut query {
         let Some(view) = boss_frames.get(&visual.id) else {
             continue;
         };
@@ -155,6 +158,9 @@ pub fn animate_bosses(
                 .and_then(|pin| animator.pinned_cell(pin.rows.iter().map(String::as_str), pin.elapsed, pin.looping))
                 .unwrap_or((animator.spec.record_row(view.cursor_anim), view.cursor_frame)),
         };
+        if let Some(mut drawn) = drawn {
+            *drawn = sprites::BossDrawnCell { row, frame };
+        }
         let index = animator.flat_index_at(row, frame);
         // Split sheets: select the page for the active frame before setting
         // the page-local index. Single-page bosses skip this.

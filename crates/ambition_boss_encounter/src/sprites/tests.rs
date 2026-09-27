@@ -69,12 +69,13 @@ fn boss_sheet_has_seven_animation_rows() {
 
 #[test]
 fn fsm_and_trex_sheets_match_their_published_layouts() {
-    // FSM: 7 PNG rows, every BossAnim used once. The row mapping (not the
+    // FSM: 7 named rows, every BossAnim used once (pulse/dive/grasp follow,
+    // pinned by name). The row mapping (not the
     // pixel dims, which the published RON overrides) is what drift would
     // break: the boss would render frames from the wrong row.
     assert_eq!(content_sheet("flying_spaghetti_monster_boss").rows.len(), 7);
-    assert_eq!(content_sheet("flying_spaghetti_monster_boss").frame_width, 393);
-    assert_eq!(content_sheet("flying_spaghetti_monster_boss").frame_height, 344);
+    assert_eq!(content_sheet("flying_spaghetti_monster_boss").frame_width, 748);
+    assert_eq!(content_sheet("flying_spaghetti_monster_boss").frame_height, 696);
     assert_eq!(
         content_sheet("flying_spaghetti_monster_boss").frame_count(BossAnim::Rest),
         6

@@ -107,6 +107,10 @@ pub(crate) fn draw_unauthored_attack_volumes(
         if !strike.anchored_to_body {
             continue;
         }
+        // Its owner's own pose shows it: a stand-in would draw a second attack.
+        if strike.depicted_by_owner {
+            continue;
+        }
         let Ok((presented, attack_vfx)) = owners.get(strike.owner) else {
             // Skip, but log it: a silent skip gives no signal when debugging a
             // stray VFX, and drawing at the world origin is worse. `warn_once`

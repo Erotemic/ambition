@@ -61,6 +61,25 @@ pub(super) fn register(app: &mut App) {
         },
     );
 
+    // The Flying Spaghetti Monster's thrown meatball: the meatball it wears,
+    // sauced, a touch over the body box, upright relative to local gravity.
+    app.register_projectile_visual(
+        "meatball",
+        ProjectileArt {
+            source: ProjectileArtSource::Image {
+                path: "sprites/fsm_meatball.png".to_string(),
+            },
+            size: ProjectileRenderSize::Body {
+                min: 8.0,
+                scale: 1.15,
+            },
+            rotation: ProjectileRotation::GravityUpright,
+            debug_tint: [0.55, 0.30, 0.20, 1.0],
+            label: "meatball".to_string(),
+            expiry_vfx: None,
+        },
+    );
+
     // The Projectile Polygon's charge shot, in five tiers.
     //
     // Five looks, not one scaled. A held shot must read as different from a tap
@@ -208,6 +227,7 @@ mod tests {
             "hadouken",
             "hadouken_super",
             "apple",
+            "meatball",
             "lasersword",
             "glider",
         ] {

@@ -20,6 +20,7 @@
             "pendulum",             // GNU-ton: a fist on a string, low across where you stood
             "cradle",               // GNU-ton: Newton's cradle, one fist swinging at a time
             "stomp",                // GNU-ton's gnu: a shock rolling out along the floor
+            "noodle_lash",          // the FSM: one noodle whipped out at ledge height, toward you
         ],
         recipes: [
             (
@@ -57,6 +58,7 @@
             "demonstrate",      // GNU-ton: a fist tracks, locks, falls, and sticks
             "demonstrate_pair", // GNU-ton: the second fist falls where you dodged to
             "seismic_stomp", // trex; a special, so damage rides its own effect
+            "noodly_dive",   // the FSM: tracks you from above, falls, and lies stranded on the floor
         ],
         recipes: [
             (
@@ -93,6 +95,7 @@
             "full_body_pulse", // 0.70 × 0.70 body-relative, centered
             "gradient_nova",   // the exploding-gradient boss's runaway burst
             "buck",            // GNU-ton's gnu throws whoever stands on its back
+            "noodly_pulse",    // the FSM: a ring of noodles flung out from the bell
         ],
         recipes: [
             (
@@ -197,6 +200,7 @@
         instances: [
             "mode_collapse_converge", // 12 shots, a 190px ring, closing inward
             "echo_fan",               // 7 shots, ~52° cone, aimed at the player
+            "meatball_volley",        // the FSM: 3 (5 enraged) lobbed meatballs fanned at you; a ledge is an umbrella
         ],
         recipes: [
             (
@@ -221,10 +225,11 @@
         skill_tested: "Leave the line — and know which way is out.",
         fair_counters: [Jump, Descend, Dash],
         threat: Light,
-        telegraph: (min_s: 0.55, max_s: 0.75),
-        active: (min_s: 0.22, max_s: 0.25),
+        telegraph: (min_s: 0.55, max_s: 0.90),
+        active: (min_s: 0.22, max_s: 0.50),
         instances: [
             "eye_beam", // smirking behemoth; 780px/s shot, 1 damage
+            "noodly_grasp", // the FSM: one noodle reaches along a line and drags whoever is at its tip into the bell
         ],
         recipes: [
             (
@@ -275,6 +280,7 @@
         active: (min_s: 0.40, max_s: 0.50),
         instances: [
             "gradient_cascade", // 2 × npc_ai_slop per cast
+            "lesser_appendages", // the FSM: 2 × npc_fsm_noodling, once it is wounded
         ],
         recipes: [
             (

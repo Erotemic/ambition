@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v243
+ggrs-rollback-schema-v244
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -104,6 +104,7 @@ boss.overrides	component-clone	BossOverrides	bevy_ggrs clone snapshot; not in th
 boss.phase	component-canonical	BossPhase	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 capture.captured_by	component-clone	CapturedBy	bevy_ggrs clone snapshot; entity handle remapped, probed through the target's stable sim identity
 combat.capabilities	component-clone	CombatCapabilities	bevy_ggrs clone snapshot; not in the session checksum
+combat.depicted_by_owner	component-clone	DepictedByOwner	bevy_ggrs clone snapshot; not in the session checksum
 combat.hitbox	component-clone	Hitbox	bevy_ggrs clone snapshot; entity handle remapped, probed through the target's stable sim identity
 combat.hitbox_hits	component-clone	HitboxHits	bevy_ggrs clone snapshot; entity SET remapped, probed through the targets' stable sim identities
 combat.hitbox_lifetime	component-clone	HitboxLifetime	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -120,6 +121,7 @@ content.cut_rope_victory_npc	component-clone	SmirkingBehemothVictoryNpc	bevy_ggr
 content.echo_fan_state	component-canonical	EchoFanState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 content.exploding_gradient_state	component-canonical	ExplodingGradientState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 content.eye_beam_state	component-canonical	EyeBeamState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+content.fsm_conductor	component-clone-cursor	FsmConductor	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
 content.gnu_ton_conductor	component-clone-cursor	GnuTonConductor	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
 content.gradient_cascade_state	component-canonical	GradientCascadeState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 content.mary_o_ai_slop	component-clone	AiSlop	bevy_ggrs clone snapshot; not in the session checksum
@@ -274,6 +276,7 @@ limb.route_state	component-clone	LimbRouteState	bevy_ggrs clone snapshot; not in
 map.actor_aggression	entity-mapping	ActorAggression	bevy_ggrs LoadWorld entity-reference remapping
 map.actor_target	entity-mapping	ActorTarget	bevy_ggrs LoadWorld entity-reference remapping
 map.captured_by	entity-mapping	CapturedBy	bevy_ggrs LoadWorld entity-reference remapping
+map.content.fsm_conductor	entity-mapping	FsmConductor	bevy_ggrs LoadWorld entity-reference remapping
 map.content.gnu_ton_conductor	entity-mapping	GnuTonConductor	bevy_ggrs LoadWorld entity-reference remapping
 map.content.saddle_point_state	entity-mapping	SaddlePointState	bevy_ggrs LoadWorld entity-reference remapping
 map.encounter_participants	entity-mapping	EncounterParticipants	bevy_ggrs LoadWorld entity-reference remapping

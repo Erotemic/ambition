@@ -12,7 +12,9 @@ use bevy::prelude::*;
 
 pub mod banter;
 pub mod cut_rope;
+pub mod fsm;
 pub mod gnu_ton;
+pub mod hall;
 pub mod specials;
 #[cfg(feature = "ui")]
 pub mod yarn;
@@ -173,6 +175,14 @@ fn special_animation_keys() -> std::collections::BTreeMap<String, Vec<String>> {
         ("fluxions".into(), vec!["spike_halo".into()]),
         ("fluxions_pair".into(), vec!["spike_halo".into()]),
         ("buck".into(), vec!["spike_halo".into()]),
+        // The Flying Spaghetti Monster's moves, each on the sheet row its
+        // conductor pins, so the god's hurt hull is the pose it is drawn in.
+        ("noodle_lash".into(), vec!["side_sweep".into()]),
+        ("meatball_volley".into(), vec!["floor_slam".into()]),
+        ("noodly_pulse".into(), vec!["pulse".into()]),
+        ("noodly_dive".into(), vec!["dive".into()]),
+        ("noodly_grasp".into(), vec!["grasp".into()]),
+        ("lesser_appendages".into(), vec!["summon".into()]),
         ("stomp".into(), vec!["spike_halo".into()]),
     ])
 }
@@ -286,6 +296,12 @@ pub fn register_rollback_state(
             "ambition_content::bosses",
             "map.content.gnu_ton_conductor",
         );
+    // The Flying Spaghetti Monster's conductor: the move it performs, where its
+    // dive lands, whether it lies stranded — sim state, like GNU-ton's; its
+    // shock handles are remapped.
+    registrar
+        .rollback_component_cursor::<fsm::FsmConductor>("ambition_content::bosses", "content.fsm_conductor")
+        .rollback_map_entities::<fsm::FsmConductor>("ambition_content::bosses", "map.content.fsm_conductor");
     // The cut-rope celebrant's identity. The victory road spawns it only when
     // none has this marker, so a restored celebrant without it would be
     // spawned a second time.
@@ -442,6 +458,16 @@ impl Plugin for AmbitionBossContentPlugin {
             (adopt_gnu_ton, conduct_gnu_ton)
                 .chain()
                 .after(ambition_mount::RidersSyncedToMounts)
+                .in_set(GameplayGated)
+                .in_set(ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::AfterIntegrate),
+        );
+
+        // The Flying Spaghetti Monster's conductor flies it (it owns its pose)
+        // and performs its moves; same phase as GNU-ton's, for the same reason.
+        app.add_systems(
+            sim,
+            (fsm::adopt_fsm, fsm::conduct_fsm)
+                .chain()
                 .in_set(GameplayGated)
                 .in_set(ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::AfterIntegrate),
         );

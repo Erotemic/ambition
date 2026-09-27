@@ -56,25 +56,7 @@ impl Fist {
     }
 }
 
-/// The hall a fight happens in, measured once from the room.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct Hall {
-    /// The floor's top surface.
-    pub floor: f32,
-    /// Inner faces of the side walls.
-    pub left: f32,
-    pub right: f32,
-}
-
-impl Hall {
-    pub fn center_x(&self) -> f32 {
-        (self.left + self.right) * 0.5
-    }
-
-    pub fn width(&self) -> f32 {
-        self.right - self.left
-    }
-}
+pub use crate::bosses::hall::Hall;
 
 /// Where the performers are this tick.
 #[derive(Clone, Copy, Debug, PartialEq)]

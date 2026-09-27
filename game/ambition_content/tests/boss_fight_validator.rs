@@ -109,26 +109,29 @@ fn the_shipped_roster_against_section_threes_rules() {
     );
 }
 
-/// All 7 errors are rule 3, all in Enrage, all the same shape: the tightened enrage combos
+/// All 6 errors are rule 3, all in Enrage, all the same shape: the tightened enrage combos
 /// chain a `Strike` straight into the next `Telegraph`, leaving the player no punish window at all.
 /// §3 calls that an unpunishable attack; the authors called it escalation.
 ///
-/// Of the 9 warnings, eight are rule 5: every shipped boss but one authors no
+/// Of the 8 warnings, seven are rule 5: every shipped boss but two authors no
 /// telegraph identity, so those attacks telegraph by duration alone. Today it is a
 /// measurement; promotion to a hard error requires calibration and a separate
 /// maintainer decision (not automatically after BD7). It is the single largest
 /// readability gap the pipeline has found.
 ///
-/// ⭐ The one is GNU-ton. His 2026-09-25 rework authors a pose and a cue for every
+/// ⭐ The first was GNU-ton. His 2026-09-25 rework authors a pose and a cue for every
 /// attack and a Rest after every one, which took his rule-5 warning AND his enrage
 /// rule-3 error off this list (8/10 → 7/9) — the first fight made fairer by the
-/// validator's own measure rather than recalibrated around it.
+/// validator's own measure rather than recalibrated around it. The Flying
+/// Spaghetti Monster's 2026-09-27 rework did the same (7/9 → 6/8): its six
+/// moves each author a pose, the summon its own `summon` row so it no longer
+/// shares the pulse's tell, and every Strike is followed by a Rest.
 ///
-/// The ninth warning: the smirking behemoth never demands a `WalkOut`. Its kit is a beam,
+/// The eighth warning: the smirking behemoth never demands a `WalkOut`. Its kit is a beam,
 /// a sweep, a slam and a nova — every one answered by jumping or dashing. A player
 /// never has to simply *step out of the way*.
 ///
 /// Rule 1 (telegraph proportionality) fires nowhere, which corrects BD4 §7's
 /// (`sweep`, `dash_through`), whose floor is 20 ticks, not a heavy's 30.
-const EXPECTED_ERRORS: usize = 7;
-const EXPECTED_WARNINGS: usize = 9;
+const EXPECTED_ERRORS: usize = 6;
+const EXPECTED_WARNINGS: usize = 8;

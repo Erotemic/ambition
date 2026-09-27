@@ -782,6 +782,13 @@ pub fn test_boss_catalog() -> &'static BossCatalog {
             ("fluxions_pair".into(), vec!["spike_halo".into()]),
             ("buck".into(), vec!["spike_halo".into()]),
             ("stomp".into(), vec!["spike_halo".into()]),
+            // The Flying Spaghetti Monster's conducted moves.
+            ("noodle_lash".into(), vec!["side_sweep".into()]),
+            ("meatball_volley".into(), vec!["floor_slam".into()]),
+            ("noodly_pulse".into(), vec!["pulse".into()]),
+            ("noodly_dive".into(), vec!["dive".into()]),
+            ("noodly_grasp".into(), vec!["grasp".into()]),
+            ("lesser_appendages".into(), vec!["summon".into()]),
         ]);
         let fragment = BossCatalogFragment::from_ron(
             "ambition-test",

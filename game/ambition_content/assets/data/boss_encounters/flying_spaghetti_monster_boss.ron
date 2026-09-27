@@ -14,7 +14,7 @@
 (
     id: "flying_spaghetti_monster_boss",
     name: "Flying Spaghetti Monster",
-    max_hp: 36,
+    max_hp: 48,
     phase1_to_transition_hp: 0.6,
     phase2_to_enrage_hp: 0.25,
     intro_seconds: 2.6,

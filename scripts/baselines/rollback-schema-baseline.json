@@ -1,6 +1,6 @@
 {
   "peer_checksum_schema": {
-    "version": "ggrs-rollback-schema-v243",
+    "version": "ggrs-rollback-schema-v244",
     "rows": [
       "actor.active_combatant\tcomponent-canonical\tActiveCombatant",
       "actor.aggression\tcomponent-clone-cursor\tActorAggression",
@@ -70,6 +70,7 @@
       "content.echo_fan_state\tcomponent-canonical\tEchoFanState",
       "content.exploding_gradient_state\tcomponent-canonical\tExplodingGradientState",
       "content.eye_beam_state\tcomponent-canonical\tEyeBeamState",
+      "content.fsm_conductor\tcomponent-clone-cursor\tFsmConductor",
       "content.gnu_ton_conductor\tcomponent-clone-cursor\tGnuTonConductor",
       "content.gradient_cascade_state\tcomponent-canonical\tGradientCascadeState",
       "content.mary_o_broken_bricks\tresource-clone-custom-checksum\tBrokenBricks\tbevy_ggrs clone snapshot + an order-independent checksum over the broken names",

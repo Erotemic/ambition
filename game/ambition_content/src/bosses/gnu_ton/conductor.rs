@@ -291,21 +291,7 @@ pub fn adopt_gnu_ton(
     }
 }
 
-/// Read the hall off the room: the floor under the giant and the walls either
-/// side of it.
-pub fn measure_hall(world: &ae::World, from: Vec2) -> Option<Hall> {
-    let solid = |block: &ae::Block| matches!(block.kind, ae::BlockKind::Solid);
-    let probe = ae::Aabb::new(from, Vec2::splat(2.0));
-    let floor = world.first_body_sweep(probe, Vec2::new(0.0, 4000.0), solid)?.block.aabb.min.y;
-    let row = ae::Aabb::new(Vec2::new(from.x, floor - 24.0), Vec2::splat(2.0));
-    let left = world
-        .first_body_sweep(row, Vec2::new(-8000.0, 0.0), solid)
-        .map_or(0.0, |hit| hit.block.aabb.max.x);
-    let right = world
-        .first_body_sweep(row, Vec2::new(8000.0, 0.0), solid)
-        .map_or(world.size.x, |hit| hit.block.aabb.min.x);
-    Some(Hall { floor, left, right })
-}
+pub use crate::bosses::hall::measure_hall;
 
 /// The live part of the scholar's move: its `Special` key, whether it is
 /// striking, and the time left in it.

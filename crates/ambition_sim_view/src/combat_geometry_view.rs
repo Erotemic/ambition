@@ -151,6 +151,10 @@ pub struct CombatStrikeGeometryView {
     /// stands in for somebody's attack, and only a body-tracking strike takes
     /// its owner's presentation translation.
     pub anchored_to_body: bool,
+    /// The owner's own art shows this strike
+    /// ([`ambition_combat::strike::DepictedByOwner`]), so nothing stands in
+    /// for it.
+    pub depicted_by_owner: bool,
     /// The bodies this strike HAS ALREADY CONNECTED WITH.
     ///
     /// ⭐⭐ OVERLAP IS NOT A HIT, and an observer must never conclude one from
@@ -217,7 +221,12 @@ pub fn rebuild_combat_geometry_view(
         ),
         With<ambition_characters::actor::BodyCombat>,
     >,
-    hitboxes: Query<(bevy::prelude::Entity, &Hitbox, Option<&HitboxHits>)>,
+    hitboxes: Query<(
+        bevy::prelude::Entity,
+        &Hitbox,
+        Option<&HitboxHits>,
+        bevy::prelude::Has<ambition_combat::strike::DepictedByOwner>,
+    )>,
     owner_boxes: Query<&CenteredAabb>,
     owner_kinematics: Query<&ae::BodyKinematics>,
     mut view: ResMut<CombatGeometryView>,
@@ -260,7 +269,7 @@ pub fn rebuild_combat_geometry_view(
         });
     }
 
-    for (strike, hitbox, hits) in &hitboxes {
+    for (strike, hitbox, hits, depicted_by_owner) in &hitboxes {
         let owner_pos = match hitbox.anchor {
             HitboxAnchor::World { .. } => Some(ae::Vec2::ZERO),
             HitboxAnchor::FollowOwner { .. } => owner_boxes
@@ -278,6 +287,7 @@ pub fn rebuild_combat_geometry_view(
             owner: hitbox.owner,
             damage: hitbox.damage,
             anchored_to_body: matches!(hitbox.anchor, HitboxAnchor::FollowOwner { .. }),
+            depicted_by_owner,
             hit: {
                 let mut victims: Vec<_> =
                     hits.map(|hits| hits.hit.iter().copied().collect()).unwrap_or_default();

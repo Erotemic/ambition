@@ -2112,13 +2112,11 @@
             manifest: "sprites/flying_spaghetti_monster_boss_spritesheet.ron",
             tier: Basement,
             body_kind: Wide,
-            // Its MEASURED height under the ONE spawn box every level places it
-            // with, authored 2026-08-28 (D129). This row had no default, so its
-            // size came out of `ldtk_box x collision_scale / FRAME_H` — a level
-            // rectangle and the sheet's publishing padding, neither of which is a
-            // claim about how tall anybody is. Same output today; the point is
-            // that changing it is now one number.
-            standing_height: Some(86.9),
+            // Its BODY's height: the sheet's body is its BELL (2026-09-27; the
+            // noodles hang below it and are not body), and the whole creature
+            // draws about four bells tall. 32 keeps the Hall's FSM the size it
+            // was when its body was measured as the whole drawing (86.9).
+            standing_height: Some(32.0),
             composition: None,
             default_brain: "stand_still",
             default_action_set: "peaceful",
@@ -2130,6 +2128,35 @@
             hall: ["You've been touched by My noodly appendage. No refunds.", "Touch the marinara and you're clergy now. Congratulations, I suppose."],
         ),
         hall_dialogue_id: Some("hall_npc_flying_spaghetti_monster_boss"),
+        ),
+        // ===== Noodling: the Flying Spaghetti Monster's lesser appendage. The
+        // god's `lesser_appendages` summons a pair once it is wounded: a small
+        // bell with one meatball that swims at you and bites. Floating, so the
+        // Aerial policy flies it; two blows end it.
+        "npc_fsm_noodling": (
+            display_name: "Noodling",
+            spritesheet: "sprites/fsm_noodling_spritesheet.png",
+            manifest: "sprites/fsm_noodling_spritesheet.ron",
+            tier: Basement,
+            body_kind: Floating,
+            standing_height: Some(40.0),
+            composition: None,
+            default_action_set: "parrot_bite",
+            locomotion: Some((run_speed: 170.0, move_style: Float, baseline_free_flight: Some(true))),
+            contact_damage: Some((strength: 0.5, amount: 1)),
+            autonomous_profile: Some((
+                template: Aerial,
+                aggro_radius: 900.0,
+                attack_range: 50.0,
+                shares_sightings: false,
+            )),
+            max_health: Some(2),
+            tags: ["enemy", "minion"],
+        barks: (
+            on_hit: ["Ramen!"],
+            idle: ["Blub.", "Noodle."],
+            hall: ["I am a lesser appendage. The greater one is on the next pedestal.", "One meatball. It is enough. It is all I was given."],
+        ),
         ),
         "npc_galwah": (
             display_name: "Galwah",

@@ -71,6 +71,14 @@ pub struct BossSheetSpec {
     /// computes `flip_x = (facing < 0) XOR authored_faces_left`, so a
     /// left-drawn sheet faces the correct way.
     pub authored_faces_left: bool,
+    /// COMPANION LAYERS, drawn over this sheet cell for cell: sheets with the
+    /// same rows and frames, published beside it as
+    /// `<sheet>_<layer>_spritesheet.png`. Each is packed ON ITS OWN, so every
+    /// quality tier repacks it like any sheet, and an overlay finds a layer's
+    /// cell by the `(row, frame)` the boss is drawn at — never by a pixel rect
+    /// shared with the art. Presentation only: a layer moves no geometry.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub layers: Vec<String>,
 }
 
 /// Parsed boss-sheet data used by provider catalog builders and tests.
@@ -160,6 +168,7 @@ pub static BOSS_SHEET: std::sync::LazyLock<BossSheetSpec> =
         frame_sample_inset: 1,
         body_centered: false,
         authored_faces_left: false,
+        layers: Vec::new(),
     });
 
 impl BossSheetSpec {
@@ -309,6 +318,26 @@ pub struct BossSpriteAsset {
     /// from it.
     pub record: SheetRecord,
     pub spec: BossSheetSpec,
+    /// The companion layers [`BossSheetSpec::layers`] names that loaded.
+    pub layers: Vec<BossSpriteLayer>,
+}
+
+/// One companion layer of a boss sheet: its own pages and its own record, the
+/// same rows and frames as the art.
+#[derive(Clone)]
+pub struct BossSpriteLayer {
+    pub name: String,
+    pub pages: Vec<BossSpritePage>,
+    pub record: SheetRecord,
+}
+
+/// Where a layer draws one cell: its page, the page-local atlas index, and
+/// the trimmed `(custom_size, anchor)` (`None` for an untrimmed layer).
+#[derive(Clone, Debug, PartialEq)]
+pub struct BossLayerCell {
+    pub page: u32,
+    pub index: usize,
+    pub render: Option<(Vec2, Vec2)>,
 }
 
 impl BossSpriteAsset {
@@ -446,11 +475,36 @@ pub fn load_named_boss_sprite_via_catalog(
         .unwrap_or_else(|| spec.synth_record(&boss_filename_of(&path)));
 
     let pages = build_boss_pages(&record, &spec, &path, asset_server, layouts);
+    let layers = spec
+        .layers
+        .iter()
+        .filter_map(|name| load_boss_layer(&path, name, &spec, asset_server, layouts))
+        .collect();
     Some(BossSpriteAsset {
         pages,
         record,
         spec,
+        layers,
     })
+}
+
+/// A companion layer, from beside the art's resolved path — the same folder,
+/// so the same quality tier. Needs its baked record: a layer is addressed by
+/// the art's `(row, frame)`, which only its own record can turn into a rect.
+fn load_boss_layer(
+    art_path: &str,
+    name: &str,
+    spec: &BossSheetSpec,
+    asset_server: &AssetServer,
+    layouts: &mut Assets<TextureAtlasLayout>,
+) -> Option<BossSpriteLayer> {
+    let path = art_path.strip_suffix("_spritesheet.png").map(|stem| format!("{stem}_{name}_spritesheet.png"))?;
+    let Some(record) = boss_record_key(&path).as_deref().and_then(record_for_sheet_key).cloned() else {
+        eprintln!("[boss_sprites] layer `{name}` of {art_path} has no published record ({path}); it will not draw");
+        return None;
+    };
+    let pages = build_boss_pages(&record, spec, &path, asset_server, layouts);
+    Some(BossSpriteLayer { name: name.to_string(), pages, record })
 }
 
 /// Final path component of a resolved boss PNG path (the synthetic record's
@@ -495,6 +549,15 @@ fn build_boss_pages(
         .collect()
 }
 
+/// The record `(row, frame)` a boss's sprite is drawn at this frame, published
+/// beside its [`BossAnimator`] by the animation pass, so an overlay draws the
+/// same cell of a companion layer ([`BossAnimator::layer_cell`]).
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct BossDrawnCell {
+    pub row: usize,
+    pub frame: usize,
+}
+
 /// Render-side boss texture addresser. It does not own the animation cursor:
 /// the sim owns it ([`BossAnimFrame`], advanced by `drive_boss_animators` and
 /// published in `BossFrameIndex`). This type only turns a published
@@ -505,6 +568,8 @@ fn build_boss_pages(
 #[derive(Component)]
 pub struct BossAnimator {
     pub spec: BossSheetSpec,
+    /// The companion layers, cloned from the asset.
+    pub layers: Vec<BossSpriteLayer>,
     /// Backing sheet record, cloned from the asset.
     pub record: SheetRecord,
     /// Per-page texture and layout handles, so the renderer can swap them when
@@ -519,6 +584,7 @@ impl BossAnimator {
     pub fn new(asset: &BossSpriteAsset) -> Self {
         Self {
             spec: asset.spec.clone(),
+            layers: asset.layers.clone(),
             record: asset.record.clone(),
             pages: asset.pages.clone(),
             render_basis: None,
@@ -583,6 +649,33 @@ impl BossAnimator {
     /// The page image record `(row, frame)` draws from.
     pub fn page_at(&self, row: usize, frame: usize) -> u32 {
         self.record.frame_page_of(row, frame)
+    }
+
+    /// The named layer's cell for the art's record `(row, frame)`: the layer
+    /// row with the same ANIMATION NAME (not the same position), the same
+    /// frame. `None` when the layer is absent or lacks the row or frame.
+    pub fn layer_cell(&self, layer: &str, row: usize, frame: usize) -> Option<(&BossSpriteLayer, BossLayerCell)> {
+        let layer = self.layers.iter().find(|l| l.name == layer)?;
+        let name = self.record.rows.get(row)?.animation.as_str();
+        let lrow = layer.record.rows.iter().position(|r| r.animation == name)?;
+        if frame >= layer.record.rows[lrow].rects.len().max(layer.record.rows[lrow].frame_count as usize) {
+            return None;
+        }
+        let render = if layer.record.is_trimmed() {
+            self.render_basis.as_ref().map(|basis| {
+                crate::trimmed_render(&layer.record.frame_trim(lrow, frame), basis.render_size, basis.feet_anchor)
+            })
+        } else {
+            None
+        };
+        Some((
+            layer,
+            BossLayerCell {
+                page: layer.record.frame_page_of(lrow, frame),
+                index: layer.record.flat_index_in_page(lrow, frame),
+                render,
+            },
+        ))
     }
 
     /// [`Self::render_of`] for a record `(row, frame)`.
@@ -747,6 +840,39 @@ pub fn pick_boss_anim(state: BossAnimState) -> BossAnim {
         };
     }
     BossAnim::Rest
+}
+
+#[cfg(test)]
+mod layer_tests {
+    use super::*;
+
+    /// A companion layer's cell is found by the ART ROW'S NAME, not its
+    /// position: a layer packed on its own may order its rows differently, and
+    /// addressing it by position would draw the wrong pose's sauce.
+    #[test]
+    fn a_layer_cell_is_the_same_named_row_and_frame() {
+        let spec = BOSS_SHEET.clone();
+        let art = spec.synth_record("art_spritesheet.png");
+        let mut layer = spec.synth_record("art_sauce_spritesheet.png");
+        layer.rows.reverse();
+        for (i, row) in layer.rows.iter_mut().enumerate() {
+            row.row_index = i as u32;
+        }
+        let asset = BossSpriteAsset {
+            pages: Vec::new(),
+            record: art.clone(),
+            spec,
+            layers: vec![BossSpriteLayer { name: "sauce".into(), pages: Vec::new(), record: layer.clone() }],
+        };
+        let animator = BossAnimator::new(&asset);
+        let (art_row, frame) = (0usize, 1usize);
+        let name = art.rows[art_row].animation.clone();
+        let (_, cell) = animator.layer_cell("sauce", art_row, frame).expect("the layer has the art's rows");
+        let same_name = layer.rows.iter().position(|r| r.animation == name).unwrap();
+        assert_ne!(same_name, art_row, "the fixture must reorder the layer, or position and name agree");
+        assert_eq!(cell.index, layer.flat_index_in_page(same_name, frame), "the layer cell is not the same-named row's");
+        assert!(animator.layer_cell("paint", art_row, frame).is_none(), "an absent layer draws nothing");
+    }
 }
 
 #[cfg(test)]

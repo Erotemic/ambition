@@ -109,6 +109,15 @@ pub enum HitboxAnchor {
     World { center: ae::Vec2 },
 }
 
+/// This strike volume is DRAWN BY ITS OWNER: the owner's own pose shows the
+/// attack — a god's noodles are its sting, its lash row is its lash — so the
+/// renderer's stand-in for an unauthored attack must not draw over it.
+///
+/// A fact about the volume, not the character: the same body can swing one
+/// volume its art shows and throw another it does not.
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct DepictedByOwner;
+
 #[derive(Component, Clone, Copy, Debug)]
 pub struct HitboxLifetime {
     pub remaining_s: f32,

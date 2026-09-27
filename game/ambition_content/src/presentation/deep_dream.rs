@@ -408,21 +408,20 @@ fn overlay_transform_from_source(
     anchor: Option<&Anchor>,
     render_size: Vec2,
 ) -> Transform {
-    let anchor_offset = anchor_to_mesh_offset(anchor, render_size);
+    sibling_quad_transform(source, anchor.map(|a| a.0), render_size, LOCAL_OVERLAY_Z_BIAS)
+}
+
+/// The world transform of a unit-quad mesh sibling that covers a sprite drawn
+/// at `source` with `anchor` and `render_size`, `z_bias` in front of it. Shared
+/// by the content overlays that draw over an actor's sprite.
+pub(crate) fn sibling_quad_transform(source: &Transform, anchor: Option<Vec2>, render_size: Vec2, z_bias: f32) -> Transform {
+    let anchor_offset = -anchor.unwrap_or(Vec2::ZERO) * render_size;
     let world_offset = source.rotation.mul_vec3(anchor_offset.extend(0.0));
     let mut transform = *source;
     transform.translation += world_offset;
-    transform.translation.z += LOCAL_OVERLAY_Z_BIAS;
+    transform.translation.z += z_bias;
     transform.scale = render_size.extend(1.0);
     transform
-}
-
-fn anchor_to_mesh_offset(anchor: Option<&Anchor>, render_size: Vec2) -> Vec2 {
-    // Sprite anchors are normalized around the sprite centre. A centred mesh
-    // sibling needs the opposite world-space translation to line up with the
-    // sprite's anchored draw origin.
-    let anchor = anchor.map(|a| a.0).unwrap_or(Vec2::ZERO);
-    -anchor * render_size
 }
 
 fn flip_flag(sprite: &Sprite) -> f32 {

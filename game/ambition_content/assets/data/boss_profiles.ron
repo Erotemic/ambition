@@ -498,45 +498,35 @@
             ]),
         ),
     ),
-    // Flying Spaghetti Monster — a false-god boss (canon: Jon). A floaty,
-    // noodly-appendage monster. Composed ENTIRELY of reusable attack profiles
-    // (no new hardcoded attack types): MemorizedVolley = meatball volley that
-    // tracks the player, RotatingCross = rotating noodle cross, MinionCascade =
-    // spawns lesser appendages (minions), FullBodyPulse / SideSweep = His Noodly
-    // touch + appendage sweep. Sprite/animation fidelity + the Will-Smith finish
-    // are follow-ups; this is the playable fight.
+    // Flying Spaghetti Monster — a false-god boss (canon: Jon).
+    //
+    // Its moves are its own (`Special` keys the content conductor performs,
+    // `game/ambition_content/src/bosses/fsm/conductor.rs`): the conductor flies
+    // it — swimming in beats with its noodles hanging to just over your head,
+    // diving onto the floor, lying stranded there — and performs each move's
+    // volume, shots and row. This pattern says only which move and when.
+    //
+    // THE SHAPE: its noodles sting, so the bell is the target, reached from
+    // the ledges or when it lies stranded after a dive (the Rest after every
+    // `noodly_dive` IS the punish window). Phase 1 teaches each move once;
+    // Phase 2 adds the noodlings; Enrage chains the dive into the pulse.
     "flying_spaghetti_monster_boss": (
         id: "flying_spaghetti_monster_boss",
         reward_ability: Some("blink"),
-        combat_size: Some((168.0, 150.0)),
-        movement: AirSwoop(
-            x_radius: 190.0,
-            y_radius: 70.0,
-            x_frequency: 0.62,
-            y_frequency: 1.15,
-            chase_scale: 0.12,
-            chase_limit: 110.0,
-            speed: 240.0,
+        // The BELL: the noodles hanging below it are not body (they sting).
+        combat_size: Some((190.0, 88.0)),
+        // The conductor owns its flight (`PoseOwnedExternally`), so it names
+        // no route of its own: a profile at rest.
+        movement: AnchorSway(
+            x_radius: 0.0,
+            y_bob: 0.0,
+            x_frequency: 0.0,
+            y_frequency: 0.0,
+            chase_scale: 0.0,
+            chase_limit: 0.0,
+            speed: 0.0,
         ),
-        movement_phase2: Some(AirSwoop(
-            x_radius: 230.0,
-            y_radius: 90.0,
-            x_frequency: 0.9,
-            y_frequency: 1.0,
-            chase_scale: 0.26,
-            chase_limit: 170.0,
-            speed: 300.0,
-        )),
-        movement_enrage: Some(AirSwoop(
-            x_radius: 260.0,
-            y_radius: 110.0,
-            x_frequency: 1.15,
-            y_frequency: 1.1,
-            chase_scale: 0.44,
-            chase_limit: 230.0,
-            speed: 360.0,
-        )),
-        strike_speed_scale: 0.30,
+        strike_speed_scale: 1.0,
         macro_tuning: (
             too_close_distance: 0.0,
             too_far_distance: 0.0,
@@ -549,59 +539,94 @@
             retreat_distance: 0.0,
         ),
         attacks: [
-            Special("overfit_volley"),
-            Special("saddle_point"),
-            Special("gradient_cascade"),
-            Strike("full_body_pulse"),
-            Strike("side_sweep"),
+            Special("noodle_lash"),
+            Special("meatball_volley"),
+            Special("noodly_pulse"),
+            Special("noodly_dive"),
+            Special("noodly_grasp"),
+            Special("lesser_appendages"),
         ],
         attack_cooldown: 1.1,
         attack_windup: 0.5,
         attack_active: 0.32,
         attack_damage: 2,
-        body_damage: 1,
-        projectile_origin_offset: (0.0, -40.0),
+        // Its bell is soft: the harm is in the noodles (the conductor's sting).
+        body_damage: 0,
+        projectile_origin_offset: (0.0, -20.0),
         attack_pattern: Scripted(
             intro: (steps: [
-                Telegraph(profile: Strike("full_body_pulse"), duration: 1.2),
-                Strike(profile: Strike("full_body_pulse"), duration: 0.4),
+                Telegraph(profile: Special("noodly_pulse"), duration: 1.2,
+                    telegraph: Some((pose: Some("pulse"), cue: Some("boss.flying_spaghetti_monster.intro")))),
+                Strike(profile: Special("noodly_pulse"), duration: 0.45),
                 Rest(duration: 1.0),
             ]),
             phase1: (steps: [
-                // Meatball volley tracks the player.
-                Telegraph(profile: Special("overfit_volley"), duration: 1.3),
-                Strike(profile: Special("overfit_volley"), duration: 0.32),
-                Rest(duration: 1.3),
-                // Appendage sweep.
-                Telegraph(profile: Strike("side_sweep"), duration: 0.9),
-                Strike(profile: Strike("side_sweep"), duration: 0.4),
-                Rest(duration: 1.1),
-                // Rotating noodle cross.
-                Telegraph(profile: Special("saddle_point"), duration: 1.2),
-                Strike(profile: Special("saddle_point"), duration: 0.8),
-                Rest(duration: 1.6),
-            ]),
-            transition: (steps: [Rest(duration: 2.4)]),
-            phase2: (steps: [
-                // Summon lesser appendages.
-                Telegraph(profile: Special("gradient_cascade"), duration: 1.2),
-                Strike(profile: Special("gradient_cascade"), duration: 0.5),
+                Telegraph(profile: Special("meatball_volley"), duration: 1.1,
+                    telegraph: Some((pose: Some("floor_slam"), cue: None))),
+                Strike(profile: Special("meatball_volley"), duration: 0.35),
                 Rest(duration: 1.2),
-                Telegraph(profile: Special("overfit_volley"), duration: 1.0),
-                Strike(profile: Special("overfit_volley"), duration: 0.30),
+                Telegraph(profile: Special("noodle_lash"), duration: 0.9,
+                    telegraph: Some((pose: Some("side_sweep"), cue: None))),
+                Strike(profile: Special("noodle_lash"), duration: 0.4),
                 Rest(duration: 1.0),
-                Telegraph(profile: Strike("full_body_pulse"), duration: 1.0),
-                Strike(profile: Strike("full_body_pulse"), duration: 0.45),
-                Rest(duration: 1.2),
+                Telegraph(profile: Special("noodly_grasp"), duration: 0.9,
+                    telegraph: Some((pose: Some("grasp"), cue: None))),
+                Strike(profile: Special("noodly_grasp"), duration: 0.5),
+                Rest(duration: 1.0),
+                Telegraph(profile: Special("noodly_dive"), duration: 1.2,
+                    telegraph: Some((pose: Some("dive"), cue: None))),
+                Strike(profile: Special("noodly_dive"), duration: 0.5),
+                // Stranded on the floor: the punish window.
+                Rest(duration: 2.2),
+            ]),
+            transition: (steps: [Rest(duration: 2.0)]),
+            phase2: (steps: [
+                Telegraph(profile: Special("lesser_appendages"), duration: 1.0,
+                    telegraph: Some((pose: Some("summon"), cue: None))),
+                Strike(profile: Special("lesser_appendages"), duration: 0.45),
+                Rest(duration: 1.0),
+                Telegraph(profile: Special("meatball_volley"), duration: 0.95,
+                    telegraph: Some((pose: Some("floor_slam"), cue: None))),
+                Strike(profile: Special("meatball_volley"), duration: 0.35),
+                Rest(duration: 0.9),
+                Telegraph(profile: Special("noodly_pulse"), duration: 0.9,
+                    telegraph: Some((pose: Some("pulse"), cue: None))),
+                Strike(profile: Special("noodly_pulse"), duration: 0.45),
+                Rest(duration: 0.9),
+                Telegraph(profile: Special("noodly_dive"), duration: 1.0,
+                    telegraph: Some((pose: Some("dive"), cue: None))),
+                Strike(profile: Special("noodly_dive"), duration: 0.5),
+                Rest(duration: 1.9),
+                Telegraph(profile: Special("noodle_lash"), duration: 0.8,
+                    telegraph: Some((pose: Some("side_sweep"), cue: None))),
+                Strike(profile: Special("noodle_lash"), duration: 0.4),
+                Rest(duration: 0.8),
+                Telegraph(profile: Special("noodly_grasp"), duration: 0.8,
+                    telegraph: Some((pose: Some("grasp"), cue: None))),
+                Strike(profile: Special("noodly_grasp"), duration: 0.5),
+                Rest(duration: 1.0),
             ]),
             enrage: (steps: [
-                Telegraph(profile: Special("overfit_volley"), duration: 0.7),
-                Strike(profile: Special("overfit_volley"), duration: 0.28),
-                Telegraph(profile: Special("saddle_point"), duration: 0.8),
-                Strike(profile: Special("saddle_point"), duration: 0.7),
+                Telegraph(profile: Special("noodly_dive"), duration: 0.85,
+                    telegraph: Some((pose: Some("dive"), cue: None))),
+                Strike(profile: Special("noodly_dive"), duration: 0.5),
+                Rest(duration: 1.2),
+                // It rises straight into the pulse: leave before it is up.
+                Telegraph(profile: Special("noodly_pulse"), duration: 0.7,
+                    telegraph: Some((pose: Some("pulse"), cue: None))),
+                Strike(profile: Special("noodly_pulse"), duration: 0.45),
+                Rest(duration: 0.7),
+                Telegraph(profile: Special("meatball_volley"), duration: 0.8,
+                    telegraph: Some((pose: Some("floor_slam"), cue: None))),
+                Strike(profile: Special("meatball_volley"), duration: 0.35),
+                Rest(duration: 0.7),
+                Telegraph(profile: Special("lesser_appendages"), duration: 0.8,
+                    telegraph: Some((pose: Some("summon"), cue: None))),
+                Strike(profile: Special("lesser_appendages"), duration: 0.45),
                 Rest(duration: 0.6),
-                Telegraph(profile: Strike("side_sweep"), duration: 0.6),
-                Strike(profile: Strike("side_sweep"), duration: 0.35),
+                Telegraph(profile: Special("noodle_lash"), duration: 0.65,
+                    telegraph: Some((pose: Some("side_sweep"), cue: None))),
+                Strike(profile: Special("noodle_lash"), duration: 0.4),
                 Rest(duration: 0.8),
             ]),
         ),

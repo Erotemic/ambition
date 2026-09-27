@@ -57,7 +57,10 @@ pub enum ControlContextKind {
 /// exactly the prompt it had. This is a knob, not a policy change — "at least
 /// not yet" is a decision that may come back, and the move-naming machinery is
 /// worth keeping working while it is switched off.
-#[derive(Resource, Clone, Copy, Debug, PartialEq, Eq, Default)]
+///
+/// A game states it for the rooms it governs, with `declare_rules`. A room no
+/// game states it for names the move.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum PromptNaming {
     /// The move on the slot right now — "Spin Dash", "Shoulder Check". Reads
     /// well for a platformer with a handful of signature techniques.
@@ -263,10 +266,12 @@ pub fn rebuild_control_prompt(
         bevy::prelude::Has<ambition_platformer2d_core::PoseOwnedExternally>,
     )>,
     cues: Option<Res<ActiveUiCues>>,
-    // Whether this experience wants the BUTTON named or the MOVE on it. Absent
-    // (the ordinary case) is `ByMove` — the behaviour every experience had
-    // before the knob existed.
-    naming: Option<Res<PromptNaming>>,
+    // Whether the active room's game wants the BUTTON named or the MOVE on it.
+    // Undeclared (the ordinary case) is `ByMove` — the behaviour every
+    // experience had before the knob existed.
+    naming: ambition_platformer2d_actor_monolith::session::governing_rules::GoverningRules<
+        PromptNaming,
+    >,
     mut prompt: ResMut<ControlPrompt>,
     // (last subject, authority-presence bits, resource-presence bits) from the
     // previous rebuild. `None` = never rebuilt, so the first frame always
@@ -303,6 +308,7 @@ pub fn rebuild_control_prompt(
     // SAME frame as the mutation — so skipping quiet frames cannot lag a kit
     // swap even one tick (the doc contract above). This was ~1.4% of frame
     // CPU re-deriving an identical scheme.
+    let naming = naming.get().unwrap_or_default();
     let inputs_changed = mode.is_changed()
         || active_context.as_ref().is_some_and(|r| r.is_changed())
         || controlled.as_ref().is_some_and(|r| r.is_changed())
@@ -315,11 +321,7 @@ pub fn rebuild_control_prompt(
         // AND PICKING UP A DIFFERENT PAD MUST TOO. The binding did not move, so `SeatBindings`
         // is quiet — only the SPELLING changed, and a cache keyed on the binding alone would
         // keep telling a DualSense player to press A.
-        || devices.as_ref().is_some_and(|r| r.is_changed())
-        // AND FLIPPING THE NAMING MUST TOO. It changes every label without
-        // touching a binding, an authority or a subject, so a cache keyed on
-        // those alone would keep publishing the old vocabulary forever.
-        || naming.as_ref().is_some_and(|r| r.is_changed());
+        || devices.as_ref().is_some_and(|r| r.is_changed());
     // Presence is tracked separately from change: an `Option<Res<T>>` that went
     // `Some -> None` reports no change at all (see `last`'s doc).
     let resources = [
@@ -328,7 +330,11 @@ pub fn rebuild_control_prompt(
         cues.is_some(),
         bindings.is_some(),
         devices.is_some(),
-        naming.is_some(),
+        // AND FLIPPING THE NAMING MUST TOO. It changes every label without
+        // touching a binding, an authority or a subject, so a cache keyed on
+        // those alone would keep publishing the old vocabulary forever. The
+        // value is in the key, so a room change that flips it re-derives.
+        naming == PromptNaming::ByButton,
     ];
 
     // Menu / dialogue own input: no gameplay scheme. Publish an explicit context
@@ -417,7 +423,7 @@ pub fn rebuild_control_prompt(
             // one writer that says otherwise.
             ready: true,
             slot: action.slot,
-            label: match naming.as_deref().copied().unwrap_or_default() {
+            label: match naming {
                 PromptNaming::ByButton => button_label(action.slot).to_owned(),
                 PromptNaming::ByMove => action.display(),
             },
@@ -798,6 +804,73 @@ mod tests {
         // The attack label comes from the bound move id (title-cased).
         assert_eq!(prompt.label_for(ControlSlot::Attack), Some("Swat"));
         assert_eq!(prompt.label_for(ControlSlot::Special), None);
+    }
+
+    /// A game that asks for button names gets them in its own rooms, and a room
+    /// of any other game names the move again.
+    ///
+    /// The naming was a global resource that Smash inserted when a battle
+    /// started and nothing gave back, so every prompt after a Smash match named
+    /// buttons. Declared per room, the vocabulary follows the active room, and
+    /// the cache key holds the resolved value, so the room change re-derives.
+    #[test]
+    fn a_room_that_asks_for_button_names_gets_them_and_no_other_room_does() {
+        use ambition_combat::scoped_rules::{DeclareRulesExt as _, RulesScope};
+
+        fn stand_in(app: &mut App, mode: Option<&str>) {
+            let mut room = ambition_platformer2d_world::rooms::RoomSpec::new(
+                "room",
+                ambition_platformer2d_core::World::new(
+                    "room",
+                    ambition_platformer2d_core::Vec2::splat(1000.0),
+                    ambition_platformer2d_core::Vec2::ZERO,
+                    Vec::new(),
+                ),
+            );
+            room.metadata.mode = mode.map(str::to_owned);
+            ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+                app.world_mut(),
+                ambition_platformer2d_world::rooms::RoomSet::from_parts_or_panic(
+                    "room",
+                    vec![room],
+                    Vec::new(),
+                ),
+            );
+            app.update();
+        }
+        let attack_label = |app: &App| {
+            app.world()
+                .resource::<ControlPrompt>()
+                .label_for(ControlSlot::Attack)
+                .map(str::to_owned)
+        };
+
+        let mut app = app();
+        app.declare_rules(RulesScope::Mode("fight"), PromptNaming::ByButton);
+        let body = app
+            .world_mut()
+            .spawn((PlayerEntity, PrimaryPlayer, authorities(true, Some("swat"))))
+            .id();
+        app.world_mut().resource_mut::<ControlledSubject>().0 = Some(body);
+
+        stand_in(&mut app, None);
+        assert_eq!(
+            attack_label(&app).as_deref(),
+            Some("Swat"),
+            "a room no game asked about names the move"
+        );
+        stand_in(&mut app, Some("fight"));
+        assert_eq!(
+            attack_label(&app).as_deref(),
+            Some("Attack"),
+            "the game that asked for button names does not get them in its own room"
+        );
+        stand_in(&mut app, Some("platformer"));
+        assert_eq!(
+            attack_label(&app).as_deref(),
+            Some("Swat"),
+            "the button names followed the player into a room of another game"
+        );
     }
 
     /// The prompt shows the key, and the key is the one the router reads.

@@ -235,3 +235,31 @@ fn each_fighting_stage_plays_under_its_own_combat_rules_in_its_own_rooms() {
         );
     }
 }
+
+/// Smash names prompts by button in its own rooms, and only there.
+///
+/// Smash inserted the naming as a global resource when a battle started, and
+/// nothing gave it back, so after one match every game's prompts named buttons.
+#[test]
+fn only_smash_rooms_name_prompts_by_button() {
+    use ambition_platformer2d::sim_view::PromptNaming;
+
+    let app = compose_the_shipped_host();
+    let naming = app
+        .world()
+        .get_resource::<DeclaredRules<PromptNaming>>()
+        .expect("Smash declares its prompt vocabulary");
+    for (mode, expected) in [
+        (Some(ambition_demo_smash::SMASH_MODE), Some(PromptNaming::ByButton)),
+        (None, None),
+        (Some(ambition_app::app::versus::VERSUS_EXPERIENCE), None),
+        (Some(ambition_demo_sanic::SANIC_MODE), None),
+        (Some(ambition_demo_mary_o::MARY_O_MODE), None),
+    ] {
+        assert_eq!(
+            naming.governing(mode),
+            expected,
+            "rooms tagged {mode:?} name prompts by the wrong vocabulary"
+        );
+    }
+}

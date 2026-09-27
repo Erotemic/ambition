@@ -633,14 +633,21 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         app.insert_resource(ambition_platformer2d::actor::RespawnInterval {
             seconds: RESPAWN_INTERVAL_SECONDS,
         });
-        // The combat rules govern Smash's rooms, and no other room. A room
-        // that leaves the mode leaves the rules, so nothing publishes them on
-        // entry or gives them back on exit.
+        // The combat rules and the prompt vocabulary govern Smash's rooms, and
+        // no other room. A room that leaves the mode leaves the rules, so
+        // nothing publishes them on entry or gives them back on exit.
         {
             use ambition_platformer2d::combat::scoped_rules::DeclareRulesExt as _;
             app.declare_rules(
                 ambition_platformer2d::combat::scoped_rules::RulesScope::Mode(SMASH_MODE),
                 smash_combat_rules(),
+            );
+            // Name prompts by button. A Smash Attack slot hosts a dozen moves
+            // chosen by direction and posture, so naming the move would change
+            // as the body moves. Rooms of other games keep naming the move.
+            app.declare_rules(
+                ambition_platformer2d::combat::scoped_rules::RulesScope::Mode(SMASH_MODE),
+                ambition_platformer2d::sim_view::PromptNaming::ByButton,
             );
         }
 
@@ -2702,10 +2709,6 @@ fn start_the_battle_when_asked(
         SMASH_EXPERIENCE,
         ambition_platformer2d::input::BindingLayout::Smash,
     ));
-    // Name prompts by button. A Smash Attack slot hosts a dozen moves chosen
-    // by direction and posture, so naming the move would change as the body
-    // moves. Move naming stays the default elsewhere.
-    commands.insert_resource(ambition_platformer2d::sim_view::PromptNaming::ByButton);
     shell.write(ambition_platformer2d::game_shell::ShellCommand::GoTo(
         ambition_platformer2d::game_shell::ShellRouteId::new(SMASH_GAMEPLAY_ROUTE),
     ));

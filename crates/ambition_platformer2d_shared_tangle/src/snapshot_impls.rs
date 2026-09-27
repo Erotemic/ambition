@@ -22,6 +22,16 @@ impl SnapshotState for crate::lifecycle::RoomScopedEntity {
     }
 }
 
+impl SnapshotState for crate::lifecycle::ModeScopedEntity {
+    fn encode(&self, out: &mut Vec<u8>) {
+        put_str(out, &self.0);
+    }
+
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        Some(Self(r.str()?.to_string()))
+    }
+}
+
 impl SnapshotState for crate::lifecycle::SessionScopedEntity {
     fn encode(&self, out: &mut Vec<u8>) {
         put_u64(out, self.0 .0);

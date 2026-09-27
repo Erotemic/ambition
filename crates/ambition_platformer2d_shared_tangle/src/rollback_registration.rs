@@ -183,6 +183,11 @@ where
     );
     registrar
         .rollback_component_canonical::<crate::lifecycle::RoomScopedEntity>(OWNER, "scope.room");
+    // The mode owner is anchored, so a rewind can re-create it. The marker must
+    // come back with it, or the mode sweep cannot find the owner when the mode
+    // ends. The mode name is authored, so it is the same on every peer.
+    registrar
+        .rollback_component_canonical::<crate::lifecycle::ModeScopedEntity>(OWNER, "scope.mode");
     // ⛔ SNAPSHOTTED BUT NOT CHECKSUMMED. The value is a host-local activation
     // count, so two peers with different session histories would disagree about
     // a mechanically identical world if it entered the peer checksum. It still

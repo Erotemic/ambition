@@ -62,18 +62,6 @@ pub struct PipeEntryLatch {
     pub pressed: bool,
 }
 
-/// Attach the per-body pipe-entry latch before the entry reader runs.
-pub fn ensure_pipe_entry_latch(
-    mut commands: Commands,
-    bodies: Query<Entity, (With<PlayerEntity>, Without<PipeEntryLatch>)>,
-) {
-    for entity in &bodies {
-        commands
-            .entity(entity)
-            .try_insert(PipeEntryLatch::default());
-    }
-}
-
 /// Which half of the transit is running.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TransitPhase {

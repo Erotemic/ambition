@@ -10,7 +10,6 @@ fn body(app: &mut App) -> Entity {
     app.world_mut()
         .spawn((
             PrimaryPlayer,
-            MaryOGait::default(),
             MaryOSparkCooldown::default(),
             ActorControl::default(),
             ae::BodyKinematics {
@@ -63,7 +62,6 @@ fn direction_alone_selects_walk_speed() {
         WALK_THROTTLE,
         "no run held -> the walk throttle reaches the body"
     );
-    assert!(!app.world().get::<MaryOGait>(body).unwrap().running);
 }
 
 /// Sustaining the semantic run action selects the full run speed. Nothing about
@@ -79,7 +77,6 @@ fn holding_the_run_action_selects_run_speed() {
         1.0,
         "run held -> full throttle reaches the body"
     );
-    assert!(app.world().get::<MaryOGait>(body).unwrap().running);
 }
 
 /// The throttle is a pure scale, so it is sign-preserving and works leftward.
@@ -206,38 +203,6 @@ fn her_authored_gait_makes_speed_something_she_builds_and_keeps() {
     assert!(
         tuning.max_run_speed > walk_target * 1.5,
         "the two gaits are distinguishable"
-    );
-}
-
-/// Reversing at speed spends real time crossing zero — the readable skid. The
-/// gait flag that presentation reads is raised for exactly that window.
-#[test]
-fn reversing_at_speed_reads_as_a_skid() {
-    let (mut app, body) = app_with_policy();
-    app.world_mut()
-        .get_mut::<ae::BodyKinematics>(body)
-        .unwrap()
-        .vel
-        .x = 300.0;
-    intend(&mut app, body, -1.0, true);
-    app.update();
-
-    assert!(
-        app.world().get::<MaryOGait>(body).unwrap().skidding,
-        "input opposing a fast velocity is a skid"
-    );
-
-    // The same reversal at a crawl is just a turn.
-    app.world_mut()
-        .get_mut::<ae::BodyKinematics>(body)
-        .unwrap()
-        .vel
-        .x = 10.0;
-    intend(&mut app, body, -1.0, true);
-    app.update();
-    assert!(
-        !app.world().get::<MaryOGait>(body).unwrap().skidding,
-        "a slow turn is not a skid"
     );
 }
 

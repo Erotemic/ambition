@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v242
+ggrs-rollback-schema-v243
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -191,6 +191,7 @@ derived.resolved_hurtboxes	derived	ResolvedHurtboxes	recomputed from AuthoredHur
 derived.resolved_motion_frame	derived	ResolvedMotionFrame	published every tick from the live environment
 derived.resolved_switch_activations	derived	ResolvedSwitchActivations	this tick's drained switch activations with their post-toggle values; rebuilt every drain
 derived.resolved_technique_edges	derived	ResolvedTechniqueEdges	cleared and republished from current input every frame
+derived.sanic_wallet_shield	derived	BodyWalletShield	re-derived from the worn row and the active room's mode every tick, before hit resolution reads it
 derived.slot_controls	derived	SlotControls	republished from GGRS PlayerInputs at the head of every frame
 derived.surface_upright	derived	SurfaceUpright	republished from support facts every movement step
 dynamic.projectile	dynamic-anchor	ProjectileGameplay	Rollback entity recreation plus the complete projectile component family
@@ -468,6 +469,7 @@ root.ldtk_runtime_index	component-clone-custom-checksum	LdtkRuntimeIndex	bevy_gg
 root.live_room_instance	component-canonical	LiveRoomInstance	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 root.room_set	component-clone-custom-checksum	RoomSet	bevy_ggrs clone snapshot + active/start room identity checksum
 root:room_set	required-rollback	RoomSet	component presence automatically installs bevy_ggrs::Rollback
+scope.mode	component-canonical	ModeScopedEntity	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 scope.room	component-canonical	RoomScopedEntity	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 scope.session	component-clone	SessionScopedEntity	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 session.room_departure	component-clone	Departure	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum

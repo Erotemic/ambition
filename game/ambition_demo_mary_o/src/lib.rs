@@ -1176,8 +1176,6 @@ pub fn install_mary_o_content(app: &mut App) {
             // authoritative: a rewind that restored input and live sparks but
             // left this at its future value would swallow the replayed press and
             // diverge. It rides on the player BODY, which the engine anchors.
-            // Its sibling `MaryOGait` is deliberately NOT here — every field on
-            // it is rebuilt from the current tick's control frame.
             .rollback_component_clone_probed::<movement::MaryOSparkCooldown>(
                 "ambition_demo_mary_o",
                 "content.mary_o_spark_cooldown",
@@ -1397,6 +1395,19 @@ impl MaryORulesPlugin {
 impl Plugin for MaryORulesPlugin {
     fn build(&self, app: &mut App) {
         use bevy::prelude::IntoScheduleConfigs;
+        // The player body is BUILT holding the two input-gating latches these
+        // rules read, so no pass adds them a tick later. They are required
+        // components and not inserted by a system: they are inert on a body
+        // these rules do not govern, and a hosted game's player is the same
+        // body from room to room.
+        app.register_required_components::<
+            ambition_platformer2d::platformer::markers::PrimaryPlayer,
+            pipe::PipeEntryLatch,
+        >();
+        app.register_required_components::<
+            ambition_platformer2d::platformer::markers::PrimaryPlayer,
+            movement::MaryOSparkCooldown,
+        >();
         // The vocabulary is a value handed to the conversion now ([`ldtk_vocabulary::vocabulary`]),
         // so a reader that forgets it cannot get a half-populated global — it does not compile.
         let sim = ambition_platformer2d::platformer::schedule::SimScheduleExt::sim_schedule(app);
@@ -1536,10 +1547,6 @@ impl Plugin for MaryORulesPlugin {
         // inert without her components, and gating it would make the seam a
         // no-op in any stage that seats her outside her own level.
         app.add_observer(movement::clear_spark_cooldown_on_restart);
-        let pipe_input = pipe::ensure_pipe_entry_latch
-            .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::PlayerInput)
-            .after(ambition_platformer2d::actors::avatar::ControlledBrainTick)
-            .before(warp_through_secret_pipe);
         let pipe_rules = (warp_through_secret_pipe, pipe::run_pipe_transits)
             .chain()
             .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::PlayerSimulation)
@@ -1649,7 +1656,6 @@ impl Plugin for MaryORulesPlugin {
         // consumes the frame — the throttle they set then flows through the
         // ordinary body path, replay and rollback included.
         let gait = (
-            movement::ensure_gait,
             movement::walk_by_default_run_while_held,
             movement::tick_spark_cooldown,
             movement::fire_spark_on_run_press,
@@ -1678,7 +1684,6 @@ impl Plugin for MaryORulesPlugin {
         use ambition_platformer2d::actors::session::reset::install_attempt_scoped;
         let gate = ambition_platformer2d::runtime::in_rules_scope(self.scope);
         app.add_systems(sim, rules.run_if(gate.clone()));
-        app.add_systems(sim, pipe_input.run_if(gate.clone()));
         app.add_systems(sim, pipe_rules.run_if(gate.clone()));
         app.add_systems(sim, cronies.run_if(gate.clone()));
         app.add_systems(sim, powerups.run_if(gate.clone()));

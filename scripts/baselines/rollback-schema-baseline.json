@@ -1,6 +1,6 @@
 {
   "peer_checksum_schema": {
-    "version": "ggrs-rollback-schema-v242",
+    "version": "ggrs-rollback-schema-v243",
     "rows": [
       "actor.active_combatant\tcomponent-canonical\tActiveCombatant",
       "actor.aggression\tcomponent-clone-cursor\tActorAggression",
@@ -144,6 +144,7 @@
       "root.ldtk_runtime_index\tcomponent-clone-custom-checksum\tLdtkRuntimeIndex\tbevy_ggrs clone snapshot + active LDtk area checksum",
       "root.live_room_instance\tcomponent-canonical\tLiveRoomInstance",
       "root.room_set\tcomponent-clone-custom-checksum\tRoomSet\tbevy_ggrs clone snapshot + active/start room identity checksum",
+      "scope.mode\tcomponent-canonical\tModeScopedEntity",
       "scope.room\tcomponent-canonical\tRoomScopedEntity",
       "smash.hold_state\tcomponent-canonical\tSmashHoldState"
     ]
@@ -246,6 +247,7 @@
     "ambition_platformer2d_shared_tangle::construction::TransactionId",
     "ambition_platformer2d_shared_tangle::gravity::BaseGravity",
     "ambition_platformer2d_shared_tangle::gravity::GravityField",
+    "ambition_platformer2d_shared_tangle::lifecycle::ModeScopedEntity",
     "ambition_platformer2d_shared_tangle::lifecycle::RoomScopedEntity",
     "ambition_platformer2d_shared_tangle::lifecycle::SessionScopedEntity",
     "ambition_platformer2d_shared_tangle::orientation::ActorRoll",

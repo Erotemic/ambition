@@ -3,7 +3,7 @@
 //! The actual physics live in the reusable `AxisSwept` momentum-horizontal and
 //! phased-gravity jump laws authored on Mary-O's catalog row. This module owns
 //! only her two-gear input grammar — walk by default, run while the modifier is
-//! held — plus gait facts and the modifier press-edge used by the cinder beacon.
+//! held — plus the modifier press-edge used by the cinder beacon.
 //!
 //! The throttle remains body-local. Acceleration, coasting, skidding, airborne
 //! momentum, speed-banded launch, held/released gravity, collision, and rotated
@@ -14,7 +14,6 @@ use bevy::prelude::*;
 use ambition_platformer2d::characters::control::ActorControl;
 use ambition_platformer2d::characters::equipment::{EquipmentGrant, WornEquipment};
 use ambition_platformer2d::engine_core as ae;
-use ambition_platformer2d::platformer::frame_env::ResolvedMotionFrame;
 use ambition_platformer2d::platformer::markers::PrimaryPlayer;
 
 
@@ -22,9 +21,6 @@ use ambition_platformer2d::platformer::markers::PrimaryPlayer;
 /// initial classic profile. Her catalog row owns the absolute cap; this system
 /// owns only the semantic walk/run ratio.
 pub const WALK_THROTTLE: f32 = 0.6;
-
-/// Below this speed a reversal is just a turn, not a skid. Presentation-only.
-const SKID_SPEED: f32 = 120.0;
 
 /// Seconds between sparks. Authored here because cadence is character feel.
 pub const SPARK_COOLDOWN_S: f32 = 0.35;
@@ -34,29 +30,15 @@ pub const SPARK_COOLDOWN_S: f32 = 0.35;
 /// shots, so it constrains nobody else's projectiles.
 pub const MAX_LIVE_SPARKS: usize = 2;
 
-/// Mary-O's gait bookkeeping. Presentation reads it; the movement kernel does not
-/// know it exists.
-///
-/// Every field here is DERIVED from this tick's control frame and velocity, so
-/// it is rebuilt from scratch each tick and needs no rollback registration. The
-/// spark cooldown deliberately does NOT live here — see [`MaryOSparkCooldown`].
-#[derive(Component, Debug, Default)]
-pub struct MaryOGait {
-    /// True while she is running (the slot is sustained) AND actually moving.
-    pub running: bool,
-    /// True while her input opposes her velocity at speed — the readable slide
-    /// that says "she has weight". Drives the skid pose/SFX.
-    pub skidding: bool,
-}
-
 /// Authoritative spark cadence — sim state, not presentation.
 ///
 /// This gates whether a press FIRES, so two sims that disagree about it are in
 /// different states: a rewind that restored input and projectiles but left this
 /// at its future value would silently swallow the replayed press and diverge.
-/// It therefore lives in its own rollback-registered component rather than
-/// riding along on the derived [`MaryOGait`], which must stay unregistered
-/// because it is rebuilt every tick.
+/// It is therefore a rollback-registered component on the body.
+///
+/// Every `PrimaryPlayer` carries it from the moment it is built (a required
+/// component, registered by `MaryORulesPlugin`), so no pass adds it later.
 ///
 /// Same lesson as `PipeEntryLatch`: an input-gating latch is authoritative even
 /// when it looks like bookkeeping.
@@ -71,8 +53,7 @@ pub struct MaryOSparkCooldown {
 /// The cadence is authoritative sim state that GATES a press, so a body
 /// restarted mid-cooldown comes back unable to fire for up to
 /// [`SPARK_COOLDOWN_S`] — a fighter who opens a round pressing the button and
-/// gets nothing. [`MaryOGait`] is deliberately not touched: every field of it is
-/// re-derived from this tick's control frame, so it has nothing to carry.
+/// gets nothing.
 ///
 /// Inert for any body without the component, which is what lets this be
 /// registered outside the mode gate.
@@ -82,23 +63,6 @@ pub fn clear_spark_cooldown_on_restart(
 ) {
     if let Ok(mut cooldown) = cooldowns.get_mut(restart.entity) {
         *cooldown = MaryOSparkCooldown::default();
-    }
-}
-
-/// Attach the gait bookkeeping and the authoritative spark cadence to Mary-O's
-/// body the first tick it exists.
-pub fn ensure_gait(
-    mut commands: Commands,
-    bodies: Query<Entity, (With<PrimaryPlayer>, Without<MaryOGait>)>,
-    uncooled: Query<Entity, (With<PrimaryPlayer>, Without<MaryOSparkCooldown>)>,
-) {
-    for body in &bodies {
-        commands.entity(body).try_insert(MaryOGait::default());
-    }
-    for body in &uncooled {
-        commands
-            .entity(body)
-            .try_insert(MaryOSparkCooldown::default());
     }
 }
 
@@ -112,42 +76,24 @@ pub fn ensure_gait(
 /// simulation could never see the difference between a walk and a half-pushed
 /// stick.
 pub fn walk_by_default_run_while_held(
-    mut bodies: Query<
-        (
-            &mut ActorControl,
-            &mut MaryOGait,
-            &ae::BodyKinematics,
-            Option<&ResolvedMotionFrame>,
-        ),
-        With<PrimaryPlayer>,
-    >,
+    mut bodies: Query<&mut ActorControl, With<PrimaryPlayer>>,
 ) {
-    for (mut control, mut gait, kin, resolved_frame) in &mut bodies {
+    for mut control in &mut bodies {
         let frame = &mut control.0;
-        let running = frame.modifier_held;
-        if !running {
+        if !frame.modifier_held {
             // A pure throttle cut. The TARGET speed drops; accumulated velocity is
             // left to the kernel's acceleration, which is what makes releasing run
             // a deceleration rather than a snap.
             frame.locomotion.x *= WALK_THROTTLE;
         }
-
-        let intent = frame.locomotion.x;
-        gait.running = running && intent.abs() > 0.01;
-        let side_speed = resolved_frame
-            .map(|resolved| kin.vel.dot(resolved.get().side()))
-            .unwrap_or(kin.vel.x);
-        gait.skidding =
-            intent.abs() > 0.01 && side_speed * intent < 0.0 && side_speed.abs() > SKID_SPEED;
     }
 }
 
 /// Wind the authoritative spark cadence down.
 ///
-/// Its OWN system rather than a line inside the gait policy: the gait policy
-/// runs on every body with a `MaryOGait`, and folding an unrelated required
-/// component into that query makes the whole walk/run throttle silently skip any
-/// body missing it (Bevy queries drop non-matching entities — no error, no log).
+/// Its OWN system rather than a line inside the gait policy: a cadence in the
+/// policy's query would make the walk/run throttle silently skip any body that
+/// lacks it (Bevy queries drop non-matching entities, with no error and no log).
 /// Keeping the cadence separate means neither system can disable the other.
 pub fn tick_spark_cooldown(
     time: Res<ambition_platformer2d::time::WorldTime>,

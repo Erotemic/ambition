@@ -807,7 +807,9 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// ⛔⛤ 241 -> 242: `marker.post_boss_npc` and `content.cut_rope_victory_npc`
 /// join. The simulation spawns a defeated boss's celebrant with both markers:
 /// one is the spawn guard, and the attempt reset retires by the other.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 242;
+/// ⛔⛤ 242 -> 243: `scope.mode` joins. The mode owner is anchored, so a rewind
+/// can re-create it, and the mode sweep finds the owner only by this marker.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 243;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

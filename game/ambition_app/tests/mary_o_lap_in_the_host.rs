@@ -278,3 +278,34 @@ fn observe_from_inside_the_sim(
         .unwrap_or(f32::NAN);
     held.driving_bodies = driving.iter().count();
 }
+
+/// A hosted Mary-O or Sanic level holds a population no Ambition room holds:
+/// the hosted game's own state on its player body and on its enemies. The
+/// rollback census sweeps Ambition rooms, so it never saw this population.
+/// This launches each game from the shipped launcher, plays 60 ticks, and
+/// sweeps with the same rule.
+#[test]
+fn every_component_in_a_hosted_level_is_registered_derived_or_waived() {
+    for label in ["Mary-O", "Sanic"] {
+        let mut app = host_app();
+        for _ in 0..8 {
+            app.update();
+        }
+        launch(&mut app, label);
+        for _ in 0..60 {
+            app.update();
+        }
+        let players = {
+            let world = app.world_mut();
+            let mut q = world.query_filtered::<(), With<PrimaryPlayer>>();
+            q.iter(world).count()
+        };
+        assert_eq!(players, 1, "the premise: `{label}` has a player body to sweep");
+        let unaccounted = crate::rollback_coverage::unaccounted_components_in(app.world_mut());
+        assert!(
+            unaccounted.is_empty(),
+            "components on hosted `{label}`'s simulated entities that the rollback \
+             vocabulary does not register, derive, or waive: {unaccounted:#?}"
+        );
+    }
+}

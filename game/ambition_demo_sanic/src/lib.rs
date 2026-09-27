@@ -524,6 +524,16 @@ pub fn install_sanic_content(app: &mut App) {
                 "content.sanic_scattered_ring",
                 rollback_probes::scattered_ring,
             )
+            // The shield is a projection of the worn row and the room's mode.
+            // `sync_sanic_wallet_shield` runs every tick, in every room, before
+            // hit resolution reads it, so a restored snapshot needs no copy.
+            .declare_rollback_derived_component::<
+                ambition_platformer2d::characters::actor::BodyWalletShield,
+            >(
+                "ambition_demo_sanic",
+                "derived.sanic_wallet_shield",
+                "re-derived from the worn row and the active room's mode every tick, before hit resolution reads it",
+            )
             // The overlay subtracts spent monitors from collision every frame,
             // so a rewind that does not restore the set disagrees with the
             // world about what is solid (same as Mary-O's broken bricks).

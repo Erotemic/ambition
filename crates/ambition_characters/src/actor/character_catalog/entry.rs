@@ -804,7 +804,8 @@ pub struct CharacterCatalogEntry {
 }
 
 /// How far each edge of a hurtbox sits inside the body box, as a fraction of
-/// the box's size on that axis.
+/// the box's size on that axis. Each is at least 0, and the two on one axis
+/// sum to less than 1, so a box is left; both catalog readers refuse others.
 #[derive(Debug, Clone, Copy, PartialEq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct BodyInsets {

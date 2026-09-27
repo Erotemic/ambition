@@ -122,7 +122,9 @@ pub fn posed_body_world_per_pixel(
 /// # Panics
 ///
 /// When the row states insets and no `posed_body`, or its sheet has no baked
-/// idle body: there is then no box to inset from.
+/// idle body: there is then no box to inset from. Both catalog readers refuse
+/// the first (`validator::findings`), so only a catalog that skipped them gets
+/// here.
 pub fn posed_body_inset_hurtboxes(
     catalog: &ambition_characters::actor::character_catalog::CharacterCatalogData,
     id: &str,

@@ -200,6 +200,18 @@ fn declare(facet: &FacetSource<'_>, catalog: &CharacterCatalogData, out: &mut Fa
                         )),
                 }
             }
+            FindingKind::Needs { needed, why } => facet
+                .diagnostic(
+                    DiagnosticCode::MalformedSource,
+                    format!("character `{character}` states `{field}` without `{needed}`"),
+                )
+                .fix(format!("state `{needed}` too, or drop `{field}`: {why}")),
+            FindingKind::OutOfRange { rule } => facet
+                .diagnostic(
+                    DiagnosticCode::MalformedSource,
+                    format!("character `{character}` states a `{field}` that cannot be built"),
+                )
+                .fix(rule.to_string()),
             FindingKind::BothStated { inline_field, what } => facet
                 .diagnostic(
                     DiagnosticCode::MalformedSource,
@@ -441,7 +453,25 @@ mod tests {
             (
                 "two_hurtboxes",
                 "MORE",
-                r#"hurtboxes: Some((default: None)), hurtbox_insets: Some((left: 0.1, right: 0.1, top: 0.1, bottom: 0.1)),"#,
+                r#"posed_body: Some(OwnHeight), hurtboxes: Some((default: None)), hurtbox_insets: Some((left: 0.1, right: 0.1, top: 0.1, bottom: 0.1)),"#,
+                "hurtbox_insets",
+            ),
+            (
+                "insets_without_a_body",
+                "MORE",
+                r#"hurtbox_insets: Some((left: 0.1, right: 0.1, top: 0.1, bottom: 0.1)),"#,
+                "hurtbox_insets",
+            ),
+            (
+                "insets_leave_no_box",
+                "MORE",
+                r#"posed_body: Some(OwnHeight), hurtbox_insets: Some((left: 0.6, right: 0.4, top: 0.1, bottom: 0.1)),"#,
+                "hurtbox_insets",
+            ),
+            (
+                "negative_inset",
+                "MORE",
+                r#"posed_body: Some(OwnHeight), hurtbox_insets: Some((left: -0.1, right: 0.1, top: 0.1, bottom: 0.1)),"#,
                 "hurtbox_insets",
             ),
         ];

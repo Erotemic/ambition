@@ -71,6 +71,15 @@ pub(crate) enum FindingKind<'a> {
     /// The row refers to `name` in `table`. This is not a problem until the
     /// name is absent from the table; the reader decides how to resolve it.
     Reference { table: PresetTable, name: &'a str },
+    /// The row states `field`, which has a meaning only beside `needed`.
+    /// `why` says what `field` takes from `needed`.
+    Needs {
+        needed: &'static str,
+        why: &'static str,
+    },
+    /// The value in `field` cannot become what it describes. `rule` says what
+    /// the value must be.
+    OutOfRange { rule: &'static str },
 }
 
 /// Every problem and preset reference of `catalog`, row by row in id order.
@@ -172,14 +181,40 @@ pub(crate) fn findings<'a>(catalog: &'a CharacterCatalogData) -> Vec<Finding<'a>
                 push(field, FindingKind::BothStated { inline_field, what });
             }
         }
-        if entry.hurtbox_insets.is_some() && entry.hurtboxes.is_some() {
-            push(
-                "hurtbox_insets",
-                FindingKind::BothStated {
-                    inline_field: "hurtboxes",
-                    what: "hurtbox",
-                },
-            );
+        if let Some(insets) = entry.hurtbox_insets {
+            if entry.hurtboxes.is_some() {
+                push(
+                    "hurtbox_insets",
+                    FindingKind::BothStated {
+                        inline_field: "hurtboxes",
+                        what: "hurtbox",
+                    },
+                );
+            }
+            if entry.posed_body.is_none() {
+                push(
+                    "hurtbox_insets",
+                    FindingKind::Needs {
+                        needed: "posed_body",
+                        why: "the insets are fractions of the body box its sheet authors at that scale",
+                    },
+                );
+            }
+            // The registration builds a box of (1 - left - right) by
+            // (1 - top - bottom) of the body, and a hurtbox must have a finite,
+            // positive size.
+            let edges = [insets.left, insets.right, insets.top, insets.bottom];
+            let leaves_a_box = edges.iter().all(|e| e.is_finite() && *e >= 0.0)
+                && insets.left + insets.right < 1.0
+                && insets.top + insets.bottom < 1.0;
+            if !leaves_a_box {
+                push(
+                    "hurtbox_insets",
+                    FindingKind::OutOfRange {
+                        rule: "each inset is a finite fraction of at least 0, and left + right and top + bottom are each less than 1",
+                    },
+                );
+            }
         }
         if let Some(name) = entry.derived_from.as_deref() {
             push(
@@ -222,6 +257,12 @@ pub fn validate(catalog: &CharacterCatalogData) -> Vec<String> {
                     table.field()
                 )
             }),
+            FindingKind::Needs { needed, why } => Some(format!(
+                "character '{character}' states {field} without {needed}: {why}"
+            )),
+            FindingKind::OutOfRange { rule } => {
+                Some(format!("character '{character}' {field} is out of range: {rule}"))
+            }
         })
         .collect()
 }

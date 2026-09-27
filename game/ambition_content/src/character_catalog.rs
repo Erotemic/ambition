@@ -108,13 +108,11 @@ pub fn register_characters(app: &mut bevy::prelude::App) {
             definition = definition.with_hurtboxes(doc);
         }
         let definition = with_pack_moveset(id, definition, &pack);
-        // `try_`, and a SKIP rather than a panic: another provider legitimately
-        // owns some of these ids in a multi-game composition, and losing a race
-        // for one is not this provider's error to raise.
-        let _ = app.try_register_character(
-            definition,
-            ambition_characters::prepared::CharacterBindings::default(),
-        );
+        // A refusal stops the composition. A stable id authored by two
+        // providers, or a display name shared by two characters, is two
+        // authorities for one character; skipping the second registration would
+        // let the first provider's definition take this row's facts.
+        app.register_character(definition);
     }
 }
 
@@ -1277,5 +1275,25 @@ mod assembled_provider_tests {
             "no character redirects — the migration this test guards has not \
              happened, or the resolver stopped refusing"
         );
+    }
+
+    /// A stable id that another provider already registered stops Ambition's
+    /// composition. The other provider states only a definition, with no
+    /// catalog row, so the catalogs assemble with no conflict. If the second
+    /// registration were skipped, preparation would fold Ambition's row into
+    /// the other provider's definition of the same id.
+    #[test]
+    #[should_panic(
+        expected = "character `player_robot_v3` is authored by both `foreign_provider` and `ambition`"
+    )]
+    fn a_character_id_another_provider_registered_stops_the_composition() {
+        use ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinitionAppExt;
+        let mut app = bevy::prelude::App::new();
+        app.register_character(ambition_platformer2d::character::CharacterDefinition::new(
+            crate::character_catalog::DEFAULT_CHARACTER,
+            "Somebody Else",
+            "foreign_provider",
+        ));
+        crate::character_catalog::register_cast(&mut app);
     }
 }

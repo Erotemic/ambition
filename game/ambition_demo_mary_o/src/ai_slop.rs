@@ -6,8 +6,8 @@
 //! from the published `ai_slop` sheet.
 //!
 //! Unlike the snake, a squashed AI Slop does not become anything — it just dies. The
-//! [`AiSlop`] marker keeps this stomp from ever touching a snake (which owns its own
-//! shell rule); the two enemies never share a code path.
+//! stomp reads the body's authored brain ([`is_ai_slop_brain`]), so it never touches
+//! a snake (which owns its own shell rule); the two enemies never share a code path.
 //!
 //! Every type it names comes through the `ambition_platformer2d` umbrella — the E9 oracle.
 
@@ -37,11 +37,6 @@ pub const AI_SLOP_SHEET_TARGET: &str = "ai_slop";
 /// full jump so a stomp reads as a bounce, not a re-jump. Matches the snake's, so
 /// bouncing off either enemy feels identical.
 const BOUNCE_SPEED: f32 = 430.0;
-
-/// Marks a body as an AI Slop, so the stomp rule finds its own and never squashes a
-/// snake. Inserted by [`tag_mary_o_ai_slop`] off the authored [`FeatureName`].
-#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct AiSlop;
 
 // Demo-owned hostile archetype: ONE 1-HP `Wanderer` that walks forward and reverses
 // at walls (`aggro_radius`/`attack_range` are ignored by that template). It carries
@@ -137,45 +132,6 @@ pub fn is_ai_slop_brain(brain: &CharacterBrain) -> bool {
     matches!(brain, CharacterBrain::Custom(key) if key == AI_SLOP_BRAIN_KEY)
 }
 
-/// Tag freshly staged AI Slop with the [`AiSlop`] marker, so the stomp rule finds
-/// its own, and hold it to the size its sheet describes.
-///
-/// an enemy's authored rectangle says WHERE, not HOW BIG. The engine
-/// spawns an authored body at the rect the level draws, which is right for
-/// geometry and wrong for a character: how big a slop is, is a fact about the
-/// slop. The snake makes the same statement one step further along — its size
-/// comes from its sheet, and `SpritePosedBody` overwrites the authored rect
-/// within a few frames whatever the level says. Doing it here too means the two
-/// mobs answer "how big" the same way, and an author moving or resizing a
-/// placement in LDtk gets a predictable answer instead of two different ones.
-pub fn tag_mary_o_ai_slop(
-    mut commands: Commands,
-    fresh: Query<
-        (
-            Entity,
-            &ActorConfig,
-        ),
-        Without<AiSlop>,
-    >,
-) {
-    for (entity, config) in &fresh {
-        if is_ai_slop_brain(&config.brain) {
-            // ⛔⛤ **THE GEOMETRY WRITES ARE GONE — 2026-09-21.** This pass used
-            // to set `kin.size` and `CenteredAabb::half_size` here, under a
-            // comment reading *"WRITE THE AUTHORITY, NOT ONLY THE MIRROR"*.
-            // That correction was right about its own bug and still left the
-            // deeper one: a body was BUILT at the catalog's size and corrected
-            // afterwards, so the two answers merely disagreed for fewer ticks.
-            // The slop now declares `BodySource::SpriteAuthored` and
-            // construction resolves the sheet's rectangle before the body
-            // exists, which is the version of that sentence with no window in
-            // it at all.
-            //
-            commands.entity(entity).try_insert(AiSlop);
-        }
-    }
-}
-
 /// The head-stomp. A player on an AI Slop's head bounces up and squashes it —
 /// the classic contact stomp, NOT the engine's attack-hitbox pogo. "On its head" is
 /// the shared [`crate::stomp::PlayerTouch::Top`] rule, so this and the snake's shell
@@ -201,17 +157,19 @@ pub fn bounce_squash_ai_slop(
     mut vfx: MessageWriter<ambition_platformer2d::vfx::VfxMessage>,
     mut sfx: ambition_platformer2d::sfx::BodySfxWriter,
     mut players: Query<(Entity, &mut ae::BodyKinematics), With<PrimaryPlayer>>,
+    // Which bodies are AI Slop is their authored brain, read here rather
+    // than copied onto a marker after they are built.
     mut mobs: Query<
-        (Entity, &ae::BodyKinematics, &mut BodyHealth),
-        (With<AiSlop>, Without<PrimaryPlayer>, Without<PlayerEntity>),
+        (Entity, &ae::BodyKinematics, &mut BodyHealth, &ActorConfig),
+        (Without<PrimaryPlayer>, Without<PlayerEntity>),
     >,
 ) {
     let Ok((player_entity, mut player)) = players.single_mut() else {
         return;
     };
     let (p, pvel) = (player.aabb(), player.vel);
-    for (entity, mob_kin, mut health) in &mut mobs {
-        if !health.alive() {
+    for (entity, mob_kin, mut health, config) in &mut mobs {
+        if !is_ai_slop_brain(&config.brain) || !health.alive() {
             continue;
         }
         // The shared top/side rule: only a TOP contact squashes. A side (or an

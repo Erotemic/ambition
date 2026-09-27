@@ -14,7 +14,7 @@
 use bevy::prelude::*;
 
 use ambition_demo_mary_o::movement::WALK_THROTTLE;
-use ambition_demo_mary_o::powerups::{cinder_beacon, star_wand, MaryOSpark};
+use ambition_demo_mary_o::powerups::{cinder_beacon, star_wand, SPARK_VISUAL};
 use ambition_demo_mary_o::test_course::TEST_COURSE_ROOM_ID;
 use ambition_platformer2d::characters::equipment::WornEquipment;
 use ambition_platformer2d::combat::moveset::MovePlayback;
@@ -253,8 +253,10 @@ fn the_run_button_throws_a_spark_only_while_she_wears_the_lantern() {
                 .world()
                 .get::<ambition_platformer2d::characters::control::ActorControl>(body)
                 .is_some_and(|control| control.0.locomotion.x.abs() > WALK_THROTTLE);
-            let mut q = app.world_mut().query::<&MaryOSpark>();
-            seen = seen.max(q.iter(app.world()).count());
+            let mut q = app
+                .world_mut()
+                .query::<&ambition_platformer2d::projectiles::ProjectileVisualId>();
+            seen = seen.max(q.iter(app.world()).filter(|visual| visual.0 == SPARK_VISUAL).count());
         }
         (seen, ran)
     }

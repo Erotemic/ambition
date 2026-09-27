@@ -124,7 +124,9 @@ pub fn fire_spark_on_run_press(
         ),
         With<PrimaryPlayer>,
     >,
-    live_sparks: Query<&crate::powerups::MaryOSpark>,
+    // Her live sparks: every shot drawn as her spark. The shot is an ordinary
+    // shared projectile, and its visual id is the fact that makes it hers.
+    shots: Query<&ambition_platformer2d::projectiles::ProjectileVisualId>,
 ) {
     for (mut control, mut spark, kin, worn) in &mut bodies {
         if !armed(worn) {
@@ -134,7 +136,11 @@ pub fn fire_spark_on_run_press(
         if !frame.modifier_pressed || spark.remaining > 0.0 {
             continue;
         }
-        if live_sparks.iter().count() >= MAX_LIVE_SPARKS {
+        let live_sparks = shots
+            .iter()
+            .filter(|visual| visual.0 == crate::powerups::SPARK_VISUAL)
+            .count();
+        if live_sparks >= MAX_LIVE_SPARKS {
             continue;
         }
         spark.remaining = SPARK_COOLDOWN_S;

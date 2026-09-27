@@ -822,7 +822,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// entity mapping join. The Flying Spaghetti Monster flies itself: its
 /// conductor holds the move in progress, the dive and the stranding, and its
 /// hit volumes carry the marker that says the god's own art draws them.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 247;
+/// ⛔⛤ 247 -> 248: `content.mary_o_ai_slop` leaves. Mary-O's stomp reads the
+/// body's authored brain, so no marker is copied onto an AI Slop after it is
+/// built.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 248;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

@@ -171,37 +171,6 @@ pub const SPARK_VISUAL: &str = "mary_o_spark";
 /// sprite by the provider through the shared `WorldItemArt` seam.
 pub const CINDER_BEACON_SPRITE: &str = "super_mary_o_cinder_beacon";
 
-/// Marker on a live Mary-O spark, so her two-at-a-time limit counts HER shots and
-/// constrains nobody else's projectiles.
-#[derive(Component, Debug)]
-pub struct MaryOSpark;
-
-/// Tag freshly spawned sparks by the visual identity her ranged action authored.
-///
-/// The shot itself is an ordinary shared projectile — it moves, collides, damages,
-/// and despawns on the one shared path, and nothing here touches any of that. This
-/// only stamps a content marker so her active-shot limit can count HER sparks
-/// without the projectile domain learning what a spark is.
-pub fn tag_mary_o_sparks(
-    mut commands: Commands,
-    fresh: Query<
-        (
-            Entity,
-            &ambition_platformer2d::projectiles::ProjectileVisualId,
-        ),
-        (
-            Added<ambition_platformer2d::projectiles::ProjectileVisualId>,
-            Without<MaryOSpark>,
-        ),
-    >,
-) {
-    for (entity, visual) in &fresh {
-        if visual.0 == SPARK_VISUAL {
-            commands.entity(entity).try_insert(MaryOSpark);
-        }
-    }
-}
-
 // ---------------------------------------------------------------------------
 // Runtime — the powerup wired onto the finished engine face.
 //

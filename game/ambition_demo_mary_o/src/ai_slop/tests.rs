@@ -40,9 +40,12 @@ fn body_at_head(app: &mut App, ai_slop: bool) -> Entity {
         },
         BodyHealth::new(Health::new(1)),
     ));
-    if ai_slop {
-        e.insert(AiSlop);
-    }
+    let brain = if ai_slop { AI_SLOP_BRAIN_KEY } else { "mary_o_snake_stand_in" };
+    e.insert(ActorConfig {
+        tuning: Default::default(),
+        brain: CharacterBrain::Custom(brain.to_owned()),
+        preserves_mirror_symmetry: false,
+    });
     e.id()
 }
 
@@ -93,8 +96,8 @@ fn a_rising_player_does_not_squash_an_ai_slop() {
     );
 }
 
-/// The stomp only ever touches an AI Slop. An identical stomp onto a body WITHOUT the
-/// `AiSlop` marker (a snake, which owns its own shell rule) leaves it untouched — the
+/// The stomp only ever touches an AI Slop. An identical stomp onto a body with
+/// another brain (a snake, which owns its own shell rule) leaves it untouched — the
 /// two enemies never share a code path.
 #[test]
 fn the_stomp_never_squashes_a_non_ai_slop() {

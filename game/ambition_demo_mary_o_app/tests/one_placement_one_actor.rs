@@ -3,7 +3,7 @@
 
 use bevy::prelude::*;
 
-use ambition_demo_mary_o::ai_slop::{is_ai_slop_brain, AiSlop};
+use ambition_demo_mary_o::ai_slop::is_ai_slop_brain;
 use ambition_demo_mary_o::snake::{is_snake_brain, SnakeShell};
 use ambition_platformer2d::combat::actor_tuning::ActorConfig;
 use ambition_platformer2d::combat::components::FeatureId;
@@ -69,36 +69,30 @@ fn each_authored_enemy_placement_builds_exactly_one_actor() {
     );
 }
 
-/// Every one of them wears its Mary-O mechanics.
+/// Every snake wears its shell state.
 ///
 /// This is the half that actually bit: the count being right is worth nothing if
-/// the surviving actors are the untagged copies. `SnakeShell` and `AiSlop` are
-/// attached by the tag passes and by nothing else, so their presence is proof
-/// the tag pass recognised the actor the engine built.
+/// the surviving actors are the untagged copies. `SnakeShell` is attached by the
+/// snake's tag pass and by nothing else, so its presence is proof the pass
+/// recognised the actor the engine built. (An AI Slop carries no state of its
+/// own: its stomp reads the authored brain on the body.)
 #[test]
-fn no_enemy_is_left_without_the_mechanics_its_brain_promises() {
+fn every_snake_wears_the_shell_state_its_brain_promises() {
     let mut app = booted();
     let built = mary_o_enemies(&mut app);
 
     let mut shells = app.world_mut().query::<&SnakeShell>();
     let tagged_snakes = shells.iter(app.world()).count();
-    let mut slop = app.world_mut().query::<&AiSlop>();
-    let tagged_slop = slop.iter(app.world()).count();
 
     let want_snakes = built.iter().filter(|(_, snake)| *snake).count();
-    let want_slop = built.len() - want_snakes;
     assert!(
-        want_snakes > 0 && want_slop > 0,
-        "1-1 has both kinds; without both this test cannot tell a tag pass from a coincidence"
+        want_snakes > 0,
+        "1-1 has snakes; without one this test cannot tell a tag pass from a coincidence"
     );
     assert_eq!(
         tagged_snakes, want_snakes,
         "{want_snakes} actors have a snake brain but {tagged_snakes} carry SnakeShell — \
          an untagged snake is an enemy that cannot be stomped and does not report it"
-    );
-    assert_eq!(
-        tagged_slop, want_slop,
-        "{want_slop} actors have a slop brain but {tagged_slop} carry AiSlop"
     );
 }
 

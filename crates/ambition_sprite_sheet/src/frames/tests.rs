@@ -20,6 +20,7 @@ fn row(animation: &str, row_index: u32, page: u32, rects: Vec<FrameRect>) -> She
         duration_ms: 100,
         duration_secs: 0.1,
         page,
+        mirror_of: None,
         rects,
     }
 }

@@ -83,6 +83,19 @@ pub(crate) fn apply_character_frame(
         barking,
     );
     animator.slave_clip_to(clip.and_then(|request| request.phase));
+    // Gravity-aware facing flip: a ~180° up-gravity roll already mirrors the
+    // sprite, so the flip inverts (#33). The flip is XORed with the sheet's
+    // authored facing (`authored_faces_left`), the same term `animate_bosses`
+    // uses. This makes left-drawn rigs such as the Patent Clerk face the way
+    // they move.
+    let flip = ambition_sprite_sheet::art_is_mirrored(
+        animator.spec.authored_faces_left(),
+        facing,
+        gravity_dir,
+    );
+    // A sheet drawn from both sides answers the flip with its mirror rows, so
+    // the texture is flipped only for a character that is left-right symmetric.
+    let flip = animator.face(flip);
     let index = animator.tick(dt);
     // Split sheets: select the page image the active animation draws from.
     // Single-page sheets (the common case) skip this entirely, so their
@@ -100,16 +113,6 @@ pub(crate) fn apply_character_frame(
     if let Some(atlas) = sprite.texture_atlas.as_mut() {
         atlas.index = index;
     }
-    // Gravity-aware facing flip: a ~180° up-gravity roll already mirrors the
-    // sprite, so the flip inverts (#33). The flip is XORed with the sheet's
-    // authored facing (`authored_faces_left`), the same term `animate_bosses`
-    // uses. This makes left-drawn rigs such as the Patent Clerk face the way
-    // they move.
-    let flip = ambition_sprite_sheet::art_is_mirrored(
-        animator.spec.authored_faces_left(),
-        facing,
-        gravity_dir,
-    );
     sprite.flip_x = flip;
     sprite.color = color;
     // Compatibility fallback for legacy sprite construction. Normal construction

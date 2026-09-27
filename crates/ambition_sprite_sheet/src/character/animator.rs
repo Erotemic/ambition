@@ -38,6 +38,9 @@ pub struct CharacterAnimator {
     /// (`floor(phase * frames)`) instead of the sheet's frame clock. Set each
     /// frame by [`Self::slave_clip_to`]; cleared by any new request.
     clip_phase: Option<f32>,
+    /// Drawing the current row's MIRROR row (the character seen from its other
+    /// side) instead of flipping it. Set each frame by [`Self::face`].
+    mirrored: bool,
     pub frame: usize,
     pub elapsed: f32,
     /// Once a non-looping clip (Slash/Hit/Death) finishes its last frame
@@ -65,6 +68,7 @@ impl CharacterAnimator {
             // No move is playing on a body that has just been built.
             clip_slot: None,
             clip_phase: None,
+            mirrored: false,
             frame: 0,
             elapsed: 0.0,
             clip_held: false,
@@ -95,11 +99,14 @@ impl CharacterAnimator {
             return None;
         }
         let basis = self.render_basis.as_ref()?;
-        let trim = match self.clip_slot {
-            Some(slot) => self.spec.frame_trim_at(slot, self.frame),
-            None => self.spec.frame_trim(self.current, self.frame),
-        };
-        Some(trimmed_render(&trim, basis.render_size, basis.feet_anchor))
+        let trim = self.spec.frame_trim_at(self.drawn_slot(), self.frame);
+        // A mirror row is the whole frame mirrored, so its feet sit at the
+        // mirrored anchor: the same answer a flip of the authored row gives.
+        let mut anchor = basis.feet_anchor;
+        if self.mirrored {
+            anchor.x = -anchor.x;
+        }
+        Some(trimmed_render(&trim, basis.render_size, anchor))
     }
 
     /// True when the sheet has more than one page image, so the renderer must
@@ -118,20 +125,52 @@ impl CharacterAnimator {
     /// `None` when the sheet has no row for the current pose. The caller must
     /// then draw nothing, not guess a row.
     pub fn drawn_row(&self) -> Option<usize> {
-        match self.clip_slot {
+        let authored = match self.clip_slot {
             Some(slot) => Some(slot),
             None => self.spec.row_for_anim(self.current),
+        }?;
+        Some(self.mirror_of(authored))
+    }
+
+    /// The row slot the authored drawing comes from (clip or pose), before
+    /// facing.
+    fn authored_slot(&self) -> usize {
+        self.clip_slot
+            .unwrap_or_else(|| self.spec.slot_for_anim(self.current))
+    }
+
+    /// `slot`, or its mirror row while drawing the other side.
+    fn mirror_of(&self, slot: usize) -> usize {
+        if self.mirrored {
+            self.spec.mirror_slot(slot).unwrap_or(slot)
+        } else {
+            slot
         }
+    }
+
+    /// The row slot actually drawn this frame.
+    fn drawn_slot(&self) -> usize {
+        self.mirror_of(self.authored_slot())
+    }
+
+    /// Face the drawing. `flip` is whether the renderer would mirror the art;
+    /// the answer is whether it STILL must.
+    ///
+    /// A sheet drawn from both sides (`SheetRow::mirror_of`) answers a flip by
+    /// drawing the mirror row, so an asymmetric character keeps its asymmetry
+    /// on the correct side; every other sheet is flipped as before. Call after
+    /// the frame's request and before [`Self::tick`].
+    pub fn face(&mut self, flip: bool) -> bool {
+        self.mirrored = flip && self.spec.mirror_slot(self.authored_slot()).is_some();
+        flip && !self.mirrored
     }
 
     /// The page image index the current frame draws from (per-frame, since a
     /// packed animation can span pages).
     pub fn current_page(&self) -> u32 {
-        match self.clip_slot {
-            // A clip row can be on a different page than the semantic pose.
-            Some(slot) => self.spec.page_of_at(slot, self.frame),
-            None => self.spec.page_of(self.current, self.frame),
-        }
+        // A clip row can be on a different page than the semantic pose, and a
+        // mirror row on a different page than its original.
+        self.spec.page_of_at(self.drawn_slot(), self.frame)
     }
 
     pub fn request(&mut self, anim: CharacterAnim) {
@@ -234,16 +273,21 @@ impl CharacterAnimator {
 
     /// Advance the animation. Returns the flat atlas index for the current frame.
     pub fn tick(&mut self, dt: f32) -> usize {
+        self.advance(dt);
+        // Whatever advanced, the index is the row actually DRAWN: the authored
+        // row, or its mirror while the character shows its other side.
+        self.spec.flat_index_at(self.drawn_slot(), self.frame)
+    }
+
+    fn advance(&mut self, dt: f32) {
         // An authored clip is keyed by row; all else by pose.
         if let Some(slot) = self.clip_slot {
-            return self.tick_slot(slot, dt);
+            self.advance_slot(slot, dt);
+            return;
         }
         let row = self.spec.row(self.current);
-        if row.frame_count == 0 || row.duration_secs <= 0.0 {
-            return self.spec.flat_index(self.current, self.frame);
-        }
-        if self.clip_held {
-            return self.spec.flat_index(self.current, self.frame);
+        if row.frame_count == 0 || row.duration_secs <= 0.0 || self.clip_held {
+            return;
         }
         self.elapsed += dt;
         while self.elapsed >= row.duration_secs {
@@ -260,14 +304,13 @@ impl CharacterAnimator {
                 self.frame += 1;
             }
         }
-        self.spec.flat_index(self.current, self.frame)
     }
 
-    /// [`Self::tick`] for an authored clip, keyed by its resolved row slot.
+    /// [`Self::advance`] for an authored clip, keyed by its resolved row slot.
     ///
     /// An authored clip does not loop. The move's timeline owns its length, so
     /// the drawing holds the last frame, as `non_looping` does for attack poses.
-    fn tick_slot(&mut self, slot: usize, dt: f32) -> usize {
+    fn advance_slot(&mut self, slot: usize, dt: f32) {
         let row = self.spec.row_at(slot);
         if let (Some(phase), true) = (self.clip_phase, row.frame_count > 0) {
             // Slaved to the move: the row spans the move's duration exactly.
@@ -275,10 +318,10 @@ impl CharacterAnimator {
             self.frame = frame.min(row.frame_count - 1);
             self.elapsed = 0.0;
             self.clip_held = self.frame + 1 == row.frame_count;
-            return self.spec.flat_index_at(slot, self.frame);
+            return;
         }
         if row.frame_count == 0 || row.duration_secs <= 0.0 || self.clip_held {
-            return self.spec.flat_index_at(slot, self.frame);
+            return;
         }
         self.elapsed += dt;
         while self.elapsed >= row.duration_secs {
@@ -290,6 +333,5 @@ impl CharacterAnimator {
             }
             self.frame += 1;
         }
-        self.spec.flat_index_at(slot, self.frame)
     }
 }

@@ -146,6 +146,7 @@ fn fsm_record(frame_w: u32, frame_h: u32, label_w: u32) -> ambition_sprite_sheet
             duration_ms: 100,
             duration_secs: 0.1,
             page: 0,
+            mirror_of: None,
             rects: (0..*n)
                 .map(|col| FrameRect {
                     x: (label_w + col * frame_w) as i32,

@@ -32,6 +32,22 @@ impl CharacterSheetSpec {
             .expect("character sprite sheet must define an Idle row")
     }
 
+    /// The row slot a semantic pose draws from (after the pose ladder).
+    pub fn slot_for_anim(&self, anim: CharacterAnim) -> usize {
+        self.record_row(anim)
+    }
+
+    /// The row drawn instead of flipping `slot`: the same frames seen from the
+    /// character's other side. `None` when the sheet authors no mirror for it.
+    pub fn mirror_slot(&self, slot: usize) -> Option<usize> {
+        self.mirror_slots.get(slot).copied().flatten()
+    }
+
+    /// True when this sheet was drawn from both sides.
+    pub fn has_mirror_rows(&self) -> bool {
+        !self.mirror_slots.is_empty()
+    }
+
     /// True when this sheet maps `anim` to a row (after no fallback).
     pub fn maps(&self, anim: CharacterAnim) -> bool {
         self.anim_rows.iter().any(|(a, _)| *a == anim)

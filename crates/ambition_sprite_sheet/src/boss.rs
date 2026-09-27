@@ -246,6 +246,7 @@ impl BossSheetSpec {
                 duration_ms: (row.duration_secs * 1000.0) as u32,
                 duration_secs: row.duration_secs,
                 page: 0,
+                mirror_of: None,
                 rects: Vec::new(),
             })
             .collect();

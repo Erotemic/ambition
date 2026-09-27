@@ -282,6 +282,11 @@ impl SpritePackCatalog {
                 // Freely packed: each rect's `page` is authoritative; the row
                 // page is only the default.
                 page: rects.first().map(|r| r.page).unwrap_or(0),
+                // ⚠ A pack does not carry mirror rows' pairing, so a character
+                // drawn from a pack falls back to flipping its authored rows —
+                // correct for every symmetric character, and the pre-mirror
+                // behaviour for the rest.
+                mirror_of: None,
                 rects,
             });
         }

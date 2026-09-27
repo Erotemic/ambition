@@ -840,3 +840,89 @@ fn a_clip_slaved_to_a_move_is_drawn_at_the_moves_progress() {
     posed.slave_clip_to(Some(0.9));
     assert_eq!(posed.tick(dt), spec.flat_index(CharacterAnim::Idle, 0));
 }
+
+/// A sheet drawn from both sides answers a flip with its MIRROR row.
+///
+/// The player robot's antenna rises from one ear, so flipping the authored row
+/// moved it to the other; the sheet publishes each row a second time drawn
+/// from the robot's other side (`mirror_of`). Facing the non-authored way must
+/// draw that row, unflipped, with the feet anchor mirrored — and a sheet with
+/// no mirror rows must keep flipping exactly as before.
+#[test]
+fn a_mirror_row_is_drawn_instead_of_flipping_its_original() {
+    use crate::character::{CharacterAnimator, CharacterSpritePage};
+
+    let ron_text = r#"
+        (
+            target: "synthetic_asymmetric",
+            image: "synthetic_asymmetric.png",
+            label_width: 0,
+            frame_width: 64,
+            frame_height: 64,
+            rows: [
+                (animation: "idle", row_index: 0, frame_count: 2, duration_ms: 100, duration_secs: 0.1,
+                 rects: [
+                    (x: 0, y: 0, w: 20, h: 40, off: (10, 20)),
+                    (x: 32, y: 0, w: 20, h: 40, off: (10, 20)),
+                 ]),
+                (animation: "idle~mirrored", row_index: 1, frame_count: 2, duration_ms: 100,
+                 duration_secs: 0.1, mirror_of: Some("idle"),
+                 rects: [
+                    (x: 0, y: 64, w: 20, h: 40, off: (34, 20)),
+                    (x: 32, y: 64, w: 20, h: 40, off: (34, 20)),
+                 ]),
+            ],
+        )
+    "#;
+    let record: SheetRecord = ron::from_str(ron_text).expect("synthetic record parses");
+    let spec = spec_from_record(&record, &SheetTuning::new(1.0, 1));
+    let asset = CharacterSpriteAsset {
+        texture: Default::default(),
+        layout: Default::default(),
+        spec: spec.clone(),
+        pages: vec![CharacterSpritePage {
+            texture: Default::default(),
+            layout: Default::default(),
+        }],
+        requested_tier: Default::default(),
+        resolved_tier: Default::default(),
+    };
+    let base_size = Vec2::new(64.0, 64.0);
+    let base_anchor = Vec2::new(0.1, -0.4);
+
+    // Facing the authored way: the authored row, no flip.
+    let mut right = CharacterAnimator::new(&asset);
+    right.ensure_render_basis(base_size, base_anchor);
+    right.request(CharacterAnim::Idle);
+    assert!(!right.face(false));
+    assert_eq!(right.tick(0.0), spec.flat_index_at(0, 0));
+
+    // Facing the other way: the MIRROR row, and no texture flip.
+    let mut left = CharacterAnimator::new(&asset);
+    left.ensure_render_basis(base_size, base_anchor);
+    left.request(CharacterAnim::Idle);
+    assert!(!left.face(true), "a mirrored row must not also be flipped");
+    assert_eq!(left.tick(0.0), spec.flat_index_at(1, 0), "draws the mirror row");
+    assert_eq!(left.drawn_row(), Some(1));
+
+    // The mirrored frame lands where a flip of the authored frame would: the
+    // authored render's anchor, x negated.
+    let (size_r, anchor_r) = right.current_render().expect("trimmed");
+    let (size_l, anchor_l) = left.current_render().expect("trimmed");
+    assert_eq!(size_r, size_l);
+    assert!((anchor_l.x + anchor_r.x).abs() < 1e-5, "{anchor_l:?} vs {anchor_r:?}");
+    assert!((anchor_l.y - anchor_r.y).abs() < 1e-5);
+
+    // A clip row with no mirror still flips.
+    let symmetric = spec_from_record(
+        &ron::from_str::<SheetRecord>(
+            &ron_text.replace("mirror_of: Some(\"idle\"),", ""),
+        )
+        .expect("parses"),
+        &SheetTuning::new(1.0, 1),
+    );
+    assert!(!symmetric.has_mirror_rows());
+    let mut plain = CharacterAnimator::new(&CharacterSpriteAsset { spec: symmetric, ..asset.clone() });
+    plain.request(CharacterAnim::Idle);
+    assert!(plain.face(true), "a sheet without mirror rows keeps flipping");
+}

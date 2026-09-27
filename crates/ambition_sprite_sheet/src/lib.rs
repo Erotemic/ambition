@@ -472,6 +472,14 @@ pub struct SheetRow {
     /// space, so two rows on different pages may legitimately share `y` values.
     #[serde(default)]
     pub page: u32,
+    /// The row this one is the MIRROR IMAGE of: the same frames drawn from the
+    /// character's other side, for a character whose two sides differ (the
+    /// player robot's antenna rises from ONE ear, so a flip moved it to the
+    /// other). When a body faces its sheet's non-authored side, the animator
+    /// draws this row instead of flipping the named one. `None` for every
+    /// ordinary row, and for every sheet of a symmetric character.
+    #[serde(default)]
+    pub mirror_of: Option<String>,
     #[serde(default)]
     pub rects: Vec<FrameRect>,
 }

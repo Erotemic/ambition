@@ -62,6 +62,10 @@ pub struct CharacterSheetSpec {
     /// the gameplay logic that will drive them) stay in `record` and still
     /// occupy atlas cells — they're just not selectable through this enum yet.
     anim_rows: Vec<(CharacterAnim, usize)>,
+    /// Per row slot: the slot of its MIRROR row (`SheetRow::mirror_of`), drawn
+    /// instead of flipping it. Empty for a sheet with no mirror rows, which is
+    /// every symmetric character.
+    mirror_slots: Vec<Option<usize>>,
     /// The published sheet record: the single source of per-frame rects, page
     /// assignment, and trim. Every atlas / flat-index / trim query delegates to
     /// its [`ambition_sprite_sheet`] frame algebra, so the character path shares
@@ -551,6 +555,24 @@ fn spec_from_record(record: &SheetRecord, tuning: &SheetTuning) -> CharacterShee
     // Page image filenames: the explicit `images` list when the sheet was
     // split, else the single `image` as the sole page-0 entry. Resolved
     // against the page-0 image's directory at load time.
+    // A mirror row pairs with its original only frame-for-frame; a malformed
+    // pairing is ignored, so that character falls back to flipping.
+    let mut mirror_slots = Vec::new();
+    for (idx, row) in record.rows.iter().enumerate() {
+        let Some(original) = row.mirror_of.as_deref() else {
+            continue;
+        };
+        let Some(orig) = record.rows.iter().position(|r| r.animation == original) else {
+            continue;
+        };
+        if record.rows[orig].frame_count != row.frame_count {
+            continue;
+        }
+        if mirror_slots.is_empty() {
+            mirror_slots = vec![None; record.rows.len()];
+        }
+        mirror_slots[orig] = Some(idx);
+    }
     let page_images = if record.images.is_empty() {
         vec![record.image.clone()]
     } else {
@@ -563,6 +585,7 @@ fn spec_from_record(record: &SheetRecord, tuning: &SheetTuning) -> CharacterShee
         frame_height: record.frame_height,
         page_images,
         anim_rows,
+        mirror_slots,
         record: record.clone(),
         collision_scale,
         feet_anchor_x,

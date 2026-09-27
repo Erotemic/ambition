@@ -83,6 +83,7 @@ mod tests {
                 duration_ms: 400,
                 duration_secs: 0.4,
                 page: 0,
+                mirror_of: None,
                 rects: Vec::new(),
             })
             .collect();

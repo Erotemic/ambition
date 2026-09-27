@@ -97,7 +97,7 @@ impl<T> Default for DeclaredRules<T> {
     }
 }
 
-impl<T: Copy + std::fmt::Debug> DeclaredRules<T> {
+impl<T: Clone + std::fmt::Debug> DeclaredRules<T> {
     /// State the rules for one scope.
     ///
     /// Panics on a second declaration of the same scope. Two games that claim
@@ -129,7 +129,7 @@ impl<T: Copy + std::fmt::Debug> DeclaredRules<T> {
             .iter()
             .filter(|(scope, _)| scope.governs(room))
             .min_by_key(|(scope, _)| scope.breadth())
-            .map(|(_, rules)| *rules)
+            .map(|(_, rules)| rules.clone())
     }
 
     /// Change the rules one scope states, in place. Returns `false` when no
@@ -154,7 +154,7 @@ impl<T: Copy + std::fmt::Debug> DeclaredRules<T> {
     /// Every declaration, for diagnostics and for the composition guard that
     /// reads them all at once.
     pub fn iter(&self) -> impl Iterator<Item = (RulesScope, T)> + '_ {
-        self.declarations.iter().copied()
+        self.declarations.iter().cloned()
     }
 }
 
@@ -163,13 +163,13 @@ pub trait DeclareRulesExt {
     /// See [`DeclaredRules::declare`].
     fn declare_rules<T>(&mut self, scope: RulesScope, rules: T) -> &mut Self
     where
-        T: Copy + std::fmt::Debug + Send + Sync + 'static;
+        T: Clone + std::fmt::Debug + Send + Sync + 'static;
 }
 
 impl DeclareRulesExt for App {
     fn declare_rules<T>(&mut self, scope: RulesScope, rules: T) -> &mut Self
     where
-        T: Copy + std::fmt::Debug + Send + Sync + 'static,
+        T: Clone + std::fmt::Debug + Send + Sync + 'static,
     {
         self.world_mut()
             .get_resource_or_insert_with(DeclaredRules::<T>::default)

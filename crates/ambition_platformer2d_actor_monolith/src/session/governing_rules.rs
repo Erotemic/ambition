@@ -36,12 +36,12 @@ impl CurrentRoom<'_, '_> {
 /// answer. A resolved-rules resource written each tick would be a second copy
 /// that rollback must also restore.
 #[derive(bevy::ecs::system::SystemParam)]
-pub struct GoverningRules<'w, 's, T: Copy + std::fmt::Debug + Send + Sync + 'static> {
+pub struct GoverningRules<'w, 's, T: Clone + std::fmt::Debug + Send + Sync + 'static> {
     declared: Option<Res<'w, DeclaredRules<T>>>,
     room: CurrentRoom<'w, 's>,
 }
 
-impl<T: Copy + std::fmt::Debug + Send + Sync + 'static> GoverningRules<'_, '_, T> {
+impl<T: Clone + std::fmt::Debug + Send + Sync + 'static> GoverningRules<'_, '_, T> {
     /// The rules in force for the active room, or `None` when no game stated
     /// them for it. With no session, only a whole-process (`EveryRoom`)
     /// declaration governs.

@@ -88,7 +88,7 @@ pub fn project_room_rule<T, R>(
     rule: ambition_platformer2d_actor_monolith::session::governing_rules::GoverningRules<T>,
     out: Option<ResMut<R>>,
 ) where
-    T: Copy + std::fmt::Debug + Send + Sync + 'static,
+    T: Clone + std::fmt::Debug + Send + Sync + 'static,
     R: Resource
         + bevy::ecs::component::Component<Mutability = bevy::ecs::component::Mutable>
         + PartialEq

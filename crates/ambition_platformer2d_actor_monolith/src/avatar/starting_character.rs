@@ -588,8 +588,14 @@ pub fn apply_worn_character_gameplay(
 pub struct WornControlGateSet;
 
 pub fn gate_body_control(
+    // The driven body also wears the techniques the active room's rules give it.
+    driven: crate::session::governing_rules::GoverningRules<
+        ambition_characters::action_scheme::DrivenTechniques,
+    >,
+    subject: Option<Res<ambition_platformer2d_shared_tangle::markers::ControlledSubject>>,
     mut bodies: Query<
         (
+            Entity,
             &ActionSet,
             // The body's live combat/ability authorities — the SAME inputs the
             // control-prompt read-model derives its labels from. The gate resolves
@@ -602,8 +608,8 @@ pub fn gate_body_control(
             // Sanctioned technique edges: when a slot resolves to `Technique`, the
             // gate routes the slot's device edge here (and clears the raw verb),
             // so a content technique reads THIS instead of intercepting a raw
-            // combat press. `Option` — only technique-bearing bodies carry it.
-            Option<&mut ambition_characters::action_scheme::ResolvedTechniqueEdges>,
+            // combat press. `ActionSet` requires it.
+            &mut ambition_characters::action_scheme::ResolvedTechniqueEdges,
             Has<ambition_characters::brain::ChargesProjectiles>,
             // Holding an item REPURPOSES the attack verb (the pickup stashes the
             // melee kit precisely so item-use fires instead), so the persona
@@ -613,38 +619,41 @@ pub fn gate_body_control(
         ),
     >,
 ) {
-    use ambition_characters::action_scheme::{derive_action_scheme, resolve_control_slots};
+    use ambition_characters::action_scheme::{
+        derive_action_scheme, resolve_control_slots, techniques_of,
+    };
 
+    let driven = driven.get();
+    let subject = subject.and_then(|subject| subject.0);
     for (
+        entity,
         actions,
         abilities,
         moveset,
         techniques,
         mut control,
-        mut tech_edges,
+        mut edges,
         has_charge_marker,
         holds_item,
     ) in &mut bodies
     {
         // THE shared resolver — byte-identical to the call the ControlPrompt
         // producer makes on the same immediate authorities.
+        let techniques = techniques_of(
+            techniques,
+            driven.as_ref().filter(|_| subject == Some(entity)),
+        );
         let scheme = derive_action_scheme(
             &abilities.abilities,
             moveset.map(|m| &m.0),
             Some(actions),
-            techniques.map_or(&[], |t| t.0.as_slice()),
+            &techniques,
         );
 
         // Per-slot dispatch: route every technique to its sanctioned edge, strip
         // the verbs the scheme doesn't own (Attack/Special/Projectile), and keep
-        // the moveset `Move`s. A technique-bearing body always has
-        // `ResolvedTechniqueEdges` (required by `ActorTechniques`), so nothing is
-        // dropped for a missing sink; the local fallback only ever backs a body
-        // with no techniques (nothing routes into it).
-        let mut fallback_edges =
-            ambition_characters::action_scheme::ResolvedTechniqueEdges::default();
-        let edges = tech_edges.as_deref_mut().unwrap_or(&mut fallback_edges);
-        let unroutable = resolve_control_slots(&scheme, &mut control.0, edges, holds_item);
+        // the moveset `Move`s.
+        let unroutable = resolve_control_slots(&scheme, &mut control.0, &mut *edges, holds_item);
         debug_assert!(
             unroutable.is_empty(),
             "action scheme declared a technique on a slot the combat gate cannot route \

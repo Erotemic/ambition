@@ -929,6 +929,14 @@ impl Plugin for SanicRulesPlugin {
                     hostile_wake_radius: badnik::BADNIK_WAKE_RADIUS,
                 },
             );
+            // Whoever the player drives here can spin dash and transform.
+            app.declare_rules(
+                scope,
+                ambition_platformer2d::characters::action_scheme::DrivenTechniques(vec![
+                    ball_dash::spin_dash_technique(),
+                    transform_technique(),
+                ]),
+            );
         }
         app.init_resource::<ambition_platformer2d::world::FeatureEcsWorldOverlay>();
         use bevy::prelude::IntoScheduleConfigs;
@@ -943,7 +951,6 @@ impl Plugin for SanicRulesPlugin {
         // from also toggling a host flight ability.
         let sanic_pre_gate = (
             ball_dash::attach_ball_dash,
-            declare_sanic_techniques,
             // After a clear the goal takes the stick and brakes him, so he
             // does not coast off the end during his results card.
             take_the_controls_at_the_goal,
@@ -1117,56 +1124,6 @@ fn emit_sanic_skid_sfx(
 /// control: `ActionSpec::display` title-cases it to "Transform". No
 /// `display_name` override, so the label cannot drift from the id.
 const TRANSFORM_TECHNIQUE_ID: &str = "transform";
-
-/// Sanic's technique declarations: their names and controls. One writer for
-/// the whole set, upserting by slot, so no two systems race on
-/// `ActorTechniques`.
-fn declare_sanic_techniques(
-    mut commands: bevy::prelude::Commands,
-    subject: Option<
-        bevy::prelude::Res<ambition_platformer2d::platformer::markers::ControlledSubject>,
-    >,
-    mut bodies: bevy::prelude::Query<
-        Option<&mut ambition_platformer2d::characters::action_scheme::ActorTechniques>,
-        bevy::prelude::With<ae::BodyKinematics>,
-    >,
-) {
-    use ambition_platformer2d::entity_catalog::action_scheme as sch;
-
-    let Some(entity) = subject.and_then(|subject| subject.0) else {
-        return;
-    };
-    let Ok(techniques) = bodies.get_mut(entity) else {
-        return;
-    };
-    let declared = [ball_dash::spin_dash_technique(), transform_technique()];
-    match techniques {
-        Some(mut techniques) => {
-            // Skip the write in steady state; it would tick change detection
-            // and re-derive the scheme every frame.
-            let current: Vec<&sch::ActionSpec> = declared
-                .iter()
-                .filter_map(|spec| techniques.0.iter().find(|a| a.slot == spec.slot))
-                .collect();
-            if current.len() == declared.len()
-                && current.iter().zip(declared.iter()).all(|(a, b)| *a == b)
-            {
-                return;
-            }
-            for spec in declared {
-                techniques.0.retain(|a| a.slot != spec.slot);
-                techniques.0.push(spec);
-            }
-        }
-        None => {
-            commands.entity(entity).try_insert(
-                ambition_platformer2d::characters::action_scheme::ActorTechniques(
-                    declared.to_vec(),
-                ),
-            );
-        }
-    }
-}
 
 /// The transformation's identity in the action scheme: a technique on the
 /// mode-switch slot, which is where its input already lived.

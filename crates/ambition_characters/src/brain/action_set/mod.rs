@@ -24,7 +24,13 @@ use bevy::ecs::component::Component;
 ///
 /// Construct via [`ActionSet::peaceful`] for a "no attacks" baseline
 /// and override only the slots that exist for this actor.
+///
+/// Requires [`ResolvedTechniqueEdges`](crate::action_scheme::ResolvedTechniqueEdges):
+/// the control gate routes every body that has an action set, and a technique
+/// can come from the rules as well as from the body, so each such body needs
+/// somewhere to receive a technique's edge.
 #[derive(Component, Clone, Debug, Default, PartialEq, serde::Serialize)]
+#[require(crate::action_scheme::ResolvedTechniqueEdges)]
 pub struct ActionSet {
     /// What `frame.melee_pressed = true` resolves to. `None` means
     /// the actor has no melee at all (peaceful patroller, puppy slug,

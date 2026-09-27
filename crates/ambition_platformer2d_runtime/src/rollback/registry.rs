@@ -804,7 +804,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// ⛔⛤ 240 -> 241: `ability.cooldown` joins. A blink or a grapple inserts the
 /// body's movement-ability cooldown on first use, and the cooldown decides
 /// whether the next use fires. It was outside the rollback set.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 241;
+/// ⛔⛤ 241 -> 242: `marker.post_boss_npc` and `content.cut_rope_victory_npc`
+/// join. The simulation spawns a defeated boss's celebrant with both markers:
+/// one is the spawn guard, and the attempt reset retires by the other.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 242;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

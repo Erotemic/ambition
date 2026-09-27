@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v241
+ggrs-rollback-schema-v242
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -116,6 +116,7 @@ component.construction_transaction_id	component-canonical-custom-checksum	Transa
 component.projectile_owner	component-clone	ProjectileOwner	bevy_ggrs clone snapshot; entity handle remapped, probed through the target's stable sim identity
 content.apple_rain_spawn_state	component-canonical	AppleRainSpawnState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 content.cut_rope_heavy_object_cycle	resource-clone-custom-checksum	CutRopeHeavyObjectCycle	bevy_ggrs clone snapshot + heavy-object cycle index
+content.cut_rope_victory_npc	component-clone	SmirkingBehemothVictoryNpc	bevy_ggrs clone snapshot; not in the session checksum
 content.echo_fan_state	component-canonical	EchoFanState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 content.exploding_gradient_state	component-canonical	ExplodingGradientState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 content.eye_beam_state	component-canonical	EyeBeamState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
@@ -297,6 +298,7 @@ map.strike_volume	entity-mapping	StrikeVolume	bevy_ggrs LoadWorld entity-referen
 marker.feature_sim_entity	component-clone	FeatureSimEntity	bevy_ggrs clone snapshot; not in the session checksum
 marker.player_entity	component-clone	PlayerEntity	bevy_ggrs clone snapshot; not in the session checksum
 marker.posed_body	component-clone	PosedBody	bevy_ggrs clone snapshot; not in the session checksum
+marker.post_boss_npc	component-clone	PostBossNpc	bevy_ggrs clone snapshot; not in the session checksum
 marker.primary_body	component-clone	PrimaryBody	bevy_ggrs clone snapshot; not in the session checksum
 marker.primary_player	component-clone	PrimaryPlayer	bevy_ggrs clone snapshot; not in the session checksum
 marker.runtime_staged_actor	component-clone	RuntimeStagedActor	bevy_ggrs clone snapshot; not in the session checksum

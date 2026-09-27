@@ -286,6 +286,13 @@ pub fn register_rollback_state(
             "ambition_content::bosses",
             "map.content.gnu_ton_conductor",
         );
+    // The cut-rope celebrant's identity. The victory road spawns it only when
+    // none has this marker, so a restored celebrant without it would be
+    // spawned a second time.
+    registrar.rollback_component_clone::<SmirkingBehemothVictoryNpc>(
+        "ambition_content::bosses",
+        "content.cut_rope_victory_npc",
+    );
     specials::register_rollback_state(registrar);
 }
 

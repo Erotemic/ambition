@@ -628,6 +628,51 @@ fn every_component_on_a_body_that_blinked_is_registered_derived_or_waived() {
     assert_components_accounted(&mut sim, "blink_run (after one blink)");
 }
 
+/// A defeated boss leaves a celebrant behind: `spawn_cut_rope_victory_npc`
+/// spawns it in the simulation, and its markers decide whether another spawns
+/// and what an attempt reset retires. It exists only after a victory, so no
+/// sweep of the arena at rest sees it. The save road (the placement reads
+/// cleared) is the one a player takes when they come back after winning.
+#[test]
+fn every_component_on_a_boss_victory_npc_is_registered_derived_or_waived() {
+    use ambition_platformer2d::persistence::save::AmbitionGameSave;
+    use ambition_platformer2d::persistence::save_data::PersistedEncounterState;
+
+    let mut sim = Platformer2dSimHarness::new_with_options(
+        ambition_app::rl_sim::Platformer2dSimHarnessOptions::default()
+            .with_timestep(TimestepMode::fixed_60hz())
+            .with_required_start_room("you_have_to_cut_the_rope"),
+    )
+    .expect("the cut-rope room builds headlessly");
+    let ids: Vec<String> = {
+        let world = sim.world_mut();
+        let mut q = world.query::<&ambition_platformer2d::boss_encounter::BossConfig>();
+        q.iter(world).map(|config| config.id.clone()).collect()
+    };
+    assert!(!ids.is_empty(), "the cut-rope room published no boss placement");
+    {
+        let mut save = sim.world_mut().resource_mut::<AmbitionGameSave>();
+        for id in &ids {
+            save.data_mut()
+                .set_boss(id.clone(), PersistedEncounterState::Cleared);
+        }
+    }
+    for _ in 0..30 {
+        sim.step(AgentAction::default());
+    }
+    let celebrants = {
+        let world = sim.world_mut();
+        let mut q = world.query_filtered::<(), With<ambition_platformer2d::combat::components::PostBossNpc>>();
+        q.iter(world).count()
+    };
+    assert!(
+        celebrants > 0,
+        "no victory NPC spawned for the cleared placements {ids:?}, so this sweep \
+         inspected nothing it is named for"
+    );
+    assert_components_accounted(&mut sim, "you_have_to_cut_the_rope (after the victory)");
+}
+
 /// Every sweep above inspects a room at rest, and a moveset strike volume exists
 /// only inside its authored active window — a handful of ticks. Those entities carry
 /// `Hitbox`, `HitboxHits`, `StrikeVolume` and optionally `HitboxOnHit`, and NONE of

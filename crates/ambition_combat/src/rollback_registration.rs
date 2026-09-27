@@ -268,6 +268,13 @@ where
         OWNER,
         "marker.runtime_staged_actor",
     );
+    // A defeated boss's celebrant is spawned by the simulation, and the attempt
+    // reset retires it by this marker. A restored celebrant without it would
+    // survive the replay of the fight it celebrates.
+    registrar.rollback_component_clone::<crate::components::PostBossNpc>(
+        OWNER,
+        "marker.post_boss_npc",
+    );
     registrar.declare_rollback_derived_resource::<crate::rules::ResolvedCombatTuning>(
         OWNER,
         "derived.resolved_combat_tuning",

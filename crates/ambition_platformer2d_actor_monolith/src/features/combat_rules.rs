@@ -27,14 +27,12 @@ pub fn project_combat_rules(
     baseline_feel: Option<Res<ambition_combat::feel::Platformer2dFeelTuningMonolith>>,
     baseline_ff: Option<Res<ambition_combat::targeting::FriendlyFire>>,
 ) {
-    // `Option` on both baselines for the same reason every other reader has it:
-    // a minimal headless world that never stands up the tuning resources still
-    // resolves, to the engine defaults rather than to nothing.
-    let baseline_di = baseline_feel.map(|f| f.di_max_angle).unwrap_or_default();
-    let baseline_ff = baseline_ff.map(|f| f.enabled).unwrap_or_default();
-    commands.insert_resource(ambition_combat::rules::ResolvedCombatTuning::resolve(
+    // `Option` on both baselines: a minimal headless world that never stands
+    // up the tuning resources still resolves, and `resolve_over` says what an
+    // absent baseline stands at.
+    commands.insert_resource(ambition_combat::rules::ResolvedCombatTuning::resolve_over(
         declared.map(|d| d.clone()),
-        baseline_di,
-        baseline_ff,
+        baseline_feel.as_deref(),
+        baseline_ff.as_deref(),
     ));
 }

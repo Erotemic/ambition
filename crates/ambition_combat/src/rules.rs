@@ -530,6 +530,22 @@ impl ResolvedCombatTuning {
             .min(self.grab_hold_max_seconds)
     }
 
+    /// The fold over the baseline resources a world has. An absent baseline
+    /// resource stands at its type's default, so a world without the tuning
+    /// resources resolves the same as one with them untouched.
+    pub fn resolve_over(
+        declared: Option<DeclaredCombatRules>,
+        baseline_feel: Option<&crate::feel::Platformer2dFeelTuningMonolith>,
+        baseline_ff: Option<&crate::targeting::FriendlyFire>,
+    ) -> Self {
+        let baseline_di = baseline_feel.map_or_else(
+            || crate::feel::Platformer2dFeelTuningMonolith::default().di_max_angle,
+            |feel| feel.di_max_angle,
+        );
+        let baseline_ff = baseline_ff.copied().unwrap_or_default().enabled;
+        Self::resolve(declared, baseline_di, baseline_ff)
+    }
+
     /// The fold: a declaration wins outright, the baseline stands otherwise.
     pub fn resolve(
         declared: Option<DeclaredCombatRules>,
@@ -671,53 +687,32 @@ impl ResolvedCombatTuning {
 }
 
 impl Default for ResolvedCombatTuning {
-    /// The engine baseline: no directional influence, no friendly fire. Exists so
-    /// a composition that never installs the projection still resolves rather
-    /// than reading `None` as "zero rules".
+    /// What a world that declared nothing and installed no baseline resources
+    /// resolves to: the fold over the baselines' own defaults. A composition
+    /// that never installs the projection still resolves, rather than reading
+    /// `None` as "zero rules".
     fn default() -> Self {
-        Self {
-            di_max_angle: crate::feel::Platformer2dFeelTuningMonolith::default().di_max_angle,
-            // Every hit barks, which is what every body did before the knob.
-            bark_chance: 1.0,
-            ledge_trump_pop: 0.0,
-            ledge_occupancy: LedgeOccupancy::Trump,
-            double_jump_cancel: false,
-            knockback_growth: 0.0,
-            downward_hit: DownwardHitStyle::Pogo,
-            meteor_lock_time: 0.0,
-            rage_per_damage: 0.0,
-            rage_max_scale: 1.0,
-            stale_step: 0.0,
-            stale_floor: 1.0,
-            // inert without staling or growth to act on, and `1.0` each is the
-            // law as first written — see the `resolve(None, ..)` arm above,
-            // which this impl exists to agree with.
-            stale_knockback_influence: 1.0,
-            victim_percent_knockback_scale: 1.0,
-            // ⛔ THIS MUST AGREE WITH THE `resolve(None, ..)` ARM, which is what
-            // this impl says about itself — and naming the identity rather than
-            // spelling its three numbers is what keeps the two from drifting.
-            growth_base: GrowthBaseCurve::IDENTITY,
-            crouch_cancel_scale: 1.0,
-            hit_repeat_window_scale: 1.0,
-            grab_hold_base_seconds: FLAT_GRAB_HOLD_SECONDS,
-            grab_hold_per_damage: 0.0,
-            grab_hold_max_seconds: FLAT_GRAB_HOLD_SECONDS,
-            grab_mash_seconds: FLAT_GRAB_MASH_SECONDS,
-            friendly_fire: false,
-            clank_damage_window: 0.0,
-            clank_rebound_speed: 0.0,
-            edge_cancel_recovery: false,
-            special_turn: false,
-            special_turn_reverses_drift: false,
-            sudden_death_damage: None,
-        }
+        Self::resolve_over(None, None, None)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// An absent baseline resource stands at its type's default: a world that
+    /// installed the tuning resources and left them alone resolves the same as
+    /// a world without them, and both are `Default`.
+    #[test]
+    fn a_world_without_its_baselines_resolves_as_one_with_them_untouched() {
+        let untouched = ResolvedCombatTuning::resolve_over(
+            None,
+            Some(&crate::feel::Platformer2dFeelTuningMonolith::default()),
+            Some(&crate::targeting::FriendlyFire::default()),
+        );
+        assert_eq!(ResolvedCombatTuning::resolve_over(None, None, None), untouched);
+        assert_eq!(ResolvedCombatTuning::default(), untouched);
+    }
 
     /// The curve every Ambition room outside the smash demo plays under is a
     /// NO-OP, and that is checked at bases spanning the whole roster rather
@@ -736,12 +731,6 @@ mod tests {
             ResolvedCombatTuning::resolve(None, 0.12, false).growth_base,
             GrowthBaseCurve::IDENTITY,
             "an undeclared world resolved to something other than the identity"
-        );
-        assert_eq!(
-            ResolvedCombatTuning::default().growth_base,
-            GrowthBaseCurve::IDENTITY,
-            "the hand-written Default disagrees with resolve(None, ..) — the \
-             two identities this file keeps in step have drifted"
         );
     }
 
@@ -964,12 +953,10 @@ mod tests {
             ResolvedCombatTuning::resolve(None, 0.12, false),
             ResolvedCombatTuning {
                 di_max_angle: 0.12,
-                // ⭐ SPELLED OUT RATHER THAN DEFAULTED, and that is the point of
-                // this assertion: it compares the FOLD's undeclared answer
-                // against a literal, so a new knob whose `resolve(None, ..)` arm
-                // disagrees with its `Default` shows up here as a failure
-                // instead of agreeing with itself. `1.0` each is the law as
-                // first written — see the None arm above.
+                // ⭐ SPELLED OUT RATHER THAN DEFAULTED: `Default` IS this fold,
+                // so only a literal can pin what an undeclared world plays
+                // under. `1.0` each is the law as first written — see the None
+                // arm above.
                 stale_knockback_influence: 1.0,
                 victim_percent_knockback_scale: 1.0,
                 // ...and identity for the base-referenced kill curve, which is

@@ -41,20 +41,22 @@ const ROOM: &str = "combat_calibration_lab";
 ///
 /// ⭐ AGE SINCE CONSTRUCTION, NOT SINCE BOOT. A budget counted from the start of
 /// each arm samples the two rooms at different ages, because a replay commits
-/// its room several frames in. Each arm waits for its OWN commit and then ages
-/// by this many frames — long enough for a brain to have chosen a direction, so
-/// a reconstruction that hands back a stale one is visible.
+/// its room several frames in. Each arm counts the live frames its OWN room has
+/// simulated, from the step that built it — long enough for a brain to have
+/// chosen a direction, so a reconstruction that hands back a stale one is
+/// visible.
 ///
-/// The sub-frame residue that no whole-frame budget can remove is absorbed by
-/// [`POSITION_TOLERANCE`], and by nothing else.
+/// Two rooms of the same age stand at the same positions to the bit, so
+/// positions compare exactly. A position that differs is a room that is older
+/// or younger, or one that was built differently; see
+/// [`settle_after_construction`].
 const MATURITY: usize = 8;
 
 // ── the instrument ───────────────────────────────────────────────────────────
 
 /// What a reconstruction owes ONE authored authoritative entity.
 ///
-/// Split into a position and a set of exact facts because the two compare
-/// differently — see [`assert_same_population`].
+/// Every fact compares exactly — see [`assert_same_population`].
 #[derive(Clone, Debug, Default, PartialEq)]
 struct Facts {
     /// Where the thing is. A body's own kinematics when it has them, otherwise
@@ -74,24 +76,10 @@ struct Facts {
 /// The authored authoritative population, keyed by `SimId`.
 type Census = BTreeMap<String, Facts>;
 
-/// How far two correctly-reconstructed bodies may stand apart.
-///
-/// ⭐ ONE FRAME OF THE FASTEST AUTHORED PATROL, and it buys exactly one thing:
-/// a boot builds its room before the first frame while a rebuild commits partway
-/// through one, so two identically-constructed populations get different
-/// fractions of a frame of motion. Measured at 0.5px on this room's walking
-/// enemies, and at 1.33px (two ticks of a 40 px/s crawl) on its Puppy Slugs,
-/// which move from their first live tick: a boot's slug crawls on the frame
-/// the census starts counting while a rebuilt one is committed during it, and
-/// the rebuilt slug spends one live tick landing on the floor it was placed on.
-///
-/// ⛔ It is not a general slack. Every non-positional fact above is compared
-/// EXACTLY, and the defect this file was written against showed up as 34.6px
-/// plus a flipped facing — seventeen times this tolerance.
-const POSITION_TOLERANCE: f32 = 2.0;
-
-fn round(v: Vec2) -> String {
-    format!("({:.1},{:.1})", v.x, v.y)
+/// Shortest text that reads back to the same bits, because positions compare
+/// exactly and a rounded row could show two different values as one.
+fn place(v: Vec2) -> String {
+    format!("({},{})", v.x, v.y)
 }
 
 /// The authored room-scoped authoritative population and its reconstructed state.
@@ -241,20 +229,9 @@ impl Facts {
     fn render(&self) -> String {
         format!(
             "at={} {}",
-            self.at.map(round).unwrap_or_else(|| "-".to_string()),
+            self.at.map(place).unwrap_or_else(|| "-".to_string()),
             self.exact.join(" | ")
         )
-    }
-
-    /// Whether two reconstructions of the same identity agree. Positions within
-    /// [`POSITION_TOLERANCE`]; everything else exactly.
-    fn agrees_with(&self, other: &Self) -> bool {
-        let placed = match (self.at, other.at) {
-            (Some(a), Some(b)) => a.distance(b) <= POSITION_TOLERANCE,
-            (None, None) => true,
-            _ => false,
-        };
-        placed && self.exact == other.exact
     }
 }
 
@@ -275,7 +252,7 @@ fn assert_same_population(what: &str, expected: &Census, actual: &Census) {
         .collect::<BTreeSet<_>>()
     {
         match (expected.get(id), actual.get(id)) {
-            (Some(a), Some(b)) if a.agrees_with(b) => {}
+            (Some(a), Some(b)) if a == b => {}
             (Some(a), Some(b)) => lines.push(format!(
                 "  ~ {id}\n      fresh:  {}\n      after:  {}",
                 a.render(),
@@ -318,40 +295,46 @@ fn settle_after_construction(
     sim: &mut Platformer2dSimHarness,
     previous: &BTreeSet<Entity>,
 ) -> BTreeSet<Entity> {
-    let mut built = false;
-    for _ in 0..120 {
-        sim.step(base());
-        let now = population_entities(sim);
-        if !now.is_empty() && &now != previous {
-            built = true;
-            break;
-        }
-    }
-    assert!(
-        built,
-        "no room construction landed within 120 frames, so this arm never got          the population it is about to census"
-    );
-    let commit_tick = sim_tick(sim);
-    // Aged in LIVE ticks. A rebuild's commit is followed by a tick on which
-    // the transition still holds the sim clock at zero, which a boot's settle
-    // spent before this arm began counting; a frozen tick moves nothing, so
-    // counting it would sample the rebuilt room one tick of motion younger.
-    // Crawlers made it visible: they move from their first live tick, and a
-    // replayed slug stood 2px behind the fresh one.
+    // Aged in LIVE ticks the room has simulated, counted from the step that
+    // built it. A frozen tick moves nothing, and a rebuild's commit is
+    // followed by ticks on which the transition holds the sim clock at zero.
+    // A room that already stands was built by the caller's last step: the
+    // harness constructor's first step (SimTick 0) for a boot, the crossing
+    // step for a walk. That step is its first tick of age when it ran live.
+    let live = |sim: &Platformer2dSimHarness| {
+        sim.world()
+            .resource::<ambition_platformer2d::platformer::time::SimDt>()
+            .get()
+            > 0.0
+    };
     let mut aged = 0;
+    let standing = population_entities(sim);
+    if !standing.is_empty() && &standing != previous {
+        aged += usize::from(live(sim));
+    } else {
+        let mut built = false;
+        for _ in 0..120 {
+            sim.step(base());
+            let now = population_entities(sim);
+            if !now.is_empty() && &now != previous {
+                built = true;
+                break;
+            }
+        }
+        assert!(
+            built,
+            "no room construction landed within 120 frames, so this arm never got \
+             the population it is about to census"
+        );
+        aged += usize::from(live(sim));
+    }
+    let commit_tick = sim_tick(sim);
     for _ in 0..MATURITY * 4 {
         if aged == MATURITY {
             break;
         }
         sim.step(base());
-        if sim
-            .world()
-            .resource::<ambition_platformer2d::platformer::time::SimDt>()
-            .get()
-            > 0.0
-        {
-            aged += 1;
-        }
+        aged += usize::from(live(sim));
     }
     assert_eq!(aged, MATURITY, "the sim clock never ran long enough to age this arm");
     // Printed for the intermittent red in the leaving arm (one EnemySpawn a

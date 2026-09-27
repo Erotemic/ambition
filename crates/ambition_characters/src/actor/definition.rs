@@ -154,6 +154,10 @@ pub struct CharacterDefinition {
     /// Whether this body is a practice target rather than a participant.
     #[doc(alias = "is_sandbag")]
     pub practice_target: bool,
+    /// What wearing this character grants the body, for as long as it wears
+    /// it: a super form that cannot be hurt and flattens what it touches.
+    /// Joined with the catalog row's at preparation.
+    pub empowered: crate::actor::Empowerment,
     /// Weapon carried by this character.
     /// Held items do not grant verbs; [`Self::action_set`] states what the body can do.
     pub held_item: Option<String>,
@@ -196,6 +200,7 @@ impl CharacterDefinition {
             ranged_vfx: None,
             ranged_execution: None,
             practice_target: false,
+            empowered: crate::actor::Empowerment::none(),
             held_item: None,
             mount: None,
             dream_seed: None,
@@ -231,6 +236,12 @@ impl CharacterDefinition {
     /// Use one initial cognitive stream for equally configured CPU twins.
     pub fn preserving_mirror_symmetry(mut self) -> Self {
         self.preserves_mirror_symmetry = true;
+        self
+    }
+
+    /// Author what wearing this character grants. See [`Self::empowered`].
+    pub fn empowered(mut self, traits: crate::actor::Empowerment) -> Self {
+        self.empowered = traits;
         self
     }
 
@@ -379,6 +390,7 @@ mod authority_tests {
             held_item: _,
             mount: _,
             practice_target: _,
+            empowered: _,
             ranged_execution: _,
 
             // ── DEFAULT CONTROLLER (4) — see the  above ────────────────────

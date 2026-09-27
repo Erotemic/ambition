@@ -64,28 +64,30 @@ pub fn defeat_badniks(
         (
             &mut ae::BodyKinematics,
             Option<&crate::ball_dash::Rolling>,
-            // What is true of this body, not who it is. Optional so the thin
-            // test harnesses need not dress the body.
+            // What is true of this body: its grant and the character it
+            // wears. Optional so the thin test harnesses need not dress the body.
             Option<&ambition_platformer2d::actors::features::empowerment::Empowered>,
+            Option<&ambition_platformer2d::characters::actor::WornCharacter>,
         ),
         With<PrimaryPlayer>,
+    >,
+    cast: Option<
+        bevy::prelude::Res<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>,
     >,
     mut badniks: Query<
         (Entity, &ae::BodyKinematics, &ActorFaction, &mut BodyHealth),
         (Without<PrimaryPlayer>, Without<PlayerEntity>),
     >,
 ) {
-    let Ok((mut player, rolling, empowered)) = players.single_mut() else {
+    let Ok((mut player, rolling, grant, worn)) = players.single_mut() else {
         return;
     };
     // Squashing on touch is a trait the body holds, not a name it wears.
     // Rolling joins the kill condition but not the bounce: a super stomp
     // still bounces.
-    let harms_on_contact = empowered.is_some_and(|e| {
-        e.traits.holds(
-            ambition_platformer2d::actors::features::empowerment::Empowerment::HARMS_ON_CONTACT,
-        )
-    });
+    let harms_on_contact =
+        ambition_platformer2d::actors::features::empowerment::empowerment_of(grant, worn, cast.as_deref())
+            .holds(ambition_platformer2d::actors::features::empowerment::Empowerment::HARMS_ON_CONTACT);
     let rolling = rolling.is_some();
     let lethal_touch = rolling || harms_on_contact;
     // Screen gravity is +y: "descending" is vel.y > 0, feet are the max-y edge.
@@ -220,7 +222,7 @@ mod tests {
         app.world_mut().spawn((
             PrimaryPlayer,
             ambition_platformer2d::actors::features::empowerment::Empowered::held(
-                crate::SUPER_SANIC_SUPER_STATE,
+                ambition_platformer2d::actors::features::empowerment::Empowerment::HARMS_ON_CONTACT,
             ),
             kin(ae::Vec2::ZERO, ae::Vec2::new(120.0, 0.0)),
         ));
@@ -231,8 +233,8 @@ mod tests {
         );
     }
 
-    /// The super identity alone does not: the empowerment the form grants
-    /// does the work, so a body with the name and without the trait is
+    /// The name alone does not: the traits come from the worn character's
+    /// prepared row, so a body wearing an id no prepared cast describes is
     /// ordinary.
     #[test]
     fn the_super_identity_alone_is_not_what_squashes() {

@@ -107,16 +107,6 @@ pub const SANIC_CHARACTER_ID: &str = "sanic";
 
 pub const SUPER_SANIC_CHARACTER_ID: &str = "super_sanic";
 
-/// The super form, composed from engine traits: he cannot be hurt, and what
-/// he touches is destroyed.
-///
-/// Mary-O's cosmic quasar composes the same two traits, so neither super
-/// state is an engine special case.
-pub const SUPER_SANIC_SUPER_STATE:
-    ambition_platformer2d::actors::features::empowerment::Empowerment =
-    ambition_platformer2d::actors::features::empowerment::Empowerment::UNTOUCHABLE
-        .with(ambition_platformer2d::actors::features::empowerment::Empowerment::HARMS_ON_CONTACT);
-
 /// The animated ring sprite sheet (generated `sanic_ring_prop` target: an
 /// idle-spin row and a collect row). Each ring pickup names it, so the pickup
 /// renderer binds the spinning sheet instead of the static coin. The AABB is
@@ -1002,16 +992,14 @@ impl Plugin for SanicRulesPlugin {
             .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::GameplayEffects)
             // An act that asks to leave is carried out the same tick.
             .before(ambition_platformer2d::session::DepartureSet);
-        // The super form states its traits before the engine runs them.
-        //
         // This is an ordering, not an installation. `apply_contact_harm` is
         // absent from this game on purpose: `defeat_badniks` owns
         // destroy-on-touch (pop and bounce included), and two authorities must
-        // not kill the same badnik. The engine owns expiry only.
+        // not kill the same badnik. The engine owns expiry and the untouchable
+        // reason; the super row states the traits.
         app.configure_sets(
             sim,
             ambition_platformer2d::actors::features::empowerment::EmpowermentExpiry
-                .after(sync_super_form_traits)
                 .before(emit_sanic_skid_sfx),
         );
         let milestone_sfx = emit_sanic_milestone_sfx
@@ -1208,9 +1196,10 @@ fn transform_technique() -> ambition_platformer2d::entity_catalog::action_scheme
 /// The body declares `transform`, so the gate routes the press here and clears
 /// the raw verb.
 ///
-/// The super row authors the boosted movement, and `sync_super_form_traits`
-/// derives the rest (invincibility, sparkles, badnik destroy-on-touch) from
-/// the worn identity, so `WornCharacter` is the single authority. No timer.
+/// The super row authors the boosted movement and the traits (`empowered:
+/// [Untouchable, HarmsOnContact]`), and `sync_super_form_traits` presents the
+/// form (sparkles, the transform cue), so `WornCharacter` is the single
+/// authority. No timer.
 ///
 /// It also drops the speed shoes: a wear replaces `MomentumParams`, so a
 /// shoes grant would later restore a baseline saved from the other form.
@@ -1280,11 +1269,12 @@ fn ensure_sanic_transform_beat_policy(
     }
 }
 
-/// Derive super-form traits from the worn identity each simulation frame.
+/// Present the super form from the worn identity each simulation frame.
 ///
-/// Movement speed is authored on the `super_sanic` catalog row. This system adds invulnerability
-/// to contact and spike-strip damage plus the golden sparkle trail. Pits still reset the body
-/// through `ResetCause::LeftTheWorld`. The derived traits revert when the super identity is removed.
+/// The `super_sanic` catalog row authors what the form IS: its movement and its traits
+/// (untouchable, harms on contact), which the engine reads from the worn character. This system
+/// adds only the form's presentation: the transform cue on the identity edge and the golden
+/// sparkle trail. Pits still reset the body through `ResetCause::LeftTheWorld`.
 fn sync_super_form_traits(
     time: bevy::prelude::Res<ambition_platformer2d::time::WorldTime>,
     mut sparkle_accum: bevy::prelude::Local<f32>,
@@ -1302,25 +1292,11 @@ fn sync_super_form_traits(
         bevy::prelude::With<ambition_platformer2d::platformer::markers::PrimaryPlayer>,
     >,
 ) {
-    // `None` means no controlled player (the session has retired). Derive
-    // invincibility and capture the emit position while the body is borrowed.
+    // `None` means no controlled player (the session has retired). Capture
+    // the emit position while the body is borrowed.
     let (worn_is_super, pos, body, was_super) = match players.single_mut() {
         Ok((body, worn, kinematics, latch)) => {
             let is_super = worn.id() == SUPER_SANIC_CHARACTER_ID;
-            // Same fact as Mary-O's pocket quasar: cannot be hurt, destroys
-            // what it runs through. Held, not timed: it lasts while he wears
-            // the identity, whatever removes it.
-            if is_super {
-                commands.entity(body).try_insert(
-                    ambition_platformer2d::actors::features::empowerment::Empowered::held(
-                        SUPER_SANIC_SUPER_STATE,
-                    ),
-                );
-            } else {
-                commands
-                    .entity(body)
-                    .remove::<ambition_platformer2d::actors::features::empowerment::Empowered>();
-            }
             (
                 Some(is_super),
                 kinematics.pos,

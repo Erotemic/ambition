@@ -7,7 +7,8 @@
 
 use bevy::prelude::*;
 
-use ambition_characters::actor::{BodyCombat, BodyHealth, Invulnerability};
+use ambition_characters::actor::{BodyCombat, BodyHealth, Invulnerability, WornCharacter};
+use ambition_characters::prepared::PreparedCharacterRegistry;
 use ambition_combat::components::{ActorFaction, CenteredAabb};
 use ambition_combat::events::{
     HitEvent, HitKnockback, HitKnockbackMagnitude, HitMode, HitSource, HitTarget,
@@ -15,41 +16,24 @@ use ambition_combat::events::{
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::AabbExt;
 
-/// The traits an empowerment can grant, as a set.
+pub use ambition_characters::actor::Empowerment;
+
+/// What a body is empowered with now: its grant, joined with what the
+/// character it wears grants while worn.
 ///
-/// A set rather than an enum because they are INDEPENDENT: being unhittable and
-/// hurting what you touch are different claims, either is useful alone, and a
-/// game that wants both should say both rather than name a third thing.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct Empowerment(u32);
-
-impl Empowerment {
-    /// Nothing can hurt this body. Delegates to the [`Invulnerability::EMPOWERED`]
-    /// reason, so it coexists with every other reason rather than replacing them.
-    pub const UNTOUCHABLE: Self = Self(1 << 0);
-    /// This body's own footprint damages what it overlaps — a star-powered
-    /// runner flattening what it touches.
-    pub const HARMS_ON_CONTACT: Self = Self(1 << 1);
-
-    /// Nothing granted.
-    pub const fn none() -> Self {
-        Self(0)
-    }
-
-    /// Both of these, and whatever else is added later.
-    pub const fn with(self, other: Self) -> Self {
-        Self(self.0 | other.0)
-    }
-
-    /// Is this trait granted?
-    pub fn holds(self, trait_: Self) -> bool {
-        self.0 & trait_.0 != 0
-    }
-
-    /// The raw set, for a checksum. Not for logic — ask [`Self::holds`].
-    pub fn bits(self) -> u32 {
-        self.0
-    }
+/// Every reader asks this one question. A form's traits are not copied onto
+/// the body: the worn id is canonical state and the prepared cast does not
+/// change, so the answer cannot go stale, and a re-wear cannot take away a
+/// pickup's grant or keep a form's traits after the form is gone.
+pub fn empowerment_of(
+    grant: Option<&Empowered>,
+    worn: Option<&WornCharacter>,
+    cast: Option<&PreparedCharacterRegistry>,
+) -> Empowerment {
+    let form = worn
+        .and_then(|worn| cast?.get(worn.id()))
+        .map_or(Empowerment::none(), |prepared| prepared.empowered);
+    grant.map_or(form, |grant| form.with(grant.traits))
 }
 
 /// A body currently empowered, and for how much longer — if that is even a
@@ -122,33 +106,52 @@ impl Default for ContactHarm {
 /// the SET instead.
 pub fn run_empowerments(
     time: Res<ambition_time::WorldTime>,
+    cast: Option<Res<PreparedCharacterRegistry>>,
     mut commands: Commands,
-    mut bodies: Query<(Entity, &mut Empowered, &mut BodyHealth)>,
+    mut bodies: Query<
+        (
+            Entity,
+            Option<&mut Empowered>,
+            Option<&WornCharacter>,
+            &mut BodyHealth,
+        ),
+        Or<(With<Empowered>, With<WornCharacter>)>,
+    >,
 ) {
     let dt = time.scaled_dt;
-    for (body, mut empowered, mut health) in &mut bodies {
-        // A HELD empowerment has no clock to run: it is live until its granter
-        // removes it, and counting down toward an expiry that must never arrive
-        // is how "indefinite" quietly becomes "about five minutes".
-        let live = match empowered.remaining {
-            Some(remaining) => {
-                let next = remaining - dt;
-                empowered.remaining = Some(next);
-                next > 0.0
+    for (body, grant, worn, mut health) in &mut bodies {
+        let mut live_grant = None;
+        if let Some(mut empowered) = grant {
+            // A HELD empowerment has no clock to run: it is live until its
+            // granter removes it, and counting down toward an expiry that must
+            // never arrive is how "indefinite" quietly becomes "about five
+            // minutes".
+            let live = match empowered.remaining {
+                Some(remaining) => {
+                    let next = remaining - dt;
+                    empowered.remaining = Some(next);
+                    next > 0.0
+                }
+                None => true,
+            };
+            if live {
+                live_grant = Some(*empowered);
+            } else {
+                commands.entity(body).remove::<Empowered>();
             }
-            None => true,
-        };
+        }
 
         // ── Untouchable ───────────────────────────────────────────────────
         // Our reason only. A transformation beat overlapping this keeps its own,
-        // and neither can strip the other by ending first.
-        health.health.invulnerable.set(
-            Invulnerability::EMPOWERED,
-            live && empowered.traits.holds(Empowerment::UNTOUCHABLE),
-        );
-
-        if !live {
-            commands.entity(body).remove::<Empowered>();
+        // and neither can strip the other by ending first. Written only when it
+        // changes, because every worn body passes here each tick.
+        let untouchable = empowerment_of(live_grant.as_ref(), worn, cast.as_deref())
+            .holds(Empowerment::UNTOUCHABLE);
+        if health.health.invulnerable.holds(Invulnerability::EMPOWERED) != untouchable {
+            health
+                .health
+                .invulnerable
+                .set(Invulnerability::EMPOWERED, untouchable);
         }
     }
 }
@@ -173,14 +176,18 @@ pub fn run_empowerments(
 /// something orders it `.after(EmpowermentExpiry)`.
 pub fn apply_contact_harm(
     mut hit_events: MessageWriter<HitEvent>,
-    empowered: Query<(
-        Entity,
-        &Empowered,
-        &ae::BodyKinematics,
-        &ActorFaction,
-        Option<&ContactHarm>,
-        Option<&ambition_combat::targeting::MatchTeam>,
-    )>,
+    cast: Option<Res<PreparedCharacterRegistry>>,
+    empowered: Query<
+        (
+            Entity,
+            (Option<&Empowered>, Option<&WornCharacter>),
+            &ae::BodyKinematics,
+            &ActorFaction,
+            Option<&ContactHarm>,
+            Option<&ambition_combat::targeting::MatchTeam>,
+        ),
+        Or<(With<Empowered>, With<WornCharacter>)>,
+    >,
     victims: Query<(
         Entity,
         &CenteredAabb,
@@ -200,8 +207,8 @@ pub fn apply_contact_harm(
     tuning: Option<Res<ambition_combat::rules::ResolvedCombatTuning>>,
 ) {
     let friendly_fire = tuning.map(|t| t.friendly_fire()).unwrap_or_default();
-    for (striker, empowerment, kin, striker_faction, harm, striker_team) in &empowered {
-        if !empowerment.traits.holds(Empowerment::HARMS_ON_CONTACT) {
+    for (striker, (grant, worn), kin, striker_faction, harm, striker_team) in &empowered {
+        if !empowerment_of(grant, worn, cast.as_deref()).holds(Empowerment::HARMS_ON_CONTACT) {
             continue;
         }
         let harm = harm.copied().unwrap_or_default();
@@ -290,9 +297,9 @@ mod tests;
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
 pub struct EmpowermentExpiry;
 
-/// Installs empowerment ticking and removal cleanup. Removing [`Empowered`] clears the
-/// `Invulnerability::EMPOWERED` projection regardless of whether removal came from expiry, a
-/// granter, despawn, or rollback restoration.
+/// Installs empowerment ticking and removal cleanup. Removing [`Empowered`] sets the
+/// `Invulnerability::EMPOWERED` projection back to what the worn character alone grants, whether
+/// removal came from expiry, a granter, despawn, or rollback restoration.
 pub struct EmpowermentLifecyclePlugin;
 
 impl Plugin for EmpowermentLifecyclePlugin {
@@ -312,12 +319,14 @@ impl Plugin for EmpowermentLifecyclePlugin {
 
 fn release_empowerment_projection(
     removal: On<bevy::ecs::lifecycle::Remove, Empowered>,
-    mut bodies: Query<&mut BodyHealth>,
+    cast: Option<Res<PreparedCharacterRegistry>>,
+    mut bodies: Query<(&mut BodyHealth, Option<&WornCharacter>)>,
 ) {
-    if let Ok(mut health) = bodies.get_mut(removal.entity) {
+    if let Ok((mut health, worn)) = bodies.get_mut(removal.entity) {
+        let form_stays = empowerment_of(None, worn, cast.as_deref()).holds(Empowerment::UNTOUCHABLE);
         health
             .health
             .invulnerable
-            .set(Invulnerability::EMPOWERED, false);
+            .set(Invulnerability::EMPOWERED, form_stays);
     }
 }

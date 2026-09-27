@@ -61,6 +61,8 @@ struct PreparedCharacterOverrides {
     provoked_profile_ref: Option<crate::brain::BrainProfileRef>,
     /// See [`CharacterDefinition::practice_target`]. OR-ed with the catalog row's.
     practice_target: bool,
+    /// See [`CharacterDefinition::empowered`]. Joined with the catalog row's.
+    empowered: crate::actor::Empowerment,
     /// See [`CharacterDefinition::held_item`]. FOLDED with the catalog row's.
     held_item: Option<String>,
     /// See [`CharacterDefinition::dream_seed`]. FOLDED with the catalog row's.
@@ -1044,6 +1046,9 @@ pub struct PreparedCharacterDefinition {
     pub provoked_profile_id: Option<ambition_entity_catalog::BrainProfileId>,
     /// See [`CharacterDefinition::practice_target`].
     pub practice_target: bool,
+    /// What wearing this character grants the body, the definition's traits
+    /// joined with its catalog row's. See [`CharacterDefinition::empowered`].
+    pub empowered: crate::actor::Empowerment,
     /// See [`CharacterDefinition::held_item`].
     pub held_item: Option<String>,
     /// Deep-dream visual jitter seed. See
@@ -1546,6 +1551,7 @@ fn prepare_character(
         ranged_execution: definition.ranged_execution,
         provoked_profile_ref: definition.provoked_profile_ref.clone(),
         practice_target: definition.practice_target,
+        empowered: definition.empowered,
         held_item: definition.held_item.clone(),
         dream_seed: definition.dream_seed,
         preserves_mirror_symmetry: definition.preserves_mirror_symmetry,
@@ -1636,6 +1642,7 @@ fn finalize_character(
         unresolved,
         held_item,
         practice_target,
+        empowered,
         ranged_vfx,
         ranged_execution,
         provoked_profile_ref,
@@ -1739,6 +1746,7 @@ fn finalize_character(
     let sheet = sheet.or_else(|| catalog_row?.manifest_target().map(str::to_string));
     // A trait that either the row or a registered definition can state.
     let practice_target = practice_target || catalog_row.is_some_and(|row| row.practice_target);
+    let empowered = catalog_row.map_or(empowered, |row| empowered.with(row.empowered));
     let preserves_mirror_symmetry =
         preserves_mirror_symmetry || catalog_row.is_some_and(|row| row.preserves_mirror_symmetry);
     let sheet_sizing = catalog_row.map(|row| SheetSizing {
@@ -1842,6 +1850,7 @@ fn finalize_character(
             .as_ref()
             .map(|reference| reference.resolve_in(&provider)),
         practice_target,
+        empowered,
         held_item,
         dream_seed,
         preserves_mirror_symmetry,

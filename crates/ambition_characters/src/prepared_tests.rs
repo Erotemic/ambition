@@ -237,6 +237,9 @@ fn a_definition_carries_no_controller_binding() {
         // A training dummy is a fact about the creature, not about who is
         // driving it: nothing drives a sandbag.
         practice_target: _,
+        // What wearing this character grants: a super form is untouchable
+        // whoever drives it.
+        empowered: _,
         held_item: _,
         // Presentation, like the sheet: what this creature LOOKS like is a
         // property of the creature, and no controller changes it.

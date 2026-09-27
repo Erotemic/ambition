@@ -107,9 +107,10 @@
                 stick_factor: 4.0,
             )),
             // Same fragility as the base row. The super form's protection is
-            // `Health::invulnerable` (from `sync_super_form_traits`), not a
-            // bigger pool.
+            // its traits, not a bigger pool: while he wears this row he cannot
+            // be hurt, and what he runs into is destroyed. Pits still reset him.
             max_health: Some(1),
+            empowered: [Untouchable, HarmsOnContact],
             barks: (
                 hall: ["The air is falling behind.", "Immortality is a ring budget.", "The universe may submit a request to slow down."],
             ),

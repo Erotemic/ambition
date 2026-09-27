@@ -743,6 +743,12 @@ pub struct CharacterCatalogEntry {
     /// or a registered definition can state it.
     #[serde(default)]
     pub practice_target: bool,
+    /// What wearing this character grants the body, as a list of traits:
+    /// `empowered: [Untouchable, HarmsOnContact]` is a super form. Empty (the
+    /// default) grants nothing. Either the row or a registered definition can
+    /// state it; preparation joins the two.
+    #[serde(default)]
+    pub empowered: crate::actor::Empowerment,
     /// Autonomous twins of this character share one cognitive stream. See
     /// `CharacterDefinition::preserves_mirror_symmetry`. Either the row or a
     /// registered definition can state it.

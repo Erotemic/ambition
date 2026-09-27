@@ -287,3 +287,79 @@ fn a_timed_empowerment_ends_in_a_composition_that_scheduled_nothing() {
         "and the expiry released the reason it was projecting",
     );
 }
+
+/// A form's traits are its prepared character's, read from what the body
+/// wears. A pickup's grant is a second, independent source: wearing the form
+/// on or off does not take the grant away, and the grant ending does not take
+/// the form's traits away.
+#[test]
+fn a_worn_form_and_a_timed_grant_empower_a_body_independently() {
+    let mut cast = PreparedCharacterRegistry::default();
+    for definition in [
+        ambition_characters::actor::definition::CharacterDefinition::new("runner", "Runner", "test"),
+        ambition_characters::actor::definition::CharacterDefinition::new(
+            "super_runner",
+            "Super Runner",
+            "test",
+        )
+        .empowered(Empowerment::UNTOUCHABLE.with(Empowerment::HARMS_ON_CONTACT)),
+    ] {
+        cast.insert_prepared(
+            ambition_characters::prepared::prepare_and_finalize_for_test(
+                definition,
+                &ambition_characters::prepared::CharacterBindings::default(),
+            )
+            .prepared,
+        );
+    }
+    let mut app = App::new();
+    app.insert_resource(ambition_time::WorldTime {
+        scaled_dt: 1.0 / 60.0,
+        ..Default::default()
+    });
+    app.insert_resource(cast);
+    app.add_plugins(EmpowermentLifecyclePlugin);
+    let body = app
+        .world_mut()
+        .spawn((WornCharacter::new("runner"), BodyHealth::new(Health::new(5))))
+        .id();
+    let wear = |app: &mut App, id: &str| {
+        *app.world_mut().get_mut::<WornCharacter>(body).unwrap() = WornCharacter::new(id);
+        app.update();
+    };
+    let harms = |app: &App| {
+        let world = app.world();
+        empowerment_of(
+            world.get::<Empowered>(body),
+            world.get::<WornCharacter>(body),
+            world.get_resource::<PreparedCharacterRegistry>(),
+        )
+        .holds(Empowerment::HARMS_ON_CONTACT)
+    };
+
+    app.update();
+    assert!(!untouchable(&app, body) && !harms(&app), "the plain form grants nothing");
+
+    wear(&mut app, "super_runner");
+    assert!(untouchable(&app, body), "the super form's row makes the body untouchable");
+    assert!(harms(&app), "and makes its contact harm");
+
+    // A pickup's grant, then the form comes off: the grant stays.
+    app.world_mut()
+        .entity_mut(body)
+        .insert(Empowered::for_seconds(Empowerment::UNTOUCHABLE, 5.0));
+    wear(&mut app, "runner");
+    assert!(
+        app.world().get::<Empowered>(body).is_some() && untouchable(&app, body),
+        "taking the form off leaves the pickup's grant and its reason",
+    );
+    assert!(!harms(&app), "but the form's contact harm leaves with the form");
+
+    // The form goes back on, and the grant is removed: the form's reason stays.
+    wear(&mut app, "super_runner");
+    app.world_mut().entity_mut(body).remove::<Empowered>();
+    assert!(untouchable(&app, body), "a grant that ends does not take the form's reason");
+
+    wear(&mut app, "runner");
+    assert!(!untouchable(&app, body), "and the form's reason leaves with the form");
+}

@@ -448,3 +448,87 @@ fn every_authored_badnik_sleeps_under_sanics_rule() {
         badniks.len()
     );
 }
+
+/// The super form's traits are its catalog row's (`empowered: [Untouchable,
+/// HarmsOnContact]`), not a Sanic system's: wearing `super_sanic` makes the
+/// body untouchable and its contact harmful, and wearing `sanic` again takes
+/// both away. The demo states the form in data and presents it in code.
+#[test]
+fn the_super_form_s_traits_are_stated_by_its_row() {
+    use ambition_platformer2d::actors::features::empowerment::{empowerment_of, Empowered, Empowerment};
+    use ambition_platformer2d::characters::actor::{BodyHealth, Invulnerability};
+    use ambition_platformer2d::characters::prepared::PreparedCharacterRegistry;
+
+    let mut app = ambition_demo_sanic_app::build_demo_app();
+    settle_until_primary_player(&mut app);
+    let body = {
+        let mut q = app
+            .world_mut()
+            .query_filtered::<Entity, With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>();
+        q.single(app.world()).expect("one primary player")
+    };
+    let traits = |app: &App| {
+        let world = app.world();
+        let empowerment = empowerment_of(
+            world.get::<Empowered>(body),
+            world.get::<WornCharacter>(body),
+            world.get_resource::<PreparedCharacterRegistry>(),
+        );
+        let untouchable = world
+            .get::<BodyHealth>(body)
+            .expect("the player has health")
+            .health
+            .invulnerable
+            .holds(Invulnerability::EMPOWERED);
+        (untouchable, empowerment.holds(Empowerment::HARMS_ON_CONTACT))
+    };
+    let wear = |app: &mut App, id: &str| {
+        *app.world_mut().get_mut::<WornCharacter>(body).unwrap() = WornCharacter::new(id);
+        for _ in 0..2 {
+            app.update();
+        }
+    };
+
+    // An authored badnik moved into him: does it survive one tick?
+    let badnik_survives = |app: &mut App| {
+        let pos = app
+            .world()
+            .get::<ambition_platformer2d::engine_core::BodyKinematics>(body)
+            .unwrap()
+            .pos;
+        let badnik = {
+            let mut q = app.world_mut().query::<(
+                Entity,
+                &ambition_platformer2d::combat::actor_tuning::ActorConfig,
+            )>();
+            q.iter(app.world())
+                .find(|(_, config)| {
+                    matches!(
+                        &config.brain,
+                        ambition_platformer2d::entity_catalog::placements::CharacterBrain::Custom(key)
+                            if key == ambition_demo_sanic::badnik::BADNIK_BRAIN_KEY
+                    )
+                })
+                .map(|(entity, _)| entity)
+                .expect("the speedway authors badniks")
+        };
+        app.world_mut()
+            .get_mut::<ambition_platformer2d::engine_core::BodyKinematics>(badnik)
+            .unwrap()
+            .pos = pos;
+        app.update();
+        app.world().get_entity(badnik).is_ok()
+    };
+
+    assert_eq!(traits(&app), (false, false), "the base form is ordinary");
+    assert!(badnik_survives(&mut app), "a standing base form does not squash what it touches");
+    wear(&mut app, ambition_demo_sanic::SUPER_SANIC_CHARACTER_ID);
+    assert_eq!(
+        traits(&app),
+        (true, true),
+        "the super row makes him untouchable and his contact harmful"
+    );
+    assert!(!badnik_survives(&mut app), "so the badnik rule squashes what he touches");
+    wear(&mut app, ambition_demo_sanic::SANIC_CHARACTER_ID);
+    assert_eq!(traits(&app), (false, false), "and both leave with the form");
+}

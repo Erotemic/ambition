@@ -23,6 +23,8 @@ pub mod attack_gesture;
 pub mod character_catalog;
 pub mod control;
 pub mod death_traits;
+pub mod empowerment;
+pub use empowerment::{Empowerment, EmpowermentTrait};
 /// The authored character — see the module doc for why it lives here now.
 pub mod definition;
 pub use death_traits::CharacterDeathTraits;

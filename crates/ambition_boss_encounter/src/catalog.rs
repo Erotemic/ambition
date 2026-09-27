@@ -188,6 +188,24 @@ impl BossCatalog {
     }
 }
 
+/// A provider's boss art keys, authored as one RON file beside its sheets.
+#[derive(Clone, Debug, Default, PartialEq, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct BossArtKeys {
+    /// The image file that draws each boss sheet, by sheet key.
+    #[serde(default)]
+    pub sprite_filenames: BTreeMap<String, String>,
+    /// The sheet rows each special move claims, by special id.
+    #[serde(default)]
+    pub special_animation_rows: BTreeMap<String, Vec<String>>,
+}
+
+impl BossArtKeys {
+    pub fn from_ron(ron: &str) -> Result<Self, ron::error::SpannedError> {
+        ron::from_str(ron)
+    }
+}
+
 /// One provider's immutable boss definitions.
 #[derive(Clone, Debug, PartialEq, serde::Serialize)]
 pub struct BossCatalogFragment {
@@ -210,8 +228,7 @@ impl BossCatalogFragment {
         behavior_profiles_ron: &str,
         encounter_rons: &[&str],
         boss_sheets_ron: &str,
-        sprite_filenames: BTreeMap<String, String>,
-        special_anim_keys: BTreeMap<String, Vec<String>>,
+        art: BossArtKeys,
     ) -> Result<Self, BossCatalogAssemblyError> {
         let provider_id = provider_id.into();
         let behaviors =
@@ -240,8 +257,7 @@ impl BossCatalogFragment {
             behaviors,
             encounters,
             boss_sheets_ron,
-            sprite_filenames,
-            special_anim_keys,
+            art,
         )
     }
 
@@ -259,8 +275,7 @@ impl BossCatalogFragment {
         behaviors: BTreeMap<String, BossBehaviorProfile>,
         encounters: BTreeMap<String, BossEncounterSpec>,
         boss_sheets_ron: &str,
-        sprite_filenames: BTreeMap<String, String>,
-        special_anim_keys: BTreeMap<String, Vec<String>>,
+        art: BossArtKeys,
     ) -> Result<Self, BossCatalogAssemblyError> {
         let provider_id = provider_id.into();
         let sheets =
@@ -277,8 +292,8 @@ impl BossCatalogFragment {
             behaviors,
             encounters,
             sheets,
-            sprite_filenames,
-            special_anim_keys,
+            sprite_filenames: art.sprite_filenames,
+            special_anim_keys: art.special_animation_rows,
         };
         fragment.validate()?;
         Ok(fragment)
@@ -708,34 +723,6 @@ impl BossCatalogAppExt for App {
 }
 
 #[cfg(any(test, feature = "test-support"))]
-fn test_boss_sprite_filenames() -> BTreeMap<String, String> {
-    BTreeMap::from([
-        ("gradient_sentinel".into(), "boss_spritesheet.png".into()),
-        (
-            "mockingbird".into(),
-            "mockingbird_boss/mockingbird_boss_spritesheet.png".into(),
-        ),
-        (
-            "smirking_behemoth_boss".into(),
-            "smirking_behemoth_boss_spritesheet.png".into(),
-        ),
-        (
-            "giant_gnu".into(),
-            "gnu_ton_boss/giant_gnu_spritesheet.png".into(),
-        ),
-        (
-            "gnu_ton_rider".into(),
-            "gnu_ton_boss/gnu_ton_rider_spritesheet.png".into(),
-        ),
-        (
-            "flying_spaghetti_monster_boss".into(),
-            "flying_spaghetti_monster_boss_spritesheet.png".into(),
-        ),
-        ("trex_boss".into(), "trex_enemy_spritesheet.png".into()),
-    ])
-}
-
-#[cfg(any(test, feature = "test-support"))]
 pub fn test_boss_catalog() -> &'static BossCatalog {
     static CATALOG: std::sync::LazyLock<BossCatalog> = std::sync::LazyLock::new(|| {
         let encounters: &[&str] = &[
@@ -749,47 +736,6 @@ pub fn test_boss_catalog() -> &'static BossCatalog {
             include_str!("../../../game/ambition_content/assets/data/boss_encounters/exploding_gradient_boss.ron"),
             include_str!("../../../game/ambition_content/assets/data/boss_encounters/overflow_boss.ron"),
         ];
-        let special_anim_keys = BTreeMap::from([
-            (
-                "overfit_volley".into(),
-                vec!["spike_halo".into(), "eye_beam".into()],
-            ),
-            (
-                "eye_beam".into(),
-                vec!["eye_beam".into(), "spike_halo".into()],
-            ),
-            ("minima_trap".into(), vec!["spike_halo".into()]),
-            ("saddle_point".into(), vec!["spike_halo".into()]),
-            ("gradient_cascade".into(), vec!["spike_halo".into()]),
-            ("mode_collapse_converge".into(), vec!["spike_halo".into()]),
-            ("gradient_nova".into(), vec!["spike_halo".into()]),
-            ("overflow_flood".into(), vec!["spike_halo".into()]),
-            (
-                "seismic_stomp".into(),
-                vec!["floor_slam".into(), "spike_halo".into()],
-            ),
-            (
-                "echo_fan".into(),
-                vec!["spike_halo".into(), "eye_beam".into()],
-            ),
-            // GNU-ton's conducted moves, as `ambition_content` registers them.
-            ("demonstrate".into(), vec!["spike_halo".into()]),
-            ("demonstrate_pair".into(), vec!["spike_halo".into()]),
-            ("pendulum".into(), vec!["spike_halo".into()]),
-            ("cradle".into(), vec!["spike_halo".into()]),
-            ("orbit".into(), vec!["spike_halo".into()]),
-            ("fluxions".into(), vec!["spike_halo".into()]),
-            ("fluxions_pair".into(), vec!["spike_halo".into()]),
-            ("buck".into(), vec!["spike_halo".into()]),
-            ("stomp".into(), vec!["spike_halo".into()]),
-            // The Flying Spaghetti Monster's conducted moves.
-            ("noodle_lash".into(), vec!["side_sweep".into()]),
-            ("meatball_volley".into(), vec!["floor_slam".into()]),
-            ("noodly_pulse".into(), vec!["pulse".into()]),
-            ("noodly_dive".into(), vec!["dive".into()]),
-            ("noodly_grasp".into(), vec!["grasp".into()]),
-            ("lesser_appendages".into(), vec!["summon".into()]),
-        ]);
         let fragment = BossCatalogFragment::from_ron(
             "ambition-test",
             Some("clockwork_warden"),
@@ -797,8 +743,10 @@ pub fn test_boss_catalog() -> &'static BossCatalog {
             include_str!("../../../game/ambition_content/assets/data/boss_profiles.ron"),
             encounters,
             include_str!("../../../game/ambition_content/assets/data/boss_sheets.ron"),
-            test_boss_sprite_filenames(),
-            special_anim_keys,
+            BossArtKeys::from_ron(include_str!(
+                "../../../game/ambition_content/assets/data/boss_art_keys.ron"
+            ))
+            .expect("Ambition's boss art keys parse"),
         )
         .expect("Ambition boss fixture should be valid");
         let mut registry = BossCatalogRegistry::default();
@@ -831,8 +779,10 @@ mod tests {
             include_str!("../../../game/ambition_content/assets/data/boss_profiles.ron"),
             encounters,
             include_str!("../../../game/ambition_content/assets/data/boss_sheets.ron"),
-            test_boss_sprite_filenames(),
-            BTreeMap::new(),
+            BossArtKeys::from_ron(include_str!(
+                "../../../game/ambition_content/assets/data/boss_art_keys.ron"
+            ))
+            .unwrap(),
         )
         .unwrap()
     }

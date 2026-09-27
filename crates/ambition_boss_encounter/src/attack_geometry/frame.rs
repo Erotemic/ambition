@@ -72,7 +72,7 @@ pub(super) fn push_unique_animation_key(keys: &mut Vec<String>, key: &str) {
 ///
 /// The sample key is a fallback that can hide missing profile rows. It cannot
 /// simply be removed: `apple_rain` is a `Special` absent from the content
-/// crate's `special_animation_keys()`, so its profile claims nothing and the
+/// crate's `boss_art_keys.ron`, so its profile claims nothing and the
 /// sample key is the only thing that finds its damageable row. Removing it
 /// changes a live boss's hurtbox, which is a content decision (tracked in
 /// `awaiting-maintainer-decision.md`).

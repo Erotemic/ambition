@@ -67,31 +67,10 @@ fn ambition_boss_catalog() -> ambition_boss_encounter::BossCatalog {
         include_str!("../../../game/ambition_content/assets/data/boss_profiles.ron"),
         ENCOUNTERS,
         include_str!("../../../game/ambition_content/assets/data/boss_sheets.ron"),
-        std::collections::BTreeMap::from([
-            ("gradient_sentinel".into(), "boss_spritesheet.png".into()),
-            (
-                "mockingbird".into(),
-                "mockingbird_boss/mockingbird_boss_spritesheet.png".into(),
-            ),
-            (
-                "smirking_behemoth_boss".into(),
-                "smirking_behemoth_boss_spritesheet.png".into(),
-            ),
-            (
-                "giant_gnu".into(),
-                "gnu_ton_boss/giant_gnu_spritesheet.png".into(),
-            ),
-            (
-                "gnu_ton_rider".into(),
-                "gnu_ton_boss/gnu_ton_rider_spritesheet.png".into(),
-            ),
-            (
-                "flying_spaghetti_monster_boss".into(),
-                "flying_spaghetti_monster_boss_spritesheet.png".into(),
-            ),
-            ("trex_boss".into(), "trex_enemy_spritesheet.png".into()),
-        ]),
-        std::collections::BTreeMap::new(),
+        ambition_boss_encounter::BossArtKeys::from_ron(include_str!(
+            "../../../game/ambition_content/assets/data/boss_art_keys.ron"
+        ))
+        .expect("Ambition's boss art keys parse"),
     )
     .expect("geometry-debug boss fixture should parse");
     let mut registry = ambition_boss_encounter::BossCatalogRegistry::default();

@@ -64,9 +64,8 @@ fn the_boss_sheet_filenames_are_exactly_these_seven() {
     let want: BTreeMap<&str, &str> = EXPECTED_SHEETS.iter().copied().collect();
     assert_eq!(
         got, want,
-        "the boss sheet filenames changed. If this is the move out of \
-         `boss_sprite_filenames()` into authored data, the values must survive it \
-         unchanged — that is the whole point of the move"
+        "the boss sheet filenames changed. `boss_art_keys.ron` is their one \
+         authored home; a change there must be deliberate"
     );
 }
 

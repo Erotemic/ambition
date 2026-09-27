@@ -32,6 +32,7 @@ pub mod body_clock;
 pub mod body_cues;
 pub mod bubble_shield;
 mod camera;
+pub mod control_legend;
 pub mod debug_viz;
 pub mod deferred_write_safety;
 pub mod dizzy_stars;

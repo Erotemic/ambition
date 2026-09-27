@@ -1,0 +1,47 @@
+// Ambition's boss art keys: which file draws each boss sheet, and which sheet
+// rows each special move claims. Read by `ambition_content::bosses` and by the
+// boss crate's test catalog, so the two cannot disagree.
+(
+    sprite_filenames: {
+        "gradient_sentinel": "boss_spritesheet.png",
+        "mockingbird": "mockingbird_boss/mockingbird_boss_spritesheet.png",
+        "smirking_behemoth_boss": "smirking_behemoth_boss_spritesheet.png",
+        "giant_gnu": "gnu_ton_boss/giant_gnu_spritesheet.png",
+        "gnu_ton_rider": "gnu_ton_boss/gnu_ton_rider_spritesheet.png",
+        "flying_spaghetti_monster_boss": "flying_spaghetti_monster_boss_spritesheet.png",
+        "trex_boss": "trex_enemy_spritesheet.png",
+    },
+    special_animation_rows: {
+        "overfit_volley": ["spike_halo", "eye_beam"],
+        "eye_beam": ["eye_beam", "spike_halo"],
+        "minima_trap": ["spike_halo"],
+        "saddle_point": ["spike_halo"],
+        "gradient_cascade": ["spike_halo"],
+        "mode_collapse_converge": ["spike_halo"],
+        "gradient_nova": ["spike_halo"],
+        "overflow_flood": ["spike_halo"],
+        "seismic_stomp": ["floor_slam", "spike_halo"],
+        "echo_fan": ["spike_halo", "eye_beam"],
+        // GNU-ton's lectures. Every `Special` draws the scholar's spike-halo row
+        // (arms raised: he is conducting), so that is the row each names.
+        // `apple_rain` deliberately claims nothing (see
+        // `apple_rain_claims_no_animation_rows_which_is_why_the_fold_is_blocked`).
+        "demonstrate": ["spike_halo"],
+        "demonstrate_pair": ["spike_halo"],
+        "pendulum": ["spike_halo"],
+        "cradle": ["spike_halo"],
+        "orbit": ["spike_halo"],
+        "fluxions": ["spike_halo"],
+        "fluxions_pair": ["spike_halo"],
+        "buck": ["spike_halo"],
+        "stomp": ["spike_halo"],
+        // The Flying Spaghetti Monster's moves, each on the sheet row its
+        // conductor pins, so the god's hurt hull is the pose it is drawn in.
+        "noodle_lash": ["side_sweep"],
+        "meatball_volley": ["floor_slam"],
+        "noodly_pulse": ["pulse"],
+        "noodly_dive": ["dive"],
+        "noodly_grasp": ["grasp"],
+        "lesser_appendages": ["summon"],
+    },
+)

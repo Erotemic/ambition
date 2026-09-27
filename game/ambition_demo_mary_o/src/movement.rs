@@ -157,58 +157,15 @@ fn armed(worn: &WornEquipment) -> bool {
         .any(|grant| matches!(grant, EquipmentGrant::Ranged(_)))
 }
 
-/// The slot's label follows what it currently does.
+/// The run technique on the modifier slot, labelled `label`.
 ///
-/// One button, two roles, and the prompt says so: `Run` on its own, `Run / Spark`
-/// once the beacon is worn. Declaring it as a technique on the modifier slot is
-/// what puts it in the action scheme at all, so the physical binding stays
-/// configurable and the existing control-prompt machinery renders it with no
-/// demo-side UI code — and no raw key check anywhere in the demo.
-///
-/// Upserts by SLOT rather than replacing the list, so a future Mary-O technique on
-/// another slot is not collateral damage.
-pub fn sync_run_action_scheme(
-    mut commands: Commands,
-    mut bodies: Query<
-        (
-            Entity,
-            Option<&mut ambition_platformer2d::characters::action_scheme::ActorTechniques>,
-            Option<&WornEquipment>,
-        ),
-        With<PrimaryPlayer>,
-    >,
-) {
-    for (entity, techniques, worn) in &mut bodies {
-        let label = if worn.is_some_and(armed) { "Run / Spark" } else { "Run" };
-        match techniques {
-            Some(mut techniques) => {
-                let current = techniques
-                    .0
-                    .iter()
-                    .find(|a| a.slot == run_slot())
-                    .and_then(|a| a.display_name.as_deref());
-                if current == Some(label) {
-                    continue;
-                }
-                techniques.0.retain(|a| a.slot != run_slot());
-                techniques.0.push(run_technique(label));
-            }
-            None => {
-                commands.entity(entity).try_insert(
-                    ambition_platformer2d::characters::action_scheme::ActorTechniques(vec![
-                        run_technique(label),
-                    ]),
-                );
-            }
-        }
-    }
-}
-
-fn run_slot() -> ambition_platformer2d::entity_catalog::action_scheme::ControlSlot {
-    ambition_platformer2d::entity_catalog::action_scheme::ControlSlot::Modifier
-}
-
-fn run_technique(label: &str) -> ambition_platformer2d::entity_catalog::action_scheme::ActionSpec {
+/// One button, two roles, and the prompt says so. Her rules give the driven
+/// body `Run` (a `DrivenTechniques` rule), and the cinder beacon grants
+/// `Run / Spark` on the same slot, which replaces it while she wears the beacon
+/// (`EquipmentGrant::Technique`). Declaring it as a technique is what puts it
+/// in the action scheme, so the physical binding stays configurable and the
+/// shared control prompt draws it with no demo-side UI code.
+pub(crate) fn run_technique(label: &str) -> ambition_platformer2d::entity_catalog::action_scheme::ActionSpec {
     use ambition_platformer2d::entity_catalog::action_scheme as sch;
     sch::ActionSpec {
         id: sch::ActionId::new("run"),

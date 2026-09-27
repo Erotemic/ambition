@@ -604,6 +604,8 @@ pub fn gate_body_control(
             &ambition_platformer2d_core::BodyAbilities,
             Option<&ActorMoveset>,
             Option<&ambition_characters::action_scheme::ActorTechniques>,
+            // A worn row can put a technique on a slot.
+            Option<&ambition_characters::equipment::WornEquipment>,
             &mut ambition_characters::control::ActorControl,
             // Sanctioned technique edges: when a slot resolves to `Technique`, the
             // gate routes the slot's device edge here (and clears the raw verb),
@@ -631,6 +633,7 @@ pub fn gate_body_control(
         abilities,
         moveset,
         techniques,
+        worn,
         mut control,
         mut edges,
         has_charge_marker,
@@ -642,6 +645,7 @@ pub fn gate_body_control(
         let techniques = techniques_of(
             techniques,
             driven.as_ref().filter(|_| subject == Some(entity)),
+            worn,
         );
         let scheme = derive_action_scheme(
             &abilities.abilities,

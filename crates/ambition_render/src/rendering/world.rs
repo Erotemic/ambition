@@ -231,16 +231,25 @@ pub fn spawn_room_visuals(
         // Authored signage carries no id of its own, so the identity is
         // positional. It only has to be stable within a room load and unique
         // across families — the placement pass keys on it.
-        spawn_world_label(
+        // A sign that names controls by action is written from the control
+        // prompt, so it starts with every control unresolved.
+        let legend = super::control_legend::ControlLegend::for_text(&label.payload.text);
+        let text = legend
+            .as_ref()
+            .map_or_else(|| label.payload.text.clone(), |legend| legend.unresolved_text());
+        let sign = spawn_world_label(
             commands,
             session_scope,
             world,
             format!("signage:{index}:{}", label.id),
             WorldLabelFamily::Signage,
             label.payload.position,
-            &label.payload.text,
+            &text,
             14.0,
         );
+        if let Some(legend) = legend {
+            commands.entity(sign).insert(legend);
+        }
     }
     for prop in &spec.props {
         spawn_room_prop(commands, session_scope, world, prop, assets);

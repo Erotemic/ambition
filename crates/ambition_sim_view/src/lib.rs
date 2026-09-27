@@ -32,10 +32,11 @@ pub use combat_geometry_view::{
 pub use control_prompt::{
     project_prompt_readiness, publish_frontend_context_prompt, rebuild_control_prompt,
     ControlContextKind, ControlPrompt, ControlPromptRebuilt, PromptEntry, PromptNaming,
+    LEGEND_ACTION_OPEN,
 };
 // Re-exported so `ControlPrompt` consumers (the touch overlay) can name the
 // slot vocabulary without a direct `entity_catalog` dep.
-pub use ambition_entity_catalog::action_scheme::{ControlSlot, VisualId};
+pub use ambition_entity_catalog::action_scheme::{ActionId, ControlSlot, VisualId};
 pub use attack_vfx_view::{rebuild_attack_vfx_views, AttackVfxView};
 pub use camera_snapshot::{local_view_facts, CameraViewState, PresentedViewState};
 pub use defense_view::{defense_cue_causes, DefenseCueCauses};

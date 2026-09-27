@@ -1502,6 +1502,7 @@ mod prompt_tests {
             entries: entries
                 .into_iter()
                 .map(|(slot, label)| PromptEntry {
+                    action: ambition_sim_view::ActionId::new(label),
                     slot,
                     label: label.to_owned(),
                     visual: None,

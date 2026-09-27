@@ -25,7 +25,7 @@
 use ambition_characters::action_scheme::{derive_action_scheme, ActorTechniques};
 use ambition_characters::brain::action_set::ActionSet;
 use ambition_combat::moveset::ActorMoveset;
-use ambition_entity_catalog::action_scheme::{ControlSlot, VisualId};
+use ambition_entity_catalog::action_scheme::{ActionId, ControlSlot, VisualId};
 use ambition_input::{ActiveUiCues, SeatInputContexts, UiCue, GAMEPLAY_CONTEXT};
 use ambition_platformer2d_core::BodyAbilities;
 use ambition_platformer2d_shared_tangle::markers::{
@@ -113,6 +113,10 @@ fn button_label(slot: ControlSlot) -> &'static str {
 /// the scheme's canonical slot order.
 #[derive(Clone, Debug, PartialEq)]
 pub struct PromptEntry {
+    /// The action on the slot (`ActionSpec::id`). A sign names a control by
+    /// this id (see [`ControlPrompt::fill_legend`]), so it follows the action
+    /// to whichever slot the scheme puts it on.
+    pub action: ActionId,
     pub slot: ControlSlot,
     pub label: String,
     pub visual: Option<VisualId>,
@@ -160,7 +164,38 @@ pub struct ControlPrompt {
     pub menu_confirm: Option<String>,
 }
 
+/// Opens a control name in a sign's text: `{action:jump}` is the control
+/// that fires the action `jump`. See [`ControlPrompt::fill_legend`].
+pub const LEGEND_ACTION_OPEN: &str = "{action:";
+
 impl ControlPrompt {
+    /// Write a sign's text from `template`, where `{action:ID}` becomes the
+    /// control the local primary seat presses to fire the action `ID`.
+    ///
+    /// The control is read from this prompt, so it follows the driven body's
+    /// scheme and the seat's live bindings. An action the prompt does not
+    /// carry, or one that nothing binds, is written `?`: a sign must not name
+    /// a key that does nothing.
+    pub fn fill_legend(&self, template: &str) -> String {
+        let mut text = String::with_capacity(template.len());
+        let mut rest = template;
+        while let Some(open) = rest.find(LEGEND_ACTION_OPEN) {
+            let after = &rest[open + LEGEND_ACTION_OPEN.len()..];
+            let Some(close) = after.find('}') else { break };
+            text.push_str(&rest[..open]);
+            let id = &after[..close];
+            let control = self
+                .entries
+                .iter()
+                .find(|entry| entry.action.as_str() == id)
+                .and_then(|entry| entry.binding.as_deref());
+            text.push_str(control.unwrap_or("?"));
+            rest = &after[close + 1..];
+        }
+        text.push_str(rest);
+        text
+    }
+
     /// The label currently on a given slot, if the prompt claims it.
     pub fn label_for(&self, slot: ControlSlot) -> Option<&str> {
         self.entries
@@ -259,6 +294,8 @@ pub fn rebuild_control_prompt(
         Option<Ref<ActorMoveset>>,
         Option<Ref<ActionSet>>,
         Option<Ref<ActorTechniques>>,
+        // A worn row can put a technique on a slot (`EquipmentGrant::Technique`).
+        Option<Ref<ambition_characters::equipment::WornEquipment>>,
         // ⭐ AN AUTHORITY LIKE THE OTHERS, and it belongs in this tuple for the
         // same reason they do: it changes which verbs the body HAS. A saddle
         // does not open a menu — a rider is still driving a body through the
@@ -288,7 +325,7 @@ pub fn rebuild_control_prompt(
     // `ControlledSubject` / `SeatBindings` / `SeatActiveDevices` would be
     // skipped and the prompt would keep describing a context that no longer
     // exists.
-    mut last: Local<Option<(Option<Entity>, [bool; 4], [bool; 6])>>,
+    mut last: Local<Option<(Option<Entity>, [bool; 5], [bool; 6])>>,
 ) {
     // A frontend context (startup cards, launcher) owns the participant's
     // actions: its provider (`publish_frontend_context_prompt`) writes the
@@ -359,7 +396,7 @@ pub fn rebuild_control_prompt(
         if matches!(*last, Some((_, _, seen)) if seen == resources) && !inputs_changed {
             return;
         }
-        *last = Some((None, [false; 4], resources));
+        *last = Some((None, [false; 5], resources));
         let (kind, fallback) = match mode.get() {
             GameMode::Dialogue => (ControlContextKind::Dialogue, "Advance"),
             _ => (ControlContextKind::Menu, "Select"),
@@ -379,7 +416,7 @@ pub fn rebuild_control_prompt(
         .as_deref()
         .and_then(|s| s.0)
         .or_else(|| primary.single().ok());
-    let Some((abilities, moveset, action_set, techniques, pose_is_held)) =
+    let Some((abilities, moveset, action_set, techniques, worn, pose_is_held)) =
         subject.and_then(|e| authorities.get(e).ok())
     else {
         // Cold start (no player yet) or a controlled body without authorities —
@@ -393,7 +430,7 @@ pub fn rebuild_control_prompt(
             None,
         );
         set_prompt(&mut prompt, context, Vec::new(), confirm);
-        *last = Some((subject, [false; 4], resources));
+        *last = Some((subject, [false; 5], resources));
         return;
     };
 
@@ -404,12 +441,14 @@ pub fn rebuild_control_prompt(
         moveset.is_some(),
         action_set.is_some(),
         techniques.is_some(),
+        worn.is_some(),
         pose_is_held,
     ];
     let authorities_changed = abilities.is_changed()
         || moveset.as_ref().is_some_and(|r| r.is_changed())
         || action_set.as_ref().is_some_and(|r| r.is_changed())
-        || techniques.as_ref().is_some_and(|r| r.is_changed());
+        || techniques.as_ref().is_some_and(|r| r.is_changed())
+        || worn.as_ref().is_some_and(|r| r.is_changed());
     if *last == Some((subject, presence, resources)) && !inputs_changed && !authorities_changed {
         return;
     }
@@ -427,6 +466,7 @@ pub fn rebuild_control_prompt(
     let techniques = ambition_characters::action_scheme::techniques_of(
         techniques.as_deref(),
         driven.as_ref().filter(|_| is_driven),
+        worn.as_deref(),
     );
     let scheme = derive_action_scheme(
         &available,
@@ -440,6 +480,7 @@ pub fn rebuild_control_prompt(
             // Every slot is drawn ready here; `project_prompt_readiness` is the
             // one writer that says otherwise.
             ready: true,
+            action: action.id.clone(),
             slot: action.slot,
             label: match naming {
                 PromptNaming::ByButton => button_label(action.slot).to_owned(),
@@ -1285,6 +1326,103 @@ mod tests {
             attack(&app),
             None,
             "the primary player is shown but not driven, so the rule does not apply"
+        );
+    }
+
+    /// A sign names controls by action. The text gets the key the prompt
+    /// binds to that action, and `?` for an action the prompt lacks or that
+    /// nothing binds.
+    #[test]
+    fn a_legend_names_each_action_by_the_control_bound_to_it() {
+        let entry = |action: &str, slot: ControlSlot, binding: Option<&str>| PromptEntry {
+            action: ActionId::new(action),
+            slot,
+            label: action.to_owned(),
+            visual: None,
+            binding: binding.map(str::to_owned),
+            ready: true,
+        };
+        let prompt = ControlPrompt {
+            context: ControlContextKind::Gameplay,
+            entries: vec![
+                entry("jump", ControlSlot::Jump, Some("Z")),
+                entry("transform", ControlSlot::Utility, Some("D")),
+                entry("spin_dash", ControlSlot::Attack, None),
+            ],
+            menu_confirm: None,
+        };
+        assert_eq!(
+            prompt.fill_legend(
+                "START {action:jump}: JUMP  {action:transform}: SUPER  \
+                 {action:spin_dash}: REV  {action:fly}: FLY  {not an action}"
+            ),
+            "START Z: JUMP  D: SUPER  ?: REV  ?: FLY  {not an action}",
+        );
+    }
+
+    /// A worn row's technique names its slot, and a change of the worn set
+    /// alone (no action-set change) re-derives the label, including the first
+    /// row, which adds the component.
+    #[test]
+    fn a_worn_technique_names_its_slot_in_the_prompt() {
+        use ambition_characters::equipment::{EquipmentGrant, EquipmentRow, WornEquipment};
+        use ambition_entity_catalog::action_scheme::{ActionGate, ActionId, ActionSpec};
+
+        fn relabel(label: &str) -> EquipmentRow {
+            EquipmentRow {
+                id: label.to_owned(),
+                grants: vec![EquipmentGrant::Technique(ActionSpec {
+                    id: ActionId::new("run"),
+                    slot: ControlSlot::Modifier,
+                    display_name: Some(label.to_owned()),
+                    visual: None,
+                    gate: ActionGate::Technique("run".to_owned()),
+                })],
+                ..Default::default()
+            }
+        }
+        let modifier = |app: &App| {
+            app.world()
+                .resource::<ControlPrompt>()
+                .label_for(ControlSlot::Modifier)
+                .map(str::to_owned)
+        };
+
+        let mut app = app();
+        let body = app
+            .world_mut()
+            .spawn((PlayerEntity, PrimaryPlayer, authorities(true, None)))
+            .id();
+        app.update();
+        assert_eq!(modifier(&app), None);
+
+        app.world_mut()
+            .entity_mut(body)
+            .insert(WornEquipment::new(vec![relabel("Run")]));
+        app.update();
+        assert_eq!(
+            modifier(&app).as_deref(),
+            Some("Run"),
+            "the first worn row added the component, and the prompt did not see it"
+        );
+
+        app.world_mut()
+            .get_mut::<WornEquipment>(body)
+            .unwrap()
+            .equip(relabel("Run / Spark"));
+        app.update();
+        assert_eq!(
+            modifier(&app).as_deref(),
+            Some("Run / Spark"),
+            "the worn set changed and nothing else did, and the prompt kept the old label"
+        );
+
+        app.world_mut().entity_mut(body).remove::<WornEquipment>();
+        app.update();
+        assert_eq!(
+            modifier(&app),
+            None,
+            "a removal reports no change, and the prompt kept the worn label"
         );
     }
 

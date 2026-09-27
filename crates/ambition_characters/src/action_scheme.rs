@@ -56,24 +56,38 @@ pub struct ActorTechniques(pub Vec<ActionSpec>);
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct DrivenTechniques(pub Vec<ActionSpec>);
 
-/// The techniques a body exposes: its own, and, when it is the driven body, the
-/// rules' [`DrivenTechniques`]. A rule's technique replaces the body's own
-/// technique on the same slot.
+/// The techniques a body exposes. Three sources, and each later source
+/// replaces an earlier one's technique on the same slot:
+///
+/// 1. the body's own [`ActorTechniques`];
+/// 2. when it is the driven body, the rules' [`DrivenTechniques`];
+/// 3. the technique grants of what it wears
+///    ([`crate::equipment::EquipmentGrant::Technique`]), in worn order.
+///
+/// The gate and the control prompt both call this, so what a slot does and
+/// what the prompt says it does come from one fold.
 pub fn techniques_of<'a>(
     own: Option<&'a ActorTechniques>,
     driven: Option<&'a DrivenTechniques>,
+    worn: Option<&'a crate::equipment::WornEquipment>,
 ) -> std::borrow::Cow<'a, [ActionSpec]> {
     let own = own.map_or(&[][..], |own| own.0.as_slice());
-    match driven {
-        None => std::borrow::Cow::Borrowed(own),
-        Some(driven) => std::borrow::Cow::Owned(
-            own.iter()
-                .filter(|mine| driven.0.iter().all(|rule| rule.slot != mine.slot))
-                .chain(driven.0.iter())
-                .cloned()
-                .collect(),
-        ),
+    let rules = driven.map_or(&[][..], |driven| driven.0.as_slice());
+    let mut granted = worn
+        .into_iter()
+        .flat_map(|worn| &worn.rows)
+        .flat_map(|row| &row.grants)
+        .filter_map(crate::equipment::EquipmentGrant::technique)
+        .peekable();
+    if rules.is_empty() && granted.peek().is_none() {
+        return std::borrow::Cow::Borrowed(own);
     }
+    let mut techniques = own.to_vec();
+    for technique in rules.iter().chain(granted) {
+        techniques.retain(|held| held.slot != technique.slot);
+        techniques.push(technique.clone());
+    }
+    std::borrow::Cow::Owned(techniques)
 }
 
 /// The per-tick resolved edges for the content TECHNIQUES a body's scheme puts on
@@ -1124,6 +1138,66 @@ mod tests {
     /// required-components), so the resolver always has an edge sink — a
     /// technique-bearing body can never silently lose its input for lack of the
     /// component.
+    /// Each later source replaces an earlier one on the same slot: the body's
+    /// own technique, then the rules' (only while driven), then what it wears.
+    #[test]
+    fn a_worn_technique_replaces_the_rules_technique_on_its_slot() {
+        use crate::equipment::{EquipmentGrant, EquipmentRow, WornEquipment};
+        let technique = |id: &str, slot: ControlSlot| ActionSpec {
+            id: ActionId::new(id),
+            slot,
+            display_name: Some(id.into()),
+            visual: None,
+            gate: ActionGate::Technique(id.into()),
+        };
+        let ids = |techniques: &[ActionSpec]| {
+            techniques
+                .iter()
+                .map(|t| (t.slot, t.id.as_str().to_owned()))
+                .collect::<Vec<_>>()
+        };
+        let own = ActorTechniques(vec![
+            technique("own_attack", ControlSlot::Attack),
+            technique("own_modifier", ControlSlot::Modifier),
+        ]);
+        let rules = DrivenTechniques(vec![technique("rule_modifier", ControlSlot::Modifier)]);
+        let worn = WornEquipment::new(vec![EquipmentRow {
+            id: "beacon".into(),
+            grants: vec![EquipmentGrant::Technique(technique(
+                "worn_modifier",
+                ControlSlot::Modifier,
+            ))],
+            ..Default::default()
+        }]);
+
+        assert_eq!(
+            ids(&techniques_of(Some(&own), None, None)),
+            [
+                (ControlSlot::Attack, "own_attack".into()),
+                (ControlSlot::Modifier, "own_modifier".into()),
+            ],
+        );
+        assert_eq!(
+            ids(&techniques_of(Some(&own), Some(&rules), None)),
+            [
+                (ControlSlot::Attack, "own_attack".into()),
+                (ControlSlot::Modifier, "rule_modifier".into()),
+            ],
+        );
+        assert_eq!(
+            ids(&techniques_of(Some(&own), Some(&rules), Some(&worn))),
+            [
+                (ControlSlot::Attack, "own_attack".into()),
+                (ControlSlot::Modifier, "worn_modifier".into()),
+            ],
+        );
+        // A body that is not driven still wears its grants.
+        assert_eq!(
+            ids(&techniques_of(None, None, Some(&worn))),
+            [(ControlSlot::Modifier, "worn_modifier".into())],
+        );
+    }
+
     #[test]
     fn declaring_a_technique_auto_attaches_the_edge_component() {
         use bevy::prelude::World;

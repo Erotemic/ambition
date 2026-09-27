@@ -34,8 +34,7 @@ fn ambition_boss_catalog() -> ambition_boss_encounter::BossCatalog {
         include_str!("../../../game/ambition_content/assets/data/boss_profiles.ron"),
         ENCOUNTERS,
         "{}",
-        std::collections::BTreeMap::new(),
-        std::collections::BTreeMap::new(),
+        Default::default(),
     )
     .expect("view-contract boss fixture should parse");
     let mut registry = ambition_boss_encounter::BossCatalogRegistry::default();

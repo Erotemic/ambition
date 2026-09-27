@@ -107,24 +107,45 @@ impl ModifierScope {
     }
 }
 
-/// A capability a row confers on equip and revokes on unequip. Grants are ordinary
-/// `ActionSet` verbs — the flower grants a ranged verb, from which the moveset
-/// derives its `simple_ranged` move — never a bespoke mechanism.
+/// A capability a row confers on equip and revokes on unequip. A verb grant is
+/// an ordinary `ActionSet` verb — the flower grants a ranged verb, from which the
+/// moveset derives its `simple_ranged` move — never a bespoke mechanism.
 #[derive(Clone, Debug, PartialEq, serde::Deserialize)]
 pub enum EquipmentGrant {
     /// Grant a ranged verb (overlaid onto `ActionSet.ranged`).
     Ranged(RangedActionSpec),
     /// Grant a melee verb (overlaid onto `ActionSet.melee`).
     Melee(MeleeActionSpec),
+    /// Put a technique on a control slot while the row is worn. It replaces the
+    /// body's technique on the same slot. The action scheme reads it from the
+    /// worn set each tick (`action_scheme::techniques_of`), so it is not copied
+    /// onto the body.
+    Technique(ambition_entity_catalog::action_scheme::ActionSpec),
 }
 
 impl EquipmentGrant {
+    /// Does this grant change the body's `ActionSet`? Only a verb grant does,
+    /// so only a verb grant makes the equip step rebuild the moveset.
+    pub fn is_verb(&self) -> bool {
+        matches!(self, EquipmentGrant::Ranged(_) | EquipmentGrant::Melee(_))
+    }
+
     /// Overlay this grant onto an action set, exactly as `HeldItemSpec` does for a
     /// wielded weapon. Applied on equip; the caller re-derives the moveset after.
+    /// A technique grant does not touch the action set.
     pub fn apply_to_action_set(&self, actions: &mut ActionSet) {
         match self {
             EquipmentGrant::Ranged(r) => actions.ranged = Some(r.clone()),
             EquipmentGrant::Melee(m) => actions.melee = Some(*m),
+            EquipmentGrant::Technique(_) => {}
+        }
+    }
+
+    /// The technique this grant puts on a slot, if it is a technique grant.
+    pub fn technique(&self) -> Option<&ambition_entity_catalog::action_scheme::ActionSpec> {
+        match self {
+            EquipmentGrant::Technique(spec) => Some(spec),
+            _ => None,
         }
     }
 }

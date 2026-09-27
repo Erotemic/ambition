@@ -4408,7 +4408,6 @@ mod mechanical_registries_reach_the_identity {
                     &[encounter.as_str()],
                     "{}",
                     Default::default(),
-                    Default::default(),
                 )
                 .expect("the fixture boss fragment parses"),
             );

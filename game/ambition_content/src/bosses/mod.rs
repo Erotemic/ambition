@@ -112,81 +112,6 @@ pub const BOSS_ENCOUNTERS: &[(&str, &str)] = &[
 // consumer of those bytes is the pack. [`BOSS_ENCOUNTERS`] still carries them,
 // because the pack is where they belong.
 
-fn boss_sprite_filenames() -> std::collections::BTreeMap<String, String> {
-    std::collections::BTreeMap::from([
-        ("gradient_sentinel".into(), "boss_spritesheet.png".into()),
-        (
-            "mockingbird".into(),
-            "mockingbird_boss/mockingbird_boss_spritesheet.png".into(),
-        ),
-        (
-            "smirking_behemoth_boss".into(),
-            "smirking_behemoth_boss_spritesheet.png".into(),
-        ),
-        (
-            "giant_gnu".into(),
-            "gnu_ton_boss/giant_gnu_spritesheet.png".into(),
-        ),
-        (
-            "gnu_ton_rider".into(),
-            "gnu_ton_boss/gnu_ton_rider_spritesheet.png".into(),
-        ),
-        (
-            "flying_spaghetti_monster_boss".into(),
-            "flying_spaghetti_monster_boss_spritesheet.png".into(),
-        ),
-        ("trex_boss".into(), "trex_enemy_spritesheet.png".into()),
-    ])
-}
-
-fn special_animation_keys() -> std::collections::BTreeMap<String, Vec<String>> {
-    std::collections::BTreeMap::from([
-        (
-            "overfit_volley".into(),
-            vec!["spike_halo".into(), "eye_beam".into()],
-        ),
-        (
-            "eye_beam".into(),
-            vec!["eye_beam".into(), "spike_halo".into()],
-        ),
-        ("minima_trap".into(), vec!["spike_halo".into()]),
-        ("saddle_point".into(), vec!["spike_halo".into()]),
-        ("gradient_cascade".into(), vec!["spike_halo".into()]),
-        ("mode_collapse_converge".into(), vec!["spike_halo".into()]),
-        ("gradient_nova".into(), vec!["spike_halo".into()]),
-        ("overflow_flood".into(), vec!["spike_halo".into()]),
-        (
-            "seismic_stomp".into(),
-            vec!["floor_slam".into(), "spike_halo".into()],
-        ),
-        (
-            "echo_fan".into(),
-            vec!["spike_halo".into(), "eye_beam".into()],
-        ),
-        // GNU-ton's lectures. Every `Special` draws the scholar's spike-halo row
-        // (arms raised: he is conducting), so that is the row each names.
-        // `apple_rain` deliberately claims nothing (see
-        // `apple_rain_claims_no_animation_rows_which_is_why_the_fold_is_blocked`).
-        ("demonstrate".into(), vec!["spike_halo".into()]),
-        ("demonstrate_pair".into(), vec!["spike_halo".into()]),
-        ("pendulum".into(), vec!["spike_halo".into()]),
-        ("cradle".into(), vec!["spike_halo".into()]),
-        ("orbit".into(), vec!["spike_halo".into()]),
-        ("fluxions".into(), vec!["spike_halo".into()]),
-        ("fluxions_pair".into(), vec!["spike_halo".into()]),
-        ("buck".into(), vec!["spike_halo".into()]),
-        // The Flying Spaghetti Monster's moves, each on the sheet row its
-        // conductor pins, so the god's hurt hull is the pose it is drawn in.
-        ("noodle_lash".into(), vec!["side_sweep".into()]),
-        ("meatball_volley".into(), vec!["floor_slam".into()]),
-        ("noodly_pulse".into(), vec!["pulse".into()]),
-        ("noodly_dive".into(), vec!["dive".into()]),
-        ("noodly_grasp".into(), vec!["grasp".into()]),
-        ("lesser_appendages".into(), vec!["summon".into()]),
-        ("stomp".into(), vec!["spike_halo".into()]),
-    ])
-}
-
 /// Ambition's immutable App-local boss contribution.
 ///
 /// NOT all of this is compiled content, and the pack fingerprint does not
@@ -197,9 +122,8 @@ fn special_animation_keys() -> std::collections::BTreeMap<String, Vec<String>> {
 /// * `boss_sheets.ron` — `BossSheetSpec` lives in `ambition_sprite_sheet`, which
 ///   pulls `bevy_render`; migrating it needs the same placement analysis the
 ///   profile vocabulary got, not just a handler;
-/// * [`boss_sprite_filenames`] and [`special_animation_keys`] — content authored
-///   as Rust `BTreeMap`s. They have to become authored DATA before a schema can
-///   own them.
+/// * `boss_art_keys.ron` — the sprite file of each sheet and the rows each
+///   special claims. It is authored data, and no schema owns it yet.
 ///
 /// Stated here rather than left implied, because "the boss content goes through
 /// the compiler" is the kind of half-true claim this whole effort exists to stop
@@ -227,8 +151,10 @@ pub fn boss_catalog_fragment() -> ambition_boss_encounter::BossCatalogFragment {
         behaviors,
         encounters,
         include_str!("../../assets/data/boss_sheets.ron"),
-        boss_sprite_filenames(),
-        special_animation_keys(),
+        ambition_boss_encounter::BossArtKeys::from_ron(include_str!(
+            "../../assets/data/boss_art_keys.ron"
+        ))
+        .expect("Ambition's boss art keys parse"),
     )
     .expect("Ambition boss content should form one valid catalog fragment")
 }
@@ -512,7 +438,7 @@ mod apple_rain_animation_key_tests {
     ///
     /// `apple_rain` is the exception, and it is CONTENT, which is why the
     /// engine could not answer it. It is a `Special`, so its key list comes
-    /// from this crate's `special_animation_keys()` — and it is not in that map.
+    /// from this crate's `boss_art_keys.ron` — and it is not in that map.
     /// The profile therefore claims NOTHING, while
     /// `boss_animation_key_for_sample` emits `"head_down"` for it.
     ///
@@ -523,7 +449,7 @@ mod apple_rain_animation_key_tests {
     /// sampling — a different hurtbox on a live boss.
     ///
     /// Two ways out, and this test fails on either so nobody does it silently:
-    /// give `apple_rain` its rows in `special_animation_keys()`, or keep the
+    /// give `apple_rain` its rows in `boss_art_keys.ron`, or keep the
     /// profile identity. It is deliberately not asserting which.
     #[test]
     fn apple_rain_claims_no_animation_rows_which_is_why_the_fold_is_blocked() {

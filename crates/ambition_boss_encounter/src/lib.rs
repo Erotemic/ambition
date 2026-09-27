@@ -55,7 +55,7 @@ pub use behavior::{BossBehaviorProfileExt, BossProfileRegistry, LimbMotion, Limb
 #[cfg(any(test, feature = "test-support"))]
 pub use catalog::test_boss_catalog;
 pub use catalog::{
-    BossCatalog, BossCatalogAppExt, BossCatalogAssemblyError, BossCatalogFragment,
+    BossArtKeys, BossCatalog, BossCatalogAppExt, BossCatalogAssemblyError, BossCatalogFragment,
     BossCatalogRegistry,
 };
 #[cfg(any(test, feature = "test-support"))]

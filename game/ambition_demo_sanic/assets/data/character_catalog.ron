@@ -65,6 +65,8 @@
             // One hit without rings is fatal. Authored on the row, not forced
             // on the host, so Ambition's protagonist is not affected.
             max_health: Some(1),
+            // His rings absorb a hit, in a Sanic room.
+            wallet_shield: true,
             barks: (
                 hall: ["The pedestal asked me to idle. I said no.", "Where am I going? Yes.", "The camera is filing a complaint."],
             ),
@@ -111,6 +113,7 @@
             // be hurt, and what he runs into is destroyed. Pits still reset him.
             max_health: Some(1),
             empowered: [Untouchable, HarmsOnContact],
+            wallet_shield: true,
             barks: (
                 hall: ["The air is falling behind.", "Immortality is a ring budget.", "The universe may submit a request to slow down."],
             ),

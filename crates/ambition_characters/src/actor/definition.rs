@@ -158,6 +158,10 @@ pub struct CharacterDefinition {
     /// it: a super form that cannot be hurt and flattens what it touches.
     /// Joined with the catalog row's at preparation.
     pub empowered: crate::actor::Empowerment,
+    /// This body's positive wallet balance absorbs one hit
+    /// ([`BodyWalletShield`](crate::actor::BodyWalletShield)) where its game's
+    /// rules allow it: Sanic's rings. OR-ed with the catalog row's.
+    pub wallet_shield: bool,
     /// Weapon carried by this character.
     /// Held items do not grant verbs; [`Self::action_set`] states what the body can do.
     pub held_item: Option<String>,
@@ -201,6 +205,7 @@ impl CharacterDefinition {
             ranged_execution: None,
             practice_target: false,
             empowered: crate::actor::Empowerment::none(),
+            wallet_shield: false,
             held_item: None,
             mount: None,
             dream_seed: None,
@@ -391,6 +396,7 @@ mod authority_tests {
             mount: _,
             practice_target: _,
             empowered: _,
+            wallet_shield: _,
             ranged_execution: _,
 
             // ── DEFAULT CONTROLLER (4) — see the  above ────────────────────

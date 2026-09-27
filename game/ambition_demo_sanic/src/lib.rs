@@ -1552,13 +1552,14 @@ pub struct ScatteredRing {
 
 /// Bodies whose wallet shield Sanic's rule decides.
 ///
-/// A body qualifies if it wears a Sanic persona, or already carries a
-/// shield (the giveback for a body that stopped wearing Sanic).
+/// A body qualifies if the character it wears states `wallet_shield` (the
+/// `sanic` and `super_sanic` rows), or it already carries a shield (the
+/// giveback for a body that stopped wearing one).
 /// [`BodyWalletShield`](ambition_platformer2d::characters::actor::BodyWalletShield)
 /// has one writer, this file, so any shield is Sanic's. Other bodies (for
-/// example George Booul on a Smash stage) are skipped. The persona check
-/// cannot be a query filter, because `WornCharacter` holds an id, so it is
-/// the first statement in the loop.
+/// example George Booul on a Smash stage) are skipped. The row check cannot be
+/// a query filter, because `WornCharacter` holds an id, so it is the first
+/// statement in the loop.
 type SanicShieldBodies<'w, 's> = bevy::prelude::Query<
     'w,
     's,
@@ -1570,15 +1571,10 @@ type SanicShieldBodies<'w, 's> = bevy::prelude::Query<
     ambition_platformer2d::platformer::markers::PrimaryPlayerOnly,
 >;
 
-/// Whether this character id is one of Sanic's forms.
-fn is_sanic_persona(id: &str) -> bool {
-    matches!(id, "sanic" | "super_sanic")
-}
-
 /// The one system that decides whether a body's wallet absorbs a hit.
 ///
-/// Yes for a Sanic persona in a Sanic room; no for the other bodies this rule
-/// covers. `in_sanic_rooms` reads the active room's mode tag, not a
+/// Yes for a character whose row states `wallet_shield`, in a Sanic room; no
+/// for the other bodies this rule covers. `in_sanic_rooms` reads the active room's mode tag, not a
 /// constructor flag, so hosted and standalone use one system.
 ///
 /// Derived state, not an input edge: rebuilding it every frame avoids a
@@ -1590,17 +1586,23 @@ fn sync_sanic_wallet_shield(
             ambition_platformer2d::world::rooms::RoomSet,
         >,
     >,
+    cast: Option<
+        bevy::prelude::Res<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>,
+    >,
     bodies: SanicShieldBodies<'_, '_>,
 ) {
     let in_sanic_rooms =
         rooms.is_some_and(|rooms| rooms.active_metadata().mode.as_deref() == Some(SANIC_MODE));
     for (entity, worn, shielded) in &bodies {
-        let sanic_persona = is_sanic_persona(worn.id());
+        let row_shields = cast
+            .as_deref()
+            .and_then(|cast| cast.get(worn.id()))
+            .is_some_and(|character| character.wallet_shield);
         // Not this ruleset's body (see `SanicShieldBodies`).
-        if !sanic_persona && !shielded {
+        if !row_shields && !shielded {
             continue;
         }
-        let enabled = in_sanic_rooms && sanic_persona;
+        let enabled = in_sanic_rooms && row_shields;
         match (enabled, shielded) {
             (true, false) => {
                 commands

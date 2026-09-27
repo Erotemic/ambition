@@ -240,6 +240,9 @@ fn a_definition_carries_no_controller_binding() {
         // What wearing this character grants: a super form is untouchable
         // whoever drives it.
         empowered: _,
+        // Whether the body's wallet can absorb a hit: a fact about the
+        // creature (Sanic's rings), whoever drives it.
+        wallet_shield: _,
         held_item: _,
         // Presentation, like the sheet: what this creature LOOKS like is a
         // property of the creature, and no controller changes it.

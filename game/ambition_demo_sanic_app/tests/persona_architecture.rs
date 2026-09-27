@@ -532,3 +532,34 @@ fn the_super_form_s_traits_are_stated_by_its_row() {
     wear(&mut app, ambition_demo_sanic::SANIC_CHARACTER_ID);
     assert_eq!(traits(&app), (false, false), "and both leave with the form");
 }
+
+/// The ring shield is the worn row's `wallet_shield`, not a list of Sanic ids:
+/// the body is shielded while it wears `sanic`, loses the shield when it
+/// wears a row that does not state it (`sanic_badnik`), and gets it back.
+#[test]
+fn the_ring_shield_is_stated_by_the_worn_row() {
+    use ambition_platformer2d::characters::actor::BodyWalletShield;
+
+    let mut app = ambition_demo_sanic_app::build_demo_app();
+    settle_until_primary_player(&mut app);
+    let body = {
+        let mut q = app
+            .world_mut()
+            .query_filtered::<Entity, With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>();
+        q.single(app.world()).expect("one primary player")
+    };
+    let wear = |app: &mut App, id: &str| {
+        *app.world_mut().get_mut::<WornCharacter>(body).unwrap() = WornCharacter::new(id);
+        for _ in 0..2 {
+            app.update();
+        }
+        app.world().get::<BodyWalletShield>(body).is_some()
+    };
+
+    assert!(
+        wear(&mut app, ambition_demo_sanic::SANIC_CHARACTER_ID),
+        "sanic's row states the shield, and this is a Sanic room"
+    );
+    assert!(!wear(&mut app, "sanic_badnik"), "a row without it is not shielded");
+    assert!(wear(&mut app, ambition_demo_sanic::SANIC_CHARACTER_ID), "and the row gives it back");
+}

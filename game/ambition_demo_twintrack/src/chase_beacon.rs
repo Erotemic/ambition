@@ -10,7 +10,7 @@ use ambition_platformer2d::relativity2d::SpacetimeCoordinateTime2d;
 use bevy::prelude::*;
 
 use crate::{
-    LaboratoryTwin, TwinTrackCharacter, TwinTrackExperiment, TwinTrackTrajectory, TAGGER_ID,
+    LaboratoryTwin, TwinTrackCharacter, TwinTrackExperiment, TwinTrackRole, TwinTrackTrajectory,
 };
 
 pub(crate) fn update_twintrack_character_worldlines(
@@ -37,7 +37,8 @@ pub(crate) fn update_twintrack_character_worldlines(
                 angular_speed,
                 phase,
             } => {
-                let speed_scale = if character.id == TAGGER_ID {
+                // The light tagger runs faster after each hit it takes.
+                let speed_scale = if character.role == TwinTrackRole::LightTagger {
                     tag_speed_scale
                 } else {
                     1.0

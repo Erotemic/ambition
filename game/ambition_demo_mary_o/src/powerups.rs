@@ -690,6 +690,11 @@ fn worn_form_rank(worn: Option<&WornEquipment>) -> u8 {
         .unwrap_or(0) as u8
 }
 
+/// Whether `character_id` is one of her forms: a rung of her ladder.
+pub(crate) fn is_her_form(character_id: &str) -> bool {
+    FORM_LADDER.iter().any(|rung| rung.character == character_id)
+}
+
 /// The rung a worn-character id draws. An id off the ladder is the bottom rung.
 fn power_tier(character_id: &str) -> u8 {
     FORM_LADDER

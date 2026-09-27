@@ -204,7 +204,7 @@ fn attach_quasar_overlays(
 ) {
     waiting.retain(|entity, _| candidates.get(*entity).is_ok());
     for (source_entity, worn, transform, sprite, anchor, session_owner) in &candidates {
-        if !is_mary_o_form(worn.id()) {
+        if !crate::powerups::is_her_form(worn.id()) {
             continue;
         }
         // The two ways attaching can silently do nothing. Both are "not yet"
@@ -325,7 +325,7 @@ fn sync_quasar_overlays(
         }
 
         let source_visible = !matches!(source_visibility, Some(v) if *v == Visibility::Hidden);
-        let enabled = is_mary_o_form(worn.id())
+        let enabled = crate::powerups::is_her_form(worn.id())
             && health
                 .health
                 .invulnerable
@@ -346,7 +346,7 @@ fn sync_quasar_overlays(
                 "overlay enabled = {enabled} (form '{}' ok = {}, invincible = {}, \
                  source_visible = {source_visible}, disabled = {}, strength = {})",
                 worn.id(),
-                is_mary_o_form(worn.id()),
+                crate::powerups::is_her_form(worn.id()),
                 health.health.invulnerable.holds(
                 ambition_platformer2d::characters::actor::Invulnerability::EMPOWERED,
             ),
@@ -417,10 +417,6 @@ fn cleanup_quasar_overlays(
     }
 }
 
-fn is_mary_o_form(id: &str) -> bool {
-    matches!(id, "mary_o" | "mary_o_tall" | "mary_o_fire")
-}
-
 fn current_sprite_frame(
     sprite: &Sprite,
     texture_layouts: &Assets<TextureAtlasLayout>,
@@ -488,8 +484,10 @@ fn seed_from_id(id: &str) -> f32 {
 
 #[cfg(test)]
 mod tests {
-    use super::is_mary_o_form;
+    use crate::powerups::is_her_form as is_mary_o_form;
 
+    /// The overlay reads her form ladder, so every form she can wear has it and
+    /// a character off the ladder does not.
     #[test]
     fn quasar_shader_accepts_all_mary_o_power_forms_only() {
         assert!(is_mary_o_form("mary_o"));

@@ -125,6 +125,30 @@ pub const SPINNER_ID: u8 = 3;
 pub const DJ_ID: u8 = 4;
 pub const TAGGER_ID: u8 = 5;
 
+/// Each traveler's name, by id. The one place a name is written: the
+/// constructors, the clock report and the light-arrival resolver read it.
+const TRAVELER_NAMES: [(u8, &str); 5] = [
+    (COURIER_ID, "Courier"),
+    (DRIFTER_ID, "Drifter"),
+    (SPINNER_ID, "Spinner"),
+    (DJ_ID, "DJ Blue Shift"),
+    (TAGGER_ID, "Photon Fox"),
+];
+
+/// The name of traveler `id`, or `None` for an id no traveler has.
+pub(crate) fn traveler_name(id: u8) -> Option<&'static str> {
+    TRAVELER_NAMES
+        .iter()
+        .find(|(traveler, _)| *traveler == id)
+        .map(|(_, name)| *name)
+}
+
+fn named(id: u8) -> String {
+    traveler_name(id)
+        .expect("every traveler id has a name in TRAVELER_NAMES")
+        .to_owned()
+}
+
 const SIGNAL_POOL_LABEL: &str = "twintrack_plaza_signals";
 const SIGNAL_POOL_SIZE: u16 = 32;
 const CLOCK_REPORT_MASK: u8 = 0b111;
@@ -194,7 +218,6 @@ pub struct TwinTrackCharacter {
 impl TwinTrackCharacter {
     fn clock_citizen(
         id: u8,
-        label: &str,
         receiver_channel: u8,
         center: Vec2,
         radius: f32,
@@ -203,7 +226,7 @@ impl TwinTrackCharacter {
     ) -> Self {
         Self {
             id,
-            label: label.to_owned(),
+            label: named(id),
             role: TwinTrackRole::ClockCitizen,
             receiver_channel,
             trajectory: TwinTrackTrajectory::Orbit {
@@ -215,10 +238,10 @@ impl TwinTrackCharacter {
         }
     }
 
-    fn stationary(id: u8, label: &str, role: TwinTrackRole, receiver_channel: u8) -> Self {
+    fn stationary(id: u8, role: TwinTrackRole, receiver_channel: u8) -> Self {
         Self {
             id,
-            label: label.to_owned(),
+            label: named(id),
             role,
             receiver_channel,
             trajectory: TwinTrackTrajectory::Stationary,
@@ -721,7 +744,6 @@ fn install_twintrack_session(
         root.0,
         TwinTrackCharacter::clock_citizen(
             COURIER_ID,
-            "Courier",
             COURIER_RECEIVER_CHANNEL,
             Vec2::new(455.0, 310.0),
             110.0,
@@ -737,7 +759,6 @@ fn install_twintrack_session(
         root.0,
         TwinTrackCharacter::clock_citizen(
             DRIFTER_ID,
-            "Drifter",
             DRIFTER_RECEIVER_CHANNEL,
             Vec2::new(720.0, 300.0),
             125.0,
@@ -753,7 +774,6 @@ fn install_twintrack_session(
         root.0,
         TwinTrackCharacter::clock_citizen(
             SPINNER_ID,
-            "Spinner",
             SPINNER_RECEIVER_CHANNEL,
             Vec2::new(980.0, 320.0),
             115.0,
@@ -767,7 +787,6 @@ fn install_twintrack_session(
 
     let dj = TwinTrackCharacter::stationary(
         DJ_ID,
-        "DJ Blue Shift",
         TwinTrackRole::DopplerDj,
         DJ_RECEIVER_CHANNEL,
     );
@@ -785,7 +804,7 @@ fn install_twintrack_session(
 
     let tagger = TwinTrackCharacter {
         id: TAGGER_ID,
-        label: "Photon Fox".to_owned(),
+        label: named(TAGGER_ID),
         role: TwinTrackRole::LightTagger,
         receiver_channel: TAG_RECEIVER_CHANNEL,
         trajectory: TwinTrackTrajectory::Orbit {
@@ -942,14 +961,7 @@ fn decoded_clock_seconds(milliseconds: u64) -> f64 {
 }
 
 fn character_name(id: u8) -> &'static str {
-    match id {
-        COURIER_ID => "Courier",
-        DRIFTER_ID => "Drifter",
-        SPINNER_ID => "Spinner",
-        DJ_ID => "DJ Blue Shift",
-        TAGGER_ID => "Photon Fox",
-        _ => "Unknown traveler",
-    }
+    traveler_name(id).unwrap_or("Unknown traveler")
 }
 
 fn report_bit(id: u8) -> u8 {

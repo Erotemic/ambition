@@ -769,14 +769,7 @@ fn arrival_start_position(
         "traveler"
     } else {
         let (_, actor_id, _) = crate::payload_parts(payload);
-        match actor_id {
-            crate::COURIER_ID => "Courier",
-            crate::DRIFTER_ID => "Drifter",
-            crate::SPINNER_ID => "Spinner",
-            crate::DJ_ID => "DJ Blue Shift",
-            crate::TAGGER_ID => "Photon Fox",
-            _ => return None,
-        }
+        crate::traveler_name(actor_id)?
     };
     let samples = track_samples(history, label)?;
     sample_at_or_before(samples, emission_time).map(|sample| sample.position)

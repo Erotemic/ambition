@@ -567,4 +567,3 @@ cargo run -p ambition_app_tools --release --bin fight_discovery -- \
 GNU-ton's first report is
 [`boss-fights/gnu_ton-discovery-2026-09-25.md`](boss-fights/gnu_ton-discovery-2026-09-25.md).
 It is evidence at that SHA, not status.
-

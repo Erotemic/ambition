@@ -1,0 +1,4 @@
+# A stored patch is a unified diff. Each of its context lines starts with a
+# space, and the file it patches may indent with tabs, so "space before tab"
+# is the format, not an error. Do not let `git diff --check` report it.
+dev/patches/*.patch -whitespace

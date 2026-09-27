@@ -157,6 +157,11 @@ pub fn apply_smash_match_rules(roster: &mut MatchParticipantRoster, stocks: u32)
     });
     // Apply the ruleset's body baseline alongside its ability policy.
     roster.rules.body = Some(SMASH_FIGHTER_BODY);
+    // Fighters are solid to each other (jostle). The engine owns the
+    // constraint; the match only says its cast has it. Projectiles and props
+    // do not get it, because they are not seats.
+    roster.rules.fighter_contact =
+        Some(ambition_platformer2d::platformer::body::BodyContact::FIRM);
     // No items for now (Jon's call). The machinery (`MatchItemSpawns`, the
     // spawner, the weighted table) is built and tested; only this declaration
     // is absent. The previous table: a drop every 8s at three points above the
@@ -944,14 +949,6 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
                 .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Settle),
         );
 
-        // Jostle is a fact the movement kernel reads, so it is set in the
-        // simulation in `WorldPrep`, before anything integrates a body.
-        app.add_systems(
-            sim,
-            smash_fighters_are_solid_to_each_other.in_set(
-                ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep,
-            ),
-        );
         // Shark summon, in `ContentSpecials`: it must produce its effects
         // before the effect executors run (`ContentSpecials.before(
         // EffectExecutionSet)`). Name the set; do not add a leaf-to-leaf edge.
@@ -1850,45 +1847,6 @@ fn the_stage_declares_smashs_presentation_and_gives_it_back(
             None => commands.remove_resource::<crate::limit::SmashLimitFill>(),
         }
         commands.remove_resource::<SmashPresentationPrior>();
-    }
-}
-
-/// Smash's fighters are solid to each other (jostle).
-///
-/// Runs in the simulation, not `Update`: `BodyContact` is read by the
-/// movement kernel, and `Update` does not replay under rollback.
-///
-/// The engine owns the constraint (one body's motion reduced by the bodies it
-/// touches, `ambition_platformer2d::engine_core::movement::body_contact`); this
-/// ruleset grants it to its cast (bodies with `FighterStocks`). Projectiles and
-/// props do not get it.
-///
-/// A better home is `MatchBody`, applied in the flush that builds the bodies.
-/// That is a wire change to a snapshotted type, so it is not done here.
-fn smash_fighters_are_solid_to_each_other(
-    mut commands: bevy::prelude::Commands,
-    router: bevy::prelude::Res<ambition_platformer2d::game_shell::ShellRouter>,
-    fighters: bevy::prelude::Query<
-        bevy::prelude::Entity,
-        (
-            bevy::prelude::With<ambition_platformer2d::actor::FighterStocks>,
-            bevy::prelude::Without<ambition_platformer2d::platformer::body::BodyContact>,
-        ),
-    >,
-) {
-    let on_stage = router
-        .active
-        .as_ref()
-        .is_some_and(|active| active.route_id.as_str() == SMASH_GAMEPLAY_ROUTE);
-    if !on_stage {
-        return;
-    }
-    // `Without<BodyContact>` makes this idempotent: nothing is written once
-    // the component is present.
-    for fighter in &fighters {
-        commands
-            .entity(fighter)
-            .try_insert(ambition_platformer2d::platformer::body::BodyContact::FIRM);
     }
 }
 

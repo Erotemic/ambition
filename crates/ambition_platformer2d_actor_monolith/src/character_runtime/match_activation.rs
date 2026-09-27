@@ -519,6 +519,9 @@ pub fn activate_the_prepared_match(
         if let Some(stocks) = rules.stocks {
             entity.try_insert(ambition_combat::components::FighterStocks::new(stocks));
         }
+        if let Some(contact) = rules.fighter_contact {
+            entity.try_insert(contact);
+        }
         if rules.opens_suspended {
             // the OPENING bit, distinct from the interlude a KO card claims:
             // two authorities that can hold the same fighter need two bits, or

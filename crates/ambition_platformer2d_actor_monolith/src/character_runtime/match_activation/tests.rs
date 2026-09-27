@@ -1540,6 +1540,50 @@ fn an_ordinary_roster_seats_fighters_that_can_act() {
     );
 }
 
+/// Body contact is a match rule, so the flush that builds a seat writes it.
+///
+/// Smash used to add it in a later `WorldPrep` pass to every `FighterStocks`
+/// body that lacked it. The rule now goes on the body with the seat, and a
+/// match that declares no contact seats fighters that pass through each other.
+#[test]
+fn a_match_that_declares_fighter_contact_seats_solid_fighters_and_no_other() {
+    use ambition_platformer2d_shared_tangle::body::BodyContact;
+    let firm = BodyContact { resistance: 0.4 };
+    for (declared, label) in [(Some(firm), "declared"), (None, "undeclared")] {
+        let mut app = seating_app();
+        app.register_character(CharacterDefinition::new("mary_o", "Mary-O", "mary_o_demo"));
+        app.register_character(CharacterDefinition::new("sanic", "Sanic", "sanic_demo"));
+        app.insert_resource(MatchParticipantRoster {
+            participants: vec![cpu("mary_o"), cpu("sanic")],
+            rules: ambition_match::MatchRules {
+                fighter_contact: declared,
+                ..Default::default()
+            },
+            ..Default::default()
+        });
+
+        finalize_and_update(&mut app);
+
+        let world = app.world_mut();
+        let mut bodies = world.query::<(
+            &ambition_characters::actor::WornCharacter,
+            Option<&BodyContact>,
+        )>();
+        let contact: Vec<_> = bodies
+            .iter(world)
+            .map(|(worn, contact)| (worn.id().to_string(), contact.copied()))
+            .collect();
+        assert_eq!(contact.len(), 2, "{label}: both fighters must seat at all");
+        for (id, contact) in contact {
+            assert_eq!(
+                contact, declared,
+                "{label}: `{id}` must carry exactly the contact its match declared \
+                 on the tick it is built"
+            );
+        }
+    }
+}
+
 /// H1 was the other case, and it is the common one: a character that authored no action set at
 /// all, whose kit comes from the catalog row. That fighter worked as the worn player and stood
 /// empty-handed as player two, for a day, with every test green — because the two paths had two

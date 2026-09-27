@@ -200,6 +200,12 @@ pub struct MatchRules {
     /// [`MatchParticipantRoster::item_spawns`](super::staging::MatchParticipantRoster::item_spawns).
     /// `None` = no items.
     pub item_spawns: Option<super::staging::MatchItemSpawns>,
+    /// How hard every fighter in this match resists the others, or `None` for
+    /// fighters that pass through each other. The movement kernel reads the
+    /// value (`BodyContact`), so it goes on the body in the flush that builds
+    /// it: a fighter that got it a tick later could walk through its rival on
+    /// its first frame.
+    pub fighter_contact: Option<ambition_platformer2d_shared_tangle::body::BodyContact>,
 }
 
 /// Where an opening ceremony is. Derived from the clock, never stored.

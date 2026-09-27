@@ -608,22 +608,10 @@ pub fn victory_banner(
 /// `ambition_platformer2d::combat::stocks` spends the stock, clears the meter
 /// and marks the elimination. Placing a body needs a stage and announcing a
 /// winner needs a scoreboard, so this plugin supplies both.
-pub struct SmashRulesPlugin {
-    hosted: bool,
-}
-
-impl SmashRulesPlugin {
-    /// Ambition hosts this demo alongside its own rooms: the rules sleep
-    /// outside the smash stage.
-    pub fn hosted() -> Self {
-        Self { hosted: true }
-    }
-
-    /// The demo IS the game.
-    pub fn global() -> Self {
-        Self { hosted: false }
-    }
-}
+///
+/// The rules sleep outside the smash stage, because a host runs this demo
+/// alongside its own rooms.
+pub struct SmashRulesPlugin;
 
 impl bevy::prelude::Plugin for SmashRulesPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
@@ -1044,15 +1032,6 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
             crate::shark_ride::tick_departures
                 .in_set(ambition_platformer2d::platformer::schedule::WorldPrepSet::BeforeIntegrate),
         );
-        // The footstool claims the press in `PlayerInput`, before the kernel
-        // spends the air jump. The claim sets
-        // `BodyJumpState::footstool_claimed` ahead of the jump chain.
-        app.add_systems(
-            sim,
-            ambition_platformer2d::combat::footstool::claim_footstools.in_set(
-                ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::PlayerInput,
-            ),
-        );
         // Ledge trump resolves after the kernel, so it sees this tick's grabs.
         // Before `PlayerSimulation` it would judge last tick's occupancy and
         // leave both bodies hanging for a frame. `Settle` is the post-kernel
@@ -1069,11 +1048,23 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         // spent before a body is placed. The HUD publisher only presents; it
         // shares the gated set so a hosted build stops drawing it outside the
         // stage.
-        let rules = (
+        //
+        // The engine ticks the respawn protection (`RespawnGraceTicked`). The
+        // placement that grants it runs before, so a fighter is protected on
+        // the tick it arrives; the rules that spend it run after.
+        let placement = (
             publish_smash_hud,
             announce_the_opening_countdown,
             place_respawning_fighters,
-            ambition_platformer2d::actor::tick_respawn_grace,
+        )
+            .chain()
+            .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Settle)
+            .after(ambition_platformer2d::combat::stocks::FighterStocksSpent)
+            // Also after the return is decided: with a respawn interval, a
+            // placement racing the tick-down would miss a due fighter.
+            .after(ambition_platformer2d::combat::stocks::FighterRespawnsDue)
+            .before(ambition_platformer2d::actor::RespawnGraceTicked);
+        let protection = (
             a_swing_spends_the_respawn_protection,
             hold_the_respawn_platforms,
             leaving_the_platform_spends_the_respawn_protection,
@@ -1081,10 +1072,7 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         )
             .chain()
             .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Settle)
-            .after(ambition_platformer2d::combat::stocks::FighterStocksSpent)
-            // Also after the return is decided: with a respawn interval, a
-            // placement racing the tick-down would miss a due fighter.
-            .after(ambition_platformer2d::combat::stocks::FighterRespawnsDue);
+            .after(ambition_platformer2d::actor::RespawnGraceTicked);
         // Sudden death's stage half writes rollback-canonical `BodyHealth`, so
         // it runs in the simulation, not `Update`. It reads the message from
         // `decide_stocks_match`, so it runs after `MatchOutcomeDecided`.
@@ -1103,18 +1091,10 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         let remove_the_eliminated = take_eliminated_fighters_out_of_play
             .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Settle)
             .after(ambition_platformer2d::combat::stocks::MatchOutcomeDecided);
-        if self.hosted {
-            let gate = ambition_platformer2d::runtime::in_mode(SMASH_MODE);
-            // The retraction observer is ungated: `RespawnGrace` can leave for
-            // any reason (its clock, a swing, a rebuild, a mode teardown), and a
-            // stale reason bit would keep a fighter invulnerable.
-            app.add_observer(ambition_platformer2d::actor::retract_respawn_grace_on_removal);
-            app.add_systems(sim, rules.run_if(gate.clone()));
-            app.add_systems(sim, remove_the_eliminated.run_if(gate));
-        } else {
-            app.add_systems(sim, rules);
-            app.add_systems(sim, remove_the_eliminated);
-        }
+        let gate = ambition_platformer2d::runtime::in_mode(SMASH_MODE);
+        app.add_systems(sim, placement.run_if(gate.clone()));
+        app.add_systems(sim, protection.run_if(gate.clone()));
+        app.add_systems(sim, remove_the_eliminated.run_if(gate));
     }
 }
 
@@ -2904,7 +2884,7 @@ impl bevy::prelude::Plugin for SmashExperiencePlugin {
             ambition_platformer2d::presentation::DefensePresentationPolicy::shared_iframe_blink(),
         )
         .install(app, smash_prepared_session_world);
-        app.add_plugins(SmashRulesPlugin::hosted());
+        app.add_plugins(SmashRulesPlugin);
 
         // What this experience owns, and what leaves with it.
         //

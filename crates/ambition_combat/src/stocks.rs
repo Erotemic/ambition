@@ -57,6 +57,17 @@ pub struct RespawnGrace {
     pub remaining: f32,
 }
 
+/// The set [`tick_respawn_grace`] runs in: after it, this tick's respawn
+/// protection is published as a reason bit.
+///
+/// The engine schedules the tick and installs [`retract_respawn_grace_on_removal`]
+/// beside the stocks loop, so a ruleset only grants and spends the grace. A
+/// placement that grants [`RespawnGrace`] orders itself before this set, so the
+/// fighter is protected on the tick it arrives. A rule that spends the grace
+/// orders itself after.
+#[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct RespawnGraceTicked;
+
 /// Advance every returning fighter's protection, and publish it as a reason.
 ///
 /// ⭐ ONE AUTHORITY FOR ONE BEAT: the component's clock decides, the reason bit

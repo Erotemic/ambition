@@ -72,6 +72,12 @@ fn team_permits(
     }
 }
 
+/// The set [`claim_footstools`] runs in. The engine installs it, so a ruleset
+/// turns footstools on in data (`FootstoolTuning` on its bodies) and schedules
+/// nothing.
+#[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct FootstoolsClaimed;
+
 /// Claim the press for every footstool that is about to happen.
 ///
 /// # Why the order is spelled out

@@ -889,6 +889,17 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         // validation before it can run. Idempotent, so the host registering it
         // beside `StocksMatchDecided` costs nothing.
         app.add_message::<ambition_combat::stocks::FighterRespawnDue>();
+        // A returning fighter's protection. The engine owns its clock and its
+        // retraction, so a ruleset that grants it cannot forget either. Both
+        // are inert on a body without `RespawnGrace`.
+        app.add_systems(
+            sim,
+            ambition_combat::stocks::tick_respawn_grace
+                .in_set(ambition_combat::stocks::RespawnGraceTicked)
+                .after(ambition_combat::stocks::FighterRespawnsDue)
+                .in_set(ambition_platformer2d_shared_tangle::schedule::CombatSet::Settle),
+        );
+        app.add_observer(ambition_combat::stocks::retract_respawn_grace_on_removal);
         app.add_systems(
             sim,
             (

@@ -642,6 +642,17 @@ impl Plugin for CombatSchedulePlugin {
                 .in_set(CombatSet::Settle),
         );
 
+        // A footstool is a body fact (`FootstoolTuning`, `OFF` by default), so
+        // the engine judges it for every body and a ruleset only states the
+        // tuning. It claims the press in `PlayerInput`, before the kernel
+        // spends the air jump.
+        app.add_systems(
+            sim,
+            ambition_combat::footstool::claim_footstools
+                .in_set(ambition_combat::footstool::FootstoolsClaimed)
+                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::PlayerInput),
+        );
+
         install_technique(
             app,
             ambition_characters::technique::POGO_BOUNCE_KEY,
@@ -1053,6 +1064,82 @@ mod tests {
                  rule now, so remove the other one rather than this assertion."
             );
         });
+    }
+
+    /// A ruleset turns footstools and respawn protection on in DATA: a
+    /// `FootstoolTuning` on its bodies, a `RespawnGrace` on a returning
+    /// fighter. The engine must run the rule that reads each, exactly once,
+    /// or the data does nothing (zero) or runs twice (two). Both were installed
+    /// by `ambition_demo_smash` alone, so an app without Smash had neither.
+    ///
+    /// The grace's retraction is an observer, so it is asked by behaviour: a
+    /// grace removed by something other than its clock must clear the reason
+    /// bit it published.
+    #[test]
+    fn the_shipped_engine_runs_the_rules_that_read_versus_data() {
+        use ambition_characters::actor::{BodyHealth, Health, Invulnerability};
+
+        let mut app = App::new();
+        app.add_plugins(bevy::MinimalPlugins);
+        app.add_plugins(bevy::asset::AssetPlugin::default());
+        app.add_plugins(crate::PlatformerEnginePlugins::fixed_tick());
+        let sim = app.sim_schedule();
+        let world = app.world_mut();
+        world.resource_scope::<Schedules, _>(|world, mut schedules| {
+            let schedule = schedules.get_mut(sim).expect("the sim schedule exists");
+            schedule.initialize(world).expect("the sim schedule builds");
+            for (set, rule) in [
+                (
+                    bevy::ecs::schedule::SystemSet::intern(
+                        &ambition_combat::footstool::FootstoolsClaimed,
+                    ),
+                    "claim_footstools",
+                ),
+                (
+                    bevy::ecs::schedule::SystemSet::intern(
+                        &ambition_combat::stocks::RespawnGraceTicked,
+                    ),
+                    "tick_respawn_grace",
+                ),
+            ] {
+                let installed = schedule
+                    .graph()
+                    .systems_in_set(set)
+                    .map(|systems| systems.len())
+                    .unwrap_or(0);
+                assert_eq!(
+                    installed, 1,
+                    "the shipped sim schedule installs `{rule}` {installed} time(s), not once"
+                );
+            }
+        });
+
+        let mut health = BodyHealth::new(Health {
+            current: 10,
+            max: 10,
+            invulnerable: Default::default(),
+        });
+        health
+            .health
+            .invulnerable
+            .set(Invulnerability::RESPAWN, true);
+        let body = app
+            .world_mut()
+            .spawn((health, ambition_combat::stocks::RespawnGrace { remaining: 2.0 }))
+            .id();
+        app.world_mut()
+            .entity_mut(body)
+            .remove::<ambition_combat::stocks::RespawnGrace>();
+        assert!(
+            !app.world()
+                .get::<BodyHealth>(body)
+                .expect("still a body")
+                .health
+                .invulnerable
+                .holds(Invulnerability::RESPAWN),
+            "a respawn grace spent by a rule kept its reason bit, so the fighter \
+             stays untouchable"
+        );
     }
 }
 

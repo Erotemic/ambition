@@ -19,7 +19,7 @@ fn a_swing_spends_only_the_respawn_grant_on_a_body_that_holds_two() {
 
     let mut app = bevy::prelude::App::new();
     app.add_systems(bevy::prelude::Update, a_swing_spends_the_respawn_protection);
-    app.add_observer(ambition_platformer2d::actor::retract_respawn_grace_on_removal);
+    app.add_observer(ambition_platformer2d::combat::stocks::retract_respawn_grace_on_removal);
     let mut health = BodyHealth::new(Health {
         current: 100,
         max: 100,

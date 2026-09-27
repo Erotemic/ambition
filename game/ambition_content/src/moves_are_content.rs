@@ -43,7 +43,7 @@ fn every_character_the_move_section_names_is_one_this_game_builds() {
 ///
 /// This asks the character definition the game builds.
 /// `with_pack_moveset` is the one seam every buildable character passes
-/// through (`register_declared_cast`'s loop calls it), so what it returns is
+/// through (`register_characters`'s loop calls it), so what it returns is
 /// what the cast is registered with.
 ///
 /// It runs over every character the move files name, not a sample.
@@ -91,35 +91,5 @@ fn every_migrated_fighter_the_game_builds_swings_its_file_s_numbers() {
     assert!(
         checked >= 15,
         "only {checked} character(s) were checked, which is not the migrated set"
-    );
-}
-
-/// The robot lineage takes its tables from the file, on its own road.
-///
-/// The lineage does not pass `register_declared_cast` (that loop skips it), so
-/// the test above does not prove its road. `player_robot_lineage::definition`
-/// is what that road builds, and it must apply the same seam.
-///
-/// The population is `LINEAGE` itself, not a prefix filter over the buildable
-/// cast, and v0 is in it with no table: a file entry for it would also have to
-/// arrive.
-#[test]
-fn the_robot_lineage_wears_the_tables_its_file_carries() {
-    let table = lowered_movesets(crate::pack::prepared()).expect("a move section");
-    let mut checked = 0usize;
-    for incarnation in crate::player_robot_lineage::LINEAGE {
-        let built = crate::player_robot_lineage::definition(incarnation).moveset;
-        assert_eq!(
-            built.as_ref(),
-            table.get(incarnation.id),
-            "`{}` is built with a move table that is not the one the pack \
-             carries for it, so something other than the file supplies its moves",
-            incarnation.id
-        );
-        checked += usize::from(built.is_some());
-    }
-    assert!(
-        checked >= 2,
-        "only {checked} lineage member(s) have a move table; v2 and v3 both do"
     );
 }

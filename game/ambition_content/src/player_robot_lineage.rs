@@ -1,366 +1,102 @@
-//! Player Robot incarnations generated from shared source.
+//! The player robot's lineage: `robot` (v0), `player_robot_v2` and
+//! `player_robot_v3`, three incarnations of one character. There is no v1. Ambition
+//! wants old versions of yourself to be things you can meet, talk to, fight and
+//! play as.
 //!
-//! Each incarnation is a complete character with its own stable id; the engine
-//! does not interpret a version parameter or apply an inheritance/patch chain.
-//! [`Incarnation`] contains per-version data, while [`definition`] authors the
-//! shared body/moves. [`Lineage::derived_from`] records provenance only and is
-//! never an authority for field resolution.
+//! Each incarnation is its catalog row, like every other character: the row
+//! states the body, the kit and the voice, and `derived_from` names the version
+//! before it. That is provenance only; nothing is inherited along the chain.
+//! What is here checks that the rows say what the lineage means.
 
-use ambition_characters::actor::definition::CharacterDefinition;
-use ambition_characters::actor::definition::Lineage;
-use ambition_characters::prepared::CharacterBindings;
-use ambition_entity_catalog::{
-    HurtboxDoc, HurtboxKeyframe, HurtboxTimeline, HurtboxVolume, VolumeShape,
-};
-use ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinitionAppExt;
-
-/// One incarnation of the player robot: everything about it that is not shared.
+/// The robot's lineage, oldest first: the provider's default character and each
+/// row its `derived_from` names, followed back to the row that names none.
 ///
-/// Deliberately TWO fields, and it had four.
+/// # Panics
 ///
-/// `display_name` and `sheet` lived here AND in `character_catalog.ron`, with
-/// nothing deciding which won per field — the AF4b duplicate-authority row. Its
-/// lines went the same way, and that was worse than duplication: the catalog
-/// outranked them, so `player_robot_v2`'s Rust lines could never be heard at
-/// all (a definition no longer states lines; a character's are its row's). Reading the row
-/// is what makes "content owns the facts" structural instead of a convention.
-pub struct Incarnation {
-    /// Stable id. Never reused and never repointed — that is what makes an
-    /// old build a thing you can meet rather than a thing you remember. A future
-    /// v4 does not take v3's id; it takes its own, and v3 keeps standing.
-    ///
-    /// It is also the key into the catalog: everything else this character is
-    /// comes from the row under this id.
-    pub id: &'static str,
-    /// The incarnation this one replaced. `None` for the original.
-    ///
-    /// Provenance only — see the module doc. It exists so the lineage is a fact
-    /// the code owns rather than a sentence in an authoring description.
-    pub replaces: Option<&'static str>,
-}
-
-// Voice is catalog-authored for the robot lineage. `fallback_dialogue` provides
-// the lowest-precedence lines, so the Rust definitions do not duplicate dialogue.
-
-/// v0 — the original. Its own bark: *"Version zero. Everything after me was
-/// a patch note."*
-pub const V0: Incarnation = Incarnation {
-    id: "robot",
-    replaces: None,
-};
-
-/// v2 — the build that shipped before the SVG rig.
-///
-/// There is no v1. v2's own dialogue handles the question (*"There is no v1. Ask
-/// someone else why."*) and its row records the reason: it is a joke, not a gap.
-pub const V2: Incarnation = Incarnation {
-    id: "player_robot_v2",
-    replaces: Some(V0.id),
-};
-
-/// v3 — the body you are playing right now.
-///
-/// Named for its version rather than for being current, so v4 costs a struct literal instead of a
-/// rename.
-pub const V3: Incarnation = Incarnation {
-    id: "player_robot_v3",
-    replaces: Some(V2.id),
-};
-
-/// The whole lineage, oldest first.
-pub const LINEAGE: &[&Incarnation] = &[&V0, &V2, &V3];
-
-/// Build one incarnation's complete definition, reading its FACTS from the
-/// catalog row under its id.
-///
-/// Everything the three have in common lives here and nowhere else. What it does
-/// NOT do is inherit: no field is copied from `replaces`, and the definition that
-/// comes out is complete on its own.
-///
-/// The sheet comes through
-/// [`CatalogEntry::manifest_target`](ambition_characters::actor::character_catalog::CatalogEntry::manifest_target),
-/// the same canonical projection `audit_character_authority_parity` compares with — a catalog row
-/// names FILES (`sprites/player_robot_v2_spritesheet.ron`) and a definition names a TARGET <!-- cite-ok: an asset path relative to the content assets root, not a repo path -->
-/// (`player_robot_v2`).
-///
-/// A missing row is a panic rather than a fallback: an incarnation the catalog
-/// does not describe cannot be registered as a character, and inventing a name
-/// for it here would put the duplication back one `unwrap_or` at a time.
-pub fn definition(incarnation: &Incarnation) -> CharacterDefinition {
-    definition_from(
-        &crate::character_catalog::load_catalog(),
-        crate::pack::prepared(),
-        incarnation,
-    )
-}
-
-/// [`definition`] against an already-parsed catalog, so registering the whole
-/// lineage parses the roster ONCE instead of once per incarnation.
-fn definition_from(
-    catalog: &ambition_characters::actor::character_catalog::CharacterCatalog,
-    pack: &ambition_content_pack::PreparedContentPack,
-    incarnation: &Incarnation,
-) -> CharacterDefinition {
-    let row = catalog.get(incarnation.id).unwrap_or_else(|| {
-        panic!(
-            "player-robot incarnation `{}` has no row in character_catalog.ron — \
-             the lineage names who exists; the row says what they are",
-            incarnation.id
-        )
-    });
-    let sheet = row.manifest_target().unwrap_or_else(|| {
-        panic!(
-            "`{}`'s catalog manifest `{}` does not follow the \
-             `<target>_spritesheet.ron` convention, so no sheet target can be \
-             derived from it",
-            incarnation.id, row.manifest
-        )
-    });
-    let mut definition = CharacterDefinition::new(
-        incarnation.id,
-        row.display_name.clone(),
-        crate::AMBITION_CONTENT_PROVIDER,
-    )
-    .with_sheet(sheet);
-    // Derive collision scale from published sprite metrics while keeping the
-    // canonical standing height stable across sheet regeneration. Incarnations
-    // without authored body metrics retain their existing body source.
-    if let Some(body_px) = ambition_platformer2d::character_sprites::authored_body_pixel_size(sheet)
-    {
-        // the robot's canonical height IS the engine's default playable body: 48 world pixels,
-        // exactly three tiles.
-        let canonical_height = ambition_platformer2d_core::DEFAULT_PLAYER_BODY_HEIGHT;
-        if let Some(world_per_pixel) =
-            ambition_characters::actor::definition::world_per_pixel_for_height(
-                canonical_height,
-                body_px.y,
-            )
-        {
-            definition = definition
-                .with_canonical_height(canonical_height)
-                .with_sprite_authored_body(world_per_pixel)
-                .with_hurtboxes(forgiving_hurtbox(body_px * world_per_pixel));
-        }
-    }
-    // All incarnations share the same authored body and moveset. The host still
-    // owns progression-gated action availability; these timelines define what
-    // the robot's attacks are, not which actions are currently permitted.
-    definition.vitals.max_health = Some(60);
-    definition = definition
-        .with_locomotion(ambition_characters::actor::CharacterLocomotion {
-            run_speed: 200.0,
-            move_style: ambition_characters::brain::MoveStyleSpec::Walk,
-            ..Default::default()
-        })
-        .with_contact_damage(ambition_characters::actor::ContactDamage {
-            strength: 0.6,
-            amount: 1,
-        })
-        // Autonomous behavior is a named policy shared independently of body identity.
-        .with_autonomous_profile_named("robot_duelist")
-        // Character-authored body capabilities. Matches may mask these abilities but do not
-        // invent them. Flight is intentional for this grounded hybrid; reset is debug-only.
-        .with_abilities(ambition_platformer2d_core::AbilitySet {
-            move_horizontal: true,
-            jump: true,
-            variable_jump: true,
-            double_jump: true,
-            fast_fall: true,
-            wall_jump: true,
-            wall_cling: true,
-            wall_climb: true,
-            dash: true,
-            double_dash: true,
-            blink: true,
-            precision_blink: true,
-            blink_through_soft_walls: true,
-            blink_through_hard_walls: true,
-            attack: true,
-            pogo: true,
-            directional_primary: true,
-            directional_special: true,
-            rebound: true,
-            ledge_grab: true,
-            swim: true,
-            glide: true,
-            dodge: true,
-            shield: true,
-            interact: true,
-            fly: true,
-            fly_toggle: true,
-            crouch: true,
-            climb: true,
-            // Morph Ball is NOT the robot's to author: the Ambition experience
-            // grants it to its home body, so the robot seated anywhere else
-            // (Versus, another game) does not curl.
-            ..ambition_platformer2d_core::AbilitySet::NONE
-        });
-    // Character-owned ranged presentation.
-    definition = definition.with_ranged_vfx("hadouken");
-    // Hold to charge, release to fire.
-    definition = definition
-        .with_ranged_execution(ambition_characters::brain::RangedExecution::ChargedProjectile);
-    // V3 also states the action slots it exposes. Its move timelines, and
-    // v2's, come from the pack below.
-    if incarnation.id == V3.id {
-        definition =
-            definition.with_action_set(crate::player_robot_moveset::player_robot_action_set());
-    }
-    definition.lineage = Some(Lineage {
-        derived_from: incarnation.replaces.map(str::to_string),
-        // Hand-authored incarnations have no generator provenance.
-        generator_revision: None,
-        source_fingerprint: None,
-    });
-    // The one seam where a pack's move table is applied, the same one the
-    // declared cast passes. Incarnations share lineage while authoring
-    // different repertoires, and each file entry names its incarnation.
-    crate::character_catalog::with_pack_moveset(incarnation.id, definition, pack)
-}
-
-/// Combat targets the torso rather than the full collision outline.
-///
-/// The collision body still includes the head for world collision. The hurtbox
-/// begins near the shoulders, retains the feet, and excludes arm/head overhang.
-///
-/// ⛔ **A STANCE MOVES THE CENTRE, AND THIS VOLUME IS PLACED AT THE CENTRE.**
-/// The edges below are fractions of the body box, but they are baked to world
-/// offsets here and `hurtbox_world_aabb` puts them at `pos`. A crouch halves
-/// the box and slides `pos` toward the feet, so a volume measured against the
-/// STANDING box hangs a quarter of the standing height through the floor — you
-/// could see it under the platform with the combat overlay on. So the crouch
-/// gets its own profile, measured against the box it will actually be worn
-/// with. `HurtboxDoc::poses` and `BodyPoseClock` already carried this seam
-/// end to end; nothing authored it.
-fn forgiving_hurtbox(body_world: ambition_platformer2d_core::Vec2) -> HurtboxDoc {
-    HurtboxDoc {
-        default: Some(forgiving_timeline(body_world)),
-        poses: std::iter::once((
-            ambition_combat::hurtbox_resolution::POSE_CROUCH.to_string(),
-            // The same rule the stance applies to the collision box, applied to
-            // the volume worn inside it — asked of `BodyMode::shape` rather than
-            // restated, so the two cannot disagree about what crouching means.
-            forgiving_timeline(
-                ambition_platformer2d_core::player_state::BodyMode::Crouching
-                    .shape(body_world)
-                    .size,
-            ),
-        ))
-        .collect(),
-        moves: Default::default(),
-    }
-}
-
-/// The forgiving torso volume for one body box, in that box's own frame.
-fn forgiving_timeline(body_world: ambition_platformer2d_core::Vec2) -> HurtboxTimeline {
-    // Fractions of the body box, per edge.
-    const LEFT: f32 = 0.09;
-    const RIGHT: f32 = 0.21;
-    const TOP: f32 = 0.43;
-    const BOTTOM: f32 = 0.01;
-
-    // World +y is down, so a lower hurtbox center has a positive y offset.
-    let offset = ambition_platformer2d_core::Vec2::new(
-        ((LEFT + (1.0 - RIGHT)) * 0.5 - 0.5) * body_world.x,
-        ((TOP + (1.0 - BOTTOM)) * 0.5 - 0.5) * body_world.y,
-    );
-    let half_extents = ambition_platformer2d_core::Vec2::new(
-        (1.0 - LEFT - RIGHT) * 0.5 * body_world.x,
-        (1.0 - TOP - BOTTOM) * 0.5 * body_world.y,
-    );
-    HurtboxTimeline {
-        keyframes: vec![HurtboxKeyframe {
-            at_s: 0.0,
-            volumes: vec![HurtboxVolume {
-                shape: VolumeShape::Rect {
-                    offset: (offset.x, offset.y),
-                    half_extents: (half_extents.x, half_extents.y),
-                },
-            }],
-        }],
-    }
-}
-
-/// Register every incarnation as a character in its own right.
-///
-/// Kits remain catalog-authored and are folded in during preparation; do not
-/// duplicate them on these definitions.
-pub fn register(app: &mut bevy::prelude::App) {
-    // Parsed ONCE for the whole lineage. Three strings do not justify three
-    // parses of the roster, and the cast is only going to grow.
+/// When a row on the chain names a character the catalog does not have, or
+/// the chain comes back to itself.
+pub fn lineage() -> Vec<String> {
     let catalog = crate::character_catalog::load_catalog();
-    // The App's pack, read once, as in `register_declared_cast`.
-    let pack = crate::pack::select(app.world_mut()).clone();
-    for incarnation in LINEAGE {
-        app.try_register_character(
-            definition_from(&catalog, &pack, incarnation),
-            // the seam fills the engine's sheet AND portrait vocabularies itself
-            // (`with_engine_vocabularies`), so a target that names nothing is reported at load
-            // with a did-you-mean rather than silently drawing the marked rectangle — whether
-            // or not a provider remembered to ask.
-            CharacterBindings::default(),
-        )
-        .unwrap_or_else(|error| panic!("player-robot incarnation rejected: {error}"));
+    let mut chain = vec![crate::character_catalog::DEFAULT_CHARACTER.to_string()];
+    while let Some(previous) = catalog
+        .get(chain.last().expect("the chain starts non-empty"))
+        .unwrap_or_else(|| panic!("the lineage names `{}`, which has no row", chain.last().unwrap()))
+        .derived_from
+        .clone()
+    {
+        assert!(!chain.contains(&previous), "the lineage comes back to `{previous}`: {chain:?}");
+        chain.push(previous);
     }
+    chain.reverse();
+    chain
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    /// The chain is well-formed, and it is a chain.
-    ///
-    /// Exactly one origin, every other link naming the incarnation before it, and no id
-    /// repeated.
+    fn prepared_cast() -> bevy::prelude::App {
+        let mut app = bevy::prelude::App::new();
+        crate::character_catalog::register_cast(&mut app);
+        ambition_characters::prepared::close_preparation_barrier_without_admission(app.world_mut());
+        app
+    }
+
+    fn prepared<'a>(
+        app: &'a bevy::prelude::App,
+        id: &str,
+    ) -> &'a ambition_characters::prepared::PreparedCharacterDefinition {
+        app.world()
+            .resource::<ambition_characters::prepared::PreparedCharacterRegistry>()
+            .get(id)
+            .unwrap_or_else(|| panic!("`{id}` is a character you can meet and not one you can be"))
+    }
+
+    /// The chain is well-formed, and it is a chain: one origin, every other
+    /// link naming the incarnation before it, and the prepared characters carry
+    /// what the rows say. There is no v1: v2 names v0.
     #[test]
     fn the_lineage_is_an_unbroken_chain_of_distinct_characters() {
-        let ids: Vec<&str> = LINEAGE.iter().map(|inc| inc.id).collect();
-        let mut sorted = ids.clone();
-        sorted.sort_unstable();
-        sorted.dedup();
-        assert_eq!(
-            sorted.len(),
-            ids.len(),
-            "two incarnations share an id, so one of them cannot be met: {ids:?}"
-        );
-
+        assert_eq!(lineage(), ["robot", "player_robot_v2", "player_robot_v3"]);
+        let app = prepared_cast();
         let mut previous: Option<&str> = None;
-        for incarnation in LINEAGE {
+        for id in &lineage() {
+            let id = id.as_str();
+            let derived_from = prepared(&app, id)
+                .lineage
+                .as_ref()
+                .and_then(|lineage| lineage.derived_from.as_deref());
             assert_eq!(
-                incarnation.replaces, previous,
-                "incarnation '{}' does not name the one before it — the lineage \
-                 is a chain, and a break in it makes provenance a guess",
-                incarnation.id
+                derived_from, previous,
+                "incarnation '{id}' does not name the one before it — the lineage \
+                 is a chain, and a break in it makes provenance a guess"
             );
-            previous = Some(incarnation.id);
+            previous = Some(id);
         }
     }
 
     /// v3 stands as tall as the level expects, and their box is their ART.
     ///
-    /// player sprite."* It was, by 1.28× wide and 1.29× tall, because their box
-    /// was the engine's default constant while their sprite was drawn through a
-    /// hand-tuned `collision_scale` and nothing reconciled the two.
-    ///
-    /// Both halves are asserted because either alone is satisfiable by a bug:
-    /// a body source that resolves to nothing would leave the height right and
-    /// the box unowned, and a scale read off today's pixel count would leave the
-    /// box owned and the height wrong the next time a crop moves.
+    /// It was not, by 1.28× wide and 1.29× tall, because their box was the
+    /// engine's default constant while their sprite was drawn through a
+    /// hand-tuned `collision_scale` and nothing reconciled the two. Both halves
+    /// are asserted because either alone is satisfiable by a bug: a body source
+    /// that resolves to nothing would leave the height right and the box
+    /// unowned, and a scale read off today's pixel count would leave the box
+    /// owned and the height wrong the next time a crop moves.
     #[test]
     fn v3s_body_is_his_sheets_and_he_still_stands_at_the_authored_height() {
         use ambition_characters::actor::definition::BodySource;
 
-        let catalog = crate::character_catalog::load_catalog();
-        let definition = definition_from(&catalog, crate::pack::prepared(), &V3);
-        let Some(BodySource::SpriteAuthored { world_per_pixel }) = definition.body else {
+        let app = prepared_cast();
+        let v3 = prepared(&app, "player_robot_v3");
+        let Some(BodySource::SpriteAuthored { world_per_pixel }) = v3.body else {
             panic!(
                 "v3 authors no sprite body, so their collision box is still the \
-                 engine's default constant and their sprite is still drawn by a \
-                 hand-tuned collision_scale: {:?}",
-                definition.body
+                 engine's default constant: {:?}",
+                v3.body
             );
         };
-
         let pixels =
             ambition_platformer2d::character_sprites::authored_body_pixel_size("player_robot_v3")
                 .expect("v3's sheet publishes an AUTHORED body box, not a measured alpha bbox");
@@ -374,27 +110,31 @@ mod tests {
         );
     }
 
+    fn v3_standing_body() -> ambition_platformer2d_core::Vec2 {
+        let pixels =
+            ambition_platformer2d::character_sprites::authored_body_pixel_size("player_robot_v3")
+                .expect("v3's sheet authors a body box");
+        pixels * (ambition_platformer2d_core::DEFAULT_PLAYER_BODY_HEIGHT / pixels.y)
+    }
+
     /// A crouching robot's hurtbox stays inside the box a crouching robot wears.
     ///
     /// The volume is placed at the body's CENTRE, and a stance moves the centre
     /// without moving the feet. So a volume measured against the standing box
-    /// and worn while crouching hangs through the floor — a quarter of the
-    /// standing height of it, visible under the platform with the combat overlay
-    /// on. Guards the OUTPUT: where the volume's edges land relative to the box
-    /// it is actually worn with, not which numbers went in.
+    /// and worn while crouching hangs through the floor. Guards the OUTPUT:
+    /// where the volume's edges land relative to the box it is actually worn
+    /// with, not which numbers went in.
     #[test]
     fn a_crouching_robots_hurtbox_stays_inside_a_crouching_robot() {
         use ambition_combat::hurtbox_resolution::POSE_CROUCH;
         use ambition_entity_catalog::VolumeShape;
 
-        let catalog = crate::character_catalog::load_catalog();
-        let definition = definition_from(&catalog, crate::pack::prepared(), &V3);
-        let doc = definition.hurtboxes.as_ref().expect("v3 authors a hurtbox");
-        let pixels =
-            ambition_platformer2d::character_sprites::authored_body_pixel_size("player_robot_v3")
-                .expect("v3's sheet authors a body box");
-        let standing = pixels * (ambition_platformer2d_core::DEFAULT_PLAYER_BODY_HEIGHT / pixels.y);
-
+        let app = prepared_cast();
+        let doc = prepared(&app, "player_robot_v3")
+            .hurtboxes
+            .as_ref()
+            .expect("v3 authors a hurtbox");
+        let standing = v3_standing_body();
         for (pose, body) in [
             (None, standing),
             (
@@ -430,22 +170,17 @@ mod tests {
         }
     }
 
-    /// The forgiving hurtbox is strictly inside the box that carries it.
-    ///
-    /// the main head and well within the arms — and the only way that claim can
-    /// be wrong without anyone noticing is if the authored volume quietly
-    /// resolves to something as big as the collision box, which is exactly what
-    /// the unauthored fallback does. So this asserts the CONTAINMENT rather than
-    /// the numbers: every edge strictly inside, and the top by much more than
-    /// the sides, which is what "under the head" means on a body whose head is
-    /// most of its silhouette.
+    /// The forgiving hurtbox is strictly inside the box that carries it, and the
+    /// top by much more than the sides: "under the head" on a body whose head is
+    /// most of its silhouette. The failure this guards is an authored volume
+    /// that quietly resolves to something as big as the collision box, which is
+    /// what the unauthored fallback does.
     #[test]
     fn v3s_hurtbox_is_smaller_than_his_collision_box_on_every_edge() {
         use ambition_entity_catalog::VolumeShape;
 
-        let catalog = crate::character_catalog::load_catalog();
-        let definition = definition_from(&catalog, crate::pack::prepared(), &V3);
-        let doc = definition
+        let app = prepared_cast();
+        let doc = prepared(&app, "player_robot_v3")
             .hurtboxes
             .as_ref()
             .expect("v3 authors a hurtbox; without one the hit lands on the coarse body box");
@@ -460,13 +195,7 @@ mod tests {
         else {
             panic!("the torso is a rect: {:?}", volumes[0].shape);
         };
-
-        let pixels =
-            ambition_platformer2d::character_sprites::authored_body_pixel_size("player_robot_v3")
-                .expect("v3's sheet authors a body box");
-        let body = pixels * (ambition_platformer2d_core::DEFAULT_PLAYER_BODY_HEIGHT / pixels.y);
-
-        // Every edge of the hurtbox, against the matching edge of the body box.
+        let body = v3_standing_body();
         for (axis, off, half, body_half) in [
             ("x", offset.0, half_extents.0, body.x * 0.5),
             ("y", offset.1, half_extents.1, body.y * 0.5),
@@ -474,9 +203,7 @@ mod tests {
             assert!(
                 off - half > -body_half && off + half < body_half,
                 "the hurtbox escapes the collision box on {axis}: it spans \
-                 {}..{} against a body half-extent of {body_half} — a hurtbox \
-                 wider than the body it belongs to is not forgiving, it is the \
-                 bug this replaced",
+                 {}..{} against a body half-extent of {body_half}",
                 off - half,
                 off + half,
             );
@@ -484,43 +211,42 @@ mod tests {
         assert!(
             half_extents.1 < body.y * 0.35,
             "the hurtbox is {} tall against a body half-height of {} — 'under \
-             the main head' means the head is OUT of it, and their head is more \
-             than a third of them",
+             the main head' means the head is OUT of it",
             half_extents.1 * 2.0,
             body.y * 0.5,
         );
         assert!(
             offset.1 > 0.0,
-            "+y is DOWN in this engine (DEFAULT_GRAVITY_DIR is (0, 1)), so a \
-             torso box sitting below the body centre must have a POSITIVE y \
-             offset; {} puts their hurtbox in the air above their head",
+            "+y is DOWN in this engine, so a torso box below the body centre has a \
+             POSITIVE y offset; {} puts their hurtbox above their head",
             offset.1,
         );
     }
 
-    /// v0 and v2 keep the path they have, and the reason is a fact about
-    /// their sheets rather than a decision spelled out per version.
+    /// An incarnation built on its art has a sheet that AUTHORS its body box.
     ///
-    /// Their boxes are still raw alpha silhouettes — arms and all — so the
-    /// lineage's blanket rule declines them on its own. If someone authors one,
-    /// it opts in with no edit here, which is the point of asking the sheet.
+    /// A sheet that only MEASURED its box has a raw alpha silhouette, arms and
+    /// all, and a body built on that includes the outstretched arms. The row
+    /// states `posed_body`, so this checks the row against its sheet.
     #[test]
-    fn an_incarnation_that_only_measured_its_box_is_not_given_a_sprite_body() {
+    fn an_incarnation_built_on_its_art_has_a_sheet_that_authors_its_body_box() {
+        use ambition_characters::actor::definition::BodySource;
         use ambition_platformer2d::character_sprites::authored_body_pixel_size;
 
-        let catalog = crate::character_catalog::load_catalog();
-        for incarnation in [&V0, &V2] {
-            if authored_body_pixel_size(incarnation.id).is_some() {
-                continue; // someone authored it since; the rule opts it in.
+        let app = prepared_cast();
+        let mut built_on_art = 0;
+        for id in &lineage() {
+            if !matches!(prepared(&app, id).body, Some(BodySource::SpriteAuthored { .. })) {
+                continue;
             }
+            built_on_art += 1;
             assert!(
-                definition_from(&catalog, crate::pack::prepared(), incarnation).body.is_none(),
-                "'{}' measured its box rather than authoring one, so scaling \
-                 them by it would hand them a collision body that includes their \
-                 outstretched arms",
-                incarnation.id,
+                authored_body_pixel_size(id).is_some(),
+                "'{id}' is built on a box its sheet only measured, so its body \
+                 includes the outstretched arms",
             );
         }
+        assert!(built_on_art >= 1, "no incarnation is built on its art, so this checks nothing");
     }
 
     /// The authored body box is INSET from the art it belongs to, asked of
@@ -626,170 +352,54 @@ mod tests {
 
     /// Every incarnation's art resolves, and to a DIFFERENT sheet.
     ///
-    /// the second half is the one worth having. Eighteen shipped sheets
-    /// declare `target: "robot"` — the name of the procedural generator, not of
-    /// a character — so "the target resolves" is satisfied by all three
-    /// resolving to the same robot. Distinctness is what says three incarnations
-    /// actually look like three characters.
+    /// The second half is the one worth having. Eighteen shipped sheets declare
+    /// `target: "robot"` (the name of the procedural generator, not of a
+    /// character), so "the target resolves" is satisfied by all three resolving
+    /// to the same robot. Distinctness is what says three incarnations look like
+    /// three characters.
     #[test]
     fn every_incarnation_resolves_its_own_distinct_sheet() {
         use ambition_sprite_sheet::character::sheets;
 
+        let app = prepared_cast();
         let mut seen: Vec<String> = Vec::new();
-        for incarnation in LINEAGE {
-            let sheet = definition(incarnation)
+        for id in &lineage() {
+            let id = id.as_str();
+            let sheet = prepared(&app, id)
                 .sheet
-                .expect("the lineage always names a sheet target");
+                .clone()
+                .expect("every incarnation names a sheet target");
             assert!(
                 sheets::record_for_sheet_key(&sheet).is_some(),
-                "incarnation '{}' names sheet target '{sheet}', which resolves to \
+                "incarnation '{id}' names sheet target '{sheet}', which resolves to \
                  nothing — it would draw the marked placeholder",
-                incarnation.id,
             );
             assert!(
                 !seen.contains(&sheet),
-                "incarnation '{}' shares sheet '{sheet}' with an earlier one, so \
+                "incarnation '{id}' shares sheet '{sheet}' with an earlier one, so \
                  the lineage is one body wearing three names",
-                incarnation.id,
             );
             seen.push(sheet);
         }
     }
 
-    /// The name comes from the row, and there is only one row. (AF4b)
-    ///
-    /// The duplication this closes: `Incarnation` carried a `display_name` and
-    /// so does the catalog, with nothing deciding which won per field. Now the
-    /// definition IS the row's answer, so `DisplayNameDisagreement` cannot fire
-    /// for these three by construction rather than by luck.
-    #[test]
-    fn every_incarnation_presents_under_its_catalog_name() {
-        let catalog = crate::character_catalog::load_catalog();
-        for incarnation in LINEAGE {
-            let row = catalog
-                .get(incarnation.id)
-                .expect("every incarnation has a catalog row");
-            assert_eq!(
-                definition(incarnation).display_name,
-                row.display_name,
-                "incarnation '{}' presents under a name the catalog does not \
-                 give it",
-                incarnation.id,
-            );
-        }
-    }
-
-    /// Nobody in the lineage stands mute — asked of the RUNTIME, not the
-    /// struct. (AF4b)
-    ///
-    /// It was green while `player_robot_v2`'s lines were unreachable: the catalog outranked
-    /// the definition's own lines, and v2's row authored both a `barks.hall` pool AND a
-    /// `fallback_dialogue`, so `CatalogEntry::bark` always answered first.
-    ///
-    /// So ask the question the ticker asks. `bark` falls through the situation
-    /// pool to `fallback_dialogue`, and a row with neither returns `None` — which
-    /// is exactly the silence this test is named for.
+    /// Nobody in the lineage stands mute: asked the way the ambient ticker
+    /// asks, through the situation pool and then `fallback_dialogue`.
     #[test]
     fn every_incarnation_says_something() {
         let catalog = crate::character_catalog::load_catalog();
-        for incarnation in LINEAGE {
+        for id in &lineage() {
+            let id = id.as_str();
             for situation in [
                 ambition_characters::actor::character_catalog::BarkSituation::Hall,
                 ambition_characters::actor::character_catalog::BarkSituation::Idle,
             ] {
                 assert!(
-                    catalog.bark_line(incarnation.id, situation, 0).is_some(),
-                    "incarnation '{}' has nothing to say in {situation:?}, so the \
+                    catalog.bark_line(id, situation, 0).is_some(),
+                    "incarnation '{id}' has nothing to say in {situation:?}, so the \
                      ambient ticker skips it and it stands there silent",
-                    incarnation.id,
                 );
             }
         }
-    }
-
-    /// Every incarnation is a prepared character, so it can be worn.
-    ///
-    /// The point of the whole arrangement: "play as the build before this one"
-    /// is a selection, not a content edit.
-    #[test]
-    fn every_incarnation_can_be_worn() {
-        let mut app = bevy::prelude::App::new();
-        crate::character_catalog::register_cast(&mut app);
-        ambition_characters::prepared::close_preparation_barrier_without_admission(app.world_mut());
-        let prepared = app
-            .world()
-            .resource::<ambition_characters::prepared::PreparedCharacterRegistry>();
-        for incarnation in LINEAGE {
-            assert!(
-                prepared.get(incarnation.id).is_some(),
-                "incarnation '{}' is a character you can meet and not one you can be",
-                incarnation.id,
-            );
-        }
-    }
-}
-
-/// Register every character this provider can build, except the lineage,
-/// which [`register`] builds with its own bodies.
-///
-/// Definitions are projected from catalog rows so the catalog remains the
-/// authority for names and sheets. Registration makes those characters available
-/// to `PreparedCharacterRegistry` for match construction.
-pub fn register_declared_cast(app: &mut bevy::prelude::App) {
-    let catalog = crate::character_catalog::load_catalog();
-    // ⭐ THE APP'S PACK, READ ONCE. Selecting here rather than per character is
-    // what makes "which pack did this cast come from" one fact: a selection that
-    // changed mid-loop would register half a roster from each.
-    let pack = crate::pack::select(app.world_mut()).clone();
-    // The lineage registers itself above with authored bodies and hurtboxes;
-    // re-registering here would be a duplicate and would also throw those away.
-    let lineage: std::collections::BTreeSet<&str> =
-        LINEAGE.iter().map(|incarnation| incarnation.id).collect();
-    // Register only the rows that state a body. A bare registration for an
-    // exploration NPC would incorrectly replace its archetype-authored body.
-    for id in crate::character_catalog::buildable_cast() {
-        if lineage.contains(id) {
-            continue;
-        }
-        let Some(row) = catalog.get(id) else {
-            continue;
-        };
-        let id = id.to_string();
-        // No derivable sheet target means nothing to wear. The load ledger
-        // already reports that class; a registration that could not draw would
-        // be a second reporter of one fact.
-        let Some(sheet) = row.manifest_target() else {
-            continue;
-        };
-        let mut definition = CharacterDefinition::new(
-            id.clone(),
-            row.display_name.clone(),
-            crate::AMBITION_CONTENT_PROVIDER,
-        )
-        .with_sheet(sheet);
-        // A row that states its posed body scale is built with the sheet's
-        // authored body at that scale, as every pack's cast is.
-        if let Some(world_per_pixel) =
-            ambition_platformer2d::character_sprites::posed_body_world_per_pixel(
-                catalog.data(),
-                &id,
-            )
-        {
-            definition = definition.with_sprite_authored_body(world_per_pixel);
-        }
-        // What this character says about its own body, for the ones that
-        // have taken their facts back from the archetype roster. A character
-        // still awaiting migration adds nothing here and stays a bare
-        // registration.
-        let definition = crate::character_catalog::with_pack_moveset(&id, definition, &pack);
-        // `try_`, and a SKIP rather than a panic: another provider legitimately
-        // owns some of these ids in a multi-game composition, and losing a race
-        // for one is not this provider's error to raise.
-        let _ = app.try_register_character(
-            definition,
-            // See the sibling registration above: the seam fills both engine
-            // vocabularies, so a provider passing nothing is checked identically.
-            CharacterBindings::default(),
-        );
     }
 }

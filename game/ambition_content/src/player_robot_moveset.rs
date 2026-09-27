@@ -76,8 +76,29 @@ mod tests {
     /// air for vertical space, and the duel arena's exhibition robot uses it.
     #[test]
     fn the_robot_authors_its_verbs_rather_than_taking_a_match_s_word_for_them() {
-        let v3 = crate::player_robot_lineage::definition(&crate::player_robot_lineage::V3);
+        let app = prepared_cast();
+        let prepared = |id: &str| {
+            app.world()
+                .resource::<ambition_characters::prepared::PreparedCharacterRegistry>()
+                .get(id)
+                .cloned()
+                .unwrap_or_else(|| panic!("`{id}` is not prepared"))
+        };
+        let v3 = prepared("player_robot_v3");
         let verbs = v3.abilities.expect("v3 states what its body can do");
+        // The whole kit, not a sample: every verb there is, except reset (above),
+        // grab, and Morph Ball, which the Ambition experience grants its home
+        // body so the robot seated anywhere else does not curl.
+        assert_eq!(
+            verbs,
+            ambition_platformer2d_core::AbilitySet {
+                reset: false,
+                grab: false,
+                morph: false,
+                ..ambition_platformer2d_core::AbilitySet::sandbox_all()
+            },
+            "the robot's row grants a different kit from the one the lineage authored"
+        );
         assert!(verbs.jump && verbs.dash && verbs.attack && verbs.shield && verbs.dodge);
         assert!(verbs.blink, "blinking is what the robot IS");
         assert!(verbs.fly, "the grounded-base hybrid lost its fly toggle");
@@ -92,22 +113,19 @@ mod tests {
         // the duel arena fields v2, which must blink and dash. The current frame
         // data is v3's alone; giving a retired incarnation today's timings would
         // invent content.
-        let v2 = crate::player_robot_lineage::definition(&crate::player_robot_lineage::V2);
+        let v2 = prepared("player_robot_v2");
         assert!(
             v2.abilities.is_some_and(|verbs| verbs.blink && verbs.dash),
             "the exhibition robot lost the verbs its archetype row granted it"
         );
+        let v2_moves = shipped("player_robot_v2");
         assert!(
-            v2.moveset
-                .as_ref()
-                .is_some_and(|set| set.move_for_verb("special").is_some()),
+            v2_moves.move_for_verb("special").is_some(),
             "v2 lost the theorem chain, which is the only proof in the repo that \
              a moveset expresses a multi-hit combo as data"
         );
         assert!(
-            v2.moveset
-                .as_ref()
-                .is_some_and(|set| set.move_for_verb("smash_forward").is_none()),
+            v2_moves.move_for_verb("smash_forward").is_none(),
             "v2 was handed v3's platform-fighter table"
         );
     }
@@ -146,15 +164,32 @@ mod tests {
     /// robot fired a plain rock instead of the Hadouken.
     #[test]
     fn the_robot_states_what_its_projectile_looks_like() {
-        for incarnation in crate::player_robot_lineage::LINEAGE {
-            let definition = crate::player_robot_lineage::definition(incarnation);
+        let app = prepared_cast();
+        let registry = app
+            .world()
+            .resource::<ambition_characters::prepared::PreparedCharacterRegistry>();
+        for id in crate::player_robot_lineage::lineage() {
+            let prepared = registry.get(&id).expect("every incarnation is prepared");
             assert_eq!(
-                definition.ranged_vfx.as_deref(),
+                prepared.ranged_vfx.as_deref(),
                 Some("hadouken"),
-                "`{}` fires an unadorned projectile",
-                incarnation.id
+                "`{id}` fires an unadorned projectile",
+            );
+            // Hold to charge, release to fire.
+            assert_eq!(
+                prepared.ranged_execution,
+                ambition_characters::brain::RangedExecution::ChargedProjectile,
+                "`{id}`'s Hadouken fires at once instead of charging",
             );
         }
+    }
+
+    /// The shipped cast, prepared.
+    fn prepared_cast() -> bevy::prelude::App {
+        let mut app = bevy::prelude::App::new();
+        crate::character_catalog::register_cast(&mut app);
+        ambition_characters::prepared::close_preparation_barrier_without_admission(app.world_mut());
+        app
     }
 
     /// The repertoire is a smash table, and its d-air shows it.
@@ -222,29 +257,5 @@ mod clip_binding_tests {
                 "`{id}` can fall all the way through to nothing"
             );
         }
-    }
-}
-
-/// The robot's canonical repertoire: the actions it has.
-///
-/// Which of them are unlocked now is runtime progression, answered separately
-/// by `ActionSet::gated_by`.
-pub fn player_robot_action_set() -> ambition_characters::brain::ActionSet {
-    use ambition_characters::brain::{
-        ActionSet, MeleeActionSpec, MoveStyleSpec, RangedActionSpec, SpecialActionSpec, SwipeSpec,
-    };
-    ActionSet {
-        melee: Some(MeleeActionSpec::Swipe(SwipeSpec {
-            windup_s: 0.0,
-            active_s: 0.10,
-            recover_s: 0.18,
-            damage: 1,
-            reach_px: 36.0,
-        })),
-        // The Hadouken. How it fires (hold to build, release) is
-        // `ranged_execution: ChargedProjectile` on the definition, not this slot.
-        ranged: Some(RangedActionSpec::bolt(600.0, 1)),
-        move_style: MoveStyleSpec::Walk,
-        special: Some(SpecialActionSpec::Special("bubble_shield".to_string())),
     }
 }

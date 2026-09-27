@@ -19,7 +19,8 @@ pub use attack_hitbox::{
     player_attack_hitbox_world, refused_file_roots, resolves_by_file_root,
 };
 pub use posed_body::{
-    PosedBodyGeometry, authored_body_pixel_size, posed_body_geometry, posed_body_world_per_pixel,
+    PosedBodyGeometry, authored_body_pixel_size, posed_body_geometry, posed_body_inset_hurtboxes,
+    posed_body_world_per_pixel,
     sync_sprite_posed_bodies,
 };
 

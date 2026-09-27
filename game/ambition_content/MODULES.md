@@ -24,7 +24,7 @@
 | [`moves_are_content`](src/moves_are_content.rs) | Are this provider's move tables content? |
 | [`music`](src/music.rs) | Ambition's authored music-cue catalog + encounter bindings. |
 | [`pack`](src/pack.rs) | Ambition's own content pack: the compile that is the load path. |
-| [`player_robot_lineage`](src/player_robot_lineage.rs) | Player Robot incarnations generated from shared source. |
+| [`player_robot_lineage`](src/player_robot_lineage.rs) | The player robot's lineage: `robot` (v0), `player_robot_v2` and `player_robot_v3`, three incarnations of one character. |
 | [`player_robot_moveset`](src/player_robot_moveset.rs) | The player robot's actions, and the tests that pin its two move tables. |
 | [`plugin`](src/plugin.rs) | Ambition game-content registration. |
 | [`portal`](src/portal/mod.rs) | Ambition-specific portal adapters. |

@@ -54,8 +54,8 @@ struct PreparedCharacterOverrides {
     autonomous_policy: Option<crate::actor::AutonomousPolicy>,
     /// See [`CharacterDefinition::ranged_vfx`]. FOLDED with the catalog row's.
     ranged_vfx: Option<String>,
-    /// See [`CharacterDefinition::ranged_execution`]. Carried.
-    ranged_execution: crate::brain::RangedExecution,
+    /// See [`CharacterDefinition::ranged_execution`]. FOLDED with the catalog row's.
+    ranged_execution: Option<crate::brain::RangedExecution>,
     /// See [`CharacterDefinition::provoked_profile_ref`]. FOLDED with the
     /// catalog row's, then RESOLVED at finalize.
     provoked_profile_ref: Option<crate::brain::BrainProfileRef>,
@@ -1647,6 +1647,17 @@ fn finalize_character(
     // every actor road read this field, so the same character could run as
     // the player and not as an NPC.
     let catalog_row = catalog.and_then(|catalog| catalog.get(&id));
+    let ranged_execution = ranged_execution
+        .or_else(|| catalog_row?.ranged_execution)
+        .unwrap_or(crate::brain::RangedExecution::MovesetVerb);
+    // Provenance, folded like every other row fact.
+    let lineage = lineage.or_else(|| {
+        Some(Lineage {
+            derived_from: Some(catalog_row?.derived_from.clone()?),
+            generator_revision: None,
+            source_fingerprint: None,
+        })
+    });
     let abilities = abilities.or_else(|| catalog?.ability_set(&id));
     let actor_abilities = abilities
         .or_else(|| authorities.declarations.as_ref()?.actor_abilities(&provider))

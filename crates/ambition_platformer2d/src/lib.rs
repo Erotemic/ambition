@@ -281,16 +281,17 @@ pub mod content {
             let fighters =
                 ambition_characters::smash_fighter::content_schema::lowered_smash_fighters(pack);
             let catalog = self.fragment.catalog();
-            let characters: Vec<(String, String, Option<f32>)> = catalog
+            let characters: Vec<_> = catalog
                 .characters
                 .iter()
                 .map(|(id, row)| {
                     let scale = ambition_character_sprites::posed_body_world_per_pixel(catalog, id);
-                    (id.clone(), row.display_name.clone(), scale)
+                    let hurtboxes = ambition_character_sprites::posed_body_inset_hurtboxes(catalog, id);
+                    (id.clone(), row.display_name.clone(), scale, hurtboxes)
                 })
                 .collect();
             app.register_character_catalog_fragment(self.fragment);
-            for (id, display_name, posed_body_scale) in characters {
+            for (id, display_name, posed_body_scale, inset_hurtboxes) in characters {
                 // The sheet, the grants, the feel, the health, the gait, the
                 // contact damage and the policy come from the catalog row at
                 // preparation, so the definition names only what the row
@@ -301,6 +302,10 @@ pub mod content {
                 // body is built with it (`BodySource::SpriteAuthored`).
                 if let Some(world_per_pixel) = posed_body_scale {
                     definition = definition.with_sprite_authored_body(world_per_pixel);
+                }
+                // Built on that body, so it too is asked of the sheet here.
+                if let Some(doc) = inset_hurtboxes {
+                    definition = definition.with_hurtboxes(doc);
                 }
                 if let Some(moveset) = movesets.and_then(|table| table.get(&id)) {
                     definition = definition.with_moveset(moveset.clone());

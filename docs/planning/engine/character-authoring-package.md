@@ -296,6 +296,7 @@ JSON dump. The scaling its doc claimed happens at AUTHORING time through
 (`BodySource::SpriteAuthored`). So it is a record of an authoring input, and the
 fix was to make its doc say so rather than to delete a field a tool reports.
 ⛔ do not re-file this as a migration; the falsifier does not fire.
+✅ 2026-09-26 (AP76): the field is deleted. Its last writer was the robot lineage (Mary-O's forms had already moved to their rows), and the lineage is now three catalog rows: v3 states `posed_body: Some(OwnHeight)`, which stands it at its body kind's 48. `moveset_export` fills the same `vitals.canonical_height` key from the prepared standing height, so the inspector's "Height" row keeps its contract.
 
 ⛔ **Two names cited in comments do not exist.** `character_id_for_display_name`
 (cited twice in `game/ambition_content/src/duel_arena.rs`, at lines that no

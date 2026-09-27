@@ -55,22 +55,74 @@ pub fn register(app: &mut bevy::prelude::App) {
 
 /// Register the whole cast this provider ships, as the plugin does.
 ///
-/// Three registrations make one cast: the catalog fragment, the robot lineage
-/// and the declared cast. A fixture that repeats them by hand can drop one and
-/// still get a cast with no error, but that cast is not the shipped cast. A cast
-/// with no lineage stages no robot, so a reload that edits the robot's move file
-/// is refused.
+/// Two registrations make one cast: the catalog fragment and the characters
+/// built from its rows. A fixture that repeats them by hand can drop one and
+/// still get a cast with no error, but that cast is not the shipped cast. A
+/// cast with no characters stages no robot, so a reload that edits the robot's
+/// move file is refused.
 pub fn register_cast(app: &mut bevy::prelude::App) {
     register(app);
-    crate::player_robot_lineage::register(app);
-    crate::player_robot_lineage::register_declared_cast(app);
+    register_characters(app);
+}
+
+/// Register every character this provider can build: [`buildable_cast`].
+///
+/// Each definition names only what the row cannot say: the body built on the
+/// row's sheet at its `posed_body` scale, the hurtbox inset from that body, and
+/// the pack's move table. Everything else is the row, folded at preparation.
+pub fn register_characters(app: &mut bevy::prelude::App) {
+    use ambition_platformer2d::character::CharacterDefinition;
+    use ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinitionAppExt;
+
+    let catalog = load_catalog();
+    // ⭐ THE APP'S PACK, READ ONCE. Selecting here rather than per character is
+    // what makes "which pack did this cast come from" one fact: a selection that
+    // changed mid-loop would register half a roster from each.
+    let pack = crate::pack::select(app.world_mut()).clone();
+    // Only the rows that state a body. A bare registration for an exploration
+    // NPC would incorrectly replace its archetype-authored body.
+    for id in buildable_cast() {
+        let Some(row) = catalog.get(id) else {
+            continue;
+        };
+        // No derivable sheet target means nothing to wear. The load ledger
+        // already reports that class; a registration that could not draw would
+        // be a second reporter of one fact.
+        let Some(sheet) = row.manifest_target() else {
+            continue;
+        };
+        let mut definition =
+            CharacterDefinition::new(id, row.display_name.clone(), crate::AMBITION_CONTENT_PROVIDER)
+                .with_sheet(sheet);
+        // The scale is asked of the baked sheet once, here, and the body is
+        // built with it, as every pack's cast is.
+        if let Some(world_per_pixel) =
+            ambition_platformer2d::character_sprites::posed_body_world_per_pixel(catalog.data(), id)
+        {
+            definition = definition.with_sprite_authored_body(world_per_pixel);
+        }
+        // Built on that body, so it too is asked of the sheet here.
+        if let Some(doc) =
+            ambition_platformer2d::character_sprites::posed_body_inset_hurtboxes(catalog.data(), id)
+        {
+            definition = definition.with_hurtboxes(doc);
+        }
+        let definition = with_pack_moveset(id, definition, &pack);
+        // `try_`, and a SKIP rather than a panic: another provider legitimately
+        // owns some of these ids in a multi-game composition, and losing a race
+        // for one is not this provider's error to raise.
+        let _ = app.try_register_character(
+            definition,
+            ambition_characters::prepared::CharacterBindings::default(),
+        );
+    }
 }
 
 /// The character this provider starts the player as: the current robot.
 ///
 /// A composition fact, not a row fact: which row a provider treats as its
 /// default is the provider's choice (see `CharacterCatalogFragment::from_prepared`).
-pub const DEFAULT_CHARACTER: &str = crate::player_robot_lineage::V3.id;
+pub const DEFAULT_CHARACTER: &str = "player_robot_v3";
 
 /// The rows of the shipped pack's catalog that state how their body moves.
 fn rows_with_a_body() -> impl Iterator<Item = &'static str> {
@@ -106,20 +158,11 @@ pub fn with_pack_moveset(
     }
 }
 
-/// Every id this game registers as a buildable character: the robot's
-/// lineage, which states its bodies in `player_robot_lineage`, and every row
-/// that states how its body moves. A character is in the cast because its row
-/// says what it is, not because a list names it.
+/// Every id this game registers as a buildable character: every row that
+/// states how its body moves. A character is in the cast because its row says
+/// what it is, not because a list names it.
 pub fn buildable_cast() -> impl Iterator<Item = &'static str> {
-    let in_lineage = |id: &str| {
-        crate::player_robot_lineage::LINEAGE
-            .iter()
-            .any(|incarnation| incarnation.id == id)
-    };
-    crate::player_robot_lineage::LINEAGE
-        .iter()
-        .map(|incarnation| incarnation.id)
-        .chain(rows_with_a_body().filter(move |id| !in_lineage(id)))
+    rows_with_a_body()
 }
 
 #[cfg(test)]
@@ -326,7 +369,7 @@ mod tests {
     /// The kernel guide has its own `CharacterDefinition`, and no kit (D56).
     ///
     /// It authors identity (its walk, its four health) and nothing about its body
-    /// or abilities. `register_declared_cast` excludes exploration NPCs because a
+    /// or abilities. `register_characters` excludes exploration NPCs because a
     /// bare registration would replace the archetype-authored body, so the
     /// archetype road must stay in charge of both.
     ///
@@ -374,7 +417,7 @@ mod tests {
         assert!(
             guide.body.is_none(),
             "the registration brought a body and therefore REPLACED the \
-             archetype-authored one — the exact failure `register_declared_cast` \
+             archetype-authored one — the exact failure `register_characters` \
              excludes exploration NPCs to avoid"
         );
 

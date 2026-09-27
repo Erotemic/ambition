@@ -624,7 +624,9 @@ fn character_json(
             "mass": prepared.vitals.mass,
             // The knockback axis: heavier launches less under the same growth.
             "knockback_weight": prepared.vitals.knockback_weight,
-            "canonical_height": prepared.vitals.canonical_height,
+            // The inspector's "Height": the row's standing height, else its body
+            // kind's default. The key keeps the bundle contract's name.
+            "canonical_height": prepared.sheet_sizing.and_then(|sizing| sizing.standing_height),
         },
         "locomotion": prepared.locomotion.map(|l| serde_json::json!({
             "run_speed": l.run_speed,

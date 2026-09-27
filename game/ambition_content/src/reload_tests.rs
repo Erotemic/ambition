@@ -902,7 +902,7 @@ fn the_item_edited_twin_differs_from_the_shipped_pack_in_no_move_table() {
 
 /// The `Arc` this App has actually selected — the pack its cast was built from.
 ///
-/// The host already has a selection at boot: `register_declared_cast` calls
+/// The host already has a selection at boot: `register_characters` calls
 /// `pack::select`, which inserts on fallback. A fresh compile of the shipped
 /// pack is a complete no-op against it. So read the baseline; do not install
 /// one.

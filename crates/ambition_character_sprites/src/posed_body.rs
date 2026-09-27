@@ -107,6 +107,79 @@ pub fn posed_body_world_per_pixel(
     Some(world_per_pixel.unwrap_or(1.0))
 }
 
+/// The hurtbox a row's `hurtbox_insets` states, built on the idle body its
+/// `posed_body` scales, or `None` when the row states no insets.
+///
+/// ⛔ **A STANCE MOVES THE CENTRE, AND THE VOLUME IS PLACED AT THE CENTRE.**
+/// The insets are fractions of a box, but they are baked to world offsets here
+/// and `hurtbox_world_aabb` puts them at `pos`. A crouch halves the box and
+/// slides `pos` toward the feet, so a volume measured against the STANDING box
+/// would hang a quarter of the standing height through the floor. So the crouch
+/// gets its own profile, inset from the box a crouching body wears, which is
+/// asked of `BodyMode::shape` so that the two cannot disagree about what
+/// crouching means.
+///
+/// # Panics
+///
+/// When the row states insets and no `posed_body`, or its sheet has no baked
+/// idle body: there is then no box to inset from.
+pub fn posed_body_inset_hurtboxes(
+    catalog: &ambition_characters::actor::character_catalog::CharacterCatalogData,
+    id: &str,
+) -> Option<ambition_entity_catalog::HurtboxDoc> {
+    let row = catalog.characters.get(id)?;
+    let insets = row.hurtbox_insets?;
+    let world_per_pixel = posed_body_world_per_pixel(catalog, id).unwrap_or_else(|| {
+        panic!("`{id}` insets its hurtbox from a body its row does not scale: state a posed_body")
+    });
+    let pixels = row
+        .manifest_target()
+        .and_then(|sheet| posed_body_geometry(sheet, CharacterAnim::Idle, 1.0))
+        .map(|geometry| geometry.collision)
+        .filter(|pixels| pixels.x > 0.0 && pixels.y > 0.0)
+        .unwrap_or_else(|| panic!("`{id}` insets its hurtbox from a sheet with no idle body"));
+    let standing = pixels * world_per_pixel;
+    Some(ambition_entity_catalog::HurtboxDoc {
+        default: Some(inset_timeline(insets, standing)),
+        poses: std::iter::once((
+            ambition_combat::hurtbox_resolution::POSE_CROUCH.to_string(),
+            inset_timeline(
+                insets,
+                ae::player_state::BodyMode::Crouching.shape(standing).size,
+            ),
+        ))
+        .collect(),
+        moves: Default::default(),
+    })
+}
+
+/// One volume inset from a body box of size `body`, in that box's frame.
+fn inset_timeline(
+    insets: ambition_characters::actor::character_catalog::BodyInsets,
+    body: ae::Vec2,
+) -> ambition_entity_catalog::HurtboxTimeline {
+    // World +y is down, so a lower hurtbox centre has a positive y offset.
+    let offset = ae::Vec2::new(
+        ((insets.left + (1.0 - insets.right)) * 0.5 - 0.5) * body.x,
+        ((insets.top + (1.0 - insets.bottom)) * 0.5 - 0.5) * body.y,
+    );
+    let half_extents = ae::Vec2::new(
+        (1.0 - insets.left - insets.right) * 0.5 * body.x,
+        (1.0 - insets.top - insets.bottom) * 0.5 * body.y,
+    );
+    ambition_entity_catalog::HurtboxTimeline {
+        keyframes: vec![ambition_entity_catalog::HurtboxKeyframe {
+            at_s: 0.0,
+            volumes: vec![ambition_entity_catalog::HurtboxVolume {
+                shape: ambition_entity_catalog::VolumeShape::Rect {
+                    offset: (offset.x, offset.y),
+                    half_extents: (half_extents.x, half_extents.y),
+                },
+            }],
+        }],
+    }
+}
+
 /// Keep every [`SpritePosedBody`] actor's collision box, sprite quad, and quad
 /// offset equal to what its sheet says about the pose it is showing.
 ///

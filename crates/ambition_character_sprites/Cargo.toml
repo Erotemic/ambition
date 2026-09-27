@@ -16,6 +16,8 @@ ambition_characters = { path = "../ambition_characters" }
 # `ActorRenderSize` / `ActorSpriteOffset` (what the posed-body pass writes),
 # `MeleeSwing` + `AttackPhase` / `AttackIntent` (what the picker reads).
 ambition_combat = { path = "../ambition_combat" }
+# The hurtbox document a row's `hurtbox_insets` is built into.
+ambition_entity_catalog = { path = "../ambition_entity_catalog" }
 # Vec2 / Aabb / the Body* clusters / `resize_feet_planted`.
 ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
 # The sim schedule seam (`SimScheduleExt` + `WorldPrepSet`), the gravity field

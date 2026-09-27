@@ -78,31 +78,6 @@ pub struct Vitals {
     /// This is independent of [`Self::mass`], which controls mount-pair physics.
     /// `None` preserves the body or roster value.
     pub knockback_weight: Option<f32>,
-    /// The standing height an author BUILT THIS DEFINITION FROM, in world
-    /// pixels. `collision_scale` remains independent crop/footprint compensation.
-    ///
-    /// ⛔⛔ A RECORD, NOT A RUNTIME AUTHORITY, and this doc said otherwise until
-    /// 2026-08-31. It read *"used to scale sprite-authored geometry consistently
-    /// across characters"*, which is true of
-    /// [`world_per_pixel_for_height`] and false of this field: the two callers
-    /// that set it (`player_robot_lineage`, Mary-O's forms) compute the scale
-    /// from it at AUTHORING time and store the OUTPUT on
-    /// `BodySource::SpriteAuthored`. Measured: outside tests, nothing in
-    /// gameplay reads this field — the only reader in the tree is
-    /// `moveset_export`'s JSON dump, which is what a record is for.
-    ///
-    /// ⚠ NOT a duplicate of the catalog row's `standing_height` either, which IS
-    /// read (`ambition_sprite_sheet::character::catalog_join`) and sizes 18
-    /// characters. The two populations are DISJOINT: neither caller of
-    /// `with_canonical_height` appears among the catalog rows that author a
-    /// standing height. Two mechanisms, not two live truths for one fact.
-    pub canonical_height: Option<f32>,
-}
-
-/// Compute the art-pixel to world-unit scale for an authored canonical height.
-/// Returns `None` when the sheet reports no positive body height.
-pub fn world_per_pixel_for_height(canonical_height: f32, sheet_pixel_height: f32) -> Option<f32> {
-    (sheet_pixel_height > 0.0).then(|| canonical_height / sheet_pixel_height)
 }
 
 /// Authority for body collision geometry.
@@ -173,8 +148,9 @@ pub struct CharacterDefinition {
     pub provoked_profile_ref: Option<crate::brain::BrainProfileRef>,
     /// Cosmetic projectile id for this character. `None` uses projectile-authored presentation.
     pub ranged_vfx: Option<String>,
-    /// Execution mode for ranged attacks; defaults to `MovesetVerb`.
-    pub ranged_execution: crate::brain::RangedExecution,
+    /// Execution mode for ranged attacks. `None`: the catalog row's, else
+    /// `MovesetVerb`.
+    pub ranged_execution: Option<crate::brain::RangedExecution>,
     /// Whether this body is a practice target rather than a participant.
     #[doc(alias = "is_sandbag")]
     pub practice_target: bool,
@@ -218,7 +194,7 @@ impl CharacterDefinition {
             autonomous_policy: None,
             provoked_profile_ref: None,
             ranged_vfx: None,
-            ranged_execution: crate::brain::RangedExecution::MovesetVerb,
+            ranged_execution: None,
             practice_target: false,
             held_item: None,
             mount: None,
@@ -287,7 +263,7 @@ impl CharacterDefinition {
 
     /// Author how this character executes ranged attacks.
     pub fn with_ranged_execution(mut self, execution: crate::brain::RangedExecution) -> Self {
-        self.ranged_execution = execution;
+        self.ranged_execution = Some(execution);
         self
     }
 
@@ -361,12 +337,6 @@ impl CharacterDefinition {
     /// Use sheet-authored body geometry at one `world_per_pixel` scale.
     pub fn with_sprite_authored_body(mut self, world_per_pixel: f32) -> Self {
         self.body = Some(BodySource::SpriteAuthored { world_per_pixel });
-        self
-    }
-
-    /// Author standing height in world pixels; sheet-aware callers derive art scale from it.
-    pub fn with_canonical_height(mut self, height: f32) -> Self {
-        self.vitals.canonical_height = Some(height);
         self
     }
 

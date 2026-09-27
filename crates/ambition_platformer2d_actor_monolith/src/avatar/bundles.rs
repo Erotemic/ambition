@@ -360,10 +360,8 @@ mod tests {
 
     #[test]
     fn wearing_the_default_id_is_the_protagonist() {
-        // Explicitly wearing the DEFAULT id keeps the protagonist name and the
-        // full code-side player kit — the protagonist is the one row whose kit
-        // is NOT its (peaceful) catalog action set. Production installs the
-        // default at the content choke point; mirror that here.
+        // Wearing the protagonist's id gives the protagonist's name and the
+        // kit its row authors, and nothing the engine synthesises.
         let cast = cast();
         let bundle = PlayerSimulationBundle::from_scratch_as_character(
             player_scratch(),
@@ -374,14 +372,11 @@ mod tests {
         );
         assert_eq!(bundle.name.as_str(), "Player Robot v3");
         assert_eq!(bundle.driver.0, PlayerSlot::PRIMARY);
-        // the ROW's kit, which for this character is its Hall pedestal face —
-        // `default_action_set: "peaceful"`. Its playable repertoire is authored on
-        // its definition and reaches a body through the PREPARED cast, which this
-        // catalog-only fixture deliberately does not have.
-        assert!(
-            bundle.action_set.melee.is_none() && bundle.action_set.ranged.is_none(),
-            "a catalog-only build picked up a kit the ROW does not author, so \
-             something is still synthesising the protagonist's moves in engine code"
+        assert_eq!(
+            Some(&bundle.action_set),
+            cast.get("player_robot_v3").and_then(|prepared| prepared.kit.action_set()),
+            "the protagonist wears a kit its row does not author, so something is \
+             still synthesising the protagonist's moves in engine code"
         );
     }
 

@@ -13,6 +13,8 @@ use super::entry::CharacterCatalogData;
 /// A table of named values that a row can refer to by name.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum PresetTable {
+    /// The catalog's own rows.
+    Character,
     Brain,
     ActionSet,
     AxisTuning,
@@ -24,6 +26,7 @@ impl PresetTable {
     /// The catalog field that holds this table.
     pub(crate) fn field(self) -> &'static str {
         match self {
+            Self::Character => "characters",
             Self::Brain => "brain_presets",
             Self::ActionSet => "action_set_presets",
             Self::AxisTuning => "axis_tuning_presets",
@@ -34,6 +37,7 @@ impl PresetTable {
 
     pub(crate) fn contains(self, catalog: &CharacterCatalogData, name: &str) -> bool {
         match self {
+            Self::Character => catalog.characters.contains_key(name),
             Self::Brain => catalog.brain_presets.contains_key(name),
             Self::ActionSet => catalog.action_set_presets.contains_key(name),
             Self::AxisTuning => catalog.axis_tuning_presets.contains_key(name),
@@ -167,6 +171,24 @@ pub(crate) fn findings<'a>(catalog: &'a CharacterCatalogData) -> Vec<Finding<'a>
             if inline_stated {
                 push(field, FindingKind::BothStated { inline_field, what });
             }
+        }
+        if entry.hurtbox_insets.is_some() && entry.hurtboxes.is_some() {
+            push(
+                "hurtbox_insets",
+                FindingKind::BothStated {
+                    inline_field: "hurtboxes",
+                    what: "hurtbox",
+                },
+            );
+        }
+        if let Some(name) = entry.derived_from.as_deref() {
+            push(
+                "derived_from",
+                FindingKind::Reference {
+                    table: PresetTable::Character,
+                    name,
+                },
+            );
         }
         if let Some(name) = entry.provoked_profile.as_deref() {
             push(

@@ -65,8 +65,19 @@ fn an_authored_character_decides_whether_it_charges() {
     use ambition_characters::actor::definition::CharacterDefinition;
     use ambition_characters::brain::RangedExecution;
 
-    let charged = CharacterDefinition::new("charger", "Charger", "test")
-        .with_ranged_execution(RangedExecution::ChargedProjectile);
+    // Asked of the PREPARED character: preparation is where an unstated
+    // execution becomes the default.
+    let prepare = |definition| {
+        ambition_characters::prepared::prepare_and_finalize_for_test(
+            definition,
+            &ambition_characters::prepared::CharacterBindings::default(),
+        )
+        .prepared
+    };
+    let charged = prepare(
+        CharacterDefinition::new("charger", "Charger", "test")
+            .with_ranged_execution(RangedExecution::ChargedProjectile),
+    );
     assert_eq!(
         charged.ranged_execution,
         RangedExecution::ChargedProjectile,
@@ -79,7 +90,7 @@ fn an_authored_character_decides_whether_it_charges() {
     );
 
     // the poison: the DEFAULT must remain the ordinary verb.
-    let plain = CharacterDefinition::new("plain", "Plain", "test");
+    let plain = prepare(CharacterDefinition::new("plain", "Plain", "test"));
     assert_eq!(
         plain.ranged_execution,
         RangedExecution::MovesetVerb,
@@ -577,21 +588,8 @@ fn runtime_rewear_rebuilds_from_the_destination_character() {
         "wearing the pirate first installs its pistol"
     );
 
-    // Re-wear the catalog's protagonist row ("player_robot_v3") — NO stale
-    // pistol.
-    //
-    // ⛔⛤ **THIS SAID THE BODY GETS "THE CODE KIT (SWIPE + BOLT +
-    // BUBBLE_SHIELD FROM SANDBOX_ALL ABILITIES)" UNTIL 2026-09-19, AND THE LAST
-    // ASSERTION IN THIS FUNCTION REFUTES IT IN ONE LINE** — `*set ==
-    // ActionSet::peaceful()`. `player_robot_v3` IS a catalog row, so it never
-    // reaches the ability-built kit at all; v3 authors that repertoire on its
-    // DEFINITION in `ambition_content`, which this crate cannot see, so here it
-    // resolves to the row's `default_action_set: "peaceful"`.
-    //
-    // ⇒ The guard was never wrong and nothing was under-tested. What failed is
-    // that the fix landed as a NEW paragraph beside the old one instead of
-    // replacing it, leaving the function stating both answers — which is the
-    // shape to look for, not a missing assertion.
+    // Re-wear the catalog's protagonist row ("player_robot_v3"): NO stale
+    // pistol, and exactly the kit that row authors.
     *app.world_mut().get_mut::<WornCharacter>(e).unwrap() = WornCharacter::new("player_robot_v3");
     // AND ASK FOR IT. Writing the identity stopped rebuilding the
     // body: a re-wear is an explicit request, the
@@ -612,10 +610,6 @@ fn runtime_rewear_rebuilds_from_the_destination_character() {
     // contract — restoring a `WornCharacter` onto a survivor must rebuild rather
     // than inherit.
     //
-    // Robot v3 authors its repertoire on its definition in `ambition_content` now, and this crate
-    // cannot depend on content to build it. That is the correct outcome, not a gap: the engine does
-    // not know the protagonist's moves. What it must still guarantee is that nothing of the
-    // PREVIOUS character survives the change.
     assert!(
         !matches!(
             set.ranged,
@@ -627,12 +621,17 @@ fn runtime_rewear_rebuilds_from_the_destination_character() {
         "the pirate's pistol survived a re-wear, so this body's kit depends on \
          what it used to be — and a restored snapshot would inherit it too"
     );
+    let authored = app
+        .world()
+        .resource::<ambition_characters::actor::character_catalog::CharacterCatalog>()
+        .build_default_action_set("player_robot_v3")
+        .expect("the destination row names a kit");
     assert_eq!(
-        *set,
-        ActionSet::peaceful(),
+        *set, authored,
         "the re-worn body kept something the destination row does not author"
     );
 }
+
 
 /// Unknown ids are deterministic, not stale. Re-wearing an id the catalog
 /// does not know installs a DEFINED fallback (the code kit rebuilt from the
@@ -1708,7 +1707,6 @@ fn a_re_worn_character_moves_the_bodys_health_pool_without_healing_it() {
         max_health: Some(40),
         mass: Some(6.5),
         knockback_weight: None,
-        canonical_height: None,
     };
     app.insert_resource(prepared(heavy));
     app.add_systems(
@@ -1900,7 +1898,6 @@ fn a_silent_character_gives_back_the_bodys_own_mass_and_health() {
                 max_health: Some(DUELIST_MAX_HEALTH),
                 mass: Some(DUELIST_MASS),
                 knockback_weight: None,
-                canonical_height: None,
             },
         ),
         // Authors NOTHING physical. This is the ordinary case — most characters
@@ -2036,7 +2033,6 @@ fn a_body_with_no_mass_of_its_own_loses_the_component_again() {
             max_health: None,
             mass,
             knockback_weight: None,
-            canonical_height: None,
         };
         let prepared = crate::character_runtime::prepare_and_finalize_for_test(
             definition,
@@ -2239,7 +2235,6 @@ fn deleting_an_override_in_a_hot_reload_gives_the_body_its_own_numbers_back() {
             max_health: Some(60),
             mass: Some(2.0),
             knockback_weight: None,
-            canonical_height: None,
         },
     ));
 

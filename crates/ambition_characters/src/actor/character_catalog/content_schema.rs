@@ -243,6 +243,7 @@ fn declare(facet: &FacetSource<'_>, catalog: &CharacterCatalogData, out: &mut Fa
 /// for a table whose entries are not content identities of their own.
 fn preset_schema(table: PresetTable) -> Option<(&'static str, &'static str)> {
     match table {
+        PresetTable::Character => Some((CHARACTER_SCHEMA, "character")),
         PresetTable::Brain => Some((BRAIN_PRESET_SCHEMA, "brain preset")),
         PresetTable::ActionSet => Some((ACTION_SET_PRESET_SCHEMA, "action-set preset")),
         PresetTable::AxisTuning => Some((AXIS_TUNING_PRESET_SCHEMA, "axis-tuning preset")),
@@ -430,6 +431,18 @@ mod tests {
                 "MORE",
                 r#"provoked_profile: Some("brute"),"#,
                 "provoked_profile",
+            ),
+            (
+                "unknown_ancestor",
+                "MORE",
+                r#"derived_from: Some("shrew"),"#,
+                "derived_from",
+            ),
+            (
+                "two_hurtboxes",
+                "MORE",
+                r#"hurtboxes: Some((default: None)), hurtbox_insets: Some((left: 0.1, right: 0.1, top: 0.1, bottom: 0.1)),"#,
+                "hurtbox_insets",
             ),
         ];
 

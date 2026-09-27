@@ -783,6 +783,35 @@ pub struct CharacterCatalogEntry {
     /// registered definition's own.
     #[serde(default)]
     pub hurtboxes: Option<ambition_entity_catalog::HurtboxDoc>,
+    /// A hurtbox inset from the body box by these fractions, standing and
+    /// crouched. For a body whose drawn head and arms must not take hits.
+    /// `None` (the default): see [`hurtboxes`](Self::hurtboxes). A row states
+    /// this or `hurtboxes`, never both. It needs a `posed_body`, because the
+    /// box it insets is the sheet's idle body at that scale; the registration
+    /// that builds the body builds this volume from it.
+    #[serde(default)]
+    pub hurtbox_insets: Option<BodyInsets>,
+    /// Who owns this body's ranged press. `None` (the default): a moveset verb
+    /// derived from its action set. Folded at preparation under a registered
+    /// definition's own.
+    #[serde(default)]
+    pub ranged_execution: Option<crate::brain::RangedExecution>,
+    /// The character this one is a later version of (the robot's v2 names v0).
+    /// Provenance only: nothing is inherited from it. Folded at preparation
+    /// under a registered definition's own `lineage`.
+    #[serde(default)]
+    pub derived_from: Option<String>,
+}
+
+/// How far each edge of a hurtbox sits inside the body box, as a fraction of
+/// the box's size on that axis.
+#[derive(Debug, Clone, Copy, PartialEq, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct BodyInsets {
+    pub left: f32,
+    pub right: f32,
+    pub top: f32,
+    pub bottom: f32,
 }
 
 /// The art-to-world scale of a body that its sheet authors per pose.

@@ -670,7 +670,7 @@ pub fn request_reload(
     }
 
     // Stage the cast revision here and publish it at activation.
-    // `register_declared_cast` runs once in `Plugin::build`, so re-preparing a
+    // `register_characters` runs once in `Plugin::build`, so re-preparing a
     // session alone changes no move table. The transaction stages the cast
     // and requests the re-preparation, and
     // [`publish_staged_reload_on_activation`] lands both together.

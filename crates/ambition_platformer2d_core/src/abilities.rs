@@ -771,6 +771,24 @@ pub enum AbilityGrant {
     Dodge,
     /// Catch and hang from a ledge.
     LedgeGrab,
+    /// Climb a wall while clinging to it. [`WallMobility`](Self::WallMobility)
+    /// gives the cling it needs.
+    WallClimb,
+    /// A second dash charge before the body lands.
+    DoubleDash,
+    /// Aim a blink at a point instead of a fixed distance.
+    PrecisionBlink,
+    /// Blink through soft and hard walls.
+    BlinkThroughWalls,
+    /// The special reads the stick, so a direction and the special button can
+    /// play different moves.
+    DirectionalSpecial,
+    /// Bounce off a rebound surface.
+    Rebound,
+    /// Move through water.
+    Swim,
+    /// Hold jump in the air to fall slowly.
+    Glide,
 }
 
 impl AbilityGrant {
@@ -862,6 +880,39 @@ impl AbilityGrant {
             },
             Self::LedgeGrab => AbilitySet {
                 ledge_grab: true,
+                ..AbilitySet::NONE
+            },
+            Self::WallClimb => AbilitySet {
+                wall_climb: true,
+                ..AbilitySet::NONE
+            },
+            Self::DoubleDash => AbilitySet {
+                double_dash: true,
+                ..AbilitySet::NONE
+            },
+            Self::PrecisionBlink => AbilitySet {
+                precision_blink: true,
+                ..AbilitySet::NONE
+            },
+            Self::BlinkThroughWalls => AbilitySet {
+                blink_through_soft_walls: true,
+                blink_through_hard_walls: true,
+                ..AbilitySet::NONE
+            },
+            Self::DirectionalSpecial => AbilitySet {
+                directional_special: true,
+                ..AbilitySet::NONE
+            },
+            Self::Rebound => AbilitySet {
+                rebound: true,
+                ..AbilitySet::NONE
+            },
+            Self::Swim => AbilitySet {
+                swim: true,
+                ..AbilitySet::NONE
+            },
+            Self::Glide => AbilitySet {
+                glide: true,
                 ..AbilitySet::NONE
             },
         }

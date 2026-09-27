@@ -1563,7 +1563,7 @@ mod tests;
 /// sole switch for folding ranged/special presets, applying ranged presentation,
 /// and installing charge-projectile runtime state. `ChargesProjectiles` remains
 /// the runtime marker.
-#[derive(Clone, Copy, PartialEq, Eq, Debug, serde::Serialize)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, serde::Serialize, serde::Deserialize)]
 pub enum RangedExecution {
     /// A chargeable projectile owns the ranged press; do not also fold the
     /// action set's ranged verb into the moveset.

@@ -162,16 +162,14 @@ fn the_demo_loads_shared_assets_and_draws_landmarks_and_the_loop() {
             .collect()
     };
     // The LDtk-authored course's visible landmarks. The named ENTITY blocks
-    // (monitors, rebound pads) keep their identities; the IntGrid-lowered
-    // terrain draws under the loader's generic kind names ("ldtk solid" /
-    // "ldtk one-way" / "ldtk hazard") — authored names are erased by the
-    // IntGrid lowering (code smell #15), so kind presence is what's provable.
+    // (monitors, rebound pads) keep their identities, the pit's spikes are a
+    // hazard feature, and the IntGrid one-way ledges draw under the loader's
+    // generic kind name ("ldtk one-way").
     for landmark in [
         "Block: monitor_speed",
         "Block: ReboundPad",
-        "Block: ldtk solid",
         "Block: ldtk one-way",
-        "Block: ldtk hazard",
+        "Feature hazard: pit_spikes",
     ] {
         assert!(
             names.iter().any(|name| name == landmark),
@@ -179,19 +177,18 @@ fn the_demo_loads_shared_assets_and_draws_landmarks_and_the_loop() {
         );
     }
 
-    let floor_is_tiled = {
-        let mut q = app.world_mut().query::<(&Name, &Sprite)>();
-        q.iter(app.world()).any(|(name, sprite)| {
-            name.as_str() == "Block: ldtk solid"
-                && matches!(
-                    &sprite.image_mode,
-                    bevy::sprite::SpriteImageMode::Tiled { .. }
-                )
-        })
+    // The ground is painted in the LDtk `Terrain` layer and lowered to surface
+    // chains; the painted cells are drawn as the chain's earth, a mesh.
+    let earth_is_drawn = {
+        let mut q = app
+            .world_mut()
+            .query::<(&Name, &bevy::prelude::Mesh2d)>();
+        q.iter(app.world())
+            .any(|(name, _)| name.as_str().starts_with("Painted earth: terrain:sanic_speedway/"))
     };
     assert!(
-        floor_is_tiled,
-        "the speedway ground slabs must use Ambition's tiled ground sprite path"
+        earth_is_drawn,
+        "the speedway's painted ground must be drawn as meshed earth"
     );
     let loop_segments = names
         .iter()
@@ -466,6 +463,37 @@ fn the_declared_hud_shows_the_games_own_words_and_a_live_value() {
         texts[0].trim_start_matches("RINGS ").parse::<i32>().is_ok(),
         "the readout carries the live wallet balance, not a placeholder: {:?}",
         texts[0]
+    );
+}
+
+/// The start line's sign names the keys that fire Sanic's actions, from the
+/// same prompt as his controls. It named `Special` for SUPER while the
+/// transform sits on `Utility`, so it told the player to press G, which does
+/// nothing; the transform is D.
+#[test]
+fn the_start_line_sign_names_the_keys_his_actions_are_on() {
+    use ambition_platformer2d::render::rendering::WorldLabel;
+
+    let mut app = drawn_demo();
+    let sign = |app: &mut App| -> Option<String> {
+        let mut query = app.world_mut().query::<(&WorldLabel, &Text2d)>();
+        query
+            .iter(app.world())
+            .find(|(label, _)| label.owner_id.starts_with("signage:") && label.owner_id.ends_with("start"))
+            .map(|(_, text)| text.0.clone())
+    };
+    let mut shown = None;
+    for _ in 0..600 {
+        app.update();
+        shown = sign(&mut app);
+        if shown.as_deref().is_some_and(|text| !text.contains('?')) {
+            break;
+        }
+    }
+    assert_eq!(
+        shown.as_deref(),
+        Some("START   Z: JUMP   DOWN+X: REV   RELEASE DOWN: DASH   D: SUPER"),
+        "the sign must name the default preset's keys for jump, the spin dash and the transform"
     );
 }
 

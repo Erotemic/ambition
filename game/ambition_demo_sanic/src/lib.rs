@@ -176,80 +176,12 @@ pub fn rev_tier_id(charge: f32) -> &'static str {
 /// ear measure the same positions instead of drifting as the speedway changes.
 pub const SPEED_MARKER_XS: [f32; 5] = [808.0, 1608.0, 2600.0, 3608.0, 5000.0];
 
-/// The signage id of the speedway's control legend (the sign at the start
-/// line).
-///
-/// Match the suffix, not the whole string: the room prefixes label ids with
-/// `sanic_`, and the renderer prefixes `owner_id` with `signage:{index}:`. No
-/// other sign ends this way (the others are `loop`, `finish`, `marker_N`).
-const LEGEND_LABEL_ID: &str = "start";
-
-/// The legend, written from the live bindings.
-///
-/// `bindings` is the seat's live projection when there is a seat. `None` is
-/// room generation, which has no settings or participant and can only speak
-/// for the default preset.
-fn control_legend(
-    bindings: Option<&ambition_platformer2d::input::ActionBindings>,
-    // A style cannot say "this seat is on a keyboard", so the device is passed.
-    device: ambition_platformer2d::input::ActiveDevice,
-) -> String {
-    use ambition_platformer2d::input::Platformer2dInputActionMonolith as Action;
-
-    let default_keys = ambition_platformer2d::input::KeyboardPreset::arrows_zxc().actions;
-    let name = ambition_platformer2d::input::key_name;
-    let label = |action: Action, fallback: bevy::prelude::KeyCode| {
-        bindings
-            .and_then(|bound| bound.label_for(&action, device))
-            .unwrap_or_else(|| name(fallback).to_string())
-    };
-    format!(
-        "START   {}: JUMP   DOWN+{}: REV   RELEASE DOWN: DASH   {}: SUPER",
-        label(Action::Jump, default_keys.jump),
-        label(Action::Attack, default_keys.attack),
-        label(Action::Special, default_keys.special),
-    )
-}
-
-/// Rewrite the speedway's legend from the seat's live bindings.
-///
-/// This runs at presentation time, because the room (and its sign) is built
-/// before any settings are read. Without it, a remapped or non-default preset
-/// shows keys that do nothing.
-///
-/// Cheap on a quiet frame: it asks for text only when the bindings or the
-/// seat's pad change, and writes only when the text differs.
-fn refresh_sanic_control_legend(
-    bindings: Option<bevy::prelude::Res<ambition_platformer2d::input::SeatBindings>>,
-    devices: Option<bevy::prelude::Res<ambition_platformer2d::input::SeatActiveDevices>>,
-    mut labels: bevy::prelude::Query<(
-        &ambition_platformer2d::render::rendering::WorldLabel,
-        &mut bevy::prelude::Text2d,
-    )>,
-    // The room load spawns the label after the bindings first publish, so the
-    // first frame a sign exists must write even if nothing changed.
-    mut written: bevy::prelude::Local<bool>,
-) {
-    use bevy::prelude::DetectChanges;
-
-    let Some(bindings) = bindings else { return };
-    let moved = bindings.is_changed() || devices.as_ref().is_some_and(|d| d.is_changed());
-    if *written && !moved {
-        return;
-    }
-    let seat = ambition_platformer2d::input::ParticipantId::PRIMARY.slot();
-    let device = devices.map_or_else(Default::default, |devices| devices.for_seat(seat));
-    let wanted = control_legend(Some(bindings.for_seat(seat)), device);
-    for (label, mut text) in &mut labels {
-        if !label.owner_id.ends_with(LEGEND_LABEL_ID) {
-            continue;
-        }
-        *written = true;
-        if text.0 != wanted {
-            text.0 = wanted.clone();
-        }
-    }
-}
+/// The start line's sign. It names each control by the action it fires, and
+/// the engine writes the key the seat presses (see the render crate's
+/// `control_legend`), so the sign follows a rebind, a pad, and the body the
+/// player drives.
+const START_LINE_LEGEND: &str = "START   {action:jump}: JUMP   DOWN+{action:spin_dash}: REV   \
+     RELEASE DOWN: DASH   {action:transform}: SUPER";
 
 /// Build the Sanic showcase room from the demo's LDtk world. Everything spatial
 /// is authored there: the painted ground (hills, pit, finish tower) and the
@@ -286,11 +218,8 @@ pub fn sanic_speedway() -> RoomSpec {
     // debug labels rendered by the generic presentation face, not app-local UI.
     let mut labels = vec![
         (
-            LEGEND_LABEL_ID.to_string(),
-            // Room generation has no settings or seat, so it writes the
-            // default preset's legend. [`refresh_sanic_control_legend`]
-            // replaces it once a seat's real bindings exist.
-            control_legend(None, Default::default()),
+            "start".to_string(),
+            START_LINE_LEGEND.to_string(),
             ae::Vec2::new(300.0, FLOOR_TOP - 230.0),
         ),
         (
@@ -471,9 +400,6 @@ pub fn install_sanic_content(app: &mut App) {
     // in the lean sanic asset catalog, so this mirrors Ambition's intro-prop
     // loader (insert-if-missing each frame). See smell #19.
     app.add_systems(bevy::prelude::Update, register_sanic_ring_prop_sheet);
-    // The start-line legend names buttons, so it follows the bindings.
-    // Registered with the content: it is about this room's signage.
-    app.add_systems(bevy::prelude::Update, refresh_sanic_control_legend);
 
     // Sanic's mutable sim state joins the rollback contract here, before
     // either construction path fingerprints the App, so the schema

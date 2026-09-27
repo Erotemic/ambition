@@ -778,6 +778,9 @@ impl Plugin for WorldLabelLayoutPlugin {
             (
                 apply_world_label_fonts,
                 mirror_static_world_labels_per_view,
+                // After the mirror's flush, so a new copy gets its text on the
+                // frame it appears; before placement, which measures the text.
+                super::control_legend::write_control_legends,
                 layout_world_labels,
             )
                 .chain()

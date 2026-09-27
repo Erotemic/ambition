@@ -215,7 +215,7 @@ pub(super) fn spawn_world_label(
     pos: ae::Vec2,
     text: &str,
     font_size: f32,
-) {
+) -> Entity {
     let anchor = world_to_bevy(world, pos, WORLD_Z_PLAYER + 8.0);
     commands.spawn_session_scoped(
         session_scope,
@@ -237,7 +237,8 @@ pub(super) fn spawn_world_label(
             // entity.
             super::label_layout::StaticWorldLabel,
         ),
-    );
+    )
+    .id()
 }
 
 

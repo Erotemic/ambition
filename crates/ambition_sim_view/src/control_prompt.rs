@@ -25,7 +25,7 @@
 use ambition_characters::action_scheme::{derive_action_scheme, ActorTechniques};
 use ambition_characters::brain::action_set::ActionSet;
 use ambition_combat::moveset::ActorMoveset;
-use ambition_entity_catalog::action_scheme::{ControlSlot, VisualId};
+use ambition_entity_catalog::action_scheme::{ActionId, ControlSlot, VisualId};
 use ambition_input::{ActiveUiCues, SeatInputContexts, UiCue, GAMEPLAY_CONTEXT};
 use ambition_platformer2d_core::BodyAbilities;
 use ambition_platformer2d_shared_tangle::markers::{
@@ -113,6 +113,10 @@ fn button_label(slot: ControlSlot) -> &'static str {
 /// the scheme's canonical slot order.
 #[derive(Clone, Debug, PartialEq)]
 pub struct PromptEntry {
+    /// The action on the slot (`ActionSpec::id`). A sign names a control by
+    /// this id (see [`ControlPrompt::fill_legend`]), so it follows the action
+    /// to whichever slot the scheme puts it on.
+    pub action: ActionId,
     pub slot: ControlSlot,
     pub label: String,
     pub visual: Option<VisualId>,
@@ -160,7 +164,38 @@ pub struct ControlPrompt {
     pub menu_confirm: Option<String>,
 }
 
+/// Opens a control name in a sign's text: `{action:jump}` is the control
+/// that fires the action `jump`. See [`ControlPrompt::fill_legend`].
+pub const LEGEND_ACTION_OPEN: &str = "{action:";
+
 impl ControlPrompt {
+    /// Write a sign's text from `template`, where `{action:ID}` becomes the
+    /// control the local primary seat presses to fire the action `ID`.
+    ///
+    /// The control is read from this prompt, so it follows the driven body's
+    /// scheme and the seat's live bindings. An action the prompt does not
+    /// carry, or one that nothing binds, is written `?`: a sign must not name
+    /// a key that does nothing.
+    pub fn fill_legend(&self, template: &str) -> String {
+        let mut text = String::with_capacity(template.len());
+        let mut rest = template;
+        while let Some(open) = rest.find(LEGEND_ACTION_OPEN) {
+            let after = &rest[open + LEGEND_ACTION_OPEN.len()..];
+            let Some(close) = after.find('}') else { break };
+            text.push_str(&rest[..open]);
+            let id = &after[..close];
+            let control = self
+                .entries
+                .iter()
+                .find(|entry| entry.action.as_str() == id)
+                .and_then(|entry| entry.binding.as_deref());
+            text.push_str(control.unwrap_or("?"));
+            rest = &after[close + 1..];
+        }
+        text.push_str(rest);
+        text
+    }
+
     /// The label currently on a given slot, if the prompt claims it.
     pub fn label_for(&self, slot: ControlSlot) -> Option<&str> {
         self.entries
@@ -445,6 +480,7 @@ pub fn rebuild_control_prompt(
             // Every slot is drawn ready here; `project_prompt_readiness` is the
             // one writer that says otherwise.
             ready: true,
+            action: action.id.clone(),
             slot: action.slot,
             label: match naming {
                 PromptNaming::ByButton => button_label(action.slot).to_owned(),
@@ -1290,6 +1326,37 @@ mod tests {
             attack(&app),
             None,
             "the primary player is shown but not driven, so the rule does not apply"
+        );
+    }
+
+    /// A sign names controls by action. The text gets the key the prompt
+    /// binds to that action, and `?` for an action the prompt lacks or that
+    /// nothing binds.
+    #[test]
+    fn a_legend_names_each_action_by_the_control_bound_to_it() {
+        let entry = |action: &str, slot: ControlSlot, binding: Option<&str>| PromptEntry {
+            action: ActionId::new(action),
+            slot,
+            label: action.to_owned(),
+            visual: None,
+            binding: binding.map(str::to_owned),
+            ready: true,
+        };
+        let prompt = ControlPrompt {
+            context: ControlContextKind::Gameplay,
+            entries: vec![
+                entry("jump", ControlSlot::Jump, Some("Z")),
+                entry("transform", ControlSlot::Utility, Some("D")),
+                entry("spin_dash", ControlSlot::Attack, None),
+            ],
+            menu_confirm: None,
+        };
+        assert_eq!(
+            prompt.fill_legend(
+                "START {action:jump}: JUMP  {action:transform}: SUPER  \
+                 {action:spin_dash}: REV  {action:fly}: FLY  {not an action}"
+            ),
+            "START Z: JUMP  D: SUPER  ?: REV  ?: FLY  {not an action}",
         );
     }
 

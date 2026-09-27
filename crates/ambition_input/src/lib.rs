@@ -72,10 +72,10 @@ pub use control::{
 pub use glyphs::glyph_for;
 #[cfg(feature = "input")]
 pub use local_seats::{
-    assign_local_seat_devices, track_local_device_order, LocalDeviceOrder, LocalSeatTopology,
+    assign_local_seat_devices, track_local_device_order, LocalSeatTopology,
     SeatDeviceOwnership as LocalSeatDeviceOwnership,
 };
-pub use seating::{LocalSeatOffer, SessionSeatingSource};
+pub use seating::{LocalDeviceOrder, LocalSeatOffer, SessionSeatingSource};
 
 /// Ordered participant-input pipeline. The host chains
 /// `Collect -> ResolveActions -> ResolveContext -> Route -> PublishCues -> Consume`.

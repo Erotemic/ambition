@@ -495,10 +495,10 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "game/ambition_demo_smash/src/lib.rs",
     ),
     "SessionSeatingSource": (
+        "crates/ambition_game_shell/src/route_seating.rs",
         "crates/ambition_platformer2d_rollback_ggrs/src/local_session.rs",
         "game/ambition_app/src/app/versus.rs",
         "game/ambition_demo_smash/src/lib.rs",
-        "game/ambition_demo_twintrack/src/participants.rs",
     ),
     "ShellHostConfiguration": (
         "crates/ambition_platformer2d/src/app.rs",
@@ -729,10 +729,6 @@ BASELINE: dict[str, tuple[str, ...]] = {
     "LiveMatchTicks": (
         "crates/ambition_platformer2d_actor_monolith/src/character_runtime/live_match_clock.rs",
         "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
-    ),
-    "LocalSeatOffer": (
-        "game/ambition_demo_smash/src/lib.rs",
-        "game/ambition_demo_twintrack/src/participants.rs",
     ),
     "LocalSeatTopology": (
         "crates/ambition_platformer2d_rollback_ggrs/src/local_session.rs",
@@ -3159,13 +3155,11 @@ ADJUDICATED: dict[str, str] = {
         "`:3792` before `::decided` (`:3863`) — "
         "`ShellRouter.active` names exactly one route, so "
         "`VERSUS_GAMEPLAY_ROUTE` and `SMASH_SELECT_ROUTE` can never both be "
-        "active. `declare_the_couch` "
-        "(`game/ambition_demo_twintrack/src/participants.rs:165`) belongs to "
-        "the twintrack crate, whose `game/ambition_demo_twintrack/Cargo.toml` "
-        "names no dependency on the smash or flagship crates, and whose "
-        "reverse is true in `game/ambition_app/Cargo.toml` and "
-        "`game/ambition_demo_smash/Cargo.toml` — so it never shares a "
-        "process with either. "
+        "active. `project_route_seating` "
+        "(`crates/ambition_game_shell/src/route_seating.rs`) writes only "
+        "the active route's declared channel plan, in the name "
+        "`route:<id>`, and releases only a value in such a name, so it "
+        "cannot overwrite or release a roster's decision. "
         "`crates/ambition_platformer2d_rollback_ggrs/src/local_session.rs:135` "
         "only stamps back the disjoint `frozen_topology` field onto "
         "whichever app's own Decided value is live. Measured by "
@@ -3254,21 +3248,6 @@ ADJUDICATED: dict[str, str] = {
         "builds its OWN `App::new()` for tests and extends the list at "
         "`:42` inside that separate, throwaway App instance. Measured by "
         "CalculexAmbition, 2026-09-18."
-    ),
-    "LocalSeatOffer": (
-        "TWO WRITER FILES, TWO ENTIRELY SEPARATE GAMES WITH NO DEPENDENCY "
-        "EDGE BETWEEN THEM. `crates/ambition_input/src/seating.rs:130` "
-        "declares the resource. `maintain_smash_local_seat_offer` "
-        "(`game/ambition_demo_smash/src/lib.rs:3541`) is the smash demo's "
-        "own writer; `declare_the_couch` "
-        "(`game/ambition_demo_twintrack/src/participants.rs:165`) is "
-        "TwinTrack's. `game/ambition_demo_smash/Cargo.toml` names no "
-        "dependency on the twintrack crate and "
-        "`game/ambition_demo_twintrack/Cargo.toml` names none on the smash "
-        "crate — unlike `SessionSeatingSource`, where the smash demo is "
-        "installed as a route inside the flagship, these two products never "
-        "link into one binary at all, so the two writer files can never run "
-        "in the same process. Measured by CalculexAmbition, 2026-09-18."
     ),
     "Warmup": (
         "THREE UNRELATED, FILE-PRIVATE TYPES THAT MERELY SHARE A NAME. "

@@ -9,35 +9,11 @@ use bevy::prelude::*;
 use leafwing_input_manager::prelude::InputMap;
 
 use crate::channels::LocalChannelPlan;
+pub use crate::seating::LocalDeviceOrder;
 #[cfg(test)]
 use crate::channels::LocalInputSource;
 use crate::participant::ParticipantId;
 use crate::{InputParticipant, Platformer2dInputActionMonolith};
-
-/// Connected controllers, oldest connection first.
-///
-/// A resource, not a derived sort: the order people picked up their
-/// controllers cannot be recovered from the world later.
-#[derive(Resource, Debug, Default)]
-pub struct LocalDeviceOrder(Vec<Entity>);
-
-impl LocalDeviceOrder {
-    /// The controller a seat in this slot owns, if one is connected.
-    pub fn device_for_slot(&self, slot: u8) -> Option<Entity> {
-        self.0.get(slot as usize).copied()
-    }
-
-    pub fn devices(&self) -> &[Entity] {
-        &self.0
-    }
-
-    /// Build an order from a known device list, for a caller that already holds
-    /// the devices (a session freezing its seating) and for tests. Only the
-    /// tracking system discovers devices.
-    pub fn from_devices(devices: Vec<Entity>) -> Self {
-        Self(devices)
-    }
-}
 
 /// Frozen local-device topology for one gameplay session.
 ///

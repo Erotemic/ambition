@@ -13,6 +13,7 @@ mod input;
 mod launcher;
 mod plugin;
 mod preparation;
+mod route_seating;
 mod router;
 mod scope;
 mod sequence;
@@ -40,6 +41,10 @@ pub use plugin::{
     AmbitionGameShellPlugin, ShellFailureLog, ShellLauncherPlugin, ShellSequencePlugin,
 };
 pub use preparation::*;
+pub use route_seating::{
+    project_route_seating, route_seating_owner, RouteSeating, RouteSeatingAppExt,
+    RouteSeatingCatalog, SeatCount,
+};
 pub use router::*;
 pub use scope::{
     release_departed_experience_state, shell_experience_is_active, ExperienceScope,

@@ -1349,7 +1349,9 @@ fn the_second_pane_follows_its_participant_to_a_new_body() {
 /// and TwinTrack is one route in a host that also runs Mary-O and Smash.
 #[test]
 fn the_plaza_declares_two_seats_and_a_couch_policy_only_while_it_is_live() {
-    use ambition_platformer2d::input::{InputAssignmentPolicy, LocalSeatOffer};
+    use ambition_platformer2d::input::{
+        InputAssignmentPolicy, LocalInputSource, LocalSeatOffer, SessionSeatingSource,
+    };
 
     fn offer(app: &App) -> LocalSeatOffer {
         app.world()
@@ -1382,6 +1384,37 @@ fn the_plaza_declares_two_seats_and_a_couch_policy_only_while_it_is_live() {
         InputAssignmentPolicy::JoinToClaim,
         "the seats are declared but every device still drives seat zero: a \
          keyboard and one controller are two people at this exhibit",
+    );
+    // The session is sized once, from this plan, and never resized. Without it
+    // a one-pad session has one handle and the twin's seat is inert.
+    assert_eq!(
+        app.world()
+            .resource::<SessionSeatingSource>()
+            .channel_plan()
+            .map(|plan| plan.sources().to_vec()),
+        Some(vec![LocalInputSource::Keyboard, LocalInputSource::FIRST_PAD]),
+        "the plaza did not say that its two channels are the keyboard and the \
+         first pad",
+    );
+
+    app.world_mut()
+        .write_message(ambition_platformer2d::game_shell::ShellCommand::GoTo(
+            ambition_platformer2d::game_shell::ShellRouteId::new(
+                ambition_demo_twintrack::TWINTRACK_LAUNCHER_ROUTE,
+            ),
+        ));
+    for _ in 0..30 {
+        app.update();
+    }
+    assert_eq!(
+        (offer(&app).seats(), offer(&app).policy()),
+        (0, InputAssignmentPolicy::default()),
+        "leaving the plaza left its couch for the next game",
+    );
+    assert_eq!(
+        app.world().resource::<SessionSeatingSource>().channel_plan(),
+        None,
+        "leaving the plaza left its channel plan to size the next game's session",
     );
 }
 

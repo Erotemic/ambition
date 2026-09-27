@@ -74,6 +74,14 @@ impl Plugin for AmbitionGameShellPlugin {
                 Update,
                 advance_pending_route.in_set(AmbitionGameShellSet::Pending),
             )
+            // After `Pending`, so a route that became active this frame
+            // offers its seats in the same frame.
+            .add_systems(
+                Update,
+                crate::route_seating::project_route_seating
+                    .after(AmbitionGameShellSet::Pending)
+                    .before(AmbitionGameShellSet::Cleanup),
+            )
             .add_systems(
                 Update,
                 (

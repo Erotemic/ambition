@@ -1500,8 +1500,15 @@ impl Plugin for MaryORulesPlugin {
         // Level progression lives in the canonical gameplay-effects phase. The
         // flag runs before the clock; the cycle emitter runs last so it sees the
         // settled tally and its clock reset is not immediately decremented.
+        // The level clock and the flag sequence live on the mode's owner, which
+        // the engine brings into being the first tick the mode is live.
+        ambition_platformer2d::runtime::install_mode_owner(
+            app,
+            self.scope,
+            MARY_O_MODE,
+            mary_o_level_owner,
+        );
         let rules = (
-            spawn_mary_o_mode_owner,
             // `FlagPole` and `LevelDestination` are declared rollback-DERIVED,
             // which is a promise that they are re-answered from rollback state
             // before anything reads them. They were re-answered once per
@@ -1537,7 +1544,9 @@ impl Plugin for MaryORulesPlugin {
             cycle_level_on_flag_tally,
         )
             .chain()
-            .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::GameplayEffects);
+            .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::GameplayEffects)
+            // The level begins on the tick its owner is born.
+            .after(ambition_platformer2d::runtime::ModeOwnersSpawned);
         // Pipe input is authoritative rollback state on the player body. Entry
         // and transit run after ordinary WorldPrep movement, so the scripted
         // position wins this frame instead of racing the shared integrator.
@@ -1701,43 +1710,20 @@ impl Plugin for MaryORulesPlugin {
     }
 }
 
-fn spawn_mary_o_mode_owner(
-    mut commands: bevy::prelude::Commands,
-    existing: bevy::prelude::Query<(), bevy::prelude::With<MaryOLevelState>>,
-    session: Option<
-        bevy::prelude::Res<ambition_platformer2d::platformer::lifecycle::ActiveSessionScope>,
-    >,
-) {
-    use ambition_platformer2d::platformer::lifecycle::{SessionSpawnScope, SpawnSessionScopedExt};
-    // Sleep once a session-scoped host has retired the live session (at the
-    // launcher), so the level state is not resurrected from stale "mary_o" room
-    // metadata. Inert when no `ActiveSessionScope` exists (Startup path / D-C
-    // tests). Mirrors Sanic's `spawn_sanic_mode_owner`.
-    let session_live = session
-        .as_ref()
-        .map_or(true, |scope| scope.current().is_some());
-    let spawn_scope = session
-        .as_ref()
-        .map_or(SessionSpawnScope::UNSCOPED, |scope| scope.spawn_scope());
-    if session_live && existing.iter().next().is_none() {
-        // The sequence rides the same entity as the clock. Owned by BOTH the mode
-        // (survives in-session room changes) and the active session (torn down on
-        // a shell relaunch, which a same-mode reload is NOT).
-        commands
-            .spawn_mode_owner(
-                spawn_scope,
-                MARY_O_MODE,
-                (
-                    MaryOLevelState::default(),
-                    flag::FlagSequence::default(),
-                    // The mode owner's memory of its own level lifecycle. It
-                    // rides here rather than in a system `Local` because it
-                    // decides authoritative writes and therefore has to rewind
-                    // with them — see [`LevelDeparture`].
-                    LevelDeparture::default(),
-                ),
-            );
-    }
+/// What the mode's owner holds when a level begins.
+///
+/// The sequence rides the same entity as the clock. The owner is owned by BOTH
+/// the mode (it survives in-session room changes) and the active session (it
+/// is torn down on a shell relaunch, which a same-mode reload is NOT).
+fn mary_o_level_owner() -> (MaryOLevelState, flag::FlagSequence, LevelDeparture) {
+    (
+        MaryOLevelState::default(),
+        flag::FlagSequence::default(),
+        // The mode owner's memory of its own level lifecycle. It rides here
+        // rather than in a system `Local` because it decides authoritative
+        // writes and therefore has to rewind with them — see [`LevelDeparture`].
+        LevelDeparture::default(),
+    )
 }
 
 /// The level clock runs on the SIM clock, so pause and bullet-time slow it exactly

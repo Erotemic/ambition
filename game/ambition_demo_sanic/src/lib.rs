@@ -981,8 +981,15 @@ impl Plugin for SanicRulesPlugin {
         // The ball dash is a rule: it exists only while the Sanic mode is live.
         // Effects run after PlayerInput captured the technique. `tick_ball_dash`
         // precedes `tick_rolling`, so a launch cannot un-ball in the same frame.
+        // The act state lives on the mode's owner, which the engine brings into
+        // being the first tick the mode is live and retires when it ends.
+        ambition_platformer2d::runtime::install_mode_owner(
+            app,
+            self.scope,
+            SANIC_MODE,
+            SanicActState::default,
+        );
         let rules = (
-            spawn_sanic_mode_owner,
             begin_act_on_arrival,
             tick_sanic_act,
             ball_dash::tick_ball_dash,
@@ -1003,6 +1010,8 @@ impl Plugin for SanicRulesPlugin {
         )
             .chain()
             .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::GameplayEffects)
+            // The act begins on the tick its owner is born.
+            .after(ambition_platformer2d::runtime::ModeOwnersSpawned)
             // An act that asks to leave is carried out the same tick.
             .before(ambition_platformer2d::session::DepartureSet);
         // This is an ordering, not an installation. `apply_contact_harm` is
@@ -1349,45 +1358,6 @@ fn super_form_edge(worn_is_super: Option<bool>, was_super: bool) -> (Option<bool
         None => (None, false),
         Some(is_super) if is_super != was_super => (Some(is_super), is_super),
         Some(_) => (None, was_super),
-    }
-}
-
-/// Bring the act state into being the first frame the mode is live. Spawned
-/// `spawn_mode_owner`, so the engine despawns it when the active room's mode
-/// changes (no teardown code here) and names it for the rollback order.
-fn spawn_sanic_mode_owner(
-    mut commands: bevy::prelude::Commands,
-    existing: bevy::prelude::Query<(), bevy::prelude::With<SanicActState>>,
-    session: Option<
-        bevy::prelude::Res<ambition_platformer2d::platformer::lifecycle::ActiveSessionScope>,
-    >,
-    mut sfx: ambition_platformer2d::sfx::BodySfxWriter,
-) {
-    use ambition_platformer2d::platformer::lifecycle::{SessionSpawnScope, SpawnSessionScopedExt};
-    // Sleep when a session-scoped host has retired the session (at the
-    // launcher): the room metadata may still read "sanic", but nothing should
-    // own new state. With no `ActiveSessionScope` (Startup path, D-C tests)
-    // the guard is inert.
-    let session_live = session
-        .as_ref()
-        .map_or(true, |scope| scope.current().is_some());
-    let spawn_scope = session
-        .as_ref()
-        .map_or(SessionSpawnScope::UNSCOPED, |scope| scope.spawn_scope());
-    if session_live && existing.iter().next().is_none() {
-        // Owned by the mode (survives in-session room changes) and by the
-        // session (torn down on relaunch; a same-mode reload alone would leak
-        // the act across launch → quit → relaunch).
-        commands.spawn_mode_owner(spawn_scope, SANIC_MODE, SanicActState::default());
-        // Audible confirmation that the shell drains the standard SfxMessage
-        // seam at room entry. H2/I3: the course's sound, by name.
-        // `write_global` would make it the host's.
-        sfx.write_from(
-            provider::SANIC_EXPERIENCE,
-            ambition_platformer2d::sfx::SfxMessage::Dash {
-                pos: ae::Vec2::ZERO,
-            },
-        );
     }
 }
 
@@ -1998,15 +1968,27 @@ pub fn cycle_act_after_clear(
 
 /// An act that finds itself in a different room has arrived in the next act:
 /// its clock, its milestones and its results start over there. The first tick
-/// of a session is an arrival too.
+/// of a session is an arrival too, and it has a sound.
 pub fn begin_act_on_arrival(
     mut act: bevy::prelude::Query<&mut SanicActState>,
     rooms: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
         ambition_platformer2d::world::rooms::RoomSet,
     >,
+    mut sfx: ambition_platformer2d::sfx::BodySfxWriter,
 ) {
     let active = rooms.active();
     for mut state in &mut act {
+        if state.room.is_none() {
+            // Audible confirmation that the shell drains the standard
+            // SfxMessage seam at room entry. H2/I3: the course's sound, by name.
+            // `write_global` would make it the host's.
+            sfx.write_from(
+                provider::SANIC_EXPERIENCE,
+                ambition_platformer2d::sfx::SfxMessage::Dash {
+                    pos: ae::Vec2::ZERO,
+                },
+            );
+        }
         if state.room != Some(active) {
             *state = SanicActState {
                 room: Some(active),

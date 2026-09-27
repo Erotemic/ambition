@@ -77,7 +77,8 @@ pub use content_identity::{
 };
 /// The demo-hosting seam (D-C): gate a hosted ruleset on the active room's mode.
 pub use mode_scope::{
-    despawn_departed_mode_entities, in_base_mode, in_mode, in_rules_scope, ModeScopePlugin,
+    despawn_departed_mode_entities, in_base_mode, in_mode, in_rules_scope, install_mode_owner,
+    ModeOwnersSpawned, ModeScopePlugin,
 };
 pub use player_schedule::PlayerSchedulePlugin;
 #[cfg(feature = "portal")]

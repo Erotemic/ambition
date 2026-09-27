@@ -285,3 +285,91 @@ fn a_standalone_ruleset_runs_with_no_mode_at_all() {
     app.update();
     assert_eq!(app.world().resource::<RuleTicks>().a, 1);
 }
+
+/// A hosted game's per-mode state, in the shape `install_mode_owner` builds.
+#[derive(Component, Default, Debug, PartialEq)]
+struct ActClock(u32);
+
+fn a_game_with_a_mode_owner() -> App {
+    use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt as _;
+
+    let mut app = App::new();
+    app.set_sim_schedule(Update);
+    insert_session_rooms(&mut app);
+    app.add_systems(Update, despawn_departed_mode_entities);
+    ambition_platformer2d_runtime::install_mode_owner(
+        &mut app,
+        ambition_combat::scoped_rules::RulesScope::Mode("a"),
+        "a",
+        ActClock::default,
+    );
+    app
+}
+
+fn owners(app: &mut App) -> Vec<(String, ambition_platformer2d_shared_tangle::sim_id::SimId)> {
+    let mut query = app.world_mut().query_filtered::<(
+        &ModeScopedEntity,
+        &ambition_platformer2d_shared_tangle::sim_id::SimId,
+    ), With<ActClock>>();
+    query
+        .iter(app.world())
+        .map(|(scope, id)| (scope.0.clone(), id.clone()))
+        .collect()
+}
+
+/// A declared mode owner is born on the first tick its mode is live, once, and
+/// the mode sweep retires it when the mode ends. Coming back starts a fresh
+/// one. Two games each carried their own copy of this spawner before the
+/// engine owned it.
+#[test]
+fn a_declared_mode_owner_is_born_once_per_visit_to_its_mode() {
+    let mut app = a_game_with_a_mode_owner();
+    let owner_of_a = || {
+        vec![(
+            "a".to_string(),
+            ambition_platformer2d_shared_tangle::sim_id::SimId::singleton("mode_owner", "a"),
+        )]
+    };
+
+    app.update();
+    assert!(owners(&mut app).is_empty(), "the base game has no owner for mode `a`");
+
+    set_mode(&mut app, Some("a"));
+    app.update();
+    assert_eq!(owners(&mut app), owner_of_a(), "mode `a` is live and has no owner");
+    app.world_mut()
+        .query::<&mut ActClock>()
+        .single_mut(app.world_mut())
+        .expect("one owner")
+        .0 = 7;
+    app.update();
+    app.update();
+    assert_eq!(owners(&mut app), owner_of_a(), "a second owner was born for one visit");
+
+    set_mode(&mut app, Some("b"));
+    app.update();
+    assert!(owners(&mut app).is_empty(), "the owner outlived its mode");
+
+    set_mode(&mut app, Some("a"));
+    app.update();
+    assert_eq!(owners(&mut app), owner_of_a());
+    assert_eq!(
+        app.world_mut().query::<&ActClock>().single(app.world()).ok(),
+        Some(&ActClock(0)),
+        "a new visit must start from the authored state, not the last visit's"
+    );
+}
+
+/// No owner is born while no session is live (at the launcher), even when the
+/// last room's metadata still names the mode.
+#[test]
+fn no_mode_owner_is_born_while_no_session_is_live() {
+    let mut app = a_game_with_a_mode_owner();
+    app.insert_resource(ambition_platformer2d_shared_tangle::lifecycle::ActiveSessionScope::default());
+    set_mode(&mut app, Some("a"));
+    app.update();
+    assert!(
+        owners(&mut app).is_empty(),
+        "an owner was born with no live session to own it"
+    );
+}

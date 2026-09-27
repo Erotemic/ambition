@@ -91,6 +91,61 @@ pub fn despawn_departed_mode_entities(
     }
 }
 
+/// The set in which every declared mode owner is brought into being. It runs in
+/// `GameplayEffects`, and a game's rules that read their owner on the tick it
+/// is born run `.after` it.
+#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ModeOwnersSpawned;
+
+/// Bring `mode`'s owner into being on the first tick the rooms `scope` governs
+/// are live.
+///
+/// A hosted game keeps its level or act state on one entity per mode. The
+/// owner is spawned with `spawn_mode_owner`, so the mode sweep retires it when
+/// the mode ends, the session retires it on a relaunch, and its `SimId` names
+/// it for the rollback order. That `SimId` is also how this system finds an
+/// owner that already exists. No owner is spawned while no session is live (at
+/// the launcher), so stale room metadata cannot bring one back.
+///
+/// `owner` is a function, not a value, so each spawn starts from the authored
+/// state and never from a copy an earlier owner changed.
+pub fn install_mode_owner<B: Bundle>(
+    app: &mut App,
+    scope: RulesScope,
+    mode: &'static str,
+    owner: fn() -> B,
+) {
+    use ambition_platformer2d_shared_tangle::lifecycle::{
+        ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt as _,
+    };
+    use ambition_platformer2d_shared_tangle::sim_id::SimId;
+
+    let identity = SimId::singleton("mode_owner", mode);
+    let spawn_owner = move |mut commands: Commands,
+                            owners: Query<&SimId, With<ModeScopedEntity>>,
+                            session: Option<Res<ActiveSessionScope>>| {
+        let session_live = session.as_ref().is_none_or(|scope| scope.current().is_some());
+        if !session_live || owners.iter().any(|existing| *existing == identity) {
+            return;
+        }
+        let spawn_scope = session
+            .as_ref()
+            .map_or(SessionSpawnScope::UNSCOPED, |scope| scope.spawn_scope());
+        commands.spawn_mode_owner(spawn_scope, mode, owner());
+    };
+    let sim = app.sim_schedule();
+    app.configure_sets(
+        sim,
+        ModeOwnersSpawned.in_set(Platformer2dSimulationPhaseMonolith::GameplayEffects),
+    );
+    app.add_systems(
+        sim,
+        spawn_owner
+            .in_set(ModeOwnersSpawned)
+            .run_if(in_rules_scope(scope)),
+    );
+}
+
 /// Owns the mode-scope lifetime: the sweep that retires a departed mode's
 /// entities. The run condition [`in_mode`] is a free function because a rules
 /// plugin attaches it to its OWN systems.

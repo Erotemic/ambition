@@ -1,18 +1,15 @@
 //! Ambition's reactions to a generic portal transit.
 //!
 //! The generic portal core drives every body through a placed pair without
-//! naming player, boss, enemy, or projectile. This module mirrors the primary
-//! player's input/trace side effects after a transit event so the controller
-//! sees `PortalEmission` / `PortalInputWarp` on the same frame, and completes
-//! the transit for kernel bodies and projectiles.
+//! naming player, boss, enemy, or projectile. This module carries the portal
+//! gameplay setting into the tuning, and completes a transit for bodies with a
+//! flight cluster (carried momentum) and for projectiles (their carried
+//! acceleration). The seat's consequences are the runtime's.
 
 use bevy::prelude::*;
 
-use ambition_platformer2d_actor_monolith::avatar::trail::TrailContinuityBreak;
 use ambition_platformer2d_core::body_clusters::BodyKinematics;
-use ambition_portal2d::{
-    BodyTeleported, PortalBodyTransited, PortalEmission, PortalInputWarp, PortalTuning,
-};
+use ambition_portal2d::{PortalBodyTransited, PortalTuning};
 use ambition_projectiles::ProjectileGameplay;
 
 /// Carry the `portal_reverses_facing` gameplay setting into the editable
@@ -140,76 +137,6 @@ pub fn rotate_projectile_acceleration_after_portal_transit(
             continue;
         }
         shot.accel = portal_map_vec(shot.accel, ev.enter_normal, ev.exit_normal, convention);
-    }
-}
-
-/// Apply driven-body input/trace side effects after generic portal transit.
-/// Reads [`PortalBodyTransited`] events and, for the CONTROLLED subject only
-/// (a possessed actor while possessing, else the home avatar):
-///
-/// - emits [`BodyTeleported`] (so the gameplay trace treats the position snap as
-///   intentional and doesn't auto-dump on it),
-/// - inserts the [`PortalEmission`] emergence guard (held input can't push back
-///   into the exit wall for a short window), and
-/// - inserts the [`PortalInputWarp`] held-input warp iff this convention's
-///   map flips horizontal movement and a movement input is held.
-///
-/// [`PortalEmission`] and [`PortalInputWarp`] are input and must never be
-/// referenced by the portal core. This runs `.after(portal_transit)` and
-/// `.before` the player controller, so these components exist in the frame the
-/// controller runs.
-pub fn portal_player_input_adapter(
-    mut commands: Commands,
-    tuning: Res<PortalTuning>,
-    mut transited: MessageReader<PortalBodyTransited>,
-    mut teleported: MessageWriter<BodyTeleported>,
-    mut trail_breaks: MessageWriter<TrailContinuityBreak>,
-    latches: Option<Res<ambition_characters::control::SlotControlLatches>>,
-    rollback: Option<Res<ambition_platformer2d_shared_tangle::schedule::SimulationReplayState>>,
-    slots: Res<ambition_characters::control::SlotControls>,
-    raw: Res<ambition_characters::control::SeatRawFrames>,
-    drivers: Query<&ambition_characters::control::DrivingParticipant>,
-) {
-    for ev in transited.read() {
-        // Only a driven body has input and trace side effects. The seat is read off
-        // the body that transited, so any seat's hold is warped.
-        let Ok(driver) = drivers.get(ev.body) else {
-            continue;
-        };
-        let frame = ambition_platformer2d_actor_monolith::control::seat_frame_this_tick(
-            latches.as_deref(),
-            rollback.as_deref(),
-            &slots,
-            &raw,
-            driver.0,
-        );
-        let held = Vec2::new(frame.axis_x, frame.axis_y);
-        // Trace: the position snap is intentional.
-        teleported.write(BodyTeleported { body: ev.body });
-        // Trail: the body remained continuous in the quotient space, but its
-        // ordinary world coordinates snapped. Emit the neutral trail seam so
-        // the trail chunks instead of drawing a fake line across the room.
-        trail_breaks.write(TrailContinuityBreak {
-            body: ev.body,
-            resume_at: ev.exit_pos,
-        });
-        // Protect the emergence so the floored exit velocity carries the body
-        // out before held input can fight it.
-        commands.entity(ev.body).insert(PortalEmission {
-            exit_normal: ev.exit_normal,
-            timer: tuning.emission_time_s,
-        });
-        // Warp held input only when the active portal map keeps ordinary
-        // horizontal movement expressible and flips it. A floor↔wall 90° turn
-        // would rotate a horizontal hold into "up", which the controller can't
-        // use as ordinary movement.
-        if ev.input_warp && held.length() > tuning.input_held_epsilon {
-            commands.entity(ev.body).insert(PortalInputWarp {
-                n_in: ev.enter_normal,
-                n_out: ev.exit_normal,
-                anchor: held,
-            });
-        }
     }
 }
 

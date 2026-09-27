@@ -825,49 +825,14 @@ fn a_gunless_player_transits_an_authored_pair() {
 
 #[test]
 fn transit_is_gradual_centroid_crossing_flags_the_teleport_then_clears() {
-    // Drain the BodyTeleported messages each frame into a flag so the test can
-    // assert "did the player teleport THIS frame" without juggling the
-    // double-buffered message store.
-    #[derive(Resource, Default)]
-    struct TeleportedThisFrame(bool);
-    #[derive(Resource, Default)]
-    struct TrailBreakThisFrame(bool);
-    fn record_teleport(
-        mut flag: ResMut<TeleportedThisFrame>,
-        mut trail_flag: ResMut<TrailBreakThisFrame>,
-        mut reader: MessageReader<BodyTeleported>,
-        mut trail_reader: MessageReader<
-            ambition_platformer2d_actor_monolith::avatar::trail::TrailContinuityBreak,
-        >,
-    ) {
-        flag.0 = reader.read().next().is_some();
-        trail_flag.0 = trail_reader.read().next().is_some();
-    }
-
     let mut app = App::new();
     app.add_message::<ambition_portal2d::PortalBodyEntered>();
-    app.add_message::<BodyTeleported>();
-    app.add_message::<ambition_platformer2d_actor_monolith::avatar::trail::TrailContinuityBreak>();
     app.add_message::<ambition_portal2d::PortalBodyTransited>();
-    app.init_resource::<TeleportedThisFrame>();
-    app.init_resource::<TrailBreakThisFrame>();
     app.insert_resource(ambition_time::WorldTime::default());
     app.init_resource::<ambition_portal2d::PortalTuning>();
-    // The adapter reads the transiting body's SEAT frame for the warp anchor.
-    app.init_resource::<ambition_characters::control::SeatRawFrames>();
-    app.init_resource::<ambition_characters::control::SlotControls>();
-    // The player-input adapter now emits `BodyTeleported` from the core's
-    // `PortalBodyTransited` event (the trace bit moved out of core), so include
-    // it in the chain ahead of the recorder.
-    app.add_systems(
-        Update,
-        (
-            portal_transit,
-            crate::portal::portal_player_input_adapter,
-            record_teleport,
-        )
-            .chain(),
-    );
+    // The trace and trail notices of the transfer are the runtime's
+    // (`portal_seat::tests`); this measures the core's gradual crossing.
+    app.add_systems(Update, portal_transit);
     // Two FLOOR portals (normal up): blue at x=200, orange at x=600.
     app.world_mut().spawn(PlacedPortal::fixed(
         BLUE,
@@ -897,10 +862,6 @@ fn transit_is_gradual_centroid_crossing_flags_the_teleport_then_clears() {
         app.world().get::<BodyKinematics>(player).unwrap().pos.x < 250.0,
         "still entry-side"
     );
-    assert!(
-        !app.world().resource::<TeleportedThisFrame>().0,
-        "no teleport message yet"
-    );
 
     // Push the centroid across the plane (as the integrator would as the body
     // sinks into the carved opening).
@@ -921,14 +882,6 @@ fn transit_is_gradual_centroid_crossing_flags_the_teleport_then_clears() {
         pos.x > 550.0,
         "authoritative body is now exit-side, got {pos:?}"
     );
-    assert!(
-        app.world().resource::<TeleportedThisFrame>().0,
-        "the centroid transfer emits BodyTeleported (suppresses the trace auto-dump)"
-    );
-    assert!(
-        app.world().resource::<TrailBreakThisFrame>().0,
-        "the centroid transfer emits a neutral trail continuity break"
-    );
 
     // Move clear of the exit plane → transit ends (re-armed via cooldown).
     app.world_mut()
@@ -940,14 +893,6 @@ fn transit_is_gradual_centroid_crossing_flags_the_teleport_then_clears() {
     assert!(
         app.world().get::<PortalTransit>(player).is_none(),
         "transit clears once the body fully clears the plane"
-    );
-    assert!(
-        !app.world().resource::<TeleportedThisFrame>().0,
-        "the teleport message is a single frame"
-    );
-    assert!(
-        !app.world().resource::<TrailBreakThisFrame>().0,
-        "the trail continuity break is a single frame"
     );
 }
 

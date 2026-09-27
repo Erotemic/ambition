@@ -133,7 +133,7 @@ impl Plugin for PortalSimulationPlugin {
         // `CoreSimulation`); the host declares that placement.
         app.add_systems(sim, publish_portal_carves.in_set(PortalSet::Carves));
 
-        // The input warp (`warp_portal_input`) is in the host portal adapter
+        // The input warp (`warp_portal_input`) is the host runtime's
         // (`PortalSet::InputWarp`). Portal core owns only the marker components
         // (`PortalInputWarp`, `PortalEmission`).
 

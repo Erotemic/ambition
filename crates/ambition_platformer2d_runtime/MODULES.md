@@ -20,6 +20,7 @@
 | [`mode_scope`](src/mode_scope.rs) | Scoped game-mode runtime for hosted demos/rulesets. |
 | [`player_schedule`](src/player_schedule.rs) | Engine-generic per-frame player lifecycle and its host extension slots. |
 | [`portal_schedule`](src/portal_schedule.rs) | Portal simulation assembly and schedule placement. |
+| [`portal_seat`](src/portal_seat.rs) | What a portal transit means for the body a seat drives. |
 | [`progression_schedule`](src/progression_schedule.rs) | Progression-phase schedule plugin. |
 | [`projectile_schedule`](src/projectile_schedule.rs) | Projectile schedule seams owned by the runtime composition tier. |
 | [`rollback`](src/rollback/mod.rs) | Backend-neutral rollback schema composition. |
@@ -34,7 +35,7 @@
 | [`verdict_census`](src/verdict_census.rs) | `[census] verdicts` — WHAT AUTHORED CONTENT ASKED, AND WHAT IS STUCK. |
 | [`world_gating`](src/world_gating.rs) | The two roads into `gate_solids`, registered in one place. |
 
-_27 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_28 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

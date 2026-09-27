@@ -25,8 +25,7 @@ mod transit_adapter;
 mod transit_body_adapter;
 
 pub use ability_adapter::{
-    warp_portal_input, withhold_wall_verbs_during_transit, SuppressWallAbilitiesInPortal,
-    PORTAL_TRANSIT,
+    withhold_wall_verbs_during_transit, SuppressWallAbilitiesInPortal, PORTAL_TRANSIT,
 };
 pub use carve_adapter::bridge_portal_carves;
 pub use fire_adapter::resolve_portal_fire_intent;
@@ -39,7 +38,6 @@ pub use reset_adapter::bridge_room_reset_to_clear_portals;
 pub use sfx_adapter::play_portal_sfx;
 pub use shot_adapter::portal_projectile_step;
 pub use transit_adapter::{sync_ground_items_to_transitable, sync_transitable_to_ground_items};
-pub use transit_body_adapter::portal_player_input_adapter;
 
 #[cfg(test)]
 mod tests;

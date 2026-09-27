@@ -321,8 +321,8 @@ pub fn reconcile_transited_bodies(
 
 /// Stops portal ping-pong from held input: after a crossing, held movement is
 /// warped by the same portal map as velocity, when that map keeps horizontal
-/// movement expressible. Soft, not a hard latch; see the Ambition
-/// `warp_portal_input` adapter.
+/// movement expressible. Soft, not a hard latch; see the runtime's
+/// `warp_portal_input`.
 #[derive(Component, Clone, Copy, Debug)]
 pub struct PortalInputWarp {
     /// Entry and exit portal normals. Held movement is mapped through the
@@ -334,7 +334,8 @@ pub struct PortalInputWarp {
     pub anchor: Vec2,
 }
 
-/// Short guard set on every crossing by the Ambition player-input adapter:
+/// Short guard set on every crossing of a driven body by the runtime's
+/// `guard_the_driven_body_after_portal_transit`:
 /// held input cannot push back into the exit wall (against `exit_normal`), so
 /// the exit velocity carries the body out. Works for any gravity direction.
 #[derive(Component, Clone, Copy, Debug)]

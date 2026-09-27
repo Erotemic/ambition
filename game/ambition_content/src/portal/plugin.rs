@@ -15,9 +15,7 @@ use ambition_portal2d::{
     publish_portal_carves, PortalSet,
 };
 
-use super::ability_adapter::{
-    warp_portal_input, withhold_wall_verbs_during_transit,
-};
+use super::ability_adapter::withhold_wall_verbs_during_transit;
 use super::carve_adapter::{bridge_portal_carves, sync_portal_host_depths};
 use super::fire_adapter::resolve_portal_fire_intent;
 use super::input_adapter::portal_input_adapter_system;
@@ -27,8 +25,7 @@ use super::sfx_adapter::play_portal_sfx;
 use super::shot_adapter::portal_projectile_step;
 use super::transit_adapter::{sync_ground_items_to_transitable, sync_transitable_to_ground_items};
 use super::transit_body_adapter::{
-    apply_portal_carried_momentum, portal_player_input_adapter,
-    rotate_projectile_acceleration_after_portal_transit, sync_portal_reorient_from_settings,
+    apply_portal_carried_momentum, rotate_projectile_acceleration_after_portal_transit, sync_portal_reorient_from_settings,
 };
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 
@@ -47,12 +44,9 @@ pub struct AmbitionPortalAdaptersPlugin;
 impl Plugin for AmbitionPortalAdaptersPlugin {
     fn build(&self, app: &mut App) {
         let sim = app.sim_schedule();
-        // Input-shaping warp: apply the portal-owned `PortalInputWarp` /
-        // `PortalEmission` guards to the player's movement intent. INPUT is not a
-        // crate concern (Stage 19 Phase 5a) — registered here in the same
-        // `PortalSet::InputWarp` slot the core used; `app/plugins.rs` still wires
-        // that set into `PlayerInput` and the intent brackets around it.
-        app.add_systems(sim, warp_portal_input.in_set(PortalSet::InputWarp));
+        // The seat consequences of a transit (the input guards, the trace and
+        // trail notices, the turn-around) are the runtime's
+        // `PortalSchedulePlugin`, so every game with portals has them.
 
         // Play the portal audio cues from the portal-owned signals (Stage 19
         // Phase 5a — the crate emits `PortalShotFired` / `PortalBodyEntered` /
@@ -213,16 +207,6 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
             bevy::app::PreUpdate,
             sync_portal_reorient_from_settings
                 .in_set(ambition_platformer2d_core::MechanicalEditSet::Propose),
-        );
-        // `portal_player_input_adapter` reproduces the player's input/trace bits
-        // (BodyTeleported + PortalEmission + PortalInputWarp) from the core's
-        // `PortalBodyTransited` event, AFTER transit, so they exist the same
-        // frame the controller runs — exactly as the old inline insertion did.
-        app.add_systems(
-            sim,
-            portal_player_input_adapter
-                .in_set(GameplayGated)
-                .in_set(PortalSet::Transited),
         );
         // The projectile half of the same reconciliation: a carried WORLD
         // acceleration must rotate with the velocity it accompanies.

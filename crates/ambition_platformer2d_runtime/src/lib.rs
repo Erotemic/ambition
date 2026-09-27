@@ -33,6 +33,8 @@ mod mode_scope;
 mod player_schedule;
 #[cfg(feature = "portal")]
 mod portal_schedule;
+#[cfg(feature = "portal")]
+mod portal_seat;
 mod progression_schedule;
 pub mod projectile_schedule;
 /// Backend-neutral rollback schema composition and exact prepared-content identity.
@@ -75,7 +77,12 @@ pub use content_identity::{
 pub use mode_scope::{despawn_departed_mode_entities, in_base_mode, in_mode, ModeScopePlugin};
 pub use player_schedule::PlayerSchedulePlugin;
 #[cfg(feature = "portal")]
-pub use portal_schedule::{turn_the_driven_body_around_after_portal_transit, PortalSchedulePlugin};
+pub use portal_schedule::PortalSchedulePlugin;
+#[cfg(feature = "portal")]
+pub use portal_seat::{
+    guard_the_driven_body_after_portal_transit, turn_the_driven_body_around_after_portal_transit,
+    warp_portal_input,
+};
 pub use progression_schedule::ProgressionSchedulePlugin;
 pub use room_schedule::RoomTransitionSchedulePlugin;
 pub use room_transition::RoomTransitionComposerPlugin;

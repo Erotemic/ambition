@@ -369,8 +369,8 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_actor_monolith/src/control/input_systems.rs",
         "crates/ambition_platformer2d_actor_monolith/src/schedule/input_systems.rs",
         "crates/ambition_platformer2d_runtime/src/input_drive.rs",
+        "crates/ambition_platformer2d_runtime/src/portal_seat.rs",
         "game/ambition_app/src/app/sim_systems.rs",
-        "game/ambition_content/src/portal/ability_adapter.rs",
     ),
     "BaseGravity": (
         "crates/ambition_encounter_features/src/systems.rs",
@@ -393,8 +393,8 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_actor_monolith/src/schedule/input_systems.rs",
         "crates/ambition_platformer2d_rollback_ggrs/src/session.rs",
         "crates/ambition_platformer2d_runtime/src/input_drive.rs",
+        "crates/ambition_platformer2d_runtime/src/portal_seat.rs",
         "game/ambition_app/src/app/sim_systems.rs",
-        "game/ambition_content/src/portal/ability_adapter.rs",
     ),
     "SlotInteractionState": (
         "crates/ambition_platformer2d_actor_monolith/src/body_mode/mechanics/mod.rs",
@@ -1688,7 +1688,7 @@ ADJUDICATED: dict[str, str] = {
         "(`actor_monolith/src/control/input_systems.rs`), "
         "`apply_player_reset_input_system` "
         "(`game/ambition_app/src/app/sim_systems.rs`) and `warp_portal_input` "
-        "(`game/ambition_content/src/portal/ability_adapter.rs`) all edit through "
+        "(`runtime/src/portal_seat.rs`) all edit through "
         "`shape_seat_frame` (`actor_monolith/src/control/queries.rs`), which "
         "READS the authoritative table via `seat_frame_this_tick` and WRITES "
         "both: *\"which table holds the tick's input depends on the host; which "

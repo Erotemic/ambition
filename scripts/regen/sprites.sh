@@ -380,6 +380,24 @@ if [ "${#target_names[@]}" -gt 0 ]; then
     for one in "${target_names[@]}"; do
         regen_one_target "$one"
     done
+    # ⛔ A FOCUSED run used to exit here, publishing the full-resolution sheet
+    # and leaving the Low / Medium / Potato tiers on the previous art — the
+    # player robot's new rows shipped to 1x only, and a quality setting decided
+    # which robot you saw. The tiers of what was just published are part of
+    # publishing it. `--force` because the sheets named here were just rewritten.
+    if [ "${AMBITION_QUALITY_VARIANTS:-1}" != "0" ]; then
+        variant_targets=()
+        for one in "${target_names[@]}"; do
+            variant_targets+=(--target "${one}*")
+        done
+        echo "==> reduced-resolution quality variants: ${target_names[*]}"
+        if ! "$python_bin" "$repo_root/scripts/generate_visual_quality_variants.py" \
+            --asset-root "$repo_root/crates/ambition_platformer2d_actor_monolith/assets" \
+            --sprites-only --force "${variant_targets[@]}" 2>&1 | sed 's/^/  /'; then
+            echo "==> regen FAILED — quality variants: generator reported a failure" >&2
+            exit 1
+        fi
+    fi
     print_regen_timings
     exit 0
 fi

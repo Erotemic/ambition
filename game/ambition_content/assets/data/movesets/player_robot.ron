@@ -192,7 +192,7 @@
                                             reaction: None,
                                             on_hit: None,
                                             vfx: Some("slash_arc"),
-                                            hit_sfx: None,
+                                            hit_sfx: Some("player.robot.slash.impact"),
                                         ),
                                     ],
                                     motion_scale: 1.0,
@@ -207,7 +207,14 @@
                                     sustain_effect: None,
                                 ),
                             ],
-                            events: [],
+                            events: [
+                                (
+                                    at_s: 0.05,
+                                    kind: Sfx(
+                                        cue: "player.robot.slash.air",
+                                    ),
+                                ),
+                            ],
                             gates: (
                                 grounded: Some(true),
                                 recovery: r#None,
@@ -362,7 +369,7 @@
                                             reaction: None,
                                             on_hit: None,
                                             vfx: Some("slash_arc"),
-                                            hit_sfx: None,
+                                            hit_sfx: Some("player.robot.slash.impact"),
                                         ),
                                     ],
                                     motion_scale: 1.0,
@@ -377,7 +384,14 @@
                                     sustain_effect: None,
                                 ),
                             ],
-                            events: [],
+                            events: [
+                                (
+                                    at_s: 0.07,
+                                    kind: Sfx(
+                                        cue: "player.robot.slash.air",
+                                    ),
+                                ),
+                            ],
                             gates: (
                                 grounded: Some(true),
                                 recovery: r#None,
@@ -439,7 +453,7 @@
                                             reaction: None,
                                             on_hit: None,
                                             vfx: Some("slash_arc"),
-                                            hit_sfx: None,
+                                            hit_sfx: Some("player.robot.slash.impact"),
                                         ),
                                     ],
                                     motion_scale: 1.0,
@@ -454,7 +468,14 @@
                                     sustain_effect: None,
                                 ),
                             ],
-                            events: [],
+                            events: [
+                                (
+                                    at_s: 0.06,
+                                    kind: Sfx(
+                                        cue: "player.robot.slash.air",
+                                    ),
+                                ),
+                            ],
                             gates: (
                                 grounded: Some(true),
                                 recovery: r#None,
@@ -519,7 +540,7 @@
                                             reaction: None,
                                             on_hit: None,
                                             vfx: Some("slash_arc"),
-                                            hit_sfx: None,
+                                            hit_sfx: Some("player.robot.slash.impact"),
                                         ),
                                     ],
                                     motion_scale: 1.0,
@@ -534,7 +555,14 @@
                                     sustain_effect: None,
                                 ),
                             ],
-                            events: [],
+                            events: [
+                                (
+                                    at_s: 0.3,
+                                    kind: Sfx(
+                                        cue: "player.robot.slash.air",
+                                    ),
+                                ),
+                            ],
                             gates: (
                                 grounded: Some(true),
                                 recovery: r#None,
@@ -594,7 +622,7 @@
                                             reaction: None,
                                             on_hit: None,
                                             vfx: Some("slash_arc"),
-                                            hit_sfx: None,
+                                            hit_sfx: Some("player.robot.slash.impact"),
                                         ),
                                     ],
                                     motion_scale: 1.0,
@@ -609,7 +637,14 @@
                                     sustain_effect: None,
                                 ),
                             ],
-                            events: [],
+                            events: [
+                                (
+                                    at_s: 0.26,
+                                    kind: Sfx(
+                                        cue: "player.robot.slash.air",
+                                    ),
+                                ),
+                            ],
                             gates: (
                                 grounded: Some(true),
                                 recovery: r#None,
@@ -669,7 +704,7 @@
                                             reaction: None,
                                             on_hit: None,
                                             vfx: Some("slash_arc"),
-                                            hit_sfx: None,
+                                            hit_sfx: Some("player.robot.slash.impact"),
                                         ),
                                     ],
                                     motion_scale: 1.0,
@@ -684,7 +719,14 @@
                                     sustain_effect: None,
                                 ),
                             ],
-                            events: [],
+                            events: [
+                                (
+                                    at_s: 0.22,
+                                    kind: Sfx(
+                                        cue: "player.robot.slash.air",
+                                    ),
+                                ),
+                            ],
                             gates: (
                                 grounded: Some(true),
                                 recovery: r#None,
@@ -744,7 +786,7 @@
                                             reaction: None,
                                             on_hit: None,
                                             vfx: Some("slash_arc"),
-                                            hit_sfx: None,
+                                            hit_sfx: Some("player.robot.slash.impact"),
                                         ),
                                     ],
                                     motion_scale: 1.0,
@@ -759,7 +801,14 @@
                                     sustain_effect: None,
                                 ),
                             ],
-                            events: [],
+                            events: [
+                                (
+                                    at_s: 0.06,
+                                    kind: Sfx(
+                                        cue: "player.robot.slash.air",
+                                    ),
+                                ),
+                            ],
                             gates: (
                                 grounded: Some(false),
                                 recovery: r#None,
@@ -819,7 +868,7 @@
                                             reaction: None,
                                             on_hit: None,
                                             vfx: Some("slash_arc"),
-                                            hit_sfx: None,
+                                            hit_sfx: Some("player.robot.slash.impact"),
                                         ),
                                     ],
                                     motion_scale: 1.0,
@@ -834,7 +883,14 @@
                                     sustain_effect: None,
                                 ),
                             ],
-                            events: [],
+                            events: [
+                                (
+                                    at_s: 0.09,
+                                    kind: Sfx(
+                                        cue: "player.robot.slash.air",
+                                    ),
+                                ),
+                            ],
                             gates: (
                                 grounded: Some(false),
                                 recovery: r#None,
@@ -894,7 +950,7 @@
                                             reaction: None,
                                             on_hit: None,
                                             vfx: Some("slash_arc"),
-                                            hit_sfx: None,
+                                            hit_sfx: Some("player.robot.slash.impact"),
                                         ),
                                     ],
                                     motion_scale: 1.0,
@@ -909,7 +965,14 @@
                                     sustain_effect: None,
                                 ),
                             ],
-                            events: [],
+                            events: [
+                                (
+                                    at_s: 0.1,
+                                    kind: Sfx(
+                                        cue: "player.robot.slash.air",
+                                    ),
+                                ),
+                            ],
                             gates: (
                                 grounded: Some(false),
                                 recovery: r#None,
@@ -969,7 +1032,7 @@
                                             reaction: None,
                                             on_hit: None,
                                             vfx: Some("slash_arc"),
-                                            hit_sfx: None,
+                                            hit_sfx: Some("player.robot.slash.impact"),
                                         ),
                                     ],
                                     motion_scale: 1.0,
@@ -984,7 +1047,14 @@
                                     sustain_effect: None,
                                 ),
                             ],
-                            events: [],
+                            events: [
+                                (
+                                    at_s: 0.07,
+                                    kind: Sfx(
+                                        cue: "player.robot.slash.air",
+                                    ),
+                                ),
+                            ],
                             gates: (
                                 grounded: Some(false),
                                 recovery: r#None,
@@ -1044,10 +1114,12 @@
                                             reaction: None,
                                             on_hit: Some((
                                                 key: "pogo_bounce",
-                                                params: ({}),
+                                                params: ({
+                                                    "sfx": Some("player.robot.slash.impact.pogo"),
+                                                }),
                                             )),
                                             vfx: Some("slash_arc"),
-                                            hit_sfx: None,
+                                            hit_sfx: Some("player.robot.slash.impact"),
                                         ),
                                     ],
                                     motion_scale: 1.0,
@@ -1062,7 +1134,14 @@
                                     sustain_effect: None,
                                 ),
                             ],
-                            events: [],
+                            events: [
+                                (
+                                    at_s: 0.12,
+                                    kind: Sfx(
+                                        cue: "player.robot.slash.air",
+                                    ),
+                                ),
+                            ],
                             gates: (
                                 grounded: Some(false),
                                 recovery: r#None,
@@ -1163,7 +1242,7 @@
                                             reaction: None,
                                             on_hit: None,
                                             vfx: Some("slash_arc"),
-                                            hit_sfx: None,
+                                            hit_sfx: Some("player.robot.slash.impact"),
                                         ),
                                     ],
                                     motion_scale: 1.0,
@@ -1179,6 +1258,12 @@
                                 ),
                             ],
                             events: [
+                                (
+                                    at_s: 0.05,
+                                    kind: Sfx(
+                                        cue: "player.robot.slash.air",
+                                    ),
+                                ),
                                 (
                                     at_s: 0.05,
                                     kind: Impulse(

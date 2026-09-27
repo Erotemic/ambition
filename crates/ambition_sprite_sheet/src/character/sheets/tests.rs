@@ -755,3 +755,88 @@ fn the_index_comparison_can_tell_two_tables_apart() {
         "the key-set comparison must notice a key the other side lacks"
     );
 }
+
+/// A move's row is drawn at the MOVE's progress, not the sheet's frame clock.
+///
+/// The case that caused it: the player's forward tilt is a 3-frame 60 ms row
+/// (180 ms) on a 310 ms move. On the sheet's clock the row reached its last
+/// frame at 120 ms and froze there for the rest of the move; slaved, each frame
+/// owns a third of the move. The unslaved run is asserted too, so the test
+/// cannot pass on a row that happens to agree with both.
+#[test]
+fn a_clip_slaved_to_a_move_is_drawn_at_the_moves_progress() {
+    use crate::character::{CharacterAnimator, CharacterSpritePage};
+
+    let ron_text = r#"
+        (
+            target: "synthetic_fighter",
+            image: "synthetic_fighter.png",
+            label_width: 0,
+            frame_width: 64,
+            frame_height: 64,
+            rows: [
+                (animation: "idle", row_index: 0, frame_count: 1, duration_ms: 100, duration_secs: 0.1,
+                 rects: [(x: 0, y: 0, w: 64, h: 64)]),
+                (animation: "attack_side", row_index: 1, frame_count: 3, duration_ms: 60, duration_secs: 0.06,
+                 rects: [
+                    (x: 0, y: 64, w: 64, h: 64),
+                    (x: 64, y: 64, w: 64, h: 64),
+                    (x: 128, y: 64, w: 64, h: 64),
+                 ]),
+            ],
+        )
+    "#;
+    let record: SheetRecord = ron::from_str(ron_text).expect("synthetic record parses");
+    let spec = spec_from_record(&record, &SheetTuning::new(1.0, 1));
+    let asset = CharacterSpriteAsset {
+        texture: Default::default(),
+        layout: Default::default(),
+        spec: spec.clone(),
+        pages: vec![CharacterSpritePage {
+            texture: Default::default(),
+            layout: Default::default(),
+        }],
+        requested_tier: Default::default(),
+        resolved_tier: Default::default(),
+    };
+    let slot = spec.clip_slot(["attack_side"]).expect("the row resolves by name");
+    let move_s = 0.31_f32;
+    let dt = 0.01_f32;
+
+    // Played on the sheet's own clock: frozen on the last frame by 120 ms.
+    let mut free = CharacterAnimator::new(&asset);
+    // Slaved to the move.
+    let mut slaved = CharacterAnimator::new(&asset);
+    let mut free_at_150 = None;
+    let mut slaved_frames = Vec::new();
+    let mut t = 0.0_f32;
+    while t < move_s {
+        free.request_clip(["attack_side"], CharacterAnim::Idle);
+        free.slave_clip_to(None);
+        let free_index = free.tick(dt);
+        slaved.request_clip(["attack_side"], CharacterAnim::Idle);
+        slaved.slave_clip_to(Some(t / move_s));
+        let slaved_index = slaved.tick(dt);
+        if (t - 0.15).abs() < dt * 0.5 {
+            free_at_150 = Some(free_index);
+        }
+        slaved_frames.push(slaved_index - spec.flat_index_at(slot, 0));
+        t += dt;
+    }
+    assert_eq!(
+        free_at_150,
+        Some(spec.flat_index_at(slot, 2)),
+        "premise: on its own clock the 180 ms row is already on its last frame at 150 ms"
+    );
+    let at = |seconds: f32| slaved_frames[(seconds / dt).round() as usize];
+    assert_eq!(at(0.05), 0, "the first third of the move draws frame 0");
+    assert_eq!(at(0.15), 1, "the middle third draws frame 1");
+    assert_eq!(at(0.25), 2, "the last third draws frame 2");
+
+    // A phase is ignored when no clip row is showing: the semantic pose keeps
+    // its own clock rather than being indexed by a move it is not drawing.
+    let mut posed = CharacterAnimator::new(&asset);
+    posed.request(CharacterAnim::Idle);
+    posed.slave_clip_to(Some(0.9));
+    assert_eq!(posed.tick(dt), spec.flat_index(CharacterAnim::Idle, 0));
+}

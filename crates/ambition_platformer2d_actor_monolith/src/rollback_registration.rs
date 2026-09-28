@@ -515,6 +515,11 @@ where
         "derived.player_body_frame_output",
         "republished by body integration every simulation frame",
     );
+    registrar.declare_rollback_derived_component::<ambition_characters::actor::BodyWalletShield>(
+        OWNER,
+        "derived.wallet_shield",
+        "re-derived from the worn character and the room's rules every tick, before any hit is resolved",
+    );
     registrar.declare_rollback_derived_component::<ambition_combat::hurtbox_resolution::ResolvedHurtboxes>(
         OWNER,
         "derived.resolved_hurtboxes",

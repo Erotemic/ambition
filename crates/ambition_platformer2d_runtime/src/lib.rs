@@ -528,6 +528,9 @@ impl PluginGroup for PlatformerEnginePlugins {
             .add(ambition_sim_view::affordances::AffordancesPlugin)
             // Each body's effective repertoire, after the persona phase.
             .add(ambition_platformer2d_actor_monolith::repertoire::EffectiveRepertoirePlugin)
+            // Which bodies' wallets absorb a hit: the worn character and the
+            // room's rules, derived before any hit is resolved.
+            .add(ambition_platformer2d_actor_monolith::features::wallet_shield::WalletShieldPlugin)
             // The camera OBSERVATION seam (E4-17): ONE follow-camera
             // snapshot per rendered frame (the only CameraEaseState
             // writer); presentation consumes it. Headless/RL readers too.

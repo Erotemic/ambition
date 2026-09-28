@@ -450,16 +450,6 @@ pub fn install_sanic_content(app: &mut App) {
                 "content.sanic_scattered_ring",
                 rollback_probes::scattered_ring,
             )
-            // The shield is a projection of the worn row and the rules' scope.
-            // One of its two writers runs every tick, in every room, before
-            // hit resolution reads it, so a restored snapshot needs no copy.
-            .declare_rollback_derived_component::<
-                ambition_platformer2d::characters::actor::BodyWalletShield,
-            >(
-                "ambition_demo_sanic",
-                "derived.sanic_wallet_shield",
-                "re-derived from the worn row and the rules' scope every tick, before hit resolution reads it",
-            )
             // The overlay subtracts spent monitors from collision every frame,
             // so a rewind that does not restore the set disagrees with the
             // world about what is solid (same as Mary-O's broken bricks).
@@ -859,6 +849,12 @@ impl Plugin for SanicRulesPlugin {
                     transform_technique(),
                 ]),
             );
+            // A body whose character states `wallet_shield` spends its rings to
+            // absorb a hit here, and the rings scatter.
+            app.declare_rules(
+                scope,
+                ambition_platformer2d::actors::features::wallet_shield::WalletShieldRule,
+            );
         }
         app.init_resource::<ambition_platformer2d::world::FeatureEcsWorldOverlay>();
         use bevy::prelude::IntoScheduleConfigs;
@@ -894,22 +890,6 @@ impl Plugin for SanicRulesPlugin {
         let gate = ambition_platformer2d::runtime::in_rules_scope(self.scope);
         app.add_systems(sim, sanic_pre_gate.run_if(gate.clone()));
         app.add_systems(sim, sanic_post_gate.run_if(gate));
-        // The marker is derived from identity and the rules' scope: leaving
-        // the scope removes the shield even if the same persona stays selected.
-        let in_scope = ambition_platformer2d::runtime::in_rules_scope(self.scope);
-        app.add_systems(
-            sim,
-            (
-                project_sanic_wallet_shield.run_if(in_scope.clone()),
-                retract_sanic_wallet_shield.run_if(bevy::prelude::not(in_scope)),
-            )
-                .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::PlayerInput)
-                // Order against `Persona`, the contract, not against
-                // `apply_worn_character_gameplay`, which may be renamed.
-                .after(ambition_platformer2d::platformer::schedule::PlayerInputSet::Persona)
-                .before(ambition_platformer2d::damage::PlayerHitResolutionSet),
-        );
-
         // The ball dash is a rule: it exists only while the Sanic mode is live.
         // Effects run after PlayerInput captured the technique. `tick_ball_dash`
         // precedes `tick_rolling`, so a launch cannot un-ball in the same frame.
@@ -1364,79 +1344,6 @@ pub struct ScatteredRing {
     pub lock: f32,
     /// Seconds left before the ring vanishes.
     pub life: f32,
-}
-
-/// Bodies whose wallet shield Sanic's rule decides.
-///
-/// A body qualifies if the character it wears states `wallet_shield` (the
-/// `sanic` and `super_sanic` rows), or it already carries a shield (the
-/// giveback for a body that stopped wearing one).
-/// [`BodyWalletShield`](ambition_platformer2d::characters::actor::BodyWalletShield)
-/// has one writer, this file, so any shield is Sanic's. Other bodies (for
-/// example George Booul on a Smash stage) are skipped. The row check cannot be
-/// a query filter, because `WornCharacter` holds an id, so it is the first
-/// statement in the loop.
-type SanicShieldBodies<'w, 's> = bevy::prelude::Query<
-    'w,
-    's,
-    (
-        bevy::prelude::Entity,
-        &'static ambition_platformer2d::characters::actor::WornCharacter,
-        bevy::prelude::Has<ambition_platformer2d::characters::actor::BodyWalletShield>,
-    ),
-    ambition_platformer2d::platformer::markers::PrimaryPlayerOnly,
->;
-
-/// Whether a body's wallet absorbs a hit, where Sanic's rules govern.
-///
-/// Yes for a character whose row states `wallet_shield`, no for the other
-/// bodies this rule covers. It runs only inside the plugin's scope, and
-/// [`retract_sanic_wallet_shield`] runs only outside it, so the scope is the
-/// one answer to "do Sanic's rules apply here" for both.
-///
-/// Derived state, not an input edge: rebuilding it every frame avoids a
-/// rollback latch and keeps the shared damage resolver content-agnostic.
-fn project_sanic_wallet_shield(
-    mut commands: bevy::prelude::Commands,
-    cast: Option<
-        bevy::prelude::Res<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>,
-    >,
-    bodies: SanicShieldBodies<'_, '_>,
-) {
-    for (entity, worn, shielded) in &bodies {
-        let row_shields = cast
-            .as_deref()
-            .and_then(|cast| cast.get(worn.id()))
-            .is_some_and(|character| character.wallet_shield);
-        match (row_shields, shielded) {
-            (true, false) => {
-                commands
-                    .entity(entity)
-                    .try_insert(ambition_platformer2d::characters::actor::BodyWalletShield);
-            }
-            (false, true) => {
-                commands
-                    .entity(entity)
-                    .remove::<ambition_platformer2d::characters::actor::BodyWalletShield>();
-            }
-            _ => {}
-        }
-    }
-}
-
-/// Outside Sanic's rooms no body's wallet absorbs a hit, because no
-/// ring-scatter consumer runs there.
-fn retract_sanic_wallet_shield(
-    mut commands: bevy::prelude::Commands,
-    bodies: SanicShieldBodies<'_, '_>,
-) {
-    for (entity, _, shielded) in &bodies {
-        if shielded {
-            commands
-                .entity(entity)
-                .remove::<ambition_platformer2d::characters::actor::BodyWalletShield>();
-        }
-    }
 }
 
 /// Present a wallet-shield spend as a classic ring burst.

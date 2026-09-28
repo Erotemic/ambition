@@ -24,7 +24,7 @@ pub use observatory::ObservatoryCamera;
 #[cfg(feature = "visible")]
 pub use split_screen::{SplitObserverCamera, SplitObserverPane};
 
-pub use participants::LAB_TWIN_SLOT;
+pub use participants::{LAB_TWIN_SLOT, LAB_TWIN_VIEW};
 
 pub use dual_observer::{
     beacon_alpha_position, beacon_midpoint, beacon_omega_position, flash_coordinate_time,

@@ -1577,3 +1577,46 @@ fn the_plaza_is_whole_on_the_frame_its_session_is_published() {
     }
     panic!("TwinTrack published no session root within the test budget");
 }
+
+/// The twin's pane is built watching the twin's participant.
+///
+/// An observer on `Add<LocalView>` sees the whole spawn batch at once, so it
+/// tells a view built with its participant from one given it by a later
+/// command.
+///
+/// ⛔ The pane was spawned without `ViewParticipant`, and a second system
+/// (`frame_each_participant`) added it after, in the same frame only because
+/// of an ordering edge. Any system between the two saw a view that framed
+/// seat zero's body instead of the twin's.
+#[test]
+fn the_twins_pane_is_built_watching_the_twin() {
+    use ambition_demo_twintrack::{LAB_TWIN_SLOT, LAB_TWIN_VIEW};
+    use ambition_platformer2d::sim_view::ViewParticipant;
+
+    #[derive(Resource, Default)]
+    struct Built(Vec<Option<ViewParticipant>>);
+
+    let mut app = ambition_demo_twintrack_app::build_demo_app();
+    app.init_resource::<Built>();
+    app.add_observer(
+        |add: On<Add, LocalView>,
+         views: Query<(&LocalViewId, Option<&ViewParticipant>)>,
+         mut built: ResMut<Built>| {
+            if let Ok((id, participant)) = views.get(add.entity) {
+                if *id == LAB_TWIN_VIEW {
+                    built.0.push(participant.copied());
+                }
+            }
+        },
+    );
+    activate(&mut app);
+    let built = &app.world().resource::<Built>().0;
+    assert!(!built.is_empty(), "no pane for the twin was built, so this measured nothing");
+    for participant in built {
+        assert_eq!(
+            participant.map(|participant| participant.0),
+            Some(LAB_TWIN_SLOT),
+            "the twin's pane was built without the twin's participant"
+        );
+    }
+}

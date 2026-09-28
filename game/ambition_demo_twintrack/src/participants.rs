@@ -33,7 +33,7 @@ const LAB_TWIN_FEATURE_ID: &str = "twintrack_laboratory";
 
 /// The view each participant watches through, left to right.
 const TRAVELER_VIEW: LocalViewId = LocalViewId::FIRST;
-const LAB_TWIN_VIEW: LocalViewId = LocalViewId(1);
+pub const LAB_TWIN_VIEW: LocalViewId = LocalViewId(1);
 
 pub(crate) fn install(app: &mut App) {
     use ambition_platformer2d::game_shell::{RouteSeating, RouteSeatingAppExt, SeatCount};
@@ -54,15 +54,7 @@ pub(crate) fn install(app: &mut App) {
     )
     // This system also retires the second pane, so it must keep running after
     // the experience stops being active.
-    .add_systems(Update, compose_the_panes)
-        .add_systems(
-            Update,
-            frame_each_participant
-                .run_if(ambition_platformer2d::runtime::in_mode(
-                    TWINTRACK_EXPERIENCE,
-                ))
-                .after(compose_the_panes),
-        );
+    .add_systems(Update, compose_the_panes);
 }
 
 /// The marker on the pane rig this demo owns, so retiring it takes exactly the
@@ -117,12 +109,19 @@ fn compose_the_panes(
     if seen.contains(&LAB_TWIN_VIEW) {
         return;
     }
+    // The twin's pane watches the twin's participant from the moment it
+    // exists. The traveler's pane names nothing on purpose: a view that names
+    // neither a subject nor a participant frames the session's controlled
+    // body, which is seat zero's even while that seat possesses something
+    // else, and naming it would be a second answer that disagrees once
+    // possession moves the seat.
     let view = commands
         .spawn((
             LocalView,
             LAB_TWIN_VIEW,
             ambition_platformer2d::sim_view::local_view_facts(),
             ViewPlacement::column(1, 2),
+            ViewParticipant(LAB_TWIN_SLOT),
         ))
         .id();
     spawn_pane_camera(&mut commands, view);
@@ -163,31 +162,6 @@ fn spawn_pane_camera(commands: &mut Commands, view: Entity) {
 /// which is what the integration suite measures.
 #[cfg(not(feature = "visible"))]
 fn spawn_pane_camera(_commands: &mut Commands, _view: Entity) {}
-
-/// Each pane watches its own participant.
-///
-/// The traveler's pane names nothing on purpose. A view that names neither a
-/// subject nor a participant frames the session's controlled body, which is
-/// seat zero's, even while that seat possesses something else. Naming it here
-/// would be a second answer that disagrees once possession moves the seat.
-///
-/// Today the twin's pane and the twin resolve to the same entity, because the
-/// twin carries `DrivingParticipant(LAB_TWIN_SLOT)`.
-fn frame_each_participant(
-    mut commands: Commands,
-    views: Query<(Entity, &LocalViewId, Option<&ViewParticipant>), With<LocalView>>,
-) {
-    for (view, id, participant) in &views {
-        if *id != LAB_TWIN_VIEW {
-            continue;
-        }
-        // Compared before writing: an unconditional insert marks the component
-        // changed every frame for anything gated on `is_changed()`.
-        if participant.map(|participant| participant.0) != Some(LAB_TWIN_SLOT) {
-            commands.entity(view).insert(ViewParticipant(LAB_TWIN_SLOT));
-        }
-    }
-}
 
 /// The request that builds the laboratory twin's body.
 ///

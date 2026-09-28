@@ -1837,6 +1837,10 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "its own doc: \"app-local map from experience id to its authored catalog          fragments — the authority the shared preparation systems validate          against\". Authored content indexed at composition time; a rewind does not          re-author a catalog",
     ),
     (
+        "ambition_platformer2d_provider::session_contents::SessionContentsCatalog",
+        "each experience's declared session-contents function, keyed by experience          id and written once when the experience is composed. Construction reads it;          a rewind does not re-compose an experience",
+    ),
+    (
         "ambition_platformer2d_provider::lifecycle::PlatformerStreamingReadiness",
         "which packed-SFX loads a provider is still waiting on. ASSET streaming          bookkeeping keyed by `LoadId` — it describes work the loader is doing,          and a rewind neither un-loads a file nor re-requests one",
     ),

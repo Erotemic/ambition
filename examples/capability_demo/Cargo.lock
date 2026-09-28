@@ -714,6 +714,7 @@ dependencies = [
  "ambition_load",
  "ambition_load_presentation",
  "ambition_platformer2d_actor_monolith",
+ "ambition_platformer2d_actor_spawn",
  "ambition_platformer2d_core",
  "ambition_platformer2d_runtime",
  "ambition_platformer2d_shared_tangle",

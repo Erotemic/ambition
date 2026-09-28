@@ -55,72 +55,6 @@ fn experiment(app: &mut App) -> TwinTrackExperiment {
     *query.single(app.world()).unwrap()
 }
 
-/// PROBE — what moves the laboratory twin, who is supposed to be at rest.
-///
-/// Five tests in this file failed on her drift from at least `a945c1de5` until
-/// 2026-08-28, and this probe is what found the cause. Kept because the numbers
-/// below are the reproduction, and because two earlier readings of them were
-/// wrong in instructive ways.
-///
-/// ⭐⭐ WHAT SHE ACTUALLY DID: appeared on tick 3 already carrying
-/// `vel = (-95.98, 0)`, drag ate it over seven ticks, and she stopped 6.16px LEFT
-/// of the `LAB_POS` she is placed at. Her `y` reads `446.015` from the first tick
-/// she is visible — 3.98px above the authored 450, with zero `y` velocity — which
-/// is construction resolving a standing centre and is not part of the defect.
-///
-/// ⛔ FIRST WRONG READING: *"the traveler is standing inside her, and two bodies
-/// separate"*. Refuted by a control — moving the room's spawn point 96px away
-/// leaves her drift BYTE-IDENTICAL. That control was right and worth keeping.
-///
-/// ⛔⛔ SECOND WRONG READING, and it survived longer because the first control
-/// made it look careful: *"ONE IMPULSE AT CONSTRUCTION, not a force and not a
-/// walk — the velocity only decays"*. It IS a walk. Spawning a second body from
-/// the same request shape 420px away showed it accelerating -96, -194, -294, -398,
-/// -506 and pinning at the -540 cap, walking left forever: a seatless `Passive`
-/// NPC is what the engine calls an "undescribed-pool STROLLER". The decay in this
-/// probe was never drag on an impulse — it was drag on the ONE stroll step she
-/// gets before her seat arrives.
-///
-/// ⇒ **the gap is a commands flush.** `adopt_the_laboratory_twin` QUEUES
-/// `DrivingParticipant`, and one tick of her life happens before it lands.
-///
-/// ⛔⛔ AND THE FIRST FIX FOR THAT WAS THE WRONG SHAPE. A system on
-/// `Added<LaboratoryTwin>` put her `x` and velocity back the tick after
-/// adoption — which repairs the two fields it knows about and leaves whatever
-/// else a brute's tick touched. She is authored `CharacterBrainTemplate::
-/// StandStill` now (`BrainProfile::default()` is `MeleeBrute`, so a character
-/// that authors no profile is CONSTRUCTED as one), so the tick before her seat
-/// lands has nothing to do and there is nothing to undo. Poisoning the template
-/// back to `MeleeBrute` fails five arms in this file.
-#[test]
-#[ignore = "PROBE, print-only: what moves the laboratory twin"]
-fn probe_what_moves_the_laboratory_twin() {
-    let mut app = ambition_demo_twintrack_app::build_demo_app();
-    for tick in 0..50 {
-        app.update();
-        let lab = {
-            let mut q = app
-                .world_mut()
-                .query_filtered::<&BodyKinematics, With<LaboratoryTwin>>();
-            q.iter(app.world()).next().copied()
-        };
-        let traveler = {
-            let mut q = app
-                .world_mut()
-                .query_filtered::<&BodyKinematics, With<TravelerTwin>>();
-            q.iter(app.world()).next().copied()
-        };
-        if let Some(lab) = lab {
-            println!(
-                "TWIN {tick:>3} lab pos={:?} vel={:?} | traveler pos={:?}",
-                lab.pos,
-                lab.vel,
-                traveler.map(|t| t.pos)
-            );
-        }
-    }
-}
-
 fn laboratory_body(app: &mut App) -> BodyKinematics {
     let mut query = app
         .world_mut()
@@ -1573,4 +1507,73 @@ fn the_observer_panes_come_and_go_with_twintracks_rooms() {
         app.update();
     }
     assert_eq!(panes(&mut app), 0, "leaving TwinTrack left its observer panes standing");
+}
+
+/// THE PLAZA IS WHOLE ON THE FRAME ITS SESSION IS PUBLISHED.
+///
+/// The experience declares its session composition, and the transaction that
+/// builds the session root and the home body runs it. So on the first frame the
+/// root can be seen, it is already a spacetime, the home body is already the
+/// traveler, the cast and the signal pool exist, and the laboratory twin already
+/// holds her seat. No frame of TwinTrack is a plain platformer.
+#[test]
+fn the_plaza_is_whole_on_the_frame_its_session_is_published() {
+    use ambition_platformer2d::platformer::lifecycle::SessionRoot;
+    use ambition_platformer2d::relativity2d::ActiveSpacetime2d;
+    use ambition_platformer2d::runtime::demo_fixture::RoomSet;
+    use ambition_platformer2d::sim::DrivingParticipant;
+
+    let mut app = ambition_demo_twintrack_app::build_demo_app();
+    for _ in 0..45 {
+        app.update();
+        let root = {
+            let mut query = app
+                .world_mut()
+                .query_filtered::<Entity, (With<SessionRoot>, With<RoomSet>)>();
+            query.iter(app.world()).next()
+        };
+        let Some(root) = root else {
+            continue;
+        };
+        assert!(
+            app.world().get::<ActiveSpacetime2d>(root).is_some(),
+            "the session root was published before it was a spacetime"
+        );
+        let travelers = {
+            let mut query = app.world_mut().query_filtered::<(), (
+                With<ambition_platformer2d::actor::PrimaryPlayer>,
+                With<TravelerTwin>,
+            )>();
+            query.iter(app.world()).count()
+        };
+        assert_eq!(
+            travelers, 1,
+            "the home body was published before it was the traveler"
+        );
+        let seated_lab_twins = {
+            let mut query = app
+                .world_mut()
+                .query_filtered::<(), (With<LaboratoryTwin>, With<DrivingParticipant>)>();
+            query.iter(app.world()).count()
+        };
+        assert_eq!(
+            seated_lab_twins, 1,
+            "the session was published before the laboratory twin held her seat"
+        );
+        let cast = {
+            let mut query = app.world_mut().query::<&TwinTrackCharacter>();
+            query.iter(app.world()).count()
+        };
+        assert_eq!(cast, 5, "the session was published before its cast");
+        let signal_pool = {
+            let mut query = app.world_mut().query::<&LightSignal2d>();
+            query.iter(app.world()).count()
+        };
+        assert_eq!(
+            signal_pool, 32,
+            "the session was published before its signal pool"
+        );
+        return;
+    }
+    panic!("TwinTrack published no session root within the test budget");
 }

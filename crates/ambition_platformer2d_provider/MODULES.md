@@ -9,8 +9,9 @@
 | [`authoring`](src/authoring.rs) | Authored provider identity: what an experience declares before any session exists, and the one registration call that installs the shared lifecycle. |
 | [`composition`](src/composition.rs) | Shared shell-host composition for one platformer experience. |
 | [`lifecycle`](src/lifecycle.rs) | The shared provider lifecycle: preparation, prepared-session ownership, and activation into the live session world. |
+| [`session_contents`](src/session_contents.rs) | What an experience puts into its own session while the engine builds it. |
 
-_3 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_4 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

@@ -82,3 +82,12 @@ impl ProjectileSeqCounter {
 /// owner's playback at spawn time; that gives the wrong move.
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct FiredByMoveInstance(pub u32);
+
+/// A shot its owner's ranged weapon fired. The weapon's authored `max_live`
+/// counts these, by `ProjectileOwner`.
+///
+/// A thrown item or a boss's volley is not a weapon shot, so it does not use
+/// up the weapon. A shot that another body takes over loses the marker with
+/// its old owner, so it stops counting against the first body.
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct WeaponShot;

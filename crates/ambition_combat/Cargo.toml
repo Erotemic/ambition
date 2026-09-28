@@ -35,6 +35,10 @@ ambition_vfx = { path = "../ambition_vfx" }
 # world orb. A clean downward edge: `_world` sees only asset_manager / _core /
 # entity_catalog / shared_tangle.
 ambition_platformer2d_world = { path = "../ambition_platformer2d_world" }
+# `ProjectileOwner` and `WeaponShot` — accepting a firing move counts the
+# weapon's shots in flight against its `max_live`. Downward: `projectiles`
+# names no `combat`.
+ambition_projectiles = { path = "../ambition_projectiles" }
 # `ActorSpriteMetrics` — `body_geometry` derives a body's hurtbox from the
 # sprite's per-animation boxes. Downward: `sprite_sheet` names neither `combat`
 # nor `boss_encounter`.

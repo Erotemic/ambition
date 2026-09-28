@@ -48,6 +48,7 @@ impl SnapshotState for crate::ProjectileVisualId {
 }
 
 snapshot_marker!(crate::LiveProjectile);
+snapshot_marker!(crate::WeaponShot);
 
 
 /// The global spawn-order stamp source. Two sims that stamped a different

@@ -25,6 +25,7 @@ mod engine_tests;
 
 pub use entity::{
     FiredByMoveInstance, LiveProjectile, ProjectileOwner, ProjectileSeq, ProjectileSeqCounter,
+    WeaponShot,
 };
 pub use kind::{FireballChargeTuning, ProjectileKind};
 pub use materialize::{

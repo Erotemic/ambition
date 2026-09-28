@@ -101,7 +101,10 @@ pub fn intercept_projectile(
                 // ⭐ IF A MOVE CAUSED THE REFLECTION AND SHOULD OWN THE HIT,
                 // STAMP THAT OCCURRENCE EXPLICITLY. Unclaimed is the default and
                 // it is a real answer; inherited is never one.
-                .remove::<ambition_projectiles::FiredByMoveInstance>();
+                .remove::<ambition_projectiles::FiredByMoveInstance>()
+                // The interceptor's weapon did not fire it either, so it
+                // counts against neither weapon's `max_live`.
+                .remove::<ambition_projectiles::WeaponShot>();
             kin.vel = -kin.vel * *speed_scale;
             true
         }

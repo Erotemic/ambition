@@ -2825,8 +2825,15 @@ fn move_fires_ranged(spec: &ambition_entity_catalog::MoveSpec) -> bool {
 ///
 /// ⛔ A MOVE THAT FIRES NOTHING IS NEVER REFUSED, and a body with no refire
 /// floor (a bare fixture) has no weapon to be recharging.
-fn weapon_ready(spec: &ambition_entity_catalog::MoveSpec, refire: Option<&RangedRefire>) -> bool {
-    !move_fires_ranged(spec) || refire.is_none_or(RangedRefire::ready)
+///
+/// `has_room` is the weapon's live-shot limit (`RangedActionSpec::max_live`),
+/// asked here for the same reason: a shot the limit refuses starts no move.
+fn weapon_ready(
+    spec: &ambition_entity_catalog::MoveSpec,
+    refire: Option<&RangedRefire>,
+    has_room: bool,
+) -> bool {
+    !move_fires_ranged(spec) || (refire.is_none_or(RangedRefire::ready) && has_room)
 }
 
 /// IS THIS BODY IN THE MIDDLE OF A RECOVERY IT HAS ALREADY PAID FOR?
@@ -3008,6 +3015,11 @@ pub fn trigger_moveset_moves(
     // `StoredMoveCharge`; empty for every fighter that has never charged a
     // storing move.
     banked: Query<&StoredMoveCharge>,
+    // The shots each body's weapon has in flight, for its authored `max_live`.
+    weapon_shots: Query<
+        &ambition_projectiles::ProjectileOwner,
+        bevy::prelude::With<ambition_projectiles::WeaponShot>,
+    >,
     // THE BRAIN'S SWING PACING. A melee swing a BRAIN started arms the body's
     // floor from that brain's authored profile; a body a participant drives is
     // excluded, because the pace is the driver's decision and a human in the
@@ -3052,6 +3064,16 @@ pub fn trigger_moveset_moves(
         let refire_s = action_set
             .and_then(|set| set.ranged.as_ref())
             .map(|ranged| ranged.refire_s);
+        // Whether the weapon's live-shot limit lets it fire now. Counted only
+        // for a weapon that authors a limit.
+        let weapon_has_room = action_set
+            .and_then(|set| set.ranged.as_ref())
+            .is_none_or(|ranged| {
+                ranged.max_live.is_none()
+                    || ranged.has_room_for_a_shot(
+                        weapon_shots.iter().filter(|owner| owner.0 == entity).count(),
+                    )
+            });
         let body_frame = resolved_frame
             .map(|frame| frame.basis())
             .unwrap_or(ae::AccelerationFrame::new(ae::DEFAULT_GRAVITY_DIR));
@@ -3644,7 +3666,7 @@ pub fn trigger_moveset_moves(
             let cancel_refire = refire.as_deref();
             let Some(spec) = accepted_or_variant(spec, &moveset.0, |candidate| {
                 afford_recovery(candidate, cancel_charges_left)
-                    && weapon_ready(candidate, cancel_refire)
+                    && weapon_ready(candidate, cancel_refire, weapon_has_room)
                     && permitted_while_held(candidate, body_is_held)
                     && afford_meter(candidate, cancel_bank)
             }) else {
@@ -3779,7 +3801,7 @@ pub fn trigger_moveset_moves(
         let affordable = |candidate: &ambition_entity_catalog::MoveSpec| {
             afford_recovery(candidate, charges_left)
                 && permitted_while_held(candidate, body_is_held)
-                && weapon_ready(candidate, refire_ready_against)
+                && weapon_ready(candidate, refire_ready_against, weapon_has_room)
                 && afford_meter(candidate, bank)
         };
         if let Some(spec) = spec.and_then(|spec| accepted_or_variant(spec, &moveset.0, affordable))

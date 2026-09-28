@@ -22,15 +22,6 @@ use ambition_platformer2d::platformer::markers::PrimaryPlayer;
 /// owns only the semantic walk/run ratio.
 pub const WALK_THROTTLE: f32 = 0.6;
 
-/// At most this many of Mary-O's sparks may be alive at once — the classic
-/// two-on-screen rule. Authored by the character, enforced by counting HER live
-/// shots, so it constrains nobody else's projectiles.
-///
-/// The time between two sparks is not written here. It is the spark's own
-/// `refire_s`, and the body's `RangedRefire` enforces it where the move is
-/// accepted, the same as for every other ranged weapon.
-pub const MAX_LIVE_SPARKS: usize = 2;
-
 /// The policy. Scale the body-local locomotion throttle down to a walk unless
 /// the modifier slot is sustained.
 ///
@@ -64,32 +55,18 @@ pub fn walk_by_default_run_while_held(
 /// It does not spawn anything. It raises the body's ordinary `fire` intent, which
 /// the shared moveset picks up as the `"ranged"` verb; the projectile the beacon
 /// granted is what actually launches, through the one shared projectile path.
-/// The moveset refuses the move while the weapon recharges, so this system does
-/// not keep a second clock.
+/// The moveset refuses the move while the weapon recharges or while as many
+/// sparks fly as the spark authors (`max_live`), so this system keeps no clock
+/// and no count of its own.
 pub fn fire_spark_on_run_press(
-    mut bodies: Query<(Entity, &mut ActorControl, &ae::BodyKinematics, &WornEquipment), With<PrimaryPlayer>>,
-    // Her live sparks: the shots she owns that are drawn as her spark. The
-    // owner is a simulation fact. The visual id alone is not enough, because
-    // the renderer puts it on each shot's sprite too, and a count that includes
-    // sprites changes when a renderer is present.
-    shots: Query<(
-        &ambition_platformer2d::projectiles::ProjectileOwner,
-        &ambition_platformer2d::projectiles::ProjectileVisualId,
-    )>,
+    mut bodies: Query<(&mut ActorControl, &ae::BodyKinematics, &WornEquipment), With<PrimaryPlayer>>,
 ) {
-    for (body, mut control, kin, worn) in &mut bodies {
+    for (mut control, kin, worn) in &mut bodies {
         if !armed(worn) {
             continue;
         }
         let frame = &mut control.0;
         if !frame.modifier_pressed {
-            continue;
-        }
-        let live_sparks = shots
-            .iter()
-            .filter(|(owner, visual)| owner.0 == body && visual.0 == crate::powerups::SPARK_VISUAL)
-            .count();
-        if live_sparks >= MAX_LIVE_SPARKS {
             continue;
         }
         // Primarily along her facing; the shot's own authored gravity supplies the

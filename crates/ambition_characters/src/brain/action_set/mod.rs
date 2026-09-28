@@ -757,6 +757,14 @@ pub struct RangedActionSpec {
     /// discharge every ranged action had before weapons could state one.
     #[serde(default)]
     pub discharge: Option<Discharge>,
+    /// How many of this body's weapon shots may fly at once (the classic
+    /// "two on screen" rule). `None` = no limit.
+    ///
+    /// It is checked where `refire_s` is, when the firing is accepted, so a
+    /// shot that the limit refuses starts no move. A shot counts until it is
+    /// gone or another body takes it over (`ambition_projectiles::WeaponShot`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_live: Option<u8>,
 }
 
 /// HOW A SHOT LEAVES THE WEAPON — the choices that are about the discharge
@@ -988,6 +996,7 @@ impl RangedActionSpec {
             refire_s: DEFAULT_RANGED_REFIRE_S,
             aim_assist: None,
             discharge: None,
+            max_live: None,
         }
     }
 
@@ -1047,6 +1056,17 @@ impl RangedActionSpec {
     pub fn with_refire(mut self, refire_s: f32) -> Self {
         self.refire_s = refire_s.max(0.0);
         self
+    }
+
+    /// Author how many of this weapon's shots may fly at once.
+    pub fn with_max_live(mut self, max_live: u8) -> Self {
+        self.max_live = Some(max_live);
+        self
+    }
+
+    /// Whether this weapon may fire while `live` of its shots fly.
+    pub fn has_room_for_a_shot(&self, live: usize) -> bool {
+        self.max_live.is_none_or(|max| live < usize::from(max))
     }
 
     /// Effective launch speed.

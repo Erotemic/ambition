@@ -146,6 +146,8 @@ fn spark_shot() -> RangedActionSpec {
         )
         .with_visual(SPARK_VISUAL)
         .with_refire(SPARK_REFIRE_S)
+        // The classic rule: two of her sparks on screen at once.
+        .with_max_live(2)
 }
 
 /// Seconds between two sparks. The body's `RangedRefire` enforces it.
@@ -1294,6 +1296,10 @@ mod tests {
         assert!(flight.bounce_on_world_contact, "and skips off floors");
         assert_eq!(flight.bounces, SPARK_BOUNCES);
         assert_eq!(shot.visual.as_deref(), Some(SPARK_VISUAL));
+        // Jon asked for the classic TWO on screen. The engine test of the
+        // limit passes at any number, so the number is asserted here, and the
+        // fold must keep it.
+        assert_eq!(shot.max_live, Some(2), "two of her sparks may fly at once");
     }
 
     /// The spark expires by an authored policy — a bounce budget AND a lifetime,

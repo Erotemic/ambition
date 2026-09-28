@@ -832,7 +832,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// ⛔⛤ 249 -> 250: `content.mary_o_spark_cooldown` leaves. The spark's
 /// `refire_s` is authored on its ranged action, and the body's
 /// `actor.ranged_refire` enforces it, so Mary-O keeps no second clock.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 250;
+/// ⛔⛤ 250 -> 251: `projectile.weapon_shot` arrives. A ranged weapon's
+/// authored `max_live` counts its owner's shots that carry this marker, so a
+/// rewind must restore it with the shot.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 251;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

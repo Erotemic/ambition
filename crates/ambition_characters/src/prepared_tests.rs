@@ -443,6 +443,7 @@ fn an_authored_ranged_move_with_a_payload_prepares_cleanly() {
                 refire_s: crate::brain::action_set::DEFAULT_RANGED_REFIRE_S,
                 aim_assist: None,
                 discharge: None,
+                max_live: None,
             }),
             ..ActionSet::default()
         })

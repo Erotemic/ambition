@@ -2538,6 +2538,99 @@ fn a_recharging_weapon_refuses_the_firing_move_and_acceptance_spends_it() {
     );
 }
 
+/// A weapon with as many shots in flight as it authors refuses the firing
+/// move where the move is accepted, the same as a recharging weapon.
+///
+/// The arms straddle the count: one shot under the limit fires, the limit
+/// refuses. Two more arms show what is counted: the same number of shots owned
+/// by another body, or owned by this body and not fired by its weapon (a
+/// thrown item), leave the weapon free.
+#[test]
+fn a_weapon_at_its_live_shot_limit_refuses_the_firing_move() {
+    use ambition_characters::actor::control::ActorFireRequest;
+    use ambition_characters::brain::action_set::{ActionSet, RangedActionSpec};
+    use ambition_characters::control::ActorControl;
+
+    #[derive(Clone, Copy)]
+    enum Shots {
+        Weapon,
+        SomebodyElses,
+        NotTheWeapons,
+    }
+
+    /// Did the firing move start, with `count` shots of `kind` in flight and a
+    /// limit of two?
+    fn arm(count: usize, kind: Shots) -> bool {
+        let spec = RangedActionSpec::bolt(240.0, 3).with_refire(0.0).with_max_live(2);
+        let contract = build_actor_moveset(None, None, Some(&spec), None)
+            .expect("a ranged weapon → a moveset with a fire move");
+        let mut app = App::new();
+        app.init_resource::<WorldTime>();
+        app.add_systems(
+            Update,
+            (
+                resolve_attack_gestures,
+                buffer_combat_action_presses,
+                trigger_moveset_moves,
+            )
+                .chain(),
+        );
+        let mut control = ActorControl::default();
+        control.0.fire = Some(ActorFireRequest::world_space(ae::Vec2::new(1.0, 0.0)));
+        let body = app
+            .world_mut()
+            .spawn((
+                ActorMoveset(contract),
+                control,
+                ActionSet {
+                    ranged: Some(spec),
+                    ..Default::default()
+                },
+                crate::components::RangedRefire { remaining: 0.0 },
+                ae::BodyKinematics {
+                    pos: ae::Vec2::ZERO,
+                    vel: ae::Vec2::ZERO,
+                    size: ae::Vec2::new(16.0, 24.0),
+                    facing: 1.0,
+                },
+            ))
+            .id();
+        let other = app.world_mut().spawn_empty().id();
+        for _ in 0..count {
+            match kind {
+                Shots::Weapon => {
+                    app.world_mut().spawn((
+                        ambition_projectiles::ProjectileOwner(body),
+                        ambition_projectiles::WeaponShot,
+                    ));
+                }
+                Shots::SomebodyElses => {
+                    app.world_mut().spawn((
+                        ambition_projectiles::ProjectileOwner(other),
+                        ambition_projectiles::WeaponShot,
+                    ));
+                }
+                Shots::NotTheWeapons => {
+                    app.world_mut().spawn(ambition_projectiles::ProjectileOwner(body));
+                }
+            }
+        }
+        app.update();
+        app.world().get::<MovePlayback>(body).is_some()
+    }
+
+    assert!(arm(1, Shots::Weapon), "one shot in flight, a limit of two: it fires");
+    assert!(!arm(2, Shots::Weapon), "two shots in flight, a limit of two: it must not fire");
+    assert!(
+        arm(2, Shots::SomebodyElses),
+        "another body's shots do not use up this weapon"
+    );
+    assert!(
+        arm(2, Shots::NotTheWeapons),
+        "this body's shots that its weapon did not fire do not use up the weapon"
+    );
+}
+
 /// Only the `"attack"` move projects a swing.
 #[test]
 fn a_ranged_move_does_not_project_a_phantom_melee_swing() {

@@ -46,6 +46,12 @@ where
             OWNER,
             "projectile.live_marker",
         )
+        // Counted by the owner's `max_live` when it fires, so a rewind that
+        // lost the marker would let the owner fire past its limit.
+        .rollback_component_canonical::<crate::WeaponShot>(
+            OWNER,
+            "projectile.weapon_shot",
+        )
         // `projectile.gameplay` is intentionally absent here: its type is
         // owned by `ambition_platformer2d_shared_tangle`, whose own
         // `register_rollback_state` declares it. Moving registration authority

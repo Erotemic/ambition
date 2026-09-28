@@ -321,11 +321,17 @@ fn the_run_button_throws_a_spark_only_while_she_wears_the_lantern() {
     );
 }
 
-/// Her sparks leave at the cadence the spark authors, and two may fly at once.
+/// Her sparks leave at the cadence the spark authors, and two fly at once.
 ///
 /// Measured in her shipped host, where a renderer draws every shot. The
-/// press is held down on every tick, so only the two gates decide when a spark
-/// leaves: the weapon's `refire_s`, and the count of her live sparks. Time is
+/// press is held down on every tick, so only the weapon's gates decide when a
+/// spark leaves: its `refire_s`, and its `max_live`.
+///
+/// ⚠ On this floor a spark spends its two bounces before a third could leave,
+/// so the limit does not refuse anything here: an engine that ignored it still
+/// passes this test (measured). The refusal itself is guarded by
+/// `a_weapon_at_its_live_shot_limit_refuses_the_firing_move` in
+/// `ambition_combat`; this test shows her authored cadence lets two fly. Time is
 /// the sum of each sim tick's `sim_dt`, recorded inside the sim schedule,
 /// because a frame can run more than one tick and its dt is not fixed.
 ///
@@ -368,14 +374,16 @@ fn her_sparks_leave_at_their_authored_cadence_and_two_fly_at_once() {
     let sim = app.sim_schedule();
     app.add_systems(sim, record);
     let beacon = cinder_beacon();
-    let refire_s = beacon
+    let spark = beacon
         .grants
         .iter()
         .find_map(|grant| match grant {
-            EquipmentGrant::Ranged(ranged) => Some(ranged.refire_s),
+            EquipmentGrant::Ranged(ranged) => Some(ranged.clone()),
             _ => None,
         })
         .expect("the beacon grants the spark");
+    let refire_s = spark.refire_s;
+    let max_live = usize::from(spark.max_live.expect("the spark authors how many may fly"));
     app.world_mut()
         .entity_mut(body)
         .insert(WornEquipment::new(vec![beacon]));
@@ -424,8 +432,7 @@ fn her_sparks_leave_at_their_authored_cadence_and_two_fly_at_once() {
          {refire_s} s between shots"
     );
     assert_eq!(
-        most_in_flight,
-        ambition_demo_mary_o::movement::MAX_LIVE_SPARKS,
+        most_in_flight, max_live,
         "her sparks in flight at once, counted by owner"
     );
 }

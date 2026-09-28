@@ -308,6 +308,72 @@ fn a_committed_shot_fires_through_a_hot_weapon_and_an_attempt_does_not() {
     );
 }
 
+/// A controller's attempt is refused while the weapon has as many shots in
+/// flight as it authors, and the shot it fires is marked as the weapon's.
+///
+/// The arms straddle the limit with a cold weapon: two attempts under a limit
+/// of one fire one shot. A committed move's shot is not asked again here: it
+/// was asked where the move was accepted.
+#[test]
+fn an_attempt_is_refused_at_the_weapons_live_shot_limit() {
+    fn weapon_shots_after(attempts: usize, commitment: RangedCommitment) -> usize {
+        let mut app = build_app();
+        let actor_pos = ae::Vec2::new(300.0, 300.0);
+        let aabb = ae::Aabb::new(actor_pos, ae::Vec2::new(14.0, 23.0));
+        let enemy = ActorClusterSeed::new(
+            "limited_weapon",
+            "Skitter",
+            aabb,
+            ambition_entity_catalog::placements::CharacterBrain::Custom("small_skitter".into()),
+            &[],
+        );
+        let actor = app.world_mut().spawn(enemy_actor(enemy)).id();
+        for _ in 0..attempts {
+            app.world_mut()
+                .get_mut::<ambition_combat::RangedRefire>(actor)
+                .unwrap()
+                .remaining = 0.0;
+            app.world_mut()
+                .resource_mut::<bevy::ecs::message::Messages<ActorActionMessage>>()
+                .write(ActorActionMessage {
+                    actor,
+                    request: ActionRequest::Ranged {
+                        spec: RangedActionSpec::rock(300.0, 1)
+                            .with_refire(0.0)
+                            .with_max_live(1),
+                        origin: actor_pos,
+                        dir: ae::Vec2::new(1.0, 0.0),
+                        dir_policy: ae::GameplayFramePolicy::WorldSpace,
+                        commitment,
+                    },
+                    move_instance: None,
+                });
+            app.update();
+        }
+        let mut shots = app.world_mut().query_filtered::<
+            &ambition_projectiles::ProjectileOwner,
+            bevy::prelude::With<ambition_projectiles::WeaponShot>,
+        >();
+        shots.iter(app.world()).filter(|owner| owner.0 == actor).count()
+    }
+
+    assert_eq!(
+        weapon_shots_after(1, RangedCommitment::Attempt),
+        1,
+        "the first attempt fires, and its shot is the weapon's"
+    );
+    assert_eq!(
+        weapon_shots_after(2, RangedCommitment::Attempt),
+        1,
+        "a second attempt while the first shot flies must be refused at a limit of one"
+    );
+    assert_eq!(
+        weapon_shots_after(2, RangedCommitment::CommittedMove { instance: 0 }),
+        2,
+        "a committed move's shot was asked where the move was accepted, so it fires"
+    );
+}
+
 /// ⭐⭐ AN ASSISTED SHOT DOES NOT BEND TOWARD A BODY NOTHING CAN HIT.
 ///
 /// ⛔⛔ THE SCAN ASKED `health.alive()`, AND THAT IS NOT THE LIVENESS RULE ANY

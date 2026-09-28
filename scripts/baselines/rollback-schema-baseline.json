@@ -1,6 +1,6 @@
 {
   "peer_checksum_schema": {
-    "version": "ggrs-rollback-schema-v250",
+    "version": "ggrs-rollback-schema-v251",
     "rows": [
       "actor.active_combatant\tcomponent-canonical\tActiveCombatant",
       "actor.aggression\tcomponent-clone-cursor\tActorAggression",
@@ -104,6 +104,7 @@
       "projectile.live_marker\tcomponent-canonical\tLiveProjectile",
       "projectile.seq\tcomponent-canonical\tProjectileSeq",
       "projectile.visual_id\tcomponent-canonical\tProjectileVisualId",
+      "projectile.weapon_shot\tcomponent-canonical\tWeaponShot",
       "resource.accepted_checkpoint_restore\tresource-clone-custom-checksum\tAcceptedCheckpointRestore\tbevy_ggrs clone snapshot + which operation was accepted and the occurrence population it reconstructs",
       "resource.active_match\tresource-canonical-custom-checksum\tActiveMatch\tbevy_ggrs canonical codec snapshot + checksum over the agreed seat count and the peer match ordinal, excluding the host-local session, seat-topology and activation-tick stamps",
       "resource.active_round_scope\tresource-canonical\tActiveRoundScope\tbevy_ggrs canonical codec snapshot + presence-aware canonical checksum projection",

@@ -68,6 +68,8 @@ pub struct ProjectileSpawnRequest {
     /// name the move that fired it, not the move playing at impact. Do not
     /// compute it again from the owner's playback at spawn time.
     pub move_instance: Option<u32>,
+    /// The owner's ranged weapon fired this shot. See [`crate::WeaponShot`].
+    pub weapon_shot: bool,
 }
 
 impl ProjectileSpawnRequest {
@@ -84,6 +86,7 @@ impl ProjectileSpawnRequest {
             presentation: ProjectilePresentation::OpenVisual(visual_id),
             start,
             move_instance: None,
+            weapon_shot: false,
         }
     }
 
@@ -100,6 +103,7 @@ impl ProjectileSpawnRequest {
             presentation: ProjectilePresentation::NamedKind(kind),
             start,
             move_instance: None,
+            weapon_shot: false,
         }
     }
 
@@ -110,6 +114,13 @@ impl ProjectileSpawnRequest {
     #[must_use]
     pub fn fired_by_move(mut self, instance: u32) -> Self {
         self.move_instance = Some(instance);
+        self
+    }
+
+    /// Mark this shot as one the owner's ranged weapon fired.
+    #[must_use]
+    pub fn from_weapon(mut self) -> Self {
+        self.weapon_shot = true;
         self
     }
 

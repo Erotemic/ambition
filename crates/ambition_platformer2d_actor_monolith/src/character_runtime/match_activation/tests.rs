@@ -758,6 +758,7 @@ fn a_seated_fighter_receives_its_definitions_action_set() {
             refire_s: ambition_characters::brain::action_set::DEFAULT_RANGED_REFIRE_S,
             aim_assist: None,
             discharge: None,
+            max_live: None,
         }),
         ..ActionSet::default()
     };

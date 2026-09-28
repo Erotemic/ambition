@@ -98,6 +98,9 @@ fn materialize_matching(
         if let Some(instance) = request.move_instance {
             entity.insert(crate::FiredByMoveInstance(instance));
         }
+        if request.weapon_shot {
+            entity.insert(crate::WeaponShot);
+        }
 
         if request.owner != Entity::PLACEHOLDER {
             entity.insert(ProjectileOwner(request.owner));

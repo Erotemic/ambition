@@ -113,6 +113,11 @@ pub fn spawn_projectiles_from_brain_actions(
         // motion model does not agree with.
         Option<&mut ae::BodyFlightState>,
     )>,
+    // The shots each body's weapon has in flight, for its authored `max_live`.
+    weapon_shots: Query<
+        &ambition_projectiles::ProjectileOwner,
+        With<ambition_projectiles::WeaponShot>,
+    >,
     // Disjoint from `actors` — `ActorClusterQueryData` carries no `BodyAnimFacts`,
     // so this second view borrows the firing body's overlay-pose facts without
     // aliasing. Arms the Shoot pose on the frame the body accepts a shot.
@@ -213,8 +218,13 @@ pub fn spawn_projectiles_from_brain_actions(
         // now (`RangedActionSpec::refire_s`) rather than being one constant in
         // this file that every character in the game was silently balanced
         // around.
+        //
+        // The live-shot limit is the same kind of gate and is asked with it. A
+        // committed move asked it where the move was accepted.
         if commitment == RangedCommitment::Attempt
-            && !refire.try_fire(spec.refire_s).accepted()
+            && (!spec.has_room_for_a_shot(
+                weapon_shots.iter().filter(|owner| owner.0 == msg.actor).count(),
+            ) || !refire.try_fire(spec.refire_s).accepted())
         {
             continue;
         }
@@ -361,7 +371,8 @@ pub fn spawn_projectiles_from_brain_actions(
         // playback of the owner here gets the move that plays now. That is the
         // defect this value prevents. Every other road leaves the value empty.
         // Empty is the correct answer for a gun or a bomb.
-        let request = ProjectileSpawnRequest::open(msg.actor, spawn, ProjectileStart::StepThisTick);
+        let request = ProjectileSpawnRequest::open(msg.actor, spawn, ProjectileStart::StepThisTick)
+            .from_weapon();
         let request = match commitment {
             RangedCommitment::CommittedMove { instance } => request.fired_by_move(instance),
             RangedCommitment::Attempt => request,

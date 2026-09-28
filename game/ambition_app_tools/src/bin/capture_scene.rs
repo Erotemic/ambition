@@ -62,9 +62,13 @@ struct SceneCaptureConfig {
     /// the live player entity's position after warmup (no coordinate hunting).
     follow_player: bool,
     /// Stand the player beside the first body wearing this catalog character
-    /// when warmup ends (`--player-beside ID`), so an interaction with a body
-    /// that roams can be photographed without chasing it.
-    player_beside: Option<String>,
+    /// on a sim tick (`--player-beside ID[@TICK]`), so an interaction with a
+    /// body that roams can be photographed without chasing it.
+    player_beside: Option<(String, u64)>,
+    /// Press Interact on the tick `--player-beside` arrives
+    /// (`--interact-on-arrival`). A room capture's keys reach menus and
+    /// lobbies, not gameplay, so this is how an interaction is filmed.
+    interact_on_arrival: bool,
     /// Keep the developer overlays in the shot (`--dev-overlays`). By default a
     /// verification screenshot shows the product.
     dev_overlays: bool,
@@ -128,8 +132,6 @@ struct SceneCaptureTarget {
 #[derive(Resource, Debug, Default)]
 struct SceneCaptureRuntime {
     frames: u32,
-    /// `--player-beside` has moved the player.
-    placed: bool,
     wait_frames: u32,
     requested: bool,
     completed: bool,
@@ -194,11 +196,14 @@ OPTIONS:
                         (with --route smash_gameplay: seats a match of two)
     --route ID          photograph a shell route instead of a room
     --press SEQ         drive input first, e.g. `Down,Enter` or `touch:167x523`
-                        (`hold:up` / `release:up` / `wait:30` also work;
-                        `interact` buffers a gameplay Interact, which keys
-                        do not reach in a room capture)
-    --player-beside ID  stand the player at the edge of the first body
-                        wearing catalog character ID when warmup ends
+                        (`hold:up` / `release:up` / `wait:30` also work).
+                        Keys reach menus and lobbies, not gameplay.
+    --player-beside ID[@TICK]
+                        stand the player at the edge of the first body
+                        wearing catalog character ID on sim tick TICK
+                        [default: 60]
+    --interact-on-arrival
+                        press Interact on the tick --player-beside arrives
     --press-during N    open the shutter N press-driving frames in, INSTEAD of
                         after the sequence finishes — the only way to photograph
                         a frame that exists only WHILE an input is being
@@ -358,7 +363,13 @@ fn hold_boss_health(
 /// The systems a room capture adds on top of [`build_capture_app`].
 fn install_room_capture(app: &mut App) {
     let sim = app.sim_schedule();
-    app.add_systems(sim, hold_boss_health);
+    // Sim systems: each writes rollback state (health, a body's position, a
+    // seat's interact buffer), and a write from outside the rewinding
+    // schedule would survive a rewind.
+    app.add_systems(
+        sim,
+        (hold_boss_health, place_player_beside),
+    );
     app.add_systems(Startup, setup_capture_target.after(PresentationSetupSet));
     app.add_systems(
         Update,
@@ -371,7 +382,6 @@ fn install_room_capture(app: &mut App) {
                 .before(sync_parallax_layers),
             request_capture.after(sync_parallax_layers),
             adopt_menu_camera,
-            place_player_beside.before(request_capture),
             finish_after_capture,
             fail_after_timeout,
         ),
@@ -404,13 +414,6 @@ enum PressStep {
     /// (the pair winit emits), folded by Bevy's `touch_screen_input_system`,
     /// so it drives the same phone path the product ships.
     Touch(Vec2),
-    /// Buffer an Interact for the primary seat (`interact`).
-    ///
-    /// A room capture's keys reach menus and lobbies, not gameplay: a held
-    /// jump key moves nobody. This writes the seat's interact buffer, the
-    /// state the device path fills and every interaction reads, so doors,
-    /// dialogue and petting all run on it.
-    Interact,
 }
 
 /// Parse `--press-during N` into the press-driving frame the shutter opens on.
@@ -442,9 +445,6 @@ fn parse_press_sequence(text: &str) -> Result<Vec<PressStep>, String> {
         .filter(|name| !name.is_empty())
         .map(|name| {
             let lower = name.to_ascii_lowercase();
-            if lower == "interact" {
-                return Ok(PressStep::Interact);
-            }
             if lower == "wait" {
                 return Ok(PressStep::Wait(DEFAULT_WAIT_FRAMES));
             }
@@ -541,7 +541,8 @@ impl SceneCaptureConfig {
         let mut route: Option<String> = None;
         let mut press: Vec<PressStep> = Vec::new();
         let mut press_during: Option<u32> = None;
-        let mut player_beside: Option<String> = None;
+        let mut player_beside: Option<(String, u64)> = None;
+        let mut interact_on_arrival = false;
         let mut i = 0usize;
         while i < args.len() {
             // Each arm returns how many arguments it consumed, so an arm that
@@ -595,11 +596,23 @@ impl SceneCaptureConfig {
                     fit_room = true;
                     1
                 }
+                "--interact-on-arrival" => {
+                    interact_on_arrival = true;
+                    1
+                }
                 "--player-beside" => {
                     let Some(value) = args.get(i + 1) else {
                         return Err("--player-beside requires a catalog id".to_string());
                     };
-                    player_beside = Some(value.clone());
+                    player_beside = Some(match value.split_once('@') {
+                        Some((id, tick)) => (
+                            id.to_string(),
+                            tick.parse::<u64>().map_err(|_| {
+                                format!("--player-beside ID@TICK wants a sim tick, got '{tick}'")
+                            })?,
+                        ),
+                        None => (value.clone(), DEFAULT_ARRIVAL_TICK),
+                    });
                     2
                 }
                 // One render mode only: a flag that shows an empty window is
@@ -761,6 +774,7 @@ impl SceneCaptureConfig {
                 character,
                 follow_player: false,
                 player_beside: None,
+                interact_on_arrival: false,
                 dev_overlays,
                 combat_overlay,
                 boss_hp,
@@ -812,6 +826,7 @@ impl SceneCaptureConfig {
             screen_effects,
             follow_player,
             player_beside,
+            interact_on_arrival,
             route: None,
             press,
             press_during,
@@ -1266,15 +1281,28 @@ fn adopt_menu_camera(
     }
 }
 
-/// Stand the primary player beside the body `--player-beside` names, once,
-/// when warmup ends: at its right edge, feet on its floor.
+/// The sim tick `--player-beside` arrives on when it names none: a second
+/// into the session at 60 Hz, after the room has settled.
+const DEFAULT_ARRIVAL_TICK: u64 = 60;
+
+/// Stand the primary player beside the body `--player-beside` names, on the
+/// sim tick it names: at that body's right edge, feet on its floor. With
+/// `--interact-on-arrival`, press Interact on the same tick, in the primary
+/// seat's interact buffer: the state the device path fills and doors,
+/// dialogue and petting read.
+///
+/// Both writes are rollback state, so this runs in the sim, and it decides
+/// from rollback state alone — the tick and the immutable config — so a replay
+/// of that tick arrives again and a replay of any other does not. It remembers
+/// nothing and reads nothing the host raised.
 fn place_player_beside(
     config: Res<SceneCaptureConfig>,
-    mut runtime: ResMut<SceneCaptureRuntime>,
+    tick: Res<ambition_platformer2d::time::SimTick>,
     mut player: Query<
         &mut ambition_platformer2d::platformer::body::BodyKinematics,
         ambition_platformer2d::platformer::markers::PrimaryPlayerOnly,
     >,
+    mut seats: ResMut<ambition_platformer2d::characters::control::SlotInteractionState>,
     others: Query<
         (
             &ambition_platformer2d::characters::actor::WornCharacter,
@@ -1283,13 +1311,14 @@ fn place_player_beside(
         Without<ambition_platformer2d::platformer::markers::PrimaryPlayer>,
     >,
 ) {
-    let Some(id) = config.player_beside.as_deref() else {
+    let Some((id, arrival)) = config.player_beside.as_ref() else {
         return;
     };
-    if runtime.placed || !runtime.world_ready || runtime.frames + 1 < config.warmup_frames.max(1) {
+    if tick.get() != *arrival {
         return;
     }
-    let Some((_, target)) = others.iter().find(|(worn, _)| worn.id() == id) else {
+    let Some((_, target)) = others.iter().find(|(worn, _)| worn.id() == id.as_str()) else {
+        eprintln!("capture_scene: --player-beside found no body wearing {id} on tick {arrival}");
         return;
     };
     let Ok(mut kin) = player.single_mut() else {
@@ -1301,8 +1330,10 @@ fn place_player_beside(
     // Positions are centres and y grows down: line the feet up.
     kin.pos.y = target.pos.y + (target.size.y - kin.size.y) * 0.5;
     kin.vel = ae::Vec2::ZERO;
-    runtime.placed = true;
-    eprintln!("capture_scene: placed the player beside {id} at {:?}", kin.pos);
+    if config.interact_on_arrival {
+        seats.primary_mut().interact_buffer_timer = 0.15;
+    }
+    eprintln!("capture_scene: placed the player beside {id} at {:?} on tick {arrival}", kin.pos);
 }
 
 /// A cube camera [`adopt_menu_camera`] has already pointed at the capture.
@@ -1459,7 +1490,6 @@ fn drive_press_frame(
     runtime: &mut SceneCaptureRuntime,
     keys: &mut ButtonInput<KeyCode>,
     fingers: &mut MessageWriter<TouchInput>,
-    seats: Option<&mut ambition_platformer2d::characters::control::SlotInteractionState>,
 ) {
     if runtime.press_wait > 0 {
         runtime.press_wait -= 1;
@@ -1528,16 +1558,6 @@ fn drive_press_frame(
                     config.press.len()
                 );
             }
-            PressStep::Interact => {
-                if let Some(seats) = seats {
-                    seats.primary_mut().interact_buffer_timer = 0.15;
-                }
-                eprintln!(
-                    "capture_scene: buffered interact ({} of {})",
-                    runtime.press_cursor + 1,
-                    config.press.len()
-                );
-            }
             PressStep::Wait(frames) => {
                 runtime.press_wait = frames;
                 eprintln!(
@@ -1569,7 +1589,6 @@ fn request_capture(
     art_states: Option<Res<CharacterLoadStates>>,
     mut keys: ResMut<ButtonInput<KeyCode>>,
     mut fingers: MessageWriter<TouchInput>,
-    mut seats: Option<ResMut<ambition_platformer2d::characters::control::SlotInteractionState>>,
 ) {
     if runtime.requested || runtime.completed {
         if runtime.requested {
@@ -1631,7 +1650,7 @@ fn request_capture(
         // The photograph shows the world as the previous frame's input
         // left it; for a tap, the key is still down.
         if !press_during_shutter_is_open(&config, &runtime) {
-            drive_press_frame(&config, &mut runtime, &mut keys, &mut fingers, seats.as_deref_mut());
+            drive_press_frame(&config, &mut runtime, &mut keys, &mut fingers);
             return;
         }
         // A shutter frame drives nothing, so it is not a press frame. Counting

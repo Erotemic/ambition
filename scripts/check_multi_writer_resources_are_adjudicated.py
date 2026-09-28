@@ -402,6 +402,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
         "crates/ambition_platformer2d_actor_monolith/src/world/rooms/systems.rs",
         "crates/ambition_platformer2d_runtime/src/sandbox_reset.rs",
+        "game/ambition_app_tools/src/bin/capture_scene.rs",
     ),
     "ActiveConversation": (
         "crates/ambition_conversation/src/opening.rs",
@@ -2393,7 +2394,16 @@ ADJUDICATED: dict[str, str] = {
         "`a_door_crossing_consumes_the_buffered_press_rather_than_letting_it_"
         "decay` and, for the refusal case the first arm could not see, "
         "`a_door_refused_the_lifecycle_slot_keeps_the_press_it_could_not_spend` "
-        "(both `actor_monolith/src/world/rooms/tests.rs`)."
+        "(both `actor_monolith/src/world/rooms/tests.rs`). "
+        "➕ 2026-09-28: A SECOND ARMER, IN A TOOL. The capture_scene binary's "
+        "`--interact-on-arrival` has `place_player_beside` (in the sim schedule) "
+        "set the PRIMARY row's `interact_buffer_timer` on the tick it places the "
+        "player, standing in for the device on the one seat that binary drives: "
+        "a room capture's keys never reach gameplay. It arms exactly what "
+        "`buffered_interact` would for a press, from nothing the host raised, "
+        "no shipped app registers it, and the clearers above treat its press "
+        "like any other, so the one-armer argument holds for every shipped "
+        "composition."
     ),
     "AbandonedCheckpointOperation": (
         "A PRODUCER AND A SESSION-BOUNDARY RESET, THE SAME SHAPE ALREADY "

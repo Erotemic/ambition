@@ -49,6 +49,20 @@ fn rooms_in_mode(mode: Option<&str>) -> ambition_platformer2d::world::rooms::Roo
     )
 }
 
+/// Make `room` the session's active room, so a system reads what it authors.
+fn enter_room(app: &mut App, room: ambition_platformer2d::world::rooms::RoomSpec) {
+    let entry = room.id.clone();
+    ambition_platformer2d::platformer::lifecycle::insert_session_world_component(
+        app.world_mut(),
+        ambition_platformer2d::world::rooms::RoomSet::from_parts_or_panic(entry, vec![room], Vec::new()),
+    );
+}
+
+/// The speedway's first distance marker, read from the file that authors it.
+fn first_speedway_marker() -> f32 {
+    distance_markers(&sanic_speedway())[0]
+}
+
 #[test]
 fn sanic_demo_content_plugin_installs() {
     // The direct-entry content plugin publishes an exact PreparedContent root
@@ -646,10 +660,11 @@ fn crossing_a_visible_distance_marker_emits_the_standard_sfx_message() {
     app.world_mut().spawn((
         ambition_platformer2d::platformer::markers::PrimaryPlayer,
         ae::BodyKinematics {
-            pos: ae::Vec2::new(SPEED_MARKER_XS[0] + 1.0, 0.0),
+            pos: ae::Vec2::new(first_speedway_marker() + 1.0, 0.0),
             ..Default::default()
         },
     ));
+    enter_room(&mut app, sanic_speedway());
     app.world_mut().spawn(SanicActState::default());
     app.add_systems(bevy::app::Update, emit_sanic_milestone_sfx);
 
@@ -669,6 +684,51 @@ fn crossing_a_visible_distance_marker_emits_the_standard_sfx_message() {
     );
     let mut q = app.world_mut().query::<&SanicActState>();
     assert_eq!(q.single(app.world()).unwrap().next_milestone, 1);
+}
+
+/// The speedway authors its five markers once, in its LDtk, and the ruler
+/// shows exactly those.
+#[test]
+fn the_speedway_authors_its_distance_markers_once() {
+    let room = sanic_speedway();
+    let markers = distance_markers(&room);
+    assert_eq!(markers, vec![808.0, 1608.0, 2600.0, 3608.0, 5000.0]);
+    let texts: Vec<&str> = room
+        .debug_labels
+        .iter()
+        .filter(|label| label.name.starts_with(DISTANCE_MARKER_PREFIX))
+        .map(|label| label.payload.text.as_str())
+        .collect();
+    assert_eq!(texts.len(), 5, "one label per marker, and no second copy: {texts:?}");
+}
+
+/// A room that authors no markers sounds none. Act 2 authors none, and the
+/// cue read a table with no room in it, so the speedway's ruler rang in Act 2.
+#[test]
+fn an_act_without_markers_sounds_no_milestone() {
+    let mut app = App::new();
+    app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
+    app.world_mut().spawn((
+        ambition_platformer2d::platformer::markers::PrimaryPlayer,
+        ae::BodyKinematics {
+            pos: ae::Vec2::new(first_speedway_marker() + 1.0, 0.0),
+            ..Default::default()
+        },
+    ));
+    let highway = sanic_highway();
+    assert!(distance_markers(&highway).is_empty(), "the premise: Act 2 authors no markers");
+    enter_room(&mut app, highway);
+    app.world_mut().spawn(SanicActState::default());
+    app.add_systems(bevy::app::Update, emit_sanic_milestone_sfx);
+
+    app.update();
+
+    let messages = app
+        .world()
+        .resource::<bevy::prelude::Messages<ambition_platformer2d::sfx::OwnedSfxMessage>>();
+    assert_eq!(messages.iter_current_update_messages().count(), 0, "Act 2 sounded the speedway's ruler");
+    let mut q = app.world_mut().query::<&SanicActState>();
+    assert_eq!(q.single(app.world()).unwrap().next_milestone, 0);
 }
 
 /// The transformation fires from the declared Utility technique, and the
@@ -849,10 +909,11 @@ fn a_distance_marker_sounds_like_the_course_and_not_like_the_host() {
     app.world_mut().spawn((
         ambition_platformer2d::platformer::markers::PrimaryPlayer,
         ae::BodyKinematics {
-            pos: ae::Vec2::new(SPEED_MARKER_XS[0] + 1.0, 0.0),
+            pos: ae::Vec2::new(first_speedway_marker() + 1.0, 0.0),
             ..Default::default()
         },
     ));
+    enter_room(&mut app, sanic_speedway());
     app.world_mut().spawn(SanicActState::default());
     app.add_systems(bevy::app::Update, emit_sanic_milestone_sfx);
     app.update();

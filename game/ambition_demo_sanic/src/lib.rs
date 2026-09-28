@@ -165,10 +165,26 @@ pub fn rev_tier_id(charge: f32) -> &'static str {
     }
 }
 
-/// Visually authored distance markers. The floating marker platforms (in the
-/// LDtk file) and the one-shot milestone SFX share this table so the eye and
-/// ear measure the same positions instead of drifting as the speedway changes.
-pub const SPEED_MARKER_XS: [f32; 5] = [808.0, 1608.0, 2600.0, 3608.0, 5000.0];
+/// The authored name of a distance marker is this prefix and its ordinal
+/// (`distance_marker_1`). See [`distance_markers`].
+pub const DISTANCE_MARKER_PREFIX: &str = "distance_marker_";
+
+/// The x of each distance marker the room authors, west to east.
+///
+/// A marker is a `DebugLabel` in the room's LDtk, placed with its platform by
+/// `tools/author_speedway_ldtk.py`. The label shows the distance and the
+/// milestone cue sounds it, so the eye and the ear read one authored position,
+/// and a room that authors no markers has none to sound.
+pub fn distance_markers(room: &RoomSpec) -> Vec<f32> {
+    let mut xs: Vec<f32> = room
+        .debug_labels
+        .iter()
+        .filter(|label| label.name.starts_with(DISTANCE_MARKER_PREFIX))
+        .map(|label| label.payload.position.x)
+        .collect();
+    xs.sort_by(f32::total_cmp);
+    xs
+}
 
 /// The start line's sign. It names each control by the action it fires, and
 /// the engine writes the key the seat presses (see the render crate's
@@ -180,7 +196,8 @@ const START_LINE_LEGEND: &str = "START   {action:jump}: JUMP   DOWN+{action:spin
 /// Build the Sanic showcase room from the demo's LDtk world. Everything spatial
 /// is authored there: the painted ground (hills, pit, finish tower) and the
 /// loop, a `SurfaceLoop` whose box is its circle, attached to the painted
-/// floor. This adds only the mode, the theme and the ruler labels.
+/// floor, and the distance markers. This adds only the mode, the theme and the
+/// start, loop and finish signs.
 pub fn sanic_speedway() -> RoomSpec {
     let project = ambition_platformer2d::ldtk_map::LdtkProject::from_json_str(SPEEDWAY_WORLD_JSON)
         .expect("sanic_speedway.ldtk parses (regen: game/ambition_demo_sanic/tools/author_speedway_ldtk.py)");
@@ -208,9 +225,10 @@ pub fn sanic_speedway() -> RoomSpec {
     room.metadata.visual_profile.id = Some("sanic_speedway".to_string());
     room.metadata.visual_profile.parallax_theme = Some("skybridge".to_string());
 
-    // World-space labels turn the speedway into a ruler. They are ordinary room
-    // debug labels rendered by the generic presentation face, not app-local UI.
-    let mut labels = vec![
+    // World-space signs, beside the distance markers the file authors. They are
+    // ordinary room debug labels rendered by the generic presentation face, not
+    // app-local UI.
+    let signs = vec![
         (
             "start".to_string(),
             START_LINE_LEGEND.to_string(),
@@ -228,28 +246,18 @@ pub fn sanic_speedway() -> RoomSpec {
             ae::Vec2::new(GOAL_X, FLOOR_TOP - 300.0),
         ),
     ];
-    labels.extend(SPEED_MARKER_XS.into_iter().enumerate().map(|(index, x)| {
-        (
-            format!("marker_{}", index + 1),
-            format!("{x:.0}"),
-            ae::Vec2::new(x, FLOOR_TOP - 280.0),
+    room.debug_labels.extend(signs.into_iter().map(|(id, text, position)| {
+        ambition_platformer2d::world::rooms::Authored::new(
+            format!("sanic_{id}"),
+            text.clone(),
+            ae::Aabb::new(position, ae::Vec2::splat(1.0)),
+            ambition_platformer2d::world::debug_label::DebugLabel::new(
+                text,
+                position,
+                ambition_platformer2d::world::debug_label::DebugLabelKind::Custom,
+            ),
         )
     }));
-    room.debug_labels = labels
-        .into_iter()
-        .map(|(id, text, position)| {
-            ambition_platformer2d::world::rooms::Authored::new(
-                format!("sanic_{id}"),
-                text.clone(),
-                ae::Aabb::new(position, ae::Vec2::splat(1.0)),
-                ambition_platformer2d::world::debug_label::DebugLabel::new(
-                    text,
-                    position,
-                    ambition_platformer2d::world::debug_label::DebugLabelKind::Custom,
-                ),
-            )
-        })
-        .collect();
     room
 }
 
@@ -572,7 +580,7 @@ pub struct SanicActState {
     /// Running or cleared. The clock stops on a clear, so the elapsed time
     /// becomes the result.
     pub phase: SanicActPhase,
-    /// Next index in [`SPEED_MARKER_XS`] that should emit its one-shot progress
+    /// Next index in the active room's [`distance_markers`] that should emit its one-shot progress
     /// cue. Mode-scoped with the act, so leaving and re-entering the demo resets
     /// the audible ruler without a global resource leak.
     pub next_milestone: usize,
@@ -1050,22 +1058,26 @@ fn tick_sanic_act(
 }
 
 /// Emit a small existing Ambition cue when the primary body crosses each
-/// distance marker. This proves the shell drains the standard
-/// [`ambition_platformer2d::sfx::SfxMessage`] seam; it is not a separate audio
-/// stack.
+/// distance marker the ACTIVE room authors (see [`distance_markers`]). This
+/// proves the shell drains the standard [`ambition_platformer2d::sfx::SfxMessage`]
+/// seam; it is not a separate audio stack.
 fn emit_sanic_milestone_sfx(
     player: bevy::prelude::Query<
         &ae::BodyKinematics,
         bevy::prelude::With<ambition_platformer2d::platformer::markers::PrimaryPlayer>,
     >,
     mut act: bevy::prelude::Query<&mut SanicActState>,
+    rooms: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
+        ambition_platformer2d::world::rooms::RoomSet,
+    >,
     mut sfx: ambition_platformer2d::sfx::BodySfxWriter,
 ) {
     let Ok(kin) = player.single() else {
         return;
     };
+    let markers = distance_markers(rooms.active_spec());
     for mut state in &mut act {
-        while let Some(&marker_x) = SPEED_MARKER_XS.get(state.next_milestone) {
+        while let Some(&marker_x) = markers.get(state.next_milestone) {
             if kin.pos.x < marker_x {
                 break;
             }

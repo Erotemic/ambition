@@ -184,6 +184,34 @@ def ring_placements() -> list[dict]:
     return rings
 
 
+# The distance markers: a floating platform and a `DebugLabel` over it, both
+# placed from this one list. The label is the marker's identity in the file
+# (`distance_marker_N`; a one-way platform is lowered to collision and keeps no
+# name). The demo reads the ACTIVE room's labels for its milestone cue, so the
+# eye and the ear measure the same x, and an act that authors no markers sounds
+# none.
+MARKER_XS = (808, 1608, 2600, 3608, 5000)
+MARKER_PLATFORM_W = 112
+MARKER_LABEL_Y = FLOOR_TOP - 280
+
+
+def distance_markers() -> list[dict]:
+    out = []
+    for index, x in enumerate(MARKER_XS, start=1):
+        out.append(rect("OneWayPlatform", (x - MARKER_PLATFORM_W // 2, 528), (MARKER_PLATFORM_W, 16)))
+        out.append(
+            rect(
+                "DebugLabel",
+                (x - 8, MARKER_LABEL_Y - 8),
+                (16, 16),
+                name=f"distance_marker_{index}",
+                text=str(x),
+                category="Custom",
+            )
+        )
+    return out
+
+
 def area_spec() -> dict:
     entities = [
         rect("PlayerStart", (146, 626), (28, 46), name="sanic_start"),
@@ -193,11 +221,7 @@ def area_spec() -> dict:
         # (jump apex is ~169px at the authored 700px/s jump under 1450 gravity);
         # the two high ones are spring-served on purpose.
         rect("OneWayPlatform", (64, 528), (256, 16), name="start_gantry"),
-        rect("OneWayPlatform", (752, 528), (112, 16), name="marker_platform_1"),
-        rect("OneWayPlatform", (1552, 528), (112, 16), name="marker_platform_2"),
-        rect("OneWayPlatform", (2544, 528), (112, 16), name="marker_platform_3"),
-        rect("OneWayPlatform", (3552, 528), (112, 16), name="marker_platform_4"),
-        rect("OneWayPlatform", (4944, 528), (112, 16), name="marker_platform_5"),
+        *distance_markers(),
         # The spring perch is 256px up — unreachable by the ~169px jump apex,
         # exactly the point: the vertical spring below serves it. Wide enough
         # that a walk-on launch (which keeps forward momentum) still lands.

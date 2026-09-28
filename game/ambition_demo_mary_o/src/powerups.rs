@@ -145,7 +145,15 @@ fn spark_shot() -> RangedActionSpec {
                 .with_half_extent(ae::Vec2::new(SPARK_HALF_EXTENT, SPARK_HALF_EXTENT)),
         )
         .with_visual(SPARK_VISUAL)
+        .with_refire(SPARK_REFIRE_S)
 }
+
+/// Seconds between two sparks. The body's `RangedRefire` enforces it.
+///
+/// It is not less than the bolt's own move, a 0.18 s draw and a 0.20 s
+/// settle, because a second move cannot start while the first one plays. A
+/// shorter number would never be the gate, so it would not say her cadence.
+pub const SPARK_REFIRE_S: f32 = 0.4;
 
 /// Half-extent of a spark, in px — so the shot is 20 px across a 32 px tile.
 ///

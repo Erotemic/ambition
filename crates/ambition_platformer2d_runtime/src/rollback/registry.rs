@@ -829,7 +829,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// the engine. Every ruleset that stamps an object with its match gets the
 /// same sweep, so the sweep and the component's rollback row are the
 /// engine's, not Smash's.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 249;
+/// ⛔⛤ 249 -> 250: `content.mary_o_spark_cooldown` leaves. The spark's
+/// `refire_s` is authored on its ranged action, and the body's
+/// `actor.ranged_refire` enforces it, so Mary-O keeps no second clock.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 250;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

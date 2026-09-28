@@ -44,8 +44,7 @@ use ambition_platformer2d::sprite_sheet::character::{
 };
 
 use ambition_demo_mary_o::movement::{
-    fire_spark_on_run_press, tick_spark_cooldown, walk_by_default_run_while_held,
-    MaryOSparkCooldown, WALK_THROTTLE,
+    fire_spark_on_run_press, walk_by_default_run_while_held, WALK_THROTTLE,
 };
 use ambition_demo_mary_o::powerups::{
     bonk_power_blocks, cinder_beacon, sync_grown_form, SpentPowerBlocks, CINDER_BEACON_ID,
@@ -126,7 +125,6 @@ impl Loop {
                 ActionSet::peaceful(),
                 ActorMoveset(Default::default()),
                 ActorControl::default(),
-                MaryOSparkCooldown::default(),
                 PlayerBodyFrameOutput::default(),
             ))
             .id();
@@ -140,7 +138,6 @@ impl Loop {
                 reconcile_effective_repertoire,
                 sync_grown_form,
                 walk_by_default_run_while_held,
-                tick_spark_cooldown,
                 fire_spark_on_run_press,
             )
                 .chain(),

@@ -320,3 +320,160 @@ fn the_run_button_throws_a_spark_only_while_she_wears_the_lantern() {
         "the beacon's grant names both roles of the one button"
     );
 }
+
+/// Her sparks leave at the cadence the spark authors, and two may fly at once.
+///
+/// Measured in her shipped host, where a renderer draws every shot. The
+/// press is held down on every tick, so only the two gates decide when a spark
+/// leaves: the weapon's `refire_s`, and the count of her live sparks. Time is
+/// the sum of each sim tick's `sim_dt`, recorded inside the sim schedule,
+/// because a frame can run more than one tick and its dt is not fixed.
+///
+/// ⛔ TWO CLOCKS GATED ONE SHOT. Mary-O kept her own cooldown, and the
+/// body's `RangedRefire` applied the engine's default of 1.1 s, because the
+/// spark did not author `refire_s`. The slower clock won, and a press refused
+/// by one clock still spent the other. And the live-spark count read the
+/// visual id, which the renderer also puts on each shot's sprite, so each
+/// shot counted twice and she could not have two out.
+#[test]
+fn her_sparks_leave_at_their_authored_cadence_and_two_fly_at_once() {
+    use ambition_platformer2d::characters::equipment::EquipmentGrant;
+    use ambition_platformer2d::platformer::schedule::SimScheduleExt;
+    use ambition_platformer2d::projectiles::{ProjectileOwner, ProjectileVisualId};
+
+    /// Sim seconds so far, and each new spark with the second it appeared.
+    #[derive(Resource, Default)]
+    struct Launches {
+        elapsed: f32,
+        sparks: Vec<(Entity, Entity, f32)>,
+    }
+    fn record(
+        time: Res<ambition_platformer2d::time::WorldTime>,
+        mut launches: ResMut<Launches>,
+        new_shots: Query<(Entity, &ProjectileOwner, &ProjectileVisualId), Added<ProjectileOwner>>,
+    ) {
+        launches.elapsed += time.sim_dt();
+        let at = launches.elapsed;
+
+        for (shot, owner, visual) in &new_shots {
+            if visual.0 == SPARK_VISUAL {
+                launches.sparks.push((shot, owner.0, at));
+            }
+        }
+    }
+
+    let mut app = boot();
+    let body = seated(&mut app).expect("Mary-O is seated");
+    app.init_resource::<Launches>();
+    let sim = app.sim_schedule();
+    app.add_systems(sim, record);
+    let beacon = cinder_beacon();
+    let refire_s = beacon
+        .grants
+        .iter()
+        .find_map(|grant| match grant {
+            EquipmentGrant::Ranged(ranged) => Some(ranged.refire_s),
+            _ => None,
+        })
+        .expect("the beacon grants the spark");
+    app.world_mut()
+        .entity_mut(body)
+        .insert(WornEquipment::new(vec![beacon]));
+    for _ in 0..30 {
+        step(&mut app, ControlFrame::default());
+    }
+
+    let mut most_in_flight = 0usize;
+    for _ in 0..LIVENESS_CAP {
+        step(
+            &mut app,
+            ControlFrame {
+                modifier_held: true,
+                modifier_pressed: true,
+                ..aim(0.0, 0.0)
+            },
+        );
+        let mut shots = app
+            .world_mut()
+            .query::<(&ProjectileOwner, &ProjectileVisualId)>();
+        let in_flight = shots
+            .iter(app.world())
+            .filter(|(owner, visual)| owner.0 == body && visual.0 == SPARK_VISUAL)
+            .count();
+        most_in_flight = most_in_flight.max(in_flight);
+        if app.world().resource::<Launches>().sparks.len() >= 2 {
+            break;
+        }
+    }
+    let launches = app.world().resource::<Launches>();
+    let hers: Vec<f32> = launches
+        .sparks
+        .iter()
+        .filter(|(_, owner, _)| *owner == body)
+        .map(|(_, _, at)| *at)
+        .collect();
+    assert!(
+        hers.len() >= 2,
+        "she threw {} spark(s) with the button pressed on every tick",
+        hers.len()
+    );
+    let gap_s = hers[1] - hers[0];
+    assert!(
+        (gap_s - refire_s).abs() <= 0.02,
+        "the second spark left {gap_s:.3} s after the first; the spark authors \
+         {refire_s} s between shots"
+    );
+    assert_eq!(
+        most_in_flight,
+        ambition_demo_mary_o::movement::MAX_LIVE_SPARKS,
+        "her sparks in flight at once, counted by owner"
+    );
+}
+
+/// A body that restarts while its weapon recharges comes back ready to fire.
+///
+/// Combat owns `RangedRefire`, so combat answers `BodyRestarted`. The restart
+/// is raised through the body's own latch, which is the road every reset
+/// takes, so this also shows the shipped composition installs the answer.
+#[test]
+fn a_restart_gives_her_weapon_back_ready() {
+    use ambition_platformer2d::combat::components::RangedRefire;
+
+    let mut app = boot();
+    let body = seated(&mut app).expect("Mary-O is seated");
+    app.world_mut()
+        .entity_mut(body)
+        .insert(WornEquipment::new(vec![cinder_beacon()]));
+    for _ in 0..30 {
+        step(&mut app, ControlFrame::default());
+    }
+    let recharging = |app: &App| {
+        app.world()
+            .get::<RangedRefire>(body)
+            .is_some_and(|refire| !refire.ready())
+    };
+    for _ in 0..LIVENESS_CAP {
+        step(
+            &mut app,
+            ControlFrame {
+                modifier_held: true,
+                modifier_pressed: true,
+                ..aim(0.0, 0.0)
+            },
+        );
+        if recharging(&app) {
+            break;
+        }
+    }
+    assert!(recharging(&app), "the premise: a spark left and her weapon recharges");
+
+    app.world_mut()
+        .get_mut::<ambition_platformer2d::engine_core::BodyRestartLatch>(body)
+        .expect("her body carries the restart latch")
+        .pending = true;
+    step(&mut app, ControlFrame::default());
+    assert!(
+        !recharging(&app),
+        "she restarted with her weapon still recharging"
+    );
+}

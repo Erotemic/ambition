@@ -193,6 +193,8 @@ impl Plugin for CombatSchedulePlugin {
         // called HERE so it lands beside the in-gameplay spawners, which is the
         // part of the arrangement a composition does own.
         ambition_platformer2d_actor_spawn::install_actor_spawn_requests(app, sim);
+        // Not gated: a body can restart while gameplay is paused.
+        app.add_observer(ambition_combat::attack_support::clear_ranged_refire_on_restart);
         app.add_systems(
             sim,
             (

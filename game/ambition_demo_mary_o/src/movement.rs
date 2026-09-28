@@ -22,49 +22,14 @@ use ambition_platformer2d::platformer::markers::PrimaryPlayer;
 /// owns only the semantic walk/run ratio.
 pub const WALK_THROTTLE: f32 = 0.6;
 
-/// Seconds between sparks. Authored here because cadence is character feel.
-pub const SPARK_COOLDOWN_S: f32 = 0.35;
-
 /// At most this many of Mary-O's sparks may be alive at once — the classic
 /// two-on-screen rule. Authored by the character, enforced by counting HER live
 /// shots, so it constrains nobody else's projectiles.
+///
+/// The time between two sparks is not written here. It is the spark's own
+/// `refire_s`, and the body's `RangedRefire` enforces it where the move is
+/// accepted, the same as for every other ranged weapon.
 pub const MAX_LIVE_SPARKS: usize = 2;
-
-/// Authoritative spark cadence — sim state, not presentation.
-///
-/// This gates whether a press FIRES, so two sims that disagree about it are in
-/// different states: a rewind that restored input and projectiles but left this
-/// at its future value would silently swallow the replayed press and diverge.
-/// It is therefore a rollback-registered component on the body.
-///
-/// Every `PrimaryPlayer` carries it from the moment it is built (a required
-/// component, registered by `MaryORulesPlugin`), so no pass adds it later.
-///
-/// Same lesson as `PipeEntryLatch`: an input-gating latch is authoritative even
-/// when it looks like bookkeeping.
-#[derive(Component, Clone, Copy, Debug, Default, PartialEq)]
-pub struct MaryOSparkCooldown {
-    /// Counts down between sparks.
-    pub remaining: f32,
-}
-
-/// Mary-O's answer to "this body starts again".
-///
-/// The cadence is authoritative sim state that GATES a press, so a body
-/// restarted mid-cooldown comes back unable to fire for up to
-/// [`SPARK_COOLDOWN_S`] — a fighter who opens a round pressing the button and
-/// gets nothing.
-///
-/// Inert for any body without the component, which is what lets this be
-/// registered outside the mode gate.
-pub fn clear_spark_cooldown_on_restart(
-    restart: On<ambition_platformer2d::engine_core::BodyRestarted>,
-    mut cooldowns: Query<&mut MaryOSparkCooldown>,
-) {
-    if let Ok(mut cooldown) = cooldowns.get_mut(restart.entity) {
-        *cooldown = MaryOSparkCooldown::default();
-    }
-}
 
 /// The policy. Scale the body-local locomotion throttle down to a walk unless
 /// the modifier slot is sustained.
@@ -89,21 +54,6 @@ pub fn walk_by_default_run_while_held(
     }
 }
 
-/// Wind the authoritative spark cadence down.
-///
-/// Its OWN system rather than a line inside the gait policy: a cadence in the
-/// policy's query would make the walk/run throttle silently skip any body that
-/// lacks it (Bevy queries drop non-matching entities, with no error and no log).
-/// Keeping the cadence separate means neither system can disable the other.
-pub fn tick_spark_cooldown(
-    time: Res<ambition_platformer2d::time::WorldTime>,
-    mut bodies: Query<&mut MaryOSparkCooldown, With<PrimaryPlayer>>,
-) {
-    for mut spark in &mut bodies {
-        spark.remaining = (spark.remaining - time.scaled_dt).max(0.0);
-    }
-}
-
 /// The same button's press edge fires a spark, while its held level keeps
 /// meaning run.
 ///
@@ -114,36 +64,34 @@ pub fn tick_spark_cooldown(
 /// It does not spawn anything. It raises the body's ordinary `fire` intent, which
 /// the shared moveset picks up as the `"ranged"` verb; the projectile the beacon
 /// granted is what actually launches, through the one shared projectile path.
+/// The moveset refuses the move while the weapon recharges, so this system does
+/// not keep a second clock.
 pub fn fire_spark_on_run_press(
-    mut bodies: Query<
-        (
-            &mut ActorControl,
-            &mut MaryOSparkCooldown,
-            &ae::BodyKinematics,
-            &WornEquipment,
-        ),
-        With<PrimaryPlayer>,
-    >,
-    // Her live sparks: every shot drawn as her spark. The shot is an ordinary
-    // shared projectile, and its visual id is the fact that makes it hers.
-    shots: Query<&ambition_platformer2d::projectiles::ProjectileVisualId>,
+    mut bodies: Query<(Entity, &mut ActorControl, &ae::BodyKinematics, &WornEquipment), With<PrimaryPlayer>>,
+    // Her live sparks: the shots she owns that are drawn as her spark. The
+    // owner is a simulation fact. The visual id alone is not enough, because
+    // the renderer puts it on each shot's sprite too, and a count that includes
+    // sprites changes when a renderer is present.
+    shots: Query<(
+        &ambition_platformer2d::projectiles::ProjectileOwner,
+        &ambition_platformer2d::projectiles::ProjectileVisualId,
+    )>,
 ) {
-    for (mut control, mut spark, kin, worn) in &mut bodies {
+    for (body, mut control, kin, worn) in &mut bodies {
         if !armed(worn) {
             continue;
         }
         let frame = &mut control.0;
-        if !frame.modifier_pressed || spark.remaining > 0.0 {
+        if !frame.modifier_pressed {
             continue;
         }
         let live_sparks = shots
             .iter()
-            .filter(|visual| visual.0 == crate::powerups::SPARK_VISUAL)
+            .filter(|(owner, visual)| owner.0 == body && visual.0 == crate::powerups::SPARK_VISUAL)
             .count();
         if live_sparks >= MAX_LIVE_SPARKS {
             continue;
         }
-        spark.remaining = SPARK_COOLDOWN_S;
         // Primarily along her facing; the shot's own authored gravity supplies the
         // arc, so no launch angle is baked in here.
         frame.fire = Some(

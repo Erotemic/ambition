@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v249
+ggrs-rollback-schema-v250
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -130,7 +130,6 @@ content.mary_o_level_state	component-clone	MaryOLevelState	bevy_ggrs clone snaps
 content.mary_o_pipe_entry_latch	component-clone	PipeEntryLatch	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 content.mary_o_pipe_transit	component-clone	PipeTransit	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 content.mary_o_snake_shell	component-clone	SnakeShell	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
-content.mary_o_spark_cooldown	component-clone	MaryOSparkCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 content.mary_o_spent_power_blocks	resource-clone-custom-checksum	SpentPowerBlocks	bevy_ggrs clone snapshot + an order-independent checksum over the spent ids
 content.minima_trap_state	component-canonical	MinimaTrapState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 content.mode_collapse_state	component-canonical	ModeCollapseState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection

@@ -10,7 +10,6 @@ fn body(app: &mut App) -> Entity {
     app.world_mut()
         .spawn((
             PrimaryPlayer,
-            MaryOSparkCooldown::default(),
             ActorControl::default(),
             ae::BodyKinematics {
                 pos: ae::Vec2::ZERO,
@@ -280,28 +279,6 @@ fn without_the_beacon_the_run_button_does_not_fire() {
     );
 }
 
-/// The authored cooldown gates the cadence; a second press inside it is refused.
-#[test]
-fn the_authored_cooldown_gates_the_next_spark() {
-    let (mut app, body) = app_with_fire(WornEquipment::new(vec![cinder_beacon()]));
-    press_run(&mut app, body);
-    app.update();
-    assert!(fired(&app, body));
-
-    // Clear the intent and press again immediately.
-    app.world_mut()
-        .get_mut::<ActorControl>(body)
-        .unwrap()
-        .0
-        .fire = None;
-    press_run(&mut app, body);
-    app.update();
-    assert!(
-        !fired(&app, body),
-        "a second press inside the cooldown is refused"
-    );
-}
-
 /// Holding run without a fresh press does not machine-gun sparks: the LEVEL means
 /// run, only the EDGE means fire.
 #[test]
@@ -329,20 +306,37 @@ fn holding_run_does_not_repeat_fire() {
 /// is what the observation was about).
 #[test]
 fn she_may_have_max_live_sparks_out_at_once_and_not_one_more() {
-    fn fires_with(live: usize) -> bool {
-        fires_with_shots(crate::powerups::SPARK_VISUAL, live)
+    /// Whose shots stand on the stage when she presses.
+    #[derive(Clone, Copy)]
+    enum Shots {
+        /// Her own sparks.
+        Hers,
+        /// Sparks another body owns.
+        Strangers,
+        /// A spark's sprite: the visual id with no owner, which the renderer
+        /// spawns beside every shot.
+        Sprites,
     }
-    fn fires_with_shots(visual: &str, live: usize) -> bool {
+    fn fires_with(live: usize) -> bool {
+        fires_with_shots(Shots::Hers, live)
+    }
+    fn fires_with_shots(whose: Shots, live: usize) -> bool {
         let mut app = App::new();
         let body = body(&mut app);
+        let stranger = app.world_mut().spawn_empty().id();
         app.world_mut()
             .entity_mut(body)
             .insert(WornEquipment::new(vec![cinder_beacon()]));
         for _ in 0..live {
-            app.world_mut()
-                .spawn(ambition_platformer2d::projectiles::ProjectileVisualId(
-                    visual.to_owned(),
-                ));
+            let visual = ambition_platformer2d::projectiles::ProjectileVisualId(
+                crate::powerups::SPARK_VISUAL.to_owned(),
+            );
+            let owner = ambition_platformer2d::projectiles::ProjectileOwner;
+            match whose {
+                Shots::Hers => app.world_mut().spawn((owner(body), visual)),
+                Shots::Strangers => app.world_mut().spawn((owner(stranger), visual)),
+                Shots::Sprites => app.world_mut().spawn(visual),
+            };
         }
         {
             let mut control = app.world_mut().get_mut::<ActorControl>(body).unwrap();
@@ -375,8 +369,13 @@ fn she_may_have_max_live_sparks_out_at_once_and_not_one_more() {
         "she fires past the cap with {MAX_LIVE_SPARKS} already live"
     );
     assert!(
-        fires_with_shots("someone_elses_bolt", MAX_LIVE_SPARKS),
-        "another body's shots count against her spark cap"
+        fires_with_shots(Shots::Strangers, MAX_LIVE_SPARKS),
+        "another body's sparks count against her spark cap"
+    );
+    assert!(
+        fires_with_shots(Shots::Sprites, MAX_LIVE_SPARKS),
+        "the sprites of her sparks count against her spark cap, so in an app \
+         that draws them each shot counts twice"
     );
     assert!(
         MAX_LIVE_SPARKS >= 2,

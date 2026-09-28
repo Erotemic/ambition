@@ -258,6 +258,20 @@ pub fn tick_ranged_refire(
     }
 }
 
+/// A restarted body comes back with its weapon ready.
+///
+/// `RangedRefire` gates whether a press fires, and combat owns it, so combat
+/// answers the restart. Without this, a body that restarts while the weapon
+/// recharges cannot fire for up to one `refire_s`.
+pub fn clear_ranged_refire_on_restart(
+    restart: bevy::prelude::On<ae::BodyRestarted>,
+    mut bodies: Query<&mut crate::components::RangedRefire>,
+) {
+    if let Ok(mut refire) = bodies.get_mut(restart.entity) {
+        *refire = crate::components::RangedRefire::default();
+    }
+}
+
 fn pogo_target_for_attack_hitbox(world: &ae::World, attack: ae::Aabb) -> Option<ae::Aabb> {
     world
         .blocks

@@ -1061,15 +1061,6 @@ pub fn install_mary_o_content(app: &mut App) {
                 "ambition_demo_mary_o",
                 "content.mary_o_pipe_entry_latch",
                 rollback_probes::pipe_entry_latch,
-            )
-            // The spark cadence GATES whether a press fires, so it is
-            // authoritative: a rewind that restored input and live sparks but
-            // left this at its future value would swallow the replayed press and
-            // diverge. It rides on the player BODY, which the engine anchors.
-            .rollback_component_clone_probed::<movement::MaryOSparkCooldown>(
-                "ambition_demo_mary_o",
-                "content.mary_o_spark_cooldown",
-                rollback_probes::spark_cooldown,
             );
     }
 }
@@ -1258,18 +1249,14 @@ impl MaryORulesPlugin {
 impl Plugin for MaryORulesPlugin {
     fn build(&self, app: &mut App) {
         use bevy::prelude::IntoScheduleConfigs;
-        // The player body is BUILT holding the two input-gating latches these
-        // rules read, so no pass adds them a tick later. They are required
-        // components and not inserted by a system: they are inert on a body
-        // these rules do not govern, and a hosted game's player is the same
-        // body from room to room.
+        // The player body is BUILT holding the input-gating latch these rules
+        // read, so no pass adds it a tick later. It is a required component and
+        // not inserted by a system: it is inert on a body these rules do not
+        // govern, and a hosted game's player is the same body from room to
+        // room.
         app.register_required_components::<
             ambition_platformer2d::platformer::markers::PrimaryPlayer,
             pipe::PipeEntryLatch,
-        >();
-        app.register_required_components::<
-            ambition_platformer2d::platformer::markers::PrimaryPlayer,
-            movement::MaryOSparkCooldown,
         >();
         // The vocabulary is a value handed to the conversion now ([`ldtk_vocabulary::vocabulary`]),
         // so a reader that forgets it cannot get a half-populated global — it does not compile.
@@ -1392,12 +1379,6 @@ impl Plugin for MaryORulesPlugin {
         // Pipe input is authoritative rollback state on the player body. Entry
         // and transit run after ordinary WorldPrep movement, so the scripted
         // position wins this frame instead of racing the shared integrator.
-        //
-        // Mary-O's half of a body reset, answered wherever a body is restarted.
-        // Outside the mode gate for the same reason Sanic's is: the observer is
-        // inert without her components, and gating it would make the seam a
-        // no-op in any stage that seats her outside her own level.
-        app.add_observer(movement::clear_spark_cooldown_on_restart);
         let pipe_rules = (warp_through_secret_pipe, pipe::run_pipe_transits)
             .chain()
             .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::PlayerSimulation)
@@ -1506,7 +1487,6 @@ impl Plugin for MaryORulesPlugin {
         // ordinary body path, replay and rollback included.
         let gait = (
             movement::walk_by_default_run_while_held,
-            movement::tick_spark_cooldown,
             movement::fire_spark_on_run_press,
         )
             .chain()
@@ -3757,10 +3737,6 @@ mod rollback_probes {
             snake::SnakeShell::Peeking(t) => 5 ^ ((t.to_bits() as u64) << 8),
             snake::SnakeShell::Emerging(t) => 6 ^ ((t.to_bits() as u64) << 8),
         }
-    }
-
-    pub(super) fn spark_cooldown(cooldown: &movement::MaryOSparkCooldown) -> u64 {
-        cooldown.remaining.to_bits() as u64
     }
 
     pub(super) fn pipe_entry_latch(latch: &pipe::PipeEntryLatch) -> u64 {

@@ -848,7 +848,9 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// back `BodyBaseSize`, so the row no longer carries a saved size or a probe.
 /// ⛔⛤ 255 -> 256: `actor.spawn_baseline` loses its gravity scale. A ride no
 /// longer writes the rider's scale, so nothing restores it from a copy.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 256;
+/// ⛔⛤ 256 -> 257: `capture.captured_by` loses its prior gravity scale. A hold
+/// no longer writes the captive's scale, so a release has nothing to restore.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 257;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

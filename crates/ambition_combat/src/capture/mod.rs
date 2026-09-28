@@ -47,10 +47,6 @@ pub struct CapturedBy {
     /// captor's live facing and motion frame every tick, so a capture survives
     /// the captor turning around and survives arbitrary gravity.
     pub hold_offset_local: ae::Vec2,
-    /// What capture SUSPENDED and release must give back.
-    ///
-    /// not assumed to be `1.0`.
-    pub prior_gravity_scale: f32,
 }
 
 impl bevy::ecs::entity::MapEntities for CapturedBy {
@@ -149,7 +145,6 @@ mod tests {
             .spawn(CapturedBy {
                 captor,
                 hold_offset_local: ae::Vec2::new(16.0, -2.0),
-                prior_gravity_scale: 1.0,
             })
             .id();
 
@@ -192,7 +187,6 @@ mod tests {
         let mut held = CapturedBy {
             captor: before,
             hold_offset_local: ae::Vec2::new(16.0, -2.0),
-            prior_gravity_scale: 0.0,
         };
         held.map_entities(&mut ToFixed(after));
         assert_eq!(
@@ -205,10 +199,6 @@ mod tests {
             held.hold_offset_local,
             ae::Vec2::new(16.0, -2.0),
             "remapping disturbed where the body is held"
-        );
-        assert_eq!(
-            held.prior_gravity_scale, 0.0,
-            "remapping disturbed the gravity scale release must give back"
         );
     }
 }

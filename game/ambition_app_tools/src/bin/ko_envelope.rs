@@ -739,7 +739,8 @@ impl KoProbe {
     /// `resolve_body_motion_frames`: `config.tuning.movement.gravity *
     /// surface.gravity_scale` (1450 here). This prints three values side by
     /// side: the resolved frame, the configured tuning, and the surface scale.
-    /// A capture or mount sets `gravity_scale` to 0.0.
+    /// A capture or a mount does not write `gravity_scale`: the resolver gives a
+/// held body (`CapturedBy`, `PoseOwnedExternally`) no pull.
     fn victim_gravity(&self) -> String {
         let w = self.app.world();
         let resolved = w
@@ -1318,7 +1319,6 @@ impl KoProbe {
                     ambition_platformer2d::combat::capture::CapturedBy {
                         captor: attacker,
                         hold_offset_local: EVec2::new(16.0, 0.0),
-                        prior_gravity_scale: 1.0,
                     },
                     ambition_platformer2d::characters::control::ControlHolds::only(
                         ambition_platformer2d::characters::control::ControlHold::Relationship,
@@ -1906,7 +1906,7 @@ fn run_determinism() {
 /// Why does a throw cell refuse at 0%? Name the missing precondition.
 ///
 /// A refused throw cell looks like a weak throw. `apply_capture_throws` takes
-/// an eleven-component query on the captive (eight required) and skips
+/// a ten-column query on the captive (seven components required) and skips
 /// silently when `find` matches nothing. The fixture in `capture/systems.rs`
 /// (`throw_app`/`grounded_body`) builds a captive the system sees. This prints
 /// what a live match fighter has compared with that fixture. Note:
@@ -2015,7 +2015,6 @@ fn run_throw_diag() {
         ambition_platformer2d::combat::capture::CapturedBy {
             captor: a,
             hold_offset_local: EVec2::new(16.0, 0.0),
-            prior_gravity_scale: 1.0,
         },
         ambition_platformer2d::characters::control::ControlHolds::only(
             ambition_platformer2d::characters::control::ControlHold::Relationship,

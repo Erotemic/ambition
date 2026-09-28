@@ -5432,7 +5432,6 @@ fn on_the_smash_pad_a_held_player_can_mash_free() {
             CapturedBy {
                 captor,
                 hold_offset_local: ambition_platformer2d::engine_core::Vec2::new(20.0, -2.0),
-                prior_gravity_scale: 1.0,
             },
             ambition_platformer2d::characters::smash_hold_state::SmashHoldState::lasting(
                 ambition_platformer2d::combat::rules::ResolvedCombatTuning::default()
@@ -5519,7 +5518,6 @@ fn on_the_smash_pad_attacking_while_holding_pummels() {
             CapturedBy {
                 captor: body,
                 hold_offset_local: ambition_platformer2d::engine_core::Vec2::new(20.0, -2.0),
-                prior_gravity_scale: 1.0,
             },
             ambition_platformer2d::characters::smash_hold_state::SmashHoldState::lasting(
                 ambition_platformer2d::combat::rules::ResolvedCombatTuning::default()
@@ -5587,7 +5585,6 @@ fn on_the_smash_pad_forward_and_attack_while_holding_throws() {
             CapturedBy {
                 captor: body,
                 hold_offset_local: ambition_platformer2d::engine_core::Vec2::new(20.0, -2.0),
-                prior_gravity_scale: 1.0,
             },
             ambition_platformer2d::characters::smash_hold_state::SmashHoldState::lasting(
                 ambition_platformer2d::combat::rules::ResolvedCombatTuning::default()

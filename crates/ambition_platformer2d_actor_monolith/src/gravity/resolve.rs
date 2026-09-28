@@ -27,12 +27,14 @@ use ambition_combat::actor_tuning::ActorConfig;
 /// - Actors and bosses (both carry the unified actor cluster): the response
 ///   is `config.tuning.movement.gravity × surface.gravity_scale` — an aerial
 ///   body's 0 scale is the zero-acceleration-with-retained-orientation case.
-/// - A body whose pose another authority owns ([`PoseOwnedExternally`]: a
-///   rider in the saddle, a conducted boss) gets the same zero response. The
-///   constraint moves it, so gravity has nothing to move, and its authored
-///   scale is not written to say so.
+/// - A HELD body gets the same zero response: one whose pose another
+///   authority owns ([`PoseOwnedExternally`]: a rider in the saddle, a
+///   conducted boss) or a captive ([`CapturedBy`]). The constraint moves it, so
+///   gravity has nothing to move, and its authored scale is not written to say
+///   so — which is why no hold keeps a copy to restore.
 ///
 /// [`PoseOwnedExternally`]: ambition_platformer2d_core::PoseOwnedExternally
+/// [`CapturedBy`]: ambition_combat::capture::CapturedBy
 pub fn resolve_body_motion_frames(
     env: FrameEnv,
     tuning: Res<ambition_platformer2d_core::ActiveMovementTuning>,
@@ -49,6 +51,7 @@ pub fn resolve_body_motion_frames(
             &ActorConfig,
             &ActorSurfaceState,
             Has<ambition_platformer2d_core::PoseOwnedExternally>,
+            Has<ambition_combat::capture::CapturedBy>,
             &mut ResolvedMotionFrame,
         ),
         Without<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
@@ -60,7 +63,7 @@ pub fn resolve_body_motion_frames(
     // `ActorSurfaceState` at all. `PlayerSimulationBundle` does not carry one and
     // no avatar or ability path inserts one, so there is no scale here to apply.
     //
-    // ⇒ Every writer of `gravity_scale` — capture, the body seed — targets bodies that DO have the component, and those match the
+    // ⇒ Every writer of `gravity_scale` — the body seed — targets bodies that DO have the component, and those match the
     // `Without<PlayerEntity>` arm below, where the scale IS applied. Possession
     // does not change that: it queries `Without<PlayerEntity>` and leaves the
     // marker on the player box, so a possessed body keeps resolving as an actor.
@@ -78,8 +81,8 @@ pub fn resolve_body_motion_frames(
     for (kin, mut resolved) in &mut players {
         resolved.publish_resolved_frame(env.resolve(kin.aabb(), player_response));
     }
-    for (kin, config, surface, held, mut resolved) in &mut actors {
-        let response = if held {
+    for (kin, config, surface, posed, captive, mut resolved) in &mut actors {
+        let response = if posed || captive {
             0.0
         } else {
             config.tuning.movement.gravity * surface.gravity_scale
@@ -224,7 +227,7 @@ mod tests {
     /// and its authored scale stays as authored, so nothing has to restore it
     /// when the hold ends.
     #[test]
-    fn a_body_whose_pose_is_owned_elsewhere_resolves_no_pull() {
+    fn a_held_body_resolves_no_pull() {
         use ambition_combat::actor_tuning::ActorConfig;
 
         let mut app = resolver_app();
@@ -256,7 +259,19 @@ mod tests {
             .world_mut()
             .spawn((body(90.0), ambition_platformer2d_core::PoseOwnedExternally))
             .id();
+        let captor = app.world_mut().spawn_empty().id();
+        let captive = app
+            .world_mut()
+            .spawn((
+                body(130.0),
+                ambition_combat::capture::CapturedBy {
+                    captor,
+                    hold_offset_local: ae::Vec2::new(16.0, 0.0),
+                },
+            ))
+            .id();
         app.update();
+        assert_eq!(frame_of(&app, captive).acceleration(), ae::Vec2::ZERO, "captive: zero pull");
         assert_eq!(
             frame_of(&app, free).acceleration(),
             ae::Vec2::new(0.0, 800.0),

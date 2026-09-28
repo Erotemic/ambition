@@ -4179,7 +4179,6 @@ fn capture_context_app_in(
             crate::capture::CapturedBy {
                 captor,
                 hold_offset_local: ae::Vec2::new(16.0, 0.0),
-                prior_gravity_scale: 1.0,
             },
             ambition_characters::smash_hold_state::SmashHoldState {
                 throw_armed: true,
@@ -6770,7 +6769,6 @@ fn a_direction_held_through_the_grab_does_not_throw_until_it_is_pressed_again() 
         crate::capture::CapturedBy {
             captor,
             hold_offset_local: ae::Vec2::new(16.0, 0.0),
-            prior_gravity_scale: 1.0,
         },
         // As acquisition writes it. THE FIXTURE DOES NOT ARM THIS.
         ambition_characters::smash_hold_state::SmashHoldState::default(),
@@ -6862,7 +6860,6 @@ fn an_attack_press_throws_and_pummels_on_a_capture_that_never_armed() {
             crate::capture::CapturedBy {
                 captor,
                 hold_offset_local: ae::Vec2::new(16.0, 0.0),
-                prior_gravity_scale: 1.0,
             },
             ambition_characters::smash_hold_state::SmashHoldState::default(),
         ));

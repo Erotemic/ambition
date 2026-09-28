@@ -28,7 +28,9 @@ use ambition_platformer2d_shared_tangle::sim_id::SimId;
 /// BodyHealth          a pummel's damage; a throw's damage and percent scaling
 /// BodyCombat          the interruption rule at BOTH ends; a throw's hitstun
 /// BodyFlightState     the throw's launch reaction
-/// ActorSurfaceState   gravity suspended at acquisition, restored at release
+/// ActorSurfaceState   required, not written: the hold's zero pull is resolved
+///                     for actor-arm bodies (`CapturedBy` is read by the frame
+///                     resolver), and this is what puts a body in that arm
 /// ```
 ///
 ///  it is deliberately not `CenteredAabb`. The coarse box is victim-side
@@ -48,6 +50,9 @@ pub struct CaptureParticipant {
     pub plane: Option<&'static ambition_platformer2d_core::DepthPlane>,
     pub combat: &'static ambition_characters::actor::BodyCombat,
     pub flight: &'static ae::BodyFlightState,
+    /// Required and read by nothing here. The frame resolver gives a captive
+    /// its zero pull in its ACTOR arm, which is the arm with this component; a
+    /// body without it would be held under full gravity.
     pub surface: &'static ae::ActorSurfaceState,
 }
 
@@ -322,12 +327,6 @@ pub fn acquire_captures(
         commands.entity(victim).insert(CapturedBy {
             captor: attempt.captor,
             hold_offset_local: attempt.hold_offset,
-            //  REMEMBERED, not assumed: a flying body's scale is not 1.0, and a
-            // release that wrote a constant would land it on the floor.
-            prior_gravity_scale: participants
-                .get(victim)
-                .map(|body| body.surface.gravity_scale)
-                .unwrap_or(1.0),
         });
         //  the RULESET's half of the hold, inserted beside the relation.
         // Pummel count, hold age and escape progress are platform-fighter
@@ -547,23 +546,19 @@ pub fn tick_capture_holds(
         // rules, and is why the query REQUIRES it rather than treating absence
         // as zero and releasing everybody on the first tick.
         &mut ambition_characters::smash_hold_state::SmashHoldState,
-        Option<&mut ae::ActorSurfaceState>,
         Option<&mut ambition_platformer2d_core::BodyGroundState>,
         Option<&mut ambition_characters::control::ControlHolds>,
     )>,
 ) {
     let dt = time.scaled_dt;
-    for (victim, held, mut state, surface, ground, holds) in &mut captives {
+    for (victim, _, mut state, ground, holds) in &mut captives {
         state.held_for += dt;
         if !state.escaped() {
             continue;
         }
-        let ended = *held;
         release_capture(
             &mut commands,
             victim,
-            &ended,
-            surface.map(|surface| surface.into_inner()),
             ground.map(|ground| ground.into_inner()),
             holds.map(|holds| holds.into_inner()),
         );
@@ -799,7 +794,6 @@ mod tests {
         app.world_mut().entity_mut(victim).insert(CapturedBy {
             captor,
             hold_offset_local: ae::Vec2::new(18.0, 0.0),
-            prior_gravity_scale: 1.0,
         });
 
         app.update();
@@ -1301,7 +1295,6 @@ mod tests {
             CapturedBy {
                 captor,
                 hold_offset_local: ae::Vec2::new(20.0, -4.0),
-                prior_gravity_scale: 1.0,
             },
             fresh_hold(),
         ));
@@ -1360,7 +1353,6 @@ mod tests {
             CapturedBy {
                 captor,
                 hold_offset_local: ae::Vec2::new(20.0, -4.0),
-                prior_gravity_scale: 1.0,
             },
             fresh_hold(),
         ));
@@ -1426,7 +1418,6 @@ mod tests {
             CapturedBy {
                 captor,
                 hold_offset_local: ae::Vec2::new(20.0, -4.0),
-                prior_gravity_scale: 1.0,
             },
             fresh_hold(),
         ));
@@ -1493,7 +1484,6 @@ mod tests {
             CapturedBy {
                 captor,
                 hold_offset_local: ae::Vec2::new(16.0, 0.0),
-                prior_gravity_scale: 1.0,
             },
             fresh_hold(),
         ));
@@ -1538,7 +1528,6 @@ mod tests {
             CapturedBy {
                 captor,
                 hold_offset_local: ae::Vec2::new(6.0, -18.0),
-                prior_gravity_scale: 1.0,
             },
             hold,
         ));
@@ -1582,7 +1571,6 @@ mod tests {
         app.world_mut().entity_mut(victim).insert(CapturedBy {
             captor,
             hold_offset_local: ae::Vec2::new(16.0, 0.0),
-            prior_gravity_scale: 1.0,
         });
         app.update();
         assert_eq!(
@@ -1610,7 +1598,6 @@ mod tests {
             CapturedBy {
                 captor,
                 hold_offset_local: ae::Vec2::new(16.0, 0.0),
-                prior_gravity_scale: 1.0,
             },
             fresh_hold(),
         ));
@@ -1634,13 +1621,13 @@ mod tests {
         );
     }
 
-    /// A HIT ON EITHER BODY ENDS THE HOLD, AND GIVES BACK WHAT IT SUSPENDED.
+    /// A HIT ON EITHER BODY ENDS THE HOLD, AND LEAVES ITS GRAVITY AS AUTHORED.
     ///
-    ///  the restored gravity is the body's OWN prior value, not `1.0`. This
-    /// captive was floating at `0.25` before it was grabbed, which is the case a
-    /// constant would silently break.
+    /// This captive floats at `0.25`. The hold suspends its gravity through
+    /// the frame resolver, so the release has nothing to give back and must not
+    /// write a constant over the authored scale.
     #[test]
-    fn a_hit_captor_drops_its_captive_and_gravity_comes_back() {
+    fn a_hit_captor_drops_its_captive_and_leaves_its_gravity_alone() {
         let mut app = App::new();
         app.add_systems(Update, release_interrupted_captures);
         let captor = grounded_body(&mut app, "captor", ae::Vec2::ZERO);
@@ -1652,12 +1639,11 @@ mod tests {
         }
         app.world_mut()
             .entity_mut(victim)
-            .insert(surface_state(0.0));
+            .insert(surface_state(0.25));
         app.world_mut().entity_mut(victim).insert((
             CapturedBy {
                 captor,
                 hold_offset_local: ae::Vec2::new(16.0, 0.0),
-                prior_gravity_scale: 0.25,
             },
             ambition_characters::control::ControlHolds::only(
                 ambition_characters::control::ControlHold::Relationship,
@@ -1693,7 +1679,7 @@ mod tests {
                 .unwrap()
                 .gravity_scale,
             0.25,
-            "gravity came back as a CONSTANT rather than as what this body had"
+            "the release wrote over the captive's authored gravity scale"
         );
     }
 
@@ -1724,7 +1710,6 @@ mod tests {
             CapturedBy {
                 captor,
                 hold_offset_local: ae::Vec2::new(16.0, 0.0),
-                prior_gravity_scale: 1.0,
             },
             fresh_hold(),
         ));
@@ -1752,11 +1737,10 @@ mod tests {
         let captor = grounded_body(&mut app, "captor", ae::Vec2::ZERO);
         let victim = grounded_body(&mut app, "victim", ae::Vec2::new(16.0, 0.0));
         app.world_mut().entity_mut(victim).insert((
-            surface_state(0.0),
+            surface_state(1.0),
             CapturedBy {
                 captor,
                 hold_offset_local: ae::Vec2::new(16.0, 0.0),
-                prior_gravity_scale: 0.75,
             },
             //  the ruleset's half of the hold: without it there is no
             // clock and nothing to mash out of.
@@ -1769,15 +1753,6 @@ mod tests {
         assert!(
             app.world().get::<CapturedBy>(victim).is_none(),
             "the captor is gone and the hold outlived it"
-        );
-        assert_eq!(
-            app.world()
-                .get::<ae::ActorSurfaceState>(victim)
-                .unwrap()
-                .gravity_scale,
-            0.75,
-            "freed by a despawn and still weightless — the release path was not \
-             the one that ran"
         );
     }
 
@@ -1812,7 +1787,6 @@ mod tests {
                 CapturedBy {
                     captor,
                     hold_offset_local: ae::Vec2::new(16.0, 0.0),
-                    prior_gravity_scale: 1.0,
                 },
                 //  the ruleset's half of the hold: without it there is no
                 // clock and nothing to mash out of.  built the way acquisition
@@ -1889,11 +1863,10 @@ mod tests {
             }
             app.world_mut().entity_mut(victim).insert((
                 holds,
-                surface_state(0.0),
+                surface_state(1.0),
                 CapturedBy {
                     captor,
                     hold_offset_local: ae::Vec2::new(16.0, 0.0),
-                    prior_gravity_scale: 1.0,
                 },
                 //  the ruleset's half of the hold: without it there is no
                 // clock and nothing to mash out of.
@@ -1986,11 +1959,10 @@ mod tests {
                 max: 100,
                 invulnerable: Default::default(),
             }),
-            surface_state(0.0),
+            surface_state(1.0),
             CapturedBy {
                 captor,
                 hold_offset_local: ae::Vec2::new(16.0, 0.0),
-                prior_gravity_scale: 1.0,
             },
             //  the ruleset's half of the hold: without it there is no
             // clock and nothing to mash out of.
@@ -2049,14 +2021,13 @@ mod tests {
                 max: 100,
                 invulnerable: Default::default(),
             }),
-            surface_state(0.0),
+            surface_state(1.0),
             ambition_characters::control::ControlHolds::only(
                 ambition_characters::control::ControlHold::Relationship,
             ),
             CapturedBy {
                 captor,
                 hold_offset_local: ae::Vec2::new(16.0, 0.0),
-                prior_gravity_scale: 1.0,
             },
             //  the ruleset's half of the hold: without it there is no
             // clock and nothing to mash out of.
@@ -2103,7 +2074,7 @@ mod tests {
                 .unwrap()
                 .gravity_scale,
             1.0,
-            "a thrown body kept the suspended gravity of its hold"
+            "a throw wrote the captive's authored gravity scale"
         );
         assert_eq!(
             app.world()
@@ -2303,7 +2274,6 @@ mod tests {
             CapturedBy {
                 captor,
                 hold_offset_local: ae::Vec2::new(18.0, 0.0),
-                prior_gravity_scale: 1.0,
             },
             fresh_hold(),
         ));
@@ -2348,13 +2318,12 @@ fn pose_captives(
     mut captives: Query<(
         &CapturedBy,
         &mut ae::BodyKinematics,
-        &mut ae::ActorSurfaceState,
         &mut ambition_platformer2d_core::BodyGroundState,
         Option<&mut crate::components::CenteredAabb>,
         Option<&mut ae::SweepSample>,
     )>,
 ) {
-    for (held, mut kin, mut surface, mut ground, aabb, mut sweep) in &mut captives {
+    for (held, mut kin, mut ground, aabb, mut sweep) in &mut captives {
         let Ok((captor_kin, captor_frame)) = captors.get(held.captor) else {
             // The captor is gone. Releasing is the RELEASE path's job, not this
             // one's — a constraint system that also dissolved relationships
@@ -2374,9 +2343,8 @@ fn pose_captives(
         );
         let pos = captor_kin.pos + frame.to_world(local);
         ae::movement::constrain_body_pose(&mut kin, sweep.as_deref_mut(), pos, captor_kin.vel);
-        // Gravity is SUSPENDED, not deleted — `CapturedBy::prior_gravity_scale`
-        // holds what to give back.
-        surface.gravity_scale = 0.0;
+        // Gravity is not written here: the frame resolver reads `CapturedBy`
+        // and gives a held body no pull.
         // ⛔⛔ **`invalidate()`, NOT `on_ground = false`.** A hold writes the
         // captive's pose discretely every tick, which is precisely the "discrete
         // pose change" this call exists for: it clears the contact BASELINE as
@@ -2420,7 +2388,6 @@ pub fn maintain_existing_capture_pose(
     captives: Query<(
         &CapturedBy,
         &mut ae::BodyKinematics,
-        &mut ae::ActorSurfaceState,
         &mut ambition_platformer2d_core::BodyGroundState,
         Option<&mut crate::components::CenteredAabb>,
         Option<&mut ae::SweepSample>,
@@ -2450,7 +2417,6 @@ pub fn finalize_new_capture_pose(
     captives: Query<(
         &CapturedBy,
         &mut ae::BodyKinematics,
-        &mut ae::ActorSurfaceState,
         &mut ambition_platformer2d_core::BodyGroundState,
         Option<&mut crate::components::CenteredAabb>,
         Option<&mut ae::SweepSample>,
@@ -2570,8 +2536,6 @@ pub fn restrict_captor_control(
 pub fn release_capture(
     commands: &mut Commands,
     victim: Entity,
-    held: &CapturedBy,
-    surface: Option<&mut ae::ActorSurfaceState>,
     ground: Option<&mut ambition_platformer2d_core::BodyGroundState>,
     holds: Option<&mut ambition_characters::control::ControlHolds>,
 ) {
@@ -2585,11 +2549,10 @@ pub fn release_capture(
         holds,
         ambition_characters::control::ControlHold::Relationship,
     );
-    if let Some(surface) = surface {
-        //  what it WAS, not `1.0`. A flying body's scale is not the reference
-        // one, and a release that wrote a constant would land it on the floor.
-        surface.gravity_scale = held.prior_gravity_scale;
-    }
+    // ⭐ GRAVITY NEEDS NO RESTORE. The hold never wrote the captive's scale:
+    // the frame resolver gives a body with `CapturedBy` no pull, so removing
+    // the relation above is what gives gravity back, at the body's own
+    // authored scale.
     // ⭐⭐ **A RELEASED BODY RE-ENTERS PLAY AIRBORNE**, and `apply_capture_throws`
     // depends on it in writing: *"a thrown body is AIRBORNE by construction — the
     // hold suspended its gravity and the release hands it back"*.
@@ -2632,7 +2595,6 @@ pub fn release_interrupted_captures(
     // query, which is precisely the fact wanted and the only one taken.
     bodies: Query<Entity>,
     combat: Query<&ambition_characters::actor::BodyCombat>,
-    mut surfaces: Query<&mut ae::ActorSurfaceState>,
     mut grounds: Query<&mut ambition_platformer2d_core::BodyGroundState>,
     mut holds: Query<&mut ambition_characters::control::ControlHolds>,
 ) {
@@ -2648,14 +2610,11 @@ pub fn release_interrupted_captures(
         if !(captor_gone || reacted(victim) || reacted(held.captor)) {
             continue;
         }
-        let mut surface = surfaces.get_mut(victim).ok();
         let mut ground = grounds.get_mut(victim).ok();
         let mut held_by = holds.get_mut(victim).ok();
         release_capture(
             &mut commands,
             victim,
-            held,
-            surface.as_deref_mut(),
             ground.as_deref_mut(),
             held_by.as_deref_mut(),
         );
@@ -2720,7 +2679,6 @@ pub fn apply_capture_throws(
         &mut ae::BodyFlightState,
         &mut ambition_characters::actor::BodyCombat,
         &mut ambition_characters::actor::BodyHealth,
-        &mut ae::ActorSurfaceState,
         &mut ambition_platformer2d_core::BodyGroundState,
         Option<&crate::components::CombatTuning>,
         Option<&mut ambition_characters::control::ControlHolds>,
@@ -2752,12 +2710,11 @@ pub fn apply_capture_throws(
     for request in requests.read() {
         let Some((
             victim,
-            held,
+            _,
             mut kin,
             mut flight,
             mut combat,
             mut health,
-            mut surface,
             mut ground,
             tuning,
             mut holds,
@@ -2778,12 +2735,9 @@ pub fn apply_capture_throws(
 
         // 2. The hold ends. Through the ONE release, so gravity and the control
         //    projection come back with it.
-        let held = *held;
         release_capture(
             &mut commands,
             victim,
-            &held,
-            Some(&mut surface),
             Some(&mut ground),
             holds.as_deref_mut(),
         );

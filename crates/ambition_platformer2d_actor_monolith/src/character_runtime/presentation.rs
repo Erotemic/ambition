@@ -286,15 +286,18 @@ pub fn project_prepared_character_definitions(
         //
         // Do not retract `ActorMoveset`: every repertoire-bearing body carries one,
         // and the repertoire fold replaces its value wholesale.
+        let incoming = resolved.and_then(|id| registry.get(id));
         if let Some(previous) = projected {
             let gravity_dir = frames
                 .get(entity)
                 .map_or(ambition_platformer2d_core::DEFAULT_GRAVITY_DIR, |frame| frame.down());
-            previous
-                .granted
-                .retract(&mut EntityScope::new(&mut commands, entity), gravity_dir);
+            previous.granted.clone().retract(
+                &mut EntityScope::new(&mut commands, entity),
+                gravity_dir,
+                incoming.map_or(&[][..], |prepared| prepared.carries.as_slice()),
+            );
         }
-        let Some(prepared) = resolved.and_then(|id| registry.get(id)) else {
+        let Some(prepared) = incoming else {
             if projected.is_some() {
                 commands.entity(entity).remove::<ProjectedCharacterKit>();
             }

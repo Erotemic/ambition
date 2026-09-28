@@ -813,3 +813,71 @@ fn a_character_authoring_a_sprite_body_gets_a_posed_body() {
         "the previous character's quad survived on a body that never carried one",
     );
 }
+
+/// A carried component lives as long as the body wears a character that
+/// carries it.
+///
+/// ⛔ The grant inserted it and nothing took it back, so a body that changed
+/// from a Solid Snake to another character kept `SnakeShell`, and the snake's
+/// rules, which enroll a body by that component, kept driving it.
+///
+/// The four cases: the grant writes the default; the same character granted
+/// again keeps the body's state; a change to another character that carries
+/// the same type keeps it too (the type is the game's, and both characters
+/// state it); a change to a character that does not carry it removes it.
+#[test]
+fn a_carried_component_goes_when_the_body_stops_wearing_a_character_that_carries_it() {
+    #[derive(bevy::prelude::Component, Clone, Copy, Debug, Default, PartialEq)]
+    struct Shell(u8);
+    let carried = ambition_platformer2d_core::CarriedComponent::of::<Shell>;
+
+    let mut app = session_app();
+    app.register_character(CharacterDefinition::new("shelled", "Shelled", "demo").carrying(carried()));
+    app.register_character(
+        CharacterDefinition::new("also_shelled", "Also Shelled", "demo").carrying(carried()),
+    );
+    app.register_character(CharacterDefinition::new("plain", "Plain", "demo"));
+    let body = app
+        .world_mut()
+        .spawn(ambition_characters::actor::WornCharacter::new("shelled"))
+        .id();
+    settle(&mut app);
+    assert_eq!(app.world().get::<Shell>(body), Some(&Shell(0)), "the grant writes the default");
+
+    *app.world_mut().get_mut::<Shell>(body).unwrap() = Shell(7);
+    // The same character, granted again by a new cast.
+    let again = crate::character_runtime::prepare_and_finalize_for_test(
+        CharacterDefinition::new("shelled", "Shelled", "demo").carrying(carried()),
+        &ambition_characters::prepared::CharacterBindings::default(),
+    )
+    .prepared;
+    app.world_mut()
+        .resource_mut::<PreparedCharacterRegistry>()
+        .insert_prepared(again);
+    settle(&mut app);
+    assert_eq!(
+        app.world().get::<Shell>(body),
+        Some(&Shell(7)),
+        "granting the same character again reset the state it carries"
+    );
+
+    app.world_mut()
+        .entity_mut(body)
+        .insert(ambition_characters::actor::WornCharacter::new("also_shelled"));
+    settle(&mut app);
+    assert_eq!(
+        app.world().get::<Shell>(body),
+        Some(&Shell(7)),
+        "a change to another character that carries the same type lost its state"
+    );
+
+    app.world_mut()
+        .entity_mut(body)
+        .insert(ambition_characters::actor::WornCharacter::new("plain"));
+    settle(&mut app);
+    assert_eq!(
+        app.world().get::<Shell>(body),
+        None,
+        "the body stopped wearing every character that carries `Shell` and kept it"
+    );
+}

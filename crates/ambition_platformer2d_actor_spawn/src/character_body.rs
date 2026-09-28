@@ -30,7 +30,7 @@ pub struct ProjectedCharacterKit {
 /// until it is retracted too. That is the whole reason it is a struct rather than
 /// three fields: the coupling is real, so it should be enforced rather than
 /// remembered.
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct GrantedBodyFacts {
     pub hurtboxes: bool,
     pub movement_tuning: bool,
@@ -39,6 +39,9 @@ pub struct GrantedBodyFacts {
     pub posed_body: Option<DisplacedGeometry>,
     /// The art has no left/right variant ([`ambition_platformer2d_core::Unmirrored`]).
     pub unmirrored: bool,
+    /// The game components the character carries
+    /// ([`ambition_platformer2d_core::CarriedComponent`]).
+    pub carried: Vec<ambition_platformer2d_core::CarriedComponent>,
 }
 
 /// The geometry a sprite-authored grant replaced, captured in the grant's own
@@ -73,6 +76,7 @@ impl GrantedBodyFacts {
             // Filled by the grant's capture edit, which reads the body.
             posed_body: posed_body_for(prepared).map(|_| DisplacedGeometry::default()),
             unmirrored: prepared.unmirrored,
+            carried: prepared.carries.clone(),
         }
     }
 
@@ -88,14 +92,30 @@ impl GrantedBodyFacts {
     /// marker is gone, so the retraction is the last writer of its shape. An
     /// incoming sprite character's grant, later in the same batch, re-captures
     /// the restored values and replaces them.
-    pub fn retract(self, scope: &mut EntityScope, gravity_dir: ambition_platformer2d_core::Vec2) {
+    ///
+    /// A carried component is state, not a fact, so it is kept when `incoming`
+    /// (what the character the body wears next carries) names the same type:
+    /// the same character granted again keeps its state, and so does a body
+    /// that changes to another character that carries that type. A type only
+    /// the outgoing character carried is removed, so its rules stop reading the
+    /// body.
+    pub fn retract(
+        self,
+        scope: &mut EntityScope,
+        gravity_dir: ambition_platformer2d_core::Vec2,
+        incoming: &[ambition_platformer2d_core::CarriedComponent],
+    ) {
         // Exhaustive on purpose: a new fact does not compile until it is handled.
         let Self {
             hurtboxes,
             movement_tuning,
             posed_body,
             unmirrored,
+            carried,
         } = self;
+        for carried in carried.into_iter().filter(|carried| !incoming.contains(carried)) {
+            scope.remove_carried(carried);
+        }
         if unmirrored {
             scope.remove::<ambition_platformer2d_core::Unmirrored>();
         }
@@ -314,8 +334,9 @@ pub fn grant_prepared_character_body(
             scope.insert(ambition_platformer2d_core::Unmirrored);
         }
         // The game's own state of this creature, in the same batch, so no
-        // pass has to add it to a built body. Not retracted: it is state, and
-        // a re-grant keeps what the body has.
+        // pass has to add it to a built body. A re-grant keeps what the body
+        // has; `GrantedBodyFacts::retract` removes a type the next character
+        // does not carry.
         for carried in &prepared.carries {
             scope.insert_carried(*carried);
         }

@@ -10,13 +10,14 @@ use bevy_ecs::system::EntityCommands;
 /// The engine cannot name that type, and a pass that adds it after the body
 /// is built leaves the body incomplete for a tick.
 ///
-/// The author names the type only. The insert is generated here, so a kit
-/// writes one default value on the body being built and can do nothing else.
-/// The write is `insert_if_new`: a body that is granted its character again
-/// keeps the state it has.
+/// The author names the type only. The insert and the removal are generated
+/// here, so a kit writes one default value on the body being built, or takes
+/// that component off, and can do nothing else. The write is `insert_if_new`:
+/// a body that is granted its character again keeps the state it has.
 #[derive(Clone, Copy)]
 pub struct CarriedComponent {
     insert: fn(&mut EntityCommands),
+    remove: fn(&mut EntityCommands),
     type_name: &'static str,
 }
 
@@ -24,11 +25,16 @@ fn insert_default<C: Component + Default>(entity: &mut EntityCommands) {
     entity.insert_if_new(C::default());
 }
 
+fn remove_component<C: Component>(entity: &mut EntityCommands) {
+    entity.remove::<C>();
+}
+
 impl CarriedComponent {
     /// `C`, at `C::default()`.
     pub fn of<C: Component + Default>() -> Self {
         Self {
             insert: insert_default::<C>,
+            remove: remove_component::<C>,
             type_name: core::any::type_name::<C>(),
         }
     }
@@ -41,6 +47,12 @@ impl CarriedComponent {
     /// Write the default value on `entity`, unless it already has one.
     pub fn insert_into(&self, entity: &mut EntityCommands) {
         (self.insert)(entity);
+    }
+
+    /// Take the component off `entity`, when the body stops wearing the
+    /// character that carries it.
+    pub fn remove_from(&self, entity: &mut EntityCommands) {
+        (self.remove)(entity);
     }
 }
 

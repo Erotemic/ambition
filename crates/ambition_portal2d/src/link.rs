@@ -152,8 +152,7 @@ mod aperture_partner_tests {
             normal: Vec2::new(0.0, 1.0),
             // Normal is +Y, so the OPENING runs along x.
             half_extent: Vec2::new(opening, PORTAL_THICKNESS_HALF),
-            host: None,
-            host_lift: 0.0,
+            host: Default::default(),
             vel: Vec2::ZERO,
             prev_pos: Vec2::new(x, 0.0),
         }

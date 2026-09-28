@@ -1338,8 +1338,7 @@ mod compositing_report_tests {
             pos: Vec2::new(100.0, 300.0),
             normal: Vec2::new(0.0, 1.0),
             half_extent: Vec2::new(46.0, 9.0),
-            host: None,
-            host_lift: 0.0,
+            host: Default::default(),
             vel: Vec2::ZERO,
             prev_pos: Vec2::new(100.0, 300.0),
         }

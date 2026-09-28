@@ -308,8 +308,8 @@ def registering_crates() -> list[str]:
     registers rollback state"*; what it measured was that sentence with
     `crates/*` silently appended.
     ⚠ MEASURED, so this is not hypothetical: `game/ambition_content` registers
-    `EchoFanState` and the rest of `bosses/specials/rollback.rs`, plus
-    `PortalHostScanned` through `portal/plugin.rs`. Its components were outside
+    `EchoFanState` and the rest of `bosses/specials/rollback.rs` (and, at
+    that time, a portal-host marker). Its components were outside
     the guard's reach entirely.
     ⛔ THE FLOORS DID NOT PROTECT AGAINST THIS and could not have. They catch a
     join that returns almost NOTHING; a stable omitted category leaves the

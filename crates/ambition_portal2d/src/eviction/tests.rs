@@ -108,11 +108,14 @@ fn host_carried_motion_does_not_evict_a_straddler() {
     // The host refresh carried the aperture up 8px this frame.
     {
         let mut p = app.world_mut().get_mut::<PlacedPortal>(portal).unwrap();
-        p.host = Some(ambition_platformer2d_core::GeoFaceRef::new(
-            ambition_platformer2d_core::GeoId::anon(),
-            ambition_platformer2d_core::Face::Top,
-            0.0,
-        ));
+        p.host = crate::PortalHost::Face {
+            face: ambition_platformer2d_core::GeoFaceRef::new(
+                ambition_platformer2d_core::GeoId::anon(),
+                ambition_platformer2d_core::Face::Top,
+                0.0,
+            ),
+            lift: 0.0,
+        };
         p.prev_pos = p.pos;
         p.pos += Vec2::new(0.0, -8.0);
     }

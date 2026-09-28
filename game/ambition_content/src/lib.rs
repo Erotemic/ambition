@@ -173,6 +173,4 @@ pub fn register_rollback_state(
     bosses::register_rollback_state(registrar);
     #[cfg(feature = "falling_sand")]
     falling_sand::register_rollback_state(registrar);
-    #[cfg(feature = "portal")]
-    portal::register_rollback_state(registrar);
 }

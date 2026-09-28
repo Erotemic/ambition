@@ -1631,14 +1631,14 @@ fn a_portal_on_a_moving_platform_rides_its_host_face() {
     app.update(); // attach + first refresh
 
     let p = app.world().get::<PlacedPortal>(hosted).unwrap().clone();
-    assert!(p.host.is_some(), "portal on identified platform attaches");
+    let lift = p.host.face().map(|(_, lift)| lift);
+    assert!(lift.is_some(), "portal on identified platform attaches");
     assert!(
-        (p.host_lift - 2.0).abs() < 1e-3,
-        "authored lift preserved, got {}",
-        p.host_lift
+        (lift.unwrap() - 2.0).abs() < 1e-3,
+        "authored lift preserved, got {lift:?}"
     );
     let u = app.world().get::<PlacedPortal>(unhosted).unwrap().clone();
-    assert!(u.host.is_none(), "anon fixture wall cannot host");
+    assert_eq!(u.host, PortalHost::Static, "anon fixture wall cannot host");
     assert_eq!(u.pos, Vec2::new(22.0, 200.0));
     assert_eq!(u.frame_delta(), Vec2::ZERO);
 
@@ -1676,5 +1676,58 @@ fn a_portal_on_a_moving_platform_rides_its_host_face() {
     assert!(
         app.world().get::<PlacedPortal>(unhosted).is_some(),
         "unhosted portals are unaffected"
+    );
+}
+
+/// A portal is looked at once. The answer is part of the portal, so a
+/// `Static` portal is not attached later, even on a face that could host it.
+/// A later scan would see moving platforms in other places than the confirmed
+/// timeline did. The unattributed twin at the same place is the control: the
+/// face under both of them can host.
+#[test]
+fn a_portal_the_adapter_has_decided_is_not_scanned_again() {
+    use crate::portal::host_adapter::attach_portal_hosts;
+    use ambition_platformer2d_world::collision::MovingPlatformSet;
+    use ambition_platformer2d_world::platforms::MovingPlatformState;
+
+    let mut app = App::new();
+    ambition_platformer2d::platformer::lifecycle::insert_session_world_component(
+        app.world_mut(),
+        RoomGeometry(ae::World::new("cc6", Vec2::new(2000.0, 1000.0), Vec2::ZERO, vec![])),
+    );
+    let platform = MovingPlatformState::from_authored(
+        Vec2::new(400.0, 500.0),
+        Vec2::new(120.0, 20.0),
+        400.0,
+        120.0,
+    );
+    let top = platform.pos.y - platform.size.y * 0.5;
+    let x = platform.pos.x;
+    app.insert_resource(MovingPlatformSet(vec![platform]));
+    app.add_systems(Update, attach_portal_hosts);
+
+    let place = |channel| {
+        PlacedPortal::fixed(
+            channel,
+            Vec2::new(x, top - 2.0),
+            Vec2::new(0.0, -1.0),
+            portal_half_extent(Vec2::new(0.0, -1.0)),
+        )
+    };
+    let decided = app
+        .world_mut()
+        .spawn(PlacedPortal { host: PortalHost::Static, ..place(PURPLE) })
+        .id();
+    let fresh = app.world_mut().spawn(place(YELLOW)).id();
+    app.update();
+
+    assert!(
+        app.world().get::<PlacedPortal>(fresh).unwrap().host.face().is_some(),
+        "control: the face under both portals can host"
+    );
+    assert_eq!(
+        app.world().get::<PlacedPortal>(decided).unwrap().host,
+        PortalHost::Static,
+        "a decided portal was scanned again"
     );
 }

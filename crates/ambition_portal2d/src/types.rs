@@ -28,15 +28,9 @@ pub struct PlacedPortal {
     pub normal: Vec2,
     /// Half-extent of the portal's overlap region.
     pub half_extent: Vec2,
-    /// The host face this aperture rides (`GeoFaceRef`). `None` is an unhosted
-    /// static aperture (fixtures, worlds without identified geometry) with zero
-    /// frame velocity. The host adapter attaches placed portals to faces later.
-    /// A hosted portal closes when its face disappears.
-    pub host: Option<ae::GeoFaceRef>,
-    /// The offset of `pos` off the host face along `normal` (the gun places
-    /// 2 px out from the wall). Recorded at attachment so the per-frame
-    /// re-derivation keeps it.
-    pub host_lift: f32,
+    /// The face this aperture rides, if any. A hosted portal closes when its
+    /// face disappears.
+    pub host: PortalHost,
     /// The aperture velocity in px/s (`PortalFrame::velocity`, used by the
     /// Galilean transfer map). Zero for unhosted portals; the host refresh
     /// derives it from the host block velocity.
@@ -47,16 +41,44 @@ pub struct PlacedPortal {
     pub prev_pos: Vec2,
 }
 
+/// Which face, if any, a portal rides. One value, so "not looked at yet",
+/// "static" and "hosted" cannot disagree, and a rewind restores the answer
+/// with the portal.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub enum PortalHost {
+    /// The host adapter has not looked for a face yet. It looks on its next
+    /// pass, before the portal links.
+    #[default]
+    Unattributed,
+    /// No identified face was under the portal when the adapter looked. The
+    /// aperture stays static, with zero frame velocity, for its lifetime.
+    Static,
+    /// The aperture rides `face`. `lift` is the offset of `pos` off the face
+    /// along the normal (the gun places a portal 2 px out from the wall), so
+    /// each re-derivation keeps the placement pose.
+    Face { face: ae::GeoFaceRef, lift: f32 },
+}
+
+impl PortalHost {
+    /// The face and lift of a hosted portal.
+    pub fn face(&self) -> Option<(&ae::GeoFaceRef, f32)> {
+        match self {
+            Self::Face { face, lift } => Some((face, *lift)),
+            Self::Unattributed | Self::Static => None,
+        }
+    }
+}
+
 impl PlacedPortal {
-    /// A static (unhosted) portal. The host adapter may attach a host later.
+    /// A portal placed at a fixed pose. The host adapter then decides whether
+    /// it rides a face.
     pub fn fixed(channel: PortalChannel, pos: Vec2, normal: Vec2, half_extent: Vec2) -> Self {
         Self {
             channel,
             pos,
             normal,
             half_extent,
-            host: None,
-            host_lift: 0.0,
+            host: PortalHost::Unattributed,
             vel: Vec2::ZERO,
             prev_pos: pos,
         }
@@ -65,7 +87,7 @@ impl PlacedPortal {
     /// The aperture displacement this frame (the relative sweep term). Zero
     /// for unhosted portals.
     pub fn frame_delta(&self) -> Vec2 {
-        if self.host.is_some() {
+        if self.host.face().is_some() {
             self.pos - self.prev_pos
         } else {
             Vec2::ZERO
@@ -224,8 +246,7 @@ mod find_portal_determinism_tests {
             pos: Vec2::new(x, y),
             normal: Vec2::new(0.0, 1.0),
             half_extent: Vec2::new(PORTAL_OPENING_HALF, PORTAL_THICKNESS_HALF),
-            host: None,
-            host_lift: 0.0,
+            host: Default::default(),
             vel: Vec2::ZERO,
             prev_pos: Vec2::new(x, y),
         }
@@ -281,8 +302,7 @@ mod stable_order_tests {
             pos: Vec2::new(x, y),
             normal: Vec2::new(0.0, 1.0),
             half_extent: Vec2::new(PORTAL_OPENING_HALF, PORTAL_THICKNESS_HALF),
-            host: None,
-            host_lift: 0.0,
+            host: Default::default(),
             vel: Vec2::ZERO,
             prev_pos: Vec2::new(x, y),
         }

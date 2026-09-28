@@ -26,15 +26,6 @@ use super::shot_adapter::portal_projectile_step;
 use super::reorient_setting::sync_portal_reorient_from_settings;
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 
-pub fn register_rollback_state(
-    registrar: &mut impl ambition_platformer2d_core::snapshot::RollbackRegistrar,
-) {
-    registrar.rollback_component_clone::<crate::portal::host_adapter::PortalHostScanned>(
-        "ambition_content",
-        "portal.host_scanned",
-    );
-}
-
 /// Installs the Ambition-specific portal input/inventory adapters.
 pub struct AmbitionPortalAdaptersPlugin;
 
@@ -83,23 +74,6 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
                 .in_set(PortalSet::Frame)
                 .before(ambition_portal2d::PortalLinkResolution),
         );
-        // The attribution latch is rollback state.
-        //
-        // `attach_portal_hosts` is one-shot: a portal that failed to attach stays a
-        // static aperture rather than re-scanning every frame. Losing that latch on a
-        // restore is not benign, because attribution reads `RoomGeometry` AND
-        // `MovingPlatformSet` — a re-scan on a later frame sees platforms in a
-        // different place and can attach a portal the confirmed timeline left static,
-        // writing a `host`/`host_lift` into `PlacedPortal` that no peer agreed to.
-        //
-        // This is the same shape as the unregistered `Collected` latch the rollback
-        // oracle caught earlier: a marker whose ABSENCE is a decision.
-        {
-            let mut registrar =
-                ambition_platformer2d_runtime::rollback::SchemaRollbackRegistrar::new(app);
-            register_rollback_state(&mut registrar);
-        }
-
         app.add_systems(
             sim,
             bridge_portal_carves

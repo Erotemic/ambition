@@ -15,10 +15,13 @@ const PURPLE: PortalChannel = PortalChannel::Authored(PortalChannelColor::Purple
 const YELLOW: PortalChannel = PortalChannel::Authored(PortalChannelColor::Yellow);
 
 /// Give a fixture portal host motion: it moved by `delta` this frame and has
-/// velocity `vel` px/s. The machine reads only `host.is_some()` and the
-/// pos/prev_pos/vel caches.
+/// velocity `vel` px/s. The machine reads only whether it has a host face and
+/// the pos/prev_pos/vel caches.
 fn hosted_moving(mut portal: PlacedPortal, delta: Vec2, vel: Vec2) -> PlacedPortal {
-    portal.host = Some(ae::GeoFaceRef::new(ae::GeoId::anon(), ae::Face::Top, 0.0));
+    portal.host = crate::PortalHost::Face {
+        face: ae::GeoFaceRef::new(ae::GeoId::anon(), ae::Face::Top, 0.0),
+        lift: 0.0,
+    };
     portal.prev_pos = portal.pos - delta;
     portal.vel = vel;
     portal

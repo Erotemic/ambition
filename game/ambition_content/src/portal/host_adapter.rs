@@ -1,13 +1,13 @@
 //! Bridge placed portals to identified world faces.
 //!
-//! Attribution runs once against uncarved hostable surfaces. After mover
+//! Attribution runs once per portal against uncarved hostable surfaces. After mover
 //! integration, hosted portals refresh position, sweep state, and velocity from
 //! their face anchor. A portal closes when its host face disappears; unhosted
 //! fixtures remain static.
 
 use bevy::prelude::*;
 
-use ambition_portal2d::PlacedPortal;
+use ambition_portal2d::{PlacedPortal, PortalHost};
 
 /// Attribution probe reach behind the placement point, in px. The gun lifts a
 /// portal 2px proud of the hit face; authored specs sit on the face. The probe
@@ -15,37 +15,39 @@ use ambition_portal2d::PlacedPortal;
 /// a thin wall to its far face (thinnest authored walls are ≥ 8px).
 const HOST_ATTRIBUTE_REACH: f32 = 6.0;
 
-/// Marker: host attribution ran for this portal (whatever the outcome).
-/// Attribution is one-shot — a portal that failed to attach stays a static
-/// aperture for its lifetime rather than re-scanning every frame.
-#[derive(Component, Clone, Copy, Debug)]
-pub struct PortalHostScanned;
-
-/// Lazily attach just-placed portals to the identified face they sit on.
+/// Attach just-placed portals to the identified face they sit on.
+///
+/// Each portal is looked at once: the answer is written to
+/// [`PlacedPortal::host`], so a portal that found no face is `Static` and is
+/// not scanned again. A later scan would see moving platforms in other places
+/// and could attach a portal that the confirmed timeline left static.
 pub fn attach_portal_hosts(
-    mut commands: Commands,
     collision: ambition_platformer2d_world::collision::CollisionWorld,
-    mut portals: Query<(Entity, &mut PlacedPortal), Without<PortalHostScanned>>,
+    mut portals: Query<&mut PlacedPortal>,
 ) {
-    if portals.is_empty() {
+    if !portals.iter().any(|p| p.host == PortalHost::Unattributed) {
         return;
     }
     let Some(view) = collision.hostable_surfaces() else {
         return;
     };
-    for (entity, mut portal) in &mut portals {
+    for mut portal in &mut portals {
+        if portal.host != PortalHost::Unattributed {
+            continue;
+        }
         // Probe into the face the portal was placed against.
         let probe = portal.pos - portal.normal * HOST_ATTRIBUTE_REACH * 0.5;
-        if let Some(face_ref) = view.attribute_face(probe, portal.normal, HOST_ATTRIBUTE_REACH) {
-            if let Some(anchor) = view.resolve_face(&face_ref) {
-                // Record the authored lift so the per-frame re-derivation
-                // reproduces the placement pose exactly (parity for static
-                // hosts: refresh writes back the identical `pos`).
-                portal.host_lift = (portal.pos - anchor.origin).dot(portal.normal);
-                portal.host = Some(face_ref);
-            }
-        }
-        commands.entity(entity).insert(PortalHostScanned);
+        let host = view
+            .attribute_face(probe, portal.normal, HOST_ATTRIBUTE_REACH)
+            .and_then(|face| {
+                let anchor = view.resolve_face(&face)?;
+                // The lift makes the per-frame re-derivation give back the
+                // placement pose exactly, so a static host writes the same `pos`.
+                let lift = (portal.pos - anchor.origin).dot(portal.normal);
+                Some(PortalHost::Face { face, lift })
+            })
+            .unwrap_or(PortalHost::Static);
+        portal.host = host;
     }
 }
 
@@ -56,7 +58,7 @@ pub fn refresh_hosted_portal_frames(
     time: Option<Res<ambition_time::WorldTime>>,
     mut portals: Query<(Entity, &mut PlacedPortal)>,
 ) {
-    if !portals.iter().any(|(_, p)| p.host.is_some()) {
+    if !portals.iter().any(|(_, p)| p.host.face().is_some()) {
         return;
     }
     let Some(view) = collision.hostable_surfaces() else {
@@ -64,7 +66,7 @@ pub fn refresh_hosted_portal_frames(
     };
     let dt = time.as_deref().map(|t| t.scaled_dt).unwrap_or(0.0);
     for (entity, mut portal) in &mut portals {
-        let Some(host) = portal.host.clone() else {
+        let Some((host, lift)) = portal.host.face().map(|(face, lift)| (face.clone(), lift)) else {
             continue;
         };
         let Some(anchor) = view.resolve_face(&host) else {
@@ -73,7 +75,7 @@ pub fn refresh_hosted_portal_frames(
             commands.entity(entity).despawn();
             continue;
         };
-        let new_pos = anchor.origin + portal.normal * portal.host_lift;
+        let new_pos = anchor.origin + portal.normal * lift;
         portal.prev_pos = portal.pos;
         portal.pos = new_pos;
         // The host block's `velocity` is the kernels' surface_velocity

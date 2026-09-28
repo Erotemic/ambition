@@ -837,7 +837,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// ⛔⛤ 251 -> 252: `smash.time_dilated` loses `prior`. Only the dilation
 /// writes a fighter's `ProperTimeScale`, so the clock it gives back is the
 /// engine default, and a saved copy of it was a second answer.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 252;
+/// ⛔⛤ 252 -> 253: `portal.host_scanned` leaves. Whether the host adapter
+/// has looked at a portal is `PlacedPortal::host` (`PortalHost::Unattributed`),
+/// which rewinds with the portal (`portal.placed`).
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 253;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

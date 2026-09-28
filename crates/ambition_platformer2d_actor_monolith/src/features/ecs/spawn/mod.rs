@@ -834,6 +834,8 @@ impl RoomFeatureConstructionPlan {
         .map_err(RoomFeatureConstructionError::ActorConstruction)?;
         crate::construction::preflight_planned_bodies(&requests, construction.prepared)
             .map_err(RoomFeatureConstructionError::ActorConstruction)?;
+        crate::construction::preflight_encounter_scripts(room, &requests, boss_catalog)
+            .map_err(RoomFeatureConstructionError::ActorConstruction)?;
         let construction_scope =
             ambition_platformer2d_shared_tangle::construction::ConstructionScope::replacing(
                 construction.binding,

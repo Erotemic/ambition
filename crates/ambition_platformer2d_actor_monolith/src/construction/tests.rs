@@ -3075,6 +3075,109 @@ fn a_mount_link_naming_nobody_fails_the_room_while_it_is_whole() {
     );
 }
 
+/// A cut-rope arena that does not author the anvil its boss's script drops.
+fn cut_rope_room(props: &[&str]) -> ambition_platformer2d_world::rooms::RoomSpec {
+    let mut room = empty_room("arena");
+    room.boss_spawns
+        .push(ambition_platformer2d_world::rooms::Authored::new(
+            "behemoth",
+            "smirking_behemoth_boss",
+            ae::Aabb::new(ae::Vec2::new(100.0, 20.0), ae::Vec2::splat(60.0)),
+            ambition_entity_catalog::placements::BossBrain::PhaseScript {
+                script_id: "smirking_behemoth_boss".into(),
+            },
+        ));
+    room.props = props
+        .iter()
+        .map(|kind| ambition_platformer2d_world::rooms::PropSpec {
+            id: format!("iid-{kind}"),
+            name: kind.to_string(),
+            kind: kind.to_string(),
+            pos: ae::Vec2::new(300.0, 200.0),
+            size: ae::Vec2::new(40.0, 30.0),
+            flip_y: false,
+            draw: Default::default(),
+        })
+        .collect();
+    room
+}
+
+/// A boss script that names a prop the room does not author fails the room
+/// while it is whole. At run time the drop found no anvil, did nothing, and
+/// still consumed its beat, so the fight waited for an impact that could not
+/// come.
+#[test]
+fn a_boss_script_naming_a_prop_the_room_lacks_fails_the_room_while_it_is_whole() {
+    let prepare_arena = |props: &[&str]| {
+        prepare(
+            &cut_rope_room(props),
+            &crate::features::RoomContentStagingRegistry::default(),
+            &engine_construction_registry(),
+        )
+    };
+    // Premise: the same arena with its anvil plans, so the refusal below is
+    // about the anvil and nothing else.
+    prepare_arena(&["cut_rope_rope", "cut_rope_anvil"]).expect("the whole arena plans");
+    let error = prepare_arena(&["cut_rope_rope"]).expect_err("an arena without its anvil cannot plan");
+    assert!(
+        matches!(
+            error,
+            RoomFeatureConstructionError::ActorConstruction(
+                ActorConstructionError::EncounterScriptCannotRun {
+                    error: ambition_encounter::EncounterScriptError::NoSuchProp { ref kind, .. },
+                    ..
+                }
+            ) if kind == "cut_rope_anvil"
+        ),
+        "{error:?}"
+    );
+}
+
+/// A staged boss is checked the same way. One built without an encounter runs
+/// no script, so its room plans whatever props it authors.
+#[test]
+fn a_staged_boss_script_is_checked_unless_the_boss_has_no_encounter() {
+    let prepare_staged = |no_encounter: bool| {
+        let mut staging = crate::features::RoomContentStagingRegistry::default();
+        staging
+            .register("hall", "test_provider", "behemoth", "behemoth.v1", move |_room| {
+                vec![SpawnActorRequest {
+                    id: "behemoth".to_string(),
+                    name: "smirking_behemoth_boss".to_string(),
+                    pos: ae::Vec2::new(100.0, 20.0),
+                    half_size: ae::Vec2::splat(60.0),
+                    faction: ambition_combat::components::ActorFaction::Boss,
+                    grudge_against: None,
+                    kind: SpawnActorKind::Boss {
+                        brain: ambition_entity_catalog::placements::BossBrain::PhaseScript {
+                            script_id: "smirking_behemoth_boss".into(),
+                        },
+                        overrides: ambition_boss_encounter::BossOverrides {
+                            no_encounter,
+                            ..Default::default()
+                        },
+                    },
+                }]
+            })
+            .expect("stager registers");
+        prepare(&empty_room("hall"), &staging, &engine_construction_registry())
+    };
+    let error = prepare_staged(false).expect_err("a staged behemoth needs its anvil");
+    assert!(
+        matches!(
+            error,
+            RoomFeatureConstructionError::ActorConstruction(
+                ActorConstructionError::EncounterScriptCannotRun {
+                    error: ambition_encounter::EncounterScriptError::NoSuchProp { ref kind, .. },
+                    ..
+                }
+            ) if kind == "cut_rope_anvil"
+        ),
+        "{error:?}"
+    );
+    prepare_staged(true).expect("a behemoth with no encounter runs no script");
+}
+
 /// Two links claiming one mount are refused at preparation — the domain
 /// preflight sees the planned relations, not a frame-later race.
 #[test]

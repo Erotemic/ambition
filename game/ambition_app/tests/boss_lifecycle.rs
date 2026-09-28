@@ -691,13 +691,21 @@ fn a_replayed_boss_behaves_like_a_freshly_constructed_one() {
     // Placed with a clear approach lane and clear of the floor: this room has a
     // blink wall further right that a 208px-wide body reads as a front wall,
     // which would legitimately hold it still and prove nothing.
-    sim.spawn_boss_at(
+    //
+    // Without its encounter: the behemoth's encounter runs a script that drops
+    // its arena's anvil, and this room authors no anvil, so a rebuild of this
+    // room with that encounter is refused. This test is about the body.
+    sim.spawn_boss_at_with(
         "behemoth",
         "smirking_behemoth_boss",
         (px + 150.0, py - 140.0),
         (104.0, 133.0),
         BossBrain::PhaseScript {
             script_id: "smirking_behemoth_boss".to_string(),
+        },
+        BossOverrides {
+            no_encounter: true,
+            ..Default::default()
         },
     );
 

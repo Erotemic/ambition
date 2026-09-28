@@ -74,6 +74,39 @@ impl MemberProgress {
     }
 }
 
+/// How many members a boss encounter has: the boss alone, as its
+/// `PrimaryTarget` (see [`sync_boss_encounter_entities`]). A script's member
+/// index names a position in that list, so this is the bound a boss script is
+/// prepared against.
+pub const BOSS_ENCOUNTER_MEMBERS: usize = 1;
+
+/// Prepare a boss's authored script for its encounter in a room that authors
+/// `props`. `None`: the boss authors no script.
+///
+/// The room preflight calls this to refuse a room whose boss script names a
+/// prop or a member that is not there, while the outgoing room is whole. The
+/// encounter calls it again from the same facts to build its live script.
+pub fn prepare_boss_encounter_script(
+    behavior: &crate::pattern::profile::BossBehaviorProfile,
+    props: &[ambition_platformer2d_world::rooms::PropSpec],
+) -> Result<Option<ambition_encounter::EncounterScript>, ambition_encounter::EncounterScriptError>
+{
+    if behavior.encounter_script.is_empty() {
+        return Ok(None);
+    }
+    ambition_encounter::EncounterScript::prepare(
+        &behavior.encounter_script,
+        BOSS_ENCOUNTER_MEMBERS,
+        |kind| {
+            props
+                .iter()
+                .find(|prop| prop.kind == kind)
+                .map(|prop| (prop.pos, prop.size))
+        },
+    )
+    .map(Some)
+}
+
 /// Ensure every *active* boss in the room is wrapped by an encounter entity.
 ///
 /// A boss that has woken (left `Dormant`) and is not in any encounter gets a
@@ -95,7 +128,14 @@ pub fn sync_boss_encounter_entities(
         With<FeatureSimEntity>,
     >,
     encounters: Query<(&Encounter, &EncounterParticipants, &EncounterLifecycle)>,
+    // The room the fight is in: a script's places are its props.
+    rooms: Option<
+        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+            ambition_platformer2d_world::rooms::RoomSet,
+        >,
+    >,
 ) {
+    let props = rooms.as_ref().map_or(&[][..], |rooms| rooms.active_props());
     // Coverage by cached entity and by durable id: a snapshot restore clears
     // the entity caches (an Entity is never serialized), and re-wrapping an
     // already-wrapped boss after a restore would fork the timeline.
@@ -201,10 +241,18 @@ pub fn sync_boss_encounter_entities(
         );
         // The boss's authored beats begin with its fight. A boss with none
         // gets no script: script music is released only while none is live.
-        if !config.behavior.encounter_script.is_empty() {
-            wrap.insert(ambition_encounter::EncounterScript::new(
-                config.behavior.encounter_script.clone(),
-            ));
+        match prepare_boss_encounter_script(&config.behavior, props) {
+            Ok(Some(script)) => {
+                wrap.insert(script);
+            }
+            Ok(None) => {}
+            // The room preflight refuses a room whose boss script cannot be
+            // prepared, so only a boss built by a road without that preflight
+            // gets here. Its fight runs without the script and says why.
+            Err(error) => bevy::log::error!(
+                "boss `{}` fights without its encounter script: {error}",
+                config.id
+            ),
         }
         lifecycle_commands.write(EncounterCommand::new(
             config.id.clone(),

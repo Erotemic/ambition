@@ -569,6 +569,14 @@ pub enum ActorConstructionError {
         character: String,
         missing: String,
     },
+    /// A boss's encounter script names a prop the room does not author, or a
+    /// member its encounter does not have. At run time such an effect would
+    /// do nothing and still consume its beat.
+    EncounterScriptCannotRun {
+        room: String,
+        boss: SimId,
+        error: ambition_encounter::EncounterScriptError,
+    },
 }
 
 impl std::fmt::Display for ActorConstructionError {
@@ -644,6 +652,11 @@ impl std::fmt::Display for ActorConstructionError {
                 f,
                 "`{sim_id}` names character `{character}`, which is registered but cannot build a \
                  body: {missing}"
+            ),
+            Self::EncounterScriptCannotRun { room, boss, error } => write!(
+                f,
+                "boss `{boss}` in room `{room}` has an encounter script that cannot run there: \
+                 {error}"
             ),
         }
     }
@@ -1336,17 +1349,11 @@ pub fn mount_capabilities_of(
             // itself a mount — `spawn_boss` installs no `Mountable`. Resolved
             // through the SAME pair `BossClusterScratch::new` uses, so the
             // preflight reads the profile the commit will read.
-            SpawnActorKind::Boss { brain, .. } => PlannedMountCapabilities {
+            SpawnActorKind::Boss { .. } => PlannedMountCapabilities {
                 mount_class: None,
-                pilots: ambition_boss_encounter::pattern::profile::BossBehaviorProfile::for_authored_boss(
-                    bosses,
-                    &ambition_boss_encounter::behavior::canonical_boss_id_from(
-                        &request.name,
-                        brain,
-                    ),
-                )
-                .pilotable_mount_classes
-                .clone(),
+                pilots: planned_boss_profile(parameters, bosses)
+                    .map(|profile| profile.pilotable_mount_classes)
+                    .unwrap_or_default(),
             },
         },
         //  a summoned minion names its body by STRING, and a boss casting a
@@ -1370,19 +1377,73 @@ pub fn mount_capabilities_of(
         // ids); an NPC that should ride something becomes an enemy/boss row.
         ActorConstructionParams::Placement { .. } => PlannedMountCapabilities::default(),
         ActorConstructionParams::Shrine { .. } => PlannedMountCapabilities::default(),
-        ActorConstructionParams::AuthoredBoss { authored } => PlannedMountCapabilities {
+        ActorConstructionParams::AuthoredBoss { .. } => PlannedMountCapabilities {
             mount_class: None,
-            pilots: ambition_boss_encounter::pattern::profile::BossBehaviorProfile::for_authored_boss(
-                bosses,
-                &ambition_boss_encounter::behavior::canonical_boss_id_from(
-                    &authored.name,
-                    &authored.payload,
-                ),
-            )
-            .pilotable_mount_classes
-            .clone(),
+            pilots: planned_boss_profile(parameters, bosses)
+                .map(|profile| profile.pilotable_mount_classes)
+                .unwrap_or_default(),
         },
     }
+}
+
+/// The behaviour profile a boss row will be built with, or `None` for a row
+/// that is not a boss. It is resolved by the same pair `BossClusterScratch::new`
+/// uses, so a preflight reads the profile the commit will read.
+fn planned_boss_profile(
+    parameters: &ActorConstructionParams,
+    bosses: &BossCatalog,
+) -> Option<ambition_boss_encounter::pattern::profile::BossBehaviorProfile> {
+    let (name, brain) = match parameters {
+        ActorConstructionParams::AuthoredBoss { authored } => (&authored.name, &authored.payload),
+        ActorConstructionParams::StagedActor(request) => match &request.kind {
+            SpawnActorKind::Boss { brain, .. } => (&request.name, brain),
+            _ => return None,
+        },
+        _ => return None,
+    };
+    Some(
+        ambition_boss_encounter::pattern::profile::BossBehaviorProfile::for_authored_boss(
+            bosses,
+            &ambition_boss_encounter::behavior::canonical_boss_id_from(name, brain),
+        ),
+    )
+}
+
+/// Refuse a room whose boss has an encounter script that cannot run there.
+///
+/// A script names the room's props by kind and its encounter's members by
+/// index. Both are known here, while the outgoing room is whole, so a name
+/// that is not there fails the room instead of an effect doing nothing in the
+/// fight. The encounter prepares its live script later with the same function.
+pub fn preflight_encounter_scripts(
+    room: &ambition_platformer2d_world::rooms::RoomSpec,
+    requests: &[ActorConstructionRequest],
+    bosses: &BossCatalog,
+) -> Result<(), ActorConstructionError> {
+    for request in requests {
+        // A boss built without an encounter runs no script:
+        // `sync_boss_encounter_entities` gives it no encounter to run one in.
+        if let ActorConstructionParams::StagedActor(SpawnActorRequest {
+            kind: SpawnActorKind::Boss { overrides, .. },
+            ..
+        }) = &request.parameters
+        {
+            if overrides.no_encounter {
+                continue;
+            }
+        }
+        let Some(profile) = planned_boss_profile(&request.parameters, bosses) else {
+            continue;
+        };
+        ambition_boss_encounter::prepare_boss_encounter_script(&profile, &room.props).map_err(
+            |error| ActorConstructionError::EncounterScriptCannotRun {
+                room: room.id.clone(),
+                boss: request.sim_id.clone(),
+                error,
+            },
+        )?;
+    }
+    Ok(())
 }
 
 /// What a placement can ride and be ridden as — the CHARACTER's answer, and

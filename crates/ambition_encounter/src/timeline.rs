@@ -15,6 +15,13 @@
 //! impact gate) → `ForceKill`. A script is content: beats deserialize from
 //! authored data, and a place is an authored prop of the encounter's room,
 //! named by its kind, so a script needs no position written in code.
+//!
+//! The authored script and the live script are two types. An authored beat
+//! names a prop by its kind ([`EncounterBeat`]); [`EncounterScript::prepare`]
+//! resolves each kind against the room and each member index against the
+//! encounter's members, and refuses a script that names something that is not
+//! there. So a live script holds [`EncounterPlace`]s, and the fight does not
+//! look up a prop by name or step over an effect that cannot run.
 
 use bevy::prelude::*;
 
@@ -74,8 +81,11 @@ impl EncounterTrigger {
 /// A neutral effect a beat applies (§6 — effects are requests). Member indices
 /// address [`EncounterParticipants`]; the host resolves them to entities and
 /// executes. No actor types leak into the generic crate.
+///
+/// `P` is a place. Authored, it is the kind of a prop of the room (`String`);
+/// prepared, it is that prop ([`EncounterPlace`]).
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
-pub enum EncounterEffect {
+pub enum EncounterEffect<P = String> {
     /// Force the Nth member straight to defeat (an environmental kill).
     ForceKill(usize),
     /// Show a gameplay banner for `secs` seconds.
@@ -87,7 +97,7 @@ pub enum EncounterEffect {
     /// attaches its "commanded move" override.
     CommandMoveTo {
         member: usize,
-        to_prop: String,
+        to_prop: P,
         speed: f32,
         arrive_tolerance: f32,
     },
@@ -96,7 +106,7 @@ pub enum EncounterEffect {
     /// `align_tolerance.x`, then falls under `gravity` (capped at `terminal`)
     /// and fires `EncounterGate(impact_gate)` on contact.
     DropHazard {
-        prop: String,
+        prop: P,
         gravity: f32,
         terminal: f32,
         align_tolerance: f32,
@@ -107,34 +117,167 @@ pub enum EncounterEffect {
 
 /// One scripted beat: when `when` fires, apply `then` and advance the cursor.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
-pub struct EncounterBeat {
+pub struct EncounterBeat<P = String> {
     pub when: EncounterTrigger,
-    pub then: Vec<EncounterEffect>,
+    pub then: Vec<EncounterEffect<P>>,
 }
 
-impl EncounterBeat {
-    pub fn new(when: EncounterTrigger, then: Vec<EncounterEffect>) -> Self {
+impl<P> EncounterBeat<P> {
+    pub fn new(when: EncounterTrigger, then: Vec<EncounterEffect<P>>) -> Self {
         Self { when, then }
     }
 }
 
+/// An authored prop of the encounter's room, as a prepared effect holds it.
+#[derive(Clone, Debug, PartialEq)]
+pub struct EncounterPlace {
+    /// The kind the script named, kept for diagnostics.
+    pub kind: String,
+    /// World-space centre of the prop.
+    pub pos: Vec2,
+    /// The prop's authored size.
+    pub size: Vec2,
+}
+
+/// Why an authored script cannot run in the encounter it is prepared for.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum EncounterScriptError {
+    /// A trigger or an effect names a member index the encounter does not have.
+    NoSuchMember {
+        beat: usize,
+        member: usize,
+        members: usize,
+    },
+    /// An effect names a prop kind the room does not author.
+    NoSuchProp { beat: usize, kind: String },
+}
+
+impl std::fmt::Display for EncounterScriptError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::NoSuchMember {
+                beat,
+                member,
+                members,
+            } => write!(
+                f,
+                "beat {beat} names member {member}, and the encounter has {members} member(s)"
+            ),
+            Self::NoSuchProp { beat, kind } => write!(
+                f,
+                "beat {beat} names the prop `{kind}`, which the room does not author"
+            ),
+        }
+    }
+}
+
+impl std::error::Error for EncounterScriptError {}
+
 /// An ordered beat sequence attached to an encounter entity. Advances one beat
 /// per fired trigger; inert once the cursor passes the last beat.
+///
+/// Its beats are prepared ([`Self::prepare`]), so every effect it yields can
+/// run in the encounter that carries it.
 #[derive(Component, Clone, Debug, Default)]
 pub struct EncounterScript {
-    pub beats: Vec<EncounterBeat>,
+    pub beats: Vec<EncounterBeat<EncounterPlace>>,
     cursor: usize,
     /// Seconds in the current beat (for `Timer`).
     elapsed: f32,
 }
 
 impl EncounterScript {
-    pub fn new(beats: Vec<EncounterBeat>) -> Self {
+    pub fn new(beats: Vec<EncounterBeat<EncounterPlace>>) -> Self {
         Self {
             beats,
             cursor: 0,
             elapsed: 0.0,
         }
+    }
+
+    /// Prepare an authored script for an encounter with `members` members in a
+    /// room whose props `place` finds by kind (centre and size).
+    ///
+    /// Every member index and every prop the script names is checked here, so
+    /// a script that names something the encounter or the room does not have
+    /// is refused before the encounter exists. A refused effect at run time
+    /// would still consume its beat, and the fight would continue from a beat
+    /// whose precondition never happened.
+    pub fn prepare(
+        authored: &[EncounterBeat],
+        members: usize,
+        place: impl Fn(&str) -> Option<(Vec2, Vec2)>,
+    ) -> Result<Self, EncounterScriptError> {
+        let mut beats = Vec::with_capacity(authored.len());
+        for (index, beat) in authored.iter().enumerate() {
+            let member_of = |member: usize| {
+                if member < members {
+                    Ok(member)
+                } else {
+                    Err(EncounterScriptError::NoSuchMember {
+                        beat: index,
+                        member,
+                        members,
+                    })
+                }
+            };
+            let place_of = |kind: &String| {
+                place(kind)
+                    .map(|(pos, size)| EncounterPlace {
+                        kind: kind.clone(),
+                        pos,
+                        size,
+                    })
+                    .ok_or_else(|| EncounterScriptError::NoSuchProp {
+                        beat: index,
+                        kind: kind.clone(),
+                    })
+            };
+            if let EncounterTrigger::MemberDied(member) = beat.when {
+                member_of(member)?;
+            }
+            let mut then = Vec::with_capacity(beat.then.len());
+            for effect in &beat.then {
+                then.push(match effect {
+                    EncounterEffect::ForceKill(member) => {
+                        EncounterEffect::ForceKill(member_of(*member)?)
+                    }
+                    EncounterEffect::Banner { text, secs } => EncounterEffect::Banner {
+                        text: text.clone(),
+                        secs: *secs,
+                    },
+                    EncounterEffect::SetMusic(track) => EncounterEffect::SetMusic(track.clone()),
+                    EncounterEffect::CommandMoveTo {
+                        member,
+                        to_prop,
+                        speed,
+                        arrive_tolerance,
+                    } => EncounterEffect::CommandMoveTo {
+                        member: member_of(*member)?,
+                        to_prop: place_of(to_prop)?,
+                        speed: *speed,
+                        arrive_tolerance: *arrive_tolerance,
+                    },
+                    EncounterEffect::DropHazard {
+                        prop,
+                        gravity,
+                        terminal,
+                        align_tolerance,
+                        target_member,
+                        impact_gate,
+                    } => EncounterEffect::DropHazard {
+                        prop: place_of(prop)?,
+                        gravity: *gravity,
+                        terminal: *terminal,
+                        align_tolerance: *align_tolerance,
+                        target_member: member_of(*target_member)?,
+                        impact_gate: impact_gate.clone(),
+                    },
+                });
+            }
+            beats.push(EncounterBeat::new(beat.when.clone(), then));
+        }
+        Ok(Self::new(beats))
     }
 
     /// True once every beat has fired.
@@ -172,7 +315,7 @@ impl EncounterScript {
         dt: f32,
         participants: &EncounterParticipants,
         fired: &[String],
-    ) -> Vec<EncounterEffect> {
+    ) -> Vec<EncounterEffect<EncounterPlace>> {
         if self.done() {
             return Vec::new();
         }
@@ -238,5 +381,94 @@ mod tests {
         )]);
         assert!(all_dead.advance(0.1, &one_member(true), &[]).is_empty());
         assert!(!all_dead.advance(0.1, &one_member(false), &[]).is_empty());
+    }
+
+    fn lure_and_drop(member: usize, prop: &str) -> Vec<EncounterBeat> {
+        vec![
+            EncounterBeat::new(
+                EncounterTrigger::Gate("rope_cut".into()),
+                vec![
+                    EncounterEffect::CommandMoveTo {
+                        member,
+                        to_prop: prop.into(),
+                        speed: 150.0,
+                        arrive_tolerance: 42.0,
+                    },
+                    EncounterEffect::DropHazard {
+                        prop: prop.into(),
+                        gravity: 1400.0,
+                        terminal: 920.0,
+                        align_tolerance: 42.0,
+                        target_member: member,
+                        impact_gate: "impact".into(),
+                    },
+                ],
+            ),
+            EncounterBeat::new(
+                EncounterTrigger::Gate("impact".into()),
+                vec![EncounterEffect::ForceKill(member)],
+            ),
+        ]
+    }
+
+    fn anvil_room(kind: &str) -> Option<(Vec2, Vec2)> {
+        (kind == "anvil").then_some((Vec2::new(300.0, 80.0), Vec2::new(40.0, 30.0)))
+    }
+
+    /// A prepared effect holds the prop the room authors, so the effect the
+    /// fight yields carries the place and no name to look up.
+    #[test]
+    fn a_prepared_script_holds_the_props_it_names() {
+        let mut script = EncounterScript::prepare(&lure_and_drop(0, "anvil"), 1, anvil_room)
+            .expect("every name resolves");
+        let effects = script.advance(0.0, &one_member(true), &["rope_cut".to_string()]);
+        let anvil = EncounterPlace {
+            kind: "anvil".into(),
+            pos: Vec2::new(300.0, 80.0),
+            size: Vec2::new(40.0, 30.0),
+        };
+        assert!(matches!(
+            &effects[0],
+            EncounterEffect::CommandMoveTo { to_prop, .. } if *to_prop == anvil
+        ));
+        assert!(matches!(
+            &effects[1],
+            EncounterEffect::DropHazard { prop, .. } if *prop == anvil
+        ));
+    }
+
+    /// A prop the room does not author and a member the encounter does not
+    /// have are refused before a script exists, each at the beat that names it.
+    #[test]
+    fn a_script_that_names_what_is_not_there_is_refused() {
+        assert_eq!(
+            EncounterScript::prepare(&lure_and_drop(0, "piano"), 1, anvil_room).unwrap_err(),
+            EncounterScriptError::NoSuchProp {
+                beat: 0,
+                kind: "piano".into()
+            }
+        );
+        assert_eq!(
+            EncounterScript::prepare(&lure_and_drop(1, "anvil"), 1, anvil_room).unwrap_err(),
+            EncounterScriptError::NoSuchMember {
+                beat: 0,
+                member: 1,
+                members: 1
+            }
+        );
+        // A trigger names a member too. `MemberDied` of a member that does not
+        // exist holds at once, so it would fire its beat on the first tick.
+        let died = [EncounterBeat::new(
+            EncounterTrigger::MemberDied(2),
+            vec![EncounterEffect::SetMusic(None)],
+        )];
+        assert_eq!(
+            EncounterScript::prepare(&died, 2, anvil_room).unwrap_err(),
+            EncounterScriptError::NoSuchMember {
+                beat: 0,
+                member: 2,
+                members: 2
+            }
+        );
     }
 }

@@ -49,7 +49,8 @@ pub use spec::{
 };
 pub use staging::{EncounterCameraZoom, EncounterLockWall, EncounterTrack};
 pub use timeline::{
-    EncounterBeat, EncounterEffect, EncounterGate, EncounterScript, EncounterTrigger,
+    EncounterBeat, EncounterEffect, EncounterGate, EncounterPlace, EncounterScript,
+    EncounterScriptError, EncounterTrigger,
 };
 pub use waves::{
     active_encounter_camera_zoom, EncounterRun, EncounterWaves, ENCOUNTER_INTER_WAVE_DELAY_SECONDS,

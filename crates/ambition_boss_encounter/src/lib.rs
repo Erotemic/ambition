@@ -65,8 +65,9 @@ pub use clusters::{
     BossEncounter, BossMut, BossOverrides, BossRef,
 };
 pub use encounter_entity::{
-    release_payloads_on_death, sync_boss_encounter_entities, update_encounter_progress,
-    EncounterDef, EncounterProgress, MemberProgress, PayloadReleased, ReleaseOnDeath,
+    prepare_boss_encounter_script, release_payloads_on_death, sync_boss_encounter_entities,
+    update_encounter_progress, EncounterDef, EncounterProgress, MemberProgress, PayloadReleased,
+    ReleaseOnDeath, BOSS_ENCOUNTER_MEMBERS,
 };
 pub use encounter_script::{
     drop_hazard, tick_commanded_moves, tick_encounter_scripts, tick_falling_hazards, CommandedMove,
@@ -76,7 +77,8 @@ pub use encounter_script::{
 // timeline authority); re-exported so boss content and the schedule import it
 // through `boss_encounter`.
 pub use ambition_encounter::{
-    EncounterBeat, EncounterEffect, EncounterGate, EncounterScript, EncounterTrigger,
+    EncounterBeat, EncounterEffect, EncounterGate, EncounterPlace, EncounterScript,
+    EncounterScriptError, EncounterTrigger,
 };
 pub use profile::{default_boss_profiles, BossProfile, BossRewardProfile};
 pub use registry::BossEncounterRegistry;

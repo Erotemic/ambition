@@ -279,7 +279,7 @@ def test_the_measure_still_sees_a_bare_imported_name() -> None:
 
     ⇒ Pin one edge that exists ONLY in the bare spelling.
     `game/ambition_content/src/portal/plugin.rs` writes
-    `.before(portal_teleport_ground_items)` against a name imported from
+    `.after(publish_portal_carves)` against a name imported from
     `ambition_portal2d`; there is no `::` in that call, so a census that cannot
     resolve the file's `use` tree cannot see it.
     """
@@ -291,11 +291,11 @@ def test_the_measure_still_sees_a_bare_imported_name() -> None:
     }
     bare = (
         "ambition_content",
-        "ambition_portal2d::portal_teleport_ground_items",
+        "ambition_portal2d::publish_portal_carves",
         "game/ambition_content/src/portal/plugin.rs",
     )
     assert bare in rows, (
-        "the measure no longer sees `.before(portal_teleport_ground_items)` — a foreign "
+        "the measure no longer sees `.after(publish_portal_carves)` — a foreign "
         "ordering written through a bare `use` import. Either alias resolution "
         "regressed and the census is back to counting one import style, or that "
         "edge was genuinely repaired, in which case repoint this control at "

@@ -202,12 +202,6 @@ pub fn register_engine_rollback_state(registrar: &mut impl RollbackRegistrar) {
 
     // These values are guaranteed to be republished before any downstream
     // consumer in each GGRS frame, so storing them would duplicate authority.
-    // A per-tick MIRROR of the item's own body, not a second authority:
-    // `sync_ground_items_to_transitable` overwrites pos/vel/half_extent from the
-    // authoritative `GroundItem` (registered state) before portal core reads it, and
-    // `sync_transitable_to_ground_items` mirrors the possibly-teleported result
-    // straight back. Snapshotting it would give one body two restorable positions.
-    //
     //  this DECLARED-DERIVED group lost its actor-owned head to
     // `ambition_platformer2d_actor_monolith::register_rollback_state`; the rest belongs to
     // `ambition_characters`.

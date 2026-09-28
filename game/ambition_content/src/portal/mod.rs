@@ -21,7 +21,6 @@ mod plugin;
 mod reset_adapter;
 mod sfx_adapter;
 mod shot_adapter;
-mod transit_adapter;
 mod reorient_setting;
 
 pub use ability_adapter::{
@@ -37,7 +36,6 @@ pub use plugin::{register_rollback_state, AmbitionPortalAdaptersPlugin};
 pub use reset_adapter::bridge_room_reset_to_clear_portals;
 pub use sfx_adapter::play_portal_sfx;
 pub use shot_adapter::portal_projectile_step;
-pub use transit_adapter::{sync_ground_items_to_transitable, sync_transitable_to_ground_items};
 
 #[cfg(test)]
 mod tests;

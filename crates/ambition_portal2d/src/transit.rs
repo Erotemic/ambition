@@ -346,29 +346,32 @@ pub struct PortalEmission {
     pub timer: f32,
 }
 
-/// A free in-flight body that travels through portal pairs (thrown axes,
-/// javelins, other projectiles). It carries only the kinematics
-/// [`portal_teleport_ground_items`] uses, so portal core never names the
-/// Ambition `GroundItem`. The host portal adapter attaches it and syncs it each
-/// frame. Resting bodies (`vel == ZERO`) are ignored.
-#[derive(Component, Clone, Copy, Debug)]
-pub struct PortalTransitable {
-    /// Authoritative world position of the body's center.
-    pub pos: Vec2,
-    /// Current velocity; `ZERO` means "resting", which never transits.
-    pub vel: Vec2,
-    /// Half-extent (AABB) used for the portal overlap test and exit clearance.
-    pub half_extent: Vec2,
+/// A free in-flight body that travels through portal pairs: a thrown axe, a
+/// javelin. Its owner implements this on the component that IS the body, so
+/// portal core moves the body itself and never names the owner's type or
+/// holds a copy of it. A resting body (`vel == ZERO`) never transits.
+pub trait FreePortalBody: Component<Mutability = bevy::ecs::component::Mutable> {
+    /// World position of the body's centre.
+    fn pos(&self) -> Vec2;
+    /// Current velocity. `ZERO` means resting.
+    fn vel(&self) -> Vec2;
+    /// Half-extent of the body's box, for the portal overlap test and the exit
+    /// clearance.
+    fn half_extent(&self) -> Vec2;
+    /// Put the body where the exit portal sends it.
+    fn emerge(&mut self, pos: Vec2, vel: Vec2);
 }
 
-/// Moving [`PortalTransitable`] bodies travel through every placed portal
-/// pair (gun-fired, authored, or link-authored), keeping momentum through the
-/// rotation. A body must move into the face (`vel · normal < 0`) to transit.
-/// A teleported body is placed clear of the exit portal so it does not
-/// re-enter at once.
-pub fn portal_teleport_ground_items(
+/// Moving `B` bodies travel through every placed portal pair (gun-fired,
+/// authored, or link-authored), keeping momentum through the rotation. A body
+/// must move into the face (`vel · normal < 0`) to transit. A teleported body
+/// is placed clear of the exit portal so it does not re-enter at once.
+///
+/// A composition that has both portals and the body type registers
+/// `portal_teleport_free_bodies::<B>` in [`crate::PortalSet::Transit`].
+pub fn portal_teleport_free_bodies<B: FreePortalBody>(
     portals: Query<&PlacedPortal>,
-    mut items: Query<&mut PortalTransitable>,
+    mut bodies: Query<&mut B>,
     // The session's map convention, from the resource that owns it.
     tuning: Res<crate::tuning::PortalTuning>,
 ) {
@@ -380,23 +383,23 @@ pub fn portal_teleport_ground_items(
     if all.is_empty() {
         return;
     }
-    for mut item in &mut items {
-        if item.vel == Vec2::ZERO {
+    for mut body in &mut bodies {
+        let (pos, vel, half_extent) = (body.pos(), body.vel(), body.half_extent());
+        if vel == Vec2::ZERO {
             continue;
         }
-        let item_aabb = ae::Aabb::new(item.pos, item.half_extent);
+        let body_aabb = ae::Aabb::new(pos, half_extent);
         for enter in &all {
             let Some(exit) = find_portal(&all, enter.channel.partner()) else {
                 continue;
             };
-            if item.vel.dot(enter.normal) < 0.0
-                && item_aabb.strict_intersects(ae::Aabb::new(enter.pos, enter.half_extent))
+            if vel.dot(enter.normal) < 0.0
+                && body_aabb.strict_intersects(ae::Aabb::new(enter.pos, enter.half_extent))
             {
                 // Rotation preserves speed, so momentum carries through.
-                item.vel =
-                    portal_transform_velocity(item.vel, enter.normal, exit.normal, convention);
-                let clearance = portal_exit_clearance(item.half_extent, exit.normal);
-                item.pos = exit.pos + exit.normal * clearance;
+                let exit_vel = portal_transform_velocity(vel, enter.normal, exit.normal, convention);
+                let clearance = portal_exit_clearance(half_extent, exit.normal);
+                body.emerge(exit.pos + exit.normal * clearance, exit_vel);
                 break;
             }
         }

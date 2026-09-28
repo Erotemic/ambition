@@ -66,9 +66,9 @@ pub use placement::{
     transit_step, transit_step_with_tuning, SweptSample, TransitStep,
 };
 pub use transit::{
-    portal_teleport_ground_items, portal_transit, publish_portal_carves, reconcile_transited_bodies,
-    tick_portal_cooldowns, BodyTeleported, PortalBodyTransited, PortalCarves, PortalEmission, PortalInputWarp,
-    PortalTransit, PortalTransitable,
+    portal_teleport_free_bodies, portal_transit, publish_portal_carves, reconcile_transited_bodies,
+    tick_portal_cooldowns, BodyTeleported, FreePortalBody, PortalBodyTransited, PortalCarves,
+    PortalEmission, PortalInputWarp, PortalTransit,
 };
 pub use tuning::{
     propose_editable_portal_tuning, publish_editable_portal_tuning, EditablePortalTuning,

@@ -284,6 +284,25 @@ pub struct GroundItem {
     pub half_extent: Vec2,
 }
 
+/// A thrown item is a free body that travels through portal pairs, moved
+/// in place: its own `pos` and `vel` are the body portal core reads and writes.
+#[cfg(feature = "portal")]
+impl ambition_portal2d::FreePortalBody for GroundItem {
+    fn pos(&self) -> Vec2 {
+        self.pos
+    }
+    fn vel(&self) -> Vec2 {
+        self.vel
+    }
+    fn half_extent(&self) -> Vec2 {
+        self.half_extent
+    }
+    fn emerge(&mut self, pos: Vec2, vel: Vec2) {
+        self.pos = pos;
+        self.vel = vel;
+    }
+}
+
 impl GroundItem {
     /// An occurrence that arrives AT REST.
     ///

@@ -21,7 +21,6 @@ pub fn summon(effects: &mut MessageWriter<ambition_vfx::EffectRequest>, god: Ent
             owner: god,
             effect: ambition_vfx::Effect::Summon(ambition_vfx::SummonSpec {
                 id: format!("fsm_noodling:{serial}:{i}"),
-                name: "Noodling".to_string(),
                 pos: Vec2::new(x, at.y),
                 half_size: NOODLING_HALF,
                 character_id: NOODLING.to_string(),

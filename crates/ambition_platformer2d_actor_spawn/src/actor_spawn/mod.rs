@@ -1306,7 +1306,6 @@ pub fn spawn_runtime_minion(
     prepared: &ambition_characters::prepared::PreparedCharacterRegistry,
     session_scope: SessionSpawnScope,
     id: impl Into<String>,
-    name: impl Into<String>,
     world_pos: ae::Vec2,
     half_size: ae::Vec2,
     character_id: &str,
@@ -1325,7 +1324,6 @@ pub fn spawn_runtime_minion(
         authored_sheets,
         prepared,
         id,
-        name,
         world_pos,
         half_size,
         character_id,
@@ -1347,7 +1345,6 @@ pub fn spawn_runtime_minion_into(
     authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
     prepared: &ambition_characters::prepared::PreparedCharacterRegistry,
     id: impl Into<String>,
-    name: impl Into<String>,
     world_pos: ae::Vec2,
     half_size: ae::Vec2,
     character_id: &str,
@@ -1361,7 +1358,6 @@ pub fn spawn_runtime_minion_into(
     keeps_contact_damage: bool,
 ) {
     let id = id.into();
-    let name = name.into();
     let encounter_id = encounter_id.into();
     let aabb = ae::Aabb::new(world_pos, half_size);
     let brain = ambition_entity_catalog::placements::CharacterBrain::Custom(character_id.into());
@@ -1391,6 +1387,11 @@ pub fn spawn_runtime_minion_into(
     //
     // ⚠ TAKEN BEFORE `body` IS MOVED into the seed below.
     let mount_role = body.mount.cloned();
+    // A summon has no authored occurrence to name it, so its names are its
+    // character's. A caller that stated one would keep a copy of a prepared
+    // fact, and the copy did not agree ("Slop Lurker" for the character "Ai
+    // Slop").
+    let name = body.display_name.to_string();
     let mut enemy = ambition_body_seed::ActorClusterSeed::new_character_in(
         authored_sheets,
         catalog,

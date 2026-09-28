@@ -551,7 +551,6 @@ pub fn spawn_minima_trap_from_special_messages(
                 owner: entity,
                 effect: ambition_vfx::Effect::Summon(ambition_vfx::SummonSpec {
                     id: minion_id,
-                    name: "Puppy Slug".to_string(),
                     pos: minion_pos,
                     half_size: MINIMA_TRAP_MINION_HALF_SIZE,
                     character_id: MINIMA_TRAP_MINION_CHARACTER.to_string(),
@@ -797,7 +796,6 @@ pub fn spawn_gradient_cascade_minions_from_special_messages(
                 owner: entity,
                 effect: ambition_vfx::Effect::Summon(ambition_vfx::SummonSpec {
                     id: minion_id,
-                    name: "Slop Lurker".to_string(),
                     pos: spawn_pos,
                     half_size: GRADIENT_CASCADE_MINION_HALF_SIZE,
                     character_id: GRADIENT_CASCADE_MINION_CHARACTER.to_string(),

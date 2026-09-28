@@ -287,7 +287,6 @@ pub(super) fn spawn_split_offspring(
             cast,
             session_scope,
             format!("{parent_id}:split{i}"),
-            "Divided cell",
             pos + ae::Vec2::new(side * SPLIT_OFFSET_X, 0.0),
             SPLIT_OFFSPRING_HALF,
             offspring,

@@ -203,7 +203,6 @@ pub struct SummonedMinionParams {
     /// encounter bookkeeping) join on. Distinct from the row's `SimId`, which
     /// is the summoner-relative spawned identity.
     pub feature_id: String,
-    pub name: String,
     pub pos: ambition_platformer2d_core::Vec2,
     pub half_size: ambition_platformer2d_core::Vec2,
     pub character_id: String,
@@ -742,7 +741,6 @@ fn construct_summoned_minion(
         &services.context.sheets,
         &services.context.prepared,
         minion.feature_id.clone(),
-        minion.name.clone(),
         minion.pos,
         minion.half_size,
         &minion.character_id,

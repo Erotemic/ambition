@@ -173,7 +173,6 @@ pub fn apply_summon_effects(
                 health: s.health,
                 keeps_contact_damage: s.keeps_contact_damage,
                 feature_id: s.id.clone(),
-                name: s.name.clone(),
                 pos: s.pos,
                 half_size: s.half_size,
                 character_id: s.character_id.clone(),

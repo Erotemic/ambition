@@ -102,7 +102,6 @@ pub struct DamageBoxEffect {
 /// without a shared spawn counter. Executed lib-side (the enemy roster).
 pub struct SummonSpec {
     pub id: String,
-    pub name: String,
     pub pos: ae::Vec2,
     pub half_size: ae::Vec2,
     pub character_id: String,

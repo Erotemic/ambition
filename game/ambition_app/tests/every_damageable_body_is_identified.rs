@@ -566,7 +566,6 @@ fn the_summon_road_builds_an_identified_minion() {
             effect: ambition_platformer2d::vfx::Effect::Summon(
                 ambition_platformer2d::vfx::SummonSpec {
                     id: "census_summon".to_string(),
-                    name: "Census Summon".to_string(),
                     pos: Vec2::new(300.0, 200.0),
                     half_size: Vec2::new(12.0, 12.0),
                     character_id: "npc_burning_flying_shark".to_string(),
@@ -641,7 +640,6 @@ fn a_summoned_minion_wears_its_character_and_keeps_its_summoned_health() {
             effect: ambition_platformer2d::vfx::Effect::Summon(
                 ambition_platformer2d::vfx::SummonSpec {
                     id: "worn_summon".to_string(),
-                    name: "Worn Summon".to_string(),
                     pos: Vec2::new(300.0, 200.0),
                     half_size: Vec2::new(12.0, 12.0),
                     character_id: "npc_burning_flying_shark".to_string(),

@@ -135,7 +135,6 @@ pub fn translate_shark_summons(
                     // The id suffix comes from the summoner's sequence counter,
                     // so two sharks from one pirate are two bodies.
                     id: SUMMON_SHARK_ID.to_string(),
-                    name: "Burning Flying Shark".to_string(),
                     pos: kin.pos,
                     half_size: ae::Vec2::new(params.half_extents.0, params.half_extents.1),
                     character_id: params.character_id.clone(),

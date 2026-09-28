@@ -627,7 +627,6 @@ fn a_summoned_minion_is_planned_as_a_dynamic_child_of_its_summoner() {
             // A boss minion keeps its character's hazard.
             keeps_contact_damage: true,
             feature_id: "slop_add".into(),
-            name: "slop".into(),
             pos: ae::Vec2::ZERO,
             half_size: ae::Vec2::splat(8.0),
             character_id: "puppy_slug".into(),
@@ -673,7 +672,6 @@ fn two_summons_from_one_summoner_do_not_collide() {
         // A boss minion keeps its character's hazard.
         keeps_contact_damage: true,
         feature_id: "slop_add".into(),
-        name: "slop".into(),
         pos: ae::Vec2::ZERO,
         half_size: ae::Vec2::splat(8.0),
         character_id: "puppy_slug".into(),
@@ -712,7 +710,6 @@ fn a_summon_under_an_unknown_summoner_is_rejected() {
                 // A boss minion keeps its character's hazard.
                 keeps_contact_damage: true,
                 feature_id: "slop_add".into(),
-                name: "slop".into(),
                 pos: ae::Vec2::ZERO,
                 half_size: ae::Vec2::splat(8.0),
                 character_id: "puppy_slug".into(),
@@ -815,7 +812,6 @@ fn summon_world() -> World {
 fn summon_spec(id: &str) -> ambition_vfx::SummonSpec {
     ambition_vfx::SummonSpec {
         id: id.to_string(),
-        name: "slop".into(),
         pos: ae::Vec2::ZERO,
         half_size: ae::Vec2::splat(8.0),
         character_id: "puppy_slug".into(),
@@ -1102,7 +1098,6 @@ fn every_parameter_variant_constructs_its_root() {
                 // A boss minion keeps its character's hazard.
                 keeps_contact_damage: true,
                 feature_id: "slop".into(),
-                name: "slop".into(),
                 pos: ae::Vec2::ZERO,
                 half_size: ae::Vec2::splat(8.0),
                 character_id: "puppy_slug".into(),
@@ -1157,6 +1152,81 @@ fn every_parameter_variant_constructs_its_root() {
     assert_eq!(
         in_world, planned,
         "all three variants built exactly their planned roots"
+    );
+}
+
+/// A summon states no name, so both of its names are its character's.
+///
+/// Every summoner used to restate the name beside the character id, and one
+/// copy disagreed ("Slop Lurker" for the character "Ai Slop"). The fixture
+/// cast's display name is the character id, and the feature id is a
+/// different string, so a body named from either the request or its id
+/// fails here.
+#[test]
+fn a_summoned_minion_takes_its_characters_name() {
+    let recipes = engine_construction_registry();
+    let summoner = SimId::placement("boss_1");
+    let request = summoned_minion_request(
+        &summoner,
+        0,
+        SummonedMinionParams {
+            health: None,
+            keeps_contact_damage: true,
+            feature_id: "slop_add".into(),
+            pos: ae::Vec2::ZERO,
+            half_size: ae::Vec2::splat(8.0),
+            character_id: "puppy_slug".into(),
+            encounter_id: "enc".into(),
+            faction: ambition_combat::components::ActorFaction::Enemy,
+        },
+    );
+    let live: std::collections::BTreeSet<SimId> = [summoner.clone()].into_iter().collect();
+    let plan = ConstructionPlan::<ActorConstruction>::prepare(
+        ConstructionScope::in_generation(ambition_platformer2d_shared_tangle::construction::ContentBinding::RuntimeDynamic, None),
+        vec![request],
+        &live,
+        &recipes,
+    )
+    .expect("the summon plans");
+
+    let mut world = World::new();
+    let services = ActorConstructionServices {
+        context: crate::construction::placements::ActorPlacementContext::new(
+            &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
+            &Default::default(),
+        )
+        .with_prepared(fixture_cast()),
+        boss_catalog: ambition_boss_encounter::test_boss_catalog().clone(),
+    };
+    {
+        let mut commands = world.commands();
+        let scope = plan.scope().clone();
+        let mut ctx = ambition_platformer2d_shared_tangle::construction::ConstructionExecCtx {
+            commands: &mut commands,
+            scope: &scope,
+            session: SessionSpawnScope::UNSCOPED,
+            services: &services,
+            facts: &crate::construction::PersistedFates::unrecorded(),
+        };
+        plan.commit(&mut ctx);
+    }
+    world.flush();
+
+    let minion = SimId::spawned(&summoner, 0);
+    let (feature_name, identity) = world
+        .query::<(
+            &SimId,
+            &ambition_combat::components::FeatureName,
+            &ambition_combat::components::ActorIdentity,
+        )>()
+        .iter(&world)
+        .find(|(id, ..)| **id == minion)
+        .map(|(_, feature_name, identity)| (feature_name.0.clone(), identity.name.clone()))
+        .expect("the summon was built with both names");
+    assert_eq!(identity, "puppy_slug", "the body's identity is its character's");
+    assert_eq!(
+        feature_name, identity,
+        "the feature name is a second copy that disagrees with the character"
     );
 }
 
@@ -1344,7 +1414,6 @@ fn every_parameter_variant_matches_its_descriptor() {
             // A boss minion keeps its character's hazard.
             keeps_contact_damage: true,
             feature_id: "slop".into(),
-            name: "slop".into(),
             pos: ae::Vec2::ZERO,
             half_size: ae::Vec2::splat(8.0),
             character_id: "puppy_slug".into(),
@@ -2005,7 +2074,6 @@ fn minion_request(id: &str, archetype: &str) -> ActorConstructionRequest {
             // A boss minion keeps its character's hazard.
             keeps_contact_damage: true,
             feature_id: id.to_string(),
-            name: id.to_string(),
             pos: ae::Vec2::ZERO,
             half_size: ae::Vec2::splat(10.0),
             character_id: archetype.to_string(),
@@ -2593,7 +2661,6 @@ fn a_runtime_minion_giant_is_refused_before_it_spawns() {
             fixture_cast(),
             SessionSpawnScope::UNSCOPED,
             "runaway",
-            "Giant GNU",
             ae::Vec2::ZERO,
             ae::Vec2::splat(60.0),
             "fixture_giant",

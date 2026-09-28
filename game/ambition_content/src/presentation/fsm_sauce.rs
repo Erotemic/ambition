@@ -22,7 +22,7 @@ use bevy::{
 };
 
 use ambition_platformer2d_shared_tangle::lifecycle::{SessionScopedEntity, SessionSpawnScope, SpawnSessionScopedExt};
-use ambition_render::rendering::{ActorOverlaySet, FeatureVisual, RoomVisual};
+use ambition_render::rendering::{BossOverlaySet, FeatureVisual, RoomVisual};
 use ambition_sprite_sheet::boss::{BossAnimator, BossDrawnCell};
 
 /// The companion layer this draws.
@@ -43,7 +43,7 @@ pub fn install(app: &mut App) {
         Update,
         (attach_sauce_overlays, sync_sauce_overlays, cleanup_sauce_overlays)
             .chain()
-            .in_set(ActorOverlaySet),
+            .in_set(BossOverlaySet),
     );
 }
 

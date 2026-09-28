@@ -159,6 +159,14 @@ pub use world::{
 #[derive(bevy::prelude::SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ActorOverlaySet;
 
+/// The seam for content-owned overlays that draw over a boss's drawn cell
+/// (`BossDrawnCell`), for example a companion sheet layer. The set runs after
+/// [`BossAnimation`], which writes this frame's cell, so an overlay draws the
+/// same cell as the boss. [`ActorOverlaySet`] runs before the boss animator
+/// and cannot give this order. The set has the same session gate.
+#[derive(bevy::prelude::SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct BossOverlaySet;
+
 /// Presentation systems below use session-created resources and entities.
 /// During startup, loading, and the launcher there is no gameplay session, so
 /// the per-frame presentation graph stays dormant.
@@ -391,6 +399,15 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                 )
                 .run_if(session_presentation_is_ready),
         );
+        app.configure_sets(
+            Update,
+            BossOverlaySet
+                .after(BossAnimation)
+                .in_set(
+                    ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::PresentationVisualSync,
+                )
+                .run_if(session_presentation_is_ready),
+        );
         // `ActorAnimIndex` is rebuilt sim-side (`FeatureViewSyncSchedulePlugin`,
         // in the FeatureViewSync tail this chain runs after). Presentation only
         // consumes it.
@@ -502,6 +519,57 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
 #[cfg(test)]
 mod schedule_tests {
     use super::*;
+
+    /// A boss overlay reads the cell the boss animator chose THIS frame.
+    ///
+    /// The probe in [`BossAnimation`] writes the frame number as the cell; the
+    /// probe in [`BossOverlaySet`] records the frame and the cell it reads. An overlay that ran
+    /// before the animator would read the frame before.
+    #[test]
+    fn a_boss_overlay_reads_the_cell_chosen_this_frame() {
+        use bevy::prelude::{App, IntoScheduleConfigs, Res, ResMut, Resource, Update};
+
+        #[derive(Resource, Default)]
+        struct Frame(u32);
+        #[derive(Resource, Default)]
+        struct DrawnCell(u32);
+        #[derive(Resource, Default)]
+        struct OverlayCell(Vec<(u32, u32)>);
+
+        let mut app = App::new();
+        app.add_plugins((bevy::MinimalPlugins, bevy::asset::AssetPlugin::default()));
+        app.add_plugins(PresentationVisualAnimationPlugin);
+        // The chain's own systems need a session's resources, which this app
+        // has none of. They are skipped; the two probes are what this reads.
+        app.set_error_handler(bevy::ecs::error::ignore);
+        app.init_resource::<Frame>()
+            .init_resource::<DrawnCell>()
+            .init_resource::<OverlayCell>();
+        app.world_mut()
+            .spawn(ambition_platformer2d_shared_tangle::lifecycle::SessionRoot(
+                ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId(1),
+            ));
+        app.add_systems(bevy::prelude::First, |mut frame: ResMut<Frame>| frame.0 += 1);
+        app.add_systems(
+            Update,
+            (|frame: Res<Frame>, mut cell: ResMut<DrawnCell>| cell.0 = frame.0).in_set(BossAnimation),
+        );
+        app.add_systems(
+            Update,
+            (|frame: Res<Frame>, cell: Res<DrawnCell>, mut seen: ResMut<OverlayCell>| {
+                seen.0.push((frame.0, cell.0));
+            })
+            .in_set(BossOverlaySet),
+        );
+        for _ in 0..3 {
+            app.update();
+        }
+        assert_eq!(
+            app.world().resource::<OverlayCell>().0,
+            [(1, 1), (2, 2), (3, 3)],
+            "the overlay read a cell the boss animator had not chosen this frame"
+        );
+    }
 
     /// The room's visuals must be spawned inside the ordered visual chain, not
     /// unordered in `Update`.

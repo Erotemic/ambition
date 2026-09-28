@@ -1,0 +1,42 @@
+// Mary-O's SFX. Every entry is both an AUTHORIZATION and a voice: under
+// provider-relative audio a session plays only the cues its own provider
+// declares, so a cue that is emitted but not listed here is gated to silence.
+// All of these are synthesized from the spec; no asset file is needed.
+//
+// Most rows voice a cue her code writes. The coin row voices one the ENGINE
+// writes for her (see `world.coin.pickup` below).
+(
+    sample_rate: 44100,
+    sfx: [
+        // Her jump. An undeclared `player.jump` is silence.
+        (cue: Some(Jump), waveform: Sine, frequency: 460.0, frequency_end: 720.0, duration: 0.085, volume: 0.22, attack: 0.003, release: 0.045, noise: 0.0),
+        // PLACEHOLDER: the brick smash. `break_bricks` emits the engine's `Hit`
+        // cue, and this is the timbre it resolves to for Mary-O: a short, noisy,
+        // falling thunk that reads as masonry giving way. The emit site names a
+        // cue, not a sound, so a better timbre changes only this row.
+        (cue: Some(Hit), waveform: Square, frequency: 190.0, frequency_end: 70.0, duration: 0.11, volume: 0.26, attack: 0.001, release: 0.075, noise: 0.65),
+        // PLACEHOLDER: the stomp. A short descending square thud on the shared
+        // `Pogo` cue, the "you bounced off something" verb a head-stomp is.
+        (cue: Some(Pogo), waveform: Square, frequency: 320.0, frequency_end: 120.0, duration: 0.09, volume: 0.24, attack: 0.001, release: 0.055, noise: 0.25),
+        // PLACEHOLDER TIMBRE: the coin ding, a fast rising chip ping (about B5
+        // up to E6). Square and noiseless so it cuts through the level theme at
+        // low volume; a coin is heard many times a minute and must not fatigue.
+        //
+        // Mary-O DOES NOT EMIT THIS. The engine's pickup loop does, because her
+        // coins are authored as `currency:1` pickups, so this row is only the
+        // AUTHORIZATION. `provider::COIN_PICKUP_SFX` pins the id to the engine's.
+        (id: Some("world.coin.pickup"), waveform: Square, frequency: 988.0, frequency_end: 1319.0, duration: 0.10, volume: 0.18, attack: 0.001, release: 0.07, noise: 0.0),
+        // Her five form changes. These synth specs are only fallbacks while the
+        // provider bank is unavailable; normal playback uses the bank's clips.
+        (id: Some("mary_o.transform.small_to_big"), waveform: Triangle, frequency: 220.0, frequency_end: 880.0, duration: 0.38, volume: 0.22, attack: 0.004, release: 0.20, noise: 0.03),
+        (id: Some("mary_o.transform.big_to_fire"), waveform: Sine, frequency: 330.0, frequency_end: 1320.0, duration: 0.52, volume: 0.22, attack: 0.006, release: 0.28, noise: 0.05),
+        (id: Some("mary_o.revert.big_to_small"), waveform: Triangle, frequency: 620.0, frequency_end: 150.0, duration: 0.34, volume: 0.21, attack: 0.002, release: 0.20, noise: 0.06),
+        (id: Some("mary_o.revert.fire_to_big"), waveform: Sine, frequency: 1040.0, frequency_end: 330.0, duration: 0.42, volume: 0.21, attack: 0.002, release: 0.25, noise: 0.08),
+        (id: Some("mary_o.revert.fire_to_small"), waveform: Saw, frequency: 880.0, frequency_end: 110.0, duration: 0.56, volume: 0.19, attack: 0.002, release: 0.34, noise: 0.10),
+        // The warp: a long DESCENDING sine slide, voiced once when a pipe
+        // transit begins and about as long as the swallow, so the sound is the
+        // trip and not a click at its start. Falling pitch reads as "going in"
+        // whichever way the tube points.
+        (id: Some("mary_o.pipe"), waveform: Sine, frequency: 880.0, frequency_end: 165.0, duration: 0.45, volume: 0.22, attack: 0.006, release: 0.18, noise: 0.04),
+    ],
+)

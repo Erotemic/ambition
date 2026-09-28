@@ -1,0 +1,26 @@
+// Mary-O's music. Declaring a track here is what AUTHORIZES her session to
+// select and play it: under provider-relative audio a session plays only the
+// tracks its own provider names, and a track nobody declared is silence
+// whoever asks for it.
+//
+// Her code claims these ids by name (`provider::MARY_O_*_MUSIC_TRACK`). A track
+// with no `asset_path` resolves `audio/music/generated/<id>/full.ogg`.
+(
+    default_track: "support_theme",
+    tracks: [
+        // The level theme.
+        (
+            id: "support_theme",
+            display_name: "Support Theme",
+            asset_path: Some("audio/music/generated/support_theme/full.ogg"),
+        ),
+        // Over her death: its own score with a `death_sting` section.
+        (id: "mary_o_you_died", display_name: "Mary O You Died", one_shot: true),
+        // The course-clear sting over the flagpole: two bars at 156 bpm, about
+        // 3.1 s, which `flag` sizes its beats against.
+        (id: "mary_o_flag_victory", display_name: "Mary O Flag Victory", one_shot: true),
+        // The star. It LOOPS while the quasar burns, and the level theme
+        // returns when the priority claim is released.
+        (id: "invincible_maryo", display_name: "Invincible Mary-O"),
+    ],
+)

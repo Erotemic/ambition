@@ -2429,7 +2429,7 @@ impl PlatformerSessionBuilder<'_, '_> {
                 // state a REAL activation generation rather than defaulting.
                 //  the cast was two lines away and not handed over.
                 // Planning asks the CHARACTER whether a placement is a limbed
-                // `"giant"`-class host before it asks the roster, and with no
+                // limbed host before it asks the roster, and with no
                 // cast it can only ask the roster — so the shipped sandbox's
                 // giant, which authors its mount class on its definition,
                 // planned as an ordinary enemy and failed relation verification

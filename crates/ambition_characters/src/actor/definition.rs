@@ -167,6 +167,9 @@ pub struct CharacterDefinition {
     pub held_item: Option<String>,
     /// What this body can ride or be ridden as. `None` means neither.
     pub mount: Option<crate::actor::CharacterMount>,
+    /// This body's two hands, each built from a character of its own. `None`
+    /// means it has none.
+    pub hands: Option<crate::actor::CharacterHands>,
     /// This body has no left/right variant: turning never mirrors its art, its
     /// hurtboxes or its moves (`ambition_platformer2d_core::Unmirrored`). It is
     /// a fact about the art, so it is true of every placement of the character.
@@ -213,6 +216,7 @@ impl CharacterDefinition {
             wallet_shield: false,
             held_item: None,
             mount: None,
+            hands: None,
             unmirrored: false,
             dream_seed: None,
             preserves_mirror_symmetry: false,
@@ -386,9 +390,10 @@ mod authority_tests {
             sheet: _,
             portrait: _,
 
-            // ── BODY (16) — what this creature IS ───────────────────────────
+            // ── BODY (17) — what this creature IS ───────────────────────────
             body: _,
             unmirrored: _,
+            hands: _,
             hurtboxes: _,
             vitals: _,
             death_traits: _,

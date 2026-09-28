@@ -29,7 +29,7 @@ pub const RECIPE_AUTHORED_GROUND_ITEM: &str = "ambition.authored-ground-item";
 pub const RECIPE_STAGED_ACTOR: &str = "ambition.staged-actor";
 /// A minion the running simulation summoned.
 pub const RECIPE_SUMMONED_MINION: &str = "ambition.summoned-minion";
-/// A `"giant"`-class limbed host — an authored enemy that carries a rig.
+/// A limbed host (a character with hands) — an authored enemy that carries a rig.
 pub const RECIPE_GIANT_HOST: &str = "ambition.giant-host";
 /// One hand of a giant host.
 pub const RECIPE_GIANT_HAND: &str = "ambition.giant-hand";
@@ -141,7 +141,7 @@ pub enum ActorConstructionParams {
     },
     StagedActor(SpawnActorRequest),
     SummonedMinion(SummonedMinionParams),
-    /// A `"giant"`-class limbed host: an ordinary authored enemy body plus the host-side rig state
+    /// A limbed host (a character with hands): an ordinary authored enemy body plus the host-side rig state
     /// its hands' limb relations attach to.
     GiantHost {
         authored: ambition_platformer2d_world::rooms::Authored<
@@ -1802,7 +1802,7 @@ pub fn staged_actor_requests(
                 },
             )
             .collect();
-        // A staged `"giant"`-class enemy lowers to the SAME host + two hand rows
+        // A staged limbed enemy lowers to the SAME host + two hand rows
         // an authored giant does, through the one shared cluster helper — so a
         // giant is never a handless host regardless of which origin staged it.
         // (The pre-`e164f22` staged path routed every enemy through
@@ -1813,7 +1813,7 @@ pub fn staged_actor_requests(
             // This also asked the roster, whose lookup could not fail — so an
             // unresolvable key answered the `combatant` row, which is not a
             // limbed host, so the two agreed by luck rather than by design.
-            if ambition_platformer2d_actor_spawn::is_limbed_host(resolve_planned_character(prepared, character)) {
+            if let Some(limbs) = ambition_platformer2d_actor_spawn::limbs_of(resolve_planned_character(prepared, character)) {
                 let aabb = ambition_platformer2d_core::Aabb::new(request.pos, request.half_size);
                 // Invisible while an archetype row could answer for the brain key; a refusal the
                 // moment they went (AC6).
@@ -1827,11 +1827,7 @@ pub fn staged_actor_requests(
                     aabb,
                     host_payload,
                 );
-                let hands = ambition_platformer2d_actor_spawn::giant_hand_plans(
-                    &request.id,
-                    aabb,
-                    hand_rest_of(resolve_planned_character(prepared, character)),
-                );
+                let hands = ambition_platformer2d_actor_spawn::giant_hand_plans(&request.id, aabb, limbs);
                 let room = room_id.to_string();
                 let provider_owned = provider.to_string();
                 let host_origin = SpawnOrigin::ProviderStaged {
@@ -1881,8 +1877,8 @@ pub fn staged_actor_requests(
 /// Turn EVERY authored enemy and boss into construction rows — the Phase-4
 /// family migration for the two actor families.
 ///
-/// An ordinary enemy is one [`ActorConstructionParams::AuthoredEnemy`] row; a `"giant"`-class
-/// limbed host expands to one host row plus two hand rows joined by `ambition.limb` relations; a
+/// An ordinary enemy is one [`ActorConstructionParams::AuthoredEnemy`] row; a limbed host
+/// (a character with hands) expands to one host row plus two hand rows joined by `ambition.limb` relations; a
 /// boss is one [`ActorConstructionParams::AuthoredBoss`] row. Each row is built by the SAME
 /// populate function the deleted family loop called, so being planned changes who allocates the
 /// root, stamps identity/provenance/ownership, and wires/verifies relations — not what the actor
@@ -1897,16 +1893,9 @@ pub fn authored_actor_requests(
     for enemy in &room.enemy_spawns {
         // See the twin in `staged_actor_requests`: a character states its limbs,
         // and nothing else does.
-        if ambition_platformer2d_actor_spawn::is_limbed_host(resolve_planned_character(
-            prepared,
-            &enemy.payload.character_id,
-        )) {
+        if let Some(limbs) = ambition_platformer2d_actor_spawn::limbs_of(resolve_planned_character(prepared, &enemy.payload.character_id)) {
             let giant_sim = SimId::placement(&enemy.id);
-            let hands = ambition_platformer2d_actor_spawn::giant_hand_plans(
-                &enemy.id,
-                enemy.aabb,
-                hand_rest_of(resolve_planned_character(prepared, &enemy.payload.character_id)),
-            );
+            let hands = ambition_platformer2d_actor_spawn::giant_hand_plans(&enemy.id, enemy.aabb, limbs);
             let source = room.id.clone();
             let hand_source = source.clone();
             requests.append(&mut giant_cluster_rows(
@@ -1963,15 +1952,17 @@ pub fn authored_actor_requests(
     requests
 }
 
-/// The shared lowering for a `"giant"`-class host: one `GiantHost` row plus two
-/// `GiantHand` rows joined by `ambition.limb` relations. Both the authored-enemy
+/// The shared lowering for a limbed host (a character that states
+/// `CharacterHands`): one `GiantHost` row plus two `GiantHand` rows, each built
+/// from the hands' character and joined to the host by an `ambition.limb`
+/// relation. Both the authored-enemy
 /// origin ([`authored_giant_requests`]) and the provider-staged origin
 /// ([`staged_actor_requests`]) lower through this ONE function, so a giant is the
 /// same three-row cluster regardless of where it entered — the property that
 /// makes "every plan origin builds a giant the same way" true rather than
 /// aspirational. Origins that do not go through the planner at all (summon,
-/// encounter, runtime minion, boss) reject giant-class specs during preparation
-/// rather than producing a handless host.
+/// encounter, runtime minion, boss) refuse a limbed host during preparation
+/// rather than producing a handless one.
 #[allow(clippy::too_many_arguments)]
 fn giant_cluster_rows(
     host_sim: SimId,
@@ -1985,6 +1976,7 @@ fn giant_cluster_rows(
     host_origin: SpawnOrigin,
     mut hand_origin: impl FnMut(&ambition_platformer2d_actor_spawn::GiantHandPlan) -> SpawnOrigin,
 ) -> Vec<ActorConstructionRequest> {
+    let hand_label = format!("{} Hand", host_authored.name);
     let mut rows = vec![ActorConstructionRequest {
         sim_id: host_sim.clone(),
         origin: host_origin,
@@ -2006,17 +1998,13 @@ fn giant_cluster_rows(
                         ambition_platformer2d_world::rooms::EnemySpawnSpec,
                     > = ambition_platformer2d_world::rooms::Authored::new(
                         hand.feature_id.clone(),
-                        "Giant GNU Hand",
+                        hand_label.clone(),
                         hand.aabb,
                         ambition_platformer2d_world::rooms::EnemySpawnSpec::new(
-                            ambition_entity_catalog::placements::CharacterBrain::Custom(
-                                "giant_gnu_hands".into(),
-                            ),
-                            //  the hand NAMES its character at
-                            // construction now, so its body comes from a
-                            // definition like every other creature and the
-                            // spec cannot exist without one.
-                            "npc_giant_gnu_hands",
+                            // A limb has no brain of its own: its host routes it.
+                            ambition_entity_catalog::placements::CharacterBrain::Passive,
+                            // The character the host's `CharacterHands` names.
+                            hand.character.as_str(),
                         ),
                     );
                     // A limb is not a combatant: the rider's routed strikes are what hurt, and the
@@ -2041,7 +2029,7 @@ fn giant_cluster_rows(
     rows
 }
 
-/// The authored ids this room constructs as `"giant"`-class hosts, so the
+/// The authored ids this room constructs as limbed hosts, so the
 /// family loop that still builds ordinary enemies can skip them — a giant is a
 /// plan row now, and building it on the loop too would duplicate it.
 /// The prepared definition a placement names, if it names one the cast knows.
@@ -2073,12 +2061,6 @@ fn conducting_rider(
     }
 }
 
-/// Where a limbed host's authored right hand rests (`CharacterMount::hand_rest`).
-fn hand_rest_of(
-    character: Option<&ambition_characters::prepared::PreparedCharacterDefinition>,
-) -> Option<(f32, f32)> {
-    character.and_then(|definition| definition.mount.as_ref()).and_then(|mount| mount.hand_rest)
-}
 
 /// Turn a room's FROZEN placement-lowering decisions into construction rows —
 /// the Phase-4 migration for the placement family (hazard, interactable/NPC,

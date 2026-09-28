@@ -254,6 +254,8 @@ fn a_definition_carries_no_controller_binding() {
         // Whether the art has a mirrored side: what this creature LOOKS like,
         // so no controller changes it.
         unmirrored: _,
+        // What hands this body has: part of what the creature IS.
+        hands: _,
         //  the field that reads most like a controller fact and is not one,
         // so it is justified here rather than ignored. It says that two
         // AUTONOMOUS twins of this character begin on one deterministic

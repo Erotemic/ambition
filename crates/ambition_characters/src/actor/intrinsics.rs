@@ -93,13 +93,6 @@ pub struct CharacterMount {
     /// shoulder says where the shoulder is.
     #[serde(default)]
     pub saddle: Option<(f32, f32)>,
-    /// Where a `"giant"`-class mount's RIGHT hand rests, as an offset `(x, y)`
-    /// from its centre in world units (+y down); the left rests at its mirror.
-    /// `None` = a generic rest beside the body, sized from the body. The one
-    /// authority for it: spawn writes it to each hand's `Limb::home_offset`,
-    /// and whatever poses the hands reads it back from there.
-    #[serde(default)]
-    pub hand_rest: Option<(f32, f32)>,
     /// The body a room seats on this mount conducts it: it poses the mount's
     /// hands and chooses the rows the mount and its hands are drawn with. So a
     /// hand of a mount seated this way is built as the rider's: on the rider's
@@ -107,6 +100,23 @@ pub struct CharacterMount {
     /// `false`: the hands are the mount's own, ridden or not.
     #[serde(default)]
     pub rider_conducts: bool,
+}
+
+/// This body's two hands. Each hand is a body of its own, built from
+/// [`Self::character`] beside its host and joined to it as a limb, so the
+/// planner builds a body that states hands as one host and two hand rows.
+#[derive(Clone, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct CharacterHands {
+    /// The character each hand is built from.
+    pub character: String,
+    /// Where the RIGHT hand rests, as an offset `(x, y)` from the host's
+    /// centre in world units (+y down); the left rests at its mirror. `None` =
+    /// a rest beside the body, sized from the body. The one authority for it:
+    /// spawn writes it to each hand's `Limb::home_offset`, and whatever poses
+    /// the hands reads it back from there.
+    #[serde(default)]
+    pub rest: Option<(f32, f32)>,
 }
 
 /// Touching this body hurts.

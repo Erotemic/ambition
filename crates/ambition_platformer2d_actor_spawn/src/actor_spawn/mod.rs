@@ -300,7 +300,7 @@ pub fn spawn_staged_actor(
     fate: RecordedFate,
 ) -> Option<bevy::ecs::entity::Entity> {
     // The programmatic path does not lower through the planner, so it cannot
-    // mint a giant's host + two hand rows — refuse a giant-class spec like
+    // mint a giant's host + two hand rows — refuse a limbed host like
     // every other runtime origin, instead of silently producing a handless
     // host.
     if let SpawnActorKind::Enemy { character, .. } = &req.kind {
@@ -1733,6 +1733,8 @@ pub fn spawn_enemy_with_faction_into(
 /// One giant hand's fully-resolved construction facts, computed at PLAN time
 /// from the giant's authored box — no `Entity`, no live world.
 pub struct GiantHandPlan {
+    /// The character the hand is built from (`CharacterHands::character`).
+    pub character: String,
     pub slot: LimbSlot,
     /// Stable spawned identity under the giant, deterministic across runs.
     pub ordinal: u64,
@@ -1744,39 +1746,33 @@ pub struct GiantHandPlan {
     pub home_offset: ae::Vec2,
 }
 
-/// Is this body a limbed `"giant"`-class host?
+/// Does this body have hands (`CharacterHands`)? Then it is a limbed host: the
+/// planner builds it as one host row and a row for each hand, and a road that
+/// cannot plan rows refuses it rather than build a body without its hands.
 ///
-///  the roster-only form is what kept the giant chained to
-/// `character_archetypes.ron`. A character may author
-/// `CharacterMount { class: Some("giant") }` on its definition, and
-/// `npc_giant_gnu` does; the planner could not see it, so deleting the row made
-/// every giant a handless host (measured: 18 red tests, "host + two hands",
-/// `left: 1, right: 3` — ).
-///
-///  AC6 removed the other half of the question rather than answering it.
-/// This took an `Option<&ArchetypeSpec>` as well and fell back to it whenever the
-/// character said nothing, with a companion `spec_is_limbed_host` for the runtime
-/// paths that "hold a spec and no placement, so they have no character to ask".
-/// Every one of those paths resolves a character now, so the fallback and the
-/// companion are both gone and there is one predicate again.
-///
-///  still scoped to the `"giant"` string. A data-driven "which mounts have
-/// limbs" flag waits for a SECOND limbed mount.
+/// The CHARACTER is the only thing that says so. A mount class (`"giant"`) is
+/// a piloting fact: it cannot say which character each hand is.
 pub fn is_limbed_host(
     character: Option<&ambition_characters::prepared::PreparedCharacterDefinition>,
 ) -> bool {
-    character
-        .and_then(|definition| definition.mount.as_ref())
-        .is_some_and(|mount| mount.class.as_deref() == Some("giant"))
+    limbs_of(character).is_some()
 }
 
-/// Refuse a `"giant"`-class archetype on a runtime hostile-spawn path.
+/// The hands a limbed host's character states, if it has any: the one reading
+/// of [`is_limbed_host`], for the planner that builds them.
+pub fn limbs_of(
+    character: Option<&ambition_characters::prepared::PreparedCharacterDefinition>,
+) -> Option<&ambition_characters::actor::CharacterHands> {
+    character.and_then(|definition| definition.hands.as_ref())
+}
+
+/// Refuse a limbed host on a runtime hostile-spawn path.
 ///
 /// Summon effects, encounter waves, and runtime minions do NOT go through the
 /// construction planner, so they cannot lower a giant into its host + two hand
 /// rows (the only shape that gives a giant its rig — see [`giant_cluster_rows`]).
 /// Rather than silently produce a handless giant, these origins refuse a
-/// `"giant"`-class spec outright and log why. Authored and provider-staged giants
+/// limbed host outright and log why. Authored and provider-staged giants
 /// ARE supported; they lower through the planner. Returns `true` (having logged)
 /// when the caller should skip the spawn.
 pub(crate) fn reject_runtime_giant(
@@ -1798,21 +1794,25 @@ pub(crate) fn reject_runtime_giant(
     if is_limbed_host {
         bevy::log::error!(
             target: "ambition_platformer2d::construction",
-            "{origin} refuses `{id}`: a \"giant\"-class actor carries a limb rig and is only \
+            "{origin} refuses `{id}`: a body with hands carries a limb rig and is only \
              constructible through the planner (authored or provider-staged); refusing rather than \
-             spawning a handless giant"
+             spawning it without its hands"
         );
         return true;
     }
     false
 }
 
-/// The two hands of a `"giant"`-class host. `hand_rest` is the character's
-/// authored right-hand rest ([`CharacterMount::hand_rest`]); without one the
-/// hands rest beside the body, sized from it.
+/// The two hands of a limbed host, built from its [`CharacterHands`]: each is
+/// its `character`, and the right one rests at its `rest` (the left at its
+/// mirror); without a rest the hands rest beside the body, sized from it.
 ///
-/// [`CharacterMount::hand_rest`]: ambition_characters::actor::CharacterMount::hand_rest
-pub fn giant_hand_plans(giant_id: &str, giant_aabb: ae::Aabb, hand_rest: Option<(f32, f32)>) -> Vec<GiantHandPlan> {
+/// [`CharacterHands`]: ambition_characters::actor::CharacterHands
+pub fn giant_hand_plans(
+    giant_id: &str,
+    giant_aabb: ae::Aabb,
+    hands: &ambition_characters::actor::CharacterHands,
+) -> Vec<GiantHandPlan> {
     //  the giant's own placement decides the hand geometry. This took an
     // `Option<&ArchetypeSpec>` and preferred that row's `default_size`; callers
     // handed it the reserved `combatant` fallback purely to satisfy the
@@ -1822,7 +1822,8 @@ pub fn giant_hand_plans(giant_id: &str, giant_aabb: ae::Aabb, hand_rest: Option<
     let giant_half = giant_aabb.half_size();
     let giant_center = giant_aabb.center();
     let hand_size = ae::Vec2::new(giant_half.x * 0.7, giant_half.y * 0.7);
-    let home_r = hand_rest
+    let home_r = hands
+        .rest
         .map(|(x, y)| ae::Vec2::new(x, y))
         .unwrap_or(ae::Vec2::new(giant_half.x * 0.55, giant_half.y * 0.15));
     let home_l = ae::Vec2::new(-home_r.x, home_r.y);
@@ -1833,6 +1834,7 @@ pub fn giant_hand_plans(giant_id: &str, giant_aabb: ae::Aabb, hand_rest: Option<
     .into_iter()
     .enumerate()
     .map(|(ordinal, (slot, home, tag))| GiantHandPlan {
+        character: hands.character.clone(),
         slot,
         ordinal: ordinal as u64,
         feature_id: giant_hand_feature_id(giant_id, tag),
@@ -2296,7 +2298,7 @@ mod runtime_giant_refusal_tests {
         );
     }
 
-    /// A cast of one `"giant"`-class limbed host, which is what the refusal
+    /// A cast of one limbed host, which is what the refusal
     /// above reads.
     fn giant_cast() -> ambition_characters::prepared::PreparedCharacterRegistry {
         let mut definition = ambition_characters::actor::definition::CharacterDefinition::new(
@@ -2312,6 +2314,10 @@ mod runtime_giant_refusal_tests {
         definition.mount = Some(ambition_characters::actor::CharacterMount {
             class: Some("giant".to_string()),
             ..Default::default()
+        });
+        definition.hands = Some(ambition_characters::actor::CharacterHands {
+            character: "npc_giant_gnu_hands".to_string(),
+            rest: None,
         });
         let finalized = ambition_characters::prepared::prepare_and_finalize_for_test(
             definition,

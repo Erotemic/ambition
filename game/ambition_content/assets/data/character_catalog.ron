@@ -1460,13 +1460,14 @@
                 // top 7.5 px above the centre at 1.3 wu/px = 9.75 wu). His own height
                 // is the mount sync's business, not this number.
                 saddle: Some((50.0, -9.75)),
-                // Its fists hover at shoulder height on each side, clear of its
-                // flanks: every beat of GNU-ton's starts and ends here.
-                hand_rest: Some((270.0, -70.0)),
                 // Whoever rides it conducts its fists and chooses its rows: in
                 // the arena, the fists are GNU-ton's.
                 rider_conducts: true,
             )),
+            // Its two fists are bodies of their own. They hover at shoulder
+            // height on each side, clear of its flanks: every beat of
+            // GNU-ton's starts and ends here.
+            hands: Some((character: "npc_giant_gnu_hands", rest: Some((270.0, -70.0)))),
             // It never looks for anyone and never strikes. Whether it is your enemy
             // is the placement's decision: the sandbox giant is `Peaceful`.
             autonomous_profile: Some((template: StandStill, aggro_radius: 0.0, attack_range: 0.0)),

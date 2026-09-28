@@ -288,7 +288,7 @@ pub fn back_platform(giant: &ae::BodyKinematics, unmirrored: bool, world_per_pix
 }
 
 /// Where each fist rests: its limb's `home_offset` about the gnu — the gnu's
-/// authored `hand_rest`, which spawn built the fists at. One authority, read
+/// authored hands' `rest`, which spawn built the fists at. One authority, read
 /// here and never restated (a second one here eased the fists from where they
 /// were built to where this said, a visible slide at the start of every fight).
 /// A missing fist rests at its twin's mirror.

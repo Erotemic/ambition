@@ -813,7 +813,8 @@ mod tests {
         )
     }
 
-    /// A cast whose `"giant_gnu"` is a `"giant"`-class limbed host.
+    /// A cast whose `"giant_gnu"` is a limbed host: a mount of `mount_class`
+    /// with hands. `None`: it is neither.
     fn giant_cast(
         mount_class: Option<&str>,
     ) -> ambition_characters::prepared::PreparedCharacterRegistry {
@@ -831,6 +832,10 @@ mod tests {
             definition.mount = Some(ambition_characters::actor::CharacterMount {
                 class: Some(class.to_string()),
                 ..Default::default()
+            });
+            definition.hands = Some(ambition_characters::actor::CharacterHands {
+                character: "npc_giant_gnu_hands".to_string(),
+                rest: None,
             });
         }
         let finalized = crate::character_runtime::prepare_and_finalize_for_test(
@@ -891,7 +896,7 @@ mod tests {
     }
 
     /// The id also tracks the giant-vs-ordinary shape of the plan itself: the
-    /// same spec whose brain key stops resolving as a `"giant"`-class host loses
+    /// same spec whose brain key stops resolving as a limbed host loses
     /// its host/hand rows AND their relations.
     #[test]
     fn the_plan_id_tracks_the_giant_expansion() {

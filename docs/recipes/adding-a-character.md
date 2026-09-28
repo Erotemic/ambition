@@ -64,7 +64,7 @@ or a shared `locomotion_preset`), `max_health`, `contact_damage`,
 (`provoked_profile`), its action set (the preset `default_action_set`
 names), ability grants, its feel (`axis_tuning`, or a shared
 `axis_tuning_preset`), a sheet-authored body (`posed_body`), what it rides and
-what rides it (`mount`), its `mass`, a `dream_seed`, the item it holds
+what rides it (`mount`), the hands it has as bodies of their own (`hands`), its `mass`, a `dream_seed`, the item it holds
 (`held_item`), the look of its shots (`ranged_vfx`), what it is hittable
 through per pose and per move (`hurtboxes`), the traits `practice_target`, `preserves_mirror_symmetry` and
 `unmirrored` (art with no left/right variant),

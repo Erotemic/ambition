@@ -37,7 +37,7 @@ pub use definition::AutonomousPolicy;
 pub mod limb;
 pub use limb::{fan_out_limb_intents, Limb, LimbIntents, LimbRig, LimbRouteState, LimbSlot};
 pub mod intrinsics;
-pub use intrinsics::{CharacterLocomotion, CharacterMount, ContactDamage};
+pub use intrinsics::{CharacterHands, CharacterLocomotion, CharacterMount, ContactDamage};
 pub mod worn;
 pub use worn::{RecharacterizeBody, WornCharacter};
 

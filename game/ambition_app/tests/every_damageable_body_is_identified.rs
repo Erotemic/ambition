@@ -297,7 +297,7 @@ fn damageable_census(world: &mut World) -> (Vec<String>, Vec<String>) {
 /// produces NO ENTITY AT ALL — measured 2026-09-10: zero bodies, zero entities
 /// carrying that id, zero entities named "giant". It is not a defect.
 /// `apply_spawn_actor_requests` calls `reject_runtime_giant` and refuses a
-/// `"giant"`-class spec on purpose, because the programmatic road does not lower
+/// limbed host on purpose, because the programmatic road does not lower
 /// through the construction planner and so cannot mint the host + two hand rows;
 /// refusing beats emitting a handless host. ⇒ **The giant cluster is reachable
 /// only from a road that goes through the planner**, which is an authored room.

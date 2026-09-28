@@ -787,6 +787,11 @@ pub struct CharacterCatalogEntry {
     /// under a registered definition's own.
     #[serde(default)]
     pub mount: Option<crate::actor::CharacterMount>,
+    /// This body's two hands, each built from a character of its own. `None`
+    /// (the default): it has none. Folded at preparation under a registered
+    /// definition's own.
+    #[serde(default)]
+    pub hands: Option<crate::actor::CharacterHands>,
     /// The seed of this character's deep-dream pass. `None` (the default): no
     /// pass. Folded at preparation under a registered definition's own.
     #[serde(default)]

@@ -76,6 +76,8 @@ struct PreparedCharacterOverrides {
     mount: Option<crate::actor::CharacterMount>,
     /// See [`CharacterDefinition::unmirrored`]. OR-ed with the catalog row's.
     unmirrored: bool,
+    /// See [`CharacterDefinition::hands`]. FOLDED with the catalog row's.
+    hands: Option<crate::actor::CharacterHands>,
     moveset: Option<MovesetContract>,
     /// The authored action set, carried through preparation unchanged.
     ///
@@ -1069,6 +1071,8 @@ pub struct PreparedCharacterDefinition {
     pub mount: Option<crate::actor::CharacterMount>,
     /// See [`CharacterDefinition::unmirrored`].
     pub unmirrored: bool,
+    /// See [`CharacterDefinition::hands`].
+    pub hands: Option<crate::actor::CharacterHands>,
     /// What this character fights with — resolved, not inherited.
     pub kit: PreparedKit,
     /// The move timelines the CHARACTER ITSELF stated, if it stated any.
@@ -1566,6 +1570,7 @@ fn prepare_character(
         preserves_mirror_symmetry: definition.preserves_mirror_symmetry,
         mount: definition.mount,
         unmirrored: definition.unmirrored,
+        hands: definition.hands,
         moveset: definition.moveset,
         action_set: definition.action_set,
         motion_model: definition.motion_model,
@@ -1643,6 +1648,7 @@ fn finalize_character(
         preserves_mirror_symmetry,
         mount,
         unmirrored,
+        hands,
         moveset,
         action_set,
         motion_model,
@@ -1751,6 +1757,7 @@ fn finalize_character(
     });
     let death_traits = death_traits.or_else(|| catalog_row?.death_traits.clone());
     let mount = mount.or_else(|| catalog_row?.mount.clone());
+    let hands = hands.or_else(|| catalog_row?.hands.clone());
     let dream_seed = dream_seed.or_else(|| catalog_row?.dream_seed);
     let held_item = held_item.or_else(|| catalog_row?.held_item.clone());
     let ranged_vfx = ranged_vfx.or_else(|| catalog_row?.ranged_vfx.clone());
@@ -1871,6 +1878,7 @@ fn finalize_character(
         preserves_mirror_symmetry,
         mount,
         unmirrored,
+        hands,
         authored_moveset,
         // Resolve canonical identity during preparation from the definition's provider. Spawn
         // consumes the prepared identity and does not reinterpret authored references.

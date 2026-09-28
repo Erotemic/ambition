@@ -58,7 +58,7 @@ fn fixture_cast() -> &'static ambition_characters::prepared::PreparedCharacterRe
             // The giant's HANDS: `giant_cluster_rows` mints two limb rows naming
             // this character, so a cast without it refuses the whole cluster.
             ("npc_giant_gnu_hands", None),
-            // The limbed host: a `"giant"`-class mount lowers to host + two hand
+            // The limbed host: a character with hands lowers to host + two hand
             // rows, and a CHARACTER is the only thing that says so now.
             ("fixture_giant", Some(("giant", &[][..]))),
             // A limbed host whose seated rider conducts it.
@@ -81,6 +81,13 @@ fn fixture_cast() -> &'static ambition_characters::prepared::PreparedCharacterRe
                     rider_conducts: id == "fixture_conducted_giant",
                     ..Default::default()
                 });
+                // The giants are limbed hosts: their hands are this character.
+                if class == "giant" {
+                    definition.hands = Some(ambition_characters::actor::CharacterHands {
+                        character: "npc_giant_gnu_hands".to_string(),
+                        rest: None,
+                    });
+                }
             }
             let finalized = crate::character_runtime::prepare_and_finalize_for_test(
                 definition,
@@ -2222,12 +2229,16 @@ fn a_seated_conductor_is_planned_as_the_owner_of_the_hands() {
     assert_eq!(planned("fixture_giant", true), (false, vec![None, None]), "this giant's hands are its own");
 }
 
-/// A CHARACTER can make a limbed host, with no archetype row saying so.
+/// A CHARACTER makes a limbed host by stating its hands, and names the
+/// character each hand is: no archetype row, no mount class and no name in the
+/// planner says it.
 ///
 /// the fixture's roster deliberately answers `combatant` for this brain, so
-/// the ONLY thing that can produce three rows here is the character.
+/// the ONLY thing that can produce three rows here is the character. The hand
+/// character is not the gnu's, so a planner that wrote a hand character of its
+/// own is caught.
 #[test]
-fn a_character_that_authors_a_giant_mount_plans_its_hands_without_a_row() {
+fn a_character_states_which_character_its_hands_are() {
     let mut room = empty_room("arena");
     let mut authored: ambition_platformer2d_world::rooms::Authored<
         ambition_platformer2d_world::rooms::EnemySpawnSpec,
@@ -2255,8 +2266,21 @@ fn a_character_that_authors_a_giant_mount_plans_its_hands_without_a_row() {
         }),
         &ambition_characters::prepared::CharacterBindings::default(),
     );
+    // The class alone is a piloting fact: it plans one ordinary row.
+    let mut classed = ambition_characters::prepared::PreparedCharacterRegistry::default();
+    classed.insert_prepared(finalized.prepared.clone());
+    assert_eq!(
+        crate::construction::authored_actor_requests(&room, &[], Some(&classed)).len(),
+        1,
+        "a mount class does not give a body hands"
+    );
+    let mut handed = finalized.prepared;
+    handed.hands = Some(ambition_characters::actor::CharacterHands {
+        character: "fixture_walker".to_string(),
+        rest: None,
+    });
     let mut cast = ambition_characters::prepared::PreparedCharacterRegistry::default();
-    cast.insert_prepared(finalized.prepared);
+    cast.insert_prepared(handed);
 
     let without_cast = crate::construction::authored_actor_requests(&room, &[], None);
     assert_eq!(
@@ -2276,6 +2300,17 @@ fn a_character_that_authors_a_giant_mount_plans_its_hands_without_a_row() {
             .map(|r| r.sim_id.clone())
             .collect::<Vec<_>>()
     );
+    let hands: Vec<_> = requests
+        .iter()
+        .filter_map(|request| match &request.parameters {
+            ActorConstructionParams::GiantHand { authored, .. } => {
+                Some((authored.payload.character_id.as_str().to_string(), authored.name.clone()))
+            }
+            _ => None,
+        })
+        .collect();
+    let hand = ("fixture_walker".to_string(), "Giant GNU Hand".to_string());
+    assert_eq!(hands, vec![hand.clone(), hand], "each hand is the character its host names");
 }
 
 /// The giant host and both hands are explicit plan rows joined by limb

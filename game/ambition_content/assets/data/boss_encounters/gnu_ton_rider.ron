@@ -1,8 +1,9 @@
 // Boss encounter spec — GNU-ton, the scholar who rides the giant gnu.
 //
 // The scholar is the boss; the `giant_gnu` mount he rides is scenery you can
-// stand on and cannot hurt (the conductor holds it untouchable), so there is no
-// on-foot phase and no `mount_died` trigger. The phases are his lectures:
+// stand on and cannot hurt (its arena placement stands it behind the playable
+// plane), so there is no on-foot phase and no `mount_died` trigger. The phases
+// are his lectures:
 // Phase 1 "Lectures on Motion", Phase 2 "Principia", Enrage "The System of the
 // World" — see the `gnu_ton_rider` row in `boss_profiles.ron`.
 (

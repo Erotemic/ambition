@@ -1654,6 +1654,12 @@ pub fn spawn_enemy_with_faction_into(
         // every other controller then consume ordinary body orientation rather
         // than learning a Mary-O/game-specific default.
         enemy.kin.facing = authored.payload.facing.sign();
+        let plane = match authored.payload.plane {
+            ambition_platformer2d_world::rooms::SpawnPlane::Playable => None,
+            ambition_platformer2d_world::rooms::SpawnPlane::Behind => {
+                Some(ambition_platformer2d_core::DepthPlane::BEHIND)
+            }
+        };
         // The PLACEMENT's respawn policy — the one fact here that is neither
         // the character's nor the controller's (ADR 0022).
         //
@@ -1687,6 +1693,9 @@ pub fn spawn_enemy_with_faction_into(
             authored,
             faction,
         );
+        if let Some(plane) = plane {
+            scope.insert(plane);
+        }
         // IT WEARS ITSELF, so its kit comes from its character rather than from
         // `enemy.spec.melee`.
         wear_prepared_character(&mut scope.reborrow(), definition, prepared.generation());

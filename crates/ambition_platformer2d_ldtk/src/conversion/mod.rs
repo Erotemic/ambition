@@ -1588,6 +1588,31 @@ mod tests {
             "a misspelled orientation must refuse rather than silently choose a direction: {bad_facing}"
         );
 
+        assert_eq!(
+            authored.payload.plane,
+            ambition_platformer2d_world::rooms::SpawnPlane::Playable,
+            "a placement with no depth_plane stands where the fight happens"
+        );
+        let behind = convert(&enemy(vec![
+            named("brain", "mary_o_snake"),
+            named("character_id", "solid_snake"),
+            named("depth_plane", "Behind"),
+        ]));
+        assert_eq!(
+            behind.payload.plane,
+            ambition_platformer2d_world::rooms::SpawnPlane::Behind,
+            "the depth plane is authored by this occurrence, not by its character"
+        );
+        let bad_plane = convert_err(&enemy(vec![
+            named("brain", "mary_o_snake"),
+            named("character_id", "solid_snake"),
+            named("depth_plane", "Back"),
+        ]));
+        assert!(
+            bad_plane.contains("not one of Playable / Behind"),
+            "a misspelled plane must refuse rather than put a body in the fight: {bad_plane}"
+        );
+
         // The display-name fallback is refused. With the field required, an entity
         // that names no creature cannot be lowered, and the error names the entity.
         let missing = convert_err(&enemy(vec![named("brain", "mary_o_snake")]));

@@ -312,6 +312,7 @@ where
             projected.id.hash(&mut hasher);
             projected.granted.hurtboxes.hash(&mut hasher);
             projected.granted.movement_tuning.hash(&mut hasher);
+            projected.granted.unmirrored.hash(&mut hasher);
             projected
                 .granted
                 .posed_body

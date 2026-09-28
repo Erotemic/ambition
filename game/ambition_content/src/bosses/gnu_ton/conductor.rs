@@ -244,8 +244,8 @@ pub fn is_gnu_ton(config: &BossConfig) -> bool {
 }
 
 /// Take the pair into the fight: the conductor on the scholar, the fists made
-/// his (posed by him, hittable, their deaths his to rule), the giant put behind
-/// the playable plane. Idempotent, so it re-runs harmlessly after a rollback.
+/// his (posed by him, hittable, their deaths his to rule), the giant's row
+/// pinned. Idempotent, so it re-runs harmlessly after a rollback.
 pub fn adopt_gnu_ton(
     mut commands: Commands,
     scholars: Query<(Entity, &BossConfig, &RidingOn), Without<GnuTonConductor>>,
@@ -266,15 +266,10 @@ pub fn adopt_gnu_ton(
         let home = homes(giant, at.map(|fist| fist.map(|(_, limb)| limb.home_offset)));
         let fists_at = [0, 1].map(|i| at[i].map_or(home[i], |(kin, _)| kin.pos));
         commands.entity(scholar).insert((GnuTonConductor::new(fists_at), PinnedRow::default()));
-        // The gnu is scenery you stand on, not a target: behind the playable
-        // plane, so no swing connects with it and no pogo bounces off it. It was
-        // made invulnerable, which refused the damage and still let the swing
-        // and the pogo happen (MEASURED by `fight_discovery`: hittable 100% of
-        // the fight).
-        //
-        // And it has no left/right variant: the scholar turns to face you, the
-        // gnu under him stays drawn as it is, its back where it was.
-        commands.entity(riding.mount).insert((ae::DepthPlane::BEHIND, ae::Unmirrored, PinnedRow::default()));
+        // The conductor pins the gnu's drawn row. Its depth plane is the arena
+        // placement's (`depth_plane: Behind`) and its unmirrored art is its
+        // character's, so both are there from construction.
+        commands.entity(riding.mount).insert(PinnedRow::default());
         for fist in [LimbSlot::HAND_LEFT, LimbSlot::HAND_RIGHT].into_iter().filter_map(|slot| rig.get(slot)) {
             if fists.contains(fist) {
                 commands.entity(fist).insert((

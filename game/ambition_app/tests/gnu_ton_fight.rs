@@ -693,3 +693,40 @@ fn a_phase_that_ends_during_a_windup_takes_the_windup_with_it() {
         "`{windup}`, chosen in Phase 2, still winds up after the phase became {now}"
     );
 }
+
+/// The gnu's two stage facts come from their owners, and each is on the body
+/// from the first tick the body exists.
+///
+/// The art has no mirrored side, so every gnu is `Unmirrored`: the hall's
+/// exhibit too, which no scholar rides. The depth plane is the placement's: the
+/// arena stands the gnu behind the fight, and the hall keeps it in the playable
+/// plane, where you can walk up to it and inspect it.
+#[test]
+fn the_gnu_is_built_unmirrored_and_only_its_arena_stands_it_behind() {
+    fn first_gnu(sim: &mut Platformer2dSimHarness, room: &str) -> (bool, Option<ae::DepthPlane>) {
+        for _ in 0..300 {
+            let world = sim.world_mut();
+            let found = world
+                .query::<(&ambition_platformer2d::characters::actor::WornCharacter, Has<ae::Unmirrored>, Option<&ae::DepthPlane>)>()
+                .iter(world)
+                .find(|(worn, ..)| worn.id() == "npc_giant_gnu")
+                .map(|(_, unmirrored, plane)| (unmirrored, plane.copied()));
+            if let Some(found) = found {
+                return found;
+            }
+            sim.step(AgentAction::default());
+        }
+        panic!("{room} builds no body wearing `npc_giant_gnu`, so this test says nothing");
+    }
+    let mut arena = Platformer2dSimHarness::new_with_options(
+        Platformer2dSimHarnessOptions::default()
+            .with_timestep(TimestepMode::fixed_60hz())
+            .with_required_start_room(ARENA),
+    )
+    .expect("the gnu-ton arena builds headlessly");
+    assert_eq!(first_gnu(&mut arena, ARENA), (true, Some(ae::DepthPlane::BEHIND)), "the arena's gnu");
+    let mut hall = crate::common::fixed_60hz_room_sim("hall_of_characters");
+    let (unmirrored, plane) = first_gnu(&mut hall, "hall_of_characters");
+    assert!(unmirrored, "the hall's gnu wears the same art");
+    assert!(plane.is_none_or(|plane| plane.is_playable()), "the hall's gnu is an exhibit, got {plane:?}");
+}

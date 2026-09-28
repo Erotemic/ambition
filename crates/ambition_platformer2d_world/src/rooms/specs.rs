@@ -283,6 +283,27 @@ impl SpawnFacing {
     }
 }
 
+/// The depth plane an authored placement stands in.
+///
+/// A placement fact, not a character fact: the giant gnu is scenery behind the
+/// fight in GNU-ton's arena and an exhibit you can talk to in the hall. The
+/// body carries it as `ambition_platformer2d_core::DepthPlane`.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum SpawnPlane {
+    /// Where the fight happens.
+    #[default]
+    Playable,
+    /// Just behind it: combat does not reach the body.
+    Behind,
+}
+
+impl SpawnPlane {
+    /// Whether serialization may omit this value without changing semantics.
+    pub const fn is_default(&self) -> bool {
+        matches!(self, Self::Playable)
+    }
+}
+
 /// An authored enemy's behaviour and its art are two different identities.
 ///
 /// `brain` selects behavior while `character_id` selects the body. Gameplay
@@ -306,6 +327,10 @@ pub struct EnemySpawnSpec {
     /// stage direction.
     #[serde(default, skip_serializing_if = "SpawnFacing::is_default")]
     pub facing: SpawnFacing,
+    /// The depth plane this occurrence stands in. `Playable` (the default) is
+    /// where the fight happens.
+    #[serde(default, skip_serializing_if = "SpawnPlane::is_default")]
+    pub plane: SpawnPlane,
     /// Placement-specific respawn policy. `None` means the placement did not
     /// specify one, so construction uses `UNDESCRIBED_BODY_RESPAWN`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -338,6 +363,7 @@ impl EnemySpawnSpec {
             brain,
             character_id: character_id.into(),
             facing: SpawnFacing::default(),
+            plane: SpawnPlane::default(),
             respawn: None,
             disposition: None,
             brain_profile: None,

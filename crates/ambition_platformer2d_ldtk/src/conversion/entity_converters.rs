@@ -723,6 +723,19 @@ pub(super) fn convert_enemy_spawn(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmissio
             }
         }
     }
+    // The depth plane is placement context too: one character can be scenery
+    // behind one fight and a body you talk to in another room.
+    if let Some(plane) = field_string(entity, "depth_plane") {
+        match plane.trim() {
+            "" | "Playable" => {}
+            "Behind" => payload.plane = ambition_platformer2d_world::rooms::SpawnPlane::Behind,
+            other => {
+                return Err(format!(
+                    "EnemySpawn `{name}` authors depth_plane `{other}`, which is not one of Playable / Behind"
+                ))
+            }
+        }
+    }
     // Respawn policy for this placement, when it has one (ADR 0022). A migrated
     // character has no archetype row to inherit from, and the same creature can
     // be permanent in a story room and repopulating in a corridor.

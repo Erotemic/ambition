@@ -772,6 +772,11 @@ pub struct CharacterCatalogEntry {
     /// registered definition can state it.
     #[serde(default)]
     pub preserves_mirror_symmetry: bool,
+    /// This body has no left/right variant. See
+    /// `CharacterDefinition::unmirrored`. Either the row or a registered
+    /// definition can state it.
+    #[serde(default)]
+    pub unmirrored: bool,
     /// How heavy this body is against another body it rides or carries. `None`
     /// (the default): the engine's standard mass. Folded at preparation under a
     /// registered definition's own.

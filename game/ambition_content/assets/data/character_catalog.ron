@@ -1445,6 +1445,9 @@
             // (338x319 px) at one scale, so its feet are on the floor. Its fists
             // share the scale, so a fist is drawn the size of the hand.
             posed_body: Some(WorldPerPixel(1.3)),
+            // The art has no left/right variant: when the scholar on it turns
+            // to face you, the gnu stays drawn as it is, its back where it was.
+            unmirrored: true,
             // A heavy walk, not used while it stands still, but the correct gait if
             // something ever steers it.
             locomotion: Some((run_speed: 0.0, move_style: WalkHeavy)),

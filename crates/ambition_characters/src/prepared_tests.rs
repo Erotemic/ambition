@@ -251,6 +251,9 @@ fn a_definition_carries_no_controller_binding() {
         // capability of the creature, and one no controller changes: a possessed
         // shark is still a shark somebody can sit on.
         mount: _,
+        // Whether the art has a mirrored side: what this creature LOOKS like,
+        // so no controller changes it.
+        unmirrored: _,
         //  the field that reads most like a controller fact and is not one,
         // so it is justified here rather than ignored. It says that two
         // AUTONOMOUS twins of this character begin on one deterministic

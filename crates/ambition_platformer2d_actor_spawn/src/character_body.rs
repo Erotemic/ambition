@@ -37,6 +37,8 @@ pub struct GrantedBodyFacts {
     /// A sprite-authored body: the posed-body marker AND the standing geometry
     /// granted with it, carrying what that geometry displaced.
     pub posed_body: Option<DisplacedGeometry>,
+    /// The art has no left/right variant ([`ambition_platformer2d_core::Unmirrored`]).
+    pub unmirrored: bool,
 }
 
 /// The geometry a sprite-authored grant replaced, captured in the grant's own
@@ -70,6 +72,7 @@ impl GrantedBodyFacts {
             movement_tuning: movement_tuning.is_some(),
             // Filled by the grant's capture edit, which reads the body.
             posed_body: posed_body_for(prepared).map(|_| DisplacedGeometry::default()),
+            unmirrored: prepared.unmirrored,
         }
     }
 
@@ -91,7 +94,11 @@ impl GrantedBodyFacts {
             hurtboxes,
             movement_tuning,
             posed_body,
+            unmirrored,
         } = self;
+        if unmirrored {
+            scope.remove::<ambition_platformer2d_core::Unmirrored>();
+        }
         if hurtboxes {
             scope.remove::<ambition_combat::hurtbox_resolution::AuthoredHurtboxes>();
         }
@@ -301,6 +308,11 @@ pub fn grant_prepared_character_body(
         // The rest is what the persona derive does not own on ANY path: the
         // authored silhouette, the movement feel, and the motion model — body
         // facts rather than kit facts, each with a matching retraction above.
+        // A body with no mirrored art is built that way, so no tick exists on
+        // which a turn flips it.
+        if prepared.unmirrored {
+            scope.insert(ambition_platformer2d_core::Unmirrored);
+        }
         if let Some(hurtboxes) = prepared.hurtboxes.clone() {
             scope.insert((
                 ambition_combat::hurtbox_resolution::AuthoredHurtboxes(hurtboxes),

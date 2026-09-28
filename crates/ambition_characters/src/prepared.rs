@@ -74,6 +74,8 @@ struct PreparedCharacterOverrides {
     preserves_mirror_symmetry: bool,
     /// See [`CharacterDefinition::mount`]. FOLDED with the catalog row's.
     mount: Option<crate::actor::CharacterMount>,
+    /// See [`CharacterDefinition::unmirrored`]. OR-ed with the catalog row's.
+    unmirrored: bool,
     moveset: Option<MovesetContract>,
     /// The authored action set, carried through preparation unchanged.
     ///
@@ -1065,6 +1067,8 @@ pub struct PreparedCharacterDefinition {
     pub preserves_mirror_symmetry: bool,
     /// Mount and pilot capabilities. See [`CharacterDefinition::mount`].
     pub mount: Option<crate::actor::CharacterMount>,
+    /// See [`CharacterDefinition::unmirrored`].
+    pub unmirrored: bool,
     /// What this character fights with — resolved, not inherited.
     pub kit: PreparedKit,
     /// The move timelines the CHARACTER ITSELF stated, if it stated any.
@@ -1561,6 +1565,7 @@ fn prepare_character(
         dream_seed: definition.dream_seed,
         preserves_mirror_symmetry: definition.preserves_mirror_symmetry,
         mount: definition.mount,
+        unmirrored: definition.unmirrored,
         moveset: definition.moveset,
         action_set: definition.action_set,
         motion_model: definition.motion_model,
@@ -1637,6 +1642,7 @@ fn finalize_character(
         dream_seed,
         preserves_mirror_symmetry,
         mount,
+        unmirrored,
         moveset,
         action_set,
         motion_model,
@@ -1756,6 +1762,7 @@ fn finalize_character(
     let wallet_shield = wallet_shield || catalog_row.is_some_and(|row| row.wallet_shield);
     let preserves_mirror_symmetry =
         preserves_mirror_symmetry || catalog_row.is_some_and(|row| row.preserves_mirror_symmetry);
+    let unmirrored = unmirrored || catalog_row.is_some_and(|row| row.unmirrored);
     let sheet_sizing = catalog_row.map(|row| SheetSizing {
         tuning: row.sprite_tuning,
         standing_height: row
@@ -1863,6 +1870,7 @@ fn finalize_character(
         dream_seed,
         preserves_mirror_symmetry,
         mount,
+        unmirrored,
         authored_moveset,
         // Resolve canonical identity during preparation from the definition's provider. Spawn
         // consumes the prepared identity and does not reinterpret authored references.

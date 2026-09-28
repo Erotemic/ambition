@@ -98,6 +98,7 @@ pub struct CharacterSheetSpec {
 /// The gameplay-tuning fields that don't appear in the RON manifest.
 /// One `SheetTuning` per sprite id is the smallest hand-typed delta
 /// between the RON and a runnable `CharacterSheetSpec`.
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct SheetTuning {
     collision_scale: f32,
     feet_anchor_y_override: Option<f32>,

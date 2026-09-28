@@ -312,3 +312,79 @@ fn entity_sprite_for_kind_handles_all_visual_kinds() {
     assert!(entity_sprite_for_kind(FeatureVisualKind::Actor).is_none());
     assert!(entity_sprite_for_kind(FeatureVisualKind::Switch).is_none());
 }
+
+/// A registered prop kind is in the first `GameAssets`, so no game waits for
+/// `GameAssets` and inserts its own sheets. The control is the same build with
+/// no rows: the kind is absent, so its presence is the registration's.
+#[test]
+fn registered_prop_sheets_load_with_the_first_game_assets() {
+    const KIND: &str = "sanic_ring_prop";
+    assert!(
+        ambition_sprite_sheet::character::sheets::available_sheet_keys().contains(&KIND),
+        "fixture: the baked sheets must include `{KIND}`"
+    );
+    let mut app = App::new();
+    app.add_plugins(bevy::app::TaskPoolPlugin::default());
+    app.add_plugins(bevy::asset::AssetPlugin::default());
+    app.init_asset::<Image>();
+    app.init_asset::<TextureAtlasLayout>();
+    app.register_prop_sheet(
+        KIND,
+        PropSheetSource::SpriteFolder {
+            target: KIND.to_string(),
+            tuning: ambition_sprite_sheet::character::SheetTuning::new(1.0, 2),
+        },
+    );
+
+    let config = GameAssetConfig::default();
+    let characters = ambition_characters::actor::character_catalog::CharacterCatalog::empty();
+    let bosses = ambition_boss_encounter::BossCatalog::default();
+    let catalog = crate::assets::platformer_assets::build_platformer2d_asset_catalog(
+        &config,
+        &characters,
+        &bosses,
+        &ambition_audio::spec::MusicRegistry {
+            default_track: String::new(),
+            tracks: Vec::new(),
+        },
+        &ambition_platformer2d_world::world_manifest::WorldManifest::default(),
+    );
+    let registered = app.world().resource::<PropSheets>().clone();
+    let world = app.world_mut();
+    let server = world.resource::<AssetServer>().clone();
+    let mut layouts = world.resource_mut::<Assets<TextureAtlasLayout>>();
+    let mut build = |sheets: &PropSheets| {
+        load_game_assets(
+            &config,
+            &characters,
+            &Default::default(),
+            &bosses,
+            &catalog,
+            &server,
+            &mut layouts,
+            &RoomMetadata::default(),
+            None,
+            sheets,
+        )
+    };
+    assert!(
+        !build(&PropSheets::default()).characters.props.contains_key(KIND),
+        "control: with no rows the kind must be absent"
+    );
+    assert!(
+        build(&registered).characters.props.contains_key(KIND),
+        "a registered prop kind is missing from the first `GameAssets`"
+    );
+}
+
+#[test]
+#[should_panic(expected = "has two sheets registered")]
+fn a_prop_kind_has_one_sheet() {
+    let source = || PropSheetSource::SpriteFolder {
+        target: "a".to_string(),
+        tuning: ambition_sprite_sheet::character::SheetTuning::new(1.0, 0),
+    };
+    let mut sheets = PropSheets::default();
+    sheets.register("a", source());
+    sheets.register("a", source());
+}

@@ -384,10 +384,17 @@ pub fn install_sanic_content(app: &mut App) {
             .with_resident_sfx_bank(),
     );
     // The ring sheet is content, so register it here: it loads the same way
-    // standalone or hosted (both add `SanicExperiencePlugin`). A prop is not
-    // in the lean sanic asset catalog, so this mirrors Ambition's intro-prop
-    // loader (insert-if-missing each frame). See smell #19.
-    app.add_systems(bevy::prelude::Update, register_sanic_ring_prop_sheet);
+    // standalone or hosted (both add `SanicExperiencePlugin`).
+    {
+        use ambition_platformer2d::actors::assets::game_assets::{PropSheetSource, PropSheetsAppExt};
+        app.register_prop_sheet(
+            RING_SPRITE_KIND,
+            PropSheetSource::SpriteFolder {
+                target: RING_SPRITE_KIND.to_string(),
+                tuning: ambition_platformer2d::sprite_sheet::character::SheetTuning::new(1.0, 2),
+            },
+        );
+    }
 
     // Sanic's mutable sim state joins the rollback contract here, before
     // either construction path fingerprints the App, so the schema
@@ -443,47 +450,6 @@ pub fn install_sanic_content(app: &mut App) {
             );
         // Dropped rings have no global id counter: each mints its identity
         // from the spawning player's own `SimIdCounter` (ADR 0030).
-    }
-}
-
-/// Keep the animated `sanic_ring_prop` sheet in `GameAssets.props` so the
-/// pickup renderer binds it. Insert-if-missing, not a one-shot latch: the
-/// host's quality-scale reload rebuilds `GameAssets` and wipes props, and the
-/// insert flips `GameAssets::is_changed()` so the prop-rebind pass runs. Does
-/// nothing when no `GameAssets` exists (headless).
-fn register_sanic_ring_prop_sheet(
-    game_assets: Option<
-        bevy::prelude::ResMut<ambition_platformer2d::sprite_sheet::game_assets::GameAssets>,
-    >,
-    config: Option<
-        bevy::prelude::Res<ambition_platformer2d::sprite_sheet::game_assets::GameAssetConfig>,
-    >,
-    asset_server: Option<bevy::prelude::Res<bevy::prelude::AssetServer>>,
-    layouts: Option<
-        bevy::prelude::ResMut<bevy::prelude::Assets<bevy::prelude::TextureAtlasLayout>>,
-    >,
-) {
-    let (Some(mut game_assets), Some(config), Some(asset_server), Some(mut layouts)) =
-        (game_assets, config, asset_server, layouts)
-    else {
-        return;
-    };
-    if config.no_assets || game_assets.characters.props.contains_key(RING_SPRITE_KIND) {
-        return;
-    }
-    if let Some(asset) =
-        ambition_platformer2d::actors::character_sprites::load_prop_sheet_for_target(
-            &asset_server,
-            &mut layouts,
-            &config.sprite_folder,
-            RING_SPRITE_KIND,
-            &ambition_platformer2d::sprite_sheet::character::SheetTuning::new(1.0, 2),
-        )
-    {
-        game_assets
-            .characters
-            .props
-            .insert(RING_SPRITE_KIND.to_string(), asset);
     }
 }
 

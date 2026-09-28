@@ -515,6 +515,7 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
     // decides that it wants them at all, which is what keeps a host without a
     // keyboard from being handed a keyboard system.
     ambition_platformer2d::menu::map::install_map_menu_systems(app);
+    app.init_resource::<ambition_platformer2d::actors::assets::game_assets::PropSheets>();
     app.insert_resource(inventory_ui::InventoryUiState::default())
         .add_systems(
             Startup,

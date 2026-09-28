@@ -26,6 +26,8 @@ pub(crate) struct PresentationCatalogs<'w> {
     bosses: Res<'w, ambition_platformer2d::boss_encounter::BossCatalog>,
     assets:
         Res<'w, ambition_platformer2d::asset_manager::platformer_assets::Platformer2dAssetCatalog>,
+    /// The prop sheets content registered, loaded with the rest of the art.
+    props: Res<'w, ambition_platformer2d::actors::assets::game_assets::PropSheets>,
 }
 
 
@@ -98,6 +100,7 @@ pub(crate) fn setup_host_presentation_system(
         &mut atlas_layouts,
         &prepared_world.room_set.active_spec().metadata,
         quality.as_deref().map(|q| &q.budget),
+        &catalogs.props,
     );
     scene_setup::host_presentation_scaffold(&mut commands);
     scene_setup::install_audio_library(
@@ -164,6 +167,7 @@ pub(crate) fn setup_host_presentation_system(
         &mut atlas_layouts,
         &prepared_world.room_set.active_spec().metadata,
         quality.as_deref().map(|q| &q.budget),
+        &catalogs.props,
     );
     scene_setup::host_presentation_scaffold(&mut commands);
     commands.insert_resource(game_assets);
@@ -221,6 +225,8 @@ pub(crate) fn reload_visual_quality_assets_on_scale_change(
         &mut atlas_layouts,
         &room_set.active_spec().metadata,
         Some(&quality.budget),
+        // The props are in `characters`, which is kept below.
+        &Default::default(),
     );
     *game_assets = game_assets::GameAssets {
         // Owned by the engine's quality transition; see above.

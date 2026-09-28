@@ -9,12 +9,10 @@
 //! and a decorative `PropSpec` is layered on top, resolved to the matching
 //! `super_mary_o_*` construction sheet.
 //!
-//! The sheets are CONTENT, not carried in any lean asset catalog, so — exactly
-//! like Sanic's animated ring prop — a tiny per-frame "insert if missing" system
-//! loads each into `GameAssets.characters.props`. That self-heals across the
-//! host's wholesale `GameAssets` rebuild (a quality-scale reload wipes props) and
-//! flips `GameAssets::is_changed()` so the prop-rebind pass runs. It no-ops in a
-//! headless / `--no-assets` build.
+//! The sheets are CONTENT, not carried in any lean asset catalog, so the level
+//! registers them as prop sheets (`register_mary_o_construction_props`) and the
+//! engine loads them with the rest of the art. A headless / `--no-assets` build
+//! loads none.
 
 use bevy::prelude::*;
 
@@ -93,38 +91,18 @@ pub fn structure_prop(id: &str, kind: &str, min: ae::Vec2, size: ae::Vec2) -> Pr
     }
 }
 
-/// Load the construction sheets into `GameAssets.characters.props`, keyed by the
-/// sheet target name (which is also the `PropSpec.kind` the level authors).
-/// Insert-if-missing so it self-heals after a wholesale `GameAssets` rebuild.
-pub fn register_mary_o_construction_props(
-    game_assets: Option<ResMut<ambition_platformer2d::sprite_sheet::game_assets::GameAssets>>,
-    config: Option<Res<ambition_platformer2d::sprite_sheet::game_assets::GameAssetConfig>>,
-    asset_server: Option<Res<AssetServer>>,
-    layouts: Option<ResMut<Assets<TextureAtlasLayout>>>,
-) {
-    let (Some(mut game_assets), Some(config), Some(asset_server), Some(mut layouts)) =
-        (game_assets, config, asset_server, layouts)
-    else {
-        return;
-    };
-    if config.no_assets {
-        return;
-    }
+/// Register the construction sheets, keyed by the sheet target name (which is
+/// also the `PropSpec.kind` the level authors). They load with the rest of the
+/// art.
+pub fn register_mary_o_construction_props(app: &mut App) {
+    use ambition_platformer2d::actors::assets::game_assets::{PropSheetSource, PropSheetsAppExt};
     for kind in CONSTRUCTION_PROPS {
-        if game_assets.characters.props.contains_key(*kind) {
-            continue;
-        }
-        if let Some(asset) = ambition_platformer2d::actors::character_sprites::load_prop_sheet_for_target(
-            &asset_server,
-            &mut layouts,
-            &config.sprite_folder,
-            kind,
-            &ambition_platformer2d::sprite_sheet::character::SheetTuning::new(1.0, 0),
-        ) {
-            game_assets
-                .characters
-                .props
-                .insert((*kind).to_string(), asset);
-        }
+        app.register_prop_sheet(
+            *kind,
+            PropSheetSource::SpriteFolder {
+                target: (*kind).to_string(),
+                tuning: ambition_platformer2d::sprite_sheet::character::SheetTuning::new(1.0, 0),
+            },
+        );
     }
 }

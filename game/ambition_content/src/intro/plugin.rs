@@ -15,11 +15,7 @@ use bevy::prelude::*;
 use crate::banter::CombatBanterRegistry;
 use ambition_cutscene::{CutsceneLibrary, RoomCutsceneBindings};
 use ambition_platformer2d::world::rooms::GatePortalRegistry;
-use ambition_platformer2d_actor_monolith::character_sprites::{
-    build_prop_sprite_asset, build_prop_sprite_asset_packed,
-};
-use ambition_render::quality::ResolvedVisualQuality;
-use ambition_sprite_sheet::game_assets::{GameAssetConfig, GameAssets};
+use ambition_platformer2d_actor_monolith::assets::game_assets::{PropSheetSource, PropSheetsAppExt};
 
 use super::banter::install_intro_banter;
 use super::cutscene::{install_intro_cutscenes, intro_room_cutscene_bindings};
@@ -43,23 +39,21 @@ pub const INTRO_PORTAL_SWITCH_ID: &str = "intro_portal_switch";
 pub const INTRO_PORTAL_SPRITE_NAME: &str = "Interdimensional Gate Portal";
 pub const INTRO_PORTAL_RING_NAME: &str = "Interdimensional Gate Ring";
 
-/// Marker zero-sized resource — guards
-/// [`load_intro_prop_sprites_system`]. Props keep their loader because a
-/// `Prop` is keyed by `Prop.kind`, which the world does author; the NPC
-/// equivalent is gone (see `crate::intro::sprites`).
-#[derive(Resource, Default, Debug)]
-pub(crate) struct IntroPropSpritesInstalled(bool);
-
 pub struct IntroPlugin;
 
 impl Plugin for IntroPlugin {
     fn build(&self, app: &mut App) {
-        // What is left here is content installation.
-        app.init_resource::<IntroPropSpritesInstalled>()
-            // The prop sheets wait for `GameAssets`, which a `Startup` system
-            // inserts after every plugin has built, so this one loader is a
-            // first-chance latch in `Update`.
-            .add_systems(Update, load_intro_prop_sprites_system);
+        // The intro props' sheets load with the rest of the art.
+        for (kind, _file, spec, pack_target) in intro_prop_sprite_rows() {
+            app.register_prop_sheet(
+                kind,
+                PropSheetSource::Catalog {
+                    asset: crate::intro::sprites::intro_prop_asset_id(kind),
+                    spec,
+                    pack_target: pack_target.map(str::to_string),
+                },
+            );
+        }
         // The flag chains are not an installer. They re-derive a table from
         // the save every frame.
         //
@@ -139,75 +133,4 @@ impl Plugin for IntroPlugin {
         // `<<if quest_active("pirate_treasure")>>` in `assets/dialogue/sandbox/`).
         // There is no redirect system in Rust.
     }
-}
-
-/// Extend `GameAssets.characters.props` with intro prop sheets keyed
-/// by `Prop.kind`. Runs once — guarded by
-/// [`IntroPropSpritesInstalled`].
-pub(crate) fn load_intro_prop_sprites_system(
-    mut installed: ResMut<IntroPropSpritesInstalled>,
-    config: Option<Res<GameAssetConfig>>,
-    asset_server: Option<Res<AssetServer>>,
-    layouts: Option<ResMut<Assets<TextureAtlasLayout>>>,
-    game_assets: Option<ResMut<GameAssets>>,
-    catalog: Option<Res<ambition_asset_manager::platformer_assets::Platformer2dAssetCatalog>>,
-    quality: Option<Res<ResolvedVisualQuality>>,
-) {
-    if installed.0 {
-        return;
-    }
-    let (Some(config), Some(asset_server), Some(mut layouts), Some(mut game_assets), Some(catalog)) =
-        (config, asset_server, layouts, game_assets, catalog)
-    else {
-        return;
-    };
-    if config.no_assets {
-        installed.0 = true;
-        return;
-    }
-    for (kind, filename, spec, pack_target) in intro_prop_sprite_rows() {
-        if game_assets.characters.props.contains_key(kind) {
-            continue;
-        }
-        // Shared-pack path first for opted-in props: the quality-tiered
-        // ultrapack pages + catalog-synthesized spec. Falls back to the
-        // per-target sheet below when no pack was generated / gated.
-        if let Some(target) = pack_target {
-            if let Some(asset) = build_prop_sprite_asset_packed(
-                &catalog,
-                &asset_server,
-                &mut layouts,
-                target,
-                &spec,
-                quality.as_deref().map(|q| &q.budget),
-            ) {
-                bevy::log::info!(
-                    target: "ambition_platformer2d::sprite_packs",
-                    "prop '{kind}' bound to shared sprite pack (target '{target}')",
-                );
-                game_assets
-                    .characters
-                    .props
-                    .insert((*kind).to_string(), asset);
-                continue;
-            }
-        }
-        let id = crate::intro::sprites::intro_prop_asset_id(kind);
-        if let Some(asset) =
-            build_prop_sprite_asset(&catalog, &asset_server, &mut layouts, &id, &spec)
-        {
-            game_assets
-                .characters
-                .props
-                .insert((*kind).to_string(), asset);
-        } else {
-            eprintln!(
-                "[intro] Prop sheet '{kind}' (catalog id {id}) not loadable under {} \
-                 profile (logical {}/{filename}) — falling back to colored rectangle",
-                catalog.profile().label(),
-                config.sprite_folder,
-            );
-        }
-    }
-    installed.0 = true;
 }

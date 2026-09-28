@@ -210,12 +210,11 @@ boundary nobody checks is the one everyone assumes has drifted:
   reference (`game/ambition_demo_sanic/src/lib.rs:280`) is a HUD LABEL that asks
   the engine's own bindings what key an action is bound to — presentation of the
   input vocabulary, not a second input path.
-* **No direct sprite binding.** The one place the demo touches an atlas is
-  `register_sanic_ring_prop_sheet` (`game/ambition_demo_sanic/src/lib.rs:830`),
-  which registers demo-owned PROP art (the ring) through the engine's own
-  `load_prop_sheet_for_target` into `GameAssets::characters::props`. Demo art
-  entering by the engine's seam is the arrangement this clause asks for, not an
-  exception to it.
+* **No direct sprite binding.** The demo touches no atlas. Its one piece of
+  PROP art (the ring) is a row it registers in `build` with
+  `register_prop_sheet` (`PropSheetSource::SpriteFolder`), and the engine loads
+  it with the rest of the art (AP146). Demo art entering by the engine's seam is
+  the arrangement this clause asks for, not an exception to it.
 
 ## Proposed — polish backlog (2026-07-16)
 

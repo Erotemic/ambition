@@ -1,17 +1,9 @@
-//! Intro NPC sprite placeholders.
+//! Intro prop sheets.
 //!
-//! Until proper character sheets exist for Creator / Oiler / Gate Janitor /
-//! Lab Raider / Manifest Clerk, intro NPCs reuse the toon-target
-//! spritesheets that already ship with the sandbox. The doc's placeholder
-//! mapping (`Story handoff` § "Recommended placeholder mapping") drives
-//! the picks here; rows are keyed by exact `NpcSpawn.name` from
-//! `intro.ldtk`.
-//!
-//! Add a row by appending a tuple to [`INTRO_NPC_SPRITE_REGISTRY`] —
-//! [`crate::intro::plugin::load_intro_npc_sprites_system`] walks the
-//! table at startup and inserts every present sheet into
-//! `GameAssets.characters.npcs`. Missing PNGs fall back to colored
-//! rectangles per the existing contract.
+//! [`intro_prop_sprite_rows`] lists the props the intro rooms author, keyed by
+//! `Prop.kind`. `IntroPlugin` registers each row as a prop sheet, and the engine
+//! loads them with the rest of the art. A row whose sheet does not load draws
+//! as a placeholder rectangle.
 
 use ambition_asset_manager::AssetId;
 

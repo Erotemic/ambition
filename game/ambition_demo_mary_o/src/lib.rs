@@ -962,14 +962,13 @@ pub fn install_mary_o_content(app: &mut App) {
     // arena uses it exactly that way) — Mary-O's enemies are simply not that
     // anymore.
     app.init_resource::<ambition_platformer2d::actors::features::RoomContentStagingRegistry>();
-    // The flagpole + warp-pipe LOOK: load the construction sheets into
-    // `GameAssets.props` so the decorative props authored on the level resolve to
-    // real art instead of the placeholder quad. Presentation-only, so it rides the
-    // plain `Update` schedule (self-heals after a `GameAssets` rebuild).
+    // The flagpole + warp-pipe LOOK: the construction sheets are prop sheets,
+    // so the decorative props authored on the level resolve to real art instead
+    // of the placeholder quad.
+    scenery::register_mary_o_construction_props(app);
     app.add_systems(
         bevy::prelude::Update,
         (
-            scenery::register_mary_o_construction_props,
             // Each enemy owns its own sheet so its bodies never fall back to the
             // generic goblin — the deferred room-staging barrier that would load
             // them lives in the app host and isn't reliably driven for a demo-staged

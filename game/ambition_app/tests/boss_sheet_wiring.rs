@@ -351,6 +351,7 @@ fn boss_sheets_are_decoded_by_the_first_boss_room_and_not_at_boot() {
         &mut layouts,
         &ambition_platformer2d::world::rooms::RoomMetadata::default(),
         None,
+        &Default::default(),
     );
     assert!(
         assets.boss_sprites.is_empty(),

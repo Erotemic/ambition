@@ -36,6 +36,15 @@ impl SnapshotState for crate::MotionModel {
                     put_u32(out, span.first_segment as u32);
                     put_u32(out, span.last_segment as u32);
                 }
+                match motion.boost {
+                    None => put_bool(out, false),
+                    Some(boost) => {
+                        put_bool(out, true);
+                        put_f32(out, boost.top_speed_scale);
+                        put_f32(out, boost.ground_accel_scale);
+                        put_f32(out, boost.remaining_s);
+                    }
+                }
             }
             MotionModel::AdhesiveCrawler(motion) => {
                 put_u8(out, 2);
@@ -87,12 +96,22 @@ impl SnapshotState for crate::MotionModel {
                         last_segment: r.u32()? as usize,
                     });
                 }
+                let boost = if r.bool()? {
+                    Some(crate::MomentumBoost {
+                        top_speed_scale: r.f32()?,
+                        ground_accel_scale: r.f32()?,
+                        remaining_s: r.f32()?,
+                    })
+                } else {
+                    None
+                };
                 MotionModel::SurfaceMomentum(SurfaceMomentumMotion {
                     params,
                     state,
                     depth_lane,
                     route_memory,
                     occlusions,
+                    boost,
                 })
             }
             2 => {
@@ -744,6 +763,31 @@ mod tests {
         assert!(axis.state.phased_jump.active);
         assert!(axis.state.phased_jump.hold_cancelled);
         assert_eq!(axis.state.buffer_jump, 0.03125);
+    }
+
+    /// A live boost changes how the next tick moves, so a rewind must bring
+    /// it back with the motion.
+    #[test]
+    fn a_momentum_boost_round_trips() {
+        use crate::{MomentumBoost, MomentumParams, MotionModel};
+
+        let boost = MomentumBoost {
+            top_speed_scale: 1.4,
+            ground_accel_scale: 1.5,
+            remaining_s: 3.25,
+        };
+        let mut model = MotionModel::surface_momentum(MomentumParams::default());
+        let MotionModel::SurfaceMomentum(motion) = &mut model else {
+            unreachable!();
+        };
+        motion.boost = Some(boost);
+
+        let restored = decode_state::<MotionModel>(&encode_state(&model))
+            .expect("codec must accept its own bytes");
+        let MotionModel::SurfaceMomentum(motion) = restored else {
+            panic!("momentum policy identity did not survive rollback");
+        };
+        assert_eq!(motion.boost, Some(boost));
     }
 }
 

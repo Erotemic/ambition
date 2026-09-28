@@ -86,15 +86,6 @@ impl SpentMonitors {
     }
 }
 
-/// The timed speed-shoes grant riding on the player body. Carries the saved
-/// authored params so expiry restores exactly what the catalog authored.
-#[derive(Component, Clone, Copy, Debug)]
-pub struct SpeedShoes {
-    pub remaining: f32,
-    saved_top_speed: f32,
-    saved_ground_accel: f32,
-}
-
 /// The break. A falling player whose feet land on a monitor's lid, or a
 /// rolling player overlapping it, breaks it once: burst + cue + the grant.
 ///
@@ -113,13 +104,12 @@ pub fn break_monitor_boxes(
             &ambition_platformer2d::characters::actor::WornCharacter,
             &mut ae::MotionModel,
             Option<&crate::ball_dash::Rolling>,
-            Option<&SpeedShoes>,
             Option<&mut ambition_platformer2d::characters::actor::BodyWallet>,
         ),
         With<PrimaryPlayer>,
     >,
 ) {
-    let Ok((entity, kin, worn, mut model, rolling, shoes, mut wallet)) = players.single_mut()
+    let Ok((entity, kin, worn, mut model, rolling, mut wallet)) = players.single_mut()
     else {
         return;
     };
@@ -197,19 +187,17 @@ pub fn break_monitor_boxes(
                 }
             }
             name if name.starts_with(SPEED_MONITOR) => {
-                // Never stack: a second pair of shoes would save the
-                // already-multiplied params and "restore" them, and shoes over
-                // the super form would restore the form's params after it is
-                // toggled off.
-                if shoes.is_none() && worn.id() != SUPER_SANIC_CHARACTER_ID {
+                // The shoes are a boost on the momentum the body rides: the
+                // kernel folds it into the authored params and spends it, so
+                // a second pair only restarts the clock. The super form
+                // authors its own speed, so it takes no shoes.
+                if worn.id() != SUPER_SANIC_CHARACTER_ID {
                     if let ae::MotionModel::SurfaceMomentum(momentum) = &mut *model {
-                        commands.entity(entity).insert(SpeedShoes {
-                            remaining: SPEED_SHOES_SECONDS,
-                            saved_top_speed: momentum.params.top_speed,
-                            saved_ground_accel: momentum.params.ground_accel,
+                        momentum.boost = Some(ae::MomentumBoost {
+                            top_speed_scale: SPEED_SHOES_TOP_SPEED_FACTOR,
+                            ground_accel_scale: SPEED_SHOES_ACCEL_FACTOR,
+                            remaining_s: SPEED_SHOES_SECONDS,
                         });
-                        momentum.params.top_speed *= SPEED_SHOES_TOP_SPEED_FACTOR;
-                        momentum.params.ground_accel *= SPEED_SHOES_ACCEL_FACTOR;
                     }
                 }
             }
@@ -223,26 +211,6 @@ pub fn break_monitor_boxes(
                 );
             }
         }
-    }
-}
-
-/// Count the shoes down on the sim clock and restore the authored params
-/// exactly on expiry.
-pub fn tick_speed_shoes(
-    mut commands: Commands,
-    time: Res<ambition_platformer2d::time::WorldTime>,
-    mut bodies: Query<(Entity, &mut ae::MotionModel, &mut SpeedShoes)>,
-) {
-    for (entity, mut model, mut shoes) in &mut bodies {
-        shoes.remaining -= time.scaled_dt;
-        if shoes.remaining > 0.0 {
-            continue;
-        }
-        if let ae::MotionModel::SurfaceMomentum(momentum) = &mut *model {
-            momentum.params.top_speed = shoes.saved_top_speed;
-            momentum.params.ground_accel = shoes.saved_ground_accel;
-        }
-        commands.entity(entity).remove::<SpeedShoes>();
     }
 }
 
@@ -392,47 +360,6 @@ mod tests {
             app.world().resource::<SpentMonitors>().0.len(),
             1,
             "a broken monitor must stay broken until the room reloads or replays"
-        );
-    }
-
-    #[test]
-    fn expired_speed_shoes_restore_the_authored_params() {
-        let mut app = App::new();
-        app.insert_resource(ambition_platformer2d::time::WorldTime {
-            scaled_dt: 10.0,
-            ..Default::default()
-        });
-        app.add_systems(Update, tick_speed_shoes);
-        let params = ae::MomentumParams {
-            top_speed: 1200.0,
-            ground_accel: 900.0,
-            ..Default::default()
-        };
-        let mut boosted = params;
-        boosted.top_speed *= SPEED_SHOES_TOP_SPEED_FACTOR;
-        boosted.ground_accel *= SPEED_SHOES_ACCEL_FACTOR;
-        let body = app
-            .world_mut()
-            .spawn((
-                ae::MotionModel::surface_momentum(boosted),
-                SpeedShoes {
-                    remaining: 1.0,
-                    saved_top_speed: params.top_speed,
-                    saved_ground_accel: params.ground_accel,
-                },
-            ))
-            .id();
-        app.update();
-        let ae::MotionModel::SurfaceMomentum(momentum) =
-            app.world().get::<ae::MotionModel>(body).unwrap()
-        else {
-            panic!("body keeps its momentum policy");
-        };
-        assert_eq!(momentum.params.top_speed, 1200.0, "top speed restored");
-        assert_eq!(momentum.params.ground_accel, 900.0, "accel restored");
-        assert!(
-            app.world().get::<SpeedShoes>(body).is_none(),
-            "expired shoes come off"
         );
     }
 }

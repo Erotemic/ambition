@@ -424,12 +424,6 @@ pub fn install_sanic_content(app: &mut App) {
                 "content.sanic_rolling",
                 rollback_probes::rolling,
             )
-            // The shoes' timer and the params they restore on expiry.
-            .rollback_component_clone_probed::<monitors::SpeedShoes>(
-                "ambition_demo_sanic",
-                "content.sanic_speed_shoes",
-                rollback_probes::speed_shoes,
-            )
             // A scattered ring rides its currency pickup, which
             // `CenteredAabb`/`PickupFeature` already anchor and snapshot, so only
             // its own component needs registering.
@@ -813,15 +807,11 @@ impl Plugin for SanicRulesPlugin {
             .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::FeatureCollection)
             .after(ambition_platformer2d::actors::features::PickupMagnetize)
             .before(ambition_platformer2d::actors::features::PickupCollect);
-        // Monitor boxes: re-arm on (re)load, break on stomp/roll, tick the
-        // speed-shoes grant. Broken monitors contribute to the overlay's
+        // Monitor boxes: re-arm on (re)load, break on stomp/roll. Broken
+        // monitors contribute to the overlay's
         // `removed_block_names` after the engine's per-frame rebuild clears it
         // (the same slot Mary-O's bricks and encounter lock walls take).
-        let monitor_rules = (
-            monitors::break_monitor_boxes,
-            monitors::tick_speed_shoes,
-        )
-            .chain()
+        let monitor_rules = monitors::break_monitor_boxes
             .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::GameplayEffects);
         let monitor_overlay = monitors::contribute_broken_monitors_to_overlay
             .in_set(ambition_platformer2d::platformer::schedule::FeatureWorldOverlayContributions);
@@ -907,22 +897,21 @@ fn transform_technique() -> ambition_platformer2d::entity_catalog::action_scheme
 /// form (sparkles, the transform cue), so `WornCharacter` is the single
 /// authority. No timer.
 ///
-/// It also drops the speed shoes: a wear replaces `MomentumParams`, so a
-/// shoes grant would later restore a baseline saved from the other form.
+/// It also ends the speed shoes, because the super form takes none.
 fn toggle_sanic_form(
-    mut commands: bevy::prelude::Commands,
     subject: Option<
         bevy::prelude::Res<ambition_platformer2d::platformer::markers::ControlledSubject>,
     >,
     mut bodies: bevy::prelude::Query<(
         &ambition_platformer2d::characters::action_scheme::ResolvedTechniqueEdges,
         &mut ambition_platformer2d::characters::actor::WornCharacter,
+        &mut ambition_platformer2d::engine_core::MotionModel,
     )>,
 ) {
     let Some(entity) = subject.and_then(|subject| subject.0) else {
         return;
     };
-    let Ok((edges, mut worn)) = bodies.get_mut(entity) else {
+    let Ok((edges, mut worn, mut model)) = bodies.get_mut(entity) else {
         return;
     };
     if !edges.pressed(TRANSFORM_TECHNIQUE_ID) {
@@ -935,10 +924,12 @@ fn toggle_sanic_form(
         _ => return,
     };
     // The transform sound fires from the worn-identity edge in
-    // `sync_super_form_traits`. This only wears the form and drops any live
+    // `sync_super_form_traits`. This only wears the form and ends any live
     // shoes.
     *worn = ambition_platformer2d::characters::actor::WornCharacter::new(next);
-    commands.entity(entity).remove::<monitors::SpeedShoes>();
+    if let ambition_platformer2d::engine_core::MotionModel::SurfaceMomentum(momentum) = &mut *model {
+        momentum.boost = None;
+    }
 }
 
 /// How often the super form's sparkle trail pulses (sim seconds).
@@ -1687,10 +1678,6 @@ mod rollback_probes {
 
     pub(super) fn rolling(rolling: &ball_dash::Rolling) -> u64 {
         (u64::from(rolling.restore_size.x.to_bits()) << 32) | u64::from(rolling.restore_size.y.to_bits())
-    }
-
-    pub(super) fn speed_shoes(shoes: &monitors::SpeedShoes) -> u64 {
-        u64::from(shoes.remaining.to_bits())
     }
 
     pub(super) fn scattered_ring(ring: &ScatteredRing) -> u64 {

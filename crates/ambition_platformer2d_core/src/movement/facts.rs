@@ -281,7 +281,8 @@ impl BodyMotionFacts {
             let running = match momentum.state {
                 crate::movement::surface_momentum::SurfaceMotion::Riding { v_t, .. } => {
                     v_t.abs()
-                        >= crate::movement::tuning::RUN_COMMIT_FRAC * momentum.params.top_speed
+                        >= crate::movement::tuning::RUN_COMMIT_FRAC
+                            * momentum.effective_params().top_speed
                 }
                 crate::movement::surface_momentum::SurfaceMotion::Airborne => false,
             };

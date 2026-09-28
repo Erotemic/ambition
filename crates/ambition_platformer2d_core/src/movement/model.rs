@@ -566,6 +566,23 @@ pub struct SurfaceMomentumMotion {
     /// [`crate::OcclusionSpan`]): non-collidable until the body separates.
     /// Empty while riding.
     pub occlusions: crate::DepthOcclusions,
+    /// A timed scale on the params, if one is live. See [`MomentumBoost`].
+    pub boost: Option<MomentumBoost>,
+}
+
+/// A timed scale on a momentum body's top speed and ground acceleration (a
+/// pair of speed shoes).
+///
+/// The kernel folds it into the params it reads and spends it on the step's
+/// clock. The authored params are never written, so the expiry has nothing to
+/// put back, and a re-wear that replaces the params keeps the boost over the
+/// new ones.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct MomentumBoost {
+    pub top_speed_scale: f32,
+    pub ground_accel_scale: f32,
+    /// Seconds left.
+    pub remaining_s: f32,
 }
 
 impl SurfaceMomentumMotion {
@@ -627,6 +644,28 @@ impl SurfaceMomentumMotion {
             depth_lane: 0,
             route_memory: None,
             occlusions: crate::DepthOcclusions::default(),
+            boost: None,
+        }
+    }
+
+    /// The params the kernel reads: the authored ones with any live boost
+    /// folded in.
+    pub fn effective_params(&self) -> MomentumParams {
+        let mut params = self.params;
+        if let Some(boost) = self.boost {
+            params.top_speed *= boost.top_speed_scale;
+            params.ground_accel *= boost.ground_accel_scale;
+        }
+        params
+    }
+
+    /// Spend `dt` of a live boost; it ends when its time runs out.
+    pub fn spend_boost(&mut self, dt: f32) {
+        if let Some(boost) = &mut self.boost {
+            boost.remaining_s -= dt;
+            if boost.remaining_s <= 0.0 {
+                self.boost = None;
+            }
         }
     }
 }
@@ -787,7 +826,7 @@ impl MotionModel {
     pub fn commanded_top_speed(&self) -> f32 {
         match self {
             Self::AxisSwept(axis) => axis.params.locomotion.max_run_speed,
-            Self::SurfaceMomentum(momentum) => momentum.params.top_speed,
+            Self::SurfaceMomentum(momentum) => momentum.effective_params().top_speed,
             Self::AdhesiveCrawler(crawler) => crawler.params.crawl_speed,
         }
     }

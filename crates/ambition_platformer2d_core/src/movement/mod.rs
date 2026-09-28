@@ -87,7 +87,7 @@ pub use kernel::{step_motion, MotionStepContext, MotionStepResult, SupportFact};
 pub use model::{
     catch_the_wire, cut_the_wire, footstool_victim, knock_off_ledge, switch_motion_model,
     AxisManeuverState, AxisSweptMotion, MotionModel, MotionModelKind, MotionModelSpec,
-    PhasedJumpState, SurfaceMomentumMotion, WireState,
+    MomentumBoost, PhasedJumpState, SurfaceMomentumMotion, WireState,
 };
 pub use ops::MovementOp;
 pub use player::{default_player_body_size, DEFAULT_PLAYER_BODY_HEIGHT, DEFAULT_PLAYER_BODY_WIDTH};

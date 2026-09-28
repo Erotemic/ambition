@@ -23,7 +23,6 @@ fn sanic_sim_state_is_in_the_rollback_contract() {
         "content.sanic_ball_dash_input",
         "content.sanic_act_state",
         "content.sanic_rolling",
-        "content.sanic_speed_shoes",
     ] {
         assert!(
             names.contains(&expected),

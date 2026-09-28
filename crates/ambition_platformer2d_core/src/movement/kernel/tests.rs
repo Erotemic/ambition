@@ -14,7 +14,7 @@ use crate::movement::{switch_motion_model, MotionModelKind};
 use crate::reference_frame::LocalAxes;
 use crate::{
     AbilitySet, AccelerationFrame, AxisSweptParams, Block, BodyClusterScratch, CrawlerParams,
-    MomentumParams, MotionModelSpec, SurfaceChain,
+    MomentumParams, MotionModelSpec, SurfaceChain, SurfaceMomentumMotion,
 };
 
 const DT: f32 = 1.0 / 60.0;
@@ -1579,4 +1579,74 @@ fn a_held_body_pinned_inside_solid_does_not_land() {
         }
     }
     assert_eq!(landings, 0, "a held body pinned in the ceiling landed {landings} times in 60 ticks");
+}
+
+/// A momentum boost is folded where the kernel reads its params and spent on
+/// the step's clock. The authored params are never written, so its expiry
+/// needs no restore.
+#[test]
+fn a_momentum_boost_lifts_the_run_cap_without_writing_the_params() {
+    let chain = SurfaceChain::open(
+        "long_floor",
+        vec![Vec2::new(0.0, 600.0), Vec2::new(40_000.0, 600.0)],
+    );
+    let world = World::new(
+        "boosted_ride",
+        Vec2::splat(100_000.0),
+        Vec2::splat(500.0),
+        Vec::new(),
+    )
+    .with_chains(vec![chain]);
+    let frame = MotionFrame::from_acceleration(Vec2::new(0.0, 900.0)).unwrap();
+    let authored = MomentumParams::default();
+    let ride = |boost: Option<crate::MomentumBoost>| {
+        let mut scratch =
+            BodyClusterScratch::new_with_abilities(Vec2::new(600.0, 590.0), AbilitySet::default());
+        let mut model = MotionModel::surface_momentum(authored);
+        let MotionModel::SurfaceMomentum(motion) = &mut model else {
+            unreachable!();
+        };
+        motion.state = SurfaceMotion::Riding {
+            on: SurfaceRef::Chain(0),
+            s: 600.0,
+            v_t: 0.0,
+        };
+        motion.boost = boost;
+        for _ in 0..120 {
+            let run = InputState {
+                axes: LocalAxes::new(1.0, 0.0),
+                ..InputState::default()
+            };
+            step(&mut model, &world, &mut scratch, frame, run);
+        }
+        let MotionModel::SurfaceMomentum(motion) = model else {
+            unreachable!();
+        };
+        motion
+    };
+    let boost = |remaining_s| crate::MomentumBoost {
+        top_speed_scale: 1.5,
+        ground_accel_scale: 1.5,
+        remaining_s,
+    };
+    let speed = |motion: &SurfaceMomentumMotion| motion.tangential_speed().expect("still riding");
+
+    let plain = ride(None);
+    assert!(
+        (speed(&plain) - authored.top_speed).abs() < 1.0,
+        "control: the authored cap binds a plain run, got {}",
+        speed(&plain)
+    );
+    let boosted = ride(Some(boost(10.0)));
+    assert!(
+        speed(&boosted) > authored.top_speed * 1.4,
+        "the boost did not reach the cap the kernel reads, got {}",
+        speed(&boosted)
+    );
+    assert_eq!(boosted.params, authored, "the boost wrote the authored params");
+    assert!(boosted.boost.is_some(), "a ten-second boost ended in two");
+    assert!(
+        ride(Some(boost(0.5))).boost.is_none(),
+        "a half-second boost outlived two seconds of steps"
+    );
 }

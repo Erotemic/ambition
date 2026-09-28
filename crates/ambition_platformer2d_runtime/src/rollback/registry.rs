@@ -840,7 +840,11 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// ⛔⛤ 252 -> 253: `portal.host_scanned` leaves. Whether the host adapter
 /// has looked at a portal is `PlacedPortal::host` (`PortalHost::Unattributed`),
 /// which rewinds with the portal (`portal.placed`).
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 253;
+/// ⛔⛤ 253 -> 254: `content.sanic_speed_shoes` leaves, and the momentum
+/// motion's codec carries `SurfaceMomentumMotion::boost`. The shoes are a
+/// boost the kernel folds into the params it reads, so no saved copy of the
+/// params exists to restore.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 254;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

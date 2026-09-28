@@ -480,10 +480,11 @@ fn step_surface_momentum(
         occlusions: motion.occlusions,
     };
     let mut contacts = Vec::new();
+    let params = motion.effective_params();
     surface_momentum::step_surface_body(
         &mut body,
         ctx.world,
-        &motion.params,
+        &params,
         ctx.frame,
         SurfaceInputs {
             local_axes: ctx.input.axes,
@@ -520,6 +521,7 @@ fn step_surface_momentum(
     motion.depth_lane = body.depth_lane;
     motion.route_memory = body.route_memory;
     motion.occlusions = body.occlusions;
+    motion.spend_boost(ctx.dt);
     write_sweep_sample(clusters, sweep_entry);
 
     let mut events = FrameEvents {

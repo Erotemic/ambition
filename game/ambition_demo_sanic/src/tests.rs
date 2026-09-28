@@ -691,6 +691,7 @@ fn the_declared_utility_technique_toggles_both_forms_and_eats_the_fly_verb() {
             ambition_platformer2d::characters::control::ActorControl::default(),
             ambition_platformer2d::characters::actor::WornCharacter::new(SANIC_CHARACTER_ID),
             ae::BodyKinematics::default(),
+            ae::MotionModel::surface_momentum(ae::MomentumParams::default()),
             // `#[require]` pulls in `ResolvedTechniqueEdges` — the seam the gate
             // writes and the toggle reads.
             ActorTechniques(vec![super::transform_technique()]),
@@ -744,8 +745,27 @@ fn the_declared_utility_technique_toggles_both_forms_and_eats_the_fly_verb() {
             .to_string()
     };
 
+    // Live speed shoes: the super form takes none, so the toggle ends them.
+    {
+        let mut model = app.world_mut().get_mut::<ae::MotionModel>(entity).unwrap();
+        let ae::MotionModel::SurfaceMomentum(momentum) = &mut *model else {
+            unreachable!("the fixture rides momentum");
+        };
+        momentum.boost = Some(ae::MomentumBoost {
+            top_speed_scale: 1.4,
+            ground_accel_scale: 1.5,
+            remaining_s: 8.0,
+        });
+    }
+
     press_utility(&mut app);
     assert_eq!(worn(&app), SUPER_SANIC_CHARACTER_ID);
+    let ae::MotionModel::SurfaceMomentum(momentum) =
+        app.world().get::<ae::MotionModel>(entity).unwrap()
+    else {
+        unreachable!("the fixture rides momentum");
+    };
+    assert_eq!(momentum.boost, None, "the super form kept the speed shoes");
     press_utility(&mut app);
     assert_eq!(worn(&app), SANIC_CHARACTER_ID);
 }

@@ -106,7 +106,7 @@ pub use movement::{
     MotionModel, MotionModelKind, MotionModelSpec, MotionStepContext, MotionStepResult,
     MovementAction, MovementOp, MovementTuning, NormalSpineCtx, OcclusionSpan, OutOfShield,
     OutOfShieldAction, OutOfShieldGate, ParryTiming, PhasedGravityJumpTuning, PhasedJumpState,
-    PoseOwnedExternally, ResetCause, RouteDeparture, ShieldTuning, SurfaceMomentumMotion,
+    PoseOwnedExternally, ResetCause, RouteDeparture, ShieldTuning, SurfaceMomentumMotion, MomentumBoost,
     SurfaceMotion, SurfaceRef, TraversalAbilityTuning, WireState, AIR_ACCEL, AIR_DODGE_ENDLAG,
     AIR_DODGE_SPEED, AIR_DODGE_TIME, AIR_FRICTION, AIR_JUMPS, BLINK_COOLDOWN, BLINK_DISTANCE,
     BLINK_HOLD_THRESHOLD, COYOTE_TIME, DASH_BUFFER, DASH_COOLDOWN, DASH_SPEED, DASH_TIME,

@@ -105,10 +105,9 @@ pub enum MenuControlKind {
 /// callbacks. `Control::icon` is an optional asset path, relative to Bevy's
 /// asset root.
 ///
-/// `PartialEq` is a renderer contract: the kaleidoscope's
-/// `rebuild_cube_faces` compares a new page with the model the live face was
-/// built from and rebuilds only faces that differ. Equal values must draw the
-/// same thing.
+/// `PartialEq` is a renderer contract: the kaleidoscope compares each node of a
+/// new page with the node the live entity was drawn from and rewrites only the
+/// nodes that differ. Equal values must draw the same thing.
 #[derive(Clone, Debug, PartialEq)]
 pub enum MenuNode<Action> {
     Panel {
@@ -203,8 +202,8 @@ pub struct MenuScrollDragged {
 /// Which pointer, if any, is dragging a menu scrollbar.
 ///
 /// A resource, not a flag on the scrollbar: a scroll change triggers a
-/// republish that respawns the scrollbar each frame, which would reset an
-/// entity flag. Keyed on the persistent `PointerId`, so the drag survives
+/// republish, and the flat grid backend respawns its scrollbar on each one,
+/// which would reset an entity flag. Keyed on the persistent `PointerId`, so the drag survives
 /// respawns. Shared by both renderers (only one menu is active at a time).
 #[derive(Resource, Default)]
 pub struct ScrollbarDragState {

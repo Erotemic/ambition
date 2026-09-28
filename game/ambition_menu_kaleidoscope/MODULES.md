@@ -7,8 +7,9 @@
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
 | [`page`](src/page.rs) | Build one menu page's 3D scene: the panels, text, controls and scrollbar a `MenuPageModel` describes, spawned as children under the page's own root. |
+| [`reconcile`](src/reconcile.rs) | Rewrite a live face in place so it draws a newly published page model. |
 
-_1 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_2 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

@@ -181,13 +181,13 @@ pub struct CubeFace {
     pub half_height: f32,
 }
 
-/// Everything a live face's children were built from, kept on the face so
-/// [`rebuild_cube_faces`] can ask "would rebuilding this face draw anything
-/// different?" and leave it alone when the answer is no.
+/// Everything a live face's children were drawn from, kept on the face so
+/// [`rebuild_cube_faces`] can tell what a new publication changed.
 ///
 /// [`ActiveMenuPages`] has one `version` counter for all pages, so any change
-/// would invalidate all four faces. This component holds the complete input of
-/// a face spawn; equality means a respawn would change nothing.
+/// would otherwise touch all four faces. Equality leaves the face alone; a
+/// difference in its nodes or its `active` flag is reconciled in place, node by
+/// node against each child's [`RenderedNode`].
 ///
 /// The `config`-derived geometry is not stored: `rebuild_cube_faces` forces a
 /// full rebuild when [`KaleidoscopeMenuConfig`] changes.
@@ -379,8 +379,8 @@ where
             // on nav, so this is gated to the Bevy-picking (game) configuration.
             //
             // Both readers live in the public [`KaleidoscopeFocusVisuals`] set, ordered AFTER
-            // `rebuild_cube_faces` so a republish that respawns the controls can't wipe the
-            // host writer's focus flags after they're set.
+            // `rebuild_cube_faces` so a republish that respawns or rewrites the controls
+            // can't wipe the host writer's focus flags after they're set.
             app.configure_sets(
                 Update,
                 KaleidoscopeFocusVisuals
@@ -741,8 +741,13 @@ where
     last_version != Some(pages.version) || last_active != pages.active.as_ref()
 }
 
-/// Rebuild the ring's faces whenever the host's published pages change — and only
-/// the faces that would draw something different.
+/// Bring the ring's faces up to the host's published pages whenever they change.
+///
+/// A face that still draws the same page at the same place on the ring is kept
+/// and reconciled in place (`reconcile`): its changed nodes are rewritten on the
+/// entities already drawing them. Only a face whose page or ring slot moved, or
+/// every face on a config change, is despawned and spawned again.
+#[allow(clippy::too_many_arguments)]
 pub fn rebuild_cube_faces<PageId, Action>(
     mut commands: Commands,
     mut materials: ResMut<Assets<StandardMaterial>>,
@@ -751,6 +756,7 @@ pub fn rebuild_cube_faces<PageId, Action>(
     pages: Option<Res<ActiveMenuPages<PageId, Action>>>,
     ring_query: Query<Entity, With<MenuRing>>,
     faces: Query<(Entity, Option<&RenderedFace<PageId, Action>>), With<AmbitionMenuPage<PageId>>>,
+    live: reconcile::LiveFaceNodes<Action>,
     mut last_version: Local<Option<u64>>,
     mut last_active: Local<Option<PageId>>,
     mut dirty: Local<bool>,
@@ -761,14 +767,12 @@ pub fn rebuild_cube_faces<PageId, Action>(
     let Some(pages) = pages else {
         return;
     };
-    // Rebuild only when the renderer-visible page identity changes. The host uses
+    // Act only when the renderer-visible page identity changes. The host uses
     // `version` as the explicit content-generation counter; `active` changes which
     // face receives active depth/control markers. Do NOT use `pages.is_changed()`:
     // several host systems legitimately borrow this resource mutably every frame,
     // which dirties Bevy's broad resource change tick even when neither rendered
-    // value changed. Treating that tick as content invalidation despawns and rebuilds
-    // every face every frame, repeatedly retriggering rich-text shaping, mesh uploads,
-    // material extraction, and allocator churn.
+    // value changed.
     if !*dirty && !renderer_page_identity_changed(*last_version, last_active.as_ref(), &pages) {
         return;
     }
@@ -786,38 +790,61 @@ pub fn rebuild_cube_faces<PageId, Action>(
     let n = page_count.max(1) as f32;
     let flip = config.inside_x_flip;
     // Every face's geometry and styling is read out of the config at spawn time, so
-    // a config change invalidates all of them at once. It is not part of the
-    // per-face key: this is the rare path, and paying for it wholesale keeps the
-    // key to the one thing that changes often, the page's own content.
+    // a config change invalidates all of them at once. This is the rare path, and
+    // paying for it wholesale keeps reconciliation to the page's own content.
     let config_changed = config.is_changed();
 
-    // Decide, per PUBLISHED page, whether a live face already draws exactly it.
-    // `RenderedFace` holds the complete input set of a face spawn, so equality
-    // means respawning would reproduce the same children — a page turn touches the
-    // two faces whose `active` flag moved, and a content change touches one.
-    let mut reuse: Vec<Option<Entity>> = vec![None; page_count];
+    // Decide, per PUBLISHED page, whether a live face can be brought to draw it in
+    // place: the same page, in the same ring slot, on the same background. What
+    // differs beyond that — its nodes, whether it is the active face — is
+    // reconciled on the entities already standing.
+    let mut kept: Vec<Option<Entity>> = vec![None; page_count];
     let mut retired: Vec<Entity> = Vec::new();
     for (entity, rendered) in &faces {
-        // A face with no `RenderedFace` cannot be proven current, so it is retired
-        // and rebuilt rather than trusted — the honest answer to "I don't know".
         let keep = match (config_changed, rendered) {
             (false, Some(rendered)) => pages
                 .pages
                 .iter()
                 .position(|model| model.id == rendered.model.id)
                 .filter(|&i| {
-                    let active = pages.active.as_ref() == Some(&pages.pages[i].id);
-                    rendered.model == pages.pages[i]
-                        && rendered.active == active
-                        && rendered.index == i
+                    rendered.index == i
                         && rendered.page_count == page_count
+                        && rendered.model.background == pages.pages[i].background
                 }),
+            // A face with no `RenderedFace` cannot be proven current, so it is
+            // retired and rebuilt rather than trusted.
             _ => None,
         };
         match keep {
             // `is_none()` also retires a duplicate face claiming a page another
             // face already holds; the ring must never carry two of one page.
-            Some(i) if reuse[i].is_none() => reuse[i] = Some(entity),
+            Some(i) if kept[i].is_none() => {
+                let model = &pages.pages[i];
+                let active = pages.active.as_ref() == Some(&model.id);
+                let rendered = rendered.expect("a kept face carries its RenderedFace");
+                if rendered.model != *model || rendered.active != active {
+                    let mut out = reconcile::FaceWriter {
+                        commands: &mut commands,
+                        materials: &mut materials,
+                        asset_server: &asset_server,
+                        config: &config,
+                    };
+                    reconcile::reconcile_face(&mut out, &live, entity, rendered, model, active);
+                    commands.entity(entity).insert((
+                        AmbitionMenuPage {
+                            id: model.id.clone(),
+                            active,
+                        },
+                        RenderedFace {
+                            model: model.clone(),
+                            active,
+                            index: i,
+                            page_count,
+                        },
+                    ));
+                }
+                kept[i] = Some(entity);
+            }
             _ => retired.push(entity),
         }
     }
@@ -826,17 +853,17 @@ pub fn rebuild_cube_faces<PageId, Action>(
     }
     debug!(
         target: "ambition_platformer2d::kaleidoscope_rebuild",
-        "rebuilding cube faces version={} page_count={} rebuilt={} reused={} config_changed={}",
+        "cube faces version={} page_count={} spawned={} kept={} config_changed={}",
         pages.version,
         page_count,
-        page_count - reuse.iter().filter(|slot| slot.is_some()).count(),
-        reuse.iter().filter(|slot| slot.is_some()).count(),
+        page_count - kept.iter().filter(|slot| slot.is_some()).count(),
+        kept.iter().filter(|slot| slot.is_some()).count(),
         config_changed,
     );
 
     commands.entity(ring).with_children(|ring| {
         for (i, model) in pages.pages.iter().enumerate() {
-            if reuse[i].is_some() {
+            if kept[i].is_some() {
                 continue;
             }
             let active = pages.active.as_ref() == Some(&model.id);
@@ -1042,12 +1069,15 @@ fn fade_kaleidoscope_materials(
     //   phase for one frame and flash.
     // * `Changed<MenuVisualState>`: `sync_control_focus_visuals` recolors in
     //   place, so the handle does not change and the first filter cannot see it.
+    // * `Changed<KaleidoscopeFade>`: `reconcile` rewrote the material in place at
+    //   its design alpha, and the fold amount has to be applied to it again.
     touched: Query<
         (),
         (
             Or<(
                 Changed<MeshMaterial3d<StandardMaterial>>,
                 Changed<MenuVisualState>,
+                Changed<KaleidoscopeFade>,
             )>,
             With<KaleidoscopeFade>,
         ),
@@ -1321,6 +1351,8 @@ mod per_face_rebuild_tests;
 #[cfg(test)]
 mod rebuild_gate_tests;
 #[cfg(test)]
+mod reconcile_tests;
+#[cfg(test)]
 mod scrollbar_tests;
 #[cfg(test)]
 mod scrollbar_thumb_tests;
@@ -1328,4 +1360,6 @@ mod scrollbar_thumb_tests;
 mod tonemapping_tests;
 
 mod page;
+mod reconcile;
+pub use page::RenderedNode;
 use page::{apply_dynamic_text, render_page_model};

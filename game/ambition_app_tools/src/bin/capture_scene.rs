@@ -14,8 +14,8 @@ use ambition_app::app::{PresentationSetupSet, StartRoomOverride};
 use ambition_platformer2d::actors::character_runtime::CharacterLoadStates;
 use ambition_platformer2d::characters::load_demand::CharacterLoadDemand;
 use ambition_platformer2d::engine_core as ae;
-use ambition_platformer2d::platformer::schedule::SimScheduleExt;
 use ambition_platformer2d::platformer::camera_layers::{FrontHudCamera, MainCamera};
+use ambition_platformer2d::platformer::schedule::SimScheduleExt;
 use ambition_platformer2d::render::rendering::{
     camera_follow, sync_parallax_layers, CameraViewState,
 };
@@ -329,7 +329,10 @@ fn build_capture_app(config: &SceneCaptureConfig) -> App {
 /// rewinding schedule would survive a rewind.
 fn hold_boss_health(
     config: Res<SceneCaptureConfig>,
-    mut bosses: Query<&mut ambition_platformer2d::characters::actor::BodyHealth, With<ambition_platformer2d::boss_encounter::BossConfig>>,
+    mut bosses: Query<
+        &mut ambition_platformer2d::characters::actor::BodyHealth,
+        With<ambition_platformer2d::boss_encounter::BossConfig>,
+    >,
 ) {
     let Some(fraction) = config.boss_hp else {
         return;
@@ -357,6 +360,7 @@ fn install_room_capture(app: &mut App) {
                 .after(camera_follow)
                 .before(sync_parallax_layers),
             request_capture.after(sync_parallax_layers),
+            adopt_menu_camera,
             finish_after_capture,
             fail_after_timeout,
         ),
@@ -485,9 +489,12 @@ fn parse_key(name: &str) -> Result<KeyCode, String> {
         "e" => Ok(KeyCode::KeyE),
         "f" => Ok(KeyCode::KeyF),
         "g" => Ok(KeyCode::KeyG),
+        // The menu keys: `i` opens the inventory cube, `tab` the map.
+        "i" => Ok(KeyCode::KeyI),
+        "tab" => Ok(KeyCode::Tab),
         other => Err(format!(
             "--press does not know the key '{other}'. Known: up, down, left, \
-                 right, enter, space, escape, z, x, c, a, e, f, g, wait, wait:N, \
+                 right, enter, space, escape, z, x, c, a, e, f, g, i, tab, wait, wait:N, \
                  hold:KEY, release:KEY, touch:XxY"
         )),
     }
@@ -536,7 +543,9 @@ impl SceneCaptureConfig {
                             .parse::<f32>()
                             .ok()
                             .filter(|f| (0.0..=1.0).contains(f))
-                            .ok_or_else(|| format!("--boss-hp wants a fraction in [0, 1], got '{value}'"))?,
+                            .ok_or_else(|| {
+                                format!("--boss-hp wants a fraction in [0, 1], got '{value}'")
+                            })?,
                     );
                     2
                 }
@@ -1197,6 +1206,39 @@ fn setup_capture_target(
     commands.insert_resource(SceneCaptureTarget { image });
 }
 
+/// Point the cube menu's camera at the capture image under `--include-ui`.
+///
+/// The menu owns that camera's `is_active` (it is off until the menu opens), so
+/// only the target is adopted here — every frame, because the menu may spawn it
+/// after `Startup`. Its sample count must match the other cameras on the target
+/// (`Msaa::Off`), or it draws its clear and drops every mesh.
+fn adopt_menu_camera(
+    mut commands: Commands,
+    config: Res<SceneCaptureConfig>,
+    target: Option<Res<SceneCaptureTarget>>,
+    cameras: Query<
+        Entity,
+        (
+            With<ambition_menu_kaleidoscope::KaleidoscopePauseCamera>,
+            Without<AdoptedMenuCamera>,
+        ),
+    >,
+) {
+    let (true, Some(target)) = (config.include_ui, target) else {
+        return;
+    };
+    let want = RenderTarget::Image(ImageRenderTarget::from(target.image.clone()));
+    for entity in &cameras {
+        commands
+            .entity(entity)
+            .insert((want.clone(), Msaa::Off, AdoptedMenuCamera));
+    }
+}
+
+/// A cube camera [`adopt_menu_camera`] has already pointed at the capture.
+#[derive(Component)]
+struct AdoptedMenuCamera;
+
 fn apply_capture_snapshot(
     config: Res<SceneCaptureConfig>,
     world: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
@@ -1510,6 +1552,10 @@ fn request_capture(
             drive_press_frame(&config, &mut runtime, &mut keys, &mut fingers);
             return;
         }
+        // A shutter frame drives nothing, so it is not a press frame. Counting
+        // it would let the clock run on while a readback is in flight, past
+        // every later shot's frame, and the sequence would never drive again.
+        runtime.press_frames -= 1;
     }
     if let Some(kin) = player_q.iter().next() {
         println!(

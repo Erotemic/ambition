@@ -66,6 +66,27 @@ fn test_app() -> App {
     app
 }
 
+/// Every entity under the ring's faces, sorted: a census that changes when any
+/// plane is despawned or spawned.
+fn descendants(app: &mut App) -> Vec<Entity> {
+    let world = app.world_mut();
+    let mut faces = world.query_filtered::<Entity, With<AmbitionMenuPage<Page>>>();
+    let faces: Vec<Entity> = faces.iter(world).collect();
+    let mut children = world.query::<&Children>();
+    let mut found = Vec::new();
+    for face in faces {
+        let mut stack = vec![face];
+        while let Some(entity) = stack.pop() {
+            if let Ok(kids) = children.get(world, entity) {
+                stack.extend(kids.iter());
+                found.extend(kids.iter());
+            }
+        }
+    }
+    found.sort();
+    found
+}
+
 /// The live face entity for each page, in `PAGES` order.
 fn faces(app: &mut App) -> Vec<(Page, Entity)> {
     let world = app.world_mut();
@@ -100,12 +121,14 @@ fn an_equal_republish_rebuilds_no_face() {
     );
 }
 
-/// A change to ONE page's content rebuilds exactly that page's face. This is the
-/// scroll / drill / pick-up-an-item path: the other three faces are untouched.
+/// A change to one page's content keeps every face standing: the changed node
+/// is rewritten on the entity already drawing it. This is the scroll / drill /
+/// pick-up-an-item path, and respawning here is what blinked.
 #[test]
-fn a_one_page_content_change_rebuilds_only_that_face() {
+fn a_content_change_keeps_every_face_and_its_nodes() {
     let mut app = test_app();
     let before = faces(&mut app);
+    let planes_before = descendants(&mut app);
 
     let mut published = all_pages(0.5);
     published[2] = page(Page::Quest, 0.9);
@@ -115,33 +138,25 @@ fn a_one_page_content_change_rebuilds_only_that_face() {
     pages.replace_pages(published, Page::Items);
     app.update();
 
-    let after = faces(&mut app);
-    assert_eq!(after.len(), 4);
-    for (i, ((page_before, before), (page_after, after))) in
-        before.iter().zip(after.iter()).enumerate()
-    {
-        assert_eq!(page_before, page_after, "page order must be preserved");
-        if i == 2 {
-            assert_ne!(
-                before, after,
-                "the page whose content changed must be rebuilt",
-            );
-        } else {
-            assert_eq!(
-                before, after,
-                "{page_after:?} did not change and must not be rebuilt",
-            );
-        }
-    }
+    assert_eq!(
+        faces(&mut app),
+        before,
+        "a content change must not respawn a face"
+    );
+    assert_eq!(
+        descendants(&mut app),
+        planes_before,
+        "a recoloured panel is the same panel: no entity may be despawned or spawned",
+    );
 }
 
-/// A page turn rebuilds TWO faces — the one that stopped being active and the one
-/// that started — because `active` is baked into each face's depth bands and
-/// control markers. The two faces that were not involved stay.
+/// A page turn respawns nothing. `active` is baked into depth bands and control
+/// markers, and both are re-derived in place on the faces whose flag moved.
 #[test]
-fn a_page_turn_rebuilds_only_the_two_faces_whose_active_flag_moved() {
+fn a_page_turn_moves_the_active_face_in_place() {
     let mut app = test_app();
     let before = faces(&mut app);
+    let planes_before = descendants(&mut app);
 
     let mut pages = app
         .world_mut()
@@ -149,17 +164,23 @@ fn a_page_turn_rebuilds_only_the_two_faces_whose_active_flag_moved() {
     pages.replace_pages(all_pages(0.5), Page::Map);
     app.update();
 
-    let after = faces(&mut app);
-    let changed: Vec<Page> = before
-        .iter()
-        .zip(after.iter())
-        .filter(|((_, before), (_, after))| before != after)
-        .map(|((id, _), _)| *id)
-        .collect();
     assert_eq!(
-        changed,
-        vec![Page::Items, Page::Map],
-        "only the outgoing and incoming active faces carry a changed `active` flag",
+        faces(&mut app),
+        before,
+        "a page turn must not respawn a face"
+    );
+    assert_eq!(descendants(&mut app), planes_before);
+    let world = app.world_mut();
+    let mut marked = world.query_filtered::<&ChildOf, With<super::KaleidoscopeActiveFaceControl>>();
+    let parents: Vec<Entity> = marked.iter(world).map(ChildOf::parent).collect();
+    let map_face = before.iter().find(|(id, _)| *id == Page::Map).unwrap().1;
+    assert!(
+        !parents.is_empty(),
+        "the active face's control must carry the marker"
+    );
+    assert!(
+        parents.iter().all(|parent| *parent == map_face),
+        "only the new active face's controls are highlight-eligible",
     );
 }
 
@@ -206,8 +227,12 @@ fn a_page_leaving_the_publication_retires_its_face() {
 
 /// A solid plane is born in the alpha mode the fade sweep would give it, so a
 /// rebuild never flips a material's pipeline key one schedule later. The flip
-/// was a frame in which the plane sat in no render phase under Bevy 0.19,
-/// which showed as a System-face flash on every scroll and modal change.
+/// was a frame in which the plane sat in no render phase under Bevy 0.19.
+///
+/// This was once credited with ending the System-face flash on scroll. It did
+/// not: a capture on 2026-09-27 still showed a newly SPAWNED solid plane (born
+/// Opaque) drawing nothing on its first frame. The flash ended when a scroll
+/// stopped spawning planes (`reconcile_tests`).
 #[test]
 fn a_freshly_rebuilt_solid_plane_is_already_opaque() {
     let mut app = test_app();
@@ -217,11 +242,16 @@ fn a_freshly_rebuilt_solid_plane_is_already_opaque() {
         .iter(world)
         .map(|(_, material)| material.0.clone())
         .collect();
-    assert!(!handles.is_empty(), "the fixture's pages spawn at least one faded plane");
+    assert!(
+        !handles.is_empty(),
+        "the fixture's pages spawn at least one faded plane"
+    );
     let materials = world.resource::<Assets<StandardMaterial>>();
     let mut solid = 0;
     for handle in &handles {
-        let material = materials.get(handle).expect("a spawned plane's material exists");
+        let material = materials
+            .get(handle)
+            .expect("a spawned plane's material exists");
         if material.base_color_texture.is_none() {
             solid += 1;
             assert_eq!(
@@ -232,5 +262,8 @@ fn a_freshly_rebuilt_solid_plane_is_already_opaque() {
             );
         }
     }
-    assert!(solid > 0, "the fixture's panels are solid planes; none were found");
+    assert!(
+        solid > 0,
+        "the fixture's panels are solid planes; none were found"
+    );
 }

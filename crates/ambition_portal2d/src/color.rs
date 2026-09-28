@@ -10,7 +10,7 @@
 //!   and scriptable portals.
 //!
 //! Both map into [`PortalChannel`], over which [`PlacedPortal`], `transit_step`,
-//! `find_portal`, the carve/registry, and `portal_teleport_ground_items` are
+//! `find_portal`, the carve/registry, and `portal_teleport_free_bodies` are
 //! generic.
 //!
 //! FIXME(portal-api): a standalone crate should likely expose an opaque

@@ -288,22 +288,12 @@ fn velocity_transform_rotates_through_perpendicular_portals() {
 
 #[test]
 fn in_flight_ground_item_travels_through_the_portal_pair() {
-    use crate::portal::{sync_ground_items_to_transitable, sync_transitable_to_ground_items};
     use ambition_held_items::GroundItem;
     let mut app = App::new();
     // The map convention is the session's, and the teleport reads it from here.
     app.init_resource::<ambition_portal2d::PortalTuning>();
-    // The content adapter brackets the core teleport: attach + sync the
-    // PortalTransitable body before, mirror it back to GroundItem after.
-    app.add_systems(
-        Update,
-        (
-            sync_ground_items_to_transitable,
-            portal_teleport_ground_items,
-            sync_transitable_to_ground_items,
-        )
-            .chain(),
-    );
+    // Portal core moves the item's own body.
+    app.add_systems(Update, portal_teleport_free_bodies::<GroundItem>);
     // Blue portal facing right at x=20, orange facing left at x=380.
     app.world_mut().spawn(PlacedPortal::fixed(
         BLUE,

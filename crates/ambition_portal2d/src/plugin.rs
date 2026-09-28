@@ -6,7 +6,7 @@ use bevy::prelude::*;
 use super::messages::{ClearPortals, PortalBodyEntered, PortalFireIntent, PortalShotFired};
 use super::schedule::PortalSet;
 use super::{
-    clear_portals_on_reset, portal_fire_system, portal_teleport_ground_items, portal_transit,
+    clear_portals_on_reset, portal_fire_system, portal_transit,
     publish_portal_carves, tick_portal_cooldowns, BodyTeleported, PortalBodyTransited,
     PortalCarves, PortalTuning,
 };
@@ -190,7 +190,6 @@ impl Plugin for PortalSimulationPlugin {
                 tick_portal_cooldowns,
                 portal_transit,
                 crate::reconcile_transited_bodies,
-                portal_teleport_ground_items,
             )
                 .chain()
                 .in_set(PortalSet::Transit),

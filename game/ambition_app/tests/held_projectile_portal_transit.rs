@@ -13,6 +13,9 @@
 //!
 //! A shot needs no tag to transit: the portal core drives every body. So the
 //! claim is only that the shot the game fired crosses the authored pair.
+//!
+//! A thrown item is the second free body: the last test throws one through the
+//! same authored pair.
 
 use crate::common::{base, first_floor_authored_portal_pair, fixed_60hz_room_sim};
 
@@ -167,6 +170,62 @@ fn a_hand_fired_shot_transits_an_authored_portal_in_the_real_app() {
     assert!(
         closest_to_exit < entry_to_exit * 0.25,
         "the shot should have come out of the PARTNER portal: closest approach to \
+         the exit was {closest_to_exit}, against an entry->exit distance of \
+         {entry_to_exit}",
+    );
+}
+
+/// A THROWN ITEM transits an AUTHORED portal in the REAL APP.
+///
+/// Portal core moves the item's own body (`FreePortalBody for GroundItem`), and
+/// the content composition is what registers that for `GroundItem`. A fixture
+/// that adds the transit system itself cannot see a composition that forgot to.
+#[test]
+fn a_thrown_item_transits_an_authored_portal_in_the_real_app() {
+    let mut sim = fixed_60hz_room_sim("portal_lab");
+    for _ in 0..30 {
+        sim.step(base());
+    }
+    let (entry_pos, entry_normal, exit_pos) = {
+        let (entry, exit) = first_floor_authored_portal_pair(&mut sim);
+        (entry.pos, entry.normal, exit.pos)
+    };
+    let entry_to_exit = entry_pos.distance(exit_pos);
+    assert!(
+        entry_to_exit > RUN_UP_SPEED * 12.0 / 60.0,
+        "premise — the pair must be further apart than the item can fly in the \
+         window (entry->exit {entry_to_exit})",
+    );
+
+    let spec = ambition_platformer2d::character::held_item_by_id("gun_sword")
+        .expect("gun_sword is a registered held item");
+    let approach_from = entry_pos + entry_normal * APPROACH_BACKOFF;
+    let item = sim
+        .world_mut()
+        .spawn((
+            GroundItem::released(
+                spec,
+                approach_from,
+                -entry_normal * RUN_UP_SPEED,
+                Vec2::splat(12.0),
+            ),
+            ItemCustody::InWorld,
+        ))
+        .id();
+
+    let mut closest_to_exit = f32::MAX;
+    for _ in 0..24 {
+        sim.step_frame(ControlFrame::default());
+        let pos = sim
+            .world()
+            .get::<GroundItem>(item)
+            .expect("a thrown item is not despawned by a portal")
+            .pos;
+        closest_to_exit = closest_to_exit.min(exit_pos.distance(pos));
+    }
+    assert!(
+        closest_to_exit < entry_to_exit * 0.25,
+        "the item should have come out of the PARTNER portal: closest approach to \
          the exit was {closest_to_exit}, against an entry->exit distance of \
          {entry_to_exit}",
     );

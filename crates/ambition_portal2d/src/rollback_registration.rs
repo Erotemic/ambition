@@ -47,11 +47,6 @@ where
     // rollback.
     registrar.require_rollback::<crate::PortalShot>(OWNER, "entity:portal_shot");
     registrar.rollback_component_clone::<crate::PortalShot>(OWNER, "portal.shot");
-    registrar.declare_rollback_derived_component::<crate::PortalTransitable>(
-        OWNER,
-        "derived.portal_transitable",
-        "mirrored from the item's authoritative body every frame, before transit reads it",
-    );
     registrar.declare_rollback_derived_resource::<crate::PortalCarves>(
         OWNER,
         "derived.portal_carves",

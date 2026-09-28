@@ -11,7 +11,7 @@ use bevy::prelude::*;
 
 use ambition_platformer2d_shared_tangle::schedule::GameplayGated;
 use ambition_portal2d::{
-    clear_portals_on_reset, portal_fire_system, portal_teleport_ground_items,
+    clear_portals_on_reset, portal_fire_system, portal_teleport_free_bodies,
     publish_portal_carves, PortalSet,
 };
 
@@ -23,7 +23,6 @@ use super::inventory_adapter::{drop_portal_gun_system, pickup_portal_gun_system}
 use super::reset_adapter::bridge_room_reset_to_clear_portals;
 use super::sfx_adapter::play_portal_sfx;
 use super::shot_adapter::portal_projectile_step;
-use super::transit_adapter::{sync_ground_items_to_transitable, sync_transitable_to_ground_items};
 use super::reorient_setting::sync_portal_reorient_from_settings;
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 
@@ -208,23 +207,14 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
                 .in_set(ambition_platformer2d_core::MechanicalEditSet::Propose),
         );
 
-        // --- GroundItem <-> PortalTransitable bracketing around item transit ---
-        // Portal core teleports the generic `PortalTransitable` body; these
-        // adapters attach it to `GroundItem`s and mirror it around
-        // `portal_teleport_ground_items`.
+        // Thrown items travel through portal pairs: portal core moves the
+        // `GroundItem` body itself, after the actors' transit.
         app.add_systems(
             sim,
-            sync_ground_items_to_transitable
+            portal_teleport_free_bodies::<ambition_held_items::GroundItem>
                 .in_set(GameplayGated)
                 .in_set(PortalSet::Transit)
-                .before(portal_teleport_ground_items),
-        );
-        app.add_systems(
-            sim,
-            sync_transitable_to_ground_items
-                .in_set(GameplayGated)
-                .in_set(PortalSet::Transit)
-                .after(portal_teleport_ground_items),
+                .after(ambition_portal2d::reconcile_transited_bodies),
         );
     }
 }

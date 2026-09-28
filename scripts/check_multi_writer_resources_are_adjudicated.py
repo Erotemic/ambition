@@ -233,9 +233,6 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "game/ambition_app/src/app/startup_loading.rs",
         "game/ambition_app/src/app/world_flow/parallax_residency.rs",
         "game/ambition_app/src/app/world_flow/room_transition_assets.rs",
-        "game/ambition_demo_mary_o/src/ai_slop.rs",
-        "game/ambition_demo_mary_o/src/plane.rs",
-        "game/ambition_demo_mary_o/src/snake.rs",
     ),
     "GameplayBanner": (
         "crates/ambition_boss_encounter/src/encounter_script.rs",
@@ -2892,16 +2889,9 @@ ADJUDICATED: dict[str, str] = {
         "with the registration comment naming why: \"the prefetch may load a "
         "neighbour's theme this frame, and retiring before it would drop "
         "what it just decided to keep.\" Every other writer touches a "
-        "DISJOINT named/keyed slot under `characters` or `entities`, guarded "
-        "by an if-already-present early return — "
-        "`game_assets.characters.sheet(AI_SLOP_DISPLAY_NAME).is_some()` "
-        "(`game/ambition_demo_mary_o/src/ai_slop.rs:92`) — the same "
-        "check-then-insert-once shape as the already-adjudicated "
-        "`HudReadouts`, keyed by sheet/prop name instead of a HUD slot. "
-        "`game/ambition_app/Cargo.toml:157-158` shows the mary_o "
-        "registration systems DO link into the shipped app, so their "
-        "disjoint keys — not process separation — are what keeps them safe. "
-        "Measured by CalculexAmbition, 2026-09-18."
+        "DISJOINT named/keyed slot under `characters` or `entities`. "
+        "Measured by CalculexAmbition, 2026-09-18; the demo sheet and prop "
+        "loaders that also wrote it are gone (AP146, AP148)."
     ),
     "PendingMechanicalEdits": (
         "A PER-DOMAIN KEYED LEDGER, REBUILT FROM A SINGLE-BOOL DEFECT ON "

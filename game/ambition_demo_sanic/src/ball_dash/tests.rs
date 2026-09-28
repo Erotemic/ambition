@@ -196,6 +196,9 @@ fn body_app() -> (App, Entity) {
             BallDashInput::default(),
             ambition_platformer2d::characters::actor::BodyAnimFacts::default(),
             ambition_platformer2d::world::ResolvedMotionFrame::default(),
+            ae::BodyBaseSize {
+                base_size: ae::Vec2::new(24.0, 40.0),
+            },
         ))
         .id();
     (app, e)
@@ -430,7 +433,9 @@ fn facing_decides_the_launch_direction() {
 
 /// The hurtbox-resize seam. Rolling shrinks the live body box (the kernel's
 /// circle proxy is `size.min_element() * 0.5`, so the ball is physically
-/// smaller); standing up restores exactly what he was, from the flag itself.
+/// smaller); standing up gives back his `BodyBaseSize`. The record changes
+/// during the roll (a form change re-templates it), and he stands at the new
+/// size: a copy saved at the launch would put back the old one.
 #[test]
 fn rolling_narrows_the_body_and_standing_up_restores_it() {
     let (mut app, e) = body_app();
@@ -446,11 +451,11 @@ fn rolling_narrows_the_body_and_standing_up_restores_it() {
 
     let ball = app.world().get::<ae::BodyKinematics>(e).unwrap().size;
     assert_eq!(ball, BallDashTuning::default().ball_size);
-    assert_eq!(
-        app.world().get::<Rolling>(e).unwrap().restore_size,
-        standing,
-        "the flag remembers, so nothing has to re-derive his standing height"
-    );
+    let re_templated = ae::Vec2::new(30.0, 44.0);
+    app.world_mut()
+        .get_mut::<ae::BodyBaseSize>(e)
+        .unwrap()
+        .base_size = re_templated;
 
     // Kill the speed: he stands up on the next tick, at his old size.
     if let MotionModel::SurfaceMomentum(m) =
@@ -466,7 +471,8 @@ fn rolling_narrows_the_body_and_standing_up_restores_it() {
     assert!(app.world().get::<Rolling>(e).is_none());
     assert_eq!(
         app.world().get::<ae::BodyKinematics>(e).unwrap().size,
-        standing
+        re_templated,
+        "he stood up at a size saved before the record changed"
     );
 }
 
@@ -531,7 +537,7 @@ fn a_body_restart_clears_the_charge_the_crouch_edge_and_the_ball_form() {
         app.world().get::<Rolling>(e).is_some(),
         "the launch never balled him up, so the restart below proves nothing"
     );
-    let standing = app.world().get::<Rolling>(e).unwrap().restore_size;
+    let standing = app.world().get::<ae::BodyBaseSize>(e).unwrap().base_size;
     // ...and re-arm a charge on the rolling body, so both halves are live.
     set_ball_dash_input(&mut app, e, true, true);
     app.update();

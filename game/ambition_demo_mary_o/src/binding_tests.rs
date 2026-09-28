@@ -122,9 +122,9 @@ fn mary_o_binds_every_ref_it_declares() {
 /// `EnemySpawn` entities carry no name and the converter falls back to the LDtk identifier —
 /// `"EnemySpawn"`, which resolves nothing.
 ///
-/// The two sides this ties together are the level and the demo's own
-/// `publish_under` calls: `ai_slop.rs`, `snake.rs` and `plane.rs` publish their
-/// sheets under these exact strings, so a rename on either side fails here rather than at runtime.
+/// The two sides this ties together are the level and the display names of
+/// Mary-O's enemy characters, whose sheets the engine declares from the catalog,
+/// so a rename on either side fails here rather than at runtime.
 #[test]
 fn every_authored_enemy_is_named_something_that_has_a_sheet() {
     let published = [

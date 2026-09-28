@@ -46,61 +46,6 @@ const BOUNCE_SPEED: f32 = 430.0;
 // single-enemy test OR fold into the combined Mary-O roster fragment — one fragment
 // per provider, since assembly rejects a second from the same provider.
 
-/// Ensure the `ai_slop` sheet is drawable, keyed by BOTH its catalog id and its
-/// display name, so the enemy render's `npc_asset_for_name` finds it instead of
-/// falling back to the generic goblin sheet.
-///
-/// Identical strategy to the snake's `register_solid_snake_sheet`: the catalog
-/// defers a non-eager character's sheet to a room-staging barrier in the app host
-/// that a standalone demo does not reliably drive, so the demo OWNS its enemy sheet
-/// — a per-frame insert-if-missing load through the target loader (which bypasses
-/// the lean sandbox catalog), self-healing across a `GameAssets` rebuild and a
-/// no-op headless / `--no-assets`.
-pub fn register_ai_slop_sheet(
-    game_assets: Option<ResMut<ambition_platformer2d::sprite_sheet::game_assets::GameAssets>>,
-    config: Option<Res<ambition_platformer2d::sprite_sheet::game_assets::GameAssetConfig>>,
-    asset_server: Option<Res<AssetServer>>,
-    layouts: Option<ResMut<Assets<TextureAtlasLayout>>>,
-) {
-    let (Some(mut game_assets), Some(config), Some(asset_server), Some(mut layouts)) =
-        (game_assets, config, asset_server, layouts)
-    else {
-        return;
-    };
-    if config.no_assets || game_assets.characters.sheet(AI_SLOP_DISPLAY_NAME).is_some() {
-        return;
-    }
-    // ⛔ THE ENGINE'S ROAD OWNS A DECLARED CHARACTER: this id is a registered
-    // definition, so the room demand declares and realizes it at the room's
-    // tier, and this fallback must not re-publish it at full resolution after
-    // a tier convergence retires it (see `plane.rs` for the measurement). Only
-    // a composition where nothing declared it still needs this road.
-    if !matches!(
-        game_assets.characters.sheet_state(AI_SLOP_SHEET_TARGET),
-        ambition_platformer2d::sprite_sheet::character::CharacterSheetState::Unknown
-    ) {
-        return;
-    }
-    if let Some(asset) =
-        ambition_platformer2d::actors::character_sprites::load_prop_sheet_for_target(
-            &asset_server,
-            &mut layouts,
-            &config.sprite_folder,
-            AI_SLOP_SHEET_TARGET,
-            &ambition_platformer2d::sprite_sheet::character::SheetTuning::new(1.0, 0),
-        )
-    {
-        // Double-keyed exactly like the eager loader: the render resolves an actor
-        // by its display name, and other seams by the catalog id.
-        game_assets
-            .characters
-            .publish_under(AI_SLOP_SHEET_TARGET, asset.clone());
-        game_assets
-            .characters
-            .publish_under(AI_SLOP_DISPLAY_NAME, asset);
-    }
-}
-
 // `AI_SLOP_TILE_COLUMNS`, `ai_slop_stair_steps()` and
 // `stair_slop_spawn_positions()` are GONE. Where a slop stands is authored in
 // the level; how big it is, is authored in its catalog row.

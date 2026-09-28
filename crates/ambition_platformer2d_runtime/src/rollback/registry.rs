@@ -844,7 +844,9 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// motion's codec carries `SurfaceMomentumMotion::boost`. The shoes are a
 /// boost the kernel folds into the params it reads, so no saved copy of the
 /// params exists to restore.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 254;
+/// ⛔⛤ 254 -> 255: `content.sanic_rolling` is a plain flag. Standing up gives
+/// back `BodyBaseSize`, so the row no longer carries a saved size or a probe.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 255;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

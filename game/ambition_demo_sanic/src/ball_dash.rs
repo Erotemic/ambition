@@ -121,13 +121,14 @@ pub fn capture_ball_dash_input(
     }
 }
 
-/// The rolling flag. Carries the size to restore, so nothing has to re-derive
-/// "what was he before" — and a body that somehow rolls twice cannot lose its
-/// standing height.
-#[derive(Component, Clone, Copy, Debug, PartialEq)]
-pub struct Rolling {
-    pub restore_size: ae::Vec2,
-}
+/// The rolling flag.
+///
+/// Standing up gives the body back its `BodyBaseSize`, the one record of how
+/// big it stands, so the flag keeps no copy of that size. A form change during
+/// a roll re-templates the record, and a copy would put back the old form's
+/// size.
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq)]
+pub struct Rolling;
 
 /// What one tick of the charge machine decided. Pure, so the feel is testable
 /// without a world: this is where the verb actually lives.
@@ -298,9 +299,7 @@ pub fn tick_ball_dash(
                     },
                 );
                 if rolling.is_none() {
-                    commands.entity(entity).insert(Rolling {
-                        restore_size: kin.size,
-                    });
+                    commands.entity(entity).insert(Rolling);
                     kin.size = tuning.ball_size;
                 }
             }
@@ -313,15 +312,18 @@ pub fn tick_ball_dash(
 /// so the exit reads off one quantity.
 pub fn tick_rolling(
     mut commands: Commands,
-    mut bodies: Query<(
-        Entity,
-        &ambition_platformer2d::actor::MotionModel,
-        &mut ae::BodyKinematics,
-        &Rolling,
-    )>,
+    mut bodies: Query<
+        (
+            Entity,
+            &ambition_platformer2d::actor::MotionModel,
+            &mut ae::BodyKinematics,
+            &ae::BodyBaseSize,
+        ),
+        With<Rolling>,
+    >,
     tuning: Res<BallDashTuning>,
 ) {
-    for (entity, motion, mut kin, rolling) in &mut bodies {
+    for (entity, motion, mut kin, base) in &mut bodies {
         let ambition_platformer2d::actor::MotionModel::SurfaceMomentum(m) = motion else {
             continue;
         };
@@ -333,7 +335,7 @@ pub fn tick_rolling(
             ae::SurfaceMotion::Airborne => kin.vel.length(),
         };
         if speed < tuning.exit_speed {
-            kin.size = rolling.restore_size;
+            kin.size = base.base_size;
             commands.entity(entity).remove::<Rolling>();
         }
     }
@@ -349,20 +351,20 @@ pub fn tick_rolling(
 /// An observer, so it runs inside whichever tick did the restart. It is inert
 /// for non-Sanic bodies, so it is registered unconditionally.
 ///
-/// Standing up restores the size the roll borrowed, as [`tick_rolling`] does.
+/// Standing up gives back the body's `BodyBaseSize`, as [`tick_rolling`] does.
 pub fn clear_ball_dash_on_restart(
     restart: On<ae::BodyRestarted>,
     mut commands: Commands,
     mut charges: Query<(&mut BallDash, &mut BallDashInput)>,
-    mut rolls: Query<(&Rolling, &mut ae::BodyKinematics)>,
+    mut rolls: Query<(&ae::BodyBaseSize, &mut ae::BodyKinematics), With<Rolling>>,
 ) {
     let body = restart.entity;
     if let Ok((mut dash, mut input)) = charges.get_mut(body) {
         *dash = BallDash::default();
         *input = BallDashInput::default();
     }
-    if let Ok((rolling, mut kin)) = rolls.get_mut(body) {
-        kin.size = rolling.restore_size;
+    if let Ok((base, mut kin)) = rolls.get_mut(body) {
+        kin.size = base.base_size;
         commands.entity(body).remove::<Rolling>();
     }
 }

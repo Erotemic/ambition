@@ -969,13 +969,6 @@ pub fn install_mary_o_content(app: &mut App) {
     app.add_systems(
         bevy::prelude::Update,
         (
-            // Each enemy owns its own sheet so its bodies never fall back to the
-            // generic goblin — the deferred room-staging barrier that would load
-            // them lives in the app host and isn't reliably driven for a demo-staged
-            // enemy.
-            snake::register_solid_snake_sheet,
-            ai_slop::register_ai_slop_sheet,
-            plane::register_snakes_on_a_plane_sheets,
             // the bonus blocks' LOOK, and it was in the SIM chain first.
             // Registered beside `bonk_power_blocks` because that is where the
             // powerup rules live — and it mutates RENDER entities, from inside
@@ -985,7 +978,7 @@ pub fn install_mary_o_content(app: &mut App) {
             // tiles.
             //
             // Presentation reads sim state and writes render components, in
-            // `Update`, exactly like the two sheet registrations above it.
+            // `Update`.
             powerups::dress_power_blocks,
         ),
     );

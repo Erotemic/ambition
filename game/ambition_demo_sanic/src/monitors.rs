@@ -91,7 +91,6 @@ impl SpentMonitors {
 ///
 /// Every monitor pops on a roll-through, the classic Sonic feel.
 pub fn break_monitor_boxes(
-    mut commands: Commands,
     time: Res<ambition_platformer2d::time::WorldTime>,
     mut spent: ResMut<SpentMonitors>,
     geometry: SessionWorldRef<ae::RoomGeometry>,
@@ -99,7 +98,6 @@ pub fn break_monitor_boxes(
     mut sfx: ambition_platformer2d::sfx::BodySfxWriter,
     mut players: Query<
         (
-            Entity,
             &ae::BodyKinematics,
             &ambition_platformer2d::characters::actor::WornCharacter,
             &mut ae::MotionModel,
@@ -109,7 +107,7 @@ pub fn break_monitor_boxes(
         With<PrimaryPlayer>,
     >,
 ) {
-    let Ok((entity, kin, worn, mut model, rolling, mut wallet)) = players.single_mut()
+    let Ok((kin, worn, mut model, rolling, mut wallet)) = players.single_mut()
     else {
         return;
     };

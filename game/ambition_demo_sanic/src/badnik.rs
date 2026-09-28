@@ -186,9 +186,7 @@ mod tests {
         let badnik = spawn_badnik(&mut app, ae::Vec2::new(10.0, 0.0));
         app.world_mut().spawn((
             PrimaryPlayer,
-            crate::ball_dash::Rolling {
-                restore_size: ae::Vec2::new(28.0, 32.0),
-            },
+            crate::ball_dash::Rolling,
             kin(ae::Vec2::ZERO, ae::Vec2::new(600.0, 0.0)),
         ));
         app.update();

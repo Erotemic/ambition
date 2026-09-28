@@ -553,3 +553,44 @@ fn wounded_it_sends_noodlings() {
         "the god's own volumes hurt its noodlings (damage taken {taken:?})"
     );
 }
+
+/// The god is built with its conductor on every road that builds it: the
+/// arena's placement, and a boss staged by code. No tick sees it without one,
+/// because the conductor states who owns its pose.
+#[test]
+fn the_god_is_built_with_its_conductor_on_every_road() {
+    fn conducted(sim: &mut Platformer2dSimHarness) -> Option<(bool, bool)> {
+        let world = sim.world_mut();
+        world
+            .query::<(&BossConfig, Has<FsmConductor>, Has<ambition_platformer2d::sprite_sheet::character::PinnedRow>)>()
+            .iter(world)
+            .find(|(config, ..)| config.behavior.id == ambition_content::bosses::fsm::conductor::FSM_ID)
+            .map(|(_, conductor, row)| (conductor, row))
+    }
+    let mut placed = Platformer2dSimHarness::new_with_options(
+        Platformer2dSimHarnessOptions::default()
+            .with_timestep(TimestepMode::fixed_60hz())
+            .with_required_start_room(ARENA),
+    )
+    .expect("the FSM arena builds headlessly");
+    let first = (0..300)
+        .find_map(|_| conducted(&mut placed).or_else(|| {
+            placed.step(AgentAction::default());
+            None
+        }))
+        .expect("the arena builds its god");
+    assert_eq!(first, (true, true), "the arena's god, on the first tick it exists");
+
+    let mut staged = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("the sandbox builds");
+    assert_eq!(conducted(&mut staged), None, "the premise: no god before it is staged");
+    staged.spawn_boss_at(
+        "staged_fsm",
+        "Flying Spaghetti Monster",
+        (400.0, 200.0),
+        (60.0, 60.0),
+        ambition_platformer2d::entity_catalog::placements::BossBrain::PhaseScript {
+            script_id: ambition_content::bosses::fsm::conductor::FSM_ID.to_string(),
+        },
+    );
+    assert_eq!(conducted(&mut staged), Some((true, true)), "the staged god, on the frame that builds it");
+}

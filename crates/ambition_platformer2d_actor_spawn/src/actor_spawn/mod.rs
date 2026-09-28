@@ -1127,7 +1127,6 @@ pub fn spawn_boss_with_overrides_into(
     // strikes and content techniques live in the per-profile ActorMoveset built
     // below. The boss brain publishes BossAttackIntent directly, so the generic
     // one-slot ActionSet special route stays empty and cannot double-trigger it.
-    let _ = encounter_id; // resolved upstream via `boss.behavior`
     let boss_action_set = ambition_characters::brain::ActionSet {
         ranged: Some(ambition_characters::brain::RangedActionSpec::bolt(380.0, 1)),
         special: None,
@@ -1145,6 +1144,7 @@ pub fn spawn_boss_with_overrides_into(
     // its health directly (§A1); handing it a copy of its own number was the duplicate this
     // slice removes.
     let boss_actor_cluster = boss_actor_cluster(&boss.config, &boss.kin);
+    let built_body = boss.kin.clone();
     let boss_render_envelope = ambition_combat::BodyEnvelope(boss.as_ref().render_size());
     let boss_components = boss.into_components();
     scope.insert_session_scoped((
@@ -1246,6 +1246,11 @@ pub fn spawn_boss_with_overrides_into(
                 .map(|c| ambition_mount::MountClass(c.clone()))
                 .collect(),
         });
+    }
+    // The state the boss's provider keeps on it (a content conductor's
+    // memory) goes on in this batch too, so no tick sees the boss without it.
+    if let Some(kit) = boss_catalog.birth_kit(&encounter_id) {
+        kit(&mut scope.entity_scope(), &built_body);
     }
     // Per-boss special-technique state (apple-rain accumulator, overfit-volley
     // samples, pit/cross/cascade gates, eye-beam lock) is now content-owned

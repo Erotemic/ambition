@@ -730,3 +730,31 @@ fn the_gnu_is_built_unmirrored_and_only_its_arena_stands_it_behind() {
     assert!(unmirrored, "the hall's gnu wears the same art");
     assert!(plane.is_none_or(|plane| plane.is_playable()), "the hall's gnu is an exhibit, got {plane:?}");
 }
+
+/// The scholar is built with his conductor: the first tick he exists, it is on
+/// him. It finds his fists on its first conducted tick
+/// (`entering_the_arena_the_fists_start_where_they_stand`).
+#[test]
+fn the_scholar_is_built_with_his_conductor() {
+    let mut sim = Platformer2dSimHarness::new_with_options(
+        Platformer2dSimHarnessOptions::default()
+            .with_timestep(TimestepMode::fixed_60hz())
+            .with_required_start_room(ARENA),
+    )
+    .expect("the gnu-ton arena builds headlessly");
+    let first = (0..300)
+        .find_map(|_| {
+            let world = sim.world_mut();
+            let found = world
+                .query::<(&BossConfig, Has<GnuTonConductor>, Has<ambition_platformer2d::sprite_sheet::character::PinnedRow>)>()
+                .iter(world)
+                .find(|(config, ..)| config.behavior.id == ambition_content::bosses::gnu_ton::conductor::GNU_TON_ID)
+                .map(|(_, conductor, row)| (conductor, row));
+            if found.is_none() {
+                sim.step(AgentAction::default());
+            }
+            found
+        })
+        .expect("the arena builds GNU-ton");
+    assert_eq!(first, (true, true), "the scholar, on the first tick he exists");
+}

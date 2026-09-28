@@ -17,6 +17,17 @@ use super::behavior::BossBehaviorProfile;
 use super::BossEncounterSpec;
 use ambition_sprite_sheet::boss::BossSheetSpec;
 
+/// The state a provider's code keeps on one boss, put on the boss in the batch
+/// that builds it: a content conductor's memory, for example.
+///
+/// It receives the boss's scope and its body as built. It is code, not
+/// content, so it is not part of the catalog's canonical dump; the code that
+/// reads the state it inserts is not in the dump either.
+pub type BossBirthKit = fn(
+    &mut ambition_platformer2d_shared_tangle::construction::EntityScope,
+    &ambition_platformer2d_core::BodyKinematics,
+);
+
 /// One App's complete authored boss authority.
 #[derive(Resource, Clone, Debug, Default, serde::Serialize)]
 pub struct BossCatalog {
@@ -27,6 +38,8 @@ pub struct BossCatalog {
     special_anim_keys: BTreeMap<String, Vec<String>>,
     fallback_boss_ids: BTreeMap<String, String>,
     fallback_sheet_keys: BTreeMap<String, String>,
+    #[serde(skip)]
+    birth_kits: BTreeMap<String, BossBirthKit>,
 }
 
 impl BossCatalog {
@@ -67,6 +80,12 @@ impl BossCatalog {
 
     pub fn encounter(&self, id: &str) -> Option<&BossEncounterSpec> {
         self.encounters.get(id)
+    }
+
+    /// The kit that finishes boss `id` at construction, if its provider gave
+    /// one. See [`BossBirthKit`].
+    pub fn birth_kit(&self, id: &str) -> Option<BossBirthKit> {
+        self.birth_kits.get(id).copied()
     }
 
     pub fn encounter_specs(&self) -> impl Iterator<Item = &BossEncounterSpec> {
@@ -217,6 +236,8 @@ pub struct BossCatalogFragment {
     sheets: BTreeMap<String, BossSheetSpec>,
     sprite_filenames: BTreeMap<String, String>,
     special_anim_keys: BTreeMap<String, Vec<String>>,
+    #[serde(skip)]
+    birth_kits: BTreeMap<String, BossBirthKit>,
 }
 
 impl BossCatalogFragment {
@@ -294,9 +315,17 @@ impl BossCatalogFragment {
             sheets,
             sprite_filenames: art.sprite_filenames,
             special_anim_keys: art.special_animation_rows,
+            birth_kits: BTreeMap::new(),
         };
         fragment.validate()?;
         Ok(fragment)
+    }
+
+    /// Give boss `id` a [`BossBirthKit`]. Registration refuses a kit for a
+    /// boss this fragment does not define.
+    pub fn with_birth_kit(mut self, id: impl Into<String>, kit: BossBirthKit) -> Self {
+        self.birth_kits.insert(id.into(), kit);
+        self
     }
 
     pub fn provider_id(&self) -> &str {
@@ -341,6 +370,12 @@ impl BossCatalogFragment {
                     boss_id: id.clone(),
                 });
             }
+        }
+        if let Some(id) = self.birth_kits.keys().find(|id| !self.behaviors.contains_key(*id)) {
+            return Err(BossCatalogAssemblyError::BirthKitWithoutBoss {
+                provider_id: self.provider_id.clone(),
+                boss_id: id.clone(),
+            });
         }
         let missing_encounters: BTreeSet<&str> = self
             .behaviors
@@ -449,8 +484,12 @@ impl BossCatalogRegistry {
         let mut special_owners = BTreeMap::<String, String>::new();
         let mut fallback_boss_ids = BTreeMap::new();
         let mut fallback_sheet_keys = BTreeMap::new();
+        let mut birth_kits = BTreeMap::new();
 
         for (provider_id, fragment) in &self.fragments {
+            // A kit names one of its own fragment's bosses (`validate`), and
+            // two providers cannot define one boss, so kits cannot collide.
+            birth_kits.extend(fragment.birth_kits.iter().map(|(id, kit)| (id.clone(), *kit)));
             for (id, behavior) in &fragment.behaviors {
                 if let Some(first_provider) = behavior_owners.get(id) {
                     return Err(BossCatalogAssemblyError::DuplicateBoss {
@@ -519,6 +558,7 @@ impl BossCatalogRegistry {
             special_anim_keys,
             fallback_boss_ids,
             fallback_sheet_keys,
+            birth_kits,
         })
     }
 }
@@ -553,6 +593,10 @@ pub enum BossCatalogAssemblyError {
         profile_id: String,
     },
     MissingBehavior {
+        provider_id: String,
+        boss_id: String,
+    },
+    BirthKitWithoutBoss {
         provider_id: String,
         boss_id: String,
     },
@@ -639,6 +683,10 @@ impl fmt::Display for BossCatalogAssemblyError {
             Self::MissingBehavior { provider_id, boss_id } => write!(
                 f,
                 "boss catalog fragment '{provider_id}' has encounter '{boss_id}' without behavior"
+            ),
+            Self::BirthKitWithoutBoss { provider_id, boss_id } => write!(
+                f,
+                "boss catalog fragment '{provider_id}' gives a birth kit to '{boss_id}', which it does not define"
             ),
             Self::MissingEncounter { provider_id, boss_id } => write!(
                 f,
@@ -811,7 +859,36 @@ mod tests {
             sheets: BTreeMap::new(),
             sprite_filenames: BTreeMap::new(),
             special_anim_keys: BTreeMap::new(),
+            birth_kits: BTreeMap::new(),
         }
+    }
+
+    /// A kit reaches the assembled catalog under its boss, and a kit for a
+    /// boss the fragment does not define is refused, not kept unused.
+    #[test]
+    fn a_birth_kit_is_assembled_under_its_boss_and_refused_for_a_stranger() {
+        fn kit(
+            _: &mut ambition_platformer2d_shared_tangle::construction::EntityScope,
+            _: &ambition_platformer2d_core::BodyKinematics,
+        ) {
+        }
+        let mut registry = BossCatalogRegistry::default();
+        registry
+            .register(renamed_single_boss_fragment("a", "alpha").with_birth_kit("alpha", kit))
+            .expect("a kit for the fragment's own boss registers");
+        let catalog = registry.assemble().expect("assembles");
+        assert!(catalog.birth_kit("alpha").is_some(), "the kit reached the catalog");
+        assert!(catalog.birth_kit("beta").is_none());
+        let refused = BossCatalogRegistry::default()
+            .register(renamed_single_boss_fragment("b", "beta").with_birth_kit("gamma", kit))
+            .expect_err("a kit for an undefined boss would never run");
+        assert_eq!(
+            refused,
+            BossCatalogAssemblyError::BirthKitWithoutBoss {
+                provider_id: "b".to_string(),
+                boss_id: "gamma".to_string(),
+            }
+        );
     }
 
     #[test]

@@ -157,6 +157,9 @@ pub fn boss_catalog_fragment() -> ambition_boss_encounter::BossCatalogFragment {
         .expect("Ambition's boss art keys parse"),
     )
     .expect("Ambition boss content should form one valid catalog fragment")
+    // The two conducted bosses are built with their conductors.
+    .with_birth_kit(gnu_ton::conductor::GNU_TON_ID, gnu_ton::conductor::birth)
+    .with_birth_kit(fsm::conductor::FSM_ID, fsm::birth)
 }
 
 /// Assemble Ambition's boss catalog without constructing a Bevy App.
@@ -394,8 +397,7 @@ impl Plugin for AmbitionBossContentPlugin {
         // conductor holds the pose (`PoseOwnedExternally`) alone.
         app.add_systems(
             sim,
-            (fsm::adopt_fsm, fsm::conduct_fsm)
-                .chain()
+            fsm::conduct_fsm
                 .in_set(GameplayGated)
                 .in_set(ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::AfterIntegrate),
         );

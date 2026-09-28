@@ -113,6 +113,8 @@ struct Wave {
 /// The conductor's memory, on the scholar.
 #[derive(Component, Clone, Debug)]
 pub struct GnuTonConductor {
+    /// The latch holds where the fists stood when it first conducted.
+    seated: bool,
     hall: Option<Hall>,
     part: Option<Part>,
     /// Last tick's time-remaining in the live part: a part that restarts
@@ -151,27 +153,29 @@ pub struct GnuTonConductor {
 }
 
 impl GnuTonConductor {
-    /// A conductor for fists standing at `fists` (left, right).
+    /// A conductor that has not yet found its fists. It is born with the
+    /// scholar, before the gnu's fists are built, and [`Self::seat`] gives it
+    /// where they stand on its first conducted tick.
     ///
-    /// ⛔ THERE IS NO `Default`, AND THAT IS THE FIX. The conductor eases each
-    /// fist from `latch.from`, and a defaulted latch said the fists stood at the
-    /// world origin. They were built in place, then the first idle beat dragged
-    /// them to the room's top-left corner and eased them back over 0.6 s (Jon:
-    /// "the hands start in the upper left corner, and then very quickly move
-    /// into the correct location"). Where the fists are is a fact about the
-    /// world, so the only constructor asks for it.
-    pub fn new(fists: [Vec2; 2]) -> Self {
+    /// ⛔ NOT `Default`, and no conducted tick reads the latch before the seat.
+    /// The conductor eases each fist from `latch.from`, and a latch that said
+    /// the fists stood at the world origin dragged them to the room's top-left
+    /// corner and eased them back over 0.6 s (Jon: "the hands start in the
+    /// upper left corner, and then very quickly move into the correct
+    /// location"). Where the fists are is a fact about the world.
+    pub fn unseated() -> Self {
         Self {
+            seated: false,
             hall: None,
             part: None,
             last_remaining: 0.0,
             latch: Latch {
-                aim: (fists[0] + fists[1]) * 0.5,
+                aim: Vec2::ZERO,
                 lead: None,
-                from: fists,
+                from: [Vec2::ZERO; 2],
                 curve_phase: 0.0,
             },
-            aims: fists,
+            aims: [Vec2::ZERO; 2],
             next_lead: Fist::Left,
             clock: 0.0,
             ticks: 0,
@@ -186,6 +190,15 @@ impl GnuTonConductor {
             waves: [None; 4],
             landing: Vec2::ZERO,
         }
+    }
+
+    /// Latch the fists where they stand (left, right), so the first beat eases
+    /// each one from there.
+    fn seat(&mut self, fists: [Vec2; 2]) {
+        self.latch.aim = (fists[0] + fists[1]) * 0.5;
+        self.latch.from = fists;
+        self.aims = fists;
+        self.seated = true;
     }
 
     /// The move being performed and whether it is striking, for tests and
@@ -213,7 +226,8 @@ impl bevy::ecs::entity::MapEntities for GnuTonConductor {
 /// The checksum projection: the choreography's cursor. Not the allocator-local
 /// handles, and not the per-fist facts whose effect the bodies' own checksummed
 /// state carries a tick later (a fist's last pose, whether it has passed on its
-/// blow, the gnu's reflex — they show in kinematics, health and the throw).
+/// blow, whether the latch is seated, the gnu's reflex — they show in
+/// kinematics, health and the throw).
 impl ambition_platformer2d_core::snapshot::SnapshotCursor for GnuTonConductor {
     fn encode_cursor(&self, out: &mut Vec<u8>) {
         use ambition_platformer2d_core::snapshot::{put_bool, put_f32, put_u32, put_vec2};
@@ -239,39 +253,29 @@ impl ambition_platformer2d_core::snapshot::SnapshotCursor for GnuTonConductor {
     }
 }
 
-pub fn is_gnu_ton(config: &BossConfig) -> bool {
-    config.behavior.id == GNU_TON_ID
+/// The state GNU-ton's scholar is built with: the conductor's memory and his
+/// drawn row. See [`ambition_boss_encounter::BossBirthKit`].
+pub fn birth(scope: &mut ambition_platformer2d_shared_tangle::construction::EntityScope, _: &ae::BodyKinematics) {
+    scope.insert((GnuTonConductor::unseated(), PinnedRow::default()));
 }
 
-/// Take the pair into the fight: the conductor on the scholar, the fists made
-/// his (posed by him, hittable, their deaths his to rule), the giant's row
-/// pinned. Idempotent, so it re-runs harmlessly after a rollback.
+/// Make the gnu's fists the scholar's (posed by him, hittable, their deaths
+/// his to rule) and pin the gnu's drawn row, once he rides it. Idempotent, so
+/// it re-runs harmlessly after a rollback.
 pub fn adopt_gnu_ton(
     mut commands: Commands,
-    scholars: Query<(Entity, &BossConfig, &RidingOn), Without<GnuTonConductor>>,
-    giants: Query<(&LimbRig, &ae::BodyKinematics), With<MountSlot>>,
+    scholars: Query<&RidingOn, With<GnuTonConductor>>,
+    giants: Query<&LimbRig, With<MountSlot>>,
     fists: Query<(), (With<Limb>, Without<ae::PoseOwnedExternally>)>,
-    fist_bodies: Query<(&ae::BodyKinematics, &Limb)>,
 ) {
-    for (scholar, config, riding) in &scholars {
-        if !is_gnu_ton(config) {
-            continue;
-        }
-        // Not until the giant is here: the conductor starts from where its
-        // fists stand, and a fist that is gone starts at its home.
-        let Ok((rig, giant)) = giants.get(riding.mount) else {
+    for riding in &scholars {
+        let Ok(rig) = giants.get(riding.mount) else {
             continue;
         };
-        let at = [LimbSlot::HAND_LEFT, LimbSlot::HAND_RIGHT].map(|slot| rig.get(slot).and_then(|fist| fist_bodies.get(fist).ok()));
-        let home = homes(giant, at.map(|fist| fist.map(|(_, limb)| limb.home_offset)));
-        let fists_at = [0, 1].map(|i| at[i].map_or(home[i], |(kin, _)| kin.pos));
-        commands.entity(scholar).insert((GnuTonConductor::new(fists_at), PinnedRow::default()));
-        // The conductor pins the gnu's drawn row. Its depth plane is the arena
-        // placement's (`depth_plane: Behind`) and its unmirrored art is its
-        // character's, so both are there from construction.
-        commands.entity(riding.mount).insert(PinnedRow::default());
         for fist in [LimbSlot::HAND_LEFT, LimbSlot::HAND_RIGHT].into_iter().filter_map(|slot| rig.get(slot)) {
             if fists.contains(fist) {
+                // The fists are taken once, so the gnu's row is pinned once.
+                commands.entity(riding.mount).insert(PinnedRow::default());
                 commands.entity(fist).insert((
                     // His hands: a fist's blow is the boss's, so it never lands
                     // on him (the relational rule every resolver asks).
@@ -534,6 +538,14 @@ pub fn conduct_gnu_ton(
             scholar: scholar_kin.pos,
             fist: fist_size,
         };
+        if !conductor.seated {
+            // A fist that is gone starts at its home.
+            conductor.seat(std::array::from_fn(|i| {
+                fist_entities[i]
+                    .and_then(|e| fists.get(e).ok().map(|(kin, ..)| kin.pos))
+                    .unwrap_or(stage.homes[i])
+            }));
+        }
         let aim_now = foe.entity.map_or(scholar_kin.pos, |_| foe.pos);
 
         // ── Which part of which beat, and did it just begin? ──

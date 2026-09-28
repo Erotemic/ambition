@@ -298,23 +298,11 @@ impl ambition_platformer2d_core::snapshot::SnapshotCursor for FsmConductor {
     }
 }
 
-pub fn is_fsm(config: &BossConfig) -> bool {
-    config.behavior.id == FSM_ID
-}
-
-/// Take the god into the fight: its conductor and its drawn row. The conductor
-/// states who owns the pose each tick. Idempotent, so it re-runs harmlessly
-/// after a rollback.
-pub fn adopt_fsm(mut commands: Commands, gods: Query<(Entity, &BossConfig, &ae::BodyKinematics), Without<FsmConductor>>) {
-    for (god, config, kin) in &gods {
-        if !is_fsm(config) {
-            continue;
-        }
-        commands.entity(god).insert((
-            FsmConductor::new(if kin.facing < 0.0 { -1.0 } else { 1.0 }),
-            PinnedRow::default(),
-        ));
-    }
+/// The state the god is built with: its conductor, facing the side the body
+/// was built facing, and its drawn row. The conductor states who owns the
+/// pose each tick. See [`ambition_boss_encounter::BossBirthKit`].
+pub fn birth(scope: &mut ambition_platformer2d_shared_tangle::construction::EntityScope, body: &ae::BodyKinematics) {
+    scope.insert((FsmConductor::new(if body.facing < 0.0 { -1.0 } else { 1.0 }), PinnedRow::default()));
 }
 
 /// The live part of the god's move.

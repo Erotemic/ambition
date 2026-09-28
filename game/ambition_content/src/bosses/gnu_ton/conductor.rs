@@ -259,37 +259,6 @@ pub fn birth(scope: &mut ambition_platformer2d_shared_tangle::construction::Enti
     scope.insert((GnuTonConductor::unseated(), PinnedRow::default()));
 }
 
-/// Make the gnu's fists the scholar's (posed by him, hittable, their deaths
-/// his to rule) and pin the gnu's drawn row, once he rides it. Idempotent, so
-/// it re-runs harmlessly after a rollback.
-pub fn adopt_gnu_ton(
-    mut commands: Commands,
-    scholars: Query<&RidingOn, With<GnuTonConductor>>,
-    giants: Query<&LimbRig, With<MountSlot>>,
-    fists: Query<(), (With<Limb>, Without<ae::PoseOwnedExternally>)>,
-) {
-    for riding in &scholars {
-        let Ok(rig) = giants.get(riding.mount) else {
-            continue;
-        };
-        for fist in [LimbSlot::HAND_LEFT, LimbSlot::HAND_RIGHT].into_iter().filter_map(|slot| rig.get(slot)) {
-            if fists.contains(fist) {
-                // The fists are taken once, so the gnu's row is pinned once.
-                commands.entity(riding.mount).insert(PinnedRow::default());
-                commands.entity(fist).insert((
-                    // His hands: a fist's blow is the boss's, so it never lands
-                    // on him (the relational rule every resolver asks).
-                    ambition_combat::components::ActorFaction::Boss,
-                    ae::PoseOwnedExternally,
-                    ambition_combat::components::ActiveCombatant,
-                    ambition_combat::components::RulesetOwnsDeath,
-                    PinnedRow::default(),
-                ));
-            }
-        }
-    }
-}
-
 pub use crate::bosses::hall::measure_hall;
 
 /// The live part of the scholar's move: its `Special` key, whether it is

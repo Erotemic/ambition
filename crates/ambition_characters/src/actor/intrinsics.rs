@@ -100,6 +100,13 @@ pub struct CharacterMount {
     /// and whatever poses the hands reads it back from there.
     #[serde(default)]
     pub hand_rest: Option<(f32, f32)>,
+    /// The body a room seats on this mount conducts it: it poses the mount's
+    /// hands and chooses the rows the mount and its hands are drawn with. So a
+    /// hand of a mount seated this way is built as the rider's: on the rider's
+    /// side, posed by it, a combatant, and its death the rider's to rule.
+    /// `false`: the hands are the mount's own, ridden or not.
+    #[serde(default)]
+    pub rider_conducts: bool,
 }
 
 /// Touching this body hurts.

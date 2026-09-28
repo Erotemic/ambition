@@ -29,7 +29,7 @@ pub use cut_rope::{
     SmirkingBehemothVictoryNpc, CUT_ROPE_BOSS_ID, CUT_ROPE_VICTORY_NPC_DIALOGUE_ID,
     CUT_ROPE_VICTORY_NPC_ID,
 };
-pub use gnu_ton::{adopt_gnu_ton, conduct_gnu_ton, gate_gnu_ton_arena_ladder, gnu_back_is_ground};
+pub use gnu_ton::{conduct_gnu_ton, gate_gnu_ton_arena_ladder, gnu_back_is_ground};
 
 pub const BOSS_PROFILES_RON: &str = include_str!("../../assets/data/boss_profiles.ron");
 
@@ -384,8 +384,7 @@ impl Plugin for AmbitionBossContentPlugin {
         // are the last word before combat reads them.
         app.add_systems(
             sim,
-            (adopt_gnu_ton, conduct_gnu_ton)
-                .chain()
+            conduct_gnu_ton
                 .after(ambition_mount::RidersSyncedToMounts)
                 .in_set(GameplayGated)
                 .in_set(ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::AfterIntegrate),

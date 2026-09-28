@@ -149,6 +149,8 @@ pub enum ActorConstructionParams {
         >,
         faction: ambition_combat::components::ActorFaction,
         paths: Vec<(String, ambition_platformer2d_core::KinematicPath)>,
+        /// A rider the room seats on it conducts it (`CharacterMount::rider_conducts`).
+        conducted: bool,
     },
     /// One hand of a giant host. The body is built here; its `Limb` component and
     /// the host's rig entry are installed by the `ambition.limb` relation.
@@ -156,6 +158,9 @@ pub enum ActorConstructionParams {
         authored: ambition_platformer2d_world::rooms::Authored<
             ambition_platformer2d_world::rooms::EnemySpawnSpec,
         >,
+        /// The side of the rider that conducts the host, which makes this hand
+        /// the rider's. `None`: the hand is its host's own.
+        conductor: Option<ambition_combat::components::ActorFaction>,
     },
     /// An ordinary authored enemy. Every authored enemy is a plan row, built by
     /// the same populate function the former family loop used.
@@ -448,7 +453,7 @@ impl ConstructionDomain for ActorConstruction {
             ActorConstructionParams::GiantHost { authored, .. } => {
                 format!("giant-host {} {}", authored.id, authored.name)
             }
-            ActorConstructionParams::GiantHand { authored } => {
+            ActorConstructionParams::GiantHand { authored, .. } => {
                 format!("giant-hand {}", authored.id)
             }
             ActorConstructionParams::AuthoredEnemy { authored, .. } => {
@@ -745,6 +750,7 @@ fn construct_giant_host(
         authored,
         faction,
         paths,
+        conducted,
     } = parameters
     else {
         unreachable!("dispatch pairs this fn with GiantHost parameters")
@@ -772,6 +778,10 @@ fn construct_giant_host(
         ambition_characters::actor::limb::LimbIntents::default(),
         ambition_characters::actor::limb::LimbRouteState::default(),
     ));
+    // Its conductor chooses the row it is drawn with.
+    if *conducted {
+        ctx.insert(ambition_sprite_sheet::character::PinnedRow::default());
+    }
 }
 
 fn construct_giant_hand(
@@ -779,7 +789,7 @@ fn construct_giant_hand(
     ctx: &mut RootCtx<'_, '_, '_>,
 ) {
     let services = ctx.services;
-    let ActorConstructionParams::GiantHand { authored } = parameters else {
+    let ActorConstructionParams::GiantHand { authored, conductor } = parameters else {
         unreachable!("dispatch pairs this fn with GiantHand parameters")
     };
     let fate = ctx.facts.enemy_fate(authored);
@@ -797,9 +807,21 @@ fn construct_giant_hand(
         &services.context.brain_profiles,
         authored,
         &[],
-        ambition_combat::components::ActorFaction::Enemy,
+        conductor.unwrap_or(ambition_combat::components::ActorFaction::Enemy),
         fate,
     );
+    // A conducted hand is the rider's: its blows are the rider's side's and
+    // never land on the rider, the rider poses it and chooses its drawn row,
+    // and a struck hand carries the blow to the rider instead of dying on
+    // its own.
+    if conductor.is_some() {
+        ctx.insert((
+            ambition_platformer2d_core::PoseOwnedExternally,
+            ambition_combat::components::ActiveCombatant,
+            ambition_combat::components::RulesetOwnsDeath,
+            ambition_sprite_sheet::character::PinnedRow::default(),
+        ));
+    }
     // ⛔ A HAND IS NOT IN THE ROOM SPEC: the planner derives it from the host,
     // so the room-load visuals (which walk `spec.enemy_spawns`) never see it,
     // and until this marker nothing drew it — invisible from the start of the
@@ -1410,7 +1432,7 @@ fn planned_body_character(parameters: &ActorConstructionParams) -> Option<&str> 
     match parameters {
         ActorConstructionParams::AuthoredEnemy { authored, .. }
         | ActorConstructionParams::GiantHost { authored, .. }
-        | ActorConstructionParams::GiantHand { authored } => {
+        | ActorConstructionParams::GiantHand { authored, .. } => {
             Some(authored.payload.character_id.as_str())
         }
         ActorConstructionParams::StagedActor(request) => match &request.kind {
@@ -1825,6 +1847,8 @@ pub fn staged_actor_requests(
                     // same as the pre-migration staged spawn (it passed `&[]`).
                     Vec::new(),
                     hands,
+                    // A staged giant has no seated rider.
+                    None,
                     host_origin,
                     move |hand| SpawnOrigin::ProviderStaged {
                         provider: provider_owned.clone(),
@@ -1894,6 +1918,11 @@ pub fn authored_actor_requests(
                 // them with `paths: Vec::new()`.
                 paths.to_vec(),
                 hands,
+                conducting_rider(
+                    room,
+                    &enemy.id,
+                    resolve_planned_character(prepared, &enemy.payload.character_id),
+                ),
                 SpawnOrigin::Authored {
                     source: source.clone(),
                     instance: enemy.id.clone(),
@@ -1952,6 +1981,7 @@ fn giant_cluster_rows(
     faction: ambition_combat::components::ActorFaction,
     paths: Vec<(String, ambition_platformer2d_core::KinematicPath)>,
     hands: Vec<ambition_platformer2d_actor_spawn::GiantHandPlan>,
+    conductor: Option<ambition_combat::components::ActorFaction>,
     host_origin: SpawnOrigin,
     mut hand_origin: impl FnMut(&ambition_platformer2d_actor_spawn::GiantHandPlan) -> SpawnOrigin,
 ) -> Vec<ActorConstructionRequest> {
@@ -1962,6 +1992,7 @@ fn giant_cluster_rows(
             authored: host_authored,
             faction,
             paths,
+            conducted: conductor.is_some(),
         },
         relations: Vec::new(),
     }];
@@ -1994,6 +2025,7 @@ fn giant_cluster_rows(
                         Some(ambition_entity_catalog::placements::SpawnDisposition::Peaceful);
                     authored
                 },
+                conductor,
             },
             relations: vec![
                 ambition_platformer2d_shared_tangle::construction::RelationRequest {
@@ -2018,6 +2050,27 @@ fn resolve_planned_character<'a>(
     character: &ambition_entity_catalog::CharacterId,
 ) -> Option<&'a ambition_characters::prepared::PreparedCharacterDefinition> {
     prepared.and_then(|cast| cast.get(character.as_str()))
+}
+
+/// The side of the rider the room seats on limbed host `host_id`, when the
+/// host's character says its rider conducts it
+/// (`CharacterMount::rider_conducts`). The room's mount links are what seat a
+/// rider, so this is known before anything is built.
+fn conducting_rider(
+    room: &ambition_platformer2d_world::rooms::RoomSpec,
+    host_id: &str,
+    host: Option<&ambition_characters::prepared::PreparedCharacterDefinition>,
+) -> Option<ambition_combat::components::ActorFaction> {
+    host?.mount.as_ref().filter(|mount| mount.rider_conducts)?;
+    let (rider, _) = room.mount_links.iter().find(|(_, mount)| mount == host_id)?;
+    if room.boss_spawns.iter().any(|boss| &boss.id == rider) {
+        Some(ambition_combat::components::ActorFaction::Boss)
+    } else {
+        room.enemy_spawns
+            .iter()
+            .any(|enemy| &enemy.id == rider)
+            .then_some(ambition_combat::components::ActorFaction::Enemy)
+    }
 }
 
 /// Where a limbed host's authored right hand rests (`CharacterMount::hand_rest`).

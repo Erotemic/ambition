@@ -61,6 +61,8 @@ fn fixture_cast() -> &'static ambition_characters::prepared::PreparedCharacterRe
             // The limbed host: a `"giant"`-class mount lowers to host + two hand
             // rows, and a CHARACTER is the only thing that says so now.
             ("fixture_giant", Some(("giant", &[][..]))),
+            // A limbed host whose seated rider conducts it.
+            ("fixture_conducted_giant", Some(("giant", &[][..]))),
             // The rideable body and its rider, the ADR 0020 pair.
             ("fixture_mount", Some(("shark", &[][..]))),
         ] {
@@ -76,6 +78,7 @@ fn fixture_cast() -> &'static ambition_characters::prepared::PreparedCharacterRe
                 definition.mount = Some(ambition_characters::actor::CharacterMount {
                     class: Some(class.to_string()),
                     pilotable_classes: pilotable.iter().map(|c: &&str| (*c).to_string()).collect(),
+                    rider_conducts: id == "fixture_conducted_giant",
                     ..Default::default()
                 });
             }
@@ -2169,6 +2172,54 @@ fn giant_room() -> ambition_platformer2d_world::rooms::RoomSpec {
             ),
         ));
     room
+}
+
+/// A giant whose character says its rider conducts it is planned with hands
+/// that are the seated rider's. With no rider seated, or on a giant that does
+/// not say so, the hands are the giant's own.
+#[test]
+fn a_seated_conductor_is_planned_as_the_owner_of_the_hands() {
+    let planned = |character: &str, seated: bool| {
+        let mut room = giant_room();
+        room.enemy_spawns[0].payload.character_id = character.into();
+        if seated {
+            room.boss_spawns.push(ambition_platformer2d_world::rooms::Authored::new(
+                "the_rider",
+                "gnu_ton_rider",
+                ae::Aabb::new(ae::Vec2::new(100.0, 20.0), ae::Vec2::splat(30.0)),
+                ambition_entity_catalog::placements::BossBrain::PhaseScript {
+                    script_id: "gnu_ton_rider".into(),
+                },
+            ));
+            room.mount_links.push(("the_rider".to_string(), "boss_mount".to_string()));
+        }
+        let plan = prepare(
+            &room,
+            &crate::features::RoomContentStagingRegistry::default(),
+            &engine_construction_registry(),
+        )
+        .expect("the giant room plans");
+        let host_sim = SimId::placement("boss_mount");
+        let ActorConstructionParams::GiantHost { conducted, .. } =
+            plan.construction().get(&host_sim).expect("the host row").parameters()
+        else {
+            panic!("the host is a giant host row");
+        };
+        let hands: Vec<_> = (0..2)
+            .map(|ordinal| {
+                let row = plan.construction().get(&SimId::spawned(&host_sim, ordinal)).expect("a hand row");
+                let ActorConstructionParams::GiantHand { conductor, .. } = row.parameters() else {
+                    panic!("a hand is a giant hand row");
+                };
+                *conductor
+            })
+            .collect();
+        (*conducted, hands)
+    };
+    let boss = Some(ambition_combat::components::ActorFaction::Boss);
+    assert_eq!(planned("fixture_conducted_giant", true), (true, vec![boss, boss]));
+    assert_eq!(planned("fixture_conducted_giant", false), (false, vec![None, None]), "no rider is seated");
+    assert_eq!(planned("fixture_giant", true), (false, vec![None, None]), "this giant's hands are its own");
 }
 
 /// A CHARACTER can make a limbed host, with no archetype row saying so.

@@ -758,3 +758,43 @@ fn the_scholar_is_built_with_his_conductor() {
         .expect("the arena builds GNU-ton");
     assert_eq!(first, (true, true), "the scholar, on the first tick he exists");
 }
+
+/// The fists are built as the scholar's, because the gnu's character says its
+/// rider conducts it and the arena seats him on it: on his side, posed by him,
+/// combatants, their deaths his to rule, their rows his to choose. The gnu is
+/// built with its row his to choose too.
+#[test]
+fn the_fists_are_built_as_the_scholars() {
+    let mut sim = Platformer2dSimHarness::new_with_options(
+        Platformer2dSimHarnessOptions::default()
+            .with_timestep(TimestepMode::fixed_60hz())
+            .with_required_start_room(ARENA),
+    )
+    .expect("the gnu-ton arena builds headlessly");
+    type Row = ambition_platformer2d::sprite_sheet::character::PinnedRow;
+    let (fists, gnu_row) = (0..300)
+        .find_map(|_| {
+            let world = sim.world_mut();
+            let fists: Vec<_> = world
+                .query_filtered::<(
+                    &ambition_platformer2d::combat::components::ActorFaction,
+                    Has<ae::PoseOwnedExternally>,
+                    Has<ambition_platformer2d::combat::components::ActiveCombatant>,
+                    Has<ambition_platformer2d::combat::components::RulesetOwnsDeath>,
+                    Has<Row>,
+                ), With<Limb>>()
+                .iter(world)
+                .map(|(faction, posed, combatant, death, row)| (*faction, posed, combatant, death, row))
+                .collect();
+            let gnu_row = world.query_filtered::<Has<Row>, (With<LimbRig>, Without<Limb>)>().iter(world).next();
+            let found = (fists.len() == 2).then_some(()).and(gnu_row).map(|row| (fists, row));
+            if found.is_none() {
+                sim.step(AgentAction::default());
+            }
+            found
+        })
+        .expect("the arena builds the gnu and both fists");
+    let theirs = (ambition_platformer2d::combat::components::ActorFaction::Boss, true, true, true, true);
+    assert_eq!(fists, vec![theirs, theirs], "each fist, on the first tick it exists");
+    assert!(gnu_row, "the gnu's row is his to choose");
+}

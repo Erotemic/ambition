@@ -21,7 +21,7 @@ use ambition_platformer2d::world::FeatureEcsWorldOverlay;
 pub mod choreography;
 pub mod conductor;
 
-pub use conductor::{adopt_gnu_ton, conduct_gnu_ton, gnu_back_is_ground, GnuTonConductor};
+pub use conductor::{conduct_gnu_ton, gnu_back_is_ground, GnuTonConductor};
 
 /// LDtk level identifier of the arena room whose ladder this system
 /// gates. Held as a constant so it's grep-able alongside the matching

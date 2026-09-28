@@ -1463,6 +1463,9 @@
                 // Its fists hover at shoulder height on each side, clear of its
                 // flanks: every beat of GNU-ton's starts and ends here.
                 hand_rest: Some((270.0, -70.0)),
+                // Whoever rides it conducts its fists and chooses its rows: in
+                // the arena, the fists are GNU-ton's.
+                rider_conducts: true,
             )),
             // It never looks for anyone and never strikes. Whether it is your enemy
             // is the placement's decision: the sandbox giant is `Peaceful`.

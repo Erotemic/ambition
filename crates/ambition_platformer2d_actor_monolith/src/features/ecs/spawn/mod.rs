@@ -1112,7 +1112,7 @@ impl RoomFeatureConstructionPlan {
                 // A giant's hands are planned from the giant, not placed, so no
                 // authored list names their character: until this arm their
                 // sheet was never demanded and they drew as a flat box.
-                crate::construction::ActorConstructionParams::GiantHand { authored } => {
+                crate::construction::ActorConstructionParams::GiantHand { authored, .. } => {
                     names.push(authored.payload.character_id.to_string());
                 }
                 _ => {}

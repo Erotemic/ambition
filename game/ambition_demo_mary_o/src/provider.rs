@@ -210,30 +210,14 @@ impl Plugin for MaryOExperiencePlugin {
             );
         }
         {
-            use ambition_platformer2d::audio::catalog::{AudioCatalogAppExt, AudioCatalogFragment};
+            use ambition_platformer2d::audio::catalog::AudioCatalogAppExt;
+            // Her pack states both: what her session may play, and how each
+            // synth cue sounds. Her moves name bank cues as well as her own
+            // voice.
             app.register_audio_catalog_fragment(
-                AudioCatalogFragment::new(
-                    MARY_O_EXPERIENCE,
-                    // Her pack states both: what her session may play, and how
-                    // each synth cue sounds.
-                    Some(
-                        ambition_platformer2d::audio::content_schema::lowered_music_registry(
-                            crate::pack::PACK.prepared(),
-                        )
-                        .expect("Mary-O's pack states her music")
-                        .clone(),
-                    ),
-                    Some(
-                        ambition_platformer2d::audio::content_schema::lowered_sfx_registry(
-                            crate::pack::PACK.prepared(),
-                        )
-                        .expect("Mary-O's pack states her SFX")
-                        .clone(),
-                    ),
-                )
-                .expect("Mary-O audio catalog is valid")
-                // Her moves name bank cues as well as her own voice.
-                .with_resident_sfx_bank(),
+                crate::pack::PACK
+                    .audio(MARY_O_EXPERIENCE)
+                    .with_resident_sfx_bank(),
             );
         }
         PlatformerExperienceAuthoring::new(

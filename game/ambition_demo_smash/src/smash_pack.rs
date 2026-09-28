@@ -50,6 +50,10 @@ pub static PACK: EmbeddedPack = EmbeddedPack::new(
             "data/movesets/smash_duelist_b.ron",
             include_str!("../assets/data/movesets/smash_duelist_b.ron"),
         ),
+        (
+            "audio/music_registry.ron",
+            include_str!("../assets/audio/music_registry.ron"),
+        ),
     ],
 );
 

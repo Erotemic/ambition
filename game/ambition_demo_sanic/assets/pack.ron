@@ -17,5 +17,8 @@
         // The cast: every row is a character the demo registers.
         (path: "data/character_catalog.ron", schema: "character_catalog", version: 1),
         (path: "data/movesets/sanic.ron", schema: "moveset", version: 1),
+        // What the session may play, and how each synth cue sounds.
+        (path: "audio/music_registry.ron", schema: "music_registry", version: 1),
+        (path: "audio/sfx_registry.ron", schema: "sfx_registry", version: 1),
     ],
 )

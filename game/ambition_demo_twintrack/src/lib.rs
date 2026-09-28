@@ -434,59 +434,15 @@ pub fn twintrack_room() -> RoomSpec {
 }
 
 pub fn install_twintrack_content(app: &mut App) {
-    use ambition_platformer2d::audio::catalog::{AudioCatalogAppExt, AudioCatalogFragment};
+    use ambition_platformer2d::audio::catalog::AudioCatalogAppExt;
 
     // The cast is the pack's `character_catalog`: the traveler (who wears the
     // session's home avatar) and Emmy, the second participant.
     pack::PACK
         .cast(TWINTRACK_EXPERIENCE, Some(TWINTRACK_CHARACTER_ID))
         .register(app);
-    app.register_audio_catalog_fragment(
-        AudioCatalogFragment::new(
-            TWINTRACK_EXPERIENCE,
-            None,
-            Some(ambition_platformer2d::audio::spec::SfxRegistry {
-                sample_rate: 44_100,
-                sfx: twintrack_sfx_specs(),
-            }),
-        )
-        .expect("TwinTrack procedural teaching cues should be valid"),
-    );
-}
-
-fn twintrack_sfx_specs() -> Vec<ambition_platformer2d::audio::spec::SfxSpec> {
-    use ambition_platformer2d::audio::spec::WaveformSpec as Wave;
-    vec![
-        twintrack_sfx(SFX_CLOCK_REPORT, Wave::Triangle, 720.0, 920.0, 0.12, 0.24),
-        twintrack_sfx(SFX_DOPPLER_G2, Wave::Sine, 98.0, 98.0, 0.24, 0.30),
-        twintrack_sfx(SFX_DOPPLER_B2, Wave::Sine, 123.47, 123.47, 0.24, 0.30),
-        twintrack_sfx(SFX_DOPPLER_D3, Wave::Sine, 146.83, 146.83, 0.24, 0.30),
-        twintrack_sfx(SFX_DOPPLER_F3, Wave::Sine, 174.61, 174.61, 0.24, 0.30),
-        twintrack_sfx(SFX_DOPPLER_G3, Wave::Triangle, 196.0, 392.0, 0.34, 0.34),
-        twintrack_sfx(SFX_TAG_HIT, Wave::Square, 560.0, 1_120.0, 0.16, 0.28),
-    ]
-}
-
-fn twintrack_sfx(
-    id: &str,
-    waveform: ambition_platformer2d::audio::spec::WaveformSpec,
-    frequency: f32,
-    frequency_end: f32,
-    duration: f32,
-    volume: f32,
-) -> ambition_platformer2d::audio::spec::SfxSpec {
-    ambition_platformer2d::audio::spec::SfxSpec {
-        cue: None,
-        id: Some(id.to_owned()),
-        waveform,
-        frequency,
-        frequency_end,
-        duration,
-        volume,
-        attack: 0.008,
-        release: (duration * 0.35).min(0.08),
-        noise: 0.0,
-    }
+    // The teaching cues are the pack's `audio/sfx_registry.ron`.
+    app.register_audio_catalog_fragment(pack::PACK.audio(TWINTRACK_EXPERIENCE));
 }
 
 fn doppler_feedback_sfx(frequency: f64, accepted: bool) -> &'static str {
@@ -1561,4 +1517,30 @@ fn light_pulse_teacher_line(view: &TwinTrackLightPulseView) -> String {
         traveler.ray(PulseRay::TowardOmega).doppler_factor,
         traveler.ray(PulseRay::TowardAlpha).doppler_factor,
     )
+}
+
+#[cfg(test)]
+mod audio_tests {
+    /// Every cue TwinTrack's code emits is one its pack declares. An emitted
+    /// cue that the pack does not declare is silence, with no error.
+    #[test]
+    fn every_cue_its_code_names_is_declared_by_its_pack() {
+        let audio = crate::pack::PACK.audio(super::TWINTRACK_EXPERIENCE);
+        let authorized = audio.sfx().expect("the pack states its SFX").authorized_cue_ids();
+        let emitted = [
+            super::SFX_CLOCK_REPORT,
+            super::SFX_DOPPLER_G2,
+            super::SFX_DOPPLER_B2,
+            super::SFX_DOPPLER_D3,
+            super::SFX_DOPPLER_F3,
+            super::SFX_DOPPLER_G3,
+            super::SFX_TAG_HIT,
+        ];
+        for id in emitted {
+            assert!(
+                authorized.contains(&ambition_platformer2d::sfx::SfxId::from_static(id)),
+                "TwinTrack emits `{id}` and its pack does not declare it"
+            );
+        }
+    }
 }

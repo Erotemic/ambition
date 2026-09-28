@@ -1229,10 +1229,8 @@ fn rev_tier_climbs_with_charge() {
 
 #[test]
 fn the_sanic_sfx_registry_validates_with_every_new_cue() {
-    let registry = ambition_platformer2d::audio::spec::SfxRegistry {
-        sample_rate: 44_100,
-        sfx: sanic_sfx_specs(),
-    };
+    let audio = crate::pack::PACK.audio(provider::SANIC_EXPERIENCE);
+    let registry = audio.sfx().expect("his pack states his SFX");
     // No duplicate ids across the expanded table (rev tiers, launch, transform,
     // monitor, badnik, skid, rings, Pogo/Land/Reset, menu).
     registry
@@ -1305,10 +1303,8 @@ fn the_ring_collect_cue_is_the_shared_currency_pickup_id() {
         "the ring ding must voice the id the shared currency-pickup loop emits"
     );
     // And the demo's registry authorises it.
-    let registry = ambition_platformer2d::audio::spec::SfxRegistry {
-        sample_rate: 44_100,
-        sfx: sanic_sfx_specs(),
-    };
+    let audio = crate::pack::PACK.audio(provider::SANIC_EXPERIENCE);
+    let registry = audio.sfx().expect("his pack states his SFX");
     assert!(
         registry
             .authorized_cue_ids()
@@ -1485,20 +1481,23 @@ fn the_dark_act_has_three_portal_pairs_and_room_to_run() {
             .count()
             >= 200
     );
-    assert!(sanic_music_registry().tracks.iter().any(|track| {
-        track.id == DARKNESS_MUSIC_TRACK
-            && track.asset_path.as_deref() == Some(DARKNESS_MUSIC_ASSET_PATH)
-    }));
+    let audio = crate::pack::PACK.audio(provider::SANIC_EXPERIENCE);
+    assert!(audio
+        .music()
+        .expect("his pack states his music")
+        .track(DARKNESS_MUSIC_TRACK)
+        .is_some());
 }
 
 #[test]
 fn the_highway_score_is_a_track_the_sanic_catalog_carries() {
-    let catalogs = sanic_music_registry();
+    let audio = crate::pack::PACK.audio(provider::SANIC_EXPERIENCE);
     assert!(
-        catalogs
-            .tracks
-            .iter()
-            .any(|track| track.id == HIGHWAY_MUSIC_TRACK),
+        audio
+            .music()
+            .expect("his pack states his music")
+            .track(HIGHWAY_MUSIC_TRACK)
+            .is_some(),
         "the highway names `{HIGHWAY_MUSIC_TRACK}` and the Sanic catalog must carry it, or \
          the director falls back to the default track"
     );

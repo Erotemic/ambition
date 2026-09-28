@@ -1,0 +1,11 @@
+// Pocket's SFX: its jump and the shell's menu vocabulary. A session plays only
+// the cues its own provider declares.
+(
+    sample_rate: 44100,
+    sfx: [
+        (cue: Some(Jump), waveform: Square, frequency: 520.0, frequency_end: 650.0, duration: 0.08, volume: 0.3, attack: 0.004, release: 0.04, noise: 0.0),
+        (id: Some("ui.menu.move_icon"), waveform: Square, frequency: 620.0, frequency_end: 775.0, duration: 0.08, volume: 0.3, attack: 0.004, release: 0.04, noise: 0.0),
+        (id: Some("ui.menu.accept"), waveform: Square, frequency: 780.0, frequency_end: 975.0, duration: 0.08, volume: 0.3, attack: 0.004, release: 0.04, noise: 0.0),
+        (id: Some("ui.menu.back"), waveform: Square, frequency: 440.0, frequency_end: 550.0, duration: 0.08, volume: 0.3, attack: 0.004, release: 0.04, noise: 0.0),
+    ],
+)

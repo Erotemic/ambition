@@ -1273,3 +1273,17 @@ fn the_tiers_sit_inside_the_fighters_measured_jump_arc() {
         crate::SOFT_PLATFORM_HIGH_RISE
     );
 }
+
+/// Every track Smash's code names is one its pack declares, and the stage's
+/// track is the default. A track the pack does not declare is silence.
+#[test]
+fn every_track_its_code_names_is_declared_by_its_pack() {
+    let audio = crate::smash_pack::PACK.audio(crate::SMASH_EXPERIENCE);
+    let music = audio.music().expect("the pack states its music");
+    assert_eq!(music.default_track, crate::SMASH_STAGE_TRACK);
+    assert!(
+        music.track(crate::SMASH_SELECT_TRACK).is_some(),
+        "Smash plays `{}` over its select screen and its pack does not declare it",
+        crate::SMASH_SELECT_TRACK
+    );
+}

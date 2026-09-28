@@ -1,0 +1,44 @@
+// Sanic's SFX. Every entry is both an AUTHORIZATION and a voice: under
+// provider-relative audio a session plays only the cues its own provider
+// declares, so a cue that is emitted but not listed here is gated to silence.
+// All of these are synthesized from the spec; no asset file is needed.
+//
+// A `cue` row voices an engine event (Sanic authors his own Dash and Jump); an
+// `id` row voices a cue Sanic's code writes by name (`SFX_*` in `src/lib.rs`).
+(
+    sample_rate: 44100,
+    sfx: [
+        // Shared engine movement/vitals cues, in Sanic's bright voice.
+        (cue: Some(Dash), waveform: Square, frequency: 900.0, frequency_end: 1400.0, duration: 0.12, volume: 0.5, attack: 0.005, release: 0.048, noise: 0.0),
+        (cue: Some(Jump), waveform: Square, frequency: 700.0, frequency_end: 1200.0, duration: 0.12, volume: 0.5, attack: 0.005, release: 0.048, noise: 0.0),
+        // Springs and rebound pads: the engine writes `Pogo`; a bright rising boing.
+        (cue: Some(Pogo), waveform: Square, frequency: 420.0, frequency_end: 1350.0, duration: 0.16, volume: 0.5, attack: 0.005, release: 0.064, noise: 0.0),
+        // Touchdown footfall: a low, soft thud (the shared `Land` edge).
+        (cue: Some(Land), waveform: Sine, frequency: 190.0, frequency_end: 95.0, duration: 0.09, volume: 0.32, attack: 0.005, release: 0.036, noise: 0.12),
+        // Pit death and respawn reset: a descending "aww".
+        (cue: Some(Reset), waveform: Triangle, frequency: 520.0, frequency_end: 120.0, duration: 0.34, volume: 0.42, attack: 0.005, release: 0.08, noise: 0.0),
+        // Spin-dash rev: three ascending tiers, picked by charge (`rev_tier_id`).
+        (id: Some("sanic.rev.0"), waveform: Saw, frequency: 300.0, frequency_end: 520.0, duration: 0.1, volume: 0.4, attack: 0.005, release: 0.04, noise: 0.05),
+        (id: Some("sanic.rev.1"), waveform: Saw, frequency: 430.0, frequency_end: 760.0, duration: 0.1, volume: 0.42, attack: 0.005, release: 0.04, noise: 0.05),
+        (id: Some("sanic.rev.2"), waveform: Saw, frequency: 580.0, frequency_end: 1020.0, duration: 0.11, volume: 0.45, attack: 0.005, release: 0.044, noise: 0.05),
+        // Launch and release whoosh (a descending zip).
+        (id: Some("sanic.launch"), waveform: Saw, frequency: 1300.0, frequency_end: 320.0, duration: 0.22, volume: 0.5, attack: 0.005, release: 0.08, noise: 0.1),
+        // Transform on (a bright rising power chord) and off (a softer descent).
+        (id: Some("sanic.transform"), waveform: Square, frequency: 520.0, frequency_end: 1500.0, duration: 0.34, volume: 0.5, attack: 0.005, release: 0.08, noise: 0.0),
+        (id: Some("sanic.detransform"), waveform: Square, frequency: 950.0, frequency_end: 420.0, duration: 0.2, volume: 0.4, attack: 0.005, release: 0.08, noise: 0.0),
+        // Monitor pop and badnik splat.
+        (id: Some("sanic.monitor"), waveform: Square, frequency: 240.0, frequency_end: 900.0, duration: 0.1, volume: 0.45, attack: 0.005, release: 0.04, noise: 0.15),
+        (id: Some("sanic.badnik"), waveform: Square, frequency: 720.0, frequency_end: 170.0, duration: 0.12, volume: 0.45, attack: 0.005, release: 0.048, noise: 0.2),
+        // Braking scrape (heavy noise).
+        (id: Some("sanic.skid"), waveform: Saw, frequency: 250.0, frequency_end: 190.0, duration: 0.16, volume: 0.38, attack: 0.005, release: 0.064, noise: 0.55),
+        // Rings: a bright collect ding and a scatter on loss. Sanic does not emit the
+        // ding: his rings are `currency:1` pickups, and the engine's pickup loop writes
+        // `world.coin.pickup` for them. So this row is the AUTHORIZATION and the voice.
+        (id: Some("world.coin.pickup"), waveform: Triangle, frequency: 1000.0, frequency_end: 1560.0, duration: 0.09, volume: 0.4, attack: 0.005, release: 0.036, noise: 0.0),
+        (id: Some("sanic.ring_loss"), waveform: Saw, frequency: 900.0, frequency_end: 220.0, duration: 0.18, volume: 0.42, attack: 0.005, release: 0.072, noise: 0.1),
+        // Shell and menu vocabulary.
+        (id: Some("ui.menu.move_icon"), waveform: Square, frequency: 760.0, frequency_end: 980.0, duration: 0.09, volume: 0.35, attack: 0.005, release: 0.036, noise: 0.0),
+        (id: Some("ui.menu.accept"), waveform: Square, frequency: 880.0, frequency_end: 1320.0, duration: 0.09, volume: 0.35, attack: 0.005, release: 0.036, noise: 0.0),
+        (id: Some("ui.menu.back"), waveform: Square, frequency: 620.0, frequency_end: 360.0, duration: 0.09, volume: 0.35, attack: 0.005, release: 0.036, noise: 0.0),
+    ],
+)

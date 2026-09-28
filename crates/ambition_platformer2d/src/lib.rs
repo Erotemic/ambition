@@ -187,6 +187,26 @@ pub mod content {
                 })
         }
 
+        /// The music and SFX this pack states, as `provider`'s audio catalog.
+        ///
+        /// A pack that states no `music_registry` or no `sfx_registry` gives
+        /// the fragment none of that kind. Register it with
+        /// `register_audio_catalog_fragment`, after any composition choice
+        /// such as `with_resident_sfx_bank`.
+        ///
+        /// # Panics
+        ///
+        /// When the registries the pack states do not validate as a catalog.
+        pub fn audio(&self, provider: &str) -> crate::audio::catalog::AudioCatalogFragment {
+            let pack = self.prepared();
+            crate::audio::catalog::AudioCatalogFragment::new(
+                provider,
+                crate::audio::content_schema::lowered_music_registry(pack).cloned(),
+                crate::audio::content_schema::lowered_sfx_registry(pack).cloned(),
+            )
+            .unwrap_or_else(|error| panic!("the embedded pack `{}`: {error}", pack.id.0))
+        }
+
         /// The art-to-world scale at which [`Self::cast`] builds `character`'s
         /// body, for anything else that must agree with it (a level that sizes
         /// a gap to a body, a test that measures one).

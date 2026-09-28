@@ -19,5 +19,13 @@ pub static PACK: EmbeddedPack = EmbeddedPack::new(
             "data/movesets/sanic.ron",
             include_str!("../assets/data/movesets/sanic.ron"),
         ),
+        (
+            "audio/music_registry.ron",
+            include_str!("../assets/audio/music_registry.ron"),
+        ),
+        (
+            "audio/sfx_registry.ron",
+            include_str!("../assets/audio/sfx_registry.ron"),
+        ),
     ],
 );

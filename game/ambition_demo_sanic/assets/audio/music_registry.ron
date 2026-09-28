@@ -1,0 +1,20 @@
+// Sanic's music: one score per act. Declaring a track here is what AUTHORIZES
+// his session to select and play it: under provider-relative audio a session
+// plays only the tracks its own provider names.
+//
+// Each act's room names its score in its LDtk `music_track` field. A track
+// with no `asset_path` plays `audio/music/generated/<id>/full.ogg`.
+(
+    default_track: "you_are_too_slow",
+    tracks: [
+        // Act 1, the speedway.
+        (id: "you_are_too_slow", display_name: "You Are Too Slow"),
+        // Act 2, the highway.
+        (id: "velocity", display_name: "Velocity"),
+        // Act 3, the darkness.
+        (
+            id: "to_be_superluminal_is_to_live_in_darkness",
+            display_name: "To Be Superluminal Is to Live in Darkness",
+        ),
+    ],
+)

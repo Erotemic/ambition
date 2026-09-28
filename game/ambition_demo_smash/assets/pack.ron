@@ -57,5 +57,7 @@
         // first one's table, so the table is stated once.
         (path: "data/movesets/smash_duelist_a.ron", schema: "moveset", version: 1),
         (path: "data/movesets/smash_duelist_b.ron", schema: "moveset", version: 1),
+        // What the session may play.
+        (path: "audio/music_registry.ron", schema: "music_registry", version: 1),
     ],
 )

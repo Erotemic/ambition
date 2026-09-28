@@ -51,46 +51,15 @@ pub fn pocket_frontend_audio_profile(
     )
 }
 
-fn cue(id: Option<&str>, frequency: f32) -> ambition_platformer2d::audio::spec::SfxSpec {
-    ambition_platformer2d::audio::spec::SfxSpec {
-        cue: id
-            .is_none()
-            .then_some(ambition_platformer2d::audio::spec::SoundCueKey::Jump),
-        id: id.map(str::to_owned),
-        waveform: ambition_platformer2d::audio::spec::WaveformSpec::Square,
-        frequency,
-        frequency_end: frequency * 1.25,
-        duration: 0.08,
-        volume: 0.3,
-        attack: 0.004,
-        release: 0.04,
-        noise: 0.0,
-    }
-}
-
 pub fn install_pocket_content(app: &mut App) {
-    use ambition_platformer2d::audio::catalog::{AudioCatalogAppExt, AudioCatalogFragment};
+    use ambition_platformer2d::audio::catalog::AudioCatalogAppExt;
 
     // The cast is the pack's `character_catalog`, registered with one call.
     pack::PACK
         .cast(POCKET_EXPERIENCE, Some(POCKET_CHARACTER_ID))
         .register(app);
-    app.register_audio_catalog_fragment(
-        AudioCatalogFragment::new(
-            POCKET_EXPERIENCE,
-            None,
-            Some(ambition_platformer2d::audio::spec::SfxRegistry {
-                sample_rate: 44_100,
-                sfx: vec![
-                    cue(None, 520.0),
-                    cue(Some("ui.menu.move_icon"), 620.0),
-                    cue(Some("ui.menu.accept"), 780.0),
-                    cue(Some("ui.menu.back"), 440.0),
-                ],
-            }),
-        )
-        .expect("Pocket audio catalogs should be valid"),
-    );
+    // Its jump and menu cues are the pack's `audio/sfx_registry.ron`.
+    app.register_audio_catalog_fragment(pack::PACK.audio(POCKET_EXPERIENCE));
 }
 
 pub struct PocketExperiencePlugin;
@@ -137,6 +106,21 @@ fn pocket_prepared_session_world() -> PreparedPlatformerSource {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Every menu cue Pocket's frontend plays is one its pack declares. A cue
+    /// the pack does not declare is silence, with no error.
+    #[test]
+    fn every_cue_its_frontend_names_is_declared_by_its_pack() {
+        let audio = pack::PACK.audio(POCKET_EXPERIENCE);
+        let authorized = audio.sfx().expect("the pack states its SFX").authorized_cue_ids();
+        for id in [
+            ambition_platformer2d::sfx::ids::UI_MENU_MOVE,
+            ambition_platformer2d::sfx::ids::UI_MENU_ACCEPT,
+            ambition_platformer2d::sfx::ids::UI_MENU_BACK,
+        ] {
+            assert!(authorized.contains(&id), "Pocket plays `{id:?}` and its pack does not declare it");
+        }
+    }
     use ambition_platformer2d::game_shell::{
         MinimalShellPlugins, ShellExperienceId, ShellExperienceRegistry, ShellRouteCatalog,
         ShellRouteId,

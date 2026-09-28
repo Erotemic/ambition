@@ -1,0 +1,18 @@
+// TwinTrack's teaching cues. Every entry is both an AUTHORIZATION and a
+// voice: a session plays only the cues its own provider declares. All are
+// synthesized from the spec; no asset file is needed.
+(
+    sample_rate: 44100,
+    sfx: [
+        // The clock report.
+        (id: Some("twintrack.clock_report"), waveform: Triangle, frequency: 720.0, frequency_end: 920.0, duration: 0.12, volume: 0.24, attack: 0.008, release: 0.042, noise: 0.0),
+        // Doppler feedback: the heard pitch, lowest first. G3 is the accepted match.
+        (id: Some("twintrack.doppler.g2"), waveform: Sine, frequency: 98.0, frequency_end: 98.0, duration: 0.24, volume: 0.3, attack: 0.008, release: 0.08, noise: 0.0),
+        (id: Some("twintrack.doppler.b2"), waveform: Sine, frequency: 123.47, frequency_end: 123.47, duration: 0.24, volume: 0.3, attack: 0.008, release: 0.08, noise: 0.0),
+        (id: Some("twintrack.doppler.d3"), waveform: Sine, frequency: 146.83, frequency_end: 146.83, duration: 0.24, volume: 0.3, attack: 0.008, release: 0.08, noise: 0.0),
+        (id: Some("twintrack.doppler.f3"), waveform: Sine, frequency: 174.61, frequency_end: 174.61, duration: 0.24, volume: 0.3, attack: 0.008, release: 0.08, noise: 0.0),
+        (id: Some("twintrack.doppler.g3"), waveform: Triangle, frequency: 196.0, frequency_end: 392.0, duration: 0.34, volume: 0.34, attack: 0.008, release: 0.08, noise: 0.0),
+        // A light-tag hit.
+        (id: Some("twintrack.light_tag_hit"), waveform: Square, frequency: 560.0, frequency_end: 1120.0, duration: 0.16, volume: 0.28, attack: 0.008, release: 0.056, noise: 0.0),
+    ],
+)

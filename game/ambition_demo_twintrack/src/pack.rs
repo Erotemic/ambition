@@ -9,8 +9,14 @@ use ambition_platformer2d::content::EmbeddedPack;
 /// spells.
 pub static PACK: EmbeddedPack = EmbeddedPack::new(
     include_str!("../assets/pack.ron"),
-    &[(
-        "data/character_catalog.ron",
-        include_str!("../assets/data/character_catalog.ron"),
-    )],
+    &[
+        (
+            "data/character_catalog.ron",
+            include_str!("../assets/data/character_catalog.ron"),
+        ),
+        (
+            "audio/sfx_registry.ron",
+            include_str!("../assets/audio/sfx_registry.ron"),
+        ),
+    ],
 );

@@ -1132,29 +1132,12 @@ pub const SMASH_ANNOUNCE_HUD_SLOT: &str = "smash_announce";
 /// roster, so a fresh clone can produce it.
 pub const STOCK_ICON_ASSET: &str = "sprites/hud_stock_icon.png";
 
-/// What plays on the stage.
+/// What plays on the stage: the default track of the pack's
+/// `audio/music_registry.ron`.
 pub const SMASH_STAGE_TRACK: &str = "super_smash_siblings_theme";
 /// What plays over the character select, in a host whose frontend audio
-/// this demo owns. See `SMASH_TRACKS` for why it is registered either way.
+/// this demo owns. The pack declares it either way.
 pub const SMASH_SELECT_TRACK: &str = "super_smash_siblings_character_select";
-
-/// The scores written for this demo, rendered from
-/// `tools/ambition_music_renderer/scores/active/super_smash_siblings_*.music.yaml`.
-///
-/// All three are registered, not only the one that plays: a track in this
-/// fragment is one the experience may play (radio, stage select, winner card).
-/// The default plays when nobody asks.
-///
-/// The asset path is derived (`audio/music/generated/<id>/full.ogg`), because
-/// that layout is the renderer's contract.
-pub const SMASH_TRACKS: &[(&str, &str)] = &[
-    (SMASH_STAGE_TRACK, "Super Smash Siblings"),
-    (SMASH_SELECT_TRACK, "Choose Your Fighter"),
-    (
-        "super_smash_siblings_grand_symphony",
-        "Super Smash Siblings — Grand Symphony",
-    ),
-];
 
 /// The combat rules Smash plays under. [`SmashRulesPlugin`] declares them for
 /// the rooms tagged [`SMASH_MODE`]; tools that fold them outside a match read
@@ -2854,35 +2837,19 @@ pub const SMASH_GEORGE_BOOUL: &str = "smash_george_booul";
 /// an experience whose provider registered none. The stage declares music and
 /// no SFX; the fighters bring their own cues.
 fn install_smash_content(app: &mut bevy::prelude::App) {
-    use ambition_platformer2d::audio::catalog::{AudioCatalogAppExt, AudioCatalogFragment};
+    use ambition_platformer2d::audio::catalog::AudioCatalogAppExt;
 
     // The cast is the pack's: every catalog row, with its move table and its
     // platform-fighter facet. See `assets/data/character_catalog.ron`.
     crate::smash_pack::PACK
         .cast(SMASH_EXPERIENCE, Some(SMASH_CHARACTER_ID))
         .register(app);
+    // The pack states the music; it states no procedural SFX, because the
+    // fighters' moves name bank cues.
     app.register_audio_catalog_fragment(
-        AudioCatalogFragment::new(
-            SMASH_EXPERIENCE,
-            Some(ambition_platformer2d::audio::spec::MusicRegistry {
-                default_track: SMASH_STAGE_TRACK.to_string(),
-                tracks: SMASH_TRACKS
-                    .iter()
-                    .map(
-                        |(id, display)| ambition_platformer2d::audio::spec::MusicTrack {
-                            id: (*id).to_string(),
-                            display_name: (*display).to_string(),
-                            asset_path: Some(format!("audio/music/generated/{id}/full.ogg")),
-                            one_shot: false,
-                        },
-                    )
-                    .collect(),
-            }),
-            // No procedural SFX: the fighters' moves name bank cues.
-            None,
-        )
-        .expect("the smash audio fragment is valid")
-        .with_resident_sfx_bank(),
+        crate::smash_pack::PACK
+            .audio(SMASH_EXPERIENCE)
+            .with_resident_sfx_bank(),
     );
 }
 

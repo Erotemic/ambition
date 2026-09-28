@@ -39,18 +39,12 @@ pub const DARKNESS_WORLD_JSON: &str = include_str!("../assets/worlds/sanic_darkn
 /// real.
 pub const SANIC_MODE: &str = "sanic";
 
-/// Authored soundtrack for the standalone Sanic demo. The rendered asset lives
-/// in the shared engine asset tree beside the other generated music tracks.
-pub const SANIC_MUSIC_ASSET_PATH: &str = "audio/music/generated/you_are_too_slow/full.ogg";
-
 /// Act 2's score: the track the highway's `music_track` level field names.
+/// His pack's `audio/music_registry.ron` declares it.
 pub const HIGHWAY_MUSIC_TRACK: &str = "velocity";
-pub const HIGHWAY_MUSIC_ASSET_PATH: &str = "audio/music/generated/velocity/full.ogg";
 
 /// Act 3's score.
 pub const DARKNESS_MUSIC_TRACK: &str = "to_be_superluminal_is_to_live_in_darkness";
-pub const DARKNESS_MUSIC_ASSET_PATH: &str =
-    "audio/music/generated/to_be_superluminal_is_to_live_in_darkness/full.ogg";
 
 /// Number of segments in the full 360-degree loop body.
 pub const LOOP_SEGMENTS: usize = ae::LoopResolution::STANDARD.revolution;
@@ -373,7 +367,7 @@ pub struct SanicDemoContentPlugin;
 /// The registered App-local resources are the sole composition authority.
 /// Consumers receive the assembled catalog through Bevy resources.
 pub fn install_sanic_content(app: &mut App) {
-    use ambition_platformer2d::audio::catalog::{AudioCatalogAppExt, AudioCatalogFragment};
+    use ambition_platformer2d::audio::catalog::AudioCatalogAppExt;
 
     // The cast is the pack's catalog: both of his forms and the badnik, each a
     // row. What a Sanic character that states no verbs can do as an actor is
@@ -382,18 +376,12 @@ pub fn install_sanic_content(app: &mut App) {
         .cast(provider::SANIC_EXPERIENCE, Some(SANIC_CHARACTER_ID))
         .with_actor_default_abilities(ambition_platformer2d::engine_core::AbilitySet::classic_actor())
         .register(app);
+    // His pack states his music and his SFX, his own Dash and Jump among
+    // them. His moves name bank cues as well.
     app.register_audio_catalog_fragment(
-        AudioCatalogFragment::new(
-            provider::SANIC_EXPERIENCE,
-            Some(sanic_music_registry()),
-            // Sanic authors its own Dash and Jump. Its moves name bank cues.
-            Some(ambition_platformer2d::audio::spec::SfxRegistry {
-                sample_rate: 44_100,
-                sfx: sanic_sfx_specs(),
-            }),
-        )
-        .expect("Sanic audio catalogs should be valid")
-        .with_resident_sfx_bank(),
+        pack::PACK
+            .audio(provider::SANIC_EXPERIENCE)
+            .with_resident_sfx_bank(),
     );
     // The ring sheet is content, so register it here: it loads the same way
     // standalone or hosted (both add `SanicExperiencePlugin`). A prop is not
@@ -502,137 +490,6 @@ fn register_sanic_ring_prop_sheet(
             .characters
             .props
             .insert(RING_SPRITE_KIND.to_string(), asset);
-    }
-}
-
-/// The whole Sanic SFX table. Every cue is procedural (no packed bank). Typed
-/// cues (`Dash`/`Jump`/`Pogo`/`Land`/`Reset`) voice the engine's shared
-/// events; open `sanic.*` ids voice the mode-local techniques. Listing each
-/// here authorizes it for provider-relative playback.
-fn sanic_sfx_specs() -> Vec<ambition_platformer2d::audio::spec::SfxSpec> {
-    use ambition_platformer2d::audio::spec::{SoundCueKey as Cue, WaveformSpec as Wave};
-    vec![
-        // Shared engine movement/vitals cues, in Sanic's bright voice.
-        sanic_cue(Cue::Dash, Wave::Square, 900.0, 1400.0, 0.12, 0.5, 0.0),
-        sanic_cue(Cue::Jump, Wave::Square, 700.0, 1200.0, 0.12, 0.5, 0.0),
-        // Springs / rebound pads: the engine writes `Pogo`; a bright rising boing.
-        sanic_cue(Cue::Pogo, Wave::Square, 420.0, 1350.0, 0.16, 0.5, 0.0),
-        // Touchdown footfall: a low, soft thud (the shared `Land` edge).
-        sanic_cue(Cue::Land, Wave::Sine, 190.0, 95.0, 0.09, 0.32, 0.12),
-        // Pit death / respawn reset: a descending "aww".
-        sanic_cue(Cue::Reset, Wave::Triangle, 520.0, 120.0, 0.34, 0.42, 0.0),
-        // Spin-dash rev — three ascending tiers picked by charge.
-        sanic_open(SFX_REV_TIERS[0], Wave::Saw, 300.0, 520.0, 0.10, 0.40, 0.05),
-        sanic_open(SFX_REV_TIERS[1], Wave::Saw, 430.0, 760.0, 0.10, 0.42, 0.05),
-        sanic_open(SFX_REV_TIERS[2], Wave::Saw, 580.0, 1020.0, 0.11, 0.45, 0.05),
-        // Launch/release whoosh (descending zip).
-        sanic_open(SFX_LAUNCH, Wave::Saw, 1300.0, 320.0, 0.22, 0.5, 0.10),
-        // Transform on (bright rising power chord) / off (softer descent).
-        sanic_open(SFX_TRANSFORM, Wave::Square, 520.0, 1500.0, 0.34, 0.5, 0.0),
-        sanic_open(SFX_DETRANSFORM, Wave::Square, 950.0, 420.0, 0.20, 0.4, 0.0),
-        // Monitor pop and badnik splat.
-        sanic_open(SFX_MONITOR, Wave::Square, 240.0, 900.0, 0.10, 0.45, 0.15),
-        sanic_open(SFX_BADNIK, Wave::Square, 720.0, 170.0, 0.12, 0.45, 0.20),
-        // Braking scrape (heavy noise).
-        sanic_open(SFX_SKID, Wave::Saw, 250.0, 190.0, 0.16, 0.38, 0.55),
-        // Rings: a bright collect ding and a scatter on loss.
-        sanic_open(SFX_RING, Wave::Triangle, 1000.0, 1560.0, 0.09, 0.40, 0.0),
-        sanic_open(SFX_RING_LOSS, Wave::Saw, 900.0, 220.0, 0.18, 0.42, 0.10),
-        // Shell / menu vocabulary.
-        sanic_open(
-            "ui.menu.move_icon",
-            Wave::Square,
-            760.0,
-            980.0,
-            0.09,
-            0.35,
-            0.0,
-        ),
-        sanic_open(
-            "ui.menu.accept",
-            Wave::Square,
-            880.0,
-            1320.0,
-            0.09,
-            0.35,
-            0.0,
-        ),
-        sanic_open("ui.menu.back", Wave::Square, 620.0, 360.0, 0.09, 0.35, 0.0),
-    ]
-}
-
-/// Sanic's three act scores.
-pub fn sanic_music_registry() -> ambition_platformer2d::audio::spec::MusicRegistry {
-    ambition_platformer2d::audio::spec::MusicRegistry {
-        default_track: "you_are_too_slow".to_string(),
-        tracks: vec![
-            ambition_platformer2d::audio::spec::MusicTrack {
-                id: "you_are_too_slow".to_string(),
-                display_name: "You Are Too Slow".to_string(),
-                asset_path: Some(SANIC_MUSIC_ASSET_PATH.to_string()),
-                one_shot: false,
-            },
-            ambition_platformer2d::audio::spec::MusicTrack {
-                id: HIGHWAY_MUSIC_TRACK.to_string(),
-                display_name: "Velocity".to_string(),
-                asset_path: Some(HIGHWAY_MUSIC_ASSET_PATH.to_string()),
-                one_shot: false,
-            },
-            ambition_platformer2d::audio::spec::MusicTrack {
-                id: DARKNESS_MUSIC_TRACK.to_string(),
-                display_name: "To Be Superluminal Is to Live in Darkness".to_string(),
-                asset_path: Some(DARKNESS_MUSIC_ASSET_PATH.to_string()),
-                one_shot: false,
-            },
-        ],
-    }
-}
-
-/// An open provider-local procedural cue (full control).
-fn sanic_open(
-    id: &str,
-    waveform: ambition_platformer2d::audio::spec::WaveformSpec,
-    frequency: f32,
-    frequency_end: f32,
-    duration: f32,
-    volume: f32,
-    noise: f32,
-) -> ambition_platformer2d::audio::spec::SfxSpec {
-    ambition_platformer2d::audio::spec::SfxSpec {
-        cue: None,
-        id: Some(id.to_owned()),
-        waveform,
-        frequency,
-        frequency_end,
-        duration,
-        volume,
-        attack: 0.005,
-        release: (duration * 0.4).min(0.08),
-        noise,
-    }
-}
-
-/// A typed engine cue in Sanic's voice (full control).
-fn sanic_cue(
-    cue: ambition_platformer2d::audio::spec::SoundCueKey,
-    waveform: ambition_platformer2d::audio::spec::WaveformSpec,
-    frequency: f32,
-    frequency_end: f32,
-    duration: f32,
-    volume: f32,
-    noise: f32,
-) -> ambition_platformer2d::audio::spec::SfxSpec {
-    ambition_platformer2d::audio::spec::SfxSpec {
-        cue: Some(cue),
-        id: None,
-        waveform,
-        frequency,
-        frequency_end,
-        duration,
-        volume,
-        attack: 0.005,
-        release: (duration * 0.4).min(0.08),
-        noise,
     }
 }
 

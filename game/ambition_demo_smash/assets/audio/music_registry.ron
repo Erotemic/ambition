@@ -1,0 +1,17 @@
+// The scores written for this demo, rendered from
+// `tools/ambition_music_renderer/scores/active/super_smash_siblings_*.music.yaml`.
+//
+// All three are declared, not only the one that plays: a track here is one the
+// experience may play (radio, stage select, winner card). The default plays
+// when nobody asks. A track with no `asset_path` plays
+// `audio/music/generated/<id>/full.ogg`, which is the renderer's layout.
+(
+    default_track: "super_smash_siblings_theme",
+    tracks: [
+        // What plays on the stage (`SMASH_STAGE_TRACK`).
+        (id: "super_smash_siblings_theme", display_name: "Super Smash Siblings"),
+        // What plays over the character select (`SMASH_SELECT_TRACK`).
+        (id: "super_smash_siblings_character_select", display_name: "Choose Your Fighter"),
+        (id: "super_smash_siblings_grand_symphony", display_name: "Super Smash Siblings — Grand Symphony"),
+    ],
+)

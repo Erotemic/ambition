@@ -2410,7 +2410,13 @@ pub fn freeze_local_seating_for_the_decided_match(
     let Some(roster) = roster else {
         // No match. A topology that outlives the roster it describes is the
         // previous match's seating presented to the next one as a frozen fact.
-        if existing.is_some() {
+        //
+        // ⛔ Only a ROSTER'S topology goes. With no roster, the local session
+        // owner freezes device seating and sizes the session from it. If this
+        // removed that topology too, the owner would read "no stated seats" on
+        // the next frame and install a new session. Each install resets the
+        // input latches, so the seat's keys would never reach the simulation.
+        if existing.is_some_and(|topology| topology.declared_channels().is_some()) {
             commands.remove_resource::<ambition_input::LocalSeatTopology>();
         }
         return;

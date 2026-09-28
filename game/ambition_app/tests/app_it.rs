@@ -80,6 +80,7 @@ mod death_restores_the_checkpoint;
 mod declared_art_resolves;
 mod the_admission_road_answers_for_the_shipped_ownership_mode;
 mod the_hub_intro_plays_on_first_entry_and_holds_input;
+mod the_keyboard_moves_the_player_in_the_shipped_host;
 mod desync_canary;
 mod developer_edits_under_rollback;
 mod direct_and_shell_agree;

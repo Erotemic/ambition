@@ -417,8 +417,8 @@ fn a_spawned_snake_is_tagged_by_the_demo_that_owns_its_shell() {
                 brain: ambition_platformer2d::entity_catalog::placements::CharacterBrain::Custom(
                     SNAKE_BRAIN_KEY.to_string(),
                 ),
-                // the character, exactly as 1-1's placements author it. The subject under test
-                // is the demo's TAG pass, and it reads `ActorConfig.brain` either way.
+                // the character, exactly as 1-1's placements author it. The shell is
+                // the character's, so the character is the subject under test.
                 character: SNAKE_SHEET_TARGET.into(),
             },
         });
@@ -431,7 +431,7 @@ fn a_spawned_snake_is_tagged_by_the_demo_that_owns_its_shell() {
     assert_eq!(
         tagged,
         before + 1,
-        "the engine spawned the snake and the demo TAGGED it — an untagged snake \
+        "the engine built the snake without its shell — a snake without one \
          never shells, which is exactly how this shipped broken"
     );
 }

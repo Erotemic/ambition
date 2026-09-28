@@ -76,6 +76,9 @@ struct PreparedCharacterOverrides {
     mount: Option<crate::actor::CharacterMount>,
     /// See [`CharacterDefinition::unmirrored`]. OR-ed with the catalog row's.
     unmirrored: bool,
+    /// See [`CharacterDefinition::carries`]. Code states it; a catalog row
+    /// cannot, because a row cannot name a Rust type.
+    carries: Vec<ambition_platformer2d_core::CarriedComponent>,
     /// See [`CharacterDefinition::hands`]. FOLDED with the catalog row's.
     hands: Option<crate::actor::CharacterHands>,
     moveset: Option<MovesetContract>,
@@ -1071,6 +1074,9 @@ pub struct PreparedCharacterDefinition {
     pub mount: Option<crate::actor::CharacterMount>,
     /// See [`CharacterDefinition::unmirrored`].
     pub unmirrored: bool,
+    /// See [`CharacterDefinition::carries`]. Every road that grants this
+    /// character's body inserts them in the same batch.
+    pub carries: Vec<ambition_platformer2d_core::CarriedComponent>,
     /// See [`CharacterDefinition::hands`].
     pub hands: Option<crate::actor::CharacterHands>,
     /// What this character fights with — resolved, not inherited.
@@ -1570,6 +1576,7 @@ fn prepare_character(
         preserves_mirror_symmetry: definition.preserves_mirror_symmetry,
         mount: definition.mount,
         unmirrored: definition.unmirrored,
+        carries: definition.carries,
         hands: definition.hands,
         moveset: definition.moveset,
         action_set: definition.action_set,
@@ -1648,6 +1655,7 @@ fn finalize_character(
         preserves_mirror_symmetry,
         mount,
         unmirrored,
+        carries,
         hands,
         moveset,
         action_set,
@@ -1878,6 +1886,7 @@ fn finalize_character(
         preserves_mirror_symmetry,
         mount,
         unmirrored,
+        carries,
         hands,
         authored_moveset,
         // Resolve canonical identity during preparation from the definition's provider. Spawn

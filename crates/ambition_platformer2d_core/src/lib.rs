@@ -7,6 +7,7 @@
 pub mod abilities;
 pub mod ability_projection;
 pub mod body_clusters;
+pub mod carried_component;
 pub mod cast;
 pub mod collision_semantics;
 pub mod config;
@@ -43,6 +44,7 @@ pub(crate) fn default_true() -> bool {
 pub use abilities::{AbilityGrant, AbilitySet, MatchAbilities, MatchBody};
 pub use ability_projection::{project_body_abilities, AbilityContribution, AbilityContributions};
 pub use bevy_math::Vec2;
+pub use carried_component::CarriedComponent;
 pub use body_clusters::{
     announce_body_restarts, refresh_movement_resources_clusters, reset_body_clusters, AbilityBase,
     ActorSurfaceState, AuthoredMovementTuning, BodyAbilities, BodyActionBuffer, BodyBaseSize,

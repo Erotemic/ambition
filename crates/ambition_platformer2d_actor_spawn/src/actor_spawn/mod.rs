@@ -459,7 +459,6 @@ pub(super) struct EnemyActorSpawnPlan {
     entity_name: String,
     feature_id: String,
     feature_name: String,
-    feature_aabb: CenteredAabb,
     enemy: ambition_body_seed::ActorClusterSeed,
     faction: ambition_combat::components::ActorFaction,
     aggression: ambition_combat::components::ActorAggression,
@@ -474,7 +473,6 @@ impl EnemyActorSpawnPlan {
         entity_name: impl Into<String>,
         feature_id: impl Into<String>,
         feature_name: impl Into<String>,
-        feature_aabb: CenteredAabb,
         enemy: ambition_body_seed::ActorClusterSeed,
     ) -> Self {
         let brain = self::brain_builders::enemy_default_brain(
@@ -508,7 +506,6 @@ impl EnemyActorSpawnPlan {
             entity_name: entity_name.into(),
             feature_id: feature_id.into(),
             feature_name: feature_name.into(),
-            feature_aabb,
             enemy,
             faction: ambition_combat::components::ActorFaction::Enemy,
             aggression: ambition_combat::components::ActorAggression::hostile(),
@@ -549,6 +546,7 @@ impl EnemyActorSpawnPlan {
     /// `Commands` and asked to make its own.
     pub(super) fn spawn_into(self, scope: &mut RootScope) {
         let motion_model = self.enemy.config.tuning.motion_model(&self.enemy.policy.0);
+        let footprint = built_footprint(&self.enemy);
         let (disposition, combat) = self::conversion::enemy_component_snapshot(&self.enemy);
         let cluster_bundle = self.enemy.into_components();
         scope.insert_session_scoped((
@@ -557,7 +555,7 @@ impl EnemyActorSpawnPlan {
                         FeatureRenderedBundle::new(
                             &self.feature_id,
                             &self.feature_name,
-                            self.feature_aabb,
+                            footprint,
                         ),
                         disposition,
                         self.faction,
@@ -595,7 +593,6 @@ pub(super) struct NpcActorSpawnPlan {
     entity_name: String,
     feature_id: String,
     feature_name: String,
-    feature_aabb: CenteredAabb,
     /// Peaceful actors are the SAME unified cluster as enemies, built with
     /// peaceful tuning + a `Passive`/`Patrol` AI brain.
     seed: ambition_body_seed::ActorClusterSeed,
@@ -623,7 +620,6 @@ impl NpcActorSpawnPlan {
         authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
         prepared: &ambition_characters::prepared::PreparedCharacterRegistry,
         entity_name: impl Into<String>,
-        feature_aabb: CenteredAabb,
         id: impl Into<String>,
         name: impl Into<String>,
         spawn_aabb: ae::Aabb,
@@ -721,7 +717,6 @@ impl NpcActorSpawnPlan {
             entity_name: entity_name.into(),
             feature_id: id,
             feature_name: name,
-            feature_aabb,
             seed,
             interactable,
             brain,
@@ -808,11 +803,12 @@ impl NpcActorSpawnPlan {
             None,
         );
         let motion_model = self.seed.config.tuning.motion_model(&self.seed.policy.0);
+        let footprint = built_footprint(&self.seed);
         let cluster_bundle = self.seed.into_components();
         scope.insert_session_scoped((
                 Name::new(self.entity_name),
                 EnemyActorBundle::new(
-                    FeatureRenderedBundle::new(&self.feature_id, &self.feature_name, self.feature_aabb),
+                    FeatureRenderedBundle::new(&self.feature_id, &self.feature_name, footprint),
                     disposition,
                     ambition_combat::components::ActorFaction::Npc,
                     ambition_characters::brain::action_set::IdentityKit::of(
@@ -1454,7 +1450,6 @@ pub fn spawn_runtime_minion_into(
     // ⭐ `OnRoomReenter` IS THE POLICY THAT MEANS "NOT PERSISTED": it writes no
     // flag on death and reads none on load, and it never revives in place.
     enemy.config.tuning.respawn = ambition_entity_catalog::placements::RespawnPolicy::OnRoomReenter;
-    let feature_aabb = CenteredAabb::from_aabb(aabb);
     // The geometry this body was BUILT from, read before the seed moves into
     // the plan: the quad from the same resolution that sized its collider.
     let (render, sprite_offset) = (enemy.render_size, enemy.posed.map(|geometry| geometry.sprite_offset));
@@ -1465,7 +1460,6 @@ pub fn spawn_runtime_minion_into(
         format!("Runtime minion: {name}"),
         id.clone(),
         name.clone(),
-        feature_aabb,
         enemy,
     )
     .with_faction(faction)
@@ -1904,6 +1898,26 @@ fn attach_mount_role_from(
     }
 }
 
+/// The box a body's per-tick publish writes, computed from the seed the body
+/// is built from.
+///
+/// An actor's `CenteredAabb` is its footprint: `publish_body_footprint` of its
+/// collision size, oriented by its surface. Construction writes the same
+/// answer, so the box is right from the batch that builds the body. A box
+/// taken from the placement is the size the level drew, not the size the
+/// character's art gives the body, and the publish corrected it one tick later.
+fn built_footprint(seed: &ambition_body_seed::ActorClusterSeed) -> CenteredAabb {
+    let mut footprint = CenteredAabb::from_center_size(seed.kin.pos, seed.kin.size);
+    ambition_combat::body_geometry::publish_body_footprint(
+        &mut footprint,
+        seed.kin.pos,
+        seed.kin.size,
+        seed.kin.facing,
+        -seed.surface.surface_normal,
+    );
+    footprint
+}
+
 /// Single-entity hostile spawn — the common path after composite
 /// mount/rider fan-out has been handled. Returns the spawned body entity.
 #[allow(clippy::too_many_arguments)]
@@ -1915,7 +1929,6 @@ pub(super) fn spawn_solo_enemy_into(
     >,
     faction: ambition_combat::components::ActorFaction,
 ) {
-    let feature_aabb = CenteredAabb::from_aabb(authored.aabb);
     // The geometry this body was BUILT from, read before the seed moves into
     // the plan: the quad from the same resolution that sized its collider.
     let (render, sprite_offset) = (enemy.render_size, enemy.posed.map(|geometry| geometry.sprite_offset));
@@ -1923,7 +1936,6 @@ pub(super) fn spawn_solo_enemy_into(
         format!("Feature actor enemy: {}", authored.name),
         authored.id.clone(),
         authored.name.clone(),
-        feature_aabb,
         enemy,
     )
     .with_faction(faction)
@@ -2002,7 +2014,6 @@ pub fn spawn_interactable_into(
     // Applies to an NPC body; a switch or a door has no recorded fate.
     fate: RecordedFate,
 ) {
-    let feature_aabb = CenteredAabb::from_aabb(interactable.aabb);
     if matches!(
         interactable.kind,
         ambition_interaction::InteractionKind::Npc { .. }
@@ -2021,7 +2032,6 @@ pub fn spawn_interactable_into(
             authored_sheets,
             prepared,
             format!("Feature actor npc: {label}"),
-            feature_aabb,
             interactable.id.clone(),
             label,
             interactable.aabb,
@@ -2045,7 +2055,7 @@ pub fn spawn_interactable_into(
                     RoomVisual,
                     FeatureId::new(interactable.id.clone()),
                     FeatureName::new(authored_name.to_string()),
-                    feature_aabb,
+                    CenteredAabb::from_aabb(interactable.aabb),
                     SwitchFeature::new(activation),
             ));
         } else {
@@ -2169,7 +2179,6 @@ pub fn spawn_encounter_mob(
     // death would be a save flag nothing reads. As for summons, `OnRoomReenter`
     // is the policy that keeps no record.
     enemy.config.tuning.respawn = ambition_entity_catalog::placements::RespawnPolicy::OnRoomReenter;
-    let feature_aabb = CenteredAabb::from_center_size(pos, size);
     // The geometry this body was BUILT from, read before the seed moves into
     // the plan: the quad from the same resolution that sized its collider.
     let (render, sprite_offset) = (enemy.render_size, enemy.posed.map(|geometry| geometry.sprite_offset));
@@ -2177,7 +2186,6 @@ pub fn spawn_encounter_mob(
         format!("Encounter mob: {id}"),
         id.clone(),
         label,
-        feature_aabb,
         enemy,
     )
     .spawn(commands, session_scope);

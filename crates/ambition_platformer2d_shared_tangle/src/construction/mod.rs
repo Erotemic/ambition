@@ -368,6 +368,13 @@ impl<'w, 's, 'a> EntityScope<'w, 's, 'a> {
         self
     }
 
+    /// Put a character's carried component on it. See
+    /// [`ambition_platformer2d_core::CarriedComponent`].
+    pub fn insert_carried(&mut self, carried: ambition_platformer2d_core::CarriedComponent) -> &mut Self {
+        carried.insert_into(&mut self.commands.entity(self.entity));
+        self
+    }
+
     /// Take components off it.
     ///
     /// Present because a grant that cannot be RETRACTED is a grant no second

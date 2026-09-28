@@ -216,3 +216,15 @@ fn both_snake_plane_swarms_assemble_as_flyers() {
         }
     });
 }
+
+/// A carried component for a character her pack does not state is refused,
+/// because nobody would carry it and the game would lose its state silently.
+#[test]
+#[should_panic(expected = "states no character `solid_snak` to carry")]
+fn a_carried_component_for_a_character_the_pack_does_not_state_is_refused() {
+    let mut app = App::new();
+    crate::pack::PACK
+        .cast(crate::provider::MARY_O_EXPERIENCE, Some(crate::provider::MARY_O_CHARACTER_ID))
+        .carrying::<crate::snake::SnakeShell>("solid_snak")
+        .register(&mut app);
+}

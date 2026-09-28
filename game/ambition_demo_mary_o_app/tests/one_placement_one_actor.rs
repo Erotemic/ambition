@@ -72,10 +72,11 @@ fn each_authored_enemy_placement_builds_exactly_one_actor() {
 /// Every snake wears its shell state.
 ///
 /// This is the half that actually bit: the count being right is worth nothing if
-/// the surviving actors are the untagged copies. `SnakeShell` is attached by the
-/// snake's tag pass and by nothing else, so its presence is proof the pass
-/// recognised the actor the engine built. (An AI Slop carries no state of its
-/// own: its stomp reads the authored brain on the body.)
+/// the surviving actors are copies without it. `SnakeShell` comes from the
+/// Solid Snake character and from nothing else, so its presence on every
+/// snake-brained actor says the placements build that character. (An AI Slop
+/// carries no state of its own: its stomp reads the authored brain on the
+/// body.)
 #[test]
 fn every_snake_wears_the_shell_state_its_brain_promises() {
     let mut app = booted();
@@ -87,7 +88,7 @@ fn every_snake_wears_the_shell_state_its_brain_promises() {
     let want_snakes = built.iter().filter(|(_, snake)| *snake).count();
     assert!(
         want_snakes > 0,
-        "1-1 has snakes; without one this test cannot tell a tag pass from a coincidence"
+        "1-1 has snakes; without one this test measures nothing"
     );
     assert_eq!(
         tagged_snakes, want_snakes,
@@ -183,5 +184,54 @@ fn every_authored_enemy_sleeps_when_she_is_far() {
         asleep > 0,
         "1-1 is longer than her wake radius, so some enemy must be asleep at \
          the start; none is"
+    );
+}
+
+/// A Solid Snake has its shell state the first time the simulation sees it.
+///
+/// The sampler runs in every sim tick before `WorldPrepSet::AfterIntegrate`,
+/// and records, for each Solid Snake body, whether it had `SnakeShell` the
+/// first time the sampler saw it. A pass that adds the shell to a built body
+/// runs later than the build, so the first sample of every snake is without
+/// it, on whichever tick the room built the snake.
+///
+/// ⛔ THE SHELL WAS ADDED ON A LATER PASS. `tag_mary_o_snakes` gave a snake its
+/// shell in `AfterIntegrate`, keyed on the brain, so a snake existed for part
+/// of a tick without the state its rules read. Her cast now states that a
+/// Solid Snake carries it, and the body is built with it.
+#[test]
+fn a_snake_is_built_with_its_shell_state() {
+    use ambition_platformer2d::platformer::schedule::{SimScheduleExt, WorldPrepSet};
+
+    #[derive(Resource, Default)]
+    struct FirstSeen(Vec<(Entity, bool)>);
+    fn sample(
+        bodies: Query<(Entity, &ambition_platformer2d::characters::actor::WornCharacter, Has<SnakeShell>)>,
+        mut seen: ResMut<FirstSeen>,
+    ) {
+        for (body, worn, shelled) in &bodies {
+            if worn.id() == ambition_demo_mary_o::snake::SNAKE_SHEET_TARGET
+                && !seen.0.iter().any(|(first, _)| *first == body)
+            {
+                seen.0.push((body, shelled));
+            }
+        }
+    }
+
+    let mut app = ambition_demo_mary_o_app::build_demo_app();
+    app.init_resource::<FirstSeen>();
+    let sim = app.sim_schedule();
+    app.add_systems(sim, sample.before(WorldPrepSet::AfterIntegrate));
+    for _ in 0..400 {
+        app.update();
+    }
+    let seen = &app.world().resource::<FirstSeen>().0;
+    assert!(!seen.is_empty(), "1-1 has snakes; without one this test measures nothing");
+    let bare = seen.iter().filter(|(_, shelled)| !shelled).count();
+    assert_eq!(
+        bare,
+        0,
+        "{bare} of {} Solid Snakes were first seen without their shell state",
+        seen.len()
     );
 }

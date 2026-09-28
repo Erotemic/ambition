@@ -175,6 +175,11 @@ pub struct CharacterDefinition {
     /// a fact about the art, so it is true of every placement of the character.
     /// OR-ed with the catalog row's.
     pub unmirrored: bool,
+    /// Game components every body of this character carries from the batch
+    /// that builds it, at their default values. For state the engine cannot
+    /// name, such as a shell phase. See
+    /// [`ambition_platformer2d_core::CarriedComponent`].
+    pub carries: Vec<ambition_platformer2d_core::CarriedComponent>,
     /// Presentation seed for deep-dream visual jitter. `None` excludes this character from the pass.
     pub dream_seed: Option<f32>,
     /// If true, equally configured CPU twins start from the same deterministic cognitive stream.
@@ -218,6 +223,7 @@ impl CharacterDefinition {
             mount: None,
             hands: None,
             unmirrored: false,
+            carries: Vec::new(),
             dream_seed: None,
             preserves_mirror_symmetry: false,
         }
@@ -237,6 +243,15 @@ impl CharacterDefinition {
 
     /// Author what this character can ride and be ridden as. See
     /// [`Self::mount`].
+    /// Every body of this character carries `C` from the batch that builds
+    /// it. See [`Self::carries`].
+    pub fn carrying(mut self, carried: ambition_platformer2d_core::CarriedComponent) -> Self {
+        if !self.carries.contains(&carried) {
+            self.carries.push(carried);
+        }
+        self
+    }
+
     pub fn with_mount(mut self, mount: crate::actor::CharacterMount) -> Self {
         self.mount = Some(mount);
         self
@@ -390,9 +405,10 @@ mod authority_tests {
             sheet: _,
             portrait: _,
 
-            // ── BODY (17) — what this creature IS ───────────────────────────
+            // ── BODY (20) — what this creature IS ───────────────────────────
             body: _,
             unmirrored: _,
+            carries: _,
             hands: _,
             hurtboxes: _,
             vitals: _,
@@ -411,7 +427,7 @@ mod authority_tests {
             wallet_shield: _,
             ranged_execution: _,
 
-            // ── DEFAULT CONTROLLER (4) — see the  above ────────────────────
+            // ── DEFAULT CONTROLLER (3) — see the  above ────────────────────
             //
             // A policy this character COMES WITH, by name or inline. Not the
             // controller itself, and never a reason for a body fact to live in

@@ -9,6 +9,7 @@
 | [`abilities`](src/abilities.rs) | Optional movement/combat capabilities. |
 | [`ability_projection`](src/ability_projection.rs) | The body's effective verbs, projected from its base and what live situations contribute. |
 | [`body_clusters`](src/body_clusters.rs) | Authoritative movement-state components shared by every actor body. |
+| [`carried_component`](src/carried_component.rs) | A component a character's body carries from the batch that builds it. |
 | [`cast`](src/cast.rs) | Shared swept collision primitives. |
 | [`collision_semantics`](src/collision_semantics.rs) | Gravity-relative collision classification and geometry shared by actor movement. |
 | [`config`](src/config.rs) | Coordinate transforms and layer/grid constants. |
@@ -34,7 +35,7 @@
 | [`surface_loop`](src/surface_loop.rs) | Attached loops: a full 360° loop a runner enters from a floor and leaves onto the same floor, as one authored fact. |
 | [`world`](src/world.rs) | Generated sandbox room data. |
 
-_27 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_28 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

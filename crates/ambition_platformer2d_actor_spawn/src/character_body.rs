@@ -313,6 +313,12 @@ pub fn grant_prepared_character_body(
         if prepared.unmirrored {
             scope.insert(ambition_platformer2d_core::Unmirrored);
         }
+        // The game's own state of this creature, in the same batch, so no
+        // pass has to add it to a built body. Not retracted: it is state, and
+        // a re-grant keeps what the body has.
+        for carried in &prepared.carries {
+            scope.insert_carried(*carried);
+        }
         if let Some(hurtboxes) = prepared.hurtboxes.clone() {
             scope.insert((
                 ambition_combat::hurtbox_resolution::AuthoredHurtboxes(hurtboxes),

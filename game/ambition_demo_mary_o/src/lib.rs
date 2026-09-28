@@ -937,6 +937,8 @@ pub fn register_mary_o_cast(app: &mut App) {
         .with_actor_default_abilities(
             ambition_platformer2d::engine_core::AbilitySet::classic_actor(),
         )
+        // A Solid Snake is built walking, in the batch that builds it.
+        .carrying::<snake::SnakeShell>(snake::SNAKE_SHEET_TARGET)
         .register(app);
 }
 
@@ -1404,10 +1406,6 @@ impl Plugin for MaryORulesPlugin {
         //   (snake → inert shell; AI Slop → dead) in time for that pass to skip
         //   it, so the stomper is never also hurt.
         let cronies = (
-            // A reset hands back walkers, never the shell state the last attempt
-            // left behind. First in the chain so a snake reset this frame is a
-            // walker for every rule that follows it.
-            snake::tag_mary_o_snakes,
             snake::run_snake_shells,
             ai_slop::bounce_squash_ai_slop,
         )

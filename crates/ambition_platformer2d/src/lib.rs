@@ -249,6 +249,7 @@ pub mod content {
                 pack: self,
                 provider: provider.to_string(),
                 fragment,
+                carried: Vec::new(),
             }
         }
     }
@@ -258,6 +259,8 @@ pub mod content {
         pack: &'static EmbeddedPack,
         provider: String,
         fragment: ambition_characters::actor::character_catalog::CharacterCatalogFragment,
+        /// What each named character's bodies carry. See [`Self::carrying`].
+        carried: Vec<(String, ambition_platformer2d_core::CarriedComponent)>,
     }
 
     impl PackCast {
@@ -268,6 +271,21 @@ pub mod content {
             abilities: ambition_platformer2d_core::AbilitySet,
         ) -> Self {
             self.fragment = self.fragment.with_actor_default_abilities(abilities);
+            self
+        }
+
+        /// Every body of `character` carries `C` from the batch that builds
+        /// it, at `C::default()`: the game's own state of that creature, which
+        /// a catalog row cannot name.
+        ///
+        /// # Panics
+        ///
+        /// In [`Self::register`], when the pack states no row `character`.
+        pub fn carrying<C: bevy::prelude::Component + Default>(mut self, character: &str) -> Self {
+            self.carried.push((
+                character.to_string(),
+                ambition_platformer2d_core::CarriedComponent::of::<C>(),
+            ));
             self
         }
 
@@ -288,6 +306,17 @@ pub mod content {
                     (id.clone(), row.display_name.clone(), scale, hurtboxes)
                 })
                 .collect();
+            // A carried component for a character the pack does not state
+            // would be carried by nobody, and the game would lose its state
+            // without a word.
+            for (character, carried) in &self.carried {
+                assert!(
+                    characters.iter().any(|(id, ..)| id == character),
+                    "the embedded pack `{}` states no character `{character}` to carry `{}`",
+                    pack.id.0,
+                    carried.type_name(),
+                );
+            }
             app.register_character_catalog_fragment(self.fragment);
             for (id, display_name, posed_body_scale, inset_hurtboxes) in characters {
                 // The sheet, the grants, the feel, the health, the gait, the
@@ -296,6 +325,9 @@ pub mod content {
                 // cannot say.
                 let mut definition =
                     CharacterDefinition::new(id.clone(), display_name, self.provider.clone());
+                for (_, carried) in self.carried.iter().filter(|(character, _)| *character == id) {
+                    definition = definition.carrying(*carried);
+                }
                 // The scale is asked of the baked sheet once, here, and the
                 // body is built with it (`BodySource::SpriteAuthored`).
                 if let Some(world_per_pixel) = posed_body_scale {

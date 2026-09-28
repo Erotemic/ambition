@@ -256,6 +256,9 @@ fn a_definition_carries_no_controller_binding() {
         unmirrored: _,
         // What hands this body has: part of what the creature IS.
         hands: _,
+        // The game's own state of this creature, such as a shell phase. Any
+        // body wearing the character carries it, whoever drives it.
+        carries: _,
         //  the field that reads most like a controller fact and is not one,
         // so it is justified here rather than ignored. It says that two
         // AUTONOMOUS twins of this character begin on one deterministic

@@ -12,7 +12,7 @@ use bevy::prelude::*;
 use ambition_platformer2d::characters::control::{
     claim_control_hold, release_control_hold, ControlHold, ControlHolds,
 };
-use ambition_platformer2d::combat::actor_tuning::{ActorConfig, ContactThreatWithdrawn};
+use ambition_platformer2d::combat::actor_tuning::ContactThreatWithdrawn;
 use ambition_platformer2d::combat::components::FeatureId;
 use ambition_platformer2d::combat::events::{HitEvent, HitMode, HitSource, HitTarget};
 use ambition_platformer2d::engine_core as ae;
@@ -69,12 +69,16 @@ const EMERGE_S: f32 = 0.45;
 /// are the withdraw cycle, driven by [`step_snake_shell`]. Each timed stage's `f32`
 /// is the time it has left.
 ///
+/// Every Solid Snake carries it from the batch that builds it: her cast
+/// states it (`PackCast::carrying`), so no pass adds it to a built body.
+///
 /// It requires [`ContactThreatWithdrawn`], the read model `run_snake_shells`
-/// re-derives from it, so every road that makes a snake (the tag pass, a
+/// re-derives from it, so every road that makes a snake (construction, a
 /// fixture, a rollback restore) gives the writer something to write.
-#[derive(Component, Clone, Copy, Debug, PartialEq)]
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq)]
 #[require(ContactThreatWithdrawn)]
 pub enum SnakeShell {
+    #[default]
     Walking,
     Retreating(f32),
     Boxed(f32),
@@ -389,34 +393,6 @@ pub fn register_solid_snake_sheet(
 /// not substitute display names or generated feature-id conventions.
 pub fn is_snake_brain(brain: &CharacterBrain) -> bool {
     matches!(brain, CharacterBrain::Custom(key) if key == SNAKE_BRAIN_KEY)
-}
-
-/// Tag freshly staged snakes with the RUNTIME state a snake has: its shell
-/// phase and its dormancy policy.
-///
-/// ⛔⛤ **AND NOT ITS GEOMETRY, SINCE 2026-09-21.** This pass used to write
-/// `CenteredAabb::half_size` and insert `SpritePosedBody` here, in
-/// `AfterIntegrate`, on a body the engine had already built at a different
-/// size. `character_body.rs` names that seam directly — *"body geometry was
-/// still declared through a second seam, which is the problem
-/// `register_character` exists to delete"* — and it was measurable: a snake
-/// spent its first tick with the sheet's collision box (21.3x9.5) beside the
-/// catalog's render size (118.2x118.2), and presentation binding inside that
-/// one-tick window latched a quad five times too big that nothing afterwards
-/// invalidated.
-///
-/// The rule is unchanged and now has one owner: how big a snake is comes from
-/// its sheet, via `BodySource::SpriteAuthored` on its character definition,
-/// resolved by construction. Where it patrols still comes from the level.
-pub fn tag_mary_o_snakes(
-    mut commands: Commands,
-    fresh: Query<(Entity, &ActorConfig), Without<SnakeShell>>,
-) {
-    for (entity, config) in &fresh {
-        if is_snake_brain(&config.brain) {
-            commands.entity(entity).try_insert(SnakeShell::Walking);
-        }
-    }
 }
 
 // ⛔⛔ `reset_snakes_on_room_reset` WAS HERE, AND CANONICAL RECONSTRUCTION MADE

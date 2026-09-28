@@ -964,7 +964,7 @@ fn snake_by_id(
 ///
 /// A snake's placement is authored now, so its id carries the LDtk iid — and there is no
 /// numbering to guess. What the tests actually need is *a* snake, and `SnakeShell` is that:
-/// only the tag pass attaches it, and it does so off the actor's brain.
+/// only a Solid Snake carries it.
 fn some_snake(
     app: &mut App,
 ) -> Option<(String, ae::Aabb, ambition_demo_mary_o::snake::SnakeShell)> {

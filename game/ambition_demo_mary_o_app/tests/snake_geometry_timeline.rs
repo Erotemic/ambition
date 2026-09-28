@@ -4,8 +4,7 @@
 //! Construction resolves the body from the character's own `BodySource`, so the
 //! collision box, the render size and the sprite offset a snake is born with are
 //! the ones it keeps. Nothing patches them afterwards — not
-//! `sync_sprite_posed_bodies` on the next tick, not `tag_mary_o_snakes`, which
-//! is behavioural only.
+//! `sync_sprite_posed_bodies` on the next tick, and no game pass.
 //!
 //! That matters because presentation cannot take a second answer: an actor bind
 //! is keyed on kind + collision size alone, so a render size corrected after the

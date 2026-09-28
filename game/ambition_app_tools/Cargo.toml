@@ -53,6 +53,8 @@ profile = ["ambition_app/profile"]
 # computation, and I1's whole point is that it must not pull the graph.
 ambition_entity_catalog = { path = "../../crates/ambition_entity_catalog" }
 ambition_app = { path = "../ambition_app" }
+# The cube menu's camera marker, so `--include-ui` photographs an open menu.
+ambition_menu_kaleidoscope = { path = "../ambition_menu_kaleidoscope" }
 ambition_platformer2d = { path = "../../crates/ambition_platformer2d", features = ["capture"] }
 # ⭐ THE MOVE-EXERCISE AND CAPTURE MACHINERY, which used to be a `#[path]`-included
 # source file in `src/bin/support/`. `capture` is opt-in on the harness so a test

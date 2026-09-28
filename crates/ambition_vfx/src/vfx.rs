@@ -25,6 +25,8 @@ pub enum ParticleKind {
     Spark,
     Dust,
     Shard,
+    /// A heart that drifts up and fades: affection, not force.
+    Heart,
 }
 
 /// High-level physics-debris recipe a gameplay event handler emits
@@ -209,6 +211,14 @@ pub enum VfxMessage {
     /// index zero lands on, which is sideways. "Out of the block" means UP.
     CoinPop {
         pos: ae::Vec2,
+    },
+    /// Hearts rising from `pos`, as when a pet is petted.
+    ///
+    /// Its own variant rather than a `Burst`: a burst fans its particles out
+    /// around a circle, and hearts drift UP.
+    Hearts {
+        pos: ae::Vec2,
+        count: u32,
     },
     /// Draw the authored effect `fx`, at `pos`.
     ///

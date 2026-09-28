@@ -42,6 +42,10 @@
         // deflection rather than as another impact. Clean — no noise at all —
         // because everything else in a contact exchange is noisy and this beat
         // has to be the one that stands out of it.
+        // The companion dog being petted: a short low woof that bends UP at the
+        // end, so it reads as glad rather than as a warning.
+        (id: Some("npc.dog.woof"), waveform: Square, frequency: 230.0, frequency_end: 390.0, duration: 0.160, volume: 0.18, attack: 0.004, release: 0.080, noise: 0.25),
+
         (id: Some("player.parry"), waveform: Triangle, frequency: 1180.0, frequency_end: 1760.0, duration: 0.110, volume: 0.20, attack: 0.001, release: 0.070, noise: 0.0),
 
         // A successful tech: a short, hard, bright clack with a fast upward

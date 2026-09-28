@@ -540,6 +540,15 @@ pub struct CharacterPortraitRef {
     pub still_clip: String,
 }
 
+/// A character that can be petted, and what it does about it.
+#[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct PettingSpec {
+    /// The sound it makes when the pet starts (an `sfx_registry` id).
+    #[serde(default)]
+    pub sound: Option<String>,
+}
+
 /// One character entry in `character_catalog.ron`.
 #[allow(
     dead_code,
@@ -657,6 +666,10 @@ pub struct CharacterCatalogEntry {
     /// fallback until every row is populated.
     #[serde(default)]
     pub barks: CharacterBarks,
+    /// How this character takes being petted. `Some` makes Interact pet it
+    /// instead of talking to it; `None` (the default) leaves Interact as it was.
+    #[serde(default)]
+    pub petting: Option<PettingSpec>,
     /// Yarn node id for this character's Hall-of-Characters conversation (the
     /// line shown when the player Inspects its pedestal). `None` = no hall
     /// dialogue; the pedestal is inspect-silent. Folded into the dialogue

@@ -257,6 +257,19 @@ pub struct FighterClipFacts {
     /// not [`Self::guard_break`] — the shield HELD. A break is the
     /// floor game; this is the beat a blocked hit costs a defender.
     pub guard_stunned: bool,
+    /// This body is petting another (`BodyAnimFacts::pet_anim_timer`).
+    pub petting: bool,
+    /// This body is being petted (`BodyAnimFacts::petted_anim_timer`).
+    pub petted: bool,
+}
+
+impl FighterClipFacts {
+    /// The social-gesture half of these facts, read off a body's animation facts.
+    pub fn with_gestures(mut self, anim: Option<&ambition_characters::actor::BodyAnimFacts>) -> Self {
+        self.petting = anim.is_some_and(|anim| anim.pet_anim_timer > 0.0);
+        self.petted = anim.is_some_and(|anim| anim.petted_anim_timer > 0.0);
+        self
+    }
 }
 
 /// The authored ROW a body's fighter state asks to be drawn as, when the new
@@ -316,6 +329,14 @@ pub fn body_state_clip(
     // which drew the standing pose.
     if fighter.holding {
         return Some(&["grab_hold", "grab", "idle"]);
+    }
+    // A pet holds both bodies still for its whole length, so nothing below can
+    // be happening; a hit or a floor-game state above ends it on screen.
+    if fighter.petting {
+        return Some(&["pet", "interact", "idle"]);
+    }
+    if fighter.petted {
+        return Some(&["petted", "happy", "idle"]);
     }
     if facts.air_dodging {
         return Some(&["air_dodge", "roll", "fall", "idle"]);

@@ -530,6 +530,11 @@ pub struct BodyAnimFacts {
     /// interaction (door, NPC, pickup) consumes
     /// `interact_buffer_timer`.
     pub interact_anim_timer: f32,
+    /// Time remaining on petting another body. Armed when an Interact reaches
+    /// a pettable character; the body is held still while it runs.
+    pub pet_anim_timer: f32,
+    /// Time remaining on being petted: the other half of the same gesture.
+    pub petted_anim_timer: f32,
     /// The body is curled into a persistent rolling ball (spin dash roll,
     /// morph ball). A STATE mirror like `aim_anim_active`, not a timer:
     /// whatever verb owns the curl re-derives it every frame, and the picker
@@ -578,6 +583,8 @@ pub fn advance_body_anim_overlays(dashing: bool, anim: &mut BodyAnimFacts, frame
     anim.shoot_anim_timer = (anim.shoot_anim_timer - frame_dt).max(0.0);
     anim.wall_jump_anim_timer = (anim.wall_jump_anim_timer - frame_dt).max(0.0);
     anim.interact_anim_timer = (anim.interact_anim_timer - frame_dt).max(0.0);
+    anim.pet_anim_timer = (anim.pet_anim_timer - frame_dt).max(0.0);
+    anim.petted_anim_timer = (anim.petted_anim_timer - frame_dt).max(0.0);
     anim.death_anim_timer = (anim.death_anim_timer - frame_dt).max(0.0);
 
     anim.land_anim_timer = (anim.land_anim_timer - frame_dt).max(0.0);
@@ -596,6 +603,12 @@ pub fn advance_body_anim_overlays(dashing: bool, anim: &mut BodyAnimFacts, frame
 impl BodyAnimFacts {
     pub fn reset(&mut self) {
         *self = Self::default();
+    }
+
+    /// A gesture shared with another body is playing on this one, and holds it
+    /// still (`ControlHold::Gesture`).
+    pub fn in_shared_gesture(&self) -> bool {
+        self.pet_anim_timer > 0.0 || self.petted_anim_timer > 0.0
     }
 }
 

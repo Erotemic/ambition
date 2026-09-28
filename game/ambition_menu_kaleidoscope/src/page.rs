@@ -2,11 +2,10 @@
 //! `MenuPageModel` describes, spawned as children under the page's own root.
 //!
 //! The page is DRAWN here and decided elsewhere — nothing in this module reads
-//! input or advances a selection. `apply_dynamic_text` is the one re-entrant
-//! half: text whose content changes between frames is refreshed in place rather
-//! than respawned, so a page that only relabels a control does not rebuild its
-//! geometry.
-
+//! input or advances a selection. Each node's root records the node it draws
+//! ([`RenderedNode`]), which is what `reconcile` rewrites in place when a later
+//! publication changes it. `apply_dynamic_text` refreshes host-filled lines in
+//! place the same way.
 
 use super::*;
 pub(super) fn render_page_model<PageId, Action>(
@@ -34,76 +33,92 @@ pub(super) fn render_page_model<PageId, Action>(
     if config.draw_nav_arrows {
         spawn_nav_arrows(ui, materials, active);
     }
-    for node in &model.nodes {
-        match node {
-            MenuNode::Panel {
-                rect,
-                color,
-                action,
-            } => spawn_panel(
+    for (index, node) in model.nodes.iter().enumerate() {
+        spawn_node(ui, materials, asset_server, config, index, node, active);
+    }
+}
+
+/// Spawn one page-model node under a face and record which node it draws, so
+/// `reconcile` can later rewrite it in place instead of respawning it.
+pub(super) fn spawn_node<Action>(
+    ui: &mut ChildSpawnerCommands,
+    materials: &mut Assets<StandardMaterial>,
+    asset_server: &AssetServer,
+    config: &KaleidoscopeMenuConfig,
+    index: usize,
+    node: &MenuNode<Action>,
+    active: bool,
+) where
+    Action: Clone + Send + Sync + 'static,
+{
+    let root = match node {
+        MenuNode::Panel {
+            rect,
+            color,
+            action,
+        } => spawn_panel(
+            ui,
+            materials,
+            *rect,
+            menu_color(*color),
+            action.clone(),
+            active,
+        ),
+        MenuNode::Text {
+            x,
+            y,
+            size,
+            text,
+            align,
+            color,
+        } => spawn_text(
+            ui,
+            materials,
+            *x,
+            *y,
+            *size,
+            text,
+            menu_align(*align),
+            menu_srgba(*color),
+            active,
+            None,
+        ),
+        MenuNode::DynamicText {
+            slot,
+            x,
+            y,
+            size,
+            align,
+            color,
+        } => {
+            // Spawned EMPTY; the host fills it in place by `slot` (see
+            // `MenuDynamicText`). This keeps cursor-dependent text out of the
+            // baked page data so a hover does not rebuild the face.
+            spawn_text(
                 ui,
                 materials,
-                *rect,
-                menu_color(*color),
-                action.clone(),
+                *x,
+                *y,
+                *size,
+                "",
+                menu_align(*align),
+                menu_srgba(*color),
                 active,
-            ),
-            MenuNode::Text {
-                x,
-                y,
-                size,
-                text,
-                align,
-                color,
-            } => {
-                spawn_text(
-                    ui,
-                    materials,
-                    *x,
-                    *y,
-                    *size,
-                    text,
-                    menu_align(*align),
-                    menu_srgba(*color),
-                    active,
-                    None,
-                );
-            }
-            MenuNode::DynamicText {
-                slot,
-                x,
-                y,
-                size,
-                align,
-                color,
-            } => {
-                // Spawned EMPTY; the host fills it in place by `slot` (see
-                // `MenuDynamicText`). This keeps cursor-dependent text out of the
-                // baked page data so a hover does not rebuild the face.
-                spawn_text(
-                    ui,
-                    materials,
-                    *x,
-                    *y,
-                    *size,
-                    "",
-                    menu_align(*align),
-                    menu_srgba(*color),
-                    active,
-                    Some(MenuDynamicText { slot: *slot }),
-                );
-            }
-            MenuNode::Control {
-                rect,
-                kind,
-                label,
-                detail,
-                icon,
-                selected,
-                important,
-                action,
-                thumb,
-            } => spawn_control(
+                Some(MenuDynamicText { slot: *slot }),
+            )
+        }
+        MenuNode::Control {
+            rect,
+            kind,
+            label,
+            detail,
+            icon,
+            selected,
+            important,
+            action,
+            thumb,
+        } => {
+            let (root, parts) = spawn_control(
                 ui,
                 materials,
                 asset_server,
@@ -118,9 +133,15 @@ pub(super) fn render_page_model<PageId, Action>(
                 action.clone(),
                 *thumb,
                 active,
-            ),
+            );
+            ui.commands().entity(root).insert(parts);
+            root
         }
-    }
+    };
+    ui.commands().entity(root).insert(RenderedNode {
+        index,
+        node: node.clone(),
+    });
 }
 
 fn spawn_panel<Action>(
@@ -130,18 +151,12 @@ fn spawn_panel<Action>(
     color: Color,
     action: Option<Action>,
     active: bool,
-) where
+) -> Entity
+where
     Action: Clone + Send + Sync + 'static,
 {
-    spawn_panel_at_depth(
-        ui,
-        materials,
-        rect,
-        color,
-        action.clone(),
-        panel_depth(rect, action.is_some()),
-        active,
-    );
+    let depth = panel_depth(rect, action.is_some());
+    spawn_panel_at_depth(ui, materials, rect, color, action, depth, active)
 }
 
 fn spawn_panel_at_depth<Action>(
@@ -152,27 +167,16 @@ fn spawn_panel_at_depth<Action>(
     action: Option<Action>,
     depth: f32,
     active: bool,
-) where
+) -> Entity
+where
     Action: Clone + Send + Sync + 'static,
 {
     let base_alpha = color.alpha();
-    let material = materials.add(StandardMaterial {
-        base_color: fade_color(color, base_alpha),
-        alpha_mode: solid_plane_alpha_mode(),
-        cull_mode: None,
-        unlit: true,
-        ..default()
-    });
+    let material = materials.add(solid_material(color));
     let mut entity = ui.spawn((
         Name::new("panel"),
-        UiLayout::window()
-            .x(Rl(rect.x))
-            .y(Rl(rect.y))
-            .width(Rl(rect.w))
-            .height(Rh(rect.h))
-            .anchor(Anchor::TOP_LEFT)
-            .pack(),
-        UiDepth::Set(page_depth(depth, active)),
+        rect_layout(rect),
+        plane_depth(depth, active),
         UiMeshPlane3d,
         MeshMaterial3d(material),
         KaleidoscopeFade { base_alpha },
@@ -200,6 +204,7 @@ fn spawn_panel_at_depth<Action>(
     } else {
         entity.insert(Pickable::IGNORE);
     }
+    entity.id()
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -216,7 +221,7 @@ fn spawn_text(
     // When set, tags the text as a host-filled dynamic line (its content is
     // rewritten in place by `slot`), so cursor-dependent text needs no rebuild.
     dynamic: Option<MenuDynamicText>,
-) {
+) -> Entity {
     let base_alpha = color.alpha;
     let material = materials.add(StandardMaterial {
         base_color_texture: Some(TextAtlas::DEFAULT_IMAGE),
@@ -228,22 +233,11 @@ fn spawn_text(
     let mut entity = ui.spawn((
         Name::new("text"),
         KaleidoscopeFade { base_alpha },
-        UiLayout::window()
-            .x(Rl(x))
-            .y(Rl(y))
-            .anchor(Anchor::CENTER)
-            .pack(),
-        UiDepth::Set(page_depth(text_depth(y), active)),
+        text_layout(x, y),
+        plane_depth(text_depth(y), active),
         UiTextSize::from(Rh(size)),
         Text3d::new(text.to_string()),
-        Text3dStyling {
-            size: 64.0,
-            color,
-            align,
-            font: Arc::from(FONT_FAMILY),
-            weight: Weight::BOLD,
-            ..Default::default()
-        },
+        text_styling(color, align),
         MeshMaterial3d(material),
         Mesh3d::default(),
         Pickable::IGNORE,
@@ -253,6 +247,7 @@ fn spawn_text(
         // writes the string and `apply_dynamic_text` copies it into the `Text3d`.
         entity.insert((dynamic, MenuDynamicTextContent::default()));
     }
+    entity.id()
 }
 
 /// Copy each [`MenuDynamicTextContent`] the host has changed into its entity's
@@ -282,75 +277,34 @@ fn spawn_control<Action>(
     action: Option<Action>,
     thumb: Option<ScrollThumb>,
     active: bool,
-) where
+) -> (Entity, ControlParts)
+where
     Action: Clone + Send + Sync + 'static,
 {
-    // A scrollbar has no click `action` (it drives scroll via drag), but it is NOT
-    // a disabled/greyed control — colour it with its live scrollbar colour, not the
-    // dim disabled colour, and keep it pickable for drag (see below).
     let is_scrollbar = matches!(kind, MenuControlKind::Scrollbar);
-    let disabled = action.is_none() && !is_scrollbar;
-    // The scrollbar track is dim: it is the full-height channel behind the
-    // brighter thumb and must not read as a solid bright blob.
-    let color = if disabled {
-        disabled_control_color()
-    } else if is_scrollbar {
-        scrollbar_track_color()
-    } else {
-        control_color(kind, selected, important)
-    };
+    let disabled = control_disabled(kind, action.is_some());
+    let color = control_spawn_color(kind, disabled, selected, important);
     let base_alpha = color.alpha();
-    let material = materials.add(StandardMaterial {
-        base_color: fade_color(color, base_alpha),
-        alpha_mode: solid_plane_alpha_mode(),
-        cull_mode: None,
-        unlit: true,
-        ..default()
-    });
-    let focus = MenuFocusKey {
-        row: (rect.y * 10.0).round() as i32,
-        col: (rect.x * 10.0).round() as i32,
-        order: (rect.y * 100.0 + rect.x).round() as i32,
-    };
-    // Edge page-turn buttons (the narrow flanking L/R controls) live in their own
-    // depth band so they don't z-fight with the item-grid action planes (both would
-    // otherwise resolve to DEPTH_ACTION and flicker as the ring rotates).
-    let control_depth = if is_scrollbar {
-        // Dedicated band — never coplanar with the panel it overlays (no z-fight).
-        DEPTH_SCROLLBAR
-    } else if action.is_some() && is_edge_button_rect(rect) {
-        DEPTH_EDGE_BUTTON
-    } else {
-        panel_depth(rect, action.is_some())
-    };
+    let material = materials.add(solid_material(color));
+    let control_depth = control_plane_depth(rect, kind, action.is_some());
+    let mut parts = ControlParts::default();
     let mut entity = ui.spawn((
         Name::new("control"),
-        UiLayout::window()
-            .x(Rl(rect.x))
-            .y(Rl(rect.y))
-            .width(Rl(rect.w))
-            .height(Rh(rect.h))
-            .anchor(Anchor::TOP_LEFT)
-            .pack(),
-        UiDepth::Set(page_depth(control_depth, active)),
+        rect_layout(rect),
+        plane_depth(control_depth, active),
         UiMeshPlane3d,
         MeshMaterial3d(material),
         AmbitionMenuControl {
             kind,
             action,
-            focus,
+            focus: control_focus_key(rect),
         },
         KaleidoscopeControlStyle {
             kind,
             important,
             disabled,
         },
-        MenuVisualState {
-            focused: selected,
-            selected,
-            disabled,
-            ..Default::default()
-        },
+        control_visual_state(selected, disabled, false),
         KaleidoscopeFade { base_alpha },
     ));
     // Only controls on the active face are highlight-eligible (focus keys collide
@@ -370,7 +324,7 @@ fn spawn_control<Action>(
         if let Some(thumb) = thumb {
             if thumb.size < 1.0 {
                 entity.with_children(|children| {
-                    spawn_scrollbar_thumb(children, materials, thumb, active);
+                    parts.thumb = Some(spawn_scrollbar_thumb(children, materials, thumb, active));
                 });
             }
         }
@@ -389,14 +343,7 @@ fn spawn_control<Action>(
     // otherwise. Equipped (`important`) keeps full brightness but the cell bg
     // already carries the equipped accent, so the icon stays crisp white.
     let icon_handle = icon.map(|path| asset_server.load::<Image>(path.to_string()));
-    let icon_tint = if disabled {
-        // Dim un-owned items (alpha + value drop), matching the dimmed text cell.
-        Color::srgba(0.55, 0.58, 0.66, 0.55)
-    } else if selected {
-        Color::srgb(1.0, 0.95, 0.78)
-    } else {
-        Color::WHITE
-    };
+    let icon_tint = control_icon_tint(disabled, selected);
     entity.with_children(|children| {
         // Spawn the selection corners on every focusable (actionable, non-scrollbar)
         // cell, but HIDDEN — `sync_selection_corner_visuals` reveals the focused
@@ -409,59 +356,44 @@ fn spawn_control<Action>(
             // An item icon REPLACES the cell's text label (the name moves to the
             // detail panel). Centred, inset inside the cell so the cell bg + the
             // selection accent stay visible as a frame around the picture.
-            spawn_icon(children, materials, icon_handle, icon_tint, active);
-            // Keep the short action hint (detail) below the icon if present.
-            if let Some(detail) = detail {
-                spawn_text(
-                    children,
-                    materials,
-                    50.0,
-                    86.0,
-                    10.5,
-                    detail,
-                    TextAlign::Center,
-                    Srgba::rgb_u8(185, 196, 210),
-                    active,
-                    None,
-                );
-            }
-            return;
-        }
-        let main_size = match kind {
-            MenuControlKind::Item => 20.0,
-            // System option rows want a noticeably bigger label than a generic
-            // action button (Fix 2): the System face shows few, tall rows, so a
-            // larger Rh-relative font keeps them readable + centered.
-            MenuControlKind::OptionToggle => 34.0,
-            _ => 22.0,
-        };
-        spawn_text(
-            children,
-            materials,
-            50.0,
-            44.0,
-            main_size,
-            label,
-            TextAlign::Center,
-            Srgba::rgb_u8(242, 234, 200),
-            active,
-            None,
-        );
-        if let Some(detail) = detail {
-            spawn_text(
+            parts.icon = Some(spawn_icon(
+                children,
+                materials,
+                icon_handle,
+                icon_tint,
+                active,
+            ));
+        } else {
+            parts.label = Some(spawn_text(
                 children,
                 materials,
                 50.0,
-                76.0,
+                CONTROL_LABEL_Y,
+                control_label_size(kind),
+                label,
+                TextAlign::Center,
+                CONTROL_LABEL_COLOR,
+                active,
+                None,
+            ));
+        }
+        // The short action hint sits under the label, or lower under an icon.
+        if let Some(detail) = detail {
+            parts.detail = Some(spawn_text(
+                children,
+                materials,
+                50.0,
+                control_detail_y(icon.is_some()),
                 10.5,
                 detail,
                 TextAlign::Center,
-                Srgba::rgb_u8(185, 196, 210),
+                CONTROL_DETAIL_COLOR,
                 active,
                 None,
-            );
+            ));
         }
     });
+    (entity.id(), parts)
 }
 
 /// Fix 1: render the bright scrollbar THUMB as a child of the dim track. The
@@ -475,32 +407,20 @@ fn spawn_scrollbar_thumb(
     materials: &mut Assets<StandardMaterial>,
     thumb: ScrollThumb,
     active: bool,
-) {
-    let (y, size) = scrollbar_thumb_layout(thumb);
+) -> Entity {
     let color = scrollbar_thumb_color();
     let base_alpha = color.alpha();
-    let material = materials.add(StandardMaterial {
-        base_color: fade_color(color, base_alpha),
-        alpha_mode: solid_plane_alpha_mode(),
-        cull_mode: None,
-        unlit: true,
-        ..default()
-    });
+    let material = materials.add(solid_material(color));
     ui.spawn((
         Name::new("scrollbar thumb"),
         KaleidoscopeFade { base_alpha },
-        UiLayout::window()
-            .x(Rl(0.0))
-            .y(Rl(y * 100.0))
-            .width(Rl(100.0))
-            .height(Rh(size * 100.0))
-            .anchor(Anchor::TOP_LEFT)
-            .pack(),
-        UiDepth::Set(page_depth(DEPTH_SCROLLBAR_THUMB, active)),
+        thumb_layout(thumb),
+        plane_depth(DEPTH_SCROLLBAR_THUMB, active),
         UiMeshPlane3d,
         MeshMaterial3d(material),
         Pickable::IGNORE,
-    ));
+    ))
+    .id()
 }
 
 /// Render an item's icon as a textured plane inside a control cell.
@@ -517,16 +437,9 @@ fn spawn_icon(
     image: Handle<Image>,
     tint: Color,
     active: bool,
-) {
+) -> Entity {
     let base_alpha = tint.alpha();
-    let material = materials.add(StandardMaterial {
-        base_color: tint,
-        base_color_texture: Some(image),
-        alpha_mode: AlphaMode::Blend,
-        cull_mode: None,
-        unlit: true,
-        ..default()
-    });
+    let material = materials.add(icon_material(image, tint));
     ui.spawn((
         Name::new("item icon"),
         KaleidoscopeFade { base_alpha },
@@ -539,11 +452,12 @@ fn spawn_icon(
             .pack(),
         // Sit just in front of the cell background / selection accent, behind the
         // top text band so any overlaid hint stays readable.
-        UiDepth::Set(page_depth(DEPTH_ICON, active)),
+        plane_depth(DEPTH_ICON, active),
         UiMeshPlane3d,
         MeshMaterial3d(material),
         Pickable::IGNORE,
-    ));
+    ))
+    .id()
 }
 
 fn spawn_selection_corners(
@@ -558,13 +472,7 @@ fn spawn_selection_corners(
     // they share ONE material handle instead of each `materials.add()`-ing its own
     // (8 -> 1 per control; ~190 -> 24 across the inventory grid — fewer
     // StandardMaterial assets + GPU bind groups).
-    let material = materials.add(StandardMaterial {
-        base_color: fade_color(color, base_alpha),
-        alpha_mode: solid_plane_alpha_mode(),
-        cull_mode: None,
-        unlit: true,
-        ..default()
-    });
+    let material = materials.add(solid_material(color));
     let l = 23.0;
     let t = 6.0;
     let pieces = [
@@ -608,7 +516,7 @@ fn spawn_corner_piece(
             .height(Rh(h))
             .anchor(Anchor::TOP_LEFT)
             .pack(),
-        UiDepth::Set(page_depth(DEPTH_SELECTION, active)),
+        plane_depth(DEPTH_SELECTION, active),
         UiMeshPlane3d,
         MeshMaterial3d(material),
         Pickable::IGNORE,
@@ -732,7 +640,7 @@ fn page_depth(depth: f32, active: bool) -> f32 {
     }
 }
 
-fn text_depth(y: f32) -> f32 {
+pub(super) fn text_depth(y: f32) -> f32 {
     DEPTH_TEXT_TOP - (y.round() % 37.0) * 0.0008
 }
 
@@ -753,4 +661,205 @@ pub(super) fn solid_plane_alpha_mode() -> AlphaMode {
 pub(super) fn fade_color(color: Color, alpha: f32) -> Color {
     let s = color.to_srgba();
     Color::srgba(s.red, s.green, s.blue, alpha)
+}
+
+/// A plane's depth band before the active-face scaling. Kept beside its
+/// `UiDepth` so a face that becomes, or stops being, the active one can
+/// re-derive every plane's depth in place (`reconcile::set_face_active`).
+#[derive(Component, Clone, Copy, Debug, PartialEq)]
+pub(super) struct PlaneDepth(pub(super) f32);
+
+pub(super) fn plane_depth(depth: f32, active: bool) -> (PlaneDepth, UiDepth) {
+    (PlaneDepth(depth), UiDepth::Set(page_depth(depth, active)))
+}
+
+pub(super) fn active_depth(depth: PlaneDepth, active: bool) -> UiDepth {
+    UiDepth::Set(page_depth(depth.0, active))
+}
+
+/// The page-model node a face child draws, and its position in the model.
+///
+/// The value a node was spawned from is what `reconcile` diffs the next
+/// publication against, so a changed node is rewritten on the entities already
+/// drawing it rather than respawned.
+#[derive(Component, Clone, Debug, PartialEq)]
+pub struct RenderedNode<Action> {
+    pub index: usize,
+    pub node: MenuNode<Action>,
+}
+
+/// The child entities that carry a control's content: what `reconcile`
+/// rewrites when only the content changed.
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq)]
+pub(super) struct ControlParts {
+    pub(super) label: Option<Entity>,
+    pub(super) detail: Option<Entity>,
+    pub(super) icon: Option<Entity>,
+    pub(super) thumb: Option<Entity>,
+}
+
+pub(super) const CONTROL_LABEL_Y: f32 = 44.0;
+pub(super) const CONTROL_LABEL_COLOR: Srgba =
+    Srgba::rgb(242.0 / 255.0, 234.0 / 255.0, 200.0 / 255.0);
+pub(super) const CONTROL_DETAIL_COLOR: Srgba =
+    Srgba::rgb(185.0 / 255.0, 196.0 / 255.0, 210.0 / 255.0);
+
+/// The detail line's height: under the label, or lower under an icon.
+pub(super) fn control_detail_y(has_icon: bool) -> f32 {
+    if has_icon {
+        86.0
+    } else {
+        76.0
+    }
+}
+
+pub(super) fn control_label_size(kind: MenuControlKind) -> f32 {
+    match kind {
+        MenuControlKind::Item => 20.0,
+        // System option rows want a noticeably bigger label than a generic
+        // action button: the System face shows few, tall rows, so a larger
+        // Rh-relative font keeps them readable and centered.
+        MenuControlKind::OptionToggle => 34.0,
+        _ => 22.0,
+    }
+}
+
+/// A control with no action is greyed out — except a scrollbar, which drives
+/// scroll by drag rather than by an action and is live without one.
+pub(super) fn control_disabled(kind: MenuControlKind, has_action: bool) -> bool {
+    !has_action && !matches!(kind, MenuControlKind::Scrollbar)
+}
+
+/// The colour a control is born with. The scrollbar track is dim: it is the
+/// full-height channel behind the brighter thumb and must not read as a solid
+/// bright blob.
+pub(super) fn control_spawn_color(
+    kind: MenuControlKind,
+    disabled: bool,
+    selected: bool,
+    important: bool,
+) -> Color {
+    if disabled {
+        disabled_control_color()
+    } else if matches!(kind, MenuControlKind::Scrollbar) {
+        scrollbar_track_color()
+    } else {
+        control_color(kind, selected, important)
+    }
+}
+
+/// The depth band a control's plane sits in.
+pub(super) fn control_plane_depth(rect: MenuRect, kind: MenuControlKind, has_action: bool) -> f32 {
+    if matches!(kind, MenuControlKind::Scrollbar) {
+        // Dedicated band — never coplanar with the panel it overlays (no z-fight).
+        DEPTH_SCROLLBAR
+    } else if has_action && is_edge_button_rect(rect) {
+        // Edge page-turn buttons (the narrow flanking L/R controls) live in their
+        // own band so they don't z-fight with the item-grid action planes (both
+        // would otherwise resolve to DEPTH_ACTION and flicker as the ring rotates).
+        DEPTH_EDGE_BUTTON
+    } else {
+        panel_depth(rect, has_action)
+    }
+}
+
+pub(super) fn control_focus_key(rect: MenuRect) -> MenuFocusKey {
+    MenuFocusKey {
+        row: (rect.y * 10.0).round() as i32,
+        col: (rect.x * 10.0).round() as i32,
+        order: (rect.y * 100.0 + rect.x).round() as i32,
+    }
+}
+
+/// A control's visual state as the page model states it. The host's focus
+/// writer then moves `focused` with the cursor; `hovered` belongs to picking.
+pub(super) fn control_visual_state(
+    selected: bool,
+    disabled: bool,
+    hovered: bool,
+) -> MenuVisualState {
+    MenuVisualState {
+        focused: selected,
+        selected,
+        disabled,
+        hovered,
+        ..Default::default()
+    }
+}
+
+/// An item icon's tint follows the same focus styling a text cell would: dim
+/// when disabled (un-owned), warm when selected, white otherwise.
+pub(super) fn control_icon_tint(disabled: bool, selected: bool) -> Color {
+    if disabled {
+        Color::srgba(0.55, 0.58, 0.66, 0.55)
+    } else if selected {
+        Color::srgb(1.0, 0.95, 0.78)
+    } else {
+        Color::WHITE
+    }
+}
+
+pub(super) fn rect_layout(rect: MenuRect) -> UiLayout {
+    UiLayout::window()
+        .x(Rl(rect.x))
+        .y(Rl(rect.y))
+        .width(Rl(rect.w))
+        .height(Rh(rect.h))
+        .anchor(Anchor::TOP_LEFT)
+        .pack()
+}
+
+pub(super) fn text_layout(x: f32, y: f32) -> UiLayout {
+    UiLayout::window()
+        .x(Rl(x))
+        .y(Rl(y))
+        .anchor(Anchor::CENTER)
+        .pack()
+}
+
+/// The thumb is a child of the track, so its window is track-relative: the full
+/// width, `start` down and `size` tall, as track fractions.
+pub(super) fn thumb_layout(thumb: ScrollThumb) -> UiLayout {
+    let (y, size) = scrollbar_thumb_layout(thumb);
+    UiLayout::window()
+        .x(Rl(0.0))
+        .y(Rl(y * 100.0))
+        .width(Rl(100.0))
+        .height(Rh(size * 100.0))
+        .anchor(Anchor::TOP_LEFT)
+        .pack()
+}
+
+pub(super) fn text_styling(color: Srgba, align: TextAlign) -> Text3dStyling {
+    Text3dStyling {
+        size: 64.0,
+        color,
+        align,
+        font: Arc::from(FONT_FAMILY),
+        weight: Weight::BOLD,
+        ..Default::default()
+    }
+}
+
+/// An untextured plane's material, born in its final alpha mode.
+pub(super) fn solid_material(color: Color) -> StandardMaterial {
+    StandardMaterial {
+        base_color: fade_color(color, color.alpha()),
+        alpha_mode: solid_plane_alpha_mode(),
+        cull_mode: None,
+        unlit: true,
+        ..default()
+    }
+}
+
+/// An item icon's material: the sprite, tinted, blended over the cell.
+pub(super) fn icon_material(image: Handle<Image>, tint: Color) -> StandardMaterial {
+    StandardMaterial {
+        base_color: tint,
+        base_color_texture: Some(image),
+        alpha_mode: AlphaMode::Blend,
+        cull_mode: None,
+        unlit: true,
+        ..default()
+    }
 }

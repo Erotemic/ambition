@@ -388,14 +388,24 @@ impl Plugin for AmbitionBossContentPlugin {
                 .in_set(ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::AfterIntegrate),
         );
 
-        // The Flying Spaghetti Monster's conductor flies it (it owns its pose)
-        // and performs its moves; same phase as GNU-ton's, for the same reason.
+        // The Flying Spaghetti Monster's conductor flies it and performs its
+        // moves, after every non-boss body has integrated. The boss integration
+        // runs later in `WorldPrep`; it leaves the locomotion of a god whose
+        // conductor holds the pose (`PoseOwnedExternally`) alone.
         app.add_systems(
             sim,
             (fsm::adopt_fsm, fsm::conduct_fsm)
                 .chain()
                 .in_set(GameplayGated)
                 .in_set(ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::AfterIntegrate),
+        );
+        // The side the conductor chose reaches the body through its control,
+        // which the boss integration applies; see `face_conducted_gods`.
+        app.add_systems(
+            sim,
+            fsm::face_conducted_gods
+                .in_set(GameplayGated)
+                .in_set(ambition_platformer2d_shared_tangle::schedule::BossSteerSlot),
         );
 
         // Cut-rope Yarn vocabulary: installed on the DialogueRunner via the

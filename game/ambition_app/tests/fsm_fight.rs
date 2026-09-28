@@ -464,6 +464,28 @@ fn the_god_aims_at_the_foe_its_target_names_not_the_home_avatar() {
     );
 }
 
+/// A move keeps the side it chose when its tell began: the god is drawn facing
+/// where its move goes, even when you cross under it.
+#[test]
+fn a_move_keeps_the_side_its_tell_chose_when_you_cross_under() {
+    let mut sim = arena();
+    untouchable_player(&mut sim, true);
+    step_until(&mut sim, 1800, "a lash's tell", |sim| god(sim).performing == Some((Move::Lash, false)));
+    let g = god(&mut sim);
+    let chosen = sim.world().get::<ae::BodyKinematics>(g.entity).expect("the god").facing.signum();
+    let (_, stood, _) = player(&mut sim);
+    let behind = ae::Vec2::new(g.pos.x - chosen * 220.0, stood.y);
+    for _ in 0..8 {
+        place_player(&mut sim, behind);
+        sim.step(base());
+        if god(&mut sim).performing.map(|(mv, _)| mv) != Some(Move::Lash) {
+            break;
+        }
+        let facing = sim.world().get::<ae::BodyKinematics>(g.entity).expect("the god").facing.signum();
+        assert_eq!(facing, chosen, "the god turned round mid-lash when the player crossed behind it");
+    }
+}
+
 /// The volley throws MEATBALLS: its shots wear the meatball.
 #[test]
 fn the_volley_throws_meatballs() {

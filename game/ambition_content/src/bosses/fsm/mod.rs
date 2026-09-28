@@ -7,4 +7,4 @@
 pub mod appendages;
 pub mod conductor;
 
-pub use conductor::{adopt_fsm, conduct_fsm, FsmConductor, Move};
+pub use conductor::{adopt_fsm, conduct_fsm, face_conducted_gods, FsmConductor, Move};

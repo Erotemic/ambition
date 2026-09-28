@@ -191,3 +191,53 @@ fn finishing_each_level_carries_you_to_the_other_one() {
          areas are {authored:?}. Some level's exit is a dead end."
     );
 }
+
+/// The card that opens a level names the room she is in, by the title its
+/// level authors.
+///
+/// ⛔ The card said "WORLD 1-1" in every room: the text was a literal in the
+/// readout system, so 1-2 and 1-3 opened with 1-1's name. The title is the
+/// room's `title` level field now, and the card reads the active room's.
+#[test]
+fn each_level_opens_with_its_own_title() {
+    use ambition_demo_mary_o::provider::CARD_HUD_SLOT;
+    use ambition_platformer2d::presentation::{HudReadouts, HudSlotId};
+
+    /// The room's authored title, and the card once it is up.
+    fn title_and_card(app: &mut App) -> (Option<String>, Option<String>) {
+        for _ in 0..COMMIT_CAP {
+            let card = app
+                .world()
+                .resource::<HudReadouts>()
+                .get(&HudSlotId::from(CARD_HUD_SLOT))
+                .map(|readout| readout.text())
+                // The last room's clear can still be up on the arrival frame.
+                .filter(|text| !text.starts_with("COURSE CLEAR"));
+            if card.is_some() {
+                let mut q = app.world_mut().query::<&RoomSet>();
+                let title = q
+                    .iter(app.world())
+                    .next()
+                    .and_then(|set| set.active_metadata().title.clone());
+                return (title, card);
+            }
+            app.update();
+        }
+        panic!("no card came up within {COMMIT_CAP} frames");
+    }
+
+    let mut app = ambition_demo_mary_o_app::build_demo_app();
+    app.update();
+    let first = title_and_card(&mut app);
+    let here = room_id(&mut app).expect("the session opens in a room");
+    let second_room = finish_the_level(&mut app, &here);
+    let second = title_and_card(&mut app);
+    for ((title, card), room) in [(first, here), (second, second_room)] {
+        let title = title.unwrap_or_else(|| panic!("`{room}` authors no title"));
+        let card = card.expect("a card is up");
+        assert!(
+            card.starts_with(&title),
+            "`{room}` is titled {title:?} and its card says {card:?}"
+        );
+    }
+}

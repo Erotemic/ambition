@@ -344,11 +344,18 @@ fn hud_slot(id: &str) -> ambition_platformer2d::presentation::HudSlotSpec {
 fn publish_mary_o_readouts(
     level: bevy::prelude::Query<(&crate::MaryOLevelState, Option<&crate::flag::FlagSequence>)>,
     facts: bevy::prelude::Res<ambition_platformer2d::sim_view::PlayerHudFacts>,
+    // The room she is in, for the title its level authors.
+    rooms: Option<
+        ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
+            ambition_platformer2d::runtime::demo_fixture::RoomSet,
+        >,
+    >,
     mut readouts: bevy::prelude::ResMut<ambition_platformer2d::presentation::HudReadouts>,
 ) {
     let Ok((level, flag)) = level.single() else {
         return;
     };
+    let title = rooms.as_deref().and_then(|rooms| rooms.active_metadata().title.as_deref());
     // Zero-padded like the arcade original: the game owns its formatting, the
     // engine just draws the string.
     readouts.set_labelled(SCORE_HUD_SLOT, "SCORE", format!("{:06}", level.score));
@@ -367,7 +374,7 @@ fn publish_mary_o_readouts(
     // The card is published ONLY while it should be on screen. An unpublished
     // slot draws nothing, so "stop showing it" needs no hide path and no
     // despawn — the card retires itself when the game stops talking about it.
-    match card_text(level, flag) {
+    match card_text(level, flag, title) {
         Some(text) => readouts.set(
             CARD_HUD_SLOT,
             ambition_platformer2d::presentation::HudReadout::bare(text),
@@ -381,9 +388,13 @@ fn publish_mary_o_readouts(
 /// Course-clear WINS over the intro: grabbing the flag inside the intro window
 /// is a legitimate (if unlikely) speedrun, and it should read as a clear rather
 /// than as the title still hanging around.
+///
+/// The intro names the room by the `title` its level authors, so a new level
+/// is titled in the level file. A room with no title shows only her lives.
 fn card_text(
     level: &crate::MaryOLevelState,
     flag: Option<&crate::flag::FlagSequence>,
+    title: Option<&str>,
 ) -> Option<String> {
     if let Some(score) = flag.and_then(|f| f.score()) {
         return Some(format!(
@@ -391,7 +402,10 @@ fn card_text(
             level.score.saturating_add(score)
         ));
     }
-    (level.intro_card > 0.0).then(|| format!("WORLD 1-1    MARY-O x{}", level.lives))
+    (level.intro_card > 0.0).then(|| match title {
+        Some(title) => format!("{title}    MARY-O x{}", level.lives),
+        None => format!("MARY-O x{}", level.lives),
+    })
 }
 
 /// The whole Mary-O SFX table. Every entry here is both an AUTHORIZATION

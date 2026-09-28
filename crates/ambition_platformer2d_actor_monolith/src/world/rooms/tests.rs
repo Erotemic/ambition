@@ -478,6 +478,7 @@ fn active_metadata_returns_active_room_metadata() {
         side_out_margin: None,
         rise_out_margin: None,
         next_room: None,
+        title: None,
     };
     let m2 = RoomMetadata {
         biome: Some("cave".into()),
@@ -493,6 +494,7 @@ fn active_metadata_returns_active_room_metadata() {
         side_out_margin: None,
         rise_out_margin: None,
         next_room: None,
+        title: None,
     };
     let mut set = RoomSet::from_parts_or_panic(
         "first",
@@ -533,6 +535,7 @@ fn room_metadata_is_empty_false_when_any_field_set() {
         side_out_margin: None,
         rise_out_margin: None,
         next_room: None,
+        title: None,
     };
     assert!(!m.is_empty());
 
@@ -565,6 +568,7 @@ fn room_metadata_merge_preserves_existing_values() {
         side_out_margin: None,
         rise_out_margin: None,
         next_room: None,
+        title: None,
     };
     let b = RoomMetadata {
         biome: Some("CONFLICT".into()),        // ignored — a.biome wins
@@ -588,8 +592,12 @@ fn room_metadata_merge_preserves_existing_values() {
         // merge that dropped it would turn an authored circuit into a room that
         // silently loops.
         next_room: Some("cave_2".into()),
+        // takes effect — a.title was None. An area's title is its first member
+        // level's.
+        title: Some("CAVE 1".into()),
     };
     a.merge(b);
+    assert_eq!(a.title.as_deref(), Some("CAVE 1"));
     assert_eq!(a.biome.as_deref(), Some("hub"));
     assert!(a.gallery, "merge ORs the gallery flag from a member level");
     assert_eq!(a.music_track.as_deref(), Some("hub_loop"));

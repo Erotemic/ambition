@@ -1150,6 +1150,23 @@ mod tests {
         );
     }
 
+    /// A level authors the title a player is shown for it.
+    #[test]
+    fn a_level_authors_its_title() {
+        let mut project = synthetic_level(Vec::new());
+        project.levels[0]
+            .field_instances
+            .push(level_field("title", Value::String("WORLD 1-2".into())));
+        let room_set = project
+            .to_room_set_with_entry("registry_lab", &LdtkVocabulary::engine())
+            .expect("the project composes");
+        assert_eq!(room_set.rooms[0].metadata.title.as_deref(), Some("WORLD 1-2"));
+        let untitled = synthetic_level(Vec::new())
+            .to_room_set_with_entry("registry_lab", &LdtkVocabulary::engine())
+            .expect("the project composes");
+        assert_eq!(untitled.rooms[0].metadata.title, None);
+    }
+
     /// A level that names no successor has none (the arcade loop). An empty string
     /// is the same as an unset field: clearing the box in the editor retires an exit.
     #[test]

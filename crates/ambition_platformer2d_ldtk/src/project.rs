@@ -157,6 +157,7 @@ impl LdtkLevel {
             // is why it goes through `take` rather than `field_string`: an
             // author who clears the box in the editor means it.
             next_room: take("next_room"),
+            title: take("title"),
         }
     }
 

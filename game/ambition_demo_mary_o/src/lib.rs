@@ -88,7 +88,7 @@ pub const STARTING_TIME: f32 = 400.0;
 /// Lives Mary-O starts a run with.
 const STARTING_LIVES: i8 = 3;
 
-/// How long the "WORLD 1-1 / MARY-O x3" card sits before play reads as normal.
+/// How long the title card ("WORLD 1-1    MARY-O x3") sits before play reads as normal.
 const INTRO_CARD_SECONDS: f32 = 2.0;
 
 /// How long the flag tally sits on screen before the level loops. "The next

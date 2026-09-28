@@ -184,6 +184,12 @@ pub struct RoomMetadata {
     /// Authored as the LDtk level string field `next_room`, merged
     /// first-`Some`-wins like every other string field here.
     pub next_room: Option<String>,
+    /// What a player is told this room is called, for a title card such as
+    /// "WORLD 1-2". `None` means the room has no title to show.
+    ///
+    /// Authored as the LDtk level string field `title`, merged
+    /// first-`Some`-wins like every other string field here.
+    pub title: Option<String>,
 }
 
 impl RoomMetadata {
@@ -201,6 +207,7 @@ impl RoomMetadata {
             && self.side_out_margin.is_none()
             && self.rise_out_margin.is_none()
             && self.next_room.is_none()
+            && self.title.is_none()
     }
 
     /// Fold `other` into `self`, preferring values already set.
@@ -236,6 +243,9 @@ impl RoomMetadata {
         }
         if self.next_room.is_none() {
             self.next_room = other.next_room;
+        }
+        if self.title.is_none() {
+            self.title = other.title;
         }
         // A multi-level area is a gallery if ANY member level marks it one.
         self.gallery = self.gallery || other.gallery;

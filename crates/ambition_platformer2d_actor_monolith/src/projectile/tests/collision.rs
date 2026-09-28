@@ -939,6 +939,138 @@ fn a_direct_shot_breaks_only_one_of_two_crates_inside_its_contact_box() {
     );
 }
 
+/// A boss at `center` whose published hurt hull is `half` either side of it.
+fn spawn_boss(app: &mut App, id: &str, center: ae::Vec2, half: ae::Vec2) -> Entity {
+    use ambition_boss_encounter::behavior::BossBehaviorProfileExt as _;
+    app.world_mut()
+        .spawn((
+            ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity,
+            ambition_combat::components::FeatureId::new(id),
+            ambition_platformer2d_shared_tangle::sim_id::SimId::placement(id),
+            ambition_combat::components::CenteredAabb::new(center, half),
+            ambition_combat::components::DamageableVolumes::single(ae::Aabb::new(center, half)),
+            ambition_boss_encounter::BossConfig {
+                id: id.into(),
+                name: id.into(),
+                spawn: center,
+                brain: ambition_entity_catalog::placements::BossBrain::Dormant,
+                behavior:
+                    ambition_boss_encounter::pattern::profile::BossBehaviorProfile::generic(
+                        ambition_boss_encounter::test_boss_catalog(),
+                        id,
+                    ),
+            },
+            BodyHealth::new(ambition_characters::actor::Health::new(9)),
+            ambition_combat::components::ActorFaction::Enemy,
+        ))
+        .id()
+}
+
+/// A shot `owner` threw from `origin`, flying right.
+fn spawn_owned_shot(app: &mut App, owner: Entity, origin: ae::Vec2) -> Entity {
+    let spec = ProjectileKind::Fireball.spec(origin, ae::Vec2::new(1.0, 0.0), 1.0);
+    let mut body = ambition_projectiles::ProjectileBody::from_spec(spec);
+    body.kin.pos = origin;
+    body.kin.vel = ae::Vec2::new(600.0, 0.0);
+    let seq = app
+        .world_mut()
+        .get_resource_or_insert_with(ambition_projectiles::ProjectileSeqCounter::default)
+        .next();
+    app.world_mut()
+        .spawn((
+            body.kin,
+            body.game,
+            ambition_projectiles::ProjectileOwner(owner),
+            seq,
+            ambition_projectiles::LiveProjectile,
+            Name::new("thrown shot (test)"),
+        ))
+        .id()
+}
+
+fn open_lane_app() -> App {
+    let world = ae::World::new(
+        "open_lane",
+        ae::Vec2::new(2000.0, 2000.0),
+        ae::Vec2::new(200.0, 200.0),
+        Vec::new(),
+    );
+    projectile_test_app(world, ae::Vec2::new(200.0, 200.0), 1.0)
+}
+
+/// A SHOT BORN INSIDE ITS THROWER'S HULL FLIES OUT OF IT.
+///
+/// A body never touches its own shot, and a boss is a body whose hull is
+/// published as a feature. The shot starts inside the boss's hull, so the boss
+/// is reached at time zero on every tick until the shot is clear.
+#[test]
+fn a_shot_born_inside_its_throwers_hull_flies_out_of_it() {
+    let mut app = open_lane_app();
+    let boss = spawn_boss(&mut app, "thrower", ae::Vec2::new(600.0, 300.0), ae::Vec2::new(40.0, 40.0));
+    let shot = spawn_owned_shot(&mut app, boss, ae::Vec2::new(600.0, 300.0));
+    advance_time(&mut app, 0.016);
+    app.update();
+
+    assert!(
+        app.world().get_entity(shot).is_ok(),
+        "the shot was spent on the boss that threw it, on the tick it was made"
+    );
+    assert!(
+        !app.world()
+            .get::<ambition_platformer2d_shared_tangle::projectile::ProjectileHits>(shot)
+            .expect("a live shot keeps its ledger")
+            .hit
+            .contains(&boss),
+        "the shot recorded its own thrower as a victim"
+    );
+}
+
+/// THE THROWER DOES NOT HIDE WHAT IS BEHIND IT.
+///
+/// Each family picks its nearest contact, so a target the shot may not touch
+/// has to leave the candidates before that choice. Otherwise the thrower,
+/// reached at time zero, stands in for the other boss the shot does reach, and
+/// removing it after the choice leaves the family with no contact at all.
+#[test]
+fn a_shot_leaving_its_throwers_hull_still_reaches_the_boss_beyond_it() {
+    use ambition_combat::events::{HitEvent, HitTarget};
+
+    #[derive(bevy::prelude::Resource, Default)]
+    struct EmittedTargets(Vec<HitTarget>);
+
+    fn record(
+        mut reader: bevy::prelude::MessageReader<HitEvent>,
+        mut seen: bevy::prelude::ResMut<EmittedTargets>,
+    ) {
+        seen.0.extend(reader.read().map(|event| event.target));
+    }
+
+    let mut app = open_lane_app();
+    app.init_resource::<EmittedTargets>();
+    app.add_systems(Update, record.after(crate::projectile::step_projectiles));
+    let thrower =
+        spawn_boss(&mut app, "thrower", ae::Vec2::new(600.0, 300.0), ae::Vec2::new(40.0, 40.0));
+    // Inside the thrower's hull too, ahead of the shot on this tick's leg.
+    let beyond =
+        spawn_boss(&mut app, "beyond", ae::Vec2::new(625.0, 300.0), ae::Vec2::new(8.0, 40.0));
+    spawn_owned_shot(&mut app, thrower, ae::Vec2::new(600.0, 300.0));
+    advance_time(&mut app, 0.016);
+    app.update();
+
+    let seen = &app.world().resource::<EmittedTargets>().0;
+    assert!(
+        !seen.contains(&HitTarget::Feature(thrower)),
+        "the shot struck the boss that threw it: {seen:?}"
+    );
+    assert_eq!(
+        seen.first(),
+        Some(&HitTarget::Feature(beyond)),
+        "the shot reached the boss beyond its thrower and struck nothing: the \
+         thrower was chosen as the nearest contact and then refused, which hid \
+         the boss behind it. Emitted: {seen:?}"
+    );
+}
+
 /// ⛔⛔ **THE DIRECT REQUEST IS WRITTEN BEFORE ITS LANDING SPLASH, ON BOTH
 /// RECEIVER ROADS.**
 ///

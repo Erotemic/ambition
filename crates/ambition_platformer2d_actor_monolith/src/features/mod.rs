@@ -67,6 +67,7 @@ pub mod ledge_grab;
 pub mod movement_fx;
 pub mod swim;
 pub mod transform_beat;
+pub mod wallet_shield;
 pub use movement_fx::{
     arm_ground_contact_anim_overlay, arm_movement_anim_overlays, emit_movement_fx,
     handle_player_events,

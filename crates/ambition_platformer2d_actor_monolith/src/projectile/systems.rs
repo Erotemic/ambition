@@ -566,6 +566,19 @@ pub(crate) fn emit_landing_splash(
     });
 }
 
+/// Whether a shot may make contact with `target` on the leg it is flying.
+///
+/// ONE RULE FOR EVERY FAMILY A SHOT CAN REACH: bodies, bosses and breakables.
+/// A shot never touches the body that fired it, so a shot born inside its
+/// thrower's hull flies out of it. And it touches each target once per leg.
+fn shot_may_touch(
+    owner: Option<Entity>,
+    hits: &ambition_platformer2d_shared_tangle::projectile::ProjectileHits,
+    target: Entity,
+) -> bool {
+    Some(target) != owner && !hits.hit.contains(&target)
+}
+
 /// Step every live projectile in deterministic spawn order.
 /// Player/enemy routing shares this body-general path; bosses and breakables use the feature-hit path.
 pub fn step_projectiles(
@@ -1053,7 +1066,7 @@ pub fn step_projectiles(
                 leg_start,
                 feature_half,
                 feature_leg,
-                &[],
+                |target| shot_may_touch(owner_entity, &already_hit, target),
                 &ecs_breakables,
             )
             .into_iter()
@@ -1061,10 +1074,9 @@ pub fn step_projectiles(
                 leg_start,
                 feature_half,
                 feature_leg,
-                &[],
+                |target| shot_may_touch(owner_entity, &already_hit, target),
                 &ecs_bosses,
             ))
-            .filter(|contact| !already_hit.hit.contains(&contact.target))
             // ⛔⛔ **A WALL EARLIER ON THE LEG STOPS THE SHOT BEFORE IT REACHES A
             // CRATE OR A BOSS**, and this branch asked nothing at all. It emitted
             // the targeted hit and the splash and `continue`d, so the world sweep
@@ -1192,10 +1204,7 @@ pub fn step_projectiles(
                 }) {
                     break;
                 }
-                if Some(victim.entity) == owner_entity {
-                    continue;
-                }
-                if already_hit.hit.contains(&victim.entity) {
+                if !shot_may_touch(owner_entity, &already_hit, victim.entity) {
                     continue;
                 }
                 // An owned shot lands on a faction-foe OR a same-faction body its firer holds a

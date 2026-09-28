@@ -18,6 +18,8 @@ audio = ["ambition_audio/kira"]
 # Declaring an edge to unbind a laundered one is right; leaving it after the last consumer goes is a
 # lie the graph tells. If this crate ever needs the backend again, add the line back WITH the use.
 ambition_platformer2d_actor_monolith = { path = "../ambition_platformer2d_actor_monolith", default-features = false }
+# The staged-actor constructor, which an experience's session contents build an actor with.
+ambition_platformer2d_actor_spawn = { path = "../ambition_platformer2d_actor_spawn" }
 # `BossCatalog` — the lifecycle staging params read the boss catalog directly now that the boss
 # domain is its own crate, instead of through the monolith facade it used to sit behind.
 ambition_boss_encounter = { path = "../ambition_boss_encounter" }

@@ -496,6 +496,9 @@ pub struct PlatformerExperienceAuthoring {
     /// experience usually means it to be playable. See
     /// [`PlatformerExperienceAuthoring::unlisted`].
     pub listed: bool,
+    /// What this experience puts into its own session while the engine builds
+    /// it. See [`Self::with_session_contents`].
+    pub session_contents: Option<crate::SessionContentsFn>,
 }
 
 impl PlatformerExperienceAuthoring {
@@ -520,6 +523,7 @@ impl PlatformerExperienceAuthoring {
             defense_presentation: None,
             hud: None,
             listed: true,
+            session_contents: None,
         }
     }
 
@@ -587,6 +591,19 @@ impl PlatformerExperienceAuthoring {
         self
     }
 
+    /// Declare what this experience puts into its own session: components on
+    /// the session root, capabilities on the home body, and the entities the
+    /// session owns.
+    ///
+    /// The engine runs `contents` inside the transaction that builds the
+    /// session, so the session is published whole. Use it for facts that are
+    /// the experience's and not a room's: a room occupant is a room placement.
+    /// See [`crate::session_contents`].
+    pub fn with_session_contents(mut self, contents: crate::SessionContentsFn) -> Self {
+        self.session_contents = Some(contents);
+        self
+    }
+
     pub fn with_loading_activity(mut self, activity_id: impl Into<String>) -> Self {
         let mut loading = ambition_load_presentation::LoadExperienceSpec::basic(format!(
             "{}.loading",
@@ -643,7 +660,8 @@ impl PlatformerExperienceAuthoring {
         // resource left thin standalone hosts vulnerable to first-update
         // SystemParam validation failures.
         app.init_resource::<PlatformerAuthoredCatalogRegistry>()
-            .init_resource::<PlatformerStreamingReadiness>();
+            .init_resource::<PlatformerStreamingReadiness>()
+            .init_resource::<crate::SessionContentsCatalog>();
         if !app.is_plugin_added::<PlatformerProviderRuntimePlugin>() {
             app.add_plugins(PlatformerProviderRuntimePlugin);
         }
@@ -685,6 +703,11 @@ impl PlatformerExperienceAuthoring {
             app.world_mut()
                 .resource_mut::<DefensePresentationCatalog>()
                 .insert(self.route_id.clone(), policy);
+        }
+        if let Some(contents) = self.session_contents {
+            app.world_mut()
+                .resource_mut::<crate::SessionContentsCatalog>()
+                .declare(&self.experience_id, contents);
         }
         if let Some(hud) = self.hud.clone() {
             app.init_resource::<HudDeclarationCatalog>();

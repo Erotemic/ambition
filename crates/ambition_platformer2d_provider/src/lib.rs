@@ -11,12 +11,14 @@
 pub mod authoring;
 pub mod composition;
 pub mod lifecycle;
+pub mod session_contents;
 
 pub use authoring::{
     AuthoredCatalogFragments, PlatformerAuthoredCatalogRegistry,
     PlatformerAuthoringRegistrationError, PlatformerExperienceAuthoring,
 };
 pub use composition::ShellComposition;
+pub use session_contents::{SessionContents, SessionContentsCatalog, SessionContentsFn};
 pub use lifecycle::{
     install_direct_session_root, prepare_platformer_content,
     prepare_platformer_content_for_app,

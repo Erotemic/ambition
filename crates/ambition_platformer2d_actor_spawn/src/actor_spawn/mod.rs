@@ -279,15 +279,17 @@ pub fn apply_spawn_actor_requests(
 /// Materialize one staged actor, or refuse WITHOUT allocating anything.
 ///
 /// The one staged-actor constructor for the programmatic path. The
-/// message-driven applier above calls it; the `ambition.staged-actor`
-/// construction recipe calls [`spawn_staged_actor_into`] directly with a root
-/// the plan executor owns. `None` means the request was refused — validation
+/// message-driven applier above calls it, and so does an experience's session
+/// contents (`SessionContents::stage_actor` in `ambition_platformer2d_provider`),
+/// which build the session's own cast inside the session's construction. The
+/// `ambition.staged-actor` construction recipe calls [`spawn_staged_actor_into`]
+/// directly with a root the plan executor owns. `None` means the request was refused — validation
 /// runs BEFORE `spawn_empty`, because a refused request must produce no
 /// entity at all: an empty leaked root would still be recorded as a spawned
 /// enemy by the caller's batch grudge map and could receive `ActorAggression`
 /// through `wire_staged_grudges` (: an in-recipe refusal is too
 /// late once the allocation belongs to the caller).
-pub(crate) fn spawn_staged_actor(
+pub fn spawn_staged_actor(
     commands: &mut Commands,
     character_catalog: &CharacterCatalog,
     authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,

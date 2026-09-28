@@ -41,13 +41,13 @@ pub use light_pulse::{
 };
 
 use ambition_platformer2d::engine_core as ae;
-use ambition_platformer2d::platformer::lifecycle::{
-    SessionRoot, SessionScopeId, SessionScopedEntity,
-};
 use ambition_platformer2d::platformer::schedule::{
     Platformer2dSimulationPhaseMonolith, PlayerInputSet, SimScheduleExt, WorldPrepSet,
 };
-use ambition_platformer2d::provider::{AuthoredCatalogFragments, PlatformerExperienceAuthoring};
+use ambition_platformer2d::provider::{
+    AuthoredCatalogFragments, PlatformerExperienceAuthoring, SessionContents,
+};
+use bevy::ecs::system::EntityCommands;
 use ambition_platformer2d::relativity::{
     coordinate_photon_direction_from_observer, minkowski_doppler_measurement,
     solve_null_intercept_constant_velocity, InvariantSpeed,
@@ -582,30 +582,18 @@ impl Plugin for TwinTrackExperiencePlugin {
         .with_defense_presentation(
             ambition_platformer2d::presentation::DefensePresentationPolicy::shared_iframe_blink(),
         )
+        .with_session_contents(twintrack_session_contents)
         .install(app, twintrack_prepared_session_world);
+
+        // A read model's depth, the same for every TwinTrack session.
+        app.world_mut()
+            .resource_mut::<WorldlineHistoryView2d>()
+            .capacity_per_track = TWINTRACK_WORLDLINE_HISTORY_SAMPLES;
 
         participants::install(app);
 
         let sim = app.sim_schedule();
         app.add_systems(
-            sim,
-            participants::adopt_the_laboratory_twin
-                .run_if(ambition_platformer2d::runtime::in_mode(
-                    TWINTRACK_EXPERIENCE,
-                ))
-                .before(Relativity2dSet::AdvanceCoordinateTime)
-                .in_set(WorldPrepSet::BeforeIntegrate),
-        )
-        .add_systems(
-            sim,
-            install_twintrack_session
-                .run_if(ambition_platformer2d::runtime::in_mode(
-                    TWINTRACK_EXPERIENCE,
-                ))
-                .before(Relativity2dSet::AdvanceCoordinateTime)
-                .in_set(WorldPrepSet::BeforeIntegrate),
-        )
-        .add_systems(
             sim,
             chase_beacon::update_twintrack_character_worldlines
                 .run_if(ambition_platformer2d::runtime::in_mode(
@@ -677,27 +665,11 @@ fn twintrack_prepared_session_world() -> PreparedPlatformerSource {
     )
 }
 
-fn install_twintrack_session(
-    mut commands: Commands,
-    mut spawns: MessageWriter<ambition_platformer2d::actor::SpawnActorRequest>,
-    mut worldlines: ResMut<WorldlineHistoryView2d>,
-    roots: Query<(Entity, &SessionRoot), (With<RoomSet>, Without<ActiveSpacetime2d>)>,
-    traveler: Query<
-        Entity,
-        (
-            With<ambition_platformer2d::actor::PrimaryPlayer>,
-            Without<TravelerTwin>,
-        ),
-    >,
-) {
-    let (Ok((root_entity, root)), Ok(traveler_entity)) = (roots.single(), traveler.single())
-    else {
-        return;
-    };
-
-    worldlines.capacity_per_track = TWINTRACK_WORLDLINE_HISTORY_SAMPLES;
-
-    commands.entity(root_entity).insert((
+/// The plaza's own facts, which the engine puts on the session while it builds
+/// it: the root is a Minkowski spacetime, the home body is the traveler, and the
+/// session owns the laboratory twin, the five characters and the signal pool.
+fn twintrack_session_contents(session: &mut SessionContents) {
+    session.root().insert((
         ActiveSpacetime2d::minkowski(INVARIANT_SPEED as f64)
             .expect("TwinTrack invariant speed is finite and positive"),
         SpacetimeCoordinateTime2d::default(),
@@ -706,38 +678,41 @@ fn install_twintrack_session(
             ..default()
         },
     ));
-    commands.entity(traveler_entity).insert((
-        TravelerTwin,
-        ae::BodyFlightState {
-            fly_enabled: true,
-            ..default()
-        },
-        RelativisticClock2d,
-        RelativityClockLabel("traveler".to_owned()),
-        WorldlineTracked2d::new("traveler"),
-        RelativisticObserver2d("traveler".to_owned()),
-        LightEmitter2d::new(
-            "traveler_transmitter",
-            SIGNAL_POOL_LABEL,
-            EMITTED_FREQUENCY,
-            TRANSMITTER_COOLDOWN_PROPER_SECONDS,
-        )
-        .with_tag(TRAVELER_TAG)
-        .with_source_receiver_channel(TRAVELER_RECEIVER_CHANNEL),
-        ProperTimeCooldown2d::default(),
-        LightReceiver2d::observer(
-            "traveler_messages",
-            TRAVELER_RECEIVER_CHANNEL,
-            Vec2::splat(72.0),
-        )
-        .consuming(),
-    ));
+    if let Some(mut traveler) = session.home_body() {
+        traveler.insert((
+            TravelerTwin,
+            ae::BodyFlightState {
+                fly_enabled: true,
+                ..default()
+            },
+            RelativisticClock2d,
+            RelativityClockLabel("traveler".to_owned()),
+            WorldlineTracked2d::new("traveler"),
+            RelativisticObserver2d("traveler".to_owned()),
+            LightEmitter2d::new(
+                "traveler_transmitter",
+                SIGNAL_POOL_LABEL,
+                EMITTED_FREQUENCY,
+                TRANSMITTER_COOLDOWN_PROPER_SECONDS,
+            )
+            .with_tag(TRAVELER_TAG)
+            .with_source_receiver_channel(TRAVELER_RECEIVER_CHANNEL),
+            ProperTimeCooldown2d::default(),
+            LightReceiver2d::observer(
+                "traveler_messages",
+                TRAVELER_RECEIVER_CHANNEL,
+                Vec2::splat(72.0),
+            )
+            .consuming(),
+        ));
+    }
 
-    spawns.write(participants::laboratory_twin_request());
+    if let Some(mut lab_twin) = session.stage_actor(&participants::laboratory_twin_request()) {
+        lab_twin.insert(participants::laboratory_twin_facts());
+    }
 
     spawn_character(
-        &mut commands,
-        root.0,
+        session,
         TwinTrackCharacter::clock_citizen(
             COURIER_ID,
             COURIER_RECEIVER_CHANNEL,
@@ -751,8 +726,7 @@ fn install_twintrack_session(
         19.0,
     );
     spawn_character(
-        &mut commands,
-        root.0,
+        session,
         TwinTrackCharacter::clock_citizen(
             DRIFTER_ID,
             DRIFTER_RECEIVER_CHANNEL,
@@ -766,8 +740,7 @@ fn install_twintrack_session(
         21.0,
     );
     spawn_character(
-        &mut commands,
-        root.0,
+        session,
         TwinTrackCharacter::clock_citizen(
             SPINNER_ID,
             SPINNER_RECEIVER_CHANNEL,
@@ -787,8 +760,7 @@ fn install_twintrack_session(
         DJ_RECEIVER_CHANNEL,
     );
     spawn_character_at(
-        &mut commands,
-        root.0,
+        session,
         dj,
         DJ_POS,
         320.0,
@@ -814,9 +786,8 @@ fn install_twintrack_session(
             phase: -std::f32::consts::FRAC_PI_2,
         },
     };
-    let tag_entity = spawn_character_at(
-        &mut commands,
-        root.0,
+    let mut tag_entity = spawn_character_at(
+        session,
         tagger,
         TAG_START_POS,
         220.0,
@@ -825,30 +796,25 @@ fn install_twintrack_session(
         None,
         true,
     );
-    commands
-        .entity(tag_entity)
-        .insert(RelativisticTarget2d("Photon Fox".to_owned()));
+    tag_entity.insert(RelativisticTarget2d("Photon Fox".to_owned()));
 
     for slot_index in 0..SIGNAL_POOL_SIZE {
         let signal_id = format!("twintrack_signal_slot_{slot_index}");
-        commands.spawn((
+        session.spawn((
             LightSignalPoolSlot2d::new(SIGNAL_POOL_LABEL, slot_index),
             LightSignal2d::inactive(),
-            SessionScopedEntity(root.0),
             ambition_platformer2d::platformer::sim_id::SimId::placement(&signal_id),
         ));
     }
 }
 
-fn spawn_character(
-    commands: &mut Commands,
-    // A `SessionScopeId`, not an `Entity`: `SessionScopedEntity` consumes it.
-    root: SessionScopeId,
+fn spawn_character<'a>(
+    session: &'a mut SessionContents,
     character: TwinTrackCharacter,
     rest_frequency: f64,
     intensity: f32,
     radius: f32,
-) -> Entity {
+) -> EntityCommands<'a> {
     let position = match character.trajectory {
         TwinTrackTrajectory::Stationary => Vec2::ZERO,
         TwinTrackTrajectory::Orbit {
@@ -859,8 +825,7 @@ fn spawn_character(
         } => center + Vec2::from_angle(phase) * radius,
     };
     spawn_character_at(
-        commands,
-        root,
+        session,
         character,
         position,
         rest_frequency,
@@ -872,10 +837,8 @@ fn spawn_character(
 }
 
 #[allow(clippy::too_many_arguments)]
-fn spawn_character_at(
-    commands: &mut Commands,
-    // A `SessionScopeId`, not an `Entity` — see `spawn_character`.
-    root: SessionScopeId,
+fn spawn_character_at<'a>(
+    session: &'a mut SessionContents,
     character: TwinTrackCharacter,
     position: Vec2,
     rest_frequency: f64,
@@ -883,7 +846,7 @@ fn spawn_character_at(
     radius: f32,
     passband: Option<(f64, f64)>,
     consuming: bool,
-) -> Entity {
+) -> EntityCommands<'a> {
     let receiver_radius = match character.role {
         TwinTrackRole::ClockCitizen => radius.max(72.0),
         TwinTrackRole::DopplerDj => radius.max(50.0),
@@ -905,33 +868,30 @@ fn spawn_character_at(
         receiver
     };
     let stable = format!("twintrack_character_{}", character.id);
-    commands
-        .spawn((
-            character.clone(),
-            RelativisticClock2d,
-            RelativityClockLabel(character.label.clone()),
-            WorldlineTracked2d::new(character.label.clone()),
-            OpticalSource2d::new(character.label.clone(), rest_frequency, intensity, radius),
-            LightEmitter2d::new(
-                format!("{}_transmitter", character.label),
-                SIGNAL_POOL_LABEL,
-                EMITTED_FREQUENCY,
-                0.0,
-            )
-            .with_tag(u64::from(character.id))
-            .with_source_receiver_channel(character.receiver_channel),
-            ProperTimeCooldown2d::default(),
-            receiver,
-            ae::BodyKinematics {
-                pos: position,
-                vel: Vec2::ZERO,
-                size: Vec2::splat(radius * 1.3),
-                facing: 1.0,
-            },
-            SessionScopedEntity(root),
-            ambition_platformer2d::platformer::sim_id::SimId::placement(&stable),
-        ))
-        .id()
+    session.spawn((
+        character.clone(),
+        RelativisticClock2d,
+        RelativityClockLabel(character.label.clone()),
+        WorldlineTracked2d::new(character.label.clone()),
+        OpticalSource2d::new(character.label.clone(), rest_frequency, intensity, radius),
+        LightEmitter2d::new(
+            format!("{}_transmitter", character.label),
+            SIGNAL_POOL_LABEL,
+            EMITTED_FREQUENCY,
+            0.0,
+        )
+        .with_tag(u64::from(character.id))
+        .with_source_receiver_channel(character.receiver_channel),
+        ProperTimeCooldown2d::default(),
+        receiver,
+        ae::BodyKinematics {
+            pos: position,
+            vel: Vec2::ZERO,
+            size: Vec2::splat(radius * 1.3),
+            facing: 1.0,
+        },
+        ambition_platformer2d::platformer::sim_id::SimId::placement(&stable),
+    ))
 }
 
 fn payload(kind: u8, actor_id: u8, data: u64) -> u64 {

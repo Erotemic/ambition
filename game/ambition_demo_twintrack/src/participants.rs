@@ -6,7 +6,7 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer2d::actor::{ActorFaction, ActorIdentity, SpawnActorKind, SpawnActorRequest};
+use ambition_platformer2d::actor::{ActorFaction, SpawnActorKind, SpawnActorRequest};
 use ambition_platformer2d::characters::control::{DrivingParticipant, PlayerSlot};
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::relativity2d::{
@@ -213,30 +213,12 @@ pub(crate) fn laboratory_twin_request() -> SpawnActorRequest {
     }
 }
 
-/// Adopt the constructed body as the laboratory twin.
+/// What makes the constructed body the laboratory twin.
 ///
-/// A separate system because construction is a message: the engine's spawn
-/// applier drains the request, so the body does not exist on the tick the
-/// session asks for it. This runs until it finds the body and then never
-/// matches again, so the clock facts, worldline, and seat are inserted once.
-pub(crate) fn adopt_the_laboratory_twin(
-    mut commands: Commands,
-    // The plaza's own clock, so the twin's starts where the plaza's is
-    // rather than at zero — see the `ProperTimeElapsed` line below.
-    coordinate_time: Query<&ambition_platformer2d::relativity2d::SpacetimeCoordinateTime2d>,
-    already: Query<(), With<LaboratoryTwin>>,
-    candidates: Query<(Entity, &ActorIdentity), Without<LaboratoryTwin>>,
-) {
-    if !already.is_empty() {
-        return;
-    }
-    let Some((body, _)) = candidates
-        .iter()
-        .find(|(_, identity)| identity.id == LAB_TWIN_FEATURE_ID)
-    else {
-        return;
-    };
-    commands.entity(body).insert((
+/// The session contents attach these where they build her body, so she is the
+/// laboratory twin from her first tick.
+pub(crate) fn laboratory_twin_facts() -> impl Bundle {
+    (
         LaboratoryTwin,
         RelativisticClock2d,
         RelativityClockLabel("laboratory".to_owned()),
@@ -250,16 +232,11 @@ pub(crate) fn adopt_the_laboratory_twin(
         // resources is now hers. Every TwinTrack consumer names its observer
         // explicitly; a `Deref` read would get the wrong observer.
         RelativisticObserver2d("laboratory".to_owned()),
-        // Not `ZERO`. The laboratory twin is at rest in the laboratory, so her
-        // proper time is the plaza's coordinate time, the reference every
-        // other clock is compared with. Starting at zero when her body is built
-        // would make every light-delay reading short by the construction time.
-        ProperTimeElapsed {
-            seconds: coordinate_time
-                .iter()
-                .next()
-                .map_or(0.0, |clock| clock.seconds),
-        },
+        // The laboratory twin is at rest in the laboratory, so her proper time
+        // is the plaza's coordinate time, the reference every other clock is
+        // compared with. She is built with the plaza, whose clock starts at
+        // zero, so hers does too.
+        ProperTimeElapsed { seconds: 0.0 },
         TwinTrackExperiment::default(),
         // The seat. `tick_controlled_brains` reads `SlotControls[1]` through
         // this component, and the actor tick does not decide for a body that
@@ -271,5 +248,5 @@ pub(crate) fn adopt_the_laboratory_twin(
             fly_enabled: true,
             ..default()
         },
-    ));
+    )
 }

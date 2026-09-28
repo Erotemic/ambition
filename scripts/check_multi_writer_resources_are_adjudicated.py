@@ -1859,13 +1859,13 @@ ADJUDICATED: dict[str, str] = {
         "authority."
     ),
     "WorldlineHistoryView2d": (
-        "CORRECT — A TELEMETRY VIEW WITH ONE PUBLISHER, ONE PRUNER AND ONE SESSION "
-        "SEED. `publish_worldline_history` and "
+        "CORRECT — A TELEMETRY VIEW WITH ONE PUBLISHER, ONE PRUNER AND ONE DEPTH "
+        "SETTING. `publish_worldline_history` and "
         "`clear_worldlines_without_live_spacetime` are both in "
         "`ambition_relativity2d/src/telemetry.rs` — publish and prune of one view, "
-        "in the crate that owns it — and `install_twintrack_session` "
-        "(`game/ambition_demo_twintrack`) seeds it when the demo installs its "
-        "session. ⇒ A view is not authority: nothing simulates from it. ⚠ Read as "
+        "in the crate that owns it — and `TwinTrackExperiencePlugin::build` "
+        "(`game/ambition_demo_twintrack`) sets its depth once, when the demo is "
+        "composed. ⇒ A view is not authority: nothing simulates from it. ⚠ Read as "
         "TWO files by the census and THREE sites by `write_sites`, which is the "
         "distinction that matters here — the two telemetry systems are the pair, "
         "and they are in one module by design."

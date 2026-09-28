@@ -189,9 +189,9 @@ derived.resolved_hurtboxes	derived	ResolvedHurtboxes	recomputed from AuthoredHur
 derived.resolved_motion_frame	derived	ResolvedMotionFrame	published every tick from the live environment
 derived.resolved_switch_activations	derived	ResolvedSwitchActivations	this tick's drained switch activations with their post-toggle values; rebuilt every drain
 derived.resolved_technique_edges	derived	ResolvedTechniqueEdges	cleared and republished from current input every frame
-derived.sanic_wallet_shield	derived	BodyWalletShield	re-derived from the worn row and the rules' scope every tick, before hit resolution reads it
 derived.slot_controls	derived	SlotControls	republished from GGRS PlayerInputs at the head of every frame
 derived.surface_upright	derived	SurfaceUpright	republished from support facts every movement step
+derived.wallet_shield	derived	BodyWalletShield	re-derived from the worn character and the room's rules every tick, before any hit is resolved
 dynamic.projectile	dynamic-anchor	ProjectileGameplay	Rollback entity recreation plus the complete projectile component family
 encounter.camera_zoom	component-clone	EncounterCameraZoom	bevy_ggrs clone snapshot; not in the session checksum
 encounter.commanded_move	component-clone	CommandedMove	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum

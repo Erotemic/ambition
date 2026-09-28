@@ -92,6 +92,7 @@ impl Plugin for PlatformerProviderRuntimePlugin {
         let gate = app.world_mut().register_system(candidate_session_gate);
         app.insert_resource(CandidateSessionGateEvaluator(gate));
         app.init_resource::<PlatformerStreamingReadiness>()
+            .init_resource::<crate::SessionContentsCatalog>()
             .init_resource::<PreparedPlatformerSessions>()
             .init_resource::<CandidateSessionSlot>()
             .init_resource::<ContentEpochSequence>()
@@ -2251,6 +2252,9 @@ pub struct PlatformerSessionBuilder<'w, 's> {
     save: Option<
         Res<'w, ambition_platformer2d_actor_monolith::session::durable_horizon::AmbitionGameSave>,
     >,
+    /// What each experience puts into its own session. See
+    /// [`crate::session_contents`].
+    session_contents: Res<'w, crate::SessionContentsCatalog>,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -2508,6 +2512,25 @@ impl PlatformerSessionBuilder<'_, '_> {
         #[cfg(feature = "ldtk")]
         if let Some(index) = installed_ldtk_index {
             self.commands.entity(world).insert(index);
+        }
+
+        // THE EXPERIENCE'S OWN CONTENTS, IN THIS TRANSACTION. They go on the
+        // root and the home body built above, and what they spawn is hidden
+        // with the rest of the candidate, so admission publishes one whole
+        // session. See `crate::session_contents`.
+        if let Some(contents) = self.session_contents.get(experience_id.as_str()) {
+            contents(&mut crate::SessionContents {
+                commands: &mut self.commands,
+                scope: SessionSpawnScope::candidate(scope),
+                root: world,
+                home_body: built.player,
+                actors: crate::session_contents::StagedActorAuthorities {
+                    character_catalog: &self.character_catalog,
+                    sheets: &mechanical.sheets,
+                    characters: mechanical.characters.as_ref(),
+                    bosses: &mechanical.bosses,
+                },
+            });
         }
 
         PreparedCandidateSession {

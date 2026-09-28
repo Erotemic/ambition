@@ -11,7 +11,14 @@
 //! two-player. The type means: a decider claimed local seating, and this is
 //! its answer.
 
-use bevy::prelude::{Entity, Resource};
+use bevy::prelude::{Entity, Resource, SystemSet};
+
+/// The `Update` set in which a composition states its seating: the writers of
+/// [`LocalSeatOffer`] and [`SessionSeatingSource`]. A host that sizes a session
+/// from the seating runs after this set, so a session is built from the seating
+/// stated this frame and not from the seating before it.
+#[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct SeatingDeclared;
 
 /// Where this session's seats come from, whether they are decided yet, and
 /// whose answer it is.

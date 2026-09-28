@@ -75,12 +75,14 @@ impl Plugin for AmbitionGameShellPlugin {
                 advance_pending_route.in_set(AmbitionGameShellSet::Pending),
             )
             // After `Pending`, so a route that became active this frame
-            // offers its seats in the same frame.
+            // offers its seats in the same frame. In `SeatingDeclared`, so a
+            // rollback host sizes its session from those seats.
             .add_systems(
                 Update,
                 crate::route_seating::project_route_seating
                     .after(AmbitionGameShellSet::Pending)
-                    .before(AmbitionGameShellSet::Cleanup),
+                    .before(AmbitionGameShellSet::Cleanup)
+                    .in_set(ambition_input::SeatingDeclared),
             )
             .add_systems(
                 Update,

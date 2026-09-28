@@ -814,14 +814,16 @@ pub(crate) fn install_session_bridge(app: &mut App) {
             super::local_session::maintain_local_session
                 .in_set(super::local_session::LocalSessionSet::Maintain),
         )
-        // Both run in `Update`. Without this edge, which authority sizes the
-        // GGRS session is a race, and the session is never resized afterwards
-        // (see `maintain_local_session`). The edge is real because both sets
-        // are in the same schedule; a cross-schedule `.after` does nothing.
+        // Both run in `Update`. Without these edges, which authority sizes the
+        // GGRS session is a race. The seating a route or roster states this
+        // frame is what the session is built from. The edges are real because
+        // all three sets are in the same schedule; a cross-schedule `.after`
+        // does nothing.
         .configure_sets(
             Update,
             super::local_session::LocalSessionSet::Maintain
-                .after(ambition_input::InputSet::Collect),
+                .after(ambition_input::InputSet::Collect)
+                .after(ambition_input::SeatingDeclared),
         );
 
     // The authority retires before the world it governs.

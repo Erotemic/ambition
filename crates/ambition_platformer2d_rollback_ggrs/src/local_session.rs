@@ -350,21 +350,13 @@ pub fn maintain_local_session(world: &mut World) {
         .get_resource::<LocalSessionPolicy>()
         .copied()
         .unwrap_or_default();
-    // Already running exactly what is asked for — and "exactly" includes HOW
-    // MANY PEOPLE.
-    //
-    // the policy alone was not enough. The roster-aware seating freeze and this maintainer both
-    // run in `Update` with no ordering contract between them, so on the first gameplay frame this
-    // could freeze a topology from connected DEVICES before the roster published its decided
-    // PARTICIPANTS — which differ for a keyboard seat, a spare pad, or a CPU seat.
-    //
-    // The running `SyncTestSettings` are right there in the ownership resource, so comparing
-    // them costs nothing and closes the hole. Removing the comparison alone makes it pass,
-    // which isolates it.
-    //
-    // Detect-and-restart trades a wrong player count for a dead seat. Recorded as G2's residue
-    // rather than half-applied.
-    if session_live && owned == Some(policy) {
+    // Already running exactly what is asked for: the same policy AND the same
+    // seats. A route or a roster can state new seats while the policy stays the
+    // same; a session kept then would run the wrong number of handles.
+    if session_live
+        && owned == Some(policy)
+        && owned_settings.map(|running| running.players) == stated_players(world)
+    {
         return;
     }
     // ⛔⛤ **THE STOP USED TO BE HERE, AND EVERY EARLY RETURN BELOW IT WAS A WAY
@@ -478,6 +470,22 @@ pub fn maintain_local_session(world: &mut World) {
     let mut state = world.resource_mut::<LocalSessionOwnership>();
     state.started = Some(policy);
     state.last_error = None;
+}
+
+/// The seats a session built now would have, without freezing anything: the
+/// decided channel plan's, else the topology this gameplay session froze from
+/// its devices. `None` before either exists.
+fn stated_players(world: &World) -> Option<usize> {
+    if let Some(plan) = world
+        .get_resource::<SessionSeatingSource>()
+        .and_then(SessionSeatingSource::channel_plan)
+    {
+        return Some(plan.channels().max(1));
+    }
+    world
+        .get_resource::<ambition_input::LocalSeatTopology>()
+        .filter(|topology| topology.is_frozen())
+        .map(ambition_input::LocalSeatTopology::players)
 }
 
 /// The frozen seating for this gameplay session, captured once.
@@ -994,6 +1002,76 @@ mod session_replacement_tests {
                 .is_some_and(|error| error.contains("hidden construction candidates")),
             "the declined replacement left no reason behind: {:?}",
             world.resource::<LocalSessionOwnership>().last_error
+        );
+    }
+}
+
+#[cfg(test)]
+mod seat_admission_tests {
+    use super::*;
+    use crate::session::RollbackSessionOwnership;
+    use ambition_platformer2d_shared_tangle::lifecycle::{SessionRoot, SessionScopeId};
+
+    fn running_players(world: &World) -> Option<usize> {
+        match world.get_resource::<RollbackSessionOwnership>() {
+            Some(RollbackSessionOwnership::LocalSyncTest { settings, .. }) => Some(settings.players),
+            _ => None,
+        }
+    }
+
+    fn two_channels() -> SessionSeatingSource {
+        SessionSeatingSource::decided(
+            "route:plaza",
+            ambition_input::LocalChannelPlan::from_sources(
+                [0, 1].map(ambition_input::LocalInputSource::Pad),
+            ),
+        )
+    }
+
+    /// Seats stated in `SeatingDeclared` on the frame gameplay begins size the
+    /// first session the host builds, with the host's own schedule edges.
+    #[test]
+    fn seats_stated_this_frame_size_the_first_session() {
+        let mut app = App::new();
+        crate::session::install_session_bridge(&mut app);
+        app.init_resource::<ambition_input::LocalSeatTopology>()
+            .init_resource::<ambition_input::LocalDeviceOrder>();
+        app.world_mut().spawn(SessionRoot(SessionScopeId(1)));
+        app.add_systems(
+            Update,
+            (|mut seating: ResMut<SessionSeatingSource>| {
+                if seating.channel_plan().is_none() {
+                    *seating = two_channels();
+                }
+            })
+            .in_set(ambition_input::SeatingDeclared),
+        );
+        app.update();
+        assert_eq!(
+            running_players(app.world()),
+            Some(2),
+            "the first session was built before the seats stated this frame"
+        );
+    }
+
+    /// New seats under the same policy rebuild the session. The policy did not
+    /// change; the seats did, and the seats are part of what was asked for.
+    #[test]
+    fn new_seats_under_the_same_policy_rebuild_the_session() {
+        let mut world = World::new();
+        world.init_resource::<ambition_input::LocalSeatTopology>();
+        world.init_resource::<ambition_input::LocalDeviceOrder>();
+        world.init_resource::<LocalSessionOwnership>();
+        world.spawn(SessionRoot(SessionScopeId(1)));
+        maintain_local_session(&mut world);
+        assert_eq!(running_players(&world), Some(1), "premise: devices seat one");
+
+        world.insert_resource(two_channels());
+        maintain_local_session(&mut world);
+        assert_eq!(
+            running_players(&world),
+            Some(2),
+            "the session kept one handle after two seats were stated under the same policy"
         );
     }
 }

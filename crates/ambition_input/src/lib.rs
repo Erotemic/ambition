@@ -75,7 +75,7 @@ pub use local_seats::{
     assign_local_seat_devices, track_local_device_order, LocalSeatTopology,
     SeatDeviceOwnership as LocalSeatDeviceOwnership,
 };
-pub use seating::{LocalDeviceOrder, LocalSeatOffer, SessionSeatingSource};
+pub use seating::{LocalDeviceOrder, LocalSeatOffer, SeatingDeclared, SessionSeatingSource};
 
 /// Ordered participant-input pipeline. The host chains
 /// `Collect -> ResolveActions -> ResolveContext -> Route -> PublishCues -> Consume`.

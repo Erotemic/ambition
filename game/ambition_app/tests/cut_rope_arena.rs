@@ -107,6 +107,53 @@ fn slashing_the_rope_publishes_the_gate_the_encounter_script_waits_on() {
     );
 }
 
+/// The rope's beat walks the boss to its mark under the anvil. The script
+/// gives it a `CommandedMove`; the boss integrator must move it by that
+/// steering, which runs in `BossSteerSlot`.
+#[test]
+fn the_cut_rope_walks_the_boss_to_its_mark() {
+    use ambition_platformer2d::boss_encounter::CommandedMove;
+    let mut sim = cut_rope_sim();
+    for _ in 0..10 {
+        sim.step(AgentAction::default());
+    }
+    // Stand the boss well away from the anvil, so walking there is measurable.
+    {
+        let world = sim.world_mut();
+        let mut q = world.query_filtered::<&mut ambition_platformer2d::engine_core::BodyKinematics, bevy::prelude::With<ambition_platformer2d::boss_encounter::BossConfig>>();
+        for mut kin in q.iter_mut(world) {
+            kin.pos.x -= 300.0;
+        }
+    }
+    let rope = rope_pos(&mut sim);
+    slash(&mut sim, rope);
+    let mut lured = None;
+    for _ in 0..30 {
+        sim.step(AgentAction::default());
+        let world = sim.world_mut();
+        let mut q = world.query::<(bevy::prelude::Entity, &CommandedMove, &ambition_platformer2d::engine_core::BodyKinematics)>();
+        if let Some((boss, cmd, kin)) = q.iter(world).next() {
+            lured = Some((boss, cmd.target.x, kin.pos.x, cmd.arrive_tolerance));
+            break;
+        }
+    }
+    let (boss, mark, from, tolerance) = lured.expect("premise: the rope's beat gave the boss a CommandedMove");
+    assert!((mark - from).abs() > tolerance * 2.0, "premise: the boss starts away from its mark ({from} vs {mark})");
+    let mut closest = (mark - from).abs();
+    for _ in 0..240 {
+        sim.step(AgentAction::default());
+        let Some(kin) = sim.world().get::<ambition_platformer2d::engine_core::BodyKinematics>(boss) else {
+            break;
+        };
+        closest = closest.min((mark - kin.pos.x).abs());
+    }
+    assert!(
+        closest < (mark - from).abs() * 0.5,
+        "the lured boss did not walk to its mark: it started {:.0} away and came no nearer than {closest:.0}",
+        (mark - from).abs()
+    );
+}
+
 /// ⭐⭐ THE CONTROL ARM, and without it the test above is worth nothing: it would
 /// pass identically if the gate fired every frame on its own, or on room entry.
 /// Same room, same frames, no slash.

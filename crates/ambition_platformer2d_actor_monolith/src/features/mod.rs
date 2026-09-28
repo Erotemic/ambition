@@ -1314,11 +1314,14 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                     ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::BeforeIntegrate,
                 ),
         );
+        // Between the brain, which writes each boss's control, and the body
+        // integration, which reads it. After the integration, content steering
+        // is overwritten by the next brain tick before any integration sees it.
         app.configure_sets(
             sim,
             ambition_platformer2d_shared_tangle::schedule::BossSteerSlot
                 .after(tick_boss_brains_system)
-                .before(update_ecs_bosses)
+                .before(integrate_boss_bodies)
                 .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep),
         );
         // The cut-rope steer system itself is registered by the content

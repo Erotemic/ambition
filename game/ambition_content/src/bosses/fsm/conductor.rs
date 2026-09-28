@@ -575,7 +575,6 @@ pub fn conduct_fsm(
         let conducts = !driven || conductor.scripts_pose(part);
         if conducts {
             ae::movement::constrain_body_pose(&mut kin, sweep.as_deref_mut(), pos, (pos - at) / dt);
-            kin.facing = conductor.side;
             aabb.center = pos;
         } else {
             conductor.side = if kin.facing < 0.0 { -1.0 } else { 1.0 };
@@ -719,6 +718,22 @@ pub fn conduct_fsm(
             Some((name, elapsed, looping)) => row.pin(&[name], elapsed, looping),
             None => row.clear(),
         }
+    }
+}
+
+/// Turn the god to the side its conductor chose, through the control the body
+/// integrator applies. Only while the conductor holds the pose: a driven god
+/// faces where its participant steers it.
+///
+/// The boss brain turns every boss toward its target each tick; the
+/// conductor keeps the side a move chose when its tell began, so the god is
+/// drawn facing where its move goes. Runs in `BossSteerSlot`, after the brain
+/// and before the integration.
+pub fn face_conducted_gods(
+    mut gods: Query<(&FsmConductor, &mut ambition_characters::control::ActorControl), With<ae::PoseOwnedExternally>>,
+) {
+    for (conductor, mut control) in &mut gods {
+        control.0.facing = conductor.side;
     }
 }
 

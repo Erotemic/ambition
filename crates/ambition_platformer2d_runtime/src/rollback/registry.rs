@@ -846,7 +846,9 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// params exists to restore.
 /// ⛔⛤ 254 -> 255: `content.sanic_rolling` is a plain flag. Standing up gives
 /// back `BodyBaseSize`, so the row no longer carries a saved size or a probe.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 255;
+/// ⛔⛤ 255 -> 256: `actor.spawn_baseline` loses its gravity scale. A ride no
+/// longer writes the rider's scale, so nothing restores it from a copy.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 256;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

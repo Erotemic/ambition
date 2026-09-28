@@ -226,9 +226,12 @@ impl BodyContactSnapshot {
 ///
 /// ⛔ IT USED TO BE `ActorConfig::spawn`, two of its three fields, inside the
 /// actor monolith — so a mount dissolving a dead shark had to name the monolith's
-/// authored-actor definition in order to hand the rider its own body back, and
-/// THREE separate sites re-derived `gravity_scale` from `tuning.is_aerial` by
-/// hand. The scale is recorded once, where the body is built.
+/// authored-actor definition in order to hand the rider its own body back.
+///
+/// It records no gravity scale. `ActorSurfaceState::gravity_scale` stays as
+/// authored for the whole life of a body: a hold (a saddle) makes the frame
+/// resolve no pull instead of writing the scale, so nothing needs a copy to
+/// restore.
 ///
 /// Imported, never re-exported — the same rule [`Mass`] and [`MountDied`] state.
 #[derive(Component, Clone, Copy, Debug, PartialEq)]
@@ -238,10 +241,6 @@ pub struct SpawnBaseline {
     /// Authored collision size. A body that grew, crouched or rode a mount comes
     /// back to this one.
     pub size: ambition_platformer2d_core::Vec2,
-    /// Authored gravity scale: `0.0` for a body whose character flies, `1.0`
-    /// otherwise. Recorded at construction rather than re-derived, because the
-    /// live scale is what other mechanics borrow.
-    pub gravity_scale: f32,
 }
 
 use ambition_platformer2d_core::body_clusters::*;

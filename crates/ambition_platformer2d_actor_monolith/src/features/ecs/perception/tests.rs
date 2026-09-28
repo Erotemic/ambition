@@ -18,7 +18,6 @@ fn body(pos: ae::Vec2, faction: ActorFaction) -> PerceptionBody {
         faction,
         gravity_down: ae::Vec2::new(0.0, 1.0),
         on_ground: true,
-        aerial: false,
         alive: true,
         can_fire: true,
         can_blink: false,

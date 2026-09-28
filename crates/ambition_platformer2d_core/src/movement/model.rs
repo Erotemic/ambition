@@ -219,10 +219,10 @@ pub struct AxisManeuverState {
     /// [`Self::gravity_modifier`].
     ///
     /// ⚠ IT DOES NOT REPLACE `ActorSurfaceState::gravity_scale`, and must not:
-    /// three domains already save-set-restore that field (capture, mount, body
-    /// seed) and it is folded into the frame by `gravity/resolve.rs` BEFORE the
-    /// kernel's product. This joins at the other end and saves no prior, which
-    /// is precisely why a fourth participant is safe here and was not there.
+    /// that field is the body's authored scale, folded into the frame by
+    /// `gravity/resolve.rs` BEFORE the kernel's product. A capture still saves,
+    /// sets and restores it. This joins at the other end and saves no prior, so
+    /// it cannot disagree with a writer there about what to restore.
     pub gravity_modifier_scale: f32,
     /// Seconds left on [`Self::gravity_modifier_scale`]. `<= 0.0` means NO
     /// modifier, and the scale beside it is then not read.

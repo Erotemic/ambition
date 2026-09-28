@@ -25,9 +25,14 @@ use ambition_combat::actor_tuning::ActorConfig;
 /// - Player bodies (primary, clones, demo avatars): the authored gravity
 ///   response is the live movement tuning's `gravity`.
 /// - Actors and bosses (both carry the unified actor cluster): the response
-///   is `config.tuning.movement.gravity × surface.gravity_scale` — an aerial or
-///   mounted body's 0 scale is the zero-acceleration-with-retained-orientation
-///   case.
+///   is `config.tuning.movement.gravity × surface.gravity_scale` — an aerial
+///   body's 0 scale is the zero-acceleration-with-retained-orientation case.
+/// - A body whose pose another authority owns ([`PoseOwnedExternally`]: a
+///   rider in the saddle, a conducted boss) gets the same zero response. The
+///   constraint moves it, so gravity has nothing to move, and its authored
+///   scale is not written to say so.
+///
+/// [`PoseOwnedExternally`]: ambition_platformer2d_core::PoseOwnedExternally
 pub fn resolve_body_motion_frames(
     env: FrameEnv,
     tuning: Res<ambition_platformer2d_core::ActiveMovementTuning>,
@@ -43,6 +48,7 @@ pub fn resolve_body_motion_frames(
             &ambition_platformer2d_core::BodyKinematics,
             &ActorConfig,
             &ActorSurfaceState,
+            Has<ambition_platformer2d_core::PoseOwnedExternally>,
             &mut ResolvedMotionFrame,
         ),
         Without<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
@@ -54,8 +60,7 @@ pub fn resolve_body_motion_frames(
     // `ActorSurfaceState` at all. `PlayerSimulationBundle` does not carry one and
     // no avatar or ability path inserts one, so there is no scale here to apply.
     //
-    // ⇒ Every writer of `gravity_scale` — the mount saddle pin, capture, the body
-    // seed — targets bodies that DO have the component, and those match the
+    // ⇒ Every writer of `gravity_scale` — capture, the body seed — targets bodies that DO have the component, and those match the
     // `Without<PlayerEntity>` arm below, where the scale IS applied. Possession
     // does not change that: it queries `Without<PlayerEntity>` and leaves the
     // marker on the player box, so a possessed body keeps resolving as an actor.
@@ -73,8 +78,12 @@ pub fn resolve_body_motion_frames(
     for (kin, mut resolved) in &mut players {
         resolved.publish_resolved_frame(env.resolve(kin.aabb(), player_response));
     }
-    for (kin, config, surface, mut resolved) in &mut actors {
-        let response = config.tuning.movement.gravity * surface.gravity_scale;
+    for (kin, config, surface, held, mut resolved) in &mut actors {
+        let response = if held {
+            0.0
+        } else {
+            config.tuning.movement.gravity * surface.gravity_scale
+        };
         resolved.publish_resolved_frame(env.resolve(kin.aabb(), response));
     }
 }
@@ -208,6 +217,57 @@ mod tests {
             frame.down(),
             ae::Vec2::new(0.0, 1.0),
             "zero acceleration retains the environment-defined orientation"
+        );
+    }
+
+    /// A held body's gravity is a fact of the hold. The frame gives it no pull,
+    /// and its authored scale stays as authored, so nothing has to restore it
+    /// when the hold ends.
+    #[test]
+    fn a_body_whose_pose_is_owned_elsewhere_resolves_no_pull() {
+        use ambition_combat::actor_tuning::ActorConfig;
+
+        let mut app = resolver_app();
+        let mut tuning = ambition_combat::actor_tuning::ActorTuning::default();
+        tuning.movement.gravity = 800.0;
+        let config = ActorConfig {
+            tuning,
+            brain: ambition_entity_catalog::placements::CharacterBrain::Passive,
+            preserves_mirror_symmetry: false,
+        };
+        let body = |x: f32| {
+            (
+                ambition_platformer2d_core::BodyKinematics {
+                    pos: ae::Vec2::new(x, 50.0),
+                    vel: ae::Vec2::ZERO,
+                    size: ae::Vec2::new(20.0, 20.0),
+                    facing: 1.0,
+                },
+                config.clone(),
+                ActorSurfaceState {
+                    surface_normal: ae::Vec2::new(0.0, -1.0),
+                    gravity_scale: 1.0,
+                },
+                ResolvedMotionFrame::default(),
+            )
+        };
+        let free = app.world_mut().spawn(body(50.0)).id();
+        let held = app
+            .world_mut()
+            .spawn((body(90.0), ambition_platformer2d_core::PoseOwnedExternally))
+            .id();
+        app.update();
+        assert_eq!(
+            frame_of(&app, free).acceleration(),
+            ae::Vec2::new(0.0, 800.0),
+            "control: the same body with nobody holding it falls"
+        );
+        assert_eq!(frame_of(&app, held).acceleration(), ae::Vec2::ZERO, "held: zero pull");
+        assert_eq!(frame_of(&app, held).down(), ae::Vec2::new(0.0, 1.0), "held: orientation kept");
+        assert_eq!(
+            app.world().get::<ActorSurfaceState>(held).unwrap().gravity_scale,
+            1.0,
+            "the hold wrote nothing to the authored scale"
         );
     }
 

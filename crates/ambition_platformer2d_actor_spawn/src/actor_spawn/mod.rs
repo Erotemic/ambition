@@ -978,12 +978,9 @@ fn boss_actor_cluster(
             respawn_timer: 0.0,
         },
         actor_config,
-        // A boss FLIES, so its authored gravity scale is 0.0 — the same value
-        // its live surface state starts at, three lines down.
         ambition_platformer2d_shared_tangle::body::SpawnBaseline {
             pos: kin.pos,
             size: kin.size,
-            gravity_scale: 0.0,
         },
         ambition_body_seed::ActorMotionPath::default(),
         ambition_platformer2d_core::body_clusters::ActorSurfaceState {

@@ -387,8 +387,6 @@ pub struct SelfView {
     /// this; defaults to screen-down `(0, 1)`.
     pub gravity_down: ae::Vec2,
     pub on_ground: bool,
-    /// Gravity-free free-mover (a flyer): the brain steers 2D velocity directly.
-    pub aerial: bool,
     pub alive: bool,
     pub faction: ActorFaction,
     /// Ranged attack available this tick (cooldown elapsed + capability present).

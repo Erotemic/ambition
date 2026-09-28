@@ -521,14 +521,9 @@ impl ActorClusterSeed {
                 gravity_scale,
             },
             attack: BodyMelee::default(),
-            // ⭐ THE AUTHORED GRAVITY SCALE IS RECORDED, not re-derived. Three
-            // sites used to spell `if is_aerial { 0.0 } else { 1.0 }` — here,
-            // `reset_to_spawn`, and the mount dismount — which is two
-            // representations of one authored fact agreeing by convention.
             spawn: SpawnBaseline {
                 pos,
                 size: collision_size,
-                gravity_scale,
             },
             identity: ActorIdentity::new(id, name),
             config: ActorConfig {
@@ -726,14 +721,9 @@ impl ActorClusterSeed {
                 gravity_scale,
             },
             attack: BodyMelee::default(),
-            // ⭐ THE AUTHORED GRAVITY SCALE IS RECORDED, not re-derived. Three
-            // sites used to spell `if is_aerial { 0.0 } else { 1.0 }` — here,
-            // `reset_to_spawn`, and the mount dismount — which is two
-            // representations of one authored fact agreeing by convention.
             spawn: SpawnBaseline {
                 pos,
                 size: collision_size,
-                gravity_scale,
             },
             identity: ActorIdentity::new(id, display_name),
             config: ActorConfig {

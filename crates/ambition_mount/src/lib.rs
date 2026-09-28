@@ -246,11 +246,11 @@ pub fn rider_of(mount: Entity) -> (RidingOn, RideConstraints) {
 /// ⛔⛔ THEY MUST BE ARMED AND DISARMED TOGETHER, and for a while they were not.
 /// `enforce_mount_rider_link` predates `PoseOwnedExternally` and still ran the
 /// older two-component machine: mount death removed `Mounted` alone, so the
-/// rider was handed back its gravity, its solo brain and an
+/// rider was handed back its solo brain and an
 /// unclaimed control while the movement kernel went on believing another authority
 /// owned its pose — an autonomous body that could not move itself. The re-arm
-/// after a same-room reset had the mirror bug: it restored the cached brain,
-/// zero gravity and `Mounted`, and left the constraint off a body being
+/// after a same-room reset had the mirror bug: it restored the cached brain
+/// and `Mounted`, and left the constraint off a body being
 /// carried again.
 ///
 /// ⭐ `RidingOn` IS NOT IN HERE ON PURPOSE. It is the DURABLE association the
@@ -362,9 +362,9 @@ pub fn steer_mount_from_rider(
         //
         // `locomotion` is CONTROLLED-BODY-LOCAL, so copying it between two
         // bodies is only sound while both resolve the SAME frame. They do
-        // today, and not by accident: `sync_riders_to_mounts` zeroes the rider's
-        // gravity SCALE and not its direction, so the rider keeps the room's
-        // gravity — the same direction the mount resolves `control_down` from.
+        // today, and not by accident: a held rider resolves ZERO PULL, not a
+        // different direction, so the rider keeps the room's gravity direction
+        // — the same direction the mount resolves `control_down` from.
         // Nothing enforces that, which is why it is written here.
         //
         // the case it would break is named in `actors/update.rs`: *"a surface-walker's frame is its
@@ -453,8 +453,10 @@ pub fn steer_mount_from_rider(
     }
 }
 
-/// Lock every rider's position / facing / vel / gravity to its
-/// mount each tick. Runs after the per-actor brain tick so the
+/// Lock every rider's position / facing / vel to its
+/// mount each tick. The rider's gravity is not written: the rider carries
+/// `PoseOwnedExternally`, and a held body resolves no pull (see the frame
+/// resolver in the actor monolith's `gravity::resolve`). Runs after the per-actor brain tick so the
 /// rider's brain has had a chance to emit a fire intent against
 /// the target from a position close to where it'll actually be
 /// after the snap.
@@ -487,7 +489,6 @@ pub fn sync_riders_to_mounts(
             // lacking, say, `BodyOffense` silently got no saddle pin. Nothing
             // about carrying a rider depends on a damage multiplier.
             &mut ae::BodyKinematics,
-            &mut ae::ActorSurfaceState,
             &mut ae::BodyGroundState,
             &ambition_characters::actor::BodyHealth,
             // The travelled path the saddle pin ends.
@@ -517,7 +518,6 @@ pub fn sync_riders_to_mounts(
         mut rider_aabb,
         mounted_size,
         mut rider_kin,
-        mut rider_surface,
         mut rider_ground,
         rider_health,
         mut rider_sweep,
@@ -537,8 +537,7 @@ pub fn sync_riders_to_mounts(
         }
         // Snap pose to the mount. Vel zeroed so update_ecs_actors'
         // integrator can't drift the rider off the mount on the
-        // next frame; gravity zeroed so a Bevy-side integrator that
-        // applies gravity to all hostiles can't pull it down.
+        // next frame.
         //
         // The saddle offset is authored in the mount's local frame; rotate it into
         // world space by the pair's gravity frame. See `saddle_world_offset`.
@@ -560,7 +559,6 @@ pub fn sync_riders_to_mounts(
             ae::Vec2::ZERO,
         );
         rider_kin.facing = mount_kin.facing;
-        rider_surface.gravity_scale = 0.0;
         // ⛔ `invalidate()` for the same reason a captive gets it: the saddle pin
         // is a discrete pose write every tick, so clearing the flag without the
         // BASELINE leaves the kernel believing the rider was airborne — and a
@@ -950,9 +948,9 @@ pub fn tick_ride_leases(
 
 /// Perform the dissolutions [`DismountRequested`] asked for.
 ///
-/// The rider gets its authored body back — the gravity this module zeroed while
-/// it was carried, and the size the saddle may have snapped — and the mount's
-/// slot is emptied so it can carry somebody else.
+/// The rider gets its authored size back, which the saddle may have snapped, and
+/// the mount's slot is emptied so it can carry somebody else. Its gravity needs
+/// no restore: the ride never wrote it.
 ///
 /// ⛔ THE RIDER'S BRAIN IS NOT REBUILT HERE. A dead mount announces `MountDied`
 /// and `rebuild_dismounted_rider_brains` answers it, because that rebuild needs
@@ -969,7 +967,6 @@ pub fn apply_dismount_requests(
             &RidingOn,
             &mut CenteredAabb,
             &mut ae::BodyKinematics,
-            &mut ae::ActorSurfaceState,
             &SpawnBaseline,
         ),
         Without<MountSlot>,
@@ -978,14 +975,13 @@ pub fn apply_dismount_requests(
     mut left: MessageWriter<RiderDismounted>,
 ) {
     for request in requests.read() {
-        let Ok((riding, mut aabb, mut kin, mut surface, baseline)) = riders.get_mut(request.rider)
+        let Ok((riding, mut aabb, mut kin, baseline)) = riders.get_mut(request.rider)
         else {
             continue;
         };
         let mount = riding.mount;
-        // The authored body, from the record that survived the ride — the live
-        // values are exactly the ones the saddle overwrote.
-        surface.gravity_scale = baseline.gravity_scale;
+        // The authored size, from the record that survived the ride — the live
+        // size is the one the saddle overwrote.
         kin.size = baseline.size;
         aabb.center = kin.pos;
         aabb.half_size = kin.size * 0.5;
@@ -1086,7 +1082,7 @@ pub struct DismountRequestsApplied;
 /// Dissolve a rider / mount link when either side dies. Runs after
 /// the damage pass.
 ///
-/// - Mount dies: rider's gravity flips on (so they fall), and the dissolution is
+/// - Mount dies: the rider stops being held (so it falls), and the dissolution is
 ///   ANNOUNCED with `MountDied`. `rebuild_dismounted_rider_brains` answers it and
 ///   swaps the brain + action set, so a pirate falling off a dead shark keeps
 ///   whatever capabilities their held item grants (gun-sword shots today, axe /
@@ -1120,16 +1116,14 @@ pub fn enforce_mount_rider_link(
             // ⭐ THE RIDE'S CLAIM, read so it can be kept in step with the ride
             // itself rather than only with the tick the ride was ARMED.
             Option<&ambition_platformer2d_shared_tangle::temporary_control::ControlClaims>,
-            // The same four columns the saddle sync names, plus the rider's
-            // AUTHORED baseline — the body a reset hands back.
+            // The rider's kinematics and health, plus its AUTHORED baseline —
+            // the size a reset hands back.
             //
-            // ⭐ THE LIVE COMPONENTS ARE NOT THAT FACT, which is why it has its
-            // own name: `BodyBaseSize` follows the stance, `fly_enabled` is
-            // toggled at runtime, and `gravity_scale` is the value THIS MODULE
-            // zeroes while the rider is in the saddle. Reading any of them here
-            // would hand a grown or a landed rider the wrong body back.
+            // ⭐ THE LIVE SIZE IS NOT THAT FACT, which is why it has its own
+            // name: `BodyBaseSize` follows the stance, and the saddle snaps
+            // `BodyKinematics::size`. Reading either here would hand a grown
+            // rider the wrong body back.
             &mut ae::BodyKinematics,
-            &mut ae::ActorSurfaceState,
             &mut ambition_characters::actor::BodyHealth,
             &SpawnBaseline,
         ),
@@ -1201,7 +1195,6 @@ pub fn enforce_mount_rider_link(
         was_mounted,
         rider_claims,
         mut rider_kin,
-        mut rider_surface,
         mut rider_health,
         rider_spawn,
     ) in &mut riders
@@ -1302,10 +1295,9 @@ pub fn enforce_mount_rider_link(
             // either just spawned without the marker (first tick)
             // or the same-room reset path brought the mount back to
             // life. Restore the cached MOUNTED brain + action set
-            // and zero gravity. Re-arm idempotently.
+            // and the ride's constraints. Re-arm idempotently.
             (true, false) => {
                 if let Some(cache) = cache {
-                    rider_surface.gravity_scale = 0.0;
                     commands.entity(rider_entity).insert((
                         cache.brain.clone(),
                         cache.action_set.clone(),
@@ -1331,8 +1323,8 @@ pub fn enforce_mount_rider_link(
                     }
                 }
             }
-            // Mount dead, rider currently mounted → dissolve. Flip gravity on,
-            // keep the rider at its authored sky-rider size, emit `MountDied`,
+            // Mount dead, rider currently mounted → dissolve. Release the
+            // hold (so gravity applies again), keep the rider at its authored sky-rider size, emit `MountDied`,
             // and install the shared explicitly-hostile dismounted rider
             // brain/action-set policy so a PirateRaider / PirateHeavy variant
             // falls and fights without visually scaling up — EXCEPT a boss
@@ -1354,11 +1346,6 @@ pub fn enforce_mount_rider_link(
                         continue;
                     }
                 }
-                // ⭐ THE AUTHORED SCALE, READ rather than re-derived from
-                // `tuning.is_aerial`. An aerial rider keeps floating; a walker
-                // falls. This module is what zeroed the live value, so the
-                // baseline is the only place the answer survived.
-                rider_surface.gravity_scale = rider_spawn.gravity_scale;
                 rider_kin.size = rider_spawn.size;
                 // Publish immediately so same-frame presentation / combat sees
                 // the rider's grounded pose. This is usually the same size as
@@ -1948,13 +1935,8 @@ mod dismount_claim_tests {
                 SpawnBaseline {
                     pos: Vec2::ZERO,
                     size: Vec2::new(24.0, 40.0),
-                    gravity_scale: 1.0,
                 },
                 ambition_platformer2d_core::BodyKinematics::default(),
-                ambition_platformer2d_core::ActorSurfaceState {
-                    surface_normal: Vec2::new(0.0, -1.0),
-                    gravity_scale: 0.0,
-                },
                 ambition_platformer2d_core::CenteredAabb::from_center_size(
                     Vec2::ZERO,
                     Vec2::new(24.0, 40.0),

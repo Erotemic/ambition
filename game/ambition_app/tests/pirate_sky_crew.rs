@@ -214,3 +214,68 @@ fn every_rider_stands_in_its_sharks_saddle() {
         );
     }
 }
+
+/// A ride holds its rider without writing the rider's gravity. The saddle owns
+/// the rider's pose, so the frame resolves no pull for it; the rider's authored
+/// scale (a raider walks: 1.0) stays as authored for the whole ride, so a
+/// dismount has nothing to restore.
+#[test]
+fn a_ride_holds_its_rider_without_writing_its_gravity() {
+    use ambition_platformer2d::platformer::frame_env::ResolvedMotionFrame;
+    let mut sim = fixed_60hz_room_sim(ROOM);
+    let mut held_ticks = 0;
+    for _ in 0..3 * 60 {
+        sim.step(ambition_app::AgentAction::default());
+        let world = sim.world_mut();
+        let mut riders = world.query::<(
+            &WornCharacter,
+            &ae::ActorSurfaceState,
+            &ResolvedMotionFrame,
+            &RidingOn,
+            bevy::prelude::Has<ae::PoseOwnedExternally>,
+        )>();
+        for (worn, surface, frame, _, held) in riders.iter(world) {
+            if worn.0.to_string() != "npc_pirate_raider" || !held {
+                continue;
+            }
+            held_ticks += 1;
+            assert_eq!(
+                surface.gravity_scale, 1.0,
+                "the ride wrote a raider's authored gravity scale"
+            );
+            assert_eq!(
+                frame.get().acceleration(),
+                ae::Vec2::ZERO,
+                "a raider held in the saddle still resolved a pull"
+            );
+        }
+    }
+    assert!(held_ticks > 0, "the premise: raiders ride held in the lookout");
+}
+
+/// A rider steers in flight because its MOUNT flies. A raider walks (its
+/// authored scale is 1.0), and the ride no longer writes that scale, so a brain
+/// that asked the rider about itself would think the pair walks. A Skirmisher
+/// that thinks it walks stands still while it has nobody to fight; one on a
+/// shark sweeps. MEASURED with the rider asked about itself: one raider hung
+/// still for 60 of its first 120 ticks.
+#[test]
+fn a_rider_on_a_flying_mount_steers_in_flight_from_the_first_tick() {
+    let mut sim = fixed_60hz_room_sim(ROOM);
+    let mut still: BTreeMap<Entity, (String, usize)> = BTreeMap::new();
+    for _ in 0..2 * 60 {
+        sim.step(ambition_app::AgentAction::default());
+        let world = sim.world_mut();
+        let mut riders = world.query::<(Entity, &WornCharacter, &ActorControl, &RidingOn, &BodyHealth)>();
+        for (entity, worn, control, _, health) in riders.iter(world) {
+            let row = still.entry(entity).or_insert_with(|| (worn.0.to_string(), 0));
+            if health.alive() && control.0.velocity_target.vec().length() <= 1e-3 {
+                row.1 += 1;
+            }
+        }
+    }
+    assert_eq!(still.len(), 4, "the premise: four riders on sharks: {still:?}");
+    for (who, ticks) in still.values() {
+        assert_eq!(*ticks, 0, "{who} hung still in the saddle of a flying shark: {still:?}");
+    }
+}

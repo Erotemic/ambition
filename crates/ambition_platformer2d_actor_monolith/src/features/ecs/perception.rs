@@ -95,7 +95,6 @@ pub struct PerceptionBody {
     /// Local gravity direction (unit) — carried so a brain can reason frame-local.
     pub gravity_down: ae::Vec2,
     pub on_ground: bool,
-    pub aerial: bool,
     pub alive: bool,
     pub can_fire: bool,
     pub can_blink: bool,
@@ -742,7 +741,6 @@ pub fn build_world_view(
         half_extent: body.half_extent,
         gravity_down: body.gravity_down,
         on_ground: body.on_ground,
-        aerial: body.aerial,
         alive: body.alive,
         faction: body.faction,
         can_fire: body.can_fire,
@@ -1030,7 +1028,6 @@ pub(crate) fn perception_body_for(
         faction,
         gravity_down,
         on_ground: body.ground.on_ground,
-        aerial: body.surface.gravity_scale <= 0.001,
         alive: body.health.alive(),
         can_fire: action_set.is_some_and(|a| a.ranged.is_some()),
         // Movement capability is read off the body's own

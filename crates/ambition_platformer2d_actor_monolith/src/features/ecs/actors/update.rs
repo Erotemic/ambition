@@ -268,6 +268,9 @@ pub fn tick_actor_brains(
     // Any body's collision extent, read-only: a rider's mount, for its width,
     // and whether turning it mirrors it at all.
     bodies: Query<(&ae::BodyKinematics, bevy::prelude::Has<ae::Unmirrored>)>,
+    // A rider's mount, for whether the pair steers in flight. See
+    // `steers_in_flight`.
+    carriers: Query<(&ae::ActorSurfaceState, &ae::BodyFlightState)>,
     mut actors: Query<
         (
             Entity,
@@ -537,6 +540,13 @@ pub fn tick_actor_brains(
                         this_actor_entity,
                         &captives,
                     );
+                    // A rider steers its mount, so the pair steers in flight
+                    // when the MOUNT does. The rider's own locomotion does not
+                    // move the pair: the saddle holds it.
+                    let aerial = match riding.and_then(|riding| carriers.get(riding.mount).ok()) {
+                        Some((surface, flight)) => steers_in_flight(surface, flight),
+                        None => steers_in_flight(body.surface, body.flight),
+                    };
                     let mut snapshot = build_enemy_brain_snapshot(
                         &body,
                         target_pos,
@@ -570,6 +580,7 @@ pub fn tick_actor_brains(
                                 recent: *recent,
                                 rules: *rules,
                             }),
+                        aerial,
                     );
                     // An `Unmirrored` mount shows no turn, so its rider turns
                     // by its own box.
@@ -2214,6 +2225,25 @@ fn capture_candidate(
     })
 }
 
+/// Whether a body steers a 2D `velocity_target` instead of walking and jumping.
+///
+/// That is a body in FLIGHT: a pure free-mover (authored `gravity_scale` 0) OR a
+/// grounded-base hybrid that has toggled flight on (`flight.fly_enabled`).
+/// Without the `fly_enabled` half a hybrid that takes off keeps perceiving
+/// itself grounded and re-toggles the fly intent every tick (flip-flop) instead
+/// of sustaining flight. Matches the integrator's flight-limb predicate
+/// (`fly_enabled && abilities.fly`).
+///
+/// ⛔ A RIDER IS ASKED ABOUT ITS MOUNT, not about itself (see the caller). A
+/// hold does not write the held body's `gravity_scale`, so a rider's own scale
+/// says how it moves on foot, not how the pair moves.
+pub(crate) fn steers_in_flight(
+    surface: &ae::ActorSurfaceState,
+    flight: &ae::BodyFlightState,
+) -> bool {
+    surface.gravity_scale <= 0.001 || flight.fly_enabled
+}
+
 /// Build a `BrainSnapshot` for an enemy actor's per-tick brain call.
 /// Carries the per-frame body / target / cooldown view every brain
 /// backend reads from; `crowding` is only consulted by the Smash
@@ -2253,6 +2283,9 @@ fn build_enemy_brain_snapshot(
     // How worn this body's moves are, for the same reason `ranged` is here.
     // See `WornMoves`.
     worn: Option<WornMoves>,
+    // Whether the brain steers a 2D `velocity_target`, resolved by the caller,
+    // which knows whether this body rides a mount. See `steers_in_flight`.
+    aerial: bool,
 ) -> ambition_characters::brain::BrainSnapshot {
     let swing = ambition_combat::moveset::melee_swing_of(playback, moveset);
     ambition_characters::brain::BrainSnapshot {
@@ -2301,13 +2334,7 @@ fn build_enemy_brain_snapshot(
         // system already names this body by (targets, crowding, slot requests),
         // so an explanation joins against the same identity everything else uses.
         subject: Some(body.identity.id.clone()),
-        // The brain steers 2D `velocity_target` whenever the body is in FLIGHT — a
-        // pure free-mover (gravity_scale == 0) OR a grounded-base hybrid that has
-        // toggled flight on (`flight.fly_enabled`). Without the `fly_enabled` half a
-        // hybrid that takes off keeps perceiving itself grounded and re-toggles the
-        // fly intent every tick (flip-flop) instead of sustaining flight. Matches the
-        // integrator's flight-limb predicate (`fly_enabled && abilities.fly`).
-        actor_aerial: body.surface.gravity_scale <= 0.001 || body.flight.fly_enabled,
+        actor_aerial: aerial,
         alive: body.health.alive(),
         captured: capture.captured,
         captured_for: capture.captured_for,

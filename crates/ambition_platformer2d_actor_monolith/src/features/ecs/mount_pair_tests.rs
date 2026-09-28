@@ -136,7 +136,11 @@ fn sync_riders_to_mounts_snaps_rider_to_mount_offset() {
         "the rider stands on the seat, its soles on the mount's top",
     );
     assert_eq!(k.vel, ae::Vec2::ZERO, "rider vel zeroed by sync");
-    assert_eq!(s.gravity_scale, 0.0, "rider gravity zeroed by sync");
+    assert_eq!(
+        s.gravity_scale, 1.0,
+        "the saddle wrote the rider's authored gravity scale; a held body's \
+         zero pull belongs to the frame resolver, which reads `PoseOwnedExternally`"
+    );
 
     let aabb = app.world().entity(rider).get::<CenteredAabb>().unwrap();
     assert_eq!(
@@ -191,7 +195,6 @@ fn spawn_pair(app: &mut App, mount_alive: bool, rider_alive: bool) -> (Entity, E
     if !rider_alive {
         rider_actor.1 .2.health.current = 0;
     }
-    rider_actor.1 .6.gravity_scale = 0.0;
     let rider = app
         .world_mut()
         .spawn((
@@ -217,7 +220,7 @@ fn spawn_pair(app: &mut App, mount_alive: bool, rider_alive: bool) -> (Entity, E
     (mount, rider)
 }
 
-/// Mount's death dissolves the link: rider's gravity flips on,
+/// Mount's death dissolves the link: the rider is no longer held,
 /// brain swaps to the solo PirateRaider Smash, and the Mounted
 /// marker is removed. RidingOn + MountSlot stay attached so the
 /// same-room reset path can re-arm the link without an id
@@ -249,7 +252,7 @@ fn dead_mount_dissolves_link_keeping_records() {
         "Mounted marker removed on dissolve",
     );
     // ⭐⭐ BOTH HALVES OF THE RELATION, and this is the half that was missing.
-    // The statement above hands the rider its gravity, its solo brain and
+    // The statement above hands the rider its solo brain and
     // a released Mount claim; leaving `PoseOwnedExternally` set makes
     // the movement kernel refuse to integrate the locomotion of the body that
     // statement just declared autonomous. See `ambition_mount::RideConstraints`.
@@ -260,11 +263,6 @@ fn dead_mount_dissolves_link_keeping_records() {
             .is_none(),
         "a rider whose mount died still had its pose owned externally — it is \
          autonomous now and nothing else will ever move it",
-    );
-    assert_eq!(
-        rider_surface(app.world(), rider).gravity_scale,
-        1.0,
-        "PirateRaider rider gets gravity 1.0"
     );
     let brain = app
         .world()
@@ -290,7 +288,7 @@ fn dead_mount_dissolves_link_keeping_records() {
 /// The same-room reset brings the mount back, and the ride re-arms WHOLE.
 ///
 /// ⛔⛔ THE MIRROR OF THE DEATH BUG, and it had no coverage at all. The re-arm
-/// restored the cached brain, the cached action set, zero gravity and `Mounted`
+/// restored the cached brain, the cached action set and `Mounted`
 /// — and left `PoseOwnedExternally` off a body that is being carried again, so
 /// the kernel went on integrating the locomotion of a rider the saddle pins
 /// every frame. Two authorities over one displacement, which is the exact thing
@@ -354,7 +352,7 @@ fn a_revived_mount_re_arms_both_halves_of_the_ride() {
 /// Q19b (ADR 0020): a rider whose identity is AUTHORED — it carries
 /// `BossConfig` — keeps its `Brain` untouched on dismount (its behavior is not
 /// derived from a kit, so re-deriving it would be wrong). It still re-grounds
-/// (gravity on, `Mounted` removed) and emits `MountDied`, but lands on foot
+/// (no longer held, `Mounted` removed) and emits `MountDied`, but lands on foot
 /// still running its authored brain — gnuton stepping off his dead giant.
 #[test]
 fn boss_rider_keeps_its_brain_and_emits_mount_died_on_dismount() {
@@ -421,11 +419,13 @@ fn boss_rider_keeps_its_brain_and_emits_mount_died_on_dismount() {
         ),
         "a BossConfig rider must keep its authored Brain on dismount",
     );
-    // Re-grounding still happens: gravity flipped on, Mounted marker cleared.
-    assert_eq!(
-        rider_surface(app.world(), rider).gravity_scale,
-        1.0,
-        "the dismounted boss rider still gets gravity so it falls to the floor",
+    // Re-grounding still happens: the hold ends, Mounted marker cleared.
+    assert!(
+        app.world()
+            .entity(rider)
+            .get::<ae::PoseOwnedExternally>()
+            .is_none(),
+        "the dismounted boss rider is still held, so gravity cannot bring it to the floor",
     );
     assert!(
         app.world().entity(rider).get::<Mounted>().is_none(),
@@ -484,7 +484,6 @@ fn spawn_dead_mount_with_impact(app: &mut App, death_impact: MountDeathImpact) -
     let rider_pos = ae::Vec2::new(0.0, -40.0);
     let rider_size = ae::Vec2::new(44.0, 78.0);
     let mut rider_actor = hostile("rider", "pirate_raider", rider_pos, rider_size);
-    rider_actor.1 .6.gravity_scale = 0.0;
     // Force a known 5-HP pool so splash arithmetic is deterministic
     // regardless of what the seed default resolves to in a minimal test.
     rider_actor.1 .2 = ambition_characters::actor::BodyHealth::new(
@@ -516,7 +515,7 @@ fn rider_health(world: &bevy::prelude::World, e: Entity) -> ambition_characters:
 
 /// ADR 0020: a non-lethal mount `death_impact: Splash(n)` subtracts `n`
 /// from the rider's separate HP pool on the death transition, then the
-/// rider still dismounts (gravity on, Mounted removed).
+/// rider still dismounts (no longer held, Mounted removed).
 #[test]
 fn nonlethal_mount_death_splash_damages_the_rider_then_dismounts() {
     let mut app = build_app();
@@ -538,10 +537,12 @@ fn nonlethal_mount_death_splash_damages_the_rider_then_dismounts() {
         app.world().entity(rider).get::<Mounted>().is_none(),
         "surviving rider still dismounts (Mounted removed)",
     );
-    assert_eq!(
-        rider_surface(app.world(), rider).gravity_scale,
-        1.0,
-        "surviving rider falls off the dead mount",
+    assert!(
+        app.world()
+            .entity(rider)
+            .get::<ae::PoseOwnedExternally>()
+            .is_none(),
+        "surviving rider is still held by the dead mount, so it cannot fall",
     );
 }
 
@@ -799,7 +800,7 @@ fn a_player_controlled_rider_pilots_the_mount_agnostically() {
 /// Same-room reset re-arms the link: starting from a dissolved
 /// state (mount dead, rider with solo brain), once the mount's
 /// `alive` flag is set back to true the enforcer restores the
-/// MOUNTED brain + Mounted marker + zero gravity on the rider.
+/// MOUNTED brain + Mounted marker + the hold on the rider.
 #[test]
 fn reviving_mount_re_arms_rider_to_mounted_brain() {
     let mut app = build_app();
@@ -823,10 +824,12 @@ fn reviving_mount_re_arms_rider_to_mounted_brain() {
         app.world().entity(rider).get::<Mounted>().is_some(),
         "Mounted marker should be re-added on revive",
     );
-    assert_eq!(
-        rider_surface(app.world(), rider).gravity_scale,
-        0.0,
-        "rider gravity should be zeroed back to mounted state",
+    assert!(
+        app.world()
+            .entity(rider)
+            .get::<ae::PoseOwnedExternally>()
+            .is_some(),
+        "the re-armed rider must be held again, so the frame gives it no pull",
     );
     let brain = app
         .world()
@@ -908,7 +911,7 @@ fn limb_routed_rider() -> ambition_boss_encounter::BossProfile {
 ///   * `npc_giant_gnu` resolves a character sprite (the mount renders via the
 ///     character-sprite path, not the boss split-overlay), and
 ///   * linking the pair and killing the mount drives the Q19 bridge: the boss
-///     dismounts KEEPING its Brain (the BossConfig rule), gravity flips on, and
+///     dismounts KEEPING its Brain (the BossConfig rule), the hold ends, and
 ///     a `mount_died` External trigger advances its phase.
 ///
 /// ⚠ The trigger is stated HERE. The shipped GNU-ton's giant cannot die (the
@@ -993,7 +996,6 @@ fn giant_gnu_mount_and_gnu_ton_rider_dismount_bridge_end_to_end() {
     let rider_pos = ae::Vec2::new(0.0, -140.0);
     let rider_size = ae::Vec2::new(54.0, 96.0);
     let mut rider_actor = hostile("gnu_ton_rider", "gnu_ton_rider", rider_pos, rider_size);
-    rider_actor.1 .6.gravity_scale = 0.0; // mounted → gravity off
     let (boss_encounter, _hp) = ambition_boss_encounter::test_support::test_boss_status_with(
         profile.encounter.max_hp,
         BossEncounterPhase::Phase1,
@@ -1037,11 +1039,13 @@ fn giant_gnu_mount_and_gnu_ton_rider_dismount_bridge_end_to_end() {
         ),
         "the dismounted gnu_ton_rider boss must keep its authored Brain",
     );
-    // Gravity flipped on so the scholar falls off the dead giant.
-    assert_eq!(
-        rider_surface(app.world(), rider).gravity_scale,
-        1.0,
-        "the dismounted boss gets gravity so it lands on foot",
+    // The hold ends so the scholar falls off the dead giant.
+    assert!(
+        app.world()
+            .entity(rider)
+            .get::<ae::PoseOwnedExternally>()
+            .is_none(),
+        "the dismounted boss is still held, so it cannot land on foot",
     );
     // Mounted marker cleared.
     assert!(
@@ -1360,7 +1364,6 @@ fn a_possessing_player_slams_the_giants_hands_via_the_verb_map() {
         rider_pos,
         ae::Vec2::new(54.0, 96.0),
     );
-    rider_actor.1 .6.gravity_scale = 0.0; // mounted → gravity off
     let rider = app
         .world_mut()
         .spawn((

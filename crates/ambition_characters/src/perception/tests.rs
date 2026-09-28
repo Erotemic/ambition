@@ -8,7 +8,6 @@ fn self_view_at(pos: ae::Vec2, faction: ActorFaction) -> SelfView {
         half_extent: ae::Vec2::new(10.0, 16.0),
         gravity_down: ae::Vec2::new(0.0, 1.0),
         on_ground: true,
-        aerial: false,
         alive: true,
         faction,
         can_fire: true,

@@ -1444,6 +1444,21 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
             sim,
             interact_ecs_actors_and_switches.in_set(FeatureInteractionSet::Actuate),
         );
+        // A pet is decided before a door reads the press (room transitions
+        // run before feature interactions), so a pettable body the player is
+        // standing on is petted rather than walked past; see the system for
+        // when a nearer door keeps the press instead.
+        app.add_systems(
+            sim,
+            ecs::pet_pettable_characters
+                .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated)
+                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::RoomTransition)
+                .before(ambition_platformer2d_shared_tangle::schedule::RoomTransitionSet::Detect),
+        );
+        app.add_systems(
+            sim,
+            ecs::project_gesture_holds.in_set(FeatureInteractionSet::HoldProjection),
+        );
         // The cast half of the conversation break. It sits in a set the
         // conversation ordering vocabulary declares and this domain fills —
         // the temporal twin of the `ConversationCutBark` message port.

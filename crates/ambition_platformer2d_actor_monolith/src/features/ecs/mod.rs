@@ -64,6 +64,7 @@ mod encounter_rewards;
 #[cfg(test)]
 mod fighter_harness;
 mod interact;
+mod pet;
 pub mod perception;
 pub mod pickups;
 pub(crate) mod spawn;
@@ -123,6 +124,7 @@ pub use hitbox::{
     HitboxKnockback, HitboxLifetime,
 };
 pub use interact::interact_ecs_actors_and_switches;
+pub use pet::{pet_pettable_characters, project_gesture_holds, PET_SECONDS};
 // ⭐ THE MOUNT PAIR'S TESTS STAYED, because their fixtures are this crate's
 // construction road. They exercise `ambition_mount` from the composition.
 #[cfg(test)]

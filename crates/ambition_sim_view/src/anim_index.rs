@@ -380,7 +380,9 @@ pub fn rebuild_actor_anim_index(mut index: ResMut<ActorAnimIndex>, actors: Query
                                     .map(ambition_character_sprites::GuardBreakBeat::from_phase),
                                 parrying: a.shield.parrying(),
                                 guard_stunned: a.shield.stun_timer > 0.0,
-                            },
+                                ..Default::default()
+                            }
+                            .with_gestures(a.anim),
                         )?)
                     })
                     .map(|chain| match charge {

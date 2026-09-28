@@ -306,6 +306,10 @@ pub fn vfx_spawn_messages(
     // Speech bubbles use typographic quotes, so they need a real face.
     // `None` falls back to Bevy's ASCII-only subset.
     ui_fonts: Option<Res<crate::ui_fonts::UiFonts>>,
+    // The heart particle's image, drawn once on first use. Without an image
+    // store (a headless test) hearts are drawn as plain pink squares.
+    mut images: Option<ResMut<Assets<Image>>>,
+    mut heart_image: Local<Option<Handle<Image>>>,
 ) {
     let spawn_scope = SessionSpawnScope::for_optional_active_session(active_session.as_deref());
     let world = &world.0;
@@ -340,6 +344,12 @@ pub fn vfx_spawn_messages(
                 spawn_hit_marker(&mut commands, spawn_scope, world, assets.as_deref(), pos)
             }
             VfxMessage::CoinPop { pos } => spawn_coin_pop(&mut commands, spawn_scope, world, pos),
+            VfxMessage::Hearts { pos, count } => {
+                let image = images.as_deref_mut().map(|images| {
+                    heart_image.get_or_insert_with(|| images.add(heart_sprite_image())).clone()
+                });
+                spawn_hearts(&mut commands, spawn_scope, world, image, pos, count as usize)
+            }
             VfxMessage::Effect {
                 pos,
                 fx,
@@ -692,6 +702,8 @@ pub fn update_particles(
             ParticleKind::Spark => p.radius * (1.0 - 0.35 * t),
             ParticleKind::Dust => p.radius * (1.0 + 0.70 * t),
             ParticleKind::Shard => p.radius * (1.0 - 0.15 * t),
+            // Swells in, then holds its size as it fades.
+            ParticleKind::Heart => p.radius * (0.6 + 0.4 * (t * 5.0).min(1.0)),
         };
         transform.translation = world_to_bevy(&world.0, p.pos, WORLD_Z_FX);
         sprite.custom_size = Some(BVec2::splat(size.max(0.5)));
@@ -884,6 +896,7 @@ const fn particle_drag(kind: ParticleKind) -> f32 {
         ParticleKind::Spark => 3.4,
         ParticleKind::Dust => 4.7,
         ParticleKind::Shard => 1.8,
+        ParticleKind::Heart => 0.9,
     }
 }
 
@@ -893,6 +906,8 @@ const fn particle_gravity(kind: ParticleKind) -> f32 {
         ParticleKind::Spark => 300.0,
         ParticleKind::Dust => 120.0,
         ParticleKind::Shard => 650.0,
+        // Negative: a heart keeps rising (world y is down-positive).
+        ParticleKind::Heart => -30.0,
     }
 }
 
@@ -1004,6 +1019,87 @@ pub fn spawn_coin_pop(
             },
         ),
     );
+}
+
+/// Hearts drifting up from `pos`, swaying apart as they rise.
+pub fn spawn_hearts(
+    commands: &mut Commands,
+    session_scope: Option<SessionSpawnScope>,
+    world: &ae::World,
+    image: Option<Handle<Image>>,
+    pos: ae::Vec2,
+    count: usize,
+) {
+    const PINK: [f32; 4] = [1.0, 0.42, 0.62, 1.0];
+    const RADIUS: f32 = 11.0;
+    let Some(session_scope) = session_scope else {
+        return;
+    };
+    for i in 0..count.max(1) {
+        // Spread across the count, alternating sides, the later ones slower,
+        // so the hearts leave one after another rather than as one ring.
+        let spread = (i as f32 + 0.5) / count.max(1) as f32 - 0.5;
+        let vel = ae::Vec2::new(spread * 90.0, -(70.0 + 22.0 * ((i * 5 + 2) % 4) as f32));
+        let radius = RADIUS * (0.8 + 0.25 * ((i * 3 + 1) % 3) as f32);
+        let mut sprite = Sprite::from_color(rgba(PINK[0], PINK[1], PINK[2], PINK[3]), BVec2::splat(radius));
+        if let Some(image) = &image {
+            sprite.image = image.clone();
+        }
+        commands.spawn_session_scoped(
+            session_scope,
+            (
+                sprite,
+                Transform::from_translation(world_to_bevy(world, pos, WORLD_Z_FX)),
+                ParticleVisual {
+                    kind: ParticleKind::Heart,
+                    pos: pos + ae::Vec2::new(spread * 24.0, 0.0),
+                    vel,
+                    age: 0.0,
+                    lifetime: 1.1 + 0.15 * ((i * 7 + 3) % 4) as f32,
+                    radius,
+                    rgba: PINK,
+                    gravity: particle_gravity(ParticleKind::Heart),
+                    drag: particle_drag(ParticleKind::Heart),
+                },
+            ),
+        );
+    }
+}
+
+/// A white heart on a transparent square, tinted by the sprite colour.
+///
+/// Drawn from the implicit heart curve `(x² + y² − 1)³ − x² y³ ≤ 0` so the game
+/// ships no image for it.
+fn heart_sprite_image() -> Image {
+    use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
+    const SIZE: u32 = 32;
+    let mut data = Vec::with_capacity((SIZE * SIZE * 4) as usize);
+    for row in 0..SIZE {
+        for col in 0..SIZE {
+            // Four samples a pixel, for an antialiased edge.
+            let mut inside = 0.0;
+            for (dx, dy) in [(0.25, 0.25), (0.75, 0.25), (0.25, 0.75), (0.75, 0.75)] {
+                let x = ((col as f32 + dx) / SIZE as f32 - 0.5) * 2.6;
+                let y = (0.5 - (row as f32 + dy) / SIZE as f32) * 2.6 + 0.15;
+                let a = x * x + y * y - 1.0;
+                if a * a * a - x * x * y * y * y <= 0.0 {
+                    inside += 0.25;
+                }
+            }
+            data.extend_from_slice(&[255, 255, 255, (inside * 255.0) as u8]);
+        }
+    }
+    Image::new(
+        Extent3d {
+            width: SIZE,
+            height: SIZE,
+            depth_or_array_layers: 1,
+        },
+        TextureDimension::D2,
+        data,
+        TextureFormat::Rgba8UnormSrgb,
+        bevy::asset::RenderAssetUsages::RENDER_WORLD,
+    )
 }
 
 pub fn spawn_dust(

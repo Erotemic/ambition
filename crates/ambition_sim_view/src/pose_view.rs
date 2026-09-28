@@ -480,7 +480,9 @@ pub fn rebuild_body_pose_views(
                                 .map(ambition_character_sprites::GuardBreakBeat::from_phase),
                             parrying: shield.is_some_and(|s| s.parrying()),
                             guard_stunned: shield.is_some_and(|s| s.stun_timer > 0.0),
-                        },
+                            ..Default::default()
+                        }
+                        .with_gestures(anim_facts),
                     )?)
                 })
                 // A HELD CHARGE outranks the move's own row, and only while it

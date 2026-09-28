@@ -446,6 +446,10 @@ pub enum ControlHold {
     /// A ruleset's break in the action: a KO card, a round end, a results
     /// screen.
     Interlude = 1 << 4,
+    /// A gesture two bodies share holds both still while it plays: a pet, and
+    /// the dog being petted. Projected from the gesture timers on
+    /// `BodyAnimFacts`, so it lets go when they run out.
+    Gesture = 1 << 5,
 }
 
 /// Authorities currently suppressing ordinary control. Holds are claims on a

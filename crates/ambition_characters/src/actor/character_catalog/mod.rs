@@ -38,7 +38,7 @@ pub use content_schema::{
     CHARACTER_CATALOG_SCHEMA, CHARACTER_CATALOG_VERSION, CHARACTER_SCHEMA, LOCOMOTION_PRESET_SCHEMA,
 };
 pub use entry::{
-    ActionSetPreset, AxisTuningSpec, BarkSituation, BodyInsets, BrainPreset, CharacterBarks, CharacterBodyKind,
+    ActionSetPreset, AxisTuningSpec, BarkSituation, BodyInsets, PettingSpec, BrainPreset, CharacterBarks, CharacterBodyKind,
     CharacterCatalogData, CharacterCatalogEntry, CharacterPortraitRef, CharacterTier,
     CompositionLayer, MeleePreset, MomentumParamsSpec, MoveStylePreset, PosedBodyScale,
     RangedPreset, SpecialPreset, SpriteTuningSpec,

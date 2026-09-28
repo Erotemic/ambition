@@ -482,6 +482,8 @@
                 hall: ["Woof!", "The dog wags its tail."],
             ),
             hall_dialogue_id: Some("hall_npc_companion_dog"),
+            // Interact pets the dog instead of talking to it.
+            petting: Some((sound: Some("npc.dog.woof"))),
         ),
         "npc_busy_beaver": (
             display_name: "Busy Beaver",

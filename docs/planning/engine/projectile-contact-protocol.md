@@ -571,6 +571,20 @@ both arms, poison-verified.
   the protocol's total order — time, then position, then authored identity —
   matching what the body branch already did.
 
+- ~~The projectile's last `UnresolvedFeatures` construction~~ **DELETED
+  2026-09-28.** The direct feature event was still built with a `match` whose
+  `None` arm made an `UnresolvedFeatures` hit over the shot's endpoint box, and
+  it was written only when a contact existed. So the arm could not run, but it
+  kept a second answer in the source for "who takes this hit". Now the event is
+  built only inside the branch that has a contact, and its target is always the
+  `Feature` the sweep names. No projectile road constructs `UnresolvedFeatures`
+  now; melee and area callers keep it. The absorber witness counted
+  `UnresolvedFeatures` hits, which no projectile road can send, and its fixture
+  had nothing past the bodies to hit, so a poison that let a swallowed shot fall
+  through stayed green. It now has a crate in the contact region and counts
+  every hit whose target is not a body; the same poison reddens that assertion
+  (`a_shot_swallowed_by_an_absorber_never_reaches_the_body_behind_it`).
+
 - ~~The family-predicate deletion gate~~ **CLOSED 2026-09-09.**
   `ecs_hit_event_hits_actor`, `_boss` and `_breakable` <!-- cite-ok: deleted by this row --> answered "does this strike
   volume overlap something right now" — the right question for a melee hitbox

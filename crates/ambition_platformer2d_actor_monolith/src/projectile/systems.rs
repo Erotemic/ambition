@@ -1403,7 +1403,7 @@ pub fn step_projectiles(
                         follow: None,
                     }),
                     ignored_targets: Vec::new(),
-                                    attacker_move_instance: fired_by_move,
+                    attacker_move_instance: fired_by_move,
                 });
                 // CM8: the struck body's feedback (sound + spray) is emitted by
                 // the ONE victim-side reaction now — a player victim through
@@ -1450,8 +1450,10 @@ pub fn step_projectiles(
                 continue;
             }
 
-            // Bodies were resolved directly above. `UnresolvedFeatures` sends only the remaining
-            // boss/breakable portion through feature resolution, avoiding a second body hit.
+            // Bodies were resolved directly above. This road sends a hit only
+            // when the sweep names a boss part or a breakable, so it cannot hit
+            // a body a second time and it never asks the applier to find a
+            // recipient in a volume.
             // ⛔⛔ **SWEPT, LIKE THE BODY BRANCH, AND CARRYING THE SAME WITNESS.**
             // This asked whether the shot's ENDPOINT box reached a boss or a
             // breakable, so a bolt that crossed a crate between two samples
@@ -1465,37 +1467,31 @@ pub fn step_projectiles(
             // A hair inside, for the reason the body branch and the world sweep
             // both state: `time_of_impact` leaves the box tangent and every
             // downstream overlap test is `strict_intersects`.
-            let feature_contact_box = match feature_contact.as_ref() {
-                Some(contact) => {
+            if let Some(contact) = feature_contact.as_ref() {
+                let feature_contact_box = {
                     let at = leg_start + feature_leg * contact.time;
                     let inward = (contact.target_center - at).normalize_or_zero();
                     ae::Aabb::new(at + inward * 0.5, feature_half)
-                }
-                None => kin.aabb(),
-            };
-            let unresolved = HitEvent {
-                strike_sfx: None,
-                volume: feature_contact_box.into(),
-                damage: game.damage.max(1),
-                source: HitSource::Projectile,
-                attacker: owner_entity,
-                // ⭐ NAMED, and the sweep above is what names it. Sent as
-                // `UnresolvedFeatures` the applier took the VOLUME and damaged
-                // every breakable it overlapped, so one shot whose contact box
-                // spanned two adjacent crates broke both — and which part of a
-                // multi-part boss took the hit was a query-order answer a rewind
-                // need not reproduce. A direct contact fixes its recipient
-                // before damage.
-                target: match feature_contact.as_ref() {
-                    Some(contact) => HitTarget::Feature(contact.target),
-                    None => HitTarget::UnresolvedFeatures,
-                },
-                mode: HitMode::Knockback,
-                knockback: None,
-                ignored_targets: Vec::new(),
-                            attacker_move_instance: fired_by_move,
-            };
-            if let Some(contact) = feature_contact.as_ref() {
+                };
+                let direct = HitEvent {
+                    strike_sfx: None,
+                    volume: feature_contact_box.into(),
+                    damage: game.damage.max(1),
+                    source: HitSource::Projectile,
+                    attacker: owner_entity,
+                    // ⭐ NAMED, and the sweep above is what names it. Sent as
+                    // `UnresolvedFeatures` the applier took the VOLUME and damaged
+                    // every breakable it overlapped, so one shot whose contact box
+                    // spanned two adjacent crates broke both — and which part of a
+                    // multi-part boss took the hit was a query-order answer a rewind
+                    // need not reproduce. A direct contact fixes its recipient
+                    // before damage.
+                    target: HitTarget::Feature(contact.target),
+                    mode: HitMode::Knockback,
+                    knockback: None,
+                    ignored_targets: Vec::new(),
+                    attacker_move_instance: fired_by_move,
+                };
                 // ⛔⛔ **DIRECT FIRST, THEN ITS LANDING AREA — and this branch had
                 // it backwards.** The ordinary body road writes the targeted
                 // request and then the splash; this one wrote the splash first,
@@ -1508,7 +1504,7 @@ pub fn step_projectiles(
                 // ⚠ THIS IS A BEHAVIOUR CHANGE, not a tidy-up, and the protocol
                 // asks for it as its own patch for that reason. One splash per
                 // landing and the recipient's inclusion in it are unchanged.
-                feature_damage.write(unresolved);
+                feature_damage.write(direct);
                 if game.splash_half_extent > 0.0 {
                     emit_landing_splash(
                         // ⛔ THE SELECTED CONTACT, NOT THE TICK ENDPOINT — same

@@ -154,7 +154,9 @@ module until receiver inputs justify a package boundary. Runtime owns ordering,
 not contact algorithms.
 
 Delete projectile uses of family predicates and UnresolvedFeatures after their
-replacement is exercised. Other melee/area callers have separate scope. Preserve
+replacement is exercised. Both are done: the family predicates were deleted on
+2026-09-09, and no projectile road constructs UnresolvedFeatures since
+2026-09-28 (receipts in the protocol). Other melee/area callers have separate scope. Preserve
 return-leg hit memory, one-target-per-step returning behavior, splash inclusion,
 allegiance and one-area-event cardinality. Land receiver-neutral return survival
 and direct-before-splash ordering as the protocol's explicit semantic corrections,

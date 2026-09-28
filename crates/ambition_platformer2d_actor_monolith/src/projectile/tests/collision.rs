@@ -2145,6 +2145,22 @@ fn a_shot_swallowed_by_an_absorber_never_reaches_the_body_behind_it() {
             let b = spawn_bystander(&mut app);
             (spawn_absorber(&mut app), b)
         };
+        // A crate in the same contact region. It gives the road below the
+        // victim loop something to hit, so a shot that falls through after it
+        // was swallowed writes a hit this test can count.
+        app.world_mut().spawn((
+            ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity,
+            ambition_combat::components::FeatureId::new("crate"),
+            ambition_combat::components::FeatureName::new("crate"),
+            ambition_platformer2d_shared_tangle::sim_id::SimId::placement("crate"),
+            ambition_combat::components::CenteredAabb::from_center_size(
+                ae::Vec2::new(504.0, 300.0),
+                ae::Vec2::new(12.0, 46.0),
+            ),
+            ambition_combat::components::BreakableFeature::new(
+                ambition_interaction::Breakable::new("crate", 1),
+            ),
+        ));
 
         {
             let spec = ProjectileKind::Fireball.spec(
@@ -2197,17 +2213,16 @@ fn a_shot_swallowed_by_an_absorber_never_reaches_the_body_behind_it() {
         // ⭐ AND THE ROAD BELOW THE VICTIM LOOP, which is the half a
         // second-body assertion alone would miss. Setting neither `struck` nor
         // `reflected`, an absorbed shot used to fall through to
-        // boss/breakable/world resolution and emit the `UnresolvedFeatures` hit
-        // as well — a consequence with no victim at all.
+        // boss/breakable/world resolution and emit a hit there as well — a
+        // consequence with no victim at all. Any target that is not a body is
+        // that road: a named feature, its landing area, or an unresolved one.
         let mut cursor = msgs.get_cursor();
-        let unresolved = cursor
+        let past_the_bodies = cursor
             .read(msgs)
-            .filter(|hit| {
-                hit.target == ambition_combat::events::HitTarget::UnresolvedFeatures
-            })
+            .filter(|hit| !matches!(hit.target, ambition_combat::events::HitTarget::Body(_)))
             .count();
         assert_eq!(
-            unresolved, 0,
+            past_the_bodies, 0,
             "({order}) an absorbed shot went on to feature/world resolution"
         );
     }

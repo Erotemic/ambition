@@ -55,24 +55,66 @@ pub fn in_base_mode(room: CurrentRoom) -> bool {
     room.in_scope(RulesScope::UntaggedRooms)
 }
 
-/// Despawn every [`ModeScopedEntity`] whose mode is not the active room's.
+/// The rooms each mode's game governs, as the game declared them with
+/// [`install_mode_owner`]. A mode with no declaration governs the rooms tagged
+/// with its name.
+///
+/// This is the one statement of where a mode lives: the owner is born where its
+/// scope governs, and [`despawn_departed_mode_entities`] retires the mode's
+/// entities where it does not. Authored constants, written when a plugin is
+/// built, so a rewind has nothing to restore.
+#[derive(Resource, Debug, Default)]
+pub struct ModeScopes(Vec<(&'static str, RulesScope)>);
+
+impl ModeScopes {
+    /// Record that `mode`'s game governs the rooms `scope` names.
+    ///
+    /// Panics on a second, different scope for one mode: a mode whose entities
+    /// live in two sets of rooms has no single lifetime.
+    pub fn declare(&mut self, mode: &'static str, scope: RulesScope) {
+        match self.0.iter().find(|(declared, _)| *declared == mode) {
+            Some((_, declared)) => assert_eq!(
+                *declared, scope,
+                "mode `{mode}` was declared in two scopes"
+            ),
+            None => self.0.push((mode, scope)),
+        }
+    }
+
+    /// The rooms `mode`'s game governs.
+    pub fn scope_of(&self, mode: &str) -> Option<RulesScope> {
+        self.0
+            .iter()
+            .find(|(declared, _)| *declared == mode)
+            .map(|(_, scope)| *scope)
+    }
+}
+
+/// Despawn every [`ModeScopedEntity`] whose mode does not govern the active
+/// room: the mode's declared scope ([`ModeScopes`]), else the rooms tagged with
+/// its name.
 ///
 /// Runs only when `RoomSet` changes, which is a room publication or a world
 /// replacement. A room change inside one mode leaves that mode's entities alone:
-/// the sweep compares modes, not rooms, which is what makes a mode a lifetime
+/// the sweep compares scopes, not rooms, which is what makes a mode a lifetime
 /// distinct from a room.
 pub fn despawn_departed_mode_entities(
     mut commands: Commands,
     rooms: Option<ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<RoomSet>>,
+    scopes: Option<Res<ModeScopes>>,
     scoped: Query<(Entity, &ModeScopedEntity)>,
 ) {
     let Some(rooms) = rooms else { return };
     if !rooms.is_changed() {
         return;
     }
-    let current = rooms.active_metadata().mode.as_deref();
-    for (entity, scope) in scoped.iter() {
-        if current != Some(scope.0.as_str()) {
+    let active = ambition_combat::scoped_rules::ActiveRoom::live(rooms.active_metadata().mode.as_deref());
+    for (entity, mode) in scoped.iter() {
+        let governs = match scopes.as_deref().and_then(|scopes| scopes.scope_of(&mode.0)) {
+            Some(scope) => scope.governs(active),
+            None => active == ambition_combat::scoped_rules::ActiveRoom::Mode(&mode.0),
+        };
+        if !governs {
             despawn_scoped_entity(&mut commands, entity);
         }
     }
@@ -152,11 +194,13 @@ fn configure_mode_owner_sets(app: &mut App) {
 }
 
 /// Bring `mode`'s owner into being on the first tick the rooms `scope` governs
-/// are live.
+/// are live. `scope` is also the owner's lifetime: it is recorded in
+/// [`ModeScopes`], and the mode sweep retires the owner where `scope` does not
+/// govern.
 ///
 /// A hosted game keeps its level or act state on one entity per mode. The
 /// owner is spawned with `spawn_mode_owner`, so the mode sweep retires it when
-/// the mode ends, the session retires it on a relaunch, and its `SimId` names
+/// its scope stops governing, the session retires it on a relaunch, and its `SimId` names
 /// it for the rollback order. That `SimId` is also how this system finds an
 /// owner that already exists. No owner is spawned while no session is live (at
 /// the launcher), so stale room metadata cannot bring one back.
@@ -187,6 +231,8 @@ pub fn install_mode_owner<B: Bundle>(
             .map_or(SessionSpawnScope::UNSCOPED, |scope| scope.spawn_scope());
         commands.spawn_mode_owner(spawn_scope, mode, owner());
     };
+    app.init_resource::<ModeScopes>();
+    app.world_mut().resource_mut::<ModeScopes>().declare(mode, scope);
     configure_mode_owner_sets(app);
     let sim = app.sim_schedule();
     app.add_systems(

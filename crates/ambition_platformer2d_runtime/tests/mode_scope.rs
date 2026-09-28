@@ -361,6 +361,50 @@ fn a_declared_mode_owner_is_born_once_per_visit_to_its_mode() {
     );
 }
 
+/// A standalone game's owner (`EveryRoom`) lives in every room, untagged rooms
+/// included. The scope that lets the owner be born is the scope that keeps it:
+/// a sweep that read the owner's mode name would retire it in an untagged room,
+/// and the next tick would bear a fresh one.
+#[test]
+fn an_every_room_owner_lives_in_untagged_rooms() {
+    use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt as _;
+
+    let mut app = App::new();
+    app.set_sim_schedule(Update);
+    insert_session_rooms(&mut app);
+    app.add_plugins(ambition_platformer2d_runtime::ModeScopePlugin);
+    ambition_platformer2d_runtime::install_mode_owner(
+        &mut app,
+        ambition_combat::scoped_rules::RulesScope::EveryRoom,
+        "standalone",
+        ActClock::default,
+    );
+    let owner = || {
+        vec![(
+            "standalone".to_string(),
+            ambition_platformer2d_shared_tangle::sim_id::SimId::singleton("mode_owner", "standalone"),
+        )]
+    };
+
+    app.update();
+    assert_eq!(owners(&mut app), owner(), "the untagged room has no owner");
+    app.world_mut()
+        .query::<&mut ActClock>()
+        .single_mut(app.world_mut())
+        .expect("one owner")
+        .0 = 7;
+    for room in ["b", "base"] {
+        enter_room(&mut app, room);
+        app.update();
+        assert_eq!(owners(&mut app), owner(), "room `{room}`");
+        assert_eq!(
+            app.world_mut().query::<&ActClock>().single(app.world()).ok(),
+            Some(&ActClock(7)),
+            "the owner was retired and born again in room `{room}`"
+        );
+    }
+}
+
 /// A mode owner knows the room it is in and whether it has just arrived: its
 /// first room on the tick it is born, then each room it comes into. Two games
 /// declare owners here, and the engine follows the room once per tick for both.

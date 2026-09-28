@@ -364,18 +364,27 @@ rewinding schedule, and its value actually differs at a frame compared twice.
 `NewGameResetRequested` meets the first two and does not desync, because the flag
 is put back before it is taken.
 
-**Open: `CustodyBaseline` and `OccurrenceBaseline`.** Both desync when a
-mid-session load seeds both halves of the durable horizon.
+**Closed: `CustodyBaseline` and `OccurrenceBaseline` (2026-09-28).** Both
+desync when a load lowers the restore latch on a LIVE timeline, which
 `probe_what_a_mid_session_load_writes_outside_the_rewinding_schedule`
 (`game/ambition_app/tests/a_bag_changed_mid_window_reaches_the_save.rs`,
-`#[ignore]` while the defect is open) asserts the premise and the defect. This is a
-lifecycle question owned by
-[DURABLE-HORIZON-CHECKSUM](../queue.md#durable-horizon-checksum--the-save-mirrors-write-hashed-state-from-update)
-and waits on
-[Q135](../awaiting-maintainer-decision.md#q135--should-ggrs-start-before-the-durable-restore-has-finished).
-Earlier "clean" readings of these two ran with empty baselines; a fixture can put
-pressure on one field of a pair and none on the other. `Q129` owns whether the
-save belongs in the peer contract at all.
+`#[ignore]`) still shows. Production has no such road: a save file is read only
+at `Startup` (`load_save_at_startup`), `SaveRestored` is lowered only by session
+activation/retirement (`session/teardown.rs`), a retiring scope retires its
+rollback authority with it, and
+[Q135](../awaiting-maintainer-decision.md#q135--should-ggrs-start-before-the-durable-restore-has-finished)
+(landed 2026-09-16) stops `maintain_local_session` from creating a session while
+hydration is pending. The production road is witnessed by
+`a_startup_load_hydrates_both_baselines_before_the_timeline_starts` in the same
+file: both halves seeded, 240 sync-test frames healthy, and no frame with a live
+GGRS session over an unrestored save. That arm witnesses the ORDER, not the
+gate (with the gate poisoned it stays green, because in that composition the
+chain completes first); the gate's guard is
+`a_conversation_on_the_first_tick_of_a_session_is_counted_exactly_once`. A
+future mid-session load (a load menu inside a live session) must end the
+timeline first, or it reopens this row. Earlier "clean" readings ran with empty
+baselines; seed both halves. `Q129` owns whether the save belongs in the peer
+contract at all.
 
 The probe and the GGRS aggregate for a `rollback_resource_clone_checksum` entry
 are installed from the same `checksum` argument in

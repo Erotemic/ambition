@@ -4111,3 +4111,110 @@ fn separating_the_gate_from_the_derivation_shape() {
          escape three is incomplete without it"
     );
 }
+
+/// ⭐ THE SHIPPED LOAD UNDER A ROLLBACK HOST, WITH BOTH HALVES OF THE DURABLE
+/// HORIZON SEEDED.
+///
+/// A save file is read once, at `Startup`, and each session hydrates it before
+/// its timeline may start (the Q135 gate in `maintain_local_session`). So the
+/// hydration chain's `Update` writes to the hashed `OccurrenceBaseline` and
+/// `CustodyBaseline` must land before frame zero, where no rewind can compare
+/// them. The mid-session probe above drives a road production does not have
+/// (it lowers the latch on a live timeline); this is the road it does have.
+///
+/// The seeded rows are what make it a measurement: an empty horizon hydrates to
+/// the value the baselines already hold, so nothing would move either way.
+///
+/// ⚠ IT ASSERTS THE ORDER, NOT `RollbackRestoreAudit`. Enabled before the
+/// timeline exists, the audit files all of world construction as "written
+/// outside the rewinding schedule" (measured: about a hundred types), so it
+/// cannot answer this. The contract the gate states is an order: no frame has a
+/// live GGRS session over an unrestored save.
+///
+/// ⚠ THIS WITNESSES THE ORDER; IT DOES NOT GUARD THE GATE. With the Q135 gate
+/// poisoned (the pending check skipped) this stays green: in this composition
+/// the chain completes before the maintainer's first chance to start a session,
+/// which Q135 measured is decided by `Update` membership. The gate's guard is
+/// `a_conversation_on_the_first_tick_of_a_session_is_counted_exactly_once`.
+#[test]
+fn a_startup_load_hydrates_both_baselines_before_the_timeline_starts() {
+    use ambition_platformer2d::persistence::save_data::{
+        PersistedCustody, PersistedOccurrence, PersistedWhereabouts,
+    };
+    let mut save = ambition_platformer2d::session::AmbitionGameSaveData::default();
+    save.set_durable_horizon(
+        vec![PersistedOccurrence::new(
+            "probe:seeded_occurrence",
+            PersistedWhereabouts::Placed {
+                room: ROOM.to_string(),
+                x: 64,
+                y: 64,
+            },
+        )],
+        vec![PersistedCustody::new(
+            "probe:seeded_occurrence",
+            "probe:seeded_custodian",
+        )],
+    );
+    let mut sim = Platformer2dSimHarness::build(
+        Platformer2dSimHarnessOptions::default()
+            .with_timestep(TimestepMode::fixed_60hz())
+            .with_required_start_room(ROOM)
+            .with_sync_test_rollback_settings(4, 10)
+            .with_save(save),
+        |app, options| {
+            ambition_app::rl_sim::ambition_sim_composition(app, options)?;
+            app.init_resource::<LiveBeforeRestored>();
+            app.add_systems(bevy::prelude::Last, record_a_timeline_over_an_unrestored_save);
+            Ok(())
+        },
+    )
+    .expect("the sync-test harness boots with a save file");
+    for frame in 0..240 {
+        sim.step(AgentAction::default());
+        health(&sim).unwrap_or_else(|error| panic!("frame {frame} after a startup load desynced: {error}"));
+    }
+    // The premise: the load happened, and both baselines hold the seeded rows.
+    assert!(sim.world().resource::<SaveRestored>().0, "the startup load never completed");
+    let occurrence_rows = sim
+        .world()
+        .resource::<ambition_platformer2d::platformer::lifecycle::OccurrenceBaseline>()
+        .remembered()
+        .rows()
+        .count();
+    let custody_rows = sim
+        .world()
+        .resource::<ambition_platformer2d::platformer::lifecycle::CustodyBaseline>()
+        .rows()
+        .count();
+    assert!(
+        occurrence_rows > 0 && custody_rows > 0,
+        "the seeded horizon never reached the baselines (occurrences {occurrence_rows}, \
+         custody {custody_rows}), so nothing below was under pressure"
+    );
+    let order = sim.world().resource::<LiveBeforeRestored>();
+    assert!(order.live > 0, "the GGRS session was never live, so no order was observed");
+    assert_eq!(
+        order.unrestored, 0,
+        "a GGRS session was live on {} frame(s) before the save was restored: the \
+         hydration chain's hashed baseline writes landed on a timeline",
+        order.unrestored
+    );
+}
+
+/// Frames with a live GGRS session, and how many of them had an unrestored save.
+#[derive(bevy::prelude::Resource, Default)]
+struct LiveBeforeRestored {
+    live: u32,
+    unrestored: u32,
+}
+
+fn record_a_timeline_over_an_unrestored_save(world: &mut bevy::prelude::World) {
+    if !ambition_platformer2d::rollback::session_is_active(world) {
+        return;
+    }
+    let restored = world.resource::<SaveRestored>().0;
+    let mut order = world.resource_mut::<LiveBeforeRestored>();
+    order.live += 1;
+    order.unrestored += u32::from(!restored);
+}

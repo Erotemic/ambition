@@ -80,8 +80,8 @@ fn a_dilation_slows_a_body_and_expires_on_world_time() {
 
 /// A second dilation does not nest.
 ///
-/// Overlapping slows would multiply, and each would restore a prior the other
-/// overwrote. The newest wins and keeps the original prior.
+/// Overlapping slows would multiply. The newest wins, and its expiry returns
+/// the body to its own clock, not to the first dilation's scale.
 #[test]
 fn a_second_dilation_replaces_the_first_and_still_restores_the_original() {
     let mut app = app();

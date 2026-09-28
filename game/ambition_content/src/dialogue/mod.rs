@@ -31,20 +31,24 @@ pub struct AmbitionDialogueContentPlugin;
 impl Plugin for AmbitionDialogueContentPlugin {
     fn build(&self, app: &mut App) {
         voiceprints::register(app);
-        app.insert_resource(cutscene_defaults::default_cutscene_library())
-            .insert_resource(ambition_cutscene::ActiveCutscene::default())
+        app.insert_resource(ambition_cutscene::ActiveCutscene::default())
             .insert_resource(ambition_cutscene::CutsceneTriggerQueue::default())
-            .insert_resource(ambition_cutscene::CutsceneAdvanceRequest::default())
-            .insert_resource(cutscene_defaults::default_room_cutscene_bindings())
-            // Combat-banter registry — story-content lines for the
-            // `apply_feature_hit_events` hit handler. Boss barks are
-            // installed inline; IntroPlugin adds the intro raiders' lines
-            // via a startup system.
-            .insert_resource({
-                let mut reg = crate::banter::CombatBanterRegistry::default();
-                crate::bosses::install_boss_banter(&mut reg);
-                crate::banter::install_pirate_banter(&mut reg);
-                reg
-            });
+            .insert_resource(ambition_cutscene::CutsceneAdvanceRequest::default());
+        // The registries are shared: other plugins (the intro) add their rows
+        // too. So this plugin adds its rows and does not replace the registry,
+        // and the order in which the plugins are added does not matter.
+        let world = app.world_mut();
+        world
+            .get_resource_or_init::<ambition_cutscene::CutsceneLibrary>()
+            .scripts
+            .extend(cutscene_defaults::default_cutscene_library().scripts);
+        world
+            .get_resource_or_init::<ambition_cutscene::RoomCutsceneBindings>()
+            .bindings
+            .extend(cutscene_defaults::default_room_cutscene_bindings().bindings);
+        // Story-content lines for the `apply_feature_hit_events` hit handler.
+        let mut banter = world.get_resource_or_init::<crate::banter::CombatBanterRegistry>();
+        crate::bosses::install_boss_banter(&mut banter);
+        crate::banter::install_pirate_banter(&mut banter);
     }
 }

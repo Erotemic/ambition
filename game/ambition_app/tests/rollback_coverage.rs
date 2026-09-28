@@ -1683,18 +1683,6 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "install-once latch",
     ),
     (
-        "::intro::plugin::IntroCutscenesInstalled",
-        "install-once latch",
-    ),
-    (
-        "::intro::plugin::IntroBanterInstalled",
-        "install-once latch",
-    ),
-    (
-        "::intro::plugin::IntroGatedZonesInstalled",
-        "install-once latch",
-    ),
-    (
         "ambition_cutscene::CutsceneTriggerQueue",
         "narrative trigger seam. ⛔ **this reason was WRONG until 2026-08-06** and          said only *\"seen-flags in the rollback-registered AmbitionGameSave dedup          re-fires\"* — which assumes the trigger re-fires. It could not: the room          memory driving it was a `Local<Option<String>>` on a SIM system, and Bevy          locals are not rewound, so a rewind past a room entry left the local          claiming that room and resimulation emitted NOTHING. A seen flag cannot          deduplicate a re-fire that never happens (GPT 5.6 through `32eb27a`).          The memory is `ambition_cutscene::LastCutsceneRoom` now, registered as          `cutscene.last_room`, so the queue's contents ARE regenerated from          rollback state on the restored timeline — which is the condition under          which a transient queue is legitimately transient, and it is now met          rather than assumed",
     ),

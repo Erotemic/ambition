@@ -244,11 +244,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// ⛔ v162: `TimeDilated`, the clock a body was put on and the one it gets back.
 /// `ProperTimeScale` was already canonical as `actor.proper_time_scale`; what was
 /// missing is the REMAINDER — how much longer the victim's moves, hurtbox
-/// resolution and animation run slow — and the PRIOR scale to restore. ⇒ Two
+/// resolution and animation run slow. ⇒ Two
 /// peers disagreeing about the remainder do not disagree about a flag; from that
 /// tick on they resimulate different swings, because move playback advances on
-/// `WorldTime::entity_dt`. And a restore that lost `prior` would put the body
-/// back on the wrong clock permanently, since nothing else owes it a reset.
+/// `WorldTime::entity_dt`.
 /// ⓘ The scale itself needs no new row: this row is the smash ruleset's clock
 /// over the engine's existing one.
 /// ⛔ v163: `MatchScoped`, which MATCH an object was created by.
@@ -835,7 +834,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// ⛔⛤ 250 -> 251: `projectile.weapon_shot` arrives. A ranged weapon's
 /// authored `max_live` counts its owner's shots that carry this marker, so a
 /// rewind must restore it with the shot.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 251;
+/// ⛔⛤ 251 -> 252: `smash.time_dilated` loses `prior`. Only the dilation
+/// writes a fighter's `ProperTimeScale`, so the clock it gives back is the
+/// engine default, and a saved copy of it was a second answer.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 252;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

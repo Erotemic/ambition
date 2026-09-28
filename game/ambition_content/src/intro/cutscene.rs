@@ -1,10 +1,8 @@
 //! Intro cutscene scripts + room→cutscene bindings.
 //!
 //! Inserted into the shared [`ambition_cutscene::CutsceneLibrary`] and
-//! [`ambition_cutscene::RoomCutsceneBindings`] by
-//! [`crate::intro::plugin::install_intro_cutscenes_system`] at startup,
-//! so the sandbox cutscene/system runtime picks them up the moment the
-//! player enters the matching room.
+//! [`ambition_cutscene::RoomCutsceneBindings`] by [`crate::intro::IntroPlugin`]
+//! when it builds, so they are there before the first tick.
 //!
 //! Beats are intentionally short — the design doc is firm that the
 //! intro should not become a long cutscene wall. Each room gets at

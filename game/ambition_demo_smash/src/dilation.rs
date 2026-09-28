@@ -16,33 +16,29 @@ use ambition_platformer2d::characters::brain::ActorActionMessage;
 use ambition_platformer2d::entity_catalog::smash_time_dilation::{TimeDilationParams, TIME_DILATION};
 use ambition_platformer2d::engine_core as ae;
 
-/// A body currently running on a slowed clock, and what to put back.
+/// A body currently running on a slowed clock.
 ///
-/// It remembers the prior scale instead of assuming `1.0`, so that a future
-/// second source of dilation is not switched off by this restore.
+/// It keeps no copy of the scale to put back. This module is the only writer
+/// of a fighter's `ProperTimeScale`, so the clock a body returns to is the
+/// engine default. A saved copy would be a second answer to that question.
 #[derive(Component, Debug, Clone, Copy, PartialEq)]
 pub struct TimeDilated {
     /// World seconds left. World time, not the victim's own: a duration on the
     /// slowed clock would stretch itself, so this ticks on `sim_dt`.
     pub remaining_s: f32,
-    /// The scale this body had before, restored when the clock runs out.
-    pub prior: f32,
 }
 
-/// The rollback value projection. Both fields change how a body experiences
-/// the next tick, so a restore that lost either resimulates a different fight.
+/// The rollback value projection. The remainder decides how long a body
+/// stays slow, so a restore that lost it resimulates a different fight.
 pub fn time_dilated_probe(d: &TimeDilated) -> u64 {
-    (d.remaining_s.to_bits() as u64).rotate_left(23) ^ (d.prior.to_bits() as u64)
+    d.remaining_s.to_bits() as u64
 }
 
 /// Put a body on a slower clock when a move asks.
 pub fn apply_authored_time_dilations(
     mut commands: Commands,
     mut actions: MessageReader<ActorActionMessage>,
-    mut bodies: Query<(
-        Option<&mut ambition_platformer2d::time::ProperTimeScale>,
-        Option<&TimeDilated>,
-    )>,
+    bodies: Query<Entity>,
 ) {
     for message in actions.read() {
         let ambition_platformer2d::characters::brain::action_set::ActionRequest::Special {
@@ -78,25 +74,16 @@ pub fn apply_authored_time_dilations(
         //
         // A move that emits this from its own timeline slows its own caster,
         // and that is correct.
-        let Ok((scale, already)) = bodies.get_mut(message.actor) else {
+        if !bodies.contains(message.actor) {
             continue;
-        };
-        // A second dilation does not nest. Nested slows would multiply and
-        // would each restore a prior the other changed. The newest wins and
-        // keeps the original prior, so one restore returns the body to the
-        // clock it started on.
-        let prior = already.map(|d| d.prior).unwrap_or_else(|| {
-            scale
-                .as_ref()
-                .map(|s| s.0)
-                .unwrap_or(ambition_platformer2d::time::ProperTimeScale::default().0)
-        });
+        }
+        // A second dilation does not nest, because nested slows would
+        // multiply. The newest replaces the scale and the remainder.
         commands
             .entity(message.actor)
             .try_insert(ambition_platformer2d::time::ProperTimeScale(params.scale))
             .try_insert(TimeDilated {
                 remaining_s: params.seconds,
-                prior,
             });
         info!(
             target: "ambition::moves",
@@ -130,7 +117,7 @@ pub fn expire_time_dilations(
         if dilation.remaining_s > 0.0 {
             continue;
         }
-        scale.0 = dilation.prior;
+        *scale = ambition_platformer2d::time::ProperTimeScale::ONE;
         commands.entity(entity).try_remove::<TimeDilated>();
     }
 }

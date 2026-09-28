@@ -863,8 +863,8 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         // tick of the dilation, and N authored ticks would give N-1 slowed ones.
         // Guarded by `a_one_tick_dilation_is_still_in_force_next_tick`.
         //
-        // Re-application is safe: `apply` keeps the original `prior` while a
-        // dilation is live.
+        // Re-application is safe: `apply` replaces the scale and the remainder,
+        // so slows do not multiply.
         install_technique(
             app,
             ambition_platformer2d::entity_catalog::smash_time_dilation::TIME_DILATION,
@@ -2036,8 +2036,7 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
 
             // A dilation's remaining seconds (the scale itself is canonical as
             // `actor.proper_time_scale`). Peers that disagree on it resimulate
-            // different swings. `prior` travels with it so a restore puts the
-            // body back on the right clock.
+            // different swings.
             app.rollback_component_clone_probed::<crate::dilation::TimeDilated>(
                 "ambition_demo_smash",
                 "smash.time_dilated",

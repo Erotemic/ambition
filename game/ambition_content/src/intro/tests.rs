@@ -123,3 +123,51 @@ fn install_intro_cutscenes_registers_every_bound_script() {
         );
     }
 }
+
+#[test]
+fn the_intro_rows_are_in_their_registries_before_the_first_tick() {
+    // The dialogue plugin is added AFTER the intro plugin and adds rows to the
+    // same registries. A plugin that replaced a registry would lose the other's
+    // rows, and an install in a system would be missing until the first tick.
+    // No `App::finish`: the sim harness drives `App::update` and never runs it.
+    use crate::banter::CombatBanterRegistry;
+    use ambition_cutscene::RoomCutsceneBindings;
+    use ambition_platformer2d::world::rooms::GatePortalRegistry;
+    use bevy::prelude::*;
+
+    let mut app = App::new();
+    app.add_plugins((
+        super::IntroPlugin,
+        crate::dialogue::AmbitionDialogueContentPlugin,
+    ));
+
+    let world = app.world();
+    let library = world.resource::<CutsceneLibrary>();
+    let bindings = &world.resource::<RoomCutsceneBindings>().bindings;
+    for (room, cutscene) in intro_room_cutscene_bindings() {
+        assert!(
+            library.get(cutscene).is_some(),
+            "the intro cutscene `{cutscene}` is not in the library"
+        );
+        assert!(
+            bindings.iter().any(|(r, c)| r == room && c == cutscene),
+            "the room `{room}` is not bound to the intro cutscene `{cutscene}`"
+        );
+    }
+    let banter = world.resource::<CombatBanterRegistry>();
+    assert!(
+        banter.pick_hit_bark("Lab Raider", 0).is_some(),
+        "the intro raiders have no barks"
+    );
+    // The dialogue plugin's own rows stay beside the intro's.
+    assert!(
+        banter.pick_hit_bark("Iron Mary", 0).is_some(),
+        "the pirate barks were replaced"
+    );
+    assert!(
+        world
+            .resource::<GatePortalRegistry>()
+            .is_portal(super::plugin::INTRO_PORTAL_ZONE_ID),
+        "the intro portal is not registered"
+    );
+}

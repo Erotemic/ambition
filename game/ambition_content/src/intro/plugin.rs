@@ -1,16 +1,12 @@
 //! `IntroPlugin`: wires the intro story content into the live sandbox
 //! resources without the sandbox naming the intro.
 //!
-//! The plugin contributes via startup systems:
-//!
-//! - [`install_intro_cutscenes_system`] extends
-//!   [`ambition_cutscene::CutsceneLibrary`] and
-//!   [`ambition_cutscene::RoomCutsceneBindings`] with the intro scripts
-//!   and room bindings from [`crate::intro::cutscene`].
-//!
-//! The installers run after the sandbox's own startup systems insert the
-//! resources they extend, so they add to them without overwriting anything
-//! sandbox-owned.
+//! The intro's cutscenes, room bindings, raider barks and gate portal join
+//! their registries when the plugin builds. Every contributor adds rows and
+//! none replaces a registry, so the registries are complete before the first
+//! tick, and the order in which the plugins are added does not matter.
+//! (`Plugin::finish` is not used: an app driven by `App::update` does not run
+//! it, and an app can run it twice. See `app_finalization`.)
 
 use bevy::prelude::*;
 
@@ -54,50 +50,24 @@ pub const INTRO_PORTAL_RING_NAME: &str = "Interdimensional Gate Ring";
 #[derive(Resource, Default, Debug)]
 pub(crate) struct IntroPropSpritesInstalled(bool);
 
-/// Marker zero-sized resource for the cutscene installer.
-#[derive(Resource, Default, Debug)]
-pub(crate) struct IntroCutscenesInstalled(bool);
-
-/// Marker zero-sized resource for the banter installer.
-#[derive(Resource, Default, Debug)]
-pub(crate) struct IntroBanterInstalled(bool);
-
-/// Marker zero-sized resource for the gated-zone installer.
-#[derive(Resource, Default, Debug)]
-pub(crate) struct IntroGatedZonesInstalled(bool);
-
 pub struct IntroPlugin;
 
 impl Plugin for IntroPlugin {
     fn build(&self, app: &mut App) {
         // What is left here is content installation.
         app.init_resource::<IntroPropSpritesInstalled>()
-            .init_resource::<IntroCutscenesInstalled>()
-            .init_resource::<IntroBanterInstalled>()
-            .init_resource::<IntroGatedZonesInstalled>()
-            // The installers must wait for the sandbox's startup resources, which
-            // arrive through the `Startup` schedule and deferred Commands. Running them
-            // in `Update` with a first-chance guard (`if !installed`) survives deferred
-            // command application without explicit ordering.
-            .add_systems(
-                Update,
-                (
-                    install_intro_cutscenes_system,
-                    load_intro_prop_sprites_system,
-                    install_intro_banter_system,
-                    install_intro_gated_zones_system,
-                ),
-            )
-            // The flag chains are not an installer and do not belong in the tuple
-            // above. The installers are one-shot latches (`if installed { return; }`)
-            // that keep running to observe `GameAssets` / `CutsceneLibrary` arriving.
-            // The flag chains re-derive a table from the save every frame.
-            //
-            // Its cost grows with the save: `SaveData::flag` is a linear scan with a
-            // string compare, asked twice per table row. So it is change-gated. A chain
-            // fires only when its flags move, and a flag this system writes marks the
-            // save changed again, so a chain of chains resolves on the next frame.
-            ;
+            // The prop sheets wait for `GameAssets`, which a `Startup` system
+            // inserts after every plugin has built, so this one loader is a
+            // first-chance latch in `Update`.
+            .add_systems(Update, load_intro_prop_sprites_system);
+        // The flag chains are not an installer. They re-derive a table from
+        // the save every frame.
+        //
+        // Its cost grows with the save: `SaveData::flag` is a linear scan with a
+        // string compare, asked twice per table row. So it is change-gated. A chain
+        // fires only when its flags move, and a flag this system writes marks the
+        // save changed again, so a chain of chains resolves on the next frame.
+        //
         // In the rewinding schedule, not `Update`, because the consumer rewinds and
         // the message does not. `apply_flag_effects` reads `SetFlagRequested` and
         // writes `AmbitionGameSave` and `QuestRegistry`, both
@@ -137,80 +107,38 @@ impl Plugin for IntroPlugin {
                     >,
                 ),
         );
+        // The intro's rows join the shared registries here. Every contributor
+        // adds rows and none replaces a registry, so the rows are there before
+        // the first tick whatever the plugin order.
+        let world = app.world_mut();
+        install_intro_cutscenes(&mut world.get_resource_or_init::<CutsceneLibrary>());
+        world
+            .get_resource_or_init::<RoomCutsceneBindings>()
+            .bindings
+            .extend(
+                intro_room_cutscene_bindings()
+                    .iter()
+                    .map(|(room, cutscene)| ((*room).to_string(), (*cutscene).to_string())),
+            );
+        install_intro_banter(&mut world.get_resource_or_init::<CombatBanterRegistry>());
+        // A refusal is a content bug: another portal already claimed this
+        // loading zone. Logged, not panicked, because a missing portal leaves
+        // a recoverable world.
+        if let Err(conflict) = world.get_resource_or_init::<GatePortalRegistry>().try_register(
+            INTRO_PORTAL_ZONE_ID,
+            INTRO_PORTAL_SWITCH_ID,
+            INTRO_PORTAL_SPRITE_NAME,
+            INTRO_PORTAL_RING_NAME,
+        ) {
+            bevy::log::error!("the intro portal was refused: {conflict}");
+        }
+
         // Intro dialog redirects are authored in content, so nothing is registered
         // here. They are `<<if>>` branches in the `.yarn` files (for example
         // `<<if boss_cleared("mockingbird")>>` and
         // `<<if quest_active("pirate_treasure")>>` in `assets/dialogue/sandbox/`).
         // There is no redirect system in Rust.
     }
-}
-
-/// Extend [`CutsceneLibrary`] + [`RoomCutsceneBindings`] with the intro
-/// scripts and bindings. Runs once — guarded by [`IntroCutscenesInstalled`].
-pub(crate) fn install_intro_cutscenes_system(
-    mut installed: ResMut<IntroCutscenesInstalled>,
-    library: Option<ResMut<CutsceneLibrary>>,
-    bindings: Option<ResMut<RoomCutsceneBindings>>,
-) {
-    if installed.0 {
-        return;
-    }
-    // `app/plugins.rs` inserts both resources at app build time, so they should
-    // exist from the first Update tick. `Option<ResMut<_>>` tolerates the
-    // narrow window where they might not.
-    let (Some(mut library), Some(mut bindings)) = (library, bindings) else {
-        return;
-    };
-    install_intro_cutscenes(&mut library);
-    for (room_id, cutscene_id) in intro_room_cutscene_bindings() {
-        bindings
-            .bindings
-            .push(((*room_id).to_string(), (*cutscene_id).to_string()));
-    }
-    installed.0 = true;
-}
-
-/// Extend [`CombatBanterRegistry`] with the intro raiders' hit-bark
-/// lines. Runs once — guarded by [`IntroBanterInstalled`].
-pub(crate) fn install_intro_banter_system(
-    mut installed: ResMut<IntroBanterInstalled>,
-    registry: Option<ResMut<CombatBanterRegistry>>,
-) {
-    if installed.0 {
-        return;
-    }
-    let Some(mut registry) = registry else {
-        return;
-    };
-    install_intro_banter(&mut registry);
-    installed.0 = true;
-}
-
-/// Register the intro portal in [`GatePortalRegistry`] so its lifecycle
-/// runs every frame and traversal is gated on `phase == On`. Runs
-/// once — guarded by [`IntroGatedZonesInstalled`].
-pub(crate) fn install_intro_gated_zones_system(
-    mut installed: ResMut<IntroGatedZonesInstalled>,
-    registry: Option<ResMut<GatePortalRegistry>>,
-) {
-    if installed.0 {
-        return;
-    }
-    let Some(mut registry) = registry else {
-        return;
-    };
-    // A refusal here is a content bug: another portal already claimed this
-    // loading zone. Logged, not panicked, because a missing portal leaves a
-    // recoverable world.
-    if let Err(conflict) = registry.try_register(
-        INTRO_PORTAL_ZONE_ID,
-        INTRO_PORTAL_SWITCH_ID,
-        INTRO_PORTAL_SPRITE_NAME,
-        INTRO_PORTAL_RING_NAME,
-    ) {
-        bevy::log::error!("the intro portal was refused: {conflict}");
-    }
-    installed.0 = true;
 }
 
 /// Extend `GameAssets.characters.props` with intro prop sheets keyed

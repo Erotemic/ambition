@@ -239,6 +239,64 @@ fn the_dive_lands_on_you_and_leaves_it_stranded_in_reach() {
     assert!(g.pos.y < g.floor - 150.0, "the god never rose off the floor after its dive");
 }
 
+/// Each landing shock and where it stands: (entity, x of its centre).
+fn shocks(sim: &mut Platformer2dSimHarness) -> Vec<(Entity, f32)> {
+    use ambition_platformer2d::combat::strike::{Hitbox, HitboxAnchor};
+    let world = sim.world_mut();
+    let mut q = world.query::<(Entity, &Hitbox, &Name)>();
+    let mut shocks: Vec<_> = q
+        .iter(world)
+        .filter(|(_, _, name)| name.as_str() == "fsm_dive_shock")
+        .map(|(entity, hitbox, _)| match hitbox.anchor {
+            HitboxAnchor::World { center } => (entity, center.x),
+            HitboxAnchor::FollowOwner { .. } => panic!("a landing shock is placed in the world"),
+        })
+        .collect();
+    shocks.sort_by(|a, b| a.1.total_cmp(&b.1));
+    shocks
+}
+
+/// The dive lands with a shock each way along the floor. The shocks live past
+/// the landing tick, roll outward, and end with the god.
+#[test]
+fn the_landing_shocks_roll_outward_and_end_with_the_god() {
+    let mut sim = arena();
+    untouchable_player(&mut sim, true);
+    // The dive lands where the player stands. Stand mid-hall, so that neither
+    // shock starts at a wall, where it ends at once by design.
+    let hall = {
+        let world = sim.world_mut();
+        let mut q = world.query::<&FsmConductor>();
+        q.iter(world).next().and_then(FsmConductor::hall).expect("the god has measured its hall")
+    };
+    let mid = ae::Vec2::new(hall.center_x(), player(&mut sim).1.y);
+    step_until(&mut sim, 1800, "a dive's strike", |sim| {
+        place_player(sim, mid);
+        god(sim).performing == Some((Move::Dive, true))
+    });
+    step_until(&mut sim, 120, "the landing", |sim| god(sim).stranded);
+    let landed = shocks(&mut sim);
+    assert_eq!(landed.len(), 2, "the landing did not leave a shock each way: {landed:?}");
+    sim.step(base());
+    let rolled = shocks(&mut sim);
+    assert_eq!(
+        rolled.iter().map(|shock| shock.0).collect::<Vec<_>>(),
+        landed.iter().map(|shock| shock.0).collect::<Vec<_>>(),
+        "the landing's shocks did not live to the next tick: landed at {landed:?} \
+         in a hall from {} to {}",
+        hall.left,
+        hall.right
+    );
+    assert!(
+        rolled[0].1 < landed[0].1 && rolled[1].1 > landed[1].1,
+        "the shocks did not roll outward: {landed:?} then {rolled:?}"
+    );
+    let g = god(&mut sim);
+    sim.world_mut().get_mut::<BodyHealth>(g.entity).expect("the god").health.current = 0;
+    sim.step(base());
+    assert_eq!(shocks(&mut sim), [], "the shocks outlived the god");
+}
+
 /// The volley throws MEATBALLS: its shots wear the meatball.
 #[test]
 fn the_volley_throws_meatballs() {
@@ -306,6 +364,3 @@ fn wounded_it_sends_noodlings() {
         "the god's own volumes hurt its noodlings (damage taken {taken:?})"
     );
 }
-
-
-

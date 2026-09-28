@@ -425,8 +425,38 @@ pub fn conduct_fsm(
         let at = kin.pos;
         let target = player.unwrap_or(Vec2::new(hall.center_x(), hall.floor - 24.0));
 
-        // ── Dead: it sinks, limp, to the floor, and is drawn by the engine. ──
+        // ── The landing's shocks roll out along the floor ──
+        //
+        // Before the move runs: a landing below spawns its shocks through
+        // deferred commands, so this tick they are not in `hitboxes` yet and
+        // would read as gone. Each shock moves first on the next tick.
+        for slot in 0..conductor.waves.len() {
+            let Some(mut wave) = conductor.waves[slot] else {
+                continue;
+            };
+            wave.x += wave.dir * WAVE_SPEED * dt;
+            let gone = wave.x < hall.left + WAVE_HALF.x || wave.x > hall.right - WAVE_HALF.x;
+            if gone || hitboxes.get(wave.hitbox).is_err() {
+                commands.entity(wave.hitbox).try_despawn();
+                conductor.waves[slot] = None;
+                continue;
+            }
+            let center = Vec2::new(wave.x, hall.floor - WAVE_HALF.y);
+            if let Ok(mut hitbox) = hitboxes.get_mut(wave.hitbox) {
+                hitbox.anchor = HitboxAnchor::World { center };
+            }
+            if conductor.ticks % 3 == 0 {
+                vfx.write(VfxMessage::Burst { pos: center, count: 3, speed: 120.0, color: [0.93, 0.85, 0.62, 1.0], kind: ParticleKind::Dust });
+            }
+            conductor.waves[slot] = Some(wave);
+        }
+
+        // ── Dead: its shocks end with it; it sinks, limp, to the floor, and is
+        // drawn by the engine. ──
         if !health.alive() {
+            for wave in conductor.waves.iter_mut().filter_map(Option::take) {
+                commands.entity(wave.hitbox).try_despawn();
+            }
             row.clear();
             let rest = Vec2::new(at.x, hall.floor - STRANDED_ABOVE_FLOOR);
             let pos = glide(at, rest, 120.0, dt);
@@ -643,28 +673,6 @@ pub fn conduct_fsm(
                 ),
                 Name::new("fsm_sting"),
             ));
-        }
-
-        // ── The landing's shocks roll out along the floor ──
-        for slot in 0..conductor.waves.len() {
-            let Some(mut wave) = conductor.waves[slot] else {
-                continue;
-            };
-            wave.x += wave.dir * WAVE_SPEED * dt;
-            let gone = wave.x < hall.left + WAVE_HALF.x || wave.x > hall.right - WAVE_HALF.x;
-            if gone || hitboxes.get(wave.hitbox).is_err() {
-                commands.entity(wave.hitbox).try_despawn();
-                conductor.waves[slot] = None;
-                continue;
-            }
-            let center = Vec2::new(wave.x, hall.floor - WAVE_HALF.y);
-            if let Ok(mut hitbox) = hitboxes.get_mut(wave.hitbox) {
-                hitbox.anchor = HitboxAnchor::World { center };
-            }
-            if conductor.ticks % 3 == 0 {
-                vfx.write(VfxMessage::Burst { pos: center, count: 3, speed: 120.0, color: [0.93, 0.85, 0.62, 1.0], kind: ParticleKind::Dust });
-            }
-            conductor.waves[slot] = Some(wave);
         }
 
         // ── What it is drawn as ──

@@ -19,9 +19,9 @@
 //!
 //! ⚠ **THAT PARAGRAPH'S CONDITION HAS SINCE BEEN MET — re-derived 2026-09-06.**
 //! It defers cut-rope as "headless-hard" and names R5 as the thing that would
-//! change that. **R5 HAS LANDED**: `setup_cut_rope_encounter` is registered in
-//! `ContentEncounterScriptSet` and its own doc says the fight is now the generic
-//! encounter pieces with "no cut-rope-specific physics or steering". Measured:
+//! change that. **R5 HAS LANDED**: the fight is the behemoth's authored
+//! `encounter_script` (its `boss_profiles.ron` row), the generic encounter
+//! pieces with no cut-rope-specific physics or steering. Measured:
 //! the room boots headlessly in **0.87 s** with both authored props present, and
 //! `mod cut_rope_arena` now drives the rope-cut end to end. ⇒ The deferral was
 //! correct when written and expired without anyone re-deriving it; what remains

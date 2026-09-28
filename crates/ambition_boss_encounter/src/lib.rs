@@ -160,12 +160,6 @@ impl bevy::prelude::Plugin for BossEncounterSimulationPlugin {
 // `ContentFlavor`) and reset (`ContentRoomResetSet`) slots. They live here
 // because Progression is mostly the boss-encounter phase.
 
-/// Progression slot for content that sets up an encounter's scripted state
-/// mid boss-tick: after the engine advances encounter progress, before the
-/// scripted hazards/beats tick (e.g. the cut-rope arena's per-attempt setup).
-#[derive(bevy::ecs::schedule::SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
-pub struct ContentEncounterScriptSet;
-
 /// Progression slot for content that reacts to an encounter's resolution:
 /// after the boss chain finishes (payloads released, phase feedback), before
 /// the save mirrors run (e.g. spawning a victory NPC once the payload is free).

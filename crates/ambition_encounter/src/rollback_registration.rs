@@ -44,8 +44,9 @@ where
     // `tick_encounter_scripts`, which runs in the SIM schedule
     // (`ProgressionSet::BossHazards`). Unregistered, a rewind resumed a scripted
     // fight from the beat and the beat-clock the abandoned branch had reached.
-    // Its presence is authoritative too — `Without<EncounterScript>` is the
-    // idempotence gate that decides whether content attaches a script at all.
+    // Its presence is authoritative too: an encounter is spawned with its
+    // boss's authored script or with none, and script music is released only
+    // while no script is live.
     //
     // The projection is the two mutable fields, so a divergence in WHICH beat a
     // peer is on is a desync report rather than a silent difference; `beats` is

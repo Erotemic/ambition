@@ -44,8 +44,7 @@ a demo).
 
 * The `Progression` phase chain that drives the per-frame boss tick is registered
   by `ambition_platformer2d_runtime`, not here. This crate owns the CONTENT SLOTS
-  in that chain — `ContentEncounterScriptSet`, `ContentEncounterVictorySet`,
-  `ContentQuestRewardSet` — so a named game can interleave without the engine chain
+  in that chain — `ContentEncounterVictorySet`, `ContentQuestRewardSet` — so a named game can interleave without the engine chain
   ever naming a content system.
 * Player→boss damage ROUTING still lives in the monolith
   (`features::ecs::damage::boss_hit`), and it calls in. That direction is fine; it

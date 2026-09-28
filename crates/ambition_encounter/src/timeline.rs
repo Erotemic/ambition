@@ -12,11 +12,11 @@
 //!
 //! The cut-rope boss fight is expressed entirely as a script: `Gate("rope_cut")`
 //! → `CommandMoveTo` (lure) + `DropHazard` (a falling hazard that fires its
-//! impact gate) → `ForceKill`.
+//! impact gate) → `ForceKill`. A script is content: beats deserialize from
+//! authored data, and a place is an authored prop of the encounter's room,
+//! named by its kind, so a script needs no position written in code.
 
 use bevy::prelude::*;
-
-use ambition_platformer2d_core as ae;
 
 use crate::participants::EncounterParticipants;
 
@@ -35,7 +35,7 @@ impl EncounterGate {
 }
 
 /// A condition that advances the current script beat. Observes the encounter.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum EncounterTrigger {
     /// An external [`EncounterGate`] with this name fired this tick.
     Gate(String),
@@ -74,7 +74,7 @@ impl EncounterTrigger {
 /// A neutral effect a beat applies (§6 — effects are requests). Member indices
 /// address [`EncounterParticipants`]; the host resolves them to entities and
 /// executes. No actor types leak into the generic crate.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum EncounterEffect {
     /// Force the Nth member straight to defeat (an environmental kill).
     ForceKill(usize),
@@ -82,20 +82,21 @@ pub enum EncounterEffect {
     Banner { text: String, secs: f32 },
     /// Set (`Some`) or clear (`None`) the encounter music request.
     SetMusic(Option<String>),
-    /// Command the Nth member toward `target.x` at `speed` (stopping within
-    /// `arrive_tolerance`). The host attaches its "commanded move" override.
+    /// Command the Nth member toward the centre x of the room's prop of kind
+    /// `to_prop` at `speed` (stopping within `arrive_tolerance`). The host
+    /// attaches its "commanded move" override.
     CommandMoveTo {
         member: usize,
-        target: ae::Vec2,
+        to_prop: String,
         speed: f32,
         arrive_tolerance: f32,
     },
-    /// Drop a hazard hanging at `anchor`: it waits until `target_member` is
-    /// within `align_tolerance.x`, then falls under `gravity` (capped at
-    /// `terminal`) and fires `EncounterGate(impact_gate)` on contact.
+    /// Drop a hazard the size of the room's prop of kind `prop`, hanging where
+    /// that prop is: it waits until `target_member` is within
+    /// `align_tolerance.x`, then falls under `gravity` (capped at `terminal`)
+    /// and fires `EncounterGate(impact_gate)` on contact.
     DropHazard {
-        anchor: ae::Vec2,
-        size: ae::Vec2,
+        prop: String,
         gravity: f32,
         terminal: f32,
         align_tolerance: f32,
@@ -105,7 +106,7 @@ pub enum EncounterEffect {
 }
 
 /// One scripted beat: when `when` fires, apply `then` and advance the cursor.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct EncounterBeat {
     pub when: EncounterTrigger,
     pub then: Vec<EncounterEffect>,

@@ -2,10 +2,10 @@
 //!
 //! ⛔⛔ `boss_lifecycle`'s header records this fight as *"content-specific +
 //! headless-hard (R5 rewrites cut-rope as an EncounterScript); they remain an
-//! explicit in-game verification item"*. **R5 HAS LANDED** —
-//! `setup_cut_rope_encounter` is registered in `ContentEncounterScriptSet` and
-//! its own doc says the fight is now "the generic encounter pieces... no
-//! cut-rope-specific physics or steering". ⇒ The deferral's stated condition has
+//! explicit in-game verification item"*. **R5 HAS LANDED** — the fight is the
+//! behemoth's authored `encounter_script` (its `boss_profiles.ron` row): the
+//! generic encounter pieces, with no cut-rope-specific physics or steering.
+//! ⇒ The deferral's stated condition has
 //! been met, and nobody re-derived it. Measured: the room boots headlessly in
 //! **0.87 s** with both authored props present.
 //!
@@ -254,8 +254,8 @@ fn a_replay_lets_the_rope_be_cut_again() {
 /// of the code rather than from a rewind anybody had run.
 ///
 /// ⚠ This room is the only place the claim can be tested through PRODUCTION:
-/// `setup_cut_rope_encounter` is the workspace's one non-test inserter of an
-/// `EncounterScript`, and it needs this room's authored anvil. A test-side
+/// the behemoth is the one shipped boss that authors an `encounter_script`, and
+/// its script names this room's authored anvil. A test-side
 /// insert would not do — a registered component inserted outside the rewinding
 /// schedule is taken back by the first rewind, which is a different defect
 /// wearing this one's clothes.
@@ -268,8 +268,8 @@ fn a_replay_lets_the_rope_be_cut_again() {
 /// the registration and everything about the injection. The premise guard that
 /// caught it is why the number below is worth reading.
 ///
-/// ⇒ So this drives NO input at all. The script is attached by production the
-/// moment the anvil loads, and `EncounterScript::advance` adds `dt` to
+/// ⇒ So this drives NO input at all. Production spawns the encounter with its
+/// script the moment the fight begins, and `EncounterScript::advance` adds `dt` to
 /// `beat_elapsed` on every tick whether or not its trigger holds. The clock is
 /// the half a resimulated tick inflates when nothing restores it, and it needs
 /// no gate to observe.
@@ -320,8 +320,8 @@ fn the_encounter_script_clock_reaches_the_same_value_with_and_without_a_rewind()
     let (beat, elapsed) = without_rollback.expect(
         "no `EncounterScript` exists in the fixed-tick world, so this arm has no \
          subject and the comparison below would pass on two absent values. \
-         `setup_cut_rope_encounter` attaches it once the authored anvil has \
-         loaded — check the room still authors one.",
+         the behemoth's encounter is spawned with the script its profile \
+         authors — check its `boss_profiles.ron` row still authors one.",
     );
     assert!(
         elapsed > 0.0,
@@ -578,4 +578,44 @@ fn a_resimulated_kill_frame_still_carries_the_release_marker() {
          restored, PayloadReleased was cleared, and that pass of the frame \
          cannot emit what the first pass emitted"
     );
+}
+
+/// The behemoth is built with the payload it frees, and its fight begins with
+/// the script its profile authors, its places named by the room's props: on
+/// the first tick each exists, nothing has to be added to it.
+#[test]
+fn the_behemoth_and_its_fight_are_built_whole() {
+    use ambition_platformer2d::boss_encounter::{BossConfig, EncounterScript, ReleaseOnDeath};
+    let mut sim = cut_rope_sim();
+    let (placement, behemoth_first) = (0..300)
+        .find_map(|_| {
+            let world = sim.world_mut();
+            let found = world
+                .query::<(&BossConfig, bevy::prelude::Has<ReleaseOnDeath>)>()
+                .iter(world)
+                .find(|(config, _)| config.behavior.id == ambition_content::bosses::CUT_ROPE_BOSS_ID)
+                .map(|(config, frees)| (config.id.clone(), frees));
+            if found.is_none() {
+                sim.step(AgentAction::default());
+            }
+            found
+        })
+        .expect("the room builds its behemoth");
+    assert!(behemoth_first, "the behemoth, on the first tick it exists, frees its payload when it dies");
+    let script_first = (0..300)
+        .find_map(|_| {
+            let world = sim.world_mut();
+            let found = world
+                .query::<(&ambition_platformer2d::encounter::Encounter, Option<&EncounterScript>)>()
+                .iter(world)
+                // An encounter wrap is named by its boss's placement.
+                .find(|(encounter, _)| encounter.id == placement)
+                .map(|(_, script)| script.map(|script| script.beats.len()));
+            if found.is_none() {
+                sim.step(AgentAction::default());
+            }
+            found
+        })
+        .expect("the behemoth's fight begins");
+    assert_eq!(script_first, Some(2), "its encounter, on the first tick it exists, runs the authored beats");
 }

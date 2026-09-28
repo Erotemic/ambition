@@ -23,7 +23,7 @@ pub use banter::{install_boss_banter, tick_boss_idle_barks};
 pub use cut_rope::{
     detect_cut_rope_rope_cut, emit_cut_rope_room_replay_after_the_conversation_ends,
     is_cut_rope_boss, release_cut_rope_music_outside_its_room, reset_cut_rope_attempt_on_replay, reset_cut_rope_boss_arena_on_room_reset,
-    reset_cut_rope_boss_attempt, setup_cut_rope_encounter, spawn_cut_rope_victory_npc,
+    reset_cut_rope_boss_attempt, spawn_cut_rope_victory_npc,
     sync_cut_rope_boss_arena_prop_visuals, tick_cut_rope_flavor, CutRopeBossArenaState,
     CutRopeHeavyObjectCycle, CutRopeRoomReplayRequested, PendingCutRopeRoomReplay,
     SmirkingBehemothVictoryNpc, CUT_ROPE_BOSS_ID, CUT_ROPE_VICTORY_NPC_DIALOGUE_ID,
@@ -157,9 +157,11 @@ pub fn boss_catalog_fragment() -> ambition_boss_encounter::BossCatalogFragment {
         .expect("Ambition's boss art keys parse"),
     )
     .expect("Ambition boss content should form one valid catalog fragment")
-    // The two conducted bosses are built with their conductors.
+    // The conducted bosses are built with their conductors, and the behemoth
+    // with the payload it frees.
     .with_birth_kit(gnu_ton::conductor::GNU_TON_ID, gnu_ton::conductor::birth)
     .with_birth_kit(fsm::conductor::FSM_ID, fsm::birth)
+    .with_birth_kit(cut_rope::CUT_ROPE_BOSS_ID, cut_rope::birth)
 }
 
 /// Assemble Ambition's boss catalog without constructing a Bevy App.
@@ -355,15 +357,9 @@ impl Plugin for AmbitionBossContentPlugin {
         // and combat-flavor slots above).
         app.add_systems(
             sim,
-            (
-                // Cut-rope arena per-attempt setup — MID boss-tick (after the
-                // engine advances encounter progress, before scripted hazards).
-                setup_cut_rope_encounter.in_set(ambition_boss_encounter::ContentEncounterScriptSet),
-                // Victory NPC spawn — after the boss chain frees the payload,
-                // before the save mirrors run.
-                spawn_cut_rope_victory_npc
-                    .in_set(ambition_boss_encounter::ContentEncounterVictorySet),
-            ),
+            // Victory NPC spawn — after the boss chain frees the payload,
+            // before the save mirrors run.
+            spawn_cut_rope_victory_npc.in_set(ambition_boss_encounter::ContentEncounterVictorySet),
         );
 
         // GNU-ton arena gate: a derived collision-overlay contributor (hides the

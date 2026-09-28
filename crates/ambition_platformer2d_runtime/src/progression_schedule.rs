@@ -108,15 +108,7 @@ impl Plugin for ProgressionSchedulePlugin {
         // positions. Content plugins register `.in_set(the slot)`; ordering is
         // preserved byte-for-byte because each slot pins the SAME `.after`/
         // `.before` engine neighbors the wedged system had.
-        use ambition_boss_encounter::{
-            ContentEncounterScriptSet, ContentEncounterVictorySet, ContentQuestRewardSet,
-        };
-        app.configure_sets(
-            sim,
-            ContentEncounterScriptSet
-                .after(ProgressionSet::BossAdvance)
-                .before(ProgressionSet::BossHazards),
-        );
+        use ambition_boss_encounter::{ContentEncounterVictorySet, ContentQuestRewardSet};
         app.configure_sets(
             sim,
             ContentEncounterVictorySet

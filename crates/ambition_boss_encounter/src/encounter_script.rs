@@ -58,6 +58,12 @@ pub fn tick_encounter_scripts(
     mut music: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<
         ambition_encounter::EncounterMusicRequest,
     >,
+    // The room whose authored props a script's places name.
+    rooms: Option<
+        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+            ambition_platformer2d_world::rooms::RoomSet,
+        >,
+    >,
 ) {
     let dt = world_time.sim_dt();
     let fired: Vec<String> = gates.read().map(|g| g.gate.clone()).collect();
@@ -86,6 +92,17 @@ pub fn tick_encounter_scripts(
         music.release_priority(SCRIPT_MUSIC_OWNER);
     }
 
+    // A place names an authored prop of the live room by its kind. A prop the
+    // room does not have is refused by name, not replaced by a guessed place.
+    let prop = |kind: &str| {
+        let found = rooms
+            .as_ref()
+            .and_then(|rooms| rooms.active_props().iter().find(|prop| prop.kind == kind));
+        if found.is_none() {
+            bevy::prelude::warn!("an encounter effect names the prop `{kind}`, which the active room does not author; the effect was refused");
+        }
+        found.map(|prop| (prop.pos, prop.size))
+    };
     for (participants, mut script, encounter_id, mut counter) in &mut scripts {
         let effects = script.advance(dt, participants, &fired);
         let member_entity = |i: usize| participants.members.get(i).and_then(|p| p.entity);
@@ -108,28 +125,29 @@ pub fn tick_encounter_scripts(
                 },
                 EncounterEffect::CommandMoveTo {
                     member,
-                    target,
+                    to_prop,
                     speed,
                     arrive_tolerance,
                 } => {
-                    if let Some(m) = member_entity(*member) {
+                    if let (Some(m), Some((target, _))) = (member_entity(*member), prop(to_prop)) {
                         commands.entity(m).insert(CommandedMove {
-                            target: *target,
+                            target,
                             speed: *speed,
                             arrive_tolerance: *arrive_tolerance,
                         });
                     }
                 }
                 EncounterEffect::DropHazard {
-                    anchor,
-                    size,
+                    prop: hazard_prop,
                     gravity,
                     terminal,
                     align_tolerance,
                     target_member,
                     impact_gate,
                 } => {
-                    if let Some(target) = member_entity(*target_member) {
+                    if let (Some(target), Some((anchor, size))) =
+                        (member_entity(*target_member), prop(hazard_prop))
+                    {
                         // Refuse, and do not drop a hazard without an identity
                         // (ADR 0030). A hazard the sim cannot name cannot be
                         // rebuilt by a rewind, and this one decides when a
@@ -155,9 +173,9 @@ pub fn tick_encounter_scripts(
                             SessionSpawnScope::new(
                                 session_owners.get(target).ok().map(|owner| owner.0),
                             ),
-                            *anchor,
+                            anchor,
                             FallingHazard {
-                                size: *size,
+                                size,
                                 gravity: *gravity,
                                 terminal: *terminal,
                                 align_tolerance: *align_tolerance,

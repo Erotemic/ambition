@@ -116,6 +116,11 @@ pub struct BossBehaviorProfile {
     /// shared verb chain; an empty map uses the default primary/signature mapping.
     #[serde(default)]
     pub possessed_verbs: Vec<(String, String)>,
+    /// The beats of this boss's fight beyond its phases, run by its encounter
+    /// from the moment the fight begins. Empty: none. See
+    /// `ambition_encounter::EncounterScript`.
+    #[serde(default)]
+    pub encounter_script: Vec<ambition_encounter::EncounterBeat>,
 }
 
 /// Closed motion vocabulary used by the limb router during strike Startup/Active.

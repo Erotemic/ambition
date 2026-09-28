@@ -497,6 +497,28 @@
                 Strike(profile: Special("eye_beam"), duration: 0.22),
             ]),
         ),
+        // The fight's one way to end. Cutting the rope fires the gate
+        // `rope_cut`: the behemoth is walked under the anvil prop (at 150 wu/s,
+        // stopping within 42 wu of it) and the anvil drops once it is there; its
+        // impact fires `cut_rope_impact`, which kills it. 42 wu is the rope's
+        // alignment tolerance, wider than 0.18 of the 208 wu body.
+        encounter_script: [
+            (
+                when: Gate("rope_cut"),
+                then: [
+                    CommandMoveTo(member: 0, to_prop: "cut_rope_anvil", speed: 150.0, arrive_tolerance: 42.0),
+                    DropHazard(
+                        prop: "cut_rope_anvil",
+                        gravity: 1400.0,
+                        terminal: 920.0,
+                        align_tolerance: 42.0,
+                        target_member: 0,
+                        impact_gate: "cut_rope_impact",
+                    ),
+                ],
+            ),
+            (when: Gate("cut_rope_impact"), then: [ForceKill(0)]),
+        ],
     ),
     // Flying Spaghetti Monster — a false-god boss (canon: Jon).
     //

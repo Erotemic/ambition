@@ -15,10 +15,7 @@ const CUT_ROPE_MUSIC_OWNER: &str = "cut_rope_boss";
 
 use ambition_boss_encounter::BossConfig;
 use ambition_boss_encounter::{BossClusterQueryData, BossClusterRef, BossRef};
-use ambition_boss_encounter::{
-    BossEncounterRegistry, EncounterBeat, EncounterEffect, EncounterScript, EncounterTrigger,
-    ReleaseOnDeath,
-};
+use ambition_boss_encounter::{BossEncounterRegistry, ReleaseOnDeath};
 use ambition_characters::brain::BossAttackState;
 use ambition_characters::control::ActorControl;
 use ambition_combat::components::{
@@ -26,7 +23,6 @@ use ambition_combat::components::{
     PogoTargetVolumes, PostBossNpc,
 };
 use ambition_combat::{GameplayBanner, HitEvent, HitSource, RoomReplayAdmitted};
-use ambition_encounter::EncounterParticipants;
 use ambition_platformer2d::world::rooms::{PropSpec, RoomSet};
 use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 use ambition_platformer2d_actor_spawn::actor_bundles::{EnemyActorBundle, FeatureRenderedBundle};
@@ -51,11 +47,7 @@ const CUT_ROPE_VICTORY_NPC_H: f32 = 48.0;
 const ROPE_KIND: &str = "cut_rope_rope";
 const ANVIL_KIND: &str = "cut_rope_anvil";
 const PIANO_KIND: &str = "cut_rope_piano";
-const ANVIL_GRAVITY: f32 = 1400.0;
-const ANVIL_TERMINAL_SPEED: f32 = 920.0;
 const ANVIL_Z_OFFSET: f32 = 0.75;
-const ROPE_ALIGNMENT_TOLERANCE: f32 = 42.0;
-const ROPE_LURE_SPEED: f32 = 150.0;
 const ROPE_SPARK_INTERVAL: f32 = 0.22;
 
 pub fn is_cut_rope_boss(id: &str) -> bool {
@@ -296,78 +288,12 @@ pub fn reset_cut_rope_attempt_on_replay(
     );
 }
 
-/// Express the whole Smirking Behemoth fight as generic encounter pieces:
-/// `ReleaseOnDeath` on the entity (frees the victory NPC on death) and an
-/// `EncounterScript` on its encounter that drives the fight from data:
-///   rope cut → lure the behemoth under the anvil (`CommandMoveTo` → generic
-///   `CommandedMove`) + drop the anvil (`DropHazard` → generic `FallingHazard`)
-///   → on the hazard's impact gate, `ForceKill`.
-/// No cut-rope-specific physics or steering. Idempotent; waits until the
-/// authored anvil prop is available.
-pub fn setup_cut_rope_encounter(
-    mut commands: Commands,
-    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<RoomSet>,
-    bosses: Query<&BossConfig>,
-    encounters: Query<(Entity, &EncounterParticipants), Without<EncounterScript>>,
-    behemoths: Query<(Entity, &BossConfig), Without<ReleaseOnDeath>>,
-) {
-    // The swallowed victory NPC is freed by the generic on-death capability.
-    for (entity, config) in &behemoths {
-        if is_cut_rope_boss(&config.behavior.id) {
-            commands.entity(entity).insert(ReleaseOnDeath);
-        }
-    }
-
-    // The script needs the authored anvil's position and size for the lure
-    // target and the falling hazard, so wait for the prop to load.
-    // `authored_prop` is the one definition of "the authored anvil".
-    let Some(anvil) = arena::authored_prop(room_set.active_props(), ANVIL_KIND) else {
-        return;
-    };
-
-    for (encounter, participants) in &encounters {
-        // Only the behemoth's encounter gets the cut-rope script; member 0 is the
-        // single boss the encounter wraps.
-        let Some(config) = participants
-            .members
-            .first()
-            .and_then(|p| p.entity)
-            .and_then(|m| bosses.get(m).ok())
-            .filter(|c| is_cut_rope_boss(&c.behavior.id))
-        else {
-            continue;
-        };
-        // Drop fires once the boss is within this x-tolerance of the anvil — the
-        // old `boss_alignment_tolerance` (scaled by the boss's combat width).
-        let align_tolerance =
-            ROPE_ALIGNMENT_TOLERANCE.max(config.behavior.combat_size.map_or(0.0, |s| s.x) * 0.18);
-        commands.entity(encounter).insert(EncounterScript::new(vec![
-            EncounterBeat::new(
-                EncounterTrigger::Gate("rope_cut".to_string()),
-                vec![
-                    EncounterEffect::CommandMoveTo {
-                        member: 0,
-                        target: anvil.pos,
-                        speed: ROPE_LURE_SPEED,
-                        arrive_tolerance: align_tolerance,
-                    },
-                    EncounterEffect::DropHazard {
-                        anchor: anvil.pos,
-                        size: anvil.size,
-                        gravity: ANVIL_GRAVITY,
-                        terminal: ANVIL_TERMINAL_SPEED,
-                        align_tolerance,
-                        target_member: 0,
-                        impact_gate: "cut_rope_impact".to_string(),
-                    },
-                ],
-            ),
-            EncounterBeat::new(
-                EncounterTrigger::Gate("cut_rope_impact".to_string()),
-                vec![EncounterEffect::ForceKill(0)],
-            ),
-        ]));
-    }
+/// The state the behemoth is built with: it frees its swallowed victory NPC
+/// when it dies (the generic `ReleaseOnDeath`). Its fight beyond its phases is
+/// the `encounter_script` of its row in `boss_profiles.ron`. See
+/// [`ambition_boss_encounter::BossBirthKit`].
+pub fn birth(scope: &mut ambition_platformer2d_shared_tangle::construction::EntityScope, _: &ae::BodyKinematics) {
+    scope.insert(ReleaseOnDeath);
 }
 
 mod arena;

@@ -179,7 +179,7 @@ pub fn sync_boss_encounter_entities(
         // is the generic "all PrimaryTargets defeated" objective, decided by
         // the generic lifecycle reducer. Started through the command ingress
         // because the fight is already underway when the wrap appears.
-        commands.spawn_session_scoped(
+        let mut wrap = commands.spawn_session_scoped(
             SessionSpawnScope::new(owner.map(|owner| owner.0)),
             (
                 Encounter::new(config.id.clone()),
@@ -199,6 +199,13 @@ pub fn sync_boss_encounter_entities(
                 EncounterProgress::default(),
             ),
         );
+        // The boss's authored beats begin with its fight. A boss with none
+        // gets no script: script music is released only while none is live.
+        if !config.behavior.encounter_script.is_empty() {
+            wrap.insert(ambition_encounter::EncounterScript::new(
+                config.behavior.encounter_script.clone(),
+            ));
+        }
         lifecycle_commands.write(EncounterCommand::new(
             config.id.clone(),
             EncounterCommandKind::Start,

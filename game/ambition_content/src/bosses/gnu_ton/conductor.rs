@@ -33,7 +33,7 @@ use ambition_mount::{MountSlot, RidingOn};
 use ambition_platformer2d::sfx::{BodySfxWriter, SfxId, SfxMessage};
 use ambition_platformer2d::sprite_sheet::character::PinnedRow;
 use ambition_platformer2d::vfx::{ParticleKind, VfxMessage};
-use ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly;
+use ambition_combat::components::ActorTarget;
 use ambition_vfx::HitSide;
 
 use super::choreography::{self as ch, Cue, Fist, Hall, Latch, Move, Pose, Stage};
@@ -423,6 +423,7 @@ pub fn conduct_gnu_ton(
             &mut BossEncounter,
             Option<&mut ae::SweepSample>,
             &mut PinnedRow,
+            &ActorTarget,
         ),
         (With<BossConfig>, Without<MountSlot>, Without<Limb>),
     >,
@@ -450,10 +451,9 @@ pub fn conduct_gnu_ton(
         ),
         (Without<MountSlot>, Without<BossConfig>),
     >,
-    players: Query<
-        &ae::BodyKinematics,
-        (PrimaryPlayerOnly, Without<Limb>, Without<MountSlot>, Without<BossConfig>),
-    >,
+    // Where the scholar's foe stands. The foe is his `ActorTarget`, never a
+    // body looked up by its role.
+    bodies: Query<&ae::BodyKinematics, (Without<Limb>, Without<MountSlot>, Without<BossConfig>)>,
     mut hitboxes: Query<&mut Hitbox>,
     mut vfx: MessageWriter<VfxMessage>,
     mut sfx: BodySfxWriter,
@@ -462,7 +462,6 @@ pub fn conduct_gnu_ton(
     if dt <= 0.0 {
         return;
     }
-    let player = players.iter().next().map(|kin| kin.pos);
     for (
         scholar,
         attack,
@@ -475,6 +474,7 @@ pub fn conduct_gnu_ton(
         mut encounter,
         mut scholar_sweep,
         mut scholar_row,
+        foe,
     ) in &mut scholars
     {
         let Ok((rig, giant_kin, mut giant_flight, mut giant_row, giant_unmirrored, giant_posed)) =
@@ -539,7 +539,7 @@ pub fn conduct_gnu_ton(
             scholar: scholar_kin.pos,
             fist: fist_size,
         };
-        let aim_now = player.unwrap_or(scholar_kin.pos);
+        let aim_now = foe.entity.map_or(scholar_kin.pos, |_| foe.pos);
 
         // ── Which part of which beat, and did it just begin? ──
         let live = live_part(attack);
@@ -684,11 +684,11 @@ pub fn conduct_gnu_ton(
         let hurt = conductor.last_scholar_hp.is_some_and(|hp| scholar_health.current() < hp);
         conductor.last_scholar_hp = Some(scholar_health.current());
         conductor.reflex_cooldown = (conductor.reflex_cooldown - dt).max(0.0);
-        let someone_on_back = players.iter().any(|kin| {
+        let foe_on_back = foe.entity.and_then(|foe| bodies.get(foe).ok()).is_some_and(|kin| {
             let feet = kin.pos.y + kin.size.y * 0.5;
             (feet - back.min.y).abs() <= 4.0 && (back.min.x..=back.max.x).contains(&kin.pos.x)
         });
-        if hurt && someone_on_back && conductor.reflex.is_none() && conductor.reflex_cooldown <= 0.0 {
+        if hurt && foe_on_back && conductor.reflex.is_none() && conductor.reflex_cooldown <= 0.0 {
             conductor.reflex = Some(0.0);
             play(&mut sfx, scholar, SFX_SNORT, giant_kin.pos);
         }

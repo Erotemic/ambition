@@ -4,10 +4,14 @@
 //! The boss's scripted pattern decides WHICH move and WHEN (its `Special`
 //! keys, telegraph then strike then rest). This decides everything that is
 //! the move's own: where the god goes for it, the volume it swings, the shots
-//! it throws, the row it is drawn with. The god owns its pose
+//! it throws, the row it is drawn with. The conductor owns the god's pose
 //! ([`ae::PoseOwnedExternally`]) because none of the shared movement profiles
 //! can do what it does — swim in beats like a jellyfish, plunge onto the floor
 //! where you stood, and lie there tangled until its next move lifts it.
+//!
+//! A participant who drives the god owns its locomotion instead, except
+//! through the dive, which moves the god by its own arc (`FsmConductor::scripts_pose`).
+//! The god aims at its own [`ActorTarget`], the foe the engine selected for it.
 //!
 //! ⭐ THE FIGHT'S SHAPE. The god hovers so its noodles hang to just above your
 //! head, and they STING: the bell is the target, the curtain under it is not
@@ -28,7 +32,8 @@ use ambition_combat::strike::{DamageBox, DepictedByOwner, Hitbox, HitboxAnchor, 
 use ambition_platformer2d::sfx::{BodySfxWriter, SfxId, SfxMessage};
 use ambition_platformer2d::sprite_sheet::character::PinnedRow;
 use ambition_platformer2d::vfx::{ParticleKind, VfxMessage};
-use ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly;
+use ambition_characters::control::DrivingParticipant;
+use ambition_combat::components::ActorTarget;
 use ambition_projectiles::{ProjectileSpawn, ProjectileSpawnRequest, ProjectileStart};
 use ambition_vfx::HitSide;
 
@@ -239,6 +244,15 @@ impl FsmConductor {
     pub fn hall(&self) -> Option<Hall> {
         self.hall
     }
+
+    /// The dive moves the god by its own arc: up over its foe, down onto the
+    /// floor, stranded there, and up again. The conductor keeps the pose
+    /// through all of it, even while a participant drives the god.
+    fn scripts_pose(&self, part: Option<Part>) -> bool {
+        self.stranded.is_some()
+            || self.rising.is_some()
+            || matches!(part, Some(Part { mv: Move::Dive, .. }))
+    }
 }
 
 impl bevy::ecs::entity::MapEntities for FsmConductor {
@@ -288,8 +302,9 @@ pub fn is_fsm(config: &BossConfig) -> bool {
     config.behavior.id == FSM_ID
 }
 
-/// Take the god into the fight: its conductor, its drawn row, and its pose.
-/// Idempotent, so it re-runs harmlessly after a rollback.
+/// Take the god into the fight: its conductor and its drawn row. The conductor
+/// states who owns the pose each tick. Idempotent, so it re-runs harmlessly
+/// after a rollback.
 pub fn adopt_fsm(mut commands: Commands, gods: Query<(Entity, &BossConfig, &ae::BodyKinematics), Without<FsmConductor>>) {
     for (god, config, kin) in &gods {
         if !is_fsm(config) {
@@ -298,7 +313,6 @@ pub fn adopt_fsm(mut commands: Commands, gods: Query<(Entity, &BossConfig, &ae::
         commands.entity(god).insert((
             FsmConductor::new(if kin.facing < 0.0 { -1.0 } else { 1.0 }),
             PinnedRow::default(),
-            ae::PoseOwnedExternally,
         ));
     }
 }
@@ -393,10 +407,12 @@ pub fn conduct_fsm(
             &BossEncounter,
             Option<&mut ae::SweepSample>,
             &mut PinnedRow,
+            &ActorTarget,
+            Has<DrivingParticipant>,
+            Has<ae::PoseOwnedExternally>,
         ),
         With<BossConfig>,
     >,
-    players: Query<&ae::BodyKinematics, (PrimaryPlayerOnly, Without<BossConfig>)>,
     mut hitboxes: Query<&mut Hitbox>,
     mut projectiles: MessageWriter<ProjectileSpawnRequest>,
     mut effects: MessageWriter<ambition_vfx::EffectRequest>,
@@ -407,8 +423,7 @@ pub fn conduct_fsm(
     if dt <= 0.0 {
         return;
     }
-    let player = players.iter().next().map(|kin| kin.pos);
-    for (god, attack, mut conductor, mut kin, mut aabb, health, encounter, mut sweep, mut row) in &mut gods {
+    for (god, attack, mut conductor, mut kin, mut aabb, health, encounter, mut sweep, mut row, foe, driven, pose_owned) in &mut gods {
         let conductor = &mut *conductor;
         let hall = match conductor.hall {
             Some(hall) => hall,
@@ -423,7 +438,7 @@ pub fn conduct_fsm(
         conductor.clock += dt;
         conductor.ticks = conductor.ticks.wrapping_add(1);
         let at = kin.pos;
-        let target = player.unwrap_or(Vec2::new(hall.center_x(), hall.floor - 24.0));
+        let target = foe.entity.map_or(Vec2::new(hall.center_x(), hall.floor - 24.0), |_| foe.pos);
 
         // ── The landing's shocks roll out along the floor ──
         //
@@ -458,6 +473,9 @@ pub fn conduct_fsm(
                 commands.entity(wave.hitbox).try_despawn();
             }
             row.clear();
+            if !pose_owned {
+                commands.entity(god).try_insert(ae::PoseOwnedExternally);
+            }
             let rest = Vec2::new(at.x, hall.floor - STRANDED_ABOVE_FLOOR);
             let pos = glide(at, rest, 120.0, dt);
             ae::movement::constrain_body_pose(&mut kin, sweep.as_deref_mut(), pos, (pos - at) / dt);
@@ -550,9 +568,29 @@ pub fn conduct_fsm(
                 _ => glide(at, swim, SWIM_SPEED, dt),
             }
         };
-        ae::movement::constrain_body_pose(&mut kin, sweep.as_deref_mut(), pos, (pos - at) / dt);
-        kin.facing = conductor.side;
-        aabb.center = pos;
+        // ── Who moves the god ──
+        // The conductor, unless a participant drives it outside the dive.
+        // `PoseOwnedExternally` tells the body integrator to leave the god's
+        // locomotion alone, so it is set to agree with this answer.
+        let conducts = !driven || conductor.scripts_pose(part);
+        if conducts {
+            ae::movement::constrain_body_pose(&mut kin, sweep.as_deref_mut(), pos, (pos - at) / dt);
+            kin.facing = conductor.side;
+            aabb.center = pos;
+        } else {
+            conductor.side = if kin.facing < 0.0 { -1.0 } else { 1.0 };
+        }
+        match (conducts, pose_owned) {
+            (true, false) => {
+                commands.entity(god).try_insert(ae::PoseOwnedExternally);
+            }
+            (false, true) => {
+                commands.entity(god).try_remove::<ae::PoseOwnedExternally>();
+            }
+            _ => {}
+        }
+        // A driven god's moves start where the participant put it.
+        let pos = if conducts { pos } else { kin.pos };
 
         // ── The strike's own onset ──
         if let Some(part) = part {
@@ -676,7 +714,8 @@ pub fn conduct_fsm(
         }
 
         // ── What it is drawn as ──
-        match drawn_row(conductor, part, (pos - at).length() / dt) {
+        let speed = if conducts { (pos - at).length() / dt } else { kin.vel.length() };
+        match drawn_row(conductor, part, speed) {
             Some((name, elapsed, looping)) => row.pin(&[name], elapsed, looping),
             None => row.clear(),
         }

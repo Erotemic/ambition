@@ -297,6 +297,173 @@ fn the_landing_shocks_roll_outward_and_end_with_the_god() {
     assert_eq!(shocks(&mut sim), [], "the shocks outlived the god");
 }
 
+fn possessed(sim: &mut Platformer2dSimHarness) -> Option<Entity> {
+    sim.world_mut()
+        .resource::<ambition_platformer2d::actors::control::possession::PossessionState>()
+        .possessed
+}
+
+/// Hold Down + Interact: the possession gesture, and a fresh press releases.
+fn down_interact(edge: bool) -> AgentAction {
+    AgentAction { move_y: 1.0, interact: edge, interact_held: true, ..base() }
+}
+
+fn hall_of(sim: &mut Platformer2dSimHarness) -> ambition_content::bosses::hall::Hall {
+    let world = sim.world_mut();
+    let mut q = world.query::<&FsmConductor>();
+    q.iter(world).next().and_then(FsmConductor::hall).expect("the god has measured its hall")
+}
+
+/// Put any body at `at`, through the engine's transit.
+fn place_body(sim: &mut Platformer2dSimHarness, body: Entity, at: ae::Vec2) {
+    let world = sim.world_mut();
+    let mut q = world.query::<(ae::BodyClusterQueryData, &mut ambition_platformer2d::actor::MotionModel)>();
+    let (mut clusters, mut model) = q.get_mut(world, body).expect("the body");
+    let mut clusters = clusters.as_clusters_mut();
+    ae::movement::transit_body(&mut model, &mut clusters, at, ae::movement::TransitVelocity::Zero);
+}
+
+/// A participant who drives the god steers it, both ways; released, the
+/// conductor flies it again.
+#[test]
+fn a_driven_god_goes_where_it_is_steered_and_swims_again_when_released() {
+    let mut sim = arena();
+    untouchable_player(&mut sim, true);
+    let the_god = god(&mut sim).entity;
+    for i in 0..300 {
+        let at = god(&mut sim).pos;
+        sim.teleport_player((at.x - 40.0, at.y));
+        sim.step(down_interact(i == 0));
+        if possessed(&mut sim) == Some(the_god) {
+            break;
+        }
+    }
+    assert_eq!(possessed(&mut sim), Some(the_god), "setup: the Down+Interact hold did not possess the god");
+    // Let any move the pattern had started run out, and any rise after a dive.
+    step_until(&mut sim, 900, "no move to hold the god", |sim| {
+        let g = god(sim);
+        g.performing.is_none() && !g.stranded
+    });
+    for _ in 0..60 {
+        sim.step(base());
+    }
+    let mut steer = |move_x: f32| {
+        let from = god(&mut sim).pos.x;
+        for _ in 0..40 {
+            sim.step(AgentAction { move_x, ..base() });
+        }
+        god(&mut sim).pos.x - from
+    };
+    let right = steer(1.0);
+    let left = steer(-1.0);
+    assert!(
+        right > 20.0 && left < -20.0,
+        "the driven god did not follow its participant: held right it moved {right:.0}, held left {left:.0}"
+    );
+
+    sim.step(down_interact(true));
+    assert_eq!(possessed(&mut sim), None, "a fresh press releases the god");
+    let from = god(&mut sim).pos;
+    for _ in 0..90 {
+        sim.step(base());
+    }
+    let g = god(&mut sim);
+    assert!(
+        sim.world().get::<ae::PoseOwnedExternally>(g.entity).is_some(),
+        "released, the conductor did not take the god's pose back"
+    );
+    assert!(g.pos.distance(from) > 10.0, "released, the god did not swim: it stayed at {from:?}");
+}
+
+/// The god aims at the foe the engine chose for it (its `ActorTarget`), not at
+/// the home avatar. A participant drives another body on one side of the god;
+/// the home avatar stands at the far wall on the other side.
+#[test]
+fn the_god_aims_at_the_foe_its_target_names_not_the_home_avatar() {
+    use ambition_platformer2d::combat::components::{ActorTarget, FeatureId};
+    const DRIVEN: &str = "fsm_driven_foe";
+
+    let mut sim = arena();
+    untouchable_player(&mut sim, true);
+    let hall = hall_of(&mut sim);
+    let (home, at, _) = player(&mut sim);
+    sim.spawn_enemy_character_at(
+        DRIVEN,
+        "Driven Foe",
+        (at.x + 60.0, at.y),
+        (14.0, 23.0),
+        ambition_platformer2d::entity_catalog::placements::CharacterBrain::Custom("cellular_automaton_fighter".to_string()),
+        "perfect_cellular_automaton",
+    );
+    let driven = {
+        let world = sim.world_mut();
+        let mut q = world.query::<(Entity, &FeatureId)>();
+        q.iter(world).find(|(_, id)| id.as_str() == DRIVEN).map(|(entity, _)| entity).expect("the spawned body")
+    };
+    sim.world_mut()
+        .get_mut::<BodyHealth>(driven)
+        .expect("the driven body has health")
+        .health
+        .invulnerable
+        .set(Invulnerability::SCRIPTED, true);
+    for i in 0..900 {
+        sim.step(down_interact(i == 0));
+        if possessed(&mut sim) == Some(driven) {
+            break;
+        }
+    }
+    assert_eq!(possessed(&mut sim), Some(driven), "setup: the Down+Interact hold did not possess the body");
+
+    // The home avatar leaves the playable plane, so it is no foe the engine
+    // can select, whatever the god does; the driven body is the only one. The
+    // home avatar stands at the far wall and the driven body close on the other
+    // side of the god, both held in place.
+    sim.world_mut().entity_mut(home).insert(ae::DepthPlane::BEHIND);
+    let g = god(&mut sim);
+    let side = if g.pos.x < hall.center_x() { 1.0 } else { -1.0 };
+    let home_at = ae::Vec2::new(if side > 0.0 { hall.left + 40.0 } else { hall.right - 40.0 }, at.y);
+    let driven_at = ae::Vec2::new((g.pos.x + side * 150.0).clamp(hall.left + 40.0, hall.right - 40.0), at.y);
+    let hold = |sim: &mut Platformer2dSimHarness| {
+        place_body(sim, home, home_at);
+        place_body(sim, driven, driven_at);
+    };
+    for _ in 0..20 {
+        hold(&mut sim);
+        sim.step(base());
+    }
+    // The volley lobs its meatballs at the god's target: where they fly is
+    // the conductor's own aim.
+    step_until(&mut sim, 1800, "a volley's strike", |sim| {
+        hold(sim);
+        god(sim).performing == Some((Move::Volley, true))
+    });
+    hold(&mut sim);
+    sim.step(base());
+    let g = god(&mut sim);
+    let target = sim.world().get::<ActorTarget>(g.entity).expect("the god has a target").entity;
+    assert_eq!(target, Some(driven), "premise: the engine chose the driven body as the god's foe");
+    assert!(
+        (driven_at.x - g.pos.x).signum() != (home_at.x - g.pos.x).signum(),
+        "premise: the god at x {:.0} is between the home avatar at {:.0} and its foe at {:.0}",
+        g.pos.x,
+        home_at.x,
+        driven_at.x
+    );
+    let thrown: Vec<f32> = {
+        let world = sim.world_mut();
+        let mut q = world.query::<(&ambition_platformer2d::projectiles::ProjectileVisualId, &ae::BodyKinematics)>();
+        q.iter(world).filter(|(id, _)| id.0 == "meatball").map(|(_, kin)| kin.vel.x).collect()
+    };
+    assert!(!thrown.is_empty(), "premise: the volley threw meatballs");
+    assert!(
+        thrown.iter().all(|vx| vx.signum() == (driven_at.x - g.pos.x).signum()),
+        "the god at x {:.0} threw at the home avatar at {:.0}, not its foe at {:.0}: meatball x speeds {thrown:?}",
+        g.pos.x,
+        home_at.x,
+        driven_at.x
+    );
+}
+
 /// The volley throws MEATBALLS: its shots wear the meatball.
 #[test]
 fn the_volley_throws_meatballs() {

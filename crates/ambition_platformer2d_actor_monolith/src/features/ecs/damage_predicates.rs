@@ -36,18 +36,9 @@ pub(super) fn target_is_ignored(ignored_targets: &[String], prefix: &str, id: &s
             == Some(id)
     })
 }
-/// Whether this breakable can receive a projectile/attack contact at all.
-///
-/// One eligibility rule, read by the discrete predicate above and the swept one
-/// below — the two used to spell the same four conditions separately, which is
-/// how a swept road comes to admit a target the discrete road refuses.
-fn breakable_is_eligible(
-    ignored_targets: &[String],
-    id: &FeatureId,
-    feature: &BreakableFeature,
-) -> bool {
-    !target_is_ignored(ignored_targets, "breakable", id.as_str())
-        && !feature.broken()
+/// Whether this breakable can receive a projectile contact at all.
+fn breakable_is_eligible(feature: &BreakableFeature) -> bool {
+    !feature.broken()
         && feature.breakable.trigger.allows_hit()
         && !feature.breakable.pogo_refresh
 }
@@ -61,11 +52,15 @@ fn breakable_is_eligible(
 /// ordinary body branch had. The centre travels with the answer because the
 /// caller needs it: `time_of_impact` leaves the shot's box TANGENT, and every
 /// downstream overlap test is `strict_intersects`.
+///
+/// `may_touch` is the shot's own contact rule. It is asked before the nearest
+/// contact is chosen, so a target the shot may not touch never hides one
+/// behind it.
 pub fn projectile_reaches_breakable(
     start: ambition_platformer2d_core::Vec2,
     half: ambition_platformer2d_core::Vec2,
     delta: ambition_platformer2d_core::Vec2,
-    ignored_targets: &[String],
+    may_touch: impl Fn(Entity) -> bool,
     breakables: &Query<
         (Entity, &FeatureId, &CenteredAabb, &BreakableFeature),
         With<FeatureSimEntity>,
@@ -73,7 +68,7 @@ pub fn projectile_reaches_breakable(
 ) -> Option<FeatureContact> {
     breakables
         .iter()
-        .filter(|(_, id, _, feature)| breakable_is_eligible(ignored_targets, id, feature))
+        .filter(|(entity, _, _, feature)| may_touch(*entity) && breakable_is_eligible(feature))
         .filter_map(|(entity, id, aabb, _)| {
             swept_box_reaches(start, half, delta, aabb.aabb()).map(|time| FeatureContact {
                 time,
@@ -148,11 +143,12 @@ fn swept_box_reaches(
 /// family, which is the deletion this reference outlived. Reusing the one swept
 /// victim-geometry rule so a boss and an ordinary body answer the same way about
 /// published parts, coarse fallback (none, for a boss) and intangibility.
+/// `may_touch` is asked as for [`projectile_reaches_breakable`].
 pub fn projectile_reaches_boss(
     start: ambition_platformer2d_core::Vec2,
     half: ambition_platformer2d_core::Vec2,
     delta: ambition_platformer2d_core::Vec2,
-    ignored_targets: &[String],
+    may_touch: impl Fn(Entity) -> bool,
     bosses: &Query<
         (
             Entity,
@@ -166,8 +162,8 @@ pub fn projectile_reaches_boss(
 ) -> Option<FeatureContact> {
     bosses
         .iter()
-        .filter(|(_, id, _, health, damageable)| {
-            !target_is_ignored(ignored_targets, "boss", id.as_str())
+        .filter(|(entity, _, _, health, damageable)| {
+            may_touch(*entity)
                 && health.alive()
                 && damageable.published()
         })
@@ -302,7 +298,7 @@ mod tests {
                     ),
                     (With<FeatureSimEntity>, With<BossConfig>),
                 >| {
-                    projectile_reaches_boss(start, half, delta, &[], &bosses).is_some()
+                    projectile_reaches_boss(start, half, delta, |_| true, &bosses).is_some()
                 },
             )
             .expect("the boss contact ran")

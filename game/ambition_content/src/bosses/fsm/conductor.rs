@@ -541,10 +541,10 @@ pub fn conduct_fsm(
                     Move::Volley => {
                         conductor.fired = true;
                         let count = if encounter.encounter_phase() == BossEncounterPhase::Enrage { 5 } else { 3 };
-                        // From in front of the throwing meatball, OUTSIDE the
-                        // bell: a shot born inside its own thrower's body is
-                        // spent on it the tick it is made.
-                        let origin = pos + Vec2::new(conductor.side * (BELL_HALF.x + MEATBALL_HALF.x + 6.0), -10.0);
+                        // From the throwing meatball, on the bell's front half.
+                        // A shot never touches its thrower, so it flies out of
+                        // the bell.
+                        let origin = pos + Vec2::new(conductor.side * BELL_HALF.x * 0.5, -10.0);
                         for k in 0..count {
                             let spread = (k as f32 - (count - 1) as f32 * 0.5) * MEATBALL_SPREAD;
                             let (dir, speed) = lob(origin, Vec2::new(target.x + spread, target.y));

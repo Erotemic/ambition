@@ -67,10 +67,44 @@ frames. ⇒ The reset diverges on replay whichever road armed it.
 `rollback_full_reset.rs` stays green because it arms the reset on the BASELINE
 frame, before hydration, so it does not measure this moment.
 
-**Next:** run the control with `RollbackRestoreAudit` and read the first
-diverging frame's resimulation rows. The durable save/baseline reset is the
-first candidate, because hydration is the difference between the two
-fixtures. The witness arm carries no `rollback_health()` until this closes.
+**LOCALIZED 2026-09-28** by `probe_where_the_in_sim_new_game_diverges`
+(ignored, print-only, same file) under `RollbackRestoreAudit`: 27 loads, 27
+compared. The reset commits at `SimTick` 31. The replays of frames 28–30 that
+run AFTER it differ from the first pass:
+
+```text
+BodyEnvironmentContact, BodyMotionFacts,     4 entities first pass, 1 on replay
+ResolvedMotionFrame, SurfaceUpright
+BodyKinematics, SweepSample, CenteredAabb    same count; the replay's hash is
+                                             identical on 28, 29 and 30 (frozen)
+```
+
+The four types that lose entities are exactly the four the schema declares
+`derived` (not snapshotted). ⇒ The reset despawns the room's bodies on a frame
+a rewind can still reach. The rewind re-creates them from the snapshot, which
+holds only their rollback-registered components, so the derived components are
+gone and the systems that need them skip those bodies. Only the player, whom
+the reset does not despawn, keeps them. Hydration is not the cause:
+`rollback_full_reset.rs` arms the reset on the BASELINE frame, which no rewind
+reaches.
+
+**The fix is the road the room transition already takes, not a repair.**
+`lifecycle_commit.rs` states the rule: a rebuild of authoritative world state
+is recorded in `PendingLifecycleCommit` inside the simulation and executed by
+the host only once its frame is confirmed, then the session is rebased.
+`process_new_game_reset_request` rebuilds the world inside `ResetProcessing`
+on a speculative frame instead. ⇒ Add a `LifecycleIntent` for New Game, have
+the simulation record it where `process_new_game_reset_request` now commits,
+and execute the reset body from the confirmed-frame road
+(`ConfirmedRoomTransitionIntent` in
+`crates/ambition_platformer2d_runtime/src/room_transition/loading.rs`). ⛔ Do
+not register the four derived types for rollback to hide this: they are
+derived by design, and a respawn that needs them restored is a rebuild that
+ran on the wrong frame.
+
+**Acceptance:** `rollback_health()` restored on both arms of
+`a_new_game_asked_for_by_the_host_commits_once_under_a_rewind`, still one
+commit each.
 **Blocked by:** nothing.
 
 ### SYNC-POINT-SENSITIVE-RESIM — a command sync point moves the death-reset replay

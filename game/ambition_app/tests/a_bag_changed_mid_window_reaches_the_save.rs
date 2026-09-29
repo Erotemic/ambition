@@ -4084,3 +4084,30 @@ fn record_a_timeline_over_an_unrestored_save(world: &mut bevy::prelude::World) {
     order.live += 1;
     order.unrestored += u32::from(!restored);
 }
+
+/// NEW-GAME-RESYNC's localizer: the in-sim control under `RollbackRestoreAudit`.
+/// Prints each component whose census differs between the first pass and a
+/// replay. Keep it until the row closes; the acceptance is an empty list.
+#[test]
+#[ignore = "PROBE, print-only: NEW-GAME-RESYNC, where an in-sim New Game diverges"]
+fn probe_where_the_in_sim_new_game_diverges() {
+    let mut sim = sim_recording_new_game_commits(true);
+    sim.world_mut()
+        .insert_resource(ambition_platformer2d::rollback::RollbackRestoreAudit::enabled());
+    step_past_hydration(&mut sim);
+    for _ in 0..40 {
+        sim.step(AgentAction::default());
+    }
+    let audit = sim
+        .world()
+        .resource::<ambition_platformer2d::rollback::RollbackRestoreAudit>();
+    eprintln!("PROBE coverage {}", audit.coverage());
+    for divergence in audit.divergences.iter().take(40) {
+        eprintln!("PROBE {divergence}");
+    }
+    eprintln!(
+        "PROBE commits {:?} health {:?}",
+        sim.world().resource::<ResetCommits>().0,
+        sim.rollback_health().map_err(|e| e.to_string().chars().take(80).collect::<String>())
+    );
+}

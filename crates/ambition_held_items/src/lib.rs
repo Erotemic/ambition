@@ -1142,6 +1142,8 @@ pub fn pickup_held_item_system(
     // Holding the portal gun blocks a pickup (portal builds only).
     #[cfg(feature = "portal")] portal_guns: Query<&PortalGun>,
     mut grounds: Query<(Entity, &mut GroundItem, &mut ItemCustody)>,
+    // A body picks up only an item in its own live room (OW1 cut 4).
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
 ) {
     for player in driven.entities() {
         let Ok((mut control, kin, mut repertoire)) = bodies.get_mut(player) else {
@@ -1161,8 +1163,9 @@ pub fn pickup_held_item_system(
         }
         let player_aabb = ae::Aabb::new(kin.pos, kin.size * 0.5);
         for (item, mut ground, mut custody) in &mut grounds {
-            // Only an item that is IN THE WORLD can be grabbed.
-            if !custody.in_world() {
+            // Only an item that is IN THE WORLD, in the body's live room, can
+            // be grabbed.
+            if !custody.in_world() || rooms.of(item) != rooms.of(player) {
                 continue;
             }
             let ground_aabb = ae::Aabb::new(ground.pos, ground.half_extent);

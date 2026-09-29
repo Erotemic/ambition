@@ -1301,7 +1301,7 @@ pub fn void_pending_player_hits_at_lifecycle_boundaries(
 pub struct PlayerHitResolutionSet;
 
 pub fn apply_player_hit_events(
-    (mut class_b, mut debris_writer, mut wallet_shield_spent, body_sources, heavy_attackers): (
+    (mut class_b, mut debris_writer, mut wallet_shield_spent, body_sources, heavy_attackers, rooms): (
         Option<ResMut<ambition_platformer2d_shared_tangle::class_b::ClassBRemapLog>>,
         MessageWriter<DebrisBurstMessage>,
         MessageWriter<WalletShieldSpent>,
@@ -1311,6 +1311,9 @@ pub fn apply_player_hit_events(
         // Which bodies hit HEAVY. Filter-only, so it reads no components and
         // conflicts with nothing; bundled for the same ceiling reason.
         Query<(), bevy::prelude::With<ambition_boss_encounter::BossConfig>>,
+        // A broadcast reaches the primary player only in the attacker's live
+        // room (OW1 cut 4); bundled for the same ceiling reason.
+        ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
     ),
     active_tuning: Res<ae::ActiveMovementTuning>,
     feel_tuning: Res<Platformer2dFeelTuningMonolith>,
@@ -1466,7 +1469,10 @@ pub fn apply_player_hit_events(
         .filter_map(|e| {
             let target = match e.target {
                 HitTarget::Body(entity) => Some(entity),
-                HitTarget::Volume => primary,
+                HitTarget::Volume => primary.filter(|&primary| {
+                    rooms.of(primary)
+                        == e.attacker.map_or_else(|| rooms.sole(), |attacker| rooms.of(attacker))
+                }),
                 // Pre-resolved non-player actor victim + orb-match are not player
                 // hits — the actor / breakable consumers own them.
                 //

@@ -146,8 +146,7 @@ pub struct LiveRooms<'w, 's> {
 impl LiveRooms<'_, '_> {
     /// The live room `entity` is in, or `None` when that cannot be told.
     pub fn of(&self, entity: Entity) -> Option<LiveRoomInstance> {
-        self.stamped(entity)
-            .or_else(|| self.roots.single().ok().copied())
+        self.stamped(entity).or_else(|| self.sole())
     }
 
     /// The live room `entity` carries a stamp for, and `None` when it carries
@@ -156,6 +155,12 @@ impl LiveRooms<'_, '_> {
     /// has none.
     pub fn stamped(&self, entity: Entity) -> Option<LiveRoomInstance> {
         self.stamps.get(entity).ok().map(|stamp| stamp.0)
+    }
+
+    /// The live room of something that names no entity (a hit with no
+    /// attacker): the sole live room, and `None` when there are two.
+    pub fn sole(&self) -> Option<LiveRoomInstance> {
+        self.roots.single().ok().copied()
     }
 }
 

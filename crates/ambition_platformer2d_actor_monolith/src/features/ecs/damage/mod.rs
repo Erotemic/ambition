@@ -575,7 +575,9 @@ pub fn apply_feature_hit_events(
     // components and conflict with nothing here, including the mutable boss
     // query above. Bundled into one param because this system is at Bevy's
     // 16-param ceiling.
-    (heavy_attackers, controlled_attackers, combat_sides): (
+    // The live room each recipient is in: a broadcast strikes only the
+    // attacker's room (OW1 cut 4). In this tuple for the same ceiling.
+    (heavy_attackers, controlled_attackers, combat_sides, rooms): (
         Query<(), With<ambition_boss_encounter::BossConfig>>,
         Query<(), With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>>,
         // Whose side each body is on, read for the boss scan's relationship
@@ -591,6 +593,7 @@ pub fn apply_feature_hit_events(
             Option<&'static ambition_characters::control::DrivingParticipant>,
             Option<&'static ambition_combat::targeting::MatchTeam>,
         )>,
+        ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
     ),
     // R3: boss damage mutates the boss ENTITY directly (`apply_boss_hit` →
     // `apply_entity_boss_damage`), so this system no longer needs the boss
@@ -637,9 +640,16 @@ pub fn apply_feature_hit_events(
         // approximately matches the orb volume the engine reported.
         // Skip the actor / boss / broadcast-breakable scans entirely;
         // jump straight to the orb-match loop at the bottom.
+        // The live room the hit is in: its attacker's. A hit that names no
+        // victim reaches only that room's bodies, bosses and breakables, and
+        // two instances of one room have the same crates at the same places.
+        let event_room = event.attacker.map_or_else(|| rooms.sole(), |attacker| rooms.of(attacker));
         if matches!(event.source, HitSource::Pogo) {
             for (entity, _id, name, aabb, mut feature) in &mut breakables {
                 if feature.broken() || !feature.breakable.pogo_refresh {
+                    continue;
+                }
+                if rooms.of(entity) != event_room {
                     continue;
                 }
                 if !approximately_same_aabb(aabb.aabb(), event.volume.bounds()) {
@@ -737,10 +747,10 @@ pub fn apply_feature_hit_events(
         ) in actors.iter_mut().filter(|_| !bodies_already_resolved)
         {
             // Pre-resolved actor victim: apply ONLY to that entity.
-            if let Some(target_entity) = actor_target {
-                if actor_entity != target_entity {
-                    continue;
-                }
+            match actor_target {
+                Some(target_entity) if actor_entity != target_entity => continue,
+                None if rooms.of(actor_entity) != event_room => continue,
+                _ => {}
             }
             // IDENTITY BEATS EVERY RELATIONSHIP RULE — the body resolver's
             // first line, and this scan did not have it. A broadcast that
@@ -871,8 +881,10 @@ pub fn apply_feature_hit_events(
             (boss_out_of_play, boss_plane),
         ) in bosses.iter_mut().filter(|_| actor_target.is_none())
         {
-            if feature_target.is_some_and(|named| named != boss_entity) {
-                continue;
+            match feature_target {
+                Some(named) if named != boss_entity => continue,
+                None if rooms.of(boss_entity) != event_room => continue,
+                _ => {}
             }
             if target_is_ignored(&event.ignored_targets, "boss", id.as_str()) {
                 continue;
@@ -1017,8 +1029,10 @@ pub fn apply_feature_hit_events(
         for (entity, id, name, aabb, mut feature) in
             breakables.iter_mut().filter(|_| actor_target.is_none())
         {
-            if feature_target.is_some_and(|named| named != entity) {
-                continue;
+            match feature_target {
+                Some(named) if named != entity => continue,
+                None if rooms.of(entity) != event_room => continue,
+                _ => {}
             }
             if target_is_ignored(&event.ignored_targets, "breakable", id.as_str()) {
                 continue;

@@ -99,6 +99,8 @@ pub fn claim_footstools(
         )>,
     )>,
     tuning: Option<Res<crate::rules::ResolvedCombatTuning>>,
+    // A body stands only on a head in its own live room (OW1 cut 4).
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
 ) {
     let friendly_fire = tuning.is_some_and(|t| t.friendly_fire().enabled);
     type Pair = (
@@ -138,9 +140,11 @@ pub fn claim_footstools(
                 continue;
             }
             let stomper_box = stomper.kin.aabb_oriented(gravity_dir);
+            let stomper_room = rooms.of(stomper.entity);
 
             for victim in decide.iter() {
                 if victim.entity == stomper.entity
+                    || rooms.of(victim.entity) != stomper_room
                     || crate::util::body_is_untouchable(Some(victim.health), victim.out_of_play, victim.plane)
                 {
                     continue;

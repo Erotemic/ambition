@@ -87,6 +87,7 @@ pub fn magnetize_pickups(
     // ONCE, in `TouchCollectorFilter`, instead of restated per system.
     collectors: Query<
         (
+            Entity,
             &ambition_platformer2d_core::BodyKinematics,
             bevy::prelude::Has<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
             Option<&ambition_platformer2d_shared_tangle::temporary_control::ControlClaims>,
@@ -98,8 +99,10 @@ pub fn magnetize_pickups(
         ),
         TouchCollectorFilter,
     >,
+    // A pickup is drawn only toward a body in its own live room (OW1 cut 4).
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
     mut pickups: Query<
-        (&mut CenteredAabb, &PickupMagnet),
+        (Entity, &mut CenteredAabb, &PickupMagnet),
         (
             With<PickupFeature>,
             Without<Collected>,
@@ -110,7 +113,8 @@ pub fn magnetize_pickups(
     >,
 ) {
     let dt = time.scaled_dt;
-    for (mut aabb, magnet) in &mut pickups {
+    for (pickup, mut aabb, magnet) in &mut pickups {
+        let room = rooms.of(pickup);
         // NEAREST collector, not the first one the query yields: iteration order
         // is not a gameplay fact, and on a couch "whoever the query happened to
         // return" would be a coin flip between two players.
@@ -118,10 +122,11 @@ pub fn magnetize_pickups(
             ambition_platformer2d_shared_tangle::sim_selection::winner_by(
                 collectors
                     .iter()
-                    .filter(|(_, is_player, control, _)| {
+                    .filter(|(collector, _, is_player, control, _)| {
                         body_collects_on_touch(*is_player, *control)
+                            && rooms.of(*collector) == room
                     })
-                    .map(|(body, _, _, id)| {
+                    .map(|(_, body, _, _, id)| {
                         let delta = body.pos - aabb.center;
                         (delta, delta.length(), id)
                     }),
@@ -186,6 +191,8 @@ pub fn collect_ecs_pickups(
     // the collector query so a body without one still competes on distance —
     // it just cannot win a tie, which is what `winner_by` documents.
     sim_ids: Query<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
+    // A body collects only a pickup in its own live room (OW1 cut 4).
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
 ) {
     // With a population expressed as a filter plus a value test it would no longer mean "nobody can
     // collect" — `TouchCollectorFilter` matches every autonomous actor — and a system-wide return
@@ -209,8 +216,9 @@ pub fn collect_ecs_pickups(
         // `PlayerHealRequested::target`, so single-player behaviour is unchanged:
         // one candidate wins by being the only one.
         let Some((collector_entity, ..)) = winner_by(
-            collectors.iter().filter(|(_, kin, is_player, control)| {
+            collectors.iter().filter(|(collector, kin, is_player, control)| {
                 body_collects_on_touch(*is_player, *control)
+                    && rooms.of(*collector) == rooms.of(entity)
                     && aabb.aabb().strict_intersects(kin.aabb())
             }),
             |(_, kin, _, _)| kin.pos.distance_squared(aabb.center),

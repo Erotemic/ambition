@@ -539,3 +539,32 @@ fn a_pair_that_disagrees_about_down_is_refused() {
         "a body under sideways gravity was read as having a head above it"
     );
 }
+
+/// OW1 cut 4b: a body stands only on a head in its own live room.
+///
+/// The pair of `a_footstool_claims_the_press_and_drives_the_stomped_down`,
+/// with live rooms #0 and #1 both live. The control puts both fighters in #0
+/// and the press is claimed. The subject puts the victim, at the same place,
+/// in #1, and there is no head to stand on.
+#[test]
+fn a_body_does_not_stand_on_a_head_in_another_live_room() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{
+        InRoomInstance, LiveRoomInstance, RoomInstanceRoot,
+    };
+    let first = LiveRoomInstance::ACTIVATION;
+    let claimed_over = |victim_room: LiveRoomInstance| {
+        let mut app = app();
+        for room in [first, first.next()] {
+            app.world_mut().spawn((RoomInstanceRoot, room));
+        }
+        let rules = ae::FootstoolTuning::PLATFORM_FIGHTER;
+        let victim = fighter(&mut app, "victim", ae::Vec2::ZERO, false, rules);
+        let stomper = fighter(&mut app, "stomper", ae::Vec2::new(0.0, -SIZE.y), true, rules);
+        app.world_mut().entity_mut(stomper).insert(InRoomInstance(first));
+        app.world_mut().entity_mut(victim).insert(InRoomInstance(victim_room));
+        app.update();
+        claimed(&app, stomper)
+    };
+    assert!(claimed_over(first), "control: a head in the stomper's room is stood on");
+    assert!(!claimed_over(first.next()), "a body stood on a head in another live room");
+}

@@ -154,6 +154,8 @@ pub fn collect_world_items(
     // The tie-break's authority, for both orders. A read-only lookup so a body
     // or item without one still competes — it just cannot win a tie.
     sim_ids: Query<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
+    // A body collects only an item in its own live room (OW1 cut 4).
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
 ) {
     // Snapshot eligible collector boxes before mutating equipment.
     let collectors: Vec<(Entity, ae::Aabb)> = bodies
@@ -192,7 +194,9 @@ pub fn collect_world_items(
         // happened to yield.
         let Some(&(body, _)) = winner_by(
             collectors.iter().filter(|(body, aabb)| {
-                !spent.contains(body) && aabb.strict_intersects(item.aabb())
+                !spent.contains(body)
+                    && rooms.of(*body) == rooms.of(item_entity)
+                    && aabb.strict_intersects(item.aabb())
             }),
             |(_, aabb)| aabb.center().distance_squared(item.aabb().center()),
             |(entity, _)| sim_ids.get(*entity).ok(),
@@ -268,6 +272,38 @@ mod tests {
             .id();
         app.add_systems(Update, collect_world_items);
         (app, body)
+    }
+
+    /// OW1 cut 4b: a body collects only an item in its own live room.
+    ///
+    /// The touch of `touching_a_world_item_equips_its_row_and_despawns_it`,
+    /// with live rooms #0 and #1 both live and the body in #0. The control puts
+    /// the item in #0 and it is collected. The subject puts it, at the same
+    /// place, in #1, and it stays.
+    #[test]
+    fn a_body_does_not_collect_an_item_in_another_live_room() {
+        use ambition_platformer2d_shared_tangle::lifecycle::{
+            InRoomInstance, LiveRoomInstance, RoomInstanceRoot,
+        };
+        let first = LiveRoomInstance::ACTIVATION;
+        let collected_from = |item_room: LiveRoomInstance| {
+            let (mut app, body) = app_with_subject(ae::Vec2::ZERO);
+            for room in [first, first.next()] {
+                app.world_mut().spawn((RoomInstanceRoot, room));
+            }
+            app.world_mut().entity_mut(body).insert(InRoomInstance(first));
+            let item = app
+                .world_mut()
+                .spawn((
+                    WorldItem::equipping(armor_row(), ae::Vec2::ZERO, ae::Vec2::new(12.0, 12.0)),
+                    InRoomInstance(item_room),
+                ))
+                .id();
+            app.update();
+            app.world().get_entity(item).is_err()
+        };
+        assert!(collected_from(first), "control: an item in the body's room is collected");
+        assert!(!collected_from(first.next()), "a body collected an item in another live room");
     }
 
     #[test]

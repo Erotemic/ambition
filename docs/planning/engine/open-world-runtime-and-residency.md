@@ -254,7 +254,7 @@ and no fallback to "the live room".
 | 1 ✅ | Stamp room-scoped entities with the instance their plan was built for (`SessionSpawnScope` carries it, as it carries visibility) | staged occupants carry the pinned instance after publication (none before) | "which room" inferred from the moment of the sweep |
 | 2 ✅ | Mid-room spawns inherit the source's instance; the transition roster is `RoomResident` of the departing instance | a resident of `#7` survives a publication that retires `#0` (the same entity stamped `#0` retires) | the unkeyed whole-world roster |
 | 3 (3a ✅ 3b ✅ 3c ✅ 3d ✅) | Geometry, platforms and overlay move onto the instance root; `CollisionWorld` takes the instance | a body in `#1` collides with `#1`'s wall (in `#0` it passes) | the session-root geometry field, `MovingPlatformSet` as a resource |
-| 4 (4a ✅) | Pairwise queries (contacts, hits, perception, projectile victims) keyed by instance | identical local positions in two instances never touch (one instance does) | unkeyed body-contact vectors |
+| 4 (4a ✅ 4b ✅) | Pairwise queries (contacts, hits, perception, projectile victims) keyed by instance | identical local positions in two instances never touch (one instance does) | unkeyed body-contact vectors |
 | 5 | Live identity and room selection per instance; rollback rows instance-qualified; the save maps to a durable location key, never the ordinal | a second construction of one room in `#1` succeeds (a duplicate inside `#1` is still refused) | `RoomSet`'s private active index |
 | 6 | The Alice/Bob proof: two instances, two driven bodies; retiring `#1` leaves `#0` whole | the one-room profile runs the same systems | — |
 
@@ -418,6 +418,31 @@ Witnesses, each with a one-room control:
 - footstool;
 - pickups and interactions;
 - the 23 shorthand `CollisionWorld` readers.
+
+✅ **Cut 4b landed 2026-09-29: a hit that names no victim, a footstool and
+a pickup stay in one live room.**
+- A `Volume` broadcast reaches only the actors, bosses, breakables and
+  primary player of its attacker's live room. With no attacker, it reaches
+  the sole live room (`LiveRooms::sole`).
+- The pogo refresh matches a breakable in the attacker's room only. Two
+  instances of one room have the same crates at the same places.
+- `apply_feature_hit_events` and `apply_player_hit_events` ask it with no
+  new `HitEvent` field and no schema change.
+- `claim_footstools` pairs only bodies of one room.
+- Pickups follow the same rule: magnetize, collect, world items and
+  held-item pickup.
+
+Witnesses, each with a one-room control:
+- `a_broadcast_hit_does_not_reach_a_body_in_another_live_room`;
+- `a_body_does_not_stand_on_a_head_in_another_live_room`;
+- `a_body_does_not_collect_an_item_in_another_live_room`.
+
+⚠ Deferred to cut 5, because the key is the identity: the crowd and
+steering indices are maps keyed by the authored body id, and two
+instances of one room share those ids. A room key there is part of the
+per-instance identity. Also still owed: interactions (the nearest
+interactable is a view-side affordance) and the 23 shorthand
+`CollisionWorld` readers.
 
 ⚠ **EVERY LIVE ROOM ROOT IS `session:room_instance`**, so a second root in
 one session cannot be admitted beside the first: a construction baseline

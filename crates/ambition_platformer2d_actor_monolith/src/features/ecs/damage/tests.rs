@@ -632,6 +632,52 @@ fn player_slash_damages_and_can_kill_a_hostile_actor() {
     );
 }
 
+/// OW1 cut 4b: a hit that names no victim (`Volume`) reaches only the
+/// bodies of its attacker's live room.
+///
+/// The slash of `player_slash_damages_and_can_kill_a_hostile_actor`, from an
+/// attacker in #0, with live rooms #0 and #1 both live. The control puts the
+/// enemy in #0 and it takes the 2 damage. The subject puts the same enemy, in
+/// the same place, in #1, and it takes none.
+#[test]
+fn a_broadcast_hit_does_not_reach_a_body_in_another_live_room() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{
+        InRoomInstance, LiveRoomInstance, RoomInstanceRoot,
+    };
+    let first = LiveRoomInstance::ACTIVATION;
+    let health_after_a_slash = |enemy_room: LiveRoomInstance| {
+        let mut app = App::new();
+        app.insert_resource(ambition_boss_encounter::test_boss_catalog().clone());
+        app.insert_resource(GameplayBanner::default());
+        app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
+        app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
+        register_hit_pipeline_messages(&mut app);
+        app.add_systems(Update, apply_feature_hit_events);
+        for room in [first, first.next()] {
+            app.world_mut().spawn((RoomInstanceRoot, room));
+        }
+        let attacker = app.world_mut().spawn(InRoomInstance(first)).id();
+        let enemy = spawn_hostile_actor(&mut app); // HP 5
+        app.world_mut().entity_mut(enemy).insert(InRoomInstance(enemy_room));
+        app.world_mut().write_message(HitEvent {
+            strike_sfx: None,
+            volume: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0)).into(),
+            damage: 2,
+            source: HitSource::Melee,
+            attacker: Some(attacker),
+            target: HitTarget::Volume,
+            mode: HitMode::Knockback,
+            knockback: None,
+            ignored_targets: Vec::new(),
+            attacker_move_instance: None,
+        });
+        app.update();
+        app.world().get::<BodyHealth>(enemy).unwrap().health.current
+    };
+    assert_eq!(health_after_a_slash(first), 3, "control: the slash lands in its own room");
+    assert_eq!(health_after_a_slash(first.next()), 5, "a slash reached a body in another live room");
+}
+
 #[derive(bevy::prelude::Resource, Default)]
 struct CapturedBubbles(usize);
 

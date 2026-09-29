@@ -195,6 +195,13 @@ impl bevy::prelude::Plugin for GameplayEffectsSchedulePlugin {
                 ecs::apply_pet_requests,
                 crate::items::narrative::apply_item_grants,
                 crate::items::narrative::apply_shop_transactions,
+                crate::items::narrative::apply_item_uses,
+                // AFTER EVERY WRITER OF A HEAL: projectiles (Combat), pickups
+                // (FeatureCollection), chests (FeatureInteraction) and item
+                // uses (above). A heal written after its apply waits a tick,
+                // and a rewind to that tick clears the message, so the
+                // resimulation loses the heal.
+                crate::avatar::apply_player_heal_requests,
                 ecs::effect_bus::apply_flag_effects,
                 ecs::effect_bus::apply_quest_effects,
                 ecs::effect_bus::apply_switch_effects,
@@ -1330,7 +1337,7 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
     }
 }
 
-/// Schedules `FeatureCollection`: pickup collection followed by heal apply.
+/// Schedules `FeatureCollection`: pickup collection and mana regeneration.
 pub struct FeatureCollectionSchedulePlugin;
 
 impl bevy::prelude::Plugin for FeatureCollectionSchedulePlugin {
@@ -1343,18 +1350,10 @@ impl bevy::prelude::Plugin for FeatureCollectionSchedulePlugin {
                 // Pull nearby loot toward the player, then collect on overlap.
                 magnetize_pickups.in_set(PickupMagnetize),
                 collect_ecs_pickups.in_set(PickupCollect),
-                // Before the heal apply, in the same tick: a heal it raises
-                // must not wait for the next tick, because a rewind to that
-                // tick clears the message and the resimulation loses the heal.
-                crate::items::narrative::apply_item_uses,
-                crate::avatar::apply_player_heal_requests,
-                // Beside the heal apply because it is the same kind of thing: a
-                // METER MUTATOR on the controlled subject, scaled by sim dt.
-                // it lived in the app's HUD chain in `Update` until
-                // which made a rollback-registered component
-                // (`body.mana`) move at render rate and never resimulate on a
-                // rewind -- and left every non-app composition with mana that
-                // does not refill.
+                // A METER MUTATOR on the controlled subject, scaled by sim dt.
+                // In the simulation, not in `Update`: `body.mana` is rollback
+                // state, and a render-rate write does not resimulate on a
+                // rewind.
                 crate::avatar::regen_player_mana,
             )
                 .chain()

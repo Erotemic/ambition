@@ -5575,10 +5575,13 @@ resimulation. The prune runs in `Update`, outside the rewind.
 - New Game: the menu writes `NewGameRequested`; `arm_new_game_reset` sets
   `NewGameResetRequested` inside the simulation.
 - Health/Mana Cell: the menu writes `ItemUseRequested`; `apply_item_uses`
-  spends the cell and raises the heal in `FeatureCollection`, before
-  `apply_player_heal_requests`. ⛔ In `GameplayEffects` it failed the sync
-  test at the stamped ticks: that phase runs after the heal apply, so the heal
-  waited a tick and a rewind to that tick cleared it.
+  spends the cell and raises the heal. ⛔ With the heal apply in
+  `FeatureCollection` and the use in `GameplayEffects`, it failed the sync
+  test at the stamped ticks: the heal waited a tick and a rewind to that tick
+  cleared it. `apply_player_heal_requests` now runs in `GameplayEffects`
+  after `apply_item_uses`, so it is after EVERY heal writer — which also
+  closes the same gap for `open_ecs_chests` (`FeatureInteraction`). ⚠ The
+  chest road has no rewind witness yet.
 - The menu bundle holds no rollback `ResMut` now, so the five waivers and two
   acknowledged writers in `check_rollback_mutators_run_in_sim.py` are gone, and
   `NewGameResetRequested` left the multi-writer and host-ingress censuses.

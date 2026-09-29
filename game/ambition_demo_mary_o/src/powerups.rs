@@ -464,18 +464,21 @@ pub fn bonk_power_blocks(
     // same one the HUD's COINS readout is rebuilt from.
     mut players: Query<
         (
+            Entity,
             &PlayerBodyFrameOutput,
             Option<&WornEquipment>,
             Option<&mut ambition_platformer2d::characters::actor::BodyWallet>,
         ),
         With<PrimaryPlayer>,
     >,
+    // A popped item is in the live room of the body that struck its block.
+    rooms: ambition_platformer2d::platformer::lifecycle::LiveRooms,
     mut sfx: ambition_platformer2d::sfx::BodySfxWriter,
     // The room the contact happened in — a `GeoId` names a block, and only the
     // world can say WHICH block that is.
     geometry: ambition_platformer2d::platformer::lifecycle::SoleLiveRoom<ae::RoomGeometry>,
 ) {
-    let Ok((frame, worn, mut wallet)) = players.single_mut() else {
+    let Ok((striker, frame, worn, mut wallet)) = players.single_mut() else {
         return;
     };
     for contact in &frame.events.contacts {
@@ -577,6 +580,7 @@ pub fn bonk_power_blocks(
             // most one item per attempt, and the room reload that re-arms the block
             // is the same one that despawns the old item.
             ambition_platformer2d::platformer::sim_id::SimId::geometry(id),
+            rooms.of(striker),
             // it starts INSIDE the block and climbs out. Spawned at the block's own centre
             // rather than above it, so the first frame shows nothing and the pickup rises into view
             // through the block's top edge.

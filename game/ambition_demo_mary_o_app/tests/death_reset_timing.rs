@@ -140,6 +140,7 @@ pub(crate) fn deal_a_lethal_hit(app: &mut App) -> usize {
             // damage pass rather than the attacker-side one.
             source: HitSource::Contact,
             attacker: None,
+            room: None,
             target: HitTarget::Body(her),
             mode: HitMode::Knockback,
             knockback: None,

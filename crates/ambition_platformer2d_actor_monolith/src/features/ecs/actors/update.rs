@@ -1087,6 +1087,7 @@ pub(crate) fn integrate_actor_body(
             damage: em.health.current().max(1),
             source: HitSource::Contact,
             attacker: Some(actor_entity),
+            room: None,
             target: HitTarget::Volume,
             mode: HitMode::Knockback,
             knockback: None,
@@ -1121,6 +1122,7 @@ pub(crate) fn integrate_actor_body(
             // question a platform fighter answers with its own hitlag memory,
             // and this seam must not pre-empt it by guessing.
             attacker: None,
+            room: None,
             // This body, resolved: the blast zone caught exactly one body, and
             // a broadcast over its AABB would also catch whoever chased it out.
             target: HitTarget::Body(actor_entity),

@@ -269,6 +269,7 @@ pub fn apply_contact_harm(
                 damage: harm.damage,
                 source: HitSource::Contact,
                 attacker: Some(striker),
+                room: None,
                 target: HitTarget::Body(victim),
                 mode: HitMode::Knockback,
                 knockback: Some(HitKnockback {

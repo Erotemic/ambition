@@ -145,6 +145,7 @@ pub fn apply_hazard_contacts(
                 damage: hazard.volume.damage.amount.max(1),
                 source: HitSource::Hazard,
                 attacker: None,
+                room: None,
                 // Hazards iterate every overlapping player; tag the
                 // event with the player who actually overlapped so
                 // the reader lands the hit on the right one.
@@ -187,6 +188,7 @@ pub fn apply_hazard_contacts(
                 damage: hazard.volume.damage.amount.max(1),
                 source: HitSource::Hazard,
                 attacker: None,
+                room: None,
                 target: HitTarget::Body(victim),
                 mode: hazard.mode,
                 knockback: None,

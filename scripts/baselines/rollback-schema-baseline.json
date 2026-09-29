@@ -1,6 +1,6 @@
 {
   "peer_checksum_schema": {
-    "version": "ggrs-rollback-schema-v267",
+    "version": "ggrs-rollback-schema-v268",
     "rows": [
       "actor.active_combatant\tcomponent-canonical\tActiveCombatant",
       "actor.aggression\tcomponent-clone-cursor\tActorAggression",
@@ -123,7 +123,7 @@
       "resource.outstanding_checkpoint_request\tresource-clone-custom-checksum\tOutstandingCheckpointRequest\tbevy_ggrs clone snapshot + whether the session is still owed a checkpoint restore",
       "resource.owned_items_baseline\tresource-clone-custom-checksum\tOwnedItemsBaseline\tbevy_ggrs clone snapshot + entity-free stored-quantity checksum projection",
       "resource.pending_lifecycle_commit\tresource-canonical\tPendingLifecycleCommit\tbevy_ggrs canonical codec snapshot + identical canonical checksum projection",
-      "resource.pending_player_hit_events\tresource-clone-custom-checksum\tPendingPlayerHitEvents\tbevy_ggrs clone snapshot + entity-free staged-hit checksum projection",
+      "resource.pending_player_hit_events\tresource-clone-custom-checksum\tPendingPlayerHitEvents\tbevy_ggrs clone snapshot + entity-free staged-hit and room checksum projection",
       "resource.placement_continuity\tresource-clone-custom-checksum\tAuthoredOccurrences\tbevy_ggrs clone snapshot + authoritative occurrence whereabouts; domain-separated fold over (SimId, whereabouts)",
       "resource.projectile_seq_counter\tresource-canonical\tProjectileSeqCounter\tbevy_ggrs canonical codec snapshot + identical canonical checksum projection",
       "resource.quest_last_room\tresource-clone-custom-checksum\tLastQuestRoom\tbevy_ggrs clone snapshot + the room the RoomEntered producer last announced",

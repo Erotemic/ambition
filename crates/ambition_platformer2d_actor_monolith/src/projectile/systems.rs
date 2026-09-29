@@ -535,6 +535,9 @@ pub(crate) fn emit_landing_splash(
     damage: i32,
     half: f32,
     attacker: Option<Entity>,
+    // The live room the shot lands in. A shot with no owner has no attacker
+    // to give the splash a room.
+    room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
     // The use of the move of the attacker that fired this shot, if a move
     // fired it. The caller supplies the value. See `FiredByMoveInstance`.
     move_instance: Option<u32>,
@@ -548,6 +551,7 @@ pub(crate) fn emit_landing_splash(
         damage,
         source: HitSource::Projectile,
         attacker,
+        room,
         target: HitTarget::Volume,
         mode: HitMode::Knockback,
         knockback: None,
@@ -1409,6 +1413,7 @@ pub fn step_projectiles(
                     // The firing actor (enemy / boss), when the shot was spawned
                     // with a real owner — `None` for ownerless shots.
                     attacker: owner_entity,
+                    room: None,
                     // The victim, named — no producer-side classification.
                     target: HitTarget::Body(victim.entity),
                     mode: HitMode::Knockback,
@@ -1462,6 +1467,7 @@ pub fn step_projectiles(
                             game.damage.max(1),
                             game.splash_half_extent,
                             owner_entity,
+                            shot_room,
                             fired_by_move,
                             &mut feature_damage,
                             &mut sfx,
@@ -1502,6 +1508,7 @@ pub fn step_projectiles(
                     damage: game.damage.max(1),
                     source: HitSource::Projectile,
                     attacker: owner_entity,
+                    room: None,
                     // ⭐ NAMED, and the sweep above is what names it. Sent as
                     // `UnresolvedFeatures` the applier took the VOLUME and damaged
                     // every breakable it overlapped, so one shot whose contact box
@@ -1539,6 +1546,7 @@ pub fn step_projectiles(
                         game.damage.max(1),
                         game.splash_half_extent,
                         owner_entity,
+                        shot_room,
                         fired_by_move,
                         &mut feature_damage,
                         &mut sfx,
@@ -1673,6 +1681,7 @@ pub fn step_projectiles(
                         game.damage.max(1),
                         game.splash_half_extent,
                         owner_entity,
+                        shot_room,
                         fired_by_move,
                         &mut feature_damage,
                         &mut sfx,

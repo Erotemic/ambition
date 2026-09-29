@@ -4371,6 +4371,7 @@ fn a_fighter_from_another_game_reads_its_percent_against_this_stages_pool() {
                     damage: bite,
                     source: ambition_platformer2d::combat::events::HitSource::Melee,
                     attacker: None,
+                    room: None,
                     target: ambition_platformer2d::combat::events::HitTarget::Body(*body),
                     mode: ambition_platformer2d::combat::events::HitMode::Knockback,
                     knockback: None,

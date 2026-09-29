@@ -39,7 +39,7 @@ where
     registrar.rollback_resource_clone_checksum::<crate::events::PendingPlayerHitEvents>(
         OWNER,
         "resource.pending_player_hit_events",
-        "entity-free staged-hit checksum projection",
+        "entity-free staged-hit and room checksum projection",
         pending_player_hits_checksum,
     );
     registrar.rollback_resource_map_entities::<crate::events::PendingPlayerHitEvents>(
@@ -544,6 +544,16 @@ fn pending_player_hits_checksum(pending: &crate::events::PendingPlayerHitEvents)
         put_u8(&mut bytes, source_tag);
         put_f32(&mut bytes, source_payload);
         put_bool(&mut bytes, event.attacker.is_some());
+        // The room decides which bodies a staged `Volume` hit can reach, so
+        // two peers that stage it in different rooms must not agree. It is a
+        // value, not an `Entity`, so it is stable across a rewind.
+        match event.room {
+            None => put_bool(&mut bytes, false),
+            Some(room) => {
+                put_bool(&mut bytes, true);
+                put_u64(&mut bytes, u64::from(room.ordinal()));
+            }
+        }
         put_u8(
             &mut bytes,
             match event.target {
@@ -659,6 +669,7 @@ mod pending_hit_checksum_tests {
                 damage: 0,
                 source: HitSource::Melee,
                 attacker: None,
+                room: None,
                 target: HitTarget::Volume,
                 mode: HitMode::Knockback,
                 knockback: Some(crate::HitKnockback {

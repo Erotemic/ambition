@@ -481,6 +481,15 @@ pub struct HitEvent {
     /// Who or what dealt the hit.
     pub source: HitSource,
     pub attacker: Option<bevy::prelude::Entity>,
+    /// The live room the hit happens in, when the writer knows it apart from
+    /// the attacker. Read it through [`Self::live_room`].
+    ///
+    /// ⛔ A SEPARATE FIELD, NOT A USE OF `attacker`. A bomb's blast and a
+    /// shot's landing splash have a place and no attacker. Without this, a
+    /// hit that names no victim and no attacker is in the sole live room, and
+    /// in no room when two are live, so it hits nothing. `None` means "the
+    /// attacker's room".
+    pub room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
     /// Hint for how the consumer resolves the victim. See
     /// [`HitTarget`].
     pub target: HitTarget,
@@ -511,6 +520,21 @@ pub struct HitEvent {
     /// would credit the FIRST use of every move and be strictly worse than
     /// carrying nothing.
     pub attacker_move_instance: Option<u32>,
+}
+
+impl HitEvent {
+    /// The live room this hit is in: its own [`Self::room`], else its
+    /// attacker's, else the sole live room. A hit that names no victim
+    /// reaches only bodies of this room. Every consumer asks this one rule.
+    pub fn live_room(
+        &self,
+        rooms: &ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
+    ) -> Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance> {
+        self.room.or_else(|| {
+            self.attacker
+                .map_or_else(|| rooms.sole(), |attacker| rooms.of(attacker))
+        })
+    }
 }
 
 #[cfg(test)]

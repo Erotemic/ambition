@@ -148,6 +148,7 @@ pub(crate) fn kill_boss_with_a_real_hit(
                 damage: 9_999,
                 source: HitSource::Melee,
                 attacker: None,
+                room: None,
                 target: HitTarget::UnresolvedFeatures,
                 mode: HitMode::Knockback,
                 knockback: None,

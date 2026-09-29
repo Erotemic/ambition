@@ -881,7 +881,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// room counter (`RoomSet::next_live_room`). A publication mints from it
 /// rather than advancing its own root, so two live rooms cannot share an
 /// identity (OW1 cut 5a).
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 267;
+/// ⛔⛤ 267 -> 268: `resource.pending_player_hit_events` checksums each staged
+/// hit's own live room (`HitEvent::room`). A blast with no attacker keeps the
+/// room it happens in (OW1 cut 4b review).
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 268;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

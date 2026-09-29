@@ -68,6 +68,7 @@ fn stage_a_hit_from_inside_the_frame(
             damage: DAMAGE,
             source: HitSource::Melee,
             attacker: None,
+            room: None,
             target: HitTarget::Body(body),
             mode: HitMode::Knockback,
             knockback: None,

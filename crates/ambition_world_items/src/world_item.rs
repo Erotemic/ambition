@@ -97,14 +97,33 @@ pub enum WorldItemPayload {
 /// underneath: the guard's own test supplied the `SimId` production never did, so
 /// it agreed with the fix by construction while every real item stayed in query
 /// order. Taking the id here is what makes forgetting it a compile error.
+///
+/// ⛔ `room` IS A PARAMETER FOR THE SAME REASON. [`collect_world_items`] pairs a
+/// body with an item only in one live room. An item with no
+/// [`InRoomInstance`](ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance)
+/// is in no room when two rooms are live, so no body can collect it. The
+/// caller knows which room caused the spawn (the room of the body that struck
+/// the block); this function does not. `None` stamps nothing, and is correct
+/// only for an item that is outside every live room.
 pub fn spawn_world_item(
     commands: &mut Commands,
     id: ambition_platformer2d_shared_tangle::sim_id::SimId,
+    room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
     item: WorldItem,
 ) -> Entity {
-    commands
-        .spawn_room_scoped((item, id, Name::new("World item")))
-        .id()
+    let mut entity = commands.spawn_room_scoped((item, id, Name::new("World item")));
+    stamp_room(&mut entity, room);
+    entity.id()
+}
+
+/// Give a spawned item the live room it is in. See [`spawn_world_item`].
+fn stamp_room(
+    entity: &mut EntityCommands<'_>,
+    room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+) {
+    if let Some(room) = room {
+        entity.insert(ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance(room));
+    }
 }
 
 /// Spawn a `WorldItem` that MOVES — the same room-scoped pickup plus an authored
@@ -116,17 +135,18 @@ pub fn spawn_world_item(
 pub fn spawn_moving_world_item(
     commands: &mut Commands,
     id: ambition_platformer2d_shared_tangle::sim_id::SimId,
+    room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
     item: WorldItem,
     plan: crate::item_motion::ItemMotionPlan,
 ) -> Entity {
-    commands
-        .spawn_room_scoped((
-            item,
-            id,
-            crate::item_motion::ItemMotion::new(plan),
-            Name::new("World item"),
-        ))
-        .id()
+    let mut entity = commands.spawn_room_scoped((
+        item,
+        id,
+        crate::item_motion::ItemMotion::new(plan),
+        Name::new("World item"),
+    ));
+    stamp_room(&mut entity, room);
+    entity.id()
 }
 
 /// Collect overlapping consumable `WorldItem`s for bodies in
@@ -274,19 +294,23 @@ mod tests {
         (app, body)
     }
 
-    /// OW1 cut 4b: a body collects only an item in its own live room.
+    /// OW1 cut 4b: a body collects only an item in its own live room, and the
+    /// production spawn helpers put the item in a room.
     ///
     /// The touch of `touching_a_world_item_equips_its_row_and_despawns_it`,
-    /// with live rooms #0 and #1 both live and the body in #0. The control puts
-    /// the item in #0 and it is collected. The subject puts it, at the same
-    /// place, in #1, and it stays.
+    /// with live rooms #0 and #1 both live and the body in #0. Each item is
+    /// spawned through a production helper, still and moving. The control
+    /// spawns it in #0 and it is collected. The subject spawns it, at the same
+    /// place, in #1, and it stays. An item that the helper did not stamp is in
+    /// no room while two are live, so the control fails if the helper drops
+    /// the room.
     #[test]
     fn a_body_does_not_collect_an_item_in_another_live_room() {
         use ambition_platformer2d_shared_tangle::lifecycle::{
             InRoomInstance, LiveRoomInstance, RoomInstanceRoot,
         };
         let first = LiveRoomInstance::ACTIVATION;
-        let collected_from = |item_room: LiveRoomInstance| {
+        let collected_from = |item_room: LiveRoomInstance, moving: bool| {
             let (mut app, body) = app_with_subject(ae::Vec2::ZERO);
             for room in [first, first.next()] {
                 app.world_mut().spawn((RoomInstanceRoot, room));
@@ -294,16 +318,38 @@ mod tests {
             app.world_mut().entity_mut(body).insert(InRoomInstance(first));
             let item = app
                 .world_mut()
-                .spawn((
-                    WorldItem::equipping(armor_row(), ae::Vec2::ZERO, ae::Vec2::new(12.0, 12.0)),
-                    InRoomInstance(item_room),
-                ))
-                .id();
+                .run_system_once(move |mut commands: Commands| {
+                    let id = ambition_platformer2d_shared_tangle::sim_id::SimId::geometry(
+                        &ae::GeoId::tile_layer("Blocks", 1),
+                    );
+                    let item =
+                        WorldItem::equipping(armor_row(), ae::Vec2::ZERO, ae::Vec2::new(12.0, 12.0));
+                    if moving {
+                        spawn_moving_world_item(
+                            &mut commands,
+                            id,
+                            Some(item_room),
+                            item,
+                            crate::item_motion::ItemMotionPlan::still(),
+                        )
+                    } else {
+                        spawn_world_item(&mut commands, id, Some(item_room), item)
+                    }
+                })
+                .expect("the spawn seam runs");
             app.update();
             app.world().get_entity(item).is_err()
         };
-        assert!(collected_from(first), "control: an item in the body's room is collected");
-        assert!(!collected_from(first.next()), "a body collected an item in another live room");
+        for moving in [false, true] {
+            assert!(
+                collected_from(first, moving),
+                "control: an item spawned in the body's room is not collected (moving: {moving})"
+            );
+            assert!(
+                !collected_from(first.next(), moving),
+                "a body collected an item spawned in another live room (moving: {moving})"
+            );
+        }
     }
 
     #[test]
@@ -356,6 +402,7 @@ mod tests {
                             ambition_platformer2d_shared_tangle::sim_id::SimId::geometry(
                                 &ae::GeoId::tile_layer("Blocks", id.parse().unwrap()),
                             ),
+                            None,
                             WorldItem::equipping(
                                 row_named(id),
                                 ae::Vec2::ZERO,
@@ -404,6 +451,7 @@ mod tests {
                     ambition_platformer2d_shared_tangle::sim_id::SimId::geometry(
                         &ae::GeoId::tile_layer("Blocks", 3),
                     ),
+                    None,
                     WorldItem::equipping(armor_row(), ae::Vec2::ZERO, ae::Vec2::splat(12.0)),
                 );
                 spawn_moving_world_item(
@@ -411,6 +459,7 @@ mod tests {
                     ambition_platformer2d_shared_tangle::sim_id::SimId::geometry(
                         &ae::GeoId::placement(ae::PlacementId::new("block-iid"), 0),
                     ),
+                    None,
                     WorldItem::equipping(armor_row(), ae::Vec2::ZERO, ae::Vec2::splat(12.0)),
                     crate::item_motion::ItemMotionPlan::still(),
                 );

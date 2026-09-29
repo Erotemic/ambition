@@ -182,6 +182,7 @@ pub fn fire_dive_system(
             damage: DIVE_DAMAGE,
             source: ambition_combat::events::HitSource::Melee,
             attacker: Some(player),
+            room: None,
             target: ambition_combat::events::HitTarget::Volume,
             mode: ambition_combat::events::HitMode::Knockback,
             knockback: Some(ambition_combat::events::HitKnockback {

@@ -756,6 +756,7 @@ fn seat_zero_can_lose_a_round_and_is_not_respawned_out_from_under_the_rules() {
             damage: hp + 10,
             source: ambition_platformer2d::combat::events::HitSource::Melee,
             attacker: None,
+            room: None,
             // the two consumers are a surviving fork and this test is not
             // the place to remove it. `HitTarget::Body` / `HitTarget::Body`
             // are documented as a deliberate split — the relational
@@ -2524,6 +2525,7 @@ fn a_knockout_is_announced_in_the_losers_own_voice() {
             damage: hp + 10,
             source: ambition_platformer2d::combat::events::HitSource::Melee,
             attacker: None,
+            room: None,
             // the two consumers are a surviving fork and this test is not
             // the place to remove it. `HitTarget::Body` / `HitTarget::Body`
             // are documented as a deliberate split — the relational

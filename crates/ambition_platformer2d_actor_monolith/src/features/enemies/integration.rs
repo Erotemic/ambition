@@ -506,6 +506,7 @@ impl ContactAttack {
             damage: self.damage,
             source: HitSource::Contact,
             attacker: Some(attacker),
+            room: None,
             target: HitTarget::Body(target),
             mode: HitMode::Knockback,
             knockback: Some(HitKnockback {

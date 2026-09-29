@@ -85,6 +85,7 @@ fn victim_side_enemy_body_hit_does_not_damage_features() {
         // With one `Contact` cause there is no direction left to hide behind, and a hit with no
         // attacker has no self to exclude, so the fixture was describing a contact nobody made.
         attacker: Some(actor_entity),
+        room: None,
         target: HitTarget::Volume,
         mode: HitMode::Knockback,
         knockback: None,
@@ -155,6 +156,7 @@ fn an_enemy_victim_reacts_with_its_own_profile_not_the_players() {
             damage: 1,
             source: HitSource::Contact,
             attacker: None,
+            room: None,
             target: HitTarget::Body(victim),
             mode: HitMode::Knockback,
             knockback: None,
@@ -248,6 +250,7 @@ fn player_melee_damage_scales_with_the_outgoing_slider() {
             damage: 2,
             source,
             attacker: Some(attacker),
+            room: None,
             target: HitTarget::Body(victim),
             mode: HitMode::Knockback,
             knockback: None,
@@ -313,6 +316,7 @@ fn enemy_charge_crash_is_processed_as_enemy_damage() {
         damage: 10,
         source: HitSource::Contact,
         attacker: None,
+        room: None,
         target: HitTarget::Volume,
         mode: HitMode::Knockback,
         knockback: None,
@@ -370,6 +374,7 @@ fn enemy_charge_crash_with_an_explicit_attacker_never_credits_the_primary_player
         damage: 2,
         source: HitSource::Contact,
         attacker: Some(shell),
+        room: None,
         target: HitTarget::Volume,
         mode: HitMode::Knockback,
         knockback: None,
@@ -446,6 +451,7 @@ fn an_outcome_naming_another_occurrence_credits_no_move() {
         damage: 2,
         source: HitSource::Melee,
         attacker: Some(attacker),
+        room: None,
         target: HitTarget::Volume,
         mode: HitMode::Knockback,
         knockback: None,
@@ -524,6 +530,7 @@ fn an_unclaimed_outcome_credits_no_move() {
         // claiming no move use.
         source: HitSource::Melee,
         attacker: Some(attacker),
+        room: None,
         target: HitTarget::Volume,
         mode: HitMode::Knockback,
         knockback: None,
@@ -577,6 +584,7 @@ fn player_slash_damages_and_can_kill_a_hostile_actor() {
         damage: 2,
         source: HitSource::Melee,
         attacker: None,
+        room: None,
         target: HitTarget::Volume,
         mode: HitMode::Knockback,
         knockback: None,
@@ -610,6 +618,7 @@ fn player_slash_damages_and_can_kill_a_hostile_actor() {
         damage: 5,
         source: HitSource::Melee,
         attacker: None,
+        room: None,
         target: HitTarget::Volume,
         mode: HitMode::Knockback,
         knockback: None,
@@ -665,6 +674,7 @@ fn a_broadcast_hit_does_not_reach_a_body_in_another_live_room() {
             damage: 2,
             source: HitSource::Melee,
             attacker: Some(attacker),
+            room: None,
             target: HitTarget::Volume,
             mode: HitMode::Knockback,
             knockback: None,
@@ -676,6 +686,61 @@ fn a_broadcast_hit_does_not_reach_a_body_in_another_live_room() {
     };
     assert_eq!(health_after_a_slash(first), 3, "control: the slash lands in its own room");
     assert_eq!(health_after_a_slash(first.next()), 5, "a slash reached a body in another live room");
+}
+
+/// OW1 cut 4b: a blast with no attacker hits only the bodies of the live
+/// room it happens in.
+///
+/// A bomb's blast names no victim (`Volume`) and no attacker, so the
+/// attacker cannot give it a room. The shipped fuse system writes the blast
+/// from a bomb in #0, with live rooms #0 and #1 both live. The control puts
+/// the enemy in #0, at the blast, and it takes damage: a blast that has no
+/// room of its own is in no room while two are live, and hits nothing. The
+/// subject puts the same enemy, in the same place, in #1, and it takes none.
+#[test]
+fn a_blast_with_no_attacker_hits_only_its_own_live_room() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{
+        InRoomInstance, LiveRoomInstance, RoomInstanceRoot,
+    };
+    let first = LiveRoomInstance::ACTIVATION;
+    let health_after_a_blast = |enemy_room: LiveRoomInstance| {
+        let mut app = App::new();
+        app.insert_resource(ambition_boss_encounter::test_boss_catalog().clone());
+        app.insert_resource(GameplayBanner::default());
+        app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
+        app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
+        register_hit_pipeline_messages(&mut app);
+        let mut time = ambition_time::WorldTime::default();
+        time.scaled_dt = 0.05;
+        app.insert_resource(time);
+        app.add_systems(
+            Update,
+            (ambition_abilities::ranged::bomb::tick_bomb_fuses, apply_feature_hit_events).chain(),
+        );
+        for room in [first, first.next()] {
+            app.world_mut().spawn((RoomInstanceRoot, room));
+        }
+        let enemy = spawn_hostile_actor(&mut app); // HP 5, at the origin
+        app.world_mut().entity_mut(enemy).insert(InRoomInstance(enemy_room));
+        app.world_mut().spawn((
+            ambition_held_items::GroundItem::released(
+                ambition_characters::brain::held_item_by_id(ambition_abilities::ranged::bomb::BOMB_ID)
+                    .expect("the bomb is a shipped held item"),
+                ae::Vec2::ZERO,
+                ae::Vec2::ZERO,
+                ae::Vec2::splat(14.0),
+            ),
+            ambition_abilities::ranged::bomb::BombFuse { timer: 0.001 },
+            InRoomInstance(first),
+        ));
+        app.update();
+        app.world().get::<BodyHealth>(enemy).unwrap().health.current
+    };
+    assert!(
+        health_after_a_blast(first) < 5,
+        "control: a blast with no attacker did not hit a body in its own room"
+    );
+    assert_eq!(health_after_a_blast(first.next()), 5, "a blast reached a body in another live room");
 }
 
 #[derive(bevy::prelude::Resource, Default)]
@@ -823,6 +888,7 @@ fn a_struck_peaceful_corpse_is_silent_but_a_living_one_barks() {
             damage: 1,
             source: HitSource::Melee,
             attacker: None,
+            room: None,
             target: HitTarget::Volume,
             mode: HitMode::Knockback,
             knockback: None,
@@ -889,6 +955,7 @@ fn a_peaceful_body_in_a_fight_takes_damage_instead_of_barking() {
             damage: 3,
             source: HitSource::Melee,
             attacker: None,
+            room: None,
             target: HitTarget::Volume,
             mode: HitMode::Knockback,
             knockback: None,
@@ -953,6 +1020,7 @@ fn a_sustained_overlap_lands_one_hit_per_iframe_window_not_one_per_frame() {
         damage: 2,
         source: HitSource::Melee,
         attacker: None,
+        room: None,
         target: HitTarget::Volume,
         mode: HitMode::Knockback,
         knockback: None,
@@ -1035,6 +1103,7 @@ fn slash_clung_surface_walker(cling_breaks_on_hit: bool) -> (App, bevy::prelude:
         damage: 1,
         source: HitSource::Melee,
         attacker: None,
+        room: None,
         target: HitTarget::Volume,
         mode: HitMode::Knockback,
         knockback: None,
@@ -1141,6 +1210,7 @@ fn player_slash_shatters_a_breakable() {
         damage: 2,
         source: HitSource::Melee,
         attacker: None,
+        room: None,
         target: HitTarget::Volume,
         mode: HitMode::Knockback,
         knockback: None,
@@ -1523,6 +1593,7 @@ fn slash_at(center: ae::Vec2, damage: i32) -> HitEvent {
         damage,
         source: HitSource::Melee,
         attacker: None,
+        room: None,
         target: HitTarget::Volume,
         mode: HitMode::Knockback,
         // Same resolution as before: side +1, standard feel strength.
@@ -1742,6 +1813,7 @@ fn a_knockback_carrying_hit_launches_the_actor_like_a_player() {
         damage: 2,
         source: HitSource::Melee,
         attacker: None,
+        room: None,
         target: HitTarget::Body(victim),
         mode: HitMode::Knockback,
         knockback: Some(ambition_combat::events::HitKnockback {
@@ -1848,6 +1920,7 @@ fn a_hit_knocks_a_hanging_actor_off_the_ledge_with(
         damage: 2,
         source: HitSource::Melee,
         attacker: None,
+        room: None,
         target: HitTarget::Body(victim),
         mode: HitMode::Knockback,
         knockback,
@@ -1965,6 +2038,7 @@ fn a_hit_returns_the_air_dodge_and_leaves_the_double_jump_spent() {
         damage: 2,
         source: HitSource::Melee,
         attacker: None,
+        room: None,
         target: HitTarget::Body(victim),
         mode: HitMode::Knockback,
         knockback: Some(ambition_combat::events::HitKnockback {
@@ -2054,6 +2128,7 @@ fn a_heavy_attacker_is_read_off_the_attacker_not_the_hit_source() {
             // deciding, both would land identically.
             source: HitSource::Melee,
             attacker: Some(attacker),
+            room: None,
             target: HitTarget::Body(victim),
             mode: HitMode::Knockback,
             knockback: Some(slash_knockback(center, 1.0)),
@@ -2122,6 +2197,7 @@ fn an_actor_targeted_hit_damages_only_the_named_actor() {
         // Victim-side source, yet the Actor target routes it to the actor consumer.
         source: HitSource::Melee,
         attacker: None,
+        room: None,
         target: HitTarget::Body(victim),
         mode: HitMode::Knockback,
         knockback: None,
@@ -2183,6 +2259,7 @@ fn a_player_slash_folds_the_struck_target_onto_the_move_accumulator() {
         damage: 2,
         source: HitSource::Melee,
         attacker: Some(attacker),
+        room: None,
         target: HitTarget::Volume,
         mode: HitMode::Knockback,
         knockback: None,
@@ -2352,6 +2429,7 @@ fn a_lethal_hit_kills_without_speaking_a_hit_bark() {
             damage,
             source: HitSource::Melee,
             attacker: None,
+            room: None,
             target: HitTarget::Volume,
             mode: HitMode::Knockback,
             knockback: None,
@@ -2396,6 +2474,7 @@ fn a_peaceful_actor_owns_one_victim_side_hit_sound() {
         damage: 1,
         source: HitSource::Melee,
         attacker: None,
+        room: None,
         target: HitTarget::Volume,
         mode: HitMode::Knockback,
         knockback: None,
@@ -2494,6 +2573,7 @@ fn a_projectile_hit_flashes_its_victim_but_never_its_thrower() {
             damage: 1,
             source,
             attacker: Some(thrower),
+            room: None,
             target: HitTarget::Body(victim),
             mode: HitMode::Knockback,
             knockback: None,
@@ -2788,6 +2868,7 @@ fn the_hostile_turn_follows_the_per_body_threshold_not_the_spawn_default() {
                 damage: 3,
                 source: HitSource::Melee,
                 attacker: None,
+                room: None,
                 target: HitTarget::Volume,
                 mode: HitMode::Knockback,
                 knockback: None,
@@ -2885,6 +2966,7 @@ fn a_struck_body_barks_as_the_character_it_is_wearing() {
             damage: 1,
             source: HitSource::Melee,
             attacker: None,
+            room: None,
             target: HitTarget::Volume,
             mode: HitMode::Knockback,
             knockback: None,

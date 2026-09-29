@@ -1469,10 +1469,9 @@ pub fn apply_player_hit_events(
         .filter_map(|e| {
             let target = match e.target {
                 HitTarget::Body(entity) => Some(entity),
-                HitTarget::Volume => primary.filter(|&primary| {
-                    rooms.of(primary)
-                        == e.attacker.map_or_else(|| rooms.sole(), |attacker| rooms.of(attacker))
-                }),
+                HitTarget::Volume => {
+                    primary.filter(|&primary| rooms.of(primary) == e.live_room(&rooms))
+                }
                 // Pre-resolved non-player actor victim + orb-match are not player
                 // hits — the actor / breakable consumers own them.
                 //

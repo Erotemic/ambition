@@ -67,6 +67,7 @@ fn slash(sim: &mut Platformer2dSimHarness, at: ambition_platformer2d::engine_cor
         damage: 10,
         source: HitSource::Melee,
         attacker: None,
+        room: None,
         target: HitTarget::UnresolvedFeatures,
         mode: HitMode::Knockback,
         knockback: None,

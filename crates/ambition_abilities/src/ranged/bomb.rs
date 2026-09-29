@@ -73,6 +73,8 @@ pub fn tick_bomb_fuses(
     mut hits: MessageWriter<HitEvent>,
     mut sfx: ambition_sfx::BodySfxWriter,
     mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
+    // The blast is in the bomb's live room. It has no attacker to ask.
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
 ) {
     let dt = time.sim_dt();
     if dt <= 0.0 {
@@ -91,6 +93,7 @@ pub fn tick_bomb_fuses(
             damage: BOMB_DAMAGE,
             source: HitSource::Melee,
             attacker: None,
+            room: rooms.of(entity),
             target: HitTarget::Volume,
             mode: HitMode::Knockback,
             knockback: None,

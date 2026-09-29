@@ -422,9 +422,9 @@ Witnesses, each with a one-room control:
 ✅ **Cut 4b landed 2026-09-29: a hit that names no victim, a footstool and
 a pickup stay in one live room.**
 - A `Volume` broadcast reaches only the actors, bosses, breakables and
-  primary player of its attacker's live room. With no attacker, it reaches
-  the sole live room (`LiveRooms::sole`). ⛔ That is wrong with two live
-  rooms: see "Open after review" below.
+  primary player of the live room the hit is in: its own `HitEvent::room`,
+  else its attacker's (`HitEvent::live_room`). See "Repaired after review"
+  below.
 - The pogo refresh matches a breakable in the attacker's room only. Two
   instances of one room have the same crates at the same places.
 - `apply_feature_hit_events` and `apply_player_hit_events` ask it with no
@@ -438,31 +438,31 @@ Witnesses, each with a one-room control:
 - `a_body_does_not_stand_on_a_head_in_another_live_room`;
 - `a_body_does_not_collect_an_item_in_another_live_room`.
 
-⛔ **Open after review, 2026-09-29.** Two of cut 4b's readers are keyed by
-room, but their writers do not supply the room:
-- **World items are not stamped where they are spawned.** The production
-  `spawn_world_item` and `spawn_moving_world_item`
-  (`ambition_world_items/src/world_item.rs`, near line 100) use
-  `spawn_room_scoped`, which inserts `RoomScopedEntity` and no
-  `InRoomInstance`. With two live rooms the item has no room, so no body
-  can collect it. Mary-O's block rewards use `spawn_moving_world_item`.
-  `a_body_does_not_collect_an_item_in_another_live_room` stamps its item
-  by hand, so it did not see this.
-  - Repair: the spawn boundary takes the room, from the caller's
-    `SessionSpawnScope` or from the entity that caused the spawn.
-  - Witness: two live room roots, an item spawned through the production
-    helper in each, and each is collected only by a body in its own room.
-- **A hit with no attacker has no room.** `event_room` in
-  `apply_feature_hit_events` is `attacker.map_or_else(|| rooms.sole(), ..)`.
-  A bomb (`ambition_abilities/src/ranged/bomb.rs`, near line 67) sends
-  `target = Volume` with `attacker = None`, so with two live rooms it hits
-  nothing.
-  - Repair: the hit carries the room of its spatial origin, apart from the
-    attacker. Do not make `attacker` carry it. A `HitEvent` field is a
-    schema bump.
-  - Witness: two live rooms, a bomb in A with `attacker = None`. A victim
-    in A at the bomb's position is hit, and one in B at the same position
+✅ **Repaired after review, 2026-09-29.** Two of cut 4b's readers were keyed
+by room, but their writers did not supply the room. Now:
+- **A world item is in a room from its spawn.** `spawn_world_item` and
+  `spawn_moving_world_item` take the item's live room as a parameter and
+  stamp `InRoomInstance`. Before, they inserted only `RoomScopedEntity`,
+  so with two live rooms no body could collect the item. Mary-O's block
+  pays out into the room of the body that struck it.
+  - Witness: `a_body_does_not_collect_an_item_in_another_live_room` spawns
+    through both production helpers, with two live room roots. The
+    control is an item in the body's room, and an unstamped item fails it.
+- **A hit carries its own room.** `HitEvent::room` is the live room of a
+  hit whose writer knows it apart from the attacker. `HitEvent::live_room`
+  is the one rule: the hit's room, else its attacker's, else the sole
+  live room. The bomb blast gives the bomb's room, and a shot's landing
+  splash gives the shot's room. Both consumers (`apply_feature_hit_events`
+  and the player-hit `Volume` branch) ask it. The staged player-hit
+  checksum includes it (schema 268).
+  - Witness: `a_blast_with_no_attacker_hits_only_its_own_live_room`. The
+    shipped `tick_bomb_fuses` detonates a bomb in #0 with #0 and #1 live.
+    The control enemy in #0 is hit, and the enemy at the same place in #1
     is not.
+- ⚠ Still owed: a bomb's own room comes from the room build that
+  constructed it. This change does not check which room a bomb that a
+  body carries into another live room is in. That is custody transfer
+  between instances (OW2).
 
 ⚠ Deferred to cut 5, because the key is the identity: the crowd and
 steering indices are maps keyed by the authored body id, and two

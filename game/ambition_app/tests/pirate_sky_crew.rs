@@ -109,6 +109,7 @@ fn defeat(sim: &mut ambition_app::Platformer2dSimHarness, bodies: &[(Entity, ae:
             damage: 9_999,
             source: HitSource::Projectile,
             attacker: None,
+            room: None,
             target: HitTarget::Body(*entity),
             mode: HitMode::Knockback,
             knockback: None,

@@ -179,6 +179,7 @@ pub fn blink_system(
             damage: BLINK_SHOCKWAVE_DAMAGE,
             source: ambition_combat::events::HitSource::Melee,
             attacker: Some(player),
+            room: None,
             target: ambition_combat::events::HitTarget::Volume,
             mode: ambition_combat::events::HitMode::Knockback,
             knockback: None,

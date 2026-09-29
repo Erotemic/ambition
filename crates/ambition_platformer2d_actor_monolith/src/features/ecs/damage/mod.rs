@@ -640,10 +640,11 @@ pub fn apply_feature_hit_events(
         // approximately matches the orb volume the engine reported.
         // Skip the actor / boss / broadcast-breakable scans entirely;
         // jump straight to the orb-match loop at the bottom.
-        // The live room the hit is in: its attacker's. A hit that names no
-        // victim reaches only that room's bodies, bosses and breakables, and
-        // two instances of one room have the same crates at the same places.
-        let event_room = event.attacker.map_or_else(|| rooms.sole(), |attacker| rooms.of(attacker));
+        // The live room the hit is in (`HitEvent::live_room`). A hit that
+        // names no victim reaches only that room's bodies, bosses and
+        // breakables, and two instances of one room have the same crates at
+        // the same places.
+        let event_room = event.live_room(&rooms);
         if matches!(event.source, HitSource::Pogo) {
             for (entity, _id, name, aabb, mut feature) in &mut breakables {
                 if feature.broken() || !feature.breakable.pogo_refresh {

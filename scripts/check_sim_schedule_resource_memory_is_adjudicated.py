@@ -190,19 +190,6 @@ SIBLING_RESET_ADJUDICATED: dict[str, str] = {
         "else — the type's own doc block at `:347-348` says so and names the "
         "prerequisite it depends on (read 2026-09-18)"
     ),
-    "FeatureEcsWorldOverlay": (
-        "AN EXPLICIT `.after` ON THE RESETTER'S SET, AND IT ALREADY HAS ITS OWN "
-        "GUARD. `rebuild_feature_ecs_world_overlay` "
-        "(`actor_monolith/src/features/ecs/world_overlay.rs:25`) calls "
-        "`overlay.clear_engine_contributions()` at `:53` and runs in "
-        "`FeatureWorldOverlaySet`; contributors declare "
-        "`.after(FeatureWorldOverlaySet)` "
-        "(`platformer2d_runtime/src/world_gating.rs:44`), and that file asserts "
-        "the edge in words at `:115`: *\"every gate_solids writer must run AFTER "
-        "FeatureWorldOverlaySet\"*. ⇒ This is the case where the ordering is not "
-        "merely present but held, which is what the other row should grow toward "
-        "(read 2026-09-18)"
-    ),
 }
 
 

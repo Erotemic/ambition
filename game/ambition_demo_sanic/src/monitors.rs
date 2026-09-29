@@ -26,7 +26,6 @@ use bevy::prelude::*;
 
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::platformer::markers::PrimaryPlayer;
-use ambition_platformer2d::world::FeatureEcsWorldOverlay;
 
 use crate::SUPER_SANIC_CHARACTER_ID;
 
@@ -217,8 +216,12 @@ pub fn break_monitor_boxes(
 /// contract), the same slot Mary-O's bricks take.
 pub fn contribute_broken_monitors_to_overlay(
     spent: Res<SpentMonitors>,
-    mut overlay: ResMut<FeatureEcsWorldOverlay>,
+    mut overlays: ambition_platformer2d::world::RoomOverlays,
 ) {
+    // The sole live room's overlay: this content is one room.
+    let Some(mut overlay) = overlays.sole() else {
+        return;
+    };
     overlay.removed_block_names.extend(spent.0.iter().cloned());
 }
 
@@ -241,19 +244,19 @@ impl ambition_platformer2d::actors::session::reset::AttemptScoped for SpentMonit
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ambition_platformer2d::world::FeatureEcsWorldOverlay;
     use crate::SPEEDWAY_ROOM_ID;
     use ambition_platformer2d::world::rooms::RoomLoaded;
 
     #[test]
     fn a_broken_monitor_is_subtracted_from_the_collision_overlay() {
         let mut app = App::new();
-        app.init_resource::<FeatureEcsWorldOverlay>();
+        ambition_platformer2d::session::insert_live_room_component(app.world_mut(), FeatureEcsWorldOverlay::default());
         app.insert_resource(SpentMonitors(vec![SPEED_MONITOR.to_string()]));
         app.add_systems(Update, contribute_broken_monitors_to_overlay);
         app.update();
-        let removed = &app
-            .world()
-            .resource::<FeatureEcsWorldOverlay>()
+        let removed = &ambition_platformer2d::session::sole_live_room_component::<FeatureEcsWorldOverlay>(app
+            .world()).expect("the live room has a collision overlay")
             .removed_block_names;
         assert!(
             removed.contains(&SPEED_MONITOR.to_string()),

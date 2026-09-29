@@ -17,7 +17,7 @@
 | [`construction`](src/construction/mod.rs) | Content-free construction planning and explicit spawn provenance. |
 | [`developer_hotkeys`](src/developer_hotkeys.rs) | Canonical keyboard deck for developer-only host actions. |
 | [`feature_kind`](src/feature_kind.rs) | The feature-visual TAXONOMY shared by the sim (which stamps it at spawn) and every read-model/presentation consumer. |
-| [`feature_overlay`](src/feature_overlay.rs) | Shared read resource for transient ECS-derived world collision overlays. |
+| [`feature_overlay`](src/feature_overlay.rs) | A live room's transient collision contributions, rebuilt from ECS feature state, on that room's own root. |
 | [`frame_env`](src/frame_env.rs) | Per-body movement-frame resolution. |
 | [`gameplay_presentation`](src/gameplay_presentation/mod.rs) | Gameplay presentation policy: where the gameplay camera renders on the physical display, and where important subjects should stay inside it. |
 | [`gravity`](src/gravity.rs) | Shared world physics applied to every actor body. |

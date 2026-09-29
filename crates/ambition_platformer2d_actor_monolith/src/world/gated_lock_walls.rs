@@ -349,9 +349,11 @@ fn publish_gated_lock_wall_verdicts(world: &mut World, walls: Vec<CachedWall>) {
     if standing.is_empty() {
         return;
     }
-    let Some(mut overlay) = world.get_resource_mut::<
+    // The walls are the active room's authored walls, so they go to the sole
+    // live room's overlay.
+    let Some(mut overlay) = ambition_platformer2d_shared_tangle::lifecycle::sole_live_room_component_mut::<
         ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay,
-    >() else {
+    >(world) else {
         return;
     };
     for wall in standing {

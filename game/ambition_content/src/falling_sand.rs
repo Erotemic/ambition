@@ -781,7 +781,7 @@ fn project_particles_to_movement_world(
     world: ambition_platformer2d::platformer::lifecycle::SoleLiveRoom<
         ambition_platformer2d_core::RoomGeometry,
     >,
-    mut overlay: ResMut<ambition_platformer2d::world::FeatureEcsWorldOverlay>,
+    mut overlays: ambition_platformer2d::world::RoomOverlays,
     particles: Query<(&GridPosition, &AttachedToParticleType), With<Particle>>,
     particle_types: Query<&ParticleType>,
     type_ids: Res<FallingSandTypeIds>,
@@ -791,6 +791,10 @@ fn project_particles_to_movement_world(
     mut cap_warned: Local<bool>,
     mut report: ResMut<FallingSandProjectionReport>,
 ) {
+    // The sole live room's overlay: this content is one room.
+    let Some(mut overlay) = overlays.sole() else {
+        return;
+    };
     if !state.active_room || room_set.active_spec().id != ROOM_ID {
         clear_material_visuals(&mut commands, &visuals);
         *report = FallingSandProjectionReport::default();

@@ -386,10 +386,12 @@ pub fn step_sand_grid(state: Res<FallingSandRoomState>, mut sand: ResMut<Falling
 pub fn project_settled_sand(
     state: Res<FallingSandRoomState>,
     sand: Res<FallingSandWorld>,
-    mut overlay: ResMut<
-        ambition_platformer2d::world::FeatureEcsWorldOverlay,
-    >,
+    mut overlays: ambition_platformer2d::world::RoomOverlays,
 ) {
+    // The sole live room's overlay: this content is one room.
+    let Some(mut overlay) = overlays.sole() else {
+        return;
+    };
     if !state.active_room {
         return;
     }

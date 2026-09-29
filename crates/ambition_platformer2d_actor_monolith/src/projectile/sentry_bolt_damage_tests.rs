@@ -71,7 +71,7 @@ fn a_sentry_bolt_damages_the_enemy_it_was_fired_at() {
     app.add_message::<crate::avatar::PlayerHealRequested>();
     app.init_resource::<ambition_projectiles::ProjectileSeqCounter>();
     app.init_resource::<CapturedHits>();
-    app.init_resource::<ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay>();
+    ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(app.world_mut(), ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay::default());
     app.init_resource::<ambition_gameplay_trace::GameplayTraceBuffer>();
     app.add_systems(
         Update,

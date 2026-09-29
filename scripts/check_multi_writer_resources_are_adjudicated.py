@@ -247,20 +247,6 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "game/ambition_content/src/bosses/cut_rope/arena.rs",
         "game/ambition_content/src/quest.rs",
     ),
-    "FeatureEcsWorldOverlay": (
-        "crates/ambition_encounter_features/src/lock_walls.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/world/gated_lock_walls.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/features/ecs/world_overlay.rs",
-        "crates/ambition_platformer2d_runtime/src/room_transition/commit.rs",
-        "game/ambition_content/src/bosses/gnu_ton/conductor.rs",
-        "game/ambition_content/src/bosses/gnu_ton/mod.rs",
-        "game/ambition_content/src/falling_sand.rs",
-        "game/ambition_content/src/falling_sand_sim.rs",
-        "game/ambition_content/src/portal/carve_adapter.rs",
-        "game/ambition_demo_mary_o/src/bricks.rs",
-        "game/ambition_demo_mary_o/src/powerups.rs",
-        "game/ambition_demo_sanic/src/monitors.rs",
-    ),
     "OwnedItems": (
         "crates/ambition_held_items/src/lib.rs",
         "crates/ambition_platformer2d_actor_monolith/src/features/ecs/chests.rs",
@@ -861,6 +847,16 @@ BASELINE: dict[str, tuple[str, ...]] = {
 #: of the room it publishes; Smash's `hold_the_respawn_platforms` owns only the
 #: `respawn_platform_` ids. ⚠ That split is still a PREFIX CONVENTION, not
 #: enforcement: a room that authored `respawn_platform_0` would collide with it.
+
+#: ⚠ `FeatureEcsWorldOverlay` LEFT THIS POPULATION ON 2026-09-29 (OW1 cut 3c):
+#: a component on each live room's root. Its verdict, CORRECT, still describes
+#: the writers: one rebuilder clears the engine fields in
+#: `FeatureWorldOverlaySet` and every contributor orders `.after` it; the portal
+#: bridge owns `portal_carves`, the one field the clear leaves alone; and
+#: `clear_engine_contributions` destructures with no `..`, so a new field must
+#: be given an owner. What changed: the room commit no longer retracts it; the
+#: publication does, on the root whose geometry it replaces
+#: (`canonical_reconstitution::the_collision_overlay_leaves_with_the_room_it_describes`).
 
 #: The ones somebody has actually read. ⚠ An entry here is a CITATION, not an
 #: opinion: it names the row or the source contract that owns the answer.
@@ -1908,45 +1904,6 @@ ADJUDICATED: dict[str, str] = {
         "two save files are the same file. Routed to "
         "`docs/planning/awaiting-maintainer-decision.md`'s Q129, which asks "
         "exactly whether a save file belongs in what two peers agree on."
-    ),
-    "FeatureEcsWorldOverlay": (
-        "CORRECT — ONE REBUILDER, NINE CONTRIBUTORS AND A FIELD SPLIT THE "
-        "COMPILER ENFORCES. `rebuild_feature_ecs_world_overlay` "
-        "(`actor_monolith/src/features/ecs/world_overlay.rs`) calls "
-        "`clear_engine_contributions` in `FeatureWorldOverlaySet`, and every "
-        "contributor carries an explicit `.after(FeatureWorldOverlaySet)` edge — "
-        "verified per registration 2026-09-18: `contribute_encounter_lock_walls` "
-        "and `sync_authored_gated_lock_walls` (`runtime/src/world_gating.rs`), "
-        "`gate_gnu_ton_arena_ladder`, `gnu_back_is_ground` (GNU-ton's back as a "
-        "one-way ledge, 2026-09-25: registered in the same tuple as the ladder "
-        "gate, same edges, append-only `blocks`), "
-        "`project_particles_to_movement_world`, "
-        "`project_settled_sand`, `contribute_broken_bricks_to_overlay`, "
-        "`contribute_discovered_hidden_blocks_to_overlay`, "
-        "`contribute_broken_monitors_to_overlay`. ⇒ Without that edge a "
-        "contribution is wiped by the clear depending on set order, so the edge "
-        "IS the authority argument, and all nine state it.\n"
-        "    ⭐ THE TENTH WRITER IS THE INTERESTING ONE AND IT NEEDS NO SUCH "
-        "EDGE. `bridge_portal_carves` owns `portal_carves`, the ONE field "
-        "`clear_engine_contributions` deliberately does not clear — its body says "
-        "*\"NOT OURS ... clearing it here would race that and blink the "
-        "aperture depending on system order\"*. Two owners over DISJOINT field "
-        "sets, both single-authority.\n"
-        "    ⭐⭐ AND THE SPLIT IS MECHANICAL, WHICH IS WHY THIS IS A VERDICT AND "
-        "NOT A HOPE: `clear_engine_contributions` destructures `Self` with NO "
-        "`..`, so a seventh field fails to compile (E0027) and lands its author "
-        "at the question *\"engine-owned or contributor-owned?\"*. That is the "
-        "shape every other many-writer resource here should be measured against.\n"
-        "    ⭐ THE ROOM COMMIT RETRACTS, IT DOES NOT CONTRIBUTE (AP48, 2026-09-26). "
-        "`RoomTransitionCombatReset::clear_carryover` "
-        "(`runtime/src/room_transition/commit.rs`) calls "
-        "`FeatureEcsWorldOverlay::retract_for_room_change`, which clears every "
-        "field of both owners (same no-`..` destructure). It writes no geometry: "
-        "it resets the overlay to \"nothing about any room\" in the transaction "
-        "that changes the room, because the next rebuild is a tick away and the "
-        "systems after the commit would read the old room's walls. The next "
-        "tick's rebuilder and contributors own the content again. Guard: "
-        "`canonical_reconstitution::the_collision_overlay_leaves_with_the_room_it_describes`."
     ),
     "ClassBRemapLog": (
         "CORRECT — AND IT IS THE CASE WHERE MANY WRITERS ARE THE DESIGN, ENFORCED BY "

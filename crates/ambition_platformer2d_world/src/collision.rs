@@ -22,7 +22,7 @@ use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::geometry::subtract_aabb;
 use ambition_platformer2d_core::AabbExt;
 use ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay;
-use bevy_ecs::prelude::{Component, Res, Single, With};
+use bevy_ecs::prelude::{Component, Single, With};
 use bevy_ecs::system::SystemParam;
 use std::borrow::Cow;
 
@@ -75,17 +75,20 @@ impl MovingPlatformSet {
 /// reader except in rooms with moving platforms, ECS solids or portal carves.
 #[derive(SystemParam)]
 pub struct CollisionWorld<'w, 's> {
-    /// The live room's geometry and its moving platforms, off ONE root, so
-    /// the two cannot come from different rooms.
+    /// The live room's geometry, moving platforms and collision overlay, off
+    /// ONE root, so the three cannot come from different rooms.
     room: Option<
         Single<
             'w,
             's,
-            (&'static ae::RoomGeometry, Option<&'static MovingPlatformSet>),
+            (
+                &'static ae::RoomGeometry,
+                Option<&'static MovingPlatformSet>,
+                Option<&'static FeatureEcsWorldOverlay>,
+            ),
             With<ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot>,
         >,
     >,
-    overlay: Option<Res<'w, FeatureEcsWorldOverlay>>,
 }
 
 impl CollisionWorld<'_, '_> {
@@ -97,9 +100,9 @@ impl CollisionWorld<'_, '_> {
     /// Returns `None` when no room is loaded (minimal test apps), and borrows the
     /// base geometry on the no-dynamics fast path so the common case never clones.
     pub fn solids(&self) -> Option<Cow<'_, ae::World>> {
-        let (room, platforms) = &**self.room.as_ref()?;
+        let (room, platforms, overlay) = &**self.room.as_ref()?;
         let platforms = platforms.map_or(&[][..], |p| &p.0);
-        let overlay_empty = self.overlay.as_ref().map_or(true, |o| {
+        let overlay_empty = overlay.map_or(true, |o| {
             o.blocks.is_empty()
                 && o.gate_solids.is_empty()
                 && o.portal_carves.is_empty()
@@ -111,8 +114,8 @@ impl CollisionWorld<'_, '_> {
             return Some(Cow::Borrowed(&room.0));
         }
         let default_overlay;
-        let overlay = match self.overlay.as_ref() {
-            Some(o) => &**o,
+        let overlay = match overlay {
+            Some(o) => *o,
             None => {
                 default_overlay = FeatureEcsWorldOverlay::default();
                 &default_overlay
@@ -127,8 +130,8 @@ impl CollisionWorld<'_, '_> {
     /// solids omitted. Projectiles pass through moving platforms, so they read
     /// this. Borrows when no carves are active (the common case).
     pub fn carves_only(&self) -> Option<Cow<'_, ae::World>> {
-        let (room, _) = &**self.room.as_ref()?;
-        let carves = self.overlay.as_ref().map_or(&[][..], |o| &o.portal_carves);
+        let (room, _, overlay) = &**self.room.as_ref()?;
+        let carves = overlay.map_or(&[][..], |o| &o.portal_carves[..]);
         Some(world_with_portal_carves(&room.0, carves))
     }
 
@@ -145,7 +148,7 @@ impl CollisionWorld<'_, '_> {
     ///
     /// No consumer outside this module builds a collision world itself.
     pub fn hostable_surfaces(&self) -> Option<Cow<'_, ae::World>> {
-        let (room, platforms) = &**self.room.as_ref()?;
+        let (room, platforms, _) = &**self.room.as_ref()?;
         let platforms = platforms.map_or(&[][..], |p| &p.0);
         if platforms.is_empty() {
             return Some(Cow::Borrowed(&room.0));
@@ -467,7 +470,7 @@ mod collision_world_tests {
             app.world_mut(),
             room_one_block(),
         );
-        app.insert_resource(FeatureEcsWorldOverlay::default());
+        ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(app.world_mut(), FeatureEcsWorldOverlay::default());
         // An empty overlay is still the no-dynamics fast path.
         assert_eq!(run(&mut app), Some((false, 1)));
     }
@@ -480,7 +483,7 @@ mod collision_world_tests {
             app.world_mut(),
             room_one_block(),
         );
-        app.insert_resource(FeatureEcsWorldOverlay {
+        ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(app.world_mut(), FeatureEcsWorldOverlay {
             blocks: vec![ae::Block {
                 id: ae::GeoId::anon(),
                 name: "ecs-solid".into(),
@@ -511,7 +514,7 @@ mod collision_world_tests {
             app.world_mut(),
             room_one_block(),
         );
-        app.insert_resource(FeatureEcsWorldOverlay {
+        ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(app.world_mut(), FeatureEcsWorldOverlay {
             gate_solids: vec![gate_wall()],
             ..Default::default()
         });

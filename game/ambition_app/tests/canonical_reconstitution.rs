@@ -631,9 +631,8 @@ fn leaving_a_room_and_returning_rebuilds_what_entering_it_built() {
 /// Every piece of geometry the collision overlay holds, one line each, so two
 /// samples compare as sets and a failure names the pieces.
 fn overlay_geometry(sim: &Platformer2dSimHarness) -> BTreeSet<String> {
-    let overlay = sim
-        .world()
-        .resource::<ambition_platformer2d::world::FeatureEcsWorldOverlay>();
+    let overlay = ambition_platformer2d::session::sole_live_room_component::<ambition_platformer2d::world::FeatureEcsWorldOverlay>(sim
+        .world()).expect("the live room has a collision overlay");
     let aabb = |kind: &str, a: &ae::Aabb| {
         format!(
             "{kind} ({:.1},{:.1})..({:.1},{:.1})",

@@ -7,7 +7,8 @@
 //! with this resource;
 //! rebuilding it once per frame keeps the augment cheap.
 
-use ambition_platformer2d_shared_tangle::feature_overlay::{FeatureEcsWorldOverlay};
+use ambition_platformer2d_shared_tangle::feature_overlay::RoomOverlays;
+use ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance;
 use ambition_platformer2d_core as ae;
 use bevy::prelude::*;
 
@@ -16,7 +17,9 @@ use ambition_combat::*;
 
 
 pub fn rebuild_feature_ecs_world_overlay(
-    mut overlay: ResMut<FeatureEcsWorldOverlay>,
+    // Every live room's overlay; each contribution goes to the room of the
+    // entity that makes it.
+    mut overlays: RoomOverlays,
     // ⛔⛔ `FeatureId` IS IN THIS QUERY BECAUSE A NAME IS NOT AN IDENTITY. The
     // published block used to carry `GeoId::anon()` and put the breakable's
     // DISPLAY name in `Block.name` — and `FeatureName` documents itself as
@@ -24,14 +27,25 @@ pub fn rebuild_feature_ecs_world_overlay(
     // id was one component away on the same entity the whole time
     // (`spawn_breakable_into` inserts `FeatureId::new(authored.id)`).
     breakables: Query<
-        (&FeatureId, &FeatureName, &CenteredAabb, &BreakableFeature),
+        (
+            &FeatureId,
+            &FeatureName,
+            &CenteredAabb,
+            &BreakableFeature,
+            Option<&InRoomInstance>,
+        ),
         With<FeatureSimEntity>,
     >,
     // Only entities that explicitly contribute WORLD pogo geometry are lowered
     // into collision blocks. Combat bodies also publish `PogoTargetVolumes`, but
     // those are entity-side affordance geometry and must retain their identity.
     pogo_targets: Query<
-        (&FeatureId, &CenteredAabb, Option<&PogoTargetVolumes>),
+        (
+            &FeatureId,
+            &CenteredAabb,
+            Option<&PogoTargetVolumes>,
+            Option<&InRoomInstance>,
+        ),
         (With<FeatureSimEntity>, With<PogoTargetContributor>),
     >,
 ) {
@@ -43,8 +57,10 @@ pub fn rebuild_feature_ecs_world_overlay(
     // ⭐ The five clears this replaces were a HAND-KEPT LIST. The method
     // destructures the overlay with no `..`, so a seventh field cannot be added
     // without its author saying which owner clears it.
-    overlay.clear_engine_contributions();
-    for (id, name, aabb, feature) in &breakables {
+    for mut overlay in overlays.each() {
+        overlay.clear_engine_contributions();
+    }
+    for (id, name, aabb, feature, room) in &breakables {
         if feature.broken() {
             continue;
         }
@@ -57,6 +73,9 @@ pub fn rebuild_feature_ecs_world_overlay(
                 tier: ae::BlinkWallTier::Hard,
             },
             ambition_interaction::BreakableCollision::OneWayUp => ae::BlockKind::OneWay,
+        };
+        let Some(mut overlay) = overlays.for_room(room) else {
+            continue;
         };
         overlay.blocks.push(ae::Block {
             // ⭐ The OWNING OCCURRENCE, which is what the projectile contact
@@ -81,7 +100,10 @@ pub fn rebuild_feature_ecs_world_overlay(
     // centered envelope is the deliberate world-surface fallback. Ordinary
     // bodies intentionally lack the contributor and stay entity contacts, so
     // their identity is never flattened into anonymous blocks.
-    for (id, centered, pogo) in &pogo_targets {
+    for (id, centered, pogo, room) in &pogo_targets {
+        let Some(mut overlay) = overlays.for_room(room) else {
+            continue;
+        };
         let published = pogo.filter(|pogo| !pogo.volumes.is_empty());
         if let Some(pogo) = published {
             for (idx, aabb) in pogo.volumes.iter().copied().enumerate() {
@@ -211,7 +233,10 @@ mod breakable_geometry_agreement {
     #[test]
     fn a_breakables_hurt_volume_and_its_contributed_surface_are_the_same_rectangle() {
         let mut app = App::new();
-        app.init_resource::<FeatureEcsWorldOverlay>();
+        ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(
+            app.world_mut(),
+            FeatureEcsWorldOverlay::default(),
+        );
 
         // Deliberately not centred on the origin and not square: a zero-centred
         // unit box makes an offset bug and a correct build agree.
@@ -242,10 +267,11 @@ mod breakable_geometry_agreement {
         );
         app.update();
 
-        let blocks: Vec<ae::Aabb> = app
-            .world()
-            .resource::<FeatureEcsWorldOverlay>()
-            .blocks
+        let blocks: Vec<ae::Aabb> = ambition_platformer2d_shared_tangle::lifecycle::sole_live_room_component::<
+            FeatureEcsWorldOverlay,
+        >(app.world())
+        .expect("the live room has an overlay")
+        .blocks
             .iter()
             .filter(|b| b.name.starts_with("ecs-breakable"))
             .map(|b| b.aabb)
@@ -279,6 +305,76 @@ mod breakable_geometry_agreement {
             "a breakable's contributed collision surface and its damageable \
              volume describe different rectangles: a shot would stop where it \
              cannot damage, or damage where it does not stop"
+        );
+    }
+}
+
+#[cfg(test)]
+mod room_keyed_contributions {
+    use ambition_combat::components::{BreakableFeature, CenteredAabb, FeatureId, FeatureName};
+    use ambition_combat::FeatureSimEntity;
+    use ambition_platformer2d_core as ae;
+    use ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay;
+    use ambition_platformer2d_shared_tangle::lifecycle::{
+        activation_room_root, InRoomInstance, LiveRoomInstance, RoomInstanceRoot, SessionScopeId,
+    };
+    use bevy::prelude::*;
+
+    fn a_solid_crate_in(app: &mut App, id: &str, room: LiveRoomInstance) {
+        let mut breakable = ambition_interaction::Breakable::new(id, 3);
+        breakable.collision = ambition_interaction::BreakableCollision::Solid;
+        app.world_mut().spawn((
+            FeatureSimEntity,
+            FeatureId::new(id),
+            FeatureName(id.to_string()),
+            CenteredAabb {
+                center: ae::Vec2::new(40.0, 40.0),
+                half_size: ae::Vec2::new(8.0, 8.0),
+            },
+            BreakableFeature::new(breakable),
+            InRoomInstance(room),
+        ));
+    }
+
+    /// OW1 cut 3c: a contribution goes to the overlay of its own live room.
+    ///
+    /// Two live rooms, #0 and #7, each with one solid crate. The control is
+    /// #0's crate in #0's overlay, as it was when the overlay was one
+    /// resource. The subject is that #7's crate is in #7's overlay and NOT in
+    /// #0's, so a body in #0 does not collide with a wall of #7.
+    #[test]
+    fn a_breakable_contributes_to_its_own_live_rooms_overlay() {
+        let mut app = App::new();
+        let here = LiveRoomInstance::ACTIVATION;
+        let elsewhere = (0..7).fold(here, |room, _| room.next());
+        app.world_mut().spawn(activation_room_root(SessionScopeId(0)));
+        app.world_mut()
+            .spawn(activation_room_root(SessionScopeId(0)))
+            .insert(elsewhere);
+        a_solid_crate_in(&mut app, "crate_here", here);
+        a_solid_crate_in(&mut app, "crate_elsewhere", elsewhere);
+        app.add_systems(Update, super::rebuild_feature_ecs_world_overlay);
+        app.update();
+
+        let world = app.world_mut();
+        let mut rooms: Vec<(String, Vec<String>)> = world
+            .query_filtered::<(&LiveRoomInstance, &FeatureEcsWorldOverlay), With<RoomInstanceRoot>>()
+            .iter(world)
+            .map(|(live, overlay)| {
+                (
+                    live.to_string(),
+                    overlay.blocks.iter().map(|block| block.name.clone()).collect(),
+                )
+            })
+            .collect();
+        rooms.sort();
+        assert_eq!(
+            rooms,
+            vec![
+                (here.to_string(), vec!["ecs-breakable crate_here".to_string()]),
+                (elsewhere.to_string(), vec!["ecs-breakable crate_elsewhere".to_string()]),
+            ],
+            "a contribution did not go to its own live room's overlay"
         );
     }
 }

@@ -81,7 +81,7 @@ fn combat_body_pogo_geometry_stays_entity_side() {
     );
 
     let mut app = App::new();
-    app.insert_resource(FeatureEcsWorldOverlay::default());
+    ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(app.world_mut(), FeatureEcsWorldOverlay::default());
     let body = app
         .world_mut()
         .spawn((
@@ -117,7 +117,7 @@ fn combat_body_pogo_geometry_stays_entity_side() {
         "damageable => pogoable remains body data"
     );
 
-    let overlay = app.world().resource::<FeatureEcsWorldOverlay>();
+    let overlay = ambition_platformer2d_shared_tangle::lifecycle::sole_live_room_component::<FeatureEcsWorldOverlay>(app.world()).expect("the live room has a collision overlay");
     assert!(
         overlay
             .blocks
@@ -133,7 +133,7 @@ fn explicit_pogo_contributor_lowers_published_world_surface() {
     let pogo_surface = ae::Aabb::new(ae::Vec2::new(440.0, 420.0), ae::Vec2::new(12.0, 16.0));
 
     let mut app = App::new();
-    app.insert_resource(FeatureEcsWorldOverlay::default());
+    ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(app.world_mut(), FeatureEcsWorldOverlay::default());
     app.world_mut().spawn((
         FeatureSimEntity,
         FeatureId::new("moving_pogo_surface"),
@@ -147,7 +147,7 @@ fn explicit_pogo_contributor_lowers_published_world_surface() {
     app.add_systems(Update, rebuild_feature_ecs_world_overlay);
     app.update();
 
-    let overlay = app.world().resource::<FeatureEcsWorldOverlay>();
+    let overlay = ambition_platformer2d_shared_tangle::lifecycle::sole_live_room_component::<FeatureEcsWorldOverlay>(app.world()).expect("the live room has a collision overlay");
     assert!(
         overlay.blocks.iter().any(|block| {
             matches!(block.kind, ae::BlockKind::PogoOrb) && block.aabb == pogo_surface
@@ -167,7 +167,7 @@ fn explicit_pogo_contributor_without_published_surface_uses_its_envelope() {
     let coarse_surface = ae::Aabb::new(ae::Vec2::new(300.0, 260.0), ae::Vec2::new(24.0, 10.0));
 
     let mut app = App::new();
-    app.insert_resource(FeatureEcsWorldOverlay::default());
+    ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(app.world_mut(), FeatureEcsWorldOverlay::default());
     app.world_mut().spawn((
         FeatureSimEntity,
         FeatureId::new("plain_rebound_surface"),
@@ -178,7 +178,7 @@ fn explicit_pogo_contributor_without_published_surface_uses_its_envelope() {
     app.add_systems(Update, rebuild_feature_ecs_world_overlay);
     app.update();
 
-    let overlay = app.world().resource::<FeatureEcsWorldOverlay>();
+    let overlay = ambition_platformer2d_shared_tangle::lifecycle::sole_live_room_component::<FeatureEcsWorldOverlay>(app.world()).expect("the live room has a collision overlay");
     let pogo_blocks: Vec<_> = overlay
         .blocks
         .iter()
@@ -197,7 +197,7 @@ fn ecs_overlay_ignores_broken_breakables() {
     let mut breakable = ambition_interaction::Breakable::new("crate", 1);
     breakable.collision = ambition_interaction::BreakableCollision::Solid;
     let mut app = App::new();
-    app.insert_resource(FeatureEcsWorldOverlay::default());
+    ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(app.world_mut(), FeatureEcsWorldOverlay::default());
     app.world_mut().spawn((
         FeatureSimEntity,
         FeatureId::new("crate"),
@@ -208,8 +208,7 @@ fn ecs_overlay_ignores_broken_breakables() {
     app.add_systems(Update, rebuild_feature_ecs_world_overlay);
     app.update();
     assert_eq!(
-        app.world()
-            .resource::<FeatureEcsWorldOverlay>()
+        ambition_platformer2d_shared_tangle::lifecycle::sole_live_room_component::<FeatureEcsWorldOverlay>(app.world()).expect("the live room has a collision overlay")
             .blocks
             .len(),
         1
@@ -500,7 +499,7 @@ fn a_contributed_block_carries_its_owning_occurrence_not_just_a_display_name() {
     breakable.collision = ambition_interaction::BreakableCollision::Solid;
 
     let mut app = App::new();
-    app.insert_resource(FeatureEcsWorldOverlay::default());
+    ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(app.world_mut(), FeatureEcsWorldOverlay::default());
     app.world_mut().spawn((
         FeatureSimEntity,
         FeatureId::new("placement-iid-7"),
@@ -511,7 +510,7 @@ fn a_contributed_block_carries_its_owning_occurrence_not_just_a_display_name() {
     app.add_systems(Update, rebuild_feature_ecs_world_overlay);
     app.update();
 
-    let overlay = app.world().resource::<FeatureEcsWorldOverlay>();
+    let overlay = ambition_platformer2d_shared_tangle::lifecycle::sole_live_room_component::<FeatureEcsWorldOverlay>(app.world()).expect("the live room has a collision overlay");
     let block = overlay
         .blocks
         .iter()

@@ -156,7 +156,7 @@ fn world_with_one_wall_gated_by(gated_by: &str) -> App {
     let mut app = App::new();
     app.insert_resource(ActiveLdtkProject(project_with_one_wall(Some(gated_by))));
     app.insert_resource(ambition_persistence::save::AmbitionGameSave::default());
-    app.insert_resource(FeatureEcsWorldOverlay::default());
+    ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(app.world_mut(), FeatureEcsWorldOverlay::default());
     // the world-fact domain's own condition, published exactly as its plugin
     // publishes it. The system under test never names a flag.
     app.publish_condition(
@@ -176,7 +176,11 @@ fn world_with_one_wall_gated_by(gated_by: &str) -> App {
     app.add_systems(
         Update,
         (
-            |mut overlay: ResMut<FeatureEcsWorldOverlay>| overlay.gate_solids.clear(),
+            |mut overlays: ambition_platformer2d_shared_tangle::feature_overlay::RoomOverlays| {
+                for mut overlay in overlays.each() {
+                    overlay.gate_solids.clear();
+                }
+            },
             sync_authored_gated_lock_walls,
         )
             .chain(),
@@ -185,8 +189,7 @@ fn world_with_one_wall_gated_by(gated_by: &str) -> App {
 }
 
 fn standing(app: &App) -> usize {
-    app.world()
-        .resource::<FeatureEcsWorldOverlay>()
+    ambition_platformer2d_shared_tangle::lifecycle::sole_live_room_component::<FeatureEcsWorldOverlay>(app.world()).expect("the live room has a collision overlay")
         .gate_solids
         .len()
 }
@@ -274,7 +277,7 @@ fn a_wall_whose_question_cannot_be_prepared_yet_stands_until_the_catalog_moves()
     let mut app = App::new();
     app.insert_resource(ActiveLdtkProject(project_with_one_wall(Some(FLAG))));
     app.insert_resource(ambition_persistence::save::AmbitionGameSave::default());
-    app.insert_resource(FeatureEcsWorldOverlay::default());
+    ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(app.world_mut(), FeatureEcsWorldOverlay::default());
     // A catalog that exists and does NOT publish `world.flag_set`. The system
     // returns early when there is no catalog at all, so an empty one is what puts
     // the fixture in the state under test rather than past it.
@@ -290,7 +293,11 @@ fn a_wall_whose_question_cannot_be_prepared_yet_stands_until_the_catalog_moves()
     app.add_systems(
         Update,
         (
-            |mut overlay: ResMut<FeatureEcsWorldOverlay>| overlay.gate_solids.clear(),
+            |mut overlays: ambition_platformer2d_shared_tangle::feature_overlay::RoomOverlays| {
+                for mut overlay in overlays.each() {
+                    overlay.gate_solids.clear();
+                }
+            },
             sync_authored_gated_lock_walls,
         )
             .chain(),

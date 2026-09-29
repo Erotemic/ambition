@@ -1256,10 +1256,6 @@ impl Plugin for MaryORulesPlugin {
         // so a reader that forgets it cannot get a half-populated global — it does not compile.
         let sim = ambition_platformer2d::platformer::schedule::SimScheduleExt::sim_schedule(app);
 
-        // The brick overlay contributor writes the collision overlay; a full app
-        // inserts it (features/render plugins), but a thin rules-only harness may
-        // not, and `init_resource` is idempotent — a no-op when already present.
-        app.init_resource::<ambition_platformer2d::world::FeatureEcsWorldOverlay>();
         // declared HERE as well as engine-side, because a channel's EMITTER
         // owes its existence: a composition that installs this demo without the
         // full sim-core resources (every one of this crate's own test apps) still

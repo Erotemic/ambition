@@ -155,9 +155,8 @@ fn solid_blocks(sim: &Platformer2dSimHarness) -> Vec<SolidBlock> {
     >(sim.world()) else {
         return Vec::new();
     };
-    let carves: Vec<ae::Aabb> = sim
-        .world()
-        .get_resource::<ambition_platformer2d::world::FeatureEcsWorldOverlay>()
+    let carves: Vec<ae::Aabb> = ambition_platformer2d::session::sole_live_room_component::<ambition_platformer2d::world::FeatureEcsWorldOverlay>(sim
+        .world())
         .map(|o| o.portal_carves.clone())
         .unwrap_or_default();
     let composed =

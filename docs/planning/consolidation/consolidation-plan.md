@@ -197,14 +197,14 @@ population's total and prints four methods beside it. This table carries only
 the SHAPE — the per-spelling split and the two semantics — re-measured
 2026-09-19 under that row's method so the two cannot disagree.
 
-<!-- alias-split: SessionWorldRef=84/48 SessionWorldMut=11/10 live_session_world_root=3/1 session_root_for_scope=2/2 SoleLiveRoom=79/61 SoleLiveRoomMut=2/2 -->
+<!-- alias-split: SessionWorldRef=84/48 SessionWorldMut=11/10 live_session_world_root=3/1 session_root_for_scope=2/2 SoleLiveRoom=80/60 SoleLiveRoomMut=2/2 -->
 | spelling | what it is | production uses |
 | --- | --- | ---: |
 | `SessionWorldRef<T>` | `Single<Ref<T>, With<SessionRoot>>` | 84, in 48 files (160 in 95 until OW1 cut 3, 2026-09-29, moved the room geometry and the live room identity to each live room's own root) |
 | `SessionWorldMut<T>` | `Single<&mut T, With<SessionRoot>>` | 11, in 10 files (a `Mut` became a `Ref` in `dbffb1a76`, AP12/W021: the music adapter only reads encounter state now; the total is unchanged. 2026-09-29: `sync_ldtk_level_set` only reads the LDtk index now) |
 | `live_session_world_root` | finds the root whose scope equals the ACTIVE scope | 3, in 1 file |
 | `session_root_for_scope` | finds a named scope's root, through the disabling marker | 2, in 2 files |
-| `SoleLiveRoom<T>` | `Single<Ref<T>, With<RoomInstanceRoot>>`: the live room's own root, NOT a session-root alias and not in the census total | 79, in 61 files (77 at OW1 cut 3a; cut 3b moved `CollisionWorld` to one read of geometry and platforms, and three platform readers joined, 2026-09-29) |
+| `SoleLiveRoom<T>` | `Single<Ref<T>, With<RoomInstanceRoot>>`: the live room's own root, NOT a session-root alias and not in the census total | 80, in 60 files (77 at OW1 cut 3a; 79 in 61 at 3b, when `CollisionWorld` became one read of geometry and platforms and three platform readers joined; 3c moved the projectile world to one read of geometry and overlay, and two overlay readers joined, 2026-09-29) |
 | `SoleLiveRoomMut<T>` | `Single<&mut T, With<RoomInstanceRoot>>`: the same debt, writing | 2, in 2 files (the definition and Smash's respawn platforms, 2026-09-29) |
 
 ⚠ **THE METHOD IS THE PARAMETER FORM: `Name<` for the aliases and `name(` for

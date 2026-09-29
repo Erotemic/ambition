@@ -1185,7 +1185,9 @@ pub fn sync_lock_wall_visuals(
     world: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<
         ambition_platformer2d_core::RoomGeometry,
     >,
-    overlay: Res<ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay>,
+    overlay: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<
+        ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay,
+    >,
     assets: Option<Res<GameAssets>>,
     existing: Query<(Entity, &LockWallVisual)>,
 ) {
@@ -1354,7 +1356,9 @@ pub struct BlockFlinch {
 pub fn sync_removed_block_visuals(
     mut commands: Commands,
     overlay: Option<
-        Res<ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay>,
+        ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<
+            ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay,
+        >,
     >,
     blocks: Query<(Entity, &BlockVisual)>,
 ) {
@@ -1424,7 +1428,7 @@ mod lock_wall_visual_tests {
             app.world_mut(),
             room(),
         );
-        app.insert_resource(FeatureEcsWorldOverlay {
+        ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(app.world_mut(), FeatureEcsWorldOverlay {
             gate_solids: vec![gate_wall()],
             ..Default::default()
         });
@@ -1438,8 +1442,7 @@ mod lock_wall_visual_tests {
         );
 
         // The contributor stops deriving the wall, so the visual despawns.
-        app.world_mut()
-            .resource_mut::<FeatureEcsWorldOverlay>()
+        ambition_platformer2d_shared_tangle::lifecycle::sole_live_room_component_mut::<FeatureEcsWorldOverlay>(app.world_mut()).expect("the live room has a collision overlay")
             .gate_solids
             .clear();
         app.update();
@@ -1468,7 +1471,7 @@ mod lock_wall_visual_tests {
                 geo_id: ambition_platformer2d_core::GeoId::anon(),
             })
             .id();
-        app.insert_resource(FeatureEcsWorldOverlay {
+        ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(app.world_mut(), FeatureEcsWorldOverlay {
             removed_block_names: vec!["brick_1".to_string()],
             ..Default::default()
         });
@@ -1506,7 +1509,7 @@ mod lock_wall_visual_tests {
                 geo_id: ambition_platformer2d_core::GeoId::anon(),
             })
             .id();
-        app.insert_resource(FeatureEcsWorldOverlay {
+        ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(app.world_mut(), FeatureEcsWorldOverlay {
             removed_block_names: vec![
                 "maryo_block:Hidden:AlwaysCoin:1".to_string(),
                 "brick_1".to_string(),
@@ -1543,7 +1546,7 @@ mod lock_wall_visual_tests {
         );
     }
 
-    /// With no overlay resource (a minimal app), the reconcile is a graceful
+    /// With no live room overlay (a minimal app), the reconcile is a graceful
     /// no-op rather than a panic — it never despawns a block on its own.
     #[test]
     fn removed_block_visual_is_inert_without_an_overlay() {

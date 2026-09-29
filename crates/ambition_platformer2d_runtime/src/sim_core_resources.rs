@@ -120,7 +120,6 @@ impl Plugin for SimCoreResourcesPlugin {
             // App-local boss authority. Boss-free providers keep the explicit
             // empty resource; content plugins assemble provider fragments.
             .init_resource::<ambition_combat::GameplayBanner>()
-            .init_resource::<ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay>()
             // A struck block flinches. Registered beside the world overlay because
             // it is the same kind of fact — something happened to authored
             // geometry — and because BOTH halves need the channel to exist: the

@@ -30,8 +30,13 @@ use bevy::prelude::Res;
 /// and could never transit a wall portal.
 #[derive(SystemParam)]
 pub struct ProjectileCollisionWorld<'w, 's> {
-    world: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<'w, 's, RoomGeometry>,
-    overlay: Res<'w, FeatureEcsWorldOverlay>,
+    /// The live room's geometry and its collision overlay, off ONE root.
+    room: bevy::prelude::Single<
+        'w,
+        's,
+        (&'static RoomGeometry, &'static FeatureEcsWorldOverlay),
+        bevy::prelude::With<ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot>,
+    >,
     // Folded in here (rather than as its own top-level param) because the stepper
     // is already at Bevy's 16-param ceiling.
     #[cfg(feature = "portal")]
@@ -57,11 +62,11 @@ impl ProjectileCollisionWorld<'_, '_> {
     /// without it, a solid crate would be immune behind its own wall.
     pub fn solids(&self) -> std::borrow::Cow<'_, ae::World> {
         ambition_platformer2d_world::collision::world_with_contributed_solids_and_carves(
-            &self.world.0,
-            &self.overlay.gate_solids,
-            &self.overlay.blocks,
-            &self.overlay.portal_carves,
-            &self.overlay.removed_block_names,
+            &self.room.0 .0,
+            &self.room.1.gate_solids,
+            &self.room.1.blocks,
+            &self.room.1.portal_carves,
+            &self.room.1.removed_block_names,
         )
     }
 

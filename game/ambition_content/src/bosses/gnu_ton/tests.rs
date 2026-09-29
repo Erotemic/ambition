@@ -1,4 +1,5 @@
 use super::*;
+use ambition_platformer2d::world::FeatureEcsWorldOverlay;
 use ambition_boss_encounter::pattern::profile::BossBehaviorProfile;
 use ambition_boss_encounter::BossBehaviorProfileExt;
 use ambition_boss_encounter::BossClusterScratch;
@@ -14,7 +15,7 @@ fn arena_view(app: &App) -> ae::World {
     >(app.world())
     .expect("session room geometry")
     .0;
-    let overlay = app.world().resource::<FeatureEcsWorldOverlay>();
+    let overlay = ambition_platformer2d::session::sole_live_room_component::<FeatureEcsWorldOverlay>(app.world()).expect("the live room has a collision overlay");
     world_with_sandbox_solids(base, &[], overlay)
 }
 
@@ -145,7 +146,7 @@ fn make_app(world: ambition_platformer2d_core::RoomGeometry) -> App {
         app.world_mut(),
         world,
     );
-    app.init_resource::<FeatureEcsWorldOverlay>();
+    ambition_platformer2d::session::insert_live_room_component(app.world_mut(), FeatureEcsWorldOverlay::default());
     // Mirror the production WorldPrep order: the overlay rebuild clears the
     // per-frame contributions, then the gate re-derives them this frame.
     app.add_systems(

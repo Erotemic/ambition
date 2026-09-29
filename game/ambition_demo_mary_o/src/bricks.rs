@@ -19,7 +19,6 @@
 use bevy::prelude::*;
 
 use ambition_platformer2d::actors::avatar::PlayerBodyFrameOutput;
-use ambition_platformer2d::world::FeatureEcsWorldOverlay;
 use ambition_platformer2d::characters::equipment::WornEquipment;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::engine_core::collision_semantics::{ContactKind, ContactSource};
@@ -201,8 +200,12 @@ impl ambition_platformer2d::actors::session::reset::AttemptScoped for BrokenBric
 /// `contribute_encounter_lock_walls` does for `gate_solids`.
 pub fn contribute_broken_bricks_to_overlay(
     broken: Res<BrokenBricks>,
-    mut overlay: ResMut<FeatureEcsWorldOverlay>,
+    mut overlays: ambition_platformer2d::world::RoomOverlays,
 ) {
+    // The sole live room's overlay: this content is one room.
+    let Some(mut overlay) = overlays.sole() else {
+        return;
+    };
     overlay
         .removed_block_names
         .extend(broken.broken_names().cloned());
@@ -211,6 +214,7 @@ pub fn contribute_broken_bricks_to_overlay(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ambition_platformer2d::world::FeatureEcsWorldOverlay;
     use ambition_platformer2d::world::rooms::RoomLoaded;
 
     /// Two bricks the LEVEL authors — the population `break_bricks` serves.
@@ -553,7 +557,7 @@ mod tests {
     #[test]
     fn a_broken_brick_is_subtracted_from_the_collision_overlay() {
         let mut app = App::new();
-        app.init_resource::<FeatureEcsWorldOverlay>();
+        ambition_platformer2d::session::insert_live_room_component(app.world_mut(), FeatureEcsWorldOverlay::default());
         let mut broken = BrokenBricks::default();
         broken.mark("brick_alpha");
         broken.mark("brick_gamma");
@@ -561,9 +565,8 @@ mod tests {
         app.add_systems(Update, contribute_broken_bricks_to_overlay);
 
         app.update();
-        let removed = &app
-            .world()
-            .resource::<FeatureEcsWorldOverlay>()
+        let removed = &ambition_platformer2d::session::sole_live_room_component::<FeatureEcsWorldOverlay>(app
+            .world()).expect("the live room has a collision overlay")
             .removed_block_names;
         assert!(
             removed.contains(&"brick_alpha".to_string())

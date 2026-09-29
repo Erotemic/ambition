@@ -944,8 +944,12 @@ pub fn gnu_back_is_ground(
         (&ae::BodyKinematics, Has<ae::Unmirrored>, &ambition_sprite_sheet::character::sheets::SpritePosedBody),
         With<MountSlot>,
     >,
-    mut overlay: ResMut<ambition_platformer2d::world::FeatureEcsWorldOverlay>,
+    mut overlays: ambition_platformer2d::world::RoomOverlays,
 ) {
+    // The sole live room's overlay: this content is one room.
+    let Some(mut overlay) = overlays.sole() else {
+        return;
+    };
     for (_, riding) in &scholars {
         let Ok((giant, unmirrored, posed)) = giants.get(riding.mount) else {
             continue;

@@ -15,7 +15,7 @@
 use ambition_platformer2d_core as ae;
 use bevy::prelude::*;
 
-use ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay;
+use ambition_platformer2d_shared_tangle::feature_overlay::RoomOverlays;
 
 use ambition_encounter::{
     Encounter, EncounterLifecycle, EncounterLockWall, EncounterPhase, LockWallSpec,
@@ -53,12 +53,23 @@ pub(in crate) fn desired_lock_wall_blocks<'a>(
 /// prose at a kernel function was the last thing in this file that named the
 /// crate this module is trying to leave.
 pub fn contribute_encounter_lock_walls(
-    encounters: Query<(&Encounter, &EncounterLifecycle, &EncounterLockWall)>,
-    mut overlay: ResMut<FeatureEcsWorldOverlay>,
+    encounters: Query<(
+        &Encounter,
+        &EncounterLifecycle,
+        &EncounterLockWall,
+        Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
+    )>,
+    // Each encounter's walls go to the overlay of its own live room.
+    mut overlays: RoomOverlays,
 ) {
-    overlay.gate_solids.extend(desired_lock_wall_blocks(
-        encounters
-            .iter()
-            .map(|(enc, lifecycle, wall)| (enc.id.as_str(), lifecycle.phase(), &wall.0)),
-    ));
+    for (enc, lifecycle, wall, room) in &encounters {
+        let Some(mut overlay) = overlays.for_room(room) else {
+            continue;
+        };
+        overlay.gate_solids.extend(desired_lock_wall_blocks(std::iter::once((
+            enc.id.as_str(),
+            lifecycle.phase(),
+            &wall.0,
+        ))));
+    }
 }

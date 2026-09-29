@@ -37,9 +37,9 @@ exactly the half this census does not answer; it is named here so the next perso
 does not implement the tidy rule and believe it covers the class.
 
 ⚠ THIS REPORTS AND DOES NOT FAIL. Inserting a resource at build is often exactly
-right: a demo's own tuning, its own select-screen state, and the engine's
-`FeatureEcsWorldOverlay` (which mary_o and sanic both insert because a composition
-without the engine's own plugin still needs the overlay to exist). What matters is
+right: a demo's own tuning and its own select-screen state. (The engine's
+`FeatureEcsWorldOverlay` was one until 2026-09-29, when it became a component
+on each live room's root, which the session spawns.) What matters is
 the SHARED ones — a type the demo does not define, that another system in the
 aggregate app also reads.
 

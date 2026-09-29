@@ -16,7 +16,6 @@ use bevy::prelude::*;
 
 use ambition_boss_encounter::BossClusterRef;
 use ambition_platformer2d_core::RoomGeometry;
-use ambition_platformer2d::world::FeatureEcsWorldOverlay;
 
 pub mod choreography;
 pub mod conductor;
@@ -53,8 +52,12 @@ fn boss_is_gnu_ton(
 pub fn gate_gnu_ton_arena_ladder(
     world: ambition_platformer2d::platformer::lifecycle::SoleLiveRoom<RoomGeometry>,
     bosses: Query<(BossClusterRef, &ambition_characters::actor::BodyHealth)>,
-    mut overlay: ResMut<FeatureEcsWorldOverlay>,
+    mut overlays: ambition_platformer2d::world::RoomOverlays,
 ) {
+    // The sole live room's overlay: this content is one room.
+    let Some(mut overlay) = overlays.sole() else {
+        return;
+    };
     if world.0.name != ARENA_ROOM_NAME {
         return;
     }

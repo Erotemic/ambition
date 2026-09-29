@@ -96,10 +96,10 @@ fn the_sand_switch_pours_settles_and_becomes_persistent_ground() {
     let mut ground_seen_at = None;
     for tick in 0..400 {
         sim.step(base());
-        let overlay = sim
-            .world_mut()
-            .resource::<ambition_platformer2d::platformer::feature_overlay::FeatureEcsWorldOverlay>(
-        );
+        let overlay = ambition_platformer2d::session::sole_live_room_component::<
+            ambition_platformer2d::platformer::feature_overlay::FeatureEcsWorldOverlay,
+        >(sim.world_mut())
+        .expect("the live room has a collision overlay");
         if overlay
             .gate_solids
             .iter()
@@ -124,10 +124,10 @@ fn the_sand_switch_pours_settles_and_becomes_persistent_ground() {
         .total();
     for tick in 0..30 {
         sim.step(base());
-        let overlay = sim
-            .world_mut()
-            .resource::<ambition_platformer2d::platformer::feature_overlay::FeatureEcsWorldOverlay>(
-        );
+        let overlay = ambition_platformer2d::session::sole_live_room_component::<
+            ambition_platformer2d::platformer::feature_overlay::FeatureEcsWorldOverlay,
+        >(sim.world_mut())
+        .expect("the live room has a collision overlay");
         assert!(
             overlay
                 .gate_solids

@@ -680,7 +680,6 @@ impl Plugin for SanicRulesPlugin {
                 ambition_platformer2d::actors::features::wallet_shield::WalletShieldRule,
             );
         }
-        app.init_resource::<ambition_platformer2d::world::FeatureEcsWorldOverlay>();
         use bevy::prelude::IntoScheduleConfigs;
         let sim = ambition_platformer2d::platformer::schedule::SimScheduleExt::sim_schedule(app);
         app.init_resource::<ball_dash::BallDashTuning>();

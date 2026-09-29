@@ -297,7 +297,7 @@ where
         "derived.force_zones",
         "per-tick zone snapshot rebuilt by collect_force_zones",
     );
-    registrar.declare_rollback_derived_resource::<crate::feature_overlay::FeatureEcsWorldOverlay>(
+    registrar.declare_rollback_derived_component::<crate::feature_overlay::FeatureEcsWorldOverlay>(
         OWNER,
         "derived.feature_ecs_world_overlay",
         "collision contributions rebuilt from ECS feature state every tick",

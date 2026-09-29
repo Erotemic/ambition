@@ -899,11 +899,21 @@ pub(crate) fn apply_world_replacement(
              is the old one"
         ),
     }
-    // The published room's platforms, on the same root as its geometry.
+    // The published room's platforms, on the same root as its geometry, and
+    // the collision contributions of the room just left retracted there: the
+    // contributors rebuild them for this room on the next tick, and until then
+    // `CollisionWorld` must not compose this room with the old room's walls.
     if let Some(room_root) = room_root {
-        world.entity_mut(room_root).insert(
-            ambition_platformer2d_world::collision::MovingPlatformSet(pending.moving_platforms),
-        );
+        let mut root = world.entity_mut(room_root);
+        root.insert(ambition_platformer2d_world::collision::MovingPlatformSet(
+            pending.moving_platforms,
+        ));
+        match root.get_mut::<ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay>() {
+            Some(mut overlay) => overlay.retract_for_room_change(),
+            None => {
+                root.insert(ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay::default());
+            }
+        }
     }
     // ⛔ LAST, AND AFTER THE GEOMETRY. The arrival was validated against the
     // plan's world by the caller, and the body is placed into a world that is

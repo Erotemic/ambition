@@ -419,8 +419,12 @@ pub fn contribute_discovered_hidden_blocks_to_overlay(
     geometry: Option<
         ambition_platformer2d::platformer::lifecycle::SoleLiveRoom<ae::RoomGeometry>,
     >,
-    mut overlay: ResMut<ambition_platformer2d::world::FeatureEcsWorldOverlay>,
+    mut overlays: ambition_platformer2d::world::RoomOverlays,
 ) {
+    // The sole live room's overlay: this content is one room.
+    let Some(mut overlay) = overlays.sole() else {
+        return;
+    };
     let Some(geometry) = geometry else {
         return;
     };

@@ -9,7 +9,6 @@ use bevy::prelude::*;
 
 use ambition_platformer2d_core::cast::SolidWorldQuery;
 use ambition_platformer2d_core::RoomGeometry;
-use ambition_platformer2d::world::FeatureEcsWorldOverlay;
 use ambition_portal2d::{measure_host_depth, PlacedPortal, PortalCarves, PortalHostDepths};
 
 /// Copy this frame's portal-owned carves into the host collision overlay.
@@ -18,8 +17,12 @@ use ambition_portal2d::{measure_host_depth, PlacedPortal, PortalCarves, PortalHo
 /// host wall, exactly as the old in-core write did.
 pub fn bridge_portal_carves(
     carves: Res<PortalCarves>,
-    mut overlay: ResMut<FeatureEcsWorldOverlay>,
+    mut overlays: ambition_platformer2d::world::RoomOverlays,
 ) {
+    // The sole live room's overlay: this content is one room.
+    let Some(mut overlay) = overlays.sole() else {
+        return;
+    };
     overlay.portal_carves.clear();
     overlay.portal_carves.extend_from_slice(&carves.holes);
 }

@@ -216,6 +216,7 @@ pub fn activation_room_root(scope: SessionScopeId) -> impl bevy::prelude::Bundle
         RoomInstanceRoot::sim_id(),
         LiveRoomInstance::ACTIVATION,
         SessionScopedEntity(scope),
+        crate::feature_overlay::FeatureEcsWorldOverlay::default(),
     )
 }
 

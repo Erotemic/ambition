@@ -12,7 +12,6 @@ use ambition_platformer2d_world::rooms as world_rooms;
 use ambition_combat::feel::Platformer2dFeelTuningMonolith;
 use ambition_platformer2d_actor_monolith::world::physics;
 use ambition_platformer2d_core::{self as ae, AabbExt};
-use ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay;
 use ambition_sfx::{SfxMessage, SfxWriter};
 use ambition_time::time_control::ClockResetRequest;
 use ambition_vfx::{ParticleKind, VfxMessage};
@@ -46,14 +45,14 @@ pub struct RoomClock<'w> {
 pub struct RoomTransitionCombatReset<'w, 's> {
     pub commands: Commands<'w, 's>,
     pub live_projectiles: Query<'w, 's, Entity, With<ambition_projectiles::LiveProjectile>>,
-    pub feature_overlay: ResMut<'w, FeatureEcsWorldOverlay>,
     pub base_gravity: ResMut<'w, ambition_platformer2d_shared_tangle::gravity::BaseGravity>,
 }
 
 impl RoomTransitionCombatReset<'_, '_> {
-    /// Drop every in-flight projectile, return ambient gravity to its default,
-    /// and retract the collision overlay, so a fresh room does not inherit
-    /// combat events, a stale gravity frame or the walls of the one just left.
+    /// Drop every in-flight projectile and return ambient gravity to its
+    /// default, so a fresh room does not inherit combat events or a stale
+    /// gravity frame. The walls of the room just left are retracted by the
+    /// publication itself, on the root whose geometry it replaces.
     pub fn clear_carryover(&mut self) {
         for entity in &self.live_projectiles {
             self.commands.entity(entity).despawn();
@@ -62,9 +61,6 @@ impl RoomTransitionCombatReset<'_, '_> {
         // `GravityField` is a per-tick mirror of the primary body's resolved
         // frame and has exactly one writer (`resolve_active_gravity`).
         *self.base_gravity = ambition_platformer2d_shared_tangle::gravity::BaseGravity::default();
-        // The room geometry changes in this transaction, and every system after
-        // it on this tick composes the overlay with that geometry.
-        self.feature_overlay.retract_for_room_change();
     }
 }
 
@@ -73,7 +69,7 @@ impl RoomTransitionCombatReset<'_, '_> {
 /// body is over a pit.
 ///
 /// The collision overlay is not probed. At the commit it holds no contribution
-/// for the arrival room yet (the commit retracts the old room's), so a probe of
+/// for the arrival room yet (the publication retracts the old room's), so a probe of
 /// it could only report the room the body left.
 ///
 /// Frame-relative: "below feet" is +gravity, not world-down, so the diagnostic

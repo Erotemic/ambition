@@ -1266,7 +1266,7 @@ fn a_possessing_player_slams_the_giants_hands_via_the_verb_map() {
             vec![],
         )),
     );
-    app.init_resource::<ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay>();
+    ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(app.world_mut(), ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay::default());
     // The CONTROLLER: slot 0 holds down + attack (axis_y = +1 is toward-feet
     // under default gravity — the down-tilt).
     let mut controls = SlotControls::default();

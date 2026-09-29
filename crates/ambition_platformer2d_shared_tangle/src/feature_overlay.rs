@@ -1,10 +1,16 @@
-//! Shared read resource for transient ECS-derived world collision overlays.
+//! A live room's transient collision contributions, rebuilt from ECS feature
+//! state, on that room's own root.
 
 use ambition_platformer2d_core as ae;
-use bevy::prelude::Resource;
+use bevy::ecs::system::SystemParam;
+use bevy::prelude::{Component, Mut, Query, With};
 
-/// Collision/world contributions rebuilt from ECS feature state.
-#[derive(Resource, Default, Clone, Debug)]
+use crate::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
+
+/// Collision/world contributions rebuilt from ECS feature state, for ONE live
+/// room: a component on its `RoomInstanceRoot`, beside its geometry and
+/// platforms (OW1 cut 3c). A second live room has its own.
+#[derive(Component, Default, Clone, Debug)]
 pub struct FeatureEcsWorldOverlay {
     pub blocks: Vec<ae::Block>,
     pub gate_solids: Vec<ae::Block>,
@@ -65,8 +71,11 @@ impl FeatureEcsWorldOverlay {
     /// An empty overlay states nothing about any room, which is true until
     /// the contributors rebuild it for the new one.
     ///
+    /// The room publication calls this on the root of the live room it
+    /// replaces, in the same step that writes that root's new geometry.
+    ///
     /// Retract by RESETTING, never by removing: every reader must keep reading
-    /// the resource. The destructure has no `..` for the same reason as above:
+    /// the component. The destructure has no `..` for the same reason as above:
     /// a new field must get a decision here.
     pub fn retract_for_room_change(&mut self) {
         let Self {
@@ -85,5 +94,45 @@ impl FeatureEcsWorldOverlay {
         removed_block_names.clear();
         climbable_carves.clear();
         water_regions.clear();
+    }
+}
+
+/// Every live room's overlay, for the systems that write contributions.
+///
+/// A contributor names the room its geometry is in: the `InRoomInstance` of
+/// the entity that contributes it. An unstamped contributor writes the sole
+/// live room's overlay, and nothing while there are two.
+#[derive(SystemParam)]
+pub struct RoomOverlays<'w, 's> {
+    rooms: Query<
+        'w,
+        's,
+        (&'static LiveRoomInstance, &'static mut FeatureEcsWorldOverlay),
+        With<RoomInstanceRoot>,
+    >,
+}
+
+impl RoomOverlays<'_, '_> {
+    /// Every live room's overlay, for a rebuild that clears them all.
+    pub fn each(&mut self) -> impl Iterator<Item = Mut<'_, FeatureEcsWorldOverlay>> {
+        self.rooms.iter_mut().map(|(_, overlay)| overlay)
+    }
+
+    /// The overlay of the live room `room` names.
+    pub fn for_room(&mut self, room: Option<&InRoomInstance>) -> Option<Mut<'_, FeatureEcsWorldOverlay>> {
+        match room {
+            Some(room) => self
+                .rooms
+                .iter_mut()
+                .find(|(live, _)| **live == room.0)
+                .map(|(_, overlay)| overlay),
+            None => self.sole(),
+        }
+    }
+
+    /// The sole live room's overlay. ⚠ The one-live-room write, the same debt
+    /// as `SoleLiveRoomMut`: a contributor that says no room.
+    pub fn sole(&mut self) -> Option<Mut<'_, FeatureEcsWorldOverlay>> {
+        self.rooms.single_mut().ok().map(|(_, overlay)| overlay)
     }
 }

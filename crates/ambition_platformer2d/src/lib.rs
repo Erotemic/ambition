@@ -932,7 +932,7 @@ pub mod world {
     /// Named here for the same reason `ResolvedMotionFrame` is: it is a world
     /// fact, and reaching it through the actor crate is how a census mistakes it
     /// for that crate's coupling.
-    pub use ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay;
+    pub use ambition_platformer2d_shared_tangle::feature_overlay::{FeatureEcsWorldOverlay, RoomOverlays};
     /// The per-tick motion environment a body is stepped in. Named here rather
     /// than through the actor crate: it is a world-physics fact, and routing it
     /// through a domain crate's re-export is how a census mistakes it for that

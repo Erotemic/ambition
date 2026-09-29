@@ -41,6 +41,7 @@ impl Plugin for PortalGunPlugin {
         let sim = app.sim_schedule();
         app.add_message::<FirePortalGun>();
         app.add_message::<TogglePortalGun>();
+        app.add_message::<super::messages::TogglePortalGunsActive>();
         app.add_message::<DropPortalGun>();
         app.add_message::<PickUpPortalGun>();
         app.add_message::<PortalGunEquipped>();
@@ -65,7 +66,8 @@ impl Plugin for PortalGunPlugin {
         // edge keeps the order without portal core knowing about the gun.
         app.add_systems(
             sim,
-            super::portal_toggle_system
+            (super::portal_guns_active_toggle_system, super::portal_toggle_system)
+                .chain()
                 .before(super::portal_fire_system)
                 .in_set(PortalSet::WeaponAndProjectiles),
         );

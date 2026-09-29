@@ -859,7 +859,9 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// like every other simulation message.
 /// ⛔⛤ 259 -> 260: `message.pet_requested` joins. A pet is a choice in the
 /// petted character's conversation, released by the narrative ledger.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 260;
+/// ⛔⛤ 260 -> 261: `message.toggle_portal_guns_active` joins. The developer
+/// portal switch is a host intent, applied inside the simulation.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 261;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

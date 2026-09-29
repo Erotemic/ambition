@@ -1329,12 +1329,13 @@ the guard's own last line, over **517** mutating systems.
 ✅ **Re-run 2026-09-28: FIVE, all owed here.** The two menu writers left
 with MENU-RESET-MIDSESSION (`f86b03189`) and `compute_music_intent` left
 earlier; the guard's last line reads 5 acknowledged over **495** mutating
-systems. Left: `adopt_occurrence_checkpoint_from_save`,
-`complete_durable_restore`, `portal_dev_toggle_system`,
+systems. ✅ FOUR the same day: `portal_dev_toggle_system` flipped
+`PortalGun.active` on every gun from `Update`; it now writes a
+`TogglePortalGunsActive` host intent (`session::host_intents`) and
+`portal_guns_active_toggle_system` flips the guns inside the simulation
+(`one_press_turns_every_gun_the_other_way`). Left:
+`adopt_occurrence_checkpoint_from_save`, `complete_durable_restore`,
 `reconcile_roster_with_frozen_topology`, `sync_ldtk_level_set`.
-`portal_dev_toggle_system` is the host-intent shape
-(`session::host_intents`), but it flips `PortalGun.active` on every gun, which
-no portal message says yet.
 
 ⛔⛤ **A NINTH ARRIVED BY A WAIVER LOSING ITS ARGUMENT, NOT BY A NEW WRITE, AND
 LEFT AGAIN THE SAME DAY BY EARNING A BETTER ONE — 2026-09-18.**

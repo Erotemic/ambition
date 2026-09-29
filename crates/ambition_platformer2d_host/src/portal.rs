@@ -719,29 +719,30 @@ mod host_adapter {
             .max(padding.top)
             .max(padding.bottom)
     }
-    /// Dev off-switch: the portal-gun developer action toggles active/inactive so the
-    /// always-on slice gun doesn't fire portals on every Attack while testing
-    /// other sandbox mechanics. (Visible build only.) Final gating is via
-    /// held-item equip; this is a developer convenience until then.
+    /// Dev off-switch: the portal-gun developer action turns every gun on or
+    /// off, so the always-on slice gun does not fire portals on every Attack
+    /// while other sandbox mechanics are tested. (Visible build only.)
     ///
-    /// This consumes a semantic host developer action, so it lives host-side
-    /// rather than in a portal crate — it just flips
-    /// `PortalGun.active` the way the crate's message-driven toggle would.
+    /// The developer action is a host fact, so this reads it here and writes
+    /// a host intent. `portal_guns_active_toggle_system` flips the guns inside
+    /// the simulation, so a rewind does not undo the switch.
     pub fn portal_dev_toggle_system(
         mut actions: MessageReader<
             ambition_platformer2d_shared_tangle::developer_hotkeys::DeveloperAction,
         >,
-        mut guns: Query<&mut ambition_portal2d::PortalGun>,
+        mut intents: ambition_platformer2d_runtime::host_intents::HostIntentWriter<
+            ambition_portal2d::TogglePortalGunsActive,
+        >,
     ) {
-        if !actions.read().any(|action| {
-            *action
-                == ambition_platformer2d_shared_tangle::developer_hotkeys::DeveloperAction::TogglePortalGun
-        }) {
-            return;
-        }
-        for mut gun in &mut guns {
-            gun.active = !gun.active;
-            bevy::log::info!(target: "ambition_platformer2d::portal", "portal gun active = {}", gun.active);
+        let presses = actions
+            .read()
+            .filter(|action| {
+                **action
+                    == ambition_platformer2d_shared_tangle::developer_hotkeys::DeveloperAction::TogglePortalGun
+            })
+            .count();
+        for _ in 0..presses {
+            intents.write(ambition_portal2d::TogglePortalGunsActive);
         }
     }
 
@@ -762,6 +763,9 @@ mod host_adapter {
     impl Plugin for PortalObservationPlugin {
         fn build(&self, app: &mut App) {
             app.add_message::<ambition_platformer2d_shared_tangle::developer_hotkeys::DeveloperAction>();
+            app.add_plugins(ambition_platformer2d_runtime::host_intents::HostIntentPlugin::<
+                ambition_portal2d::TogglePortalGunsActive,
+            >::default());
             // This plugin registers the publishers that WRITE the presentation
             // seam resources, so it owns their existence too. A host without
             // Ambition's composition (a demo app under workspace feature

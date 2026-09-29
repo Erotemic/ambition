@@ -378,7 +378,8 @@ ACKNOWLEDGED: dict[str, str] = {
     # because they were FIXED, not because the scan lost sight of them: they now
     # register through `app.sim_schedule()`, so a rewind replays them. The stale
     # check below is what forced this deletion to be deliberate.
-    "portal_dev_toggle_system": "ROLLBACK-MUTATOR-POPULATION",
+    # ✅ `portal_dev_toggle_system` left on 2026-09-28: it writes a
+    # `TogglePortalGunsActive` host intent, and the simulation flips the guns.
     "reconcile_roster_with_frozen_topology": "ROLLBACK-MUTATOR-POPULATION",
     "sync_ldtk_level_set": "ROLLBACK-MUTATOR-POPULATION",
 }

@@ -38,7 +38,7 @@ pub mod view;
 
 pub use color::{PortalChannel, PortalChannelColor, PortalGunColor};
 pub use eviction::{evict_straddlers_on_portal_change, PortalFrameHistory};
-pub use gun::{portal_toggle_system, OwnedPortalGunPair, PortalGun};
+pub use gun::{portal_guns_active_toggle_system, portal_toggle_system, OwnedPortalGunPair, PortalGun};
 pub use gun_construction::{
     install_portal_gun_construction_recipes, portal_gun_construction_registry,
     recipe_authored_portal_gun, PortalGunConstruction, PortalGunConstructionParams,
@@ -57,7 +57,7 @@ pub use link::{
 };
 pub use messages::{
     ClearPortals, DropPortalGun, FirePortalGun, PickUpPortalGun, PortalBodyEntered,
-    PortalFireIntent, PortalGunEquipped, PortalShotFired, TogglePortalGun,
+    PortalFireIntent, PortalGunEquipped, PortalShotFired, TogglePortalGun, TogglePortalGunsActive,
 };
 pub use placement::{
     measure_host_depth, portal_facing_flips_for_convention, portal_fits,

@@ -55,6 +55,11 @@ pub struct TogglePortalGun {
     pub body: Entity,
 }
 
+/// Developer intent: turn every portal gun on or off. A host asks for it and
+/// the simulation flips it, so every replay of the tick flips it again.
+#[derive(Message, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct TogglePortalGunsActive;
+
 /// Compatibility intent to drop the held portal gun as a world pickup.
 #[derive(Message, Clone, Copy, Debug)]
 pub struct DropPortalGun {

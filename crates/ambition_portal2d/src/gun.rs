@@ -6,7 +6,7 @@
 use bevy::prelude::*;
 
 use super::color::PortalGunColor;
-use super::messages::TogglePortalGun;
+use super::messages::{TogglePortalGun, TogglePortalGunsActive};
 
 /// Held portal-gun state for the current Ambition compatibility workflow.
 ///
@@ -77,5 +77,47 @@ pub fn portal_toggle_system(
     }
 }
 
-// The dev `F7` off-switch (`portal_dev_toggle_system`) reads raw keyboard
-// input, so it is host-side.
+/// On a [`TogglePortalGunsActive`] intent, turn every gun on or off. (sim)
+///
+/// A developer switch, so the gun does not fire portals on every Attack while
+/// other mechanics are tested. The host reads the key and writes the intent;
+/// this is the only writer of `PortalGun::active` for it.
+pub fn portal_guns_active_toggle_system(
+    mut toggles: MessageReader<TogglePortalGunsActive>,
+    mut guns: Query<&mut PortalGun>,
+) {
+    for _ in toggles.read() {
+        for mut gun in &mut guns {
+            gun.active = !gun.active;
+            bevy::log::info!(target: "ambition_portal2d", "portal gun active = {}", gun.active);
+        }
+    }
+}
+
+#[cfg(test)]
+mod active_toggle_tests {
+    use super::*;
+
+    /// One developer press flips every gun once; no press changes nothing.
+    #[test]
+    fn one_press_turns_every_gun_the_other_way() {
+        let mut app = App::new();
+        app.add_message::<TogglePortalGunsActive>();
+        app.add_systems(Update, portal_guns_active_toggle_system);
+        let on = app.world_mut().spawn(PortalGun::default()).id();
+        let off = app
+            .world_mut()
+            .spawn(PortalGun {
+                active: false,
+                ..PortalGun::default()
+            })
+            .id();
+        app.update();
+        assert!(app.world().get::<PortalGun>(on).unwrap().active, "no press");
+
+        app.world_mut().write_message(TogglePortalGunsActive);
+        app.update();
+        assert!(!app.world().get::<PortalGun>(on).unwrap().active);
+        assert!(app.world().get::<PortalGun>(off).unwrap().active);
+    }
+}

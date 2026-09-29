@@ -101,6 +101,10 @@ where
     );
     registrar
         .clear_message_on_rollback::<crate::TogglePortalGun>(OWNER, "message.toggle_portal_gun");
+    registrar.clear_message_on_rollback::<crate::TogglePortalGunsActive>(
+        OWNER,
+        "message.toggle_portal_guns_active",
+    );
 }
 
 /// Full portal registration, including the gun. Portal-only compositions call

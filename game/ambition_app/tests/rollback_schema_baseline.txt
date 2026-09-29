@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v260
+ggrs-rollback-schema-v261
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -380,6 +380,7 @@ message.stocks_match_decided	message-clear	StocksMatchDecided	clear abandoned-fu
 message.sudden_death_began	message-clear	SuddenDeathBegan	clear abandoned-future message buffer in LoadWorld::Mapping
 message.switch_activated	message-clear	SwitchActivated	clear abandoned-future message buffer in LoadWorld::Mapping
 message.toggle_portal_gun	message-clear	TogglePortalGun	clear abandoned-future message buffer in LoadWorld::Mapping
+message.toggle_portal_guns_active	message-clear	TogglePortalGunsActive	clear abandoned-future message buffer in LoadWorld::Mapping
 message.trail_continuity_break	message-clear	TrailContinuityBreak	clear abandoned-future message buffer in LoadWorld::Mapping
 message.vfx	message-clear	VfxMessage	clear abandoned-future message buffer in LoadWorld::Mapping
 message.wallet_shield_spent	message-clear	WalletShieldSpent	clear abandoned-future message buffer in LoadWorld::Mapping

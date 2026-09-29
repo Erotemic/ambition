@@ -81,6 +81,8 @@ pub use mode_scope::{
     project_room_rule, ModeOwnersSpawned, ModeScopePlugin, ModeScopes,
 };
 pub use ambition_platformer2d_actor_monolith::session::governing_rules::CurrentRoom;
+/// The one road a host input takes into the simulation. See the module docs.
+pub use ambition_platformer2d_actor_monolith::session::host_intents;
 pub use player_schedule::PlayerSchedulePlugin;
 #[cfg(feature = "portal")]
 pub use portal_schedule::PortalSchedulePlugin;

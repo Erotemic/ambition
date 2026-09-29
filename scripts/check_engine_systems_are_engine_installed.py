@@ -137,7 +137,7 @@ WAIVERS: dict[str, str] = {
     ),
     "sync_portal_sprite_visibility": ("portal, as above."),
     "sync_portal_sprite_animation": ("portal, as above."),
-    "sync_portal_ring_rotation_system": ("portal, as above."),
+    "sync_portal_ring_animation": ("portal, as above."),
     "hide_portal_loading_zone_visuals": ("portal, as above."),
     # The system took `Res<ResolvedVisualQuality>`, which `VisualQualityPlugin` owns and no other
     # composition installed, so it PANICKED everywhere but the shipped app. A waiver answers this

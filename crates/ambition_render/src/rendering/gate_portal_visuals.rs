@@ -62,8 +62,12 @@ pub fn sync_portal_sprite_visibility(
 /// phase. 8 rad/s is about 1.27 revolutions/s: readable, not disorienting.
 const RING_OPENING_SPIN_RAD_PER_SEC: f32 = 8.0;
 
-/// Drive gate-portal animation from its phase using the row mapping in
-/// `GATE_PORTAL_SHEET`. `PortalSprite` excludes these entities from generic
+/// Drive gate-portal animation from its phase.
+///
+/// `opening` and `closing` are drawn from the phase's own progress
+/// ([`GatePortalPhase::sequence_progress`]), so the membrane is full size on
+/// the tick traversal opens and gone on the tick it closes. `stable` loops on
+/// the sheet clock. `PortalSprite` excludes these entities from generic
 /// character/prop animation, so this system exclusively owns their animator and
 /// atlas frame.
 pub fn sync_portal_sprite_animation(
@@ -74,17 +78,22 @@ pub fn sync_portal_sprite_animation(
 ) {
     let dt = presentation_time.scaled_dt();
     for (zone_id, config) in portals.iter() {
-        let target_anim = match phases.phase(zone_id) {
-            GatePortalPhase::Off => continue,
-            GatePortalPhase::Opening { .. } => CharacterAnim::Idle,
-            GatePortalPhase::On => CharacterAnim::Walk,
-            GatePortalPhase::Closing { .. } => CharacterAnim::Run,
-        };
+        let phase = phases.phase(zone_id);
         for (prop, mut sprite, mut animator) in &mut sprites {
             if prop.name != config.portal_sprite_name {
                 continue;
             }
-            animator.request(target_anim);
+            match phase {
+                GatePortalPhase::Off => continue,
+                GatePortalPhase::Opening { .. } => {
+                    animator.request_clip(["opening"], CharacterAnim::Idle);
+                }
+                GatePortalPhase::On => animator.request(CharacterAnim::Walk),
+                GatePortalPhase::Closing { .. } => {
+                    animator.request_clip(["closing"], CharacterAnim::Run);
+                }
+            }
+            animator.slave_clip_to(phase.sequence_progress());
             let index = animator.tick(dt);
             if let Some(atlas) = sprite.texture_atlas.as_mut() {
                 atlas.index = index;
@@ -93,10 +102,14 @@ pub fn sync_portal_sprite_animation(
     }
 }
 
-/// Rotate the gate ring during the portal's `Opening` phase, so the boot
-/// sequence reads as the ring spinning up. During `On`, `Off`, and `Closing`
-/// the ring is at rotation 0 and plays the idle animation.
-pub fn sync_portal_ring_rotation_system(
+/// Spin the gate ring's inscription while the portal opens.
+///
+/// The `spin` row is one full turn of the inscription band, drawn from the
+/// opening's progress, so the band makes exactly one turn and stops with Λ at
+/// 12 o'clock on the tick the portal opens. The sprite itself does not rotate:
+/// the stand clamps and the floor shadow are part of it and stay still. At all
+/// other times the ring plays its slow `idle` row.
+pub fn sync_portal_ring_animation(
     mut commands: Commands,
     presentation_time: PresentationTime,
     portals: Res<GatePortalRegistry>,
@@ -104,27 +117,19 @@ pub fn sync_portal_ring_rotation_system(
     mut rings: Query<(
         Entity,
         &PropVisual,
-        &mut Transform,
         &mut Sprite,
         &mut CharacterAnimator,
         Option<&PortalSprite>,
     )>,
 ) {
-    // Scaled dt, so the spin slows in bullet time and stops on pause, like
-    // the phase timer.
     let dt = presentation_time.scaled_dt();
     for (zone_id, config) in portals.iter() {
         let phase = phases.phase(zone_id);
-        let spinning = matches!(phase, GatePortalPhase::Opening { .. });
-        // Sheet mapping (see GATE_RING_SHEET):
-        // - Idle = the slow always-on row (8f × 140ms)
-        // - Walk = the fast `spin` row used during Opening (12f × 85ms)
-        let target_anim = if spinning {
-            CharacterAnim::Walk
-        } else {
-            CharacterAnim::Idle
+        let opening = match phase {
+            GatePortalPhase::Opening { .. } => phase.sequence_progress(),
+            _ => None,
         };
-        for (entity, prop, mut tf, mut sprite, mut animator, marker) in &mut rings {
+        for (entity, prop, mut sprite, mut animator, marker) in &mut rings {
             if prop.name != config.ring_sprite_name {
                 continue;
             }
@@ -134,21 +139,117 @@ pub fn sync_portal_ring_rotation_system(
                 // Covered by `deferred_write_safety::production_passes`.
                 commands.entity(entity).try_insert(PortalSprite);
             }
-            animator.request(target_anim);
+            match opening {
+                Some(_) => animator.request_clip(["spin"], CharacterAnim::Walk),
+                None => animator.request(CharacterAnim::Idle),
+            }
+            animator.slave_clip_to(opening);
             let index = animator.tick(dt);
             if let Some(atlas) = sprite.texture_atlas.as_mut() {
                 atlas.index = index;
             }
-            if spinning {
-                tf.rotate_local_z(RING_OPENING_SPIN_RAD_PER_SEC * dt);
-            } else if !matches!(phase, GatePortalPhase::Closing { .. }) {
-                // Snap upright when Off or On: only the boot beat shows the ring
-                // rotated. Closing keeps the last rotation until the phase
-                // reaches Off.
-                if tf.rotation != bevy::math::Quat::IDENTITY {
-                    tf.rotation = bevy::math::Quat::IDENTITY;
-                }
-            }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ambition_sprite_sheet::character::{
+        try_load_spec_for_target, CharacterSpriteAsset, SheetTuning,
+    };
+
+    const ZONE: &str = "gate_zone";
+    const RING: &str = "gate_ring";
+    const RING_SHEET: &str = "interdimensional_gate_ring";
+
+    fn ring_asset() -> CharacterSpriteAsset {
+        CharacterSpriteAsset {
+            texture: Default::default(),
+            layout: Default::default(),
+            spec: try_load_spec_for_target(RING_SHEET, &SheetTuning::default())
+                .expect("the shipped ring sheet is baked"),
+            pages: Vec::new(),
+            requested_tier: Default::default(),
+            resolved_tier: Default::default(),
+        }
+    }
+
+    /// The ring, and the flat atlas index of each `spin` frame.
+    fn app_with_a_ring() -> (App, Entity, Vec<usize>) {
+        let asset = ring_asset();
+        let slot = asset.spec.clip_slot(["spin"]).expect("the ring has a spin row");
+        let spin: Vec<usize> = (0..12).map(|f| asset.spec.flat_index_at(slot, f)).collect();
+        let mut app = App::new();
+        app.init_resource::<Time>();
+        app.init_resource::<ambition_time::ClockState>();
+        let mut portals = GatePortalRegistry::default();
+        portals
+            .try_register(ZONE, "gate_switch", "gate_portal", RING)
+            .expect("one portal registers");
+        app.insert_resource(portals);
+        app.init_resource::<GatePortalPhases>();
+        app.add_systems(Update, sync_portal_ring_animation);
+        let ring = app
+            .world_mut()
+            .spawn((
+                PropVisual {
+                    id: "ring".into(),
+                    kind: RING_SHEET.into(),
+                    name: RING.into(),
+                    size: Vec2::splat(192.0),
+                    draw: Default::default(),
+                    flip_y: false,
+                },
+                Transform::default(),
+                Sprite {
+                    texture_atlas: Some(TextureAtlas::default()),
+                    ..default()
+                },
+                CharacterAnimator::new(&asset),
+            ))
+            .id();
+        (app, ring, spin)
+    }
+
+    fn step(app: &mut App, phase: GatePortalPhase) {
+        *app.world_mut()
+            .resource_mut::<GatePortalPhases>()
+            .phase_mut(ZONE) = phase;
+        app.world_mut()
+            .resource_mut::<Time>()
+            .advance_by(std::time::Duration::from_millis(16));
+        app.update();
+    }
+
+    fn drawn(app: &App, ring: Entity) -> (usize, Quat) {
+        let world = app.world();
+        let index = world
+            .get::<Sprite>(ring)
+            .and_then(|sprite| sprite.texture_atlas.as_ref())
+            .map_or(usize::MAX, |atlas| atlas.index);
+        (index, world.get::<Transform>(ring).unwrap().rotation)
+    }
+
+    /// One opening turns the inscription exactly once, in step with the
+    /// phase, and the sprite (with its stand and shadow) never rotates.
+    #[test]
+    fn the_inscription_turns_once_per_opening_and_the_stand_stays_still() {
+        let (mut app, ring, spin) = app_with_a_ring();
+        for (progress, frame) in [(0.0, 0), (0.25, 3), (0.5, 6), (0.95, 11)] {
+            step(
+                &mut app,
+                GatePortalPhase::Opening {
+                    elapsed: progress * ambition_platformer2d_world::rooms::PORTAL_OPENING_DURATION_SECS,
+                },
+            );
+            let (index, rotation) = drawn(&app, ring);
+            assert_eq!(index, spin[frame], "opening at {progress}: spin frame {frame}");
+            assert_eq!(rotation, Quat::IDENTITY, "the sprite turned at {progress}");
+        }
+        step(&mut app, GatePortalPhase::On);
+        let (index, rotation) = drawn(&app, ring);
+        assert!(!spin.contains(&index), "an open portal's ring is back on its idle row");
+        assert_eq!(rotation, Quat::IDENTITY);
     }
 }

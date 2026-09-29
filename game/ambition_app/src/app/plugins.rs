@@ -741,7 +741,7 @@ fn install_misc_visual_sync_systems(app: &mut App) {
         (
             ambition_platformer2d::render::rendering::gate_portal_visuals::sync_portal_sprite_visibility,
             ambition_platformer2d::render::rendering::gate_portal_visuals::sync_portal_sprite_animation,
-            ambition_platformer2d::render::rendering::gate_portal_visuals::sync_portal_ring_rotation_system,
+            ambition_platformer2d::render::rendering::gate_portal_visuals::sync_portal_ring_animation,
             ambition_platformer2d::render::rendering::gate_portal_visuals::hide_portal_loading_zone_visuals,
         )
             .after(sync_visuals)

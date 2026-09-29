@@ -46,6 +46,24 @@ impl GatePortalPhase {
     pub fn allows_traversal(self) -> bool {
         matches!(self, Self::On)
     }
+
+    /// How far through its boot or shutdown sequence the portal is, from 0 to
+    /// 1. `None` when the portal is `Off` or `On`.
+    ///
+    /// Presentation draws the opening, closing and ring-spin rows from this
+    /// value, so the drawing cannot run ahead of or behind the phase, and a
+    /// close that reverses mid-way reopens from the same frame.
+    pub fn sequence_progress(self) -> Option<f32> {
+        match self {
+            Self::Opening { elapsed } => {
+                Some((elapsed / PORTAL_OPENING_DURATION_SECS).clamp(0.0, 1.0))
+            }
+            Self::Closing { elapsed } => {
+                Some((elapsed / PORTAL_CLOSING_DURATION_SECS).clamp(0.0, 1.0))
+            }
+            Self::Off | Self::On => None,
+        }
+    }
 }
 
 /// One portal's authored configuration. Live phase is integrated separately in

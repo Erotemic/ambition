@@ -927,6 +927,39 @@ fn arena_hitbox_app(relations: FactionRelations, victim_faction: ActorFaction) -
     (app, victim)
 }
 
+/// OW1 cut 4: a swing reaches only the bodies of its own live room.
+///
+/// Live rooms #0 and #1 are both live, and they share one local frame: the
+/// victim stands in the swing in both arms. The control stamps the victim
+/// #0, the swinger's room, and it is struck. The subject stamps it #1, and
+/// it is not.
+#[test]
+fn a_swing_does_not_reach_a_body_in_another_live_room() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{
+        InRoomInstance, LiveRoomInstance, RoomInstanceRoot,
+    };
+    let struck = |victim_room: LiveRoomInstance| {
+        let mut relations = FactionRelations::default();
+        relations.set_mutual_hostile(ActorFaction::Enemy, ActorFaction::Boss, true);
+        let (mut app, victim) = arena_hitbox_app(relations, ActorFaction::Boss);
+        let world = app.world_mut();
+        for room in [LiveRoomInstance::ACTIVATION, LiveRoomInstance::ACTIVATION.next()] {
+            world.spawn((RoomInstanceRoot, room));
+        }
+        let owner = world.query::<&Hitbox>().single(world).expect("one swing").owner;
+        world.entity_mut(owner).insert(InRoomInstance(LiveRoomInstance::ACTIVATION));
+        world.entity_mut(victim).insert(InRoomInstance(victim_room));
+        app.update();
+        app.world().resource::<CapturedHits>().body_hits().len()
+    };
+    assert_eq!(struck(LiveRoomInstance::ACTIVATION), 1, "control: a body in the swinger's room is struck");
+    assert_eq!(
+        struck(LiveRoomInstance::ACTIVATION.next()),
+        0,
+        "a swing reached a body in another live room"
+    );
+}
+
 /// An Enemy swing damages a Boss-faction body when the relations matrix marks
 /// them mutually hostile (a spectator arena). The hit is PRE-RESOLVED to that
 /// exact body via `HitTarget::Body`, so the actor-damage consumer lands it

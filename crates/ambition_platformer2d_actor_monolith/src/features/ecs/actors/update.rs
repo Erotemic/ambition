@@ -255,9 +255,9 @@ pub fn tick_actor_brains(
     // `CollisionWorld` is the seam that already owned that composition; the brain tick simply had
     // never adopted it.
     collision: ambition_platformer2d_world::collision::CollisionWorld,
-    // The live room each actor is in: it perceives that room's walls and no
-    // other live room's (OW1 cut 3d).
-    body_rooms: Query<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
+    // The live room each actor is in: it perceives that room's walls, bodies
+    // and shots and no other live room's (OW1 cuts 3d and 4).
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
     // Cross-body liveness/crowding was observed in the preceding phase. The
     // decision loop reads the resulting values and does not rescan the actor
     // population itself.
@@ -424,6 +424,7 @@ pub fn tick_actor_brains(
         if body.policy.0.shares_sightings && body.health.alive() {
             crate::features::ecs::perception::crew_calls(
                 entity,
+                rooms.of(entity),
                 body.kin.pos,
                 faction.copied(),
                 perception,
@@ -468,10 +469,14 @@ pub fn tick_actor_brains(
         };
         // An actor with no live room (no room loaded) has no world to decide
         // in.
-        let room = composed_room(&mut composed, &collision, body_rooms.get(this_actor_entity).ok());
-        let Some(feature_world) = composed[room].1.as_deref() else {
+        let stamp = rooms
+            .stamped(this_actor_entity)
+            .map(ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance);
+        let composed_index = composed_room(&mut composed, &collision, stamp.as_ref());
+        let Some(feature_world) = composed[composed_index].1.as_deref() else {
             continue;
         };
+        let room = rooms.of(this_actor_entity);
         // This actor's combat-target liveness. `select_actor_targets` already
         // dropped a dead/absent foe (it only ever targets a LIVE candidate, and a
         // faction-feud fighter has no target once its foe is gone), so `entity ==
@@ -499,6 +504,7 @@ pub fn tick_actor_brains(
                     crate::features::ecs::perception::hear_crew(
                         &crew_calls,
                         this_actor_entity,
+                        room,
                         body.kin.pos,
                         faction.copied(),
                         &mut memory.0,
@@ -634,7 +640,7 @@ pub fn tick_actor_brains(
                     // `PerceptionBody::viewer`; this used to be a per-actor
                     // `Vec` clone of every other row and was measured at half
                     // the hall's cognition cost.
-                    let view_peers = perceived.peers();
+                    let view_peers = perceived.peers_in(room);
                     // Self's own move phase / i-frames come from the SAME per-tick
                     // snapshot every peer's do — one derivation (`body_phase`), so a
                     // body cannot read itself more precisely than its opponent reads it.
@@ -708,7 +714,7 @@ pub fn tick_actor_brains(
                         super::super::perception::build_world_view(
                             &perception_body,
                             &view_peers,
-                            perceived.projectiles(),
+                            perceived.projectiles_in(room),
                             &[],
                             feature_world,
                             relations,
@@ -1195,6 +1201,7 @@ pub fn snapshot_body_contact(
         &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
         &ambition_platformer2d_shared_tangle::body::BodyContact,
     )>,
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
 ) {
     snapshot.clear();
     for (entity, kinematics, ground, frame, contact) in &bodies {
@@ -1203,6 +1210,7 @@ pub fn snapshot_body_contact(
         }
         snapshot.push(
             entity,
+            rooms.of(entity),
             kinematics.aabb_oriented(frame.down()),
             // its ENTRY velocity — this pass runs before any body resolves its
             // controller, which is the whole point of a common snapshot.

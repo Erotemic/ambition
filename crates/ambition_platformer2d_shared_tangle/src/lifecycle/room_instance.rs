@@ -35,7 +35,7 @@ use super::{session_world_entity, SessionRoot, SessionScopeId, SessionScopedEnti
 /// It is rollback state (`root.live_room_instance`). A rewind across a room
 /// publication returns to the previous live room, so the identity must rewind
 /// too.
-#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct LiveRoomInstance(u32);
 
 impl LiveRoomInstance {
@@ -128,6 +128,36 @@ pub type SoleLiveRoom<'w, 's, T> = Single<'w, 's, Ref<'static, T>, With<RoomInst
 
 /// The one-live-room WRITE: [`SoleLiveRoom`]'s mutable twin, and the same debt.
 pub type SoleLiveRoomMut<'w, 's, T> = Single<'w, 's, &'static mut T, With<RoomInstanceRoot>>;
+
+/// Which live room an entity is in, by one rule for every question that
+/// pairs two entities (a contact, a hit, a sighting): its own
+/// [`InRoomInstance`], or the sole live room when it carries none.
+///
+/// Two entities meet only when they are in one room. With two live rooms,
+/// an entity with no stamp is in neither of them (`None`); it can meet only
+/// another entity whose room is also unknown. That is the unstamped
+/// population's named debt, as [`SoleLiveRoom`] is the readers'.
+#[derive(bevy::ecs::system::SystemParam)]
+pub struct LiveRooms<'w, 's> {
+    roots: bevy::prelude::Query<'w, 's, &'static LiveRoomInstance, With<RoomInstanceRoot>>,
+    stamps: bevy::prelude::Query<'w, 's, &'static InRoomInstance>,
+}
+
+impl LiveRooms<'_, '_> {
+    /// The live room `entity` is in, or `None` when that cannot be told.
+    pub fn of(&self, entity: Entity) -> Option<LiveRoomInstance> {
+        self.stamped(entity)
+            .or_else(|| self.roots.single().ok().copied())
+    }
+
+    /// The live room `entity` carries a stamp for, and `None` when it carries
+    /// none. For an entity that acts for another (a strike for its owner):
+    /// its own stamp comes first, and the other's room answers only when it
+    /// has none.
+    pub fn stamped(&self, entity: Entity) -> Option<LiveRoomInstance> {
+        self.stamps.get(entity).ok().map(|stamp| stamp.0)
+    }
+}
 
 /// The live session's sole live room root.
 ///

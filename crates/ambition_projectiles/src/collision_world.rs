@@ -15,8 +15,9 @@ use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::RoomGeometry;
 use ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay;
 use bevy::ecs::system::SystemParam;
+use ambition_platformer2d_shared_tangle::lifecycle::{LiveRoomInstance, LiveRooms, RoomInstanceRoot};
+use bevy::prelude::{Entity, Query, With};
 #[cfg(feature = "portal")]
-use bevy::prelude::Query;
 use bevy::prelude::Res;
 
 /// The portal-carved collision world a projectile collides against. Bundled as a
@@ -30,13 +31,22 @@ use bevy::prelude::Res;
 /// and could never transit a wall portal.
 #[derive(SystemParam)]
 pub struct ProjectileCollisionWorld<'w, 's> {
-    /// The live room's geometry and its collision overlay, off ONE root.
-    room: bevy::prelude::Single<
+    /// Every live room's identity, geometry and collision overlay, each
+    /// tuple off ONE root.
+    rooms: Query<
         'w,
         's,
-        (&'static RoomGeometry, &'static FeatureEcsWorldOverlay),
-        bevy::prelude::With<ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot>,
+        (
+            Option<&'static LiveRoomInstance>,
+            &'static RoomGeometry,
+            &'static FeatureEcsWorldOverlay,
+        ),
+        With<RoomInstanceRoot>,
     >,
+    /// Which live room a shot and each thing it may reach are in (OW1 cut
+    /// 4). Here and not a top-level parameter, for the reason the portals
+    /// are.
+    live_rooms: LiveRooms<'w, 's>,
     // Folded in here (rather than as its own top-level param) because the stepper
     // is already at Bevy's 16-param ceiling.
     #[cfg(feature = "portal")]
@@ -60,14 +70,40 @@ impl ProjectileCollisionWorld<'_, '_> {
     /// impact is one contact that damages once and applies the physical response.
     /// That merge happens at contact ordering (`wall_is_the_targets_own_surface`);
     /// without it, a solid crate would be immune behind its own wall.
-    pub fn solids(&self) -> std::borrow::Cow<'_, ae::World> {
-        ambition_platformer2d_world::collision::world_with_contributed_solids_and_carves(
-            &self.room.0 .0,
-            &self.room.1.gate_solids,
-            &self.room.1.blocks,
-            &self.room.1.portal_carves,
-            &self.room.1.removed_block_names,
+    ///
+    /// It is the world of the live room `room` names (`None`: the sole live
+    /// room), and `None` when that room is not live. See
+    /// `CollisionWorld::room` for the rule.
+    pub fn solids_in(&self, room: Option<LiveRoomInstance>) -> Option<std::borrow::Cow<'_, ae::World>> {
+        let mut matching = self
+            .rooms
+            .iter()
+            .filter(|(live, ..)| room.is_none() || live.copied() == room);
+        let (_, geometry, overlay) = matching.next()?;
+        if matching.next().is_some() {
+            return None;
+        }
+        Some(
+            ambition_platformer2d_world::collision::world_with_contributed_solids_and_carves(
+                &geometry.0,
+                &overlay.gate_solids,
+                &overlay.blocks,
+                &overlay.portal_carves,
+                &overlay.removed_block_names,
+            ),
         )
+    }
+
+    /// The live room a shot flies in: its own stamp, else its firer's room.
+    pub fn shot_room(&self, shot: Entity, owner: Option<Entity>) -> Option<LiveRoomInstance> {
+        self.live_rooms
+            .stamped(shot)
+            .or_else(|| self.live_rooms.of(owner.unwrap_or(shot)))
+    }
+
+    /// The live room a thing a shot may reach is in.
+    pub fn room_of(&self, entity: Entity) -> Option<LiveRoomInstance> {
+        self.live_rooms.of(entity)
     }
 
     /// The session's portal map convention.

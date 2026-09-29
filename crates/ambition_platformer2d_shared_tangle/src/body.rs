@@ -118,10 +118,16 @@ impl Default for BodyContact {
 /// grounded bodies only, first slice. An airborne fighter passing over
 /// another one is not in its way, and STANDING on a body is `footstool`, which
 /// already exists and means something else.
+///
+/// Each box carries its live room (`crate::lifecycle::LiveRooms`), and a
+/// body meets only the boxes of its own room (OW1 cut 4). Two live rooms
+/// author their positions in one local frame, so a body in one room would
+/// otherwise stall against a body at the same position in another.
 #[derive(Resource, Default, Clone, Debug)]
 pub struct BodyContactSnapshot {
     bodies: Vec<(
         Entity,
+        Option<crate::lifecycle::LiveRoomInstance>,
         ambition_platformer2d_core::movement::BodyContactBlocker,
         f32,
     )>,
@@ -140,12 +146,14 @@ impl BodyContactSnapshot {
     pub fn push(
         &mut self,
         body: Entity,
+        room: Option<crate::lifecycle::LiveRoomInstance>,
         contact_box: ambition_platformer2d_core::Aabb,
         velocity: ambition_platformer2d_core::Vec2,
         resistance: f32,
     ) {
         self.bodies.push((
             body,
+            room,
             ambition_platformer2d_core::movement::BodyContactBlocker::new(contact_box, velocity),
             resistance,
         ));
@@ -159,8 +167,8 @@ impl BodyContactSnapshot {
         self.bodies.len()
     }
 
-    /// THIS BODY'S CONTACT FIELD: the boxes of every OTHER solid body, and
-    /// this body's own resistance to them.
+    /// THIS BODY'S CONTACT FIELD: the boxes of every OTHER solid body in its
+    /// live room, and this body's own resistance to them.
     ///
     /// a body that is not in the snapshot gets an INERT field, which is
     /// the whole opt-in expressed once. It is not in the snapshot because it
@@ -176,19 +184,19 @@ impl BodyContactSnapshot {
         out: &'s mut Vec<ambition_platformer2d_core::movement::BodyContactBlocker>,
     ) -> ambition_platformer2d_core::movement::BodyContactField<'s> {
         out.clear();
-        let Some((own, resistance)) = self
+        let Some((room, own, resistance)) = self
             .bodies
             .iter()
-            .find(|(entity, _, _)| *entity == body)
-            .map(|(_, blocker, resistance)| (*blocker, *resistance))
+            .find(|(entity, ..)| *entity == body)
+            .map(|(_, room, blocker, resistance)| (*room, *blocker, *resistance))
         else {
             return ambition_platformer2d_core::movement::BodyContactField::NONE;
         };
         out.extend(
             self.bodies
                 .iter()
-                .filter(|(other, _, _)| *other != body)
-                .map(|(_, blocker, _)| *blocker),
+                .filter(|(other, other_room, ..)| *other != body && *other_room == room)
+                .map(|(_, _, blocker, _)| *blocker),
         );
         // this body's own snapshot velocity travels with the field, so
         // both halves of a contacting pair divide one gap by the same two
@@ -364,5 +372,37 @@ impl AncillaryMovementBundle {
             motion_facts: Default::default(),
         };
         (bundle, resources)
+    }
+}
+
+#[cfg(test)]
+mod body_contact_room_tests {
+    use super::*;
+    use crate::lifecycle::LiveRoomInstance;
+    use ambition_platformer2d_core::{Aabb, Vec2};
+
+    fn blockers(first: Option<LiveRoomInstance>, second: Option<LiveRoomInstance>) -> usize {
+        let mut snapshot = BodyContactSnapshot::default();
+        let mut world = World::new();
+        let (a, b) = (world.spawn_empty().id(), world.spawn_empty().id());
+        let pose = Aabb::new(Vec2::new(100.0, 100.0), Vec2::new(8.0, 16.0));
+        snapshot.push(a, first, pose, Vec2::ZERO, 0.85);
+        snapshot.push(b, second, pose, Vec2::ZERO, 0.85);
+        let mut scratch = Vec::new();
+        let _ = snapshot.field_for(a, &mut scratch);
+        scratch.len()
+    }
+
+    /// OW1 cut 4: two bodies at one local position in two live rooms do not
+    /// meet. The control is the same two bodies in one room: they do. A body
+    /// whose room is unknown meets only another whose room is unknown.
+    #[test]
+    fn bodies_in_two_live_rooms_do_not_meet() {
+        let first = Some(LiveRoomInstance::ACTIVATION);
+        let second = Some(LiveRoomInstance::ACTIVATION.next());
+        assert_eq!(blockers(first, first), 1, "control: one room, one blocker");
+        assert_eq!(blockers(first, second), 0, "a body met a body in another live room");
+        assert_eq!(blockers(None, None), 1, "two bodies of unknown room still meet");
+        assert_eq!(blockers(first, None), 0, "a body met a body whose room is unknown");
     }
 }

@@ -12,6 +12,89 @@ use ambition_projectiles::ProjectileKind;
 use super::{advance_time, min_app, projectile_test_app, BodyHealth};
 use ambition_combat::components::ActorIdentity;
 
+/// Fire the fireball of `fireball_damages_enemy_on_intersect` from live
+/// room #0 with a second live room (#1) beside it, the target stamped
+/// `target_room`, and return the target's `(health, max)`.
+fn a_shot_across_live_rooms(target_room: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance) -> (i32, i32) {
+    use ambition_platformer2d_shared_tangle::lifecycle::{
+        InRoomInstance, LiveRoomInstance, RoomInstanceRoot,
+    };
+    let mut app = min_app();
+    app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
+    app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
+    app.add_systems(
+        Startup,
+        |mut commands: Commands,
+         catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>| {
+            crate::features::spawn_encounter_mob(
+                &mut commands,
+                &catalog,
+                &Default::default(),
+                &crate::character_runtime::fixture_cast(&["fixture_striker"]),
+                ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
+                "projectile_test",
+                ambition_encounter::mob_seed::EncounterMobSeed {
+                    id: "test_enemy".into(),
+                    character: Some("fixture_striker"),
+                    brain: ambition_entity_catalog::placements::CharacterBrain::Custom(
+                        "fixture_striker".into(),
+                    ),
+                    pos: ae::Vec2::new(400.0, 300.0),
+                    size: ae::Vec2::new(28.0, 46.0),
+                },
+            );
+        },
+    );
+    app.update();
+    let second = LiveRoomInstance::ACTIVATION.next();
+    let empty = ae::World::new("second", ae::Vec2::new(2000.0, 2000.0), ae::Vec2::new(200.0, 200.0), vec![]);
+    app.world_mut().spawn((
+        RoomInstanceRoot,
+        second,
+        ae::RoomGeometry(empty),
+        ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay::default(),
+    ));
+    let shooter = crate::projectile::tests::primary_player_entity(&mut app);
+    app.world_mut()
+        .entity_mut(shooter)
+        .insert(InRoomInstance(LiveRoomInstance::ACTIVATION));
+    let target = {
+        let world = app.world_mut();
+        world
+            .query::<(Entity, &ActorIdentity)>()
+            .iter(world)
+            .find(|(_, identity)| identity.id() == "test_enemy")
+            .map(|(entity, _)| entity)
+            .expect("the target is spawned")
+    };
+    app.world_mut().entity_mut(target).insert(InRoomInstance(target_room));
+    {
+        let spec = ProjectileKind::Fireball.spec(ae::Vec2::new(395.0, 300.0), ae::Vec2::new(1.0, 0.0), 1.0);
+        let mut body = ambition_projectiles::ProjectileBody::from_spec(spec);
+        body.kin.pos = ae::Vec2::new(395.0, 300.0);
+        body.kin.vel = ae::Vec2::new(50.0, 0.0);
+        crate::projectile::tests::spawn_player_projectile(&mut app, body);
+    }
+    advance_time(&mut app, 0.016);
+    app.update();
+    let health = app.world().get::<BodyHealth>(target).expect("the target has health");
+    (health.health.current, health.health.max)
+}
+
+/// OW1 cut 4: a shot reaches only the bodies of its own live room.
+///
+/// The shooter is in #0, and live room #1 is live beside it, in one local
+/// frame. The control stamps the target #0 and it is hit. The subject stamps
+/// the same target, at the same place, #1, and the shot passes it.
+#[test]
+fn a_shot_does_not_reach_a_body_in_another_live_room() {
+    use ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance;
+    let (health, max) = a_shot_across_live_rooms(LiveRoomInstance::ACTIVATION);
+    assert!(health < max, "control: a shot in the target's room did not hit it ({health}/{max})");
+    let (health, max) = a_shot_across_live_rooms(LiveRoomInstance::ACTIVATION.next());
+    assert_eq!(health, max, "a shot hit a body in another live room");
+}
+
 /// Pre-spawn a fireball directly into the body list and place it
 /// just beside an ECS-hostile actor. After one tick the fireball
 /// overlaps the actor AABB, queues an ECS damage event, and the

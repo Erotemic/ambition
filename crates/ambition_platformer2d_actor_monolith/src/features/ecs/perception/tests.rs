@@ -58,6 +58,7 @@ fn peer(id: &str, pos: ae::Vec2, faction: ActorFaction) -> PerceptionPeer {
         ledge_hanging: false,
         damage_taken: 0,
         health_max: 100,
+        room: None,
     }
 }
 
@@ -334,6 +335,7 @@ fn projectile_threat_resolved_relationally() {
             damage: 1,
             faction: Some(ActorFaction::Enemy),
             team: None,
+            room: None,
         },
         // Player's own shot → does not threaten the player.
         PerceptionProjectile {
@@ -342,6 +344,7 @@ fn projectile_threat_resolved_relationally() {
             damage: 1,
             faction: Some(ActorFaction::Player),
             team: None,
+            room: None,
         },
         // Environmental/ownerless shot → indiscriminate, matching damage routing.
         PerceptionProjectile {
@@ -350,6 +353,7 @@ fn projectile_threat_resolved_relationally() {
             damage: 1,
             faction: None,
             team: None,
+            room: None,
         },
     ];
     // Same authored faction but a different match team: team authority
@@ -362,6 +366,7 @@ fn projectile_threat_resolved_relationally() {
         damage: 1,
         faction: Some(ActorFaction::Player),
         team: Some(ambition_combat::targeting::MatchTeam::new("red")),
+        room: None,
     };
     let team_view = build_world_view(
         &team_player,
@@ -474,6 +479,68 @@ fn portals_in_view_link_to_their_pair() {
 /// `BTreeMap`. The fallback is `SimId` now and there is no third rung, so this
 /// body carries one and the arm's subject survives: every body with an identity
 /// is snapshotted.
+/// OW1 cut 4: a viewer perceives only the bodies of its own live room.
+///
+/// Live rooms #0 and #1 are both live. #0 holds alice and carol, #1 holds
+/// bob, and an unstamped dave. With two live rooms, dave is in neither. The
+/// control is the whole population: every body is snapshotted, and
+/// `peers_in` only takes it apart.
+#[test]
+fn a_viewer_perceives_only_the_bodies_of_its_own_live_room() {
+    use ambition_characters::actor::{BodyHealth, Health};
+    use ambition_platformer2d_shared_tangle::lifecycle::{
+        InRoomInstance, LiveRoomInstance, RoomInstanceRoot,
+    };
+    use bevy::prelude::*;
+
+    #[derive(Resource, Default)]
+    struct Seen(Vec<Vec<String>>);
+    fn probe(perceived: PerceivedWorld, mut seen: ResMut<Seen>) {
+        let first = LiveRoomInstance::ACTIVATION;
+        seen.0 = [Some(first), Some(first.next()), None]
+            .into_iter()
+            .map(|room| {
+                let mut ids: Vec<_> = perceived.peers_in(room).iter().map(|peer| peer.id.clone()).collect();
+                ids.sort();
+                ids
+            })
+            .collect();
+    }
+
+    let mut app = App::new();
+    app.init_resource::<PerceptionPeers>();
+    app.init_resource::<Seen>();
+    app.add_systems(Update, (collect_perception_peers, probe).chain());
+    let first = LiveRoomInstance::ACTIVATION;
+    for room in [first, first.next()] {
+        app.world_mut().spawn((RoomInstanceRoot, room));
+    }
+    for (id, room) in [("alice", Some(first)), ("bob", Some(first.next())), ("carol", Some(first)), ("dave", None)] {
+        let mut body = app.world_mut().spawn((
+            ambition_combat::components::FeatureId::new(id),
+            ambition_platformer2d_core::BodyKinematics {
+                pos: ae::Vec2::new(10.0, 20.0),
+                vel: ae::Vec2::ZERO,
+                size: ae::Vec2::new(14.0, 22.0),
+                facing: 1.0,
+            },
+            BodyHealth::new(Health::new(5)),
+            ActorFaction::Enemy,
+        ));
+        if let Some(room) = room {
+            body.insert(InRoomInstance(room));
+        }
+    }
+    app.update();
+
+    assert_eq!(app.world().resource::<PerceptionPeers>().0.len(), 4, "control: every body is snapshotted");
+    assert_eq!(
+        app.world().resource::<Seen>().0,
+        vec![vec!["alice", "carol"], vec!["bob"], vec!["dave"]],
+        "a viewer perceived a body in another live room"
+    );
+}
+
 #[test]
 fn collect_perception_peers_snapshots_every_body() {
     use ambition_characters::actor::{BodyHealth, Health};
@@ -1625,4 +1692,48 @@ fn a_session_that_cannot_decide_senses_takes_the_body_out_of_the_decision() {
              {shell_routed})"
         );
     }
+}
+
+/// OW1 cut 4: a crew call is heard only in the caller's live room.
+///
+/// The caller and the listener stand at one local position, allies, and the
+/// caller saw a foe. The control puts both in #0 and the listener hears it.
+/// The subject puts the listener in #1, and it hears nothing.
+#[test]
+fn a_crew_call_is_not_heard_in_another_live_room() {
+    use ambition_characters::perception::{RememberedActor, WorldMemory};
+    use ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance;
+    let first = LiveRoomInstance::ACTIVATION;
+    let heard_in = |listener_room: LiveRoomInstance| {
+        let mut world = bevy::prelude::World::new();
+        let (caller, listener) = (world.spawn_empty().id(), world.spawn_empty().id());
+        let pos = ae::Vec2::new(100.0, 100.0);
+        let mut seen = WorldMemory::default();
+        seen.hear(
+            "foe",
+            RememberedActor {
+                pos,
+                vel: ae::Vec2::ZERO,
+                faction: ActorFaction::Player,
+                hostile_to_self: true,
+                last_seen: 0.0,
+                confidence: 1.0,
+            },
+        );
+        let mut calls = Vec::new();
+        crew_calls(
+            caller,
+            Some(first),
+            pos,
+            Some(ActorFaction::Enemy),
+            Perception::Sighted { viewport_half: DEFAULT_VIEWPORT_HALF },
+            &seen,
+            &mut calls,
+        );
+        let mut heard = WorldMemory::default();
+        hear_crew(&calls, listener, Some(listener_room), pos, Some(ActorFaction::Enemy), &mut heard);
+        heard.get("foe").is_some()
+    };
+    assert!(heard_in(first), "control: an ally in the caller's room hears the call");
+    assert!(!heard_in(first.next()), "an ally in another live room heard the call");
 }

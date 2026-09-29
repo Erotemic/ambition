@@ -103,6 +103,40 @@ fn target_picks_nearest_when_two_players_present() {
     assert_eq!(target.entity, Some(p2));
 }
 
+/// OW1 cut 4: an actor chooses a foe only in its own live room.
+///
+/// The layout of `target_picks_nearest_when_two_players_present`, with live
+/// rooms #0 and #1 both live. The control has both players in the enemy's
+/// room, and it hunts the nearer one. The subject moves the nearer player to
+/// #1: the enemy hunts the farther one, in its own room.
+#[test]
+fn an_actor_does_not_target_a_body_in_another_live_room() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{
+        InRoomInstance, LiveRoomInstance, RoomInstanceRoot,
+    };
+    let first = LiveRoomInstance::ACTIVATION;
+    let target_with_near_player_in = |near_room: LiveRoomInstance| {
+        let mut app = App::new();
+        for room in [first, first.next()] {
+            app.world_mut().spawn((RoomInstanceRoot, room));
+        }
+        let far = spawn_player(&mut app, true, ae::Vec2::new(100.0, 100.0));
+        let near = spawn_player(&mut app, false, ae::Vec2::new(500.0, 100.0));
+        let enemy = enemy_at(&mut app, ae::Vec2::new(450.0, 100.0));
+        for (body, room) in [(far, first), (near, near_room), (enemy, first)] {
+            app.world_mut().entity_mut(body).insert(InRoomInstance(room));
+        }
+        app.add_systems(Update, select_actor_targets);
+        app.update();
+        let target = app.world().entity(enemy).get::<ActorTarget>().unwrap().entity;
+        (target, far, near)
+    };
+    let (target, _, near) = target_with_near_player_in(first);
+    assert_eq!(target, Some(near), "control: the nearer foe in the room is hunted");
+    let (target, far, _) = target_with_near_player_in(first.next());
+    assert_eq!(target, Some(far), "an actor hunted a foe in another live room");
+}
+
 #[test]
 fn nearest_foe_tie_breaks_on_stable_identity_not_entity_id() {
     // Two foes EXACTLY equidistant from the actor (x=100 and x=500 vs an enemy

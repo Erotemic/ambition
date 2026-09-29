@@ -733,6 +733,8 @@ pub fn apply_hitbox_damage(
     // Live Hitbox state is authoritative for damage; presentation projections must
     // not gate it. One parameter rather than four — see `StrikeOutcomeWriters`.
     mut out: StrikeOutcomeWriters,
+    // A strike reaches only the bodies of its own live room (OW1 cut 4).
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
 ) {
     // Both rule reads take the resource by reference: the growth term is read
     // per victim below, and moving it here left that read with nothing.
@@ -858,6 +860,12 @@ pub fn apply_hitbox_damage(
             // damageable rollback-authoritative body should carry identity by
             // the time it reaches a resolver — and it is not made worse by
             // ordering the rest.
+            // The strike's live room: the volume's own, else its owner's. Two
+            // live rooms share one local frame, so a body at the same place
+            // in another room is not in reach.
+            let strike_room = rooms
+                .stamped(hitbox_entity)
+                .or_else(|| rooms.of(hitbox.owner));
             let mut ordered: Vec<_> = victims.iter().collect();
             ordered.sort_by(|a, b| {
                 victim_identity_key(a.sim_id.map(|id| id.as_str()))
@@ -888,6 +896,9 @@ pub fn apply_hitbox_damage(
                 // corpse, so a dead thing neither interacts nor presents. (The
                 // consume-time `resolve_body_hit` alive check stays as defense.)
                 if victim.is_corpse() {
+                    continue;
+                }
+                if rooms.of(victim.entity) != strike_room {
                     continue;
                 }
                 // ⛔ A HAZARD ASKS NO RELATIONSHIP QUESTION EITHER, and routing

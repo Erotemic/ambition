@@ -254,7 +254,7 @@ and no fallback to "the live room".
 | 1 ✅ | Stamp room-scoped entities with the instance their plan was built for (`SessionSpawnScope` carries it, as it carries visibility) | staged occupants carry the pinned instance after publication (none before) | "which room" inferred from the moment of the sweep |
 | 2 ✅ | Mid-room spawns inherit the source's instance; the transition roster is `RoomResident` of the departing instance | a resident of `#7` survives a publication that retires `#0` (the same entity stamped `#0` retires) | the unkeyed whole-world roster |
 | 3 (3a ✅ 3b ✅ 3c ✅ 3d ✅) | Geometry, platforms and overlay move onto the instance root; `CollisionWorld` takes the instance | a body in `#1` collides with `#1`'s wall (in `#0` it passes) | the session-root geometry field, `MovingPlatformSet` as a resource |
-| 4 | Pairwise queries (contacts, hits, perception, projectile victims) keyed by instance | identical local positions in two instances never touch (one instance does) | unkeyed body-contact vectors |
+| 4 (4a ✅) | Pairwise queries (contacts, hits, perception, projectile victims) keyed by instance | identical local positions in two instances never touch (one instance does) | unkeyed body-contact vectors |
 | 5 | Live identity and room selection per instance; rollback rows instance-qualified; the save maps to a durable location key, never the ordinal | a second construction of one room in `#1` succeeds (a duplicate inside `#1` is still refused) | `RoomSet`'s private active index |
 | 6 | The Alice/Bob proof: two instances, two driven bodies; retiring `#1` leaves `#0` whole | the one-room profile runs the same systems | — |
 
@@ -381,8 +381,43 @@ the unkeyed reader gets it) and `a_body_moves_only_against_the_live_room_it_is_i
 both directions in its own room). ⚠ The shorthand readers `solids()`,
 `carves_only()`, `hostable_surfaces()` and `base()` still name no room: 23
 calls in 19 files (traversal, damage, held items, projectiles, the boss
-tick, tether, trace). `ProjectileCollisionWorld` is still a `Single`. Each
-must be keyed by its subject, which cut 4 does with the pairwise queries.
+tick, tether, trace). Each must be keyed by its subject. Cut 4a keyed the
+projectile world.
+
+✅ **Cut 4a landed 2026-09-29: two bodies meet only in one live room.** One
+rule says which live room an entity is in: `LiveRooms::of` (shared_tangle)
+gives its own `InRoomInstance`, or else the sole live room. With two live
+rooms, an entity with no stamp is in neither, and it meets only another
+entity whose room is also unknown. Keyed by it:
+- the body-contact snapshot (`field_for` gives only the boxes of the
+  body's room);
+- melee strikes (`apply_hitbox_damage`: the strike's room is the volume's
+  stamp, else its owner's);
+- the projectile stepper (the shot's room picks its collision world, and its
+  victims, breakables and bosses);
+- perception (peers and shots are grouped by room, and `peers_in(room)`
+  borrows one room's run, so there is still no copy per viewer);
+- target selection (`select_actor_targets`), and through it contact damage,
+  which strikes only the target;
+- crew calls.
+`ProjectileCollisionWorld` is no longer a `Single`. Deleted: the unkeyed
+contact vector, and the whole-population peer and shot slices.
+Witnesses, each with a one-room control:
+- `bodies_in_two_live_rooms_do_not_meet`;
+- `a_swing_does_not_reach_a_body_in_another_live_room`;
+- `a_shot_does_not_reach_a_body_in_another_live_room`;
+- `a_viewer_perceives_only_the_bodies_of_its_own_live_room`;
+- `an_actor_does_not_target_a_body_in_another_live_room`;
+- `a_crew_call_is_not_heard_in_another_live_room`.
+⚠ Cut 4b still owes:
+- `HitTarget::Volume` events (blink, dive, mark-recall, projectile splash,
+  wielded AOE). They carry no room, and `apply_feature_hit_events`
+  resolves them by overlap. Keying them adds a field to a rollback-coded
+  message, which is a schema bump.
+- the steering and crowd indices;
+- footstool;
+- pickups and interactions;
+- the 23 shorthand `CollisionWorld` readers.
 
 ⚠ **EVERY LIVE ROOM ROOT IS `session:room_instance`**, so a second root in
 one session cannot be admitted beside the first: a construction baseline

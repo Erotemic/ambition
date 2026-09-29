@@ -672,7 +672,9 @@ pub fn step_projectiles(
 ) {
     let dt = world_time.sim_dt();
     let friendly_fire = tuning.map(|t| t.friendly_fire()).unwrap_or_default();
-    let collision_world = carved.solids();
+    // Each live room's projectile world, composed once per tick the first
+    // time a shot in it asks.
+    let mut composed: Vec<(Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>, Option<std::borrow::Cow<'_, ae::World>>)> = Vec::new();
     // Without the portal capability there are no apertures to thread, so the
     // list is empty by construction and the transit check below is skipped.
     #[cfg(feature = "portal")]
@@ -723,6 +725,20 @@ pub fn step_projectiles(
             .and_then(|id| visual_catalog.get(id))
             .and_then(|art| art.expiry_vfx);
         let owner_entity = owner.map(|o| o.0);
+        // The shot flies in one live room, collides with that room's walls
+        // and reaches only that room's bodies (OW1 cut 4). A shot whose room
+        // is not live is not stepped.
+        let shot_room = carved.shot_room(proj_entity, owner_entity);
+        let room_index = match composed.iter().position(|(room, _)| *room == shot_room) {
+            Some(index) => index,
+            None => {
+                composed.push((shot_room, carved.solids_in(shot_room)));
+                composed.len() - 1
+            }
+        };
+        let Some(collision_world) = composed[room_index].1.as_deref() else {
+            continue;
+        };
         let owner_combat_data = owner_entity.and_then(|e| owner_combat.get(e).ok());
         // Projectile allegiance is frozen launch authority and rollback state. Parry may
         // deliberately rewrite it; it must not be re-derived from a firer that may be gone.
@@ -1066,7 +1082,10 @@ pub fn step_projectiles(
                 leg_start,
                 feature_half,
                 feature_leg,
-                |target| shot_may_touch(owner_entity, &already_hit, target),
+                |target| {
+                    shot_may_touch(owner_entity, &already_hit, target)
+                        && carved.room_of(target) == shot_room
+                },
                 &ecs_breakables,
             )
             .into_iter()
@@ -1074,7 +1093,10 @@ pub fn step_projectiles(
                 leg_start,
                 feature_half,
                 feature_leg,
-                |target| shot_may_touch(owner_entity, &already_hit, target),
+                |target| {
+                    shot_may_touch(owner_entity, &already_hit, target)
+                        && carved.room_of(target) == shot_room
+                },
                 &ecs_bosses,
             ))
             // ⛔⛔ **A WALL EARLIER ON THE LEG STOPS THE SHOT BEFORE IT REACHES A
@@ -1090,6 +1112,7 @@ pub fn step_projectiles(
             .min_by(crate::features::FeatureContact::order_for_caller);
             let mut ordered: Vec<_> = victims
                 .iter()
+                .filter(|victim| carved.room_of(victim.entity) == shot_room)
                 .filter_map(|victim| {
                     victim
                         .reached_along(leg_start, shot_half, leg)

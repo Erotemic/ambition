@@ -334,6 +334,8 @@ pub fn select_actor_targets(
     // Stable semantic identity, used ONLY to put the candidate list in a
     // canonical order — never to decide who is a foe. See the sort below.
     sim_ids: Query<&SimId>,
+    // An actor chooses a foe only in its own live room (OW1 cut 4).
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
 ) {
     let relations = relations.map(|r| r.clone()).unwrap_or_default();
     // REACHABLE candidates only: a body the world cannot touch is never a valid
@@ -357,6 +359,7 @@ pub fn select_actor_targets(
         ActorFaction,
         Option<SimId>,
         Option<MatchTeam>,
+        Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
     )> = players
         .iter()
         .filter(|(_, _, hp, _, _, out_of_play, plane)| {
@@ -369,6 +372,7 @@ pub fn select_actor_targets(
                 *faction,
                 sim_ids.get(e).ok().cloned(),
                 team.cloned(),
+                rooms.of(e),
             )
         })
         .chain(
@@ -384,6 +388,7 @@ pub fn select_actor_targets(
                         effective_faction(*faction, driver),
                         sim_ids.get(e).ok().cloned(),
                         team.cloned(),
+                        rooms.of(e),
                     )
                 }),
         )
@@ -413,6 +418,7 @@ pub fn select_actor_targets(
     ) in actors.iter_mut()
     {
         let actor_pos = aabb.center;
+        let self_room = rooms.of(self_entity);
         // The acting body's OWN effective allegiance (Player while possessed). A
         // body with neither an authored faction nor player control has no
         // faction-relational foes (only a personal grudge can point it) — same as
@@ -429,8 +435,8 @@ pub fn select_actor_targets(
         // because it is "the player". Nearest foe wins.
         let mut best: Option<(Entity, ae::Vec2, f32)> = None;
         if policy != AggressionTarget::None {
-            for (entity, pos, cand_faction, _, cand_team) in &candidates {
-                if *entity == self_entity {
+            for (entity, pos, cand_faction, _, cand_team, cand_room) in &candidates {
+                if *entity == self_entity || *cand_room != self_room {
                     continue;
                 }
                 // THE one relationship policy, the same call the damage side makes.

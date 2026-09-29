@@ -199,6 +199,9 @@ pub struct PerceptionPeer {
     /// percent term by the same number the hit resolver does. See
     /// [`ambition_characters::perception::PerceivedActor::knockback_weight`].
     pub knockback_weight: f32,
+    /// The live room this body is in. A viewer perceives only its own room's
+    /// bodies (OW1 cut 4).
+    pub room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
 }
 
 /// A live projectile the viewer may perceive. `faction` + `team` are the frozen
@@ -213,6 +216,8 @@ pub struct PerceptionProjectile {
     /// Frozen match team from the firing body, when the shot belongs to a
     /// seated combatant. `None` for unseated and ownerless shots.
     pub team: Option<ambition_combat::targeting::MatchTeam>,
+    /// The live room the shot flies in: its own stamp, else its firer's.
+    pub room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
 }
 
 /// A portal aperture the viewer may perceive. `channel_key` is the stable pair
@@ -313,6 +318,7 @@ pub fn collect_perception_peers(
         // same answer `knockback_growth_inputs` gives a body with no tuning.
         Option<&ambition_combat::components::CombatTuning>,
     )>,
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
 ) {
     peers.0.clear();
     for (
@@ -419,8 +425,13 @@ pub fn collect_perception_peers(
             damage_taken: health.damage_taken(),
             health_max: health.max(),
             team: team.cloned(),
+            room: rooms.of(entity),
         });
     }
+    // Each live room's bodies in one run, so a viewer borrows its own room's
+    // run (`PerceivedWorld::peers_in`). The sort is stable: the order inside
+    // a room is the order the query gave, as it was before.
+    peers.0.sort_by_key(|peer| peer.room);
 }
 
 /// Per-frame snapshot of every live projectile, refreshed by
@@ -441,23 +452,31 @@ pub fn collect_perception_projectiles(
     mut out: bevy::prelude::ResMut<PerceptionProjectiles>,
     live: bevy::prelude::Query<
         (
+            bevy::prelude::Entity,
             &ambition_platformer2d_core::BodyKinematics,
             &ambition_projectiles::ProjectileGameplay,
             Option<&crate::projectile::ProjectileAllegiance>,
+            Option<&ambition_projectiles::ProjectileOwner>,
         ),
         bevy::prelude::With<ambition_projectiles::LiveProjectile>,
     >,
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
 ) {
     out.0.clear();
-    for (kin, game, allegiance) in &live {
+    for (shot, kin, game, allegiance, owner) in &live {
         out.0.push(PerceptionProjectile {
             pos: kin.pos,
             vel: kin.vel,
             damage: game.damage,
             faction: allegiance.map(|side| side.faction),
             team: allegiance.and_then(|side| side.team.clone()),
+            room: rooms
+                .stamped(shot)
+                .or_else(|| rooms.of(owner.map_or(shot, |owner| owner.0))),
         });
     }
+    // Grouped by room, as the peers are.
+    out.0.sort_by_key(|shot| shot.room);
 }
 
 /// ⭐ A CREW SHARES WHAT IT SEES.
@@ -486,6 +505,8 @@ pub fn collect_perception_projectiles(
 #[derive(Clone, Debug)]
 pub(crate) struct CrewCall {
     caller: bevy::prelude::Entity,
+    /// A call is heard only in the caller's live room (OW1 cut 4).
+    room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
     view: ambition_characters::perception::Viewport,
     faction: Option<ambition_combat::components::ActorFaction>,
     foe: String,
@@ -495,6 +516,7 @@ pub(crate) struct CrewCall {
 /// The calls a crew member makes: every foe it saw last tick.
 pub(crate) fn crew_calls(
     caller: bevy::prelude::Entity,
+    room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
     pos: ae::Vec2,
     faction: Option<ambition_combat::components::ActorFaction>,
     perception: Perception,
@@ -503,7 +525,7 @@ pub(crate) fn crew_calls(
 ) {
     let view = ambition_characters::perception::Viewport::around(pos, perception.tactical_extent());
     for (foe, seen) in memory.hostiles_in_view() {
-        calls.push(CrewCall { caller, view, faction, foe: foe.to_string(), seen: *seen });
+        calls.push(CrewCall { caller, room, view, faction, foe: foe.to_string(), seen: *seen });
     }
 }
 
@@ -511,12 +533,17 @@ pub(crate) fn crew_calls(
 pub(crate) fn hear_crew(
     calls: &[CrewCall],
     listener: bevy::prelude::Entity,
+    room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
     pos: ae::Vec2,
     faction: Option<ambition_combat::components::ActorFaction>,
     memory: &mut ambition_characters::perception::WorldMemory,
 ) {
     for call in calls {
-        if call.caller == listener || call.faction != faction || !call.view.contains(pos) {
+        if call.caller == listener
+            || call.room != room
+            || call.faction != faction
+            || !call.view.contains(pos)
+        {
             continue;
         }
         memory.hear(
@@ -1187,11 +1214,17 @@ impl PerceivedWorld<'_, '_> {
     /// copy of the room. The `peers_seen_by` this replaced returned an owned
     /// `Vec<PerceptionPeer>` per actor per tick and was measured at half of the
     /// hall's entire cognition cost.
-    pub fn peers(&self) -> &[PerceptionPeer] {
-        self.peers
-            .as_deref()
-            .map(|peers| peers.0.as_slice())
-            .unwrap_or(&[])
+    ///
+    /// Only the bodies of the live room `room` (OW1 cut 4): the snapshot is
+    /// grouped by room, so this is a borrowed run of it too.
+    pub fn peers_in(
+        &self,
+        room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+    ) -> &[PerceptionPeer] {
+        let peers = self.peers.as_deref().map_or(&[][..], |peers| peers.0.as_slice());
+        let start = peers.partition_point(|peer| peer.room < room);
+        let end = peers.partition_point(|peer| peer.room <= room);
+        &peers[start..end]
     }
 
     /// This body's OWN peer row.
@@ -1205,8 +1238,14 @@ impl PerceivedWorld<'_, '_> {
             .and_then(|peers| peers.0.iter().find(|peer| peer.entity == body))
     }
 
-    /// The live shots in flight.
-    pub fn projectiles(&self) -> &[PerceptionProjectile] {
-        self.projectiles.as_ref().map_or(&[], |p| p.0.as_slice())
+    /// The live shots in flight in the live room `room`.
+    pub fn projectiles_in(
+        &self,
+        room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+    ) -> &[PerceptionProjectile] {
+        let shots = self.projectiles.as_ref().map_or(&[][..], |p| p.0.as_slice());
+        let start = shots.partition_point(|shot| shot.room < room);
+        let end = shots.partition_point(|shot| shot.room <= room);
+        &shots[start..end]
     }
 }

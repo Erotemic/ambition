@@ -23,10 +23,9 @@ use super::{session_world_entity, SessionRoot, SessionScopeId, SessionScopedEnti
 /// definitions, and `RoomSet` alone reports the same index for the first and
 /// the third.
 ///
-/// This identity assumes one live room, so it lives on the session root. With
-/// simultaneous instances (OW1), each instance's owner carries one; the
-/// ordinal stays the same, only its carrier moves. It must never become a way
-/// to select a definition. An entity that lives in a room carries the same
+/// Each live room's root carries its own (`RoomInstanceRoot`), and the
+/// session mints them from one counter, so no two live rooms share one. It
+/// must never become a way to select a definition. An entity that lives in a room carries the same
 /// value as [`InRoomInstance`].
 ///
 /// It is defined here, below the room crate, because the spawn scope that
@@ -54,20 +53,16 @@ impl LiveRoomInstance {
         Self(ordinal)
     }
 
-    /// Mint the next instance, because a room was just published into this
-    /// session.
+    /// The instance after this one.
+    ///
+    /// The session mints from ONE counter (`RoomSet::next_live_room`), not
+    /// from the room a publication replaces: with two live rooms, the one
+    /// after a replaced room can be the other live room's identity.
     ///
     /// Saturates instead of wrapping. A wrap would silently reuse an old
     /// room's identity; a stuck ordinal is visible in the census. Neither is
     /// reachable at 60Hz (a publication per tick for two years), so there is
     /// no refusal.
-    pub fn advance(&mut self) {
-        *self = self.next();
-    }
-
-    /// The instance the next publication into this session will mint. A room
-    /// staged for that publication is stamped with it before `advance` runs,
-    /// so its occupants never carry the room they replace.
     pub const fn next(self) -> Self {
         Self(self.0.saturating_add(1))
     }
@@ -321,14 +316,10 @@ mod tests {
     /// tested with the crossing.
     #[test]
     fn every_publication_is_a_different_live_room() {
-        let mut instance = LiveRoomInstance::ACTIVATION;
-        assert_eq!(instance.ordinal(), 0);
-
-        let first = instance;
-        instance.advance();
-        let second = instance;
-        instance.advance();
-        let third = instance;
+        let first = LiveRoomInstance::ACTIVATION;
+        assert_eq!(first.ordinal(), 0);
+        let second = first.next();
+        let third = second.next();
 
         assert_ne!(first, second);
         assert_ne!(second, third);

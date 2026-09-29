@@ -57,15 +57,16 @@ pub fn read_gameplay_control_frame_with_settings(
     // no meaning; each body's rules decide what holding it does.
     let modifier_held = actions.pressed(&Platformer2dInputActionMonolith::Modifier);
     let modifier_pressed = actions.just_pressed(&Platformer2dInputActionMonolith::Modifier);
-    // Walk: the simulation reads stick magnitude as the gait, and a digital
-    // source always gives 1.0, so without this cap a keyboard or D-pad body
-    // cannot walk. Cap the magnitude; do not scale it, so an analog tilt that
-    // is already a walk stays the same. The rule is the same for every source
-    // bound to `Move`.
+    // The shift layer. Shift + Move is a walk: the simulation reads stick
+    // magnitude as the gait, and a digital source always gives 1.0, so without
+    // this cap a keyboard or D-pad body cannot walk. Cap the magnitude; do not
+    // scale it, so an analog tilt that is already a walk stays the same. The
+    // rule is the same for every source bound to `Move`.
     //
-    // Read `Walk`, not `Modifier`: Mary-O uses `modifier_held` as her run.
-    let walk_held = actions.pressed(&Platformer2dInputActionMonolith::Walk);
-    let axis = if walk_held {
+    // Read `ShiftLayer`, not `Modifier`: Mary-O uses `modifier_held` as her
+    // run.
+    let shift_held = actions.pressed(&Platformer2dInputActionMonolith::ShiftLayer);
+    let axis = if shift_held {
         let magnitude = axis.length();
         if magnitude > WALK_AXIS_CAP {
             axis * (WALK_AXIS_CAP / magnitude)

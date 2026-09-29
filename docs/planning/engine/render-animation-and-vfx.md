@@ -26,6 +26,9 @@ Asset preparation, quality-tier materialization, residency and first-use hitches
 are owned by [`asset-preparation-and-residency.md`](asset-preparation-and-residency.md).
 Runtime/frame-cost measurement is owned by
 [`performance-and-iteration.md`](performance-and-iteration.md).
+A separate plan, not yet triaged, evaluates characters drawn from reusable
+rigged parts instead of whole frames:
+[`runtime-rigged-sprite-animation.md`](runtime-rigged-sprite-animation.md).
 
 ## Authority contract
 

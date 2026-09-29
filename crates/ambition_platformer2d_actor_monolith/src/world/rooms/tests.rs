@@ -1103,7 +1103,10 @@ fn a_replacement_refused_at_application_leaves_the_outgoing_world_standing() {
             empty_world("r"),
             Vec::new(),
         )
-        .replacing(Some(ambition_platformer2d_world::rooms::LiveRoomInstance::ACTIVATION))
+        .replacing(Some(super::transaction::LiveRoomSuccession {
+            replaces: ambition_platformer2d_world::rooms::LiveRoomInstance::ACTIVATION,
+            mints: ambition_platformer2d_world::rooms::LiveRoomInstance::ACTIVATION.next(),
+        }))
     }
 
     // ── THE CONTROL: a complete target. The roster MUST be swept here, or the
@@ -1137,7 +1140,10 @@ fn a_replacement_naming(room: &str) -> super::transaction::PendingWorldReplaceme
         empty_world(room),
         Vec::new(),
     )
-    .replacing(Some(ambition_platformer2d_world::rooms::LiveRoomInstance::ACTIVATION))
+    .replacing(Some(super::transaction::LiveRoomSuccession {
+        replaces: ambition_platformer2d_world::rooms::LiveRoomInstance::ACTIVATION,
+        mints: ambition_platformer2d_world::rooms::LiveRoomInstance::ACTIVATION.next(),
+    }))
 }
 
 /// ⛔⛤ **VERIFICATION ANSWERS ABOUT THE ROOT IT WAS GIVEN, NOT THE LIVE ONE —

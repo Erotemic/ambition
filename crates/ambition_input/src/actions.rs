@@ -55,16 +55,24 @@ pub enum Platformer2dInputActionMonolith {
     /// modifier on Attack, because a taunt is not a swing.
     Taunt,
     Interact,
-    /// Walk: hold to cap movement into the walk band.
+    /// The shift layer: while it is held, the adapter reads some other inputs
+    /// with a second meaning. Either Shift key holds it, on every preset.
     ///
-    /// This is its own action, not [`Self::Modifier`]. Mary-O reads
-    /// `modifier_held` as her run (`ambition_demo_mary_o::movement`), so a cap
-    /// on the modifier would make her run key slow her down.
+    /// Today it has one chord: Shift + Move is a walk. The simulation reads
+    /// stick magnitude as the gait, and a digital source always gives 1.0, so
+    /// without it a keyboard or D-pad body cannot walk. The adapter caps (not
+    /// scales), so analog sticks are unaffected.
     ///
-    /// The simulation reads stick magnitude as the gait, and a digital source
-    /// always gives 1.0. Without this action a keyboard or D-pad body cannot
-    /// walk. The adapter caps (not scales), so analog sticks are unaffected.
-    Walk,
+    /// A new chord (Shift + Interact, Shift + a combat button) is read here, in
+    /// the adapter, as another value on the control frame. The simulation never
+    /// asks whether Shift is down.
+    ///
+    /// It is its own action, not [`Self::Modifier`]. Mary-O reads
+    /// `modifier_held` as her run (`ambition_demo_mary_o::movement`), so a walk
+    /// on the modifier would make her run key slow her down. Until 2026-09-29
+    /// this was `Walk`, on Right Shift only; `ControlSettings` migrates a saved
+    /// remap of that name.
+    ShiftLayer,
     Modifier,
     Utility,
     Map,
@@ -147,7 +155,7 @@ impl Platformer2dInputActionMonolith {
             | Self::Grab
             | Self::Taunt
             | Self::Interact
-            | Self::Walk
+            | Self::ShiftLayer
             | Self::Modifier
             | Self::Utility
             | Self::Map

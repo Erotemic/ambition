@@ -602,7 +602,11 @@ pub(super) fn reload_ldtk_world_from_disk(
         // behind the same verdict as the rest of this road's post-commit writes
         // (`ldtk_index`, `prepared_identity`, `prepared_content`).
         None,
-        live_room,
+        // The rebuilt room is the session's next live room.
+        live_room.map(|replaces| rooms::LiveRoomSuccession {
+            replaces,
+            mints: room_set.next_live_room(),
+        }),
     );
     // ⛔⛤ **THE GENERATION THE SESSION RUNS UNDER MOVES ONLY IF THE ROOM
     // PUBLISHED.** These four writes — the live content binding, the installed

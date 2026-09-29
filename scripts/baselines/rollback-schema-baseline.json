@@ -1,6 +1,6 @@
 {
   "peer_checksum_schema": {
-    "version": "ggrs-rollback-schema-v266",
+    "version": "ggrs-rollback-schema-v267",
     "rows": [
       "actor.active_combatant\tcomponent-canonical\tActiveCombatant",
       "actor.aggression\tcomponent-clone-cursor\tActorAggression",
@@ -145,7 +145,7 @@
       "root.live_room_instance\tcomponent-canonical\tLiveRoomInstance",
       "root.moving_platform_set\tcomponent-canonical\tMovingPlatformSet",
       "root.room_instance\tcomponent-canonical\tRoomInstanceRoot",
-      "root.room_set\tcomponent-clone-custom-checksum\tRoomSet\tbevy_ggrs clone snapshot + active/start room identity checksum",
+      "root.room_set\tcomponent-clone-custom-checksum\tRoomSet\tbevy_ggrs clone snapshot + active/start room identity and next live room checksum",
       "scope.mode\tcomponent-canonical\tModeScopedEntity",
       "scope.room\tcomponent-canonical\tRoomScopedEntity",
       "scope.room_instance\tcomponent-canonical\tInRoomInstance",

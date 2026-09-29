@@ -39,8 +39,8 @@ pub use transaction::{
     publications_holding_frozen_effects,
     retire_publication, ActiveContentBinding,
     LastConstructionVerification,
-    PublicationHandle, PublicationRetention, PublicationVerdict, StagedArrival,
-    StagedWorldViolation,
+    LiveRoomSuccession, PublicationHandle, PublicationRetention, PublicationVerdict,
+    StagedArrival, StagedWorldViolation,
 };
 
 #[cfg(test)]

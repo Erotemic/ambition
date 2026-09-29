@@ -20,4 +20,3 @@ pub const CARTESIAN_PLANE_SHEET_TARGET: &str = "snakes_on_a_cartesian_plane";
 pub const PAPER_PLANE_DISPLAY_NAME: &str = "Snakes on a Paper Plane";
 /// See [`PAPER_PLANE_DISPLAY_NAME`].
 pub const CARTESIAN_PLANE_DISPLAY_NAME: &str = "Snakes on a Cartesian Plane";
-

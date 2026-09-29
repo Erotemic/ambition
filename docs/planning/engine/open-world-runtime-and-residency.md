@@ -423,7 +423,8 @@ Witnesses, each with a one-room control:
 a pickup stay in one live room.**
 - A `Volume` broadcast reaches only the actors, bosses, breakables and
   primary player of its attacker's live room. With no attacker, it reaches
-  the sole live room (`LiveRooms::sole`).
+  the sole live room (`LiveRooms::sole`). ⛔ That is wrong with two live
+  rooms: see "Open after review" below.
 - The pogo refresh matches a breakable in the attacker's room only. Two
   instances of one room have the same crates at the same places.
 - `apply_feature_hit_events` and `apply_player_hit_events` ask it with no
@@ -436,6 +437,32 @@ Witnesses, each with a one-room control:
 - `a_broadcast_hit_does_not_reach_a_body_in_another_live_room`;
 - `a_body_does_not_stand_on_a_head_in_another_live_room`;
 - `a_body_does_not_collect_an_item_in_another_live_room`.
+
+⛔ **Open after review, 2026-09-29.** Two of cut 4b's readers are keyed by
+room, but their writers do not supply the room:
+- **World items are not stamped where they are spawned.** The production
+  `spawn_world_item` and `spawn_moving_world_item`
+  (`ambition_world_items/src/world_item.rs`, near line 100) use
+  `spawn_room_scoped`, which inserts `RoomScopedEntity` and no
+  `InRoomInstance`. With two live rooms the item has no room, so no body
+  can collect it. Mary-O's block rewards use `spawn_moving_world_item`.
+  `a_body_does_not_collect_an_item_in_another_live_room` stamps its item
+  by hand, so it did not see this.
+  - Repair: the spawn boundary takes the room, from the caller's
+    `SessionSpawnScope` or from the entity that caused the spawn.
+  - Witness: two live room roots, an item spawned through the production
+    helper in each, and each is collected only by a body in its own room.
+- **A hit with no attacker has no room.** `event_room` in
+  `apply_feature_hit_events` is `attacker.map_or_else(|| rooms.sole(), ..)`.
+  A bomb (`ambition_abilities/src/ranged/bomb.rs`, near line 67) sends
+  `target = Volume` with `attacker = None`, so with two live rooms it hits
+  nothing.
+  - Repair: the hit carries the room of its spatial origin, apart from the
+    attacker. Do not make `attacker` carry it. A `HitEvent` field is a
+    schema bump.
+  - Witness: two live rooms, a bomb in A with `attacker = None`. A victim
+    in A at the bomb's position is hit, and one in B at the same position
+    is not.
 
 ⚠ Deferred to cut 5, because the key is the identity: the crowd and
 steering indices are maps keyed by the authored body id, and two

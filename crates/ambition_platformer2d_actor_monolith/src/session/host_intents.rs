@@ -205,9 +205,12 @@ impl<M: Message + Clone> Plugin for HostIntentPlugin<M> {
             .init_resource::<HostIntentLedger<M>>()
             .add_systems(
                 sim,
+                // After the clock names this step's tick, so an intent stamped
+                // for tick N+1 is released in the step that IS tick N+1, and
+                // before the phase whose systems read it.
                 release_host_intents::<M>
                     .in_set(GameplaySimulationRoot)
-                    .before(SimClockHead)
+                    .after(SimClockHead)
                     .before(Platformer2dSimulationPhaseMonolith::CoreSimulation),
             )
             .add_systems(Update, prune_host_intents::<M>);

@@ -4031,3 +4031,39 @@ fn probe_where_the_in_sim_new_game_diverges() {
         sim.rollback_health().map_err(|e| e.to_string().chars().take(80).collect::<String>())
     );
 }
+
+/// A host intent acts on the tick it is stamped for.
+///
+/// The host writes after tick N and stamps N+1, so the first simulation step
+/// after the write must spend the item, and that step is tick N+1. The
+/// control is the moment after the write: the host does not act on its own
+/// intent. A release that runs before the clock names the step's tick sees
+/// tick N, holds the intent, and spends the item one step late, on tick N+2.
+#[test]
+fn a_host_intent_acts_on_the_tick_it_is_stamped_for() {
+    let mut sim = Platformer2dSimHarness::new_with_options(crate::common::fixed_60hz_options())
+        .expect("the sandbox builds headlessly");
+    for _ in 0..10 {
+        sim.step(AgentAction::default());
+    }
+    let cells = |sim: &Platformer2dSimHarness| sim.world().resource::<OwnedItems>().count(Item::HealthCell);
+    let tick = |sim: &Platformer2dSimHarness| sim.world().resource::<ambition_platformer2d::time::SimTick>().0;
+    let before = cells(&sim);
+    assert!(before >= 1, "the starter bag holds no Health Cell to use");
+    let written_after = tick(&sim);
+
+    ambition_platformer2d::actors::session::host_intents::write_host_intent(
+        sim.world_mut(),
+        ambition_platformer2d::items::ItemUseRequested { item: Item::HealthCell },
+    );
+    assert_eq!(cells(&sim), before, "control: the host spent the item itself");
+
+    sim.step(AgentAction::default());
+    assert_eq!(tick(&sim), written_after + 1, "one step is one tick");
+    assert_eq!(
+        cells(&sim),
+        before - 1,
+        "an intent stamped for tick {} was not acted on in that tick",
+        written_after + 1
+    );
+}

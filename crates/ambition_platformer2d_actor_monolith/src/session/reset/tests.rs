@@ -187,4 +187,3 @@ fn the_transient_clear_spares_the_rebuilt_rooms_own_items() {
          else retires one, so sparing it leaks the old attempt into the new game"
     );
 }
-

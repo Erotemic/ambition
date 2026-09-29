@@ -28,6 +28,54 @@ use ambition_combat::events::{GameplayBanner, SetFlagRequested};
 use ambition_conversation::DialogueDispatch;
 use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 
+/// The bodies Interact can talk to: peaceful feature actors with a
+/// conversation payload. The same filter [`interact_ecs_actors_and_switches`]
+/// talks through, read by a door that must know whether the press is its own.
+#[derive(bevy::ecs::system::SystemParam)]
+pub struct TalkableBodies<'w, 's> {
+    bodies: Query<
+        'w,
+        's,
+        (
+            Entity,
+            &'static CenteredAabb,
+            &'static ActorDisposition,
+            Option<&'static ambition_characters::actor::BodyHealth>,
+            (
+                Has<ambition_combat::death_rules::OutOfPlay>,
+                Option<&'static ambition_platformer2d_core::DepthPlane>,
+            ),
+        ),
+        (
+            With<ActorInteraction>,
+            With<ActorIdentity>,
+            With<FeatureSimEntity>,
+        ),
+    >,
+}
+
+impl TalkableBodies<'_, '_> {
+    /// The distance from `subject`'s position to the nearest body it can talk
+    /// to in its reach box, if there is one.
+    pub fn nearest_in_reach(
+        &self,
+        subject: Entity,
+        at: ambition_platformer2d_core::Vec2,
+        reach: ambition_platformer2d_core::Aabb,
+    ) -> Option<f32> {
+        self.bodies
+            .iter()
+            .filter(|(entity, aabb, disposition, health, (out_of_play, plane))| {
+                *entity != subject
+                    && !disposition.is_hostile()
+                    && !ambition_combat::util::body_is_untouchable(*health, *out_of_play, *plane)
+                    && aabb.aabb().strict_intersects(reach)
+            })
+            .map(|(_, aabb, ..)| aabb.center.distance(at))
+            .min_by(f32::total_cmp)
+    }
+}
+
 /// Handle interactions with ECS switches and peaceful NPCs. Chests stay in
 /// `open_ecs_chests` because they have their own reward/persistence path.
 ///

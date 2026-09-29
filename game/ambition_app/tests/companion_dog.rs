@@ -71,13 +71,21 @@ fn the_basement_dog_is_peaceful_and_roams_across_the_floor() {
     assert!(barked, "the dog did not give an ambient bark");
 }
 
-/// Interact beside the dog pets it: both bodies hold still for the whole pet,
-/// the player is drawn petting and the dog petted, and both let go when it ends.
-/// The shipped app, the real input road and the authored catalog row.
+/// Interact beside the dog talks to it, and does not pet it: the pet is a
+/// choice in that conversation (`<<pet>>` in `hall_npc_companion_dog`). Picking
+/// it pets the dog, both bodies hold still for the whole pet, and both let go
+/// when it ends. The shipped app, the real input road and the authored catalog
+/// row.
+///
+/// ⚠ A headless harness has no dialog box to confirm a choice in, so this runs
+/// the command the choice runs, through the shipped Yarn vocabulary, while the
+/// real conversation is live. `dialogue_lint` holds the authored option's
+/// command name and arity.
 #[test]
-fn interact_beside_the_dog_pets_it_and_both_hold_still_until_it_ends() {
+fn talking_to_the_dog_offers_a_pet_that_holds_both_still_until_it_ends() {
     use ambition_platformer2d::characters::actor::BodyAnimFacts;
     use ambition_platformer2d::characters::control::{ControlHold, ControlHolds};
+    use ambition_platformer2d::conversation::ActiveConversation;
 
     let mut sim = fixed_60hz_room_sim("central_hub_complex");
     sim.step_n(base(), 10);
@@ -104,8 +112,20 @@ fn interact_beside_the_dog_pets_it_and_both_hold_still_until_it_ends() {
             .expect("a live body")
             .pos
     };
-    // Standing ON the dog, which roams in front of the basement's doors: the
-    // dog is nearer than any door, so the press pets it.
+    let anim = |sim: &ambition_app::Platformer2dSimHarness, body: Entity| {
+        sim.world()
+            .get::<BodyAnimFacts>(body)
+            .expect("an animated body")
+            .clone()
+    };
+    let talking_to_the_dog = |sim: &ambition_app::Platformer2dSimHarness| {
+        sim.world()
+            .get_resource::<ActiveConversation>()
+            .is_some_and(|conversation| conversation.talker() == Some(dog))
+    };
+
+    // Standing ON the dog, in front of one of the basement's doors: the dog is
+    // nearer than the door, so the press talks to it.
     let here = pos(&sim, dog);
     sim.teleport_player((here.x, here.y));
     sim.step(ambition_app::AgentAction {
@@ -113,27 +133,49 @@ fn interact_beside_the_dog_pets_it_and_both_hold_still_until_it_ends() {
         interact_held: true,
         ..base()
     });
+    for _ in 0..10 {
+        if talking_to_the_dog(&sim) {
+            break;
+        }
+        sim.step(base());
+    }
+    assert!(talking_to_the_dog(&sim), "Interact beside the dog talks to it");
+    assert_eq!(
+        (anim(&sim, player).pet_anim_timer, anim(&sim, dog).petted_anim_timer),
+        (0.0, 0.0),
+        "Interact alone does not pet the dog"
+    );
 
-    // The press is buffered on one tick and acted on by the interaction phase.
-    sim.step(base());
-    let petting = |sim: &ambition_app::Platformer2dSimHarness, body: Entity| {
-        sim.world()
-            .get::<BodyAnimFacts>(body)
-            .expect("an animated body")
-            .clone()
-    };
+    // THE CHOICE.
+    sim.world_mut()
+        .run_system_cached(ambition_content::yarn_vocabulary::cmd_pet)
+        .expect("the `<<pet>>` command runs");
+    // The ledger releases the pet on the tick after the command, and the
+    // effects phase applies it.
+    for _ in 0..4 {
+        if anim(&sim, player).pet_anim_timer > 0.0 {
+            break;
+        }
+        sim.step(base());
+    }
     assert!(
-        petting(&sim, player).pet_anim_timer > 0.0,
-        "the press pets the dog"
+        anim(&sim, player).pet_anim_timer > 0.0 && anim(&sim, dog).petted_anim_timer > 0.0,
+        "the choice pets the dog"
     );
-    assert!(
-        petting(&sim, dog).petted_anim_timer > 0.0,
-        "and the dog is petted"
-    );
-    // A tick for the hold projection to claim both bodies.
-    sim.step(base());
+    // The choice ends the node, and the box closes.
+    sim.world_mut()
+        .resource_mut::<ambition_platformer2d::dialog::DialogState>()
+        .close();
+    for _ in 0..10 {
+        if !talking_to_the_dog(&sim) {
+            break;
+        }
+        sim.step(base());
+    }
+    assert!(!talking_to_the_dog(&sim), "the conversation ended");
+
     let started = (pos(&sim, player), pos(&sim, dog));
-    for _ in 0..90 {
+    for _ in 0..60 {
         sim.step(ambition_app::AgentAction {
             move_x: 1.0,
             ..base()
@@ -159,7 +201,7 @@ fn interact_beside_the_dog_pets_it_and_both_hold_still_until_it_ends() {
         pos(&sim, dog)
     );
     // Past the pet's two seconds, both are free again.
-    sim.step_n(base(), 60);
+    sim.step_n(base(), 120);
     for body in [player, dog] {
         assert!(
             !sim.world()

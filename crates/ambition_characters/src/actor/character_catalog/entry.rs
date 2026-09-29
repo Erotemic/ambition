@@ -666,8 +666,8 @@ pub struct CharacterCatalogEntry {
     /// fallback until every row is populated.
     #[serde(default)]
     pub barks: CharacterBarks,
-    /// How this character takes being petted. `Some` makes Interact pet it
-    /// instead of talking to it; `None` (the default) leaves Interact as it was.
+    /// How this character takes being petted. `Some` lets its conversation's
+    /// `<<pet>>` choice pet it; `None` (the default) refuses the pet.
     #[serde(default)]
     pub petting: Option<PettingSpec>,
     /// Yarn node id for this character's Hall-of-Characters conversation (the

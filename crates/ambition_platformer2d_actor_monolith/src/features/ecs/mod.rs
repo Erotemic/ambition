@@ -123,8 +123,8 @@ pub use hitbox::{
     apply_hitbox_damage, tick_and_despawn_hitboxes, Hitbox, HitboxAnchor, HitboxHits,
     HitboxKnockback, HitboxLifetime,
 };
-pub use interact::interact_ecs_actors_and_switches;
-pub use pet::{pet_pettable_characters, project_gesture_holds, PET_SECONDS};
+pub use interact::{interact_ecs_actors_and_switches, TalkableBodies};
+pub use pet::{apply_pet_requests, project_gesture_holds, PetRequested, PET_SECONDS};
 // ⭐ THE MOUNT PAIR'S TESTS STAYED, because their fixtures are this crate's
 // construction road. They exercise `ambition_mount` from the composition.
 #[cfg(test)]

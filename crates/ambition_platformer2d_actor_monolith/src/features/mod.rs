@@ -136,7 +136,7 @@ pub use ecs::{
     sync_encounter_reward_chests_ecs, tick_actor_brains, tick_and_despawn_hitboxes,
     tick_boss_brains_system, tick_gameplay_banner, tick_npc_idle_barks, tick_pending_challenges,
     trigger_boss_attack_moves, update_ecs_bosses, update_ecs_breakables, update_ecs_falling_chests,
-    advance_hazards, apply_hazard_contacts, ActorConstructionContext, ActorSteering, ChallengeRequested,
+    advance_hazards, apply_hazard_contacts, ActorConstructionContext, ActorSteering, ChallengeRequested, PetRequested,
     EncounterRewardSyncPlugin, FactionRelations, FriendlyFire,
     HazardTickSet, HeldItem, Hitbox, HitboxAnchor, HitboxHits, HitboxKnockback, HitboxLifetime,
     OccurrenceContinuity, PendingChallenge, PickupArt, PickupCollect, PickupCollectLock,
@@ -192,6 +192,7 @@ impl bevy::prelude::Plugin for GameplayEffectsSchedulePlugin {
                 // `tick_pending_challenges` counts down starts on the tick the
                 // narrative asked for it rather than the one after.
                 ecs::arm_requested_challenges,
+                ecs::apply_pet_requests,
                 crate::items::narrative::apply_item_grants,
                 crate::items::narrative::apply_shop_transactions,
                 ecs::effect_bus::apply_flag_effects,
@@ -1415,6 +1416,7 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
             ambition_conversation::NarrativeInputPlugin::<crate::features::ChallengeRequested>::default(),
             ambition_conversation::NarrativeInputPlugin::<crate::features::BrainCommand>::default(),
             ambition_conversation::NarrativeInputPlugin::<crate::features::ReleaseProvocation>::default(),
+            ambition_conversation::NarrativeInputPlugin::<crate::features::PetRequested>::default(),
             ambition_conversation::NarrativeInputPlugin::<ambition_items::ItemGrantRequested>::default(),
             ambition_conversation::NarrativeInputPlugin::<ambition_items::shop::ShopTransactionRequested>::default(),
             // A menu uses a consumable through the host-intent ledger.
@@ -1452,17 +1454,6 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
         app.add_systems(
             sim,
             interact_ecs_actors_and_switches.in_set(FeatureInteractionSet::Actuate),
-        );
-        // A pet is decided before a door reads the press (room transitions
-        // run before feature interactions), so a pettable body the player is
-        // standing on is petted rather than walked past; see the system for
-        // when a nearer door keeps the press instead.
-        app.add_systems(
-            sim,
-            ecs::pet_pettable_characters
-                .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated)
-                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::RoomTransition)
-                .before(ambition_platformer2d_shared_tangle::schedule::RoomTransitionSet::Detect),
         );
         app.add_systems(
             sim,

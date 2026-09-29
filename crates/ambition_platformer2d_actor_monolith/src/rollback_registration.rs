@@ -572,6 +572,10 @@ where
         OWNER,
         "message.release_provocation",
     );
+    registrar.clear_message_on_rollback::<crate::features::PetRequested>(
+        OWNER,
+        "message.pet_requested",
+    );
     // Written and recorded inside one tick; a resimulated tick re-announces
     // the transition that caused it.
     registrar.clear_message_on_rollback::<crate::features::NpcProvocationChanged>(

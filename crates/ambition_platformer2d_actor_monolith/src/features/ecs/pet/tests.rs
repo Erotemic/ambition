@@ -1,6 +1,8 @@
 use super::*;
 use ambition_characters::actor::character_catalog::{CharacterCatalog, CharacterCatalogData};
 use ambition_combat::components::ActorIdentity;
+use ambition_combat::components::ActorDisposition;
+use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 use ambition_platformer2d_core as ae;
 use bevy::prelude::{App, Update};
 
@@ -42,28 +44,34 @@ fn catalog() -> CharacterCatalog {
 fn app() -> App {
     let mut app = App::new();
     app.insert_resource(catalog());
+    app.add_message::<PetRequested>();
     app.add_message::<VfxMessage>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
-    app.add_systems(
-        Update,
-        (pet_pettable_characters, project_gesture_holds).chain(),
-    );
+    app.add_systems(Update, (apply_pet_requests, project_gesture_holds).chain());
     app
 }
 
-/// The player, with a buffered Interact press.
+const PLAYER: &str = "player";
+
+fn sim_id(name: &str) -> SimId {
+    SimId::placement(name)
+}
+
 fn spawn_player(app: &mut App, pos: ae::Vec2) -> Entity {
     let scratch = crate::avatar::primary_player_scratch(pos, ae::AbilitySet::sandbox_all());
     let bundle = crate::avatar::PlayerSimulationBundle::from_scratch(
         scratch,
         ambition_characters::actor::Health::new(10),
     );
-    let player = app.world_mut().spawn(bundle).id();
-    app.world_mut()
-        .get_resource_or_insert_with(ambition_characters::control::SlotInteractionState::default)
-        .primary_mut()
-        .interact_buffer_timer = 0.15;
-    player
+    app.world_mut().spawn(bundle).insert(sim_id(PLAYER)).id()
+}
+
+/// The conversation's `<<pet>>`: the player pets `petted`.
+fn ask_for_a_pet(app: &mut App, petted: &str) {
+    app.world_mut().write_message(PetRequested {
+        petter: sim_id(PLAYER),
+        petted: sim_id(petted),
+    });
 }
 
 /// A peaceful catalog character standing at `pos`, facing away from +x.
@@ -88,6 +96,7 @@ fn spawn_character(app: &mut App, pos: ae::Vec2, character_id: &str) -> Entity {
             ActorDisposition::Peaceful,
             ActorIdentity::new("placement", character_id),
             ActorInteraction { interactable },
+            sim_id(character_id),
             BodyKinematics {
                 pos,
                 vel: ae::Vec2::ZERO,
@@ -113,12 +122,13 @@ fn gesture_held(app: &App, body: Entity) -> bool {
 }
 
 #[test]
-fn interact_beside_a_pettable_character_pets_it() {
+fn a_pet_asked_for_by_the_conversation_pets_the_character() {
     let mut app = app();
     let dog_at = ae::Vec2::new(100.0, 100.0);
     let player = spawn_player(&mut app, dog_at + ae::Vec2::new(30.0, 0.0));
     let dog = spawn_character(&mut app, dog_at, "good_dog");
 
+    ask_for_a_pet(&mut app, "good_dog");
     app.update();
 
     assert_eq!(
@@ -147,14 +157,6 @@ fn interact_beside_a_pettable_character_pets_it() {
         player_kin.pos.x > dog_at.x + 32.0,
         "the player stands at the dog's front"
     );
-    assert_eq!(
-        world
-            .resource::<ambition_characters::control::SlotInteractionState>()
-            .primary()
-            .interact_buffer_timer,
-        0.0,
-        "the pet spends the press, so no conversation opens with it"
-    );
     let hearts = world
         .resource::<bevy::ecs::message::Messages<VfxMessage>>()
         .iter_current_update_messages()
@@ -170,19 +172,33 @@ fn a_character_without_a_petting_row_is_not_petted() {
     let player = spawn_player(&mut app, at + ae::Vec2::new(30.0, 0.0));
     let shopkeeper = spawn_character(&mut app, at, "shopkeeper");
 
+    ask_for_a_pet(&mut app, "shopkeeper");
     app.update();
 
     assert_eq!(anim(&app, player).pet_anim_timer, 0.0);
     assert_eq!(anim(&app, shopkeeper).petted_anim_timer, 0.0);
     assert!(!gesture_held(&app, player));
-    assert!(
-        app.world()
-            .resource::<ambition_characters::control::SlotInteractionState>()
-            .primary()
-            .interact_buffer_timer
-            > 0.0,
-        "the press is left for the conversation"
-    );
+}
+
+/// A pet asked for while one is running does not restart it.
+#[test]
+fn a_second_pet_during_the_first_changes_nothing() {
+    let mut app = app();
+    let dog_at = ae::Vec2::new(100.0, 100.0);
+    let player = spawn_player(&mut app, dog_at + ae::Vec2::new(30.0, 0.0));
+    let dog = spawn_character(&mut app, dog_at, "good_dog");
+    ask_for_a_pet(&mut app, "good_dog");
+    app.update();
+    app.world_mut()
+        .get_mut::<BodyAnimFacts>(dog)
+        .unwrap()
+        .petted_anim_timer = 0.5;
+
+    ask_for_a_pet(&mut app, "good_dog");
+    app.update();
+
+    assert_eq!(anim(&app, dog).petted_anim_timer, 0.5, "the running pet is kept");
+    assert_eq!(anim(&app, player).pet_anim_timer, PET_SECONDS);
 }
 
 #[test]

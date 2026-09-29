@@ -98,6 +98,7 @@ pub fn detect_room_transition_system(
     // (not-rollback-registered) multi-tick load machine on a speculative frame.
     boundary: Option<Res<ae::ConfirmedFrameBoundary>>,
     mut pending_lifecycle: ResMut<crate::session::lifecycle_commit::PendingLifecycleCommit>,
+    talkable: crate::features::ecs::TalkableBodies,
 ) {
     if sim_state.remaining > 0.0 {
         return;
@@ -171,6 +172,19 @@ pub fn detect_room_transition_system(
         }
         return;
     };
+    // A body the press can talk to, nearer than the door, keeps the press: an
+    // NPC standing in front of a door is talked to, and the door is used from
+    // its own side. The conversation opens later this tick, in the feature
+    // interaction phase.
+    if matches!(zone.zone.activation, LoadingZoneActivation::Door) {
+        let door = ae::AabbExt::center(zone.zone.aabb).distance(kin.pos);
+        if talkable
+            .nearest_in_reach(subject_entity, kin.pos, kin.aabb())
+            .is_some_and(|talk| talk < door)
+        {
+            return;
+        }
+    }
     // Portal check: if this zone is registered as a portal, the
     // portal's own phase must be `On` for traversal to be allowed.
     // The switch only commands the boot/shutdown sequence — the

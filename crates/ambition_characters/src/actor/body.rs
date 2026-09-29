@@ -530,8 +530,9 @@ pub struct BodyAnimFacts {
     /// interaction (door, NPC, pickup) consumes
     /// `interact_buffer_timer`.
     pub interact_anim_timer: f32,
-    /// Time remaining on petting another body. Armed when an Interact reaches
-    /// a pettable character; the body is held still while it runs.
+    /// Time remaining on petting another body. Armed when a conversation's
+    /// `<<pet>>` reaches a pettable character; the body is held still while it
+    /// runs.
     pub pet_anim_timer: f32,
     /// Time remaining on being petted: the other half of the same gesture.
     pub petted_anim_timer: f32,

@@ -1243,6 +1243,8 @@ Robot v2: I have paperwork stating I am a released model.
 title: hall_npc_companion_dog
 ---
 Companion Dog: *wags its tail*
+-> Pet the dog.
+    <<pet>>
 -> Say hello.
     Companion Dog: Woof! *sniffs your hand*
 -> Watch the dog.

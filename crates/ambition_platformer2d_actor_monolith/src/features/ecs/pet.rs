@@ -1,4 +1,4 @@
-//! Petting: Interact next to a pettable character pets it.
+//! Petting: a conversation's `<<pet>>` pets the character being talked to.
 //!
 //! The gesture is two timers on `BodyAnimFacts`: the petter's
 //! (`pet_anim_timer`) and the petted body's (`petted_anim_timer`). Everything
@@ -7,16 +7,17 @@
 //! out lets go by itself, and a rollback restores it with the timers.
 //!
 //! Whether a character can be petted is authored on its catalog row
-//! (`petting`), so Interact still talks to everyone who has no such row.
+//! (`petting`). The dialogue offers the pet as a choice, so Interact always
+//! talks and the pet does not take the conversation's place.
 
 use ambition_characters::actor::character_catalog::CharacterCatalog;
 use ambition_characters::actor::BodyAnimFacts;
 use ambition_characters::control::{
     claim_control_hold, release_control_hold, ControlHold, ControlHolds,
 };
-use ambition_combat::components::{ActorDisposition, ActorInteraction, CenteredAabb};
-use ambition_platformer2d_core::{AabbExt, BodyKinematics};
-use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
+use ambition_combat::components::{ActorInteraction, CenteredAabb};
+use ambition_platformer2d_core::BodyKinematics;
+use ambition_platformer2d_shared_tangle::sim_id::SimId;
 use ambition_sfx::{SfxId, SfxMessage, SfxWriter};
 use ambition_vfx::vfx::VfxMessage;
 use bevy::prelude::*;
@@ -28,105 +29,77 @@ pub const PET_SECONDS: f32 = 2.0;
 /// The petter stands just off the petted body's front, where its bowed head is.
 const PET_STANDOFF: f32 = 6.0;
 
-/// Start a pet when a driven body's Interact reaches a pettable character.
+/// A conversation asked one body to pet another, by stable identity.
 ///
-/// Runs before doors and dialogue read the press, and consumes it, so a
-/// pettable character is petted instead of talked to. A door the petter also
-/// overlaps keeps the press when it is the nearer of the two: the companion
-/// dog roams a basement with a door every few steps, and a robot standing on a
-/// door means the door. The petter turns to face the petted body, which turns
-/// to face it back, and steps to stand at its front.
-#[allow(clippy::too_many_arguments)]
-pub fn pet_pettable_characters(
-    driven: ambition_held_items::DrivenBodies,
-    mut acting: crate::control::ActingParticipant,
-    primary: Query<
-        Entity,
-        (
-            With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
-            With<ambition_platformer2d_shared_tangle::markers::PrimaryPlayer>,
-        ),
-    >,
+/// Routed by `SimId` for the reason [`crate::features::ChallengeRequested`] is:
+/// the narrative ledger releases it again on every replay of its tick, and an
+/// `Entity` is not stable across that.
+#[derive(Message, Clone, Debug, PartialEq, Eq)]
+pub struct PetRequested {
+    /// The body that pets: the one who started the conversation.
+    pub petter: SimId,
+    /// The body that is petted: the one being talked to.
+    pub petted: SimId,
+}
+
+/// Start the pet a conversation asked for. (sim)
+///
+/// The petted body's catalog row must author `petting`, because only such a
+/// character has a petted animation row and a sound for it. The petter turns
+/// to face the petted body, which turns to face it back, and the petter steps
+/// to stand at its front.
+pub fn apply_pet_requests(
+    mut requests: MessageReader<PetRequested>,
+    ids: Query<(Entity, &SimId)>,
     catalog: Res<CharacterCatalog>,
+    pettable: Query<(&CenteredAabb, &ActorInteraction)>,
     mut bodies: Query<(&mut BodyKinematics, &mut BodyAnimFacts)>,
-    pettable: Query<
-        (
-            Entity,
-            &CenteredAabb,
-            &ActorDisposition,
-            &ActorInteraction,
-            Option<&ambition_characters::actor::BodyHealth>,
-            (
-                Has<ambition_combat::death_rules::OutOfPlay>,
-                Option<&ambition_platformer2d_core::DepthPlane>,
-            ),
-        ),
-        With<FeatureSimEntity>,
-    >,
-    // `Option`: a fixture with no session world has no doors either.
-    room_set: Option<
-        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
-            ambition_platformer2d_world::rooms::RoomSet,
-        >,
-    >,
     mut sfx: SfxWriter,
     mut vfx: MessageWriter<VfxMessage>,
 ) {
-    let mut subjects = driven.entities();
-    if subjects.is_empty() {
-        subjects.extend(primary.iter().next());
-    }
-    for subject in subjects {
-        if !acting.buffered_interact(subject) {
-            continue;
-        }
-        let Ok((kin, anim)) = bodies.get(subject) else {
+    for request in requests.read() {
+        let entity_of = |wanted: &SimId| {
+            ids.iter()
+                .find(|(_, id)| *id == wanted)
+                .map(|(entity, _)| entity)
+        };
+        let (Some(petter), Some(petted)) = (entity_of(&request.petter), entity_of(&request.petted))
+        else {
+            warn!(
+                target: "crate::features::pet",
+                "a pet of {} by {} names no live body; ignoring",
+                request.petted,
+                request.petter,
+            );
             continue;
         };
-        if anim.in_shared_gesture() {
-            continue;
-        }
-        let reach = kin.aabb();
-        let found = pettable.iter().find_map(
-            |(entity, aabb, disposition, interaction, health, (out_of_play, plane))| {
-                if entity == subject
-                    || disposition.is_hostile()
-                    || ambition_combat::util::body_is_untouchable(health, out_of_play, plane)
-                    || !aabb.aabb().strict_intersects(reach)
-                {
-                    return None;
-                }
-                let character = ambition_conversation::character_id_of(&interaction.interactable)?;
-                let petting = catalog.get(character)?.petting.as_ref()?;
-                Some((entity, *aabb, petting.sound.clone()))
-            },
-        );
-        let Some((petted, aabb, sound)) = found else {
+        let Ok((aabb, interaction)) = pettable.get(petted) else {
+            warn!(
+                target: "crate::features::pet",
+                "{} is not a character that can be talked to; ignoring the pet",
+                request.petted,
+            );
             continue;
         };
-        let center = |b: &ambition_platformer2d_core::Aabb| (b.min + b.max) * 0.5;
-        let from_petter = |at: ambition_platformer2d_core::Vec2| at.distance(kin.pos);
-        let nearer_door = room_set.as_deref().is_some_and(|rooms| {
-            rooms.active_loading_zones().iter().any(|zone| {
-                matches!(
-                    zone.activation,
-                    ambition_platformer2d_world::rooms::LoadingZoneActivation::Door
-                ) && zone.aabb.strict_intersects(reach)
-                    && from_petter(center(&zone.aabb)) < from_petter(aabb.center)
-            })
-        });
-        if nearer_door {
+        let Some(petting) = ambition_conversation::character_id_of(&interaction.interactable)
+            .and_then(|character| catalog.get(character))
+            .and_then(|row| row.petting.as_ref())
+        else {
+            warn!(
+                target: "crate::features::pet",
+                "{} has no `petting` on its catalog row; ignoring the pet",
+                request.petted,
+            );
             continue;
-        }
+        };
         let Ok([(mut petter_kin, mut petter_anim), (mut petted_kin, mut petted_anim)]) =
-            bodies.get_many_mut([subject, petted])
+            bodies.get_many_mut([petter, petted])
         else {
             continue;
         };
-        if petted_anim.in_shared_gesture() {
+        if petter_anim.in_shared_gesture() || petted_anim.in_shared_gesture() {
             continue;
         }
-        acting.consume_interact(subject);
         // The side of the petted body the petter is on; it faces that way, and
         // the petter faces back across it.
         let side = if petter_kin.pos.x >= aabb.center.x {
@@ -145,9 +118,9 @@ pub fn pet_pettable_characters(
         petted_kin.vel.x = 0.0;
         petter_anim.pet_anim_timer = PET_SECONDS;
         petted_anim.petted_anim_timer = PET_SECONDS;
-        if let Some(sound) = sound {
+        if let Some(sound) = &petting.sound {
             sfx.write(SfxMessage::Play {
-                id: SfxId::new(&sound),
+                id: SfxId::new(sound),
                 pos: aabb.center,
             });
         }

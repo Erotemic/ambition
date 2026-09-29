@@ -146,6 +146,33 @@ pub fn cmd_challenge(
     );
 }
 
+/// `<<pet>>` — the body that started the conversation pets the one it talks
+/// to. The petted character's catalog row must author `petting`; the
+/// simulation refuses the pet with a log otherwise. Content offers it as a
+/// choice, so the conversation stays reachable and the pet is one answer in it.
+pub fn cmd_pet(
+    conversation: Res<ambition_conversation::ActiveConversation>,
+    sim_ids: Query<&SimId>,
+    mut narrative: NarrativeInputWriter<
+        ambition_platformer2d_actor_monolith::features::PetRequested,
+    >,
+) {
+    let (Some(initiator), Some(talker)) = (conversation.initiator(), conversation.talker()) else {
+        warn!("<<pet>>: the conversation has no two in-world bodies; ignoring");
+        return;
+    };
+    let (Ok(petter), Ok(petted)) = (sim_ids.get(initiator), sim_ids.get(talker)) else {
+        warn!("<<pet>>: a participant has no SimId; ignoring");
+        return;
+    };
+    narrative.write(
+        ambition_platformer2d_actor_monolith::features::PetRequested {
+            petter: petter.clone(),
+            petted: petted.clone(),
+        },
+    );
+}
+
 /// `<<use_brain "preset">>` — switch the NPC the player is talking to onto an
 /// explicit brain preset at runtime, changing its AUTONOMOUS behaviour (a
 /// dialogue outcome like "fight me" pairs this with the `<<challenge>>` command
@@ -557,6 +584,7 @@ pub fn register_commands(commands: &mut Commands, runner: &mut DialogueRunner) {
     let challenge_id = commands.register_system(cmd_challenge);
     let use_brain_id = commands.register_system(cmd_use_brain);
     let restore_brain_id = commands.register_system(cmd_restore_brain);
+    let pet_id = commands.register_system(cmd_pet);
     let give_item_id = commands.register_system(cmd_give_item);
     let buy_item_id = commands.register_system(cmd_buy_item);
     let sell_item_id = commands.register_system(cmd_sell_item);
@@ -569,6 +597,7 @@ pub fn register_commands(commands: &mut Commands, runner: &mut DialogueRunner) {
     cmds.add_command("challenge", challenge_id);
     cmds.add_command("use_brain", use_brain_id);
     cmds.add_command("restore_brain", restore_brain_id);
+    cmds.add_command("pet", pet_id);
     cmds.add_command("give_item", give_item_id);
     cmds.add_command("buy_item", buy_item_id);
     cmds.add_command("sell_item", sell_item_id);

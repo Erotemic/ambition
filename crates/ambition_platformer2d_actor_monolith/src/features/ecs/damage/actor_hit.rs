@@ -138,7 +138,7 @@ pub(crate) fn apply_actor_hit(
     bark_allowed: bool,
     writers: &mut FeatureHitWriters<'_, '_>,
 ) -> bool {
-    let session_scope = writers.session_spawn_scope();
+    let session_scope = writers.spawn_scope_from(actor_entity);
     // THE QUESTION IS COMBAT STANDING, NOT SOCIAL MOOD. This asked
     // `disposition.is_peaceful()`, which made
     // `ActorDisposition` answer two things at once: *how does this actor regard

@@ -124,7 +124,17 @@ pub struct FeatureHitWriters<'w, 's> {
     /// (actor, boss, breakable) already take `writers`, and a coin, a heart and
     /// an ability pickup each have to state their parent's identity or no render
     /// family will claim them — see `damage_drops::dynamic_drop_origin`.
-    pub identities: Query<'w, 's, &'static ambition_platformer2d_shared_tangle::sim_id::SimId>,
+    ///
+    /// With the live room the body is in: what falls out of a death lands in
+    /// the dead body's room (see [`Self::spawn_scope_from`]).
+    pub identities: Query<
+        'w,
+        's,
+        (
+            &'static ambition_platformer2d_shared_tangle::sim_id::SimId,
+            Option<&'static ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
+        ),
+    >,
     /// Which character a struck body IS right now, by entity — the gameplay
     /// identity a bark speaks in, which a runtime re-wear changes.
     pub worn: Query<'w, 's, &'static ambition_characters::actor::WornCharacter>,
@@ -160,7 +170,23 @@ impl FeatureHitWriters<'_, '_> {
         &self,
         entity: bevy::prelude::Entity,
     ) -> Option<ambition_platformer2d_shared_tangle::sim_id::SimId> {
-        self.identities.get(entity).ok().cloned()
+        self.identities.get(entity).ok().map(|(id, _)| id.clone())
+    }
+
+    /// The spawn scope for work that falls out of `source` (loot, a blast, a
+    /// split offspring): the session's, in the live room `source` is in. The
+    /// room comes from the source and not from the session, because with two
+    /// live instances "the session's room" names neither.
+    pub fn spawn_scope_from(
+        &self,
+        source: bevy::prelude::Entity,
+    ) -> ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope {
+        let room = self
+            .identities
+            .get(source)
+            .ok()
+            .and_then(|(_, room)| room.map(|room| room.0));
+        self.session_spawn_scope().in_room(room)
     }
 }
 
@@ -797,7 +823,10 @@ pub fn apply_feature_hit_events(
                 // ⛔ AND IT IS `sim_random`, never a stream: this is read inside
                 // the rollback window, so a resimulated hit has to reach the
                 // same answer or the bubble flickers on a rewind.
-                bark_draw.allows(&resolved_rules, writers.identities.get(actor_entity).ok()),
+                bark_draw.allows(
+                    &resolved_rules,
+                    writers.identities.get(actor_entity).ok().map(|(id, _)| id),
+                ),
                 &mut writers,
             ) {
                 actor_hit_this_event = true;
@@ -1030,7 +1059,7 @@ pub fn apply_feature_hit_events(
                 banner.show(format!("broke {}", name.0.as_str()), 2.6);
                 // Loot: a smashed crate/pot drops a small coin (same collectible
                 // pickup path as enemy drops).
-                let session_scope = writers.session_spawn_scope();
+                let session_scope = writers.spawn_scope_from(entity);
                 if let Some(parent) = drop_parent(&writers, entity, "breakable", id.as_str()) {
                     drop_currency_coin(
                         &mut writers.commands,

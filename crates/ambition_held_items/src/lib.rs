@@ -1278,7 +1278,16 @@ pub fn throw_held_item_system(
     mut commands: Commands,
     driven: DrivenBodies,
     gravity: ambition_platformer2d_shared_tangle::gravity::GravityCtx,
-    mut bodies: Query<(&mut ActorControl, &BodyKinematics, RepertoireQuery), With<HeldItem>>,
+    // With the live room the thrower is in: a minted throw lands there.
+    mut bodies: Query<
+        (
+            &mut ActorControl,
+            &BodyKinematics,
+            RepertoireQuery,
+            Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
+        ),
+        With<HeldItem>,
+    >,
     // The object this body is CARRYING, found by the custody it records rather
     // than by the hand remembering an entity handle.
     mut carried: Query<(Entity, &mut GroundItem, &mut ItemCustody)>,
@@ -1292,7 +1301,7 @@ pub fn throw_held_item_system(
     mut owned: Option<ResMut<ambition_items::OwnedItems>>,
 ) {
     for player in driven.entities() {
-        let Ok((mut control, kin, mut repertoire)) = bodies.get_mut(player) else {
+        let Ok((mut control, kin, mut repertoire, room)) = bodies.get_mut(player) else {
             continue;
         };
         let Some(held) = repertoire.held else {
@@ -1428,6 +1437,9 @@ pub fn throw_held_item_system(
         ));
         if let Some((sim_id, origin)) = minted {
             thrown.insert((sim_id, origin));
+        }
+        if let Some(room) = room {
+            thrown.insert(*room);
         }
     }
 }

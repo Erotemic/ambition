@@ -153,8 +153,16 @@ pub struct RoomTransitionApplication<'w, 's> {
     // so it is not part of what the room being left retires. The distinction is
     // spelled once, on `RoomResident`; this operation still knows nothing about
     // items, inventories, or who the player is.
-    room_visuals:
-        Query<'w, 's, (Entity, Option<&'static physics::PhysicsRoomEntity>), RoomResident>,
+    room_visuals: Query<
+        'w,
+        's,
+        (
+            Entity,
+            Option<&'static physics::PhysicsRoomEntity>,
+            Option<&'static ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
+        ),
+        RoomResident,
+    >,
     tuning: Res<'w, ae::ActiveMovementTuning>,
 }
 
@@ -415,18 +423,22 @@ impl RoomTransitionApplication<'_, '_> {
         // A transition walks within the room set it already has, so no swap.
         // ⛔ THE HANDLE IS KEPT. It is the whole point of the split: finalization
         // asks THIS publication whether the crossing happened.
+        // The residents of the live room being left, and no other live room's.
+        let departing = self.live_room.iter().next().copied();
         let publication = plan.replace_live_world(
             &mut self.commands,
             self.room_visuals
                 .iter()
-                .map(|(entity, physics)| (entity, physics.is_some())),
+                .filter(|(_, _, room)| {
+                    ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance::leaves_with(
+                        *room, departing,
+                    )
+                })
+                .map(|(entity, physics, _)| (entity, physics.is_some())),
             carry_body,
             None,
             staged_arrival,
-            self.live_room
-                .iter()
-                .next()
-                .map(|live| live.next()),
+            departing.map(|live| live.next()),
         );
 
         Ok(StagedRoomTransition {

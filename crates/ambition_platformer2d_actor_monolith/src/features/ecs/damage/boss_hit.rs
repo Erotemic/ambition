@@ -124,7 +124,7 @@ pub(crate) fn apply_boss_hit(
     hurt: ambition_vfx::HurtFeedback,
     writers: &mut FeatureHitWriters<'_, '_>,
 ) -> bool {
-    let session_scope = writers.session_spawn_scope();
+    let session_scope = writers.spawn_scope_from(boss_entity);
     if !health.alive() {
         return false;
     }

@@ -169,16 +169,18 @@ pub fn simulation_world(
             construction.binding,
         ));
     // The first room is the session's activation room: nothing has been
-    // published into this session yet, so its occupants belong to instance #0.
+    // published into this session yet, so its occupants, and the home body
+    // that starts in it, are in instance #0.
+    let session_scope = session_scope.in_room(Some(
+        ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::ACTIVATION,
+    ));
     let room_plan = crate::rooms::RoomConstructionPlan::prepare_from_parts(
         room_set,
         room_set.active(),
         placement_lowering,
         content_staging,
         boss_catalog,
-        session_scope.in_room(Some(
-            ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::ACTIVATION,
-        )),
+        session_scope,
         construction,
     )
     .unwrap_or_else(|error| panic!("initial room construction failed: {error}"));

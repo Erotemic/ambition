@@ -888,10 +888,11 @@ pub(crate) fn apply_world_replacement(
     // The staged occupants were stamped with `publishes_as`, and the verifier
     // refused a publication whose pin is not the next instance, so the advance
     // mints exactly the value they carry.
-    if let Some(mut live_room) = session_world_component_mut_at::<
+    let replaced = session_world_component_mut_at::<
         ambition_platformer2d_world::rooms::LiveRoomInstance,
     >(world, root)
-    {
+    .map(|mut live_room| {
+        let replaced = *live_room;
         live_room.advance();
         debug_assert!(
             pending.publishes_as.is_none_or(|pinned| *live_room == pinned),
@@ -899,6 +900,28 @@ pub(crate) fn apply_world_replacement(
             *live_room,
             pending.publishes_as,
         );
+        (replaced, *live_room)
+    });
+    // ⭐ WHAT THE SWEEP LEFT STANDING IN THE REPLACED ROOM IS NOW IN THE NEW
+    // ONE. The outgoing roster is gone; what still carries the replaced
+    // instance is what crosses with the publication: the carried body, what it
+    // holds, and a body a hot reload re-seats. One rule, so no crossing road
+    // has to remember to move its body.
+    //
+    // ⚠ ONLY THIS SESSION'S. The ordinal counts one session's publications, so a
+    // candidate session prepared beside this one has its own #0.
+    if let Some((replaced, minted)) = replaced {
+        use ambition_platformer2d_shared_tangle::lifecycle::{
+            InRoomInstance, SessionRoot, SessionScopedEntity,
+        };
+        let session = world.get::<SessionRoot>(root).map(|root| root.0);
+        let mut residents = world.query::<(&mut InRoomInstance, Option<&SessionScopedEntity>)>();
+        for (mut room, owner) in residents.iter_mut(world) {
+            let ours = owner.map(|owner| owner.0) == session || owner.is_none();
+            if ours && room.0 == replaced {
+                room.0 = minted;
+            }
+        }
     }
     match session_world_component_mut_at::<ambition_platformer2d_core::RoomGeometry>(world, root) {
         Some(mut geometry) => geometry.0 = pending.geometry,

@@ -17,6 +17,17 @@ use crate::{
     ProjectileSpawnRequest, ProjectileStart, ProjectileVisualId,
 };
 
+/// What a projectile takes from the body that fired it: whose cues it
+/// emits, and the live room it is in (a shot lands in its owner's room).
+type OwnerFacts<'w, 's> = Query<
+    'w,
+    's,
+    (
+        Option<&'static ambition_sfx::BodyPresentationSource>,
+        Option<&'static ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
+    ),
+>;
+
 /// Materialize requests whose projectile begins advancing on this tick.
 pub fn materialize_projectiles_for_this_tick(
     commands: Commands,
@@ -24,7 +35,7 @@ pub fn materialize_projectiles_for_this_tick(
     requests: MessageReader<ProjectileSpawnRequest>,
     active_session: Option<Res<ActiveSessionScope>>,
     active_round: Option<Res<ambition_platformer2d_shared_tangle::lifecycle::ActiveRoundScope>>,
-    sources: Query<&ambition_sfx::BodyPresentationSource>,
+    owners: OwnerFacts<'_, '_>,
 ) {
     materialize_matching(
         ProjectileStart::StepThisTick,
@@ -33,7 +44,7 @@ pub fn materialize_projectiles_for_this_tick(
         requests,
         active_session,
         active_round,
-        sources,
+        owners,
     );
 }
 
@@ -44,7 +55,7 @@ pub fn materialize_projectiles_for_next_tick(
     requests: MessageReader<ProjectileSpawnRequest>,
     active_session: Option<Res<ActiveSessionScope>>,
     active_round: Option<Res<ambition_platformer2d_shared_tangle::lifecycle::ActiveRoundScope>>,
-    sources: Query<&ambition_sfx::BodyPresentationSource>,
+    owners: OwnerFacts<'_, '_>,
 ) {
     materialize_matching(
         ProjectileStart::StepNextTick,
@@ -53,7 +64,7 @@ pub fn materialize_projectiles_for_next_tick(
         requests,
         active_session,
         active_round,
-        sources,
+        owners,
     );
 }
 
@@ -64,7 +75,7 @@ fn materialize_matching(
     mut requests: MessageReader<ProjectileSpawnRequest>,
     active_session: Option<Res<ActiveSessionScope>>,
     active_round: Option<Res<ambition_platformer2d_shared_tangle::lifecycle::ActiveRoundScope>>,
-    sources: Query<&ambition_sfx::BodyPresentationSource>,
+    owners: OwnerFacts<'_, '_>,
 ) {
     let Some(scope) = SessionSpawnScope::for_optional_active_session(active_session.as_deref())
     else {
@@ -91,7 +102,8 @@ fn materialize_matching(
             // `#[require]`s it — see that marker. Listing it here as well would
             // be the fourth copy of a fact one place should own.
         ));
-        scope.apply_to(&mut entity);
+        let (source, room) = owners.get(request.owner).unwrap_or((None, None));
+        scope.in_room(room.map(|room| room.0)).apply_to(&mut entity);
         round_scope.apply_to(&mut entity);
 
         // Insert only if a move fired the shot; see `FiredByMoveInstance`.
@@ -104,7 +116,7 @@ fn materialize_matching(
 
         if request.owner != Entity::PLACEHOLDER {
             entity.insert(ProjectileOwner(request.owner));
-            if let Ok(source) = sources.get(request.owner) {
+            if let Some(source) = source {
                 entity.insert(source.clone());
             }
         }

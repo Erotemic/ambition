@@ -83,6 +83,32 @@ impl LiveRoomInstance {
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct InRoomInstance(pub LiveRoomInstance);
 
+impl InRoomInstance {
+    /// Does a room resident stamped `stamp` leave with the live room
+    /// `departing`? This is the one rule both room-replacement roads (the
+    /// transition and the hot reload) use to build their outgoing roster.
+    ///
+    /// A resident of another live room stays: that is the point of the stamp.
+    ///
+    /// ⚠ **AN UNSTAMPED RESIDENT LEAVES WITH ANY DEPARTING ROOM.** That is the
+    /// rule from before rooms had instances, and it is exact while a session has
+    /// one live room. The roads that still spawn room residents without a stamp
+    /// are named: portal shots (the intent names no shooter), match and world
+    /// items, and presentation `RoomVisual`s. A census over every shipped room
+    /// (`every_room_resident_carries_its_live_room_after_combat`) holds the
+    /// simulated population at zero. A second live instance must stamp them
+    /// before this arm can be deleted.
+    ///
+    /// `departing` is `None` for a session root that carries no instance;
+    /// then every resident leaves, as before.
+    pub fn leaves_with(stamp: Option<&Self>, departing: Option<LiveRoomInstance>) -> bool {
+        match (stamp, departing) {
+            (Some(stamp), Some(departing)) => stamp.0 == departing,
+            _ => true,
+        }
+    }
+}
+
 impl std::fmt::Display for LiveRoomInstance {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "#{}", self.0)
@@ -117,5 +143,17 @@ mod tests {
              identity of the live room you left"
         );
         assert_eq!(third.ordinal(), 2);
+    }
+
+    /// A resident of the departing room leaves with it, a resident of another
+    /// live room stays, and an unstamped resident leaves as before.
+    #[test]
+    fn a_resident_leaves_only_with_its_own_live_room() {
+        let departing = LiveRoomInstance::ACTIVATION;
+        let other = departing.next().next();
+        assert!(InRoomInstance::leaves_with(Some(&InRoomInstance(departing)), Some(departing)));
+        assert!(!InRoomInstance::leaves_with(Some(&InRoomInstance(other)), Some(departing)));
+        assert!(InRoomInstance::leaves_with(None, Some(departing)));
+        assert!(InRoomInstance::leaves_with(Some(&InRoomInstance(other)), None));
     }
 }

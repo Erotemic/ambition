@@ -102,6 +102,7 @@ pub(super) fn handle_ldtk_hot_reload(
         (
             Entity,
             Option<&ambition_platformer2d::actors::world::physics::PhysicsRoomEntity>,
+            Option<&ambition_platformer2d::platformer::lifecycle::InRoomInstance>,
         ),
         RoomResident,
     >,
@@ -398,6 +399,7 @@ pub(super) fn reload_ldtk_world_from_disk(
         (
             Entity,
             Option<&ambition_platformer2d::actors::world::physics::PhysicsRoomEntity>,
+            Option<&ambition_platformer2d::platformer::lifecycle::InRoomInstance>,
         ),
         RoomResident,
     >,
@@ -574,9 +576,15 @@ pub(super) fn reload_ldtk_world_from_disk(
 
     // Commit exactly the prepared construction artifact rather than
     // rediscovering spawn decisions here.
+    // The residents of the live room being replaced, and no other live room's.
     let outgoing = room_visuals
         .iter()
-        .map(|(entity, physics_entity)| (entity, physics_entity.is_some()));
+        .filter(|(_, _, room)| {
+            ambition_platformer2d::platformer::lifecycle::InRoomInstance::leaves_with(
+                *room, live_room,
+            )
+        })
+        .map(|(entity, physics_entity, _)| (entity, physics_entity.is_some()));
     let active_room = construction_plan.room_id().to_string();
     // ⚠ A hot reload replaces the room SET as well as the active room, which is
     // why `next_rooms` is `Some` here and `None` at the two walk-within-a-set

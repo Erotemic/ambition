@@ -24,7 +24,7 @@ use crate::world::physics::{self, PhysicsRoomEntity};
 use crate::construction::placements::PlacementLoweringRegistry;
 use ambition_platformer2d_shared_tangle::lifecycle::RoomScopedEntity;
 use ambition_platformer2d_shared_tangle::lifecycle::{
-    session_world_component_mut, SessionSpawnScope,
+    session_world_component_mut, LiveRoomInstance, SessionSpawnScope,
 };
 use ambition_platformer2d_world::platforms::MovingPlatformState;
 use ambition_platformer2d_world::rooms::{RespawnRoomVisualsRequested, RoomSet, RoomSpec};
@@ -397,21 +397,26 @@ impl RoomConstructionPlan {
             self.features.construction_transactions(self.session_scope),
             retention,
         );
-        self.spawn_contents_for(publication, commands);
+        self.spawn_contents_for(publication, commands, self.session_scope);
         publication
     }
 
     /// As [`Self::spawn_contents`], into a publication the caller already began
     /// — which is how `replace_live_world` gets its staged world onto the SAME
     /// publication the transaction will verify.
+    ///
+    /// `session_scope` is the plan's own scope, or that scope with the live
+    /// room the publication will mint: a plan is prepared per room and reused
+    /// across visits, so the instance is a fact of the publication.
     fn spawn_contents_for(
         &self,
         publication: transaction::PublicationHandle,
         commands: &mut Commands,
+        session_scope: SessionSpawnScope,
     ) {
         // ⛔ THE ROOM DECLARES WHAT IT IS REBUILDING. See `transaction::open`
         // for the measurement that this had no production caller at all.
-        transaction::open(commands, publication, &self.features, self.session_scope);
+        transaction::open(commands, publication, &self.features, session_scope);
         // ⛔⛤ **THE CANDIDATE ROAD IS THE ONLY ROAD — the rollout switch was
         // deleted 2026-09-15.** Every root in every lane is minted
         // `InactiveCandidate`, so nothing this room builds is visible to an
@@ -515,7 +520,7 @@ impl RoomConstructionPlan {
             commands,
             publication,
             &self.features,
-            self.session_scope,
+            session_scope,
             Some(RoomCommitStamp {
                 plan_id: self.id.clone(),
                 room_id: self.room_id().to_string(),
@@ -523,7 +528,7 @@ impl RoomConstructionPlan {
             }),
             Some(self.predicted_authoritative_ids().clone()),
         );
-        transaction::close(commands, publication, &self.features, self.session_scope);
+        transaction::close(commands, publication, &self.features, session_scope);
     }
 
     /// Replace the live world with this prepared room, IF the room verifies.
@@ -559,6 +564,11 @@ impl RoomConstructionPlan {
     /// for the app-level arm that found the body being placed into a room its
     /// own transaction had refused.
     ///
+    /// `publishes_as` is the live room this publication will mint: the
+    /// session's current [`LiveRoomInstance`] advanced once. The staged
+    /// occupants are stamped with it, so they never carry the room they
+    /// replace. `None` for a session root that carries no instance.
+    ///
     /// ⛔ **A CALLER MUST NOT READ THE LIVE GEOMETRY OR ROOM SET AFTER CALLING
     /// THIS AND EXPECT THE NEW ROOM.** It has not been written yet and may never
     /// be. Read the plan instead — [`Self::spec`] and `next_rooms` are the same
@@ -570,6 +580,7 @@ impl RoomConstructionPlan {
         carry_body: Option<Entity>,
         next_rooms: Option<RoomSet>,
         arrival: Option<transaction::StagedArrival>,
+        publishes_as: Option<LiveRoomInstance>,
     ) -> transaction::PublicationHandle {
         // Collected HERE rather than inside the staged closure: the roster comes
         // from the caller's own query, which cannot outlive this call.
@@ -590,6 +601,7 @@ impl RoomConstructionPlan {
         if let Some(arrival) = arrival {
             pending = pending.arriving(arrival);
         }
+        pending = pending.publishing_as(publishes_as);
         // ⛔ **ON THE PUBLICATION ITSELF, and inserted BEFORE the transaction
         // opens**, because `transaction::open` READS it: the identities standing
         // on the outgoing bodies are what the transaction declares it is RETIRING,
@@ -608,7 +620,7 @@ impl RoomConstructionPlan {
             transaction::PublicationRetention::UntilOwnerRetires,
         );
         commands.entity(publication.0).insert(pending);
-        self.spawn_contents_for(publication, commands);
+        self.spawn_contents_for(publication, commands, self.session_scope.in_room(publishes_as));
         publication
     }
 
@@ -1346,6 +1358,7 @@ mod tests {
                     None,
                     None,
                     None,
+                    None,
                 );
             },
         );
@@ -1368,6 +1381,7 @@ mod tests {
                 plan.replace_live_world(
                     &mut commands,
                     outgoing.iter().map(|entity| (*entity, false)),
+                    None,
                     None,
                     None,
                     None,
@@ -1959,6 +1973,137 @@ mod tests {
             "got {:?}",
             verification.staged_violations
         );
+    }
+
+    /// Stage the candidate for the live room `publishes_as` and run it.
+    fn stage_the_candidate_as(
+        app: &mut bevy::prelude::App,
+        plan: RoomConstructionPlan,
+        outgoing: Vec<Entity>,
+        publishes_as: Option<LiveRoomInstance>,
+    ) {
+        bevy::ecs::system::RunSystemOnce::run_system_once(
+            app.world_mut(),
+            move |mut commands: Commands| {
+                plan.replace_live_world(
+                    &mut commands,
+                    outgoing.iter().map(|entity| (*entity, false)),
+                    None,
+                    None,
+                    None,
+                    publishes_as,
+                );
+            },
+        )
+        .expect("the staging system runs");
+    }
+
+    /// The live room each planned root stands in, by its identity.
+    fn rooms_of_planned_roots(
+        app: &mut bevy::prelude::App,
+    ) -> Vec<(String, Option<LiveRoomInstance>)> {
+        let world = app.world_mut();
+        let mut query = world.query::<(
+            &ambition_platformer2d_shared_tangle::sim_id::SimId,
+            Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
+        )>();
+        let mut rooms: Vec<_> = query
+            .iter(world)
+            .map(|(id, room)| (id.as_str().to_string(), room.map(|room| room.0)))
+            .collect();
+        rooms.sort_by(|a, b| a.0.cmp(&b.0));
+        rooms
+    }
+
+    /// OW1 cut 1: a staged room's occupants belong to the live room its
+    /// publication mints, not to the room they replace.
+    ///
+    /// A plan is prepared per room and reused on every visit, so the instance
+    /// is a fact of the publication. The control stages the same plan with no
+    /// pinned instance: its occupants carry none, so the stamp comes from the
+    /// publication and not from the plan or the spawn road.
+    #[test]
+    fn a_staged_room_belongs_to_the_live_room_its_publication_mints() {
+        let platform = MovingPlatformState::from_authored(
+            ae::Vec2::new(10.0, 20.0),
+            ae::Vec2::new(32.0, 8.0),
+            64.0,
+            10.0,
+        );
+
+        // Control: no pinned instance, no stamp.
+        let (mut app, outgoing) = last_good_world(platform.clone());
+        stage_the_candidate_as(&mut app, candidate_plan(), outgoing, None);
+        let unpinned = rooms_of_planned_roots(&mut app);
+        assert!(!unpinned.is_empty(), "the candidate room built no roots");
+        assert!(
+            unpinned.iter().all(|(_, room)| room.is_none()),
+            "a room staged with no pinned instance stamped one: {unpinned:?}"
+        );
+
+        let (mut app, outgoing) = last_good_world(platform);
+        ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+            app.world_mut(),
+            LiveRoomInstance::ACTIVATION,
+        );
+        let publishes_as = LiveRoomInstance::ACTIVATION.next();
+        stage_the_candidate_as(&mut app, candidate_plan(), outgoing, Some(publishes_as));
+
+        let live = *ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<
+            LiveRoomInstance,
+        >(app.world())
+        .expect("the session root carries its live room");
+        assert_eq!(live, publishes_as, "the publication minted another live room");
+        let rooms = rooms_of_planned_roots(&mut app);
+        assert!(!rooms.is_empty(), "the candidate room built no roots");
+        assert!(
+            rooms.iter().all(|(_, room)| *room == Some(live)),
+            "the published room's occupants do not all belong to live room {live}: {rooms:?}"
+        );
+    }
+
+    /// A room staged for a live room another publication has already minted is
+    /// refused before anything is torn down: its occupants would belong to a
+    /// room the session is not in.
+    #[test]
+    fn a_room_staged_for_a_stale_live_room_is_refused() {
+        let platform = MovingPlatformState::from_authored(
+            ae::Vec2::new(10.0, 20.0),
+            ae::Vec2::new(32.0, 8.0),
+            64.0,
+            10.0,
+        );
+        let (mut app, outgoing) = last_good_world(platform);
+        let mut live = LiveRoomInstance::ACTIVATION;
+        live.advance();
+        live.advance();
+        ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+            app.world_mut(),
+            live,
+        );
+        let before = live_world(&mut app);
+        let stale = LiveRoomInstance::ACTIVATION.next();
+        stage_the_candidate_as(&mut app, candidate_plan(), outgoing, Some(stale));
+
+        let verification = app
+            .world()
+            .resource::<crate::world::rooms::LastConstructionVerification>()
+            .clone();
+        assert!(
+            !verification.published,
+            "a room staged for live room {stale} published over live room {live}"
+        );
+        assert!(
+            verification.staged_violations.contains(
+                &super::transaction::StagedWorldViolation::StaleRoomInstance {
+                    pinned: stale,
+                    would_mint: live.next(),
+                }
+            ),
+            "got {:?}",
+            verification.staged_violations
+        );
+        assert_eq!(live_world(&mut app), before, "a refused room changed the live world");
     }
 
     /// ⛔ **AND A ROOM WHOSE GEOMETRY IS NOT ITS OWN IS REFUSED.**

@@ -405,6 +405,9 @@ pub(crate) struct PendingWorldReplacement {
     moving_platforms: Vec<ambition_platformer2d_world::platforms::MovingPlatformState>,
     /// Where the transiting body lands, if one is crossing.
     arrival: Option<StagedArrival>,
+    /// The live room this publication mints, pinned when it was staged. The
+    /// staged occupants carry it; publication writes it onto the root.
+    publishes_as: Option<ambition_platformer2d_world::rooms::LiveRoomInstance>,
 }
 
 impl PendingWorldReplacement {
@@ -422,7 +425,18 @@ impl PendingWorldReplacement {
             geometry,
             moving_platforms,
             arrival: None,
+            publishes_as: None,
         }
+    }
+
+    /// State the live room this publication mints. Its staged occupants carry
+    /// the same value.
+    pub(crate) fn publishing_as(
+        mut self,
+        room: Option<ambition_platformer2d_world::rooms::LiveRoomInstance>,
+    ) -> Self {
+        self.publishes_as = room;
+        self
     }
 
     /// State that a body is crossing into this room, and where it lands.
@@ -528,6 +542,14 @@ pub enum StagedWorldViolation {
     /// the room it just left. The room set and the platform state were checked;
     /// this one was not asked about at all.
     NoRoomGeometryToPublishInto,
+    /// The live room this publication was staged for is not the one it would
+    /// mint: another publication into the same session applied after this one
+    /// was staged. Its occupants carry `pinned`, so publishing would put them in
+    /// a live room that is not the session's.
+    StaleRoomInstance {
+        pinned: ambition_platformer2d_world::rooms::LiveRoomInstance,
+        would_mint: ambition_platformer2d_world::rooms::LiveRoomInstance,
+    },
 }
 
 impl std::fmt::Display for StagedWorldViolation {
@@ -567,6 +589,12 @@ impl std::fmt::Display for StagedWorldViolation {
                 "this room staged a world and the session root it publishes into \
                  carries no `RoomGeometry`, so publishing would seat the session \
                  in a room whose geometry is still the old one"
+            ),
+            Self::StaleRoomInstance { pinned, would_mint } => write!(
+                f,
+                "this room was staged as live room {pinned} and publishing now \
+                 would mint {would_mint}, so its occupants would belong to a room \
+                 the session is not in"
             ),
         }
     }
@@ -636,6 +664,15 @@ pub(crate) fn verify_staged_world(
                 .is_none()
             {
                 violations.push(StagedWorldViolation::NoRoomGeometryToPublishInto);
+            }
+            let live = world.get::<ambition_platformer2d_world::rooms::LiveRoomInstance>(root);
+            if let (Some(pinned), Some(live)) = (pending.publishes_as, live) {
+                if live.next() != pinned {
+                    violations.push(StagedWorldViolation::StaleRoomInstance {
+                        pinned,
+                        would_mint: live.next(),
+                    });
+                }
             }
         }
         // `NoSessionRootToPublishInto` above already says this, and naming the
@@ -847,11 +884,21 @@ pub(crate) fn apply_world_replacement(
     // root is a partial world by construction, and a composition that never
     // needs the identity should not be forced to carry it — the census reports
     // its absence rather than inventing an ordinal.
+    //
+    // The staged occupants were stamped with `publishes_as`, and the verifier
+    // refused a publication whose pin is not the next instance, so the advance
+    // mints exactly the value they carry.
     if let Some(mut live_room) = session_world_component_mut_at::<
         ambition_platformer2d_world::rooms::LiveRoomInstance,
     >(world, root)
     {
         live_room.advance();
+        debug_assert!(
+            pending.publishes_as.is_none_or(|pinned| *live_room == pinned),
+            "published live room {} while its occupants were stamped {:?}",
+            *live_room,
+            pending.publishes_as,
+        );
     }
     match session_world_component_mut_at::<ambition_platformer2d_core::RoomGeometry>(world, root) {
         Some(mut geometry) => geometry.0 = pending.geometry,

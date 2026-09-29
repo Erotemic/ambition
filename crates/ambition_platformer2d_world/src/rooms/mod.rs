@@ -7,7 +7,6 @@ use petgraph::graph::{Graph, NodeIndex};
 mod camera;
 mod gate_portal;
 mod graph;
-mod instance;
 mod loading_zone;
 mod metadata;
 mod room_graph;
@@ -17,7 +16,7 @@ mod specs;
 
 pub use camera::*;
 pub use gate_portal::*;
-pub use instance::LiveRoomInstance;
+pub use ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance;
 pub use rollback::register_rollback_state;
 pub use loading_zone::*;
 pub use metadata::*;

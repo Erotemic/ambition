@@ -190,6 +190,12 @@ where
     );
     registrar
         .rollback_component_canonical::<crate::lifecycle::RoomScopedEntity>(OWNER, "scope.room");
+    // Which live room an occupant belongs to. A rewind that re-creates the
+    // occupant must give its room back, or a sweep keyed by instance misses it.
+    registrar.rollback_component_canonical::<crate::lifecycle::InRoomInstance>(
+        OWNER,
+        "scope.room_instance",
+    );
     // The mode owner is anchored, so a rewind can re-create it. The marker must
     // come back with it, or the mode sweep cannot find the owner when the mode
     // ends. The mode name is authored, so it is the same on every peer.

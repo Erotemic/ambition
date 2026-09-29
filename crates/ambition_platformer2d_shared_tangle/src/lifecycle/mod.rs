@@ -13,6 +13,7 @@ mod custody_horizon;
 pub mod horizon;
 mod markers;
 mod mode_visit;
+mod room_instance;
 mod round;
 mod session;
 mod spawn_ext;
@@ -36,6 +37,7 @@ pub use markers::{
     ModeScopedEntity,
     PlayerVisual, PosedBody, PresentationOf, RoomResident, RoomScopedEntity, RoomVisual,
 };
+pub use room_instance::{InRoomInstance, LiveRoomInstance};
 pub use round::{
     despawn_departed_round_entities, ActiveRoundScope, RoundScopeId, RoundScopePlugin,
     RoundScopedEntity, RoundSpawnScope,

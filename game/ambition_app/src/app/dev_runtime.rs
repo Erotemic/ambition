@@ -83,6 +83,12 @@ pub(super) fn handle_ldtk_hot_reload(
     // the staged closure on the publication's own verdict. See the note at the
     // `reload_ldtk_world_from_disk` call for what had to change first.
     room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<world_rooms::RoomSet>,
+    // The live room the reload replaces. The rebuilt room is the next one.
+    live_room: Option<
+        ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
+            world_rooms::LiveRoomInstance,
+        >,
+    >,
     mut ldtk_reload: ResMut<ambition_platformer2d::dev_tools::WorldSourceHotReload>,
     // Bundled to keep this system within Bevy's 16 top-level SystemParam limit.
     tuning: (
@@ -240,6 +246,7 @@ pub(super) fn handle_ldtk_hot_reload(
         let result = reload_ldtk_world_from_disk(
             &mut commands,
             &room_set,
+            live_room.as_deref().map(|live| **live),
             &mut clusters,
             tuning.0 .0,
             *tuning.1,
@@ -383,6 +390,7 @@ pub(super) fn prepare_ldtk_reload_transaction(
 pub(super) fn reload_ldtk_world_from_disk(
     commands: &mut Commands,
     room_set: &world_rooms::RoomSet,
+    live_room: Option<world_rooms::LiveRoomInstance>,
     clusters: &mut ae::BodyClustersMut<'_>,
     tuning: ae::MovementTuning,
     physics_settings: physics::PhysicsSandboxSettings,
@@ -586,6 +594,7 @@ pub(super) fn reload_ldtk_world_from_disk(
         // behind the same verdict as the rest of this road's post-commit writes
         // (`ldtk_index`, `prepared_identity`, `prepared_content`).
         None,
+        live_room.map(world_rooms::LiveRoomInstance::next),
     );
     // ⛔⛤ **THE GENERATION THE SESSION RUNS UNDER MOVES ONLY IF THE ROOM
     // PUBLISHED.** These four writes — the live content binding, the installed

@@ -868,7 +868,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// ⛔⛤ 262 -> 263: `root.ldtk_runtime_index` leaves. Its only rewound value
 /// was the active area, a copy of `RoomSet`'s written in `Update`; the index
 /// is prepared content now, and the LDtk bundles compare their `LevelSet`.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 263;
+/// ⛔⛤ 263 -> 264: `scope.room_instance` joins. A room occupant carries the
+/// live room it belongs to (`InRoomInstance`), stamped at spawn; OW1's keyed
+/// sweep reads it.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 264;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

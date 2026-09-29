@@ -182,6 +182,10 @@ pub fn simulation_authorized(
 pub struct SessionSpawnScope {
     id: Option<SessionScopeId>,
     visibility: SessionSpawnVisibility,
+    /// The live room whose construction spawns work under this scope. `None`
+    /// stamps nothing. Like the visibility, it is a spawn fact and not part of
+    /// the ownership identity, so `PartialEq` ignores it.
+    room: Option<super::LiveRoomInstance>,
 }
 
 /// ⛔⛤ **THE VISIBILITY IS A SPAWN POLICY, NOT PART OF THE OWNERSHIP IDENTITY.**
@@ -232,6 +236,7 @@ impl SessionSpawnScope {
     pub const UNSCOPED: Self = Self {
         id: None,
         visibility: SessionSpawnVisibility::Published,
+        room: None,
     };
 
     /// Capture an explicit gameplay-session owner.
@@ -239,6 +244,7 @@ impl SessionSpawnScope {
         Self {
             id: Some(id),
             visibility: SessionSpawnVisibility::Published,
+            room: None,
         }
     }
 
@@ -249,6 +255,7 @@ impl SessionSpawnScope {
         Self {
             id: Some(id),
             visibility: SessionSpawnVisibility::HiddenCandidate,
+            room: None,
         }
     }
 
@@ -257,12 +264,26 @@ impl SessionSpawnScope {
         Self {
             id,
             visibility: SessionSpawnVisibility::Published,
+            room: None,
         }
     }
 
     /// Whether work captured under this scope spawns hidden.
     pub const fn visibility(self) -> SessionSpawnVisibility {
         self.visibility
+    }
+
+    /// The same scope, for work that the live room `room` builds. Every entity
+    /// spawned under it is stamped [`super::InRoomInstance`]. `None` stamps
+    /// nothing.
+    pub const fn in_room(mut self, room: Option<super::LiveRoomInstance>) -> Self {
+        self.room = room;
+        self
+    }
+
+    /// The live room that room-scoped work spawned under this scope belongs to.
+    pub const fn room(self) -> Option<super::LiveRoomInstance> {
+        self.room
     }
 
     /// The captured owner.
@@ -296,6 +317,13 @@ impl SessionSpawnScope {
         }
         if self.visibility == SessionSpawnVisibility::HiddenCandidate {
             crate::construction::hide_candidate_session_entity(entity);
+        }
+        // ⚠ HERE AND NOT IN THE ROOM HELPERS. Most room occupants get
+        // `RoomScopedEntity` inside a bundle (`FeatureLifecycleBundle`) passed
+        // to `insert_session_scoped`, so a stamp in the room helpers missed
+        // every actor.
+        if let Some(room) = self.room {
+            entity.insert(super::InRoomInstance(room));
         }
     }
 }

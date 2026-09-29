@@ -22,6 +22,33 @@ impl SnapshotState for crate::lifecycle::RoomScopedEntity {
     }
 }
 
+/// Which live room the session is standing in.
+///
+/// One `u32` and no projection: the whole value is the identity. It feeds the
+/// session checksum, because a peer that has published one more room is in a
+/// different live room.
+impl SnapshotState for crate::lifecycle::LiveRoomInstance {
+    fn encode(&self, out: &mut Vec<u8>) {
+        put_u64(out, u64::from(self.ordinal()));
+    }
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        let ordinal = u32::try_from(r.u64()?).ok()?;
+        Some(Self::from_ordinal(ordinal))
+    }
+}
+
+/// The live room an entity belongs to: the same ordinal as the session's
+/// [`crate::lifecycle::LiveRoomInstance`], so it feeds the checksum on the same
+/// terms.
+impl SnapshotState for crate::lifecycle::InRoomInstance {
+    fn encode(&self, out: &mut Vec<u8>) {
+        self.0.encode(out);
+    }
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        crate::lifecycle::LiveRoomInstance::decode(r).map(Self)
+    }
+}
+
 impl SnapshotState for crate::lifecycle::ModeScopedEntity {
     fn encode(&self, out: &mut Vec<u8>) {
         put_str(out, &self.0);

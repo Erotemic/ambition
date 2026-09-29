@@ -136,6 +136,13 @@ pub struct RoomTransitionApplication<'w, 's> {
         (&'static mut RoomGeometry, &'static mut world_rooms::RoomSet),
         With<ambition_platformer2d_shared_tangle::lifecycle::SessionRoot>,
     >,
+    /// The live room being left. The staged room is the next one.
+    live_room: Query<
+        'w,
+        's,
+        &'static world_rooms::LiveRoomInstance,
+        With<ambition_platformer2d_shared_tangle::lifecycle::SessionRoot>,
+    >,
     // ⛔⛤ **THE EFFECT CHANNELS ARE GONE FROM THIS PARAM, AND THEIR ABSENCE IS
     // THE POINT.** The sfx/vfx writers, the clock, the developer overlay, the
     // dialogue and the conversation moved to `RoomTransitionFinalize`, which only
@@ -416,6 +423,10 @@ impl RoomTransitionApplication<'_, '_> {
             carry_body,
             None,
             staged_arrival,
+            self.live_room
+                .iter()
+                .next()
+                .map(|live| live.next()),
         );
 
         Ok(StagedRoomTransition {

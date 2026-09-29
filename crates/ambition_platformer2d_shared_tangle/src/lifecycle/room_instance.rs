@@ -6,7 +6,7 @@
 //! one room share it. Neither can tell two visits apart. OW1 in
 //! `docs/planning/engine/open-world-runtime-and-residency.md` needs that.
 
-use bevy_ecs::prelude::Component;
+use bevy::prelude::Component;
 
 /// Which live room a session is standing in, as an ordinal of that session's
 /// room publications.
@@ -21,7 +21,11 @@ use bevy_ecs::prelude::Component;
 /// This identity assumes one live room, so it lives on the session root. With
 /// simultaneous instances (OW1), each instance's owner carries one; the
 /// ordinal stays the same, only its carrier moves. It must never become a way
-/// to select a definition.
+/// to select a definition. An entity that lives in a room carries the same
+/// value as [`InRoomInstance`].
+///
+/// It is defined here, below the room crate, because the spawn scope that
+/// stamps [`InRoomInstance`] is defined here.
 ///
 /// It is rollback state (`root.live_room_instance`). A rewind across a room
 /// publication returns to the previous live room, so the identity must rewind
@@ -53,9 +57,31 @@ impl LiveRoomInstance {
     /// reachable at 60Hz (a publication per tick for two years), so there is
     /// no refusal.
     pub fn advance(&mut self) {
-        self.0 = self.0.saturating_add(1);
+        *self = self.next();
+    }
+
+    /// The instance the next publication into this session will mint. A room
+    /// staged for that publication is stamped with it before `advance` runs,
+    /// so its occupants never carry the room they replace.
+    pub const fn next(self) -> Self {
+        Self(self.0.saturating_add(1))
     }
 }
+
+/// The live room whose construction built an entity.
+///
+/// Stamped at spawn by [`crate::lifecycle::SessionSpawnScope::apply_to`] when
+/// the scope carries an instance. A room that is staged for a publication
+/// carries the instance that publication will mint, not the instance that is
+/// live while it is staged. Whether a room's retirement sweeps the entity is
+/// still [`crate::lifecycle::RoomScopedEntity`]'s question; this says which
+/// live room that is.
+///
+/// It is a value, not an `Entity`, so a snapshot restores it without entity
+/// mapping. It is rollback state (`scope.room_instance`): a rewind that
+/// re-creates an occupant must give it back its room.
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct InRoomInstance(pub LiveRoomInstance);
 
 impl std::fmt::Display for LiveRoomInstance {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

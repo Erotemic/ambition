@@ -251,12 +251,34 @@ and no fallback to "the live room".
 
 | Cut | Work | Witness (control) | Deletes |
 | --- | --- | --- | --- |
-| 1 | Stamp room-scoped entities with the instance their plan was built for (`SessionSpawnScope` carries it, as it carries visibility) | staged occupants carry the pinned instance after publication (none before) | "which room" inferred from the moment of the sweep |
+| 1 ✅ | Stamp room-scoped entities with the instance their plan was built for (`SessionSpawnScope` carries it, as it carries visibility) | staged occupants carry the pinned instance after publication (none before) | "which room" inferred from the moment of the sweep |
 | 2 | Mid-room spawns inherit the source's instance; the transition roster is `RoomResident` of the departing instance | a resident of `#7` survives a publication that retires `#0` (the same entity stamped `#0` retires) | the unkeyed whole-world roster |
 | 3 | Geometry, platforms and overlay move onto the instance root; `CollisionWorld` takes the instance | a body in `#1` collides with `#1`'s wall (in `#0` it passes) | the session-root geometry field, `MovingPlatformSet` as a resource |
 | 4 | Pairwise queries (contacts, hits, perception, projectile victims) keyed by instance | identical local positions in two instances never touch (one instance does) | unkeyed body-contact vectors |
 | 5 | Live identity and room selection per instance; rollback rows instance-qualified; the save maps to a durable location key, never the ordinal | a second construction of one room in `#1` succeeds (a duplicate inside `#1` is still refused) | `RoomSet`'s private active index |
 | 6 | The Alice/Bob proof: two instances, two driven bodies; retiring `#1` leaves `#0` whole | the one-room profile runs the same systems | — |
+
+✅ **Cut 1 landed 2026-09-29.** `LiveRoomInstance` moved down to
+`ambition_platformer2d_shared_tangle::lifecycle` beside the new
+`InRoomInstance` (rollback row `scope.room_instance`, schema 264).
+`SessionSpawnScope::in_room` carries the instance, and `apply_to` stamps it
+on every entity spawned under the scope. The stamp is in `apply_to` and not
+in the room helpers, because most occupants get `RoomScopedEntity` inside a
+bundle passed to `insert_session_scoped`. The activation plan carries
+`#0`. `replace_live_world` takes `publishes_as`, the root's instance
+advanced once, and stamps the staged room with it. The verifier refuses a
+stale pin (`StaleRoomInstance`) before anything is torn down. Witnesses:
+`a_staged_room_belongs_to_the_live_room_its_publication_mints` (the
+control stages the same plan unpinned and stamps nothing),
+`a_room_staged_for_a_stale_live_room_is_refused`, and
+`every_room_occupant_belongs_to_the_live_room_it_was_built_for`
+(`switch_lab` → hub → back reads #0, #1, #2, with no stray). ⚠ **Not yet
+stamped, and cut 2's population:** mid-room spawns (drops, minions,
+projectiles, thrown items, encounter mobs, chests), whose scopes carry no
+instance; presentation `RoomVisual`s; and bodies. The player is
+session-scoped, so no road yet says which live room a body stands in, and a
+thrown item cannot inherit its thrower's room. Cut 2 measures that
+population before it keys the sweep.
 
 ⚠ Risks carried forward: every cut that changes a snapshot value bumps the
 schema; instance roots must be re-creatable by a rewind across a publication;

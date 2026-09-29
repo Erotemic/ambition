@@ -624,7 +624,11 @@ impl ControlSettings {
     /// [`Self::clamp_all`] runs this on every load, so the stored name is
     /// rewritten and a later rename needs no two-step chain.
     fn migrate_renamed_actions(&mut self) {
-        const RENAMED_ACTIONS: &[(&str, &str)] = &[("QuickAction", "Shield"), ("Dash", "Burst")];
+        const RENAMED_ACTIONS: &[(&str, &str)] = &[
+            ("QuickAction", "Shield"),
+            ("Dash", "Burst"),
+            ("Walk", "ShiftLayer"),
+        ];
 
         for over in &mut self.binding_overrides {
             if let Some((_, now)) = RENAMED_ACTIONS
@@ -926,6 +930,22 @@ mod tests {
             ],
             "the stored shield remap did not carry across the rename (or an \
              untouched action was disturbed on the way past)"
+        );
+    }
+
+    /// A remap saved when the shift layer was `Walk` still reaches it.
+    #[test]
+    fn a_stored_walk_remap_survives_the_shift_layer_rename() {
+        use bevy::prelude::KeyCode;
+
+        let mut settings = ControlSettings::default();
+        settings.binding_overrides = vec![BindingOverride::key("Walk", KeyCode::CapsLock)];
+        settings.clamp_all();
+
+        assert_eq!(
+            settings.binding_overrides,
+            vec![BindingOverride::key("ShiftLayer", KeyCode::CapsLock)],
+            "the stored walk remap did not carry across the rename"
         );
     }
 

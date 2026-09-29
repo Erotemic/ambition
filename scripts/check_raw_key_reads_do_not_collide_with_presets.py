@@ -28,7 +28,8 @@ with a `KeyCode::KeyM => "M"` match that turns a keycode into a label for the
 rebinding UI; grepping `KeyCode::(\\w+)` sweeps all 36 of those arms in beside
 the real bindings. MEASURED: that inflation alone produced a false finding —
 `KeyCode::KeyM` in the map menu, which no preset binds at all. ⇒ A binding is a
-STRUCT FIELD ASSIGNMENT, `field: KeyCode::X`, and that is what is matched.
+STRUCT FIELD ASSIGNMENT, `field: KeyCode::X` or `field: [KeyCode::X, ..]`, and
+that is what is matched.
 
     python3 scripts/check_raw_key_reads_do_not_collide_with_presets.py
 """
@@ -56,6 +57,8 @@ OWNER = "crates/ambition_input/"
 
 #: `field: KeyCode::X` — a binding. NOT `KeyCode::X => "X"`, which is a label.
 _BINDING = re.compile(r"[a-z_]+\s*:\s*KeyCode::([A-Za-z0-9]+)")
+#: A field that binds several keys to one action: `shift_layer: [KeyCode::A, KeyCode::B]`.
+_ARRAY_BINDING = re.compile(r"[a-z_]+\s*:\s*\[([^\]]*)\]")
 #: A raw read of a physical key.
 _RAW_READ = re.compile(
     r"\b(?:just_pressed|pressed|just_released)\s*\(\s*"
@@ -74,9 +77,10 @@ ADJUDICATED: dict[tuple[str, str], str] = {
         "⭐ A MODIFIER, NOT A SECOND MEANING. Read as "
         "`keys.pressed(ShiftLeft) || keys.pressed(ShiftRight)` to QUALIFY another "
         "hotkey (`developer_hotkeys.rs:82`), never as an action of its own. "
-        "`wasd_uipo` binds `ShiftLeft` to `modifier` and `ShiftRight` to `walk`, so "
-        "a developer holding shift also walks — which is what holding a walk key "
-        "does, and the two meanings do not contend for one press (read 2026-09-18)"
+        "Every preset binds both Shift keys to `shift_layer` (2026-09-29), so a "
+        "developer holding shift for a chord also holds the shift layer, and the "
+        "body walks. That is what holding shift does, and the two meanings do not "
+        "contend for one press (read 2026-09-18, re-read 2026-09-29)"
     ),
     ("ShiftRight", "crates/ambition_platformer2d_shared_tangle/src/developer_hotkeys.rs"): (
         "⭐ The same modifier read, other hand. See the `ShiftLeft` row "
@@ -114,7 +118,11 @@ def _preset_text(repo: Path) -> str:
 
 def bound_keys(repo: Path = REPO) -> set[str]:
     """Physical keys a shipped preset assigns to an action."""
-    return set(_BINDING.findall(_preset_text(repo)))
+    text = _preset_text(repo)
+    keys = set(_BINDING.findall(text))
+    for array in _ARRAY_BINDING.findall(text):
+        keys.update(re.findall(r"KeyCode::([A-Za-z0-9]+)", array))
+    return keys
 
 
 def label_only_keys(repo: Path = REPO) -> set[str]:

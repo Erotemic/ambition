@@ -145,3 +145,36 @@ fn a_direct_entry_player_walks_on_the_arrow_keys() {
     enter_until_walkable(&mut app);
     assert_arrows_walk_both_ways(&mut app, "direct entry");
 }
+
+/// Travel along x while `modifier` and `key` are both held.
+fn travel_while_chorded(app: &mut App, modifier: KeyCode, key: KeyCode) -> f32 {
+    Buttonlike::press(&modifier, app.world_mut());
+    let (travel, _, _) = travel_while_held(app, key);
+    Buttonlike::release(&modifier, app.world_mut());
+    app.update();
+    travel
+}
+
+/// Shift + an arrow walks: either Shift key, on the shipped default preset.
+///
+/// The control is the bare arrow, a run. Each Shift chord goes the other way
+/// from the move before it, so the three holds stay on one stretch of floor,
+/// and a walk must cover less ground than the run while it still moves. Until
+/// 2026-09-29 only Right Shift walked; Left Shift was unbound on this preset,
+/// so Left Shift + an arrow ran.
+#[test]
+fn shift_and_an_arrow_walk_where_the_arrow_alone_runs() {
+    let mut app =
+        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, false);
+    enter_until_walkable(&mut app);
+    let (run, _, _) = travel_while_held(&mut app, KeyCode::ArrowRight);
+    assert!(run > MIN_TRAVEL_PX, "control: a held Right arrow ran {run:.2} px");
+    for (shift, arrow) in [(KeyCode::ShiftLeft, KeyCode::ArrowLeft), (KeyCode::ShiftRight, KeyCode::ArrowRight)] {
+        let walk = travel_while_chorded(&mut app, shift, arrow).abs();
+        assert!(
+            walk > MIN_TRAVEL_PX && walk < run * 0.8,
+            "{shift:?} + {arrow:?} moved {walk:.2} px against a run of {run:.2} px: \
+             not a walk"
+        );
+    }
+}

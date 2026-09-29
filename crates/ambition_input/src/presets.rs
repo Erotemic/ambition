@@ -45,12 +45,13 @@ pub struct ActionKeys {
     /// Taunt. Chosen by the same rule as `grab`.
     pub taunt: KeyCode,
     pub interact: KeyCode,
-    /// Walk: hold to cap movement into the walk band.
-    ///
-    /// `ShiftRight` in every preset, unlike `grab` and `taunt`. Walk is a
-    /// modifier the hand rests on, so it goes under the little finger. `ShiftLeft`
-    /// is already `modifier` in three of the four presets.
-    pub walk: KeyCode,
+    /// The shift layer (`ShiftLayer`): both Shift keys, in every preset, so
+    /// either hand holds it. Held, Move is a walk.
+    pub shift_layer: [KeyCode; 2],
+    /// The raw modifier button. It is the attack key in every preset: Mary-O,
+    /// the one body that reads it, has no melee verb, so the key has one
+    /// meaning per body (see `arrows_zxc`). It left Left Shift on 2026-09-29,
+    /// when Shift became the shift layer.
     pub modifier: KeyCode,
     pub utility: KeyCode,
     pub map: KeyCode,
@@ -120,7 +121,7 @@ impl KeyboardPreset {
                 grab: KeyCode::KeyS,
                 taunt: KeyCode::KeyT,
                 interact: KeyCode::KeyF,
-                walk: KeyCode::ShiftRight,
+                shift_layer: [KeyCode::ShiftLeft, KeyCode::ShiftRight],
                 // The modifier slot gives Mary-O both run and fire: `modifier_held` is her
                 // run, `modifier_pressed` is her spark (see `mary_o::movement`). The
                 // `attack` binding on the same key is a separate action that is inert for
@@ -164,8 +165,8 @@ impl KeyboardPreset {
                 grab: KeyCode::KeyO,
                 taunt: KeyCode::KeyN,
                 interact: KeyCode::KeyE,
-                walk: KeyCode::ShiftRight,
-                modifier: KeyCode::ShiftLeft,
+                shift_layer: [KeyCode::ShiftLeft, KeyCode::ShiftRight],
+                modifier: KeyCode::KeyJ,
                 utility: KeyCode::KeyU,
                 map: KeyCode::Tab,
                 inventory: KeyCode::KeyV,
@@ -198,8 +199,8 @@ impl KeyboardPreset {
                 grab: KeyCode::KeyY,
                 taunt: KeyCode::KeyU,
                 interact: KeyCode::KeyF,
-                walk: KeyCode::ShiftRight,
-                modifier: KeyCode::ShiftLeft,
+                shift_layer: [KeyCode::ShiftLeft, KeyCode::ShiftRight],
+                modifier: KeyCode::KeyE,
                 utility: KeyCode::KeyG,
                 map: KeyCode::Tab,
                 inventory: KeyCode::KeyI,
@@ -232,8 +233,8 @@ impl KeyboardPreset {
                 grab: KeyCode::KeyY,
                 taunt: KeyCode::KeyN,
                 interact: KeyCode::KeyE,
-                walk: KeyCode::ShiftRight,
-                modifier: KeyCode::ShiftLeft,
+                shift_layer: [KeyCode::ShiftLeft, KeyCode::ShiftRight],
+                modifier: KeyCode::KeyP,
                 utility: KeyCode::KeyK,
                 map: KeyCode::Tab,
                 inventory: KeyCode::KeyV,
@@ -332,7 +333,9 @@ impl KeyboardPreset {
             Platformer2dInputActionMonolith::Interact,
             self.actions.interact,
         );
-        map.insert(Platformer2dInputActionMonolith::Walk, self.actions.walk);
+        for key in self.actions.shift_layer {
+            map.insert(Platformer2dInputActionMonolith::ShiftLayer, key);
+        }
         map.insert(
             Platformer2dInputActionMonolith::Modifier,
             self.actions.modifier,
@@ -745,6 +748,30 @@ mod tests {
                      slot advertises the verb — the action scheme derives it, the \
                      touch overlay draws a button for it — and a keyboard player \
                      cannot press it.",
+                    preset.id
+                );
+            }
+        }
+    }
+
+    /// Either Shift key holds the shift layer on every preset, and neither
+    /// has a second meaning. Until 2026-09-29 Left Shift was the raw modifier
+    /// on three presets and unbound on the fourth, so Shift + an arrow ran.
+    #[cfg(feature = "input")]
+    #[test]
+    fn both_shift_keys_hold_the_shift_layer_and_nothing_else_on_every_preset() {
+        for preset in KeyboardPreset::presets() {
+            let map = preset.input_map();
+            for shift in [KeyCode::ShiftLeft, KeyCode::ShiftRight] {
+                let actions: Vec<_> = map
+                    .buttonlike_bindings()
+                    .filter(|(_, binding)| binding.as_reflect().downcast_ref::<KeyCode>() == Some(&shift))
+                    .map(|(action, _)| *action)
+                    .collect();
+                assert_eq!(
+                    actions,
+                    vec![Platformer2dInputActionMonolith::ShiftLayer],
+                    "{:?}: {shift:?} is bound to {actions:?}",
                     preset.id
                 );
             }

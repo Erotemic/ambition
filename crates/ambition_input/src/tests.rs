@@ -182,7 +182,7 @@ mod the_walk_modifier {
         let mut state = ActionState::<Action>::default();
         state.set_axis_pair(&Action::Move, axis);
         if walk {
-            state.press(&Action::Walk);
+            state.press(&Action::ShiftLayer);
         }
         state
     }

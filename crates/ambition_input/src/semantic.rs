@@ -444,10 +444,10 @@ pub static ENGINE_ACTIONS: &[SemanticActionDef] = &[
         "Talk, open, use",
     ),
     engine(
-        "walk",
+        "shift_layer",
         ActionControlKind::Button,
         GAMEPLAY,
-        "Hold to walk instead of run",
+        "Hold Shift: move walks instead of runs",
     ),
     engine(
         "modifier",

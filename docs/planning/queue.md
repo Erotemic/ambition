@@ -107,6 +107,31 @@ ran on the wrong frame.
 commit each.
 **Blocked by:** nothing.
 
+### SWITCH-DRAIN-ORDER — the switch drain is not ordered after the press that writes it
+
+**Owner:** rollback scheduling. **Found 2026-09-28 by reading source, NOT
+measured.** A sibling of the lost-heal defect fixed in `f86b03189` and
+`ca8d55a16`: a `clear_message_on_rollback` message written LATER in the tick
+than its reader waits a tick, and a rewind to that tick clears it.
+
+`interact_ecs_actors_and_switches` writes `SwitchActivated` in
+`FeatureInteractionSet::Actuate`. Its one drain,
+`ambition_encounter::switches::drain_switch_activations`, is added to the sim
+schedule in `SwitchActivationDrained` (`crates/ambition_encounter/src/registry.rs`)
+with no phase and no edge to the writer; no `configure_sets` places that set.
+So the order between the press and the drain is whatever Bevy's executor picks.
+If the drain runs first, the activation is applied a tick late, and a rewind to
+that tick clears it (`message.switch_activated` is `message-clear`).
+
+**Next:** first a witness: a sync-test arm (`with_sync_test_rollback_settings(4, 10)`)
+that presses Interact on a switch and asserts the persisted switch flips once,
+with `rollback_health()`, and an arm that seeds the same flip from inside the
+sim as the control. Then pin `SwitchActivationDrained` after
+`FeatureInteractionSet::Actuate` (or place it in `GameplayEffects`, where
+`apply_switch_effects` already runs). ⚠ `request_authored_switch_commands`
+also reads `SwitchActivated`; order it with the drain.
+**Blocked by:** nothing.
+
 ### SYNC-POINT-SENSITIVE-RESIM — a command sync point moves the death-reset replay
 
 **Owner:** rollback determinism. **Found 2026-09-22** while moving the clock

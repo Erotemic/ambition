@@ -79,8 +79,9 @@ fn the_basement_dog_is_peaceful_and_roams_across_the_floor() {
 ///
 /// ⚠ A headless harness has no dialog box to confirm a choice in, so this runs
 /// the command the choice runs, through the shipped Yarn vocabulary, while the
-/// real conversation is live. `dialogue_lint` holds the authored option's
-/// command name and arity.
+/// real conversation is live.
+/// `ambition_content`'s `the_dogs_pet_is_a_conversation_choice` selects the
+/// authored option in the real interpreter and sees it run `<<pet>>`.
 #[test]
 fn talking_to_the_dog_offers_a_pet_that_holds_both_still_until_it_ends() {
     use ambition_platformer2d::characters::actor::BodyAnimFacts;

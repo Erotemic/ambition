@@ -1,759 +1,1384 @@
-# Runtime rigged sprite animation — disjoint plan for triage
+# Articulated body rigs and runtime part animation — implementation handoff
 
-**State:** DISJOINT / TRIAGE — this document does not change queue priority or commit to a migration.
+**State:** DISJOINT / TRIAGE — this document does not change queue priority. It is an implementation-ready design report based on repository discovery completed against `ac775a11351d` on 2026-09-29.
 
-**Purpose:** evaluate and, if evidence supports it, add an optional runtime character-presentation path that reuses rasterized body parts instead of storing every pose as a complete raster frame.
+**Purpose:** add an optional semantic body-rig abstraction for deterministic articulated geometry, collision, and attachments, plus an optional runtime character-presentation path that reuses rasterized body parts instead of storing every pose as a complete raster frame. Baked sprite sheets remain first-class. Ragdoll is a later optional pose provider, not part of the initial implementation.
 
-This plan is separate from the active planning queue on purpose. Triage it later against the asset-residency, presentation, composition and performance programs.
+This document intentionally contains the discovery work that an implementation agent would otherwise have to repeat. The implementation agent should verify that named symbols still exist after rebases, but should not begin with another architecture survey or asset-economics study.
 
 Related current owners:
 
 - [`render-animation-and-vfx.md`](render-animation-and-vfx.md) owns the simulation-to-presentation boundary and drawable scheduling;
-- [`asset-preparation-and-residency.md`](asset-preparation-and-residency.md) owns demand, preparation, device materialization, quality and residency;
+- [`asset-preparation-and-residency.md`](asset-preparation-and-residency.md) owns demand, preparation, device materialization, quality, and residency;
 - [`performance-and-iteration.md`](performance-and-iteration.md) owns runtime and memory evidence;
-- [`sprite-renderer.md`](sprite-renderer.md) and the sprite-renderer repository own authoring/publishing contracts;
+- [`sprite-renderer.md`](sprite-renderer.md) and the sprite-renderer repository own authoring and publishing contracts;
 - [`svg-component-character-migration.md`](svg-component-character-migration.md) covers component-oriented character authoring where it is already useful;
 - [`multiplayer-and-multiview.md`](multiplayer-and-multiview.md) owns view-local presentation requirements.
 
-## Motivation
+## Executive implementation decision
 
-Ambition currently publishes most character animation as baked sprite-sheet frames. The runtime path is efficient and simple: `CharacterSpriteAsset` owns one or more packed atlas pages, and `CharacterAnimator` selects a row/frame and updates one Sprite presentation.
+The repository already contains enough evidence to justify implementation. Do not add a discovery phase.
 
-That representation has an important cost. When many poses reuse the same head, torso, limbs, clothing, weapon or accessory, the same pixels are stored again in many packed frames. More poses, forms, costumes and NPC variations can therefore increase texture bytes much faster than they increase genuinely new art.
+Use two different production characters for two different proofs:
 
-This matters more as Ambition moves toward:
+1. **Pirate family — first runtime part-rendering prototype.**
+   - The authoring pipeline already captures a deduplicated component scene.
+   - All five measured pirates have 38 baked poses but only 21–22 registered rigid parts.
+   - A conservative representation that deduplicates only those existing rigid parts and leaves current dynamic limb/neck geometry as one per-frame overlay reduces estimated packed texture pixels by **75.6–76.3%**.
+   - The Pirate Admiral already has a real `Muzzle::Hand` gameplay consumer, so the same family can also prove one semantic hand attachment without inventing a toy customer.
 
-- a persistent world with many resident or recently used actors;
-- larger authored move and social-animation repertoires;
-- visible equipment and clothing variation;
-- multiview, where more presentation can be visible at once;
-- weaker target GPUs with tighter texture budgets;
-- runtime content that should not require loading a large full-pose sheet for every small variation.
+2. **Mary-O — first semantic `BodyRig` / collision prototype.**
+   - The shipping sprites already come from a production SVG rig. The renderer source explicitly states: **“THE SVG RIG IS MARY-O NOW.”**
+   - The runtime already has deterministic `BodyPoseClock`, move playback, authored hurtboxes, rollback-derived hurtbox resolution, and body-geometry consumers.
+   - Keep Mary-O visually baked during the first semantic-rig packets. The rig initially changes simulation geometry and attachments, not her rendering.
 
-The current asset-residency plan already records that oversampling and weak-tier texture cost are real. It also requires stage-specific evidence rather than assuming that every hitch is texture I/O. This proposal follows that rule. The working hypothesis is that repeated full-pose raster data is an important part of character texture residency and upload cost. The implementation must measure that hypothesis before a broad migration.
+Use a third role for Mary-O later:
 
-## Existing evidence in the repository
+3. **Mary-O — hybrid visual control.**
+   - Ordinary locomotion is a good rigid-rig candidate.
+   - Grow/shrink/transform/fire effects use bespoke compositing and should remain baked until hybrid clip support exists.
+   - Do not require one representation for every clip.
 
-This proposal does not start from a blank design.
-
-### The authoring system already supports plural representations
-
-The sprite renderer deliberately supports procedural drawing, shared parametric character families, rig documents, SVG parts, scene graphs, multipart bosses and hybrids. Its published runtime asset is the stable contract; a rig is explicitly not the universal authoring representation.
-
-Preserve that rule. Runtime part composition must not force every character authoring source into one skeleton format.
-
-### Ambition already has a working part-atlas precedent
-
-The generated `vanity_card_made_this_meme` path already proves the basic representation:
+The first visual runtime format is an **offline-solved transform flipbook**, not a runtime bone solver:
 
 ```text
-rig / choreography in Python
+authoring rig / component scene
+        ↓
+offline solve
+        ↓
+part atlas + resolved per-frame draw transforms
+        ↓
+Rust part player
+```
+
+This is already proven by the `vanity_card_made_this_meme` exporter and runtime player. Do not evaluate Python rigs, IK, SVG constraints, or vector deformation in the game.
+
+The first body-rig pose is **derived deterministic simulation state**, not canonical rollback state:
+
+```text
+PreparedBodyRigDefinition
++ MovePlayback / BodyPoseClock / facing
+        ↓
+BodyRigPose       # rebuilt before every simulation consumer
+```
+
+The renderer may consume a corresponding presentation realization, but rendered frames and draw transforms never become gameplay authority.
+
+## Why this work is worth doing
+
+Ambition currently publishes most character animation as baked sprite-sheet frames. That is simple and fast at runtime, but it repeats the same pixels across many poses. The cost grows quickly with:
+
+- larger move and social-animation repertoires;
+- open-world populations;
+- clothing and equipment variations;
+- multiview;
+- weak target GPUs;
+- runtime content where small visual changes should not require another large sheet.
+
+The repository measurements below show that this is not merely theoretical. For the current pirate family, a conservative part representation can remove about three quarters of the raw texture pixels without first solving fully articulated reusable limbs.
+
+There is a second architectural benefit that is independent of texture savings: **semantic articulated body geometry**. A deterministic body rig can provide heads, hands, feet, limbs, and attachment points while the visible actor remains one baked sprite. This gives collision and gameplay consumers a structured body without making the renderer authoritative.
+
+The target architecture is therefore:
+
+```text
+shared semantic body topology
+        │
+        ├── deterministic body pose
+        │       ├── collision / hurt geometry
+        │       ├── attachments
+        │       └── later physicalized pose provider
+        │
+        └── optional visual realization
+                ├── baked sheet
+                ├── part atlas + transform flipbook
+                └── hybrid per-clip realization
+```
+
+## Completed repository discovery
+
+### Current source snapshot
+
+Discovery was completed against repository commit:
+
+```text
+ac775a11351dddde78b88430aa901e7fe2f92bba
+```
+
+The source remains authoritative after rebases. If a named symbol moves, follow it rather than recreating the old path.
+
+### Pirate authoring already exposes deduplicated component scenes
+
+Key files:
+
+- `tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/targets/characters/_pirate_common.py`
+- `tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/targets/characters/_pirate_rig.py`
+- `tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/authoring/sheet_build.py`
+- `tools/ambition_sprite2d_renderer/tests/test_pirate_svg_fidelity.py`
+
+`_pirate_common.render_target` captures every pirate frame into one component scene. Registered rigid parts are emitted once and frames refer to them through placements. The fidelity test explicitly treats the pirate as a deduplicated rigid-paper-doll scene and checks that the component scene matches the source rendering.
+
+The current pirate animation rows are:
+
+| Clip | Frames |
+|---|---:|
+| idle | 6 |
+| walk | 8 |
+| slash | 6 |
+| taunt | 6 |
+| hurt | 4 |
+| death | 8 |
+| **total** | **38** |
+
+The current component scenes do **not** make every visible pixel a reusable rigid part. Limb and neck geometry still appears as per-frame dynamic geometry. The measured alternative below deliberately preserves that dynamic geometry as one per-frame overlay. This makes the savings estimate conservative and keeps the first runtime format compatible with current published art.
+
+### Measured pirate texture savings
+
+The table below compares the current generated baked sheets with a conservative alternative:
+
+```text
+unique registered rigid-part rectangles
++ one tight dynamic-overlay rectangle per frame
+```
+
+The alternative applies the current sheet's measured packing-overhead ratio to the tight alternative pixels. It therefore compares approximately equal packing behavior instead of comparing a tight part set against a padded baked atlas.
+
+`RGBA8-equivalent` means `atlas width × atlas height × 4`. The current character image-loading road does not explicitly configure mipmaps, so no mip overhead is included.
+
+| Character | Frames | Unique rigid parts | Rigid part uses | Current atlas | Current packed texels | Current RGBA8-equivalent | Tight current pose texels | Tight part + dynamic texels | Est. packed alternative | Est. RGBA8-equivalent | Est. texture-pixel saving |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| `pirate_raider` | 38 | 22 | 342 | 640×563 | 360,320 | 1.3745 MiB | 276,059 | 67,246 | 87,771 | 0.3348 MiB | **75.64%** |
+| `pirate_admiral` | 38 | 21 | 304 | 639×566 | 361,674 | 1.3797 MiB | 281,396 | 66,697 | 85,725 | 0.3270 MiB | **76.30%** |
+| `pirate_quartermaster` | 38 | 22 | 342 | 640×563 | 360,320 | 1.3745 MiB | 276,059 | 67,246 | 87,771 | 0.3348 MiB | **75.64%** |
+| `pirate_lookout` | 38 | 21 | 304 | 640×563 | 360,320 | 1.3745 MiB | 276,059 | 67,204 | 87,717 | 0.3346 MiB | **75.66%** |
+| `pirate_navigator` | 38 | 21 | 304 | 640×563 | 360,320 | 1.3745 MiB | 276,059 | 67,204 | 87,717 | 0.3346 MiB | **75.66%** |
+
+Current PNG disk sizes are 298,267, 310,272, 286,048, 293,361, and 297,146 bytes respectively. No alternative PNG disk-size claim is made because compression behavior has not been measured and is not the primary runtime-memory question.
+
+The draw-count tradeoff is also concrete:
+
+- Raider and Quartermaster average `342 / 38 = 9` registered rigid parts per frame plus one dynamic overlay: about **10 quads per actor**.
+- Admiral, Lookout, and Navigator average `304 / 38 = 8` registered rigid parts per frame plus one dynamic overlay: about **9 quads per actor**.
+
+The transform payload is small relative to texture pixels. If the first runtime draw record is kept at or below 32 bytes:
+
+- Raider / Quartermaster: `(342 + 38) × 32 = 12,160` bytes maximum uncompressed draw-table payload.
+- Admiral / Lookout / Navigator: `(304 + 38) × 32 = 10,944` bytes maximum.
+
+The texture term still dominates by a wide margin.
+
+**Implementation consequence:** the visual prototype is justified now. Do not rerun an asset-economics discovery study before implementing it. Validation should reproduce these numbers from the new publisher and explain material deviations.
+
+### Existing transform-flipbook precedent: vanity card
+
+Key files:
+
+- `tools/ambition_sprite2d_renderer/scripts/export_director_vanity_card.py`
+- `game/ambition_content/src/presentation/vanity_card_made_this_meme.rs`
+
+The exporter already establishes the exact first runtime strategy:
+
+```text
+Python owns rig / IK / choreography
         ↓
 offline solve
         ↓
 part images rasterized once
-+ packed part atlas
 + per-frame part placements
         ↓
-Rust runtime draws the placements
+Rust draws quads
 ```
 
-The exporter describes the runtime payload as a list of images plus per-frame `(part, centre, rotation)` placements. It verifies the baked placement table by recompositing the parts and pixel-diffing against the direct renderer output.
+Important existing behavior:
 
-The runtime card then loads one packed texture and reuses a fixed number of part slots while it plays the transform frames.
+- `PartAtlas` rasterizes each rigid part once.
+- The exporter stores resolved per-frame part positions and rotations.
+- `part_draws` explicitly rejects non-rigid vector-deforming parts instead of pretending they are rigid.
+- `--verify` recomposites exported placements and diffs them against the canonical direct renderer.
+- `pack_atlas` produces one packed image for all parts.
+- The Rust player allocates a fixed maximum number of part slots once, then reuses and hides them per frame rather than spawning and despawning per frame.
 
-This is valuable evidence because it separates two questions that should not be conflated:
+This path is UI rather than world-actor presentation. It proves the data model and publisher verification strategy. It does not prove world-actor portal integration or 100-actor CPU cost.
 
-1. **Must the engine evaluate the authoring rig?** No. The authoring tool can solve the rig offline.
-2. **Can the engine draw reusable parts instead of complete pose rasters?** Yes. One existing presentation already does it.
+**Resolved choice:** the first world format is a transform flipbook. Runtime skeletal/keyframe solving is deferred until a real customer requires interpolation or procedural pose synthesis.
 
-The first character prototype should reuse this principle before adding runtime IK or a general bone solver.
+### Mary-O already ships from a production SVG rig
 
-## Core decision
+Key files:
 
-Add support for **multiple runtime visual realizations**, not one mandatory replacement for sprite sheets.
+- `tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/targets/characters/mary_o_v2.py`
+- `tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/targets/characters/_mary_o_v2_model.py`
+- `tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/targets/characters/_mary_o_v2_svg_poc.py`
+- `tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/targets/characters/mary_o_v2_svg_poc.py`
+- `tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/targets/characters/_mary_o_v2_gameplay.py`
+- `tools/ambition_sprite2d_renderer/assets/mary_o_v2.svg`
 
-The target conceptual model is:
+The shipping source states:
+
+> THE SVG RIG IS MARY-O NOW.
+
+Frames come from the artist-edited SVG, including art, pivots, and z-order. The old procedural road seeded the SVG but no longer ships the frames.
+
+The current rig is small enough to publish as semantic topology without inventing a new skeleton:
+
+| Form/view | Bones | Notable parts / clips |
+|---|---:|---|
+| short side | 6 | far leg, near leg, torso, near arm, far arm, head; idle/walk/jump/skid/climb/swim |
+| short front | 6 | left/right legs, torso, head, left/right arms; death expression; death clip |
+| tall side | 6 | same basic side topology; idle/walk/jump/skid/crouch/climb/swim/crouch-walk/crouch-jump |
+| tall front | 6 | front topology plus death expression |
+| fire side | 7 | adds `torso_back` / back-wings relationship; locomotion plus fireball and transform-related content |
+| fire front | 7 | front topology plus back-wings and death expression |
+
+Normal body parts are sprite parts bound to bones with authored pivots. `RigDocument.sprite_raster` already provides reusable cropped rasters and pivots.
+
+Current baked Mary-O sheet baselines:
+
+| Form | Baked frames | Current atlas | Packed texels | Tight pose texels | Packing ratio | RGBA8-equivalent | PNG bytes |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| short | 25 | 618×514 | 317,652 | 268,331 | 1.184× | 1.212 MiB | 148,958 |
+| tall | 30 | 823×676 | 556,348 | 475,655 | 1.170× | 2.122 MiB | 233,795 |
+| fire | 32 | 908×797 | 723,676 | 651,394 | 1.111× | 2.761 MiB | 313,224 |
+| **combined** | **87** | — | **1,597,676** | **1,395,380** | — | **6.094 MiB** | **695,977** |
+
+No Mary-O part-atlas saving percentage is claimed yet. That measurement is not needed to choose Mary-O for the semantic body-rig proof.
+
+Why Mary-O is **not** the first visual prototype:
+
+- grow/shrink/transform/big-shrink use bespoke transition art;
+- fire effects use palette/effect compositing;
+- visual migration would immediately require hybrid clips.
+
+Why Mary-O **is** the first semantic prototype:
+
+- the production rig already exists;
+- gameplay already owns deterministic pose timing;
+- current authoring already publishes gameplay body/hurtbox information;
+- baked rendering can remain unchanged while semantic joints and collision are introduced.
+
+### Current deterministic hurtbox and pose authority
+
+Key files:
+
+- `crates/ambition_combat/src/hurtbox_resolution.rs`
+- `crates/ambition_combat/src/components/features.rs`
+- `crates/ambition_platformer2d_actor_monolith/src/character_runtime/mod.rs`
+- `crates/ambition_platformer2d_actor_monolith/src/features/mod.rs`
+- `crates/ambition_platformer2d_actor_monolith/src/rollback_registration.rs`
+
+Current semantic facts:
+
+- `AuthoredHurtboxes(HurtboxDoc)` is authored simulation data.
+- `BodyPoseClock { pose, elapsed_s }` is authoritative simulation state and is rollback registered.
+- Move-specific timing comes from `MovePlayback.t`.
+- `ResolvedHurtboxes` is rollback-derived and recomputed in simulation.
+- `resolve_body_hurtboxes` has no renderer dependency.
+- `DamageableVolumes` already accepts multiple exact combat volumes while exposing a coarse bounds union.
+- `CenteredAabb` / the body envelope already serves the coarse actor footprint role.
+
+The current scheduling road is approximately:
 
 ```text
-semantic actor presentation
+CombatSet::Playback
         ↓
-semantic animation / clip request
+advance_body_pose_clocks
         ↓
-visual realization
-        ├── baked sheet
-        ├── rigged parts
-        └── hybrid
+resolve_body_hurtboxes          # BodyHurtboxesResolved
+        ↓
+refresh_body_damageable_volumes
+        ↓
+CombatSet::Resolve
 ```
 
-The semantic animation authority stays above all three realizations.
+The larger combat ordering is:
 
-A body may ask for `run`, `idle`, an authored move clip, a social pose or another semantic animation. The presentation implementation decides how to draw that request. Gameplay must not care whether the result came from one atlas frame or twelve reusable parts.
+```text
+Trigger → Playback → Materialize → Resolve → Settle
+```
+
+**Resolved choice:** `BodyRigPose` is deterministic derived simulation state. Rebuild it after `Playback` and before every consumer. Because attachments can affect projectile materialization, the rig-pose publication must be available before `Materialize`, not merely before `Resolve`.
+
+A suitable schedule shape is:
+
+```text
+CombatSet::Playback
+        ↓
+advance_body_pose_clocks
+        ↓
+resolve_body_rig_pose            # BodyRigPoseResolved
+        ├── rig attachment consumers before Materialize
+        └── rig hurtbox resolver
+                ↓
+CombatSet::Materialize
+        ↓
+refresh_body_damageable_volumes
+        ↓
+CombatSet::Resolve
+```
+
+Exact Bevy set wiring should preserve the repository's existing combat set ownership. Do not create a parallel schedule.
+
+`BodyRigPose` itself should be recorded in rollback documentation as derived state, not serialized canonical state. If a later pose provider adds future-affecting canonical state, that new state must be registered separately.
+
+### Character authoring, preparation, and construction seam
+
+Key files:
+
+- `crates/ambition_characters/src/actor/definition.rs`
+- `crates/ambition_characters/src/prepared.rs`
+- `crates/ambition_platformer2d_actor_spawn/src/character_body.rs`
+
+Current architecture:
+
+- `CharacterDefinition` owns authored character facts such as sheet, body source, and hurtboxes.
+- `PreparedCharacterDefinition` / prepared overrides are immutable admitted runtime facts.
+- `CharacterBodyBlueprint` carries construction-ready facts.
+- `grant_prepared_character_body` is the one body-grant seam.
+- `GrantedBodyFacts` tracks what the worn-character projection placed on a body and retracts those facts when identity changes.
+
+**Resolved ownership:** semantic rig data belongs with character semantics in `ambition_characters`, not in `ambition_render`, `ambition_sprite_sheet`, or Python authoring code.
+
+Add optional semantic rig data to the authored/prepared character definition. Validate it during preparation. Carry it through `CharacterBodyBlueprint`. Grant it in the same construction batch. Add its provenance to `GrantedBodyFacts` so re-wearing another character removes outgoing rig facts correctly.
+
+Do not add a system that attaches a rig one tick after construction.
+
+The runtime format must be serialized/published content. Rust must not import SVG or Python rig semantics directly.
+
+### First real attachment customer already exists: `Muzzle::Hand`
+
+Key files:
+
+- `crates/ambition_characters/src/brain/action_set/mod.rs`
+- `crates/ambition_platformer2d_actor_monolith/src/features/ecs/brain_effects.rs`
+- `crates/ambition_mount/src/lib.rs`
+- `game/ambition_content/assets/data/character_catalog.ron`
+- `game/ambition_app/tests/admiral_gun_sword.rs`
+
+The semantic action vocabulary already contains `Muzzle::Hand { ahead }`.
+
+Current `muzzle_world_pos` resolves that semantic request through `ambition_mount::rider_hand_world_pos_in_frame(...)`, which uses the generic `HAND_OFFSET_NORM = (0.18, -0.05)` heuristic. Its own comment says the offset is sprite-layout-derived but must live in simulation because projectile origin is gameplay state.
+
+The Pirate Admiral's gun-sword action already authors a hand muzzle. This is the correct first non-collision body-rig customer.
+
+**Resolved migration:**
+
+```text
+Muzzle::Hand
+        ↓
+if body has BodyRigPose hand attachment:
+    use semantic hand attachment + ahead
+else:
+    use existing compatibility heuristic
+```
+
+The fallback remains for non-rigged characters. Do not remove `HAND_OFFSET_NORM` until all supported hand-muzzle users have a semantic hand attachment.
+
+### Runtime character presentation seam
+
+Key files:
+
+- `crates/ambition_sprite_sheet/src/character/mod.rs`
+  - `CharacterSpriteAsset`
+  - `CharacterSpritePage`
+  - `build_character_presentation_with_render_size`
+- `crates/ambition_sprite_sheet/src/character/animator.rs`
+  - `CharacterAnimator`
+- `crates/ambition_render/src/rendering/actors/mod.rs`
+  - `character_render_basis`
+  - `bind_worn_character_presentation`
+- `crates/ambition_render/src/rendering/actors/animation.rs`
+  - `apply_character_frame`
+  - `animate_characters`
+- `crates/ambition_render/src/rendering/mod.rs`
+  - `BodyOwnedDrawableSync`
+- `crates/ambition_sim_view/src/anim_index.rs`
+  - `ActorAnimIndex`
+- `crates/ambition_sim_view/src/pose_view.rs`
+  - `BodyPoseView`
+
+Current actors use one `Sprite` plus `CharacterAnimator`. `CharacterAnimator` already owns:
+
+- semantic `CharacterAnim` selection;
+- optional clip slot/phase;
+- move-normalized clip phase;
+- facing/mirror behavior;
+- frame time;
+- render basis.
+
+`ActorAnimIndex` and `BodyPoseView` are presentation/read-model seams. Headless simulation does not pay for sprite assets.
+
+**Resolved design:** do not turn `CharacterAnimator` into a universal sheet/rig union. Add a sibling rigged realization type, but share semantic clip/facing/timing helpers above the realization boundary. Do not create a second animation-policy vocabulary.
+
+### Asset demand, quality, and residency seam
+
+Key files:
+
+- `crates/ambition_platformer2d_actor_monolith/src/character_sprites/assets.rs`
+- `crates/ambition_sprite_sheet/src/character/assets.rs`
+- `crates/ambition_sprite_sheet/src/game_assets/mod.rs`
+
+Current architecture already supplies:
+
+- lazy/demanded character sheet realization;
+- requested and resolved quality tiers;
+- strong-handle release for eviction;
+- `load_sheet_image` as the image-demand funnel.
+
+**Resolved design:** `RiggedSpriteAsset` must use the same demand/readiness/quality/retirement authority. Do not add a second cache or a separate quality selector. Use the existing image-loading funnel for part-atlas pages.
+
+Track texture bytes and transform metadata separately in telemetry.
+
+### Portal integration
+
+Key file:
+
+- `crates/ambition_render/src/rendering/portal_compositing.rs`
+  - `publish_portal_compositing_candidates`
+
+Current portal candidate publication reads a top-level sprite or declared mesh and publishes one world-space `PortalCompositingCandidate { drawn_centre, drawn_half }` per drawable. Child sprites are deliberately excluded because their local `Transform` is not a valid pre-propagation world transform.
+
+**Resolved first implementation:** the rig presentation owner publishes **one union world-space drawn AABB** covering all currently visible part instances. Portal composition continues to see one actor-level candidate.
+
+Do not publish one portal candidate per body part.
+
+This keeps initial portal fidelity equivalent to the current one-rectangle full-sprite treatment. Per-part portal clipping is later work only if visible artifacts justify it.
+
+### Multiview integration
+
+Relevant concepts:
+
+- `ambition_sim_view::LocalView`
+- `LocalViewId`
+- `PresentsView`
+- `PresentedForView`
+- `crates/ambition_render/src/rendering/view_isolation.rs`
+
+**Resolved design:** world rig parts belong to one shared world presentation. Multiple cameras view the same world drawables. Do not create one rig pose, animator, or part population per `LocalView`.
+
+Only genuinely view-local UI/presentation receives `PresentedForView`.
+
+TwinTrack split view is the acceptance witness that visible part entity/instance count does not multiply merely because the scene has two views.
 
 ## Architectural rules
 
-### 1. Presentation only
+### One semantic body authority
 
-Runtime rig state is presentation state.
+A rigged body's deterministic pose is a simulation fact. The renderer consumes it or consumes presentation data derived from the same semantic animation state. The renderer never tells simulation where a hand, head, or hurt volume is.
 
-Do not derive simulation authority from bones or part transforms. In particular, do not move these authorities into the rig:
-
-- body size;
-- collision shape;
-- hurtboxes;
-- attack geometry;
-- movement/contact state;
-- item custody;
-- rollback gameplay state.
-
-Those facts keep their current semantic owners.
-
-A visible host may omit the rig renderer without changing simulation outcome.
-
-### 2. Keep semantic pose selection above representation
-
-Current semantic animation selection and `BodyPoseView` / presentation facts remain the input.
-
-Do not introduce a second gameplay-facing vocabulary such as `RigPose::Run` beside `CharacterAnim::Run` when they mean the same thing.
-
-The realization layer maps the current semantic request to either a baked row/clip or a part-animation clip.
-
-### 3. Do not make authoring rigs the runtime contract
-
-The sprite renderer may use bones, SVG groups, procedural code, direct drawing or another method.
-
-A runtime part animation consumes a **published runtime product**. It does not import authoring-time Python concepts into Rust.
-
-The first product should be resolved rigid-part placement data. A later product may contain bones/keyframes if runtime interpolation proves valuable.
-
-### 4. Avoid one ECS entity per body part as the final design
-
-A proof spike may temporarily use ordinary child sprites to establish correctness and collect measurements. That is not the intended shipping architecture.
-
-The shipping path should treat a rigged actor as one presentation owner that emits N part draw instances. The parts should share atlases/materials where possible and should not create N independent gameplay/presentation lifetimes.
-
-### 5. Use the existing quality and residency authorities
-
-Rigged parts do not get a second quality selector, texture cache or residency policy.
-
-Part atlases participate in the same requested/resolved quality-tier and asset-demand architecture as baked character sheets.
-
-### 6. Preserve plural animation techniques
-
-Some animation is cheaper and better as baked art.
-
-The engine should support:
+Preferred flow:
 
 ```text
-rigid repeated motion       → reusable parts
-costume/equipment variation → reusable parts
-ordinary social motion      → reusable parts
-smears / squash / deformation / perspective redraw → baked frames
-mixed effect                → hybrid
+authored / prepared rig definition
+        ↓
+rollback-authoritative pose clocks and move state
+        ↓
+derived BodyRigPose
+        ├── collision
+        ├── attachments
+        └── presentation realization
 ```
 
-Do not convert a character or clip when the part representation saves little or damages the visual result.
-
-## Proposed runtime representation
-
-Names below are descriptive placeholders. Triage may rename them to fit the current asset vocabulary.
-
-### `CharacterVisualRealization`
-
-A character presentation declaration should be able to resolve to one of:
+Do not introduce:
 
 ```text
-BakedSheet(CharacterSpriteAsset)
-RiggedParts(RiggedSpriteAsset)
-Hybrid(HybridCharacterVisual)
+render sprite transforms
+        ↓
+read back into gameplay
 ```
 
-This does not require a public Rust enum with exactly these names. The important rule is that the semantic character/animation API does not fork by representation.
+### Separate topology, pose, and visual realization
+
+Use three concepts:
+
+```text
+BodyRigDefinition       # semantic topology / attachments / collision parts
+BodyRigPose             # current deterministic resolved transforms
+RiggedSpriteAsset       # optional visual atlas + flipbook draws
+```
+
+A character can have `BodyRigDefinition` without `RiggedSpriteAsset`.
+
+That is the Mary-O first proof:
+
+```text
+Mary-O
+    semantic body rig: yes
+    rig-based collision: yes
+    baked sprite renderer: unchanged
+```
+
+### Do not replace movement/body physics in the first migration
+
+The initial body rig drives:
+
+- hurt/damage geometry;
+- attachment points;
+- optional semantic hit-part metadata.
+
+It does **not** replace:
+
+- `BodyBaseSize`;
+- stance/locomotion collision;
+- whole-body movement physics;
+- `CenteredAabb` broad-phase identity.
+
+Those systems have different gameplay constraints. Do not turn this project into a character-controller rewrite.
+
+### Keep broad phase coarse
+
+Retain the coarse body envelope:
+
+```text
+attack volume
+    ↓
+coarse actor overlap?
+    no → done
+    yes
+      ↓
+exact rig hurt parts
+```
+
+The rig improves articulation and semantic placement. It does not require pixel-perfect collision.
+
+Use simple shapes such as circles, capsules, and boxes.
+
+### Move-specific authored overrides remain legitimate
+
+Current `HurtboxDoc` can describe move- or pose-specific behavior. A semantic body rig should replace the generated/default body silhouette for a migrated character, not erase deliberate move-specific exceptions.
+
+Use one explicit precedence rule:
+
+```text
+move-specific authored hurtbox override
+        > rig-derived default articulated hurt geometry
+        > legacy static/default compatibility geometry
+```
+
+Do not run two same-priority default hurtbox authorities and reconcile them.
+
+### Part IDs are optional combat metadata
+
+A detailed hit may optionally identify:
+
+```text
+body = actor 72
+part = Head
+contact = ...
+```
+
+This can support weak points, headshots, shields, breakable appendages, or localized reactions.
+
+Do not require every limb to have independent health. The normal damage model remains actor-owned.
+
+### Pose authority changes explicitly for ragdoll
+
+Normal animated simulation:
+
+```text
+rollback gameplay state
+→ animation/body-pose clocks
+→ BodyRigPose
+```
+
+A later gameplay-authoritative ragdoll would instead use:
+
+```text
+rollback articulated physics state
+→ BodyRigPose
+```
+
+Do not let animation and ragdoll both write the same joint transforms.
+
+Do not add a general `BodyPoseAuthority` enum until a second pose provider actually exists. The first implementation has one provider: animated deterministic pose resolution.
+
+## Semantic body-rig data model
+
+The exact Rust spelling can follow repository conventions, but preserve these responsibilities.
+
+### `BodyRigDefinition`
+
+Prepared immutable semantic data owned by the character definition.
+
+Minimum content:
+
+```text
+BodyRigDefinition {
+    joints: stable semantic joint ids + parent topology,
+    clips/poses: resolved local transforms or references to prepared pose samples,
+    attachments: named semantic anchors bound to joints,
+    hurt_parts: optional simple collision parts bound to joints,
+}
+```
+
+Do not include texture handles, materials, atlas rectangles, or Python/SVG concepts.
+
+Stable semantic joints should be typed/string-stable content IDs, not ECS entity IDs.
+
+### `BodyRigPose`
+
+Derived per-body simulation state:
+
+```text
+BodyRigPose {
+    resolved joint transforms in body-local simulation space,
+    resolved semantic attachment points,
+    optional resolved part transforms needed by collision,
+}
+```
+
+It is rebuilt from prepared rig data plus authoritative move/pose clocks before consumers.
+
+Do not persist it in saves as independent truth.
+
+Do not make it a presentation-only component if simulation reads it.
+
+### Mary-O minimal first topology
+
+Publish the side-view production rig as the first semantic body topology:
+
+```text
+root / feet origin
+├── torso
+├── head
+├── far_leg
+├── near_leg
+├── far_arm
+└── near_arm
+```
+
+For fire form, preserve the existing additional back/torso relationship needed by the authored rig.
+
+First semantic attachments:
+
+```text
+head
+hand_near
+hand_far
+foot_near
+foot_far
+```
+
+These can be published from existing bone endpoints/pivots. Do not invent runtime image analysis.
+
+First collision-part set should be deliberately small:
+
+```text
+head   → circle or capsule
+torso  → capsule / rounded box
+legs   → two simple capsules
+```
+
+Arms can remain outside default hurt geometry initially if adding them changes Mary-O's current damage envelope unnecessarily. The point is to prove articulated default geometry without broadening damage semantics.
+
+### Facing
+
+Keep one facing authority.
+
+`BodyRigPose` resolves semantic left/right or near/far attachments according to body facing. Presentation mirroring consumes the same facing result.
+
+Do not infer gameplay-facing from a flipped sprite transform.
+
+## Runtime visual data model
 
 ### `RiggedSpriteAsset`
 
-The minimum runtime product needs:
+The first published visual asset is a transform flipbook.
+
+Required fields:
 
 ```text
-part atlas page(s)
-part rectangle for each part
-part pivot/origin
-logical character render basis
-clip table
-per-clip timing
-per-frame or per-keyframe part transforms
-part visibility
-part draw order / z
-optional tint / variant selector if required
-quality-tier identity
+RiggedSpriteAsset {
+    atlas_pages,
+    parts: [
+        atlas page,
+        atlas rect,
+        authored pivot,
+    ],
+    clips: {
+        semantic clip id → frame sequence,
+    },
+    frames: [
+        ordered draws,
+    ],
+    frame timing,
+    logical render basis / feet anchor,
+    quality-tier metadata,
+}
+
+PartDraw {
+    part_index,
+    local centre,
+    rotation,
+    scale / size,
+    z order,
+}
 ```
 
-A resolved part instance needs only presentation data such as:
+Use a compact runtime index such as `u16` for part selection when practical. Keep the packed runtime draw record at or below 32 bytes unless alignment or a demonstrated requirement makes that impossible.
+
+A missing part draw means the part is hidden for that frame.
+
+### Dynamic overlays are valid first-class draws
+
+For the pirate first implementation, current per-frame dynamic limb/neck geometry should be rasterized as one dynamic-overlay atlas entry per frame and included as one normal draw.
+
+Do **not** block the project on converting every current dynamic curve into a reusable rigid limb.
+
+The initial savings already exceed 75% without doing that work.
+
+Later publisher work can convert more dynamic geometry into reusable parts if useful.
+
+### Semantic animation remains above visual realization
+
+Keep current semantic concepts such as `CharacterAnim`, clip slot/phase, move-normalized progress, and facing.
+
+The realization boundary chooses:
 
 ```text
-part index
-translation
-rotation
-scale or displayed size
-z / draw order
-visibility
+baked CharacterSpriteAsset
+or
+RiggedSpriteAsset
 ```
 
-Do not include authoring-only IK constraints unless a later runtime-solver phase proves that they are needed.
+Do not introduce `RigAnim::Run`, `RigAnim::Jump`, etc. as a second semantic vocabulary.
 
-### Representation level 1 — transform flipbook
+### First world renderer uses fixed reusable part slots
 
-Start here.
+Use the vanity-card strategy for the first world implementation:
 
-The authoring tool solves the rig at publish time and writes the final part placements for each animation sample. Runtime does no bone solving.
+- create one rigged presentation owner;
+- allocate a fixed maximum number of child `Sprite` slots needed by the asset;
+- reuse/hide those slots as frames change;
+- put parts on one atlas/material where practical;
+- do not spawn/despawn child entities every frame.
 
-Advantages:
+These child sprites are disposable presentation objects, not semantic body parts or gameplay entities.
 
-- captures most texture deduplication benefit;
-- low semantic risk;
-- exporter can verify exact visual equivalence;
-- easy comparison with baked frames;
-- no runtime IK or constraint system;
-- deterministic presentation data;
-- simple authoring/runtime ownership boundary.
+This is the lowest-risk implementation because the repository already has the same pattern in production UI and Bevy can batch sprites sharing texture/material state.
 
-The existing vanity-card exporter is the direct precedent.
+Do **not** build a custom render-extraction pipeline before measuring the fixed-slot world path.
 
-### Representation level 2 — keyframed part transforms
+If runtime validation shows that child-entity/extraction cost is unacceptable at open-world population sizes, a later optimization can replace the realization with a compact extracted part-instance buffer without changing `RiggedSpriteAsset`, `BodyRigDefinition`, or semantic animation ownership.
 
-If frame tables are large or smoother interpolation is valuable, allow the publisher to reduce resolved frames into keyframes.
+### Portal bounds come from the owner
 
-Runtime interpolates translation, rotation and scale between keys.
+Because child sprites are excluded from the current pre-propagation portal candidate query, the rigged presentation owner computes one union draw AABB from current part transforms and publishes one portal candidate.
 
-This remains a part-transform player. It is not yet a skeletal solver.
+Do not make every child part a portal entity.
 
-Measure CPU cost and visual equivalence before making interpolation the default.
+### Hybrid visual realization
 
-### Representation level 3 — skeletal clips, only if a customer needs them
-
-A later rig product may contain a small bone hierarchy and part bindings when runtime bone evaluation buys something concrete:
-
-- continuous aiming;
-- procedural look/gesture overlays;
-- runtime equipment attachment;
-- a large reduction in animation transform data;
-- procedural NPC variation that cannot be efficiently published as resolved frames.
-
-Do not add general IK, constraints or runtime vector deformation merely because the authoring tools have them.
-
-## Hybrid clips
-
-A sophisticated character should not need one representation for every animation.
-
-The long-term target should allow a clip or visual layer to choose its realization:
+Long-term clips may choose different realizations:
 
 ```text
-idle / walk / run / talk   → part animation
-special attack smear       → baked clip
-transform effect           → baked clip
-ordinary body + sword glow → part body + effect overlay
+idle / walk / run / talk   → part flipbook
+transform / smear          → baked clip
+body + weapon glow         → part body + effect overlay
 ```
 
-There are two possible implementation shapes:
+Mary-O is the first hybrid control. Do not migrate her visual representation until Pirate proves the world part-player road.
 
-1. a character has one primary realization and explicit baked override clips;
-2. each published clip declares a realization kind.
+The first hybrid implementation should select realization per prepared clip, not by runtime heuristics.
 
-Do not choose between them until the first prototype shows the simpler data model.
-
-## Render integration
-
-### One visual owner, many draw instances
-
-The preferred render road is:
-
-```text
-semantic pose / animation request
-        ↓
-rigged character presentation state
-        ↓
-resolve current part instances
-        ↓
-render extraction
-        ↓
-batched quads from shared part atlas
-```
-
-The CPU-side character should own one compact animation state. The renderer should emit a dense list of part instances.
-
-Do not give every part an independent update system.
-
-### Batching
-
-The renderer should try to keep one character's parts on one atlas/material where practical.
-
-Measure:
-
-- extracted instances;
-- actual draw calls / batches;
-- CPU extraction time;
-- transform-update time;
-- GPU vertex/instance bytes;
-- alpha overdraw.
-
-A reduction in texture memory is not automatically a win if it creates unacceptable CPU/render overhead.
-
-### Draw order
-
-Part order must be authored data.
-
-Support stable default z per part and per-frame/keyframe overrides only where needed. Do not reconstruct anatomy order from part names in the engine.
-
-### Facing and mirroring
-
-The part player must obey the same semantic facing result as baked presentation.
-
-Mirroring should happen at the realization boundary without introducing a second facing authority. If an asymmetric rig has distinct left/right art, the published asset must declare that explicitly just as current sheets can use authored mirror rows.
-
-### Portal and multiview presentation
-
-Rigged characters must participate in the current body-owned-drawable finalization and portal-compositing architecture.
-
-Do not solve portals by flattening the rig back into a temporary full-body texture each frame.
-
-The design must establish how N part instances become portal-aware drawable geometry without making each part an authoritative ECS object. Likely options are:
-
-- publish an array of `DeclaredFrame`-like part drawables owned by one body presentation;
-- extract virtual per-part draw records directly into the portal/view presentation stage;
-- share one body clip relation where mathematically valid and clip the resulting part instances in that view.
-
-This is a required architecture checkpoint before production migration because multiview will multiply presentation cost and portal relationships are per pane/drawable.
-
-## Authoring and publishing
+## Authoring and publishing contract
 
 ### Preserve authoring plurality
 
-The sprite renderer remains free to create a character with procedural Python, SVG components, a rig document or another family.
+The sprite renderer may continue to use:
 
-A target becomes eligible for runtime part animation only when its publisher can identify reusable rigid raster parts and publish their transforms.
+- SVG rigs;
+- procedural Python;
+- component scenes;
+- rig documents;
+- bespoke composites;
+- hybrids.
 
-### Publish resolved runtime data
+The game consumes stable published products only.
 
-The publisher should emit:
+### Pirate part publisher
 
-```text
-part images
-→ pack into one or more part-atlas pages
+Generalize the existing pirate component-scene output into a published runtime visual asset.
 
-animation source
-→ evaluate poses / rig / procedural placement
-→ emit resolved runtime transforms
+For each frame:
 
-runtime manifest
-→ part metadata
-→ clip timing
-→ frame/key transforms
-→ quality/source metadata
-```
+1. resolve all registered rigid placements;
+2. rasterize registered parts once into tight part rasters;
+3. rasterize remaining dynamic geometry into one tight per-frame overlay;
+4. pack parts and overlays into the part atlas;
+5. publish ordered local transforms relative to the same logical render basis used by the baked sheet;
+6. preserve current z-order;
+7. publish the same semantic clip row names and timing.
 
-The engine should not need the source SVG or Python rig document.
-
-### Rigid parts first
-
-The first exporter supports rigid sprite parts only.
-
-A part that deforms with a bone, uses vector geometry that changes shape, or needs another unsupported operation causes that clip/character to stay baked or use a hybrid fallback.
-
-Do not rasterize an incorrect rigid approximation to make the new road universal.
-
-### Pixel-equivalence verification
-
-Reuse the vanity-card verification rule.
-
-For a published transform animation:
-
-1. render the canonical source frame;
-2. composite the exported runtime parts with the exported transforms;
-3. compare the images;
-4. report pixel/alpha differences and fail when they exceed the selected tolerance.
-
-This test belongs primarily in the sprite-renderer repository because it compares the publisher to its own source representation.
-
-## Measurement before migration
-
-The first implementation packet should be an evidence generator, not a renderer rewrite.
-
-Create a reproducible report for representative characters.
-
-### Current baked representation
-
-Record at least:
-
-- number of semantic rows/clips;
-- number of physical frames;
-- atlas page count;
-- packed rectangle pixels;
-- source file bytes;
-- decoded CPU bytes where available;
-- estimated or measured device-resident bytes;
-- requested/resolved quality tier;
-- load/decode/materialization timing from the existing asset stages.
-
-Use actual packed frame rectangles. Do not compare against untrimmed logical frame width × height and claim that as current cost.
-
-### Candidate part representation
-
-Record at least:
-
-- number of unique raster parts;
-- packed part-atlas pixels;
-- part-atlas page count;
-- transform data bytes;
-- average visible parts per frame;
-- maximum visible parts per frame;
-- number of z/order changes;
-- percentage of frames/clips that require baked fallback;
-- estimated device-resident texture bytes.
-
-### Runtime prototype measurements
-
-With equivalent visible actors, record:
-
-- asset demand-to-ready time;
-- texture upload/materialization time;
-- resident image bytes;
-- presentation CPU time;
-- extraction CPU time;
-- number of extracted part instances;
-- render batches/draw calls if available;
-- frame time on a representative desktop and a weaker profile.
-
-Run at more than one actor count. A useful shape is 1, 10, 50 and 100 visible actors, adjusted to the practical benchmark environment.
-
-Do not select a hard required savings ratio before these measurements exist.
-
-## Representative candidates
-
-Use at least three kinds of character.
-
-### Positive candidate — an existing rigid-part/rig-document character
-
-Prefer a shipped actor whose current authoring already exposes reusable rigid parts. `player_robot_v3` is a strong candidate because current authoring already uses rig-document machinery in related tooling and it is a real gameplay character.
-
-The pirate family is also useful because it reuses shared parametric anatomy across several shipped characters and represents the population/variation case this design aims to improve.
-
-### Negative or hybrid candidate
-
-Choose one character or boss with meaningful deformation, silhouette changes, smears or pose-specific redraws.
-
-The purpose is to prove that the architecture can decline to rig a bad candidate and can retain baked clips without special gameplay code.
-
-### Population candidate
-
-Choose several visually related NPCs or variants. Measure whether shared parts/palettes/accessories can reduce incremental residency per actor type without creating a combinatorial authoring system.
-
-## Asset identity, demand and residency
-
-### One semantic visual demand
-
-A character demand should resolve its selected runtime representation through one presentation asset declaration.
-
-Do not make gameplay decide whether to demand `foo_sheet` or `foo_rig`.
-
-### Quality variants
-
-Part atlases should use the same active texture-quality authority as baked sheets.
-
-Possible publishing choices include:
-
-- publish each part atlas at the existing quality tiers;
-- publish high-quality parts and generate the same lower tiers during the normal variant pipeline.
-
-Do not invent a runtime-only rig quality scale.
-
-### Residency accounting
-
-The asset census should report rigged presentation with the same lifecycle stages:
+Add a publisher verification mode equivalent to the vanity-card `--verify` road:
 
 ```text
-declared / demanded
-CPU prepared
-device materialized
-resident use / first draw
+published atlas + draw table
+        ↓
+offline recomposition
+        ↓
+pixel diff against canonical direct pirate renderer
 ```
 
-The report must count part-atlas bytes and transform metadata separately so texture savings are visible without hiding CPU-side growth.
+The first visual packet is not complete until all 38 frames of the selected pirate pass this parity check.
 
-### Eviction
+### Mary-O semantic rig publisher
 
-Dropping the realized rigged asset must release its strong image handles just as dropping a `CharacterSpriteAsset` releases baked pages.
+Use the existing production SVG rig as the source of semantic topology and sampled pose transforms.
 
-Do not add a permanent global part cache without an explicit residency owner.
+Publish a runtime-neutral body-rig product alongside existing baked sheet products. Do not make Rust parse the SVG.
 
-## Interaction with texture compression
+Use side-view topology for the first semantic gameplay product. Front death art can remain visual-only.
 
-GPU-native texture compression is complementary to this proposal.
+The published semantic product must be independent of texture tier. Collision and attachment positions are gameplay facts and must not move when Full/Half/Potato rendering changes.
 
-A separate measurement may show that BC/KTX2/Basis-style device formats reduce the immediate problem enough that runtime rigs have lower priority. That does not invalidate the part representation; the same compression can apply to part atlases.
+### Prepared-generation compatibility
 
-Keep the questions separate:
+Semantic rig definitions and visual rig assets are prepared-generation content.
+
+The active prepared generation chooses the immutable rig data used by new/reconstituted bodies. Do not mutate live topology row-by-row during asset reload.
+
+Follow existing prepared-content generation semantics when this plan is implemented after that architecture is available.
+
+## Implementation packets
+
+There is no discovery packet. Start with Packet 1.
+
+### Packet 1 — publish stable semantic body-rig content
+
+**Primary customer:** Mary-O.
+
+Work:
+
+1. Add the serialized authoring/runtime-neutral body-rig schema in `ambition_characters` or the existing character-definition schema owner.
+2. Add optional `body_rig` to `CharacterDefinition` and prepared character data.
+3. Validate topology during character preparation:
+   - unique joint IDs;
+   - valid parent references;
+   - no parent cycle;
+   - valid attachment joint references;
+   - valid hurt-part joint references;
+   - finite transforms and dimensions.
+4. Extend `CharacterBodyBlueprint` and `grant_prepared_character_body` to publish the prepared rig in the same construction batch.
+5. Extend `GrantedBodyFacts` so re-wearing/retemplating retracts the outgoing rig fact.
+6. Extend Mary-O publishing to emit the side-view semantic topology and sampled deterministic poses from the shipping SVG rig.
+7. Keep Mary-O's existing baked visual output unchanged.
+
+Acceptance:
+
+- no post-construction “attach rig” system;
+- invalid rig content is rejected during preparation;
+- Mary-O construction produces the correct prepared rig immediately;
+- changing from Mary-O to a character with no rig removes Mary-O's character-owned rig fact;
+- headless construction requires no texture or render asset.
+
+### Packet 2 — resolve deterministic `BodyRigPose`
+
+**Primary customer:** Mary-O.
+
+Work:
+
+1. Add derived `BodyRigPose` simulation state.
+2. Resolve it from prepared `BodyRigDefinition`, `BodyPoseClock`, `MovePlayback`, facing, and any existing deterministic semantic pose selector.
+3. Add a named schedule boundary such as `BodyRigPoseResolved` in the existing combat/runtime schedule.
+4. Ensure it runs after `CombatSet::Playback` and before `CombatSet::Materialize` for current-tick attachments.
+5. Ensure every rig-based damage consumer also runs before `CombatSet::Resolve`.
+6. Document/register the state as rollback-derived and rebuild it before any consumer after restore.
+
+Acceptance:
+
+- deterministic replay of the same pose clock gives identical resolved joints;
+- rollback restore followed by one normal schedule pass rebuilds identical rig pose before collision/projectile consumers;
+- no canonical future-affecting state is hidden inside the derived component;
+- headless tests exercise the resolver with no render plugins.
+
+### Packet 3 — make Mary-O's default damage geometry rig-driven
+
+**Primary customer:** Mary-O.
+
+Work:
+
+1. Add simple semantic hurt parts to the prepared Mary-O body rig.
+2. Teach the hurtbox resolver to select rig-derived default body geometry when the character declares it.
+3. Preserve explicit move-specific authored hurtbox overrides at higher precedence.
+4. Keep `CenteredAabb` / whole-body footprint as coarse broad-phase geometry.
+5. Do not change locomotion/body physics geometry in this packet.
+6. Once the rig path is enabled for Mary-O's default body geometry, remove the same-priority generated pose-box authority for those default cases. Do not reconcile two defaults every tick.
+
+Acceptance:
+
+- idle, walk, jump, and crouch produce expected articulated head/torso/leg geometry;
+- representative attacks still hit or miss Mary-O consistently with intended current gameplay;
+- move-specific override rows still override the rig where authored;
+- a broad-phase rejection avoids detailed part checks;
+- the body remains fully damageable as one actor even when exact contact reports an optional semantic part.
+
+### Packet 4 — replace the first hand-position heuristic with a rig attachment
+
+**Primary customer:** Pirate Admiral.
+
+Work:
+
+1. Publish the Admiral's semantic hand attachment from the existing pirate rig/component authoring source.
+2. Give the Admiral a prepared `BodyRigDefinition` sufficient for the hand anchor.
+3. Extend `muzzle_world_pos` / its helper road so `Muzzle::Hand` uses the resolved hand attachment when available.
+4. Preserve the current `rider_hand_world_pos_in_frame` / `HAND_OFFSET_NORM` compatibility path for characters without a rig.
+5. Keep `ahead` authored in `Muzzle::Hand`; the rig supplies the hand origin, not weapon-policy distance.
+
+Acceptance:
+
+- `admiral_gun_sword` proves the projectile originates from the deterministic rig hand;
+- facing changes mirror/resolve the hand correctly;
+- non-rigged `Muzzle::Hand` users remain unchanged;
+- projectile origin is simulation-owned and does not depend on a rendered child sprite.
+
+### Packet 5 — publish Pirate transform-flipbook assets
+
+**Primary visual prototype:** `pirate_raider` first, then the remaining pirate family once the format is stable.
+
+Work:
+
+1. Reuse the existing component scene rather than creating another pirate rig representation.
+2. Rasterize registered rigid parts once.
+3. Rasterize current dynamic geometry as one overlay per frame.
+4. Pack one or more part-atlas pages through the sprite publishing road.
+5. Publish compact ordered `PartDraw` records per frame.
+6. Preserve the existing logical render basis / feet anchor.
+7. Preserve semantic clip IDs, frame timing, facing behavior, and authored z-order.
+8. Add offline parity verification against the canonical baked renderer.
+
+Required measured target for Raider:
+
+- about 67,246 tight alternative texels before packing;
+- about 87,771 packed-equivalent texels if packing overhead stays comparable;
+- about 0.335 MiB RGBA8-equivalent part texture versus 1.375 MiB current baked atlas;
+- about 75.6% texture-pixel reduction;
+- about 10 visible quads per frame on average in the conservative representation.
+
+Treat a result below roughly 65% texture-pixel reduction as a publisher/packing regression to investigate before proceeding. The current source already demonstrates about 75.6% under the conservative model.
+
+Do not require every dynamic limb to become a reusable rigid part in this packet.
+
+### Packet 6 — add runtime `RiggedSpriteAsset` demand and world presentation
+
+**Primary visual prototype:** Pirate Raider.
+
+Work:
+
+1. Add `RiggedSpriteAsset` alongside current baked character sprite assets.
+2. Route atlas-page loading through the existing character image demand/loading funnel.
+3. Reuse requested/resolved quality authority; do not make a second quality selector.
+4. Add a sibling rigged animator/realization that consumes the same semantic clip/facing/phase inputs as `CharacterAnimator`.
+5. Create one presentation owner and a fixed reusable set of child sprite slots sized to the asset's maximum simultaneous draws.
+6. Update slot atlas rect, local transform, visibility, and z-order from the selected transform-flipbook frame.
+7. Reuse slots; never spawn/despawn parts per animation frame.
+8. Drop strong atlas handles through the existing retirement/eviction road.
+9. Keep the baked Pirate asset available as the parity oracle during this packet.
+
+Acceptance:
+
+- all 38 Raider frames match the canonical baked presentation within the publisher parity tolerance;
+- clip timing and move-normalized phase match `CharacterAnimator` behavior;
+- facing/mirroring matches the existing sheet path;
+- body feet/render basis does not jump when switching test realization;
+- the rigged asset is lazy/demanded, not eagerly loaded for the entire catalog;
+- disabling the presentation plugin leaves headless simulation unaffected.
+
+### Packet 7 — portal and multiview integration
+
+Work:
+
+1. Compute the union world-space draw bounds of active rig parts on the presentation owner.
+2. Publish one `PortalCompositingCandidate` for the owner.
+3. Keep child part sprites out of portal candidate authority.
+4. Verify the same rig presentation is visible to multiple local cameras without duplicating rig animation state or part populations.
+5. Exercise TwinTrack/split-view as the multiview witness.
+
+Acceptance:
+
+- portal clipping/transit presentation is no worse than the current actor-level rectangular candidate behavior;
+- no per-part portal lifecycle exists;
+- two local views do not double rig ECS entities or animation state;
+- view-local UI isolation remains unchanged.
+
+### Packet 8 — benchmark the first world implementation and decide whether extraction optimization is needed
+
+This is implementation validation, not architecture discovery.
+
+Benchmark the completed fixed-slot path with:
 
 ```text
-How many pixels do we need to store?
-How are those pixels compressed on disk/device?
-How many draw instances do we need to render them?
+1 actor
+10 actors
+50 actors
+100 actors
 ```
 
-Do not use a renderer rewrite to solve a compression problem or a compression change to hide extreme duplicated-pixel growth.
+and repeat a representative scene under split view.
 
-## Implementation phases
+Record:
 
-### Phase 0 — evidence and format experiment
+- texture bytes resident for baked vs rigged prototype;
+- loaded atlas/page count;
+- sprite/entity count;
+- extracted sprite count;
+- CPU animation/update time;
+- render extraction time if available;
+- actual draw-call/batch count if available;
+- frame time;
+- load/materialization time.
 
-Goal: determine whether Ambition's real assets have enough repeated raster data to justify runtime part composition.
+The expected Pirate texture result is already known: roughly 75–76% lower raw texture pixels for the conservative representation.
 
-1. add a sprite-renderer report that compares current packed-frame pixels with reusable-part pixels for candidate characters;
-2. export a transform-flipbook manifest for one shipped rigid-part character;
-3. verify exporter recomposition against canonical renderer output;
-4. record transform payload size and maximum visible part count;
-5. add no engine runtime path yet unless a tiny decoder is needed to validate the manifest.
+Do **not** implement a custom part-instance renderer unless the fixed-slot world path demonstrates a material CPU/entity/extraction problem. If it does, preserve the published asset and semantic animation contracts and replace only the presentation realization.
 
-**Gate:** continue only if at least one important character/population shows meaningful texture/residency savings and the format remains simple.
+### Packet 9 — hybrid clips
 
-### Phase 1 — minimal runtime part player
+**First hybrid control:** Mary-O.
 
-Goal: prove one real actor can use reusable parts without changing gameplay semantics.
+Only begin after Pirate proves runtime part rendering.
 
-1. add the minimum runtime asset type for one part atlas + resolved transform frames;
-2. load it through existing character visual demand/quality infrastructure;
-3. feed it from the same semantic animation request used by baked presentation;
-4. draw it in the world;
-5. keep collision, hitboxes and rollback unchanged;
-6. retain the baked sheet for A/B comparison during the spike.
+Work:
 
-A child-Sprite implementation is acceptable only as a temporary benchmark/correctness spike. Do not declare Phase 1 production-ready on that architecture.
+1. Allow prepared visual clips to choose baked or part realization explicitly.
+2. Keep transformation/effect-heavy Mary-O clips baked.
+3. Migrate one ordinary locomotion clip only if its publisher can produce verified rigid-part output cleanly.
+4. Keep one semantic animation request above both realizations.
 
-**Acceptance:** the actor can run through representative locomotion, social and attack clips through the same semantic animation API, with measured memory and frame-cost data.
+Acceptance:
 
-### Phase 2 — production render extraction
+- one character can cross between baked and part clips with the same feet/render basis and semantic timing;
+- no duplicated facing/clip policy appears;
+- baked special effects remain first-class rather than being approximated to satisfy the rig.
 
-Goal: remove per-part ECS scaling cost.
+### Packet 10 — later physicalized pose work, only with a real mechanic
 
-1. represent one rigged character as one presentation owner/component;
-2. resolve its current part instances into a compact buffer;
-3. extract those instances for rendering;
-4. batch by atlas/material;
-5. preserve draw order;
-6. integrate facing, tint and quality changes;
-7. measure 1/10/50/100-actor loads.
+Do not include gameplay-authoritative ragdoll in the initial implementation tranche.
 
-**Acceptance:** the new representation demonstrates a useful memory reduction without unacceptable CPU/frame-time growth.
+If a real mechanic later needs it, start a separate focused packet using the existing `BodyRigDefinition` topology.
 
-### Phase 3 — portal and multiview integration
+Possible levels:
 
-Goal: make rigged characters first-class Ambition drawables.
+1. **Cosmetic ragdoll:** presentation-only after an authoritative KO/death fact.
+2. **Deterministic constrained ragdoll:** canonical rollback state with fixed ordering/iterations and explicit positions/velocities.
+3. **Fully physical locomotion:** explicit non-goal.
 
-1. publish rigged part geometry before the existing body-owned-drawable finalization boundary;
-2. support near-side, far-side, transit and disjoint portal cases;
-3. support two panes with different portal relationships;
-4. ensure one pane's presentation never becomes authority for another;
-5. verify that headless simulation has no dependency on the rig asset.
+Animation and physics must never both own the same joint transforms in one tick.
 
-**Acceptance:** rigged and baked characters obey the same portal/view semantics.
+## Collision and attachment semantics in detail
 
-### Phase 4 — hybrid clip support
+### Broad phase
 
-Goal: keep baked art where it is the better representation.
+Keep current actor envelope / `CenteredAabb` coarse tests.
 
-1. allow selected clips or layers to use baked frames;
-2. define transition behavior between part and baked clips;
-3. share the same render basis / feet anchor;
-4. keep semantic clip identity above the realization choice;
-5. add one real hybrid character witness.
+Do not make every sword swing test every body part of every actor before broad-phase rejection.
 
-**Acceptance:** a character can use parts for ordinary motion and baked art for one deformation-heavy special without gameplay-side branches.
+### Narrow phase
 
-### Phase 5 — optional transform interpolation
-
-Goal: test whether keyframed part motion improves visual smoothness and shrinks transform data.
-
-1. add keyframe interpolation for translation/rotation/scale;
-2. compare against the transform flipbook;
-3. verify phase-slaved move clips remain synchronized to gameplay timing;
-4. measure CPU cost;
-5. retain discrete frames where exact authored timing is required.
-
-Do not add a general skeletal solver in this phase.
-
-### Phase 6 — runtime skeleton only if demanded
-
-Open this phase only if a real feature needs runtime bones, such as procedural aim, look direction, gesture composition or dynamic equipment attachment.
-
-If opened:
-
-1. publish a small runtime bone hierarchy separate from authoring constraints;
-2. keep the semantic clip/action authority unchanged;
-3. keep IK/procedural constraints capability-specific;
-4. keep gameplay geometry independent;
-5. benchmark the solver against resolved-part playback.
-
-A runtime skeleton is successful only when it removes more complexity or content cost than it adds.
-
-### Phase 7 — measured migration
-
-Do not migrate the roster by policy.
-
-For each candidate:
-
-1. measure current baked cost;
-2. measure proposed part/hybrid cost;
-3. verify visual equivalence or intentional improvement;
-4. verify runtime cost;
-5. migrate only when the result is favorable.
-
-The baked-sheet path remains supported for characters that are cheaper or better that way.
-
-## Testing and acceptance surface
-
-### Publisher tests
-
-- every referenced part exists;
-- pivots and part rectangles are valid;
-- clip/frame transform tables are deterministic;
-- recomposed frames match canonical source rendering for rigid clips;
-- unsupported deforming parts fail or select a declared baked fallback;
-- quality variants remain fresh.
-
-### Runtime asset tests
-
-- semantic character identity resolves one declared visual representation;
-- demand/readiness states distinguish declared from ready just as baked sheets do;
-- quality swaps keep the current representation visible until replacement is ready;
-- dropping the realization releases its image handles according to existing residency policy.
-
-### Animation tests
-
-- the same semantic `CharacterAnim` / authored clip request selects equivalent content on baked and part realizations;
-- phase-slaved attack clips preserve move timing;
-- facing/mirroring preserves asymmetric art behavior;
-- switching baked ↔ part clips keeps the same logical render basis and feet anchor.
-
-### Presentation tests
-
-- portal near/far/transit/disjoint behavior;
-- multiview with different portal relationships;
-- hit flash / tint / submerged / other body-owned effects still apply through the intended compositing boundary;
-- rigged presentation can be omitted in a headless composition.
-
-### Performance acceptance
-
-Do not accept the architecture on texture-byte savings alone.
-
-Report, side by side:
+For a rigged body:
 
 ```text
-baked:
-    resident texture bytes
-    source/decode/upload cost
-    presentation CPU
-    extraction CPU
-    draw instances / batches
-    frame time
-
-part-based:
-    resident texture bytes
-    transform metadata bytes
-    source/decode/upload cost
-    presentation CPU
-    extraction CPU
-    draw instances / batches
-    frame time
+prepared hurt part
++ resolved joint transform
+        ↓
+world-space CombatVolume
 ```
 
-Retain the raw evidence in the normal benchmark/evidence location rather than copying volatile numbers into this plan.
+Publish those exact volumes through the existing damageable-volume road.
 
-## Risks and tradeoffs
+Do not create separate ECS entities for head/torso/limbs merely to collide them.
 
-### More quads and extraction work
+### Optional hit-part identity
 
-A full-pose sheet can render one actor as one quad. A part actor can require 8–30 or more quads.
+Where the combat query can preserve the originating semantic part cheaply, expose it as optional contact metadata. Do not require downstream damage code to branch on it unless a mechanic explicitly asks for it.
 
-Mitigation: packed shared atlas, compact instance extraction, no per-part gameplay ECS, measured batching.
+### Attachments
+
+Attachments are semantic named points or local transforms on the rig:
+
+```text
+HandNear
+HandFar
+Head
+FootNear
+FootFar
+Muzzle / weapon-specific socket later if authored
+```
+
+Use attachments for consumers that already ask semantic questions such as `Muzzle::Hand`.
+
+Do not add render-specific names such as `sprite_arm_slot_3` to gameplay APIs.
+
+## Render and asset behavior
+
+### Fixed slots are the first implementation, not independent actors
+
+The first world player intentionally copies the proven vanity-card allocation strategy. Each child part is presentation-only and lifetime-owned by the rigged presentation owner.
+
+The root/owner keeps semantic animation state. Child sprites contain only disposable current draw state.
+
+A later custom extraction path can eliminate the children without changing semantic architecture.
+
+### Batching expectation
+
+Keep all parts for one character on as few atlas pages/materials as practical. The pirate first asset should normally be one page at current sizes.
+
+Measure actual Bevy batching before optimizing it.
+
+### Draw order
+
+Publish order/z explicitly. Do not derive anatomy order from part names in Rust.
+
+### Facing and asymmetric art
+
+Use the same semantic facing authority as baked characters.
+
+A whole-rig mirror is acceptable only when the published character supports it. If asymmetric art requires an authored alternate, publish that alternate rather than introducing a runtime guess.
+
+### Quality tiers
+
+The publisher should generate rig atlas quality variants through the same tier policy as current character assets.
+
+Semantic `BodyRigDefinition` is quality-independent. Full/Half/Potato rendering must not move gameplay joints or collision.
+
+## Rollback and determinism contract
+
+### Canonical state
+
+Existing future-affecting facts remain canonical, including:
+
+- body transform / motion;
+- facing;
+- `BodyPoseClock`;
+- `MovePlayback`;
+- any later physicalized pose state if introduced.
+
+### Derived state
+
+`BodyRigPose` is derived. It must be rebuilt in deterministic simulation order before:
+
+- rig hurtbox publication;
+- `Muzzle::Hand` or other simulation attachments;
+- any future gameplay consumer.
+
+The rollback census/registry should explicitly classify it as derived so a future maintainer does not accidentally serialize a second authority or forget its rebuild requirement.
+
+### Presentation state
+
+`RiggedSpriteAsset`, visual frame selection caches, child sprite transforms, portal draw bounds, and part slot visibility are presentation state. They do not participate in gameplay rollback.
+
+## Validation matrix
+
+### Publisher
+
+- Pirate component-scene export has stable part IDs/order.
+- All 38 Raider frames recompose against the canonical direct renderer.
+- Dynamic overlays are tight-cropped and appear once per frame.
+- Atlas pack is deterministic for identical inputs.
+- Published render basis matches current baked sheet.
+- Mary-O semantic rig publish is independent of raster quality tier.
+
+### Preparation / construction
+
+- Invalid joint parent is rejected.
+- Parent cycle is rejected.
+- Unknown attachment joint is rejected.
+- Unknown hurt-part joint is rejected.
+- Non-finite transform/shape is rejected.
+- Rig fact exists on the body at construction publication time.
+- Re-wear removes character-owned outgoing rig facts correctly.
+
+### Deterministic pose
+
+- Same authoritative inputs produce identical `BodyRigPose`.
+- Facing gives deterministic mirrored/resolved semantic anchors.
+- Rollback restore rebuilds pose before consumers.
+- Headless app resolves pose with no image/material resources.
+
+### Collision
+
+- Mary-O idle/walk/jump/crouch produce expected simple part volumes.
+- Broad-phase miss avoids detailed checks.
+- Move-specific hurtbox override wins where authored.
+- Rig default and legacy default are not simultaneously authoritative.
+- Damage remains actor-owned even when optional part metadata is available.
+
+### Attachment
+
+- Pirate Admiral hand muzzle uses the rig hand when present.
+- Non-rigged hand muzzle uses the compatibility heuristic.
+- Projectile origin does not read child sprite transforms.
+
+### Visual parity
+
+- Raider 38-frame offline parity passes.
+- Runtime clip order/timing matches baked path.
+- Facing/mirror semantics match baked path.
+- Render basis/feet anchor is stable.
+- z-order matches authored component scene.
+
+### Assets
+
+- lazy demand works;
+- readiness means atlas + manifest are usable;
+- tier change uses the existing character quality authority;
+- retirement drops strong handles through the existing road;
+- semantic body rig survives graphics-quality changes unchanged.
+
+### Portal / multiview
+
+- one union portal candidate per rigged actor;
+- no candidate per child part;
+- split view does not duplicate rig animation or part populations;
+- view-isolation tags remain limited to genuinely view-local presentation.
+
+### Performance
+
+Report baked and rigged results for 1/10/50/100 visible Pirates and a split-view case.
+
+Do not call texture savings a runtime win without reporting CPU/presentation cost too.
+
+The already-measured economic baseline is:
+
+```text
+Pirate texture-pixel saving: 75.6–76.3%
+Pirate visible quads: about 9–10 per actor in the conservative format
+```
+
+## Risks and resolved mitigations
+
+### More quads and ECS presentation objects
+
+The baked road is one quad; the conservative pirate path is about 9–10 quads.
+
+Mitigation: fixed reusable child slots first, shared atlas/material, measure at 100 actors, and optimize extraction only if evidence requires it.
 
 ### Alpha overdraw
 
-Overlapping limbs/clothes can increase overdraw.
+Separate parts can overlap. Texture-memory savings do not guarantee lower GPU bandwidth.
 
-Mitigation: measure on weak targets; trim part rasters; avoid invisible oversized part bounds.
+Mitigation: tight crops and real GPU/frame evidence before broad migration.
 
 ### Seams and pivots
 
-Separate raster parts can reveal cracks, filtering seams or pivot drift.
+Bad pivots can create visible gaps that do not exist in baked frames.
 
-Mitigation: author/publish padding rules, pixel-equivalence tests, stable pivots, appropriate texture filtering.
+Mitigation: publisher parity diff and use existing authored pivots.
 
-### Draw-order complexity
+### Dynamic/deforming geometry
 
-Crossing limbs, props and clothing can require changing z order.
+Not all current pirate geometry is rigid.
 
-Mitigation: publish order explicitly. Keep overrides data-driven and sparse.
+Mitigation: one dynamic overlay per frame in the first format. Do not force deformation into a rigid model.
 
-### Deformation does not fit rigid parts
+### Mary-O special effects
 
-Some art depends on redraw rather than rigid transform.
+Mary-O has transition and palette/effect clips that are poor first rigid-runtime candidates.
 
-Mitigation: hybrid baked clips are a first-class requirement, not an escape hatch added later.
+Mitigation: semantic body rig first, baked rendering unchanged, hybrid visual migration later.
 
-### Runtime bones can become a second simulation skeleton
+### Two collision authorities
 
-A convenient presentation skeleton may attract gameplay queries.
+A new rig default could accidentally coexist with generated pose boxes.
 
-Mitigation: enforce the presentation-only boundary. Gameplay geometry stays with its current prepared/simulation authority.
+Mitigation: explicit source precedence and remove same-priority default duplication when a character is migrated.
 
-### Variation can create a combinatorial material system
+### Ragdoll determinism
 
-Runtime parts make costume variation possible, but a generic paper-doll framework can become a new project by itself.
+A gameplay ragdoll adds constrained bodies, solver ordering, contacts, velocities, and rollback state.
 
-Mitigation: first prove static character parts. Add swappable equipment/clothing only when a real character/population requires it.
+Mitigation: no gameplay ragdoll in the initial tranche. Add it only for a real mechanic under its own deterministic design.
 
-### Memory may not be the actual bottleneck
+### Authoring/runtime coupling
 
-Current packed frames are trimmed and split, and quality tiers/lazy realization already reduce cost. Device compression may be a larger win.
+It would be easy to serialize Python/SVG implementation details and make Rust depend on the authoring tool's internal model.
 
-Mitigation: Phase 0 measures current packed/resident cost and compares alternative representations before engine migration.
+Mitigation: publish stable semantic topology/pose and visual flipbook products only.
 
-## Explicit non-goals
+## Explicit non-goals for the initial tranche
 
-- no removal of baked character sheets;
-- no mandatory rig authoring for all characters;
-- no gameplay collision/hitbox derivation from bones;
-- no rollback registration for disposable rig presentation state;
-- no runtime Python, SVG or authoring-tool dependency;
-- no general IK/constraint engine in the first implementation;
-- no one-ECS-entity-per-part shipping design;
-- no global permanent part cache without residency ownership;
-- no broad costume/equipment paper-doll system without a real customer;
-- no roster-wide migration before measurements.
+Do not:
 
-## Triage questions
+- replace all baked character sheets;
+- require every character to have a body rig;
+- make rendered pixels or sprite transforms gameplay authority;
+- replace movement/stance collision with articulated rigid bodies;
+- add runtime Python, SVG, IK, or vector-deformation evaluation;
+- implement general skeletal interpolation before a customer needs it;
+- implement fully physical character locomotion;
+- implement gameplay-authoritative ragdoll;
+- give every limb independent health;
+- create one gameplay ECS entity per limb;
+- publish one portal relationship per limb;
+- duplicate rig state per local view;
+- add a second texture-demand or quality-selection system;
+- require Mary-O visual migration before the Pirate visual prototype succeeds;
+- convert every dynamic pirate limb into a reusable rigid part before shipping the first prototype.
 
-Before this plan enters the active queue, answer:
+## Concrete implementation handoff
 
-1. What fraction of current character GPU residency is baked character sheets versus other textures?
-2. For representative shipped characters, what is the ratio of packed full-frame pixels to unique reusable-part pixels?
-3. Is the primary pain device residency, upload time, decode time, page count, or first-draw materialization?
-4. Can the existing vanity-card transform manifest be generalized into a character runtime product without importing UI-specific assumptions?
-5. Which shipped actor is the best first positive candidate: `player_robot_v3`, a pirate-family member, or another rigid-part character?
-6. Which shipped actor is the best negative/hybrid control?
-7. Can portal compositing consume virtual part drawables efficiently without per-part ECS entities?
-8. Does Bevy's existing sprite batching make a compact part-instance path sufficient, or is a custom extraction/render phase justified?
-9. How much would GPU-native texture compression reduce the same measured residency cost?
-10. Should the first production form be transform flipbooks only, with keyframes/runtime bones deferred until a concrete need appears?
+The implementation agent should start at Packet 1, not with repository discovery.
 
-## Recommended first triage packet
+Use this file/symbol map as the starting orientation:
 
-If this document is accepted into active planning, start with one bounded evidence packet:
+| Concern | Existing owner / starting point |
+|---|---|
+| character authored semantics | `crates/ambition_characters/src/actor/definition.rs` |
+| prepared character facts | `crates/ambition_characters/src/prepared.rs` |
+| body construction/grant/retraction | `crates/ambition_platformer2d_actor_spawn/src/character_body.rs` |
+| deterministic hurtbox resolution | `crates/ambition_combat/src/hurtbox_resolution.rs` |
+| pose clock / runtime schedule | `crates/ambition_platformer2d_actor_monolith/src/character_runtime/mod.rs` |
+| rollback classification | `crates/ambition_platformer2d_actor_monolith/src/rollback_registration.rs` and existing rollback census/registry |
+| semantic muzzle vocabulary | `crates/ambition_characters/src/brain/action_set/mod.rs` |
+| projectile muzzle resolution | `crates/ambition_platformer2d_actor_monolith/src/features/ecs/brain_effects.rs` |
+| existing hand heuristic | `crates/ambition_mount/src/lib.rs` |
+| baked character asset | `crates/ambition_sprite_sheet/src/character/mod.rs` |
+| baked animator | `crates/ambition_sprite_sheet/src/character/animator.rs` |
+| character binding | `crates/ambition_render/src/rendering/actors/mod.rs` |
+| frame application | `crates/ambition_render/src/rendering/actors/animation.rs` |
+| body-owned drawable ordering | `crates/ambition_render/src/rendering/mod.rs` (`BodyOwnedDrawableSync`) |
+| character asset demand | `crates/ambition_platformer2d_actor_monolith/src/character_sprites/assets.rs` |
+| image loading | `crates/ambition_sprite_sheet/src/character/assets.rs`, `game_assets/mod.rs` |
+| portal drawable publication | `crates/ambition_render/src/rendering/portal_compositing.rs` |
+| multiview isolation | `crates/ambition_render/src/rendering/view_isolation.rs` |
+| semantic presentation read model | `crates/ambition_sim_view/src/anim_index.rs`, `pose_view.rs` |
+| pirate component source | `tools/ambition_sprite2d_renderer/.../targets/characters/_pirate_common.py` |
+| pirate rig/source | `tools/ambition_sprite2d_renderer/.../targets/characters/_pirate_rig.py` |
+| pirate fidelity witness | `tools/ambition_sprite2d_renderer/tests/test_pirate_svg_fidelity.py` |
+| Mary-O production rig | `tools/ambition_sprite2d_renderer/.../targets/characters/mary_o_v2.py`, `_mary_o_v2_svg_poc.py`, `assets/mary_o_v2.svg` |
+| proven part-atlas publisher | `tools/ambition_sprite2d_renderer/scripts/export_director_vanity_card.py` |
+| proven Rust part player | `game/ambition_content/src/presentation/vanity_card_made_this_meme.rs` |
+| Admiral integration witness | `game/ambition_app/tests/admiral_gun_sword.rs` |
 
-1. add a reproducible baked-versus-parts size report in the sprite-renderer repository;
-2. export one shipped rigid-part character as a verified transform flipbook;
-3. record its part atlas and transform payload;
-4. compare that against the current packed baked atlas at Full/Half/Potato where available;
-5. estimate the runtime visible-part count;
-6. do not modify Ambition's character renderer yet.
+Expected first implementation sequence:
 
-That packet should be cheap and should answer whether a runtime implementation deserves priority.
+```text
+1. Publish Mary-O semantic body rig.
+2. Prepare/grant it atomically.
+3. Resolve deterministic BodyRigPose before Materialize.
+4. Move Mary-O default damage geometry onto the rig.
+5. Publish Pirate Admiral hand attachment and migrate Muzzle::Hand to it.
+6. Publish Pirate transform-flipbook visual asset with offline parity.
+7. Add demanded runtime RiggedSpriteAsset and fixed-slot world player.
+8. Integrate owner-level portal bounds and shared multiview presentation.
+9. Benchmark 1/10/50/100 actors and split view.
+10. Only then consider hybrid Mary-O visuals or a custom extraction optimization.
+```
+
+That sequence gives useful semantic rig architecture before the renderer bet, and it gives the renderer a measured 75%+ memory-saving candidate rather than a synthetic demo.
+
+## Definition of success for this disjoint plan
+
+The initial implementation tranche is successful when all of the following are true:
+
+1. Mary-O has a prepared semantic body rig derived from her existing production SVG rig.
+2. `BodyRigPose` is deterministic derived simulation state resolved before collision and attachment consumers.
+3. Mary-O can use rig-derived default hurt geometry while continuing to render her existing baked sheet.
+4. Pirate Admiral's `Muzzle::Hand` uses a semantic hand attachment when rig data is present.
+5. Pirate Raider can render from a published part atlas + transform flipbook with offline and runtime parity against the baked source.
+6. The Pirate visual prototype retains approximately the already-measured 75%+ reduction in raw texture pixels.
+7. Rigged presentation participates in existing demand, quality, retirement, portal, and multiview ownership rather than adding parallel subsystems.
+8. Headless simulation never depends on images or rendering.
+9. Baked sprites remain first-class and hybrid clips remain possible.
+10. No ragdoll or custom extraction subsystem is added without a demonstrated customer or measured need.
+
+At that point the engine has gained a reusable body-rig capability with independent value for collision and attachments, plus a proven optional part-rendering road with known memory economics. Broader migration can then be triaged using measured runtime cost rather than speculation.

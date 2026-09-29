@@ -202,3 +202,58 @@ fn every_room_resident_carries_its_live_room_after_combat() {
         unstamped.len()
     );
 }
+
+/// Hold a run in `direction` for half a second, and return how far the driven
+/// body moved along x.
+fn run(sim: &mut Platformer2dSimHarness, direction: f32) -> f32 {
+    let start = sim.observation().player_pos.0;
+    for _ in 0..30 {
+        sim.step(AgentAction {
+            move_x: direction,
+            ..base()
+        });
+    }
+    sim.observation().player_pos.0 - start
+}
+
+fn stamp_the_body(sim: &mut Platformer2dSimHarness, room: LiveRoomInstance) {
+    let world = sim.world_mut();
+    let body = world
+        .query_filtered::<bevy::prelude::Entity, bevy::prelude::With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>()
+        .single(world)
+        .expect("one driven body");
+    world.entity_mut(body).insert(InRoomInstance(room));
+}
+
+/// OW1 cut 3d: the body step moves each body against the live room it is in.
+///
+/// The subject is the driven body stamped with a live room this session has
+/// not published (#7). That room has no collision world, so the body is not
+/// integrated and a held run does not move it. It runs back the way the first
+/// control came, so a wall cannot be the reason it stands still. The controls
+/// are the same body in the live room, before and after, running each way.
+/// Before the step was keyed, the body read the sole live room whatever its
+/// stamp, and ran in all three.
+#[test]
+fn a_body_moves_only_against_the_live_room_it_is_in() {
+    let mut sim = Platformer2dSimHarness::new_with_options(
+        fixed_60hz_room_options(ROOM).with_save(a_save_that_has_seen_the_hub_intro()),
+    )
+    .expect("switch_lab boots");
+    settle(&mut sim);
+    let (live, _) = census(&mut sim);
+
+    let right = run(&mut sim, 1.0);
+    assert!(right > 1.0, "control: a held run moved the body {right} in its own live room");
+
+    stamp_the_body(&mut sim, (0..7).fold(LiveRoomInstance::ACTIVATION, |room, _| room.next()));
+    let stranded = run(&mut sim, -1.0);
+    assert_eq!(
+        stranded, 0.0,
+        "a body in a room that is not live moved {stranded}: it collided with another live room"
+    );
+
+    stamp_the_body(&mut sim, live);
+    let left = run(&mut sim, -1.0);
+    assert!(left < -1.0, "control: back in its own live room, a held run moved the body {left}");
+}

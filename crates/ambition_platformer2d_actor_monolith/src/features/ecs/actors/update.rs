@@ -255,6 +255,9 @@ pub fn tick_actor_brains(
     // `CollisionWorld` is the seam that already owned that composition; the brain tick simply had
     // never adopted it.
     collision: ambition_platformer2d_world::collision::CollisionWorld,
+    // The live room each actor is in: it perceives that room's walls and no
+    // other live room's (OW1 cut 3d).
+    body_rooms: Query<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
     // Cross-body liveness/crowding was observed in the preceding phase. The
     // decision loop reads the resulting values and does not rescan the actor
     // population itself.
@@ -395,9 +398,8 @@ pub fn tick_actor_brains(
     let dt = world_time.sim_dt();
     // Accumulating sim-time for brain perception (reaction-latency lookback).
     let sim_now = sim_clock.0;
-    let Some(feature_world) = collision.solids() else {
-        return;
-    };
+    // Each live room is composed once per tick; see `composed_room`.
+    let mut composed = Vec::new();
     // The live hostility table for every brain's world-out view this frame (§A7),
     // all-peaceful when a fixture registers none.
     let relations = perceived.relations();
@@ -462,6 +464,12 @@ pub fn tick_actor_brains(
         let Some(perception_policy) =
             crate::features::ecs::perception::perception_of(seated, extent)
         else {
+            continue;
+        };
+        // An actor with no live room (no room loaded) has no world to decide
+        // in.
+        let room = composed_room(&mut composed, &collision, body_rooms.get(this_actor_entity).ok());
+        let Some(feature_world) = composed[room].1.as_deref() else {
             continue;
         };
         // This actor's combat-target liveness. `select_actor_targets` already
@@ -594,7 +602,7 @@ pub fn tick_actor_brains(
                     if body.policy.0.turns_at_ledges {
                         if let ae::MotionModel::SurfaceMomentum(momentum) = motion_model {
                             snapshot.ground_ends_ahead = ae::movement::ground_ends_ahead(
-                                &feature_world,
+                                feature_world,
                                 &momentum.state,
                                 resolved_frame.get(),
                                 body.kin.facing,
@@ -702,7 +710,7 @@ pub fn tick_actor_brains(
                             &view_peers,
                             perceived.projectiles(),
                             &[],
-                            &feature_world,
+                            feature_world,
                             relations,
                             perception_policy,
                             sim_now,
@@ -1249,6 +1257,26 @@ pub struct BodyIntegrationCues<'w> {
     pub movement_ops: Option<MessageWriter<'w, crate::causal::BodyMovementOps>>,
 }
 
+/// The index in `composed` of the collision world of the live room `room`
+/// names, composed on the first ask in this step. `None` in the slot means
+/// that room is not live.
+fn composed_room<'a>(
+    composed: &mut Vec<(
+        Option<ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
+        Option<std::borrow::Cow<'a, ae::World>>,
+    )>,
+    collision: &'a ambition_platformer2d_world::collision::CollisionWorld,
+    room: Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
+) -> usize {
+    let room = room.copied();
+    if let Some(index) = composed.iter().position(|(seen, _)| *seen == room) {
+        return index;
+    }
+    let solids = collision.room(room.as_ref()).and_then(|room| room.solids());
+    composed.push((room, solids));
+    composed.len() - 1
+}
+
 #[allow(clippy::too_many_arguments)]
 pub fn integrate_sim_bodies(
     // A13: whose cues each body emits, looked up by entity. A separate read-only
@@ -1266,6 +1294,10 @@ pub fn integrate_sim_bodies(
     // The one composer of the collision world: the room, its moving platforms
     // and the feature overlay, as every other simulated collider reads it.
     collision: ambition_platformer2d_world::collision::CollisionWorld,
+    // The live room each body is in, so it collides with that room's walls
+    // and not another live room's (OW1 cut 3d). A separate read-only query,
+    // for the reason `body_sources` gives.
+    body_rooms: Query<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
     feel_tuning: Res<ambition_combat::feel::Platformer2dFeelTuningMonolith>,
     steering: Res<ActorSteering>,
     active_tuning: Res<ambition_platformer2d_core::ActiveMovementTuning>,
@@ -1389,10 +1421,10 @@ pub fn integrate_sim_bodies(
     >,
 ) {
     let dt = world_time.sim_dt();
-    // No room loaded, nothing to integrate against.
-    let Some(feature_world) = collision.solids() else {
-        return;
-    };
+    // Each live room is composed once per step, the first time a body in it
+    // asks. A body with no live room (no room loaded, or a room that is not
+    // live) is not integrated: there is nothing to integrate it against.
+    let mut composed = Vec::new();
     let combat_tuning = feel_tuning.feature_combat_tuning();
     // ── ACTOR bodies (the per-body integrator, symmetric with the home body's) ──
     for (
@@ -1415,6 +1447,10 @@ pub fn integrate_sim_bodies(
         let Some(mut cq) = clusters else {
             continue;
         };
+        let room = composed_room(&mut composed, &collision, body_rooms.get(actor_entity).ok());
+        let Some(feature_world) = composed[room].1.as_deref() else {
+            continue;
+        };
         let mut em = cq.as_actor_mut();
         integrate_actor_body(
             actor_entity,
@@ -1432,7 +1468,7 @@ pub fn integrate_sim_bodies(
             // exists: an empty `MountSlot` outlives its rider's dismount.
             mounted.is_some_and(|slot| slot.rider.is_some()),
             pose_owned_externally,
-            &feature_world,
+            feature_world,
             combat_tuning,
             &steering,
             resolved_frame.get(),
@@ -1495,11 +1531,15 @@ pub fn integrate_sim_bodies(
         let player_tuning = authored_tuning
             .map(|t| t.0)
             .unwrap_or(editable_player_tuning);
+        let room = composed_room(&mut composed, &collision, body_rooms.get(player_entity).ok());
+        let Some(feature_world) = composed[room].1.as_deref() else {
+            continue;
+        };
         let mut clusters = cluster_item.as_clusters_mut();
         let player_motion_frame = resolved_frame.get();
         let riding_up = crate::avatar::integrate_home_body(
             control.0,
-            &feature_world,
+            feature_world,
             &mut clusters,
             &mut combat,
             health.map_or_else(ambition_characters::actor::Invulnerability::none, |h| {

@@ -22,7 +22,8 @@ use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::geometry::subtract_aabb;
 use ambition_platformer2d_core::AabbExt;
 use ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay;
-use bevy_ecs::prelude::{Component, Single, With};
+use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance};
+use bevy_ecs::prelude::{Component, Query, With};
 use bevy_ecs::system::SystemParam;
 use std::borrow::Cow;
 
@@ -68,41 +69,98 @@ impl MovingPlatformSet {
 /// moving platforms, ECS-owned solids, and portal carves — into the collision
 /// world a sweep or raycast should see.
 ///
-/// The room component and every dynamic resource are optional, so minimal
-/// test apps still satisfy the parameter. With no dynamics the result is the
-/// bare authored geometry, so it matches a former
-/// `ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<RoomGeometry>`
-/// reader except in rooms with moving platforms, ECS solids or portal carves.
+/// It reads each live room off that room's own root (OW1 cut 3d), so a body
+/// in one live room never collides with another live room's walls.
+/// [`Self::room`] takes the room the reader stands in ([`InRoomInstance`]).
+/// The shorthand readers ([`Self::solids`] and the others) take no room and
+/// answer only while the session has one live room: that is the named debt of
+/// every reader that does not yet give its subject's room.
+///
+/// The platforms and the overlay are optional, so minimal test apps still
+/// satisfy the parameter. With no dynamics the result is the bare authored
+/// geometry.
 #[derive(SystemParam)]
 pub struct CollisionWorld<'w, 's> {
-    /// The live room's geometry, moving platforms and collision overlay, off
-    /// ONE root, so the three cannot come from different rooms.
-    room: Option<
-        Single<
-            'w,
-            's,
-            (
-                &'static ae::RoomGeometry,
-                Option<&'static MovingPlatformSet>,
-                Option<&'static FeatureEcsWorldOverlay>,
-            ),
-            With<ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot>,
-        >,
+    /// Every live room's identity, geometry, moving platforms and collision
+    /// overlay, each tuple off ONE root, so the parts cannot come from
+    /// different rooms. A hidden candidate's root is not in it.
+    rooms: Query<
+        'w,
+        's,
+        (
+            Option<&'static LiveRoomInstance>,
+            &'static ae::RoomGeometry,
+            Option<&'static MovingPlatformSet>,
+            Option<&'static FeatureEcsWorldOverlay>,
+        ),
+        With<ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot>,
     >,
 }
 
 impl CollisionWorld<'_, '_> {
+    /// The collision inputs of the live room `room` names.
+    ///
+    /// A reader with no room (`None`) gets the sole live room. A reader with a
+    /// room gets that room and no other; if no live room, or more than one,
+    /// has that identity, it gets `None`. It does not fall back to "the" room,
+    /// because that would collide a body with a room it is not in. Two
+    /// sessions can each have a room with one ordinal until the identity is
+    /// per session (OW1 cut 5); that is ambiguous, and so is `None`.
+    pub fn room(&self, room: Option<&InRoomInstance>) -> Option<RoomCollision<'_>> {
+        let mut matching = self.rooms.iter().filter(|(live, ..)| match room {
+            Some(room) => live.copied() == Some(room.0),
+            None => true,
+        });
+        let (_, geometry, platforms, overlay) = matching.next()?;
+        if matching.next().is_some() {
+            return None;
+        }
+        Some(RoomCollision {
+            geometry,
+            platforms: platforms.map_or(&[][..], |platforms| &platforms.0),
+            overlay,
+        })
+    }
+
+    /// [`RoomCollision::solids`] of the sole live room.
+    pub fn solids(&self) -> Option<Cow<'_, ae::World>> {
+        self.room(None)?.solids()
+    }
+
+    /// [`RoomCollision::carves_only`] of the sole live room.
+    pub fn carves_only(&self) -> Option<Cow<'_, ae::World>> {
+        self.room(None)?.carves_only()
+    }
+
+    /// [`RoomCollision::hostable_surfaces`] of the sole live room.
+    pub fn hostable_surfaces(&self) -> Option<Cow<'_, ae::World>> {
+        self.room(None)?.hostable_surfaces()
+    }
+
+    /// [`RoomCollision::base`] of the sole live room.
+    pub fn base(&self) -> Option<&ae::World> {
+        self.room(None).map(RoomCollision::base)
+    }
+}
+
+/// One live room's collision inputs, from [`CollisionWorld::room`].
+#[derive(Clone, Copy)]
+pub struct RoomCollision<'a> {
+    geometry: &'a ae::RoomGeometry,
+    platforms: &'a [MovingPlatformState],
+    overlay: Option<&'a FeatureEcsWorldOverlay>,
+}
+
+impl<'a> RoomCollision<'a> {
     /// The full collision world: authored room + moving platforms + ECS solids,
     /// with portal apertures carved. This is what actor sweeps and traversal
     /// raycasts (grapple / blink / dive / body-mode clearance / dropped items)
     /// read so they collide with everything solid this frame.
     ///
-    /// Returns `None` when no room is loaded (minimal test apps), and borrows the
-    /// base geometry on the no-dynamics fast path so the common case never clones.
-    pub fn solids(&self) -> Option<Cow<'_, ae::World>> {
-        let (room, platforms, overlay) = &**self.room.as_ref()?;
-        let platforms = platforms.map_or(&[][..], |p| &p.0);
-        let overlay_empty = overlay.map_or(true, |o| {
+    /// Borrows the base geometry on the no-dynamics fast path so the common
+    /// case never clones.
+    pub fn solids(self) -> Option<Cow<'a, ae::World>> {
+        let overlay_empty = self.overlay.map_or(true, |o| {
             o.blocks.is_empty()
                 && o.gate_solids.is_empty()
                 && o.portal_carves.is_empty()
@@ -110,29 +168,30 @@ impl CollisionWorld<'_, '_> {
                 && o.climbable_carves.is_empty()
                 && o.water_regions.is_empty()
         });
-        if platforms.is_empty() && overlay_empty {
-            return Some(Cow::Borrowed(&room.0));
+        if self.platforms.is_empty() && overlay_empty {
+            return Some(Cow::Borrowed(&self.geometry.0));
         }
         let default_overlay;
-        let overlay = match overlay {
-            Some(o) => *o,
+        let overlay = match self.overlay {
+            Some(o) => o,
             None => {
                 default_overlay = FeatureEcsWorldOverlay::default();
                 &default_overlay
             }
         };
         Some(Cow::Owned(world_with_sandbox_solids(
-            &room.0, platforms, overlay,
+            &self.geometry.0,
+            self.platforms,
+            overlay,
         )))
     }
 
     /// The room with ONLY portal apertures carved — moving platforms and ECS
     /// solids omitted. Projectiles pass through moving platforms, so they read
     /// this. Borrows when no carves are active (the common case).
-    pub fn carves_only(&self) -> Option<Cow<'_, ae::World>> {
-        let (room, _, overlay) = &**self.room.as_ref()?;
-        let carves = overlay.map_or(&[][..], |o| &o.portal_carves[..]);
-        Some(world_with_portal_carves(&room.0, carves))
+    pub fn carves_only(self) -> Option<Cow<'a, ae::World>> {
+        let carves = self.overlay.map_or(&[][..], |o| &o.portal_carves[..]);
+        Some(world_with_portal_carves(&self.geometry.0, carves))
     }
 
     /// The surfaces a portal may ANCHOR to: authored geometry plus moving
@@ -147,19 +206,20 @@ impl CollisionWorld<'_, '_> {
     ///   a surface an aperture should outlive.
     ///
     /// No consumer outside this module builds a collision world itself.
-    pub fn hostable_surfaces(&self) -> Option<Cow<'_, ae::World>> {
-        let (room, platforms, _) = &**self.room.as_ref()?;
-        let platforms = platforms.map_or(&[][..], |p| &p.0);
-        if platforms.is_empty() {
-            return Some(Cow::Borrowed(&room.0));
+    pub fn hostable_surfaces(self) -> Option<Cow<'a, ae::World>> {
+        if self.platforms.is_empty() {
+            return Some(Cow::Borrowed(&self.geometry.0));
         }
-        Some(Cow::Owned(world_with_moving_platforms(&room.0, platforms)))
+        Some(Cow::Owned(world_with_moving_platforms(
+            &self.geometry.0,
+            self.platforms,
+        )))
     }
 
     /// The bare authored geometry, no overlay. For metadata / bounds / layout
     /// reads only — never for collision. Prefer `solids()` / `carves_only()`.
-    pub fn base(&self) -> Option<&ae::World> {
-        self.room.as_ref().map(|room| &room.0 .0)
+    pub fn base(self) -> &'a ae::World {
+        &self.geometry.0
     }
 }
 
@@ -544,6 +604,69 @@ mod collision_world_tests {
         let none: Vec<ae::Block> = Vec::new();
         let borrowed = world_with_gate_solids_and_carves(&room.0, &none, &[], &[]);
         assert!(matches!(borrowed, Cow::Borrowed(_)));
+    }
+
+    /// The block names each reader composes: the sole room, #0 and #1.
+    #[derive(Resource, Default, Debug)]
+    struct KeyedProbe(Vec<Option<Vec<String>>>);
+
+    fn probe_keyed(world: CollisionWorld, mut out: ResMut<KeyedProbe>) {
+        let names = |room: Option<InRoomInstance>| {
+            world.room(room.as_ref()).and_then(RoomCollision::solids).map(|solids| {
+                solids.blocks.iter().map(|block| block.name.clone()).collect::<Vec<_>>()
+            })
+        };
+        let first = InRoomInstance(LiveRoomInstance::ACTIVATION);
+        let second = InRoomInstance(LiveRoomInstance::ACTIVATION.next());
+        out.0 = vec![names(None), names(Some(first)), names(Some(second))];
+    }
+
+    fn a_live_room(app: &mut App, instance: LiveRoomInstance, blocks: Vec<ae::Block>) {
+        let geometry = ae::World::new("test", ae::Vec2::new(400.0, 400.0), ae::Vec2::new(50.0, 50.0), blocks);
+        app.world_mut().spawn((
+            ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot,
+            instance,
+            ae::RoomGeometry(geometry),
+            FeatureEcsWorldOverlay::default(),
+        ));
+    }
+
+    /// OW1 cut 3d: a reader in live room #1 collides with #1's walls, and
+    /// a reader in #0 with #0's, when both are live at once. #1's overlay
+    /// holds a lock wall, so the composed (not the borrowed) road is keyed
+    /// too.
+    ///
+    /// The control is one live room: a reader that names no room gets it.
+    /// With two, that reader gets nothing, and not one of them.
+    #[test]
+    fn a_reader_collides_with_the_live_room_it_is_in_and_no_other() {
+        let mut app = App::new();
+        app.init_resource::<KeyedProbe>();
+        app.add_systems(Update, probe_keyed);
+        let floor = |name: &str| ae::Block::solid(name, ae::Vec2::new(0.0, 380.0), ae::Vec2::new(400.0, 20.0));
+        a_live_room(&mut app, LiveRoomInstance::ACTIVATION, vec![floor("floor #0")]);
+        app.update();
+        let names = |names: &[&str]| Some(names.iter().map(|name| name.to_string()).collect::<Vec<_>>());
+        assert_eq!(
+            app.world().resource::<KeyedProbe>().0,
+            vec![names(&["floor #0"]), names(&["floor #0"]), None],
+            "one live room: the unkeyed reader gets it, and #1 is not live"
+        );
+
+        a_live_room(&mut app, LiveRoomInstance::ACTIVATION.next(), vec![floor("floor #1")]);
+        let second = app
+            .world_mut()
+            .query::<(&LiveRoomInstance, &mut FeatureEcsWorldOverlay)>()
+            .iter_mut(app.world_mut())
+            .find(|(live, _)| **live == LiveRoomInstance::ACTIVATION.next())
+            .map(|(_, overlay)| overlay);
+        second.expect("#1 has an overlay").gate_solids.push(gate_wall());
+        app.update();
+        assert_eq!(
+            app.world().resource::<KeyedProbe>().0,
+            vec![None, names(&["floor #0"]), names(&["floor #1", "lockwall:test_encounter"])],
+            "two live rooms: each reader collides with its own room's walls"
+        );
     }
 }
 

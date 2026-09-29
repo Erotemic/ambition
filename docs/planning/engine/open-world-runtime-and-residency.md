@@ -253,7 +253,7 @@ and no fallback to "the live room".
 | --- | --- | --- | --- |
 | 1 ✅ | Stamp room-scoped entities with the instance their plan was built for (`SessionSpawnScope` carries it, as it carries visibility) | staged occupants carry the pinned instance after publication (none before) | "which room" inferred from the moment of the sweep |
 | 2 ✅ | Mid-room spawns inherit the source's instance; the transition roster is `RoomResident` of the departing instance | a resident of `#7` survives a publication that retires `#0` (the same entity stamped `#0` retires) | the unkeyed whole-world roster |
-| 3 (3a ✅ 3b ✅ 3c ✅) | Geometry, platforms and overlay move onto the instance root; `CollisionWorld` takes the instance | a body in `#1` collides with `#1`'s wall (in `#0` it passes) | the session-root geometry field, `MovingPlatformSet` as a resource |
+| 3 (3a ✅ 3b ✅ 3c ✅ 3d ✅) | Geometry, platforms and overlay move onto the instance root; `CollisionWorld` takes the instance | a body in `#1` collides with `#1`'s wall (in `#0` it passes) | the session-root geometry field, `MovingPlatformSet` as a resource |
 | 4 | Pairwise queries (contacts, hits, perception, projectile victims) keyed by instance | identical local positions in two instances never touch (one instance does) | unkeyed body-contact vectors |
 | 5 | Live identity and room selection per instance; rollback rows instance-qualified; the save maps to a durable location key, never the ordinal | a second construction of one room in `#1` succeeds (a duplicate inside `#1` is still refused) | `RoomSet`'s private active index |
 | 6 | The Alice/Bob proof: two instances, two driven bodies; retiring `#1` leaves `#0` whole | the one-room profile runs the same systems | — |
@@ -363,6 +363,26 @@ plugin-build inserts of it. Witness:
 walls, falling sand, portal carves, GNU-ton's gate, Mary-O's bricks and
 hidden blocks, Sanic's monitors) write `RoomOverlays::sole()`, the same
 named debt as `SoleLiveRoomMut`: they are one-room content today.
+
+✅ **Cut 3d landed 2026-09-29: a body collides with the live room it is in.**
+`CollisionWorld` queries every live room root and answers for the room a
+reader names: `room(Option<&InRoomInstance>)` gives that room's
+`RoomCollision` (geometry, platforms and overlay off one root), and no other.
+A named room that is not live, or that two roots share, gives `None`. It
+never falls back to "the" room. The body step (`integrate_sim_bodies`) and
+the brain tick (`tick_actor_brains`) read each body's stamp. They compose
+each live room once per tick, and they skip a body whose room is not live.
+Deleted: the `Single` in `CollisionWorld`, and the body step's "no room, so
+return" early exit for all bodies. Witnesses:
+`a_reader_collides_with_the_live_room_it_is_in_and_no_other` (with #0 and
+#1 both live, each reader composes only its own room's walls; with one room,
+the unkeyed reader gets it) and `a_body_moves_only_against_the_live_room_it_is_in`
+(the driven body stamped #7 does not move under a held run, and it runs in
+both directions in its own room). ⚠ The shorthand readers `solids()`,
+`carves_only()`, `hostable_surfaces()` and `base()` still name no room: 23
+calls in 19 files (traversal, damage, held items, projectiles, the boss
+tick, tether, trace). `ProjectileCollisionWorld` is still a `Single`. Each
+must be keyed by its subject, which cut 4 does with the pairwise queries.
 
 ⚠ **EVERY LIVE ROOM ROOT IS `session:room_instance`**, so a second root in
 one session cannot be admitted beside the first: a construction baseline

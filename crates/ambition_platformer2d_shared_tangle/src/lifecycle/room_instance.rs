@@ -121,9 +121,9 @@ impl RoomInstanceRoot {
 /// ⚠ **THE ONE-LIVE-ROOM READ, NAMED AS THE DEBT IT IS.** It is a `Single`
 /// over [`RoomInstanceRoot`], so it answers while a session has one live room
 /// and the system does not run when there are two. That is right for a reader
-/// that has not said WHICH room it means. ⚠ Today that is every reader,
-/// `CollisionWorld` included: it reads the sole live room's geometry and
-/// platforms until it takes the instance of the body it moves (OW1 cut 3c).
+/// that has not said WHICH room it means. A reader that has a subject reads
+/// the subject's room instead, as `CollisionWorld::room` does for the body
+/// step and the brain tick (OW1 cut 3d).
 pub type SoleLiveRoom<'w, 's, T> = Single<'w, 's, Ref<'static, T>, With<RoomInstanceRoot>>;
 
 /// The one-live-room WRITE: [`SoleLiveRoom`]'s mutable twin, and the same debt.

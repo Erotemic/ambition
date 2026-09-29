@@ -412,10 +412,15 @@ pub fn drive_wave_encounters(
             // and vanished; the string road it replaced could not tell an
             // unhandled action from a handled one that did nothing, and neither
             // could this.
-            // ⚠ It fires on NOTHING today: all 85 authored switch actions across
-            // the shipped worlds parse (55 `ResetEncounter`, 6 `FlipGravity`, 24
-            // `SetGravity<Face>`). This is a latent report for the first typo,
-            // not noise -- which is why it is a warning and not an error.
+            // ⚠ It fires on NOTHING today: all 14 authored switch actions across
+            // the shipped worlds parse (8 `ResetEncounter`, 1 `FlipGravity`, 4
+            // `SetGravity<Face>`, 1 `ToggleFlag`; counted 2026-09-29 over every
+            // `.ldtk` and `.ldtkl`). An earlier count here said 85 of 85, while
+            // the one `ToggleFlag` switch fell into this arm on every press. This
+            // is a latent report for the first typo, not noise -- which is why it
+            // is a warning and not an error.
+            // The persisted toggle is the whole effect, and the drain made it.
+            ambition_encounter::switches::SwitchAction::ToggleFlag => {}
             ambition_encounter::switches::SwitchAction::Unhandled(action) => {
                 bevy::log::warn!(
                     target: "ambition_encounter::switches",

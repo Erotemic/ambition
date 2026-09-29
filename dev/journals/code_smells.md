@@ -23,6 +23,9 @@ Entry format:
 ## Open
 
 ## 2026-08-15 Three LDtk fields are AUTHORED and never read, and one action is authored and never handled
+- **Update 2026-09-29:** the action half is fixed. `SwitchAction::ToggleFlag`
+  toggles the switch's persisted state, and `a_lever_left_on_is_on_when_you_come_back`
+  presses it. The three fields are still open.
 - **Where:** `CameraZone.mode` (54 instances), `EnemySpawn.path_id` (declared, 60
   nulls), `Switch.action = "ToggleFlag"` (1 instance)
 - **Smell:** measured while building the LDtk authoring contract, by censusing

@@ -304,6 +304,10 @@ pub enum SwitchAction {
     SetGravity(GravityFace),
     /// Re-arm or clear an encounter.
     ResetEncounter,
+    /// Toggle the switch's persisted state and do nothing else: a lever the
+    /// world remembers. Authored as `ToggleFlag`; the flag is the switch's own
+    /// entry in the save, which the room reads when it is built again.
+    ToggleFlag,
     /// Authored but not a kind this engine acts on. Carried rather than dropped
     /// so a consumer can report it; the string road could not tell this apart
     /// from a handled action that did nothing.
@@ -348,6 +352,9 @@ impl SwitchAction {
         }
         if action == "ResetEncounter" {
             return Self::ResetEncounter;
+        }
+        if action == "ToggleFlag" {
+            return Self::ToggleFlag;
         }
         Self::Unhandled(action.to_string())
     }
@@ -439,7 +446,7 @@ pub fn drain_switch_activations(
         // copy of its own; the room now reads the save instead, and
         // `a_spout_switch_toggles_once_per_press_and_the_switch_shows_it` pins it.
         let on = match &action {
-            SwitchAction::ResetEncounter => {
+            SwitchAction::ResetEncounter | SwitchAction::ToggleFlag => {
                 let next = !save.data().switch(&activation.id);
                 save.data_mut().set_switch(&activation.id, next);
                 next
@@ -537,6 +544,35 @@ mod one_drain_one_author {
             "the fact must carry the value AFTER the toggle — a consumer that \
              re-derived it from the save would get a different answer depending \
              on whether it ran before or after the writer"
+        );
+    }
+
+    /// A `ToggleFlag` press flips the switch's persisted state and a second
+    /// press flips it back. The unhandled action beside it is the control: the
+    /// same drain leaves its switch off.
+    #[test]
+    fn a_toggle_flag_press_flips_the_persisted_switch_each_time() {
+        let mut app = app_with(vec![
+            activation("lever", "ToggleFlag"),
+            activation("dud", "SummonKraken"),
+        ]);
+        app.update();
+        let save = app.world().resource::<AmbitionGameSave>().data().clone();
+        assert!(save.switch("lever"), "one ToggleFlag press turns the lever on");
+        assert!(!save.switch("dud"), "the control: an unhandled action flips nothing");
+        assert_eq!(
+            app.world().resource::<ResolvedSwitchActivations>().0[0].action,
+            SwitchAction::ToggleFlag
+        );
+
+        app.world_mut()
+            .resource_mut::<SwitchActivationQueue>()
+            .0
+            .push(activation("lever", "ToggleFlag"));
+        app.update();
+        assert!(
+            !app.world().resource::<AmbitionGameSave>().data().switch("lever"),
+            "a second press turns it off again"
         );
     }
 

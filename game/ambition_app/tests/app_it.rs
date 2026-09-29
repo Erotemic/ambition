@@ -21,6 +21,7 @@ mod the_session_owns_its_generation;
 
 mod a_bag_changed_mid_window_reaches_the_save;
 mod a_dropped_item_falls;
+mod a_lever_left_on_is_on_when_you_come_back;
 mod one_body_two_tickers;
 mod installed_techniques_are_declared;
 mod authored_effects_are_admitted;

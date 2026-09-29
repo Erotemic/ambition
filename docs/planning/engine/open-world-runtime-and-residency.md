@@ -220,6 +220,50 @@ existing construction; it does not add another lifecycle state machine. OW3 can
 share I5's state handoff fixture. OW4 chooses budgets from measurements. OW5 follows
 a real mechanic, not a speculative universal offscreen simulator.
 
+### OW1 carrier decision, 2026-09-29: one entity per live room instance
+
+**Decided** under [autonomous decision-making](../../concepts/autonomous-decision-making.md);
+the customers are the persistent world and Alice/Bob separated multiplayer.
+
+A second live instance of a room needs a home for the values that are
+singular today: `RoomGeometry` and `LiveRoomInstance` on the session root, and
+two process-wide resources, `MovingPlatformSet` (`world/src/collision.rs`) and
+`FeatureEcsWorldOverlay`, that `apply_world_replacement` writes for "the" room.
+`CollisionWorld` reads all three and its queries take no instance.
+
+| | (A) a `RoomInstanceRoot` entity per live instance | (B) one coordinate space, rooms at disjoint offsets |
+| --- | --- | --- |
+| instance in a query | a named value on the reader (`InRoomInstance`) | implicit, a distance |
+| authored coordinates | unchanged, room-local | every spawn, edge, camera bound, path and zone translated |
+| identity and despawn | still to key (cuts 2, 5) | the same collisions, unsolved |
+| pairwise proximity | keyed explicitly (cut 4) | separates for free |
+
+⇒ **(A).** (B) hides the instance in a distance, which this page's "Spatial
+requests name units, coordinate frame and instance" forbids, and solves none of
+the identity or teardown collisions. The session root keeps the `RoomSet`
+definition graph and the ordinal counter; each instance root carries its
+geometry, platforms, overlay, selected definition and `LiveRoomInstance`.
+Spatial entities carry `InRoomInstance(LiveRoomInstance)`, a value and not an
+`Entity`, so it snapshots without entity mapping. **The one-room profile is the
+same implementation:** a session always has exactly one instance root, and every
+geometry read resolves through the reader's instance, with no `Single` fast path
+and no fallback to "the live room".
+
+| Cut | Work | Witness (control) | Deletes |
+| --- | --- | --- | --- |
+| 1 | Stamp room-scoped entities with the instance their plan was built for (`SessionSpawnScope` carries it, as it carries visibility) | staged occupants carry the pinned instance after publication (none before) | "which room" inferred from the moment of the sweep |
+| 2 | Mid-room spawns inherit the source's instance; the transition roster is `RoomResident` of the departing instance | a resident of `#7` survives a publication that retires `#0` (the same entity stamped `#0` retires) | the unkeyed whole-world roster |
+| 3 | Geometry, platforms and overlay move onto the instance root; `CollisionWorld` takes the instance | a body in `#1` collides with `#1`'s wall (in `#0` it passes) | the session-root geometry field, `MovingPlatformSet` as a resource |
+| 4 | Pairwise queries (contacts, hits, perception, projectile victims) keyed by instance | identical local positions in two instances never touch (one instance does) | unkeyed body-contact vectors |
+| 5 | Live identity and room selection per instance; rollback rows instance-qualified; the save maps to a durable location key, never the ordinal | a second construction of one room in `#1` succeeds (a duplicate inside `#1` is still refused) | `RoomSet`'s private active index |
+| 6 | The Alice/Bob proof: two instances, two driven bodies; retiring `#1` leaves `#0` whole | the one-room profile runs the same systems | — |
+
+⚠ Risks carried forward: every cut that changes a snapshot value bumps the
+schema; instance roots must be re-creatable by a rewind across a publication;
+`outlook_for(room: &str)` is keyed by definition and will merge two instances;
+and the session-wide rebase on a transition would reset Bob's history when
+Alice crosses, which OW1 surfaces but does not solve.
+
 ## Existing repairs and standing lessons
 
 | Historical receipt | Preserve |

@@ -152,7 +152,7 @@ run is the control), and the rewritten
 Not poisoned: the before state is this row's own measurement, and a rebuild of
 the old tree is a second compile cycle.
 
-### SWITCH-DRAIN-ORDER — the switch drain is not ordered after the press that writes it
+### SWITCH-DRAIN-ORDER — the switch drain is not ordered after the press that writes it — ✅ CLOSED 2026-09-29, PREMISE REFUTED
 
 **Owner:** rollback scheduling. **Found 2026-09-28 by reading source, NOT
 measured.** A sibling of the lost-heal defect fixed in `f86b03189` and
@@ -181,6 +181,26 @@ configures `SwitchActivationDrained.after(FeatureInteractionSet::Actuate)`.
 The switch/encounter/census app arms (34), Sanic, Mary-O and Smash are green,
 so the edge closes no cycle. The sync-test witness above is still the open
 work, and `request_authored_switch_commands` is not ordered yet.
+
+✅ **CLOSED 2026-09-29: THE PREMISE WAS WRONG, AND THE PIN IS REMOVED.** Read
+in full, `drain_switch_activations` does not read `SwitchActivated`. It drains
+`SwitchActivationQueue`, a resource that `apply_switch_effects` fills in
+`GameplayEffects` and that is rollback state
+(`resource.switch_activation_queue`, `resource-clone-custom-checksum`). So the
+drain always meets a press on the NEXT tick, by the phase order, and a rewind
+restores the queue with the tick; `a_switch_activation_is_drained_on_the_tick_after_it_was_pushed`
+(`symmetry_attunement.rs`) already pins that delay. The two readers of the
+message are ordered after the press's phase: `apply_switch_effects` is in
+`GameplayEffects`, and `request_authored_switch_commands` is
+`.after(FeatureInteraction)` (its plugin, with a comment saying why), so "not
+ordered yet" above was also wrong. The pin from 2026-09-28 is removed with its
+comment, which stated the false premise. The witness this row asked for exists:
+`combat_equipment_switch_and_breakable_survive_forced_rollback_identically`
+(`rollback_exit_oracle.rs`) presses a real switch through Interact under
+forced rollback and asserts `rollback_health()`. ⭐ A real defect was next to it:
+the one authored `ToggleFlag` lever (`switch_lab`) parsed as `Unhandled` and did
+nothing. `SwitchAction::ToggleFlag` toggles the persisted switch; witness
+`a_lever_left_on_is_on_when_you_come_back` (press, leave, return).
 **Blocked by:** nothing.
 
 ### SYNC-POINT-SENSITIVE-RESIM — a command sync point moves the death-reset replay

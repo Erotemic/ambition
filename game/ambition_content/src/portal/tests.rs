@@ -1594,7 +1594,7 @@ fn a_portal_on_a_moving_platform_rides_its_host_face() {
         120.0,
     );
     platform.update(1.0 / 60.0); // publish last_delta (2px)
-    app.insert_resource(MovingPlatformSet(vec![platform]));
+    ambition_platformer2d::session::insert_live_room_component(app.world_mut(), MovingPlatformSet(vec![platform]));
     app.insert_resource(ambition_time::WorldTime {
         scaled_dt: 1.0 / 60.0,
         ..Default::default()
@@ -1606,9 +1606,9 @@ fn a_portal_on_a_moving_platform_rides_its_host_face() {
 
     // A floor portal ON the platform's top face (placed 2px proud, like the
     // gun does), and a second portal on the anon wall.
-    let plat_top = app.world().resource::<MovingPlatformSet>().0[0].pos.y
-        - app.world().resource::<MovingPlatformSet>().0[0].size.y * 0.5;
-    let plat_x = app.world().resource::<MovingPlatformSet>().0[0].pos.x;
+    let plat_top = ambition_platformer2d::session::sole_live_room_component::<MovingPlatformSet>(app.world()).expect("the live room has moving platforms").0[0].pos.y
+        - ambition_platformer2d::session::sole_live_room_component::<MovingPlatformSet>(app.world()).expect("the live room has moving platforms").0[0].size.y * 0.5;
+    let plat_x = ambition_platformer2d::session::sole_live_room_component::<MovingPlatformSet>(app.world()).expect("the live room has moving platforms").0[0].pos.x;
     let hosted = app
         .world_mut()
         .spawn(PlacedPortal::fixed(
@@ -1646,7 +1646,7 @@ fn a_portal_on_a_moving_platform_rides_its_host_face() {
     // the aperture rides, its frame delta and px/s velocity match the host.
     let before = p.pos;
     {
-        let mut set = app.world_mut().resource_mut::<MovingPlatformSet>();
+        let mut set = ambition_platformer2d::session::sole_live_room_component_mut::<MovingPlatformSet>(app.world_mut()).expect("the live room has moving platforms");
         set.0[0].update(1.0 / 60.0);
     }
     app.update();
@@ -1664,8 +1664,7 @@ fn a_portal_on_a_moving_platform_rides_its_host_face() {
     );
 
     // The host face vanishing closes the portal.
-    app.world_mut()
-        .resource_mut::<MovingPlatformSet>()
+    ambition_platformer2d::session::sole_live_room_component_mut::<MovingPlatformSet>(app.world_mut()).expect("the live room has moving platforms")
         .0
         .clear();
     app.update();
@@ -1703,7 +1702,7 @@ fn a_portal_the_adapter_has_decided_is_not_scanned_again() {
     );
     let top = platform.pos.y - platform.size.y * 0.5;
     let x = platform.pos.x;
-    app.insert_resource(MovingPlatformSet(vec![platform]));
+    ambition_platformer2d::session::insert_live_room_component(app.world_mut(), MovingPlatformSet(vec![platform]));
     app.add_systems(Update, attach_portal_hosts);
 
     let place = |channel| {

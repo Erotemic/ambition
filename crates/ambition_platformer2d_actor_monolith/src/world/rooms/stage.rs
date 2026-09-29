@@ -1212,12 +1212,13 @@ mod tests {
         );
         app.add_message::<ambition_platformer2d_world::rooms::RoomLoaded>();
         app.add_message::<ambition_platformer2d_actor_spawn::SpawnActorRequest>();
-        app.insert_resource(ambition_platformer2d_world::collision::MovingPlatformSet(vec![
-            platform,
-        ]));
         ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(
             app.world_mut(),
             ambition_platformer2d_core::RoomGeometry(empty_spec("n").world.clone()),
+        );
+        ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(
+            app.world_mut(),
+            ambition_platformer2d_world::collision::MovingPlatformSet(vec![platform]),
         );
         insert_session_world_component(
             app.world_mut(),
@@ -1320,11 +1321,12 @@ mod tests {
         >(app.world())
         .expect("the session root carries a room set")
         .active();
-        let platforms = app
-            .world()
-            .resource::<ambition_platformer2d_world::collision::MovingPlatformSet>()
-            .0
-            .len();
+        let platforms = ambition_platformer2d_shared_tangle::lifecycle::sole_live_room_component::<
+            ambition_platformer2d_world::collision::MovingPlatformSet,
+        >(app.world())
+        .expect("the live room root carries its moving platforms")
+        .0
+        .len();
         // The live room's own root is the sink, not an occupant.
         let mut ids: Vec<String> = app
             .world_mut()
@@ -1836,9 +1838,6 @@ mod tests {
         );
         app.add_message::<ambition_platformer2d_world::rooms::RoomLoaded>();
         app.add_message::<ambition_platformer2d_actor_spawn::SpawnActorRequest>();
-        app.insert_resource(ambition_platformer2d_world::collision::MovingPlatformSet(
-            Vec::new(),
-        ));
         // A root that carries geometry and NOTHING ELSE.
         ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(
             app.world_mut(),
@@ -1878,58 +1877,6 @@ mod tests {
         );
     }
 
-    /// ⛔ **AND A ROOM WITH AUTHORED PLATFORMS AND NOWHERE TO PUT THEM IS
-    /// REFUSED TOO — THE LAST SILENT SKIP IN THE PUBLICATION.**
-    ///
-    /// `apply_world_replacement` writes the platform state through
-    /// `get_resource_mut`, which answers `None` when the resource is absent. A
-    /// room with authored moving platforms would publish, report `room-loaded`,
-    /// and leave the world without them — a room the player falls through.
-    ///
-    /// ⚠ **ONLY WHEN THERE IS SOMETHING TO PUBLISH.** The candidate room authors
-    /// one platform, which is what makes this arm's subject exist; a room that
-    /// states an empty vector means it, and a composition that has never needed
-    /// the resource is not wrong for lacking one. The success arm above runs in a
-    /// world that HAS the resource and proves the check is not simply always on.
-    #[test]
-    fn a_room_with_authored_platforms_and_no_platform_state_is_refused() {
-        let platform = MovingPlatformState::from_authored(
-            ae::Vec2::new(10.0, 20.0),
-            ae::Vec2::new(32.0, 8.0),
-            64.0,
-            10.0,
-        );
-        let (mut app, outgoing) = last_good_world(platform);
-        // ⛔ THE INJECTION: the composition loses the authority the room's
-        // platform state would be published into.
-        app.world_mut()
-            .remove_resource::<ambition_platformer2d_world::collision::MovingPlatformSet>();
-        assert!(
-            !candidate_plan().platform_states().is_empty(),
-            "the candidate room authors no platforms, so this arm's subject does \
-             not exist"
-        );
-
-        stage_the_candidate(&mut app, candidate_plan(), outgoing);
-
-        let verification = app
-            .world()
-            .resource::<crate::world::rooms::LastConstructionVerification>()
-            .clone();
-        assert!(
-            !verification.published,
-            "a room published its platforms into nothing and called it success: \
-             {verification:?}"
-        );
-        assert!(
-            verification.staged_violations.contains(
-                &super::transaction::StagedWorldViolation::NoPlatformStateToPublishInto
-            ),
-            "got {:?}",
-            verification.staged_violations
-        );
-    }
-
     /// ⛔⛤ **A ROOM THAT STAGES A WORLD WITH NOWHERE TO PUT IT IS REFUSED.**
     ///
     /// `apply_world_replacement` writes onto the root handed in by the
@@ -1954,9 +1901,6 @@ mod tests {
         );
         app.add_message::<ambition_platformer2d_world::rooms::RoomLoaded>();
         app.add_message::<ambition_platformer2d_actor_spawn::SpawnActorRequest>();
-        app.insert_resource(
-            ambition_platformer2d_world::collision::MovingPlatformSet::default(),
-        );
         // ⛔ THE PREMISE: no session root at all, which is the whole subject.
         assert!(
             ambition_platformer2d_shared_tangle::lifecycle::session_world_entity(app.world())

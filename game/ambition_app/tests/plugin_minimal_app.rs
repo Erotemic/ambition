@@ -103,8 +103,8 @@ fn sandbox_simulation_plugin_inserts_core_resources() {
         "the root identity must describe the exact attached prepared object"
     );
     assert!(
-        world.get_resource::<MovingPlatformSet>().is_some(),
-        "MovingPlatformSet resource missing — moving-platform sim disabled"
+        ambition_platformer2d::session::sole_live_room_component::<MovingPlatformSet>(world).is_some(),
+        "the live room root carries no MovingPlatformSet — moving-platform sim disabled"
     );
 }
 

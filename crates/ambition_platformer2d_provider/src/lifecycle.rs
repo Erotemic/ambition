@@ -2551,7 +2551,6 @@ impl PlatformerSessionBuilder<'_, '_> {
             horizon,
             publication: built.publication,
             mechanics: mechanical.clone(),
-            moving_platforms: built.moving_platforms,
         }
     }
 }
@@ -2561,9 +2560,9 @@ impl PlatformerSessionBuilder<'_, '_> {
 /// installed by ONE adoption.
 ///
 /// ⚠ **IT IS A VALUE, CAPTURED BY THE PUBLICATION CLOSURE — NOT A RESOURCE.** A
-/// process-global `PendingSessionMechanics` / `PendingMovingPlatformSet` pair
-/// would be the retire-then-overwrite shape again, one level up, and a second
-/// candidate would overwrite the first's. The candidate's ECS half lives under
+/// process-global `PendingSessionMechanics` would be the retire-then-overwrite
+/// shape again, one level up, and a second candidate would overwrite the
+/// first's. The candidate's ECS half lives under
 /// its own scope, hidden; its process-level projections live here until the
 /// verdict says they may be installed.
 ///
@@ -2588,8 +2587,6 @@ pub struct PreparedCandidateSession {
     horizon: ambition_platformer2d_actor_monolith::session::durable_horizon::CandidateDurableHorizon,
     /// The generation's frozen registries, installed at adoption.
     mechanics: ambition_platformer2d_actor_monolith::session::mechanics::SessionMechanics,
-    /// The first room's moving platforms, installed at adoption.
-    moving_platforms: ambition_platformer2d_world::collision::MovingPlatformSet,
 }
 
 /// The one candidate session this provider has prepared and not yet adopted.
@@ -2621,12 +2618,12 @@ impl PreparedCandidateSession {
             experience,
             publication,
             mechanics,
-            moving_platforms,
             horizon,
             ..
         } = self;
         world.insert_resource(mechanics);
-        world.insert_resource(moving_platforms);
+        // The first room's moving platforms are not installed here: they are on
+        // the candidate's own live room root, promoted with the rest of it.
         // ⛔⛤ AND THE DURABLE HORIZON, HERE AND NOWHERE ELSE. Preparing this
         // candidate read the save into a value; this is the line that makes it
         // the world's. A refused candidate never reaches it, so the session that
@@ -2849,7 +2846,6 @@ mod tests {
                 route: route.clone(),
                 horizon: Default::default(),
                 mechanics: Default::default(),
-                moving_platforms: Default::default(),
             })));
             (world, route)
         }

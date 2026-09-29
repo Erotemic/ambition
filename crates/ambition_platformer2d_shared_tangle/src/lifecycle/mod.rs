@@ -40,7 +40,7 @@ pub use markers::{
 pub use room_instance::{
     activation_room_root, insert_live_room_component, live_room_root_for, sole_live_room_component,
     sole_live_room_component_mut, sole_live_room_entity, InRoomInstance, LiveRoomInstance,
-    RoomInstanceRoot, SoleLiveRoom,
+    RoomInstanceRoot, SoleLiveRoom, SoleLiveRoomMut,
 };
 pub use round::{
     despawn_departed_round_entities, ActiveRoundScope, RoundScopeId, RoundScopePlugin,

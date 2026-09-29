@@ -874,7 +874,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// ⛔⛤ 264 -> 265: `root.room_instance` and `root:room_instance` join. A live
 /// room is its own root (`RoomInstanceRoot`), carrying its geometry and its
 /// `LiveRoomInstance`; the session root keeps the `RoomSet` (OW1 cut 3).
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 265;
+/// ⛔⛤ 265 -> 266: `resource.moving_platform_set` becomes
+/// `root.moving_platform_set`. A live room's moving platforms are a component
+/// on its own root, so a second live room has its own (OW1 cut 3b).
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 266;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

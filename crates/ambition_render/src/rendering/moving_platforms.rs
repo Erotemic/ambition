@@ -41,15 +41,20 @@ pub struct MovingPlatformVisual {
 pub fn sync_moving_platform_visuals(
     mut commands: Commands,
     active_session: Option<Res<ActiveSessionScope>>,
-    world: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<ae::RoomGeometry>,
-    platform_set: Res<MovingPlatformSet>,
+    // The live room's geometry and its platforms, off one root.
+    room: Single<
+        (&ae::RoomGeometry, Option<&MovingPlatformSet>),
+        With<ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot>,
+    >,
     mut existing: Query<(Entity, &MovingPlatformVisual, &mut Transform, &mut Sprite)>,
 ) {
+    let (world, platform_set) = *room;
+    let platforms = platform_set.map_or(&[][..], |set| &set.0[..]);
     // Retire first, so a vanished index is not mistaken for a survivor when a
     // shorter roster reuses its slot.
-    let mut drawn = vec![false; platform_set.0.len()];
+    let mut drawn = vec![false; platforms.len()];
     for (entity, visual, mut transform, mut sprite) in &mut existing {
-        let Some(platform) = platform_set.0.get(visual.index) else {
+        let Some(platform) = platforms.get(visual.index) else {
             commands.entity(entity).despawn();
             continue;
         };
@@ -65,7 +70,7 @@ pub fn sync_moving_platform_visuals(
     else {
         return;
     };
-    for (index, platform) in platform_set.0.iter().enumerate() {
+    for (index, platform) in platforms.iter().enumerate() {
         if drawn[index] {
             continue;
         }
@@ -118,7 +123,10 @@ mod tests {
                 Vec::new(),
             )),
         );
-        app.insert_resource(MovingPlatformSet(states));
+        ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(
+            app.world_mut(),
+            MovingPlatformSet(states),
+        );
         app.add_systems(Update, sync_moving_platform_visuals);
         app
     }
@@ -166,7 +174,7 @@ mod tests {
 
         // A jump like a rollback restore or room change: the set says somewhere
         // else, with no event.
-        app.world_mut().resource_mut::<MovingPlatformSet>().0[0].pos = ae::Vec2::new(900.0, 200.0);
+        ambition_platformer2d_shared_tangle::lifecycle::sole_live_room_component_mut::<MovingPlatformSet>(app.world_mut()).expect("the fixture room has platforms").0[0].pos = ae::Vec2::new(900.0, 200.0);
         app.update();
         let after = visuals(&mut app)[0].1;
 
@@ -187,7 +195,7 @@ mod tests {
         app.update();
         assert_eq!(visuals(&mut app).len(), 2);
 
-        app.world_mut().resource_mut::<MovingPlatformSet>().0.pop();
+        ambition_platformer2d_shared_tangle::lifecycle::sole_live_room_component_mut::<MovingPlatformSet>(app.world_mut()).expect("the fixture room has platforms").0.pop();
         app.update();
         let drawn = visuals(&mut app);
         assert_eq!(drawn.len(), 1, "the departed platform's visual is retired");

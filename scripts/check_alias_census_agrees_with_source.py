@@ -61,6 +61,7 @@ SPELLINGS = {
     # The live room's own root (OW1 cut 3). Not in the session-root total: it
     # is a different root, and geometry reads left the session aliases for it.
     "SoleLiveRoom": re.compile(r"\bSoleLiveRoom\s*<"),
+    "SoleLiveRoomMut": re.compile(r"\bSoleLiveRoomMut\s*<"),
 }
 ALIASES = ("SessionWorldRef", "SessionWorldMut")
 

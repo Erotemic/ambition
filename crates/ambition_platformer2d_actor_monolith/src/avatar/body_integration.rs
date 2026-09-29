@@ -246,13 +246,21 @@ pub fn surface_skidding(
 /// integrating against these platforms already does.
 ///
 /// The platform now freezes on the same frame everything else does.
+///
+/// Every live room's platforms advance, each on its own root: a room that is
+/// live is simulated, whether or not a camera looks at it.
 pub fn advance_moving_platforms(
     world_time: Res<ambition_time::WorldTime>,
-    mut platforms: ResMut<ambition_platformer2d_world::collision::MovingPlatformSet>,
+    mut rooms: Query<
+        &mut ambition_platformer2d_world::collision::MovingPlatformSet,
+        bevy::prelude::With<ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot>,
+    >,
 ) {
     let sim_dt = world_time.sim_dt();
-    for platform in platforms.0.iter_mut() {
-        platform.update(sim_dt);
+    for mut platforms in &mut rooms {
+        for platform in platforms.0.iter_mut() {
+            platform.update(sim_dt);
+        }
     }
 }
 

@@ -161,7 +161,11 @@ pub fn record_frame_system(
     mut buffer: ResMut<GameplayTraceBuffer>,
     boundary: Option<Res<ae::ConfirmedFrameBoundary>>,
     replay: Option<Res<ambition_platformer2d_shared_tangle::schedule::SimulationReplayState>>,
-    platform_set: Res<ambition_platformer2d_world::collision::MovingPlatformSet>,
+    platform_set: Option<
+        ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<
+            ambition_platformer2d_world::collision::MovingPlatformSet,
+        >,
+    >,
     slots: Res<ambition_characters::control::SlotControls>,
     world_time: Res<ambition_time::WorldTime>,
     rooms: Option<
@@ -262,7 +266,7 @@ pub fn record_frame_system(
         &world_time,
         &mode_label,
         &active_area,
-        &platform_set.0,
+        platform_set.as_ref().map_or(&[][..], |platforms| &platforms.0[..]),
         &locomotion,
         &body_mode,
         (

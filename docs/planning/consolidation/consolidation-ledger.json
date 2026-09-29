@@ -3080,25 +3080,27 @@
       "owner": "ambition_platformer2d_world + actor_monolith session lifecycle",
       "status": "SOURCE_CONFIRMED",
       "complexity": "TRANSITIONAL_COMPLEXITY",
-      "current_truth": "MovingPlatformSet is App resource state for the active room. Source explicitly includes it in SessionScopedResources and room replacement writes it before transaction verification.",
+      "current_truth": "MovingPlatformSet is a Component on each live room's root (RoomInstanceRoot), beside its RoomGeometry, since OW1 cut 3b (2026-09-29); it was App resource state for the active room before. Setup writes the first room's set onto its own session's room root (hidden with a candidate), a room publication inserts the published room's set on the root it replaces, and advance_moving_platforms advances every live room's set.",
       "source_paths": [
-        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/world/rooms/stage.rs"
+        "crates/ambition_platformer2d_world/src/collision.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/session/setup.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/world/rooms/transaction.rs"
       ],
       "evidence": [
         {
           "status": "SOURCE_CONFIRMED",
-          "claim": "MovingPlatformSet is App resource state for the active room. Source explicitly includes it in SessionScopedResources and room replacement writes it before transaction verification.",
+          "claim": "MovingPlatformSet is a Component on each live room's root (RoomInstanceRoot), beside its RoomGeometry, since OW1 cut 3b (2026-09-29); it was App resource state for the active room before. Setup writes the first room's set onto its own session's room root (hidden with a candidate), a room publication inserts the published room's set on the root it replaces, and advance_moving_platforms advances every live room's set.",
           "sources": [
-            "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
-            "crates/ambition_platformer2d_actor_monolith/src/world/rooms/stage.rs"
+            "crates/ambition_platformer2d_world/src/collision.rs",
+            "crates/ambition_platformer2d_actor_monolith/src/session/setup.rs",
+            "crates/ambition_platformer2d_actor_monolith/src/world/rooms/transaction.rs"
           ]
         }
       ],
-      "semantic_lifetime": "active room within gameplay session",
-      "representation": "Resource",
+      "semantic_lifetime": "one live room instance within gameplay session",
+      "representation": "Component",
       "authoritative_for": "current moving-platform simulation state",
-      "consolidation_hypothesis": "Consider owner-scoped storage or candidate-state inclusion when A10 makes room/session replacement atomic.",
+      "consolidation_hypothesis": "Realized 2026-09-29 (OW1 cut 3b): owner-scoped storage on the live room root, so a second live room has its own set and a candidate cannot write the playing session's.",
       "was_blocked_by": [
         "A10 candidate-world/session publication -- DISCHARGED 2026-09-16: `queue.md`'s A10 row is DONE and its demolition is closed. This entry is the receipt; it is not a live gate, and the item's own hypothesis has NOT been re-read against source merely because the gate lifted."
       ],
@@ -3122,7 +3124,7 @@
         "portal transit",
         "movement and diagnostics"
       ],
-      "rollback_relationship": "canonical rollback-registered Resource",
+      "rollback_relationship": "canonical rollback-registered Component (root.moving_platform_set)",
       "generation_relationship": "mutable timeline state initialized by room construction"
     },
     {
@@ -4012,14 +4014,14 @@
       "owner": "ambition_platformer2d_actor_monolith::session::teardown",
       "status": "SOURCE_CONFIRMED",
       "complexity": "TRANSITIONAL_COMPLEXITY",
-      "current_truth": "SessionScopedResources names 29 App resources that source states belong to one gameplay session (re-derived 2026-09-28, when the cutscene advance request left for the seat control frame; this read 25 until the bundle was counted field by field, then 30). Activation resets them for correctness and retirement resets them for hygiene.",
+      "current_truth": "SessionScopedResources names 28 App resources that source states belong to one gameplay session (re-derived 2026-09-29, when the moving platforms left for the live room's own root; 29 from 2026-09-28, when the cutscene advance request left for the seat control frame; this read 25 until the bundle was counted field by field, then 30). Activation resets them for correctness and retirement resets them for hygiene.",
       "source_paths": [
         "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs"
       ],
       "evidence": [
         {
           "status": "SOURCE_CONFIRMED",
-          "claim": "SessionScopedResources names 29 App resources that source states belong to one gameplay session (re-derived 2026-09-28, when the cutscene advance request left for the seat control frame; this read 25 until the bundle was counted field by field, then 30). Activation resets them for correctness and retirement resets them for hygiene.",
+          "claim": "SessionScopedResources names 28 App resources that source states belong to one gameplay session (re-derived 2026-09-29, when the moving platforms left for the live room's own root; 29 from 2026-09-28, when the cutscene advance request left for the seat control frame; this read 25 until the bundle was counted field by field, then 30). Activation resets them for correctness and retirement resets them for hygiene.",
           "sources": [
             "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs"
           ]

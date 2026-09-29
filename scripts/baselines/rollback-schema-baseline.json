@@ -1,6 +1,6 @@
 {
   "peer_checksum_schema": {
-    "version": "ggrs-rollback-schema-v265",
+    "version": "ggrs-rollback-schema-v266",
     "rows": [
       "actor.active_combatant\tcomponent-canonical\tActiveCombatant",
       "actor.aggression\tcomponent-clone-cursor\tActorAggression",
@@ -119,7 +119,6 @@
       "resource.impact_hitstop\tresource-clone-custom-checksum\tImpactHitstop\tbevy_ggrs clone snapshot + the freeze's expiry tick, which decides the sim clock",
       "resource.live_match_ticks\tresource-canonical-custom-checksum\tLiveMatchTicks\tbevy_ggrs canonical codec snapshot + checksum over the elapsed micros, counted from the match's own start, and the peer match ordinal, excluding the host-local session and activation-tick stamps",
       "resource.minted_item_baseline\tresource-clone-custom-checksum\tMintedItemBaseline\tbevy_ggrs clone snapshot + entity-free minted-instance-description checksum projection",
-      "resource.moving_platform_set\tresource-canonical\tMovingPlatformSet\tbevy_ggrs canonical codec snapshot + identical canonical checksum projection",
       "resource.occurrence_baseline\tresource-clone-custom-checksum\tOccurrenceBaseline\tbevy_ggrs clone snapshot + entity-free remembered-whereabouts checksum projection",
       "resource.outstanding_checkpoint_request\tresource-clone-custom-checksum\tOutstandingCheckpointRequest\tbevy_ggrs clone snapshot + whether the session is still owed a checkpoint restore",
       "resource.owned_items_baseline\tresource-clone-custom-checksum\tOwnedItemsBaseline\tbevy_ggrs clone snapshot + entity-free stored-quantity checksum projection",
@@ -144,6 +143,7 @@
       "resource.versus_match\tresource-clone-custom-checksum\tVersusMatch\tbevy_ggrs clone snapshot + a checksum over the round, the phase and the per-team wins",
       "resource.world_time\tresource-canonical\tWorldTime\tbevy_ggrs canonical codec snapshot + identical canonical checksum projection",
       "root.live_room_instance\tcomponent-canonical\tLiveRoomInstance",
+      "root.moving_platform_set\tcomponent-canonical\tMovingPlatformSet",
       "root.room_instance\tcomponent-canonical\tRoomInstanceRoot",
       "root.room_set\tcomponent-clone-custom-checksum\tRoomSet\tbevy_ggrs clone snapshot + active/start room identity checksum",
       "scope.mode\tcomponent-canonical\tModeScopedEntity",

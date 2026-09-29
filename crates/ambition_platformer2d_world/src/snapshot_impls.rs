@@ -10,9 +10,9 @@
 
 use ambition_platformer2d_core::snapshot::{put_str, Reader, SnapshotState};
 
-/// The active room's live moving platforms. `advance_moving_platforms` moves
-/// each platform's `pos` and motion cursor every tick, and the state lives only
-/// in this resource (visual entities carry an index). A within-room rollback
+/// A live room's moving platforms. `advance_moving_platforms` moves each
+/// platform's `pos` and motion cursor every tick, and the state lives only in
+/// this component on the room's root (visual entities carry an index). A within-room rollback
 /// must restore it. The codec uses the crate's RON round-trip, which keeps the
 /// private `MovingPlatformMotion` cursor encapsulated.
 impl SnapshotState for crate::collision::MovingPlatformSet {

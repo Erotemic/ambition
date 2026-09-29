@@ -256,9 +256,8 @@ fn a_body_standing_on_the_ferry_is_carried_by_it() {
 
 /// Where the 1-2 ferry is right now, out of the live platform set.
 fn ferry(app: &mut App) -> (Vec2, Vec2) {
-    let set = app
-        .world()
-        .resource::<ambition_platformer2d::world::collision::MovingPlatformSet>();
+    let set = ambition_platformer2d::session::sole_live_room_component::<ambition_platformer2d::world::collision::MovingPlatformSet>(app
+        .world()).expect("the live room has moving platforms");
     let platform = set
         .0
         .iter()

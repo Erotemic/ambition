@@ -478,12 +478,6 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_actor_monolith/src/session/durable_horizon.rs",
         "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
     ),
-    "MovingPlatformSet": (
-        "crates/ambition_platformer2d_actor_monolith/src/avatar/body_integration.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/world/rooms/transaction.rs",
-        "game/ambition_demo_smash/src/lib.rs",
-    ),
     "SessionSeatingSource": (
         "crates/ambition_game_shell/src/route_seating.rs",
         "crates/ambition_platformer2d_rollback_ggrs/src/local_session.rs",
@@ -858,6 +852,15 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_dialog/src/bridge.rs",
     ),
 }
+
+#: ⚠ `MovingPlatformSet` LEFT THIS POPULATION ON 2026-09-29 (OW1 cut 3b): it is
+#: a component on each live room's root now, not a resource, and the session
+#: clear went with it (the root dies with its session). Its verdict, CORRECT,
+#: still describes the writers: `advance_moving_platforms` moves every platform
+#: and never changes membership; the room publication writes the authored set
+#: of the room it publishes; Smash's `hold_the_respawn_platforms` owns only the
+#: `respawn_platform_` ids. ⚠ That split is still a PREFIX CONVENTION, not
+#: enforcement: a room that authored `respawn_platform_0` would collide with it.
 
 #: The ones somebody has actually read. ⚠ An entry here is a CITATION, not an
 #: opinion: it names the row or the source contract that owns the answer.
@@ -1501,50 +1504,6 @@ ADJUDICATED: dict[str, str] = {
         "system, both rollback registrations, the view facts, the visual and "
         "the oracle row were removed together. A later pressure plate is an "
         "INPUT into `BaseGravity`, not a second implementation of it.\n"
-    ),
-    "MovingPlatformSet": (
-        "CORRECT — ONE KINEMATICS ADVANCER, TWO MEMBERSHIP OWNERS OVER DISJOINT "
-        "ID NAMESPACES, ONE SESSION CLEAR. Four files, four sites. "
-        "`advance_moving_platforms` (`actor_monolith/src/avatar/body_integration.rs`) "
-        "is `for platform in platforms.0.iter_mut() { platform.update(sim_dt) }` "
-        "and nothing else — it moves each platform along its own motion and never "
-        "touches MEMBERSHIP, so it cannot contest the other two. "
-        "`apply_world_replacement` (`actor_monolith/src/world/rooms/transaction.rs`) "
-        "assigns `platforms.0 = pending.moving_platforms`, the authored set for "
-        "the room being published, and the publication FAILS CLOSED if the "
-        "composition holds no resource to publish into "
-        "(`StagedWorldViolation::NoPlatformStateToPublishInto`, added because "
-        "`get_resource_mut` answering `None` produced *\"a room the player falls "
-        "through\"*). `hold_the_respawn_platforms` "
-        "(`game/ambition_demo_smash/src/lib.rs`) owns exactly the "
-        "`respawn_platform_` family: it `retain`s every id outside that prefix "
-        "untouched and reconciles the ones inside it against which seats carry "
-        "`RespawnGrace`. `SessionScopedResources::reset` is the session edge.\n"
-        "    ⇒ The split between the two membership owners is a PREFIX "
-        "CONVENTION, and it already has one owner for both halves: "
-        "`RESPAWN_PLATFORM_PREFIX`, with `respawn_platform_id` formatting and "
-        "`is_respawn_platform_id` parsing, collapsed there after *\"one "
-        "convention, two literals\"* (`D-ID-CONVENTION-DRIFT`). MEASURED "
-        "2026-09-18: no authored asset under `game/ambition_content/assets` "
-        "spells that prefix, so the namespaces are disjoint today. ⚠ CONVENTION, "
-        "NOT ENFORCEMENT — a room that authored `respawn_platform_0` would have "
-        "it dropped on the first tick no seat wanted one, and nothing refuses "
-        "that id.\n"
-        "    ⚠ THE WHOLE-VECTOR ASSIGNMENT IS THE ONE INTERACTION, and it "
-        "converges rather than fighting: a room publication drops every respawn "
-        "platform, and the demo's rule re-derives them from `RespawnGrace` "
-        "PRESENCE on its next run rather than from a latch, so the set comes "
-        "back. The window is one tick. ⛔ I have NOT measured whether the smash "
-        "demo can publish a room mid-match, so this is a convergence argument "
-        "about the rule and not a claim that the window is unreachable.\n"
-        "    ⭐ AND THE ADVANCER CANNOT DISAGREE ABOUT A RESPAWN PLATFORM'S "
-        "POSITION EITHER, which is why the pair needs no ordering edge: the demo "
-        "builds them with `from_sweep(.., 0.0, 0.0)`, so `min_x == max_x` and "
-        "`speed == 0`, and `MovingPlatformState::update` adds `0.0 * dir * dt` "
-        "and reverses at neither bound — position unchanged, `last_delta` zero. "
-        "The zero sweep is stated in place as *\"a sweep of zero width at zero "
-        "speed\"* rather than a still variant, and it is what makes the advance a "
-        "no-op on that family."
     ),
     "VersusMatch": (
         "ROUTED — TWO WHOLE-RESOURCE WRITERS, AND ONE OF THEM IS THE SURVIVOR OF "

@@ -95,21 +95,14 @@ pub fn register_engine_rollback_state(registrar: &mut impl RollbackRegistrar) {
     // `register_rollback_state` at the top of this function — so the same crate's
     // state had two owners. Stable names unchanged; the wire did not move.
     //
-    // Match activation is rollback state. Rewinding before activation must restore the
-    // resource's absence so seating can reconstruct the roster from authored inputs.
-    registrar
-        .rollback_resource_canonical::<ambition_platformer2d_world::collision::MovingPlatformSet>(
-            ENGINE,
-            "resource.moving_platform_set",
-        )
-        // The gate portals' live phase is registered too — but NOT here, and
-        // not by this crate. `ambition_platformer2d_world` owns both halves of it
-        // now: `GatePortalPhases` documents why an integrator whose input rewinds
-        // must rewind with it, and `register_gate_portal_rollback_state` (called
-        // with the domain-owned declarations at the top of this function) performs the
-        // registration through the floor's `RollbackRegistrar` vocabulary.  it
-        // carries a VALUE projection, not a presence probe — see that function.
-        ;
+    // The moving platforms are a live room's own state now, registered by
+    // `ambition_platformer2d_world` beside the room set (OW1 cut 3b).
+    // The gate portals' live phase is registered there too: `GatePortalPhases`
+    // documents why an integrator whose input rewinds must rewind with it, and
+    // `register_gate_portal_rollback_state` (called with the domain-owned
+    // declarations at the top of this function) performs the registration
+    // through the floor's `RollbackRegistrar` vocabulary. It carries a VALUE
+    // projection, not a presence probe — see that function.
 
     // ⛔⛔ NOT SNAPSHOTTED, AND THAT IS THE POINT. This used to be
     // `rollback_resource_clone`, which cloned the WHOLE recorded input history

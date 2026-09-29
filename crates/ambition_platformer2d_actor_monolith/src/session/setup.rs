@@ -113,10 +113,6 @@ pub struct SimulationWorld {
     /// The first room's publication. A caller that asked to retain it decides
     /// what happens to the session from this verdict.
     pub publication: crate::world::rooms::transaction::PublicationHandle,
-    /// The first room's moving-platform state — INSTALLED already for a
-    /// published session, and owed by the caller's publication for a candidate
-    /// one. See the comment at its construction.
-    pub moving_platforms: ambition_platformer2d_world::collision::MovingPlatformSet,
 }
 
 pub fn simulation_world(
@@ -189,32 +185,39 @@ pub fn simulation_world(
     // published, so the caller that owns that decision retains this handle. See
     // `SimulationSetup::publication_retention`.
     let publication = room_plan.spawn_contents(commands, publication_retention);
-    // ⛔⛤ **A CANDIDATE SESSION MAY NOT WRITE THE LIVE PLATFORM STATE — 2026-09-14.**
-    // This installed the first room's moving platforms as a process resource the
-    // instant the room was STAGED. Constructing a candidate session beside a live
-    // one would therefore have replaced the playable session's platforms with the
-    // candidate's before anything had verified the candidate — the room's bodies
-    // hidden, the world they move in already swapped.
-    //
-    // ⇒ A PUBLISHED session installs its own live state, as it always did; a
-    // CANDIDATE carries it out as data and its publication installs it. The value
-    // is returned either way, so the caller cannot mistake which happened.
+    // The first room's moving platforms go onto THIS session's live room root,
+    // hidden with it when the session is a candidate. A candidate cannot write
+    // the playing session's platforms, because they are on another root.
+    // (Until OW1 cut 3b they were one process resource, so a candidate carried
+    // them out as data and its adoption installed them.)
     let moving_platforms = ambition_platformer2d_world::collision::MovingPlatformSet(
         room_plan.platform_states().to_vec(),
     );
-    if session_scope.visibility()
-        == ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnVisibility::Published
-    {
-        commands.insert_resource(ambition_platformer2d_world::collision::MovingPlatformSet(
-            moving_platforms.0.clone(),
-        ));
-    }
+    let scope_id = session_scope.id();
+    commands.queue(move |world: &mut bevy::prelude::World| {
+        use ambition_platformer2d_shared_tangle::lifecycle::{
+            live_room_root_for, sole_live_room_entity, LiveRoomInstance,
+        };
+        let root = match scope_id {
+            Some(scope) => live_room_root_for(world, scope, LiveRoomInstance::ACTIVATION),
+            None => sole_live_room_entity(world),
+        };
+        match root {
+            Some(root) => {
+                world.entity_mut(root).insert(moving_platforms);
+            }
+            None => bevy::log::error!(
+                target: "ambition_platformer2d::construction",
+                "session {scope_id:?} has no live room root for its first room's \
+                 moving platforms"
+            ),
+        }
+    });
 
     let crate::avatar::InitialBodyPolicy::SpawnCharacter(starting_character) = initial_body else {
         return SimulationWorld {
             player: None,
             publication,
-            moving_platforms,
         };
     };
 
@@ -431,6 +434,5 @@ pub fn simulation_world(
     SimulationWorld {
         player: Some(player),
         publication,
-        moving_platforms,
     }
 }

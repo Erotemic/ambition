@@ -60,7 +60,7 @@ def test_the_census_marker_is_required_to_exist():
 def test_the_split_marker_parses_every_spelling():
     marker = (
         "<!-- alias-split: SessionWorldRef=167/91 SessionWorldMut=16/13 "
-        "live_session_world_root=3/1 session_root_for_scope=2/2 SoleLiveRoom=77/61 -->"
+        "live_session_world_root=3/1 session_root_for_scope=2/2 SoleLiveRoom=79/61 SoleLiveRoomMut=2/2 -->"
     )
     hit = guard.PLAN_MARKER.search(marker)
     assert hit

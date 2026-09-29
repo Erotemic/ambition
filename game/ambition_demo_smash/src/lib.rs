@@ -1554,7 +1554,8 @@ fn place_respawning_fighters(
 /// fighter has the grace, so the two cannot disagree. It is ordinary
 /// collision: anyone may stand on it, and anyone on it falls when it goes.
 fn hold_the_respawn_platforms(
-    mut platforms: bevy::prelude::ResMut<
+    // The one live room's platforms: a match is one room.
+    mut platforms: ambition_platformer2d::session::SoleLiveRoomMut<
         ambition_platformer2d::world::collision::MovingPlatformSet,
     >,
     // `RespawnGrace` removes itself when it runs out, so the platform's
@@ -1575,7 +1576,7 @@ fn hold_the_respawn_platforms(
         ));
     }
     // Sort by id so the order depends only on which seats are protected. The
-    // visuals reconcile by index and the resource is rollback-canonical.
+    // visuals reconcile by index and the set is rollback-canonical.
     wanted.sort_by(|a, b| a.0.cmp(&b.0));
 
     // Place each platform once; do not rebuild it from `kin.pos` every tick.
@@ -1638,7 +1639,9 @@ fn a_swing_spends_the_respawn_protection(
 /// it moves off the footprint.
 fn leaving_the_platform_spends_the_respawn_protection(
     mut commands: bevy::prelude::Commands,
-    platforms: bevy::prelude::Res<ambition_platformer2d::world::collision::MovingPlatformSet>,
+    platforms: ambition_platformer2d::session::SoleLiveRoom<
+        ambition_platformer2d::world::collision::MovingPlatformSet,
+    >,
     standing: bevy::prelude::Query<
         (
             bevy::prelude::Entity,

@@ -105,7 +105,7 @@ fn the_respawn_platform_lives_exactly_as_long_as_the_grant() {
     use ambition_platformer2d::world::collision::MovingPlatformSet;
 
     let mut app = bevy::prelude::App::new();
-    app.init_resource::<MovingPlatformSet>();
+    ambition_platformer2d::session::insert_live_room_component(app.world_mut(), MovingPlatformSet::default());
     app.add_systems(bevy::prelude::Update, hold_the_respawn_platforms);
     let fighter = app
         .world_mut()
@@ -122,7 +122,7 @@ fn the_respawn_platform_lives_exactly_as_long_as_the_grant() {
         .id();
 
     app.update();
-    let set = app.world().resource::<MovingPlatformSet>();
+    let set = ambition_platformer2d::session::sole_live_room_component::<MovingPlatformSet>(app.world()).expect("the live room has moving platforms");
     assert_eq!(set.0.len(), 1, "a protected fighter got no platform");
     assert_eq!(set.0[0].id, respawn_platform_id(1));
     assert!(
@@ -138,7 +138,7 @@ fn the_respawn_platform_lives_exactly_as_long_as_the_grant() {
         .remove::<ambition_platformer2d::actor::RespawnGrace>();
     app.update();
     assert!(
-        app.world().resource::<MovingPlatformSet>().0.is_empty(),
+        ambition_platformer2d::session::sole_live_room_component::<MovingPlatformSet>(app.world()).expect("the live room has moving platforms").0.is_empty(),
         "the platform outlived the protection — the fighter that never \
          swings is exactly the one camping it"
     );
@@ -152,7 +152,7 @@ fn holding_a_respawn_platform_does_not_touch_the_stages_own() {
     use ambition_platformer2d::world::platforms::MovingPlatformState;
 
     let mut app = bevy::prelude::App::new();
-    app.insert_resource(MovingPlatformSet(vec![MovingPlatformState::from_sweep(
+    ambition_platformer2d::session::insert_live_room_component(app.world_mut(), MovingPlatformSet(vec![MovingPlatformState::from_sweep(
         "stage_lift",
         "Stage Lift",
         Vec2::new(0.0, 0.0),
@@ -162,7 +162,7 @@ fn holding_a_respawn_platform_does_not_touch_the_stages_own() {
     )]));
     app.add_systems(bevy::prelude::Update, hold_the_respawn_platforms);
     app.update();
-    let set = app.world().resource::<MovingPlatformSet>();
+    let set = ambition_platformer2d::session::sole_live_room_component::<MovingPlatformSet>(app.world()).expect("the live room has moving platforms");
     assert_eq!(set.0.len(), 1, "the stage's own platform was deleted");
     assert_eq!(set.0[0].id, "stage_lift");
 }
@@ -1049,7 +1049,7 @@ fn walking_off_the_respawn_platform_ends_the_protection() {
     use ambition_platformer2d::world::collision::MovingPlatformSet;
 
     let mut app = bevy::prelude::App::new();
-    app.init_resource::<MovingPlatformSet>();
+    ambition_platformer2d::session::insert_live_room_component(app.world_mut(), MovingPlatformSet::default());
     use bevy::prelude::IntoScheduleConfigs as _;
     app.add_systems(
         bevy::prelude::Update,
@@ -1107,7 +1107,7 @@ fn falling_toward_the_respawn_platform_keeps_the_protection() {
     use ambition_platformer2d::world::collision::MovingPlatformSet;
 
     let mut app = bevy::prelude::App::new();
-    app.init_resource::<MovingPlatformSet>();
+    ambition_platformer2d::session::insert_live_room_component(app.world_mut(), MovingPlatformSet::default());
     use bevy::prelude::IntoScheduleConfigs as _;
     app.add_systems(
         bevy::prelude::Update,
@@ -1158,7 +1158,7 @@ fn the_respawn_platform_stays_where_it_was_placed() {
     use ambition_platformer2d::world::collision::MovingPlatformSet;
 
     let mut app = bevy::prelude::App::new();
-    app.init_resource::<MovingPlatformSet>();
+    ambition_platformer2d::session::insert_live_room_component(app.world_mut(), MovingPlatformSet::default());
     app.add_systems(bevy::prelude::Update, hold_the_respawn_platforms);
     let fighter = app
         .world_mut()
@@ -1175,7 +1175,7 @@ fn the_respawn_platform_stays_where_it_was_placed() {
         .id();
 
     app.update();
-    let placed = app.world().resource::<MovingPlatformSet>().0[0].pos;
+    let placed = ambition_platformer2d::session::sole_live_room_component::<MovingPlatformSet>(app.world()).expect("the live room has moving platforms").0[0].pos;
 
     // The fighter walks off it.
     app.world_mut()
@@ -1185,7 +1185,7 @@ fn the_respawn_platform_stays_where_it_was_placed() {
         .pos = Vec2::new(320.0, 40.0);
     app.update();
 
-    let set = app.world().resource::<MovingPlatformSet>();
+    let set = ambition_platformer2d::session::sole_live_room_component::<MovingPlatformSet>(app.world()).expect("the live room has moving platforms");
     assert_eq!(set.0.len(), 1, "the platform vanished or was duplicated");
     assert_eq!(
         set.0[0].pos, placed,

@@ -11,7 +11,6 @@ use ambition_characters::control::SlotInteractionState;
 use ambition_encounter::switches::SwitchActivationQueue;
 use ambition_encounter::{EncounterRegistry, SwitchActivation};
 use ambition_platformer2d_shared_tangle::safe_position::RoomTransitionCooldown;
-use ambition_platformer2d_world::collision::MovingPlatformSet;
 
 /// ⛔⛔ THIS LIST IS THE SECOND HALF OF `SessionScopedResources`, AND IT IS
 /// HAND-KEPT WHERE THE OTHER HALF IS NOT. The `reset` function destructures the
@@ -30,7 +29,6 @@ fn app_with_populated_mirrors() -> App {
     let mut app = App::new();
     app.add_message::<SessionScopeRetired>();
     app.add_message::<SessionScopeActivated>();
-    app.init_resource::<MovingPlatformSet>();
     app.init_resource::<PossessionState>();
     app.init_resource::<ambition_platformer2d_shared_tangle::markers::ControlledSubject>();
     app.init_resource::<EncounterRegistry>();
@@ -81,14 +79,6 @@ fn app_with_populated_mirrors() -> App {
     );
 
     // Populate the mirrors with distinctive session-A state.
-    app.world_mut().resource_mut::<MovingPlatformSet>().0.push(
-        ambition_platformer2d_world::platforms::MovingPlatformState::from_authored(
-            ambition_platformer2d_core::Vec2::new(10.0, 20.0),
-            ambition_platformer2d_core::Vec2::new(32.0, 8.0),
-            48.0,
-            30.0,
-        ),
-    );
     let ghost = app.world_mut().spawn_empty().id();
     app.world_mut().resource_mut::<PossessionState>().possessed = Some(ghost);
     app.world_mut().resource_mut::<EncounterRegistry>().specs_loaded = true;
@@ -246,7 +236,6 @@ fn retirement_clears_every_session_scoped_mirror() {
 
     // No retirement yet: mirrors keep their session-A state.
     app.update();
-    assert_eq!(app.world().resource::<MovingPlatformSet>().0.len(), 1);
     assert!(app
         .world()
         .resource::<PossessionState>()
@@ -270,10 +259,6 @@ fn retirement_clears_every_session_scoped_mirror() {
         .write_message(SessionScopeRetired(SessionScopeId(0)));
     app.update();
 
-    assert!(
-        app.world().resource::<MovingPlatformSet>().0.is_empty(),
-        "moving-platform mirror still holds session-A platforms after teardown"
-    );
     assert_eq!(
         app.world().resource::<PossessionState>().possessed,
         None,
@@ -329,7 +314,6 @@ fn no_retirement_leaves_mirrors_untouched() {
     for _ in 0..3 {
         app.update();
     }
-    assert_eq!(app.world().resource::<MovingPlatformSet>().0.len(), 1);
     assert!(app
         .world()
         .resource::<PossessionState>()
@@ -350,7 +334,6 @@ fn activating_a_session_clears_what_a_skipped_teardown_left_behind() {
 
     // Session A's mirrors are still standing: its retirement was delayed,
     // misordered, or lost to an abnormal exit.
-    assert_eq!(app.world().resource::<MovingPlatformSet>().0.len(), 1);
     assert!(app
         .world()
         .resource::<PossessionState>()
@@ -367,10 +350,6 @@ fn activating_a_session_clears_what_a_skipped_teardown_left_behind() {
         .write_message(SessionScopeActivated(SessionScopeId(1)));
     app.update();
 
-    assert!(
-        app.world().resource::<MovingPlatformSet>().0.is_empty(),
-        "session B inherited A's moving platforms"
-    );
     assert_eq!(
         app.world().resource::<PossessionState>().possessed,
         None,
@@ -446,18 +425,11 @@ fn a_stale_scopes_retirement_leaves_the_live_scopes_mirrors_alone() {
 
     app.update();
     // ⚠ THE PREMISE: seeded state, or "unchanged" below is the empty set.
-    assert_eq!(app.world().resource::<MovingPlatformSet>().0.len(), 1);
     assert!(!the_four_ledgers_are_empty(&app));
 
     app.world_mut().write_message(SessionScopeRetired(stale));
     app.update();
 
-    assert_eq!(
-        app.world().resource::<MovingPlatformSet>().0.len(),
-        1,
-        "a retirement belonging to a scope that is NOT live cleared the live \
-         scope's moving platforms"
-    );
     assert!(
         app.world()
             .resource::<PossessionState>()
@@ -474,8 +446,9 @@ fn a_stale_scopes_retirement_leaves_the_live_scopes_mirrors_alone() {
     // ⭐ THE CONTROL: the live scope's own retirement still clears.
     app.world_mut().write_message(SessionScopeRetired(live));
     app.update();
-    assert!(
-        app.world().resource::<MovingPlatformSet>().0.is_empty(),
+    assert_eq!(
+        app.world().resource::<PossessionState>().possessed,
+        None,
         "retiring the LIVE scope left its mirrors standing, so the assertion \
          above is about refusing every retirement rather than about ownership"
     );

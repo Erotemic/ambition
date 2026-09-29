@@ -686,7 +686,6 @@ impl Plugin for DebugVizPlugin {
         app.init_resource::<DeveloperTools>();
         app.init_resource::<FeatureViewIndex>();
         app.init_resource::<CombatGeometryView>();
-        app.init_resource::<MovingPlatformSet>();
         let start_enabled = self.start_enabled;
         app.add_systems(
             Startup,
@@ -747,7 +746,7 @@ pub fn draw_debug_viz(
     world: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<RoomGeometry>,
     dev_state: Res<DeveloperRuntimeState>,
     developer_tools: Res<DeveloperTools>,
-    platform_set: Res<MovingPlatformSet>,
+    platform_set: Option<ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<MovingPlatformSet>>,
     features: Res<FeatureViewIndex>,
     combat_geometry: Res<CombatGeometryView>,
     // Gizmos are drawn through the camera, which moves on the render clock.
@@ -794,7 +793,11 @@ pub fn draw_debug_viz(
         draw_rebound_vectors(&mut gizmos, world);
     }
     if developer_tools.show_moving_platform {
-        draw_moving_platform_debug(&mut gizmos, world, &platform_set.0);
+        draw_moving_platform_debug(
+            &mut gizmos,
+            world,
+            platform_set.as_ref().map_or(&[][..], |platforms| &platforms.0[..]),
+        );
     }
     // Two boxes for one player body, on purpose. This cyan one is the
     // collision box from the player pose view. `draw_combat_geometry_view`

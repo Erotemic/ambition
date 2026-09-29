@@ -103,7 +103,11 @@ pub(crate) fn draw_debug_overlay(
     mut gizmos: Gizmos,
     world: ambition_platformer2d::platformer::lifecycle::SoleLiveRoom<RoomGeometry>,
     dev_state: Res<DeveloperRuntimeState>,
-    platform_set: Res<ambition_platformer2d::world::collision::MovingPlatformSet>,
+    platform_set: Option<
+        ambition_platformer2d::platformer::lifecycle::SoleLiveRoom<
+            ambition_platformer2d::world::collision::MovingPlatformSet,
+        >,
+    >,
     // The ONE collision read-API, for the blink preview — the same composition
     // `step_motion` collides against. See `draw_player_debug`'s `blink_world`.
     collision: ambition_platformer2d::world::collision::CollisionWorld,
@@ -199,7 +203,11 @@ pub(crate) fn draw_debug_overlay(
         draw_rebound_vectors(&mut gizmos, world);
     }
     if developer_tools.show_moving_platform {
-        draw_moving_platform_debug(&mut gizmos, world, &platform_set.0);
+        draw_moving_platform_debug(
+            &mut gizmos,
+            world,
+            platform_set.as_ref().map_or(&[][..], |platforms| &platforms.0[..]),
+        );
     }
     draw_combat_geometry_view(
         &mut gizmos,

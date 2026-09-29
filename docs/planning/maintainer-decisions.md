@@ -148,8 +148,14 @@ script fails if the two disagree. They moved here from
 `awaiting-maintainer-decision.md` when `Q136` was ruled and deleted — a marker
 pinned to a page that no longer states the fact is a check against nothing.
 
-<!-- crossing-census: both_side_resources=54 rollback_registered=33 adjudicated_harmless=18 session_edge_only=3 filed=0 unclassified=0 -->
+<!-- crossing-census: both_side_resources=53 rollback_registered=32 adjudicated_harmless=18 session_edge_only=3 filed=0 unclassified=0 -->
 <!-- ingress-census: spent_resources=54 resource_crossings=1 written_messages=93 message_crossings=2 unlocated=43 unlocated_types=15 -->
+
+⛔ **`both_side_resources` WENT 54 → 53 AND `rollback_registered` 33 → 32
+LATER ON 2026-09-29, AND WHAT LEFT IS NAMED:** `MovingPlatformSet`. It is not
+a resource any more: OW1 cut 3b made it a component on each live room's root,
+so the session teardown that wrote it in `Update` is gone with it. No
+crossing moved.
 
 ⛔ **`spent_resources` WENT 55 → 54 AND `written_messages` 95 → 93 ON
 2026-09-29, AND WHAT LEFT IS NAMED:** the resource `NewGameResetRequested` and

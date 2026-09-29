@@ -101,7 +101,7 @@ fn run_with_trace_dump(max_ticks: u32, dump_dir: PathBuf, start_room: Option<Str
             .expect("active session RoomSet");
             let game_mode = world_ref.resource::<State<GameModeState>>();
             let moving_platforms =
-                world_ref.resource::<ambition_platformer2d::world::collision::MovingPlatformSet>();
+                ambition_platformer2d::session::sole_live_room_component::<ambition_platformer2d::world::collision::MovingPlatformSet>(world_ref).expect("the live room has moving platforms");
             let game_world =
                 ambition_platformer2d::platformer::lifecycle::sole_live_room_component::<RoomGeometry>(world_ref)
                     .expect("active session RoomGeometry");

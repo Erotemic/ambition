@@ -65,16 +65,15 @@ fn a_second_session_shares_no_entity_handle_cache_or_view_with_the_first() {
     let scope_a = live_scope(&app).expect("a session is live during gameplay");
     let player_a = primary_player(&mut app).expect("session A has a home avatar");
 
-    // Populate the session-scoped resource MIRRORS with distinctive session-A
-    // live state. These are exactly the process-global handles the entity sweep
+    // Populate the session-scoped resource MIRRORS, and the live room's
+    // platforms, with distinctive session-A live state. These are exactly the process-global handles the entity sweep
     // does NOT touch, so seeding them proves teardown — not the sweep — clears
     // them. Using the real player entity makes each a genuine dangling handle
     // the instant the sweep despawns it.
     app.world_mut().resource_mut::<PossessionState>().possessed = Some(player_a);
     app.world_mut().resource_mut::<EncounterRegistry>().specs_loaded = true;
     app.world_mut().resource_mut::<ControlledSubject>().0 = Some(player_a);
-    app.world_mut()
-        .resource_mut::<MovingPlatformSet>()
+    ambition_platformer2d::session::sole_live_room_component_mut::<MovingPlatformSet>(app.world_mut()).expect("the live room has moving platforms")
         .0
         .push(MovingPlatformState::from_authored(
             ambition_platformer2d::engine_core::Vec2::new(1.0, 2.0),
@@ -106,9 +105,11 @@ fn a_second_session_shares_no_entity_handle_cache_or_view_with_the_first() {
         "a scope is still live at the launcher"
     );
 
+    // The platforms are on session A's live room root, which leaves with A.
     assert!(
-        app.world().resource::<MovingPlatformSet>().0.is_empty(),
-        "MovingPlatformSet still holds session-A platform state at the launcher"
+        ambition_platformer2d::session::sole_live_room_component::<MovingPlatformSet>(app.world())
+            .is_none(),
+        "session A's live room, and its platform state, survived to the launcher"
     );
     assert_eq!(
         app.world().resource::<PossessionState>().possessed,
@@ -157,10 +158,10 @@ fn a_second_session_shares_no_entity_handle_cache_or_view_with_the_first() {
         None,
         "session B inherited session A's possession handle"
     );
-    // MovingPlatformSet was rebuilt from B's room (no authored platforms in the
-    // Sanic demo), so the session-A probe platform is gone.
+    // Session B's live room root carries B's own platforms (no authored
+    // platforms in the Sanic demo), so the session-A probe platform is gone.
     assert!(
-        app.world().resource::<MovingPlatformSet>().0.is_empty(),
+        ambition_platformer2d::session::sole_live_room_component::<MovingPlatformSet>(app.world()).expect("the live room has moving platforms").0.is_empty(),
         "session B inherited session A's moving-platform state"
     );
 }

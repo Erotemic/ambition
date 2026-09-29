@@ -6,24 +6,78 @@ use ambition_platformer2d_world::collision::MovingPlatformSet;
 use ambition_platformer2d_world::platforms::MovingPlatformState;
 use bevy::prelude::*;
 
+fn one_platform() -> MovingPlatformSet {
+    MovingPlatformSet(vec![MovingPlatformState::from_authored(
+        ae::Vec2::new(400.0, 800.0),
+        ae::Vec2::new(155.0, 18.0),
+        240.0,
+        130.0,
+    )])
+}
+
 fn app_with_one_platform(scaled_dt: f32) -> App {
     let mut app = App::new();
     app.insert_resource(ambition_time::WorldTime {
         raw_dt: 1.0 / 60.0,
         scaled_dt,
     });
-    app.insert_resource(MovingPlatformSet(vec![MovingPlatformState::from_authored(
-        ae::Vec2::new(400.0, 800.0),
-        ae::Vec2::new(155.0, 18.0),
-        240.0,
-        130.0,
-    )]));
+    ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(
+        app.world_mut(),
+        one_platform(),
+    );
     app.add_systems(Update, advance_moving_platforms);
     app
 }
 
 fn platform_x(app: &App) -> f32 {
-    app.world().resource::<MovingPlatformSet>().0[0].pos.x
+    ambition_platformer2d_shared_tangle::lifecycle::sole_live_room_component::<MovingPlatformSet>(
+        app.world(),
+    )
+    .expect("the fixture's live room has platforms")
+    .0[0]
+        .pos
+        .x
+}
+
+/// OW1 cut 3b: every live room's platforms advance, each on its own root.
+///
+/// The session holds a second live room, #7, with the same platform. The
+/// control is the first room's platform, which advances as it did when the
+/// set was one resource. The subject is #7's: a live room is simulated whether
+/// or not anybody looks at it, which is what a persistent world and a second
+/// player in another room need.
+#[test]
+fn every_live_rooms_platforms_advance() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{
+        activation_room_root, session_world_component, LiveRoomInstance, RoomInstanceRoot,
+        SessionRoot,
+    };
+    let mut app = app_with_one_platform(1.0 / 60.0);
+    let scope = session_world_component::<SessionRoot>(app.world())
+        .expect("the fixture has a session root")
+        .0;
+    let elsewhere = (0..7).fold(LiveRoomInstance::ACTIVATION, |room, _| room.next());
+    app.world_mut()
+        .spawn((activation_room_root(scope), one_platform()))
+        .insert(elsewhere);
+
+    app.update();
+
+    let world = app.world_mut();
+    let mut rooms: Vec<(String, f32)> = world
+        .query_filtered::<(&LiveRoomInstance, &MovingPlatformSet), With<RoomInstanceRoot>>()
+        .iter(world)
+        .map(|(live, platforms)| (live.to_string(), platforms.0[0].pos.x))
+        .collect();
+    rooms.sort_by(|a, b| a.0.cmp(&b.0));
+    let moved = 400.0 + 130.0 / 60.0;
+    assert_eq!(rooms.len(), 2, "the fixture has two live rooms: {rooms:?}");
+    for (room, x) in &rooms {
+        assert!(
+            (x - moved).abs() < 1e-3,
+            "live room {room}'s platform did not advance ({x}, expected {moved}): {rooms:?}"
+        );
+    }
 }
 
 /// A session with no `PrimaryPlayer` still advances its platforms.

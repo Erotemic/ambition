@@ -21,7 +21,7 @@ The main consolidation pressure is not the number of ECS objects. It is where on
 
 - room/session replacement is not one switch yet;
 - local lifecycle identifiers still enter some canonical provenance;
-- **36** process/App resources are explicitly documented by source as session- or generation-owned (re-derived 2026-09-28 against `teardown.rs`, when `CutsceneAdvanceRequest` left; this line has read 32, then 36, then 37, as the bundle was counted field by field rather than quoted — see C03 for which members arrived and why);
+- **35** process/App resources are explicitly documented by source as session- or generation-owned (re-derived 2026-09-29 against `teardown.rs`, when `MovingPlatformSet` left for the live room's own root; this line has read 32, then 36, then 37, then 36, as the bundle was counted field by field rather than quoted — see C03 for which members arrived and why);
 - direct-entry compatibility still gives some canonical values a second App-global fallback road;
 - live content/session values can be updated separately around development reload.
 
@@ -520,16 +520,16 @@ App/process
 
 | ID | Family | Semantic owner | Storage/representation | Current state | Classification | Evidence |
 | --- | --- | --- | --- | --- | --- | --- |
-| LIFE-SESSION-RESOURCE-AGGREGATE | SessionScopedResources process-storage aggregate | gameplay session | **29** process/App Resources accessed through one SystemParam (re-derived 2026-09-28; this cell read 25, then 29, then 30) | SessionScopedResources names 29 App resources that source states belong to one gameplay session — five arrived from ID-PEER: the four `MatchInstance`-stamped ones and `GameplayElapsed`, an accumulating clock in the peer checksum, and `scripts/check_session_owner_census_matches_source.py` now compares the number to `teardown.rs` on every `--maintenance` run. Activation resets them for correctness and retirement resets them for hygiene. | actual storage owner is broader than semantic owner | SOURCE_CONFIRMED |
+| LIFE-SESSION-RESOURCE-AGGREGATE | SessionScopedResources process-storage aggregate | gameplay session | **28** process/App Resources accessed through one SystemParam (re-derived 2026-09-29, when `MovingPlatformSet` left for the live room's own root; this cell read 25, then 29, then 30, then 29) | SessionScopedResources names 28 App resources that source states belong to one gameplay session — five arrived from ID-PEER: the four `MatchInstance`-stamped ones and `GameplayElapsed`, an accumulating clock in the peer checksum, and `scripts/check_session_owner_census_matches_source.py` now compares the number to `teardown.rs` on every `--maintenance` run. Activation resets them for correctness and retirement resets them for hygiene. | actual storage owner is broader than semantic owner | SOURCE_CONFIRMED |
 | LIFE-CHECKPOINT-RESOURCE-AGGREGATE | SessionOwnedCheckpointState process-storage aggregate | gameplay session | 6 process/App Resources accessed through one SystemParam | SessionOwnedCheckpointState names six App resources for one gameplay-session checkpoint coordinator and resets all six at session activation. | actual storage owner is broader than semantic owner | SOURCE_CONFIRMED |
 | LIFE-SESSION-MECHANICS | Generation-owned mechanics stored as App resource | content generation within gameplay session | Resource | SessionMechanics is an App Resource whose semantic owner is the activated generation. Retirement removes it; activation overwrites it. | actual storage owner is broader than semantic owner | SOURCE_CONFIRMED |
 | LIFE-ROOT-OWNED-WORLD | Session-root-owned world components | gameplay session / room | Components on SessionRoot | RoomSet, RoomGeometry, initial-body policy, and session requests are already stored on the canonical SessionRoot instead of process-global resources. | owner-scoped state | SOURCE_CONFIRMED |
 
 ### Explicit narrower-lifetime App resources
 
-`SessionScopedResources` names **29** process resources whose source says one gameplay session owns them:
+`SessionScopedResources` names **28** process resources whose source says one gameplay session owns them:
 
-`MovingPlatformSet, PossessionState, ControlledSubject, EncounterRegistry, EncounterView, BossEncounterRegistry, QuestRegistry, RoomTransitionCooldown, SlotInteractionState, SwitchActivationQueue, SaveRestored, AuthoredOccurrences, OccurrenceBaseline, CustodyBaseline, MintedItemBaseline, LastQuestRoom, LastCutsceneRoom, ProjectileSeqCounter, PendingLifecycleCommit, BaseGravity, ActiveCutscene, CutsceneTriggerQueue, ActiveConversation, CutsceneSkipHold, StocksMatchSettled, SuddenDeathEntered, LiveMatchTicks, SessionMatchOrdinal, GameplayElapsed`.
+`PossessionState, ControlledSubject, EncounterRegistry, EncounterView, BossEncounterRegistry, QuestRegistry, RoomTransitionCooldown, SlotInteractionState, SwitchActivationQueue, SaveRestored, AuthoredOccurrences, OccurrenceBaseline, CustodyBaseline, MintedItemBaseline, LastQuestRoom, LastCutsceneRoom, ProjectileSeqCounter, PendingLifecycleCommit, BaseGravity, ActiveCutscene, CutsceneTriggerQueue, ActiveConversation, CutsceneSkipHold, StocksMatchSettled, SuddenDeathEntered, LiveMatchTicks, SessionMatchOrdinal, GameplayElapsed`.
 
 ⚠ **THIS SECTION CARRIED THE OLD COUNT AND THE OLD 25-NAME LIST WHILE THE
 EXECUTIVE MAP ABOVE HAD ALREADY BEEN CORRECTED TO 36.** One document, two
@@ -552,7 +552,7 @@ and the one that leaves the guard blunt rather than clever.
 `SessionCheckpointOperations, SessionCheckpointOutcomes, AcceptedCheckpointRestore, AbandonedCheckpointOperation, SessionStartupResume, OutstandingCheckpointRequest`.
 
 `SessionMechanics` is one more App resource whose semantic owner is the activated content generation.
-The unique total is **36** — the three lists are disjoint, so it is their sum.
+The unique total is **35** — the three lists are disjoint, so it is their sum.
 
 ⛔⛤ **THIS LINE SAID 36 WHILE THE THREE LISTS ABOVE IT SUMMED TO 37, AND THE
 GUARD BUILT FOR THIS CLASS COULD NOT SEE IT — 2026-09-18.**

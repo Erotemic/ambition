@@ -1026,15 +1026,15 @@ fn a_candidate_session_the_transaction_refuses_leaves_the_live_session_playable(
     }
 
     // A's MECHANICAL state as it stands while A is the only session. The
-    // candidate carries its own `SessionMechanics` and `MovingPlatformSet` and
-    // installs them at adoption; a refused candidate must leave A's alone.
+    // candidate carries its own `SessionMechanics` and installs it at adoption,
+    // and its `MovingPlatformSet` is on its own hidden live room root; a
+    // refused candidate must leave A's alone.
     let mechanics_before = app
         .world()
         .get_resource::<ambition_platformer2d::actors::session::mechanics::SessionMechanics>()
         .map(|mechanics| format!("{mechanics:?}"));
-    let platforms_before = app
-        .world()
-        .resource::<ambition_platformer2d::world::collision::MovingPlatformSet>()
+    let platforms_before = ambition_platformer2d::session::sole_live_room_component::<ambition_platformer2d::world::collision::MovingPlatformSet>(app
+        .world()).expect("the live room has moving platforms")
         .0
         .len();
     assert!(
@@ -1131,8 +1131,7 @@ fn a_candidate_session_the_transaction_refuses_leaves_the_live_session_playable(
         "⛔ A REFUSED CANDIDATE CHANGED THE LIVE SESSION'S MECHANICS"
     );
     assert_eq!(
-        app.world()
-            .resource::<ambition_platformer2d::world::collision::MovingPlatformSet>()
+        ambition_platformer2d::session::sole_live_room_component::<ambition_platformer2d::world::collision::MovingPlatformSet>(app.world()).expect("the live room has moving platforms")
             .0
             .len(),
         platforms_before,
@@ -1433,11 +1432,10 @@ fn a_shell_handoff_publishes_the_incoming_sessions_room() {
         "an adopted session has no `SessionMechanics`, so the cancel arm's claim          that preparation installs none is a claim about nothing"
     );
     // ⭐ AND THE SAME CONTROL FOR THE PLATFORM STATE. MEASURED: this handoff
-    // installs 1 moving platform and the cancel arm ends with 0, so the pair is
-    // a real discriminator rather than two readings of an always-empty resource.
+    // installs 1 moving platform on the live room's root, and the cancel arm
+    // ends with no live room at all, so the pair is a real discriminator.
     assert!(
-        !app.world()
-            .resource::<ambition_platformer2d::world::collision::MovingPlatformSet>()
+        !ambition_platformer2d::session::sole_live_room_component::<ambition_platformer2d::world::collision::MovingPlatformSet>(app.world()).expect("the live room has moving platforms")
             .0
             .is_empty(),
         "an adopted session installed no moving platforms, so the cancel arm's          claim that preparation installs none is a claim about nothing"
@@ -1630,12 +1628,12 @@ fn a_candidate_session_whose_route_is_cancelled_is_discarded() {
     // ⛔⛤ **AND NOTHING PROCESS-GLOBAL WAS INSTALLED BY PREPARING A CANDIDATE.**
     // This is report item 4 — "what remains OUTSIDE candidate ownership" —
     // asserted rather than argued. `SessionMechanics` is the generation's frozen
-    // registries and `MovingPlatformSet` the first room's platform state; both
-    // are process-global RESOURCES, and a candidate builder that wrote them
-    // during preparation would have changed live mechanical state for a session
-    // that was never admitted. They belong to the candidate aggregate and are
-    // installed by ADOPTION, so a candidate prepared and then abandoned must
-    // leave neither behind. No session has ever been live in this arm, which is
+    // registries, a process-global RESOURCE installed by ADOPTION; a candidate
+    // builder that wrote it during preparation would have changed live
+    // mechanical state for a session that was never admitted.
+    // `MovingPlatformSet`, the first room's platform state, is on the
+    // candidate's own hidden live room root since OW1 cut 3b, so an abandoned
+    // candidate leaves no VISIBLE live room at all. No session has ever been live in this arm, which is
     // what makes their ABSENCE meaningful.
     assert!(
         app.world()
@@ -1644,11 +1642,11 @@ fn a_candidate_session_whose_route_is_cancelled_is_discarded() {
         "⛔ PREPARING A CANDIDATE SESSION INSTALLED `SessionMechanics` PROCESS-WIDE.          The candidate was cancelled and never adopted, so the generation's frozen          registries belong to no session at all"
     );
     assert!(
-        app.world()
-            .resource::<ambition_platformer2d::world::collision::MovingPlatformSet>()
-            .0
-            .is_empty(),
-        "⛔ PREPARING A CANDIDATE SESSION PUBLISHED ITS FIRST ROOM'S MOVING          PLATFORMS PROCESS-WIDE. The candidate was cancelled and never adopted,          so this is the mechanical state of a world nothing is playing"
+        ambition_platformer2d::session::sole_live_room_component::<ambition_platformer2d::world::collision::MovingPlatformSet>(app.world())
+            .is_none(),
+        "⛔ PREPARING A CANDIDATE SESSION LEFT A VISIBLE LIVE ROOM, WITH ITS \
+         MOVING PLATFORMS. The candidate was cancelled and never adopted, so \
+         this is the mechanical state of a world nothing is playing"
     );
     assert_eq!(
         ambition_platformer2d::actors::rooms::outstanding_publications(app.world_mut()),

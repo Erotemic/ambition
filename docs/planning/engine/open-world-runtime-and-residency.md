@@ -253,7 +253,7 @@ and no fallback to "the live room".
 | --- | --- | --- | --- |
 | 1 ✅ | Stamp room-scoped entities with the instance their plan was built for (`SessionSpawnScope` carries it, as it carries visibility) | staged occupants carry the pinned instance after publication (none before) | "which room" inferred from the moment of the sweep |
 | 2 ✅ | Mid-room spawns inherit the source's instance; the transition roster is `RoomResident` of the departing instance | a resident of `#7` survives a publication that retires `#0` (the same entity stamped `#0` retires) | the unkeyed whole-world roster |
-| 3 (3a ✅) | Geometry, platforms and overlay move onto the instance root; `CollisionWorld` takes the instance | a body in `#1` collides with `#1`'s wall (in `#0` it passes) | the session-root geometry field, `MovingPlatformSet` as a resource |
+| 3 (3a ✅ 3b ✅) | Geometry, platforms and overlay move onto the instance root; `CollisionWorld` takes the instance | a body in `#1` collides with `#1`'s wall (in `#0` it passes) | the session-root geometry field, `MovingPlatformSet` as a resource |
 | 4 | Pairwise queries (contacts, hits, perception, projectile victims) keyed by instance | identical local positions in two instances never touch (one instance does) | unkeyed body-contact vectors |
 | 5 | Live identity and room selection per instance; rollback rows instance-qualified; the save maps to a durable location key, never the ordinal | a second construction of one room in `#1` succeeds (a duplicate inside `#1` is still refused) | `RoomSet`'s private active index |
 | 6 | The Alice/Bob proof: two instances, two driven bodies; retiring `#1` leaves `#0` whole | the one-room profile runs the same systems | — |
@@ -312,7 +312,7 @@ sole live room only when nobody crosses. Deleted: the `geometry` and
 instance the session root holds".
 
 ⚠ **THE READERS ARE NOT KEYED YET, AND THAT IS THIS CUT'S NAMED DEBT.** 77
-system parameters in 61 production files read `SoleLiveRoom<T>`
+system parameters in 61 production files read `SoleLiveRoom<T>` (79 after 3b)
 (`Single<Ref<T>, With<RoomInstanceRoot>>`), the direct successor of their
 `SessionWorldRef<RoomGeometry>`: with two live rooms a `Single` matches
 nothing, and the system skips. That is the decision's "`Single` fast path",
@@ -326,6 +326,25 @@ takes the instance. Witness:
 `a_publication_writes_only_the_live_room_it_replaces` (a session with live
 rooms #0 and #7: replacing #0 gives that root #1 and the candidate's
 geometry, and #7 keeps both of its own).
+
+✅ **Cut 3b landed 2026-09-29: the moving platforms are the live room's.**
+`MovingPlatformSet` is a component on the room root (rollback row
+`root.moving_platform_set`, schema 266), not a process resource.
+`advance_moving_platforms` advances every live room's platforms. Setup writes
+the first room's set onto its own session's room root, hidden with a
+candidate, so the candidate no longer carries the set out as data for its
+adoption to install. A publication inserts the published room's set on the
+root it writes the geometry to. `CollisionWorld` reads the geometry and the
+platforms in ONE query off one root. Deleted: the resource and its
+`init_resource`, the session teardown's clear (a room root leaves with its
+session), `SimulationWorld::moving_platforms`,
+`PreparedCandidateSession::moving_platforms` and its adoption write, and
+`StagedWorldViolation::NoPlatformStateToPublishInto` with its preflight and
+its two tests (a room root that has geometry always takes the platforms).
+Witness: `every_live_rooms_platforms_advance` (live rooms #0 and #7 each
+hold a platform; both advance one tick's travel). Smash's respawn platform
+writes through `SoleLiveRoomMut`, the write twin of the named debt; a room
+that authored a `respawn_platform_` id would still collide with it.
 
 ⚠ **EVERY LIVE ROOM ROOT IS `session:room_instance`**, so a second root in
 one session cannot be admitted beside the first: a construction baseline

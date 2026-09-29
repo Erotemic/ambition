@@ -50,4 +50,10 @@ where
         OWNER,
         "root.live_room_instance",
     );
+    // A live room's moving platforms, on its own root beside its geometry.
+    // Their kinematics advance every frame, so a rewind restores them.
+    registrar.rollback_component_canonical::<crate::collision::MovingPlatformSet>(
+        OWNER,
+        "root.moving_platform_set",
+    );
 }

@@ -515,16 +515,6 @@ pub enum StagedWorldViolation {
     /// `verify_and_publish` now refuses ANY room publication in a shell-routed
     /// composition that has no root to publish into, staged world or not.
     NoSessionRootToPublishInto,
-    /// A world was staged and the composition holds no `MovingPlatformSet` to
-    /// publish its platform state into.
-    ///
-    /// ⛔ **THE SAME FAIL-CLOSED ARGUMENT AS THE ONE ABOVE, AND IT WAS THE LAST
-    /// SILENT SKIP IN THE PUBLICATION.** `apply_world_replacement` writes the
-    /// platform state through `get_resource_mut`, which answers `None` when the
-    /// resource is absent — so a room with authored moving platforms would
-    /// publish, report `room-loaded`, and leave the world with no platforms in
-    /// it, which is a room the player falls through.
-    NoPlatformStateToPublishInto,
     /// A world was staged and the live session root carries no `RoomSet` to
     /// publish the active room into.
     ///
@@ -576,12 +566,6 @@ impl std::fmt::Display for StagedWorldViolation {
                 "this room staged a whole world and there is no live session root \
                  to publish it into, so publishing would change nothing and say \
                  it had succeeded"
-            ),
-            Self::NoPlatformStateToPublishInto => write!(
-                f,
-                "this room staged moving-platform state and the composition holds \
-                 no `MovingPlatformSet`, so publishing would leave the room \
-                 without the platforms it authored"
             ),
             Self::NoRoomSetToPublishInto => write!(
                 f,
@@ -644,14 +628,8 @@ pub(crate) fn verify_staged_world(
     if publishing_into.is_none() {
         violations.push(StagedWorldViolation::NoSessionRootToPublishInto);
     }
-    // ⛔ ONLY WHEN THERE IS SOMETHING TO PUBLISH. A room with no authored
-    // platforms states an empty vector and means it, and a composition that has
-    // never needed the resource is not wrong for lacking one.
-    if !pending.moving_platforms.is_empty()
-        && !world.contains_resource::<ambition_platformer2d_world::collision::MovingPlatformSet>()
-    {
-        violations.push(StagedWorldViolation::NoPlatformStateToPublishInto);
-    }
+    // The moving platforms need no sink check: they are inserted on the live
+    // room root, which the geometry check below requires.
     // ⛔⛤ **THE SINKS ARE ASKED ABOUT ON THE EXACT TARGET — 2026-09-15 REVIEW,
     // FINDING 5.** This used to accept a staged `next_rooms` as evidence that a
     // room set existed, which answers a question about the VALUE rather than
@@ -800,24 +778,6 @@ pub(crate) fn apply_world_replacement(
                 pending.replaces
             ))
         }
-        // ⛔ THE FOURTH SINK THIS PREFLIGHT MISSED. `verify_staged_world` checks
-        // this one too, but only when there is something to publish — a room
-        // with no authored platforms states an empty vector and means it, so a
-        // composition that has never needed the resource is not wrong for
-        // lacking one. Mirror that exact condition rather than a blanket
-        // presence check, or a composition with no moving platforms would start
-        // refusing every publication.
-        Some(_)
-            if !pending.moving_platforms.is_empty()
-                && !world.contains_resource::<ambition_platformer2d_world::collision::MovingPlatformSet>(
-                ) =>
-        {
-            Some(
-                "composition holds no `MovingPlatformSet` to publish this room's \
-                 moving-platform state into"
-                    .to_string(),
-            )
-        }
         Some(_) => None,
     };
     if let Some(why) = refusal {
@@ -939,10 +899,11 @@ pub(crate) fn apply_world_replacement(
              is the old one"
         ),
     }
-    if let Some(mut platforms) = world
-        .get_resource_mut::<ambition_platformer2d_world::collision::MovingPlatformSet>()
-    {
-        platforms.0 = pending.moving_platforms;
+    // The published room's platforms, on the same root as its geometry.
+    if let Some(room_root) = room_root {
+        world.entity_mut(room_root).insert(
+            ambition_platformer2d_world::collision::MovingPlatformSet(pending.moving_platforms),
+        );
     }
     // ⛔ LAST, AND AFTER THE GEOMETRY. The arrival was validated against the
     // plan's world by the caller, and the body is placed into a world that is
@@ -1502,11 +1463,12 @@ fn verify_and_publish(
                 )
             })
             .sum();
-        if dropped > 0 {
-            ambition_platformer2d_shared_tangle::world_log::world_event(format_args!(
-                "room-refused {room_id} (early refusal, {dropped} roots dropped)"
-            ));
-        }
+        // Always said, also with nothing dropped: a refusal before anything was
+        // built is still a refusal, and without this line it reached only
+        // `bevy::log`, which a bare App does not print.
+        ambition_platformer2d_shared_tangle::world_log::world_event(format_args!(
+            "room-refused {room_id} (early refusal, {dropped} roots dropped)"
+        ));
         // ⛔ A REFUSED PUBLICATION DESPAWNED NOTHING, so the hands its recorded
         // handoffs describe are still correct — draining them would strip an item
         // off a body for a world that was never built.

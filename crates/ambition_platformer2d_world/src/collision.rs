@@ -22,23 +22,24 @@ use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::geometry::subtract_aabb;
 use ambition_platformer2d_core::AabbExt;
 use ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay;
-use bevy_ecs::prelude::{Res, Resource};
+use bevy_ecs::prelude::{Component, Res, Single, With};
 use bevy_ecs::system::SystemParam;
 use std::borrow::Cow;
 
 use crate::platforms::{world_with_moving_platforms, MovingPlatformState};
 
-/// The active room's live moving platforms.
+/// A live room's moving platforms, on that room's own root
+/// (`RoomInstanceRoot`), beside its `RoomGeometry` (OW1 cut 3b).
 ///
-/// Owned by the world/simulation pipeline; the scheduled simulation phase
-/// advances each platform once per frame before body integration, and bodies
-/// consume the resulting delta. The physics plugin registers this as a resource;
-/// the room-load path (setup, load_room, LDtk
-/// hot-reload, sandbox reset) replaces the Vec when the active room changes.
+/// The scheduled simulation phase advances every live room's platforms once
+/// per frame before body integration, and bodies consume the resulting delta.
+/// The session's activation writes the first room's set, and a room
+/// publication writes the set of the room it publishes, onto the root of the
+/// live room it replaces. A second live room has a second set.
 ///
 /// Lives beside [`MovingPlatformState`] rather than a tier up: it is a newtype
 /// over this crate's own vocabulary, and [`CollisionWorld`] reads it.
-#[derive(Resource, Default)]
+#[derive(Component, Clone, Debug, Default)]
 pub struct MovingPlatformSet(pub Vec<MovingPlatformState>);
 
 impl MovingPlatformSet {
@@ -74,10 +75,16 @@ impl MovingPlatformSet {
 /// reader except in rooms with moving platforms, ECS solids or portal carves.
 #[derive(SystemParam)]
 pub struct CollisionWorld<'w, 's> {
+    /// The live room's geometry and its moving platforms, off ONE root, so
+    /// the two cannot come from different rooms.
     room: Option<
-        ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<'w, 's, ae::RoomGeometry>,
+        Single<
+            'w,
+            's,
+            (&'static ae::RoomGeometry, Option<&'static MovingPlatformSet>),
+            With<ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot>,
+        >,
     >,
-    platforms: Option<Res<'w, MovingPlatformSet>>,
     overlay: Option<Res<'w, FeatureEcsWorldOverlay>>,
 }
 
@@ -90,8 +97,8 @@ impl CollisionWorld<'_, '_> {
     /// Returns `None` when no room is loaded (minimal test apps), and borrows the
     /// base geometry on the no-dynamics fast path so the common case never clones.
     pub fn solids(&self) -> Option<Cow<'_, ae::World>> {
-        let room = self.room.as_ref()?;
-        let platforms = self.platforms.as_ref().map_or(&[][..], |p| &p.0);
+        let (room, platforms) = &**self.room.as_ref()?;
+        let platforms = platforms.map_or(&[][..], |p| &p.0);
         let overlay_empty = self.overlay.as_ref().map_or(true, |o| {
             o.blocks.is_empty()
                 && o.gate_solids.is_empty()
@@ -120,7 +127,7 @@ impl CollisionWorld<'_, '_> {
     /// solids omitted. Projectiles pass through moving platforms, so they read
     /// this. Borrows when no carves are active (the common case).
     pub fn carves_only(&self) -> Option<Cow<'_, ae::World>> {
-        let room = self.room.as_ref()?;
+        let (room, _) = &**self.room.as_ref()?;
         let carves = self.overlay.as_ref().map_or(&[][..], |o| &o.portal_carves);
         Some(world_with_portal_carves(&room.0, carves))
     }
@@ -138,8 +145,8 @@ impl CollisionWorld<'_, '_> {
     ///
     /// No consumer outside this module builds a collision world itself.
     pub fn hostable_surfaces(&self) -> Option<Cow<'_, ae::World>> {
-        let room = self.room.as_ref()?;
-        let platforms = self.platforms.as_ref().map_or(&[][..], |p| &p.0);
+        let (room, platforms) = &**self.room.as_ref()?;
+        let platforms = platforms.map_or(&[][..], |p| &p.0);
         if platforms.is_empty() {
             return Some(Cow::Borrowed(&room.0));
         }
@@ -149,7 +156,7 @@ impl CollisionWorld<'_, '_> {
     /// The bare authored geometry, no overlay. For metadata / bounds / layout
     /// reads only — never for collision. Prefer `solids()` / `carves_only()`.
     pub fn base(&self) -> Option<&ae::World> {
-        self.room.as_ref().map(|r| &r.0)
+        self.room.as_ref().map(|room| &room.0 .0)
     }
 }
 
@@ -398,7 +405,7 @@ mod moving_platform_snapshot_tests {
 mod collision_world_tests {
     use super::*;
     use bevy_app::{App, Update};
-    use bevy_ecs::prelude::ResMut;
+    use bevy_ecs::prelude::{ResMut, Resource};
 
     /// Captured `(was_owned, block_count)` from a `CollisionWorld::solids()` read,
     /// so a system can report the borrow/own decision out of the App.

@@ -44,7 +44,6 @@ use ambition_encounter::switches::SwitchActivationQueue;
 use ambition_encounter::{EncounterRegistry, EncounterView};
 use ambition_persistence::quest::QuestRegistry;
 use ambition_platformer2d_shared_tangle::safe_position::RoomTransitionCooldown;
-use ambition_platformer2d_world::collision::MovingPlatformSet;
 
 /// The process-global resources that mirror ONE live session's state.
 ///
@@ -54,9 +53,6 @@ use ambition_platformer2d_world::collision::MovingPlatformSet;
 /// not to the process — see the module doc for which edge makes that safe.
 #[derive(SystemParam)]
 pub struct SessionScopedResources<'w> {
-    /// The active room's advancing platform kinematics; a fresh activation
-    /// rebuilds it from the new room (and it is snapshot-registered state).
-    moving_platforms: ResMut<'w, MovingPlatformSet>,
     /// Possession pair (`possessed`/`home` entity handles + restore brain). The
     /// player is despawned on retirement, so these would dangle.
     possession: ResMut<'w, PossessionState>,
@@ -439,7 +435,6 @@ fn reset(resources: SessionScopedResources) {
     // name true. That test asserts a SUBSET by hand; "every" is guaranteed here,
     // by the compiler, and not there.
     let SessionScopedResources {
-        mut moving_platforms,
         mut possession,
         mut controlled_subject,
         mut encounter_registry,
@@ -469,7 +464,6 @@ fn reset(resources: SessionScopedResources) {
         mut match_ordinal,
         mut gameplay_elapsed,
     } = resources;
-    *moving_platforms = MovingPlatformSet::default();
     *possession = PossessionState::default();
     *controlled_subject = ControlledSubject::default();
     *encounter_registry = EncounterRegistry::default();

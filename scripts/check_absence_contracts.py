@@ -45,6 +45,33 @@ class SentinelLockfileStale(RuntimeError):
 # assertion INSIDE the allowed file rather than renaming it back.
 ABSENCE_CONTRACTS: list[dict] = [
     {
+        "id": "only-the-collision-world-composes-collision",
+        "paths": [
+            "crates/",
+            "game/",
+            "examples/",
+            ":(exclude)crates/ambition_platformer2d_world/src/collision.rs",
+            ":(exclude)crates/ambition_platformer2d_world/src/platforms/mod.rs",
+            # Its inline `#[cfg(test)]` module composes the world to test what
+            # a body reads after a brick breaks; the file's production half
+            # does not. A path check cannot see the test module.
+            ":(exclude)game/ambition_demo_mary_o/src/bricks.rs",
+        ],
+        "patterns": [
+            r"world_with_(sandbox_solids|moving_platforms|portal_carves)\(",
+        ],
+        "reason": (
+            "ONE COMPOSER OF WHAT A BODY COLLIDES WITH. `CollisionWorld` "
+            "(`ambition_platformer2d_world/src/collision.rs`) composes the room, "
+            "its moving platforms and the feature overlay, and every simulated "
+            "collider reads it. Until 2026-09-29 the body step composed its own "
+            "copy from three separate parameters, beside a doc that said no "
+            "consumer did. OW1 cut 3 moves the geometry onto a per-instance "
+            "root, and a second composer is a second place that would still "
+            "read the one live room."
+        ),
+    },
+    {
         "id": "one-registrar-installs-the-session-teardown",
         "paths": [
             "crates/",

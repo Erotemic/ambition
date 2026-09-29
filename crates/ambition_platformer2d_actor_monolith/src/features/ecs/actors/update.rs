@@ -1263,12 +1263,10 @@ pub fn integrate_sim_bodies(
     // the movement phase.
     mut contact_scratch: Local<Vec<ae::BodyContactBlocker>>,
     world_time: Res<WorldTime>,
-    world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
-        ambition_platformer2d_core::RoomGeometry,
-    >,
-    platform_set: Res<ambition_platformer2d_world::collision::MovingPlatformSet>,
+    // The one composer of the collision world: the room, its moving platforms
+    // and the feature overlay, as every other simulated collider reads it.
+    collision: ambition_platformer2d_world::collision::CollisionWorld,
     feel_tuning: Res<ambition_combat::feel::Platformer2dFeelTuningMonolith>,
-    overlay: Res<ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay>,
     steering: Res<ActorSteering>,
     active_tuning: Res<ambition_platformer2d_core::ActiveMovementTuning>,
     mut cues: BodyIntegrationCues,
@@ -1391,11 +1389,10 @@ pub fn integrate_sim_bodies(
     >,
 ) {
     let dt = world_time.sim_dt();
-    let feature_world = ambition_platformer2d_world::collision::world_with_sandbox_solids(
-        &world.0,
-        &platform_set.0,
-        &overlay,
-    );
+    // No room loaded, nothing to integrate against.
+    let Some(feature_world) = collision.solids() else {
+        return;
+    };
     let combat_tuning = feel_tuning.feature_combat_tuning();
     // ── ACTOR bodies (the per-body integrator, symmetric with the home body's) ──
     for (

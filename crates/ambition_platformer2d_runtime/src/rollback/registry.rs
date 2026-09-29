@@ -884,7 +884,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// ⛔⛤ 267 -> 268: `resource.pending_player_hit_events` checksums each staged
 /// hit's own live room (`HitEvent::room`). A blast with no attacker keeps the
 /// room it happens in (OW1 cut 4b review).
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 268;
+/// ⛔⛤ 268 -> 269: the carrier order sorts by the live identity, the pair
+/// (`SimId`, live room), so two instances of one room do not tie. One live
+/// room orders as before (OW1 cut 5c).
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 269;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

@@ -657,19 +657,30 @@ fn every_rollback_anchored_entity_has_a_unique_sim_id_on_the_populated_timeline(
     use std::collections::BTreeMap;
 
     /// Walk every rollback anchor in `world` and fail on an anonymous one or a
-    /// shared id. `when` says which moment produced the finding.
+    /// shared live identity. `when` says which moment produced the finding.
+    ///
+    /// The live identity is the pair (`SimId`, live room), the key of the
+    /// carrier order: two instances of one room hold the same authored ids.
     fn census(world: &mut bevy::prelude::World, when: &str) -> usize {
+        use ambition_platformer2d::platformer::lifecycle::{
+            live_room_of, InRoomInstance, LiveRoomInstance,
+        };
         let mut anchored = world.query_filtered::<(
             Entity,
             Option<&SimId>,
+            Option<&InRoomInstance>,
+            Option<&LiveRoomInstance>,
             Option<&bevy::prelude::Name>,
         ), With<Rollback>>();
         let rows: Vec<(Entity, Option<String>, String)> = anchored
             .iter(world)
-            .map(|(entity, id, name)| {
+            .map(|(entity, id, stamp, root, name)| {
                 (
                     entity,
-                    id.map(|id| id.to_string()),
+                    id.map(|id| match live_room_of(stamp, root) {
+                        Some(room) => format!("{id} in live room {room}"),
+                        None => id.to_string(),
+                    }),
                     name.map(|n| n.as_str().to_string())
                         .unwrap_or_else(|| format!("<unnamed {entity}>")),
                 )

@@ -418,12 +418,15 @@ impl From<FrameZeroRefused> for StartSyncTestError {
 /// from equal values. A session that declares frame zero must drop that
 /// history, so this runs with the frame-counter reset, not at teardown.
 ///
-/// The sort key is the canonical `SimId`, not `RollbackId`. `RollbackId` is
-/// the Bevy `Entity`, so sorting by it would only replace insertion-order
-/// dependence with allocation-order dependence. The previous order is a
-/// tie-break that makes the sort total. It is host-local, but
-/// `rollback_populated_timeline.rs` checks that every visible anchor's `SimId`
-/// is unique, so the tie-break should not be used.
+/// The sort key is the canonical live identity, the pair (`SimId`, live
+/// room), not `RollbackId`. `RollbackId` is the Bevy `Entity`, so sorting by
+/// it would only replace insertion-order dependence with allocation-order
+/// dependence. Two instances of one room hold the same authored `SimId`s, so
+/// the live room is part of the key (`live_room_of`); both peers mint live
+/// rooms from one session counter, so the key is peer-stable. The previous
+/// order is a tie-break that makes the sort total. It is host-local, but
+/// `rollback_populated_timeline.rs` checks that every visible anchor's live
+/// identity is unique, so the tie-break should not be used.
 ///
 /// The rebase refuses while a candidate world is in flight.
 /// `InactiveCandidate` is a disabling component, so the `With<Rollback>`
@@ -440,6 +443,7 @@ impl From<FrameZeroRefused> for StartSyncTestError {
 /// `Rollback` again; its `on_add` hook mints the id and pushes. The new id is
 /// `RollbackId::new(entity)`, the same value, so only the ordering changes.
 pub fn rebase_rollback_carrier_order(world: &mut World) -> RollbackOrderRebase {
+    use ambition_platformer2d_shared_tangle::lifecycle::{live_room_of, InRoomInstance, LiveRoomInstance};
     use ambition_platformer2d_shared_tangle::sim_id::SimId;
     use bevy_ggrs::{Rollback, RollbackId, RollbackOrdered};
 
@@ -472,23 +476,30 @@ pub fn rebase_rollback_carrier_order(world: &mut World) -> RollbackOrderRebase {
     // with the id still queued. If the query required it, that carrier would
     // be missing from the new order and `RollbackOrdered::order` would panic
     // on the next checksum.
-    let mut carriers: Vec<(Option<String>, u64, Entity)> = world
-        .query_filtered::<(Entity, Option<&SimId>, Option<&RollbackId>), With<Rollback>>()
+    let mut carriers: Vec<(Option<String>, Option<LiveRoomInstance>, u64, Entity)> = world
+        .query_filtered::<(
+            Entity,
+            Option<&SimId>,
+            Option<&InRoomInstance>,
+            Option<&LiveRoomInstance>,
+            Option<&RollbackId>,
+        ), With<Rollback>>()
         .iter(world)
-        .map(|(entity, sim_id, rollback)| {
+        .map(|(entity, sim_id, stamp, root, rollback)| {
             let previous_order = match (previous.as_ref(), rollback) {
                 (Some(order), Some(rollback)) => order.order(*rollback),
                 _ => 0,
             };
             (
                 sim_id.map(|id| id.as_str().to_string()),
+                live_room_of(stamp, root),
                 previous_order,
                 entity,
             )
         })
         .collect();
     let total = carriers.len();
-    let identified = carriers.iter().filter(|(id, _, _)| id.is_some()).count();
+    let identified = carriers.iter().filter(|(id, _, _, _)| id.is_some()).count();
     if identified != total {
         // Not a refusal. A partly-unnamed population still gives a better
         // order than another App's history. The gap is reported because an
@@ -510,7 +521,7 @@ pub fn rebase_rollback_carrier_order(world: &mut World) -> RollbackOrderRebase {
     }
     carriers.sort();
     world.insert_resource(RollbackOrdered::default());
-    for (_, _, entity) in &carriers {
+    for (_, _, _, entity) in &carriers {
         let mut carrier = world.entity_mut(*entity);
         carrier.remove::<RollbackId>();
         carrier.remove::<Rollback>();
@@ -1485,9 +1496,10 @@ mod carrier_order_tests {
         assert_eq!(before.len(), 2);
     }
 
-    /// Two carriers that share a `SimId` fall back to this App's spawn order.
-    /// The sort is `(SimId, previous order, Entity)`: only the first key is
-    /// peer-stable, so a duplicate is decided by the two host-local keys.
+    /// Two carriers that share a live identity (`SimId` and live room) fall
+    /// back to this App's spawn order. The sort is `(SimId, live room,
+    /// previous order, Entity)`: only the first two keys are peer-stable, so
+    /// a duplicate is decided by the two host-local keys.
     ///
     /// This test pins what is true: the tie-break is total (nothing dropped, no
     /// shared index) and reproduces local spawn order. `previous order` is
@@ -1495,7 +1507,7 @@ mod carrier_order_tests {
     /// agree. That agreement is not a peer-stability guarantee.
     ///
     /// `rollback_populated_timeline.rs` checks that every visible rollback
-    /// anchor has a unique `SimId`, so this state does not occur today. When
+    /// anchor has a unique live identity, so this state does not occur today. When
     /// frame-zero installation refuses on a duplicate, this test documents what
     /// is replaced.
     #[test]
@@ -1559,6 +1571,56 @@ mod carrier_order_tests {
             "the veteran App reproduces the SAME relative order — and it does so \
              because `previous order` is monotonic in spawn order, not because \
              either key is peer-stable"
+        );
+    }
+
+    /// OW1 cut 5c: two instances of one room order by their live room, not by
+    /// this App's spawn order.
+    ///
+    /// Live rooms #0 and #1 each hold a carrier named `alpha`, as two
+    /// instances of one room do. The subject spawns #1's carrier first, and
+    /// the control spawns #0's first. Both rebase to #0 at index 0 and #1 at
+    /// index 1. Sorted by `SimId` alone, the pair tied and spawn order
+    /// decided, so the two arrangements disagreed.
+    #[test]
+    fn two_instances_of_one_identity_order_by_their_live_room() {
+        use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance};
+        let first = LiveRoomInstance::ACTIVATION;
+        let second = first.next();
+        let rebased = |spawned: [LiveRoomInstance; 2]| {
+            let mut world = World::new();
+            world.init_resource::<RollbackOrdered>();
+            let carriers: Vec<(LiveRoomInstance, Entity)> = spawned
+                .into_iter()
+                .map(|room| {
+                    let entity = world
+                        .spawn((Rollback, SimId::placement("alpha"), InRoomInstance(room)))
+                        .id();
+                    world.flush();
+                    (room, entity)
+                })
+                .collect();
+            rebase_rollback_carrier_order(&mut world);
+            let table = world.resource::<RollbackOrdered>().clone();
+            let mut orders: Vec<(LiveRoomInstance, u64)> = carriers
+                .into_iter()
+                .map(|(room, entity)| {
+                    let id = *world.get::<RollbackId>(entity).expect("the rebase mints the id");
+                    (room, table.order(id))
+                })
+                .collect();
+            orders.sort();
+            orders
+        };
+        assert_eq!(
+            rebased([first, second]),
+            vec![(first, 0), (second, 1)],
+            "control: spawned in live room order"
+        );
+        assert_eq!(
+            rebased([second, first]),
+            vec![(first, 0), (second, 1)],
+            "the carrier order followed this App's spawn order, not the live room"
         );
     }
 

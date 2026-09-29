@@ -201,11 +201,25 @@ impl TransactionRooms {
         let Some(replaces) = self.replaces else {
             return true;
         };
-        match stamp.map(|stamp| stamp.0).or(root.copied()) {
+        match live_room_of(stamp, root) {
             None => true,
             Some(room) => room == replaces || Some(room) == self.mints,
         }
     }
+}
+
+/// The live room an entity is in, for a question keyed by the live identity
+/// (live room, `SimId`): its [`InRoomInstance`] stamp, or, for a live room
+/// root, its own [`LiveRoomInstance`]. `None` for an entity in no live room
+/// (session-level state).
+///
+/// Unlike [`LiveRooms::of`], an unstamped entity is not put in the sole live
+/// room: an identity must not change when a second room goes live.
+pub fn live_room_of(
+    stamp: Option<&InRoomInstance>,
+    root: Option<&LiveRoomInstance>,
+) -> Option<LiveRoomInstance> {
+    stamp.map(|stamp| stamp.0).or(root.copied())
 }
 
 /// The live session's sole live room root.

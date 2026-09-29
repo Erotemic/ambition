@@ -9,13 +9,12 @@ use bevy::prelude::*;
 
 use ambition_combat::scoped_rules::RulesScope;
 use ambition_platformer2d_shared_tangle::lifecycle::{
-    despawn_scoped_entity, ModeScopedEntity, ModeVisit, SessionWorldRef,
+    despawn_scoped_entity, ModeScopedEntity, ModeVisit,
 };
 use ambition_platformer2d_shared_tangle::schedule::{
     Platformer2dSimulationPhaseMonolith, SimScheduleExt as _,
 };
 use ambition_platformer2d_actor_monolith::session::governing_rules::CurrentRoom;
-use ambition_platformer2d_world::rooms::RoomSet;
 
 /// Run condition: the active room belongs to the game mode `name`.
 ///
@@ -100,7 +99,7 @@ impl ModeScopes {
 /// distinct from a room.
 pub fn despawn_departed_mode_entities(
     mut commands: Commands,
-    rooms: Option<ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<RoomSet>>,
+    rooms: Option<ambition_platformer2d_world::rooms::SoleLiveRoomSpec>,
     scopes: Option<Res<ModeScopes>>,
     scoped: Query<(Entity, &ModeScopedEntity)>,
 ) {
@@ -108,7 +107,7 @@ pub fn despawn_departed_mode_entities(
     if !rooms.is_changed() {
         return;
     }
-    let active = ambition_combat::scoped_rules::ActiveRoom::live(rooms.active_metadata().mode.as_deref());
+    let active = ambition_combat::scoped_rules::ActiveRoom::live((&rooms.spec().metadata).mode.as_deref());
     for (entity, mode) in scoped.iter() {
         let governs = match scopes.as_deref().and_then(|scopes| scopes.scope_of(&mode.0)) {
             Some(scope) => scope.governs(active),
@@ -156,13 +155,13 @@ pub struct ModeOwnersSpawned;
 /// The one reading of "has the mode arrived in a room": each game read it by
 /// remembering a room on its own owner, one by index and one by id.
 pub fn follow_mode_owner_rooms(
-    rooms: Option<SessionWorldRef<RoomSet>>,
+    rooms: Option<ambition_platformer2d_world::rooms::SoleLiveRoomSpec>,
     mut owners: Query<&mut ModeVisit>,
 ) {
     let Some(rooms) = rooms else {
         return;
     };
-    let active = rooms.active_spec().id.as_str();
+    let active = rooms.spec().id.as_str();
     for mut visit in &mut owners {
         let next = visit.after(active);
         if *visit != next {

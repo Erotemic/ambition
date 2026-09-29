@@ -59,19 +59,17 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer2d::platformer::lifecycle::SessionWorldRef;
 use ambition_platformer2d::sprite_sheet::game_assets::{GameAssets, ParallaxTheme};
 // ⛔ Through the FACADE, not `ambition_platformer2d_world` directly. The app is a
 // consumer like any other and the compiler enforces it: the world crate is not
 // an `ambition_app` dependency, which is the capability boundary working.
-use ambition_platformer2d::world::rooms::RoomSet;
 
 /// Keep the active room's theme plus its one-hop neighbours'; drop the rest.
 ///
 /// Runs when the room set changes — the same trigger the preparation prefetch
 /// keys off, because "which room is active" is the only input this policy has.
 pub(crate) fn retire_departed_parallax_themes(
-    room_set: SessionWorldRef<RoomSet>,
+    room_set: ambition_platformer2d::world::rooms::SoleLiveRoomSpec,
     mut assets: ResMut<GameAssets>,
 ) {
     // ⛔ Only on a change. Running every frame would call `retain` on a map that
@@ -80,13 +78,13 @@ pub(crate) fn retire_departed_parallax_themes(
     if !room_set.is_changed() {
         return;
     }
-    let Some(active) = room_set.rooms.get(room_set.active()) else {
+    let Some(active) = room_set.rooms().rooms.get(room_set.definition().index()) else {
         return;
     };
 
     let mut keep = vec![ParallaxTheme::from_room_metadata(&active.metadata)];
-    for index in room_set.neighboring_room_indices() {
-        if let Some(neighbour) = room_set.rooms.get(index) {
+    for index in room_set.rooms().neighboring_room_indices_of(room_set.definition().index()) {
+        if let Some(neighbour) = room_set.rooms().rooms.get(index) {
             let theme = ParallaxTheme::from_room_metadata(&neighbour.metadata);
             if !keep.contains(&theme) {
                 keep.push(theme);

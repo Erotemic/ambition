@@ -92,19 +92,12 @@ fn session_rooms() -> RoomSet {
 }
 
 fn insert_session_rooms(app: &mut App) {
-    ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
-        app.world_mut(),
-        session_rooms(),
-    );
+    ambition_platformer2d_world::rooms::insert_room_set(app.world_mut(), session_rooms());
 }
 
 fn enter_room(app: &mut App, id: &str) {
-    ambition_platformer2d_shared_tangle::lifecycle::session_world_component_mut::<RoomSet>(
-        app.world_mut(),
-    )
-    .expect("session room set")
-    .set_active_by_id(id)
-    .expect("the fixture set holds every room the tests visit");
+    ambition_platformer2d_world::rooms::seat_sole_live_room_by_id(app.world_mut(), id)
+        .expect("the fixture set holds every room the tests visit");
 }
 
 fn set_mode(app: &mut App, mode: Option<&str>) {

@@ -775,11 +775,7 @@ pub fn project_custody_onto_residency(
 /// position for a simulated occurrence — so the producers live with the families
 /// that have one. Room transition still knows nothing about items.
 pub fn record_placed_ground_items(
-    room_set: Option<
-        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
-            ambition_platformer2d_world::rooms::RoomSet,
-        >,
-    >,
+    room_set: Option<ambition_platformer2d_world::rooms::SoleLiveRoomSpec>,
     items: Query<
         (
             &ambition_platformer2d_shared_tangle::sim_id::SimId,
@@ -795,7 +791,7 @@ pub fn record_placed_ground_items(
     let (Some(room_set), Some(mut occurrences)) = (room_set, occurrences) else {
         return;
     };
-    let room = &room_set.active_spec().id;
+    let room = &room_set.spec().id;
     // BTreeMap, not the query's order. This value reaches a construction
     // plan; an archetype-ordered read here is a determinism bug that reproduces
     // perfectly on one machine.

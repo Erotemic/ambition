@@ -311,12 +311,7 @@ fn the_shadow_model_agrees_with_the_real_sim_about_what_lands() {
         .write_message(ShellCommand::GoTo(ShellRouteId::new(VERSUS_GAMEPLAY_ROUTE)));
     for _ in 0..900 {
         app.update();
-        let world = app.world_mut();
-        let mut rooms = world.query::<&ambition_platformer2d::runtime::demo_fixture::RoomSet>();
-        if rooms
-            .iter(world)
-            .next()
-            .is_some_and(|set| set.active_spec().id == VERSUS_ROOM_ID)
+        if ambition_platformer2d::world::rooms::sole_live_room_spec(app.world()).is_some_and(|spec| spec.id == VERSUS_ROOM_ID)
         {
             break;
         }

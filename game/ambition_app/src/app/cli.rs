@@ -445,10 +445,8 @@ pub fn run_shared_host_headless_in_room(
         let mut in_room = false;
         for _ in 0..600 {
             app.update();
-            let active = ambition_platformer2d::platformer::lifecycle::session_world_component::<
-                ambition_platformer2d::world::rooms::RoomSet,
-            >(app.world())
-            .map(|rooms| rooms.active_spec().id.clone());
+            let active = ambition_platformer2d::world::rooms::sole_live_room_spec(app.world())
+                .map(|room| room.id.clone());
             if active.as_deref() == Some(room.as_str()) {
                 in_room = true;
                 break;

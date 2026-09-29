@@ -35,12 +35,10 @@ pub fn room_from_visited_flag(flag_id: &str) -> Option<&str> {
 /// Writes only on the edge and otherwise reads through `Deref`: a `ResMut`
 /// deref-mut marks the save changed for every reader, including autosave.
 pub fn track_room_visits(
-    room_set: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
-        ambition_platformer2d_world::rooms::RoomSet,
-    >,
+    room_set: ambition_platformer2d_world::rooms::SoleLiveRoomSpec,
     mut save: ResMut<ambition_persistence::save::AmbitionGameSave>,
 ) {
-    let flag = room_visited_flag(&room_set.active_spec().id);
+    let flag = room_visited_flag(&room_set.spec().id);
     if save.data().flag(&flag) {
         return;
     }

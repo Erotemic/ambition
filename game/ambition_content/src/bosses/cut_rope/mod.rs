@@ -229,9 +229,7 @@ pub fn reset_cut_rope_boss_attempt(
 /// It releases only its own claim (`release_priority` is owner-checked), so a
 /// conversation, a demo death cue or the generic boss owner keep theirs.
 pub fn release_cut_rope_music_outside_its_room(
-    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
-        ambition_platformer2d_world::rooms::RoomSet,
-    >,
+    room_set: ambition_platformer2d::world::rooms::SoleLiveRoomSpec,
     music: Option<
         ambition_platformer2d::platformer::lifecycle::SessionWorldMut<
             ambition_encounter::EncounterMusicRequest,
@@ -241,7 +239,7 @@ pub fn release_cut_rope_music_outside_its_room(
     let Some(mut music) = music else {
         return;
     };
-    if room_set.active_spec().id == CUT_ROPE_ROOM_ID {
+    if room_set.spec().id == CUT_ROPE_ROOM_ID {
         return;
     }
     music.release_priority(CUT_ROPE_MUSIC_OWNER);

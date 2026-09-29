@@ -941,7 +941,7 @@ mod stage_rule_tests {
             room.metadata.mode = None;
         }
         let id = room.id.clone();
-        ambition_platformer2d::platformer::lifecycle::insert_session_world_component(
+        ambition_platformer2d::world::rooms::insert_room_set(
             app.world_mut(),
             RoomSet::from_parts_or_panic(&id, vec![room], Vec::new()),
         );

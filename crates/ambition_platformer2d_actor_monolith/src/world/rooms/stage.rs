@@ -1200,12 +1200,10 @@ mod tests {
     /// N: a session root carrying the OLD room's geometry and room set, the OLD
     /// platform state, and two bodies wearing authored identities.
     ///
-    /// ⚠ The room set holds BOTH rooms and is active on index 0, so
-    /// `set_active(1)` is an observable write rather than a no-op — a fixture
-    /// whose "before" and "after" agree cannot fail.
+    /// ⚠ The room set holds BOTH rooms and the live room instantiates index 0,
+    /// so seating index 1 is an observable write rather than a no-op — a
+    /// fixture whose "before" and "after" agree cannot fail.
     fn last_good_world(platform: MovingPlatformState) -> (bevy::prelude::App, Vec<Entity>) {
-        use ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component;
-
         let mut app = bevy::prelude::App::new();
         ambition_platformer2d_shared_tangle::construction::register_inactive_candidate_filter(
             app.world_mut(),
@@ -1220,7 +1218,7 @@ mod tests {
             app.world_mut(),
             ambition_platformer2d_world::collision::MovingPlatformSet(vec![platform]),
         );
-        insert_session_world_component(
+        ambition_platformer2d_world::rooms::insert_room_set(
             app.world_mut(),
             RoomSet::from_parts_or_panic("n", vec![empty_spec("n"), candidate_spec()], Vec::new()),
         );
@@ -1316,11 +1314,9 @@ mod tests {
         .0
         .name
         .clone();
-        let active = ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<
-            RoomSet,
-        >(app.world())
-        .expect("the session root carries a room set")
-        .active();
+        let active = ambition_platformer2d_world::rooms::sole_live_room_definition(app.world())
+            .expect("the live room root carries its definition")
+            .index();
         let platforms = ambition_platformer2d_shared_tangle::lifecycle::sole_live_room_component::<
             ambition_platformer2d_world::collision::MovingPlatformSet,
         >(app.world())
@@ -1797,10 +1793,10 @@ mod tests {
     /// something else staged `usize::MAX` and moved the active room instead of
     /// failing.
     ///
-    /// ⚠ The clamp is gone as of 2026-09-20 — the setter returns `None` and
-    /// writes nothing — and this road still refuses, because the two refusals
+    /// ⚠ The clamp is gone — `RoomSet::definition` returns `None` for an index
+    /// out of range — and this road still refuses, because the two refusals
     /// happen at different moments. This one is a PREFLIGHT: it says no while
-    /// the outgoing room is still standing. The setter's `None` arrives inside
+    /// the outgoing room is still standing. The set's `None` arrives inside
     /// `apply_world_replacement`, after the teardown, where the only honest
     /// answer left is a panic. What this test pins is that the plan never gets
     /// that far.
@@ -2131,13 +2127,62 @@ mod tests {
         );
         let mut other = empty_spec("n").world.clone();
         other.name = "elsewhere".into();
+        let n = session_world_component::<RoomSet>(app.world())
+            .and_then(|rooms| rooms.definition_by_id("n"))
+            .expect("the fixture's set has room `n`");
         app.world_mut()
             .spawn((activation_room_root(scope), ambition_platformer2d_core::RoomGeometry(other)))
             .insert((
                 second,
+                n,
                 ambition_platformer2d_shared_tangle::sim_id::SimId::singleton("session", "room_instance_1"),
             ));
         (app, outgoing)
+    }
+
+    /// The live rooms, by instance, and the id of the room each instantiates.
+    fn live_room_definitions(app: &mut bevy::prelude::App) -> Vec<(LiveRoomInstance, String)> {
+        let world = app.world_mut();
+        let mut roots = world.query_filtered::<
+            (&LiveRoomInstance, &ambition_platformer2d_world::rooms::LiveRoomDefinition),
+            bevy::prelude::With<ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot>,
+        >();
+        let definitions: Vec<_> = roots.iter(world).map(|(live, definition)| (*live, *definition)).collect();
+        let rooms = ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<RoomSet>(world)
+            .expect("the session keeps its room set");
+        let mut named: Vec<_> = definitions
+            .into_iter()
+            .map(|(live, definition)| (live, rooms.spec(definition).id.clone()))
+            .collect();
+        named.sort();
+        named
+    }
+
+    /// OW1 cut 5e: which room a live room instantiates is a fact of its own
+    /// root, and a publication writes only the root it replaces.
+    ///
+    /// Live rooms #0 and #1 both instantiate room `n`. The candidate, room
+    /// `candidate`, replaces #0. The control: before publication, both roots
+    /// read `n`. The subject: after it, the replaced root (now #2) reads
+    /// `candidate` and #1 still reads `n`. With one `RoomSet::active` index,
+    /// as before this cut, the publication moved it for every live room, so
+    /// #1 read `candidate` too.
+    #[test]
+    fn a_publication_seats_only_the_live_room_it_replaces_in_its_room() {
+        let first = LiveRoomInstance::ACTIVATION;
+        let (second, third) = (first.next(), first.next().next());
+        let (mut app, outgoing) = two_live_rooms();
+        assert_eq!(
+            live_room_definitions(&mut app),
+            vec![(first, "n".to_string()), (second, "n".to_string())],
+            "control: the fixture's two live rooms do not both instantiate `n`"
+        );
+        stage_the_candidate_as(&mut app, candidate_plan(), outgoing, Some(first));
+        assert_eq!(
+            live_room_definitions(&mut app),
+            vec![(second, "n".to_string()), (third, "candidate".to_string())],
+            "the publication did not seat exactly the live room it replaces in the candidate's room"
+        );
     }
 
     /// The live rooms, by instance, and the geometry each holds.

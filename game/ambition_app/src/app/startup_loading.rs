@@ -427,7 +427,8 @@ fn build_startup_manifest(
         .room_sets
         .single()
         .map_err(|_| "expected exactly one canonical session room set".to_owned())?;
-    let room = room_set.active_spec();
+    // Startup builds the room a session activates into.
+    let room = room_set.activation_spec();
     let staged = inputs
         .content_staging
         .try_requests_for(room)

@@ -304,13 +304,11 @@ fn setup_particle_types(mut commands: Commands, mut type_ids: ResMut<FallingSand
 /// not survive a room change" rule onto the bfs world.
 fn despawn_bfs_particles_when_the_room_changes(
     mut commands: Commands,
-    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
-        ambition_platformer2d::world::rooms::RoomSet,
-    >,
+    room_set: ambition_platformer2d::world::rooms::SoleLiveRoomSpec,
     particles: Query<Entity, With<Particle>>,
     mut last_room_id: Local<Option<String>>,
 ) {
-    let active_id = room_set.active_spec().id.as_str();
+    let active_id = room_set.spec().id.as_str();
     if last_room_id.as_deref() == Some(active_id) {
         return;
     }
@@ -321,14 +319,12 @@ fn despawn_bfs_particles_when_the_room_changes(
 }
 
 fn seed_falling_sand_room_boundaries(
-    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
-        ambition_platformer2d::world::rooms::RoomSet,
-    >,
+    room_set: ambition_platformer2d::world::rooms::SoleLiveRoomSpec,
     mut state: ResMut<FallingSandRoomState>,
     mut writer: MessageWriter<SpawnParticleSignal>,
     type_ids: Res<FallingSandTypeIds>,
 ) {
-    let room = room_set.active_spec();
+    let room = room_set.spec();
     if room.id != ROOM_ID || state.seeded_boundaries {
         return;
     }
@@ -469,14 +465,12 @@ fn emit_particle_rect(
 
 fn sync_falling_sand_spout_nozzles(
     mut commands: Commands,
-    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
-        ambition_platformer2d::world::rooms::RoomSet,
-    >,
+    room_set: ambition_platformer2d::world::rooms::SoleLiveRoomSpec,
     state: Res<FallingSandRoomState>,
     save: Res<ambition_persistence::save::AmbitionGameSave>,
     existing: Query<(Entity, &FallingSandSpoutNozzle)>,
 ) {
-    let room = room_set.active_spec();
+    let room = room_set.spec();
     if !state.active_room || room.id != ROOM_ID {
         for (entity, _) in &existing {
             commands.entity(entity).despawn();
@@ -547,16 +541,14 @@ fn sync_falling_sand_spout_nozzles(
 ///
 /// One owner, two views of it.
 fn emit_falling_sand_spouts(
-    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
-        ambition_platformer2d::world::rooms::RoomSet,
-    >,
+    room_set: ambition_platformer2d::world::rooms::SoleLiveRoomSpec,
     state: Res<FallingSandRoomState>,
     save: Res<ambition_persistence::save::AmbitionGameSave>,
     mut writer: MessageWriter<SpawnParticleSignal>,
     type_ids: Res<FallingSandTypeIds>,
     mut last_logged: Local<Option<FallingSandSpoutState>>,
 ) {
-    let room = room_set.active_spec();
+    let room = room_set.spec();
     if !state.active_room || room.id != ROOM_ID {
         return;
     }
@@ -774,9 +766,7 @@ fn tally_particles<'a>(
 
 fn project_particles_to_movement_world(
     mut commands: Commands,
-    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
-        ambition_platformer2d::world::rooms::RoomSet,
-    >,
+    room_set: ambition_platformer2d::world::rooms::SoleLiveRoomSpec,
     state: Res<FallingSandRoomState>,
     world: ambition_platformer2d::platformer::lifecycle::SoleLiveRoom<
         ambition_platformer2d_core::RoomGeometry,
@@ -795,7 +785,7 @@ fn project_particles_to_movement_world(
     let Some(mut overlay) = overlays.sole() else {
         return;
     };
-    if !state.active_room || room_set.active_spec().id != ROOM_ID {
+    if !state.active_room || room_set.spec().id != ROOM_ID {
         clear_material_visuals(&mut commands, &visuals);
         *report = FallingSandProjectionReport::default();
         return;
@@ -994,9 +984,7 @@ fn project_liquid(
 fn log_falling_sand_diagnostics(
     time: Res<Time>,
     state: Res<FallingSandRoomState>,
-    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
-        ambition_platformer2d::world::rooms::RoomSet,
-    >,
+    room_set: ambition_platformer2d::world::rooms::SoleLiveRoomSpec,
     particles: Query<(&AttachedToParticleType, &GridPosition), With<Particle>>,
     particle_types: Query<&ParticleType>,
     type_ids: Res<FallingSandTypeIds>,
@@ -1023,7 +1011,7 @@ fn log_falling_sand_diagnostics(
     sand: Res<FallingSandWorld>,
     mut next_log_at: Local<f32>,
 ) {
-    if !state.active_room || room_set.active_spec().id != ROOM_ID {
+    if !state.active_room || room_set.spec().id != ROOM_ID {
         return;
     }
     let now = time.elapsed_secs();
@@ -1032,7 +1020,7 @@ fn log_falling_sand_diagnostics(
     }
     *next_log_at = now + 1.0;
 
-    let world = &room_set.active_spec().world;
+    let world = &room_set.spec().world;
     let floor_block_top_world_y = world
         .blocks
         .iter()
@@ -1272,9 +1260,7 @@ fn sync_material_visuals(
 /// a paused game costs nothing.
 fn sync_sand_grid_texture(
     mut commands: Commands,
-    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
-        ambition_platformer2d::world::rooms::RoomSet,
-    >,
+    room_set: ambition_platformer2d::world::rooms::SoleLiveRoomSpec,
     state: Res<FallingSandRoomState>,
     sand: Res<FallingSandWorld>,
     mut images: ResMut<Assets<Image>>,
@@ -1283,7 +1269,7 @@ fn sync_sand_grid_texture(
     use bevy::asset::RenderAssetUsages;
     use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 
-    let room = room_set.active_spec();
+    let room = room_set.spec();
     let active = state.active_room && room.id == ROOM_ID;
     let grid = match sand.grid.as_ref() {
         Some(grid) if active => grid,

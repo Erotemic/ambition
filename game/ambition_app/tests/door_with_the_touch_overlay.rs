@@ -32,12 +32,7 @@ use bevy::MinimalPlugins;
 use leafwing_input_manager::prelude::InputMap;
 
 fn active_room(app: &mut App) -> Option<String> {
-    let mut q = app
-        .world_mut()
-        .query::<&ambition_platformer2d::world::rooms::RoomSet>();
-    q.iter(app.world())
-        .next()
-        .map(|set| set.active_spec().id.clone())
+    ambition_platformer2d::world::rooms::sole_live_room_spec(app.world()).map(|spec| spec.id.clone())
 }
 
 #[test]
@@ -100,12 +95,14 @@ fn a_door_still_opens_with_the_touch_overlay_installed() {
     let before = {
         let door = {
             let world = app.world_mut();
+            let live_definition = ambition_platformer2d::world::rooms::sole_live_room_definition(world)
+                .expect("the session has a live room");
             let mut rooms = world.query::<&ambition_platformer2d::world::rooms::RoomSet>();
             let zone = rooms
                 .iter(world)
                 .next()
                 .expect("a live session room set")
-                .active_loading_zones()
+                .spec(live_definition).loading_zones
                 .iter()
                 .find(|zone| {
                     zone.activation

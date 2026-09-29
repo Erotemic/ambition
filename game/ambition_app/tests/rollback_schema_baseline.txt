@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v269
+ggrs-rollback-schema-v270
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -464,10 +464,11 @@ resource.versus_match	resource-clone-custom-checksum	VersusMatch	bevy_ggrs clone
 resource.world_time	resource-canonical	WorldTime	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 root.encounter_music_request	component-clone	EncounterMusicRequest	bevy_ggrs clone snapshot; not in the session checksum
 root.geometry	component-clone	RoomGeometry	bevy_ggrs clone snapshot; not in the session checksum
+root.live_room_definition	component-canonical	LiveRoomDefinition	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 root.live_room_instance	component-canonical	LiveRoomInstance	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 root.moving_platform_set	component-canonical	MovingPlatformSet	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 root.room_instance	component-canonical	RoomInstanceRoot	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-root.room_set	component-clone-custom-checksum	RoomSet	bevy_ggrs clone snapshot + active/start room identity and next live room checksum
+root.room_set	component-clone-custom-checksum	RoomSet	bevy_ggrs clone snapshot + activation/start room identity and next live room checksum
 root:room_instance	required-rollback	RoomInstanceRoot	component presence automatically installs bevy_ggrs::Rollback
 root:room_set	required-rollback	RoomSet	component presence automatically installs bevy_ggrs::Rollback
 scope.mode	component-canonical	ModeScopedEntity	bevy_ggrs canonical codec snapshot + identical canonical checksum projection

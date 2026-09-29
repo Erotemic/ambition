@@ -123,24 +123,27 @@ fn boot_and_record_the_hall_transition() -> (App, usize) {
     // The REAL transition, resolved through the room graph rather than
     // synthesised: stand in the Hall door and press interact.
     let (target_room, arrival) = {
+        let live_definition = ambition_platformer2d::world::rooms::sole_live_room_definition(app.world())
+            .expect("the session has a live room");
         let mut query = app
             .world_mut()
             .query::<&ambition_platformer2d::world::rooms::RoomSet>();
         let room_set = query.iter(app.world()).next().expect("a session room set");
         let zone = room_set
-            .active_loading_zones()
+            .spec(live_definition).loading_zones
             .iter()
             .find(|zone| zone.id == HALL_DOOR_ZONE || zone.name == HALL_DOOR_ZONE)
             .unwrap_or_else(|| {
                 panic!(
                     "the active room '{}' has no `{HALL_DOOR_ZONE}`, so this test is \
                      measuring nothing",
-                    room_set.active_spec().id
+                    room_set.spec(live_definition).id
                 )
             })
             .clone();
         let transition = room_set
             .transition_for_player(
+                live_definition,
                 zone.aabb,
                 ambition_platformer2d::engine_core::Vec2::ZERO,
                 true,
@@ -512,12 +515,14 @@ fn leaving_the_gallery_keeps_the_shared_cast_and_retires_the_rest() {
     ));
     wait_for_a_session_room_set(&mut app, "the hall was activating as the start room");
     {
+        let live_definition = ambition_platformer2d::world::rooms::sole_live_room_definition(app.world())
+            .expect("the session has a live room");
         let mut query = app
             .world_mut()
             .query::<&ambition_platformer2d::world::rooms::RoomSet>();
         let room_set = query.iter(app.world()).next().expect("a session room set");
         assert_eq!(
-            room_set.active_spec().id,
+            room_set.spec(live_definition).id,
             "hall_of_characters",
             "premise: the override started the session in the hall"
         );
@@ -613,18 +618,21 @@ fn leaving_the_gallery_keeps_the_shared_cast_and_retires_the_rest() {
 
     // Record the hall -> hub transition through the room graph.
     let (target_room, arrival) = {
+        let live_definition = ambition_platformer2d::world::rooms::sole_live_room_definition(app.world())
+            .expect("the session has a live room");
         let mut query = app
             .world_mut()
             .query::<&ambition_platformer2d::world::rooms::RoomSet>();
         let room_set = query.iter(app.world()).next().expect("a session room set");
         let zone = room_set
-            .active_loading_zones()
+            .spec(live_definition).loading_zones
             .iter()
             .find(|zone| zone.id == HALL_EXIT_ZONE)
             .unwrap_or_else(|| panic!("the hall has no `{HALL_EXIT_ZONE}`"))
             .clone();
         let transition = room_set
             .transition_for_player(
+                live_definition,
                 zone.aabb,
                 ambition_platformer2d::engine_core::Vec2::ZERO,
                 true,
@@ -700,13 +708,15 @@ fn leaving_the_gallery_keeps_the_shared_cast_and_retires_the_rest() {
     // `basement_enemies` spawns an "Ai Slop".
     let neighbour_ids: std::collections::BTreeSet<String> = {
         let neighbour_tokens: Vec<String> = {
+            let live_definition = ambition_platformer2d::world::rooms::sole_live_room_definition(app.world())
+                .expect("the session has a live room");
             let mut query = app
                 .world_mut()
                 .query::<&ambition_platformer2d::world::rooms::RoomSet>();
             let room_set = query.iter(app.world()).next().expect("a session room set");
-            assert_eq!(room_set.active_spec().id, HUB, "premise: the hub is active");
+            assert_eq!(room_set.spec(live_definition).id, HUB, "premise: the hub is active");
             room_set
-                .neighboring_room_indices()
+                .neighboring_room_indices_of(live_definition.index())
                 .into_iter()
                 .flat_map(|index| room_placed_character_tokens(&room_set.rooms[index]))
                 .collect()
@@ -849,23 +859,26 @@ fn every_character_the_hall_places_is_reached_by_its_demand() {
 /// target room is active (or `max` frames pass). Returns the frames it took.
 fn transit_through(app: &mut App, zone_id: &str, max: usize) -> usize {
     let (target_room, arrival) = {
+        let live_definition = ambition_platformer2d::world::rooms::sole_live_room_definition(app.world())
+            .expect("the session has a live room");
         let mut query = app
             .world_mut()
             .query::<&ambition_platformer2d::world::rooms::RoomSet>();
         let room_set = query.iter(app.world()).next().expect("a session room set");
         let zone = room_set
-            .active_loading_zones()
+            .spec(live_definition).loading_zones
             .iter()
             .find(|zone| zone.id == zone_id || zone.name == zone_id)
             .unwrap_or_else(|| {
                 panic!(
                     "the active room '{}' has no `{zone_id}`",
-                    room_set.active_spec().id
+                    room_set.spec(live_definition).id
                 )
             })
             .clone();
         let transition = room_set
             .transition_for_player(
+                live_definition,
                 zone.aabb,
                 ambition_platformer2d::engine_core::Vec2::ZERO,
                 true,
@@ -900,13 +913,15 @@ fn transit_through(app: &mut App, zone_id: &str, max: usize) -> usize {
         );
     for frame in 0..max {
         step(app);
+        let live_definition = ambition_platformer2d::world::rooms::sole_live_room_definition(app.world())
+            .expect("the session has a live room");
         let mut query = app
             .world_mut()
             .query::<&ambition_platformer2d::world::rooms::RoomSet>();
         let active = query
             .iter(app.world())
             .next()
-            .map(|set| set.active_spec().id.clone());
+            .map(|set| set.spec(live_definition).id.clone());
         let state = app
             .world()
             .resource::<ambition_platformer2d::runtime::room_transition::RoomTransitionLoadState>(

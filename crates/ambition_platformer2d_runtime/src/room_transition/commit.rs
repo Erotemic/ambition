@@ -141,6 +141,13 @@ pub struct RoomTransitionApplication<'w, 's> {
         With<ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot>,
     >,
     subject_room: Query<'w, 's, &'static ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
+    /// Which room of the set each live room is (OW1 cut 5e).
+    definitions: Query<
+        'w,
+        's,
+        &'static world_rooms::LiveRoomDefinition,
+        With<ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot>,
+    >,
     // ⛔⛤ **THE EFFECT CHANNELS ARE GONE FROM THIS PARAM, AND THEIR ABSENCE IS
     // THE POINT.** The sfx/vfx writers, the clock, the developer overlay, the
     // dialogue and the conversation moved to `RoomTransitionFinalize`, which only
@@ -210,6 +217,12 @@ impl RoomTransitionApplication<'_, '_> {
     /// [`Self::apply`] refuses on for the same reason.
     pub fn room_set(&self) -> Option<&world_rooms::RoomSet> {
         self.session.iter().next()
+    }
+
+    /// Which room of the set the sole live room is: the room a crossing
+    /// leaves. `None` with no live room or two (the one-live-room read).
+    pub fn live_definition(&self) -> Option<world_rooms::LiveRoomDefinition> {
+        self.definitions.single().ok().copied()
     }
 
     /// Resolve the EXACT body a transition recorded, or `None`.
@@ -899,7 +912,9 @@ pub fn commit_ready_room_transition_system(
         );
         return;
     };
-    let room_set_active = room_set.active();
+    // The room the crossing leaves is the live room's definition, not an
+    // index on the set (OW1 cut 5e).
+    let room_set_active = application.live_definition().map(|definition| definition.index());
     let target_still_matches = room_set.rooms.get(active.target_room).is_some_and(|room| {
         room.id == active.target_room_id()
             && active
@@ -910,11 +925,11 @@ pub fn commit_ready_room_transition_system(
     let current_session = active_session.as_deref().and_then(|scope| scope.current());
     if active.content_epoch != content_epoch.get()
         || active.session_scope != current_session
-        || room_set_active != active.source_room
+        || room_set_active != Some(active.source_room)
         || !target_still_matches
     {
         let detail = format!(
-            "discarding stale room transition {}: expected epoch {}, session {:?}, source '{}' at index {}, and target '{}'; current epoch is {}, session is {:?}, active index is {}",
+            "discarding stale room transition {}: expected epoch {}, session {:?}, source '{}' at index {}, and target '{}'; current epoch is {}, session is {:?}, live room definition is {:?}",
             active.sequence,
             active.content_epoch,
             active.session_scope,

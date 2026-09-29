@@ -156,11 +156,7 @@ pub fn admit_room_replay(
     >,
     controlled: Option<Res<ambition_platformer2d_shared_tangle::markers::ControlledSubject>>,
     identities: Query<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
-    room_set: Option<
-        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
-            ambition_platformer2d_world::rooms::RoomSet,
-        >,
-    >,
+    room_set: Option<ambition_platformer2d_world::rooms::SoleLiveRoomSpec>,
     mut pending: ResMut<
         ambition_platformer2d_actor_monolith::session::lifecycle_commit::PendingLifecycleCommit,
     >,
@@ -176,10 +172,10 @@ pub fn admit_room_replay(
     let Some(reason) = requests.read().map(|request| request.reason).next() else {
         return;
     };
-    let Some(room_set) = room_set.as_deref() else {
+    let Some(room_set) = room_set.as_ref() else {
         return;
     };
-    let active = room_set.active_spec();
+    let active = room_set.spec();
 
     // The body the player is actually playing the room with.
     let subject = controlled
@@ -480,7 +476,7 @@ mod tests {
 mod subjectless_replay_tests {
     use super::*;
     use ambition_platformer2d_shared_tangle::lifecycle::{
-        insert_session_world_component, ActiveSessionScope,
+        ActiveSessionScope,
     };
 
     fn room_set(room_id: &str) -> ambition_platformer2d_world::rooms::RoomSet {
@@ -539,7 +535,7 @@ mod subjectless_replay_tests {
         app.init_resource::<
             ambition_platformer2d_actor_monolith::session::lifecycle_commit::PendingLifecycleCommit,
         >();
-        insert_session_world_component(app.world_mut(), room_set("central"));
+        ambition_platformer2d_world::rooms::insert_room_set(app.world_mut(), room_set("central"));
         // ⛔ NO `ControlledSubject` RESOURCE AT ALL — the composition this arm is
         // about. Inserting `ControlledSubject(None)` would test the same branch;
         // omitting it also proves the `Option<Res<..>>` reaches it.

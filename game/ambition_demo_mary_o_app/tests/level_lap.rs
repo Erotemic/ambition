@@ -11,7 +11,6 @@ use ambition_demo_mary_o::level_1_2::LEVEL_1_2_ROOM_ID;
 use ambition_demo_mary_o::LEVEL_1_1_ROOM_ID;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::platformer::markers::PrimaryPlayer;
-use ambition_platformer2d::world::rooms::RoomSet;
 
 const LEVEL_1_3_ROOM_ID: &str = "mary_o_1_3";
 
@@ -20,10 +19,7 @@ const LEVEL_1_3_ROOM_ID: &str = "mary_o_1_3";
 const COMMIT_CAP: usize = 900;
 
 fn room_id(app: &mut App) -> Option<String> {
-    let mut q = app.world_mut().query::<&RoomSet>();
-    q.iter(app.world())
-        .next()
-        .map(|set| set.active_spec().id.clone())
+    ambition_platformer2d::world::rooms::sole_live_room_spec(app.world()).map(|room| room.id.clone())
 }
 
 /// Where the controlled body is, if she exists at all.
@@ -163,13 +159,9 @@ fn a_lap_comes_back_to_the_same_room_definition_and_a_different_live_room() {
     }
 
     let opened_in = room_id(&mut app).expect("the session opened somewhere");
-    let opening_index = {
-        let mut q = app.world_mut().query::<&RoomSet>();
-        q.iter(app.world())
-            .next()
-            .expect("the session has a RoomSet")
-            .active()
-    };
+    let opening_index = ambition_platformer2d::world::rooms::sole_live_room_definition(app.world())
+        .expect("the live room names its definition")
+        .index();
     let opening_instance = live_room(&mut app);
 
     leg(&mut app, LEVEL_1_1_ROOM_ID, LEVEL_1_2_ROOM_ID);
@@ -177,13 +169,9 @@ fn a_lap_comes_back_to_the_same_room_definition_and_a_different_live_room() {
     leg(&mut app, LEVEL_1_2_ROOM_ID, LEVEL_1_3_ROOM_ID);
     leg(&mut app, LEVEL_1_3_ROOM_ID, LEVEL_1_1_ROOM_ID);
 
-    let closing_index = {
-        let mut q = app.world_mut().query::<&RoomSet>();
-        q.iter(app.world())
-            .next()
-            .expect("the session has a RoomSet")
-            .active()
-    };
+    let closing_index = ambition_platformer2d::world::rooms::sole_live_room_definition(app.world())
+        .expect("the live room names its definition")
+        .index();
     let closing_instance = live_room(&mut app);
 
     assert_eq!(

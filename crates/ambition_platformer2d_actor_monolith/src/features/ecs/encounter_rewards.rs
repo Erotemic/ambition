@@ -124,9 +124,7 @@ pub fn sync_encounter_reward_chests(
     mut commands: ambition_platformer2d_shared_tangle::lifecycle::SessionCommands<'_, '_>,
     save: bevy::prelude::Res<ambition_persistence::save::AmbitionGameSave>,
     cleared: bevy::prelude::Res<ambition_encounter::rewards::ClearedEncounters>,
-    rooms: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
-        ambition_platformer2d_world::rooms::RoomSet,
-    >,
+    rooms: ambition_platformer2d_world::rooms::SoleLiveRoomSpec,
     chests: bevy::prelude::Query<
         (Entity, &EncounterRewardChest, &FeatureId, Option<&Opened>),
         With<ChestFeature>,
@@ -141,7 +139,7 @@ pub fn sync_encounter_reward_chests(
         &mut commands,
         session_scope,
         save.data(),
-        &rooms.active_spec().id,
+        &rooms.spec().id,
         &cleared.0,
         &chests,
     );
@@ -204,9 +202,7 @@ pub fn retire_rewards_for_rearmed_encounters(
     mut commands: bevy::prelude::Commands,
     mut save: bevy::prelude::ResMut<ambition_persistence::save::AmbitionGameSave>,
     switches: bevy::prelude::Res<ambition_encounter::switches::ResolvedSwitchActivations>,
-    rooms: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
-        ambition_platformer2d_world::rooms::RoomSet,
-    >,
+    rooms: ambition_platformer2d_world::rooms::SoleLiveRoomSpec,
     chests: bevy::prelude::Query<
         (Entity, &EncounterRewardChest, &FeatureId, Option<&Opened>),
         With<ChestFeature>,
@@ -228,7 +224,7 @@ pub fn retire_rewards_for_rearmed_encounters(
             continue;
         }
         let Some(target_id) = activation.target_encounter_in(
-            &rooms.active_spec().id,
+            &rooms.spec().id,
             encounters
                 .iter()
                 .map(|(encounter, waves)| (encounter.id.as_str(), waves.spec.room_id.as_str())),
@@ -252,14 +248,15 @@ mod retire_on_rearm_tests {
         let mut app = App::new();
         app.insert_resource(AmbitionGameSave::default());
         app.insert_resource(ResolvedSwitchActivations(activations));
-        // ⚠ THE SESSION ROOT IS NOT TEST SCAFFOLDING, it is the system's gate.
-        // `SessionWorldRef` is a `Single<Ref<T>, With<SessionRoot>>`, so without
-        // one the system is SKIPPED and every assertion below passes for the
+        // ⚠ THE SESSION ROOT AND THE LIVE ROOM ROOT ARE NOT TEST SCAFFOLDING,
+        // they are the system's gate. `SoleLiveRoomSpec` reads the set on the
+        // session root and the definition on the live room root, each through a
+        // `Single`, so without both the system is SKIPPED and every assertion below passes for the
         // wrong reason. The first version of this test had no root: the "off
         // retires the reward" case failed, and it failed because the system
         // never ran. That requirement is inherited, not new — the adapter this
         // logic left took the same param.
-        ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+        ambition_platformer2d_world::rooms::insert_room_set(
             app.world_mut(),
             // ⚠ A REAL ROOM, because a set with none is no longer a thing the
             // constructor will build (2026-09-20). Nothing here reads the

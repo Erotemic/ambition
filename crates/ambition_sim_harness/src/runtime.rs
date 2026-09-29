@@ -468,9 +468,8 @@ impl Platformer2dSimHarness {
             .single(world)
             .map(|h| h.health)
             .unwrap_or_else(|_| Health::new(20));
-        let room = session_world_component::<RoomSet>(world)
-            .expect("active session RoomSet")
-            .active_spec();
+        let room = ambition_platformer2d::world::rooms::sole_live_room_spec(world)
+            .expect("the session's live room");
         let combat = combat_query.single(world).ok();
         let recently_damaged = combat.is_some_and(|c| c.damage_invuln_timer > 0.0);
         let in_hitstun = combat.is_some_and(|c| c.hitstun_timer > 0.0);
@@ -822,9 +821,8 @@ impl Platformer2dSimHarness {
     /// staged into one room and re-staging the same id is refused rather than
     /// silently doubling the room's population.
     fn stage_actor(&mut self, request: SpawnActorRequest) {
-        let room_id = session_world_component::<RoomSet>(self.app.world())
-            .expect("active session RoomSet")
-            .active_spec()
+        let room_id = ambition_platformer2d::world::rooms::sole_live_room_spec(self.app.world())
+            .expect("the session's live room")
             .id
             .clone();
         let staged = request.clone();

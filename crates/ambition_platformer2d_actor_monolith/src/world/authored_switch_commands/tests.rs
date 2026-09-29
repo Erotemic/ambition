@@ -183,7 +183,7 @@ fn world_with_one_authored_switch(on_activate: Option<&str>) -> App {
         .add_message::<ambition_encounter::switches::SwitchActivated>()
         .add_message::<RunAuthoredCommand>()
         .publish_command(ring_descriptor(), ring);
-    ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+    ambition_platformer2d_world::rooms::insert_room_set(
         app.world_mut(),
         ambition_platformer2d_world::rooms::RoomSet::from_parts_or_panic(
             "symmetry_room",

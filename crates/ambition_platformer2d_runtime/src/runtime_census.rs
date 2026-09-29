@@ -31,7 +31,7 @@ use ambition_dev_tools::runtime_census::RuntimeCensus;
 use ambition_platformer2d_shared_tangle::lifecycle::{
     RoomInstanceRoot, SessionRoot, SessionScopedEntity,
 };
-use ambition_platformer2d_world::rooms::{LiveRoomInstance, RoomSet};
+use ambition_platformer2d_world::rooms::{LiveRoomDefinition, LiveRoomInstance, RoomSet};
 
 use crate::room_transition::{ActiveRoomTransitionLoad, RoomTransitionLoadState};
 
@@ -47,8 +47,16 @@ use crate::room_transition::{ActiveRoomTransitionLoad, RoomTransitionLoadState};
 pub fn report_room_census(
     census: Res<RuntimeCensus>,
     sessions: Query<(&RoomSet, &SessionRoot)>,
-    // Each session's live room, on its own root (OW1 cut 3).
-    rooms: Query<(&LiveRoomInstance, Option<&SessionScopedEntity>), bevy::prelude::With<RoomInstanceRoot>>,
+    // Each session's live room, on its own root (OW1 cut 3), and which room
+    // of the set it is (OW1 cut 5e).
+    rooms: Query<
+        (
+            &LiveRoomInstance,
+            Option<&LiveRoomDefinition>,
+            Option<&SessionScopedEntity>,
+        ),
+        bevy::prelude::With<RoomInstanceRoot>,
+    >,
     crossing: Option<Res<RoomTransitionLoadState>>,
 ) {
     let Some(at) = census.due() else {
@@ -68,15 +76,22 @@ pub fn report_room_census(
     );
 }
 
-/// The live room of the session `root`, when it has exactly one.
+/// The live room of the session `root`, and the definition it instantiates,
+/// when the session has exactly one.
 pub fn live_room_of<'a>(
     root: &SessionRoot,
-    rooms: impl IntoIterator<Item = (&'a LiveRoomInstance, Option<&'a SessionScopedEntity>)>,
-) -> Option<&'a LiveRoomInstance> {
+    rooms: impl IntoIterator<
+        Item = (
+            &'a LiveRoomInstance,
+            Option<&'a LiveRoomDefinition>,
+            Option<&'a SessionScopedEntity>,
+        ),
+    >,
+) -> Option<(&'a LiveRoomInstance, Option<&'a LiveRoomDefinition>)> {
     let mut ours = rooms
         .into_iter()
-        .filter(|(_, owner)| owner.is_none_or(|owner| owner.0 == root.0))
-        .map(|(live, _)| live);
+        .filter(|(_, _, owner)| owner.is_none_or(|owner| owner.0 == root.0))
+        .map(|(live, definition, _)| (live, definition));
     let live = ours.next()?;
     ours.next().is_none().then_some(live)
 }
@@ -93,7 +108,11 @@ pub fn live_room_of<'a>(
 pub fn room_census_row<'a>(
     at: f64,
     sessions: impl ExactSizeIterator<
-        Item = (&'a RoomSet, &'a SessionRoot, Option<&'a LiveRoomInstance>),
+        Item = (
+            &'a RoomSet,
+            &'a SessionRoot,
+            Option<(&'a LiveRoomInstance, Option<&'a LiveRoomDefinition>)>,
+        ),
     >,
     crossing: Option<&ActiveRoomTransitionLoad>,
 ) -> String {
@@ -122,24 +141,27 @@ pub fn room_census_row<'a>(
         // `live=#3` does not. A root that carries no instance prints `live=?`
         // rather than `#0`, because a partial composition and a session in its
         // activation room are different worlds and `#0` is the second one.
-        let live = live_room.map_or_else(|| "?".to_string(), LiveRoomInstance::to_string);
+        let live = live_room.map_or_else(|| "?".to_string(), |(live, _)| live.to_string());
+        // `active` is the live room root's definition (OW1 cut 5e). A root
+        // with none prints `?`: no room is seated, which is not room 0.
+        let active = live_room.and_then(|(_, definition)| definition).map(|d| d.index());
+        let active_label = active.map_or_else(
+            || "?".to_string(),
+            |index| format!("{}[{index}]", id_at(index)),
+        );
         row.push_str(&format!(
-            " [scope={scope} rooms={} active={}[{}] start={}[{}] live={live}",
+            " [scope={scope} rooms={} active={active_label} start={}[{}] live={live}",
             room_set.rooms.len(),
-            id_at(room_set.active()),
-            room_set.active(),
             id_at(room_set.start()),
             room_set.start(),
         ));
-        // ⚠ **`active_metadata()` INDEXES DIRECTLY AND WOULD PANIC ON THE
-        // STATE THIS ROW EXISTS TO REPORT.** `id_at` above is careful with an
-        // out-of-range `active`; one line later the metadata read went through
-        // `&self.rooms[self.active]`, so a world broken in exactly the way
-        // that makes somebody run this would kill the instrument instead of
-        // printing `active=<out-of-range>[73]`.
-        if let Some(biome) = room_set
-            .rooms
-            .get(room_set.active())
+        // ⚠ **A DIRECT INDEX WOULD PANIC ON THE STATE THIS ROW EXISTS TO
+        // REPORT.** `id_at` above is careful with an out-of-range index; the
+        // metadata read goes through `get` for the same reason, so a world
+        // broken in exactly the way that makes somebody run this prints
+        // `active=<out-of-range>[73]` rather than killing the instrument.
+        if let Some(biome) = active
+            .and_then(|index| room_set.rooms.get(index))
             .and_then(|room| room.metadata.biome.as_deref())
         {
             row.push_str(&format!(" biome={biome}"));

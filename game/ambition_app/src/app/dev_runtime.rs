@@ -82,7 +82,9 @@ pub(super) fn handle_ldtk_hot_reload(
     // mutable reach either. It is only READ here; the reload's writes land in
     // the staged closure on the publication's own verdict. See the note at the
     // `reload_ldtk_world_from_disk` call for what had to change first.
-    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<world_rooms::RoomSet>,
+    // The set and which room of it the live room is (OW1 cut 5e): the
+    // one-live-room read, because a reload replaces the live room.
+    room_set: world_rooms::SoleLiveRoomSpec,
     // The live room the reload replaces. The rebuilt room is the next one.
     live_room: Option<
         ambition_platformer2d::platformer::lifecycle::SoleLiveRoom<
@@ -246,7 +248,8 @@ pub(super) fn handle_ldtk_hot_reload(
         // rather than this proxy for it.
         let result = reload_ldtk_world_from_disk(
             &mut commands,
-            &room_set,
+            room_set.rooms(),
+            room_set.spec(),
             live_room.as_deref().map(|live| **live),
             &mut clusters,
             tuning.0 .0,
@@ -346,12 +349,14 @@ pub(super) fn prepare_ldtk_reload_transaction(
     }
 
     let mut next_room_set = project.to_room_set(manifest, &crate::composed_ldtk_vocabulary())?;
-    if next_room_set.set_active_by_id(current_room_id).is_none() {
+    // The reloaded set activates into the room the player is in, so the
+    // replacement world is normalized to it (a prepared fact, not `start`).
+    if next_room_set.set_activation_by_id(current_room_id).is_none() {
         return Err(vec![format!(
             "LDtk reload would delete current active area '{current_room_id}'. Move the player elsewhere or restore that activeArea before applying."
         )]);
     }
-    let next_spec = next_room_set.active_spec().clone();
+    let next_spec = next_room_set.activation_spec().clone();
 
     let mut hard_errors = Vec::new();
     for warning in next_room_set.layout_warnings() {
@@ -384,13 +389,15 @@ pub(super) fn prepare_ldtk_reload_transaction(
 /// the SIGNATURE no longer claims a reload that has not been verified.
 ///
 /// ⛤ `room_set` IS A SHARED BORROW SINCE 2026-09-18, for the same reason as the
-/// list above: this function reads the current room's id off it, and every
+/// list above: this function reads the current room's id off `current_room`, and every
 /// write lands in the staged closure on the publication's own verdict. A `&mut`
 /// here claimed a write that happens somewhere else. The candidate LDtk index is
 /// built from the reloaded project alone, so the live one is not read.
 pub(super) fn reload_ldtk_world_from_disk(
     commands: &mut Commands,
     room_set: &world_rooms::RoomSet,
+    // The room the live room is: the one a reload must keep the player in.
+    current_room: &world_rooms::RoomSpec,
     live_room: Option<world_rooms::LiveRoomInstance>,
     clusters: &mut ae::BodyClustersMut<'_>,
     tuning: ae::MovementTuning,
@@ -431,7 +438,7 @@ pub(super) fn reload_ldtk_world_from_disk(
     // if the candidate room publishes; see the caller.
     restart_local_ggrs: bool,
 ) -> Result<String, Vec<String>> {
-    let current_room_id = room_set.active_spec().id.clone();
+    let current_room_id = current_room.id.clone();
     let preserved_pos = clusters.kinematics.pos;
     let transaction = prepare_ldtk_reload_transaction(
         watch_path,
@@ -528,7 +535,7 @@ pub(super) fn reload_ldtk_world_from_disk(
         })?;
 
     let construction_plan = rooms::RoomConstructionPlan::prepare_spec(
-        transaction.next_room_set.active(),
+        transaction.next_room_set.activation(),
         transaction.next_spec.clone(),
         placement_lowering,
         content_staging,
@@ -588,8 +595,8 @@ pub(super) fn reload_ldtk_world_from_disk(
     let active_room = construction_plan.room_id().to_string();
     // ⚠ A hot reload replaces the room SET as well as the active room, which is
     // why `next_rooms` is `Some` here and `None` at the two walk-within-a-set
-    // callers. The staged replacement applies the set first and then
-    // `set_active`, because the index is into the NEW set.
+    // callers. The staged replacement applies the set first and then seats
+    // the live room's definition, because the index is into the NEW set.
     let publication = construction_plan.replace_live_world(
         commands,
         outgoing,

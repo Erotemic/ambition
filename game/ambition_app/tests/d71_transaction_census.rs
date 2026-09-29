@@ -68,13 +68,15 @@ fn census(rollback: bool, frames: usize) -> Census {
 
     let door = {
         let world = sim.world_mut();
+        let live_definition = ambition_platformer2d::world::rooms::sole_live_room_definition(world)
+            .expect("the session has a live room");
         let mut query = world.query::<&ambition_platformer2d::world::rooms::RoomSet>();
         let room_set = query
             .iter(world)
             .next()
             .expect("the active room has a RoomSet");
         room_set
-            .active_loading_zones()
+            .spec(live_definition).loading_zones
             .iter()
             .find(|zone| {
                 zone.activation == ambition_platformer2d::world::rooms::LoadingZoneActivation::Door
@@ -277,13 +279,15 @@ fn the_recorded_subject_transits_rather_than_whoever_is_controlled() {
 
     let (target_room, arrival) = {
         let world = sim.world_mut();
+        let live_definition = ambition_platformer2d::world::rooms::sole_live_room_definition(world)
+            .expect("the session has a live room");
         let mut query = world.query::<&ambition_platformer2d::world::rooms::RoomSet>();
         let room_set = query
             .iter(world)
             .next()
             .expect("the active room has a RoomSet");
         let zone = room_set
-            .active_loading_zones()
+            .spec(live_definition).loading_zones
             .iter()
             .find(|zone| {
                 zone.activation == ambition_platformer2d::world::rooms::LoadingZoneActivation::Door
@@ -292,6 +296,7 @@ fn the_recorded_subject_transits_rather_than_whoever_is_controlled() {
             .expect("the start room authors a Door zone");
         let transition = room_set
             .transition_for_player(
+                live_definition,
                 zone.aabb,
                 ambition_platformer2d::engine_core::Vec2::ZERO,
                 true,

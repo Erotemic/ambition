@@ -52,7 +52,7 @@ fn rooms_in_mode(mode: Option<&str>) -> ambition_platformer2d::world::rooms::Roo
 /// Make `room` the session's active room, so a system reads what it authors.
 fn enter_room(app: &mut App, room: ambition_platformer2d::world::rooms::RoomSpec) {
     let entry = room.id.clone();
-    ambition_platformer2d::platformer::lifecycle::insert_session_world_component(
+    ambition_platformer2d::world::rooms::insert_room_set(
         app.world_mut(),
         ambition_platformer2d::world::rooms::RoomSet::from_parts_or_panic(entry, vec![room], Vec::new()),
     );
@@ -950,7 +950,7 @@ fn hosted_rules_run_only_in_sanic_rooms_and_global_rules_run_everywhere() {
         // The focused rules-only shell omits PlatformerEnginePlugins, whose
         // SimCoreResourcesPlugin normally registers the shared SFX message.
         app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
-        ambition_platformer2d::platformer::lifecycle::insert_session_world_component(
+        ambition_platformer2d::world::rooms::insert_room_set(
             app.world_mut(),
             rooms_in_mode(mode),
         );
@@ -991,7 +991,7 @@ fn hosted_rules_run_only_in_sanic_rooms_and_global_rules_run_everywhere() {
     app.update();
     app.update();
     assert!(elapsed(&mut app).is_some());
-    ambition_platformer2d::platformer::lifecycle::insert_session_world_component(
+    ambition_platformer2d::world::rooms::insert_room_set(
         app.world_mut(),
         rooms_in_mode(None),
     ); // left the Sanic rooms
@@ -1023,7 +1023,7 @@ fn the_speedway_claims_the_sanic_mode_and_wakes_a_hosted_ruleset() {
     assert_eq!(room.metadata.mode.as_deref(), Some(SANIC_MODE));
 
     let mut app = App::new();
-    ambition_platformer2d::platformer::lifecycle::insert_session_world_component(
+    ambition_platformer2d::world::rooms::insert_room_set(
         app.world_mut(),
         ambition_platformer2d::world::rooms::RoomSet::from_parts_or_panic(
             SPEEDWAY_ROOM_ID,
@@ -1038,7 +1038,7 @@ fn the_speedway_claims_the_sanic_mode_and_wakes_a_hosted_ruleset() {
     assert!(awake, "a hosted Sanic ruleset wakes inside the speedway");
 
     // Ambition's own rooms carry no mode, so the demo's rules sleep there.
-    ambition_platformer2d::platformer::lifecycle::insert_session_world_component(
+    ambition_platformer2d::world::rooms::insert_room_set(
         app.world_mut(),
         rooms_in_mode(None),
     );
@@ -2418,7 +2418,7 @@ fn the_ring_shield_follows_the_rules_scope() {
         rooms
             .iter()
             .map(|mode| {
-                ambition_platformer2d::platformer::lifecycle::insert_session_world_component(
+                ambition_platformer2d::world::rooms::insert_room_set(
                     app.world_mut(),
                     rooms_in_mode(*mode),
                 );

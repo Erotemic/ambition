@@ -69,10 +69,11 @@ fn active_room(sim: &mut ambition_app::Platformer2dSimHarness) -> String {
 fn stand_in_a_door(sim: &mut ambition_app::Platformer2dSimHarness) -> Option<String> {
     let door = {
         let world = sim.world_mut();
+        let live_definition = ambition_platformer2d::world::rooms::sole_live_room_definition(world)?;
         let mut query = world.query::<&ambition_platformer2d::world::rooms::RoomSet>();
         let room_set = query.iter(world).next()?;
         room_set
-            .active_loading_zones()
+            .spec(live_definition).loading_zones
             .iter()
             .find(|zone| {
                 zone.activation == ambition_platformer2d::world::rooms::LoadingZoneActivation::Door

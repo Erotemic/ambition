@@ -79,16 +79,14 @@ impl AuthoredSwitchCommands {
 /// dropped with a warning naming the switch — the alternative is a switch that
 /// silently does nothing, which is how an author spends an afternoon on a typo.
 pub fn prepare_authored_switch_commands(
-    rooms: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
-        ambition_platformer2d_world::rooms::RoomSet,
-    >,
+    rooms: ambition_platformer2d_world::rooms::SoleLiveRoomSpec,
     catalog: Option<Res<CommandCatalog>>,
     mut prepared: ResMut<AuthoredSwitchCommands>,
 ) {
     let Some(catalog) = catalog else {
         return;
     };
-    let active_room_id = rooms.active_spec().id.clone();
+    let active_room_id = rooms.spec().id.clone();
     // It watched `ActiveLdtkProject:is_changed`; the command lines come off the room set now,
     // so that is what has to be watched — a hot reload that rebuilds rooms under an UNCHANGED
     // room id would otherwise keep serving prepared calls from content that is no longer
@@ -99,7 +97,7 @@ pub fn prepare_authored_switch_commands(
         return;
     }
 
-    let authored = authored_switch_commands(rooms.active_spec());
+    let authored = authored_switch_commands(rooms.spec());
     prepared.calls.clear();
     prepared.room = Some(active_room_id.clone());
     for AuthoredSwitchCommand { switch_id, line } in authored {

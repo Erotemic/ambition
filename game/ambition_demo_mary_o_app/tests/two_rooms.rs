@@ -64,10 +64,10 @@ fn player_pos(app: &mut App) -> Vec2 {
 /// The id of the room that is actually AUTHORITATIVE right now — the fact a
 /// transition has to change for anything to have happened.
 fn active_room(app: &mut App) -> String {
-    let mut query = app.world_mut().query::<&RoomSet>();
-    let world = app.world();
-    let set = query.iter(world).next().expect("the session has a RoomSet");
-    set.active_spec().id.clone()
+    ambition_platformer2d::world::rooms::sole_live_room_spec(app.world())
+        .expect("the session has a live room")
+        .id
+        .clone()
 }
 
 fn place_player(app: &mut App, pos: Vec2) {
@@ -126,12 +126,7 @@ fn she_walks_out_of_one_room_and_into_another() {
     // And she is IN the new room, not merely bookkept into it. 1-2's corridor
     // floor is at the bottom of a 14-tile room; 1-1's vault floor is elsewhere,
     // so a body still standing in the old geometry fails this.
-    let world_size = {
-        let mut query = app.world_mut().query::<&RoomSet>();
-        let world = app.world();
-        let set = query.iter(world).next().expect("a RoomSet");
-        set.active_spec().world.size
-    };
+    let world_size = ambition_platformer2d::world::rooms::sole_live_room_spec(app.world()).expect("a live room").world.size;
     let inside =
         |pos: Vec2| pos.x >= 0.0 && pos.x <= world_size.x && pos.y >= 0.0 && pos.y <= world_size.y;
     let mut pos = player_pos(&mut app);

@@ -36,9 +36,7 @@ use ambition_sprite_sheet::game_assets::{self, entity_sprite, entity_sprite_or_c
 pub fn respawn_room_visuals_on_request(
     mut requests: MessageReader<ambition_platformer2d_world::rooms::RespawnRoomVisualsRequested>,
     mut commands: Commands,
-    room_set: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
-        ambition_platformer2d_world::rooms::RoomSet,
-    >,
+    room_set: ambition_platformer2d_world::rooms::SoleLiveRoomSpec,
     physics_settings: Res<ambition_platformer2d_shared_tangle::physics::PhysicsSandboxSettings>,
     assets: Option<Res<GameAssets>>,
     quality: Option<Res<crate::quality::ResolvedVisualQuality>>,
@@ -48,7 +46,7 @@ pub fn respawn_room_visuals_on_request(
         return;
     }
     requests.clear();
-    let spec = room_set.active_spec();
+    let spec = room_set.spec();
     let Some(session_scope) =
         SessionSpawnScope::for_optional_active_session(active_session.as_deref())
     else {

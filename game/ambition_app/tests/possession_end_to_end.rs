@@ -343,9 +343,11 @@ fn a_possessed_body_is_carried_through_a_room_transition() {
     // whole distinction.
     let door_centre = {
         let world = sim.world_mut();
+        let live_definition = ambition_platformer2d::world::rooms::sole_live_room_definition(world)
+            .expect("the session has a live room");
         let mut rooms = world.query::<&ambition_platformer2d::world::rooms::RoomSet>();
         let Some(zone) = rooms.iter(world).next().and_then(|set| {
-            set.active_loading_zones()
+            set.spec(live_definition).loading_zones
                 .iter()
                 .find(|zone| {
                     zone.activation

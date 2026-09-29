@@ -139,13 +139,15 @@ fn walk_through_a_door(sim: &mut Platformer2dSimHarness) -> String {
     let before = sim.observation().active_room.clone();
     let door = {
         let world = sim.world_mut();
+        let live_definition = ambition_platformer2d::world::rooms::sole_live_room_definition(world)
+            .expect("the session has a live room");
         let mut query = world.query::<&ambition_platformer2d::world::rooms::RoomSet>();
         let room_set = query
             .iter(world)
             .next()
             .expect("the session has an active room set");
         room_set
-            .active_loading_zones()
+            .spec(live_definition).loading_zones
             .iter()
             .find(|zone| {
                 zone.activation == ambition_platformer2d::world::rooms::LoadingZoneActivation::Door
@@ -787,10 +789,12 @@ fn bring_the_door_to(sim: &mut Platformer2dSimHarness, body: Entity) {
         .expect("the body has kinematics")
         .pos;
     let world = sim.world_mut();
+    let live_definition = ambition_platformer2d::world::rooms::sole_live_room_definition(world)
+        .expect("the session has a live room");
     let mut q = world.query::<&mut RoomSet>();
     let mut set = q.iter_mut(world).next().expect("a room set");
-    let active = set.active();
-    let here = set.active_spec().id.clone();
+    let active = live_definition.index();
+    let here = set.spec(live_definition).id.clone();
     // A door that LEAVES: some of a hall's doors lead back into the hall.
     let leads_elsewhere = |zone: &str| {
         set.canonical_links().iter().any(|link| {
@@ -1258,9 +1262,11 @@ fn a_mount_you_are_riding_crosses_the_door_with_you() {
     let before = sim.observation().active_room.clone();
     let door = {
         let world = sim.world_mut();
+        let live_definition = ambition_platformer2d::world::rooms::sole_live_room_definition(world)
+            .expect("the session has a live room");
         let mut q = world.query::<&ambition_platformer2d::world::rooms::RoomSet>();
         let set = q.iter(world).next().expect("a room set");
-        set.active_loading_zones()
+        set.spec(live_definition).loading_zones
             .iter()
             .find(|zone| {
                 zone.activation == ambition_platformer2d::world::rooms::LoadingZoneActivation::Door
@@ -1551,9 +1557,11 @@ fn the_whole_attachment_closure_is_recorded_as_being_in_custody() {
         let before = sim.observation().active_room.clone();
         let has_door = {
             let world = sim.world_mut();
+            let live_definition = ambition_platformer2d::world::rooms::sole_live_room_definition(world)
+                .expect("the session has a live room");
             let mut q = world.query::<&ambition_platformer2d::world::rooms::RoomSet>();
             let set = q.iter(world).next().expect("a room set");
-            set.active_loading_zones().iter().any(|zone| {
+            set.spec(live_definition).loading_zones.iter().any(|zone| {
                 zone.activation == ambition_platformer2d::world::rooms::LoadingZoneActivation::Door
             })
         };

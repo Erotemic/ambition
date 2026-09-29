@@ -961,7 +961,7 @@ mod tests {
         app.init_resource::<ambition_platformer2d_runtime::host_seams::DeveloperRuntimeState>();
         app.declare_rules(RulesScope::Mode("fight"), PortalCameraTransitMode::Pop);
         app.declare_rules(RulesScope::Mode("fight"), PortalViewConeMode::Static);
-        ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+        ambition_platformer2d_world::rooms::insert_room_set(
             app.world_mut(),
             RoomSet::from_parts_or_panic(
                 "home",
@@ -970,12 +970,8 @@ mod tests {
             ),
         );
         let visit = |app: &mut App, id: &str| {
-            ambition_platformer2d_shared_tangle::lifecycle::session_world_component_mut::<RoomSet>(
-                app.world_mut(),
-            )
-            .expect("session room set")
-            .set_active_by_id(id)
-            .expect("the fixture holds the room");
+            ambition_platformer2d_world::rooms::seat_sole_live_room_by_id(app.world_mut(), id)
+                .expect("the fixture holds the room");
             app.update();
             (
                 *app.world().resource::<PortalCameraTransitRule>(),

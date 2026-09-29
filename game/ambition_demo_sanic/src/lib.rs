@@ -1066,15 +1066,13 @@ fn emit_sanic_milestone_sfx(
         bevy::prelude::With<ambition_platformer2d::platformer::markers::PrimaryPlayer>,
     >,
     mut act: bevy::prelude::Query<&mut SanicActState>,
-    rooms: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
-        ambition_platformer2d::world::rooms::RoomSet,
-    >,
+    rooms: ambition_platformer2d::world::rooms::SoleLiveRoomSpec,
     mut sfx: ambition_platformer2d::sfx::BodySfxWriter,
 ) {
     let Ok(kin) = player.single() else {
         return;
     };
-    let markers = distance_markers(rooms.active_spec());
+    let markers = distance_markers(rooms.spec());
     for mut state in &mut act {
         while let Some(&marker_x) = markers.get(state.next_milestone) {
             if kin.pos.x < marker_x {
@@ -1508,16 +1506,14 @@ pub fn clear_act_at_goal(
         ambition_platformer2d::platformer::markers::PrimaryPlayerOnly,
     >,
     mut act: bevy::prelude::Query<&mut SanicActState>,
-    rooms: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
-        ambition_platformer2d::world::rooms::RoomSet,
-    >,
+    rooms: ambition_platformer2d::world::rooms::SoleLiveRoomSpec,
     mut sfx: ambition_platformer2d::sfx::BodySfxWriter,
     mut vfx: bevy::prelude::MessageWriter<ambition_platformer2d::vfx::VfxMessage>,
 ) {
     let Ok((kin, wallet)) = player.single() else {
         return;
     };
-    let goal = goal_x_of(rooms.active_world());
+    let goal = goal_x_of(&rooms.spec().world);
     for mut state in &mut act {
         if !matches!(state.phase, SanicActPhase::Running) || kin.pos.x < goal {
             continue;

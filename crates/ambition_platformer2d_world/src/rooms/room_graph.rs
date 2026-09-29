@@ -86,7 +86,7 @@ impl RoomSpec {
 ///
 /// An unresolvable start room refuses; there is no fallback to room 0. An empty
 /// `rooms` refuses, because `active = start = 0` would index nothing and make
-/// [`RoomSet::active_spec`] and the room-set rollback checksum panic later.
+/// [`RoomSet::activation_spec`] and the room-set rollback checksum panic later.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum RoomSetRefused {
     /// No rooms at all, so no index can name a live one.
@@ -104,7 +104,7 @@ pub enum RoomSetRefused {
     /// The constructor's `by_id` is a `HashMap`, so a duplicate insert keeps
     /// the last room; [`RoomSet::room_index_by_id`] is a linear `position()`,
     /// so it returns the first. With two rooms named `"lab"`, start and
-    /// authored links would resolve to room 1 while `set_active_by_id("lab")`
+    /// authored links would resolve to room 1 while `set_activation_by_id("lab")`
     /// would go to room 0.
     ///
     /// No shipped content has a duplicate. OW1 separates the room definition
@@ -194,6 +194,32 @@ pub struct RoomLoaded {
     pub room_id: String,
 }
 
+/// Which definition of the session's [`RoomSet`] one live room instantiates.
+///
+/// A component on the live room root, beside its geometry (OW1 cut 5e). It is
+/// the one authority for "which room is this": two live rooms of one session
+/// can be two different rooms, or two instances of one. Minted only by the
+/// set ([`RoomSet::definition`]), so it indexes the set that minted it.
+/// Publication writes the root it replaces.
+///
+/// Rollback state (`root.live_room_definition`): a rewind across a
+/// publication returns the root to the room it was.
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct LiveRoomDefinition(pub(crate) usize);
+
+impl LiveRoomDefinition {
+    /// The index of the definition in its [`RoomSet`].
+    pub fn index(self) -> usize {
+        self.0
+    }
+
+    /// Rebuild from an index, for snapshot decode only. It restores a
+    /// definition a set already minted; it does not choose one.
+    pub fn from_index(index: usize) -> Self {
+        Self(index)
+    }
+}
+
 /// Small room graph for early loading-zone tests.
 #[derive(Component, Clone, Debug)]
 pub struct RoomSet {
@@ -202,24 +228,26 @@ pub struct RoomSet {
     /// caller mutates it after construction. Making it private would move 94
     /// read sites.
     pub rooms: Vec<RoomSpec>,
-    /// Which room of [`Self::rooms`] is live, read through [`RoomSet::active`]
-    /// and written through [`RoomSet::set_active`] / [`RoomSet::set_active_by_id`].
+    /// Which room of [`Self::rooms`] a session activates into, read through
+    /// [`RoomSet::activation`] and written through [`RoomSet::set_activation`]
+    /// / [`RoomSet::set_activation_by_id`].
+    ///
+    /// ⛔ A PREPARED FACT, NOT A LIVE ONE. Which definition a live room
+    /// instantiates is that room's own [`LiveRoomDefinition`], on its root:
+    /// two live rooms can instantiate two definitions (OW1 cut 5e). This
+    /// field is read only when a session activates, and hot reload
+    /// normalizes it to the room it reloads from (it is not `start`).
     ///
     /// Private because it is an invariant, not a free value: it must index
     /// `rooms`. All writes go through the setters, which refuse an
     /// out-of-range index instead of clamping.
-    ///
-    /// It answers which definition is live, not which live instance this is;
-    /// two instances of one room would share this index. OW1 in
-    /// `docs/planning/engine/open-world-runtime-and-residency.md` separates
-    /// those questions and needs this field to be trustworthy.
-    pub(crate) active: usize,
+    pub(crate) activation: usize,
     /// Index of the room the player starts in on a fresh sandbox, read through
     /// [`RoomSet::start`] and written through [`RoomSet::set_start_by_id`].
     /// Captured at `from_parts` time so the "reset sandbox" flow can
     /// warp the player back without round-tripping through LDtk.
     ///
-    /// Private for the same reason as [`Self::active`]: it must index `rooms`.
+    /// Private for the same reason as [`Self::activation`]: it must index `rooms`.
     pub(crate) start: usize,
     /// The live room the session's next publication mints (OW1 cut 5a).
     ///
@@ -231,4 +259,86 @@ pub struct RoomSet {
     pub(crate) next_live_room: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
     pub(crate) graph: Graph<String, TransitionEdge>,
     pub(crate) room_nodes: Vec<NodeIndex>,
+}
+
+/// The definition of THE live room: [`SoleLiveRoom`]'s twin for the room set.
+///
+/// ⚠ **THE ONE-LIVE-ROOM READ, NAMED AS THE DEBT IT IS.** Its root half is a
+/// `Single`, so the system does not run while two rooms are live. That is
+/// right for a reader that has not said WHICH room it means. A reader with a
+/// subject reads the subject's root's [`LiveRoomDefinition`] and asks
+/// [`RoomSet::spec`] (OW1 cut 5e).
+///
+/// [`SoleLiveRoom`]: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom
+#[derive(bevy_ecs::system::SystemParam)]
+pub struct SoleLiveRoomSpec<'w, 's> {
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<'w, 's, RoomSet>,
+    live: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<'w, 's, LiveRoomDefinition>,
+}
+
+impl SoleLiveRoomSpec<'_, '_> {
+    /// The live room's definition.
+    pub fn spec(&self) -> &RoomSpec {
+        self.rooms.spec(**self.live)
+    }
+
+    /// Which definition the live room instantiates.
+    pub fn definition(&self) -> LiveRoomDefinition {
+        **self.live
+    }
+
+    /// The session's room set.
+    pub fn rooms(&self) -> &RoomSet {
+        &self.rooms
+    }
+
+    /// Whether the live room became another room, or the set was replaced,
+    /// since this system last ran.
+    pub fn is_changed(&self) -> bool {
+        use bevy_ecs::change_detection::DetectChanges;
+        self.live.is_changed() || self.rooms.is_changed()
+    }
+}
+
+/// The sole live room's definition, at an exclusive-world boundary. `None`
+/// with no live session, no live room, or two live rooms. The same debt as
+/// [`SoleLiveRoomSpec`].
+pub fn sole_live_room_definition(world: &bevy_ecs::world::World) -> Option<LiveRoomDefinition> {
+    ambition_platformer2d_shared_tangle::lifecycle::sole_live_room_component::<LiveRoomDefinition>(
+        world,
+    )
+    .copied()
+}
+
+/// The sole live room's spec, at an exclusive-world boundary. See
+/// [`sole_live_room_definition`].
+pub fn sole_live_room_spec(world: &bevy_ecs::world::World) -> Option<&RoomSpec> {
+    let definition = sole_live_room_definition(world)?;
+    ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<RoomSet>(world)
+        .map(|rooms| rooms.spec(definition))
+}
+
+/// Put `rooms` on the session root and seat its activation room as the
+/// definition of the sole live room, creating either root when absent. The
+/// one road for a direct host or a fixture: a set with no live room seated
+/// answers no "which room is this" question.
+pub fn insert_room_set(world: &mut bevy_ecs::world::World, rooms: RoomSet) -> bevy_ecs::entity::Entity {
+    let definition = rooms.activation_definition();
+    let root = ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(world, rooms);
+    ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(world, definition);
+    root
+}
+
+/// Seat the sole live room as the session's room with this authored id, for
+/// a direct host or a fixture. `None` when the session has no room set or no
+/// room with that id; nothing is written then.
+pub fn seat_sole_live_room_by_id(
+    world: &mut bevy_ecs::world::World,
+    id: &str,
+) -> Option<LiveRoomDefinition> {
+    let definition =
+        ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<RoomSet>(world)?
+            .definition_by_id(id)?;
+    ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(world, definition);
+    Some(definition)
 }

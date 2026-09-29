@@ -111,7 +111,7 @@ mod tests {
         );
         let mut room = ambition_platformer2d_world::rooms::RoomSpec::new("room", world);
         room.metadata.mode = Some(mode.to_owned());
-        ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+        ambition_platformer2d_world::rooms::insert_room_set(
             app.world_mut(),
             ambition_platformer2d_world::rooms::RoomSet::from_parts_or_panic(
                 "room",

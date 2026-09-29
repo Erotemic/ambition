@@ -20,7 +20,6 @@ use ambition_audio::selection::ActiveAudioSelection;
 use ambition_encounter::{
     Encounter, EncounterLifecycle, EncounterMusicRequest, EncounterPhase, EncounterWaves,
 };
-use ambition_platformer2d_world::rooms::RoomSet;
 
 use ambition_audio::music::{
     AdaptiveCueDirective, MusicDirectorState, MusicIntent,
@@ -33,9 +32,7 @@ pub(super) const LARGE_BRUTE_DELAY_SECONDS: f32 = 3.5;
 
 /// Clear room-scoped narrative music when the active room changes.
 pub fn release_narrative_music_on_room_change(
-    rooms: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
-        ambition_platformer2d_world::rooms::RoomSet,
-    >,
+    rooms: ambition_platformer2d_world::rooms::SoleLiveRoomSpec,
     // Conversation support is optional in hosts that still install the audio plugin.
     narrative_music: Option<ResMut<ambition_conversation::NarrativeMusicRequest>>,
 ) {
@@ -59,7 +56,7 @@ pub fn compute_music_intent(
     encounter_music: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
         EncounterMusicRequest,
     >,
-    rooms: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<RoomSet>,
+    rooms: ambition_platformer2d_world::rooms::SoleLiveRoomSpec,
     narrative_music: Option<Res<ambition_conversation::NarrativeMusicRequest>>,
     radio: Option<Res<RadioStationState>>,
     audio_selection: Res<ActiveAudioSelection>,
@@ -82,7 +79,7 @@ pub fn compute_music_intent(
         _ => None,
     };
 
-    let room = rooms.active_metadata();
+    let room = &rooms.spec().metadata;
     let candidates = simple_track_candidates(
         room.music_track.as_deref(),
         room.fight_music_track.as_deref(),

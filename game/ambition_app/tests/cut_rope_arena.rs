@@ -42,11 +42,13 @@ fn cut_rope_sim() -> Platformer2dSimHarness {
 /// into the test — a literal here would go stale the moment the map moves.
 fn rope_pos(sim: &mut Platformer2dSimHarness) -> ambition_platformer2d::engine_core::Vec2 {
     let world = sim.world_mut();
+    let live_definition = ambition_platformer2d::world::rooms::sole_live_room_definition(world)
+        .expect("the session has a live room");
     let mut q = world.query::<&RoomSet>();
     q.iter(world)
         .next()
         .and_then(|rooms| {
-            let spec = rooms.active_spec();
+            let spec = rooms.spec(live_definition);
             assert_eq!(spec.id, CUT_ROPE_ROOM, "the harness started in the wrong room");
             spec.props
                 .iter()

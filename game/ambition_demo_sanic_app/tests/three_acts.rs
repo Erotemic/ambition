@@ -50,14 +50,11 @@ fn act(app: &mut App) -> SanicActState {
 }
 
 fn room(app: &mut App) -> (String, Option<usize>, Option<usize>) {
-    let mut q = app
-        .world_mut()
-        .query::<&ambition_platformer2d::world::rooms::RoomSet>();
-    let set = q.iter(app.world()).next().expect("the session's room set");
+    let room = ambition_platformer2d::world::rooms::sole_live_room_spec(app.world()).expect("the session's live room");
     // Act 2's painted surfaces, found where they are: the tunnel roof's
     // underside (a right → left run, which faces down, over x = 8400) and the
     // sky bridge (a `Track` floor over x = 6000).
-    let world = set.active_world();
+    let world = &room.world;
     let spans = |chain: &ae::SurfaceChain, x: f32, leftward: bool| {
         chain.points.windows(2).any(|p| {
             let (a, b) = if leftward { (p[1], p[0]) } else { (p[0], p[1]) };
@@ -71,7 +68,7 @@ fn room(app: &mut App) -> (String, Option<usize>, Option<usize>) {
         .chains
         .iter()
         .position(|c| c.name.starts_with("track:") && spans(c, 6000.0, false));
-    (set.active_spec().id.clone(), tunnel, bridge)
+    (room.id.clone(), tunnel, bridge)
 }
 
 fn hold(app: &mut App, jump: bool) {
@@ -112,11 +109,9 @@ fn place(app: &mut App, at: Vec2) {
 fn ride_high_road(app: &mut App, spring_x: f32, spring_y: f32, road_x: f32) {
     let road = format!("the painted high road over x={road_x:.0}");
     let chain = {
-        let mut q = app
-            .world_mut()
-            .query::<&ambition_platformer2d::world::rooms::RoomSet>();
-        let set = q.iter(app.world()).next().expect("room set");
-        set.active_world()
+        ambition_platformer2d::world::rooms::sole_live_room_spec(app.world())
+            .expect("the live room")
+            .world
             .chains
             .iter()
             .position(|chain| {

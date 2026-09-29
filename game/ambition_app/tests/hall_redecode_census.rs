@@ -141,24 +141,27 @@ fn the_halls_entry_is_counted_for_art_it_decodes_twice() {
     let before_redecodes = image_stages::ledger().re_decodes;
 
     let (target_room, arrival) = {
+        let live_definition = ambition_platformer2d::world::rooms::sole_live_room_definition(app.world())
+            .expect("the session has a live room");
         let mut query = app
             .world_mut()
             .query::<&ambition_platformer2d::world::rooms::RoomSet>();
         let room_set = query.iter(app.world()).next().expect("a session room set");
         let zone = room_set
-            .active_loading_zones()
+            .spec(live_definition).loading_zones
             .iter()
             .find(|zone| zone.id == HALL_DOOR_ZONE || zone.name == HALL_DOOR_ZONE)
             .unwrap_or_else(|| {
                 panic!(
                     "the active room '{}' has no `{HALL_DOOR_ZONE}`, so this \
                      measurement is counting nothing",
-                    room_set.active_spec().id
+                    room_set.spec(live_definition).id
                 )
             })
             .clone();
         let transition = room_set
             .transition_for_player(
+                live_definition,
                 zone.aabb,
                 ambition_platformer2d::engine_core::Vec2::ZERO,
                 true,

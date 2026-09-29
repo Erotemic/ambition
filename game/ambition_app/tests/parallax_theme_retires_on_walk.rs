@@ -110,24 +110,27 @@ fn a_theme_the_player_walked_away_from_leaves_assets_image() {
     let before_ids = layer_asset_ids(&app, &before);
 
     let (target_room, arrival) = {
+        let live_definition = ambition_platformer2d::world::rooms::sole_live_room_definition(app.world())
+            .expect("the session has a live room");
         let mut query = app
             .world_mut()
             .query::<&ambition_platformer2d::world::rooms::RoomSet>();
         let room_set = query.iter(app.world()).next().expect("a session room set");
         let zone = room_set
-            .active_loading_zones()
+            .spec(live_definition).loading_zones
             .iter()
             .find(|zone| zone.id == DEPARTING_DOOR || zone.name == DEPARTING_DOOR)
             .unwrap_or_else(|| {
                 panic!(
                     "the active room '{}' has no `{DEPARTING_DOOR}`, so this test \
                      is not crossing a theme boundary",
-                    room_set.active_spec().id
+                    room_set.spec(live_definition).id
                 )
             })
             .clone();
         let transition = room_set
             .transition_for_player(
+                live_definition,
                 zone.aabb,
                 ambition_platformer2d::engine_core::Vec2::ZERO,
                 true,

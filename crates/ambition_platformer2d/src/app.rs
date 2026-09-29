@@ -1530,7 +1530,7 @@ fn experience_installer(experience: &ExperienceDraft) -> Option<CapabilityInstal
                 return;
             }
         };
-        let starting = room_set.active_spec().clone();
+        let starting = room_set.activation_spec().clone();
         let geometry = crate::engine_core::RoomGeometry(starting.world.clone());
         let prepared = crate::runtime::PreparedPlatformerSource::new(
             id.clone(),

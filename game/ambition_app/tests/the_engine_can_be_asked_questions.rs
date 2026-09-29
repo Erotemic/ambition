@@ -1103,18 +1103,18 @@ fn every_authored_boss_cleared_call_names_a_real_boss_placement() {
 /// ⭐ **AND IT IS THE FIRST FACT THE OPEN-WORLD WORK NEEDS.** OW1 on
 /// `engine/open-world-runtime-and-residency.md` is *"two instances of one
 /// room; audit selection/identity/query/teardown paths"*, and today *"which
-/// room is live"* is answered by `RoomSet::active: usize` — an INDEX into a
-/// list of definitions, which is the conflation OW1 exists to unpick. The row
-/// prints the index beside the authored id so the day they stop corresponding
-/// is visible rather than inferred.
+/// room is live"* was answered by `RoomSet::active: usize` — an INDEX into a
+/// list of definitions, which is the conflation OW1 exists to unpick. Since
+/// OW1 cut 5e the live room root carries its `LiveRoomDefinition`, and the row
+/// prints that index beside the authored id.
 ///
 /// ⚠ **THE ARM IS AGAINST THE SESSION'S OWN ANSWER, NOT A LITERAL.** Pinning
 /// the room name would make this a test about the fixture. What is checked is
-/// that the row agrees with `RoomSet` about which room is active — which is
-/// the only thing a derived, read-only surface can get wrong.
+/// that the row agrees with the live room root about which room is active —
+/// which is the only thing a derived, read-only surface can get wrong.
 #[test]
 fn the_room_census_names_the_room_the_session_is_actually_in() {
-    use ambition_platformer2d::world::rooms::{LiveRoomInstance, RoomSet};
+    use ambition_platformer2d::world::rooms::{LiveRoomDefinition, LiveRoomInstance, RoomSet};
     use ambition_platformer2d::platformer::lifecycle::{RoomInstanceRoot, SessionScopedEntity};
     use ambition_platformer2d::runtime::runtime_census::{live_room_of, room_census_row};
 
@@ -1122,6 +1122,9 @@ fn the_room_census_names_the_room_the_session_is_actually_in() {
     sim.step_n(base(), 4);
 
     let (active_id, active_index, room_count) = {
+        let live_definition =
+            ambition_platformer2d::world::rooms::sole_live_room_definition(sim.world())
+                .expect("the composed session seats its live room's definition");
         let mut query = sim
             .world_mut()
             .query_filtered::<&RoomSet, With<SessionRoot>>();
@@ -1131,8 +1134,8 @@ fn the_room_census_names_the_room_the_session_is_actually_in() {
             .next()
             .expect("the composed session root carries a RoomSet");
         (
-            room_set.active_spec().id.clone(),
-            room_set.active(),
+            room_set.spec(live_definition).id.clone(),
+            live_definition.index(),
             room_set.rooms.len(),
         )
     };
@@ -1140,7 +1143,7 @@ fn the_room_census_names_the_room_the_session_is_actually_in() {
     let row = {
         let mut query = sim.world_mut().query::<(&RoomSet, &SessionRoot)>();
         let mut rooms = sim.world_mut().query_filtered::<
-            (&LiveRoomInstance, Option<&SessionScopedEntity>),
+            (&LiveRoomInstance, Option<&LiveRoomDefinition>, Option<&SessionScopedEntity>),
             With<RoomInstanceRoot>,
         >();
         let world = sim.world();
@@ -1213,7 +1216,7 @@ fn the_room_census_names_the_room_the_session_is_actually_in() {
     let after_moving = {
         let mut query = sim.world_mut().query::<(&RoomSet, &SessionRoot)>();
         let mut rooms = sim.world_mut().query_filtered::<
-            (&LiveRoomInstance, Option<&SessionScopedEntity>),
+            (&LiveRoomInstance, Option<&LiveRoomDefinition>, Option<&SessionScopedEntity>),
             With<RoomInstanceRoot>,
         >();
         let world = sim.world();
@@ -1245,34 +1248,39 @@ fn the_room_census_names_the_room_the_session_is_actually_in() {
     // produced a byte-identical row. Every arm above still passed. The only
     // way to separate them is to make them differ.
     //
+    // The live room root holds the active definition, and `RoomSet` holds
+    // `start`; so the hand move writes the root, not the set.
+    //
     // ⚠ THE ROOM IS MOVED BY HAND AND NOTHING IS STEPPED AFTERWARDS. A real
     // crossing is a whole transaction; what is under test is a derived row, so
     // what it needs is for its SOURCE to change. The world is left
     // inconsistent for the two lines it takes to read the row, and nothing
     // runs in between.
     let elsewhere = {
-        let mut query = sim
-            .world_mut()
-            .query_filtered::<&mut RoomSet, With<SessionRoot>>();
-        let world = sim.world_mut();
-        let mut room_set = query
-            .iter_mut(world)
-            .next()
-            .expect("the composed session root carries a RoomSet");
+        let room_set = ambition_platformer2d::platformer::lifecycle::session_world_component::<
+            RoomSet,
+        >(sim.world())
+        .expect("the composed session root carries a RoomSet");
         let elsewhere = (0..room_set.rooms.len())
-            .find(|index| *index != room_set.active())
+            .find(|index| *index != active_index)
+            .and_then(|index| room_set.definition(index))
             .expect("this session was built with one room, so `active` and \
                      `start` can never differ and this arm cannot run");
-        room_set
-            .set_active(elsewhere)
-            .expect("`elsewhere` was chosen from this set's own index range")
-            .id
-            .clone()
+        let id = room_set.spec(elsewhere).id.clone();
+        let mut query = sim
+            .world_mut()
+            .query_filtered::<&mut LiveRoomDefinition, With<RoomInstanceRoot>>();
+        let world = sim.world_mut();
+        *query
+            .iter_mut(world)
+            .next()
+            .expect("the composed session has a live room root") = elsewhere;
+        id
     };
     let moved = {
         let mut query = sim.world_mut().query::<(&RoomSet, &SessionRoot)>();
         let mut rooms = sim.world_mut().query_filtered::<
-            (&LiveRoomInstance, Option<&SessionScopedEntity>),
+            (&LiveRoomInstance, Option<&LiveRoomDefinition>, Option<&SessionScopedEntity>),
             With<RoomInstanceRoot>,
         >();
         let world = sim.world();

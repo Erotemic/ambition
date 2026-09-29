@@ -1707,11 +1707,7 @@ fn publish_timeout_death(
 fn warp_through_secret_pipe(
     mut commands: bevy::prelude::Commands,
     mut sfx: ambition_platformer2d::sfx::BodySfxWriter,
-    room_set: Option<
-        ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
-            ambition_platformer2d::world::rooms::RoomSet,
-        >,
-    >,
+    room_set: Option<ambition_platformer2d::world::rooms::SoleLiveRoomSpec>,
     mut bodies: bevy::prelude::Query<
         (
             bevy::prelude::Entity,
@@ -1742,8 +1738,8 @@ fn warp_through_secret_pipe(
     // empty slice enters nothing and clears the latch, which is the same
     // answer a pipeless room gives.
     const NO_ROOM_NO_TUBES: &[PipeTube] = &[];
-    let tubes = room_set.as_deref().map_or(NO_ROOM_NO_TUBES, |set| {
-        tubes_for_room(&set.active_spec().id)
+    let tubes = room_set.as_ref().map_or(NO_ROOM_NO_TUBES, |set| {
+        tubes_for_room(&set.spec().id)
     });
 
     for (entity, kin, control, mut latch) in &mut bodies {
@@ -2455,7 +2451,7 @@ mod tests {
         fn shell(rules: MaryORulesPlugin, mode: Option<&str>, dt: f32) -> App {
             let mut app = App::new();
             ambition_platformer2d::engine::add_headless_foundation(&mut app);
-            ambition_platformer2d::platformer::lifecycle::insert_session_world_component(
+            ambition_platformer2d::world::rooms::insert_room_set(
                 app.world_mut(),
                 rooms_in_mode(mode),
             );
@@ -3021,7 +3017,7 @@ mod tests {
     fn a_standalone_mary_o_refuses_a_weaker_form_pickup() {
         let mut app = App::new();
         ambition_platformer2d::engine::add_headless_foundation(&mut app);
-        ambition_platformer2d::platformer::lifecycle::insert_session_world_component(
+        ambition_platformer2d::world::rooms::insert_room_set(
             app.world_mut(),
             rooms_in_mode(None),
         );
@@ -3070,7 +3066,7 @@ mod tests {
         fn shell(dt: f32) -> App {
             let mut app = App::new();
             ambition_platformer2d::engine::add_headless_foundation(&mut app);
-            ambition_platformer2d::platformer::lifecycle::insert_session_world_component(
+            ambition_platformer2d::world::rooms::insert_room_set(
                 app.world_mut(),
                 rooms_in_mode(None),
             );
@@ -3180,7 +3176,7 @@ mod tests {
 
         let mut app = App::new();
         ambition_platformer2d::engine::add_headless_foundation(&mut app);
-        ambition_platformer2d::platformer::lifecycle::insert_session_world_component(
+        ambition_platformer2d::world::rooms::insert_room_set(
             app.world_mut(),
             rooms_in_mode(None),
         );
@@ -3249,7 +3245,7 @@ mod tests {
         fn grabs_at(at: flag::FlagPole) -> bool {
             let mut app = App::new();
             ambition_platformer2d::engine::add_headless_foundation(&mut app);
-            ambition_platformer2d::platformer::lifecycle::insert_session_world_component(
+            ambition_platformer2d::world::rooms::insert_room_set(
                 app.world_mut(),
                 ambition_platformer2d::world::rooms::RoomSet::from_parts_or_panic(
                     level_1_2::LEVEL_1_2_ROOM_ID,
@@ -3308,11 +3304,11 @@ mod tests {
 
         let mut app = App::new();
         ambition_platformer2d::engine::add_headless_foundation(&mut app);
-        ambition_platformer2d::platformer::lifecycle::insert_session_world_component(
+        ambition_platformer2d::world::rooms::insert_room_set(
             app.world_mut(),
             rooms_in_mode(None),
         );
-        ambition_platformer2d::platformer::lifecycle::insert_session_world_component(
+        ambition_platformer2d::world::rooms::insert_room_set(
             app.world_mut(),
             ambition_platformer2d::world::rooms::RoomSet::from_parts_or_panic(
                 LEVEL_1_1_ROOM_ID,
@@ -3364,7 +3360,7 @@ mod tests {
 
         let mut app = App::new();
         ambition_platformer2d::engine::add_headless_foundation(&mut app);
-        ambition_platformer2d::platformer::lifecycle::insert_session_world_component(
+        ambition_platformer2d::world::rooms::insert_room_set(
             app.world_mut(),
             rooms_in_mode(None),
         );
@@ -3460,7 +3456,7 @@ mod tests {
 
         let mut app = App::new();
         ambition_platformer2d::engine::add_headless_foundation(&mut app);
-        ambition_platformer2d::platformer::lifecycle::insert_session_world_component(
+        ambition_platformer2d::world::rooms::insert_room_set(
             app.world_mut(),
             rooms_in_mode(None),
         );

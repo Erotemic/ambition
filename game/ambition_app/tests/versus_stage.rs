@@ -114,12 +114,8 @@ fn choosing_versus_seats_two_fighters_in_the_arena() {
     let mut active_room = None;
     for _ in 0..900 {
         app.update();
-        let world = app.world_mut();
-        let mut rooms = world.query::<&ambition_platformer2d::runtime::demo_fixture::RoomSet>();
-        if let Some(id) = rooms
-            .iter(world)
-            .next()
-            .map(|set| set.active_spec().id.clone())
+        if let Some(id) = ambition_platformer2d::world::rooms::sole_live_room_spec(app.world())
+            .map(|spec| spec.id.clone())
         {
             if id == VERSUS_ROOM_ID {
                 active_room = Some(id);
@@ -225,12 +221,8 @@ fn two_controllers_make_versus_a_two_player_game() {
         .write_message(ShellCommand::GoTo(ShellRouteId::new(VERSUS_GAMEPLAY_ROUTE)));
     for _ in 0..900 {
         app.update();
-        let world = app.world_mut();
-        let mut rooms = world.query::<&ambition_platformer2d::runtime::demo_fixture::RoomSet>();
-        if rooms
-            .iter(world)
-            .next()
-            .is_some_and(|set| set.active_spec().id == VERSUS_ROOM_ID)
+        if ambition_platformer2d::world::rooms::sole_live_room_spec(app.world())
+            .is_some_and(|spec| spec.id == VERSUS_ROOM_ID)
         {
             break;
         }
@@ -327,12 +319,8 @@ fn a_seated_fighter_derives_its_character_and_not_just_its_name() {
         .write_message(ShellCommand::GoTo(ShellRouteId::new(VERSUS_GAMEPLAY_ROUTE)));
     for _ in 0..900 {
         app.update();
-        let world = app.world_mut();
-        let mut rooms = world.query::<&ambition_platformer2d::runtime::demo_fixture::RoomSet>();
-        if rooms
-            .iter(world)
-            .next()
-            .is_some_and(|set| set.active_spec().id == VERSUS_ROOM_ID)
+        if ambition_platformer2d::world::rooms::sole_live_room_spec(app.world())
+            .is_some_and(|spec| spec.id == VERSUS_ROOM_ID)
         {
             break;
         }
@@ -395,12 +383,8 @@ fn both_fighters_can_actually_hit_each_other() {
         .write_message(ShellCommand::GoTo(ShellRouteId::new(VERSUS_GAMEPLAY_ROUTE)));
     for _ in 0..900 {
         app.update();
-        let world = app.world_mut();
-        let mut rooms = world.query::<&ambition_platformer2d::runtime::demo_fixture::RoomSet>();
-        if rooms
-            .iter(world)
-            .next()
-            .is_some_and(|set| set.active_spec().id == VERSUS_ROOM_ID)
+        if ambition_platformer2d::world::rooms::sole_live_room_spec(app.world())
+            .is_some_and(|spec| spec.id == VERSUS_ROOM_ID)
         {
             break;
         }
@@ -494,12 +478,8 @@ fn a_ko_wins_a_round_and_two_rounds_win_the_match() {
         .write_message(ShellCommand::GoTo(ShellRouteId::new(VERSUS_GAMEPLAY_ROUTE)));
     for _ in 0..900 {
         app.update();
-        let world = app.world_mut();
-        let mut rooms = world.query::<&ambition_platformer2d::runtime::demo_fixture::RoomSet>();
-        if rooms
-            .iter(world)
-            .next()
-            .is_some_and(|set| set.active_spec().id == VERSUS_ROOM_ID)
+        if ambition_platformer2d::world::rooms::sole_live_room_spec(app.world())
+            .is_some_and(|spec| spec.id == VERSUS_ROOM_ID)
         {
             break;
         }
@@ -635,12 +615,8 @@ fn the_cpu_opponent_is_not_a_statue() {
         .write_message(ShellCommand::GoTo(ShellRouteId::new(VERSUS_GAMEPLAY_ROUTE)));
     for _ in 0..900 {
         app.update();
-        let world = app.world_mut();
-        let mut rooms = world.query::<&ambition_platformer2d::runtime::demo_fixture::RoomSet>();
-        if rooms
-            .iter(world)
-            .next()
-            .is_some_and(|set| set.active_spec().id == VERSUS_ROOM_ID)
+        if ambition_platformer2d::world::rooms::sole_live_room_spec(app.world())
+            .is_some_and(|spec| spec.id == VERSUS_ROOM_ID)
         {
             break;
         }
@@ -716,12 +692,8 @@ fn seat_zero_can_lose_a_round_and_is_not_respawned_out_from_under_the_rules() {
         .write_message(ShellCommand::GoTo(ShellRouteId::new(VERSUS_GAMEPLAY_ROUTE)));
     for _ in 0..900 {
         app.update();
-        let world = app.world_mut();
-        let mut rooms = world.query::<&ambition_platformer2d::runtime::demo_fixture::RoomSet>();
-        if rooms
-            .iter(world)
-            .next()
-            .is_some_and(|set| set.active_spec().id == VERSUS_ROOM_ID)
+        if ambition_platformer2d::world::rooms::sole_live_room_spec(app.world())
+            .is_some_and(|spec| spec.id == VERSUS_ROOM_ID)
         {
             break;
         }
@@ -2157,12 +2129,8 @@ fn a_round_opens_on_a_countdown_that_nobody_can_act_through() {
         .write_message(ShellCommand::GoTo(ShellRouteId::new(VERSUS_GAMEPLAY_ROUTE)));
     for _ in 0..900 {
         app.update();
-        let world = app.world_mut();
-        let mut rooms = world.query::<&ambition_platformer2d::runtime::demo_fixture::RoomSet>();
-        if rooms
-            .iter(world)
-            .next()
-            .is_some_and(|set| set.active_spec().id == VERSUS_ROOM_ID)
+        if ambition_platformer2d::world::rooms::sole_live_room_spec(app.world())
+            .is_some_and(|spec| spec.id == VERSUS_ROOM_ID)
         {
             break;
         }
@@ -2244,12 +2212,8 @@ fn a_fighter_knocked_off_the_stage_loses_the_round() {
         .write_message(ShellCommand::GoTo(ShellRouteId::new(VERSUS_GAMEPLAY_ROUTE)));
     for _ in 0..900 {
         app.update();
-        let world = app.world_mut();
-        let mut rooms = world.query::<&ambition_platformer2d::runtime::demo_fixture::RoomSet>();
-        if rooms
-            .iter(world)
-            .next()
-            .is_some_and(|set| set.active_spec().id == VERSUS_ROOM_ID)
+        if ambition_platformer2d::world::rooms::sole_live_room_spec(app.world())
+            .is_some_and(|spec| spec.id == VERSUS_ROOM_ID)
         {
             break;
         }
@@ -2327,12 +2291,8 @@ fn a_fighter_thrown_off_the_side_loses_the_round() {
         .write_message(ShellCommand::GoTo(ShellRouteId::new(VERSUS_GAMEPLAY_ROUTE)));
     for _ in 0..900 {
         app.update();
-        let world = app.world_mut();
-        let mut rooms = world.query::<&ambition_platformer2d::runtime::demo_fixture::RoomSet>();
-        if rooms
-            .iter(world)
-            .next()
-            .is_some_and(|set| set.active_spec().id == VERSUS_ROOM_ID)
+        if ambition_platformer2d::world::rooms::sole_live_room_spec(app.world())
+            .is_some_and(|spec| spec.id == VERSUS_ROOM_ID)
         {
             break;
         }
@@ -2415,12 +2375,8 @@ fn a_knockout_is_announced_in_the_losers_own_voice() {
         .write_message(ShellCommand::GoTo(ShellRouteId::new(VERSUS_GAMEPLAY_ROUTE)));
     for _ in 0..900 {
         app.update();
-        let world = app.world_mut();
-        let mut rooms = world.query::<&ambition_platformer2d::runtime::demo_fixture::RoomSet>();
-        if rooms
-            .iter(world)
-            .next()
-            .is_some_and(|set| set.active_spec().id == VERSUS_ROOM_ID)
+        if ambition_platformer2d::world::rooms::sole_live_room_spec(app.world())
+            .is_some_and(|spec| spec.id == VERSUS_ROOM_ID)
         {
             break;
         }
@@ -2491,12 +2447,8 @@ fn a_knockout_is_announced_in_the_losers_own_voice() {
         .write_message(ShellCommand::GoTo(ShellRouteId::new(VERSUS_GAMEPLAY_ROUTE)));
     for _ in 0..900 {
         app.update();
-        let world = app.world_mut();
-        let mut rooms = world.query::<&ambition_platformer2d::runtime::demo_fixture::RoomSet>();
-        if rooms
-            .iter(world)
-            .next()
-            .is_some_and(|set| set.active_spec().id == VERSUS_ROOM_ID)
+        if ambition_platformer2d::world::rooms::sole_live_room_spec(app.world())
+            .is_some_and(|spec| spec.id == VERSUS_ROOM_ID)
         {
             break;
         }
@@ -2659,12 +2611,8 @@ fn a_roster_that_disagrees_with_the_frozen_topology_is_left_alone() {
         .write_message(ShellCommand::GoTo(ShellRouteId::new(VERSUS_GAMEPLAY_ROUTE)));
     for _ in 0..900 {
         app.update();
-        let world = app.world_mut();
-        let mut rooms = world.query::<&ambition_platformer2d::runtime::demo_fixture::RoomSet>();
-        let seated = rooms
-            .iter(world)
-            .next()
-            .is_some_and(|set| set.active_spec().id == VERSUS_ROOM_ID);
+        let seated = ambition_platformer2d::world::rooms::sole_live_room_spec(app.world())
+            .is_some_and(|spec| spec.id == VERSUS_ROOM_ID);
         if seated {
             break;
         }

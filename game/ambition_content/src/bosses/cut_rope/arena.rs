@@ -37,7 +37,7 @@ pub struct CutRopeBossArenaState {
 /// and anvil drop). The rope cut is the only cut-rope-specific trigger. Also
 /// owns the cut-rope state reset on room enter/exit and room-feature reset.
 pub fn detect_cut_rope_rope_cut(
-    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<RoomSet>,
+    room_set: ambition_platformer2d::world::rooms::SoleLiveRoomSpec,
     mut state: ResMut<CutRopeBossArenaState>,
     mut hit_events: MessageReader<HitEvent>,
     mut reset_events: MessageReader<RoomReplayAdmitted>,
@@ -45,7 +45,7 @@ pub fn detect_cut_rope_rope_cut(
     mut vfx: MessageWriter<VfxMessage>,
     mut gate_writer: MessageWriter<EncounterGate>,
 ) {
-    let room = room_set.active_spec();
+    let room = room_set.spec();
     if room.id != CUT_ROPE_ROOM_ID {
         if state.active_room != room.id {
             reset_cut_rope_arena_state_for_room(&mut state, &room.id);
@@ -67,7 +67,7 @@ pub fn detect_cut_rope_rope_cut(
     // into the next one, and this system's early return drains for that reason.
     for _ in reset_events.read() {}
 
-    let Some(rope) = authored_prop(room_set.active_props(), ROPE_KIND) else {
+    let Some(rope) = authored_prop(&room_set.spec().props, ROPE_KIND) else {
         for _ in hit_events.read() {}
         return;
     };
@@ -108,7 +108,7 @@ pub fn detect_cut_rope_rope_cut(
 /// `ForceKill`; the anvil physics is the generic `FallingHazard`.
 pub fn tick_cut_rope_flavor(
     world_time: Res<ambition_time::WorldTime>,
-    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<RoomSet>,
+    room_set: ambition_platformer2d::world::rooms::SoleLiveRoomSpec,
     mut state: ResMut<CutRopeBossArenaState>,
     heavy_object: Res<CutRopeHeavyObjectCycle>,
     mut gates: MessageReader<EncounterGate>,
@@ -127,7 +127,7 @@ pub fn tick_cut_rope_flavor(
             impacted = true;
         }
     }
-    if room_set.active_spec().id != CUT_ROPE_ROOM_ID {
+    if room_set.spec().id != CUT_ROPE_ROOM_ID {
         return;
     }
 
@@ -144,7 +144,7 @@ pub fn tick_cut_rope_flavor(
 
     // Waiting rope sparks while the anvil hangs unaligned.
     if state.rope_cut && !state.anvil_exploded && state.awaiting_alignment {
-        if let Some(rope) = authored_prop(room_set.active_props(), ROPE_KIND) {
+        if let Some(rope) = authored_prop(&room_set.spec().props, ROPE_KIND) {
             let dt = world_time.sim_dt().max(0.0);
             let rope_pos = rope.pos;
             pulse_waiting_rope_explosions(
@@ -196,7 +196,7 @@ pub fn tick_cut_rope_flavor(
 /// state. Separate from the gameplay systems so the rendering query does not
 /// grow their parameter count.
 pub fn sync_cut_rope_boss_arena_prop_visuals(
-    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<RoomSet>,
+    room_set: ambition_platformer2d::world::rooms::SoleLiveRoomSpec,
     state: Res<CutRopeBossArenaState>,
     heavy_object: Res<CutRopeHeavyObjectCycle>,
     mut prop_visuals: Query<(
@@ -209,15 +209,15 @@ pub fn sync_cut_rope_boss_arena_prop_visuals(
     )>,
     assets: Option<Res<GameAssets>>,
 ) {
-    if state.active_room != CUT_ROPE_ROOM_ID || room_set.active_spec().id != CUT_ROPE_ROOM_ID {
+    if state.active_room != CUT_ROPE_ROOM_ID || room_set.spec().id != CUT_ROPE_ROOM_ID {
         return;
     }
-    let Some(anvil) = authored_prop(room_set.active_props(), ANVIL_KIND) else {
+    let Some(anvil) = authored_prop(&room_set.spec().props, ANVIL_KIND) else {
         return;
     };
     sync_cut_rope_prop_visuals(
         &mut prop_visuals,
-        room_set.active_world(),
+        &room_set.spec().world,
         &state,
         anvil,
         heavy_object.current(),
@@ -388,7 +388,7 @@ fn reset_cut_rope_arena_state_for_room(state: &mut CutRopeBossArenaState, room_i
 /// room replay while gameplay is suspended, so this runs in the ungated
 /// room-reset chain and restores rope/anvil visuals on the reset frame.
 pub fn reset_cut_rope_boss_arena_on_room_reset(
-    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<RoomSet>,
+    room_set: ambition_platformer2d::world::rooms::SoleLiveRoomSpec,
     mut state: ResMut<CutRopeBossArenaState>,
     mut heavy_object: ResMut<CutRopeHeavyObjectCycle>,
     mut reset_events: MessageReader<RoomReplayAdmitted>,
@@ -405,7 +405,7 @@ pub fn reset_cut_rope_boss_arena_on_room_reset(
     if reset_events.read().next().is_none() {
         return;
     }
-    let room = room_set.active_spec();
+    let room = room_set.spec();
     if room.id != CUT_ROPE_ROOM_ID {
         if state.active_room != room.id {
             reset_cut_rope_arena_state_for_room(&mut state, &room.id);
@@ -414,10 +414,10 @@ pub fn reset_cut_rope_boss_arena_on_room_reset(
     }
     heavy_object.advance();
     reset_cut_rope_arena_state_for_room(&mut state, &room.id);
-    if let Some(anvil) = authored_prop(room_set.active_props(), ANVIL_KIND) {
+    if let Some(anvil) = authored_prop(&room_set.spec().props, ANVIL_KIND) {
         sync_cut_rope_prop_visuals(
             &mut prop_visuals,
-            room_set.active_world(),
+            &room_set.spec().world,
             &state,
             anvil,
             heavy_object.current(),

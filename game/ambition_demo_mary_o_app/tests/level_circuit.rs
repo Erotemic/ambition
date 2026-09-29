@@ -9,17 +9,13 @@ use ambition_demo_mary_o::level_1_2::LEVEL_1_2_ROOM_ID;
 use ambition_demo_mary_o::LEVEL_1_1_ROOM_ID;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::platformer::markers::PrimaryPlayer;
-use ambition_platformer2d::world::rooms::RoomSet;
 
 /// Liveness cap only; transition timing is not part of the assertion.
 const COMMIT_CAP: usize = 600;
 
 /// Authoritative active room id.
 fn room_id(app: &mut App) -> Option<String> {
-    let mut q = app.world_mut().query::<&RoomSet>();
-    q.iter(app.world())
-        .next()
-        .map(|set| set.active_spec().id.clone())
+    ambition_platformer2d::world::rooms::sole_live_room_spec(app.world()).map(|room| room.id.clone())
 }
 
 /// Drop a settled tally on the level owner — the state reaching the goal
@@ -214,11 +210,8 @@ fn each_level_opens_with_its_own_title() {
                 // The last room's clear can still be up on the arrival frame.
                 .filter(|text| !text.starts_with("COURSE CLEAR"));
             if card.is_some() {
-                let mut q = app.world_mut().query::<&RoomSet>();
-                let title = q
-                    .iter(app.world())
-                    .next()
-                    .and_then(|set| set.active_metadata().title.clone());
+                let title = ambition_platformer2d::world::rooms::sole_live_room_spec(app.world())
+                    .and_then(|room| room.metadata.title.clone());
                 return (title, card);
             }
             app.update();

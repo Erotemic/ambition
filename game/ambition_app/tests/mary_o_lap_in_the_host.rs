@@ -22,7 +22,6 @@ use ambition_demo_mary_o::LEVEL_1_1_ROOM_ID;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::game_shell::{ShellExperienceRegistry, ShellLauncherCommand};
 use ambition_platformer2d::platformer::markers::PrimaryPlayer;
-use ambition_platformer2d::world::rooms::RoomSet;
 
 /// Frames a leg may take before we call the transition wedged.
 const COMMIT_CAP: usize = 900;
@@ -59,10 +58,7 @@ fn host_app() -> App {
 }
 
 fn room_id(app: &mut App) -> Option<String> {
-    let mut q = app.world_mut().query::<&RoomSet>();
-    q.iter(app.world())
-        .next()
-        .map(|set| set.active_spec().id.clone())
+    ambition_platformer2d::world::rooms::sole_live_room_spec(app.world()).map(|spec| spec.id.clone())
 }
 
 /// Launch the row with this label, the way the launcher does.

@@ -141,7 +141,8 @@ pub fn build_windowed_demo_app_with_home(render: RenderMode, home_route: &str) -
         .with_room(
             ambition_demo_sanic::sanic_session_world()
                 .room_set
-                .active_metadata()
+                .activation_spec()
+                .metadata
                 .clone(),
         ),
     );

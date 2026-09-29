@@ -887,7 +887,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// ⛔⛤ 268 -> 269: the carrier order sorts by the live identity, the pair
 /// (`SimId`, live room), so two instances of one room do not tie. One live
 /// room orders as before (OW1 cut 5c).
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 269;
+/// ⛔⛤ 269 -> 270: which definition a live room instantiates is a row on its
+/// own root (`root.live_room_definition`). The `RoomSet` checksum hashes the
+/// activation room, a prepared fact, and no longer the live room (OW1 cut 5e).
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 270;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

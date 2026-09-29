@@ -162,9 +162,7 @@ pub fn drive_wave_encounters(
     // every one of them a BODY-CONSTRUCTION input it needed only because it
     // served its own spawn requests. Serving moved to
     // `features::serve_encounter_spawn_commands`, and the inputs went with it.
-    session_world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
-        ambition_platformer2d_world::rooms::RoomSet,
-    >,
+    session_world: ambition_platformer2d_world::rooms::SoleLiveRoomSpec,
     encounter_mobs: Query<(
         Entity,
         &ambition_combat::components::EncounterMob,
@@ -184,7 +182,7 @@ pub fn drive_wave_encounters(
     if commands.spawn_scope().is_none() {
         return;
     }
-    let active_area = session_world.active_spec().id.clone();
+    let active_area = session_world.spec().id.clone();
     if player_body_q.is_empty() {
         return;
     }

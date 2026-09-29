@@ -3047,7 +3047,7 @@ mod tests {
         PreparedPlatformerSource::new(
             "same-provider",
             room_set.clone(),
-            ambition_platformer2d_core::RoomGeometry(room_set.active_world().clone()),
+            ambition_platformer2d_core::RoomGeometry(room_set.activation_spec().world.clone()),
             ambition_platformer2d_actor_monolith::avatar::StartingCharacter::new("alpha"),
         )
     }
@@ -3115,7 +3115,7 @@ mod tests {
         PreparedPlatformerSource::new(
             "same-provider",
             room_set.clone(),
-            ambition_platformer2d_core::RoomGeometry(room_set.active_world().clone()),
+            ambition_platformer2d_core::RoomGeometry(room_set.activation_spec().world.clone()),
             ambition_platformer2d_actor_monolith::avatar::StartingCharacter::new("alpha"),
         )
     }
@@ -3145,13 +3145,13 @@ mod tests {
             Vec::new(),
         );
         assert!(
-            room_set.set_active_by_id(active_room).is_some(),
+            room_set.set_activation_by_id(active_room).is_some(),
             "fixture asked for room `{active_room}`, which this set does not hold"
         );
         PreparedPlatformerSource::new(
             "same-provider",
             room_set.clone(),
-            ambition_platformer2d_core::RoomGeometry(room_set.active_world().clone()),
+            ambition_platformer2d_core::RoomGeometry(room_set.activation_spec().world.clone()),
             ambition_platformer2d_actor_monolith::avatar::StartingCharacter::new("alpha"),
         )
     }
@@ -3269,7 +3269,9 @@ mod tests {
             let source = PreparedPlatformerSource::new(
                 "same-provider",
                 base.room_set().clone(),
-                ambition_platformer2d_core::RoomGeometry(base.room_set().active_world().clone()),
+                ambition_platformer2d_core::RoomGeometry(
+                    base.room_set().activation_spec().world.clone(),
+                ),
                 ambition_platformer2d_actor_monolith::avatar::StartingCharacter::new(
                     selected.to_string(),
                 ),
@@ -3723,12 +3725,19 @@ mod tests {
         let staging = staging_registry(false);
         let content = fixture_content(two_room_fixture_source("same-room"), &characters, &staging);
         let before = content.identity();
-        let mut live = content.source().instantiate_live();
-        live.room_set
-            .set_active_by_id("second-room")
+        // Room movement is the live room root's definition (OW1 cut 5e),
+        // which the prepared source does not hold.
+        let mut live_room = content.source().instantiate_live_room();
+        live_room.definition = content
+            .source()
+            .room_set()
+            .definition_by_id("second-room")
             .expect("the fixture set holds `second-room`");
 
-        assert_eq!(live.active_room_id(), "second-room");
+        assert_eq!(
+            content.source().room_set().spec(live_room.definition).id,
+            "second-room"
+        );
         assert_eq!(content.identity(), before);
         assert_eq!(content.source().active_room_id(), "same-room");
     }

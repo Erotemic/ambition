@@ -77,11 +77,7 @@ pub fn record_actor_oob_frame_system(
     // The composed collision read-API rather than its three ingredients — a
     // trace must see exactly the world the simulation collided against.
     collision: ambition_platformer2d_world::collision::CollisionWorld,
-    rooms: Option<
-        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
-            ambition_platformer2d_world::rooms::RoomSet,
-        >,
-    >,
+    rooms: Option<ambition_platformer2d_world::rooms::SoleLiveRoomSpec>,
     mode: Res<State<ambition_platformer2d_shared_tangle::schedule::GameMode>>,
     bodies_q: Query<(
         Entity,
@@ -102,7 +98,7 @@ pub fn record_actor_oob_frame_system(
     let time_scale = world_time.time_scale();
     let active_area = rooms
         .as_ref()
-        .map(|r| r.active_spec().id.clone())
+        .map(|r| r.spec().id.clone())
         .unwrap_or_else(|| "<unknown>".into());
     let mode_label = format!("{:?}", mode.get());
 

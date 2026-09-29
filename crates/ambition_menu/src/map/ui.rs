@@ -190,9 +190,7 @@ struct RoomLabel {
 pub fn sync_map_menu(
     mut commands: Commands,
     map: Res<MapMenuState>,
-    room_set: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
-        ambition_platformer2d_world::rooms::RoomSet,
-    >,
+    room_set: ambition_platformer2d_world::rooms::SoleLiveRoomSpec,
     mut roots: Query<&mut Visibility, (With<MapMenuRoot>, Without<MinimapRoot>)>,
     mut minimap_roots: Query<&mut Visibility, (With<MinimapRoot>, Without<MapMenuRoot>)>,
     canvases: Query<Entity, With<MapMenuCanvas>>,
@@ -227,7 +225,7 @@ pub fn sync_map_menu(
             "{} of {} rooms visited — {} active   |   zoom {:.2}x   (+ / − adjust, 0 reset)",
             map.visited.len(),
             map.rooms.len(),
-            room_set.active_spec().id,
+            room_set.spec().id,
             map.zoom,
         );
     }
@@ -251,7 +249,7 @@ pub fn sync_map_menu(
         return;
     }
 
-    let active_id = room_set.active_spec().id.clone();
+    let active_id = room_set.spec().id.clone();
 
     // Compute desired (kind, room_id) → RoomVisual for every enabled canvas.
     let mut desired: HashMap<(MapRoomBoxKind, String), RoomVisual> = HashMap::new();

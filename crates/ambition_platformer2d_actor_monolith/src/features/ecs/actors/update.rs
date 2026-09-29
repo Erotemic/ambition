@@ -2499,11 +2499,7 @@ pub fn tick_npc_idle_barks(
         With<FeatureSimEntity>,
     >,
     mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
-    room_set: Option<
-        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
-            ambition_platformer2d_world::rooms::RoomSet,
-        >,
-    >,
+    room_set: Option<ambition_platformer2d_world::rooms::SoleLiveRoomSpec>,
     // App-local authored voice. Required so a mis-composed production App
     // cannot silently erase provider-authored dialogue.
     character_catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>,
@@ -2519,8 +2515,8 @@ pub fn tick_npc_idle_barks(
     // `Idle` pool. Same ambient ticker, different occasion — keyed off the
     // engine-generic `RoomMetadata::gallery` flag, not a content room id (C1).
     let is_gallery = room_set
-        .as_deref()
-        .map(|rs| rs.active_metadata().gallery)
+        .as_ref()
+        .map(|rs| rs.spec().metadata.gallery)
         .unwrap_or(false);
     let situation = if is_gallery {
         ambition_characters::actor::character_catalog::BarkSituation::Hall

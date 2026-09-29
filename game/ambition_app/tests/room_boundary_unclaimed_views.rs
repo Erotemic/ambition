@@ -60,12 +60,8 @@ fn step_fast(app: &mut App) {
 }
 
 fn active_room(app: &mut App) -> String {
-    let mut query = app.world_mut().query::<&RoomSet>();
-    let world = app.world();
-    query
-        .iter(world)
-        .next()
-        .map(|set| set.active_spec().id.clone())
+    ambition_platformer2d::world::rooms::sole_live_room_spec(app.world())
+        .map(|spec| spec.id.clone())
         .unwrap_or_default()
 }
 
@@ -196,13 +192,15 @@ fn cross_observing_with(
     let from = active_room(app);
     let (target_room, arrival) = {
         let world = app.world_mut();
+        let live_definition = ambition_platformer2d::world::rooms::sole_live_room_definition(world)
+            .expect("the session has a live room");
         let mut query = world.query::<&RoomSet>();
         let room_set = query
             .iter(world)
             .next()
             .expect("gameplay has a session room set");
         let zone = room_set
-            .active_loading_zones()
+            .spec(live_definition).loading_zones
             .iter()
             .find(|zone| zone.id == zone_id || zone.name == zone_id)
             .unwrap_or_else(|| {
@@ -213,7 +211,7 @@ fn cross_observing_with(
             })
             .clone();
         let transition = room_set
-            .transition_for_player(zone.aabb, ae::Vec2::ZERO, true)
+            .transition_for_player(live_definition, zone.aabb, ae::Vec2::ZERO, true)
             .unwrap_or_else(|| panic!("`{zone_id}` does not resolve to a transition"));
         (
             room_set.rooms[transition.target_room].id.clone(),

@@ -163,7 +163,7 @@ fn world_with_one_wall_gated_by(gated_by: &str) -> App {
         crate::world_facts::flag_set_descriptor(),
         crate::world_facts::flag_set,
     );
-    ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+    ambition_platformer2d_world::rooms::insert_room_set(
         app.world_mut(),
         ambition_platformer2d_world::rooms::RoomSet::from_parts_or_panic(
             "alice_relay",
@@ -282,7 +282,7 @@ fn a_wall_whose_question_cannot_be_prepared_yet_stands_until_the_catalog_moves()
     // returns early when there is no catalog at all, so an empty one is what puts
     // the fixture in the state under test rather than past it.
     app.init_resource::<ConditionCatalog>();
-    ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+    ambition_platformer2d_world::rooms::insert_room_set(
         app.world_mut(),
         ambition_platformer2d_world::rooms::RoomSet::from_parts_or_panic(
             "alice_relay",

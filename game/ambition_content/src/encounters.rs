@@ -104,9 +104,7 @@ pub fn spawn_symmetry_attunement(
 /// placement, and no authored surface expresses it yet. Naming that limit is
 /// better than inventing a second one to hide it.
 pub fn drive_symmetry_attunement(
-    room_set: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
-        ambition_platformer2d::world::rooms::RoomSet,
-    >,
+    room_set: ambition_platformer2d::world::rooms::SoleLiveRoomSpec,
     encounters: Query<(&Encounter, &EncounterLifecycle)>,
     mut lifecycle_commands: MessageWriter<EncounterCommand>,
 ) {
@@ -116,7 +114,7 @@ pub fn drive_symmetry_attunement(
     else {
         return;
     };
-    if room_set.active_spec().id == SYMMETRY_ROOM_ID
+    if room_set.spec().id == SYMMETRY_ROOM_ID
         && matches!(lifecycle.phase(), EncounterPhase::Inactive)
     {
         lifecycle_commands.write(EncounterCommand::new(

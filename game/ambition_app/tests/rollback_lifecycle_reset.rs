@@ -488,11 +488,13 @@ fn a_cross_room_checkpoint_resume_stays_checksum_clean() {
     // never doing the thing it is about.
     let landed = {
         let world = sim.world_mut();
+        let live_definition = ambition_platformer2d::world::rooms::sole_live_room_definition(world)
+            .expect("the session has a live room");
         let mut q = world.query::<&ambition_platformer2d::world::rooms::RoomSet>();
         q.iter(world)
             .next()
             .expect("the session has an active room set")
-            .active_spec()
+            .spec(live_definition)
             .id
             .clone()
     };

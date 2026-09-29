@@ -5,7 +5,6 @@ use bevy::prelude::*;
 use bevy_kira_audio::prelude::AudioSource as KiraAudioSource;
 
 use ambition_platformer2d::actors::assets::game_assets as actor_game_assets;
-use ambition_platformer2d::world::rooms as world_rooms;
 
 use ambition_platformer2d::persistence::settings::TextureResolutionScale;
 use ambition_platformer2d::sprite_sheet::game_assets::{self, GameAssetConfig};
@@ -98,7 +97,7 @@ pub(crate) fn setup_host_presentation_system(
         asset_catalog,
         &asset_server,
         &mut atlas_layouts,
-        &prepared_world.room_set.active_spec().metadata,
+        &prepared_world.room_set.activation_spec().metadata,
         quality.as_deref().map(|q| &q.budget),
         &catalogs.props,
     );
@@ -165,7 +164,7 @@ pub(crate) fn setup_host_presentation_system(
         asset_catalog,
         &asset_server,
         &mut atlas_layouts,
-        &prepared_world.room_set.active_spec().metadata,
+        &prepared_world.room_set.activation_spec().metadata,
         quality.as_deref().map(|q| &q.budget),
         &catalogs.props,
     );
@@ -195,7 +194,7 @@ pub(crate) fn reload_visual_quality_assets_on_scale_change(
     asset_config: Res<GameAssetConfig>,
     catalogs: PresentationCatalogs,
     asset_server: Res<AssetServer>,
-    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<world_rooms::RoomSet>,
+    room_set: ambition_platformer2d::world::rooms::SoleLiveRoomSpec,
     mut atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
     mut game_assets: Option<ResMut<game_assets::GameAssets>>,
     mut last_scales: Local<Option<(TextureResolutionScale, TextureResolutionScale)>>,
@@ -223,7 +222,7 @@ pub(crate) fn reload_visual_quality_assets_on_scale_change(
         &catalogs.assets,
         &asset_server,
         &mut atlas_layouts,
-        &room_set.active_spec().metadata,
+        &room_set.spec().metadata,
         Some(&quality.budget),
         // The props are in `characters`, which is kept below.
         &Default::default(),

@@ -153,11 +153,7 @@ impl SessionStartupResume {
 /// shrine they woke up at.
 pub fn restore_checkpoint_on_session_start(
     save: Res<ambition_persistence::save::AmbitionGameSave>,
-    room_set: Option<
-        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
-            ambition_platformer2d_world::rooms::RoomSet,
-        >,
-    >,
+    room_set: Option<ambition_platformer2d_world::rooms::SoleLiveRoomSpec>,
     scope: Option<Res<ambition_platformer2d_shared_tangle::lifecycle::ActiveSessionScope>>,
     mut pending: ResMut<crate::session::lifecycle_commit::PendingLifecycleCommit>,
     boundary: Option<Res<ambition_platformer2d_core::ConfirmedFrameBoundary>>,
@@ -191,7 +187,7 @@ pub fn restore_checkpoint_on_session_start(
         Option<Res<crate::items::pickup::minted_horizon::OwnedItemsBaseline>>,
     ),
 ) {
-    let Some(room_set) = room_set.as_deref() else {
+    let Some(room_set) = room_set.as_ref() else {
         return;
     };
     let scope_id = scope.and_then(|scope| scope.current());
@@ -228,8 +224,9 @@ pub fn restore_checkpoint_on_session_start(
     // staging a room is a transaction with content, geometry and authorization
     // in it, and "the one place rooms are staged" is worth more than saving a
     // message.
-    if checkpoint.room_id != room_set.active_spec().id {
+    if checkpoint.room_id != room_set.spec().id {
         if !room_set
+            .rooms()
             .rooms
             .iter()
             .any(|room| room.id == checkpoint.room_id)
@@ -384,11 +381,7 @@ pub fn resume_at_checkpoint_on_reset(
     mut new_games: bevy::prelude::MessageReader<crate::session::reset::NewGameRequested>,
     mut outstanding: ResMut<OutstandingCheckpointRequest>,
     save: Res<ambition_persistence::save::AmbitionGameSave>,
-    room_set: Option<
-        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
-            ambition_platformer2d_world::rooms::RoomSet,
-        >,
-    >,
+    room_set: Option<ambition_platformer2d_world::rooms::SoleLiveRoomSpec>,
     mut pending: ResMut<crate::session::lifecycle_commit::PendingLifecycleCommit>,
     boundary: Option<Res<ambition_platformer2d_core::ConfirmedFrameBoundary>>,
     subjects: Query<
@@ -427,7 +420,7 @@ pub fn resume_at_checkpoint_on_reset(
     let Some(restore_to) = outstanding.0 else {
         return;
     };
-    let Some(room_set) = room_set.as_deref() else {
+    let Some(room_set) = room_set.as_ref() else {
         return;
     };
     // the subject is resolved BEFORE anything is recorded: a transition names the body it
@@ -435,15 +428,16 @@ pub fn resume_at_checkpoint_on_reset(
     let Ok(subject) = subjects.single() else {
         return;
     };
-    let active = room_set.active_spec();
+    let active = room_set.spec();
     let (target_room, arrival) = match save.data().checkpoint() {
         _ if restore_to == RestoreTo::NewGame => {
-            let start = &room_set.rooms[room_set.start()];
+            let start = &room_set.rooms().rooms[room_set.rooms().start()];
             (start.id.clone(), start.world.spawn)
         }
         // Not fatal: fall through to rebuilding where the player actually is.
         Some(checkpoint)
             if room_set
+                .rooms()
                 .rooms
                 .iter()
                 .any(|room| room.id == checkpoint.room_id) =>
@@ -1383,9 +1377,9 @@ fn verify_restored_domains(
     // this runs after and asks what it actually did. A restore that rebuilt some
     // other room put every domain value back against the wrong world.
     {
-        let mut rooms = world.query::<&ambition_platformer2d_world::rooms::RoomSet>();
-        if let Some(room_set) = rooms.iter(world).next() {
-            let standing = &room_set.active_spec().id;
+        // The one-live-room read: a restore rebuilds the session's live room.
+        if let Some(room) = ambition_platformer2d_world::rooms::sole_live_room_spec(world) {
+            let standing = &room.id;
             if standing != accepted.intent.target_room() {
                 return Err(RestoreVerificationFailure {
                     failure: RestoreFailure::Room,

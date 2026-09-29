@@ -31,8 +31,10 @@ fn act(app: &mut App) -> SanicActState {
 }
 
 fn active_room(app: &mut App) -> String {
-    let mut q = app.world_mut().query::<&ambition_platformer2d::world::rooms::RoomSet>();
-    q.iter(app.world()).next().expect("the room set").active_spec().id.clone()
+    ambition_platformer2d::world::rooms::sole_live_room_spec(app.world())
+        .expect("the live room")
+        .id
+        .clone()
 }
 
 fn spent(app: &mut App) -> Vec<String> {

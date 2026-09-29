@@ -826,10 +826,8 @@ fn a_committed_world_reload_applies_its_effects() {
 #[test]
 fn a_refused_world_reload_leaves_the_running_game_untouched() {
     let mut app = a_running_shipped_session();
-    let before_room = ambition_platformer2d::platformer::lifecycle::session_world_component::<
-        ambition_platformer2d::world::rooms::RoomSet,
-    >(app.world())
-    .map(|rooms| rooms.active_spec().id.clone())
+    let before_room = ambition_platformer2d::world::rooms::sole_live_room_spec(app.world())
+    .map(|spec| spec.id.clone())
     .expect("the running session carries a room set");
     let before_applied = app
         .world()
@@ -891,10 +889,7 @@ fn a_refused_world_reload_leaves_the_running_game_untouched() {
         "a refused reload counted itself as applied"
     );
     assert_eq!(
-        ambition_platformer2d::platformer::lifecycle::session_world_component::<
-            ambition_platformer2d::world::rooms::RoomSet,
-        >(app.world())
-        .map(|rooms| rooms.active_spec().id.clone()),
+        ambition_platformer2d::world::rooms::sole_live_room_spec(app.world()).map(|spec| spec.id.clone()),
         Some(before_room),
         "⛔ A REFUSED WORLD RELOAD CHANGED THE ROOM THE PLAYER IS IN"
     );
@@ -961,10 +956,7 @@ fn a_candidate_session_the_transaction_refuses_leaves_the_live_session_playable(
             .collect()
     }
     fn live_room(app: &mut bevy::prelude::App) -> Option<String> {
-        ambition_platformer2d::platformer::lifecycle::session_world_component::<
-            ambition_platformer2d::world::rooms::RoomSet,
-        >(app.world())
-        .map(|rooms| rooms.active_spec().id.clone())
+        ambition_platformer2d::world::rooms::sole_live_room_spec(app.world()).map(|spec| spec.id.clone())
     }
 
     let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);

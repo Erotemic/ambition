@@ -532,9 +532,11 @@ fn entering_the_arena_the_fists_start_where_they_stand() {
     }
     let door = {
         let world = sim.world_mut();
+        let live_definition = ambition_platformer2d::world::rooms::sole_live_room_definition(world)
+            .expect("the session has a live room");
         let mut rooms = world.query::<&ambition_platformer2d::world::rooms::RoomSet>();
         let set = rooms.iter(world).next().expect("a room set");
-        set.active_loading_zones()
+        set.spec(live_definition).loading_zones
             .iter()
             .find(|zone| zone.id == "hall_gnu_ton_portal")
             .cloned()

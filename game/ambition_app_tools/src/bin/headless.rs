@@ -80,7 +80,6 @@ fn run_with_trace_dump(max_ticks: u32, dump_dir: PathBuf, start_room: Option<Str
     use ambition_platformer2d::engine_core::RoomGeometry;
     use ambition_platformer2d::platformer::safe_position::PlayerSafetyState;
     use ambition_platformer2d::platformer::schedule::GameMode as GameModeState;
-    use ambition_platformer2d::world::rooms::RoomSet;
     use bevy::state::state::State;
 
     for _ in 0..max_ticks {
@@ -95,17 +94,16 @@ fn run_with_trace_dump(max_ticks: u32, dump_dir: PathBuf, start_room: Option<Str
             let world_ref = sim.world();
             let world_time = *world_ref.resource::<ambition_platformer2d::time::WorldTime>();
             let control_frame = *world_ref.resource::<ControlFrame>();
-            let room_set = ambition_platformer2d::platformer::lifecycle::session_world_component::<
-                RoomSet,
-            >(world_ref)
-            .expect("active session RoomSet");
             let game_mode = world_ref.resource::<State<GameModeState>>();
             let moving_platforms =
                 ambition_platformer2d::session::sole_live_room_component::<ambition_platformer2d::world::collision::MovingPlatformSet>(world_ref).expect("the live room has moving platforms");
             let game_world =
                 ambition_platformer2d::platformer::lifecycle::sole_live_room_component::<RoomGeometry>(world_ref)
                     .expect("active session RoomGeometry");
-            let active_area = room_set.active_spec().id.clone();
+            let active_area = ambition_platformer2d::world::rooms::sole_live_room_spec(world_ref)
+                .expect("the live room is seated with its definition")
+                .id
+                .clone();
             let mode_label = format!("{:?}", game_mode.get());
             (
                 world_time,

@@ -6,28 +6,30 @@
 //! addresses; the owner label is organizational and the readable baseline
 //! omits it.
 //!
-//! The active room's METADATA has no row: it is `RoomSet::active_metadata()`,
-//! read where needed, so the set and a copy of its active entry cannot disagree
-//! after a restore.
+//! A live room's METADATA has no row: it is the `RoomSet` entry its
+//! `LiveRoomDefinition` names, read where needed, so the set and a copy of
+//! that entry cannot disagree after a restore.
 
-use ambition_platformer2d_core::snapshot::{checksum_bytes, put_str, put_u64, RollbackRegistrar};
+use ambition_platformer2d_core::snapshot::{
+    checksum_bytes, put_str, put_u64, Reader, RollbackRegistrar, SnapshotState,
+};
 
 /// Named to match `GATE_PORTAL_ROLLBACK_OWNER` beside it rather than derived
 /// from `CARGO_PKG_NAME`: both declarations belong to the same crate and should
 /// read the same way in a dump.
 const OWNER: &str = "ambition_platformer2d_world";
 
-/// The active/start room identity, which is what a desync check needs from the
-/// graph.
+/// The activation/start room identity, which is what a desync check needs from
+/// the graph. Which room is live is each root's `LiveRoomDefinition` row.
 ///
 /// Hash the identity, not the graph. Rewinding into a different room is the
 /// divergence to catch. Room specs are authored content that simulation does
 /// not change, so hashing them would cost a full walk and detect nothing.
 fn room_set_checksum(rooms: &super::RoomSet) -> u64 {
     let mut bytes = Vec::new();
-    put_u64(&mut bytes, rooms.active as u64);
+    put_u64(&mut bytes, rooms.activation as u64);
     put_u64(&mut bytes, rooms.start as u64);
-    put_str(&mut bytes, &rooms.active_spec().id);
+    put_str(&mut bytes, &rooms.activation_spec().id);
     // The next live room this session mints: a peer that has published one
     // more room mints a different identity next.
     put_u64(&mut bytes, u64::from(rooms.next_live_room.ordinal()));
@@ -43,7 +45,7 @@ where
     registrar.rollback_component_clone_checksum::<super::RoomSet>(
         OWNER,
         "root.room_set",
-        "active/start room identity and next live room checksum",
+        "activation/start room identity and next live room checksum",
         room_set_checksum,
     );
     // The room-set checksum cannot tell a revisit from the earlier visit:
@@ -53,10 +55,27 @@ where
         OWNER,
         "root.live_room_instance",
     );
+    // Which definition a live room instantiates, on its own root (OW1 cut 5e).
+    // A rewind across a publication returns the root to the room it was.
+    registrar.rollback_component_canonical::<crate::rooms::LiveRoomDefinition>(
+        OWNER,
+        "root.live_room_definition",
+    );
     // A live room's moving platforms, on its own root beside its geometry.
     // Their kinematics advance every frame, so a rewind restores them.
     registrar.rollback_component_canonical::<crate::collision::MovingPlatformSet>(
         OWNER,
         "root.moving_platform_set",
     );
+}
+
+/// The index of the definition in the session's `RoomSet`. Room order is
+/// authored content, so the index is the same on every peer.
+impl SnapshotState for crate::rooms::LiveRoomDefinition {
+    fn encode(&self, out: &mut Vec<u8>) {
+        put_u64(out, self.index() as u64);
+    }
+    fn decode(reader: &mut Reader<'_>) -> Option<Self> {
+        Some(Self::from_index(usize::try_from(reader.u64()?).ok()?))
+    }
 }

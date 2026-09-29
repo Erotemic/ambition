@@ -1453,7 +1453,7 @@ mod tests {
             vec![reloaded.spec],
             reloaded.links,
         );
-        assert_eq!(twin_set.active_spec().id, "sanic_sandbox");
+        assert_eq!(twin_set.activation_spec().id, "sanic_sandbox");
     }
 
     /// An author can name a moving platform; otherwise it gets the iid.

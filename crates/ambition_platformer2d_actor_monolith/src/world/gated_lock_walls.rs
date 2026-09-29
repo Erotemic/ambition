@@ -204,6 +204,10 @@ fn gated_lock_walls_to_publish(
     // normal system takes is a `Single<Ref<T>, With<SessionRoot>>`. An exclusive system has to
     // ask for it the long way.
     let rooms = rooms.get_or_insert_with(|| RoomSetQuery::new(world));
+    // The one-live-room read (OW1 cut 5e): which room is standing is the live
+    // room root's definition. A change of it changes the room id, which the
+    // cache compares below.
+    let definition = ambition_platformer2d_world::rooms::sole_live_room_definition(world)?;
 
     // ⭐ THE ROOM'S WALLS ARE READ ONLY WHEN THE CACHE IS ACTUALLY BEING
     // REFRESHED. `authored_gated_lock_walls` allocates a `Vec<GatedLockWall>`
@@ -215,7 +219,7 @@ fn gated_lock_walls_to_publish(
         let Some(set) = rooms.iter(world).next() else {
             return None;
         };
-        (set.active_spec().id.clone(), set.is_changed())
+        (set.spec(definition).id.clone(), set.is_changed())
     };
     if world.get_resource::<ConditionCatalog>().is_none() {
         return None;
@@ -247,7 +251,7 @@ fn gated_lock_walls_to_publish(
             let Some(set) = rooms.iter(world).next() else {
                 return None;
             };
-            authored_gated_lock_walls(set.active_spec())
+            authored_gated_lock_walls(set.spec(definition))
         };
         let catalog = world.resource::<ConditionCatalog>().clone();
         let prepared: Vec<CachedWall> = walls

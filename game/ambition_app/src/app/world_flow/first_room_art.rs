@@ -119,7 +119,7 @@ pub(crate) fn prepare_first_room_art_system(
         let job = match jobs.by_load.get_mut(&load_id) {
             Some(job) => job,
             None => {
-                let room = source.room_set().active_spec();
+                let room = source.room_set().activation_spec();
                 let mut staged_actor_names: Vec<String> = match content_staging
                     .as_deref()
                     .map(|staging| staging.try_requests_for(room))
@@ -173,7 +173,7 @@ pub(crate) fn prepare_first_room_art_system(
                 );
                 let owners = RoomResidencyOwners::for_room(
                     room_set,
-                    room_set.active(),
+                    room_set.activation(),
                     &staged_actor_names,
                     &worn,
                     claimed.iter().map(String::as_str),

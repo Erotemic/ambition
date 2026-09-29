@@ -73,11 +73,7 @@ pub fn heal_save_shrine_system(
     // WHICH room the checkpoint is in. A position with no room is not a
     // checkpoint — it is a pair of numbers that will one day be applied in the
     // wrong place. Optional so narrow fixtures without a room set still heal.
-    room_set: Option<
-        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
-            ambition_platformer2d_world::rooms::RoomSet,
-        >,
-    >,
+    room_set: Option<ambition_platformer2d_world::rooms::SoleLiveRoomSpec>,
     mut save: ResMut<ambition_persistence::save::AmbitionGameSave>,
     // THE INSTANT, which is the half a `PersistedCheckpoint` cannot carry.
     // That value says WHERE the body comes back; this says WHEN the rest of the
@@ -172,9 +168,9 @@ pub fn heal_save_shrine_system(
         // the checkpoint is where this player resumes, and a possessed actor's
         // position is not where the player will be standing next session. The heal
         // above is the subject's; the checkpoint is the session's.
-        if let Some(room_set) = room_set.as_deref() {
+        if let Some(room_set) = room_set.as_ref() {
             let checkpoint = ambition_persistence::save_data::PersistedCheckpoint::new(
-                room_set.active_spec().id.clone(),
+                room_set.spec().id.clone(),
                 kin.pos.x.round() as i32,
                 kin.pos.y.round() as i32,
             );

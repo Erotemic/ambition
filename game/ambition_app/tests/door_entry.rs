@@ -18,10 +18,11 @@ fn active_room(sim: &mut Platformer2dSimHarness) -> String {
 fn stand_in_a_door(sim: &mut Platformer2dSimHarness) -> Option<String> {
     let door = {
         let world = sim.world_mut();
+        let live_definition = ambition_platformer2d::world::rooms::sole_live_room_definition(world)?;
         let mut query = world.query::<&ambition_platformer2d::world::rooms::RoomSet>();
         let room_set = query.iter(world).next()?;
         room_set
-            .active_loading_zones()
+            .spec(live_definition).loading_zones
             .iter()
             .find(|zone| {
                 zone.activation == ambition_platformer2d::world::rooms::LoadingZoneActivation::Door
@@ -147,12 +148,14 @@ fn a_door_in_the_shipped_host_opens_for_the_interact_key() {
     // Stand in an authored Door zone of the live session's room.
     let door = {
         let world = app.world_mut();
+        let live_definition = ambition_platformer2d::world::rooms::sole_live_room_definition(world)
+            .expect("the session has a live room");
         let mut rooms = world.query::<&ambition_platformer2d::world::rooms::RoomSet>();
         let zone = rooms
             .iter(world)
             .next()
             .expect("a live session room set")
-            .active_loading_zones()
+            .spec(live_definition).loading_zones
             .iter()
             .find(|zone| {
                 zone.activation == ambition_platformer2d::world::rooms::LoadingZoneActivation::Door
@@ -162,11 +165,13 @@ fn a_door_in_the_shipped_host_opens_for_the_interact_key() {
         // find its subject is a test that reports green for the one reason it
         // exists to catch.
         let zone = zone.unwrap_or_else(|| {
+            let live_definition = ambition_platformer2d::world::rooms::sole_live_room_definition(world)
+                .expect("the session has a live room");
             let mut rooms = world.query::<&ambition_platformer2d::world::rooms::RoomSet>();
             let room = rooms
                 .iter(world)
                 .next()
-                .map(|set| set.active_spec().id.clone())
+                .map(|set| set.spec(live_definition).id.clone())
                 .unwrap_or_default();
             panic!(
                 "the host's gameplay start room '{room}' authors no `Door` \
@@ -184,12 +189,14 @@ fn a_door_in_the_shipped_host_opens_for_the_interact_key() {
 
     let room_before = {
         let world = app.world_mut();
+        let live_definition = ambition_platformer2d::world::rooms::sole_live_room_definition(world)
+            .expect("the session has a live room");
         let mut rooms = world.query::<&ambition_platformer2d::world::rooms::RoomSet>();
         rooms
             .iter(world)
             .next()
             .expect("a live session room set")
-            .active_spec()
+            .spec(live_definition)
             .id
             .clone()
     };
@@ -197,12 +204,8 @@ fn a_door_in_the_shipped_host_opens_for_the_interact_key() {
     interact_key.press(app.world_mut());
     for _ in 0..40 {
         app.update();
-        let world = app.world_mut();
-        let mut rooms = world.query::<&ambition_platformer2d::world::rooms::RoomSet>();
-        let now = rooms
-            .iter(world)
-            .next()
-            .map(|set| set.active_spec().id.clone());
+        let now = ambition_platformer2d::world::rooms::sole_live_room_spec(app.world())
+            .map(|spec| spec.id.clone());
         if now.as_deref() != Some(room_before.as_str()) {
             return;
         }
@@ -341,13 +344,15 @@ fn a_door_opens_under_a_rollback_host_and_not_only_a_fixed_tick_one() {
     // baseline, which is what folds the new position into history.
     let door = {
         let world = sim.world_mut();
+        let live_definition = ambition_platformer2d::world::rooms::sole_live_room_definition(world)
+            .expect("the session has a live room");
         let mut query = world.query::<&ambition_platformer2d::world::rooms::RoomSet>();
         let room_set = query
             .iter(world)
             .next()
             .expect("the active room has a RoomSet");
         room_set
-            .active_loading_zones()
+            .spec(live_definition).loading_zones
             .iter()
             .find(|zone| {
                 zone.activation == ambition_platformer2d::world::rooms::LoadingZoneActivation::Door

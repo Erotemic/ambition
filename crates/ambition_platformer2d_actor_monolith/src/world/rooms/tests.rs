@@ -73,7 +73,7 @@ fn a_possessed_actor_triggers_a_room_transition_through_a_walk_zone() {
     );
 
     let mut app = App::new();
-    ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+    ambition_platformer2d_world::rooms::insert_room_set(
         app.world_mut(),
         set,
     );
@@ -217,7 +217,7 @@ fn a_fast_body_cannot_tunnel_a_walk_loading_zone() {
     );
 
     let mut app = App::new();
-    ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+    ambition_platformer2d_world::rooms::insert_room_set(
         app.world_mut(),
         set,
     );
@@ -367,7 +367,7 @@ fn a_body_stopped_at_the_boundary_still_crosses_the_zone_it_walked_into() {
         );
 
         let mut app = App::new();
-        ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+        ambition_platformer2d_world::rooms::insert_room_set(
             app.world_mut(),
             set,
         );
@@ -496,7 +496,7 @@ fn active_metadata_returns_active_room_metadata() {
         next_room: None,
         title: None,
     };
-    let mut set = RoomSet::from_parts_or_panic(
+    let set = RoomSet::from_parts_or_panic(
         "first",
         vec![
             spec_with(m1.clone(), "first"),
@@ -504,9 +504,9 @@ fn active_metadata_returns_active_room_metadata() {
         ],
         Vec::new(),
     );
-    assert_eq!(set.active_metadata(), &m1);
-    set.set_active(1).expect("the fixture set holds two rooms");
-    assert_eq!(set.active_metadata(), &m2);
+    let [first, second] = [0, 1].map(|index| set.definition(index).expect("the fixture set holds two rooms"));
+    assert_eq!(set.spec(first).metadata, m1);
+    assert_eq!(set.spec(second).metadata, m2);
 }
 
 #[test]
@@ -904,7 +904,7 @@ fn the_real_kernel_publishes_a_sample_that_crosses_the_zone_it_was_stopped_on() 
 
     let body_aabb = ae::Aabb::new(stopped, body_half);
     assert!(
-        set.transition_for_player(body_aabb, sample.delta(), false)
+        set.transition_for_player(set.activation_definition(), body_aabb, sample.delta(), false)
             .is_some(),
         "the kernel's own published segment ({:?} -> {:?}) reaches the band the \
          body was stopped against, so the transition must fire",
@@ -916,7 +916,7 @@ fn the_real_kernel_publishes_a_sample_that_crosses_the_zone_it_was_stopped_on() 
     // solver zeroed the axis, so this describes movement that never reaches the
     // band the body is touching.
     assert!(
-        set.transition_for_player(body_aabb, post_vel * (1.0 / 60.0), false)
+        set.transition_for_player(set.activation_definition(), body_aabb, post_vel * (1.0 / 60.0), false)
             .is_none(),
         "post-collision velocity {post_vel:?} still reaches the zone, so this \
          fixture no longer models the collision that makes the sample necessary"
@@ -1390,7 +1390,7 @@ fn app_with_a_door(
         );
 
         let mut app = App::new();
-        ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+        ambition_platformer2d_world::rooms::insert_room_set(
             app.world_mut(),
             set,
         );

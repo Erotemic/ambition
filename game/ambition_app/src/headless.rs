@@ -16,7 +16,6 @@ use std::fmt;
 use bevy::prelude::*;
 
 use ambition_platformer2d::ldtk_map as ldtk_world;
-use ambition_platformer2d::world::rooms::RoomSet;
 
 /// Summary of a `run_headless` call. Used by tests, the headless binary, and
 /// future RL drivers to verify the simulation actually progressed instead of
@@ -187,9 +186,8 @@ pub fn run_headless(max_ticks: u32) -> Result<HeadlessReport, String> {
         .clone();
     let spine_index = world.resource::<ldtk_world::LdtkRuntimeSpineIndex>();
     let active_room_after =
-        ambition_platformer2d::platformer::lifecycle::session_world_component::<RoomSet>(world)
-            .expect("active session RoomSet")
-            .active_spec()
+        ambition_platformer2d::world::rooms::sole_live_room_spec(world)
+            .expect("the session's live room")
             .id
             .clone();
     // Quest log + visited rooms are optional — both are inserted by

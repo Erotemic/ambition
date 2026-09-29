@@ -36,7 +36,7 @@ fn compose_minimal_room(
         vec![RoomSpec::new("harness_room", world)],
         Vec::new(),
     );
-    insert_session_world_component(app.world_mut(), set);
+    ambition_platformer2d_world::rooms::insert_room_set(app.world_mut(), set);
     app.insert_resource(ControlFrame::default());
     Ok(())
 }

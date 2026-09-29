@@ -55,11 +55,7 @@ pub struct DepartureSet;
 #[allow(clippy::too_many_arguments)]
 pub fn drive_departures(
     time: Res<ambition_time::WorldTime>,
-    rooms: Option<
-        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
-            ambition_platformer2d_world::rooms::RoomSet,
-        >,
-    >,
+    rooms: Option<ambition_platformer2d_world::rooms::SoleLiveRoomSpec>,
     subjects: Query<&SimId, ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly>,
     mut pending: Option<ResMut<PendingLifecycleCommit>>,
     boundary: Option<Res<ambition_platformer2d_core::ConfirmedFrameBoundary>>,
@@ -71,7 +67,7 @@ pub fn drive_departures(
     let Some(rooms) = rooms else {
         return;
     };
-    let active = rooms.active_spec().id.clone();
+    let active = rooms.spec().id.clone();
     for mut departure in &mut departures {
         let target = match std::mem::take(&mut departure.state) {
             DepartureState::Staying => continue,
@@ -97,7 +93,7 @@ pub fn drive_departures(
             DepartureState::Requested(to) => match to {
                 Destination::Replay => None,
                 Destination::Room(room) => Some(room),
-                Destination::NextRoom => rooms.active_metadata().next_room.clone(),
+                Destination::NextRoom => (&rooms.spec().metadata).next_room.clone(),
             },
             DepartureState::Leaving { target, asked } => {
                 if active == target {
@@ -125,6 +121,7 @@ pub fn drive_departures(
             continue;
         };
         let Some(arrival) = rooms
+            .rooms()
             .rooms
             .iter()
             .find(|room| room.id == target)
@@ -209,7 +206,7 @@ mod tests {
         app.init_resource::<PendingLifecycleCommit>();
         app.add_message::<RoomReplayRequested>();
         app.add_message::<ambition_combat::RoomReplayAdmitted>();
-        ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+        ambition_platformer2d_world::rooms::insert_room_set(
             app.world_mut(),
             RoomSet::from_parts_or_panic("first", vec![room("first", next), room("second", None)], Vec::new()),
         );

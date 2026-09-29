@@ -504,6 +504,8 @@ fn walk_to(sim: &mut Platformer2dSimHarness, target: &str) -> String {
     let before = sim.observation().active_room.clone();
     let zone = {
         let world = sim.world_mut();
+        let live_definition = ambition_platformer2d::world::rooms::sole_live_room_definition(world)
+            .expect("the session has a live room");
         let mut q = world.query::<&ambition_platformer2d::world::rooms::RoomSet>();
         let room_set = q
             .iter(world)
@@ -511,11 +513,11 @@ fn walk_to(sim: &mut Platformer2dSimHarness, target: &str) -> String {
             .expect("the session has an active room set");
         let mut reachable: Vec<String> = Vec::new();
         let mut chosen = None;
-        for zone in room_set.active_loading_zones() {
+        for zone in &room_set.spec(live_definition).loading_zones {
             // The zone's own box as the body's box: a zero-length path from the
             // centre of a rectangle is inside that rectangle, so this asks the
             // resolver about exactly this zone.
-            let Some(transition) = room_set.transition_for_player(zone.aabb, ae::Vec2::ZERO, true)
+            let Some(transition) = room_set.transition_for_player(live_definition, zone.aabb, ae::Vec2::ZERO, true)
             else {
                 continue;
             };
@@ -557,13 +559,15 @@ fn walk_to(sim: &mut Platformer2dSimHarness, target: &str) -> String {
 /// hard-coded, so re-authoring the level moves this test instead of breaking it.
 fn a_neighbour_of_the_room(sim: &mut Platformer2dSimHarness) -> String {
     let world = sim.world_mut();
+    let live_definition = ambition_platformer2d::world::rooms::sole_live_room_definition(world)
+        .expect("the session has a live room");
     let mut q = world.query::<&ambition_platformer2d::world::rooms::RoomSet>();
     let room_set = q
         .iter(world)
         .next()
         .expect("the session has an active room set");
-    for zone in room_set.active_loading_zones() {
-        let Some(transition) = room_set.transition_for_player(zone.aabb, ae::Vec2::ZERO, true)
+    for zone in &room_set.spec(live_definition).loading_zones {
+        let Some(transition) = room_set.transition_for_player(live_definition, zone.aabb, ae::Vec2::ZERO, true)
         else {
             continue;
         };
@@ -1275,11 +1279,13 @@ fn another_room_with_an_object() -> (String, String) {
 /// The id of the room the session is standing in.
 fn active_room(sim: &mut Platformer2dSimHarness) -> String {
     let world = sim.world_mut();
+    let live_definition = ambition_platformer2d::world::rooms::sole_live_room_definition(world)
+        .expect("the session has a live room");
     let mut q = world.query::<&ambition_platformer2d::world::rooms::RoomSet>();
     q.iter(world)
         .next()
         .expect("the session has an active room set")
-        .active_spec()
+        .spec(live_definition)
         .id
         .clone()
 }
@@ -1341,17 +1347,19 @@ fn relocatable_occurrence_in(
     };
     let neighbour = {
         let world = played.world_mut();
+        let live_definition = ambition_platformer2d::world::rooms::sole_live_room_definition(world)
+            .expect("the session has a live room");
         let mut q = world.query::<&ambition_platformer2d::world::rooms::RoomSet>();
         let room_set = q
             .iter(world)
             .next()
             .expect("the session has an active room set");
         room_set
-            .active_loading_zones()
+            .spec(live_definition).loading_zones
             .iter()
             .filter_map(|zone| {
                 room_set
-                    .transition_for_player(zone.aabb, ae::Vec2::ZERO, true)
+                    .transition_for_player(live_definition, zone.aabb, ae::Vec2::ZERO, true)
                     .and_then(|t| room_set.rooms.get(t.target_room))
                     .map(|spec| spec.id.clone())
             })

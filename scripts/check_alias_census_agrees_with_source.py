@@ -62,6 +62,10 @@ SPELLINGS = {
     # is a different root, and geometry reads left the session aliases for it.
     "SoleLiveRoom": re.compile(r"\bSoleLiveRoom\s*<"),
     "SoleLiveRoomMut": re.compile(r"\bSoleLiveRoomMut\s*<"),
+    # The one-live-room read of a room's authored spec (OW1 cut 5e): the set on
+    # the session root, the definition on the live room root. Counted as a
+    # parameter TYPE, after a `:` or a `<`, so an import does not match.
+    "SoleLiveRoomSpec": re.compile(r"(?:(?<!:):|<)\s*&?\s*(?:\w+::)*SoleLiveRoomSpec\b"),
 }
 ALIASES = ("SessionWorldRef", "SessionWorldMut")
 
@@ -76,7 +80,10 @@ SPLIT_ENTRY = re.compile(r"(\w+)=(\d+)/(\d+)")
 #: against 0 if the markers were regenerated from it. MEASURED 2026-09-19: 183.
 #: MEASURED 2026-09-29: 95, after OW1 cut 3 moved the room geometry and the live
 #: room identity off the session root, and their 76 reads to `SoleLiveRoom`.
-FLOOR = 80
+#: MEASURED 2026-09-29: 32, after OW1 cut 5e moved "which room is live" to the
+#: live room root, and the `RoomSet` reads of the live room's spec to
+#: `SoleLiveRoomSpec`.
+FLOOR = 25
 
 
 def measure() -> dict[str, tuple[int, set[pathlib.Path]]]:

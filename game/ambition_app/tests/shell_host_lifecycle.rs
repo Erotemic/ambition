@@ -146,6 +146,11 @@ fn live_room_set(app: &App) -> &RoomSet {
     session_world_component::<RoomSet>(app.world()).expect("one exact live session room set")
 }
 
+fn live_room_spec(app: &App) -> &ambition_platformer2d::world::rooms::RoomSpec {
+    ambition_platformer2d::world::rooms::sole_live_room_spec(app.world())
+        .expect("one live room seated with its definition")
+}
+
 fn sim_tick(app: &App) -> u64 {
     app.world()
         .resource::<ambition_platformer2d::runtime::SimTick>()
@@ -360,11 +365,13 @@ fn assert_in_game(
         Some(world_entity),
         "{context}: the active session owns the unique canonical world root"
     );
+    let live_definition = ambition_platformer2d::world::rooms::sole_live_room_definition(app.world())
+        .unwrap_or_else(|| panic!("{context}: the live room root carries its definition"));
     let session_room = app
         .world()
         .get::<RoomSet>(world_entity)
         .unwrap_or_else(|| panic!("{context}: the live root carries RoomSet authority"))
-        .active_spec()
+        .spec(live_definition)
         .id
         .clone();
     let prepared = app
@@ -397,7 +404,7 @@ fn assert_in_game(
     );
     assert_eq!(
         session_room,
-        live_room_set(app).active_spec().id,
+        live_room_spec(app).id,
         "{context}: every reader observes the same root component"
     );
     assert_eq!(
@@ -580,7 +587,7 @@ fn the_full_multi_game_lifecycle(host: ambition_platformer2d::runtime::Simulatio
         .get::<ambition_platformer2d::runtime::PreparedContentIdentity>(sanic_world_1)
         .expect("sanic #1 owns exact content identity");
     assert_eq!(
-        live_room_set(&app).active_spec().metadata.mode.as_deref(),
+        live_room_spec(&app).metadata.mode.as_deref(),
         Some("sanic"),
         "sanic #1: Sanic's world authority is active"
     );
@@ -627,7 +634,7 @@ fn the_full_multi_game_lifecycle(host: ambition_platformer2d::runtime::Simulatio
     );
     fresh(scope, "ambition");
     assert_eq!(
-        live_room_set(&app).active_spec().id.as_str(),
+        live_room_spec(&app).id.as_str(),
         "central_hub_complex",
         "ambition: the real LDtk entry room is the active world authority"
     );
@@ -649,19 +656,20 @@ fn the_full_multi_game_lifecycle(host: ambition_platformer2d::runtime::Simulatio
     let alternate_room_for_edit = alternate_room.clone();
     app.world_mut()
         .run_system_once(
-            move |mut room_set: SessionWorldMut<RoomSet>,
+            move |room_set: SessionWorldMut<RoomSet>,
+                  mut live: Single<
+                &mut ambition_platformer2d::world::rooms::LiveRoomDefinition,
+                bevy::prelude::With<ambition_platformer2d::platformer::lifecycle::RoomInstanceRoot>,
+            >,
                   mut geometry: Single<
                 &mut ambition_platformer2d::engine_core::RoomGeometry,
                 bevy::prelude::With<ambition_platformer2d::platformer::lifecycle::RoomInstanceRoot>,
             >| {
-                let index = room_set
-                    .room_index_by_id(&alternate_room_for_edit)
+                let definition = room_set
+                    .definition_by_id(&alternate_room_for_edit)
                     .expect("alternate authored room exists");
-                let spec = room_set
-                    .set_active(index)
-                    .expect("`index` came from this set's own id lookup")
-                    .clone();
-                geometry.0 = spec.world.clone();
+                **live = definition;
+                geometry.0 = room_set.spec(definition).world.clone();
             },
         )
         .expect("session-world mutation system runs");
@@ -671,17 +679,19 @@ fn the_full_multi_game_lifecycle(host: ambition_platformer2d::runtime::Simulatio
         .resource::<ActiveGameplaySession>()
         .active_world_entity()
         .expect("Ambition world remains active");
+    let live_definition = ambition_platformer2d::world::rooms::sole_live_room_definition(app.world())
+        .expect("the live room root carries its definition");
     assert_eq!(
         app.world()
             .get::<RoomSet>(live_entity)
             .expect("canonical live RoomSet")
-            .active_spec()
+            .spec(live_definition)
             .id,
         alternate_room,
-        "a room change is recorded directly in the canonical mutable session world",
+        "a room change is recorded on the live room root and read through the session's room set",
     );
     assert_eq!(
-        live_room_set(&app).active_spec().id.as_str(),
+        live_room_spec(&app).id.as_str(),
         alternate_room.as_str(),
         "all world readers observe the same exact root component",
     );
@@ -738,7 +748,7 @@ fn the_full_multi_game_lifecycle(host: ambition_platformer2d::runtime::Simulatio
         "same-provider relaunch constructs a fresh mutable world entity",
     );
     assert_eq!(
-        live_room_set(&app).active_spec().id.as_str(),
+        live_room_spec(&app).id.as_str(),
         ambition_demo_sanic::SPEEDWAY_ROOM_ID,
         "same-provider relaunch starts from newly authored world state",
     );
@@ -951,8 +961,8 @@ fn ggrs_session_is_live(app: &App) -> bool {
 
 /// The active room id of the one exact live session world.
 fn active_room(app: &App) -> Option<String> {
-    session_world_component::<RoomSet>(app.world())
-        .map(|rooms| rooms.active_spec().id.as_str().to_owned())
+    ambition_platformer2d::world::rooms::sole_live_room_spec(app.world())
+        .map(|spec| spec.id.as_str().to_owned())
 }
 
 /// Stand the controlled body inside an overlap-fire loading zone of the live
@@ -966,9 +976,11 @@ fn stand_in_an_overlap_transition(app: &mut App) -> String {
 
     let before = active_room(app).expect("a live session room");
     let zone = {
+        let live_definition = ambition_platformer2d::world::rooms::sole_live_room_definition(app.world())
+            .expect("the session has a live room");
         let rooms = session_world_component::<RoomSet>(app.world()).expect("a live session room");
         rooms
-            .active_loading_zones()
+            .spec(live_definition).loading_zones
             .iter()
             .find(|zone| {
                 matches!(

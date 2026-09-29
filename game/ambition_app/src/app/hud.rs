@@ -2,7 +2,6 @@ use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 
-use ambition_platformer2d::world::rooms as world_rooms;
 
 use ambition_platformer2d::dev_tools::dev_tools::DeveloperTools;
 use ambition_platformer2d::dev_tools::DeveloperRuntimeState;
@@ -65,7 +64,7 @@ pub(super) fn update_hud(
     dev_state: Res<DeveloperRuntimeState>,
     mode: Res<State<GameMode>>,
     world: ambition_platformer2d::platformer::lifecycle::SoleLiveRoom<RoomGeometry>,
-    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<world_rooms::RoomSet>,
+    room_set: ambition_platformer2d::world::rooms::SoleLiveRoomSpec,
     display_mode: Res<windowing::DisplayModeState>,
     developer_tools: Res<DeveloperTools>,
     camera_params: HudCameraParams,
@@ -244,7 +243,7 @@ pub(super) fn update_hud(
             format!("\nENCOUNTER {joined}")
         }
     };
-    let map_lines = map_state.summary_lines(&room_set.active_spec().id);
+    let map_lines = map_state.summary_lines(&room_set.spec().id);
     let map_line = if map_lines.is_empty() {
         String::new()
     } else {
@@ -287,8 +286,8 @@ pub(super) fn update_hud(
     if developer_tools.compact_hud {
         let world_name = &world.0.name;
         let mode_label = mode.get().label();
-        let room_index = room_set.active() + 1;
-        let room_count = room_set.rooms.len();
+        let room_index = room_set.definition().index() + 1;
+        let room_count = room_set.rooms().rooms.len();
         let vx = player_vel.x;
         let vy = player_vel.y;
         let combo_symbols = hud_combo.map_or_else(|| "-".to_string(), |c| c.symbols());
@@ -324,8 +323,8 @@ pub(super) fn update_hud(
     // at it during play.
     let world_name = &world.0.name;
     let mode_label = mode.get().label();
-    let room_index = room_set.active() + 1;
-    let room_count = room_set.rooms.len();
+    let room_index = room_set.definition().index() + 1;
+    let room_count = room_set.rooms().rooms.len();
     let combo_symbols = hud_combo.map_or_else(|| "-".to_string(), |c| c.symbols());
     let preset_name = &preset.name;
     **text = format!(

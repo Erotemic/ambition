@@ -168,11 +168,7 @@ pub fn record_frame_system(
     >,
     slots: Res<ambition_characters::control::SlotControls>,
     world_time: Res<ambition_time::WorldTime>,
-    rooms: Option<
-        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
-            ambition_platformer2d_world::rooms::RoomSet,
-        >,
-    >,
+    rooms: Option<ambition_platformer2d_world::rooms::SoleLiveRoomSpec>,
     mode: Res<State<ambition_platformer2d_shared_tangle::schedule::GameMode>>,
     // The composed collision read-API. `platform_set` stays a separate param:
     // the trace records the platform STATES themselves, which is a different
@@ -225,7 +221,7 @@ pub fn record_frame_system(
     let real_dt = world_time.wall_dt();
     let active_area = rooms
         .as_ref()
-        .map(|r| r.active_spec().id.clone())
+        .map(|r| r.spec().id.clone())
         .unwrap_or_else(|| "<unknown>".into());
     let mode_label = format!("{:?}", mode.get());
     let hp_current = player_health.map_or(0, |h| h.health.current);

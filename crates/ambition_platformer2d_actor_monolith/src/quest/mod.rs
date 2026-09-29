@@ -17,11 +17,11 @@ use bevy::prelude::*;
 ///
 /// [`LastQuestRoom`]: ambition_persistence::quest::LastQuestRoom
 pub fn push_room_entered_quest_events(
-    room_set: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ambition_platformer2d_world::rooms::RoomSet>,
+    room_set: ambition_platformer2d_world::rooms::SoleLiveRoomSpec,
     mut registry: ResMut<ambition_persistence::quest::QuestRegistry>,
     mut last_room: ResMut<ambition_persistence::quest::LastQuestRoom>,
 ) {
-    let current = room_set.active_spec().id.clone();
+    let current = room_set.spec().id.clone();
     // Read through the immutable deref: on every frame but the flip there is
     // nothing to write, and a `DerefMut` would mark the resource changed.
     if last_room.0.as_deref() == Some(current.as_str()) {
@@ -61,6 +61,8 @@ mod tests {
             SessionRoot(SessionScopeId(1)),
             RoomSet::from_parts_or_panic(room_id, vec![room(room_id)], Vec::new()),
         ));
+        ambition_platformer2d_world::rooms::seat_sole_live_room_by_id(app.world_mut(), room_id)
+            .expect("the fixture set holds its room");
         app
     }
 

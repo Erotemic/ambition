@@ -112,7 +112,7 @@ pub(crate) fn draw_debug_overlay(
     // `step_motion` collides against. See `draw_player_debug`'s `blink_world`.
     collision: ambition_platformer2d::world::collision::CollisionWorld,
     developer_tools: Res<DeveloperTools>,
-    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<RoomSet>,
+    room_set: ambition_platformer2d::world::rooms::SoleLiveRoomSpec,
     ldtk_spine_index: Res<ambition_platformer2d::ldtk_map::LdtkRuntimeSpineIndex>,
     // Was `Res<CameraViewState>`, a process-global describing "the" gameplay view — which is
     // the one thing a debug overlay must not assume once a split layout draws two.
@@ -196,7 +196,7 @@ pub(crate) fn draw_debug_overlay(
         }
     }
     if developer_tools.show_loading_zones {
-        draw_loading_zones(&mut gizmos, world, room_set.active_loading_zones());
+        draw_loading_zones(&mut gizmos, world, &room_set.spec().loading_zones);
         draw_ldtk_runtime_spine(&mut gizmos, world, &ldtk_spine_index);
     }
     if developer_tools.show_rebound_vectors {

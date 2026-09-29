@@ -1345,9 +1345,7 @@ fn apply_capture_snapshot(
     world: ambition_platformer2d::platformer::lifecycle::SoleLiveRoom<
         ambition_platformer2d::engine_core::RoomGeometry,
     >,
-    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
-        ambition_platformer2d::world::rooms::RoomSet,
-    >,
+    room_set: ambition_platformer2d::world::rooms::SoleLiveRoomSpec,
     user_settings: Res<ambition_platformer2d::persistence::settings::UserSettings>,
     ease_tuning: Res<ambition_platformer2d::platformer::camera_ease::CameraEaseTuning>,
     // `CameraViewState` is a component on the local view. A capture app
@@ -1362,7 +1360,7 @@ fn apply_capture_snapshot(
     >,
     mut cameras: Query<(&mut Transform, &mut Projection), With<MainCamera>>,
 ) {
-    let active_spec = room_set.active_spec();
+    let active_spec = room_set.spec();
     let (base_view_w, base_view_h) = user_settings.video.camera_zoom.base_view();
     let base_view = ae::Vec2::new(base_view_w, base_view_h);
     let focus_center = if config.follow_player {

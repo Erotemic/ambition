@@ -548,7 +548,9 @@ pub fn begin_room_transition_load_system(
             ambition_platformer2d_actor_monolith::rooms::ActiveContentBinding,
         >,
     >,
-    room_set: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<world_rooms::RoomSet>,
+    // The set, and which room of it the live room is: the room a crossing
+    // leaves (OW1 cut 5e). The one-live-room read.
+    room_set: world_rooms::SoleLiveRoomSpec,
     construction_services: (
         Res<ambition_platformer2d_actor_monolith::construction::placements::PlacementLoweringRegistry>,
         Res<ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry>,
@@ -816,16 +818,16 @@ pub fn begin_room_transition_load_system(
 
         let superseded = state.active.take().map(|active| active.barrier.load_id);
         let sequence = state.mint_sequence();
-        let source_room = room_set.active();
+        let source_room = room_set.definition().index();
         let source_room_id = room_set
-            .rooms
+            .rooms().rooms
             .get(source_room)
             .map(|room| room.id.clone())
             .unwrap_or_else(|| format!("<room-index-{source_room}>"));
         // The intent names its destination by AUTHORED ID, because it is rollback
         // state and an index is not stable across a content reload. Resolving it
         // is this transaction's first job — and its first way to fail.
-        let target_index = room_set.room_index_by_id(intent.target_room());
+        let target_index = room_set.rooms().room_index_by_id(intent.target_room());
         // ⭐ THE INTENT'S OWN ID IS THE LABEL, and that is now a fact rather than
         // a coincidence. This used to resolve the index and read `rooms[i].id`
         // back out, falling back to the intent — a round trip that CANONICALISED,
@@ -987,7 +989,7 @@ pub fn begin_room_transition_load_system(
             committed_at: None,
         };
 
-        let Some(target_spec) = target_index.and_then(|index| room_set.rooms.get(index)) else {
+        let Some(target_spec) = target_index.and_then(|index| room_set.rooms().rooms.get(index)) else {
             let detail = format!(
                 "transition from '{}' targets room '{}', which this world does not contain",
                 active.source_room_id,
@@ -1191,7 +1193,7 @@ pub fn begin_room_transition_load_system(
             ),
             (Some(plan), Some(_)) => Ok(plan),
             (None, Some(mechanics)) => rooms::RoomConstructionPlan::prepare_from_parts(
-                &room_set,
+                room_set.rooms(),
                 resolved_target_index,
                 &construction_services.0,
                 &construction_services.1,
@@ -1243,7 +1245,7 @@ pub fn begin_room_transition_load_system(
                     selected_ledger.map(|remembered| {
                         ambition_platformer2d_actor_monolith::features::OccurrenceContinuity {
                             remembered,
-                            world: &room_set.rooms,
+                            world: &room_set.rooms().rooms,
                             minted: selected_minted,
                         }
                     }),

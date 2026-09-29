@@ -144,9 +144,8 @@ pub fn ldtk_world_installed(
 }
 
 pub fn sync_ldtk_level_set(
-    room_set: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
-        ambition_platformer2d_world::rooms::RoomSet,
-    >,
+    // The one-live-room read: one bundle shows one room.
+    live_room: ambition_platformer2d_world::rooms::SoleLiveRoomSpec,
     index: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<LdtkRuntimeIndex>,
     mut ldtk_worlds: Query<&mut LevelSet, With<LdtkWorldRoot>>,
 ) {
@@ -160,7 +159,7 @@ pub fn sync_ldtk_level_set(
     // sandbox bundle renders when the active area is in sandbox.ldtk
     // and the intro bundle renders when the active area is in
     // intro.ldtk — no cross-talk because iids are unique per file.
-    let shown = index.level_set_for(&room_set.active_spec().id);
+    let shown = index.level_set_for(&live_room.spec().id);
     for mut level_set in &mut ldtk_worlds {
         level_set.set_if_neq(shown.clone());
     }
@@ -175,12 +174,10 @@ pub fn sync_ldtk_level_set(
 /// Keep this seam consistent with room dimensions, `world_to_bevy`, and
 /// `LdtkSettings::level_spawn_behavior`.
 pub fn sync_ldtk_world_transform(
-    room_set: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
-        ambition_platformer2d_world::rooms::RoomSet,
-    >,
+    live_room: ambition_platformer2d_world::rooms::SoleLiveRoomSpec,
     mut ldtk_worlds: Query<&mut Transform, With<LdtkWorldRoot>>,
 ) {
-    let active_world = room_set.active_world();
+    let active_world = &live_room.spec().world;
     let target = Vec3::new(
         -active_world.size.x * 0.5,
         -active_world.size.y * 0.5,
@@ -205,9 +202,6 @@ mod tests {
     use bevy_ecs_ldtk::prelude::LevelSet;
 
     use ambition_platformer2d_core as ae;
-    use ambition_platformer2d_shared_tangle::lifecycle::{
-        insert_session_world_component, session_world_component_mut,
-    };
     use ambition_platformer2d_world::rooms::{RoomSet, RoomSpec};
 
     use super::{sync_ldtk_level_set, LdtkRuntimeIndex, LdtkWorldRoot};
@@ -242,13 +236,13 @@ mod tests {
             .clone()
     }
 
-    /// The bundle shows the levels of the room `RoomSet` names, and follows
-    /// both a room change and a reloaded project. The index holds no active
-    /// area and no revision; the `LevelSet` value is the only cursor.
+    /// The bundle shows the levels of the room the live room root names, and
+    /// follows both a room change and a reloaded project. The index holds no
+    /// active area and no revision; the `LevelSet` value is the only cursor.
     #[test]
     fn the_bundle_shows_the_active_rooms_levels_and_follows_a_change_or_a_reload() {
         let mut world = World::new();
-        let root = insert_session_world_component(
+        let root = ambition_platformer2d_world::rooms::insert_room_set(
             &mut world,
             RoomSet::from_parts_or_panic("a", vec![room("a"), room("b")], Vec::new()),
         );
@@ -265,9 +259,7 @@ mod tests {
         world.run_system_once(sync_ldtk_level_set).unwrap();
         assert_eq!(shown(&mut world), LevelSet::from_iids(["a1", "a2"]));
 
-        session_world_component_mut::<RoomSet>(&mut world)
-            .expect("the session has a room set")
-            .set_active_by_id("b")
+        ambition_platformer2d_world::rooms::seat_sole_live_room_by_id(&mut world, "b")
             .expect("the fixture authors room b");
         world.run_system_once(sync_ldtk_level_set).unwrap();
         assert_eq!(

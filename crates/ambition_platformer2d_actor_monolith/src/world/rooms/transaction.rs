@@ -491,9 +491,9 @@ pub enum StagedWorldViolation {
     /// build. Measured by accident 2026-09-14: a poison that staged
     /// `usize::MAX` moved the active room rather than failing.
     ///
-    /// ⭐ **THE SETTER REFUSES TOO AS OF 2026-09-20, AND THIS CHECK IS STILL THE
-    /// ONE THAT MATTERS.** `set_active` now returns `None` and writes nothing,
-    /// so no caller can be talked into the clamp. But it is reached from
+    /// ⭐ **THE SET REFUSES TOO, AND THIS CHECK IS STILL THE ONE THAT
+    /// MATTERS.** `RoomSet::definition` returns `None` for an index out of
+    /// range, so no caller can be talked into the clamp. But it is reached from
     /// `apply_world_replacement`, AFTER the outgoing room has been torn down — a
     /// refusal there has no good answer left, and the publication asserts rather
     /// than limps. This violation is the one that can still say no while the old
@@ -874,30 +874,40 @@ pub(crate) fn apply_world_replacement(
             ),
         }
     }
-    match session_world_component_mut_at::<ambition_platformer2d_world::rooms::RoomSet>(world, root) {
-        Some(mut rooms) => {
+    // Which definition the published room is, resolved against the set the
+    // session holds now (a hot reload replaced it above). It is written onto
+    // the root this publication replaces, beside that root's geometry, and not
+    // onto the session: two live rooms can be two rooms (OW1 cut 5e).
+    let definition = match session_world_component_mut_at::<ambition_platformer2d_world::rooms::RoomSet>(world, root) {
+        Some(rooms) => {
             // ⛔⛤ **A HARD FAILURE, BECAUSE THE PUBLICATION IS ALREADY
             // DESTRUCTIVE BY THE TIME WE ARE HERE.** The staged verifier refuses
             // `TargetRoomOutOfRange` before anything is torn down, so reaching
-            // this arm means the verifier and the setter disagree about the same
-            // set. Logging and carrying on would leave the session seated in the
-            // OLD room while the geometry, platforms and staged population below
-            // become the NEW one -- the exact silent split the violation exists
-            // to prevent, only now with the old world already gone.
+            // this arm means the verifier and the set disagree about the same
+            // set. Logging and carrying on would leave the live room seated in
+            // the OLD room while the geometry, platforms and staged population
+            // below become the NEW one -- the exact silent split the violation
+            // exists to prevent, only now with the old world already gone.
             let rooms_len = rooms.rooms.len();
+            let definition = rooms.definition(pending.target_index);
             assert!(
-                rooms.set_active(pending.target_index).is_some(),
+                definition.is_some(),
                 "published room {} of a set holding {rooms_len}: the staged \
-                 verifier passed a target the room set refuses, so the session \
-                 would keep its old active room under the new geometry",
+                 verifier passed a target the room set refuses, so the live room \
+                 would keep its old definition under the new geometry",
                 pending.target_index,
             );
+            definition
         }
-        None => bevy::log::error!(
-            target: "ambition_platformer2d::construction",
-            "publication target {root:?} carries no `RoomSet` at application,              so the active room stays where it was"
-        ),
-    }
+        None => {
+            bevy::log::error!(
+                target: "ambition_platformer2d::construction",
+                "publication target {root:?} carries no `RoomSet` at application, \
+                 so the live room keeps the definition it had"
+            );
+            None
+        }
+    };
     // ⭐ **THE LIVE ROOM GETS AN IDENTITY THE ROOM DEFINITION DOES NOT HAVE.**
     // One line above, the session was seated in a room DEFINITION by index — the
     // same index every time it stands there. This mints the instance: leaving
@@ -946,6 +956,9 @@ pub(crate) fn apply_world_replacement(
                 room.0 = minted;
             }
         }
+    }
+    if let Some((room_root, definition)) = room_root.zip(definition) {
+        world.entity_mut(room_root).insert(definition);
     }
     match room_root.and_then(|room_root| world.get_mut::<ambition_platformer2d_core::RoomGeometry>(room_root)) {
         Some(mut geometry) => geometry.0 = pending.geometry,

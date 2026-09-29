@@ -296,7 +296,7 @@ pub(crate) fn spawn_ldtk_world_roots_scoped(
     // system writes the same LevelSet to every bundle; only the bundle
     // whose loaded asset contains the active level iids spawns any levels
     // (iids are unique per file).
-    let initial_level_set = ldtk_index.level_set_for(&room_set.active_spec().id);
+    let initial_level_set = ldtk_index.level_set_for(&room_set.activation_spec().id);
     for (index, source) in manifest.worlds.iter().enumerate() {
         let handle = world_assets
             .and_then(|assets| assets.0.get(index).cloned())

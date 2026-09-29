@@ -191,11 +191,7 @@ pub fn refresh_parallax_layers_on_quality_change(
             ambition_platformer2d_core::RoomGeometry,
         >,
     >,
-    room_set: Option<
-        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
-            ambition_platformer2d_world::rooms::RoomSet,
-        >,
-    >,
+    room_set: Option<ambition_platformer2d_world::rooms::SoleLiveRoomSpec>,
     assets: Option<Res<GameAssets>>,
     quality: Option<Res<crate::quality::ResolvedVisualQuality>>,
     layers: Query<
@@ -226,7 +222,7 @@ pub fn refresh_parallax_layers_on_quality_change(
         &mut commands,
         session_scope,
         &world.0,
-        &room_set.active_spec().metadata,
+        &room_set.spec().metadata,
         Some(assets.as_ref()),
         quality.as_deref().map(|q| &q.budget.parallax),
     );
@@ -271,11 +267,7 @@ pub fn ensure_active_room_parallax_theme(
     catalog: Option<Res<ambition_asset_manager::platformer_assets::Platformer2dAssetCatalog>>,
     asset_server: Option<Res<AssetServer>>,
     quality: Option<Res<crate::quality::ResolvedVisualQuality>>,
-    room_set: Option<
-        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
-            ambition_platformer2d_world::rooms::RoomSet,
-        >,
-    >,
+    room_set: Option<ambition_platformer2d_world::rooms::SoleLiveRoomSpec>,
     attempts: Option<ResMut<ParallaxThemeAttempts>>,
 ) {
     let (Some(mut assets), Some(catalog), Some(asset_server), Some(room_set), Some(mut attempts)) =
@@ -287,7 +279,7 @@ pub fn ensure_active_room_parallax_theme(
     if assets.is_added() {
         attempts.without_art.clear();
     }
-    let metadata = room_set.active_spec().metadata.clone();
+    let metadata = room_set.spec().metadata.clone();
     let theme = ParallaxTheme::from_room_metadata(&metadata);
     if attempts.without_art.contains(&theme) {
         return;
@@ -717,8 +709,14 @@ mod theme_load_tests {
         app.init_asset::<Image>();
         app.insert_resource(GameAssets::default());
         app.insert_resource(packaged_catalog());
-        app.world_mut()
-            .spawn((SessionRoot(SessionScopeId(1)), room_set_in("cave")));
+        let rooms = room_set_in("cave");
+        // The live room root names which room of the set it is (OW1 cut 5e).
+        let definition = rooms.activation_definition();
+        app.world_mut().spawn((SessionRoot(SessionScopeId(1)), rooms));
+        app.world_mut().spawn((
+            ambition_platformer2d_shared_tangle::lifecycle::activation_room_root(SessionScopeId(1)),
+            definition,
+        ));
         // Use the real plugin: a test that adds the system by hand cannot catch a missing registration.
         app.add_plugins(crate::platformer_presentation::SessionRoomVisualsPlugin);
 
@@ -763,8 +761,14 @@ mod theme_load_tests {
         app.init_asset::<Image>();
         app.insert_resource(GameAssets::default());
         app.insert_resource(packaged_catalog());
-        app.world_mut()
-            .spawn((SessionRoot(SessionScopeId(1)), room_set_in("cave")));
+        let rooms = room_set_in("cave");
+        // The live room root names which room of the set it is (OW1 cut 5e).
+        let definition = rooms.activation_definition();
+        app.world_mut().spawn((SessionRoot(SessionScopeId(1)), rooms));
+        app.world_mut().spawn((
+            ambition_platformer2d_shared_tangle::lifecycle::activation_room_root(SessionScopeId(1)),
+            definition,
+        ));
         app.add_plugins(crate::platformer_presentation::SessionRoomVisualsPlugin);
 
         let view = app
@@ -813,8 +817,14 @@ mod theme_load_tests {
         app.init_asset::<Image>();
         app.insert_resource(GameAssets::default());
         app.insert_resource(packaged_catalog());
-        app.world_mut()
-            .spawn((SessionRoot(SessionScopeId(1)), room_set_in("cave")));
+        let rooms = room_set_in("cave");
+        // The live room root names which room of the set it is (OW1 cut 5e).
+        let definition = rooms.activation_definition();
+        app.world_mut().spawn((SessionRoot(SessionScopeId(1)), rooms));
+        app.world_mut().spawn((
+            ambition_platformer2d_shared_tangle::lifecycle::activation_room_root(SessionScopeId(1)),
+            definition,
+        ));
         app.add_plugins(crate::platformer_presentation::SessionRoomVisualsPlugin);
 
         app.update();
@@ -1259,7 +1269,14 @@ mod theme_residency_tests {
         let mut active = ActiveSessionScope::default();
         let scope = active.begin();
         app.insert_resource(active);
-        app.world_mut().spawn((SessionRoot(scope), hub_room_set()));
+        let rooms = hub_room_set();
+        // The live room root names which room of the set it is (OW1 cut 5e).
+        let definition = rooms.activation_definition();
+        app.world_mut().spawn((SessionRoot(scope), rooms));
+        app.world_mut().spawn((
+            ambition_platformer2d_shared_tangle::lifecycle::activation_room_root(scope),
+            definition,
+        ));
         app.add_systems(bevy::prelude::Update, ensure_active_room_parallax_theme);
 
         app.update();

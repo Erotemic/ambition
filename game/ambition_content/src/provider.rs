@@ -38,7 +38,7 @@ pub struct AmbitionPreparedWorld {
 impl AmbitionPreparedWorld {
     pub fn prepared_source(&self) -> PreparedPlatformerSource {
         let room_set = self.room_set.clone();
-        let geometry = RoomGeometry(room_set.active_world().clone());
+        let geometry = RoomGeometry(room_set.activation_spec().world.clone());
         if self.builds_a_home_body {
             PreparedPlatformerSource::new(
                 AMBITION_EXPERIENCE,

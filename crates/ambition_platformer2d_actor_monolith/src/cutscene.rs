@@ -27,13 +27,11 @@ use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 
 pub fn auto_trigger_room_cutscenes(
     bindings: Res<RoomCutsceneBindings>,
-    room_set: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
-        ambition_platformer2d_world::rooms::RoomSet,
-    >,
+    room_set: ambition_platformer2d_world::rooms::SoleLiveRoomSpec,
     mut queue: ResMut<CutsceneTriggerQueue>,
     mut last_room: ResMut<ambition_cutscene::LastCutsceneRoom>,
 ) {
-    let current = room_set.active_spec().id.clone();
+    let current = room_set.spec().id.clone();
     let changed = last_room.0.as_deref() != Some(current.as_str());
     if !changed {
         return;

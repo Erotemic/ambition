@@ -1361,7 +1361,7 @@ const ASSET_READINESS_STALL_REPORT: Duration = Duration::from_secs(5);
 const NEIGHBOR_PREFETCH_ROOM_BUDGET: usize = 4;
 
 pub(crate) fn prefetch_neighbor_room_preparation_system(
-    room_set: SessionWorldRef<RoomSet>,
+    room_set: ambition_platformer2d::world::rooms::SoleLiveRoomSpec,
     content_epoch: Res<ambition_platformer2d::runtime::room_transition::RoomTransitionContentEpoch>,
     placement_lowering: Res<
         ambition_platformer2d::actors::construction::placements::PlacementLoweringRegistry,
@@ -1455,7 +1455,7 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
         cache.identity = None;
         return;
     };
-    let Some(source_room) = room_set.rooms.get(room_set.active()) else {
+    let Some(source_room) = room_set.rooms().rooms.get(room_set.definition().index()) else {
         cache.entries.clear();
         cache.identity = None;
         return;
@@ -1489,7 +1489,7 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
     // THE NEIGHBOURHOOD IS BOUNDED, and the reason is the shape of this
     // world rather than a general principle about prefetching. See
     // [`NEIGHBOR_PREFETCH_ROOM_BUDGET`].
-    let all_neighbors = room_set.neighboring_room_indices();
+    let all_neighbors = room_set.rooms().neighboring_room_indices_of(room_set.definition().index());
     let skipped_neighbors = all_neighbors
         .len()
         .saturating_sub(NEIGHBOR_PREFETCH_ROOM_BUDGET);
@@ -1515,7 +1515,7 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
     }
     let neighbor_ids = neighbor_indices
         .iter()
-        .filter_map(|&index| room_set.rooms.get(index))
+        .filter_map(|&index| room_set.rooms().rooms.get(index))
         .map(|room| room.id.clone())
         .collect::<BTreeSet<_>>();
     cache.entries.retain(|room_id, entry| {
@@ -1527,7 +1527,7 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
     });
 
     for index in neighbor_indices {
-        let Some(room) = room_set.rooms.get(index) else {
+        let Some(room) = room_set.rooms().rooms.get(index) else {
             continue;
         };
         if !refresh_manifests
@@ -1541,7 +1541,7 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
         cache.preparations = cache.preparations.saturating_add(1);
         let construction_plan =
             match ambition_platformer2d::actors::rooms::RoomConstructionPlan::prepare_from_parts(
-                &room_set,
+                room_set.rooms(),
                 index,
                 &placement_lowering,
                 &content_staging,

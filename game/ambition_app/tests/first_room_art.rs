@@ -20,11 +20,12 @@ fn step(app: &mut App) {
 
 fn session_room_and_worn(app: &mut App) -> Option<(String, String)> {
     let world = app.world_mut();
+    let live_definition = ambition_platformer2d::world::rooms::sole_live_room_definition(world)?;
     let mut rooms = world.query::<&ambition_platformer2d::world::rooms::RoomSet>();
     let room = rooms
         .iter(world)
         .next()
-        .map(|set| set.active_spec().id.clone())?;
+        .map(|set| set.spec(live_definition).id.clone())?;
     let mut worn = world.query_filtered::<
         &ambition_platformer2d::characters::actor::WornCharacter,
         With<ambition_platformer2d::platformer::markers::PrimaryPlayer>,

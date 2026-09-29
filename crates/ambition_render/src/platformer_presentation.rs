@@ -14,7 +14,6 @@ use ambition_platformer2d_shared_tangle::lifecycle::{
     ActiveSessionScope, SessionScopeId, SessionScopeSet, SessionSpawnScope,
 };
 use ambition_platformer2d_shared_tangle::physics::PhysicsSandboxSettings;
-use ambition_platformer2d_world::rooms::RoomSet;
 use ambition_sprite_sheet::game_assets::GameAssets;
 
 use crate::rendering::{
@@ -202,7 +201,7 @@ fn spawn_main_camera(
 /// gameplay-session lifecycle. Shell hosts wait for a real session activation.
 fn spawn_initial_room_visuals(
     mut commands: Commands,
-    room_set: Option<ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<RoomSet>>,
+    room_set: Option<ambition_platformer2d_world::rooms::SoleLiveRoomSpec>,
     physics_settings: Res<PhysicsSandboxSettings>,
     assets: Option<Res<GameAssets>>,
     quality: Option<Res<crate::quality::ResolvedVisualQuality>>,
@@ -216,7 +215,7 @@ fn spawn_initial_room_visuals(
     let Some(room_set) = room_set else {
         return;
     };
-    let spec = room_set.active_spec();
+    let spec = room_set.spec();
     spawn_parallax_layers(
         &mut commands,
         SessionSpawnScope::UNSCOPED,
@@ -242,7 +241,7 @@ fn sync_session_room_visuals(
     active_session: Option<Res<ActiveSessionScope>>,
     mut presented: ResMut<PresentedSessionScope>,
     mut parallax_presented: ResMut<PresentedParallaxScope>,
-    room_set: Option<ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<RoomSet>>,
+    room_set: Option<ambition_platformer2d_world::rooms::SoleLiveRoomSpec>,
     physics_settings: Res<PhysicsSandboxSettings>,
     assets: Option<Res<GameAssets>>,
     quality: Option<Res<crate::quality::ResolvedVisualQuality>>,
@@ -267,7 +266,7 @@ fn sync_session_room_visuals(
         // later frame is retried rather than permanently skipped.
         return;
     };
-    let spec = room_set.active_spec();
+    let spec = room_set.spec();
 
     // Two memos, because the room and its backdrop become available at
     // different times. `spawn_parallax_layers` returns early when `GameAssets`
@@ -345,6 +344,7 @@ fn sync_session_room_visuals(
 mod tests {
     use super::*;
     use ambition_platformer2d_shared_tangle::lifecycle::SessionRoot;
+    use ambition_platformer2d_world::rooms::RoomSet;
 
     /// One room that asks for a parallax theme that no `GameAssets` provides.
     /// This is the state on the activation frame, before
@@ -387,8 +387,14 @@ mod tests {
         let mut active = ActiveSessionScope::default();
         let scope = active.begin();
         app.insert_resource(active);
-        app.world_mut()
-            .spawn((SessionRoot(scope), room_set_wanting_a_theme()));
+        let rooms = room_set_wanting_a_theme();
+        // The live room root names which room of the set it is (OW1 cut 5e).
+        let definition = rooms.activation_definition();
+        app.world_mut().spawn((SessionRoot(scope), rooms));
+        app.world_mut().spawn((
+            ambition_platformer2d_shared_tangle::lifecycle::activation_room_root(scope),
+            definition,
+        ));
         (app, scope)
     }
 
@@ -544,11 +550,13 @@ mod tests {
         app.insert_resource(active);
         let room_set = room_set_with_one_npc(NPC);
         let geometry =
-            ambition_platformer2d_core::RoomGeometry(room_set.active_spec().world.clone());
+            ambition_platformer2d_core::RoomGeometry(room_set.activation_spec().world.clone());
+        let definition = room_set.activation_definition();
         app.world_mut().spawn((SessionRoot(scope), room_set));
         app.world_mut().spawn((
             ambition_platformer2d_shared_tangle::lifecycle::activation_room_root(scope),
             geometry,
+            definition,
         ));
 
         // Two frames past the grace period, so a late placeholder is still caught.
@@ -604,7 +612,7 @@ mod tests {
     fn a_theme_the_loader_resolved_to_nothing_settles_instead_of_retrying() {
         let (mut app, scope) = app_with_an_active_session();
         let theme = ambition_sprite_sheet::game_assets::ParallaxTheme::from_room_metadata(
-            &room_set_wanting_a_theme().active_spec().metadata,
+            &room_set_wanting_a_theme().activation_spec().metadata,
         );
         let mut attempts = crate::rendering::ParallaxThemeAttempts::default();
         attempts.without_art.push(theme);

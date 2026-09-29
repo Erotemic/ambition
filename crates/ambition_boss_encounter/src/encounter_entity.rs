@@ -129,13 +129,9 @@ pub fn sync_boss_encounter_entities(
     >,
     encounters: Query<(&Encounter, &EncounterParticipants, &EncounterLifecycle)>,
     // The room the fight is in: a script's places are its props.
-    rooms: Option<
-        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
-            ambition_platformer2d_world::rooms::RoomSet,
-        >,
-    >,
+    rooms: Option<ambition_platformer2d_world::rooms::SoleLiveRoomSpec>,
 ) {
-    let props = rooms.as_ref().map_or(&[][..], |rooms| rooms.active_props());
+    let props = rooms.as_ref().map_or(&[][..], |rooms| &rooms.spec().props[..]);
     // Coverage by cached entity and by durable id: a snapshot restore clears
     // the entity caches (an Entity is never serialized), and re-wrapping an
     // already-wrapped boss after a restore would fork the timeline.

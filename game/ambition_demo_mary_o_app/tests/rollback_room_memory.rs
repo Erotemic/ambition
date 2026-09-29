@@ -42,7 +42,6 @@ use ambition_platformer2d::game_shell::{
     ShellHostConfiguration, ShellHostSpec, ShellExperienceId, ShellRouteCatalog, ShellRouteSpec,
 };
 use ambition_platformer2d::platformer::markers::PrimaryPlayer;
-use ambition_platformer2d::world::rooms::RoomSet;
 use bevy::prelude::*;
 
 /// The demo shell on the GGRS host. Same composition as
@@ -98,12 +97,7 @@ fn level_state(app: &mut App) -> Option<MaryOLevelState> {
 }
 
 fn active_room(app: &mut App) -> Option<String> {
-    let mut query = app.world_mut().query::<&RoomSet>();
-    let world = app.world();
-    query
-        .iter(world)
-        .next()
-        .map(|set| set.active_spec().id.clone())
+    ambition_platformer2d::world::rooms::sole_live_room_spec(app.world()).map(|room| room.id.clone())
 }
 
 fn place_player(app: &mut App, pos: Vec2) {

@@ -219,12 +219,10 @@ impl Plugin for FallingSandSimPlugin {
 }
 
 pub fn sync_falling_sand_room_state(
-    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
-        ambition_platformer2d::world::rooms::RoomSet,
-    >,
+    room_set: ambition_platformer2d::world::rooms::SoleLiveRoomSpec,
     mut state: ResMut<FallingSandRoomState>,
 ) {
-    let active_id = room_set.active_spec().id.as_str();
+    let active_id = room_set.spec().id.as_str();
     let active_room = active_id == ROOM_ID;
 
     if state.last_room_id.as_deref() == Some(active_id) {
@@ -240,9 +238,7 @@ pub fn sync_falling_sand_room_state(
 /// Build the sand grid on room entry (walls seeded from the SAME authored
 /// blocks the player collides with), clear it on exit.
 pub fn prepare_sand_world(
-    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
-        ambition_platformer2d::world::rooms::RoomSet,
-    >,
+    room_set: ambition_platformer2d::world::rooms::SoleLiveRoomSpec,
     state: Res<FallingSandRoomState>,
     mut sand: ResMut<FallingSandWorld>,
 ) {
@@ -256,7 +252,7 @@ pub fn prepare_sand_world(
         return;
     }
 
-    let room = room_set.active_spec();
+    let room = room_set.spec();
     let world = &room.world;
     let mut grid = SandGrid::new(world.size.x as i32, world.size.y as i32);
 
@@ -407,15 +403,13 @@ pub const ROOM_SWIM: &str = "falling_sand.room_swim";
 /// is the active room and withdraws its loan anywhere else, so whatever else
 /// grants or withholds swim is untouched.
 pub fn lend_room_swim(
-    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
-        ambition_platformer2d::world::rooms::RoomSet,
-    >,
+    room_set: ambition_platformer2d::world::rooms::SoleLiveRoomSpec,
     mut players: Query<
         &mut ambition_platformer2d_core::AbilityContributions,
         With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
     >,
 ) {
-    let in_room = room_set.active_spec().id == ROOM_ID;
+    let in_room = room_set.spec().id == ROOM_ID;
     let swim = ambition_platformer2d_core::AbilityContribution::Lend(
         ambition_platformer2d_core::AbilitySet {
             swim: true,

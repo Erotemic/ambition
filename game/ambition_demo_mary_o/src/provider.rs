@@ -118,7 +118,7 @@ pub fn mary_o_session_world_entering(entry: &str) -> MaryOSessionWorld {
         (crate::authored_levels(), crate::authored_room_links())
     };
     let room_set = RoomSet::from_parts_or_panic(entry, rooms, links);
-    let active = room_set.active_spec();
+    let active = room_set.activation_spec();
     let geometry = ae::RoomGeometry(active.world.clone());
     MaryOSessionWorld {
         geometry,
@@ -302,17 +302,13 @@ fn publish_mary_o_readouts(
     level: bevy::prelude::Query<(&crate::MaryOLevelState, Option<&crate::flag::FlagSequence>)>,
     facts: bevy::prelude::Res<ambition_platformer2d::sim_view::PlayerHudFacts>,
     // The room she is in, for the title its level authors.
-    rooms: Option<
-        ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
-            ambition_platformer2d::runtime::demo_fixture::RoomSet,
-        >,
-    >,
+    rooms: Option<ambition_platformer2d::world::rooms::SoleLiveRoomSpec>,
     mut readouts: bevy::prelude::ResMut<ambition_platformer2d::presentation::HudReadouts>,
 ) {
     let Ok((level, flag)) = level.single() else {
         return;
     };
-    let title = rooms.as_deref().and_then(|rooms| rooms.active_metadata().title.as_deref());
+    let title = rooms.as_ref().and_then(|rooms| rooms.spec().metadata.title.as_deref());
     // Zero-padded like the arcade original: the game owns its formatting, the
     // engine just draws the string.
     readouts.set_labelled(SCORE_HUD_SLOT, "SCORE", format!("{:06}", level.score));
@@ -428,7 +424,7 @@ mod tests {
             let expected = room_named(id);
 
             assert_eq!(
-                session.room_set.active_spec().id,
+                session.room_set.activation_spec().id,
                 id,
                 "a session entering `{id}` must be ACTIVE in `{id}`"
             );

@@ -1151,9 +1151,7 @@ fn frame_the_cast(
 
 pub fn resolve_camera_observation(
     world: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<ae::RoomGeometry>,
-    room_set: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
-        ambition_platformer2d_world::rooms::RoomSet,
-    >,
+    room_set: ambition_platformer2d_world::rooms::SoleLiveRoomSpec,
     time: bevy::prelude::Res<bevy::prelude::Time>,
     developer_tools: bevy::prelude::Res<ambition_dev_tools::dev_tools::DeveloperTools>,
     encounter_view: bevy::prelude::Res<ambition_encounter::EncounterView>,
@@ -1452,7 +1450,7 @@ pub fn resolve_camera_observation(
         player_body.pos += presented.delta();
     }
 
-    let active_spec = room_set.active_spec();
+    let active_spec = room_set.spec();
     let room_changed = last_camera_room.as_deref() != Some(active_spec.id.as_str());
     if room_changed {
         *last_camera_room = Some(active_spec.id.clone());
@@ -3118,7 +3116,7 @@ mod resolved_snapshot_lifetime_tests {
             app.world_mut(),
             ae::RoomGeometry(world.clone()),
         );
-        ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+        ambition_platformer2d_world::rooms::insert_room_set(
             app.world_mut(),
             ambition_platformer2d_world::rooms::RoomSet::from_parts_or_panic(
                 "lifetime",

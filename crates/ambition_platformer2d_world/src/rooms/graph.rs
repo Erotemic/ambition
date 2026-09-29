@@ -1,8 +1,8 @@
 //! `RoomSet` graph assembly + queries (petgraph-backed transition graph).
 //!
 //! `impl RoomSet` block: builds the node/edge graph from runtime rooms
-//! (`from_parts`), exposes active-room accessors (`active_spec`/`active_world`/
-//! `active_loading_zones`/…), and resolves player transitions
+//! (`from_parts`), resolves a live room's definition (`spec`, `definition`),
+//! names the activation room (`activation_spec`), and resolves player transitions
 //! (`transition_for_player`, `nearby_zone_hints`, `layout_warnings`). The
 //! `RoomSet` type itself lives in sibling `room_graph`; spawn/arrival math is in
 //! sibling `spawn`.
@@ -68,7 +68,7 @@ impl RoomSet {
     /// There is no fallback. An unresolvable start room refuses, so the caller
     /// never gets a session in a different room. An empty `rooms` refuses,
     /// because `active = start = 0` would index nothing and make
-    /// [`RoomSet::active_spec`] and the room-set rollback checksum panic.
+    /// [`RoomSet::activation_spec`] and the room-set rollback checksum panic.
     /// Fixtures use [`Self::from_parts_or_panic`].
     pub fn try_from_parts(
         start_room: impl AsRef<str>,
@@ -145,7 +145,7 @@ impl RoomSet {
         };
         Ok(Self {
             rooms,
-            active,
+            activation: active,
             start: active,
             // The activation room is #0, so the first publication mints #1.
             next_live_room: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::ACTIVATION.next(),
@@ -200,24 +200,13 @@ impl RoomSet {
     #[must_use = "false means the id matched no room and the start was NOT \
                   changed: report it, or the session silently starts elsewhere"]
     pub fn set_start_by_id(&mut self, id: &str) -> bool {
-        // Go through `set_active` so that one function owns all writes
-        // to `self.active`.
-        if self.set_active_by_id(id).is_none() {
+        // Go through `set_activation` so that one function owns all writes
+        // to `self.activation`.
+        if self.set_activation_by_id(id).is_none() {
             return false;
         }
-        self.start = self.active;
+        self.start = self.activation;
         true
-    }
-
-    /// Sorted, duplicate-free room indices reachable from the active room.
-    ///
-    /// This is the presentation-neutral prefetch seam: callers can prepare
-    /// likely next-room data without inspecting the private petgraph or
-    /// reimplementing loading-zone link resolution. It deliberately reports
-    /// graph adjacency only; choosing how much speculative work to perform is
-    /// owned by the loading/asset layer.
-    pub fn neighboring_room_indices(&self) -> Vec<usize> {
-        self.neighboring_room_indices_of(self.active)
     }
 
     /// The rooms one hop out from `room` — what a transition INTO `room` will
@@ -237,8 +226,33 @@ impl RoomSet {
         neighbors
     }
 
-    pub fn active_spec(&self) -> &RoomSpec {
-        &self.rooms[self.active]
+    /// The definition a live room instantiates.
+    ///
+    /// Panics if `definition` was minted by another set with more rooms, as
+    /// an out-of-range index always did here.
+    pub fn spec(&self, definition: LiveRoomDefinition) -> &RoomSpec {
+        &self.rooms[definition.index()]
+    }
+
+    /// The live room definition at `index`, if the set has that room.
+    pub fn definition(&self, index: usize) -> Option<LiveRoomDefinition> {
+        (index < self.rooms.len()).then_some(LiveRoomDefinition(index))
+    }
+
+    /// The live room definition of the room with this authored id.
+    pub fn definition_by_id(&self, id: &str) -> Option<LiveRoomDefinition> {
+        self.definition(self.room_index_by_id(id)?)
+    }
+
+    /// The definition a session activates into: its first live room's.
+    pub fn activation_definition(&self) -> LiveRoomDefinition {
+        LiveRoomDefinition(self.activation)
+    }
+
+    /// The room a session activates into. A prepared fact; see
+    /// [`Self::activation`].
+    pub fn activation_spec(&self) -> &RoomSpec {
+        &self.rooms[self.activation]
     }
 
     /// The spec at `index`, if in range. Resolves a transition's target index to
@@ -247,25 +261,10 @@ impl RoomSet {
         self.rooms.get(index)
     }
 
-    pub fn active_world(&self) -> &ae::World {
-        &self.active_spec().world
-    }
-
-    pub fn active_loading_zones(&self) -> &[LoadingZone] {
-        &self.active_spec().loading_zones
-    }
-
-    pub fn active_props(&self) -> &[PropSpec] {
-        &self.active_spec().props
-    }
-
-    pub fn active_metadata(&self) -> &RoomMetadata {
-        &self.active_spec().metadata
-    }
-
-    /// Which room of [`Self::rooms`] is live right now.
-    pub fn active(&self) -> usize {
-        self.active
+    /// Which room of [`Self::rooms`] a session activates into. Not which
+    /// room is live: that is each live room's [`LiveRoomDefinition`].
+    pub fn activation(&self) -> usize {
+        self.activation
     }
 
     /// Which room of [`Self::rooms`] a fresh sandbox starts in.
@@ -273,32 +272,31 @@ impl RoomSet {
         self.start
     }
 
-    /// Seat the session in room `index`, or refuse.
+    /// Make room `index` the one a session activates into, or refuse.
     ///
-    /// Do not clamp. A clamp moves the session to the last room while the
-    /// caller publishes the geometry of the room it asked for.
+    /// Do not clamp. A clamp activates the last room while the caller
+    /// publishes the geometry of the room it asked for.
     ///
-    /// `None` means the index named no room and nothing was written: the
-    /// previously active room is still active. The staging check
-    /// `StagedWorldViolation::TargetRoomOutOfRange` also refuses such a plan
-    /// earlier.
-    #[must_use = "`None` means the index named no room and the active room did                   NOT change: report it, or the session silently stays put"]
-    pub fn set_active(&mut self, index: usize) -> Option<&RoomSpec> {
+    /// `None` means the index named no room and nothing was written.
+    #[must_use = "`None` means the index named no room and the activation room did \
+                  NOT change: report it, or the session silently activates elsewhere"]
+    pub fn set_activation(&mut self, index: usize) -> Option<&RoomSpec> {
         if index >= self.rooms.len() {
             return None;
         }
-        self.active = index;
+        self.activation = index;
         Some(&self.rooms[index])
     }
 
-    /// Seat the session in the room with this authored id, or refuse.
+    /// Make the room with this authored id the activation room, or refuse.
     ///
-    /// This is the one id-to-active road. Callers must not resolve the id and
-    /// write the private field themselves.
-    #[must_use = "`None` means the id matched no room and the active room did                   NOT change: report it, or the session silently stays put"]
-    pub fn set_active_by_id(&mut self, id: &str) -> Option<&RoomSpec> {
+    /// This is the one id-to-activation road. Callers must not resolve the
+    /// id and write the private field themselves.
+    #[must_use = "`None` means the id matched no room and the activation room did \
+                  NOT change: report it, or the session silently activates elsewhere"]
+    pub fn set_activation_by_id(&mut self, id: &str) -> Option<&RoomSpec> {
         let index = self.room_index_by_id(id)?;
-        self.set_active(index)
+        self.set_activation(index)
     }
 
     /// Find the loading zone the controlled body's frame path enters this tick.
@@ -314,12 +312,14 @@ impl RoomSet {
     /// oracle catches.
     pub fn transition_for_player(
         &self,
+        room: LiveRoomDefinition,
         player_aabb: ae::Aabb,
         delta: ae::Vec2,
         wants_interact: bool,
     ) -> Option<RoomTransition> {
         let zone = self
-            .active_loading_zones()
+            .spec(room)
+            .loading_zones
             .iter()
             .find(|zone| {
                 ae::cast::aabb_path_contacts(
@@ -330,11 +330,15 @@ impl RoomSet {
                 ) && zone.is_ready(wants_interact)
             })?
             .clone();
-        self.transition_from_zone(zone)
+        self.transition_from_zone(room, zone)
     }
 
-    fn transition_from_zone(&self, zone: LoadingZone) -> Option<RoomTransition> {
-        let active_node = *self.room_nodes.get(self.active)?;
+    fn transition_from_zone(
+        &self,
+        room: LiveRoomDefinition,
+        zone: LoadingZone,
+    ) -> Option<RoomTransition> {
+        let active_node = *self.room_nodes.get(room.index())?;
         for edge in self.graph.edges_directed(active_node, Direction::Outgoing) {
             let weight = edge.weight();
             if weight.from_zone != zone.id {
@@ -360,8 +364,14 @@ impl RoomSet {
             .find(|zone| zone.id == id)
     }
 
-    pub fn nearby_zone_hints(&self, player_aabb: ae::Aabb, flying: bool) -> Vec<String> {
-        self.active_loading_zones()
+    pub fn nearby_zone_hints(
+        &self,
+        room: LiveRoomDefinition,
+        player_aabb: ae::Aabb,
+        flying: bool,
+    ) -> Vec<String> {
+        self.spec(room)
+            .loading_zones
             .iter()
             .filter(|zone| player_aabb.strict_intersects(zone.aabb))
             .map(|zone| zone.hint(flying))
@@ -619,26 +629,26 @@ mod room_identity_tests {
     fn an_index_that_names_no_room_is_refused_and_nothing_moves() {
         let mut set = two_rooms();
         assert!(
-            set.set_active(1).is_some(),
+            set.set_activation(1).is_some(),
             "a valid index must still seat the session"
         );
-        assert_eq!(set.active_spec().id, "cellar");
-        assert!(set.set_active(0).is_some());
+        assert_eq!(set.activation_spec().id, "cellar");
+        assert!(set.set_activation(0).is_some());
 
         assert!(
-            set.set_active(7).is_none(),
+            set.set_activation(7).is_none(),
             "room 7 of a set of two was accepted"
         );
         assert_eq!(
-            set.active(),
+            set.activation(),
             0,
             "the refusal moved the active room anyway — the clamp is back, only              now it reports itself as a refusal"
         );
-        assert_eq!(set.active_spec().id, "hub");
+        assert_eq!(set.activation_spec().id, "hub");
 
         // `usize::MAX` is the value the 2026-09-14 poison staged by accident.
-        assert!(set.set_active(usize::MAX).is_none());
-        assert_eq!(set.active(), 0);
+        assert!(set.set_activation(usize::MAX).is_none());
+        assert_eq!(set.activation(), 0);
     }
 
     /// A set that cannot seat anybody is not built.
@@ -680,7 +690,7 @@ mod room_identity_tests {
         );
 
         // No rooms at all. The old constructor returned a set whose
-        // `active_spec()` panics, at whatever unrelated moment first read it.
+        // `activation_spec()` panics, at whatever unrelated moment first read it.
         assert_eq!(
             RoomSet::try_from_parts("hub", Vec::new(), Vec::new())
                 .map(|_| ())
@@ -699,9 +709,9 @@ mod room_identity_tests {
             RoomSpec::new("cellar", world()),
         ], Vec::new())
         .expect("a set holding `cellar` can start in it");
-        assert_eq!(built.active(), 1);
+        assert_eq!(built.activation(), 1);
         assert_eq!(built.start(), 1);
-        assert_eq!(built.active_spec().id, "cellar");
+        assert_eq!(built.activation_spec().id, "cellar");
     }
 
     /// Two rooms under one id give two answers to "which room is this".
@@ -756,18 +766,18 @@ mod room_identity_tests {
             Vec::new(),
         )
         .expect("two distinctly named rooms are a perfectly ordinary set");
-        assert_eq!(built.active_spec().id, "lab");
+        assert_eq!(built.activation_spec().id, "lab");
     }
 
     /// The start road and the active road use one mutation law.
     ///
-    /// `set_start_by_id` must go through `set_active`, so a rule added to
-    /// `set_active` also applies to it.
+    /// `set_start_by_id` must go through `set_activation`, so a rule added to
+    /// `set_activation` also applies to it.
     #[test]
     fn setting_the_start_room_moves_the_active_room_through_the_same_road() {
         let mut set = two_rooms();
         assert!(set.set_start_by_id("cellar"));
-        assert_eq!(set.active(), 1);
+        assert_eq!(set.activation(), 1);
         assert_eq!(set.start(), 1);
 
         assert!(
@@ -775,7 +785,7 @@ mod room_identity_tests {
             "an unresolvable id reported success"
         );
         assert_eq!(
-            (set.active(), set.start()),
+            (set.activation(), set.start()),
             (1, 1),
             "a refused start moved the session anyway"
         );
@@ -787,17 +797,17 @@ mod room_identity_tests {
     fn an_id_that_names_no_room_is_refused_and_nothing_moves() {
         let mut set = two_rooms();
         assert_eq!(
-            set.set_active_by_id("cellar").map(|room| room.id.as_str()),
+            set.set_activation_by_id("cellar").map(|room| room.id.as_str()),
             Some("cellar"),
             "an authored id must seat the session in that room and hand it back"
         );
 
         assert!(
-            set.set_active_by_id("a_room_this_world_does_not_have")
+            set.set_activation_by_id("a_room_this_world_does_not_have")
                 .is_none()
         );
         assert_eq!(
-            set.active(),
+            set.activation(),
             1,
             "a refused id moved the active room, so a caller that ignores the              `None` runs in a room nobody asked for"
         );

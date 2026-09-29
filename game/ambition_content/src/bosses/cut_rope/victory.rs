@@ -11,7 +11,7 @@ use super::*;
 /// behavior use the existing ECS actor path.
 pub fn spawn_cut_rope_victory_npc(
     mut commands: Commands,
-    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<RoomSet>,
+    room_set: ambition_platformer2d::world::rooms::SoleLiveRoomSpec,
     save: Res<ambition_persistence::save::AmbitionGameSave>,
     character_catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>,
     authored_sheets: Res<ambition_sprite_sheet::character::sheets::AuthoredSheets>,
@@ -34,7 +34,7 @@ pub fn spawn_cut_rope_victory_npc(
     // and refills, so the allocation happens once and its capacity is reused.
     released_hosts.clear();
     released_hosts.extend(released.read().map(|m| m.host));
-    if room_set.active_spec().id != CUT_ROPE_ROOM_ID {
+    if room_set.spec().id != CUT_ROPE_ROOM_ID {
         return;
     }
     if existing

@@ -58,6 +58,9 @@ nothing when the room does not exist, and both refusals are poison-verified.
 room; what changed is that the index can no longer be a value nobody checked.
 An index that can be silently wrong cannot be promoted to an instance
 identity, so this is OW1's precondition and not its first cut.
+✅ Superseded by OW1 cut 5e (2026-09-29): the live selection is
+`LiveRoomDefinition` on each live room root, and `RoomSet` keeps only the
+prepared `activation`, behind `activation()` / `set_activation()`.
 
 ⛔⛤ **AND THE FIRST ATTEMPT AT THAT INVARIANT WAS HALF OF IT — CAUGHT BY
 REVIEW THE SAME DAY.** Privatising the indices fixed their MUTATION roads and
@@ -255,7 +258,7 @@ and no fallback to "the live room".
 | 2 ✅ | Mid-room spawns inherit the source's instance; the transition roster is `RoomResident` of the departing instance | a resident of `#7` survives a publication that retires `#0` (the same entity stamped `#0` retires) | the unkeyed whole-world roster |
 | 3 (3a ✅ 3b ✅ 3c ✅ 3d ✅) | Geometry, platforms and overlay move onto the instance root; `CollisionWorld` takes the instance | a body in `#1` collides with `#1`'s wall (in `#0` it passes) | the session-root geometry field, `MovingPlatformSet` as a resource |
 | 4 (4a ✅ 4b ✅) | Pairwise queries (contacts, hits, perception, projectile victims) keyed by instance | identical local positions in two instances never touch (one instance does) | unkeyed body-contact vectors |
-| 5 (5a ✅) | Live identity and room selection per instance; rollback rows instance-qualified; the save maps to a durable location key, never the ordinal | a second construction of one room in `#1` succeeds (a duplicate inside `#1` is still refused) | `RoomSet`'s private active index |
+| 5 (5a ✅ 5b ✅ 5c ✅ 5d ✅ 5e ✅) | Live identity and room selection per instance; rollback rows instance-qualified; the save maps to a durable location key, never the ordinal | a second construction of one room in `#1` succeeds (a duplicate inside `#1` is still refused) | `RoomSet`'s private active index |
 | 6 | The Alice/Bob proof: two instances, two driven bodies; retiring `#1` leaves `#0` whole | the one-room profile runs the same systems | — |
 
 ✅ **Cut 1 landed 2026-09-29.** `LiveRoomInstance` moved down to
@@ -580,6 +583,43 @@ them.
   each hold fighters `a` and `b`, together in #0 and far apart in #1. #1's
   pair is not crowded and `a`'s neighbour is #1's `b`. The control is #0's
   pair, which crowds each other.
+
+✅ **Cut 5e landed 2026-09-29: a live room names its own definition.**
+`RoomSet::active` was one index on the session root. It answered two
+questions: which room a prepared world activates into, and which room the
+session is in now. With two live rooms, the second question has one answer
+for each room, and the one index moved for all of them. Now:
+- **The live fact** is `LiveRoomDefinition` on each live room root, beside
+  its geometry. A publication writes it onto the root it replaces
+  (`apply_world_replacement`). It is a canonical rollback row
+  (`root.live_room_definition`, schema 270), so a rewind across a
+  publication returns the root to the room it was.
+- **The prepared fact** stays on `RoomSet`, renamed `activation`. The
+  session construction (`LiveRoomWorld`) and hot reload read and write it.
+  The `RoomSet` checksum hashes the activation room.
+- Readers with a subject ask `RoomSet::spec(definition)`, and
+  `transition_for_player` and `nearby_zone_hints` take the definition.
+  Readers without one take `SoleLiveRoomSpec` (the set and the sole live
+  room's definition), named as the one-live-room debt beside `SoleLiveRoom`.
+  64 production uses in 45 files; `check_alias_census_agrees_with_source.py`
+  counts them.
+- Fixtures seat a live room with `insert_room_set` or
+  `seat_sole_live_room_by_id`. A set with no seated live room answers no
+  "which room is this" question, so a `SoleLiveRoomSpec` system does not
+  run.
+
+Deleted: `RoomSet::active`, `active()`, `active_spec()`, `active_world()`,
+`active_metadata()`, `active_loading_zones()`, `active_props()`,
+`set_active()`, `set_active_by_id()` and `neighboring_room_indices()`.
+Witness: `a_publication_seats_only_the_live_room_it_replaces_in_its_room`.
+Live rooms #0 and #1 both instantiate room `n`, and the candidate replaces
+#0. The replaced root reads `candidate` and #1 still reads `n`. The control
+is the two roots before publication, which both read `n`. With one index,
+#1 read `candidate` too.
+
+⚠ Still owed from cut 5: `outlook_for(room: &str)` is keyed by definition;
+the `SoleLiveRoomSpec` readers each need a subject before a second live room
+is simulated (cut 6 finds which ones a two-player world reaches).
 
 ⚠ Risks carried forward: every cut that changes a snapshot value bumps the
 schema; instance roots must be re-creatable by a rewind across a publication;

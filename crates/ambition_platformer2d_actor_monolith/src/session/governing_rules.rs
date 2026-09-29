@@ -3,8 +3,6 @@
 use bevy::prelude::*;
 
 use ambition_combat::scoped_rules::{ActiveRoom, DeclaredRules, RulesScope};
-use ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef;
-use ambition_platformer2d_world::rooms::RoomSet;
 
 /// The active room as a rule scope sees it: none, untagged, or in a mode.
 ///
@@ -13,13 +11,14 @@ use ambition_platformer2d_world::rooms::RoomSet;
 /// run exactly where its rules govern.
 #[derive(bevy::ecs::system::SystemParam)]
 pub struct CurrentRoom<'w, 's> {
-    rooms: Option<SessionWorldRef<'w, 's, RoomSet>>,
+    // The one-live-room read: a rule scope governs THE live room.
+    rooms: Option<ambition_platformer2d_world::rooms::SoleLiveRoomSpec<'w, 's>>,
 }
 
 impl CurrentRoom<'_, '_> {
     pub fn get(&self) -> ActiveRoom<'_> {
         self.rooms.as_ref().map_or(ActiveRoom::NoRoom, |rooms| {
-            ActiveRoom::live(rooms.active_metadata().mode.as_deref())
+            ActiveRoom::live(rooms.spec().metadata.mode.as_deref())
         })
     }
 

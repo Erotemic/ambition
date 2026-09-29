@@ -206,7 +206,7 @@ fn one_room_session(app: &mut bevy::prelude::App, room_id: &str) {
         bevy::prelude::Vec2::new(32.0, 400.0),
         Vec::new(),
     );
-    ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+    ambition_platformer2d_world::rooms::insert_room_set(
         app.world_mut(),
         ambition_platformer2d_world::rooms::RoomSet::from_parts_or_panic(
             room_id,

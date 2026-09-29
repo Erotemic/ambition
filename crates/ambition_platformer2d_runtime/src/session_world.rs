@@ -158,8 +158,9 @@ impl PreparedPlatformerSource {
     pub fn geometry(&self) -> &RoomGeometry {
         &self.geometry
     }
+    /// The room a session activates into. A prepared fact.
     pub fn active_room(&self) -> &RoomMetadata {
-        self.room_set.active_metadata()
+        &self.room_set.activation_spec().metadata
     }
     pub fn starting_character(&self) -> &StartingCharacter {
         &self.starting_character
@@ -175,8 +176,9 @@ impl PreparedPlatformerSource {
     pub fn installed_ldtk_index(&self) -> Option<&LdtkRuntimeIndex> {
         self.installed_ldtk_index.as_ref()
     }
+    /// The id of the room a session activates into. A prepared fact.
     pub fn active_room_id(&self) -> &str {
-        self.room_set.active_spec().id.as_str()
+        self.room_set.activation_spec().id.as_str()
     }
 
     /// Build an off-to-the-side candidate with a replacement authored world.
@@ -214,8 +216,8 @@ impl PreparedPlatformerSource {
     /// normalized replacement to offer.
     pub fn with_definition_active_room(&self, room_id: &str) -> Option<Self> {
         let mut room_set = self.room_set.clone();
-        let active_spec = room_set.set_active_by_id(room_id)?.clone();
-        // `RoomSet` alone names the active room. An installed LDtk index is
+        let active_spec = room_set.set_activation_by_id(room_id)?.clone();
+        // `RoomSet` alone names the activation room. An installed LDtk index is
         // content and does not change with the room.
         Some(self.with_world(room_set, RoomGeometry(active_spec.world)))
     }
@@ -242,6 +244,7 @@ impl PreparedPlatformerSource {
             root: RoomInstanceRoot,
             id: RoomInstanceRoot::sim_id(),
             live_room: LiveRoomInstance::ACTIVATION,
+            definition: self.room_set.activation_definition(),
             geometry: self.geometry.clone(),
             overlay: Default::default(),
         }
@@ -262,6 +265,9 @@ pub struct LiveRoomWorld {
     /// [`LiveRoomInstance::ACTIVATION`] no matter how many times its source has
     /// been instantiated before.
     pub live_room: LiveRoomInstance,
+    /// Which room of the session's set this live room is (OW1 cut 5e): the
+    /// activation room, until a publication replaces it.
+    pub definition: ambition_platformer2d_world::rooms::LiveRoomDefinition,
     pub geometry: RoomGeometry,
     /// The room's collision contributions, rebuilt every tick.
     pub overlay: ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay,
@@ -291,7 +297,9 @@ pub struct PlatformerSessionWorld {
 }
 
 impl PlatformerSessionWorld {
+    /// The id of the room this session activates into. Which room is live is
+    /// the live room root's `LiveRoomDefinition`.
     pub fn active_room_id(&self) -> &str {
-        self.room_set.active_spec().id.as_str()
+        self.room_set.activation_spec().id.as_str()
     }
 }

@@ -53,17 +53,19 @@ fn body_pos(sim: &mut Platformer2dSimHarness) -> ambition_platformer2d::engine_c
 /// be inventing a second mapping that could disagree with the real one.
 fn the_named_door(sim: &mut Platformer2dSimHarness) -> Option<(LoadingZone, Vec<String>)> {
     let world = sim.world_mut();
+    let live_definition = ambition_platformer2d::world::rooms::sole_live_room_definition(world)?;
     let mut query = world.query::<&ambition_platformer2d::world::rooms::RoomSet>();
     let room_set = query.iter(world).next()?;
     let mut offered = Vec::new();
     let mut found = None;
-    for zone in room_set.active_loading_zones() {
+    for zone in &room_set.spec(live_definition).loading_zones {
         if zone.activation != LoadingZoneActivation::Door {
             continue;
         }
         // A probe the size of the zone, sitting in it, already "pressing".
         let probe = zone.aabb;
         let Some(transition) = room_set.transition_for_player(
+            live_definition,
             probe,
             ambition_platformer2d::engine_core::Vec2::ZERO,
             true,

@@ -12,7 +12,7 @@ use ambition_platformer2d_core::{self as ae, AabbExt};
 use ambition_platformer2d_shared_tangle::lifecycle::{
     ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt,
 };
-use ambition_platformer2d_world::rooms::{RoomNameplatePolicy, RoomSet};
+use ambition_platformer2d_world::rooms::RoomNameplatePolicy;
 use ambition_sim_view::NameplateIndex;
 use bevy::prelude::*;
 
@@ -207,9 +207,7 @@ pub fn sync_actor_nameplates(
     >,
     settings: Res<ActorNameplateSettings>,
     active_session: Option<Res<ActiveSessionScope>>,
-    rooms: Option<
-        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<RoomSet>,
-    >,
+    rooms: Option<ambition_platformer2d_world::rooms::SoleLiveRoomSpec>,
     // A draw system draws every view, so it iterates them.
     // `PresentedViewState` answers a different question (which one view a
     // camera shows) and refuses when there are several.
@@ -243,8 +241,8 @@ pub fn sync_actor_nameplates(
 
     let rank_policy = settings.resolve_rank_policy(
         rooms
-            .as_deref()
-            .map(|rooms| &rooms.active_metadata().nameplate_policy),
+            .as_ref()
+            .map(|rooms| &rooms.spec().metadata.nameplate_policy),
     );
 
     // Every id with a source this frame, across all views. It separates

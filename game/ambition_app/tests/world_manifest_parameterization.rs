@@ -55,7 +55,7 @@ fn start_room(manifest: &WorldManifest) -> String {
     let room_set = project
         .to_room_set(manifest, &ambition_app::composed_ldtk_vocabulary())
         .unwrap_or_else(|errors| panic!("manifest world should compose: {errors:?}"));
-    room_set.active_spec().id.clone()
+    room_set.activation_spec().id.clone()
 }
 
 /// THE ORACLE: prepare both providers in ONE process, in both orders, and each

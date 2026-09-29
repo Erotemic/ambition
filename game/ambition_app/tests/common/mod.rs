@@ -488,6 +488,8 @@ pub fn door_to(
 ) -> ambition_platformer2d::world::rooms::LoadingZone {
     let before = sim.observation().active_room.clone();
     let world = sim.world_mut();
+    let live_definition = ambition_platformer2d::world::rooms::sole_live_room_definition(world)
+        .expect("the session has a live room");
     let mut query = world.query::<&ambition_platformer2d::world::rooms::RoomSet>();
     let room_set = query
         .iter(world)
@@ -495,11 +497,12 @@ pub fn door_to(
         .expect("the session has an active room set");
     let mut reachable: Vec<String> = Vec::new();
     let mut chosen = None;
-    for zone in room_set.active_loading_zones() {
+    for zone in &room_set.spec(live_definition).loading_zones {
         if zone.activation != ambition_platformer2d::world::rooms::LoadingZoneActivation::Door {
             continue;
         }
         let Some(transition) = room_set.transition_for_player(
+            live_definition,
             zone.aabb,
             ambition_platformer2d::engine_core::Vec2::ZERO,
             true,

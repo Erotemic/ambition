@@ -36,18 +36,20 @@ fn every_neighbour_of_the_starting_room_gets_a_prepared_plan() {
     let app = gameplay_after_startup();
 
     let (source, neighbours) = {
+        let live_definition = ambition_platformer2d::world::rooms::sole_live_room_definition(app.world())
+            .expect("the session has a live room");
         let room_set = ambition_platformer2d::platformer::lifecycle::session_world_component::<
             ambition_platformer2d::world::rooms::RoomSet,
         >(app.world())
         .expect("a direct-gameplay session installs one live room set");
         let source = room_set
             .rooms
-            .get(room_set.active())
+            .get(live_definition.index())
             .expect("the active room index names a room")
             .id
             .clone();
         let neighbours = room_set
-            .neighboring_room_indices()
+            .neighboring_room_indices_of(live_definition.index())
             .iter()
             .filter_map(|&index| room_set.rooms.get(index))
             .map(|room| room.id.clone())
@@ -265,13 +267,15 @@ fn cross_into_a_cached_neighbour(as_checkpoint_restore: bool) -> bool {
     }
 
     let neighbour = {
+        let live_definition = ambition_platformer2d::world::rooms::sole_live_room_definition(app.world())
+            .expect("the session has a live room");
         let room_set = ambition_platformer2d::platformer::lifecycle::session_world_component::<
             ambition_platformer2d::world::rooms::RoomSet,
         >(app.world())
         .expect("a direct-gameplay session installs one live room set");
         let held = app.world().resource::<RoomConstructionPlanPrefetch>();
         room_set
-            .neighboring_room_indices()
+            .neighboring_room_indices_of(live_definition.index())
             .iter()
             .filter_map(|&index| room_set.rooms.get(index))
             .map(|room| room.id.clone())
@@ -399,11 +403,13 @@ fn rebuilt_room_holds_its_ground_item(relocated: bool) -> bool {
 
     let mut app = gameplay_after_startup();
     let (target, elsewhere, item) = {
+        let live_definition = ambition_platformer2d::world::rooms::sole_live_room_definition(app.world())
+            .expect("the session has a live room");
         let room_set = ambition_platformer2d::platformer::lifecycle::session_world_component::<
             ambition_platformer2d::world::rooms::RoomSet,
         >(app.world())
         .expect("a direct-gameplay session installs one live room set");
-        let active = room_set.active_spec().id.clone();
+        let active = room_set.spec(live_definition).id.clone();
         let room = room_set
             .rooms
             .iter()
@@ -481,10 +487,8 @@ fn rebuilt_room_holds_its_ground_item(relocated: bool) -> bool {
             .active
             .is_some();
         opened |= loading;
-        let arrived = ambition_platformer2d::platformer::lifecycle::session_world_component::<
-            ambition_platformer2d::world::rooms::RoomSet,
-        >(app.world())
-        .is_some_and(|rooms| rooms.active_spec().id == target);
+        let arrived = ambition_platformer2d::world::rooms::sole_live_room_spec(app.world())
+            .is_some_and(|spec| spec.id == target);
         if opened && arrived && !loading {
             let world = app.world_mut();
             let mut ids = world.query::<&SimId>();

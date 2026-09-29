@@ -221,7 +221,7 @@ fn the_checkpoint_records_where_the_resting_body_stood() {
             Vec2::new(32.0, 400.0),
             Vec::new(),
         );
-        insert_session_world_component(
+        ambition_platformer2d_world::rooms::insert_room_set(
             app.world_mut(),
             ambition_platformer2d_world::rooms::RoomSet::from_parts_or_panic(
                 "shrine_room",

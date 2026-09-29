@@ -73,9 +73,11 @@ fn the_ldtk_authored_game_installs_a_real_index_onto_its_session_root() {
     // change exists to delete. The levels of the room the session is in are
     // what `from_project` fills and `Default` leaves empty, so they separate a
     // real installation from the placeholder.
+    let live_definition = ambition_platformer2d::world::rooms::sole_live_room_definition(app.world())
+        .expect("the session has a live room");
     let room = session_world_component::<RoomSet>(app.world())
         .expect("the settled session root carries no RoomSet")
-        .active_spec()
+        .spec(live_definition)
         .id
         .clone();
     assert!(
@@ -112,10 +114,12 @@ fn a_ron_authored_session_root_carries_no_ldtk_index() {
     // is a canonical session-world component every platformer session owns, so
     // observing it is what turns the assertion below into a statement about the
     // boundary rather than about a stale entity id.
+    let live_definition = ambition_platformer2d::world::rooms::sole_live_room_definition(app.world())
+        .expect("the session has a live room");
     let rooms = session_world_component::<RoomSet>(app.world())
         .expect("the settled session root carries no RoomSet, so it is not a live session world");
     assert!(
-        !rooms.active_spec().id.is_empty(),
+        !rooms.spec(live_definition).id.is_empty(),
         "the RON-authored session names no active room"
     );
 

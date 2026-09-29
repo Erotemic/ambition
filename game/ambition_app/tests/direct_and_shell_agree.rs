@@ -10,9 +10,8 @@
 
 use ambition_app::app::shell_host::compose_ambition_gameplay_host;
 use ambition_platformer2d::platformer::lifecycle::{
-    session_world_component, settle_until_session_world, SESSION_SETTLE_FRAMES,
+    settle_until_session_world, SESSION_SETTLE_FRAMES,
 };
-use ambition_platformer2d::runtime::demo_fixture::RoomSet;
 use bevy::prelude::*;
 
 #[test]
@@ -29,8 +28,8 @@ fn the_one_gameplay_composition_reaches_a_live_world() {
              test — it is a host that does not boot."
         ),
     };
-    let room = session_world_component::<RoomSet>(app.world())
-        .map(|rooms| rooms.active_spec().id.clone())
+    let room = ambition_platformer2d::world::rooms::sole_live_room_spec(app.world())
+        .map(|spec| spec.id.clone())
         .expect("the activated session has a RoomSet");
 
     assert!(

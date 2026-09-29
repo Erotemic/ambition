@@ -853,7 +853,11 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// ⛔⛤ 257 -> 258: `cutscene.skip_hold` joins. A cutscene's dismiss and skip
 /// ride the seat's `ControlFrame`, and the skip hold accumulates inside the
 /// timeline, so it rewinds with the cutscene.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 258;
+/// ⛔⛤ 258 -> 259: `message.item_use_requested` and `message.new_game_requested`
+/// join. A menu's consumable use and New Game are host intents that the
+/// ledger releases inside the timeline, so their channels clear on a rewind
+/// like every other simulation message.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 259;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

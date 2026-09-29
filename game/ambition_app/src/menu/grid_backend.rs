@@ -23,7 +23,7 @@ use ambition_platformer2d::menu::{
     MenuTabActivated,
 };
 
-use crate::menu::effects::{MenuEffectManaQuery, MenuEffectPlayers, PrimaryHand};
+use crate::menu::effects::{MenuEffectPlayers, MenuItemUses, PrimaryHand};
 use crate::menu::kaleidoscope_app::{
     focus_for_action, owned_item_action, play_ui, system_focus_nav, KaleidoscopeCursor,
     KaleidoscopeSystemNav, SystemMenuParams,
@@ -34,7 +34,6 @@ use crate::menu::model::{
     SYSTEM_VISIBLE_ROWS,
 };
 use crate::menu::quality_confirm::VisualQualityConfirmState;
-use ambition_platformer2d::actors::avatar::PlayerHealRequested;
 use ambition_platformer2d::input::MenuControlFrame;
 use ambition_platformer2d::items::{OwnedItems, ITEM_GRID_COLS, ITEM_GRID_ROWS};
 use ambition_platformer2d::menu::backend::{InventoryUiBackend, BEVY_UI_MENU_BACKEND_ENABLED};
@@ -47,16 +46,15 @@ use ambition_platformer2d::sfx::SfxWriter;
 /// under Bevy's 16-param ceiling (the same reason the cube bundles `SystemMenuParams`).
 #[derive(bevy::ecs::system::SystemParam)]
 pub(crate) struct MenuDispatchParams<'w, 's> {
-    owned: ResMut<'w, OwnedItems>,
+    owned: Res<'w, OwnedItems>,
     hand: PrimaryHand<'w, 's>,
     settings: ResMut<'w, UserSettings>,
     quality_confirm: ResMut<'w, VisualQualityConfirmState>,
     commands: Commands<'w, 's>,
     players: MenuEffectPlayers<'w, 's>,
-    mana_q: MenuEffectManaQuery<'w, 's>,
-    heals: MessageWriter<'w, PlayerHealRequested>,
+    uses: MenuItemUses<'w, 's>,
     sfx: SfxWriter<'w>,
-    system: SystemMenuParams<'w>,
+    system: SystemMenuParams<'w, 's>,
 }
 
 /// Run condition: the Grid backend is the active inventory frontend.
@@ -1004,15 +1002,14 @@ pub(crate) fn grid_menu_action_activated(
             &mut pages,
             &mut system_nav,
             &mut cursor,
-            &mut fx.owned,
+            &fx.owned,
             &fx.hand,
             &mut fx.settings,
             &mut fx.quality_confirm,
             &mut close_menu,
             &mut fx.commands,
             &mut fx.players,
-            &mut fx.mana_q,
-            &mut fx.heals,
+            &mut fx.uses,
             &mut fx.sfx,
             &mut fx.system,
         );

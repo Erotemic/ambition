@@ -268,8 +268,6 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_actor_monolith/src/items/narrative.rs",
         "crates/ambition_platformer2d_actor_monolith/src/items/persist.rs",
         "crates/ambition_platformer2d_actor_monolith/src/items/pickup/minted_horizon.rs",
-        "game/ambition_app/src/menu/grid_backend.rs",
-        "game/ambition_app/src/menu/kaleidoscope_app.rs",
         "game/ambition_content/src/portal/inventory_adapter.rs",
         "game/ambition_content/src/quest.rs",
     ),
@@ -734,10 +732,6 @@ BASELINE: dict[str, tuple[str, ...]] = {
     "MusicIntent": (
         "crates/ambition_platformer2d_actor_monolith/src/audio/plugin.rs",
         "crates/ambition_platformer2d_actor_monolith/src/music/intent.rs",
-    ),
-    "NewGameResetRequested": (
-        "crates/ambition_platformer2d_actor_monolith/src/session/reset/mod.rs",
-        "game/ambition_app/src/menu/kaleidoscope_app.rs",
     ),
     "OwnedItemsBaseline": (
         "crates/ambition_platformer2d_actor_monolith/src/items/persist.rs",
@@ -1746,34 +1740,25 @@ ADJUDICATED: dict[str, str] = {
         "so no writer can reach the array. ⇒ Grants are per-item additions and "
         "COMMUTE; `take` is saturating and returns what actually came out, so two "
         "takers of a short bag cannot both succeed and silently double-spend.\n"
-        "    ⭐ AND THREE PAIRS OF WRITERS ARE ONE IMPLEMENTATION EACH, which the "
+        "    ⭐ AND TWO PAIRS OF WRITERS ARE ONE IMPLEMENTATION EACH, which the "
         "file-granular census cannot see — the same shape as "
         "`ProjectileSeqCounter`. `open_ecs_chests` (`features/ecs/chests.rs`) "
         "delegates to `pickups::grant_pickup`, the road `collect_ecs_pickups` "
         "already takes, and says why in place: *\"Teaching the chest a second copy "
-        "would be four payload kinds to keep in agreement forever.\"* Both "
-        "inventory backends — `grid_menu_action_activated` "
-        "(`game/ambition_app/src/menu/grid_backend.rs`) and "
-        "`kaleidoscope_menu_action_activated` "
-        "(`game/ambition_app/src/menu/kaleidoscope_app.rs`) — reach "
-        "`menu::dispatch::dispatch_menu_action`. And the shop\'s two directions "
-        "are `ambition_items::shop::{buy, sell}` behind one "
+        "would be four payload kinds to keep in agreement forever.\"* And the shop\'s "
+        "two directions are `ambition_items::shop::{buy, sell}` behind one "
         "`ShopTransactionRequested::apply`. The rest: `apply_item_grants` "
-        "(narrative), `grant_pirate_treasure_reward` (quest rewards), "
+        "(narrative), `apply_item_uses` (a menu\'s consumable, from a host "
+        "intent), `grant_pirate_treasure_reward` (quest rewards), "
         "`pickup_portal_gun_system`, `throw_held_item_system` (the one gameplay "
         "take), and three wholesale roads — `reset_inventory_on_new_game` and "
         "`restore_inventory_from_save` through `apply_persisted`, and "
         "`restore_owned_items_to_checkpoint` through "
         "`reduce_owned_items_to_baseline`, which is `*owned = baseline.clone()`.\n"
-        "    ⛔ WHAT KEEPS THIS ROUTED IS THE MENU PAIR, AND BOTH ARE ALREADY "
-        "BANKED. `grid_menu_action_activated` and "
-        "`kaleidoscope_menu_action_activated` are two of the nine acknowledged "
-        "offenders in `scripts/check_rollback_mutators_run_in_sim.py`, both owed "
-        "to MENU-RESET-MIDSESSION: they write rollback-registered state from a "
-        "schedule that does not rewind. ⭐ The useful half for whoever closes that "
-        "row is above — TWO banked offenders, ONE road. A fix inside "
-        "`dispatch_menu_action` reaches both backends, and there is no second copy "
-        "to keep in step.\n"
+        "    ✅ THE MENU PAIR LEFT ON 2026-09-28. Both inventory backends read the "
+        "bag (`Res<OwnedItems>`) and ask for a consumable through an "
+        "`ItemUseRequested` host intent; `apply_item_uses` spends it inside the "
+        "timeline.\n"
         "    ⚠ AND THE LIVE BAG IS NOT PEER-COMPARED, which is a separate open "
         "thing filed under Q129: `OwnedItems` is `rollback_resource_clone` — "
         "restored on a rewind, `feeds_peer_checksum() == false` — while "
@@ -1893,21 +1878,6 @@ ADJUDICATED: dict[str, str] = {
         "switch family (`drain_switch_activations` vs "
         "`content/src/falling_sand_sim.rs`), routed to "
         "`world-facts-observations-and-memory.md`, and it is still open."
-    ),
-    "NewGameResetRequested": (
-        "OPEN — `queue.md`'s MENU-RESET-MIDSESSION row owns it and the row's "
-        "measurement is the verdict: a New Game asked for from outside the "
-        "simulation commits ZERO times, because this resource is "
-        "`resource-canonical` and the restore returns the flag to `false` before "
-        "`process_new_game_reset_request` (which runs INSIDE the rewinding "
-        "schedule) ever sees it. ⇒ The two writers are the row's subject: "
-        "`process_new_game_reset_request` consumes it in-schedule, and the menu "
-        "arms it from `Update` through `SystemMenuParams::request_reset`. ⚠ The "
-        "census reports the menu side as `<param bundle: SystemMenuParams>` rather "
-        "than as a system, and that is the honest answer — the writers are "
-        "whichever systems take that bundle, which is why the bundle's own doc "
-        "names its two consumers. Blocked on Q136 (how does a local menu intent "
-        "enter the synchronised timeline), not on anything this guard can settle."
     ),
     "OccurrenceBaseline": (
         "CORRECT — ONE WRITER PER LIFECYCLE EVENT, AND THE EVENTS ARE DISJOINT. "

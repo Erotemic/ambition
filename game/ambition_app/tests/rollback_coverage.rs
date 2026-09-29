@@ -200,6 +200,14 @@ const WAIVED: &[(&str, &str)] = &[
          category as the device input stream, and rewinding it would erase what \
          the simulation was told rather than what it decided",
     ),
+    // The host's ingress of the same shape: a menu's intent, stamped with the
+    // tick it applies on and the session it belongs to.
+    (
+        "ambition_platformer2d_actor_monolith::session::host_intents::HostIntentLedger",
+        "an EXTERNAL INPUT from the host, stamped with the tick it applies on — \
+         rewinding it would erase what the simulation was told rather than what \
+         it decided",
+    ),
 ];
 
 fn waiver(type_name: &str) -> Option<&'static str> {

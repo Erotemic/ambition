@@ -52,6 +52,27 @@ half belongs on a page people read before they have the bug.
 
 ## P0 — architecture and correctness
 
+### NEW-GAME-RESYNC — a New Game after durable hydration fails the sync test
+
+**Owner:** rollback determinism. **Found 2026-09-28** while inverting the
+MENU-RESET-MIDSESSION witnesses.
+
+`a_new_game_asked_for_by_the_host_commits_once_under_a_rewind`
+(`game/ambition_app/tests/a_bag_changed_mid_window_reaches_the_save.rs`) builds
+`with_sync_test_rollback_settings(4, 10)` in `combat_calibration_lab`. Its
+IN-SIM control sets `NewGameResetRequested` from a sim system at `SimTick` 30,
+after the durable latch. `rollback_health()` then reports a checksum mismatch at
+GGRS frames 28–30. The host-intent arm reports the same at its own stamped
+frames. ⇒ The reset diverges on replay whichever road armed it.
+`rollback_full_reset.rs` stays green because it arms the reset on the BASELINE
+frame, before hydration, so it does not measure this moment.
+
+**Next:** run the control with `RollbackRestoreAudit` and read the first
+diverging frame's resimulation rows. The durable save/baseline reset is the
+first candidate, because hydration is the difference between the two
+fixtures. The witness arm carries no `rollback_health()` until this closes.
+**Blocked by:** nothing.
+
 ### SYNC-POINT-SENSITIVE-RESIM — a command sync point moves the death-reset replay
 
 **Owner:** rollback determinism. **Found 2026-09-22** while moving the clock
@@ -5497,10 +5518,32 @@ IN SINGLE-PLAYER: with no session there is nothing to rewind. ⇒ There is no
 composition shipping this year in which this can be observed, and the ruling
 forbids building for the one that could.
 
-**What stands:** the two witnesses stay, green, asserting the present
-behaviour, and `check_rollback_mutators_run_in_sim.py` keeps naming both
-writers. They are the record that says what to re-measure if netplay is ever
-scheduled — not a deferral with a target, a closed row with a re-arm condition.
+✅ **FIXED 2026-09-28 — a LOCAL ingress, not the input payload.** The row's
+premise was that only the GGRS input payload can carry a menu press into the
+timeline. That is true for an intent two peers must agree on, and the cutscene
+dismiss and skip now ride `ControlFrame` for that reason. A menu press on this
+host needs less: it must reach every simulation of ONE tick on this host.
+`HostIntentLedger<M>` (`crates/ambition_platformer2d_actor_monolith/src/session/host_intents.rs`)
+is `NarrativeInputLedger`'s shape for the host. The writer stamps the next
+`SimTick` and the live session scope. `release_host_intents` writes the message
+at the head of the simulation on that tick, in the first pass and in every
+resimulation. The prune runs in `Update`, outside the rewind.
+- New Game: the menu writes `NewGameRequested`; `arm_new_game_reset` sets
+  `NewGameResetRequested` inside the simulation.
+- Health/Mana Cell: the menu writes `ItemUseRequested`; `apply_item_uses`
+  spends the cell and raises the heal in `FeatureCollection`, before
+  `apply_player_heal_requests`. ⛔ In `GameplayEffects` it failed the sync
+  test at the stamped ticks: that phase runs after the heal apply, so the heal
+  waited a tick and a rewind to that tick cleared it.
+- The menu bundle holds no rollback `ResMut` now, so the five waivers and two
+  acknowledged writers in `check_rollback_mutators_run_in_sim.py` are gone, and
+  `NewGameResetRequested` left the multi-writer and host-ingress censuses.
+- Witnesses, inverted from the defect:
+  `a_new_game_asked_for_by_the_host_commits_once_under_a_rewind` (1 commit
+  against the in-sim control's 1) and
+  `a_health_cell_used_from_the_menu_heals_once_and_spends_one_cell` (heal
+  exactly once, one cell spent, `rollback_health()` clean).
+- Schema 258 → 259 (two message clears).
 
 ### GUARD-CORPUS / ORPHAN-ARMS — CLOSED 2026-09-16
 

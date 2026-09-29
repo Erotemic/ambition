@@ -2861,43 +2861,19 @@ fn step_past_hydration(sim: &mut Platformer2dSimHarness) {
     );
 }
 
-/// ⛔⛤ **A NEW GAME ASKED FOR FROM OUTSIDE THE SIMULATION IS SILENTLY SWALLOWED,
-/// AND THE SHIPPED MENU IS OUTSIDE THE SIMULATION — MEASURED 2026-09-16.**
+/// ⭐ A NEW GAME ASKED FOR BY THE HOST COMMITS EXACTLY ONCE UNDER A REWIND.
 ///
-/// `NewGameResetRequested` is `resource-canonical` in
-/// `rollback_schema_baseline.txt`: snapshotted, restored, and in the peer
-/// checksum. `dispatch_menu_action` sets it through `ResMut` from top-level
-/// `Update` (`request_reset`, `game/ambition_app/src/menu/kaleidoscope_app.rs`),
-/// and `process_new_game_reset_request` consumes it from INSIDE the rewinding
-/// schedule. So the flag is restored to its snapshot value before the consumer
-/// ever sees it:
+/// `NewGameResetRequested` is rollback state, so a menu that set it from
+/// `Update` had its write restored away by the next rewind: measured
+/// 2026-09-16, 0 commits against the in-sim control's 1. The menu now writes a
+/// `NewGameRequested` host intent (`HostIntentWriter`); the ledger releases it
+/// on its stamped tick, first pass and every resimulation alike, and
+/// `arm_new_game_reset` sets the latch inside the simulation.
 ///
-/// ```text
-/// asked from INSIDE the sim schedule    1 commit
-/// asked from OUTSIDE it (the menu)      0 commits, and the flag reads false again
-/// ```
-///
-/// ⇒ **Pressing New Game does nothing under a rollback host, and leaves no
-/// trace.** `false` afterwards is what makes it silent: the flag looks consumed
-/// whether the reset ran or the restore ate the request.
-///
-/// ⭐ THE IN-SIM ARM IS THE CONTROL AND IT IS WHY THIS IS NOT A FIXTURE FAULT.
-/// `process_new_game_reset_request` has several *"DECLINE, do not die"* roads and
-/// clears the flag BEFORE them, so "0 commits, flag false" is exactly what a
-/// declining reset would also print. The two arms differ only in WHERE the
-/// request is written, so a decline would take both to zero.
-///
-/// ⚠ **THE REPAIR IS A SEMANTIC REQUEST, NOT A LOUDER FLAG.** The menu should
-/// write a message the simulation consumes — the road `ItemGrantRequested` and
-/// `ShopTransactionRequested` already take — so the press survives as an intent
-/// rather than as rollback-owned state written from outside the timeline. Do not
-/// "fix" it by removing `NewGameResetRequested` from the peer checksum: the
-/// restore is installed independently of the checksum
-/// (`install_resource_clone_checksum`), so narrowing what peers compare leaves
-/// the swallow untouched.
+/// The in-sim arm is the control: a fixture that cannot reset at all would
+/// print 0 for both.
 #[test]
-fn a_new_game_asked_for_from_outside_the_simulation_is_swallowed() {
-    // CONTROL: the same request, written from inside the timeline.
+fn a_new_game_asked_for_by_the_host_commits_once_under_a_rewind() {
     let mut inside = sim_recording_new_game_commits(true);
     step_past_hydration(&mut inside);
     for _ in 0..200 {
@@ -2907,52 +2883,34 @@ fn a_new_game_asked_for_from_outside_the_simulation_is_swallowed() {
     assert_eq!(
         inside_commits.len(),
         1,
-        "the in-sim control did not commit exactly one New Game (ticks {inside_commits:?}). \
-         0 means this fixture cannot perform a reset at all — every number below \
-         would then be measuring the fixture, not the road. More than 1 means the \
-         consumption itself is being replayed, which is a different defect in the \
-         same place"
+        "the in-sim control did not commit exactly one New Game (ticks {inside_commits:?}), \
+         so this fixture cannot measure the host road"
     );
 
-    // THE MENU'S ROAD: a `ResMut` write from outside the simulation schedule.
+    // THE MENU'S ROAD: a host intent written from outside the simulation.
     let mut outside = sim_recording_new_game_commits(false);
     step_past_hydration(&mut outside);
     for _ in 0..20 {
         outside.step(AgentAction::default());
     }
-    outside
-        .world_mut()
-        .resource_mut::<ambition_platformer2d::actors::session::reset::NewGameResetRequested>()
-        .request();
-    assert!(
-        outside
-            .world()
-            .resource::<ambition_platformer2d::actors::session::reset::NewGameResetRequested>()
-            .request,
-        "the request did not even land in the resource, so the arm below is not \
-         measuring what happens to a request"
+    ambition_platformer2d::actors::session::host_intents::write_host_intent(
+        outside.world_mut(),
+        ambition_platformer2d::actors::session::reset::NewGameRequested,
     );
     for _ in 0..200 {
         outside.step(AgentAction::default());
     }
+    // ⚠ No `rollback_health()` here: the in-sim control fails the sync-test
+    // checksum at its reset tick too (NEW-GAME-RESYNC in the queue), so a
+    // mismatch on this road says nothing about the ingress.
     let outside_commits = outside.world().resource::<ResetCommits>().0.clone();
-
     assert_eq!(
         outside_commits.len(),
-        0,
-        "a New Game asked for from outside the simulation now commits \
-         ({outside_commits:?}) — that is the FIX this arm is waiting for, not a \
-         regression. Invert it: both arms should read 1, and the menu should be \
-         writing a semantic request the simulation consumes"
-    );
-    assert!(
-        !outside
-            .world()
-            .resource::<ambition_platformer2d::actors::session::reset::NewGameResetRequested>()
-            .request,
-        "the request is still standing, so it was not swallowed but merely \
-         delayed — which would be a different (and much less bad) defect than \
-         the one this arm records"
+        1,
+        "a New Game written as a host intent committed {} time(s) (ticks \
+         {outside_commits:?}). 0: the rewind erased it again. More than 1: the \
+         release is not an edge and a replayed tick armed a second reset",
+        outside_commits.len(),
     );
 }
 
@@ -3352,67 +3310,21 @@ fn damage_the_player_and_reassert_local_maintainer(
     });
 }
 
-/// ⛔⛤ **A HEAL REQUESTED OUTSIDE THE SIMULATION IS LOST, AND THE SHIPPED
-/// PRODUCER IS OUTSIDE THE SIMULATION — MEASURED 2026-09-18, [Q136].**
+/// ⭐ A HEALTH CELL USED FROM THE MENU HEALS ONCE AND SPENDS ONE CELL, ACROSS
+/// A REWIND.
 ///
-/// `PlayerHealRequested` declares `clear_message_on_rollback`
-/// (`crates/ambition_platformer2d_actor_monolith/src/rollback_registration.rs:630`),
-/// which adds `clear_message_channel::<PlayerHealRequested>` to `LoadWorld` —
-/// every rewind empties the channel.
+/// The menu used to take the cell out of `OwnedItems` and write
+/// `PlayerHealRequested` from `Update`. Measured 2026-09-18: the heal landed
+/// for about two frames and GGRS's first correction revoked it, because the
+/// rewind restored `BodyHealth` and nothing raised the heal again. The menu now
+/// writes one `ItemUseRequested` host intent, and `apply_item_uses` spends the
+/// cell and raises the heal on the stamped tick, in the first pass and in every
+/// resimulation.
 ///
-/// ⛔⛤ **BUT THAT IS NOT WHY THIS ARM IS RED-SHAPED, AND SAYING IT WAS COST A
-/// POISON TO FIND OUT.** Removing that registration on 2026-09-18 changed this
-/// arm's outcome not at all — the poison was verified applied, announcing
-/// itself four times in the test binary. Two other candidates survive: the
-/// reader's `Local<MessageCursor<PlayerHealRequested>>`, which no rewind
-/// restores because `MessageReader` IS a `Local`, and bevy's own double-buffer
-/// expiry, which drops a message after two frames on its own — and the
-/// transient below lasts about two frames. ⇒ Whoever designs the ingress road
-/// has to separate those three first; this arm holds the SYMPTOM, and the
-/// symptom is all it holds.
-///
-/// The shipped producer,
-/// `kaleidoscope_menu_action_activated`
-/// (`game/ambition_app/src/menu/kaleidoscope_app.rs`), writes it from `Update`;
-/// the only reader, `apply_player_heal_requests`
-/// (`crates/ambition_platformer2d_actor_monolith/src/avatar/systems.rs`), reads
-/// it from inside the sim schedule. Same shape as [Q136]'s cutscene-dismiss and
-/// item-grant findings: a host-raised intent, spent on a speculative frame, that
-/// nothing re-produces after the rewind restores `BodyHealth` but not the
-/// already-drained channel.
-///
-/// ```text
-/// requested from INSIDE the sim schedule    health +10, holds
-/// requested from OUTSIDE it (the menu)      health +10 for 2 frames, then reverted
-/// ```
-///
-/// ⚠ **NOT A FLAT ZERO — A TRANSIENT ONE, MEASURED FRAME BY FRAME.** Under the
-/// `LocalMaintainer`-owned session `check_distance` gives the write a couple of
-/// frames before GGRS's first correction: the heal is visible immediately (the
-/// write lands in the live `Events` buffer before any `LoadWorld`), then the
-/// first rollback restores `BodyHealth` from the last confirmed frame — which
-/// predates the heal — and resimulates forward with the channel already
-/// cleared, so nothing re-applies it. The end state matches the cutscene/
-/// item-grant findings; the transient rise in between does not, and that is why
-/// this arm samples every frame rather than only the endpoints.
-///
-/// ⭐ THE IN-SIM ARM IS THE CONTROL. A fixture that cannot heal the player at
-/// all — no `apply_player_heal_requests` in this composition, no primary player
-/// yet — would print the same flat number, and the assertion on the control arm
-/// below is what tells the two apart.
-///
-/// ⛔⛤ **HEALTH BEFORE THE RAISE, BECAUSE A DIVERGED BASELINE ANSWERS THIS ARM'S
-/// QUESTION WITH THE WRONG WORD.** `mechanical_mutation_boundary` maps a
-/// recorded divergence to `Unhealthy`; a fixture whose rollback history was
-/// never rebased after `damage_the_player_so_a_heal_would_be_visible`'s direct
-/// write would print an unchanged health for a reason that has nothing to do
-/// with this arm's subject, and the failure message below would send the next
-/// reader after the wrong defect.
-///
-/// [Q136]: ../../../docs/planning/awaiting-maintainer-decision.md
+/// The in-sim arm is the control for the heal itself: a composition that
+/// cannot heal would fail both arms.
 #[test]
-fn a_player_heal_requested_outside_the_simulation_is_lost() {
-    // CONTROL: the same message, written from inside the timeline.
+fn a_health_cell_used_from_the_menu_heals_once_and_spends_one_cell() {
     let mut inside = sim_healing_the_player(true);
     damage_the_player_so_a_heal_would_be_visible(&mut inside);
     let inside_before = player_health(&mut inside);
@@ -3423,62 +3335,44 @@ fn a_player_heal_requested_outside_the_simulation_is_lost() {
         player_health(&mut inside),
         inside_before + PLAYER_HEAL_AMOUNT,
         "the in-sim control did not heal the player, so `apply_player_heal_requests` \
-         is either absent from this composition or never reached — every number \
-         below would then be measuring the fixture rather than the road"
+         is not reached in this composition"
     );
 
-    // THE MENU'S POSITION: a producer outside the rewinding schedule, on a
-    // timeline this host owns (per YardratAmbition's guidance: the
-    // maintainer-owned fixture, not the caller-owned default, is what the
-    // shipped game's mechanical-edit admission actually runs under).
+    // THE MENU'S POSITION, on a timeline this host owns. The starter bag holds
+    // the cells.
     let mut outside = crate::common::maintainer_owned_rollback_sim(40);
     damage_the_player_and_reassert_local_maintainer(&mut outside);
     let before = player_health(&mut outside);
-    outside.world_mut().write_message(
-        ambition_platformer2d::actors::avatar::PlayerHealRequested::new(PLAYER_HEAL_AMOUNT),
+    let cells = |sim: &Platformer2dSimHarness| {
+        sim.world()
+            .resource::<ambition_platformer2d::items::OwnedItems>()
+            .count(ambition_platformer2d::items::Item::HealthCell)
+    };
+    let cells_before = cells(&outside);
+    assert!(cells_before >= 1, "the starter bag holds no Health Cell to use");
+    ambition_platformer2d::actors::session::host_intents::write_host_intent(
+        outside.world_mut(),
+        ambition_platformer2d::items::ItemUseRequested {
+            item: ambition_platformer2d::items::Item::HealthCell,
+        },
     );
-
-    // ⛔⛤ SAMPLED EVERY FRAME, AND THE SAMPLE IS AN ASSERTION RATHER THAN A
-    // PRINTOUT. Under this `LocalMaintainer`-owned session the loss is NOT a
-    // flat zero: the write lands in the live `Events` buffer for a couple of
-    // frames before GGRS's first correction, then the rollback restores
-    // `BodyHealth` from the last confirmed (pre-heal) frame and resimulates
-    // with the channel already cleared, so the transient gain never returns.
-    // ⇒ That transient is what separates THIS defect from a fixture that could
-    // not heal at all, and both end at `before`. Different shape from the flat
-    // zero
-    // `a_rollback_cleared_message_written_from_outside_the_simulation_is_also_lost`
-    // measures for `ItemGrantRequested` on the caller-owned fixture — a
-    // different ownership mode's timing, not a different message.
-    let mut ever_rose = false;
     for _ in 0..200 {
         outside.step(AgentAction::default());
-        if player_health(&mut outside) > before {
-            ever_rose = true;
-        }
     }
-    assert!(
-        ever_rose,
-        "the heal never reached the world at all, so this arm is not measuring a \
-         REVOKED heal — it is measuring a composition that cannot heal. Suspect \
-         `apply_player_heal_requests` missing from the maintainer-owned fixture, or \
-         a `write_message` that the first `LoadWorld` drained before any reader ran"
-    );
-    // ⛔⛤ **THIS ASSERTS THE SHIPPED BEHAVIOUR AND FIRES WHEN THE DEFECT IS
-    // FIXED**, which is the convention its two siblings in this file already
-    // use. My first draft asserted the DESIRED outcome and stood red on
-    // purpose, on my guidance — and a permanently red arm is not a witness:
-    // it makes the suite red for every other session and for CI, so the next
-    // reader learns to scroll past exactly the line that carries the finding.
-    // The assertion above is what keeps this one honest.
+    outside.rollback_health().unwrap_or_else(|error| {
+        panic!("the timeline diverged across the menu's item use: {error}")
+    });
     assert_eq!(
         player_health(&mut outside),
-        before,
-        "a heal requested from outside the simulation now SURVIVES the rewind — \
-         that is the FIX this arm is waiting for, not a regression. Invert it to \
-         `before + PLAYER_HEAL_AMOUNT`, drop the transient assertion above (a \
-         heal that holds never needs to have risen transiently), and record in \
-         [Q136] which ingress road reached this message"
+        before + ambition_platformer2d::actors::items::narrative::HEALTH_CELL_HEAL,
+        "a Health Cell used from the menu did not heal exactly once. Equal to \
+         `before`: the rewind revoked it again. Twice the heal: a replayed tick \
+         spent the intent a second time"
+    );
+    assert_eq!(
+        cells(&outside),
+        cells_before - 1,
+        "the bag and the heal disagree: one use must spend exactly one cell"
     );
 }
 

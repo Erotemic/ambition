@@ -1342,6 +1342,10 @@ impl bevy::prelude::Plugin for FeatureCollectionSchedulePlugin {
                 // Pull nearby loot toward the player, then collect on overlap.
                 magnetize_pickups.in_set(PickupMagnetize),
                 collect_ecs_pickups.in_set(PickupCollect),
+                // Before the heal apply, in the same tick: a heal it raises
+                // must not wait for the next tick, because a rewind to that
+                // tick clears the message and the resimulation loses the heal.
+                crate::items::narrative::apply_item_uses,
                 crate::avatar::apply_player_heal_requests,
                 // Beside the heal apply because it is the same kind of thing: a
                 // METER MUTATOR on the controlled subject, scaled by sim dt.
@@ -1413,6 +1417,8 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
             ambition_conversation::NarrativeInputPlugin::<crate::features::ReleaseProvocation>::default(),
             ambition_conversation::NarrativeInputPlugin::<ambition_items::ItemGrantRequested>::default(),
             ambition_conversation::NarrativeInputPlugin::<ambition_items::shop::ShopTransactionRequested>::default(),
+            // A menu uses a consumable through the host-intent ledger.
+            crate::session::host_intents::HostIntentPlugin::<ambition_items::ItemUseRequested>::default(),
         ));
 
         // THE ORDER, SAID OUT LOUD. Every reason each boundary exists is

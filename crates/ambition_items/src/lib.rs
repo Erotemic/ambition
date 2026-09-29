@@ -583,6 +583,16 @@ pub struct ItemGrantRequested {
     pub count: u32,
 }
 
+/// Simulation-side request to use one of an owned consumable.
+///
+/// A menu asks for this; the simulation spends the item and applies its
+/// effect on the same tick, so a rewind across the use cannot refund the item
+/// or revoke the effect.
+#[derive(bevy::prelude::Message, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ItemUseRequested {
+    pub item: Item,
+}
+
 impl OwnedItems {
     /// How many of `item` the bag stores. The hand is NOT counted here — see
     /// [`Inventory`] for the reader that wants both.

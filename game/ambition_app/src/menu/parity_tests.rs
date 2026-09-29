@@ -508,7 +508,6 @@ mod dispatch_parity {
     };
     use crate::menu::model::{MenuPage, MenuPageAction};
     use crate::menu::test_support::{spawn_control, trigger_press, trigger_release};
-    use ambition_platformer2d::actors::avatar::PlayerHealRequested;
     use ambition_platformer2d::characters::brain::ActionSet;
     use ambition_platformer2d::input::MenuControlFrame;
     use ambition_platformer2d::inventory_ui::InventoryUiState;
@@ -538,14 +537,14 @@ mod dispatch_parity {
         app.init_resource::<ambition_platformer2d::dev_tools::dev_tools::DeveloperTools>();
         app.init_resource::<ambition_platformer2d::dev_tools::DeveloperRuntimeState>();
         app.init_resource::<ambition_platformer2d::dev_tools::WorldSourceHotReload>();
-        app.init_resource::<ambition_platformer2d::actors::session::reset::NewGameResetRequested>();
-        app.init_resource::<ambition_platformer2d::dev_tools::dev_tools::EditableMovementTuning>();
+                app.init_resource::<ambition_platformer2d::dev_tools::dev_tools::EditableMovementTuning>();
         app.init_resource::<UserSettings>();
         app.init_resource::<InventoryUiState>();
         app.init_resource::<ambition_platformer2d::menu::map::MapMenuState>();
         app.init_resource::<MenuControlFrame>();
         app.init_resource::<ambition_platformer2d::input::SeatActiveDevices>();
-        app.add_message::<PlayerHealRequested>();
+        app.init_resource::<ambition_platformer2d::actors::session::host_intents::HostIntentLedger<ambition_platformer2d::items::ItemUseRequested>>();
+    app.init_resource::<ambition_platformer2d::actors::session::host_intents::HostIntentLedger<ambition_platformer2d::actors::session::reset::NewGameRequested>>();
         app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
         app.add_message::<bevy::app::AppExit>();
         // both backends now dispatch from the SAME message, which is what

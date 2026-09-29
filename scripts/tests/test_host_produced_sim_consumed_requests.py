@@ -741,7 +741,7 @@ def test_a_message_channel_inside_a_bundle_reaches_the_population():
     it.
 
     ⚠ THE WRITE SIDE IS AN UPPER BOUND AND THE ROW SAYS SO. Possession is not
-    use: `grid_menu_nav` takes `MenuDispatchParams` and never writes the heal.
+    use: a menu system once took a dispatch bundle and never wrote its heal.
     The type is admitted so the population is right, the name is kept so
     detection stays conservative, and the printed row labels it — see
     `held_writer`.
@@ -762,11 +762,10 @@ def test_a_message_channel_inside_a_bundle_reaches_the_population():
     ):
         assert ty in sides, f"{ty} is written only through a bundle field and left again"
 
-    # Possession is labelled, a real write is not.
-    assert guard.held_writer("PlayerHealRequested", "grid_menu_nav")
-    assert not guard.held_writer(
-        "PlayerHealRequested", "kaleidoscope_menu_action_activated"
-    )
+    # A claim through a bundle field is labelled, a writer in the system's own
+    # parameters is not.
+    assert guard.held_writer("HitEvent", "integrate_sim_bodies")
+    assert not guard.held_writer("HitEvent", "apply_actor_contact_damage")
 
 
 def test_a_sim_schedule_bound_to_an_unusual_name_is_still_the_sim_schedule():

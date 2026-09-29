@@ -31,7 +31,7 @@ use ambition_menu_kaleidoscope::{
 use bevy::prelude::*;
 
 #[cfg(feature = "kaleidoscope_menu")]
-use crate::menu::effects::{MenuEffectManaQuery, MenuEffectPlayers, PrimaryHand};
+use crate::menu::effects::{MenuEffectPlayers, MenuItemUses, PrimaryHand};
 #[cfg(feature = "kaleidoscope_menu")]
 use crate::menu::model::{
     build_inventory_pages_with_quality_prompt, scroll_fraction_to_window_start,
@@ -44,7 +44,6 @@ use crate::menu::model::{
 };
 use crate::menu::quality_confirm::VisualQualityConfirmState;
 #[cfg(feature = "kaleidoscope_menu")]
-use ambition_platformer2d::actors::avatar::PlayerHealRequested;
 use ambition_platformer2d::engine_core::Vec2;
 use ambition_platformer2d::input::MenuControlFrame;
 use ambition_platformer2d::items::{Item, OwnedItems, ITEM_GRID_COLS, ITEM_GRID_ROWS};
@@ -569,13 +568,13 @@ pub(crate) struct KaleidoscopeScroll {
 /// All the live resources the broadened SYSTEM screens need to READ a snapshot
 /// and APPLY a selection, bundled into one [`SystemParam`] so the cube nav system
 /// / pointer observer stay within Bevy's 16-param ceiling. The radio resources are
-/// `audio`-gated; `DeveloperTools` + `NewGameResetRequested` are always present
-/// (inserted at startup), so accessing them never panics. Held mutably here; the
+/// `audio`-gated; `DeveloperTools` and the New Game intent ledger are always
+/// present (inserted at startup), so accessing them never panics. Held mutably here; the
 /// two consumers (`kaleidoscope_focus_nav`, `kaleidoscope_pointer_release`) are separate systems so
 /// there is no B0002 conflict, and `republish_kaleidoscope_pages` reads its own `Res`
 /// copies (`SystemMenuSnapshotParams`) in a third system.
 #[derive(bevy::ecs::system::SystemParam)]
-pub(crate) struct SystemMenuParams<'w> {
+pub(crate) struct SystemMenuParams<'w, 's> {
     dev_tools: ResMut<'w, ambition_platformer2d::dev_tools::dev_tools::DeveloperTools>,
     // The Developer screen also reaches global debug flags and LDtk auto-reload,
     // which live on these two resources (not `DeveloperTools`).
@@ -601,7 +600,13 @@ pub(crate) struct SystemMenuParams<'w> {
         Option<ResMut<'w, Messages<ambition_platformer2d::world::AmbientGravityRequest>>>,
     // Read-only, for the row's direction label.
     base_gravity: Option<Res<'w, ambition_platformer2d::world::BaseGravity>>,
-    reset: ResMut<'w, ambition_platformer2d::actors::session::reset::NewGameResetRequested>,
+    // New Game is a host intent: the simulation arms its reset on the tick
+    // the ledger stamps, so a rewind cannot erase the press.
+    reset: ambition_platformer2d::actors::session::host_intents::HostIntentWriter<
+        'w,
+        's,
+        ambition_platformer2d::actors::session::reset::NewGameRequested,
+    >,
     // Selecting a rebind row ARMS this; the capture system reads it.
     rebind_capture: ResMut<'w, RebindCapture>,
     // Movement tuning is derived from the active movement profile, so a
@@ -634,7 +639,7 @@ pub(crate) struct SystemMenuParams<'w> {
     audio_output: Option<Res<'w, ambition_platformer2d::audio::AudioOutputMode>>,
 }
 
-impl SystemMenuParams<'_> {
+impl SystemMenuParams<'_, '_> {
     /// The active inventory frontend. Read it from HERE (not a separate
     /// `Res<InventoryUiBackend>` param) in any system that also holds
     /// `SystemMenuParams` — this bundle owns the resource (mutably, for the
@@ -758,7 +763,8 @@ impl SystemMenuParams<'_> {
     }
 
     pub(crate) fn request_reset(&mut self) {
-        self.reset.request();
+        self.reset
+            .write(ambition_platformer2d::actors::session::reset::NewGameRequested);
     }
 
     /// Reset every persisted settings/dev resource back to defaults — the same
@@ -1158,14 +1164,13 @@ pub(crate) fn kaleidoscope_menu_action_activated(
     mut pages: ResMut<ActiveMenuPages<MenuPage, MenuPageAction>>,
     mut overlay: ResMut<ambition_platformer2d::inventory_ui::InventoryUiState>,
     mut mode_io: GameModeIo,
-    mut owned: ResMut<OwnedItems>,
+    owned: Res<OwnedItems>,
     hand: PrimaryHand,
     mut settings: ResMut<UserSettings>,
     mut quality_confirm: ResMut<VisualQualityConfirmState>,
     mut commands: Commands,
     mut players: MenuEffectPlayers,
-    mut mana_q: MenuEffectManaQuery,
-    mut heals: MessageWriter<PlayerHealRequested>,
+    mut uses: MenuItemUses,
     mut sfx: SfxWriter,
     mut system: SystemMenuParams,
 ) {
@@ -1182,15 +1187,14 @@ pub(crate) fn kaleidoscope_menu_action_activated(
             &mut pages,
             &mut system_nav,
             &mut cursor,
-            &mut owned,
+            &owned,
             &hand,
             &mut settings,
             &mut quality_confirm,
             &mut close_menu,
             &mut commands,
             &mut players,
-            &mut mana_q,
-            &mut heals,
+            &mut uses,
             &mut sfx,
             &mut system,
         );

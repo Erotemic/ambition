@@ -488,21 +488,12 @@ def consumers_and_producers(
 #: ⛔ A crossing here is NOT waived: every one of these is a live defect or a
 #: filed one. The table exists so a NEW crossing is loud.
 ADJUDICATED: dict[str, str] = {
-    "NewGameResetRequested": (
-        "⛔ LIVE DEFECT, Q136, AND BY THE OPPOSITE MECHANISM. IS "
-        "rollback-registered, so the rewind restores it to `false` and ERASES the "
-        "menu's write. Produced from `Update` by TWO registered systems — "
-        "`grid_menu_action_activated` and `kaleidoscope_menu_action_activated` — "
-        "and spent by `process_new_game_reset_request` in the sim. ⚠ This said "
-        "\"seven kaleidoscope systems through a `SystemParam` bundle\" until "
-        "2026-09-18, which was an artefact of this script reducing a bundle to "
-        "the set of types it holds: most of those systems merely POSSESS "
-        "`SystemMenuParams`. See `PRODUCER_BY_INSPECTION` for the four-hop road "
-        "no textual scan reaches. "
-
-        "New Game can be pressed successfully at the UI and vanish before the "
-        "simulation sees it (read 2026-09-18)"
-    ),
+    # ✅ `NewGameResetRequested` LEFT THIS TABLE ON 2026-09-28 BECAUSE THE CODE
+    # CHANGED. The menu writes a `NewGameRequested` host intent through
+    # `HostIntentWriter`; the simulation releases it on its stamped tick and
+    # `arm_new_game_reset` sets the latch inside the timeline. Held by
+    # `a_new_game_asked_for_by_the_host_commits_once_under_a_rewind` and
+    # `a_health_cell_used_from_the_menu_heals_once_and_spends_one_cell`.
     # ✅ `SpawnPlayerCloneRequest` IS GONE FROM THIS TABLE FOR THE SECOND REASON,
     # and the sentence here used to give the first. It was adjudicated on
     # 2026-09-18 as FIXED — the spend moved to `MechanicalEditSet::Publish`
@@ -550,23 +541,8 @@ FLOORS = {
 #: caught it. A census whose completeness depends on nobody improving its
 #: precision is not a census.
 PRODUCER_BY_INSPECTION: dict[str, tuple[tuple[str, ...], str]] = {
-    "NewGameResetRequested": (
-        ("grid_menu_action_activated", "kaleidoscope_menu_action_activated"),
-        "FOUR HOPS FROM THE SIGNATURE, AND THE COUNT WAS WRONG UNTIL MEASURED. "
-        "This entry said \"seven kaleidoscope systems through a `SystemParam` "
-        "bundle\" until 2026-09-18; a review pointed out that most of those "
-        "systems merely POSSESS `SystemMenuParams` and produce nothing, which "
-        "was an artefact of reducing a bundle to the set of types it holds. "
-        "Read at source, the road is: the two registered `Update` systems above "
-        "→ `dispatch_menu_action` (a multi-argument free function, so no "
-        "single-argument helper inlining reaches it) → "
-        "`SystemMenuParams::request_reset` "
-        "(`game/ambition_app/src/menu/kaleidoscope_app.rs:760-762`) → "
-        "`NewGameResetRequested::request` "
-        "(`crates/ambition_platformer2d_actor_monolith/src/session/reset/mod.rs:266-268`), "
-        "which is the only production `self.request = true` in the tree. "
-        "Nothing in the system signature or body names the type.",
-    ),
+    # Empty since 2026-09-28: its one entry (`NewGameResetRequested`) left when
+    # the menu stopped writing the latch. See `ADJUDICATED`.
 }
 
 
@@ -951,6 +927,12 @@ def message_crossings(repo: Path = REPO) -> dict[str, tuple[list[str], list[str]
 #: ⭐ TWO OF THE FOUR ARE BENIGN, AND THEY ARE THE USEFUL PART — each shows a
 #: general escape this question can choose rather than an accident.
 MESSAGE_ADJUDICATED: dict[str, str] = {
+    # ✅ `PlayerHealRequested` LEFT THIS TABLE ON 2026-09-28 BECAUSE THE CODE
+    # CHANGED. The menu writes an `ItemUseRequested` host intent; the
+    # simulation spends the cell and raises the heal on the stamped tick
+    # (`apply_item_uses`). Held by
+    # `a_new_game_asked_for_by_the_host_commits_once_under_a_rewind` and
+    # `a_health_cell_used_from_the_menu_heals_once_and_spends_one_cell`.
     "AmbientGravityRequest": (
         "⛔ LIVE, AND THE SAME MECHANISM AS THE CLONE. `cycle_dev_gravity` "
         "(`game/ambition_app/src/menu/kaleidoscope_app.rs:2054`) reads "
@@ -974,33 +956,6 @@ MESSAGE_ADJUDICATED: dict[str, str] = {
         "uses moves `BaseGravity` not once: `apply_ambient_gravity_requests` is "
         "not reached there, so a flat zero from it would have meant only \"no "
         "reader here\" (read 2026-09-18, witnessed 2026-09-18)"
-    ),
-    "PlayerHealRequested": (
-        "⛔ LIVE, PLAYER-VISIBLE, AND WITNESSED. Raised by "
-        "`kaleidoscope_menu_action_activated`, which is also one of the two real "
-        "`NewGameResetRequested` producers — the menu has two lost-intent roads. "
-        "Held by `a_player_heal_requested_outside_the_simulation_is_lost` "
-        "(`game/ambition_app/tests/a_bag_changed_mid_window_reaches_the_save.rs`) "
-        "with an in-sim control that heals and holds. ⚠ AND THE LOSS IS NOT A "
-        "FLAT ZERO LIKE THE ITEM GRANT'S: on a LocalMaintainer-owned timeline "
-        "the heal LANDS, is visible for about two frames, and is then revoked "
-        "by GGRS's first correction — the write reaches the live `Events` buffer "
-        "before any `LoadWorld`, then the rollback restores `BodyHealth` from a "
-        "pre-heal confirmed frame and resimulates with the channel already "
-        "cleared. The arm asserts BOTH ends, because a composition that could "
-        "not heal at all would print the same final number. "
-        "⛤ AND THE MECHANISM IS THE READER'S CURSOR, NOT THE CHANNEL CLEAR. "
-        "Removing `clear_message_on_rollback::<PlayerHealRequested>` changed the "
-        "outcome NOT AT ALL (poison verified applied — it announced itself four "
-        "times in the test binary). `Messages::clear` leaves `message_count` "
-        "MONOTONIC (`bevy_ecs` 0.19.1 `message/messages.rs:228-232`) and a "
-        "cursor's unread count is `message_count - last_message_count` "
-        "(`message_cursor.rs:120-129`), so a reader that consumed the message on "
-        "the speculative frame reads zero on every resimulated frame whether or "
-        "not the channel was emptied. ⇒ The clear is redundant here, and the same "
-        "arithmetic is why a SIM-raised message survives: the resimulation "
-        "re-raises it and bumps the count past the cursor "
-        "(read 2026-09-18, witnessed 2026-09-18, mechanism read 2026-09-18)"
     ),
     "ResetToCheckpoint": (
         "✅ BENIGN, OUTSIDE THE TIMELINE — BY AN ORDERING THE ROLLBACK LAYER "

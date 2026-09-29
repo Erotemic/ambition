@@ -238,9 +238,12 @@ pub struct ResetPlayState<'w, 's> {
         Option<Res<'w, ambition_characters::actor::character_catalog::BrainProfileRegistry>>,
 }
 
-/// Cross-system trigger for "wipe the save and rebuild the runtime."
-/// Set `request = true` from anywhere; the next
-/// `process_new_game_reset_request` tick consumes it.
+/// The simulation's latch for "wipe the save and rebuild the runtime."
+///
+/// Set inside the simulation only: by [`arm_new_game_reset`] from a
+/// [`NewGameRequested`] intent, or by a simulation system. It is rollback
+/// state, so a write from outside the simulation is erased by the next rewind.
+/// The next `process_new_game_reset_request` tick consumes it.
 #[derive(Resource, Clone, Default, Debug)]
 pub struct NewGameResetRequested {
     pub request: bool,
@@ -249,6 +252,23 @@ pub struct NewGameResetRequested {
 impl NewGameResetRequested {
     pub fn request(&mut self) {
         self.request = true;
+    }
+}
+
+/// A host asks for a New Game. (host intent)
+///
+/// A menu writes this through `HostIntentWriter`, and the simulation arms
+/// [`NewGameResetRequested`] on the stamped tick.
+#[derive(bevy::prelude::Message, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct NewGameRequested;
+
+/// Arm the reset latch from a host's New Game intent. (sim)
+pub fn arm_new_game_reset(
+    mut intents: MessageReader<NewGameRequested>,
+    mut request: ResMut<NewGameResetRequested>,
+) {
+    if intents.read().count() > 0 {
+        request.request();
     }
 }
 
@@ -700,6 +720,7 @@ impl Plugin for NewGameResetPlugin {
         app.add_message::<ambition_platformer2d_world::rooms::RespawnRoomVisualsRequested>();
         app.add_message::<RoomReplayRequested>();
         app.add_message::<NewGameResetCommitted>();
+        app.add_plugins(crate::session::host_intents::HostIntentPlugin::<NewGameRequested>::default());
         app.add_systems(
             sim,
             // PREFLIGHT FIRST. The processor is the only system that may decline
@@ -707,6 +728,7 @@ impl Plugin for NewGameResetPlugin {
             // transient clear waits for `NewGameResetCommitted` and therefore
             // never runs for a reset that was refused.
             (
+                arm_new_game_reset,
                 process_new_game_reset_request.in_set(NewGameResetDecided),
                 clear_transient_on_sandbox_reset,
             )

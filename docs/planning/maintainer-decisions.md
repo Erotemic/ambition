@@ -148,8 +148,17 @@ script fails if the two disagree. They moved here from
 `awaiting-maintainer-decision.md` when `Q136` was ruled and deleted — a marker
 pinned to a page that no longer states the fact is a check against nothing.
 
-<!-- crossing-census: both_side_resources=55 rollback_registered=34 adjudicated_harmless=18 session_edge_only=3 filed=0 unclassified=0 -->
-<!-- ingress-census: spent_resources=55 resource_crossings=2 written_messages=95 message_crossings=3 unlocated=43 unlocated_types=15 -->
+<!-- crossing-census: both_side_resources=54 rollback_registered=33 adjudicated_harmless=18 session_edge_only=3 filed=0 unclassified=0 -->
+<!-- ingress-census: spent_resources=55 resource_crossings=1 written_messages=95 message_crossings=2 unlocated=43 unlocated_types=15 -->
+
+⛔ **`resource_crossings` WENT 2 → 1 AND `message_crossings` 3 → 2 LATER ON
+2026-09-28, AND THE TWO THAT LEFT ARE NAMED:** `NewGameResetRequested` and
+`PlayerHealRequested`. The menu writes `NewGameRequested` and
+`ItemUseRequested` host intents (`HostIntentWriter`); the simulation releases
+each on its stamped tick, arms the reset and spends the consumable. The
+crossing census moved with them: `both_side_resources` 55 → 54 and
+`rollback_registered` 34 → 33 (`NewGameResetRequested` is written inside the
+timeline only).
 
 ⛔ **`resource_crossings` WENT 3 → 2 AND `spent_resources` 56 → 55 ON
 2026-09-28, AND THE ONE THAT LEFT IS NAMED:** `CutsceneAdvanceRequest`. The

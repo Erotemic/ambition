@@ -17,4 +17,8 @@ where
         OWNER,
         "message.shop_transaction_requested",
     );
+    registrar.clear_message_on_rollback::<crate::ItemUseRequested>(
+        OWNER,
+        "message.item_use_requested",
+    );
 }

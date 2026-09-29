@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v258
+ggrs-rollback-schema-v259
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -341,10 +341,12 @@ message.gameplay_banner_requested	message-clear	GameplayBannerRequested	clear ab
 message.gameplay_sfx_requested	message-clear	GameplaySfxRequested	clear abandoned-future message buffer in LoadWorld::Mapping
 message.hit_event	message-clear	HitEvent	clear abandoned-future message buffer in LoadWorld::Mapping
 message.item_grant_requested	message-clear	ItemGrantRequested	clear abandoned-future message buffer in LoadWorld::Mapping
+message.item_use_requested	message-clear	ItemUseRequested	clear abandoned-future message buffer in LoadWorld::Mapping
 message.knockout_beat	message-clear	KnockoutBeatRequested	clear abandoned-future message buffer in LoadWorld::Mapping
 message.landed_body_hit	message-clear	LandedBodyHit	clear abandoned-future message buffer in LoadWorld::Mapping
 message.mount_died	message-clear	MountDied	clear abandoned-future message buffer in LoadWorld::Mapping
 message.move_event	message-clear	MoveEventMessage	clear abandoned-future message buffer in LoadWorld::Mapping
+message.new_game_requested	message-clear	NewGameRequested	clear abandoned-future message buffer in LoadWorld::Mapping
 message.npc_provocation_changed	message-clear	NpcProvocationChanged	clear abandoned-future message buffer in LoadWorld::Mapping
 message.on_hit_effect	message-clear	OnHitEffectMessage	clear abandoned-future message buffer in LoadWorld::Mapping
 message.owned_sfx	message-clear	OwnedSfxMessage	clear abandoned-future message buffer in LoadWorld::Mapping

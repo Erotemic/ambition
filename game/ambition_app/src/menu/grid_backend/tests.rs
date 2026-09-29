@@ -44,8 +44,7 @@ fn grid_app() -> App {
     app.init_resource::<ambition_platformer2d::dev_tools::dev_tools::DeveloperTools>();
     app.init_resource::<ambition_platformer2d::dev_tools::DeveloperRuntimeState>();
     app.init_resource::<ambition_platformer2d::dev_tools::WorldSourceHotReload>();
-    app.init_resource::<ambition_platformer2d::actors::session::reset::NewGameResetRequested>();
-    app.init_resource::<ambition_platformer2d::dev_tools::dev_tools::EditableMovementTuning>();
+        app.init_resource::<ambition_platformer2d::dev_tools::dev_tools::EditableMovementTuning>();
     app.init_resource::<UserSettings>();
     app.init_resource::<ambition_platformer2d::inventory_ui::InventoryUiState>();
     app.init_resource::<ambition_platformer2d::menu::map::MapMenuState>();
@@ -53,7 +52,8 @@ fn grid_app() -> App {
     app.init_resource::<GridMenuTabState>();
     app.init_resource::<crate::menu::kaleidoscope_app::RebindCapture>();
     app.init_resource::<ambition_platformer2d::input::SeatActiveDevices>();
-    app.add_message::<PlayerHealRequested>();
+    app.init_resource::<ambition_platformer2d::actors::session::host_intents::HostIntentLedger<ambition_platformer2d::items::ItemUseRequested>>();
+    app.init_resource::<ambition_platformer2d::actors::session::host_intents::HostIntentLedger<ambition_platformer2d::actors::session::reset::NewGameRequested>>();
     app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
     app.add_message::<bevy::app::AppExit>();
     app.add_observer(grid_menu_pointer_hover);

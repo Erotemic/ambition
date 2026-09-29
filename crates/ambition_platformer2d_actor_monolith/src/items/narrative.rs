@@ -58,6 +58,56 @@ pub fn apply_shop_transactions(
     }
 }
 
+/// How much one Health Cell heals.
+pub const HEALTH_CELL_HEAL: i32 = 4;
+/// How much Mana one Mana Cell restores.
+pub const MANA_CELL_RESTORE: f32 = 40.0;
+
+/// Use what a menu asked to use. (sim)
+///
+/// The item is spent and its effect applied on one tick, so the bag and the
+/// body cannot disagree after a rewind. A body that holds no Mana keeps its
+/// Mana Cell: there is nothing for the cell to restore.
+pub fn apply_item_uses(
+    mut requests: MessageReader<ambition_items::ItemUseRequested>,
+    mut owned: ResMut<OwnedItems>,
+    mut heals: MessageWriter<crate::avatar::PlayerHealRequested>,
+    mut banks: Query<
+        &mut ambition_platformer2d_core::resources::ActorResources,
+        (
+            With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
+            With<ambition_platformer2d_shared_tangle::markers::PrimaryPlayer>,
+        ),
+    >,
+) {
+    use ambition_items::Item;
+    for request in requests.read() {
+        match request.item {
+            Item::HealthCell => {
+                if owned.take(Item::HealthCell, 1) > 0 {
+                    heals.write(crate::avatar::PlayerHealRequested::new(HEALTH_CELL_HEAL));
+                }
+            }
+            Item::ManaCell => {
+                let Ok(mut bank) = banks.single_mut() else {
+                    continue;
+                };
+                if let Some(mana) = bank.level_of_mut(&ambition_abilities::mana::MANA) {
+                    if owned.take(Item::ManaCell, 1) > 0 {
+                        mana.refill(MANA_CELL_RESTORE);
+                    }
+                }
+            }
+            other => {
+                warn!(
+                    target: "crate::items::narrative",
+                    "a use of {other:?} was asked for, and it is not a consumable"
+                );
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -5,17 +5,10 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer2d::actors::avatar::PlayerHealRequested;
 use ambition_platformer2d::held_items::{empty_hand, equip_held_spec, held_spec_for_item, item_in_hand};
 use ambition_platformer2d::combat::held_items::HeldItem;
-use ambition_platformer2d::engine_core::resources::ActorResources;
 use ambition_platformer2d::items::{Inventory, Item, ItemCategory, OwnedItems};
 use ambition_platformer2d::platformer::markers::{PlayerEntity, PrimaryPlayer};
-
-/// One health cell restores this much HP; one mana cell this much mana. Sandbox
-/// values — a real balance pass is just a number change.
-const HEALTH_CELL_HEAL: i32 = 4;
-const MANA_CELL_RESTORE: f32 = 40.0;
 
 /// What pressing confirm on a slot should do, given current ownership/equip state.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -139,9 +132,14 @@ impl PrimaryHand<'_, '_> {
     }
 }
 
-/// The player-mana query shape shared by every menu-effect dispatch.
-pub(crate) type MenuEffectManaQuery<'w, 's> =
-    Query<'w, 's, &'static mut ActorResources, (With<PlayerEntity>, With<PrimaryPlayer>)>;
+/// Where a menu asks the simulation to use a consumable. The simulation
+/// spends the item and applies its effect on one stamped tick
+/// (`apply_item_uses`), so the menu writes neither the bag nor the body.
+pub(crate) type MenuItemUses<'w, 's> = ambition_platformer2d::actors::session::host_intents::HostIntentWriter<
+    'w,
+    's,
+    ambition_platformer2d::items::ItemUseRequested,
+>;
 
 /// TEST SEAM: the primary player's hand, read from a bare `World` (the fact
 /// tests used to read off `OwnedItems::equipped`).
@@ -176,26 +174,23 @@ pub(crate) fn hand_of_primary_player(world: &mut World) -> Option<Item> {
 /// decided [`MenuAction`] so callers can surface its status.
 pub(crate) fn dispatch_item_confirm(
     item: Item,
-    owned: &mut OwnedItems,
+    owned: &OwnedItems,
     hand: &PrimaryHand<'_, '_>,
     commands: &mut Commands,
     players: &mut MenuEffectPlayers<'_, '_>,
-    mana_q: &mut MenuEffectManaQuery<'_, '_>,
-    heals: &mut MessageWriter<PlayerHealRequested>,
+    uses: &mut MenuItemUses<'_, '_>,
 ) -> MenuAction {
     let action = decide(item, &Inventory::new(owned, hand.in_hand()));
-    apply_menu_action(action, owned, commands, players, mana_q, heals);
+    apply_menu_action(action, commands, players, uses);
     action
 }
 
 /// Turn a decided [`MenuAction`] into its ECS side effects.
 pub(crate) fn apply_menu_action(
     action: MenuAction,
-    owned: &mut OwnedItems,
     commands: &mut Commands,
     players: &mut MenuEffectPlayers<'_, '_>,
-    mana_q: &mut MenuEffectManaQuery<'_, '_>,
-    heals: &mut MessageWriter<PlayerHealRequested>,
+    uses: &mut MenuItemUses<'_, '_>,
 ) {
     match action {
         MenuAction::Equip(item) => {
@@ -248,22 +243,8 @@ pub(crate) fn apply_menu_action(
                 empty_hand(commands, player, &mut repertoire);
             }
         }
-        MenuAction::UseConsumable(Item::HealthCell) => {
-            if owned.take(Item::HealthCell, 1) > 0 {
-                heals.write(PlayerHealRequested::new(HEALTH_CELL_HEAL));
-            }
-        }
-        MenuAction::UseConsumable(Item::ManaCell) => {
-            // A body that holds no Mana keeps the cell: there is nothing for it
-            // to restore.
-            let Ok(mut bank) = mana_q.single_mut() else {
-                return;
-            };
-            if let Some(mana) = bank.level_of_mut(&ambition_platformer2d::abilities::mana::MANA) {
-                if owned.take(Item::ManaCell, 1) > 0 {
-                    mana.refill(MANA_CELL_RESTORE);
-                }
-            }
+        MenuAction::UseConsumable(item @ (Item::HealthCell | Item::ManaCell)) => {
+            uses.write(ambition_platformer2d::items::ItemUseRequested { item });
         }
         MenuAction::UseConsumable(_) | MenuAction::Inspect(_) | MenuAction::NotOwned(_) => {}
     }

@@ -8,7 +8,7 @@ use bevy::prelude::*;
 use ambition_platformer2d::menu::ActiveMenuPages;
 
 use crate::menu::effects::{
-    dispatch_item_confirm, MenuAction, MenuEffectManaQuery, MenuEffectPlayers, PrimaryHand,
+    dispatch_item_confirm, MenuAction, MenuEffectPlayers, MenuItemUses, PrimaryHand,
 };
 use crate::menu::kaleidoscope_app::{
     back_edge_focus, close_system_entry, play_ui, rotate_sfx, KaleidoscopeCursor,
@@ -18,7 +18,6 @@ use crate::menu::model::{
     system_rows_with_quality_prompt, MenuFocus, MenuPage, MenuPageAction, SystemRow,
 };
 use crate::menu::quality_confirm::VisualQualityConfirmState;
-use ambition_platformer2d::actors::avatar::PlayerHealRequested;
 use ambition_platformer2d::items::OwnedItems;
 use ambition_platformer2d::persistence::settings::UserSettings;
 use ambition_platformer2d::settings_menu::settings::{
@@ -36,22 +35,21 @@ pub(crate) fn dispatch_menu_action(
     pages: &mut ActiveMenuPages<MenuPage, MenuPageAction>,
     system_nav: &mut KaleidoscopeSystemNav,
     cursor: &mut KaleidoscopeCursor,
-    owned: &mut OwnedItems,
+    owned: &OwnedItems,
     hand: &PrimaryHand,
     settings: &mut UserSettings,
     quality_confirm: &mut VisualQualityConfirmState,
     close_menu: &mut bool,
     commands: &mut Commands,
     players: &mut MenuEffectPlayers,
-    mana_q: &mut MenuEffectManaQuery,
-    heals: &mut MessageWriter<PlayerHealRequested>,
+    uses: &mut MenuItemUses,
     sfx: &mut SfxWriter,
     system: &mut SystemMenuParams,
 ) {
     match action {
         MenuPageAction::Equip(item) | MenuPageAction::Use(item) => {
             let decided =
-                dispatch_item_confirm(item, owned, hand, commands, players, mana_q, heals);
+                dispatch_item_confirm(item, owned, hand, commands, players, uses);
             // Pick the confirm sound from the RESOLVED action so equip/unequip/use
             // are distinct, and a no-op (not owned / nothing to do) gives error feedback.
             let id = match decided {

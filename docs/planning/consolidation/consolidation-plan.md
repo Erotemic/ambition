@@ -360,12 +360,9 @@ written or consumed INSIDE the rewinding schedule and rewound with nothing.**
 are seat intents on the `ControlFrame`, `tick_active_cutscene` reads them from
 `SlotControls`, and the skip accumulator `CutsceneSkipHold` is now
 rollback-registered simulation state. `CutsceneTriggerQueue` stays benign by its
-all-in-sim producer invariant. That
-is now its own queue row,
-[CUTSCENE-ROLLBACK-DECISION](../queue.md#cutscene-rollback-decision--two-session-scoped-cutscene-values-cross-into-simulation-with-no-rollback-decision),
-because it is open executable work rather than a census fact, and C03 does not own
-it: the decision may be to move `CutsceneAdvanceRequest` onto the control frame
-rather than to register it.
+all-in-sim producer invariant. The receipt is the queue row
+[CUTSCENE-ROLLBACK-DECISION](../queue.md#cutscene-rollback-decision--two-session-scoped-cutscene-values-cross-into-simulation-with-no-rollback-decision---done-2026-09-28);
+`CutsceneAdvanceRequest` was deleted in favour of the control frame.
 
 ⛔ **THE GUARD DELIBERATELY DOES NOT ENFORCE THIS YET.** Extending RULE 3's
 "register or declare" rule from the checkpoint family to `SessionScopedResources`

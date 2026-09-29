@@ -586,6 +586,10 @@ where
         OWNER,
         "message.sandbox_reset_committed",
     );
+    registrar.clear_message_on_rollback::<crate::session::reset::NewGameRequested>(
+        OWNER,
+        "message.new_game_requested",
+    );
     registrar.clear_message_on_rollback::<ambition_damage::WalletShieldSpent>(
         OWNER,
         "message.wallet_shield_spent",

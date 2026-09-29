@@ -1,16 +1,19 @@
 """The boundary census must find the defects that are already measured.
 
-Two resources are known to be written outside the rewinding schedule and
-consumed inside it, each held by a witness with an in-sim control arm in
-`game/ambition_app/tests/a_bag_changed_mid_window_reaches_the_save.rs`:
+Resources known to be written outside the rewinding schedule and consumed
+inside it:
 
-    NewGameResetRequested    menu press -> 0 commits
-    OwnedItems               Update grant -> never lands
+    VersusMatch              `track_versus_roster` writes the opening from `Update`
+                             (filed under MENU-RESET-MIDSESSION, `Q140`)
+    OwnedItems               `restore_inventory_from_save` loads the bag from `Update`
+                             before any timeline exists
 
-A third, `CutsceneAdvanceRequest`, is deleted: the cutscene dismiss rides the
-seat's `ControlFrame`, so it no longer crosses and is not a known answer.
+Three measured defects left this list because the code changed:
+`CutsceneAdvanceRequest` (the dismiss rides the seat's `ControlFrame`), and
+`NewGameResetRequested` and the menu's `OwnedItems` writes (the menu writes
+host intents that the simulation applies on a stamped tick).
 
-⛔ THOSE TWO ARE THIS CENSUS'S KNOWN ANSWERS, and they are the only defence
+⛔ THESE ARE THIS CENSUS'S KNOWN ANSWERS, and they are the only defence
 against the failure mode a sweep like this actually has: reporting FEWER rows
 looks like a tidier codebase and is indistinguishable from a parser that stopped
 matching. A census that cannot see a defect somebody already reproduced is
@@ -40,8 +43,8 @@ SCRIPT = REPO / "scripts/resources_crossing_the_rewind_boundary.py"
 # type is still found but through a different writer, the row moved rather than
 # vanished.
 MEASURED_DEFECTS = {
-    "NewGameResetRequested": "dispatch_menu_action",
-    "OwnedItems": "dispatch_menu_action",
+    "VersusMatch": "track_versus_roster",
+    "OwnedItems": "restore_inventory_from_save",
 }
 
 

@@ -371,8 +371,9 @@ ACKNOWLEDGED: dict[str, str] = {
     # dialogue-visit increment it used to make from `Update` now lives in
     # `session::durable_horizon::count_the_dialogue_visit_when_a_conversation_opens`,
     # inside the rewinding schedule, where a rewind replays it.
-    "grid_menu_action_activated": "MENU-RESET-MIDSESSION",
-    "kaleidoscope_menu_action_activated": "MENU-RESET-MIDSESSION",
+    # ✅ `grid_menu_action_activated` and `kaleidoscope_menu_action_activated`
+    # left on 2026-09-28. They read `OwnedItems` and write New Game and
+    # consumable uses as host intents; the simulation applies both.
     # ✅ The three `persist_*_to_save` mirrors were banked here and are GONE
     # because they were FIXED, not because the scan lost sight of them: they now
     # register through `app.sim_schedule()`, so a rewind replays them. The stale
@@ -583,76 +584,11 @@ WAIVERS: dict[str, str] = {
         "its own app to record a comparison; it starts no GGRS session, so "
         "`TwinTrackExperiment` has no timeline to be inconsistent with."
     ),
-    # ── added 2026-09-16, the menu bundle ──────────────────────────
-    # Five systems, ONE cause: a `#[derive(SystemParam)]` bundle that grants a
-    # rollback `ResMut` to every taker. ⚠ The scanner is right to report them —
-    # it answers "who has mutable access", and narrowing it to "who writes"
-    # would need to see through `request_reset()`, a METHOD on the bundle, so
-    # the field name never appears at the call site. A precision fix there buys
-    # five fewer rows and risks a false NEGATIVE, which in this guard is a
-    # silent desync. ⇒ Waive with the reachability argument instead.
-    "grid_menu_apply_scroll_drag": (
-        "⛔ MUTABLE ACCESS IT HAS NO PATH TO USE. `SystemMenuParams` hands "
-        "`ResMut<NewGameResetRequested>` to every system that takes the "
-        "bundle, and this one takes it and never reaches the field. Checked "
-        "at the CALL GRAPH, not inferred from the name: the flag is set only "
-        "by `SystemMenuParams::request_reset` (menu/kaleidoscope_app.rs:760), "
-        "whose one caller is `dispatch_menu_action` (menu/dispatch.rs:121), "
-        "whose only two callers are `grid_menu_action_activated` and "
-        "`kaleidoscope_menu_action_activated` — and those two are NOT waived, "
-        "they are open in MENU-RESET-MIDSESSION. It applies a drag offset to "
-        "the tab strip."
-    ),
-    "grid_menu_republish_view": (
-        "⛔ MUTABLE ACCESS IT HAS NO PATH TO USE. `SystemMenuParams` hands "
-        "`ResMut<NewGameResetRequested>` to every system that takes the "
-        "bundle, and this one takes it and never reaches the field. Checked "
-        "at the CALL GRAPH, not inferred from the name: the flag is set only "
-        "by `SystemMenuParams::request_reset` (menu/kaleidoscope_app.rs:760), "
-        "whose one caller is `dispatch_menu_action` (menu/dispatch.rs:121), "
-        "whose only two callers are `grid_menu_action_activated` and "
-        "`kaleidoscope_menu_action_activated` — and those two are NOT waived, "
-        "they are open in MENU-RESET-MIDSESSION. It rebuilds the view rows "
-        "after a state change."
-    ),
-    "grid_menu_scroll_wheel": (
-        "⛔ MUTABLE ACCESS IT HAS NO PATH TO USE. `SystemMenuParams` hands "
-        "`ResMut<NewGameResetRequested>` to every system that takes the "
-        "bundle, and this one takes it and never reaches the field. Checked "
-        "at the CALL GRAPH, not inferred from the name: the flag is set only "
-        "by `SystemMenuParams::request_reset` (menu/kaleidoscope_app.rs:760), "
-        "whose one caller is `dispatch_menu_action` (menu/dispatch.rs:121), "
-        "whose only two callers are `grid_menu_action_activated` and "
-        "`kaleidoscope_menu_action_activated` — and those two are NOT waived, "
-        "they are open in MENU-RESET-MIDSESSION. It converts wheel input into "
-        "a scroll offset."
-    ),
-    "grid_menu_nav": (
-        "⛔ MUTABLE ACCESS IT HAS NO PATH TO USE. `SystemMenuParams` hands "
-        "`ResMut<NewGameResetRequested>` to every system that takes the "
-        "bundle, and this one takes it and never reaches the field. Checked "
-        "at the CALL GRAPH, not inferred from the name: the flag is set only "
-        "by `SystemMenuParams::request_reset` (menu/kaleidoscope_app.rs:760), "
-        "whose one caller is `dispatch_menu_action` (menu/dispatch.rs:121), "
-        "whose only two callers are `grid_menu_action_activated` and "
-        "`kaleidoscope_menu_action_activated` — and those two are NOT waived, "
-        "they are open in MENU-RESET-MIDSESSION. It moves the cursor. ⚠ It "
-        "reaches the bundle through `MenuDispatchParams`, one level further "
-        "out than its three siblings, which is why the scanner sees it at all "
-        "— the nesting is resolved transitively and the reachability is not."
-    ),
-    "kaleidoscope_focus_nav": (
-        "⛔ MUTABLE ACCESS IT HAS NO PATH TO USE. `SystemMenuParams` hands "
-        "`ResMut<NewGameResetRequested>` to every system that takes the "
-        "bundle, and this one takes it and never reaches the field. Checked "
-        "at the CALL GRAPH, not inferred from the name: the flag is set only "
-        "by `SystemMenuParams::request_reset` (menu/kaleidoscope_app.rs:760), "
-        "whose one caller is `dispatch_menu_action` (menu/dispatch.rs:121), "
-        "whose only two callers are `grid_menu_action_activated` and "
-        "`kaleidoscope_menu_action_activated` — and those two are NOT waived, "
-        "they are open in MENU-RESET-MIDSESSION. It moves focus between cube "
-        "faces. ⚠ Same nesting as `grid_menu_nav`."
-    ),
+    # ✅ The menu bundle's five waivers (`grid_menu_apply_scroll_drag`,
+    # `grid_menu_nav`, `grid_menu_republish_view`, `grid_menu_scroll_wheel`,
+    # `kaleidoscope_focus_nav`) were discharged on 2026-09-28: `SystemMenuParams`
+    # holds a New Game host-intent writer now, not `ResMut<NewGameResetRequested>`,
+    # so no taker of the bundle has mutable access to rollback state.
     "track_versus_roster": (
         "⛔ WAIVED ON A SCHEDULE EDGE, MEASURED 2026-09-18 — NOT on the body "
         "condition its first waiver claimed. That waiver said GGRS cannot have "

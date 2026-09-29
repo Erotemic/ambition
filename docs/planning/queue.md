@@ -1326,6 +1326,15 @@ than carried: `adopt_occurrence_checkpoint_from_save`,
 `reconcile_roster_with_frozen_topology`, `sync_ldtk_level_set` here;
 `grid_menu_action_activated` and `kaleidoscope_menu_action_activated` there —
 the guard's own last line, over **517** mutating systems.
+✅ **Re-run 2026-09-28: FIVE, all owed here.** The two menu writers left
+with MENU-RESET-MIDSESSION (`f86b03189`) and `compute_music_intent` left
+earlier; the guard's last line reads 5 acknowledged over **495** mutating
+systems. Left: `adopt_occurrence_checkpoint_from_save`,
+`complete_durable_restore`, `portal_dev_toggle_system`,
+`reconcile_roster_with_frozen_topology`, `sync_ldtk_level_set`.
+`portal_dev_toggle_system` is the host-intent shape
+(`session::host_intents`), but it flips `PortalGun.active` on every gun, which
+no portal message says yet.
 
 ⛔⛤ **A NINTH ARRIVED BY A WAIVER LOSING ITS ARGUMENT, NOT BY A NEW WRITE, AND
 LEFT AGAIN THE SAME DAY BY EARNING A BETTER ONE — 2026-09-18.**

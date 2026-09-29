@@ -132,7 +132,6 @@ pub fn add_simulation_plugins(app: &mut App) {
     if simulation_host.is_rollback() {
         let mut registrar = ambition_platformer2d::rollback::GgrsRollbackRegistrar::new(app);
         ambition_content::register_rollback_state(&mut registrar);
-        ambition_platformer2d::ldtk_map::register_rollback_state(&mut registrar);
     }
 
     declare_ambition_death_rules(app);

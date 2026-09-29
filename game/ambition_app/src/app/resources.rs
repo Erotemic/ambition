@@ -260,10 +260,7 @@ pub fn init_sandbox_resources(app: &mut App) {
             );
         }
     }
-    let ldtk_index = ldtk_world::LdtkRuntimeIndex::from_project(
-        &ldtk_project,
-        room_set.active_spec().id.clone(),
-    );
+    let ldtk_index = ldtk_world::LdtkRuntimeIndex::from_project(&ldtk_project);
     // `StartingCharacterOverride` is composition input, not live gameplay
     // authority. Consume it before publishing the session-root
     // `StartingCharacter` component so the title route cannot observe a

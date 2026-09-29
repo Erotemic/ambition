@@ -27,7 +27,7 @@ pub fn rebuild_ldtk_runtime_spine_index(
     let origin = runtime_index
         .area_bounds(&active_area)
         .map(|bounds| [bounds.min_x, bounds.min_y])
-        .unwrap_or_else(|| runtime_index.active_area_origin());
+        .unwrap_or([0, 0]);
 
     let mut next = LdtkRuntimeSpineIndex {
         active_area,

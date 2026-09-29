@@ -577,7 +577,7 @@ def test_a_session_world_verdict_whose_duplication_was_repaired_is_refused(
         "session_world_writers",
         lambda files: {
             **{t: {"a.rs", "b.rs"} for t in guard.SESSION_WORLD_BASELINE},
-            "LdtkRuntimeIndex": {"only.rs"},
+            "RoomGeometry": {"only.rs"},
             "Spare": {"x.rs"},
             "Spare2": {"y.rs"},
             "Spare3": {"z.rs"},
@@ -585,5 +585,5 @@ def test_a_session_world_verdict_whose_duplication_was_repaired_is_refused(
     )
     assert guard.main() == 1
     out = capsys.readouterr().out
-    assert "LdtkRuntimeIndex" in out
+    assert "RoomGeometry" in out
     assert "a repair is not an amnesty" in out

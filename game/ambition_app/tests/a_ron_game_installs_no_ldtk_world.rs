@@ -70,13 +70,18 @@ fn the_ldtk_authored_game_installs_a_real_index_onto_its_session_root() {
 
     // presence is not enough: a `default()` index inserted unconditionally
     // would satisfy `is_some()` while being exactly the empty value this whole
-    // change exists to delete. The active area is the field `from_project` fills
-    // and `Default` leaves blank, so it separates a real installation from the
-    // placeholder.
+    // change exists to delete. The levels of the room the session is in are
+    // what `from_project` fills and `Default` leaves empty, so they separate a
+    // real installation from the placeholder.
+    let room = session_world_component::<RoomSet>(app.world())
+        .expect("the settled session root carries no RoomSet")
+        .active_spec()
+        .id
+        .clone();
     assert!(
-        !index.active_area().is_empty(),
-        "the installed index names no active area, so it is the empty \
-         'no LDtk world installed' placeholder wearing an installation's clothes"
+        !index.level_iids_for(&room).is_empty(),
+        "the installed index names no level for the active room `{room}`, so it is \
+         the empty 'no LDtk world installed' placeholder wearing an installation's clothes"
     );
 }
 
@@ -123,11 +128,11 @@ fn a_ron_authored_session_root_carries_no_ldtk_index() {
     );
 }
 
-/// The registry row the LDtk runtime index is registered under.
-const LDTK_ROLLBACK_ROW: &str = "root.ldtk_runtime_index";
+/// The crate that owns the LDtk format.
+const LDTK_OWNER: &str = "ambition_platformer2d_ldtk";
 
-/// Does this composition's snapshot schema contain the LDtk world's row?
-fn schema_names_the_ldtk_row(world: &ambition_platformer2d::bevy::prelude::World) -> bool {
+/// The rows of this composition's snapshot schema that the LDtk format owns.
+fn ldtk_rows(world: &ambition_platformer2d::bevy::prelude::World) -> Vec<String> {
     world
         .get_resource::<ambition_platformer2d::rollback::RollbackRegistry>()
         .expect(
@@ -135,18 +140,22 @@ fn schema_names_the_ldtk_row(world: &ambition_platformer2d::bevy::prelude::World
              actually asked — the engine group installs one in every game",
         )
         .descriptors()
-        .any(|entry| entry.name == LDTK_ROLLBACK_ROW)
+        .filter(|entry| entry.owner == LDTK_OWNER)
+        .map(|entry| entry.name.clone())
+        .collect()
 }
 
-/// THE POSITIVE TERM for the half: the LDtk-authored game installs the spine and carries the
-/// format's row in its wire format.
+/// THE POSITIVE TERM for the half: the LDtk-authored game installs the spine.
 ///
 /// without this, its sibling below passes in a build where
-/// `LdtkWorldPlugin` is added by nobody — which deletes level streaming AND the
-/// index's rollback participation from the shipped game while turning the pair
-/// green.
+/// `LdtkWorldPlugin` is added by nobody — which deletes level streaming from
+/// the shipped game while turning the pair green.
+///
+/// The format owns no rollback row in either game. Its index is prepared
+/// content, and the active area is `RoomSet`'s. So the LDtk-authored and the
+/// RON-authored wire formats do not differ by a format's row.
 #[test]
-fn the_ldtk_authored_game_installs_the_spine_and_registers_its_rollback_row() {
+fn the_ldtk_authored_game_installs_the_spine_and_no_rollback_row() {
     let mut app = ambition_platformer2d::bevy::prelude::App::new();
     ambition_platformer2d::runtime::add_headless_foundation(&mut app);
     ambition_app::app::shell_host::compose_ambition_gameplay_host(&mut app);
@@ -159,11 +168,12 @@ fn the_ldtk_authored_game_installs_the_spine_and_registers_its_rollback_row() {
          that is supposed to add `LdtkWorldPlugin`, and an absence here is the \
          format's index-rebuild chain silently gone, not a boundary cleanly drawn"
     );
-    assert!(
-        schema_names_the_ldtk_row(app.world()),
-        "the LDtk-authored game's snapshot schema does not name '{LDTK_ROLLBACK_ROW}'. \
-         The index is rewound state in THIS game — a missing registration is a \
-         desync, not a tidier boundary"
+    assert_eq!(
+        ldtk_rows(app.world()),
+        Vec::<String>::new(),
+        "the LDtk-authored game's snapshot schema has rows the LDtk format owns. \
+         The format's index is prepared content that no simulation system writes, \
+         and the active area is `RoomSet`'s: a row here rewinds a second copy of it"
     );
 }
 
@@ -174,7 +184,7 @@ fn the_ldtk_authored_game_installs_the_spine_and_registers_its_rollback_row() {
 /// row in the wire format. This pins the other half — the engine group does not install an
 /// authoring format at all.
 #[test]
-fn a_ron_authored_composition_installs_no_ldtk_spine_and_no_ldtk_rollback_row() {
+fn a_ron_authored_composition_installs_no_ldtk_spine() {
     let app = PlatformerApp::headless()
         .mount(VersusModule)
         .try_build()
@@ -205,12 +215,5 @@ fn a_ron_authored_composition_installs_no_ldtk_spine_and_no_ldtk_rollback_row() 
         "a RON-authored composition initialized the LDtk runtime spine's index. The spine \
          is a format's, and this game has no LDtk world — the resource can only ever hold \
          the empty value the rebuild chain declines to fill"
-    );
-    assert!(
-        !schema_names_the_ldtk_row(app.world()),
-        "a RON-authored composition's snapshot schema names '{LDTK_ROLLBACK_ROW}'. Nothing \
-         in this game installs an LDtk world, so the format's component is a row in a \
-         wire format that can never contain it — and it changes the fingerprint two \
-         peers must agree on"
     );
 }

@@ -1432,6 +1432,14 @@ systems. ✅ FOUR the same day: `portal_dev_toggle_system` flipped
 (`one_press_turns_every_gun_the_other_way`). Left:
 `adopt_occurrence_checkpoint_from_save`, `complete_durable_restore`,
 `reconcile_roster_with_frozen_topology`, `sync_ldtk_level_set`.
+✅ THREE on 2026-09-29: `sync_ldtk_level_set` wrote the active area into
+`LdtkRuntimeIndex`, a rewound copy of `RoomSet`'s active room, from `Update`.
+The field and the index's revision cursor are deleted, the index is prepared
+content with no rollback row (schema 263, waived in `rollback_coverage.rs`
+beside `ActiveContentBinding`), and the sync compares the bundles' `LevelSet`
+with the active room's levels (`the_bundle_shows_the_active_rooms_levels_and_follows_a_change_or_a_reload`).
+Left: `adopt_occurrence_checkpoint_from_save`, `complete_durable_restore`,
+`reconcile_roster_with_frozen_topology`.
 
 ⛔⛤ **A NINTH ARRIVED BY A WAIVER LOSING ITS ARGUMENT, NOT BY A NEW WRITE, AND
 LEFT AGAIN THE SAME DAY BY EARNING A BETTER ONE — 2026-09-18.**

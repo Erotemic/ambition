@@ -380,8 +380,10 @@ ACKNOWLEDGED: dict[str, str] = {
     # check below is what forced this deletion to be deliberate.
     # ✅ `portal_dev_toggle_system` left on 2026-09-28: it writes a
     # `TogglePortalGunsActive` host intent, and the simulation flips the guns.
+    # ✅ `sync_ldtk_level_set` left on 2026-09-29: the index it wrote an active
+    # area into is prepared content with no rollback row now, and the sync
+    # compares the bundles' `LevelSet` with the active room's levels.
     "reconcile_roster_with_frozen_topology": "ROLLBACK-MUTATOR-POPULATION",
-    "sync_ldtk_level_set": "ROLLBACK-MUTATOR-POPULATION",
 }
 
 
@@ -437,7 +439,8 @@ BLIND_SPOTS: dict[str, tuple[str, str]] = {
         "population in the same stroke: the write it still causes happens in a "
         "staged closure inside `reload_ldtk_world_from_disk`, which the "
         "exclusive-world spelling added the same day DOES see "
-        "(`LdtkRuntimeIndex`, `RoomTransitionCooldown`) — but that function is a "
+        "(`RoomTransitionCooldown`; `LdtkRuntimeIndex` too until it left the "
+        "schema on 2026-09-29) — but that function is a "
         "HELPER, and `collect` attributes a schedule by finding a name inside an "
         "`add_systems` body.\n"
         "    ⚠ SO THE WAIVER STAYS AND THE ENTRY SAYS WHY. Deleting it because "

@@ -214,18 +214,9 @@ impl PreparedPlatformerSource {
     pub fn with_definition_active_room(&self, room_id: &str) -> Option<Self> {
         let mut room_set = self.room_set.clone();
         let active_spec = room_set.set_active_by_id(room_id)?.clone();
-        // `mut` only under `ldtk`: the block that mutates the installed index is
-        // behind that feature, so without it the binding is read-only.
-        #[cfg_attr(not(feature = "ldtk"), allow(unused_mut))]
-        let mut candidate = self.with_world(room_set, RoomGeometry(active_spec.world));
-        // Only a session that HAS an installed index has an active area to
-        // normalize; a RON-authored one tracks its active room in `RoomSet`
-        // alone, which the clone above already carries.
-        #[cfg(feature = "ldtk")]
-        if let Some(index) = candidate.installed_ldtk_index.as_mut() {
-            index.set_active_area(active_spec.id.clone());
-        }
-        Some(candidate)
+        // `RoomSet` alone names the active room. An installed LDtk index is
+        // content and does not change with the room.
+        Some(self.with_world(room_set, RoomGeometry(active_spec.world)))
     }
 
     pub fn instantiate_live(&self) -> PlatformerSessionWorld {

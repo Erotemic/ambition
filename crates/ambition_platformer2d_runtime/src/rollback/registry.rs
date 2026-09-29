@@ -865,7 +865,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// `message.sandbox_reset_committed` leave. A New Game is a checkpoint restore
 /// now: the owed request is `OutstandingCheckpointRequest`, whose value gains a
 /// destination, and the commit runs the fresh-run reducers.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 262;
+/// ⛔⛤ 262 -> 263: `root.ldtk_runtime_index` leaves. Its only rewound value
+/// was the active area, a copy of `RoomSet`'s written in `Update`; the index
+/// is prepared content now, and the LDtk bundles compare their `LevelSet`.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 263;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

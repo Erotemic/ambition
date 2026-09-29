@@ -42,6 +42,10 @@ const WAIVED: &[(&str, &str)] = &[
     // them from worn equipment and the controlled subject, which are rewound.
     // The edges the gate routes are a separate, derived row.
     (
+        "ambition_platformer2d_ldtk::bevy_runtime::asset::LdtkRuntimeIndex",
+        "the LDtk project's area table (levels and bounds per area): prepared content, written only by a content authority in `Update` (activation, hot reload) under the same restart as `ActiveContentBinding`, so no rewind crosses a change. The active area is `RoomSet`'s, which is registered",
+    ),
+    (
         "ambition_characters::action_scheme::ActorTechniques",
         "technique declarations: written at construction (bosses) or re-declared from rewound state (Mary-O, Sanic); the routed edges are the derived row",
     ),

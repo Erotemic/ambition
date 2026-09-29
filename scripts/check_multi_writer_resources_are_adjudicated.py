@@ -3418,10 +3418,6 @@ SESSION_WORLD_BASELINE: dict[str, tuple[str, ...]] = {
         "game/ambition_demo_mary_o/src/flag.rs",
         "game/ambition_demo_mary_o/src/star.rs",
     ),
-    "LdtkRuntimeIndex": (
-        "crates/ambition_platformer2d_ldtk/src/bevy_runtime/asset.rs",
-        "game/ambition_app/src/app/dev_runtime.rs",
-    ),
     "RoomGeometry": (
         "crates/ambition_platformer2d_actor_monolith/src/world/rooms/transaction.rs",
         "crates/ambition_sim_harness/src/runtime.rs",
@@ -3502,32 +3498,6 @@ SESSION_WORLD_ADJUDICATED: dict[str, str] = {
         "component write — so the authoritative writer was simply absent from "
         "this census and the harness read as the only one. It spells the road "
         "`session_world_component_mut_at` now."
-    ),
-    "LdtkRuntimeIndex": (
-        "CORRECT — ONE PER-FRAME SYNC AND ONE VERDICT-GATED REBUILD, AND THEY ARE "
-        "NOT THE SAME FACT. `sync_ldtk_level_set` "
-        "(`ambition_platformer2d_ldtk/src/bevy_runtime/asset.rs`) sets the ACTIVE "
-        "AREA, early-returning unless `needs_level_set_sync(&active_area)`, and "
-        "then hands the same `LevelSet` to both LDtk bundles. The dev hot reload "
-        "(`game/ambition_app/src/app/dev_runtime.rs`) REPLACES the whole index "
-        "with a candidate built from the reloaded project, and it does that "
-        "inside the staged closure — `session_world_component_mut::<LdtkRuntimeIndex>` "
-        "under exclusive world access, on the room publication's own verdict. ⇒ "
-        "A replacement and an active-area sync cannot interleave: the closure "
-        "runs at a command flush, and the sync re-derives from whatever index it "
-        "then finds.\n"
-        "    ⚠ `sync_ldtk_level_set` IS ONE OF THE NINE ACKNOWLEDGED OFFENDERS in "
-        "`scripts/check_rollback_mutators_run_in_sim.py`, owed to "
-        "ROLLBACK-MUTATOR-POPULATION — it mutates rollback-registered state from "
-        "a schedule that does not rewind. That is a SCHEDULE question and is "
-        "banked there; it is not an authority dispute between these two, which is "
-        "what this verdict answers.\n"
-        "    ⛔⛤ AND THE SECOND WRITER WAS ONLY VISIBLE AFTER THE CENSUS LEARNED A "
-        "SECOND SPELLING. Until 2026-09-18 it read `SessionWorldMut<T>` alone, so "
-        "the dev reload counted through its SYSTEM signature — where the "
-        "parameter is now a shared borrow — while the write it actually performs, "
-        "through `session_world_component_mut`, was invisible. The count was "
-        "right for the wrong reason, which is the worst kind of right."
     ),
 }
 

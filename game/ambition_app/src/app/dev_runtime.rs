@@ -78,14 +78,11 @@ pub(super) fn handle_ldtk_hot_reload(
     // writes nothing. A comment saying "not a write target" beside a `&mut` is
     // the weakest form that statement can take.
     _room_geometry: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<RoomGeometry>,
-    // ⛤ SHARED BORROWS SINCE 2026-09-18, and the TYPES no longer claim a
-    // mutable reach either. Both are only READ here; the reload's writes land in
+    // ⛤ A SHARED BORROW SINCE 2026-09-18, and the TYPE no longer claims a
+    // mutable reach either. It is only READ here; the reload's writes land in
     // the staged closure on the publication's own verdict. See the note at the
     // `reload_ldtk_world_from_disk` call for what had to change first.
     room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<world_rooms::RoomSet>,
-    ldtk_index: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
-        ldtk_world::LdtkRuntimeIndex,
-    >,
     mut ldtk_reload: ResMut<ambition_platformer2d::dev_tools::WorldSourceHotReload>,
     // Bundled to keep this system within Bevy's 16 top-level SystemParam limit.
     tuning: (
@@ -226,8 +223,9 @@ pub(super) fn handle_ldtk_hot_reload(
             .cloned()
             .unwrap_or_default()
             .schema_fingerprint();
-        // ⛔⛤ `room_set` AND `ldtk_index` ARE `SessionWorldRef` NOW, AND THE
-        // INSTRUMENT HAD TO BE FIXED BEFORE THE SOURCE COULD BE. They had stayed
+        // ⛔⛤ `room_set` IS A `SessionWorldRef` NOW, AND THE
+        // INSTRUMENT HAD TO BE FIXED BEFORE THE SOURCE COULD BE. It and the LDtk
+        // index had stayed
         // `SessionWorldMut` on a pair of parameters this system only READS, for
         // one reason, written down at the time: demoting them would have taken
         // `RoomSet` to ZERO mutable-reach sites in the session-world census while
@@ -243,7 +241,6 @@ pub(super) fn handle_ldtk_hot_reload(
             &mut commands,
             &room_set,
             &mut clusters,
-            &ldtk_index,
             tuning.0 .0,
             *tuning.1,
             &room_visuals,
@@ -378,18 +375,15 @@ pub(super) fn prepare_ldtk_reload_transaction(
 /// the staged closure now, which runs only on this publication's own verdict, so
 /// the SIGNATURE no longer claims a reload that has not been verified.
 ///
-/// ⛤ `room_set` AND `ldtk_index` ARE SHARED BORROWS SINCE 2026-09-18, for the
-/// same reason as the list above: this function reads the current room's id off
-/// one and CLONES the other into a candidate, and every write lands in the
-/// staged closure on the publication's own verdict. A `&mut` here claimed a
-/// write that happens somewhere else. ⇒ The calling system's parameters are
-/// `SessionWorldRef` too now; they had been held at `SessionWorldMut` to keep a
-/// census number up, which the census no longer needs.
+/// ⛤ `room_set` IS A SHARED BORROW SINCE 2026-09-18, for the same reason as the
+/// list above: this function reads the current room's id off it, and every
+/// write lands in the staged closure on the publication's own verdict. A `&mut`
+/// here claimed a write that happens somewhere else. The candidate LDtk index is
+/// built from the reloaded project alone, so the live one is not read.
 pub(super) fn reload_ldtk_world_from_disk(
     commands: &mut Commands,
     room_set: &world_rooms::RoomSet,
     clusters: &mut ae::BodyClustersMut<'_>,
-    ldtk_index: &ldtk_world::LdtkRuntimeIndex,
     tuning: ae::MovementTuning,
     physics_settings: physics::PhysicsSandboxSettings,
     room_visuals: &Query<
@@ -438,8 +432,7 @@ pub(super) fn reload_ldtk_world_from_disk(
         clusters.kinematics.size,
     )?;
 
-    let mut candidate_index = ldtk_index.clone();
-    candidate_index.replace_from_project(&transaction.project, transaction.next_spec.id.clone());
+    let candidate_index = ldtk_world::LdtkRuntimeIndex::from_project(&transaction.project);
     let candidate_source = prepared_content
         .source()
         .with_world(

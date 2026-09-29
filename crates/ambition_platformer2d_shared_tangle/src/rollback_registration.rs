@@ -221,9 +221,9 @@ where
     // *"republished from live state while its room is loaded"*. Two shipped
     // facts contradict it:
     //
-    //   - `process_new_game_reset_request` calls `forget_everything()` from
-    //     INSIDE this schedule (`ResetProcessing`), so New Game mutates the
-    //     ledger authoritatively and a rewind across that clear cannot undo it;
+    //   - New Game cleared the ledger from INSIDE this schedule
+    //     (`ResetProcessing`) until 2026-09-29, so it mutated the ledger
+    //     authoritatively and a rewind across that clear could not undo it;
     //   - a `Placed` row for a room that is not resident has NO live producer,
     //     so there is nothing the republish argument could call on to rebuild it.
     //

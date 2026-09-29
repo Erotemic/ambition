@@ -361,8 +361,8 @@ responding to the state it covers. So un-pinning is asserted beside emptiness.
 A hashed entry written outside the rewinding schedule is a defect only if all
 three hold: it is hashed (`feeds_peer_checksum()`), its writer is outside the
 rewinding schedule, and its value actually differs at a frame compared twice.
-`NewGameResetRequested` meets the first two and does not desync, because the flag
-is put back before it is taken.
+The New Game latch (deleted 2026-09-29) met the first two and did not desync,
+because the flag was put back before it was taken.
 
 **Closed: `CustodyBaseline` and `OccurrenceBaseline` (2026-09-28).** Both
 desync when a load lowers the restore latch on a LIVE timeline, which

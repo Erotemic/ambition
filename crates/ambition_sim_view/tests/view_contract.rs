@@ -183,10 +183,9 @@ fn feature_view_index_first_write_wins_on_duplicate_ids() {
 
 /// The test stands in a minimal reset-shaped system that despawns
 /// the pre-reset pickup and spawns a new one, then asserts the
-/// FeatureViewIndex reflects the new id after `app.update()`. The
-/// real `process_new_game_reset_request` runs in
-/// `Platformer2dSimulationPhaseMonolith::ResetProcessing`; we use the same `.in_set` to
-/// pin the ordering.
+/// FeatureViewIndex reflects the new id after `app.update()`. It runs in
+/// `Platformer2dSimulationPhaseMonolith::ResetProcessing`, the phase the
+/// in-simulation reset systems use, to pin the ordering.
 #[test]
 fn feature_view_index_reflects_same_frame_reset_spawn() {
     use ambition_platformer2d_actor_monolith::schedule::configure_platformer2d_simulation_phases;

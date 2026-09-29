@@ -1060,9 +1060,9 @@ pub fn record_census_after_the_advance(world: &mut World) {
 /// finding.
 ///
 /// ⚠ **AND IT CANNOT SEE A WRITE THAT PUTS THE VALUE BACK.** A system that
-/// mutates and restores within one frame leaves no trace — which is why
-/// `NewGameResetRequested` satisfies S8's first two conditions and does not
-/// desync. The same blind spot the checksum has.
+/// mutates and restores within one frame leaves no trace — which is why a
+/// latch that is set and consumed within one frame satisfies S8's first two
+/// conditions and does not desync. The same blind spot the checksum has.
 pub fn record_live_census(world: &mut World) {
     if !world
         .get_resource::<RollbackRestoreAudit>()

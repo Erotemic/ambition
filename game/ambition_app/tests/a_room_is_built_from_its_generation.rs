@@ -395,26 +395,18 @@ fn a_death_rebuilds_the_world_from_the_generation_not_the_app() {
     );
 }
 
-/// ⛔⛤ **THE NEW-GAME RESET ROAD, WHICH THE OTHER TWO ARMS DO NOT REACH — `Q121`,
-/// 2026-09-13.**
+/// THE NEW-GAME ROAD REBUILDS FROM THE GENERATION TOO.
 ///
-/// The door arm and the death arm both exercise `room_transition/loading.rs`'s
-/// resolver; MEASURED, poisoning `session/reset/mod.rs`'s reddens neither,
-/// because `resume_at_checkpoint_on_reset` routes a death through the TRANSITION
-/// road deliberately. This one drives `NewGameResetRequested` →
-/// `process_new_game_reset_request`, which is the only road that reaches the
-/// reset resolver.
+/// Until 2026-09-29 a New Game had its own resolver in `session/reset/mod.rs`,
+/// and this arm was the only one that reached it (`Q121`; poison-verified: the
+/// reset resolver pointed at the App reddened this arm alone). A New Game is a
+/// checkpoint restore now and goes through the same transition road as the
+/// death arm, so that resolver is deleted. The arm stays as the New Game's own
+/// witness, driven the way the menu drives it.
 ///
 /// ⚠ **IT ASSERTS OVER BODIES THE RESET ACTUALLY REBUILT**, not over every body
 /// present — the vacuity the death arm had to be repaired for, where a SURVIVOR
 /// satisfied the postcondition under two different poisons.
-///
-/// ⭐ **POISON-VERIFIED, AND THE SEPARATION IS THE RESULT:** pointing
-/// `session/reset/mod.rs`'s resolver at the App reddens THIS arm and leaves the
-/// door and death arms green; pointing `room_transition/loading.rs`'s at the App
-/// reddens those two and leaves this one green. Three arms, three roads, no
-/// overlap — which is what makes the set a coverage claim rather than three
-/// copies of one.
 #[test]
 fn a_new_game_reset_rebuilds_the_world_from_the_generation_not_the_app() {
     let mut sim = fixed_60hz_sim();
@@ -447,14 +439,12 @@ fn a_new_game_reset_rebuilds_the_world_from_the_generation_not_the_app() {
 
     sim.world_mut().insert_resource(an_empty_cast());
 
-    // THE SHIPPED NEW-GAME RESET ROAD, by its own resource — the only way to
-    // execute `process_new_game_reset_request` and its paired sweep.
-    sim.world_mut()
-        .resource_mut::<ambition_platformer2d::actors::session::reset::NewGameResetRequested>()
-        .request();
-    sim.rebase_rollback_history()
-        .expect("the pending reset folds into the rollback baseline");
-    for _ in 0..8 {
+    // THE MENU'S ROAD: a host intent, admitted as a checkpoint restore.
+    ambition_platformer2d::actors::session::host_intents::write_host_intent(
+        sim.world_mut(),
+        ambition_platformer2d::actors::session::reset::NewGameRequested,
+    );
+    for _ in 0..30 {
         sim.step(base());
     }
 

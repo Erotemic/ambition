@@ -149,6 +149,7 @@ not adopt a later checkpoint or newly controlled body while it waits for loading
 | Reset, absent/invalid checkpoint destination | Existing current-room authored-start fallback | An explicit start-state snapshot, not a fabricated saved checkpoint |
 | Imported save requiring occurrence/item reconstruction | Adopt as candidate checkpoint data, then use the reset reconstruction road | Parsing/adopting a save is not successful live restoration |
 | Bodyless world profile | Use the existing bodyless reconstitution intent only when selected explicitly by that profile | No attempt to manufacture or pick a primary body |
+| New Game (`NewGameRequested`, since 2026-09-29) | The start room's authored spawn, with the fresh baseline pinned: no occurrences, no custody, no mints, the starter bag. Outranks a reset asked for on the same tick | Restore all installed domains in the same commit, with `FreshRunRestore` installed: each domain's fresh-run reducer runs and the pinned values become the checkpoint |
 
 This packet preserves the primary-avatar restoration policy and all interacting-
 body healing behavior. It does not resolve the pending product choice about

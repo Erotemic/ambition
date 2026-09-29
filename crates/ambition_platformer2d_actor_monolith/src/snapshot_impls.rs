@@ -122,16 +122,6 @@ impl SnapshotState for crate::projectile::ProjectileAllegiance {
     }
 }
 
-impl SnapshotState for crate::session::reset::NewGameResetRequested {
-    fn encode(&self, out: &mut Vec<u8>) {
-        put_bool(out, self.request);
-    }
-
-    fn decode(r: &mut Reader<'_>) -> Option<Self> {
-        Some(Self { request: r.bool()? })
-    }
-}
-
 impl SnapshotState for crate::session::lifecycle_commit::PendingLifecycleCommit {
     fn encode(&self, out: &mut Vec<u8>) {
         use crate::session::lifecycle_commit::LifecycleIntent;

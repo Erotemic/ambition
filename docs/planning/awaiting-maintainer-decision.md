@@ -1207,7 +1207,8 @@ chain would re-adopt `OccurrenceBaseline` and `CustodyBaseline` from the wiped
 file; every other fresh-run durable fact was already reset in that same function.
 
 ⇒ Those two are reset directly now, the latch stays true, and New Game is a
-self-contained simulation transaction. **So the only `false -> true` transition
+checkpoint restore to the fresh baseline (since 2026-09-29; before that, a
+self-contained simulation transaction). **So the only `false -> true` transition
 left is initial session activation** — which is the case option 1 is about, and
 an arbitrary "load another save while the rollback game continues" road is no
 longer being created by accident.

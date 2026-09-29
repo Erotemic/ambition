@@ -136,16 +136,22 @@ fn round_trips_the_owned_counts_by_id() {
 /// RUN BACK — MEASURED BY A 2026-09-13 REVIEW, AND THIS ARM REPRODUCES IT.**
 ///
 /// The reset writes `AmbitionGameSaveData::default()` and leaves `SaveRestored`
-/// TRUE with the old run's bag still live. `persist_inventory_to_save` then sees
-/// the fresh save differ from the live state and writes the OLD inventory and
-/// wallet back into it. The wipe did not stay a wipe.
+/// TRUE. If the old run's bag were still live, `persist_inventory_to_save` would
+/// see the fresh save differ from it and write the OLD inventory and wallet back.
 ///
-/// ⭐ **IT TICKS THE MIRROR, WHICH IS THE WHOLE POINT.** An arm that only checked
-/// the live bag right after the commit would pass against the broken code: the
-/// damage is done by the very next persistence pass, so the test has to let one
-/// happen.
+/// A New Game is a checkpoint restore to the fresh baseline, so this drives the
+/// item domain's two commit reducers with the inputs a New Game pins: the
+/// starter bag, no mints, and the fresh-run marker.
+///
+/// ⭐ **IT TICKS THE MIRROR, WHICH IS THE WHOLE POINT.** The damage is done by
+/// the next persistence pass, so the test lets one happen.
 #[test]
 fn a_new_game_does_not_write_the_old_runs_inventory_back_into_the_fresh_save() {
+    use crate::items::pickup::minted_horizon::{
+        restore_owned_items_to_checkpoint, start_the_item_domain_fresh,
+        ItemCheckpointRestoreInputs, OwnedItemsBaseline,
+    };
+    use bevy::ecs::system::RunSystemOnce as _;
     let mut save = AmbitionGameSave::default();
     save.data_mut().set_inventory(
         vec![ambition_persistence::save_data::PersistedItem::new(
@@ -157,27 +163,43 @@ fn a_new_game_does_not_write_the_old_runs_inventory_back_into_the_fresh_save() {
     let mut owned = OwnedItems::starter();
     owned.grant(Item::Bomb, 1);
     let (mut app, player) = app_with(save, owned, 137);
-    app.add_message::<crate::session::reset::NewGameResetCommitted>();
-    app.add_systems(
-        bevy::prelude::Update,
-        reset_inventory_on_new_game.before(restore_inventory_from_save),
-    );
     app.update();
 
-    // ⚠ THE PREMISE: an old run actually in the save and in the hand.
+    // ⚠ THE PREMISE: an old run actually in the save, the bag and the checkpoint.
     assert_eq!(app.world().resource::<AmbitionGameSave>().data().wallet(), 137);
     assert_eq!(
         app.world().resource::<OwnedItems>().count(Item::Bomb),
         1,
         "the fixture never acquired the old run's weapon"
     );
+    assert_eq!(
+        app.world().resource::<OwnedItemsBaseline>().remembered().count(Item::Bomb),
+        1,
+        "the fixture's checkpoint never held the old run's weapon"
+    );
 
-    // The reset's own work: the file is wiped, and the commit is announced.
+    // The commit's own work: the file is wiped, then the domain reducers run
+    // with the pinned fresh inputs installed.
     *app.world_mut().resource_mut::<AmbitionGameSave>() = AmbitionGameSave::default();
+    let mut starter = OwnedItemsBaseline::default();
+    starter.adopt(OwnedItems::starter());
+    app.world_mut().insert_resource(ItemCheckpointRestoreInputs {
+        minted: Default::default(),
+        owned: starter,
+    });
     app.world_mut()
-        .write_message(crate::session::reset::NewGameResetCommitted);
+        .insert_resource(ambition_platformer2d_shared_tangle::lifecycle::FreshRunRestore);
+    app.world_mut()
+        .run_system_once(restore_owned_items_to_checkpoint)
+        .unwrap();
+    app.world_mut()
+        .run_system_once(start_the_item_domain_fresh)
+        .unwrap();
+    app.world_mut().remove_resource::<ItemCheckpointRestoreInputs>();
+    app.world_mut()
+        .remove_resource::<ambition_platformer2d_shared_tangle::lifecycle::FreshRunRestore>();
+    // ⭐ AND TWO ORDINARY FRAMES, which is where the defect used to land.
     app.update();
-    // ⭐ AND ONE MORE ORDINARY FRAME, which is where the defect used to land.
     app.update();
 
     assert_eq!(
@@ -210,5 +232,13 @@ fn a_new_game_does_not_write_the_old_runs_inventory_back_into_the_fresh_save() {
         app.world().resource::<OwnedItems>().count(Item::Fireball),
         1,
         "a new game began with an EMPTY bag rather than the starter set"
+    );
+    // ⭐ AND THE CHECKPOINT IS THE STARTER BAG. It was reset to an EMPTY bag
+    // before 2026-09-29, so a death after a New Game and before any shrine
+    // restored nothing to the bag.
+    assert_eq!(
+        app.world().resource::<OwnedItemsBaseline>().remembered(),
+        &OwnedItems::starter(),
+        "a death after this New Game would restore the wrong bag"
     );
 }

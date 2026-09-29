@@ -317,60 +317,10 @@ pub fn complete_durable_restore(
     }
 }
 
-/// Establish the occurrence domain's fresh-run state when a New Game commits.
-///
-/// ⛔⛤ **THIS IS THE OCCURRENCE DOMAIN REDUCING `NewGameResetCommitted` FOR
-/// ITSELF, AND FOR ONE COMMIT IT WAS THE INVENTORY SUBSYSTEM DOING IT INSTEAD.**
-/// `items::persist::reset_inventory_on_new_game` briefly reset
-/// [`OccurrenceBaseline`] and [`CustodyBaseline`] alongside the bag, the wallet
-/// and the two item baselines — six domains' reset details known to one
-/// subsystem, which is the exact shape *"each durable domain reduces the
-/// lifecycle fact"* exists to prevent. One lifecycle event, one reducer per
-/// mechanical domain.
-///
-/// ⚠ **`AuthoredOccurrences` IS DELIBERATELY NOT RESET HERE, AND IT IS NOT AN
-/// OVERSIGHT TO FIX LATER.** `process_new_game_reset_request` clears the ledger
-/// with `forget_everything()` from INSIDE its staged command flush, and the
-/// safety argument written there depends on that: a command flush is exclusive
-/// world access, so no system can author a row between the room rebuild and the
-/// clear. A message-driven reducer runs after the flush and cannot reproduce
-/// that property — it would erase rows the rebuilt room may legitimately have
-/// authored, or leave stale ones live for a window. Moving it would trade a
-/// stated ordering guarantee for an ownership diagram.
-///
-/// ⚠ BOTH BASELINES ARE `Option`, because a composition may install the
-/// durable horizon without the checkpoint baselines.
-pub fn reset_occurrence_horizon_on_new_game(
-    mut committed: MessageReader<crate::session::reset::NewGameResetCommitted>,
-    occurrence_baseline: Option<
-        ResMut<ambition_platformer2d_shared_tangle::lifecycle::OccurrenceBaseline>,
-    >,
-    custody_baseline: Option<
-        ResMut<ambition_platformer2d_shared_tangle::lifecycle::CustodyBaseline>,
-    >,
-) {
-    if committed.read().next().is_none() {
-        return;
-    }
-    // ⇒ Reset directly rather than re-adopting from the wiped save file. Going
-    // back through the load road is what used to require lowering
-    // `SaveRestored` mid-session, and that lowering was the only one in the
-    // codebase.
-    if let Some(mut baseline) = occurrence_baseline {
-        *baseline = Default::default();
-    }
-    if let Some(mut baseline) = custody_baseline {
-        *baseline = Default::default();
-    }
-}
-
 /// Where a domain's durable adapters run in the simulation. A domain installs
 /// its own systems here; this module orders the slots.
 #[derive(SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum DurableHorizonSet {
-    /// Fresh-run reducers of `NewGameResetCommitted`, one per domain. They write
-    /// disjoint state and are unordered against each other.
-    NewGameReset,
     /// Other domains' live → save mirrors. Each domain chains its own members:
     /// they all take `ResMut<AmbitionGameSave>`.
     DomainMirror,
@@ -393,48 +343,11 @@ pub enum DurableRestoreSet {
 /// slots other domains' adapters join. The generic runtime composes this with
 /// each domain's own installation.
 pub fn install_durable_save_horizon(app: &mut App) {
-    // ⛔⛔ **THE CHANNEL BESIDE THE SYSTEM THAT READS IT.** A `MessageReader` for
-    // an unregistered message fails PARAMETER VALIDATION at runtime, not at
-    // compile time: adding `reset_inventory_on_new_game` to the chain below
-    // panicked six durable-horizon fixtures on their first frame. `add_message`
-    // is guarded against a second registration, so declaring it here costs a
-    // composition that also installs `session::reset` nothing and saves one that
-    // does not.
-    app.add_message::<crate::session::reset::NewGameResetCommitted>();
-    // ⛔⛤ **THE NEW-GAME RESET BELONGS IN THE REWIND WINDOW, AND IT USED TO SIT
-    // IN `Update` AT THE HEAD OF THE CHAIN BELOW.** It writes `BodyWallet` and
-    // lowers `SaveRestored`, both rollback-registered, so from `Update` it
-    // mutates state that every rewind restores and that this mutation is not
-    // replayed with — silent drift from the peer, and only under GGRS, because a
-    // fixed-tick host runs the same schedule either way.
-    //
-    // ⚠ The producer was already here: `process_new_game_reset_request` runs in
-    // the SIM schedule's `ResetProcessing`, and `NewGameResetCommitted` is
-    // `clear_message_on_rollback`. So a message produced INSIDE the rewind window
-    // was being consumed OUTSIDE it.
-    //
-    // ⇒ `.after(clear_transient_on_sandbox_reset)` puts it on the road its
-    // sibling consumer of this same message already takes, one step further
-    // along the chain that flushes the producer's deferred write.
-    //
-    // ⛔ THE ORDERING AGAINST THE MIRRORS IS NOW STATED, NOT INHERITED FROM THE
-    // FRAME. While the mirrors sat in `Update` this was carried by
-    // `RunFixedMainLoop` running first; they are in this schedule too now, so
-    // the edge that stops the OLD run's bag reaching the freshly wiped save has
-    // to be an explicit `.after`.
+    // ⭐ A NEW GAME'S FRESH-RUN STATE IS NOT RESET HERE. A New Game is a
+    // checkpoint restore to the fresh baseline, so each domain's fresh-run
+    // reducer runs in `CheckpointDomainApply`, on the confirmed-frame commit.
+    // The mirrors below then copy the fresh live state into the wiped save.
     let sim = app.sim_schedule();
-    // ⭐ TWO REDUCERS OF ONE FACT, each owning its own domain's fresh-run state.
-    // They are unordered against each other on purpose: they write disjoint
-    // resources, so an edge between them would assert a dependency that does not
-    // exist. Both take the same `.after` edge to the producer's flush.
-    app.configure_sets(
-        sim,
-        DurableHorizonSet::NewGameReset.after(crate::session::reset::clear_transient_on_sandbox_reset),
-    );
-    app.add_systems(
-        sim,
-        reset_occurrence_horizon_on_new_game.in_set(DurableHorizonSet::NewGameReset),
-    );
     // ⛔⛤ **THE LIVE→SAVE MIRRORS CROSS THE SAME ROLLBACK BOUNDARY AS THE STATE
     // THEY MIRROR.** They ran in top-level `Update` — once per FRAME — while
     // `AmbitionGameSave` is `rollback_resource_clone_checksum` and is compared
@@ -460,9 +373,7 @@ pub fn install_durable_save_horizon(app: &mut App) {
     // the visit is never counted at all.
     app.configure_sets(
         sim,
-        (DurableHorizonSet::DomainMirror, DurableHorizonSet::SessionMirror)
-            .chain()
-            .after(DurableHorizonSet::NewGameReset),
+        (DurableHorizonSet::DomainMirror, DurableHorizonSet::SessionMirror).chain(),
     );
     app.add_systems(
         sim,
@@ -479,9 +390,8 @@ pub fn install_durable_save_horizon(app: &mut App) {
         // THREE PARTS BECAUSE ANY ONE OF THEM ALONE IS INSUFFICIENT. The three
         // restores (one per `DurableRestoreSet` slot, the item domain's among
         // them) write only while `SaveRestored` is false; the latch rises once and
-        // has no `true -> false` transition left in the workspace
-        // (`debug_assert!(restored.0)` in `reset_inventory_on_new_game` is what
-        // keeps that true); and `maintain_local_session` refuses to start a
+        // has no `true -> false` transition left in the workspace (a New Game
+        // restores through the checkpoint commit and does not touch it); and `maintain_local_session` refuses to start a
         // rollback session while `durable_hydration_is_pending`. ⇒ These three
         // run strictly before frame zero of any session, so the rewind they
         // would otherwise lose their writes to does not exist yet.

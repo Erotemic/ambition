@@ -826,106 +826,6 @@ fn the_control_keeps_the_same_grant_when_nothing_rewinds() {
     }
 }
 
-/// The OTHER half of `MENU-RESET-MIDSESSION`, and it is a different failure.
-///
-/// `NewGameResetRequested` is `rollback_resource_canonical`, which
-/// `RollbackEntryKind::feeds_peer_checksum` reports as hashed — so unlike the
-/// bag above, a local-only write to it is something the peers can DISAGREE
-/// about rather than something that vanishes quietly.
-///
-/// ⛔ `rollback_full_reset.rs` sets this same flag and then calls
-/// `rebase_rollback_history()`, folding it into the baseline ON PURPOSE, so the
-/// reconstruction runs on the baseline frame and every re-simulation of it. That
-/// is the safe shape by construction. This arm is the same write WITHOUT the
-/// rebase, which is what the menu actually does.
-#[test]
-fn a_reset_requested_from_update_mid_window() {
-    type NewGameResetRequested =
-        ambition_platformer2d::actors::session::reset::NewGameResetRequested;
-
-    let mut sim = repro_sim();
-    for _ in 0..60 {
-        sim.step(AgentAction::default());
-    }
-    health(&sim).expect("the window is clean before the flag is set");
-
-    let roster_before = feature_roster(&mut sim);
-    assert!(!roster_before.is_empty(), "the room has a roster before the request");
-
-    // The menu's shape: set from outside the rewinding schedule, no rebase.
-    {
-        let world = sim.world_mut();
-        world.resource_mut::<NewGameResetRequested>().request = true;
-    }
-
-    let mut still_requested_at: Vec<usize> = Vec::new();
-    let mut desync: Option<(usize, String)> = None;
-    for frame in 0..180 {
-        sim.step(AgentAction::default());
-        if sim
-            .world()
-            .get_resource::<NewGameResetRequested>()
-            .is_some_and(|flag| flag.request)
-        {
-            still_requested_at.push(frame);
-        }
-        if desync.is_none() {
-            if let Err(error) = health(&sim) {
-                desync = Some((frame, error));
-            }
-        }
-    }
-
-    // ⚠ THE PREMISE, AND IT HAS THREE POSSIBLE ANSWERS RATHER THAN TWO. A clean
-    // window here is only interesting if the flag was actually LIVE for part of
-    // it. If the rewind took the flag back the way it took the bag back, then
-    // `still_requested_at` is empty and this arm has reproduced the SILENT
-    // failure again rather than shown the hashed one to be safe.
-    assert!(
-        desync.is_none(),
-        "a reset requested from `Update` mid-window DESYNCED at {desync:?} — that \
-         is the hashed-half failure MENU-RESET-MIDSESSION predicted, and it is a \
-         stronger result than the silent one the bag arm found. \
-         flag still set on frames: {still_requested_at:?}"
-    );
-    // ⭐ THE DISCRIMINATOR. The flag was never observed set after the write, and
-    // that has two causes with opposite meanings: the sim CONSUMED it (a reset
-    // ran, and the room was rebuilt) or the rewind TOOK IT BACK (nothing
-    // happened, the same silent loss the bag arm found). A full sandbox reset
-    // despawns and respawns the room-scoped roster, so a reconstruction that
-    // really ran shares no `Entity` with the roster before it.
-    let roster_after = feature_roster(&mut sim);
-    let reconstructed = roster_before.is_disjoint(&roster_after);
-    assert!(
-        still_requested_at.is_empty(),
-        "the flag survived the window on frames {still_requested_at:?}, which is a \
-         THIRD outcome this arm has not seen and the row is not written for"
-    );
-    // ⛔✦ ASSERTS THE DEFECT, like its sibling. MEASURED 2026-09-16: the room was
-    // NOT rebuilt — 7 of 7 roster entities survived — so a reset requested from
-    // `Update` is taken back by the rewind exactly as the bag is. RED here means
-    // the request now survives, which is the FIX; delete the arm and close the
-    // row.
-    //
-    // ⚠⚠ WHAT THIS ARM CANNOT SHOW, and the row must not claim: the sync-test
-    // harness is ONE peer replaying itself, so a write that is erased identically
-    // on every replay produces no mismatch to detect. `NewGameResetRequested`
-    // feeds the peer checksum, and whether TWO peers would disagree before the
-    // erase is a question no single-peer harness can answer. The local loss is
-    // measured; the cross-peer divergence is not.
-    assert!(
-        !reconstructed,
-        "the reset request now survives the rewind and the room WAS rebuilt — \
-         that is the fix this arm is waiting for, not a regression"
-    );
-    assert_eq!(
-        roster_before.intersection(&roster_after).count(),
-        roster_before.len(),
-        "the roster partially changed, which is neither outcome this arm knows \
-         how to read — re-measure before trusting either assertion above"
-    );
-}
-
 /// DURABLE-HORIZON-CHECKSUM's own question, which is the OPPOSITE of the two
 /// arms above: what happens when the mirrored value changes LEGITIMATELY, inside
 /// the rewinding schedule, so the `Update` mirror has a real change to carry?
@@ -2196,13 +2096,11 @@ fn leave_one_row_in_the_occurrence_ledger(
 /// a property of an unsupported feature. It is not: a single `adopt_rows` call
 /// in the rewinding schedule is enough.
 ///
-/// ⛔ AND THE SHIPPED INSTANCE OF EXACTLY THIS WRITE IS NEW GAME.
-/// `process_new_game_reset_request` is registered in this same schedule
-/// (`Platformer2dSimulationPhaseMonolith::ResetProcessing`,
-/// `crates/ambition_platformer2d_actor_monolith/src/session/reset/mod.rs`) and
-/// calls `occurrences.forget_everything()`. A rewind across that clear cannot
-/// restore what it cleared, and for a row naming an unloaded room there is no
-/// live producer that could republish it — so the *"republished from live state
+/// ⛔ AND THE SHIPPED INSTANCE OF THIS WRITE WAS NEW GAME, which cleared the
+/// ledger inside this same schedule until 2026-09-29 (it restores the ledger on
+/// the confirmed-frame commit now). A rewind across such a clear cannot restore
+/// what it cleared, and for a row naming an unloaded room there is no live
+/// producer that could republish it — so the *"republished from live state
 /// while its room is loaded"* justification has nothing to offer.
 ///
 /// ⚠ MEASURED BEHAVIOUR OF THE DEFECT, 2026-09-16: with the row seeded the
@@ -2254,9 +2152,7 @@ fn one_write_to_the_occurrence_ledger_does_not_desync_the_sync_test() {
              sync test. `AuthoredOccurrences` is `declare_rollback_derived_*`, so \
              no snapshot restores it: the row survives a rewind into frames from \
              before the write, `persist_occurrence_horizon_to_save` mirrors it \
-             into the hashed save, and two passes of one frame disagree. New \
-             Game does this same write on a shipped road via \
-             `forget_everything()`.\n\
+             into the hashed save, and two passes of one frame disagree.\n\
              SimTick reached {reached} (an unseeded run of this fixture reaches \
              31)\n{error}"
         )
@@ -2274,7 +2170,7 @@ const NEW_GAME_AT: u64 = 30;
 /// Every value `SaveRestored` held, sampled once per `Update`.
 ///
 /// ⛔⛤ THIS EXISTS BECAUSE A BETWEEN-STEP READ CANNOT SEE THE TRANSITION.
-/// `reset_inventory_on_new_game` lowered the latch and the load chain raised it
+/// The old New Game reducer lowered the latch and the load chain raised it
 /// again in the SAME frame, so `sim.step()`-boundary sampling reported it true
 /// throughout — measured: the first version of the arm below passed with the
 /// defect fully present, which is a vacuous guard wearing a green tick.
@@ -2298,8 +2194,8 @@ fn seed_both_baselines_then_start_a_new_game(
     mut custody_baseline: bevy::prelude::ResMut<
         ambition_platformer2d::platformer::lifecycle::CustodyBaseline,
     >,
-    mut reset: bevy::prelude::ResMut<
-        ambition_platformer2d::actors::session::reset::NewGameResetRequested,
+    mut new_games: bevy::prelude::MessageWriter<
+        ambition_platformer2d::actors::session::reset::NewGameRequested,
     >,
 ) {
     use ambition_platformer2d::platformer::lifecycle::{
@@ -2320,14 +2216,14 @@ fn seed_both_baselines_then_start_a_new_game(
         );
         custody_baseline.adopt(held);
     } else if tick.0 == NEW_GAME_AT {
-        reset.request = true;
+        new_games.write(ambition_platformer2d::actors::session::reset::NewGameRequested);
     }
 }
 
 /// ✔⛤ NEW GAME CLEARS THE OCCURRENCE BASELINES ITSELF, AND NEVER LOWERS THE
 /// DURABLE-RESTORE LATCH TO DO IT.
 ///
-/// `reset_inventory_on_new_game` used to end `restored.0 = false`, which sent
+/// The old New Game inventory reducer ended `restored.0 = false`, which sent
 /// the fresh run back through the generic load chain so that
 /// `adopt_occurrence_checkpoint_from_save` would re-adopt these two baselines
 /// from the wiped file. ⛔ **That line was the ONLY place in the codebase that
@@ -2340,10 +2236,10 @@ fn seed_both_baselines_then_start_a_new_game(
 /// (bag, wallet, minted-item baseline, owned-items baseline); these two were the
 /// whole reason to re-enter the load road. They are reset directly now.
 ///
-/// ⚠ `AuthoredOccurrences` is not checked here: `process_new_game_reset_request`
-/// clears it with `forget_everything()` one system earlier in the same committed
-/// transaction, and `one_write_to_the_occurrence_ledger_does_not_desync_the_sync_test`
-/// owns that road.
+/// Since 2026-09-29 a New Game is a checkpoint restore to the fresh baseline, and
+/// the baselines are cleared by `adopt_pinned_lifecycle_baselines` on the
+/// commit. `AuthoredOccurrences` is not checked here: the same commit restores
+/// it from the pinned empty ledger.
 #[test]
 fn a_new_game_clears_the_occurrence_baselines_without_lowering_the_latch() {
     use ambition_platformer2d::sim::SimScheduleExt;
@@ -2356,7 +2252,13 @@ fn a_new_game_clears_the_occurrence_baselines_without_lowering_the_latch() {
             use bevy::prelude::IntoScheduleConfigs as _;
             ambition_app::rl_sim::ambition_sim_composition(app, options)?;
             let label = app.sim_schedule();
-            app.add_systems(label, seed_both_baselines_then_start_a_new_game);
+            // Before the admission, so the request is read on the tick it is
+            // written and a rewind to that tick writes it again.
+            app.add_systems(
+                label,
+                seed_both_baselines_then_start_a_new_game
+                    .before(ambition_platformer2d::platformer::lifecycle::CheckpointRestore),
+            );
             // ⚠ `Update`, not the sim schedule: the chain that lowers and raises
             // the latch lives in `Update`, and that is the resolution the claim
             // needs.
@@ -2391,7 +2293,7 @@ fn a_new_game_clears_the_occurrence_baselines_without_lowering_the_latch() {
     // 280-step run both report tick 32 against a reset staged at 30. The reset
     // despawns and respawns the room's roster, and despawn bumps the entity
     // generation, so NO original `Entity` value survives a rebuild that really
-    // ran — the discriminator `a_reset_requested_from_update_mid_window` uses.
+    // ran.
     let roster_before = feature_roster(&mut sim);
     for frame in 0..200 {
         sim.step(AgentAction::default());
@@ -2788,18 +2690,19 @@ fn probe_the_latch_as_the_opener_sees_it() {
 }
 
 /// Every commit of a New Game this world performed, by the `SimTick` it
-/// committed on, one entry per PASS.
+/// committed on. A commit runs once, on a confirmed frame, and a replay does
+/// not run it again.
 #[derive(bevy::prelude::Resource, Default)]
 struct ResetCommits(Vec<u64>);
 
+/// Runs in the commit's domain-apply schedule, where a New Game is the one
+/// restore that installs the fresh-run marker.
 fn record_every_new_game_commit(
-    mut committed: bevy::prelude::MessageReader<
-        ambition_platformer2d::actors::session::reset::NewGameResetCommitted,
-    >,
+    fresh: Option<bevy::prelude::Res<ambition_platformer2d::platformer::lifecycle::FreshRunRestore>>,
     tick: bevy::prelude::Res<ambition_platformer2d::time::SimTick>,
     mut commits: bevy::prelude::ResMut<ResetCommits>,
 ) {
-    for _ in committed.read() {
+    if fresh.is_some() {
         commits.0.push(tick.0);
     }
 }
@@ -2810,12 +2713,12 @@ const IN_SIM_NEW_GAME_AT: u64 = 30;
 
 fn request_a_new_game_from_inside_the_sim(
     tick: bevy::prelude::Res<ambition_platformer2d::time::SimTick>,
-    mut reset: bevy::prelude::ResMut<
-        ambition_platformer2d::actors::session::reset::NewGameResetRequested,
+    mut new_games: bevy::prelude::MessageWriter<
+        ambition_platformer2d::actors::session::reset::NewGameRequested,
     >,
 ) {
     if tick.0 == IN_SIM_NEW_GAME_AT {
-        reset.request = true;
+        new_games.write(ambition_platformer2d::actors::session::reset::NewGameRequested);
     }
 }
 
@@ -2827,12 +2730,20 @@ fn sim_recording_new_game_commits(with_an_in_sim_requester: bool) -> Platformer2
             .with_required_start_room(ROOM)
             .with_sync_test_rollback_settings(4, 10),
         |app, options| {
+            use bevy::prelude::IntoScheduleConfigs as _;
             ambition_app::rl_sim::ambition_sim_composition(app, options)?;
             let label = app.sim_schedule();
             app.init_resource::<ResetCommits>();
-            app.add_systems(label, record_every_new_game_commit);
+            app.add_systems(
+                ambition_platformer2d::platformer::lifecycle::CheckpointDomainApply,
+                record_every_new_game_commit,
+            );
             if with_an_in_sim_requester {
-                app.add_systems(label, request_a_new_game_from_inside_the_sim);
+                app.add_systems(
+                    label,
+                    request_a_new_game_from_inside_the_sim
+                        .before(ambition_platformer2d::platformer::lifecycle::CheckpointRestore),
+                );
             }
             Ok(())
         },
@@ -2861,14 +2772,20 @@ fn step_past_hydration(sim: &mut Platformer2dSimHarness) {
     );
 }
 
-/// ⭐ A NEW GAME ASKED FOR BY THE HOST COMMITS EXACTLY ONCE UNDER A REWIND.
+/// ⭐ A NEW GAME ASKED FOR BY THE HOST COMMITS EXACTLY ONCE UNDER A REWIND, AND
+/// THE REWIND AGREES WITH ITSELF.
 ///
-/// `NewGameResetRequested` is rollback state, so a menu that set it from
-/// `Update` had its write restored away by the next rewind: measured
-/// 2026-09-16, 0 commits against the in-sim control's 1. The menu now writes a
-/// `NewGameRequested` host intent (`HostIntentWriter`); the ledger releases it
-/// on its stamped tick, first pass and every resimulation alike, and
-/// `arm_new_game_reset` sets the latch inside the simulation.
+/// A menu that set a rollback-registered latch from `Update` had its write
+/// restored away by the next rewind: measured 2026-09-16, 0 commits against the
+/// in-sim control's 1. The menu now writes a `NewGameRequested` host intent
+/// (`HostIntentWriter`); the ledger releases it on its stamped tick, first pass
+/// and every resimulation alike.
+///
+/// ⭐ NEW-GAME-RESYNC: both arms also keep `rollback_health()`. The New Game
+/// used to rebuild the world in the simulation, and a rewind across that frame
+/// brought its bodies back without their derived components, so the sync test
+/// failed at the reset tick on BOTH roads. It is a checkpoint restore now, and
+/// the room is rebuilt on the confirmed-frame commit.
 ///
 /// The in-sim arm is the control: a fixture that cannot reset at all would
 /// print 0 for both.
@@ -2879,6 +2796,9 @@ fn a_new_game_asked_for_by_the_host_commits_once_under_a_rewind() {
     for _ in 0..200 {
         inside.step(AgentAction::default());
     }
+    inside
+        .rollback_health()
+        .expect("the in-sim New Game desynced the sync test (NEW-GAME-RESYNC)");
     let inside_commits = inside.world().resource::<ResetCommits>().0.clone();
     assert_eq!(
         inside_commits.len(),
@@ -2900,9 +2820,9 @@ fn a_new_game_asked_for_by_the_host_commits_once_under_a_rewind() {
     for _ in 0..200 {
         outside.step(AgentAction::default());
     }
-    // ⚠ No `rollback_health()` here: the in-sim control fails the sync-test
-    // checksum at its reset tick too (NEW-GAME-RESYNC in the queue), so a
-    // mismatch on this road says nothing about the ingress.
+    outside
+        .rollback_health()
+        .expect("the host's New Game desynced the sync test");
     let outside_commits = outside.world().resource::<ResetCommits>().0.clone();
     assert_eq!(
         outside_commits.len(),
@@ -4087,9 +4007,9 @@ fn record_a_timeline_over_an_unrestored_save(world: &mut bevy::prelude::World) {
 
 /// NEW-GAME-RESYNC's localizer: the in-sim control under `RollbackRestoreAudit`.
 /// Prints each component whose census differs between the first pass and a
-/// replay. Keep it until the row closes; the acceptance is an empty list.
+/// replay. The row closed with an empty list; keep it for the next divergence.
 #[test]
-#[ignore = "PROBE, print-only: NEW-GAME-RESYNC, where an in-sim New Game diverges"]
+#[ignore = "PROBE, print-only: where an in-sim New Game diverges"]
 fn probe_where_the_in_sim_new_game_diverges() {
     let mut sim = sim_recording_new_game_commits(true);
     sim.world_mut()

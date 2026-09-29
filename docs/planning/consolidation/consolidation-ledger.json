@@ -4251,14 +4251,14 @@
       "owner": "actor_monolith session reset",
       "status": "SOURCE_CONFIRMED",
       "complexity": "ESSENTIAL_COMPLEXITY",
-      "current_truth": "NewGameResetRequested is preflighted, then NewGameResetCommitted marks the admitted reset. The reset clears durable/session progress and rebuilds through the room replay/construction seam.",
+      "current_truth": "Since 2026-09-29 a New Game is a checkpoint restore to the fresh baseline (NEW-GAME-RESYNC): resume_at_checkpoint_on_reset admits NewGameRequested with the start room as destination and empty pinned inputs, the room is rebuilt through the checkpoint restore's transition on the confirmed-frame commit, and the fresh-run reducers clear durable/session progress in CheckpointDomainApply.",
       "source_paths": [
         "crates/ambition_platformer2d_actor_monolith/src/session/reset/mod.rs"
       ],
       "evidence": [
         {
           "status": "SOURCE_CONFIRMED",
-          "claim": "NewGameResetRequested is preflighted, then NewGameResetCommitted marks the admitted reset. The reset clears durable/session progress and rebuilds through the room replay/construction seam.",
+          "claim": "Since 2026-09-29 a New Game is a checkpoint restore to the fresh baseline (NEW-GAME-RESYNC): resume_at_checkpoint_on_reset admits NewGameRequested with the start room as destination and empty pinned inputs, the room is rebuilt through the checkpoint restore's transition on the confirmed-frame commit, and the fresh-run reducers clear durable/session progress in CheckpointDomainApply.",
           "sources": [
             "crates/ambition_platformer2d_actor_monolith/src/session/reset/mod.rs"
           ]
@@ -4577,14 +4577,14 @@
       "owner": "actor_monolith session reset",
       "status": "SOURCE_CONFIRMED",
       "complexity": "ESSENTIAL_COMPLEXITY",
-      "current_truth": "NewGameResetDecided performs preflight. NewGameResetCommitted is emitted only after the reset is accepted and is the boundary for dependent state resets.",
+      "current_truth": "Since 2026-09-29 a New Game publishes like every checkpoint restore: the room transaction verifies, then apply_committed_checkpoint_restore runs CheckpointDomainApply with FreshRunRestore installed and publishes one terminal outcome.",
       "source_paths": [
         "crates/ambition_platformer2d_actor_monolith/src/session/reset/mod.rs"
       ],
       "evidence": [
         {
           "status": "SOURCE_CONFIRMED",
-          "claim": "NewGameResetDecided performs preflight. NewGameResetCommitted is emitted only after the reset is accepted and is the boundary for dependent state resets.",
+          "claim": "Since 2026-09-29 a New Game publishes like every checkpoint restore: the room transaction verifies, then apply_committed_checkpoint_restore runs CheckpointDomainApply with FreshRunRestore installed and publishes one terminal outcome.",
           "sources": [
             "crates/ambition_platformer2d_actor_monolith/src/session/reset/mod.rs"
           ]
@@ -5463,14 +5463,14 @@
       "owner": "session reset",
       "status": "SOURCE_CONFIRMED",
       "complexity": "ESSENTIAL_COMPLEXITY",
-      "current_truth": "NewGameResetDecided performs the reset decision and NewGameResetCommitted is the boundary for dependent resets. \u2b50 CONFIRMED 2026-09-18: the measurement, its source citations and its poisons are the `ORDER-NEW-GAME` row of `docs/planning/consolidation/architecture-census.md`, which is where evidence for this class is written.",
+      "current_truth": "Since 2026-09-29 the dependent resets are fresh-run reducers in CheckpointDomainApply, which only the confirmed-frame commit executor runs, so the order is structural. The old decision set and commit message are deleted; the `ORDER-NEW-GAME` row of `docs/planning/consolidation/architecture-census.md` records the change.",
       "source_paths": [
         "crates/ambition_platformer2d_actor_monolith/src/session/reset/mod.rs"
       ],
       "evidence": [
         {
           "status": "SOURCE_CONFIRMED",
-          "claim": "NewGameResetDecided performs the reset decision and NewGameResetCommitted is the boundary for dependent resets. \u2b50 CONFIRMED 2026-09-18: the measurement, its source citations and its poisons are the `ORDER-NEW-GAME` row of `docs/planning/consolidation/architecture-census.md`, which is where evidence for this class is written.",
+          "claim": "Since 2026-09-29 the dependent resets are fresh-run reducers in CheckpointDomainApply, which only the confirmed-frame commit executor runs, so the order is structural. The old decision set and commit message are deleted; the `ORDER-NEW-GAME` row of `docs/planning/consolidation/architecture-census.md` records the change.",
           "sources": [
             "crates/ambition_platformer2d_actor_monolith/src/session/reset/mod.rs"
           ]

@@ -309,9 +309,9 @@ fn probe_how_much_of_the_peer_checksum_actually_varies() {
 // ⛔⛤ S8 measured `CustodyBaseline` and `OccurrenceBaseline` "clean" and STATED
 // its own limit: the audit reports which entries DIVERGED, not whether the
 // system that writes them ran at all. The paired census above closes half of
-// that — all three of `CustodyBaseline`, `OccurrenceBaseline` and
-// `NewGameResetRequested` are CONSTANT under both idle and play, so their clean
-// verdict had nothing to disagree about.
+// that — all three of `CustodyBaseline`, `OccurrenceBaseline` and the New Game
+// latch (deleted 2026-09-29) were CONSTANT under both idle and play, so their
+// clean verdict had nothing to disagree about.
 //
 // ⚠ AND CONSTANT IS NOT FROZEN. A baseline nobody re-checkpoints in this room is
 // legitimately quiet, and that is indistinguishable from a snapshot that stopped
@@ -468,8 +468,9 @@ fn probe_which_hashed_entries_are_written_outside_the_rewinding_schedule() {
     }
     println!(
         "\n⚠ THIS CANNOT SEE A WRITE THAT PUTS THE VALUE BACK inside one frame, \
-         which is exactly why `NewGameResetRequested` satisfies S8's first two \
-         conditions and does not desync. Same blind spot as the checksum's."
+         which is exactly why a latch set and consumed within one frame satisfies \
+         S8's first two conditions and does not desync. Same blind spot as the \
+         checksum's."
     );
 }
 
@@ -480,8 +481,8 @@ fn probe_which_hashed_entries_are_written_outside_the_rewinding_schedule() {
 /// Measured over 240 frames by comparing the world at the end of the GGRS advance
 /// with the world at the end of the frame, the answer is **one**:
 /// `AmbitionGameSave`. The other three are explained by this instrument's two
-/// stated blind spots rather than by disagreement — `NewGameResetRequested` is
-/// put back within the frame, and `CustodyBaseline` / `OccurrenceBaseline` are
+/// stated blind spots rather than by disagreement — the New Game latch (deleted
+/// 2026-09-29) was put back within the frame, and `CustodyBaseline` / `OccurrenceBaseline` are
 /// measured EMPTY for the whole run (`probe_whether_s8s_baselines_are_quiet_or_frozen`).
 ///
 /// ⚠ **THE POPULATION IS "TYPES WHOSE PROBE CAN SEE A VALUE CHANGE", NOT "ALL

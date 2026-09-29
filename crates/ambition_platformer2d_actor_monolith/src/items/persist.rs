@@ -31,14 +31,11 @@ use ambition_characters::actor::BodyWallet;
 use ambition_persistence::save::AmbitionGameSave;
 
 /// Install the item domain's durable adapters into the session's slots: the
-/// fresh-run reset, the live → save mirrors, and the file's restore.
+/// live → save mirrors and the file's restore. The fresh-run reset is a
+/// checkpoint-restore reducer: see `minted_horizon::start_the_item_domain_fresh`.
 pub fn install_item_durable_horizon(app: &mut App) {
     use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
     let sim = app.sim_schedule();
-    app.add_systems(
-        sim,
-        reset_inventory_on_new_game.in_set(DurableHorizonSet::NewGameReset),
-    );
     app.add_systems(
         sim,
         (
@@ -51,83 +48,6 @@ pub fn install_item_durable_horizon(app: &mut App) {
     app.add_systems(
         Update,
         restore_inventory_from_save.in_set(DurableRestoreSet::Domains),
-    );
-}
-
-/// ⛔⛤ **RESET NEW GAME WIPED THE SAVE AND THE NEXT PERSISTENCE PASS PUT THE OLD
-/// RUN BACK — MEASURED BY A 2026-09-13 REVIEW.**
-///
-/// `process_new_game_reset_request` writes `AmbitionGameSaveData::default()`,
-/// resets encounters/bosses/quests, clears occurrences and rebuilds the room. It
-/// does not touch `OwnedItems`, the primary player's `BodyWallet`, the item
-/// baselines, or [`SaveRestored`] — and `SaveRestored` staying TRUE is what
-/// closes the loop:
-///
-/// ```text
-/// Reset New Game:   save = default, live bag = the old run's, SaveRestored = true
-/// next pass:        persist_inventory_to_save sees them differ
-///                   → writes the OLD inventory and wallet into the NEW save
-/// ```
-///
-/// ⇒ The wipe did not stay a wipe, and stale checkpoint baselines could restore
-/// old-run durable state on a later death.
-///
-/// ⭐ **THE DOMAIN OWNS ITS OWN FRESH-RUN STATE, which is why this is here and
-/// not another field the reset monolith knows about.** `NewGameResetCommitted` is
-/// the lifecycle FACT; each durable domain reduces it. Teaching the central reset
-/// the internals of every durable subsystem is how the next subsystem gets
-/// forgotten.
-///
-/// ⚠ **FRESH-RUN, NOT EMPTY.** The bag is `OwnedItems::starter()` — what
-/// `ambition_content`'s plugin installs at App build, so a new game begins with
-/// what a new PROCESS begins with. The wallet is `BodyWallet::default()`: no
-/// character definition authors a starting balance (checked), so zero is that
-/// same value. ⇒ If one ever does, this owes the definition rather than a
-/// constant.
-pub fn reset_inventory_on_new_game(
-    mut committed: MessageReader<crate::session::reset::NewGameResetCommitted>,
-    mut owned: ResMut<OwnedItems>,
-    // ⚠ `Res`, NOT `ResMut`. This function no longer lowers the latch; it only
-    // asserts that a load has finished before writing fresh-run values over it.
-    // Keeping mutable authority after removing the mutation misleads both Bevy's
-    // scheduler and the rollback-mutator audits, which ask who WRITES what.
-    restored: Res<SaveRestored>,
-    mut minted_baseline: Option<ResMut<crate::items::pickup::minted_horizon::MintedItemBaseline>>,
-    mut owned_baseline: Option<ResMut<crate::items::pickup::minted_horizon::OwnedItemsBaseline>>,
-    mut wallet_q: Query<
-        &mut BodyWallet,
-        ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
-    >,
-) {
-    if committed.read().next().is_none() {
-        return;
-    }
-    *owned = OwnedItems::starter();
-    if let Ok(mut wallet) = wallet_q.single_mut() {
-        *wallet = BodyWallet::default();
-    }
-    if let Some(baseline) = minted_baseline.as_deref_mut() {
-        *baseline = Default::default();
-    }
-    if let Some(baseline) = owned_baseline.as_deref_mut() {
-        *baseline = Default::default();
-    }
-    // ⛔⛤ **THE OCCURRENCE AND CUSTODY BASELINES ARE NOT RESET HERE, AND THEY
-    // WERE FOR ONE COMMIT.** Putting them in this function made the INVENTORY
-    // subsystem reset lifecycle/custody state on behalf of another domain, which
-    // is the ownership shape the comment above this function argues against:
-    // `NewGameResetCommitted` is the lifecycle FACT and each durable domain
-    // reduces it for itself. `session::durable_horizon::reset_occurrence_horizon_on_new_game`
-    // owns those two now.
-    //
-    // ⇒ What this function's move to New Game actually bought is unchanged: the
-    // closing `restored.0 = false` is gone, so there is no mid-session
-    // `false -> true` transition of `SaveRestored` anywhere in the codebase and
-    // New Game no longer re-enters the generic load road.
-    debug_assert!(
-        restored.0,
-        "a New Game committed while the durable restore had never completed, so \
-         the fresh-run values above are being written over a load still in flight"
     );
 }
 

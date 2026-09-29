@@ -554,8 +554,8 @@ impl Platformer2dSimHarness {
     /// pressed edge into `reset_sandbox` plus a room-feature reset: the body
     /// returns to spawn and the room's feature state is restored where it stands.
     /// It does NOT sweep room-scoped entities, empty a hand, wipe the save, or
-    /// re-run authored room construction — that is `NewGameResetRequested`, a
-    /// different product, requested by its own resource. A test that drives this
+    /// re-run authored room construction — that is a New Game, a different
+    /// product, requested by the `NewGameRequested` host intent. A test that drives this
     /// and then asserts the room was rebuilt is measuring the wrong road.
     pub fn reset_episode(&mut self) -> AgentObservation {
         self.step(AgentAction::reset());

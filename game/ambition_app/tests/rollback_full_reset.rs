@@ -1,19 +1,16 @@
-//! Track B — op 2b (full sandbox reset) under rollback: reproduce-first.
+//! Track B — op 2b (full sandbox reset) under rollback.
 //!
-//! Unlike the room TRANSITION (which diverged via its not-rollback-registered
-//! MULTI-TICK load machinery, `RoomTransitionLoadState` et al.), a full sandbox
-//! reset (`process_new_game_reset_request`) is SINGLE-TICK Commands reconstruction:
-//! despawn the whole `RoomScopedEntity` set + respawn a start-room plan, plus the
-//! registry/save/player resets, all in one `Platformer2dSimulationPhaseMonolith::ResetProcessing` pass.
-//! The transition result does NOT answer whether that diverges — the in-place
-//! reset proved single-tick Commands resets can be perfectly rollback-safe — so
-//! this asks op 2b directly.
+//! A New Game is a checkpoint restore to the fresh baseline at the start room.
+//! The request is a host intent, released inside the timeline on its stamped
+//! tick; the room is rebuilt by the confirmed-frame lifecycle commit, as a
+//! death's is. This drives that road through the sync-test window and checks
+//! both that it agrees with itself and that it really rebuilt the room.
 //!
-//! `NewGameResetRequested` is rollback state, so folding a pending request into
-//! the baseline makes the reconstruction run on the baseline frame AND on every
-//! re-simulation of it inside the sync-test window. If this is RED, op 2b needs
-//! the same confirmed-frame deferral the transition got; if GREEN, the single-tick
-//! reconstruction is already rollback-safe and reproduce-first says leave it be.
+//! It used to be a single-tick reconstruction in the simulation, and this file
+//! folded the pending request into the rollback baseline so the rebuild ran on
+//! the baseline frame. Written the way the menu writes it, that road desynced
+//! (NEW-GAME-RESYNC): a rewind across the rebuild frame brought the bodies back
+//! without their derived components.
 
 #![cfg(feature = "rl_sim")]
 
@@ -58,19 +55,14 @@ fn a_full_sandbox_reset_survives_the_rollback_window() {
     let before = feature_roster(&mut sim);
     assert!(!before.is_empty(), "the room has a roster before the reset");
 
-    // Request a full sandbox reset and fold it into the rollback baseline.
-    {
-        let world = sim.world_mut();
-        world
-            .resource_mut::<ambition_platformer2d::actors::session::reset::NewGameResetRequested>()
-            .request = true;
-    }
-    sim.rebase_rollback_history()
-        .expect("the pending full reset folds into the rollback baseline");
+    // The menu's road: a host intent, with no rebase.
+    ambition_platformer2d::actors::session::host_intents::write_host_intent(
+        sim.world_mut(),
+        ambition_platformer2d::actors::session::reset::NewGameRequested,
+    );
 
-    // Drive the window: the reconstruction runs on the baseline frame and every
-    // re-simulation of it. A single-tick reconstruction that is not rollback-safe
-    // diverges here.
+    // Drive the window: the admission runs on the stamped tick and every
+    // re-simulation of it, and the commit runs once on a confirmed frame.
     for frame in 0..180 {
         sim.step(AgentAction::default());
         sim.rollback_health().unwrap_or_else(|error| {

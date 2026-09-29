@@ -705,9 +705,10 @@ fn domain_restoration_is_registered_in_the_commit_schedule_and_not_in_the_simula
         .graph();
     assert_eq!(
         apply_graph.systems.iter().count(),
-        3,
-        "the occurrence, entitlement and custody reducers are this composition's \
-         installed domains, and all three belong to the commit's schedule"
+        5,
+        "the occurrence, entitlement and custody reducers and the two fresh-run \
+         baseline adoptions are this composition's installed domains, and all \
+         five belong to the commit's schedule"
     );
 }
 
@@ -778,6 +779,7 @@ fn the_commit_applies_the_operation_it_was_opened_for_and_always_removes_its_inp
                 minted: Default::default(),
                 owned: Default::default(),
             }),
+            fresh: false,
         });
     assert!(
         !super::apply_committed_checkpoint_restore(app.world_mut(), first),
@@ -841,6 +843,7 @@ fn a_key_from_a_retired_session_matches_nothing_in_the_next_one() {
             custody: Default::default(),
         }),
         item: None,
+        fresh: false,
     });
     assert!(
         held.inputs_for_key(old).is_none(),
@@ -1032,6 +1035,7 @@ fn the_accepted_restores_checksum_separates_every_field_that_changes_what_it_bui
                 minted: MintedItemBaseline::default(),
                 owned: Default::default(),
             }),
+            fresh: false,
         }
     }
 
@@ -1044,6 +1048,11 @@ fn the_accepted_restores_checksum_separates_every_field_that_changes_what_it_bui
 
     let perturbations: Vec<(&str, AcceptedRestore)> = vec![
         ("the originating frame", AcceptedRestore { frame: 8, ..base() }),
+        (
+            "whether it begins a new run — a New Game and a death to the same \
+             room with the same pinned values do different things at the commit",
+            AcceptedRestore { fresh: true, ..base() },
+        ),
         (
             "the operation SEQUENCE — two admissions with identical intents and \
              identical snapshots are still different operations",
@@ -1216,6 +1225,7 @@ fn a_restore_that_fails_verification_blocks_gameplay_and_publishes_one_failure()
                 custody,
             }),
             item: None,
+            fresh: false,
         });
 
     assert!(
@@ -1535,7 +1545,7 @@ fn an_exhausted_operation_counter_refuses_the_slot_rather_than_the_identity() {
         "an operation was accepted without an identity"
     );
     assert!(
-        app.world().resource::<OutstandingCheckpointRequest>().0,
+        app.world().resource::<OutstandingCheckpointRequest>().0.is_some(),
         "the request was spent on an operation that never happened; it is still \
          owed, and a session that later regains capacity must be able to serve it"
     );
@@ -1611,6 +1621,7 @@ fn custody_verification_names_the_custodian_and_refuses_a_duplicate() {
                     custody,
                 }),
                 item: None,
+                fresh: false,
             });
         assert!(super::apply_committed_checkpoint_restore(app.world_mut(), key));
         app.world()
@@ -1774,6 +1785,7 @@ fn verification_requires_the_rebuilt_room_to_contain_what_the_checkpoint_puts_in
                     custody: Default::default(),
                 }),
                 item: None,
+                fresh: false,
             });
         assert!(super::apply_committed_checkpoint_restore(app.world_mut(), key));
         app.world()
@@ -1842,6 +1854,80 @@ fn a_restore_admitted_without_the_lifecycle_horizon_pins_no_lifecycle_inputs() {
     }
 }
 
+/// ⭐ A NEW GAME IS A CHECKPOINT RESTORE TO THE FRESH BASELINE AT THE START
+/// ROOM, and it outranks a death asked for on the same tick.
+///
+/// The death alone is the control: it goes to the checkpoint's room and pins the
+/// checkpoint's ledger. The New Game goes to the start room's spawn, pins an
+/// empty ledger and is marked fresh, so the commit runs the fresh-run reducers.
+#[test]
+fn a_new_game_is_admitted_as_a_fresh_restore_at_the_start_room() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{
+        insert_session_world_component, AuthoredOccurrences, OccurrenceBaseline,
+        OccurrenceWhereabouts, ResetToCheckpoint,
+    };
+    use ambition_platformer2d_shared_tangle::sim_id::SimId;
+
+    let start_spawn = Vec2::new(32.0, 400.0);
+    for new_game in [false, true] {
+        let (mut app, sim) = a_session_that_can_reset();
+        let room = |name: &str, spawn: Vec2| {
+            ambition_platformer2d_world::rooms::RoomSpec::new(
+                name,
+                ambition_platformer2d_core::World::new(name, Vec2::new(640.0, 480.0), spawn, vec![]),
+            )
+        };
+        insert_session_world_component(
+            app.world_mut(),
+            ambition_platformer2d_world::rooms::RoomSet::from_parts_or_panic(
+                "here",
+                vec![room("here", start_spawn), room("rest_room", Vec2::new(90.0, 90.0))],
+                Vec::new(),
+            ),
+        );
+        app.world_mut()
+            .resource_mut::<ambition_persistence::save::AmbitionGameSave>()
+            .data_mut()
+            .set_checkpoint(ambition_persistence::save_data::PersistedCheckpoint::new(
+                "rest_room", 512, 300,
+            ));
+        let mut remembered = AuthoredOccurrences::default();
+        remembered.adopt_rows(std::collections::BTreeMap::from([(
+            SimId::from_snapshot("room:rest_room:axe".into()),
+            OccurrenceWhereabouts::Consumed,
+        )]));
+        app.world_mut().resource_mut::<OccurrenceBaseline>().adopt(remembered);
+
+        app.world_mut().write_message(ResetToCheckpoint);
+        if new_game {
+            app.world_mut().write_message(crate::session::reset::NewGameRequested);
+        }
+        app.world_mut().run_schedule(sim);
+        let accepted = app
+            .world()
+            .resource::<AcceptedCheckpointRestore>()
+            .accepted()
+            .expect("the request was admitted")
+            .clone();
+        assert_eq!(accepted.key.sequence, 0, "one tick's requests became two operations");
+        assert_eq!(accepted.fresh, new_game);
+        let pinned = accepted.lifecycle.expect("the lifecycle horizon is installed");
+        if new_game {
+            assert_eq!(accepted.intent.target_room(), "here", "a New Game kept the old run's room");
+            assert_eq!(accepted.intent.arrival(), Some(start_spawn));
+            assert_eq!(
+                pinned.occurrences,
+                OccurrenceBaseline::default(),
+                "a New Game restored the old run's ledger"
+            );
+        } else {
+            assert_eq!(accepted.intent.target_room(), "rest_room");
+            assert_eq!(accepted.intent.arrival(), Some(Vec2::new(512.0, 300.0)));
+            assert_ne!(pinned.occurrences, OccurrenceBaseline::default());
+        }
+    }
+}
+
 #[test]
 fn two_reset_requests_in_one_tick_become_one_operation() {
     use ambition_platformer2d_shared_tangle::lifecycle::ResetToCheckpoint;
@@ -1863,7 +1949,7 @@ fn two_reset_requests_in_one_tick_become_one_operation() {
          two reconstructions' worth of consequences ride behind one crossing"
     );
     assert!(
-        !app.world().resource::<OutstandingCheckpointRequest>().0,
+        app.world().resource::<OutstandingCheckpointRequest>().0.is_none(),
         "the coalesced request was not spent by the operation that serves it"
     );
 
@@ -2054,6 +2140,7 @@ fn an_operation_at(
             custody: Default::default(),
         }),
         item: None,
+        fresh: false,
     }
 }
 
@@ -2235,7 +2322,7 @@ fn an_activating_session_starts_the_checkpoint_coordinator_from_zero() {
         for _ in 0..3 {
             operations.admit(Some(SessionScopeId(0))).expect("admits");
         }
-        world.insert_resource(OutstandingCheckpointRequest(true));
+        world.insert_resource(OutstandingCheckpointRequest(Some(super::RestoreTo::LastCheckpoint)));
     }
     let spent = app
         .world()
@@ -2263,9 +2350,10 @@ fn an_activating_session_starts_the_checkpoint_coordinator_from_zero() {
          disagree because of what happened in a run that already ended"
     );
     assert!(
-        !app.world()
+        app.world()
             .resource::<OutstandingCheckpointRequest>()
-            .0,
+            .0
+            .is_none(),
         "a restore owed to the RETIRED session survived into this one, which then \
          performs a checkpoint reset it never requested"
     );

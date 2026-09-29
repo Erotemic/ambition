@@ -76,24 +76,28 @@ fn occurrences(sim: &mut Platformer2dSimHarness, authored: &SimId) -> Vec<Entity
 /// whatever is in a hand alone), prepares against what the world remembers, and
 /// touches no room but the one you are standing in.
 ///
-/// The reset this file's last test is about is `process_new_game_reset_request`:
-/// it sweeps `With<RoomScopedEntity>` (deliberately NOT `RoomResident`), commits
-/// a fresh start-room plan stating NO dispositions, and its paired
-/// `clear_transient_on_sandbox_reset` strips `HeldItem`. Requesting it by its own
-/// resource is the only way to execute those two.
+/// The reset this file's last test is about is the New Game: a checkpoint
+/// restore to the fresh baseline at the start room. It rebuilds the start room
+/// from a ledger that remembers nothing, empties the hand through the custody
+/// restore, and runs `clear_transient_on_sandbox_reset` on the commit. The
+/// menu's road is a host intent, so this writes one and steps until the
+/// operation publishes its outcome.
 fn request_sandbox_reset(sim: &mut Platformer2dSimHarness) {
-    sim.world_mut()
-        .resource_mut::<ambition_platformer2d::actors::session::reset::NewGameResetRequested>()
-        .request();
-    // The harness contract for a `world_mut` mutation: a change GGRS input cannot
-    // reproduce may not sit behind the rollback cursor. A no-op when this fixture
-    // runs without rollback, which is the case here — stated anyway so the fixture
-    // can gain a sync-test session without silently going wrong.
-    sim.rebase_rollback_history()
-        .expect("the pending sandbox reset folds into the rollback baseline");
-    // One frame to run `ResetProcessing`, one to flush its deferred commands.
-    sim.step(base());
-    sim.step(base());
+    use ambition_platformer2d::actors::session::checkpoint::SessionCheckpointOutcomes;
+    let before = sim.world().resource::<SessionCheckpointOutcomes>().latest().cloned();
+    ambition_platformer2d::actors::session::host_intents::write_host_intent(
+        sim.world_mut(),
+        ambition_platformer2d::actors::session::reset::NewGameRequested,
+    );
+    for _ in 0..120 {
+        sim.step(base());
+        if sim.world().resource::<SessionCheckpointOutcomes>().latest().cloned() != before {
+            // One more frame so the fresh room's deferred work lands.
+            sim.step(base());
+            return;
+        }
+    }
+    panic!("the New Game published no checkpoint outcome in 120 frames");
 }
 
 /// Pick the one authored ground item up with the pressed pickup, and answer with
@@ -2124,27 +2128,10 @@ fn a_mount_dying_under_a_possession_survives_rewinds() {
 
 /// A NEW GAME RESET REACHES THE WALLET AND THE BAG ON THE PRODUCTION ROAD.
 ///
-/// ⛔⛤ **THIS ARM EXISTS BECAUSE THE ONLY OTHER COVERAGE HAND-WIRES THE ORDERING
-/// IT TESTS.** `items::persist::tests` registers
-/// `reset_inventory_on_new_game.before(restore_inventory_from_save)` itself, so
-/// it pins the FUNCTION and says nothing about the WIRING — it would stay green
-/// with the system registered into a schedule that never runs, or ordered so it
-/// never sees the message.
-///
-/// ⚠ **WHAT IT PINS, AND WHAT IT DOES NOT — the poison decided this, not me.**
-/// POISONED two ways: dropping the registration fails it; changing the
-/// registration's `.after(clear_transient_on_sandbox_reset)` to a `.before` the
-/// producer **left it GREEN**. So this arm pins that the system is REGISTERED ON
-/// A SCHEDULE THE PRODUCTION RESET REACHES and that the values actually change.
-/// It does NOT pin the ordering edge.
-///
-/// ⇒ The reason is worth knowing before anyone trusts that edge: `NewGameResetCommitted`
-/// stays readable for two frames, and `request_sandbox_reset` steps two. So the
-/// consumer sees the message on the second frame whichever side of the producer
-/// it runs on, and correctness here rests on Bevy's message double-buffering
-/// rather than on the `.after`. The edge stays because depending on
-/// double-buffering across a frame is fragile — but it is DEFENSIVE, and no test
-/// in this repository would notice its removal.
+/// The unit tests call the item domain's commit reducers directly, so they say
+/// nothing about the WIRING: they stay green with the reducers registered in a
+/// schedule the commit never runs. This drives the menu's host intent through
+/// admission, room preparation and the commit.
 ///
 /// ⚠ **THE PREMISES ARE ASSERTED FIRST.** A wallet that was already zero, or a
 /// bag already equal to the starter set, would satisfy the post-conditions
@@ -2200,8 +2187,7 @@ fn a_new_game_reset_reaches_the_wallet_and_the_bag() {
     assert_eq!(
         balance, 0,
         "a committed New Game must reset the primary player's wallet. It did not, \
-         so `reset_inventory_on_new_game` did not run with the message present — \
-         check that its `.after` orders the EFFECT and not just the system"
+         so `start_the_item_domain_fresh` did not run on the commit"
     );
     assert_eq!(
         *sim.world().resource::<OwnedItems>(),

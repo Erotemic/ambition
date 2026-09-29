@@ -165,9 +165,9 @@ pub struct SessionScopedResources<'w> {
     /// so *"flip gravity, quit, start a new game"* began the next session upside
     /// down until some later transition happened to correct it.
     ///
-    /// ⚠ Its NEW-GAME edge is not here: Reset New Game has its own seam
-    /// (`NewGameResetCommitted`) and the gravity domain answers that one itself,
-    /// in `gravity::lifecycle::reset_gravity_on_room_reset`.
+    /// ⚠ Its NEW-GAME edge is not here: a New Game is admitted as a replay, and
+    /// the gravity domain answers that itself, in
+    /// `gravity::lifecycle::reset_gravity_on_room_reset`.
     base_gravity: ResMut<'w, ambition_platformer2d_shared_tangle::gravity::BaseGravity>,
     // ⛔⛤ **`OutstandingCheckpointRequest` WAS A MEMBER HERE AND IS NOT ANY MORE,
     // 2026-09-13 — because ONE fact wants ONE owner.** It was added when a review

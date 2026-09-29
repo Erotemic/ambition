@@ -329,8 +329,8 @@ pub fn maintain_local_session(world: &mut World) {
     // ⚠ AND IT GATES THE START ONLY. A live session is never torn down or left
     // stopped by this: the condition is `!session_live`, so the one transition
     // it can refuse is "no session -> session". `SaveRestored` has no
-    // mid-session `true -> false` transition left to create a stall, and the
-    // `debug_assert` in `reset_inventory_on_new_game` is what keeps that true.
+    // mid-session `true -> false` transition left to create a stall: a New
+    // Game restores through the checkpoint commit and does not touch it.
     if !session_live
         && ambition_platformer2d_actor_monolith::session::durable_horizon::durable_hydration_is_pending(
             world,

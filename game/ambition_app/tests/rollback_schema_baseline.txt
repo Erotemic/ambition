@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v261
+ggrs-rollback-schema-v262
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -371,7 +371,6 @@ message.room_loaded	message-clear	RoomLoaded	clear abandoned-future message buff
 message.room_replay_admitted	message-clear	RoomReplayAdmitted	clear abandoned-future message buffer in LoadWorld::Mapping
 message.room_replay_requested	message-clear	RoomReplayRequested	clear abandoned-future message buffer in LoadWorld::Mapping
 message.run_authored_command	message-clear	RunAuthoredCommand	clear abandoned-future message buffer in LoadWorld::Mapping
-message.sandbox_reset_committed	message-clear	NewGameResetCommitted	clear abandoned-future message buffer in LoadWorld::Mapping
 message.set_flag_requested	message-clear	SetFlagRequested	clear abandoned-future message buffer in LoadWorld::Mapping
 message.shop_transaction_requested	message-clear	ShopTransactionRequested	clear abandoned-future message buffer in LoadWorld::Mapping
 message.spawn_actor_request	message-clear	SpawnActorRequest	clear abandoned-future message buffer in LoadWorld::Mapping
@@ -449,7 +448,6 @@ resource.projectile_seq_counter	resource-canonical	ProjectileSeqCounter	bevy_ggr
 resource.quest_last_room	resource-clone-custom-checksum	LastQuestRoom	bevy_ggrs clone snapshot + the room the RoomEntered producer last announced
 resource.quest_registry	resource-clone-custom-checksum	QuestRegistry	bevy_ggrs clone snapshot + quest identity, progression and pending-advance checksum projection
 resource.requested_clock_scale	resource-canonical	RequestedClockScale	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-resource.sandbox_reset_requested	resource-canonical	NewGameResetRequested	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.sandbox_save	resource-clone-custom-checksum	AmbitionGameSave	bevy_ggrs clone snapshot + serialized whole-save checksum projection
 resource.sandbox_sim_state	resource-canonical	RoomTransitionCooldown	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.save_restored	resource-clone	SaveRestored	bevy_ggrs clone snapshot; not in the session checksum

@@ -349,7 +349,6 @@ BASELINE: dict[str, tuple[str, ...]] = {
     ),
     "RoomTransitionCooldown": (
         "crates/ambition_platformer2d_actor_monolith/src/control/input_systems.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/session/reset/mod.rs",
         "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
         "crates/ambition_platformer2d_runtime/src/room_transition/commit.rs",
         "crates/ambition_platformer2d_runtime/src/sandbox_reset.rs",
@@ -406,7 +405,6 @@ BASELINE: dict[str, tuple[str, ...]] = {
     "AuthoredOccurrences": (
         "crates/ambition_held_items/src/lib.rs",
         "crates/ambition_platformer2d_actor_monolith/src/session/durable_horizon.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/session/reset/mod.rs",
         "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
         "crates/ambition_platformer2d_shared_tangle/src/lifecycle/continuity.rs",
     ),
@@ -545,6 +543,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_actor_monolith/src/session/durable_horizon.rs",
         "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
         "crates/ambition_platformer2d_shared_tangle/src/lifecycle/custody_horizon.rs",
+        "crates/ambition_platformer2d_shared_tangle/src/lifecycle/horizon.rs",
     ),
     "CutsceneTriggerQueue": (
         "crates/ambition_boss_encounter/src/systems.rs",
@@ -585,6 +584,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_actor_monolith/src/session/durable_horizon.rs",
         "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
         "crates/ambition_platformer2d_shared_tangle/src/lifecycle/continuity.rs",
+        "crates/ambition_platformer2d_shared_tangle/src/lifecycle/horizon.rs",
     ),
     "PossessionState": (
         "crates/ambition_platformer2d_actor_monolith/src/control/possession.rs",
@@ -1601,12 +1601,11 @@ ADJUDICATED: dict[str, str] = {
         "`RoomClock::...` in `runtime/src/room_transition/commit.rs` sets it on a "
         "crossing, conditional on `edge_exit`, and "
         "`reload_ldtk_world_from_disk` (`game/ambition_app/src/app/dev_runtime.rs`) "
-        "sets `0.10` after a dev hot-reload. Three CLEARS to zero on three "
-        "distinct lifecycle edges: `process_new_game_reset_request` "
-        "(`actor_monolith/src/session/reset/mod.rs`), "
-        "`return_the_replay_subject_to_spawn` "
+        "sets `0.10` after a dev hot-reload. Two CLEARS to zero on two "
+        "distinct lifecycle edges: `return_the_replay_subject_to_spawn` "
         "(`runtime/src/sandbox_reset.rs`, which also assigns `default()` — the "
-        "same zero), and `SessionScopedResources::reset`. ⇒ An armer and a clear "
+        "same zero; a New Game reaches it too, since 2026-09-29 it is admitted "
+        "as a replay), and `SessionScopedResources::reset`. ⇒ An armer and a clear "
         "cannot disagree about a VALUE; the countdown's only invariant is that it "
         "reaches zero, and every writer either starts it, ends it, or walks it "
         "down.\n"
@@ -1710,7 +1709,7 @@ ADJUDICATED: dict[str, str] = {
         "(`ambition_persistence/src/quest/registry.rs`), the one reducer, and "
         "`populate_quest_registry` (`game/ambition_content/src/quest.rs`), which "
         "installs the authored DEFINITIONS; and TWO replace the whole resource, "
-        "`process_new_game_reset_request` and `SessionScopedResources::reset`. ⇒ "
+        "`begin_fresh_run` (the New Game commit) and `SessionScopedResources::reset`. ⇒ "
         "Six appenders cannot disagree about a value, and order is preserved "
         "because the drain is `std::mem::take` of one `Vec` consumed in "
         "insertion order.\n"
@@ -1751,10 +1750,10 @@ ADJUDICATED: dict[str, str] = {
         "(narrative), `apply_item_uses` (a menu\'s consumable, from a host "
         "intent), `grant_pirate_treasure_reward` (quest rewards), "
         "`pickup_portal_gun_system`, `throw_held_item_system` (the one gameplay "
-        "take), and three wholesale roads — `reset_inventory_on_new_game` and "
-        "`restore_inventory_from_save` through `apply_persisted`, and "
-        "`restore_owned_items_to_checkpoint` through "
-        "`reduce_owned_items_to_baseline`, which is `*owned = baseline.clone()`.\n"
+        "take), and two wholesale roads — `restore_inventory_from_save` through "
+        "`apply_persisted`, and `restore_owned_items_to_checkpoint` through "
+        "`reduce_owned_items_to_baseline`, which is `*owned = baseline.clone()` "
+        "(a New Game takes this one too, with the starter bag pinned).\n"
         "    ✅ THE MENU PAIR LEFT ON 2026-09-28. Both inventory backends read the "
         "bag (`Res<OwnedItems>`) and ask for a consumable through an "
         "`ItemUseRequested` host intent; `apply_item_uses` spends it inside the "
@@ -1787,9 +1786,9 @@ ADJUDICATED: dict[str, str] = {
         "`adopt_rows(rows)` — wholesale, taken by the durable-load and rewind "
         "roads (`adopt_occurrence_checkpoint_from_save` and `adopt_the_ledger` in "
         "`actor_monolith/src/session/durable_horizon.rs`, "
-        "`restore_occurrence_baseline` in the same continuity module); and "
-        "`forget_everything()` — the clear, taken by "
-        "`process_new_game_reset_request` and `SessionScopedResources::reset`.\n"
+        "`restore_occurrence_baseline` in the same continuity module, which is "
+        "also how a New Game clears it: it restores a pinned EMPTY ledger); and "
+        "`SessionScopedResources::reset` at the session edge.\n"
         "    ⭐ THE UPDATER CANNOT BECOME AN ENTRY, AND THE TYPE IS WHAT STOPS IT. "
         "`republish_placements` inserts only where the existing row is "
         "`InCustody` or `Placed`, collects every other id into a `BTreeSet` and "
@@ -1825,8 +1824,8 @@ ADJUDICATED: dict[str, str] = {
         "CORRECT — ONE BUILDER AND TWO LIFECYCLE WIPES, one per lifecycle fact. "
         "`populate_encounter_registry` (`ambition_encounter_features/src/systems.rs`) "
         "is the only system that fills the `id -> Entity` index; "
-        "`process_new_game_reset_request` clears it on New Game from inside the "
-        "rewinding schedule's `ResetProcessing`; `SESSION_SCOPE_RESET` clears it at "
+        "`begin_fresh_run` clears it on New Game, in the confirmed-frame commit's "
+        "`CheckpointDomainApply`; `SESSION_SCOPE_RESET` clears it at "
         "the session edge. ⭐ The crate's own plugin doc states the ownership this "
         "rests on — *\"the crate owns its `id -> Entity` index ... Live encounter "
         "state stays on the encounter ENTITIES\"* — so the registry is an index "
@@ -1885,9 +1884,11 @@ ADJUDICATED: dict[str, str] = {
         "on `CheckpointCommitted` (`shared_tangle/src/lifecycle/continuity.rs`); "
         "ADOPT is `DurableHorizon::install`, whose doc says *\"Called by ADOPTION "
         "and by nothing else\"*, reached from `adopt_the_ledger` / "
-        "`adopt_occurrence_checkpoint_from_save`; RESET is "
-        "`reset_occurrence_horizon_on_new_game` on New Game plus "
-        "`SESSION_SCOPE_RESET` at the session edge. ⇒ Four writer functions, four "
+        "`adopt_occurrence_checkpoint_from_save`; NEW GAME is "
+        "`adopt_pinned_lifecycle_baselines` (`shared_tangle/src/lifecycle/horizon.rs`), "
+        "which runs only in the commit's `CheckpointDomainApply` and only with "
+        "`FreshRunRestore` installed; and `SESSION_SCOPE_RESET` at the session "
+        "edge. ⇒ Four writer functions, four "
         "different lifecycle facts, none of them able to fire on another's event. "
         "That is not two owners of one fact; it is one fact with four stated "
         "transitions. ⚠ The `Update` placement of the adopt road is a separate "
@@ -1899,19 +1900,20 @@ ADJUDICATED: dict[str, str] = {
         "CAPTURER. `capture_custody_baseline` "
         "(`shared_tangle/src/lifecycle/custody_horizon.rs`) on `CheckpointCommitted`; "
         "`DurableHorizon::install` on adoption; "
-        "`reset_occurrence_horizon_on_new_game` on New Game; `SESSION_SCOPE_RESET` "
-        "at the session edge. ⭐ One reducer per mechanical domain is the rule the "
-        "source states at `reset_occurrence_horizon_on_new_game`, which records "
-        "that the INVENTORY subsystem briefly reset both of these baselines — *\"six "
-        "domains' reset details known to one subsystem\"* — and was corrected. ⚠ "
-        "Its `Update` adopt road is Q135's, as above."
+        "`adopt_pinned_lifecycle_baselines` on New Game (the commit's "
+        "`CheckpointDomainApply`, with `FreshRunRestore` installed); "
+        "`SESSION_SCOPE_RESET` at the session edge. ⭐ One reducer per mechanical "
+        "domain: the lifecycle layer adopts these two, the item domain its own two "
+        "(`start_the_item_domain_fresh`). ⚠ Its `Update` adopt road is Q135's, as "
+        "above."
     ),
     "MintedItemBaseline": (
         "CORRECT — THE ITEM DOMAIN'S COPY OF THE SAME FOUR TRANSITIONS, ADOPTED BY "
         "ITS OWN DOMAIN ON PURPOSE. `capture_minted_item_baseline` on "
         "`CheckpointCommitted`; `DurableHorizon::install` on adoption; "
-        "`restore_inventory_from_save` and `reset_inventory_on_new_game` in "
-        "`items/persist.rs`; `SESSION_SCOPE_RESET` at the session edge. ⭐ The "
+        "`restore_inventory_from_save` in `items/persist.rs`; "
+        "`start_the_item_domain_fresh` on New Game (the commit's "
+        "`CheckpointDomainApply`); `SESSION_SCOPE_RESET` at the session edge. ⭐ The "
         "domain-local adoption is a RECORDED correction, not an inconsistency: "
         "`minted_horizon.rs` says the item baselines are adopted in one function "
         "because `OwnedItemsBaseline` *\"once joined capture, restore and rollback "
@@ -1921,9 +1923,9 @@ ADJUDICATED: dict[str, str] = {
     "OwnedItemsBaseline": (
         "CORRECT ON AUTHORITY, AND IT SURFACED A CHECKSUM ASYMMETRY THAT IS NOT "
         "THIS GUARD'S TO RULE ON. Authority first: three writer functions, three "
-        "events — `capture_owned_items_baseline` on `CheckpointCommitted`, and "
-        "`restore_inventory_from_save` / `reset_inventory_on_new_game` in "
-        "`items/persist.rs` on the load and New Game roads.\n"
+        "events — `capture_owned_items_baseline` on `CheckpointCommitted`, "
+        "`restore_inventory_from_save` (`items/persist.rs`) on the load road, and "
+        "`start_the_item_domain_fresh` on the New Game commit.\n"
         "    ⚠ IT IS THE ONE CHECKPOINT BASELINE OF FOUR THAT IS **NOT** IN "
         "`SessionScopedResources`, and that is consistent rather than an omission: "
         "`OwnedItems` itself is not session-scoped either (measured — the bag does "
@@ -2913,10 +2915,10 @@ ADJUDICATED: dict[str, str] = {
         "`:429` (session retire) call to set `*boss_registry = "
         "BossEncounterRegistry::default()` (`:493`) — one function with two "
         "temporally disjoint call sites, not two authorities. "
-        "`process_new_game_reset_request` "
-        "(`crates/ambition_platformer2d_actor_monolith/src/session/reset/mod.rs:288`) "
-        "does the same whole-resource reset at `:522`, only after "
-        "`publication_succeeded`. Resetting to Default twice is idempotent, "
+        "`begin_fresh_run` "
+        "(`crates/ambition_platformer2d_actor_monolith/src/session/reset/mod.rs`) "
+        "does the same whole-resource reset on the New Game commit, after the "
+        "room transaction verified (re-read 2026-09-29). Resetting to Default twice is idempotent, "
         "and the populate latch re-runs regardless of which wipe fired last, "
         "so no reader can observe an ambiguous order. Measured by "
         "CalculexAmbition, 2026-09-18."
@@ -3428,7 +3430,7 @@ SESSION_WORLD_BASELINE: dict[str, tuple[str, ...]] = {
 
 #: ⛤ **IT WAS FOUR TYPES AND EIGHT WRITERS ON 2026-09-17; IT IS TWO AND NINE.**
 #: `RoomGeometry` and `RoomSet` left because their second writer was never a
-#: writer: `process_new_game_reset_request` bound both without `mut` — one an
+#: writer: the New Game processor (deleted 2026-09-29) bound both without `mut` — one an
 #: explicit *"A GUARD, NOT A WRITE TARGET"*, the other reading `.start` and
 #: passing `&room_set` on — and `handle_ldtk_hot_reload` did the same for
 #: geometry. All three now ask for `SessionWorldRef`, which is the identical

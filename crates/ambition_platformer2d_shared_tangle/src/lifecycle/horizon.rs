@@ -114,6 +114,46 @@ pub struct CheckpointRestoreInputs {
     pub custody: CustodyBaseline,
 }
 
+/// The committed restore begins a new run.
+///
+/// A New Game is a checkpoint restore to the fresh baseline at the start room.
+/// It differs from a death in one way: the values it restores also become the
+/// checkpoint, so a later death returns to the start of the new run and not to
+/// a checkpoint of the run that ended. Each domain reads this marker and adopts
+/// its pinned inputs as its baseline.
+///
+/// ⛔ INSTALLED FOR THE DURATION OF [`CheckpointDomainApply`] AND REMOVED AFTER,
+/// like [`CheckpointRestoreInputs`]. A fresh-run reducer that runs without it
+/// does nothing.
+#[derive(Resource, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct FreshRunRestore;
+
+/// On a fresh run, the restored lifecycle values become the checkpoint.
+///
+/// The pinned inputs of a New Game are empty, so the baselines become empty.
+/// Without this, a death after a New Game restores the occurrences and custody
+/// of the run that ended.
+pub fn adopt_pinned_lifecycle_baselines(
+    fresh: Option<bevy::prelude::Res<FreshRunRestore>>,
+    inputs: Option<bevy::prelude::Res<CheckpointRestoreInputs>>,
+    occurrences: Option<bevy::prelude::ResMut<OccurrenceBaseline>>,
+    custody: Option<bevy::prelude::ResMut<CustodyBaseline>>,
+) {
+    let (Some(_), Some(inputs)) = (fresh, inputs) else {
+        return;
+    };
+    if let Some(mut occurrences) = occurrences {
+        if *occurrences != inputs.occurrences {
+            *occurrences = inputs.occurrences.clone();
+        }
+    }
+    if let Some(mut custody) = custody {
+        if *custody != inputs.custody {
+            *custody = inputs.custody.clone();
+        }
+    }
+}
+
 /// The lifecycle domain's checkpoint contribution.
 ///
 /// This plugin owns the concrete baseline types that live in the reusable
@@ -141,7 +181,10 @@ impl Plugin for LifecycleCheckpointHorizonPlugin {
                 (capture_occurrence_baseline, capture_custody_baseline)
                     .in_set(CheckpointCapture),
             )
-            .add_systems(CheckpointDomainApply, restore_occurrence_baseline);
+            .add_systems(
+                CheckpointDomainApply,
+                (restore_occurrence_baseline, adopt_pinned_lifecycle_baselines),
+            );
     }
 }
 
@@ -213,5 +256,35 @@ mod participant_tests {
         app.add_plugins(LifecycleCheckpointHorizonPlugin);
         assert!(app.world().contains_resource::<OccurrenceBaseline>());
         assert!(app.world().contains_resource::<CustodyBaseline>());
+    }
+
+    /// A fresh run makes the restored values the checkpoint; a death does not.
+    /// The death arm is the control: the same inputs without the marker leave
+    /// the baselines as they were.
+    #[test]
+    fn only_a_fresh_run_adopts_the_restored_values_as_the_checkpoint() {
+        use crate::sim_id::SimId;
+        use std::collections::BTreeMap;
+        for fresh in [false, true] {
+            let mut app = App::new();
+            app.add_plugins(LifecycleCheckpointHorizonPlugin);
+            let held = BTreeMap::from([(SimId::from_snapshot("apple".into()), SimId::from_snapshot("alice".into()))]);
+            app.world_mut().resource_mut::<CustodyBaseline>().adopt(held);
+            let old_run = app.world().resource::<CustodyBaseline>().clone();
+            app.world_mut().insert_resource(super::CheckpointRestoreInputs {
+                occurrences: Default::default(),
+                custody: Default::default(),
+            });
+            if fresh {
+                app.world_mut().insert_resource(super::FreshRunRestore);
+            }
+            app.world_mut().run_schedule(super::CheckpointDomainApply);
+            let after = app.world().resource::<CustodyBaseline>().clone();
+            if fresh {
+                assert_eq!(after, CustodyBaseline::default(), "a New Game kept the old run's checkpoint");
+            } else {
+                assert_eq!(after, old_run, "a death moved the checkpoint");
+            }
+        }
     }
 }

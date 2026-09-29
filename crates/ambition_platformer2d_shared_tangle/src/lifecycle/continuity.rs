@@ -284,8 +284,9 @@ impl AuthoredOccurrences {
     /// arm. A `Placed` row describes a room that may not be loaded, so
     /// "absent from the world" is not evidence of anything — the room is simply
     /// not built. What ends a `Placed` row is the occurrence being picked up
-    /// again (custody overwrites it), a reset ([`Self::forget_everything`]), or
-    /// the [`OccurrenceWhereabouts::Consumed`] producer that does not exist yet.
+    /// again (custody overwrites it), a checkpoint restore (which replaces the
+    /// whole ledger with its pinned one; a New Game pins an empty one), or the
+    /// [`OccurrenceWhereabouts::Consumed`] producer that does not exist yet.
     ///
     /// ⛔ **AN OCCURRENCE ENTERS THIS LEDGER THROUGH CUSTODY AND NOWHERE
     /// ELSE, and that rule is enforced HERE because it is the ledger's rule.**
@@ -335,15 +336,6 @@ impl AuthoredOccurrences {
         refused
     }
 
-    /// Clear occurrence whereabouts for a full session reset. The rebuilt start
-    /// room is authored from records again, so coordinates/custody from the old
-    /// world must not survive.
-    pub fn forget_everything(&mut self) {
-        if !self.rows.is_empty() {
-            self.rows.clear();
-        }
-    }
-
     pub fn is_empty(&self) -> bool {
         self.rows.is_empty()
     }
@@ -357,9 +349,9 @@ impl AuthoredOccurrences {
     /// value-sensitive probe."*
     ///
     /// ⇒ It named its own trigger and missed the producer it already had.
-    /// [`Self::adopt_rows`] writes rows from a SAVE, and
-    /// `process_new_game_reset_request` calls [`Self::forget_everything`] from
-    /// inside the rewinding schedule — both authoritative, neither republished.
+    /// [`Self::adopt_rows`] writes rows from a SAVE, and New Game cleared the
+    /// ledger from inside the rewinding schedule (until 2026-09-29) — both
+    /// authoritative, neither republished.
     /// Measured: one `adopt_rows` call desyncs the sync test within two ticks.
     /// ⇒ So this ledger IS registered value state now
     /// (`rollback_resource_clone_checksum`, with
@@ -474,9 +466,8 @@ impl AuthoredOccurrences {
 /// NOT derived ... every row of `AuthoredOccurrences` is republished from live
 /// state, which is what lets it be declared derived"* — and that justification
 /// was measured false: [`AuthoredOccurrences::adopt_rows`] writes rows from a
-/// SAVE and `process_new_game_reset_request` calls
-/// [`AuthoredOccurrences::forget_everything`] from inside the rewinding
-/// schedule, neither republished by anything. The ledger is now
+/// SAVE and New Game cleared it from inside the rewinding schedule (until
+/// 2026-09-29), neither republished by anything. The ledger is now
 /// `rollback_resource_clone_checksum` like this baseline, and both fold
 /// [`AuthoredOccurrences::encode_rows`] under their own domain. See
 /// [`AuthoredOccurrences::rewind_argument`] for the record of the refuted

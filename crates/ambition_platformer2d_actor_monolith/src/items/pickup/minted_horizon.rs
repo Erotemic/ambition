@@ -252,6 +252,49 @@ pub fn reduce_owned_items_to_baseline(
     *owned = baseline.clone();
 }
 
+/// The item domain starts a new run. (fresh-run reducer)
+///
+/// The bag itself is put back by [`restore_owned_items_to_checkpoint`] from the
+/// pinned starter bag, as a death puts back a checkpoint's bag. This adds what a
+/// death does not do: the pinned values become the item baselines, so a later
+/// death returns to the starter bag and not to the old run's checkpoint, and the
+/// wallet goes back to zero.
+///
+/// ⚠ **FRESH-RUN, NOT EMPTY.** The wallet is `BodyWallet::default()`: no
+/// character definition authors a starting balance (checked 2026-09-13), so
+/// zero is that value. If one ever does, this owes the definition and not a
+/// constant.
+pub fn start_the_item_domain_fresh(
+    fresh: Option<Res<ambition_platformer2d_shared_tangle::lifecycle::FreshRunRestore>>,
+    inputs: Option<Res<ItemCheckpointRestoreInputs>>,
+    minted: Option<ResMut<MintedItemBaseline>>,
+    owned: Option<ResMut<OwnedItemsBaseline>>,
+    mut wallets: Query<
+        &mut ambition_characters::actor::BodyWallet,
+        ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
+    >,
+) {
+    if fresh.is_none() {
+        return;
+    }
+    if let Ok(mut wallet) = wallets.single_mut() {
+        *wallet = ambition_characters::actor::BodyWallet::default();
+    }
+    let Some(inputs) = inputs else {
+        return;
+    };
+    if let Some(mut minted) = minted {
+        if *minted != inputs.minted {
+            *minted = inputs.minted.clone();
+        }
+    }
+    if let Some(mut owned) = owned {
+        if *owned != inputs.owned {
+            *owned = inputs.owned.clone();
+        }
+    }
+}
+
 /// The item domain's checkpoint contribution: its two private baseline values,
 /// their captures, and the item-specific restore of the generic custody
 /// relation.
@@ -286,6 +329,7 @@ impl Plugin for ItemCheckpointHorizonPlugin {
             (
                 restore_owned_items_to_checkpoint,
                 super::restore_custody_to_checkpoint,
+                start_the_item_domain_fresh,
             )
                 .chain(),
         );

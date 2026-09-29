@@ -654,6 +654,7 @@ fn a_failed_preparation_is_ended_by_the_confirmed_host_too() {
                     custody: Default::default(),
                 }),
                 item: None,
+                fresh: false,
             });
         assert!(world
             .resource_mut::<PendingLifecycleCommit>()

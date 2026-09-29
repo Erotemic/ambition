@@ -52,7 +52,7 @@ half belongs on a page people read before they have the bug.
 
 ## P0 — architecture and correctness
 
-### NEW-GAME-RESYNC — a New Game after durable hydration fails the sync test
+### NEW-GAME-RESYNC — a New Game after durable hydration fails the sync test — ✅ DONE 2026-09-29
 
 **Owner:** rollback determinism. **Found 2026-09-28** while inverting the
 MENU-RESET-MIDSESSION witnesses.
@@ -121,7 +121,36 @@ the `NewGameResetCommitted` message in the sim. ⇒ Deleted:
 `process_new_game_reset_request` and its private rebuild, `NewGameResetRequested`,
 `NewGameResetCommitted`, and the reducers that duplicated what fresh pinned
 inputs already restore. No new lifecycle state machine.
-**Blocked by:** nothing.
+
+✅ **DONE 2026-09-29, AS DESIGNED.** `NewGameRequested` is read by
+`resume_at_checkpoint_on_reset`; `OutstandingCheckpointRequest` holds
+`Option<RestoreTo>` (a New Game outranks a checkpoint on the same tick);
+`AcceptedRestore` gained `fresh`, and `apply_committed_checkpoint_restore`
+installs `FreshRunRestore` for the duration of `CheckpointDomainApply`. The
+fresh-run reducers there: `begin_fresh_run` (save, the three registries, live
+encounters, music, banner), `clear_transient_on_sandbox_reset`,
+`start_the_item_domain_fresh` (wallet, item baselines) and
+`adopt_pinned_lifecycle_baselines`. The admission writes
+`RoomReplayAdmitted::because(Manual)`, so the body reset, the clock reset and
+ambient gravity come from the death road's reducers; gravity's second reader is
+gone. Deleted: `process_new_game_reset_request`, `ResetPlayState`,
+`NewGameResetRequested`, `NewGameResetCommitted`, `arm_new_game_reset`,
+`NewGameResetDecided`, `reset_inventory_on_new_game`,
+`reset_occurrence_horizon_on_new_game`, `DurableHorizonSet::NewGameReset`,
+`AuthoredOccurrences::forget_everything` (schema 262). ⭐ One behaviour moved on
+purpose: a New Game's owned-items checkpoint is now the STARTER bag. The deleted
+reducer reset it to an empty bag, so a death after a New Game and before any
+shrine restored an empty bag. Witnesses:
+`a_new_game_asked_for_by_the_host_commits_once_under_a_rewind` with
+`rollback_health()` on both arms (the in-sim control failed at frames 28–30
+before, as measured above); `probe_where_the_in_sim_new_game_diverges` prints
+32 rewinds compared and no divergence; `a_new_game_is_admitted_as_a_fresh_restore_at_the_start_room`
+(a death alone is the control), `only_a_fresh_run_adopts_the_restored_values_as_the_checkpoint`,
+`a_fresh_run_wipes_the_save_the_registries_and_the_encounters` (the unmarked
+run is the control), and the rewritten
+`a_new_game_does_not_write_the_old_runs_inventory_back_into_the_fresh_save`.
+Not poisoned: the before state is this row's own measurement, and a rebuild of
+the old tree is a second compile cycle.
 
 ### SWITCH-DRAIN-ORDER — the switch drain is not ordered after the press that writes it
 
@@ -1539,7 +1568,9 @@ ACKNOWLEDGED rather than moving to `WAIVERS`.
 
 ✔ **AND THE DISCRIMINATOR IS NOT "IS THERE A REBASE" — IT IS "IS THE TRIGGERING
 MESSAGE CLEARED ON ROLLBACK", WHICH WAS ASKED OF `SessionScopeActivated` ON
-2026-09-16 AND SEPARATES THE TWO.** A New Game's `NewGameResetCommitted` is
+2026-09-16 AND SEPARATES THE TWO.** (The New Game side is deleted: since
+2026-09-29 a New Game is a checkpoint restore and has no commit message.) A New
+Game's `NewGameResetCommitted` was
 produced inside the rewind window, is `message-clear` in the schema
 (`message.sandbox_reset_committed`, baseline line 378) and is consumed in
 `Update` — broken whether or not the room replacement rebases GGRS.
@@ -4958,7 +4989,7 @@ reading the three `app.add_systems` calls in its body
 | `complete_durable_restore` | `SaveRestored` | no | `Update` — ✅ pre-timeline |
 | the three `persist_*_to_save` | `AmbitionGameSave` | **yes** | ✅ sim schedule |
 | `count_the_dialogue_visit_when_a_conversation_opens` | `AmbitionGameSave` | **yes** | ✅ sim schedule |
-| `reset_inventory_on_new_game` + `reset_occurrence_horizon_on_new_game` | the reset baselines | no | ✅ sim schedule |
+| New Game's fresh-run reducers (`start_the_item_domain_fresh`, `adopt_pinned_lifecycle_baselines`) | the baselines, the wallet | yes (baselines) | ✅ the confirmed-frame commit's `CheckpointDomainApply`, since 2026-09-29 |
 
 ⭐ **`Update` IS NOT A WAIVER HERE, IT IS A WINDOW.** All three write only
 while `SaveRestored` is false, the latch rises once and never falls, and the

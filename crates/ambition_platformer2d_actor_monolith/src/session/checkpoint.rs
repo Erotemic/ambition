@@ -319,6 +319,7 @@ pub fn restore_checkpoint_on_session_start(
                     owned: owned.clone(),
                 }
             }),
+            fresh: false,
         });
         progress.set(generation, StartupResume::Routed(key));
         return;
@@ -368,11 +369,19 @@ pub fn restore_checkpoint_on_session_start(
 /// with no checkpoint recorded, it rebuilds the ACTIVE room at its authored
 /// spawn. That is the empty-baseline case rather than a missing one: a game
 /// with no checkpoints restores every authored occurrence to where its record
-/// puts it, which is exactly what a sandbox reset means.
+/// puts it.
+///
+/// ⭐ A NEW GAME IS THE SAME OPERATION WITH A DIFFERENT DESTINATION. It goes to
+/// the start room's spawn, pins the fresh baseline (no occurrences, no custody,
+/// no mints, the starter bag) instead of the checkpoint's, and is marked
+/// `fresh`, so the commit also runs each domain's fresh-run reducer. Because it
+/// is this operation, the room is rebuilt on the confirmed-frame commit and not
+/// on a speculative frame, which a rewind cannot undo.
 pub fn resume_at_checkpoint_on_reset(
     mut resets: bevy::prelude::MessageReader<
         ambition_platformer2d_shared_tangle::lifecycle::ResetToCheckpoint,
     >,
+    mut new_games: bevy::prelude::MessageReader<crate::session::reset::NewGameRequested>,
     mut outstanding: ResMut<OutstandingCheckpointRequest>,
     save: Res<ambition_persistence::save::AmbitionGameSave>,
     room_set: Option<
@@ -410,11 +419,14 @@ pub fn resume_at_checkpoint_on_reset(
     // "there is at most one outstanding checkpoint request per session" true
     // rather than aspirational.
     if resets.read().count() > 0 {
-        outstanding.0 = true;
+        outstanding.ask(RestoreTo::LastCheckpoint);
     }
-    if !outstanding.0 {
+    if new_games.read().count() > 0 {
+        outstanding.ask(RestoreTo::NewGame);
+    }
+    let Some(restore_to) = outstanding.0 else {
         return;
-    }
+    };
     let Some(room_set) = room_set.as_deref() else {
         return;
     };
@@ -425,6 +437,10 @@ pub fn resume_at_checkpoint_on_reset(
     };
     let active = room_set.active_spec();
     let (target_room, arrival) = match save.data().checkpoint() {
+        _ if restore_to == RestoreTo::NewGame => {
+            let start = &room_set.rooms[room_set.start()];
+            (start.id.clone(), start.world.spawn)
+        }
         // Not fatal: fall through to rebuilding where the player actually is.
         Some(checkpoint)
             if room_set
@@ -481,7 +497,8 @@ pub fn resume_at_checkpoint_on_reset(
         // domain has been told anything.
         return;
     }
-    outstanding.0 = false;
+    // Spent: the operation that serves the request now holds the slot.
+    outstanding.0.take();
     // ⭐ PINNED HERE AND NOWHERE ELSE. The inputs a reconstruction is prepared
     // from and applied from are chosen at the moment the slot says yes, so a
     // later capture, a later pickup or a later ledger write cannot retarget an
@@ -499,25 +516,57 @@ pub fn resume_at_checkpoint_on_reset(
         return;
     };
     let (occurrences, custody, minted, owned) = baselines;
+    let fresh = restore_to == RestoreTo::NewGame;
+    let (lifecycle, item) = if fresh {
+        // The fresh baseline, pinned in the same shape as a checkpoint's. A
+        // domain that is not installed still pins `None`: absent is not empty.
+        (
+            pin_lifecycle_inputs(occurrences, custody).map(|_| {
+                ambition_platformer2d_shared_tangle::lifecycle::CheckpointRestoreInputs {
+                    occurrences: Default::default(),
+                    custody: Default::default(),
+                }
+            }),
+            minted.zip(owned).map(|_| {
+                let mut owned = crate::items::pickup::minted_horizon::OwnedItemsBaseline::default();
+                // A new game begins with the bag a new process begins with.
+                owned.adopt(ambition_items::OwnedItems::starter());
+                crate::items::pickup::minted_horizon::ItemCheckpointRestoreInputs {
+                    minted: Default::default(),
+                    owned,
+                }
+            }),
+        )
+    } else {
+        (
+            pin_lifecycle_inputs(occurrences, custody),
+            minted.zip(owned).map(|(minted, owned)| {
+                crate::items::pickup::minted_horizon::ItemCheckpointRestoreInputs {
+                    minted: minted.clone(),
+                    owned: owned.clone(),
+                }
+            }),
+        )
+    };
     accepted.accept(AcceptedRestore {
         key,
         frame,
         intent,
-        lifecycle: pin_lifecycle_inputs(occurrences, custody),
-        item: minted.zip(owned).map(|(minted, owned)| {
-            crate::items::pickup::minted_horizon::ItemCheckpointRestoreInputs {
-                minted: minted.clone(),
-                owned: owned.clone(),
-            }
-        }),
+        lifecycle,
+        item,
+        fresh,
     });
     admitted.write(
-        ambition_combat::events::RoomReplayAdmitted::because(
+        ambition_combat::events::RoomReplayAdmitted::because(if fresh {
+            // A new game is a deliberate restart, so the player's placed gun
+            // portals go with the run.
+            ambition_combat::RoomResetReason::Manual
+        } else {
             // A checkpoint resume is the DEATH/RETRY horizon by contract, so
             // its policy is a death's: the player's placed gun portals
             // survive, where a deliberate retry clears them.
-            ambition_combat::RoomResetReason::PlayerDeath,
-        )
+            ambition_combat::RoomResetReason::PlayerDeath
+        })
         .for_subject(subject.clone()),
     );
 }
@@ -756,6 +805,9 @@ pub struct AcceptedRestore {
     /// ⚠ THE MINTS TRAVEL WITH THE LEDGER for the reason `OccurrenceContinuity`
     /// states: the memory without the means to act on it deletes the object.
     pub item: Option<crate::items::pickup::minted_horizon::ItemCheckpointRestoreInputs>,
+    /// This restore begins a new run: the commit also runs each domain's
+    /// fresh-run reducer, and the pinned values become the checkpoint.
+    pub fresh: bool,
 }
 
 impl AcceptedCheckpointRestore {
@@ -842,6 +894,7 @@ impl AcceptedRestore {
             intent,
             lifecycle,
             item,
+            fresh,
         } = self;
         let mut bytes = Vec::new();
         // ⚠ THE KEY OWNS WHAT OF ITSELF A PEER COMPARES — the sequence and
@@ -870,6 +923,7 @@ impl AcceptedRestore {
                 put_u64(&mut bytes, item.owned.checksum());
             }
         }
+        put_u8(&mut bytes, u8::from(*fresh));
         checksum_bytes(&bytes)
     }
 }
@@ -894,27 +948,49 @@ pub fn retire_accepted_checkpoint_restore(
     }
 }
 
+/// Where an owed restore goes.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RestoreTo {
+    /// The last committed checkpoint: a death, a retry, a save load.
+    LastCheckpoint,
+    /// The fresh baseline at the start room: a New Game.
+    NewGame,
+}
+
 /// A checkpoint restore that has been ASKED FOR and not yet admitted.
 ///
-/// ⭐ ONE BIT, AND IT IS ENOUGH. The plan's request value carries a reason and
-/// an optional subject; neither has a consumer yet, and a field nothing reads is
-/// how the four dead `LifecycleIntent` variants happened. What this must express
-/// today is exactly "the session is still owed a restore", and repeated requests
-/// coalescing into it is the coalescing rule.
+/// ⭐ ONE VALUE, AND IT IS ENOUGH. It says whether the session is still owed a
+/// restore and which of the two destinations it is owed. The plan's request
+/// value also carries a reason and an optional subject; neither has a consumer,
+/// and a field nothing reads is how the four dead `LifecycleIntent` variants
+/// happened. Repeated requests coalesce into it, and a New Game outranks a
+/// checkpoint: a death on the tick a New Game is asked for does not keep the
+/// old run.
 ///
 /// ⛔⛔ IT IS ROLLBACK STATE. It outlives its frame by construction — that is its
 /// whole job — so a rewind past the frame the request arrived on must take the
 /// request with it, or one timeline restores a checkpoint the other never asked
 /// for.
 #[derive(bevy::prelude::Resource, Default, Clone, Copy, Debug, PartialEq, Eq)]
-pub struct OutstandingCheckpointRequest(pub bool);
+pub struct OutstandingCheckpointRequest(pub Option<RestoreTo>);
 
 impl OutstandingCheckpointRequest {
+    /// Record a request. A New Game outranks a checkpoint.
+    pub fn ask(&mut self, to: RestoreTo) {
+        if self.0 != Some(RestoreTo::NewGame) {
+            self.0 = Some(to);
+        }
+    }
+
     /// ⭐ THE VALUE, not its presence. This resource always exists, so a
-    /// presence probe would report a constant and see nothing of the one bit
+    /// presence probe would report a constant and see nothing of the value
     /// that decides whether a rewound timeline is still owed a restore.
     pub fn checksum(&self) -> u64 {
-        u64::from(self.0)
+        match self.0 {
+            None => 0,
+            Some(RestoreTo::LastCheckpoint) => 1,
+            Some(RestoreTo::NewGame) => 2,
+        }
     }
 }
 
@@ -956,8 +1032,11 @@ pub fn apply_committed_checkpoint_restore(
     if let Some(item) = accepted.item.clone() {
         world.insert_resource(item);
     }
-    // The schedule exists only where the lifecycle offer is installed; a
-    // composition without it has nothing to apply, which is not an error.
+    if accepted.fresh {
+        world.insert_resource(ambition_platformer2d_shared_tangle::lifecycle::FreshRunRestore);
+    }
+    // The schedule exists only where a domain contributes a reducer; a
+    // composition without one has nothing to apply, which is not an error.
     if world.try_run_schedule(CheckpointDomainApply).is_err() {
         bevy::log::warn!(
             target: "ambition_platformer2d::session",
@@ -971,6 +1050,7 @@ pub fn apply_committed_checkpoint_restore(
     world.remove_resource::<CheckpointRestoreInputs>();
     world
         .remove_resource::<crate::items::pickup::minted_horizon::ItemCheckpointRestoreInputs>();
+    world.remove_resource::<ambition_platformer2d_shared_tangle::lifecycle::FreshRunRestore>();
     // ⭐ THE STRUCTURAL WORK THE CUSTODY RESTORE QUEUED. It materializes
     // occurrences the checkpoint remembers in a hand; a caller that returned
     // before this flush would leave them as queued commands nobody applied, and
@@ -1806,6 +1886,9 @@ impl Plugin for SessionCheckpointHorizonPlugin {
         // registration, so a composition that also installs `SessionScopePlugin`
         // pays nothing and one that does not is saved.
         app.add_message::<ambition_platformer2d_shared_tangle::lifecycle::SessionScopeActivated>();
+        // The admission reads the New Game intent; the ledger that releases it
+        // is `NewGameResetPlugin`'s.
+        app.add_message::<crate::session::reset::NewGameRequested>();
         // ⛔ THE DOMAIN'S OWN SESSION EDGE. See `SessionOwnedCheckpointState`.
         app.add_systems(
             bevy::prelude::Update,

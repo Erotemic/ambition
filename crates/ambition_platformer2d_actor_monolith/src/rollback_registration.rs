@@ -194,10 +194,6 @@ where
         OWNER,
         "resource.gameplay_elapsed",
     );
-    registrar.rollback_resource_canonical::<crate::session::reset::NewGameResetRequested>(
-        OWNER,
-        "resource.sandbox_reset_requested",
-    );
     registrar
         .rollback_resource_canonical::<crate::session::lifecycle_commit::PendingLifecycleCommit>(
             OWNER,
@@ -585,10 +581,6 @@ where
     registrar.clear_message_on_rollback::<ambition_platformer2d_actor_spawn::SpawnActorRequest>(
         OWNER,
         "message.spawn_actor_request",
-    );
-    registrar.clear_message_on_rollback::<crate::session::reset::NewGameResetCommitted>(
-        OWNER,
-        "message.sandbox_reset_committed",
     );
     registrar.clear_message_on_rollback::<crate::session::reset::NewGameRequested>(
         OWNER,

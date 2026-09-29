@@ -55,6 +55,10 @@ constructor rather than the population having grown:
     GenerationMechanics::for_live_session   4   reset, room transition x2, world-only reload
     GenerationMechanics::of                1   provider activation
 
+RE-MEASURED 2026-09-29: four. The reset's `for_live_session` left with the
+reset's own rebuild: a New Game is a checkpoint restore now and builds its room
+through the room transition's constructor.
+
 ⚠ Both drifts were found by RUNNING this guard, not by reading it, and the
 second was hidden behind the first: `undeclared` returns before `vanished` is
 printed, so the world-only reload's new `for_live_session` masked the fact that
@@ -139,15 +143,6 @@ CALL = re.compile(r"\bGenerationMechanics\s*::\s*(for_live_session|of|for_the_ge
 
 #: `(path, constructor) -> (how many calls, the reading)`.
 DECLARED: dict[tuple[str, str], tuple[int, str]] = {
-    (
-        "crates/ambition_platformer2d_actor_monolith/src/session/reset/mod.rs",
-        "for_live_session",
-    ): (
-        1,
-        "RESET. A reset rebuilds the world the live session is already playing, "
-        "so the generation's frozen values are the only correct input and the "
-        "`None` return is a refusal the caller propagates (read 2026-09-18)",
-    ),
     (
         "crates/ambition_platformer2d_runtime/src/room_transition/loading.rs",
         "for_live_session",

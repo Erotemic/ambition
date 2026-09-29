@@ -536,7 +536,7 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// ⛔⛤ 194 -> 195: `AuthoredOccurrences` STOPPED CLAIMING TO BE DERIVED. It was
 /// `declare_rollback_derived_resource` justified as *"republished from live state
 /// while its room is loaded"*, and that assertion was false on a shipped road:
-/// `process_new_game_reset_request` calls `forget_everything()` from INSIDE the
+/// New Game's reset (deleted 2026-09-29) cleared the ledger from INSIDE the
 /// rewinding schedule, and a `Placed` row for a room that is not resident has no
 /// live producer to republish it. Measured: ONE `adopt_rows` call inside the
 /// schedule desyncs the sync test at frames 3, 4 and 5 for a write at tick 5 —
@@ -861,7 +861,11 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// petted character's conversation, released by the narrative ledger.
 /// ⛔⛤ 260 -> 261: `message.toggle_portal_guns_active` joins. The developer
 /// portal switch is a host intent, applied inside the simulation.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 261;
+/// ⛔⛤ 261 -> 262: `resource.sandbox_reset_requested` and
+/// `message.sandbox_reset_committed` leave. A New Game is a checkpoint restore
+/// now: the owed request is `OutstandingCheckpointRequest`, whose value gains a
+/// destination, and the commit runs the fresh-run reducers.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 262;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

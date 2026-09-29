@@ -1766,6 +1766,7 @@ mod checkpoint_failure_tests {
                     custody: Default::default(),
                 }),
                 item: None,
+                fresh: false,
             });
         assert!(app
             .world_mut()

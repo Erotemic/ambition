@@ -149,7 +149,16 @@ script fails if the two disagree. They moved here from
 pinned to a page that no longer states the fact is a check against nothing.
 
 <!-- crossing-census: both_side_resources=54 rollback_registered=33 adjudicated_harmless=18 session_edge_only=3 filed=0 unclassified=0 -->
-<!-- ingress-census: spent_resources=55 resource_crossings=1 written_messages=95 message_crossings=2 unlocated=43 unlocated_types=15 -->
+<!-- ingress-census: spent_resources=54 resource_crossings=1 written_messages=93 message_crossings=2 unlocated=43 unlocated_types=15 -->
+
+⛔ **`spent_resources` WENT 55 → 54 AND `written_messages` 95 → 93 ON
+2026-09-29, AND WHAT LEFT IS NAMED:** the resource `NewGameResetRequested` and
+the messages `NewGameResetCommitted` and `RespawnRoomVisualsRequested` (the
+room commit still writes the second through a system parameter, which this
+census does not attribute). A New Game is a checkpoint restore to the fresh
+baseline now (NEW-GAME-RESYNC): the owed request is `OutstandingCheckpointRequest`
+and the room commit runs the fresh-run reducers, so the latch and its commit
+message are deleted. No crossing moved.
 
 ⛔ **`resource_crossings` WENT 2 → 1 AND `message_crossings` 3 → 2 LATER ON
 2026-09-28, AND THE TWO THAT LEFT ARE NAMED:** `NewGameResetRequested` and

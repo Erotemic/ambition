@@ -1202,8 +1202,7 @@ fn the_room_census_names_the_room_the_session_is_actually_in() {
             .iter_mut(world)
             .next()
             .expect("the composed session has a live-room instance");
-        live.advance();
-        live.advance();
+        *live = live.next().next();
         *live
     };
     assert_ne!(

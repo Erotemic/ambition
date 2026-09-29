@@ -255,7 +255,7 @@ and no fallback to "the live room".
 | 2 ✅ | Mid-room spawns inherit the source's instance; the transition roster is `RoomResident` of the departing instance | a resident of `#7` survives a publication that retires `#0` (the same entity stamped `#0` retires) | the unkeyed whole-world roster |
 | 3 (3a ✅ 3b ✅ 3c ✅ 3d ✅) | Geometry, platforms and overlay move onto the instance root; `CollisionWorld` takes the instance | a body in `#1` collides with `#1`'s wall (in `#0` it passes) | the session-root geometry field, `MovingPlatformSet` as a resource |
 | 4 (4a ✅ 4b ✅) | Pairwise queries (contacts, hits, perception, projectile victims) keyed by instance | identical local positions in two instances never touch (one instance does) | unkeyed body-contact vectors |
-| 5 | Live identity and room selection per instance; rollback rows instance-qualified; the save maps to a durable location key, never the ordinal | a second construction of one room in `#1` succeeds (a duplicate inside `#1` is still refused) | `RoomSet`'s private active index |
+| 5 (5a ✅) | Live identity and room selection per instance; rollback rows instance-qualified; the save maps to a durable location key, never the ordinal | a second construction of one room in `#1` succeeds (a duplicate inside `#1` is still refused) | `RoomSet`'s private active index |
 | 6 | The Alice/Bob proof: two instances, two driven bodies; retiring `#1` leaves `#0` whole | the one-room profile runs the same systems | — |
 
 ✅ **Cut 1 landed 2026-09-29.** `LiveRoomInstance` moved down to
@@ -443,6 +443,53 @@ instances of one room share those ids. A room key there is part of the
 per-instance identity. Also still owed: interactions (the nearest
 interactable is a view-side affordance) and the 23 shorthand
 `CollisionWorld` readers.
+
+**Cut 5, measured 2026-09-29 before it was cut into slices.**
+- An occupant's identity is `placement:{authored id}`, so a second instance
+  of one room mints the same identities as the first.
+- Construction compares `SimId` alone. A second construction of a room
+  would SUPERSEDE the first instance's bodies (`transaction.rs`,
+  "superseding"), not be refused, because the baseline is scoped to the
+  session and not to the live room.
+- The GGRS carrier order sorts by `SimId` and falls back to the local
+  spawn order on a tie.
+- Crowd facts and `WorldMemory` are keyed by the authored id string.
+- Saves name places by room id. Nothing durable stores the ordinal, which
+  already matches the plan.
+
+⇒ A live identity is the pair (live room, `SimId`). The `SimId` string stays
+the authored one, because every lookup built from an authored id
+(`SimId::placement(id)`) must keep working.
+
+The slices:
+- **5a**: one minting counter for the session.
+- **5b**: construction's baseline, supersession and duplicate checks keyed by
+  the pair.
+- **5c**: the carrier order and census keyed by the pair.
+- **5d**: the crowd, steering and memory maps keyed by the pair.
+- **5e**: `RoomSet`'s active index becomes each live room's own definition.
+  It has 141 `active_spec()` call sites in 76 files, so it is the largest.
+
+✅ **Cut 5a landed 2026-09-29: the session mints each live room from one
+counter.** A publication used to advance the root it replaced
+(`LiveRoomInstance::advance`). With live rooms #0 and #1, replacing #0 gave
+it #1 too: two live rooms with one identity. Now:
+- `RoomSet` carries `next_live_room`, the one counter on the session root
+  that the decision record names. It is in the room set's checksum (schema
+  267).
+- Staging pins it (`LiveRoomSuccession { replaces, mints }`).
+- The verifier refuses a pin that another publication already minted
+  (`StagedWorldViolation::StaleMint`) before anything is torn down.
+- Application moves the counter past the pin, and seats the replaced
+  root as the pinned instance.
+- A hot reload that replaces the set keeps the counter
+  (`inherit_live_room_counter`), so it cannot mint an identity twice.
+
+Deleted: `LiveRoomInstance::advance` and "the next instance is the replaced
+one's next". Witness: `a_publication_mints_the_sessions_next_live_room`.
+With #0 and #1 live, replacing #0 seats it as #2, #1 keeps its identity,
+and the counter is at #3. The control is a room pinned to #1 as the old rule
+pinned it, and it is refused with `StaleMint`.
 
 ⚠ **EVERY LIVE ROOM ROOT IS `session:room_instance`**, so a second root in
 one session cannot be admitted beside the first: a construction baseline

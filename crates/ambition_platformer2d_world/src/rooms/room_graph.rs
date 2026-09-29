@@ -221,6 +221,14 @@ pub struct RoomSet {
     ///
     /// Private for the same reason as [`Self::active`]: it must index `rooms`.
     pub(crate) start: usize,
+    /// The live room the session's next publication mints (OW1 cut 5a).
+    ///
+    /// One counter for the session, not one per live room root. A root that
+    /// advanced its own instance would mint #1 while another root already is
+    /// #1, and two live rooms would share an identity. It only moves forward,
+    /// so a retired live room's identity is never reused. Read through
+    /// [`RoomSet::next_live_room`], moved by [`RoomSet::mint_live_room`].
+    pub(crate) next_live_room: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
     pub(crate) graph: Graph<String, TransitionEdge>,
     pub(crate) room_nodes: Vec<NodeIndex>,
 }

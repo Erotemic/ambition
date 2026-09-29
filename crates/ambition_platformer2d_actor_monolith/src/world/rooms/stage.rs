@@ -580,7 +580,7 @@ impl RoomConstructionPlan {
         carry_body: Option<Entity>,
         next_rooms: Option<RoomSet>,
         arrival: Option<transaction::StagedArrival>,
-        replaces: Option<LiveRoomInstance>,
+        succession: Option<transaction::LiveRoomSuccession>,
     ) -> transaction::PublicationHandle {
         // Collected HERE rather than inside the staged closure: the roster comes
         // from the caller's own query, which cannot outlive this call.
@@ -601,7 +601,7 @@ impl RoomConstructionPlan {
         if let Some(arrival) = arrival {
             pending = pending.arriving(arrival);
         }
-        pending = pending.replacing(replaces);
+        pending = pending.replacing(succession);
         let publishes_as = pending.publishes_as();
         // ⛔ **ON THE PUBLICATION ITSELF, and inserted BEFORE the transaction
         // opens**, because `transaction::open` READS it: the identities standing
@@ -1355,7 +1355,29 @@ mod tests {
         query.iter(world).count()
     }
 
+    /// The live room the fixture's session mints next, as the production
+    /// roads pin it. Found through the root of the session's scope, so a
+    /// hidden candidate session counts: a room can publish into one.
+    fn next_mint(app: &mut bevy::prelude::App) -> Option<LiveRoomInstance> {
+        let root = ambition_platformer2d_shared_tangle::lifecycle::session_root_for_scope(
+            app.world_mut(),
+            ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId(0),
+        )?;
+        app.world().get::<RoomSet>(root).map(RoomSet::next_live_room)
+    }
+
+    /// Replace `replaces` with `mints`.
+    fn succession(
+        replaces: Option<LiveRoomInstance>,
+        mints: Option<LiveRoomInstance>,
+    ) -> Option<super::transaction::LiveRoomSuccession> {
+        replaces
+            .zip(mints)
+            .map(|(replaces, mints)| super::transaction::LiveRoomSuccession { replaces, mints })
+    }
+
     fn stage_the_candidate(app: &mut bevy::prelude::App, plan: RoomConstructionPlan, outgoing: Vec<Entity>) {
+        let mints = next_mint(app);
         app.add_systems(
             bevy::prelude::Update,
             // The room it replaces is the live one, read as the production
@@ -1368,7 +1390,7 @@ mod tests {
                     None,
                     None,
                     None,
-                    live.map(|live| **live),
+                    succession(live.map(|live| **live), mints),
                 );
             },
         );
@@ -1385,6 +1407,7 @@ mod tests {
         plan: RoomConstructionPlan,
         outgoing: Vec<Entity>,
     ) -> super::transaction::PublicationHandle {
+        let mints = next_mint(app);
         bevy::ecs::system::RunSystemOnce::run_system_once(
             app.world_mut(),
             move |mut commands: Commands,
@@ -1395,7 +1418,7 @@ mod tests {
                     None,
                     None,
                     None,
-                    live.map(|live| **live),
+                    succession(live.map(|live| **live), mints),
                 )
             },
         )
@@ -1935,6 +1958,7 @@ mod tests {
         outgoing: Vec<Entity>,
         replaces: Option<LiveRoomInstance>,
     ) {
+        let mints = next_mint(app);
         bevy::ecs::system::RunSystemOnce::run_system_once(
             app.world_mut(),
             move |mut commands: Commands| {
@@ -1944,7 +1968,7 @@ mod tests {
                     None,
                     None,
                     None,
-                    replaces,
+                    succession(replaces, mints),
                 );
             },
         )
@@ -2062,6 +2086,122 @@ mod tests {
         );
     }
 
+    /// Stage the candidate with an explicit succession, and run it.
+    fn stage_the_candidate_with(
+        app: &mut bevy::prelude::App,
+        plan: RoomConstructionPlan,
+        outgoing: Vec<Entity>,
+        succession: super::transaction::LiveRoomSuccession,
+    ) {
+        bevy::ecs::system::RunSystemOnce::run_system_once(app.world_mut(), move |mut commands: Commands| {
+            plan.replace_live_world(
+                &mut commands,
+                outgoing.iter().map(|entity| (*entity, false)),
+                None,
+                None,
+                None,
+                Some(succession),
+            );
+        })
+        .expect("the staging system runs");
+    }
+
+    /// A session with live rooms #0 and #1: the activation room, and a second
+    /// live room the session has already minted.
+    fn two_live_rooms() -> (bevy::prelude::App, Vec<Entity>) {
+        use ambition_platformer2d_shared_tangle::lifecycle::{
+            activation_room_root, session_world_component, session_world_component_mut, SessionRoot,
+        };
+        let platform = MovingPlatformState::from_authored(
+            ae::Vec2::new(10.0, 20.0),
+            ae::Vec2::new(32.0, 8.0),
+            64.0,
+            10.0,
+        );
+        let (mut app, outgoing) = last_good_world(platform);
+        let scope = session_world_component::<SessionRoot>(app.world())
+            .expect("the fixture has a session root")
+            .0;
+        let second = LiveRoomInstance::ACTIVATION.next();
+        assert!(
+            session_world_component_mut::<RoomSet>(app.world_mut())
+                .expect("the fixture has a room set")
+                .mint_live_room(second),
+            "a fresh session mints #1 first"
+        );
+        let mut other = empty_spec("n").world.clone();
+        other.name = "elsewhere".into();
+        app.world_mut()
+            .spawn((activation_room_root(scope), ambition_platformer2d_core::RoomGeometry(other)))
+            .insert((
+                second,
+                ambition_platformer2d_shared_tangle::sim_id::SimId::singleton("session", "room_instance_1"),
+            ));
+        (app, outgoing)
+    }
+
+    /// The live rooms, by instance, and the geometry each holds.
+    fn live_rooms(app: &mut bevy::prelude::App) -> Vec<(LiveRoomInstance, String)> {
+        let world = app.world_mut();
+        let mut rooms: Vec<_> = world
+            .query_filtered::<(&LiveRoomInstance, &ambition_platformer2d_core::RoomGeometry), bevy::prelude::With<ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot>>()
+            .iter(world)
+            .map(|(live, geometry)| (*live, geometry.0.name.clone()))
+            .collect();
+        rooms.sort();
+        rooms
+    }
+
+    /// OW1 cut 5a: a publication mints the session's next live room, not the
+    /// next one after the room it replaces.
+    ///
+    /// Live rooms #0 and #1 are both live. Replacing #0 seats that root as #2,
+    /// and #1 keeps its identity. Advancing the replaced root, as before this
+    /// cut, gave it #1 too: two live rooms with one identity. The control is a
+    /// room staged to mint #1, as that rule pinned it: it is refused
+    /// (`StaleMint`) before anything is torn down.
+    #[test]
+    fn a_publication_mints_the_sessions_next_live_room() {
+        let first = LiveRoomInstance::ACTIVATION;
+        let (second, third) = (first.next(), first.next().next());
+
+        let (mut app, outgoing) = two_live_rooms();
+        stage_the_candidate_with(
+            &mut app,
+            candidate_plan(),
+            outgoing,
+            super::transaction::LiveRoomSuccession { replaces: first, mints: second },
+        );
+        let verification = app
+            .world()
+            .resource::<crate::world::rooms::LastConstructionVerification>()
+            .clone();
+        assert!(!verification.published, "control: a room pinned to an identity already minted published");
+        assert!(
+            verification.staged_violations.contains(&super::transaction::StagedWorldViolation::StaleMint {
+                mints: second,
+                next: third,
+            }),
+            "got {:?}",
+            verification.staged_violations
+        );
+
+        let (mut app, outgoing) = two_live_rooms();
+        stage_the_candidate_as(&mut app, candidate_plan(), outgoing, Some(first));
+        assert_eq!(
+            live_rooms(&mut app),
+            vec![(second, "elsewhere".to_string()), (third, "candidate".to_string())],
+            "the publication did not seat the replaced root as the session's next live room"
+        );
+        assert_eq!(
+            ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<RoomSet>(app.world())
+                .expect("the session keeps its room set")
+                .next_live_room(),
+            third.next(),
+            "the session's counter did not move past the room it minted"
+        );
+    }
+
     /// A room staged for a live room another publication has already minted is
     /// refused before anything is torn down: its occupants would belong to a
     /// room the session is not in.
@@ -2074,9 +2214,7 @@ mod tests {
             10.0,
         );
         let (mut app, outgoing) = last_good_world(platform);
-        let mut live = LiveRoomInstance::ACTIVATION;
-        live.advance();
-        live.advance();
+        let live = LiveRoomInstance::ACTIVATION.next().next();
         // Two publications have replaced the activation room since.
         ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(
             app.world_mut(),

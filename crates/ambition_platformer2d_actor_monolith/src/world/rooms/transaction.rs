@@ -405,10 +405,23 @@ pub(crate) struct PendingWorldReplacement {
     moving_platforms: Vec<ambition_platformer2d_world::platforms::MovingPlatformState>,
     /// Where the transiting body lands, if one is crossing.
     arrival: Option<StagedArrival>,
-    /// The live room this publication replaces, pinned when it was staged. Its
-    /// root is the sink for the geometry, and publication advances it to the
-    /// instance the staged occupants carry ([`Self::publishes_as`]).
-    replaces: Option<ambition_platformer2d_world::rooms::LiveRoomInstance>,
+    /// The live room this publication replaces, and the one it mints, both
+    /// pinned when it was staged. The replaced room's root is the sink for the
+    /// geometry, and publication seats it as the minted instance, which the
+    /// staged occupants carry ([`Self::publishes_as`]).
+    succession: Option<LiveRoomSuccession>,
+}
+
+/// A publication's two live rooms: the one it replaces and the one it mints.
+///
+/// The minted one comes from the session's counter
+/// ([`ambition_platformer2d_world::rooms::RoomSet::next_live_room`]), not from
+/// `replaces.next()`. With two live rooms, `replaces.next()` can be the other
+/// room's identity.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct LiveRoomSuccession {
+    pub replaces: ambition_platformer2d_world::rooms::LiveRoomInstance,
+    pub mints: ambition_platformer2d_world::rooms::LiveRoomInstance,
 }
 
 impl PendingWorldReplacement {
@@ -426,23 +439,24 @@ impl PendingWorldReplacement {
             geometry,
             moving_platforms,
             arrival: None,
-            replaces: None,
+            succession: None,
         }
     }
 
-    /// State the live room this publication replaces.
-    pub(crate) fn replacing(
-        mut self,
-        room: Option<ambition_platformer2d_world::rooms::LiveRoomInstance>,
-    ) -> Self {
-        self.replaces = room;
+    /// State the live room this publication replaces and the one it mints.
+    pub(crate) fn replacing(mut self, succession: Option<LiveRoomSuccession>) -> Self {
+        self.succession = succession;
         self
     }
 
-    /// The live room this publication mints: the one it replaces, advanced
-    /// once. The staged occupants carry it.
+    /// The live room this publication mints. The staged occupants carry it.
     pub(crate) fn publishes_as(&self) -> Option<ambition_platformer2d_world::rooms::LiveRoomInstance> {
-        self.replaces.map(|room| room.next())
+        self.succession.map(|succession| succession.mints)
+    }
+
+    /// The live room this publication replaces.
+    fn replaces(&self) -> Option<ambition_platformer2d_world::rooms::LiveRoomInstance> {
+        self.succession.map(|succession| succession.replaces)
     }
 
     /// State that a body is crossing into this room, and where it lands.
@@ -545,6 +559,13 @@ pub enum StagedWorldViolation {
     StaleRoomInstance {
         replaces: ambition_platformer2d_world::rooms::LiveRoomInstance,
     },
+    /// Another publication minted the live room this one was staged to mint.
+    /// Its occupants carry that identity, so publishing would put them in a
+    /// live room that is already another room's.
+    StaleMint {
+        mints: ambition_platformer2d_world::rooms::LiveRoomInstance,
+        next: ambition_platformer2d_world::rooms::LiveRoomInstance,
+    },
 }
 
 impl std::fmt::Display for StagedWorldViolation {
@@ -584,6 +605,10 @@ impl std::fmt::Display for StagedWorldViolation {
                 "this room was staged to replace live room {replaces}, which the \
                  session no longer has, so its occupants would belong to a room \
                  the session is not in"
+            ),
+            Self::StaleMint { mints, next } => write!(
+                f,
+                "this room was staged to mint live room {mints}, but the session                  mints {next} next: another publication took it, so its occupants                  would share another live room's identity"
             ),
         }
     }
@@ -639,12 +664,22 @@ pub(crate) fn verify_staged_world(
     // exact authoritative sink for it exists.
     match publishing_into {
         Some(root) => {
-            if world.get::<RoomSet>(root).is_none() {
-                violations.push(StagedWorldViolation::NoRoomSetToPublishInto);
+            match world.get::<RoomSet>(root) {
+                None => violations.push(StagedWorldViolation::NoRoomSetToPublishInto),
+                Some(rooms) => {
+                    if let Some(succession) = pending.succession {
+                        if succession.mints != rooms.next_live_room() {
+                            violations.push(StagedWorldViolation::StaleMint {
+                                mints: succession.mints,
+                                next: rooms.next_live_room(),
+                            });
+                        }
+                    }
+                }
             }
             // The geometry's sink is the root of the live room this replaces,
             // not the session root.
-            match (pending.replaces, scope_of_root(world, root)) {
+            match (pending.replaces(), scope_of_root(world, root)) {
                 (Some(replaces), Some(scope)) => {
                     match live_room_root_for(world, scope, replaces) {
                         Some(room_root) => {
@@ -711,7 +746,7 @@ pub(crate) fn verify_staged_world(
 /// rather than writing nothing.
 pub(crate) fn apply_world_replacement(
     world: &mut World,
-    pending: PendingWorldReplacement,
+    mut pending: PendingWorldReplacement,
     target: Option<bevy::ecs::entity::Entity>,
 ) {
     // ⛔⛤ **REVALIDATE BEFORE THE FIRST DESTRUCTIVE ACT, NOT AFTER IT.** Every
@@ -765,8 +800,21 @@ pub(crate) fn apply_world_replacement(
             Some(format!("publication target {root:?} carries no `RoomSet`"))
         }
         Some(root)
+            if pending.succession.is_some_and(|succession| {
+                world
+                    .get::<ambition_platformer2d_world::rooms::RoomSet>(root)
+                    .is_some_and(|rooms| rooms.next_live_room() != succession.mints)
+            }) =>
+        {
+            Some(format!(
+                "publication target {root:?} mints another live room than {:?}, \
+                 the one this room was staged for",
+                pending.publishes_as()
+            ))
+        }
+        Some(root)
             if pending
-                .replaces
+                .replaces()
                 .zip(scope_of_root(world, root))
                 .and_then(|(replaces, scope)| live_room_root_for(world, scope, replaces))
                 .and_then(|room_root| world.get::<ambition_platformer2d_core::RoomGeometry>(room_root))
@@ -775,7 +823,7 @@ pub(crate) fn apply_world_replacement(
             Some(format!(
                 "publication target {root:?} has no root for live room {:?} carrying \
                  `RoomGeometry`",
-                pending.replaces
+                pending.replaces()
             ))
         }
         Some(_) => None,
@@ -814,9 +862,12 @@ pub(crate) fn apply_world_replacement(
         return;
     };
     use ambition_platformer2d_shared_tangle::lifecycle::session_world_component_mut_at;
-    if let Some(next) = pending.next_rooms {
+    if let Some(mut next) = pending.next_rooms.take() {
         match session_world_component_mut_at::<ambition_platformer2d_world::rooms::RoomSet>(world, root) {
-            Some(mut rooms) => *rooms = next,
+            Some(mut rooms) => {
+                next.inherit_live_room_counter(&rooms);
+                *rooms = next;
+            }
             None => bevy::log::error!(
                 target: "ambition_platformer2d::construction",
                 "publication target {root:?} carries no `RoomSet` at application,                  though its preflight found one"
@@ -859,14 +910,20 @@ pub(crate) fn apply_world_replacement(
     // replaces (OW1 cut 3). The verifier refused a publication whose room root
     // is gone, so the advance mints exactly the value the staged occupants
     // carry.
+    // The minted identity is the session's next one, pinned at staging and
+    // checked by the verifier (`StaleMint`); the counter moves past it here.
     let room_root = pending
-        .replaces
+        .replaces()
         .zip(scope_of_root(world, root))
         .and_then(|(replaces, scope)| live_room_root_for(world, scope, replaces));
-    let replaced = room_root.and_then(|room_root| {
+    let minted = pending.succession.filter(|succession| {
+        session_world_component_mut_at::<ambition_platformer2d_world::rooms::RoomSet>(world, root)
+            .is_some_and(|mut rooms| rooms.mint_live_room(succession.mints))
+    });
+    let replaced = room_root.zip(minted).and_then(|(room_root, succession)| {
         let mut live_room = world.get_mut::<ambition_platformer2d_world::rooms::LiveRoomInstance>(room_root)?;
         let replaced = *live_room;
-        live_room.advance();
+        *live_room = succession.mints;
         Some((replaced, *live_room))
     });
     // ⭐ WHAT THE SWEEP LEFT STANDING IN THE REPLACED ROOM IS NOW IN THE NEW

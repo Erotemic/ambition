@@ -426,6 +426,12 @@ impl RoomTransitionApplication<'_, '_> {
             .and_then(|subject| self.subject_room.get(subject).ok())
             .map(|room| room.0)
             .or_else(|| self.live_room.single().ok().copied());
+        // The room this publication mints is the session's next, pinned now;
+        // the verifier refuses it if another publication mints it first.
+        let mints = self.session.iter().next().map(|rooms| rooms.next_live_room());
+        let succession = departing.zip(mints).map(|(replaces, mints)| {
+            ambition_platformer2d_actor_monolith::rooms::LiveRoomSuccession { replaces, mints }
+        });
         let publication = plan.replace_live_world(
             &mut self.commands,
             self.room_visuals
@@ -439,7 +445,7 @@ impl RoomTransitionApplication<'_, '_> {
             carry_body,
             None,
             staged_arrival,
-            departing,
+            succession,
         );
 
         Ok(StagedRoomTransition {

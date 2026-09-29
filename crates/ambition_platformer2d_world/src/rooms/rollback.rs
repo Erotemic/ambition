@@ -28,6 +28,9 @@ fn room_set_checksum(rooms: &super::RoomSet) -> u64 {
     put_u64(&mut bytes, rooms.active as u64);
     put_u64(&mut bytes, rooms.start as u64);
     put_str(&mut bytes, &rooms.active_spec().id);
+    // The next live room this session mints: a peer that has published one
+    // more room mints a different identity next.
+    put_u64(&mut bytes, u64::from(rooms.next_live_room.ordinal()));
     checksum_bytes(&bytes)
 }
 
@@ -40,7 +43,7 @@ where
     registrar.rollback_component_clone_checksum::<super::RoomSet>(
         OWNER,
         "root.room_set",
-        "active/start room identity checksum",
+        "active/start room identity and next live room checksum",
         room_set_checksum,
     );
     // The room-set checksum cannot tell a revisit from the earlier visit:

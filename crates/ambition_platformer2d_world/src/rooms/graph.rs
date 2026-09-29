@@ -20,6 +20,33 @@ use super::spawn::{
 use super::*;
 
 impl RoomSet {
+    /// The live room the next publication into this session mints. A room
+    /// staged for that publication stamps its occupants with it.
+    pub fn next_live_room(&self) -> ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance {
+        self.next_live_room
+    }
+
+    /// Mint `pinned` as a live room, if it is the one this session mints next,
+    /// and move the counter past it. `false` means another publication minted
+    /// it first, so the room staged for it is stale.
+    pub fn mint_live_room(
+        &mut self,
+        pinned: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
+    ) -> bool {
+        if pinned != self.next_live_room {
+            return false;
+        }
+        self.next_live_room = pinned.next();
+        true
+    }
+
+    /// Carry this session's minting counter into a replacement set. A hot
+    /// reload replaces the whole set, and a fresh counter would mint an
+    /// identity this session already used.
+    pub fn inherit_live_room_counter(&mut self, from: &Self) {
+        self.next_live_room = self.next_live_room.max(from.next_live_room);
+    }
+
     /// Build a runtime room graph from already-materialized runtime rooms.
     ///
     /// Fixture use only. Production uses [`Self::try_from_parts`]. This
@@ -120,6 +147,8 @@ impl RoomSet {
             rooms,
             active,
             start: active,
+            // The activation room is #0, so the first publication mints #1.
+            next_live_room: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::ACTIVATION.next(),
             graph,
             room_nodes,
         })

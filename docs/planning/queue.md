@@ -105,6 +105,22 @@ ran on the wrong frame.
 **Acceptance:** `rollback_health()` restored on both arms of
 `a_new_game_asked_for_by_the_host_commits_once_under_a_rewind`, still one
 commit each.
+
+⭐ **DESIGN CHOSEN 2026-09-29 (open-world campaign, customer 1): A NEW GAME IS
+A CHECKPOINT RESUME TO THE FRESH BASELINE, AT THE START ROOM.** The death road
+already is the confirmed-frame road: `resume_at_checkpoint_on_reset` records a
+`Transition` and an `AcceptedRestore` with pinned inputs, the body is reset in
+the sim through `RoomReplayAdmitted`, and both hosts reach
+`apply_committed_checkpoint_restore`, which runs `CheckpointDomainApply`
+exclusively before the rebase. A New Game differs only in its destination (the
+start room's spawn), its pinned inputs (empty occurrences/custody/mints, the
+starter bag) and a `fresh` flag. The flag installs a marker during
+`CheckpointDomainApply`, and each domain's fresh-run reducer (save wipe,
+registries, ledger, transients, wallet, baselines) runs there instead of on
+the `NewGameResetCommitted` message in the sim. ⇒ Deleted:
+`process_new_game_reset_request` and its private rebuild, `NewGameResetRequested`,
+`NewGameResetCommitted`, and the reducers that duplicated what fresh pinned
+inputs already restore. No new lifecycle state machine.
 **Blocked by:** nothing.
 
 ### SWITCH-DRAIN-ORDER — the switch drain is not ordered after the press that writes it

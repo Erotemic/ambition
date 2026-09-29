@@ -150,7 +150,7 @@ struct SolidBlock {
 /// `BlinkWall` joins `Solid`, per the invariant's own wording. One-ways never do:
 /// overlapping a one-way is explicitly legal (§6.1 "Explicitly legal").
 fn solid_blocks(sim: &Platformer2dSimHarness) -> Vec<SolidBlock> {
-    let Some(room) = ambition_platformer2d::platformer::lifecycle::session_world_component::<
+    let Some(room) = ambition_platformer2d::platformer::lifecycle::sole_live_room_component::<
         RoomGeometry,
     >(sim.world()) else {
         return Vec::new();
@@ -182,7 +182,7 @@ fn solid_blocks(sim: &Platformer2dSimHarness) -> Vec<SolidBlock> {
 /// from the AUTHORED geometry: a portal never carves a one-way (only solid host
 /// kinds are carved for a body's benefit, and a one-way is not a host).
 fn one_ways(sim: &Platformer2dSimHarness) -> Vec<SolidBlock> {
-    let Some(room) = ambition_platformer2d::platformer::lifecycle::session_world_component::<
+    let Some(room) = ambition_platformer2d::platformer::lifecycle::sole_live_room_component::<
         RoomGeometry,
     >(sim.world()) else {
         return Vec::new();
@@ -204,7 +204,7 @@ fn one_ways(sim: &Platformer2dSimHarness) -> Vec<SolidBlock> {
 /// reads as "not in a solid" there. Against the authored wall it reads as what
 /// it is.
 fn authored_solid_blocks(sim: &Platformer2dSimHarness) -> Vec<SolidBlock> {
-    let Some(room) = ambition_platformer2d::platformer::lifecycle::session_world_component::<
+    let Some(room) = ambition_platformer2d::platformer::lifecycle::sole_live_room_component::<
         RoomGeometry,
     >(sim.world()) else {
         return Vec::new();

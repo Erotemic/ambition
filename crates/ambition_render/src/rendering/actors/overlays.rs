@@ -78,7 +78,7 @@ const GRADIENT_LANE_VISUAL_Z: f32 = 10.5;
 /// `HazardColumn`.
 pub fn manage_gradient_lane_visual(
     mut commands: Commands,
-    world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+    world: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<
         ambition_platformer2d_core::RoomGeometry,
     >,
     active_session: Option<Res<ActiveSessionScope>>,

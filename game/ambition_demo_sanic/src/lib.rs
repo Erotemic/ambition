@@ -500,7 +500,7 @@ fn sanic_setup(
         bevy::prelude::Entity,
         bevy::prelude::With<ambition_platformer2d::platformer::lifecycle::SessionRoot>,
     >,
-    world: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<ae::RoomGeometry>,
+    world: ambition_platformer2d::platformer::lifecycle::SoleLiveRoom<ae::RoomGeometry>,
     room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
         ambition_platformer2d::runtime::demo_fixture::RoomSet,
     >,
@@ -1314,7 +1314,7 @@ pub fn arc_scattered_rings(
     // Optional: a `Single` that matches nothing skips the system, which would
     // freeze every ring mid-air. No geometry means nothing to bounce off.
     world: Option<
-        ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
+        ambition_platformer2d::platformer::lifecycle::SoleLiveRoom<
             ambition_platformer2d::engine_core::RoomGeometry,
         >,
     >,

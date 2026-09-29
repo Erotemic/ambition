@@ -18,6 +18,7 @@ use ambition_encounter::EncounterMusicRequest;
 use ambition_platformer2d_actor_monolith::avatar::{
     HomeBodyAbilities, HomeBodyResources, InitialBodyPolicy, StartingCharacter,
 };
+use ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot;
 use ambition_platformer2d_world::rooms::{LiveRoomInstance, RoomMetadata, RoomSet};
 use ambition_platformer2d_core::RoomGeometry;
 #[cfg(feature = "ldtk")]
@@ -223,8 +224,6 @@ impl PreparedPlatformerSource {
         PlatformerSessionWorld {
             catalogs: self.catalogs.clone(),
             room_set: self.room_set.clone(),
-            live_room: LiveRoomInstance::ACTIVATION,
-            geometry: self.geometry.clone(),
             starting_character: self.starting_character.clone(),
             initial_body: self.initial_body.clone(),
             home_body_resources: self.home_body_resources.clone(),
@@ -232,6 +231,37 @@ impl PreparedPlatformerSource {
             requests: PlatformerSessionRequests::default(),
         }
     }
+}
+
+impl PreparedPlatformerSource {
+    /// The live root of the session's activation room, spawned beside the
+    /// session root by the same road and under the same ownership.
+    pub fn instantiate_live_room(&self) -> LiveRoomWorld {
+        LiveRoomWorld {
+            name: bevy::prelude::Name::new("live room"),
+            root: RoomInstanceRoot,
+            id: RoomInstanceRoot::sim_id(),
+            live_room: LiveRoomInstance::ACTIVATION,
+            geometry: self.geometry.clone(),
+        }
+    }
+}
+
+/// One live room instance's own state, on its own root (OW1 cut 3). The
+/// session root keeps the room definitions; this carries which live room it is
+/// and the geometry a body in it collides with.
+#[derive(Bundle, Clone)]
+pub struct LiveRoomWorld {
+    pub name: bevy::prelude::Name,
+    pub root: RoomInstanceRoot,
+    pub id: ambition_platformer2d_shared_tangle::sim_id::SimId,
+    /// ⛔ **NOT PART OF THE PREPARED SOURCE, AND THAT IS THE DISTINCTION.** A
+    /// definition can be instantiated more than once; an instance identity is
+    /// minted when a room is PUBLISHED, so a live session always starts at
+    /// [`LiveRoomInstance::ACTIVATION`] no matter how many times its source has
+    /// been instantiated before.
+    pub live_room: LiveRoomInstance,
+    pub geometry: RoomGeometry,
 }
 
 #[derive(Bundle, Clone, Debug, Default)]
@@ -250,13 +280,6 @@ pub struct PlatformerSessionRequests {
 pub struct PlatformerSessionWorld {
     pub catalogs: PlatformerSessionCatalogs,
     pub room_set: RoomSet,
-    /// ⛔ **NOT PART OF THE PREPARED SOURCE, AND THAT IS THE DISTINCTION.** A
-    /// definition can be instantiated more than once; an instance identity is
-    /// minted when a room is PUBLISHED, so a live session always starts at
-    /// [`LiveRoomInstance::ACTIVATION`] no matter how many times its source has
-    /// been instantiated before.
-    pub live_room: LiveRoomInstance,
-    pub geometry: RoomGeometry,
     pub starting_character: StartingCharacter,
     pub initial_body: InitialBodyPolicy,
     pub home_body_resources: HomeBodyResources,

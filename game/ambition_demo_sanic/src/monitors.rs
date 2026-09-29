@@ -25,7 +25,6 @@
 use bevy::prelude::*;
 
 use ambition_platformer2d::engine_core as ae;
-use ambition_platformer2d::platformer::lifecycle::SessionWorldRef;
 use ambition_platformer2d::platformer::markers::PrimaryPlayer;
 use ambition_platformer2d::world::FeatureEcsWorldOverlay;
 
@@ -93,7 +92,7 @@ impl SpentMonitors {
 pub fn break_monitor_boxes(
     time: Res<ambition_platformer2d::time::WorldTime>,
     mut spent: ResMut<SpentMonitors>,
-    geometry: SessionWorldRef<ae::RoomGeometry>,
+    geometry: ambition_platformer2d::platformer::lifecycle::SoleLiveRoom<ae::RoomGeometry>,
     mut vfx: MessageWriter<ambition_platformer2d::vfx::VfxMessage>,
     mut sfx: ambition_platformer2d::sfx::BodySfxWriter,
     mut players: Query<

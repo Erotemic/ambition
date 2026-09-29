@@ -53,7 +53,7 @@ fn app(blocks: Vec<Block>) -> App {
     // The room reaches `CollisionWorld` as a component on the session-world
     // root (`SessionWorldRef` is a `Single<Ref<T>, With<SessionRoot>>`), as in
     // production.
-    ambition_platformer2d::session::insert_session_world_component(
+    ambition_platformer2d::platformer::lifecycle::insert_live_room_component(
         app.world_mut(),
         ae::RoomGeometry(ae::World::new(
             "tether",

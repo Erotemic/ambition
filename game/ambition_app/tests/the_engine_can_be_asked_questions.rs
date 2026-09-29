@@ -1115,7 +1115,8 @@ fn every_authored_boss_cleared_call_names_a_real_boss_placement() {
 #[test]
 fn the_room_census_names_the_room_the_session_is_actually_in() {
     use ambition_platformer2d::world::rooms::{LiveRoomInstance, RoomSet};
-    use ambition_platformer2d::runtime::runtime_census::room_census_row;
+    use ambition_platformer2d::platformer::lifecycle::{RoomInstanceRoot, SessionScopedEntity};
+    use ambition_platformer2d::runtime::runtime_census::{live_room_of, room_census_row};
 
     let mut sim = fixed_60hz_room_sim(ROOM);
     sim.step_n(base(), 4);
@@ -1137,11 +1138,18 @@ fn the_room_census_names_the_room_the_session_is_actually_in() {
     };
 
     let row = {
-        let mut query = sim
-            .world_mut()
-            .query::<(&RoomSet, &SessionRoot, Option<&LiveRoomInstance>)>();
+        let mut query = sim.world_mut().query::<(&RoomSet, &SessionRoot)>();
+        let mut rooms = sim.world_mut().query_filtered::<
+            (&LiveRoomInstance, Option<&SessionScopedEntity>),
+            With<RoomInstanceRoot>,
+        >();
         let world = sim.world();
-        let rows: Vec<_> = query.iter(world).collect();
+        let rows: Vec<_> = query
+            .iter(world)
+            .map(|(room_set, root)| {
+                (room_set, root, live_room_of(root, rooms.iter(world)))
+            })
+            .collect();
         room_census_row(1.5, rows.into_iter(), None)
     };
 
@@ -1193,7 +1201,7 @@ fn the_room_census_names_the_room_the_session_is_actually_in() {
         let mut live = query
             .iter_mut(world)
             .next()
-            .expect("the composed session root carries a live-room instance");
+            .expect("the composed session has a live-room instance");
         live.advance();
         live.advance();
         *live
@@ -1204,11 +1212,18 @@ fn the_room_census_names_the_room_the_session_is_actually_in() {
         "the arm must read a value a constant cannot be"
     );
     let after_moving = {
-        let mut query = sim
-            .world_mut()
-            .query::<(&RoomSet, &SessionRoot, Option<&LiveRoomInstance>)>();
+        let mut query = sim.world_mut().query::<(&RoomSet, &SessionRoot)>();
+        let mut rooms = sim.world_mut().query_filtered::<
+            (&LiveRoomInstance, Option<&SessionScopedEntity>),
+            With<RoomInstanceRoot>,
+        >();
         let world = sim.world();
-        let rows: Vec<_> = query.iter(world).collect();
+        let rows: Vec<_> = query
+            .iter(world)
+            .map(|(room_set, root)| {
+                (room_set, root, live_room_of(root, rooms.iter(world)))
+            })
+            .collect();
         room_census_row(1.5, rows.into_iter(), None)
     };
     assert!(
@@ -1256,11 +1271,18 @@ fn the_room_census_names_the_room_the_session_is_actually_in() {
             .clone()
     };
     let moved = {
-        let mut query = sim
-            .world_mut()
-            .query::<(&RoomSet, &SessionRoot, Option<&LiveRoomInstance>)>();
+        let mut query = sim.world_mut().query::<(&RoomSet, &SessionRoot)>();
+        let mut rooms = sim.world_mut().query_filtered::<
+            (&LiveRoomInstance, Option<&SessionScopedEntity>),
+            With<RoomInstanceRoot>,
+        >();
         let world = sim.world();
-        let rows: Vec<_> = query.iter(world).collect();
+        let rows: Vec<_> = query
+            .iter(world)
+            .map(|(room_set, root)| {
+                (room_set, root, live_room_of(root, rooms.iter(world)))
+            })
+            .collect();
         room_census_row(2.5, rows.into_iter(), None)
     };
     assert!(

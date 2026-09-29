@@ -417,7 +417,7 @@ pub fn refuse_a_weaker_form_pickup(
 pub fn contribute_discovered_hidden_blocks_to_overlay(
     spent: Res<SpentPowerBlocks>,
     geometry: Option<
-        ambition_platformer2d::platformer::lifecycle::SessionWorldRef<ae::RoomGeometry>,
+        ambition_platformer2d::platformer::lifecycle::SoleLiveRoom<ae::RoomGeometry>,
     >,
     mut overlay: ResMut<ambition_platformer2d::world::FeatureEcsWorldOverlay>,
 ) {
@@ -469,7 +469,7 @@ pub fn bonk_power_blocks(
     mut sfx: ambition_platformer2d::sfx::BodySfxWriter,
     // The room the contact happened in — a `GeoId` names a block, and only the
     // world can say WHICH block that is.
-    geometry: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<ae::RoomGeometry>,
+    geometry: ambition_platformer2d::platformer::lifecycle::SoleLiveRoom<ae::RoomGeometry>,
 ) {
     let Ok((frame, worn, mut wallet)) = players.single_mut() else {
         return;
@@ -1864,8 +1864,11 @@ mod tests {
         let session = scope.begin();
         app.insert_resource(scope);
         app.world_mut().spawn((
-            ambition_platformer2d::platformer::lifecycle::SessionRoot(session),
+            ambition_platformer2d::platformer::lifecycle::activation_room_root(session),
             ae::RoomGeometry(room.world.clone()),
+        ));
+        app.world_mut().spawn((
+            ambition_platformer2d::platformer::lifecycle::SessionRoot(session),
         ));
         // The bonk announces the strike so the render layer can flinch the block;
         // an unregistered message fails parameter validation rather than being
@@ -1960,8 +1963,11 @@ mod tests {
         let session = scope.begin();
         app.insert_resource(scope);
         app.world_mut().spawn((
-            ambition_platformer2d::platformer::lifecycle::SessionRoot(session),
+            ambition_platformer2d::platformer::lifecycle::activation_room_root(session),
             ae::RoomGeometry(world),
+        ));
+        app.world_mut().spawn((
+            ambition_platformer2d::platformer::lifecycle::SessionRoot(session),
         ));
         app.add_message::<ambition_platformer2d::platformer::block_nudge::BlockStruck>();
         app.add_message::<ambition_platformer2d::vfx::VfxMessage>();
@@ -2051,8 +2057,11 @@ mod tests {
         let session = scope.begin();
         app.insert_resource(scope);
         app.world_mut().spawn((
-            ambition_platformer2d::platformer::lifecycle::SessionRoot(session),
+            ambition_platformer2d::platformer::lifecycle::activation_room_root(session),
             ae::RoomGeometry(world),
+        ));
+        app.world_mut().spawn((
+            ambition_platformer2d::platformer::lifecycle::SessionRoot(session),
         ));
         app.add_message::<ambition_platformer2d::platformer::block_nudge::BlockStruck>();
         app.add_message::<ambition_platformer2d::vfx::VfxMessage>();

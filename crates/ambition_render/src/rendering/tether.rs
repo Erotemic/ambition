@@ -29,7 +29,7 @@ pub struct TetherVisual {
 /// Draw a line from each reaching body to where its grab actually reaches.
 pub fn sync_tether_visuals(
     mut commands: Commands,
-    world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+    world: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<
         ambition_platformer2d_core::RoomGeometry,
     >,
     sprite: Option<Res<super::flyline::FlylineSprite>>,

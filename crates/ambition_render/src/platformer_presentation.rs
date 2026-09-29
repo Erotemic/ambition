@@ -545,8 +545,11 @@ mod tests {
         let room_set = room_set_with_one_npc(NPC);
         let geometry =
             ambition_platformer2d_core::RoomGeometry(room_set.active_spec().world.clone());
-        app.world_mut()
-            .spawn((SessionRoot(scope), room_set, geometry));
+        app.world_mut().spawn((SessionRoot(scope), room_set));
+        app.world_mut().spawn((
+            ambition_platformer2d_shared_tangle::lifecycle::activation_room_root(scope),
+            geometry,
+        ));
 
         // Two frames past the grace period, so a late placeholder is still caught.
         for _ in 0..(5 + 2) {

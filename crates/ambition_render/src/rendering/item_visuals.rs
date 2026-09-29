@@ -258,7 +258,7 @@ pub fn build_held_item_art(
 
 pub fn sync_ground_item_visuals(
     mut commands: Commands,
-    world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+    world: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<
         ambition_platformer2d_core::RoomGeometry,
     >,
     art: Option<Res<HeldItemArt>>,
@@ -367,7 +367,7 @@ pub fn build_world_item_art(
 /// (there are few items), like [`sync_ground_item_visuals`].
 pub fn sync_world_item_visuals(
     mut commands: Commands,
-    world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+    world: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<
         ambition_platformer2d_core::RoomGeometry,
     >,
     active_session: Option<Res<ActiveSessionScope>>,
@@ -448,7 +448,7 @@ pub struct HeldItemVisual;
 /// comes from the subject's `ActorControl`, not raw device input.
 pub fn sync_held_item_visual(
     mut commands: Commands,
-    world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+    world: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<
         ambition_platformer2d_core::RoomGeometry,
     >,
     art: Option<Res<HeldItemArt>>,

@@ -113,7 +113,7 @@ pub fn build_flyline_sprite(mut commands: Commands, mut images: ResMut<Assets<Im
 /// length to the centre. A rope to the ankles would swing out of step.
 pub fn sync_flyline_visuals(
     mut commands: Commands,
-    world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+    world: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<
         ambition_platformer2d_core::RoomGeometry,
     >,
     sprite: Option<Res<FlylineSprite>>,

@@ -202,7 +202,7 @@ impl ActorNameplateSettings {
 #[allow(clippy::type_complexity)]
 pub fn sync_actor_nameplates(
     mut commands: Commands,
-    world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+    world: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<
         ambition_platformer2d_core::RoomGeometry,
     >,
     settings: Res<ActorNameplateSettings>,
@@ -670,7 +670,7 @@ mod tests {
         /// door's plate was given.
         fn plate_opacities(first_target: ae::Vec2, second_target: ae::Vec2) -> [[f32; 2]; 2] {
             let mut world = World::new();
-            ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+            ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(
                 &mut world,
                 room(),
             );
@@ -755,7 +755,7 @@ mod tests {
         #[test]
         fn a_retired_view_takes_its_plates_with_it() {
             let mut world = World::new();
-            ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+            ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(
                 &mut world,
                 room(),
             );

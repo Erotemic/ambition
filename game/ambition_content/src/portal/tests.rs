@@ -912,7 +912,7 @@ mod host_bridges {
     }
 
     pub fn sync_portal_world_frame(
-        world: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<RoomGeometry>,
+        world: ambition_platformer2d::platformer::lifecycle::SoleLiveRoom<RoomGeometry>,
         mut frame: ResMut<PortalWorldFrame>,
     ) {
         if frame.size != world.0.size {
@@ -941,7 +941,7 @@ fn partial_render_keeps_the_sprite_and_adds_the_exit_copy() {
         publish_portal_body_views, sync_portal_world_frame, tag_portal_scene_bodies,
     };
     let mut app = App::new();
-    ambition_platformer2d::platformer::lifecycle::insert_session_world_component(
+    ambition_platformer2d::platformer::lifecycle::insert_live_room_component(
         app.world_mut(),
         world_with_two_walls(),
     );
@@ -1079,7 +1079,7 @@ fn app_with_the_shot_adapter() -> App {
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<ambition_portal2d::PortalShotFired>();
     app.add_message::<ambition_portal2d::PortalFireIntent>();
-    ambition_platformer2d::platformer::lifecycle::insert_session_world_component(
+    ambition_platformer2d::platformer::lifecycle::insert_live_room_component(
         app.world_mut(),
         world_with_two_walls(),
     );
@@ -1202,7 +1202,7 @@ fn portal_shot_travels_and_opens_a_portal_on_a_wall() {
     // (the FIRE/TRAVEL sfx moved to the `play_portal_sfx` adapter, Phase 5a).
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<ambition_portal2d::PortalShotFired>();
-    ambition_platformer2d::platformer::lifecycle::insert_session_world_component(
+    ambition_platformer2d::platformer::lifecycle::insert_live_room_component(
         app.world_mut(),
         world_with_two_walls(),
     );
@@ -1572,7 +1572,7 @@ fn a_portal_on_a_moving_platform_rides_its_host_face() {
 
     let mut app = App::new();
     // Authored base: one anon fixture wall (unattributable on purpose).
-    ambition_platformer2d::platformer::lifecycle::insert_session_world_component(
+    ambition_platformer2d::platformer::lifecycle::insert_live_room_component(
         app.world_mut(),
         RoomGeometry(ae::World::new(
             "cc6",
@@ -1691,7 +1691,7 @@ fn a_portal_the_adapter_has_decided_is_not_scanned_again() {
     use ambition_platformer2d_world::platforms::MovingPlatformState;
 
     let mut app = App::new();
-    ambition_platformer2d::platformer::lifecycle::insert_session_world_component(
+    ambition_platformer2d::platformer::lifecycle::insert_live_room_component(
         app.world_mut(),
         RoomGeometry(ae::World::new("cc6", Vec2::new(2000.0, 1000.0), Vec2::ZERO, vec![])),
     );

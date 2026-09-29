@@ -155,7 +155,7 @@ fn build_slash_source(
 pub(crate) fn spawn_slash_effects(
     mut commands: Commands,
     mut messages: MessageReader<VfxMessage>,
-    world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+    world: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<
         ambition_platformer2d_core::RoomGeometry,
     >,
     asset_server: Res<AssetServer>,
@@ -317,7 +317,7 @@ fn owner_pos(owners: &Query<&PresentedPose>, owner: Entity) -> Option<ae::Vec2> 
 /// If the owner despawns mid-swing, the effect stays where it last was
 /// instead of snapping to the origin. A body can die inside its own swing.
 pub(crate) fn follow_slash_owner(
-    world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+    world: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<
         ambition_platformer2d_core::RoomGeometry,
     >,
     owners: Query<&PresentedPose>,

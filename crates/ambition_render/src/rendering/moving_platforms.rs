@@ -41,7 +41,7 @@ pub struct MovingPlatformVisual {
 pub fn sync_moving_platform_visuals(
     mut commands: Commands,
     active_session: Option<Res<ActiveSessionScope>>,
-    world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ae::RoomGeometry>,
+    world: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<ae::RoomGeometry>,
     platform_set: Res<MovingPlatformSet>,
     mut existing: Query<(Entity, &MovingPlatformVisual, &mut Transform, &mut Sprite)>,
 ) {
@@ -109,7 +109,7 @@ mod tests {
         let mut app = App::new();
         app.init_resource::<ActiveSessionScope>();
         app.world_mut().resource_mut::<ActiveSessionScope>().begin();
-        ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+        ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(
             app.world_mut(),
             ae::RoomGeometry(ae::World::new(
                 "moving platform fixture",

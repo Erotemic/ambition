@@ -94,7 +94,7 @@ fn projectile_test_app(world: World, player_pos: ae::Vec2, facing: f32) -> App {
     app.insert_resource(ambition_boss_encounter::test_boss_catalog().clone());
     app.insert_resource(Time::<()>::default());
     app.insert_resource(ambition_time::WorldTime::default());
-    ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+    ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(
         app.world_mut(),
         RoomGeometry(world),
     );

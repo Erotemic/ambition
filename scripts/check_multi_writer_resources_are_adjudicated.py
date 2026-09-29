@@ -3418,10 +3418,6 @@ SESSION_WORLD_BASELINE: dict[str, tuple[str, ...]] = {
         "game/ambition_demo_mary_o/src/flag.rs",
         "game/ambition_demo_mary_o/src/star.rs",
     ),
-    "RoomGeometry": (
-        "crates/ambition_platformer2d_actor_monolith/src/world/rooms/transaction.rs",
-        "crates/ambition_sim_harness/src/runtime.rs",
-    ),
 }
 
 #: ⛤ **IT WAS FOUR TYPES AND EIGHT WRITERS ON 2026-09-17; IT IS TWO AND NINE.**
@@ -3434,6 +3430,13 @@ SESSION_WORLD_BASELINE: dict[str, tuple[str, ...]] = {
 #: `EncounterMusicRequest` went 8 -> 9 the same day, in the opposite direction:
 #: the census learned `session_world_component_mut::<T>(world)` and found the
 #: session reset writing it that way.
+#: ⚠ `RoomGeometry` LEFT THIS POPULATION ON 2026-09-29 AND ITS TWO WRITERS DID
+#: NOT. OW1 cut 3 moved it off the session root onto each live room's own root
+#: (`RoomInstanceRoot`), which is not a session-world component, so this census
+#: does not see it. The writers are the same pair, adjudicated then as CORRECT:
+#: the room publication (`apply_world_replacement`, which writes the root of the
+#: live room it replaces) and `SimHarness::add_block`, a setup road that rebases
+#: after it writes. ⇒ ONE type is left in this population, `EncounterMusicRequest`.
 
 #: ⭐⛤ **VERDICTS FOR THE OTHER POPULATION, which had a ratchet and no way to
 #: record an answer until 2026-09-18.** Same rule as [`ADJUDICATED`] and a
@@ -3472,32 +3475,6 @@ SESSION_WORLD_ADJUDICATED: dict[str, str] = {
         "fails with `error[E0616]`. The module doc had already recorded shipping "
         "the un-owned clear once; the discipline was universal and nothing kept "
         "it that way."
-    ),
-    "RoomGeometry": (
-        "CORRECT — THE ROOM PUBLICATION AND A TEST HARNESS'S SETUP ROAD, AND THE "
-        "PAIR ONLY BECAME VISIBLE ON 2026-09-18. The authority is "
-        "`apply_world_replacement` "
-        "(`actor_monolith/src/world/rooms/transaction.rs`), which writes the "
-        "published room's geometry onto the root the transaction's own scope "
-        "resolved, on the publication's verdict. The second file is "
-        "`SimHarness::add_block` (`ambition_sim_harness/src/runtime.rs`), whose "
-        "doc says what it is for: *\"used by symmetry tests to place a known "
-        "target without authoring a room\"*. It pushes one block and immediately "
-        "calls `rebase_after_direct_setup_mutation`, which is a SETUP road "
-        "re-establishing the rollback baseline — not a per-frame producer "
-        "competing for the value.\n"
-        "    ⚠ WHY IT IS IN THE POPULATION AT ALL, stated rather than waived: "
-        "`ambition_sim_harness` is an ordinary crate, not a `#[cfg(test)]` item "
-        "and not a whole test file, so neither of this census's two exclusions "
-        "reaches it. That is the right answer — a harness that mutates session "
-        "state IS a second road, and the question is whether it can race the "
-        "first. It cannot: nothing schedules it, a test calls it between frames.\n"
-        "    ⛔⛤ AND THE PAIR WAS INVISIBLE UNTIL THE INSTRUMENT LEARNED THE "
-        "PUBLICATION'S SPELLING. `apply_world_replacement` wrote through a bare "
-        "`world.get_mut::<RoomGeometry>(root)` — three tokens like any other "
-        "component write — so the authoritative writer was simply absent from "
-        "this census and the harness read as the only one. It spells the road "
-        "`session_world_component_mut_at` now."
     ),
 }
 

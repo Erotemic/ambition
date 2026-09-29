@@ -33,7 +33,7 @@ pub fn bridge_portal_carves(
 /// sight/entry through their own hole, and moving-platform overlays are not
 /// portal hosts.
 pub fn sync_portal_host_depths(
-    world: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<RoomGeometry>,
+    world: ambition_platformer2d::platformer::lifecycle::SoleLiveRoom<RoomGeometry>,
     portals: Query<&PlacedPortal>,
     mut depths: ResMut<PortalHostDepths>,
 ) {

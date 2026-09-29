@@ -6,7 +6,12 @@
 //! one room share it. Neither can tell two visits apart. OW1 in
 //! `docs/planning/engine/open-world-runtime-and-residency.md` needs that.
 
-use bevy::prelude::Component;
+use bevy::ecs::query::With;
+use bevy::ecs::world::Mut;
+use bevy::prelude::{Component, Entity, Name, Ref, Single, World};
+use bevy::ecs::component::Mutable;
+
+use super::{session_world_entity, SessionRoot, SessionScopeId, SessionScopedEntity};
 
 /// Which live room a session is standing in, as an ordinal of that session's
 /// room publications.
@@ -82,6 +87,157 @@ impl LiveRoomInstance {
 /// re-creates an occupant must give it back its room.
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct InRoomInstance(pub LiveRoomInstance);
+
+/// The entity that owns one live room instance: its identity
+/// ([`LiveRoomInstance`]) and the geometry a body in it collides with.
+///
+/// The session root keeps the room DEFINITIONS (`RoomSet`); each live
+/// instance of one of them has a root of its own. A session has exactly one in
+/// the one-room profile. Two live rooms at once (the Alice/Bob world) is two
+/// roots, and the same code reads each through the instance an entity carries
+/// ([`InRoomInstance`]).
+///
+/// It is owned by its session (`SessionScopedEntity`), so a retired session
+/// takes it with it, and a candidate session's root is hidden with the rest of
+/// the candidate. It is a rollback carrier (`root:room_instance`) with the
+/// identity [`Self::sim_id`].
+///
+/// ⚠ One root per session is re-seated in place by each publication: its
+/// `LiveRoomInstance` advances and its geometry is replaced. A second live
+/// instance needs its own identity (OW1 cut 5); until then the identity is a
+/// constant.
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct RoomInstanceRoot;
+
+impl RoomInstanceRoot {
+    /// The peer-compared identity of the session's live room root.
+    pub fn sim_id() -> crate::sim_id::SimId {
+        crate::sim_id::SimId::singleton("session", "room_instance")
+    }
+}
+
+/// A system parameter for the component `T` of THE live room.
+///
+/// ⚠ **THE ONE-LIVE-ROOM READ, NAMED AS THE DEBT IT IS.** It is a `Single`
+/// over [`RoomInstanceRoot`], so it answers while a session has one live room
+/// and the system does not run when there are two. That is right for a reader
+/// that has not said WHICH room it means, which today is presentation (the
+/// local view shows one room) and a few placement reads. A simulated collider
+/// reads `CollisionWorld`, which resolves the room an entity is in.
+pub type SoleLiveRoom<'w, 's, T> = Single<'w, 's, Ref<'static, T>, With<RoomInstanceRoot>>;
+
+/// The live session's sole live room root.
+///
+/// `None` when there is no live session, no room root, or more than one live
+/// room: a caller that asks for "the" room gets no answer rather than one of
+/// them.
+pub fn sole_live_room_entity(world: &World) -> Option<Entity> {
+    let scope = session_world_entity(world)
+        .and_then(|root| world.get::<SessionRoot>(root))
+        .map(|root| root.0);
+    let mut query =
+        world.try_query_filtered::<(Entity, Option<&SessionScopedEntity>), With<RoomInstanceRoot>>()?;
+    let mut roots = query
+        .iter(world)
+        .filter(|(_, owner)| match (owner, scope) {
+            (Some(owner), Some(scope)) => owner.0 == scope,
+            _ => true,
+        })
+        .map(|(entity, _)| entity);
+    let root = roots.next()?;
+    if roots.next().is_some() {
+        return None;
+    }
+    Some(root)
+}
+
+/// Read one component of the sole live room, at an exclusive-world boundary.
+pub fn sole_live_room_component<T: Component>(world: &World) -> Option<&T> {
+    world.get::<T>(sole_live_room_entity(world)?)
+}
+
+/// Mutate one component of the sole live room, at an exclusive-world
+/// boundary.
+pub fn sole_live_room_component_mut<T: Component<Mutability = Mutable>>(
+    world: &mut World,
+) -> Option<Mut<'_, T>> {
+    let entity = sole_live_room_entity(world)?;
+    world.get_mut::<T>(entity)
+}
+
+/// The root of live room `instance` in the session `scope`, a hidden
+/// candidate's included. This is the publication's question: which instance
+/// root does THIS transaction replace.
+pub fn live_room_root_for(
+    world: &World,
+    scope: SessionScopeId,
+    instance: LiveRoomInstance,
+) -> Option<Entity> {
+    let matches = |(entity, live, owner): (Entity, &LiveRoomInstance, Option<&SessionScopedEntity>)| {
+        (*live == instance && owner.is_none_or(|owner| owner.0 == scope)).then_some(entity)
+    };
+    // `try_query` refuses a filter on a component the world never registered,
+    // so a world with no candidate marker asks without `Allow`: it has nothing
+    // hidden.
+    let roots: Vec<Entity> = match world.try_query_filtered::<
+        (Entity, &LiveRoomInstance, Option<&SessionScopedEntity>),
+        (
+            With<RoomInstanceRoot>,
+            bevy::ecs::query::Allow<crate::construction::InactiveCandidate>,
+        ),
+    >() {
+        Some(mut query) => query.iter(world).filter_map(matches).collect(),
+        None => world
+            .try_query_filtered::<
+                (Entity, &LiveRoomInstance, Option<&SessionScopedEntity>),
+                With<RoomInstanceRoot>,
+            >()?
+            .iter(world)
+            .filter_map(matches)
+            .collect(),
+    };
+    let mut roots = roots.into_iter();
+    let root = roots.next()?;
+    debug_assert!(
+        roots.next().is_none(),
+        "two roots of live room {instance} in session {scope:?}"
+    );
+    Some(root)
+}
+
+/// The bundle a session's activation room root is spawned with.
+pub fn activation_room_root(scope: SessionScopeId) -> impl bevy::prelude::Bundle {
+    (
+        Name::new("live room"),
+        RoomInstanceRoot,
+        RoomInstanceRoot::sim_id(),
+        LiveRoomInstance::ACTIVATION,
+        SessionScopedEntity(scope),
+    )
+}
+
+/// Insert one component into the sole live room root of the direct/test
+/// session, spawning the session root and its activation room root if they do
+/// not exist yet. The live-room twin of
+/// [`super::insert_session_world_component`], for small direct hosts and
+/// focused tests.
+pub fn insert_live_room_component<T: Component>(world: &mut World, component: T) -> Entity {
+    let entity = match sole_live_room_entity(world) {
+        Some(entity) => entity,
+        None => {
+            let session_root = match session_world_entity(world) {
+                Some(root) => root,
+                None => super::insert_session_world_component(world, Name::new("direct session world")),
+            };
+            let scope = world
+                .get::<SessionRoot>(session_root)
+                .map_or(SessionScopeId(0), |root| root.0);
+            world.spawn(activation_room_root(scope)).id()
+        }
+    };
+    world.entity_mut(entity).insert(component);
+    entity
+}
 
 impl InRoomInstance {
     /// Does a room resident stamped `stamp` leave with the live room

@@ -543,7 +543,7 @@ pub fn apply_world_label_fonts(
 /// share one set.
 #[allow(clippy::type_complexity)]
 pub fn layout_world_labels(
-    world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+    world: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<
         ambition_platformer2d_core::RoomGeometry,
     >,
     settings: Res<WorldLabelLayoutSettings>,
@@ -1179,7 +1179,7 @@ mod tests {
         /// Run the pass over two views and return each view's `[a_y, b_y]`.
         fn place(first_target: ae::Vec2, second_target: ae::Vec2) -> [[f32; 2]; 2] {
             let mut world = World::new();
-            ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+            ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(
                 &mut world,
                 room(),
             );
@@ -1259,7 +1259,7 @@ mod tests {
         #[test]
         fn an_unkeyed_label_is_laid_out_by_the_only_view() {
             let mut world = World::new();
-            ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+            ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(
                 &mut world,
                 room(),
             );
@@ -1302,7 +1302,7 @@ mod tests {
         #[test]
         fn a_retired_view_takes_its_label_projections_with_it() {
             let mut world = World::new();
-            ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+            ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(
                 &mut world,
                 room(),
             );

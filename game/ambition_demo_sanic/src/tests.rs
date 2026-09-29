@@ -1879,8 +1879,11 @@ fn a_scattered_ring_bounces_off_the_floor_it_lands_on() {
     let session = scope.begin();
     app.insert_resource(scope);
     app.world_mut().spawn((
-        ambition_platformer2d::platformer::lifecycle::SessionRoot(session),
+        ambition_platformer2d::platformer::lifecycle::activation_room_root(session),
         ae::RoomGeometry(world),
+    ));
+    app.world_mut().spawn((
+        ambition_platformer2d::platformer::lifecycle::SessionRoot(session),
     ));
     let ring = app
         .world_mut()
@@ -1944,7 +1947,7 @@ fn the_ring_burst_is_not_reclaimed_on_spawn_under_the_real_chain() {
         ..Default::default()
     });
     app.world_mut().spawn((
-        ambition_platformer2d::platformer::lifecycle::SessionRoot(session),
+        ambition_platformer2d::platformer::lifecycle::activation_room_root(session),
         ae::RoomGeometry(ae::World::new(
             "ring-chain",
             ae::Vec2::new(800.0, 600.0),
@@ -1955,6 +1958,9 @@ fn the_ring_burst_is_not_reclaimed_on_spawn_under_the_real_chain() {
                 ae::Vec2::new(800.0, 40.0),
             )],
         )),
+    ));
+    app.world_mut().spawn((
+        ambition_platformer2d::platformer::lifecycle::SessionRoot(session),
     ));
     // The real production order: magnet, then the burst arc, then collect.
     app.add_systems(

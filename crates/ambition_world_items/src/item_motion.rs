@@ -191,7 +191,7 @@ fn move_axis(world: &ae::World, pos: ae::Vec2, half: ae::Vec2, delta: ae::Vec2) 
 /// collectable from a box it has already left.
 pub fn step_item_motion(
     time: Res<ambition_time::WorldTime>,
-    world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+    world: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<
         ambition_platformer2d_core::RoomGeometry,
     >,
     mut items: Query<(&mut WorldItem, &mut ItemMotion)>,

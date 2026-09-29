@@ -174,7 +174,7 @@ pub fn settle_versus_round(
     time: Res<ambition_platformer2d::time::WorldTime>,
     roster: Option<Res<ambition_platformer2d::versus_match::MatchParticipantRoster>>,
     geometry: Option<
-        ambition_platformer2d::platformer::lifecycle::SessionWorldRef<ae::RoomGeometry>,
+        ambition_platformer2d::platformer::lifecycle::SoleLiveRoom<ae::RoomGeometry>,
     >,
     // Whether every participant on the roster actually HAS a body yet.
     // Seating retries until they all do; the countdown must not run ahead of it.

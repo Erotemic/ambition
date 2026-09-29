@@ -778,7 +778,7 @@ fn project_particles_to_movement_world(
         ambition_platformer2d::world::rooms::RoomSet,
     >,
     state: Res<FallingSandRoomState>,
-    world: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
+    world: ambition_platformer2d::platformer::lifecycle::SoleLiveRoom<
         ambition_platformer2d_core::RoomGeometry,
     >,
     mut overlay: ResMut<ambition_platformer2d::world::FeatureEcsWorldOverlay>,

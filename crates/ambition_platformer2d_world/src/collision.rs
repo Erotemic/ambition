@@ -2,7 +2,7 @@
 //! per-frame dynamic contributions a running sim adds to it.
 //!
 //! [`CollisionWorld`] is the single collision read-API every actor sweep/raycast
-//! should reach for instead of `ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<RoomGeometry>`: it composites the authored
+//! should reach for instead of `ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<RoomGeometry>`: it composites the authored
 //! room with moving platforms and the ECS overlay so player, NPC, enemy, and
 //! projectile all collide against one truth (the relativity principle as a
 //! correctness property), never the bare geometry.
@@ -70,12 +70,12 @@ impl MovingPlatformSet {
 /// The room component and every dynamic resource are optional, so minimal
 /// test apps still satisfy the parameter. With no dynamics the result is the
 /// bare authored geometry, so it matches a former
-/// `ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<RoomGeometry>`
+/// `ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<RoomGeometry>`
 /// reader except in rooms with moving platforms, ECS solids or portal carves.
 #[derive(SystemParam)]
 pub struct CollisionWorld<'w, 's> {
     room: Option<
-        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<'w, 's, ae::RoomGeometry>,
+        ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<'w, 's, ae::RoomGeometry>,
     >,
     platforms: Option<Res<'w, MovingPlatformSet>>,
     overlay: Option<Res<'w, FeatureEcsWorldOverlay>>,
@@ -444,7 +444,7 @@ mod collision_world_tests {
     fn no_dynamics_borrows_base() {
         let mut app = App::new();
         app.init_resource::<SolidsProbe>();
-        ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+        ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(
             app.world_mut(),
             room_one_block(),
         );
@@ -456,7 +456,7 @@ mod collision_world_tests {
     fn empty_overlay_still_borrows() {
         let mut app = App::new();
         app.init_resource::<SolidsProbe>();
-        ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+        ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(
             app.world_mut(),
             room_one_block(),
         );
@@ -469,7 +469,7 @@ mod collision_world_tests {
     fn overlay_solids_compose_owned() {
         let mut app = App::new();
         app.init_resource::<SolidsProbe>();
-        ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+        ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(
             app.world_mut(),
             room_one_block(),
         );
@@ -500,7 +500,7 @@ mod collision_world_tests {
     fn gate_solids_compose_into_the_player_collision_view() {
         let mut app = App::new();
         app.init_resource::<SolidsProbe>();
-        ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+        ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(
             app.world_mut(),
             room_one_block(),
         );

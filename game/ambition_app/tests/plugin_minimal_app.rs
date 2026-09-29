@@ -87,8 +87,8 @@ fn sandbox_simulation_plugin_inserts_core_resources() {
     let root = ambition_platformer2d::platformer::lifecycle::session_world_entity(world)
         .expect("direct app publishes one canonical session-world root");
     assert!(
-        world.get::<RoomGeometry>(root).is_some(),
-        "RoomGeometry component missing from the canonical session root"
+        ambition_platformer2d::session::sole_live_room_component::<RoomGeometry>(world).is_some(),
+        "RoomGeometry component missing from the session's live room root"
     );
     assert!(
         world.get::<RoomSet>(root).is_some(),

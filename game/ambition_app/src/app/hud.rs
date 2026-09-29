@@ -64,7 +64,7 @@ pub(super) struct HudCameraParams<'w, 's> {
 pub(super) fn update_hud(
     dev_state: Res<DeveloperRuntimeState>,
     mode: Res<State<GameMode>>,
-    world: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<RoomGeometry>,
+    world: ambition_platformer2d::platformer::lifecycle::SoleLiveRoom<RoomGeometry>,
     room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<world_rooms::RoomSet>,
     display_mode: Res<windowing::DisplayModeState>,
     developer_tools: Res<DeveloperTools>,

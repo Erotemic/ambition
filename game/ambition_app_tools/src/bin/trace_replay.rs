@@ -92,6 +92,10 @@ impl From<RecordedControls> for AgentAction {
             fly_toggle: c.fly_toggle_pressed,
             reset: c.reset_pressed,
             start: c.start_pressed,
+            // The trace format predates the cutscene controls; an old
+            // recording neither confirms nor cancels.
+            confirm: false,
+            cancel_held: false,
             // The trace format predates the modifier slot; an old recording holds
             // nothing on it.
             modifier: false,

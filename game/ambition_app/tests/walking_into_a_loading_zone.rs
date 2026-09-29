@@ -218,7 +218,7 @@ fn live_geometry(sim: &mut Platformer2dSimHarness) -> String {
     let world = sim.world_mut();
     let mut q = world.query_filtered::<
         &ambition_platformer2d::engine_core::RoomGeometry,
-        With<ambition_platformer2d::platformer::lifecycle::SessionRoot>,
+        With<ambition_platformer2d::platformer::lifecycle::RoomInstanceRoot>,
     >();
     q.iter(world)
         .next()

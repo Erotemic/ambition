@@ -17,7 +17,6 @@ use ambition_app::app::{
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::engine_core::body_clusters::BodyShieldState;
 use ambition_platformer2d::engine_core::BodyKinematics;
-use ambition_platformer2d::platformer::lifecycle::SessionRoot;
 use ambition_platformer2d::platformer::markers::PrimaryPlayerOnly;
 use ambition_platformer2d::render::rendering::bubble_shield::{
     BubbleShieldSprite, BubbleShieldVisual,
@@ -76,7 +75,7 @@ fn hold(app: &mut App, key: KeyCode) {
 fn room_size(app: &mut App) -> Option<ae::Vec2> {
     let mut query = app
         .world_mut()
-        .query_filtered::<&ae::RoomGeometry, With<SessionRoot>>();
+        .query_filtered::<&ae::RoomGeometry, With<ambition_platformer2d::platformer::lifecycle::RoomInstanceRoot>>();
     let world = app.world();
     query.iter(world).next().map(|geometry| geometry.0.size)
 }

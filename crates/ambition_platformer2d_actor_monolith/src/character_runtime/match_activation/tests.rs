@@ -104,7 +104,7 @@ fn seating_app() -> App {
             Vec2::new(960.0, 100.0),
         )],
     );
-    ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+    ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(
         app.world_mut(),
         ambition_platformer2d_core::RoomGeometry(world),
     );

@@ -25,7 +25,7 @@ use bevy::prelude::*;
 /// result untrustworthy.
 pub fn publish_portal_compositing_candidates(
     mut commands: Commands,
-    world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+    world: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<
         ambition_platformer2d_core::RoomGeometry,
     >,
     // Both `FeatureVisual` and `PlayerVisual`: the exploration player is
@@ -184,7 +184,7 @@ mod tests {
 
     fn app() -> App {
         let mut app = App::new();
-        ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+        ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(
             app.world_mut(),
             ambition_platformer2d_core::RoomGeometry(ambition_platformer2d_core::World::new(
                 "portal compositing bridge",
@@ -551,7 +551,7 @@ mod bridge_meets_compositor_tests {
 
     fn app() -> App {
         let mut app = App::new();
-        ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+        ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(
             app.world_mut(),
             ambition_platformer2d_core::RoomGeometry(ambition_platformer2d_core::World::new(
                 "bridge meets compositor",

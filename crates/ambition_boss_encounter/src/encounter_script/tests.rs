@@ -222,7 +222,7 @@ fn falling_hazard_drops_when_aligned_and_fires_impact_gate() {
         raw_dt: 1.0 / 60.0,
         scaled_dt: 1.0 / 60.0,
     });
-    ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+    ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(
         app.world_mut(),
         ambition_platformer2d_core::RoomGeometry(ae::World::new(
             "t",

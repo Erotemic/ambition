@@ -608,7 +608,7 @@ fn thrown_item_arcs_and_settles_on_the_floor() {
         Vec2::new(0.0, 380.0),
         Vec2::new(400.0, 20.0),
     )];
-    ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+    ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(
         app.world_mut(),
         ambition_platformer2d_core::RoomGeometry(ae::World::new(
             "phys",
@@ -1200,7 +1200,7 @@ fn a_settled_item_wakes_when_its_support_goes_away() {
             blocks,
         ))
     };
-    ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+    ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(
         app.world_mut(),
         world_with(vec![ae::Block::solid(
             "ledge",
@@ -1248,7 +1248,7 @@ fn a_settled_item_wakes_when_its_support_goes_away() {
 
     // THE SUPPORT LEAVES. A moving platform that travels on, or one that is
     // removed outright — the composited world simply stops holding a block here.
-    ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+    ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(
         app.world_mut(),
         world_with(Vec::new()),
     );
@@ -1286,7 +1286,7 @@ fn a_settled_item_rides_the_platform_it_landed_on() {
         let mut app = App::new();
         let mut ledge = ae::Block::solid("ledge", Vec2::new(0.0, 380.0), Vec2::new(400.0, 20.0));
         ledge.velocity = platform_velocity;
-        ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+        ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(
             app.world_mut(),
             ambition_platformer2d_core::RoomGeometry(ae::World::new(
                 "phys",
@@ -1360,7 +1360,7 @@ fn a_settled_item_rides_the_platform_it_landed_on() {
 #[test]
 fn a_blocked_step_publishes_the_speed_it_was_stopped_at() {
     let mut app = App::new();
-    ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+    ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(
         app.world_mut(),
         ambition_platformer2d_core::RoomGeometry(ae::World::new(
             "impact",
@@ -1509,7 +1509,7 @@ fn a_brandished_move_weapon_does_not_orphan_the_item_in_custody() {
 #[test]
 fn a_flying_item_strikes_the_body_it_reaches_and_not_the_one_it_left() {
     let stage = |app: &mut App| {
-        ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+        ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(
             app.world_mut(),
             ambition_platformer2d_core::RoomGeometry(ae::World::new(
                 "phys",
@@ -1682,7 +1682,7 @@ fn an_item_stopped_by_a_wall_does_not_strike_the_body_behind_it() {
                 Vec2::new(38.0, 200.0),
             ));
         }
-        ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+        ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(
             app.world_mut(),
             ambition_platformer2d_core::RoomGeometry(ae::World::new(
                 "phys",

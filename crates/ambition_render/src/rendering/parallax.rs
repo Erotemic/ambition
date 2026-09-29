@@ -187,7 +187,7 @@ pub fn refresh_parallax_layers_on_quality_change(
     mut commands: Commands,
     active_session: Option<Res<ActiveSessionScope>>,
     world: Option<
-        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+        ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<
             ambition_platformer2d_core::RoomGeometry,
         >,
     >,

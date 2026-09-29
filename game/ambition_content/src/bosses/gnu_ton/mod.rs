@@ -51,7 +51,7 @@ fn boss_is_gnu_ton(
 /// the named floor gate. `WorldPrep` rebuilds this overlay from scratch each
 /// frame.
 pub fn gate_gnu_ton_arena_ladder(
-    world: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<RoomGeometry>,
+    world: ambition_platformer2d::platformer::lifecycle::SoleLiveRoom<RoomGeometry>,
     bosses: Query<(BossClusterRef, &ambition_characters::actor::BodyHealth)>,
     mut overlay: ResMut<FeatureEcsWorldOverlay>,
 ) {

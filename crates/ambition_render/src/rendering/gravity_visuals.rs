@@ -19,7 +19,7 @@ pub struct GravityZoneVisual;
 /// where gravity changes (violet = up, teal = down/other).
 pub fn sync_gravity_zone_visual(
     mut commands: Commands,
-    world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<RoomGeometry>,
+    world: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<RoomGeometry>,
     active_session: Option<Res<ActiveSessionScope>>,
     visuals: Query<Entity, With<GravityZoneVisual>>,
     zones: Query<&GravityZone>,

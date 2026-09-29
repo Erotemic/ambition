@@ -59,7 +59,7 @@ fn overflow_columns(world_width: f32, spacing: f32, gap_x: f32, gap_half: f32) -
 
 /// Technique: Overflow boundary flood (content-only; open-seam special).
 pub fn spawn_overflow_flood_from_special_messages(
-    world: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
+    world: ambition_platformer2d::platformer::lifecycle::SoleLiveRoom<
         ambition_platformer2d_core::RoomGeometry,
     >,
     mut projectiles: MessageWriter<ProjectileSpawnRequest>,

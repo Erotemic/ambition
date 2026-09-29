@@ -103,7 +103,7 @@ fn run_with_trace_dump(max_ticks: u32, dump_dir: PathBuf, start_room: Option<Str
             let moving_platforms =
                 world_ref.resource::<ambition_platformer2d::world::collision::MovingPlatformSet>();
             let game_world =
-                ambition_platformer2d::platformer::lifecycle::session_world_component::<RoomGeometry>(world_ref)
+                ambition_platformer2d::platformer::lifecycle::sole_live_room_component::<RoomGeometry>(world_ref)
                     .expect("active session RoomGeometry");
             let active_area = room_set.active_spec().id.clone();
             let mode_label = format!("{:?}", game_mode.get());

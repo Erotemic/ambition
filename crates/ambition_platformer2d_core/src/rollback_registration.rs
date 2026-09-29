@@ -30,7 +30,7 @@ where
 {
     use crate::body_clusters as bc;
 
-    // The canonical live-session root's geometry.
+    // The live room root's geometry (OW1 cut 3: one root per live room).
     registrar.rollback_component_clone::<crate::RoomGeometry>(OWNER, "root.geometry");
 
     // Core body state.

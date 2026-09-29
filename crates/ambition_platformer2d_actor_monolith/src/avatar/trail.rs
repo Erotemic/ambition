@@ -574,7 +574,7 @@ pub fn ensure_player_trail(
 pub fn update_player_trail(
     world_time: Res<ambition_time::WorldTime>,
     world: Option<
-        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+        ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<
             ambition_platformer2d_core::RoomGeometry,
         >,
     >,
@@ -643,7 +643,7 @@ const TRAIL_SELF_LOOP_COLLAPSING_COLOR: Color = Color::srgb(0.80, 0.56, 0.36);
 /// as a long straight line across the room.
 pub fn render_player_trail(
     world: Option<
-        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+        ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<
             ambition_platformer2d_core::RoomGeometry,
         >,
     >,

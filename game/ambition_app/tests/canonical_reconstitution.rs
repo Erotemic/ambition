@@ -363,7 +363,7 @@ fn enter_the_room() -> (Platformer2dSimHarness, BTreeSet<Entity>) {
 /// The active room's authored spawn — where every rebuild puts its subject.
 fn room_spawn(sim: &mut Platformer2dSimHarness) -> Vec2 {
     let world = sim.world_mut();
-    let mut q = world.query_filtered::<&ae::RoomGeometry, With<ambition_platformer2d::platformer::lifecycle::SessionRoot>>();
+    let mut q = world.query_filtered::<&ae::RoomGeometry, With<ambition_platformer2d::platformer::lifecycle::RoomInstanceRoot>>();
     q.iter(world)
         .next()
         .expect("an active session publishes its room geometry")
@@ -764,7 +764,7 @@ fn a_replay_leaves_the_home_avatar_standing_at_spawn() {
     // to hundreds of pixels out; a validated arrival is a few.
     let spawn = {
         let world = sim.world_mut();
-        let mut q = world.query_filtered::<&ae::RoomGeometry, With<ambition_platformer2d::platformer::lifecycle::SessionRoot>>();
+        let mut q = world.query_filtered::<&ae::RoomGeometry, With<ambition_platformer2d::platformer::lifecycle::RoomInstanceRoot>>();
         q.iter(world)
             .next()
             .expect("an active session publishes its room geometry")

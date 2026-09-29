@@ -1126,6 +1126,12 @@ pub fn install_direct_session_root(
         bevy::app::PreStartup,
         freeze_direct_session_mechanics.after(ambition_characters::prepared::PreparationBarrier),
     );
+    // The session's live room is its own root, beside the session root: a
+    // second live room is a second root of the same kind (OW1 cut 3).
+    app.world_mut().spawn((
+        content.source().instantiate_live_room(),
+        ambition_platformer2d_shared_tangle::lifecycle::SessionScopedEntity(scope),
+    ));
     Ok(app
         .world_mut()
         .spawn((
@@ -2333,7 +2339,8 @@ impl PlatformerSessionBuilder<'_, '_> {
         // ⚠ The values the room build reads are cloned off the world BUNDLE
         // rather than read back from the root, because the root is a queued
         // spawn: nothing can query it until this frame's commands apply.
-        let geometry = live_world.geometry.clone();
+        let live_room = prepared_content.source().instantiate_live_room();
+        let geometry = live_room.geometry.clone();
         let room_set = live_world.room_set.clone();
         let initial_body = live_world.initial_body.clone();
         let home_body_resources = live_world.home_body_resources.clone();
@@ -2392,7 +2399,9 @@ impl PlatformerSessionBuilder<'_, '_> {
                 ),
             )
             .id();
-
+        // The candidate's live room, hidden with it.
+        self.commands
+            .spawn_session_scoped(SessionSpawnScope::candidate(scope), live_room);
 
         let built = ambition_platformer2d_actor_monolith::session::setup::simulation_world(
             &mut self.commands,

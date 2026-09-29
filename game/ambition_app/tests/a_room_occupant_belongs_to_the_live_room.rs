@@ -25,7 +25,7 @@ const HUB: &str = "central_hub_complex";
 /// construction transaction.
 fn census(sim: &mut Platformer2dSimHarness) -> (LiveRoomInstance, Vec<Option<LiveRoomInstance>>) {
     let world = sim.world_mut();
-    let live = *session_world_component::<LiveRoomInstance>(world)
+    let live = *ambition_platformer2d::platformer::lifecycle::sole_live_room_component::<LiveRoomInstance>(world)
         .expect("the session root carries its live room");
     let occupants = world
         .query_filtered::<

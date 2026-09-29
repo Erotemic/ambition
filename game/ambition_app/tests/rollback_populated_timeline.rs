@@ -407,7 +407,7 @@ fn no_anchor_rewinds_anonymously_on_any_frame_it_exists() {
             let world = sim.world_mut();
             let mut roots = world.query_filtered::<
                 &ambition_platformer2d::engine_core::RoomGeometry,
-                bevy::prelude::With<ambition_platformer2d::platformer::lifecycle::SessionRoot>,
+                bevy::prelude::With<ambition_platformer2d::platformer::lifecycle::RoomInstanceRoot>,
             >();
             roots
                 .iter(world)

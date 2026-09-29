@@ -218,7 +218,7 @@ fn an_authored_teleport_records_one_scripted_remap() {
     use ambition_platformer2d_shared_tangle::class_b::{ClassBRemap, ClassBRemapLog};
 
     let mut app = bevy::prelude::App::new();
-    ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+    ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(
         app.world_mut(),
         ambition_platformer2d_core::RoomGeometry(stage()),
     );
@@ -588,7 +588,7 @@ fn teleport_from(
     aimed: Option<ae::Vec2>,
 ) -> ae::Vec2 {
     let mut app = bevy::prelude::App::new();
-    ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+    ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(
         app.world_mut(),
         ambition_platformer2d_core::RoomGeometry(world_with(Vec::new())),
     );

@@ -27,7 +27,7 @@ use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::config::world_to_bevy;
 use ambition_platformer2d_core::{AabbExt, RoomGeometry};
 use ambition_platformer2d_shared_tangle::feature_kind::FeatureVisualKind;
-use ambition_platformer2d_shared_tangle::lifecycle::{session_world_exists, SessionWorldRef};
+use ambition_platformer2d_shared_tangle::lifecycle::session_world_exists;
 use ambition_platformer2d_world::collision::MovingPlatformSet;
 use ambition_platformer2d_world::platforms::MovingPlatformState;
 use ambition_sim_view::{BodyPoseView, CombatGeometryView, FeatureViewIndex};
@@ -744,7 +744,7 @@ pub fn toggle_debug_viz(
 #[allow(clippy::too_many_arguments)]
 pub fn draw_debug_viz(
     mut gizmos: Gizmos,
-    world: SessionWorldRef<RoomGeometry>,
+    world: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<RoomGeometry>,
     dev_state: Res<DeveloperRuntimeState>,
     developer_tools: Res<DeveloperTools>,
     platform_set: Res<MovingPlatformSet>,

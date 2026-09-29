@@ -383,7 +383,7 @@ fn riding_hitbox(owner: Entity, offset: Vec2, half: Vec2, shape: Option<ae::Volu
 pub fn conduct_fsm(
     mut commands: Commands,
     time: Res<ambition_time::WorldTime>,
-    world: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<ae::RoomGeometry>,
+    world: ambition_platformer2d::platformer::lifecycle::SoleLiveRoom<ae::RoomGeometry>,
     mut gods: Query<
         (
             Entity,

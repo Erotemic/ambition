@@ -45,7 +45,7 @@ fn view(depth_plane: ae::DepthPlane) -> ambition_sim_view::FeatureView {
 /// return their z.
 fn drawn_z(giant: ae::DepthPlane) -> (f32, f32) {
     let mut app = App::new();
-    ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+    ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(
         app.world_mut(),
         ae::RoomGeometry(ae::World::new(
             "depth plane test world",

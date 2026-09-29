@@ -112,7 +112,7 @@ pub struct WieldedItemVisual;
 pub fn sync_wielded_item_visuals(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+    world: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<
         ambition_platformer2d_core::RoomGeometry,
     >,
     active_session: Option<Res<ActiveSessionScope>>,

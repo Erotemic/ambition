@@ -53,7 +53,7 @@ fn door_app() -> App {
     let mut app = App::new();
     app.add_plugins(bevy::asset::AssetPlugin::default());
     app.init_asset::<Image>();
-    ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+    ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(
         app.world_mut(),
         ambition_platformer2d_core::RoomGeometry(ambition_platformer2d_core::World::new(
             "door test world",
@@ -102,7 +102,7 @@ fn a_submerged_body_is_given_a_door_on_the_floor_it_went_through() {
     assert_eq!(found.len(), 1, "one submerged body, one door");
     assert_eq!(found[0].1, body, "the door names the body it belongs to");
     let feet = ambition_platformer2d_core::config::world_to_bevy(
-        &ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<
+        &ambition_platformer2d_shared_tangle::lifecycle::sole_live_room_component::<
             ambition_platformer2d_core::RoomGeometry,
         >(app.world())
         .expect("room")

@@ -151,7 +151,7 @@ const DOOR_HEIGHT: f32 = 12.0;
 /// line is the surface; the centre would float the door half a body up.
 pub fn sync_trapdoor_visuals(
     mut commands: Commands,
-    world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+    world: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<
         ambition_platformer2d_core::RoomGeometry,
     >,
     sprite: Option<Res<TrapdoorSprite>>,

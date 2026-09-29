@@ -65,7 +65,7 @@ fn player_pos(app: &mut App) -> Option<Vec2> {
 fn room(app: &mut App) -> ae::World {
     let mut query = app
         .world_mut()
-        .query_filtered::<&ae::RoomGeometry, With<ambition_platformer2d::platformer::lifecycle::SessionRoot>>();
+        .query_filtered::<&ae::RoomGeometry, With<ambition_platformer2d::platformer::lifecycle::RoomInstanceRoot>>();
     query
         .iter(app.world())
         .next()

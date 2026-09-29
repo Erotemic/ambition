@@ -77,7 +77,7 @@ pub(super) fn handle_ldtk_hot_reload(
     // component and a second entry in the multi-writer census for a system that
     // writes nothing. A comment saying "not a write target" beside a `&mut` is
     // the weakest form that statement can take.
-    _room_geometry: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<RoomGeometry>,
+    _room_geometry: ambition_platformer2d::platformer::lifecycle::SoleLiveRoom<RoomGeometry>,
     // ⛤ A SHARED BORROW SINCE 2026-09-18, and the TYPE no longer claims a
     // mutable reach either. It is only READ here; the reload's writes land in
     // the staged closure on the publication's own verdict. See the note at the
@@ -85,7 +85,7 @@ pub(super) fn handle_ldtk_hot_reload(
     room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<world_rooms::RoomSet>,
     // The live room the reload replaces. The rebuilt room is the next one.
     live_room: Option<
-        ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
+        ambition_platformer2d::platformer::lifecycle::SoleLiveRoom<
             world_rooms::LiveRoomInstance,
         >,
     >,
@@ -602,7 +602,7 @@ pub(super) fn reload_ldtk_world_from_disk(
         // behind the same verdict as the rest of this road's post-commit writes
         // (`ldtk_index`, `prepared_identity`, `prepared_content`).
         None,
-        live_room.map(world_rooms::LiveRoomInstance::next),
+        live_room,
     );
     // ⛔⛤ **THE GENERATION THE SESSION RUNS UNDER MOVES ONLY IF THE ROOM
     // PUBLISHED.** These four writes — the live content binding, the installed

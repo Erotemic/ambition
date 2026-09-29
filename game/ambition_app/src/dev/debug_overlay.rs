@@ -66,7 +66,7 @@ pub(crate) use ambition_platformer2d::render::rendering::debug_viz::{
 /// clears the labels on the next frame exactly as before.
 pub(crate) fn render_debug_overlay_labels(
     mut gizmos: Gizmos,
-    world: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<RoomGeometry>,
+    world: ambition_platformer2d::platformer::lifecycle::SoleLiveRoom<RoomGeometry>,
     mut labels: ResMut<DebugOverlayLabels>,
 ) {
     for label in labels.0.drain(..) {
@@ -101,7 +101,7 @@ pub(crate) fn draw_debug_overlay() {}
 #[cfg(feature = "input")]
 pub(crate) fn draw_debug_overlay(
     mut gizmos: Gizmos,
-    world: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<RoomGeometry>,
+    world: ambition_platformer2d::platformer::lifecycle::SoleLiveRoom<RoomGeometry>,
     dev_state: Res<DeveloperRuntimeState>,
     platform_set: Res<ambition_platformer2d::world::collision::MovingPlatformSet>,
     // The ONE collision read-API, for the blink preview — the same composition

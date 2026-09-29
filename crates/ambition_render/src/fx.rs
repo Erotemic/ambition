@@ -298,7 +298,7 @@ pub fn tick_firework_sequences(
 pub fn vfx_spawn_messages(
     mut commands: Commands,
     mut messages: MessageReader<VfxMessage>,
-    world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+    world: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<
         ambition_platformer2d_core::RoomGeometry,
     >,
     assets: Option<Res<ambition_sprite_sheet::game_assets::GameAssets>>,
@@ -624,7 +624,7 @@ fn publish_speech_bubble_label(
 pub fn update_speech_bubbles(
     mut commands: Commands,
     time: Res<Time>,
-    world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+    world: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<
         ambition_platformer2d_core::RoomGeometry,
     >,
     mut query: Query<(
@@ -647,7 +647,7 @@ pub fn update_speech_bubbles(
 pub fn update_effects(
     mut commands: Commands,
     time: Res<Time>,
-    world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+    world: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<
         ambition_platformer2d_core::RoomGeometry,
     >,
     mut query: Query<(
@@ -679,7 +679,7 @@ pub fn update_effects(
 pub fn update_particles(
     mut commands: Commands,
     time: Res<Time>,
-    world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+    world: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<
         ambition_platformer2d_core::RoomGeometry,
     >,
     mut query: Query<(Entity, &mut ParticleVisual, &mut Transform, &mut Sprite)>,
@@ -714,7 +714,7 @@ pub fn update_particles(
 pub fn update_impacts(
     mut commands: Commands,
     time: Res<Time>,
-    world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+    world: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<
         ambition_platformer2d_core::RoomGeometry,
     >,
     mut query: Query<(Entity, &mut ImpactVisual, &mut Transform, &mut Sprite)>,
@@ -1185,7 +1185,7 @@ pub fn spawn_blink_effects(
 pub fn update_blink_preview(
     mut commands: Commands,
     time: Res<Time>,
-    world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+    world: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<
         ambition_platformer2d_core::RoomGeometry,
     >,
     fact: Res<ambition_sim_view::BlinkPreviewFact>,
@@ -1414,8 +1414,11 @@ mod tests {
                     .before(WorldLabelLayoutSet),
             );
             app.world_mut().spawn((
-                SessionRoot(SessionScopeId(0)),
+                ambition_platformer2d_shared_tangle::lifecycle::activation_room_root(SessionScopeId(0)),
                 ambition_platformer2d_core::RoomGeometry(stage()),
+            ));
+            app.world_mut().spawn((
+                SessionRoot(SessionScopeId(0)),
             ));
             // The pass ranks per view, so without a view it places nothing and
             // the test would pass vacuously.

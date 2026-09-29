@@ -1613,8 +1613,7 @@ impl Bout {
 ///
 /// The running stage's extent. Fixture geometry is mapped onto it.
 fn stage_bounds(app: &mut bevy::app::App) -> Option<ae::Aabb> {
-    use ambition_platformer2d::platformer::lifecycle::session_world_component;
-    session_world_component::<ae::RoomGeometry>(app.world())
+    ambition_platformer2d::platformer::lifecycle::sole_live_room_component::<ae::RoomGeometry>(app.world())
         .map(|geometry| ae::Aabb::new(geometry.0.size * 0.5, geometry.0.size * 0.5))
 }
 

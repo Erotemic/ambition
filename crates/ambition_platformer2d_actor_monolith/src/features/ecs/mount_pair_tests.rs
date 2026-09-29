@@ -648,9 +648,7 @@ fn a_mount_travels_no_faster_than_its_rider_has_clearance() {
         let mut app = build_app();
         app.add_systems(Update, steer_mount_from_rider);
         app.world_mut().spawn((
-            ambition_platformer2d_shared_tangle::lifecycle::SessionRoot(
-                ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId(1),
-            ),
+            ambition_platformer2d_shared_tangle::lifecycle::activation_room_root(ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId(1),),
             ae::RoomGeometry(ae::World::new(
                 "lookout",
                 ae::Vec2::new(1000.0, 600.0),
@@ -660,6 +658,11 @@ fn a_mount_travels_no_faster_than_its_rider_has_clearance() {
                     ae::Block::solid("ledge", ae::Vec2::new(600.0, 300.0), ae::Vec2::new(200.0, 16.0)),
                 ],
             )),
+        ));
+        app.world_mut().spawn((
+            ambition_platformer2d_shared_tangle::lifecycle::SessionRoot(
+                ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId(1),
+            ),
         ));
         let mount = app
             .world_mut()
@@ -1254,7 +1257,7 @@ fn a_possessing_player_slams_the_giants_hands_via_the_verb_map() {
         wt.scaled_dt = 0.05;
         wt.raw_dt = 0.05;
     }
-    ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+    ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(
         app.world_mut(),
         ambition_platformer2d_core::RoomGeometry(ae::World::new(
             "g5",

@@ -190,6 +190,14 @@ where
     );
     registrar
         .rollback_component_canonical::<crate::lifecycle::RoomScopedEntity>(OWNER, "scope.room");
+    // A live room's root carries its identity and geometry, so it is a carrier
+    // like the session root, and a rewind that re-creates it re-creates the
+    // marker the collision world finds it by.
+    registrar.require_rollback::<crate::lifecycle::RoomInstanceRoot>(OWNER, "root:room_instance");
+    registrar.rollback_component_canonical::<crate::lifecycle::RoomInstanceRoot>(
+        OWNER,
+        "root.room_instance",
+    );
     // Which live room an occupant belongs to. A rewind that re-creates the
     // occupant must give its room back, or a sweep keyed by instance misses it.
     registrar.rollback_component_canonical::<crate::lifecycle::InRoomInstance>(

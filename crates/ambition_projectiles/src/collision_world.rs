@@ -30,7 +30,7 @@ use bevy::prelude::Res;
 /// and could never transit a wall portal.
 #[derive(SystemParam)]
 pub struct ProjectileCollisionWorld<'w, 's> {
-    world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<'w, 's, RoomGeometry>,
+    world: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<'w, 's, RoomGeometry>,
     overlay: Res<'w, FeatureEcsWorldOverlay>,
     // Folded in here (rather than as its own top-level param) because the stepper
     // is already at Bevy's 16-param ceiling.

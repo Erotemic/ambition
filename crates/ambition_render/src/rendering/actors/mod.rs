@@ -287,7 +287,7 @@ fn native_compact_render_pos(pos: ae::Vec2, gravity_dir: ae::Vec2, dy: f32) -> a
 }
 
 pub fn sync_visuals(
-    world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+    world: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<
         ambition_platformer2d_core::RoomGeometry,
     >,
     primary_player: Query<Entity, (With<PlayerEntity>, With<PrimaryPlayer>)>,

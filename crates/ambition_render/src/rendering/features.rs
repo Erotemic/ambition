@@ -28,7 +28,7 @@ use ambition_sprite_sheet::game_assets::{entity_sprite_or_color, GameAssets};
 /// same frame; chests pick up their sprite via `state_aware_entity_sprite`.
 pub fn spawn_dynamic_feature_visuals(
     mut commands: Commands,
-    world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+    world: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<
         ambition_platformer2d_core::RoomGeometry,
     >,
     assets: Option<Res<GameAssets>>,
@@ -172,7 +172,7 @@ pub fn draw_unclaimed_feature_views(
     // session world the whole system would skip, and the census below would go
     // stale. Publishing is unconditional; only drawing needs a world.
     world: Option<
-        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+        ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<
             ambition_platformer2d_core::RoomGeometry,
         >,
     >,
@@ -351,13 +351,16 @@ mod tests {
         let scope = active.begin();
         app.insert_resource(active);
         app.world_mut().spawn((
-            SessionRoot(scope),
+            ambition_platformer2d_shared_tangle::lifecycle::activation_room_root(scope),
             ambition_platformer2d_core::RoomGeometry(ambition_platformer2d_core::World::new(
                 "probe",
                 ambition_platformer2d_core::Vec2::new(320.0, 180.0),
                 ambition_platformer2d_core::Vec2::new(40.0, 40.0),
                 Vec::new(),
             )),
+        ));
+        app.world_mut().spawn((
+            SessionRoot(scope),
         ));
         app
     }

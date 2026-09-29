@@ -22,7 +22,7 @@ const BEACON_SIZE: ae::Vec2 = ae::Vec2::new(30.0, 70.0);
 /// cleared. Visible build only.
 pub fn sync_mark_beacon_visual(
     mut commands: Commands,
-    world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+    world: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<
         ambition_platformer2d_core::RoomGeometry,
     >,
     asset_server: Res<AssetServer>,

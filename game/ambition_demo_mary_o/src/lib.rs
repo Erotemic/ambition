@@ -1097,7 +1097,7 @@ fn mary_o_setup(
         bevy::prelude::Entity,
         bevy::prelude::With<ambition_platformer2d::platformer::lifecycle::SessionRoot>,
     >,
-    world: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<ae::RoomGeometry>,
+    world: ambition_platformer2d::platformer::lifecycle::SoleLiveRoom<ae::RoomGeometry>,
     room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
         ambition_platformer2d::runtime::demo_fixture::RoomSet,
     >,

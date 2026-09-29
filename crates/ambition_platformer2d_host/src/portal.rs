@@ -35,7 +35,7 @@ mod host_adapter {
     /// line-of-sight test. Absent controlled body  `present = false`, and the
     /// renderer falls back to the static window.
     pub fn sync_portal_viewer(
-        world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<RoomGeometry>,
+        world: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<RoomGeometry>,
         controlled: Res<ControlledSubject>,
         bodies: Query<&BodyKinematics>,
         viewer: Option<ResMut<PortalViewer>>,
@@ -66,7 +66,7 @@ mod host_adapter {
     /// y-flip render transform, so the host copies that one field each frame
     /// (room transitions resize the world).
     pub fn sync_portal_world_frame(
-        world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<RoomGeometry>,
+        world: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<RoomGeometry>,
         mut frame: ResMut<PortalWorldFrame>,
     ) {
         if frame.size != world.0.size {

@@ -354,7 +354,7 @@ fn report_body_against_sprite(
     // `body_feet + sprite_feet == size.y / 2` EXACTLY. Calibrating against "where other
     // sheets cluster" only proves Mary-O agrees with them -- a systematic offset shared
     // by every sheet reads as perfect. Jon's screenshot is that case.
-    world: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
+    world: ambition_platformer2d::platformer::lifecycle::SoleLiveRoom<
         ambition_platformer2d::engine_core::RoomGeometry,
     >,
     // Membership test for "is this body the player", so the marker pairing above can

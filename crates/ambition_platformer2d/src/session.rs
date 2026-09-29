@@ -36,3 +36,9 @@ pub use ambition_platformer2d_shared_tangle::lifecycle::{
     settle_until_session_world, SessionRoot, SessionWorldMut, SessionWorldRef,
     SESSION_SETTLE_FRAMES,
 };
+/// The live room's own root: its geometry and identity, beside the session
+/// root rather than on it (OW1 cut 3).
+pub use ambition_platformer2d_shared_tangle::lifecycle::{
+    insert_live_room_component, sole_live_room_component, sole_live_room_component_mut,
+    RoomInstanceRoot, SoleLiveRoom,
+};

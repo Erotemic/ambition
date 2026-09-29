@@ -90,7 +90,7 @@ impl Loop {
             .expect("the level authors a ?-block")
             .id
             .clone();
-        ambition_platformer2d::platformer::lifecycle::insert_session_world_component(
+        ambition_platformer2d::platformer::lifecycle::insert_live_room_component(
             app.world_mut(),
             ae::RoomGeometry(room.world.clone()),
         );
@@ -660,7 +660,7 @@ fn her_spark_damages_a_snake_through_the_shared_hit_pipeline() {
         scaled_dt: 1.0 / 60.0,
         ..Default::default()
     });
-    ambition_platformer2d::platformer::lifecycle::insert_session_world_component(
+    ambition_platformer2d::platformer::lifecycle::insert_live_room_component(
         app.world_mut(),
         ae::RoomGeometry(ae::World::new(
             "spark_range",
@@ -832,7 +832,7 @@ fn a_stomp_shells_a_snake_alive_it_never_dies() {
         scaled_dt: 1.0 / 60.0,
         ..Default::default()
     });
-    ambition_platformer2d::platformer::lifecycle::insert_session_world_component(
+    ambition_platformer2d::platformer::lifecycle::insert_live_room_component(
         app.world_mut(),
         ae::RoomGeometry(ae::World::new(
             "stomp_range",
@@ -1007,7 +1007,7 @@ fn a_sliding_shell_emits_an_enemy_kill_and_a_side_hit_on_the_player() {
         scaled_dt: 1.0 / 60.0,
         ..Default::default()
     });
-    ambition_platformer2d::platformer::lifecycle::insert_session_world_component(
+    ambition_platformer2d::platformer::lifecycle::insert_live_room_component(
         app.world_mut(),
         ae::RoomGeometry(ae::World::new(
             "shell_range",
@@ -1144,7 +1144,7 @@ fn a_dead_snake_leaves_the_shell_machine_and_emits_no_hits() {
         scaled_dt: 1.0 / 60.0,
         ..Default::default()
     });
-    ambition_platformer2d::platformer::lifecycle::insert_session_world_component(
+    ambition_platformer2d::platformer::lifecycle::insert_live_room_component(
         app.world_mut(),
         ae::RoomGeometry(ae::World::new(
             "corpse_range",

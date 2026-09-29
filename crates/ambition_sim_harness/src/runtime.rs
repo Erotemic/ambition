@@ -18,7 +18,7 @@ use ambition_platformer2d::participant::{
     LocalChannelPlan, LocalDeviceOrder, LocalInputSource, LocalSeatTopology,
 };
 use ambition_platformer2d::session::{
-    session_world_component, session_world_component_mut, settle_until_controlled_subject,
+    session_world_component, settle_until_controlled_subject,
     SESSION_SETTLE_FRAMES,
 };
 use ambition_platformer2d::settings::UserSettings;
@@ -926,7 +926,7 @@ impl Platformer2dSimHarness {
     /// target without authoring a room. Build with `Block::pogo_orb`
     /// / `Block::one_way` / etc.
     pub fn add_block(&mut self, block: Block) {
-        session_world_component_mut::<RoomGeometry>(self.app.world_mut())
+        ambition_platformer2d::session::sole_live_room_component_mut::<RoomGeometry>(self.app.world_mut())
             .expect("active session RoomGeometry")
             .0
             .blocks

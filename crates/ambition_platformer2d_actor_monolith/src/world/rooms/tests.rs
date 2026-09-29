@@ -1028,14 +1028,25 @@ fn a_rewind_across_the_portal_opening_window_restores_the_confirmed_phase() {
 
 /// A root that holds a world: `rooms` plus the geometry a session collides
 /// against.
+/// A session root holding one room, in its own scope, with its live room's
+/// geometry on that room's own root.
 fn a_root_holding(world: &mut bevy::prelude::World, room: &str) -> bevy::prelude::Entity {
+    use ambition_platformer2d_shared_tangle::lifecycle::{activation_room_root, SessionRoot, SessionScopeId};
+    let scope = SessionScopeId(
+        world
+            .query::<&SessionRoot>()
+            .iter(world)
+            .map(|root| root.0 .0)
+            .max()
+            .unwrap_or(0)
+            + 1,
+    );
     let set = RoomSet::from_parts_or_panic(room, vec![spec_with(RoomMetadata::default(), room)], Vec::new());
-    world
-        .spawn((
-            set,
-            ambition_platformer2d_core::RoomGeometry(empty_world(room)),
-        ))
-        .id()
+    world.spawn((
+        activation_room_root(scope),
+        ambition_platformer2d_core::RoomGeometry(empty_world(room)),
+    ));
+    world.spawn((SessionRoot(scope), set)).id()
 }
 
 /// ⛔⛤ **A REFUSED APPLICATION MUST NOT HAVE DESTROYED THE OUTGOING WORLD
@@ -1068,14 +1079,18 @@ fn a_replacement_refused_at_application_leaves_the_outgoing_world_standing() {
     fn world_with(with_geometry: bool) -> (bevy::prelude::App, bevy::prelude::Entity, bevy::prelude::Entity) {
         let mut app = bevy::prelude::App::new();
         let world = app.world_mut();
-        let mut root = world.spawn((
-            SessionRoot(ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId(1)),
-            RoomSet::from_parts_or_panic("r", vec![spec_with(RoomMetadata::default(), "r")], Vec::new()),
-        ));
+        let scope = ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId(1);
+        // The live room's root stands either way; only its geometry is missing.
+        let mut room_root = world.spawn(ambition_platformer2d_shared_tangle::lifecycle::activation_room_root(scope));
         if with_geometry {
-            root.insert(ambition_platformer2d_core::RoomGeometry(empty_world("r")));
+            room_root.insert(ambition_platformer2d_core::RoomGeometry(empty_world("r")));
         }
-        let root = root.id();
+        let root = world
+            .spawn((
+                SessionRoot(scope),
+                RoomSet::from_parts_or_panic("r", vec![spec_with(RoomMetadata::default(), "r")], Vec::new()),
+            ))
+            .id();
         let outgoing = world.spawn_empty().id();
         (app, root, outgoing)
     }
@@ -1088,6 +1103,7 @@ fn a_replacement_refused_at_application_leaves_the_outgoing_world_standing() {
             empty_world("r"),
             Vec::new(),
         )
+        .replacing(Some(ambition_platformer2d_world::rooms::LiveRoomInstance::ACTIVATION))
     }
 
     // ── THE CONTROL: a complete target. The roster MUST be swept here, or the
@@ -1135,11 +1151,14 @@ fn a_replacement_refused_for_missing_platform_state_leaves_the_outgoing_world_st
     ) -> (bevy::prelude::App, bevy::prelude::Entity, bevy::prelude::Entity) {
         let mut app = bevy::prelude::App::new();
         let world = app.world_mut();
+        world.spawn((
+            ambition_platformer2d_shared_tangle::lifecycle::activation_room_root(ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId(1)),
+            ambition_platformer2d_core::RoomGeometry(empty_world("r")),
+        ));
         let root = world
             .spawn((
                 SessionRoot(ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId(1)),
                 RoomSet::from_parts_or_panic("r", vec![spec_with(RoomMetadata::default(), "r")], Vec::new()),
-                ambition_platformer2d_core::RoomGeometry(empty_world("r")),
             ))
             .id();
         if platform_set {
@@ -1162,6 +1181,7 @@ fn a_replacement_refused_for_missing_platform_state_leaves_the_outgoing_world_st
                 1.0,
             )],
         )
+        .replacing(Some(ambition_platformer2d_world::rooms::LiveRoomInstance::ACTIVATION))
     }
 
     // ── THE CONTROL: a complete target, `MovingPlatformSet` present. The
@@ -1196,6 +1216,7 @@ fn a_replacement_naming(room: &str) -> super::transaction::PendingWorldReplaceme
         empty_world(room),
         Vec::new(),
     )
+    .replacing(Some(ambition_platformer2d_world::rooms::LiveRoomInstance::ACTIVATION))
 }
 
 /// ⛔⛤ **VERIFICATION ANSWERS ABOUT THE ROOT IT WAS GIVEN, NOT THE LIVE ONE —
@@ -1271,12 +1292,17 @@ fn a_staged_world_is_refused_when_its_target_carries_no_sink_for_it() {
     let no_rooms = world
         .spawn(ambition_platformer2d_core::RoomGeometry(empty_world("r")))
         .id();
-    // A root with the room set and no geometry.
+    // A root with the room set, whose live room's root has no geometry.
+    let scope = ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId(9);
+    world.spawn(ambition_platformer2d_shared_tangle::lifecycle::activation_room_root(scope));
     let no_geometry = world
-        .spawn(RoomSet::from_parts_or_panic(
-            "r",
-            vec![spec_with(RoomMetadata::default(), "r")],
-            Vec::new(),
+        .spawn((
+            ambition_platformer2d_shared_tangle::lifecycle::SessionRoot(scope),
+            RoomSet::from_parts_or_panic(
+                "r",
+                vec![spec_with(RoomMetadata::default(), "r")],
+                Vec::new(),
+            ),
         ))
         .id();
 

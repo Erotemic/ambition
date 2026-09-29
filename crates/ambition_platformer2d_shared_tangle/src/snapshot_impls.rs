@@ -14,6 +14,14 @@ use ambition_platformer2d_core::snapshot::{
 };
 use ambition_platformer2d_core::{snapshot_pod, snapshot_unit_enum};
 
+impl SnapshotState for crate::lifecycle::RoomInstanceRoot {
+    fn encode(&self, _out: &mut Vec<u8>) {}
+
+    fn decode(_r: &mut Reader<'_>) -> Option<Self> {
+        Some(Self)
+    }
+}
+
 impl SnapshotState for crate::lifecycle::RoomScopedEntity {
     fn encode(&self, _out: &mut Vec<u8>) {}
 

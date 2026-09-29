@@ -243,7 +243,7 @@ pub fn admit_room_replay(
 #[allow(clippy::too_many_arguments)]
 pub fn return_the_replay_subject_to_spawn(
     mut admitted: MessageReader<RoomReplayAdmitted>,
-    world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<RoomGeometry>,
+    world: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<RoomGeometry>,
     active_tuning: Res<ae::ActiveMovementTuning>,
     feel_tuning: Res<Platformer2dFeelTuningMonolith>,
     mut sim_state: ResMut<RoomTransitionCooldown>,

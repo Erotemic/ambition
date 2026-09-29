@@ -111,7 +111,7 @@ pub fn camera_follow(
         ),
         With<LocalView>,
     >,
-    world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+    world: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<
         ambition_platformer2d_core::RoomGeometry,
     >,
     shake: Res<ambition_platformer2d_shared_tangle::camera_ease::CameraShakeState>,
@@ -298,7 +298,7 @@ mod two_views_one_simulation_tests {
     /// `CameraViewState` ended up holding.
     fn present(first_presents_left: bool) -> ([(Vec2, f32); 2], [ae::Vec2; 2]) {
         let mut world = World::new();
-        ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+        ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(
             &mut world,
             room(),
         );

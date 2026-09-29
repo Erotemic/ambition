@@ -1150,7 +1150,7 @@ fn frame_the_cast(
 }
 
 pub fn resolve_camera_observation(
-    world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ae::RoomGeometry>,
+    world: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<ae::RoomGeometry>,
     room_set: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
         ambition_platformer2d_world::rooms::RoomSet,
     >,
@@ -3114,7 +3114,7 @@ mod resolved_snapshot_lifetime_tests {
             ae::Vec2::ZERO,
             Vec::new(),
         );
-        ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+        ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(
             app.world_mut(),
             ae::RoomGeometry(world.clone()),
         );

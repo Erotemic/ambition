@@ -154,7 +154,7 @@ pub fn spawn_morph_ball_visual(
 /// a match or a possession has bodies that are not the home avatar.
 pub fn sync_morph_ball_visual(
     mut commands: Commands,
-    world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+    world: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<
         ambition_platformer2d_core::RoomGeometry,
     >,
     mut bodies: Query<
@@ -234,7 +234,7 @@ mod tests {
     fn rig(bodies: &[bool]) -> (App, Vec<Entity>) {
         let mut app = App::new();
         app.init_resource::<Assets<Image>>();
-        ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+        ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(
             app.world_mut(),
             ambition_platformer2d_core::RoomGeometry(ambition_platformer2d_core::World::new(
                 "t",

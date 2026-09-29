@@ -137,7 +137,7 @@ fn walk_right_into(from_x: f32, rings: i32, super_form: bool, frames: usize) -> 
 
     let spawn_x = {
         let mut q = app.world_mut().query_filtered::<&ae::RoomGeometry, With<
-            ambition_platformer2d::platformer::lifecycle::SessionRoot,
+            ambition_platformer2d::platformer::lifecycle::RoomInstanceRoot,
         >>();
         q.iter(app.world())
             .next()

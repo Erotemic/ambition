@@ -8,7 +8,7 @@ fn wire_app() -> App {
     let mut app = App::new();
     app.add_plugins(bevy::asset::AssetPlugin::default());
     app.init_asset::<Image>();
-    ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+    ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(
         app.world_mut(),
         ambition_platformer2d_core::RoomGeometry(ambition_platformer2d_core::World::new(
             "wire test world",

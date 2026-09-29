@@ -50,7 +50,7 @@ fn app_with_airborne_body(pos: ae::Vec2) -> (bevy::prelude::App, bevy::prelude::
 
 fn app_with_body_in_posture(pos: ae::Vec2) -> (bevy::prelude::App, bevy::prelude::Entity) {
     let mut app = bevy::prelude::App::new();
-    ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+    ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(
         app.world_mut(),
         ae::RoomGeometry(stage()),
     );

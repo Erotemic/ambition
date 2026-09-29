@@ -347,7 +347,7 @@ pub fn steer_mount_from_rider(
     // fixture without a session steers exactly as before.
     rooms: Query<
         &ae::RoomGeometry,
-        With<ambition_platformer2d_shared_tangle::lifecycle::SessionRoot>,
+        With<ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot>,
     >,
 ) {
     let room = rooms.single().ok();

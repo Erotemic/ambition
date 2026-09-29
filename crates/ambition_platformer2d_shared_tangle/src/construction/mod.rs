@@ -2517,6 +2517,11 @@ pub fn verify_committed_roster<D: ConstructionDomain>(
             || world
                 .get::<crate::lifecycle::CandidateSessionRoot>(member.entity)
                 .is_some()
+            // A live room's root is the session's structure too: the session
+            // publication spawns it, and a room publication only writes it.
+            || world
+                .get::<crate::lifecycle::RoomInstanceRoot>(member.entity)
+                .is_some()
         {
             continue;
         }
@@ -4114,6 +4119,11 @@ pub fn verify_projected_roster(
             .is_some()
             || world
                 .get::<crate::lifecycle::CandidateSessionRoot>(member.entity)
+                .is_some()
+            // A live room's root is the session's structure too: the session
+            // publication spawns it, and a room publication only writes it.
+            || world
+                .get::<crate::lifecycle::RoomInstanceRoot>(member.entity)
                 .is_some()
         {
             continue;

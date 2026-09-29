@@ -58,12 +58,12 @@ fn open_world() -> ae::World {
 
 fn build_body_mode_test_app() -> (App, Entity) {
     let mut app = App::new();
-    ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+    ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(
         app.world_mut(),
         ambition_platformer2d_core::RoomGeometry(open_world()),
     );
     app.init_resource::<SlotInteractionState>();
-    let world_spawn = ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<
+    let world_spawn = ambition_platformer2d_shared_tangle::lifecycle::sole_live_room_component::<
         ambition_platformer2d_core::RoomGeometry,
     >(app.world())
     .expect("session room geometry")
@@ -151,13 +151,13 @@ fn spawn_mode_body(app: &mut App, pos: Vec2, slot: Option<PlayerSlot>) -> Entity
 #[test]
 fn controlled_actor_body_mode_input_does_not_affect_home_body() {
     let mut app = App::new();
-    ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+    ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(
         app.world_mut(),
         ambition_platformer2d_core::RoomGeometry(open_world()),
     );
     app.init_resource::<SlotInteractionState>();
     app.add_systems(Update, super::update_body_mode);
-    let spawn = ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<
+    let spawn = ambition_platformer2d_shared_tangle::lifecycle::sole_live_room_component::<
         ambition_platformer2d_core::RoomGeometry,
     >(app.world())
     .expect("session room geometry")
@@ -206,13 +206,13 @@ fn home_body_mode_still_works_when_home_is_controlled() {
 #[test]
 fn body_mode_follows_actor_control_without_per_body_input_state() {
     let mut app = App::new();
-    ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+    ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(
         app.world_mut(),
         ambition_platformer2d_core::RoomGeometry(open_world()),
     );
     app.init_resource::<SlotInteractionState>();
     app.add_systems(Update, super::update_body_mode);
-    let spawn = ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<
+    let spawn = ambition_platformer2d_shared_tangle::lifecycle::sole_live_room_component::<
         ambition_platformer2d_core::RoomGeometry,
     >(app.world())
     .expect("session room geometry")
@@ -264,7 +264,7 @@ fn momentum_riding_support_allows_the_controlled_body_to_crouch() {
 }
 
 fn place_player_on_test_ladder(app: &mut App, player: Entity, vel: Option<Vec2>) {
-    ambition_platformer2d_shared_tangle::lifecycle::session_world_component_mut::<
+    ambition_platformer2d_shared_tangle::lifecycle::sole_live_room_component_mut::<
         ambition_platformer2d_core::RoomGeometry,
     >(app.world_mut())
     .expect("session room geometry")
@@ -282,7 +282,7 @@ fn place_player_on_test_ladder(app: &mut App, player: Entity, vel: Option<Vec2>)
             kin.vel = vel;
         }
     }
-    let contact = ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<
+    let contact = ambition_platformer2d_shared_tangle::lifecycle::sole_live_room_component::<
         ambition_platformer2d_core::RoomGeometry,
     >(app.world())
     .expect("session room geometry")

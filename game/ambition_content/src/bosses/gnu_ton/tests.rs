@@ -9,7 +9,7 @@ use ambition_platformer2d_world::collision::world_with_sandbox_solids;
 /// The gate is now a derived overlay contributor, so the arena assertions
 /// read the VIEW — what player/actor collision actually sees — not the base.
 fn arena_view(app: &App) -> ae::World {
-    let base = &ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<
+    let base = &ambition_platformer2d_shared_tangle::lifecycle::sole_live_room_component::<
         RoomGeometry,
     >(app.world())
     .expect("session room geometry")
@@ -141,7 +141,7 @@ fn giant_head_hurtbox_overlaps_the_body_envelope() {
 
 fn make_app(world: ambition_platformer2d_core::RoomGeometry) -> App {
     let mut app = App::new();
-    ambition_platformer2d::platformer::lifecycle::insert_session_world_component(
+    ambition_platformer2d::platformer::lifecycle::insert_live_room_component(
         app.world_mut(),
         world,
     );
@@ -279,7 +279,7 @@ fn ladder_appears_when_boss_dies() {
         .health
         .current = 0;
     app.update();
-    let regions = &ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<
+    let regions = &ambition_platformer2d_shared_tangle::lifecycle::sole_live_room_component::<
         ambition_platformer2d_core::RoomGeometry,
     >(app.world())
     .expect("session room geometry")
@@ -392,7 +392,7 @@ fn leaving_arena_resets_state_for_next_visit() {
     // Leave the arena (room change → world wholesale replaced,
     // boss entity despawned in the real flow but irrelevant
     // here since the room-name check fires first).
-    ambition_platformer2d_shared_tangle::lifecycle::session_world_component_mut::<
+    ambition_platformer2d_shared_tangle::lifecycle::sole_live_room_component_mut::<
         ambition_platformer2d_core::RoomGeometry,
     >(app.world_mut())
     .expect("session room geometry")
@@ -405,7 +405,7 @@ fn leaving_arena_resets_state_for_next_visit() {
     app.update();
 
     // Re-enter arena with fresh ladder + fresh (alive) boss.
-    ambition_platformer2d_shared_tangle::lifecycle::session_world_component_mut::<
+    ambition_platformer2d_shared_tangle::lifecycle::sole_live_room_component_mut::<
         ambition_platformer2d_core::RoomGeometry,
     >(app.world_mut())
     .expect("session room geometry")

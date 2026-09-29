@@ -58,6 +58,9 @@ SPELLINGS = {
     "SessionWorldMut": re.compile(r"\bSessionWorldMut\s*<"),
     "live_session_world_root": re.compile(r"\blive_session_world_root\s*\("),
     "session_root_for_scope": re.compile(r"\bsession_root_for_scope\s*\("),
+    # The live room's own root (OW1 cut 3). Not in the session-root total: it
+    # is a different root, and geometry reads left the session aliases for it.
+    "SoleLiveRoom": re.compile(r"\bSoleLiveRoom\s*<"),
 }
 ALIASES = ("SessionWorldRef", "SessionWorldMut")
 
@@ -70,7 +73,9 @@ SPLIT_ENTRY = re.compile(r"(\w+)=(\d+)/(\d+)")
 #: ⛔ ANTI-VACUITY. A regex that stopped matching would compare 0 against a
 #: marker and merely look wrong; a scan that lost its corpus would compare 0
 #: against 0 if the markers were regenerated from it. MEASURED 2026-09-19: 183.
-FLOOR = 150
+#: MEASURED 2026-09-29: 95, after OW1 cut 3 moved the room geometry and the live
+#: room identity off the session root, and their 76 reads to `SoleLiveRoom`.
+FLOOR = 80
 
 
 def measure() -> dict[str, tuple[int, set[pathlib.Path]]]:

@@ -199,7 +199,7 @@ fn frame_the_inspection(
     // The room is part of the transform. `camera_follow` places the camera at
     // `world.x - room.x/2`, `room.y/2 - world.y` (an offset and a Y flip), so
     // sim coordinates cannot go straight into the transform.
-    room: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
+    room: ambition_platformer2d::platformer::lifecycle::SoleLiveRoom<
         ambition_platformer2d::engine_core::RoomGeometry,
     >,
     mut cameras: Query<

@@ -108,7 +108,7 @@ fn apple_rain_spawn_x(spawn_index: u32, world_width: f32, boss_aabb: ae::Aabb) -
 /// leftover dt.
 pub fn spawn_apple_rain_from_special_messages(
     world_time: Res<WorldTime>,
-    world: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
+    world: ambition_platformer2d::platformer::lifecycle::SoleLiveRoom<
         ambition_platformer2d_core::RoomGeometry,
     >,
     mut messages: MessageReader<ActorActionMessage>,

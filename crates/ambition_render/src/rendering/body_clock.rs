@@ -44,7 +44,7 @@ const COLOUR: Color = Color::srgb(1.0, 0.55, 0.1);
 /// the bar when the clock is gone.
 pub fn sync_body_clock_visuals(
     mut commands: Commands,
-    world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+    world: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<
         ambition_platformer2d_core::RoomGeometry,
     >,
     active_session: Option<Res<ActiveSessionScope>>,
@@ -129,7 +129,7 @@ mod tests {
 
     fn app() -> App {
         let mut app = App::new();
-        ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+        ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(
             app.world_mut(),
             ambition_platformer2d_core::RoomGeometry(ambition_platformer2d_core::World::new(
                 "body clock",

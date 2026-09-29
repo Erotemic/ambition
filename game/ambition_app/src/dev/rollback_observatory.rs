@@ -595,7 +595,7 @@ fn draw_rollback_ghosts(
     state: Res<RollbackProofState>,
     world_q: Query<
         &ae::RoomGeometry,
-        With<ambition_platformer2d::platformer::lifecycle::SessionRoot>,
+        With<ambition_platformer2d::platformer::lifecycle::RoomInstanceRoot>,
     >,
     current_bodies: Query<
         (

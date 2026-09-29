@@ -152,7 +152,7 @@ pub fn sync_boss_health_bar_overlay(
 
 pub fn sync_health_overlays(
     mut commands: Commands,
-    world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+    world: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<
         ambition_platformer2d_core::RoomGeometry,
     >,
     dev_state: Res<ambition_dev_tools::DeveloperRuntimeState>,

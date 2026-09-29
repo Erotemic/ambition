@@ -377,7 +377,7 @@ fn buck_throw(owner: Entity, owner_pos: Vec2, back: ae::Aabb) -> impl Bundle {
 pub fn conduct_gnu_ton(
     mut commands: Commands,
     time: Res<ambition_time::WorldTime>,
-    world: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<ae::RoomGeometry>,
+    world: ambition_platformer2d::platformer::lifecycle::SoleLiveRoom<ae::RoomGeometry>,
     mut scholars: Query<
         (
             Entity,

@@ -28,7 +28,9 @@
 use bevy::prelude::{App, Last, Plugin, Query, Res};
 
 use ambition_dev_tools::runtime_census::RuntimeCensus;
-use ambition_platformer2d_shared_tangle::lifecycle::SessionRoot;
+use ambition_platformer2d_shared_tangle::lifecycle::{
+    RoomInstanceRoot, SessionRoot, SessionScopedEntity,
+};
 use ambition_platformer2d_world::rooms::{LiveRoomInstance, RoomSet};
 
 use crate::room_transition::{ActiveRoomTransitionLoad, RoomTransitionLoadState};
@@ -44,20 +46,39 @@ use crate::room_transition::{ActiveRoomTransitionLoad, RoomTransitionLoadState};
 /// most likely to be looking.
 pub fn report_room_census(
     census: Res<RuntimeCensus>,
-    sessions: Query<(&RoomSet, &SessionRoot, Option<&LiveRoomInstance>)>,
+    sessions: Query<(&RoomSet, &SessionRoot)>,
+    // Each session's live room, on its own root (OW1 cut 3).
+    rooms: Query<(&LiveRoomInstance, Option<&SessionScopedEntity>), bevy::prelude::With<RoomInstanceRoot>>,
     crossing: Option<Res<RoomTransitionLoadState>>,
 ) {
     let Some(at) = census.due() else {
         return;
     };
+    let rows: Vec<_> = sessions
+        .iter()
+        .map(|(room_set, root)| (room_set, root, live_room_of(root, rooms.iter())))
+        .collect();
     eprintln!(
         "{}",
         room_census_row(
             at,
-            sessions.iter(),
+            rows.into_iter(),
             crossing.as_deref().and_then(|state| state.active.as_ref()),
         )
     );
+}
+
+/// The live room of the session `root`, when it has exactly one.
+pub fn live_room_of<'a>(
+    root: &SessionRoot,
+    rooms: impl IntoIterator<Item = (&'a LiveRoomInstance, Option<&'a SessionScopedEntity>)>,
+) -> Option<&'a LiveRoomInstance> {
+    let mut ours = rooms
+        .into_iter()
+        .filter(|(_, owner)| owner.is_none_or(|owner| owner.0 == root.0))
+        .map(|(live, _)| live);
+    let live = ours.next()?;
+    ours.next().is_none().then_some(live)
 }
 
 /// The row itself, as a value.

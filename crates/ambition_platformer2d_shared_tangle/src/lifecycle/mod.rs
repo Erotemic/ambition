@@ -37,7 +37,11 @@ pub use markers::{
     ModeScopedEntity,
     PlayerVisual, PosedBody, PresentationOf, RoomResident, RoomScopedEntity, RoomVisual,
 };
-pub use room_instance::{InRoomInstance, LiveRoomInstance};
+pub use room_instance::{
+    activation_room_root, insert_live_room_component, live_room_root_for, sole_live_room_component,
+    sole_live_room_component_mut, sole_live_room_entity, InRoomInstance, LiveRoomInstance,
+    RoomInstanceRoot, SoleLiveRoom,
+};
 pub use round::{
     despawn_departed_round_entities, ActiveRoundScope, RoundScopeId, RoundScopePlugin,
     RoundScopedEntity, RoundSpawnScope,

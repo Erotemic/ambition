@@ -25,7 +25,6 @@ use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::engine_core::collision_semantics::{ContactKind, ContactSource};
 use ambition_platformer2d::platformer::markers::PrimaryPlayer;
 
-use ambition_platformer2d::platformer::lifecycle::SessionWorldRef;
 
 use crate::ldtk_vocabulary::{block_of, MaryOBlockLook};
 
@@ -110,7 +109,7 @@ pub fn break_bricks(
     // equipment component at all is small — that is what small IS, not a bug.
     players: Query<(&PlayerBodyFrameOutput, Option<&WornEquipment>), With<PrimaryPlayer>>,
     // A `GeoId` names a block; only the room can say which one.
-    geometry: SessionWorldRef<ae::RoomGeometry>,
+    geometry: ambition_platformer2d::platformer::lifecycle::SoleLiveRoom<ae::RoomGeometry>,
 ) {
     let Ok((frame, worn)) = players.single() else {
         return;
@@ -297,7 +296,7 @@ mod tests {
         // the REAL level, because `break_bricks` asks the room what it hit.
         // A fixture with no room answers nothing, which is a green test about an
         // empty world rather than a test about bricks.
-        ambition_platformer2d::platformer::lifecycle::insert_session_world_component(
+        ambition_platformer2d::platformer::lifecycle::insert_live_room_component(
             app.world_mut(),
             ae::RoomGeometry(crate::level_1_1().world.clone()),
         );
@@ -377,7 +376,7 @@ mod tests {
         app.init_resource::<BrokenBricks>();
         app.add_message::<ambition_platformer2d::vfx::VfxMessage>();
         app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
-        ambition_platformer2d::platformer::lifecycle::insert_session_world_component(
+        ambition_platformer2d::platformer::lifecycle::insert_live_room_component(
             app.world_mut(),
             ae::RoomGeometry(ae::World::new(
                 "loaded brick fixture",

@@ -1342,7 +1342,7 @@ struct AdoptedMenuCamera;
 
 fn apply_capture_snapshot(
     config: Res<SceneCaptureConfig>,
-    world: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
+    world: ambition_platformer2d::platformer::lifecycle::SoleLiveRoom<
         ambition_platformer2d::engine_core::RoomGeometry,
     >,
     room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<

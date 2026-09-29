@@ -650,8 +650,9 @@ fn the_full_multi_game_lifecycle(host: ambition_platformer2d::runtime::Simulatio
     app.world_mut()
         .run_system_once(
             move |mut room_set: SessionWorldMut<RoomSet>,
-                  mut geometry: SessionWorldMut<
-                ambition_platformer2d::engine_core::RoomGeometry,
+                  mut geometry: Single<
+                &mut ambition_platformer2d::engine_core::RoomGeometry,
+                bevy::prelude::With<ambition_platformer2d::platformer::lifecycle::RoomInstanceRoot>,
             >| {
                 let index = room_set
                     .room_index_by_id(&alternate_room_for_edit)
@@ -1249,10 +1250,15 @@ fn two_local_histories_name_every_simulated_entity_identically() {
     let shared: Vec<&String> = fresh.iter().filter(|id| sanic.contains(id)).collect();
     assert_eq!(
         shared,
-        vec!["encounter:symmetry_attunement", "session:root", "slot:0"],
-        "exactly the session root, the player slot, and the App-build encounter \
-         authority are shared between two providers; anything else shared is one \
-         provider's content leaking into another's identity space"
+        vec![
+            "encounter:symmetry_attunement",
+            "session:room_instance",
+            "session:root",
+            "slot:0"
+        ],
+        "exactly the session root, its live room's root, the player slot, and the \
+         App-build encounter authority are shared between two providers; anything \
+         else shared is one provider's content leaking into another's identity space"
     );
 }
 

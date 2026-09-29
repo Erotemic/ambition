@@ -284,7 +284,7 @@ impl bevy::ecs::entity::MapEntities for FallingHazard {
 pub fn tick_falling_hazards(
     mut commands: Commands,
     world_time: Res<ambition_time::WorldTime>,
-    world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+    world: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<
         ambition_platformer2d_core::RoomGeometry,
     >,
     mut gates: MessageWriter<EncounterGate>,

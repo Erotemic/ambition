@@ -253,7 +253,7 @@ and no fallback to "the live room".
 | --- | --- | --- | --- |
 | 1 ✅ | Stamp room-scoped entities with the instance their plan was built for (`SessionSpawnScope` carries it, as it carries visibility) | staged occupants carry the pinned instance after publication (none before) | "which room" inferred from the moment of the sweep |
 | 2 ✅ | Mid-room spawns inherit the source's instance; the transition roster is `RoomResident` of the departing instance | a resident of `#7` survives a publication that retires `#0` (the same entity stamped `#0` retires) | the unkeyed whole-world roster |
-| 3 | Geometry, platforms and overlay move onto the instance root; `CollisionWorld` takes the instance | a body in `#1` collides with `#1`'s wall (in `#0` it passes) | the session-root geometry field, `MovingPlatformSet` as a resource |
+| 3 (3a ✅) | Geometry, platforms and overlay move onto the instance root; `CollisionWorld` takes the instance | a body in `#1` collides with `#1`'s wall (in `#0` it passes) | the session-root geometry field, `MovingPlatformSet` as a resource |
 | 4 | Pairwise queries (contacts, hits, perception, projectile victims) keyed by instance | identical local positions in two instances never touch (one instance does) | unkeyed body-contact vectors |
 | 5 | Live identity and room selection per instance; rollback rows instance-qualified; the save maps to a durable location key, never the ordinal | a second construction of one room in `#1` succeeds (a duplicate inside `#1` is still refused) | `RoomSet`'s private active index |
 | 6 | The Alice/Bob proof: two instances, two driven bodies; retiring `#1` leaves `#0` whole | the one-room profile runs the same systems | — |
@@ -293,6 +293,46 @@ is running and attacking, headless). Witnesses:
 `a_resident_of_another_live_room_stays_when_this_one_is_replaced` (a #0
 control is swept, a #7 subject stays in #7) and the crossing body's room in
 `every_room_occupant_belongs_to_the_live_room_it_was_built_for`.
+
+✅ **Cut 3a landed 2026-09-29: the live room is its own root.** A session
+now has a `RoomInstanceRoot` entity beside its `SessionRoot`, carrying
+`RoomGeometry` and `LiveRoomInstance` (rollback rows `root.room_instance`
+and `root:room_instance`, schema 265; the two components keep their
+`root.geometry` and `root.live_room_instance` rows). The session root keeps
+the `RoomSet`. `PreparedPlatformerSource::instantiate_live_room` builds it;
+the direct and the candidate session spawn it in their own scope, so a
+hidden candidate's room is hidden with it. A publication names the live room
+it REPLACES (`PendingWorldReplacement::replacing`), finds that root in its
+own session (`live_room_root_for`), advances its instance and writes its
+geometry. A publication that names no room, or a room its session no longer
+has, is refused before anything is torn down (`StaleRoomInstance`). The
+crossing names the room its subject stands in (`InRoomInstance`), and the
+sole live room only when nobody crosses. Deleted: the `geometry` and
+`live_room` fields of `PlatformerSessionWorld`, and "advance whatever
+instance the session root holds".
+
+⚠ **THE READERS ARE NOT KEYED YET, AND THAT IS THIS CUT'S NAMED DEBT.** 77
+system parameters in 61 production files read `SoleLiveRoom<T>`
+(`Single<Ref<T>, With<RoomInstanceRoot>>`), the direct successor of their
+`SessionWorldRef<RoomGeometry>`: with two live rooms a `Single` matches
+nothing, and the system skips. That is the decision's "`Single` fast path",
+kept on purpose for one cut, because each reader must be keyed by the
+instance of what it reads (a body, a camera, a view), and that is a separate
+change per reader. `check_alias_census_agrees_with_source.py` holds the
+count to the `alias-split` marker in `consolidation-plan.md`, so it cannot
+move unseen; it does not force it down. Cut 3b moves
+`MovingPlatformSet` onto the root, 3c the overlay, and `CollisionWorld` then
+takes the instance. Witness:
+`a_publication_writes_only_the_live_room_it_replaces` (a session with live
+rooms #0 and #7: replacing #0 gives that root #1 and the candidate's
+geometry, and #7 keeps both of its own).
+
+⚠ **EVERY LIVE ROOM ROOT IS `session:room_instance`**, so a second root in
+one session cannot be admitted beside the first: a construction baseline
+refuses two entities with one identity, and it refused the witness's
+fixture SILENTLY (no `room-refused` event) until the #7 root was given its
+own. The identity of a live room root is cut 5's, with the rest of the
+per-instance live identity.
 
 ⚠ Risks carried forward: every cut that changes a snapshot value bumps the
 schema; instance roots must be re-creatable by a rewind across a publication;

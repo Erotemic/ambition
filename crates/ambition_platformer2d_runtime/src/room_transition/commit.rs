@@ -11,7 +11,7 @@ use ambition_platformer2d_world::rooms as world_rooms;
 
 use ambition_combat::feel::Platformer2dFeelTuningMonolith;
 use ambition_platformer2d_actor_monolith::world::physics;
-use ambition_platformer2d_core::{self as ae, AabbExt, RoomGeometry};
+use ambition_platformer2d_core::{self as ae, AabbExt};
 use ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay;
 use ambition_sfx::{SfxMessage, SfxWriter};
 use ambition_time::time_control::ClockResetRequest;
@@ -128,21 +128,23 @@ fn ground_gap_below_feet(
 pub struct RoomTransitionApplication<'w, 's> {
     commands: Commands<'w, 's>,
     bodies: TransitBodies<'w, 's>,
-    /// Room authority, held on the session root: the geometry the body will
-    /// collide against and the set that names which room is active.
+    /// Room authority, held on the session root: the set that names which
+    /// room is active. The geometry is on the live room's own root.
     session: Query<
         'w,
         's,
-        (&'static mut RoomGeometry, &'static mut world_rooms::RoomSet),
+        &'static mut world_rooms::RoomSet,
         With<ambition_platformer2d_shared_tangle::lifecycle::SessionRoot>,
     >,
-    /// The live room being left. The staged room is the next one.
+    /// The live rooms, each on its own root. The one the subject stands in is
+    /// the one being left; with nobody crossing, it is the sole live room.
     live_room: Query<
         'w,
         's,
         &'static world_rooms::LiveRoomInstance,
-        With<ambition_platformer2d_shared_tangle::lifecycle::SessionRoot>,
+        With<ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot>,
     >,
+    subject_room: Query<'w, 's, &'static ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
     // ⛔⛤ **THE EFFECT CHANNELS ARE GONE FROM THIS PARAM, AND THEIR ABSENCE IS
     // THE POINT.** The sfx/vfx writers, the clock, the developer overlay, the
     // dialogue and the conversation moved to `RoomTransitionFinalize`, which only
@@ -191,7 +193,7 @@ impl std::fmt::Display for RoomTransitionApplyError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::NoSessionWorld => {
-                write!(f, "no session root carries RoomGeometry + RoomSet")
+                write!(f, "no session root carries a RoomSet")
             }
             Self::SubjectGone => write!(
                 f,
@@ -211,7 +213,7 @@ impl RoomTransitionApplication<'_, '_> {
     /// against. `None` when no session root carries it, which
     /// [`Self::apply`] refuses on for the same reason.
     pub fn room_set(&self) -> Option<&world_rooms::RoomSet> {
-        self.session.iter().next().map(|(_, room_set)| room_set)
+        self.session.iter().next()
     }
 
     /// Resolve the EXACT body a transition recorded, or `None`.
@@ -310,12 +312,10 @@ impl RoomTransitionApplication<'_, '_> {
         // so the outgoing room retires whole.
         let carry_body = subject;
 
-        // ⚠ `_geometry` IS THE GUARD, NOT A WRITE TARGET. A10 stages the room
-        // geometry behind the transaction's verdict (see `replace_live_world`),
-        // so nothing here writes or reads it any more — but a transition in a
-        // world whose session root carries no room authority is still refused,
-        // and this destructure is what refuses it.
-        let Ok((_geometry, _room_set)) = self.session.single_mut() else {
+        // ⚠ `_room_set` IS THE GUARD, NOT A WRITE TARGET. A transition in a
+        // world whose session root carries no room authority is refused, and
+        // this destructure is what refuses it.
+        let Ok(_room_set) = self.session.single_mut() else {
             // Unreachable: the preflight above proved exactly one match.
             return Err(RoomTransitionApplyError::NoSessionWorld);
         };
@@ -424,7 +424,12 @@ impl RoomTransitionApplication<'_, '_> {
         // ⛔ THE HANDLE IS KEPT. It is the whole point of the split: finalization
         // asks THIS publication whether the crossing happened.
         // The residents of the live room being left, and no other live room's.
-        let departing = self.live_room.iter().next().copied();
+        // The subject's own room when it has one: with two live rooms, "the"
+        // live room is not a fact. With nobody crossing, the sole live room.
+        let departing = subject
+            .and_then(|subject| self.subject_room.get(subject).ok())
+            .map(|room| room.0)
+            .or_else(|| self.live_room.single().ok().copied());
         let publication = plan.replace_live_world(
             &mut self.commands,
             self.room_visuals
@@ -438,7 +443,7 @@ impl RoomTransitionApplication<'_, '_> {
             carry_body,
             None,
             staged_arrival,
-            departing.map(|live| live.next()),
+            departing,
         );
 
         Ok(StagedRoomTransition {

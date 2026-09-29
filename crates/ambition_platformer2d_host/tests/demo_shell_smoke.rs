@@ -89,7 +89,7 @@ fn fixture_setup(
         bevy::prelude::Entity,
         bevy::prelude::With<ambition_platformer2d_shared_tangle::lifecycle::SessionRoot>,
     >,
-    world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<RoomGeometry>,
+    world: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<RoomGeometry>,
     room_set: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<RoomSet>,
     tuning: Res<ambition_platformer2d_runtime::demo_fixture::ActiveMovementTuning>,
     initial_body: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<

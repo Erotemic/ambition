@@ -245,7 +245,7 @@ pub fn prepare_the_match(
     // fighter. Preparation reads no roster at all now (P2.18).
     profiles: Option<Res<ambition_characters::actor::character_catalog::BrainProfileRegistry>>,
     geometry: Option<
-        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+        ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<
             ambition_platformer2d_core::RoomGeometry,
         >,
     >,

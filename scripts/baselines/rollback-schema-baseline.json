@@ -1,6 +1,6 @@
 {
   "peer_checksum_schema": {
-    "version": "ggrs-rollback-schema-v264",
+    "version": "ggrs-rollback-schema-v265",
     "rows": [
       "actor.active_combatant\tcomponent-canonical\tActiveCombatant",
       "actor.aggression\tcomponent-clone-cursor\tActorAggression",
@@ -144,6 +144,7 @@
       "resource.versus_match\tresource-clone-custom-checksum\tVersusMatch\tbevy_ggrs clone snapshot + a checksum over the round, the phase and the per-team wins",
       "resource.world_time\tresource-canonical\tWorldTime\tbevy_ggrs canonical codec snapshot + identical canonical checksum projection",
       "root.live_room_instance\tcomponent-canonical\tLiveRoomInstance",
+      "root.room_instance\tcomponent-canonical\tRoomInstanceRoot",
       "root.room_set\tcomponent-clone-custom-checksum\tRoomSet\tbevy_ggrs clone snapshot + active/start room identity checksum",
       "scope.mode\tcomponent-canonical\tModeScopedEntity",
       "scope.room\tcomponent-canonical\tRoomScopedEntity",
@@ -252,6 +253,7 @@
     "ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance",
     "ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance",
     "ambition_platformer2d_shared_tangle::lifecycle::ModeScopedEntity",
+    "ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot",
     "ambition_platformer2d_shared_tangle::lifecycle::RoomScopedEntity",
     "ambition_platformer2d_shared_tangle::lifecycle::SessionScopedEntity",
     "ambition_platformer2d_shared_tangle::orientation::ActorRoll",

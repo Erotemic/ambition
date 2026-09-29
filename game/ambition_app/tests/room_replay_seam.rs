@@ -31,7 +31,7 @@ fn player_pos(sim: &mut Platformer2dSimHarness) -> Vec2 {
 fn room_spawn(sim: &mut Platformer2dSimHarness) -> Vec2 {
     let mut q = sim
         .world_mut()
-        .query_filtered::<&ae::RoomGeometry, With<ambition_platformer2d::platformer::lifecycle::SessionRoot>>();
+        .query_filtered::<&ae::RoomGeometry, With<ambition_platformer2d::platformer::lifecycle::RoomInstanceRoot>>();
     let world = sim.world();
     q.iter(world)
         .next()

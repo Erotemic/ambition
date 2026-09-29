@@ -281,7 +281,6 @@ fn ambition_activate_session_visuals(
     mut commands: Commands,
     active_session: Res<ambition_platformer2d::game_shell::ActiveGameplaySession>,
     session_worlds: Query<(
-        &ambition_platformer2d::engine_core::RoomGeometry,
         &ambition_platformer2d::world::rooms::RoomSet,
         &ambition_platformer2d::ldtk_map::LdtkRuntimeIndex,
     )>,
@@ -312,9 +311,9 @@ fn ambition_activate_session_visuals(
         let Some(world_entity) = active_session.active_world_entity() else {
             continue;
         };
-        // the room GEOMETRY is no longer read here: the dressing wanted it only
-        // to place moving-platform sprites, and those are a render family's now.
-        let Ok((_geometry, room_set, runtime_rooms)) = session_worlds.get(world_entity) else {
+        // The room geometry is not read here: it is on the live room's own
+        // root, and the dressing needs only the room set and the LDtk index.
+        let Ok((room_set, runtime_rooms)) = session_worlds.get(world_entity) else {
             continue;
         };
         let scope = ambition_platformer2d::platformer::lifecycle::SessionSpawnScope::scoped(*scope);

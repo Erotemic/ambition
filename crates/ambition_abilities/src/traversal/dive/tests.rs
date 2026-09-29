@@ -72,7 +72,7 @@ fn downward_dive_does_not_embed_in_the_floor() {
     // or a downward dive embeds in the floor.
     let mut app = test_app();
     let player = spawn_primary_player_holding(&mut app, DIVE_ID); // (100,100), 24x40
-    ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+    ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(
         app.world_mut(),
         ambition_platformer2d_core::RoomGeometry(ae::World::new(
             "test",

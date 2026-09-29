@@ -95,7 +95,7 @@ pub fn wisp(host: Vec2, limb: Vec2, index: usize, time: f32) -> (Vec2, f32, f32)
 pub fn sync_limb_trails(
     mut commands: Commands,
     time: Res<Time>,
-    world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+    world: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<
         ambition_platformer2d_core::RoomGeometry,
     >,
     sprite: Option<Res<LimbTrailSprite>>,

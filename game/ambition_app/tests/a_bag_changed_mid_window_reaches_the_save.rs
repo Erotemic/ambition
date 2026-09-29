@@ -3108,23 +3108,7 @@ fn cutscene_beat(sim: &Platformer2dSimHarness) -> Option<(usize, bool)> {
         .map(|runtime| (runtime.beat_index, runtime.finished))
 }
 
-/// The tick the in-sim control issues its dismiss edge on — well after the
-/// cutscene has reached its `Dialogue` beat and stalled there.
-const DISMISS_AT: u64 = 100;
-
-fn dismiss_the_dialogue_from_inside_the_sim(
-    tick: bevy::prelude::Res<ambition_platformer2d::time::SimTick>,
-    mut request: bevy::prelude::ResMut<ambition_platformer2d::cutscene::CutsceneAdvanceRequest>,
-) {
-    // ⚠ ONE TICK ONLY. A producer that holds the flag high would advance the
-    // cutscene every tick, and then "the beat moved" would say nothing about
-    // whether an EDGE survives.
-    if tick.0 == DISMISS_AT {
-        request.dismiss_dialogue = true;
-    }
-}
-
-fn sim_playing_a_cutscene(with_an_in_sim_dismiss: bool) -> Platformer2dSimHarness {
+fn sim_playing_a_cutscene() -> Platformer2dSimHarness {
     use ambition_platformer2d::sim::SimScheduleExt;
     Platformer2dSimHarness::build(
         Platformer2dSimHarnessOptions::default()
@@ -3132,21 +3116,9 @@ fn sim_playing_a_cutscene(with_an_in_sim_dismiss: bool) -> Platformer2dSimHarnes
             .with_required_start_room(ROOM)
             .with_sync_test_rollback_settings(4, 10),
         |app, options| {
-            use bevy::prelude::IntoScheduleConfigs as _;
             ambition_app::rl_sim::ambition_sim_composition(app, options)?;
             let label = app.sim_schedule();
             app.add_systems(label, trigger_a_cutscene_from_inside_the_sim);
-            if with_an_in_sim_dismiss {
-                // ⛔ THE `.before` IS LOAD-BEARING. `tick_active_cutscene`
-                // consumes the request with `mem::take`, so a producer ordered
-                // after it writes a flag that is never read in that tick and the
-                // control arm would report the defect's own number.
-                app.add_systems(
-                    label,
-                    dismiss_the_dialogue_from_inside_the_sim
-                        .before(ambition_platformer2d::actors::cutscene::tick_active_cutscene),
-                );
-            }
             Ok(())
         },
     )
@@ -3170,82 +3142,82 @@ fn step_until_the_cutscene_waits(sim: &mut Platformer2dSimHarness) -> usize {
     );
 }
 
-/// ⛔⛤ **A CUTSCENE DISMISS RAISED OUTSIDE THE SIMULATION IS LOST, AND THE
-/// SHIPPED PRODUCER IS OUTSIDE THE SIMULATION — MEASURED 2026-09-16.**
+/// ⭐ A CUTSCENE DISMISS IS PART OF THE SEAT'S INPUT, SO IT SURVIVES A REWIND
+/// AND IS SPENT EXACTLY ONCE.
 ///
-/// `CutsceneAdvanceRequest` is in NO row of `rollback_schema_baseline.txt`: it
-/// carries no rollback decision at all. `apply_menu_frame_to_cutscene_request`
-/// writes it from the HOST's input chain in `Update`
-/// (`crates/ambition_platformer2d_host/src/lib.rs`, whose own comment notes that
-/// set is *"LOAD-BEARING ONLY under the `RenderFrame` host, where the sim
-/// schedule IS `Update`"*), while `tick_active_cutscene` consumes it with
-/// `mem::take` from inside the sim schedule's `Cutscene` phase.
+/// It was a host resource (`CutsceneAdvanceRequest`) written from `Update` and
+/// taken inside the sim schedule. The rewind restored `ActiveCutscene` and not
+/// the request, so the authoritative replay never advanced: MEASURED 2026-09-16,
+/// a host-side dismiss left the cutscene on beat 1. The dismiss now rides the
+/// primary seat's `ControlFrame::confirm_pressed`, which GGRS re-delivers on
+/// every resimulation of the tick it was pressed on (`CUTSCENE-ROLLBACK-DECISION`,
+/// `Q136`).
 ///
-/// ```text
-/// dismissed from INSIDE the sim schedule    beat 1 -> advances
-/// dismissed from OUTSIDE it (the host)      beat 1 -> stays at 1
-/// ```
-///
-/// ⇒ The first pass takes the edge and advances; the rewind restores
-/// `ActiveCutscene` (which IS `resource-canonical`) but not the request, which is
-/// unregistered and already `false`. Nothing re-produces it, so the
-/// authoritative replay never advances. **A dismiss press does nothing.** Same
-/// shape as [Q136]'s menu findings: an out-of-sim producer of a request consumed
-/// inside the rewinding schedule.
-///
-/// ⭐ THE IN-SIM ARM IS THE CONTROL. A fixture where the cutscene simply cannot
-/// advance — a missing library entry, an uninstalled `drain_cutscene_triggers` —
-/// prints the same stalled `1`, and `step_until_the_cutscene_waits` panics rather
-/// than letting that read as the defect.
-///
-/// ⚠ AND IT IS A LOST EDGE, NOT A DOUBLED ONE. The `Dialogue` beat advances only
-/// on the edge, so this arm would equally catch the opposite failure: an
-/// unregistered request that is NOT taken back would advance the beat more than
-/// once per press, and the asserted beat index below pins the count rather than
-/// the direction.
-///
-/// [Q136]: ../../../docs/planning/awaiting-maintainer-decision.md
+/// `cutscene_lab_intro` is banner, dialogue, a 0.4 s wait, dialogue. One confirm
+/// on the first dialogue must land on the SECOND and stop there: a lost edge
+/// stays on beat 1, and a doubled one goes past beat 3.
 #[test]
-fn a_cutscene_dismiss_raised_outside_the_simulation_is_lost() {
-    // CONTROL: the same edge, raised inside the timeline.
-    let mut inside = sim_playing_a_cutscene(true);
-    let inside_waiting = step_until_the_cutscene_waits(&mut inside);
-    for _ in 0..200 {
-        inside.step(AgentAction::default());
-    }
-    let inside_after = cutscene_beat(&inside);
-    assert!(
-        inside_after.is_none_or(|(index, _)| index > inside_waiting),
-        "the in-sim control did not advance past beat {inside_waiting} \
-         (now {inside_after:?}), so this fixture cannot consume a dismiss at all \
-         and the arm below would be measuring the fixture. `None` here is a PASS: \
-         the cutscene ran to completion and dropped its runtime"
-    );
-
-    // THE SHIPPED PRODUCER'S POSITION: outside the rewinding schedule.
-    let mut outside = sim_playing_a_cutscene(false);
-    let waiting = step_until_the_cutscene_waits(&mut outside);
-    outside
-        .world_mut()
-        .resource_mut::<ambition_platformer2d::cutscene::CutsceneAdvanceRequest>()
-        .dismiss_dialogue = true;
-    assert!(
-        outside
-            .world()
-            .resource::<ambition_platformer2d::cutscene::CutsceneAdvanceRequest>()
-            .dismiss_dialogue,
-        "the dismiss did not even land in the resource"
-    );
-    for _ in 0..200 {
-        outside.step(AgentAction::default());
+fn a_cutscene_dismiss_on_the_seats_input_survives_the_rewind_once() {
+    let mut sim = sim_playing_a_cutscene();
+    let waiting = step_until_the_cutscene_waits(&mut sim);
+    assert_eq!(waiting, 1, "the premise: the first dialogue beat is waiting");
+    for _ in 0..30 {
+        sim.step(AgentAction::default());
     }
     assert_eq!(
-        cutscene_beat(&outside),
-        Some((waiting, false)),
-        "a dismiss raised from outside the simulation now advances the cutscene \
-         — that is the FIX this arm is waiting for, not a regression. Invert it, \
-         and record in CUTSCENE-ROLLBACK-DECISION what made the edge survive"
+        cutscene_beat(&sim),
+        Some((1, false)),
+        "the control: without a confirm the dialogue beat waits"
     );
+    sim.step(AgentAction {
+        confirm: true,
+        ..AgentAction::default()
+    });
+    for _ in 0..200 {
+        sim.step(AgentAction::default());
+        health(&sim).unwrap_or_else(|error| panic!("the dismiss desynced: {error}"));
+    }
+    assert_eq!(
+        cutscene_beat(&sim),
+        Some((3, false)),
+        "one confirm on the first dialogue beat must advance through the wait to \
+         the second dialogue beat and stop: beat 1 means the press was lost to the \
+         rewind, past beat 3 means it was spent twice"
+    );
+}
+
+/// The skip is a HOLD of the seat's cancel, accumulated on the simulation clock
+/// inside the timeline. Held past `SKIP_HOLD_THRESHOLD_SECS` it ends the
+/// cutscene; released early, the partial hold resets and the cutscene plays on.
+#[test]
+fn a_cutscene_skip_is_a_hold_of_the_seats_cancel() {
+    let hold = |ticks: usize| {
+        let mut sim = sim_playing_a_cutscene();
+        step_until_the_cutscene_waits(&mut sim);
+        for _ in 0..ticks {
+            sim.step(AgentAction {
+                cancel_held: true,
+                ..AgentAction::default()
+            });
+        }
+        for _ in 0..30 {
+            sim.step(AgentAction::default());
+            health(&sim).unwrap_or_else(|error| panic!("the skip hold desynced: {error}"));
+        }
+        let partial = sim
+            .world()
+            .resource::<ambition_platformer2d::cutscene::CutsceneSkipHold>()
+            .seconds;
+        (cutscene_beat(&sim), partial)
+    };
+    // 0.5 s: under the 1.2 s threshold.
+    assert_eq!(
+        hold(30),
+        (Some((1, false)), 0.0),
+        "a released-early cancel skipped the cutscene or left its hold standing"
+    );
+    // 1.5 s: past it.
+    assert_eq!(hold(90).0, None, "a cancel held past the threshold did not skip the cutscene");
 }
 
 /// The tick the in-sim control raises its heal on — well after the primary

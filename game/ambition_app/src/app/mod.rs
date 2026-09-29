@@ -45,7 +45,7 @@ pub(crate) mod world_flow;
 
 #[cfg(feature = "input")]
 pub use ambition_platformer2d::actors::schedule::{
-    apply_menu_frame_to_cutscene_request, populate_menu_control_frame_from_actions, MenuNavConsume,
+    populate_menu_control_frame_from_actions, MenuNavConsume,
 };
 pub use ambition_platformer2d::actors::schedule::configure_platformer2d_simulation_phases;
 pub use ambition_platformer2d::sim::{

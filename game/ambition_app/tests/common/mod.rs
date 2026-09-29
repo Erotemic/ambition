@@ -52,6 +52,8 @@ pub fn base() -> AgentAction {
         modifier_held: false,
         aim_x: 0.0,
         aim_y: 0.0,
+        confirm: false,
+        cancel_held: false,
     }
 }
 

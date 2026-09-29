@@ -59,12 +59,12 @@ impl Plugin for HostInputBindingsPlugin {
     fn build(&self, app: &mut App) {
         use ambition_input::{MenuControlFrame, MenuInputState, Platformer2dInputActionMonolith};
         use ambition_platformer2d_runtime::host_input::{
-            apply_menu_frame_to_cutscene_request, commit_seat_raw_frames,
+            commit_seat_raw_frames,
             declare_gameplay_input_context, declare_in_session_input_contexts,
             dialog_pointer_input, populate_menu_control_frame_from_actions,
             populate_seat_control_frames, populate_seat_menu_frames,
             spawn_primary_input_participant, sync_primary_recipe_from_settings,
-            toggle_player_trail_emission_from_actions, MenuFrameConsume, MenuFrameCutsceneSkip,
+            toggle_player_trail_emission_from_actions, MenuFrameConsume,
             MenuFramePopulate, MenuNavConsume,
         };
         use leafwing_input_manager::prelude::InputManagerPlugin;
@@ -268,10 +268,10 @@ impl Plugin for HostInputBindingsPlugin {
                 ),
             )
             // Nesting rather than folding: `MenuNavConsume` keeps its own identity because the
-            // menu-backend switch pins `.after` it and must NOT start waiting on cutscene skip too.
+            // menu-backend switch pins `.after` it.
             .configure_sets(
                 Update,
-                (MenuFrameCutsceneSkip, MenuNavConsume).in_set(MenuFrameConsume),
+                MenuNavConsume.in_set(MenuFrameConsume),
             )
             // Collect semantic menu intent before gameplay input is
             // suppressed. `populate_seat_control_frames` may zero the
@@ -305,7 +305,6 @@ impl Plugin for HostInputBindingsPlugin {
                     // they had drifted.
                     populate_seat_control_frames.in_set(ambition_input::InputSet::Route),
                     toggle_player_trail_emission_from_actions,
-                    apply_menu_frame_to_cutscene_request.in_set(MenuFrameCutsceneSkip),
                     dialog_pointer_input,
                 )
                     .chain()

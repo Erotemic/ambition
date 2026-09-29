@@ -117,7 +117,7 @@ pub mod causal;
 
 pub mod host_input {
     pub use ambition_platformer2d_actor_monolith::schedule::{
-        apply_menu_frame_to_cutscene_request, commit_seat_raw_frames,
+        commit_seat_raw_frames,
         declare_gameplay_input_context, declare_in_session_input_contexts,
         freeze_local_seating_for_the_decided_match, install_latched_slot_publication,
         install_roster_seating, mirror_primary_slot_to_control_frame,
@@ -125,7 +125,7 @@ pub mod host_input {
         populate_seat_menu_frames, publish_latched_slot_controls,
         publish_seat_controls_when_nobody_else_does, seat_input_participants_for_roster,
         spawn_primary_input_participant, sync_primary_recipe_from_settings,
-        toggle_player_trail_emission_from_actions, MenuFrameConsume, MenuFrameCutsceneSkip,
+        toggle_player_trail_emission_from_actions, MenuFrameConsume,
         MenuFramePopulate, MenuNavConsume, SeatBurstTriggerState,
     };
     pub use ambition_platformer2d_shared_tangle::schedule::SimulationSetupSet;

@@ -220,6 +220,10 @@ pub fn read_gameplay_control_frame_with_settings(
         aim_x: aim_x_raw,
         // Match the sim's +Y-down convention.
         aim_y: -aim_y,
+        // Carried in the gameplay frame too: a cutscene captures input one
+        // frame after it starts, and a press on that frame must still count.
+        confirm_pressed: confirm_pressed(actions),
+        cancel_held: cancel_held(actions),
     };
     (
         frame,
@@ -245,15 +249,32 @@ pub fn read_gameplay_control_frame(
     frame
 }
 
-/// Read only the gameplay-side state that should still flow during pause/menu
-/// mode. Today that's just `start_pressed` (which the pause toggle reads) —
-/// every other gameplay action is suppressed.
+/// Read only the state that should still reach the simulation while a menu,
+/// a pause or a cutscene owns the seat: `start_pressed` (the pause toggle) and
+/// the confirm/cancel pair a playing cutscene reads. Every gameplay action is
+/// suppressed.
 #[cfg(feature = "input")]
 pub fn read_menu_control_frame(
     actions: &ActionState<Platformer2dInputActionMonolith>,
 ) -> ControlFrame {
     ControlFrame {
         start_pressed: actions.just_pressed(&Platformer2dInputActionMonolith::Start),
+        confirm_pressed: confirm_pressed(actions),
+        cancel_held: cancel_held(actions),
         ..ControlFrame::default()
     }
+}
+
+/// The participant's confirm edge: the menu-select binding, which includes the
+/// jump and interact keys, so a dialogue habit dismisses a cutscene beat.
+#[cfg(feature = "input")]
+fn confirm_pressed(actions: &ActionState<Platformer2dInputActionMonolith>) -> bool {
+    actions.just_pressed(&Platformer2dInputActionMonolith::MenuSelect)
+}
+
+/// The participant's cancel level: the menu-back or reset binding held.
+#[cfg(feature = "input")]
+fn cancel_held(actions: &ActionState<Platformer2dInputActionMonolith>) -> bool {
+    actions.pressed(&Platformer2dInputActionMonolith::MenuBack)
+        || actions.pressed(&Platformer2dInputActionMonolith::Reset)
 }

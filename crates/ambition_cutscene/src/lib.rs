@@ -350,18 +350,16 @@ impl ActiveCutscene {
 /// scripted content.
 pub const SKIP_HOLD_THRESHOLD_SECS: f32 = 1.2;
 
-/// Per-frame input decisions for the active cutscene. Only completed dismiss
-/// and skip edges cross into simulation; partial skip-hold progress stays in
-/// [`CutsceneSkipHold`].
-#[derive(Resource, Default)]
-pub struct CutsceneAdvanceRequest {
-    pub dismiss_dialogue: bool,
-    pub skip_cutscene: bool,
-}
-
-/// Input-local skip-hold duration used by the HUD and threshold logic. It uses
-/// wall time rather than simulation time and never enters simulation state.
-#[derive(Resource, Default)]
+/// How long the participant has held cancel over the playing cutscene, in
+/// SIMULATION seconds. The skip fires when it reaches
+/// [`SKIP_HOLD_THRESHOLD_SECS`]; the HUD draws its progress.
+///
+/// ⛔ SIMULATION STATE, AND ROLLBACK STATE WITH IT. The hold is read from the
+/// seat's `ControlFrame::cancel_held` inside the timeline, so a rewind must
+/// put it back with the cutscene it belongs to; it was a wall-clock accumulator
+/// outside the timeline, and the completed skip crossed in through a host
+/// resource that a rewind lost.
+#[derive(Resource, Clone, Copy, Debug, Default, PartialEq)]
 pub struct CutsceneSkipHold {
     pub seconds: f32,
 }
@@ -427,9 +425,9 @@ pub struct RoomCutsceneBindings {
 /// `drain_cutscene_triggers` returns without draining while a cutscene plays, so
 /// it survives while `ActiveCutscene` and `LastCutsceneRoom` rewind around it. A
 /// producer outside that schedule therefore loses its trigger on every rewind —
-/// the restore drops the entry and nothing re-produces it. The sibling resource
-/// `CutsceneAdvanceRequest` is exactly that defect, measured: a dismiss raised on
-/// the host side does nothing (`Q136`).
+/// the restore drops the entry and nothing re-produces it. A cutscene dismiss
+/// raised on the host side had exactly that defect (`Q136`); it now rides the
+/// seat's `ControlFrame`, which a replay re-delivers.
 ///
 /// ⚠ **THAT THIS HOLDS TODAY IS NOT A DESIGN, IT IS A COINCIDENCE THAT WAS
 /// WRITTEN DOWN ON 2026-09-17.** The two shipped producers —
@@ -802,6 +800,18 @@ mod snapshot {
                 id,
                 beats,
                 seen_flag,
+            })
+        }
+    }
+
+    impl SnapshotState for CutsceneSkipHold {
+        fn encode(&self, out: &mut Vec<u8>) {
+            put_f32(out, self.seconds);
+        }
+
+        fn decode(reader: &mut Reader<'_>) -> Option<Self> {
+            Some(Self {
+                seconds: reader.f32()?,
             })
         }
     }

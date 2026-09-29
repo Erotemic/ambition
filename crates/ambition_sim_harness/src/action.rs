@@ -85,6 +85,12 @@ pub struct AgentAction {
     pub fly_toggle: bool,
     pub reset: bool,
     pub start: bool,
+    /// Rising edge of the participant's confirm, which dismisses a cutscene's
+    /// dialogue beat. See `ControlFrame::confirm_pressed`.
+    pub confirm: bool,
+    /// The participant's cancel held, which skips a cutscene once held long
+    /// enough. See `ControlFrame::cancel_held`.
+    pub cancel_held: bool,
     /// Rising edge of the modifier slot — the sustained-technique control slot.
     pub modifier: bool,
     /// Modifier slot held this frame. A body's own rules decide what sustaining
@@ -209,6 +215,8 @@ impl From<AgentAction> for ControlFrame {
             modifier_pressed: a.modifier,
             aim_x: a.aim_x,
             aim_y: a.aim_y,
+            confirm_pressed: a.confirm,
+            cancel_held: a.cancel_held,
         }
     }
 }

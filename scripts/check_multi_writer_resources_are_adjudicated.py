@@ -548,11 +548,6 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
         "crates/ambition_platformer2d_shared_tangle/src/lifecycle/custody_horizon.rs",
     ),
-    "CutsceneAdvanceRequest": (
-        "crates/ambition_platformer2d_actor_monolith/src/cutscene.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/schedule/input_systems.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
-    ),
     "CutsceneTriggerQueue": (
         "crates/ambition_boss_encounter/src/systems.rs",
         "crates/ambition_platformer2d_actor_monolith/src/cutscene.rs",
@@ -665,7 +660,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
     ),
     "CutsceneSkipHold": (
-        "crates/ambition_platformer2d_actor_monolith/src/schedule/input_systems.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/cutscene.rs",
         "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
     ),
     "DefaultMusicStarted": (
@@ -2057,10 +2052,12 @@ ADJUDICATED: dict[str, str] = {
     ),
     "CutsceneSkipHold": (
         "CORRECT — ONE IN-SESSION OWNER PLUS THE SESSION BOUNDARY, and the second "
-        "\"writer\" is not an authority. `apply_menu_frame_to_cutscene_request` (`schedule/input_systems.rs`) is the "
+        "\"writer\" is not an authority. `tick_active_cutscene` (`cutscene.rs`) is the "
         "only production system that writes it inside a session; the other file is "
         "`SESSION_SCOPE_RESET`, where `SessionScopedResources::reset` returns it to "
-        "its default at the session edge. MEASURED 2026-09-18 per SYSTEM rather than "
+        "its default at the session edge. It is rollback-registered "
+        "(`cutscene.skip_hold`) and accumulates from the seat's `cancel_held`, so a "
+        "rewind restores the hold with the tick that grew it. MEASURED 2026-09-28 per SYSTEM rather than "
         "per file: exactly one `ResMut`/`resource_mut` site in that file, in that "
         "one function, with comments and test modules stripped. ⇒ Nothing here is "
         "two owners of one fact."
@@ -2207,12 +2204,6 @@ ADJUDICATED: dict[str, str] = {
         "settled because the checksum is quiet: 19 `ResMut<AmbitionGameSave>` "
         "parameters in 17 production files is the widest shared write in the "
         "tree."
-    ),
-    "CutsceneAdvanceRequest": (
-        "OPEN — CUTSCENE-ROLLBACK-DECISION item 1: produced on the HOST side in "
-        "`Update` and consumed with `std::mem::take` inside the sim schedule, so "
-        "a dismiss press is lost across a rewind. Held by a failing-by-design "
-        "witness."
     ),
     "ActiveConversation": (
         "CORRECT — ONE OPENER AND FOUR END CONDITIONS, each on a different event "
@@ -3615,7 +3606,7 @@ SESSION_SCOPE_RESET = (
 #: whose *"one owner"* claim is mechanical.
 SOLE_IN_SESSION_OWNER: dict[str, str] = {
     "ControlledSubject": "resolve_controlled_subject",
-    "CutsceneSkipHold": "apply_menu_frame_to_cutscene_request",
+    "CutsceneSkipHold": "tick_active_cutscene",
     "EncounterView": "apply_wave_encounter_effects",
     "GameplayElapsed": "advance_gameplay_elapsed",
     "LastCutsceneRoom": "auto_trigger_room_cutscenes",

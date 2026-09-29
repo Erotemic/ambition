@@ -68,16 +68,6 @@ fn input_suppressed_by_unfocus(
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct MenuFramePopulate;
 
-/// The cutscene-skip CONSUMER of [`MenuControlFrame`].
-///
-/// ONE member, and it is deliberately NOT folded into [`MenuNavConsume`]
-/// despite both being consumers of the same frame. That set is documented as
-/// the directional-NAV consumers and is pinned `.after` by the menu-backend
-/// switch; adding a cutscene system to it would silently make that switch wait
-/// on something unrelated to nav.
-#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
-pub struct MenuFrameCutsceneSkip;
-
 /// Umbrella for [`MenuControlFrame`] consumers in this schedule.
 ///
 /// Bevy set ordering is schedule-local, so all member sets must live here.
@@ -90,10 +80,9 @@ pub struct MenuFrameCutsceneSkip;
 ///
 /// ⚠ AND MEMBERSHIP IS NOT AN ORDER. This set gives a WRITER one pin covering every
 /// member; it does not arrange the members among themselves, and nesting a set here
-/// does not order it against its siblings — which is why `MenuFrameCutsceneSkip` and
-/// `MenuNavConsume` still race, deliberately (the backend switch pins `.after` the
-/// latter and must not wait on the former). Two direct members still conflict,
-/// proven on a three-system app in `update_schedule_census`.
+/// does not order it against its siblings. Two direct members still conflict,
+/// proven on a three-system app in `update_schedule_census`. (A cutscene reads no
+/// menu frame: its confirm and cancel ride the seat's `ControlFrame`.)
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct MenuFrameConsume;
 
@@ -1030,66 +1019,11 @@ pub fn populate_seat_menu_frames(
     }
 }
 
-/// Cutscene controls are UI/menu intent, not gameplay movement. Keep this
-/// small bridge beside the menu frame so touch Confirm/Back can advance or
-/// skip cutscenes without teaching the gameplay `ControlFrame` about menu
-/// gestures.
-#[cfg(feature = "input")]
-pub fn apply_menu_frame_to_cutscene_request(
-    world_time: Option<Res<ambition_time::WorldTime>>,
-    menu_frame: Res<MenuControlFrame>,
-    cutscene: Res<ambition_cutscene::ActiveCutscene>,
-    mut cutscene_request: ResMut<ambition_cutscene::CutsceneAdvanceRequest>,
-    mut skip_hold: ResMut<ambition_cutscene::CutsceneSkipHold>,
-) {
-    let wall_dt = world_time.as_deref().map_or(0.0, |time| time.wall_dt());
-    update_cutscene_request_from_menu(
-        &menu_frame,
-        wall_dt,
-        cutscene.is_playing(),
-        &mut cutscene_request,
-        &mut skip_hold,
-    );
-}
-
-fn update_cutscene_request_from_menu(
-    menu_frame: &MenuControlFrame,
-    wall_dt: f32,
-    is_playing: bool,
-    request: &mut ambition_cutscene::CutsceneAdvanceRequest,
-    // the accumulator is INPUT-LOCAL and the request is the crossing. Only
-    // the completed edge (`skip_cutscene`) reaches the sim; the partial hold
-    // stays here and is drawn by the HUD. See `CutsceneSkipHold`.
-    hold: &mut ambition_cutscene::CutsceneSkipHold,
-) {
-    if !is_playing {
-        // A partial hold belongs to the cutscene that accumulated it; never
-        // let it leak into the next script.
-        hold.seconds = 0.0;
-        return;
-    }
-    // Advance is an EDGE. A held confirm must not burn through several beats
-    // while the request is consumed on consecutive simulation ticks.
-    if menu_frame.select {
-        request.dismiss_dialogue = true;
-    }
-    if menu_frame.back_held {
-        hold.seconds += wall_dt;
-        if hold.seconds >= ambition_cutscene::SKIP_HOLD_THRESHOLD_SECS {
-            request.skip_cutscene = true;
-            hold.seconds = 0.0;
-        }
-    } else {
-        hold.seconds = 0.0;
-    }
-}
-
 #[cfg(all(test, feature = "input"))]
 mod focus_gate_tests {
     use super::{
         declare_gameplay_input_context, declare_in_session_input_contexts,
         input_suppressed_by_unfocus, spawn_primary_input_participant,
-        update_cutscene_request_from_menu,
     };
     use ambition_input::{
         resolve_active_input_context, InputParticipant, MenuControlFrame, ParticipantContexts,
@@ -2204,60 +2138,6 @@ mod focus_gate_tests {
         let mut ids: Vec<u8> = participants.iter(app.world()).map(|p| p.id.0).collect();
         ids.sort_unstable();
         assert_eq!(ids, vec![0, 1]);
-    }
-
-    #[test]
-    fn cutscene_confirm_is_edge_driven_and_skip_hold_resets_on_release() {
-        let mut request = ambition_cutscene::CutsceneAdvanceRequest::default();
-        // the accumulator is a SEPARATE resource now: only the completed edge
-        // crosses into the sim, and a half-held button is input-local state the
-        // HUD draws.
-        let mut hold = ambition_cutscene::CutsceneSkipHold::default();
-
-        update_cutscene_request_from_menu(
-            &MenuControlFrame {
-                select_held: true,
-                ..Default::default()
-            },
-            0.25,
-            true,
-            &mut request,
-            &mut hold,
-        );
-        assert!(
-            !request.dismiss_dialogue,
-            "holding confirm without a new edge must not burn through beats"
-        );
-
-        update_cutscene_request_from_menu(
-            &MenuControlFrame {
-                select: true,
-                back_held: true,
-                ..Default::default()
-            },
-            0.25,
-            true,
-            &mut request,
-            &mut hold,
-        );
-        assert!(request.dismiss_dialogue);
-        assert_eq!(hold.seconds, 0.25);
-        assert!(
-            !request.skip_cutscene,
-            "a quarter second is not the completed edge, and only the edge crosses"
-        );
-
-        update_cutscene_request_from_menu(
-            &MenuControlFrame::default(),
-            0.25,
-            true,
-            &mut request,
-            &mut hold,
-        );
-        assert_eq!(
-            hold.seconds, 0.0,
-            "releasing back resets the hold instead of banking it"
-        );
     }
 
     #[test]

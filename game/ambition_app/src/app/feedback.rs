@@ -37,7 +37,6 @@ pub struct GameplayFeedbackWriters<'w> {
 pub struct ProgressionResources<'w> {
     pub quests: Res<'w, ambition_content::quest::QuestRegistry>,
     pub cutscene: Res<'w, ambition_platformer2d::cutscene::ActiveCutscene>,
-    pub cutscene_request: Res<'w, ambition_platformer2d::cutscene::CutsceneAdvanceRequest>,
     pub bosses: Res<'w, ambition_platformer2d::boss_encounter::BossEncounterRegistry>,
     pub map: Res<'w, ambition_platformer2d::menu::map::MapMenuState>,
     pub banner: Res<'w, GameplayBanner>,

@@ -204,26 +204,11 @@ pub struct SessionScopedResources<'w> {
     /// here costs nothing and removes the interval; establishing exactly how long
     /// the interval is would cost a poison test and leave the interval there.
     active_conversation: ResMut<'w, ambition_conversation::ActiveConversation>,
-    /// ⛔⛤ **THE CUTSCENE'S PENDING SIMULATION INPUT, AND LEAVING IT OUT MADE THE
-    /// TWO MEMBERS ABOVE AN INCOMPLETE FIX (review, 2026-09-13).**
-    /// `CutsceneAdvanceRequest` holds `dismiss_dialogue` and `skip_cutscene` —
-    /// *"only completed dismiss and skip edges cross into simulation"*, so these
-    /// are edges already through the door, not presentation. `tick_active_cutscene`
-    /// consumes them with `mem::take`, and the cutscene schedule is
-    /// `auto_trigger_room_cutscenes -> drain_cutscene_triggers ->
-    /// tick_active_cutscene`.
-    ///
-    /// ⇒ So: A raises `skip_cutscene` and retires before the tick consumes it;
-    /// teardown clears `ActiveCutscene` and the trigger queue and leaves THIS —
-    /// then B's opening room auto-triggers its own cutscene, the trigger starts
-    /// B's runtime, and the very next `tick_active_cutscene` spends **A's skip on
-    /// B's scene**. Clearing the playback alone does not end A's authority.
-    cutscene_advance: ResMut<'w, ambition_cutscene::CutsceneAdvanceRequest>,
-    /// ⚠ INPUT-LOCAL WALL-TIME PROGRESS, not simulation state — it is here as
-    /// hygiene at the same boundary, so a half-held skip from the retired session
-    /// does not sit in the next one's HUD. Its own doc says it *"never enters
-    /// simulation state"*, and that is why it is the last member rather than the
-    /// reason for this group.
+    /// The cutscene's partial skip hold. Simulation state since the skip
+    /// reads the seat's `ControlFrame::cancel_held` inside the timeline; reset
+    /// here so a half-held skip from the retired session cannot finish on the
+    /// next session's opening cutscene. (A completed dismiss or skip no longer
+    /// waits in a resource between frames: it is part of the tick's input.)
     cutscene_skip_hold: ResMut<'w, ambition_cutscene::CutsceneSkipHold>,
     /// ⛔⛤ **THE MATCH-IDENTITY MIRRORS, AND THEY ARE HERE FOR A PEER
     /// CHECKSUM RATHER THAN FOR HYGIENE.** Each of the three below is stamped
@@ -477,7 +462,6 @@ fn reset(resources: SessionScopedResources) {
         mut active_cutscene,
         mut cutscene_triggers,
         mut active_conversation,
-        mut cutscene_advance,
         mut cutscene_skip_hold,
         mut settled,
         mut sudden_death,
@@ -509,7 +493,6 @@ fn reset(resources: SessionScopedResources) {
     *active_cutscene = ambition_cutscene::ActiveCutscene::default();
     *cutscene_triggers = ambition_cutscene::CutsceneTriggerQueue::default();
     *active_conversation = ambition_conversation::ActiveConversation::default();
-    *cutscene_advance = ambition_cutscene::CutsceneAdvanceRequest::default();
     *cutscene_skip_hold = ambition_cutscene::CutsceneSkipHold::default();
     *settled = ambition_match::StocksMatchSettled::default();
     *sudden_death = ambition_match::SuddenDeathEntered::default();

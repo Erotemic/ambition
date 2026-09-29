@@ -148,8 +148,21 @@ script fails if the two disagree. They moved here from
 `awaiting-maintainer-decision.md` when `Q136` was ruled and deleted — a marker
 pinned to a page that no longer states the fact is a check against nothing.
 
-<!-- crossing-census: both_side_resources=56 rollback_registered=33 adjudicated_harmless=19 session_edge_only=3 filed=1 unclassified=0 -->
-<!-- ingress-census: spent_resources=56 resource_crossings=3 written_messages=95 message_crossings=3 unlocated=41 unlocated_types=15 -->
+<!-- crossing-census: both_side_resources=55 rollback_registered=34 adjudicated_harmless=18 session_edge_only=3 filed=0 unclassified=0 -->
+<!-- ingress-census: spent_resources=55 resource_crossings=2 written_messages=95 message_crossings=3 unlocated=43 unlocated_types=15 -->
+
+⛔ **`resource_crossings` WENT 3 → 2 AND `spent_resources` 56 → 55 ON
+2026-09-28, AND THE ONE THAT LEFT IS NAMED:** `CutsceneAdvanceRequest`. The
+crossing census moved with it: `filed` 1 → 0 and `both_side_resources` 56 → 55
+for the same type, and `CutsceneSkipHold` moved from `adjudicated_harmless` to
+`rollback_registered` because it is now simulation state. The
+cutscene dismiss and skip now ride the seat's `ControlFrame`
+(`confirm_pressed`, `cancel_held`), and `tick_active_cutscene` reads them from
+`SlotControls`, so no `Update` system writes a request for the simulation to
+spend. **`unlocated` WENT 41 → 43 IN THE SAME WINDOW, AND THE TWO THAT JOINED ARE
+NAMED:** `break_monitor_boxes` and `defeat_badniks`, both Sanic simulation
+systems that the demo installs through a `let` binding the script cannot
+follow. Neither is a host writer, so neither is a crossing.
 
 ⛔ **`both_side_resources` WENT 57 → 56 AND `adjudicated_harmless` 20 → 19 ON
 2026-09-24, and the one that left is named:** `DeveloperRuntimeState`. AP17

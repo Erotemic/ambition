@@ -60,7 +60,6 @@ fn app_with_populated_mirrors() -> App {
     app.init_resource::<ambition_cutscene::ActiveCutscene>();
     app.init_resource::<ambition_cutscene::CutsceneTriggerQueue>();
     app.init_resource::<ambition_conversation::ActiveConversation>();
-    app.init_resource::<ambition_cutscene::CutsceneAdvanceRequest>();
     app.init_resource::<ambition_cutscene::CutsceneSkipHold>();
     // The match-identity mirrors. See the `SessionScopedResources` field doc:
     // these are here so a stale stamp from the previous session cannot sit
@@ -550,11 +549,10 @@ fn ambient_gravity_does_not_outlive_the_session_that_flipped_it() {
 /// CURRENT save, so A's stale playback finishing after B installed its file
 /// writes A's narrative flag into B's.
 ///
-/// ⛔ **AND `CutsceneAdvanceRequest`, WHICH THE FIRST FIX LEFT OUT** — the
-/// completed dismiss/skip EDGES already across the simulation boundary, consumed
-/// by `tick_active_cutscene` with `mem::take`. Clearing the playback alone does
-/// not end A's authority: B's opening room auto-triggers its own cutscene and the
-/// next tick spends A's skip on it.
+/// ⛔ **AND THE PARTIAL SKIP HOLD.** Clearing the playback alone does not end
+/// A's authority: B's opening room auto-triggers its own cutscene, and a hold
+/// A had nearly completed would finish on B's scene after a fraction of the
+/// hold a player has to give.
 ///
 /// ⚠ `ActiveCutscene` is not asserted here and that is this file's standing rule,
 /// not an omission: "every" is the COMPILER's claim, made by `reset`'s exhaustive
@@ -567,10 +565,7 @@ fn a_session_does_not_inherit_the_previous_ones_queued_cutscene_or_pending_skip(
         .resource_mut::<ambition_cutscene::CutsceneTriggerQueue>()
         .request("intro");
     app.world_mut()
-        .insert_resource(ambition_cutscene::CutsceneAdvanceRequest {
-            dismiss_dialogue: false,
-            skip_cutscene: true,
-        });
+        .insert_resource(ambition_cutscene::CutsceneSkipHold { seconds: 1.0 });
 
     app.update();
     assert_eq!(
@@ -594,17 +589,13 @@ fn a_session_does_not_inherit_the_previous_ones_queued_cutscene_or_pending_skip(
         "a cutscene trigger raised by the retired session survived it, so the \
          next session plays the previous run's scene"
     );
-    // ⛔⛤ **THE PENDING INPUT, WHICH THE FIRST VERSION OF THIS FIX LEFT OUT.**
-    // `skip_cutscene` is a COMPLETED edge already across the simulation boundary,
-    // consumed by `tick_active_cutscene` with `mem::take`. With the playback
-    // cleared and this left standing, B's opening room auto-triggers ITS cutscene
-    // and the very next tick spends A's skip on it.
-    assert!(
-        !app.world()
-            .resource::<ambition_cutscene::CutsceneAdvanceRequest>()
-            .skip_cutscene,
-        "a skip raised by the retired session survived it, so the next session's \
-         opening cutscene is skipped by an input nobody gave it"
+    assert_eq!(
+        app.world()
+            .resource::<ambition_cutscene::CutsceneSkipHold>()
+            .seconds,
+        0.0,
+        "a skip hold from the retired session survived it, so the next session's \
+         opening cutscene skips after a fraction of the hold"
     );
 }
 

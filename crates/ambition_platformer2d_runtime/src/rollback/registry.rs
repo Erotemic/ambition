@@ -850,7 +850,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// longer writes the rider's scale, so nothing restores it from a copy.
 /// ⛔⛤ 256 -> 257: `capture.captured_by` loses its prior gravity scale. A hold
 /// no longer writes the captive's scale, so a release has nothing to restore.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 257;
+/// ⛔⛤ 257 -> 258: `cutscene.skip_hold` joins. A cutscene's dismiss and skip
+/// ride the seat's `ControlFrame`, and the skip hold accumulates inside the
+/// timeline, so it rewinds with the cutscene.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 258;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

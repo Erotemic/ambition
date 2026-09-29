@@ -13,7 +13,9 @@ COULD NEVER DESCRIBE IT.** Both end with the intent gone:
     NOT rollback-registered   The sim consumes it on a speculative frame. The
                               rewind does NOT put it back -- it is not registered
                               -- so the consumption stands and nothing re-produces
-                              the request. `CutsceneAdvanceRequest`.
+                              the request. (`CutsceneAdvanceRequest` was this
+                              row until 2026-09-28, when the dismiss moved onto the
+                              seat's `ControlFrame`.)
     rollback-registered       The rewind DOES put it back, to the value it held
                               before the host wrote it. The host's write is
                               erased. `NewGameResetRequested`.
@@ -486,14 +488,6 @@ def consumers_and_producers(
 #: ⛔ A crossing here is NOT waived: every one of these is a live defect or a
 #: filed one. The table exists so a NEW crossing is loud.
 ADJUDICATED: dict[str, str] = {
-    "CutsceneAdvanceRequest": (
-        "⛔ LIVE DEFECT, Q136. NOT rollback-registered. Produced by "
-        "`apply_menu_frame_to_cutscene_request` in `Update`, spent by "
-        "`tick_active_cutscene` with `mem::take` in the sim's `Cutscene` phase. A "
-        "dismiss pressed on the host side does nothing: the take stands through the "
-        "rewind and nothing re-produces the press. Held by "
-        "`a_cutscene_dismiss_raised_outside_the_simulation_is_lost` (read 2026-09-18)"
-    ),
     "NewGameResetRequested": (
         "⛔ LIVE DEFECT, Q136, AND BY THE OPPOSITE MECHANISM. IS "
         "rollback-registered, so the rewind restores it to `false` and ERASES the "

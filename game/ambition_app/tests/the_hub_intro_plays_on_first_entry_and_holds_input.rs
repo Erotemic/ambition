@@ -20,16 +20,16 @@
 //! binding was still broken, and the next reader would have no way to tell.
 //!
 //! ⚠ **WHAT THIS FILE IS NOT.** It is a claim about this composition — the
-//! shell host with no rollback session — not about a rewinding one. Q136
-//! records that `CutsceneAdvanceRequest` is host-produced and sim-consumed, so
-//! a dismiss can be lost across a rewind; that is a different arm and it is not
-//! measured here. What IS measured is that the dismiss works at all, which is
-//! what says the shipped game's first boot is not a hang.
+//! shell host with no rollback session — not about a rewinding one. The dismiss
+//! rides the seat's `ControlFrame::confirm_pressed`, and the rewinding arm is
+//! `a_cutscene_dismiss_on_the_seats_input_survives_the_rewind_once`. What IS
+//! measured here is that a real key press dismisses at all, through the
+//! device road, which is what says the shipped game's first boot is not a hang.
 
 #![cfg(feature = "rl_sim")]
 
 use ambition_app::app::shell_host;
-use ambition_platformer2d::cutscene::{ActiveCutscene, CutsceneAdvanceRequest};
+use ambition_platformer2d::cutscene::ActiveCutscene;
 use ambition_platformer2d::game_shell::ShellCommand;
 use ambition_platformer2d::input::SeatInputContexts;
 use bevy::asset::AssetPlugin;
@@ -150,9 +150,12 @@ fn the_hub_intro_plays_on_first_entry_and_captures_the_seat() {
          runs out by itself makes the dismiss below untestable"
     );
 
-    app.world_mut()
-        .resource_mut::<CutsceneAdvanceRequest>()
-        .dismiss_dialogue = true;
+    // The real device road: Enter is bound to MenuSelect, which the seat's frame
+    // carries as `confirm_pressed` while the cutscene holds the seat.
+    use leafwing_input_manager::prelude::Buttonlike;
+    Buttonlike::press(&KeyCode::Enter, app.world_mut());
+    app.update();
+    Buttonlike::release(&KeyCode::Enter, app.world_mut());
     let mut ended = false;
     for _ in 0..120 {
         app.update();

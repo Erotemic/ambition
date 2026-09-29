@@ -1,22 +1,23 @@
 """The boundary census must find the defects that are already measured.
 
-Three resources are known to be written outside the rewinding schedule and
+Two resources are known to be written outside the rewinding schedule and
 consumed inside it, each held by a witness with an in-sim control arm in
 `game/ambition_app/tests/a_bag_changed_mid_window_reaches_the_save.rs`:
 
     NewGameResetRequested    menu press -> 0 commits
     OwnedItems               Update grant -> never lands
-    CutsceneAdvanceRequest   host dismiss -> beat stays
 
-⛔ THOSE THREE ARE THIS CENSUS'S KNOWN ANSWERS, and they are the only defence
+A third, `CutsceneAdvanceRequest`, is deleted: the cutscene dismiss rides the
+seat's `ControlFrame`, so it no longer crosses and is not a known answer.
+
+⛔ THOSE TWO ARE THIS CENSUS'S KNOWN ANSWERS, and they are the only defence
 against the failure mode a sweep like this actually has: reporting FEWER rows
 looks like a tidier codebase and is indistinguishable from a parser that stopped
 matching. A census that cannot see a defect somebody already reproduced is
 broken, however clean its output reads.
 
-⚠ The three do not all land in the same bucket, which is the point of asserting
-membership rather than a count: two are rollback-REGISTERED (so the sibling
-mutator guard can see them) and one carries no registration at all (so it cannot).
+⚠ Membership is asserted rather than a count, because a count cannot tell a
+repaired row from a parser that stopped matching.
 """
 
 from __future__ import annotations
@@ -41,7 +42,6 @@ SCRIPT = REPO / "scripts/resources_crossing_the_rewind_boundary.py"
 MEASURED_DEFECTS = {
     "NewGameResetRequested": "dispatch_menu_action",
     "OwnedItems": "dispatch_menu_action",
-    "CutsceneAdvanceRequest": "apply_menu_frame_to_cutscene_request",
 }
 
 
@@ -120,9 +120,9 @@ def test_a_stale_filed_entry_fails(monkeypatch, capsys):
 
 
 def test_a_filed_row_is_reported_apart_from_an_unexamined_one(capsys):
-    """⛔ THE DISTINCTION IS THE POINT. `CutsceneAdvanceRequest` crosses in the
-    defect's own shape and has `Q136` in front of it; a row nobody has looked at
-    does not. Reporting both as UNCLASSIFIED made the census unable to answer the
+    """⛔ THE DISTINCTION IS THE POINT. A FILED row crosses in the defect's own
+    shape and has a question in front of it; a row nobody has looked at does
+    not. Reporting both as UNCLASSIFIED made the census unable to answer the
     question its own docstring says it exists for — how many resources a ruling
     is responsible for."""
     module = load()

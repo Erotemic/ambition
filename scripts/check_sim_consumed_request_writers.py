@@ -11,9 +11,9 @@ REWIND WITH THE WORLD"* — and the cutscene pair has no equivalent.
 `CutsceneTriggerQueue` is correct TODAY for a reason nobody had written down:
 every one of its producers happens to run inside the sim schedule, so a replay
 re-produces whatever the rewind dropped. That is an invariant held by
-coincidence. The moment a producer appears in `Update` — exactly where
-`apply_menu_frame_to_cutscene_request` already sits — the queue becomes the
-measured defect its sibling already is (`Q136`).
+coincidence. The moment a producer appears in `Update`, the queue becomes the
+defect its sibling `CutsceneAdvanceRequest` was until that request moved onto the
+seat's `ControlFrame` (`Q136`).
 
 ⚠ **THIS SCRIPT DOES NOT ATTRIBUTE SCHEDULES AND MUST NOT BE READ AS IF IT
 DID.** `System::name()` is *"<Enable the debug feature to see the name>"* in this
@@ -56,8 +56,8 @@ runs Track B under a rollback host, recording a `PendingLifecycleCommit` the hos
 commits only once the recording frame is CONFIRMED. A room change can never occur
 on a speculative frame, so no trigger keyed on one can be driven across a rewind.
 ⇒ Whatever replaces this ratchet has to drive a producer that fires on a
-SPECULATIVE frame — which is what `CutsceneAdvanceRequest` is, and why item 1 of
-`CUTSCENE-ROLLBACK-DECISION` has a failing witness and this subject does not. Both
+SPECULATIVE frame — which is what the cutscene dismiss is, and why item 1 of
+`CUTSCENE-ROLLBACK-DECISION` had a witness and this subject does not. Both
 arms are kept for what they do pin — the binding resolving under a rollback
 composition, at boot and across a mid-session crossing — and NEITHER is this
 ratchet's replacement.
@@ -84,7 +84,7 @@ the multi-writer census gives **six resource types**:
 
     QuestRegistry           6 writers   registered
     DialogState             4 writers   NOT registered — Yarn presentation state
-    CutsceneAdvanceRequest  2 writers   NOT registered — item 1 of CUTSCENE-ROLLBACK-DECISION, blocked on `Q136`
+    CutsceneAdvanceRequest  2 writers   NOT registered — item 1 of CUTSCENE-ROLLBACK-DECISION (deleted 2026-09-28: the dismiss rides the ControlFrame)
     CutsceneTriggerQueue    2 writers   NOT registered — this file's subject
     VersusMatch             2 writers   registered
     PendingPlayerHitEvents  1 writer    registered

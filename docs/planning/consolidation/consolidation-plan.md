@@ -107,12 +107,12 @@ Local tokens stay local. Canonical provenance uses only peer-stable mechanical f
 
 ### CURRENT STATE
 
-Source explicitly groups **37** App resources as gameplay-session or
+Source explicitly groups **36** App resources as gameplay-session or
 activated-generation state. Activation reset is the correctness edge; retirement
 cleanup is hygiene.
 
 ⚠ **THAT NUMBER WAS 32 UNTIL IT WAS RE-DERIVED 2026-09-16, AND THE DRIFT IS THE
-CAMPAIGN'S OWN SUBJECT MOVING.** `SessionScopedResources` holds 30 `ResMut`
+CAMPAIGN'S OWN SUBJECT MOVING.** `SessionScopedResources` holds 29 `ResMut`
 fields, not 25 — counted field by field in
 `actor_monolith/src/session/teardown.rs`, each one a distinct App resource. The
 four that arrived are `StocksMatchSettled`, `SuddenDeathEntered`, `LiveMatchTicks`
@@ -120,11 +120,12 @@ and `SessionMatchOrdinal`: the `MatchInstance`-stamped resources that ID-PEER
 made MEMBERS of this grouping rather than moving elsewhere, which is the correct
 outcome for them and grows C03's population by four. ⇒ **A campaign whose
 starting census is four rows stale starts by consolidating a set it has not
-enumerated.**
+enumerated.** It held 30 until 2026-09-28, when `CutsceneAdvanceRequest` left
+the bundle: the cutscene dismiss and skip now ride the seat's `ControlFrame`.
 
 ### INDEPENDENT TRUTHS INVOLVED
 
-<!-- session-owner-census: SessionScopedResources=30 SessionOwnedCheckpointState=6 SessionMechanics=1 -->
+<!-- session-owner-census: SessionScopedResources=29 SessionOwnedCheckpointState=6 SessionMechanics=1 -->
 ⭐ **THE LINE ABOVE IS THE MACHINE-READABLE COPY AND
 `scripts/check_session_owner_census_matches_source.py` COMPARES IT TO SOURCE.**
 It exists because this census drifted by four while C03 waited on its gates, and
@@ -132,7 +133,7 @@ a number in prose has no way to notice that. The prose below is for readers; the
 comment is for the guard, and the guard fails if they stop agreeing with
 `teardown.rs` and `checkpoint.rs`.
 
-`SessionScopedResources` (**30**, re-derived 2026-09-16 — the row said 25, then 29),
+`SessionScopedResources` (**29**, re-derived 2026-09-28 — the row said 25, then 29, then 30),
 `SessionOwnedCheckpointState` (6, unchanged) and `SessionMechanics` (1 resource,
 unchanged — it is ONE resource with six fields, and counting its fields is how
 this total gets read as 41), plus `SessionRoot` as the current owner-scoped
@@ -145,7 +146,7 @@ Much of this state was introduced as App resources for broad system access. Sess
 ### WHAT COULD DISAPPEAR
 
 ⛔⛤ **MEASURED 2026-09-16, RE-RUN 2026-09-17: THE "RESET-ONLY" POPULATION IS
-EMPTY.** All 30 `SessionScopedResources` members have at least one reader outside
+EMPTY.** All thirty `SessionScopedResources` members of that date have at least one reader outside
 the reset that owns them — `scripts/measure_session_scoped_resource_readers.py`, which prints
 its own patterns so a reader can see what it would miss. The thinnest are
 `LastCutsceneRoom` (1 system param + 2 direct accesses) and `SwitchActivationQueue`
@@ -163,7 +164,7 @@ production writes `ResMut<ambition_cutscene::LastCutsceneRoom>`. A zero from a
 name-matching scan is a claim about the QUERY.
 
 ⛔⛤ **AND "SEPARATE RESET LISTS" IS NOT A DUPLICATED AUTHORITY EITHER, MEASURED
-2026-09-16.** There are TWO resource-reset lists — `SessionScopedResources` (30)
+2026-09-16.** There are TWO resource-reset lists — `SessionScopedResources` (29)
 and `SessionOwnedCheckpointState` (6, all six checkpoint-operation types) — and
 their intersection is **EMPTY**. Both run at `SessionScopeSet::Activate`. So they
 are a PARTITION of session-owned state, not two copies of it: merging them buys
@@ -307,12 +308,14 @@ shipped files, restored by md5.
 
 ### AND FOR THE BIG FAMILY: 24 OF `SessionScopedResources`' 30 ARE ROLLBACK STATE
 
-RE-DERIVED 2026-09-17 with the same widened scan, and the partition is three ways
-rather than two: **`SessionScopedResources` holds 30, of which 24 are
+RE-DERIVED 2026-09-28 with the same widened scan, and the partition is three ways
+rather than two: **`SessionScopedResources` holds 29, of which 25 are
 state-registered, 2 declare themselves DERIVED (`ControlledSubject`,
-`EncounterView`) and 4 carry no rollback decision of any kind
-(`BossEncounterRegistry`, `CutsceneTriggerQueue`, `CutsceneAdvanceRequest`,
-`CutsceneSkipHold`).** ⚠ It read 22 / 3 / 4 of 29 on 2026-09-16; the move is one
+`EncounterView`) and 2 carry no rollback decision of any kind
+(`BossEncounterRegistry`, `CutsceneTriggerQueue`).** It read 24 / 2 / 4 of thirty on
+2026-09-17: `CutsceneAdvanceRequest` left the bundle for the seat's
+`ControlFrame`, and `CutsceneSkipHold` became simulation state and is registered
+as `cutscene.skip_hold`. ⚠ It read 22 / 3 / 4 of 29 on 2026-09-16; the move is one
 new member plus `AuthoredOccurrences`, which stopped being declared derived and
 is registered now (`f15461f52`) — not two more registrations landing. ⇒ **This is the number that prices C03**, and it says the campaign
 is mostly a rollback-state migration rather than a storage tidy-up: step 3 applies
@@ -350,9 +353,14 @@ definition and must not rewind.
 
 ⇒ **FOUR CARRY NO ROLLBACK DECISION OF ANY KIND**, and reading them answered two:
 `BossEncounterRegistry` is an authored read-only catalog behind a one-shot latch
-and `CutsceneSkipHold` is HUD-only by its own doc, both correctly unregistered.
-**The remaining two — `CutsceneTriggerQueue` and `CutsceneAdvanceRequest` — are
-written or consumed INSIDE the rewinding schedule and rewind with nothing.** That
+and `CutsceneSkipHold` was HUD-only by its own doc, both correctly unregistered
+on that date. **The remaining two — `CutsceneTriggerQueue` and `CutsceneAdvanceRequest` — were
+written or consumed INSIDE the rewinding schedule and rewound with nothing.**
+✅ 2026-09-28: `CutsceneAdvanceRequest` is deleted. The dismiss and the skip hold
+are seat intents on the `ControlFrame`, `tick_active_cutscene` reads them from
+`SlotControls`, and the skip accumulator `CutsceneSkipHold` is now
+rollback-registered simulation state. `CutsceneTriggerQueue` stays benign by its
+all-in-sim producer invariant. That
 is now its own queue row,
 [CUTSCENE-ROLLBACK-DECISION](../queue.md#cutscene-rollback-decision--two-session-scoped-cutscene-values-cross-into-simulation-with-no-rollback-decision),
 because it is open executable work rather than a census fact, and C03 does not own
@@ -1010,8 +1018,8 @@ compare a number against a baseline built by another rule.** Ask the tool, and
 then ask the tool what it throws away.
 
 ⭐ **AND THE CENSUS CROSS-CHECKS SOMETHING ELSE TONIGHT:** it independently
-reports *"explicit process resources with session/generation semantics: 37"*,
-which is C03's re-derived count, measured by a different road than the
+reported thirty-seven *"explicit process resources with session/generation semantics"*,
+which was C03's re-derived count on that date (36 since 2026-09-28), measured by a different road than the
 field-by-field read that produced it.
 
 ### INDEPENDENT TRUTHS INVOLVED
@@ -1257,19 +1265,19 @@ groups: `SessionOwnedCheckpointState` ×6 and `SessionScopedResources` ×30). La
 side by side, the ruling stops being a principle and becomes this campaign's
 triage order:
 
-| the ruling's category | members among the 37 | n |
+| the ruling's category | members among the 36 | n |
 |---|---|---:|
 | current room / world / session state | `LastCutsceneRoom`, `LastQuestRoom`, `RoomTransitionCooldown`, `MovingPlatformSet`, `SlotInteractionState` | 5 |
 | participant state | `ControlledSubject`, `PossessionState` | 2 |
 | encounter state | `EncounterRegistry`, `EncounterView`, `BossEncounterRegistry`, `AuthoredOccurrences` | 4 |
 | simulation clocks / timeline state | `GameplayElapsed`, `LiveMatchTicks`, `SessionMatchOrdinal`, `ProjectileSeqCounter` | 4 |
 | checkpoint / restore state | `SessionCheckpointOperations`, `SessionCheckpointOutcomes`, `AcceptedCheckpointRestore`, `AbandonedCheckpointOperation`, `SessionStartupResume`, `OutstandingCheckpointRequest`, `SaveRestored`, `CustodyBaseline`, `MintedItemBaseline`, `OccurrenceBaseline` | 10 |
-| session request / admission queues | `CutsceneTriggerQueue`, `SwitchActivationQueue`, `CutsceneAdvanceRequest`, `PendingLifecycleCommit` | 4 |
+| session request / admission queues | `CutsceneTriggerQueue`, `SwitchActivationQueue`, `PendingLifecycleCommit` | 3 |
 | admitted mechanics / configuration | `SessionMechanics`, `BaseGravity` | 2 |
 | cutscene / session gameplay state | `ActiveCutscene`, `ActiveConversation`, `CutsceneSkipHold` | 3 |
 | transient progression | `QuestRegistry`, `StocksMatchSettled`, `SuddenDeathEntered` | 3 |
 
-⭐ **EVERY ONE OF THE 37 IS ASSIGNED EXACTLY ONCE, CHECKED RATHER THAN EYEBALLED** — the first draft of this table put `OutstandingCheckpointRequest` under queues and `SessionStartupResume` beside the checkpoint group, and both are already MEMBERS of that group of six, so two names appeared twice and the column would not have summed. The assignment is now verified against `architecture_census.py --json` as a partition: no name missing, none repeated.
+⭐ **EVERY ONE OF THE 36 IS ASSIGNED EXACTLY ONCE, CHECKED RATHER THAN EYEBALLED** — the first draft of this table put `OutstandingCheckpointRequest` under queues and `SessionStartupResume` beside the checkpoint group, and both are already MEMBERS of that group of six, so two names appeared twice and the column would not have summed. The assignment is now verified against `architecture_census.py --json` as a partition: no name missing, none repeated.
 
 ⚠ **THEY REALLY ARE ANONYMOUS SINGLETONS, SPOT-CHECKED RATHER THAN ASSUMED.**
 `GameplayElapsed`
@@ -1300,7 +1308,7 @@ reset lists are a disjoint partition rather than two copies. The owner-by-owner
 sequence below is still the right shape; the cheap first win it implies is not
 there.
 
-Do not begin by moving all 37 values.
+Do not begin by moving all 36 values.
 Use a bounded owner-by-owner sequence:
 
 1. Re-run `python3 scripts/architecture_census.py` and confirm the explicit narrower-lifetime list.

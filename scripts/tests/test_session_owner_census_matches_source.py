@@ -129,7 +129,9 @@ def test_the_section_3_spelling_of_the_total_is_read_too():
     line = "The unique total is **37** — the three lists are disjoint, so it is their sum."
     totals = [int(m.group(1)) for form in guard.TOTAL_FORMS for m in form.finditer(line)]
     assert totals == [37], totals
-    assert guard.stray_totals(37) == []
+    # The total the marker states, as `main` computes it. A literal here went
+    # stale the day a member left the bundle.
+    assert guard.stray_totals(sum(guard.declared().values())) == []
     assert guard.stray_totals(999), "no line states the total, so this arm witnesses nothing"
 
 

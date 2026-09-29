@@ -2,7 +2,7 @@
 //!
 //! The cutscene script format and runtime stepper live in
 //! [`ambition_cutscene`] (data and logic, plus the playback resources
-//! `ActiveCutscene` and `CutsceneAdvanceRequest`). The cutscene runtime seam
+//! `ActiveCutscene` and `CutsceneSkipHold`). The cutscene runtime seam
 //! drives them (triggers, queue drain, tick, save-flag effects). Scripts and
 //! bindings are content (`ambition_content`).
 //!
@@ -40,7 +40,7 @@ pub struct CutsceneOverlayRoot;
 
 /// Build or refresh the cutscene UI overlay, like the dialogue presenter:
 /// despawn last frame's overlay and spawn this frame's from `ActiveCutscene`
-/// and `CutsceneAdvanceRequest`.
+/// and `CutsceneSkipHold`.
 ///
 /// Layout:
 /// - Banner beats: centered card near the top, no input prompt

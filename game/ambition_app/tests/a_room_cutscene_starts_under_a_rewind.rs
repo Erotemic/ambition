@@ -43,8 +43,8 @@
 //! rewind. ⇒ **A room transition is the wrong subject for this property, and the
 //! ratchet's own prescription cannot be built.** Its replacement, if there is
 //! one, has to drive a producer that fires on a SPECULATIVE frame — which is
-//! what item 1's `CutsceneAdvanceRequest` already is, and why that one has a
-//! failing witness and this one does not. The ratchet stays.
+//! what the cutscene dismiss on the seat's `ControlFrame` is, and why that one
+//! has a rewinding witness and this one does not. The ratchet stays.
 //!
 //! ⛔⛤ **AND THE RATCHET'S STATED MECHANISM IS WRONG FOR ITS OWN SUBJECT
 //! ANYWAY.** Its premise is *"the restore puts the resource back and nothing

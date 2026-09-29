@@ -995,7 +995,7 @@ fn giant_gnu_mount_and_gnu_ton_rider_dismount_bridge_end_to_end() {
     // load-bearing.
     let rider_pos = ae::Vec2::new(0.0, -140.0);
     let rider_size = ae::Vec2::new(54.0, 96.0);
-    let mut rider_actor = hostile("gnu_ton_rider", "gnu_ton_rider", rider_pos, rider_size);
+    let rider_actor = hostile("gnu_ton_rider", "gnu_ton_rider", rider_pos, rider_size);
     let (boss_encounter, _hp) = ambition_boss_encounter::test_support::test_boss_status_with(
         profile.encounter.max_hp,
         BossEncounterPhase::Phase1,
@@ -1358,7 +1358,7 @@ fn a_possessing_player_slams_the_giants_hands_via_the_verb_map() {
         BossEncounterPhase::Phase1,
         PhaseTrigger::intrinsic_from_spec(&profile.encounter),
     );
-    let mut rider_actor = hostile(
+    let rider_actor = hostile(
         "gnu_ton_rider",
         "gnu_ton_rider",
         rider_pos,

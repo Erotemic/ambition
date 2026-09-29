@@ -29,4 +29,10 @@ where
         OWNER,
         "cutscene.last_room",
     );
+    // The skip is a hold accumulated inside the timeline, so a rewind must put
+    // the partial hold back with the cutscene it belongs to.
+    registrar.rollback_resource_optional_canonical::<crate::CutsceneSkipHold>(
+        OWNER,
+        "cutscene.skip_hold",
+    );
 }

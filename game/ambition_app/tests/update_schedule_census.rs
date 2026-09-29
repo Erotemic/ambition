@@ -139,9 +139,7 @@ fn census_of_how_much_of_update_is_inside_a_set() {
 /// alone is insufficient.
 #[test]
 fn the_menu_frame_reader_sets_are_co_scheduled() {
-    use ambition_platformer2d::actors::schedule::{
-        MenuFrameConsume, MenuFrameCutsceneSkip, MenuNavConsume,
-    };
+    use ambition_platformer2d::actors::schedule::{MenuFrameConsume, MenuNavConsume};
 
     let mut app =
         ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
@@ -157,7 +155,6 @@ fn the_menu_frame_reader_sets_are_co_scheduled() {
         .collect();
 
     // Schedules in which each set has AT LEAST ONE member system.
-    let mut cutscene_in: Vec<String> = Vec::new();
     let mut nav_in: Vec<String> = Vec::new();
     let mut umbrella_in: Vec<String> = Vec::new();
 
@@ -185,9 +182,6 @@ fn the_menu_frame_reader_sets_are_co_scheduled() {
                 let _ = schedule.initialize(world);
                 let graph = schedule.graph();
                 let name = format!("{label:?}");
-                if members(graph, MenuFrameCutsceneSkip) > 0 {
-                    cutscene_in.push(name.clone());
-                }
                 if members(graph, MenuNavConsume) > 0 {
                     nav_in.push(name.clone());
                 }
@@ -196,25 +190,15 @@ fn the_menu_frame_reader_sets_are_co_scheduled() {
                 }
             });
     }
-    cutscene_in.sort();
     nav_in.sort();
     umbrella_in.sort();
-    println!("cutscene-skip readers in: {cutscene_in:?}");
     println!("nav readers in:           {nav_in:?}");
     println!("MenuFrameConsume in:      {umbrella_in:?}");
 
     assert!(
-        !cutscene_in.is_empty() && !nav_in.is_empty(),
-        "a menu-frame reader set has no members in ANY schedule, so every \
-         `.before` pinned against it is already vacuous — cutscene: \
-         {cutscene_in:?}, nav: {nav_in:?}",
-    );
-    assert_eq!(
-        cutscene_in, nav_in,
-        "the two sets that read `MenuControlFrame` are populated in DIFFERENT \
-         schedules, so a writer cannot land before both by pinning both: one of \
-         the two `.before`s is silently doing nothing. cutscene-skip in \
-         {cutscene_in:?}, nav in {nav_in:?}",
+        !nav_in.is_empty(),
+        "the menu-frame reader set has no members in ANY schedule, so every \
+         `.before` pinned against it is already vacuous",
     );
     assert_eq!(
         umbrella_in, nav_in,
@@ -324,9 +308,7 @@ type ConflictCensus = (
 );
 
 fn menu_frame_conflicts(app: &mut App) -> ConflictCensus {
-    use ambition_platformer2d::actors::schedule::{
-        MenuFrameConsume, MenuFrameCutsceneSkip, MenuNavConsume,
-    };
+    use ambition_platformer2d::actors::schedule::{MenuFrameConsume, MenuNavConsume};
     let menu_id = app
         .world()
         .components()
@@ -364,13 +346,10 @@ fn menu_frame_conflicts(app: &mut App) -> ConflictCensus {
                 let conflicts = schedule.graph().conflicting_systems();
                 let graph = schedule.graph();
                 let nav = set_members(graph, MenuNavConsume);
-                let cutscene = set_members(graph, MenuFrameCutsceneSkip);
                 let umbrella = set_members(graph, MenuFrameConsume);
                 let where_is = |k: &bevy::ecs::schedule::SystemKey| -> &'static str {
                     if nav.contains(k) {
                         "MenuNavConsume"
-                    } else if cutscene.contains(k) {
-                        "MenuFrameCutsceneSkip"
                     } else if umbrella.contains(k) {
                         "MenuFrameConsume(direct)"
                     } else {
@@ -494,10 +473,10 @@ fn menu_frame_readers_are_ordered_against_each_other_in_the_shipped_app() {
     //
     // Deliberately not `assert_eq!(.., 0)`: that would leave the suite red while
     // the audit is open, and a permanently-red guard stops being read.
-    // ⭐ THE NINE ARE FULLY ACCOUNTED FOR, 2026-09-07, and the arithmetic closes:
-    // eight are `MenuNavConsume x NO MENU SET` and the ninth is
-    // `MenuFrameCutsceneSkip x MenuNavConsume`, which the host declares
-    // deliberate. FOUR readers of `MenuControlFrame` declare no menu set at all
+    // ⭐ THE EIGHT ARE FULLY ACCOUNTED FOR, and the arithmetic closes: all eight
+    // are `MenuNavConsume x NO MENU SET`. (A ninth, the cutscene-skip reader
+    // against the nav consumers, left on 2026-09-28 with its reader: a cutscene
+    // now reads the seat's `ControlFrame`, not the menu frame.) FOUR readers of `MenuControlFrame` declare no menu set at all
     // -- `ambition_dialog::dialog_input`, `ambition_menu::map::handle_map_menu_hotkeys`,
     // and `ambition_game_shell`'s `basic_shell_menu_intent` and
     // `drive_shell_pause_menu` -- against two of the nav consumers. 4 x 2 = 8.
@@ -512,7 +491,7 @@ fn menu_frame_readers_are_ordered_against_each_other_in_the_shipped_app() {
     //
     // Whether these matter is `awaiting-maintainer-decision.md` Q75 -- it turns on
     // whether two of those surfaces can be live in one frame, which is Jon's to say.
-    const KNOWN_UNORDERED_MENU_PAIRS: usize = 9;
+    const KNOWN_UNORDERED_MENU_PAIRS: usize = 8;
     assert!(
         on_menu_frame <= KNOWN_UNORDERED_MENU_PAIRS,
         "{on_menu_frame} pairs of systems touch `MenuControlFrame` with no ordering \
@@ -569,7 +548,6 @@ fn name_the_menu_frame_conflicts() {
                 name!("dialog_input", ambition_platformer2d::dialog::dialog_input);
                 name!("fold_touch_gestures", ambition_platformer2d::touch_input::menu_bridge::fold_touch_gestures);
                 name!("handle_map_menu_hotkeys", ambition_platformer2d::menu::map::handle_map_menu_hotkeys);
-                name!("apply_menu_frame_to_cutscene_request", ambition_platformer2d::actors::schedule::apply_menu_frame_to_cutscene_request);
                 name!("populate_menu_control_frame_from_actions", ambition_platformer2d::actors::schedule::populate_menu_control_frame_from_actions);
 
                 let who = |k: &bevy::ecs::schedule::SystemKey| -> String {

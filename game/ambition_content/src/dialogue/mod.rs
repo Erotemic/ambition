@@ -32,8 +32,7 @@ impl Plugin for AmbitionDialogueContentPlugin {
     fn build(&self, app: &mut App) {
         voiceprints::register(app);
         app.insert_resource(ambition_cutscene::ActiveCutscene::default())
-            .insert_resource(ambition_cutscene::CutsceneTriggerQueue::default())
-            .insert_resource(ambition_cutscene::CutsceneAdvanceRequest::default());
+            .insert_resource(ambition_cutscene::CutsceneTriggerQueue::default());
         // The registries are shared: other plugins (the intro) add their rows
         // too. So this plugin adds its rows and does not replace the registry,
         // and the order in which the plugins are added does not matter.

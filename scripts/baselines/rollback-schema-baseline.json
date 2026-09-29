@@ -1,6 +1,6 @@
 {
   "peer_checksum_schema": {
-    "version": "ggrs-rollback-schema-v257",
+    "version": "ggrs-rollback-schema-v258",
     "rows": [
       "actor.active_combatant\tcomponent-canonical\tActiveCombatant",
       "actor.aggression\tcomponent-clone-cursor\tActorAggression",
@@ -85,6 +85,7 @@
       "content.seismic_stomp_state\tcomponent-canonical\tSeismicStompState",
       "cutscene.last_room\tresource-canonical\tLastCutsceneRoom\tbevy_ggrs canonical codec snapshot + presence-aware canonical checksum projection",
       "cutscene.playback\tresource-canonical\tActiveCutscene\tbevy_ggrs canonical codec snapshot + presence-aware canonical checksum projection",
+      "cutscene.skip_hold\tresource-canonical\tCutsceneSkipHold\tbevy_ggrs canonical codec snapshot + presence-aware canonical checksum projection",
       "encounter.lifecycle\tcomponent-canonical\tEncounterLifecycle",
       "encounter.participants\tcomponent-clone-canonical-checksum\tEncounterParticipants",
       "encounter.script\tcomponent-clone-custom-checksum\tEncounterScript\tbevy_ggrs clone snapshot + cursor and beat-elapsed bits",
@@ -203,6 +204,7 @@
     "ambition_cutscene::ActiveCutscene",
     "ambition_cutscene::CutsceneBeat",
     "ambition_cutscene::CutsceneScript",
+    "ambition_cutscene::CutsceneSkipHold",
     "ambition_cutscene::LastCutsceneRoom",
     "ambition_encounter::EncounterLifecycle",
     "ambition_encounter::EncounterParticipants",

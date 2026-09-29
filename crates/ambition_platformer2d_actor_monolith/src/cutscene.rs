@@ -15,7 +15,7 @@
 use bevy::prelude::*;
 
 use ambition_cutscene::{
-    ActiveCutscene, CutsceneAdvanceRequest, CutsceneEvent, CutsceneLibrary, CutsceneRuntime,
+    ActiveCutscene, CutsceneEvent, CutsceneLibrary, CutsceneRuntime,
     RoomCutsceneBindings,
 };
 
@@ -126,21 +126,40 @@ fn end_cutscene(
 /// cutscene-authority row in `tracks.md`" until 2026-09-18; `tracks.md` does
 /// not mention cutscenes at all, and this doc block was itself attached to
 /// `end_cutscene` rather than to the function it describes.
+///
+/// ⭐ THE PLAYER'S DISMISS AND SKIP ARE READ FROM THE PRIMARY SEAT'S
+/// `ControlFrame` (`confirm_pressed`, `cancel_held`), the input this tick was
+/// given. A replay and a peer receive the same frame, so a rewind across the
+/// press re-delivers it. The primary seat owns the shell controls, as it owns
+/// `MenuControlFrame`.
 pub fn tick_active_cutscene(
     time: Res<ambition_time::WorldTime>,
+    controls: Res<ambition_characters::control::SlotControls>,
     mut active: ResMut<ActiveCutscene>,
-    mut request: ResMut<CutsceneAdvanceRequest>,
+    mut skip_hold: ResMut<ambition_cutscene::CutsceneSkipHold>,
     mut save: ResMut<ambition_persistence::save::AmbitionGameSave>,
 ) {
-    let dismiss = std::mem::take(&mut request.dismiss_dialogue);
-    let skip = std::mem::take(&mut request.skip_cutscene);
+    let seat = controls.get(ambition_characters::control::PlayerSlot::PRIMARY);
     let dt = time.sim_dt();
 
     let Some(runtime) = active.runtime.as_mut() else {
+        // A partial hold belongs to the cutscene that accumulated it.
+        skip_hold.seconds = 0.0;
         return;
     };
 
+    let skip = if seat.cancel_held {
+        skip_hold.seconds += dt;
+        skip_hold.seconds >= ambition_cutscene::SKIP_HOLD_THRESHOLD_SECS
+    } else {
+        skip_hold.seconds = 0.0;
+        false
+    };
+    // An EDGE: a held confirm does not burn through several beats.
+    let dismiss = seat.confirm_pressed;
+
     if skip {
+        skip_hold.seconds = 0.0;
         let _ = runtime.skip();
         end_cutscene(&mut active, &mut save);
         return;
@@ -202,9 +221,8 @@ impl Plugin for CutsceneSchedulePlugin {
         app.init_resource::<CutsceneTriggerQueue>();
         app.init_resource::<ambition_cutscene::LastCutsceneRoom>();
         app.init_resource::<ActiveCutscene>();
-        app.init_resource::<CutsceneAdvanceRequest>();
-        // The input-local half of the skip: an accumulator the HUD draws and the
-        // sim never reads. See `CutsceneSkipHold`.
+        // The skip hold, accumulated by `tick_active_cutscene` from the seat's
+        // `cancel_held`. See `CutsceneSkipHold`.
         app.init_resource::<ambition_cutscene::CutsceneSkipHold>();
         app.add_systems(
             sim,

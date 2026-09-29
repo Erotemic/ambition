@@ -16,7 +16,8 @@ in-sim control arm, in
 
     NewGameResetRequested    menu press -> 0 commits (in-sim control: 1)
     OwnedItems               Update grant -> never lands (in-sim control: 3 -> 4)
-    CutsceneAdvanceRequest   host dismiss -> beat stays (in-sim control: advances)
+    CutsceneAdvanceRequest   host dismiss -> beat stays (in-sim control: advances;
+                             repaired 2026-09-28: the dismiss rides the ControlFrame)
 
 ⇒ All three are the same defect: a producer outside the timeline, a consumer
 inside it. `docs/planning/awaiting-maintainer-decision.md`'s Q136 is the ruling
@@ -146,7 +147,6 @@ CROSSING_IS_HARMLESS: dict[str, str] = {
     "WorldlineHistoryView2d": "derived presentation view",
     # Already adjudicated by CUTSCENE-ROLLBACK-DECISION in docs/planning/queue.md.
     "BossEncounterRegistry": "authored read-only catalog behind a specs_loaded latch",
-    "CutsceneSkipHold": "input-local skip accumulator the sim never reads",
     # Capture binaries, not the game: `game/*/src/bin/capture_*.rs` drive a
     # scripted run to take screenshots.
     "Warmup": "capture-binary shutter countdown (src/bin/capture_*.rs)",
@@ -244,16 +244,16 @@ SESSION_EDGE_WRITERS = frozenset({
 # cover, and a filed row leaving the crossing set is checked below the same way a
 # stale harmless row is.
 FILED: dict[str, str] = {
-    "CutsceneAdvanceRequest": (
-        "Q136 — a dismiss raised on the host side does nothing; the producer is "
-        "outside the timeline and the consumer inside it"
-    ),
+    # ✅ `CutsceneAdvanceRequest` was filed here and is GONE on 2026-09-28 for
+    # the same reason: the dismiss and the skip hold ride the seat's
+    # `ControlFrame`, which GGRS re-delivers on a resimulated tick, and the
+    # resource is deleted.
     # ✅ `SpawnPlayerCloneRequest` was filed here on 2026-09-18 and is GONE
     # because the question was ANSWERED and the code changed, which is the only
     # sanctioned way for a filed row to leave: the spawn moved out of the
     # simulation schedule onto the mechanical-edit road, so the resource is no
     # longer written on both sides of the boundary at all. Q136's first landed
-    # road. `CutsceneAdvanceRequest` below is what the ruling still owes.
+    # road.
 }
 
 

@@ -163,7 +163,30 @@ sections. ⛔ They are NOT repeated here: this row had grown to 694 of the queue
 1048 lines, which made the live executable queue two thirds one closed campaign's
 diary.
 
-### CUTSCENE-ROLLBACK-DECISION — two session-scoped cutscene values cross into simulation with no rollback decision
+### CUTSCENE-ROLLBACK-DECISION — two session-scoped cutscene values cross into simulation with no rollback decision — ✅ DONE 2026-09-28
+
+✅ **RECEIPT, 2026-09-28.** *Wrong:* the cutscene dismiss and skip were a
+host-side `Update` request (`CutsceneAdvanceRequest`, written by
+`apply_menu_frame_to_cutscene_request`) that `tick_active_cutscene` consumed
+with `mem::take` inside the rewinding schedule. A rewind restored
+`ActiveCutscene` and not the request, so the dismiss was lost. *Fix:* the
+dismiss and the skip are seat intents on the `ControlFrame`
+(`confirm_pressed`, an edge that `merge_sample` ORs across the latch window, and
+`cancel_held`, a level). `read_menu_control_frame` fills them while a cutscene
+owns the seat, and `tick_active_cutscene` reads them from `SlotControls`, which
+GGRS re-delivers on every resimulated tick. The skip accumulator
+`CutsceneSkipHold` grows on `sim_dt` from `cancel_held`, so it is simulation
+state and is registered as `cutscene.skip_hold` (schema 258, control-frame wire
+identity 3). *Deleted:* `CutsceneAdvanceRequest`, its `Update` producer and
+set `MenuFrameCutsceneSkip`, its teardown member (`SessionScopedResources` 30 →
+29), its FILED row in `resources_crossing_the_rewind_boundary.py` and its
+adjudications in the ingress and multi-writer censuses. *Guards:*
+`a_cutscene_dismiss_on_the_seats_input_survives_the_rewind_once` and
+`a_cutscene_skip_is_a_hold_of_the_seats_cancel`
+(`game/ambition_app/tests/a_bag_changed_mid_window_reaches_the_save.rs`), both
+under sync-test rollback; the shipped hub intro is dismissed by a real Enter
+press in `the_hub_intro_plays_on_first_entry_and_holds_input.rs`. Item 2 owes
+nothing. The text below is the history of the measurement.
 
 **Owner:** unclaimed for the QUEUE half. Found 2026-09-16 while measuring C03
 step 3; NOT fixed here. ⛔ Item 1 below is blocked on `Q136`, not unowned.
@@ -186,7 +209,8 @@ stopped being declared derived (`f15461f52`). Reading the four, source already a
   both peers. ⇒ **Correctly unregistered.**
 - `CutsceneSkipHold` — *"The input-local half of the skip: an accumulator the HUD
   draws and the sim never reads"*, stated beside its own `init_resource`.
-  ⇒ **Correctly unregistered.**
+  ⇒ **Correctly unregistered on that date.** Since 2026-09-28 the simulation
+  owns the hold and it is registered (see the receipt).
 
 ⛔⛔ **THE OTHER TWO ARE WRITTEN OR CONSUMED INSIDE THE REWINDING SCHEDULE.**
 

@@ -230,6 +230,20 @@ pub struct ControlFrame {
     /// future twin-stick aiming should consume this instead of reading raw axes.
     pub aim_x: f32,
     pub aim_y: f32,
+    /// Rising edge of the participant's CONFIRM (the menu-select binding, which
+    /// includes the jump and interact keys). A playing cutscene reads it to
+    /// dismiss a dialogue beat.
+    ///
+    /// ⛔ IT RIDES THE FRAME BECAUSE A DISMISS IS A PLAYER ACTION THAT CHANGES
+    /// THE SIMULATION. It was a host resource written from `Update` and taken
+    /// inside the sim, so a rewind across the press restored the cutscene and
+    /// lost the press. On the frame it is part of the input a replay and a peer
+    /// receive.
+    pub confirm_pressed: bool,
+    /// The participant's CANCEL held (the menu-back or reset binding). A playing
+    /// cutscene accumulates it, on the simulation clock, into a skip. A level,
+    /// not an edge: the skip is a hold.
+    pub cancel_held: bool,
 }
 
 impl ControlFrame {
@@ -309,6 +323,8 @@ impl ControlFrame {
             modifier_pressed: self.modifier_pressed | sample.modifier_pressed,
             grab_pressed: self.grab_pressed | sample.grab_pressed,
             taunt_pressed: self.taunt_pressed | sample.taunt_pressed,
+            confirm_pressed: self.confirm_pressed | sample.confirm_pressed,
+            cancel_held: sample.cancel_held,
         }
     }
 
@@ -331,6 +347,7 @@ impl ControlFrame {
             shield_held: self.shield_held,
             modifier_held: self.modifier_held,
             attack_held: self.attack_held,
+            cancel_held: self.cancel_held,
             ..ControlFrame::default()
         }
     }
@@ -668,7 +685,7 @@ mod the_bytes_two_peers_exchange {
     /// A frame chosen so the ENCODING is legible, because the default one is
     /// not.
     ///
-    /// ⛔ `bincode::serialize(&ControlFrame::default())` is sixty-eight ZERO
+    /// ⛔ `bincode::serialize(&ControlFrame::default())` is seventy ZERO
     /// bytes. Pinning that would catch a length change and nothing else: every
     /// falsy field is the same byte as every other, so a reordering among them,
     /// a changed enum discriminant and a swapped float would all leave it
@@ -720,6 +737,8 @@ mod the_bytes_two_peers_exchange {
             modifier_pressed: false,
             aim_x: 0.125,
             aim_y: -0.375,
+            confirm_pressed: true,
+            cancel_held: false,
         }
     }
 
@@ -729,7 +748,7 @@ mod the_bytes_two_peers_exchange {
     /// `0100`/`0001` are the alternating bools, `02000000` is
     /// `AttackStrengthHint::Smash` (bincode writes a unit variant as a `u32`
     /// index), and `01000000 02000000` are the two frame modes.
-    const RECORDED: &str = "000040bf0000003f010001000100010001000100010001000102000000010000803e000080bf010000000200000001000100010001000100010001000000003e0000c0be";
+    const RECORDED: &str = "000040bf0000003f010001000100010001000100010001000102000000010000803e000080bf010000000200000001000100010001000100010001000000003e0000c0be0100";
 
     /// One frame's bincode encoding, in bytes.
     ///
@@ -740,7 +759,7 @@ mod the_bytes_two_peers_exchange {
     /// divides the received total by the player count. This constant is here so
     /// the width below is compared against a RECORDED number rather than against
     /// itself.
-    const RECORDED_WIRE_BYTES: u64 = 68;
+    const RECORDED_WIRE_BYTES: u64 = 70;
 
     fn hex(bytes: &[u8]) -> String {
         bytes.iter().map(|byte| format!("{byte:02x}")).collect()

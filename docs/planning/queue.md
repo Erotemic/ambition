@@ -130,6 +130,12 @@ sim as the control. Then pin `SwitchActivationDrained` after
 `FeatureInteractionSet::Actuate` (or place it in `GameplayEffects`, where
 `apply_switch_effects` already runs). ⚠ `request_authored_switch_commands`
 also reads `SwitchActivated`; order it with the drain.
+
+✅ **PINNED 2026-09-28, WITNESS STILL OWED.** `FeatureInteractionPlugin`
+configures `SwitchActivationDrained.after(FeatureInteractionSet::Actuate)`.
+The switch/encounter/census app arms (34), Sanic, Mary-O and Smash are green,
+so the edge closes no cycle. The sync-test witness above is still the open
+work, and `request_authored_switch_commands` is not ordered yet.
 **Blocked by:** nothing.
 
 ### SYNC-POINT-SENSITIVE-RESIM — a command sync point moves the death-reset replay

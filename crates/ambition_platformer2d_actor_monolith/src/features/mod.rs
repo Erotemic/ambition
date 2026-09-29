@@ -1449,6 +1449,14 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
                 .chain()
                 .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::FeatureInteraction),
         );
+        // The switch drain reads the `SwitchActivated` that a press writes in
+        // `Actuate`. After it, in the same tick: the message is cleared on a
+        // rewind, so a drain that ran first would lose the press on a replay.
+        app.configure_sets(
+            sim,
+            ambition_encounter::switches::SwitchActivationDrained
+                .after(FeatureInteractionSet::Actuate),
+        );
 
         app.add_systems(
             sim,

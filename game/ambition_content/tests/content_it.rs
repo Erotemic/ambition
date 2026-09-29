@@ -31,4 +31,5 @@ mod intro_sprite_catalog;
 mod puppy_slug_forced_seat;
 mod summoned_minions_resolve;
 mod yarn_compile;
+mod the_dogs_pet_is_a_conversation_choice;
 mod yarn_condition_aliases;

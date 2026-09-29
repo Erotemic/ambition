@@ -13,13 +13,14 @@ use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 /// Keep actor-like gameplay poses in sync with the authoritative [`CenteredAabb`].
 ///
 /// Per-frame steering context handed from observation to the movement phase:
-/// each actor's nearest same-kind neighbor, keyed by actor id. Computed
+/// each actor's nearest same-kind neighbor in its own live room, keyed by the
+/// body (two instances of one room share actor ids). Computed
 /// once by [`observe_actor_decision_inputs`] and read by `integrate_sim_bodies`
 /// for surface-walker anti-clump
 /// steering, so the movement phase doesn't recompute it. Rebuilt every frame.
 #[derive(bevy::ecs::resource::Resource, Default)]
 pub struct ActorSteering {
-    pub neighbor_by_id: std::collections::HashMap<String, ae::Vec2>,
+    pub neighbor_by_entity: std::collections::HashMap<Entity, ae::Vec2>,
 }
 
 /// Immutable, frame-local world facts consumed by autonomous actor decisions.
@@ -76,6 +77,8 @@ pub(crate) fn observe_actor_decision_inputs(
             bevy::prelude::Has<ambition_combat::components::ActiveCombatant>,
             // A ridden mount contests no space of its own. See below.
             Option<&ambition_mount::MountSlot>,
+            // A crowd is one live room's bodies (OW1 cut 5d).
+            Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
         ),
         (
             With<FeatureSimEntity>,
@@ -111,10 +114,10 @@ pub(crate) fn observe_actor_decision_inputs(
         actors
             .get(body)
             .ok()
-            .and_then(|(.., cluster, _, _, _)| cluster.map(|c| c.health.alive()))
+            .and_then(|(.., cluster, _, _, _, _)| cluster.map(|c| c.health.alive()))
             .unwrap_or(false)
     };
-    for (entity, disposition, target, body, faction, in_a_fight, carrying) in &actors {
+    for (entity, disposition, target, body, faction, in_a_fight, carrying, room) in &actors {
         let fighting = ambition_combat::components::CombatStanding::of(*disposition, in_a_fight)
             .takes_damage();
         let ridden = carrying.and_then(|slot| slot.rider).is_some_and(alive) && alive(entity);
@@ -128,13 +131,14 @@ pub(crate) fn observe_actor_decision_inputs(
                     kind: body.config.tuning.crowd_kind(),
                     faction: faction.copied(),
                     foe: target.entity,
+                    room: room.map(|room| room.0),
                 }),
             // A ridden mount is carried by its rider's crowd entry.
             fighting && !ridden,
         );
     }
     let crowd = observation.finish();
-    steering.neighbor_by_id = crowd.neighbor_index().clone();
+    steering.neighbor_by_entity = crowd.neighbor_index().clone();
     facts.crowd = crowd;
 }
 
@@ -549,7 +553,7 @@ pub fn tick_actor_brains(
                     continue;
                 }
                 let brain_frame = if let Some(brain_ref) = brain.as_deref_mut() {
-                    let crowding = decision_facts.crowd.crowding(&body.identity.id);
+                    let crowding = decision_facts.crowd.crowding(this_actor_entity);
                     let capture = ambition_combat::capture::systems::CaptureFacts::resolve(
                         this_actor_entity,
                         &captives,
@@ -1025,7 +1029,7 @@ pub(crate) fn integrate_actor_body(
     // same-kind neighbor blocks the path ahead (anti-clump). The kernel only
     // moves; the ECS resolves steering intent.
     if matches!(motion_model, MotionModel::AdhesiveCrawler(_)) {
-        if let Some(neighbor) = steering.neighbor_by_id.get(&em.identity.id).copied() {
+        if let Some(neighbor) = steering.neighbor_by_entity.get(&actor_entity).copied() {
             if crawler_neighbor_blocks(
                 em.kin.pos,
                 em.kin.size,

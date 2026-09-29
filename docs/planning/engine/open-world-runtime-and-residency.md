@@ -496,6 +496,15 @@ The slices:
 - **5d**: the crowd, steering and memory maps keyed by the pair.
 - **5e**: `RoomSet`'s active index becomes each live room's own definition.
   It has 141 `active_spec()` call sites in 76 files, so it is the largest.
+  Design, decided 2026-09-29: the index is two facts under one name.
+  - **The live fact** (which definition this live room instantiates) moves
+    onto the live room root as `LiveRoomDefinition`, beside its geometry.
+    Publication writes the replaced root's definition, not the session's.
+  - **The prepared fact** (which room a prepared world activates into, which
+    hot reload normalizes and which is not `start`) stays on `RoomSet`,
+    renamed `activation`. Only activation reads it.
+  - A reader with a subject reads the subject's root. A reader without one
+    uses the one-live-room read, named as the debt `SoleLiveRoom` is.
 
 ✅ **Cut 5a landed 2026-09-29: the session mints each live room from one
 counter.** A publication used to advance the root it replaced
@@ -540,9 +549,37 @@ Live rooms #0 and #1 both have the shared root identity. A body wearing the
 candidate's authored identity stands in #1, and replacing #0 publishes and
 leaves it standing. The control puts the body in #0, and it is superseded.
 
-⚠ **EVERY LIVE ROOM ROOT IS STILL `session:room_instance`.** Construction
-no longer confuses two of them, but the GGRS carrier order and census
-(5c) still key by `SimId` alone.
+✅ **Cut 5c landed 2026-09-29: the GGRS carrier order and its census key
+by the live identity.** `rebase_rollback_carrier_order` sorted by `SimId`,
+so two instances of one room tied and this App's spawn order decided their
+place in the peer-compared checksum. The sort key is now (`SimId`, live
+room), from `live_room_of`, the one rule `TransactionRooms` also asks. The
+populated-timeline census requires the pair to be unique. One live room
+orders as before (schema 269).
+- `live_room_of` does not put an unstamped entity in the sole live room,
+  as `LiveRooms::of` does: an identity must not change when a second room
+  goes live.
+- Witness: `two_instances_of_one_identity_order_by_their_live_room`. Two
+  carriers named `alpha`, in #0 and #1, rebase to #0 then #1 whichever
+  spawned first. The control spawns them in room order.
+
+The roots all still carry `session:room_instance`; with the pair key they
+no longer collide in construction or in the carrier order.
+
+✅ **Cut 5d landed 2026-09-29: a crowd is one live room's bodies.** The
+crowd observation keyed its requests, factions, targets and outputs by
+actor id. Two instances of one room have the same ids, so their fighters
+were one crowd: a body was pushed by a body in another room, and the last
+writer of an id won its nearest neighbour. Now `CrowdObservation` keeps one
+`RoomCrowd` per live room (the body's `InRoomInstance`), derives each room
+alone, and keys `CrowdFacts` and `ActorSteering` by the body that reads
+them.
+- `WorldMemory` needed no change: it is a component on each body, and
+  perception (cut 4a) shows a body only its own live room's peers.
+- Witness: `a_body_is_crowded_only_by_its_own_live_room`. Rooms #0 and #1
+  each hold fighters `a` and `b`, together in #0 and far apart in #1. #1's
+  pair is not crowded and `a`'s neighbour is #1's `b`. The control is #0's
+  pair, which crowds each other.
 
 ⚠ Risks carried forward: every cut that changes a snapshot value bumps the
 schema; instance roots must be re-creatable by a rewind across a publication;

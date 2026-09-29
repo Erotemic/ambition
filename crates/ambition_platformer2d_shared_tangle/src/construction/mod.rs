@@ -2886,6 +2886,9 @@ pub struct TransactionBaseline {
     retired: BTreeSet<SimId>,
     reconstructed: BTreeSet<SimId>,
     superseded: BTreeSet<SimId>,
+    /// The live rooms this transaction's world is made of. The verifier
+    /// gathers read it from here, so they see the world the baseline saw.
+    rooms: crate::lifecycle::TransactionRooms,
 }
 
 /// Why a baseline could not be captured.
@@ -2950,13 +2953,17 @@ impl TransactionBaseline {
     /// `SessionScopedEntity` is process-resident and belongs to whoever is
     /// looking; a direct-entry fixture passes `SessionSpawnScope::UNSCOPED` and
     /// gets exactly the whole-world capture it had before.
+    ///
+    /// ⛔ **AND OF ONE PAIR OF LIVE ROOMS** (`rooms`): the room the
+    /// transaction replaces and the room it mints. Another live room of the
+    /// same session holds the same authored identities, and a planned
+    /// identity found on one of its bodies would be declared superseded and
+    /// despawned. See [`crate::lifecycle::TransactionRooms`].
     pub fn capture_for_session(
         world: &mut World,
         session: crate::lifecycle::SessionSpawnScope,
+        rooms: crate::lifecycle::TransactionRooms,
     ) -> Result<Self, BaselineCaptureError> {
-        let Some(scope) = session.id() else {
-            return Self::capture(world);
-        };
         let mut found: BTreeMap<SimId, Vec<(Entity, Option<SpawnOrigin>)>> = BTreeMap::new();
         let mut query = world.query_filtered::<
             (
@@ -2964,11 +2971,18 @@ impl TransactionBaseline {
                 &SimId,
                 Option<&SpawnOrigin>,
                 Option<&crate::lifecycle::SessionScopedEntity>,
+                Option<&crate::lifecycle::InRoomInstance>,
+                Option<&crate::lifecycle::LiveRoomInstance>,
             ),
             bevy::prelude::Without<PresentationOnly>,
         >();
-        for (entity, sim_id, origin, owner) in query.iter(world) {
-            if owner.is_some_and(|owner| owner.0 != scope) {
+        for (entity, sim_id, origin, owner, stamp, root) in query.iter(world) {
+            if let Some(scope) = session.id() {
+                if owner.is_some_and(|owner| owner.0 != scope) {
+                    continue;
+                }
+            }
+            if !rooms.admits(stamp, root) {
                 continue;
             }
             found
@@ -2976,7 +2990,12 @@ impl TransactionBaseline {
                 .or_default()
                 .push((entity, origin.cloned()));
         }
-        Self::from_occupants(found)
+        Self::from_occupants(found).map(|baseline| Self { rooms, ..baseline })
+    }
+
+    /// The live rooms this transaction's world is made of.
+    pub fn rooms(&self) -> crate::lifecycle::TransactionRooms {
+        self.rooms
     }
 
     /// Capture from explicit pairs, for fixtures and for callers that already
@@ -3011,6 +3030,7 @@ impl TransactionBaseline {
             retired: BTreeSet::new(),
             reconstructed: BTreeSet::new(),
             superseded: BTreeSet::new(),
+            rooms: crate::lifecycle::TransactionRooms::EVERY,
         })
     }
 
@@ -3522,7 +3542,12 @@ impl AuthoritativeScope {
     /// authoritative because the executor stamped it, not because its `SimId`
     /// starts with one prefix or another.
     pub fn gather(world: &mut World, transaction: &TransactionId) -> Self {
-        Self::gather_for_session(world, transaction, crate::lifecycle::SessionSpawnScope::UNSCOPED)
+        Self::gather_for_session(
+            world,
+            transaction,
+            crate::lifecycle::SessionSpawnScope::UNSCOPED,
+            crate::lifecycle::TransactionRooms::EVERY,
+        )
     }
 
     /// As [`Self::gather`], restricted to ONE session's world.
@@ -3540,10 +3565,15 @@ impl AuthoritativeScope {
     /// it. `capability_lanes`, the actor lane and the projection are the three.
     ///
     /// `UNSCOPED` gathers everything, which is what a direct-entry fixture wants.
+    ///
+    /// ⛔ `rooms` restricts it again, to the live rooms of one transaction.
+    /// Pass the baseline's ([`TransactionBaseline::rooms`]), so the verifier
+    /// and the baseline see one world.
     pub fn gather_for_session(
         world: &mut World,
         transaction: &TransactionId,
         session: crate::lifecycle::SessionSpawnScope,
+        rooms: crate::lifecycle::TransactionRooms,
     ) -> Self {
         let mut members = Vec::new();
         // `Allow<InactiveCandidate>` means *"entities WITH and WITHOUT the
@@ -3582,14 +3612,22 @@ impl AuthoritativeScope {
             // say WHICH population each member is in. See [`ScopeVisibility`].
             Option<&InactiveCandidate>,
             Option<&crate::lifecycle::SessionScopedEntity>,
+            Option<&crate::lifecycle::InRoomInstance>,
+            Option<&crate::lifecycle::LiveRoomInstance>,
         ), bevy::ecs::query::Allow<InactiveCandidate>>();
-        for (entity, sim_id, owner, presentation, hidden, session_owner) in query.iter(world) {
+        for (entity, sim_id, owner, presentation, hidden, session_owner, stamp, root) in
+            query.iter(world)
+        {
             // ⛔ ANOTHER SESSION'S WORLD IS NOT IN THIS SCOPE. See
             // `gather_for_session`. Unscoped work is everyone's.
             if let Some(scope) = session.id() {
                 if session_owner.is_some_and(|owner| owner.0 != scope) {
                     continue;
                 }
+            }
+            // Nor is another live room of this session.
+            if !rooms.admits(stamp, root) {
+                continue;
             }
             let classification = if presentation.is_some() {
                 ScopeClassification::PresentationOnly

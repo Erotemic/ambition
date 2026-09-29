@@ -2202,6 +2202,60 @@ mod tests {
         );
     }
 
+    /// OW1 cut 5b: a publication's world is the live room it replaces and the
+    /// one it mints, not every live room of the session.
+    ///
+    /// Live rooms #0 and #1 are both live, and #1's root wears the identity
+    /// every live room root wears. A body wearing the identity the candidate
+    /// authors stands in one of them, and the candidate replaces #0. The
+    /// control puts the body in #0: the candidate supersedes it, and
+    /// publication despawns it. The subject puts it in #1: it is another
+    /// instance's occupant, and it stands. With the baseline and the verifier
+    /// scoped to the session, #1's root was a duplicate identity, and #1's
+    /// body was superseded by a candidate in another room.
+    #[test]
+    fn a_publication_leaves_the_other_live_rooms_occupants_standing() {
+        use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, RoomInstanceRoot};
+        let first = LiveRoomInstance::ACTIVATION;
+        let second = first.next();
+        let authored = candidate_plan()
+            .features
+            .planned_sim_ids()
+            .into_iter()
+            .find(|id| id.as_str().contains("occupant"))
+            .expect("the candidate authors its occupant");
+        let after_publication = |room: LiveRoomInstance| {
+            let (mut app, outgoing) = two_live_rooms();
+            let world = app.world_mut();
+            let roots: Vec<Entity> = world
+                .query_filtered::<(Entity, &LiveRoomInstance), bevy::prelude::With<RoomInstanceRoot>>()
+                .iter(world)
+                .filter(|(_, live)| **live == second)
+                .map(|(entity, _)| entity)
+                .collect();
+            world.entity_mut(roots[0]).insert(RoomInstanceRoot::sim_id());
+            let body = world
+                .spawn((authored.clone(), RoomScopedEntity, InRoomInstance(room)))
+                .id();
+            stage_the_candidate_as(&mut app, candidate_plan(), outgoing, Some(first));
+            let verification = app
+                .world()
+                .resource::<crate::world::rooms::LastConstructionVerification>()
+                .clone();
+            (verification.published, app.world().get_entity(body).is_ok())
+        };
+        assert_eq!(
+            after_publication(first),
+            (true, false),
+            "control: the candidate did not supersede an occupant of the room it replaces"
+        );
+        assert_eq!(
+            after_publication(second),
+            (true, true),
+            "the publication did not publish, or took an occupant of another live room"
+        );
+    }
+
     /// A room staged for a live room another publication has already minted is
     /// refused before anything is torn down: its occupants would belong to a
     /// room the session is not in.

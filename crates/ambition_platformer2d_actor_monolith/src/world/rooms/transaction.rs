@@ -1132,7 +1132,21 @@ pub(crate) fn open(
             // puts ANOTHER session's bodies in this room's baseline, and a
             // planned identity found there is declared SUPERSEDED — so
             // publication despawns a live session's world.
-            TransactionBaseline::capture_for_session(world, session)
+            // ⛔ AND THESE LIVE ROOMS, NOT THE SESSION'S. Another live room
+            // holds the same authored identities; see `TransactionRooms`.
+            let rooms = world
+                .get::<PendingWorldReplacement>(publication.0)
+                .and_then(|pending| pending.succession)
+                .map_or(
+                    ambition_platformer2d_shared_tangle::lifecycle::TransactionRooms::EVERY,
+                    |succession| {
+                        ambition_platformer2d_shared_tangle::lifecycle::TransactionRooms::replacing(
+                            succession.replaces,
+                            succession.mints,
+                        )
+                    },
+                );
+            TransactionBaseline::capture_for_session(world, session, rooms)
                 .map(|baseline| {
                     // ⛔ THE PLAN'S OWN PREDICTED ROSTER, not a hand-kept list
                     // beside it: `predicted_authoritative_ids` is the same set
@@ -1831,7 +1845,12 @@ fn verify_and_publish(
         // asked of `effects.owners()` above. It is the actor lane's because a
         // scope has to be gathered against some transaction, not because that
         // lane is privileged.
-        let scope = AuthoritativeScope::gather_for_session(world, &transactions[0], session);
+        let scope = AuthoritativeScope::gather_for_session(
+            world,
+            &transactions[0],
+            session,
+            baseline.rooms(),
+        );
         let projection = project_post_publication_roster(&scope, &effects);
         verify_projected_roster(&projection, &effects, &baseline, &scope, world)
             .err()

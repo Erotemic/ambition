@@ -518,12 +518,31 @@ With #0 and #1 live, replacing #0 seats it as #2, #1 keeps its identity,
 and the counter is at #3. The control is a room pinned to #1 as the old rule
 pinned it, and it is refused with `StaleMint`.
 
-⚠ **EVERY LIVE ROOM ROOT IS `session:room_instance`**, so a second root in
-one session cannot be admitted beside the first: a construction baseline
-refuses two entities with one identity, and it refused the witness's
-fixture SILENTLY (no `room-refused` event) until the #7 root was given its
-own. The identity of a live room root is cut 5's, with the rest of the
-per-instance live identity.
+✅ **Cut 5b landed 2026-09-29: a room transaction's world is the live room
+it replaces and the one it mints.** Construction's baseline and the three
+verifier gathers were scoped to the session. With two live rooms, a
+planned identity found on the other room's body was declared SUPERSEDED,
+and publication despawned it. Two live room roots with one identity were a
+duplicate, and the baseline refused the room. Now:
+- `TransactionRooms` (shared_tangle `lifecycle`) names the pair. An entity
+  is in a live room by its `InRoomInstance` stamp, or a root by its own
+  `LiveRoomInstance`. An entity with neither is in every transaction's
+  world.
+- `transaction::open` reads the pair from the publication's
+  `LiveRoomSuccession`. `TransactionBaseline::capture_for_session` keeps
+  only the pair's entities and records the pair.
+- The three gathers (`transaction::close`, the actor lane and the
+  capability lanes) read it from the baseline (`TransactionBaseline::rooms`),
+  so the verifiers see the world the baseline saw.
+
+Witness: `a_publication_leaves_the_other_live_rooms_occupants_standing`.
+Live rooms #0 and #1 both have the shared root identity. A body wearing the
+candidate's authored identity stands in #1, and replacing #0 publishes and
+leaves it standing. The control puts the body in #0, and it is superseded.
+
+⚠ **EVERY LIVE ROOM ROOT IS STILL `session:room_instance`.** Construction
+no longer confuses two of them, but the GGRS carrier order and census
+(5c) still key by `SimId` alone.
 
 ⚠ Risks carried forward: every cut that changes a snapshot value bumps the
 schema; instance roots must be re-creatable by a rewind across a publication;

@@ -88,7 +88,7 @@ fn verify_lane<D: ConstructionDomain>(
 ) {
     let transaction = plan.transaction(session);
     // ⛔ THIS SESSION'S WORLD — one of the three gather sites that must agree.
-    let scope = AuthoritativeScope::gather_for_session(world, &transaction, session);
+    let scope = AuthoritativeScope::gather_for_session(world, &transaction, session, baseline.rooms());
     violations.extend(
         verify_committed_roster(plan, receipt, baseline, &scope, world)
             .err()

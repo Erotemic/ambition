@@ -159,6 +159,55 @@ impl LiveRooms<'_, '_> {
     }
 }
 
+/// The live rooms one room transaction's world is made of: the room it
+/// replaces, and the room it mints.
+///
+/// A live identity is the pair (live room, `SimId`). Two instances of one
+/// room hold the same authored identities, so a transaction that sees the
+/// other live room's bodies declares them SUPERSEDED by its own candidates,
+/// and publication despawns them. Construction's baseline and every verifier
+/// gather ask [`Self::admits`], so they see one world.
+///
+/// An entity is in a live room by its [`InRoomInstance`] stamp, or, for a
+/// live room root, by its own [`LiveRoomInstance`]. An entity with neither
+/// is in every transaction's world, as unscoped work is in every session's.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct TransactionRooms {
+    /// `None` admits every room: a transaction that replaces no live room
+    /// (the first room of a session, a fixture) has one world.
+    replaces: Option<LiveRoomInstance>,
+    mints: Option<LiveRoomInstance>,
+}
+
+impl TransactionRooms {
+    /// Every live room: the world of a transaction that replaces none.
+    pub const EVERY: Self = Self {
+        replaces: None,
+        mints: None,
+    };
+
+    /// The world of a transaction that replaces `replaces` and seats its
+    /// candidates as `mints`.
+    pub const fn replacing(replaces: LiveRoomInstance, mints: LiveRoomInstance) -> Self {
+        Self {
+            replaces: Some(replaces),
+            mints: Some(mints),
+        }
+    }
+
+    /// Whether an entity with this room stamp and this root identity is in
+    /// the transaction's world.
+    pub fn admits(self, stamp: Option<&InRoomInstance>, root: Option<&LiveRoomInstance>) -> bool {
+        let Some(replaces) = self.replaces else {
+            return true;
+        };
+        match stamp.map(|stamp| stamp.0).or(root.copied()) {
+            None => true,
+            Some(room) => room == replaces || Some(room) == self.mints,
+        }
+    }
+}
+
 /// The live session's sole live room root.
 ///
 /// `None` when there is no live session, no room root, or more than one live

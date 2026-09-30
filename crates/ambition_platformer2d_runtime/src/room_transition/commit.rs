@@ -477,11 +477,26 @@ impl RoomTransitionApplication<'_, '_> {
                     .map(|(entity, driver, room)| (entity, driver.0, room.map(|room| room.0))),
             )
         });
+        // The live room of the target room that another player holds, which
+        // the crossing joins rather than build a second one.
+        let target = self.session.iter().next().and_then(|rooms| rooms.definition(target_room));
+        let joins = departing.zip(target).and_then(|(departing, target)| {
+            joined_room(
+                subject,
+                departing,
+                target,
+                self.definitions.iter().map(|(live, definition)| (*live, *definition)),
+                self.drivers
+                    .iter()
+                    .map(|(entity, driver, room)| (entity, driver.0, room.map(|room| room.0))),
+            )
+        });
         let succession = departing.zip(mints).map(|(leaves, mints)| {
             ambition_platformer2d_actor_monolith::rooms::LiveRoomSuccession::for_crossing(
                 leaves,
                 mints,
                 another_player_stays,
+                joins,
             )
         });
         let publication = plan.replace_live_world(
@@ -837,6 +852,45 @@ pub fn another_player_stays(
     drivers.iter().any(|(entity, slot, room)| {
         *entity != subject && *slot != subject_slot && *room == Some(departing)
     })
+}
+
+/// The live room a crossing by `subject` into room `target` joins (OW1 cut
+/// 6e): a live room of `target`, other than `departing`, that a body of
+/// another slot is in. `None` when no other player holds one, and then the
+/// crossing makes the room live itself.
+///
+/// ⛔ ONE LIVE ROOM OF A ROOM PER PLAYER GROUP. Two players who stand in "the
+/// hub" stand in one live room, so what one does there, the other sees. Only
+/// a driven subject joins, as only a driven subject opens a room.
+pub fn joined_room(
+    subject: Option<Entity>,
+    departing: world_rooms::LiveRoomInstance,
+    target: world_rooms::LiveRoomDefinition,
+    rooms: impl IntoIterator<Item = (world_rooms::LiveRoomInstance, world_rooms::LiveRoomDefinition)>,
+    drivers: impl IntoIterator<
+        Item = (
+            Entity,
+            ambition_characters::control::PlayerSlot,
+            Option<world_rooms::LiveRoomInstance>,
+        ),
+    >,
+) -> Option<world_rooms::LiveRoomInstance> {
+    let drivers: Vec<_> = drivers.into_iter().collect();
+    let subject_slot = subject.and_then(|subject| {
+        drivers
+            .iter()
+            .find(|(entity, ..)| *entity == subject)
+            .map(|(_, slot, _)| *slot)
+    })?;
+    rooms
+        .into_iter()
+        .filter(|(room, definition)| *room != departing && *definition == target)
+        .map(|(room, _)| room)
+        .find(|room| {
+            drivers
+                .iter()
+                .any(|(_, slot, at)| *slot != subject_slot && *at == Some(*room))
+        })
 }
 
 /// Retire one eager-host transaction while leaving the still-authoritative
@@ -1480,5 +1534,42 @@ mod another_player_tests {
             !another_player_stays(Some(entity(4)), first, alone.into_iter().chain([(bob, PlayerSlot(1), Some(first))])),
             "a body no slot drives opened a live room"
         );
+    }
+}
+
+#[cfg(test)]
+mod joined_room_tests {
+    use super::*;
+    use ambition_characters::control::PlayerSlot;
+
+    fn entity(index: u32) -> Entity {
+        Entity::from_raw_u32(index).expect("a test entity index")
+    }
+
+    /// OW1 cut 6e: Bob (slot 1) crosses from #0 into the hub. Alice (slot 0)
+    /// is in #1, a live room of the hub: he joins #1. The controls: Alice in
+    /// #2, a live room of another room, is joined by no crossing into the
+    /// hub; Bob's own slot on a body in #1 is not another player; and a body
+    /// no slot drives joins nothing.
+    #[test]
+    fn a_crossing_joins_the_live_room_of_its_target_that_another_player_holds() {
+        let first = world_rooms::LiveRoomInstance::ACTIVATION;
+        let (second, third) = (first.next(), first.next().next());
+        let (hub, lab) = (world_rooms::LiveRoomDefinition::from_index(1), world_rooms::LiveRoomDefinition::from_index(2));
+        let rooms = [(first, lab), (second, hub), (third, lab)];
+        let (bob, alice, other) = (entity(1), entity(2), entity(3));
+        let joins = |subject, alice_room, alice_slot| {
+            joined_room(
+                Some(subject),
+                first,
+                hub,
+                rooms,
+                [(bob, PlayerSlot(1), Some(first)), (alice, alice_slot, Some(alice_room))],
+            )
+        };
+        assert_eq!(joins(bob, second, PlayerSlot(0)), Some(second), "Bob did not join Alice's hub");
+        assert_eq!(joins(bob, third, PlayerSlot(0)), None, "control: Bob joined a live room of another room");
+        assert_eq!(joins(bob, second, PlayerSlot(1)), None, "control: Bob's own slot counted as another player");
+        assert_eq!(joins(other, second, PlayerSlot(0)), None, "control: a body no slot drives joined a room");
     }
 }

@@ -196,6 +196,17 @@ impl TransactionRooms {
         }
     }
 
+    /// One live room alone: the world of a crossing that joins a live room
+    /// and builds nothing (OW1 cut 6e). It is the room the crossing retires,
+    /// so that its residents' departures are declared, or else the room it
+    /// joins. Not both: two live room roots wear one identity.
+    pub const fn only(room: LiveRoomInstance) -> Self {
+        Self {
+            replaces: Some(room),
+            mints: Some(room),
+        }
+    }
+
     /// The world of a transaction that replaces `replaces` and seats its
     /// candidates as `mints`.
     pub const fn replacing(replaces: LiveRoomInstance, mints: LiveRoomInstance) -> Self {

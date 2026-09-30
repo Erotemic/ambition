@@ -1834,6 +1834,18 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
         self.lane.transaction(&self.scope, session)
     }
 
+    /// This plan with nothing in it: the same scope and lane, so the same
+    /// transaction, and no entity or relation to build. A crossing that joins
+    /// a live room builds nothing (OW1 cut 6e).
+    pub fn emptied(&self) -> Self {
+        Self {
+            scope: self.scope.clone(),
+            lane: self.lane.clone(),
+            entities: Vec::new(),
+            relations: Vec::new(),
+        }
+    }
+
     pub fn entities(&self) -> &[PlannedEntity<D>] {
         &self.entities
     }

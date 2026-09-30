@@ -3,7 +3,8 @@
 //! Alice (the primary slot) goes through a door while Bob (slot 1) stays.
 //! The room Bob is in stays live and whole, and the room Alice arrives in is
 //! a second live room. This is the Alice/Bob customer driven end to end
-//! through the shipped app, where cut 6c proved only the publication.
+//! through the shipped app, where cut 6c proved only the publication. When
+//! Alice comes back, she joins the live room Bob holds (cut 6e).
 
 use ambition_app::{AmbitionSim as _, Platformer2dSimHarness};
 use ambition_platformer2d::platformer::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
@@ -169,4 +170,26 @@ fn a_door_crossed_by_one_player_leaves_the_other_players_room_live() {
         "Alice's crossing did not leave Bob's room live with Bob in it"
     );
     assert_eq!(sim.observation().active_room, HUB, "the observation is not Alice's own room");
+}
+
+/// OW1 cut 6e: Alice comes back through the hub's door to `switch_lab`,
+/// where Bob is. She joins his live room, #0, and the hub (#1), which
+/// nobody is in now, is retired: one live room, with both of them in it.
+/// Before this cut, her crossing built a second live room of `switch_lab`
+/// beside Bob's. The publication-level control is
+/// `a_crossing_into_a_room_another_player_holds_joins_it`.
+#[test]
+fn a_player_who_comes_back_joins_the_room_the_other_player_holds() {
+    let (mut sim, first) = alice_leaves_bob(Some(ambition_platformer2d::characters::control::PlayerSlot(1)));
+    assert_eq!(walk_through_the_door_to(&mut sim, ROOM), ROOM);
+    for _ in 0..30 {
+        sim.step(base());
+    }
+    assert_eq!(
+        (live_rooms(&mut sim), where_they_are(&mut sim)),
+        (vec![(first, ROOM.to_string())], (Some(first), Some(Some(first)))),
+        "Alice did not join the live room Bob holds"
+    );
+    let ahead = bob_runs(&mut sim, 1.0);
+    assert!(ahead > 1.0, "Bob's slot moved his body {ahead} after Alice joined his room");
 }

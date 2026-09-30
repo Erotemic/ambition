@@ -488,8 +488,15 @@ pub fn door_to(
 ) -> ambition_platformer2d::world::rooms::LoadingZone {
     let before = sim.observation().active_room.clone();
     let world = sim.world_mut();
-    let live_definition = ambition_platformer2d::world::rooms::sole_live_room_definition(world)
-        .expect("the session has a live room");
+    // The live room the player stands in: with two live rooms, "the" live
+    // room is not a fact.
+    let stamp = world
+        .query_filtered::<&ambition_platformer2d::platformer::lifecycle::InRoomInstance, bevy::prelude::With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>()
+        .single(world)
+        .ok()
+        .map(|stamp| stamp.0);
+    let live_definition = ambition_platformer2d::world::rooms::live_room_definition_in(world, stamp)
+        .expect("the player is in a live room");
     let mut query = world.query::<&ambition_platformer2d::world::rooms::RoomSet>();
     let room_set = query
         .iter(world)

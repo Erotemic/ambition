@@ -621,7 +621,17 @@ impl RoomConstructionPlan {
             transaction::PublicationRetention::UntilOwnerRetires,
         );
         commands.entity(publication.0).insert(pending);
-        self.spawn_contents_for(publication, commands, self.session_scope.in_room(publishes_as));
+        let scope = self.session_scope.in_room(publishes_as);
+        if matches!(succession, Some(transaction::LiveRoomSuccession::Join { .. })) {
+            // The joined room is built and live, so this publication builds
+            // nothing: the same transactions, an empty roster.
+            let nothing = self.features.emptied();
+            transaction::open(commands, publication, &nothing, scope);
+            construct_room_candidate(commands, publication, &nothing, scope, None, Some(BTreeSet::new()));
+            transaction::close(commands, publication, &nothing, scope);
+        } else {
+            self.spawn_contents_for(publication, commands, scope);
+        }
         publication
     }
 
@@ -2339,10 +2349,7 @@ mod tests {
                 .spawn((authored.clone(), RoomScopedEntity, InRoomInstance(first)));
             // A room that stays live retires nothing, so the crossing that
             // opens a room stages no outgoing roster.
-            let outgoing = match succession {
-                LiveRoomSuccession::Open { .. } => Vec::new(),
-                LiveRoomSuccession::Replace { .. } => outgoing,
-            };
+            let outgoing = if succession.keeps_left() { Vec::new() } else { outgoing };
             stage_the_candidate_with(&mut app, candidate_plan(), outgoing, succession);
             let published = app
                 .world()
@@ -2374,6 +2381,137 @@ mod tests {
                 ],
             ),
             "the publication that opens a live room did not leave the room it leaves whole"
+        );
+    }
+
+    /// OW1 cut 6e: a crossing into a room another player holds joins that
+    /// live room, and builds nothing.
+    ///
+    /// Live room #0 is room `n` with two bodies. Live room #1 is room
+    /// `candidate`, and the other player's body `held` is in it. The subject
+    /// joins #1 from #0 as the candidate. When it retires #0 (nobody stays),
+    /// #1 is the one live room, with `held` in it, and the candidate's
+    /// occupant is not built. When it keeps #0 (a player stays), #0 and its
+    /// bodies stand beside #1. Nothing is minted either way. The control
+    /// opens a room from #0 as the candidate: that builds a second live room
+    /// of `candidate`, #2, which is what every crossing into a held room did
+    /// before this cut. A crossing staged to join a room that is not there is
+    /// refused.
+    #[test]
+    fn a_crossing_into_a_room_another_player_holds_joins_it() {
+        use ambition_platformer2d_shared_tangle::lifecycle::{
+            activation_room_root, session_world_component, session_world_component_mut, InRoomInstance,
+            SessionRoot,
+        };
+        use super::transaction::LiveRoomSuccession;
+        let first = LiveRoomInstance::ACTIVATION;
+        let (second, third) = (first.next(), first.next().next());
+        let occupant = candidate_plan()
+            .features
+            .planned_sim_ids()
+            .into_iter()
+            .find(|id| id.as_str().contains("occupant"))
+            .expect("the candidate authors its occupant")
+            .as_str()
+            .to_string();
+        let after_publication = |succession: LiveRoomSuccession| {
+            let platform = MovingPlatformState::from_authored(
+                ae::Vec2::new(10.0, 20.0),
+                ae::Vec2::new(32.0, 8.0),
+                64.0,
+                10.0,
+            );
+            let (mut app, outgoing) = last_good_world(platform);
+            for body in &outgoing {
+                app.world_mut().entity_mut(*body).insert(InRoomInstance(first));
+            }
+            let scope = session_world_component::<SessionRoot>(app.world())
+                .expect("the fixture has a session root")
+                .0;
+            assert!(
+                session_world_component_mut::<RoomSet>(app.world_mut())
+                    .expect("the fixture has a room set")
+                    .mint_live_room(second),
+                "a fresh session mints #1 first"
+            );
+            let candidate = session_world_component::<RoomSet>(app.world())
+                .and_then(|rooms| rooms.definition_by_id("candidate"))
+                .expect("the fixture's set has room `candidate`");
+            app.world_mut()
+                .spawn((
+                    activation_room_root(scope),
+                    ambition_platformer2d_core::RoomGeometry(candidate_spec().world.clone()),
+                ))
+                // The identity every live room root wears, as in the app: a
+                // join whose world held both roots was refused as a duplicate.
+                .insert((second, candidate));
+            app.world_mut().spawn((
+                ambition_platformer2d_shared_tangle::sim_id::SimId::placement("held"),
+                RoomScopedEntity,
+                InRoomInstance(second),
+            ));
+            let outgoing = if succession.keeps_left() { Vec::new() } else { outgoing };
+            stage_the_candidate_with(&mut app, candidate_plan(), outgoing, succession);
+            let verification = app
+                .world()
+                .resource::<crate::world::rooms::LastConstructionVerification>()
+                .clone();
+            let mut bodies = rooms_of_planned_roots(&mut app);
+            bodies.sort();
+            let next = session_world_component::<RoomSet>(app.world())
+                .expect("the session keeps its room set")
+                .next_live_room();
+            (verification, live_room_definitions(&mut app), bodies, next)
+        };
+        let held = |room| ("placement:held".to_string(), Some(room));
+        let n_bodies = |room| {
+            vec![
+                ("placement:n_body_a".to_string(), Some(room)),
+                ("placement:n_body_b".to_string(), Some(room)),
+            ]
+        };
+
+        let (verification, rooms, bodies, next) = after_publication(LiveRoomSuccession::opening(first, third));
+        assert!(verification.published, "control: {:?}", verification.staged_violations);
+        assert_eq!(
+            (rooms, bodies, next),
+            (
+                vec![(first, "n".to_string()), (second, "candidate".to_string()), (third, "candidate".to_string())],
+                [vec![held(second)], n_bodies(first), vec![(occupant.clone(), Some(third))]].concat(),
+                third.next(),
+            ),
+            "control: opening a room did not build a second live room of `candidate`"
+        );
+
+        let (verification, rooms, bodies, next) = after_publication(LiveRoomSuccession::joining(first, second, true));
+        assert!(verification.published, "{:?}", verification.staged_violations);
+        assert_eq!(
+            (rooms, bodies, next),
+            (vec![(second, "candidate".to_string())], vec![held(second)], third),
+            "a crossing that joins the held room and retires the one it leaves did not leave that room the one live room"
+        );
+
+        let (verification, rooms, bodies, next) = after_publication(LiveRoomSuccession::joining(first, second, false));
+        assert!(verification.published, "{:?}", verification.staged_violations);
+        assert_eq!(
+            (rooms, bodies, next),
+            (
+                vec![(first, "n".to_string()), (second, "candidate".to_string())],
+                [vec![held(second)], n_bodies(first)].concat(),
+                third,
+            ),
+            "a crossing that joins the held room and keeps the one it leaves did not leave both whole"
+        );
+
+        let stale = (0..7).fold(first, |room, _| room.next());
+        let (verification, _, _, _) = after_publication(LiveRoomSuccession::joining(first, stale, true));
+        assert!(!verification.published, "a crossing staged to join a room that is not there published");
+        assert!(
+            verification
+                .staged_violations
+                .contains(&super::transaction::StagedWorldViolation::StaleJoinedRoom { joins: stale }),
+            "got {:?}",
+            verification.staged_violations
         );
     }
 

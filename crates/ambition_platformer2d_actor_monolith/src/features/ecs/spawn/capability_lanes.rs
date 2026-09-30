@@ -154,6 +154,15 @@ pub(crate) struct CapabilityReceipts {
 }
 
 impl CapabilityLanes {
+    /// Every lane with nothing in it. See `ConstructionPlan::emptied`.
+    pub(crate) fn emptied(&self) -> Self {
+        Self {
+            gravity: self.gravity.emptied(),
+            #[cfg(feature = "portal")]
+            portal: self.portal.emptied(),
+        }
+    }
+
     /// Plan every capability lane against the same scope, outlook and
     /// suppression set the actor lane was planned against.
     pub(crate) fn prepare(

@@ -259,7 +259,7 @@ and no fallback to "the live room".
 | 3 (3a ✅ 3b ✅ 3c ✅ 3d ✅) | Geometry, platforms and overlay move onto the instance root; `CollisionWorld` takes the instance | a body in `#1` collides with `#1`'s wall (in `#0` it passes) | the session-root geometry field, `MovingPlatformSet` as a resource |
 | 4 (4a ✅ 4b ✅) | Pairwise queries (contacts, hits, perception, projectile victims) keyed by instance | identical local positions in two instances never touch (one instance does) | unkeyed body-contact vectors |
 | 5 (5a ✅ 5b ✅ 5c ✅ 5d ✅ 5e ✅) | Live identity and room selection per instance; rollback rows instance-qualified; the save maps to a durable location key, never the ordinal | a second construction of one room in `#1` succeeds (a duplicate inside `#1` is still refused) | `RoomSet`'s private active index |
-| 6 (6a ✅ 6b ✅ 6c ✅ 6d ✅) | The Alice/Bob proof: two instances, two driven bodies; retiring `#1` leaves `#0` whole | the one-room profile runs the same systems | the sole-room reads on the crossing road |
+| 6 (6a ✅ 6b ✅ 6c ✅ 6d ✅ 6e ✅) | The Alice/Bob proof: two instances, two driven bodies; retiring `#1` leaves `#0` whole | the one-room profile runs the same systems | the sole-room reads on the crossing road |
 
 ✅ **Cut 1 landed 2026-09-29.** `LiveRoomInstance` moved down to
 `ambition_platformer2d_shared_tangle::lifecycle` beside the new
@@ -739,6 +739,35 @@ room, the hub is the one live room, and the body is retired with
 `switch_lab`; Bob's run before the crossing is the control that slot 1
 reaches his body in this harness).
 
+✅ **Cut 6e landed 2026-09-30: a crossing into a room another player holds
+joins it.** After 6d, Alice coming back to `switch_lab` built a second live
+room of `switch_lab` beside Bob's. So two players in "one room" stood in two
+worlds, and neither saw what the other did. A third succession,
+`Join { leaves, joins, retires }`, is chosen when a live room of the target
+room holds a body of another slot (`joined_room`). A join mints nothing and
+builds nothing: its publication verifies an empty roster
+(`RoomFeatureConstructionPlan::emptied`, the same transactions with no
+entities). It writes nothing onto the joined room's root (definition,
+geometry, platforms, collision overlay), because that room is the other
+player's live world. When no other player stays in the room it leaves
+(`retires`), that room's roster is retired as a replaced room's is, what
+is left there crosses with the body, and its root is despawned. Otherwise
+only the body and its custody closure move. The first app run found that
+a retiring join's transaction world held both live room roots, which wear
+one identity, and the baseline refused the duplicate. A join's world is
+now one room (`TransactionRooms::only`): the room it retires, so its
+departures are still declared, or else the room it joins. Witnesses:
+`a_crossing_into_a_room_another_player_holds_joins_it` (retiring: #1 is
+the one live room, with its body and without the candidate's occupant;
+keeping: #0 and #1 both stand; nothing minted; the control, opening from
+#0, builds a second live room of `candidate`; a join staged for a room that
+is not there is refused `StaleJoinedRoom`; root #1 wears the production
+root identity), `a_crossing_joins_the_live_room_of_its_target_that_another_player_holds`
+(the decision), and in the app
+`a_player_who_comes_back_joins_the_room_the_other_player_holds` (one live
+room, both players in it, and Bob's slot still runs his body). The
+`door_to` test helper now reads the walker's own room.
+
 ⚠ Owed after cut 6d, found while writing it:
 - No production road seats a second player in ordinary play. Bob is a
   harness body with `DrivingParticipant(PlayerSlot(1))` inserted by the
@@ -747,7 +776,13 @@ reaches his body in this harness).
   which names no room, so their bodies are unstamped, and an unstamped body
   does not keep a room live. A join road must stamp its body into the live
   room it joins.
-- An opened room is never retired when its last player leaves it.
+- ~~An opened room is never retired when its last player leaves it.~~
+  Answered by the successions: the last player to leave a room replaces it
+  or, by a join, retires it (6e).
+- Two live room roots wear one identity (`session:room_instance`). A join
+  works around it with a one-room world. The root is a peer-compared
+  rollback carrier, so a per-instance identity moves the checksum and is
+  its own cut.
 - Both players share one camera and one observation. The per-player view is
   P5 (multiview).
 - Not measured: whether the session-wide rebase at Alice's crossing resets

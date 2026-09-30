@@ -1082,6 +1082,22 @@ impl RoomFeatureConstructionPlan {
         &self.room
     }
 
+    /// This room's plan with nothing in it, for a crossing that joins a live
+    /// room already built (OW1 cut 6e). The transactions are the same, so
+    /// the publication verifies an empty roster against them.
+    pub(crate) fn emptied(&self) -> Self {
+        Self {
+            room: self.room.clone(),
+            content_requests: Vec::new(),
+            construction: self.construction.emptied(),
+            capability_lanes: self.capability_lanes.emptied(),
+            construction_services: self.construction_services.clone(),
+            expected_authoritative_ids: BTreeSet::new(),
+            binding_report: self.binding_report.clone(),
+            outlook: self.outlook.clone(),
+        }
+    }
+
     pub fn expected_authoritative_ids(&self) -> &BTreeSet<String> {
         &self.expected_authoritative_ids
     }

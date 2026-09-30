@@ -3,11 +3,17 @@
 //! A pet is a short script with two stages, recorded as one [`PetBeat`] on the
 //! petter. First the petter walks to the petted body's front, by the
 //! body-generic [`CommandedMove`] (the walk an encounter lures a boss with),
-//! and the petted body waits. Then the gesture plays: two timers on
-//! `BodyAnimFacts`, the petter's (`pet_anim_timer`) and the petted body's
-//! (`petted_anim_timer`). [`project_gesture_holds`] holds both bodies for the
-//! whole beat, and `body_state_clip` draws the two rows. A pet that runs out
-//! lets go by itself, and a rollback restores it with the beat and the timers.
+//! and the petted body waits. Then the gesture plays for [`PET_SECONDS`].
+//!
+//! ⭐ THE BEAT IS THE PET'S ONE RECORD. It owns both stages and the time left
+//! in each. [`project_pet_holds`] derives everything else from it on the same
+//! tick: both bodies' `ControlHold::Gesture`, and the `petting` and `petted`
+//! facts that `body_state_clip` draws the two rows from. It runs in the same
+//! chain, right after [`advance_pet_beats`], so the tick that starts, ends or
+//! interrupts a beat also changes the holds, before the next tick's control
+//! gate reads them. When the beat goes, for any reason, nothing is left on
+//! either body: there is no second timer to run down on a survivor. A
+//! rollback restores the beat, and the next projection restores the rest.
 //!
 //! A pet can be interrupted, as a conversation can: a hit that moves either
 //! body, either body going away, or a walk that cannot arrive ends the beat
@@ -76,8 +82,8 @@ pub enum PetStage {
     /// The petter walks to the mark. `remaining` is the time the walk may
     /// still take.
     Walk { remaining: f32 },
-    /// The gesture plays on the two bodies' timers.
-    Gesture,
+    /// The gesture plays. `remaining` is its time left.
+    Gesture { remaining: f32 },
 }
 
 /// A conversation asked one body to pet another, by live identity.
@@ -117,7 +123,7 @@ pub fn apply_pet_requests(
     beats: Query<&PetBeat>,
     rooms: Query<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
     collision: ambition_platformer2d_world::collision::CollisionWorld,
-    mut bodies: Query<(&mut BodyKinematics, &BodyAnimFacts)>,
+    mut bodies: Query<&mut BodyKinematics>,
 ) {
     for request in requests.read() {
         let entity_of = |wanted: &LiveBodyId| ids.entity_of(wanted);
@@ -159,14 +165,9 @@ pub fn apply_pet_requests(
         if busy(petter, &request.petter) || busy(petted, &request.petted) {
             continue;
         }
-        let Ok([(petter_kin, petter_anim), (mut petted_kin, petted_anim)]) =
-            bodies.get_many_mut([petter, petted])
-        else {
+        let Ok([petter_kin, mut petted_kin]) = bodies.get_many_mut([petter, petted]) else {
             continue;
         };
-        if petter_anim.in_shared_gesture() || petted_anim.in_shared_gesture() {
-            continue;
-        }
         // The petter's own room's solids: the mark is a place its body must
         // fit, in the room it walks in.
         let solids = collision
@@ -239,8 +240,8 @@ pub fn apply_pet_requests(
 /// A pet assumes both bodies stand still for it. A hit that moves either body
 /// ([`BodyCombat::is_knocked`], the rule a conversation breaks on), either
 /// body going away, a walk that does not arrive in time, or a petter pushed
-/// off its mark during the gesture breaks that, and the beat ends at once:
-/// the walk stops, both timers stop, and the holds let go.
+/// off its mark during the gesture breaks that, and the beat ends at once. The projection after it lets
+/// both bodies go on the same tick.
 #[allow(clippy::too_many_arguments)]
 pub fn advance_pet_beats(
     mut commands: Commands,
@@ -249,7 +250,7 @@ pub fn advance_pet_beats(
     ids: LiveBodies,
     pettable: Query<(&CenteredAabb, &ActorInteraction)>,
     mut petters: Query<(Entity, &mut PetBeat)>,
-    mut bodies: Query<(&mut BodyKinematics, &mut BodyAnimFacts, Option<&BodyCombat>)>,
+    mut bodies: Query<(&mut BodyKinematics, Option<&BodyCombat>)>,
     mut sfx: SfxWriter,
     mut vfx: MessageWriter<VfxMessage>,
 ) {
@@ -258,7 +259,7 @@ pub fn advance_pet_beats(
         let petted = ids.entity_of(&beat.petted);
         let pair = petted.and_then(|petted| bodies.get_many_mut([petter, petted]).ok());
         let Some(
-            [(mut petter_kin, mut petter_anim, petter_combat), (mut petted_kin, mut petted_anim, petted_combat)],
+            [(mut petter_kin, petter_combat), (mut petted_kin, petted_combat)],
         ) = pair
         else {
             // A body went away (despawned, or the room was replaced).
@@ -298,9 +299,9 @@ pub fn advance_pet_beats(
                 petted_kin.facing = beat.side;
                 petter_kin.vel.x = 0.0;
                 petted_kin.vel.x = 0.0;
-                petter_anim.pet_anim_timer = PET_SECONDS;
-                petted_anim.petted_anim_timer = PET_SECONDS;
-                beat.stage = PetStage::Gesture;
+                beat.stage = PetStage::Gesture {
+                    remaining: PET_SECONDS,
+                };
                 if let Some(sound) = &petting.sound {
                     sfx.write(SfxMessage::Play {
                         id: SfxId::new(sound),
@@ -316,14 +317,13 @@ pub fn advance_pet_beats(
                     count: 5,
                 });
             }
-            PetStage::Gesture => {
+            PetStage::Gesture { remaining } => {
+                let remaining = remaining - dt;
                 let pushed_off = (petter_kin.pos.x - beat.mark_x).abs() > PET_REACH_SLACK;
-                if knocked || pushed_off {
-                    petter_anim.pet_anim_timer = 0.0;
-                    petted_anim.petted_anim_timer = 0.0;
+                if knocked || pushed_off || remaining <= 0.0 {
                     end_pet_beat(&mut commands, petter);
-                } else if petter_anim.pet_anim_timer <= 0.0 {
-                    end_pet_beat(&mut commands, petter);
+                } else {
+                    beat.stage = PetStage::Gesture { remaining };
                 }
             }
         }
@@ -335,29 +335,46 @@ fn end_pet_beat(commands: &mut Commands, petter: Entity) {
     commands.entity(petter).remove::<(CommandedMove, PetBeat)>();
 }
 
-/// Hold every body in a shared beat, and let go when the beat ends: while a
-/// shared gesture plays on it, and through a pet's walk, the petter (walked by
-/// its script) and the petted body (waiting for it). Derived from the gesture
-/// timers and the [`PetBeat`]s each tick, so it is idempotent and a rollback
-/// that restores them restores the hold with them.
-pub fn project_gesture_holds(
+/// Derive each body's part in a pet from the beats, on the tick the beats
+/// change. (sim)
+///
+/// A petter (the body with a [`PetBeat`]) and the body its beat names are
+/// held (`ControlHold::Gesture`) for the whole beat: the petter is walked by
+/// its script and the petted body waits. While the gesture plays, the petter
+/// is `petting` and the petted body is `petted`. A body in no beat has none of
+/// these. The petted body is matched by live identity, so a duplicate in
+/// another live room is not held.
+///
+/// ⛔ IN THE PET'S OWN CHAIN, after [`advance_pet_beats`], and not in the
+/// feature phase's hold projection, which runs before the beats move. There,
+/// a new pet took one tick of ordinary control, and a hit or an end kept both
+/// bodies held one tick more.
+pub fn project_pet_holds(
     mut commands: Commands,
     beats: Query<&PetBeat>,
     mut bodies: Query<(
         Entity,
-        &BodyAnimFacts,
+        &mut BodyAnimFacts,
         Option<&SimId>,
         (Option<&InRoomInstance>, Option<&LiveRoomInstance>),
         Option<&mut ControlHolds>,
     )>,
 ) {
-    for (entity, anim, id, (stamp, root), holds) in &mut bodies {
+    for (entity, mut anim, id, (stamp, root), holds) in &mut bodies {
+        let own = beats.get(entity).ok();
+        let petted_by = id.and_then(|id| beats.iter().find(|beat| beat.petted.is(id, stamp, root)));
+        let gesture = |beat: Option<&PetBeat>| {
+            beat.is_some_and(|beat| matches!(beat.stage, PetStage::Gesture { .. }))
+        };
+        let (petting, petted) = (gesture(own), gesture(petted_by));
+        if anim.petting != petting || anim.petted != petted {
+            anim.petting = petting;
+            anim.petted = petted;
+        }
+        let in_a_beat = own.is_some() || petted_by.is_some();
         let held = holds
             .as_ref()
             .is_some_and(|holds| holds.holds(ControlHold::Gesture));
-        let in_a_beat = anim.in_shared_gesture()
-            || beats.get(entity).is_ok()
-            || id.is_some_and(|id| beats.iter().any(|beat| beat.petted.is(id, stamp, root)));
         match (in_a_beat, held) {
             (true, false) => claim_control_hold(&mut commands, entity, ControlHold::Gesture),
             (false, true) => release_control_hold(

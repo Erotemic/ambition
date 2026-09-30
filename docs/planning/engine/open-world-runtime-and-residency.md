@@ -676,6 +676,17 @@ schema; instance roots must be re-creatable by a rewind across a publication;
 and the session-wide rebase on a transition would reset Bob's history when
 Alice crosses, which OW1 surfaces but does not solve.
 
+⚠ Owed when multi-room hot reload is real (review of cut 5e): a
+`LiveRoomDefinition` is an index into the CURRENT `RoomSet`, not a
+generation-stable definition identity. Today hot reload is gated to one live
+room (`SoleLiveRoomSpec`), and the replaced room is seated from the new set,
+so no survivor holds an old index. When that gate goes, replacing the set
+while another root survives would give that root's generation-N population a
+generation-N+1 definition under the same index. The cut that removes the
+gate must choose: re-prepare every resident root atomically with the set, or
+make the root's definition reference name its prepared generation. An old
+index must not silently take a new generation's meaning.
+
 ## Existing repairs and standing lessons
 
 | Historical receipt | Preserve |

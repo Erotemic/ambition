@@ -197,6 +197,10 @@ impl bevy::prelude::Plugin for GameplayEffectsSchedulePlugin {
                 // its interruption. After the request, so a petter already on
                 // the mark starts the gesture on the tick it asked.
                 ecs::advance_pet_beats,
+                // The holds and the two poses, from the beats as this tick
+                // leaves them: the next control gate reads the pet's state
+                // and not the state one tick before it.
+                ecs::project_pet_holds,
                 crate::items::narrative::apply_item_grants,
                 crate::items::narrative::apply_shop_transactions,
                 crate::items::narrative::apply_item_uses,
@@ -1457,10 +1461,6 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
         app.add_systems(
             sim,
             interact_ecs_actors_and_switches.in_set(FeatureInteractionSet::Actuate),
-        );
-        app.add_systems(
-            sim,
-            ecs::project_gesture_holds.in_set(FeatureInteractionSet::HoldProjection),
         );
         // A script's walk to a mark, on the blanked frame: a held body is
         // walked by the script and not by the stick. In the gate, so every

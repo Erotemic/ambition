@@ -142,8 +142,8 @@ fn talking_to_the_dog_offers_a_pet_that_holds_both_still_until_it_ends() {
     }
     assert!(talking_to_the_dog(&sim), "Interact beside the dog talks to it");
     assert_eq!(
-        (anim(&sim, player).pet_anim_timer, anim(&sim, dog).petted_anim_timer),
-        (0.0, 0.0),
+        (anim(&sim, player).petting, anim(&sim, dog).petted),
+        (false, false),
         "Interact alone does not pet the dog"
     );
 
@@ -160,14 +160,14 @@ fn talking_to_the_dog_offers_a_pet_that_holds_both_still_until_it_ends() {
     let per_tick = ambition_platformer2d::actors::features::ecs::PET_WALK_SPEED / 60.0;
     let mut path = vec![pos(&sim, player).x];
     for _ in 0..180 {
-        if anim(&sim, player).pet_anim_timer > 0.0 {
+        if anim(&sim, player).petting {
             break;
         }
         sim.step(base());
         path.push(pos(&sim, player).x);
     }
     assert!(
-        anim(&sim, player).pet_anim_timer > 0.0 && anim(&sim, dog).petted_anim_timer > 0.0,
+        anim(&sim, player).petting && anim(&sim, dog).petted,
         "the choice pets the dog: beat {:?}, walk {:?}, dog at {:?}, player at {:?}",
         sim.world().get::<ambition_platformer2d::actors::features::ecs::PetBeat>(player),
         sim.world().get::<ambition_platformer2d::characters::control::CommandedMove>(player),
@@ -236,3 +236,111 @@ fn talking_to_the_dog_offers_a_pet_that_holds_both_still_until_it_ends() {
         );
     }
 }
+
+/// The pet's holds follow the pet on the tick it changes, in the composed
+/// schedule.
+///
+/// The control gate runs early in a tick and the pet's script late. The holds
+/// were projected in the feature phase, between the two, from the beats as
+/// the tick before left them. So on the tick a pet began, nothing held either
+/// body, and the next tick's control was the stick's with the walk on top of
+/// it. And on the tick a hit ended the pet, both bodies stayed held, and the
+/// next tick's control was blanked for a pet that was over.
+///
+/// Arm 1: at the end of the tick the beat appears on, both bodies hold
+/// `Gesture`, so the next control frame is the script's. Arm 2: a hit on the
+/// dog during the gesture; at the end of that tick, neither body holds
+/// `Gesture` and neither is posed. The control for arm 2 is the tick before
+/// the hit, when both are held.
+#[test]
+fn a_pet_holds_both_bodies_from_its_first_tick_and_lets_go_on_the_tick_it_breaks() {
+    use ambition_platformer2d::characters::actor::{BodyAnimFacts, BodyCombat};
+    use ambition_platformer2d::characters::control::{ControlHold, ControlHolds};
+    use ambition_platformer2d::actors::features::ecs::PetBeat;
+
+    let mut sim = fixed_60hz_room_sim("central_hub_complex");
+    sim.step_n(base(), 10);
+    let dog = {
+        let world = sim.world_mut();
+        let mut query = world.query::<(Entity, &WornCharacter)>();
+        query
+            .iter(world)
+            .find(|(_, worn)| worn.id() == "npc_companion_dog")
+            .map(|(entity, _)| entity)
+            .expect("the basement stages the authored dog")
+    };
+    let player = {
+        let world = sim.world_mut();
+        let mut query = world.query_filtered::<
+            Entity,
+            bevy::prelude::With<ambition_platformer2d::platformer::markers::PrimaryPlayer>,
+        >();
+        query.single(world).expect("one primary player")
+    };
+    let held = |sim: &ambition_app::Platformer2dSimHarness, body: Entity| {
+        sim.world()
+            .get::<ControlHolds>(body)
+            .is_some_and(|holds| holds.holds(ControlHold::Gesture))
+    };
+    let posed = |sim: &ambition_app::Platformer2dSimHarness| {
+        let anim = |body| sim.world().get::<BodyAnimFacts>(body).cloned().unwrap_or_default();
+        (anim(player).petting, anim(dog).petted)
+    };
+
+    let here = sim.world().get::<BodyKinematics>(dog).expect("the dog").pos;
+    sim.teleport_player((here.x, here.y));
+    sim.step(ambition_app::AgentAction {
+        interact: true,
+        interact_held: true,
+        ..base()
+    });
+    sim.step_n(base(), 5);
+    sim.world_mut()
+        .run_system_cached(ambition_content::yarn_vocabulary::cmd_pet)
+        .expect("the `<<pet>>` command runs");
+
+    // Arm 1: the tick the beat appears on.
+    let mut began = false;
+    for _ in 0..10 {
+        sim.step(base());
+        if sim.world().get::<PetBeat>(player).is_some() {
+            began = true;
+            break;
+        }
+    }
+    assert!(began, "setup: the pet never began");
+    assert!(
+        held(&sim, player) && held(&sim, dog),
+        "the pet began this tick and a body is not held, so the next tick's control is \
+         the stick's (player held: {}, dog held: {})",
+        held(&sim, player),
+        held(&sim, dog),
+    );
+
+    // Arm 2: into the gesture, then a hit on the dog.
+    for _ in 0..180 {
+        if posed(&sim) == (true, true) {
+            break;
+        }
+        sim.step(base());
+    }
+    assert_eq!(posed(&sim), (true, true), "setup: the gesture never played");
+    assert!(held(&sim, player) && held(&sim, dog), "control: the gesture holds both");
+    sim.world_mut()
+        .entity_mut(dog)
+        .entry::<BodyCombat>()
+        .or_default()
+        .get_mut()
+        .recoil_lock_timer = 0.3;
+    sim.step(base());
+    assert!(sim.world().get::<PetBeat>(player).is_none(), "the hit did not end the pet");
+    assert_eq!(posed(&sim), (false, false), "the pet ended and a body is still posed");
+    assert!(
+        !held(&sim, player) && !held(&sim, dog),
+        "the pet ended this tick and a body is still held, so the next tick's control is \
+         blanked for a pet that is over (player held: {}, dog held: {})",
+        held(&sim, player),
+        held(&sim, dog),
+    );
+}
+

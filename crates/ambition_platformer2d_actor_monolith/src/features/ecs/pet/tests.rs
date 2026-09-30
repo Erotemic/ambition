@@ -53,7 +53,8 @@ fn app() -> App {
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_systems(
         Update,
-        (apply_pet_requests, advance_pet_beats, project_gesture_holds).chain(),
+        // The production order: the pet's chain in `GameplayEffects`.
+        (apply_pet_requests, advance_pet_beats, project_pet_holds).chain(),
     );
     app
 }
@@ -183,8 +184,8 @@ fn a_pet_walks_the_petter_to_the_front_and_pets_on_arrival() {
     let mark = walk_mark(&app, player).expect("the petter walks to the dog's front");
     assert!(mark.x > dog_at.x + 32.0, "the mark is the dog's front, on the petter's side");
     assert_eq!(
-        (anim(&app, player).pet_anim_timer, anim(&app, dog).petted_anim_timer),
-        (0.0, 0.0),
+        (anim(&app, player).petting, anim(&app, dog).petted),
+        (false, false),
         "the gesture waits for the walk"
     );
     assert!(
@@ -200,8 +201,13 @@ fn a_pet_walks_the_petter_to_the_front_and_pets_on_arrival() {
     arrive(&mut app, player);
     app.update();
 
-    assert_eq!(anim(&app, player).pet_anim_timer, PET_SECONDS, "the player pets");
-    assert_eq!(anim(&app, dog).petted_anim_timer, PET_SECONDS, "the dog is petted");
+    assert!(anim(&app, player).petting, "the player pets");
+    assert!(anim(&app, dog).petted, "the dog is petted");
+    assert_eq!(
+        app.world().get::<PetBeat>(player).map(|beat| beat.stage),
+        Some(PetStage::Gesture { remaining: PET_SECONDS }),
+        "the beat owns the gesture's length"
+    );
     assert!(walk_mark(&app, player).is_none(), "the walk is over");
     assert!(
         gesture_held(&app, player) && gesture_held(&app, dog),
@@ -240,8 +246,8 @@ fn a_hit_during_the_walk_interrupts_the_pet() {
     app.world_mut().get_mut::<BodyKinematics>(player).unwrap().pos.x = mark.x;
     app.update();
     assert_eq!(
-        (anim(&app, player).pet_anim_timer, anim(&app, dog).petted_anim_timer),
-        (0.0, 0.0),
+        (anim(&app, player).petting, anim(&app, dog).petted),
+        (false, false),
         "an interrupted pet started its gesture anyway"
     );
 }
@@ -257,14 +263,14 @@ fn a_hit_during_the_gesture_interrupts_the_pet() {
     app.update();
     arrive(&mut app, player);
     app.update();
-    assert_eq!(anim(&app, dog).petted_anim_timer, PET_SECONDS, "control: the gesture plays");
+    assert!(anim(&app, dog).petted, "control: the gesture plays");
 
     knock(&mut app, dog);
     app.update();
 
     assert_eq!(
-        (anim(&app, player).pet_anim_timer, anim(&app, dog).petted_anim_timer),
-        (0.0, 0.0),
+        (anim(&app, player).petting, anim(&app, dog).petted),
+        (false, false),
         "the gesture played on through a hit"
     );
     assert!(
@@ -306,8 +312,8 @@ fn a_character_without_a_petting_row_is_not_petted() {
     ask_for_a_pet(&mut app, "shopkeeper");
     app.update();
 
-    assert_eq!(anim(&app, player).pet_anim_timer, 0.0);
-    assert_eq!(anim(&app, shopkeeper).petted_anim_timer, 0.0);
+    assert!(!anim(&app, player).petting);
+    assert!(!anim(&app, shopkeeper).petted);
     assert!(!gesture_held(&app, player));
 }
 
@@ -322,28 +328,36 @@ fn a_second_pet_during_the_first_changes_nothing() {
     app.update();
     arrive(&mut app, player);
     app.update();
-    app.world_mut()
-        .get_mut::<BodyAnimFacts>(dog)
-        .unwrap()
-        .petted_anim_timer = 0.5;
+    let stage = |app: &App| app.world().get::<PetBeat>(player).map(|beat| beat.stage);
+    let Some(PetStage::Gesture { remaining }) = stage(&app) else {
+        panic!("control: the first pet is in its gesture");
+    };
 
     ask_for_a_pet(&mut app, "good_dog");
     app.update();
 
-    assert_eq!(anim(&app, dog).petted_anim_timer, 0.5, "the running pet is kept");
-    assert_eq!(anim(&app, player).pet_anim_timer, PET_SECONDS);
+    assert_eq!(
+        stage(&app),
+        Some(PetStage::Gesture { remaining: remaining - 1.0 / 60.0 }),
+        "the second pet restarted the running one"
+    );
+    assert!(anim(&app, dog).petted);
 }
 
+/// The projection lets go of the gesture's own hold bit and no other.
 #[test]
 fn the_gesture_hold_lets_go_when_the_pet_ends_and_only_its_own_bit() {
     let mut app = App::new();
-    app.add_systems(Update, project_gesture_holds);
+    app.add_systems(Update, project_pet_holds);
     let body = app
         .world_mut()
         .spawn((
-            BodyAnimFacts {
-                pet_anim_timer: 1.0,
-                ..Default::default()
+            BodyAnimFacts::default(),
+            PetBeat {
+                petted: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(sim_id("good_dog"), None),
+                mark_x: 0.0,
+                side: 1.0,
+                stage: PetStage::Gesture { remaining: 1.0 },
             },
             ControlHolds::only(ControlHold::Conversation),
         ))
@@ -351,19 +365,59 @@ fn the_gesture_hold_lets_go_when_the_pet_ends_and_only_its_own_bit() {
 
     app.update();
     assert!(gesture_held(&app, body), "a running pet holds the body");
+    assert!(anim(&app, body).petting, "and poses it");
 
-    app.world_mut()
-        .get_mut::<BodyAnimFacts>(body)
-        .unwrap()
-        .pet_anim_timer = 0.0;
+    app.world_mut().entity_mut(body).remove::<PetBeat>();
     app.update();
     let holds = app
         .world()
         .get::<ControlHolds>(body)
         .expect("the conversation still holds it");
     assert!(!holds.holds(ControlHold::Gesture), "the pet let go");
+    assert!(!anim(&app, body).petting, "the pose went with the beat");
     assert!(
         holds.holds(ControlHold::Conversation),
         "and left the conversation's hold alone"
     );
+}
+
+/// A pet in its gesture, for the despawn arms below.
+fn a_pet_in_its_gesture() -> (App, Entity, Entity) {
+    let mut app = app();
+    let dog_at = ae::Vec2::new(100.0, 100.0);
+    let player = spawn_player(&mut app, dog_at + ae::Vec2::new(30.0, 0.0));
+    let dog = spawn_character(&mut app, dog_at, "good_dog");
+    ask_for_a_pet(&mut app, "good_dog");
+    app.update();
+    arrive(&mut app, player);
+    app.update();
+    assert!(
+        anim(&app, player).petting && anim(&app, dog).petted,
+        "control: the gesture plays on both bodies"
+    );
+    assert!(gesture_held(&app, player) && gesture_held(&app, dog), "control: both are held");
+    (app, player, dog)
+}
+
+/// The petted body goes away during the gesture: the petter is let go on
+/// the next tick, and nothing of the pet is left on it.
+#[test]
+fn the_petter_is_let_go_when_the_petted_body_goes_away() {
+    let (mut app, player, dog) = a_pet_in_its_gesture();
+    app.world_mut().despawn(dog);
+    app.update();
+    assert!(app.world().get::<PetBeat>(player).is_none(), "the beat outlived the dog");
+    assert!(!anim(&app, player).petting, "the petter kept petting nothing");
+    assert!(!gesture_held(&app, player), "the petter kept its hold");
+}
+
+/// The petter goes away during the gesture: the petted body is let go on the
+/// next tick. It has no pet state of its own to run down.
+#[test]
+fn the_petted_body_is_let_go_when_the_petter_goes_away() {
+    let (mut app, player, dog) = a_pet_in_its_gesture();
+    app.world_mut().despawn(player);
+    app.update();
+    assert!(!anim(&app, dog).petted, "the dog kept being petted by nobody");
+    assert!(!gesture_held(&app, dog), "the dog kept its hold");
 }

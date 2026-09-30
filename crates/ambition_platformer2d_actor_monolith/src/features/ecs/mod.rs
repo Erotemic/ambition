@@ -125,7 +125,7 @@ pub use hitbox::{
 };
 pub use interact::{interact_ecs_actors_and_switches, TalkableBodies};
 pub use pet::{
-    advance_pet_beats, apply_pet_requests, project_gesture_holds, PetBeat, PetRequested, PetStage,
+    advance_pet_beats, apply_pet_requests, project_pet_holds, PetBeat, PetRequested, PetStage,
     PET_SECONDS, PET_WALK_SPEED,
 };
 // ⭐ THE MOUNT PAIR'S TESTS STAYED, because their fixtures are this crate's

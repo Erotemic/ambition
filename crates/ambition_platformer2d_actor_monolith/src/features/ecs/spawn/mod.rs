@@ -1379,7 +1379,10 @@ pub fn serve_encounter_spawn_commands(
             &catalog,
             &authored_sheets,
             &prepared,
-            session_scope,
+            // ⛔ INTO THE OCCURRENCE'S LIVE ROOM, which the request carries. An
+            // unstamped body is in NO room while two are live: a wave there
+            // spawned mobs nothing in either room could hit, see or count.
+            session_scope.in_room(msg.room),
             msg.encounter.clone(),
             ambition_encounter::mob_seed::EncounterMobSeed {
                 id: id.clone(),

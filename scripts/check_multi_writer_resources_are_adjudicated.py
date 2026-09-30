@@ -530,11 +530,6 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_actor_monolith/src/cutscene.rs",
         "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
     ),
-    "EncounterRegistry": (
-        "crates/ambition_encounter_features/src/systems.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/session/reset/mod.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
-    ),
     "GameplayTraceBuffer": (
         "crates/ambition_encounter_features/src/systems.rs",
         "crates/ambition_platformer2d_actor_monolith/src/dev/trace/systems.rs",
@@ -1774,18 +1769,6 @@ ADJUDICATED: dict[str, str] = {
         "the first, and anything that gains one must stop carrying "
         "`SpawnedThisAttempt`, because \"the attempt reclaims it\" and \"the durable "
         "world remembers it\" are contradictory answers about one object."
-    ),
-    "EncounterRegistry": (
-        "CORRECT — ONE BUILDER AND TWO LIFECYCLE WIPES, one per lifecycle fact. "
-        "`populate_encounter_registry` (`ambition_encounter_features/src/systems.rs`) "
-        "is the only system that fills the `id -> Entity` index; "
-        "`begin_fresh_run` clears it on New Game, in the confirmed-frame commit's "
-        "`CheckpointDomainApply`; `SESSION_SCOPE_RESET` clears it at "
-        "the session edge. ⭐ The crate's own plugin doc states the ownership this "
-        "rests on — *\"the crate owns its `id -> Entity` index ... Live encounter "
-        "state stays on the encounter ENTITIES\"* — so the registry is an index "
-        "rather than authority, and an index with one builder is not a duplicated "
-        "authority."
     ),
     "WorldlineHistoryView2d": (
         "CORRECT — A TELEMETRY VIEW WITH ONE PUBLISHER, ONE PRUNER AND ONE DEPTH "

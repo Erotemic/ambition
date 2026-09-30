@@ -193,7 +193,7 @@ def test_rule_3_does_not_count_a_doc_comment_naming_a_registration():
 
 
 def test_rule_3_does_not_read_an_entity_map_registration_as_a_second_authority():
-    """⚠ FOUR RESOURCES CARRY BOTH, and reading the second as a competing state
+    """⚠ FOUR RESOURCES CARRIED BOTH (one, `EncounterRegistry`, is deleted), and reading the second as a competing state
 
     registration produced four false reds the moment the method list widened.
     `resource.x` is the state; `map.resource.x` is entity remapping for the same
@@ -201,7 +201,7 @@ def test_rule_3_does_not_read_an_entity_map_registration_as_a_second_authority()
     """
     registrations, findings = guard.workspace_registrations()
     assert findings == [], findings
-    for both in ("PossessionState", "EncounterRegistry", "ActiveConversation"):
+    for both in ("PossessionState", "ActiveConversation"):
         assert registrations.get(both) == f"resource.{_snake(both)}", (
             both,
             registrations.get(both),

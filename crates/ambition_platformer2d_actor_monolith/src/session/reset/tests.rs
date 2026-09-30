@@ -11,7 +11,6 @@ use ambition_platformer2d_core as ae;
 fn a_fresh_run_wipes_the_save_the_registries_and_the_encounters() {
     let mut app = App::new();
     app.init_resource::<AmbitionGameSave>();
-    app.init_resource::<EncounterRegistry>();
     app.init_resource::<BossEncounterRegistry>();
     app.init_resource::<QuestRegistry>();
     app.init_resource::<ambition_combat::events::GameplayBanner>();
@@ -24,7 +23,6 @@ fn a_fresh_run_wipes_the_save_the_registries_and_the_encounters() {
             ambition_persistence::save_data::PersistedEncounterState::Cleared,
         );
     }
-    app.world_mut().resource_mut::<EncounterRegistry>().specs_loaded = true;
     app.world_mut().resource_mut::<BossEncounterRegistry>().specs_loaded = true;
     app.world_mut().resource_mut::<QuestRegistry>().initialized = true;
     let encounter = app
@@ -44,7 +42,6 @@ fn a_fresh_run_wipes_the_save_the_registries_and_the_encounters() {
                 == ambition_persistence::save_data::PersistedEncounterState::Untouched,
             fresh,
         );
-        assert_eq!(app.world().resource::<EncounterRegistry>().specs_loaded, !fresh);
         assert_eq!(app.world().resource::<BossEncounterRegistry>().specs_loaded, !fresh);
         assert_eq!(app.world().resource::<QuestRegistry>().initialized, !fresh);
         assert_eq!(app.world().get_entity(encounter).is_ok(), !fresh);

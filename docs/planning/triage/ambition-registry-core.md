@@ -87,7 +87,7 @@ ownership and freeze/revision policy when durable identity is required.
 | `RollbackRegistry` | Backend-neutral domain state registration plus wire identity | Preserve domain semantics and wire collision checks beyond common metadata |
 | `PlacementLoweringRegistry` | Open, typed placement lowering in world | A3 relocates actor-specific adapters, not all providers into a universal registry |
 | `RoomContentStagingRegistry` | Explicit source registration, sealed stagers, duplicate refusal | Retain duplicate refusal without inventing closure equality |
-| `EncounterRegistry` | Index from semantic encounter ID to live entity | Authorized replacement can be correct; immutable-declaration refusal would be the wrong rule |
+| ~~`EncounterRegistry`~~ | Deleted 2026-09-30: live encounters are occurrences per live room, built by `project_live_encounter_occurrences`, with no latch | — |
 | `PreparedCharacterRegistry` | Declaration admission versus intentional prepared/hot-reload replacement | Keep these operations distinct; a blanket reject/replace policy is insufficient |
 | `MovePrefabRegistry` | Expansion API must establish a production customer before wider investment | Recheck current install/expand callers; do not mistake tests for adoption |
 | `FrontendAudioRegistry` / banter tables | Explicit override semantics in current source | Precedence/product layering requires its own ruling; naming registry_core is not acceptance |

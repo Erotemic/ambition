@@ -123,8 +123,28 @@ mod rewards_tests {
 /// reset (player death re-opens it) must LEAVE this list, and an accumulating
 /// set would keep paying out for an encounter that is no longer cleared —
 /// which is the bug the `clear_encounter_reward_ecs` road exists to undo.
+///
+/// ⛔ ONE ROW PER CLEARED OCCURRENCE: the authored id, the occurrence's live
+/// room and the spec. A live room pays the rewards of its own occurrences, so
+/// two live rooms of one room each get a chest, and neither gets two.
 #[derive(bevy::prelude::Resource, Default, Clone, Debug)]
-pub struct ClearedEncounters(pub Vec<(String, EncounterSpec)>);
+pub struct ClearedEncounters(
+    pub Vec<(String, Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>, EncounterSpec)>,
+);
+
+impl ClearedEncounters {
+    /// The cleared occurrences of live room `room`, as `(id, spec)`.
+    pub fn in_room(
+        &self,
+        room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+    ) -> Vec<(String, EncounterSpec)> {
+        self.0
+            .iter()
+            .filter(|(_, cleared_in, _)| *cleared_in == room)
+            .map(|(id, _, spec)| (id.clone(), spec.clone()))
+            .collect()
+    }
+}
 
 /// Republish [`ClearedEncounters`] from live encounter state.
 ///
@@ -134,23 +154,28 @@ pub struct ClearedEncounters(pub Vec<(String, EncounterSpec)>);
 pub fn publish_cleared_encounters(
     mut cleared: bevy::prelude::ResMut<ClearedEncounters>,
     encounters: bevy::prelude::Query<(
+        bevy::prelude::Entity,
         &crate::entity::Encounter,
         &crate::lifecycle::EncounterLifecycle,
         Option<&crate::waves::EncounterWaves>,
     )>,
+    live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
 ) {
     cleared.0.clear();
     cleared.0.extend(
         encounters
             .iter()
-            .filter(|(_, lifecycle, waves)| {
+            .filter(|(_, _, lifecycle, waves)| {
                 matches!(lifecycle.phase, crate::lifecycle::EncounterPhase::Completed)
                     && waves.is_some()
             })
-            .filter_map(|(encounter, _, waves)| {
-                waves.map(|waves| (encounter.id.clone(), waves.spec.clone()))
+            .filter_map(|(occurrence, encounter, _, waves)| {
+                waves.map(|waves| (encounter.id.clone(), live.of(occurrence), waves.spec.clone()))
             }),
     );
+    // Room, then id: a consumer spawns in this order, and the order of
+    // what it spawns is peer-compared.
+    cleared.0.sort_by(|a, b| (a.1, &a.0).cmp(&(b.1, &b.0)));
 }
 
 #[cfg(test)]

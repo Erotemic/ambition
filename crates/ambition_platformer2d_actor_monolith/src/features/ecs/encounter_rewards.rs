@@ -24,6 +24,9 @@ use bevy::prelude::Name;
 use bevy::prelude::*;
 
 /// Drop the encounter's ECS reward chest, if any, and clear its looted flag.
+///
+/// Only a chest `in_room` says is the occurrence's: another live room's
+/// occurrence of the same encounter keeps its chest.
 pub fn clear_encounter_reward_ecs(
     commands: &mut Commands,
     save: &mut ambition_persistence::save_data::AmbitionGameSaveData,
@@ -32,9 +35,10 @@ pub fn clear_encounter_reward_ecs(
         With<ChestFeature>,
     >,
     encounter_id: &str,
+    in_room: impl Fn(Entity) -> bool,
 ) {
     for (entity, reward, _, _) in chests.iter() {
-        if reward.encounter_id == encounter_id {
+        if reward.encounter_id == encounter_id && in_room(entity) {
             commands.entity(entity).despawn();
         }
     }
@@ -62,6 +66,9 @@ pub fn sync_encounter_reward_chests_ecs(
         (Entity, &EncounterRewardChest, &FeatureId, Option<&Opened>),
         With<ChestFeature>,
     >,
+    // Whether a chest stands in this room. Two live rooms of one room each
+    // hold their own chest of its encounter.
+    in_room: impl Fn(Entity) -> bool,
 ) {
     let chest_size = ae::Vec2::new(28.0, 28.0);
     for (encounter_id, spec) in cleared.iter().filter(|(_, spec)| spec.room_id == active_room) {
@@ -71,7 +78,7 @@ pub fn sync_encounter_reward_chests_ecs(
         ));
         let existing = chests
             .iter()
-            .find(|(_, reward, _, _)| reward.encounter_id == *encounter_id);
+            .find(|(entity, reward, _, _)| reward.encounter_id == *encounter_id && in_room(*entity));
         if let Some((entity, _, _, opened)) = existing {
             match (looted, opened.is_some()) {
                 (true, false) => {
@@ -143,8 +150,9 @@ pub fn sync_encounter_reward_chests(
             session_scope.in_room(Some(live)),
             save.data(),
             &rooms.rooms().spec(definition).id,
-            &cleared.0,
+            &cleared.in_room(Some(live)),
             &chests,
+            |chest| rooms.live().of(chest) == Some(live),
         );
     }
 }
@@ -240,7 +248,11 @@ pub fn retire_rewards_for_rearmed_encounters(
         ) else {
             continue;
         };
-        clear_encounter_reward_ecs(&mut commands, save.data_mut(), &chests, target_id);
+        // The chest of the occurrence in the switch's own live room.
+        let room = ambition_encounter::occurrence::message_room(rooms.live(), activation.room);
+        clear_encounter_reward_ecs(&mut commands, save.data_mut(), &chests, target_id, |chest| {
+            rooms.live().of(chest) == room
+        });
     }
 }
 
@@ -320,11 +332,13 @@ mod retire_on_rearm_tests {
     /// `other_room` with `b_fight`, each with a reward chest. A re-arm with no
     /// named target, pressed in #1, retires `b_fight`'s chest and leaves
     /// `a_fight`'s. The one-room control is `a_switch_turned_off_retires_the_reward`.
+    /// Each occurrence and its chest are stamped into their live room: with two
+    /// rooms live, an unstamped entity is in no room.
     /// When the system read the sole live room, it did not run while two rooms
     /// were live, and neither chest went.
     #[test]
     fn an_unnamed_rearm_retires_the_reward_of_its_own_rooms_encounter() {
-        use ambition_platformer2d_shared_tangle::lifecycle::{LiveRoomInstance, RoomInstanceRoot};
+        use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
         let second = LiveRoomInstance::ACTIVATION.next();
         let (mut app, _) = chest_app(vec![ResolvedSwitchActivation {
             id: "gate".into(),
@@ -354,10 +368,14 @@ mod retire_on_rearm_tests {
             rooms.definition_by_id("other_room").expect("the set has `other_room`")
         };
         app.world_mut().spawn((RoomInstanceRoot, second, definition));
-        let chests: Vec<Entity> = [("a_fight", "test_room"), ("b_fight", "other_room")]
+        let chests: Vec<Entity> = [
+            ("a_fight", "test_room", LiveRoomInstance::ACTIVATION),
+            ("b_fight", "other_room", second),
+        ]
             .into_iter()
-            .map(|(id, room)| {
+            .map(|(id, room, live)| {
                 app.world_mut().spawn((
+                    InRoomInstance(live),
                     ambition_encounter::Encounter { id: id.into() },
                     ambition_encounter::EncounterWaves::new(ambition_encounter::EncounterSpec {
                         id: id.into(),
@@ -374,6 +392,7 @@ mod retire_on_rearm_tests {
                 ));
                 app.world_mut()
                     .spawn((
+                        InRoomInstance(live),
                         ChestFeature::new(ambition_interaction::Chest::new(format!("encounter_chest_{id}"), None)),
                         EncounterRewardChest { encounter_id: id.into() },
                         FeatureId(format!("encounter_chest_{id}")),

@@ -47,6 +47,7 @@ fn run_sync(
         active.0,
         &cleared.0,
         &chests,
+        |_| true,
     );
 }
 
@@ -125,6 +126,7 @@ fn a_cleared_encounters_chest_stands_in_its_own_live_room() {
         spec.room_id = "room_b".into();
         app.insert_resource(ambition_encounter::rewards::ClearedEncounters(vec![(
             "test_enc".into(),
+            Some(second),
             spec,
         )]));
         let room = |id: &str| {

@@ -67,7 +67,7 @@ RE-DERIVING EIGHT OF THEM ON 2026-09-16 — SIX CAME BACK DIFFERENT, ONE HELD, A
 
 | what the row said | what source said |
 | --- | --- |
-| C03 starts from 32 session-owned App resources | **35** — `SessionScopedResources` holds 28, not 25 (it read 29, then 30, then 29 again when `CutsceneAdvanceRequest` left for the seat's control frame, then 28 when `MovingPlatformSet` left for the live room's own root; re-derived 2026-09-29) |
+| C03 starts from 32 session-owned App resources | **34** — `SessionScopedResources` holds 27, not 25 (it read 29, then 30, then 29 again when `CutsceneAdvanceRequest` left for the seat's control frame, then 28 when `MovingPlatformSet` left for the live room's own root, then 27 when `EncounterRegistry` was deleted; re-derived 2026-09-30) |
 | C03 can lift out "reset-only process storage" | **no such member exists**; all 30 have a reader outside their reset |
 | C03 has "separate reset lists" to merge | the two lists' intersection is **EMPTY** — a partition, not two copies |
 | C04: a live-construction fallback is an "accidental missing-resource branch" | it is a **DECLARED** decision — `for_live_session` REFUSES a shell-routed session with no generation, discriminated by `SessionGatedSimulation` |

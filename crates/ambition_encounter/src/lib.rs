@@ -16,6 +16,7 @@ pub mod lifecycle;
 pub mod mob_seed;
 pub mod music;
 pub mod objective;
+pub mod occurrence;
 pub mod participants;
 pub mod registry;
 pub mod rewards;
@@ -38,7 +39,7 @@ pub use participants::{
     EncounterCleanupPolicy, EncounterParticipant, EncounterParticipants, EncounterRole, Ownership,
     SpawnedCleanup,
 };
-pub use registry::{EncounterRegistry, EncounterRegistryPlugin, SwitchActivation};
+pub use registry::{EncounterRegistryPlugin, SwitchActivation};
 pub use rewards::{
     encounter_chest_feature_id, encounter_id_from_chest_feature_id, encounter_reward_chest_pos,
     encounter_reward_looted_flag,

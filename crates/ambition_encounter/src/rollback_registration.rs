@@ -18,12 +18,6 @@ where
         OWNER,
         "root.encounter_music_request",
     );
-    registrar.rollback_resource_clone_checksum::<crate::EncounterRegistry>(
-        OWNER,
-        "resource.encounter_registry",
-        "whether this session's encounter triggers have been populated",
-        |registry| u64::from(registry.specs_loaded),
-    );
     registrar.rollback_component_clone::<crate::Encounter>(OWNER, "encounter.identity");
     registrar.rollback_component_clone::<crate::EncounterObjective>(OWNER, "encounter.objective");
     registrar

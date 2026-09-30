@@ -313,3 +313,30 @@ fn smashs_presentation_and_limit_govern_only_smash_rooms() {
         );
     }
 }
+
+/// Each game draws its own line between light and heavy hits, and a room no
+/// game drew one for has no heavy hits.
+///
+/// ⭐ The two lines must differ, or "each game reads its own" is also true of
+/// one global number: Ambition's damage is health (3 is a smash attack) and
+/// Smash's is percent (3 is a jab).
+#[test]
+fn each_game_draws_its_own_line_between_light_and_heavy_hits() {
+    use ambition_platformer2d::combat::scoped_rules::ActiveRoom;
+    use ambition_platformer2d::combat::strike_weight::StrikeWeightRules;
+
+    let app = compose_the_shipped_host();
+    let lines = app
+        .world()
+        .get_resource::<DeclaredRules<StrikeWeightRules>>()
+        .expect("the shipped host's games declare which hits are heavy");
+    let ambition = lines.governing(ActiveRoom::Untagged);
+    let smash = lines.governing(ActiveRoom::live(Some(ambition_demo_smash::SMASH_MODE)));
+    assert_eq!(ambition, Some(StrikeWeightRules::heavy_at(3)));
+    assert_eq!(smash, Some(StrikeWeightRules::heavy_at(12)));
+    assert_eq!(
+        lines.governing(ActiveRoom::live(Some(ambition_demo_mary_o::MARY_O_MODE))),
+        None,
+        "Mary-O drew no line, so her rooms must not borrow another game's"
+    );
+}

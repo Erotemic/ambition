@@ -79,6 +79,10 @@ pub fn register_characters(app: &mut bevy::prelude::App) {
     // what makes "which pack did this cast come from" one fact: a selection that
     // changed mid-loop would register half a roster from each.
     let pack = crate::pack::select(app.world_mut()).clone();
+    // The articulated-rig trial switch: read once, because it decides the cast.
+    // The shipped game does not admit rigs (see `BodyRigAdmission`).
+    let rigs_admitted =
+        ambition_characters::actor::BodyRigAdmission::of(app.world()).admit;
     // Only the rows that state a body. A bare registration for an exploration
     // NPC would incorrectly replace its archetype-authored body.
     for id in buildable_cast() {
@@ -106,6 +110,13 @@ pub fn register_characters(app: &mut bevy::prelude::App) {
             ambition_platformer2d::character_sprites::posed_body_inset_hurtboxes(catalog.data(), id)
         {
             definition = definition.with_hurtboxes(doc);
+        }
+        // The semantic body rig the sheet publishes, at the scale of that body.
+        if let Some(rig) = rigs_admitted
+            .then(|| ambition_platformer2d::character_sprites::published_body_rig(catalog.data(), id))
+            .flatten()
+        {
+            definition = definition.with_body_rig(rig);
         }
         // Every character facet the pack authors, folded by its capability.
         let definition =

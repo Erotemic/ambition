@@ -274,6 +274,12 @@ mod tests {
              (got {a_startup}, {r_startup}, {g_startup})"
         );
 
+        // A KILL MOVE IS A PLATFORM-FIGHTER CLAIM, so the damage compared is
+        // each fighter's percent. The robot's home table states Ambition's
+        // health damage; its percent is in its `smash_fighter` facet.
+        let admiral = crate::authored_movesets::on_a_platform_fighter_stage("npc_pirate_admiral");
+        let goblin = crate::authored_movesets::on_a_platform_fighter_stage("goblin");
+        let robot = crate::authored_movesets::on_a_platform_fighter_stage("player_robot_v3");
         let smash = |set: &MovesetContract| damage(&find(set, "smash_forward"));
         assert!(
             smash(&admiral) > smash(&robot) && smash(&robot) > smash(&goblin),

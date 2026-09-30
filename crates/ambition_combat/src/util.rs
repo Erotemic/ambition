@@ -285,23 +285,19 @@ pub fn emit_melee_slash(
     });
 }
 
-/// Damage at or above this value reads as a committed/heavy contact for the
-/// canonical robot blade. Ordinary jabs and default slashes remain light.
-///
-/// NOT REACHABLE BY ANY SHIPPED ATTACK TODAY. The robot player's only slash comes from
-/// `default_player_action_set` at `damage: 1` on a prefab whose `smash_charge_mult` is `1.0`,
-/// and no equipment path scales melee damage — so every strike resolves LIGHT and the rendered
-/// `…flesh.deep` / `…metal.gong` samples cannot currently play.
-const PLAYER_ROBOT_DEEP_IMPACT_DAMAGE: i32 = 3;
-
 /// Resolve an attack-owned strike id against the victim's material profile and
-/// the already-authored damage strength. Only the canonical robot-player
-/// selector is special; every concrete authored strike id remains byte-for-byte
-/// attack-owned behavior.
+/// the weight of the hit. Only the canonical robot-player selector is special;
+/// every concrete authored strike id remains byte-for-byte attack-owned
+/// behavior.
+///
+/// Whether the hit is heavy is the GAME's rule (`weight`, see
+/// [`crate::strike_weight`]), not a number in the engine. Where no game stated
+/// one, every hit is light.
 pub fn resolve_strike_sfx(
     hurt: ambition_vfx::HurtFeedback,
     strike_sfx: Option<ambition_sfx::SfxId>,
     damage: i32,
+    weight: Option<crate::strike_weight::StrikeWeightRules>,
 ) -> ambition_sfx::SfxId {
     let Some(strike) = strike_sfx else {
         return hurt.sfx;
@@ -309,7 +305,7 @@ pub fn resolve_strike_sfx(
     if strike != ambition_sfx::ids::PLAYER_ROBOT_SLASH_IMPACT {
         return strike;
     }
-    let deep = damage >= PLAYER_ROBOT_DEEP_IMPACT_DAMAGE;
+    let deep = crate::strike_weight::StrikeWeightRules::is_heavy(weight, damage);
     match hurt.material {
         ambition_vfx::ImpactMaterial::Flesh if deep => {
             ambition_sfx::ids::PLAYER_ROBOT_SLASH_IMPACT_FLESH_DEEP
@@ -353,6 +349,8 @@ pub fn emit_hit_feedback(
     hurt: ambition_vfx::HurtFeedback,
     strike_sfx: Option<ambition_sfx::SfxId>,
     damage: i32,
+    // The game's line between light and heavy hits in the struck body's room.
+    weight: Option<crate::strike_weight::StrikeWeightRules>,
     pos: ae::Vec2,
     // BOTH sides' presentation sources, because this function emits ONE sound
     // whose provenance depends on which cue won.
@@ -381,7 +379,7 @@ pub fn emit_hit_feedback(
     sfx.write_for_body(
         sound_source,
         ambition_sfx::SfxMessage::Play {
-            id: resolve_strike_sfx(hurt, strike_sfx, damage),
+            id: resolve_strike_sfx(hurt, strike_sfx, damage, weight),
             pos,
         },
     );
@@ -439,6 +437,7 @@ mod hit_feedback_tests {
             input.hurt,
             input.strike,
             input.damage,
+            None,
             ae::Vec2::ZERO,
             None,
             None,
@@ -500,37 +499,61 @@ mod hit_feedback_tests {
     }
 
     /// The player-robot selector is the only strike id that consults victim
-    /// material and authored damage strength; all concrete ids remain authored
+    /// material and the weight of the hit; all concrete ids remain authored
     /// attack sounds.
     #[test]
     fn robot_player_selector_resolves_material_and_contact_depth() {
+        use crate::strike_weight::StrikeWeightRules;
+        let robot = Some(ids::PLAYER_ROBOT_SLASH_IMPACT);
+        let line = Some(StrikeWeightRules::heavy_at(3));
         assert_eq!(
-            resolve_strike_sfx(HurtFeedback::ENEMY, Some(ids::PLAYER_ROBOT_SLASH_IMPACT), 1),
+            resolve_strike_sfx(HurtFeedback::ENEMY, robot, 2, line),
             ids::PLAYER_ROBOT_SLASH_IMPACT_FLESH_LIGHT,
         );
         assert_eq!(
-            resolve_strike_sfx(
-                HurtFeedback::ENEMY,
-                Some(ids::PLAYER_ROBOT_SLASH_IMPACT),
-                PLAYER_ROBOT_DEEP_IMPACT_DAMAGE
-            ),
+            resolve_strike_sfx(HurtFeedback::ENEMY, robot, 3, line),
             ids::PLAYER_ROBOT_SLASH_IMPACT_FLESH_DEEP,
         );
         assert_eq!(
-            resolve_strike_sfx(HurtFeedback::ROBOT, Some(ids::PLAYER_ROBOT_SLASH_IMPACT), 8),
+            resolve_strike_sfx(HurtFeedback::ROBOT, robot, 8, line),
             ids::PLAYER_ROBOT_SLASH_IMPACT_ROBOT,
         );
         assert_eq!(
-            resolve_strike_sfx(HurtFeedback::METAL, Some(ids::PLAYER_ROBOT_SLASH_IMPACT), 1),
+            resolve_strike_sfx(HurtFeedback::METAL, robot, 2, line),
             ids::PLAYER_ROBOT_SLASH_IMPACT_METAL_CHINK,
         );
         assert_eq!(
-            resolve_strike_sfx(
-                HurtFeedback::METAL,
-                Some(ids::PLAYER_ROBOT_SLASH_IMPACT),
-                PLAYER_ROBOT_DEEP_IMPACT_DAMAGE
-            ),
+            resolve_strike_sfx(HurtFeedback::METAL, robot, 3, line),
             ids::PLAYER_ROBOT_SLASH_IMPACT_METAL_GONG,
+        );
+    }
+
+    /// ⭐ THE SAME DAMAGE IS HEAVY IN ONE GAME AND LIGHT IN ANOTHER, which is
+    /// why the line is a game's rule. 3 is a big hit where damage is health and
+    /// a jab where it is percent. Where no game drew a line, no hit is heavy,
+    /// however much damage it deals.
+    #[test]
+    fn the_game_draws_the_line_between_light_and_heavy() {
+        use crate::strike_weight::StrikeWeightRules;
+        let robot = Some(ids::PLAYER_ROBOT_SLASH_IMPACT);
+        let health_game = Some(StrikeWeightRules::heavy_at(3));
+        let percent_game = Some(StrikeWeightRules::heavy_at(12));
+        assert_eq!(
+            resolve_strike_sfx(HurtFeedback::ENEMY, robot, 3, health_game),
+            ids::PLAYER_ROBOT_SLASH_IMPACT_FLESH_DEEP,
+        );
+        assert_eq!(
+            resolve_strike_sfx(HurtFeedback::ENEMY, robot, 3, percent_game),
+            ids::PLAYER_ROBOT_SLASH_IMPACT_FLESH_LIGHT,
+        );
+        assert_eq!(
+            resolve_strike_sfx(HurtFeedback::ENEMY, robot, 15, percent_game),
+            ids::PLAYER_ROBOT_SLASH_IMPACT_FLESH_DEEP,
+        );
+        assert_eq!(
+            resolve_strike_sfx(HurtFeedback::ENEMY, robot, 999, None),
+            ids::PLAYER_ROBOT_SLASH_IMPACT_FLESH_LIGHT,
+            "a room with no line has no heavy hits"
         );
     }
 

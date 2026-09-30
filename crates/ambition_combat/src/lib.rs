@@ -25,6 +25,7 @@ pub mod attack_support;
 pub mod authored_volumes;
 pub mod banner;
 pub mod body_geometry;
+pub mod body_rig;
 pub mod brain;
 pub mod breakables;
 pub mod capture;
@@ -62,6 +63,7 @@ pub mod stocks;
 /// Authoritative strike damage volumes, lifecycle state, and world-anchored
 /// effect execution.
 pub mod strike;
+pub mod strike_weight;
 pub mod targeting;
 pub mod util;
 pub mod variation;

@@ -17,6 +17,8 @@ pub use body::{
     advance_body_anim_overlays, ArmorPolicy, BodyAnimFacts, BodyCombat, BodyHealth, BodyWallet,
     BodyWalletShield, DeathPolicy,
 };
+pub mod body_rig;
+pub use body_rig::{BodyRigAdmission, BodyRigDefinition, BodyRigError, PreparedBodyRig};
 pub mod body_step;
 pub use body_step::step_body;
 pub mod attack_gesture;

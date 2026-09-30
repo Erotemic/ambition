@@ -37,6 +37,16 @@ struct PreparedCharacterOverrides {
     portrait: Option<String>,
     body: Option<BodySource>,
     hurtboxes: Option<HurtboxDoc>,
+    /// See [`CharacterDefinition::body_rig`]. VALIDATED at preparation: a rig
+    /// that does not prepare is reported in `unresolved` and dropped here, so
+    /// this holds only a rig that [`BodyRigDefinition::prepare`] accepts. It
+    /// has no catalog counterpart.
+    ///
+    /// Skipped when absent, so a cast with no rig renders the same
+    /// [`StagedCharacterOverrides::deterministic_dump`] (and so the same
+    /// content identity) it rendered before rigs existed.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    body_rig: Option<crate::actor::BodyRigDefinition>,
     vitals: Vitals,
     /// See [`CharacterDefinition::death_traits`]. FOLDED at finalize: this,
     /// else the catalog row's.
@@ -82,6 +92,8 @@ struct PreparedCharacterOverrides {
     /// See [`CharacterDefinition::hands`]. FOLDED with the catalog row's.
     hands: Option<crate::actor::CharacterHands>,
     moveset: Option<MovesetContract>,
+    /// See [`CharacterDefinition::fighter_move_damage`].
+    fighter_move_damage: crate::smash_fighter::MoveDamage,
     /// The authored action set, carried through preparation unchanged.
     ///
     /// `None` and `Some(empty)` mean different things all the way to the body —
@@ -1001,6 +1013,9 @@ pub struct PreparedCharacterDefinition {
     pub portrait: Option<String>,
     pub body: Option<BodySource>,
     pub hurtboxes: Option<HurtboxDoc>,
+    /// This body's semantic rig, validated and shared by every body of the
+    /// character. See [`crate::actor::body_rig`].
+    pub body_rig: Option<std::sync::Arc<crate::actor::PreparedBodyRig>>,
     pub vitals: Vitals,
     /// What this body does when it dies, if it authored anything. See
     /// [`CharacterDefinition::death_traits`] — `None` stays `None`
@@ -1093,6 +1108,11 @@ pub struct PreparedCharacterDefinition {
     /// attack is. Without this field the two cases are indistinguishable and
     /// the grant wins over both.
     pub authored_moveset: Option<MovesetContract>,
+    /// The damage its moves deal on a platform-fighter stage. See
+    /// [`CharacterDefinition::fighter_move_damage`]. Preparation has checked it
+    /// against the authored moves; a problem is in
+    /// [`Self::unresolved_references`].
+    pub fighter_move_damage: crate::smash_fighter::MoveDamage,
     /// The movement policy, resolved. Every body already carries exactly one
     /// explicit model, so this is a value rather than a question.
     pub motion_model: ambition_platformer2d_core::MotionModelSpec,
@@ -1550,6 +1570,26 @@ fn prepare_character(
             }
         }
     }
+    // A rig that does not validate is REPORTED and DROPPED: the body is built
+    // without articulated geometry rather than with geometry nothing can solve.
+    let body_rig = definition.body_rig.filter(|rig| match rig.prepare() {
+        Ok(_) => true,
+        Err(error) => {
+            unresolved.push(format!("body rig: {error}"));
+            false
+        }
+    });
+    // The platform-fighter damage is applied to this moveset by a match, so a
+    // move it names that the moveset does not have, or a list of the wrong
+    // length, is checked here with the moveset beside it.
+    if !definition.fighter_move_damage.is_empty() {
+        let moveset = definition.moveset.clone().unwrap_or_default();
+        if let Err(problems) =
+            crate::smash_fighter::move_damage_over(&definition.fighter_move_damage, moveset)
+        {
+            unresolved.extend(problems.into_iter().map(|problem| format!("smash_fighter: {problem}")));
+        }
+    }
     let prepared = PreparedCharacterOverrides {
         id: definition.id.as_str().to_string(),
         display_name: definition.display_name,
@@ -1559,6 +1599,7 @@ fn prepare_character(
         portrait: definition.portrait,
         body: definition.body,
         hurtboxes: definition.hurtboxes,
+        body_rig,
         vitals: definition.vitals,
         death_traits: definition.death_traits,
         abilities: definition.abilities,
@@ -1579,6 +1620,7 @@ fn prepare_character(
         carries: definition.carries,
         hands: definition.hands,
         moveset: definition.moveset,
+        fighter_move_damage: definition.fighter_move_damage,
         action_set: definition.action_set,
         motion_model: definition.motion_model,
         movement_tuning: definition.movement_tuning,
@@ -1645,6 +1687,7 @@ fn finalize_character(
         portrait,
         body,
         hurtboxes,
+        body_rig,
         vitals,
         death_traits,
         abilities,
@@ -1658,6 +1701,7 @@ fn finalize_character(
         carries,
         hands,
         moveset,
+        fighter_move_damage,
         action_set,
         motion_model,
         movement_tuning,
@@ -1889,6 +1933,7 @@ fn finalize_character(
         carries,
         hands,
         authored_moveset,
+        fighter_move_damage,
         // Resolve canonical identity during preparation from the definition's provider. Spawn
         // consumes the prepared identity and does not reinterpret authored references.
         id: ambition_entity_catalog::CharacterId::new(id),
@@ -1900,6 +1945,14 @@ fn finalize_character(
         portrait,
         body,
         hurtboxes,
+        // Validated at preparation, so this cannot fail; the `expect` names the
+        // broken promise if it ever does.
+        body_rig: body_rig.map(|rig| {
+            std::sync::Arc::new(
+                rig.prepare()
+                    .expect("preparation keeps only a body rig that prepares"),
+            )
+        }),
         kit,
         cue_dependencies,
         vfx_dependencies,

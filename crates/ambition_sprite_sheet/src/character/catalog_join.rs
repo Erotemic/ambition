@@ -117,6 +117,19 @@ pub fn sprite_body_collision_for_character_id_from_data(
     sprite_body_collision_for_sheet(authored, entry.manifest_target()?, &sizing, ldtk_collision)
 }
 
+/// World units per published pixel of `sheet` for a body whose visible idle
+/// body is `standing_height` tall: the scale [`sprite_body_collision_for_sheet`]
+/// draws such a body at.
+///
+/// Returns `None` when the height is not positive or the sheet publishes no
+/// idle body. The other sizing road (the placement box) is a fact of one spawn,
+/// not of the sheet, so it has no answer here.
+pub fn standing_world_per_pixel(sheet: &str, standing_height: f32) -> Option<f32> {
+    let metrics = sheets::record_for_sheet_key(sheet)?.body_metrics.as_ref()?;
+    let (_, body_h) = body_pixel_extent(metrics)?;
+    (standing_height > 0.0 && body_h > 0.0).then(|| standing_height / body_h)
+}
+
 /// Derive a body's collision box and render quad from its sheet's published
 /// body metrics.
 ///
@@ -146,12 +159,14 @@ pub fn sprite_body_collision_for_sheet(
     let (body_w, body_h) = body_pixel_extent(metrics)?;
     let frame_w = record.frame_width.max(1) as f32;
     let frame_h = record.frame_height.max(1) as f32;
-    let standing_height = sizing.standing_height.filter(|height| *height > 0.0);
     // Both branches produce `frame x scale`; the renderer must not apply
     // `collision_scale` again to the resulting collision box.
-    let scale = match standing_height {
-        Some(height) if body_h > 0.0 => height / body_h,
-        _ => ldtk_collision.x.max(ldtk_collision.y).max(8.0) * spec.collision_scale / frame_h,
+    let scale = match sizing
+        .standing_height
+        .and_then(|height| standing_world_per_pixel(sheet, height))
+    {
+        Some(scale) => scale,
+        None => ldtk_collision.x.max(ldtk_collision.y).max(8.0) * spec.collision_scale / frame_h,
     };
     let render = Vec2::new(frame_w * scale, frame_h * scale);
     // The visible body occupies (body / frame) of that render quad.

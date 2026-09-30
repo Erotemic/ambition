@@ -11,11 +11,19 @@
 // provider, and every composition references it.
 //
 // A move states what it is, never what a mode does with it. Startup, active
-// frames, recovery, hitbox geometry, damage, base launch, growth, landing lag
-// and auto-cancel belong to the swing. Percent, stocks, blast zones, DI and
+// frames, recovery, hitbox geometry, base launch, growth, landing lag and
+// auto-cancel belong to the swing. Percent, stocks, blast zones, DI and
 // knockback-growth strength belong to the ruleset, declared per stage
-// (`DeclaredCombatRules`). So Ambition reads this table as Hollow-Knight
-// combat and Smash reads it as a platform fighter.
+// (`DeclaredRules<CombatRules>`). So Ambition reads this table as
+// Hollow-Knight combat and Smash reads it as a platform fighter.
+//
+// DAMAGE IS THE ONE NUMBER WITH TWO MEANINGS. Here it is Ambition's damage,
+// which is health: an ordinary tilt or aerial deals 1 and only the smash
+// attacks deal 3 or more, so a smash attack is the robot's heavy hit
+// (`AMBITION_HEAVY_HIT_DAMAGE`). On a Smash stage damage is percent, and the
+// robot's percent for each move is in its platform-fighter facet,
+// `data/fighters/player_robot_v3.ron`. Change a move's damage in the game you
+// are balancing, and only there.
 //
 // The authoring primitives are shared (`ambition_entity_catalog::authoring`),
 // so every character's table uses the same `strike`.
@@ -185,7 +193,7 @@
                                                 offset: (26.0, 0.0),
                                                 half_extents: (18.0, 14.0),
                                             ),
-                                            damage: 3,
+                                            damage: 1,
                                             knockback: 55.0,
                                             knockback_growth: Some(1.1),
                                             launch_dir: None,
@@ -271,14 +279,14 @@
                                                 offset: (30.0, -2.0),
                                                 half_extents: (20.0, 14.0),
                                             ),
-                                            damage: 6,
+                                            damage: 1,
                                             knockback: 72.0,
                                             knockback_growth: Some(1.28),
                                             launch_dir: Some((1.0, -0.26)),
                                             reaction: None,
                                             on_hit: None,
                                             vfx: Some("slash_arc"),
-                                            hit_sfx: Some("player.hit"),
+                                            hit_sfx: Some("player.robot.slash.impact"),
                                         ),
                                     ],
                                     motion_scale: 1.0,
@@ -362,7 +370,7 @@
                                                 offset: (10.0, -30.0),
                                                 half_extents: (20.0, 22.0),
                                             ),
-                                            damage: 5,
+                                            damage: 1,
                                             knockback: 70.0,
                                             knockback_growth: Some(1.4),
                                             launch_dir: Some((0.15, -1.0)),
@@ -446,7 +454,7 @@
                                                 offset: (26.0, 16.0),
                                                 half_extents: (20.0, 10.0),
                                             ),
-                                            damage: 4,
+                                            damage: 1,
                                             knockback: 60.0,
                                             knockback_growth: Some(1.2),
                                             launch_dir: Some((0.5, -0.85)),
@@ -499,8 +507,9 @@
                         // (`let mut f_smash = strike(Strike {`)
                         // A forward smash is eighteen frames of startup that cannot be cancelled.
                         // The payoff is the launch: three times the jab's, growing with the victim's
-                        // percent, so at 120% it ends the stock. The charge multiplier is what a
-                        // held press pays for.
+                        // percent, so on a Smash stage at 120% it ends the stock. The charge
+                        // multiplier is what a held press pays for. In Ambition it is the robot's
+                        // heaviest hit.
                         (
                             id: "smash_forward",
                             display_name: None,
@@ -533,7 +542,7 @@
                                                 offset: (40.0, -4.0),
                                                 half_extents: (28.0, 20.0),
                                             ),
-                                            damage: 15,
+                                            damage: 4,
                                             knockback: 150.0,
                                             knockback_growth: Some(3.0),
                                             launch_dir: Some((1.0, -0.42)),
@@ -615,7 +624,7 @@
                                                 offset: (8.0, -38.0),
                                                 half_extents: (24.0, 30.0),
                                             ),
-                                            damage: 14,
+                                            damage: 3,
                                             knockback: 140.0,
                                             knockback_growth: Some(6.76),
                                             launch_dir: Some((0.12, -1.0)),
@@ -697,7 +706,7 @@
                                                 offset: (0.0, 18.0),
                                                 half_extents: (40.0, 14.0),
                                             ),
-                                            damage: 12,
+                                            damage: 3,
                                             knockback: 130.0,
                                             knockback_growth: Some(3.51),
                                             launch_dir: Some((1.0, -0.25)),
@@ -779,7 +788,7 @@
                                                 offset: (14.0, 0.0),
                                                 half_extents: (26.0, 22.0),
                                             ),
-                                            damage: 6,
+                                            damage: 1,
                                             knockback: 75.0,
                                             knockback_growth: Some(1.5),
                                             launch_dir: None,
@@ -861,7 +870,7 @@
                                                 offset: (32.0, -4.0),
                                                 half_extents: (22.0, 18.0),
                                             ),
-                                            damage: 9,
+                                            damage: 1,
                                             knockback: 105.0,
                                             knockback_growth: Some(2.1),
                                             launch_dir: Some((1.0, -0.35)),
@@ -943,7 +952,7 @@
                                                 offset: (-32.0, -2.0),
                                                 half_extents: (22.0, 18.0),
                                             ),
-                                            damage: 11,
+                                            damage: 1,
                                             knockback: 125.0,
                                             knockback_growth: Some(2.5),
                                             launch_dir: Some((-1.0, -0.38)),
@@ -1025,7 +1034,7 @@
                                                 offset: (4.0, -34.0),
                                                 half_extents: (22.0, 24.0),
                                             ),
-                                            damage: 7,
+                                            damage: 1,
                                             knockback: 90.0,
                                             knockback_growth: Some(1.8),
                                             launch_dir: Some((0.1, -1.0)),
@@ -1107,7 +1116,7 @@
                                                 offset: (6.0, 30.0),
                                                 half_extents: (20.0, 22.0),
                                             ),
-                                            damage: 10,
+                                            damage: 1,
                                             knockback: 110.0,
                                             knockback_growth: Some(2.2),
                                             launch_dir: Some((0.0, 1.0)),
@@ -1235,7 +1244,7 @@
                                                 offset: (24.0, -2.0),
                                                 half_extents: (16.0, 20.0),
                                             ),
-                                            damage: 8,
+                                            damage: 1,
                                             knockback: 90.0,
                                             knockback_growth: Some(1.5),
                                             launch_dir: Some((0.92, -0.39)),
@@ -1328,7 +1337,7 @@
                                                 offset: (28.0, 0.0),
                                                 half_extents: (24.0, 18.0),
                                             ),
-                                            damage: 10,
+                                            damage: 2,
                                             knockback: 104.0,
                                             knockback_growth: Some(1.95),
                                             launch_dir: Some((0.95, -0.38)),
@@ -1543,7 +1552,7 @@
                                                 offset: (0.0, 20.0),
                                                 half_extents: (40.0, 12.0),
                                             ),
-                                            damage: 9,
+                                            damage: 2,
                                             knockback: 90.0,
                                             knockback_growth: Some(1.55),
                                             launch_dir: Some((0.75, -0.62)),
@@ -1669,7 +1678,7 @@
                                                 offset: (0.0, 24.0),
                                                 half_extents: (20.0, 22.0),
                                             ),
-                                            damage: 9,
+                                            damage: 2,
                                             knockback: 96.0,
                                             knockback_growth: Some(1.72),
                                             launch_dir: Some((0.0, 1.0)),

@@ -61,6 +61,9 @@
         (path: "data/movesets/pointed_polygon.ron", schema: "moveset", version: 1),
         (path: "data/movesets/projectile_polygon.ron", schema: "moveset", version: 1),
         (path: "data/movesets/pugnacious_polygon.ron", schema: "moveset", version: 1),
+        // A character's platform-fighter facet: what it is on a Smash stage where
+        // that differs from its moves here. The robot's is its damage in percent.
+        (path: "data/fighters/player_robot_v3.ron", schema: "smash_fighter", version: 1),
         (path: "data/encounters/goblin_encounter.ron", schema: "encounter_waves", version: 1),
         // Nine difficulty rungs.  authored since 2026-07 and read by NOTHING until
         // this line: the engine floor (`for_level`) was consulted instead, so every

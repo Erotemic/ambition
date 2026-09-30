@@ -191,11 +191,16 @@ fn a_definition_carries_no_controller_binding() {
         portrait: _,
         body: _,
         hurtboxes: _,
+        // Where a hand or a head IS on this body — articulated geometry.
+        body_rig: _,
         vitals: _,
         // What the body does when it DIES — a property of the creature, and one
         // no controller changes. A possessed mite still splits.
         death_traits: _,
         moveset: _,
+        // The same moves' damage on a platform-fighter stage: a body fact read
+        // under one ruleset, not a controller binding.
+        fighter_move_damage: _,
         // A CAPABILITY, not a controller binding, and the distinction is the
         // whole of §4.7: this says what the body can reach for, and says nothing
         // about who decides to reach. A human and a CPU wearing this character
@@ -2674,4 +2679,42 @@ mod moveset_revision {
         );
         assert_eq!(live_move_ids(&app), vec!["jab".to_string()]);
     }
+}
+
+/// ⛔ A PLATFORM-FIGHTER DAMAGE MAP THAT DOES NOT FIT THE MOVES IS REPORTED BY
+/// PREPARATION, where the moveset is beside it. A match applies the map much
+/// later, and there a bad key could only be logged, so a typo'd move id would
+/// silently keep its home damage on a Smash stage.
+#[test]
+fn a_fighter_damage_map_that_does_not_fit_the_moves_is_reported_by_preparation() {
+    use crate::brain::ActionSet;
+
+    let unresolved = |damage: &[(&str, Vec<i32>)]| {
+        let mut definition = CharacterDefinition::new("robot", "Robot", "demo")
+            .with_action_set(ActionSet::default())
+            .with_moveset(moveset_with(&[], vec![slash("jab", "swing", "hit")]));
+        definition.fighter_move_damage = damage
+            .iter()
+            .map(|(id, values)| (id.to_string(), values.clone()))
+            .collect();
+        prepare_and_finalize_for_test(definition, &CharacterBindings::default())
+            .prepared
+            .unresolved_references()
+            .map(str::to_string)
+            .collect::<Vec<_>>()
+    };
+
+    // ⛔ THE FLOOR: a map that fits, and no map at all, report nothing.
+    assert_eq!(unresolved(&[]), Vec::<String>::new());
+    assert_eq!(unresolved(&[("jab", vec![3])]), Vec::<String>::new());
+    let typo = unresolved(&[("jabb", vec![3])]);
+    assert!(
+        typo.iter().any(|p| p.contains("smash_fighter") && p.contains("`jabb`")),
+        "a move id the moveset does not have was not reported: {typo:?}"
+    );
+    let wrong_length = unresolved(&[("jab", vec![3, 4])]);
+    assert!(
+        wrong_length.iter().any(|p| p.contains("`jab`")),
+        "a list of the wrong length was not reported: {wrong_length:?}"
+    );
 }

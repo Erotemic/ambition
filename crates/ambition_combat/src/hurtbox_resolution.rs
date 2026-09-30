@@ -96,6 +96,10 @@ pub enum HurtboxSelection {
     MoveOverride,
     /// A body pose/status profile, sampled on that state's timer.
     PoseProfile,
+    /// The hurt parts of the body's semantic rig at its resolved pose
+    /// (`crate::body_rig`). Outranks the authored pose profiles and default,
+    /// and is outranked by a move override.
+    RigDefault,
     /// The authored default shapes.
     Default,
     /// Nothing authored. The caller keeps its sprite-derived compatibility box —
@@ -113,11 +117,22 @@ pub fn resolve_hurtboxes(
     active_move: Option<(&str, f32)>,
     pose: Option<(&str, f32)>,
 ) -> ResolvedHurtboxes {
-    // Ask the sources in precedence order individually rather than taking
-    // `volumes_for`'s answer blind, because the CALLER needs to know which one
-    // won: "the box is wrong" is unactionable until you know whether a move
-    // override, a pose profile, or the default produced it.
-    if let Some((move_id, elapsed_s)) = active_move {
+    resolve_hurtboxes_with_rig(Some(doc), || None, active_move, pose)
+}
+
+/// [`resolve_hurtboxes`] for a body that may also carry a semantic rig.
+///
+/// One precedence, no reconciliation: an authored MOVE override, else the
+/// rig's hurt parts (`rig_volumes`, asked only when no move override
+/// answered), else the authored pose profile, else the authored default.
+/// A rig with no hurt parts answers `None` and changes nothing.
+pub fn resolve_hurtboxes_with_rig(
+    doc: Option<&HurtboxDoc>,
+    rig_volumes: impl FnOnce() -> Option<Vec<HurtboxVolume>>,
+    active_move: Option<(&str, f32)>,
+    pose: Option<(&str, f32)>,
+) -> ResolvedHurtboxes {
+    if let (Some(doc), Some((move_id, elapsed_s))) = (doc, active_move) {
         if let Some(volumes) = doc
             .moves
             .get(move_id)
@@ -129,6 +144,23 @@ pub fn resolve_hurtboxes(
             };
         }
     }
+    if let Some(volumes) = rig_volumes() {
+        return ResolvedHurtboxes {
+            volumes,
+            source: HurtboxSelection::RigDefault,
+        };
+    }
+    match doc {
+        Some(doc) => resolve_authored_defaults(doc, pose),
+        None => ResolvedHurtboxes::default(),
+    }
+}
+
+fn resolve_authored_defaults(doc: &HurtboxDoc, pose: Option<(&str, f32)>) -> ResolvedHurtboxes {
+    // Ask the sources in precedence order individually rather than taking
+    // `volumes_for`'s answer blind, because the CALLER needs to know which one
+    // won: "the box is wrong" is unactionable until you know whether a move
+    // override, the rig, a pose profile, or the default produced it.
     if let Some((pose_id, elapsed_s)) = pose {
         if let Some(volumes) = doc
             .poses
@@ -189,16 +221,39 @@ pub struct BodyHurtboxesResolved;
 
 pub fn resolve_body_hurtboxes(
     mut bodies: Query<(
-        &AuthoredHurtboxes,
+        Option<&AuthoredHurtboxes>,
+        Option<(&crate::body_rig::BodyRig, &crate::body_rig::BodyRigPose)>,
         Option<&crate::moveset::MovePlayback>,
         Option<&BodyPoseClock>,
+        Option<&ambition_platformer2d_core::BodyKinematics>,
         &mut ResolvedHurtboxes,
     )>,
 ) {
-    for (authored, playback, pose, mut resolved) in &mut bodies {
+    for (authored, rig, playback, pose, kin, mut resolved) in &mut bodies {
+        if authored.is_none() && rig.is_none() {
+            // Nothing authors this body's hurtboxes. Only what a RIG put here
+            // is taken back: a body that loses its rig must not keep its last
+            // rig pose as a hurt shape.
+            if resolved.source == HurtboxSelection::RigDefault {
+                *resolved = ResolvedHurtboxes::default();
+            }
+            continue;
+        }
         let active_move = playback.map(|p| (p.spec.id.as_str(), p.t));
         let pose_clock = pose.map(|p| (p.pose.as_str(), p.elapsed_s));
-        let next = resolve_hurtboxes(&authored.0, active_move, pose_clock);
+        // The rig is feet-anchored and a hurt volume is centre-relative, so
+        // the rig asks where the body's feet are below its centre.
+        let rig_volumes = || {
+            let (rig, rig_pose) = rig?;
+            let feet_below_center = kin.map_or(0.0, |kin| kin.size.y * 0.5);
+            rig_pose.hurt_volumes(&rig.0, feet_below_center)
+        };
+        let next = resolve_hurtboxes_with_rig(
+            authored.map(|authored| &authored.0),
+            rig_volumes,
+            active_move,
+            pose_clock,
+        );
         // Change detection: a pose holds for many ticks, and this feeds consumers
         // that key on `Changed`.
         if *resolved != next {

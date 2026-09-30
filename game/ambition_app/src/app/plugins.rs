@@ -135,6 +135,7 @@ pub fn add_simulation_plugins(app: &mut App) {
     }
 
     declare_ambition_death_rules(app);
+    declare_ambition_strike_weight(app);
 
     // App-LOCAL residue the E5 step-5 carve deliberately left behind. The
     // engine group above registers the shared per-frame wiring (player input
@@ -184,6 +185,23 @@ fn declare_ambition_death_rules(app: &mut App) {
     app.declare_rules(
         ambition_platformer2d::combat::scoped_rules::RulesScope::UntaggedRooms,
         ambition_platformer2d::combat::death_rules::DeathRules::replay_level_after(0.0),
+    );
+}
+
+/// The least damage a hit deals to land HEAVY in Ambition's rooms. Damage here
+/// is health: ordinary tilts and aerials deal 1, and 3 is a smash attack.
+pub const AMBITION_HEAVY_HIT_DAMAGE: i32 = 3;
+
+/// Which of Ambition's hits land heavy (`ambition_combat::strike_weight`).
+/// Its own rule for its own rooms, as the death rules above are; a hosted game
+/// states its own line for its rooms.
+fn declare_ambition_strike_weight(app: &mut App) {
+    use ambition_platformer2d::combat::scoped_rules::DeclareRulesExt as _;
+    app.declare_rules(
+        ambition_platformer2d::combat::scoped_rules::RulesScope::UntaggedRooms,
+        ambition_platformer2d::combat::strike_weight::StrikeWeightRules::heavy_at(
+            AMBITION_HEAVY_HIT_DAMAGE,
+        ),
     );
 }
 

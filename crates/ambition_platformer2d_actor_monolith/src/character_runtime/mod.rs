@@ -949,6 +949,12 @@ impl Plugin for CharacterRuntimePlugin {
                             ambition_time::WorldTime,
                         >,
                     ),
+                    // The rigged body's pose, from the clocks just advanced and
+                    // before anything reads a joint: hurt parts below, and an
+                    // attachment (a hand muzzle) that orders after this set.
+                    // Iterates nothing where no body has a rig.
+                    ambition_combat::body_rig::resolve_body_rig_poses
+                        .in_set(ambition_combat::body_rig::BodyRigPoseResolved),
                     // ⭐ INTO THE PUBLISHED SET, so the volume refresher in
                     // `features` can order against a phase rather than against
                     // this function's identity. The domain owns the vocabulary;

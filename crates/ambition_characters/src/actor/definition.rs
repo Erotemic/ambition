@@ -105,11 +105,24 @@ pub struct CharacterDefinition {
     pub portrait: Option<String>,
     pub body: Option<BodySource>,
     pub hurtboxes: Option<HurtboxDoc>,
+    /// This body's semantic rig: joints, attachment points and hurt parts, in
+    /// world units. `None` means the body has no articulated geometry, which is
+    /// every character that has not published one. See
+    /// [`crate::actor::body_rig`]. Not serialized when absent, so a definition
+    /// with no rig renders exactly as it did before rigs existed.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub body_rig: Option<crate::actor::BodyRigDefinition>,
     pub vitals: Vitals,
     /// Body death and drop behavior. `None` publishes no character-specific override.
     /// Changing characters must retract any previously projected death traits.
     pub death_traits: Option<crate::actor::CharacterDeathTraits>,
     pub moveset: Option<MovesetContract>,
+    /// The damage its moves deal on a platform-fighter stage, from its
+    /// `smash_fighter` facet. Empty: every move keeps its moveset damage there.
+    /// Only a match that declares
+    /// [`MoveDamageSource::SmashFighterFacet`](crate::smash_fighter::MoveDamageSource)
+    /// reads it. See [`crate::smash_fighter::SmashFighterFacet::move_damage`].
+    pub fighter_move_damage: crate::smash_fighter::MoveDamage,
     /// Actions this character may choose, separate from the moveset that defines the moves.
     pub action_set: Option<crate::brain::ActionSet>,
     /// How this character MOVES — the state-free movement policy.
@@ -203,9 +216,11 @@ impl CharacterDefinition {
             portrait: None,
             body: None,
             hurtboxes: None,
+            body_rig: None,
             vitals: Vitals::default(),
             death_traits: None,
             moveset: None,
+            fighter_move_damage: crate::smash_fighter::MoveDamage::new(),
             action_set: None,
             motion_model: None,
             movement_tuning: None,
@@ -385,6 +400,12 @@ impl CharacterDefinition {
         self.hurtboxes = Some(doc);
         self
     }
+
+    /// Author this body's semantic rig. See [`Self::body_rig`].
+    pub fn with_body_rig(mut self, rig: crate::actor::BodyRigDefinition) -> Self {
+        self.body_rig = Some(rig);
+        self
+    }
 }
 
 #[cfg(test)]
@@ -405,8 +426,9 @@ mod authority_tests {
             sheet: _,
             portrait: _,
 
-            // ── BODY (20) — what this creature IS ───────────────────────────
+            // ── BODY (21) — what this creature IS ───────────────────────────
             body: _,
+            body_rig: _,
             unmirrored: _,
             carries: _,
             hands: _,
@@ -414,6 +436,7 @@ mod authority_tests {
             vitals: _,
             death_traits: _,
             moveset: _,
+            fighter_move_damage: _,
             action_set: _,
             motion_model: _,
             movement_tuning: _,

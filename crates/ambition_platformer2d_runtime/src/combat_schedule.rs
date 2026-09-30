@@ -328,7 +328,10 @@ impl Plugin for CombatSchedulePlugin {
                 // by `emit_brain_action_messages` (PlayerInput set) for flat-ranged bodies, and
                 // by `dispatch_move_events` ABOVE for moveset-ranged bodies — and emits open
                 // projectile requests.
+                // After the rig poses resolve: a hand muzzle on a rigged body
+                // reads this tick's hand.
                 ambition_platformer2d_actor_monolith::features::spawn_projectiles_from_brain_actions
+                    .after(ambition_combat::body_rig::BodyRigPoseResolved)
                     .in_set(GameplayGated),
                 (
                     ambition_combat::strike::apply_effects

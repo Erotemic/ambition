@@ -44,6 +44,7 @@ pub use frames::{trimmed_render, AtlasPage, FrameTrim};
 pub mod frame_space;
 pub use frame_space::{art_is_mirrored, frame_at, FrameToBody, SampledBox};
 
+pub mod baked_body_rigs;
 pub mod baked_portrait_rons;
 pub mod baked_sheet_rons;
 pub mod boss;

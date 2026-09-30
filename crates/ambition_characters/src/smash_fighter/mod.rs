@@ -1,10 +1,11 @@
 //! Character-owned authored `smash_fighter` facet.
 //!
 //! This module owns what a character is when it fights, apart from its moves:
-//! its fighter body and its weight. The moves, grab and throws included, are a
-//! `moveset` file like every other fighter's; a second authoring road for the
-//! grab would be a second place for its numbers to drift. Content-pack
-//! validation rejects unknown fields before runtime.
+//! its fighter body, its weight, and the damage its moves deal on a
+//! platform-fighter stage. The moves themselves, grab and throws included, are
+//! a `moveset` file like every other fighter's; a second authoring road for a
+//! move's frames or geometry would be a second place for them to drift.
+//! Content-pack validation rejects unknown fields before runtime.
 
 use serde::{Deserialize, Serialize};
 
@@ -62,6 +63,84 @@ pub struct SmashFighterFacet {
     /// every fighter that has not thought about it.
     #[serde(default)]
     pub knockback_weight: Option<f32>,
+    /// The damage this fighter's moves deal on a platform-fighter stage, where
+    /// damage is percent. A match reads it only when it declares
+    /// [`MoveDamageSource::SmashFighterFacet`].
+    ///
+    /// ⭐ A MOVE HAS ONE SHAPE AND ONE DAMAGE PER GAME. The moveset states the
+    /// frames, the geometry, and the damage of the character's HOME game. A
+    /// number that means something different on this stage is stated here, so
+    /// each game balances its own damage and neither game rewrites the other.
+    ///
+    /// Keyed by move id. The list has one value for each volume of that move
+    /// that deals damage, in authoring order (window by window). A move this
+    /// map does not name keeps its moveset damage.
+    #[serde(default)]
+    pub move_damage: MoveDamage,
+}
+
+/// Damage per move id, one value for each damaging volume. See
+/// [`SmashFighterFacet::move_damage`].
+pub type MoveDamage = std::collections::BTreeMap<String, Vec<i32>>;
+
+/// Which damage a body's moves deal: its moveset's own, or the damage its
+/// `smash_fighter` facet states.
+///
+/// A MATCH decides this, not the engine and not the character. A body in no
+/// match always deals its moveset damage.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum MoveDamageSource {
+    /// The damage the moveset authors: the character's home game.
+    #[default]
+    Moveset,
+    /// The damage the character's `smash_fighter` facet states, where it
+    /// states one. A move the facet does not name keeps its moveset damage.
+    SmashFighterFacet,
+}
+
+/// `moveset` with each named move's damaging volumes set to `damage`.
+///
+/// `Err` names every move id the moveset does not have and every move whose
+/// list does not have one value for each of its damaging volumes. On `Err`
+/// nothing is applied, so the body never deals half one game's damage and half
+/// the other's.
+pub fn move_damage_over(
+    damage: &MoveDamage,
+    mut moveset: ambition_entity_catalog::MovesetContract,
+) -> Result<ambition_entity_catalog::MovesetContract, Vec<String>> {
+    let mut problems = Vec::new();
+    for (move_id, values) in damage {
+        let Some(spec) = moveset.moves.iter_mut().find(|spec| &spec.id == move_id) else {
+            problems.push(format!(
+                "`move_damage` names move `{move_id}`, which the moveset does not have"
+            ));
+            continue;
+        };
+        let mut volumes: Vec<&mut i32> = spec
+            .windows
+            .iter_mut()
+            .flat_map(|window| window.volumes.iter_mut())
+            .map(|volume| &mut volume.damage)
+            .filter(|damage| **damage > 0)
+            .collect();
+        if volumes.len() != values.len() {
+            problems.push(format!(
+                "`move_damage` gives move `{move_id}` {} value(s), and the move has {} \
+                 volume(s) that deal damage",
+                values.len(),
+                volumes.len()
+            ));
+            continue;
+        }
+        for (slot, value) in volumes.iter_mut().zip(values) {
+            **slot = *value;
+        }
+    }
+    if problems.is_empty() {
+        Ok(moveset)
+    } else {
+        Err(problems)
+    }
 }
 
 /// A fighter's body, as a PATCH over the body it would otherwise have.
@@ -169,6 +248,16 @@ impl SmashFighterFacet {
         // ⛔ POSITIVE, not merely finite, for the same reason the body's
         // magnitudes are: the launch law DIVIDES by this. Zero is a division
         // by zero and a negative weight launches a fighter toward the attacker.
+        for (move_id, values) in &self.move_damage {
+            // ⛔ AT LEAST 1: only a volume that deals damage has a slot here, and
+            // a zero would turn that hit into a push.
+            if values.is_empty() || values.iter().any(|value| *value < 1) {
+                out.push(format!(
+                    "`move_damage.{move_id}` is {values:?}; it needs one value of at least 1 \
+                     for each volume of the move that deals damage"
+                ));
+            }
+        }
         if let Some(weight) = self.knockback_weight {
             if !weight.is_finite() || weight <= 0.0 {
                 out.push(format!(

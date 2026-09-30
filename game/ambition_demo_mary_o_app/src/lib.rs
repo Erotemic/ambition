@@ -18,7 +18,19 @@ pub fn build_demo_app() -> App {
 /// lifecycle test can build a SECOND host from the identical provider and prove
 /// `QuitToHome` resolves relative to whichever home this host declared.
 pub fn build_demo_app_with_home(home_route: &str) -> App {
+    build_demo_app_on(App::new(), home_route)
+}
+
+/// The demo with its characters' published body rigs admitted
+/// (`BodyRigAdmission`): the articulated-rig trial. The shipped demo does not
+/// admit them.
+pub fn build_demo_app_with_body_rigs() -> App {
     let mut app = App::new();
+    app.insert_resource(ambition_platformer2d::characters::actor::BodyRigAdmission::ADMIT);
+    build_demo_app_on(app, ambition_demo_mary_o::MARY_O_LAUNCHER_ROUTE)
+}
+
+fn build_demo_app_on(mut app: App, home_route: &str) -> App {
     ambition_platformer2d::engine::add_headless_foundation(&mut app);
     app.add_plugins(ambition_platformer2d::engine::PlatformerEnginePlugins::fixed_tick());
     app.add_plugins(ambition_platformer2d::windowed_host::PlatformerHostPlugins);

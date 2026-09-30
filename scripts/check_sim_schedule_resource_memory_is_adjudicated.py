@@ -222,6 +222,24 @@ FLOORS = {"sim-schedule ResMut bindings": 180, "accumulating bindings": 45}
 #:     AN OBSERVATION CENSUS    nothing in production reads it at all
 #:     A DEV OR DEMO TOOL       not in a shipped composition
 ADJUDICATED: dict[str, str] = {
+    "detect_cut_rope_rope_cut": (
+        "⭐ PRESENTATION ONLY. `CutRopeBossArenaState` is one arena per live "
+        "cut-rope room (`game/ambition_content/src/bosses/cut_rope/arena.rs`), and "
+        "what it holds drives only effects: the rope slash burst and sound, the "
+        "waiting sparks, the impact explosion, fireworks and banner, and the prop "
+        "visuals. The rope's `rope_cut` gate fires on every hit on the rope and "
+        "does not read the arena; whether a gate drops the anvil is the "
+        "`EncounterScript` cursor, which is rollback state. So a rewind that "
+        "replays a tick repeats an effect at worst (read 2026-09-30)"
+    ),
+    "tick_cut_rope_flavor": (
+        "⭐ PRESENTATION ONLY: the same arena as `detect_cut_rope_rope_cut`, "
+        "whose reading says why (read 2026-09-30)"
+    ),
+    "reset_cut_rope_boss_arena_on_room_reset": (
+        "⭐ PRESENTATION ONLY: it re-seats a replayed room's arena as uncut, the "
+        "same arena as `detect_cut_rope_rope_cut` (read 2026-09-30)"
+    ),
     "count_advance_run": (
         "⭐ OBSERVING THE REWIND. `RollbackExecutionStats` exists to count how "
         "often `AdvanceWorld` ran and how much of that was resimulation — it "

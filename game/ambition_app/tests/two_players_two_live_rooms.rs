@@ -486,3 +486,203 @@ fn a_wave_spawns_its_mobs_in_the_live_room_that_started_it() {
         "the wave's mobs are not all in #1, or none targets Alice there, or one targets Bob in #0"
     );
 }
+
+/// OW1 review of cut 7e: the cut-rope fight runs whole in its own live room,
+/// with another live room beside it.
+///
+/// Bob, driven by slot 1, stays in `hall_of_bosses` (#0) while Alice goes
+/// through its door to `you_have_to_cut_the_rope` (#1). The subject, the
+/// real scripted road: the behemoth's wrap is stamped #1 with its script
+/// prepared from #1's props; a hit on #1's rope fires `rope_cut` in #1; the
+/// behemoth is sent to #1's anvil and walks toward it; the anvil falls as a
+/// hazard stamped #1; `cut_rope_impact` fires in #1; the behemoth dies and
+/// is recorded cleared; its reward, the victory NPC it releases (it authors
+/// no chest), is in #1. When the wrap read the sole
+/// live room, it had no props while two rooms were live, its script could
+/// not be prepared, and nothing past the wake happened.
+#[test]
+fn the_cut_rope_fight_runs_in_its_own_live_room() {
+    use ambition_platformer2d::boss_encounter::{BossConfig, CommandedMove, EncounterGate, FallingHazard};
+    use ambition_platformer2d::combat::components::FeatureId;
+    const HALL: &str = "hall_of_bosses";
+    const ARENA: &str = "you_have_to_cut_the_rope";
+    const BEHEMOTH: &str = "smirking_behemoth_boss";
+    let (mut sim, first) = alice_leaves_bob_in(
+        HALL,
+        ARENA,
+        Some(ambition_platformer2d::characters::control::PlayerSlot(1)),
+        walk_through_the_door_to,
+    );
+    let second = first.next();
+    assert_eq!(
+        where_they_are(&mut sim),
+        (Some(second), Some(Some(first))),
+        "precondition: Alice is not in #1 with Bob in #0"
+    );
+    let prop = |sim: &mut Platformer2dSimHarness, kind: &str| {
+        let world = sim.world_mut();
+        let definition = ambition_platformer2d::world::rooms::live_room_definition_in(world, Some(second))
+            .expect("#1 is live");
+        let rooms = ambition_platformer2d::platformer::lifecycle::session_world_component::<
+            ambition_platformer2d::world::rooms::RoomSet,
+        >(world)
+        .expect("the session keeps its room set");
+        let spec = rooms.spec(definition);
+        assert_eq!(spec.id, ARENA, "precondition: #1 is not the cut-rope room");
+        spec.props
+            .iter()
+            .find(|prop| prop.kind == kind)
+            .map(|prop| prop.pos)
+            .unwrap_or_else(|| panic!("#1 authors no `{kind}` prop"))
+    };
+    let rope = prop(&mut sim, "cut_rope_rope");
+    let anvil = prop(&mut sim, "cut_rope_anvil");
+    let (behemoth, placement) = {
+        let world = sim.world_mut();
+        world
+            .query::<(bevy::prelude::Entity, &BossConfig)>()
+            .iter(world)
+            .find(|(_, config)| config.behavior.id == BEHEMOTH)
+            .map(|(entity, config)| (entity, config.id.clone()))
+            .expect("precondition: #1 has no behemoth")
+    };
+    // The wrap: the behemoth's id, stamped #1, with its script.
+    let wrap = |sim: &mut Platformer2dSimHarness| {
+        let world = sim.world_mut();
+        world
+            .query::<(
+                &ambition_platformer2d::encounter::Encounter,
+                Option<&InRoomInstance>,
+                bevy::prelude::Has<ambition_platformer2d::encounter::EncounterScript>,
+            )>()
+            .iter(world)
+            .find(|(encounter, _, _)| encounter.id == placement)
+            .map(|(_, room, script)| (room.map(|room| room.0), script))
+    };
+    let mut wrapped = None;
+    for _ in 0..300 {
+        sim.step(base());
+        wrapped = wrap(&mut sim);
+        if wrapped.is_some() {
+            break;
+        }
+    }
+    assert_eq!(
+        wrapped,
+        Some((Some(second), true)),
+        "the behemoth's fight is not wrapped in #1 with its script prepared from #1's props"
+    );
+    {
+        use ambition_platformer2d::combat::events::{HitEvent, HitMode, HitSource, HitTarget};
+        sim.world_mut().write_message(HitEvent {
+            volume: ambition_platformer2d::engine_core::Aabb::new(
+                rope,
+                ambition_platformer2d::engine_core::Vec2::splat(24.0),
+            )
+            .into(),
+            damage: 10,
+            source: HitSource::Melee,
+            attacker: None,
+            room: Some(second),
+            target: HitTarget::UnresolvedFeatures,
+            mode: HitMode::Knockback,
+            knockback: None,
+            ignored_targets: Vec::new(),
+            strike_sfx: None,
+            attacker_move_instance: None,
+        });
+    }
+    let mut rope_cut = Vec::new();
+    let mut impact = Vec::new();
+    let mut lure = None;
+    let mut start_gap = None;
+    let mut closest = f32::MAX;
+    let mut hazards = std::collections::BTreeSet::new();
+    let mut dropped = false;
+    let mut dead = false;
+    for _ in 0..1800 {
+        sim.step(base());
+        let world = sim.world_mut();
+        if let Some(gates) = world.get_resource::<bevy::ecs::message::Messages<EncounterGate>>() {
+            for gate in gates.iter_current_update_messages() {
+                match gate.gate.as_str() {
+                    "rope_cut" => rope_cut.push(gate.room),
+                    "cut_rope_impact" => impact.push(gate.room),
+                    _ => {}
+                }
+            }
+        }
+        if let (Some(command), Some(kinematics)) = (
+            world.get::<CommandedMove>(behemoth),
+            world.get::<ambition_platformer2d::engine_core::BodyKinematics>(behemoth),
+        ) {
+            lure = Some(command.target);
+            let gap = (command.target.x - kinematics.pos.x).abs();
+            start_gap.get_or_insert(gap);
+            closest = closest.min(gap);
+        }
+        for (room, hazard) in world
+            .query::<(Option<&InRoomInstance>, &FallingHazard)>()
+            .iter(world)
+        {
+            hazards.insert(room.map(|room| room.0));
+            dropped |= hazard.dropping;
+        }
+        dead = world
+            .get::<ambition_platformer2d::characters::actor::BodyHealth>(behemoth)
+            .is_none_or(|health| !health.alive());
+        let released = world
+            .query::<&FeatureId>()
+            .iter(world)
+            .any(|feature| feature.0 == "smirking_behemoth_victory_npc");
+        if dead && released {
+            break;
+        }
+    }
+    // The death beat runs out before the defeat is recorded.
+    for _ in 0..300 {
+        sim.step(base());
+    }
+    let world = sim.world_mut();
+    let cleared = matches!(
+        world
+            .resource::<ambition_platformer2d::persistence::save::AmbitionGameSave>()
+            .data()
+            .boss(&placement),
+        ambition_platformer2d::persistence::save_data::PersistedEncounterState::Cleared
+    );
+    let victory_npcs: Vec<_> = world
+        .query::<(&FeatureId, Option<&InRoomInstance>)>()
+        .iter(world)
+        .filter(|(feature, _)| feature.0 == "smirking_behemoth_victory_npc")
+        .map(|(_, room)| room.map(|room| room.0))
+        .collect();
+    let walked = start_gap.is_some_and(|start| closest < start * 0.5 || closest < 24.0);
+    assert_eq!(
+        (
+            rope_cut,
+            lure.map(|lure| (lure - anvil).length() < 1.0),
+            walked,
+            hazards.into_iter().collect::<Vec<_>>(),
+            dropped,
+            impact,
+            dead,
+            cleared,
+            victory_npcs,
+        ),
+        (
+            vec![Some(second)],
+            Some(true),
+            true,
+            vec![Some(second)],
+            true,
+            vec![Some(second)],
+            true,
+            true,
+            vec![Some(second)],
+        ),
+        "the cut-rope road did not run whole in #1: (rope_cut rooms, lured to #1's anvil, \
+         walked toward it, hazard rooms, it fell, impact rooms, the behemoth died, it is \
+         recorded cleared, victory NPC rooms)"
+    );
+}

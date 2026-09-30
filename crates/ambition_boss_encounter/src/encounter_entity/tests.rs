@@ -93,11 +93,11 @@ fn progress_reflects_member_hp_and_phase() {
     assert!(!progress.complete, "a living boss ⇒ objective not met");
 }
 
-/// The wrap persists; the fight resets (netcode.md N3.2b). A room change
-/// removes the boss body, never the encounter authority: the wrap keeps its
-/// durable member id, resets its in-flight lifecycle through the one ingress,
-/// and re-arms with a new `Start` when the boss fights again. So an
-/// `encounter:` identity always exists at snapshot-restore time.
+/// The wrap persists while its live room does; the fight resets. A member
+/// that leaves the world removes the boss body, not the encounter authority:
+/// the wrap keeps its durable member id, resets its in-flight lifecycle
+/// through the one ingress, and re-arms with a new `Start` when the boss
+/// fights again. (A room that retires takes the room-scoped wrap with it.)
 #[test]
 fn the_wrap_persists_and_resets_when_its_member_leaves_the_world() {
     let mut app = App::new();
@@ -143,7 +143,7 @@ fn the_wrap_persists_and_resets_when_its_member_leaves_the_world() {
         .world_mut()
         .query::<(&EncounterDef, &EncounterParticipants)>();
     let wraps: Vec<_> = q.iter(app.world()).collect();
-    assert_eq!(wraps.len(), 1, "the wrap persists for its session");
+    assert_eq!(wraps.len(), 1, "the wrap persists while its room is live");
     assert_eq!(wraps[0].1.members.len(), 1, "the durable relation persists");
     assert_eq!(wraps[0].1.members[0].entity, None, "the cache is forgotten");
     assert_eq!(
@@ -210,4 +210,58 @@ fn release_on_death_emits_payload_once_at_host_position() {
     );
     // Released once: the marker is gone, so a second tick emits nothing.
     assert!(app.world().entity(host).get::<ReleaseOnDeath>().is_none());
+}
+
+/// Review of OW1 cut 7e: two live rooms of one boss room each wrap their own
+/// boss. The two bosses share their placement id, one in #1 and one in #2,
+/// and #2's wakes after #1's is wrapped. The subject: two wraps, one stamped
+/// into each room, each with its own room's boss as its member, each started
+/// in its own room. When coverage was by id alone, #2's boss read as wrapped
+/// and had no fight.
+#[test]
+fn two_live_rooms_of_one_boss_room_wrap_their_bosses_apart() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
+    let first = LiveRoomInstance::ACTIVATION.next();
+    let second = first.next();
+    let mut app = App::new();
+    app.add_message::<ambition_encounter::EncounterCommand>();
+    app.add_systems(Update, sync_boss_encounter_entities);
+    let mut bosses = Vec::new();
+    let mut started = Vec::new();
+    for room in [first, second] {
+        app.world_mut().spawn((RoomInstanceRoot, room));
+        bosses.push(
+            app.world_mut()
+                .spawn((awake_boss("mockingbird", 30), InRoomInstance(room)))
+                .id(),
+        );
+        app.update();
+        started.extend(
+            app.world()
+                .resource::<bevy::ecs::message::Messages<ambition_encounter::EncounterCommand>>()
+                .iter_current_update_messages()
+                .filter(|c| matches!(c.kind, EncounterCommandKind::Start))
+                .map(|c| c.room),
+        );
+    }
+
+    let mut wraps: Vec<_> = app
+        .world_mut()
+        .query_filtered::<(Option<&InRoomInstance>, &EncounterParticipants), With<EncounterDef>>()
+        .iter(app.world())
+        .map(|(room, parts)| (room.map(|room| room.0), parts.members[0].entity))
+        .collect();
+    wraps.sort();
+    // Which rooms were started: with no reducer here, a wrap stays Inactive
+    // and is started again each tick.
+    started.sort();
+    started.dedup();
+    assert_eq!(
+        (wraps, started),
+        (
+            vec![(Some(first), Some(bosses[0])), (Some(second), Some(bosses[1]))],
+            vec![Some(first), Some(second)],
+        ),
+        "the two live rooms' bosses are not wrapped and started apart"
+    );
 }

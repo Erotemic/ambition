@@ -12,6 +12,7 @@
 | [`authored_volumes`](src/authored_volumes.rs) | App-local authored attack-volume resolution. |
 | [`banner`](src/banner.rs) | Gameplay banner ticking and deferred-request application. |
 | [`body_geometry`](src/body_geometry/mod.rs) | ACTOR-NEUTRAL COMBAT GEOMETRY: how a body's collision box and its damageable hurtbox are derived from its pose. |
+| [`body_rig`](src/body_rig.rs) | A body's semantic rig on the body, and its pose resolved from simulation clocks every tick. |
 | [`brain`](src/brain/mod.rs) | THINKING THAT IS NOT THE FLOOR'S BUSINESS. |
 | [`breakables`](src/breakables.rs) | Per-frame tick for breakable feature entities: respawn countdown and the stand-to-break collapse trigger. |
 | [`capture`](src/capture/mod.rs) | Capture is a persistent relationship between two bodies, separate from hit resolution and [`MovePlayback`](crate::moveset::MovePlayback). |
@@ -53,7 +54,7 @@
 | [`vitality`](src/vitality.rs) | A move that pays or repays its own mover's health. |
 | [`worn_kit`](src/worn_kit.rs) | The kit a body wears: what a character id resolves to when a body puts it on. |
 
-_46 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_47 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

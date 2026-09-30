@@ -203,16 +203,23 @@ pub fn drive_wave_encounters(
     // grace-window to tick down while the world is stopped.
     let dt = world_time.sim_dt();
 
-    // 0. Player death this frame? Fail any in-flight encounter (the trace /
-    //    save see the loss), then Reset it in the same command batch so the
-    //    trigger re-fires cleanly on re-entry. The ownership-driven cleanup
-    //    adapter (E10) reacts to the resulting Failed/Reset events — no
-    //    despawn logic here.
+    // 0. Player death this frame? Fail each in-flight encounter of the room
+    //    the player died in (the trace / save see the loss), then Reset it in
+    //    the same command batch so the trigger re-fires cleanly on re-entry.
+    //    The ownership-driven cleanup adapter (E10) reacts to the resulting
+    //    Failed/Reset events — no despawn logic here.
+    //
+    //    ⛔ A DEATH ENDS ITS OWN ROOM'S ATTEMPT (OW1 cut 7f). With two live
+    //    rooms, the other player's fight goes on. A death whose room cannot be
+    //    told ends nothing.
     let mut ending_this_tick: std::collections::HashSet<String> = std::collections::HashSet::new();
-    let died_this_frame = died_messages.read().next().is_some();
-    if died_this_frame {
-        for (enc, lifecycle, _waves, _participants) in &encounters {
-            if lifecycle.phase().in_flight() {
+    let died_in: std::collections::BTreeSet<String> = died_messages
+        .read()
+        .filter_map(|died| area_of(died.victim).map(str::to_owned))
+        .collect();
+    if !died_in.is_empty() {
+        for (enc, lifecycle, waves, _participants) in &encounters {
+            if lifecycle.phase().in_flight() && died_in.contains(&waves.spec.room_id) {
                 lifecycle_commands
                     .write(EncounterCommand::new(&enc.id, EncounterCommandKind::Fail));
                 lifecycle_commands

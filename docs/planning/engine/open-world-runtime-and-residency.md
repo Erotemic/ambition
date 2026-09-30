@@ -860,8 +860,9 @@ in the reward retire. Witnesses:
 in #1 starts #1's encounter; the control, the same player at the same place
 in #0, starts nothing), `an_unnamed_rearm_retires_the_reward_of_its_own_rooms_encounter`
 (two rooms, two encounters, two chests; the press in #1 retires only #1's)
-and `the_room_of_an_activation_moves_the_checksum`. ⚠ Still sole-room on
-this road: a player's death fails every in-flight encounter, in every room.
+and `the_room_of_an_activation_moves_the_checksum`. ~~⚠ Still sole-room on
+this road: a player's death fails every in-flight encounter, in every
+room.~~ Done in cut 7f.
 
 ✅ **Cut 7d landed 2026-09-30: a chest, a shrine and a put-down item, each
 in its own live room.** Three more systems that a second live room froze.
@@ -896,6 +897,16 @@ plays, and killed, it is recorded cleared, with one chest in #1). With the
 old driver restored, the boss did not wake. The control is the one-room
 fight in `boss_lifecycle`. ⚠ The boss music is still one track for the
 session: the first boss fighting in any room is heard by both players (P5).
+
+✅ **Cut 7f landed 2026-09-30: a death ends its own room's attempt.** The
+wave driver failed and reset every in-flight encounter on any player's
+death, so Bob's death in one room ended Alice's fight in another. Now a
+death fails only the in-flight encounters of the room its victim is in
+(`LiveRoomSpecs::definition_of` on `ActorDiedMessage::victim`). A death
+whose room cannot be told ends nothing. Witness:
+`a_death_fails_only_the_encounter_of_its_own_live_room` (the encounter of
+#1 is in flight; a death in #1 fails it, and the control, a death in #0,
+does not). With the old rule restored, the control failed.
 
 ⚠ Still owed from cut 5: `outlook_for(room: &str)` is keyed by definition;
 the `SoleLiveRoomSpec` readers each need a subject before a second live room

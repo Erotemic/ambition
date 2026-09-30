@@ -24,7 +24,8 @@ use ambition_encounter::{
     EncounterParticipant, EncounterParticipants, EncounterRole, Objective,
 };
 use ambition_platformer2d_shared_tangle::lifecycle::{
-    SessionScopedEntity, SessionSpawnScope, SpawnSessionScopedExt,
+    LiveRoomInstance, LiveRooms, RoomScopedEntity, SessionScopedEntity, SessionSpawnScope,
+    SpawnSessionScopedExt,
 };
 
 /// Definition of an encounter entity: its stable identity and how it frames
@@ -107,12 +108,18 @@ pub fn prepare_boss_encounter_script(
     .map(Some)
 }
 
-/// Ensure every *active* boss in the room is wrapped by an encounter entity.
+/// Ensure every *active* boss is wrapped by an encounter entity in its own
+/// live room.
 ///
 /// A boss that has woken (left `Dormant`) and is not in any encounter gets a
 /// single-boss `EncounterDef` (HUD-bound). A boss spawned with `no_encounter`
 /// opts out. Runs in the Progression set after `update_boss_encounters`, so it
 /// sees this frame's woken phase.
+///
+/// The wrap is an occurrence (see `ambition_encounter::occurrence`): the
+/// boss's id in the boss's live room. It is stamped into that room and
+/// retires with it, and its script is prepared from that room's props. Two
+/// live rooms of one room each wrap their own boss.
 pub fn sync_boss_encounter_entities(
     mut commands: Commands,
     mut lifecycle_commands: MessageWriter<EncounterCommand>,
@@ -127,23 +134,29 @@ pub fn sync_boss_encounter_entities(
         ),
         With<FeatureSimEntity>,
     >,
-    encounters: Query<(&Encounter, &EncounterParticipants, &EncounterLifecycle)>,
-    // The room the fight is in: a script's places are its props.
-    rooms: Option<ambition_platformer2d_world::rooms::SoleLiveRoomSpec>,
+    encounters: Query<(Entity, &Encounter, &EncounterParticipants, &EncounterLifecycle)>,
+    // The room the fight is in: a script's places are the props of the
+    // boss's own live room.
+    rooms: Option<ambition_platformer2d_world::rooms::LiveRoomSpecs>,
+    live: LiveRooms,
 ) {
-    let props = rooms.as_ref().map_or(&[][..], |rooms| &rooms.spec().props[..]);
-    // Coverage by cached entity and by durable id: a snapshot restore clears
-    // the entity caches (an Entity is never serialized), and re-wrapping an
-    // already-wrapped boss after a restore would fork the timeline.
+    // Coverage by cached entity and by durable id in its live room: a
+    // snapshot restore clears the entity caches (an Entity is never
+    // serialized), and re-wrapping an already-wrapped boss after a restore
+    // would fork the timeline.
     let covered_entities: HashSet<Entity> = encounters
         .iter()
-        .flat_map(|(_, p, _)| p.members.iter().filter_map(|m| m.entity))
+        .flat_map(|(_, _, p, _)| p.members.iter().filter_map(|m| m.entity))
         .collect();
-    let covered_ids: HashSet<&str> = encounters
+    let covered_ids: HashSet<(&str, Option<LiveRoomInstance>)> = encounters
         .iter()
-        .flat_map(|(_, p, _)| p.members.iter().map(|m| m.id.as_str()))
+        .flat_map(|(wrap, _, p, _)| {
+            let room = live.of(wrap);
+            p.members.iter().map(move |m| (m.id.as_str(), room))
+        })
         .collect();
     for (entity, config, status, overrides, owner, health) in &bosses {
+        let room = live.of(entity);
         // Only orchestrate a boss that has actually woken — a Dormant boss
         // (cleared / not yet entered) needs none.
         let active = status
@@ -151,11 +164,12 @@ pub fn sync_boss_encounter_entities(
             .as_ref()
             .map(|p| !matches!(p.phase, BossEncounterPhase::Dormant))
             .unwrap_or(false);
-        if covered_entities.contains(&entity) || covered_ids.contains(config.id.as_str()) {
-            // Already wrapped. The wrap persists for the session (a room exit
-            // resets it; see `update_encounter_progress`), so a living boss
-            // fighting under a wrap that is not in flight means a fresh
-            // attempt: re-arm through the one ingress. `Death` and a dead body
+        if covered_entities.contains(&entity) || covered_ids.contains(&(config.id.as_str(), room)) {
+            // Already wrapped. The wrap lives as long as its live room (a
+            // member that leaves the world resets it; see
+            // `update_encounter_progress`), so a living boss fighting under a
+            // wrap that is not in flight means a fresh attempt: re-arm
+            // through the one ingress. `Death` and a dead body
             // are excluded: on the death frame the wrap completes before the
             // boss's phase machine reaches `Death`, and that won fight must
             // not reset.
@@ -171,31 +185,31 @@ pub fn sync_boss_encounter_entities(
                 .unwrap_or(false)
                 && health.is_some_and(|h| h.alive());
             if fighting {
-                if let Some((enc, _, lifecycle)) = encounters
+                if let Some((_, enc, _, lifecycle)) = encounters
                     .iter()
-                    .find(|(enc, _, _)| enc.id == config.id.as_str())
+                    .find(|(wrap, enc, _, _)| enc.id == config.id.as_str() && live.of(*wrap) == room)
                 {
                     match lifecycle.phase() {
                         // Room re-entry: the reset wrap waits Inactive.
                         ambition_encounter::EncounterPhase::Inactive => {
-                            lifecycle_commands.write(EncounterCommand::new(
-                                enc.id.clone(),
-                                EncounterCommandKind::Start,
-                            ));
+                            lifecycle_commands.write(
+                                EncounterCommand::new(enc.id.clone(), EncounterCommandKind::Start)
+                                    .in_room(room),
+                            );
                         }
                         // A new incarnation fighting under a terminal wrap (a
                         // re-armed boss): Reset re-arms and Start begins; the
                         // reducer applies both in order, in the same frame.
                         ambition_encounter::EncounterPhase::Completed
                         | ambition_encounter::EncounterPhase::Failed => {
-                            lifecycle_commands.write(EncounterCommand::new(
-                                enc.id.clone(),
-                                EncounterCommandKind::Reset,
-                            ));
-                            lifecycle_commands.write(EncounterCommand::new(
-                                enc.id.clone(),
-                                EncounterCommandKind::Start,
-                            ));
+                            lifecycle_commands.write(
+                                EncounterCommand::new(enc.id.clone(), EncounterCommandKind::Reset)
+                                    .in_room(room),
+                            );
+                            lifecycle_commands.write(
+                                EncounterCommand::new(enc.id.clone(), EncounterCommandKind::Start)
+                                    .in_room(room),
+                            );
                         }
                         _ => {}
                     }
@@ -216,9 +230,12 @@ pub fn sync_boss_encounter_entities(
         // the generic lifecycle reducer. Started through the command ingress
         // because the fight is already underway when the wrap appears.
         let mut wrap = commands.spawn_session_scoped(
-            SessionSpawnScope::new(owner.map(|owner| owner.0)),
+            SessionSpawnScope::new(owner.map(|owner| owner.0)).in_room(room),
             (
                 Encounter::new(config.id.clone()),
+                // It retires with its live room, as the boss does. A wrap
+                // that outlived its room would keep a stamp no live room has.
+                RoomScopedEntity,
                 // Stable simulation identity (E11): its own `encounter:`
                 // namespace — the boss body owns `placement:{id}`.
                 ambition_platformer2d_shared_tangle::sim_id::SimId::encounter(&config.id),
@@ -237,6 +254,13 @@ pub fn sync_boss_encounter_entities(
         );
         // The boss's authored beats begin with its fight. A boss with none
         // gets no script: script music is released only while none is live.
+        let props = rooms
+            .as_ref()
+            .and_then(|rooms| {
+                let definition = rooms.definition_in(room?)?;
+                Some(&rooms.rooms().spec(definition).props[..])
+            })
+            .unwrap_or(&[]);
         match prepare_boss_encounter_script(&config.behavior, props) {
             Ok(Some(script)) => {
                 wrap.insert(script);
@@ -250,10 +274,9 @@ pub fn sync_boss_encounter_entities(
                 config.id
             ),
         }
-        lifecycle_commands.write(EncounterCommand::new(
-            config.id.clone(),
-            EncounterCommandKind::Start,
-        ));
+        lifecycle_commands.write(
+            EncounterCommand::new(config.id.clone(), EncounterCommandKind::Start).in_room(room),
+        );
     }
 }
 
@@ -262,16 +285,18 @@ pub fn sync_boss_encounter_entities(
 /// `ActorPhaseState`). Runs after `sync_boss_encounter_entities` in the
 /// Progression set.
 ///
-/// The wrap persists for its session. An encounter whose members have all left
-/// the world (room change) is reset through the command ingress, never
-/// despawned: the authority keeps its durable member ids, the caches heal by
-/// id on re-entry, and the sync system re-arms the fight with a new `Start`.
-/// So the `encounter:` identity always exists at snapshot-restore time.
+/// The wrap lives as long as its live room: it is room-scoped, and a room
+/// that retires takes it with the boss. While the room is live, an encounter
+/// whose members have all left the world is reset through the command
+/// ingress, not despawned: the authority keeps its durable member ids, the
+/// caches heal by id and live room when the boss is back, and the sync
+/// system re-arms the fight with a new `Start`.
 /// The HUD does not linger: an unresolved member contributes no
 /// `MemberProgress` row, and an empty progress renders nothing.
 pub fn update_encounter_progress(
     mut lifecycle_commands: MessageWriter<EncounterCommand>,
     mut encounters: Query<(
+        Entity,
         &Encounter,
         &mut EncounterParticipants,
         Option<&EncounterLifecycle>,
@@ -283,8 +308,11 @@ pub fn update_encounter_progress(
         &BossEncounter,
         &ambition_characters::actor::BodyHealth,
     )>,
+    // A member is the boss with its id in the wrap's own live room.
+    live: LiveRooms,
 ) {
-    for (encounter, mut participants, lifecycle, mut progress) in &mut encounters {
+    for (wrap, encounter, mut participants, lifecycle, mut progress) in &mut encounters {
+        let room = live.of(wrap);
         progress.members.clear();
         let mut any_resolved = false;
         for member in &mut participants.members {
@@ -295,7 +323,7 @@ pub fn update_encounter_progress(
             let resolved = member.entity.and_then(|e| bosses.get(e).ok()).or_else(|| {
                 bosses
                     .iter()
-                    .find(|(_, config, _, _)| config.id == member.id)
+                    .find(|(boss, config, _, _)| config.id == member.id && live.of(*boss) == room)
             });
             let Some((boss_entity, config, status, health)) = resolved else {
                 // The member left the world (room change or despawn): forget
@@ -328,10 +356,10 @@ pub fn update_encounter_progress(
                         | ambition_encounter::EncounterPhase::Active
                 )
             }) {
-                lifecycle_commands.write(EncounterCommand::new(
-                    encounter.id.clone(),
-                    EncounterCommandKind::Reset,
-                ));
+                lifecycle_commands.write(
+                    EncounterCommand::new(encounter.id.clone(), EncounterCommandKind::Reset)
+                        .in_room(room),
+                );
             }
             continue;
         }

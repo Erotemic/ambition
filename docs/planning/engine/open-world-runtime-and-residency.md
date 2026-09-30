@@ -813,10 +813,10 @@ room. After 6d that is the Alice/Bob world. The measured list of simulation
 systems it stops (read from the parameter lists, 2026-09-30):
 `step_item_motion` ✅, `update_ecs_falling_chests` ✅,
 `prepare_authored_switch_commands` ✅ (7b), `drive_wave_encounters` ✅ (7c),
-`update_boss_encounters` ✅ (7e), `heal_save_shrine_system` ✅ (7d),
+`update_boss_encounters` ✅ (7e; its scripted road in the review of 7e), `heal_save_shrine_system` ✅ (7d),
 `sync_encounter_reward_chests` ✅ (7d), `retire_rewards_for_rearmed_encounters` ✅ (7c),
 `record_placed_ground_items` ✅ (7d), `physics_spawn_debris_messages` and
-`tick_npc_idle_barks`, and the content bosses (`cut_rope`, `gnu_ton`). The
+`tick_npc_idle_barks`, and the content bosses (`cut_rope` ✅ in the review of 7e, `gnu_ton`). The
 presentation readers in `ambition_render` are P5's (a view per player). The
 new reader is `LiveRoomOf<T>`: `T` of the live room an entity is in, by the
 rule of `LiveRooms::of`. Item motion and falling chests now step each
@@ -945,6 +945,56 @@ lookup (the witnesses above never have two occurrences with mobs at once).
 ⚠ Still keyed by authored id: the music intent (`music/intent.rs`) and the
 encounter camera zoom, which are views (P5), and the symmetry attunement
 content encounter.
+
+✅ **Review of cut 7e, landed 2026-09-30: the scripted boss fight runs in
+its own live room.** 7e made the boss driver multi-room, but the scripted
+road under it stayed sole-room. The wrap read the sole live room's props,
+so with two rooms live it had none and the cut-rope script could not be
+prepared. The dropped hazard was unstamped, the hazard fell against the
+sole live room's geometry (so, with two rooms, not at all), and the rope
+detector, the flavor and the victory NPC read the sole live room. A boss
+wrap is now an occurrence like a wave encounter: the boss's placement id in
+the boss's live room. `sync_boss_encounter_entities` covers bosses by
+(id, room), prepares the script from the props of the boss's own live
+room, stamps the wrap into that room and makes it room-scoped (it retires
+with its room, as the boss does; it no longer outlives a room change).
+`update_encounter_progress` resolves a member by id in the wrap's room.
+`tick_encounter_scripts` gives a script only the gates fired in its own
+room, and stamps what it drops into that room. `tick_falling_hazards` reads
+each hazard's own room's geometry (`LiveRoomOf`) and fires the impact gate
+in that room. In content, the cut-rope arena state is one arena per live
+cut-rope room; the rope detector takes a hit's live room
+(`HitEvent::live_room`) and fires `rope_cut` there; the flavor mirrors each
+room's own hazard and boss; the victory NPC is released per room and stamped
+into it. The hazard keeps `SimId::spawned(encounter, n)`: two occurrences'
+hazards are told apart by the room in the carrier order, as the wraps are.
+Witnesses: `the_cut_rope_fight_runs_in_its_own_live_room` (Bob in
+`hall_of_bosses`, #0; Alice through its door into the arena, #1: the wrap is
+stamped #1 with its script; a hit on #1's rope fires `rope_cut` in #1; the
+behemoth is sent to #1's anvil and walks toward it; the hazard is stamped #1
+and falls; `cut_rope_impact` fires in #1; the behemoth dies and is recorded
+cleared; its victory NPC is in #1. Before this repair the wrap was
+unstamped with no script. With the hazard unstamped, it never fell, and no
+impact or death followed),
+`two_live_rooms_of_one_boss_room_wrap_their_bosses_apart` (with coverage by
+id alone, the boss that woke second in #2 had no wrap) and
+`a_gate_fired_in_one_live_room_advances_only_that_rooms_script` (with every
+script hearing every gate, both rooms' bosses died). The behemoth authors no
+reward chest; its reward is the victory NPC. ⚠ Still session-wide, as views
+(P5): the gameplay banner, the encounter music claims, the HUD, and the
+prop visuals, which draw the sole live room's arena. ⚠ A room replay is of
+the sole live room. The arena state is not rollback state, and its
+`rope_cut` latch decided whether a hit fired the gate, so a rewind across a
+rope cut would have resimulated the hit against a latch already set (the
+resource-memory guard flagged it once the latch was written through a map).
+Now every hit on the rope fires the gate, and the script's cursor, which is
+rollback state, is the one record that the rope is cut; the arena gates only
+effects. `a_replay_lets_the_rope_be_cut_again` counted gates, and a fixture
+that wrote `RoomReplayAdmitted` rebuilt nothing, so it passed while the
+spent script would drop no second anvil. It now asks for the replay
+(`RoomReplayRequested`) and counts the anvils dropped, by (`SimId`, live
+room): one before the replay, none from a second slash, and one more after
+the replay rebuilds the room, its behemoth and a fresh wrap.
 
 ⚠ Still owed from cut 5: `outlook_for(room: &str)` is keyed by definition;
 the `SoleLiveRoomSpec` readers each need a subject before a second live room

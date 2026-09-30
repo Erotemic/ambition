@@ -28,7 +28,7 @@ use ambition_platformer2d_core::AabbExt;
 pub const SCRIPT_MUSIC_OWNER: &str = "encounter_script";
 
 use ambition_platformer2d_shared_tangle::lifecycle::{
-    SessionScopedEntity, SessionSpawnScope, SpawnSessionScopedExt,
+    LiveRoomInstance, LiveRooms, SessionScopedEntity, SessionSpawnScope, SpawnSessionScopedExt,
 };
 
 /// Advance every encounter script and execute the effects it yields this
@@ -37,6 +37,9 @@ use ambition_platformer2d_shared_tangle::lifecycle::{
 /// this system supplies the actor-touching execution. Runs in the Progression
 /// set after `update_encounter_progress` (which refreshes participant
 /// `alive`).
+///
+/// A script hears only the gates fired in its own live room, and what it
+/// drops is stamped into that room.
 pub fn tick_encounter_scripts(
     mut commands: Commands,
     world_time: Res<ambition_time::WorldTime>,
@@ -44,6 +47,7 @@ pub fn tick_encounter_scripts(
     // The encounter's own identity and counter: what it drops is minted under
     // it, so two hazards of one script are two identified objects.
     mut scripts: Query<(
+        Entity,
         &EncounterParticipants,
         &mut EncounterScript,
         Option<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
@@ -58,9 +62,13 @@ pub fn tick_encounter_scripts(
     mut music: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<
         ambition_encounter::EncounterMusicRequest,
     >,
+    live: LiveRooms,
 ) {
     let dt = world_time.sim_dt();
-    let fired: Vec<String> = gates.read().map(|g| g.gate.clone()).collect();
+    let fired: Vec<(String, Option<LiveRoomInstance>)> = gates
+        .read()
+        .map(|g| (g.gate.clone(), ambition_encounter::occurrence::message_room(&live, g.room)))
+        .collect();
 
     // No script means no script music. `SetMusic` is an effect, fired once
     // when a beat reaches it, so `release_priority` is reached only when a
@@ -86,8 +94,14 @@ pub fn tick_encounter_scripts(
         music.release_priority(SCRIPT_MUSIC_OWNER);
     }
 
-    for (participants, mut script, encounter_id, mut counter) in &mut scripts {
-        let effects = script.advance(dt, participants, &fired);
+    for (occurrence, participants, mut script, encounter_id, mut counter) in &mut scripts {
+        let room = live.of(occurrence);
+        let fired_here: Vec<String> = fired
+            .iter()
+            .filter(|(_, fired_in)| *fired_in == room)
+            .map(|(gate, _)| gate.clone())
+            .collect();
+        let effects = script.advance(dt, participants, &fired_here);
         let member_entity = |i: usize| participants.members.get(i).and_then(|p| p.entity);
         for effect in &effects {
             match effect {
@@ -153,7 +167,8 @@ pub fn tick_encounter_scripts(
                             &mut commands,
                             SessionSpawnScope::new(
                                 session_owners.get(target).ok().map(|owner| owner.0),
-                            ),
+                            )
+                            .in_room(room),
                             place.pos,
                             FallingHazard {
                                 size: place.size,
@@ -265,12 +280,13 @@ impl bevy::ecs::entity::MapEntities for FallingHazard {
 }
 
 /// Integrate every [`FallingHazard`]: wait for the target to align, then fall,
-/// clamp to the floor, and fire the impact gate on contact. Despawns the
-/// hazard on impact (or if its target left the world).
+/// clamp to the floor of its own live room, and fire the impact gate in that
+/// room on contact. Despawns the hazard on impact (or if its target left the
+/// world). A hazard in no live room does not move.
 pub fn tick_falling_hazards(
     mut commands: Commands,
     world_time: Res<ambition_time::WorldTime>,
-    world: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<
+    world: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomOf<
         ambition_platformer2d_core::RoomGeometry,
     >,
     mut gates: MessageWriter<EncounterGate>,
@@ -284,6 +300,9 @@ pub fn tick_falling_hazards(
             commands.entity(entity).despawn();
             continue;
         };
+        let Some(geometry) = world.of(entity) else {
+            continue;
+        };
         if !hazard.dropping {
             if (target.center.x - aabb.center.x).abs() <= hazard.align_tolerance {
                 hazard.dropping = true;
@@ -293,13 +312,13 @@ pub fn tick_falling_hazards(
         }
         hazard.vel_y = (hazard.vel_y + hazard.gravity * dt).min(hazard.terminal);
         aabb.center.y += hazard.vel_y * dt;
-        let floor_y = world.0.size.y - hazard.size.y * 0.5;
+        let floor_y = geometry.0.size.y - hazard.size.y * 0.5;
         if aabb.center.y > floor_y {
             aabb.center.y = floor_y;
             hazard.vel_y = 0.0;
         }
         if aabb.aabb().strict_intersects(target.aabb()) {
-            gates.write(EncounterGate::new(hazard.impact_gate.clone()));
+            gates.write(EncounterGate::new(hazard.impact_gate.clone()).in_room(world.room_of(entity)));
             commands.entity(entity).despawn();
         }
     }

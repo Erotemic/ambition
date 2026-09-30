@@ -192,59 +192,78 @@ fn the_rope_gate_does_not_fire_without_a_hit_on_the_rope() {
 
 /// A replay lets the rope be cut AGAIN — the reset path, which nothing pinned.
 ///
-/// ⭐⭐ THIS IS THE ARM THE OTHER THREE DO NOT REACH. `detect_cut_rope_rope_cut`
-/// short-circuits on `if state.rope_cut { continue; }`, so once the rope is cut
-/// the trigger is dead until something clears the flag. If the reset never ran,
-/// a player who died mid-fight would re-enter a room whose rope is already cut
-/// and whose anvil will never drop again — the fight becomes unwinnable, and
+/// ⭐⭐ THIS IS THE ARM THE OTHER THREE DO NOT REACH. Once the script has spent
+/// its rope beat, a hit on the rope drops nothing until something re-arms the
+/// fight. If the reset never ran, a player who died mid-fight would re-enter a
+/// room whose anvil will never drop again — the fight becomes unwinnable, and
 /// every other test here still passes because they each cut the rope exactly
-/// once in a fresh world.
+/// once in a fresh world. It counts anvils, not gates: every hit on the rope
+/// fires the gate, and whether a gate drops an anvil is the script's.
 ///
-/// ⇒ It also pins the seam a refactor wants to move.
-/// `CutRopeBossArenaState.active_room` hand-rolls a room-change detector that
-/// `FreshAttempt::began_in` already is, spelled three times, with a fourth site
-/// checking the same condition and BAILING rather than resetting. Swapping that
-/// for the engine's own mechanism carries a one-frame ordering hazard, and this
-/// is the arm that would catch it.
+/// ⇒ It also pins the seam a refactor moved. The arena state is keyed by live
+/// room (the review of OW1 cut 7e), so a new live room of the arena is a new,
+/// uncut arena; the hand-rolled room-change detector (`active_room`) is gone.
+/// A replay still clears the arena through
+/// `reset_cut_rope_boss_arena_on_room_reset`, and this is the arm that would
+/// catch a replay that did not.
 #[test]
 fn a_replay_lets_the_rope_be_cut_again() {
-    use ambition_platformer2d::combat::events::{RoomReplayAdmitted, RoomResetReason};
 
     let mut sim = cut_rope_sim();
     for _ in 0..10 {
         sim.step(AgentAction::default());
     }
     let rope = rope_pos(&mut sim);
+    // The anvils a slash drops, by live identity: a replayed fight's anvil has
+    // the first one's `SimId` (its encounter's first drop) in the replay's new
+    // live room.
+    let mut dropped = std::collections::BTreeSet::new();
+    let mut slash_and_count = |sim: &mut Platformer2dSimHarness| {
+        slash(sim, rope);
+        for _ in 0..5 {
+            sim.step(AgentAction::default());
+            let world = sim.world_mut();
+            dropped.extend(
+                world
+                    .query_filtered::<(
+                        &ambition_platformer2d::platformer::sim_id::SimId,
+                        Option<&ambition_platformer2d::platformer::lifecycle::InRoomInstance>,
+                    ), bevy::prelude::With<ambition_platformer2d::boss_encounter::FallingHazard>>()
+                    .iter(world)
+                    .map(|(id, room)| (id.clone(), room.map(|room| room.0))),
+            );
+        }
+        dropped.len()
+    };
 
-    slash(&mut sim, rope);
-    sim.step(AgentAction::default());
-    assert!(rope_cut_gates(&mut sim) > 0, "the first cut must land");
+    assert_eq!(slash_and_count(&mut sim), 1, "the first cut must drop the anvil");
 
-    // ⚠ The premise the rest of this test rests on: a SECOND slash with no replay
-    // does nothing, because the detector short-circuits on `rope_cut`. Without
-    // this, "the gate fired again after a replay" would prove nothing -- it would
-    // pass on a detector that simply fires on every hit.
-    slash(&mut sim, rope);
-    sim.step(AgentAction::default());
+    // ⚠ The premise the rest of this test rests on: a SECOND slash with no
+    // replay drops nothing, because the script's rope beat is spent. Without
+    // this, "an anvil dropped after a replay" would prove nothing -- it would
+    // pass on a fight that drops an anvil on every hit.
     assert_eq!(
-        rope_cut_gates(&mut sim),
-        0,
-        "a second slash fired the gate with no replay, so this test cannot tell a \
-         working reset from a detector that never latched"
+        slash_and_count(&mut sim),
+        1,
+        "a second slash dropped another anvil with no replay, so this test cannot \
+         tell a working reset from a fight that never spends its rope"
     );
 
-    sim.world_mut().write_message(RoomReplayAdmitted {
-        reason: RoomResetReason::PlayerDeath,
-        subject: None,
-    });
-    sim.step(AgentAction::default());
-
-    slash(&mut sim, rope);
-    sim.step(AgentAction::default());
-    assert!(
-        rope_cut_gates(&mut sim) > 0,
-        "after a replay the rope could not be cut again: the arena kept last \
-         attempt's `rope_cut`, so the anvil never drops and the fight is unwinnable"
+    // THE ASK, NOT THE FACT: `RoomReplayAdmitted` written by the test resets
+    // the arena's effects and rebuilds nothing, so the fight runs on at its
+    // spent beat. The replay road rebuilds the room, its behemoth and its
+    // fight.
+    sim.world_mut().write_message(
+        ambition_platformer2d::actors::session::reset::RoomReplayRequested::manual(),
+    );
+    for _ in 0..60 {
+        sim.step(AgentAction::default());
+    }
+    assert_eq!(
+        slash_and_count(&mut sim),
+        2,
+        "after a replay the rope could not be cut again: the anvil never drops and \
+         the fight is unwinnable"
     );
 }
 

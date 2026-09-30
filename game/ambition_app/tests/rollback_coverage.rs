@@ -1715,7 +1715,8 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
     ),
     (
         "::cut_rope::arena::CutRopeBossArenaState",
-        "per-frame mirror of the FallingHazard entity, rebuilt each frame",
+        "presentation: the arena's effects state; the rope's gate fires on every hit \
+         and the script (rollback state) decides what a gate does",
     ),
     // It is a latch that BRIDGES TICKS: the choice is made while the last line is on screen and the
     // reset fires whenever the player dismisses it. It is written and cleared by the simulation now

@@ -332,3 +332,42 @@ fn a_scripts_music_claim_does_not_outlive_the_script() {
          music in every room the player visits"
     );
 }
+
+/// Review of OW1 cut 7e: a gate fired in one live room advances only that
+/// room's script. Two live rooms each have a boss and a script that
+/// force-kills it on `impact`; the gate is fired in #1. The subject: #1's
+/// boss dies and #2's lives. With every script hearing every gate, both died.
+#[test]
+fn a_gate_fired_in_one_live_room_advances_only_that_rooms_script() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
+    let first = LiveRoomInstance::ACTIVATION.next();
+    let second = first.next();
+    let mut app = test_app();
+    let bosses: Vec<_> = [first, second]
+        .into_iter()
+        .map(|room| {
+            app.world_mut().spawn((RoomInstanceRoot, room));
+            let boss = app.world_mut().spawn((member(9999), InRoomInstance(room))).id();
+            app.world_mut().spawn((
+                InRoomInstance(room),
+                EncounterParticipants::new(vec![EncounterParticipant::adopted(
+                    "cut_rope_boss",
+                    boss,
+                    EncounterRole::PrimaryTarget,
+                )]),
+                EncounterScript::new(vec![EncounterBeat::new(
+                    EncounterTrigger::Gate("impact".into()),
+                    vec![EncounterEffect::ForceKill(0)],
+                )]),
+            ));
+            boss
+        })
+        .collect();
+    app.world_mut().write_message(EncounterGate::new("impact").in_room(Some(first)));
+    app.update();
+    assert_eq!(
+        bosses.iter().map(|boss| member_health(&app, *boss).alive()).collect::<Vec<_>>(),
+        vec![false, true],
+        "the gate fired in #1 did not kill only #1's boss"
+    );
+}

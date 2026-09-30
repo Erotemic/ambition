@@ -82,6 +82,11 @@ NOT_PER_ATTEMPT = {
     "AmbitionDialogPortraitCatalog": "authored catalog",
     "FallingSandTypeIds": "id table built once from the type registry",
     "SmashRoster": "authored roster",
+    "CutRopeBossArenaState": (
+        "presentation, keyed by live room: a replay mints a new live room whose "
+        "arena starts uncut, and `reset_cut_rope_boss_arena_on_room_reset` "
+        "re-seats it on the replay"
+    ),
     # Load/asset plumbing scoped to a transition, not to an attempt.
     "FirstRoomArtJobs": "in-flight art jobs for one load",
     "RoomPreparationPrefetchState": "prefetch bookkeeping for one transition",

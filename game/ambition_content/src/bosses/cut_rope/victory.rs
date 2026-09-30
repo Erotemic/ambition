@@ -9,14 +9,17 @@ use super::*;
 /// entity can feel like it crawled out of the dead boss body. It is still a normal peaceful NPC
 /// actor with a Yarn dialogue id, so interaction, sprite fallback, pogo/damage volumes, and reset
 /// behavior use the existing ECS actor path.
+///
+/// Per live cut-rope room: the NPC crawls out of that room's behemoth and is
+/// stamped into that room.
 pub fn spawn_cut_rope_victory_npc(
     mut commands: Commands,
-    room_set: ambition_platformer2d::world::rooms::SoleLiveRoomSpec,
+    rooms: ambition_platformer2d::world::rooms::LiveRoomSpecs,
     save: Res<ambition_persistence::save::AmbitionGameSave>,
     character_catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>,
     authored_sheets: Res<ambition_sprite_sheet::character::sheets::AuthoredSheets>,
     mut released: MessageReader<ambition_boss_encounter::PayloadReleased>,
-    existing: Query<&FeatureId, With<SmirkingBehemothVictoryNpc>>,
+    existing: Query<(Entity, &FeatureId), With<SmirkingBehemothVictoryNpc>>,
     bosses: Query<(Entity, &FeatureId, &CenteredAabb, BossClusterRef), With<FeatureSimEntity>>,
     // Reused across frames; see the drain below for why it is a `Local` and not
     // a fresh `Vec`.
@@ -34,47 +37,56 @@ pub fn spawn_cut_rope_victory_npc(
     // and refills, so the allocation happens once and its capacity is reused.
     released_hosts.clear();
     released_hosts.extend(released.read().map(|m| m.host));
-    if room_set.spec().id != CUT_ROPE_ROOM_ID {
-        return;
+    let arenas: Vec<_> = rooms
+        .live_rooms()
+        .filter(|(_, definition)| rooms.rooms().spec(*definition).id == CUT_ROPE_ROOM_ID)
+        .map(|(room, _)| room)
+        .collect();
+    for room in arenas {
+        let in_room = |entity: Entity| rooms.live().of(entity) == Some(room);
+        if existing
+            .iter()
+            .any(|(npc, id)| in_room(npc) && id.as_str() == CUT_ROPE_VICTORY_NPC_ID)
+        {
+            continue;
+        }
+        let Some((boss_entity, _boss_id, boss_aabb, boss_feature)) =
+            bosses.iter().find(|(boss, id, _, feature)| {
+                in_room(*boss)
+                    && (id.as_str() == CUT_ROPE_BOSS_ID
+                        || is_cut_rope_boss(feature.as_boss_ref().config.behavior.id.as_str()))
+            })
+        else {
+            continue;
+        };
+        let boss = boss_feature.as_boss_ref();
+        // R3/R4: the boss death is resolved entity-side; R4 keys the persisted
+        // "cleared" record by PLACEMENT (`config.id`). Spawn the victory NPC when
+        // EITHER the behemoth just released its payload this frame (fresh kill) OR
+        // the placement reads cleared in the save (room re-entry).
+        // ⭐ THE SHARED PREDICATE, not a second copy of its body. This site used to
+        // inline the same `matches!` on `save.data().boss(&config.id)`, which is
+        // exactly what `boss_is_cleared` exists to prevent — `save_sync.rs` says so
+        // where it calls it: *"shared predicate (`boss_is_cleared`) with the per-tick
+        // encounter driver so they can't drift."* A third reading that agreed by
+        // copy-paste is the drift that has not happened yet.
+        let boss_persisted_cleared = ambition_boss_encounter::boss_is_cleared(&save, &boss.config);
+        let released_now = released_hosts.contains(&boss_entity);
+        if !boss_persisted_cleared && !released_now {
+            continue;
+        }
+        let boss_bottom_y = boss_aabb.center.y + boss_aabb.half_size.y;
+        let spawn_pos = ae::Vec2::new(boss.kin.pos.x, boss_bottom_y - CUT_ROPE_VICTORY_NPC_H * 0.5);
+        let npc = spawn_victory_npc_entity(
+            &mut commands,
+            &character_catalog,
+            &authored_sheets,
+            spawn_pos,
+        );
+        commands
+            .entity(npc)
+            .insert(ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance(room));
     }
-    if existing
-        .iter()
-        .any(|id| id.as_str() == CUT_ROPE_VICTORY_NPC_ID)
-    {
-        return;
-    }
-    let Some((boss_entity, _boss_id, boss_aabb, boss_feature)) =
-        bosses.iter().find(|(_, id, _, feature)| {
-            id.as_str() == CUT_ROPE_BOSS_ID
-                || is_cut_rope_boss(feature.as_boss_ref().config.behavior.id.as_str())
-        })
-    else {
-        return;
-    };
-    let boss = boss_feature.as_boss_ref();
-    // R3/R4: the boss death is resolved entity-side; R4 keys the persisted
-    // "cleared" record by PLACEMENT (`config.id`). Spawn the victory NPC when
-    // EITHER the behemoth just released its payload this frame (fresh kill) OR
-    // the placement reads cleared in the save (room re-entry).
-    // ⭐ THE SHARED PREDICATE, not a second copy of its body. This site used to
-    // inline the same `matches!` on `save.data().boss(&config.id)`, which is
-    // exactly what `boss_is_cleared` exists to prevent — `save_sync.rs` says so
-    // where it calls it: *"shared predicate (`boss_is_cleared`) with the per-tick
-    // encounter driver so they can't drift."* A third reading that agreed by
-    // copy-paste is the drift that has not happened yet.
-    let boss_persisted_cleared = ambition_boss_encounter::boss_is_cleared(&save, &boss.config);
-    let released_now = released_hosts.contains(&boss_entity);
-    if !boss_persisted_cleared && !released_now {
-        return;
-    }
-    let boss_bottom_y = boss_aabb.center.y + boss_aabb.half_size.y;
-    let spawn_pos = ae::Vec2::new(boss.kin.pos.x, boss_bottom_y - CUT_ROPE_VICTORY_NPC_H * 0.5);
-    spawn_victory_npc_entity(
-        &mut commands,
-        &character_catalog,
-        &authored_sheets,
-        spawn_pos,
-    );
 }
 
 fn victory_npc_size() -> ae::Vec2 {

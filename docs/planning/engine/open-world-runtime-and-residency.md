@@ -703,8 +703,9 @@ session never had a second live room unless a test built one. A publication's
 `LiveRoomSuccession` is now `Replace { replaces, mints }` or
 `Open { leaves, mints }`, and `for_crossing` decides: the crossing opens a
 room when another player's body (a different `DrivingParticipant` slot) is
-still in the room it leaves (`another_player_stays`). Only a driven
-subject opens a room: a body no slot drives (the d71 crossing body) is
+still in the room it leaves (`another_player_stays`). Only a crossing
+some slot drove when it was accepted opens a room (see the review note
+after cut 6e): a body no slot drives (the d71 crossing body) is
 sent across by the session, which follows it and replaces the room as
 before. The subject's own slot does not count, so one player still has one
 live room. The first lane found the second rule: three app tests (the d71
@@ -768,6 +769,21 @@ root identity), `a_crossing_joins_the_live_room_of_its_target_that_another_playe
 `a_player_who_comes_back_joins_the_room_the_other_player_holds` (one live
 room, both players in it, and Bob's slot still runs his body). The
 `door_to` test helper now reads the walker's own room.
+
+✅ **Review of cut 6, 2026-09-30: the crossing's participant is recorded
+when the crossing is accepted.** Open and Join ask "another participant",
+and the commit read who that is from the subject's `DrivingParticipant`
+at commit. Commit is frames after detection, and possession, a death or a
+handoff can move the slot in that window. The crossing then read as
+nobody's, and it replaced the room another participant was in.
+`RoomTransitionIntent.participant` is now written by detection and by the
+level-exit departure. It is in the pending commit's checksum and snapshot
+(schema 275), and both commit roads (eager and rollback) give it to the
+decision. Witnesses: `a_crossing_is_the_participant_it_was_accepted_for_when_it_opens_a_room`
+and `..._when_it_joins_a_room` (Alice's slot is taken off her body between
+acceptance and commit). A poison that reads the subject's slot at commit
+again made both fail: Bob's room was replaced, and a second live room of
+`switch_lab` was built. The controls are the two cut 6d/6e app tests.
 
 ⚠ Owed after cut 6d, found while writing it:
 - No production road seats a second player in ordinary play. Bob is a

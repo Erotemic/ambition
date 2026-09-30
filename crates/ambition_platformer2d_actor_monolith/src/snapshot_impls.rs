@@ -143,6 +143,7 @@ impl SnapshotState for crate::session::lifecycle_commit::PendingLifecycleCommit 
                             arrival,
                             edge_exit,
                             zone_sfx,
+                            participant,
                         },
                     ) => {
                         put_u8(out, 3);
@@ -154,6 +155,8 @@ impl SnapshotState for crate::session::lifecycle_commit::PendingLifecycleCommit 
                         put_bool(out, *edge_exit);
                         put_bool(out, zone_sfx.is_some());
                         put_str(out, zone_sfx.as_deref().unwrap_or(""));
+                        put_bool(out, participant.is_some());
+                        put_u8(out, participant.map_or(0, |slot| slot.0));
                     }
                     // ⭐ TAG 5, NOT 4. Tags 0-4 all belonged to the deleted
                     // variants, so 4 would make a v139 snapshot's `FullReset`
@@ -203,6 +206,11 @@ impl SnapshotState for crate::session::lifecycle_commit::PendingLifecycleCommit 
                         let present = r.bool()?;
                         let cue = r.str()?.to_string();
                         present.then_some(cue)
+                    },
+                    participant: {
+                        let present = r.bool()?;
+                        let slot = r.u8()?;
+                        present.then_some(ambition_characters::control::PlayerSlot(slot))
                     },
                 },
             ),

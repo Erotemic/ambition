@@ -206,6 +206,7 @@ fn the_halls_entry_is_counted_for_art_it_decodes_twice() {
                     arrival,
                     edge_exit: false,
                     zone_sfx: None,
+                    participant: None,
                 },
             ),
         );

@@ -645,6 +645,7 @@ fn a_failed_preparation_is_ended_by_the_confirmed_host_too() {
         arrival: ambition_platformer2d::engine_core::Vec2::ZERO,
         edge_exit: false,
         zone_sfx: None,
+        participant: None,
     });
 
     let key = {

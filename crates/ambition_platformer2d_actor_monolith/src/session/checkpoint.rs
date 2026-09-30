@@ -288,6 +288,7 @@ pub fn restore_checkpoint_on_session_start(
                 edge_exit: false,
                 // silent on purpose: nobody opened a door.
                 zone_sfx: None,
+                participant: None,
             },
         );
         let admission = pending.record(frame, intent.clone());
@@ -491,6 +492,7 @@ pub fn resume_at_checkpoint_on_reset(
             edge_exit: false,
             // silent on purpose: nobody opened a door.
             zone_sfx: None,
+            participant: None,
         },
     );
     let admission = pending.record(frame, intent.clone());

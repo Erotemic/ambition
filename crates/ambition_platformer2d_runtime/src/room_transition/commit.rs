@@ -293,6 +293,8 @@ impl RoomTransitionApplication<'_, '_> {
         &mut self,
         plan: &rooms::RoomConstructionPlan,
         subject: Option<Entity>,
+        // Whose crossing this is, as the intent recorded it.
+        participant: Option<ambition_characters::control::PlayerSlot>,
         target_room: usize,
         arrival_at: Option<ae::Vec2>,
         edge_exit: bool,
@@ -471,6 +473,7 @@ impl RoomTransitionApplication<'_, '_> {
         let another_player_stays = departing.is_some_and(|departing| {
             another_player_stays(
                 subject,
+                participant,
                 departing,
                 self.drivers
                     .iter()
@@ -482,7 +485,7 @@ impl RoomTransitionApplication<'_, '_> {
         let target = self.session.iter().next().and_then(|rooms| rooms.definition(target_room));
         let joins = departing.zip(target).and_then(|(departing, target)| {
             joined_room(
-                subject,
+                participant,
                 departing,
                 target,
                 self.definitions.iter().map(|(live, definition)| (*live, *definition)),
@@ -817,20 +820,27 @@ impl TransitBodies<'_, '_> {
     }
 }
 
-/// Whether a crossing by `subject` out of live room `departing` leaves another
-/// player's body behind in it (OW1 cut 6c). `drivers` are the driven bodies:
-/// each entity, the slot that drives it and the live room it is in.
+/// Whether a crossing by `subject`, participant `participant`'s, out of
+/// live room `departing` leaves another participant's body behind in it (OW1
+/// cut 6c). `drivers` are the driven bodies now: each entity, the slot that
+/// drives it and the live room it is in.
 ///
-/// ⛔ ANOTHER PLAYER IS ANOTHER SLOT. The subject's own slot may be recorded
-/// on other bodies, and those do not keep a room live, so with one player the
-/// crossing always replaces the room it leaves, and the one-room profile
-/// never opens a second room.
+/// ⛔ `participant` IS THE ONE RECORDED ON THE INTENT, never the subject's
+/// current slot: control can move off the subject between detection and
+/// commit (see `RoomTransitionIntent::participant`). The other participants'
+/// rooms are read now.
 ///
-/// ⛔ ONLY A PLAYER'S CROSSING OPENS A ROOM. A subject no slot drives (a
+/// ⛔ ANOTHER PARTICIPANT IS ANOTHER SLOT. The crossing participant's own slot
+/// may be on other bodies, and those do not keep a room live, so with one
+/// player the crossing always replaces the room it leaves, and the one-room
+/// profile never opens a second room.
+///
+/// ⛔ ONLY A PARTICIPANT'S CROSSING OPENS A ROOM. A crossing no slot drove (a
 /// body the session sends across) is not a player leaving another player:
-/// the session follows it and replaces the room, as before this cut.
+/// the session follows it and replaces the room.
 pub fn another_player_stays(
     subject: Option<Entity>,
+    participant: Option<ambition_characters::control::PlayerSlot>,
     departing: world_rooms::LiveRoomInstance,
     drivers: impl IntoIterator<
         Item = (
@@ -840,30 +850,26 @@ pub fn another_player_stays(
         ),
     >,
 ) -> bool {
-    let drivers: Vec<_> = drivers.into_iter().collect();
-    let Some((subject, subject_slot)) = subject.and_then(|subject| {
-        drivers
-            .iter()
-            .find(|(entity, ..)| *entity == subject)
-            .map(|(_, slot, _)| (subject, *slot))
-    }) else {
+    let Some(participant) = participant else {
         return false;
     };
-    drivers.iter().any(|(entity, slot, room)| {
-        *entity != subject && *slot != subject_slot && *room == Some(departing)
+    drivers.into_iter().any(|(entity, slot, room)| {
+        Some(entity) != subject && slot != participant && room == Some(departing)
     })
 }
 
-/// The live room a crossing by `subject` into room `target` joins (OW1 cut
-/// 6e): a live room of `target`, other than `departing`, that a body of
-/// another slot is in. `None` when no other player holds one, and then the
-/// crossing makes the room live itself.
+/// The live room a crossing by participant `participant` into room `target`
+/// joins (OW1 cut 6e): a live room of `target`, other than `departing`, that
+/// a body of another slot is in now. `None` when no other participant holds
+/// one, and then the crossing makes the room live itself.
 ///
 /// ⛔ ONE LIVE ROOM OF A ROOM PER PLAYER GROUP. Two players who stand in "the
 /// hub" stand in one live room, so what one does there, the other sees. Only
-/// a driven subject joins, as only a driven subject opens a room.
+/// a participant's crossing joins, as only one opens a room, and
+/// `participant` is the one the intent recorded (see
+/// [`another_player_stays`]).
 pub fn joined_room(
-    subject: Option<Entity>,
+    participant: Option<ambition_characters::control::PlayerSlot>,
     departing: world_rooms::LiveRoomInstance,
     target: world_rooms::LiveRoomDefinition,
     rooms: impl IntoIterator<Item = (world_rooms::LiveRoomInstance, world_rooms::LiveRoomDefinition)>,
@@ -875,13 +881,8 @@ pub fn joined_room(
         ),
     >,
 ) -> Option<world_rooms::LiveRoomInstance> {
+    let participant = participant?;
     let drivers: Vec<_> = drivers.into_iter().collect();
-    let subject_slot = subject.and_then(|subject| {
-        drivers
-            .iter()
-            .find(|(entity, ..)| *entity == subject)
-            .map(|(_, slot, _)| *slot)
-    })?;
     rooms
         .into_iter()
         .filter(|(room, definition)| *room != departing && *definition == target)
@@ -889,7 +890,7 @@ pub fn joined_room(
         .find(|room| {
             drivers
                 .iter()
-                .any(|(_, slot, at)| *slot != subject_slot && *at == Some(*room))
+                .any(|(_, slot, at)| *slot != participant && *at == Some(*room))
         })
 }
 
@@ -1190,6 +1191,7 @@ pub fn commit_ready_room_transition_system(
     let staged = match application.stage(
         construction_plan,
         subject,
+        intent.participant(),
         target_room,
         intent.arrival(),
         intent.edge_exit(),
@@ -1506,33 +1508,36 @@ mod another_player_tests {
     }
 
     /// OW1 cut 6c: a room a crossing leaves stays live only for ANOTHER
-    /// player. Alice (slot 0) crosses out of #0. Her possessed home body, also
-    /// slot 0, stays in #0 and does not keep it live: that is the one-room
-    /// profile. Bob (slot 1) in #0 keeps it live; Bob in #1 does not. A body
-    /// no slot drives crossing away from Bob does not keep #0 live: the
-    /// session follows it.
+    /// participant. Alice (slot 0) crosses out of #0. A second body slot 0
+    /// drives stays in #0 and does not keep it live: that is the one-room
+    /// profile. Bob (slot 1) in #0 keeps it live; Bob in #1 does not. A
+    /// crossing no slot drove does not keep #0 live: the session follows it.
+    /// And the recorded participant decides, not the subject's slot now: with
+    /// Alice driven by nobody at commit, her crossing is still slot 0's.
     #[test]
     fn a_room_stays_live_for_another_player_and_not_for_the_subjects_own_bodies() {
         let first = world_rooms::LiveRoomInstance::ACTIVATION;
         let second = first.next();
         let (alice, home, bob) = (entity(1), entity(2), entity(3));
         let alone = [(alice, PlayerSlot(0), Some(first)), (home, PlayerSlot(0), Some(first))];
+        let slot0 = Some(PlayerSlot(0));
         assert!(
-            !another_player_stays(Some(alice), first, alone),
+            !another_player_stays(Some(alice), slot0, first, alone),
             "control: the subject's own slot kept the room it leaves live"
         );
         let with_bob = |room| {
-            another_player_stays(
-                Some(alice),
-                first,
-                alone.into_iter().chain([(bob, PlayerSlot(1), Some(room))]),
-            )
+            another_player_stays(Some(alice), slot0, first, alone.into_iter().chain([(bob, PlayerSlot(1), Some(room))]))
         };
         assert!(with_bob(first), "another player's body in the room did not keep it live");
         assert!(!with_bob(second), "another player's body in ANOTHER room kept this one live");
+        let bob_stays = [(bob, PlayerSlot(1), Some(first))];
         assert!(
-            !another_player_stays(Some(entity(4)), first, alone.into_iter().chain([(bob, PlayerSlot(1), Some(first))])),
-            "a body no slot drives opened a live room"
+            !another_player_stays(Some(entity(4)), None, first, bob_stays),
+            "a crossing no slot drove opened a live room"
+        );
+        assert!(
+            another_player_stays(Some(alice), slot0, first, bob_stays),
+            "the recorded participant did not decide once the subject lost its slot"
         );
     }
 }
@@ -1549,27 +1554,22 @@ mod joined_room_tests {
     /// OW1 cut 6e: Bob (slot 1) crosses from #0 into the hub. Alice (slot 0)
     /// is in #1, a live room of the hub: he joins #1. The controls: Alice in
     /// #2, a live room of another room, is joined by no crossing into the
-    /// hub; Bob's own slot on a body in #1 is not another player; and a body
-    /// no slot drives joins nothing.
+    /// hub; Bob's own slot on a body in #1 is not another participant; and a
+    /// crossing no slot drove joins nothing.
     #[test]
     fn a_crossing_joins_the_live_room_of_its_target_that_another_player_holds() {
         let first = world_rooms::LiveRoomInstance::ACTIVATION;
         let (second, third) = (first.next(), first.next().next());
         let (hub, lab) = (world_rooms::LiveRoomDefinition::from_index(1), world_rooms::LiveRoomDefinition::from_index(2));
         let rooms = [(first, lab), (second, hub), (third, lab)];
-        let (bob, alice, other) = (entity(1), entity(2), entity(3));
-        let joins = |subject, alice_room, alice_slot| {
-            joined_room(
-                Some(subject),
-                first,
-                hub,
-                rooms,
-                [(bob, PlayerSlot(1), Some(first)), (alice, alice_slot, Some(alice_room))],
-            )
+        let alice = entity(2);
+        let joins = |participant, alice_room, alice_slot| {
+            joined_room(participant, first, hub, rooms, [(alice, alice_slot, Some(alice_room))])
         };
+        let bob = Some(PlayerSlot(1));
         assert_eq!(joins(bob, second, PlayerSlot(0)), Some(second), "Bob did not join Alice's hub");
         assert_eq!(joins(bob, third, PlayerSlot(0)), None, "control: Bob joined a live room of another room");
         assert_eq!(joins(bob, second, PlayerSlot(1)), None, "control: Bob's own slot counted as another player");
-        assert_eq!(joins(other, second, PlayerSlot(0)), None, "control: a body no slot drives joined a room");
+        assert_eq!(joins(None, second, PlayerSlot(0)), None, "control: a crossing no slot drove joined a room");
     }
 }

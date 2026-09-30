@@ -4,7 +4,9 @@
 //! The room Bob is in stays live and whole, and the room Alice arrives in is
 //! a second live room. This is the Alice/Bob customer driven end to end
 //! through the shipped app, where cut 6c proved only the publication. When
-//! Alice comes back, she joins the live room Bob holds (cut 6e).
+//! Alice comes back, she joins the live room Bob holds (cut 6e). Who
+//! crossed is the participant the crossing recorded when it was accepted,
+//! not the one who drives the body when the crossing commits.
 
 use ambition_app::{AmbitionSim as _, Platformer2dSimHarness};
 use ambition_platformer2d::platformer::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
@@ -82,10 +84,68 @@ fn bob_runs(sim: &mut Platformer2dSimHarness, direction: f32) -> f32 {
     bob_x(sim) - start
 }
 
+/// Send Alice through the door to `target` as `walk_through_the_door_to`
+/// does, but take her slot off her body once the crossing is accepted and
+/// before it commits: the window in which possession can move control.
+fn walk_through_the_door_losing_her_slot(sim: &mut Platformer2dSimHarness, target: &str) -> String {
+    use ambition_platformer2d::engine_core::AabbExt as _;
+    let before = sim.observation().active_room.clone();
+    let door = crate::common::door_to(sim, target);
+    let center = door.aabb.center();
+    sim.teleport_player((center.x, center.y));
+    let pending = |sim: &Platformer2dSimHarness| {
+        sim.world()
+            .resource::<ambition_platformer2d::actors::session::lifecycle_commit::PendingLifecycleCommit>()
+            .pending
+            .is_some()
+    };
+    for _ in 0..120 {
+        sim.step(ambition_app::AgentAction {
+            interact: true,
+            interact_held: true,
+            ..base()
+        });
+        if pending(sim) {
+            break;
+        }
+    }
+    assert!(pending(sim), "precondition: the crossing to '{target}' was not accepted");
+    {
+        let world = sim.world_mut();
+        let alice = world
+            .query_filtered::<bevy::prelude::Entity, bevy::prelude::With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>()
+            .single(world)
+            .expect("Alice's body is in the world");
+        let slot = world
+            .entity_mut(alice)
+            .take::<ambition_platformer2d::characters::control::DrivingParticipant>();
+        assert_eq!(
+            slot.map(|slot| slot.0),
+            Some(ambition_platformer2d::characters::control::PlayerSlot(0)),
+            "precondition: slot 0 did not drive Alice's body when her crossing was accepted"
+        );
+    }
+    for _ in 0..120 {
+        let room = sim.step(base()).active_room;
+        if room != before {
+            return room;
+        }
+    }
+    panic!("Alice's crossing from '{before}' to '{target}' never committed");
+}
+
 /// Build the world with Bob beside Alice in `switch_lab`, driven by `slot`
 /// or by nobody, and send Alice through the door to the hub.
 fn alice_leaves_bob(
     slot: Option<ambition_platformer2d::characters::control::PlayerSlot>,
+) -> (Platformer2dSimHarness, LiveRoomInstance) {
+    alice_leaves_bob_by(slot, walk_through_the_door_to)
+}
+
+/// [`alice_leaves_bob`], with Alice crossing by `cross`.
+fn alice_leaves_bob_by(
+    slot: Option<ambition_platformer2d::characters::control::PlayerSlot>,
+    cross: fn(&mut Platformer2dSimHarness, &str) -> String,
 ) -> (Platformer2dSimHarness, LiveRoomInstance) {
     let mut sim = Platformer2dSimHarness::new_with_options(
         fixed_60hz_room_options(ROOM).with_save(a_save_that_has_seen_the_hub_intro()),
@@ -132,7 +192,7 @@ fn alice_leaves_bob(
         let ahead = bob_runs(&mut sim, 1.0);
         assert!(ahead > 1.0, "control: slot 1 moved Bob's body {ahead} before anyone left");
     }
-    assert_eq!(walk_through_the_door_to(&mut sim, HUB), HUB);
+    assert_eq!(cross(&mut sim, HUB), HUB);
     for _ in 0..30 {
         sim.step(base());
     }
@@ -192,4 +252,49 @@ fn a_player_who_comes_back_joins_the_room_the_other_player_holds() {
     );
     let ahead = bob_runs(&mut sim, 1.0);
     assert!(ahead > 1.0, "Bob's slot moved his body {ahead} after Alice joined his room");
+}
+
+/// GPT review of OW1 cut 6: slot 0 is taken off Alice's body after her
+/// crossing to the hub is accepted and before it commits. The crossing was
+/// still slot 0's, so it leaves Bob (slot 1) in `switch_lab`, and that room
+/// stays live with him in it, as in
+/// `a_door_crossed_by_one_player_leaves_the_other_players_room_live`.
+/// Before the intent recorded its participant, the commit asked who drives
+/// Alice now, found nobody, and replaced Bob's room. The control is the
+/// crossing with her slot kept, in that test.
+#[test]
+fn a_crossing_is_the_participant_it_was_accepted_for_when_it_opens_a_room() {
+    let (mut sim, first) = alice_leaves_bob_by(
+        Some(ambition_platformer2d::characters::control::PlayerSlot(1)),
+        walk_through_the_door_losing_her_slot,
+    );
+    let second = first.next();
+    assert_eq!(
+        (live_rooms(&mut sim), where_they_are(&mut sim)),
+        (
+            vec![(first, ROOM.to_string()), (second, HUB.to_string())],
+            (Some(second), Some(Some(first))),
+        ),
+        "a crossing that lost its slot before it committed did not leave Bob's room live"
+    );
+}
+
+/// The Join half: Alice comes back to `switch_lab` and loses her slot
+/// between acceptance and commit. Her crossing still joins Bob's live room
+/// (#0) and retires the hub, as in
+/// `a_player_who_comes_back_joins_the_room_the_other_player_holds`, the
+/// control. Before, the commit found no driven subject, joined nothing, and
+/// built a second live room of `switch_lab` in place of the hub.
+#[test]
+fn a_crossing_is_the_participant_it_was_accepted_for_when_it_joins_a_room() {
+    let (mut sim, first) = alice_leaves_bob(Some(ambition_platformer2d::characters::control::PlayerSlot(1)));
+    assert_eq!(walk_through_the_door_losing_her_slot(&mut sim, ROOM), ROOM);
+    for _ in 0..30 {
+        sim.step(base());
+    }
+    assert_eq!(
+        (live_rooms(&mut sim), where_they_are(&mut sim)),
+        (vec![(first, ROOM.to_string())], (Some(first), Some(Some(first)))),
+        "a crossing that lost its slot before it committed did not join the live room Bob holds"
+    );
 }

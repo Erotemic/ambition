@@ -903,7 +903,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// ⛔⛤ 273 -> 274: a queued switch activation carries the live room of its
 /// switch, in the checksum of `resource.switch_activation_queue` (OW1 cut
 /// 7c).
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 274;
+/// ⛔⛤ 274 -> 275: a pending crossing records the participant whose
+/// crossing it is (`resource.pending_lifecycle_commit`, codec and checksum),
+/// so the commit never asks who drives the body now (GPT review of OW1 cut 6).
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 275;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

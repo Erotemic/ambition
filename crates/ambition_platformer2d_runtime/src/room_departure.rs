@@ -61,6 +61,7 @@ pub fn drive_departures(
             &SimId,
             Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
             Option<&ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+            Option<&ambition_characters::control::DrivingParticipant>,
         ),
         ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
     >,
@@ -154,7 +155,7 @@ pub fn drive_departures(
         }
         // No body or no lifecycle commit this tick: keep the trip and ask next
         // tick, until the give-up replays.
-        let (Ok((sim_id, stamp, root)), Some(pending)) = (subjects.single(), pending.as_deref_mut())
+        let (Ok((sim_id, stamp, root, driver)), Some(pending)) = (subjects.single(), pending.as_deref_mut())
         else {
             continue;
         };
@@ -171,6 +172,7 @@ pub fn drive_departures(
                 // Finishing a level is not walking off the side of a room.
                 edge_exit: false,
                 zone_sfx: None,
+                participant: driver.map(|driver| driver.0),
             }),
         );
     }
@@ -289,6 +291,7 @@ mod tests {
             arrival: ae::Vec2::ZERO,
             edge_exit: false,
             zone_sfx: None,
+            participant: None,
         });
         let _ = app.world_mut().resource_mut::<PendingLifecycleCommit>().record(0, competing);
 

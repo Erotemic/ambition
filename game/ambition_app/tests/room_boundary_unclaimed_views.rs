@@ -253,6 +253,7 @@ fn cross_observing_with(
                     arrival,
                     edge_exit: false,
                     zone_sfx: None,
+                    participant: None,
                 },
             ),
         );

@@ -308,6 +308,7 @@ fn cross_into_a_cached_neighbour(as_checkpoint_restore: bool) -> bool {
         arrival: ambition_platformer2d::engine_core::Vec2::ZERO,
         edge_exit: false,
         zone_sfx: None,
+        participant: None,
     };
 
     if as_checkpoint_restore {
@@ -471,6 +472,7 @@ fn rebuilt_room_holds_its_ground_item(relocated: bool) -> bool {
         arrival: ambition_platformer2d::engine_core::Vec2::ZERO,
         edge_exit: false,
         zone_sfx: None,
+        participant: None,
     });
     {
         let world = app.world_mut();

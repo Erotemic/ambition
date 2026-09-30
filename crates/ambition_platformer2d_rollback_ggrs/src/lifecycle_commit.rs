@@ -426,6 +426,7 @@ fn execute_lifecycle_commit(
             &plan,
             checkpoint_operation,
             kind.subject(),
+            kind.participant(),
             kind.target_room(),
             kind.arrival(),
             kind.edge_exit(),
@@ -459,6 +460,7 @@ fn commit_transition(
     // `None` is a rebuild with NOBODY IN IT, not a body that could not be found
     // — see the resolution below, which keeps those two apart.
     subject: Option<&ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId>,
+    participant: Option<ambition_characters::control::PlayerSlot>,
     target_room: &str,
     arrival: Option<ae::Vec2>,
     edge_exit: bool,
@@ -509,12 +511,13 @@ fn commit_transition(
         // them would silently rebuild the destination room for a dead body's
         // crossing instead of cancelling it.
         match subject {
-            None => application.stage(plan, None, target_index, arrival, edge_exit, zone_sfx),
+            None => application.stage(plan, None, None, target_index, arrival, edge_exit, zone_sfx),
             Some(recorded) => match application.subject_entity(recorded) {
                 None => Err(ambition_platformer2d_runtime::room_transition::RoomTransitionApplyError::SubjectGone),
                 Some(entity) => application.stage(
                     plan,
                     Some(entity),
+                    participant,
                     target_index,
                     arrival,
                     edge_exit,
@@ -608,6 +611,7 @@ mod tests {
             arrival: ae::Vec2::ZERO,
             edge_exit: true,
             zone_sfx: None,
+            participant: None,
         })
     }
 

@@ -176,6 +176,7 @@ fn a_theme_the_player_walked_away_from_leaves_assets_image() {
                     arrival,
                     edge_exit: false,
                     zone_sfx: None,
+                    participant: None,
                 },
             ),
         );

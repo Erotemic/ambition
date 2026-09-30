@@ -331,6 +331,7 @@ fn the_recorded_subject_transits_rather_than_whoever_is_controlled() {
                     arrival,
                     edge_exit: false,
                     zone_sfx: None,
+                    participant: None,
                 },
             ),
         );

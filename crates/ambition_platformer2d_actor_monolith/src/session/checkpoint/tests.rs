@@ -384,6 +384,7 @@ fn a_refused_slot_leaves_the_checkpoint_resume_retryable() {
         arrival: Vec2::new(1.0, 2.0),
         edge_exit: true,
         zone_sfx: None,
+        participant: None,
     });
     assert!(app
         .world_mut()
@@ -741,6 +742,7 @@ fn the_commit_applies_the_operation_it_was_opened_for_and_always_removes_its_inp
             arrival: Vec2::new(1.0, 2.0),
             edge_exit: false,
             zone_sfx: None,
+            participant: None,
         })
     };
     let mut operations = super::SessionCheckpointOperations::default();
@@ -959,6 +961,7 @@ fn the_accepted_restore_outlives_its_frame_matches_its_intent_and_retires_with_t
         arrival: Vec2::new(9.0, 9.0),
         edge_exit: true,
         zone_sfx: Some("world.portal.enter".into()),
+        participant: None,
     });
     assert!(
         accepted.inputs_for(&a_door).is_none(),
@@ -1012,6 +1015,7 @@ fn the_accepted_restores_checksum_separates_every_field_that_changes_what_it_bui
             arrival: Vec2::new(1.0, 2.0),
             edge_exit: false,
             zone_sfx: None,
+            participant: None,
         }
     }
     fn accepted(restore: AcceptedRestore) -> u64 {
@@ -1119,6 +1123,7 @@ fn the_accepted_restores_checksum_separates_every_field_that_changes_what_it_bui
             AcceptedRestore {
                 intent: LifecycleIntent::Transition(RoomTransitionIntent {
                     zone_sfx: Some("world.portal.enter".into()),
+                    participant: None,
                     ..crossing()
                 }),
                 ..base()
@@ -2133,6 +2138,7 @@ fn an_operation_at(
                 arrival: Vec2::ZERO,
                 edge_exit: false,
                 zone_sfx: None,
+                participant: None,
             },
         ),
         lifecycle: Some(ambition_platformer2d_shared_tangle::lifecycle::CheckpointRestoreInputs {

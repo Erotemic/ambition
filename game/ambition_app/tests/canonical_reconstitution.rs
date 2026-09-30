@@ -1417,6 +1417,7 @@ fn a_replay_refused_by_the_lifecycle_slot_changes_nothing() {
                 arrival: Vec2::ZERO,
                 edge_exit: false,
                 zone_sfx: None,
+                participant: None,
             }),
         },
     );

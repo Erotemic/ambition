@@ -89,6 +89,7 @@ pub fn detect_room_transition_system(
         (
             &ambition_platformer2d_core::BodyKinematics,
             Option<&ae::SweepSample>,
+            Option<&ambition_characters::control::DrivingParticipant>,
         ),
         Without<ambition_combat::death_rules::OutOfPlay>,
     >,
@@ -112,7 +113,7 @@ pub fn detect_room_transition_system(
     else {
         return;
     };
-    let Ok((kin, sweep)) = bodies.get(subject_entity) else {
+    let Ok((kin, sweep, driver)) = bodies.get(subject_entity) else {
         return;
     };
     let Some(definition) = rooms.definition_of(subject_entity) else {
@@ -272,6 +273,8 @@ pub fn detect_room_transition_system(
                 // Carried because the commit happens far from the zone that
                 // named it.
                 zone_sfx: zone_sfx.as_ref().map(|id| id.as_str().to_string()),
+                // Whose crossing it is, recorded now: see the field.
+                participant: driver.map(|driver| driver.0),
             },
         ),
     );

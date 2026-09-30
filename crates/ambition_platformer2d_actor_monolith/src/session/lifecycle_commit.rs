@@ -80,6 +80,7 @@ impl LifecycleIntent {
                 arrival,
                 edge_exit,
                 zone_sfx,
+                participant,
             }) => {
                 put_u8(&mut bytes, 0);
                 put_str(&mut bytes, subject.sim_id.as_str());
@@ -89,6 +90,8 @@ impl LifecycleIntent {
                 put_vec2(&mut bytes, *arrival);
                 put_bool(&mut bytes, *edge_exit);
                 put_opt_str(&mut bytes, zone_sfx.as_deref());
+                put_bool(&mut bytes, participant.is_some());
+                put_u8(&mut bytes, participant.map_or(0, |slot| slot.0));
             }
             Self::ReconstituteRoom(RoomReconstitutionIntent { target_room }) => {
                 put_u8(&mut bytes, 1);
@@ -121,6 +124,15 @@ impl LifecycleIntent {
     pub fn arrival(&self) -> Option<Vec2> {
         match self {
             Self::Transition(intent) => Some(intent.arrival),
+            Self::ReconstituteRoom(_) => None,
+        }
+    }
+
+    /// The participant whose crossing this is, as recorded when it was
+    /// accepted. A rebuild has none.
+    pub fn participant(&self) -> Option<ambition_characters::control::PlayerSlot> {
+        match self {
+            Self::Transition(intent) => intent.participant,
             Self::ReconstituteRoom(_) => None,
         }
     }
@@ -167,6 +179,17 @@ pub struct RoomTransitionIntent {
     /// Door/portal cue resolved when the crossing is detected, before the
     /// originating zone is no longer available at commit time.
     pub zone_sfx: Option<String>,
+    /// The participant whose crossing this is: the slot that drove the
+    /// subject when the crossing was accepted. `None`: a body no slot drove.
+    ///
+    /// ⛔ RECORDED, NEVER RE-DERIVED AT COMMIT. The commit decides whether the
+    /// room left stays live for another participant and whether the target is
+    /// a room another participant holds, and "another" is relative to this
+    /// one. Between detection and commit, possession, death or a handoff can
+    /// move the slot off the subject; asking the subject's current
+    /// `DrivingParticipant` then reads the crossing as nobody's, and the
+    /// room another participant holds is retired.
+    pub participant: Option<ambition_characters::control::PlayerSlot>,
 }
 
 /// Whether a lifecycle operation got the one pending slot.
@@ -308,6 +331,7 @@ mod tests {
             arrival: Vec2::new(1.0, 2.0),
             edge_exit: false,
             zone_sfx: None,
+            participant: None,
         })
     }
 
@@ -344,6 +368,7 @@ mod tests {
                 arrival: Vec2::new(1.0, 2.0),
                 edge_exit: true,
                 zone_sfx: Some("world.portal.enter".into()),
+                participant: None,
             }),
         );
         assert!(
@@ -352,6 +377,42 @@ mod tests {
         );
         assert_eq!(slot.confirmed(10).map(|i| i.frame), Some(10));
         assert_eq!(slot.confirmed(12).map(|i| i.frame), Some(10));
+    }
+
+    /// The participant a crossing was accepted for is part of the pending
+    /// crossing: it moves the checksum, so two peers who disagree about whose
+    /// crossing it is desync, and it survives a rewind. Slot 0 and "no slot"
+    /// are told apart, as the codec writes presence beside the slot.
+    #[test]
+    fn the_participant_of_a_crossing_is_checksummed_and_restored() {
+        use ambition_characters::control::PlayerSlot;
+        use ambition_platformer2d_core::snapshot::{Reader, SnapshotState as _};
+        let by = |participant| match crossing_to("east") {
+            LifecycleIntent::Transition(intent) => {
+                LifecycleIntent::Transition(RoomTransitionIntent { participant, ..intent })
+            }
+            other => other,
+        };
+        let sums: Vec<_> = [None, Some(PlayerSlot(0)), Some(PlayerSlot(1))]
+            .into_iter()
+            .map(|participant| by(participant).checksum())
+            .collect();
+        assert!(
+            sums[0] != sums[1] && sums[1] != sums[2] && sums[0] != sums[2],
+            "the participant does not move the pending crossing's checksum: {sums:?}"
+        );
+        for participant in [None, Some(PlayerSlot(0)), Some(PlayerSlot(1))] {
+            let mut slot = PendingLifecycleCommit::default();
+            let _ = slot.record(4, by(participant));
+            let mut bytes = Vec::new();
+            slot.encode(&mut bytes);
+            let restored = PendingLifecycleCommit::decode(&mut Reader::new(&bytes));
+            assert_eq!(
+                restored.and_then(|restored| restored.pending).map(|pending| pending.kind.participant()),
+                Some(participant),
+                "a rewind lost whose crossing it is"
+            );
+        }
     }
 
     #[test]
@@ -375,6 +436,7 @@ mod tests {
             arrival: Vec2::new(1.0, 2.0),
             edge_exit: false,
             zone_sfx: None,
+            participant: None,
         });
 
         let mut slot = PendingLifecycleCommit::default();
@@ -394,6 +456,7 @@ mod tests {
                 arrival: Vec2::ZERO,
                 edge_exit: false,
                 zone_sfx: None,
+                participant: None,
             }),
         );
         assert!(!slot.retract_transition_for_subject(&hero));

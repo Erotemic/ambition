@@ -1229,6 +1229,7 @@ fn a_refused_reset_changes_no_domain_state_and_is_not_lost() {
         arrival: ambition_platformer2d::engine_core::Vec2::new(64.0, 64.0),
         edge_exit: false,
         zone_sfx: None,
+        participant: None,
     });
     assert!(sim
         .world_mut()

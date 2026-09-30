@@ -194,6 +194,7 @@ pub fn admit_room_replay(
                 edge_exit: false,
                 // Silent on purpose: nobody opened a door.
                 zone_sfx: None,
+                participant: None,
             }),
         ),
         // ✔ NO BODY, NO CROSSING — SO IT RECORDS THE OTHER SHAPE (v146,

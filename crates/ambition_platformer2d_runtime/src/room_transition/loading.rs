@@ -1526,6 +1526,7 @@ mod tests {
             arrival,
             edge_exit: false,
             zone_sfx: None,
+            participant: None,
         })
     }
 
@@ -1734,6 +1735,7 @@ mod checkpoint_failure_tests {
             arrival: ambition_platformer2d_core::Vec2::ZERO,
             edge_exit: false,
             zone_sfx: None,
+            participant: None,
         })
     }
 

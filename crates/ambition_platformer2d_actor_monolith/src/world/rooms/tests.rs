@@ -1296,6 +1296,7 @@ fn a_door_refused_the_lifecycle_slot_keeps_the_press_it_could_not_spend() {
             arrival: ae::Vec2::new(7.0, 9.0),
             edge_exit: false,
             zone_sfx: None,
+            participant: None,
         },
     );
     let mut app = app_with_a_door(true, Some(incumbent.clone()));

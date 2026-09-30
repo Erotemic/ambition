@@ -7,7 +7,6 @@
 use bevy::prelude::*;
 
 use ambition_platformer2d::world::prelude::*;
-use ambition_platformer2d::world::rooms::RoomSet;
 
 /// This fixture's OWN asset tree — `fixtures/external_consumer/assets`.
 ///
@@ -604,16 +603,16 @@ pub fn run_outlander_walkthrough(app: &mut App) -> Result<OutlanderRunReport, St
 /// on. Split out of the walkthrough because the rollback host must complete
 /// construction BEFORE it starts a session, and running the same loop twice is
 /// cheaper than two versions of it drifting apart.
+///
+/// ⛔ ACTIVE MEANS A LIVE ROOM IS PUBLISHED. The room is asked of the live
+/// room root, which the commit publishes, not of the room set, which names its
+/// activation room from the moment it is prepared.
 pub fn activate_outlander(app: &mut App) -> Result<usize, String> {
+    let live_room =
+        |app: &App| ambition_platformer2d::world::rooms::sole_live_room_spec(app.world()).map(|spec| spec.id.clone());
     for tick in 0..600 {
         app.update();
-        let world = app.world_mut();
-        let mut rooms = world.query::<&RoomSet>();
-        let active = rooms
-            .iter(world)
-            .next()
-            .map(|set| set.active_spec().id.clone());
-        if active.as_deref() == Some(OUTLANDER_ROOM_ID) {
+        if live_room(app).as_deref() == Some(OUTLANDER_ROOM_ID) {
             return Ok(tick + 1);
         }
     }
@@ -629,15 +628,10 @@ pub fn activate_outlander(app: &mut App) -> Result<usize, String> {
             }
             _ => "no active session".to_string(),
         };
-        let world = app.world_mut();
-        let mut rooms = world.query::<&RoomSet>();
-        let active_rooms: Vec<String> = rooms
-            .iter(world)
-            .map(|set| set.active_spec().id.clone())
-            .collect();
+        let live_room = live_room(app);
         format!(
             "the Outlander session never activated in 600 ticks; \
-             router: {router}; session active: {session}; room sets: {active_rooms:?}"
+             router: {router}; session active: {session}; sole live room: {live_room:?}"
         )
     })
 }

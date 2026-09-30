@@ -748,3 +748,132 @@ fn two_players_in_two_live_rooms_resimulate_to_the_same_world() {
          (health, Bob's slot ran his body in #0, live rooms, where they are)"
     );
 }
+
+/// The ground item `blink_run` authors: the one lying in the world.
+fn blink_run_pickup(sim: &mut Platformer2dSimHarness) -> (bevy::prelude::Entity, ambition_platformer2d::platformer::sim_id::SimId) {
+    let world = sim.world_mut();
+    let found: Vec<_> = world
+        .query::<(bevy::prelude::Entity, &ambition_platformer2d::platformer::sim_id::SimId, &ambition_platformer2d::held_items::ItemCustody)>()
+        .iter(world)
+        .filter(|(_, _, custody)| custody.in_world())
+        .map(|(entity, id, _)| (entity, id.clone()))
+        .collect();
+    assert_eq!(found.len(), 1, "precondition: `blink_run` does not author exactly one ground item");
+    found[0].clone()
+}
+
+/// Pick up `blink_run`'s item with the pressed pickup, then walk through the
+/// door to `target`.
+fn pick_up_and_walk_through_the_door_to(sim: &mut Platformer2dSimHarness, target: &str) -> String {
+    let (item, _) = blink_run_pickup(sim);
+    let at = sim
+        .world()
+        .get::<ambition_platformer2d::held_items::GroundItem>(item)
+        .expect("the item is a ground item")
+        .pos;
+    sim.teleport_player((at.x, at.y));
+    sim.step(ambition_app::AgentAction { attack: true, ..base() });
+    sim.step(base());
+    assert!(
+        matches!(
+            sim.world().get::<ambition_platformer2d::held_items::ItemCustody>(item),
+            Some(ambition_platformer2d::held_items::ItemCustody::Held { .. })
+        ),
+        "precondition: the pressed pickup did not take the item"
+    );
+    walk_through_the_door_to(sim, target)
+}
+
+/// OW2, custody transfer between live rooms: an item carried out of a room
+/// another player holds crosses whole, and belongs to the room it is put
+/// down in.
+///
+/// Bob, driven by slot 1, stays in `blink_run` (#0). Alice picks up its
+/// authored item and walks to `portal_bridge`, which opens #1. The subject:
+/// the item is the same entity and `SimId`, the only one with that id,
+/// still in Alice's hands, and stamped #1; #0 stays live. Thrown down in
+/// #1, it is in the world, in #1. When Alice walks back into #0 (a join,
+/// which retires #1), it goes with #1, and #0 has no copy of it. When the
+/// crossing moved only the body, the item in her hands stayed stamped #0.
+/// The one-room control is
+/// `an_item_carried_through_a_door_survives_and_belongs_to_the_room_it_is_dropped_in`.
+#[test]
+fn an_item_carried_out_of_a_room_another_player_holds_crosses_whole() {
+    use ambition_platformer2d::held_items::ItemCustody;
+    use ambition_platformer2d::platformer::sim_id::SimId;
+    const SOURCE: &str = "blink_run";
+    const TARGET: &str = "portal_bridge";
+    let (item, authored) = {
+        let mut sim = Platformer2dSimHarness::new_with_options(
+            fixed_60hz_room_options(SOURCE).with_save(a_save_that_has_seen_the_hub_intro()),
+        )
+        .expect("blink_run boots");
+        for _ in 0..10 {
+            sim.step(base());
+        }
+        blink_run_pickup(&mut sim)
+    };
+    let _ = item;
+    let (mut sim, first) = alice_leaves_bob_in(
+        SOURCE,
+        TARGET,
+        Some(ambition_platformer2d::characters::control::PlayerSlot(1)),
+        pick_up_and_walk_through_the_door_to,
+    );
+    let second = first.next();
+    let occurrences = |sim: &mut Platformer2dSimHarness| {
+        let world = sim.world_mut();
+        world
+            .query::<(bevy::prelude::Entity, &SimId, Option<&InRoomInstance>, &ItemCustody)>()
+            .iter(world)
+            .filter(|(_, id, _, _)| **id == authored)
+            .map(|(entity, _, room, custody)| (entity, room.map(|room| room.0), *custody))
+            .collect::<Vec<_>>()
+    };
+    let alice = {
+        let world = sim.world_mut();
+        world
+            .query_filtered::<bevy::prelude::Entity, bevy::prelude::With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>()
+            .single(world)
+            .expect("Alice's body is in the world")
+    };
+    let carried = occurrences(&mut sim);
+    let rooms_after_crossing = live_rooms(&mut sim);
+
+    // Throw it down in #1 (Shield + Attack, the real input).
+    sim.step_frame(ambition_platformer2d::engine_core::ControlFrame {
+        attack_pressed: true,
+        shield_held: true,
+        ..Default::default()
+    });
+    for _ in 0..30 {
+        sim.step(base());
+    }
+    let thrown: Vec<_> = occurrences(&mut sim)
+        .into_iter()
+        .map(|(_, room, custody)| (room, custody.in_world()))
+        .collect();
+
+    // Back into #0, which Bob holds: #1 retires with what lies in it.
+    assert_eq!(walk_through_the_door_to(&mut sim, SOURCE), SOURCE);
+    for _ in 0..30 {
+        sim.step(base());
+    }
+    let after_return = occurrences(&mut sim);
+    assert_eq!(
+        (
+            carried.iter().map(|(_, room, custody)| (*room, *custody)).collect::<Vec<_>>(),
+            rooms_after_crossing,
+            thrown,
+            after_return,
+        ),
+        (
+            vec![(Some(second), ItemCustody::Held { holder: alice })],
+            vec![(first, SOURCE.to_string()), (second, TARGET.to_string())],
+            vec![(Some(second), true)],
+            Vec::new(),
+        ),
+        "the carried item did not cross whole into #1 (one occurrence, held, stamped #1, #0 live), \
+         or was not put down in #1, or outlived #1 or was copied into #0"
+    );
+}

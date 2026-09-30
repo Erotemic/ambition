@@ -1,0 +1,42 @@
+// ROBOT V3'S PLATFORM-FIGHTER FACET: what the robot is on a Smash stage, where
+// that differs from what its moveset says.
+//
+// The moveset (`data/movesets/player_robot.ron`) is the robot's HOME game,
+// Ambition, where damage is health: a tilt deals 1 and a smash attack deals 3
+// or 4. On a Smash stage damage is percent, and those numbers are too small by
+// far. The frames and the hitboxes are the same moves in both games. Only the
+// damage has a second meaning, so only the damage is stated here.
+//
+// A Smash match reads this because it declares
+// `MoveDamageSource::SmashFighterFacet` (`apply_smash_match_rules`). Ambition
+// never reads it.
+//
+// Each list has one value for each volume of the move that deals damage. A
+// move that is not named here keeps its moveset damage on a Smash stage too.
+// Preparation refuses a move id the moveset does not have and a list of the
+// wrong length (`PreparedCharacterDefinition::unresolved_references`).
+(
+    character: "player_robot_v3",
+    move_damage: {
+        // The jab is fast, safe and plain.
+        "jab": [3],
+        "tilt_forward": [6],
+        "tilt_up": [5],
+        "tilt_down": [4],
+        // The smash attacks: a full charge multiplies these by the move's
+        // `smash_charge_mult`.
+        "smash_forward": [15],
+        "smash_up": [14],
+        "smash_down": [12],
+        "air_neutral": [6],
+        "air_forward": [9],
+        "air_back": [11],
+        "air_up": [7],
+        // The spike.
+        "air_down": [10],
+        "player_robot_dash_attack": [8],
+        "rocket_dash": [10],
+        "stabilizer_slam": [9],
+        "stabilizer_dive": [9],
+    },
+)

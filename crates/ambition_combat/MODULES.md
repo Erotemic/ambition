@@ -45,6 +45,7 @@
 | [`stale`](src/stale.rs) | Move staling — the history that makes a repeated answer worth less. |
 | [`stocks`](src/stocks.rs) | Ruleset-owned lives/stocks accounting. |
 | [`strike`](src/strike.rs) | Authoritative live strike volume and lifecycle state. |
+| [`strike_weight`](src/strike_weight.rs) | Which hits land HEAVY: a rule that each game states for its own rooms. |
 | [`targeting`](src/targeting.rs) | Per-frame combat relationship and `ActorTarget` selection. |
 | [`technique`](src/technique.rs) | What this composition installed a technique handler for. |
 | [`util`](src/util.rs) | Small feature-side helpers that do not own a subsystem. |
@@ -52,7 +53,7 @@
 | [`vitality`](src/vitality.rs) | A move that pays or repays its own mover's health. |
 | [`worn_kit`](src/worn_kit.rs) | The kit a body wears: what a character id resolves to when a body puts it on. |
 
-_45 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_46 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

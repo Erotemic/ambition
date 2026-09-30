@@ -117,6 +117,12 @@ pub struct CharacterDefinition {
     /// Changing characters must retract any previously projected death traits.
     pub death_traits: Option<crate::actor::CharacterDeathTraits>,
     pub moveset: Option<MovesetContract>,
+    /// The damage its moves deal on a platform-fighter stage, from its
+    /// `smash_fighter` facet. Empty: every move keeps its moveset damage there.
+    /// Only a match that declares
+    /// [`MoveDamageSource::SmashFighterFacet`](crate::smash_fighter::MoveDamageSource)
+    /// reads it. See [`crate::smash_fighter::SmashFighterFacet::move_damage`].
+    pub fighter_move_damage: crate::smash_fighter::MoveDamage,
     /// Actions this character may choose, separate from the moveset that defines the moves.
     pub action_set: Option<crate::brain::ActionSet>,
     /// How this character MOVES — the state-free movement policy.
@@ -214,6 +220,7 @@ impl CharacterDefinition {
             vitals: Vitals::default(),
             death_traits: None,
             moveset: None,
+            fighter_move_damage: crate::smash_fighter::MoveDamage::new(),
             action_set: None,
             motion_model: None,
             movement_tuning: None,
@@ -429,6 +436,7 @@ mod authority_tests {
             vitals: _,
             death_traits: _,
             moveset: _,
+            fighter_move_damage: _,
             action_set: _,
             motion_model: _,
             movement_tuning: _,

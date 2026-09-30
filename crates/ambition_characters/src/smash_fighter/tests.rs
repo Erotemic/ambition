@@ -11,6 +11,7 @@ fn facet() -> SmashFighterFacet {
     SmashFighterFacet {
         body: None,
         knockback_weight: None,
+        move_damage: MoveDamage::new(),
         character: "test_fighter".to_string(),
     }
 }
@@ -133,4 +134,82 @@ fn a_fighter_body_must_state_something_and_must_state_it_positive() {
         "an ordinary authored gait was refused: {:?}",
         facet.problems()
     );
+}
+
+/// Two moves: a one-hit `jab`, and a `combo` whose second window holds a
+/// damaging volume and a WINDBOX (damage 0) that has no damage to replace.
+fn two_moves() -> ambition_entity_catalog::MovesetContract {
+    use crate::prepared_fixtures::{moveset_with, slash};
+    let jab = slash("jab", "swing", "hit");
+    let mut combo = slash("combo", "swing", "hit");
+    let mut second = combo.windows[0].clone();
+    second.volumes[0].damage = 2;
+    let mut gust = second.volumes[0].clone();
+    gust.damage = 0;
+    second.volumes.push(gust);
+    combo.windows.push(second);
+    moveset_with(&[("attack", "jab")], vec![jab, combo])
+}
+
+fn damages(moveset: &ambition_entity_catalog::MovesetContract, id: &str) -> Vec<i32> {
+    moveset
+        .moves
+        .iter()
+        .find(|spec| spec.id == id)
+        .expect("the fixture has the move")
+        .windows
+        .iter()
+        .flat_map(|window| window.volumes.iter().map(|volume| volume.damage))
+        .collect()
+}
+
+/// ⭐ A GAME'S DAMAGE REPLACES ONLY THE NUMBERS IT NAMES. Each damaging volume
+/// gets its value in order, the windbox stays a push, and a move the map does
+/// not name keeps its moveset damage.
+#[test]
+fn move_damage_replaces_each_damaging_volume_and_nothing_else() {
+    let damage = MoveDamage::from([("combo".to_string(), vec![6, 9])]);
+    let moveset = move_damage_over(&damage, two_moves()).expect("the map fits the moves");
+    assert_eq!(damages(&moveset, "combo"), vec![6, 9, 0]);
+    assert_eq!(damages(&moveset, "jab"), vec![1], "an unnamed move changed");
+}
+
+/// ⛔ A MAP THAT DOES NOT FIT IS REFUSED WHOLE. An unknown move and a list of
+/// the wrong length are both named, and the moveset that comes back on `Ok`
+/// never exists: a body must not deal one game's damage on half its moves.
+#[test]
+fn move_damage_that_does_not_fit_the_moves_is_refused_whole() {
+    let damage = MoveDamage::from([
+        ("jab".to_string(), vec![3]),
+        ("combo".to_string(), vec![6]),
+        ("uppercut".to_string(), vec![12]),
+    ]);
+    let problems = move_damage_over(&damage, two_moves()).expect_err("two keys do not fit");
+    assert!(
+        problems.iter().any(|p| p.contains("`uppercut`")),
+        "an unknown move was not named: {problems:?}"
+    );
+    assert!(
+        problems.iter().any(|p| p.contains("`combo`") && p.contains("2 volume")),
+        "a list of the wrong length was not named: {problems:?}"
+    );
+    assert_eq!(problems.len(), 2, "the key that fits was reported: {problems:?}");
+}
+
+/// ⛔ A VALUE BELOW 1 WOULD TURN A HIT INTO A PUSH, and an empty list names a
+/// move and gives it nothing.
+#[test]
+fn move_damage_values_must_be_at_least_one() {
+    for bad in [vec![0], vec![], vec![4, -1]] {
+        let mut facet = facet();
+        facet.move_damage = MoveDamage::from([("jab".to_string(), bad.clone())]);
+        assert!(
+            facet.problems().iter().any(|p| p.contains("move_damage.jab")),
+            "`{bad:?}` was accepted: {:?}",
+            facet.problems()
+        );
+    }
+    let mut facet = facet();
+    facet.move_damage = MoveDamage::from([("jab".to_string(), vec![3, 15])]);
+    assert!(facet.problems().is_empty(), "{:?}", facet.problems());
 }

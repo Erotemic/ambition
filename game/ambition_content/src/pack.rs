@@ -161,6 +161,17 @@ const MIGRATED_MOVESETS: &[(&str, Option<&'static str>)] = &[
     ("pugnacious_polygon", None),
 ];
 
+/// Every platform-fighter facet this provider authors (`smash_fighter`), by
+/// file name under `data/fighters/`. Gated like the move tables, because a
+/// facet is tuned by the same edit loop.
+#[cfg(feature = "static_content")]
+const FIGHTER_FACETS: &[(&str, Option<&'static str>)] = &[(
+    "player_robot_v3",
+    Some(include_str!("../assets/data/fighters/player_robot_v3.ron")),
+)];
+#[cfg(not(feature = "static_content"))]
+const FIGHTER_FACETS: &[(&str, Option<&'static str>)] = &[("player_robot_v3", None)];
+
 /// The authored fighter difficulty ladder.
 ///
 /// Declared here so the game reads it as content, instead of consulting the
@@ -244,6 +255,11 @@ fn embedded_sources() -> impl IntoIterator<Item = (String, String)> {
     ];
     sources.extend(MIGRATED_MOVESETS.iter().map(|(table, embedded)| {
         let path = format!("data/movesets/{table}.ron");
+        let text = source_text(&path, *embedded);
+        (path, text)
+    }));
+    sources.extend(FIGHTER_FACETS.iter().map(|(file, embedded)| {
+        let path = format!("data/fighters/{file}.ron");
         let text = source_text(&path, *embedded);
         (path, text)
     }));

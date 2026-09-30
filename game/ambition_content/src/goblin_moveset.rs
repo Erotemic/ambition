@@ -262,6 +262,11 @@ mod tests {
                 .max()
                 .unwrap_or(0)
         };
+        // A KILL MOVE IS A PLATFORM-FIGHTER CLAIM, so the damage compared is
+        // percent: the robot's is in its `smash_fighter` facet, not its home
+        // table.
+        let goblin = crate::authored_movesets::on_a_platform_fighter_stage("goblin");
+        let robot = crate::authored_movesets::on_a_platform_fighter_stage("player_robot_v3");
         assert!(
             damage(&find(&goblin, "smash_forward")) < damage(&find(&robot, "smash_forward")),
             "and its kill move hits softer — a small fighter trades reach and \

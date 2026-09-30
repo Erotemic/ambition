@@ -442,6 +442,11 @@ pub struct ResolvedCombatTuning {
     /// See [`CombatRules::grab_mash_seconds`].
     pub grab_mash_seconds: f32,
     pub friendly_fire: bool,
+    /// The line between this room's light and heavy hits, where its game
+    /// stated one ([`crate::strike_weight`]). Declared apart from
+    /// [`CombatRules`], so [`Self::resolve`] leaves it `None` and the projection
+    /// sets it with [`Self::with_strike_weight`].
+    pub strike_weight: Option<crate::strike_weight::StrikeWeightRules>,
 }
 
 /// How this game reads a downward attack. See
@@ -587,6 +592,7 @@ impl ResolvedCombatTuning {
                 ledge_trump_pop: rules.ledge_trump_pop.unwrap_or(0.0).max(0.0),
                 ledge_occupancy: rules.ledge_occupancy.unwrap_or_default(),
                 double_jump_cancel: rules.double_jump_cancel.unwrap_or(false),
+                strike_weight: None,
             },
             // growth has NO world baseline to fall back to, unlike DI and
             // friendly fire: nothing outside a declaration authors it, so an
@@ -640,8 +646,19 @@ impl ResolvedCombatTuning {
                 ledge_trump_pop: 0.0,
                 ledge_occupancy: LedgeOccupancy::Trump,
                 double_jump_cancel: false,
+                strike_weight: None,
             },
         }
+    }
+
+    /// These rules with `weight` as the room's line between light and heavy
+    /// hits. See [`Self::strike_weight`].
+    pub fn with_strike_weight(
+        mut self,
+        weight: Option<crate::strike_weight::StrikeWeightRules>,
+    ) -> Self {
+        self.strike_weight = weight;
+        self
     }
 
     /// What this volume's own `base` does to its percent curve.
@@ -974,6 +991,8 @@ mod tests {
                 special_turn: false,
                 special_turn_reverses_drift: false,
                 sudden_death_damage: None,
+                // ⛔ NO GAME, NO HEAVY HITS: the engine draws no line.
+                strike_weight: None,
             }
         );
     }

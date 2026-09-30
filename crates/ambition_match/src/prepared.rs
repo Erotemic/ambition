@@ -210,6 +210,24 @@ pub struct MatchRules {
     /// it: a fighter that got it a tick later could walk through its rival on
     /// its first frame.
     pub fighter_contact: Option<ambition_platformer2d_shared_tangle::body::BodyContact>,
+    /// Which damage the fighters' moves deal in this match: each moveset's own
+    /// (the default), or the damage each character's `smash_fighter` facet
+    /// states. See [`ambition_combat::worn_kit::SeatTerms`].
+    pub move_damage: ambition_characters::smash_fighter::MoveDamageSource,
+}
+
+impl MatchRules {
+    /// What this match says about the kit a seat wears, given the stage's
+    /// borrowed repertoire for it.
+    pub fn seat_terms<'a>(
+        &self,
+        action_set: Option<&'a ambition_characters::brain::ActionSet>,
+    ) -> ambition_combat::worn_kit::SeatTerms<'a> {
+        ambition_combat::worn_kit::SeatTerms {
+            action_set,
+            move_damage: self.move_damage,
+        }
+    }
 }
 
 /// Where an opening ceremony is. Derived from the clock, never stored.
@@ -713,7 +731,7 @@ pub fn prepare_match(
         let worn = ambition_combat::worn_kit::WornKit::resolve(
             Some(registry),
             participant.character.as_str(),
-            participant.action_set.as_ref(),
+            rules.seat_terms(participant.action_set.as_ref()),
         );
         // See `MatchRules::body_over`.
         let built_body = seed

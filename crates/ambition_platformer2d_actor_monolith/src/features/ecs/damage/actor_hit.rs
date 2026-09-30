@@ -115,6 +115,9 @@ pub(crate) fn apply_actor_hit(
     // the ENEMY default today). The victim owns its spray/debris; the attack owns
     // only the strike sound.
     hurt: ambition_vfx::HurtFeedback,
+    // The room's line between light and heavy hits (its game's rule). Only
+    // the strike SOUND reads it.
+    strike_weight: Option<ambition_combat::strike_weight::StrikeWeightRules>,
     // Does this hit come off a HEAVY attacker? — the heavier launch and the
     // longer hitstun (`feel.boss_*`).
     //
@@ -188,6 +191,7 @@ pub(crate) fn apply_actor_hit(
             hurt,
             event.strike_sfx,
             event.damage,
+            strike_weight,
             impact,
             attacker_source.as_ref(),
             victim_source.as_ref(),
@@ -538,6 +542,7 @@ pub(crate) fn apply_actor_hit(
             hurt,
             event.strike_sfx,
             event.damage,
+            strike_weight,
             impact,
             attacker_source.as_ref(),
             victim_source.as_ref(),

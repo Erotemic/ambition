@@ -92,6 +92,8 @@ struct PreparedCharacterOverrides {
     /// See [`CharacterDefinition::hands`]. FOLDED with the catalog row's.
     hands: Option<crate::actor::CharacterHands>,
     moveset: Option<MovesetContract>,
+    /// See [`CharacterDefinition::fighter_move_damage`].
+    fighter_move_damage: crate::smash_fighter::MoveDamage,
     /// The authored action set, carried through preparation unchanged.
     ///
     /// `None` and `Some(empty)` mean different things all the way to the body —
@@ -1106,6 +1108,11 @@ pub struct PreparedCharacterDefinition {
     /// attack is. Without this field the two cases are indistinguishable and
     /// the grant wins over both.
     pub authored_moveset: Option<MovesetContract>,
+    /// The damage its moves deal on a platform-fighter stage. See
+    /// [`CharacterDefinition::fighter_move_damage`]. Preparation has checked it
+    /// against the authored moves; a problem is in
+    /// [`Self::unresolved_references`].
+    pub fighter_move_damage: crate::smash_fighter::MoveDamage,
     /// The movement policy, resolved. Every body already carries exactly one
     /// explicit model, so this is a value rather than a question.
     pub motion_model: ambition_platformer2d_core::MotionModelSpec,
@@ -1572,6 +1579,17 @@ fn prepare_character(
             false
         }
     });
+    // The platform-fighter damage is applied to this moveset by a match, so a
+    // move it names that the moveset does not have, or a list of the wrong
+    // length, is checked here with the moveset beside it.
+    if !definition.fighter_move_damage.is_empty() {
+        let moveset = definition.moveset.clone().unwrap_or_default();
+        if let Err(problems) =
+            crate::smash_fighter::move_damage_over(&definition.fighter_move_damage, moveset)
+        {
+            unresolved.extend(problems.into_iter().map(|problem| format!("smash_fighter: {problem}")));
+        }
+    }
     let prepared = PreparedCharacterOverrides {
         id: definition.id.as_str().to_string(),
         display_name: definition.display_name,
@@ -1602,6 +1620,7 @@ fn prepare_character(
         carries: definition.carries,
         hands: definition.hands,
         moveset: definition.moveset,
+        fighter_move_damage: definition.fighter_move_damage,
         action_set: definition.action_set,
         motion_model: definition.motion_model,
         movement_tuning: definition.movement_tuning,
@@ -1682,6 +1701,7 @@ fn finalize_character(
         carries,
         hands,
         moveset,
+        fighter_move_damage,
         action_set,
         motion_model,
         movement_tuning,
@@ -1913,6 +1933,7 @@ fn finalize_character(
         carries,
         hands,
         authored_moveset,
+        fighter_move_damage,
         // Resolve canonical identity during preparation from the definition's provider. Spawn
         // consumes the prepared identity and does not reinterpret authored references.
         id: ambition_entity_catalog::CharacterId::new(id),

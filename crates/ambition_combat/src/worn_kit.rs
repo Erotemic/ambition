@@ -14,9 +14,33 @@ use ambition_characters::brain::{ActionSet, RangedExecution};
 use ambition_characters::prepared::{
     overlay_authored_moves, PreparedCharacterRegistry,
 };
+use ambition_characters::smash_fighter::{move_damage_over, MoveDamageSource};
 use ambition_entity_catalog::MovesetContract;
 
 use crate::moveset::build_actor_moveset;
+
+/// What a MATCH says about the kit a seated fighter wears.
+///
+/// `Default` is a body in no match: its character's own kit, dealing its
+/// moveset's own damage. That is every body outside a match.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct SeatTerms<'a> {
+    /// The stage's borrowed repertoire. It replaces the action set; see
+    /// [`WornKit::resolve`].
+    pub action_set: Option<&'a ActionSet>,
+    /// Which damage the fighter's moves deal on this stage.
+    pub move_damage: MoveDamageSource,
+}
+
+impl<'a> SeatTerms<'a> {
+    /// A seat whose stage lends it `action_set` and says nothing else.
+    pub fn borrowing(action_set: &'a ActionSet) -> Self {
+        Self {
+            action_set: Some(action_set),
+            ..Self::default()
+        }
+    }
+}
 
 /// What a body carries once it wears a character.
 #[derive(Clone, Debug)]
@@ -58,14 +82,19 @@ impl WornKit {
     /// FIRES is still the character's own fact — a robot seated with a stage's
     /// generic set still charges if the robot charges — and a character's own
     /// authored timelines still overlay the borrowed set's derived moves.
+    ///
+    /// A MATCH ALSO SAYS WHICH DAMAGE ITS HITS DEAL (`terms.move_damage`): a
+    /// platform-fighter stage reads the character's `smash_fighter` damage over
+    /// the same moves. Resolved here and not at seating, so a fighter that
+    /// re-wears its character during the match keeps the stage's damage.
     pub fn resolve(
         registry: Option<&PreparedCharacterRegistry>,
         character_id: &str,
-        match_kit: Option<&ActionSet>,
+        terms: SeatTerms<'_>,
     ) -> Self {
         let prepared = registry.and_then(|registry| registry.get(character_id));
 
-        let (set, derived, execution) = if let Some(kit) = match_kit {
+        let (set, derived, execution) = if let Some(kit) = terms.action_set {
             let execution = prepared.map_or(RangedExecution::MovesetVerb, |prepared| {
                 prepared.ranged_execution
             });
@@ -89,6 +118,26 @@ impl WornKit {
                     (set, derived, execution)
                 }
             }
+        };
+        let derived = match (terms.move_damage, prepared) {
+            (MoveDamageSource::SmashFighterFacet, Some(prepared))
+                if !prepared.fighter_move_damage.is_empty() =>
+            {
+                match move_damage_over(&prepared.fighter_move_damage, derived.clone()) {
+                    Ok(moveset) => moveset,
+                    // Preparation already reported this on the published value
+                    // (`unresolved_references`). The body keeps one game's damage
+                    // for every move rather than a mix of two.
+                    Err(problems) => {
+                        bevy::log::error!(
+                            "character '{character_id}' keeps its moveset damage on this \
+                             stage: {problems:?}"
+                        );
+                        derived
+                    }
+                }
+            }
+            _ => derived,
         };
         Self {
             identity: IdentityKit::of(set.clone(), derived.clone()),
@@ -196,7 +245,7 @@ mod tests {
     /// existed. It is peaceful now, and reported.
     #[test]
     fn an_unknown_id_wears_nothing_it_did_not_author() {
-        let kit = WornKit::resolve(None, "nobody", None);
+        let kit = WornKit::resolve(None, "nobody", SeatTerms::default());
         assert_eq!(kit.execution, RangedExecution::MovesetVerb);
         assert!(kit.action_set.melee.is_none(), "an unknown id was handed a swipe");
         assert!(kit.action_set.ranged.is_none(), "an unknown id was handed a bolt");

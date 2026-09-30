@@ -816,6 +816,7 @@ pub fn apply_feature_hit_events(
                 feel,
                 di_input_local,
                 hurt,
+                resolved_rules.strike_weight,
                 heavy_attacker,
                 // The victim's published evade, read by entity: the actor
                 // cluster query is at Bevy's column ceiling, and this is the
@@ -913,6 +914,7 @@ pub fn apply_feature_hit_events(
                 &mut banner,
                 combat_banter.as_deref(),
                 hurt,
+                resolved_rules.strike_weight,
                 &mut writers,
             ) {
                 boss_hit_this_event = true;
@@ -1064,6 +1066,7 @@ pub fn apply_feature_hit_events(
                         ambition_vfx::HurtFeedback::METAL,
                         Some(strike),
                         event.damage,
+                        resolved_rules.strike_weight,
                     ),
                     pos: impact,
                 });

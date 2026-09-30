@@ -24,6 +24,28 @@ pub fn shipped(character: &str) -> MovesetContract {
         .unwrap_or_else(|| panic!("the shipped pack carries no move table for `{character}`"))
 }
 
+/// The move table `character` fights with on a platform-fighter stage: its
+/// shipped table with the damage its `smash_fighter` facet states, which is
+/// what a Smash seat applies (`MoveDamageSource::SmashFighterFacet`). A
+/// character with no facet fights with its shipped table.
+///
+/// A test that compares fighters in PERCENT reads this, not [`shipped`]: the
+/// shipped table's damage is the character's home game's.
+pub fn on_a_platform_fighter_stage(character: &str) -> MovesetContract {
+    let moveset = shipped(character);
+    match ambition_characters::smash_fighter::content_schema::facet(
+        crate::pack::prepared(),
+        character,
+    ) {
+        Some(facet) => ambition_characters::smash_fighter::move_damage_over(
+            &facet.move_damage,
+            moveset,
+        )
+        .unwrap_or_else(|problems| panic!("`{character}`'s fighter damage does not fit: {problems:?}")),
+        None => moveset,
+    }
+}
+
 /// Every move table this crate ships, one entry per distinct table, keyed by
 /// the first character id that wears it.
 ///

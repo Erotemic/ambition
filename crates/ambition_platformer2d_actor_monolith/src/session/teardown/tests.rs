@@ -92,11 +92,14 @@ fn app_with_populated_mirrors() -> App {
     app.world_mut()
         .resource_mut::<SwitchActivationQueue>()
         .0
-        .push(SwitchActivation {
-            id: "session_a_switch".to_owned(),
-            action: "reset".to_owned(),
-            target_encounter: "session_a_encounter".to_owned(),
-        });
+        .push(
+            SwitchActivation {
+                id: "session_a_switch".to_owned(),
+                action: "reset".to_owned(),
+                target_encounter: "session_a_encounter".to_owned(),
+            }
+            .into(),
+        );
     // Session A applied its save.
     app.world_mut()
         .resource_mut::<crate::session::durable_horizon::SaveRestored>()

@@ -91,7 +91,24 @@ impl EncounterSwitchIndex {
 /// a rewind keeps predicted activations and resimulation pushes them again,
 /// double-applying an encounter reset.
 #[derive(Resource, Default, Clone)]
-pub struct SwitchActivationQueue(pub Vec<SwitchActivation>);
+pub struct SwitchActivationQueue(pub Vec<QueuedSwitchActivation>);
+
+impl From<SwitchActivation> for QueuedSwitchActivation {
+    /// A press in the sole live room.
+    fn from(activation: SwitchActivation) -> Self {
+        Self { activation, room: None }
+    }
+}
+
+/// One press waiting for the drain: what the switch asks for, and the live
+/// room the switch is in (OW1 cut 7c). An activation that names no
+/// encounter targets its own room's, so the room must reach the drain.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct QueuedSwitchActivation {
+    pub activation: SwitchActivation,
+    /// `None`: the sole live room.
+    pub room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+}
 
 impl SwitchActivationQueue {
     /// Canonical projection for the session checksum: length, then each entry
@@ -107,14 +124,19 @@ impl SwitchActivationQueue {
         for entry in entries {
             // Destructured so a new field on an activation must be answered for
             // here rather than silently escaping the checksum.
-            let SwitchActivation {
-                id,
-                action,
-                target_encounter,
+            let QueuedSwitchActivation {
+                activation:
+                    SwitchActivation {
+                        id,
+                        action,
+                        target_encounter,
+                    },
+                room,
             } = entry;
             put_str(&mut bytes, id);
             put_str(&mut bytes, action);
             put_str(&mut bytes, target_encounter);
+            put_u64(&mut bytes, room.map_or(u64::MAX, |room| u64::from(room.ordinal())));
         }
         checksum_bytes(&bytes)
     }
@@ -122,14 +144,15 @@ impl SwitchActivationQueue {
 
 #[cfg(test)]
 mod queue_checksum_tests {
-    use super::{SwitchActivation, SwitchActivationQueue};
+    use super::{QueuedSwitchActivation, SwitchActivation, SwitchActivationQueue};
 
-    fn activation(id: &str) -> SwitchActivation {
+    fn activation(id: &str) -> QueuedSwitchActivation {
         SwitchActivation {
             id: id.into(),
             action: "reset".into(),
             target_encounter: "boss".into(),
         }
+        .into()
     }
 
     /// ⭐ The case the type's doc comment is about: a resimulation that pushes an
@@ -147,6 +170,21 @@ mod queue_checksum_tests {
         let ab = SwitchActivationQueue(vec![activation("a"), activation("b")]);
         let ba = SwitchActivationQueue(vec![activation("b"), activation("a")]);
         assert_ne!(ab.checksum(), ba.checksum());
+    }
+
+    /// OW1 cut 7c: the room is part of the value. Two peers that queued one
+    /// press for two live rooms have diverged.
+    #[test]
+    fn the_room_of_an_activation_moves_the_checksum() {
+        let first = ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::ACTIVATION;
+        let in_room = |room| {
+            SwitchActivationQueue(vec![QueuedSwitchActivation {
+                room,
+                ..activation("a")
+            }])
+        };
+        assert_ne!(in_room(Some(first)).checksum(), in_room(Some(first.next())).checksum());
+        assert_ne!(in_room(None).checksum(), in_room(Some(first)).checksum());
     }
 
     /// ⛔ And the arm that catches a checksum that can never agree.
@@ -374,6 +412,9 @@ pub struct ResolvedSwitchActivation {
     pub action: SwitchAction,
     /// The encounter this activation targets, empty for "the active room's".
     pub target_encounter: String,
+    /// The live room the switch is in (OW1 cut 7c); `None`: the sole live
+    /// room. An activation with no named encounter targets this room's.
+    pub room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
     /// The persisted switch value AFTER this tick's toggle.
     ///
     /// ⛔ CARRIED, NOT RE-DERIVED. Every consumer that used to ask
@@ -434,7 +475,7 @@ pub fn drain_switch_activations(
     if queue.0.is_empty() {
         return;
     }
-    for activation in std::mem::take(&mut queue.0) {
+    for QueuedSwitchActivation { activation, room } in std::mem::take(&mut queue.0) {
         let action = SwitchAction::parse(&activation.action);
         // THIS ROAD'S persisted write, in its one place: three arms of one
         // match, so an action's meaning and its durable consequence cannot
@@ -470,6 +511,7 @@ pub fn drain_switch_activations(
             id: activation.id,
             action,
             target_encounter: activation.target_encounter,
+            room,
             on,
         });
     }
@@ -484,7 +526,7 @@ mod one_drain_one_author {
     fn app_with(activations: Vec<SwitchActivation>) -> App {
         let mut app = App::new();
         app.insert_resource(AmbitionGameSave::default());
-        app.insert_resource(SwitchActivationQueue(activations));
+        app.insert_resource(SwitchActivationQueue(activations.into_iter().map(Into::into).collect()));
         app.init_resource::<ResolvedSwitchActivations>();
         app.add_systems(Update, drain_switch_activations);
         app
@@ -572,7 +614,7 @@ mod one_drain_one_author {
         app.world_mut()
             .resource_mut::<SwitchActivationQueue>()
             .0
-            .push(activation("lever", "ToggleFlag"));
+            .push(activation("lever", "ToggleFlag").into());
         app.update();
         assert!(
             !app.world().resource::<AmbitionGameSave>().data().switch("lever"),
@@ -636,6 +678,7 @@ mod switch_target_tests {
             id: "gate".into(),
             action: SwitchAction::ResetEncounter,
             target_encounter: target.into(),
+            room: None,
             on: false,
         }
     }

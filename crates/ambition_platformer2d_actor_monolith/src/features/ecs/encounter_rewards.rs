@@ -202,7 +202,7 @@ pub fn retire_rewards_for_rearmed_encounters(
     mut commands: bevy::prelude::Commands,
     mut save: bevy::prelude::ResMut<ambition_persistence::save::AmbitionGameSave>,
     switches: bevy::prelude::Res<ambition_encounter::switches::ResolvedSwitchActivations>,
-    rooms: ambition_platformer2d_world::rooms::SoleLiveRoomSpec,
+    rooms: ambition_platformer2d_world::rooms::LiveRoomSpecs,
     chests: bevy::prelude::Query<
         (Entity, &EncounterRewardChest, &FeatureId, Option<&Opened>),
         With<ChestFeature>,
@@ -223,8 +223,13 @@ pub fn retire_rewards_for_rearmed_encounters(
         {
             continue;
         }
+        // An activation that names no encounter targets its switch's own
+        // room's (OW1 cut 7c).
+        let Some(definition) = rooms.definition_named(activation.room) else {
+            continue;
+        };
         let Some(target_id) = activation.target_encounter_in(
-            &rooms.spec().id,
+            &rooms.rooms().spec(definition).id,
             encounters
                 .iter()
                 .map(|(encounter, waves)| (encounter.id.as_str(), waves.spec.room_id.as_str())),
@@ -299,8 +304,85 @@ mod retire_on_rearm_tests {
             id: "gate".into(),
             action: SwitchAction::ResetEncounter,
             target_encounter: "goblin_encounter".into(),
+            room: None,
             on,
         }
+    }
+
+    /// OW1 cut 7c: a re-arm that names no encounter retires the reward of its
+    /// switch's own room's encounter.
+    ///
+    /// Live room #0 is `test_room` with encounter `a_fight`, and #1 is
+    /// `other_room` with `b_fight`, each with a reward chest. A re-arm with no
+    /// named target, pressed in #1, retires `b_fight`'s chest and leaves
+    /// `a_fight`'s. The one-room control is `a_switch_turned_off_retires_the_reward`.
+    /// When the system read the sole live room, it did not run while two rooms
+    /// were live, and neither chest went.
+    #[test]
+    fn an_unnamed_rearm_retires_the_reward_of_its_own_rooms_encounter() {
+        use ambition_platformer2d_shared_tangle::lifecycle::{LiveRoomInstance, RoomInstanceRoot};
+        let second = LiveRoomInstance::ACTIVATION.next();
+        let (mut app, _) = chest_app(vec![ResolvedSwitchActivation {
+            id: "gate".into(),
+            action: SwitchAction::ResetEncounter,
+            target_encounter: String::new(),
+            room: Some(second),
+            on: false,
+        }]);
+        let other = ambition_platformer2d_world::rooms::RoomSpec::new(
+            "other_room",
+            ambition_platformer2d_core::World::new(
+                "other_room",
+                ambition_platformer2d_core::Vec2::new(320.0, 240.0),
+                ambition_platformer2d_core::Vec2::new(16.0, 16.0),
+                Vec::new(),
+            ),
+        );
+        let definition = {
+            let mut rooms = app.world_mut().query::<&mut ambition_platformer2d_world::rooms::RoomSet>();
+            let mut rooms = rooms.single_mut(app.world_mut()).expect("the fixture has a room set");
+            let test_room = rooms.rooms[0].clone();
+            *rooms = ambition_platformer2d_world::rooms::RoomSet::from_parts_or_panic(
+                "test_room",
+                vec![test_room, other],
+                Vec::new(),
+            );
+            rooms.definition_by_id("other_room").expect("the set has `other_room`")
+        };
+        app.world_mut().spawn((RoomInstanceRoot, second, definition));
+        let chests: Vec<Entity> = [("a_fight", "test_room"), ("b_fight", "other_room")]
+            .into_iter()
+            .map(|(id, room)| {
+                app.world_mut().spawn((
+                    ambition_encounter::Encounter { id: id.into() },
+                    ambition_encounter::EncounterWaves::new(ambition_encounter::EncounterSpec {
+                        id: id.into(),
+                        room_id: room.into(),
+                        waves: Vec::new(),
+                        trigger_min: [0.0, 0.0],
+                        trigger_size: [10.0, 10.0],
+                        camera_zoom: 1.0,
+                        lock_wall: None,
+                        intro_seconds: 0.0,
+                        music_track: String::new(),
+                        reward: ambition_encounter::spec::default_encounter_reward(),
+                    }),
+                ));
+                app.world_mut()
+                    .spawn((
+                        ChestFeature::new(ambition_interaction::Chest::new(format!("encounter_chest_{id}"), None)),
+                        EncounterRewardChest { encounter_id: id.into() },
+                        FeatureId(format!("encounter_chest_{id}")),
+                    ))
+                    .id()
+            })
+            .collect();
+        app.update();
+        assert_eq!(
+            chests.iter().map(|chest| app.world().get_entity(*chest).is_ok()).collect::<Vec<_>>(),
+            vec![true, false],
+            "the re-arm pressed in #1 did not retire only #1's encounter reward"
+        );
     }
 
     /// A switch turned OFF retires the reward — the behaviour that used to live
@@ -337,6 +419,7 @@ mod retire_on_rearm_tests {
             id: "gate".into(),
             action: SwitchAction::FlipGravity,
             target_encounter: "goblin_encounter".into(),
+            room: None,
             on: false,
         }]);
         app.update();

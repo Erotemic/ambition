@@ -151,7 +151,7 @@ pub fn drive_wave_encounters(
     resolved_switches: Res<ambition_encounter::switches::ResolvedSwitchActivations>,
     switch_index: Res<EncounterSwitchIndex>,
     player_body_q: Query<
-        &ambition_platformer2d_core::BodyKinematics,
+        (Entity, &ambition_platformer2d_core::BodyKinematics),
         With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
     >,
     mut quests: ResMut<ambition_persistence::quest::QuestRegistry>,
@@ -162,7 +162,10 @@ pub fn drive_wave_encounters(
     // every one of them a BODY-CONSTRUCTION input it needed only because it
     // served its own spawn requests. Serving moved to
     // `features::serve_encounter_spawn_commands`, and the inputs went with it.
-    session_world: ambition_platformer2d_world::rooms::SoleLiveRoomSpec,
+    //
+    // Every live room's, each player's own (OW1 cut 7c): with two live rooms
+    // both rooms' encounters run.
+    rooms: ambition_platformer2d_world::rooms::LiveRoomSpecs,
     encounter_mobs: Query<(
         Entity,
         &ambition_combat::components::EncounterMob,
@@ -182,7 +185,16 @@ pub fn drive_wave_encounters(
     if commands.spawn_scope().is_none() {
         return;
     }
-    let active_area = session_world.spec().id.clone();
+    // The rooms that are live, by the id of the room each instantiates.
+    let live_areas: std::collections::BTreeSet<String> = rooms
+        .live_definitions()
+        .map(|definition| rooms.rooms().spec(definition).id.clone())
+        .collect();
+    let area_of = |entity: Entity| {
+        rooms
+            .definition_of(entity)
+            .map(|definition| rooms.rooms().spec(definition).id.as_str())
+    };
     if player_body_q.is_empty() {
         return;
     }
@@ -215,7 +227,7 @@ pub fn drive_wave_encounters(
     //    Reset event despawns the encounter's SPAWNED mobs — pre-E10 they
     //    lingered until a death or re-arm, which was accidental, not policy.)
     for (enc, lifecycle, waves, _participants) in &encounters {
-        if lifecycle.phase().in_flight() && waves.spec.room_id != active_area {
+        if lifecycle.phase().in_flight() && !live_areas.contains(&waves.spec.room_id) {
             lifecycle_commands.write(EncounterCommand::new(&enc.id, EncounterCommandKind::Reset));
             ending_this_tick.insert(enc.id.clone());
         }
@@ -226,16 +238,24 @@ pub fn drive_wave_encounters(
     //    terminal phase resets in the same command batch (the reducer applies
     //    Reset then Start in order), so a persisted Completed/Failed doesn't
     //    lock out re-triggering after a switch toggle.
-    if let Some((enc, lifecycle, waves, mut participants)) = encounters
-        .iter_mut()
-        .find(|(_, _, waves, _)| waves.spec.room_id == active_area)
-    {
+    // The first encounter of each live room, as the one room had one.
+    let mut triggered_areas = std::collections::BTreeSet::new();
+    for (enc, lifecycle, waves, mut participants) in encounters.iter_mut() {
+        if !live_areas.contains(&waves.spec.room_id)
+            || !triggered_areas.insert(waves.spec.room_id.clone())
+        {
+            continue;
+        }
         if !lifecycle.phase().in_flight() && switch_index.encounter_armed(&enc.id) {
             // Iterate every player so any player walking into the trigger
             // fires the encounter — single-player behavior preserved because
             // the iterator has one entity today. OVERNIGHT-TODO #17.8.
             let trigger = waves.spec.trigger_aabb();
-            let entered = player_body_q.iter().any(|body| {
+            // A player in this encounter's room.
+            let entered = player_body_q
+                .iter()
+                .filter(|(player, _)| area_of(*player) == Some(waves.spec.room_id.as_str()))
+                .any(|(_, body)| {
                 use bevy::math::bounding::IntersectsVolume;
                 let player_aabb = ae::aabb_from_min_size(
                     ae::Vec2::new(
@@ -267,7 +287,7 @@ pub fn drive_wave_encounters(
     // (instance id, character, brain kind, pos, size) — the three identity
     // questions kept apart all the way to the spawner.
     for (enc, lifecycle, mut waves, mut participants) in &mut encounters {
-        if waves.spec.room_id != active_area || ending_this_tick.contains(&enc.id) {
+        if !live_areas.contains(&waves.spec.room_id) || ending_this_tick.contains(&enc.id) {
             continue;
         }
         match lifecycle.phase() {
@@ -378,8 +398,13 @@ pub fn drive_wave_encounters(
                     // from a terminal phase, so a stale Completed/Failed must
                     // clear); the ownership-driven cleanup adapter (E10) drops
                     // carryover mobs off the Reset event.
+                    // An unnamed target is the switch's own room's.
+                    let area = rooms
+                        .definition_named(activation.room)
+                        .map(|definition| rooms.rooms().spec(definition).id.clone())
+                        .unwrap_or_default();
                     let target = activation.target_encounter_in(
-                        &active_area,
+                        &area,
                         encounters
                             .iter()
                             .map(|(enc, _, waves, _)| (enc.id.as_str(), waves.spec.room_id.as_str())),

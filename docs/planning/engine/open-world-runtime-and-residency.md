@@ -260,7 +260,7 @@ and no fallback to "the live room".
 | 4 (4a ✅ 4b ✅) | Pairwise queries (contacts, hits, perception, projectile victims) keyed by instance | identical local positions in two instances never touch (one instance does) | unkeyed body-contact vectors |
 | 5 (5a ✅ 5b ✅ 5c ✅ 5d ✅ 5e ✅) | Live identity and room selection per instance; rollback rows instance-qualified; the save maps to a durable location key, never the ordinal | a second construction of one room in `#1` succeeds (a duplicate inside `#1` is still refused) | `RoomSet`'s private active index |
 | 6 (6a ✅ 6b ✅ 6c ✅ 6d ✅ 6e ✅) | The Alice/Bob proof: two instances, two driven bodies; retiring `#1` leaves `#0` whole | the one-room profile runs the same systems | the sole-room reads on the crossing road |
-| 7 (7a ✅ 7b ✅) | The simulation systems a second live room freezes read their subject's own room (`LiveRoomOf<T>`) | the system runs in both rooms, each entity against its own room (one room: the same answer) | one `SoleLiveRoom*` parameter per system |
+| 7 (7a ✅ 7b ✅ 7c ✅) | The simulation systems a second live room freezes read their subject's own room (`LiveRoomOf<T>`) | the system runs in both rooms, each entity against its own room (one room: the same answer) | one `SoleLiveRoom*` parameter per system |
 
 ✅ **Cut 1 landed 2026-09-29.** `LiveRoomInstance` moved down to
 `ambition_platformer2d_shared_tangle::lifecycle` beside the new
@@ -796,9 +796,9 @@ that takes one does not run at all while two rooms are live, in either
 room. After 6d that is the Alice/Bob world. The measured list of simulation
 systems it stops (read from the parameter lists, 2026-09-30):
 `step_item_motion` ✅, `update_ecs_falling_chests` ✅,
-`prepare_authored_switch_commands` ✅ (7b), `drive_wave_encounters`,
+`prepare_authored_switch_commands` ✅ (7b), `drive_wave_encounters` ✅ (7c),
 `update_boss_encounters`, `heal_save_shrine_system`,
-`sync_encounter_reward_chests`, `retire_rewards_for_rearmed_encounters`,
+`sync_encounter_reward_chests`, `retire_rewards_for_rearmed_encounters` ✅ (7c),
 `record_placed_ground_items`, `physics_spawn_debris_messages` and
 `tick_npc_idle_barks`, and the content bosses (`cut_rope`, `gnu_ton`). The
 presentation readers in `ambition_render` are P5's (a view per player). The
@@ -826,8 +826,27 @@ and the activation names the room; the one-room control is
 `each_live_rooms_switch_asks_for_its_own_rooms_verb` (two rooms author one
 switch id with two verbs; each press rings its own room's; the one-room
 control is `pressing_an_authored_switch_asks_for_the_verb_the_level_named`).
-⚠ The encounter road the same activation feeds (`SwitchActivationQueue`,
-`drive_wave_encounters`) does not read the room yet.
+~~⚠ The encounter road the same activation feeds (`SwitchActivationQueue`,
+`drive_wave_encounters`) does not read the room yet.~~ It does since 7c.
+
+✅ **Cut 7c landed 2026-09-30: every live room's encounter runs.** The wave
+driver read the sole live room, so with two live rooms no encounter
+started, advanced or reset, in either room. It now reads every live room
+(`LiveRoomSpecs::live_definitions`): an in-flight encounter resets when its
+room is not live, the first encounter of each live room starts when a
+player in that room enters its trigger, and each live room's waves run.
+The room of a press reaches the drain: `SwitchActivationQueue` holds
+`QueuedSwitchActivation { activation, room }`, the room is in its checksum
+(schema 274), and `ResolvedSwitchActivation.room` carries it on. A re-arm
+that names no encounter targets its switch's own room's, in the driver and
+in the reward retire. Witnesses:
+`a_player_in_either_live_room_starts_only_that_rooms_encounter` (a player
+in #1 starts #1's encounter; the control, the same player at the same place
+in #0, starts nothing), `an_unnamed_rearm_retires_the_reward_of_its_own_rooms_encounter`
+(two rooms, two encounters, two chests; the press in #1 retires only #1's)
+and `the_room_of_an_activation_moves_the_checksum`. ⚠ Still sole-room on
+this road: a player's death fails every in-flight encounter, in every room;
+the reward chest sync (7d).
 
 ⚠ Still owed from cut 5: `outlook_for(room: &str)` is keyed by definition;
 the `SoleLiveRoomSpec` readers each need a subject before a second live room

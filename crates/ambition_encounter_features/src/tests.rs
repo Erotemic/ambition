@@ -1130,3 +1130,82 @@ fn the_encounter_track_clears_even_on_a_frame_with_no_player_body() {
          through a death and a room transition and plays on into the next room"
     );
 }
+
+/// OW1 cut 7c: the wave driver runs every live room's encounter.
+///
+/// Live room #0 is room `hall`, and #1 is room `goblin_encounter`, which
+/// authors the encounter. The subject: a player in #1 inside the trigger
+/// starts it. The control: the same player at the same place in #0 starts
+/// nothing, because #0 is another room. When the driver read the sole live
+/// room, it did not run while two rooms were live, and nothing started.
+#[test]
+fn a_player_in_either_live_room_starts_only_that_rooms_encounter() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
+    use bevy::prelude::*;
+
+    let first = LiveRoomInstance::ACTIVATION;
+    let second = first.next();
+    let room = |id: &str| {
+        ambition_platformer2d_world::rooms::RoomSpec::new(
+            id,
+            ae::World::new(id, ae::Vec2::new(800.0, 600.0), ae::Vec2::new(16.0, 16.0), Vec::new()),
+        )
+    };
+    let started = |player_room: LiveRoomInstance| {
+        let mut app = App::new();
+        app.add_message::<ambition_combat::death_rules::ActorDiedMessage>();
+        app.add_message::<ambition_encounter::EncounterCommand>();
+        app.add_message::<ambition_encounter::EncounterEventMsg>();
+        app.insert_resource(ambition_time::WorldTime {
+            raw_dt: 1.0 / 60.0,
+            scaled_dt: 1.0 / 60.0,
+            ..Default::default()
+        });
+        app.init_resource::<ambition_persistence::save::AmbitionGameSave>();
+        app.init_resource::<ambition_encounter::switches::ResolvedSwitchActivations>();
+        app.insert_resource(switch_index(&[]));
+        app.init_resource::<ambition_persistence::quest::QuestRegistry>();
+        ambition_platformer2d_world::rooms::insert_room_set(
+            app.world_mut(),
+            ambition_platformer2d_world::rooms::RoomSet::from_parts_or_panic(
+                "hall",
+                vec![room("hall"), room("goblin_encounter")],
+                Vec::new(),
+            ),
+        );
+        let encounter_room = ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<
+            ambition_platformer2d_world::rooms::RoomSet,
+        >(app.world())
+        .and_then(|rooms| rooms.definition_by_id("goblin_encounter"))
+        .expect("the set has the encounter's room");
+        app.world_mut().spawn((RoomInstanceRoot, second, encounter_room));
+        app.world_mut().spawn((
+            Encounter {
+                id: "goblin_encounter".into(),
+            },
+            EncounterLifecycle::default(),
+            EncounterWaves::new(lab_spec()),
+            EncounterParticipants::default(),
+        ));
+        app.world_mut().spawn((
+            ambition_platformer2d_shared_tangle::markers::PlayerEntity,
+            ambition_platformer2d_core::BodyKinematics {
+                pos: ae::Vec2::new(100.0, 100.0),
+                vel: ae::Vec2::ZERO,
+                size: ae::Vec2::new(20.0, 40.0),
+                facing: 1.0,
+            },
+            InRoomInstance(player_room),
+        ));
+        app.add_systems(Update, crate::drive_wave_encounters);
+        app.update();
+        let started = app
+            .world()
+            .resource::<Messages<ambition_encounter::EncounterCommand>>()
+            .iter_current_update_messages()
+            .any(|command| command.kind == EncounterCommandKind::Start);
+        started
+    };
+    assert!(!started(first), "control: a player in another live room started the encounter");
+    assert!(started(second), "a player in the encounter's live room did not start it");
+}

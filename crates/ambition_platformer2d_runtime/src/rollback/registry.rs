@@ -900,7 +900,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// ⛔⛤ 272 -> 273: `actor.perception_memory` carries the live room its
 /// memories were formed in. Tactical memory is room-local: a body that
 /// changes live room forgets it (GPT review of OW1 cut 5).
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 273;
+/// ⛔⛤ 273 -> 274: a queued switch activation carries the live room of its
+/// switch, in the checksum of `resource.switch_activation_queue` (OW1 cut
+/// 7c).
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 274;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

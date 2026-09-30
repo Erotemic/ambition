@@ -58,7 +58,12 @@ pub fn apply_switch_effects(
     mut sfx: ambition_sfx::SfxWriter,
 ) {
     for effect in effects.read() {
-        switch_activations.0.push(effect.activation.clone());
+        switch_activations
+            .0
+            .push(ambition_encounter::switches::QueuedSwitchActivation {
+                activation: effect.activation.clone(),
+                room: effect.room,
+            });
         sfx.write(ambition_sfx::SfxMessage::Play {
             id: ambition_sfx::ids::WORLD_SWITCH_TOGGLE,
             pos: effect.pos,

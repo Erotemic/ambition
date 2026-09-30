@@ -909,7 +909,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// ⛔⛤ 275 -> 276: `resource.encounter_registry` is gone. Each live room's
 /// encounter occurrences are built from the rooms that are live, so no
 /// session latch says whether they were built (GPT review of OW1 cut 7c).
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 276;
+/// ⛔⛤ 276 -> 277: `actor.body_rig` (clone) and `derived.body_rig_pose`
+/// (derived) — a body's semantic rig follows its worn character across a
+/// restore, and its pose is rebuilt from the clocks (rig packet 2).
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 277;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

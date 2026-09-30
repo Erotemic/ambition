@@ -45,6 +45,9 @@ def select(project_dir: Path, store: Path) -> str:
     )
     env = {**os.environ, "AMBITION_TOOL_VENVS": str(store)}
     env.pop("PYTHON", None)
+    # A machine that names one global interpreter must not change what these
+    # tests resolve; `AMBITION_PYTHON` has its own test below.
+    env.pop("AMBITION_PYTHON", None)
     out = subprocess.run(
         ["bash", "-c", script], capture_output=True, text=True, env=env
     )
@@ -130,3 +133,29 @@ def test_this_repository_resolves_to_an_interpreter_that_can_host_the_lane():
 
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-q"]))
+
+
+def test_ambition_python_is_the_interpreter_the_machine_already_has(tree):
+    """`AMBITION_PYTHON` beats every implicit road, and a tool override beats it.
+
+    A desk with one global environment for everything sets it once, and no tool
+    on that machine resolves to a per-tool venv. The store venv here EXISTS, so
+    the first row is not satisfied by an empty store falling through.
+    """
+    main, _worktree, store = tree
+    make_venv(store, "proj")
+    base = {k: v for k, v in os.environ.items() if k not in ("PYTHON", "AMBITION_PYTHON")}
+    base["AMBITION_TOOL_VENVS"] = str(store)
+
+    def resolve(override: str, **env: str) -> str:
+        script = f'source "{LIB}"; ambition_select_tool_python "{main}" "{override}" 0'
+        return subprocess.run(
+            ["bash", "-c", script], capture_output=True, text=True, env={**base, **env}
+        ).stdout.strip()
+
+    assert resolve("") == str(store / "proj" / "bin" / "python")
+    assert resolve("", AMBITION_PYTHON="/opt/global/bin/python") == "/opt/global/bin/python"
+    assert (
+        resolve("TOOL_PY", AMBITION_PYTHON="/opt/global/bin/python", TOOL_PY="/opt/tool/python")
+        == "/opt/tool/python"
+    ), "a tool that cannot run on the global interpreter must still name its own"

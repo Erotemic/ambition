@@ -7,6 +7,7 @@
 #   scripts/setup/python_tools.sh --help
 #
 # Environment:
+#   AMBITION_PYTHON=<python>    # install every tool into THIS interpreter; no venvs
 #   AMBITION_TOOL_PYTHON=3.12
 #   AMBITION_TOOL_VENVS=<dir>   # moves the per-machine venv store
 #   UV_EXCLUDE_NEWER=YYYY-MM-DD
@@ -108,28 +109,52 @@ ensure_tool_venv() {
     fi
 }
 
+# The interpreter `project` is installed into: `AMBITION_PYTHON` when this
+# machine names one (no venv is created), else the project's venv in the
+# per-machine store, created if needed. See `scripts/lib/tool_python.sh`.
+install_python_for() {
+    local project="$1"
+    if [ -n "${AMBITION_PYTHON:-}" ]; then
+        ambition_python_exists "$AMBITION_PYTHON" \
+            || fatal "AMBITION_PYTHON is set but is not an interpreter: $AMBITION_PYTHON"
+        printf '%s\n' "$AMBITION_PYTHON"
+        return 0
+    fi
+    ensure_tool_venv "$project" "$(tool_python_version)" >&2
+    printf '%s/bin/python\n' "$(ambition_tool_venv_dir "$project")"
+}
+
+# Tools that `AMBITION_PYTHON` could not hold, reported once at the end.
+unplaced_tools=()
+
 install_tool_project() {
     local relative_project="$1"
     local import_name="$2"
     local editable_target="${3:-.}"
     local project="$repo_root/$relative_project"
-    local requested_python
-    requested_python="$(tool_python_version)"
-
     [ -d "$project" ] || fatal "missing tool project: $relative_project (submodule not initialized?)"
     [ -f "$project/pyproject.toml" ] || fatal "missing $relative_project/pyproject.toml"
 
-    ensure_tool_venv "$project" "$requested_python"
     local venv_python
-    venv_python="$(ambition_tool_venv_dir "$project")/bin/python"
+    venv_python="$(install_python_for "$project")"
     log "installing $relative_project into ${venv_python/#$HOME/~}"
-    (
+    if ! (
         cd "$project"
         uv pip install --python "$venv_python" -e "$editable_target"
         if [ -d "$project/tests" ]; then
             uv pip install --python "$venv_python" pytest
         fi
-    )
+    ); then
+        # ⚠ ONE INTERPRETER CANNOT HOLD EVERY TOOL: the SFX renderer requires
+        # Python < 3.13. Under `AMBITION_PYTHON` that is a tool to name, not a
+        # reason to stop installing the others.
+        if [ -n "${AMBITION_PYTHON:-}" ]; then
+            warn "$relative_project cannot be installed into AMBITION_PYTHON ($venv_python); give it its own interpreter with its AMBITION_<TOOL>_PYTHON variable"
+            unplaced_tools+=("$relative_project")
+            return 0
+        fi
+        fatal "installing $relative_project into $venv_python failed"
+    fi
     "$venv_python" -c "import $import_name" \
         || fatal "$relative_project installed but '$import_name' is not importable"
 }
@@ -187,19 +212,17 @@ verify_tool_environments() {
 # ModuleNotFoundError and the committed navigation data silently went stale.
 # That is the regen-on-a-fresh-clone invariant, so it belongs in setup.
 install_scripts_env() {
-    local requested_python venv_dir venv_python
-    requested_python="$(tool_python_version)"
+    local venv_dir venv_python
     # Same creation policy as every tool-local environment: this used to be its
     # own copy of the logic, and being a copy is how it missed both `--clear`
     # and the interpreter-version check the tool venvs have had all along.
-    ensure_tool_venv "$repo_root" "$requested_python"
     # ⛔ ASK THE HELPER FOR THE PATH; DO NOT SPELL IT AGAIN. `ensure_tool_venv`
     # creates this environment in the per-machine store, and a second literal
     # `$repo_root/.venv` here named a directory nothing had created — so every
     # fresh clone died on the next line with "No virtual environment ... for
     # path `.venv/bin/python`", before assets or the desktop check ever ran.
-    venv_dir="$(ambition_tool_venv_dir "$repo_root")"
-    venv_python="$venv_dir/bin/python"
+    venv_python="$(install_python_for "$repo_root")"
+    venv_dir="$(dirname -- "$(dirname -- "$venv_python")")"
     log "installing scripts/ dependencies into ${venv_python/#$HOME/~}"
     # `pytest` belongs here for the same reason `tree_sitter_rust` does, and its
     # absence was worse. `scripts/run_tests.py` runs the repo's TWO Python suites
@@ -296,7 +319,7 @@ install_scripts_env() {
 # different environment than the one that was sick.
 verify_scripts_environment() {
     local venv_python module
-    venv_python="$(ambition_tool_venv_dir "$repo_root")/bin/python"
+    venv_python="$(ambition_select_tool_python "$repo_root" "" 0)"
     ambition_python_exists "$venv_python" \
         || fatal "no interpreter for the scripts/ environment; rerun without --skip-python"
     for module in $(scripts_env_modules); do
@@ -325,6 +348,9 @@ ensure_python_tools() {
 
     install_scripts_env
 
+    if [ "${#unplaced_tools[@]}" -gt 0 ]; then
+        warn "not installed into AMBITION_PYTHON: ${unplaced_tools[*]}"
+    fi
     log "Python authoring environments are ready"
 }
 

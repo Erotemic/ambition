@@ -1,9 +1,19 @@
 #!/usr/bin/env bash
 # Shared Python selection helpers for Ambition's isolated authoring tools.
 #
-# Resolution order: a tool-specific override, the legacy generic PYTHON override
-# when allowed, this MACHINE's venv for the tool, the tool-local `.venv` in the
-# checkout, then a bare `python3`.
+# Resolution order: a tool-specific override, `AMBITION_PYTHON`, the legacy
+# generic PYTHON override when allowed, this MACHINE's venv for the tool, the
+# tool-local `.venv` in the checkout, then a bare `python3`.
+#
+# ⭐ `AMBITION_PYTHON` IS "USE THE INTERPRETER I ALREADY HAVE". A machine that
+# keeps one global environment for everything (Jon's desk does: disk is limited
+# and a venv per tool duplicates every package) sets it once, for example in
+# `~/.bashrc`, and every tool on that machine resolves to it.
+# `scripts/setup/python_tools.sh` then installs the tools into it instead of
+# creating venvs. It is namespaced, so unlike `PYTHON` it is not ambient state
+# from some other program, and it applies to every caller. A tool-specific
+# override still wins, for a tool that cannot run on that interpreter (the SFX
+# renderer requires Python < 3.13).
 #
 # ⛔⛔ WHY A PER-MACHINE STORE COMES BEFORE THE IN-REPO `.venv`. This checkout can
 # be shared — the agent VM and the desk see one filesystem over virtiofs — and a
@@ -77,6 +87,8 @@ ambition_select_tool_python() {
 
     if [[ -n "$override_value" ]]; then
         printf '%s\n' "$override_value"
+    elif [[ -n "${AMBITION_PYTHON:-}" ]]; then
+        printf '%s\n' "$AMBITION_PYTHON"
     elif [[ "$allow_generic_python" == "1" && -n "${PYTHON:-}" ]]; then
         printf '%s\n' "$PYTHON"
     elif [[ -x "$tool_venv" ]]; then

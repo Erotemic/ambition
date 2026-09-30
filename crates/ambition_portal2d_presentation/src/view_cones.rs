@@ -206,12 +206,14 @@ impl PortalViewConeMode {
     }
 }
 
-/// `Static` by default (Jon, 2026-09-25): the viewer-dependent cones misdrew
-/// in Sanic, and the small authored cone reads the same in every game. A host
-/// or the portal inspector can still select `Dynamic`.
+/// `Dynamic` by default: the engine does not choose a game's look. A game
+/// that wants the small authored cone states `Static` for its own rooms, as a
+/// declared rule (`PortalViewConeRule`); Sanic and Smash do. A default is
+/// read by every game that composes this crate, so a choice for one game
+/// made here changed Ambition's cones too.
 impl Default for PortalViewConeMode {
     fn default() -> Self {
-        Self::Static
+        Self::Dynamic
     }
 }
 

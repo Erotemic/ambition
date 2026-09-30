@@ -2441,3 +2441,51 @@ fn the_ring_shield_follows_the_rules_scope() {
         "a hosted Sanic is shielded in his own room and not in a room of the host"
     );
 }
+
+/// Sanic's portal windows are Sanic's rule, not the engine's default.
+///
+/// The subject: a Sanic room (hosted, or the demo as the game) is governed
+/// by `Static`. The control: one of the host's own rooms is governed by no
+/// cone rule, so the host's configuration stands, and the engine default
+/// that configuration starts from is `Dynamic`. When the default was
+/// `Static` for Sanic's sake, Ambition's rooms drew Sanic's cones.
+#[test]
+fn sanic_states_its_portal_cones_for_its_own_rooms_only() {
+    use ambition_platformer2d::bevy::ecs::system::RunSystemOnce as _;
+    use ambition_platformer2d::portal_presentation::{PortalViewConeConfig, PortalViewConeMode};
+    fn governing_cones(rules: SanicRulesPlugin, mode: Option<&str>) -> Option<PortalViewConeMode> {
+        let mut app = App::new();
+        ambition_platformer2d::engine::add_headless_foundation(&mut app);
+        app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
+        ambition_platformer2d::world::rooms::insert_room_set(app.world_mut(), rooms_in_mode(mode));
+        app.add_plugins(rules);
+        app.world_mut()
+            .run_system_once(
+                |rules: ambition_platformer2d::actors::session::governing_rules::GoverningRules<
+                    PortalViewConeMode,
+                >| rules.get(),
+            )
+            .expect("the rule reader runs")
+    }
+
+    assert_eq!(
+        governing_cones(SanicRulesPlugin::hosted(), Some(SANIC_MODE)),
+        Some(PortalViewConeMode::Static),
+        "a hosted Sanic room does not state Sanic's cones"
+    );
+    assert_eq!(
+        governing_cones(SanicRulesPlugin::global(), None),
+        Some(PortalViewConeMode::Static),
+        "Sanic as the game does not state its cones"
+    );
+    assert_eq!(
+        governing_cones(SanicRulesPlugin::hosted(), None),
+        None,
+        "Sanic's cone rule reached a room of the game that hosts it"
+    );
+    assert_eq!(
+        PortalViewConeConfig::default().mode,
+        PortalViewConeMode::Dynamic,
+        "the engine default chooses a game's cones again"
+    );
+}

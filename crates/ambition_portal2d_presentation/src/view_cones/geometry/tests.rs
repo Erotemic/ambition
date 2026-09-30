@@ -3,8 +3,8 @@ use ambition_platformer2d_core::frame::MapConvention;
 use ambition_portal2d::pieces::{PortalAperture, PortalFrame};
 use ambition_portal2d::{PortalChannelColor, PortalGunColor};
 
-/// These arms test the viewer-dependent (`Dynamic`) cone geometry, which is no
-/// longer the engine default (`Static` since 2026-09-25), so they ask for it.
+/// These arms test the viewer-dependent (`Dynamic`) cone geometry, so they
+/// ask for it by name and do not depend on the engine default.
 fn dynamic_config() -> PortalViewConeConfig {
     PortalViewConeConfig {
         mode: PortalViewConeMode::Dynamic,

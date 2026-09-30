@@ -679,6 +679,14 @@ impl Plugin for SanicRulesPlugin {
                 scope,
                 ambition_platformer2d::actors::features::wallet_shield::WalletShieldRule,
             );
+            // Sanic's portal windows are the small authored cone. The
+            // viewer-dependent cone misdraws at Sanic's speed. This is Sanic's
+            // choice for its own rooms: the engine default stays `Dynamic`,
+            // and a host's rooms keep the host's cones.
+            app.declare_rules(
+                scope,
+                ambition_platformer2d::portal_presentation::PortalViewConeMode::Static,
+            );
         }
         use bevy::prelude::IntoScheduleConfigs;
         let sim = ambition_platformer2d::platformer::schedule::SimScheduleExt::sim_schedule(app);

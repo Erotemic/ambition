@@ -167,7 +167,31 @@ The transform payload is small relative to texture pixels. If the first runtime 
 
 The texture term still dominates by a wide margin.
 
-**Implementation consequence:** the visual prototype is justified now. Do not rerun an asset-economics discovery study before implementing it. Validation should reproduce these numbers from the new publisher and explain material deviations.
+### Measured by the Packet 5 publisher (2026-09-30)
+
+⚠ **The 75% estimate above is not correct. The publisher measures about 38%.**
+
+The publisher (`authoring/part_flipbook.py`) keeps every rigid part as one raster and keeps the dynamic geometry as per-frame overlays. It measures these values:
+
+| Character | Rigid parts | Overlays | Draws per frame | Tight texels | Packed texels | Current atlas | Texel saving | Worst frame parity |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| `pirate_raider` | 23 | 152 | 13.0 | 183,752 | 222,336 | 360,320 | **38.3%** | 1.06% |
+| `pirate_admiral` | 22 | 152 | 12.0 | 184,619 | 224,064 | 361,674 | **38.1%** | 1.95% |
+| `pirate_quartermaster` | 23 | 152 | 13.0 | 183,752 | 222,336 | 360,320 | **38.3%** | 1.03% |
+| `pirate_lookout` | 22 | 152 | 12.0 | 183,584 | 222,336 | 360,320 | **38.3%** | 1.25% |
+| `pirate_navigator` | 22 | 152 | 12.0 | 183,584 | 222,336 | 360,320 | **38.3%** | 1.24% |
+
+Why the estimate is wrong:
+
+1. The dynamic geometry is 92% of the texels. For the raider, the overlays are 164,214 texels and the rigid parts are 14,347.
+2. The method of the estimate does not give its number. One tight overlay per frame (the method above) measures 166,662 overlay texels for the raider. The estimate needs about 53,000. The drawn pixels alone (alpha above zero) are 62,837.
+3. One overlay per frame cannot keep the z-order. The dynamic geometry is 4 or 5 runs per frame, and parts are painted between the runs (the legs under the boots, the back arm under the torso). Thus each run is one overlay. This does not increase the texels (per-run boxes: 164,214; one box per frame: 166,662), but it adds draws: 12 to 13 per frame, not 9 to 10.
+
+A larger saving needs reusable limb parts. A pirate limb is a stroke between two joints, so a limb segment can become a rigid part. That is publisher work after the first world realization.
+
+Parity: every frame of the five pirates is recomposed from the published atlas and draw table and compared with the published sheet frame. A pixel is wrong when no pixel within one pixel of it in the other image is within 64 in all premultiplied RGBA channels. The worst frame is 1.95%, and the test bound is 2.5%. Real defects are above the bound: a dropped hat is 8.5%, a torso two pixels off is 7.9%, and a sword turned the wrong way is 4.0%. A part one pixel off is 0.47%, which the bound accepts.
+
+**Implementation consequence (original):** the visual prototype is justified now. Do not rerun an asset-economics discovery study before implementing it. Validation should reproduce these numbers from the new publisher and explain material deviations.
 
 ### Existing transform-flipbook precedent: vanity card
 
@@ -932,6 +956,8 @@ Acceptance:
 - projectile origin is simulation-owned and does not depend on a rendered child sprite.
 
 ### Packet 5 — publish Pirate transform-flipbook assets
+
+**Status (2026-09-30): done** for all five pirates. See *Measured by the Packet 5 publisher*: the saving is about 38%, not 75%. The pirates publish `<target>_parts.png` and `<target>_parts.ron` beside the sheet. `tests/test_pirate_part_flipbook.py` checks the parity of all 38 frames for the raider and the admiral. The quality tiers scale `_parts.png` but have no tier draw table yet; Packet 6 must define the tier metadata.
 
 **Primary visual prototype:** `pirate_raider` first, then the remaining pirate family once the format is stable.
 

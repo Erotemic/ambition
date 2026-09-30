@@ -1619,3 +1619,82 @@ fn a_crossing_reads_the_crossing_bodys_own_live_room() {
         "a body in live room #1 did not cross its own room's zone"
     );
 }
+
+/// OW1 cut 6b: a crossing leaves its subject's own live room.
+///
+/// Live room #0 is room `a` and #1 is room `b`. A crossing whose subject was
+/// recorded in #1 leaves `b`, in the system read the readiness and the eager
+/// commit use and in the exclusive-world read the confirmed host uses. The
+/// control: a subject recorded in #0 leaves `a`. With two live rooms, a
+/// crossing that names no subject leaves no room: the sole read answers for
+/// neither, and that is the only answer it gave before.
+#[test]
+fn a_crossing_leaves_its_subjects_own_live_room() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{
+        activation_room_root, session_world_component, LiveBodyId, LiveRoomInstance, SessionRoot,
+    };
+    use ambition_platformer2d_shared_tangle::sim_id::SimId;
+    use bevy::ecs::system::RunSystemOnce as _;
+    use bevy::prelude::*;
+
+    let mut app = App::new();
+    ambition_platformer2d_world::rooms::insert_room_set(
+        app.world_mut(),
+        RoomSet::from_parts_or_panic(
+            "a",
+            vec![spec_with(RoomMetadata::default(), "a"), spec_with(RoomMetadata::default(), "b")],
+            Vec::new(),
+        ),
+    );
+    let scope = session_world_component::<SessionRoot>(app.world())
+        .expect("the fixture has a session root")
+        .0;
+    let b = session_world_component::<RoomSet>(app.world())
+        .and_then(|rooms| rooms.definition_by_id("b"))
+        .expect("the fixture's set has room `b`");
+    let first = LiveRoomInstance::ACTIVATION;
+    let second = first.next();
+    app.world_mut().spawn(activation_room_root(scope)).insert((
+        second,
+        b,
+        SimId::singleton("session", "room_instance_1"),
+    ));
+
+    let left = |app: &mut App, subject: Option<LiveBodyId>| {
+        let id_of = |world: &World, definition: Option<LiveRoomDefinition>| {
+            definition.and_then(|definition| {
+                session_world_component::<RoomSet>(world).map(|rooms| rooms.spec(definition).id.clone())
+            })
+        };
+        let exclusive = id_of(
+            app.world(),
+            ambition_platformer2d_world::rooms::live_room_definition_left_by(app.world(), subject.as_ref()),
+        );
+        let wanted = subject.clone();
+        let system = app
+            .world_mut()
+            .run_system_once(move |rooms: ambition_platformer2d_world::rooms::LiveRoomSpecs| {
+                rooms.left_by(wanted.as_ref())
+            })
+            .expect("the read runs");
+        (exclusive, id_of(app.world(), system))
+    };
+    let hero = |room| Some(LiveBodyId::new(SimId::player_slot(0), Some(room)));
+
+    assert_eq!(
+        left(&mut app, hero(first)),
+        (Some("a".to_string()), Some("a".to_string())),
+        "control: a crossing from live room #0 does not leave `a`"
+    );
+    assert_eq!(
+        left(&mut app, hero(second)),
+        (Some("b".to_string()), Some("b".to_string())),
+        "a crossing from live room #1 does not leave its own room `b`"
+    );
+    assert_eq!(
+        left(&mut app, None),
+        (None, None),
+        "with two live rooms, a crossing that names no subject left one of them"
+    );
+}
+

@@ -259,7 +259,7 @@ and no fallback to "the live room".
 | 3 (3a ✅ 3b ✅ 3c ✅ 3d ✅) | Geometry, platforms and overlay move onto the instance root; `CollisionWorld` takes the instance | a body in `#1` collides with `#1`'s wall (in `#0` it passes) | the session-root geometry field, `MovingPlatformSet` as a resource |
 | 4 (4a ✅ 4b ✅) | Pairwise queries (contacts, hits, perception, projectile victims) keyed by instance | identical local positions in two instances never touch (one instance does) | unkeyed body-contact vectors |
 | 5 (5a ✅ 5b ✅ 5c ✅ 5d ✅ 5e ✅) | Live identity and room selection per instance; rollback rows instance-qualified; the save maps to a durable location key, never the ordinal | a second construction of one room in `#1` succeeds (a duplicate inside `#1` is still refused) | `RoomSet`'s private active index |
-| 6 (6a ✅) | The Alice/Bob proof: two instances, two driven bodies; retiring `#1` leaves `#0` whole | the one-room profile runs the same systems | the sole-room reads on the crossing road |
+| 6 (6a ✅ 6b ✅) | The Alice/Bob proof: two instances, two driven bodies; retiring `#1` leaves `#0` whole | the one-room profile runs the same systems | the sole-room reads on the crossing road |
 
 ✅ **Cut 1 landed 2026-09-29.** `LiveRoomInstance` moved down to
 `ambition_platformer2d_shared_tangle::lifecycle` beside the new
@@ -678,11 +678,26 @@ room answers as the sole read did. Witness:
 to `a`; the control, the same body at the same place in #0, records none,
 because `a` has no zone there).
 
-⚠ Owed by 6b: a crossing recorded from a second live room is not yet
-committed. The loading side (`source_room`) and the commit
-(`live_definition`) still read the sole live room, so with two live rooms
-they do not run and the intent waits in the slot. 6b keys both by the
-recorded subject's live room.
+✅ **Cut 6b landed 2026-09-30: a crossing leaves its subject's own live
+room.** Cut 6a recorded a crossing from a second live room, and it waited:
+the readiness took its source room from `SoleLiveRoomSpec` and did not run
+with two live rooms, and both commits compared the transaction against the
+sole root's definition. Now the room a crossing leaves is one answer,
+`LiveRoomSpecs::left_by(subject)`: the live room the intent's subject was
+recorded in (`LiveBodyId.room`), and the sole live room only for a crossing
+with no subject or a subject in no live room.
+`live_room_definition_left_by` is the same answer at an exclusive-world
+boundary. The readiness (`source_room`), the eager commit's staleness check
+(`RoomTransitionApplication::definition_left_by`) and the confirmed host's
+authorization all read it. The staging already took the departing residents
+from the subject's room (5b). Witness:
+`a_crossing_leaves_its_subjects_own_live_room` (live rooms #0 `a` and #1
+`b`; a subject recorded in #1 leaves `b` in both reads; the control, a
+subject in #0, leaves `a`; a crossing with no subject leaves no room while
+two are live).
+
+⚠ Next in cut 6: drive a crossing end to end in a world with two live rooms
+and two driven bodies, and find the sole-room reads it still meets.
 
 ⚠ Still owed from cut 5: `outlook_for(room: &str)` is keyed by definition;
 the `SoleLiveRoomSpec` readers each need a subject before a second live room

@@ -548,9 +548,10 @@ pub fn begin_room_transition_load_system(
             ambition_platformer2d_actor_monolith::rooms::ActiveContentBinding,
         >,
     >,
-    // The set, and which room of it the live room is: the room a crossing
-    // leaves (OW1 cut 5e). The one-live-room read.
-    room_set: world_rooms::SoleLiveRoomSpec,
+    // The set, and which room of it each live room is. The room a crossing
+    // leaves is its subject's live room (OW1 cut 6b), so a crossing in either
+    // of two live rooms opens its own transaction.
+    room_set: world_rooms::LiveRoomSpecs,
     construction_services: (
         Res<ambition_platformer2d_actor_monolith::construction::placements::PlacementLoweringRegistry>,
         Res<ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry>,
@@ -816,9 +817,14 @@ pub fn begin_room_transition_load_system(
             return;
         }
 
+        // The room the crossing leaves. Not known (the subject's live room has
+        // gone): the crossing is not described, and the intent waits.
+        let Some(source) = room_set.left_by(intent.subject()) else {
+            return;
+        };
         let superseded = state.active.take().map(|active| active.barrier.load_id);
         let sequence = state.mint_sequence();
-        let source_room = room_set.definition().index();
+        let source_room = source.index();
         let source_room_id = room_set
             .rooms().rooms
             .get(source_room)

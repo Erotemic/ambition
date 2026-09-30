@@ -197,7 +197,7 @@ population's total and prints four methods beside it. This table carries only
 the SHAPE — the per-spelling split and the two semantics — re-measured
 2026-09-19 under that row's method so the two cannot disagree.
 
-<!-- alias-split: SessionWorldRef=22/13 SessionWorldMut=11/10 live_session_world_root=3/1 session_root_for_scope=2/2 SoleLiveRoom=81/61 SoleLiveRoomMut=2/2 SoleLiveRoomSpec=63/44 -->
+<!-- alias-split: SessionWorldRef=22/13 SessionWorldMut=11/10 live_session_world_root=3/1 session_root_for_scope=2/2 SoleLiveRoom=81/61 SoleLiveRoomMut=2/2 SoleLiveRoomSpec=62/43 -->
 | spelling | what it is | production uses |
 | --- | --- | ---: |
 | `SessionWorldRef<T>` | `Single<Ref<T>, With<SessionRoot>>` | 22, in 13 files (21 until OW1 cut 6a, 2026-09-30, added `LiveRoomSpecs`, the room set read for a body's own live room; 160 in 95 until OW1 cut 3, 2026-09-29, moved the room geometry and the live room identity to each live room's own root; 84 in 48 until OW1 cut 5e, the same day, moved "which room is live" to the live room root and the live room's spec reads to `SoleLiveRoomSpec`) |
@@ -206,7 +206,7 @@ the SHAPE — the per-spelling split and the two semantics — re-measured
 | `session_root_for_scope` | finds a named scope's root, through the disabling marker | 2, in 2 files |
 | `SoleLiveRoom<T>` | `Single<Ref<T>, With<RoomInstanceRoot>>`: the live room's own root, NOT a session-root alias and not in the census total | 80, in 60 files (77 at OW1 cut 3a; 79 in 61 at 3b, when `CollisionWorld` became one read of geometry and platforms and three platform readers joined; 3c moved the projectile world to one read of geometry and overlay, and two overlay readers joined, 2026-09-29; 81 in 61 since `SoleLiveRoomSpec` reads its definition through one) |
 | `SoleLiveRoomMut<T>` | `Single<&mut T, With<RoomInstanceRoot>>`: the same debt, writing | 2, in 2 files (the definition and Smash's respawn platforms, 2026-09-29) |
-| `SoleLiveRoomSpec` | the session's `RoomSet` and the sole live room's `LiveRoomDefinition`: the authored spec of THE live room, NOT a session-root alias and not in the census total | 63, in 44 files (64 in 45 at OW1 cut 5e, 2026-09-29: every reader that asked `RoomSet` for its active spec; the same one-live-room debt as `SoleLiveRoom`. OW1 cut 6a, 2026-09-30: the transition detector reads the crossing body's own live room through `LiveRoomSpecs`) |
+| `SoleLiveRoomSpec` | the session's `RoomSet` and the sole live room's `LiveRoomDefinition`: the authored spec of THE live room, NOT a session-root alias and not in the census total | 62, in 43 files (64 in 45 at OW1 cut 5e, 2026-09-29: every reader that asked `RoomSet` for its active spec; the same one-live-room debt as `SoleLiveRoom`. OW1 cut 6a, 2026-09-30: the transition detector reads the crossing body's own live room through `LiveRoomSpecs`. Cut 6b: the transition readiness reads the room its subject leaves) |
 
 ⚠ **THE METHOD IS THE PARAMETER FORM: `Name<` for the aliases and `name(` for
 the functions**, over `crates/` + `game/` with test files dropped,

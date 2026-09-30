@@ -339,6 +339,53 @@ impl LiveRoomSpecs<'_, '_> {
     pub fn rooms(&self) -> &RoomSet {
         &self.rooms
     }
+
+    /// Which definition live room `room` instantiates. `None` when no live
+    /// room is `room`.
+    pub fn definition_in(
+        &self,
+        room: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
+    ) -> Option<LiveRoomDefinition> {
+        self.roots
+            .iter()
+            .find(|(live, _)| **live == room)
+            .map(|(_, definition)| *definition)
+    }
+
+    /// The room a crossing leaves: the live room its subject was recorded in
+    /// (OW1 cut 6b). A crossing with no subject, or a subject in no live
+    /// room, leaves the sole live room, and there is none when two are live.
+    pub fn left_by(
+        &self,
+        subject: Option<&ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId>,
+    ) -> Option<LiveRoomDefinition> {
+        match subject.and_then(|subject| subject.room) {
+            Some(room) => self.definition_in(room),
+            None => self.roots.single().ok().map(|(_, definition)| *definition),
+        }
+    }
+}
+
+/// [`LiveRoomSpecs::left_by`] at an exclusive-world boundary: the definition
+/// of the live room a crossing by `subject` leaves.
+pub fn live_room_definition_left_by(
+    world: &bevy_ecs::world::World,
+    subject: Option<&ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId>,
+) -> Option<LiveRoomDefinition> {
+    let Some(room) = subject.and_then(|subject| subject.room) else {
+        return sole_live_room_definition(world);
+    };
+    let mut roots = world.try_query_filtered::<
+        (
+            &ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
+            &LiveRoomDefinition,
+        ),
+        bevy_ecs::query::With<ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot>,
+    >()?;
+    roots
+        .iter(world)
+        .find(|(live, _)| **live == room)
+        .map(|(_, definition)| *definition)
 }
 
 /// The sole live room's definition, at an exclusive-world boundary. `None`

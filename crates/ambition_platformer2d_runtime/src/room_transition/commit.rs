@@ -145,7 +145,7 @@ pub struct RoomTransitionApplication<'w, 's> {
     definitions: Query<
         'w,
         's,
-        &'static world_rooms::LiveRoomDefinition,
+        (&'static world_rooms::LiveRoomInstance, &'static world_rooms::LiveRoomDefinition),
         With<ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot>,
     >,
     // ⛔⛤ **THE EFFECT CHANNELS ARE GONE FROM THIS PARAM, AND THEIR ABSENCE IS
@@ -219,10 +219,22 @@ impl RoomTransitionApplication<'_, '_> {
         self.session.iter().next()
     }
 
-    /// Which room of the set the sole live room is: the room a crossing
-    /// leaves. `None` with no live room or two (the one-live-room read).
-    pub fn live_definition(&self) -> Option<world_rooms::LiveRoomDefinition> {
-        self.definitions.single().ok().copied()
+    /// Which room of the set a crossing by `subject` leaves: the live room
+    /// the subject was recorded in (OW1 cut 6b). With no subject, or a
+    /// subject in no live room, the sole live room, and none when two are
+    /// live.
+    pub fn definition_left_by(
+        &self,
+        subject: Option<&ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId>,
+    ) -> Option<world_rooms::LiveRoomDefinition> {
+        match subject.and_then(|subject| subject.room) {
+            Some(room) => self
+                .definitions
+                .iter()
+                .find(|(live, _)| **live == room)
+                .map(|(_, definition)| *definition),
+            None => self.definitions.single().ok().map(|(_, definition)| *definition),
+        }
     }
 
     /// Resolve the EXACT body a transition recorded, or `None`.
@@ -903,9 +915,11 @@ pub fn commit_ready_room_transition_system(
         );
         return;
     };
-    // The room the crossing leaves is the live room's definition, not an
-    // index on the set (OW1 cut 5e).
-    let room_set_active = application.live_definition().map(|definition| definition.index());
+    // The room the crossing leaves: its subject's live room's definition
+    // (OW1 cut 6b), not an index on the set (5e).
+    let room_set_active = application
+        .definition_left_by(active.intent.subject())
+        .map(|definition| definition.index());
     let target_still_matches = room_set.rooms.get(active.target_room).is_some_and(|room| {
         room.id == active.target_room_id()
             && active

@@ -233,9 +233,6 @@ fn authorized_plan(
     let session_scope = world
         .get_resource::<ambition_platformer2d_shared_tangle::lifecycle::ActiveSessionScope>()
         .and_then(|scope| scope.current());
-    // The room a crossing leaves: the live room's definition (OW1 cut 5e).
-    let source_room = ambition_platformer2d_world::rooms::sole_live_room_definition(world)
-        .map(|definition| definition.index());
     let Some(state) = world
         .get_resource::<ambition_platformer2d_runtime::room_transition::RoomTransitionLoadState>()
     else {
@@ -283,6 +280,12 @@ fn authorized_plan(
     if session_scope != active.session_scope {
         return AuthorizedPlan::Wait;
     }
+    // The room a crossing leaves: its subject's live room (OW1 cut 6b).
+    let source_room = ambition_platformer2d_world::rooms::live_room_definition_left_by(
+        world,
+        active.intent.subject(),
+    )
+    .map(|definition| definition.index());
     if source_room != Some(active.source_room) {
         bevy::log::warn_once!(
             "the authorized room transition was prepared from room index {} and the \

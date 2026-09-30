@@ -293,11 +293,14 @@ fn smashs_presentation_and_limit_govern_only_smash_rooms() {
         table::<PortalViewConeMode>(&app).governing(ambition_platformer2d::combat::scoped_rules::ActiveRoom::live(smash)),
         Some(PortalViewConeMode::Static)
     );
-    for mode in [
-        None,
-        Some(ambition_app::app::versus::VERSUS_EXPERIENCE),
-        Some(ambition_demo_sanic::SANIC_MODE),
-        Some(ambition_demo_mary_o::MARY_O_MODE),
+    // Sanic states its own cones (`Static`) for its own rooms. That is
+    // Sanic's rule and not Smash's leaking, and the host's untagged rooms
+    // read no cone rule at all, so the host's configuration stands there.
+    for (mode, cones) in [
+        (None, None),
+        (Some(ambition_app::app::versus::VERSUS_EXPERIENCE), None),
+        (Some(ambition_demo_sanic::SANIC_MODE), Some(PortalViewConeMode::Static)),
+        (Some(ambition_demo_mary_o::MARY_O_MODE), None),
     ] {
         assert_eq!(
             (
@@ -305,8 +308,8 @@ fn smashs_presentation_and_limit_govern_only_smash_rooms() {
                 table::<PortalCameraTransitMode>(&app).governing(ambition_platformer2d::combat::scoped_rules::ActiveRoom::live(mode)),
                 table::<PortalViewConeMode>(&app).governing(ambition_platformer2d::combat::scoped_rules::ActiveRoom::live(mode)),
             ),
-            (None, None, None),
-            "rooms tagged {mode:?} read Smash's presentation or Limit"
+            (None, None, cones),
+            "rooms tagged {mode:?} read another game's presentation or Smash's Limit"
         );
     }
 }

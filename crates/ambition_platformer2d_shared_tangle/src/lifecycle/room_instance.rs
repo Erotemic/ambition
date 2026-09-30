@@ -186,6 +186,16 @@ impl TransactionRooms {
         mints: None,
     };
 
+    /// The world of a transaction that opens `mints` beside the live rooms
+    /// that stay: that room alone. No live room is replaced, so no other live
+    /// room's occupant is in it (OW1 cut 6c).
+    pub const fn opening(mints: LiveRoomInstance) -> Self {
+        Self {
+            replaces: Some(mints),
+            mints: Some(mints),
+        }
+    }
+
     /// The world of a transaction that replaces `replaces` and seats its
     /// candidates as `mints`.
     pub const fn replacing(replaces: LiveRoomInstance, mints: LiveRoomInstance) -> Self {

@@ -141,6 +141,18 @@ pub struct RoomTransitionApplication<'w, 's> {
         With<ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot>,
     >,
     subject_room: Query<'w, 's, &'static ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
+    /// The bodies players drive, and the live room each is in: a room a
+    /// crossing leaves stays live while another player's body is in it (OW1
+    /// cut 6c).
+    drivers: Query<
+        'w,
+        's,
+        (
+            Entity,
+            &'static ambition_characters::control::DrivingParticipant,
+            Option<&'static ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
+        ),
+    >,
     /// Which room of the set each live room is (OW1 cut 5e).
     definitions: Query<
         'w,
@@ -454,13 +466,30 @@ impl RoomTransitionApplication<'_, '_> {
         // The room this publication mints is the session's next, pinned now;
         // the verifier refuses it if another publication mints it first.
         let mints = self.session.iter().next().map(|rooms| rooms.next_live_room());
-        let succession = departing.zip(mints).map(|(replaces, mints)| {
-            ambition_platformer2d_actor_monolith::rooms::LiveRoomSuccession { replaces, mints }
+        // Whether another player's body stays in the room being left: then
+        // the crossing opens a live room and the room it leaves stays whole.
+        let another_player_stays = departing.is_some_and(|departing| {
+            another_player_stays(
+                subject,
+                departing,
+                self.drivers
+                    .iter()
+                    .map(|(entity, driver, room)| (entity, driver.0, room.map(|room| room.0))),
+            )
+        });
+        let succession = departing.zip(mints).map(|(leaves, mints)| {
+            ambition_platformer2d_actor_monolith::rooms::LiveRoomSuccession::for_crossing(
+                leaves,
+                mints,
+                another_player_stays,
+            )
         });
         let publication = plan.replace_live_world(
             &mut self.commands,
+            // A room that stays live retires nothing.
             self.room_visuals
                 .iter()
+                .filter(|_| !another_player_stays)
                 .filter(|(_, _, room)| {
                     ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance::leaves_with(
                         *room, departing,
@@ -771,6 +800,43 @@ impl TransitBodies<'_, '_> {
     ) -> Option<Entity> {
         self.live_bodies.entity_of(subject)
     }
+}
+
+/// Whether a crossing by `subject` out of live room `departing` leaves another
+/// player's body behind in it (OW1 cut 6c). `drivers` are the driven bodies:
+/// each entity, the slot that drives it and the live room it is in.
+///
+/// ⛔ ANOTHER PLAYER IS ANOTHER SLOT. The subject's own slot may be recorded
+/// on other bodies, and those do not keep a room live, so with one player the
+/// crossing always replaces the room it leaves, and the one-room profile
+/// never opens a second room.
+///
+/// ⛔ ONLY A PLAYER'S CROSSING OPENS A ROOM. A subject no slot drives (a
+/// body the session sends across) is not a player leaving another player:
+/// the session follows it and replaces the room, as before this cut.
+pub fn another_player_stays(
+    subject: Option<Entity>,
+    departing: world_rooms::LiveRoomInstance,
+    drivers: impl IntoIterator<
+        Item = (
+            Entity,
+            ambition_characters::control::PlayerSlot,
+            Option<world_rooms::LiveRoomInstance>,
+        ),
+    >,
+) -> bool {
+    let drivers: Vec<_> = drivers.into_iter().collect();
+    let Some((subject, subject_slot)) = subject.and_then(|subject| {
+        drivers
+            .iter()
+            .find(|(entity, ..)| *entity == subject)
+            .map(|(_, slot, _)| (subject, *slot))
+    }) else {
+        return false;
+    };
+    drivers.iter().any(|(entity, slot, room)| {
+        *entity != subject && *slot != subject_slot && *room == Some(departing)
+    })
 }
 
 /// Retire one eager-host transaction while leaving the still-authoritative
@@ -1374,4 +1440,45 @@ fn log_room_transition_landing(
         pos.y,
         world.blocks.len(),
     );
+}
+
+#[cfg(test)]
+mod another_player_tests {
+    use super::*;
+    use ambition_characters::control::PlayerSlot;
+
+    fn entity(index: u32) -> Entity {
+        Entity::from_raw_u32(index).expect("a test entity index")
+    }
+
+    /// OW1 cut 6c: a room a crossing leaves stays live only for ANOTHER
+    /// player. Alice (slot 0) crosses out of #0. Her possessed home body, also
+    /// slot 0, stays in #0 and does not keep it live: that is the one-room
+    /// profile. Bob (slot 1) in #0 keeps it live; Bob in #1 does not. A body
+    /// no slot drives crossing away from Bob does not keep #0 live: the
+    /// session follows it.
+    #[test]
+    fn a_room_stays_live_for_another_player_and_not_for_the_subjects_own_bodies() {
+        let first = world_rooms::LiveRoomInstance::ACTIVATION;
+        let second = first.next();
+        let (alice, home, bob) = (entity(1), entity(2), entity(3));
+        let alone = [(alice, PlayerSlot(0), Some(first)), (home, PlayerSlot(0), Some(first))];
+        assert!(
+            !another_player_stays(Some(alice), first, alone),
+            "control: the subject's own slot kept the room it leaves live"
+        );
+        let with_bob = |room| {
+            another_player_stays(
+                Some(alice),
+                first,
+                alone.into_iter().chain([(bob, PlayerSlot(1), Some(room))]),
+            )
+        };
+        assert!(with_bob(first), "another player's body in the room did not keep it live");
+        assert!(!with_bob(second), "another player's body in ANOTHER room kept this one live");
+        assert!(
+            !another_player_stays(Some(entity(4)), first, alone.into_iter().chain([(bob, PlayerSlot(1), Some(first))])),
+            "a body no slot drives opened a live room"
+        );
+    }
 }

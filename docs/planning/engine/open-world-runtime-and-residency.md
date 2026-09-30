@@ -259,7 +259,7 @@ and no fallback to "the live room".
 | 3 (3a ✅ 3b ✅ 3c ✅ 3d ✅) | Geometry, platforms and overlay move onto the instance root; `CollisionWorld` takes the instance | a body in `#1` collides with `#1`'s wall (in `#0` it passes) | the session-root geometry field, `MovingPlatformSet` as a resource |
 | 4 (4a ✅ 4b ✅) | Pairwise queries (contacts, hits, perception, projectile victims) keyed by instance | identical local positions in two instances never touch (one instance does) | unkeyed body-contact vectors |
 | 5 (5a ✅ 5b ✅ 5c ✅ 5d ✅ 5e ✅) | Live identity and room selection per instance; rollback rows instance-qualified; the save maps to a durable location key, never the ordinal | a second construction of one room in `#1` succeeds (a duplicate inside `#1` is still refused) | `RoomSet`'s private active index |
-| 6 (6a ✅ 6b ✅) | The Alice/Bob proof: two instances, two driven bodies; retiring `#1` leaves `#0` whole | the one-room profile runs the same systems | the sole-room reads on the crossing road |
+| 6 (6a ✅ 6b ✅ 6c ✅) | The Alice/Bob proof: two instances, two driven bodies; retiring `#1` leaves `#0` whole | the one-room profile runs the same systems | the sole-room reads on the crossing road |
 
 ✅ **Cut 1 landed 2026-09-29.** `LiveRoomInstance` moved down to
 `ambition_platformer2d_shared_tangle::lifecycle` beside the new
@@ -696,8 +696,37 @@ from the subject's room (5b). Witness:
 subject in #0, leaves `a`; a crossing with no subject leaves no room while
 two are live).
 
-⚠ Next in cut 6: drive a crossing end to end in a world with two live rooms
-and two driven bodies, and find the sole-room reads it still meets.
+✅ **Cut 6c landed 2026-09-30: a crossing opens a live room when another
+player stays.** Until now every crossing replaced the room it left, so the
+session never had a second live room unless a test built one. A publication's
+`LiveRoomSuccession` is now `Replace { replaces, mints }` or
+`Open { leaves, mints }`, and `for_crossing` decides: the crossing opens a
+room when another player's body (a different `DrivingParticipant` slot) is
+still in the room it leaves (`another_player_stays`). Only a driven
+subject opens a room: a body no slot drives (the d71 crossing body) is
+sent across by the session, which follows it and replaces the room as
+before. The subject's own slot does not count, so one player still has one
+live room. The first lane found the second rule: three app tests (the d71
+crossing body, and two possession crossings in `carried_item_crosses_rooms`)
+opened a room and then failed on the harness's sole-room read; with the
+rule, they pass unchanged. An opened room's transaction world
+is the minted room alone (`TransactionRooms::opening`): the room it leaves
+is not in its baseline, a body there is not superseded, and nothing is
+retired. Publication spawns a new live room root for it and moves only the
+crossing body and its custody closure (`InCustodyOf`) into it. Witnesses:
+`a_publication_that_opens_a_live_room_leaves_the_room_it_leaves_whole` (#0
+`n` with three bodies, one wearing the candidate's identity; opening #1
+leaves #0 `n` with all three, and #1 `candidate` with its occupant; the
+control, replacing #0, leaves one live room and nothing of #0), and
+`a_room_stays_live_for_another_player_and_not_for_the_subjects_own_bodies`
+(the decision). Both room roots wear the one `session:room_instance`
+identity (cut 5b scoped the baseline, so that is accepted), and a room that
+opened is never retired when its last player leaves: retiring an empty live
+room is owed.
+
+⚠ Next in cut 6 (6d): drive a crossing end to end in the app with two
+player slots, and find the sole-room reads it still meets (governing rules,
+mode scope, the session-wide rebase).
 
 ⚠ Still owed from cut 5: `outlook_for(room: &str)` is keyed by definition;
 the `SoleLiveRoomSpec` readers each need a subject before a second live room

@@ -1369,7 +1369,7 @@ mod tests {
     ) -> Option<super::transaction::LiveRoomSuccession> {
         replaces
             .zip(mints)
-            .map(|(replaces, mints)| super::transaction::LiveRoomSuccession { replaces, mints })
+            .map(|(replaces, mints)| super::transaction::LiveRoomSuccession::replacing(replaces, mints))
     }
 
     fn stage_the_candidate(app: &mut bevy::prelude::App, plan: RoomConstructionPlan, outgoing: Vec<Entity>) {
@@ -2215,7 +2215,7 @@ mod tests {
             &mut app,
             candidate_plan(),
             outgoing,
-            super::transaction::LiveRoomSuccession { replaces: first, mints: second },
+            super::transaction::LiveRoomSuccession::replacing(first, second),
         );
         let verification = app
             .world()
@@ -2298,6 +2298,82 @@ mod tests {
             after_publication(second),
             (true, true),
             "the publication did not publish, or took an occupant of another live room"
+        );
+    }
+
+    /// OW1 cut 6c: a publication that opens a live room leaves the room it
+    /// leaves whole.
+    ///
+    /// Live room #0 is room `n`. Two bodies stand in it, and a third wears the
+    /// identity the candidate authors. The subject opens #1 from #0 as the
+    /// candidate: #0 is still `n` with all three bodies in it, and #1 is
+    /// `candidate` with its occupant in it. The control replaces #0 with the
+    /// same candidate: one live room is left, its two bodies are retired and
+    /// the third is superseded. When "replace" was the only succession, as
+    /// before this cut, a crossing always retired the room it left.
+    #[test]
+    fn a_publication_that_opens_a_live_room_leaves_the_room_it_leaves_whole() {
+        use ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance;
+        use super::transaction::LiveRoomSuccession;
+        let first = LiveRoomInstance::ACTIVATION;
+        let second = first.next();
+        let authored = candidate_plan()
+            .features
+            .planned_sim_ids()
+            .into_iter()
+            .find(|id| id.as_str().contains("occupant"))
+            .expect("the candidate authors its occupant");
+        let occupant = authored.as_str().to_string();
+        let after_publication = |succession: LiveRoomSuccession| {
+            let platform = MovingPlatformState::from_authored(
+                ae::Vec2::new(10.0, 20.0),
+                ae::Vec2::new(32.0, 8.0),
+                64.0,
+                10.0,
+            );
+            let (mut app, outgoing) = last_good_world(platform);
+            for body in &outgoing {
+                app.world_mut().entity_mut(*body).insert(InRoomInstance(first));
+            }
+            app.world_mut()
+                .spawn((authored.clone(), RoomScopedEntity, InRoomInstance(first)));
+            // A room that stays live retires nothing, so the crossing that
+            // opens a room stages no outgoing roster.
+            let outgoing = match succession {
+                LiveRoomSuccession::Open { .. } => Vec::new(),
+                LiveRoomSuccession::Replace { .. } => outgoing,
+            };
+            stage_the_candidate_with(&mut app, candidate_plan(), outgoing, succession);
+            let published = app
+                .world()
+                .resource::<crate::world::rooms::LastConstructionVerification>()
+                .published;
+            let mut bodies = rooms_of_planned_roots(&mut app);
+            bodies.sort();
+            (published, live_room_definitions(&mut app), bodies)
+        };
+        assert_eq!(
+            after_publication(LiveRoomSuccession::replacing(first, second)),
+            (
+                true,
+                vec![(second, "candidate".to_string())],
+                vec![(occupant.clone(), Some(second))],
+            ),
+            "control: replacing the room did not retire it and everything in it"
+        );
+        assert_eq!(
+            after_publication(LiveRoomSuccession::opening(first, second)),
+            (
+                true,
+                vec![(first, "n".to_string()), (second, "candidate".to_string())],
+                vec![
+                    ("placement:n_body_a".to_string(), Some(first)),
+                    ("placement:n_body_b".to_string(), Some(first)),
+                    (occupant.clone(), Some(first)),
+                    (occupant.clone(), Some(second)),
+                ],
+            ),
+            "the publication that opens a live room did not leave the room it leaves whole"
         );
     }
 

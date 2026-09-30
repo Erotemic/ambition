@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v276
+ggrs-rollback-schema-v277
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -21,6 +21,7 @@ actor.body_envelope	component-canonical	BodyEnvelope	bevy_ggrs canonical codec s
 actor.body_melee	component-canonical	BodyMelee	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.body_mode	component-canonical	BodyModeState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.body_pose_clock	component-clone	BodyPoseClock	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
+actor.body_rig	component-clone	BodyRig	bevy_ggrs clone snapshot; not in the session checksum
 actor.brain	component-clone-cursor	Brain	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
 actor.brain_binding	component-canonical	BrainBinding	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.centered_aabb	component-canonical	CenteredAabb	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
@@ -159,6 +160,7 @@ derived.body_contact_snapshot	derived	BodyContactSnapshot	cleared and refilled f
 derived.body_environment_contact	derived	BodyEnvironmentContact	rewritten every movement step from body geometry and the live world
 derived.body_motion_facts	derived	BodyMotionFacts	republished from MotionModel every movement step
 derived.body_pose_view	derived	BodyPoseView	SimView projection rebuilt every tick
+derived.body_rig_pose	derived	BodyRigPose	resolved from BodyRig plus the move and pose clocks each tick, before any consumer
 derived.boss_animation_frame_sample	derived	BossAnimationFrameSample	republished every tick by drive_boss_animators from the rewound BossAnimFrame cursor
 derived.class_b_remap_log	derived	ClassBRemapLog	frame-local diagnostic ledger cleared before every simulation step
 derived.cleared_encounters	derived	ClearedEncounters	which encounters are cleared this tick; rebuilt from the lifecycles after the reducer

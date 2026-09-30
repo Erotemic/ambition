@@ -64,3 +64,33 @@ fn the_shipped_demo_admits_no_rig() {
         "the shipped demo built Mary-O with a body rig it does not admit"
     );
 }
+
+/// The pose is solved in the SIMULATION, from the clocks: a rigged body that
+/// has run ticks carries a resolved pose — every joint and every attachment —
+/// with no renderer in the app.
+#[test]
+fn an_admitted_rig_is_posed_by_the_simulation() {
+    use ambition_platformer2d::combat::body_rig::BodyRigPose;
+    let mut app = build_demo_app_with_body_rigs();
+    let mut resolved = None;
+    for _ in 0..600 {
+        app.update();
+        let mut players = app
+            .world_mut()
+            .query_filtered::<(&BodyRig, &BodyRigPose), With<PrimaryPlayer>>();
+        if let Ok((rig, pose)) = players.single(app.world()) {
+            if pose.clip.is_some() {
+                resolved = Some((rig.clone(), pose.clone()));
+                break;
+            }
+        }
+    }
+    let (rig, pose) = resolved.expect("Mary-O's rig was never posed by the simulation");
+    assert_eq!(pose.joints.len(), rig.0.joint_names().len());
+    assert_eq!(pose.attachments.len(), rig.0.attachments().len());
+    let head = pose.attachment(&rig.0, HEAD).expect("a posed head");
+    let hand = pose.attachment(&rig.0, HAND_NEAR).expect("a posed hand");
+    // Rig space is feet-origin, +y down: the head is above the feet and above
+    // the hand of a body standing on the ground.
+    assert!(head.y < 0.0 && head.y < hand.y, "head {head:?}, hand {hand:?}");
+}

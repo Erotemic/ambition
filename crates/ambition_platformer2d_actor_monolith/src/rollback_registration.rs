@@ -348,6 +348,13 @@ where
         OWNER,
         "actor.authored_hurtboxes",
     );
+    // Presence follows the worn character, exactly as the authored hurtboxes
+    // do: a restore across a re-wear must bring back the rig the restored
+    // character granted. The value is a shared `Arc`, so a clone is cheap.
+    registrar.rollback_component_clone::<ambition_combat::body_rig::BodyRig>(
+        OWNER,
+        "actor.body_rig",
+    );
     registrar.rollback_component_clone::<crate::features::PickupCollectLock>(
         OWNER,
         "feature.pickup_collect_lock",
@@ -539,6 +546,11 @@ where
         OWNER,
         "derived.resolved_hurtboxes",
         "recomputed from AuthoredHurtboxes plus the move and pose clocks each tick",
+    );
+    registrar.declare_rollback_derived_component::<ambition_combat::body_rig::BodyRigPose>(
+        OWNER,
+        "derived.body_rig_pose",
+        "resolved from BodyRig plus the move and pose clocks each tick, before any consumer",
     );
     registrar.declare_rollback_derived_resource::<crate::features::ActorDecisionFacts>(
         OWNER,

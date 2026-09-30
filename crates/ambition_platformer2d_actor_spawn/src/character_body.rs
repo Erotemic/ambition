@@ -33,6 +33,8 @@ pub struct ProjectedCharacterKit {
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct GrantedBodyFacts {
     pub hurtboxes: bool,
+    /// The character's semantic rig and the pose resolved from it.
+    pub body_rig: bool,
     pub movement_tuning: bool,
     /// A sprite-authored body: the posed-body marker AND the standing geometry
     /// granted with it, carrying what that geometry displaced.
@@ -72,6 +74,7 @@ impl GrantedBodyFacts {
     ) -> Self {
         Self {
             hurtboxes: prepared.hurtboxes.is_some(),
+            body_rig: prepared.body_rig.is_some(),
             movement_tuning: movement_tuning.is_some(),
             // Filled by the grant's capture edit, which reads the body.
             posed_body: posed_body_for(prepared).map(|_| DisplacedGeometry::default()),
@@ -108,6 +111,7 @@ impl GrantedBodyFacts {
         // Exhaustive on purpose: a new fact does not compile until it is handled.
         let Self {
             hurtboxes,
+            body_rig,
             movement_tuning,
             posed_body,
             unmirrored,
@@ -121,6 +125,12 @@ impl GrantedBodyFacts {
         }
         if hurtboxes {
             scope.remove::<ambition_combat::hurtbox_resolution::AuthoredHurtboxes>();
+        }
+        if body_rig {
+            scope.remove::<(
+                ambition_combat::body_rig::BodyRig,
+                ambition_combat::body_rig::BodyRigPose,
+            )>();
         }
         if movement_tuning {
             scope.remove::<ambition_platformer2d_core::AuthoredMovementTuning>();
@@ -345,6 +355,15 @@ pub fn grant_prepared_character_body(
                 ambition_combat::hurtbox_resolution::AuthoredHurtboxes(hurtboxes),
                 ambition_combat::hurtbox_resolution::ResolvedHurtboxes::default(),
                 ambition_combat::components::DamageableVolumes::default(),
+            ));
+        }
+        // THE SEMANTIC RIG, in the same batch, so no tick exists on which the
+        // body is built and its hands and head are not. The pose starts empty
+        // and the simulation resolves it before anything reads it.
+        if let Some(rig) = prepared.body_rig.clone() {
+            scope.insert((
+                ambition_combat::body_rig::BodyRig(rig),
+                ambition_combat::body_rig::BodyRigPose::default(),
             ));
         }
         // THE AUTHORED BODY, which had no consumer at all.

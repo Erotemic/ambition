@@ -317,13 +317,20 @@ pub mod content {
 
             let pack = self.pack.prepared();
             let catalog = self.fragment.catalog();
+            let rigs_admitted =
+                ambition_characters::actor::BodyRigAdmission::of(app.world()).admit;
             let characters: Vec<_> = catalog
                 .characters
                 .iter()
                 .map(|(id, row)| {
                     let scale = ambition_character_sprites::posed_body_world_per_pixel(catalog, id);
                     let hurtboxes = ambition_character_sprites::posed_body_inset_hurtboxes(catalog, id);
-                    (id.clone(), row.display_name.clone(), scale, hurtboxes)
+                    // Only where the composition admits rigs: see
+                    // `BodyRigAdmission` for why the answer is read here.
+                    let body_rig = rigs_admitted
+                        .then(|| ambition_character_sprites::published_body_rig(catalog, id))
+                        .flatten();
+                    (id.clone(), row.display_name.clone(), scale, hurtboxes, body_rig)
                 })
                 .collect();
             // A carried component for a character the pack does not state
@@ -338,7 +345,7 @@ pub mod content {
                 );
             }
             app.register_character_catalog_fragment(self.fragment);
-            for (id, display_name, posed_body_scale, inset_hurtboxes) in characters {
+            for (id, display_name, posed_body_scale, inset_hurtboxes, body_rig) in characters {
                 // The sheet, the grants, the feel, the health, the gait, the
                 // contact damage and the policy come from the catalog row at
                 // preparation, so the definition names only what the row
@@ -356,6 +363,9 @@ pub mod content {
                 // Built on that body, so it too is asked of the sheet here.
                 if let Some(doc) = inset_hurtboxes {
                     definition = definition.with_hurtboxes(doc);
+                }
+                if let Some(rig) = body_rig {
+                    definition = definition.with_body_rig(rig);
                 }
                 // The move table and every other facet the pack authors for
                 // this character, each folded by the capability that owns it.

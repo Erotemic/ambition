@@ -191,6 +191,8 @@ fn a_definition_carries_no_controller_binding() {
         portrait: _,
         body: _,
         hurtboxes: _,
+        // Where a hand or a head IS on this body — articulated geometry.
+        body_rig: _,
         vitals: _,
         // What the body does when it DIES — a property of the creature, and one
         // no controller changes. A possessed mite still splits.

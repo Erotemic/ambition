@@ -20,7 +20,7 @@ pub use attack_hitbox::{
 };
 pub use posed_body::{
     PosedBodyGeometry, authored_body_pixel_size, posed_body_geometry, posed_body_inset_hurtboxes,
-    posed_body_world_per_pixel,
+    posed_body_world_per_pixel, published_body_rig,
     sync_sprite_posed_bodies,
 };
 

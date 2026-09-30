@@ -698,6 +698,91 @@ fn a_character_that_stops_authoring_hurtboxes_has_them_retracted() {
     );
 }
 
+/// A one-joint rig with one clip, enough to be granted and retracted.
+fn one_joint_rig() -> ambition_characters::actor::BodyRigDefinition {
+    use ambition_characters::actor::body_rig::{JointPose, RigClip, RigJoint};
+    ambition_characters::actor::BodyRigDefinition {
+        joints: vec![RigJoint {
+            name: "torso".to_string(),
+            parent: None,
+        }],
+        attachments: Vec::new(),
+        hurt_parts: Vec::new(),
+        clips: std::collections::BTreeMap::from([(
+            "idle".to_string(),
+            RigClip {
+                looping: true,
+                frame_duration_s: 0.1,
+                frames: vec![vec![JointPose {
+                    translation: (0.0, -10.0),
+                    rotation: 0.0,
+                    scale: (1.0, 1.0),
+                }]],
+            },
+        )]),
+    }
+}
+
+/// The rig is granted with the body and retracted with the character that
+/// granted it: a body that changes to a character with no rig keeps no hands,
+/// head or hurt parts from the one it wore before.
+#[test]
+fn a_character_that_stops_authoring_a_body_rig_has_it_retracted() {
+    let mut app = session_app();
+    app.register_character(
+        CharacterDefinition::new("jointed", "Jointed", "demo").with_body_rig(one_joint_rig()),
+    );
+    let body = app
+        .world_mut()
+        .spawn(ambition_characters::actor::WornCharacter::new("jointed"))
+        .id();
+    settle(&mut app);
+    let rig = app
+        .world()
+        .get::<ambition_combat::body_rig::BodyRig>(body)
+        .expect("the cast must grant the rig at all");
+    assert_eq!(rig.0.joint_names(), ["torso"]);
+    assert!(app.world().get::<ambition_combat::body_rig::BodyRigPose>(body).is_some());
+
+    let stripped = crate::character_runtime::prepare_and_finalize_for_test(
+        CharacterDefinition::new("jointed", "Jointed", "demo"),
+        &ambition_characters::prepared::CharacterBindings::default(),
+    )
+    .prepared;
+    app.world_mut()
+        .resource_mut::<PreparedCharacterRegistry>()
+        .insert_prepared(stripped);
+    settle(&mut app);
+
+    assert!(
+        app.world().get::<ambition_combat::body_rig::BodyRig>(body).is_none()
+            && app.world().get::<ambition_combat::body_rig::BodyRigPose>(body).is_none(),
+        "the body kept the retired character's rig after the new cast stopped granting one"
+    );
+}
+
+/// A rig that does not validate is reported on the prepared definition and not
+/// granted: the body is built without articulated geometry rather than with a
+/// rig nothing can solve.
+#[test]
+fn a_malformed_body_rig_is_reported_and_not_granted() {
+    let mut broken = one_joint_rig();
+    broken.joints[0].parent = Some("pelvis".to_string());
+    let prepared = crate::character_runtime::prepare_and_finalize_for_test(
+        CharacterDefinition::new("broken", "Broken", "demo").with_body_rig(broken),
+        &ambition_characters::prepared::CharacterBindings::default(),
+    )
+    .prepared;
+    assert!(prepared.body_rig.is_none());
+    let unresolved: Vec<&str> = prepared.unresolved_references().collect();
+    assert!(
+        unresolved
+            .iter()
+            .any(|line| line.contains("body rig") && line.contains("pelvis")),
+        "the refusal must name the rig and the bad reference: {unresolved:?}"
+    );
+}
+
 /// `CharacterDefinition.body` has existed since §4.11 with no consumer anywhere
 /// in the repository: a provider could author `SpriteAuthored { world_per_pixel }`
 /// and receive a body of some other size entirely. `SpritePosedBody` — which

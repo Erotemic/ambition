@@ -807,6 +807,12 @@ unknown = sorted({n for n in names if n not in report.targets})
 if unknown:
     for name in unknown:
         print(f"publish roster names an unregistered target: {name}", file=sys.stderr)
+        # Discovery records a target module that fails to import as a
+        # warning, not an error. Without the warning, a broken module reads
+        # as a missing one.
+        for warning in report.warnings:
+            if name in warning:
+                print(f"  discovery: {warning}", file=sys.stderr)
     print("Run ./scripts/regen/sprites.sh --list to see registered targets.", file=sys.stderr)
     raise SystemExit(2)
 

@@ -48,7 +48,7 @@ use ambition_platformer2d::persistence::save_data::PersistedEncounterState;
 use ambition_platformer2d::platformer::markers::PrimaryPlayerOnly;
 use bevy::prelude::World;
 
-const MOCKINGBIRD_TRACK: &str = "how_to_kill_a_mockingbird";
+pub(crate) const MOCKINGBIRD_TRACK: &str = "how_to_kill_a_mockingbird";
 
 fn player_pos(world: &mut World) -> (f32, f32) {
     let mut q = world.query_filtered::<&BodyKinematics, PrimaryPlayerOnly>();
@@ -93,7 +93,7 @@ pub(crate) fn spawn_mockingbird(sim: &mut Platformer2dSimHarness, runtime_id: &s
 /// `Dormant | Intro | Transition | Death`, so a hit on frame 1 is rejected
 /// however large it is (measured 2026-09-03: 9,999 damage during Intro did
 /// nothing). Killable phases are `Phase1`, `Phase2`, `Enrage`, `Stagger`.
-fn force_kill_boss(sim: &mut Platformer2dSimHarness, runtime_id: &str) {
+pub(crate) fn force_kill_boss(sim: &mut Platformer2dSimHarness, runtime_id: &str) {
     let world = sim.world_mut();
     let mut q = world.query::<(
         &BossConfig,
@@ -241,7 +241,7 @@ fn ground_item_specs(world: &mut World) -> Vec<String> {
     q.iter(world).map(|item| item.spec.id.to_string()).collect()
 }
 
-fn music_track(sim: &Platformer2dSimHarness) -> Option<String> {
+pub(crate) fn music_track(sim: &Platformer2dSimHarness) -> Option<String> {
     ambition_platformer2d::platformer::lifecycle::session_world_component::<EncounterMusicRequest>(
         sim.world(),
     )
@@ -252,7 +252,7 @@ fn music_track(sim: &Platformer2dSimHarness) -> Option<String> {
 
 /// R4: "cleared" is keyed by the boss PLACEMENT id (its runtime/LDtk id), not
 /// the archetype.
-fn boss_cleared(sim: &Platformer2dSimHarness, placement_id: &str) -> bool {
+pub(crate) fn boss_cleared(sim: &Platformer2dSimHarness, placement_id: &str) -> bool {
     matches!(
         sim.world()
             .resource::<AmbitionGameSave>()

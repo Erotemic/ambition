@@ -833,12 +833,21 @@ impl Platformer2dSimHarness {
     /// staged into one room and re-staging the same id is refused rather than
     /// silently doubling the room's population.
     fn stage_actor(&mut self, request: SpawnActorRequest) {
-        let room_id = ambition_platformer2d::world::rooms::sole_live_room_spec(self.app.world())
+        // The room the actor is content of: the primary player's own live
+        // room. With two live rooms, "the" live room is not a fact (OW1 cut
+        // 7e); with none stamped, the sole live room.
+        let world = self.app.world_mut();
+        let player = world
+            .query_filtered::<Entity, PrimaryPlayerOnly>()
+            .single(world)
+            .ok();
+        let room_id = player
+            .and_then(|player| ambition_platformer2d::world::rooms::live_room_spec_of(world, player))
+            .or_else(|| ambition_platformer2d::world::rooms::sole_live_room_spec(world))
             .expect("the session's live room")
             .id
             .clone();
         let staged = request.clone();
-        let world = self.app.world_mut();
         if let Some(mut registry) =
             world.get_resource_mut::<ambition_platformer2d::actor::RoomContentStagingRegistry>()
         {

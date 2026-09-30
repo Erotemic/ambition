@@ -298,3 +298,58 @@ fn a_crossing_is_the_participant_it_was_accepted_for_when_it_joins_a_room() {
         "a crossing that lost its slot before it committed did not join the live room Bob holds"
     );
 }
+
+/// OW1 cut 7e: a boss in one of two live rooms fights, dies and drops its
+/// reward chest in its own room. Alice is in the hub (#1) and Bob in
+/// `switch_lab` (#0); a mockingbird stands with Alice in #1. It wakes and
+/// its fight music plays; killed, it is recorded cleared and its chest
+/// stands in #1. The boss driver read the sole live room, so while two rooms
+/// were live it did not run: no boss woke, died or dropped anything, in
+/// either room. The control is the one-room fight,
+/// `defeated_boss_is_recorded_cleared_drops_reward_and_clears_music`.
+#[cfg(feature = "rl_sim")]
+#[test]
+fn a_boss_in_one_of_two_live_rooms_fights_and_drops_its_chest_in_its_own_room() {
+    use crate::boss_lifecycle::{boss_cleared, force_kill_boss, music_track, spawn_mockingbird, MOCKINGBIRD_TRACK};
+    const BOSS: &str = "ow1_boss";
+    let (mut sim, first) = alice_leaves_bob(Some(ambition_platformer2d::characters::control::PlayerSlot(1)));
+    let second = first.next();
+    assert_eq!(live_rooms(&mut sim).len(), 2, "precondition: two rooms are not live");
+    spawn_mockingbird(&mut sim, BOSS);
+    sim.step(base());
+    {
+        let world = sim.world_mut();
+        let boss = world
+            .query::<(bevy::prelude::Entity, &ambition_platformer2d::boss_encounter::BossConfig)>()
+            .iter(world)
+            .find(|(_, config)| config.id == BOSS)
+            .map(|(entity, _)| entity)
+            .expect("the boss reached the world");
+        world.entity_mut(boss).insert(InRoomInstance(second));
+    }
+    for _ in 0..15 {
+        sim.step(base());
+    }
+    assert_eq!(
+        music_track(&sim).as_deref(),
+        Some(MOCKINGBIRD_TRACK),
+        "the boss in #1 did not wake while two rooms are live"
+    );
+    force_kill_boss(&mut sim, BOSS);
+    for _ in 0..200 {
+        sim.step(base());
+    }
+    let chests: Vec<_> = {
+        let world = sim.world_mut();
+        world
+            .query_filtered::<Option<&InRoomInstance>, bevy::prelude::With<ambition_platformer2d::combat::components::BossRewardChest>>()
+            .iter(world)
+            .map(|room| room.map(|room| room.0))
+            .collect()
+    };
+    assert_eq!(
+        (boss_cleared(&sim, BOSS), chests, music_track(&sim)),
+        (true, vec![Some(second)], None),
+        "the boss in #1 was not recorded cleared with one chest in its own room and its music released"
+    );
+}

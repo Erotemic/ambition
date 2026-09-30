@@ -140,6 +140,11 @@ impl<T: Component> LiveRoomOf<'_, '_, T> {
         self.in_room(self.live.of(entity)?)
     }
 
+    /// The live room `entity` is in, by the rule [`Self::of`] reads `T` with.
+    pub fn room_of(&self, entity: Entity) -> Option<LiveRoomInstance> {
+        self.live.of(entity)
+    }
+
     /// `T` of live room `room`.
     pub fn in_room(&self, room: LiveRoomInstance) -> Option<&T> {
         self.roots

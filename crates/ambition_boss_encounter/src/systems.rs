@@ -2,7 +2,7 @@
 //!
 //! `populate_boss_encounter_registry` (startup) loads the read-only profile
 //! catalog. `update_boss_encounters` (per sim tick) seeds and wakes bosses in
-//! the active room, ticks each phase machine, publishes events, mirrors phase
+//! every live room, ticks each phase machine, publishes events, mirrors phase
 //! HP/phase onto the boss ECS clusters, manages the adaptive-music request, and
 //! syncs reward chests. `boss_phase_transition_feedback` consumes the
 //! `BossPhaseChanged` edge that driver announces and fires camera shake, a
@@ -70,7 +70,10 @@ pub fn update_boss_encounters(
     >,
     mut quests: ResMut<QuestRegistry>,
     mut cutscene_queue: ResMut<CutsceneTriggerQueue>,
-    world: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<
+    // The geometry of each boss's own live room, where its reward chest
+    // settles. A sole-room read here stopped every boss, in every room, while
+    // two rooms were live (OW1 cut 7e).
+    geometry: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomOf<
         ambition_platformer2d_core::RoomGeometry,
     >,
     active_session: Option<Res<ambition_platformer2d_shared_tangle::lifecycle::ActiveSessionScope>>,
@@ -114,10 +117,15 @@ pub fn update_boss_encounters(
     let dt = world_time.sim_dt();
 
     // Active-fight music track (first fighting boss wins) and reward anchors,
-    // collected per boss. Anchors are (placement_id, archetype_id, spawn):
-    // "cleared" and rewards are keyed by placement.
+    // collected per boss and grouped by the boss's live room. Anchors are
+    // (placement_id, archetype_id, spawn): "cleared" and rewards are keyed by
+    // placement. The music is still one track for the session: a view per
+    // player is P5.
     let mut active_music_track: Option<String> = None;
-    let mut boss_anchors: Vec<(String, String, ae::Vec2)> = Vec::new();
+    let mut boss_anchors: std::collections::BTreeMap<
+        ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
+        Vec<(String, String, ae::Vec2)>,
+    > = std::collections::BTreeMap::new();
 
     for (boss_entity, _feature_id, mut feature, mut health, mut combat, overrides) in &mut bosses {
         let archetype_id = feature.config.behavior.id.clone();
@@ -269,11 +277,14 @@ pub fn update_boss_encounters(
                 }
             }
         }
-        boss_anchors.push((
-            runtime_id.clone(),
-            archetype_id.clone(),
-            feature.config.spawn,
-        ));
+        // A boss in no live room drops nothing: no room is simulated there.
+        if let Some(room) = geometry.room_of(boss_entity) {
+            boss_anchors.entry(room).or_default().push((
+                runtime_id.clone(),
+                archetype_id.clone(),
+                feature.config.spawn,
+            ));
+        }
     }
 
     // Music-request lifetime: keep the active boss's track up; clear it when
@@ -290,15 +301,21 @@ pub fn update_boss_encounters(
         None => music_request.release_priority(BOSS_MUSIC_OWNER),
     }
 
-    crate::sync_boss_reward_chests_ecs(
-        &mut commands,
-        session_scope,
-        save.data(),
-        &registry,
-        &world.0,
-        &boss_anchors,
-        &reward_chests,
-    );
+    // Each live room's chests, in that room and on its floor.
+    for (room, anchors) in &boss_anchors {
+        let Some(world) = geometry.in_room(*room) else {
+            continue;
+        };
+        crate::sync_boss_reward_chests_ecs(
+            &mut commands,
+            session_scope.in_room(Some(*room)),
+            save.data(),
+            &registry,
+            &world.0,
+            anchors,
+            &reward_chests,
+        );
+    }
 }
 
 /// Feed [`MountDied`](ambition_platformer2d_shared_tangle::body::MountDied)

@@ -813,7 +813,7 @@ room. After 6d that is the Alice/Bob world. The measured list of simulation
 systems it stops (read from the parameter lists, 2026-09-30):
 `step_item_motion` ✅, `update_ecs_falling_chests` ✅,
 `prepare_authored_switch_commands` ✅ (7b), `drive_wave_encounters` ✅ (7c),
-`update_boss_encounters`, `heal_save_shrine_system` ✅ (7d),
+`update_boss_encounters` ✅ (7e), `heal_save_shrine_system` ✅ (7d),
 `sync_encounter_reward_chests` ✅ (7d), `retire_rewards_for_rearmed_encounters` ✅ (7c),
 `record_placed_ground_items` ✅ (7d), `physics_spawn_debris_messages` and
 `tick_npc_idle_barks`, and the content bosses (`cut_rope`, `gnu_ton`). The
@@ -881,6 +881,21 @@ filter, first definition), each failed on its own assertion: no chest in
 chest sync finds an existing chest by encounter id across rooms. That is
 sound while two live rooms never instantiate one room, which the Join of
 cut 6e keeps.
+
+✅ **Cut 7e landed 2026-09-30: a boss fights and drops its chest in its
+own live room.** The boss driver read the sole live room's geometry for
+its reward chest, so while two rooms were live no boss woke, fought, died
+or dropped a chest, in either room. It now reads each boss's own room
+(`LiveRoomOf::room_of`), and each room's cleared bosses drop their chests
+in that room, on its floor, stamped into it. The sim harness staged a
+scenario actor into "the" live room, and panicked with two. It now stages
+into the primary player's own live room. Witness:
+`a_boss_in_one_of_two_live_rooms_fights_and_drops_its_chest_in_its_own_room`
+(Alice in #1 with a mockingbird, Bob in #0: the boss wakes and its music
+plays, and killed, it is recorded cleared, with one chest in #1). With the
+old driver restored, the boss did not wake. The control is the one-room
+fight in `boss_lifecycle`. ⚠ The boss music is still one track for the
+session: the first boss fighting in any room is heard by both players (P5).
 
 ⚠ Still owed from cut 5: `outlook_for(room: &str)` is keyed by definition;
 the `SoleLiveRoomSpec` readers each need a subject before a second live room

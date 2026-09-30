@@ -91,13 +91,15 @@ fn every_hall_body_is_provoked_into_its_policy_or_stays_peaceful() {
     };
 
     let player = {
-        let mut q = sim.world_mut().query_filtered::<&SimId, PrimaryPlayerOnly>();
-        q.single(sim.world()).cloned().expect("one primary body")
+        let mut q = sim.world_mut().query_filtered::<Entity, PrimaryPlayerOnly>();
+        let player = q.single(sim.world()).expect("one primary body");
+        ambition_platformer2d::platformer::lifecycle::LiveBodyId::of_entity(sim.world(), player).expect("the primary body has a SimId")
     };
-    for (_, target, ..) in &bodies {
+    for (entity, ..) in &bodies {
+        let target = ambition_platformer2d::platformer::lifecycle::LiveBodyId::of_entity(sim.world(), *entity).expect("a placed body has a SimId");
         sim.world_mut()
             .write_message(ambition_platformer2d::actors::features::ChallengeRequested {
-                target: target.clone(),
+                target,
                 challenger: Some(player.clone()),
             });
     }

@@ -93,7 +93,9 @@ pub fn detect_room_transition_system(
     // The triggering body's rollback-stable identity, recorded into the deferred transition so
     // the confirmed commit transports the body that CROSSED the exit — not whatever is
     // controlled later, after a possession change.
-    sim_ids: Query<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
+    // Its live identity: the stable id in the live room it crosses from, so
+    // the commit finds this body and not another instance's with the same id.
+    sim_ids: ambition_platformer2d_shared_tangle::lifecycle::LiveBodies,
     // Track B: under a rollback host, defer the transition instead of engaging the
     // (not-rollback-registered) multi-tick load machine on a speculative frame.
     boundary: Option<Res<ae::ConfirmedFrameBoundary>>,
@@ -208,7 +210,7 @@ pub fn detect_room_transition_system(
     // Two descriptions of one crossing that disagreed about the body is exactly the fork exists
     // to close, so the refusal below is now universal: a body we cannot name is a crossing we
     // cannot describe, on any host.
-    let Ok(subject) = sim_ids.get(subject_entity) else {
+    let Some(subject) = sim_ids.id_of(subject_entity) else {
         bevy::log::error_once!(
             "transition subject {:?} has no SimId; refusing an ambiguous crossing",
             subject_entity

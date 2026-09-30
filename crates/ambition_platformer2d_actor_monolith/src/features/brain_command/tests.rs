@@ -10,6 +10,7 @@ use ambition_characters::brain::{Brain, StateMachineCfg};
 use ambition_characters::control::{DrivingParticipant, PlayerSlot};
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
+use ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId;
 use bevy::ecs::message::Messages;
 
 const CATALOG: &str = r#"(
@@ -93,7 +94,7 @@ fn use_preset_replaces_the_live_brain() {
 
     send(
         &mut app,
-        BrainCommand::use_preset(SimId::placement("puppy"), "melee_brute_striker"),
+        BrainCommand::use_preset(LiveBodyId::new(SimId::placement("puppy"), None), "melee_brute_striker"),
     );
     app.update();
 
@@ -112,14 +113,14 @@ fn restore_default_rebuilds_a_fresh_default_brain() {
 
     send(
         &mut app,
-        BrainCommand::use_preset(SimId::placement("puppy"), "stand_still"),
+        BrainCommand::use_preset(LiveBodyId::new(SimId::placement("puppy"), None), "stand_still"),
     );
     app.update();
     assert_eq!(app.world().get::<Brain>(e).unwrap().label(), "stand_still");
 
     send(
         &mut app,
-        BrainCommand::restore_default(SimId::placement("puppy")),
+        BrainCommand::restore_default(LiveBodyId::new(SimId::placement("puppy"), None)),
     );
     app.update();
 
@@ -141,7 +142,7 @@ fn restore_default_uses_the_authored_home_not_the_current_pose() {
 
     send(
         &mut app,
-        BrainCommand::restore_default(SimId::placement("wanderer")),
+        BrainCommand::restore_default(LiveBodyId::new(SimId::placement("wanderer"), None)),
     );
     app.update();
 
@@ -164,7 +165,7 @@ fn a_brain_switch_replays_deterministically() {
         let e = spawn_npc(&mut app, "puppy", "npc_puppy_slug", 100.0);
         send(
             &mut app,
-            BrainCommand::use_preset(SimId::placement("puppy"), "melee_brute_striker"),
+            BrainCommand::use_preset(LiveBodyId::new(SimId::placement("puppy"), None), "melee_brute_striker"),
         );
         app.update();
         (
@@ -182,7 +183,7 @@ fn a_command_only_touches_its_target() {
     let e = spawn_npc(&mut app, "puppy", "npc_puppy_slug", 100.0);
     send(
         &mut app,
-        BrainCommand::use_preset(SimId::placement("someone_else"), "stand_still"),
+        BrainCommand::use_preset(LiveBodyId::new(SimId::placement("someone_else"), None), "stand_still"),
     );
     app.update();
     assert_eq!(app.world().get::<Brain>(e).unwrap().label(), "wanderer");
@@ -196,7 +197,7 @@ fn an_unknown_preset_is_rejected() {
     let e = spawn_npc(&mut app, "puppy", "npc_puppy_slug", 100.0);
     send(
         &mut app,
-        BrainCommand::use_preset(SimId::placement("puppy"), "no_such_preset"),
+        BrainCommand::use_preset(LiveBodyId::new(SimId::placement("puppy"), None), "no_such_preset"),
     );
     app.update();
     assert_eq!(
@@ -246,7 +247,7 @@ fn a_driven_body_applies_a_brain_command_live_because_nothing_displaced_its_poli
 
     send(
         &mut app,
-        BrainCommand::use_preset(SimId::placement("possessed"), "stand_still"),
+        BrainCommand::use_preset(LiveBodyId::new(SimId::placement("possessed"), None), "stand_still"),
     );
     app.update();
 
@@ -283,7 +284,7 @@ fn a_binding_without_its_authored_home_is_rejected_not_rehomed() {
 
     send(
         &mut app,
-        BrainCommand::use_preset(SimId::placement("stray"), "stand_still"),
+        BrainCommand::use_preset(LiveBodyId::new(SimId::placement("stray"), None), "stand_still"),
     );
     app.update();
 
@@ -317,7 +318,7 @@ fn a_mount_controlled_body_updates_its_source_not_its_control() {
 
     send(
         &mut app,
-        BrainCommand::use_preset(SimId::placement("rider"), "stand_still"),
+        BrainCommand::use_preset(LiveBodyId::new(SimId::placement("rider"), None), "stand_still"),
     );
     app.update();
 
@@ -347,7 +348,7 @@ fn a_carried_rider_switches_live_because_the_ride_masks_nothing() {
 
     send(
         &mut app,
-        BrainCommand::use_preset(SimId::placement("rider"), "stand_still"),
+        BrainCommand::use_preset(LiveBodyId::new(SimId::placement("rider"), None), "stand_still"),
     );
     app.update();
 
@@ -412,7 +413,7 @@ fn release_provocation_pacifies_and_restores_default() {
     }
     send(
         &mut app,
-        BrainCommand::use_preset(SimId::placement("hall_npc"), "melee_brute_striker"),
+        BrainCommand::use_preset(LiveBodyId::new(SimId::placement("hall_npc"), None), "melee_brute_striker"),
     );
     app.update();
     assert_eq!(app.world().get::<Brain>(e).unwrap().label(), "melee_brute");
@@ -420,7 +421,7 @@ fn release_provocation_pacifies_and_restores_default() {
     // "You are free".
     app.world_mut()
         .resource_mut::<Messages<ReleaseProvocation>>()
-        .write(ReleaseProvocation::new(SimId::placement("hall_npc")));
+        .write(ReleaseProvocation::new(LiveBodyId::new(SimId::placement("hall_npc"), None)));
     app.update();
 
     assert!(
@@ -587,7 +588,7 @@ fn a_released_character_returns_to_its_own_policy_not_the_provoked_one() {
 
     send(
         &mut app,
-        BrainCommand::restore_default(SimId::placement("villager")),
+        BrainCommand::restore_default(LiveBodyId::new(SimId::placement("villager"), None)),
     );
     app.update();
 
@@ -628,7 +629,7 @@ fn releasing_a_character_first_body_leaves_the_body_its_character_built() {
 
     send(
         &mut app,
-        BrainCommand::restore_default(SimId::placement("villager")),
+        BrainCommand::restore_default(LiveBodyId::new(SimId::placement("villager"), None)),
     );
     app.update();
 
@@ -660,7 +661,7 @@ fn a_release_during_temporary_control_still_changes_the_source() {
 
     send(
         &mut app,
-        BrainCommand::restore_default(SimId::placement("villager")),
+        BrainCommand::restore_default(LiveBodyId::new(SimId::placement("villager"), None)),
     );
     app.update();
 
@@ -703,7 +704,7 @@ fn a_character_first_default_that_cannot_be_resolved_is_rejected() {
 
     send(
         &mut app,
-        BrainCommand::restore_default(SimId::placement("villager")),
+        BrainCommand::restore_default(LiveBodyId::new(SimId::placement("villager"), None)),
     );
     app.update();
 
@@ -721,5 +722,44 @@ fn a_character_first_default_that_cannot_be_resolved_is_rejected() {
             AutonomousSource::ProvokedProfile { .. }
         ),
         "and the binding still says what is true: this body is provoked"
+    );
+}
+
+/// A brain command names ONE body: its id in its live room.
+///
+/// Two live instances of one room each hold a `puppy`. The command names
+/// the one in live room #1. The subject: that body runs the preset. The
+/// control: the `puppy` in live room #0 still runs its default. A command
+/// keyed by the `SimId` alone switched the first `puppy` the query found, or
+/// both.
+#[test]
+fn a_brain_command_reaches_only_the_body_in_its_own_live_room() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance};
+    let mut app = app();
+    let first = LiveRoomInstance::ACTIVATION;
+    let second = first.next();
+    let in_first = spawn_npc(&mut app, "puppy", "npc_puppy_slug", 100.0);
+    let in_second = spawn_npc(&mut app, "puppy", "npc_puppy_slug", 100.0);
+    app.world_mut().entity_mut(in_first).insert(InRoomInstance(first));
+    app.world_mut().entity_mut(in_second).insert(InRoomInstance(second));
+
+    send(
+        &mut app,
+        BrainCommand::use_preset(
+            LiveBodyId::new(SimId::placement("puppy"), Some(second)),
+            "stand_still",
+        ),
+    );
+    app.update();
+
+    assert_eq!(
+        app.world().get::<Brain>(in_second).unwrap().label(),
+        "stand_still",
+        "the command did not reach the puppy in live room #1"
+    );
+    assert_eq!(
+        app.world().get::<Brain>(in_first).unwrap().label(),
+        "wanderer",
+        "the command for live room #1 switched the puppy in live room #0"
     );
 }

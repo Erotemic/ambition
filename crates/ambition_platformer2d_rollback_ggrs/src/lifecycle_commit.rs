@@ -455,7 +455,7 @@ fn commit_transition(
     >,
     // `None` is a rebuild with NOBODY IN IT, not a body that could not be found
     // — see the resolution below, which keeps those two apart.
-    subject: Option<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
+    subject: Option<&ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId>,
     target_room: &str,
     arrival: Option<ae::Vec2>,
     edge_exit: bool,
@@ -586,9 +586,10 @@ fn commit_transition(
 mod tests {
     use super::*;
     use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
+    use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveBodyId, LiveRoomInstance};
     use ambition_platformer2d_shared_tangle::sim_id::SimId;
 
-    /// Deferred transitions resolve the recorded `SimId` of the crossing body.
+    /// Deferred transitions resolve the recorded live identity of the crossing body.
     /// If that body no longer exists, the crossing is cancelled; another body is
     /// never substituted. The assertion exercises the shared resolver used by
     /// both transition hosts.
@@ -599,7 +600,7 @@ mod tests {
 
     fn intent_to(target_room: &str, subject: SimId) -> LifecycleIntent {
         LifecycleIntent::Transition(RoomTransitionIntent {
-            subject,
+            subject: LiveBodyId::new(subject, None),
             target_room: target_room.to_string(),
             arrival: ae::Vec2::ZERO,
             edge_exit: true,
@@ -807,6 +808,16 @@ mod tests {
     fn a_missing_transition_subject_resolves_to_none_never_a_substitute() {
         let mut world = World::new();
         let triggerer = world.spawn(SimId::placement("triggerer")).id();
+        // Two live instances of one room hold a body with one authored id.
+        // The crossing names the one in live room #1.
+        let first = LiveRoomInstance::ACTIVATION;
+        let second = first.next();
+        let duplicate_in_first = world
+            .spawn((SimId::placement("twin"), InRoomInstance(first)))
+            .id();
+        let twin_in_second = world
+            .spawn((SimId::placement("twin"), InRoomInstance(second)))
+            .id();
         let primary = world
             .spawn((SimId::player_slot(0), PlayerEntity, PrimaryPlayer))
             .id();
@@ -825,15 +836,33 @@ mod tests {
             .expect("TransitBodies is pure queries");
 
         assert_eq!(
-            bodies.subject_entity(&SimId::placement("triggerer")),
+            bodies.subject_entity(&LiveBodyId::new(SimId::placement("triggerer"), None)),
             Some(triggerer),
             "the recorded triggering SimId is transported, not the current primary"
         );
         assert_eq!(
-            bodies.subject_entity(&SimId::placement("gone")),
+            bodies.subject_entity(&LiveBodyId::new(SimId::placement("gone"), None)),
             None,
             "a recorded body that despawned before commit is a void crossing, \
              not a licence to teleport the home player"
+        );
+        // Control: the duplicate in live room #0 is a real body, and it is
+        // found when the crossing names it.
+        assert_eq!(
+            bodies.subject_entity(&LiveBodyId::new(SimId::placement("twin"), Some(first))),
+            Some(duplicate_in_first),
+        );
+        assert_eq!(
+            bodies.subject_entity(&LiveBodyId::new(SimId::placement("twin"), Some(second))),
+            Some(twin_in_second),
+            "the crossing's subject is in live room #1, and commit resolved the \
+             body with the same id in live room #0"
+        );
+        assert_eq!(
+            bodies.subject_entity(&LiveBodyId::new(SimId::placement("twin"), Some(second.next()))),
+            None,
+            "no body with that id is in live room #2, and commit substituted a \
+             duplicate from another live room"
         );
     }
 }

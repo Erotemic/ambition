@@ -617,6 +617,38 @@ Live rooms #0 and #1 both instantiate room `n`, and the candidate replaces
 is the two roots before publication, which both read `n`. With one index,
 #1 read `candidate` too.
 
+✅ **Repaired after review, 2026-09-29: an operation on one body names its
+live room.** Commands and intents named their body by `SimId` alone, and two
+live instances of one room hold the same ids. So a dialogue action, a pet or
+a crossing reached the first body with that id. Now one type names one live
+occurrence: `LiveBodyId` (the `SimId` and the live room it is in, from
+`live_room_of`: its `InRoomInstance` stamp, `None` for a session-level body).
+`LiveBodies` resolves it both ways (`id_of`, `entity_of`).
+- Producers capture it where they hold the entity: the four yarn commands
+  (`challenge`, `pet`, `use_brain`, `restore_brain`), the transition
+  detector, the checkpoint resume and startup resume, the level departure,
+  the replay admission and the death retraction.
+- It rides in `BrainCommand.target`, `ReleaseProvocation.target`,
+  `ChallengeRequested`, `PetRequested`, `PetBeat.petted`,
+  `RoomReplayAdmitted.subject` and `RoomTransitionIntent.subject`.
+  `TransitBodies::subject_entity` resolves the exact occurrence and gives
+  no substitute from another live room. Schema 272: the crossing's subject
+  is in the codec and the checksum of `resource.pending_lifecycle_commit`.
+- ⚠ One reader runs AFTER the commit: the checkpoint restore's verification.
+  The commit carries the subject into the live room it publishes, so the
+  recorded room is the room the body left. The verifier looks for the body
+  in the produced room. (It first read the recorded room, refused every
+  restore, and left the game paused.)
+
+Witnesses: `a_brain_command_reaches_only_the_body_in_its_own_live_room`
+(two `puppy` bodies in #0 and #1; a command for #1 switches #1, and the
+control is #0 still on its default), and
+`a_missing_transition_subject_resolves_to_none_never_a_substitute` (a
+crossing whose subject is in #1 resolves the #1 body, the #0 duplicate
+resolves only when named, and #2 resolves nothing), and
+`retraction_removes_only_the_crossing_owned_by_that_body` (the duplicate's
+death in #0 does not retract #1's crossing).
+
 ⚠ Still owed from cut 5: `outlook_for(room: &str)` is keyed by definition;
 the `SoleLiveRoomSpec` readers each need a subject before a second live room
 is simulated (cut 6 finds which ones a two-player world reaches).

@@ -9,7 +9,6 @@
 use crate::common::{base, fixed_60hz_sim};
 use ambition_platformer2d::combat::components::{ActorDisposition, ActorIdentity, ActorInteraction};
 use ambition_platformer2d::platformer::markers::PrimaryPlayerOnly;
-use ambition_platformer2d::platformer::sim_id::SimId;
 use bevy::prelude::*;
 
 fn body_facts(
@@ -52,13 +51,14 @@ fn a_challenged_then_released_npc_keeps_the_body_it_was_built_with() {
     };
     assert!(!npcs.is_empty(), "the start room authors no talkable NPC to provoke");
     let player_sim = {
-        let mut q = sim.world_mut().query_filtered::<&SimId, PrimaryPlayerOnly>();
-        q.single(sim.world()).cloned().expect("one primary body")
+        let mut q = sim.world_mut().query_filtered::<Entity, PrimaryPlayerOnly>();
+        let player = q.single(sim.world()).expect("one primary body");
+        ambition_platformer2d::platformer::lifecycle::LiveBodyId::of_entity(sim.world(), player).expect("the primary body has a SimId")
     };
 
     let mut checked = 0;
     for (npc, id) in npcs {
-        let Some(npc_sim) = sim.world().get::<SimId>(npc).cloned() else {
+        let Some(npc_sim) = ambition_platformer2d::platformer::lifecycle::LiveBodyId::of_entity(sim.world(), npc) else {
             continue;
         };
         let (tuning, caps, disposition, profile) = body_facts(&mut sim, npc);

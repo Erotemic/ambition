@@ -105,9 +105,14 @@ fn arena(rollback: bool) -> Platformer2dSimHarness {
         ambition_app::rl_sim::ambition_sim_composition(app, options)?;
         let label = app.sim_schedule();
         app.init_resource::<RequestByPass>();
+        // Before the tick advances as well as before the consumer: the reading
+        // frame's label below is the tick BEFORE the advance, and without this
+        // edge the two are unordered, so an unrelated schedule change moved the
+        // label by one.
         app.add_systems(
             label,
             record_the_request_each_pass_sees
+                .before(ambition_platformer2d::time::advance_sim_tick)
                 .before(ambition_platformer2d::actors::avatar::apply_worn_character_gameplay),
         );
         app.add_systems(

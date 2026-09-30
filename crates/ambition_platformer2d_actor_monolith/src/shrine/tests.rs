@@ -203,7 +203,7 @@ fn the_checkpoint_records_where_the_resting_body_stood() {
     use ambition_characters::control::{DrivingParticipant, PlayerSlot};
 
     use ambition_platformer2d_shared_tangle::lifecycle::{
-        insert_session_world_component, ActiveSessionScope,
+        ActiveSessionScope,
     };
 
     let mut app = App::new();

@@ -56,7 +56,14 @@ pub struct DepartureSet;
 pub fn drive_departures(
     time: Res<ambition_time::WorldTime>,
     rooms: Option<ambition_platformer2d_world::rooms::SoleLiveRoomSpec>,
-    subjects: Query<&SimId, ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly>,
+    subjects: Query<
+        (
+            &SimId,
+            Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
+            Option<&ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+        ),
+        ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
+    >,
     mut pending: Option<ResMut<PendingLifecycleCommit>>,
     boundary: Option<Res<ambition_platformer2d_core::ConfirmedFrameBoundary>>,
     mut replay: MessageWriter<RoomReplayRequested>,
@@ -147,13 +154,18 @@ pub fn drive_departures(
         }
         // No body or no lifecycle commit this tick: keep the trip and ask next
         // tick, until the give-up replays.
-        let (Ok(subject), Some(pending)) = (subjects.single(), pending.as_deref_mut()) else {
+        let (Ok((sim_id, stamp, root)), Some(pending)) = (subjects.single(), pending.as_deref_mut())
+        else {
             continue;
         };
+        let subject = ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(
+            sim_id.clone(),
+            ambition_platformer2d_shared_tangle::lifecycle::live_room_of(stamp, root),
+        );
         let _ = pending.record(
             boundary.as_deref().map_or(0, |boundary| boundary.current),
             LifecycleIntent::Transition(RoomTransitionIntent {
-                subject: subject.clone(),
+                subject,
                 target_room: target,
                 arrival,
                 // Finishing a level is not walking off the side of a room.
@@ -272,7 +284,7 @@ mod tests {
         );
         // Another lifecycle operation owns the earliest-sticky slot.
         let competing = LifecycleIntent::Transition(RoomTransitionIntent {
-            subject: SimId::player_slot(0),
+            subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(SimId::player_slot(0), None),
             target_room: "second".into(),
             arrival: ae::Vec2::ZERO,
             edge_exit: false,

@@ -10,7 +10,7 @@
 //! authored per variant so inserting one never renumbers the rest.
 
 use ambition_platformer2d_core::snapshot::{
-    put_bool, put_f32, put_i32, put_str, put_u64, put_u8, put_vec2, Reader, SnapshotState,
+    put_bool, put_f32, put_i32, put_str, put_u32, put_u64, put_u8, put_vec2, Reader, SnapshotState,
 };
 
 /// HOW LONG THIS MATCH HAS BEEN FOUGHT, and WHICH MATCH that is.
@@ -146,7 +146,9 @@ impl SnapshotState for crate::session::lifecycle_commit::PendingLifecycleCommit 
                         },
                     ) => {
                         put_u8(out, 3);
-                        put_str(out, subject.as_str());
+                        put_str(out, subject.sim_id.as_str());
+                        put_bool(out, subject.room.is_some());
+                        put_u32(out, subject.room.map_or(0, |room| room.ordinal()));
                         put_str(out, target_room);
                         put_vec2(out, *arrival);
                         put_bool(out, *edge_exit);
@@ -179,9 +181,21 @@ impl SnapshotState for crate::session::lifecycle_commit::PendingLifecycleCommit 
         let kind = match r.u8()? {
             3 => LifecycleIntent::Transition(
                 crate::session::lifecycle_commit::RoomTransitionIntent {
-                    subject: ambition_platformer2d_shared_tangle::sim_id::SimId::from_snapshot(
-                        r.str()?.to_string(),
-                    ),
+                    subject: {
+                        let sim_id = ambition_platformer2d_shared_tangle::sim_id::SimId::from_snapshot(
+                            r.str()?.to_string(),
+                        );
+                        let in_a_room = r.bool()?;
+                        let ordinal = r.u32()?;
+                        ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(
+                            sim_id,
+                            in_a_room.then(|| {
+                                ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::from_ordinal(
+                                    ordinal,
+                                )
+                            }),
+                        )
+                    },
                     target_room: r.str()?.to_string(),
                     arrival: r.vec2()?,
                     edge_exit: r.bool()?,

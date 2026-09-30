@@ -625,11 +625,22 @@ fn a_failed_preparation_is_ended_by_the_confirmed_host_too() {
         let mut q = world.query_filtered::<&SimId, With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>();
         q.single(world).expect("one primary player").clone()
     };
+    // The subject's live identity: its id in the live room it is in.
+    let subject = {
+        let world = sim.world_mut();
+        let mut q = world.query::<(bevy::prelude::Entity, &ambition_platformer2d::platformer::sim_id::SimId)>();
+        let entity = q
+            .iter(world)
+            .find(|(_, id)| **id == subject)
+            .map(|(entity, _)| entity)
+            .expect("the subject is a live body");
+        ambition_platformer2d::platformer::lifecycle::LiveBodyId::of_entity(world, entity).expect("the subject has a SimId")
+    };
     // A destination NO authored room provides, so preparation cannot succeed on
     // any host. The wedge this guards is precisely "an invalid definition that is
     // retried forever".
     let intent = LifecycleIntent::Transition(RoomTransitionIntent {
-        subject,
+        subject: subject.clone(),
         target_room: "a_room_no_content_pack_authors".into(),
         arrival: ambition_platformer2d::engine_core::Vec2::ZERO,
         edge_exit: false,

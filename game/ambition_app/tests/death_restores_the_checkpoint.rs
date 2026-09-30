@@ -1224,7 +1224,7 @@ fn a_refused_reset_changes_no_domain_state_and_is_not_lost() {
     // OCCUPY the slot, and giving it a real avatar would let the eager host
     // start staging a room and confuse what the measurement below is about.
     let incumbent = LifecycleIntent::Transition(RoomTransitionIntent {
-        subject: SimId::placement("an_operation_that_is_not_this_reset"),
+        subject: ambition_platformer2d::platformer::lifecycle::LiveBodyId::new(SimId::placement("an_operation_that_is_not_this_reset"), None),
         target_room: NEIGHBOUR.to_string(),
         arrival: ambition_platformer2d::engine_core::Vec2::new(64.0, 64.0),
         edge_exit: false,

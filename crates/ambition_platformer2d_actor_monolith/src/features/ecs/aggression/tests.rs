@@ -794,7 +794,7 @@ fn a_provocation_is_durable_exactly_when_the_player_causes_it_and_a_release_clea
 
     // Released: live AND durable.
     app.world_mut()
-        .write_message(crate::features::ReleaseProvocation::new(SimId::placement("parrot")));
+        .write_message(crate::features::ReleaseProvocation::new(ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(SimId::placement("parrot"), None)));
     app.update();
     assert_eq!(
         *app.world().get::<ActorDisposition>(npc).unwrap(),

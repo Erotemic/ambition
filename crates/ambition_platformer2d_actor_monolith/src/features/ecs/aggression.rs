@@ -170,16 +170,18 @@ impl bevy::ecs::entity::MapEntities for PendingChallenge {
     }
 }
 
-/// A conversation asked for a fight, by stable identity.
+/// A conversation asked for a fight, by live identity.
 ///
-/// The `SimId` routing is the one [`crate::features::BrainCommand`] already uses, and for the same
-/// stated reason — *"so the runtime switch is deterministic and snapshot-safe"*.
+/// The routing is the one [`crate::features::BrainCommand`] already uses, and for the same
+/// stated reason — *"so the runtime switch is deterministic and snapshot-safe"*. The identity is
+/// the stable id in its live room, so a challenge in one instance of a room does not provoke the
+/// same authored body in another.
 #[derive(Message, Clone, Debug, PartialEq, Eq)]
 pub struct ChallengeRequested {
     /// The body being challenged.
-    pub target: ambition_platformer2d_shared_tangle::sim_id::SimId,
+    pub target: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId,
     /// Who challenged it. `None` when nobody in the world did.
-    pub challenger: Option<ambition_platformer2d_shared_tangle::sim_id::SimId>,
+    pub challenger: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId>,
 }
 
 /// Arm a challenge the narrative asked for. (sim)
@@ -190,15 +192,12 @@ pub struct ChallengeRequested {
 /// closes and the grace elapses. See [`PendingChallenge`].
 pub fn arm_requested_challenges(
     mut requests: MessageReader<ChallengeRequested>,
-    bodies: Query<(Entity, &ambition_platformer2d_shared_tangle::sim_id::SimId)>,
+    bodies: ambition_platformer2d_shared_tangle::lifecycle::LiveBodies,
     mut commands: Commands,
 ) {
     for request in requests.read() {
-        let entity_of = |wanted: &ambition_platformer2d_shared_tangle::sim_id::SimId| {
-            bodies
-                .iter()
-                .find(|(_, id)| *id == wanted)
-                .map(|(entity, _)| entity)
+        let entity_of = |wanted: &ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId| {
+            bodies.entity_of(wanted)
         };
         let Some(target) = entity_of(&request.target) else {
             warn!(

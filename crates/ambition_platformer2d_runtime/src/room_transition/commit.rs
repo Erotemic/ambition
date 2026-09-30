@@ -233,7 +233,7 @@ impl RoomTransitionApplication<'_, '_> {
     /// walked to.
     pub fn subject_entity(
         &self,
-        subject: &ambition_platformer2d_shared_tangle::sim_id::SimId,
+        subject: &ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId,
     ) -> Option<Entity> {
         self.bodies.subject_entity(subject)
     }
@@ -732,17 +732,11 @@ pub struct TransitBodies<'w, 's> {
         ),
         ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
     >,
-    /// Stable body identity — how the transiting subject is NAMED. The request
-    /// records a `SimId` at detection and this resolves it at commit; see
-    /// [`Self::subject_entity`].
-    sim_ids: Query<
-        'w,
-        's,
-        (
-            Entity,
-            &'static ambition_platformer2d_shared_tangle::sim_id::SimId,
-        ),
-    >,
+    /// Live body identity — how the transiting subject is NAMED. The request
+    /// records a `LiveBodyId` at detection and this resolves it at commit; see
+    /// [`Self::subject_entity`]. The live room is part of the name, so a
+    /// duplicate of the subject in another live room is not a substitute.
+    live_bodies: ambition_platformer2d_shared_tangle::lifecycle::LiveBodies<'w, 's>,
     /// The Class-B transit ledger (`docs/concepts/movement-collision.md`). It rides in
     /// this param because a room transition IS one of the four Class-B
     /// authorities, and this struct is the one that names the body it moves.
@@ -761,12 +755,9 @@ impl TransitBodies<'_, '_> {
     /// into the room the participant crossed toward.
     pub fn subject_entity(
         &self,
-        subject: &ambition_platformer2d_shared_tangle::sim_id::SimId,
+        subject: &ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId,
     ) -> Option<Entity> {
-        self.sim_ids
-            .iter()
-            .find(|(_, id)| *id == subject)
-            .map(|(entity, _)| entity)
+        self.live_bodies.entity_of(subject)
     }
 }
 

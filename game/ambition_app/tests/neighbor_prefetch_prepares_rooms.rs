@@ -291,8 +291,19 @@ fn cross_into_a_cached_neighbour(as_checkpoint_restore: bool) -> bool {
         let mut q = world.query_filtered::<&SimId, bevy::prelude::With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>();
         q.single(world).expect("one primary player").clone()
     };
+    // The subject's live identity: its id in the live room it is in.
+    let subject = {
+        let world = app.world_mut();
+        let mut q = world.query::<(bevy::prelude::Entity, &ambition_platformer2d::platformer::sim_id::SimId)>();
+        let entity = q
+            .iter(world)
+            .find(|(_, id)| **id == subject)
+            .map(|(entity, _)| entity)
+            .expect("the subject is a live body");
+        ambition_platformer2d::platformer::lifecycle::LiveBodyId::of_entity(world, entity).expect("the subject has a SimId")
+    };
     let intent = RoomTransitionIntent {
-        subject,
+        subject: subject.clone(),
         target_room: neighbour.clone(),
         arrival: ambition_platformer2d::engine_core::Vec2::ZERO,
         edge_exit: false,
@@ -443,8 +454,19 @@ fn rebuilt_room_holds_its_ground_item(relocated: bool) -> bool {
         let mut q = world.query_filtered::<&SimId, bevy::prelude::With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>();
         q.single(world).expect("one primary player").clone()
     };
+    // The subject's live identity: its id in the live room it is in.
+    let subject = {
+        let world = app.world_mut();
+        let mut q = world.query::<(bevy::prelude::Entity, &ambition_platformer2d::platformer::sim_id::SimId)>();
+        let entity = q
+            .iter(world)
+            .find(|(_, id)| **id == subject)
+            .map(|(entity, _)| entity)
+            .expect("the subject is a live body");
+        ambition_platformer2d::platformer::lifecycle::LiveBodyId::of_entity(world, entity).expect("the subject has a SimId")
+    };
     let intent = LifecycleIntent::Transition(RoomTransitionIntent {
-        subject,
+        subject: subject.clone(),
         target_room: target.clone(),
         arrival: ambition_platformer2d::engine_core::Vec2::ZERO,
         edge_exit: false,

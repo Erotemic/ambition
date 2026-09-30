@@ -169,7 +169,11 @@ pub fn restore_checkpoint_on_session_start(
     // saying so is what keeps the commit from asking, several frames later, whoever happens to
     // be controlled then. Disjoint from `bodies`, which borrows no `SimId`.
     subjects: Query<
-        &ambition_platformer2d_shared_tangle::sim_id::SimId,
+        (
+            &ambition_platformer2d_shared_tangle::sim_id::SimId,
+            Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
+            Option<&ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+        ),
         ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
     >,
     // ⛔⛔ NOT `Local`s. See [`SessionStartupResume`].
@@ -245,10 +249,10 @@ pub fn restore_checkpoint_on_session_start(
         // yet cannot name its subject, and marking the route done would spend the
         // once-per-session request on a crossing nobody could describe. Try again
         // next tick instead.
-        let Ok(subject) = subjects.single() else {
+        let Ok((sim_id, stamp, root)) = subjects.single() else {
             return;
         };
-        let subject = subject.clone();
+        let subject = ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(sim_id.clone(), ambition_platformer2d_shared_tangle::lifecycle::live_room_of(stamp, root));
         // The intent can: a resume is a body, a destination and an arrival, which is all a
         // crossing ever was. The synthetic zone is deleted with the message, and so is the
         // room-INDEX lookup that only existed to fill it.
@@ -385,7 +389,11 @@ pub fn resume_at_checkpoint_on_reset(
     mut pending: ResMut<crate::session::lifecycle_commit::PendingLifecycleCommit>,
     boundary: Option<Res<ambition_platformer2d_core::ConfirmedFrameBoundary>>,
     subjects: Query<
-        &ambition_platformer2d_shared_tangle::sim_id::SimId,
+        (
+            &ambition_platformer2d_shared_tangle::sim_id::SimId,
+            Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
+            Option<&ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+        ),
         ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
     >,
     mut accepted: ResMut<AcceptedCheckpointRestore>,
@@ -425,9 +433,10 @@ pub fn resume_at_checkpoint_on_reset(
     };
     // the subject is resolved BEFORE anything is recorded: a transition names the body it
     // moves, and a session whose avatar has not been built cannot describe one.
-    let Ok(subject) = subjects.single() else {
+    let Ok((sim_id, stamp, root)) = subjects.single() else {
         return;
     };
+    let subject = ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(sim_id.clone(), ambition_platformer2d_shared_tangle::lifecycle::live_room_of(stamp, root));
     let active = room_set.spec();
     let (target_room, arrival) = match save.data().checkpoint() {
         _ if restore_to == RestoreTo::NewGame => {
@@ -1400,15 +1409,37 @@ fn verify_restored_domains(
     // whether the body the restore was accepted FOR still exists, because every
     // custody row below names a custodian and a restore that lost its subject
     // restored a hand that is not there.
+    //
+    // ⛔ IN THE ROOM THE OPERATION PRODUCED, NOT THE ROOM IT RECORDED. The
+    // subject's recorded live room is the room it left: the commit carried it
+    // into the live room it published. So a subject that was in a live room is
+    // looked for in the produced one (the one-live-room read, like the room
+    // check above). A subject in no live room stays in none.
     if let Some(subject) = accepted.intent.subject() {
-        let mut bodies = world.query::<&ambition_platformer2d_shared_tangle::sim_id::SimId>();
-        if !bodies.iter(world).any(|live| live == subject) {
+        use ambition_platformer2d_shared_tangle::lifecycle::{
+            sole_live_room_entity, InRoomInstance, LiveBodyId, LiveRoomInstance,
+        };
+        let produced = sole_live_room_entity(world)
+            .and_then(|root| world.get::<LiveRoomInstance>(root).copied());
+        let mut bodies = world.query::<(
+            &ambition_platformer2d_shared_tangle::sim_id::SimId,
+            Option<&InRoomInstance>,
+            Option<&LiveRoomInstance>,
+        )>();
+        let present = bodies.iter(world).any(|(sim_id, stamp, root)| match produced {
+            Some(produced) => {
+                LiveBodyId::new(subject.sim_id.clone(), subject.room.map(|_| produced))
+                    .is(sim_id, stamp, root)
+            }
+            None => *sim_id == subject.sim_id,
+        });
+        if !present {
             return Err(RestoreVerificationFailure {
                 failure: RestoreFailure::Subject,
                 detail: format!(
                     "the body this operation restores around ({}) is not in the \
                      world it produced",
-                    subject.as_str()
+                    subject
                 ),
             });
         }

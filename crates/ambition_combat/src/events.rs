@@ -149,14 +149,15 @@ pub struct RoomReplayAdmitted {
     /// Why the room is being replayed. Policy differs by it: a death preserves
     /// the player's placed gun portals, a deliberate retry clears them.
     pub reason: RoomResetReason,
-    /// The body the replay is FOR, by stable identity, resolved once at
-    /// admission.
+    /// The body the replay is FOR, by its live identity (its id and its live
+    /// room), resolved once at admission. The live room is part of the name
+    /// because two live rooms can hold a body with the same id.
     ///
     /// ⛔ NOT RE-DERIVED LATER, for the reason `RoomTransitionIntent` gives
     /// about its own subject: control can move, end, or the body can die during
     /// the wait. `None` only where a composition genuinely has no controlled
     /// body and the replay is a room rebuild with nobody in it.
-    pub subject: Option<ambition_platformer2d_shared_tangle::sim_id::SimId>,
+    pub subject: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId>,
 }
 
 /// "A fresh attempt at this room begins here" — the union of a room LOAD and an
@@ -253,7 +254,7 @@ impl RoomReplayAdmitted {
     #[must_use]
     pub fn for_subject(
         mut self,
-        subject: ambition_platformer2d_shared_tangle::sim_id::SimId,
+        subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId,
     ) -> Self {
         self.subject = Some(subject);
         self

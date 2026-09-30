@@ -222,6 +222,89 @@ pub fn live_room_of(
     stamp.map(|stamp| stamp.0).or(root.copied())
 }
 
+/// One live occurrence of an authored body: its `SimId` in the live room it
+/// is in ([`live_room_of`]).
+///
+/// A `SimId` is the authored identity, and two instances of one room hold the
+/// same ones. An operation that means ONE body (a pet, a challenge, a brain
+/// switch, a crossing) names this pair, so it reaches the body in its own
+/// room and not the first body with that id. `room` is `None` for a body in
+/// no live room, which is session-level (the player). The room is not written
+/// into the `SimId` string: every lookup built from an authored id must keep
+/// working.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct LiveBodyId {
+    pub sim_id: crate::sim_id::SimId,
+    pub room: Option<LiveRoomInstance>,
+}
+
+impl LiveBodyId {
+    pub fn new(sim_id: crate::sim_id::SimId, room: Option<LiveRoomInstance>) -> Self {
+        Self { sim_id, room }
+    }
+
+    /// Whether a body with this `SimId`, stamp and root is this occurrence.
+    pub fn is(
+        &self,
+        sim_id: &crate::sim_id::SimId,
+        stamp: Option<&InRoomInstance>,
+        root: Option<&LiveRoomInstance>,
+    ) -> bool {
+        self.sim_id == *sim_id && self.room == live_room_of(stamp, root)
+    }
+
+    /// The live identity of `entity` at an exclusive-world boundary. `None`
+    /// when it has no `SimId`.
+    pub fn of_entity(world: &World, entity: Entity) -> Option<Self> {
+        let entity = world.get_entity(entity).ok()?;
+        Some(Self::new(
+            entity.get::<crate::sim_id::SimId>()?.clone(),
+            live_room_of(entity.get::<InRoomInstance>(), entity.get::<LiveRoomInstance>()),
+        ))
+    }
+}
+
+impl std::fmt::Display for LiveBodyId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self.room {
+            Some(room) => write!(f, "{} in live room {room}", self.sim_id),
+            None => write!(f, "{}", self.sim_id),
+        }
+    }
+}
+
+/// The bodies by live identity ([`LiveBodyId`]): the one read an operation
+/// that names one body resolves through.
+#[derive(bevy::ecs::system::SystemParam)]
+pub struct LiveBodies<'w, 's> {
+    bodies: bevy::prelude::Query<
+        'w,
+        's,
+        (
+            Entity,
+            &'static crate::sim_id::SimId,
+            Option<&'static InRoomInstance>,
+            Option<&'static LiveRoomInstance>,
+        ),
+    >,
+}
+
+impl LiveBodies<'_, '_> {
+    /// The live identity of `entity`, or `None` when it has no `SimId`.
+    pub fn id_of(&self, entity: Entity) -> Option<LiveBodyId> {
+        let (_, sim_id, stamp, root) = self.bodies.get(entity).ok()?;
+        Some(LiveBodyId::new(sim_id.clone(), live_room_of(stamp, root)))
+    }
+
+    /// The body that is `id`, or `None` when no live body is.
+    pub fn entity_of(&self, id: &LiveBodyId) -> Option<Entity> {
+        self.bodies
+            .iter()
+            .find(|(_, sim_id, stamp, root)| id.is(sim_id, *stamp, *root))
+            .map(|(entity, ..)| entity)
+    }
+}
+
 /// The live session's sole live room root.
 ///
 /// `None` when there is no live session, no room root, or more than one live

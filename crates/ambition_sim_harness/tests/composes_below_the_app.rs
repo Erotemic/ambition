@@ -9,7 +9,6 @@
 //! exercise the same `Platformer2dSimHarness` with the full Ambition composition (via
 //! `ambition_app::rl_sim::AmbitionSim`).
 
-use ambition_platformer2d::session::insert_session_world_component;
 use ambition_platformer2d::sim::ControlFrame;
 use ambition_platformer2d::world::{
     prelude::{AuthoredWorld, Vec2},
@@ -36,7 +35,7 @@ fn compose_minimal_room(
         vec![RoomSpec::new("harness_room", world)],
         Vec::new(),
     );
-    ambition_platformer2d_world::rooms::insert_room_set(app.world_mut(), set);
+    ambition_platformer2d::world::rooms::insert_room_set(app.world_mut(), set);
     app.insert_resource(ControlFrame::default());
     Ok(())
 }

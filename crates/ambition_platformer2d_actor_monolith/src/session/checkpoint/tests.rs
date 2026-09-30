@@ -22,7 +22,7 @@ use crate::shrine::{heal_save_shrine_system, HealShrine};
 #[test]
 fn resting_at_a_shrine_records_a_checkpoint_and_the_next_session_resumes_there() {
     use ambition_platformer2d_shared_tangle::lifecycle::{
-        insert_session_world_component, ActiveSessionScope,
+        ActiveSessionScope,
     };
 
     fn room_set(room_id: &str) -> ambition_platformer2d_world::rooms::RoomSet {
@@ -149,7 +149,7 @@ fn resting_at_a_shrine_records_a_checkpoint_and_the_next_session_resumes_there()
 #[test]
 fn a_checkpoint_from_another_room_leaves_the_body_where_it_spawned() {
     use ambition_platformer2d_shared_tangle::lifecycle::{
-        insert_session_world_component, ActiveSessionScope,
+        ActiveSessionScope,
     };
 
     let mut app = App::new();
@@ -215,7 +215,7 @@ fn a_checkpoint_from_another_room_leaves_the_body_where_it_spawned() {
 #[test]
 fn a_checkpoint_in_another_room_of_this_world_routes_the_session_there() {
     use ambition_platformer2d_shared_tangle::lifecycle::{
-        insert_session_world_component, ActiveSessionScope,
+        ActiveSessionScope,
     };
 
     let mut app = App::new();
@@ -291,7 +291,7 @@ fn a_checkpoint_in_another_room_of_this_world_routes_the_session_there() {
     assert_eq!(transition.target_room, "rest_room");
     assert_eq!(
         transition.subject,
-        ambition_platformer2d_shared_tangle::sim_id::SimId::player_slot(0),
+        ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(ambition_platformer2d_shared_tangle::sim_id::SimId::player_slot(0), None),
         "the resume asked for a room without saying whose resume it is, so the \
          commit would transit whoever happens to be controlled several frames later"
     );
@@ -327,7 +327,7 @@ fn a_checkpoint_in_another_room_of_this_world_routes_the_session_there() {
 #[test]
 fn a_refused_slot_leaves_the_checkpoint_resume_retryable() {
     use ambition_platformer2d_shared_tangle::lifecycle::{
-        insert_session_world_component, ActiveSessionScope,
+        ActiveSessionScope,
     };
     use crate::session::lifecycle_commit::{
         LifecycleIntent, PendingLifecycleCommit, RoomTransitionIntent,
@@ -379,7 +379,7 @@ fn a_refused_slot_leaves_the_checkpoint_resume_retryable() {
     // SOMEBODY ELSE ALREADY OWNS THE SLOT. A door crossing recorded on an
     // earlier frame is the ordinary shape of this: the slot is earliest-sticky.
     let incumbent = LifecycleIntent::Transition(RoomTransitionIntent {
-        subject: ambition_platformer2d_shared_tangle::sim_id::SimId::placement("someone_else"),
+        subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(ambition_platformer2d_shared_tangle::sim_id::SimId::placement("someone_else"), None),
         target_room: "entry".into(),
         arrival: Vec2::new(1.0, 2.0),
         edge_exit: true,
@@ -479,7 +479,7 @@ fn a_refused_slot_leaves_the_checkpoint_resume_retryable() {
 #[test]
 fn a_resume_with_no_constructed_subject_stays_pending_until_the_body_exists() {
     use ambition_platformer2d_shared_tangle::lifecycle::{
-        insert_session_world_component, ActiveSessionScope,
+        ActiveSessionScope,
     };
     use crate::session::lifecycle_commit::{LifecycleIntent, PendingLifecycleCommit};
 
@@ -574,7 +574,7 @@ fn a_resume_with_no_constructed_subject_stays_pending_until_the_body_exists() {
 #[test]
 fn a_checkpoint_only_composition_resumes_without_the_item_domain() {
     use ambition_platformer2d_shared_tangle::lifecycle::{
-        insert_session_world_component, ActiveSessionScope,
+        ActiveSessionScope,
     };
     use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 
@@ -736,7 +736,7 @@ fn the_commit_applies_the_operation_it_was_opened_for_and_always_removes_its_inp
 
     let crossing = |room: &str| {
         LifecycleIntent::Transition(RoomTransitionIntent {
-            subject: ambition_platformer2d_shared_tangle::sim_id::SimId::player_slot(0),
+            subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(ambition_platformer2d_shared_tangle::sim_id::SimId::player_slot(0), None),
             target_room: room.into(),
             arrival: Vec2::new(1.0, 2.0),
             edge_exit: false,
@@ -881,7 +881,7 @@ fn a_key_from_a_retired_session_matches_nothing_in_the_next_one() {
 #[test]
 fn the_accepted_restore_outlives_its_frame_matches_its_intent_and_retires_with_the_slot() {
     use ambition_platformer2d_shared_tangle::lifecycle::{
-        insert_session_world_component, ActiveSessionScope, LifecycleCheckpointHorizonPlugin,
+        ActiveSessionScope, LifecycleCheckpointHorizonPlugin,
         ResetToCheckpoint,
     };
     use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
@@ -954,7 +954,7 @@ fn the_accepted_restore_outlives_its_frame_matches_its_intent_and_retires_with_t
     // ⛔ AND IT DOES NOT MATCH SOMEBODY ELSE'S CROSSING. A door recorded while a
     // restore is outstanding is prepared from LIVE state.
     let a_door = LifecycleIntent::Transition(RoomTransitionIntent {
-        subject: ambition_platformer2d_shared_tangle::sim_id::SimId::player_slot(0),
+        subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(ambition_platformer2d_shared_tangle::sim_id::SimId::player_slot(0), None),
         target_room: "here".into(),
         arrival: Vec2::new(9.0, 9.0),
         edge_exit: true,
@@ -1007,7 +1007,7 @@ fn the_accepted_restores_checksum_separates_every_field_that_changes_what_it_bui
 
     fn crossing() -> RoomTransitionIntent {
         RoomTransitionIntent {
-            subject: SimId::player_slot(0),
+            subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(SimId::player_slot(0), None),
             target_room: "east".into(),
             arrival: Vec2::new(1.0, 2.0),
             edge_exit: false,
@@ -1078,7 +1078,7 @@ fn the_accepted_restores_checksum_separates_every_field_that_changes_what_it_bui
             "the restore SUBJECT — the body the operation is about",
             AcceptedRestore {
                 intent: LifecycleIntent::Transition(RoomTransitionIntent {
-                    subject: SimId::player_slot(1),
+                    subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(SimId::player_slot(1), None),
                     ..crossing()
                 }),
                 ..base()
@@ -1300,7 +1300,7 @@ fn a_restore_that_fails_verification_blocks_gameplay_and_publishes_one_failure()
 #[test]
 fn a_routed_startup_resume_waits_for_its_own_operations_outcome() {
     use ambition_platformer2d_shared_tangle::lifecycle::{
-        insert_session_world_component, ActiveSessionScope,
+        ActiveSessionScope,
     };
 
     use crate::session::lifecycle_commit::PendingLifecycleCommit;
@@ -1401,7 +1401,7 @@ fn a_routed_startup_resume_waits_for_its_own_operations_outcome() {
 #[test]
 fn a_startup_resume_whose_operation_is_retracted_asks_again() {
     use ambition_platformer2d_shared_tangle::lifecycle::{
-        insert_session_world_component, ActiveSessionScope,
+        ActiveSessionScope,
     };
 
     use crate::session::lifecycle_commit::PendingLifecycleCommit;
@@ -1486,7 +1486,7 @@ fn a_startup_resume_whose_operation_is_retracted_asks_again() {
 #[test]
 fn an_exhausted_operation_counter_refuses_the_slot_rather_than_the_identity() {
     use ambition_platformer2d_shared_tangle::lifecycle::{
-        insert_session_world_component, ActiveSessionScope, ResetToCheckpoint,
+        ActiveSessionScope, ResetToCheckpoint,
     };
     use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 
@@ -1676,7 +1676,7 @@ fn a_session_that_can_reset_with(
     lifecycle_horizon: bool,
 ) -> (App, bevy::ecs::schedule::InternedScheduleLabel) {
     use ambition_platformer2d_shared_tangle::lifecycle::{
-        insert_session_world_component, ActiveSessionScope, ResetToCheckpoint,
+        ActiveSessionScope, ResetToCheckpoint,
     };
     use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 
@@ -1863,7 +1863,7 @@ fn a_restore_admitted_without_the_lifecycle_horizon_pins_no_lifecycle_inputs() {
 #[test]
 fn a_new_game_is_admitted_as_a_fresh_restore_at_the_start_room() {
     use ambition_platformer2d_shared_tangle::lifecycle::{
-        insert_session_world_component, AuthoredOccurrences, OccurrenceBaseline,
+        AuthoredOccurrences, OccurrenceBaseline,
         OccurrenceWhereabouts, ResetToCheckpoint,
     };
     use ambition_platformer2d_shared_tangle::sim_id::SimId;
@@ -2008,7 +2008,7 @@ fn an_admitted_operation_keeps_its_subject_and_its_snapshot_while_it_waits() {
         .clone();
     assert_eq!(
         pinned.intent.subject(),
-        Some(&SimId::player_slot(0)),
+        Some(&ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(SimId::player_slot(0), None)),
         "the operation did not record the body it is about"
     );
 
@@ -2082,7 +2082,7 @@ fn an_admitted_operation_keeps_its_subject_and_its_snapshot_while_it_waits() {
         .expect("the operation is still outstanding");
     assert_eq!(
         still.intent.subject(),
-        Some(&SimId::player_slot(0)),
+        Some(&ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(SimId::player_slot(0), None)),
         "the admitted operation adopted whoever is controlled NOW. A restore \
          several frames later would then transit a body that never triggered it"
     );
@@ -2128,7 +2128,7 @@ fn an_operation_at(
         frame,
         intent: crate::session::lifecycle_commit::LifecycleIntent::Transition(
             crate::session::lifecycle_commit::RoomTransitionIntent {
-                subject: ambition_platformer2d_shared_tangle::sim_id::SimId::placement("hero"),
+                subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(ambition_platformer2d_shared_tangle::sim_id::SimId::placement("hero"), None),
                 target_room: target_room.into(),
                 arrival: Vec2::ZERO,
                 edge_exit: false,

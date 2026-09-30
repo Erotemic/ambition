@@ -1,6 +1,7 @@
 //! Deterministic runtime brain-switching authority for catalog-backed NPCs.
 //!
-//! [`BrainCommand`] routes by stable [`SimId`] and applies through one reducer,
+//! [`BrainCommand`] routes by live identity ([`LiveBodyId`]: the stable
+//! [`SimId`] in its live room) and applies through one reducer,
 //! which rebuilds the live [`Brain`] and updates [`BrainBinding`] atomically.
 //! Rebuilds use authored home context. A body under mount CONTROL (the mount's
 //! claim, not merely a ride) records the source only, because its live brain is
@@ -14,18 +15,22 @@ use ambition_characters::actor::character_catalog::{
 use ambition_characters::brain::Brain;
 use ambition_combat::actor_tuning::ActorConfig;
 use ambition_combat::components::{ActorAggression, ActorDisposition};
+use ambition_platformer2d_shared_tangle::lifecycle::{
+    live_room_of, InRoomInstance, LiveBodyId, LiveRoomInstance,
+};
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
 use bevy::prelude::*;
 use std::collections::{BTreeMap, BTreeSet};
 
 /// A deterministic request to change an actor's selected autonomous brain, routed
-/// by stable [`SimId`]. Cleared on snapshot restore (like every sim command
+/// by live identity. Cleared on snapshot restore (like every sim command
 /// channel), so a command never double-applies across a rewind; replaying the
 /// same inputs re-issues it. Applied by [`apply_brain_commands`].
 #[derive(Message, Clone, Debug, PartialEq, Eq)]
 pub struct BrainCommand {
-    /// Stable id of the actor whose brain changes.
-    pub target: SimId,
+    /// The actor whose brain changes: its stable id in its live room, so a
+    /// second instance of its room is not changed with it.
+    pub target: LiveBodyId,
     pub kind: BrainCommandKind,
 }
 
@@ -42,14 +47,14 @@ pub enum BrainCommandKind {
 }
 
 impl BrainCommand {
-    pub fn use_preset(target: SimId, preset: impl Into<BrainPresetId>) -> Self {
+    pub fn use_preset(target: LiveBodyId, preset: impl Into<BrainPresetId>) -> Self {
         Self {
             target,
             kind: BrainCommandKind::UsePreset(preset.into()),
         }
     }
 
-    pub fn restore_default(target: SimId) -> Self {
+    pub fn restore_default(target: LiveBodyId) -> Self {
         Self {
             target,
             kind: BrainCommandKind::RestoreDefault,
@@ -74,12 +79,12 @@ impl BrainCommand {
 /// rollback-safe command. Cleared on snapshot restore like every command channel.
 #[derive(Message, Clone, Debug, PartialEq, Eq)]
 pub struct ReleaseProvocation {
-    /// Stable id of the actor being freed.
-    pub target: SimId,
+    /// The actor being freed, by live identity.
+    pub target: LiveBodyId,
 }
 
 impl ReleaseProvocation {
-    pub fn new(target: SimId) -> Self {
+    pub fn new(target: LiveBodyId) -> Self {
         Self { target }
     }
 }
@@ -227,9 +232,11 @@ fn apply_brain_selection(
 /// Drain [`BrainCommand`]s and apply them to catalog-backed NPCs. The single
 /// authoritative writer of a runtime autonomous-brain switch.
 ///
-/// Deterministic: commands are grouped by target id in a `BTreeMap` (canonical
+/// Deterministic: commands are grouped by target in a `BTreeMap` (canonical
 /// order) and applied in arrival order; each command mutates exactly the one
-/// entity whose `SimId` matches, so ECS iteration order is irrelevant. A MOUNTED
+/// entity whose live identity matches (its `SimId` in its live room), so ECS
+/// iteration order is irrelevant, and a second instance of one room is not
+/// reached through the first. A MOUNTED
 /// actor is skipped — the mount displaced its policy, so its live brain is not
 /// its autonomous selection and overwriting it would corrupt control. A POSSESSED
 /// actor is NOT skipped: nothing displaced its policy.
@@ -244,6 +251,7 @@ pub fn apply_brain_commands(
     mut actors: Query<(
         Entity,
         &SimId,
+        (Option<&InRoomInstance>, Option<&LiveRoomInstance>),
         &mut Brain,
         &mut BrainBinding,
         Option<&AuthoredBrainContext>,
@@ -261,12 +269,9 @@ pub fn apply_brain_commands(
         Option<&ambition_characters::actor::WornCharacter>,
     )>,
 ) {
-    let mut by_id: BTreeMap<&str, Vec<&BrainCommandKind>> = BTreeMap::new();
+    let mut by_id: BTreeMap<&LiveBodyId, Vec<&BrainCommandKind>> = BTreeMap::new();
     for cmd in commands_in.read() {
-        by_id
-            .entry(cmd.target.as_str())
-            .or_default()
-            .push(&cmd.kind);
+        by_id.entry(&cmd.target).or_default().push(&cmd.kind);
     }
     if by_id.is_empty() {
         return;
@@ -274,6 +279,7 @@ pub fn apply_brain_commands(
     for (
         _entity,
         sim_id,
+        (stamp, root),
         mut brain,
         mut binding,
         authored,
@@ -285,7 +291,11 @@ pub fn apply_brain_commands(
         worn,
     ) in &mut actors
     {
-        let Some(kinds) = by_id.get(sim_id.as_str()) else {
+        let Some(kinds) = by_id
+            .iter()
+            .find(|(target, _)| target.is(sim_id, stamp, root))
+            .map(|(_, kinds)| kinds)
+        else {
             continue;
         };
         let abilities = body_abilities
@@ -412,21 +422,20 @@ pub fn apply_release_provocations(
     mut provocations: MessageWriter<crate::features::NpcProvocationChanged>,
     mut actors: Query<(
         &SimId,
+        (Option<&InRoomInstance>, Option<&LiveRoomInstance>),
         &mut ActorDisposition,
         &mut ActorAggression,
         Option<&ambition_combat::components::ActorIdentity>,
         Option<&ambition_combat::components::ActorInteraction>,
     )>,
 ) {
-    let targets: BTreeSet<String> = releases
-        .read()
-        .map(|r| r.target.as_str().to_string())
-        .collect();
+    let targets: BTreeSet<LiveBodyId> = releases.read().map(|r| r.target.clone()).collect();
     if targets.is_empty() {
         return;
     }
-    for (sim_id, mut disposition, mut aggression, identity, interaction) in &mut actors {
-        if !targets.contains(sim_id.as_str()) {
+    for (sim_id, (stamp, root), mut disposition, mut aggression, identity, interaction) in &mut actors {
+        let target = LiveBodyId::new(sim_id.clone(), live_room_of(stamp, root));
+        if !targets.contains(&target) {
             continue;
         }
         // Durable authority: a freed person stays freed across a room replay,
@@ -441,7 +450,7 @@ pub fn apply_release_provocations(
         *aggression = ActorAggression::passive();
         *disposition = ActorDisposition::Peaceful;
         // Source authority: restore the catalog-default autonomous mode.
-        brain_commands.write(BrainCommand::restore_default(sim_id.clone()));
+        brain_commands.write(BrainCommand::restore_default(target));
     }
 }
 

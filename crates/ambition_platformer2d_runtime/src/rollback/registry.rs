@@ -893,7 +893,11 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// ⛔⛤ 270 -> 271: a script's walk to a mark is body-generic
 /// (`body.commanded_move`, was `encounter.commanded_move`), and a pet is a
 /// script that runs across frames (`actor.pet_beat`).
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 271;
+/// ⛔⛤ 271 -> 272: a pending crossing names its body by the live identity
+/// (`LiveBodyId`: `SimId` and live room), in the codec and the checksum of
+/// `resource.pending_lifecycle_commit`. A pet beat names the petted body the
+/// same way (GPT review of OW1 cut 5).
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 272;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

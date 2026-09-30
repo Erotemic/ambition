@@ -184,13 +184,24 @@ fn the_halls_entry_is_counted_for_art_it_decodes_twice() {
             .expect("the hall has a primary avatar to send through its door")
             .clone()
     };
+    // The subject's live identity: its id in the live room it is in.
+    let subject = {
+        let world = app.world_mut();
+        let mut q = world.query::<(bevy::prelude::Entity, &ambition_platformer2d::platformer::sim_id::SimId)>();
+        let entity = q
+            .iter(world)
+            .find(|(_, id)| **id == subject)
+            .map(|(entity, _)| entity)
+            .expect("the subject is a live body");
+        ambition_platformer2d::platformer::lifecycle::LiveBodyId::of_entity(world, entity).expect("the subject has a SimId")
+    };
     let _ = app.world_mut()
         .resource_mut::<ambition_platformer2d::actors::session::lifecycle_commit::PendingLifecycleCommit>()
         .record(
             0,
             ambition_platformer2d::actors::session::lifecycle_commit::LifecycleIntent::Transition(
                 ambition_platformer2d::actors::session::lifecycle_commit::RoomTransitionIntent {
-                    subject,
+                    subject: subject.clone(),
                     target_room,
                     arrival,
                     edge_exit: false,

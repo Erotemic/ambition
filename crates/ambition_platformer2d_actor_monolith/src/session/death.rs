@@ -31,7 +31,15 @@ pub fn open_death_interlude(
     mut commands: Commands,
     mut deaths: MessageReader<ActorDiedMessage>,
     rules: GoverningRules<DeathRules>,
-    participants: Query<(Entity, Option<&SimId>), (With<PlayerEntity>, Without<OutOfPlay>)>,
+    participants: Query<
+        (
+            Entity,
+            Option<&SimId>,
+            Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
+            Option<&ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+        ),
+        (With<PlayerEntity>, Without<OutOfPlay>),
+    >,
     confirmed_boundary: Option<Res<ambition_platformer2d_core::ConfirmedFrameBoundary>>,
     mut pending_lifecycle: ResMut<crate::session::lifecycle_commit::PendingLifecycleCommit>,
 ) {
@@ -41,7 +49,7 @@ pub fn open_death_interlude(
     let victims: Vec<Entity> = deaths.read().map(|death| death.victim).collect();
     let interlude = rules.get().unwrap_or_default().interlude;
     for victim in victims {
-        let Ok((_, sim_id)) = participants.get(victim) else {
+        let Ok((_, sim_id, stamp, root)) = participants.get(victim) else {
             continue;
         };
 
@@ -52,7 +60,10 @@ pub fn open_death_interlude(
         // recorded a transition in the first place.
         if confirmed_boundary.is_none() {
             if let Some(sim_id) = sim_id {
-                pending_lifecycle.retract_transition_for_subject(sim_id);
+                pending_lifecycle.retract_transition_for_subject(&ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(
+                    sim_id.clone(),
+                    ambition_platformer2d_shared_tangle::lifecycle::live_room_of(stamp, root),
+                ));
             }
         }
 

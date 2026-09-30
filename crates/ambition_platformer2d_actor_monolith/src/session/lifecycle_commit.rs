@@ -8,13 +8,13 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer2d_shared_tangle::sim_id::SimId;
+use ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId;
 
 /// Which room-lifecycle operation a deferred commit will perform.
 ///
 /// Carries only deterministic, rollback-safe data — a reason discriminant and,
 /// for a transition, the authored loading-zone id plus the rollback-stable
-/// [`SimId`] of the body that triggered it. Never an `Entity`, a fn-pointer, or
+/// [`LiveBodyId`] of the body that triggered it. Never an `Entity`, a fn-pointer, or
 /// anything whose value depends on map/query iteration order, so the enclosing
 /// [`PendingLifecycleCommit`] can BE rollback state.
 #[derive(Clone, Debug, PartialEq)]
@@ -23,8 +23,9 @@ pub enum LifecycleIntent {
     /// the TRIGGERING body at `arrival`. `edge_exit` selects the transition
     /// cooldown/feel, mirroring `RoomTransitionApplication::apply`.
     ///
-    /// `subject` is the rollback-stable [`SimId`] of the body that actually
-    /// crossed the exit — NOT re-resolved from live control at commit time,
+    /// `subject` is the rollback-stable [`LiveBodyId`] of the body that
+    /// actually crossed the exit (its `SimId` in its live room, because a
+    /// duplicate in another live room has the same `SimId`) — NOT re-resolved from live control at commit time,
     /// because possession may have changed, ended, or the body may have died
     /// during the confirmation delay. A body without stable identity cannot
     /// produce a deferred transition intent.
@@ -69,7 +70,7 @@ impl LifecycleIntent {
     /// state (see `AcceptedCheckpointRestore`) owes that state its own legs.
     pub fn checksum(&self) -> u64 {
         use ambition_platformer2d_core::snapshot::{
-            checksum_bytes, put_bool, put_opt_str, put_str, put_u8, put_vec2,
+            checksum_bytes, put_bool, put_opt_str, put_str, put_u32, put_u8, put_vec2,
         };
         let mut bytes = Vec::new();
         match self {
@@ -81,7 +82,9 @@ impl LifecycleIntent {
                 zone_sfx,
             }) => {
                 put_u8(&mut bytes, 0);
-                put_str(&mut bytes, subject.as_str());
+                put_str(&mut bytes, subject.sim_id.as_str());
+                put_bool(&mut bytes, subject.room.is_some());
+                put_u32(&mut bytes, subject.room.map_or(0, |room| room.ordinal()));
                 put_str(&mut bytes, target_room);
                 put_vec2(&mut bytes, *arrival);
                 put_bool(&mut bytes, *edge_exit);
@@ -105,7 +108,7 @@ impl LifecycleIntent {
 
     /// The body that takes part, if one does. `None` is a rebuild with nobody
     /// in it — not a missing subject.
-    pub fn subject(&self) -> Option<&SimId> {
+    pub fn subject(&self) -> Option<&LiveBodyId> {
         match self {
             Self::Transition(intent) => Some(&intent.subject),
             Self::ReconstituteRoom(_) => None,
@@ -142,13 +145,17 @@ impl LifecycleIntent {
 
 /// Deterministic description of a room transition, independent of host
 /// confirmation timing. Because it is rollback state, identities use authored
-/// room ids and [`SimId`] rather than transient entities or query positions.
+/// room ids and [`LiveBodyId`] rather than transient entities or query positions.
 #[derive(Clone, Debug, PartialEq)]
 pub struct RoomTransitionIntent {
     /// The body that CROSSED. Never re-resolved from live control at commit
     /// time: possession may have changed, ended, or the body may have died during
     /// the wait. A body without stable identity cannot produce a transition.
-    pub subject: SimId,
+    ///
+    /// Its live identity: the stable id in the live room it crosses from. Two
+    /// instances of one room hold the same stable ids, so the commit must find
+    /// the body that crossed and not the first body with its id.
+    pub subject: LiveBodyId,
     /// The destination's authored room id.
     pub target_room: String,
     /// Where in it the subject comes out.
@@ -269,7 +276,7 @@ impl PendingLifecycleCommit {
     /// The lifecycle owner is the only place allowed to spend this rollback-state slot.
     ///
     /// A different body's transition, or any non-transition lifecycle intent, is untouched.
-    pub fn retract_transition_for_subject(&mut self, subject: &SimId) -> bool {
+    pub fn retract_transition_for_subject(&mut self, subject: &LiveBodyId) -> bool {
         let owned_by_subject = self.pending.as_ref().is_some_and(|pending| {
             matches!(
                 &pending.kind,
@@ -291,10 +298,12 @@ impl PendingLifecycleCommit {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance;
+    use ambition_platformer2d_shared_tangle::sim_id::SimId;
 
     fn crossing_to(room: &str) -> LifecycleIntent {
         LifecycleIntent::Transition(RoomTransitionIntent {
-            subject: SimId::placement("hero"),
+            subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(SimId::placement("hero"), None),
             target_room: room.into(),
             arrival: Vec2::new(1.0, 2.0),
             edge_exit: false,
@@ -330,7 +339,7 @@ mod tests {
         let _ = slot.record(
             10,
             LifecycleIntent::Transition(RoomTransitionIntent {
-                subject: SimId::placement("hero"),
+                subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(SimId::placement("hero"), None),
                 target_room: "east".into(),
                 arrival: Vec2::new(1.0, 2.0),
                 edge_exit: true,
@@ -355,8 +364,11 @@ mod tests {
 
     #[test]
     fn retraction_removes_only_the_crossing_owned_by_that_body() {
-        let hero = SimId::placement("hero");
-        let other = SimId::placement("other");
+        // The crossing is owned by `hero` in live room #1. `other` is the
+        // same authored body in live room #0: a duplicate, not the owner, so
+        // its death must not retract the crossing.
+        let hero = LiveBodyId::new(SimId::placement("hero"), Some(LiveRoomInstance::ACTIVATION.next()));
+        let other = LiveBodyId::new(SimId::placement("hero"), Some(LiveRoomInstance::ACTIVATION));
         let transition = LifecycleIntent::Transition(RoomTransitionIntent {
             subject: hero.clone(),
             target_room: "east".into(),

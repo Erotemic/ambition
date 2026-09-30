@@ -155,7 +155,7 @@ pub fn admit_room_replay(
         ambition_platformer2d_actor_monolith::session::reset::RoomReplayRequested,
     >,
     controlled: Option<Res<ambition_platformer2d_shared_tangle::markers::ControlledSubject>>,
-    identities: Query<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
+    identities: ambition_platformer2d_shared_tangle::lifecycle::LiveBodies,
     room_set: Option<ambition_platformer2d_world::rooms::SoleLiveRoomSpec>,
     mut pending: ResMut<
         ambition_platformer2d_actor_monolith::session::lifecycle_commit::PendingLifecycleCommit,
@@ -181,8 +181,7 @@ pub fn admit_room_replay(
     let subject = controlled
         .as_deref()
         .and_then(|controlled| controlled.0)
-        .and_then(|entity| identities.get(entity).ok())
-        .cloned();
+        .and_then(|entity| identities.id_of(entity));
 
     let admission = match subject.clone() {
         Some(subject) => pending.record(
@@ -248,6 +247,8 @@ pub fn return_the_replay_subject_to_spawn(
     mut vfx_writer: MessageWriter<VfxMessage>,
     mut bodies: Query<(
         &ambition_platformer2d_shared_tangle::sim_id::SimId,
+        Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
+        Option<&ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
         ae::BodyClusterQueryData,
         &mut ambition_platformer2d_core::movement::MotionModel,
         &mut ambition_characters::actor::BodyAnimFacts,
@@ -272,6 +273,8 @@ pub fn return_the_replay_subject_to_spawn(
     };
     let Some((
         _,
+        _,
+        _,
         mut cluster_item,
         mut motion_model,
         mut anim,
@@ -279,7 +282,9 @@ pub fn return_the_replay_subject_to_spawn(
         blink_cam,
         safety,
         health,
-    )) = bodies.iter_mut().find(|(id, ..)| **id == subject)
+    )) = bodies
+        .iter_mut()
+        .find(|(id, stamp, root, ..)| subject.is(id, *stamp, *root))
     else {
         return;
     };

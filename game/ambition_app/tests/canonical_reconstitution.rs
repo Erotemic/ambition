@@ -1410,9 +1410,9 @@ fn a_replay_refused_by_the_lifecycle_slot_changes_nothing() {
         ambition_platformer2d::actors::session::lifecycle_commit::PendingIntent {
             frame: 0,
             kind: LifecycleIntent::Transition(RoomTransitionIntent {
-                subject: ambition_platformer2d::platformer::sim_id::SimId::placement(
+                subject: ambition_platformer2d::platformer::lifecycle::LiveBodyId::new(ambition_platformer2d::platformer::sim_id::SimId::placement(
                     "somebody-elses-crossing",
-                ),
+                ), None),
                 target_room: ROOM.to_string(),
                 arrival: Vec2::ZERO,
                 edge_exit: false,

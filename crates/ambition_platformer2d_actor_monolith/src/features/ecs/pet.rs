@@ -25,6 +25,9 @@ use ambition_characters::control::{
 };
 use ambition_combat::components::{ActorInteraction, CenteredAabb};
 use ambition_platformer2d_core::BodyKinematics;
+use ambition_platformer2d_shared_tangle::lifecycle::{
+    InRoomInstance, LiveBodies, LiveBodyId, LiveRoomInstance,
+};
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
 use ambition_sfx::{SfxId, SfxMessage, SfxWriter};
 use ambition_vfx::vfx::VfxMessage;
@@ -58,8 +61,8 @@ const PET_REACH_SLACK: f32 = 16.0;
 /// Rollback state, so a rewind into the walk resumes the walk.
 #[derive(Component, Clone, Debug, PartialEq)]
 pub struct PetBeat {
-    /// The body being petted.
-    pub petted: SimId,
+    /// The body being petted, by live identity.
+    pub petted: LiveBodyId,
     /// Where the petter stands to pet: the petted body's front, in world x.
     pub mark_x: f32,
     /// The side of the petted body the petter stands on: `1.0` right.
@@ -77,17 +80,18 @@ pub enum PetStage {
     Gesture,
 }
 
-/// A conversation asked one body to pet another, by stable identity.
+/// A conversation asked one body to pet another, by live identity.
 ///
-/// Routed by `SimId` for the reason [`crate::features::ChallengeRequested`] is:
-/// the narrative ledger releases it again on every replay of its tick, and an
-/// `Entity` is not stable across that.
+/// Routed by identity for the reason [`crate::features::ChallengeRequested`]
+/// is: the narrative ledger releases it again on every replay of its tick, and
+/// an `Entity` is not stable across that. The identity is the stable id in its
+/// live room, because two instances of one room hold the same stable ids.
 #[derive(Message, Clone, Debug, PartialEq, Eq)]
 pub struct PetRequested {
     /// The body that pets: the one who started the conversation.
-    pub petter: SimId,
+    pub petter: LiveBodyId,
     /// The body that is petted: the one being talked to.
-    pub petted: SimId,
+    pub petted: LiveBodyId,
 }
 
 /// Start the pet a conversation asked for: the petter walks to the petted
@@ -107,7 +111,7 @@ pub struct PetRequested {
 pub fn apply_pet_requests(
     mut commands: Commands,
     mut requests: MessageReader<PetRequested>,
-    ids: Query<(Entity, &SimId)>,
+    ids: LiveBodies,
     catalog: Res<CharacterCatalog>,
     pettable: Query<(&CenteredAabb, &ActorInteraction)>,
     beats: Query<&PetBeat>,
@@ -116,11 +120,7 @@ pub fn apply_pet_requests(
     mut bodies: Query<(&mut BodyKinematics, &BodyAnimFacts)>,
 ) {
     for request in requests.read() {
-        let entity_of = |wanted: &SimId| {
-            ids.iter()
-                .find(|(_, id)| *id == wanted)
-                .map(|(entity, _)| entity)
-        };
+        let entity_of = |wanted: &LiveBodyId| ids.entity_of(wanted);
         let (Some(petter), Some(petted)) = (entity_of(&request.petter), entity_of(&request.petted))
         else {
             warn!(
@@ -153,7 +153,7 @@ pub fn apply_pet_requests(
         };
         // One beat per body: a body already petting, being petted, or walking
         // to either keeps the beat it has.
-        let busy = |body: Entity, id: &SimId| {
+        let busy = |body: Entity, id: &LiveBodyId| {
             beats.get(body).is_ok() || beats.iter().any(|beat| beat.petted == *id)
         };
         if busy(petter, &request.petter) || busy(petted, &request.petted) {
@@ -246,7 +246,7 @@ pub fn advance_pet_beats(
     mut commands: Commands,
     world_time: Res<ambition_time::WorldTime>,
     catalog: Res<CharacterCatalog>,
-    ids: Query<(Entity, &SimId)>,
+    ids: LiveBodies,
     pettable: Query<(&CenteredAabb, &ActorInteraction)>,
     mut petters: Query<(Entity, &mut PetBeat)>,
     mut bodies: Query<(&mut BodyKinematics, &mut BodyAnimFacts, Option<&BodyCombat>)>,
@@ -255,10 +255,7 @@ pub fn advance_pet_beats(
 ) {
     let dt = world_time.scaled_dt;
     for (petter, mut beat) in &mut petters {
-        let petted = ids
-            .iter()
-            .find(|(_, id)| **id == beat.petted)
-            .map(|(entity, _)| entity);
+        let petted = ids.entity_of(&beat.petted);
         let pair = petted.and_then(|petted| bodies.get_many_mut([petter, petted]).ok());
         let Some(
             [(mut petter_kin, mut petter_anim, petter_combat), (mut petted_kin, mut petted_anim, petted_combat)],
@@ -350,16 +347,17 @@ pub fn project_gesture_holds(
         Entity,
         &BodyAnimFacts,
         Option<&SimId>,
+        (Option<&InRoomInstance>, Option<&LiveRoomInstance>),
         Option<&mut ControlHolds>,
     )>,
 ) {
-    for (entity, anim, id, holds) in &mut bodies {
+    for (entity, anim, id, (stamp, root), holds) in &mut bodies {
         let held = holds
             .as_ref()
             .is_some_and(|holds| holds.holds(ControlHold::Gesture));
         let in_a_beat = anim.in_shared_gesture()
             || beats.get(entity).is_ok()
-            || id.is_some_and(|id| beats.iter().any(|beat| beat.petted == *id));
+            || id.is_some_and(|id| beats.iter().any(|beat| beat.petted.is(id, stamp, root)));
         match (in_a_beat, held) {
             (true, false) => claim_control_hold(&mut commands, entity, ControlHold::Gesture),
             (false, true) => release_control_hold(

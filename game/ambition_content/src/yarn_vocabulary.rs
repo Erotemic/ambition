@@ -34,7 +34,6 @@ use ambition_persistence::save::AmbitionGameSave;
 use ambition_dialog::YarnStateMirror;
 
 use ambition_conversation::NarrativeInputWriter;
-use ambition_platformer2d_shared_tangle::sim_id::SimId;
 
 /// The host installer: registers Ambition's generic Yarn vocabulary
 /// (commands + functions) on the runner. Pushed into
@@ -121,7 +120,9 @@ pub fn cmd_challenge(
     // the UI read-model is not rewound by rollback.
     conversation: Res<ambition_conversation::ActiveConversation>,
     player: Query<Entity, With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>>,
-    sim_ids: Query<&SimId>,
+    // The speaker's live identity, not its `SimId` alone: two instances of
+    // one room hold the same authored ids, and the command means THIS body.
+    bodies: ambition_platformer2d_shared_tangle::lifecycle::LiveBodies,
     mut narrative: NarrativeInputWriter<
         ambition_platformer2d_actor_monolith::features::ChallengeRequested,
     >,
@@ -130,18 +131,14 @@ pub fn cmd_challenge(
         warn!("<<challenge>>: no speaker entity in dialogue context; ignoring");
         return;
     };
-    let Ok(target) = sim_ids.get(actor) else {
+    let Some(target) = bodies.id_of(actor) else {
         warn!("<<challenge>>: speaker has no SimId; ignoring");
         return;
     };
     narrative.write(
         ambition_platformer2d_actor_monolith::features::ChallengeRequested {
-            target: target.clone(),
-            challenger: player
-                .iter()
-                .next()
-                .and_then(|player| sim_ids.get(player).ok())
-                .cloned(),
+            target,
+            challenger: player.iter().next().and_then(|player| bodies.id_of(player)),
         },
     );
 }
@@ -152,7 +149,7 @@ pub fn cmd_challenge(
 /// choice, so the conversation stays reachable and the pet is one answer in it.
 pub fn cmd_pet(
     conversation: Res<ambition_conversation::ActiveConversation>,
-    sim_ids: Query<&SimId>,
+    bodies: ambition_platformer2d_shared_tangle::lifecycle::LiveBodies,
     mut narrative: NarrativeInputWriter<
         ambition_platformer2d_actor_monolith::features::PetRequested,
     >,
@@ -161,16 +158,11 @@ pub fn cmd_pet(
         warn!("<<pet>>: the conversation has no two in-world bodies; ignoring");
         return;
     };
-    let (Ok(petter), Ok(petted)) = (sim_ids.get(initiator), sim_ids.get(talker)) else {
+    let (Some(petter), Some(petted)) = (bodies.id_of(initiator), bodies.id_of(talker)) else {
         warn!("<<pet>>: a participant has no SimId; ignoring");
         return;
     };
-    narrative.write(
-        ambition_platformer2d_actor_monolith::features::PetRequested {
-            petter: petter.clone(),
-            petted: petted.clone(),
-        },
-    );
+    narrative.write(ambition_platformer2d_actor_monolith::features::PetRequested { petter, petted });
 }
 
 /// `<<use_brain "preset">>` — switch the NPC the player is talking to onto an
@@ -184,7 +176,7 @@ pub fn cmd_pet(
 pub fn cmd_use_brain(
     In(preset): In<String>,
     conversation: Res<ambition_conversation::ActiveConversation>,
-    sim_ids: Query<&SimId>,
+    bodies: ambition_platformer2d_shared_tangle::lifecycle::LiveBodies,
     mut narrative: NarrativeInputWriter<
         ambition_platformer2d_actor_monolith::features::BrainCommand,
     >,
@@ -193,13 +185,13 @@ pub fn cmd_use_brain(
         warn!("<<use_brain>>: no speaker entity in dialogue context; ignoring");
         return;
     };
-    let Ok(sim_id) = sim_ids.get(actor) else {
+    let Some(target) = bodies.id_of(actor) else {
         warn!("<<use_brain>>: speaker has no SimId; ignoring");
         return;
     };
     narrative.write(
         ambition_platformer2d_actor_monolith::features::BrainCommand::use_preset(
-            sim_id.clone(),
+            target,
             ambition_characters::actor::character_catalog::BrainPresetId::new(preset),
         ),
     );
@@ -213,7 +205,7 @@ pub fn cmd_use_brain(
 /// would restore only the brain/source, leaving a provoked NPC still hostile.)
 pub fn cmd_restore_brain(
     conversation: Res<ambition_conversation::ActiveConversation>,
-    sim_ids: Query<&SimId>,
+    bodies: ambition_platformer2d_shared_tangle::lifecycle::LiveBodies,
     mut narrative: NarrativeInputWriter<
         ambition_platformer2d_actor_monolith::features::ReleaseProvocation,
     >,
@@ -222,13 +214,11 @@ pub fn cmd_restore_brain(
         warn!("<<restore_brain>>: no speaker entity in dialogue context; ignoring");
         return;
     };
-    let Ok(sim_id) = sim_ids.get(actor) else {
+    let Some(target) = bodies.id_of(actor) else {
         warn!("<<restore_brain>>: speaker has no SimId; ignoring");
         return;
     };
-    narrative.write(
-        ambition_platformer2d_actor_monolith::features::ReleaseProvocation::new(sim_id.clone()),
-    );
+    narrative.write(ambition_platformer2d_actor_monolith::features::ReleaseProvocation::new(target));
 }
 
 /// `<<give_item "kind" count>>` — grant the player an item by adding

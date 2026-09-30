@@ -127,7 +127,6 @@ fn a_room_rebuilt_after_a_persisted_provocation_builds_that_person_hostile() {
 fn a_challenged_npc_is_still_hostile_after_a_room_replay() {
     use ambition_platformer2d::combat::components::ActorDisposition;
     use ambition_platformer2d::platformer::markers::PrimaryPlayerOnly;
-    use ambition_platformer2d::platformer::sim_id::SimId;
 
     let mut sim = fixed_60hz_sim();
     sim.step_n(base(), 120);
@@ -138,17 +137,13 @@ fn a_challenged_npc_is_still_hostile_after_a_room_replay() {
         .expect("the start room authors at least one talkable NPC to challenge");
     assert_ne!(mode, AggressionMode::Hostile, "{id} is hostile before the challenge");
     let flag = ambition_platformer2d::actors::fate_flags::npc_flag_id(&id);
-    let npc_sim = sim
-        .world()
-        .get::<SimId>(npc)
-        .cloned()
-        .expect("a placed NPC carries a SimId");
+    let npc_sim = ambition_platformer2d::platformer::lifecycle::LiveBodyId::of_entity(sim.world(), npc).expect("a placed NPC carries a SimId");
     let player_sim = {
-        let mut query = sim.world_mut().query_filtered::<&SimId, PrimaryPlayerOnly>();
-        query
+        let mut query = sim.world_mut().query_filtered::<Entity, PrimaryPlayerOnly>();
+        let player = query
             .single(sim.world())
-            .cloned()
-            .expect("the shipped app plays exactly one primary body")
+            .expect("the shipped app plays exactly one primary body");
+        ambition_platformer2d::platformer::lifecycle::LiveBodyId::of_entity(sim.world(), player).expect("the primary body has a SimId")
     };
     sim.world_mut()
         .write_message(ambition_platformer2d::actors::features::ChallengeRequested {

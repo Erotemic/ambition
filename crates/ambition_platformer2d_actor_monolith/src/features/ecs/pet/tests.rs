@@ -109,8 +109,8 @@ fn spawn_player(app: &mut App, pos: ae::Vec2) -> Entity {
 /// The conversation's `<<pet>>`: the player pets `petted`.
 fn ask_for_a_pet(app: &mut App, petted: &str) {
     app.world_mut().write_message(PetRequested {
-        petter: sim_id(PLAYER),
-        petted: sim_id(petted),
+        petter: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(sim_id(PLAYER), None),
+        petted: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(sim_id(petted), None),
     });
 }
 

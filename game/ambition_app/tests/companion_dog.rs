@@ -151,17 +151,41 @@ fn talking_to_the_dog_offers_a_pet_that_holds_both_still_until_it_ends() {
     sim.world_mut()
         .run_system_cached(ambition_content::yarn_vocabulary::cmd_pet)
         .expect("the `<<pet>>` command runs");
-    // The ledger releases the pet on the tick after the command, and the
-    // effects phase applies it.
-    for _ in 0..4 {
+    // The ledger releases the pet on the tick after the command. The player
+    // then WALKS to the dog's front, and the gesture starts on arrival.
+    //
+    // ⭐ THE WALK IS THE SUBJECT. The pet used to write the player's position
+    // to the mark in one tick, which read as a teleport. Every tick of the walk
+    // must move the player no farther than the walk's own speed allows.
+    let per_tick = ambition_platformer2d::actors::features::ecs::PET_WALK_SPEED / 60.0;
+    let mut path = vec![pos(&sim, player).x];
+    for _ in 0..180 {
         if anim(&sim, player).pet_anim_timer > 0.0 {
             break;
         }
         sim.step(base());
+        path.push(pos(&sim, player).x);
     }
     assert!(
         anim(&sim, player).pet_anim_timer > 0.0 && anim(&sim, dog).petted_anim_timer > 0.0,
-        "the choice pets the dog"
+        "the choice pets the dog: beat {:?}, walk {:?}, dog at {:?}, player at {:?}",
+        sim.world().get::<ambition_platformer2d::actors::features::ecs::PetBeat>(player),
+        sim.world().get::<ambition_platformer2d::characters::control::CommandedMove>(player),
+        pos(&sim, dog),
+        pos(&sim, player),
+    );
+    let longest = path
+        .windows(2)
+        .map(|step| (step[1] - step[0]).abs())
+        .fold(0.0_f32, f32::max);
+    assert!(
+        longest <= per_tick * 1.5,
+        "the player jumped {longest:.1}px in one tick to reach the dog (a walk moves at most \
+         {per_tick:.1}px): {path:?}"
+    );
+    assert!(
+        path.len() > 3 && (path[path.len() - 1] - path[0]).abs() > per_tick,
+        "control: the player did not walk to the dog's front at all: {path:?}"
     );
     // The choice ends the node, and the box closes.
     sim.world_mut()

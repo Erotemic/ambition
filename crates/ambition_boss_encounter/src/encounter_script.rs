@@ -207,17 +207,10 @@ pub fn drop_hazard(
     spawned.id()
 }
 
-/// Generic "lured movement" override: while present on a boss, its brain
-/// control is replaced by steering toward `target.x` at `speed` (stopping
-/// within `arrive_tolerance`). Attached by [`EncounterEffect::CommandMoveTo`];
-/// the encounter removes it (for example when the member dies or the script
-/// ends). Reusable by any "walk the boss to a spot" beat.
-#[derive(Component, Clone, Copy, Debug)]
-pub struct CommandedMove {
-    pub target: ae::Vec2,
-    pub speed: f32,
-    pub arrive_tolerance: f32,
-}
+/// The lure: [`EncounterEffect::CommandMoveTo`] attaches the body-generic
+/// walk-to-a-mark command, and the encounter removes it (for example when the
+/// member dies or the script ends).
+pub use ambition_characters::control::CommandedMove;
 
 /// Steer every [`CommandedMove`] boss toward its target, overriding the
 /// brain's `ActorControl` and clearing its attack intent, so no new move
@@ -237,19 +230,12 @@ pub fn tick_commanded_moves(
         if !health.alive() {
             continue;
         }
-        let dx = cmd.target.x - boss.kin.pos.x;
         attack_intent.clear();
         control.0.melee_pressed = false;
         control.0.special_pressed = false;
-        // Turn toward the mark, and not again once there: an arrived body
-        // that overshoots by a pixel does not spin round.
-        control.0.facing = ambition_characters::brain::face_toward(boss.kin.facing, dx, cmd.arrive_tolerance);
-        // `dx` is a world-x difference, so the command is world-space.
-        control.0.velocity_target = if dx.abs() <= cmd.arrive_tolerance {
-            ae::WorldVec2::ZERO
-        } else {
-            ae::WorldVec2::new(dx.signum() * cmd.speed, 0.0)
-        };
+        // The boss integrator reads `velocity_target` only, so the walk leaves
+        // the brain's `locomotion` alone.
+        cmd.steer(boss.kin.pos, boss.kin.facing, None, &mut control.0);
     }
 }
 

@@ -25,18 +25,7 @@ where
     // mid-fight, so they are in no boot world, and the coverage census (which
     // sweeps the initial world) cannot see them. Each one steers a body.
     //
-    // `CommandedMove` overrides the boss's control every tick it is present.
-    // A rewind that restored the boss's position but not its walk target
-    // would send it where the resimulation never chose.
-    registrar.rollback_component_clone_probed::<crate::encounter_script::CommandedMove>(
-        OWNER,
-        "encounter.commanded_move",
-        |cmd| {
-            (cmd.target.x.to_bits() as u64) << 32
-                ^ (cmd.target.y.to_bits() as u64)
-                ^ (cmd.speed.to_bits() as u64)
-        },
-    );
+    // `CommandedMove` is body-generic, so `ambition_characters` registers it.
     // A hazard is spawned mid-match by `EncounterEffect::DropHazard`, so it
     // needs a rollback anchor as well as the codecs; without the anchor the
     // registrations below are inert on it. The anchor puts the entity in the

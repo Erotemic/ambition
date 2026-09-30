@@ -44,11 +44,51 @@ fn catalog() -> CharacterCatalog {
 fn app() -> App {
     let mut app = App::new();
     app.insert_resource(catalog());
+    app.insert_resource(ambition_time::WorldTime {
+        scaled_dt: 1.0 / 60.0,
+        ..Default::default()
+    });
     app.add_message::<PetRequested>();
     app.add_message::<VfxMessage>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
-    app.add_systems(Update, (apply_pet_requests, project_gesture_holds).chain());
+    app.add_systems(
+        Update,
+        (apply_pet_requests, advance_pet_beats, project_gesture_holds).chain(),
+    );
     app
+}
+
+/// The mark the pet's walk steers the petter to.
+fn walk_mark(app: &App, petter: Entity) -> Option<ae::Vec2> {
+    app.world()
+        .get::<CommandedMove>(petter)
+        .map(|command| command.target)
+}
+
+/// Stand the petter on its walk's mark. This fixture runs no integrator, so
+/// the walk itself is the composed game's to witness
+/// (`talking_to_the_dog_offers_a_pet_that_holds_both_still_until_it_ends`).
+fn arrive(app: &mut App, petter: Entity) {
+    let mark = walk_mark(app, petter).expect("the petter is walking to a mark");
+    app.world_mut().get_mut::<BodyKinematics>(petter).unwrap().pos.x = mark.x;
+}
+
+/// A hit that moves `body`: the recoil lock a strike opens.
+fn knock(app: &mut App, body: Entity) {
+    app.world_mut()
+        .entity_mut(body)
+        .entry::<BodyCombat>()
+        .or_default()
+        .get_mut()
+        .recoil_lock_timer = 0.3;
+}
+
+fn hearts(app: &App) -> usize {
+    app.world()
+        .resource::<bevy::ecs::message::Messages<VfxMessage>>()
+        .iter_current_update_messages()
+        .filter(|message| matches!(message, VfxMessage::Hearts { .. }))
+        .count()
 }
 
 const PLAYER: &str = "player";
@@ -121,48 +161,139 @@ fn gesture_held(app: &App, body: Entity) -> bool {
         .is_some_and(|holds| holds.holds(ControlHold::Gesture))
 }
 
+/// The pet walks the petter to the petted body's front, and pets on arrival.
+///
+/// The control is the arrival: the gesture, the facing and the hearts. The
+/// subject is the request's own tick: the petter has not moved (the pet used
+/// to write its position to the mark in one tick), it walks toward the mark,
+/// and both bodies are held while it does.
 #[test]
-fn a_pet_asked_for_by_the_conversation_pets_the_character() {
+fn a_pet_walks_the_petter_to_the_front_and_pets_on_arrival() {
     let mut app = app();
     let dog_at = ae::Vec2::new(100.0, 100.0);
-    let player = spawn_player(&mut app, dog_at + ae::Vec2::new(30.0, 0.0));
+    let start = dog_at + ae::Vec2::new(30.0, 0.0);
+    let player = spawn_player(&mut app, start);
     let dog = spawn_character(&mut app, dog_at, "good_dog");
 
     ask_for_a_pet(&mut app, "good_dog");
     app.update();
 
+    let player_kin = app.world().get::<BodyKinematics>(player).unwrap();
+    assert_eq!(player_kin.pos, start, "the petter was moved to the mark in one tick");
+    let mark = walk_mark(&app, player).expect("the petter walks to the dog's front");
+    assert!(mark.x > dog_at.x + 32.0, "the mark is the dog's front, on the petter's side");
     assert_eq!(
-        anim(&app, player).pet_anim_timer,
-        PET_SECONDS,
-        "the player pets"
+        (anim(&app, player).pet_anim_timer, anim(&app, dog).petted_anim_timer),
+        (0.0, 0.0),
+        "the gesture waits for the walk"
+    );
+    assert!(
+        gesture_held(&app, player) && gesture_held(&app, dog),
+        "both are held while the petter walks"
     );
     assert_eq!(
-        anim(&app, dog).petted_anim_timer,
-        PET_SECONDS,
-        "the dog is petted"
+        app.world().get::<BodyKinematics>(dog).unwrap().facing,
+        1.0,
+        "the dog turns to the petter at once"
     );
+
+    arrive(&mut app, player);
+    app.update();
+
+    assert_eq!(anim(&app, player).pet_anim_timer, PET_SECONDS, "the player pets");
+    assert_eq!(anim(&app, dog).petted_anim_timer, PET_SECONDS, "the dog is petted");
+    assert!(walk_mark(&app, player).is_none(), "the walk is over");
     assert!(
         gesture_held(&app, player) && gesture_held(&app, dog),
         "both are held still"
     );
-    let world = app.world();
-    let player_kin = world.get::<BodyKinematics>(player).unwrap();
-    let dog_kin = world.get::<BodyKinematics>(dog).unwrap();
     assert_eq!(
-        dog_kin.facing, 1.0,
-        "the dog turns to the player, on its right"
+        app.world().get::<BodyKinematics>(player).unwrap().facing,
+        -1.0,
+        "the player faces the dog"
     );
-    assert_eq!(player_kin.facing, -1.0, "the player faces the dog");
+    assert_eq!(hearts(&app), 1, "the pet shows hearts");
+}
+
+/// A hit that moves the petter during the walk ends the pet: the walk stops,
+/// both bodies are let go, and arriving later pets nothing. The control is
+/// the same walk with no hit, which pets on arrival (above).
+#[test]
+fn a_hit_during_the_walk_interrupts_the_pet() {
+    let mut app = app();
+    let dog_at = ae::Vec2::new(100.0, 100.0);
+    let player = spawn_player(&mut app, dog_at + ae::Vec2::new(30.0, 0.0));
+    let dog = spawn_character(&mut app, dog_at, "good_dog");
+    ask_for_a_pet(&mut app, "good_dog");
+    app.update();
+    let mark = walk_mark(&app, player).expect("the walk started");
+
+    knock(&mut app, player);
+    app.update();
+
+    assert!(walk_mark(&app, player).is_none(), "the walk went on after the hit");
+    assert!(app.world().get::<PetBeat>(player).is_none(), "the pet went on after the hit");
     assert!(
-        player_kin.pos.x > dog_at.x + 32.0,
-        "the player stands at the dog's front"
+        !gesture_held(&app, player) && !gesture_held(&app, dog),
+        "the interrupted pet kept a body held"
     );
-    let hearts = world
-        .resource::<bevy::ecs::message::Messages<VfxMessage>>()
-        .iter_current_update_messages()
-        .filter(|message| matches!(message, VfxMessage::Hearts { .. }))
-        .count();
-    assert_eq!(hearts, 1, "the pet shows hearts");
+    app.world_mut().get_mut::<BodyKinematics>(player).unwrap().pos.x = mark.x;
+    app.update();
+    assert_eq!(
+        (anim(&app, player).pet_anim_timer, anim(&app, dog).petted_anim_timer),
+        (0.0, 0.0),
+        "an interrupted pet started its gesture anyway"
+    );
+}
+
+/// A hit during the gesture stops it on both bodies.
+#[test]
+fn a_hit_during_the_gesture_interrupts_the_pet() {
+    let mut app = app();
+    let dog_at = ae::Vec2::new(100.0, 100.0);
+    let player = spawn_player(&mut app, dog_at + ae::Vec2::new(30.0, 0.0));
+    let dog = spawn_character(&mut app, dog_at, "good_dog");
+    ask_for_a_pet(&mut app, "good_dog");
+    app.update();
+    arrive(&mut app, player);
+    app.update();
+    assert_eq!(anim(&app, dog).petted_anim_timer, PET_SECONDS, "control: the gesture plays");
+
+    knock(&mut app, dog);
+    app.update();
+
+    assert_eq!(
+        (anim(&app, player).pet_anim_timer, anim(&app, dog).petted_anim_timer),
+        (0.0, 0.0),
+        "the gesture played on through a hit"
+    );
+    assert!(
+        !gesture_held(&app, player) && !gesture_held(&app, dog),
+        "the interrupted gesture kept a body held"
+    );
+}
+
+/// A walk that cannot arrive (a wall, a ledge) gives up and lets both go.
+#[test]
+fn a_walk_that_does_not_arrive_gives_up() {
+    let mut app = app();
+    let dog_at = ae::Vec2::new(100.0, 100.0);
+    let player = spawn_player(&mut app, dog_at + ae::Vec2::new(30.0, 0.0));
+    let dog = spawn_character(&mut app, dog_at, "good_dog");
+    ask_for_a_pet(&mut app, "good_dog");
+    app.update();
+    assert!(gesture_held(&app, player), "control: the walk holds the petter");
+
+    // No integrator runs here, so the petter never moves.
+    for _ in 0..(60.0 * (1.0 + 60.0 / PET_WALK_SPEED)) as usize + 2 {
+        app.update();
+    }
+
+    assert!(app.world().get::<PetBeat>(player).is_none(), "a blocked walk never gave up");
+    assert!(
+        !gesture_held(&app, player) && !gesture_held(&app, dog),
+        "a blocked walk kept a body held"
+    );
 }
 
 #[test]
@@ -188,6 +319,8 @@ fn a_second_pet_during_the_first_changes_nothing() {
     let player = spawn_player(&mut app, dog_at + ae::Vec2::new(30.0, 0.0));
     let dog = spawn_character(&mut app, dog_at, "good_dog");
     ask_for_a_pet(&mut app, "good_dog");
+    app.update();
+    arrive(&mut app, player);
     app.update();
     app.world_mut()
         .get_mut::<BodyAnimFacts>(dog)

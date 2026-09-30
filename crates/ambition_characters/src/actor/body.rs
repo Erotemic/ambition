@@ -448,6 +448,17 @@ impl BodyCombat {
             .max(self.sleep_timer)
     }
 
+    /// Whether a hit is moving this body now: its recoil lock or its hitstun
+    /// runs.
+    ///
+    /// The one rule for a beat two bodies share (a conversation, a pet): a
+    /// hit breaks it because it MOVES a participant, so the signal is the
+    /// control lock and not a health change. A poison tick leaves both bodies
+    /// where they stand, and the beat goes on.
+    pub fn is_knocked(&self) -> bool {
+        self.recoil_lock_timer > 0.0 || self.hitstun_timer > 0.0
+    }
+
     /// Whether this body is currently in hitlag.
     pub fn is_in_hitlag(&self) -> bool {
         self.hitstop_timer > 0.0

@@ -412,6 +412,61 @@ pub struct DrivingParticipant(pub PlayerSlot);
 )]
 pub struct ActorControl(pub crate::actor::control::ActorControlFrame);
 
+/// A script walks this body to a mark: while it is present, the body's
+/// control is written toward `target.x` at `speed` px/s, and stops within
+/// `arrive_tolerance`.
+///
+/// One mechanism for every body a script moves. An encounter lures a boss
+/// under a hazard with it (`EncounterEffect::CommandMoveTo`), and a pet walks
+/// the petter to the petted body's front. The script that attaches it removes
+/// it. A held body is walked too: the writer runs after the hold blanks the
+/// body's own control, so the script, and not the stick, moves it.
+#[derive(Component, Clone, Copy, Debug, PartialEq)]
+pub struct CommandedMove {
+    pub target: ambition_platformer2d_core::Vec2,
+    pub speed: f32,
+    pub arrive_tolerance: f32,
+}
+
+impl CommandedMove {
+    /// Whether a body at `pos` stands on the mark.
+    pub fn arrived(&self, pos: ambition_platformer2d_core::Vec2) -> bool {
+        (self.target.x - pos.x).abs() <= self.arrive_tolerance
+    }
+
+    /// Write this walk into `control` for a body at `pos` facing `facing`.
+    ///
+    /// Each integrator reads its own field of the frame. A free mover reads
+    /// `velocity_target`, which gets the command's world speed. A grounded
+    /// body reads `locomotion`, a throttle in its own frame: `walker` gives
+    /// that body's full-throttle speed and motion frame, and `None` leaves
+    /// `locomotion` as the body's own control wrote it.
+    pub fn steer(
+        &self,
+        pos: ambition_platformer2d_core::Vec2,
+        facing: f32,
+        walker: Option<(f32, ambition_platformer2d_core::MotionFrame)>,
+        control: &mut crate::actor::control::ActorControlFrame,
+    ) {
+        let dx = self.target.x - pos.x;
+        // Turn toward the mark, and not again once there: an arrived body
+        // that overshoots by a pixel does not spin round.
+        control.facing = crate::brain::face_toward(facing, dx, self.arrive_tolerance);
+        let direction = if self.arrived(pos) { 0.0 } else { dx.signum() };
+        control.velocity_target =
+            ambition_platformer2d_core::WorldVec2::new(direction * self.speed, 0.0);
+        if let Some((top_speed, frame)) = walker {
+            let throttle = if top_speed > 1e-3 {
+                (self.speed / top_speed).min(1.0)
+            } else {
+                0.0
+            };
+            let local = frame.to_local(ambition_platformer2d_core::Vec2::new(direction * throttle, 0.0));
+            control.locomotion = ambition_platformer2d_core::LocalAxes::new(local.x, 0.0);
+        }
+    }
+}
+
 /// CPU struggle cadence, shared by every brain family so escape timing does not
 /// depend on the AI template.
 const STRUGGLE_PRESSES_PER_SECOND: f32 = 6.0;

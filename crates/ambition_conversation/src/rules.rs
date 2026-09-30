@@ -41,13 +41,9 @@ pub fn break_dialogue_on_hit_or_separation(
         return;
     };
 
-    //  KNOCKBACK, not damage. The reason a hit ends a conversation is that it
-    // MOVES you, so the signal is the recoil/hitstun control lock rather than
-    // any health change: a poison tick or a chip of environmental damage leaves
-    // both bodies standing where they were and leaves them talking.
-    let struck = |combat: Option<&BodyCombat>| {
-        combat.is_some_and(|c| c.recoil_lock_timer > 0.0 || c.hitstun_timer > 0.0)
-    };
+    //  KNOCKBACK, not damage: see `BodyCombat::is_knocked`, the rule every
+    // beat two bodies share asks.
+    let struck = |combat: Option<&BodyCombat>| combat.is_some_and(BodyCombat::is_knocked);
     let any_struck = struck(a_combat) || struck(b_combat);
     let in_reach = a_aabb.aabb().strict_intersects(b_aabb.aabb());
 

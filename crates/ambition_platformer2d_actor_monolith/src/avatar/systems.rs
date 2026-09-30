@@ -21,6 +21,38 @@ pub fn blank_scripted_control_frames(mut bodies: Query<&mut ActorControl, With<C
     }
 }
 
+/// Walk every body a script commands to its mark
+/// ([`ambition_characters::control::CommandedMove`]).
+///
+/// After the blank, so a held body is walked by the script and not by the
+/// stick. A boss is steered in its own slot, between its brain and its
+/// integrator, because its brain writes its control after this phase.
+pub fn drive_commanded_moves(
+    mut bodies: Query<
+        (
+            &BodyKinematics,
+            &ambition_characters::control::CommandedMove,
+            &mut ActorControl,
+            Option<&ambition_platformer2d_core::MotionModel>,
+            Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
+        ),
+        Without<ambition_characters::brain::boss_pattern::BossAttackIntent>,
+    >,
+) {
+    for (kin, command, mut control, motion_model, frame) in &mut bodies {
+        let walker = motion_model.map(|model| {
+            (
+                model.commanded_top_speed(),
+                frame.map_or_else(
+                    || ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame::default().get(),
+                    |frame| frame.get(),
+                ),
+            )
+        });
+        command.steer(kin.pos, kin.facing, walker, &mut control.0);
+    }
+}
+
 /// Ordering seam meaning participant input has been translated to `ActorControl`.
 ///
 /// Keep this a single-member leaf set; brain-adjacent work belongs in the parent

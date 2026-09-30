@@ -26,8 +26,8 @@ pub use starting_character::{
 // Body-generic vocabulary stays under `crate::actor`; this module exports only home-avatar policy.
 pub use events::PlayerHealRequested;
 pub use systems::{
-    apply_player_heal_requests, blank_scripted_control_frames, regen_player_mana,
-    tick_controlled_brains, ControlledBrainTick,
+    apply_player_heal_requests, blank_scripted_control_frames, drive_commanded_moves,
+    regen_player_mana, tick_controlled_brains, ControlledBrainTick,
 };
 
 /// Build the primary home body's scratch state with its authored abilities.

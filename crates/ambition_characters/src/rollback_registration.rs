@@ -40,6 +40,20 @@ where
         "boss.attack_intent",
     );
     registrar.rollback_component_cursor::<crate::brain::Brain>(OWNER, "actor.brain");
+    // A script's walk to a mark writes the body's control every tick it is
+    // present, and a script attaches it mid-play (an encounter's lure, a pet's
+    // walk-up), so it is in no boot world. A rewind that restored the body's
+    // position but not its mark would walk it where the resimulation never
+    // chose.
+    registrar.rollback_component_clone_probed::<crate::control::CommandedMove>(
+        OWNER,
+        "body.commanded_move",
+        |cmd| {
+            (cmd.target.x.to_bits() as u64) << 32
+                ^ (cmd.target.y.to_bits() as u64)
+                ^ (cmd.speed.to_bits() as u64)
+        },
+    );
     registrar.rollback_component_clone_entity_map::<crate::actor::limb::LimbRig>(
         OWNER,
         "limb.rig",

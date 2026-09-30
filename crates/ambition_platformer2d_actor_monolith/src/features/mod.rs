@@ -193,6 +193,10 @@ impl bevy::prelude::Plugin for GameplayEffectsSchedulePlugin {
                 // narrative asked for it rather than the one after.
                 ecs::arm_requested_challenges,
                 ecs::apply_pet_requests,
+                // The pet's script: the walk's arrival, the gesture's end, and
+                // its interruption. After the request, so a petter already on
+                // the mark starts the gesture on the tick it asked.
+                ecs::advance_pet_beats,
                 crate::items::narrative::apply_item_grants,
                 crate::items::narrative::apply_shop_transactions,
                 crate::items::narrative::apply_item_uses,
@@ -1457,6 +1461,15 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
         app.add_systems(
             sim,
             ecs::project_gesture_holds.in_set(FeatureInteractionSet::HoldProjection),
+        );
+        // A script's walk to a mark, on the blanked frame: a held body is
+        // walked by the script and not by the stick. In the gate, so every
+        // consumer of finished control reads the walk.
+        app.add_systems(
+            sim,
+            crate::avatar::drive_commanded_moves
+                .after(crate::avatar::blank_scripted_control_frames)
+                .in_set(ambition_platformer2d_shared_tangle::schedule::PlayerInputSet::ControlGate),
         );
         // The cast half of the conversation break. It sits in a set the
         // conversation ordering vocabulary declares and this domain fills —

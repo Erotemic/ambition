@@ -237,6 +237,21 @@ where
         OWNER,
         "actor.spawn_baseline",
     );
+    // A pet is a script that runs across frames: the walk to the petted
+    // body, then the gesture. A rewind into the walk must resume the walk, and
+    // one before the request must not keep a beat the resimulation has not
+    // started yet.
+    registrar.rollback_component_clone_probed::<crate::features::ecs::PetBeat>(
+        OWNER,
+        "actor.pet_beat",
+        |beat| {
+            let stage = match beat.stage {
+                crate::features::ecs::PetStage::Walk { remaining } => remaining.to_bits() as u64,
+                crate::features::ecs::PetStage::Gesture => u64::MAX,
+            };
+            (u64::from(beat.mark_x.to_bits()) << 32) ^ stage ^ u64::from(beat.side.to_bits())
+        },
+    );
     registrar.rollback_component_clone_probed::<crate::features::transform_beat::TransformBeat>(
         OWNER,
         "actor.transform_beat",

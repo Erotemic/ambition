@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v270
+ggrs-rollback-schema-v271
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -51,6 +51,7 @@ actor.out_of_play	component-canonical	OutOfPlay	bevy_ggrs canonical codec snapsh
 actor.pending_challenge	component-clone	PendingChallenge	bevy_ggrs clone snapshot; entity SET remapped, probed through the targets' stable sim identities
 actor.perception_memory	component-canonical	PerceptionMemory	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.persona_baseline	component-clone	PersonaBaseline	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
+actor.pet_beat	component-clone	PetBeat	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 actor.policy	component-clone	ActorPolicy	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 actor.projected_character_kit	component-clone	ProjectedCharacterKit	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 actor.proper_time_scale	component-canonical	ProperTimeScale	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
@@ -77,6 +78,7 @@ body.action_buffer	component-canonical	BodyActionBuffer	bevy_ggrs canonical code
 body.authored_movement_tuning	component-clone	AuthoredMovementTuning	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 body.base_size	component-canonical	BodyBaseSize	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 body.blink	component-canonical	BodyBlinkState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+body.commanded_move	component-clone	CommandedMove	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 body.contact	component-clone	BodyContact	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 body.dash	component-canonical	BodyDashState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 body.depth_plane	component-canonical	DepthPlane	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
@@ -192,7 +194,6 @@ derived.surface_upright	derived	SurfaceUpright	republished from support facts ev
 derived.wallet_shield	derived	BodyWalletShield	re-derived from the worn character and the room's rules every tick, before any hit is resolved
 dynamic.projectile	dynamic-anchor	ProjectileGameplay	Rollback entity recreation plus the complete projectile component family
 encounter.camera_zoom	component-clone	EncounterCameraZoom	bevy_ggrs clone snapshot; not in the session checksum
-encounter.commanded_move	component-clone	CommandedMove	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 encounter.definition	component-clone	EncounterDef	bevy_ggrs clone snapshot; not in the session checksum
 encounter.falling_hazard	component-clone	FallingHazard	bevy_ggrs clone snapshot; entity handle remapped, probed through the target's stable sim identity
 encounter.identity	component-clone	Encounter	bevy_ggrs clone snapshot; not in the session checksum

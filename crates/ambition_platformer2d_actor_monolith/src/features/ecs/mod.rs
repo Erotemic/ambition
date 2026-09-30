@@ -124,7 +124,10 @@ pub use hitbox::{
     HitboxKnockback, HitboxLifetime,
 };
 pub use interact::{interact_ecs_actors_and_switches, TalkableBodies};
-pub use pet::{apply_pet_requests, project_gesture_holds, PetRequested, PET_SECONDS};
+pub use pet::{
+    advance_pet_beats, apply_pet_requests, project_gesture_holds, PetBeat, PetRequested, PetStage,
+    PET_SECONDS, PET_WALK_SPEED,
+};
 // ⭐ THE MOUNT PAIR'S TESTS STAYED, because their fixtures are this crate's
 // construction road. They exercise `ambition_mount` from the composition.
 #[cfg(test)]

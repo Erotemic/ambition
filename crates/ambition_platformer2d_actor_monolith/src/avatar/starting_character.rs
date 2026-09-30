@@ -281,9 +281,9 @@ pub fn apply_worn_character_overlay(
     moveset: &mut ActorMoveset,
     identity: &mut ambition_characters::brain::action_set::IdentityKit,
     character_id: &str,
-    match_kit: Option<&ActionSet>,
+    terms: ambition_combat::worn_kit::SeatTerms<'_>,
 ) -> RangedExecution {
-    let execution = wear_character(registry, name, identity, character_id, match_kit);
+    let execution = wear_character(registry, name, identity, character_id, terms);
     // Construction: nothing is worn or held yet, so the live pair is the
     // identity's own fold, published with it.
     let live = ambition_characters::repertoire::effective_repertoire(
@@ -307,9 +307,9 @@ pub fn wear_character(
     name: &mut Name,
     identity: &mut ambition_characters::brain::action_set::IdentityKit,
     character_id: &str,
-    match_kit: Option<&ActionSet>,
+    terms: ambition_combat::worn_kit::SeatTerms<'_>,
 ) -> RangedExecution {
-    let kit = WornKit::resolve(registry, character_id, match_kit);
+    let kit = WornKit::resolve(registry, character_id, terms);
     // The prepared name, else the id itself, so an unknown id is shown as the
     // id and the problem stays visible.
     *name = Name::new(
@@ -322,11 +322,20 @@ pub fn wear_character(
     kit.execution
 }
 
-fn match_kit_for_seat<'a>(
+/// What the match says about the kit this seat wears, or the terms of a body
+/// in no match.
+fn seat_terms_for<'a>(
     roster: Option<&'a ambition_match::MatchParticipantRoster>,
     seat: Option<&ambition_match::MatchSeat>,
-) -> Option<&'a ActionSet> {
-    roster?.participants.get(seat?.0)?.action_set.as_ref()
+) -> ambition_combat::worn_kit::SeatTerms<'a> {
+    let (Some(roster), Some(seat)) = (roster, seat) else {
+        return ambition_combat::worn_kit::SeatTerms::default();
+    };
+    let action_set = roster
+        .participants
+        .get(seat.0)
+        .and_then(|participant| participant.action_set.as_ref());
+    roster.rules.seat_terms(action_set)
 }
 
 pub fn sync_charge_projectile_capability(
@@ -445,10 +454,11 @@ pub fn apply_worn_character_gameplay(
                 &mut name,
                 &mut identity,
                 id,
-                // The kit this MATCH gave the seat, when this body is in one.
-                // A body with no `MatchSeat` is not in a match and keeps its
-                // authored persona, which is every other body in every game.
-                match_kit_for_seat(roster.as_deref(), seat),
+                // The terms this MATCH gave the seat, when this body is in one:
+                // its borrowed kit and which damage its moves deal. A body with
+                // no `MatchSeat` is not in a match and keeps its authored
+                // persona, which is every other body in every game.
+                seat_terms_for(roster.as_deref(), seat),
             );
             sync_charge_projectile_capability(
                 &mut commands,

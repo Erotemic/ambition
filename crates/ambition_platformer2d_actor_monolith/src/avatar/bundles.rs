@@ -292,7 +292,7 @@ impl PlayerSimulationBundle {
             // A from-scratch bundle predates the match as well as the world: if
             // this body is later seated, the per-frame derivation reaches it
             // with the roster's kit on its first tick.
-            None,
+            ambition_combat::worn_kit::SeatTerms::default(),
         );
         let mut bundle = Self::from_kit(scratch, health, kit);
         bundle

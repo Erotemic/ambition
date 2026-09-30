@@ -26,15 +26,23 @@ use bevy::prelude::{Commands, Res};
 pub fn project_combat_rules(
     mut commands: Commands,
     declared: crate::session::governing_rules::GoverningRules<ambition_combat::rules::CombatRules>,
+    // The room's line between light and heavy hits: a rule of its own, so a
+    // game that declares no combat ruleset can still draw it.
+    strike_weight: crate::session::governing_rules::GoverningRules<
+        ambition_combat::strike_weight::StrikeWeightRules,
+    >,
     baseline_feel: Option<Res<ambition_combat::feel::Platformer2dFeelTuningMonolith>>,
     baseline_ff: Option<Res<ambition_combat::targeting::FriendlyFire>>,
 ) {
     // `Option` on both baselines: a minimal headless world that never stands
     // up the tuning resources still resolves, and `resolve_over` says what an
     // absent baseline stands at.
-    commands.insert_resource(ambition_combat::rules::ResolvedCombatTuning::resolve_over(
-        declared.get(),
-        baseline_feel.as_deref(),
-        baseline_ff.as_deref(),
-    ));
+    commands.insert_resource(
+        ambition_combat::rules::ResolvedCombatTuning::resolve_over(
+            declared.get(),
+            baseline_feel.as_deref(),
+            baseline_ff.as_deref(),
+        )
+        .with_strike_weight(strike_weight.get()),
+    );
 }

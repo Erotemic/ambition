@@ -63,6 +63,7 @@ pub mod stocks;
 /// Authoritative strike damage volumes, lifecycle state, and world-anchored
 /// effect execution.
 pub mod strike;
+pub mod strike_weight;
 pub mod targeting;
 pub mod util;
 pub mod variation;

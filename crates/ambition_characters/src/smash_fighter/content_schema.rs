@@ -135,17 +135,24 @@ pub fn facet<'a>(
     lowered_smash_fighters(pack)?.get(character)
 }
 
-/// Fold the facet's CHARACTER facts into `definition`: its knockback weight,
-/// which applies wherever the character appears. One of the folds in
+/// Fold the facet into `definition`: its knockback weight, which applies
+/// wherever the character appears, and its move damage, which the definition
+/// only carries. A match that declares
+/// [`MoveDamageSource::SmashFighterFacet`](super::MoveDamageSource) applies it
+/// (`ambition_combat::worn_kit::WornKit::resolve`). One of the folds in
 /// [`crate::pack_facets`]. The fighter body is a match fact; see
 /// [`fighter_body`].
 pub fn fold_into_definition(
     pack: &ambition_content_pack::PreparedContentPack,
     mut definition: crate::actor::definition::CharacterDefinition,
 ) -> crate::actor::definition::CharacterDefinition {
-    if let Some(weight) = facet(pack, definition.id.as_str()).and_then(|f| f.knockback_weight) {
+    let Some(facet) = facet(pack, definition.id.as_str()) else {
+        return definition;
+    };
+    if let Some(weight) = facet.knockback_weight {
         definition.vitals.knockback_weight = Some(weight);
     }
+    definition.fighter_move_damage = facet.move_damage.clone();
     definition
 }
 
@@ -177,8 +184,9 @@ pub fn smash_fighter_schema() -> SchemaRegistration {
         capability: CapabilityId::new(SMASH_FIGHTER_CAPABILITY),
         disposition: RuntimeDisposition::Runtime,
         doc: "One character's platform-fighter values apart from its moves: its fighter \
-              body and its knockback weight. The moves, grab included, are a `moveset` \
-              file. Every such file merges into one book keyed by character id.",
+              body, its knockback weight, and the damage its moves deal on a \
+              platform-fighter stage. The moves, grab included, are a `moveset` file. \
+              Every such file merges into one book keyed by character id.",
         handler: Arc::new(SmashFighterSchema),
     }
 }

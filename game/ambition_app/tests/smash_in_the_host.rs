@@ -8421,3 +8421,93 @@ fn pause_row_index(app: &mut App, label: &str) -> usize {
     );
     wanted - first
 }
+
+/// ⭐⭐ ONE MOVE, EACH GAME'S DAMAGE. The robot's moveset states Ambition's
+/// damage (health: the jab deals 1, the forward smash 4), and its
+/// `smash_fighter` facet states Smash's (percent: 3 and 15). The frames are the
+/// same moves in both games; only the damage has two meanings.
+///
+/// This is the case that caused the split. Before it, both games read one
+/// number, so balancing the robot for one game changed the other.
+///
+/// ⛔ AND A RE-WEAR IN THE MATCH KEEPS THE STAGE'S DAMAGE. A seated body that
+/// re-wears its character (`RecharacterizeBody`, a content reload) resolves its
+/// kit again through `WornKit::resolve`. The damage source is one of that
+/// resolver's inputs for this reason: applied only at seating, a re-wear would
+/// silently put the robot back on its home damage.
+#[test]
+fn the_robot_deals_health_damage_at_home_and_percent_on_a_smash_stage() {
+    use ambition_platformer2d::characters::actor::{RecharacterizeBody, WornCharacter};
+    use ambition_platformer2d::combat::moveset::ActorMoveset;
+    use ambition_platformer2d::entity_catalog::MovesetContract;
+
+    const ROBOT: &str = "player_robot_v3";
+    let damage = |moveset: &MovesetContract, id: &str| -> i32 {
+        moveset
+            .moves
+            .iter()
+            .find(|spec| spec.id == id)
+            .unwrap_or_else(|| panic!("the robot has no `{id}`"))
+            .frame_data()
+            .max_damage
+    };
+
+    let mut app = shell_host_app();
+    settle(&mut app);
+    // At home: the prepared kit, which every Ambition room's robot wears.
+    let home = app
+        .world()
+        .resource::<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>()
+        .get(ROBOT)
+        .expect("the host prepares the robot")
+        .kit
+        .baseline()
+        .1;
+    assert_eq!(
+        (damage(&home, "jab"), damage(&home, "tilt_forward"), damage(&home, "smash_forward")),
+        (1, 1, 4),
+        "the robot's home damage is Ambition's health damage"
+    );
+
+    launch_row(&mut app, "Smash");
+    settle(&mut app);
+    pick_and_start(&mut app, ROBOT);
+    for _ in 0..240 {
+        app.update();
+    }
+    let seated = |app: &mut App| -> (bevy::prelude::Entity, MovesetContract) {
+        let world = app.world_mut();
+        let mut q = world.query::<(bevy::prelude::Entity, &WornCharacter, &ActorMoveset)>();
+        q.iter(world)
+            .find(|(_, worn, _)| worn.id() == ROBOT)
+            .map(|(entity, _, moveset)| (entity, moveset.0.clone()))
+            .expect("no seated body is wearing the robot, so this measures nothing")
+    };
+    let (body, stage) = seated(&mut app);
+    assert_eq!(
+        (damage(&stage, "jab"), damage(&stage, "tilt_forward"), damage(&stage, "smash_forward")),
+        (3, 6, 15),
+        "a seated robot deals the percent its `smash_fighter` facet states"
+    );
+
+    app.world_mut().entity_mut(body).insert(RecharacterizeBody);
+    for _ in 0..10 {
+        app.update();
+    }
+    assert!(
+        !app.world().entity(body).contains::<RecharacterizeBody>(),
+        "the re-wear request was never consumed, so the row below proves nothing"
+    );
+    // THE BODY THAT RE-WORE, by entity: both seats may wear the robot.
+    let rewear = app
+        .world()
+        .get::<ActorMoveset>(body)
+        .expect("the re-worn body keeps a moveset")
+        .0
+        .clone();
+    assert_eq!(
+        damage(&rewear, "smash_forward"),
+        15,
+        "a re-wear during the match put the robot back on its home damage"
+    );
+}

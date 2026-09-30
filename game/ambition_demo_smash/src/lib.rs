@@ -121,6 +121,10 @@ where
     roster.published_by(SMASH_EXPERIENCE)
 }
 
+/// The least percent a hit deals to land HEAVY on a Smash stage: the smash
+/// attacks. See `ambition_combat::strike_weight`.
+pub const SMASH_HEAVY_HIT_PERCENT: i32 = 12;
+
 /// The Smash ruleset, in one place.
 pub fn apply_smash_match_rules(roster: &mut MatchParticipantRoster, stocks: u32) {
     // This match grants no pilot licence. The admiral authors
@@ -146,6 +150,12 @@ pub fn apply_smash_match_rules(roster: &mut MatchParticipantRoster, stocks: u32)
     // The match supplies one health pool for percent calculation so crossover
     // characters are measured against this ruleset rather than their home games.
     roster.rules.health_pool = Some(SMASH_PERCENT_REFERENCE);
+    // Percent is not health, so a fighter's hits deal the damage its
+    // `smash_fighter` facet states for this ruleset. A move the facet does not
+    // name keeps its moveset damage, which is right for a fighter whose home
+    // game is this one.
+    roster.rules.move_damage =
+        ambition_platformer2d::characters::smash_fighter::MoveDamageSource::SmashFighterFacet;
     // The Limit is the match's resource: every seat is built holding it, empty.
     roster.rules.resources = vec![crate::limit::SMASH_LIMIT.declaration()];
     // Every fighter gets the ruleset floor, keeps what of its own kit the
@@ -643,6 +653,14 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
             app.declare_rules(
                 ambition_platformer2d::combat::scoped_rules::RulesScope::Mode(SMASH_MODE),
                 ambition_platformer2d::sim_view::PromptNaming::ByButton,
+            );
+            // Which hits land heavy. Damage here is percent, so a jab deals 3 and
+            // only a smash-attack-sized hit crosses the line.
+            app.declare_rules(
+                ambition_platformer2d::combat::scoped_rules::RulesScope::Mode(SMASH_MODE),
+                ambition_platformer2d::combat::strike_weight::StrikeWeightRules::heavy_at(
+                    SMASH_HEAVY_HIT_PERCENT,
+                ),
             );
             // Only the seats hold a Limit slot, so the fill reaches no other body.
             app.declare_rules(

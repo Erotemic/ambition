@@ -1268,7 +1268,7 @@ fn a_registered_characters_moveset_becomes_the_identity_baseline() {
         &mut identity,
         "hero",
         // No match: this fixture is testing the AUTHORED persona.
-        None,
+        ambition_combat::worn_kit::SeatTerms::default(),
     );
 
     assert!(
@@ -1302,7 +1302,7 @@ fn a_registered_characters_moveset_becomes_the_identity_baseline() {
         &mut identity,
         "monk",
         // No match: this fixture is testing the AUTHORED persona.
-        None,
+        ambition_combat::worn_kit::SeatTerms::default(),
     );
     assert!(
         !moveset.0.moves.iter().any(|m| m.id == "swat"),
@@ -1371,7 +1371,7 @@ fn wear(
         &mut identity,
         id,
         // No match: this fixture is testing the AUTHORED persona.
-        None,
+        ambition_combat::worn_kit::SeatTerms::default(),
     );
     assert_eq!(
         identity.action_set, action_set,
@@ -2734,7 +2734,7 @@ fn an_unknown_character_is_named_after_its_id_so_the_problem_is_visible() {
         &mut moveset,
         &mut identity,
         "no_such_character",
-        None,
+        ambition_combat::worn_kit::SeatTerms::default(),
     );
 
     assert_eq!(
@@ -2789,7 +2789,7 @@ fn the_spawn_grant_and_the_persona_derive_resolve_one_authored_kit() {
     let derived = ambition_combat::worn_kit::WornKit::resolve(
         Some(&registry),
         "brute",
-        None,
+        ambition_combat::worn_kit::SeatTerms::default(),
     );
     assert_eq!(
         derived.action_set, granted,
@@ -2833,7 +2833,11 @@ fn a_charger_swings_with_the_builders_cue_on_a_seat_and_at_spawn() {
     let mut registry = ambition_characters::prepared::PreparedCharacterRegistry::default();
     registry.insert_prepared(finalized.prepared);
     let seated =
-        ambition_combat::worn_kit::WornKit::resolve(Some(&registry), "sparker", Some(&kit));
+        ambition_combat::worn_kit::WornKit::resolve(
+            Some(&registry),
+            "sparker",
+            ambition_combat::worn_kit::SeatTerms::borrowing(&kit),
+        );
     assert!(
         seated.execution.charges_projectiles(),
         "the premise is a charger that borrows a stage's set"
@@ -2914,7 +2918,7 @@ fn a_moves_only_character_is_granted_and_reworn_as_one_kit() {
     let mut registry = ambition_characters::prepared::PreparedCharacterRegistry::default();
     registry.insert_prepared(prepared);
     let reworn =
-        ambition_combat::worn_kit::WornKit::resolve(Some(&registry), "lobber", None);
+        ambition_combat::worn_kit::WornKit::resolve(Some(&registry), "lobber", ambition_combat::worn_kit::SeatTerms::default());
 
     let world = app.world();
     let identity = world

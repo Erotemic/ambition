@@ -122,6 +122,9 @@ pub(crate) fn apply_boss_hit(
     // CM8: how this boss reacts to being hurt (its `CombatTuning.hurt_feedback`,
     // ENEMY by default). The attack contributes only its strike sound.
     hurt: ambition_vfx::HurtFeedback,
+    // The room's line between light and heavy hits (its game's rule). Only
+    // the strike SOUND reads it.
+    strike_weight: Option<ambition_combat::strike_weight::StrikeWeightRules>,
     writers: &mut FeatureHitWriters<'_, '_>,
 ) -> bool {
     let session_scope = writers.spawn_scope_from(boss_entity);
@@ -161,6 +164,7 @@ pub(crate) fn apply_boss_hit(
                 hurt,
                 event.strike_sfx,
                 event.damage,
+                strike_weight,
                 impact,
                 attacker_source.as_ref(),
                 victim_source.as_ref(),
@@ -235,6 +239,7 @@ pub(crate) fn apply_boss_hit(
         hurt,
         event.strike_sfx,
         event.damage,
+        strike_weight,
         impact,
         attacker_source.as_ref(),
         victim_source.as_ref(),

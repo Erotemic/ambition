@@ -500,6 +500,8 @@ pub(crate) fn handle_player_damage_events(
     // Whether the striker hits heavy, resolved by the caller which holds the
     // queries — the same shape `attacker_source` above already uses.
     heavy_attacker: bool,
+    // The room's line between light and heavy hits (its game's rule).
+    strike_weight: Option<ambition_combat::strike_weight::StrikeWeightRules>,
     _world: &ae::World,
     sfx: &mut SfxWriter,
     vfx: &mut MessageWriter<VfxMessage>,
@@ -709,6 +711,7 @@ pub(crate) fn handle_player_damage_events(
                         attacker_source,
                         victim_source,
                         heavy_attacker,
+                        strike_weight,
                     );
                     publish_resolved_hit(
                         death_writers.resolved.as_mut(),
@@ -805,6 +808,7 @@ pub(crate) fn handle_player_damage_events(
                     attacker_source,
                     victim_source,
                     heavy_attacker,
+                    strike_weight,
                 );
                 publish_resolved_hit(
                     death_writers.resolved.as_mut(),
@@ -1048,6 +1052,8 @@ pub(crate) fn apply_player_knockback(
     // by the system that holds the queries, not pattern-matched out of the cause
     // vocabulary here — see the twin on `apply_actor_hit`.
     heavy_attacker: bool,
+    // The room's line between light and heavy hits (its game's rule).
+    strike_weight: Option<ambition_combat::strike_weight::StrikeWeightRules>,
 ) -> BodyReactionOutcome {
     let boss_hit = heavy_attacker;
     let knockback = damage.knockback.as_ref();
@@ -1093,6 +1099,7 @@ pub(crate) fn apply_player_knockback(
         ambition_vfx::HurtFeedback::PLAYER,
         damage.strike_sfx,
         damage.damage,
+        strike_weight,
         impact_pos,
         attacker_source,
         victim_source,
@@ -1548,6 +1555,7 @@ pub fn apply_player_hit_events(
             attacker_source.as_ref(),
             victim_source.as_ref(),
             heavy_attacker,
+            combat_rules.strike_weight,
             room,
             &mut sfx_writer,
             &mut vfx_writer,

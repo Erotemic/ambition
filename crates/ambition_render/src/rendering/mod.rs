@@ -491,6 +491,30 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                 .run_if(session_presentation_is_ready),
         );
 
+        // The rigged-sprite trial (`actors::rigged`): bind after the sheet
+        // binders have settled which sheet and tier a root wears, draw after
+        // both animators have chosen this frame's row and frame. Both do
+        // nothing unless the trial is admitted.
+        app.init_resource::<actors::rigged::RiggedPresentations>();
+        app.add_systems(
+            Update,
+            (
+                actors::rigged::bind_rigged_presentations
+                    .after(actors::upgrade_actor_sprites)
+                    .after(actors::refresh_player_sprites_for_resident_quality)
+                    .before(actors::animate_player),
+                actors::rigged::drive_rigged_presentations
+                    .after(actors::animate_player)
+                    .after(actors::animate_characters)
+                    .before(hit_flash::sync_hit_flash_overlays)
+                    .in_set(BodyOwnedDrawableSync),
+            )
+                .in_set(
+                    ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::PresentationVisualSync,
+                )
+                .run_if(session_presentation_is_ready),
+        );
+
         // The hard-launch trail and smash-charge cues read only a read model
         // and write only messages, so they need no edge against the sprite
         // chain. They share this set for the session gate, which

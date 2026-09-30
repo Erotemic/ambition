@@ -12,6 +12,7 @@ pub mod anim;
 pub mod animator;
 mod assets;
 pub mod catalog_join;
+pub mod rigged;
 pub mod sheets;
 
 pub use anim::{non_looping, ActorAnimOverride, CharacterAnim, PinnedRow};
@@ -70,6 +71,10 @@ pub struct CharacterSpriteAsset {
     /// Quality tier of the pixels actually resident in memory. Use this for
     /// residency accounting, not for deciding whether a request has converged.
     pub resolved_tier: ambition_persistence::settings::TextureResolutionScale,
+    /// The sheet's transform flipbook at [`Self::resolved_tier`], when the
+    /// rigged-sprite trial is admitted and the sheet publishes one
+    /// ([`rigged::RiggedSpriteAdmission`]). `None` in every shipped game.
+    pub rigged: Option<rigged::RiggedSpritePages>,
 }
 
 /// Build a character presentation that is valid on the same frame it becomes drawable.

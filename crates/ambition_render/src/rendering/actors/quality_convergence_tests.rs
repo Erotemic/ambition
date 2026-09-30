@@ -69,6 +69,7 @@ fn a_pending_realization(app: &mut App, tier: TextureResolutionScale) -> Charact
         // convergence, not fallback.
         requested_tier: tier,
         resolved_tier: tier,
+        rigged: None,
     }
 }
 

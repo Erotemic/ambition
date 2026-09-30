@@ -1855,6 +1855,7 @@ mod tests {
             pages,
             requested_tier: Default::default(),
             resolved_tier: Default::default(),
+            rigged: None,
         };
         let mut assets = GameAssets::default();
         assets.characters.declare("d153_fighter", "D153 Fighter");

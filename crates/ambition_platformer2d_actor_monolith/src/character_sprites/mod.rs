@@ -12,6 +12,7 @@
 //! `ambition_character_sprites` would reverse the intended sibling dependency direction.
 
 mod assets;
+pub mod rigged;
 
 #[cfg(test)]
 mod tests;

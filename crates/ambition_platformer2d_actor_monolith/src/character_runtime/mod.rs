@@ -907,6 +907,14 @@ pub struct CharacterRuntimePlugin;
 impl Plugin for CharacterRuntimePlugin {
     fn build(&self, app: &mut App) {
         let sim = app.sim_schedule();
+        // The rigged-sprite trial switch: the composition's answer when it
+        // inserted one, else the environment's. Off in every shipped game.
+        if !app
+            .world()
+            .contains_resource::<ambition_sprite_sheet::character::rigged::RiggedSpriteAdmission>()
+        {
+            app.insert_resource(ambition_sprite_sheet::character::rigged::RiggedSpriteAdmission::from_env());
+        }
         app.init_resource::<CharacterLoadDemand>()
             .init_resource::<CharacterLoadStates>()
             // The provider-authored sheet registry (U1). Initialised HERE, by
@@ -1140,6 +1148,10 @@ impl Plugin for CharacterRuntimePlugin {
                                 PreparedCharacterRegistry,
                             >,
                         ),
+                    // After the materializer: a sheet it just realized gets its
+                    // flipbook pages on the same frame. Does nothing unless the
+                    // rigged-sprite trial is admitted.
+                    crate::character_sprites::rigged::attach_rigged_sprite_pages,
                     // AFTER the materializer has settled the demand: the staged
                     // cast is what authorizes presentation sources, and the
                     // ledger is where "staged" is written down.

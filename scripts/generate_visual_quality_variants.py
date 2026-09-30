@@ -709,6 +709,10 @@ def break_symlink_before_write(path: Path) -> None:
 
 
 def page_filenames(record: Struct) -> list[str]:
+    # A part flipbook names its atlas pages `pages`; a sheet, `images`/`image`.
+    pages = record.get("pages")
+    if isinstance(pages, List_) and pages.items:
+        return [v.value for v in pages.items if isinstance(v, Str)]
     images = record.get("images")
     if isinstance(images, List_) and images.items:
         return [v.value for v in images.items if isinstance(v, Str)]
@@ -1109,6 +1113,75 @@ def build_sheet_variant(source: SheetSource, ron_dst: Path, variant: Variant) ->
     return len(result.pages)
 
 
+def part_flipbook_claims(src: Path) -> dict[Path, list[Path]]:
+    """Every published part flipbook (`<target>_parts.ron`) under `src`, with
+    the atlas pages it names. Those pages are packed atlases: never resize them
+    whole (see the module docstring)."""
+    claims: dict[Path, list[Path]] = {}
+    for ron in sorted(src.rglob("*_parts.ron")):
+        root = RonParser(ron.read_text()).parse()
+        pages = root.get("pages") if isinstance(root, Struct) else None
+        if not isinstance(pages, List_):
+            continue
+        claims[ron] = [ron.parent / item.value for item in pages.items if isinstance(item, Str)]
+    return claims
+
+
+def build_parts_variant(ron_src: Path, ron_dst: Path, variant: Variant) -> int:
+    """Publish one quality tier of a part flipbook: each part cropped from its
+    page on its own, downsampled, and packed into fresh tier pages.
+
+    The factor is the sibling sheet's (`effective_scale`), so the parts and the
+    sheet frames of one tier have one texel density; it is written as
+    `texel_scale`. Only `parts` change: the draws stay in full-resolution sheet
+    pixels, which are gameplay coordinates and have no tier.
+    """
+    sheet_ron = ron_src.with_name(ron_src.name.removesuffix("_parts.ron") + "_spritesheet.ron")
+    if not sheet_ron.exists():
+        return 0
+    records = RonParser(sheet_ron.read_text()).parse()
+    if not isinstance(records, List_):
+        records = List_([records])
+    factor = effective_scale(records, variant)
+    root = RonParser(ron_src.read_text()).parse()
+    assert isinstance(root, Struct), f"{ron_src} is not a part flipbook"
+    page_names = [item.value for item in root.get("pages").items]
+    sources = [Image.open(ron_src.parent / name).convert("RGBA") for name in page_names]
+    resampling = resampling_for_variant(variant)
+    parts = root.get("parts").items
+    inputs: list[FrameInput] = []
+    sizes: list[tuple[int, int, int, int]] = []
+    for index, part in enumerate(parts):
+        x, y, w, h = (int(n.raw) for n in part.get("rect").items)
+        crop = sources[int(part.get("page").raw)].crop((x, y, x + w, y + h))
+        size = (max(1, round(w * factor)), max(1, round(h * factor)))
+        inputs.append(FrameInput(key=index, image=crop.resize(size, resampling), logical_size=size))
+        sizes.append((w, h, size[0], size[1]))
+    packed = pack_frames(inputs, trim=False)
+    for index, part in enumerate(parts):
+        placement = packed.placements[index]
+        w, h, nw, nh = sizes[index]
+        pivot = part.get("pivot").items
+        for key, value in (
+            ("page", Num(str(placement.page))),
+            ("rect", Tuple_([Num(str(v)) for v in (placement.x, placement.y, placement.w, placement.h)])),
+            ("pivot", Tuple_([Num(repr(float(pivot[0].raw) * nw / w)), Num(repr(float(pivot[1].raw) * nh / h))])),
+        ):
+            part.fields = [(k, value if k == key else v) for k, v in part.fields]
+    names = _page_image_names(page_names[0], len(packed.pages))
+    _set_list_field(root, "pages", [Str(name) for name in names])
+    root.fields = [(k, v) for k, v in root.fields if k != "texel_scale"]
+    root.fields.insert(1, ("texel_scale", Num(repr(factor))))
+    ron_dst.parent.mkdir(parents=True, exist_ok=True)
+    for image, name in zip(packed.pages, names):
+        dst = ron_dst.parent / name
+        break_symlink_before_write(dst)
+        image.save(dst)
+    break_symlink_before_write(ron_dst)
+    ron_dst.write_text(dump(root) + "\n")
+    return len(packed.pages)
+
+
 def source_publishable_targets() -> dict[str, Target]:
     """Targets that can render quality tiers directly from vector/source data.
 
@@ -1384,7 +1457,16 @@ def generate_sprite_variants(
             )
         )
 
+    flipbooks = {
+        ron: pages
+        for ron, pages in part_flipbook_claims(src).items()
+        if selects(ron.name.removesuffix("_parts.ron"), selectors)
+    }
+    flipbook_pngs = {
+        page.resolve() for pages in part_flipbook_claims(src).values() for page in pages
+    }
     sheet_pngs = {page.resolve() for pages in claims.values() for page in pages}
+    sheet_pngs |= flipbook_pngs
     loose_srcs: list[Path] = []
     for png in sorted(src.rglob("*.png")):
         rel = png.relative_to(src)
@@ -1395,7 +1477,7 @@ def generate_sprite_variants(
         ):
             loose_srcs.append(png)
 
-    if selectors and not units and not loose_srcs:
+    if selectors and not units and not loose_srcs and not flipbooks:
         raise SystemExit(
             f"no sprite sheet or loose PNG under {src} matched {list(selectors)}"
         )
@@ -1436,6 +1518,15 @@ def generate_sprite_variants(
         finally:
             if source is not None:
                 source.close()
+
+    for ron, pages in flipbooks.items():
+        stamp = _input_stamp((ron, *pages))
+        for variant in tiers:
+            ron_dst = asset_root / f"sprites_{variant.suffix}" / ron.relative_to(src)
+            if not force and _published_and_current(ron_dst, stamp):
+                continue
+            with clock.phase("part flipbook", unit=ron.stem):
+                build_parts_variant(ron, ron_dst, variant)
 
     loose_built = {variant.suffix: 0 for variant in tiers}
     for png in loose_srcs:

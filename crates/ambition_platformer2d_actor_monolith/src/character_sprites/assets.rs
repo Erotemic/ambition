@@ -600,6 +600,7 @@ fn load_sprite_pages(
         pages,
         requested_tier: requested,
         resolved_tier: resolved,
+        rigged: None,
     }
 }
 

@@ -25,6 +25,7 @@ fn a_sheet_with_sit_rows_enters_and_leaves_a_conversation_pose() {
         pages: Vec::new(),
         requested_tier: Default::default(),
         resolved_tier: Default::default(),
+        rigged: None,
     };
     let mut animator = CharacterAnimator::new(&asset);
     let request = |animator: &mut CharacterAnimator, held, bark| {
@@ -345,6 +346,7 @@ fn a_clip_on_a_trimmed_sheet_is_measured_by_the_clip_row() {
         }],
         requested_tier: Default::default(),
         resolved_tier: Default::default(),
+        rigged: None,
     };
     let mut animator = CharacterAnimator::new(&asset);
     let base_size = Vec2::new(128.0, 128.0);
@@ -798,6 +800,7 @@ fn a_clip_slaved_to_a_move_is_drawn_at_the_moves_progress() {
         }],
         requested_tier: Default::default(),
         resolved_tier: Default::default(),
+        rigged: None,
     };
     let slot = spec.clip_slot(["attack_side"]).expect("the row resolves by name");
     let move_s = 0.31_f32;
@@ -886,6 +889,7 @@ fn a_mirror_row_is_drawn_instead_of_flipping_its_original() {
         }],
         requested_tier: Default::default(),
         resolved_tier: Default::default(),
+        rigged: None,
     };
     let base_size = Vec2::new(64.0, 64.0);
     let base_anchor = Vec2::new(0.1, -0.4);

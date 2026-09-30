@@ -434,6 +434,10 @@ fn every_presence_only_probe_is_named_with_its_reason() {
             "authored hurtbox document; immutable at runtime",
         ),
         (
+            "ambition_combat::body_rig::BodyRig",
+            "prepared body rig the worn character grants; immutable at runtime",
+        ),
+        (
             "ambition_sprite_sheet::character::sheets::SpritePosedBody",
             "authored per-pose body table; immutable at runtime",
         ),

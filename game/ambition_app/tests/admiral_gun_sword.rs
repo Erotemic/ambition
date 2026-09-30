@@ -21,11 +21,81 @@ use ambition_platformer2d::game_shell::{ShellCommand, ShellRouteId};
 /// speed and assist, which is exactly what this test asserts alongside it.
 #[test]
 fn the_admirals_side_b_fires_the_gun_swords_discharge() {
+    let SideB {
+        visual,
+        damage,
+        origin,
+        before,
+        after,
+        hand_before,
+        ..
+    } = fire_the_side_b(false);
+
+    assert_eq!(
+        visual, "lasersword",
+        "the side-B fired a `{visual}` — the drawn gun-sword's shot is the \
+         spinning blade, and it was chosen by a compare against the OTHER \
+         gun-sword's id"
+    );
+    assert_eq!(
+        damage, 8,
+        "the shot did {damage} — the admiral's sidearm is its own weapon and its \
+         damage must not have been folded into a shared discharge"
+    );
+    assert!(
+        origin.distance(hand_before) < 64.0,
+        "the shot was born at {origin:?} and his hand was at {hand_before:?} — a \
+         drawn weapon fires from the barrel a player can see"
+    );
+    // ⛔ A DELTA, and a big one. The generic kick is 60px/s and the gun-sword's
+    // is 380, so a threshold between them is what tells "the profile applied"
+    // from "something pushed him".
+    //
+    // ⚠ SAMPLED AFTER THE LAUNCH GATEWAY RUNS — see the `app.update()` above.
+    // A -10.8 delta here means the sample is early, not that the kick is soft.
+    let kick = after.x - before.x;
+    assert!(
+        kick < -200.0,
+        "firing changed his x velocity by {kick} — the gun-sword's recoil is 380 \
+         against a generic 60, so anything softer than this means the shot came \
+         out of a body that did not know what it was holding"
+    );
+}
+
+/// What one side-B discharge left behind.
+struct SideB {
+    visual: String,
+    damage: i32,
+    /// Where the shot was when it was first seen, and its unit direction.
+    origin: bevy::math::Vec2,
+    direction: bevy::math::Vec2,
+    /// The admiral's x velocity before the shot, and after its recoil landed.
+    before: bevy::math::Vec2,
+    after: bevy::math::Vec2,
+    /// The fixed rider hand, on the tick before the shot.
+    hand_before: bevy::math::Vec2,
+    /// The rig's weapon hand in the world, on the tick before the shot, when
+    /// the admiral has a rig.
+    rig_hand_before: Option<bevy::math::Vec2>,
+    /// Whether the admiral wore a rig.
+    rigged: bool,
+}
+
+/// Seat two admirals and fire the first one's side-B. `admit_rigs` is the
+/// articulated-rig trial switch (`BodyRigAdmission`); the shipped game is off.
+fn fire_the_side_b(admit_rigs: bool) -> SideB {
     use ambition_platformer2d::actor::MatchSeat;
     use bevy::prelude::*;
 
-    let mut app =
-        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+    let mut app = ambition_app::app::build_visible_app_with(
+        ambition_app::app::VisibleRenderMode::NoWindow,
+        true,
+        |app| {
+            app.insert_resource(ambition_platformer2d::characters::actor::BodyRigAdmission {
+                admit: admit_rigs,
+            });
+        },
+    );
     for _ in 0..30 {
         app.update();
     }
@@ -88,10 +158,28 @@ fn the_admirals_side_b_fires_the_gun_swords_discharge() {
             .expect("the admiral has kinematics");
         ambition_platformer2d::mount::rider_hand_world_pos(kin.pos, kin.facing, kin.size.y)
     };
+    // The rig's weapon hand in the world: the same placement the hand muzzle
+    // makes, from the pose the simulation resolved.
+    let rig_hand = |app: &App| {
+        use ambition_platformer2d::combat::body_rig::{BodyRig, BodyRigPose};
+        let world = app.world();
+        let kin = world.get::<ambition_platformer2d::engine_core::BodyKinematics>(admiral)?;
+        let rig = world.get::<BodyRig>(admiral)?;
+        let hand = world
+            .get::<BodyRigPose>(admiral)?
+            .attachment(&rig.0, ambition_platformer2d::characters::actor::body_rig::HAND_NEAR)?;
+        let down = Vec2::Y;
+        Some(kin.pos + down * (kin.size.y * 0.5) + BodyRigPose::to_body(hand, kin.facing, down))
+    };
+    let rigged = app
+        .world()
+        .get::<ambition_platformer2d::combat::body_rig::BodyRig>(admiral)
+        .is_some();
     let mut shot = None;
     for _ in 0..90 {
         let before = vel(&app);
         let hand_before = hand(&app);
+        let rig_hand_before = rig_hand(&app);
         ambition_platformer2d::sim::drive_control_frame(
             app.world_mut(),
             ambition_platformer2d::engine_core::ControlFrame {
@@ -110,7 +198,9 @@ fn the_admirals_side_b_fires_the_gun_swords_discharge() {
             )>();
             q.iter(world)
                 .find(|(owner, _, _, _)| owner.0 == admiral)
-                .map(|(_, visual, gameplay, kin)| (visual.0.clone(), gameplay.damage, kin.pos))
+                .map(|(_, visual, gameplay, kin)| {
+                    (visual.0.clone(), gameplay.damage, kin.pos, kin.vel.normalize_or_zero())
+                })
         };
         if let Some(found) = found {
             // ⛔⛤ **ONE FRAME LATER, AND THAT IS A CONTRACT CHANGE THIS TEST HAD
@@ -132,40 +222,56 @@ fn the_admirals_side_b_fires_the_gun_swords_discharge() {
             // "this test measures a retired contract". One `update()` is the
             // whole fix.
             app.update();
-            shot = Some((found, before, vel(&app), hand_before));
+            shot = Some((found, before, vel(&app), hand_before, rig_hand_before));
             break;
         }
     }
-    let ((visual, damage, origin), before, after, hand_before) =
+    let ((visual, damage, origin, direction), before, after, hand_before, rig_hand_before) =
         shot.expect("the admiral's side-B never produced a projectile he owns");
+    SideB {
+        visual,
+        damage,
+        origin,
+        direction,
+        before,
+        after,
+        hand_before,
+        rig_hand_before,
+        rigged,
+    }
+}
 
-    assert_eq!(
-        visual, "lasersword",
-        "the side-B fired a `{visual}` — the drawn gun-sword's shot is the \
-         spinning blade, and it was chosen by a compare against the OTHER \
-         gun-sword's id"
-    );
-    assert_eq!(
-        damage, 8,
-        "the shot did {damage} — the admiral's sidearm is its own weapon and its \
-         damage must not have been folded into a shared discharge"
-    );
+/// With the rig trial on, the admiral's drawn gun-sword fires from the hand his
+/// rig puts it in this tick, not from the fixed rider hand.
+///
+/// The shot is seen one tick after it is born, so it has flown one tick past
+/// the muzzle, and the muzzle is `ahead` past the hand: the band is those two.
+#[test]
+fn with_rigs_admitted_the_gun_sword_fires_from_the_rig_hand() {
+    let SideB {
+        origin,
+        direction,
+        hand_before,
+        rig_hand_before,
+        rigged,
+        ..
+    } = fire_the_side_b(true);
+    assert!(rigged, "the rig trial is on and the admiral wears no rig");
+    let rig_hand = rig_hand_before.expect("a rigged admiral resolved no weapon hand");
+    // The shot flies along its fire line from the muzzle, so it is on the line
+    // through the hand it was fired from: nothing to the side, and between
+    // `ahead` (18) and `ahead` plus one tick of flight along it.
+    let along = direction.dot(origin - rig_hand);
+    let aside = direction.perp_dot(origin - rig_hand).abs();
     assert!(
-        origin.distance(hand_before) < 64.0,
-        "the shot was born at {origin:?} and his hand was at {hand_before:?} — a \
-         drawn weapon fires from the barrel a player can see"
+        aside < 0.5 && (18.0..48.0).contains(&along),
+        "the shot at {origin:?} flying {direction:?} is {aside} to the side of \
+         and {along} along from the rig hand {rig_hand:?}: it was not fired from it"
     );
-    // ⛔ A DELTA, and a big one. The generic kick is 60px/s and the gun-sword's
-    // is 380, so a threshold between them is what tells "the profile applied"
-    // from "something pushed him".
-    //
-    // ⚠ SAMPLED AFTER THE LAUNCH GATEWAY RUNS — see the `app.update()` above.
-    // A -10.8 delta here means the sample is early, not that the kick is soft.
-    let kick = after.x - before.x;
+    // The fixed rider hand is off that line, so this test tells the two apart.
     assert!(
-        kick < -200.0,
-        "firing changed his x velocity by {kick} — the gun-sword's recoil is 380 \
-         against a generic 60, so anything softer than this means the shot came \
-         out of a body that did not know what it was holding"
+        direction.perp_dot(origin - hand_before).abs() > 5.0,
+        "the rider hand {hand_before:?} is on the shot's line too, so the rig \
+         hand was not shown to be the muzzle"
     );
 }

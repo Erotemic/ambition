@@ -108,11 +108,15 @@ pub fn posed_body_world_per_pixel(
 }
 
 /// The semantic body rig `id`'s sheet publishes (`<sheet>_body_rig.ron`), in
-/// world units at the scale its `posed_body` builds the body with, or `None`
-/// when the sheet publishes no rig or the row states no posed body.
+/// world units at the scale the body is drawn at, or `None` when the sheet
+/// publishes no rig or the row states no scale.
 ///
-/// A rig without the body's own scale would put a hand where a body of some
-/// other size keeps it, so an unscaled row gets no rig rather than a guess.
+/// The scale is the row's `posed_body`, else its standing height (the row's,
+/// else its body kind's default) over the sheet's idle body: the scale
+/// `sprite_body_collision_for_sheet` draws the sheet at. A row sized only by
+/// its placement box has no character-wide scale. A rig without the body's own
+/// scale would put a hand where a body of some other size keeps it, so such a
+/// row gets no rig rather than a guess.
 ///
 /// # Panics
 ///
@@ -125,7 +129,13 @@ pub fn published_body_rig(
 ) -> Option<ambition_characters::actor::BodyRigDefinition> {
     let sheet = catalog.characters.get(id)?.manifest_target()?;
     let text = ambition_sprite_sheet::baked_body_rigs::baked_body_rig(sheet)?;
-    let world_per_pixel = posed_body_world_per_pixel(catalog, id)?;
+    let world_per_pixel = posed_body_world_per_pixel(catalog, id).or_else(|| {
+        let row = catalog.characters.get(id)?;
+        let height = row
+            .standing_height
+            .or_else(|| row.body_kind.default_standing_height())?;
+        ambition_sprite_sheet::character::catalog_join::standing_world_per_pixel(sheet, height)
+    })?;
     let rig = ambition_characters::actor::BodyRigDefinition::from_published_ron(text)
         .unwrap_or_else(|error| panic!("`{id}`'s published body rig `{sheet}`: {error}"));
     Some(rig.scaled(world_per_pixel))

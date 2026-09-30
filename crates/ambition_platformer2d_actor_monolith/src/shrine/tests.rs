@@ -409,3 +409,100 @@ fn resting_revives_only_the_bodies_whose_policy_says_until_rest() {
          the deaths that recorded themselves as waiting for one"
     );
 }
+
+/// OW1 cut 7d: a body rests only at a shrine in its own live room, and the
+/// checkpoint names that room.
+///
+/// Live room #0 is `hall` and #1 is `chapel`. Alice (slot 0) stands in #0 and
+/// Bob (slot 1) in #1, at one position, and the one shrine there is in #1.
+/// Both press interact. Bob heals, and the checkpoint is in `chapel`. Alice,
+/// in the other room, does not heal. When the shrine did not ask the rooms,
+/// Alice healed at a shrine in a room she was not in, and with two live rooms
+/// no checkpoint was written.
+#[test]
+fn a_body_rests_only_at_a_shrine_in_its_own_live_room() {
+    use ambition_characters::control::{DrivingParticipant, PlayerSlot};
+    use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
+
+    let first = LiveRoomInstance::ACTIVATION;
+    let second = first.next();
+    let mut app = App::new();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
+    app.init_resource::<ambition_persistence::save::AmbitionGameSave>();
+    app.init_resource::<ShrineActivationPulse>();
+    app.insert_resource(ambition_platformer2d_shared_tangle::markers::ControlledSubject(None));
+    app.add_systems(Update, heal_save_shrine_system);
+    let room = |id: &str| {
+        ambition_platformer2d_world::rooms::RoomSpec::new(
+            id,
+            ambition_platformer2d_core::World::new(id, Vec2::new(800.0, 600.0), Vec2::new(16.0, 16.0), Vec::new()),
+        )
+    };
+    ambition_platformer2d_world::rooms::insert_room_set(
+        app.world_mut(),
+        ambition_platformer2d_world::rooms::RoomSet::from_parts_or_panic(
+            "hall",
+            vec![room("hall"), room("chapel")],
+            Vec::new(),
+        ),
+    );
+    let chapel = ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<
+        ambition_platformer2d_world::rooms::RoomSet,
+    >(app.world())
+    .and_then(|rooms| rooms.definition_by_id("chapel"))
+    .expect("the set has `chapel`");
+    app.world_mut().spawn((RoomInstanceRoot, second, chapel));
+
+    let seated = |app: &mut App, slot: u8, room: LiveRoomInstance| -> Entity {
+        let body = app
+            .world_mut()
+            .spawn((
+                ActorControl::default(),
+                BodyKinematics {
+                    pos: Vec2::new(100.0, 100.0),
+                    vel: Vec2::ZERO,
+                    size: Vec2::new(24.0, 40.0),
+                    facing: 1.0,
+                },
+                BodyBaseSize {
+                    base_size: Vec2::new(24.0, 40.0),
+                },
+                BodyHealth::new(ambition_characters::actor::Health {
+                    current: 1,
+                    max: 5,
+                    invulnerable: Default::default(),
+                }),
+                DrivingParticipant(PlayerSlot(slot)),
+                InRoomInstance(room),
+            ))
+            .id();
+        app.world_mut().get_mut::<ActorControl>(body).unwrap().0.interact_pressed = true;
+        body
+    };
+    let alice = seated(&mut app, 0, first);
+    let bob = seated(&mut app, 1, second);
+    app.world_mut().spawn((
+        HealShrine {
+            pos: Vec2::new(100.0, 100.0),
+            half_extent: Vec2::new(22.0, 40.0),
+        },
+        InRoomInstance(second),
+    ));
+
+    app.update();
+
+    let healed = |body| {
+        let health = *app.world().get::<BodyHealth>(body).unwrap();
+        health.current() == health.max()
+    };
+    assert_eq!((healed(alice), healed(bob)), (false, true), "a body rested at a shrine in another live room");
+    assert_eq!(
+        app.world()
+            .resource::<ambition_persistence::save::AmbitionGameSave>()
+            .data()
+            .checkpoint()
+            .map(|checkpoint| checkpoint.room_id.clone()),
+        Some("chapel".to_string()),
+        "the checkpoint does not name the resting body's own room"
+    );
+}

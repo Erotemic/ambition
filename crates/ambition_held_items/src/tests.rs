@@ -1890,3 +1890,80 @@ fn every_catalog_item_with_a_held_form_resolves_in_the_one_registry() {
          table you add here"
     );
 }
+
+/// OW1 cut 7d: an item put down comes to rest in the ledger in its own live
+/// room, with two rooms live.
+///
+/// Live room #0 is `hall` and #1 is `chapel`. One carried axe is put down in
+/// each. The subject: each is `Placed` in its own room. The control: with
+/// #0 the only live room, its axe is `Placed` in `hall`. When the producer
+/// read the sole live room, it recorded nothing while two rooms were live,
+/// and an axe put down then was lost when its room unloaded.
+#[test]
+fn each_item_put_down_is_placed_in_its_own_live_room() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{
+        AuthoredOccurrences, InRoomInstance, LiveRoomInstance, OccurrenceWhereabouts, RoomInstanceRoot,
+        RoomScopedEntity,
+    };
+    use ambition_platformer2d_shared_tangle::sim_id::SimId;
+    let first = LiveRoomInstance::ACTIVATION;
+    let second = first.next();
+    let placed = |rooms: Vec<(LiveRoomInstance, &'static str)>| {
+        let mut app = App::new();
+        let mut ledger = AuthoredOccurrences::default();
+        ledger.republish_custody(rooms.iter().map(|(_, id)| SimId::placement(*id)).collect());
+        app.insert_resource(ledger);
+        let spec = |id: &str| {
+            ambition_platformer2d_world::rooms::RoomSpec::new(
+                id,
+                ambition_platformer2d_core::World::new(id, Vec2::new(800.0, 600.0), Vec2::new(16.0, 16.0), Vec::new()),
+            )
+        };
+        ambition_platformer2d_world::rooms::insert_room_set(
+            app.world_mut(),
+            ambition_platformer2d_world::rooms::RoomSet::from_parts_or_panic(
+                "hall",
+                vec![spec("hall"), spec("chapel")],
+                Vec::new(),
+            ),
+        );
+        let chapel = ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<
+            ambition_platformer2d_world::rooms::RoomSet,
+        >(app.world())
+        .and_then(|rooms| rooms.definition_by_id("chapel"))
+        .expect("the set has `chapel`");
+        for (room, id) in &rooms {
+            if *room == second {
+                app.world_mut().spawn((RoomInstanceRoot, second, chapel));
+            }
+            app.world_mut().spawn((
+                SimId::placement(*id),
+                GroundItem {
+                    spec: axe_spec(),
+                    pos: Vec2::new(100.0, 100.0),
+                    vel: Vec2::ZERO,
+                    half_extent: Vec2::new(8.0, 8.0),
+                },
+                ItemCustody::InWorld,
+                RoomScopedEntity,
+                InRoomInstance(*room),
+            ));
+        }
+        app.add_systems(Update, record_placed_ground_items);
+        app.update();
+        let ledger = app.world().resource::<AuthoredOccurrences>();
+        rooms
+            .iter()
+            .map(|(_, id)| match ledger.whereabouts(&SimId::placement(*id)) {
+                Some(OccurrenceWhereabouts::Placed { room, .. }) => Some(room.clone()),
+                _ => None,
+            })
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(placed(vec![(first, "axe_a")]), vec![Some("hall".to_string())], "control");
+    assert_eq!(
+        placed(vec![(first, "axe_a"), (second, "axe_b")]),
+        vec![Some("hall".to_string()), Some("chapel".to_string())],
+        "each item put down was not placed in its own live room"
+    );
+}

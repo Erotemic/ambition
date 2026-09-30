@@ -376,7 +376,15 @@ impl LiveRoomSpecs<'_, '_> {
 
     /// The definition every live room instantiates, one per live room.
     pub fn live_definitions(&self) -> impl Iterator<Item = LiveRoomDefinition> + '_ {
-        self.roots.iter().map(|(_, definition)| *definition)
+        self.live_rooms().map(|(_, definition)| definition)
+    }
+
+    /// Every live room, and the definition it instantiates.
+    pub fn live_rooms(
+        &self,
+    ) -> impl Iterator<Item = (ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance, LiveRoomDefinition)> + '_
+    {
+        self.roots.iter().map(|(live, definition)| (*live, *definition))
     }
 
     /// Whether the room set was replaced since this system last ran.

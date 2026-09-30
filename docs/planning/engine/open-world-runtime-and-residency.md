@@ -813,9 +813,9 @@ room. After 6d that is the Alice/Bob world. The measured list of simulation
 systems it stops (read from the parameter lists, 2026-09-30):
 `step_item_motion` ✅, `update_ecs_falling_chests` ✅,
 `prepare_authored_switch_commands` ✅ (7b), `drive_wave_encounters` ✅ (7c),
-`update_boss_encounters`, `heal_save_shrine_system`,
-`sync_encounter_reward_chests`, `retire_rewards_for_rearmed_encounters` ✅ (7c),
-`record_placed_ground_items`, `physics_spawn_debris_messages` and
+`update_boss_encounters`, `heal_save_shrine_system` ✅ (7d),
+`sync_encounter_reward_chests` ✅ (7d), `retire_rewards_for_rearmed_encounters` ✅ (7c),
+`record_placed_ground_items` ✅ (7d), `physics_spawn_debris_messages` and
 `tick_npc_idle_barks`, and the content bosses (`cut_rope`, `gnu_ton`). The
 presentation readers in `ambition_render` are P5's (a view per player). The
 new reader is `LiveRoomOf<T>`: `T` of the live room an entity is in, by the
@@ -861,8 +861,26 @@ in #1 starts #1's encounter; the control, the same player at the same place
 in #0, starts nothing), `an_unnamed_rearm_retires_the_reward_of_its_own_rooms_encounter`
 (two rooms, two encounters, two chests; the press in #1 retires only #1's)
 and `the_room_of_an_activation_moves_the_checksum`. ⚠ Still sole-room on
-this road: a player's death fails every in-flight encounter, in every room;
-the reward chest sync (7d).
+this road: a player's death fails every in-flight encounter, in every room.
+
+✅ **Cut 7d landed 2026-09-30: a chest, a shrine and a put-down item, each
+in its own live room.** Three more systems that a second live room froze.
+The reward chest sync now runs for every live room
+(`LiveRoomSpecs::live_rooms`), and it spawns each cleared encounter's chest
+stamped into its own room. A body rests only at a shrine in its own live
+room (`LiveRooms::of` on both), and the checkpoint names the resting body's
+room, not "the" room. The ground item placement records each item that
+comes to rest in the room it is in, and republishes each room's placements
+on its own. Witnesses: `a_cleared_encounters_chest_stands_in_its_own_live_room`,
+`a_body_rests_only_at_a_shrine_in_its_own_live_room` and
+`each_item_put_down_is_placed_in_its_own_live_room`. The controls: one
+live room for the chest and the item, and for the shrine, Alice pressing
+at the same place in the other room. Poisoned together (first live room only, no room
+filter, first definition), each failed on its own assertion: no chest in
+#1; a rest at the other room's shrine; both items placed in `hall`. The
+chest sync finds an existing chest by encounter id across rooms. That is
+sound while two live rooms never instantiate one room, which the Join of
+cut 6e keeps.
 
 ⚠ Still owed from cut 5: `outlook_for(room: &str)` is keyed by definition;
 the `SoleLiveRoomSpec` readers each need a subject before a second live room

@@ -69,11 +69,14 @@ pub fn heal_save_shrine_system(
     // ⛔ It is NOT the checkpoint's owner. That comment lived here and the code
     // never followed it — see the checkpoint write below for which rule is real.
     primary: Query<Entity, ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly>,
-    shrines: Query<&HealShrine>,
-    // WHICH room the checkpoint is in. A position with no room is not a
-    // checkpoint — it is a pair of numbers that will one day be applied in the
-    // wrong place. Optional so narrow fixtures without a room set still heal.
-    room_set: Option<ambition_platformer2d_world::rooms::SoleLiveRoomSpec>,
+    shrines: Query<(Entity, &HealShrine)>,
+    // A body rests only at a shrine in its own live room (OW1 cut 7d).
+    live_rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
+    // WHICH room the checkpoint is in: the resting body's own. A position with
+    // no room is not a checkpoint — it is a pair of numbers that will one day
+    // be applied in the wrong place. Optional so narrow fixtures without a
+    // room set still heal.
+    room_set: Option<ambition_platformer2d_world::rooms::LiveRoomSpecs>,
     mut save: ResMut<ambition_persistence::save::AmbitionGameSave>,
     // THE INSTANT, which is the half a `PersistedCheckpoint` cannot carry.
     // That value says WHERE the body comes back; this says WHEN the rest of the
@@ -114,9 +117,11 @@ pub fn heal_save_shrine_system(
             continue;
         }
         let player_aabb = ae::Aabb::new(kin.pos, kin.size * 0.5);
+        let room = live_rooms.of(subject);
         let touching = shrines
             .iter()
-            .any(|s| player_aabb.strict_intersects(ae::Aabb::new(s.pos, s.half_extent)));
+            .filter(|(shrine, _)| live_rooms.of(*shrine) == room)
+            .any(|(_, s)| player_aabb.strict_intersects(ae::Aabb::new(s.pos, s.half_extent)));
         if !touching {
             continue;
         }
@@ -168,9 +173,13 @@ pub fn heal_save_shrine_system(
         // the checkpoint is where this player resumes, and a possessed actor's
         // position is not where the player will be standing next session. The heal
         // above is the subject's; the checkpoint is the session's.
-        if let Some(room_set) = room_set.as_ref() {
+        if let Some(room_id) = room_set.as_ref().and_then(|rooms| {
+            rooms
+                .definition_of(subject)
+                .map(|definition| rooms.rooms().spec(definition).id.clone())
+        }) {
             let checkpoint = ambition_persistence::save_data::PersistedCheckpoint::new(
-                room_set.spec().id.clone(),
+                room_id,
                 kin.pos.x.round() as i32,
                 kin.pos.y.round() as i32,
             );

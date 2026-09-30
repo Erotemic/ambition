@@ -124,7 +124,7 @@ pub fn sync_encounter_reward_chests(
     mut commands: ambition_platformer2d_shared_tangle::lifecycle::SessionCommands<'_, '_>,
     save: bevy::prelude::Res<ambition_persistence::save::AmbitionGameSave>,
     cleared: bevy::prelude::Res<ambition_encounter::rewards::ClearedEncounters>,
-    rooms: ambition_platformer2d_world::rooms::SoleLiveRoomSpec,
+    rooms: ambition_platformer2d_world::rooms::LiveRoomSpecs,
     chests: bevy::prelude::Query<
         (Entity, &EncounterRewardChest, &FeatureId, Option<&Opened>),
         With<ChestFeature>,
@@ -135,14 +135,18 @@ pub fn sync_encounter_reward_chests(
     let Some(session_scope) = commands.spawn_scope() else {
         return;
     };
-    sync_encounter_reward_chests_ecs(
-        &mut commands,
-        session_scope,
-        save.data(),
-        &rooms.spec().id,
-        &cleared.0,
-        &chests,
-    );
+    // Every live room's cleared encounters, each chest in its own room (OW1
+    // cut 7d).
+    for (live, definition) in rooms.live_rooms() {
+        sync_encounter_reward_chests_ecs(
+            &mut commands,
+            session_scope.in_room(Some(live)),
+            save.data(),
+            &rooms.rooms().spec(definition).id,
+            &cleared.0,
+            &chests,
+        );
+    }
 }
 
 /// Composes [`sync_encounter_reward_chests`] on the feature side.

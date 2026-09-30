@@ -802,9 +802,16 @@ again made both fail: Bob's room was replaced, and a second live room of
   its own cut.
 - Both players share one camera and one observation. The per-player view is
   P5 (multiview).
-- Not measured: whether the session-wide rebase at Alice's crossing resets
-  Bob's history, and what `GoverningRules` and the mode scope answer for
-  the room Bob is in.
+- Measured (cut 7h, 2026-09-30): under a GGRS sync test with two seats,
+  Alice's crossing and Bob's run afterwards resimulate to the same
+  checksums, the two live rooms stand, and Bob's slot still runs his body
+  in #0 (`two_players_in_two_live_rooms_resimulate_to_the_same_world`; the
+  instrument's control: a system that nudges Bob by a counter a rewind does
+  not restore, once two rooms are live, reads as a checksum mismatch). A
+  sync test has one peer, so it does not say what the rebase at the
+  crossing costs a remote Bob's rollback window; that needs a two-peer
+  session. Not measured: what `GoverningRules` and the mode scope answer
+  for the room Bob is in.
 
 ✅ **Cut 7a landed 2026-09-30: the systems a second live room froze, first
 two.** `SoleLiveRoom<T>` and `SoleLiveRoomSpec` are `Single`s, so a system

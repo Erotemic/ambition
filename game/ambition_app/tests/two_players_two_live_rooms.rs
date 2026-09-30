@@ -158,10 +158,27 @@ fn alice_leaves_bob_in(
     slot: Option<ambition_platformer2d::characters::control::PlayerSlot>,
     cross: fn(&mut Platformer2dSimHarness, &str) -> String,
 ) -> (Platformer2dSimHarness, LiveRoomInstance) {
-    let mut sim = Platformer2dSimHarness::new_with_options(
-        fixed_60hz_room_options(start).with_save(a_save_that_has_seen_the_hub_intro()),
+    alice_leaves_bob_with(
+        Platformer2dSimHarness::new_with_options(
+            fixed_60hz_room_options(start).with_save(a_save_that_has_seen_the_hub_intro()),
+        )
+        .unwrap_or_else(|error| panic!("{start} boots: {error:?}")),
+        start,
+        target,
+        slot,
+        cross,
     )
-    .unwrap_or_else(|error| panic!("{start} boots: {error:?}"));
+}
+
+/// [`alice_leaves_bob_in`], in the harness `sim`, booted in `start`.
+fn alice_leaves_bob_with(
+    mut sim: Platformer2dSimHarness,
+    start: &str,
+    target: &str,
+    slot: Option<ambition_platformer2d::characters::control::PlayerSlot>,
+    cross: fn(&mut Platformer2dSimHarness, &str) -> String,
+) -> (Platformer2dSimHarness, LiveRoomInstance) {
+    assert_eq!(sim.observation().active_room, start, "precondition: the harness did not boot in {start}");
     for _ in 0..10 {
         sim.step(base());
     }
@@ -207,6 +224,9 @@ fn alice_leaves_bob_in(
             bob.insert(ambition_platformer2d::characters::control::DrivingParticipant(slot));
         }
     }
+    // A direct world edit is not a frame a rollback can replay: the history
+    // starts again from here. Without rollback, this does nothing.
+    sim.rebase_rollback_history().expect("the rollback history rebases over Bob");
     assert_eq!(
         where_they_are(&mut sim),
         (Some(first), Some(Some(first))),
@@ -684,5 +704,47 @@ fn the_cut_rope_fight_runs_in_its_own_live_room() {
         "the cut-rope road did not run whole in #1: (rope_cut rooms, lured to #1's anvil, \
          walked toward it, hazard rooms, it fell, impact rooms, the behemoth died, it is \
          recorded cleared, victory NPC rooms)"
+    );
+}
+
+/// OW1 cut 7h, a measurement of the owed rebase question: Alice's crossing
+/// and Bob's run, driven through a GGRS sync test with two seats, resimulate
+/// to the same checksums. The sync test rolls back and resimulates every
+/// frame, across the crossing's confirmed-frame commit and the rebase it
+/// asks for, and records a mismatch as a rollback health fault. The result
+/// is the same two live rooms, and Bob's slot still runs his body in #0
+/// afterwards. The control that the rollback did work is the load count.
+#[test]
+fn two_players_in_two_live_rooms_resimulate_to_the_same_world() {
+    let options = fixed_60hz_room_options(ROOM)
+        .with_save(a_save_that_has_seen_the_hub_intro())
+        .with_sync_test_rollback_settings(4, 10)
+        .with_rollback_players(2);
+    let (mut sim, first) = alice_leaves_bob_with(
+        Platformer2dSimHarness::new_with_options(options).expect("switch_lab boots under a sync test"),
+        ROOM,
+        HUB,
+        Some(ambition_platformer2d::characters::control::PlayerSlot(1)),
+        walk_through_the_door_to,
+    );
+    let second = first.next();
+    let back = bob_runs(&mut sim, -1.0);
+    let loads = sim.rollback_execution_stats().map(|stats| stats.lifetime_load_runs);
+    assert!(
+        loads.is_some_and(|loads| loads > 0),
+        "control: the sync test never rolled back ({loads:?}), so it checked nothing"
+    );
+    // One assertion: a desync halts the session, so Bob stops too, and the
+    // health says why.
+    assert_eq!(
+        (sim.rollback_health(), back < -1.0, live_rooms(&mut sim), where_they_are(&mut sim)),
+        (
+            Ok(()),
+            true,
+            vec![(first, ROOM.to_string()), (second, HUB.to_string())],
+            (Some(second), Some(Some(first))),
+        ),
+        "under rollback, two players in two live rooms did not resimulate to one world: \
+         (health, Bob's slot ran his body in #0, live rooms, where they are)"
     );
 }

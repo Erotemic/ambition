@@ -897,7 +897,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// (`LiveBodyId`: `SimId` and live room), in the codec and the checksum of
 /// `resource.pending_lifecycle_commit`. A pet beat names the petted body the
 /// same way (GPT review of OW1 cut 5).
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 272;
+/// ⛔⛤ 272 -> 273: `actor.perception_memory` carries the live room its
+/// memories were formed in. Tactical memory is room-local: a body that
+/// changes live room forgets it (GPT review of OW1 cut 5).
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 273;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

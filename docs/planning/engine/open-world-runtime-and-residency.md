@@ -577,8 +577,10 @@ writer of an id won its nearest neighbour. Now `CrowdObservation` keeps one
 `RoomCrowd` per live room (the body's `InRoomInstance`), derives each room
 alone, and keys `CrowdFacts` and `ActorSteering` by the body that reads
 them.
-- `WorldMemory` needed no change: it is a component on each body, and
-  perception (cut 4a) shows a body only its own live room's peers.
+- ⛔ Corrected after review: `WorldMemory` DID need a change. Perception
+  shows a body only its own live room's peers, but the memory outlives a
+  body that changes live room, and its positions are the old room's
+  coordinates. Repaired below ("Tactical memory is room-local").
 - Witness: `a_body_is_crowded_only_by_its_own_live_room`. Rooms #0 and #1
   each hold fighters `a` and `b`, together in #0 and far apart in #1. #1's
   pair is not crowded and `a`'s neighbour is #1's `b`. The control is #0's
@@ -648,6 +650,21 @@ crossing whose subject is in #1 resolves the #1 body, the #0 duplicate
 resolves only when named, and #2 resolves nothing), and
 `retraction_removes_only_the_crossing_owned_by_that_body` (the duplicate's
 death in #0 does not retract #1's crossing).
+
+✅ **Repaired after review, 2026-09-29: tactical memory is room-local.** A
+body that remembered a hostile at P in live room #0 and was then retagged to
+#1 pursued P in #1, a place where no foe was seen. `WorldMemory` now records
+the live room its memories were formed in (`room()`, the `LiveRoomInstance`
+ordinal), and `enter_room` forgets them when the body is in another live
+room. `tick_actor_brains` scopes each body's memory to its own stamp before
+it hears or folds, and a body whose memory is of another room makes no crew
+calls. The key is the stamp and not `LiveRooms::of`, which puts an unstamped
+body in the sole live room and would change answer when a second room goes
+live. Durable social memory (grudges, fates) is a separate store and is not
+changed. Schema 273 (`actor.perception_memory` carries the room). Witness:
+`a_memory_from_another_live_room_is_not_a_pursuit_target` (remembered at P
+in #0, retagged to #1, sees nobody: no target; the control stays in #0 and
+pursues P; #1's own `x`, seen at Q and lost, is pursued at Q).
 
 ⚠ Still owed from cut 5: `outlook_for(room: &str)` is keyed by definition;
 the `SoleLiveRoomSpec` readers each need a subject before a second live room

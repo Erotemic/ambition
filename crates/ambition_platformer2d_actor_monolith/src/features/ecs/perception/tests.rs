@@ -1737,3 +1737,66 @@ fn a_crew_call_is_not_heard_in_another_live_room() {
     assert!(heard_in(first), "control: an ally in the caller's room hears the call");
     assert!(!heard_in(first.next()), "an ally in another live room heard the call");
 }
+
+/// Tactical memory is room-local (GPT review of OW1 cut 5).
+///
+/// A body remembers hostile `x` at P in live room #0. It is retagged to live
+/// room #1, where it sees no hostile. The subject: its belief is "nobody",
+/// because P is a place in #0 and no foe was seen there in #1. The control:
+/// the same body that stays in #0 and sees nobody pursues P. The duplicate:
+/// #1 holds its own `x`; seen at Q and then lost, the belief is Q, and P does
+/// not come back.
+#[test]
+fn a_memory_from_another_live_room_is_not_a_pursuit_target() {
+    use ambition_characters::perception::SeenActor;
+    let p = ae::Vec2::new(100.0, 0.0);
+    let q = ae::Vec2::new(-80.0, 0.0);
+    let dt = 1.0 / 60.0;
+    let sighted = Perception::Sighted {
+        viewport_half: ae::Vec2::splat(300.0),
+    };
+    let x_at = |pos| SeenActor {
+        id: "x",
+        pos,
+        vel: ae::Vec2::ZERO,
+        faction: ActorFaction::Enemy,
+        hostile_to_self: true,
+    };
+    let nobody = || std::iter::empty::<SeenActor<'static>>();
+    let remembered_in_first = || {
+        let mut memory = PerceptionMemory::default();
+        memory.0.enter_room(Some(0));
+        memory.0.update_from_seen(0.0, dt, std::iter::once(x_at(p)));
+        memory
+    };
+
+    // Control: the body stays in #0 and pursues where it last saw `x`.
+    let mut stays = remembered_in_first();
+    assert!(!stays.0.enter_room(Some(0)), "staying in a room forgot its memory");
+    stays.0.update_from_seen(dt, dt, nobody());
+    assert_eq!(
+        belief_from_nearest(sighted, None, Some(&mut stays)),
+        Some(Some(p)),
+        "control: a body that stayed in its room lost a foe it only stopped seeing"
+    );
+
+    // Subject: retagged to #1, it sees nobody, and P is not a target.
+    let mut moved = remembered_in_first();
+    assert!(moved.0.enter_room(Some(1)), "the retag forgot nothing");
+    moved.0.update_from_seen(dt, dt, nobody());
+    assert_eq!(
+        belief_from_nearest(sighted, None, Some(&mut moved)),
+        Some(None),
+        "a position remembered in live room #0 became a pursuit target in #1"
+    );
+
+    // Duplicate: #1's own `x` is seen at Q and lost. The belief is Q.
+    moved.0.update_from_seen(2.0 * dt, dt, std::iter::once(x_at(q)));
+    moved.0.update_from_seen(3.0 * dt, dt, nobody());
+    assert_eq!(
+        belief_from_nearest(sighted, None, Some(&mut moved)).flatten().map(|pos| pos.x),
+        Some(q.x),
+        "the `x` in live room #1 was confused with the `x` remembered in #0"
+    );
+    assert_eq!(moved.0.room(), Some(1));
+}

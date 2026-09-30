@@ -1089,6 +1089,8 @@ fn read_attack_gesture_intent(
 /// cannot run until it rewinds.
 impl SnapshotState for crate::perception::PerceptionMemory {
     fn encode(&self, out: &mut Vec<u8>) {
+        put_bool(out, self.0.room().is_some());
+        put_u32(out, self.0.room().unwrap_or(0));
         let rows: Vec<_> = self.0.entries().collect();
         put_u32(out, rows.len() as u32);
         for (id, m) in rows {
@@ -1103,6 +1105,9 @@ impl SnapshotState for crate::perception::PerceptionMemory {
     }
     fn decode(r: &mut Reader<'_>) -> Option<Self> {
         use crate::perception::{RememberedActor, WorldMemory};
+        let has_room = r.bool()?;
+        let ordinal = r.u32()?;
+        let room = has_room.then_some(ordinal);
         let n = r.u32()?;
         let mut rows = Vec::with_capacity(n as usize);
         for _ in 0..n {
@@ -1120,7 +1125,7 @@ impl SnapshotState for crate::perception::PerceptionMemory {
             ));
         }
         Some(crate::perception::PerceptionMemory(
-            WorldMemory::from_snapshot(rows),
+            WorldMemory::from_snapshot(room, rows),
         ))
     }
 }

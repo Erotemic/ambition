@@ -425,7 +425,13 @@ pub fn tick_actor_brains(
         else {
             continue;
         };
-        if body.policy.0.shares_sightings && body.health.alive() {
+        // A body that changed live room since it last decided still holds the
+        // old room's sightings. Its own tick forgets them below; until then
+        // it must not call them out in the new room.
+        let memory_room = rooms
+            .stamped(entity)
+            .map(ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::ordinal);
+        if body.policy.0.shares_sightings && body.health.alive() && memory.0.room() == memory_room {
             crate::features::ecs::perception::crew_calls(
                 entity,
                 rooms.of(entity),
@@ -481,6 +487,17 @@ pub fn tick_actor_brains(
             continue;
         };
         let room = rooms.of(this_actor_entity);
+        // Tactical memory is room-local (`WorldMemory::enter_room`). The key is
+        // the body's own stamp, not `room`: an unstamped body is put in the
+        // sole live room, and that answer changes when a second room goes
+        // live, which would forget for no crossing. Read before written, so a
+        // body that stays does not mark its memory changed every tick.
+        let memory_room = stamp.map(|stamp| stamp.0.ordinal());
+        if let Some(memory) = perception_memory.as_mut() {
+            if memory.0.room() != memory_room {
+                memory.0.enter_room(memory_room);
+            }
+        }
         // This actor's combat-target liveness. `select_actor_targets` already
         // dropped a dead/absent foe (it only ever targets a LIVE candidate, and a
         // faction-feud fighter has no target once its foe is gone), so `entity ==

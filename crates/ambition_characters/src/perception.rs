@@ -967,6 +967,12 @@ pub struct RememberedActor {
 /// actor id. Refreshed for everything currently seen, decayed for everything that
 /// has left view, and forgotten once confidence falls below a floor.
 ///
+/// ⛔ TACTICAL AND ROOM-LOCAL. The positions are one live room's coordinates
+/// and the ids are that room's bodies, and two instances of one room hold the
+/// same ids. So a memory is true only in the live room it was formed in
+/// ([`Self::enter_room`]). What a body remembers ACROSS rooms (a grudge, a
+/// fate) is durable social memory, and it is kept somewhere else.
+///
 /// Pure: `update` is a function of the previous memory + the current view + dt, so
 /// it is replay-deterministic and assertable headless without a running app.
 #[derive(Clone, Debug, Default)]
@@ -977,6 +983,9 @@ pub struct WorldMemory {
     /// `RandomState` that is the process seed, and the enemy chases a different
     /// player on every run of the same binary on the same inputs.
     actors: std::collections::BTreeMap<String, RememberedActor>,
+    /// The live room the memory was formed in, as its `LiveRoomInstance`
+    /// ordinal. `None` for a body in no live room.
+    room: Option<u32>,
 }
 /// A brained body's persistent world-belief (invariant I6): the last-known
 /// positions of foes that have left its view, with a decaying confidence, so a
@@ -1183,10 +1192,37 @@ impl WorldMemory {
 
     /// Rebuild from a snapshot blob. The only way to construct a `WorldMemory` other
     /// than by [`WorldMemory::update`], and named for its one caller.
-    pub fn from_snapshot(entries: impl IntoIterator<Item = (String, RememberedActor)>) -> Self {
+    pub fn from_snapshot(
+        room: Option<u32>,
+        entries: impl IntoIterator<Item = (String, RememberedActor)>,
+    ) -> Self {
         Self {
             actors: entries.into_iter().collect(),
+            room,
         }
+    }
+
+    /// The live room this memory was formed in (its ordinal).
+    pub fn room(&self) -> Option<u32> {
+        self.room
+    }
+
+    /// The body is in live room `room` now. A memory formed in another live
+    /// room is forgotten, and the memory starts again in `room`.
+    ///
+    /// ⛔ FORGOTTEN, NOT MOVED. The old positions are the old room's
+    /// coordinates: in the new room a remembered hostile is a place where no
+    /// foe was seen, and a brain that pursues it walks to nothing. The old ids
+    /// are the old room's bodies: the same id in the new room is a different
+    /// body. Returns whether anything was forgotten.
+    pub fn enter_room(&mut self, room: Option<u32>) -> bool {
+        if self.room == room {
+            return false;
+        }
+        self.room = room;
+        let forgot = !self.actors.is_empty();
+        self.actors.clear();
+        forgot
     }
 
     /// How many actors are currently remembered (in view or fading).

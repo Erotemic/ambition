@@ -121,6 +121,34 @@ impl RoomInstanceRoot {
 /// step and the brain tick (OW1 cut 3d).
 pub type SoleLiveRoom<'w, 's, T> = Single<'w, 's, Ref<'static, T>, With<RoomInstanceRoot>>;
 
+/// The component `T` of the live room each entity is in: the reader WITH a
+/// subject, where [`SoleLiveRoom`] is the reader without one (OW1 cut 7).
+///
+/// A system that reads [`SoleLiveRoom`] does not run while two rooms are
+/// live, in either room. One that reads this runs, and each entity reads its
+/// own room, by the rule of [`LiveRooms::of`].
+#[derive(bevy::ecs::system::SystemParam)]
+pub struct LiveRoomOf<'w, 's, T: Component> {
+    roots: bevy::prelude::Query<'w, 's, (&'static LiveRoomInstance, &'static T), With<RoomInstanceRoot>>,
+    live: LiveRooms<'w, 's>,
+}
+
+impl<T: Component> LiveRoomOf<'_, '_, T> {
+    /// `T` of the live room `entity` is in. `None` when that room cannot be
+    /// told, is not live, or has no `T`.
+    pub fn of(&self, entity: Entity) -> Option<&T> {
+        self.in_room(self.live.of(entity)?)
+    }
+
+    /// `T` of live room `room`.
+    pub fn in_room(&self, room: LiveRoomInstance) -> Option<&T> {
+        self.roots
+            .iter()
+            .find(|(live, _)| **live == room)
+            .map(|(_, component)| component)
+    }
+}
+
 /// The one-live-room WRITE: [`SoleLiveRoom`]'s mutable twin, and the same debt.
 pub type SoleLiveRoomMut<'w, 's, T> = Single<'w, 's, &'static mut T, With<RoomInstanceRoot>>;
 

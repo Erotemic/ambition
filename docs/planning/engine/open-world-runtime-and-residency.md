@@ -260,6 +260,7 @@ and no fallback to "the live room".
 | 4 (4a ✅ 4b ✅) | Pairwise queries (contacts, hits, perception, projectile victims) keyed by instance | identical local positions in two instances never touch (one instance does) | unkeyed body-contact vectors |
 | 5 (5a ✅ 5b ✅ 5c ✅ 5d ✅ 5e ✅) | Live identity and room selection per instance; rollback rows instance-qualified; the save maps to a durable location key, never the ordinal | a second construction of one room in `#1` succeeds (a duplicate inside `#1` is still refused) | `RoomSet`'s private active index |
 | 6 (6a ✅ 6b ✅ 6c ✅ 6d ✅ 6e ✅) | The Alice/Bob proof: two instances, two driven bodies; retiring `#1` leaves `#0` whole | the one-room profile runs the same systems | the sole-room reads on the crossing road |
+| 7 (7a ✅) | The simulation systems a second live room freezes read their subject's own room (`LiveRoomOf<T>`) | the system runs in both rooms, each entity against its own room (one room: the same answer) | one `SoleLiveRoom*` parameter per system |
 
 ✅ **Cut 1 landed 2026-09-29.** `LiveRoomInstance` moved down to
 `ambition_platformer2d_shared_tangle::lifecycle` beside the new
@@ -788,6 +789,25 @@ room, both players in it, and Bob's slot still runs his body). The
 - Not measured: whether the session-wide rebase at Alice's crossing resets
   Bob's history, and what `GoverningRules` and the mode scope answer for
   the room Bob is in.
+
+✅ **Cut 7a landed 2026-09-30: the systems a second live room froze, first
+two.** `SoleLiveRoom<T>` and `SoleLiveRoomSpec` are `Single`s, so a system
+that takes one does not run at all while two rooms are live, in either
+room. After 6d that is the Alice/Bob world. The measured list of simulation
+systems it stops (read from the parameter lists, 2026-09-30):
+`step_item_motion` ✅, `update_ecs_falling_chests` ✅,
+`prepare_authored_switch_commands`, `drive_wave_encounters`,
+`update_boss_encounters`, `heal_save_shrine_system`,
+`sync_encounter_reward_chests`, `retire_rewards_for_rearmed_encounters`,
+`record_placed_ground_items`, `physics_spawn_debris_messages` and
+`tick_npc_idle_barks`, and the content bosses (`cut_rope`, `gnu_ton`). The
+presentation readers in `ambition_render` are P5's (a view per player). The
+new reader is `LiveRoomOf<T>`: `T` of the live room an entity is in, by the
+rule of `LiveRooms::of`. Item motion and falling chests now step each
+entity against its own room's geometry, and an entity in no live room does
+not move. Witnesses: `each_pickup_falls_onto_the_floor_of_its_own_live_room`
+and `each_chest_lands_on_the_floor_of_its_own_live_room` (live rooms whose
+floors differ by 200; each lands on its own; the control is one room).
 
 ⚠ Still owed from cut 5: `outlook_for(room: &str)` is keyed by definition;
 the `SoleLiveRoomSpec` readers each need a subject before a second live room

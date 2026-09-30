@@ -7,10 +7,14 @@ use super::*;
 use super::{CHEST_FALL_GRAVITY, CHEST_FALL_MAX_SPEED};
 
 /// Tick ECS reward chests that are still falling to the floor.
+///
+/// Each chest falls against the geometry of the live room it is in, so the
+/// system runs while two rooms are live (OW1 cut 7a). A chest in no live
+/// room does not move.
 pub fn update_ecs_falling_chests(
     mut commands: Commands,
     world_time: Res<WorldTime>,
-    world: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomOf<
         ambition_platformer2d_core::RoomGeometry,
     >,
     mut chests: Query<(Entity, &mut CenteredAabb, &mut FallingChest), With<ChestFeature>>,
@@ -19,6 +23,9 @@ pub fn update_ecs_falling_chests(
     // chest mid-arc the same way they freeze the player. ADR 0010.
     let dt = world_time.sim_dt();
     for (entity, mut aabb, mut falling) in &mut chests {
+        let Some(world) = rooms.of(entity) else {
+            continue;
+        };
         falling.vel_y = (falling.vel_y + CHEST_FALL_GRAVITY * dt).min(CHEST_FALL_MAX_SPEED);
         let step = falling.vel_y * dt;
         if step <= 0.0 {
@@ -103,6 +110,66 @@ mod falling_chest_tests {
                 ae::Vec2::new(400.0, 100.0),
             )],
         )
+    }
+
+    /// OW1 cut 7a: a falling chest lands on the floor of the live room it is
+    /// in. Live room #0's floor top is at y 300, and #1's at y 500. A chest
+    /// falls in each from one place. The subject: each comes to rest on its
+    /// own room's floor. The control: #0 alone, its chest rests at 300. When
+    /// the system read the sole live room, it did not run while two rooms
+    /// were live.
+    #[test]
+    fn each_chest_lands_on_the_floor_of_its_own_live_room() {
+        use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
+        let first = LiveRoomInstance::ACTIVATION;
+        let mut lower = world_with_floor();
+        lower.blocks[0] = ae::Block::solid("floor", ae::Vec2::new(0.0, 500.0), ae::Vec2::new(400.0, 100.0));
+        let bottoms = |rooms: Vec<(LiveRoomInstance, ae::World)>| {
+            let mut app = bevy::prelude::App::new();
+            app.insert_resource(WorldTime {
+                raw_dt: 1.0 / 60.0,
+                scaled_dt: 1.0 / 60.0,
+                ..Default::default()
+            });
+            app.add_systems(bevy::prelude::Update, update_ecs_falling_chests);
+            let chests: Vec<_> = rooms
+                .into_iter()
+                .map(|(room, geometry)| {
+                    app.world_mut()
+                        .spawn((RoomInstanceRoot, room, ambition_platformer2d_core::RoomGeometry(geometry)));
+                    app.world_mut()
+                        .spawn((
+                            ChestFeature::new(ambition_interaction::Chest::new("chest", None)),
+                            CenteredAabb {
+                                center: ae::Vec2::new(200.0, 50.0),
+                                half_size: ae::Vec2::new(12.0, 12.0),
+                            },
+                            FallingChest::new(0.0),
+                            InRoomInstance(room),
+                        ))
+                        .id()
+                })
+                .collect();
+            for _ in 0..300 {
+                app.update();
+            }
+            chests
+                .into_iter()
+                .map(|chest| {
+                    let world = app.world();
+                    let aabb = world.get::<CenteredAabb>(chest).expect("the chest stands");
+                    (world.get::<FallingChest>(chest).is_none(), (aabb.center.y + aabb.half_size.y).ceil())
+                })
+                .collect::<Vec<_>>()
+        };
+        let landed_on = |floor: f32| move |(landed, bottom): &(bool, f32)| *landed && *bottom <= floor && *bottom > floor - 13.0;
+        let control = bottoms(vec![(first, world_with_floor())]);
+        assert!(control.iter().all(landed_on(300.0)), "control: the chest did not land on the floor: {control:?}");
+        let both = bottoms(vec![(first, world_with_floor()), (first.next(), lower)]);
+        assert!(
+            landed_on(300.0)(&both[0]) && landed_on(500.0)(&both[1]),
+            "the chests did not each land on the floor of their own live room: {both:?}"
+        );
     }
 
     #[test]

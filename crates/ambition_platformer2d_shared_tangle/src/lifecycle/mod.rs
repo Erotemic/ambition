@@ -42,7 +42,7 @@ pub use room_instance::{
     LiveBodyId,
     sole_live_room_component,
     sole_live_room_component_mut, sole_live_room_entity, InRoomInstance, LiveRoomInstance,
-    LiveRooms, RoomInstanceRoot, SoleLiveRoom, SoleLiveRoomMut, TransactionRooms,
+    LiveRoomOf, LiveRooms, RoomInstanceRoot, SoleLiveRoom, SoleLiveRoomMut, TransactionRooms,
 };
 pub use round::{
     despawn_departed_round_entities, ActiveRoundScope, RoundScopeId, RoundScopePlugin,

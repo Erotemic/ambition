@@ -189,19 +189,26 @@ fn move_axis(world: &ae::World, pos: ae::Vec2, half: ae::Vec2, delta: ae::Vec2) 
 /// Runs before the collect pass, so a pickup is collected where it IS this tick
 /// rather than where it was last one — a fast star would otherwise be
 /// collectable from a box it has already left.
+///
+/// Each pickup steps against the geometry of the live room it is in, so the
+/// system runs while two rooms are live (OW1 cut 7a). A pickup in no live
+/// room does not move.
 pub fn step_item_motion(
     time: Res<ambition_time::WorldTime>,
-    world: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomOf<
         ambition_platformer2d_core::RoomGeometry,
     >,
-    mut items: Query<(&mut WorldItem, &mut ItemMotion)>,
+    mut items: Query<(Entity, &mut WorldItem, &mut ItemMotion)>,
 ) {
     let dt = time.scaled_dt;
     if dt <= 0.0 {
         return;
     }
-    for (mut item, mut motion) in &mut items {
-        step_one_item(&world.0, &mut item, &mut motion, dt);
+    for (entity, mut item, mut motion) in &mut items {
+        let Some(geometry) = rooms.of(entity) else {
+            continue;
+        };
+        step_one_item(&geometry.0, &mut item, &mut motion, dt);
     }
 }
 

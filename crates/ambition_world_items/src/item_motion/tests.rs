@@ -141,3 +141,57 @@ fn a_bouncer_stays_inside_the_level_it_is_ricocheting_around() {
         item.pos
     );
 }
+
+/// OW1 cut 7a: each moving pickup steps against the live room it is in.
+///
+/// Live room #0 is the corridor. Live room #1 is the corridor with its floor
+/// 200 lower. One falling pickup is in each, at the same place. The subject:
+/// each settles on its own room's floor. The control: with #0 the only live
+/// room, its pickup settles on the corridor floor. When the system read the
+/// sole live room, it did not run while two rooms were live, and neither
+/// pickup moved.
+#[test]
+fn each_pickup_falls_onto_the_floor_of_its_own_live_room() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
+    let first = LiveRoomInstance::ACTIVATION;
+    let second = first.next();
+    let mut lower = corridor();
+    lower.name = "lower".into();
+    lower.blocks[0] = ae::Block::solid("floor", ae::Vec2::new(0.0, 700.0), ae::Vec2::new(1000.0, 100.0));
+    let settled = |rooms: Vec<(LiveRoomInstance, ae::World)>| {
+        let mut app = App::new();
+        app.insert_resource(ambition_time::WorldTime {
+            raw_dt: 1.0 / 60.0,
+            scaled_dt: 1.0 / 60.0,
+            ..Default::default()
+        });
+        app.add_systems(Update, step_item_motion);
+        let items: Vec<_> = rooms
+            .into_iter()
+            .map(|(room, geometry)| {
+                app.world_mut()
+                    .spawn((RoomInstanceRoot, room, ambition_platformer2d_core::RoomGeometry(geometry)));
+                app.world_mut()
+                    .spawn((
+                        WorldItem::equipping(row(), ae::Vec2::new(250.0, 300.0), ae::Vec2::new(12.0, 12.0)),
+                        ItemMotion::new(ItemMotionPlan::walker(0.0)),
+                        InRoomInstance(room),
+                    ))
+                    .id()
+            })
+            .collect();
+        for _ in 0..180 {
+            app.update();
+        }
+        items
+            .into_iter()
+            .map(|item| app.world().get::<WorldItem>(item).expect("the pickup stands").pos.y)
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(settled(vec![(first, corridor())]), vec![488.0], "control: the pickup did not settle on the floor");
+    assert_eq!(
+        settled(vec![(first, corridor()), (second, lower)]),
+        vec![488.0, 688.0],
+        "the pickups did not each settle on the floor of their own live room"
+    );
+}

@@ -5,7 +5,8 @@
 //! An "encounter" is a sequence of mob waves with explicit lock / unlock
 //! semantics: entering the trigger zone starts it, exits seal until all waves
 //! are defeated, player death resets/unlocks, all-defeated → cleared + exits
-//! unlock. Any number of encounters coexist via `EncounterRegistry`.
+//! unlock. Each live room runs its own occurrence of each encounter its room
+//! authors (`project_live_encounter_occurrences`).
 //!
 //! ADAPTER module — it re-exports nothing it does not define. Authored data,
 //! registry resources, event vocabulary, music request resources, reward math,
@@ -28,7 +29,7 @@ pub use lock_walls::contribute_encounter_lock_walls;
 pub use switch_index::rebuild_encounter_switch_index;
 pub use systems::{
     apply_encounter_cleanup, apply_wave_encounter_effects, drive_wave_encounters,
-    populate_encounter_registry, WaveEncounterDriven,
+    project_live_encounter_occurrences, WaveEncounterDriven,
 };
 
 /// Module-local Bevy plugin: schedules the `EncounterSimulation`

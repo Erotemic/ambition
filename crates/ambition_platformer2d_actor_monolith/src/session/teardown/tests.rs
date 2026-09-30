@@ -9,7 +9,7 @@ use crate::control::possession::PossessionState;
 use ambition_boss_encounter::BossEncounterRegistry;
 use ambition_characters::control::SlotInteractionState;
 use ambition_encounter::switches::SwitchActivationQueue;
-use ambition_encounter::{EncounterRegistry, SwitchActivation};
+use ambition_encounter::SwitchActivation;
 use ambition_platformer2d_shared_tangle::safe_position::RoomTransitionCooldown;
 
 /// ⛔⛔ THIS LIST IS THE SECOND HALF OF `SessionScopedResources`, AND IT IS
@@ -31,7 +31,6 @@ fn app_with_populated_mirrors() -> App {
     app.add_message::<SessionScopeActivated>();
     app.init_resource::<PossessionState>();
     app.init_resource::<ambition_platformer2d_shared_tangle::markers::ControlledSubject>();
-    app.init_resource::<EncounterRegistry>();
     app.init_resource::<ambition_encounter::EncounterView>();
     app.init_resource::<BossEncounterRegistry>();
     app.init_resource::<ambition_persistence::quest::QuestRegistry>();
@@ -81,7 +80,6 @@ fn app_with_populated_mirrors() -> App {
     // Populate the mirrors with distinctive session-A state.
     let ghost = app.world_mut().spawn_empty().id();
     app.world_mut().resource_mut::<PossessionState>().possessed = Some(ghost);
-    app.world_mut().resource_mut::<EncounterRegistry>().specs_loaded = true;
     app.world_mut()
         .resource_mut::<RoomTransitionCooldown>()
         .remaining = 5.0;
@@ -244,7 +242,6 @@ fn retirement_clears_every_session_scoped_mirror() {
         .resource::<PossessionState>()
         .possessed
         .is_some());
-    assert!(app.world().resource::<EncounterRegistry>().specs_loaded);
     assert!(app
         .world()
         .resource::<SlotInteractionState>()
@@ -266,10 +263,6 @@ fn retirement_clears_every_session_scoped_mirror() {
         app.world().resource::<PossessionState>().possessed,
         None,
         "possession still points at a despawned session-A body after teardown"
-    );
-    assert!(
-        !app.world().resource::<EncounterRegistry>().specs_loaded,
-        "the encounter populate latch survived teardown, so session B never loads its encounters"
     );
     assert_eq!(
         app.world().resource::<RoomTransitionCooldown>().remaining,

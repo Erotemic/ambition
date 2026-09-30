@@ -33,11 +33,26 @@ use crate::participants::EncounterParticipants;
 #[derive(Message, Clone, Debug, PartialEq, Eq)]
 pub struct EncounterGate {
     pub gate: String,
+    /// The live room it fired in: only that room's scripts hear it. `None`:
+    /// the sole live room.
+    pub room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
 }
 
 impl EncounterGate {
     pub fn new(gate: impl Into<String>) -> Self {
-        Self { gate: gate.into() }
+        Self {
+            gate: gate.into(),
+            room: None,
+        }
+    }
+
+    /// The same gate, fired in live room `room`.
+    pub fn in_room(
+        mut self,
+        room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+    ) -> Self {
+        self.room = room;
+        self
     }
 }
 

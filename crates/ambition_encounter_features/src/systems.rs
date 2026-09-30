@@ -1,9 +1,10 @@
 //! The Bevy adapters around the generic encounter lifecycle (E8/E9).
 //!
-//! `populate_encounter_registry` (startup) loads specs from LDtk + the save and
-//! spawns one encounter ENTITY per spec carrying the generic authority set
-//! (`Encounter` + `EncounterLifecycle` + `EncounterObjective` +
-//! `EncounterParticipants`) plus the wave policy (`EncounterWaves`).
+//! `project_live_encounter_occurrences` builds each live room's encounter
+//! OCCURRENCES from the room's authored encounters + the save: one entity per
+//! (live room, encounter) carrying the generic authority set (`Encounter` +
+//! `EncounterLifecycle` + `EncounterObjective` + `EncounterParticipants`) plus
+//! the wave policy (`EncounterWaves`), stamped into its room.
 //!
 //! `drive_wave_encounters` (EncounterSimulation) is the wave ADAPTER: it emits
 //! lifecycle COMMANDS (trigger entry → `Start`, player death → `Fail`+`Reset`,
@@ -24,26 +25,35 @@ use ambition_platformer2d_shared_tangle::lifecycle::SessionCommands;
 
 use ambition_encounter::{
     Encounter, EncounterCommand, EncounterCommandKind, EncounterEvent, EncounterEventMsg,
-    EncounterLifecycle, EncounterMusicRequest, EncounterParticipants, EncounterRegistry,
+    EncounterLifecycle, EncounterMusicRequest, EncounterParticipants,
     EncounterView, EncounterWaves, WAVES_EXHAUSTED_SIGNAL,
 };
 
 use crate::load_encounter_specs_from_rooms;
 use ambition_encounter::switches::EncounterSwitchIndex;
 
-/// Bevy startup system: load encounter specs from the embedded LDtk
-/// project, spawn one encounter entity per spec carrying the generic
-/// authority set + the wave policy, and apply persisted states from the save.
+/// Build each live room's encounter OCCURRENCES: for every live room, the
+/// occurrence of each encounter its room authors, stamped into that room
+/// (see `ambition_encounter::occurrence`), with its lifecycle from the save.
 ///
-/// The authorities are SESSION-SCOPED: they belong to the live gameplay
-/// session exactly like the boss wraps, so retiring the session tears them
-/// down with everything else it owns. An unscoped authority would survive
-/// retirement while `SessionTeardownPlugin` clears the registry — and the
-/// next session's repopulation would then mint a DUPLICATE entity (and a
-/// duplicate `SimId::encounter`) per spec.
-pub fn populate_encounter_registry(
+/// ⛔ ONE OCCURRENCE PER (LIVE ROOM, AUTHORED ENCOUNTER). This used to spawn
+/// one entity per authored encounter, for every room of the set, once per
+/// session. Two live rooms of one room then shared one lifecycle, one wave run
+/// and one member list, and a mob spawned for either could be matched to
+/// neither. The authored id stays the durable key (the save, quests, switch
+/// links); the room is what tells two runs of it apart.
+///
+/// ⛔ AN OCCURRENCE IS A ROOM OCCUPANT. It is `RoomScopedEntity`, so the room
+/// transaction that replaces or retires its room retires it too, and this
+/// builds the new room's occurrences on the next tick. What survives a room
+/// is what the save holds: a Completed or Failed outcome. An in-flight attempt
+/// ended with its room before, too (the driver reset it on exit).
+///
+/// Session-scoped as well, so retiring the session takes every occurrence.
+/// Rooms are visited in live-room order, so every peer spawns the same
+/// carriers in the same order.
+pub fn project_live_encounter_occurrences(
     mut commands: ambition_platformer2d_shared_tangle::lifecycle::SessionCommands,
-    mut registry: ResMut<EncounterRegistry>,
     save: Res<ambition_persistence::save::AmbitionGameSave>,
     // , and it is done: encounters come off the ROOM IR now, not off an `LdtkProject`.
     // `EncounterTrigger` and `LockWall` are ordinary emissions like every other authored
@@ -51,71 +61,84 @@ pub fn populate_encounter_registry(
     //
     // Optional because a composition may have no rooms installed — a headless
     // fixture, a shell at a non-gameplay route.
-    rooms: Option<
-        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
-            ambition_platformer2d_world::rooms::RoomSet,
-        >,
-    >,
+    rooms: Option<ambition_platformer2d_world::rooms::LiveRoomSpecs>,
     // the App's authored wave book. Optional for the same reason the project is: a composition
     // with no authored encounters is an empty set, not an error.
     waves: Option<Res<ambition_encounter::EncounterWaveBook>>,
+    standing: Query<
+        (&Encounter, &ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance),
+        With<EncounterWaves>,
+    >,
 ) {
-    if registry.specs_loaded {
-        return;
-    }
     // A shell host at a non-gameplay route has no session to own the
-    // authorities: sleep WITHOUT setting `specs_loaded`, so the first tick of
-    // an activated session populates. A legacy/headless app with no session
-    // lifecycle installed gets the unscoped spawn mode, as before.
+    // occurrences: sleep. A legacy/headless app with no session lifecycle
+    // installed gets the unscoped spawn mode, as before.
     let Some(scope) = commands.spawn_scope() else {
         return;
     };
-    // Returning without latching costs one `Option` test per tick and cannot. nothing outside this
-    // system reads `EncounterRegistry::specs_loaded` (checked), so never latching in a room-less
-    // composition is inert.
     let Some(rooms) = rooms else {
         return;
     };
-    let entries = load_encounter_specs_from_rooms(&rooms.rooms, save.data(), waves.as_deref());
-    let count = entries.len();
-    for (id, spec, persisted) in entries {
-        let lifecycle = EncounterLifecycle::from_persisted(spec.intro_seconds, persisted);
-        let waves = EncounterWaves::new(spec);
-        let objective = waves.objective();
-        let mut entity = commands.spawn((
-            Encounter::new(id.clone()),
-            // Stable simulation identity (E11): the authority enters the
-            // snapshot roster / state hash under its own namespace.
-            ambition_platformer2d_shared_tangle::sim_id::SimId::encounter(&id),
-            lifecycle,
-            objective,
-            EncounterParticipants::default(),
-        ));
-        // Authored staging policy (E12): generic consumers derive the lock
-        // wall / camera zoom / base track from the LIFECYCLE + these, never
-        // from the wave component.
-        if let Some(wall) = waves.spec.lock_wall.clone() {
-            entity.insert(ambition_encounter::EncounterLockWall(wall));
-        }
-        entity.insert(ambition_encounter::EncounterCameraZoom(
-            waves.spec.camera_zoom,
-        ));
-        if !waves.spec.music_track.is_empty() {
-            entity.insert(ambition_encounter::EncounterTrack(
-                waves.spec.music_track.clone(),
+    let standing: std::collections::BTreeSet<(
+        &str,
+        ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
+    )> = standing
+        .iter()
+        .map(|(encounter, stamp)| (encounter.id.as_str(), stamp.0))
+        .collect();
+    let mut live: Vec<_> = rooms.live_rooms().collect();
+    live.sort_by_key(|(room, _)| *room);
+    let mut built = 0usize;
+    for (room, definition) in live {
+        let spec = rooms.rooms().spec(definition);
+        let entries = load_encounter_specs_from_rooms(
+            std::slice::from_ref(spec),
+            save.data(),
+            waves.as_deref(),
+        );
+        for (id, spec, persisted) in entries {
+            if standing.contains(&(id.as_str(), room)) {
+                continue;
+            }
+            let lifecycle = EncounterLifecycle::from_persisted(spec.intro_seconds, persisted);
+            let waves = EncounterWaves::new(spec);
+            let objective = waves.objective();
+            let mut entity = commands.spawn((
+                Encounter::new(id.clone()),
+                // Stable simulation identity (E11): the authority enters the
+                // snapshot roster / state hash under its own namespace. The
+                // room beside it tells two occurrences apart.
+                ambition_platformer2d_shared_tangle::sim_id::SimId::encounter(&id),
+                ambition_platformer2d_shared_tangle::lifecycle::RoomScopedEntity,
+                lifecycle,
+                objective,
+                EncounterParticipants::default(),
             ));
+            // Authored staging policy (E12): generic consumers derive the lock
+            // wall / camera zoom / base track from the LIFECYCLE + these, never
+            // from the wave component.
+            if let Some(wall) = waves.spec.lock_wall.clone() {
+                entity.insert(ambition_encounter::EncounterLockWall(wall));
+            }
+            entity.insert(ambition_encounter::EncounterCameraZoom(
+                waves.spec.camera_zoom,
+            ));
+            if !waves.spec.music_track.is_empty() {
+                entity.insert(ambition_encounter::EncounterTrack(
+                    waves.spec.music_track.clone(),
+                ));
+            }
+            entity.insert(waves);
+            scope.in_room(Some(room)).apply_to(&mut entity);
+            built += 1;
         }
-        entity.insert(waves);
-        scope.apply_to(&mut entity);
     }
-    registry.specs_loaded = true;
-    // One-line census so "did encounters load?" is checkable from
-    // the log without grepping the LDtk. Mirrors the pattern in
-    // `populate_boss_encounter_registry` + the catalog sprite census.
-    bevy::log::info!(
-        target: "ambition_platformer2d::encounter",
-        "encounter registry: {count} encounter entit(ies) spawned from the room set",
-    );
+    if built > 0 {
+        bevy::log::info!(
+            target: "ambition_platformer2d::encounter",
+            "encounter occurrences: {built} built for the live rooms",
+        );
+    }
 }
 
 /// The set [`drive_wave_encounters`] runs in.
@@ -139,6 +162,7 @@ pub fn drive_wave_encounters(
     world_time: Res<ambition_time::WorldTime>,
     mut died_messages: MessageReader<ambition_combat::death_rules::ActorDiedMessage>,
     mut encounters: Query<(
+        Entity,
         &Encounter,
         &EncounterLifecycle,
         &mut EncounterWaves,
@@ -185,15 +209,12 @@ pub fn drive_wave_encounters(
     if commands.spawn_scope().is_none() {
         return;
     }
-    // The rooms that are live, by the id of the room each instantiates.
-    let live_areas: std::collections::BTreeSet<String> = rooms
-        .live_definitions()
-        .map(|definition| rooms.rooms().spec(definition).id.clone())
-        .collect();
-    let area_of = |entity: Entity| {
-        rooms
-            .definition_of(entity)
-            .map(|definition| rooms.rooms().spec(definition).id.as_str())
+    // Each occurrence runs in its own live room (see
+    // `ambition_encounter::occurrence`): its stamp names it, and a player, a
+    // mob or a death belongs to it when it is in that room.
+    let room_of = |entity: Entity| rooms.live().of(entity);
+    let is_live = |room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>| {
+        room.is_some_and(|room| rooms.definition_in(room).is_some())
     };
     if player_body_q.is_empty() {
         return;
@@ -212,19 +233,22 @@ pub fn drive_wave_encounters(
     //    ⛔ A DEATH ENDS ITS OWN ROOM'S ATTEMPT (OW1 cut 7f). With two live
     //    rooms, the other player's fight goes on. A death whose room cannot be
     //    told ends nothing.
-    let mut ending_this_tick: std::collections::HashSet<String> = std::collections::HashSet::new();
-    let died_in: std::collections::BTreeSet<String> = died_messages
+    let mut ending_this_tick: std::collections::HashSet<Entity> = std::collections::HashSet::new();
+    let died_in: std::collections::BTreeSet<_> = died_messages
         .read()
-        .filter_map(|died| area_of(died.victim).map(str::to_owned))
+        .filter_map(|died| room_of(died.victim))
         .collect();
     if !died_in.is_empty() {
-        for (enc, lifecycle, waves, _participants) in &encounters {
-            if lifecycle.phase().in_flight() && died_in.contains(&waves.spec.room_id) {
-                lifecycle_commands
-                    .write(EncounterCommand::new(&enc.id, EncounterCommandKind::Fail));
-                lifecycle_commands
-                    .write(EncounterCommand::new(&enc.id, EncounterCommandKind::Reset));
-                ending_this_tick.insert(enc.id.clone());
+        for (occurrence, enc, lifecycle, _waves, _participants) in &encounters {
+            let room = room_of(occurrence);
+            if lifecycle.phase().in_flight() && room.is_some_and(|room| died_in.contains(&room)) {
+                lifecycle_commands.write(
+                    EncounterCommand::new(&enc.id, EncounterCommandKind::Fail).in_room(room),
+                );
+                lifecycle_commands.write(
+                    EncounterCommand::new(&enc.id, EncounterCommandKind::Reset).in_room(room),
+                );
+                ending_this_tick.insert(occurrence);
             }
         }
     }
@@ -233,10 +257,12 @@ pub fn drive_wave_encounters(
     //    + lock release on exit. (E10 makes this cleanup ownership-driven: the
     //    Reset event despawns the encounter's SPAWNED mobs — pre-E10 they
     //    lingered until a death or re-arm, which was accidental, not policy.)
-    for (enc, lifecycle, waves, _participants) in &encounters {
-        if lifecycle.phase().in_flight() && !live_areas.contains(&waves.spec.room_id) {
-            lifecycle_commands.write(EncounterCommand::new(&enc.id, EncounterCommandKind::Reset));
-            ending_this_tick.insert(enc.id.clone());
+    for (occurrence, enc, lifecycle, _waves, _participants) in &encounters {
+        let room = room_of(occurrence);
+        if lifecycle.phase().in_flight() && !is_live(room) {
+            lifecycle_commands
+                .write(EncounterCommand::new(&enc.id, EncounterCommandKind::Reset).in_room(room));
+            ending_this_tick.insert(occurrence);
         }
     }
 
@@ -246,11 +272,10 @@ pub fn drive_wave_encounters(
     //    Reset then Start in order), so a persisted Completed/Failed doesn't
     //    lock out re-triggering after a switch toggle.
     // The first encounter of each live room, as the one room had one.
-    let mut triggered_areas = std::collections::BTreeSet::new();
-    for (enc, lifecycle, waves, mut participants) in encounters.iter_mut() {
-        if !live_areas.contains(&waves.spec.room_id)
-            || !triggered_areas.insert(waves.spec.room_id.clone())
-        {
+    let mut triggered_rooms = std::collections::BTreeSet::new();
+    for (occurrence, enc, lifecycle, waves, mut participants) in encounters.iter_mut() {
+        let room = room_of(occurrence);
+        if !is_live(room) || !triggered_rooms.insert(room) {
             continue;
         }
         if !lifecycle.phase().in_flight() && switch_index.encounter_armed(&enc.id) {
@@ -258,10 +283,10 @@ pub fn drive_wave_encounters(
             // fires the encounter — single-player behavior preserved because
             // the iterator has one entity today. OVERNIGHT-TODO #17.8.
             let trigger = waves.spec.trigger_aabb();
-            // A player in this encounter's room.
+            // A player in this occurrence's live room.
             let entered = player_body_q
                 .iter()
-                .filter(|(player, _)| area_of(*player) == Some(waves.spec.room_id.as_str()))
+                .filter(|(player, _)| room_of(*player) == room)
                 .any(|(_, body)| {
                 use bevy::math::bounding::IntersectsVolume;
                 let player_aabb = ae::aabb_from_min_size(
@@ -278,12 +303,13 @@ pub fn drive_wave_encounters(
                     lifecycle.phase(),
                     ambition_encounter::EncounterPhase::Inactive
                 ) {
-                    lifecycle_commands
-                        .write(EncounterCommand::new(&enc.id, EncounterCommandKind::Reset));
+                    lifecycle_commands.write(
+                        EncounterCommand::new(&enc.id, EncounterCommandKind::Reset).in_room(room),
+                    );
                 }
                 participants.members.clear();
                 lifecycle_commands
-                    .write(EncounterCommand::new(&enc.id, EncounterCommandKind::Start));
+                    .write(EncounterCommand::new(&enc.id, EncounterCommandKind::Start).in_room(room));
             }
         }
     }
@@ -293,8 +319,9 @@ pub fn drive_wave_encounters(
     //    adapters read the authority, one frame behind at most).
     // (instance id, character, brain kind, pos, size) — the three identity
     // questions kept apart all the way to the spawner.
-    for (enc, lifecycle, mut waves, mut participants) in &mut encounters {
-        if !live_areas.contains(&waves.spec.room_id) || ending_this_tick.contains(&enc.id) {
+    for (occurrence, enc, lifecycle, mut waves, mut participants) in &mut encounters {
+        let room = room_of(occurrence);
+        if !is_live(room) || ending_this_tick.contains(&occurrence) {
             continue;
         }
         match lifecycle.phase() {
@@ -306,7 +333,11 @@ pub fn drive_wave_encounters(
                 // refreshed next frame (by then their entities exist).
                 let lookup: std::collections::HashMap<String, (Entity, bool)> = encounter_mobs
                     .iter()
-                    .filter(|(_, mob, _, _)| mob.encounter_id == enc.id)
+                    // This occurrence's mobs: its id, in its room. Two
+                    // occurrences mint the same mob ids.
+                    .filter(|(mob_entity, mob, _, _)| {
+                        mob.encounter_id == enc.id && room_of(*mob_entity) == room
+                    })
                     // AC3.1.A: participant liveness decides wave completion, so it
                     // reads the HP authority rather than the once-per-frame mirror.
                     .map(|(entity, _, id, health)| {
@@ -328,14 +359,17 @@ pub fn drive_wave_encounters(
                 let mut events = Vec::new();
                 let exhausted = waves.tick_active(dt, &mut participants, &mut events);
                 if exhausted {
-                    lifecycle_commands
-                        .write(EncounterCommand::signal(&enc.id, WAVES_EXHAUSTED_SIGNAL));
+                    lifecycle_commands.write(
+                        EncounterCommand::signal(&enc.id, WAVES_EXHAUSTED_SIGNAL).in_room(room),
+                    );
                 }
                 for event in events {
                     // The SpawnCommands go out on the bus like every other
                     // event; `features::serve_encounter_spawn_commands` reads
                     // them. This driver no longer serves its own requests.
-                    events_out.write(EncounterEventMsg::new(&enc.id, event));
+                    // The room goes with the request: a mob is served into
+                    // its occurrence's live room.
+                    events_out.write(EncounterEventMsg::new(&enc.id, event).in_room(room));
                 }
             }
             ambition_encounter::EncounterPhase::Inactive => {
@@ -414,16 +448,24 @@ pub fn drive_wave_encounters(
                         &area,
                         encounters
                             .iter()
-                            .map(|(enc, _, waves, _)| (enc.id.as_str(), waves.spec.room_id.as_str())),
+                            .map(|(_, enc, _, waves, _)| (enc.id.as_str(), waves.spec.room_id.as_str())),
                     );
-                    if let Some((enc, lifecycle, _, _)) =
-                        target.and_then(|id| encounters.iter().find(|(enc, ..)| enc.id == id))
-                    {
+                    // The occurrence in the switch's own live room.
+                    if let Some((occurrence, enc, lifecycle, _, _)) = target.and_then(|id| {
+                        encounters.iter().find(|(occurrence, enc, ..)| {
+                            enc.id == id
+                                && ambition_encounter::occurrence::addresses(
+                                    rooms.live(),
+                                    activation.room,
+                                    *occurrence,
+                                )
+                        })
+                    }) {
                         if !lifecycle.phase().in_flight() {
-                            lifecycle_commands.write(EncounterCommand::new(
-                                &enc.id,
-                                EncounterCommandKind::Reset,
-                            ));
+                            lifecycle_commands.write(
+                                EncounterCommand::new(&enc.id, EncounterCommandKind::Reset)
+                                    .in_room(room_of(occurrence)),
+                            );
                         }
                     }
                     // ⭐ THE REWARD RETIRE LEFT (2026-09-03). It is
@@ -604,14 +646,28 @@ pub fn apply_wave_encounter_effects(
     // Project the lifecycle to the save (Completed/Failed survive, in-flight
     // collapses to Untouched). Wave encounters only — a boss wrap persists
     // through `save.bosses`, keyed by placement.
+    //
+    // ⛔ ONE SAVE KEY, ANY NUMBER OF OCCURRENCES. The save keys the authored
+    // encounter, and two live rooms of one room each run an occurrence of it.
+    // Writing each in query order flipped the key between them every frame, so
+    // the occurrences are folded first: a clear in any room is the clear.
+    let mut folded: std::collections::BTreeMap<
+        &str,
+        ambition_persistence::save_data::PersistedEncounterState,
+    > = std::collections::BTreeMap::new();
     for (enc, lifecycle, waves, _) in &encounters {
         if waves.is_none() {
             continue;
         }
         let persisted = lifecycle.to_persisted();
-        let current = save.data().encounter(&enc.id);
-        if persisted != current {
-            save.data_mut().set_encounter(&enc.id, persisted);
+        folded
+            .entry(enc.id.as_str())
+            .and_modify(|held| *held = the_outcome_that_stands(*held, persisted))
+            .or_insert(persisted);
+    }
+    for (id, persisted) in folded {
+        if save.data().encounter(id) != persisted {
+            save.data_mut().set_encounter(id, persisted);
         }
     }
 }
@@ -636,10 +692,14 @@ pub fn apply_encounter_cleanup(
     mut commands: Commands,
     mut events_in: MessageReader<EncounterEventMsg>,
     mut encounters: Query<(
+        Entity,
         &Encounter,
         &mut EncounterParticipants,
         Option<&ambition_encounter::EncounterCleanupPolicy>,
     )>,
+    // Which occurrence ended, and which room its mobs are in: two occurrences
+    // share an id and mint the same mob ids.
+    live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
     // The GENERIC durable-id → live-entity resolution: a participant's id is
     // the payload of its body's `SimId::placement(..)` — for a wave mob (its
     // `FeatureId`) and a boss member (its config id) alike. Resolving through
@@ -649,20 +709,23 @@ pub fn apply_encounter_cleanup(
     // specialized adapter re-heals the cache.
     sim_entities: Query<(Entity, &ambition_platformer2d_shared_tangle::sim_id::SimId)>,
 ) {
-    let mut ended: Vec<String> = Vec::new();
+    let mut ended: Vec<(String, Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>)> =
+        Vec::new();
     for msg in events_in.read() {
+        let occurrence = (msg.encounter.clone(), msg.room);
         if matches!(
             msg.event,
             EncounterEvent::Completed | EncounterEvent::Failed | EncounterEvent::Reset
-        ) && !ended.contains(&msg.encounter)
+        ) && !ended.contains(&occurrence)
         {
-            ended.push(msg.encounter.clone());
+            ended.push(occurrence);
         }
     }
-    for encounter_id in ended {
-        let Some((_, mut participants, policy)) = encounters
+    for (encounter_id, room) in ended {
+        let room = ambition_encounter::occurrence::message_room(&live, room);
+        let Some((_, _, mut participants, policy)) = encounters
             .iter_mut()
-            .find(|(enc, _, _)| enc.id == encounter_id)
+            .find(|(occurrence, enc, _, _)| enc.id == encounter_id && live.of(*occurrence) == room)
         else {
             continue;
         };
@@ -687,7 +750,7 @@ pub fn apply_encounter_cleanup(
                 let entity = member.entity.or_else(|| {
                     sim_entities
                         .iter()
-                        .find(|(_, sim)| **sim == wanted)
+                        .find(|(entity, sim)| **sim == wanted && live.of(*entity) == room)
                         .map(|(entity, _)| entity)
                 });
                 if let Some(entity) = entity {
@@ -698,5 +761,24 @@ pub fn apply_encounter_cleanup(
             }
             false
         });
+    }
+}
+
+/// Which of two occurrences' outcomes the save keeps for their one authored
+/// encounter: a clear over a loss, and either over no outcome.
+fn the_outcome_that_stands(
+    held: ambition_persistence::save_data::PersistedEncounterState,
+    other: ambition_persistence::save_data::PersistedEncounterState,
+) -> ambition_persistence::save_data::PersistedEncounterState {
+    use ambition_persistence::save_data::PersistedEncounterState as Outcome;
+    let rank = |outcome: Outcome| match outcome {
+        Outcome::Cleared => 2,
+        Outcome::Failed => 1,
+        _ => 0,
+    };
+    if rank(other) > rank(held) {
+        other
+    } else {
+        held
     }
 }

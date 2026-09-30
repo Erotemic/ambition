@@ -10,7 +10,6 @@ use bevy::prelude::*;
 
 use ambition_demo_sanic_app::build_demo_app;
 use ambition_platformer2d::actors::control::possession::PossessionState;
-use ambition_platformer2d::encounter::EncounterRegistry;
 use ambition_platformer2d::game_shell::{ShellCommand, ShellLauncherCommand, ShellRouter};
 use ambition_platformer2d::platformer::lifecycle::{
     ActiveSessionScope, SessionScopeId, SessionScopedEntity,
@@ -71,7 +70,6 @@ fn a_second_session_shares_no_entity_handle_cache_or_view_with_the_first() {
     // them. Using the real player entity makes each a genuine dangling handle
     // the instant the sweep despawns it.
     app.world_mut().resource_mut::<PossessionState>().possessed = Some(player_a);
-    app.world_mut().resource_mut::<EncounterRegistry>().specs_loaded = true;
     app.world_mut().resource_mut::<ControlledSubject>().0 = Some(player_a);
     ambition_platformer2d::session::sole_live_room_component_mut::<MovingPlatformSet>(app.world_mut()).expect("the live room has moving platforms")
         .0
@@ -121,10 +119,6 @@ fn a_second_session_shares_no_entity_handle_cache_or_view_with_the_first() {
         None,
         "ControlledSubject still names the despawned session-A body \
          (the sim sleeps at the launcher, so only teardown can clear it)"
-    );
-    assert!(
-        !app.world().resource::<EncounterRegistry>().specs_loaded,
-        "the encounter populate latch survived teardown"
     );
 
     // ── Activate session B (a fresh scope for the same provider) ───────────

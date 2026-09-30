@@ -4014,14 +4014,14 @@
       "owner": "ambition_platformer2d_actor_monolith::session::teardown",
       "status": "SOURCE_CONFIRMED",
       "complexity": "TRANSITIONAL_COMPLEXITY",
-      "current_truth": "SessionScopedResources names 28 App resources that source states belong to one gameplay session (re-derived 2026-09-29, when the moving platforms left for the live room's own root; 29 from 2026-09-28, when the cutscene advance request left for the seat control frame; this read 25 until the bundle was counted field by field, then 30). Activation resets them for correctness and retirement resets them for hygiene.",
+      "current_truth": "SessionScopedResources names 27 App resources that source states belong to one gameplay session (re-derived 2026-09-30, when the encounter registry was deleted; 28 from 2026-09-29, when the moving platforms left for the live room's own root; 29 from 2026-09-28, when the cutscene advance request left for the seat control frame; this read 25 until the bundle was counted field by field, then 30). Activation resets them for correctness and retirement resets them for hygiene.",
       "source_paths": [
         "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs"
       ],
       "evidence": [
         {
           "status": "SOURCE_CONFIRMED",
-          "claim": "SessionScopedResources names 28 App resources that source states belong to one gameplay session (re-derived 2026-09-29, when the moving platforms left for the live room's own root; 29 from 2026-09-28, when the cutscene advance request left for the seat control frame; this read 25 until the bundle was counted field by field, then 30). Activation resets them for correctness and retirement resets them for hygiene.",
+          "claim": "SessionScopedResources names 27 App resources that source states belong to one gameplay session (re-derived 2026-09-30, when the encounter registry was deleted; 28 from 2026-09-29, when the moving platforms left for the live room's own root; 29 from 2026-09-28, when the cutscene advance request left for the seat control frame; this read 25 until the bundle was counted field by field, then 30). Activation resets them for correctness and retirement resets them for hygiene.",
           "sources": [
             "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs"
           ]

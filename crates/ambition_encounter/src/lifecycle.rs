@@ -286,6 +286,9 @@ pub enum EncounterCommandKind {
 pub struct EncounterCommand {
     /// Target [`Encounter`] id.
     pub encounter: String,
+    /// The live room of the target occurrence. `None`: the sole live room,
+    /// for a producer that cannot name one. See [`crate::occurrence`].
+    pub room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
     pub kind: EncounterCommandKind,
 }
 
@@ -293,8 +296,18 @@ impl EncounterCommand {
     pub fn new(encounter: impl Into<String>, kind: EncounterCommandKind) -> Self {
         Self {
             encounter: encounter.into(),
+            room: None,
             kind,
         }
+    }
+
+    /// The same command, for the occurrence in live room `room`.
+    pub fn in_room(
+        mut self,
+        room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+    ) -> Self {
+        self.room = room;
+        self
     }
 
     pub fn signal(encounter: impl Into<String>, key: impl Into<String>) -> Self {
@@ -316,27 +329,37 @@ pub fn reduce_encounter_lifecycles(
     mut commands_in: MessageReader<EncounterCommand>,
     mut events_out: MessageWriter<EncounterEventMsg>,
     mut encounters: Query<(
+        Entity,
         &Encounter,
         &mut EncounterLifecycle,
         Option<&EncounterParticipants>,
         Option<&EncounterObjective>,
     )>,
+    // Which occurrence a command is for: its id AND its live room (see
+    // `crate::occurrence`).
+    live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
 ) {
-    // Group this tick's commands by encounter id. BTreeMap: commands for the
-    // same encounter apply in arrival order, and the map itself never drives
+    // Group this tick's commands by occurrence. BTreeMap: commands for the
+    // same occurrence apply in arrival order, and the map itself never drives
     // entity iteration (the query does), but keep ordering canonical anyway.
-    let mut by_id: std::collections::BTreeMap<&str, Vec<&EncounterCommandKind>> =
-        std::collections::BTreeMap::new();
+    let mut by_occurrence: std::collections::BTreeMap<
+        (&str, Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>),
+        Vec<&EncounterCommandKind>,
+    > = std::collections::BTreeMap::new();
     for command in commands_in.read() {
-        by_id
-            .entry(command.encounter.as_str())
+        by_occurrence
+            .entry((
+                command.encounter.as_str(),
+                crate::occurrence::message_room(&live, command.room),
+            ))
             .or_default()
             .push(&command.kind);
     }
     let no_participants = EncounterParticipants::default();
-    for (encounter, mut lifecycle, participants, objective) in &mut encounters {
-        let commands = by_id
-            .get(encounter.id.as_str())
+    for (entity, encounter, mut lifecycle, participants, objective) in &mut encounters {
+        let room = live.of(entity);
+        let commands = by_occurrence
+            .get(&(encounter.id.as_str(), room))
             .map(|v| v.as_slice())
             .unwrap_or(&[]);
         let events = lifecycle.reduce(
@@ -346,10 +369,7 @@ pub fn reduce_encounter_lifecycles(
             objective,
         );
         for event in events {
-            events_out.write(EncounterEventMsg {
-                encounter: encounter.id.clone(),
-                event,
-            });
+            events_out.write(EncounterEventMsg::new(encounter.id.clone(), event).in_room(room));
         }
     }
 }

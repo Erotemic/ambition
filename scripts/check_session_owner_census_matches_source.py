@@ -107,8 +107,8 @@ def code_only(body: str) -> str:
 
 
 #: ⚠ `rollback_resource_map_entities` registers ENTITY REMAPPING for a resource,
-#: not the resource's state, and a value legitimately has BOTH — four do here
-#: (`PossessionState`, `EncounterRegistry`, `ActiveConversation`,
+#: not the resource's state, and a value legitimately has BOTH — four did
+#: (`PossessionState`, the since-deleted `EncounterRegistry`, `ActiveConversation`,
 #: `PendingPlayerHitEvents`), under `resource.x` and `map.resource.x`. Reading the
 #: second as a competing state registration produced four false reds the moment
 #: the method list widened. Two registrations of different KINDS are not two

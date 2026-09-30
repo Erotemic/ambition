@@ -1,17 +1,8 @@
-//! `EncounterRegistry` resource: the populate latch (the live encounter state
-//! lives on each encounter entity). Also `SwitchActivation` — the typed
+//! The encounter domain's plugin. Also `SwitchActivation` — the typed
 //! `switch:<id>:<action>:<target>` payload parsed once at LDtk→ECS spawn and
 //! consumed by the switch-arming gate (`switches.rs`) and the encounter tick.
 
 use bevy::prelude::*;
-
-/// Whether the current LDtk file has been scanned for encounter triggers yet.
-/// Reset by hot reload and by session teardown so the populate pass runs again.
-/// The live encounter state is each encounter entity's own components.
-#[derive(Resource, Default, Clone)]
-pub struct EncounterRegistry {
-    pub specs_loaded: bool,
-}
 
 /// One activation request from a switch interaction.
 ///
@@ -106,7 +97,6 @@ impl bevy::prelude::Plugin for EncounterRegistryPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
         use bevy::prelude::IntoScheduleConfigs;
-        app.init_resource::<EncounterRegistry>();
         app.init_resource::<crate::entity::EncounterView>();
         // The generic clock mirror the reducer reads (the host overwrites it
         // each frame; init never clobbers a pre-inserted resource).

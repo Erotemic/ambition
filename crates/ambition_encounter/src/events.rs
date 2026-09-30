@@ -69,6 +69,10 @@ impl EncounterEvent {
 #[derive(bevy::prelude::Message, Clone, Debug)]
 pub struct EncounterEventMsg {
     pub encounter: String,
+    /// The live room of the occurrence this happened to. `None`: the
+    /// occurrence is in no named room (the sole live room reads it). A
+    /// `SpawnCommand` is served into this room.
+    pub room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
     pub event: EncounterEvent,
 }
 
@@ -76,7 +80,17 @@ impl EncounterEventMsg {
     pub fn new(encounter: impl Into<String>, event: EncounterEvent) -> Self {
         Self {
             encounter: encounter.into(),
+            room: None,
             event,
         }
+    }
+
+    /// The same event, of the occurrence in live room `room`.
+    pub fn in_room(
+        mut self,
+        room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+    ) -> Self {
+        self.room = room;
+        self
     }
 }

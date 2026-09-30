@@ -59,10 +59,9 @@ pub fn cleared_descriptor() -> ConditionDescriptor {
 /// a CONTENT-VALIDATION question, not a runtime one.
 ///
 /// ⚠ AND THE OBVIOUS RUNTIME FIX IS A BUG, which is why the ruling needs writing
-/// down. `EncounterRegistry` looks like the roster to check against and is not:
-/// its own doc calls it *"an INDEX from id to a live `Entity`, not an authored
-/// table"*, and a despawned encounter is REMOVED from it. Refusing ids the
-/// registry does not hold would make `encounter.cleared` unanswerable for every
+/// down. The live occurrences look like the roster to check against and are
+/// not: an occurrence exists only while its room is live. Refusing ids no live
+/// occurrence holds would make `encounter.cleared` unanswerable for every
 /// encounter that is not currently spawned — which is precisely the population
 /// the question exists to ask about, since a player asks "did I clear that arena"
 /// after leaving it. ⇒ The check would fail exactly where the question is used.

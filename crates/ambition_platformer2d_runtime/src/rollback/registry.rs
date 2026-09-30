@@ -906,7 +906,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// ⛔⛤ 274 -> 275: a pending crossing records the participant whose
 /// crossing it is (`resource.pending_lifecycle_commit`, codec and checksum),
 /// so the commit never asks who drives the body now (GPT review of OW1 cut 6).
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 275;
+/// ⛔⛤ 275 -> 276: `resource.encounter_registry` is gone. Each live room's
+/// encounter occurrences are built from the rooms that are live, so no
+/// session latch says whether they were built (GPT review of OW1 cut 7c).
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 276;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

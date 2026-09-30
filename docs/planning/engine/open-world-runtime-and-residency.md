@@ -878,10 +878,9 @@ on its own. Witnesses: `a_cleared_encounters_chest_stands_in_its_own_live_room`,
 live room for the chest and the item, and for the shrine, Alice pressing
 at the same place in the other room. Poisoned together (first live room only, no room
 filter, first definition), each failed on its own assertion: no chest in
-#1; a rest at the other room's shrine; both items placed in `hall`. The
-chest sync finds an existing chest by encounter id across rooms. That is
-sound while two live rooms never instantiate one room, which the Join of
-cut 6e keeps.
+#1; a rest at the other room's shrine; both items placed in `hall`. ~~The
+chest sync finds an existing chest by encounter id across rooms.~~ Since the
+review of 7c it finds it in the occurrence's own live room.
 
 ✅ **Cut 7e landed 2026-09-30: a boss fights and drops its chest in its
 own live room.** The boss driver read the sole live room's geometry for
@@ -907,6 +906,45 @@ whose room cannot be told ends nothing. Witness:
 `a_death_fails_only_the_encounter_of_its_own_live_room` (the encounter of
 #1 is in flight; a death in #1 fails it, and the control, a death in #0,
 does not). With the old rule restored, the control failed.
+
+✅ **Review of cuts 7c and 7f, landed 2026-09-30: an encounter is an
+occurrence, not an authored id.** 7c and 7f made the driver read every live
+room, but under it the encounter runtime still knew an encounter only by
+its authored id. A spawn request named no room, so a wave's mobs were in no
+live room and, with two rooms live, chose no foe. The lifecycle reducer
+applied a command to every entity with the id, so two live rooms of one
+room started, failed and reset as one. An authored encounter is its
+definition id. A live encounter occurrence is the pair (live room, authored
+id). `ambition_encounter::occurrence` holds the one rule: an occurrence's
+room is its `InRoomInstance` stamp (`LiveRooms::of`); a message's room is
+the room it names, else the sole live room. `EncounterCommand`,
+`EncounterEventMsg`, `EncounterGate` and `SpawnCommand` name the room.
+`project_live_encounter_occurrences` builds one stamped occurrence of each
+encounter of each live room, from the rooms that are live; it replaces
+`populate_encounter_registry` and its session latch, and
+`EncounterRegistry` is deleted (schema 276). The driver, the reducer, the
+cleanup, the cleared list, the reward chest and the authored `encounter`
+verb each address an occurrence by its id and room. The mob spawn server
+stamps each mob into the room its request names. The rollback identity of
+an occurrence keeps `SimId::encounter(id)`: the carrier order sorts by
+`(SimId, live room)`, so two occurrences are two rows. The save keeps one
+fate per authored id: the occurrences fold to cleared over failed over
+untouched. Witnesses: `a_wave_spawns_its_mobs_in_the_live_room_that_started_it`
+(Bob in the hub, #0; Alice in `goblin_encounter`, #1, in its trigger: every
+mob is stamped #1 and targets Alice, not Bob put beside it; with the stamp
+removed from the spawn server, the mobs were in no room and targeted
+nobody) and `two_live_rooms_of_one_room_run_their_encounters_apart` (two
+live rooms of `goblin_encounter`: Alice starts only #1 and Bob only #2;
+Alice's death ends #1 while #2 stays in flight; every spawn names #2's
+room; with the reducer keyed by id only, Alice's entry started #2 too).
+Superseded: 7f's per-room-id death set is now per occurrence. The first
+draft of this repair looked the spawner's room up by authored room id; it
+was not landed, because two live rooms of one room are one authored id.
+⚠ Not witnessed on its own: the driver's per-occurrence mob liveness
+lookup (the witnesses above never have two occurrences with mobs at once).
+⚠ Still keyed by authored id: the music intent (`music/intent.rs`) and the
+encounter camera zoom, which are views (P5), and the symmetry attunement
+content encounter.
 
 ⚠ Still owed from cut 5: `outlook_for(room: &str)` is keyed by definition;
 the `SoleLiveRoomSpec` readers each need a subject before a second live room

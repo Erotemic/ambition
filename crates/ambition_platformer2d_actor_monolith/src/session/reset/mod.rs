@@ -169,7 +169,7 @@ impl RoomReplayRequested {
 }
 
 use ambition_boss_encounter::BossEncounterRegistry;
-use ambition_encounter::{EncounterMusicRequest, EncounterRegistry};
+use ambition_encounter::EncounterMusicRequest;
 use ambition_persistence::quest::QuestRegistry;
 use ambition_persistence::save::AmbitionGameSave;
 use ambition_platformer2d_shared_tangle::lifecycle::{FreshRunRestore, RoomScopedEntity};
@@ -209,18 +209,15 @@ pub fn begin_fresh_run(world: &mut World) {
     }
     // The registries. `Default` clears `specs_loaded` / `initialized`, so the
     // populate systems build them again from the empty save on the next tick.
-    if let Some(mut registry) = world.get_resource_mut::<EncounterRegistry>() {
-        *registry = EncounterRegistry::default();
-    }
     if let Some(mut registry) = world.get_resource_mut::<BossEncounterRegistry>() {
         *registry = BossEncounterRegistry::default();
     }
     if let Some(mut registry) = world.get_resource_mut::<QuestRegistry>() {
         *registry = QuestRegistry::default();
     }
-    // The live wave encounters are session entities, not room entities, so the
-    // room rebuild does not take them. `populate_encounter_registry` spawns
-    // them again from the empty save.
+    // The live wave encounters: their outcomes came from the save that was
+    // just wiped. `project_live_encounter_occurrences` builds each live room's
+    // again from the empty save.
     let encounters: Vec<Entity> = world
         .query_filtered::<Entity, With<ambition_encounter::Encounter>>()
         .iter(world)

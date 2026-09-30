@@ -147,10 +147,21 @@ fn alice_leaves_bob_by(
     slot: Option<ambition_platformer2d::characters::control::PlayerSlot>,
     cross: fn(&mut Platformer2dSimHarness, &str) -> String,
 ) -> (Platformer2dSimHarness, LiveRoomInstance) {
+    alice_leaves_bob_in(ROOM, HUB, slot, cross)
+}
+
+/// [`alice_leaves_bob_by`], with Alice and Bob in `start` and Alice crossing
+/// to `target`.
+fn alice_leaves_bob_in(
+    start: &str,
+    target: &str,
+    slot: Option<ambition_platformer2d::characters::control::PlayerSlot>,
+    cross: fn(&mut Platformer2dSimHarness, &str) -> String,
+) -> (Platformer2dSimHarness, LiveRoomInstance) {
     let mut sim = Platformer2dSimHarness::new_with_options(
-        fixed_60hz_room_options(ROOM).with_save(a_save_that_has_seen_the_hub_intro()),
+        fixed_60hz_room_options(start).with_save(a_save_that_has_seen_the_hub_intro()),
     )
-    .expect("switch_lab boots");
+    .unwrap_or_else(|error| panic!("{start} boots: {error:?}"));
     for _ in 0..10 {
         sim.step(base());
     }
@@ -158,10 +169,23 @@ fn alice_leaves_bob_by(
         sim.world_mut(),
     )
     .expect("the session has a live room");
+    // Bob stands where this test has always put him in `switch_lab`, and
+    // beside Alice elsewhere.
+    let bob_at = if start == ROOM {
+        (620.0, 300.0)
+    } else {
+        let world = sim.world_mut();
+        let alice = world
+            .query_filtered::<&ambition_platformer2d::engine_core::BodyKinematics, bevy::prelude::With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>()
+            .single(world)
+            .expect("Alice's body is in the world")
+            .pos;
+        (alice.x + 40.0, alice.y)
+    };
     sim.spawn_enemy_character_at(
         BOB,
         "Bob",
-        (620.0, 300.0),
+        bob_at,
         (12.0, 16.0),
         ambition_platformer2d::entity_catalog::placements::CharacterBrain::Passive,
         "npc_puppy_slug",
@@ -192,7 +216,7 @@ fn alice_leaves_bob_by(
         let ahead = bob_runs(&mut sim, 1.0);
         assert!(ahead > 1.0, "control: slot 1 moved Bob's body {ahead} before anyone left");
     }
-    assert_eq!(cross(&mut sim, HUB), HUB);
+    assert_eq!(cross(&mut sim, target), target);
     for _ in 0..30 {
         sim.step(base());
     }
@@ -351,5 +375,114 @@ fn a_boss_in_one_of_two_live_rooms_fights_and_drops_its_chest_in_its_own_room() 
         (boss_cleared(&sim, BOSS), chests, music_track(&sim)),
         (true, vec![Some(second)], None),
         "the boss in #1 was not recorded cleared with one chest in its own room and its music released"
+    );
+}
+
+/// OW1 review of cut 7c: a real wave runs in the live room that triggered it,
+/// with another live room beside it.
+///
+/// Bob, driven by slot 1, stays in the hub (#0) while Alice goes
+/// through its basement door to `goblin_encounter` (#1) and stands in its
+/// trigger. The subject: the wave spawns, every mob it spawns is stamped
+/// #1, and a mob chooses Alice as its target and not Bob, though Bob, a
+/// player's body, is put nearer to it. When the encounter runtime knew an
+/// encounter only by its authored id, a spawn request named no room: the
+/// mobs were stamped into no live room, and with two rooms live they chose
+/// no foe at all.
+#[test]
+fn a_wave_spawns_its_mobs_in_the_live_room_that_started_it() {
+    use ambition_platformer2d::combat::components::{ActorTarget, EncounterMob};
+    const ARENA: &str = "goblin_encounter";
+    let (mut sim, first) = alice_leaves_bob_in(
+        HUB,
+        ARENA,
+        Some(ambition_platformer2d::characters::control::PlayerSlot(1)),
+        walk_through_the_door_to,
+    );
+    let second = first.next();
+    assert_eq!(
+        where_they_are(&mut sim),
+        (Some(second), Some(Some(first))),
+        "precondition: Alice is not in #1 with Bob in #0"
+    );
+    let trigger = {
+        let world = sim.world_mut();
+        world
+            .query::<(&ambition_platformer2d::encounter::EncounterWaves, &InRoomInstance)>()
+            .iter(world)
+            .find(|(waves, room)| waves.spec.id == ARENA && room.0 == second)
+            .map(|(waves, _)| waves.spec.trigger_aabb())
+            .expect("precondition: #1 has no occurrence of the goblin encounter")
+    };
+    {
+        use ambition_platformer2d::engine_core::AabbExt as _;
+        let center = trigger.center();
+        sim.teleport_player((center.x, center.y));
+    }
+    let mobs = |sim: &mut Platformer2dSimHarness| {
+        let world = sim.world_mut();
+        let mut mobs: Vec<_> = world
+            .query_filtered::<(bevy::prelude::Entity, Option<&InRoomInstance>), bevy::prelude::With<EncounterMob>>()
+            .iter(world)
+            .map(|(mob, room)| (mob, room.map(|room| room.0)))
+            .collect();
+        mobs.sort();
+        mobs
+    };
+    let mut spawned = Vec::new();
+    for _ in 0..900 {
+        sim.step(base());
+        spawned = mobs(&mut sim);
+        if !spawned.is_empty() {
+            break;
+        }
+    }
+    assert!(!spawned.is_empty(), "the goblin wave in #1 spawned no mob in 900 ticks");
+    // Put Bob beside the first mob, nearer to it than Alice is.
+    let (mob, _) = spawned[0];
+    let (alice, bob) = {
+        let world = sim.world_mut();
+        let alice = world
+            .query_filtered::<bevy::prelude::Entity, bevy::prelude::With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>()
+            .single(world)
+            .expect("Alice's body is in the world");
+        let bob = world
+            .query::<(bevy::prelude::Entity, &ambition_platformer2d::combat::components::FeatureId)>()
+            .iter(world)
+            .find(|(_, feature)| feature.0 == BOB)
+            .map(|(entity, _)| entity)
+            .expect("Bob's body is in the world");
+        (alice, bob)
+    };
+    let mut targets = Vec::new();
+    for _ in 0..30 {
+        {
+            let world = sim.world_mut();
+            let at = world.get::<ambition_platformer2d::engine_core::BodyKinematics>(mob).expect("the mob has a body").pos;
+            world
+                .get_mut::<ambition_platformer2d::engine_core::BodyKinematics>(bob)
+                .expect("Bob has a body")
+                .pos = at + ambition_platformer2d::engine_core::Vec2::new(4.0, 0.0);
+        }
+        sim.step(base());
+        let world = sim.world_mut();
+        targets = world
+            .query_filtered::<&ActorTarget, bevy::prelude::With<EncounterMob>>()
+            .iter(world)
+            .map(|target| target.entity)
+            .collect();
+        if targets.iter().any(Option::is_some) {
+            break;
+        }
+    }
+    let spawned = mobs(&mut sim);
+    assert_eq!(
+        (
+            spawned.iter().map(|(_, room)| *room).collect::<Vec<_>>(),
+            targets.iter().any(|target| *target == Some(alice)),
+            targets.iter().any(|target| *target == Some(bob)),
+        ),
+        (vec![Some(second); spawned.len()], true, false),
+        "the wave's mobs are not all in #1, or none targets Alice there, or one targets Bob in #0"
     );
 }

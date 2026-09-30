@@ -340,6 +340,11 @@ impl LiveRoomSpecs<'_, '_> {
         &self.rooms
     }
 
+    /// Which live room an entity is in, by the rule every reader here uses.
+    pub fn live(&self) -> &ambition_platformer2d_shared_tangle::lifecycle::LiveRooms<'_, '_> {
+        &self.live
+    }
+
     /// Which definition live room `room` instantiates. `None` when no live
     /// room is `room`.
     pub fn definition_in(

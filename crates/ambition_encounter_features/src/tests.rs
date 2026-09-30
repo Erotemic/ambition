@@ -41,7 +41,7 @@ fn test_world_manifest() -> ambition_platformer2d_world::world_manifest::WorldMa
     }
 }
 
-/// A wave encounter's live authority set, as `populate_encounter_registry`
+/// A wave encounter's live authority set, as `project_live_encounter_occurrences`
 /// spawns it (lifecycle + wave policy + objective + participants).
 struct WaveEncounter {
     lifecycle: EncounterLifecycle,
@@ -1186,6 +1186,8 @@ fn a_player_in_either_live_room_starts_only_that_rooms_encounter() {
             EncounterLifecycle::default(),
             EncounterWaves::new(lab_spec()),
             EncounterParticipants::default(),
+            // The occurrence of #1, as the projection stamps it.
+            InRoomInstance(second),
         ));
         app.world_mut().spawn((
             ambition_platformer2d_shared_tangle::markers::PlayerEntity,
@@ -1269,6 +1271,8 @@ fn a_death_fails_only_the_encounter_of_its_own_live_room() {
             fight.lifecycle,
             fight.waves,
             fight.parts,
+            // The occurrence of #1, as the projection stamps it.
+            InRoomInstance(second),
         ));
         let player = app
             .world_mut()
@@ -1302,4 +1306,166 @@ fn a_death_fails_only_the_encounter_of_its_own_live_room() {
     };
     assert!(!fails(first), "control: a death in another live room failed the encounter");
     assert!(fails(second), "a death in the encounter's live room did not fail it");
+}
+
+/// GPT review of OW1 cut 7c: two live rooms of ONE room each run their own
+/// occurrence of its encounter, through the real projection, driver and
+/// reducer.
+///
+/// Live rooms #1 and #2 both instantiate `goblin_encounter` (#0 is `hall`).
+/// The projection builds two occurrences of the one authored encounter, one
+/// stamped into each room. Alice in #1 starts #1's only; Bob in #2 then starts
+/// #2's; Alice dies, and #1's resets while #2's fight goes on; #2's waves ask
+/// for mobs in #2 only, and #1's asks for none. Before, one entity per
+/// authored id served both rooms: Alice's entry started the fight "in both",
+/// her death ended Bob's, and a spawn request named no room.
+#[test]
+fn two_live_rooms_of_one_room_run_their_encounters_apart() {
+    use ambition_encounter::{EncounterCommand, EncounterEvent, EncounterEventMsg};
+    use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
+    use bevy::prelude::*;
+
+    let (hall, first, second) = {
+        let first = LiveRoomInstance::ACTIVATION.next();
+        (LiveRoomInstance::ACTIVATION, first, first.next())
+    };
+    let mut goblin_room = ambition_platformer2d_world::rooms::RoomSpec::new(
+        "goblin_encounter",
+        ae::World::new("goblin_encounter", ae::Vec2::new(1600.0, 600.0), ae::Vec2::new(16.0, 16.0), Vec::new()),
+    );
+    goblin_room.encounter_triggers.push(ambition_platformer2d_world::rooms::EncounterTriggerSpec {
+        id: "goblin_encounter".into(),
+        min: ae::Vec2::new(0.0, 0.0),
+        size: ae::Vec2::new(400.0, 200.0),
+        camera_zoom: None,
+    });
+    let hall_room = ambition_platformer2d_world::rooms::RoomSpec::new(
+        "hall",
+        ae::World::new("hall", ae::Vec2::new(800.0, 600.0), ae::Vec2::new(16.0, 16.0), Vec::new()),
+    );
+
+    let mut app = App::new();
+    app.add_message::<ambition_combat::death_rules::ActorDiedMessage>();
+    app.add_message::<EncounterCommand>();
+    app.add_message::<EncounterEventMsg>();
+    app.insert_resource(ambition_time::WorldTime {
+        raw_dt: 1.0 / 60.0,
+        scaled_dt: 1.0 / 60.0,
+        ..Default::default()
+    });
+    app.insert_resource(ambition_platformer2d_shared_tangle::time::SimDt { dt: 1.0 / 60.0 });
+    app.init_resource::<ambition_persistence::save::AmbitionGameSave>();
+    app.init_resource::<ambition_encounter::switches::ResolvedSwitchActivations>();
+    app.insert_resource(switch_index(&[]));
+    app.init_resource::<ambition_persistence::quest::QuestRegistry>();
+    ambition_platformer2d_world::rooms::insert_room_set(
+        app.world_mut(),
+        ambition_platformer2d_world::rooms::RoomSet::from_parts_or_panic(
+            "hall",
+            vec![hall_room, goblin_room],
+            Vec::new(),
+        ),
+    );
+    let goblin = ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<
+        ambition_platformer2d_world::rooms::RoomSet,
+    >(app.world())
+    .and_then(|rooms| rooms.definition_by_id("goblin_encounter"))
+    .expect("the set has the encounter's room");
+    for room in [first, second] {
+        app.world_mut().spawn((RoomInstanceRoot, room, goblin));
+    }
+    let player = |app: &mut App, room: LiveRoomInstance| {
+        app.world_mut()
+            .spawn((
+                ambition_platformer2d_shared_tangle::markers::PlayerEntity,
+                ambition_platformer2d_core::BodyKinematics {
+                    pos: ae::Vec2::new(100.0, 100.0),
+                    vel: ae::Vec2::ZERO,
+                    size: ae::Vec2::new(20.0, 40.0),
+                    facing: 1.0,
+                },
+                InRoomInstance(room),
+            ))
+            .id()
+    };
+    app.add_systems(
+        Update,
+        (
+            crate::project_live_encounter_occurrences,
+            crate::drive_wave_encounters,
+            ambition_encounter::reduce_encounter_lifecycles,
+        )
+            .chain(),
+    );
+
+    // Each tick's spawn requests, by the room they name.
+    let spawn_rooms = |app: &App| -> Vec<Option<LiveRoomInstance>> {
+        app.world()
+            .resource::<Messages<EncounterEventMsg>>()
+            .iter_current_update_messages()
+            .filter(|msg| matches!(msg.event, EncounterEvent::SpawnCommand { .. }))
+            .map(|msg| msg.room)
+            .collect()
+    };
+    let phases = |app: &mut App| -> Vec<(Option<LiveRoomInstance>, bool)> {
+        let world = app.world_mut();
+        let mut query = world.query::<(&Encounter, &EncounterLifecycle, Option<&InRoomInstance>)>();
+        let mut phases: Vec<_> = query
+            .iter(world)
+            .map(|(encounter, lifecycle, room)| {
+                assert_eq!(encounter.id, "goblin_encounter");
+                (room.map(|room| room.0), lifecycle.phase().in_flight())
+            })
+            .collect();
+        phases.sort();
+        phases
+    };
+
+    let alice = player(&mut app, first);
+    for _ in 0..3 {
+        app.update();
+    }
+    assert_eq!(
+        phases(&mut app),
+        vec![(Some(first), true), (Some(second), false)],
+        "the projection did not build one occurrence per live room of the room, or Alice's \
+         entry into #1 started #2's"
+    );
+    assert!(!phases(&mut app).iter().any(|(room, _)| *room == Some(hall)), "the hall authors no encounter");
+
+    let _bob = player(&mut app, second);
+    for _ in 0..3 {
+        app.update();
+    }
+    assert_eq!(phases(&mut app), vec![(Some(first), true), (Some(second), true)], "Bob's entry did not start #2's");
+
+    // Alice dies, and leaves #1's trigger so it does not start again.
+    app.world_mut().write_message(ambition_combat::death_rules::ActorDiedMessage {
+        victim: alice,
+        pos: ae::Vec2::new(100.0, 100.0),
+        cause: ambition_combat::death_rules::DeathCause {
+            source: ambition_combat::HitSource::Melee,
+            attacker: None,
+        },
+    });
+    app.world_mut().get_mut::<ambition_platformer2d_core::BodyKinematics>(alice).unwrap().pos =
+        ae::Vec2::new(1200.0, 500.0);
+    app.update();
+    app.update();
+    assert_eq!(
+        phases(&mut app),
+        vec![(Some(first), false), (Some(second), true)],
+        "Alice's death in #1 did not end only #1's fight"
+    );
+
+    let mut requested = Vec::new();
+    for _ in 0..400 {
+        app.update();
+        requested.extend(spawn_rooms(&app));
+    }
+    assert!(!requested.is_empty(), "control: #2's waves never asked for a mob, so the rooms of requests say nothing");
+    assert!(
+        requested.iter().all(|room| *room == Some(second)),
+        "a spawn request of #2's fight did not name #2: {requested:?}"
+    );
 }

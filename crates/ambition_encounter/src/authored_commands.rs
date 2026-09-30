@@ -49,32 +49,55 @@ pub(crate) fn publish_authored_commands(app: &mut App) {
 /// by the same reducer that has always consumed it, and the rollback question is
 /// answered by construction. Nothing new joins the wire.
 ///
-///  it does not depend on query iteration order. A [`SimId`] names at most
-/// one occurrence, so the search below has one answer or none regardless of the
-/// order the archetypes happen to be walked.
+///  it does not depend on query iteration order. The reference names an
+/// authored encounter, and each live room that holds it holds an occurrence
+/// of it (see [`crate::occurrence`]). The command carries no room, so it
+/// signals the one occurrence in the room it stands in, and refuses when two
+/// live rooms each hold one: which of them was meant is not written anywhere
+/// it can read.
 fn signal(world: &mut World, args: &[AuthoredArg]) -> CommandOutcome {
     let (Some(target), Some(key)) = (args[0].as_reference(), args[1].as_name()) else {
         return CommandOutcome::refused(
             "`encounter.signal` takes an occurrence reference and a signal key",
         );
     };
-    let Some(encounter_id) = resolve_encounter(world, target) else {
-        return CommandOutcome::refused(format!(
-            "no live encounter occurrence `{target}` — either the room that spawns it \
-             is not active or the authored reference names something else"
-        ));
+    let occurrences = resolve_encounter(world, target);
+    let [(encounter_id, room)] = occurrences.as_slice() else {
+        return CommandOutcome::refused(if occurrences.is_empty() {
+            format!(
+                "no live encounter occurrence `{target}` — either the room that spawns it \
+                 is not active or the authored reference names something else"
+            )
+        } else {
+            format!(
+                "`{target}` has {} live occurrences (rooms {:?}), and the signal names no \
+                 room to tell them apart",
+                occurrences.len(),
+                occurrences.iter().map(|(_, room)| *room).collect::<Vec<_>>(),
+            )
+        });
     };
-    world.write_message(EncounterCommand::signal(encounter_id, key));
+    world.write_message(EncounterCommand::signal(encounter_id.clone(), key).in_room(*room));
     CommandOutcome::Done
 }
 
-/// The encounter id belonging to the occurrence a reference names.
-fn resolve_encounter(world: &mut World, target: &SimId) -> Option<String> {
-    let mut occurrences = world.query::<(&SimId, &Encounter)>();
-    occurrences
+/// The encounter id and live room of every occurrence a reference names.
+fn resolve_encounter(
+    world: &mut World,
+    target: &SimId,
+) -> Vec<(String, Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>)> {
+    let mut occurrences = world.query::<(
+        &SimId,
+        &Encounter,
+        Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
+    )>();
+    let mut found: Vec<_> = occurrences
         .iter(world)
-        .find(|(sim_id, _)| *sim_id == target)
-        .map(|(_, encounter)| encounter.id.clone())
+        .filter(|(sim_id, ..)| *sim_id == target)
+        .map(|(_, encounter, stamp)| (encounter.id.clone(), stamp.map(|stamp| stamp.0)))
+        .collect();
+    found.sort();
+    found
 }
 
 #[cfg(test)]

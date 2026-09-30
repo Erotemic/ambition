@@ -438,6 +438,10 @@ impl Platformer2dSimHarness {
         // would report the axe in the agent's own hand as an axe lying on the
         // floor — an instrument agreeing with a state that does not exist.
         let mut pickup_query = self.app.world_mut().query::<(&GroundItem, &ItemCustody)>();
+        let mut player_query = self
+            .app
+            .world_mut()
+            .query_filtered::<bevy::prelude::Entity, PrimaryPlayerOnly>();
 
         let world = self.app.world();
         let gravity_dir = world
@@ -468,8 +472,16 @@ impl Platformer2dSimHarness {
             .single(world)
             .map(|h| h.health)
             .unwrap_or_else(|_| Health::new(20));
-        let room = ambition_platformer2d::world::rooms::sole_live_room_spec(world)
-            .expect("the session's live room");
+        // The observed body's own live room: with two live rooms (OW1 cut
+        // 6c), "the" live room is not a fact. A body stamped into a room that
+        // is not live observes no room (an empty id), not another room.
+        let room = match player_query.single(world) {
+            Ok(player) => ambition_platformer2d::world::rooms::live_room_spec_of(world, player),
+            Err(_) => Some(
+                ambition_platformer2d::world::rooms::sole_live_room_spec(world)
+                    .expect("the session's live room"),
+            ),
+        };
         let combat = combat_query.single(world).ok();
         let recently_damaged = combat.is_some_and(|c| c.damage_invuln_timer > 0.0);
         let in_hitstun = combat.is_some_and(|c| c.hitstun_timer > 0.0);
@@ -525,9 +537,9 @@ impl Platformer2dSimHarness {
                 "{:?}",
                 body_mode.map(|b| b.body_mode).unwrap_or(BodyMode::Standing)
             ),
-            active_room: room.id.clone(),
-            world_size: (room.world.size.x, room.world.size.y),
-            world_spawn: (room.world.spawn.x, room.world.spawn.y),
+            active_room: room.map(|room| room.id.clone()).unwrap_or_default(),
+            world_size: room.map_or((0.0, 0.0), |room| (room.world.size.x, room.world.size.y)),
+            world_spawn: room.map_or((0.0, 0.0), |room| (room.world.spawn.x, room.world.spawn.y)),
             last_safe_pos: (last_safe_pos.x, last_safe_pos.y),
             recently_damaged,
             in_hitstun,

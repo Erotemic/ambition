@@ -259,7 +259,7 @@ and no fallback to "the live room".
 | 3 (3a ✅ 3b ✅ 3c ✅ 3d ✅) | Geometry, platforms and overlay move onto the instance root; `CollisionWorld` takes the instance | a body in `#1` collides with `#1`'s wall (in `#0` it passes) | the session-root geometry field, `MovingPlatformSet` as a resource |
 | 4 (4a ✅ 4b ✅) | Pairwise queries (contacts, hits, perception, projectile victims) keyed by instance | identical local positions in two instances never touch (one instance does) | unkeyed body-contact vectors |
 | 5 (5a ✅ 5b ✅ 5c ✅ 5d ✅ 5e ✅) | Live identity and room selection per instance; rollback rows instance-qualified; the save maps to a durable location key, never the ordinal | a second construction of one room in `#1` succeeds (a duplicate inside `#1` is still refused) | `RoomSet`'s private active index |
-| 6 (6a ✅ 6b ✅ 6c ✅) | The Alice/Bob proof: two instances, two driven bodies; retiring `#1` leaves `#0` whole | the one-room profile runs the same systems | the sole-room reads on the crossing road |
+| 6 (6a ✅ 6b ✅ 6c ✅ 6d ✅) | The Alice/Bob proof: two instances, two driven bodies; retiring `#1` leaves `#0` whole | the one-room profile runs the same systems | the sole-room reads on the crossing road |
 
 ✅ **Cut 1 landed 2026-09-29.** `LiveRoomInstance` moved down to
 `ambition_platformer2d_shared_tangle::lifecycle` beside the new
@@ -724,9 +724,35 @@ identity (cut 5b scoped the baseline, so that is accepted), and a room that
 opened is never retired when its last player leaves: retiring an empty live
 room is owed.
 
-⚠ Next in cut 6 (6d): drive a crossing end to end in the app with two
-player slots, and find the sole-room reads it still meets (governing rules,
-mode scope, the session-wide rebase).
+✅ **Cut 6d landed 2026-09-30: Alice and Bob, end to end in the app.** In
+the shipped app, Alice (the primary slot) goes through the `switch_lab` door
+to the hub while Bob, a body slot 1 drives, stays. Afterwards two live rooms
+are simulated: `switch_lab` (#0) with Bob in it, and the hub (#1) with Alice
+in it. Thirty ticks later, Bob's slot still runs his body in #0. The one
+sole-room read the crossing met was the sim harness's observation. It now
+reads the observed body's own room (`live_room_spec_of`, the room of its
+`InRoomInstance` stamp), and a body stamped into a room that is not live
+observes no room rather than another room. Witness:
+`a_door_crossed_by_one_player_leaves_the_other_players_room_live` (the
+control is the same body driven by no slot: the crossing replaces the
+room, the hub is the one live room, and the body is retired with
+`switch_lab`; Bob's run before the crossing is the control that slot 1
+reaches his body in this harness).
+
+⚠ Owed after cut 6d, found while writing it:
+- No production road seats a second player in ordinary play. Bob is a
+  harness body with `DrivingParticipant(PlayerSlot(1))` inserted by the
+  test. Match seats (`character_runtime/match_activation.rs`) and actor
+  spawns build their `SessionSpawnScope` with `for_optional_active_session`,
+  which names no room, so their bodies are unstamped, and an unstamped body
+  does not keep a room live. A join road must stamp its body into the live
+  room it joins.
+- An opened room is never retired when its last player leaves it.
+- Both players share one camera and one observation. The per-player view is
+  P5 (multiview).
+- Not measured: whether the session-wide rebase at Alice's crossing resets
+  Bob's history, and what `GoverningRules` and the mode scope answer for
+  the room Bob is in.
 
 ⚠ Still owed from cut 5: `outlook_for(room: &str)` is keyed by definition;
 the `SoleLiveRoomSpec` readers each need a subject before a second live room

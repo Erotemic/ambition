@@ -372,7 +372,17 @@ pub fn live_room_definition_left_by(
     world: &bevy_ecs::world::World,
     subject: Option<&ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId>,
 ) -> Option<LiveRoomDefinition> {
-    let Some(room) = subject.and_then(|subject| subject.room) else {
+    live_room_definition_in(world, subject.and_then(|subject| subject.room))
+}
+
+/// Which definition live room `room` instantiates, at an exclusive-world
+/// boundary. With no room named, the sole live room's, and none when two
+/// are live.
+pub fn live_room_definition_in(
+    world: &bevy_ecs::world::World,
+    room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+) -> Option<LiveRoomDefinition> {
+    let Some(room) = room else {
         return sole_live_room_definition(world);
     };
     let mut roots = world.try_query_filtered::<
@@ -396,6 +406,18 @@ pub fn sole_live_room_definition(world: &bevy_ecs::world::World) -> Option<LiveR
         world,
     )
     .copied()
+}
+
+/// The spec of the live room `entity` is in, at an exclusive-world boundary:
+/// the room of its `InRoomInstance` stamp. An unstamped entity is in the
+/// sole live room, and in none when two are live.
+pub fn live_room_spec_of(world: &bevy_ecs::world::World, entity: bevy_ecs::entity::Entity) -> Option<&RoomSpec> {
+    let room = world
+        .get::<ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>(entity)
+        .map(|stamp| stamp.0);
+    let definition = live_room_definition_in(world, room)?;
+    ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<RoomSet>(world)
+        .map(|rooms| rooms.spec(definition))
 }
 
 /// The sole live room's spec, at an exclusive-world boundary. See

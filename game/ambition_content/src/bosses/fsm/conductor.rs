@@ -383,7 +383,8 @@ fn riding_hitbox(owner: Entity, offset: Vec2, half: Vec2, shape: Option<ae::Volu
 pub fn conduct_fsm(
     mut commands: Commands,
     time: Res<ambition_time::WorldTime>,
-    world: ambition_platformer2d::platformer::lifecycle::SoleLiveRoom<ae::RoomGeometry>,
+    // The hall is the god's own live room's (OW1 cut 7).
+    world: ambition_platformer2d::platformer::lifecycle::LiveRoomOf<ae::RoomGeometry>,
     mut gods: Query<
         (
             Entity,
@@ -416,7 +417,7 @@ pub fn conduct_fsm(
         let hall = match conductor.hall {
             Some(hall) => hall,
             None => {
-                let Some(hall) = measure_hall(&world.0, kin.pos) else {
+                let Some(hall) = world.of(god).and_then(|geometry| measure_hall(&geometry.0, kin.pos)) else {
                     continue;
                 };
                 conductor.hall = Some(hall);

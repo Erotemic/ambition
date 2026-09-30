@@ -430,3 +430,57 @@ fn leaving_arena_resets_state_for_next_visit() {
         "ladder must be hidden again on re-entry with a live boss"
     );
 }
+
+/// OW1 cut 7: each live arena gates its ladder by its own boss. Two live
+/// rooms are the arena: in #0 the boss lives, in #1 it is dead. The subject:
+/// #0's overlay hides the ladder and #1's opens it and its floor gate. When
+/// the gate read the sole live room, it did not run while two rooms were
+/// live, and neither room's ladder was hidden.
+#[test]
+fn each_live_arena_gates_its_ladder_by_its_own_boss() {
+    use ambition_platformer2d::platformer::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
+    let (first, second) = (LiveRoomInstance::ACTIVATION, LiveRoomInstance::ACTIVATION.next());
+    let mut app = App::new();
+    app.add_systems(
+        Update,
+        (rebuild_feature_ecs_world_overlay, gate_gnu_ton_arena_ladder).chain(),
+    );
+    for (room, alive) in [(first, true), (second, false)] {
+        app.world_mut().spawn((
+            RoomInstanceRoot,
+            room,
+            make_game_world_with_floor_gate(ARENA_ROOM_NAME, vec![ae::ClimbableRegion::ladder(ladder_aabb())]),
+            FeatureEcsWorldOverlay::default(),
+        ));
+        let boss = app
+            .world_mut()
+            .spawn((spawn_gnu_ton_runtime().into_components(), InRoomInstance(room)))
+            .id();
+        if !alive {
+            app.world_mut()
+                .get_mut::<ambition_characters::actor::BodyHealth>(boss)
+                .unwrap()
+                .health
+                .current = 0;
+        }
+    }
+    app.update();
+    let mut overlays: Vec<_> = app
+        .world_mut()
+        .query::<(&LiveRoomInstance, &FeatureEcsWorldOverlay)>()
+        .iter(app.world())
+        .map(|(room, overlay)| {
+            (
+                *room,
+                overlay.climbable_carves.len(),
+                overlay.removed_block_names.iter().any(|name| name == FLOOR_GATE_BLOCK_NAME),
+            )
+        })
+        .collect();
+    overlays.sort();
+    assert_eq!(
+        overlays,
+        vec![(first, 1, false), (second, 0, true)],
+        "(room, ladder carves, floor gate removed): each arena did not follow its own boss"
+    );
+}

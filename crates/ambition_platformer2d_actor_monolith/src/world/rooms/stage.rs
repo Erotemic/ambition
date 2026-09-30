@@ -2503,14 +2503,30 @@ mod tests {
             "a crossing that joins the held room and keeps the one it leaves did not leave both whole"
         );
 
+        // OW2's refused arm: a refused transfer retains state. Both live rooms
+        // and their bodies stand as they were, and nothing is minted.
         let stale = (0..7).fold(first, |room, _| room.next());
-        let (verification, _, _, _) = after_publication(LiveRoomSuccession::joining(first, stale, true));
-        assert!(!verification.published, "a crossing staged to join a room that is not there published");
-        assert!(
-            verification
-                .staged_violations
-                .contains(&super::transaction::StagedWorldViolation::StaleJoinedRoom { joins: stale }),
-            "got {:?}",
+        let (verification, rooms, bodies, next) =
+            after_publication(LiveRoomSuccession::joining(first, stale, true));
+        assert_eq!(
+            (
+                verification.published,
+                verification
+                    .staged_violations
+                    .contains(&super::transaction::StagedWorldViolation::StaleJoinedRoom { joins: stale }),
+                rooms,
+                bodies,
+                next,
+            ),
+            (
+                false,
+                true,
+                vec![(first, "n".to_string()), (second, "candidate".to_string())],
+                [vec![held(second)], n_bodies(first)].concat(),
+                third,
+            ),
+            "a crossing staged to join a room that is not there was not refused with both live rooms \
+             and their bodies retained: (published, refused as stale, rooms, bodies, next): {:?}",
             verification.staged_violations
         );
     }

@@ -132,6 +132,25 @@ merge again when they regroup.
 Let the participants cross different loading zones and continue in distinct
 rooms without replacing one another's simulation state.
 
+✅ **The simulation half landed with OW1 cuts 6 and 7 (2026-09-29/30)**, in
+[`open-world-runtime-and-residency.md`](../engine/open-world-runtime-and-residency.md).
+A door one player crosses opens a second live room and leaves the other
+player's room live and whole; a player who comes back joins the room the
+other holds; each room's encounters, bosses, switches, shrines, chests and
+items run in their own room; an item carried between the rooms crosses
+whole. Witnesses (`game/ambition_app/tests/two_players_two_live_rooms.rs`):
+`a_door_crossed_by_one_player_leaves_the_other_players_room_live`,
+`a_player_who_comes_back_joins_the_room_the_other_player_holds`,
+`a_wave_spawns_its_mobs_in_the_live_room_that_started_it`,
+`the_cut_rope_fight_runs_in_its_own_live_room`,
+`an_item_carried_out_of_a_room_another_player_holds_crosses_whole`, and
+under a GGRS sync test with two seats,
+`two_players_in_two_live_rooms_resimulate_to_the_same_world`.
+⚠ Not done: both players share one camera and one observation (the view
+half is A2/P5 multiview); the banner, music and HUD are session-wide; a
+sync test is one peer, so what the crossing's rebase costs a remote
+player's rollback window is A4.
+
 ### A4 — online participant
 
 Feed a remote participant through the same intent/control seam. Keep local view

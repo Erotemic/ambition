@@ -213,7 +213,7 @@ These cuts refine A8 and existing owner work. They are not another global queue.
 | Cut | Work | Required evidence |
 | --- | --- | --- |
 | OW1 | Two instances of one room; audit selection/identity/query/teardown paths | Same local IDs, separate contacts/observations, no cross-despawn; one-instance profile remains one path. ⭐ **A LIVE ROOM HAS AN IDENTITY AS OF 2026-09-20**: `LiveRoomInstance` (`crates/ambition_platformer2d_world/src/rooms/instance.rs`), an ordinal of this session's room publications, minted by `apply_world_replacement` — the one road that seats a session in a published room — and rollback state (`root.live_room_instance`, schema v202). Witnessed on the shipped Mary-O lap: 1-1 → 1-2 → 1-3 → 1-1 returns to index 0 and reaches instance `#3`, so the room she comes back to is not the room she left. ⚠ It lives on the SESSION ROOT because that is where the one live room lives; two simultaneous instances move the carrier, not the ordinal. ⚠ And residency is still UNKEYED — `RoomScopedEntity` says an occurrence dies with *a* room, never with *which* — so the teardown sweep is the next thing OW1 has to key. ⭐ **OW1 HAS AN INSTRUMENT AS OF 2026-09-20**: `[census] rooms` prints every session root's `active` INDEX beside its authored id, plus the live crossing, so the moment an index stops identifying one live instance is visible rather than inferred. It is derived and read-only; it owns nothing. |
-| OW2 | Accepted body/custody transfer and prepare/publish between instances | Refused transfer retains state; successful transfer preserves identity and exactly one writer |
+| OW2 | Accepted body/custody transfer and prepare/publish between instances | Refused transfer retains state; successful transfer preserves identity and exactly one writer. ✅ **The accepted arm between live rooms is witnessed (2026-09-30)**: the crossing's publication re-stamps the crossing body and its custody closure (`InCustodyOf`: what it holds, rides or wears) into the room it enters, for an opened room and a join alike (`publish_pending_world_replacement`). `an_item_carried_out_of_a_room_another_player_holds_crosses_whole`: Bob holds `blink_run` (#0); Alice carries its authored item to `portal_bridge` (#1): one occurrence of its `SimId`, held, stamped #1, #0 still live; thrown down, it lies in #1; when Alice joins #0 again, it retires with #1 and #0 has no copy. Poison (only the body moves): the item stayed stamped #0, fell into #0's world, and outlived #1 as a stray in Bob's room. ✅ The refused arm with two live rooms (2026-09-30): `a_crossing_into_a_room_another_player_holds_joins_it` stages a join into a live room that is not there; it is refused as `StaleJoinedRoom`, both live rooms and their bodies stand, and nothing is minted (poison, the stale-join check removed: it published, and #0 was retired with both its bodies). The one-room refusal is `a_room_staged_for_a_stale_live_room_is_refused`. ⚠ Witnessed at the publication, not through a shipped crossing: the app has no road that makes a crossing stale while two rooms are live. |
 | OW3 | Dormant durable records and active-state handoff | Save/load and promotion preserve occurrences; active step excludes unrelated dormant records |
 | OW4 | Owner-scoped interest/budget accounting and diagnostics | Cancellation/re-entry release only the right claims; supported absence does not freeze unrelated work |
 | OW5 | One concrete background mechanism requiring logical time | Deterministic events/reconstruction under replay and room return; no camera/device dependence |
@@ -260,7 +260,7 @@ and no fallback to "the live room".
 | 4 (4a ✅ 4b ✅) | Pairwise queries (contacts, hits, perception, projectile victims) keyed by instance | identical local positions in two instances never touch (one instance does) | unkeyed body-contact vectors |
 | 5 (5a ✅ 5b ✅ 5c ✅ 5d ✅ 5e ✅) | Live identity and room selection per instance; rollback rows instance-qualified; the save maps to a durable location key, never the ordinal | a second construction of one room in `#1` succeeds (a duplicate inside `#1` is still refused) | `RoomSet`'s private active index |
 | 6 (6a ✅ 6b ✅ 6c ✅ 6d ✅ 6e ✅) | The Alice/Bob proof: two instances, two driven bodies; retiring `#1` leaves `#0` whole | the one-room profile runs the same systems | the sole-room reads on the crossing road |
-| 7 (7a ✅ 7b ✅ 7c ✅) | The simulation systems a second live room freezes read their subject's own room (`LiveRoomOf<T>`) | the system runs in both rooms, each entity against its own room (one room: the same answer) | one `SoleLiveRoom*` parameter per system |
+| 7 (7a ✅ 7b ✅ 7c ✅ 7d ✅ 7e ✅ 7f ✅ 7h ✅; 7c and 7e reviewed ✅) | The simulation systems a second live room freezes read their subject's own room (`LiveRoomOf<T>`) | the system runs in both rooms, each entity against its own room (one room: the same answer) | one `SoleLiveRoom*` parameter per system |
 
 ✅ **Cut 1 landed 2026-09-29.** `LiveRoomInstance` moved down to
 `ambition_platformer2d_shared_tangle::lifecycle` beside the new
@@ -802,9 +802,16 @@ again made both fail: Bob's room was replaced, and a second live room of
   its own cut.
 - Both players share one camera and one observation. The per-player view is
   P5 (multiview).
-- Not measured: whether the session-wide rebase at Alice's crossing resets
-  Bob's history, and what `GoverningRules` and the mode scope answer for
-  the room Bob is in.
+- Measured (cut 7h, 2026-09-30): under a GGRS sync test with two seats,
+  Alice's crossing and Bob's run afterwards resimulate to the same
+  checksums, the two live rooms stand, and Bob's slot still runs his body
+  in #0 (`two_players_in_two_live_rooms_resimulate_to_the_same_world`; the
+  instrument's control: a system that nudges Bob by a counter a rewind does
+  not restore, once two rooms are live, reads as a checksum mismatch). A
+  sync test has one peer, so it does not say what the rebase at the
+  crossing costs a remote Bob's rollback window; that needs a two-peer
+  session. Not measured: what `GoverningRules` and the mode scope answer
+  for the room Bob is in.
 
 ✅ **Cut 7a landed 2026-09-30: the systems a second live room froze, first
 two.** `SoleLiveRoom<T>` and `SoleLiveRoomSpec` are `Single`s, so a system
@@ -944,7 +951,7 @@ was not landed, because two live rooms of one room are one authored id.
 lookup (the witnesses above never have two occurrences with mobs at once).
 ⚠ Still keyed by authored id: the music intent (`music/intent.rs`) and the
 encounter camera zoom, which are views (P5), and the symmetry attunement
-content encounter.
+content encounter (✅ it reads every live room since cut 7i, below).
 
 ✅ **Review of cut 7e, landed 2026-09-30: the scripted boss fight runs in
 its own live room.** 7e made the boss driver multi-room, but the scripted
@@ -995,6 +1002,17 @@ spent script would drop no second anvil. It now asks for the replay
 (`RoomReplayRequested`) and counts the anvils dropped, by (`SimId`, live
 room): one before the replay, none from a second slash, and one more after
 the replay rebuilds the room, its behemoth and a fresh wrap.
+
+✅ **Cut 7i landed 2026-09-30: the Noether attunement starts in either
+live room.** Its driver read the sole live room, so with two rooms live the
+puzzle never started. The attunement is one puzzle for the session (an
+unstamped authority, remembered by a save flag), so it now starts when any
+live room is the chamber. Its switches' signals already reach it: an
+unstamped occurrence and a signal that names no room agree under the
+occurrence rule with one live room and with two. Witness:
+`the_attunement_starts_when_the_chamber_is_one_of_two_live_rooms` (the
+control, `hall` live alone, starts nothing; with the sole-room read
+restored, neither case started it).
 
 ⚠ Still owed from cut 5: `outlook_for(room: &str)` is keyed by definition;
 the `SoleLiveRoomSpec` readers each need a subject before a second live room

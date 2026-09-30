@@ -172,6 +172,7 @@ mod tests {
             pages: Vec::new(),
             requested_tier: Default::default(),
             resolved_tier: Default::default(),
+            rigged: None,
         }
     }
 

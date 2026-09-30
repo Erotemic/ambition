@@ -111,6 +111,28 @@ impl CharacterSpriteAssets {
 
     /// Publish a realization under every token declared for `character_id`,
     /// plus the id itself. The declarations stay: see the type docs.
+    /// Every ready sheet realization (once per declared token that holds it).
+    pub fn ready_sheets(&self) -> impl Iterator<Item = &CharacterSpriteAsset> {
+        self.sheets.values()
+    }
+
+    /// Give every ready sheet without a transform flipbook the one `realize`
+    /// builds for it (see [`super::rigged::RiggedSpritePages`]).
+    ///
+    /// A sheet is stored once per declared token, so `realize` may be asked
+    /// for the same sheet more than once; a republished sheet (a new tier)
+    /// starts without one and is asked again.
+    pub fn attach_rigged_pages(
+        &mut self,
+        mut realize: impl FnMut(&CharacterSpriteAsset) -> Option<super::rigged::RiggedSpritePages>,
+    ) {
+        for asset in self.sheets.values_mut() {
+            if asset.rigged.is_none() {
+                asset.rigged = realize(asset);
+            }
+        }
+    }
+
     pub fn publish(&mut self, character_id: &str, asset: CharacterSpriteAsset) {
         let tokens: Vec<String> = self
             .declared

@@ -133,6 +133,18 @@ impl CharacterSheetSpec {
         &self.record.key
     }
 
+    /// The renderer target this sheet was published for (`"pirate_raider"`),
+    /// which keys its other published products (body rig, part flipbook).
+    pub fn target(&self) -> &str {
+        &self.record.target
+    }
+
+    /// The name of `record.rows[row]` (`"idle"`, `"slash"`): the clip name a
+    /// sibling realization of this sheet keys its frames by.
+    pub fn row_name(&self, row: usize) -> Option<&str> {
+        self.record.rows.get(row).map(|row| row.animation.as_str())
+    }
+
     /// Which `record.rows` index draws this pose, if any. The mapping is built
     /// once at spec load (`anim_rows`).
     pub fn row_for_anim(&self, anim: CharacterAnim) -> Option<usize> {

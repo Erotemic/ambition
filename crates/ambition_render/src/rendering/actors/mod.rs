@@ -95,6 +95,7 @@ pub(crate) fn texture_is_ready(
 }
 
 mod animation;
+pub mod rigged;
 mod boss;
 mod overlays;
 

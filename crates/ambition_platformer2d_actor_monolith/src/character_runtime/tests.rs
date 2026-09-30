@@ -36,6 +36,7 @@ fn any_baked_sheet() -> ambition_sprite_sheet::character::CharacterSpriteAsset {
         pages: Vec::new(),
         requested_tier: ambition_persistence::settings::TextureResolutionScale::Full,
         resolved_tier: ambition_persistence::settings::TextureResolutionScale::Full,
+        rigged: None,
     }
 }
 

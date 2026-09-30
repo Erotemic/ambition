@@ -986,6 +986,17 @@ Do not require every dynamic limb to become a reusable rigid part in this packet
 
 ### Packet 6 — add runtime `RiggedSpriteAsset` demand and world presentation
 
+**Status (2026-09-30): done, behind the trial switch.** The switch is `RiggedSpriteAdmission` (env `AMBITION_RIGGED_SPRITES=1`). It is off in every shipped game, and with it off no part page is loaded and no body draws a part.
+
+- `ambition_sprite_sheet::character::rigged::RiggedSpriteAsset` parses `<target>_parts.ron`. The draw table is baked into the build like a body rig. A quality tier has its own table (`<target>.<tier>`), with its own part rects and a `texel_scale`. A part keeps its full-resolution size and pivot at every tier.
+- `scripts/generate_visual_quality_variants.py` publishes the tier part atlases. It crops each part from its page on its own, downsamples it by the tier factor of the sibling sheet, and packs it again. It never resizes a packed page.
+- The pages ride on the sheet realization (`CharacterSpriteAsset::rigged`). Thus the demand, quality and retirement roads of the sheet own them. `attach_rigged_sprite_pages` loads them through `load_sheet_image` on the `character-parts` road.
+- `ambition_render::rendering::actors::rigged` draws a rigged root. `CharacterAnimator` still selects the row, the frame and the facing, so clip timing and move phase are the same as for the sheet. A top-level owner follows the root. Its children are `max_draws` reusable part sprites. A frame change does not spawn or despawn them. The root keeps its baked sprite at zero alpha, and that sprite stays as the parity oracle.
+- Measured in the real renderer (llvmpipe, `capture_scene hall_of_characters`, ultra, 16 shots over the idle cycle): each rigged shot matches the baked shot of the same tick, with a residual of 0.22 to 0.35 of the typical frame-to-frame difference. The pose, the sword angle, the feet and the size agree.
+- At the potato tier, the rigged pirate stays readable: 12 or 13 exact quads, with textures of a few texels each. The baked potato frame is one 8 × 9 texture.
+
+Gaps that remain for Packet 7 or later: the crouch squash of a sheet without a crouch row does not apply to parts. The portal far side and the hit flash copy the root sprite, which has zero alpha. The portal candidate is the baked quad of the root, not the union of the parts.
+
 **Primary visual prototype:** Pirate Raider.
 
 Work:

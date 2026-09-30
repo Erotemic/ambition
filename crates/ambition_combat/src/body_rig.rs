@@ -47,6 +47,41 @@ impl BodyRigPose {
             .and_then(|index| self.attachments.get(index).copied())
     }
 
+    /// This pose's hurt parts as centre-relative hurt volumes for a body
+    /// facing the way its art faces, or `None` when the rig has no hurt parts
+    /// or this pose is not resolved yet.
+    ///
+    /// `feet_below_center` is how far the body's feet are below its centre
+    /// (half its current height): the rig is feet-anchored, a hurt volume is
+    /// placed from the centre. Each part is published as the axis-aligned
+    /// bound of its shape at its joint, which is what the damageable-volume
+    /// seam speaks; a bound errs toward hittable, never toward invulnerable.
+    pub fn hurt_volumes(
+        &self,
+        rig: &PreparedBodyRig,
+        feet_below_center: f32,
+    ) -> Option<Vec<ambition_entity_catalog::HurtboxVolume>> {
+        if rig.hurt_parts().is_empty() || self.joints.len() != rig.joint_names().len() {
+            return None;
+        }
+        Some(
+            rig.hurt_parts()
+                .iter()
+                .map(|part| {
+                    let (min, max) = part.shape.bounds_in(self.joints[usize::from(part.joint)]);
+                    let center = (min + max) * 0.5;
+                    let half = (max - min) * 0.5;
+                    ambition_entity_catalog::HurtboxVolume {
+                        shape: ambition_entity_catalog::VolumeShape::Rect {
+                            offset: (center.x, center.y + feet_below_center),
+                            half_extents: (half.x, half.y),
+                        },
+                    }
+                })
+                .collect(),
+        )
+    }
+
     /// A rig-space point as an offset from the body's FEET in world axes,
     /// for a body facing `facing` (`< 0` faces left) whose unit DOWN is `down`.
     ///

@@ -120,3 +120,47 @@ fn a_body_facing_left_mirrors_its_rig_about_its_feet() {
     // Under reversed gravity the head side of the rig points toward -down.
     assert_eq!(BodyRigPose::to_body(hand, 1.0, -down).y, 20.0);
 }
+
+#[test]
+fn hurt_volumes_are_placed_from_the_feet_as_bounds_of_their_parts() {
+    use ambition_characters::actor::body_rig::{RigHurtPart, RigShape};
+    let mut definition = BodyRigDefinition {
+        joints: vec![RigJoint {
+            name: "arm".to_string(),
+            parent: None,
+        }],
+        attachments: Vec::new(),
+        hurt_parts: vec![RigHurtPart {
+            name: "fist".to_string(),
+            joint: "arm".to_string(),
+            shape: RigShape::Circle {
+                center: (0.0, 0.0),
+                radius: 2.0,
+            },
+        }],
+        clips: BTreeMap::from([(
+            "idle".to_string(),
+            RigClip {
+                looping: true,
+                frame_duration_s: 0.1,
+                frames: vec![vec![pose(4.0, -10.0)]],
+            },
+        )]),
+    };
+    let rig = definition.clone().prepare().unwrap();
+    let mut rig_pose = BodyRigPose::default();
+    assert_eq!(rig_pose.hurt_volumes(&rig, 8.0), None, "an unresolved pose has no hurt shape");
+    rig.solve("idle", 0, &mut rig_pose.joints);
+    let volumes = rig_pose.hurt_volumes(&rig, 8.0).expect("one part");
+    // The fist is 10 above the feet, and the feet are 8 below the centre.
+    assert_eq!(
+        volumes[0].shape,
+        ambition_entity_catalog::VolumeShape::Rect {
+            offset: (4.0, -2.0),
+            half_extents: (2.0, 2.0),
+        }
+    );
+    definition.hurt_parts.clear();
+    let bare = definition.prepare().unwrap();
+    assert_eq!(rig_pose.hurt_volumes(&bare, 8.0), None);
+}

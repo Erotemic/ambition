@@ -94,3 +94,49 @@ fn an_admitted_rig_is_posed_by_the_simulation() {
     // the hand of a body standing on the ground.
     assert!(head.y < 0.0 && head.y < hand.y, "head {head:?}, hand {hand:?}");
 }
+
+/// Rig packet 3: an admitted rig is Mary-O's DEFAULT hurt geometry. Standing,
+/// she is struck through her rig's four parts — a head, a torso, two legs —
+/// not through her coarse body box, and the parts sit where a body stands:
+/// the head on top, the legs down at her feet.
+#[test]
+fn an_admitted_rig_is_mary_os_default_hurt_geometry() {
+    use ambition_platformer2d::combat::components::{CenteredAabb, DamageableVolumes};
+    use ambition_platformer2d::combat::hurtbox_resolution::{HurtboxSelection, ResolvedHurtboxes};
+
+    let mut app = build_demo_app_with_body_rigs();
+    let mut found = None;
+    for _ in 0..600 {
+        app.update();
+        let mut players = app.world_mut().query_filtered::<
+            (&ResolvedHurtboxes, &DamageableVolumes, &CenteredAabb),
+            With<PrimaryPlayer>,
+        >();
+        if let Ok((resolved, damageable, body)) = players.single(app.world()) {
+            if resolved.source == HurtboxSelection::RigDefault && damageable.published() {
+                found = Some((damageable.volumes.clone(), body.aabb()));
+                break;
+            }
+        }
+    }
+    let (volumes, body) = found.expect("Mary-O's hurt geometry never came from her rig");
+    assert_eq!(volumes.len(), 4, "head, torso and two legs: {volumes:?}");
+    let bounds: Vec<_> = volumes.iter().map(|volume| volume.bounds()).collect();
+    let (head, legs) = (&bounds[0], &bounds[2..]);
+    // y is down. The head is the highest part; the legs end at her feet.
+    assert!(bounds[1..].iter().all(|part| head.min.y < part.min.y), "{bounds:?}");
+    let feet = body.max.y;
+    for leg in legs {
+        assert!(
+            (leg.max.y - feet).abs() < (body.max.y - body.min.y) * 0.15,
+            "a leg ends {} from her feet ({leg:?}, body {body:?})",
+            leg.max.y - feet
+        );
+    }
+    // Articulated, not inflated: every part is centred inside her body box's
+    // horizontal span.
+    for part in &bounds {
+        let x = (part.min.x + part.max.x) * 0.5;
+        assert!(body.min.x <= x && x <= body.max.x, "{part:?} is outside {body:?}");
+    }
+}

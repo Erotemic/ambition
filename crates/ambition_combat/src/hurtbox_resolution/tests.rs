@@ -240,3 +240,35 @@ fn a_crouched_body_selects_its_crouch_profile() {
     // A stance change is what moved the silhouette, so it outranks mere altitude.
     assert_eq!(body_pose(false, true, true), POSE_CROUCH);
 }
+
+/// Rig packet 3's precedence: an authored MOVE override outranks the rig, and
+/// the rig outranks the authored pose profiles and default. One authority per
+/// tick; nothing reconciles two defaults.
+#[test]
+fn a_rig_outranks_authored_defaults_and_yields_to_a_move_override() {
+    let doc = full_doc();
+    let rig = || Some(boxes(6.0, 70.0));
+
+    let during_move =
+        resolve_hurtboxes_with_rig(Some(&doc), rig, Some(("swat", 0.05)), Some((POSE_HITSTUN, 0.5)));
+    assert_eq!(during_move.source, HurtboxSelection::MoveOverride);
+    assert_eq!(half_height(&during_move), 40.0);
+
+    let in_hitstun = resolve_hurtboxes_with_rig(Some(&doc), rig, None, Some((POSE_HITSTUN, 0.5)));
+    assert_eq!(in_hitstun.source, HurtboxSelection::RigDefault);
+    assert_eq!(half_height(&in_hitstun), 70.0);
+
+    // A move with no override is not a reason to leave the rig.
+    let other_move =
+        resolve_hurtboxes_with_rig(Some(&doc), rig, Some(("jab", 0.05)), Some((POSE_IDLE, 0.0)));
+    assert_eq!(other_move.source, HurtboxSelection::RigDefault);
+
+    // A rig with no hurt parts changes nothing.
+    let no_parts = resolve_hurtboxes_with_rig(Some(&doc), || None, None, Some((POSE_HITSTUN, 0.5)));
+    assert_eq!(no_parts, resolve_hurtboxes(&doc, None, Some((POSE_HITSTUN, 0.5))));
+
+    // A rig alone is a complete source.
+    let rig_only = resolve_hurtboxes_with_rig(None, rig, None, None);
+    assert_eq!(rig_only.source, HurtboxSelection::RigDefault);
+    assert_eq!(resolve_hurtboxes_with_rig(None, || None, None, None).source, HurtboxSelection::Unauthored);
+}

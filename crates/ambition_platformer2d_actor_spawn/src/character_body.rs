@@ -361,6 +361,20 @@ pub fn grant_prepared_character_body(
         // body is built and its hands and head are not. The pose starts empty
         // and the simulation resolves it before anything reads it.
         if let Some(rig) = prepared.body_rig.clone() {
+            // A rig with hurt parts is a hurtbox source (`RigDefault`), so the
+            // body needs the two components that source is published through.
+            // Upserted, not inserted: an authored document above may have put
+            // them here already, and a re-grant keeps what the body has.
+            if !rig.hurt_parts().is_empty() {
+                scope.queue_component_upsert(
+                    ambition_combat::hurtbox_resolution::ResolvedHurtboxes::default,
+                    |_| {},
+                );
+                scope.queue_component_upsert(
+                    ambition_combat::components::DamageableVolumes::default,
+                    |_| {},
+                );
+            }
             scope.insert((
                 ambition_combat::body_rig::BodyRig(rig),
                 ambition_combat::body_rig::BodyRigPose::default(),

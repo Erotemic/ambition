@@ -951,7 +951,7 @@ was not landed, because two live rooms of one room are one authored id.
 lookup (the witnesses above never have two occurrences with mobs at once).
 ⚠ Still keyed by authored id: the music intent (`music/intent.rs`) and the
 encounter camera zoom, which are views (P5), and the symmetry attunement
-content encounter.
+content encounter (✅ it reads every live room since cut 7i, below).
 
 ✅ **Review of cut 7e, landed 2026-09-30: the scripted boss fight runs in
 its own live room.** 7e made the boss driver multi-room, but the scripted
@@ -1002,6 +1002,17 @@ spent script would drop no second anvil. It now asks for the replay
 (`RoomReplayRequested`) and counts the anvils dropped, by (`SimId`, live
 room): one before the replay, none from a second slash, and one more after
 the replay rebuilds the room, its behemoth and a fresh wrap.
+
+✅ **Cut 7i landed 2026-09-30: the Noether attunement starts in either
+live room.** Its driver read the sole live room, so with two rooms live the
+puzzle never started. The attunement is one puzzle for the session (an
+unstamped authority, remembered by a save flag), so it now starts when any
+live room is the chamber. Its switches' signals already reach it: an
+unstamped occurrence and a signal that names no room agree under the
+occurrence rule with one live room and with two. Witness:
+`the_attunement_starts_when_the_chamber_is_one_of_two_live_rooms` (the
+control, `hall` live alone, starts nothing; with the sole-room read
+restored, neither case started it).
 
 ⚠ Still owed from cut 5: `outlook_for(room: &str)` is keyed by definition;
 the `SoleLiveRoomSpec` readers each need a subject before a second live room

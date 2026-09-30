@@ -100,11 +100,15 @@ pub fn spawn_symmetry_attunement(
 /// to the encounter domain directly.
 ///
 /// what is left is room ENTRY, which is a genuinely different shape: it is
-/// a level-triggered condition on the active room rather than an edge on a
+/// a level-triggered condition on the live rooms rather than an edge on a
 /// placement, and no authored surface expresses it yet. Naming that limit is
 /// better than inventing a second one to hide it.
+///
+/// The attunement is one puzzle for the session, not one per live room, so
+/// any live room that is the chamber starts it. With two live rooms, one
+/// player in the chamber is enough.
 pub fn drive_symmetry_attunement(
-    room_set: ambition_platformer2d::world::rooms::SoleLiveRoomSpec,
+    rooms: ambition_platformer2d::world::rooms::LiveRoomSpecs,
     encounters: Query<(&Encounter, &EncounterLifecycle)>,
     mut lifecycle_commands: MessageWriter<EncounterCommand>,
 ) {
@@ -114,8 +118,10 @@ pub fn drive_symmetry_attunement(
     else {
         return;
     };
-    if room_set.spec().id == SYMMETRY_ROOM_ID
-        && matches!(lifecycle.phase(), EncounterPhase::Inactive)
+    let chamber_is_live = rooms
+        .live_definitions()
+        .any(|definition| rooms.rooms().spec(definition).id == SYMMETRY_ROOM_ID);
+    if chamber_is_live && matches!(lifecycle.phase(), EncounterPhase::Inactive)
     {
         lifecycle_commands.write(EncounterCommand::new(
             SYMMETRY_ATTUNEMENT_ID,

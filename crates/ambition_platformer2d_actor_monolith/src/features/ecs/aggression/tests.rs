@@ -734,7 +734,8 @@ fn an_un_challenged_passive_npc_ignores_damage() {
 /// peaceful. A `<<restore_brain>>` release pacified it live and left the flag
 /// set, so a replay rebuilt it hostile. And the flag carries no faction while
 /// construction rebuilds `Grudge::Faction(Player)`, so a provocation by anyone
-/// else must not set it.
+/// else must not set it. A challenge is a player's whatever body it comes
+/// through: a possessed body wears its own faction.
 #[test]
 fn a_provocation_is_durable_exactly_when_the_player_causes_it_and_a_release_clears_it() {
     use ambition_persistence::save::AmbitionGameSave;
@@ -807,15 +808,43 @@ fn a_provocation_is_durable_exactly_when_the_player_causes_it_and_a_release_clea
          so the next room replay rebuilds it hostile"
     );
 
-    // Provoked by somebody who is not the player: live, NOT durable.
+    // The player challenges through a possessed body of another faction: live
+    // AND durable. The challenge is the player's; the body is only its road.
     let (mut app, npc) = app_with_npc();
-    let bandit = app
+    let possessed = app
         .world_mut()
         .spawn(ambition_combat::components::ActorFaction::Enemy)
         .id();
     app.world_mut().write_message(ActorStimulus::Challenged {
         actor: npc,
-        challenger: Some(bandit),
+        challenger: Some(possessed),
+    });
+    app.update();
+    assert_eq!(
+        app.world().get::<ActorAggression>(npc).unwrap().grudge,
+        Some(ambition_combat::components::Grudge::Body(possessed)),
+        "premise: the NPC turned on the body that challenged it"
+    );
+    assert!(
+        durable(&app),
+        "a challenge through a possessed body was not recorded, because the \
+         body wears another faction than the player's"
+    );
+
+    // Struck by somebody who is not the player: live, NOT durable.
+    let (mut app, npc) = app_with_npc();
+    app.world_mut()
+        .get_mut::<ActorAggression>(npc)
+        .expect("a spawned NPC carries its aggression")
+        .strikes = NPC_HOSTILE_STRIKE_THRESHOLD;
+    let bandit = app
+        .world_mut()
+        .spawn(ambition_combat::components::ActorFaction::Enemy)
+        .id();
+    app.world_mut().write_message(ActorStimulus::DamagedBy {
+        actor: npc,
+        source: Some(bandit),
+        damage: 1,
     });
     app.update();
     assert_eq!(

@@ -107,19 +107,24 @@ pub fn refresh_yarn_state_mirror(
 // `condition("world.flag_set", "<id>")`. See
 // `ambition_conversation::dialog::authored_commands`.
 
-/// `<<challenge>>` — provoke the NPC the player is currently talking to into
-/// a fight. The generic dialogue-gated combat trigger: it emits an
+/// `<<challenge>>` — the body that started the conversation challenges the
+/// one it talks to. The generic dialogue-gated combat trigger: it emits an
 /// [`ActorStimulus::Challenged`] for the conversation's speaker entity, which
 /// `apply_actor_stimuli` turns into the same in-place peaceful→hostile flip a
 /// strike would cause — but unconditionally, since picking "challenge" IS the
 /// consent to fight. Any content (the Perfect Cell-ular Automaton and beyond)
 /// arms a boss/duel by authoring this one command on a choice; no Rust per-NPC
 /// branch. Logs and no-ops if there's no in-world speaker (scripted dialogue).
+///
+/// ⛔ THE CHALLENGER IS THE CONVERSATION'S INITIATOR, as for `<<pet>>`: the
+/// body the player talks through, which is a possessed body while the player
+/// possesses one. Some player body in the world is not that body. That the
+/// challenge is the player's is the command itself, not the challenger's
+/// faction (see `apply_actor_stimuli`).
 pub fn cmd_challenge(
     // Read the authority, not `DialogState`: this is a simulation effect, and
     // the UI read-model is not rewound by rollback.
     conversation: Res<ambition_conversation::ActiveConversation>,
-    player: Query<Entity, With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>>,
     // The speaker's live identity, not its `SimId` alone: two instances of
     // one room hold the same authored ids, and the command means THIS body.
     bodies: ambition_platformer2d_shared_tangle::lifecycle::LiveBodies,
@@ -138,7 +143,7 @@ pub fn cmd_challenge(
     narrative.write(
         ambition_platformer2d_actor_monolith::features::ChallengeRequested {
             target,
-            challenger: player.iter().next().and_then(|player| bodies.id_of(player)),
+            challenger: conversation.initiator().and_then(|initiator| bodies.id_of(initiator)),
         },
     );
 }

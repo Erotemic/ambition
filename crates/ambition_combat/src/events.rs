@@ -62,8 +62,11 @@ pub enum ActorStimulus {
     /// the "challenge" dialogue option). Provokes the actor into combat
     /// unconditionally — bypassing the strike-threshold gate that `DamagedBy`
     /// respects — because the challenge IS the deliberate consent to fight.
-    /// `challenger` is who threw down the gauntlet (the player), used as the
-    /// initial chase target.
+    ///
+    /// ⛔ THE VARIANT SAYS A PLAYER CHALLENGED; `challenger` SAYS WITH WHICH
+    /// BODY. `challenger` is the body the player talked through, the chase
+    /// target and grudge; while the player possesses a body, it is that body,
+    /// and it wears that body's faction, not the player's.
     Challenged {
         actor: Entity,
         challenger: Option<Entity>,

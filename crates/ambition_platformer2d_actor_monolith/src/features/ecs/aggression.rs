@@ -39,7 +39,7 @@ pub fn apply_actor_stimuli(
         ),
         With<FeatureSimEntity>,
     >,
-    // Whose side the provoker is on: only the PLAYER's provocation is durable,
+    // Whose side a striker is on: only the PLAYER's provocation is durable,
     // because that is the only grudge construction can rebuild.
     factions: Query<&ambition_combat::components::ActorFaction>,
     mut provocations: MessageWriter<crate::features::NpcProvocationChanged>,
@@ -121,11 +121,15 @@ pub fn apply_actor_stimuli(
         // record it — a `<<challenge>>` did not — came back peaceful on the next
         // room replay. Announced here because both roads (a strike past the
         // threshold, a challenge) funnel into this flip.
-        if was_peaceful
-            && interaction.is_some()
-            && source.and_then(|source| factions.get(source).ok())
-                == Some(&ambition_combat::components::ActorFaction::Player)
-        {
+        //
+        // ⛔ A CHALLENGE IS THE PLAYER'S BY WHAT IT IS. `<<challenge>>` is a
+        // player's choice, made through whichever body the player talks
+        // through, and a possessed body wears its own faction. A hit is the
+        // player's when its striker is on the player's side.
+        let players_provocation = challenged
+            || source.and_then(|source| factions.get(source).ok())
+                == Some(&ambition_combat::components::ActorFaction::Player);
+        if was_peaceful && interaction.is_some() && players_provocation {
             provocations.write(crate::features::NpcProvocationChanged {
                 id: em.identity.id.clone(),
                 provoked: true,

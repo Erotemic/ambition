@@ -31,6 +31,7 @@ fn activate_authored_switch(sim: &mut ambition_app::Platformer2dSimHarness, swit
         ambition_platformer2d::encounter::switches::SwitchActivated {
             activation,
             pos: ambition_platformer2d::engine_core::Vec2::ZERO,
+            room: None,
         },
     );
 }

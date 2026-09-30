@@ -204,6 +204,15 @@ fn world_with_one_authored_switch(on_activate: Option<&str>) -> App {
 }
 
 fn press(app: &mut App, switch_id: &str) {
+    press_in(app, switch_id, None);
+}
+
+/// Press switch `switch_id` of live room `room` (`None`: the sole live room).
+fn press_in(
+    app: &mut App,
+    switch_id: &str,
+    room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+) {
     app.world_mut()
         .write_message(ambition_encounter::switches::SwitchActivated {
             activation: ambition_encounter::SwitchActivation {
@@ -212,6 +221,7 @@ fn press(app: &mut App, switch_id: &str) {
                 target_encounter: String::new(),
             },
             pos: ambition_platformer2d_core::Vec2::ZERO,
+            room,
         });
 }
 
@@ -341,4 +351,53 @@ fn swapping_the_room_set_alone_invalidates_the_prepared_calls() {
         app.world().resource::<AuthoredSwitchCommands>().is_empty(),
         "the prepared set must track the replaced room set"
     );
+}
+
+/// OW1 cut 7b: each live room's switch asks for the verb its own room
+/// authored.
+///
+/// Live room #0 is `symmetry_room`, whose switch authors `bystander.ring C`.
+/// Live room #1 is `echo_room`, whose switch has the same id and authors
+/// `bystander.ring D`. A press in #1 rings D, and a press in #0 rings C. The
+/// control is one live room
+/// (`pressing_an_authored_switch_asks_for_the_verb_the_level_named`). When
+/// the preparer read the sole live room, it did not run while two rooms were
+/// live, and neither press rang.
+#[test]
+fn each_live_rooms_switch_asks_for_its_own_rooms_verb() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{
+        activation_room_root, session_world_component, LiveRoomInstance, SessionRoot,
+    };
+    let first = LiveRoomInstance::ACTIVATION;
+    let second = first.next();
+    let mut app = world_with_one_authored_switch(Some(LINE));
+    let mut echo = room_with_one_switch(Some("bystander.ring D"), "symmetry_room");
+    echo.id = "echo_room".into();
+    ambition_platformer2d_world::rooms::insert_room_set(
+        app.world_mut(),
+        ambition_platformer2d_world::rooms::RoomSet::from_parts_or_panic(
+            "symmetry_room",
+            vec![room_with_one_switch(Some(LINE), "symmetry_room"), echo],
+            Vec::new(),
+        ),
+    );
+    let scope = session_world_component::<SessionRoot>(app.world())
+        .expect("the fixture has a session root")
+        .0;
+    let echo = session_world_component::<ambition_platformer2d_world::rooms::RoomSet>(app.world())
+        .and_then(|rooms| rooms.definition_by_id("echo_room"))
+        .expect("the set has `echo_room`");
+    app.world_mut().spawn(activation_room_root(scope)).insert((second, echo));
+    app.update();
+    assert_eq!(
+        app.world().resource::<AuthoredSwitchCommands>().len(),
+        2,
+        "each live room's one authored line did not prepare"
+    );
+
+    press_in(&mut app, SWITCH, Some(second));
+    app.update();
+    press_in(&mut app, SWITCH, Some(first));
+    app.update();
+    assert_eq!(rung(&app), ["D", "C"], "each press did not ring the verb of its own room");
 }

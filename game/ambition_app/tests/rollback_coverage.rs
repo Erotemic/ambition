@@ -1047,6 +1047,7 @@ fn every_component_in_the_falling_sand_room_is_registered_derived_or_waived() {
             ambition_platformer2d::encounter::switches::SwitchActivated {
                 activation,
                 pos: ambition_platformer2d::engine_core::Vec2::ZERO,
+                room: None,
             },
         );
     }

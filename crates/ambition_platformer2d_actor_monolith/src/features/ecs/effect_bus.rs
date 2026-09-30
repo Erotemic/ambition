@@ -106,6 +106,7 @@ mod tests {
                 target_encounter: "goblin_encounter".into(),
             },
             pos: ae::Vec2::new(1.0, 2.0),
+            room: None,
         };
         let sfx = GameplaySfxRequested {
             id: ambition_sfx::ids::PLAYER_DAMAGE,

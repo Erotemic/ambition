@@ -42,6 +42,7 @@ fn flip_kernel_face(sim: &mut Platformer2dSimHarness, switch_id: &str, action: &
                 target_encounter: String::new(),
             },
             pos: ambition_platformer2d::engine_core::Vec2::ZERO,
+            room: None,
         },
     );
 }

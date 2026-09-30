@@ -648,3 +648,54 @@ fn two_driven_bodies_each_flip_their_own_switch() {
     fired.sort();
     assert_eq!(fired, ["switch_a", "switch_b"], "each seat activates its own switch");
 }
+
+/// OW1 cut 7b: a body presses only a switch in its own live room.
+///
+/// Alice (slot 0) is in live room #0 and Bob (slot 1) in #1, at one
+/// position, and a switch stands there in each room. Each press activates
+/// only the switch of the presser's own room, and the activation names that
+/// room. When the loop did not ask the rooms, both bodies reached the first
+/// switch found. The control, one room with no stamps, is
+/// `two_driven_bodies_each_flip_their_own_switch`.
+#[test]
+fn a_body_presses_only_the_switch_in_its_own_live_room() {
+    use ambition_characters::control::{PlayerSlot, SlotInteractionState};
+    use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
+
+    let first = LiveRoomInstance::ACTIVATION;
+    let second = first.next();
+    let mut app = interaction_app();
+    app.insert_resource(ambition_platformer2d_shared_tangle::markers::ControlledSubject(None));
+    {
+        let mut gestures = app
+            .world_mut()
+            .get_resource_or_insert_with(SlotInteractionState::default);
+        gestures.primary_mut().interact_buffer_timer = 0.5;
+        if let Some(second) = gestures.get_mut(PlayerSlot(1)) {
+            second.interact_buffer_timer = 0.5;
+        }
+    }
+    let at = ae::Vec2::new(100.0, 100.0);
+    for (slot, switch, room) in [(0, "switch_a", first), (1, "switch_b", second)] {
+        app.world_mut().spawn((RoomInstanceRoot, room));
+        let body = spawn_driven_body(&mut app, at, slot);
+        app.world_mut().entity_mut(body).insert(InRoomInstance(room));
+        let switch = spawn_switch(&mut app, switch, at);
+        app.world_mut().entity_mut(switch).insert(InRoomInstance(room));
+    }
+
+    app.update();
+
+    let mut fired: Vec<(String, Option<LiveRoomInstance>)> = app
+        .world()
+        .resource::<bevy::ecs::message::Messages<SwitchActivated>>()
+        .iter_current_update_messages()
+        .map(|message| (message.activation.id.clone(), message.room))
+        .collect();
+    fired.sort();
+    assert_eq!(
+        fired,
+        [("switch_a".to_string(), Some(first)), ("switch_b".to_string(), Some(second))],
+        "each body did not press only the switch in its own live room"
+    );
+}

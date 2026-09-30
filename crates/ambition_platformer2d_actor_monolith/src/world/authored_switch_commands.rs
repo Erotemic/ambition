@@ -54,62 +54,71 @@ pub fn authored_switch_commands(
 /// do is replace the whole room's set with another validated one.
 #[derive(Resource, Default)]
 pub struct AuthoredSwitchCommands {
-    room: Option<String>,
-    calls: BTreeMap<String, PreparedCommand>,
+    /// Each live room's prepared verbs: by the id of the room it
+    /// instantiates, then by switch id. Every live room has an entry, also
+    /// one with no verb (OW1 cut 7b).
+    rooms: BTreeMap<String, BTreeMap<String, PreparedCommand>>,
 }
 
 impl AuthoredSwitchCommands {
-    /// The verb a switch id asks for, if it authored one that prepared.
-    pub fn get(&self, switch_id: &str) -> Option<&PreparedCommand> {
-        self.calls.get(switch_id)
+    /// The verb switch `switch_id` of room `room_id` asks for, if it
+    /// authored one that prepared.
+    pub fn get(&self, room_id: &str, switch_id: &str) -> Option<&PreparedCommand> {
+        self.rooms.get(room_id)?.get(switch_id)
     }
 
     pub fn len(&self) -> usize {
-        self.calls.len()
+        self.rooms.values().map(BTreeMap::len).sum()
     }
 
     pub fn is_empty(&self) -> bool {
-        self.calls.is_empty()
+        self.len() == 0
     }
 }
 
-/// Prepare the active room's authored switch verbs. (sim)
+/// Prepare every live room's authored switch verbs. (sim)
 ///
 /// Refreshes when either input moves. a line that does not prepare is
 /// dropped with a warning naming the switch — the alternative is a switch that
 /// silently does nothing, which is how an author spends an afternoon on a typo.
 pub fn prepare_authored_switch_commands(
-    rooms: ambition_platformer2d_world::rooms::SoleLiveRoomSpec,
+    rooms: ambition_platformer2d_world::rooms::LiveRoomSpecs,
     catalog: Option<Res<CommandCatalog>>,
     mut prepared: ResMut<AuthoredSwitchCommands>,
 ) {
     let Some(catalog) = catalog else {
         return;
     };
-    let active_room_id = rooms.spec().id.clone();
+    // Every live room's switches work, so with two live rooms each has its
+    // verbs (OW1 cut 7b).
+    let live: BTreeMap<String, ambition_platformer2d_world::rooms::LiveRoomDefinition> = rooms
+        .live_definitions()
+        .map(|definition| (rooms.rooms().spec(definition).id.clone(), definition))
+        .collect();
     // It watched `ActiveLdtkProject:is_changed`; the command lines come off the room set now,
     // so that is what has to be watched — a hot reload that rebuilds rooms under an UNCHANGED
     // room id would otherwise keep serving prepared calls from content that is no longer
     // loaded, which is the case the old signal existed for.
     let rooms_changed = rooms.is_changed();
-    let stale = prepared.room.as_deref() != Some(active_room_id.as_str());
+    let stale = !prepared.rooms.keys().eq(live.keys());
     if !rooms_changed && !stale {
         return;
     }
 
-    let authored = authored_switch_commands(rooms.spec());
-    prepared.calls.clear();
-    prepared.room = Some(active_room_id.clone());
-    for AuthoredSwitchCommand { switch_id, line } in authored {
-        match catalog.prepare_line(&line) {
-            Ok(call) => {
-                prepared.calls.insert(switch_id, call);
+    prepared.rooms.clear();
+    for (room_id, definition) in live {
+        let calls = prepared.rooms.entry(room_id.clone()).or_default();
+        for AuthoredSwitchCommand { switch_id, line } in authored_switch_commands(rooms.rooms().spec(definition)) {
+            match catalog.prepare_line(&line) {
+                Ok(call) => {
+                    calls.insert(switch_id, call);
+                }
+                Err(error) => warn!(
+                    target: "crate::world::authored_switch_commands",
+                    "switch `{switch_id}` in room `{room_id}` authors an \
+                     `{ON_ACTIVATE_FIELD}` this composition cannot perform: {error}",
+                ),
             }
-            Err(error) => warn!(
-                target: "crate::world::authored_switch_commands",
-                "switch `{switch_id}` in room `{active_room_id}` authors an \
-                 `{ON_ACTIVATE_FIELD}` this composition cannot perform: {error}",
-            ),
         }
     }
 }
@@ -123,11 +132,18 @@ pub fn prepare_authored_switch_commands(
 /// already had — and the channel is cleared on rollback, which bounds it.
 pub fn request_authored_switch_commands(
     prepared: Res<AuthoredSwitchCommands>,
+    rooms: ambition_platformer2d_world::rooms::LiveRoomSpecs,
     mut activations: MessageReader<ambition_encounter::switches::SwitchActivated>,
     mut requests: MessageWriter<RunAuthoredCommand>,
 ) {
     for activation in activations.read() {
-        if let Some(call) = prepared.get(activation.activation.id.as_str()) {
+        // The verb the switch's own room authored: two live rooms can hold
+        // switches with one id.
+        let Some(definition) = rooms.definition_named(activation.room) else {
+            continue;
+        };
+        let room_id = rooms.rooms().spec(definition).id.as_str();
+        if let Some(call) = prepared.get(room_id, activation.activation.id.as_str()) {
             requests.write(RunAuthoredCommand::prepared(
                 call,
                 ambition_platformer2d_shared_tangle::authored_logic::AuthoredAsk::new(

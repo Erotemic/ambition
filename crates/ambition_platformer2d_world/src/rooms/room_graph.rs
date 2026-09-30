@@ -359,10 +359,30 @@ impl LiveRoomSpecs<'_, '_> {
         &self,
         subject: Option<&ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId>,
     ) -> Option<LiveRoomDefinition> {
-        match subject.and_then(|subject| subject.room) {
+        self.definition_named(subject.and_then(|subject| subject.room))
+    }
+
+    /// Which definition live room `room` instantiates; with no room named,
+    /// the sole live room's, and none when two are live.
+    pub fn definition_named(
+        &self,
+        room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+    ) -> Option<LiveRoomDefinition> {
+        match room {
             Some(room) => self.definition_in(room),
             None => self.roots.single().ok().map(|(_, definition)| *definition),
         }
+    }
+
+    /// The definition every live room instantiates, one per live room.
+    pub fn live_definitions(&self) -> impl Iterator<Item = LiveRoomDefinition> + '_ {
+        self.roots.iter().map(|(_, definition)| *definition)
+    }
+
+    /// Whether the room set was replaced since this system last ran.
+    pub fn is_changed(&self) -> bool {
+        use bevy_ecs::change_detection::DetectChanges;
+        self.rooms.is_changed()
     }
 }
 

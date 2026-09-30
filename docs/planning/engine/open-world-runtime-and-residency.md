@@ -260,7 +260,7 @@ and no fallback to "the live room".
 | 4 (4a ✅ 4b ✅) | Pairwise queries (contacts, hits, perception, projectile victims) keyed by instance | identical local positions in two instances never touch (one instance does) | unkeyed body-contact vectors |
 | 5 (5a ✅ 5b ✅ 5c ✅ 5d ✅ 5e ✅) | Live identity and room selection per instance; rollback rows instance-qualified; the save maps to a durable location key, never the ordinal | a second construction of one room in `#1` succeeds (a duplicate inside `#1` is still refused) | `RoomSet`'s private active index |
 | 6 (6a ✅ 6b ✅ 6c ✅ 6d ✅ 6e ✅) | The Alice/Bob proof: two instances, two driven bodies; retiring `#1` leaves `#0` whole | the one-room profile runs the same systems | the sole-room reads on the crossing road |
-| 7 (7a ✅) | The simulation systems a second live room freezes read their subject's own room (`LiveRoomOf<T>`) | the system runs in both rooms, each entity against its own room (one room: the same answer) | one `SoleLiveRoom*` parameter per system |
+| 7 (7a ✅ 7b ✅) | The simulation systems a second live room freezes read their subject's own room (`LiveRoomOf<T>`) | the system runs in both rooms, each entity against its own room (one room: the same answer) | one `SoleLiveRoom*` parameter per system |
 
 ✅ **Cut 1 landed 2026-09-29.** `LiveRoomInstance` moved down to
 `ambition_platformer2d_shared_tangle::lifecycle` beside the new
@@ -796,7 +796,7 @@ that takes one does not run at all while two rooms are live, in either
 room. After 6d that is the Alice/Bob world. The measured list of simulation
 systems it stops (read from the parameter lists, 2026-09-30):
 `step_item_motion` ✅, `update_ecs_falling_chests` ✅,
-`prepare_authored_switch_commands`, `drive_wave_encounters`,
+`prepare_authored_switch_commands` ✅ (7b), `drive_wave_encounters`,
 `update_boss_encounters`, `heal_save_shrine_system`,
 `sync_encounter_reward_chests`, `retire_rewards_for_rearmed_encounters`,
 `record_placed_ground_items`, `physics_spawn_debris_messages` and
@@ -808,6 +808,26 @@ entity against its own room's geometry, and an entity in no live room does
 not move. Witnesses: `each_pickup_falls_onto_the_floor_of_its_own_live_room`
 and `each_chest_lands_on_the_floor_of_its_own_live_room` (live rooms whose
 floors differ by 200; each lands on its own; the control is one room).
+
+✅ **Cut 7b landed 2026-09-30: a switch is pressed and answered in its own
+live room.** Two defects, one road. The interact loop did not compare the
+switch's room with the pressing body's, so a body in #0 pressed a switch at
+the same place in #1 (cut 4 keyed the other pairwise reads, and this one was
+missed). And the authored verbs were prepared for the sole live room, so
+with two live rooms no switch verb ran. Now a body presses only a switch in
+its own live room (`LiveRooms::of` on both), `SwitchActivated` names the
+switch's room, `AuthoredSwitchCommands` holds each live room's verbs by room
+id, and the request asks the activation's room
+(`LiveRoomSpecs::definition_named`). Witnesses:
+`a_body_presses_only_the_switch_in_its_own_live_room` (Alice in #0 and Bob
+in #1 at one place, a switch there in each room; each presses only its own,
+and the activation names the room; the one-room control is
+`two_driven_bodies_each_flip_their_own_switch`) and
+`each_live_rooms_switch_asks_for_its_own_rooms_verb` (two rooms author one
+switch id with two verbs; each press rings its own room's; the one-room
+control is `pressing_an_authored_switch_asks_for_the_verb_the_level_named`).
+⚠ The encounter road the same activation feeds (`SwitchActivationQueue`,
+`drive_wave_encounters`) does not read the room yet.
 
 ⚠ Still owed from cut 5: `outlook_for(room: &str)` is keyed by definition;
 the `SoleLiveRoomSpec` readers each need a subject before a second live room

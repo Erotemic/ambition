@@ -14,7 +14,7 @@
 // deleting it: bevy's prelude, `ambition_vfx`'s two message types and
 // `RoomVisual`, which is `shared_tangle`'s. No monolith vocabulary.
 use ambition_combat::components::{
-    ActorDisposition, ActorIdentity, ActorInteraction, CenteredAabb, FeatureId, FeatureName,
+    ActorDisposition, ActorIdentity, ActorInteraction, CenteredAabb, FeatureName,
 };
 use ambition_encounter::switches::{SwitchActivated, SwitchFeature};
 use ambition_persistence::quest::QuestAdvanceRequested;
@@ -147,12 +147,17 @@ pub fn interact_ecs_actors_and_switches(
     // the press. Writing a state at press time is wrong for a toggle that has
     // just turned the switch off.
     switches: Query<
-        (&FeatureId, &FeatureName, &CenteredAabb, &SwitchFeature),
+        (Entity, &FeatureName, &CenteredAabb, &SwitchFeature),
         With<FeatureSimEntity>,
     >,
     mut set_flag: MessageWriter<SetFlagRequested>,
     mut quest_advance: MessageWriter<QuestAdvanceRequested>,
-    mut switch_activated: MessageWriter<SwitchActivated>,
+    // With the live rooms, in one parameter: the system is at Bevy's
+    // parameter ceiling.
+    (mut switch_activated, live_rooms): (
+        MessageWriter<SwitchActivated>,
+        ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
+    ),
     mut vfx: MessageWriter<VfxMessage>,
 ) {
     // How long the player's `Interact` pose holds after the interaction
@@ -282,8 +287,15 @@ pub fn interact_ecs_actors_and_switches(
             // flipped. Unlike the switch loop below, that is the right scope.
             return;
         }
-        for (_id, name, aabb, switch) in &switches {
+        // A body reaches a switch only in its own live room (OW1 cut 7b): two
+        // live rooms can hold a switch at one position.
+        let subject_room = live_rooms.of(subject);
+        for (switch_entity, name, aabb, switch) in &switches {
             if !aabb.aabb().strict_intersects(reach_aabb) {
+                continue;
+            }
+            let room = live_rooms.of(switch_entity);
+            if room != subject_room {
                 continue;
             }
             acting.consume_interact(subject);
@@ -292,6 +304,7 @@ pub fn interact_ecs_actors_and_switches(
             switch_activated.write(SwitchActivated {
                 activation: switch.activation.clone(),
                 pos: aabb.center,
+                room,
             });
             vfx.write(VfxMessage::Burst {
                 pos: aabb.center,

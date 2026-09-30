@@ -283,6 +283,10 @@ impl SwitchFeature {
 pub struct SwitchActivated {
     pub activation: SwitchActivation,
     pub pos: ae::Vec2,
+    /// The live room the switch is in (OW1 cut 7b). Two live rooms can hold
+    /// switches with one id, so a reader that looks up what a switch authored
+    /// asks the switch's own room. `None`: the sole live room.
+    pub room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
 }
 
 /// What a switch activation ASKS FOR, as a value rather than a string.

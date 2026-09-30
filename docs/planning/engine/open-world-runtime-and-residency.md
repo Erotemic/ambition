@@ -259,7 +259,7 @@ and no fallback to "the live room".
 | 3 (3a ✅ 3b ✅ 3c ✅ 3d ✅) | Geometry, platforms and overlay move onto the instance root; `CollisionWorld` takes the instance | a body in `#1` collides with `#1`'s wall (in `#0` it passes) | the session-root geometry field, `MovingPlatformSet` as a resource |
 | 4 (4a ✅ 4b ✅) | Pairwise queries (contacts, hits, perception, projectile victims) keyed by instance | identical local positions in two instances never touch (one instance does) | unkeyed body-contact vectors |
 | 5 (5a ✅ 5b ✅ 5c ✅ 5d ✅ 5e ✅) | Live identity and room selection per instance; rollback rows instance-qualified; the save maps to a durable location key, never the ordinal | a second construction of one room in `#1` succeeds (a duplicate inside `#1` is still refused) | `RoomSet`'s private active index |
-| 6 | The Alice/Bob proof: two instances, two driven bodies; retiring `#1` leaves `#0` whole | the one-room profile runs the same systems | — |
+| 6 (6a ✅) | The Alice/Bob proof: two instances, two driven bodies; retiring `#1` leaves `#0` whole | the one-room profile runs the same systems | the sole-room reads on the crossing road |
 
 ✅ **Cut 1 landed 2026-09-29.** `LiveRoomInstance` moved down to
 `ambition_platformer2d_shared_tangle::lifecycle` beside the new
@@ -603,7 +603,7 @@ for each room, and the one index moved for all of them. Now:
   `transition_for_player` and `nearby_zone_hints` take the definition.
   Readers without one take `SoleLiveRoomSpec` (the set and the sole live
   room's definition), named as the one-live-room debt beside `SoleLiveRoom`.
-  64 production uses in 45 files; `check_alias_census_agrees_with_source.py`
+  64 production uses in 45 files at 5e; `check_alias_census_agrees_with_source.py`
   counts them.
 - Fixtures seat a live room with `insert_room_set` or
   `seat_sole_live_room_by_id`. A set with no seated live room answers no
@@ -665,6 +665,24 @@ changed. Schema 273 (`actor.perception_memory` carries the room). Witness:
 `a_memory_from_another_live_room_is_not_a_pursuit_target` (remembered at P
 in #0, retagged to #1, sees nobody: no target; the control stays in #0 and
 pursues P; #1's own `x`, seen at Q and lost, is pursued at Q).
+
+✅ **Cut 6a landed 2026-09-30: a crossing reads the crossing body's own
+live room.** The transition detector read the loading zones of "the" live
+room (`SoleLiveRoomSpec`), so with two live rooms it did not run at all, and
+a body could not leave either room. Now it takes `LiveRoomSpecs`: the room
+set, and for an entity the definition of the live room it is in
+(`LiveRooms::of`, then that room's root's `LiveRoomDefinition`). One live
+room answers as the sole read did. Witness:
+`a_crossing_reads_the_crossing_bodys_own_live_room` (live room #0 is room
+`a`, #1 is room `b`; a body in #1 standing in `b`'s zone records a crossing
+to `a`; the control, the same body at the same place in #0, records none,
+because `a` has no zone there).
+
+⚠ Owed by 6b: a crossing recorded from a second live room is not yet
+committed. The loading side (`source_room`) and the commit
+(`live_definition`) still read the sole live room, so with two live rooms
+they do not run and the intent waits in the slot. 6b keys both by the
+recorded subject's live room.
 
 ⚠ Still owed from cut 5: `outlook_for(room: &str)` is keyed by definition;
 the `SoleLiveRoomSpec` readers each need a subject before a second live room

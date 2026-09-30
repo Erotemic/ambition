@@ -1518,3 +1518,104 @@ fn an_undriven_home_body_in_a_door_is_not_crossed_for_anyone() {
         "a body nobody drives crossed a door: the transition picked its own subject",
     );
 }
+
+/// OW1 cut 6a: a crossing reads the crossing body's own live room.
+///
+/// Live room #0 is room `a` and #1 is room `b`. `b`'s walk zone stands where
+/// `a` has none. The subject: a driven body in #1, standing in that zone,
+/// records a crossing to `a`. The control: the same body at the same place
+/// in #0 records none, because `a` has no zone there. The sole-room read
+/// did not run at all while two rooms were live, so the subject crossed
+/// nothing.
+#[test]
+fn a_crossing_reads_the_crossing_bodys_own_live_room() {
+    use ambition_characters::control::SlotInteractionState;
+    use ambition_platformer2d_core::BodyKinematics;
+    use ambition_platformer2d_shared_tangle::lifecycle::{
+        activation_room_root, session_world_component, InRoomInstance, LiveRoomInstance, SessionRoot,
+    };
+    use bevy::prelude::*;
+
+    let b_zone = ae::Vec2::new(60.0, 100.0);
+    let crossing_from = |room: LiveRoomInstance| {
+        let mut room_a = spec_with(RoomMetadata::default(), "a");
+        room_a.loading_zones = vec![LoadingZone {
+            id: "exit_a".into(),
+            name: "east".into(),
+            activation: LoadingZoneActivation::Walk,
+            aabb: ae::Aabb::new(ae::Vec2::new(400.0, 100.0), ae::Vec2::new(24.0, 24.0)),
+        }];
+        let mut room_b = spec_with(RoomMetadata::default(), "b");
+        room_b.loading_zones = vec![LoadingZone {
+            id: "entry_b".into(),
+            name: "west".into(),
+            activation: LoadingZoneActivation::Walk,
+            aabb: ae::Aabb::new(b_zone, ae::Vec2::new(24.0, 24.0)),
+        }];
+        let set = RoomSet::from_parts_or_panic(
+            "a",
+            vec![room_a, room_b],
+            vec![RoomLink {
+                from_room: "a".into(),
+                from_zone: "exit_a".into(),
+                to_room: "b".into(),
+                to_zone: "entry_b".into(),
+                bidirectional: true,
+            }],
+        );
+        let mut app = App::new();
+        ambition_platformer2d_world::rooms::insert_room_set(app.world_mut(), set);
+        let scope = session_world_component::<SessionRoot>(app.world())
+            .expect("the fixture has a session root")
+            .0;
+        let b = session_world_component::<RoomSet>(app.world())
+            .and_then(|rooms| rooms.definition_by_id("b"))
+            .expect("the fixture's set has room `b`");
+        let second = LiveRoomInstance::ACTIVATION.next();
+        app.world_mut().spawn(activation_room_root(scope)).insert((
+            second,
+            b,
+            ambition_platformer2d_shared_tangle::sim_id::SimId::singleton("session", "room_instance_1"),
+        ));
+        app.insert_resource(
+            ambition_platformer2d_shared_tangle::safe_position::RoomTransitionCooldown::default(),
+        );
+        app.insert_resource(GatePortalRegistry::default());
+        app.init_resource::<GatePortalPhases>();
+        app.init_resource::<SlotInteractionState>();
+        app.init_resource::<ambition_time::WorldTime>();
+        app.init_resource::<crate::session::lifecycle_commit::PendingLifecycleCommit>();
+        app.add_systems(Update, detect_room_transition_system);
+        let body = app
+            .world_mut()
+            .spawn((
+                ambition_platformer2d_shared_tangle::sim_id::SimId::player_slot(0),
+                InRoomInstance(room),
+                BodyKinematics {
+                    pos: b_zone,
+                    vel: ae::Vec2::ZERO,
+                    size: ae::Vec2::new(24.0, 40.0),
+                    facing: 1.0,
+                },
+            ))
+            .id();
+        app.insert_resource(ambition_platformer2d_shared_tangle::markers::ControlledSubject(Some(body)));
+        app.update();
+        match pending_intent(&app) {
+            Some(crate::session::lifecycle_commit::LifecycleIntent::Transition(transition)) => {
+                Some(transition.target_room)
+            }
+            _ => None,
+        }
+    };
+    assert_eq!(
+        crossing_from(LiveRoomInstance::ACTIVATION),
+        None,
+        "control: a body in room `a` crossed a zone only room `b` has"
+    );
+    assert_eq!(
+        crossing_from(LiveRoomInstance::ACTIVATION.next()),
+        Some("a".to_string()),
+        "a body in live room #1 did not cross its own room's zone"
+    );
+}

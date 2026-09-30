@@ -70,7 +70,9 @@ pub fn tick_portal_phases_system(
 /// fire while paused or in dialogue. The host coordinator is unconditional and
 /// is a no-op when no transition transaction is active.
 pub fn detect_room_transition_system(
-    room_set: ambition_platformer2d_world::rooms::SoleLiveRoomSpec,
+    // The room the crossing body is in: its own live room's definition, so
+    // with two live rooms each body crosses its own room's zones (OW1 cut 6a).
+    rooms: ambition_platformer2d_world::rooms::LiveRoomSpecs,
     sim_state: Res<ambition_platformer2d_shared_tangle::safe_position::RoomTransitionCooldown>,
     portals: Res<GatePortalRegistry>,
     phases: Res<GatePortalPhases>,
@@ -113,6 +115,9 @@ pub fn detect_room_transition_system(
     let Ok((kin, sweep)) = bodies.get(subject_entity) else {
         return;
     };
+    let Some(definition) = rooms.definition_of(subject_entity) else {
+        return;
+    };
     // CC2 (§3.3): sweep the body's frame path into the zone so a fast body
     // can't tunnel an overlap-fire (`Walk`) loading zone between frames. The
     // discrete standing-in-it case is `delta == 0`, preserved exactly — a body
@@ -124,9 +129,9 @@ pub fn detect_room_transition_system(
         .and_then(|sample| sample.ending_at(kin.pos))
         .map_or((kin.aabb(), ae::Vec2::ZERO), |path| (path.end_aabb(), path.delta()));
     let wants_interact = slot_gestures.primary().buffered();
-    let Some(zone) = room_set
+    let Some(zone) = rooms
         .rooms()
-        .transition_for_player(room_set.definition(), path_end, delta, wants_interact) else {
+        .transition_for_player(definition, path_end, delta, wants_interact) else {
         // `warn_once`: a stuck body re-enters this branch every tick, and the
         // situation is a standing one — the first report is the whole message.
         // and it costs nothing on the normal path: it runs only after the
@@ -140,8 +145,9 @@ pub fn detect_room_transition_system(
         // stays in the message either way. `EdgeExit`/`Walk` need no press, so
         // they are anomalous whenever they are touched without transitioning.
         use ae::AabbExt as _;
-        if let Some(touching) = room_set
-            .spec()
+        if let Some(touching) = rooms
+            .rooms()
+            .spec(definition)
             .loading_zones
             .iter()
             .find(|zone| kin.aabb().strict_intersects(zone.aabb))
@@ -229,7 +235,7 @@ pub fn detect_room_transition_system(
     // failure here leaves the press buffered on purpose (the transition is still
     // wanted; we just cannot describe it yet), so this system re-runs every tick
     // the body stays on the exit — `_once` keeps a stuck exit out of the log.
-    let Some(target_spec) = room_set.rooms().spec_at(zone.target_room) else {
+    let Some(target_spec) = rooms.rooms().spec_at(zone.target_room) else {
         bevy::log::error_once!(
             "transition target {:?} has no room spec; leaving input buffered",
             zone.target_room

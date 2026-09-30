@@ -300,6 +300,47 @@ impl SoleLiveRoomSpec<'_, '_> {
     }
 }
 
+/// The definition of the live room an entity is in: the reader WITH a
+/// subject, where [`SoleLiveRoomSpec`] is the reader without one.
+///
+/// The entity's live room comes from [`LiveRooms::of`]: its
+/// `InRoomInstance` stamp, or, for an unstamped entity, the sole live room.
+/// The definition is on that room's root. So two live rooms answer for each
+/// body, and one live room answers as the sole read did (OW1 cut 6a).
+///
+/// [`LiveRooms::of`]: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms::of
+#[derive(bevy_ecs::system::SystemParam)]
+pub struct LiveRoomSpecs<'w, 's> {
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<'w, 's, RoomSet>,
+    live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms<'w, 's>,
+    roots: bevy_ecs::system::Query<
+        'w,
+        's,
+        (
+            &'static ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
+            &'static LiveRoomDefinition,
+        ),
+        bevy_ecs::query::With<ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot>,
+    >,
+}
+
+impl LiveRoomSpecs<'_, '_> {
+    /// Which definition the live room `entity` is in instantiates. `None`
+    /// when its live room cannot be told or has no definition seated.
+    pub fn definition_of(&self, entity: bevy_ecs::entity::Entity) -> Option<LiveRoomDefinition> {
+        let room = self.live.of(entity)?;
+        self.roots
+            .iter()
+            .find(|(live, _)| **live == room)
+            .map(|(_, definition)| *definition)
+    }
+
+    /// The session's room set.
+    pub fn rooms(&self) -> &RoomSet {
+        &self.rooms
+    }
+}
+
 /// The sole live room's definition, at an exclusive-world boundary. `None`
 /// with no live session, no live room, or two live rooms. The same debt as
 /// [`SoleLiveRoomSpec`].

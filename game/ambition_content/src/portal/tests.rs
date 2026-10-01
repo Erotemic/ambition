@@ -1103,6 +1103,59 @@ fn blue_portals(app: &mut App) -> Vec<PlacedPortal> {
         .collect()
 }
 
+/// OW1: a placement replaces the portal of its channel in its OWN live room
+/// only. #0 holds a blue; a blue shot in #1 lands on #1's wall. Both blues
+/// stand after the tick: #0's is the same entity, and the new one is in #1.
+/// Before, the shot closed the blue of every room, so a player in one room
+/// shut the door of a player in the other.
+#[test]
+fn a_shot_replaces_the_portal_of_its_channel_in_its_own_room_only() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
+    let mut app = App::new();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
+    app.add_message::<ambition_portal2d::PortalShotFired>();
+    app.add_message::<ambition_portal2d::PortalFireIntent>();
+    app.insert_resource(ambition_time::WorldTime {
+        raw_dt: 1.0 / 60.0,
+        scaled_dt: 1.0 / 60.0,
+    });
+    app.add_systems(
+        Update,
+        (portal_fire_system, crate::portal::portal_projectile_step).chain(),
+    );
+    let live = [LiveRoomInstance::ACTIVATION, LiveRoomInstance::ACTIVATION.next()];
+    for room in live {
+        app.world_mut().spawn((RoomInstanceRoot, room, world_with_two_walls()));
+    }
+    let kept = app
+        .world_mut()
+        .spawn((
+            PlacedPortal::fixed(BLUE, Vec2::new(382.0, 200.0), Vec2::new(-1.0, 0.0), portal_half_extent(Vec2::new(1.0, 0.0))),
+            InRoomInstance(live[0]),
+        ))
+        .id();
+    // 25px from the left wall: the shot lands on this tick.
+    app.world_mut().write_message(ambition_portal2d::PortalFireIntent {
+        origin: Vec2::new(45.0, 200.0),
+        dir: Vec2::new(-1.0, 0.0),
+        channel: BLUE,
+        id: None,
+        room: Some(live[1]),
+    });
+    app.update();
+    let mut blues: Vec<(Entity, Option<LiveRoomInstance>)> = app
+        .world_mut()
+        .query::<(Entity, &PlacedPortal, Option<&InRoomInstance>)>()
+        .iter(app.world())
+        .filter(|(_, portal, _)| portal.channel == BLUE)
+        .map(|(entity, _, room)| (entity, room.map(|room| room.0)))
+        .collect();
+    blues.sort_by_key(|(_, room)| *room);
+    assert_eq!(blues.len(), 2, "(entity, room) of each blue: the shot in #1 did not leave #0's blue: {blues:?}");
+    assert_eq!(blues[0], (kept, Some(live[0])), "#0's blue is not the same portal");
+    assert_eq!(blues[1].1, Some(live[1]), "the new blue is not in #1");
+}
+
 /// ⛔⛔ TWO BLUE SHOTS LANDING ON ONE TICK LEFT TWO BLUE PORTALS. The adapter
 /// applied each shot against the same PRE-SYSTEM `portals` query while its
 /// despawn/spawn sat in a deferred command buffer, so neither could see what the
@@ -1679,6 +1732,55 @@ fn a_portal_on_a_moving_platform_rides_its_host_face() {
     );
 }
 
+/// OW1: a portal finds its host face in its OWN live room. A moving platform
+/// is in #1 only; a portal stamped #1 on its top attaches to it, and a portal
+/// stamped #0 at the same place finds no face and is `Static`. Before, the
+/// adapter read the sole live room, so while two rooms were live it did not
+/// look at all, and both portals stayed unattributed.
+#[test]
+fn a_portal_finds_its_host_face_in_its_own_live_room() {
+    use crate::portal::host_adapter::attach_portal_hosts;
+    use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
+    use ambition_platformer2d_world::collision::MovingPlatformSet;
+    use ambition_platformer2d_world::platforms::MovingPlatformState;
+
+    let mut app = App::new();
+    let platform = MovingPlatformState::from_authored(
+        Vec2::new(400.0, 500.0),
+        Vec2::new(120.0, 20.0),
+        400.0,
+        120.0,
+    );
+    let top = platform.pos.y - platform.size.y * 0.5;
+    let x = platform.pos.x;
+    let live = [LiveRoomInstance::ACTIVATION, LiveRoomInstance::ACTIVATION.next()];
+    for room in live {
+        let geometry = RoomGeometry(ae::World::new("ow1", Vec2::new(2000.0, 1000.0), Vec2::ZERO, vec![]));
+        let mut root = app.world_mut().spawn((RoomInstanceRoot, room, geometry));
+        if room == live[1] {
+            root.insert(MovingPlatformSet(vec![platform.clone()]));
+        }
+    }
+    app.add_systems(Update, attach_portal_hosts);
+    let portal = |room| {
+        (
+            PlacedPortal::fixed(
+                YELLOW,
+                Vec2::new(x, top - 2.0),
+                Vec2::new(0.0, -1.0),
+                portal_half_extent(Vec2::new(0.0, -1.0)),
+            ),
+            InRoomInstance(room),
+        )
+    };
+    let on_platform = app.world_mut().spawn(portal(live[1])).id();
+    let elsewhere = app.world_mut().spawn(portal(live[0])).id();
+    app.update();
+    let host = |portal| app.world().get::<PlacedPortal>(portal).unwrap().host.clone();
+    assert!(host(on_platform).face().is_some(), "the portal in #1 did not attach to #1's platform: {:?}", host(on_platform));
+    assert_eq!(host(elsewhere), PortalHost::Static, "the portal in #0 is not static");
+}
+
 /// A portal is looked at once. The answer is part of the portal, so a
 /// `Static` portal is not attached later, even on a face that could host it.
 /// A later scan would see moving platforms in other places than the confirmed
@@ -1732,14 +1834,13 @@ fn a_portal_the_adapter_has_decided_is_not_scanned_again() {
     );
 }
 
-/// Two live room roots, each with its own overlay, a carve published this
-/// frame, and a portal pair whose rooms are `rooms`. The carves each overlay
-/// holds after [`crate::portal::bridge_portal_carves`] runs, by room.
-fn carves_by_room(rooms: [usize; 2]) -> [usize; 2] {
+/// Two live room roots, each with its own overlay, and the carves published
+/// this frame, one for each entry of `holes`: the index of the live room it
+/// was cut in, or `None` for no live room. The carves each overlay holds
+/// after [`crate::portal::bridge_portal_carves`] runs, by room.
+fn carves_by_room(holes: &[Option<usize>]) -> [usize; 2] {
     use ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay;
-    use ambition_platformer2d_shared_tangle::lifecycle::{
-        InRoomInstance, LiveRoomInstance, RoomInstanceRoot,
-    };
+    use ambition_platformer2d_shared_tangle::lifecycle::{LiveRoomInstance, RoomInstanceRoot};
     let mut app = App::new();
     let live = [LiveRoomInstance::ACTIVATION, LiveRoomInstance::ACTIVATION.next()];
     let roots = live.map(|room| {
@@ -1747,19 +1848,16 @@ fn carves_by_room(rooms: [usize; 2]) -> [usize; 2] {
             .spawn((RoomInstanceRoot, room, FeatureEcsWorldOverlay::default()))
             .id()
     });
-    for (channel, room) in [BLUE, ORANGE].into_iter().zip(rooms) {
-        app.world_mut().spawn((
-            PlacedPortal::fixed(
-                channel,
-                Vec2::new(200.0, 380.0),
-                Vec2::new(0.0, -1.0),
-                portal_half_extent(Vec2::new(0.0, -1.0)),
-            ),
-            InRoomInstance(live[room]),
-        ));
-    }
     app.insert_resource(PortalCarves {
-        holes: vec![ae::Aabb::new(Vec2::new(200.0, 390.0), Vec2::new(24.0, 10.0))],
+        holes: holes
+            .iter()
+            .map(|room| {
+                (
+                    room.map(|room| live[room]),
+                    ae::Aabb::new(Vec2::new(200.0, 390.0), Vec2::new(24.0, 10.0)),
+                )
+            })
+            .collect(),
     });
     app.add_systems(Update, crate::portal::bridge_portal_carves);
     app.update();
@@ -1772,14 +1870,15 @@ fn carves_by_room(rooms: [usize; 2]) -> [usize; 2] {
     })
 }
 
-/// OW1 cut 7l: with two live rooms, a carve goes to the overlay of the room
-/// the portals are in, and the other room stays sealed. When the bridge wrote
-/// the sole live room's overlay, no room was carved while two were live.
-/// A pair split across the two rooms carves neither: a carve does not name
-/// its portal, and a transit between rooms is not a crossing.
+/// OW1 cut 7l: with two live rooms, each carve goes to the overlay of the
+/// room it was cut in, and a room with no carve stays sealed. When the bridge
+/// wrote the sole live room's overlay, no room was carved while two were
+/// live; when it wrote the one room all portals were in, a pair in each room
+/// carved neither.
 #[test]
-fn a_carve_goes_to_the_live_room_its_portals_are_in() {
-    assert_eq!(carves_by_room([1, 1]), [0, 1], "a pair in #1 carves #1 only");
-    assert_eq!(carves_by_room([0, 0]), [1, 0], "a pair in #0 carves #0 only");
-    assert_eq!(carves_by_room([0, 1]), [0, 0], "a split pair carves neither room");
+fn each_carve_goes_to_the_live_room_it_was_cut_in() {
+    assert_eq!(carves_by_room(&[Some(1)]), [0, 1], "a carve in #1 goes to #1 only");
+    assert_eq!(carves_by_room(&[Some(0)]), [1, 0], "a carve in #0 goes to #0 only");
+    assert_eq!(carves_by_room(&[Some(0), Some(1), Some(1)]), [1, 2], "each room keeps its own carves");
+    assert_eq!(carves_by_room(&[None]), [0, 0], "a carve in no live room is not written");
 }

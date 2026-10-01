@@ -927,7 +927,9 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// records live in `extension.body_records`.
 /// ⛔⛤ 281 -> 282: `content.seismic_stomp_state` is gone: the seismic stomp is
 /// an extension module, its strike latch a record in `extension.body_records`.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 282;
+/// ⛔⛤ 283 -> 284: `derived.portal_host_depths` is `PortalHostDepthsByRoom`:
+/// the host depth of each portal is filed under its live room (OW1).
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 284;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

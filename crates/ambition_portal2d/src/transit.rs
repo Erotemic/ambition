@@ -15,9 +15,8 @@ use ambition_platformer2d_shared_tangle::transit::rotate_velocity_between_normal
 use super::color::PortalChannel;
 use super::placement::{transit_step_with_tuning, SweptSample, TransitStep, TRANSIT_BEGIN_MARGIN};
 use super::tuning::PortalTuning;
-use super::types::{
-    find_portal, portal_exit_clearance, PlacedPortal, PortalHostDepths, PortalTransitCooldown,
-};
+use super::rooms::{PortalHostDepthsByRoom, PortalRoom, PortalsByRoom};
+use super::types::{find_portal, portal_exit_clearance, PlacedPortal, PortalTransitCooldown};
 
 /// A body's position just moved to a portal exit (the centroid crossed).
 /// Carries the entity so a consumer can filter to one body (e.g. the locally
@@ -42,13 +41,14 @@ pub struct PortalTransit {
 }
 
 /// Output of [`publish_portal_carves`]: the aperture rectangles to carve out of
-/// the host surface this frame, in publish order. A host bridge copies them into
-/// the host collision overlay in the same frame and order. Portal core owns the
-/// geometry; the host owns how a carve changes its collision.
+/// the host surface this frame, in publish order, each with the live room of
+/// its portal. A host bridge copies each into that room's collision overlay in
+/// the same frame and order. Portal core owns the geometry; the host owns how
+/// a carve changes its collision.
 #[derive(Resource, Clone, Debug, Default)]
 pub struct PortalCarves {
-    /// Aperture rectangles to carve this frame, in publish order.
-    pub holes: Vec<ae::Aabb>,
+    /// Aperture rectangles to carve this frame, in publish order, by room.
+    pub holes: Vec<(PortalRoom, ae::Aabb)>,
 }
 
 /// Publish apertures that must be carved from host collision this frame.
@@ -56,44 +56,50 @@ pub struct PortalCarves {
 /// A paired portal is carved while a body overlaps the opening,
 /// approaches it inward, or is mid-transit. Approach uses a fixed geometric
 /// reach, independent of dt. The host bridge applies the `PortalCarves`.
+///
+/// ⭐ BY LIVE ROOM (OW1): a pair is two portals of one room, a body asks only
+/// for the portals of its own room, and each hole names its room. Before, a
+/// blue in one room paired with an orange in another, and a body in one room
+/// opened a portal of the other room that stood at the same coordinates.
 pub fn publish_portal_carves(
-    portals: Query<&PlacedPortal>,
-    bodies: Query<&BodyKinematics>,
-    transits: Query<&PortalTransit>,
-    host_depths: Option<Res<PortalHostDepths>>,
+    portals: Query<(Entity, &PlacedPortal)>,
+    bodies: Query<(Entity, &BodyKinematics)>,
+    transits: Query<(Entity, &PortalTransit)>,
+    live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
+    host_depths: Option<Res<PortalHostDepthsByRoom>>,
     mut carves: ResMut<PortalCarves>,
 ) {
     use super::placement::{approach_box, capture_box, portal_fits};
 
     carves.holes.clear();
-    // Sort here: downstream loops take the first match, and `Query` order is
-    // archetype order, which a rollback resimulation may not reproduce.
-    let mut all: Vec<PlacedPortal> = portals.iter().cloned().collect();
-    all.sort_by(crate::stable_portal_order);
-    if all.is_empty() {
+    let by_room = PortalsByRoom::collect(&portals, &live);
+    if by_room.is_empty() {
         return;
     }
-    // Carve each channel once, and only if its partner is placed: a lone
-    // portal must not open a hole.
-    let mut carved: Vec<PortalChannel> = Vec::new();
-    let mut carve = |channel: PortalChannel, holes: &mut Vec<ae::Aabb>| {
-        if carved.contains(&channel) {
+    // Carve each channel of each room once, and only if its partner is placed
+    // in that room: a lone portal must not open a hole.
+    let mut carved: Vec<(PortalRoom, PortalChannel)> = Vec::new();
+    let mut carve = |room: PortalRoom, channel: PortalChannel, holes: &mut Vec<(PortalRoom, ae::Aabb)>| {
+        if carved.contains(&(room, channel)) {
             return;
         }
-        let Some(enter) = find_portal(&all, channel) else {
+        let all = by_room.in_room(room);
+        let Some(enter) = find_portal(all, channel) else {
             return;
         };
-        if find_portal(&all, channel.partner()).is_none() {
+        if find_portal(all, channel.partner()).is_none() {
             return;
         }
-        holes.push(pp::carve_hole(&enter.aperture()));
-        carved.push(channel);
+        holes.push((room, pp::carve_hole(&enter.aperture())));
+        carved.push((room, channel));
     };
 
-    let depths = host_depths.as_deref();
-    for kin in &bodies {
+    let default_depths = PortalHostDepthsByRoom::default();
+    let depths = host_depths.as_deref().unwrap_or(&default_depths);
+    for (body_entity, kin) in &bodies {
+        let room = live.of(body_entity);
         let body = ae::Aabb::new(kin.pos, kin.size * 0.5);
-        for p in &all {
+        for p in by_room.in_room(room) {
             if !portal_fits(kin.size, p) {
                 continue;
             }
@@ -107,19 +113,17 @@ pub fn publish_portal_carves(
                     || (kin.vel.dot(p.normal) < 0.0 && body.strict_intersects(approach_box(p))));
             // Fast crossing that skipped Begin: keep the hole open while the
             // body is inside the carve volume, bounded by the host depth.
-            let hole = pp::carve_hole_with_depth(
-                &ap,
-                depths.map_or(f32::INFINITY, |d| d.depth(p.channel)),
-            );
+            let hole = pp::carve_hole_with_depth(&ap, depths.in_room(room).depth(p.channel));
             let falling_through = kin.vel.dot(p.normal) < 0.0 && body.strict_intersects(hole);
             if frontal || falling_through {
-                carve(p.channel, &mut carves.holes);
+                carve(room, p.channel, &mut carves.holes);
             }
         }
     }
-    // Latch: keep a straddled portal open through the centroid crossing.
-    for t in &transits {
-        carve(t.straddling, &mut carves.holes);
+    // Latch: keep a straddled portal open through the centroid crossing, in
+    // the straddling body's room.
+    for (body_entity, t) in &transits {
+        carve(live.of(body_entity), t.straddling, &mut carves.holes);
     }
 }
 
@@ -175,9 +179,14 @@ pub struct PortalBodyTransited {
 ///
 /// Transit does not need the [`PortalGun`](super::gun::PortalGun). The
 /// anti-ping-pong cooldown is on the body ([`PortalTransitCooldown`]).
+///
+/// ⭐ A body transits only through a pair of its own live room (OW1), so a
+/// body in one room does not cross a portal of another room at the same
+/// coordinates, and a blue and an orange in two rooms are not a pair.
 pub fn portal_transit(
     mut commands: Commands,
-    portals: Query<&PlacedPortal>,
+    portals: Query<(Entity, &PlacedPortal)>,
+    live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
     mut bodies: Query<
         (
             Entity,
@@ -194,21 +203,22 @@ pub fn portal_transit(
     // One param also keeps this system under Bevy's 16-param limit.
     gravity: ambition_platformer2d_shared_tangle::gravity::GravityCtx,
     tuning: Res<PortalTuning>,
-    host_depths: Option<Res<PortalHostDepths>>,
+    host_depths: Option<Res<PortalHostDepthsByRoom>>,
     mut entered: MessageWriter<super::messages::PortalBodyEntered>,
     mut transited: MessageWriter<PortalBodyTransited>,
     // Optional: a minimal test app may not have it. Diagnostic only.
     mut class_b: Option<ResMut<ClassBRemapLog>>,
 ) {
-    // Sort here: downstream loops take the first match, and `Query` order is
-    // archetype order, which a rollback resimulation may not reproduce.
-    let mut all: Vec<PlacedPortal> = portals.iter().cloned().collect();
-    all.sort_by(crate::stable_portal_order);
-    if all.is_empty() {
+    let by_room = PortalsByRoom::collect(&portals, &live);
+    if by_room.is_empty() {
         return;
     }
+    let default_depths = PortalHostDepthsByRoom::default();
+    let depths = host_depths.as_deref().unwrap_or(&default_depths);
 
     for (entity, mut kin, mut transit, mut roll, cooldown, sweep) in &mut bodies {
+        let room = live.of(entity);
+        let all = by_room.in_room(room);
         // Per body, not once for all: `placement::wall_to_wall` classifies each
         // aperture as wall or floor/ceiling relative to this body's down.
         let gravity_dir = gravity.dir_for(ambition_platformer2d_core::Aabb::new(
@@ -218,7 +228,6 @@ pub fn portal_transit(
         // Body latch (`PortalTransitCooldown`), ticked by
         // `tick_portal_cooldowns`, scoped to the pair just crossed.
         let cooldown_pair = cooldown.map(|c| c.pair);
-        let default_depths = PortalHostDepths::default();
         // The swept segment comes from the movement kernel's `SweepSample`. It
         // is used only when its `curr` equals the live `kin.pos`, so teleports
         // outside the sim phase are not swept travel.
@@ -230,9 +239,9 @@ pub fn portal_transit(
             sweep,
             transit.as_deref().copied(),
             cooldown_pair,
-            &all,
+            all,
             gravity_dir,
-            host_depths.as_deref().unwrap_or(&default_depths),
+            depths.in_room(room),
             &tuning,
         );
         match step {
@@ -370,27 +379,27 @@ pub trait FreePortalBody: Component<Mutability = bevy::ecs::component::Mutable> 
 /// A composition that has both portals and the body type registers
 /// `portal_teleport_free_bodies::<B>` in [`crate::PortalSet::Transit`].
 pub fn portal_teleport_free_bodies<B: FreePortalBody>(
-    portals: Query<&PlacedPortal>,
-    mut bodies: Query<&mut B>,
+    portals: Query<(Entity, &PlacedPortal)>,
+    mut bodies: Query<(Entity, &mut B)>,
+    // A free body crosses only a pair of its own live room (OW1).
+    live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
     // The session's map convention, from the resource that owns it.
     tuning: Res<crate::tuning::PortalTuning>,
 ) {
     let convention = tuning.convention.map_convention();
-    // Sort here: downstream loops take the first match, and `Query` order is
-    // archetype order, which a rollback resimulation may not reproduce.
-    let mut all: Vec<PlacedPortal> = portals.iter().cloned().collect();
-    all.sort_by(crate::stable_portal_order);
-    if all.is_empty() {
+    let by_room = PortalsByRoom::collect(&portals, &live);
+    if by_room.is_empty() {
         return;
     }
-    for mut body in &mut bodies {
+    for (entity, mut body) in &mut bodies {
         let (pos, vel, half_extent) = (body.pos(), body.vel(), body.half_extent());
         if vel == Vec2::ZERO {
             continue;
         }
+        let all = by_room.in_room(live.of(entity));
         let body_aabb = ae::Aabb::new(pos, half_extent);
-        for enter in &all {
-            let Some(exit) = find_portal(&all, enter.channel.partner()) else {
+        for enter in all {
+            let Some(exit) = find_portal(all, enter.channel.partner()) else {
                 continue;
             };
             if vel.dot(enter.normal) < 0.0

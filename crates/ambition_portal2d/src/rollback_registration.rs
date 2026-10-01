@@ -52,7 +52,7 @@ where
         "derived.portal_carves",
         "rebuilt from placed portals and transit occupancy each frame",
     );
-    registrar.declare_rollback_derived_resource::<crate::PortalHostDepths>(
+    registrar.declare_rollback_derived_resource::<crate::PortalHostDepthsByRoom>(
         OWNER,
         "derived.portal_host_depths",
         "republished from the authoritative collision world each frame",

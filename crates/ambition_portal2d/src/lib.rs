@@ -28,6 +28,7 @@ mod messages;
 pub mod pieces;
 mod placement;
 mod plugin;
+mod rooms;
 mod schedule;
 mod transit;
 mod tuning;
@@ -84,6 +85,7 @@ pub use view::{
 };
 
 pub use plugin::{PortalGunPlugin, PortalPlugin, PortalSimulationPlugin};
+pub use rooms::{PortalHostDepthsByRoom, PortalRoom, PortalsByRoom};
 pub use schedule::PortalSet;
 
 // Domain-owned rollback declaration; the host supplies the backend registrar.

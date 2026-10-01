@@ -61,19 +61,30 @@ pub struct PortalLinkResolution;
 /// Resolve [`PortalLink`] groups into channel pairs. Valid (exactly-two) groups
 /// get partner-able `Indexed` channels distinguished by position; every other
 /// group is closed (slot-0 channel with no partner).
-pub fn resolve_portal_links(mut portals: Query<(&PortalLink, &mut PlacedPortal)>) {
+///
+/// ⭐ A GROUP IS A LINK IN ONE LIVE ROOM (OW1). Two live rooms that author
+/// one link id (two instances of a room, or two rooms that reuse an id) are
+/// two groups. Keyed by the link alone, they were one group of four, and a
+/// group that is not two is closed: every portal of the link stopped working.
+pub fn resolve_portal_links(
+    mut portals: Query<(Entity, &PortalLink, &mut PlacedPortal)>,
+    live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
+) {
     // Pass 1: collect each link group's member positions.
-    let mut groups: HashMap<u64, Vec<Vec2>> = HashMap::default();
-    for (link, p) in portals.iter() {
-        groups.entry(link.0).or_default().push(p.pos);
+    let mut groups: HashMap<(crate::PortalRoom, u64), Vec<Vec2>> = HashMap::default();
+    for (entity, link, p) in portals.iter() {
+        groups.entry((live.of(entity), link.0)).or_default().push(p.pos);
     }
     if groups.is_empty() {
         return;
     }
     // Deterministic group index from the sorted hashes; member order from the
     // sorted positions (so each end's slot is stable).
-    let mut hashes: Vec<u64> = groups.keys().copied().collect();
+    // The index is the link's, not the group's: two rooms' groups of one link
+    // share a channel pair, which is safe because a pair is one room's.
+    let mut hashes: Vec<u64> = groups.keys().map(|(_, hash)| *hash).collect();
     hashes.sort_unstable();
+    hashes.dedup();
     let group_index: HashMap<u64, usize> =
         hashes.iter().enumerate().map(|(i, h)| (*h, i)).collect();
     for members in groups.values_mut() {
@@ -83,9 +94,9 @@ pub fn resolve_portal_links(mut portals: Query<(&PortalLink, &mut PlacedPortal)>
     // Pass 2: assign each link portal its channel. Group indices out of range
     // are refused (dead channel), not clamped: a clamp would link two
     // unrelated groups.
-    for (link, mut p) in portals.iter_mut() {
+    for (entity, link, mut p) in portals.iter_mut() {
         let gi = group_index[&link.0];
-        let members = &groups[&link.0];
+        let members = &groups[&(live.of(entity), link.0)];
         let channel = if gi > MAX_LINK_GROUPS {
             PortalChannel::Authored(PortalChannelColor::Indexed(DEAD_LINK_CHANNEL))
         } else {
@@ -116,13 +127,20 @@ pub fn resolve_portal_links(mut portals: Query<(&PortalLink, &mut PlacedPortal)>
 /// Shrink every linked pair's opening to the smaller of the two authored
 /// lengths, centered. The transit map does not change. Runs after
 /// [`resolve_portal_links`].
-pub fn equalize_pair_apertures(mut portals: Query<&mut PlacedPortal>) {
-    // Choose the partner with `find_portal`, the same rule transit uses, so
-    // the doorway is sized for the portal the body arrives at.
-    let snapshot: Vec<PlacedPortal> = portals.iter().cloned().collect();
-    for mut p in portals.iter_mut() {
+pub fn equalize_pair_apertures(
+    mut portals: Query<(Entity, &mut PlacedPortal)>,
+    live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
+) {
+    // Choose the partner with `find_portal` among the portals of the same
+    // live room, the same rule transit uses, so the doorway is sized for the
+    // portal the body arrives at.
+    let by_room = crate::PortalsByRoom::collect(
+        portals.iter().map(|(entity, portal)| (entity, portal)),
+        &live,
+    );
+    for (entity, mut p) in portals.iter_mut() {
         let partner = p.channel.partner();
-        let Some(partner_portal) = crate::find_portal(&snapshot, partner) else {
+        let Some(partner_portal) = crate::find_portal(by_room.in_room(live.of(entity)), partner) else {
             continue; // no partner placed — leave the authored opening as-is
         };
         let self_open = portal_opening_half(p.normal, p.half_extent);

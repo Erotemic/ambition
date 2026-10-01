@@ -1140,23 +1140,43 @@ sole live room's overlay, so no wall was carved. A `PortalFireIntent` now
 names the room it is fired in (the firer's, by `LiveRooms::of`). The shot
 and the portal it opens carry that room as their `InRoomInstance`. Each
 shot steps against its own room's solids, and each portal's depth is
-measured in its own room. The carves go to the overlay of the one room that
-every placed portal is in, and every other live room is re-sealed.
-Witnesses: `a_portal_shot_opens_its_portal_in_the_live_room_it_was_fired_in`
-(Bob in `switch_lab`, #0; Alice in the hub, #1, fires down: the portal is in
-#1 and has a finite depth; with the sole-room read restored in the shot
-step, no portal opened in 60 ticks; restored in the depth measure, the
-depth was `None`) and `a_carve_goes_to_the_live_room_its_portals_are_in`
-(two overlays: a pair in #1 carves #1 only, a pair in #0 carves #0 only, a
-split pair carves neither; with the sole overlay restored, nothing was
-carved). ⚠ Not changed: portal core pairs, carves and transits with no room
-filter, and a placement replaces its channel's portal in every room. So a
-gun's pair can be split across two rooms: Alice places blue in #0, crosses,
-and places orange in #1. The bridge then carves no room, so no body can
-transit between rooms. And a body in one room can still meet a portal of
-the other room at the same coordinates: portal core's carve and transit read
-every body. A pair kept in one room, and a portal only its own room's bodies
-meet, need a room-aware portal core.
+measured in its own room. Witness:
+`a_portal_shot_opens_its_portal_in_the_live_room_it_was_fired_in` (Bob in
+`switch_lab`, #0; Alice in the hub, #1, fires down: the portal is in #1 and
+has a finite depth; with the sole-room read restored in the shot step, no
+portal opened in 60 ticks; restored in the depth measure, the depth was
+`None`).
+
+✅ **Cut 7l, second part, landed 2026-10-01: a portal pair is two portals of
+one live room.** Portal core paired, carved and transited with no room
+filter. A blue in one room paired with an orange in the other room, and a
+body in one room crossed a portal of the other room at the same coordinates.
+A shot closed the portal of its channel in every room. Now portal core groups
+the placed portals by live room (`PortalsByRoom`, by `LiveRooms::of`):
+transit, the free-body teleport, the carve, the straddle eviction, link
+groups and the aperture equalize see only the portals of their subject's
+room. Each carve names its room (`PortalCarves::holes`), and the bridge
+writes it to that room's overlay. Host depths are filed by room
+(`PortalHostDepthsByRoom`, schema 283 -> 284). A shot replaces its channel
+only in its own room. A projectile threads only the portals of its own
+room. A portal finds and follows its host face in its own room
+(`CollisionWorld::room`): with two live rooms, the sole-room read did not
+attach or carry any portal. Witnesses, each poisoned with the room-blind
+form restored (the failure is in brackets): in `ambition_portal2d`
+`rooms::tests`: `a_body_crosses_only_a_pair_of_its_own_live_room` (the body
+in #0 came out at x=380), `a_blue_and_an_orange_in_two_rooms_are_not_a_pair`
+(x=380), `a_carve_is_cut_only_for_a_body_of_the_pairs_room` (a hole for #1),
+`a_closing_portal_evicts_only_the_bodies_of_its_room` (the body in #0 moved
+from y=290 to y=279), `one_link_in_two_rooms_is_a_pair_in_each` (all four
+ends closed). In content: `a_shot_replaces_the_portal_of_its_channel_in_its_own_room_only`
+(one blue remained), `each_carve_goes_to_the_live_room_it_was_cut_in` ([3, 0]
+for [1, 2]), `a_portal_finds_its_host_face_in_its_own_live_room`
+(`Unattributed`). In the monolith:
+`a_shot_threads_only_the_portals_of_its_own_live_room` (the shot in #0 came
+out at x=1217). ⚠ A transit between two rooms is not a crossing: a pair split
+by a player who crosses rooms is two lone portals. ⚠ Not changed (P5
+presentation): the portal visuals, view cones, far-side panes and the host
+camera continuity still read every placed portal.
 
 ✅ **Cut 7m, first part, landed 2026-09-30: an NPC barks at the cadence of
 its own live room.** The ambient bark ticker read the sole live room's spec

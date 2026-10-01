@@ -6427,10 +6427,12 @@ mod ring_out {
         );
         // One tick for `project_combat_rules` to re-fold the declaration.
         app.update();
-        let live = app
-            .world()
-            .resource::<ambition_platformer2d::combat::rules::ResolvedCombatTuning>()
-            .victim_percent_knockback_scale;
+        let live = ambition_platformer2d::platformer::lifecycle::sole_live_room_component::<
+            ambition_platformer2d::combat::rules::RoomCombatTuning,
+        >(app.world())
+        .expect("the live room's combat rules are projected onto it")
+        .0
+        .victim_percent_knockback_scale;
         assert!(
             (live - scale).abs() < 1e-6,
             "the percent-scale override did not reach the resolved rules: asked \
@@ -6854,10 +6856,12 @@ mod ring_out {
         // "keep raising it". A verification that happens before the thing it
         // protects is not a verification.
         if let Some(scale) = cell.scale {
-            let live = app
-                .world()
-                .resource::<ambition_platformer2d::combat::rules::ResolvedCombatTuning>()
-                .victim_percent_knockback_scale;
+            let live = ambition_platformer2d::platformer::lifecycle::sole_live_room_component::<
+                ambition_platformer2d::combat::rules::RoomCombatTuning,
+            >(app.world())
+            .expect("the live room's combat rules are projected onto it")
+            .0
+            .victim_percent_knockback_scale;
             assert!(
                 (live - scale).abs() < 1e-6,
                 "the percent scale was {scale} when declared and is {live} at the \

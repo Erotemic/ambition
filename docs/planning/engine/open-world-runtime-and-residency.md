@@ -810,8 +810,9 @@ again made both fail: Bob's room was replaced, and a second live room of
   not restore, once two rooms are live, reads as a checksum mismatch). A
   sync test has one peer, so it does not say what the rebase at the
   crossing costs a remote Bob's rollback window; that needs a two-peer
-  session. Not measured: what `GoverningRules` and the mode scope answer
-  for the room Bob is in.
+  session. ✅ Measured since (the review of the per-game heavy-hit rule,
+  below): `GoverningRules` read THE live room, so with two rooms live it
+  answered the rules of no room, in both rooms.
 
 ✅ **Cut 7a landed 2026-09-30: the systems a second live room froze, first
 two.** `SoleLiveRoom<T>` and `SoleLiveRoomSpec` are `Single`s, so a system
@@ -823,14 +824,14 @@ systems it stops (read from the parameter lists, 2026-09-30):
 `update_boss_encounters` ✅ (7e; its scripted road in the review of 7e), `heal_save_shrine_system` ✅ (7d),
 `sync_encounter_reward_chests` ✅ (7d), `retire_rewards_for_rearmed_encounters` ✅ (7c),
 `record_placed_ground_items` ✅ (7d), `physics_spawn_debris_messages` and
-`tick_npc_idle_barks`, and the content bosses (`cut_rope` ✅ in the review of 7e, `gnu_ton` and the
+`tick_npc_idle_barks` ✅ (7m), and the content bosses (`cut_rope` ✅ in the review of 7e, `gnu_ton` and the
 flying spaghetti monster ✅ in cut 7j). ⚠ This list was not complete. A
 second reading at cut 7k (every non-render function that takes a sole-room
 parameter) also found `push_room_entered_quest_events` ✅ (7k),
 `auto_trigger_room_cutscenes`, the two boss specials
 `spawn_overflow_flood_from_special_messages` and
 `spawn_apple_rain_from_special_messages`, the portal gun's
-`portal_projectile_step` and `sync_portal_host_depths`, the falling-sand
+`portal_projectile_step` and `sync_portal_host_depths` ✅ (7l), the falling-sand
 room, and the demos' one-room systems (Mary-O, Sanic, Smash). The
 presentation readers in `ambition_render` are P5's (a view per player). The
 new reader is `LiveRoomOf<T>`: `T` of the live room an entity is in, by the
@@ -1057,6 +1058,87 @@ cutscene is one session-wide playback. Whether a cutscene that one player's
 room starts also stops the other player is a product question, not a
 keying one: multiplayer.md files it as "which story interactions pause
 only one participant versus the whole party".
+
+✅ **Review of the per-game heavy-hit rule, landed 2026-09-30: each live
+room plays under its own game's combat rules.** `project_combat_rules`
+resolved `CombatRules` and `StrikeWeightRules` through `GoverningRules`,
+which reads `CurrentRoom`, which is the one-live-room read. With Alice and
+Bob in two Ambition rooms it answered `NoRoom`, `UntaggedRooms` did not
+govern it, Ambition's heavy line (3) was gone, and every robot hit played
+the light cue. The projection now resolves the rules of each live room
+(`LiveRuleRooms::of`, from that room's mode tag) and puts them on the room's
+root as `RoomCombatTuning` (derived, schema 278 -> 279). The
+`ResolvedCombatTuning` resource is now the rules of no room. Every combat
+reader reads its subject's room through `CombatTuningOf::of`: the hit
+resolver and the projectile stepper read the strike's room, the clash
+arbiter each contender's, the body victim drain the hit's, the player
+drain the struck player's, the grab, the throw and the escape the captor's
+or captive's, and the pogo, the footstool, the clank rebound, the edge
+cancel, the special turn, the move trigger and the brain's launch law the
+body's. A stocks match reads the room its seated fighters share, and the
+rules of no room when they do not share one. Four pairwise reads had no
+room key and now have one: the grab, the clash, the ledge trump and the
+contact harm (a body in #0 could grab, clank with, trump or harm a body at
+the same place in #1). Witnesses:
+`a_heavy_robot_strike_stays_heavy_while_another_room_is_live` (control: the
+strike with one live room is heavy; with the one-room projection restored,
+the strike beside Bob's room was light),
+`two_live_rooms_of_two_games_hold_their_own_heavy_lines` (an Ambition room
+heavy at 3 and a Smash room heavy at 12 at once; restored, both had no
+line), `a_grab_does_not_reach_into_another_live_room`,
+`attacks_clash_only_in_their_own_live_room_under_its_rules`,
+`the_same_anchor_in_two_live_rooms_is_two_edges` and
+`it_does_not_harm_a_body_in_another_live_room` (each red with its room key
+removed). The strike is a written `HitEvent`; the swing that writes it is
+room-blind on weight. ⚠ A root seated during a tick has no
+`RoomCombatTuning` until the next `WorldPrep`, so for that part of a tick
+its bodies read the rules of no room (before, they read the previous
+room's rules for the same window). ⚠ Not witnessed reader by reader: the other
+`CombatTuningOf` readers are one call each and read the same component.
+⚠ Still the one-room read (`CurrentRoom`): the mode gates `in_mode`,
+`in_base_mode` and `in_rules_scope` (with two rooms live a gated system does
+not run; the shipped Ambition gates are menu and shell systems, and the
+hosted demos are one-room profiles), and the other `GoverningRules` readers:
+`death.rs`, `wallet_shield.rs`, `dormancy.rs`, `starting_character.rs`,
+`control_prompt.rs`, the Smash limit meter and the TwinTrack participants.
+
+✅ **Cut 7l landed 2026-09-30: the portal gun fires in its own live room.**
+The shot step and the host-depth measure read the sole live room's
+geometry, so while two rooms were live neither ran: a shot hung in the air,
+and the depths of the last one-room frame stayed. The carve bridge wrote the
+sole live room's overlay, so no wall was carved. A `PortalFireIntent` now
+names the room it is fired in (the firer's, by `LiveRooms::of`). The shot
+and the portal it opens carry that room as their `InRoomInstance`. Each
+shot steps against its own room's solids, and each portal's depth is
+measured in its own room. The carves go to the overlay of the one room that
+every placed portal is in, and every other live room is re-sealed.
+Witnesses: `a_portal_shot_opens_its_portal_in_the_live_room_it_was_fired_in`
+(Bob in `switch_lab`, #0; Alice in the hub, #1, fires down: the portal is in
+#1 and has a finite depth; with the sole-room read restored in the shot
+step, no portal opened in 60 ticks; restored in the depth measure, the
+depth was `None`) and `a_carve_goes_to_the_live_room_its_portals_are_in`
+(two overlays: a pair in #1 carves #1 only, a pair in #0 carves #0 only, a
+split pair carves neither; with the sole overlay restored, nothing was
+carved). ⚠ Not changed: portal core pairs, carves and transits with no room
+filter, and a placement replaces its channel's portal in every room. So a
+gun's pair can be split across two rooms: Alice places blue in #0, crosses,
+and places orange in #1. The bridge then carves no room, so no body can
+transit between rooms. And a body in one room can still meet a portal of
+the other room at the same coordinates: portal core's carve and transit read
+every body. A pair kept in one room, and a portal only its own room's bodies
+meet, need a room-aware portal core.
+
+✅ **Cut 7m, first part, landed 2026-09-30: an NPC barks at the cadence of
+its own live room.** The ambient bark ticker read the sole live room's spec
+to ask if the room is a gallery. While two rooms were live it had no spec,
+so it ran, but every NPC barked from its `Idle` pool at the idle cadence,
+the pedestals of the Hall of Characters too. Each NPC now reads the spec of
+its own live room (`LiveRoomSpecs`). Its bark clock is keyed by its live
+room and then its id, because two instances of one room hold the same ids.
+Witness: `a_gallery_pedestal_barks_at_its_own_rooms_cadence_beside_another_live_room`
+(Bob in the hub, #0; Alice in the hall, #1: no hall bark in the first 24 s,
+some by 60 s; with the sole-room rule restored, the hall barked 80 times in
+the first 24 s).
 
 ⚠ Still owed from cut 5: `outlook_for(room: &str)` is keyed by definition;
 the `SoleLiveRoomSpec` readers each need a subject before a second live room

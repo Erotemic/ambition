@@ -44,6 +44,10 @@ pub fn resolve_portal_fire_intent(
         Option<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
         Option<&mut ambition_platformer2d_shared_tangle::sim_id::SimIdCounter>,
     )>,
+    // The room the shot is fired in: the firer's, by the one rule every pair
+    // question reads (`LiveRooms::of`). With two live rooms, the shot steps
+    // against that room's solids.
+    live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
     mut intents: MessageWriter<PortalFireIntent>,
 ) {
     // Every gesture, each from its own body, so two seats each holding a gun
@@ -80,6 +84,7 @@ pub fn resolve_portal_fire_intent(
             dir: fire.aim,
             channel: gun.next_color.channel(),
             id,
+            room: live.of(fire.body),
         });
         // The gun answered the press, so the wearer's jab must not answer it too.
         actor_control.0.melee_pressed = false;

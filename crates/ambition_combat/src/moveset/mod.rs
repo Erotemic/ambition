@@ -2006,18 +2006,20 @@ pub fn advance_move_playback(
 /// running wherever the body is — see
 /// [`crate::rules::CombatRules::edge_cancel_recovery`].
 pub fn edge_cancel_landing_recovery(
-    rules: Option<bevy::prelude::Res<crate::rules::ResolvedCombatTuning>>,
+    // The rules of each body's own live room.
+    rules: crate::rules::CombatTuningOf,
     mut bodies: bevy::prelude::Query<(
+        bevy::prelude::Entity,
         &ambition_platformer2d_core::BodyGroundState,
         &mut ambition_characters::actor::BodyCombat,
     )>,
 ) {
-    // No resolved rules at all is a world outside a match, which declares
-    // nothing and changes nothing.
-    if !rules.is_some_and(|r| r.edge_cancel_recovery) {
-        return;
-    }
-    for (ground, mut combat) in &mut bodies {
+    for (body, ground, mut combat) in &mut bodies {
+        // No resolved rules at all is a world outside a match, which declares
+        // nothing and changes nothing.
+        if !rules.of(body).is_some_and(|r| r.edge_cancel_recovery) {
+            continue;
+        }
         if !ground.on_ground && combat.landing_lag_timer > 0.0 {
             combat.landing_lag_timer = 0.0;
         }
@@ -2913,7 +2915,8 @@ pub fn trigger_moveset_moves(
     // THE MATCH'S DECLARED RULES, for the special-start turn (B-reverse /
     // wavebounce). `Option` because a world outside a match declares none and
     // turns nobody around.
-    combat_rules: Option<bevy::prelude::Res<crate::rules::ResolvedCombatTuning>>,
+    // The rules of each body's own live room.
+    room_rules: crate::rules::CombatTuningOf,
     mut bodies: Query<(
         Entity,
         &ActorMoveset,
@@ -3060,6 +3063,7 @@ pub fn trigger_moveset_moves(
         (mut gesture_state, gesture_tuning, body_is_held, unmirrored),
     ) in &mut bodies
     {
+        let combat_rules = room_rules.of(entity);
         // The weapon this body would spend if the move it starts fires one.
         let refire_s = action_set
             .and_then(|set| set.ranged.as_ref())
@@ -3967,8 +3971,10 @@ fn arm_brain_swing_pacing(
 /// ⛔ ONCE. The window closes on the flick that spends it, so a stick waggled
 /// through a long special turns the fighter one time.
 pub fn apply_special_turn_flicks(
-    combat_rules: Option<bevy::prelude::Res<crate::rules::ResolvedCombatTuning>>,
+    // The rules of each body's own live room.
+    combat_rules: crate::rules::CombatTuningOf,
     mut bodies: bevy::prelude::Query<(
+        bevy::prelude::Entity,
         &mut AttackGestureState,
         &ActorControl,
         &AttackGestureTuning,
@@ -3976,10 +3982,10 @@ pub fn apply_special_turn_flicks(
         Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
     )>,
 ) {
-    let reverses_drift = combat_rules
-        .as_ref()
-        .is_some_and(|rules| rules.special_turn_reverses_drift);
-    for (mut gesture, control, tuning, mut kin, frame) in &mut bodies {
+    for (body, mut gesture, control, tuning, mut kin, frame) in &mut bodies {
+        let reverses_drift = combat_rules
+            .of(body)
+            .is_some_and(|rules| rules.special_turn_reverses_drift);
         let sign =
             ambition_characters::actor::attack_gesture::special_turn_stick_sign(control, tuning);
         let flicked = sign != 0.0 && sign != gesture.prev_lateral_sign;

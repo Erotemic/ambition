@@ -700,8 +700,9 @@ pub fn apply_hitbox_damage(
     // Friendly-fire policy (the DAMAGE side; targeting is `FactionRelations`).
     // Optional so minimal headless tests that don't stand up the plugin still run
     // (fall back to the default: friendly fire OFF — same-faction allies safe).
-    // AE6: resolved match rules, not the world's baseline toggle.
-    tuning: Option<Res<crate::rules::ResolvedCombatTuning>>,
+    // AE6: resolved match rules, not the world's baseline toggle, of the
+    // strike's own live room.
+    tuning: crate::rules::CombatTuningOf,
     // These components narrow hostile melee to complete combat bodies; victim-side resolution
     // owns their actual semantics.
     victims: Query<
@@ -736,16 +737,6 @@ pub fn apply_hitbox_damage(
     // A strike reaches only the bodies of its own live room (OW1 cut 4).
     rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
 ) {
-    // Both rule reads take the resource by reference: the growth term is read
-    // per victim below, and moving it here left that read with nothing.
-    let ruleset_growth = tuning
-        .as_deref()
-        .map(|t| t.knockback_growth)
-        .unwrap_or_default();
-    // RAGE is read here for the same reason growth is read per victim below:
-    // the resource is borrowed once and each rule takes what it needs.
-    let rules = tuning.as_deref().copied().unwrap_or_default();
-    let friendly_fire = tuning.map(|t| t.friendly_fire()).unwrap_or_default();
     // ⭐⭐ THE PULSE'S LEDGER, collected here and written to every sibling after
     // the sweep. `(striker, owner, victim)`.
     //
@@ -866,6 +857,12 @@ pub fn apply_hitbox_damage(
             let strike_room = rooms
                 .stamped(hitbox_entity)
                 .or_else(|| rooms.of(hitbox.owner));
+            // The rules of the strike's room: two live rooms can play under
+            // two games' rules.
+            let room_rules = tuning.in_room(strike_room);
+            let ruleset_growth = room_rules.map(|t| t.knockback_growth).unwrap_or_default();
+            let rules = room_rules.unwrap_or_default();
+            let friendly_fire = room_rules.map(|t| t.friendly_fire()).unwrap_or_default();
             let mut ordered: Vec<_> = victims.iter().collect();
             ordered.sort_by(|a, b| {
                 victim_identity_key(a.sim_id.map(|id| id.as_str()))

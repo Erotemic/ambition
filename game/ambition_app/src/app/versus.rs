@@ -919,9 +919,13 @@ mod stage_rule_tests {
         app
     }
 
+    /// The rules of the live room: what a body in it plays under.
     fn resolved(app: &App) -> ambition_platformer2d::combat::rules::ResolvedCombatTuning {
-        *app.world()
-            .resource::<ambition_platformer2d::combat::rules::ResolvedCombatTuning>()
+        ambition_platformer2d::platformer::lifecycle::sole_live_room_component::<
+            ambition_platformer2d::combat::rules::RoomCombatTuning,
+        >(app.world())
+        .expect("the live room's combat rules are projected onto it")
+        .0
     }
 
     fn enter_versus(app: &mut App) {

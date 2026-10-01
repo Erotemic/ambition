@@ -102,12 +102,11 @@ pub fn acquire_captures(
         &mut ae::BodyDodgeState,
         &ae::MotionModel,
     )>,
-    tuning: Option<Res<crate::rules::ResolvedCombatTuning>>,
+    // The rules of each captor's own live room.
+    tuning: crate::rules::CombatTuningOf,
 ) {
     //  the WHOLE resolved row, not just the friendly-fire flag: a hold's
     // deadline is a declared rule too, and it is decided at acquisition.
-    let rules = tuning.map(|t| *t).unwrap_or_default();
-    let friendly_fire = rules.friendly_fire();
     // ⛔⛔ RESOLVED FIRST, GRANTED SECOND, because `Commands` are DEFERRED and
     // the `captives` query below cannot see what this pass is about to insert.
     //
@@ -134,6 +133,11 @@ pub fn acquire_captures(
         let Ok(captor) = captors.get(attempt.captor) else {
             continue;
         };
+        // The captor's live room: its rules, and the only room it can reach
+        // into (OW1). Two live rooms share one local frame, so a body at the
+        // same place in another room is not in reach.
+        let captor_room = tuning.room_of(attempt.captor);
+        let friendly_fire = tuning.in_room(captor_room).unwrap_or_default().friendly_fire();
         if crate::util::body_is_untouchable(Some(captor.body.health), captor.body.out_of_play, captor.body.plane) {
             continue;
         }
@@ -170,7 +174,7 @@ pub fn acquire_captures(
         // Gather, then rank.  never "take the first overlap": see the doc.
         let mut candidates: Vec<(f32, &SimId, Entity)> = Vec::new();
         for victim in &victims {
-            if victim.entity == attempt.captor {
+            if victim.entity == attempt.captor || tuning.room_of(victim.entity) != captor_room {
                 continue;
             }
             if victim.is_corpse() || victim.is_intangible() {
@@ -337,6 +341,7 @@ pub fn acquire_captures(
         // at the moment it was caught. That is the genre's rule — a hold does
         // not grow because its captor pummelled — and it is why the seconds are
         // stored rather than asked for again every tick.
+        let rules = tuning.of(attempt.captor).unwrap_or_default();
         commands.entity(victim).insert(
             ambition_characters::smash_hold_state::SmashHoldState::lasting(
                 rules.grab_hold_seconds(
@@ -430,6 +435,7 @@ impl CaptureFacts {
 pub fn sample_capture_escape(
     mut captives: Query<
         (
+            Entity,
             &mut ambition_characters::smash_hold_state::SmashHoldState,
             &ambition_characters::control::ActorControl,
         ),
@@ -438,10 +444,11 @@ pub fn sample_capture_escape(
         // churning the checksum for a hold that ended.
         bevy::prelude::With<CapturedBy>,
     >,
-    tuning: Option<Res<crate::rules::ResolvedCombatTuning>>,
+    // The rules of each captive's own live room.
+    tuning: crate::rules::CombatTuningOf,
 ) {
-    let rules = tuning.map(|t| *t).unwrap_or_default();
-    for (mut held, control) in &mut captives {
+    for (captive, mut held, control) in &mut captives {
+        let rules = tuning.of(captive).unwrap_or_default();
         let frame = &control.0;
         // Any action press. Asking for one specific button would be a
         // control-scheme decision this has no reason to make, and a captive
@@ -2284,6 +2291,37 @@ mod tests {
             "a captor holding one body grabbed a second one"
         );
     }
+
+    /// A grab reaches only the captor's own live room (OW1). Two live rooms
+    /// share one local frame, so a body at the same place in the other room
+    /// is not in reach. Control: the same body in the captor's room is caught.
+    #[test]
+    fn a_grab_does_not_reach_into_another_live_room() {
+        use ambition_platformer2d_shared_tangle::lifecycle::{
+            InRoomInstance, LiveRoomInstance, RoomInstanceRoot,
+        };
+        let caught = |victim_room: LiveRoomInstance| {
+            let mut app = capture_app();
+            let first = LiveRoomInstance::ACTIVATION;
+            app.world_mut().spawn((RoomInstanceRoot, first));
+            app.world_mut().spawn((RoomInstanceRoot, first.next()));
+            let captor = grounded_body(&mut app, "captor", ae::Vec2::new(0.0, 0.0));
+            let victim = grounded_body(&mut app, "victim", ae::Vec2::new(16.0, 0.0));
+            app.world_mut().entity_mut(captor).insert(InRoomInstance(first));
+            app.world_mut()
+                .entity_mut(victim)
+                .insert((crate::components::ActorFaction::Player, InRoomInstance(victim_room)));
+            app.world_mut().write_message(attempt(captor));
+            app.update();
+            app.world().get::<CapturedBy>(victim).is_some()
+        };
+        let first = LiveRoomInstance::ACTIVATION;
+        assert_eq!(
+            (caught(first), caught(first.next())),
+            (true, false),
+            "(caught in the captor's room, caught in the other live room)"
+        );
+    }
 }
 
 /// A CAPTIVE IS POSED AT TWO POINTS IN A TICK, and they are two different
@@ -2694,8 +2732,9 @@ pub fn apply_capture_throws(
     // through the hitbox resolver, so a ruleset knob wired only into the
     // resolver would leave throws on the OLD curve — and "a throw at high percent is a kill move" is the one
     // sentence this system's own doc comment leads with. Optional because a
-    // composition without the rules projection still throws.
-    rules: Option<Res<crate::rules::ResolvedCombatTuning>>,
+    // composition without the rules projection still throws. The rules of the
+    // captor's own live room.
+    room_rules: crate::rules::CombatTuningOf,
 ) {
     let feel = feel.map(|f| *f).unwrap_or_default();
     // `1.0` is the law as first written, and also exactly what
@@ -2705,9 +2744,9 @@ pub fn apply_capture_throws(
     // needs `rage_per_damage` and `rage_max_scale` too, and projecting one
     // field out here is how the percent curve came to be wired into the
     // resolver and not into throws in the first place.
-    let rules = rules.map(|r| *r).unwrap_or_default();
-    let percent_scale = rules.victim_percent_knockback_scale;
     for request in requests.read() {
+        let rules = room_rules.of(request.captor).unwrap_or_default();
+        let percent_scale = rules.victim_percent_knockback_scale;
         let Some((
             victim,
             _,

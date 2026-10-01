@@ -1370,8 +1370,9 @@ pub fn apply_player_hit_events(
     // AE6: the rules THIS MATCH plays under, resolved from its declaration
     // folded over the world's baseline. Never `FriendlyFire` directly — a
     // reader that consults the baseline is how a stage's rules and the
-    // world's rules got to disagree.
-    combat_rules: Option<Res<ambition_combat::rules::ResolvedCombatTuning>>,
+    // world's rules got to disagree. The rules of each struck player's own
+    // live room (OW1).
+    room_rules: ambition_combat::rules::CombatTuningOf,
     attacker_factions: Query<&ambition_combat::components::ActorFaction>,
     mut player_q: Query<
         (
@@ -1424,39 +1425,17 @@ pub fn apply_player_hit_events(
     let primary = primary_q.single().ok();
     // Drain the staged victim-side hits — attacker-side hits flow to
     // `apply_feature_hit_events` off the message channel directly (same-frame).
-    let combat_rules = combat_rules.map(|r| *r).unwrap_or_default();
-    let friendly_fire = combat_rules.friendly_fire();
     let events: Vec<FeatureHitEvent> = std::mem::take(&mut pending_hits.0)
         .into_iter()
         // ⭐ THE ENTITIES ARE STILL THE ROUTING ANSWER. The stable ids beside
         // them on the staged row are the FINGERPRINT's — see `StagedPlayerHit`
         // — so routing keeps exactly one authority and this drain is unchanged.
         .map(|staged| staged.event)
-        // Friendly-fire gate: a same-faction attacker (co-op ally) doesn't damage
-        // the player unless friendly fire is on; any different-faction hit lands
-        // (the observer takes a duel's strays). Hits with no entity attacker
-        // (hazards or genuinely ownerless projectiles) are environmental and always apply.
-        .filter(
-            |e| match e.attacker.and_then(|a| attacker_factions.get(a).ok()) {
-                Some(faction) => ambition_combat::targeting::can_damage(
-                    *faction,
-                    ambition_combat::components::ActorFaction::Player,
-                    friendly_fire,
-                ),
-                None => true,
-            },
-        )
         .collect();
 
     let difficulty_multiplier = damage_policy.incoming;
     let tuning = active_tuning.0;
-    let mut feel = *feel_tuning;
-    feel.di_max_angle = combat_rules.di_max_angle;
-    // the same fold, for the same reason: a stage's rule is the authority and
-    // the baseline is only what an undeclared world keeps.
-    feel.meteor_lock_time = combat_rules.meteor_lock_time;
-    feel.crouch_cancel_scale = combat_rules.crouch_cancel_scale;
-    feel.hit_repeat_window_scale = combat_rules.hit_repeat_window_scale;
+    let base_feel = *feel_tuning;
     // The bare authored room, for the death path that must NOT see moving
     // platforms or overlay solids. `solids()` below proves one is loaded.
     let Some(room) = collision.base() else {
@@ -1516,10 +1495,35 @@ pub fn apply_player_hit_events(
         facts,
     ) in &mut player_q
     {
+        // The rules of this player's own live room.
+        let combat_rules = room_rules.of(player_entity).unwrap_or_default();
+        let friendly_fire = combat_rules.friendly_fire();
+        let mut feel = base_feel;
+        feel.di_max_angle = combat_rules.di_max_angle;
+        // the same fold, for the same reason: a stage's rule is the authority and
+        // the baseline is only what an undeclared world keeps.
+        feel.meteor_lock_time = combat_rules.meteor_lock_time;
+        feel.crouch_cancel_scale = combat_rules.crouch_cancel_scale;
+        feel.hit_repeat_window_scale = combat_rules.hit_repeat_window_scale;
         let target_events: Vec<FeatureHitEvent> = resolved
             .iter()
             .filter(|(t, _)| *t == player_entity)
-            .map(|(_, e)| e.clone())
+            .map(|(_, e)| e)
+            // Friendly-fire gate: a same-faction attacker (co-op ally) doesn't damage
+            // the player unless friendly fire is on; any different-faction hit lands
+            // (the observer takes a duel's strays). Hits with no entity attacker
+            // (hazards or genuinely ownerless projectiles) are environmental and always apply.
+            .filter(
+                |e| match e.attacker.and_then(|a| attacker_factions.get(a).ok()) {
+                    Some(faction) => ambition_combat::targeting::can_damage(
+                        *faction,
+                        ambition_combat::components::ActorFaction::Player,
+                        friendly_fire,
+                    ),
+                    None => true,
+                },
+            )
+            .cloned()
             .collect();
         let damaged_this_frame = !target_events.is_empty();
         // The victim's held locomotion (local frame) drives DI (CM2).

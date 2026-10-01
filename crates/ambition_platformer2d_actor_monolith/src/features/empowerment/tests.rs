@@ -363,3 +363,29 @@ fn a_worn_form_and_a_timed_grant_empower_a_body_independently() {
     wear(&mut app, "runner");
     assert!(!untouchable(&app, body), "and the form's reason leaves with the form");
 }
+
+/// A body harms only what it touches in its own live room (OW1). Two live
+/// rooms share one local frame, so a body standing at the same place in the
+/// other room is not touched. Control: the same victim in the striker's room.
+#[test]
+fn it_does_not_harm_a_body_in_another_live_room() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{
+        InRoomInstance, LiveRoomInstance, RoomInstanceRoot,
+    };
+    let first = LiveRoomInstance::ACTIVATION;
+    let hit = |victim_room: LiveRoomInstance| {
+        let (mut app, striker, victim) =
+            app_with_striker_and_victim(Empowerment::HARMS_ON_CONTACT, 1.0, ActorFaction::Enemy);
+        app.world_mut().spawn((RoomInstanceRoot, first));
+        app.world_mut().spawn((RoomInstanceRoot, first.next()));
+        app.world_mut().entity_mut(striker).insert(InRoomInstance(first));
+        app.world_mut().entity_mut(victim).insert(InRoomInstance(victim_room));
+        app.update();
+        hits(&mut app).len()
+    };
+    assert_eq!(
+        (hit(first), hit(first.next())),
+        (1, 0),
+        "(hits in the striker's room, hits in the other live room)"
+    );
+}

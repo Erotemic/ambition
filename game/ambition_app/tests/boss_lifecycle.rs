@@ -846,3 +846,76 @@ fn a_boss_cleared_before_it_spawns_never_replays_its_death() {
     }
     assert!(observed > 0, "the pre-cleared boss was never spawned, so nothing was checked");
 }
+
+/// Reset Sandbox is a New Game: every boss the run defeated is alive again.
+///
+/// The GNU-ton arena authors its boss (the scholar), so the room rebuild after
+/// the reset spawns him from the authored placement, the same as a fresh
+/// entry. A defeated record the reset leaves in the save keeps him dead:
+/// the giant stands in the arena with nobody on its back.
+#[test]
+fn a_new_game_brings_back_every_boss_the_run_defeated() {
+    use ambition_app::Platformer2dSimHarnessOptions;
+
+    const ARENA: &str = "gnu_ton_arena";
+    let opts = Platformer2dSimHarnessOptions::default()
+        .with_timestep(TimestepMode::fixed_60hz())
+        .with_required_start_room(ARENA);
+    let mut sim = Platformer2dSimHarness::new_with_options(opts).expect("the arena builds");
+    for _ in 0..30 {
+        sim.step(AgentAction::default());
+    }
+    let bosses: Vec<String> = {
+        let world = sim.world_mut();
+        let mut q = world.query::<&BossConfig>();
+        q.iter(world).map(|config| config.id.clone()).collect()
+    };
+    assert!(!bosses.is_empty(), "the GNU-ton arena authors a boss");
+
+    for id in &bosses {
+        force_kill_boss(&mut sim, id);
+    }
+    for _ in 0..200 {
+        sim.step(AgentAction::default());
+    }
+    for id in &bosses {
+        assert!(boss_cleared(&sim, id), "precondition: {id} is defeated and recorded cleared");
+    }
+
+    let before = sim
+        .world()
+        .resource::<ambition_platformer2d::actors::session::checkpoint::SessionCheckpointOutcomes>()
+        .latest()
+        .cloned();
+    ambition_platformer2d::actors::session::host_intents::write_host_intent(
+        sim.world_mut(),
+        ambition_platformer2d::actors::session::reset::NewGameRequested,
+    );
+    let mut committed = false;
+    for _ in 0..120 {
+        sim.step(AgentAction::default());
+        let latest = sim
+            .world()
+            .resource::<ambition_platformer2d::actors::session::checkpoint::SessionCheckpointOutcomes>()
+            .latest()
+            .cloned();
+        if latest != before {
+            committed = true;
+            break;
+        }
+    }
+    assert!(committed, "the New Game published no checkpoint outcome in 120 frames");
+    for _ in 0..30 {
+        sim.step(AgentAction::default());
+    }
+
+    assert_eq!(sim.observation().active_room, ARENA, "the New Game starts in the start room");
+    for id in &bosses {
+        assert!(!boss_cleared(&sim, id), "the New Game left {id} recorded cleared in the save");
+        assert_eq!(
+            boss_alive(sim.world_mut(), id),
+            Some(true),
+            "{id} must be alive again after the New Game"
+        );
+    }
+}

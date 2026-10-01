@@ -449,6 +449,69 @@ pub struct ResolvedCombatTuning {
     pub strike_weight: Option<crate::strike_weight::StrikeWeightRules>,
 }
 
+/// The rules one live room's combat reads: that room's declared rules folded
+/// over the world's baseline. A derived component on each live room root,
+/// rebuilt every `WorldPrep` (OW1).
+///
+/// Per live room, because two live rooms can be governed by two games: Bob's
+/// room can be Smash's while Alice's is Ambition's. One session-wide value can
+/// hold the rules of only one of them, and with two rooms live it held the
+/// rules of neither.
+#[derive(bevy::prelude::Component, Clone, Copy, Debug, PartialEq)]
+pub struct RoomCombatTuning(pub ResolvedCombatTuning);
+
+/// The combat rules for a subject: the [`RoomCombatTuning`] of the live room
+/// it is in, by the rule of `LiveRooms::of`.
+///
+/// Where no live room answers (no session, a root not projected yet, or an
+/// unstamped body while two rooms are live), it answers the
+/// [`ResolvedCombatTuning`] resource: the rules that govern no room. `None`
+/// when neither is installed, which a reader takes as the baseline it always
+/// took for an absent resource.
+#[derive(bevy::ecs::system::SystemParam)]
+pub struct CombatTuningOf<'w, 's> {
+    rooms: bevy::prelude::Query<
+        'w,
+        's,
+        (
+            &'static ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
+            &'static RoomCombatTuning,
+        ),
+        bevy::prelude::With<ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot>,
+    >,
+    live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms<'w, 's>,
+    roomless: Option<bevy::prelude::Res<'w, ResolvedCombatTuning>>,
+}
+
+impl CombatTuningOf<'_, '_> {
+    /// The rules of the live room `entity` is in.
+    pub fn of(&self, entity: bevy::prelude::Entity) -> Option<ResolvedCombatTuning> {
+        self.in_room(self.live.of(entity))
+    }
+
+    /// The rules of live room `room`; with no room, the rules of no room.
+    pub fn in_room(
+        &self,
+        room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+    ) -> Option<ResolvedCombatTuning> {
+        room.and_then(|room| {
+            self.rooms
+                .iter()
+                .find(|(live, _)| **live == room)
+                .map(|(_, tuning)| tuning.0)
+        })
+        .or_else(|| self.roomless.as_deref().copied())
+    }
+
+    /// Which live room `entity` is in, by the rule [`Self::of`] reads with.
+    pub fn room_of(
+        &self,
+        entity: bevy::prelude::Entity,
+    ) -> Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance> {
+        self.live.of(entity)
+    }
+}
+
 /// How this game reads a downward attack. See
 /// [`CombatRules::downward_hit`].
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]

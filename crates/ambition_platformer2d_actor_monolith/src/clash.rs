@@ -97,15 +97,18 @@ pub fn arbitrate_attack_clashes(
     factions: Query<&ambition_combat::components::ActorFaction>,
     teams: Query<&ambition_combat::targeting::MatchTeam>,
     mut playing: Query<&mut ambition_combat::moveset::MovePlayback>,
-    tuning: Option<Res<ambition_combat::rules::ResolvedCombatTuning>>,
+    // The rules of each contender's own live room.
+    tuning: ambition_combat::rules::CombatTuningOf,
     mut clanked: MessageWriter<AttacksClanked>,
 ) {
-    let rules = tuning.as_deref().copied().unwrap_or_default();
-    if rules.clank_damage_window <= 0.0 {
-        return;
-    }
-
-    let mut contenders: Vec<ClashContender<'_>> = Vec::new();
+    // Each contender with its live room. Two attacks clash only in one live
+    // room (OW1): two live rooms share one local frame, so a swing at the same
+    // place in another room does not meet this one, and each room's own rules
+    // say whether its attacks clank.
+    let mut contenders: Vec<(
+        Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+        ClashContender<'_>,
+    )> = Vec::new();
 
     for (hitbox, volume, sim_id) in strikes.iter() {
         let Ok(kin) = owner_pos.get(volume.owner) else {
@@ -122,7 +125,7 @@ pub fn arbitrate_attack_clashes(
             .get(volume.owner)
             .map(|playback| playback.started_grounded)
             .unwrap_or(true);
-        contenders.push(ClashContender {
+        contenders.push((tuning.room_of(volume.owner), ClashContender {
             order: ClashOrder::Melee(sim_id.map(|id| id.as_str()).unwrap_or("")),
             attack: ClashAttack::Move(volume.owner),
             owner: volume.owner,
@@ -138,7 +141,7 @@ pub fn arbitrate_attack_clashes(
                 .copied()
                 .unwrap_or_default(),
             team: teams.get(volume.owner).ok(),
-        });
+        }));
     }
 
     for (entity, kin, game, seq, owner, allegiance) in shots.iter() {
@@ -150,7 +153,7 @@ pub fn arbitrate_attack_clashes(
             Some(side) => (side.faction, side.team()),
             None => continue,
         };
-        contenders.push(ClashContender {
+        contenders.push((tuning.room_of(entity), ClashContender {
             order: ClashOrder::Shot(seq.0),
             attack: ClashAttack::Shot(entity),
             // An ownerless environmental volley still fights; it just has no
@@ -162,10 +165,26 @@ pub fn arbitrate_attack_clashes(
             damage: game.damage,
             faction,
             team,
-        });
+        }));
     }
 
-    let resolution = resolve_clashes(&mut contenders, rules.clank_damage_window, rules);
+    // Each room's contenders, in room order, resolved under that room's
+    // rules. The order inside a room is the order above.
+    let mut by_room: std::collections::BTreeMap<_, Vec<ClashContender<'_>>> =
+        std::collections::BTreeMap::new();
+    for (room, contender) in contenders {
+        by_room.entry(room).or_default().push(contender);
+    }
+    let mut resolution = ambition_combat::clank::ClashResolution {
+        defeated: Vec::new(),
+        clanked: Vec::new(),
+    };
+    for (room, mut contenders) in by_room {
+        let rules = tuning.in_room(room).unwrap_or_default();
+        let room_resolution = resolve_clashes(&mut contenders, rules.clank_damage_window, rules);
+        resolution.defeated.extend(room_resolution.defeated);
+        resolution.clanked.extend(room_resolution.clanked);
+    }
 
     for attack in resolution.defeated {
         match attack {
@@ -561,6 +580,52 @@ mod tests {
         assert!(spent(&app, a) && spent(&app, b), "two opposed bolts met and both flew on");
         let clanks = app.world().resource::<Messages<AttacksClanked>>().iter_current_update_messages().count();
         assert_eq!(clanks, 1, "a shot trade announced {clanks} clanks; it is one event");
+    }
+
+    /// Two attacks clash only in one live room, under that room's rules (OW1).
+    /// Two live rooms share one local frame: opposed bolts at one point in two
+    /// rooms do not meet. And a room that declares clanking trades while a room
+    /// beside it that does not lets its bolts through.
+    #[test]
+    fn attacks_clash_only_in_their_own_live_room_under_its_rules() {
+        use ambition_platformer2d_shared_tangle::lifecycle::{
+            InRoomInstance, LiveRoomInstance, RoomInstanceRoot,
+        };
+        let first = LiveRoomInstance::ACTIVATION;
+        let second = first.next();
+        // (rooms of the two bolts, clank window of #1) -> (a spent, b spent)
+        let run = |rooms: (LiveRoomInstance, LiveRoomInstance), second_window: f32| {
+            let mut app = an_arena(0.0);
+            for (room, window) in [(first, 9.0), (second, second_window)] {
+                app.world_mut().spawn((
+                    RoomInstanceRoot,
+                    room,
+                    ambition_combat::rules::RoomCombatTuning(
+                        ambition_combat::rules::ResolvedCombatTuning {
+                            clank_damage_window: window,
+                            ..Default::default()
+                        },
+                    ),
+                ));
+            }
+            let a_owner = app.world_mut().spawn_empty().id();
+            let b_owner = app.world_mut().spawn_empty().id();
+            let a = a_shot(&mut app, ae::Vec2::ZERO, 6, a_owner, "a");
+            let b = a_shot(&mut app, ae::Vec2::ZERO, 6, b_owner, "b");
+            app.world_mut().entity_mut(a).insert(InRoomInstance(rooms.0));
+            app.world_mut().entity_mut(b).insert(InRoomInstance(rooms.1));
+            app.update();
+            (spent(&app, a), spent(&app, b))
+        };
+        assert_eq!(
+            (
+                run((first, first), 0.0),
+                run((first, second), 9.0),
+                run((second, second), 0.0),
+            ),
+            ((true, true), (false, false), (false, false)),
+            "(both in #0, which clanks; one in each room; both in #1, which does not clank)"
+        );
     }
 
     /// ⭐ THE CONTROL FOR THE ARM ABOVE. If the fixture's two bolts simply

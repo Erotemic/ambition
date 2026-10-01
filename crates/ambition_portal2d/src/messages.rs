@@ -45,6 +45,14 @@ pub struct PortalFireIntent {
     /// anchor. Shots are short-lived, so the census must sample while they
     /// exist.
     pub id: Option<ambition_platformer2d_shared_tangle::sim_id::SimId>,
+    /// The live room the shot is fired in. The emitter knows it, as it knows
+    /// [`Self::id`]: it is the room of the body that fired.
+    ///
+    /// The shot carries it as its `InRoomInstance`, and the portal it opens
+    /// carries it too. With two live rooms, the host steps the shot against
+    /// that room's solids. `None` is a shot in no known room; with two live
+    /// rooms it does not move.
+    pub room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
 }
 
 /// Compatibility intent: toggle which color the held portal gun will place

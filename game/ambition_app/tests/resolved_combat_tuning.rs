@@ -64,8 +64,13 @@ fn composed_app() -> App {
     app
 }
 
+/// The rules of the live room: what a body in it plays under.
 fn resolved(app: &App) -> ResolvedCombatTuning {
-    *app.world().resource::<ResolvedCombatTuning>()
+    ambition_platformer2d::platformer::lifecycle::sole_live_room_component::<
+        ambition_platformer2d::combat::rules::RoomCombatTuning,
+    >(app.world())
+    .expect("the live room's combat rules are projected onto it")
+    .0
 }
 
 /// The shipped composition publishes the resolved rules at all.
@@ -75,12 +80,19 @@ fn resolved(app: &App) -> ResolvedCombatTuning {
 /// making first.
 #[test]
 fn the_shipped_composition_installs_the_resolution() {
-    let app = composed_app();
+    let mut app = composed_app();
+    // One tick: the room's rules are put on its root by the projection, which
+    // runs each `WorldPrep`, and the fixture stops when the root is seated.
+    app.update();
     assert!(
-        app.world().get_resource::<ResolvedCombatTuning>().is_some(),
-        "no plugin in the shipped simulation publishes ResolvedCombatTuning, so \
-         every combat reader is falling back to its Option<Res<..>> default and \
-         a declared match rule reaches nothing"
+        app.world().get_resource::<ResolvedCombatTuning>().is_some()
+            && ambition_platformer2d::platformer::lifecycle::sole_live_room_component::<
+                ambition_platformer2d::combat::rules::RoomCombatTuning,
+            >(app.world())
+            .is_some(),
+        "no plugin in the shipped simulation publishes ResolvedCombatTuning and \
+         the live room's RoomCombatTuning, so every combat reader is falling \
+         back to its default and a declared match rule reaches nothing"
     );
 }
 

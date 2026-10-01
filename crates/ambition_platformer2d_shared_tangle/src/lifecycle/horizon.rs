@@ -4,7 +4,7 @@
 //! distinct reconstruction horizons.
 
 use bevy::ecs::schedule::ScheduleLabel;
-use bevy::prelude::{App, IntoScheduleConfigs, Message, Plugin, Resource, Schedule, SystemSet};
+use bevy::prelude::{App, IntoScheduleConfigs, Message, Plugin, Resource, SystemSet};
 
 use ambition_platformer2d_core::snapshot::RollbackRegistrar;
 

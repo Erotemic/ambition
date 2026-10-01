@@ -576,8 +576,9 @@ fn a_gauntlet_the_item_catalog_never_heard_of_is_still_in_your_hands_after_a_loa
 ///
 /// ```text
 /// mint   a real boss kill
-/// bank   a shrine rest WITH IT IN HAND — the minted capture takes only
-///        occurrences in custody, so this must precede the drop
+/// bank   a shrine rest WITH IT IN HAND. Since OW3 the door does not need
+///        it: the save's record describes the dormant mint (see
+///        `a_gauntlet_no_checkpoint_saw_is_still_where_it_was_left`)
 /// leave  put it down, walk out the door; the room unloads
 /// return the rebuild reinstates it, from the description and the ledger's `at`
 /// ```
@@ -704,4 +705,125 @@ fn a_real_save_holds_the_occurrence_every_minted_row_names() {
             row.occurrence
         );
     }
+}
+
+/// Mint a gauntlet off a real boss kill in the hub, take it in hand, bank it
+/// if `bank`, throw it down and walk out to the shaft. The gauntlet's id and
+/// where it fell. The hub is then not live, so the gauntlet is a dormant
+/// record: a `Placed` row in the occurrence ledger and a minted description.
+fn a_gauntlet_left_in_the_hub(sim: &mut Platformer2dSimHarness, boss: &str, bank: bool) -> (SimId, (f32, f32)) {
+    sim.step_n(base(), 30);
+    crate::boss_lifecycle::spawn_mockingbird(sim, boss);
+    crate::boss_lifecycle::kill_boss_with_a_real_hit(sim, boss, 600);
+    sim.step_n(base(), 120);
+    let dropped = dropped_gauntlet(sim);
+    assert_eq!(dropped.len(), 1, "the kill must leave exactly one gauntlet");
+    let occurrence = dropped.into_iter().next().expect("one drop");
+    pick_up(sim, &occurrence);
+    if bank {
+        crate::death_restores_the_checkpoint::commit_a_checkpoint(sim);
+    }
+    throw_it_down(sim);
+    sim.step_n(base(), 120);
+    let where_it_fell = resting_place(sim, &occurrence);
+    assert_eq!(
+        walk_through_the_door_to(sim, "vertical_shaft"),
+        "vertical_shaft",
+        "precondition: the body did not leave the hub, so the hub is still live"
+    );
+    assert!(
+        occurrences(sim, &occurrence).is_empty(),
+        "precondition: the gauntlet is still live, so it is not a dormant record"
+    );
+    (occurrence, where_it_fell)
+}
+
+/// The gauntlet is in the hub again, once, lying where it fell.
+fn the_gauntlet_is_back(sim: &mut Platformer2dSimHarness, occurrence: &SimId, where_it_fell: (f32, f32)) {
+    let back = occurrences(sim, occurrence);
+    assert_eq!(
+        back.len(),
+        1,
+        "exactly one live occurrence of `{}` in the hub: zero means the dormant \
+         gauntlet lost its minted description while the hub was not live. got {back:?}",
+        occurrence.as_str()
+    );
+    assert!(back[0].1.in_world(), "and it is lying in the room, not in a hand");
+    let now = resting_place(sim, occurrence);
+    assert!(
+        (now.0 - where_it_fell.0).abs() < 4.0 && (now.1 - where_it_fell.1).abs() < 4.0,
+        "and it is where it fell: dropped at {where_it_fell:?}, rebuilt at {now:?}"
+    );
+}
+
+/// OW3: a checkpoint taken in another room keeps a dormant room's minted
+/// item. The checkpoint once described only the mints that were live, so a
+/// shrine rest in the shaft forgot the gauntlet lying in the hub, and the hub
+/// was rebuilt without it. The control is
+/// `a_gauntlet_left_in_a_room_is_rebuilt_when_the_room_is`: no checkpoint
+/// while the hub is not live.
+#[test]
+fn a_gauntlet_left_in_a_room_outlives_a_checkpoint_taken_in_another() {
+    let mut sim = fixed_60hz_room_sim(TWO_ITEM_ROOM);
+    let (occurrence, where_it_fell) = a_gauntlet_left_in_the_hub(&mut sim, "dormant_checkpoint_gauntlet_boss", true);
+    // Off the door: the shrine is used with the interact press, and on the
+    // door that press goes back to the hub.
+    let door = door_to(&mut sim, TWO_ITEM_ROOM).aabb;
+    let at = door.center();
+    sim.teleport_player((at.x + door.half_size().x + 48.0, at.y));
+    sim.step_n(base(), 30);
+    crate::death_restores_the_checkpoint::commit_a_checkpoint(&mut sim);
+    assert_eq!(
+        sim.observation().active_room,
+        "vertical_shaft",
+        "precondition: the checkpoint was not taken in the shaft"
+    );
+    walk_through_the_door_to(&mut sim, TWO_ITEM_ROOM);
+    sim.step_n(base(), 60);
+    the_gauntlet_is_back(&mut sim, &occurrence, where_it_fell);
+}
+
+/// OW3: a save taken in another room keeps a dormant room's minted item. The
+/// save once mirrored only the live mints, so the file placed the gauntlet in
+/// the hub and held no description to build it from. And the load's rebuild
+/// refused the whole hub, because the gauntlet's parent, the boss that dropped
+/// it, is in no room of a fresh process: a reinstated row does not need its
+/// parent. (The door witnesses above do not see that rule: their boss is
+/// staged room content that the rebuild plans again.)
+#[test]
+fn a_gauntlet_left_in_a_room_outlives_a_save_taken_in_another() {
+    let mut sim = fixed_60hz_room_sim(TWO_ITEM_ROOM);
+    let (occurrence, where_it_fell) = a_gauntlet_left_in_the_hub(&mut sim, "dormant_save_gauntlet_boss", true);
+    sim.step_n(base(), 30);
+    let file = the_file(&sim);
+    assert!(
+        file.occurrences().iter().any(|row| row.id == occurrence.as_str()
+            && matches!(&row.whereabouts, PersistedWhereabouts::Placed { room, .. } if room == TWO_ITEM_ROOM)),
+        "precondition: the file does not place the gauntlet in the hub, so the \
+         load below measures nothing. occurrences={:?}",
+        file.occurrences()
+    );
+    assert!(
+        file.minted_items().iter().any(|row| row.occurrence == occurrence.as_str()),
+        "the file places the gauntlet in the hub but holds no minted row to \
+         build it from: the save forgot a dormant mint. minted={:?}",
+        file.minted_items()
+    );
+    // The load puts the body in the hub, its checkpoint room, and builds the
+    // hub from the file.
+    let mut fresh = boot_with(TWO_ITEM_ROOM, &file);
+    the_gauntlet_is_back(&mut fresh, &occurrence, where_it_fell);
+}
+
+/// OW3: a minted item that no checkpoint ever saw is still in the room it was
+/// left in. The room build described a dormant mint only from the last
+/// checkpoint, so a gauntlet taken up and put down between two checkpoints was
+/// gone when the player came back.
+#[test]
+fn a_gauntlet_no_checkpoint_saw_is_still_where_it_was_left() {
+    let mut sim = fixed_60hz_room_sim(TWO_ITEM_ROOM);
+    let (occurrence, where_it_fell) = a_gauntlet_left_in_the_hub(&mut sim, "unbanked_gauntlet_boss", false);
+    walk_through_the_door_to(&mut sim, TWO_ITEM_ROOM);
+    sim.step_n(base(), 60);
+    the_gauntlet_is_back(&mut sim, &occurrence, where_it_fell);
 }

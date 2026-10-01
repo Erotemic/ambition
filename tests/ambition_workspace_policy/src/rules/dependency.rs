@@ -71,6 +71,40 @@ pub fn denylist(ws: &Workspace, policy: &Policy, report: &mut Report) {
     }
 }
 
+/// `manifest` has no dependency of any name, in any of the standard tables
+/// except `[dev-dependencies]` (a test may use what the crate may not).
+pub fn none(ws: &Workspace, policy: &Policy, report: &mut Report) {
+    let manifest = manifest_of(policy);
+    for dep in normal_deps(ws, manifest) {
+        report.push(policy.diag(format!("{manifest} → {dep}"), "this crate may have no dependencies"));
+    }
+}
+
+/// Every dependency name in `[dependencies]` and `[build-dependencies]`, and in
+/// the same tables of each `[target.*]`.
+fn normal_deps(ws: &Workspace, manifest_rel: &str) -> std::collections::BTreeSet<String> {
+    let text = std::fs::read_to_string(ws.abs(manifest_rel))
+        .unwrap_or_else(|e| panic!("read manifest `{manifest_rel}`: {e}"));
+    let table = text
+        .parse::<toml::Table>()
+        .unwrap_or_else(|e| panic!("parse manifest `{manifest_rel}`: {e}"));
+    let mut out = std::collections::BTreeSet::new();
+    let mut collect = |t: &toml::Table| {
+        for key in ["dependencies", "build-dependencies"] {
+            if let Some(deps) = t.get(key).and_then(toml::Value::as_table) {
+                out.extend(deps.keys().cloned());
+            }
+        }
+    };
+    collect(&table);
+    if let Some(targets) = table.get("target").and_then(toml::Value::as_table) {
+        for target in targets.values().filter_map(toml::Value::as_table) {
+            collect(target);
+        }
+    }
+    out
+}
+
 /// Every dependency name (any crate, not just `ambition*`) across the standard
 /// dependency tables, for denylist entries like `bevy_ecs_ldtk`.
 fn all_deps(ws: &Workspace, manifest_rel: &str) -> std::collections::BTreeSet<String> {

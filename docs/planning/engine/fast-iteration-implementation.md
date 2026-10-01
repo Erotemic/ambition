@@ -533,6 +533,17 @@ road's per-tick overhead with one boss is now within the run-to-run noise
 (30-100 us). A fresh instance per call (~28 us) is kept: it is what makes a
 guest static unable to carry state across a rewind.
 
+**The SDK cannot name engine state (2026-10-01), held structurally instead of
+by a compile-fail test.** `ambition_extension_sdk` has no dependencies at all,
+so no SDK signature can carry a Bevy, host or engine type, and "direct
+health/body mutation through the SDK" cannot be written: a compile-fail test
+would only restate a missing method name. The workspace policy
+`engine.ambition_extension_sdk-portable` is now kind `dependency-none` (new): a
+dependency of ANY name fails it. It was a denylist of nine names, which passed
+every engine crate it did not list. Poisons: `bevy_reflect` added to the SDK
+(not on the old list) fails it; the rule's own fixture
+(`poison_dependency_none_reacts`).
+
 **I7 item 5, first cut (2026-10-01):** `ambition_extension_host::inspect`
 (composition and per-body records as text) and the tool
 `ambition_app_tools --bin extension_inspect` (ports, serial order, linked or
@@ -542,8 +553,7 @@ that a call left at its initial value (an absent record is initial), so an
 `IdlePolicy::Invoke` module adds no state to bodies it has nothing to remember
 about (`a_call_that_leaves_its_record_initial_stores_nothing`).
 
-**Open:** a compile-fail witness that the SDK offers no engine-state setter;
-the deterministic fault
+**Open:** the deterministic fault
 policy (today a fault discards the invocation's output and is counted in
 `ExtensionFaults`; it does not stop the session); a second technique with an
 observation port. (Session-attached records landed with I5's first cut; see I5.)

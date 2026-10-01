@@ -613,34 +613,6 @@ mod shell_drive {
         }
         app.world().resource::<ShellLauncherState>().selected == target
     }
-
-    pub(super) fn shell_select_launcher_exit(app: &mut App) -> bool {
-        let target = app
-            .world()
-            .resource::<ShellExperienceRegistry>()
-            .launch_entries()
-            .iter()
-            .filter(|entry| entry.available)
-            .count();
-        let has_exit = app
-            .world()
-            .resource::<ambition_platformer2d::game_shell::ShellLauncherPresentation>()
-            .exit_label
-            .is_some();
-        if !has_exit {
-            return false;
-        }
-        let selectable = target + 1;
-        for _ in 0..selectable {
-            if app.world().resource::<ShellLauncherState>().selected == target {
-                return true;
-            }
-            app.world_mut().write_message(ShellLauncherCommand::Next);
-            app.update();
-        }
-        app.world().resource::<ShellLauncherState>().selected == target
-    }
-
 }
 
 /// Result of the executable multi-provider shipping-host acceptance cycle.
@@ -725,15 +697,13 @@ pub fn run_shared_host_acceptance_cycle() -> SharedHostAcceptanceReport {
     }
 
     if completed {
-        completed = shell_select_launcher_exit(&mut app);
-        if completed {
-            app.world_mut()
-                .write_message(ShellLauncherCommand::LaunchSelected);
-            for _ in 0..8 {
-                app.update();
-                if app.world().resource::<ShellRouter>().exit_requested {
-                    break;
-                }
+        // The launcher has no Exit row; exit is the shell command the pause
+        // menu's Exit sends.
+        app.world_mut().write_message(ShellCommand::ExitProcess);
+        for _ in 0..8 {
+            app.update();
+            if app.world().resource::<ShellRouter>().exit_requested {
+                break;
             }
         }
     }

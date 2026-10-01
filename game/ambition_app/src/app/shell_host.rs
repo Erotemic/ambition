@@ -96,7 +96,7 @@ fn compose_ambition_shell_host_inner(app: &mut App, initial_route: &str) {
         ambition_demo_sanic::SanicExperiencePlugin,
         ambition_demo_mary_o::MaryOExperiencePlugin,
         // The stocks demo. It is the first provider whose launcher row does NOT
-        // open its gameplay route: "Smash" opens CHARACTER SELECT, which the
+        // open its gameplay route: "Smash Siblings" opens CHARACTER SELECT, which the
         // demo registers as a frontend route of its own and which then asks the
         // shell for the stage once every seat has locked in. Nothing here knows
         // that — the row is derived from the registration like every other.
@@ -120,6 +120,11 @@ fn compose_ambition_shell_host_inner(app: &mut App, initial_route: &str) {
     app.world_mut()
         .resource_mut::<ShellHostConfiguration>()
         .spec = Some(ShellHostSpec::new(initial_route, AMBITION_LAUNCHER_ROUTE));
+    // The game select screen lists the games and nothing else: the pause menu
+    // owns quitting.
+    app.world_mut()
+        .resource_mut::<ambition_platformer2d::game_shell::ShellLauncherPresentation>()
+        .exit_label = None;
 
     // ORDERED, not ambiguous.
     app.add_systems(

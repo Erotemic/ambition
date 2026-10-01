@@ -6,7 +6,7 @@
 //!
 //! ```text
 //! launcher → Sanic → launcher → Mary-O → launcher
-//!          → Ambition → launcher → Sanic (fresh) → launcher → Exit
+//!          → Ambition → launcher → Sanic (fresh) → launcher → exit
 //! ```
 //!
 //! At every home visit it asserts the zero-state contract (no session, no
@@ -507,7 +507,7 @@ fn the_full_multi_game_lifecycle(host: ambition_platformer2d::runtime::Simulatio
         .collect();
     assert_eq!(
         entries,
-        vec!["Ambition", "Sanic", "Mary-O", "Smash"],
+        vec!["Ambition", "Sanic", "Mary-O", "Smash Siblings"],
         "launcher entries derive from the registered experiences, MINUS the \
          unlisted ones. An exact list on purpose — a launcher that silently gains \
          or loses a row is the first thing a player sees."
@@ -546,7 +546,7 @@ fn the_full_multi_game_lifecycle(host: ambition_platformer2d::runtime::Simulatio
         .resource::<ambition_platformer2d::game_shell::ShellExperienceRegistry>()
         .launch_entries()
         .iter()
-        .find(|entry| entry.label == "Smash")
+        .find(|entry| entry.label == "Smash Siblings")
         .expect("the smash row exists")
         .clone();
     assert_eq!(
@@ -771,14 +771,16 @@ fn the_full_multi_game_lifecycle(host: ambition_platformer2d::runtime::Simulatio
     assert_home(&mut app, "after sanic #2");
 
     // ── Exit ───────────────────────────────────────────────────────────
-    let exit_index = app
-        .world()
-        .resource::<ambition_platformer2d::game_shell::ShellExperienceRegistry>()
-        .launch_entries()
-        .len();
-    select_entry(&mut app, exit_index);
-    app.world_mut()
-        .write_message(ShellLauncherCommand::LaunchSelected);
+    // The game select screen lists only the games; quitting is the pause
+    // menu's Exit, which sends this command.
+    assert_eq!(
+        app.world()
+            .resource::<ambition_platformer2d::game_shell::ShellLauncherPresentation>()
+            .exit_label,
+        None,
+        "the game select screen has no Exit row"
+    );
+    app.world_mut().write_message(ShellCommand::ExitProcess);
 
     // A flaky standing guard is worse than no guard: it teaches the reader to re-run rather than to
     // look.
@@ -792,7 +794,7 @@ fn the_full_multi_game_lifecycle(host: ambition_platformer2d::runtime::Simulatio
     }
     assert!(
         app.world().resource::<ShellRouter>().exit_requested,
-        "selecting Exit raises the shell exit request"
+        "ExitProcess raises the shell exit request"
     );
     assert!(
         saw_app_exit,

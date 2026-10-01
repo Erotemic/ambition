@@ -607,12 +607,8 @@ fn spawn_launcher_menu(
                 // pointer activation gives the same command as the cursor.
                 let action = BasicLauncherAction(available_index);
                 available_index += 1;
-                (
-                    MenuControlKind::Action,
-                    Some(action),
-                    (!entry.description.is_empty()).then_some(entry.description.clone()),
-                    selected,
-                )
+                // A row is the game's name only.
+                (MenuControlKind::Action, Some(action), None, selected)
             } else {
                 (
                     MenuControlKind::Item,

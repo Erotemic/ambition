@@ -1520,6 +1520,29 @@ entity. With only the retirement trigger removed, mode `a` kept its entity
 after Bob's room retired. `project_room_rule` (the portal camera rules)
 stays on the sole room: it is presentation, P5.
 
+✅ **Cut 7s landed 2026-10-01: each seat's driven body goes through the
+doors of its own room.** The door detector (`detect_room_transition_system`)
+took its subject from `ControlledSubject`, the body of the primary seat.
+Every seat's interact press was buffered for that seat (D175's loop), but
+the detector read only the primary seat's buffer. So only the first player
+could leave a room: the second player could stand in a door and press, and
+nothing happened. The detector now walks the seats in slot order. Each
+seat's driven body (`body_driving_seat`) is tested against the zones of its
+own live room, with its own seat's buffered press, and the crossing records
+the seat as its participant. The intent slot holds one crossing, so the
+first crossing admitted is the tick's crossing, and another seat asks again
+on a later tick. The commit already served a crossing by any participant
+(cut 6e). Witness: `the_second_player_goes_through_a_door_of_his_own_room`
+(Alice holds the hub, #1, and Bob, on slot 1, holds `switch_lab`, #0; Bob
+stands in its door to the hub and his seat presses: he joins #1, and #0
+retires). Poison (the primary-only detector restored): Bob stayed in #0,
+and both rooms stayed live. ⚠ `RoomTransitionCooldown` is still one value
+for the session, so one seat's crossing holds every seat's crossing for
+the cooldown (0.16 s after a door, 0.14 s after an edge exit). ⚠ The
+witness drives a new press on every frame, and a seat's frame stands until
+it is replaced, so it lets go after the crossing: otherwise Bob goes back
+through the arrival door when the cooldown ends.
+
 ✅ **OW3, first slice, landed 2026-10-01: a runtime mint left in a room
 that is not live is still there when the room is live again.** A runtime
 mint (a boss's dropped gauntlet) has no authored record. Two facts rebuild
@@ -1644,6 +1667,30 @@ the numbers, not decided here: share the unchanged dormant rows between
 snapshots (a clone that copies a pointer while the rows are unchanged),
 and stop serializing the whole save for each checksum (a checksum kept
 with the rows and computed again only when they change).
+
+✅ **M2 cut (B), landed 2026-10-01: the save's dormant-record rows are
+hashed once per version.** The save's occurrence rows and minted rows are
+`Arc`-shared (`AmbitionGameSaveData`; the setters replace the whole `Arc`,
+and serde's `rc` keeps the file form unchanged). So a snapshot clone of the
+save copies two pointers for them. The checksum is the fold of three
+hashes: the rest of the save (its RON form, as before), and each row set.
+A row set's hash is kept with the `Arc` it was computed from
+(`RowsChecksum`, one slot per row set), and computed again for any other
+`Arc`. The memo holds a clone of that `Arc`, so the allocation cannot be
+freed or written in place while the memo names it. The hash is still of the
+rows' serde form, so it is content-derived and peer-stable. Schema 289 ->
+290 (the checksum value changes; the layout does not). Witnesses in
+`ambition_persistence` `save_checksum_tests`:
+`equal_rows_in_separate_arcs_have_one_checksum`,
+`a_restore_that_changes_the_rows_changes_the_checksum` (a restore back to
+the snapshot gives the first checksum again), and
+`dormant_rows_add_little_to_a_repeated_checksum` (10,000 dormant mints
+against none: under three times the empty save's checksum plus 100 µs).
+Poisons, each failure predicted before the run: a memo that answers for
+any `Arc` (the moved rows kept the old checksum); no memo (32.7 ms
+against 7.5 µs). ⚠ Not changed: the ledger (`AuthoredOccurrences`) still
+clones and folds every row each rollback frame, 1.4 ms each with 10,000
+rows; it is the next M2 cut if the save's cost is not enough.
 
 ⚠ **`physics_spawn_debris_messages` is presentation, not simulation, and is
 not changed.** Its Avian debris bounces off static colliders that are

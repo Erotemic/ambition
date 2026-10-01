@@ -23,6 +23,8 @@ use std::path::{Path, PathBuf};
 use bevy::log::{info, warn};
 use bevy::prelude::*;
 
+use std::sync::Arc;
+
 use crate::save_data::{
     AmbitionGameSaveData, SaveCompatibility, CURRENT_SAVE_VERSION, PRE_VERSIONING_SAVE_VERSION,
 };
@@ -46,12 +48,29 @@ impl AmbitionGameSave {
     ///
     /// RON serialization does not fail. If it did, hashing the error text (not a
     /// fixed `0`) keeps peers that fail differently distinguishable.
+    ///
+    /// ⭐ THE DORMANT-RECORD ROWS ARE HASHED ONCE PER VERSION (M2). The
+    /// occurrence and minted rows grow with every room that is not live, and
+    /// serializing them on each rollback frame cost 29 ms with 10,000 of them.
+    /// So the checksum is the fold of three hashes: the rest of the save, and
+    /// each of the two row sets. A row set's hash is kept with the `Arc` it
+    /// was computed from ([`RowsChecksum`]), and is computed again for any
+    /// other `Arc`. It is still the hash of the rows' serde form, so two peers
+    /// with the same rows agree whatever their memo holds.
     pub fn checksum(&self) -> u64 {
-        use ambition_platformer2d_core::snapshot::checksum_bytes;
-        match ron::ser::to_string(&self.0) {
-            Ok(text) => checksum_bytes(text.as_bytes()),
-            Err(error) => checksum_bytes(error.to_string().as_bytes()),
+        use ambition_platformer2d_core::snapshot::StateHasher;
+        let mut rest = self.0.clone();
+        let occurrences = std::mem::take(&mut rest.occurrences);
+        let minted = std::mem::take(&mut rest.minted_items);
+        let mut hasher = StateHasher::default();
+        for part in [
+            serde_checksum(&rest),
+            OCCURRENCE_ROWS_CHECKSUM.of(&occurrences),
+            MINTED_ROWS_CHECKSUM.of(&minted),
+        ] {
+            hasher.write(&part.to_le_bytes());
         }
+        hasher.finish()
     }
 
     pub fn data(&self) -> &AmbitionGameSaveData {
@@ -62,6 +81,50 @@ impl AmbitionGameSave {
         &mut self.0
     }
 }
+
+/// The checksum of a value's RON form; a serialization error hashes its text.
+fn serde_checksum<T: serde::Serialize>(value: &T) -> u64 {
+    use ambition_platformer2d_core::snapshot::checksum_bytes;
+    match ron::ser::to_string(value) {
+        Ok(text) => checksum_bytes(text.as_bytes()),
+        Err(error) => checksum_bytes(error.to_string().as_bytes()),
+    }
+}
+
+/// The checksum of one `Arc`-shared row set, kept with the `Arc` it was
+/// computed from. DERIVED STORAGE, NOT STATE: it holds a clone of that `Arc`,
+/// so the allocation is not freed and cannot be written in place
+/// (`Arc::make_mut` copies a shared `Arc`). An `Arc` that is the same
+/// allocation therefore holds the same rows, and any other `Arc` is hashed
+/// again. One slot: the live save and its snapshots share one `Arc` while the
+/// rows are unchanged.
+struct RowsChecksum<T>(std::sync::Mutex<Option<(Arc<Vec<T>>, u64)>>);
+
+impl<T: serde::Serialize> RowsChecksum<T> {
+    const fn new() -> Self {
+        Self(std::sync::Mutex::new(None))
+    }
+
+    fn of(&self, rows: &Arc<Vec<T>>) -> u64 {
+        // No rows costs nothing to hash, and leaves the slot to a row set
+        // that does.
+        if rows.is_empty() {
+            return serde_checksum(&**rows);
+        }
+        let mut slot = self.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        if let Some((held, checksum)) = slot.as_ref() {
+            if Arc::ptr_eq(held, rows) {
+                return *checksum;
+            }
+        }
+        let checksum = serde_checksum(&**rows);
+        *slot = Some((rows.clone(), checksum));
+        checksum
+    }
+}
+
+static OCCURRENCE_ROWS_CHECKSUM: RowsChecksum<crate::save_data::PersistedOccurrence> = RowsChecksum::new();
+static MINTED_ROWS_CHECKSUM: RowsChecksum<crate::save_data::PersistedMintedItem> = RowsChecksum::new();
 
 /// Where the sandbox save lives. Reuses the same data-dir resolution
 /// as the settings persistence module so both files end up alongside
@@ -901,5 +964,90 @@ mod save_checksum_tests {
             .push(PersistedFlag::new("room_visited_hall", true));
         let b = a.clone();
         assert_eq!(a.checksum(), b.checksum());
+    }
+
+    use crate::save_data::{PersistedMintedItem, PersistedOccurrence, PersistedWhereabouts};
+
+    /// A save holding `n` dormant mints: `n` placed occurrence rows and `n`
+    /// minted rows, each row set in a fresh `Arc`. `shift` moves every row.
+    fn dormant_save(n: usize, shift: i32) -> AmbitionGameSave {
+        let mut save = AmbitionGameSave::default();
+        save.data_mut().set_durable_horizon(
+            (0..n)
+                .map(|i| {
+                    PersistedOccurrence::new(
+                        format!("dormant/{i}"),
+                        PersistedWhereabouts::Placed { room: "elsewhere".into(), x: i as i32 + shift, y: 0 },
+                    )
+                })
+                .collect(),
+            Vec::new(),
+        );
+        save.data_mut().set_minted_items(
+            (0..n)
+                .map(|i| PersistedMintedItem {
+                    occurrence: format!("dormant/{i}"),
+                    parent: "boss".into(),
+                    sequence: i as u64,
+                    held_item: "gauntlet".into(),
+                })
+                .collect(),
+        );
+        save
+    }
+
+    /// M2: the checksum is of the rows, not of which `Arc` holds them. Two
+    /// saves with equal rows in separate `Arc`s agree, and agree with the
+    /// first save after the second was hashed (the memo now holds the
+    /// second's `Arc`).
+    #[test]
+    fn equal_rows_in_separate_arcs_have_one_checksum() {
+        let (first, second) = (dormant_save(50, 0), dormant_save(50, 0));
+        let a = first.checksum();
+        assert_eq!(second.checksum(), a, "equal rows in another Arc hashed differently");
+        assert_eq!(first.checksum(), a, "the first save changed its checksum");
+        assert_ne!(dormant_save(0, 0).checksum(), a, "control: no rows hashed as 50 rows");
+    }
+
+    /// M2: a restore that changes the rows changes the checksum, and a
+    /// restore back gives the first checksum again. The memo is the failure
+    /// to look for: one that answered for any `Arc` would give the moved
+    /// rows the first rows' checksum.
+    #[test]
+    fn a_restore_that_changes_the_rows_changes_the_checksum() {
+        let mut live = dormant_save(50, 0);
+        let snapshot = live.clone();
+        let before = live.checksum();
+        let moved = dormant_save(50, 7);
+        live.data_mut().set_durable_horizon(moved.data().occurrences().to_vec(), Vec::new());
+        let after = live.checksum();
+        assert_ne!(after, before, "moved rows kept the checksum of the rows they replaced");
+        let live = snapshot.clone();
+        assert_eq!(live.checksum(), before, "the restored rows did not give their checksum back");
+    }
+
+    /// M2: an unchanged save with 10,000 dormant mints costs a checksum
+    /// about what an empty save costs. Before, the checksum serialized every
+    /// row on each call: 29 ms against 6 us.
+    #[test]
+    fn dormant_rows_add_little_to_a_repeated_checksum() {
+        let median = |save: &AmbitionGameSave| {
+            save.checksum();
+            let mut times: Vec<std::time::Duration> = (0..21)
+                .map(|_| {
+                    let start = std::time::Instant::now();
+                    std::hint::black_box(save.checksum());
+                    start.elapsed()
+                })
+                .collect();
+            times.sort();
+            times[10]
+        };
+        let (empty, full) = (dormant_save(0, 0), dormant_save(10_000, 0));
+        let (empty, full) = (median(&empty), median(&full));
+        assert!(
+            full < empty * 3 + std::time::Duration::from_micros(100),
+            "a repeated checksum with 10,000 dormant rows took {full:?}, against {empty:?} with none"
+        );
     }
 }

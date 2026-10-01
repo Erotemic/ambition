@@ -1,6 +1,6 @@
 {
   "peer_checksum_schema": {
-    "version": "ggrs-rollback-schema-v289",
+    "version": "ggrs-rollback-schema-v290",
     "rows": [
       "actor.active_combatant\tcomponent-canonical\tActiveCombatant",
       "actor.aggression\tcomponent-clone-cursor\tActorAggression",
@@ -120,7 +120,7 @@
       "resource.quest_last_room\tresource-clone-custom-checksum\tLastQuestRoom\tbevy_ggrs clone snapshot + the room ids that were live when the RoomEntered producer last looked",
       "resource.quest_registry\tresource-clone-custom-checksum\tQuestRegistry\tbevy_ggrs clone snapshot + quest identity, progression and pending-advance checksum projection",
       "resource.requested_clock_scale\tresource-canonical\tRequestedClockScale\tbevy_ggrs canonical codec snapshot + identical canonical checksum projection",
-      "resource.sandbox_save\tresource-clone-custom-checksum\tAmbitionGameSave\tbevy_ggrs clone snapshot + serialized whole-save checksum projection",
+      "resource.sandbox_save\tresource-clone-custom-checksum\tAmbitionGameSave\tbevy_ggrs clone snapshot + serialized whole-save checksum projection, its dormant-record rows hashed once per Arc",
       "resource.sandbox_sim_state\tresource-canonical\tRoomTransitionCooldown\tbevy_ggrs canonical codec snapshot + identical canonical checksum projection",
       "resource.session_checkpoint_operations\tresource-clone-custom-checksum\tSessionCheckpointOperations\tbevy_ggrs clone snapshot + how many checkpoint restores this session has admitted",
       "resource.session_checkpoint_outcomes\tresource-clone-custom-checksum\tSessionCheckpointOutcomes\tbevy_ggrs clone snapshot + the terminal outcome of the last answered checkpoint operation",

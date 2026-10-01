@@ -11,7 +11,9 @@ ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
 ambition_input = { path = "../ambition_input" }
 bevy = { version = "0.19.1", default-features = false, features = ["bevy_log", "bevy_window"] }
 ron = { workspace = true }
-serde = { workspace = true }
+# `rc`: the save's dormant-record rows are `Arc`-shared between rollback
+# snapshots, and serialize as the rows themselves (the file form is unchanged).
+serde = { workspace = true, features = ["rc"] }
 
 # ⛔ WASM ONLY, so native pays nothing for it. `store.rs` needs `localStorage`
 # to give the web build any persistence at all; before 2026-08-31 the four

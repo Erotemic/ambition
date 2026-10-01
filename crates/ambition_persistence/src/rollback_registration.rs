@@ -31,7 +31,7 @@ where
         .rollback_resource_clone_checksum::<crate::save::AmbitionGameSave>(
             OWNER,
             "resource.sandbox_save",
-            "serialized whole-save checksum projection",
+            "serialized whole-save checksum projection, its dormant-record rows hashed once per Arc",
             crate::save::AmbitionGameSave::checksum,
         )
         .rollback_resource_clone_checksum::<crate::quest::registry::QuestRegistry>(

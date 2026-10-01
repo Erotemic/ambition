@@ -126,6 +126,14 @@ name = "room_census"
 path = "src/bin/room_census.rs"
 bench = false
 
+# Extension inspect: the procedural extension host's ports, entries, code,
+# generation and per-body records, as text (fast-iteration I7 item 5).
+[[bin]]
+name = "extension_inspect"
+path = "src/bin/extension_inspect.rs"
+test = false
+bench = false
+
 [[bin]]
 name = "rl_random_walker"
 path = "src/bin/rl_random_walker.rs"

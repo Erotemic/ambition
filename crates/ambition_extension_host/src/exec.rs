@@ -448,6 +448,19 @@ fn commit(
     invocation: &PendingInvocation,
     state: Vec<(SchemaKey, Record)>,
 ) {
+    // An absent record IS its initial value (a call reads the initial record
+    // for a body that has none). So a record that is still initial and was
+    // never stored is not stored now: a module that is called on every tick
+    // of every boss (`IdlePolicy::Invoke`) adds no state to the bodies it has
+    // nothing to remember about.
+    let current = world.get::<BodyRecords>(invocation.scope);
+    let state: Vec<(SchemaKey, Record)> = state
+        .into_iter()
+        .filter(|(key, record)| {
+            current.is_some_and(|r| r.get(key).is_some())
+                || *record != admitted.schemas[key].schema.initial_record()
+        })
+        .collect();
     if state.is_empty() {
         return;
     }

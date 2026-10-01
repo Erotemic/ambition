@@ -39,8 +39,14 @@ pub mod character_catalog;
 /// that call site was two readers of one file: the pack could validate bytes
 /// the runtime never consulted, and the runtime could `expect`-panic at startup
 /// on a serde message the pack never saw.
-pub const ENCOUNTER_WAVES_RON: &str =
-    include_str!("../assets/data/encounters/goblin_encounter.ron");
+///
+/// Read off disk in desktop development, embedded under `static_content`
+/// (see [`pack::source_text`]).
+#[cfg(feature = "static_content")]
+pub(crate) const ENCOUNTER_WAVES_RON_STATIC: Option<&'static str> =
+    Some(include_str!("../assets/data/encounters/goblin_encounter.ron"));
+#[cfg(not(feature = "static_content"))]
+pub(crate) const ENCOUNTER_WAVES_RON_STATIC: Option<&'static str> = None;
 
 pub mod content_validation;
 pub mod dialogue;

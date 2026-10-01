@@ -31,14 +31,47 @@ pub use cut_rope::{
 };
 pub use gnu_ton::{conduct_gnu_ton, gate_gnu_ton_arena_ladder, gnu_back_is_ground};
 
-pub const BOSS_PROFILES_RON: &str = include_str!("../../assets/data/boss_profiles.ron");
+// ⭐ READ OFF DISK IN DESKTOP DEVELOPMENT, EMBEDDED UNDER `static_content`
+// (web, Android, a build without the source tree), like the move tables: a
+// boss tuning edit costs a restart, not a rebuild of this crate and a relink of
+// the game. See [`crate::pack::source_text`].
 
-pub const BOSS_SEEDS_RON: &str = include_str!("../../assets/data/boss_seeds.ron");
+/// `boss_profiles.ron`: the roster, the patterns and their timings.
+pub const BOSS_PROFILES_SOURCE_PATH: &str = "data/boss_profiles.ron";
+#[cfg(feature = "static_content")]
+const BOSS_PROFILES_RON_STATIC: Option<&'static str> = Some(include_str!("../../assets/data/boss_profiles.ron"));
+#[cfg(not(feature = "static_content"))]
+const BOSS_PROFILES_RON_STATIC: Option<&'static str> = None;
+
+/// The text of `boss_profiles.ron` this build reads.
+pub fn boss_profiles_ron() -> String {
+    crate::pack::source_text(BOSS_PROFILES_SOURCE_PATH, BOSS_PROFILES_RON_STATIC)
+}
+
+pub const BOSS_SEEDS_SOURCE_PATH: &str = "data/boss_seeds.ron";
+#[cfg(feature = "static_content")]
+const BOSS_SEEDS_RON_STATIC: Option<&'static str> = Some(include_str!("../../assets/data/boss_seeds.ron"));
+#[cfg(not(feature = "static_content"))]
+const BOSS_SEEDS_RON_STATIC: Option<&'static str> = None;
+
+/// The text of `boss_seeds.ron` this build reads.
+pub fn boss_seeds_ron() -> String {
+    crate::pack::source_text(BOSS_SEEDS_SOURCE_PATH, BOSS_SEEDS_RON_STATIC)
+}
 
 /// BD5's per-game fairness calibration (`boss-design.md` §3). One RON per game, so
 /// re-calibrating a fight's fairness is an edit, not a recompile.
-pub const BOSS_VALIDATOR_BANDS_RON: &str =
-    include_str!("../../assets/data/boss_validator_bands.ron");
+pub const BOSS_VALIDATOR_BANDS_SOURCE_PATH: &str = "data/boss_validator_bands.ron";
+#[cfg(feature = "static_content")]
+const BOSS_VALIDATOR_BANDS_RON_STATIC: Option<&'static str> =
+    Some(include_str!("../../assets/data/boss_validator_bands.ron"));
+#[cfg(not(feature = "static_content"))]
+const BOSS_VALIDATOR_BANDS_RON_STATIC: Option<&'static str> = None;
+
+/// The text of `boss_validator_bands.ron` this build reads.
+pub fn boss_validator_bands_ron() -> String {
+    crate::pack::source_text(BOSS_VALIDATOR_BANDS_SOURCE_PATH, BOSS_VALIDATOR_BANDS_RON_STATIC)
+}
 
 /// The validator bands the fight validator judges against.
 pub fn validator_bands() -> &'static ambition_boss_encounter::pattern::validator::ValidatorBands {
@@ -67,44 +100,33 @@ pub fn seed_library() -> &'static ambition_boss_encounter::pattern::seeds::SeedL
 ///
 /// positional coupling across two files is the shape, not the count. It
 /// was maintainable at nine and would have been silently wrong at ten.
-pub const BOSS_ENCOUNTERS: &[(&str, &str)] = &[
-    (
-        "data/boss_encounters/clockwork_warden.ron",
-        include_str!("../../assets/data/boss_encounters/clockwork_warden.ron"),
-    ),
-    (
-        "data/boss_encounters/mockingbird.ron",
-        include_str!("../../assets/data/boss_encounters/mockingbird.ron"),
-    ),
-    (
-        "data/boss_encounters/gnu_ton_rider.ron",
-        include_str!("../../assets/data/boss_encounters/gnu_ton_rider.ron"),
-    ),
-    (
-        "data/boss_encounters/smirking_behemoth_boss.ron",
-        include_str!("../../assets/data/boss_encounters/smirking_behemoth_boss.ron"),
-    ),
-    (
-        "data/boss_encounters/flying_spaghetti_monster_boss.ron",
-        include_str!("../../assets/data/boss_encounters/flying_spaghetti_monster_boss.ron"),
-    ),
-    (
-        "data/boss_encounters/trex_boss.ron",
-        include_str!("../../assets/data/boss_encounters/trex_boss.ron"),
-    ),
-    (
-        "data/boss_encounters/mode_collapse_boss.ron",
-        include_str!("../../assets/data/boss_encounters/mode_collapse_boss.ron"),
-    ),
-    (
-        "data/boss_encounters/exploding_gradient_boss.ron",
-        include_str!("../../assets/data/boss_encounters/exploding_gradient_boss.ron"),
-    ),
-    (
-        "data/boss_encounters/overflow_boss.ron",
-        include_str!("../../assets/data/boss_encounters/overflow_boss.ron"),
-    ),
-];
+/// Each encounter file once: its declared path, and its text when this build
+/// embeds it (`static_content`); otherwise the pack reads the path off disk.
+macro_rules! boss_encounter_sources {
+    ($($file:literal),* $(,)?) => {
+        #[cfg(feature = "static_content")]
+        pub const BOSS_ENCOUNTERS: &[(&str, Option<&'static str>)] = &[$(
+            (
+                concat!("data/boss_encounters/", $file),
+                Some(include_str!(concat!("../../assets/data/boss_encounters/", $file))),
+            ),
+        )*];
+        #[cfg(not(feature = "static_content"))]
+        pub const BOSS_ENCOUNTERS: &[(&str, Option<&'static str>)] =
+            &[$((concat!("data/boss_encounters/", $file), None),)*];
+    };
+}
+boss_encounter_sources!(
+    "clockwork_warden.ron",
+    "mockingbird.ron",
+    "gnu_ton_rider.ron",
+    "smirking_behemoth_boss.ron",
+    "flying_spaghetti_monster_boss.ron",
+    "trex_boss.ron",
+    "mode_collapse_boss.ron",
+    "exploding_gradient_boss.ron",
+    "overflow_boss.ron",
+);
 
 // `boss_encounter_rons()` — "just the bytes, for the catalog builder" — is
 // GONE. It existed to hand nine raw files to a builder that parsed

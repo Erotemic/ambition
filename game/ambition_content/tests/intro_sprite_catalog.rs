@@ -22,7 +22,7 @@ fn intro_npc_and_prop_sprite_ids_resolve_through_the_catalog() {
     let character_catalog =
         ambition_characters::actor::character_catalog::CharacterCatalog::from_data(
             ambition_characters::actor::character_catalog::parse_catalog(
-                ambition_content::character_catalog::CHARACTER_CATALOG_RON,
+                &ambition_content::character_catalog::character_catalog_ron(),
             ),
         );
     let boss_catalog = ambition_content::bosses::authored_boss_catalog();

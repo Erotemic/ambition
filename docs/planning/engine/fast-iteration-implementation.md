@@ -152,6 +152,21 @@ rename, global serde redesign or compile-profile tuning.
 
 ## I2 - a loadable move artifact through existing preparation
 
+**2026-10-01: the boss, roster, item, encounter and fighter-ladder sources are
+read off disk too.** Before, only the move tables, the fighter facets and the
+music registry were; `boss_profiles.ron`, `boss_seeds.ron`,
+`boss_validator_bands.ron`, the nine `boss_encounters/*.ron`,
+`character_catalog.ron`, `items.ron`, `goblin_encounter.ron` and
+`fighter_brain_ladder.ron` were `include_str!`ed, so a boss tuning edit rebuilt
+`ambition_content` and relinked the game. Now they go through
+`pack::source_text` (embedded only under `static_content`: web, Android, a build
+without the source tree). MEASURED on the agent machine, warm, `cargo build -p
+ambition_app` after touching the file: `boss_profiles.ron` 0.44 s (nothing
+rebuilt), against 5.79 s for `sfx_registry.ron`, which stays embedded by its
+stated policy. A boss edit now costs a restart; it is not in the reload's
+participating families yet (`reload::participates`), so a running game refuses
+it.
+
 **Class:** DO. **Requires:** I1 for the lightweight Rust frontend; the data
 format/host side can be developed in parallel.
 Read `crates/ambition_content_pack/src/lib.rs`,

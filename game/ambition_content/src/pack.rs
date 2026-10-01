@@ -23,11 +23,7 @@ const PACK_MANIFEST_RON: &str = include_str!("../assets/pack.ron");
 ///
 /// A mismatch is caught by the compiler's "no source supplied" refusal, not
 /// by an empty family.
-pub(crate) const CATALOG_SOURCE_PATH: &str = "data/character_catalog.ron";
 const ITEMS_SOURCE_PATH: &str = "data/items.ron";
-const BOSS_PROFILES_SOURCE_PATH: &str = "data/boss_profiles.ron";
-const BOSS_SEEDS_SOURCE_PATH: &str = "data/boss_seeds.ron";
-const BOSS_VALIDATOR_BANDS_SOURCE_PATH: &str = "data/boss_validator_bands.ron";
 const FIGHTER_BRAIN_LADDER_SOURCE_PATH: &str = "data/fighter_brain_ladder.ron";
 const MUSIC_REGISTRY_SOURCE_PATH: &str = "audio/music_registry.ron";
 const SFX_REGISTRY_SOURCE_PATH: &str = "audio/sfx_registry.ron";
@@ -35,9 +31,12 @@ const SFX_REGISTRY_SOURCE_PATH: &str = "audio/sfx_registry.ron";
 /// The authored encounter wave timelines.
 const ENCOUNTER_WAVES_SOURCE_PATH: &str = "data/encounters/goblin_encounter.ron";
 
-/// The authored item grid (compile-time include; the loose file stays on disk
-/// so the CLI and the Python tooling read the same bytes).
-pub const ITEMS_RON: &str = include_str!("../assets/data/items.ron");
+/// The authored item grid: read off disk in desktop development, embedded
+/// under `static_content`. The CLI and the Python tooling read the same file.
+#[cfg(feature = "static_content")]
+const ITEMS_RON_STATIC: Option<&'static str> = Some(include_str!("../assets/data/items.ron"));
+#[cfg(not(feature = "static_content"))]
+const ITEMS_RON_STATIC: Option<&'static str> = None;
 
 /// Every move table this provider authors, as content, not code.
 ///
@@ -176,7 +175,11 @@ const FIGHTER_FACETS: &[(&str, Option<&'static str>)] = &[("player_robot_v3", No
 ///
 /// Declared here so the game reads it as content, instead of consulting the
 /// `FighterBrainProfile::for_level` floor.
-pub const FIGHTER_BRAIN_LADDER_RON: &str = include_str!("../assets/data/fighter_brain_ladder.ron");
+#[cfg(feature = "static_content")]
+const FIGHTER_BRAIN_LADDER_RON_STATIC: Option<&'static str> =
+    Some(include_str!("../assets/data/fighter_brain_ladder.ron"));
+#[cfg(not(feature = "static_content"))]
+const FIGHTER_BRAIN_LADDER_RON_STATIC: Option<&'static str> = None;
 
 /// One declared source's text: embedded when this build baked it in, otherwise
 /// read from the same file off disk.
@@ -190,7 +193,7 @@ pub const FIGHTER_BRAIN_LADDER_RON: &str = include_str!("../assets/data/fighter_
 ///
 /// A missing file is fatal. Content that silently lost a family is the
 /// "silent partial start" [`compile_pack`] refuses.
-fn source_text(declared_path: &str, embedded: Option<&'static str>) -> String {
+pub(crate) fn source_text(declared_path: &str, embedded: Option<&'static str>) -> String {
     if let Some(text) = embedded {
         return text.to_string();
     }
@@ -217,29 +220,29 @@ fn embedded_sources() -> impl IntoIterator<Item = (String, String)> {
     // runtime resolves rows by their internal ids.
     let mut sources: Vec<(String, String)> = vec![
         (
-            CATALOG_SOURCE_PATH.to_string(),
-            crate::character_catalog::CHARACTER_CATALOG_RON.to_string(),
+            crate::character_catalog::CATALOG_SOURCE_PATH.to_string(),
+            crate::character_catalog::character_catalog_ron(),
         ),
-        (ITEMS_SOURCE_PATH.to_string(), ITEMS_RON.to_string()),
+        (ITEMS_SOURCE_PATH.to_string(), source_text(ITEMS_SOURCE_PATH, ITEMS_RON_STATIC)),
         (
             ENCOUNTER_WAVES_SOURCE_PATH.to_string(),
-            crate::ENCOUNTER_WAVES_RON.to_string(),
+            source_text(ENCOUNTER_WAVES_SOURCE_PATH, crate::ENCOUNTER_WAVES_RON_STATIC),
         ),
         (
             FIGHTER_BRAIN_LADDER_SOURCE_PATH.to_string(),
-            FIGHTER_BRAIN_LADDER_RON.to_string(),
+            source_text(FIGHTER_BRAIN_LADDER_SOURCE_PATH, FIGHTER_BRAIN_LADDER_RON_STATIC),
         ),
         (
-            BOSS_PROFILES_SOURCE_PATH.to_string(),
-            crate::bosses::BOSS_PROFILES_RON.to_string(),
+            crate::bosses::BOSS_PROFILES_SOURCE_PATH.to_string(),
+            crate::bosses::boss_profiles_ron(),
         ),
         (
-            BOSS_SEEDS_SOURCE_PATH.to_string(),
-            crate::bosses::BOSS_SEEDS_RON.to_string(),
+            crate::bosses::BOSS_SEEDS_SOURCE_PATH.to_string(),
+            crate::bosses::boss_seeds_ron(),
         ),
         (
-            BOSS_VALIDATOR_BANDS_SOURCE_PATH.to_string(),
-            crate::bosses::BOSS_VALIDATOR_BANDS_RON.to_string(),
+            crate::bosses::BOSS_VALIDATOR_BANDS_SOURCE_PATH.to_string(),
+            crate::bosses::boss_validator_bands_ron(),
         ),
         (
             MUSIC_REGISTRY_SOURCE_PATH.to_string(),
@@ -266,7 +269,7 @@ fn embedded_sources() -> impl IntoIterator<Item = (String, String)> {
     sources.extend(
         crate::bosses::BOSS_ENCOUNTERS
             .iter()
-            .map(|(path, ron)| ((*path).to_string(), (*ron).to_string())),
+            .map(|(path, embedded)| ((*path).to_string(), source_text(path, *embedded))),
     );
     sources
 }

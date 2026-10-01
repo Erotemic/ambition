@@ -956,8 +956,12 @@ room; with the reducer keyed by id only, Alice's entry started #2 too).
 Superseded: 7f's per-room-id death set is now per occurrence. The first
 draft of this repair looked the spawner's room up by authored room id; it
 was not landed, because two live rooms of one room are one authored id.
-⚠ Not witnessed on its own: the driver's per-occurrence mob liveness
-lookup (the witnesses above never have two occurrences with mobs at once).
+✅ The driver's per-occurrence mob liveness lookup is witnessed on its own
+(2026-10-01): `an_occurrence_reads_the_liveness_of_its_own_rooms_mobs` (two
+live rooms of `goblin_encounter` ask for mobs of the same ids on one tick;
+each request is served into its room, the mobs of one room killed: each
+occurrence holds its own room's liveness, in both arrangements; with the
+room filter removed from the lookup, #1 read #2's live mobs).
 ⚠ Still keyed by authored id: the music intent (`music/intent.rs`) and the
 encounter camera zoom, which are views (P5), and the symmetry attunement
 content encounter (✅ it reads every live room since cut 7i, below).

@@ -36,6 +36,39 @@ hide a rebuild on a speculative frame. Witness:
 `a_new_game_asked_for_by_the_host_commits_once_under_a_rewind`, with
 `rollback_health()` on both arms.
 
+### RESOURCE-SET-SENSITIVE-RESIM — whether a cast publication desyncs depends on which resources exist
+
+**Owner:** rollback determinism. **Found 2026-10-01** (ToothbrushAmbition2),
+when `MovementDefaultsWatch` (7d16e6ce7) turned
+`developer_edits_under_rollback::publishing_a_cast_mid_timeline_changes_what_history_resimulates_to`
+red. That arm records that a cast published mid-timeline desyncs the sync test.
+MEASURED, each arm run alone, each result stable over repeated runs:
+
+| Composition | Cast publication mid-timeline |
+| --- | --- |
+| HEAD before the watch | checksum mismatch (the arm's recorded answer) |
+| the watch registered (resource + `Update` system) | no mismatch, 4 runs of 4 |
+| a no-op `Update` system, no resource | mismatch |
+| the watch's resource inserted, no system | no mismatch |
+| an unrelated `struct ProbeUnrelated(u8)` resource inserted at the same point | no mismatch |
+| no watch, but `RollbackRestoreAudit::enabled()` inserted by the test | no mismatch |
+
+⇒ Whether a rewind resimulates a cast publication to the same checksum depends
+on the SET of resources in the world, not on what any of them hold: one more
+resource of any type, inserted at build or at run time, removes the mismatch.
+Something on the resimulation or checksum road iterates resources (or storage)
+in an order that the resource set moves. The audit instrument cannot name it,
+because inserting the audit is one of the changes that hides it. Also measured
+the same day: `apply_worn_character_gameplay` no longer re-derives bodies from
+the App cast (275230a3c), so the road this arm was written for (2026-09-13,
+frames 22–24) is closed. What remained is this sensitivity.
+
+The arm is `#[ignore]`d with this row as its reason. It recorded an answer that
+the composition, not the cast, decides. The next probe: hash the checksum's
+inputs per resource, then diff the two compositions' first resimulated frame.
+Same class as `SYNC-POINT-SENSITIVE-RESIM` below (an incidental composition
+change moves a resimulation result).
+
 ### SYNC-POINT-SENSITIVE-RESIM — a command sync point moves the death-reset replay
 
 **Owner:** rollback determinism. **Found 2026-09-22** while moving the clock

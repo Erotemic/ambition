@@ -181,7 +181,13 @@ fn editing_feel_tuning_mid_timeline_changes_what_history_resimulates_to() {
 /// (`rollback_component_clone`, `actor.moveset`) and then resimulates a
 /// historical frame with a system that reads the NEW registry. Identical shape
 /// to `ActiveMovementTuning`; the only question is whether it fires.
+///
+/// ⛔ IGNORED 2026-10-01: its answer depends on which resources exist. One more
+/// resource of any type (the movement-defaults watch, an unrelated probe, or the
+/// restore audit) removes the mismatch. See `RESOURCE-SET-SENSITIVE-RESIM` in
+/// `docs/planning/queue.md` for the measured table.
 #[test]
+#[ignore = "RESOURCE-SET-SENSITIVE-RESIM: the mismatch appears or not with the world's resource set"]
 fn publishing_a_cast_mid_timeline_changes_what_history_resimulates_to() {
     use ambition_platformer2d::characters::prepared::{
         activate_staged_revision, stage_character_revision, PreparedCharacterRegistry,

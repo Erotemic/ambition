@@ -307,6 +307,20 @@ impl CharacterCatalogRegistry {
         out
     }
 
+    /// The registry with `fragment` in place of its provider's current one
+    /// (or added), and what it assembles. For a content reload: the candidate
+    /// is checked whole before anything is published.
+    pub fn with_replaced(
+        &self,
+        fragment: CharacterCatalogFragment,
+    ) -> Result<(Self, AssembledCharacterCatalog), CharacterCatalogAssemblyError> {
+        fragment.validate()?;
+        let mut next = self.clone();
+        next.fragments.insert(fragment.provider_id.clone(), fragment);
+        let assembled = next.assemble()?;
+        Ok((next, assembled))
+    }
+
     pub fn assemble(&self) -> Result<AssembledCharacterCatalog, CharacterCatalogAssemblyError> {
         let mut autonomous_profiles = BTreeMap::new();
         let mut axis_tuning_presets = BTreeMap::new();

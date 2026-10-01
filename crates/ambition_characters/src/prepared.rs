@@ -542,12 +542,21 @@ pub fn stage_character_revision(
     definition: CharacterDefinition,
     bindings: &CharacterBindings,
 ) -> Result<(), CharacterRegistrationError> {
+    stage_character_revision_in(app.world_mut(), definition, bindings)
+}
+
+/// [`stage_character_revision`] for a caller that holds a `World` (a reload).
+pub fn stage_character_revision_in(
+    world: &mut bevy::ecs::world::World,
+    definition: CharacterDefinition,
+    bindings: &CharacterBindings,
+) -> Result<(), CharacterRegistrationError> {
     if definition.id.as_str().trim().is_empty() {
         return Err(CharacterRegistrationError::BlankId);
     }
     let staged = prepare_for_registration(definition, bindings).staged;
     let id = ambition_entity_catalog::CharacterId::new(staged.id());
-    app.world_mut()
+    world
         .get_resource_or_insert_with(StagedCastRevision::default)
         .by_id
         .insert(id, staged);
@@ -644,6 +653,17 @@ pub struct AdmittedRevision {
     candidate: PreparedCharacterRegistry,
     staged: Vec<StagedCharacter>,
     previous: CharacterCatalogGeneration,
+    /// The catalog this revision publishes with the cast, when it changes the
+    /// catalog. See [`admit_staged_revision_with_catalog`].
+    catalog: Option<CandidateCatalog>,
+}
+
+/// A character catalog a revision publishes with its cast: the provider
+/// registry with the candidate fragment in it, and what that assembles.
+#[derive(Clone, Debug)]
+pub struct CandidateCatalog {
+    pub registry: crate::actor::character_catalog::CharacterCatalogRegistry,
+    pub assembled: crate::actor::character_catalog::AssembledCharacterCatalog,
 }
 
 impl AdmittedRevision {
@@ -775,7 +795,89 @@ pub fn admit_staged_revision(
         candidate,
         staged,
         previous,
+        catalog: None,
     })
+}
+
+/// [`admit_staged_revision`] against a CANDIDATE catalog: the revision a
+/// catalog edit makes. Nothing is mutated.
+///
+/// ⛔ THE WHOLE CAST IS FOLDED AGAIN, not only the staged characters. A
+/// catalog row feeds the fold of its character (and its provider's
+/// declarations feed every character of that provider), so folding only the
+/// edited definitions over the live registry would leave every other character
+/// at the old catalog's values under the new catalog. The cast is the authored
+/// source with the staged edits in it, plus a bare definition for each row of
+/// the candidate catalog nobody authored — what the barrier folds
+/// ([`cast_with_catalog_rows`]).
+pub fn admit_staged_revision_with_catalog(
+    world: &bevy::ecs::world::World,
+    support: &ambition_entity_catalog::TechniqueSupport,
+    catalog: &CandidateCatalog,
+) -> RevisionAdmission {
+    use crate::actor::character_catalog as cc;
+    let Some(overrides) = world.get_resource::<StagedCharacterOverrides>() else {
+        return RevisionAdmission::NothingStaged;
+    };
+    let Some(active) = world.get_resource::<PreparedCharacterRegistry>() else {
+        return RevisionAdmission::NothingStaged;
+    };
+    let previous = active.generation();
+    let staged: Vec<StagedCharacter> = world
+        .get_resource::<StagedCastRevision>()
+        .map(|revision| revision.by_id.values().cloned().collect())
+        .unwrap_or_default();
+    let assembled = &catalog.assembled;
+    let same_authorities = world.get_resource::<cc::CharacterCatalog>() == Some(&assembled.catalog)
+        && world.get_resource::<cc::BrainProfileRegistry>() == Some(&assembled.brain_profiles)
+        && world.get_resource::<cc::ProviderDeclarations>() == Some(&assembled.declarations);
+    let same_source = staged.iter().all(|character| {
+        overrides.by_id.get(&ambition_entity_catalog::CharacterId::new(character.id())) == Some(character)
+    });
+    if same_authorities && same_source {
+        return RevisionAdmission::Unchanged {
+            generation: previous,
+        };
+    }
+    let authorities = CastAuthorities {
+        catalog: Some(assembled.catalog.clone()),
+        profiles: Some(assembled.brain_profiles.clone()),
+        declarations: Some(assembled.declarations.clone()),
+    };
+    let mut authored = overrides.by_id.clone();
+    for character in &staged {
+        authored.insert(ambition_entity_catalog::CharacterId::new(character.id()), character.clone());
+    }
+    let candidate = finalize_cast(
+        cast_with_catalog_rows(authored, Some(&assembled.catalog)),
+        &authorities,
+        previous,
+    );
+    let refusals = unsupported_authored_effects(support, &candidate);
+    if !refusals.is_empty() {
+        return RevisionAdmission::Refused { refusals, previous };
+    }
+    RevisionAdmission::Admitted(AdmittedRevision {
+        candidate,
+        staged,
+        previous,
+        catalog: Some(catalog.clone()),
+    })
+}
+
+/// [`take_admitted_revision`] against a candidate catalog.
+pub fn take_admitted_revision_with_catalog(
+    world: &mut bevy::ecs::world::World,
+    support: &ambition_entity_catalog::TechniqueSupport,
+    catalog: &CandidateCatalog,
+) -> RevisionAdmission {
+    let admission = admit_staged_revision_with_catalog(world, support, catalog);
+    if !matches!(admission, RevisionAdmission::NothingStaged) {
+        if let Some(mut revision) = world.get_resource_mut::<StagedCastRevision>() {
+            revision.by_id.clear();
+        }
+    }
+    admission
 }
 
 /// Publish a revision that has ALREADY been admitted.
@@ -792,6 +894,7 @@ pub fn publish_admitted_revision(
         mut candidate,
         staged,
         previous,
+        catalog,
     } = admitted;
     let changed = staged.len();
     candidate.stamp_after(previous);
@@ -811,6 +914,17 @@ pub fn publish_admitted_revision(
         }
     }
 
+    // The catalog the cast was folded against lands at the same boundary,
+    // every resource its assembly publishes
+    // (`CharacterCatalogAppExt::try_register_character_catalog_fragment`).
+    if let Some(CandidateCatalog { registry, assembled }) = catalog {
+        world.insert_resource(registry);
+        world.insert_resource(assembled.catalog);
+        world.insert_resource(assembled.defaults);
+        world.insert_resource(assembled.declarations);
+        world.insert_resource(assembled.owners);
+        world.insert_resource(assembled.brain_profiles);
+    }
     world.insert_resource(AuthoredEffectRefusals(Vec::new()));
     world.insert_resource(candidate);
     RevisionOutcome::Activated {

@@ -925,7 +925,9 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// ⛔⛤ 280 -> 281: `content.eye_beam_state` and `content.mode_collapse_state`
 /// are gone. Both techniques are extension modules, and their locked-strike
 /// records live in `extension.body_records`.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 281;
+/// ⛔⛤ 281 -> 282: `content.seismic_stomp_state` is gone: the seismic stomp is
+/// an extension module, its strike latch a record in `extension.body_records`.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 282;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

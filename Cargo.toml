@@ -63,6 +63,7 @@ members = [
     "crates/ambition_extension_sdk",
     "crates/ambition_extension_host",
     "crates/ambition_boss_special_port",
+    "crates/ambition_combat_port",
     "crates/ambition_extension_wasm",
     "crates/ambition_render",
     "crates/ambition_sim_harness",

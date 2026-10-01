@@ -13,6 +13,7 @@ description = "Ambition's procedural extension modules, built against the extens
 # list closed.
 [dependencies]
 ambition_boss_special_port = { path = "../../crates/ambition_boss_special_port" }
+ambition_combat_port = { path = "../../crates/ambition_combat_port" }
 ambition_extension_sdk = { path = "../../crates/ambition_extension_sdk" }
 ambition_projectile_spec = { path = "../../crates/ambition_projectile_spec" }
 bevy_math = { version = "0.19.1" }

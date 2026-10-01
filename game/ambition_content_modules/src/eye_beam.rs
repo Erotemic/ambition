@@ -11,7 +11,7 @@ use ambition_extension_sdk::{
 use ambition_projectile_spec::{ProjectileSpawn, ProjectileSpawnPort};
 use bevy_math::Vec2;
 
-use crate::locked_strike;
+use crate::strike;
 
 /// The special-action key in `boss_profiles.ron`.
 pub const KEY: &str = "eye_beam";
@@ -33,7 +33,7 @@ pub fn module() -> ModuleDescriptor {
             crate_name: env!("CARGO_PKG_NAME").into(),
             version: env!("CARGO_PKG_VERSION").into(),
         },
-        schemas: vec![locked_strike::schema(STRIKE)],
+        schemas: vec![strike::locked_schema(STRIKE)],
         entries: vec![EntryDescriptor {
             key: "fire".into(),
             phase: TECHNIQUE_EXECUTION,
@@ -55,7 +55,7 @@ pub fn module() -> ModuleDescriptor {
 
 fn fire(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     let caster: BossCaster = inv.trigger::<BossSpecialCast>()?.clone();
-    let Some(target) = locked_strike::advance(inv, &STRIKE, &caster)? else {
+    let Some(target) = strike::locked(inv, &STRIKE, &caster)? else {
         return Ok(());
     };
     // The eye is mirrored with the body.

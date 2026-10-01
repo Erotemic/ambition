@@ -308,7 +308,7 @@ def registering_crates() -> list[str]:
     registers rollback state"*; what it measured was that sentence with
     `crates/*` silently appended.
     ⚠ MEASURED, so this is not hypothetical: `game/ambition_content` registers
-    `EchoFanState` and the rest of `bosses/specials/rollback.rs` (and, at
+    `MinimaTrapState` and the rest of `bosses/specials/rollback.rs` (and, at
     that time, a portal-host marker). Its components were outside
     the guard's reach entirely.
     ⛔ THE FLOORS DID NOT PROTECT AGAINST THIS and could not have. They catch a

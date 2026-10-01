@@ -10,7 +10,7 @@ use ambition_extension_sdk::{
 use ambition_projectile_spec::{ProjectileSpawn, ProjectileSpawnPort};
 use bevy_math::Vec2;
 
-use crate::locked_strike;
+use crate::strike;
 
 /// The special-action key in `boss_profiles.ron`.
 pub const KEY: &str = "mode_collapse_converge";
@@ -32,7 +32,7 @@ pub fn module() -> ModuleDescriptor {
             crate_name: env!("CARGO_PKG_NAME").into(),
             version: env!("CARGO_PKG_VERSION").into(),
         },
-        schemas: vec![locked_strike::schema(STRIKE)],
+        schemas: vec![strike::locked_schema(STRIKE)],
         entries: vec![EntryDescriptor {
             key: "converge".into(),
             phase: TECHNIQUE_EXECUTION,
@@ -66,7 +66,7 @@ pub fn converge_ring(center: Vec2, count: u32, radius: f32) -> Vec<(Vec2, Vec2)>
 
 fn converge(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     let caster: BossCaster = inv.trigger::<BossSpecialCast>()?.clone();
-    let Some(center) = locked_strike::advance(inv, &STRIKE, &caster)? else {
+    let Some(center) = strike::locked(inv, &STRIKE, &caster)? else {
         return Ok(());
     };
     for (origin, dir) in converge_ring(Vec2::from(center), RING_COUNT, RING_RADIUS) {

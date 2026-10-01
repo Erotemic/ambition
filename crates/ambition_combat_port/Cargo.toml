@@ -1,0 +1,13 @@
+[package]
+name = "ambition_combat_port"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "The pure values of the combat domain's extension ports: a damage box a module may ask for."
+
+# A leaf on purpose: a procedural module submits these values and must build
+# without Bevy, the host, or the combat runtime. `ambition_combat::extension`
+# owns the adapter that lowers them into the effect executor.
+[dependencies]
+ambition_extension_sdk = { path = "../ambition_extension_sdk" }

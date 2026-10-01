@@ -7,7 +7,7 @@
 //!
 //! | phase | placement | ports |
 //! |---|---|---|
-//! | `technique_execution` | `CombatSet::ContentSpecials`, gameplay-gated | trigger `ambition.boss.special_cast` (boss domain); request `ambition.projectiles.spawn` (projectile domain) |
+//! | `technique_execution` | `CombatSet::ContentSpecials`, gameplay-gated | trigger `ambition.boss.special_cast` (boss domain); requests `ambition.projectiles.spawn` (projectile domain) and `ambition.combat.damage_box` (combat domain) |
 
 use ambition_extension_host::{ExtensionHostPlugin, ExtensionSet};
 use ambition_extension_sdk::phases::TECHNIQUE_EXECUTION;
@@ -35,6 +35,7 @@ impl Plugin for ExtensionCompositionPlugin {
         );
         ambition_boss_encounter::extension::install(app);
         ambition_projectiles::extension::install(app);
+        ambition_combat::extension::install(app);
         #[cfg(feature = "wasm_modules")]
         load_developer_modules(app);
         #[cfg(not(feature = "wasm_modules"))]

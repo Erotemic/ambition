@@ -22,6 +22,7 @@
 | [`crowd`](src/crowd.rs) | Crowding classification used by fighter spacing logic. |
 | [`death_rules`](src/death_rules.rs) | Game-scoped consequences of participant death (ADR 0033). |
 | [`events`](src/events.rs) | Combat message/event vocabulary and small shared value types. |
+| [`extension`](src/extension.rs) | The combat domain's extension request adapter: a module's damage box enters the effect executor's one road (`EffectRequest` → `Effect::DamageBox`), owned by the body the invocation ran for and on that body's EFFECTIVE faction (`targeting::effective_faction`: a driven body fights as the player). |
 | [`falling_chest`](src/falling_chest.rs) | Falling-chest physics for ECS reward chests. |
 | [`feel`](src/feel.rs) | Live gameplay-feel tuning owned by the combat domain. |
 | [`finish_zoom`](src/finish_zoom.rs) | The finishing blow pulls the camera in. |
@@ -54,7 +55,7 @@
 | [`vitality`](src/vitality.rs) | A move that pays or repays its own mover's health. |
 | [`worn_kit`](src/worn_kit.rs) | The kit a body wears: what a character id resolves to when a body puts it on. |
 
-_47 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_48 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

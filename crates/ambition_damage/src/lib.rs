@@ -1617,7 +1617,8 @@ pub fn apply_player_hit_events(
             in_hitstun: combat.hitstun_timer > 0.0,
             feature_requested_reset: false,
             blink_grace_active: facts.blink_grace,
-            room_transitioning: sim_state.remaining > 0.0,
+            // The primary seat's own cooldown: this path is slot 0's.
+            room_transitioning: sim_state.holds(0),
         };
         remember_safe_player_position(&mut safety, &clusters, &safe_world, ctx);
     }

@@ -80,9 +80,12 @@ fn app_with_populated_mirrors() -> App {
     // Populate the mirrors with distinctive session-A state.
     let ghost = app.world_mut().spawn_empty().id();
     app.world_mut().resource_mut::<PossessionState>().possessed = Some(ghost);
-    app.world_mut()
-        .resource_mut::<RoomTransitionCooldown>()
-        .remaining = 5.0;
+    {
+        // Two seats inside a cooldown: teardown clears every seat, not one.
+        let mut cooldown = app.world_mut().resource_mut::<RoomTransitionCooldown>();
+        cooldown.hold(0, 5.0);
+        cooldown.hold(2, 5.0);
+    }
     app.world_mut()
         .resource_mut::<SlotInteractionState>()
         .primary_mut()
@@ -265,8 +268,8 @@ fn retirement_clears_every_session_scoped_mirror() {
         "possession still points at a despawned session-A body after teardown"
     );
     assert_eq!(
-        app.world().resource::<RoomTransitionCooldown>().remaining,
-        RoomTransitionCooldown::default().remaining,
+        *app.world().resource::<RoomTransitionCooldown>(),
+        RoomTransitionCooldown::default(),
         "transient room state carried across teardown"
     );
     assert!(
@@ -360,8 +363,8 @@ fn activating_a_session_clears_what_a_skipped_teardown_left_behind() {
         "session B started with a buffered interact nobody pressed in it"
     );
     assert_eq!(
-        app.world().resource::<RoomTransitionCooldown>().remaining,
-        0.0,
+        *app.world().resource::<RoomTransitionCooldown>(),
+        RoomTransitionCooldown::default(),
         "session B started inside A's room-transition cooldown, which refuses \
          every door for as long as it lasts"
     );

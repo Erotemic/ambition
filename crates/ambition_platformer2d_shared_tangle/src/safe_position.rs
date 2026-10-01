@@ -95,22 +95,47 @@ impl SafePositionContext {
 /// Holds values that belong to the simulation, not to
 /// developer/debug tools or presentation state.
 ///
-/// Multiplayer caveat: each field has different per-player vs.
-/// shared semantics for a future co-op build:
-/// - Per-player "last safe position" lives on each player entity as
-///   `PlayerSafetyState`.
-/// - `remaining` — global shared-world today
-///   because the whole party shares one active room. If a future
-///   build splits rooms per-player this would need to move per-room
-///   or per-player.
-#[derive(Resource, Clone, Copy, Debug)]
+/// One countdown per seat: the seat whose body crossed a door waits before it
+/// can cross again, and the other seats do not (OW1, customer 2). A seat is a
+/// `PlayerSlot` index; `SEATS` is `SlotControls::MAX_SLOTS`, and the actor
+/// crate asserts that at compile time.
+///
+/// Per-player "last safe position" lives on each player entity as
+/// `PlayerSafetyState`.
+#[derive(Resource, Clone, Copy, Debug, Default, PartialEq)]
 pub struct RoomTransitionCooldown {
-    pub remaining: f32,
+    remaining: [f32; Self::SEATS],
 }
 
-impl Default for RoomTransitionCooldown {
-    fn default() -> Self {
-        Self { remaining: 0.0 }
+impl RoomTransitionCooldown {
+    /// The number of seats. Equal to `SlotControls::MAX_SLOTS`.
+    pub const SEATS: usize = 4;
+
+    /// Whether `seat` must wait before it crosses again.
+    pub fn holds(&self, seat: usize) -> bool {
+        self.remaining[seat] > 0.0
+    }
+
+    /// The seconds that `seat` must still wait.
+    pub fn remaining(&self, seat: usize) -> f32 {
+        self.remaining[seat]
+    }
+
+    /// Make `seat` wait `seconds` before it crosses again.
+    pub fn hold(&mut self, seat: usize, seconds: f32) {
+        self.remaining[seat] = seconds;
+    }
+
+    /// Let `seat` cross again at once.
+    pub fn release(&mut self, seat: usize) {
+        self.remaining[seat] = 0.0;
+    }
+
+    /// Count every seat down by `dt` seconds.
+    pub fn tick(&mut self, dt: f32) {
+        for remaining in &mut self.remaining {
+            *remaining = (*remaining - dt).max(0.0);
+        }
     }
 }
 

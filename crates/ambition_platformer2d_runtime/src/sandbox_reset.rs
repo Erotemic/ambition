@@ -56,7 +56,6 @@ pub fn reset_sandbox(
     vfx: &mut MessageWriter<VfxMessage>,
     motion_model: &mut ae::MotionModel,
     clusters: &mut ae::BodyClustersMut<'_>,
-    sim_state: &mut RoomTransitionCooldown,
     // `None` while another live room stays: the sim clock is one clock for
     // the whole world, and one room's reset does not snap another's bullet
     // time (OW1; the decision is in the open-world plan).
@@ -89,7 +88,6 @@ pub fn reset_sandbox(
             "sandbox_reset",
         ));
     }
-    sim_state.remaining = 0.0;
     anim.reset();
     combat.reset();
     if let Some(health) = health {
@@ -278,6 +276,8 @@ pub fn return_the_replay_subject_to_spawn(
         // A body put back at spawn comes back ALIVE (ADR 0033). `Option`
         // because a scratch body without a meter is a valid thing to reset.
         Option<&mut ambition_characters::actor::BodyHealth>,
+        // The seat driving the subject: its crossing cooldown ends here.
+        Option<&ambition_characters::control::DrivingParticipant>,
     )>,
     mut slot_gestures: ResMut<ambition_characters::control::SlotInteractionState>,
     // The live room roots: with more than one, another live room stays
@@ -303,6 +303,7 @@ pub fn return_the_replay_subject_to_spawn(
         blink_cam,
         safety,
         health,
+        driver,
     )) = bodies
         .iter_mut()
         .find(|(_, id, stamp, root, ..)| subject.is(id, *stamp, *root))
@@ -319,6 +320,10 @@ pub fn return_the_replay_subject_to_spawn(
         return;
     };
 
+    // The subject's seat may cross again at once; another seat's cooldown
+    // is not this replay's (OW1, customer 2).
+    let seat = driver.map_or(ambition_characters::control::PlayerSlot::PRIMARY, |driver| driver.0);
+    sim_state.release(usize::from(seat.0));
     let mut clusters = cluster_item.as_clusters_mut();
     reset_sandbox(
         &geometry.0,
@@ -326,7 +331,6 @@ pub fn return_the_replay_subject_to_spawn(
         &mut vfx_writer,
         &mut motion_model,
         &mut clusters,
-        &mut sim_state,
         (live_rooms.iter().count() <= 1).then_some(&mut clock_resets),
         safety.map(|s| s.into_inner()),
         &mut anim,
@@ -474,8 +478,6 @@ mod tests {
             ae::AbilitySet::sandbox_all(),
         );
         let mut model = ae::MotionModel::default();
-        let mut sim_state =
-            ambition_platformer2d_shared_tangle::safe_position::RoomTransitionCooldown::default();
         let mut safety =
             ambition_platformer2d_shared_tangle::safe_position::PlayerSafetyState::default();
         let mut anim = ambition_characters::actor::BodyAnimFacts::default();
@@ -490,7 +492,6 @@ mod tests {
                 &mut vfx,
                 &mut model,
                 &mut clusters,
-                &mut sim_state,
                 Some(&mut clock_resets),
                 Some(&mut safety),
                 &mut anim,

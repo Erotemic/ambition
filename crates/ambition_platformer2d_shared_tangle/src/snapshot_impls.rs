@@ -278,12 +278,16 @@ impl SnapshotState for crate::safe_position::PlayerSafetyState {
 
 impl SnapshotState for crate::safe_position::RoomTransitionCooldown {
     fn encode(&self, out: &mut Vec<u8>) {
-        put_f32(out, self.remaining);
+        for seat in 0..Self::SEATS {
+            put_f32(out, self.remaining(seat));
+        }
     }
 
     fn decode(r: &mut Reader<'_>) -> Option<Self> {
-        Some(Self {
-            remaining: r.f32()?,
-        })
+        let mut cooldown = Self::default();
+        for seat in 0..Self::SEATS {
+            cooldown.hold(seat, r.f32()?);
+        }
+        Some(cooldown)
     }
 }

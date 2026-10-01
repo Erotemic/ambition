@@ -535,8 +535,11 @@ The probe was not kept (a check that cannot fail). The next arm keeps this room
 and adds a script that hits the boss during the window. ⚠ A naive one does not:
 walking toward the boss and attacking every 8 frames for 400 frames under the
 sync test left its HP at 28 of 28, with the player moving only from x=134 to
-162 (MEASURED). The fixture needs the player placed beside the boss
-(`--player-beside` is the capture tool's answer to the same problem). (`SessionCast::is_changed` follows the source `get` reads). ⭐ With
+162 (MEASURED). Placing the player 40 px beside the boss (writing its
+`BodyKinematics`) and attacking for 200 frames also left 28 of 28 (MEASURED):
+either the boss cannot be struck this early in its encounter, or this
+`AgentAction` does not produce a strike that reaches it. Find a passing
+"the player damages the mockingbird" test in `app_it` and reuse its inputs. (`SessionCast::is_changed` follows the source `get` reads). ⭐ With
 the projection on the session's cast, a cast published mid-timeline no longer
 desyncs the sync test: `developer_edits_under_rollback::publishing_a_cast_mid_timeline_leaves_history_resimulating_the_same`
 asserts it (MEASURED: putting either the projection or the worn re-derivation

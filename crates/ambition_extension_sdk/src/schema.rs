@@ -65,7 +65,9 @@ pub enum Attachment {
     /// One record for each body that an entry is invoked for. The record
     /// retires with the body.
     Body,
-    /// One record for each gameplay session. It retires with the session.
+    /// One record for each gameplay session, shared by every invocation of
+    /// the module in the session, whatever body it runs for. It retires with
+    /// the session.
     Session,
 }
 

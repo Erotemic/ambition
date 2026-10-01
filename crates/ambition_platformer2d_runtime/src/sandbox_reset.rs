@@ -150,13 +150,18 @@ pub struct RoomReplayConsequences;
 /// A composition with no controlled body still replays: the room is rebuilt with
 /// nobody in it, `subject` is `None`, and the transition road is not asked for a
 /// crossing it cannot describe.
+///
+/// ⭐ THE ROOM REPLAYED IS THE SUBJECT'S OWN LIVE ROOM (OW1 Cut A). This read
+/// the sole live room, so while two rooms were live the request was drained
+/// and lost: a death in one player's room never replayed it. With no subject,
+/// the room is the sole live room's, and there is none while two are live.
 pub fn admit_room_replay(
     mut requests: MessageReader<
         ambition_platformer2d_actor_monolith::session::reset::RoomReplayRequested,
     >,
     controlled: Option<Res<ambition_platformer2d_shared_tangle::markers::ControlledSubject>>,
     identities: ambition_platformer2d_shared_tangle::lifecycle::LiveBodies,
-    room_set: Option<ambition_platformer2d_world::rooms::SoleLiveRoomSpec>,
+    rooms: Option<ambition_platformer2d_world::rooms::LiveRoomSpecs>,
     mut pending: ResMut<
         ambition_platformer2d_actor_monolith::session::lifecycle_commit::PendingLifecycleCommit,
     >,
@@ -172,16 +177,19 @@ pub fn admit_room_replay(
     let Some(reason) = requests.read().map(|request| request.reason).next() else {
         return;
     };
-    let Some(room_set) = room_set.as_ref() else {
+    let Some(rooms) = rooms.as_ref() else {
         return;
     };
-    let active = room_set.spec();
-
     // The body the player is actually playing the room with.
     let subject = controlled
         .as_deref()
         .and_then(|controlled| controlled.0)
         .and_then(|entity| identities.id_of(entity));
+    // Its own live room; with no subject, the sole live room.
+    let Some(definition) = rooms.definition_named(subject.as_ref().and_then(|subject| subject.room)) else {
+        return;
+    };
+    let active = rooms.rooms().spec(definition);
 
     let admission = match subject.clone() {
         Some(subject) => pending.record(
@@ -239,7 +247,9 @@ pub fn admit_room_replay(
 #[allow(clippy::too_many_arguments)]
 pub fn return_the_replay_subject_to_spawn(
     mut admitted: MessageReader<RoomReplayAdmitted>,
-    world: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<RoomGeometry>,
+    // The subject's own live room (OW1 Cut A): the sole live room's was read,
+    // so while two rooms were live nobody went back to spawn.
+    world: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomOf<RoomGeometry>,
     active_tuning: Res<ae::ActiveMovementTuning>,
     feel_tuning: Res<Platformer2dFeelTuningMonolith>,
     mut sim_state: ResMut<RoomTransitionCooldown>,
@@ -247,6 +257,7 @@ pub fn return_the_replay_subject_to_spawn(
     mut sfx_writer: SfxWriter,
     mut vfx_writer: MessageWriter<VfxMessage>,
     mut bodies: Query<(
+        bevy::prelude::Entity,
         &ambition_platformer2d_shared_tangle::sim_id::SimId,
         Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
         Option<&ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
@@ -273,6 +284,7 @@ pub fn return_the_replay_subject_to_spawn(
         return;
     };
     let Some((
+        entity,
         _,
         _,
         _,
@@ -285,14 +297,23 @@ pub fn return_the_replay_subject_to_spawn(
         health,
     )) = bodies
         .iter_mut()
-        .find(|(id, stamp, root, ..)| subject.is(id, *stamp, *root))
+        .find(|(_, id, stamp, root, ..)| subject.is(id, *stamp, *root))
     else {
+        return;
+    };
+    // The subject's live room; an unstamped subject (the player, which is
+    // session-level) is in the sole live room.
+    let geometry = match subject.room {
+        Some(room) => world.in_room(room),
+        None => world.of(entity),
+    };
+    let Some(geometry) = geometry else {
         return;
     };
 
     let mut clusters = cluster_item.as_clusters_mut();
     reset_sandbox(
-        &world.0,
+        &geometry.0,
         &mut sfx_writer,
         &mut vfx_writer,
         &mut motion_model,

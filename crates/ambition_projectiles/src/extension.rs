@@ -6,7 +6,7 @@
 //! The module cannot name another owner or another move use.
 
 use ambition_extension_host::{ExtensionAppExt, ExtensionOutbox};
-use ambition_extension_sdk::phases::{TECHNIQUE_EXECUTION, WIELDED_USE};
+use ambition_extension_sdk::phases::{MODULE_ENTITY_TICK, TECHNIQUE_EXECUTION, WIELDED_USE};
 use ambition_projectile_spec::ProjectileSpawnPort;
 use bevy::prelude::*;
 
@@ -32,11 +32,23 @@ pub fn install_for_wielded_use(app: &mut App) {
     );
 }
 
+/// Install the same request port in `module_entity_tick` (a module-owned
+/// entity fires: the entity owns the projectile).
+pub fn install_for_module_entity_tick(app: &mut App) {
+    app.install_extension_request::<ProjectileSpawnPort, _>(
+        MODULE_ENTITY_TICK,
+        "ambition_projectiles",
+        lower_projectile_spawns::<InModuleEntityTick>,
+    );
+}
+
 /// The phase a request adapter instance lowers for: one port offered in two
 /// phases has two named adapter systems, not one system registered twice.
 pub struct InTechniqueExecution;
 /// See [`InTechniqueExecution`].
 pub struct InWieldedUse;
+/// See [`InTechniqueExecution`].
+pub struct InModuleEntityTick;
 
 fn lower_projectile_spawns<Phase: Send + Sync + 'static>(
     mut outbox: ResMut<ExtensionOutbox>,

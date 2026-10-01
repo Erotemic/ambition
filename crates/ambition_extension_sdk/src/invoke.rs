@@ -38,6 +38,9 @@ pub enum Fault {
     Schema { schema: SchemaKey, error: SchemaError },
     /// The module reports its own deterministic failure.
     Module(Name),
+    /// The entry declares session-attached state and the host has no one
+    /// session to keep it in (no session, or more than one).
+    NoSession(SchemaKey),
 }
 
 impl std::fmt::Display for Fault {
@@ -54,6 +57,7 @@ impl std::fmt::Display for Fault {
             Self::RequestLimit { limit } => write!(f, "more than {limit} requests"),
             Self::Schema { schema, error } => write!(f, "state {schema}: {error}"),
             Self::Module(msg) => write!(f, "module fault: {msg}"),
+            Self::NoSession(s) => write!(f, "state {s} is session-attached and there is no one session"),
         }
     }
 }

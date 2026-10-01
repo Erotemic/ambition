@@ -1908,9 +1908,13 @@ damage box whose entity the combat domain owns), and D6's first cut (the
 declared modules are a section of the prepared content identity). Then the
 wielded kit's four damage/projectile items (shockwave, beam, volley, meteor)
 became modules on a held-item use port, `record!` gave modules typed records,
-and `extension_inspect` shows what runs. Next: I5's session-scoped records and
-save eligibility; the remaining wielded items (vortex, sentry, dive, blink,
-grapple, mark/recall) need ports for body motion and spawned entities.
+and `extension_inspect` shows what runs. Then module-owned entities: a module
+asks the world for an entity of a kind it names, and the world ticks it through
+the module until its lifetime ends (the sentry is the first, schema 286), and
+I5's session-attached records (one record for the session, on its root; a
+module the game does not link declares one and it rewinds under GGRS). Next:
+save eligibility; the remaining wielded items (vortex, dive, blink, grapple,
+mark/recall) need ports for body motion.
 
 **Blocked by:** nothing.
 

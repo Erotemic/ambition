@@ -1741,3 +1741,211 @@ fn a_departing_player_releases_only_their_own_claim() {
         "the census does not print the claims"
     );
 }
+
+/// Alice's position and health, and the authored spawn of `room`.
+fn alice_and_spawn_of(sim: &mut Platformer2dSimHarness, room: &str) -> (bevy::prelude::Vec2, i32, i32, bevy::prelude::Vec2) {
+    let world = sim.world_mut();
+    let (pos, health) = world
+        .query_filtered::<(&ambition_platformer2d::engine_core::BodyKinematics, &ambition_platformer2d::characters::actor::BodyHealth), bevy::prelude::With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>()
+        .single(world)
+        .map(|(kinematics, health)| (kinematics.pos, (health.health.current, health.health.max)))
+        .expect("Alice's body is in the world");
+    let spawn = ambition_platformer2d::platformer::lifecycle::session_world_component::<
+        ambition_platformer2d::world::rooms::RoomSet,
+    >(world)
+    .expect("the session keeps its room set")
+    .rooms
+    .iter()
+    .find(|spec| spec.id == room)
+    .map(|spec| spec.world.spawn)
+    .unwrap_or_else(|| panic!("the room set holds {room}"));
+    (pos, health.0, health.1, bevy::prelude::Vec2::new(spawn.x, spawn.y))
+}
+
+/// Alice walks away from the hub spawn and is hurt, beside Bob's live
+/// `switch_lab`. Returns the hub's spawn.
+fn alice_walks_off_hurt_in_the_hub(sim: &mut Platformer2dSimHarness) -> bevy::prelude::Vec2 {
+    for _ in 0..40 {
+        sim.step(ambition_app::AgentAction { move_x: 1.0, ..base() });
+    }
+    for _ in 0..20 {
+        sim.step(base());
+    }
+    {
+        let world = sim.world_mut();
+        let mut health = world
+            .query_filtered::<&mut ambition_platformer2d::characters::actor::BodyHealth, bevy::prelude::With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>()
+            .single_mut(world)
+            .expect("Alice's body is in the world");
+        health.health.current = 1;
+    }
+    sim.rebase_rollback_history().expect("the rollback history rebases over Alice's wound");
+    let (pos, health, max, spawn) = alice_and_spawn_of(sim, HUB);
+    assert_eq!(live_rooms(sim).len(), 2, "precondition: Bob's room did not stay live beside Alice's");
+    assert!(pos.distance(spawn) > 60.0, "precondition: Alice is still at the hub spawn ({pos} vs {spawn})");
+    assert!(health < max, "precondition: Alice is not hurt ({health}/{max})");
+    spawn
+}
+
+/// OW1 Cut A: a room replay asked while two rooms are live replays the
+/// live room of the player who plays it. Alice, hurt and away from the hub
+/// spawn beside Bob's `switch_lab`, asks for a replay: she is back at the
+/// hub spawn with full health, and Bob's room is still live. Before, the
+/// admission read the sole live room, so the request was drained and lost,
+/// and the return to spawn read the sole room's geometry.
+#[test]
+fn a_replay_beside_another_live_room_replays_the_players_own_room() {
+    let (mut sim, first) = alice_leaves_bob(Some(ambition_platformer2d::characters::control::PlayerSlot(1)));
+    let spawn = alice_walks_off_hurt_in_the_hub(&mut sim);
+    sim.world_mut().write_message(ambition_platformer2d::actors::session::reset::RoomReplayRequested::manual());
+    for _ in 0..30 {
+        sim.step(base());
+    }
+    let (pos, health, max, _) = alice_and_spawn_of(&mut sim, HUB);
+    let rooms = live_rooms(&mut sim);
+    assert!(rooms.iter().any(|(room, id)| *room == first && id == ROOM), "Bob's room did not stay live: {rooms:?}");
+    assert!(rooms.iter().any(|(_, id)| id == HUB), "Alice's room is not live after the replay: {rooms:?}");
+    assert!(pos.distance(spawn) < 40.0, "Alice was not returned to the hub spawn: {pos} vs {spawn}");
+    assert_eq!(health, max, "Alice did not come back with full health");
+}
+
+/// OW1 Cut A: a checkpoint reset while two rooms are live is served in the
+/// live room of the player who died. With no checkpoint saved, Alice comes
+/// back at her own room's spawn (the hub's), Bob's room stays live, and the
+/// session is no longer owed the reset. Before, the resume read the sole
+/// live room, so while two rooms were live the reset was owed forever.
+#[test]
+fn a_checkpoint_reset_beside_another_live_room_is_served_in_the_players_own_room() {
+    let (mut sim, first) = alice_leaves_bob(Some(ambition_platformer2d::characters::control::PlayerSlot(1)));
+    let spawn = alice_walks_off_hurt_in_the_hub(&mut sim);
+    sim.world_mut().write_message(ambition_platformer2d::platformer::lifecycle::ResetToCheckpoint);
+    for _ in 0..30 {
+        sim.step(base());
+    }
+    let owed = sim
+        .world_mut()
+        .resource::<ambition_platformer2d::actors::session::checkpoint::OutstandingCheckpointRequest>()
+        .0;
+    assert_eq!(owed, None, "the session is still owed the checkpoint reset");
+    let (pos, _, _, _) = alice_and_spawn_of(&mut sim, HUB);
+    let rooms = live_rooms(&mut sim);
+    assert!(rooms.iter().any(|(room, id)| *room == first && id == ROOM), "Bob's room did not stay live: {rooms:?}");
+    assert!(pos.distance(spawn) < 40.0, "Alice did not come back at the hub spawn: {pos} vs {spawn}");
+}
+
+/// OW1 Cut A: a level that ends while two rooms are live sends its player on
+/// from that player's own live room. Alice's level in the hub asks to leave
+/// for `switch_lab`: she joins the live room Bob holds there, and the hub
+/// retires. Before, the departure read the sole live room, so while two
+/// rooms were live no level could end.
+#[test]
+fn a_level_that_ends_beside_another_live_room_sends_its_player_on() {
+    use ambition_platformer2d::platformer::lifecycle::{Departure, DepartureState, Destination};
+    let (mut sim, first) = alice_leaves_bob(Some(ambition_platformer2d::characters::control::PlayerSlot(1)));
+    assert_eq!(live_rooms(&mut sim).len(), 2, "precondition: Bob's room did not stay live beside Alice's");
+    sim.world_mut().spawn(Departure { state: DepartureState::Requested(Destination::Room(ROOM.to_string())) });
+    sim.rebase_rollback_history().expect("the rollback history rebases over the departure");
+    for _ in 0..60 {
+        sim.step(base());
+    }
+    let (alice, bob) = where_they_are(&mut sim);
+    assert_eq!(live_rooms(&mut sim), vec![(first, ROOM.to_string())], "the hub did not retire behind Alice");
+    assert_eq!((alice, bob), (Some(first), Some(Some(first))), "Alice did not join Bob's room");
+}
+
+/// OW1 Cut A: a replay of the cut-rope arena beside another live room hangs
+/// the next heavy object. Alice in the arena (#1) beside Bob's Hall of
+/// Bosses (#0) asks for a replay: the heavy object cycle advances,
+/// and Bob's room stays live. Before, the arena reset read the sole live
+/// room and did nothing while two rooms were live.
+#[test]
+fn a_replay_of_the_cut_rope_arena_beside_another_live_room_hangs_the_next_heavy_object() {
+    use ambition_content::bosses::cut_rope::CutRopeHeavyObjectCycle;
+    let (mut sim, first) = alice_leaves_bob_in(
+        "hall_of_bosses",
+        "you_have_to_cut_the_rope",
+        Some(ambition_platformer2d::characters::control::PlayerSlot(1)),
+        walk_through_the_door_to,
+    );
+    assert_eq!(live_rooms(&mut sim).len(), 2, "precondition: Bob's room did not stay live beside Alice's");
+    let before = *sim.world_mut().resource::<CutRopeHeavyObjectCycle>();
+    sim.world_mut().write_message(ambition_platformer2d::actors::session::reset::RoomReplayRequested::manual());
+    for _ in 0..30 {
+        sim.step(base());
+    }
+    let after = *sim.world_mut().resource::<CutRopeHeavyObjectCycle>();
+    let rooms = live_rooms(&mut sim);
+    assert!(rooms.iter().any(|(room, id)| *room == first && id == "hall_of_bosses"), "Bob's room did not stay live: {rooms:?}");
+    // Two heavy objects: one advance is a change.
+    assert_ne!(after, before, "the heavy object did not advance on the arena's replay");
+}
+
+/// [`alice_leaves_bob_with`] from `switch_lab` to the hub, with `prepare`
+/// run on the booted harness before Bob is placed.
+fn alice_leaves_bob_after(
+    slot: Option<ambition_platformer2d::characters::control::PlayerSlot>,
+    prepare: impl FnOnce(&mut Platformer2dSimHarness),
+) -> (Platformer2dSimHarness, LiveRoomInstance) {
+    let mut sim = Platformer2dSimHarness::new_with_options(
+        fixed_60hz_room_options(ROOM).with_save(a_save_that_has_seen_the_hub_intro()),
+    )
+    .unwrap_or_else(|error| panic!("{ROOM} boots: {error:?}"));
+    prepare(&mut sim);
+    alice_leaves_bob_with(sim, ROOM, HUB, slot, walk_through_the_door_to)
+}
+
+/// OW1 Cut C: a room-entry cutscene plays when its room becomes live beside
+/// another. A test cutscene is bound to the hub. Alice crosses into the hub:
+/// with Bob driven (two rooms live) and with Bob undriven (the control: one
+/// room), the cutscene plays. Before, the trigger read the sole live room, so
+/// in the two-room arm it queued nothing.
+#[test]
+fn a_room_cutscene_plays_when_its_room_becomes_live_beside_another() {
+    use ambition_platformer2d::cutscene::{ActiveCutscene, CutsceneBeat, CutsceneLibrary, CutsceneScript, RoomCutsceneBindings};
+    const CUTSCENE: &str = "ow1_hub_entry_probe";
+    for (slot, rooms) in [(None, 1), (Some(ambition_platformer2d::characters::control::PlayerSlot(1)), 2)] {
+        let (mut sim, _) = alice_leaves_bob_after(slot, |sim| {
+            let world = sim.world_mut();
+            world
+                .resource_mut::<CutsceneLibrary>()
+                .insert(CutsceneScript::new(CUTSCENE, vec![CutsceneBeat::Wait { seconds: 30.0 }]));
+            world.resource_mut::<RoomCutsceneBindings>().bindings.push((HUB.to_string(), CUTSCENE.to_string()));
+        });
+        assert_eq!(live_rooms(&mut sim).len(), rooms, "precondition ({slot:?}): the live room count");
+        let playing = sim
+            .world_mut()
+            .resource::<ActiveCutscene>()
+            .runtime
+            .as_ref()
+            .map(|runtime| runtime.script.id.clone());
+        assert_eq!(playing.as_deref(), Some(CUTSCENE), "the hub's cutscene is not playing with {rooms} live room(s)");
+    }
+}
+
+/// OW1 Cut C: the map records a visit to a room that becomes live beside
+/// another. The save does not have the hub's visit flag; Alice crosses into
+/// the hub, and the flag is set, with Bob driven (two rooms live) and with
+/// Bob undriven (the control: one room). Before, the visit tracker read the
+/// sole live room, so in the two-room arm the hub was never visited.
+#[test]
+fn the_map_records_a_room_visited_beside_another_live_room() {
+    use ambition_platformer2d::menu::map::room_visited_flag;
+    let flag = room_visited_flag(HUB);
+    for (slot, rooms) in [(None, 1), (Some(ambition_platformer2d::characters::control::PlayerSlot(1)), 2)] {
+        let (mut sim, _) = alice_leaves_bob_after(slot, |sim| {
+            let visited = sim
+                .world_mut()
+                .resource::<ambition_platformer2d::persistence::save::AmbitionGameSave>()
+                .data()
+                .flag(&room_visited_flag(HUB));
+            assert!(!visited, "precondition: the save has the hub's visit before Alice went there");
+        });
+        assert_eq!(live_rooms(&mut sim).len(), rooms, "precondition ({slot:?}): the live room count");
+        let visited = sim
+            .world_mut()
+            .resource::<ambition_platformer2d::persistence::save::AmbitionGameSave>()
+            .data()
+            .flag(&flag);
+        assert!(visited, "the hub visit was not recorded with {rooms} live room(s)");
+    }
+}

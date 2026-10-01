@@ -72,6 +72,15 @@ pub mod phases {
     /// projectile executors run. In the Ambition runtime this is
     /// `ItemPickupSet::WieldedAbilities`.
     pub const WIELDED_USE: Phase = Phase::new("wielded_use");
+
+    /// A module-owned entity lives this tick (it was spawned by a request,
+    /// and its lifetime is not over). Guarantees: the entity's lifetime is
+    /// aged by this tick's step; a body's kinematics for this tick are
+    /// settled; an entity spawned in `wielded_use` this tick exists; requests
+    /// submitted here are consumed THIS tick, before the effect and
+    /// projectile executors run. In the Ambition runtime this is
+    /// `ItemPickupSet::WieldedAbilities`, after `wielded_use`.
+    pub const MODULE_ENTITY_TICK: Phase = Phase::new("module_entity_tick");
 }
 
 /// The trigger port that starts an entry, and the selector inside that port
@@ -103,8 +112,9 @@ pub enum IdlePolicy {
     /// Call the entry anyway.
     #[default]
     Invoke,
-    /// Do not call the entry; put each of its declared records back to its
-    /// initial value. For an entry whose rule is "an idle tick ends what I was
+    /// Do not call the entry; put each of its declared BODY-attached records
+    /// back to its initial value. A session-attached record keeps its value:
+    /// it is not the idle body's to end. For an entry whose rule is "an idle tick ends what I was
     /// doing", this is the same result without the call, and it is what makes
     /// a loaded module cost nothing on the ticks it has nothing to do.
     ResetState,

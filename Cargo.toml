@@ -86,6 +86,7 @@ members = [
     "crates/ambition_platformer2d_world",
     "game/ambition_menu_kaleidoscope",
     "game/ambition_content_modules",
+    "fixtures/extension_fixture_modules",
     "tests/ambition_workspace_policy",
 ]
 # `dev/bevy_ceiling` is the empty-window frame-time ceiling (its README): a

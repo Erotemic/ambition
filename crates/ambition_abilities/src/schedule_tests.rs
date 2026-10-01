@@ -20,12 +20,12 @@ use bevy::app::App;
 use bevy::ecs::schedule::{NodeId, ScheduleGraph, Schedules, SystemSet};
 
 /// The two sets' member counts, as the kernel registered them before the
-/// split. The move had to keep these exactly. Four wielded systems left on
-/// 2026-10-01: the shockwave, the beam, the volley and the meteor are
-/// procedural modules (`ambition_content_modules`), run by the extension
-/// host in the same set.
+/// split. The move had to keep these exactly. Six wielded systems left on
+/// 2026-10-01: the shockwave, the beam, the volley, the meteor and the sentry
+/// (its deploy and its turret tick) are procedural modules
+/// (`ambition_content_modules`), run by the extension host in the same set.
 const THROWN_MEMBERS: usize = 5;
-const WIELDED_MEMBERS: usize = 9;
+const WIELDED_MEMBERS: usize = 7;
 
 fn set_key<S: SystemSet + Copy + std::fmt::Debug>(graph: &ScheduleGraph, set: S) -> NodeId {
     NodeId::Set(

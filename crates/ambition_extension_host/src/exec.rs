@@ -28,7 +28,8 @@ use ambition_time::SimTick;
 use bevy::prelude::*;
 
 use crate::admission::{Admitted, AdmittedEntry, EntryRunner};
-use crate::store::BodyRecords;
+use crate::store::{BodyRecords, RecordSet, SessionRecords};
+use ambition_extension_sdk::Attachment;
 use crate::AdmittedExtensions;
 
 /// One queued trigger.
@@ -207,6 +208,9 @@ pub fn run_phase(phase: Phase) -> impl FnMut(&mut World) {
         let tick = world.resource::<SimTick>().get();
         // The same authority: gameplay time is `WorldTime`, rollback-canonical.
         let dt = world.resource::<ambition_time::WorldTime>().sim_dt();
+        // The one session store, when there is exactly one. Read once: no
+        // entry spawns or removes a session.
+        let session = session_home(world);
 
         for entry in admitted.entries_in(&phase) {
             let descriptor = &entry.descriptor;
@@ -224,20 +228,8 @@ pub fn run_phase(phase: Phase) -> impl FnMut(&mut World) {
                         continue;
                     }
                 }
-                let current = world.get::<BodyRecords>(invocation.scope);
-                let state: Vec<(SchemaKey, Record)> = descriptor
-                    .writes
-                    .iter()
-                    .map(|key| {
-                        let record = current
-                            .and_then(|r| r.get(key))
-                            .cloned()
-                            .unwrap_or_else(|| admitted.schemas[key].schema.initial_record());
-                        (key.clone(), record)
-                    })
-                    .collect();
-
-                let result = match &entry.runner {
+                let result = read_state(world, &admitted, invocation.scope, session, &descriptor.writes)
+                    .and_then(|state| match &entry.runner {
                     EntryRunner::Native(run) => {
                         run_native(world, entry, *run, invocation, &codecs, (tick, dt), state)
                     }
@@ -249,7 +241,7 @@ pub fn run_phase(phase: Phase) -> impl FnMut(&mut World) {
                         world, &admitted, entry, backend.as_ref(), *module, *index, invocation,
                         &codecs, (tick, dt), state,
                     ),
-                }
+                })
                 .and_then(|staged| {
                     staged.0.iter().try_for_each(|(key, record)| {
                         admitted.schemas[key]
@@ -265,7 +257,7 @@ pub fn run_phase(phase: Phase) -> impl FnMut(&mut World) {
 
                 match result {
                     Ok((state, requests)) => {
-                        commit(world, &admitted, invocation, state);
+                        commit(world, &admitted, invocation.scope, session, state);
                         let mut outbox = world.resource_mut::<ExtensionOutbox>();
                         outbox.items.extend(requests.into_iter().map(|(port, value)| OutboxItem {
                             port,
@@ -424,8 +416,10 @@ fn reset_idle(world: &mut World, admitted: &Admitted, scope: Entity, writes: &[S
     let Some(current) = world.get::<BodyRecords>(scope) else {
         return;
     };
+    // A session-attached record is not the idle body's to end.
     let stale: Vec<SchemaKey> = writes
         .iter()
+        .filter(|key| admitted.schemas[*key].schema.attachment == Attachment::Body)
         .filter(|key| {
             current
                 .get(key)
@@ -445,18 +439,80 @@ fn reset_idle(world: &mut World, admitted: &Admitted, scope: Entity, writes: &[S
     }
 }
 
+/// The entity that holds the session store: exactly one, or none usable.
+fn session_home(world: &mut World) -> Option<Entity> {
+    let mut homes = world.query_filtered::<Entity, With<SessionRecords>>();
+    let mut found = homes.iter(world);
+    let first = found.next();
+    // Two session stores is two sessions in one App: no record can say which.
+    match found.next() {
+        None => first,
+        Some(_) => None,
+    }
+}
+
+/// The records an invocation starts from, one for each declared write: the
+/// stored record from its store (the body's, or the session's), or the
+/// initial record when none is stored.
+fn read_state(
+    world: &World,
+    admitted: &Admitted,
+    scope: Entity,
+    session: Option<Entity>,
+    writes: &[SchemaKey],
+) -> Result<Vec<(SchemaKey, Record)>, Fault> {
+    writes
+        .iter()
+        .map(|key| {
+            let schema = &admitted.schemas[key].schema;
+            let stored = match schema.attachment {
+                Attachment::Body => world.get::<BodyRecords>(scope).map(|r| &r.0),
+                Attachment::Session => {
+                    let home = session.ok_or_else(|| Fault::NoSession(key.clone()))?;
+                    world.get::<SessionRecords>(home).map(|r| &r.0)
+                }
+            };
+            let record = stored
+                .and_then(|r| r.get(key))
+                .cloned()
+                .unwrap_or_else(|| schema.initial_record());
+            Ok((key.clone(), record))
+        })
+        .collect()
+}
+
 fn commit(
     world: &mut World,
     admitted: &Admitted,
-    invocation: &PendingInvocation,
+    scope: Entity,
+    session: Option<Entity>,
     state: Vec<(SchemaKey, Record)>,
 ) {
-    // An absent record IS its initial value (a call reads the initial record
-    // for a body that has none). So a record that is still initial and was
-    // never stored is not stored now: a module that is called on every tick
-    // of every boss (`IdlePolicy::Invoke`) adds no state to the bodies it has
-    // nothing to remember about.
-    let current = world.get::<BodyRecords>(invocation.scope);
+    let (body, shared): (Vec<_>, Vec<_>) = state
+        .into_iter()
+        .partition(|(key, _)| admitted.schemas[key].schema.attachment == Attachment::Body);
+    commit_to::<BodyRecords>(world, admitted, scope, body);
+    // `read_state` faulted the call when a session record had no home.
+    if let Some(home) = session {
+        commit_to::<SessionRecords>(world, admitted, home, shared);
+    }
+}
+
+/// Store an invocation's records in the store on `home`.
+///
+/// An absent record IS its initial value (a call reads the initial record
+/// when none is stored). So a record that is still initial and was never
+/// stored is not stored now: a module that is called on every tick of every
+/// boss (`IdlePolicy::Invoke`) adds no state to the bodies it has nothing to
+/// remember about.
+fn commit_to<S>(world: &mut World, admitted: &Admitted, home: Entity, state: Vec<(SchemaKey, Record)>)
+where
+    S: Component<Mutability = bevy::ecs::component::Mutable>
+        + Default
+        + std::ops::Deref<Target = RecordSet>
+        + std::ops::DerefMut,
+{
+    let current = world.get::<S>(home);
     let state: Vec<(SchemaKey, Record)> = state
         .into_iter()
         .filter(|(key, record)| {
@@ -467,13 +523,11 @@ fn commit(
     if state.is_empty() {
         return;
     }
-    let mut entity = world.entity_mut(invocation.scope);
-    if !entity.contains::<BodyRecords>() {
-        entity.insert(BodyRecords::default());
+    let mut entity = world.entity_mut(home);
+    if !entity.contains::<S>() {
+        entity.insert(S::default());
     }
-    let mut records = entity
-        .get_mut::<BodyRecords>()
-        .expect("inserted on the line above");
+    let mut records = entity.get_mut::<S>().expect("inserted on the line above");
     for (key, record) in state {
         let shape = admitted.schemas[&key].shape;
         records.put(key, shape, record);

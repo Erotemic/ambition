@@ -666,6 +666,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "ambition_extension_fixture_modules"
+version = "0.1.0"
+dependencies = [
+ "ambition_combat_port",
+ "ambition_extension_sdk",
+ "ambition_projectile_spec",
+ "bevy_math",
+]
+
+[[package]]
 name = "ambition_extension_host"
 version = "0.1.0"
 dependencies = [

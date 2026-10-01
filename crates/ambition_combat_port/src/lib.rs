@@ -14,7 +14,9 @@
 //! * **Read model** — world units, +Y down.
 //! * **Result** — submitted is not applied. No acknowledgement port yet.
 
+pub mod module_entity;
 pub mod wielded;
+pub use module_entity::{ModuleEntitySpawn, ModuleEntityTick, ModuleEntityTickPort, SpawnModuleEntityPort};
 pub use wielded::{BodySound, BodySoundPort, SpendMana, SpendManaPort, WieldedUsePort, Wielder};
 
 use ambition_extension_sdk::wire::{self, WireError, WireReader};

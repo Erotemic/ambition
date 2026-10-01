@@ -312,12 +312,18 @@ pub enum CutsceneEvent {
 // these are the running-cutscene state the presentation player mutates each frame
 // and gameplay/HUD systems read. Kept here so the cutscene runtime is one crate.
 
-/// Which room this trigger last saw — ROLLBACK STATE, not a system local.
+/// The ids of the rooms that were live when this trigger last looked, sorted
+/// and without repeats — ROLLBACK STATE, not a system local.
 ///
-/// This must be rollback state: a non-rewound last-room value can suppress the
+/// This must be rollback state: a non-rewound memory can suppress the
 /// trigger during resimulation and skip the cutscene entirely.
+///
+/// A set, not one id (OW1): with two live rooms (Alice and Bob apart), each
+/// room becomes live on its own, and one id could remember only one of them.
+/// With one live room the set has one member, and it flips as the one id did.
+/// The same shape as the quest producer's `LastQuestRoom`.
 #[derive(Resource, Debug, Default, Clone, PartialEq, Eq)]
-pub struct LastCutsceneRoom(pub Option<String>);
+pub struct LastCutsceneRoom(pub Vec<String>);
 
 /// Live cutscene playback state. `runtime` is authoritative while a cutscene is running;
 /// `presentation` is a cache derived from it.
@@ -818,22 +824,20 @@ mod snapshot {
 
     impl SnapshotState for LastCutsceneRoom {
         fn encode(&self, out: &mut Vec<u8>) {
-            match &self.0 {
-                Some(room) => {
-                    put_bool(out, true);
-                    put_str(out, room);
-                }
-                None => put_bool(out, false),
+            put_u32(out, self.0.len() as u32);
+            for room in &self.0 {
+                put_str(out, room);
             }
         }
 
         fn decode(reader: &mut Reader<'_>) -> Option<Self> {
-            // `false` is a valid absent room, not a decode failure.
-            Some(Self(if reader.bool()? {
-                Some(reader.str()?.to_owned())
-            } else {
-                None
-            }))
+            // A count of 0 is a valid empty memory, not a decode failure.
+            let count = reader.u32()? as usize;
+            let mut rooms = Vec::with_capacity(count.min(64));
+            for _ in 0..count {
+                rooms.push(reader.str()?.to_owned());
+            }
+            Some(Self(rooms))
         }
     }
 
@@ -880,11 +884,16 @@ mod snapshot {
             ActiveCutscene::decode(&mut reader).expect("a snapshot this crate wrote decodes")
         }
 
-        /// The trigger's last room is rollback state; both present and absent values round-trip.
+        /// The trigger's live rooms are rollback state; none, one and two
+        /// rooms round-trip.
         #[test]
         fn the_last_triggered_room_survives_the_wire_including_absent() {
-            for room in [None, Some("intro_wake_room".to_string())] {
-                let before = LastCutsceneRoom(room.clone());
+            for rooms in [
+                Vec::new(),
+                vec!["intro_wake_room".to_string()],
+                vec!["central_hub_complex".to_string(), "switch_lab".to_string()],
+            ] {
+                let before = LastCutsceneRoom(rooms.clone());
                 let mut bytes = Vec::new();
                 before.encode(&mut bytes);
                 let mut reader = Reader::new(&bytes);

@@ -55,7 +55,9 @@ pub struct DepartureSet;
 #[allow(clippy::too_many_arguments)]
 pub fn drive_departures(
     time: Res<ambition_time::WorldTime>,
-    rooms: Option<ambition_platformer2d_world::rooms::SoleLiveRoomSpec>,
+    // The live room of the player the trip moves (OW1 Cut A). The sole live
+    // room was read, so while two rooms were live no level could end.
+    rooms: Option<ambition_platformer2d_world::rooms::LiveRoomSpecs>,
     subjects: Query<
         (
             &SimId,
@@ -75,7 +77,22 @@ pub fn drive_departures(
     let Some(rooms) = rooms else {
         return;
     };
-    let active = rooms.spec().id.clone();
+    // The player the trip moves, and the room it leaves: that player's own
+    // live room. With no player, the sole live room.
+    let subject = subjects.single().ok().map(|(sim_id, stamp, root, driver)| {
+        (
+            ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(
+                sim_id.clone(),
+                ambition_platformer2d_shared_tangle::lifecycle::live_room_of(stamp, root),
+            ),
+            driver,
+        )
+    });
+    let Some(definition) = rooms.definition_named(subject.as_ref().and_then(|(subject, _)| subject.room)) else {
+        return;
+    };
+    let spec = rooms.rooms().spec(definition);
+    let active = spec.id.clone();
     for mut departure in &mut departures {
         let target = match std::mem::take(&mut departure.state) {
             DepartureState::Staying => continue,
@@ -101,7 +118,7 @@ pub fn drive_departures(
             DepartureState::Requested(to) => match to {
                 Destination::Replay => None,
                 Destination::Room(room) => Some(room),
-                Destination::NextRoom => (&rooms.spec().metadata).next_room.clone(),
+                Destination::NextRoom => spec.metadata.next_room.clone(),
             },
             DepartureState::Leaving { target, asked } => {
                 if active == target {
@@ -155,14 +172,9 @@ pub fn drive_departures(
         }
         // No body or no lifecycle commit this tick: keep the trip and ask next
         // tick, until the give-up replays.
-        let (Ok((sim_id, stamp, root, driver)), Some(pending)) = (subjects.single(), pending.as_deref_mut())
-        else {
+        let (Some((subject, driver)), Some(pending)) = (subject.clone(), pending.as_deref_mut()) else {
             continue;
         };
-        let subject = ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(
-            sim_id.clone(),
-            ambition_platformer2d_shared_tangle::lifecycle::live_room_of(stamp, root),
-        );
         let _ = pending.record(
             boundary.as_deref().map_or(0, |boundary| boundary.current),
             LifecycleIntent::Transition(RoomTransitionIntent {

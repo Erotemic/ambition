@@ -1,26 +1,26 @@
-//! The sentry bolt's END-TO-END damage proof, which lives HERE and not with the
-//! sentry.
+//! A module entity's bolt's END-TO-END damage proof (first written for the
+//! native sentry; the sentry is now a procedural module on the module-entity
+//! ports, 2026-10-01).
 //!
-//! ⭐⭐ IT MOVED IN THE ABILITIES CARVE (D33, 2026-09-03) AND THE REASON IS THE
-//! POINT. `ambition_abilities` owns `update_sentries` and every other test of it
-//! went with the crate. This one does not fit there: it chains
-//! `update_sentries` → `materialize_projectiles_for_this_tick` →
-//! `stamp_new_projectile_allegiance` → `step_projectiles`, and the last two are
-//! the KERNEL's. A test that needs two crates belongs where both are visible,
-//! and the carved crate must not grow a dependency on the kernel to keep one
-//! fixture — that edge is exactly what the carve removed.
+//! It lives HERE because it chains the projectile request through
+//! `materialize_projectiles_for_this_tick` → `stamp_new_projectile_allegiance`
+//! → `step_projectiles`, and the last two are the KERNEL's. A test that needs
+//! two crates belongs where both are visible.
 //!
-//! ⛔ SO DO NOT "TIDY" IT BACK. Moving it into `ambition_abilities` requires
-//! naming `ambition_platformer2d_actor_monolith` from a crate below it, which
-//! will not compile; moving the two kernel systems down is a different carve
-//! with its own question, not a convenience.
+//! The turret comes from the production seam
+//! (`ambition_abilities::module_entity::spawn_module_entity`). The request is
+//! written as the projectile domain's adapter lowers one a module entity
+//! submits: `ProjectileSpawnRequest::open(<the entity>, .., StepThisTick)`.
+//! What the module computes (aim, cadence) is held to the native sentry by
+//! `ambition_content`'s `sentry_parity_tests`; this test is about the OWNER.
 //!
-//! ⚠ THE VERDICT UNDER TEST IS `can_hit`, unchanged by the move: a `HitEvent`
-//! naming this victim with this damage is exactly what the faction routing
-//! decides. `apply_feature_hit_events` — which turns that into `BodyHealth` — is
+//! ⚠ THE VERDICT UNDER TEST IS `can_hit`: a `HitEvent` naming this victim
+//! with this damage is exactly what the faction routing decides.
+//! `apply_feature_hit_events` — which turns that into `BodyHealth` — is
 //! covered where it lives.
 
-use ambition_abilities::ranged::sentry::{deploy_sentry, update_sentries, SENTRY_BOLT_DAMAGE};
+use ambition_abilities::module_entity::{spawn_module_entity, ModuleEntity, Spawner};
+use ambition_projectiles::{ProjectileSpawn, ProjectileStart};
 use ambition_combat::components::ActorFaction;
 use ambition_combat::events::{HitEvent, HitSource};
 use ambition_platformer2d_core as ae;
@@ -31,23 +31,58 @@ use bevy::prelude::*;
 #[derive(Resource, Default)]
 struct CapturedHits(Vec<HitEvent>);
 
+const BOLT_DAMAGE: i32 = 2;
+
+/// Each module entity fires one bolt at the target on its first tick, as the
+/// projectile adapter lowers a module's request.
+fn fire_once(
+    entities: Query<(Entity, &ModuleEntity)>,
+    mut fired: Local<bool>,
+    mut requests: MessageWriter<ProjectileSpawnRequest>,
+) {
+    if *fired {
+        return;
+    }
+    for (entity, module_entity) in &entities {
+        *fired = true;
+        requests.write(ProjectileSpawnRequest::open(
+            entity,
+            ProjectileSpawn {
+                origin: module_entity.pos,
+                dir: ae::Vec2::X,
+                speed: 430.0,
+                damage: BOLT_DAMAGE,
+                max_lifetime: 1.4,
+                half_extent: ae::Vec2::new(7.0, 7.0),
+                gravity: 0.0,
+                visual_id: String::new(),
+                bounces: 0,
+                bounce_on_world_contact: false,
+                splash_half_extent: 0.0,
+                boomerang_return_s: None,
+            },
+            ProjectileStart::StepThisTick,
+        ));
+    }
+}
+
 fn capture_hits(mut reader: MessageReader<HitEvent>, mut cap: ResMut<CapturedHits>) {
     for e in reader.read() {
         cap.0.push(e.clone());
     }
 }
 
-/// ⭐⭐ A DEPLOYED SENTRY MUST ACTUALLY DAMAGE THE ENEMY IT SHOOTS.
+/// ⭐⭐ A DEPLOYED TURRET MUST ACTUALLY DAMAGE THE ENEMY IT SHOOTS.
 ///
 /// ⛔⛔ ASSERTING THAT A BOLT APPEARS IS NOT THIS TEST. The turret fired,
 /// the projectile materialized, it flew, it overlapped its target — and it
 /// could not damage anything, because a shot's combat side is stamped from
-/// its OWNER entity and the owner here is the turret, which carries
+/// its OWNER entity and the owner here is the turret, which carried
 /// `Sentry`, `Name` and a session scope and no `ActorFaction` at all.
 /// `indiscriminate` is `allegiance.is_none() && owner.is_none()`, so a
 /// named owner with no faction is the one combination that can hit nobody.
 #[test]
-fn a_sentry_bolt_damages_the_enemy_it_was_fired_at() {
+fn a_module_entitys_bolt_damages_the_enemy_it_was_fired_at() {
     let mut app = App::new();
     app.insert_resource(ambition_boss_encounter::test_boss_catalog().clone());
     app.init_resource::<ambition_projectiles::ProjectileVisualCatalog>();
@@ -76,7 +111,7 @@ fn a_sentry_bolt_damages_the_enemy_it_was_fired_at() {
     app.add_systems(
         Update,
         (
-            update_sentries,
+            fire_once,
             ambition_projectiles::materialize_projectiles_for_this_tick,
             crate::projectile::stamp_new_projectile_allegiance,
             crate::projectile::step_projectiles,
@@ -120,14 +155,23 @@ fn a_sentry_bolt_damages_the_enemy_it_was_fired_at() {
         .expect("the fixture wielder states a side");
     {
         let mut commands = app.world_mut().commands();
-        deploy_sentry(
+        spawn_module_entity(
             &mut commands,
-            ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
-            ae::Vec2::new(300.0, 400.0),
-            side,
-            None,
-            None,
-            None,
+            ModuleEntity {
+                kind: "sentry".into(),
+                pos: ae::Vec2::new(300.0, 400.0),
+                remaining_s: 5.0,
+            },
+            Spawner {
+                scope: ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
+                side,
+                team: None,
+                presentation: None,
+                id: ambition_platformer2d_shared_tangle::sim_id::SimId::spawned(
+                    &ambition_platformer2d_shared_tangle::sim_id::SimId::player_slot(0),
+                    0,
+                ),
+            },
         );
     }
     app.world_mut().flush();
@@ -146,7 +190,7 @@ fn a_sentry_bolt_damages_the_enemy_it_was_fired_at() {
         .collect();
     assert!(
         !hits.is_empty(),
-        "the sentry's bolt reached its target and dealt no damage — a shot \
+        "the turret's bolt reached its target and dealt no damage — a shot \
          whose owner carries no faction stamps no allegiance, and \
          `indiscriminate` is false for a NAMED owner, so `can_hit` is false \
          against every victim in the world"
@@ -159,8 +203,8 @@ fn a_sentry_bolt_damages_the_enemy_it_was_fired_at() {
         hits.iter().map(|e| &e.target).collect::<Vec<_>>(),
     );
     assert!(
-        hits.iter().any(|e| e.damage == SENTRY_BOLT_DAMAGE),
-        "the bolt lands its authored {SENTRY_BOLT_DAMAGE} damage, got {:?}",
+        hits.iter().any(|e| e.damage == BOLT_DAMAGE),
+        "the bolt lands its authored {BOLT_DAMAGE} damage, got {:?}",
         hits.iter().map(|e| e.damage).collect::<Vec<_>>(),
     );
     // ⚠ THE VERDICT UNDER TEST IS `can_hit`, and it is complete here: a

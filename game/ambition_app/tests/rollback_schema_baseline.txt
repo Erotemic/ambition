@@ -1,10 +1,10 @@
-ggrs-rollback-schema-v285
+ggrs-rollback-schema-v287
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
+ability.module_entity	component-clone	ModuleEntity	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.player_mark	component-clone	PlayerMark	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.puppy_slug_ally	component-clone	PuppySlugAlly	bevy_ggrs clone snapshot; not in the session checksum
-ability.sentry	component-clone	Sentry	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.vortex_well	component-clone	VortexWell	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 actor.action_set	component-clone	ActionSet	bevy_ggrs clone snapshot; not in the session checksum
 actor.active_combatant	component-canonical	ActiveCombatant	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
@@ -214,6 +214,7 @@ entity:heal_shrine	required-rollback	HealShrine	component presence automatically
 entity:hitbox	required-rollback	Hitbox	component presence automatically installs bevy_ggrs::Rollback
 entity:live_projectile	required-rollback	LiveProjectile	component presence automatically installs bevy_ggrs::Rollback
 entity:mary_o_mode_owner	required-rollback	MaryOLevelState	component presence automatically installs bevy_ggrs::Rollback
+entity:module_entity	required-rollback	ModuleEntity	component presence automatically installs bevy_ggrs::Rollback
 entity:oscillating_zone	required-rollback	OscillatingZone	component presence automatically installs bevy_ggrs::Rollback
 entity:pending_respawn	component-canonical	PendingRespawn	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 entity:placed_portal	required-rollback	PlacedPortal	component presence automatically installs bevy_ggrs::Rollback
@@ -221,13 +222,13 @@ entity:portal_gun_pickup	required-rollback	PortalGunPickup	component presence au
 entity:portal_shot	required-rollback	PortalShot	component presence automatically installs bevy_ggrs::Rollback
 entity:respawn_grace	component-canonical	RespawnGrace	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 entity:sanic_mode_owner	required-rollback	SanicActState	component presence automatically installs bevy_ggrs::Rollback
-entity:sentry	required-rollback	Sentry	component presence automatically installs bevy_ggrs::Rollback
 entity:settled_item	required-rollback	SettledItem	component presence automatically installs bevy_ggrs::Rollback
 entity:temporary_zone	required-rollback	TemporaryZone	component presence automatically installs bevy_ggrs::Rollback
 entity:transform_beat	required-rollback	TransformBeat	component presence automatically installs bevy_ggrs::Rollback
 entity:vortex_well	required-rollback	VortexWell	component presence automatically installs bevy_ggrs::Rollback
 entity:world_item	required-rollback	WorldItem	component presence automatically installs bevy_ggrs::Rollback
 extension.body_records	component-clone-custom-checksum	BodyRecords	bevy_ggrs clone snapshot + every module record of the body: schema shape digest and canonical values
+extension.session_records	component-clone-custom-checksum	SessionRecords	bevy_ggrs clone snapshot + every session-attached module record: schema shape digest and canonical values
 feature.breakable	component-clone	BreakableFeature	bevy_ggrs clone snapshot; not in the session checksum
 feature.chest	component-clone	ChestFeature	bevy_ggrs clone snapshot; not in the session checksum
 feature.collected	component-clone	Collected	bevy_ggrs clone snapshot; not in the session checksum

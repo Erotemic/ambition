@@ -386,7 +386,9 @@ pub fn resume_at_checkpoint_on_reset(
     mut new_games: bevy::prelude::MessageReader<crate::session::reset::NewGameRequested>,
     mut outstanding: ResMut<OutstandingCheckpointRequest>,
     save: Res<ambition_persistence::save::AmbitionGameSave>,
-    room_set: Option<ambition_platformer2d_world::rooms::SoleLiveRoomSpec>,
+    // The subject's own live room (OW1 Cut A). The sole live room was read,
+    // so while two rooms were live a death was owed and never served.
+    rooms: Option<ambition_platformer2d_world::rooms::LiveRoomSpecs>,
     mut pending: ResMut<crate::session::lifecycle_commit::PendingLifecycleCommit>,
     boundary: Option<Res<ambition_platformer2d_core::ConfirmedFrameBoundary>>,
     subjects: Query<
@@ -429,7 +431,7 @@ pub fn resume_at_checkpoint_on_reset(
     let Some(restore_to) = outstanding.0 else {
         return;
     };
-    let Some(room_set) = room_set.as_ref() else {
+    let Some(room_set) = rooms.as_ref() else {
         return;
     };
     // the subject is resolved BEFORE anything is recorded: a transition names the body it
@@ -438,7 +440,11 @@ pub fn resume_at_checkpoint_on_reset(
         return;
     };
     let subject = ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(sim_id.clone(), ambition_platformer2d_shared_tangle::lifecycle::live_room_of(stamp, root));
-    let active = room_set.spec();
+    // The room the subject is in; an unstamped subject is in the sole live room.
+    let Some(definition) = room_set.definition_named(subject.room) else {
+        return;
+    };
+    let active = room_set.rooms().spec(definition);
     let (target_room, arrival) = match save.data().checkpoint() {
         _ if restore_to == RestoreTo::NewGame => {
             let start = &room_set.rooms().rooms[room_set.rooms().start()];

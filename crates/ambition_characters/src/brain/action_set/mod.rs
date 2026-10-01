@@ -380,8 +380,8 @@ static HELD_ITEMS: std::sync::LazyLock<std::collections::HashMap<&'static str, H
                 use_behavior: HeldUseBehavior::UseSystem,
             },
         );
-        // The sentry gauntlet has no melee/ranged verb — `Attack` is intercepted
-        // by `sentry::fire_sentry_system`, which deploys an auto-firing turret.
+        // The sentry gauntlet has no melee/ranged verb — `Attack` runs the
+        // `sentry` procedural module, which deploys an auto-firing turret.
         items.insert(
             "sentry",
             HeldItemSpec {

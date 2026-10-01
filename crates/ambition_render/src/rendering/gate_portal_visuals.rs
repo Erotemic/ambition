@@ -5,6 +5,7 @@
 
 use bevy::prelude::*;
 
+use super::actors::{draw_animator_frame, StanceSquash};
 use super::primitives::{LoadingZoneVisual, PortalSprite, PropVisual};
 use ambition_sprite_sheet::character::{CharacterAnim, CharacterAnimator};
 use ambition_time::PresentationTime;
@@ -58,10 +59,6 @@ pub fn sync_portal_sprite_visibility(
     }
 }
 
-/// Angular velocity (rad/s) of the gate ring during the portal's `Opening`
-/// phase. 8 rad/s is about 1.27 revolutions/s: readable, not disorienting.
-const RING_OPENING_SPIN_RAD_PER_SEC: f32 = 8.0;
-
 /// Drive gate-portal animation from its phase.
 ///
 /// `opening` and `closing` are drawn from the phase's own progress
@@ -74,12 +71,17 @@ pub fn sync_portal_sprite_animation(
     presentation_time: PresentationTime,
     portals: Res<GatePortalRegistry>,
     phases: Res<GatePortalPhases>,
-    mut sprites: Query<(&PropVisual, &mut Sprite, &mut CharacterAnimator)>,
+    mut sprites: Query<(
+        &PropVisual,
+        &mut Sprite,
+        &mut CharacterAnimator,
+        Option<&mut bevy::sprite::Anchor>,
+    )>,
 ) {
     let dt = presentation_time.scaled_dt();
     for (zone_id, config) in portals.iter() {
         let phase = phases.phase(zone_id);
-        for (prop, mut sprite, mut animator) in &mut sprites {
+        for (prop, mut sprite, mut animator, mut anchor) in &mut sprites {
             if prop.name != config.portal_sprite_name {
                 continue;
             }
@@ -94,10 +96,14 @@ pub fn sync_portal_sprite_animation(
                 }
             }
             animator.slave_clip_to(phase.sequence_progress());
-            let index = animator.tick(dt);
-            if let Some(atlas) = sprite.texture_atlas.as_mut() {
-                atlas.index = index;
-            }
+            draw_animator_frame(
+                &mut sprite,
+                &mut animator,
+                anchor.as_deref_mut(),
+                dt,
+                false,
+                StanceSquash::NONE,
+            );
         }
     }
 }
@@ -119,6 +125,7 @@ pub fn sync_portal_ring_animation(
         &PropVisual,
         &mut Sprite,
         &mut CharacterAnimator,
+        Option<&mut bevy::sprite::Anchor>,
         Option<&PortalSprite>,
     )>,
 ) {
@@ -129,7 +136,7 @@ pub fn sync_portal_ring_animation(
             GatePortalPhase::Opening { .. } => phase.sequence_progress(),
             _ => None,
         };
-        for (entity, prop, mut sprite, mut animator, marker) in &mut rings {
+        for (entity, prop, mut sprite, mut animator, mut anchor, marker) in &mut rings {
             if prop.name != config.ring_sprite_name {
                 continue;
             }
@@ -144,10 +151,14 @@ pub fn sync_portal_ring_animation(
                 None => animator.request(CharacterAnim::Idle),
             }
             animator.slave_clip_to(opening);
-            let index = animator.tick(dt);
-            if let Some(atlas) = sprite.texture_atlas.as_mut() {
-                atlas.index = index;
-            }
+            draw_animator_frame(
+                &mut sprite,
+                &mut animator,
+                anchor.as_deref_mut(),
+                dt,
+                false,
+                StanceSquash::NONE,
+            );
         }
     }
 }
@@ -252,5 +263,63 @@ mod tests {
         let (index, rotation) = drawn(&app, ring);
         assert!(!spin.contains(&index), "an open portal's ring is back on its idle row");
         assert_eq!(rotation, Quat::IDENTITY);
+    }
+
+    /// The membrane spawns on `opening` frame 0, which the packed sheet trims to
+    /// a 1 px point. Once the portal is open, the quad is the size of the frame
+    /// it draws, not the point it was spawned on.
+    #[test]
+    fn an_open_membrane_is_drawn_at_its_own_frames_size() {
+        let mut asset = ring_asset();
+        asset.spec = try_load_spec_for_target("interdimensional_gate_portal", &SheetTuning::default())
+            .expect("the shipped portal sheet is baked");
+        let collision = Vec2::splat(96.0);
+        let (sprite, anchor, animator) = crate::rendering::world::prop_sprite_bundle(
+            Default::default(),
+            false,
+            &asset,
+            collision,
+        );
+        let spawned = sprite.custom_size.expect("a packed sheet sizes its quad");
+        let mut app = App::new();
+        app.init_resource::<Time>();
+        app.init_resource::<ambition_time::ClockState>();
+        let mut portals = GatePortalRegistry::default();
+        portals
+            .try_register(ZONE, "gate_switch", "gate_portal", RING)
+            .expect("one portal registers");
+        app.insert_resource(portals);
+        app.init_resource::<GatePortalPhases>();
+        app.add_systems(Update, sync_portal_sprite_animation);
+        let membrane = app
+            .world_mut()
+            .spawn((
+                PropVisual {
+                    id: "membrane".into(),
+                    kind: "interdimensional_gate_portal".into(),
+                    name: "gate_portal".into(),
+                    size: collision,
+                    draw: Default::default(),
+                    flip_y: false,
+                },
+                Transform::default(),
+                sprite,
+                anchor,
+                animator,
+            ))
+            .id();
+        step(&mut app, GatePortalPhase::On);
+        let world = app.world();
+        let drawn = world.get::<Sprite>(membrane).unwrap().custom_size.unwrap();
+        let (frame_size, _) = world
+            .get::<CharacterAnimator>(membrane)
+            .unwrap()
+            .current_render()
+            .expect("the portal sheet is trimmed");
+        assert_eq!(drawn, frame_size, "the quad follows the drawn frame");
+        assert!(
+            drawn.x > spawned.x * 4.0,
+            "the open membrane {drawn} is drawn in the spawn frame's quad {spawned}"
+        );
     }
 }

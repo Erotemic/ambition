@@ -16,6 +16,7 @@ use bevy::prelude::*;
 use crate::banter::CombatBanterRegistry;
 use ambition_boss_encounter::BossClusterRef;
 use ambition_vfx::VfxMessage;
+use ambition_vfx::VfxWriter;
 
 /// Register hit-bark + idle-bark lines for all boss encounters.
 pub fn install_boss_banter(registry: &mut CombatBanterRegistry) {
@@ -138,7 +139,7 @@ pub fn tick_boss_idle_barks(
         &ambition_characters::actor::BodyHealth,
         &ambition_characters::actor::BodyCombat,
     )>,
-    mut vfx: MessageWriter<VfxMessage>,
+    mut vfx: VfxWriter,
     mut state: Local<BossIdleBarkState>,
 ) {
     let Some(registry) = registry else {

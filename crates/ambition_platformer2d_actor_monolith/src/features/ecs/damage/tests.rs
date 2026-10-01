@@ -6,6 +6,7 @@ use super::super::damage_drops::{
     spawn_split_offspring,
 };
 use super::*;
+use ambition_vfx::vfx::VfxInRoom;
 use ambition_platformer2d_actor_spawn::conversion::enemy_component_snapshot;
 use ambition_boss_encounter::behavior::BossBehaviorProfileExt;
 use ambition_characters::actor::BodyHealth;
@@ -27,7 +28,7 @@ fn register_hit_pipeline_messages(app: &mut App) {
     ambition_combat::hitbox::register_strike_outcome_messages(app);
     app.add_message::<SetFlagRequested>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
-    app.add_message::<VfxMessage>();
+    app.add_message::<VfxInRoom>();
     app.add_message::<DebrisBurstMessage>();
     app.add_message::<ActorStimulus>();
     app.add_message::<ambition_combat::stocks::BodyKnockedOut>();
@@ -125,10 +126,10 @@ fn an_enemy_victim_reacts_with_its_own_profile_not_the_players() {
             .collect()
     }
     fn red_hurt_bursts(app: &App) -> usize {
-        let msgs = app.world().resource::<Messages<VfxMessage>>();
+        let msgs = app.world().resource::<Messages<VfxInRoom>>();
         let mut cursor = msgs.get_cursor();
         cursor
-            .read(msgs)
+            .read(msgs).map(|m| &m.vfx)
             .filter(|m| {
                 matches!(
                     m,
@@ -770,10 +771,10 @@ fn capture_hostile_turns(
 }
 
 fn capture_bubbles(
-    mut reader: bevy::prelude::MessageReader<VfxMessage>,
+    mut reader: bevy::prelude::MessageReader<VfxInRoom>,
     mut cap: bevy::prelude::ResMut<CapturedBubbles>,
 ) {
-    for m in reader.read() {
+    for m in reader.read().map(|m| &m.vfx) {
         if matches!(m, VfxMessage::SpeechBubble { .. }) {
             cap.0 += 1;
         }
@@ -2910,10 +2911,10 @@ fn the_hostile_turn_follows_the_per_body_threshold_not_the_spawn_default() {
 struct CapturedBubbleTexts(Vec<String>);
 
 fn capture_bubble_texts(
-    mut reader: bevy::prelude::MessageReader<VfxMessage>,
+    mut reader: bevy::prelude::MessageReader<VfxInRoom>,
     mut cap: bevy::prelude::ResMut<CapturedBubbleTexts>,
 ) {
-    for m in reader.read() {
+    for m in reader.read().map(|m| &m.vfx) {
         if let VfxMessage::SpeechBubble { text, .. } = m {
             cap.0.push(text.clone());
         }

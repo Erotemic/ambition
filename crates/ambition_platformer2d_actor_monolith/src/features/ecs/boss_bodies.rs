@@ -47,7 +47,7 @@ pub fn integrate_boss_bodies(
     feel_tuning: Res<ambition_combat::feel::Platformer2dFeelTuningMonolith>,
     steering: Res<crate::features::ecs::actors::ActorSteering>,
     mut sfx: ambition_sfx::SfxWriter,
-    mut vfx: bevy::prelude::MessageWriter<ambition_vfx::vfx::VfxMessage>,
+    mut vfx: ambition_vfx::vfx::VfxWriter,
     mut hit_events: bevy::prelude::MessageWriter<HitEvent>,
     mut bosses: Query<
         (
@@ -151,7 +151,7 @@ pub fn integrate_boss_bodies(
             // grows an `AuthoredMovementTuning` this is the line that reads it.
             None,
             &mut sfx,
-            &mut vfx,
+            &mut vfx.for_room(room.map(|stamp| stamp.0)),
             &mut hit_events,
             #[cfg(feature = "causal")]
             None,

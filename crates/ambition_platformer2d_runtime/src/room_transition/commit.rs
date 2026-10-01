@@ -15,6 +15,7 @@ use ambition_platformer2d_core::{self as ae, AabbExt};
 use ambition_sfx::{SfxMessage, SfxWriter};
 use ambition_time::time_control::ClockResetRequest;
 use ambition_vfx::{ParticleKind, VfxMessage};
+use ambition_vfx::VfxWriter;
 
 /// The sim → presentation channels a committed transition writes: the zone
 /// sound, the arrival puff, and the request to rebuild the destination room's
@@ -25,7 +26,7 @@ use ambition_vfx::{ParticleKind, VfxMessage};
 #[derive(SystemParam)]
 pub struct RoomTransitionEffects<'w> {
     pub sfx: SfxWriter<'w>,
-    pub vfx: MessageWriter<'w, VfxMessage>,
+    pub vfx: VfxWriter<'w>,
     pub respawn_room_visuals: MessageWriter<'w, world_rooms::RespawnRoomVisualsRequested>,
 }
 

@@ -58,7 +58,7 @@ const STOMP_BAND: f32 = 16.0;
 /// is a dust burst through the engine's vfx seam.
 pub fn defeat_badniks(
     mut commands: Commands,
-    mut vfx: MessageWriter<ambition_platformer2d::vfx::VfxMessage>,
+    mut vfx: ambition_platformer2d::vfx::VfxWriter,
     mut sfx: ambition_platformer2d::sfx::BodySfxWriter,
     mut players: Query<
         (
@@ -146,7 +146,7 @@ mod tests {
 
     fn defeat_app() -> App {
         let mut app = App::new();
-        app.add_message::<ambition_platformer2d::vfx::VfxMessage>();
+        app.add_message::<ambition_platformer2d::vfx::VfxInRoom>();
         app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
         app.add_systems(Update, defeat_badniks);
         app

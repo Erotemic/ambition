@@ -2039,6 +2039,13 @@ way: a body's health pool was not read from the frozen cast;
 `apply_worn_character_gameplay` re-derived it from the App cast. Fixed
 2026-10-01; every live reader now reads `ambition_characters::prepared::SessionCast`
 over `ActiveSessionCast`, the frozen cast's one owner (see I3).
+**The character catalog is the third, 2026-10-01 (review P2).** The claim
+carried the N+1 cast but not the catalog it is folded from, so candidate
+construction read N's App catalog (a body's hurt material from its tags, a
+placement's brain profile, the starting sheet, validation) beside N+1's cast.
+`PendingGenerationInputs::catalog` carries the admitted `CandidateCatalog`
+to `prepare` and `build_candidate` (`candidate_catalog_for`); see I3 in
+[`engine/fast-iteration-implementation.md`](engine/fast-iteration-implementation.md).
 
 ⚠ **AND THE GUARD STOPPED WITNESSING IT WITHOUT GOING RED.**
 `the_commit_sits_between_the_activation_and_session_adoption`

@@ -102,7 +102,7 @@ impl BrokenBricks {
 /// argument, not a missing concept.
 pub fn break_bricks(
     mut broken: ResMut<BrokenBricks>,
-    mut vfx: MessageWriter<ambition_platformer2d::vfx::VfxMessage>,
+    mut vfx: ambition_platformer2d::vfx::VfxWriter,
     mut sfx: ambition_platformer2d::sfx::BodySfxWriter,
     // her FORM rides the same query, `Option` because a body with no
     // equipment component at all is small — that is what small IS, not a bug.
@@ -295,7 +295,7 @@ mod tests {
     fn break_app() -> App {
         let mut app = App::new();
         app.init_resource::<BrokenBricks>();
-        app.add_message::<ambition_platformer2d::vfx::VfxMessage>();
+        app.add_message::<ambition_platformer2d::vfx::VfxInRoom>();
         app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
         // the REAL level, because `break_bricks` asks the room what it hit.
         // A fixture with no room answers nothing, which is a green test about an
@@ -310,8 +310,8 @@ mod tests {
 
     fn drain_bursts(app: &mut App) -> usize {
         app.world_mut()
-            .resource_mut::<bevy::ecs::message::Messages<ambition_platformer2d::vfx::VfxMessage>>()
-            .drain()
+            .resource_mut::<bevy::ecs::message::Messages<ambition_platformer2d::vfx::VfxInRoom>>()
+            .drain().map(|m| m.vfx)
             .filter(|m| matches!(m, ambition_platformer2d::vfx::VfxMessage::Burst { .. }))
             .count()
     }
@@ -378,7 +378,7 @@ mod tests {
 
         let mut app = App::new();
         app.init_resource::<BrokenBricks>();
-        app.add_message::<ambition_platformer2d::vfx::VfxMessage>();
+        app.add_message::<ambition_platformer2d::vfx::VfxInRoom>();
         app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
         ambition_platformer2d::platformer::lifecycle::insert_live_room_component(
             app.world_mut(),

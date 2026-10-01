@@ -58,7 +58,7 @@ pub fn mark_recall_system(
         Option<&mut PlayerMark>,
     )>,
     mut sfx: ambition_sfx::BodySfxWriter,
-    mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
+    mut vfx: ambition_vfx::vfx::VfxWriter,
     mut hits: MessageWriter<ambition_combat::events::HitEvent>,
     // Optional diagnostic Class-B ledger (§3.2), so a minimal test app still
     // recalls.

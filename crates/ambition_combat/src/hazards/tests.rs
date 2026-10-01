@@ -55,7 +55,7 @@ fn app_with_hazard_system() -> App {
     app.init_resource::<HitLog>();
     app.add_message::<HitEvent>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
-    app.add_message::<VfxMessage>();
+    app.add_message::<VfxInRoom>();
     app.add_message::<DebrisBurstMessage>();
     app.add_systems(Update, (advance_hazards, apply_hazard_contacts, record_hits).chain());
     app

@@ -212,10 +212,10 @@ pub struct BarkPose(pub f32);
 /// Start the bark pose on the visual whose feature id the bark names.
 pub fn start_bark_poses(
     mut commands: Commands,
-    mut messages: MessageReader<ambition_vfx::VfxMessage>,
+    mut messages: MessageReader<ambition_vfx::VfxInRoom>,
     visuals: Query<(Entity, &FeatureVisual)>,
 ) {
-    for message in messages.read() {
+    for message in messages.read().map(|m| &m.vfx) {
         let ambition_vfx::VfxMessage::BarkGesture { feature_id, seconds } = message else {
             continue;
         };
@@ -604,7 +604,7 @@ mod bark_pose_tests {
     fn a_bark_poses_the_visual_it_names() {
         let mut app = App::new();
         app.add_plugins(MinimalPlugins);
-        app.add_message::<ambition_vfx::VfxMessage>();
+        app.add_message::<ambition_vfx::VfxInRoom>();
         app.add_systems(Update, start_bark_poses);
         let dog = app
             .world_mut()
@@ -615,10 +615,10 @@ mod bark_pose_tests {
             .spawn(FeatureVisual { id: "parrot".into() })
             .id();
         app.world_mut()
-            .write_message(ambition_vfx::VfxMessage::BarkGesture {
+            .write_message(ambition_vfx::VfxInRoom { room: None, vfx: ambition_vfx::VfxMessage::BarkGesture {
                 feature_id: "dog".into(),
                 seconds: 0.48,
-            });
+            } });
         app.update();
         assert_eq!(app.world().get::<BarkPose>(dog).map(|pose| pose.0), Some(0.48));
         assert!(app.world().get::<BarkPose>(parrot).is_none());

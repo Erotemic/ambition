@@ -35,6 +35,9 @@ use bevy::prelude::*;
 use ambition_platformer2d_core::Vec2;
 use ambition_sfx::{ids, SfxMessage, SfxWriter};
 use ambition_vfx::vfx::{ParticleKind, VfxMessage};
+use ambition_vfx::vfx::VfxWriter;
+#[cfg(test)]
+use ambition_vfx::vfx::VfxInRoom;
 
 /// Sparks thrown by an ordinary stock loss, and by an elimination.
 ///
@@ -173,7 +176,7 @@ pub fn emit_knockout_beat(
     // one burst however many views watch. `PresentedViewState` refuses to
     // guess with several cameras; then the beat draws at the death site.
     presented: ambition_sim_view::PresentedViewState,
-    mut vfx: MessageWriter<VfxMessage>,
+    mut vfx: VfxWriter,
     mut sfx: SfxWriter,
 ) {
     let frame = presented
@@ -363,7 +366,7 @@ mod tests {
         use bevy::prelude::App;
 
         let mut app = App::new();
-        app.add_message::<VfxMessage>();
+        app.add_message::<VfxInRoom>();
         app.add_message::<ambition_sfx::OwnedSfxMessage>();
         app.add_message::<KnockoutBeatRequested>();
         app.world_mut().write_message(KnockoutBeatRequested {
@@ -387,8 +390,8 @@ mod tests {
         app.update();
         let drawn = app
             .world_mut()
-            .resource_mut::<bevy::prelude::Messages<VfxMessage>>()
-            .drain()
+            .resource_mut::<bevy::prelude::Messages<VfxInRoom>>()
+            .drain().map(|m| m.vfx)
             .find_map(|message| match message {
                 VfxMessage::Burst { pos, .. } => Some(pos),
                 _ => None,

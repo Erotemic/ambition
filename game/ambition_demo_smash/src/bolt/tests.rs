@@ -13,7 +13,7 @@ fn app() -> App {
     // The trail channel. `steer_and_fly_bolts` writes it, and a system that
     // writes an unregistered message fails parameter validation and is
     // dropped without an error.
-    app.add_message::<ambition_platformer2d::vfx::vfx::VfxMessage>();
+    app.add_message::<ambition_platformer2d::vfx::vfx::VfxInRoom>();
     app.add_message::<ActorActionMessage>();
     let mut time = app
         .world_mut()
@@ -322,16 +322,16 @@ fn the_bolt_marks_its_path_on_the_authored_interval_rather_than_every_tick() {
     // One cursor across the whole flight — a fresh one per tick re-reads the
     // double buffer and counts every mark twice.
     let mut seen =
-        bevy::ecs::message::MessageCursor::<ambition_platformer2d::vfx::vfx::VfxMessage>::default();
+        bevy::ecs::message::MessageCursor::<ambition_platformer2d::vfx::vfx::VfxInRoom>::default();
     let mut marks = 0usize;
     // 30 ticks at 1/60s = 0.5s of flight against a 0.05s interval.
     for _ in 0..30 {
         app.update();
         let messages = app
             .world()
-            .resource::<Messages<ambition_platformer2d::vfx::vfx::VfxMessage>>();
+            .resource::<Messages<ambition_platformer2d::vfx::vfx::VfxInRoom>>();
         marks += seen
-            .read(messages)
+            .read(messages).map(|m| &m.vfx)
             .filter(|m| {
                 matches!(
                     m,

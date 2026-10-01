@@ -1,4 +1,5 @@
 use super::*;
+use ambition_vfx::vfx::VfxInRoom;
 use ambition_platformer2d_core::hit_response::di_adjust;
 // The parent module imports only the handful of Bevy items its systems need,
 // so the App-level tests below bring in their own.
@@ -2292,7 +2293,7 @@ fn a_hazard_respawn_does_not_turn_the_body_around() {
     for before in [-1.0f32, 1.0] {
         let mut app = App::new();
         app.add_message::<ambition_sfx::OwnedSfxMessage>()
-            .add_message::<VfxMessage>()
+            .add_message::<VfxInRoom>()
             .add_message::<ClockResetRequest>();
 
         let mut scratch = ae::BodyClusterScratch::new_with_abilities(
@@ -2312,7 +2313,7 @@ fn a_hazard_respawn_does_not_turn_the_body_around() {
         let world = app.world_mut();
         let mut state = SystemState::<(
             SfxWriter,
-            MessageWriter<VfxMessage>,
+            VfxWriter,
             MessageWriter<ClockResetRequest>,
         )>::new(world);
         {

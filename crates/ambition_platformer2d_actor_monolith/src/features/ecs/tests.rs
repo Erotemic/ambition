@@ -225,7 +225,7 @@ fn interact_buffered_opens_adjacent_chest() {
     app.insert_resource(GameplayBanner::default());
     app.add_message::<SetFlagRequested>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
-    app.add_message::<VfxMessage>();
+    app.add_message::<VfxInRoom>();
     app.add_message::<crate::avatar::PlayerHealRequested>();
 
     spawn_interaction_player(&mut app, center);
@@ -268,7 +268,7 @@ fn interact_buffered_does_not_open_distant_chest() {
     app.insert_resource(GameplayBanner::default());
     app.add_message::<SetFlagRequested>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
-    app.add_message::<VfxMessage>();
+    app.add_message::<VfxInRoom>();
     app.add_message::<crate::avatar::PlayerHealRequested>();
 
     spawn_interaction_player(&mut app, player_pos);
@@ -302,7 +302,7 @@ fn interact_does_not_reopen_already_opened_chest() {
     app.insert_resource(GameplayBanner::default());
     app.add_message::<SetFlagRequested>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
-    app.add_message::<VfxMessage>();
+    app.add_message::<VfxInRoom>();
     app.add_message::<crate::avatar::PlayerHealRequested>();
 
     spawn_interaction_player(&mut app, center);
@@ -355,7 +355,7 @@ fn interact_buffered_starts_npc_dialogue() {
     app.add_message::<SetFlagRequested>();
     app.add_message::<QuestAdvanceRequested>();
     app.add_message::<SwitchActivated>();
-    app.add_message::<VfxMessage>();
+    app.add_message::<VfxInRoom>();
 
     spawn_interaction_player(&mut app, center);
 

@@ -1398,6 +1398,12 @@ pub fn adopt_preparation_transaction(
                                 .as_ref()
                                 .map(|admitted| admitted.candidate().clone()),
                             pending.bosses.as_ref().map(|bosses| bosses.catalog.clone()),
+                            // And the catalog that cast is folded from: the
+                            // preparation reads raw catalog facts too.
+                            pending
+                                .admitted_cast
+                                .as_ref()
+                                .and_then(|admitted| admitted.candidate_catalog().cloned()),
                         )
                     };
                     // Hold the route from adoption. Only the gate's answer at
@@ -1425,7 +1431,7 @@ pub fn adopt_preparation_transaction(
                             }
                         }
                     }
-                    let (claim, characters, bosses) = claim;
+                    let (claim, characters, bosses, catalog) = claim;
                     // The only place the claim is made: the transaction first
                     // has a name here.
                     world.insert_resource(ambition_platformer2d_runtime::PendingGenerationInputs {
@@ -1433,6 +1439,7 @@ pub fn adopt_preparation_transaction(
                         identity: claim,
                         characters,
                         bosses,
+                        catalog,
                     });
                 });
             }

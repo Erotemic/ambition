@@ -1716,6 +1716,18 @@ pub fn relocate_request(
             spec.pos = at;
             true
         }
+        // A body's `at` is its FEET (`body_whereabouts`): a placement body
+        // stands on the bottom of its footprint, so the footprint moves with
+        // its bottom centre on `at`, whatever size the character is built at.
+        ActorConstructionParams::Placement { record, .. } => {
+            use ambition_platformer2d_core::AabbExt as _;
+            let half = record.aabb.half_size();
+            record.aabb = ambition_platformer2d_core::Aabb::new(
+                ambition_platformer2d_core::Vec2::new(at.x, at.y - half.y),
+                half,
+            );
+            true
+        }
         _ => false,
     }
 }
@@ -1735,6 +1747,10 @@ pub fn reinstatable_authored_requests(
         ground_items: _,
 
         // Potentially portable families with no `Placed` producer/rebuilder.
+        // A placement body (a persistent character, `body_whereabouts`) has
+        // both, but its request needs the room's lowering plan, so the room
+        // build reinstates it (`RoomFeatureConstructionPlan::prepare`), not
+        // this RoomSpec-only list.
         portal_gun_spawns: _,
         enemy_spawns: _,
         boss_spawns: _,

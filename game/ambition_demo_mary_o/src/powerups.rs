@@ -458,7 +458,7 @@ pub fn bonk_power_blocks(
     >,
     // The coin a struck coin block visibly pays. Presentation only — the purse
     // is credited below whether or not anything is drawing.
-    mut vfx: bevy::prelude::MessageWriter<ambition_platformer2d::vfx::VfxMessage>,
+    mut vfx: ambition_platformer2d::vfx::VfxWriter,
     // the WALLET rides the same query, because a coin block credits the body that struck it
     // rather than a global counter — the same component the vault's loose coins credit and the
     // same one the HUD's COINS readout is rebuilt from.
@@ -1882,7 +1882,7 @@ mod tests {
         // an unregistered message fails parameter validation rather than being
         // ignored, so even a fixture that draws nothing has to declare it.
         app.add_message::<ambition_platformer2d::platformer::block_nudge::BlockStruck>();
-        app.add_message::<ambition_platformer2d::vfx::VfxMessage>();
+        app.add_message::<ambition_platformer2d::vfx::VfxInRoom>();
         app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
         let mut frame = PlayerBodyFrameOutput::default();
         frame
@@ -1978,7 +1978,7 @@ mod tests {
             ambition_platformer2d::platformer::lifecycle::SessionRoot(session),
         ));
         app.add_message::<ambition_platformer2d::platformer::block_nudge::BlockStruck>();
-        app.add_message::<ambition_platformer2d::vfx::VfxMessage>();
+        app.add_message::<ambition_platformer2d::vfx::VfxInRoom>();
         app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
         let mut frame = PlayerBodyFrameOutput::default();
         frame
@@ -2072,7 +2072,7 @@ mod tests {
             ambition_platformer2d::platformer::lifecycle::SessionRoot(session),
         ));
         app.add_message::<ambition_platformer2d::platformer::block_nudge::BlockStruck>();
-        app.add_message::<ambition_platformer2d::vfx::VfxMessage>();
+        app.add_message::<ambition_platformer2d::vfx::VfxInRoom>();
         app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
         let mut frame = PlayerBodyFrameOutput::default();
         frame
@@ -2115,8 +2115,8 @@ mod tests {
         // invisible.
         let popped: Vec<_> = app
             .world_mut()
-            .resource_mut::<bevy::prelude::Messages<ambition_platformer2d::vfx::VfxMessage>>()
-            .drain()
+            .resource_mut::<bevy::prelude::Messages<ambition_platformer2d::vfx::VfxInRoom>>()
+            .drain().map(|m| m.vfx)
             .filter(|message| {
                 matches!(
                     message,
@@ -2173,7 +2173,7 @@ mod tests {
         // an unregistered message fails parameter validation rather than being
         // ignored, so even a fixture that draws nothing has to declare it.
         app.add_message::<ambition_platformer2d::platformer::block_nudge::BlockStruck>();
-        app.add_message::<ambition_platformer2d::vfx::VfxMessage>();
+        app.add_message::<ambition_platformer2d::vfx::VfxInRoom>();
         app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
         let mut frame = PlayerBodyFrameOutput::default();
         frame

@@ -42,7 +42,7 @@ fn blink_target_travels_full_distance_then_clamps_at_a_wall() {
 fn test_app() -> App {
     let mut app = App::new();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
-    app.add_message::<ambition_vfx::vfx::VfxMessage>();
+    app.add_message::<ambition_vfx::vfx::VfxInRoom>();
     app.add_message::<ambition_combat::events::HitEvent>();
     app.add_systems(Update, blink_system);
     app

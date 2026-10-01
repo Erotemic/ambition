@@ -33,6 +33,7 @@ use ambition_mount::{MountSlot, RidingOn};
 use ambition_platformer2d::sfx::{BodySfxWriter, SfxId, SfxMessage};
 use ambition_platformer2d::sprite_sheet::character::PinnedRow;
 use ambition_platformer2d::vfx::{ParticleKind, VfxMessage};
+use ambition_platformer2d::vfx::VfxWriter;
 use ambition_combat::components::ActorTarget;
 use ambition_vfx::HitSide;
 
@@ -299,7 +300,7 @@ fn homes(giant: &ae::BodyKinematics, offsets: [Option<Vec2>; 2]) -> [Vec2; 2] {
     [giant.pos + left, giant.pos + right]
 }
 
-fn spark(vfx: &mut MessageWriter<VfxMessage>, pos: Vec2, color: [f32; 4], count: u32, speed: f32) {
+fn spark(vfx: &mut VfxWriter, pos: Vec2, color: [f32; 4], count: u32, speed: f32) {
     vfx.write(VfxMessage::Burst {
         pos,
         count,
@@ -424,7 +425,7 @@ pub fn conduct_gnu_ton(
     // body looked up by its role.
     bodies: Query<&ae::BodyKinematics, (Without<Limb>, Without<MountSlot>, Without<BossConfig>)>,
     mut hitboxes: Query<&mut Hitbox>,
-    mut vfx: MessageWriter<VfxMessage>,
+    mut vfx: VfxWriter,
     mut sfx: BodySfxWriter,
 ) {
     let dt = time.sim_dt();

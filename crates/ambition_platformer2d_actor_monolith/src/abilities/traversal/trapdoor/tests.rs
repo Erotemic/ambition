@@ -54,7 +54,7 @@ fn app_with_body_in_posture(pos: ae::Vec2) -> (bevy::prelude::App, bevy::prelude
         app.world_mut(),
         ae::RoomGeometry(stage()),
     );
-    app.add_message::<ambition_vfx::vfx::VfxMessage>();
+    app.add_message::<ambition_vfx::vfx::VfxInRoom>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<ActorActionMessage>();
     app.add_systems(bevy::prelude::Update, apply_authored_trapdoors);

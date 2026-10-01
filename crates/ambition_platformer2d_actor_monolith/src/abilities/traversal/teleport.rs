@@ -310,7 +310,7 @@ pub fn apply_authored_teleports(
     // never zero. So the documented "no aim goes UP" branch below was
     // unreachable and every teleport left sideways.
     playbacks: Query<&ambition_combat::moveset::MovePlayback>,
-    mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
+    mut vfx: ambition_vfx::vfx::VfxWriter,
     mut sfx: ambition_sfx::BodySfxWriter,
     // THE CLASS-B LEDGER. `Option` for the same reason blink's is: a bare
     // fixture installs no log, and a teleport is still a teleport without one.

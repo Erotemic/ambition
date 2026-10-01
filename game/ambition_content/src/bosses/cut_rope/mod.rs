@@ -35,7 +35,7 @@ use ambition_sprite_sheet::character::{
 };
 use ambition_sprite_sheet::game_assets::GameAssets;
 use ambition_vfx::vfx::{DebrisBurstMessage, PhysicsDebrisCue};
-use ambition_vfx::{FireworksRequest, FxRequest, ParticleKind, VfxMessage};
+use ambition_vfx::{FireworksRequest, FxRequest, ParticleKind, VfxMessage, VfxWriter};
 
 pub const CUT_ROPE_BOSS_ID: &str = "smirking_behemoth_boss";
 pub const CUT_ROPE_VICTORY_NPC_ID: &str = "smirking_behemoth_victory_npc";

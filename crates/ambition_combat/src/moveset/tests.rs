@@ -10,6 +10,7 @@ use ambition_entity_catalog::{
 use ambition_sfx::SfxMessage;
 use ambition_vfx::vfx::DebrisBurstMessage;
 use ambition_vfx::vfx::VfxMessage;
+use ambition_vfx::vfx::VfxInRoom;
 use bevy::prelude::*;
 
 /// The attack direction is facing-relative, not screen-relative. The aim axis arrives
@@ -531,7 +532,7 @@ fn capture(
     mut cap: ResMut<Captured>,
     mut hits: MessageReader<HitEvent>,
     mut evs: MessageReader<MoveEventMessage>,
-    mut vfx: MessageReader<VfxMessage>,
+    mut vfx: MessageReader<VfxInRoom>,
 ) {
     //  victims only. A body-owned melee also publishes the unresolved half
     // of the same strike — the geometry broadcast for breakables and bosses,
@@ -544,7 +545,7 @@ fn capture(
             .cloned(),
     );
     cap.events.extend(evs.read().cloned());
-    cap.slashes.extend(vfx.read().cloned());
+    cap.slashes.extend(vfx.read().map(|m| m.vfx.clone()));
 }
 
 /// A body-local blade, which is what the seam returns: `+x` forward, `+y`
@@ -581,10 +582,10 @@ fn app_with_victim() -> (App, Entity) {
     app.add_message::<crate::hitbox::LandedBodyHit>();
     app.add_message::<crate::hitbox::ParriedBodyHit>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
-    app.add_message::<VfxMessage>();
+    app.add_message::<VfxInRoom>();
     app.add_message::<DebrisBurstMessage>();
     app.add_message::<MoveEventMessage>();
-    app.add_message::<ambition_vfx::vfx::VfxMessage>();
+    app.add_message::<ambition_vfx::vfx::VfxInRoom>();
     app.init_resource::<Captured>();
     app.init_resource::<WorldTime>();
     app.world_mut().resource_mut::<WorldTime>().scaled_dt = 0.016;
@@ -1596,10 +1597,10 @@ fn a_control_verb_edge_triggers_the_moveset_move_and_lands_it() {
     app.add_message::<crate::hitbox::LandedBodyHit>();
     app.add_message::<crate::hitbox::ParriedBodyHit>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
-    app.add_message::<VfxMessage>();
+    app.add_message::<VfxInRoom>();
     app.add_message::<DebrisBurstMessage>();
     app.add_message::<MoveEventMessage>();
-    app.add_message::<ambition_vfx::vfx::VfxMessage>();
+    app.add_message::<ambition_vfx::vfx::VfxInRoom>();
     app.init_resource::<Captured>();
     app.init_resource::<WorldTime>();
     app.world_mut().resource_mut::<WorldTime>().scaled_dt = 0.016;
@@ -1663,7 +1664,7 @@ fn a_control_verb_edge_triggers_the_moveset_move_and_lands_it() {
 fn a_forward_special_selects_the_directional_move() {
     let mut app = App::new();
     app.add_message::<MoveEventMessage>();
-    app.add_message::<ambition_vfx::vfx::VfxMessage>();
+    app.add_message::<ambition_vfx::vfx::VfxInRoom>();
     app.init_resource::<WorldTime>();
     app.world_mut().resource_mut::<WorldTime>().scaled_dt = 0.016;
     app.world_mut().resource_mut::<WorldTime>().raw_dt = 0.016;
@@ -1866,7 +1867,7 @@ fn an_unmirrored_body_plays_its_move_the_way_it_is_drawn() {
 fn lunge_facing_left(unmirrored: bool) -> (ae::Vec2, f32) {
     let mut app = App::new();
     app.add_message::<MoveEventMessage>();
-    app.add_message::<ambition_vfx::vfx::VfxMessage>();
+    app.add_message::<ambition_vfx::vfx::VfxInRoom>();
     app.init_resource::<WorldTime>();
     app.world_mut().resource_mut::<WorldTime>().scaled_dt = 0.016;
     app.world_mut().resource_mut::<WorldTime>().raw_dt = 0.016;
@@ -1950,7 +1951,7 @@ fn move_event_dispatch_bridges_sfx_to_sound_and_effect_to_special() {
     use ambition_characters::brain::ActorActionMessage;
     let mut app = App::new();
     app.add_message::<MoveEventMessage>();
-    app.add_message::<ambition_vfx::vfx::VfxMessage>();
+    app.add_message::<ambition_vfx::vfx::VfxInRoom>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<ActorActionMessage>();
     // The dispatcher asks for PAIRED effects now, so the channel it writes has to exist or the
@@ -2060,7 +2061,7 @@ fn a_move_started_aiming_up_fires_up_after_its_request_is_cleared() {
     use ambition_characters::control::ActorControl;
     let mut app = App::new();
     app.add_message::<MoveEventMessage>();
-    app.add_message::<ambition_vfx::vfx::VfxMessage>();
+    app.add_message::<ambition_vfx::vfx::VfxInRoom>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<ActorActionMessage>();
     // The dispatcher asks for PAIRED effects now, so the channel it writes has to exist or the
@@ -2153,7 +2154,7 @@ fn a_moves_shot_carries_the_instance_from_the_event_not_the_live_playback() {
 
     let mut app = App::new();
     app.add_message::<MoveEventMessage>();
-    app.add_message::<ambition_vfx::vfx::VfxMessage>();
+    app.add_message::<ambition_vfx::vfx::VfxInRoom>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<ActorActionMessage>();
     app.add_message::<ambition_vfx::FxRequest>();
@@ -2225,7 +2226,7 @@ fn move_event_dispatch_bridges_ranged_to_a_live_aimed_shot() {
     use ambition_characters::control::ActorControl;
     let mut app = App::new();
     app.add_message::<MoveEventMessage>();
-    app.add_message::<ambition_vfx::vfx::VfxMessage>();
+    app.add_message::<ambition_vfx::vfx::VfxInRoom>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<ActorActionMessage>();
     // The dispatcher asks for PAIRED effects now, so the channel it writes has to exist or the
@@ -2310,7 +2311,7 @@ fn a_ranged_move_without_live_aim_fires_along_the_bodys_facing() {
     for facing in [-1.0f32, 1.0] {
         let mut app = App::new();
         app.add_message::<MoveEventMessage>();
-        app.add_message::<ambition_vfx::vfx::VfxMessage>();
+        app.add_message::<ambition_vfx::vfx::VfxInRoom>();
         app.add_message::<ambition_sfx::OwnedSfxMessage>();
         app.add_message::<ActorActionMessage>();
         // The dispatcher asks for PAIRED effects now, so the channel it writes has to exist or
@@ -2988,7 +2989,7 @@ fn effect_bridge_app(moveset: MovesetContract) -> (App, Entity) {
         super::super::authored_volumes::AuthoredAttackVolumeResolver::new(test_blade_resolver),
     );
     app.add_message::<MoveEventMessage>();
-    app.add_message::<VfxMessage>();
+    app.add_message::<VfxInRoom>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<ambition_vfx::FxRequest>();
     app.add_message::<ambition_characters::brain::ActorActionMessage>();
@@ -4131,7 +4132,7 @@ fn capture_context_app_in(
 ) -> (App, Entity) {
     let mut app = App::new();
     app.add_message::<MoveEventMessage>();
-    app.add_message::<ambition_vfx::vfx::VfxMessage>();
+    app.add_message::<ambition_vfx::vfx::VfxInRoom>();
     app.init_resource::<WorldTime>();
     app.world_mut().resource_mut::<WorldTime>().scaled_dt = 0.016;
     app.world_mut().resource_mut::<WorldTime>().raw_dt = 0.016;
@@ -4202,7 +4203,7 @@ fn played(app: &App, body: Entity) -> Option<String> {
 fn shielding_app(frame: ambition_characters::actor::control::ActorControlFrame) -> (App, Entity) {
     let mut app = App::new();
     app.add_message::<MoveEventMessage>();
-    app.add_message::<ambition_vfx::vfx::VfxMessage>();
+    app.add_message::<ambition_vfx::vfx::VfxInRoom>();
     app.init_resource::<WorldTime>();
     app.world_mut().resource_mut::<WorldTime>().scaled_dt = 0.016;
     app.world_mut().resource_mut::<WorldTime>().raw_dt = 0.016;
@@ -4581,7 +4582,7 @@ fn an_airborne_body_reaches_no_grounded_only_capture_move() {
 fn buffer_app(moveset: MovesetContract, buffer_s: f32) -> (App, Entity) {
     let mut app = App::new();
     app.add_message::<MoveEventMessage>();
-    app.add_message::<ambition_vfx::vfx::VfxMessage>();
+    app.add_message::<ambition_vfx::vfx::VfxInRoom>();
     app.init_resource::<WorldTime>();
     app.world_mut().resource_mut::<WorldTime>().scaled_dt = 0.016;
     app.world_mut().resource_mut::<WorldTime>().raw_dt = 0.016;
@@ -4956,7 +4957,7 @@ fn smash_charge_app() -> (App, Entity) {
     app.add_message::<crate::hitbox::ParriedBodyHit>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<MoveEventMessage>();
-    app.add_message::<ambition_vfx::vfx::VfxMessage>();
+    app.add_message::<ambition_vfx::vfx::VfxInRoom>();
     app.init_resource::<WorldTime>();
     app.world_mut().resource_mut::<WorldTime>().scaled_dt = 0.016;
     app.world_mut().resource_mut::<WorldTime>().raw_dt = 0.016;
@@ -5641,7 +5642,7 @@ fn playing_app(moveset: MovesetContract) -> (App, Entity) {
     app.add_message::<crate::hitbox::ParriedBodyHit>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<MoveEventMessage>();
-    app.add_message::<ambition_vfx::vfx::VfxMessage>();
+    app.add_message::<ambition_vfx::vfx::VfxInRoom>();
     app.init_resource::<WorldTime>();
     app.world_mut().resource_mut::<WorldTime>().scaled_dt = 0.016;
     app.world_mut().resource_mut::<WorldTime>().raw_dt = 0.016;
@@ -6735,7 +6736,7 @@ fn a_direction_held_through_the_grab_does_not_throw_until_it_is_pressed_again() 
 
     let mut app = App::new();
     app.add_message::<MoveEventMessage>();
-    app.add_message::<ambition_vfx::vfx::VfxMessage>();
+    app.add_message::<ambition_vfx::vfx::VfxInRoom>();
     app.init_resource::<WorldTime>();
     app.world_mut().resource_mut::<WorldTime>().scaled_dt = 0.016;
     app.world_mut().resource_mut::<WorldTime>().raw_dt = 0.016;
@@ -6827,7 +6828,7 @@ fn an_attack_press_throws_and_pummels_on_a_capture_that_never_armed() {
     let build = |axis: ae::LocalAxes| {
         let mut app = App::new();
         app.add_message::<MoveEventMessage>();
-        app.add_message::<ambition_vfx::vfx::VfxMessage>();
+        app.add_message::<ambition_vfx::vfx::VfxInRoom>();
         app.init_resource::<WorldTime>();
         app.world_mut().resource_mut::<WorldTime>().scaled_dt = 0.016;
         app.world_mut().resource_mut::<WorldTime>().raw_dt = 0.016;
@@ -7357,10 +7358,10 @@ fn a_move_that_costs_meter_is_refused_when_the_body_cannot_pay() {
         app.add_message::<crate::hitbox::LandedBodyHit>();
         app.add_message::<crate::hitbox::ParriedBodyHit>();
         app.add_message::<ambition_sfx::OwnedSfxMessage>();
-        app.add_message::<VfxMessage>();
+        app.add_message::<VfxInRoom>();
         app.add_message::<DebrisBurstMessage>();
         app.add_message::<MoveEventMessage>();
-        app.add_message::<ambition_vfx::vfx::VfxMessage>();
+        app.add_message::<ambition_vfx::vfx::VfxInRoom>();
         app.init_resource::<WorldTime>();
         app.world_mut().resource_mut::<WorldTime>().scaled_dt = 0.016;
         app.world_mut().resource_mut::<WorldTime>().raw_dt = 0.016;
@@ -7454,10 +7455,10 @@ fn a_move_that_costs_meter_is_refused_when_the_body_cannot_pay() {
         app.add_message::<crate::hitbox::LandedBodyHit>();
         app.add_message::<crate::hitbox::ParriedBodyHit>();
         app.add_message::<ambition_sfx::OwnedSfxMessage>();
-        app.add_message::<VfxMessage>();
+        app.add_message::<VfxInRoom>();
         app.add_message::<DebrisBurstMessage>();
         app.add_message::<MoveEventMessage>();
-        app.add_message::<ambition_vfx::vfx::VfxMessage>();
+        app.add_message::<ambition_vfx::vfx::VfxInRoom>();
         app.init_resource::<WorldTime>();
         app.world_mut().resource_mut::<WorldTime>().scaled_dt = 0.016;
         app.world_mut().resource_mut::<WorldTime>().raw_dt = 0.016;
@@ -7586,10 +7587,10 @@ fn a_refused_priced_move_falls_through_to_its_authored_variant() {
         app.add_message::<crate::hitbox::LandedBodyHit>();
         app.add_message::<crate::hitbox::ParriedBodyHit>();
         app.add_message::<ambition_sfx::OwnedSfxMessage>();
-        app.add_message::<VfxMessage>();
+        app.add_message::<VfxInRoom>();
         app.add_message::<DebrisBurstMessage>();
         app.add_message::<MoveEventMessage>();
-        app.add_message::<ambition_vfx::vfx::VfxMessage>();
+        app.add_message::<ambition_vfx::vfx::VfxInRoom>();
         app.init_resource::<WorldTime>();
         app.world_mut().resource_mut::<WorldTime>().scaled_dt = 0.016;
         app.world_mut().resource_mut::<WorldTime>().raw_dt = 0.016;
@@ -7862,7 +7863,7 @@ fn a_special_charge_is_held_by_the_special_button_and_not_the_attack_button() {
     app.add_message::<crate::hitbox::ParriedBodyHit>();
         app.add_message::<ambition_sfx::OwnedSfxMessage>();
         app.add_message::<MoveEventMessage>();
-        app.add_message::<ambition_vfx::vfx::VfxMessage>();
+        app.add_message::<ambition_vfx::vfx::VfxInRoom>();
         app.add_systems(Update, advance_move_playback);
         let held = ambition_characters::actor::attack_gesture::AttackGestureIntent {
             direction: ambition_characters::actor::attack_gesture::AttackDir::Neutral,
@@ -7942,7 +7943,7 @@ fn a_released_charge_reaches_the_ranged_action_the_dispatcher_emits() {
     let fired_at = |held_s: Option<f32>| -> (i32, f32, Option<String>) {
         let mut app = App::new();
         app.add_message::<MoveEventMessage>();
-        app.add_message::<ambition_vfx::vfx::VfxMessage>();
+        app.add_message::<ambition_vfx::vfx::VfxInRoom>();
         app.add_message::<ambition_sfx::OwnedSfxMessage>();
         app.add_message::<ActorActionMessage>();
         app.add_message::<ambition_vfx::FxRequest>();
@@ -9365,7 +9366,7 @@ fn latch_after(
     app.add_message::<crate::hitbox::ParriedBodyHit>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<MoveEventMessage>();
-    app.add_message::<ambition_vfx::vfx::VfxMessage>();
+    app.add_message::<ambition_vfx::vfx::VfxInRoom>();
     app.init_resource::<WorldTime>();
     app.world_mut().resource_mut::<WorldTime>().scaled_dt = 0.016;
     app.world_mut().resource_mut::<WorldTime>().raw_dt = 0.016;
@@ -9504,7 +9505,7 @@ fn a_stick_under_the_bodys_deadzone_is_not_a_direction() {
 fn the_press_that_bought_an_up_special_is_the_first_thing_in_its_aim_window() {
     let mut app = App::new();
     app.add_message::<MoveEventMessage>();
-    app.add_message::<ambition_vfx::vfx::VfxMessage>();
+    app.add_message::<ambition_vfx::vfx::VfxInRoom>();
     app.init_resource::<WorldTime>();
     app.world_mut().resource_mut::<WorldTime>().scaled_dt = 0.016;
     app.world_mut().resource_mut::<WorldTime>().raw_dt = 0.016;
@@ -9566,7 +9567,7 @@ fn the_press_that_bought_an_up_special_is_the_first_thing_in_its_aim_window() {
 fn a_special_pressed_with_a_resting_stick_opens_an_empty_aim_window() {
     let mut app = App::new();
     app.add_message::<MoveEventMessage>();
-    app.add_message::<ambition_vfx::vfx::VfxMessage>();
+    app.add_message::<ambition_vfx::vfx::VfxInRoom>();
     app.init_resource::<WorldTime>();
     app.world_mut().resource_mut::<WorldTime>().scaled_dt = 0.016;
     app.world_mut().resource_mut::<WorldTime>().raw_dt = 0.016;
@@ -9813,7 +9814,7 @@ mod technique_flow {
         let mut app = App::new();
         app.add_message::<MoveEventMessage>();
         app.add_message::<HitEvent>();
-        app.add_message::<VfxMessage>();
+        app.add_message::<VfxInRoom>();
         app.add_message::<ambition_sfx::OwnedSfxMessage>();
         app.add_message::<DebrisBurstMessage>();
         app.init_resource::<FlowEffects>();
@@ -9874,7 +9875,7 @@ mod technique_flow {
         let mut app = App::new();
         app.add_message::<MoveEventMessage>();
         app.add_message::<HitEvent>();
-        app.add_message::<VfxMessage>();
+        app.add_message::<VfxInRoom>();
         app.add_message::<ambition_sfx::OwnedSfxMessage>();
         app.add_message::<DebrisBurstMessage>();
         app.init_resource::<FlowEffects>();
@@ -10234,10 +10235,10 @@ fn an_authored_gravity_beat_reaches_the_movement_policy_and_outlives_the_move() 
     app.add_message::<crate::hitbox::LandedBodyHit>();
     app.add_message::<crate::hitbox::ParriedBodyHit>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
-    app.add_message::<VfxMessage>();
+    app.add_message::<VfxInRoom>();
     app.add_message::<DebrisBurstMessage>();
     app.add_message::<MoveEventMessage>();
-    app.add_message::<ambition_vfx::vfx::VfxMessage>();
+    app.add_message::<ambition_vfx::vfx::VfxInRoom>();
     app.init_resource::<WorldTime>();
     app.world_mut().resource_mut::<WorldTime>().scaled_dt = 0.05;
     app.world_mut().resource_mut::<WorldTime>().raw_dt = 0.05;
@@ -10385,10 +10386,10 @@ fn a_flow_takes_the_blocked_road_and_only_the_blocked_road() {
         app.add_message::<crate::hitbox::LandedBodyHit>();
         app.add_message::<crate::hitbox::ParriedBodyHit>();
         app.add_message::<ambition_sfx::OwnedSfxMessage>();
-        app.add_message::<VfxMessage>();
+        app.add_message::<VfxInRoom>();
         app.add_message::<DebrisBurstMessage>();
         app.add_message::<MoveEventMessage>();
-        app.add_message::<ambition_vfx::vfx::VfxMessage>();
+        app.add_message::<ambition_vfx::vfx::VfxInRoom>();
         app.init_resource::<WorldTime>();
         app.world_mut().resource_mut::<WorldTime>().scaled_dt = 0.05;
         app.world_mut().resource_mut::<WorldTime>().raw_dt = 0.05;

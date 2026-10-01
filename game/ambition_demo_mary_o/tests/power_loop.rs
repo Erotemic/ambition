@@ -97,7 +97,7 @@ impl Loop {
         // `sync_grown_form` now voices a transform chime through `SfxWriter`.
         app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
         app.add_message::<ambition_platformer2d::platformer::block_nudge::BlockStruck>();
-        app.add_message::<ambition_platformer2d::vfx::VfxMessage>();
+        app.add_message::<ambition_platformer2d::vfx::VfxInRoom>();
 
         let size = ae::movement::default_player_body_size();
         let body = app
@@ -689,11 +689,11 @@ fn her_spark_damages_a_snake_through_the_shared_hit_pipeline() {
     // hand-registers their messages; `CombatSchedulePlugin` covers the apps that
     // install the whole schedule.
     app.add_message::<ambition_platformer2d::combat::stocks::BodyKnockedOut>();
-    app.add_message::<ambition_platformer2d::vfx::VfxMessage>();
+    app.add_message::<ambition_platformer2d::vfx::VfxInRoom>();
     app.add_message::<ambition_platformer2d::vfx::vfx::DebrisBurstMessage>();
     app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
     app.add_message::<ambition_platformer2d::platformer::block_nudge::BlockStruck>();
-    app.add_message::<ambition_platformer2d::vfx::VfxMessage>();
+    app.add_message::<ambition_platformer2d::vfx::VfxInRoom>();
     app.add_message::<ambition_platformer2d::actors::avatar::PlayerHealRequested>();
 
     // Every Mary-O enemy is a character of her cast, built as the game builds it.
@@ -849,10 +849,10 @@ fn a_stomp_shells_a_snake_alive_it_never_dies() {
     app.insert_resource(GameplayBanner::default());
     app.init_resource::<ambition_platformer2d::boss_encounter::BossCatalog>();
     ambition_platformer2d::session::insert_live_room_component(app.world_mut(), FeatureEcsWorldOverlay::default());
-    app.add_message::<ambition_platformer2d::vfx::VfxMessage>();
+    app.add_message::<ambition_platformer2d::vfx::VfxInRoom>();
     app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
     app.add_message::<ambition_platformer2d::platformer::block_nudge::BlockStruck>();
-    app.add_message::<ambition_platformer2d::vfx::VfxMessage>();
+    app.add_message::<ambition_platformer2d::vfx::VfxInRoom>();
     app.add_message::<HitEvent>();
 
     // Every Mary-O enemy is a character of her cast, built as the game builds it.
@@ -1024,10 +1024,10 @@ fn a_sliding_shell_emits_an_enemy_kill_and_a_side_hit_on_the_player() {
     app.insert_resource(GameplayBanner::default());
     app.init_resource::<ambition_platformer2d::boss_encounter::BossCatalog>();
     ambition_platformer2d::session::insert_live_room_component(app.world_mut(), FeatureEcsWorldOverlay::default());
-    app.add_message::<ambition_platformer2d::vfx::VfxMessage>();
+    app.add_message::<ambition_platformer2d::vfx::VfxInRoom>();
     app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
     app.add_message::<ambition_platformer2d::platformer::block_nudge::BlockStruck>();
-    app.add_message::<ambition_platformer2d::vfx::VfxMessage>();
+    app.add_message::<ambition_platformer2d::vfx::VfxInRoom>();
     app.add_message::<HitEvent>();
 
     // Every Mary-O enemy is a character of her cast, built as the game builds it.
@@ -1161,10 +1161,10 @@ fn a_dead_snake_leaves_the_shell_machine_and_emits_no_hits() {
     app.insert_resource(GameplayBanner::default());
     app.init_resource::<ambition_platformer2d::boss_encounter::BossCatalog>();
     ambition_platformer2d::session::insert_live_room_component(app.world_mut(), FeatureEcsWorldOverlay::default());
-    app.add_message::<ambition_platformer2d::vfx::VfxMessage>();
+    app.add_message::<ambition_platformer2d::vfx::VfxInRoom>();
     app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
     app.add_message::<ambition_platformer2d::platformer::block_nudge::BlockStruck>();
-    app.add_message::<ambition_platformer2d::vfx::VfxMessage>();
+    app.add_message::<ambition_platformer2d::vfx::VfxInRoom>();
     app.add_message::<HitEvent>();
 
     // Every Mary-O enemy is a character of her cast, built as the game builds it.
@@ -1287,7 +1287,7 @@ fn pipe_shell(room_id: &str) -> App {
     });
     app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
     app.add_message::<ambition_platformer2d::platformer::block_nudge::BlockStruck>();
-    app.add_message::<ambition_platformer2d::vfx::VfxMessage>();
+    app.add_message::<ambition_platformer2d::vfx::VfxInRoom>();
     app.add_plugins(ambition_demo_mary_o::MaryORulesPlugin::global());
     ambition_platformer2d::platformer::lifecycle::insert_session_world_component(
         app.world_mut(),

@@ -63,7 +63,7 @@ pub fn drop_authored_springs(
     mut actions: MessageReader<ActorActionMessage>,
     bodies: Query<&ae::BodyKinematics>,
     // The plate's announcement; see `PlaceSpringParams::vfx`.
-    mut cues: MessageWriter<ambition_platformer2d::vfx::vfx::VfxMessage>,
+    mut cues: ambition_platformer2d::vfx::vfx::VfxWriter,
     // The running match, so what this spawns dies with it (see
     // `ambition_platformer2d::versus_match::lifetime`).
     active_match: Option<Res<ambition_platformer2d::versus_match::ActiveMatch>>,
@@ -143,7 +143,7 @@ pub fn fire_and_expire_springs(
         &ambition_platformer2d::actor::MatchSeat,
     )>,
     // The plate's announcement when it throws somebody.
-    mut cues: MessageWriter<ambition_platformer2d::vfx::vfx::VfxMessage>,
+    mut cues: ambition_platformer2d::vfx::vfx::VfxWriter,
 ) {
     let dt = time.sim_dt();
     for (entity, mut spring) in &mut springs {

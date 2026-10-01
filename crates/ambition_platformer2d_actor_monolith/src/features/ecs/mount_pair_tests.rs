@@ -1279,7 +1279,7 @@ fn a_possessing_player_slams_the_giants_hands_via_the_verb_map() {
     controls.set(PlayerSlot(0), input);
     app.insert_resource(controls);
     app.add_message::<ambition_combat::moveset::MoveEventMessage>();
-    app.add_message::<ambition_vfx::vfx::VfxMessage>();
+    app.add_message::<ambition_vfx::vfx::VfxInRoom>();
     app.add_systems(
         Update,
         (

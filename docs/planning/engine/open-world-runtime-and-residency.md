@@ -242,7 +242,7 @@ These cuts refine A8 and existing owner work. They are not another global queue.
 | --- | --- | --- |
 | OW1 | Two instances of one room; audit selection/identity/query/teardown paths | Same local IDs, separate contacts/observations, no cross-despawn; one-instance profile remains one path. ⭐ **A LIVE ROOM HAS AN IDENTITY AS OF 2026-09-20**: `LiveRoomInstance` (`crates/ambition_platformer2d_world/src/rooms/instance.rs`), an ordinal of this session's room publications, minted by `apply_world_replacement` — the one road that seats a session in a published room — and rollback state (`root.live_room_instance`, schema v202). Witnessed on the shipped Mary-O lap: 1-1 → 1-2 → 1-3 → 1-1 returns to index 0 and reaches instance `#3`, so the room she comes back to is not the room she left. ⚠ It lives on the SESSION ROOT because that is where the one live room lives; two simultaneous instances move the carrier, not the ordinal. ⚠ And residency is still UNKEYED — `RoomScopedEntity` says an occurrence dies with *a* room, never with *which* — so the teardown sweep is the next thing OW1 has to key. ⭐ **OW1 HAS AN INSTRUMENT AS OF 2026-09-20**: `[census] rooms` prints every session root's `active` INDEX beside its authored id, plus the live crossing, so the moment an index stops identifying one live instance is visible rather than inferred. It is derived and read-only; it owns nothing. |
 | OW2 | Accepted body/custody transfer and prepare/publish between instances | Refused transfer retains state; successful transfer preserves identity and exactly one writer. ✅ **The accepted arm between live rooms is witnessed (2026-09-30)**: the crossing's publication re-stamps the crossing body and its custody closure (`InCustodyOf`: what it holds, rides or wears) into the room it enters, for an opened room and a join alike (`publish_pending_world_replacement`). `an_item_carried_out_of_a_room_another_player_holds_crosses_whole`: Bob holds `blink_run` (#0); Alice carries its authored item to `portal_bridge` (#1): one occurrence of its `SimId`, held, stamped #1, #0 still live; thrown down, it lies in #1; when Alice joins #0 again, it retires with #1 and #0 has no copy. Poison (only the body moves): the item stayed stamped #0, fell into #0's world, and outlived #1 as a stray in Bob's room. ✅ The refused arm with two live rooms (2026-09-30): `a_crossing_into_a_room_another_player_holds_joins_it` stages a join into a live room that is not there; it is refused as `StaleJoinedRoom`, both live rooms and their bodies stand, and nothing is minted (poison, the stale-join check removed: it published, and #0 was retired with both its bodies). The one-room refusal is `a_room_staged_for_a_stale_live_room_is_refused`. ⚠ Witnessed at the publication, not through a shipped crossing: the app has no road that makes a crossing stale while two rooms are live. |
-| OW3 | Dormant durable records and active-state handoff | Save/load and promotion preserve occurrences; active step excludes unrelated dormant records. ✅ **First slice (2026-10-01): a runtime mint left in a room that is not live is a dormant record**, kept by the save's minted rows while the occurrence ledger places it, and a mint enters the ledger when it is minted, not when it is first carried; see "OW3, first slice" and "second slice" below. ✅ **FI9 (2026-10-01): dormant records add no all-world walk to an idle tick**: the custody projection reads a custody index, and the two save mirrors walk the dormant rows only when an input changed; see "OW3 / FI9" below. ✅ **M2 cuts (B) and (C) (2026-10-01): a rollback frame no longer copies or hashes unchanged dormant rows**: the save's rows and the ledger are `Arc`-shared with checksums kept per allocation, and the save mirrors compare their inputs by allocation; see "M2 cut (B)" and "M2 cut (C)" below. Measured (2026-10-01): an enemy's death and an encounter's outcome persist (`RespawnPolicy` fate flags, `PersistedEncounterState`), and a living enemy's HP or an encounter's wave index does not, so a returned room is fresh. Whether a wounded enemy keeps its wounds is product policy, so it is filed as `Q149` (decided for now: fresh). Ruled 2026-10-01 (Q38): a persistent open-world character's whereabouts are durable and its authored room is not a tether; a respawning population occurrence stays where it is carried while it lives, and its replacement comes from its authored room. So authored population/home, durable whereabouts and the live room occurrence are three facts. |
+| OW3 | Dormant durable records and active-state handoff | Save/load and promotion preserve occurrences; active step excludes unrelated dormant records. ✅ **First slice (2026-10-01): a runtime mint left in a room that is not live is a dormant record**, kept by the save's minted rows while the occurrence ledger places it, and a mint enters the ledger when it is minted, not when it is first carried; see "OW3, first slice" and "second slice" below. ✅ **FI9 (2026-10-01): dormant records add no all-world walk to an idle tick**: the custody projection reads a custody index, and the two save mirrors walk the dormant rows only when an input changed; see "OW3 / FI9" below. ✅ **M2 cuts (B) and (C) (2026-10-01): a rollback frame no longer copies or hashes unchanged dormant rows**: the save's rows and the ledger are `Arc`-shared with checksums kept per allocation, and the save mirrors compare their inputs by allocation; see "M2 cut (B)" and "M2 cut (C)" below. Measured (2026-10-01): an enemy's death and an encounter's outcome persist (`RespawnPolicy` fate flags, `PersistedEncounterState`), and a living enemy's HP or an encounter's wave index does not, so a returned room is fresh. Whether a wounded enemy keeps its wounds is product policy, so it is filed as `Q149` (decided for now: fresh). Ruled 2026-10-01 (Q38): a persistent open-world character's whereabouts are durable and its authored room is not a tether; a respawning population occurrence stays where it is carried while it lives, and its replacement comes from its authored room. So authored population/home, durable whereabouts and the live room occurrence are three facts. ✅ **Third slice (2026-10-01): a persistent character keeps its whereabouts**: a `DeadStaysDead` authored body released in another room is not rebuilt at home and is rebuilt where it was left, across a save; see "OW3, third slice" below. |
 | OW4 | Owner-scoped interest/budget accounting and diagnostics | Cancellation/re-entry release only the right claims; supported absence does not freeze unrelated work |
 | OW5 | One concrete background mechanism requiring logical time | Deterministic events/reconstruction under replay and room return; no camera/device dependence |
 
@@ -1699,6 +1699,34 @@ and back). Unit witness: `a_mint_enters_where_it_lies_and_a_known_id_keeps_its_r
 Poison (nothing admitted): the witness failed, and the hub was rebuilt
 without the gauntlet.
 
+✅ **OW3, third slice, landed 2026-10-01: a persistent character left in
+another room is there when you come back (Q38).** Measured before: the
+hub's dog (an NPC placement, `DeadStaysDead`), possessed, walked into
+`basement_boss` and released there, was rebuilt at home when the player
+went back to the hub, and `basement_boss` had no dog. Nothing wrote a row
+for a body that custody let go of, the room it was left in could not
+rebuild a placement, and the save could not keep it. Now:
+`record_placed_bodies` (`body_whereabouts.rs`, beside the item producer
+and before the custody projection) writes `Placed { room, at }` for an
+authored, persistent (`DeadStaysDead`) body when its `InCustody` row ends,
+with `at` its feet point. It rewrites the row only when the body changes
+rooms or moves more than 32 px (`WHEREABOUTS_REFRESH_DISTANCE`), so a
+roaming character does not rewrite the ledger on every tick. The home room
+reads the row as "suppressed". The room it lies in plans the owed
+placement through the foreign room's own lowering, and `relocate_request`
+puts the footprint's bottom centre on `at`. A respawning population body
+(`OnRoomReenter` and the others) gets no row: it stays where it is carried
+while it lives and comes back from its authored room, as Q38 rules.
+Witness: `a_character_released_in_another_room_is_there_when_you_come_back`
+(the hub builds no dog, the neighbour builds it where it was left as the
+same `SimId`, and a fresh process booted from the save does both).
+Poisons: no row written (the hub rebuilt the dog at home); the foreign
+plan skipped (the neighbour had no dog). ⚠ Open: a population body left in
+a room that stays live (another player holds it) is still built a second
+time by its home room; an enemy (`enemy_spawns`) is not reinstatable yet;
+and whether a persistent character's HP travels with its whereabouts is
+Q149.
+
 ✅ **OW3 / FI9 landed 2026-10-01: dormant records add no all-world walk to
 an idle tick.** Three systems walked every ledger row or every saved
 minted row on each tick, so the cost of a tick grew with the dormant
@@ -1943,7 +1971,7 @@ names its subject by body or seat (`ViewSubject`, `ViewParticipant`).
 | Cut | Work | State |
 | --- | --- | --- |
 | V1 | The camera resolve frames each view in the live room of its framed body | ✅ below |
-| V2 | Draw roads place each entity by the geometry of its own live room (`LiveRoomOf`), not the sole room | ◐ the camera apply (V2a), feature/actor sprites (V2b), items and projectiles (V2c), lock walls (V2d) and nameplates (V2e), below; fx (V2f), health bars and debug overlays are open |
+| V2 | Draw roads place each entity by the geometry of its own live room (`LiveRoomOf`), not the sole room | ◐ the camera apply (V2a), feature/actor sprites (V2b), items and projectiles (V2c), lock walls (V2d) and nameplates (V2e), fx, slashes and limb trails (V2f), below; the unroomed fx producers (54 sites), the blink preview, health bars and debug overlays are open |
 | V3 | A camera draws only the live room of its view: a room render band, as the view band does for projections | ✅ below |
 | V4 | Room visuals and the LDtk level are presented per live room, and retire with it | ◐ static room visuals (V4a, below); the LDtk level and parallax are open |
 | V5 | Two seats in two live rooms get two views (the product rule: a split is mandatory in different rooms) | ✅ below |
@@ -2040,6 +2068,33 @@ drops in one room takes only that room's visual),
 `each_view_shows_the_plates_of_its_own_live_room`. Poisons: every item in
 the first room; every wall placed by the first room; the door-plate room
 filter removed (each view showed both rooms' doors).
+
+✅ **V2f landed 2026-10-01: effects are drawn in their own room.** The
+effect message is `VfxInRoom { room, vfx }` (`ambition_vfx`). A producer
+writes through `VfxWriter`: `write_in(room, vfx)` for a known room,
+`for_room(room)` for an emitter that writes several effects for one body,
+and `write(vfx)` for an UNROOMED row. `FxRequest` has a room too
+(`FxRequest::in_room`). `vfx_spawn_messages` places each row by its room
+and stamps the effect with it, so the room's view band draws it and the
+room's retirement takes it. An unroomed row is drawn in the sole live room,
+and not at all while two rooms are live. The particle, impact, effect and
+speech-bubble clocks place each effect by its own stamp. A slash takes its
+row's room or its swinging body's room, and so does a limb trail. Producers
+that name their room: the movement emitter (player, actor and boss bodies,
+each bound to its body's stamp), the actor-hit resolver (the struck body's
+room) and the NPC idle barks. Witnesses: `each_effect_is_drawn_in_its_own_live_room`
+(an unroomed row is not drawn; control `an_unroomed_effect_is_drawn_in_the_sole_live_room`),
+`each_limb_trail_is_drawn_in_its_body_s_own_live_room`, and in the app
+`each_body_s_movement_dust_is_drawn_in_its_own_live_room`. Poisons: every
+row in the first room; the particle clock placed by the first room; wisps
+not stamped; wisps placed by the first room; the player tick and the actor
+tick bound to no room. Each failed at the subject assertion.
+⚠ Open (named debt): 54 direct `write(VfxMessage::…)` sites in 36
+production files are unroomed (a lower bound: a write through a helper is
+not counted), and so are the `FxRequest` and `FireworksRequest` producers.
+`update_blink_preview` still reads the sole room, because
+`BlinkPreviewFact` names no room. `follow_slash_owner` has no unit
+witness: `PresentedPose` cannot be built outside `ambition_sim_view`.
 
 ✅ **V5 landed 2026-10-01: two players in two rooms get two views.**
 `split_views_by_live_room` (`ambition_sim_view`, in the camera observation

@@ -12,6 +12,7 @@ use ambition_platformer2d_core::AabbExt;
 use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 use ambition_sfx::{SfxMessage, SfxWriter};
 use ambition_vfx::vfx::{ParticleKind, VfxMessage};
+use ambition_vfx::vfx::VfxWriter;
 use bevy::prelude::*;
 
 /// Open ECS-owned static chests from the same interaction buffer used by doors
@@ -56,7 +57,7 @@ pub fn open_ecs_chests(
     >,
     mut set_flag: MessageWriter<SetFlagRequested>,
     mut sfx: SfxWriter,
-    mut vfx: MessageWriter<VfxMessage>,
+    mut vfx: VfxWriter,
     // The grant, routed to the body that opened it — the same three writers the
     // walk-over pickup hands to `grant_pickup`.
     mut heals: MessageWriter<crate::avatar::PlayerHealRequested>,

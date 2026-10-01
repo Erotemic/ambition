@@ -251,6 +251,16 @@ impl Plugin for PlayerSchedulePlugin {
                 .chain()
                 .in_set(PlayerSimulationSet::Possession),
         );
+        // Where a persistent character was left (Q38): beside the item
+        // producer, and before the custody projection retracts the `InCustody`
+        // row that is the evidence the body was carried.
+        app.add_systems(
+            sim,
+            ambition_platformer2d_actor_monolith::body_whereabouts::record_placed_bodies
+                .in_set(ambition_platformer2d_shared_tangle::schedule::HeldItemStep::Residency)
+                .after(ambition_held_items::record_placed_ground_items)
+                .before(ambition_platformer2d_shared_tangle::lifecycle::project_custody_onto_authored_occurrences),
+        );
         // ⛔⛤ THE SETTINGS READ THAT USED TO BE INSIDE THE SIMULATION SCHEDULE.
         // `apply_player_hit_events`, `charge_projectile_input` and
         // `apply_feature_hit_events` each read `Res<UserSettings>` — persisted,

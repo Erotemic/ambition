@@ -841,6 +841,96 @@ fn a_catalog_save_that_adds_or_removes_a_character_is_played() {
     }
 }
 
+/// The hurt material of every goblin the room built: a raw catalog fact (the
+/// row's tags), not a prepared-cast one.
+fn goblin_materials(
+    sim: &mut ambition_sim_harness::Platformer2dSimHarness,
+) -> Vec<ambition_platformer2d::vfx::vfx::ImpactMaterial> {
+    let world = sim.world_mut();
+    let mut q = world.query::<(
+        &ambition_platformer2d::characters::actor::WornCharacter,
+        &ambition_platformer2d::combat::components::CombatTuning,
+    )>();
+    q.iter(world)
+        .filter(|(worn, _)| worn.0.to_string() == "goblin")
+        .map(|(_, tuning)| tuning.hurt_feedback.material)
+        .collect()
+}
+
+/// ⭐ A CATALOG-ONLY EDIT IS BUILT FROM THE CANDIDATE CATALOG, NOT THE APP'S.
+/// A body's hurt material comes from its catalog row's tags
+/// (`actor_hurt_feedback`), which the prepared cast does not carry. The claim
+/// carried only the N+1 cast, so the candidate room built its goblins with
+/// the App's catalog, which is N until the commit: the goblins stayed flesh
+/// while the published catalog said robot. Saving `"robot"` into the goblin's
+/// tags now rebuilds every goblin as a robot, and the App's catalog says so.
+#[cfg(not(feature = "static_content"))]
+#[test]
+fn a_catalog_tag_saved_while_the_game_runs_is_built_from_the_candidate_catalog() {
+    use ambition_content::content_watch::ContentSourceWatch;
+    use ambition_platformer2d::vfx::vfx::ImpactMaterial;
+    let mut sim = common::fixed_60hz_room_sim("proving_grounds");
+    for _ in 0..40 {
+        sim.step(common::base());
+    }
+    let before = goblin_materials(&mut sim);
+    assert!(
+        before.len() >= 3 && before.iter().all(|material| *material == ImpactMaterial::Flesh),
+        "the premise: the room builds three flesh goblins, got {before:?}"
+    );
+
+    let root = std::env::temp_dir().join(format!("ambition_catalog_tag_watch_{}", std::process::id()));
+    let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        ambition_content::pack::export_sources_to(&root).expect("sources export");
+        sim.world_mut().insert_resource(ContentSourceWatch::new(root.clone()));
+        std::thread::sleep(std::time::Duration::from_millis(20));
+        let path = root.join("data/character_catalog.ron");
+        let text = std::fs::read_to_string(&path).unwrap();
+        let start = text.find("\"goblin\": (").expect("the catalog has a goblin row");
+        let at = start + text[start..].find("tags: [").expect("the row states its tags") + "tags: [".len();
+        std::fs::write(&path, format!("{}\"robot\", {}", &text[..at], &text[at..])).unwrap();
+
+        let mut frames = 0;
+        let robots = |sim: &mut ambition_sim_harness::Platformer2dSimHarness| {
+            let materials = goblin_materials(sim);
+            !materials.is_empty() && materials.iter().all(|material| *material == ImpactMaterial::Robot)
+        };
+        let published = |sim: &ambition_sim_harness::Platformer2dSimHarness| {
+            sim.world()
+                .resource::<ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog>()
+                .get("goblin")
+                .is_some_and(|row| row.tags.iter().any(|tag| tag == "robot"))
+        };
+        while !published(&sim) {
+            sim.step(common::base());
+            frames += 1;
+            assert!(
+                frames < 600,
+                "600 frames after the save the App's catalog has no robot goblin; reloads requested: {}",
+                sim.world().resource::<ContentSourceWatch>().requested
+            );
+        }
+        // The room the commit published was built before the App's catalog
+        // changed: give it the frames the HP arm gives its rebuild.
+        for _ in 0..30 {
+            if robots(&mut sim) {
+                break;
+            }
+            sim.step(common::base());
+        }
+        assert!(
+            robots(&mut sim),
+            "the App's catalog says the goblin is a robot, and the goblins the reload built are {:?}",
+            goblin_materials(&mut sim)
+        );
+        assert_eq!(goblin_materials(&mut sim).len(), before.len(), "the same goblins, rebuilt");
+    }));
+    let _ = std::fs::remove_dir_all(&root);
+    if let Err(payload) = outcome {
+        std::panic::resume_unwind(payload);
+    }
+}
+
 /// ⭐ A MOVEMENT-DEFAULTS EDIT SAVED WHILE THE GAME RUNS IS PLAYED, through the
 /// developer-edit road (`MovementDefaultsWatch` writes the mirror the F3
 /// inspector writes; the proposal is admitted and published in `PreUpdate`).

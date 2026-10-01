@@ -49,7 +49,7 @@ pub fn grapple_system(
         Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
     )>,
     mut sfx: ambition_sfx::BodySfxWriter,
-    mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
+    mut vfx: ambition_vfx::vfx::VfxWriter,
 ) {
     for subject in driven.entities() {
         let Ok((player, control, mut kin, resolved_frame, held, mut cooldown, room)) =

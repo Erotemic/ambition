@@ -184,7 +184,7 @@ fn main() {
     let mut smoke_bursts = 0usize;
     let mut vfx_cursor = app
         .world_mut()
-        .resource_mut::<bevy::ecs::message::Messages<ambition_platformer2d::vfx::vfx::VfxMessage>>()
+        .resource_mut::<bevy::ecs::message::Messages<ambition_platformer2d::vfx::vfx::VfxInRoom>>()
         .get_cursor();
     let rival_hp_before = health(&app, seat1);
 
@@ -324,7 +324,7 @@ fn main() {
 /// reached the effect system.
 fn drain_smoke(
     app: &mut App,
-    cursor: &mut bevy::ecs::message::MessageCursor<ambition_platformer2d::vfx::vfx::VfxMessage>,
+    cursor: &mut bevy::ecs::message::MessageCursor<ambition_platformer2d::vfx::vfx::VfxInRoom>,
     near: ae_vec::Vec2,
 ) -> usize {
     // Near her, because seat 1 is a performer too and presses its own down-B.
@@ -334,9 +334,9 @@ fn drain_smoke(
     let smoke = ambition_platformer2d::vfx::fx::FxId::new("smoke_puff");
     let messages = app
         .world()
-        .resource::<bevy::ecs::message::Messages<ambition_platformer2d::vfx::vfx::VfxMessage>>();
+        .resource::<bevy::ecs::message::Messages<ambition_platformer2d::vfx::vfx::VfxInRoom>>();
     cursor
-        .read(messages)
+        .read(messages).map(|m| &m.vfx)
         .filter(|m| match m {
             ambition_platformer2d::vfx::vfx::VfxMessage::Effect { fx, pos, .. } => {
                 *fx == smoke

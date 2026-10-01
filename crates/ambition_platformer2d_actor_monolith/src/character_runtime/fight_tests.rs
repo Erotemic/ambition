@@ -485,7 +485,7 @@ fn fight_app() -> App {
     ambition_combat::hitbox::register_strike_outcome_messages(&mut app);
     app.add_message::<ambition_combat::events::SetFlagRequested>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
-    app.add_message::<ambition_vfx::vfx::VfxMessage>();
+    app.add_message::<ambition_vfx::vfx::VfxInRoom>();
     // `dispatch_move_events` asks for PAIRED effects now — a visual and the cue its own name
     // addresses — so the request channel has to exist or the system fails parameter validation
     // before it can run.

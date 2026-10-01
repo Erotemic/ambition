@@ -380,7 +380,7 @@ pub fn is_snake_brain(brain: &CharacterBrain) -> bool {
 pub fn run_snake_shells(
     mut commands: Commands,
     world_time: Res<ambition_platformer2d::time::WorldTime>,
-    mut vfx: MessageWriter<ambition_platformer2d::vfx::VfxMessage>,
+    mut vfx: ambition_platformer2d::vfx::VfxWriter,
     mut sfx: ambition_platformer2d::sfx::BodySfxWriter,
     mut hits: MessageWriter<HitEvent>,
     mut players: Query<(Entity, &mut ae::BodyKinematics), With<PrimaryPlayer>>,

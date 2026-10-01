@@ -957,6 +957,9 @@ pub struct NameplateFact {
     /// Is a PARTICIPANT driving this body? ⛔ NOT "is the camera on it" — the
     /// two were conflated, and `label_driven_bodies` wants this one.
     pub driven: bool,
+    /// The live room of the body (`LiveRooms::of`). A view shows only the
+    /// plates of the room it frames.
+    pub room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
 }
 
 /// Per-frame nameplate rows for every eligible (alive, visible) labeled
@@ -1003,11 +1006,19 @@ impl NameplateIndex {
         self.rows.retain(|_, (_, g)| *g == gen);
     }
 
-    fn upsert(&mut self, id: &str, label: &str, center: ae::Vec2, size: ae::Vec2, driven: bool) {
+    fn upsert(
+        &mut self,
+        id: &str,
+        label: &str,
+        center: ae::Vec2,
+        size: ae::Vec2,
+        driven: bool,
+        room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+    ) {
         let gen = self.generation;
         if let Some(slot) = self.rows.get_mut(id) {
             let f = &slot.0;
-            if f.label == label && f.center == center && f.size == size && f.driven == driven {
+            if f.label == label && f.center == center && f.size == size && f.driven == driven && f.room == room {
                 slot.1 = gen;
                 return;
             }
@@ -1016,6 +1027,7 @@ impl NameplateIndex {
                 center,
                 size,
                 driven,
+                room,
             };
             slot.1 = gen;
             return;
@@ -1028,6 +1040,7 @@ impl NameplateIndex {
                     center,
                     size,
                     driven,
+                    room,
                 },
                 gen,
             ),
@@ -1039,6 +1052,7 @@ impl NameplateIndex {
 pub fn rebuild_nameplate_index(
     mut index: ResMut<NameplateIndex>,
     views: Res<FeatureViewIndex>,
+    live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
     actors: Query<
         (
             Entity,
@@ -1071,7 +1085,7 @@ pub fn rebuild_nameplate_index(
     // policy wants the second.
 
     index.begin_rebuild();
-    for (_entity, feature_id, identity, aabb, _combat, health, boss_phase, driven) in &actors {
+    for (entity, feature_id, identity, aabb, _combat, health, boss_phase, driven) in &actors {
         // Dead actors carry no plate (defeated boss / drained pool).
         if boss_phase.is_some_and(|phase| phase.is_defeated())
             || health.is_some_and(|health| !health.alive())
@@ -1085,7 +1099,7 @@ pub fn rebuild_nameplate_index(
         if !visible {
             continue;
         }
-        index.upsert(feature_id.as_str(), identity.name(), center, size, driven);
+        index.upsert(feature_id.as_str(), identity.name(), center, size, driven, live.of(entity));
     }
     index.end_rebuild();
 }

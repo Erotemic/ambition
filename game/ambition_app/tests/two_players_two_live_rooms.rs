@@ -2738,6 +2738,46 @@ fn view_frame(
         .and_then(|(_, resolved)| resolved.0.as_ref().map(|frame| (frame.follow_world, frame.snapshot.center_world)))
 }
 
+/// Each view: its id, the seat it follows, and whether the live-room split
+/// opened it.
+fn the_views(sim: &mut Platformer2dSimHarness) -> Vec<(u8, Option<u8>, bool)> {
+    let world = sim.world_mut();
+    let mut views: Vec<(u8, Option<u8>, bool)> = world
+        .query_filtered::<(
+            &ambition_platformer2d::sim_view::LocalViewId,
+            Option<&ambition_platformer2d::sim_view::ViewParticipant>,
+            bevy::prelude::Has<ambition_platformer2d::sim_view::SplitForLiveRoom>,
+        ), bevy::prelude::With<ambition_platformer2d::sim_view::LocalView>>()
+        .iter(world)
+        .map(|(id, seat, opened)| (id.0, seat.map(|seat| seat.0 .0), opened))
+        .collect();
+    views.sort();
+    views
+}
+
+/// View half, cut V5: when Alice crosses a door and Bob stays, the screen
+/// splits: a second view opens and follows Bob's seat. When Bob comes to the
+/// hub, the players are in one room again and it closes. The control: before
+/// the crossing, and when Bob crosses with her, there is one view.
+#[test]
+fn a_second_view_opens_while_the_players_are_in_two_rooms_and_closes_when_they_meet() {
+    let (mut sim, _) = alice_leaves_bob(None);
+    sim.step_n(base(), 2);
+    assert_eq!(the_views(&mut sim), vec![(0, None, false)], "control: one player, one room, one view");
+
+    let (mut sim, held) = alice_leaves_bob(Some(ambition_platformer2d::characters::control::PlayerSlot(1)));
+    sim.step_n(base(), 2);
+    assert_eq!(live_rooms(&mut sim).len(), 2, "precondition: Bob's room did not stay live");
+    assert_eq!(
+        the_views(&mut sim),
+        vec![(0, None, false), (1, Some(1), true)],
+        "Alice and Bob are in two rooms, and Bob has no view of his own"
+    );
+    bob_goes_to_the_hub(&mut sim, held.next());
+    assert_eq!(live_rooms(&mut sim).len(), 1, "precondition: Bob did not join Alice");
+    assert_eq!(the_views(&mut sim), vec![(0, None, false)], "the players met, and the split did not close");
+}
+
 /// Where Alice's and Bob's bodies are. Bob's is `None` when his body is gone.
 fn their_positions(
     sim: &mut Platformer2dSimHarness,
@@ -2803,12 +2843,7 @@ fn each_view_frames_its_own_player_while_two_rooms_are_live() {
 
     let (mut sim, first) = alice_leaves_bob(Some(ambition_platformer2d::characters::control::PlayerSlot(1)));
     assert_eq!(live_rooms(&mut sim).len(), 2, "precondition: Bob's room did not stay live");
-    sim.world_mut().spawn((
-        ambition_platformer2d::sim_view::LocalView,
-        LocalViewId(1),
-        ambition_platformer2d::sim_view::local_view_facts(),
-        ambition_platformer2d::sim_view::ViewParticipant(ambition_platformer2d::characters::control::PlayerSlot(1)),
-    ));
+    // Bob's view is the one the live-room split opened (V5).
     sim.step(base());
     let (alice, bob) = their_positions(&mut sim);
     let bob = bob.expect("Bob's body is in the world");

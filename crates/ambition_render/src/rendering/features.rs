@@ -28,7 +28,9 @@ use ambition_sprite_sheet::game_assets::{entity_sprite_or_color, GameAssets};
 /// same frame; chests pick up their sprite via `state_aware_entity_sprite`.
 pub fn spawn_dynamic_feature_visuals(
     mut commands: Commands,
-    world: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<
+    // Each visual is placed by the geometry of its body's own live room, and
+    // stamped with it, so the room's retirement and render band take it.
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomOf<
         ambition_platformer2d_core::RoomGeometry,
     >,
     assets: Option<Res<GameAssets>>,
@@ -57,6 +59,15 @@ pub fn spawn_dynamic_feature_visuals(
         if known.contains(fact.id.as_str()) {
             continue;
         }
+        // A body whose live room cannot be told is not drawn: there is no
+        // geometry to place it by.
+        let Some(room) = fact.room else {
+            continue;
+        };
+        let Some(world) = rooms.in_room(room) else {
+            continue;
+        };
+        let scope = session_scope.in_room(Some(room));
         // The real visual arrives: despawn the stand-in in the same flush, so the
         // frame never shows both.
         if let Some(placeholder) = placeholders.get(fact.id.as_str()) {
@@ -89,7 +100,7 @@ pub fn spawn_dynamic_feature_visuals(
                         bevy::sprite::Anchor::CENTER,
                     );
                 commands.spawn_session_scoped(
-                    session_scope,
+                    scope,
                     (
                         sprite,
                         // A collectible floats: centre-anchored, like the authored
@@ -110,7 +121,7 @@ pub fn spawn_dynamic_feature_visuals(
                     None => Sprite::from_color(fallback, render),
                 };
                 commands.spawn_session_scoped(
-                    session_scope,
+                    scope,
                     (
                         sprite,
                         transform,
@@ -377,6 +388,7 @@ mod tests {
             fighting: false,
             sprite_key: None,
             prop_sheet: None,
+            room: Some(ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::ACTIVATION),
         }
     }
 

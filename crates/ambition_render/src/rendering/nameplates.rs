@@ -202,16 +202,26 @@ impl ActorNameplateSettings {
 #[allow(clippy::type_complexity)]
 pub fn sync_actor_nameplates(
     mut commands: Commands,
-    world: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<
+    // Each view shows the plates of the live room it frames, placed by that
+    // room's geometry and ranked by that room's policy.
+    geometry: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomOf<
         ambition_platformer2d_core::RoomGeometry,
     >,
+    live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
     settings: Res<ActorNameplateSettings>,
     active_session: Option<Res<ActiveSessionScope>>,
-    rooms: Option<ambition_platformer2d_world::rooms::SoleLiveRoomSpec>,
+    room_specs: Option<ambition_platformer2d_world::rooms::LiveRoomSpecs>,
     // A draw system draws every view, so it iterates them.
     // `PresentedViewState` answers a different question (which one view a
     // camera shows) and refuses when there are several.
-    views: Query<(Entity, &ambition_sim_view::CameraViewState), With<ambition_sim_view::LocalView>>,
+    views: Query<
+        (
+            Entity,
+            &ambition_sim_view::CameraViewState,
+            Option<&ambition_sim_view::camera_snapshot::ResolvedCameraSnapshot>,
+        ),
+        With<ambition_sim_view::LocalView>,
+    >,
     // Sim-built nameplate read model: label, geometry, liveness, and
     // controlled-body facts per actor id. Doors are render-side sources.
     nameplate_index: Option<Res<NameplateIndex>>,
@@ -239,12 +249,6 @@ pub fn sync_actor_nameplates(
         return;
     }
 
-    let rank_policy = settings.resolve_rank_policy(
-        rooms
-            .as_ref()
-            .map(|rooms| &rooms.spec().metadata.nameplate_policy),
-    );
-
     // Every id with a source this frame, across all views. It separates
     // "owner went away" (despawn) from "this view ranked it out" (hide).
     let mut source_ids = HashSet::new();
@@ -255,10 +259,10 @@ pub fn sync_actor_nameplates(
     }
     // Snapshot doors once: every view needs them, and the `ParamSet` lends
     // one query at a time.
-    let doors: Vec<DoorNameplateSource> = {
+    let doors: Vec<(Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>, DoorNameplateSource)> = {
         let door_sources = nameplate_queries.p0();
         let mut doors = Vec::new();
-        for (_entity, source, visibility) in door_sources.iter() {
+        for (entity, source, visibility) in door_sources.iter() {
             source_ids.insert(source.id.clone());
             if visibility.is_some_and(|visibility| *visibility == Visibility::Hidden) {
                 continue;
@@ -266,20 +270,38 @@ pub fn sync_actor_nameplates(
             if source.label.trim().is_empty() {
                 continue;
             }
-            doors.push(source.clone());
+            doors.push((live.of(entity), source.clone()));
         }
         doors
     };
 
     // What each view wants on screen, ranked against its own focus.
     let mut wanted: HashMap<Entity, HashMap<String, NameplateCandidate>> = HashMap::new();
-    for (view_entity, view_state) in &views {
+    // The live room each view frames: its resolved frame's room, or the sole
+    // live room before a frame is resolved.
+    let mut view_rooms: HashMap<Entity, ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance> =
+        HashMap::new();
+    for (view_entity, view_state, resolved) in &views {
+        let Some(view_room) = resolved
+            .and_then(|resolved| resolved.frame())
+            .map(|frame| frame.room)
+            .or_else(|| live.sole())
+        else {
+            // A view in no live room shows no plates.
+            wanted.insert(view_entity, HashMap::new());
+            continue;
+        };
+        view_rooms.insert(view_entity, view_room);
+        let rank_policy = settings.resolve_rank_policy(room_specs.as_ref().and_then(|specs| {
+            let definition = specs.definition_in(view_room)?;
+            Some(&specs.rooms().spec(definition).metadata.nameplate_policy)
+        }));
         let focus_world = view_state.target_world;
         let mut candidates = Vec::new();
         if let Some(index) = nameplate_index.as_deref() {
-            collect_actor_candidates(&settings, rank_policy, index, focus_world, &mut candidates);
+            collect_actor_candidates(&settings, rank_policy, index, view_room, focus_world, &mut candidates);
         }
-        collect_door_candidates(&settings, focus_world, &doors, &mut candidates);
+        collect_door_candidates(&settings, view_room, focus_world, &doors, &mut candidates);
 
         candidates.sort_by(|a, b| {
             a.distance_sq
@@ -305,7 +327,10 @@ pub fn sync_actor_nameplates(
     {
         let mut nameplates = nameplate_queries.p1();
         for (entity, plate, key, mut label) in &mut nameplates {
-            let Some(view_wanted) = wanted.get(&key.0) else {
+            let (Some(view_wanted), Some(world)) = (
+                wanted.get(&key.0),
+                view_rooms.get(&key.0).and_then(|room| geometry.in_room(*room)),
+            ) else {
                 commands.entity(entity).despawn();
                 continue;
             };
@@ -333,13 +358,19 @@ pub fn sync_actor_nameplates(
 
     let font = nameplate_font(ui_fonts.as_deref(), settings.font_size);
     for (view_entity, view_wanted) in &wanted {
+        let Some((room, world)) = view_rooms
+            .get(view_entity)
+            .and_then(|room| Some((*room, geometry.in_room(*room)?)))
+        else {
+            continue;
+        };
         for candidate in view_wanted.values() {
             if existing_visible.contains(&(*view_entity, candidate.owner_id.clone())) {
                 continue;
             }
             spawn_actor_nameplate(
                 &mut commands,
-                session_scope,
+                session_scope.in_room(Some(room)),
                 &world.0,
                 &settings,
                 &font,
@@ -354,10 +385,15 @@ fn collect_actor_candidates(
     settings: &ActorNameplateSettings,
     rank_policy: ResolvedNameplateRankPolicy,
     index: &NameplateIndex,
+    view_room: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
     focus_world: ae::Vec2,
     candidates: &mut Vec<NameplateCandidate>,
 ) {
     for (id, fact) in index.iter() {
+        // A body in another live room is not in this view's room.
+        if fact.room != Some(view_room) {
+            continue;
+        }
         // The room decides whether a driven body is labelled. Hiding it is
         // correct with one driven body. With a cast it would label everyone
         // except the human, which is player-1-centric.
@@ -379,11 +415,15 @@ fn collect_actor_candidates(
 
 fn collect_door_candidates(
     settings: &ActorNameplateSettings,
+    view_room: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
     focus_world: ae::Vec2,
-    doors: &[DoorNameplateSource],
+    doors: &[(Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>, DoorNameplateSource)],
     candidates: &mut Vec<NameplateCandidate>,
 ) {
-    for source in doors {
+    for (room, source) in doors {
+        if *room != Some(view_room) {
+            continue;
+        }
         push_candidate_if_in_range(
             settings,
             focus_world,
@@ -791,6 +831,63 @@ mod tests {
                 "retiring a view must despawn its plates as a SET. A plate whose \
                  view is gone is drawn by the renderer and reachable by no per-view \
                  query, so nothing would ever place, fade or retire it again"
+            );
+        }
+
+        /// View half, cut V2e: each view shows the plates of the live room it
+        /// frames, placed by that room's geometry. Two live rooms (800 wide and
+        /// 400 wide), a door in each at x = 100, a view framing each room.
+        /// Each view has one plate, its own room's door, anchored by its own
+        /// room's flip. Before V2e this road read the sole live room and drew
+        /// no plate while two rooms were live.
+        #[test]
+        fn each_view_shows_the_plates_of_its_own_live_room() {
+            use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance};
+            let first = LiveRoomInstance::ACTIVATION;
+            let second = first.next();
+            let mut world = World::new();
+            ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(&mut world, room());
+            ambition_platformer2d_shared_tangle::lifecycle::spawn_live_room(
+                &mut world,
+                second,
+                ae::RoomGeometry(ae::World::new("small", ae::Vec2::new(400.0, 300.0), ae::Vec2::new(50.0, 50.0), Vec::new())),
+            );
+            world.insert_resource(ActorNameplateSettings::default());
+            for (id, room) in [("big_door", first), ("small_door", second)] {
+                world.spawn((
+                    DoorNameplateSource::new(
+                        id,
+                        id,
+                        ae::aabb_from_min_size(ae::Vec2::new(80.0, 80.0), ae::Vec2::splat(40.0)),
+                    ),
+                    InRoomInstance(room),
+                ));
+            }
+            let views = [first, second].map(|room| {
+                let view = spawn_view(&mut world, if room == first { 0 } else { 1 }, ae::Vec2::new(100.0, 100.0));
+                world.entity_mut(view).insert(ambition_sim_view::camera_snapshot::ResolvedCameraSnapshot(Some(
+                    ambition_sim_view::camera_snapshot::ResolvedCameraFrame {
+                        snapshot: Default::default(),
+                        follow_world: Default::default(),
+                        room,
+                    },
+                )));
+                view
+            });
+            world.run_system_once(sync_actor_nameplates).expect("the sync runs");
+            let mut plates: Vec<(Entity, String, f32)> = world
+                .query::<(&ActorNameplateVisual, &PresentedForView, &WorldLabel)>()
+                .iter(&world)
+                .map(|(plate, key, label)| (key.0, plate.owner_id.clone(), label.anchor.x))
+                .collect();
+            plates.sort_by(|a, b| a.1.cmp(&b.1));
+            assert_eq!(
+                plates,
+                vec![
+                    (views[0], "big_door".to_string(), 100.0 - 400.0),
+                    (views[1], "small_door".to_string(), 100.0 - 200.0),
+                ],
+                "a view showed another live room's plate, or placed its own by another room"
             );
         }
     }

@@ -43,8 +43,9 @@ pub use defense_view::{defense_cue_causes, DefenseCueCauses};
 pub use dialog_view::{rebuild_dialog_view, DialogView};
 pub use facts::*;
 pub use local_view::{
-    compose_local_views, resolve_view_subjects, spawn_local_view, the_only_view, BoundLocalView,
-    LocalView, LocalViewId, PresentedForView, PresentsView, ResolvedViewSubject, ViewParticipant,
+    compose_local_views, resolve_view_subjects, spawn_local_view, split_views_by_live_room,
+    the_only_view, BoundLocalView, LocalView, LocalViewId, PlacedByLiveRoomSplit,
+    PresentedForView, PresentsView, ResolvedViewSubject, SplitForLiveRoom, ViewParticipant,
     ViewPlacement, ViewSubject, ViewsOnHand,
 };
 pub use pose_view::{

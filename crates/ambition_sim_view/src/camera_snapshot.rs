@@ -1851,6 +1851,9 @@ impl bevy::prelude::Plugin for CameraObservationPlugin {
             bevy::prelude::Update,
             (
                 apply_camera_reference_frame_setting,
+                // A view per seat while the seats are in different live
+                // rooms (V5). A view it opens is resolved from the next frame.
+                crate::local_view::split_views_by_live_room,
                 // WHO EACH VIEW IS WATCHING, before anything frames one.
                 // Chained, so the resolve below reads a fact rather than
                 // searching control authority for it.

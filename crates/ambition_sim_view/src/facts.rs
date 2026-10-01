@@ -75,6 +75,9 @@ pub struct HeldItemFact {
     pub item_id: String,
     pub ranged: bool,
     pub aim: ae::Vec2,
+    /// The live room of the thing this row draws (`LiveRooms::of`). The
+    /// visual is placed by that room's geometry and stamped with it.
+    pub room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
 }
 
 /// WHICH OF THE TWO HELD-ITEM ROADS A HOLDER IS ON, stated once.
@@ -109,7 +112,9 @@ pub fn drawn_in_the_hand(
 #[allow(clippy::type_complexity)]
 pub fn rebuild_held_item_view(
     mut view: ResMut<HeldItemView>,
+    live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
     bodies: Query<(
+        bevy::prelude::Entity,
         &BodyKinematics,
         &ambition_platformer2d_actor_monolith::features::HeldItem,
         &ActorControl,
@@ -143,10 +148,10 @@ pub fn rebuild_held_item_view(
     // draw order between runs.
     let mut rows: Vec<_> = bodies
         .iter()
-        .filter(|(_, _, _, _, disposition, health)| {
+        .filter(|(_, _, _, _, _, disposition, health)| {
             drawn_in_the_hand(disposition.copied(), health.map(|health| health.alive()))
         })
-        .map(|(kin, held, control, id, _, _)| {
+        .map(|(body, kin, held, control, id, _, _)| {
             (
                 id.clone(),
                 HeldItemFact {
@@ -156,6 +161,7 @@ pub fn rebuild_held_item_view(
                     item_id: held.spec.id.clone(),
                     ranged: held.spec.ranged.is_some(),
                     aim: control.0.aim.vec(),
+                    room: live.of(body),
                 },
             )
         })
@@ -216,6 +222,9 @@ pub struct GroundItemFact {
     pub pos: ae::Vec2,
     pub half_extent: ae::Vec2,
     pub item_id: String,
+    /// The live room of the thing this row draws (`LiveRooms::of`). The
+    /// visual is placed by that room's geometry and stamped with it.
+    pub room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
 }
 
 /// only items that are IN THE WORLD. A picked-up item is no longer
@@ -227,7 +236,9 @@ pub struct GroundItemFact {
 /// grabbed.
 pub fn rebuild_ground_items_view(
     mut view: ResMut<GroundItemsView>,
+    live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
     grounds: Query<(
+        bevy::prelude::Entity,
         &ambition_held_items::GroundItem,
         &ambition_held_items::ItemCustody,
     )>,
@@ -236,11 +247,12 @@ pub fn rebuild_ground_items_view(
     view.0.extend(
         grounds
             .iter()
-            .filter(|(_, custody)| custody.in_world())
-            .map(|(ground, _)| GroundItemFact {
+            .filter(|(_, _, custody)| custody.in_world())
+            .map(|(item, ground, _)| GroundItemFact {
                 pos: ground.pos,
                 half_extent: ground.half_extent,
                 item_id: ground.spec.id.clone(),
+                room: live.of(item),
             }),
     );
 }
@@ -271,11 +283,16 @@ pub struct WorldItemFact {
     /// against the authored one. A second mutable copy of a fact the simulation
     /// derives per frame can only ever go stale; this asks the one that cannot.
     pub emerging: bool,
+    /// The live room of the thing this row draws (`LiveRooms::of`). The
+    /// visual is placed by that room's geometry and stamped with it.
+    pub room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
 }
 
 pub fn rebuild_world_items_view(
     mut view: ResMut<WorldItemsView>,
+    live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
     items: Query<(
+        bevy::prelude::Entity,
         &ambition_world_items::world_item::WorldItem,
         Option<&ambition_world_items::item_motion::ItemMotion>,
     )>,
@@ -283,7 +300,7 @@ pub fn rebuild_world_items_view(
     use ambition_world_items::world_item::WorldItemPayload;
     view.0.clear();
     view.0
-        .extend(items.iter().map(|(item, motion)| WorldItemFact {
+        .extend(items.iter().map(|(entity, item, motion)| WorldItemFact {
             pos: item.pos,
             half_extent: item.half_extent,
             row_id: match &item.payload {
@@ -293,6 +310,7 @@ pub fn rebuild_world_items_view(
             // An item with no motion is not rising: a dropped or authored item sits
             // where it is, and belongs in front of the world like any other pickup.
             emerging: motion.is_some_and(|motion| motion.emerging()),
+            room: live.of(entity),
         }));
 }
 
@@ -533,6 +551,10 @@ pub struct DynamicFeatureFact {
     /// ring, a pulsing gem) — the same `GameAssets.characters.props` key the
     /// room-load pass resolves for an authored pickup. `None`  the placeholder.
     pub prop_sheet: Option<String>,
+    /// The live room of the body this fact draws, by the rule of
+    /// `LiveRooms::of`. The visual is placed by that room's geometry and
+    /// stamped with it. `None` when the room cannot be told.
+    pub room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
 }
 
 #[derive(Resource, Default, Clone, Debug)]
@@ -541,8 +563,11 @@ pub struct DynamicFeatureViews(pub Vec<DynamicFeatureFact>);
 #[allow(clippy::type_complexity)]
 pub fn rebuild_dynamic_feature_views(
     mut view: ResMut<DynamicFeatureViews>,
+    // The live room of each body, so its visual is drawn in that room.
+    live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
     ecs_mobs: Query<
         (
+            bevy::prelude::Entity,
             &ambition_combat::components::FeatureId,
             &ambition_combat::components::CenteredAabb,
             &ambition_combat::components::ActorDisposition,
@@ -555,6 +580,7 @@ pub fn rebuild_dynamic_feature_views(
     >,
     staged_actors: Query<
         (
+            bevy::prelude::Entity,
             &ambition_combat::components::FeatureId,
             &ambition_combat::components::CenteredAabb,
             &ambition_combat::components::ActorDisposition,
@@ -567,6 +593,7 @@ pub fn rebuild_dynamic_feature_views(
     >,
     post_boss_npcs: Query<
         (
+            bevy::prelude::Entity,
             &ambition_combat::components::FeatureId,
             &ambition_combat::components::FeatureName,
             &ambition_combat::components::CenteredAabb,
@@ -578,6 +605,7 @@ pub fn rebuild_dynamic_feature_views(
     >,
     ecs_reward_chests: Query<
         (
+            bevy::prelude::Entity,
             &ambition_combat::components::FeatureId,
             &ambition_combat::components::CenteredAabb,
             &ambition_combat::components::ChestFeature,
@@ -595,6 +623,7 @@ pub fn rebuild_dynamic_feature_views(
     // pickup already has its visual and is filtered out below.
     dropped_pickups: Query<
         (
+            bevy::prelude::Entity,
             &ambition_combat::components::FeatureId,
             &ambition_combat::components::FeatureName,
             &ambition_combat::components::CenteredAabb,
@@ -608,7 +637,7 @@ pub fn rebuild_dynamic_feature_views(
     use ambition_platformer2d_shared_tangle::feature_kind::FeatureVisualKind;
     use ambition_sprite_sheet::game_assets;
     view.0.clear();
-    for (id, aabb, disposition, config) in &ecs_mobs {
+    for (entity, id, aabb, disposition, config) in &ecs_mobs {
         // ⛔⛔ "PEACEFUL" IS NOT "DOES NOT EXIST". Skipping a peaceful mob here on
         // the argument that encounter mobs are hostile by construction publishes
         // no `DynamicFeatureFact`, so `spawn_dynamic_feature_visuals` never makes
@@ -639,9 +668,10 @@ pub fn rebuild_dynamic_feature_views(
             // hunting is still a shark.
             sprite_key: game_assets::entity_sprite_for_enemy(&config.brain),
             prop_sheet: None,
+            room: live.of(entity),
         });
     }
-    for (id, aabb, disposition, config) in &staged_actors {
+    for (entity, id, aabb, disposition, config) in &staged_actors {
         // The same correction as the arm above: a staged actor that is not
         // fighting is still a body somebody has to be able to see.
         let Some((config, identity)) = config else {
@@ -657,9 +687,10 @@ pub fn rebuild_dynamic_feature_views(
             fighting: !disposition.is_peaceful(),
             sprite_key: game_assets::entity_sprite_for_enemy(&config.brain),
             prop_sheet: None,
+            room: live.of(entity),
         });
     }
-    for (id, name, aabb, disposition, config, interaction) in &post_boss_npcs {
+    for (entity, id, name, aabb, disposition, config, interaction) in &post_boss_npcs {
         let fighting = !disposition.is_peaceful();
         // A peaceful post-boss NPC resolves its sprite from the dialogue
         // interactable; a hostile one (provoked) from its archetype brain.
@@ -684,9 +715,10 @@ pub fn rebuild_dynamic_feature_views(
             fighting,
             sprite_key,
             prop_sheet: None,
+            room: live.of(entity),
         });
     }
-    for (id, aabb, chest) in &ecs_reward_chests {
+    for (entity, id, aabb, chest) in &ecs_reward_chests {
         view.0.push(DynamicFeatureFact {
             id: id.as_str().to_string(),
             label: id.as_str().to_string(),
@@ -697,9 +729,10 @@ pub fn rebuild_dynamic_feature_views(
             fighting: false,
             sprite_key: game_assets::entity_sprite_for_runtime_chest(&chest.chest),
             prop_sheet: None,
+            room: live.of(entity),
         });
     }
-    for (id, name, aabb, pickup, origin, art) in &dropped_pickups {
+    for (entity, id, name, aabb, pickup, origin, art) in &dropped_pickups {
         if !matches!(
             origin,
             ambition_platformer2d_shared_tangle::construction::SpawnOrigin::Dynamic { .. }
@@ -718,6 +751,7 @@ pub fn rebuild_dynamic_feature_views(
             // that sheet hasn't loaded.
             sprite_key: game_assets::entity_sprite_for_runtime_pickup(pickup.kind()),
             prop_sheet: art.map(|art| art.0.clone()),
+            room: live.of(entity),
         });
     }
 }

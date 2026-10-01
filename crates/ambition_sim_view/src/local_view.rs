@@ -155,6 +155,120 @@ pub fn resolve_view_subjects(
     }
 }
 
+/// A view the live-room split opened for one seat. The split closes it when
+/// the seats are in one live room again.
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct SplitForLiveRoom;
+
+/// A view whose [`ViewPlacement`] the live-room split wrote. The split removes
+/// that placement when it closes, and leaves every other placement alone.
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct PlacedByLiveRoomSplit;
+
+/// OPEN A VIEW FOR EACH SEAT WHILE THE SEATS ARE IN DIFFERENT LIVE ROOMS
+/// (view half, cut V5).
+///
+/// The presentation rule of `docs/planning/game/multiplayer.md`: if
+/// participants are in different rooms, the split is mandatory. Live rooms
+/// use one coordinate space and a camera draws only the live room its view
+/// frames (V3), so one view cannot show two rooms.
+///
+/// While the driven bodies of the seats are in two or more live rooms, every
+/// seat has a view: a seat that no view follows gets a new view
+/// ([`SplitForLiveRoom`], [`ViewParticipant`]), and every view takes one
+/// column, in id order. A view that names neither a body nor a seat follows
+/// seat zero, as the camera resolve frames it. When the seats are in one live
+/// room again, the views the split opened close and the placements it wrote
+/// are removed. A seat with no driven body (a spectator) or a body whose room
+/// cannot be told has no room, and does not open a split.
+///
+/// The rig that draws a new view is the presentation's
+/// (`ambition_render`'s split rig); the view is the observation fact.
+#[allow(clippy::type_complexity)]
+pub fn split_views_by_live_room(
+    mut commands: bevy::prelude::Commands,
+    live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
+    drivers: bevy::prelude::Query<(Entity, &ambition_characters::control::DrivingParticipant)>,
+    views: bevy::prelude::Query<
+        (
+            Entity,
+            &LocalViewId,
+            Option<&ViewSubject>,
+            Option<&ViewParticipant>,
+            Option<&ViewPlacement>,
+            bevy::prelude::Has<SplitForLiveRoom>,
+            bevy::prelude::Has<PlacedByLiveRoomSplit>,
+        ),
+        bevy::prelude::With<LocalView>,
+    >,
+) {
+    use ambition_characters::control::PlayerSlot;
+    let mut slots: Vec<PlayerSlot> = drivers.iter().map(|(_, driver)| driver.0).collect();
+    slots.sort_unstable();
+    slots.dedup();
+    let seats: Vec<(PlayerSlot, ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance)> = slots
+        .into_iter()
+        .filter_map(|slot| {
+            let body = ambition_platformer2d_actor_monolith::control::body_driving_seat(&drivers, slot)?;
+            Some((slot, live.of(body)?))
+        })
+        .collect();
+    let mut rooms: Vec<_> = seats.iter().map(|(_, room)| *room).collect();
+    rooms.sort_unstable();
+    rooms.dedup();
+
+    if rooms.len() < 2 {
+        for (view, _, _, _, _, opened, placed) in &views {
+            if opened {
+                commands.entity(view).try_despawn();
+            } else if placed {
+                commands
+                    .entity(view)
+                    .try_remove::<(ViewPlacement, PlacedByLiveRoomSplit)>();
+            }
+        }
+        return;
+    }
+
+    let follows = |slot: PlayerSlot| {
+        views.iter().any(|(_, _, subject, participant, ..)| match (subject, participant) {
+            (Some(_), _) => false,
+            (None, Some(participant)) => participant.0 == slot,
+            (None, None) => slot == PlayerSlot::PRIMARY,
+        })
+    };
+    let unfollowed: Vec<PlayerSlot> = seats
+        .iter()
+        .map(|(slot, _)| *slot)
+        .filter(|slot| !follows(*slot))
+        .collect();
+    let mut ids: Vec<(LocalViewId, Entity, Option<&ViewPlacement>)> = views
+        .iter()
+        .map(|(view, id, _, _, placement, ..)| (*id, view, placement))
+        .collect();
+    ids.sort_by_key(|(id, view, _)| (*id, *view));
+    let columns = ids.len() + unfollowed.len();
+    for (column, (_, view, placement)) in ids.iter().enumerate() {
+        let wanted = ViewPlacement::column(column, columns);
+        if placement.copied() != Some(wanted) {
+            commands.entity(*view).try_insert((wanted, PlacedByLiveRoomSplit));
+        }
+    }
+    let mut next = ids.last().map_or(0, |(id, ..)| id.0.saturating_add(1));
+    for (offset, slot) in unfollowed.into_iter().enumerate() {
+        commands.spawn((
+            LocalView,
+            LocalViewId(next),
+            crate::camera_snapshot::local_view_facts(),
+            ViewParticipant(slot),
+            SplitForLiveRoom,
+            ViewPlacement::column(ids.len() + offset, columns),
+            PlacedByLiveRoomSplit,
+        ));
+        next = next.saturating_add(1);
+    }
+}
+
 /// The view, for a caller that knows there is exactly one.
 ///
 ///  the name is the disclaimer: this asserts the single-view assumption out
@@ -788,5 +902,60 @@ mod tests {
             "the reference frame was rewritten on a frame where the setting did not \
              change, so every rollback resimulation would see it as freshly changed"
         );
+    }
+
+    /// View half, cut V5: while the seats' bodies are in two live rooms, each
+    /// seat has a view, one column each; when they are in one room again the
+    /// view the split opened closes and the host view is full again. The
+    /// control: two seats in one live room share the one view.
+    #[test]
+    fn each_seat_has_a_view_while_the_seats_are_in_two_live_rooms() {
+        use ambition_characters::control::{DrivingParticipant, PlayerSlot};
+        use ambition_platformer2d_shared_tangle::lifecycle::{
+            InRoomInstance, LiveRoomInstance, RoomInstanceRoot,
+        };
+        use bevy::ecs::system::RunSystemOnce as _;
+        type Row = (u8, Option<u8>, Option<ViewPlacement>, bool);
+        fn rows(world: &mut World) -> Vec<Row> {
+            let mut rows: Vec<Row> = world
+                .query_filtered::<(
+                    &LocalViewId,
+                    Option<&ViewParticipant>,
+                    Option<&ViewPlacement>,
+                    Has<SplitForLiveRoom>,
+                ), With<LocalView>>()
+                .iter(world)
+                .map(|(id, seat, placement, opened)| (id.0, seat.map(|seat| seat.0 .0), placement.copied(), opened))
+                .collect();
+            rows.sort_by_key(|row| row.0);
+            rows
+        }
+        let first = LiveRoomInstance::ACTIVATION;
+        let second = first.next();
+        let mut world = World::new();
+        world.spawn((RoomInstanceRoot, first));
+        world.spawn((LocalView, LocalViewId::FIRST));
+        let alice = world
+            .spawn((DrivingParticipant(PlayerSlot::PRIMARY), InRoomInstance(first)))
+            .id();
+        world.spawn((DrivingParticipant(PlayerSlot(1)), InRoomInstance(first)));
+        let alone = vec![(0, None, None, false)];
+
+        world.run_system_once(split_views_by_live_room).expect("the pass runs");
+        assert_eq!(rows(&mut world), alone, "control: one live room shares one view");
+
+        world.spawn((RoomInstanceRoot, second));
+        world.entity_mut(alice).insert(InRoomInstance(second));
+        let split = vec![
+            (0, None, Some(ViewPlacement::column(0, 2)), false),
+            (1, Some(1), Some(ViewPlacement::column(1, 2)), true),
+        ];
+        world.run_system_once(split_views_by_live_room).expect("the pass runs");
+        world.run_system_once(split_views_by_live_room).expect("the pass runs");
+        assert_eq!(rows(&mut world), split, "two live rooms: a view per seat, one column each");
+
+        world.entity_mut(alice).insert(InRoomInstance(first));
+        world.run_system_once(split_views_by_live_room).expect("the pass runs");
+        assert_eq!(rows(&mut world), alone, "one live room again: the split closed");
     }
 }

@@ -133,10 +133,53 @@ impl Plugin for PlatformerPresentationPlugin {
                 .in_set(PlatformerPresentationSetupSet),
         );
         app.add_plugins(SessionRoomVisualsPlugin);
+        // A camera for each view the live-room split opens (V5).
+        app.add_systems(Update, present_split_view_rigs);
         // Room-transition requests rebuild parallax through the presentation animation plugin.
         app.add_plugins((
             PresentationVisualAnimationPlugin,
             PlayerVisualSchedulePlugin,
+        ));
+    }
+}
+
+/// The camera the live-room split gave one of its views (V5).
+#[derive(Component, Clone, Copy, Debug)]
+pub struct SplitViewCamera;
+
+/// Give each view the live-room split opened ([`ambition_sim_view::SplitForLiveRoom`])
+/// one camera, and retire the camera when its view closes.
+///
+/// The camera is the gameplay rig the single-view host spawns: the world and
+/// parallax layers. Its own room band (V3) and view band are added by the
+/// isolation passes. Its order is above the host's gameplay rig (0) and below
+/// the front HUD (9), one per view id, so two rigs never share an order.
+pub fn present_split_view_rigs(
+    mut commands: Commands,
+    views: Query<(Entity, &ambition_sim_view::LocalViewId), With<ambition_sim_view::SplitForLiveRoom>>,
+    rigs: Query<(Entity, &ambition_sim_view::PresentsView), With<SplitViewCamera>>,
+) {
+    for (rig, presents) in &rigs {
+        if !views.contains(presents.0) {
+            commands.entity(rig).try_despawn();
+        }
+    }
+    for (view, id) in &views {
+        if rigs.iter().any(|(_, presents)| presents.0 == view) {
+            continue;
+        }
+        commands.spawn((
+            Camera2d,
+            Camera {
+                order: 1 + isize::from(id.0.min(7)),
+                ..default()
+            },
+            MainCamera,
+            bevy::camera::visibility::RenderLayers::layer(0)
+                .with(ambition_platformer2d_shared_tangle::camera_layers::PARALLAX_BACKGROUND_LAYER),
+            ambition_sim_view::PresentsView(view),
+            SplitViewCamera,
+            Name::new(format!("Split view camera {}", id.0)),
         ));
     }
 }
@@ -702,5 +745,35 @@ mod tests {
             Some(scope),
             "nothing is coming, so parallax is finished rather than retried every frame",
         );
+    }
+
+    /// View half, cut V5: each view the live-room split opened gets one
+    /// camera, which presents it and goes when it closes. The host's own view
+    /// gets none from this pass; its rig is the host's.
+    #[test]
+    fn each_view_the_split_opened_gets_one_camera_until_it_closes() {
+        use bevy::ecs::system::RunSystemOnce as _;
+        let mut world = World::new();
+        world.spawn((ambition_sim_view::LocalView, ambition_sim_view::LocalViewId(0)));
+        let opened = world
+            .spawn((
+                ambition_sim_view::LocalView,
+                ambition_sim_view::LocalViewId(1),
+                ambition_sim_view::SplitForLiveRoom,
+            ))
+            .id();
+        let rigs = |world: &mut World| {
+            world
+                .query_filtered::<&ambition_sim_view::PresentsView, With<SplitViewCamera>>()
+                .iter(world)
+                .map(|presents| presents.0)
+                .collect::<Vec<_>>()
+        };
+        world.run_system_once(present_split_view_rigs).expect("the pass runs");
+        world.run_system_once(present_split_view_rigs).expect("the pass runs");
+        assert_eq!(rigs(&mut world), vec![opened], "the opened view has not exactly one camera");
+        world.entity_mut(opened).despawn();
+        world.run_system_once(present_split_view_rigs).expect("the pass runs");
+        assert_eq!(rigs(&mut world), Vec::new(), "a camera outlived the view it presented");
     }
 }

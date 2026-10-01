@@ -156,10 +156,14 @@ questions" above.
 ◐ The view half is planned as cuts V1–V5 in "The view half" of
 [`open-world-runtime-and-residency.md`](../engine/open-world-runtime-and-residency.md).
 V1 (2026-10-01): each view frames its own player in that player's live
-room (`each_view_frames_its_own_player_while_two_rooms_are_live`). ⚠ Not
-done: most draw roads still read the sole live room and stop while two
-rooms are live, two rooms drawn at once overlap, and nothing spawns the
-second view (V2–V5); the banner, music and HUD are session-wide; a
+room (`each_view_frames_its_own_player_while_two_rooms_are_live`). V2a,
+V2b, V3, V4a and V5: each camera is placed and draws only its own view's
+room, room visuals and feature sprites are per room, and a second view opens
+while the players are in two rooms and closes when they meet
+(`a_second_view_opens_while_the_players_are_in_two_rooms_and_closes_when_they_meet`).
+⚠ Not done: fx, items, projectiles, nameplates, health bars, the LDtk
+level and parallax still read the sole live room; the banner, music and HUD
+are session-wide; a
 sync test is one peer, so what the crossing's rebase costs a remote
 player's rollback window is A4.
 

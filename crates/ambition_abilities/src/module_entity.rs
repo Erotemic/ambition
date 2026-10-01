@@ -56,7 +56,12 @@ pub struct Spawner {
 /// allegiance from the owner, and with no `ActorFaction` it hits nothing.
 pub fn spawn_module_entity(commands: &mut Commands, entity: ModuleEntity, from: Spawner) -> Entity {
     let name = Name::new(format!("Module entity {}", entity.kind));
-    let mut spawned = commands.spawn_session_scoped(from.scope, (entity, name, from.side, from.id));
+    // ROOM-OWNED AS WELL AS SESSION-OWNED. The spawner's stamp says which
+    // live room the entity is in; `RoomScopedEntity` says that room's
+    // retirement owns its lifetime. Without it, a retired room left the
+    // entity ticking until its timer ran out. The spawner is not the owner:
+    // the entity outlives it while its room is live.
+    let mut spawned = commands.spawn_room_in_session(from.scope, (entity, name, from.side, from.id));
     if let Some(team) = from.team {
         spawned.insert(team);
     }

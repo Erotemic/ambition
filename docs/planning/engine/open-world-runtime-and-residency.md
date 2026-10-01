@@ -1590,6 +1590,25 @@ one room stops the other player's room. A cutscene drives the one shared
 camera, so it waits for the views (P5) and for the party-pause product
 question.
 
+✅ **Cut 7v landed 2026-10-01: a module entity retires with its live room,
+not with a player (from a GPT review).** `spawn_module_entity` spawned the
+entity session-scoped and stamped it into its spawner's room
+(`InRoomInstance`), but it did not make it room-scoped. The room sweep
+retires `RoomResident` (`RoomScopedEntity`, not in custody), so a sentry or
+vortex outlived the room it was in and ticked on until its timer ran out.
+The stamp says which room an entity is in, and `RoomScopedEntity` says that
+the room's retirement owns its lifetime. They are two facts, and the spawn
+now states both (`spawn_room_in_session`). The spawner is still not the
+owner: the entity outlives it while its room is live. Witness:
+`a_module_entity_retires_with_its_room_and_not_with_a_player` (a sentry
+with 1000 s left in `switch_lab`, #0). Alone, Alice goes to the hub: the
+sentry goes with #0. With Bob holding #0, it stays and ticks on; when Bob
+goes to the hub too, it goes with #0. Poison (session-scoped only): the
+sentry outlived #0, and it was re-stamped into the hub at its `switch_lab`
+position, a stray acting in another room. With no entity, no later
+`ModuleEntityTick` invocation is queued for it, and its `BodyRecords` go
+with the entity.
+
 ✅ **Landed 2026-10-01: a door holds only the seat that went through it
 (customer 2).** `RoomTransitionCooldown` was one countdown for the world.
 After any seat's door, every seat waited 0.16 s before it could cross. It is

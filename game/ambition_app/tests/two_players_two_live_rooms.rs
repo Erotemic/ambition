@@ -1203,3 +1203,86 @@ fn a_gallery_pedestal_barks_at_its_own_rooms_cadence_beside_another_live_room() 
         early.len()
     );
 }
+
+/// The settled-sand solids in live room `room`'s collision overlay, and
+/// whether `body` has the sand room's swim loan.
+#[cfg(feature = "falling_sand")]
+fn sand_in(sim: &mut Platformer2dSimHarness, room: LiveRoomInstance, body: bevy::prelude::Entity) -> (usize, bool) {
+    let world = sim.world_mut();
+    let solids = world
+        .query_filtered::<
+            (&LiveRoomInstance, &ambition_platformer2d::world::FeatureEcsWorldOverlay),
+            bevy::prelude::With<RoomInstanceRoot>,
+        >()
+        .iter(world)
+        .find(|(live, _)| **live == room)
+        .map_or(0, |(_, overlay)| overlay.gate_solids.len());
+    let swims = world
+        .get::<ambition_platformer2d::engine_core::AbilityContributions>(body)
+        .is_some_and(|contributions| contributions.get(ambition_content::falling_sand_sim::ROOM_SWIM).is_some());
+    (solids, swims)
+}
+
+/// OW1 cut 7m: the falling-sand room runs while another room is live. Bob
+/// holds the sand room (#0); Alice goes to the hub (#1), and the sand spout
+/// opens in #0. The sand settles into #0's collision overlay, and the room's
+/// swim loan leaves Alice. When every falling-sand system asked whether the
+/// sole live room was the sand room, none of them ran with two rooms live:
+/// no settled sand reached any overlay, and Alice kept the loan in the hub.
+/// Gated as the sand plugins are: only the `falling_sand` feature adds them.
+#[test]
+#[cfg(feature = "falling_sand")]
+fn the_falling_sand_room_runs_beside_another_live_room() {
+    use ambition_content::falling_sand_sim::{FallingSandWorld, ROOM_ID, SAND_SWITCH};
+    let (mut sim, first) = alice_leaves_bob_in(
+        ROOM_ID,
+        HUB,
+        Some(ambition_platformer2d::characters::control::PlayerSlot(1)),
+        walk_through_the_door_to,
+    );
+    let second = first.next();
+    assert_eq!(
+        where_they_are(&mut sim),
+        (Some(second), Some(Some(first))),
+        "precondition: Alice is not in the hub (#1) with Bob in the sand room (#0)"
+    );
+    let alice = {
+        let world = sim.world_mut();
+        world
+            .query_filtered::<bevy::prelude::Entity, bevy::prelude::With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>()
+            .single(world)
+            .expect("Alice's body is in the world")
+    };
+    {
+        let world = sim.world_mut();
+        let activation = world
+            .query::<&ambition_platformer2d::encounter::switches::SwitchFeature>()
+            .iter(world)
+            .map(|feature| feature.activation.clone())
+            .find(|activation| activation.id == SAND_SWITCH)
+            .unwrap_or_else(|| panic!("authored switch `{SAND_SWITCH}` exists in {ROOM_ID}"));
+        world.write_message(ambition_platformer2d::encounter::switches::SwitchActivated {
+            activation,
+            pos: ambition_platformer2d::engine_core::Vec2::ZERO,
+            room: Some(first),
+        });
+    }
+    let mut seen = (0, true);
+    for _ in 0..1200 {
+        sim.step(base());
+        seen = sand_in(&mut sim, first, alice);
+        if seen.0 > 0 {
+            break;
+        }
+    }
+    let emitted = sim
+        .world_mut()
+        .get_resource::<FallingSandWorld>()
+        .and_then(|sand| sand.grid.as_ref().map(|grid| grid.emitted()))
+        .unwrap_or(0);
+    assert_eq!(
+        (seen.0 > 0, seen.1),
+        (true, false),
+        "(settled sand in #0's overlay, Alice still has the swim loan in the hub): {emitted} grains emitted"
+    );
+}

@@ -218,19 +218,73 @@ impl Plugin for FallingSandSimPlugin {
     }
 }
 
-pub fn sync_falling_sand_room_state(
-    room_set: ambition_platformer2d::world::rooms::SoleLiveRoomSpec,
-    mut state: ResMut<FallingSandRoomState>,
-) {
-    let active_id = room_set.spec().id.as_str();
-    let active_room = active_id == ROOM_ID;
+/// The live room that instantiates the falling-sand room, when one is live
+/// (OW1 cut 7m). Every falling-sand system asked whether THE sole live room
+/// was this room, so while two rooms were live none of them ran: the sand
+/// stood still, and the swim loan stayed on a player who had left.
+///
+/// ⚠ ONE SAND WORLD FOR THE SESSION. The grid, the ledger and the particles
+/// are resources, so two live instances of this room share them. That does not
+/// happen today, because a player who comes back joins the instance another
+/// player holds (cut 6e). If two instances are live, the lowest instance has
+/// the sand.
+#[derive(bevy::ecs::system::SystemParam)]
+pub struct LiveSandRoom<'w, 's> {
+    specs: ambition_platformer2d::world::rooms::LiveRoomSpecs<'w, 's>,
+    roots: Query<
+        'w,
+        's,
+        &'static ambition_platformer2d::platformer::lifecycle::LiveRoomInstance,
+        With<ambition_platformer2d::platformer::lifecycle::RoomInstanceRoot>,
+    >,
+}
 
-    if state.last_room_id.as_deref() == Some(active_id) {
+impl LiveSandRoom<'_, '_> {
+    /// The live instance of the falling-sand room, and its spec.
+    pub fn get(
+        &self,
+    ) -> Option<(
+        ambition_platformer2d::platformer::lifecycle::LiveRoomInstance,
+        &ambition_platformer2d::world::rooms::RoomSpec,
+    )> {
+        let mut live: Vec<_> = self.roots.iter().copied().collect();
+        live.sort();
+        live.into_iter().find_map(|room| {
+            let spec = self.specs.rooms().spec(self.specs.definition_in(room)?);
+            (spec.id == ROOM_ID).then_some((room, spec))
+        })
+    }
+
+    /// The spec of the live falling-sand room.
+    pub fn spec(&self) -> Option<&ambition_platformer2d::world::rooms::RoomSpec> {
+        self.get().map(|(_, spec)| spec)
+    }
+
+    /// The overlay stamp of the live falling-sand room.
+    pub fn stamp(&self) -> Option<ambition_platformer2d::platformer::lifecycle::InRoomInstance> {
+        self.get().map(|(room, _)| ambition_platformer2d::platformer::lifecycle::InRoomInstance(room))
+    }
+
+    /// `entity` is in the falling-sand room: its own live room is one.
+    pub fn holds(&self, entity: Entity) -> bool {
+        self.specs
+            .definition_of(entity)
+            .is_some_and(|definition| self.specs.rooms().spec(definition).id == ROOM_ID)
+    }
+}
+
+pub fn sync_falling_sand_room_state(sand_room: LiveSandRoom, mut state: ResMut<FallingSandRoomState>) {
+    // The id of the live sand room, or `None`: the boundaries are seeded
+    // again each time the sand room becomes live.
+    let active_id = sand_room.spec().map(|spec| spec.id.as_str());
+    let active_room = active_id.is_some();
+
+    if state.last_room_id.as_deref() == active_id {
         state.active_room = active_room;
         return;
     }
 
-    state.last_room_id = Some(active_id.to_owned());
+    state.last_room_id = active_id.map(str::to_owned);
     state.active_room = active_room;
     state.seeded_boundaries = false;
 }
@@ -238,7 +292,7 @@ pub fn sync_falling_sand_room_state(
 /// Build the sand grid on room entry (walls seeded from the SAME authored
 /// blocks the player collides with), clear it on exit.
 pub fn prepare_sand_world(
-    room_set: ambition_platformer2d::world::rooms::SoleLiveRoomSpec,
+    sand_room: LiveSandRoom,
     state: Res<FallingSandRoomState>,
     mut sand: ResMut<FallingSandWorld>,
 ) {
@@ -252,7 +306,9 @@ pub fn prepare_sand_world(
         return;
     }
 
-    let room = room_set.spec();
+    let Some(room) = sand_room.spec() else {
+        return;
+    };
     let world = &room.world;
     let mut grid = SandGrid::new(world.size.x as i32, world.size.y as i32);
 
@@ -382,15 +438,19 @@ pub fn step_sand_grid(state: Res<FallingSandRoomState>, mut sand: ResMut<Falling
 pub fn project_settled_sand(
     state: Res<FallingSandRoomState>,
     sand: Res<FallingSandWorld>,
+    sand_room: LiveSandRoom,
     mut overlays: ambition_platformer2d::world::RoomOverlays,
 ) {
-    // The sole live room's overlay: this content is one room.
-    let Some(mut overlay) = overlays.sole() else {
-        return;
-    };
     if !state.active_room {
         return;
     }
+    // The overlay of the live sand room, not of every live room.
+    let Some(stamp) = sand_room.stamp() else {
+        return;
+    };
+    let Some(mut overlay) = overlays.for_room(Some(&stamp)) else {
+        return;
+    };
     overlay.gate_solids.extend(sand.ledger.blocks());
 }
 
@@ -399,24 +459,24 @@ pub fn project_settled_sand(
 /// [`AbilityContributions`]: ambition_platformer2d_core::AbilityContributions
 pub const ROOM_SWIM: &str = "falling_sand.room_swim";
 
-/// Players in the falling-sand room can swim. The room lends the verb while it
-/// is the active room and withdraws its loan anywhere else, so whatever else
-/// grants or withholds swim is untouched.
+/// Players in the falling-sand room can swim. The room lends the verb to each
+/// player whose own live room it is and withdraws its loan anywhere else, so
+/// whatever else grants or withholds swim is untouched.
 pub fn lend_room_swim(
-    room_set: ambition_platformer2d::world::rooms::SoleLiveRoomSpec,
+    sand_room: LiveSandRoom,
     mut players: Query<
-        &mut ambition_platformer2d_core::AbilityContributions,
+        (Entity, &mut ambition_platformer2d_core::AbilityContributions),
         With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
     >,
 ) {
-    let in_room = room_set.spec().id == ROOM_ID;
     let swim = ambition_platformer2d_core::AbilityContribution::Lend(
         ambition_platformer2d_core::AbilitySet {
             swim: true,
             ..ambition_platformer2d_core::AbilitySet::NONE
         },
     );
-    for mut contributions in &mut players {
+    for (player, mut contributions) in &mut players {
+        let in_room = sand_room.holds(player);
         match (in_room, contributions.get(ROOM_SWIM).is_some()) {
             (true, false) => contributions.set(ROOM_SWIM, swim),
             (false, true) => contributions.clear(ROOM_SWIM),

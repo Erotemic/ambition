@@ -27,7 +27,7 @@ use bevy_falling_sand::prelude::*;
 
 use crate::falling_sand_sim::{
     open_spouts, FallingSandRoomState, FallingSandSimSet, FallingSandSpoutState, FallingSandWorld,
-    MIXED_SWITCH, OIL_SWITCH, ROOM_ID, SAND_SWITCH, SIDE_WALL_THICKNESS, TILE_SIZE, TYPE_OIL,
+    MIXED_SWITCH, OIL_SWITCH, SAND_SWITCH, SIDE_WALL_THICKNESS, TILE_SIZE, TYPE_OIL,
     TYPE_SAND, TYPE_WALL, TYPE_WATER, WATER_SWITCH,
 };
 use crate::falling_sand_sim::{SandCell, FLOOR_WALL_THICKNESS};
@@ -301,31 +301,35 @@ fn setup_particle_types(mut commands: Commands, mut type_ids: ResMut<FallingSand
 
 /// Room-change cleanup for the EXTERNAL crate's particles (water/oil/walls).
 /// The sim half owns the room-state sync; this only mirrors its "matter does
-/// not survive a room change" rule onto the bfs world.
+/// not survive a room change" rule onto the bfs world. The change is a change
+/// of the live sand room (OW1 cut 7m): another player's room change leaves
+/// the sand alone.
 fn despawn_bfs_particles_when_the_room_changes(
     mut commands: Commands,
-    room_set: ambition_platformer2d::world::rooms::SoleLiveRoomSpec,
+    sand_room: crate::falling_sand_sim::LiveSandRoom,
     particles: Query<Entity, With<Particle>>,
-    mut last_room_id: Local<Option<String>>,
+    mut last_sand_room: Local<Option<Option<ambition_platformer2d::platformer::lifecycle::LiveRoomInstance>>>,
 ) {
-    let active_id = room_set.spec().id.as_str();
-    if last_room_id.as_deref() == Some(active_id) {
+    let sand = sand_room.get().map(|(room, _)| room);
+    if *last_sand_room == Some(sand) {
         return;
     }
-    *last_room_id = Some(active_id.to_owned());
+    *last_sand_room = Some(sand);
     for particle in &particles {
         commands.entity(particle).despawn();
     }
 }
 
 fn seed_falling_sand_room_boundaries(
-    room_set: ambition_platformer2d::world::rooms::SoleLiveRoomSpec,
+    sand_room: crate::falling_sand_sim::LiveSandRoom,
     mut state: ResMut<FallingSandRoomState>,
     mut writer: MessageWriter<SpawnParticleSignal>,
     type_ids: Res<FallingSandTypeIds>,
 ) {
-    let room = room_set.spec();
-    if room.id != ROOM_ID || state.seeded_boundaries {
+    let Some(room) = sand_room.spec() else {
+        return;
+    };
+    if state.seeded_boundaries {
         return;
     }
 
@@ -465,18 +469,17 @@ fn emit_particle_rect(
 
 fn sync_falling_sand_spout_nozzles(
     mut commands: Commands,
-    room_set: ambition_platformer2d::world::rooms::SoleLiveRoomSpec,
+    sand_room: crate::falling_sand_sim::LiveSandRoom,
     state: Res<FallingSandRoomState>,
     save: Res<ambition_persistence::save::AmbitionGameSave>,
     existing: Query<(Entity, &FallingSandSpoutNozzle)>,
 ) {
-    let room = room_set.spec();
-    if !state.active_room || room.id != ROOM_ID {
+    let Some(room) = sand_room.spec().filter(|_| state.active_room) else {
         for (entity, _) in &existing {
             commands.entity(entity).despawn();
         }
         return;
-    }
+    };
 
     let spouts = FallingSandSpoutState::from_save(save.data());
     let mut desired = HashSet::<&'static str>::new();
@@ -541,17 +544,16 @@ fn sync_falling_sand_spout_nozzles(
 ///
 /// One owner, two views of it.
 fn emit_falling_sand_spouts(
-    room_set: ambition_platformer2d::world::rooms::SoleLiveRoomSpec,
+    sand_room: crate::falling_sand_sim::LiveSandRoom,
     state: Res<FallingSandRoomState>,
     save: Res<ambition_persistence::save::AmbitionGameSave>,
     mut writer: MessageWriter<SpawnParticleSignal>,
     type_ids: Res<FallingSandTypeIds>,
     mut last_logged: Local<Option<FallingSandSpoutState>>,
 ) {
-    let room = room_set.spec();
-    if !state.active_room || room.id != ROOM_ID {
+    let Some(room) = sand_room.spec().filter(|_| state.active_room) else {
         return;
-    }
+    };
 
     // One info-log per state transition (open/close) so the user can
     // verify in the console that the toggle reached this system. Sampled
@@ -766,9 +768,9 @@ fn tally_particles<'a>(
 
 fn project_particles_to_movement_world(
     mut commands: Commands,
-    room_set: ambition_platformer2d::world::rooms::SoleLiveRoomSpec,
+    sand_room: crate::falling_sand_sim::LiveSandRoom,
     state: Res<FallingSandRoomState>,
-    world: ambition_platformer2d::platformer::lifecycle::SoleLiveRoom<
+    geometry: ambition_platformer2d::platformer::lifecycle::LiveRoomOf<
         ambition_platformer2d_core::RoomGeometry,
     >,
     mut overlays: ambition_platformer2d::world::RoomOverlays,
@@ -781,15 +783,19 @@ fn project_particles_to_movement_world(
     mut cap_warned: Local<bool>,
     mut report: ResMut<FallingSandProjectionReport>,
 ) {
-    // The sole live room's overlay: this content is one room.
-    let Some(mut overlay) = overlays.sole() else {
-        return;
-    };
-    if !state.active_room || room_set.spec().id != ROOM_ID {
+    // The live sand room's geometry and overlay, not the sole live room's.
+    let sand_room = sand_room.get().filter(|_| state.active_room).map(|(room, _)| room);
+    let Some(room) = sand_room else {
         clear_material_visuals(&mut commands, &visuals);
         *report = FallingSandProjectionReport::default();
         return;
-    }
+    };
+    let (Some(world), Some(mut overlay)) = (
+        geometry.in_room(room),
+        overlays.for_room(Some(&ambition_platformer2d::platformer::lifecycle::InRoomInstance(room))),
+    ) else {
+        return;
+    };
 
     // The authored `RoomGeometry` base is immutable mid-room: settled sand /
     // liquid is a per-frame derived OVERLAY contribution, not a base edit (the
@@ -984,7 +990,7 @@ fn project_liquid(
 fn log_falling_sand_diagnostics(
     time: Res<Time>,
     state: Res<FallingSandRoomState>,
-    room_set: ambition_platformer2d::world::rooms::SoleLiveRoomSpec,
+    sand_room: crate::falling_sand_sim::LiveSandRoom,
     particles: Query<(&AttachedToParticleType, &GridPosition), With<Particle>>,
     particle_types: Query<&ParticleType>,
     type_ids: Res<FallingSandTypeIds>,
@@ -1011,16 +1017,16 @@ fn log_falling_sand_diagnostics(
     sand: Res<FallingSandWorld>,
     mut next_log_at: Local<f32>,
 ) {
-    if !state.active_room || room_set.spec().id != ROOM_ID {
+    let Some(room) = sand_room.spec().filter(|_| state.active_room) else {
         return;
-    }
+    };
     let now = time.elapsed_secs();
     if now < *next_log_at {
         return;
     }
     *next_log_at = now + 1.0;
 
-    let world = &room_set.spec().world;
+    let world = &room.world;
     let floor_block_top_world_y = world
         .blocks
         .iter()
@@ -1260,7 +1266,7 @@ fn sync_material_visuals(
 /// a paused game costs nothing.
 fn sync_sand_grid_texture(
     mut commands: Commands,
-    room_set: ambition_platformer2d::world::rooms::SoleLiveRoomSpec,
+    sand_room: crate::falling_sand_sim::LiveSandRoom,
     state: Res<FallingSandRoomState>,
     sand: Res<FallingSandWorld>,
     mut images: ResMut<Assets<Image>>,
@@ -1269,10 +1275,9 @@ fn sync_sand_grid_texture(
     use bevy::asset::RenderAssetUsages;
     use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 
-    let room = room_set.spec();
-    let active = state.active_room && room.id == ROOM_ID;
-    let grid = match sand.grid.as_ref() {
-        Some(grid) if active => grid,
+    let room = sand_room.spec().filter(|_| state.active_room);
+    let (grid, room) = match (sand.grid.as_ref(), room) {
+        (Some(grid), Some(room)) => (grid, room),
         _ => {
             for (entity, _) in &visuals {
                 commands.entity(entity).despawn();

@@ -266,7 +266,9 @@ pub fn rebuild_body_pose_views(
     // fraction rather than a raw freeze presentation would have to interpret.
     feel: Option<Res<ambition_combat::feel::Platformer2dFeelTuningMonolith>>,
     // The cast a granted body is compared against. See `PoseGeometry`.
-    registry: Option<Res<ambition_characters::prepared::PreparedCharacterRegistry>>,
+    // The running session's frozen cast, or the published one with no
+    // session (`SessionCast`).
+    registry: ambition_characters::prepared::SessionCast,
     mut bodies: Query<
         (
             (
@@ -560,7 +562,7 @@ pub fn rebuild_body_pose_views(
             authored_offset: sheet_authored_body
                 .then(|| authored_offset.map(|o| o.0))
                 .flatten(),
-            geometry: PoseGeometry::of(worn, granted, registry.as_deref()),
+            geometry: PoseGeometry::of(worn, granted, registry.get()),
         };
         match pose {
             Some(mut pose) => *pose = next,

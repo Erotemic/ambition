@@ -1032,11 +1032,9 @@ fn an_authored_actor_carried_out_of_its_room_and_back_does_not_meet_a_copy() {
     assert_eq!(
         occurrences(&mut sim, &id).len(),
         1,
-        "'{HOME}' authored a SECOND copy of the actor you are driving. The occurrence \
-         ledger is written only by `record_placed_ground_items`, so a possessed body \
-         that leaves its authoring room is remembered nowhere, and the rebuild on \
-         re-entry has no disposition telling it the occurrence is already alive in \
-         somebody's hands"
+        "'{HOME}' authored a SECOND copy of the actor you are driving: the rebuild on \
+         re-entry did not read the ledger's `InCustody` row for the driven body as \
+         an occurrence already alive in somebody's hands"
     );
 }
 

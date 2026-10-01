@@ -75,6 +75,7 @@ pub mod abilities;
 /// it is neither `control` nor `features`. Moved off `player/` in R6d.
 pub mod assets;
 pub mod body_custody;
+pub mod body_whereabouts;
 pub mod body_mode;
 mod checkpoint_horizon;
 pub use checkpoint_horizon::ActorCheckpointHorizonPlugin;

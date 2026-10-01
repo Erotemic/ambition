@@ -2786,7 +2786,7 @@ mod catalog_revision {
             .resource::<CharacterCatalogRegistry>()
             .with_replaced(fragment("[RunJump, Blink]"))
             .expect("the candidate assembles");
-        let candidate = CandidateCatalog { registry, assembled };
+        let candidate = CandidateCatalog { registry, assembled, retired: Vec::new() };
         let support = TechniqueSupport::default();
         let RevisionAdmission::Admitted(admitted) =
             admit_staged_revision_with_catalog(app.world(), &support, &candidate)

@@ -1443,5 +1443,8 @@ respawning population occurrence that the game despawns comes back from its
 authored room, so "fresh" is right for `OnRoomReenter` mobs. A persistent
 open-world character's whereabouts are durable world state. What is left to
 rule here is whether its other live state (HP, a fight in progress) is durable
-with its whereabouts. ⚠ No shipped content authors a persistent character
-that a room retirement despawns today, so this blocks no row.
+with its whereabouts. Since 2026-10-01 a persistent character's whereabouts
+are kept (OW3 third slice: the hub's dog, released in another room, is
+there when the player comes back), and it is rebuilt from its record with
+full health. So the remaining question is only its live state, and it
+blocks no row.

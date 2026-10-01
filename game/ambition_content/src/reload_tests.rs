@@ -1092,6 +1092,60 @@ fn a_candidate_that_changes_only_moves_still_publishes() {
     ));
 }
 
+/// A candidate that changes only the boss seed library or the validator bands
+/// is published: no system of the running game reads either (they calibrate
+/// the offline fight validator), so the reload selects the new pack and has
+/// nothing else to publish.
+#[test]
+fn a_candidate_that_changes_only_the_validator_calibration_publishes() {
+    for (path, from, to) in [
+        (
+            crate::bosses::BOSS_SEEDS_SOURCE_PATH,
+            "telegraph: (min_s: 0.44, max_s: 1.00),",
+            "telegraph: (min_s: 0.44, max_s: 1.01),",
+        ),
+        (crate::bosses::BOSS_VALIDATOR_BANDS_SOURCE_PATH, "heavy: 30.0,", "heavy: 31.0,"),
+    ] {
+        let mut app = host_with_the_shipped_cast();
+        let live = live_pack(&app);
+        let mut edited = false;
+        let candidate = std::sync::Arc::new(
+            crate::pack::compile_pack_with(|declared, text| {
+                if declared != path {
+                    return text;
+                }
+                assert_eq!(text.matches(from).count(), 1, "the premise: `{path}` states `{from}` once");
+                edited = true;
+                text.replacen(from, to, 1)
+            })
+            .expect("the edited pack compiles"),
+        );
+        assert!(edited, "the premise: `{path}` is a declared source");
+        let changed: Vec<String> = ambition_content_pack::changed_domains(&live, &candidate)
+            .into_iter()
+            .map(|schema| schema.0)
+            .collect();
+        assert_eq!(changed.len(), 1, "the premise: only `{path}`'s domain changed: {changed:?}");
+        let outcome = publish_candidate(
+            app.world_mut(),
+            ambition_content_pack::CandidateGeneration::prepared_against(
+                std::sync::Arc::clone(&candidate),
+                Some(live.fingerprint),
+            ),
+        );
+        // `Unchanged` names the CAST, which this edit does not touch; the pack
+        // is published all the same, which the selection below asserts.
+        assert!(
+            matches!(outcome, MoveReload::Activated { .. } | MoveReload::Unchanged { .. }),
+            "a candidate changing only `{path}` was refused; got {outcome:?}"
+        );
+        assert!(std::ptr::eq(
+            crate::pack::selected(app.world()).expect("a selection"),
+            std::sync::Arc::as_ref(&candidate)
+        ));
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Publication is refused while a rollback timeline is speculating.
 //

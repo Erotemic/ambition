@@ -53,7 +53,9 @@ pub fn provider_of_character<'a>(
 /// than merged or fatal.
 pub fn authorize_staged_character_presentation_sources(
     states: Option<Res<CharacterLoadStates>>,
-    registry: Option<Res<PreparedCharacterRegistry>>,
+    // The running session's frozen cast, or the published one with no session
+    // (`SessionCast`).
+    registry: crate::session::mechanics::SessionCast,
     audio_catalog: Option<Res<ambition_audio::catalog::AudioCatalogRegistry>>,
     bank_ids: Option<Res<ambition_audio::catalog::SfxBankRegistry>>,
     selection: Option<ResMut<ambition_audio::selection::ActiveAudioSelection>>,
@@ -70,7 +72,7 @@ pub fn authorize_staged_character_presentation_sources(
     let mut authorized: BTreeSet<String> = BTreeSet::new();
     for character_id in states.cast().ids() {
         let Some(provider) =
-            provider_of_character(registry.as_deref(), character_id)
+            provider_of_character(registry.get(), character_id)
         else {
             // No declaration names an author. The load ledger already reports
             // unknown characters; this is not a second place to complain about it.
@@ -111,7 +113,9 @@ pub fn authorize_staged_character_presentation_sources(
 /// "this body belongs to nobody".
 pub fn publish_body_presentation_sources(
     mut commands: Commands,
-    registry: Option<Res<PreparedCharacterRegistry>>,
+    // The running session's frozen cast, or the published one with no session
+    // (`SessionCast`).
+    registry: crate::session::mechanics::SessionCast,
     bodies: Query<
         (
             Entity,
@@ -138,7 +142,7 @@ pub fn publish_body_presentation_sources(
     for (entity, worn, current) in &bodies {
         let character_id = worn.map(ambition_characters::actor::WornCharacter::id);
         let provider = character_id
-            .and_then(|id| provider_of_character(registry.as_deref(), id));
+            .and_then(|id| provider_of_character(registry.get(), id));
         match provider {
             Some(provider) => {
                 let next = ambition_sfx::PresentationSourceId::new(provider);

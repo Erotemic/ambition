@@ -791,3 +791,41 @@ fn two_hosts_with_different_prior_match_histories_enter_a_session_with_the_same_
         "the new session's first match projects differently on the two hosts"
     );
 }
+
+/// The frozen cast leaves with its session, and only with its own session.
+///
+/// `SessionCast` reads a present `ActiveSessionCast` as "a session runs", so a
+/// retired session's cast left installed would be what a menu shows instead of
+/// the published cast; and a stale scope's retirement removing the live one
+/// would hand the live session the published cast.
+#[test]
+fn the_frozen_cast_retires_with_its_own_session() {
+    let mut app = app_with_populated_mirrors();
+    let (stale, live) = {
+        let mut active = app
+            .world_mut()
+            .resource_mut::<ambition_platformer2d_shared_tangle::lifecycle::ActiveSessionScope>();
+        let stale = active.begin();
+        let live = active.begin();
+        (stale, live)
+    };
+    app.world_mut()
+        .insert_resource(ambition_characters::prepared::ActiveSessionCast(None));
+    app.update();
+
+    app.world_mut().write_message(SessionScopeRetired(stale));
+    app.update();
+    assert!(
+        app.world()
+            .contains_resource::<ambition_characters::prepared::ActiveSessionCast>(),
+        "a stale scope's retirement removed the live session's frozen cast"
+    );
+
+    app.world_mut().write_message(SessionScopeRetired(live));
+    app.update();
+    assert!(
+        !app.world()
+            .contains_resource::<ambition_characters::prepared::ActiveSessionCast>(),
+        "the live session retired and its frozen cast stayed installed"
+    );
+}

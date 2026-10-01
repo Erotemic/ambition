@@ -267,7 +267,8 @@ pub struct ScreenArt<'w> {
     pub portraits: Option<Res<'w, PortraitSheetRegistry>>,
     /// What providers registered, so a character that named a portrait target
     /// in Rust gets that face. See [`portrait_art`].
-    pub declared: Option<Res<'w, PreparedCharacterRegistry>>,
+    /// The running session's frozen cast, or the published one with no session.
+    pub declared: ambition_platformer2d::characters::prepared::SessionCast<'w>,
     pub asset_server: Option<Res<'w, AssetServer>>,
     /// The decoded entity art, for the random square's interrobang. Loaded by
     /// the same asset pass as every other sprite.
@@ -281,7 +282,7 @@ impl ScreenArt<'_> {
         portrait_art(
             &self.catalog,
             self.portraits.as_deref(),
-            self.declared.as_deref(),
+            self.declared.get(),
             self.asset_server.as_deref(),
             id,
         )

@@ -63,8 +63,11 @@ fn an_activated_session_carries_the_cast_it_was_prepared_against() {
             )
         });
 
-    let frozen: Vec<String> = generation
-        .prepared_cast()
+    let _ = generation;
+    // The cast is frozen beside the mechanics, in its own resource.
+    let frozen: Vec<String> = world
+        .get_resource::<ambition_platformer2d::characters::prepared::ActiveSessionCast>()
+        .and_then(|frozen| frozen.cast())
         .map(|cast| cast.ids().map(str::to_string).collect())
         .unwrap_or_default();
 

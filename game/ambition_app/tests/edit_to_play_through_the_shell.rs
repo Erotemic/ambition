@@ -415,6 +415,20 @@ fn a_content_file_saved_while_the_game_runs_is_played() {
     }
 }
 
+/// Each live mockingbird's maximum HP.
+#[cfg(not(feature = "static_content"))]
+fn mockingbird_max_hps(sim: &mut ambition_sim_harness::Platformer2dSimHarness) -> Vec<i32> {
+    let world = sim.world_mut();
+    let mut q = world.query::<(
+        &ambition_platformer2d::boss_encounter::BossConfig,
+        &ambition_platformer2d::characters::actor::BodyHealth,
+    )>();
+    q.iter(world)
+        .filter(|(config, _)| config.behavior.id == "mockingbird")
+        .map(|(_, health)| health.max())
+        .collect()
+}
+
 /// The live mockingbird's `strike_speed_scale`, and how many mockingbirds.
 #[cfg(not(feature = "static_content"))]
 fn mockingbird_strike_speed_scales(sim: &mut ambition_sim_harness::Platformer2dSimHarness) -> Vec<f32> {
@@ -442,6 +456,10 @@ fn a_boss_tuning_saved_while_the_game_runs_is_played() {
     let before = mockingbird_strike_speed_scales(&mut sim);
     assert_eq!(before.len(), 1, "the premise: the arena builds one mockingbird");
     assert!((before[0] - EDITED).abs() > 0.1, "the premise: the edit changes the value");
+    // And its encounter: the HP is seeded from the encounter file.
+    const EDITED_HP: i32 = 41;
+    assert_eq!(mockingbird_max_hps(&mut sim).len(), 1);
+    assert_ne!(mockingbird_max_hps(&mut sim)[0], EDITED_HP, "the premise: the edit changes the HP");
 
     let root = std::env::temp_dir().join(format!("ambition_boss_watch_{}", std::process::id()));
     let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
@@ -455,6 +473,11 @@ fn a_boss_tuning_saved_while_the_game_runs_is_played() {
         let end = at + text[at..].find(',').unwrap();
         let edited = format!("{}strike_speed_scale: {EDITED}{}", &text[..at], &text[end..]);
         std::fs::write(&path, edited).unwrap();
+        let encounter = root.join("data/boss_encounters/mockingbird.ron");
+        let text = std::fs::read_to_string(&encounter).unwrap();
+        let at = text.find("max_hp: ").expect("the encounter states its HP");
+        let end = at + text[at..].find(',').unwrap();
+        std::fs::write(&encounter, format!("{}max_hp: {EDITED_HP}{}", &text[..at], &text[end..])).unwrap();
 
         let mut frames = 0;
         while mockingbird_strike_speed_scales(&mut sim).first().is_none_or(|v| (v - EDITED).abs() > 1e-6) {
@@ -487,6 +510,9 @@ fn a_boss_tuning_saved_while_the_game_runs_is_played() {
             .behavior("mockingbird")
             .map(|b| b.strike_speed_scale);
         assert_eq!(frozen, Some(EDITED), "the session froze the catalog it was prepared from");
+        // ⛔ The encounter is seeded from the catalog the boss was built with
+        // (`BossConfig::seed`), not from the App's on the boss's first tick.
+        assert_eq!(mockingbird_max_hps(&mut sim), [EDITED_HP], "the rebuilt boss has the saved HP");
         eprintln!("a saved boss tuning was played {frames} frames after the save");
     }));
     let _ = std::fs::remove_dir_all(&root);

@@ -11,12 +11,11 @@ use bevy::prelude::{App, Res, Resource, Update};
 #[derive(Resource)]
 struct TestWorld(ae::World);
 #[derive(Resource)]
-struct TestAnchors(Vec<(String, String, ae::Vec2)>);
+struct TestAnchors(Vec<BossRewardAnchor>);
 
 fn run_boss_sync(
     mut commands: Commands,
     save: Res<AmbitionGameSave>,
-    registry: Res<BossEncounterRegistry>,
     world: Res<TestWorld>,
     anchors: Res<TestAnchors>,
     chests: Query<
@@ -34,7 +33,6 @@ fn run_boss_sync(
         &mut commands,
         SessionSpawnScope::UNSCOPED,
         save.data(),
-        &registry,
         &world.0,
         &anchors.0,
         &chests,
@@ -47,25 +45,19 @@ fn app() -> App {
     save.data_mut()
         .set_boss("test_boss", PersistedEncounterState::Cleared);
     app.insert_resource(save);
-    let mut reg = BossEncounterRegistry::default();
-    reg.profiles.insert(
-        "test_boss".into(),
-        BossProfile::from_id(test_boss_catalog(), "mockingbird").expect("mockingbird is authored"),
-    );
-    app.insert_resource(reg);
     app.insert_resource(TestWorld(ae::World::new(
         "t",
         ae::Vec2::new(400.0, 400.0),
         ae::Vec2::new(50.0, 50.0),
         Vec::new(),
     )));
-    // (placement_id, archetype_id, spawn) — placement == archetype for this
-    // single-placement fixture.
-    app.insert_resource(TestAnchors(vec![(
-        "test_boss".into(),
-        "test_boss".into(),
-        ae::Vec2::new(200.0, 100.0),
-    )]));
+    app.insert_resource(TestAnchors(vec![BossRewardAnchor {
+        placement_id: "test_boss".into(),
+        spawn: ae::Vec2::new(200.0, 100.0),
+        reward: BossProfile::from_id(test_boss_catalog(), "mockingbird")
+            .expect("mockingbird is authored")
+            .reward,
+    }]));
     app.add_systems(Update, run_boss_sync);
     app
 }

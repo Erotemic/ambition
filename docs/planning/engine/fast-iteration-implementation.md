@@ -391,11 +391,45 @@ behaviour:** the seed no longer writes it (`apply_behavior_profile` is gone);
 construction resolved it from the frozen catalog and captured the brain's
 pattern from the same value, so a second write could only repeat it or split
 the boss from its own brain. With that, the poison fails on the live boss.
-**Open:** HP, phase triggers, death seconds, music and reward still come from
-the App catalog through `BossEncounterRegistry` on the first tick; seed them
-at construction from the catalog the construction context carries. Still refused: items, audio, the character catalog,
+**Closed the same day for the rest:** `BossConfig::seed` (`BossSeed`: the
+encounter spec and the reward) is resolved at construction, with the
+behaviour, from the catalog the construction carries.
+`update_boss_encounters` seeds HP and phase triggers, and reads the death outro
+and the music, from it; the reward chest takes the boss's own reward
+(`BossRewardAnchor`) instead of a registry lookup by archetype. Only a
+hand-built config (a fixture) has no seed and is resolved from the App as
+before. Measured with the claim poison: the App held the saved HP 41 and the
+rebuilt mockingbird kept the frozen 28 (`a_boss_tuning_saved_while_the_game_runs_is_played`
+now asserts the saved HP too). `BossEncounterRegistry` is left with that
+fixture fallback as its only reader. Still refused: items, audio, the character catalog,
 the boss seed library and validator bands, and every source outside the pack
 (`boss_sheets.ron`, `boss_art_keys.ron`).
+
+**Next, planned not started: the character catalog in the reload.** The
+reload still refuses a `character_catalog` change, and the catalog is the
+largest tuning surface left (body sizes, health, motion, brains). What it takes,
+measured 2026-10-01:
+
+1. The catalog is not only FOLDED, it is an INPUT to the definitions:
+   `ambition_content::character_catalog::register_characters` builds each
+   definition from its row (display name, sheet target, the scale asked of the
+   baked sheet, the hurtbox inset). A candidate catalog therefore needs a
+   candidate set of definitions, built by the same function from the candidate
+   rows, not a re-fold of the retained `StagedCharacterOverrides` alone.
+2. The fold reads `CastAuthorities` (the catalog, `BrainProfileRegistry`,
+   `ProviderDeclarations`) from the App (`CastAuthorities::from_world`). An
+   admission over a candidate catalog needs those passed in, so
+   `admit_staged_revision` can fold the WHOLE cast against the candidate and
+   admit it as one `AdmittedRevision` that also carries the catalog to publish.
+3. 50 production sites read the App's `CharacterCatalog` directly (counted by a
+   grep for `Res<`/`resource::<`/`get_resource::<` of it). The commit must
+   publish it at the same boundary as the cast, and each reader is either fine
+   reading the published value after activation or is a frozen-generation
+   question like `SessionMechanics` — to be sorted before the first edit, not
+   after.
+4. Witness shape: `edit_to_play_through_the_shell`'s, a saved row value (a
+   standing height or max health) on a live body after the reload, plus the
+   frozen record, with the poison "the claim carries no candidate cast".
 
 I3a is independently useful. I3 is complete only after all three cuts. I1/I2 and
 I4 contract work need not wait for I3b; procedural replacement does. Do not turn

@@ -3,10 +3,11 @@
 //! Portal core's [`step_portal_shot`] is a pure helper over the reusable
 //! [`SolidWorldQuery`](ambition_platformer2d_core::cast::SolidWorldQuery)
 //! seam (+ world bounds): it decides whether a shot travels, places a portal, or
-//! fizzles, without ever reading the concrete `ambition_platformer2d::platformer::lifecycle::SoleLiveRoom<RoomGeometry>`. This adapter owns
-//! the concrete world — it reads `ambition_platformer2d::platformer::lifecycle::SoleLiveRoom<RoomGeometry>`, calls the helper per shot, and
-//! applies the [`PortalShotStep`] outcome (entity spawn/despawn + sfx). Moving
-//! the `RoomGeometry` read here keeps portal core's projectile step content-free.
+//! fizzles, without ever reading the concrete `RoomGeometry`. This adapter owns
+//! the concrete world: it reads the `RoomGeometry` of each shot's own live
+//! room (`LiveRoomOf`), calls the helper per shot, and applies the
+//! [`PortalShotStep`] outcome (entity spawn/despawn + sfx). Moving the
+//! `RoomGeometry` read here keeps portal core's projectile step content-free.
 
 use bevy::prelude::*;
 
@@ -51,10 +52,21 @@ use ambition_portal2d::{
 /// geometry, which is a stronger tie-break than an id would be — two shots with
 /// equal keys produce byte-identical portals.
 ///
+/// ⭐ EACH SHOT STEPS AGAINST ITS OWN LIVE ROOM (OW1 cut 7l). This read the
+/// sole live room, a `Single`, so while two rooms were live the system did not
+/// run and every shot hung in the air. A shot in no live room does not move.
+/// The portal it opens carries the shot's room.
+///
+/// ⚠ NOT CHANGED: a placement replaces the portal of its channel in EVERY
+/// room, so a channel has one portal in the world, and a gun's pair can have
+/// one portal in each of two rooms. Portal core pairs, carves and transits
+/// with no room filter, so a pair kept in one room needs a room-aware core
+/// first.
+///
 /// [`SimId`]: ambition_platformer2d_shared_tangle::sim_id::SimId
 pub fn portal_projectile_step(
     time: Res<ambition_time::WorldTime>,
-    world: ambition_platformer2d::platformer::lifecycle::SoleLiveRoom<RoomGeometry>,
+    world: ambition_platformer2d::platformer::lifecycle::LiveRoomOf<RoomGeometry>,
     mut commands: Commands,
     mut projectiles: Query<(Entity, &mut PortalShot)>,
     portals: Query<(Entity, &PlacedPortal)>,
@@ -64,13 +76,16 @@ pub fn portal_projectile_step(
     if dt <= 0.0 {
         return;
     }
-    let seam = PortalShotWorld {
-        solids: &world.0,
-        size: world.0.size,
-    };
     // Every placement this tick, decided before any of them is applied.
     let mut placements: Vec<Placement> = Vec::new();
     for (proj_entity, mut proj) in &mut projectiles {
+        let Some(geometry) = world.of(proj_entity) else {
+            continue;
+        };
+        let seam = PortalShotWorld {
+            solids: &geometry.0,
+            size: geometry.0.size,
+        };
         match step_portal_shot(&proj, &seam, dt) {
             PortalShotStep::Travel {
                 pos,
@@ -91,6 +106,7 @@ pub fn portal_projectile_step(
                     normal,
                     hit,
                     traveled: proj.traveled,
+                    room: world.room_of(proj_entity),
                 });
                 // The shot is spent whether or not its placement wins the channel.
                 commands.entity(proj_entity).despawn();
@@ -127,7 +143,7 @@ pub fn portal_projectile_step(
                 });
             }
         }
-        commands.spawn_room_scoped((
+        let mut portal = commands.spawn_room_scoped((
             PlacedPortal::fixed(
                 winner.channel,
                 winner.pos,
@@ -146,6 +162,9 @@ pub fn portal_projectile_step(
             // they don't linger and reappear when you leave and come back
             // (#41).
         ));
+        if let Some(room) = winner.room {
+            portal.insert(ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance(room));
+        }
         sfx.write(ambition_sfx::SfxMessage::Play {
             id: ambition_sfx::ids::PORTAL_ATTACH,
             pos: winner.hit,
@@ -162,6 +181,8 @@ struct Placement {
     /// The shot's distance covered before this tick. Speed is constant, so a
     /// SMALLER value is a more recently fired shot.
     traveled: f32,
+    /// The live room of the shot, which the portal it opens is in.
+    room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
 }
 
 impl Placement {

@@ -2841,6 +2841,7 @@ fn every_event_created_entity_is_registered_derived_or_waived_and_anchored() {
         // is identified; the identity census in `rollback_populated_timeline`
         // owns that and mints there.
         id: None,
+        room: None,
     });
     sim.step(AgentAction::default());
 

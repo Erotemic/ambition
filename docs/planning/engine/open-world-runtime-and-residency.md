@@ -830,7 +830,7 @@ parameter) also found `push_room_entered_quest_events` ✅ (7k),
 `auto_trigger_room_cutscenes`, the two boss specials
 `spawn_overflow_flood_from_special_messages` and
 `spawn_apple_rain_from_special_messages`, the portal gun's
-`portal_projectile_step` and `sync_portal_host_depths`, the falling-sand
+`portal_projectile_step` and `sync_portal_host_depths` ✅ (7l), the falling-sand
 room, and the demos' one-room systems (Mary-O, Sanic, Smash). The
 presentation readers in `ambition_render` are P5's (a view per player). The
 new reader is `LiveRoomOf<T>`: `T` of the live room an entity is in, by the
@@ -1057,6 +1057,32 @@ cutscene is one session-wide playback. Whether a cutscene that one player's
 room starts also stops the other player is a product question, not a
 keying one: multiplayer.md files it as "which story interactions pause
 only one participant versus the whole party".
+
+✅ **Cut 7l landed 2026-09-30: the portal gun fires in its own live room.**
+The shot step and the host-depth measure read the sole live room's
+geometry, so while two rooms were live neither ran: a shot hung in the air,
+and the depths of the last one-room frame stayed. The carve bridge wrote the
+sole live room's overlay, so no wall was carved. A `PortalFireIntent` now
+names the room it is fired in (the firer's, by `LiveRooms::of`). The shot
+and the portal it opens carry that room as their `InRoomInstance`. Each
+shot steps against its own room's solids, and each portal's depth is
+measured in its own room. The carves go to the overlay of the one room that
+every placed portal is in, and every other live room is re-sealed.
+Witnesses: `a_portal_shot_opens_its_portal_in_the_live_room_it_was_fired_in`
+(Bob in `switch_lab`, #0; Alice in the hub, #1, fires down: the portal is in
+#1 and has a finite depth; with the sole-room read restored in the shot
+step, no portal opened in 60 ticks; restored in the depth measure, the
+depth was `None`) and `a_carve_goes_to_the_live_room_its_portals_are_in`
+(two overlays: a pair in #1 carves #1 only, a pair in #0 carves #0 only, a
+split pair carves neither; with the sole overlay restored, nothing was
+carved). ⚠ Not changed: portal core pairs, carves and transits with no room
+filter, and a placement replaces its channel's portal in every room. So a
+gun's pair can be split across two rooms: Alice places blue in #0, crosses,
+and places orange in #1. The bridge then carves no room, so no body can
+transit between rooms. And a body in one room can still meet a portal of
+the other room at the same coordinates: portal core's carve and transit read
+every body. A pair kept in one room, and a portal only its own room's bodies
+meet, need a room-aware portal core.
 
 ⚠ Still owed from cut 5: `outlook_for(room: &str)` is keyed by definition;
 the `SoleLiveRoomSpec` readers each need a subject before a second live room

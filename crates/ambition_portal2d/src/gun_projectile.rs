@@ -63,6 +63,9 @@ pub fn portal_fire_system(
         if let Some(id) = fire.id.clone() {
             shot.insert(id);
         }
+        if let Some(room) = fire.room {
+            shot.insert(ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance(room));
+        }
     }
 }
 
@@ -169,6 +172,7 @@ mod fire_intent_tests {
             // These tests cover motion; `rollback_populated_timeline` covers
             // identity.
             id: None,
+            room: None,
         }
     }
 
@@ -234,6 +238,7 @@ mod fire_intent_tests {
             dir: Vec2::ZERO,
             channel: PortalChannel::Gun(PortalGunColor::BLUE),
             id: None,
+            room: None,
         });
         app.update();
 

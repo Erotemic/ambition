@@ -276,6 +276,92 @@ fn a_door_crossed_by_one_player_leaves_the_other_players_room_live() {
     assert_eq!(sim.observation().active_room, HUB, "the observation is not Alice's own room");
 }
 
+/// The Door from authored room `room` to `target`.
+fn door_of(sim: &mut Platformer2dSimHarness, room: &str, target: &str) -> ambition_platformer2d::world::rooms::LoadingZone {
+    let world = sim.world_mut();
+    let rooms = ambition_platformer2d::platformer::lifecycle::session_world_component::<
+        ambition_platformer2d::world::rooms::RoomSet,
+    >(world)
+    .expect("the session keeps its room set");
+    let definition = rooms.definition_by_id(room).expect("the room is authored");
+    rooms
+        .spec(definition)
+        .loading_zones
+        .iter()
+        .filter(|zone| zone.activation == ambition_platformer2d::world::rooms::LoadingZoneActivation::Door)
+        .find(|zone| {
+            rooms
+                .transition_for_player(definition, zone.aabb, ambition_platformer2d::engine_core::Vec2::ZERO, true)
+                .and_then(|transition| rooms.rooms.get(transition.target_room))
+                .is_some_and(|destination| destination.id == target)
+        })
+        .cloned()
+        .unwrap_or_else(|| panic!("'{room}' has no Door to '{target}'"))
+}
+
+/// OW1 cut 7s: Bob, driven by slot 1, goes through a door himself. Alice
+/// holds the hub (#1) and Bob holds `switch_lab` (#0); Bob stands in the
+/// `switch_lab` door to the hub and his seat presses interact. He joins
+/// Alice's live hub, and `switch_lab`, which nobody holds now, retires. The
+/// door detector read only the primary seat's body, so Bob's press was
+/// buffered and never used: no player but the first could leave a room.
+#[test]
+fn the_second_player_goes_through_a_door_of_his_own_room() {
+    use ambition_platformer2d::engine_core::AabbExt as _;
+    let (mut sim, first) = alice_leaves_bob(Some(ambition_platformer2d::characters::control::PlayerSlot(1)));
+    let second = first.next();
+    assert_eq!(
+        where_they_are(&mut sim),
+        (Some(second), Some(Some(first))),
+        "precondition: Alice is not in the hub (#1) with Bob in `switch_lab` (#0)"
+    );
+    let door = door_of(&mut sim, ROOM, HUB).aabb.center();
+    {
+        let world = sim.world_mut();
+        let mut bob = world.query::<(
+            &ambition_platformer2d::combat::components::FeatureId,
+            ambition_platformer2d::engine_core::BodyClusterQueryData,
+            &mut ambition_platformer2d::actor::MotionModel,
+        )>();
+        let (_, mut clusters, mut model) = bob
+            .iter_mut(world)
+            .find(|(feature, _, _)| feature.0 == BOB)
+            .expect("Bob's body is in the world");
+        let mut clusters = clusters.as_clusters_mut();
+        ambition_platformer2d::engine_core::movement::transit_body(
+            &mut model,
+            &mut clusters,
+            door,
+            ambition_platformer2d::engine_core::movement::TransitVelocity::Zero,
+        );
+    }
+    for _ in 0..120 {
+        sim.drive_seat(
+            1,
+            ambition_platformer2d::engine_core::ControlFrame {
+                interact_pressed: true,
+                interact_held: true,
+                ..Default::default()
+            },
+        );
+        sim.step(base());
+        if where_they_are(&mut sim).1 == Some(Some(second)) {
+            break;
+        }
+    }
+    // A seat's frame stands until it is replaced: let go of the press, or
+    // Bob goes back through the hub's door when the cooldown ends.
+    sim.drive_seat(1, ambition_platformer2d::engine_core::ControlFrame::default());
+    for _ in 0..30 {
+        sim.step(base());
+    }
+    assert_eq!(
+        (live_rooms(&mut sim), where_they_are(&mut sim)),
+        (vec![(second, HUB.to_string())], (Some(second), Some(Some(second)))),
+        "Bob did not go through the door to join Alice's hub"
+    );
+}
+
 /// OW1 cut 6e: Alice comes back through the hub's door to `switch_lab`,
 /// where Bob is. She joins his live room, #0, and the hub (#1), which
 /// nobody is in now, is retired: one live room, with both of them in it.

@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v283
+ggrs-rollback-schema-v284
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -178,7 +178,7 @@ derived.perception_peers	derived	PerceptionPeers	perception snapshot rebuilt eve
 derived.perception_projectiles	derived	PerceptionProjectiles	perception snapshot rebuilt every tick before brains read it
 derived.player_body_frame_output	derived	PlayerBodyFrameOutput	republished by body integration every simulation frame
 derived.portal_carves	derived	PortalCarves	rebuilt from placed portals and transit occupancy each frame
-derived.portal_host_depths	derived	PortalHostDepths	republished from the authoritative collision world each frame
+derived.portal_host_depths	derived	PortalHostDepthsByRoom	republished from the authoritative collision world each frame
 derived.projectile_view	derived	ProjectileView	SimView projection rebuilt every tick
 derived.resolved_attack_gesture	derived	ResolvedAttackGesture	republished from ActorControl and rollback-backed gesture history before move triggering
 derived.resolved_combat_tuning	derived	ResolvedCombatTuning	refolded from the CombatRules that govern no room over the world baseline every WorldPrep

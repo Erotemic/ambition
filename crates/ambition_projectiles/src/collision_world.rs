@@ -50,7 +50,7 @@ pub struct ProjectileCollisionWorld<'w, 's> {
     // Folded in here (rather than as its own top-level param) because the stepper
     // is already at Bevy's 16-param ceiling.
     #[cfg(feature = "portal")]
-    portals: Query<'w, 's, &'static ambition_portal2d::PlacedPortal>,
+    portals: Query<'w, 's, (Entity, &'static ambition_portal2d::PlacedPortal)>,
     // ⭐ AND THE MAP CONVENTION, for the same reason the portals are here: the
     // stepper is at Bevy's parameter ceiling, and this is the session's portal
     // policy rather than a process global. `Option` because a composition
@@ -115,9 +115,12 @@ impl ProjectileCollisionWorld<'_, '_> {
             .unwrap_or_default()
     }
 
-    /// Snapshot the placed portals for the per-projectile transit test.
+    /// Snapshot the placed portals for the per-projectile transit test,
+    /// grouped by live room. A shot threads only the portals of its own room
+    /// (`shot_room`): a pair in one room does not carry a shot of another
+    /// room that flies through the same coordinates (OW1).
     #[cfg(feature = "portal")]
-    pub fn portal_list(&self) -> Vec<ambition_portal2d::PlacedPortal> {
-        self.portals.iter().cloned().collect()
+    pub fn portals_by_room(&self) -> ambition_portal2d::PortalsByRoom {
+        ambition_portal2d::PortalsByRoom::collect(self.portals.iter(), &self.live_rooms)
     }
 }

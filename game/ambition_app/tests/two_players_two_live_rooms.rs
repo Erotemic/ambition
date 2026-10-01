@@ -1122,11 +1122,12 @@ fn a_portal_shot_opens_its_portal_in_the_live_room_it_was_fired_in() {
     }
     let (channel, room) = opened.expect("Alice's shot opened no portal in 60 ticks");
     // The entry itself: `PortalHostDepths::depth` answers infinity for a
-    // portal that was never measured.
+    // portal that was never measured. It is filed under the portal's room.
     sim.step(base());
     let depth = sim
         .world_mut()
-        .resource::<ambition_platformer2d::portal::PortalHostDepths>()
+        .resource::<ambition_platformer2d::portal::PortalHostDepthsByRoom>()
+        .in_room(room)
         .0
         .iter()
         .find(|(measured, _)| *measured == channel)

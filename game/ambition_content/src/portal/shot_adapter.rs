@@ -57,11 +57,10 @@ use ambition_portal2d::{
 /// run and every shot hung in the air. A shot in no live room does not move.
 /// The portal it opens carries the shot's room.
 ///
-/// ⚠ NOT CHANGED: a placement replaces the portal of its channel in EVERY
-/// room, so a channel has one portal in the world, and a gun's pair can have
-/// one portal in each of two rooms. Portal core pairs, carves and transits
-/// with no room filter, so a pair kept in one room needs a room-aware core
-/// first.
+/// ⭐ A PLACEMENT REPLACES THE PORTAL OF ITS CHANNEL IN ITS OWN ROOM ONLY.
+/// Portal core pairs, carves and transits by live room (`PortalsByRoom`), so
+/// each live room holds its own pair. This replaced the channel's portal in
+/// EVERY room: a blue shot in one room closed the blue portal of the other.
 ///
 /// [`SimId`]: ambition_platformer2d_shared_tangle::sim_id::SimId
 pub fn portal_projectile_step(
@@ -125,17 +124,18 @@ pub fn portal_projectile_step(
     // walk below picks the same winner for each channel on every machine and on
     // every resimulation of this tick.
     placements.sort_by(Placement::newest_first);
-    let mut opened: Vec<PortalChannel> = Vec::new();
+    let mut opened: Vec<(ambition_portal2d::PortalRoom, PortalChannel)> = Vec::new();
     for winner in &placements {
-        if opened.contains(&winner.channel) {
+        if opened.contains(&(winner.room, winner.channel)) {
             // A superseded same-tick placement makes no sound of its own: exactly
-            // one portal opened on this channel, so exactly one attach cue plays.
+            // one portal opened on this channel in this room, so exactly one
+            // attach cue plays.
             continue;
         }
-        opened.push(winner.channel);
-        // Hit a wall — open (or replace) the portal of this color.
+        opened.push((winner.room, winner.channel));
+        // Hit a wall — open (or replace) the portal of this color in this room.
         for (entity, portal) in &portals {
-            if portal.channel == winner.channel {
+            if portal.channel == winner.channel && world.room_of(entity) == winner.room {
                 commands.entity(entity).despawn();
                 sfx.write(ambition_sfx::SfxMessage::Play {
                     id: ambition_sfx::ids::PORTAL_CLOSE,

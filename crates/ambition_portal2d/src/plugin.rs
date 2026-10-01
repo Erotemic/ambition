@@ -103,7 +103,7 @@ impl Plugin for PortalSimulationPlugin {
         // `publish_portal_carves` writes here; the host bridge copies it into
         // the host collision overlay each frame.
         app.init_resource::<PortalCarves>();
-        app.init_resource::<crate::PortalHostDepths>();
+        app.init_resource::<crate::PortalHostDepthsByRoom>();
         app.init_resource::<PortalTuning>();
         // The inspector panel edits `EditablePortalTuning`; the sim reads
         // `PortalTuning` (in `GgrsSchedule` under rollback). Edits go through

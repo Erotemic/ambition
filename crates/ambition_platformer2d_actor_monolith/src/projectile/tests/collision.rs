@@ -95,6 +95,52 @@ fn a_shot_does_not_reach_a_body_in_another_live_room() {
     assert_eq!(health, max, "a shot hit a body in another live room");
 }
 
+/// The x of a shot stamped `room` after one tick. It flies +x into the blue
+/// of a portal pair in live room #1, with live room #0 beside it.
+#[cfg(feature = "portal")]
+fn a_shot_at_a_portal_of_live_room_one(room: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance) -> f32 {
+    use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
+    use ambition_portal2d::{PlacedPortal, PortalChannel, PortalGunColor};
+    let mut app = open_lane_app();
+    let second = LiveRoomInstance::ACTIVATION.next();
+    let empty = ae::World::new("second", ae::Vec2::new(2000.0, 2000.0), ae::Vec2::new(200.0, 200.0), vec![]);
+    app.world_mut().spawn((
+        RoomInstanceRoot,
+        second,
+        ae::RoomGeometry(empty),
+        ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay::default(),
+    ));
+    let shooter = crate::projectile::tests::primary_player_entity(&mut app);
+    app.world_mut().entity_mut(shooter).insert(InRoomInstance(LiveRoomInstance::ACTIVATION));
+    for (channel, pos, normal) in [
+        (PortalChannel::Gun(PortalGunColor::BLUE), ae::Vec2::new(600.0, 200.0), ae::Vec2::new(-1.0, 0.0)),
+        (PortalChannel::Gun(PortalGunColor::ORANGE), ae::Vec2::new(1200.0, 800.0), ae::Vec2::new(1.0, 0.0)),
+    ] {
+        app.world_mut().spawn((
+            PlacedPortal::fixed(channel, pos, normal, ae::Vec2::new(6.0, 40.0)),
+            InRoomInstance(second),
+        ));
+    }
+    let shot = spawn_owned_shot(&mut app, shooter, ae::Vec2::new(590.0, 200.0));
+    app.world_mut().entity_mut(shot).insert(InRoomInstance(room));
+    advance_time(&mut app, 0.016);
+    app.update();
+    app.world().get::<ae::BodyKinematics>(shot).expect("the shot is alive").pos.x
+}
+
+/// OW1: a shot threads only the portals of its own live room. The pair is in
+/// #1. A shot in #1 at the blue comes out at the orange; a shot in #0 at the
+/// same place flies on. Before, the stepper threaded every placed portal.
+#[cfg(feature = "portal")]
+#[test]
+fn a_shot_threads_only_the_portals_of_its_own_live_room() {
+    use ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance;
+    let own = a_shot_at_a_portal_of_live_room_one(LiveRoomInstance::ACTIVATION.next());
+    assert!(own > 1100.0, "control: the shot in #1 did not come out at the orange: x={own}");
+    let other = a_shot_at_a_portal_of_live_room_one(LiveRoomInstance::ACTIVATION);
+    assert!(other < 700.0, "a shot in #0 threaded a portal of #1: x={other}");
+}
+
 /// Pre-spawn a fireball directly into the body list and place it
 /// just beside an ECS-hostile actor. After one tick the fireball
 /// overlaps the actor AABB, queues an ECS damage event, and the

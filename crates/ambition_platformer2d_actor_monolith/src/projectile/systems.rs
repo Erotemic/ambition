@@ -682,7 +682,7 @@ pub fn step_projectiles(
     // Without the portal capability there are no apertures to thread, so the
     // list is empty by construction and the transit check below is skipped.
     #[cfg(feature = "portal")]
-    let portal_list = carved.portal_list();
+    let portals_by_room = carved.portals_by_room();
     #[cfg(feature = "portal")]
     let portal_convention = carved.portal_convention();
     let tick = trace.current_tick();
@@ -814,10 +814,11 @@ pub fn step_projectiles(
 
         // Portal transit: thread the aperture instead of hitting the wall.
         #[cfg(feature = "portal")]
-        if !portal_list.is_empty()
+        if !portals_by_room.is_empty()
             && ambition_projectiles::try_projectile_portal_transit(
                 &mut kin,
-                &portal_list,
+                // Only the portals of the shot's own live room (OW1).
+                portals_by_room.in_room(shot_room),
                 portal_convention,
             )
         {

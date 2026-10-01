@@ -7,7 +7,11 @@
 
 use bevy::prelude::*;
 
-use ambition_portal2d::{PlacedPortal, PortalHost};
+use std::borrow::Cow;
+
+use ambition_platformer2d_core as ae;
+use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRooms};
+use ambition_portal2d::{PlacedPortal, PortalHost, PortalRoom};
 
 /// Attribution probe reach behind the placement point, in px. The gun lifts a
 /// portal 2px proud of the hit face; authored specs sit on the face. The probe
@@ -15,26 +19,64 @@ use ambition_portal2d::{PlacedPortal, PortalHost};
 /// a thin wall to its far face (thinnest authored walls are ≥ 8px).
 const HOST_ATTRIBUTE_REACH: f32 = 6.0;
 
+/// The hostable surfaces of each live room a portal asks for, built once per
+/// room (OW1). A portal finds its host in its OWN live room: the sole live
+/// room was read here, so while two rooms were live no portal attached and no
+/// hosted portal followed its face.
+struct SurfacesByRoom<'a> {
+    collision: &'a ambition_platformer2d_world::collision::CollisionWorld<'a, 'a>,
+    built: Vec<(PortalRoom, Option<Cow<'a, ae::World>>)>,
+}
+
+impl<'a> SurfacesByRoom<'a> {
+    fn new(collision: &'a ambition_platformer2d_world::collision::CollisionWorld<'a, 'a>) -> Self {
+        Self { collision, built: Vec::new() }
+    }
+
+    /// The hostable surfaces of `room`, `None` when it is no live room. A
+    /// portal with no room reads the sole live room, as `CollisionWorld::room`
+    /// does: with two live rooms that is none.
+    fn of(&mut self, room: PortalRoom) -> Option<&ae::World> {
+        let index = match self.built.iter().position(|(seen, _)| *seen == room) {
+            Some(index) => index,
+            None => {
+                let surfaces = self
+                    .collision
+                    .room(room.map(InRoomInstance).as_ref())
+                    .and_then(|collision| collision.hostable_surfaces());
+                self.built.push((room, surfaces));
+                self.built.len() - 1
+            }
+        };
+        self.built[index].1.as_deref()
+    }
+}
+
 /// Attach just-placed portals to the identified face they sit on.
 ///
 /// Each portal is looked at once: the answer is written to
 /// [`PlacedPortal::host`], so a portal that found no face is `Static` and is
 /// not scanned again. A later scan would see moving platforms in other places
 /// and could attach a portal that the confirmed timeline left static.
+///
+/// The face is looked for in the portal's own live room (OW1). A portal in no
+/// live room is not looked at while two rooms are live.
 pub fn attach_portal_hosts(
     collision: ambition_platformer2d_world::collision::CollisionWorld,
-    mut portals: Query<&mut PlacedPortal>,
+    live: LiveRooms,
+    mut portals: Query<(Entity, &mut PlacedPortal)>,
 ) {
-    if !portals.iter().any(|p| p.host == PortalHost::Unattributed) {
+    if !portals.iter().any(|(_, p)| p.host == PortalHost::Unattributed) {
         return;
     }
-    let Some(view) = collision.hostable_surfaces() else {
-        return;
-    };
-    for mut portal in &mut portals {
+    let mut surfaces = SurfacesByRoom::new(&collision);
+    for (entity, mut portal) in &mut portals {
         if portal.host != PortalHost::Unattributed {
             continue;
         }
+        let Some(view) = surfaces.of(live.of(entity)) else {
+            continue;
+        };
         // Probe into the face the portal was placed against.
         let probe = portal.pos - portal.normal * HOST_ATTRIBUTE_REACH * 0.5;
         let host = view
@@ -51,22 +93,26 @@ pub fn attach_portal_hosts(
     }
 }
 
-/// Re-derive each hosted aperture frame from its current host face.
+/// Re-derive each hosted aperture frame from its current host face, in the
+/// portal's own live room (OW1). A portal in no live room keeps its frame
+/// while two rooms are live.
 pub fn refresh_hosted_portal_frames(
     mut commands: Commands,
     collision: ambition_platformer2d_world::collision::CollisionWorld,
+    live: LiveRooms,
     time: Option<Res<ambition_time::WorldTime>>,
     mut portals: Query<(Entity, &mut PlacedPortal)>,
 ) {
     if !portals.iter().any(|(_, p)| p.host.face().is_some()) {
         return;
     }
-    let Some(view) = collision.hostable_surfaces() else {
-        return;
-    };
+    let mut surfaces = SurfacesByRoom::new(&collision);
     let dt = time.as_deref().map(|t| t.scaled_dt).unwrap_or(0.0);
     for (entity, mut portal) in &mut portals {
         let Some((host, lift)) = portal.host.face().map(|(face, lift)| (face.clone(), lift)) else {
+            continue;
+        };
+        let Some(view) = surfaces.of(live.of(entity)) else {
             continue;
         };
         let Some(anchor) = view.resolve_face(&host) else {

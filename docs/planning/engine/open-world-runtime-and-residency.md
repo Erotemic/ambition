@@ -824,7 +824,7 @@ systems it stops (read from the parameter lists, 2026-09-30):
 `update_boss_encounters` ✅ (7e; its scripted road in the review of 7e), `heal_save_shrine_system` ✅ (7d),
 `sync_encounter_reward_chests` ✅ (7d), `retire_rewards_for_rearmed_encounters` ✅ (7c),
 `record_placed_ground_items` ✅ (7d), `physics_spawn_debris_messages` and
-`tick_npc_idle_barks`, and the content bosses (`cut_rope` ✅ in the review of 7e, `gnu_ton` and the
+`tick_npc_idle_barks` ✅ (7m), and the content bosses (`cut_rope` ✅ in the review of 7e, `gnu_ton` and the
 flying spaghetti monster ✅ in cut 7j). ⚠ This list was not complete. A
 second reading at cut 7k (every non-render function that takes a sole-room
 parameter) also found `push_room_entered_quest_events` ✅ (7k),
@@ -1127,6 +1127,18 @@ transit between rooms. And a body in one room can still meet a portal of
 the other room at the same coordinates: portal core's carve and transit read
 every body. A pair kept in one room, and a portal only its own room's bodies
 meet, need a room-aware portal core.
+
+✅ **Cut 7m, first part, landed 2026-09-30: an NPC barks at the cadence of
+its own live room.** The ambient bark ticker read the sole live room's spec
+to ask if the room is a gallery. While two rooms were live it had no spec,
+so it ran, but every NPC barked from its `Idle` pool at the idle cadence,
+the pedestals of the Hall of Characters too. Each NPC now reads the spec of
+its own live room (`LiveRoomSpecs`). Its bark clock is keyed by its live
+room and then its id, because two instances of one room hold the same ids.
+Witness: `a_gallery_pedestal_barks_at_its_own_rooms_cadence_beside_another_live_room`
+(Bob in the hub, #0; Alice in the hall, #1: no hall bark in the first 24 s,
+some by 60 s; with the sole-room rule restored, the hall barked 80 times in
+the first 24 s).
 
 ⚠ Still owed from cut 5: `outlook_for(room: &str)` is keyed by definition;
 the `SoleLiveRoomSpec` readers each need a subject before a second live room

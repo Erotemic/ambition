@@ -1137,3 +1137,69 @@ fn a_portal_shot_opens_its_portal_in_the_live_room_it_was_fired_in() {
         "(the portal's live room, a finite host depth measured): the portal was not opened and measured in #1 (depth {depth:?})"
     );
 }
+
+/// The live rooms of the NPCs that barked during the next `ticks`, one entry
+/// for each bark, in bark order.
+fn rooms_that_barked(sim: &mut Platformer2dSimHarness, ticks: usize) -> Vec<Option<LiveRoomInstance>> {
+    use ambition_platformer2d::vfx::vfx::VfxMessage;
+    let mut rooms = Vec::new();
+    for _ in 0..ticks {
+        sim.step(base());
+        let world = sim.world_mut();
+        let barked: Vec<String> = world
+            .get_resource_mut::<bevy::prelude::Messages<VfxMessage>>()
+            .map(|mut messages| {
+                messages
+                    .drain()
+                    .filter_map(|message| match message {
+                        VfxMessage::BarkGesture { feature_id, .. } => Some(feature_id),
+                        _ => None,
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+        for feature_id in barked {
+            let room = world
+                .query::<(&ambition_platformer2d::combat::components::FeatureId, Option<&InRoomInstance>)>()
+                .iter(world)
+                .find(|(feature, _)| feature.0 == feature_id)
+                .and_then(|(_, room)| room.map(|room| room.0));
+            rooms.push(room);
+        }
+    }
+    rooms
+}
+
+/// OW1 cut 7m: an NPC barks at the cadence of its own live room. Bob holds
+/// the hub (#0); Alice enters the Hall of Characters (#1), a gallery room,
+/// where the pedestals bark from their `Hall` pool, first at 28 s or later.
+/// The idle cadence barks first at 20 s or earlier. When the ticker read the
+/// sole live room's spec, it had none with two rooms live, so every NPC
+/// barked at the idle cadence and the hall spoke before 24 s.
+/// The control: the hall does speak, within 60 s.
+#[test]
+fn a_gallery_pedestal_barks_at_its_own_rooms_cadence_beside_another_live_room() {
+    let (mut sim, first) = alice_leaves_bob_in(
+        HUB,
+        "hall_of_characters",
+        Some(ambition_platformer2d::characters::control::PlayerSlot(1)),
+        walk_through_the_door_to,
+    );
+    let second = first.next();
+    assert_eq!(
+        where_they_are(&mut sim),
+        (Some(second), Some(Some(first))),
+        "precondition: Alice is not in the hall (#1) with Bob in the hub (#0)"
+    );
+    // 30 ticks have passed since the crossing, so this ends 24 s after it.
+    let early = rooms_that_barked(&mut sim, 24 * 60 - 30);
+    let early_in_the_hall = early.iter().filter(|room| **room == Some(second)).count();
+    let later = rooms_that_barked(&mut sim, 36 * 60);
+    let later_in_the_hall = later.iter().filter(|room| **room == Some(second)).count();
+    assert_eq!(
+        (early_in_the_hall, later_in_the_hall > 0),
+        (0, true),
+        "(hall barks in the first 24 s, any hall bark from 24 s to 60 s): the hall did not bark at the gallery cadence ({} early barks, rooms {early:?})",
+        early.len()
+    );
+}

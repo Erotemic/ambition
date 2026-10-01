@@ -2477,6 +2477,18 @@ fn build_enemy_brain_snapshot(
 /// Per-NPC ambient-bark timing (decremented by sim dt; deterministic jitter).
 #[derive(Default)]
 pub struct NpcIdleBarkState {
+    rooms: std::collections::HashMap<
+        Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+        RoomBarks,
+    >,
+}
+
+/// The bark clocks of one live room, by NPC id. Keyed by room first because
+/// two live rooms can be instances of one room, and they hold the same
+/// authored ids: by id alone, one instance's bark reset the other's clock.
+/// The id is looked up by `&str`, so a tick allocates nothing.
+#[derive(Default)]
+struct RoomBarks {
     timers: std::collections::HashMap<String, f32>,
     rotations: std::collections::HashMap<String, u32>,
 }
@@ -2503,10 +2515,15 @@ fn npc_idle_bark_jitter(id: &str, counter: u32, base_s: f32, span_ms: u32) -> f3
 /// ~6–10s, so it feels alive between conversations. Skips hostile NPCs and any
 /// still showing a hit-flash bubble (so it never talks over a hit bark). The
 /// stochastic parrot is the first user; any NPC gains barks by adding a pool.
+///
+/// ⭐ EACH NPC BARKS FROM THE POOL OF ITS OWN LIVE ROOM (OW1 cut 7m). The room
+/// was the sole live room's spec, so while two rooms were live it was `None`,
+/// and the pedestals of a gallery room barked the `Idle` pool.
 pub fn tick_npc_idle_barks(
     world_time: Res<WorldTime>,
     npcs: Query<
         (
+            Entity,
             &ambition_platformer2d_core::BodyKinematics,
             &ActorIdentity,
             &ambition_characters::actor::BodyCombat,
@@ -2518,7 +2535,8 @@ pub fn tick_npc_idle_barks(
         With<FeatureSimEntity>,
     >,
     mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
-    room_set: Option<ambition_platformer2d_world::rooms::SoleLiveRoomSpec>,
+    // Optional so narrow fixtures without a room set still bark.
+    room_set: Option<ambition_platformer2d_world::rooms::LiveRoomSpecs>,
     // App-local authored voice. Required so a mis-composed production App
     // cannot silently erase provider-authored dialogue.
     character_catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>,
@@ -2533,28 +2551,33 @@ pub fn tick_npc_idle_barks(
     // bark pool (the fun gallery lines); everywhere else NPCs mutter their
     // `Idle` pool. Same ambient ticker, different occasion — keyed off the
     // engine-generic `RoomMetadata::gallery` flag, not a content room id (C1).
-    let is_gallery = room_set
-        .as_ref()
-        .map(|rs| rs.spec().metadata.gallery)
-        .unwrap_or(false);
-    let situation = if is_gallery {
-        ambition_characters::actor::character_catalog::BarkSituation::Hall
-    } else {
-        ambition_characters::actor::character_catalog::BarkSituation::Idle
+    let occasion = |entity: Entity| {
+        let is_gallery = room_set
+            .as_ref()
+            .and_then(|rooms| {
+                let definition = rooms.definition_of(entity)?;
+                Some(rooms.rooms().spec(definition).metadata.gallery)
+            })
+            .unwrap_or(false);
+        // Bark cadence per occasion. The Hall packs ~100 pedestals into one
+        // room, so it barks far less often than a lone ambient NPC to keep the
+        // gallery from becoming a wall of speech bubbles. (base seconds,
+        // jitter window in ms.)
+        if is_gallery {
+            (ambition_characters::actor::character_catalog::BarkSituation::Hall, 28.0, 24_000)
+        } else {
+            (ambition_characters::actor::character_catalog::BarkSituation::Idle, 12.0, 8_000)
+        }
     };
-    // Bark cadence per occasion. The Hall packs ~100 pedestals into one room, so
-    // it barks far less often than a lone ambient NPC to keep the gallery from
-    // becoming a wall of speech bubbles. (base seconds, jitter window in ms.)
-    let (bark_base_s, bark_span_ms) = match situation {
-        ambition_characters::actor::character_catalog::BarkSituation::Hall => (28.0, 24_000),
-        _ => (12.0, 8_000),
-    };
-    for (kin, identity, combat, interaction, disposition, health, feature_id) in &npcs {
+    for (entity, kin, identity, combat, interaction, disposition, health, feature_id) in &npcs {
         // Structural tangibility gate: a dead body does not
         // present — an intangible corpse says nothing, ambient or otherwise.
         if disposition.is_hostile() || combat.recently_struck() || !health.alive() {
             continue;
         }
+        let (situation, bark_base_s, bark_span_ms) = occasion(entity);
+        let room = room_set.as_ref().and_then(|rooms| rooms.live().of(entity));
+        let RoomBarks { timers, rotations } = state.rooms.entry(room).or_default();
         // ⛔⛔ THE TIMER DECIDES FIRST, AND IT USED TO DECIDE LAST. Resolving the
         // line is a catalog join per NPC, and the entry API took a `String`
         // CLONE of the id just to read a float — both paid every tick, for every
@@ -2569,18 +2592,18 @@ pub fn tick_npc_idle_barks(
         // ⚠ FIRST SIGHTING STILL COSTS ONE JOIN, deliberately: an NPC with no
         // line never got a timer before, and giving every NPC one would grow
         // this map with entries that can never fire.
-        let Some(timer) = state.timers.get_mut(&identity.id) else {
+        let Some(timer) = timers.get_mut(&identity.id) else {
             if super::super::npcs::npc_ambient_bark_line(
                 catalog,
                 &interaction.interactable,
                 situation,
-                *state.rotations.get(&identity.id).unwrap_or(&0),
+                *rotations.get(&identity.id).unwrap_or(&0),
             )
             .is_none()
             {
                 continue;
             }
-            state.timers.insert(
+            timers.insert(
                 identity.id.clone(),
                 npc_idle_bark_jitter(&identity.id, 0, bark_base_s, bark_span_ms) - dt,
             );
@@ -2590,7 +2613,7 @@ pub fn tick_npc_idle_barks(
         if *timer > 0.0 {
             continue;
         }
-        let rotation = *state.rotations.get(&identity.id).unwrap_or(&0);
+        let rotation = *rotations.get(&identity.id).unwrap_or(&0);
         let Some(line) = super::super::npcs::npc_ambient_bark_line(
             catalog,
             &interaction.interactable,
@@ -2609,8 +2632,8 @@ pub fn tick_npc_idle_barks(
             seconds: 0.48,
         });
         let next = rotation.wrapping_add(1);
-        state.rotations.insert(identity.id.clone(), next);
-        state.timers.insert(
+        rotations.insert(identity.id.clone(), next);
+        timers.insert(
             identity.id.clone(),
             npc_idle_bark_jitter(&identity.id, next, bark_base_s, bark_span_ms),
         );

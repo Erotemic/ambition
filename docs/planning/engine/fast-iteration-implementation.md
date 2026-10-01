@@ -490,8 +490,12 @@ it through `ambition_platformer2d_runtime::publish_session_content`, which is
 now the one road by which a running session changes generation in place (the
 LDtk world reload publishes through it too, and only reads the active content). A reload of the
 same bytes keeps the generation. The local rollback baseline, stopped at
-`Admit`, starts again in `Update` against the new identity (ordering reasoned
-from the set chain, not measured under local GGRS). The live rooms are not
+`Admit`, starts again in `Update` against the new identity — MEASURED under
+the shipped ownership mode (a timeline the local maintainer owns):
+`a_module_reload_rebases_the_local_timeline_onto_the_new_identity`; poison "re-mint one
+frame late" leaves the restarted timeline bound to the old identity and the
+next frame reports it `Unhealthy` ("prepared content changed while the GGRS
+session was active"). The live rooms are not
 built again; a room built after the reload is stamped with the new content.
 A session whose timeline another owner holds refuses the reload, so a remote
 session keeps its generation. Witness:

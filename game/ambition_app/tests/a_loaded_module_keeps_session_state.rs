@@ -341,3 +341,66 @@ fn session_generation(sim: &mut Platformer2dSimHarness) -> SessionGeneration {
         }),
     }
 }
+
+/// ⭐ D6 UNDER THE SHIPPED OWNERSHIP MODE: a module reload under a local
+/// timeline this host owns stops the timeline at `Admit`, re-mints the
+/// session's content at `Publish`, and the timeline the maintainer starts
+/// again binds the NEW identity. Until this arm the order was reasoned from
+/// the set chain only.
+#[test]
+fn a_module_reload_rebases_the_local_timeline_onto_the_new_identity() {
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let first = ambition_platformer2d::extension::build_module_crate(&root, "ambition_content_modules")
+        .expect("the module crate builds for wasm32-unknown-unknown");
+    let second = ambition_platformer2d::extension::build_module_crate(&root, "ambition_extension_fixture_modules")
+        .expect("the fixture crate builds for wasm32-unknown-unknown");
+    let dir = root.join(format!("target/extension-modules/hot_reload_local_{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let file = dir.join("game_modules.wasm");
+    std::fs::copy(&first, &file).unwrap();
+    let mut sim = Platformer2dSimHarness::new_with_options(
+        Platformer2dSimHarnessOptions::default()
+            .with_timestep(TimestepMode::fixed_60hz())
+            .with_extension_module_files(vec![file.clone()])
+            .with_sync_test_rollback_settings(4, 10),
+    )
+    .expect("the sandbox builds with the loaded file under a sync-test session");
+    crate::common::hand_the_timeline_to_the_local_maintainer(&mut sim);
+    for _ in 0..40 {
+        sim.step(AgentAction::default());
+    }
+    let boundary = |sim: &Platformer2dSimHarness| {
+        format!("{:?}", ambition_platformer2d::rollback::mechanical_mutation_boundary(sim.world()))
+    };
+    let bound = |sim: &Platformer2dSimHarness| {
+        sim.world()
+            .get_resource::<ambition_platformer2d::runtime::rollback::ActiveRollbackAuthority>()
+            .and_then(|authority| authority.contract().content)
+    };
+    assert_eq!(boundary(&sim), "LocallyRebasable", "the premise: this host owns the timeline");
+    let before = session_generation(&mut sim);
+    assert_eq!(bound(&sim), Some(before.identity), "the premise: the timeline binds the session's identity");
+
+    std::thread::sleep(std::time::Duration::from_millis(20));
+    std::fs::copy(&second, &file).unwrap();
+    let published = |sim: &Platformer2dSimHarness| {
+        sim.world()
+            .resource::<ambition_platformer2d::extension::reload::StagedModuleReplacement>()
+            .published()
+    };
+    let mut frames = 0;
+    while published(&sim) == 0 {
+        sim.step(AgentAction::default());
+        frames += 1;
+        assert!(frames < 120, "the replaced file was not published within 120 frames");
+    }
+    for _ in 0..10 {
+        sim.step(AgentAction::default());
+    }
+    let after = session_generation(&mut sim);
+    assert_ne!(after.identity, before.identity, "the premise: the reload re-minted the content");
+    assert_eq!(boundary(&sim), "LocallyRebasable", "the maintainer started the timeline again");
+    assert_eq!(bound(&sim), Some(after.identity), "the new timeline binds the new identity");
+    sim.rollback_health().expect("the rebased timeline is healthy");
+    let _ = std::fs::remove_dir_all(&dir);
+}

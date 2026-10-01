@@ -57,11 +57,12 @@ on `SessionCast` too, a cast published mid-timeline no longer desyncs, and the
 arm is now `publishing_a_cast_mid_timeline_leaves_history_resimulating_the_same`
 (an assertion). Poisons, MEASURED: the projection back on the App cast, or the
 worn re-derivation back on it, each bring the mismatch back.
-The same pattern elsewhere is NOT classified: a grep for `.iter(world).next()`
-and two spellings of it in `game/*/tests`, `crates/*/tests` and `crates/*/src`
-counts 75 sites (2026-10-01). Most read a population filtered to one entity,
-where order cannot matter. A site whose population has more than one member
-picks its subject by archetype order.
+The same pattern elsewhere is NOT classified.
+`scripts/measure_first_match_subjects.py` (2026-10-01) counts 156 first-match
+sites under `game/` and `crates/`, 75 with no query filter in the six lines
+above. Those are candidates, and the window is a heuristic. Many read a
+population of one ("one enemy body") or only ask `is_some()`. A site whose
+population has more than one member picks its subject by archetype order.
 
 ### SYNC-POINT-SENSITIVE-RESIM — a command sync point moves the death-reset replay
 

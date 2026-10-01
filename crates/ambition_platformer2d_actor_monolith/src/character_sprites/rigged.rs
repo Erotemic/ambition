@@ -1,9 +1,9 @@
-//! Attach a ready sheet's transform flipbook, for the rigged-sprite trial.
+//! Attach a ready sheet's transform flipbook, for the rigged sprites.
 //!
 //! A sheet that publishes a part flipbook (`<target>_parts.ron`, see
 //! `ambition_sprite_sheet::character::rigged`) gets its flipbook pages loaded
 //! beside its sheet pages, at the tier the sheet resolved, when the
-//! composition admits the trial ([`RiggedSpriteAdmission`]). The pages ride on
+//! composition admits the flipbooks ([`RiggedSpriteAdmission`], on by default). The pages ride on
 //! the sheet's realization, so the demand, quality and retirement roads that
 //! own the sheet own them too: a sheet republished at another tier starts
 //! without pages and is given the new tier's.
@@ -14,9 +14,9 @@
 //! that have no pixels yet.
 //!
 //! This is a system of its own, not part of the materializer, so that the
-//! shipped load road stays unchanged while the trial is a trial.
+//! baked load road stays the same with the switch off.
 //!
-//! ⛔ With the trial off this does nothing, and no flipbook page is loaded.
+//! ⛔ With the switch off this does nothing, and no flipbook page is loaded.
 
 use std::collections::HashSet;
 use std::sync::Arc;

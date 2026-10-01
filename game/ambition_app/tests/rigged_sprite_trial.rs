@@ -1,5 +1,6 @@
-//! Rig packet 6: with the rigged-sprite trial admitted, a pirate is drawn from
-//! its transform flipbook; without it, nothing changes.
+//! Rig packet 6: with the rigged sprites admitted, a pirate is drawn from its
+//! transform flipbook; with the switch off, nothing changes. Since 2026-10-01
+//! the shipped game admits them when it inserts nothing (Jon's go-ahead).
 //!
 //! ⛔ IN THE SHIPPED COMPOSITION, for the reason `admiral_gun_sword` gives: the
 //! demo shell's catalog cannot seat `npc_pirate_admiral`.
@@ -17,14 +18,17 @@ use ambition_platformer2d::render::rendering::actors::rigged::{
 use ambition_platformer2d::sprite_sheet::character::rigged::RiggedSpriteAdmission;
 use bevy::prelude::*;
 
-/// Seat two admirals in the shipped game and let the match settle.
-fn seated_admirals(admit: bool) -> App {
+/// Seat two admirals in the shipped game and let the match settle. `admit`
+/// inserts that switch; `None` inserts nothing, as the shipped game does.
+fn seated_admirals(admit: Option<bool>) -> App {
     use ambition_platformer2d::actor::MatchSeat;
     let mut app = ambition_app::app::build_visible_app_with(
         ambition_app::app::VisibleRenderMode::NoWindow,
         true,
         |app| {
-            app.insert_resource(RiggedSpriteAdmission { admit });
+            if let Some(admit) = admit {
+                app.insert_resource(RiggedSpriteAdmission { admit });
+            }
         },
     );
     for _ in 0..30 {
@@ -54,7 +58,7 @@ fn seated_admirals(admit: bool) -> App {
 
 #[test]
 fn an_admitted_admiral_is_drawn_from_its_parts() {
-    let mut app = seated_admirals(true);
+    let mut app = seated_admirals(Some(true));
     let presentations: Vec<Entity> = app
         .world()
         .resource::<RiggedPresentations>()
@@ -106,11 +110,30 @@ fn an_admitted_admiral_is_drawn_from_its_parts() {
 }
 
 #[test]
-fn the_shipped_game_draws_no_parts() {
-    let mut app = seated_admirals(false);
+fn with_the_switch_off_no_part_is_drawn() {
+    let mut app = seated_admirals(Some(false));
     assert!(app.world().resource::<RiggedPresentations>().0.is_empty());
     let mut slots = app.world_mut().query::<&RiggedPartSlot>();
     assert_eq!(slots.iter(app.world()).count(), 0);
+}
+
+/// The shipped game, which inserts no switch, draws each admiral from its
+/// parts (the go-ahead of 2026-10-01).
+#[test]
+fn the_shipped_game_draws_the_admirals_from_their_parts() {
+    assert!(
+        !std::env::var(ambition_platformer2d::sprite_sheet::character::rigged::RIGGED_SPRITE_ADMISSION_ENV)
+            .is_ok_and(|value| !RiggedSpriteAdmission::from_setting(Some(&value)).admit),
+        "precondition: the environment does not turn the rigged sprites off"
+    );
+    let mut app = seated_admirals(None);
+    assert_eq!(
+        app.world().resource::<RiggedPresentations>().0.len(),
+        2,
+        "each seated admiral has one rigged presentation"
+    );
+    let mut slots = app.world_mut().query::<&RiggedPartSlot>();
+    assert!(slots.iter(app.world()).count() > 0, "the admirals' part slots exist");
 }
 
 /// Rig packet 7: a second local view draws the same parts. It does not make
@@ -138,7 +161,7 @@ fn a_second_view_draws_the_same_parts_and_makes_no_more() {
     use ambition_platformer2d::sim_view::{local_view_facts, LocalView, LocalViewId, PresentsView, ViewPlacement};
     use bevy::camera::visibility::RenderLayers;
 
-    let mut app = seated_admirals(true);
+    let mut app = seated_admirals(Some(true));
     // The slot entities themselves, not a count: a count cannot see a slot
     // despawned and another spawned.
     let census = |app: &mut App| {

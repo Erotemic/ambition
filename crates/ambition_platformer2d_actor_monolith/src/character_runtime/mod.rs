@@ -916,8 +916,8 @@ pub struct CharacterRuntimePlugin;
 impl Plugin for CharacterRuntimePlugin {
     fn build(&self, app: &mut App) {
         let sim = app.sim_schedule();
-        // The rigged-sprite trial switch: the composition's answer when it
-        // inserted one, else the environment's. Off in every shipped game.
+        // The rigged-sprite switch: the composition's answer when it inserted
+        // one, else the environment's. On unless `AMBITION_RIGGED_SPRITES=0`.
         if !app
             .world()
             .contains_resource::<ambition_sprite_sheet::character::rigged::RiggedSpriteAdmission>()

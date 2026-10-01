@@ -358,6 +358,9 @@ pub struct FeatureHitCatalogs<'w> {
     /// legitimately has no prepared cast — the same shape the ambient ticker
     /// already uses.
     pub prepared: crate::session::mechanics::SessionCast<'w>,
+    /// The activated generation: its sheets and boss catalog outrank the App's,
+    /// as for every construction road (`GenerationMechanics`).
+    pub generation: Option<Res<'w, crate::session::mechanics::SessionMechanics>>,
 }
 
 /// Coins a defeated standard enemy drops. A flat amount — a *working* earn-side
@@ -805,7 +808,7 @@ pub fn apply_feature_hit_events(
                 &event,
                 catalog,
                 prepared,
-                &catalogs.sheets,
+                catalogs.generation.as_deref().map_or(&*catalogs.sheets, |generation| &generation.sheets),
                 actor_entity,
                 *disposition,
                 ruleset_owns_death,

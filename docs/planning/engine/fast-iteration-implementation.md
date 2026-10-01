@@ -152,6 +152,22 @@ rename, global serde redesign or compile-profile tuning.
 
 ## I2 - a loadable move artifact through existing preparation
 
+**2026-10-01: the boss, roster, item, encounter and fighter-ladder sources are
+read off disk too.** Before, only the move tables, the fighter facets and the
+music registry were; `boss_profiles.ron`, `boss_seeds.ron`,
+`boss_validator_bands.ron`, the nine `boss_encounters/*.ron`,
+`character_catalog.ron`, `items.ron`, `goblin_encounter.ron` and
+`fighter_brain_ladder.ron` were `include_str!`ed, so a boss tuning edit rebuilt
+`ambition_content` and relinked the game. Now they go through
+`pack::source_text` (embedded only under `static_content`: web, Android, a build
+without the source tree). MEASURED on the agent machine, warm, `cargo build -p
+ambition_app` after touching the file: `boss_profiles.ron` 0.44 s (nothing
+rebuilt), against 5.79 s for `sfx_registry.ron`, which stays embedded by its
+stated policy. A boss edit now costs a restart; it is not in the reload's
+participating families yet (`reload::participates`), so a running game refuses
+it. The sandbox Yarn dialogue (`dialogue/sandbox/*.yarn`, `yarn::yarn_sources`)
+followed the same day: a dialogue edit 0.43 s, nothing rebuilt.
+
 **Class:** DO. **Requires:** I1 for the lightweight Rust frontend; the data
 format/host side can be developed in parallel.
 Read `crates/ambition_content_pack/src/lib.rs`,
@@ -401,7 +417,7 @@ for; the choice is recorded below so M1 can overturn it with numbers.
 | Port codecs | `Port::{encode, decode}` on each port | the two port crates |
 | Host: loaded runner, output checked like native output, explicit replacement | `ambition_extension_host` (`DeclaredModule`, `ModuleBackend`, `Admitted::replaced`) | `a_loaded_module_replaces_a_native_one_only_when_it_says_so` |
 | WebAssembly backend: wasmi, `deterministic`, fuel, a new instance per call | `crates/ambition_extension_wasm` | refuses an importing module; a runaway entry runs out of fuel |
-| Hot reload in the SHIPPED composition, end to end: the game runs a loaded file, the file is replaced while it runs, the app polls it, proposes the reload through the mechanical-edit protocol, and publishes; a module the running game did not have takes over and counts the next presses | `ambition_platformer2d_runtime::extension_composition` (`load_developer_modules`, `propose_module_reload`, `publish_module_reload`) | `app_it::a_loaded_module_keeps_session_state::a_module_file_replaced_while_the_game_runs_takes_over` |
+| Hot reload in the SHIPPED composition: a changed file is polled, proposed through the mechanical-edit protocol, and published with no timeline (refused, staged and kept, under a sync-test session the harness owns) — `a_boss_special_runs_on_the_extension_host::a_module_file_that_changes_while_the_game_runs_is_reloaded`. And a reload that ADDS a module the running game did not have, with a schema the host never saw: it takes over and counts the next presses — `a_loaded_module_keeps_session_state::a_module_file_replaced_while_the_game_runs_takes_over` (2026-10-01; its commit message calls it the reload road's first app-level witness, which is wrong: the first is the one before it) | `ambition_platformer2d_runtime::extension_composition` (`load_developer_modules`, `propose_module_reload`, `publish_module_reload`) | the two tests named |
 | The developer road | `AMBITION_EXTENSION_MODULES` or `ExtensionModuleFiles`, runtime feature `wasm_modules` (the app enables it); `scripts/build_extension_modules.sh` | `app_it::a_boss_special_runs_on_the_extension_host::a_module_rebuilt_as_wasm_replaces_the_linked_one_in_the_same_game`; content `wasm_parity` (floats to 1e-3: the guest's `sin`/`atan2` differ in the last bit, measured) |
 
 **Measured (M0, this machine, 2026-10-01):** an edit to the echo fan to a

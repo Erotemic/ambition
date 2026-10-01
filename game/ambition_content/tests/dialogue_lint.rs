@@ -631,7 +631,7 @@ pub const SYNTHETIC_BOSS: &str = "yarn_alias_test_boss";
 /// cannot be cited as coverage of a line an author wrote.
 #[test]
 fn the_boss_fixture_id_is_not_a_name_any_shipped_dialogue_uses() {
-    let spoken: Vec<&str> = ambition_content::dialogue::yarn::YARN_SOURCES
+    let spoken: Vec<&str> = ambition_content::dialogue::yarn::yarn_sources()
         .iter()
         .filter(|(_, text)| text.contains(SYNTHETIC_BOSS))
         .map(|(name, _)| *name)
@@ -643,7 +643,7 @@ fn the_boss_fixture_id_is_not_a_name_any_shipped_dialogue_uses() {
          the fixture, not the content."
     );
     assert!(
-        ambition_content::dialogue::yarn::YARN_SOURCES
+        ambition_content::dialogue::yarn::yarn_sources()
             .iter()
             .any(|(_, text)| text.contains("boss_cleared(")),
         "no shipped .yarn calls `boss_cleared` at all, so the assertion above is \

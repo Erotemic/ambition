@@ -207,7 +207,7 @@ fn the_full_hall_validates_with_all_three_provider_catalogs() {
     register_mary_o(&mut app);
     let catalog = app.world().resource::<CharacterCatalog>();
 
-    let yarn_titles: std::collections::BTreeSet<&str> = ambition_content::dialogue::YARN_SOURCES
+    let yarn_titles: std::collections::BTreeSet<&str> = ambition_content::dialogue::yarn_sources()
         .iter()
         .flat_map(|(_, source)| source.lines())
         .filter_map(|line| line.strip_prefix("title:"))

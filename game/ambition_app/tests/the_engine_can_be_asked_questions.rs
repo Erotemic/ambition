@@ -710,7 +710,7 @@ fn every_condition_an_authored_yarn_file_asks_is_published_by_the_engine() {
     // `yarn_spinner_plugin` registers and what the compile test compiles, so a
     // file this test reads is a file the game loads. A `.yarn` on disk that is
     // not in the manifest is not content, and should not fail a content guard.
-    for (name, text) in ambition_content::dialogue::yarn::YARN_SOURCES {
+    for (name, text) in ambition_content::dialogue::yarn::yarn_sources() {
         // ⭐⭐ REGIONS FIRST, CALLS SECOND. `executable_regions` is the one
         // definition of what the interpreter evaluates; a `condition(` outside
         // one is a character SAYING the words, not the engine being asked.
@@ -762,7 +762,7 @@ fn every_condition_an_authored_yarn_file_asks_is_published_by_the_engine() {
          file(s) — the corpus this test walks has gone empty or the call spelling \\
          changed, and an empty walk passes every assertion below. Found: {asked:#?}",
         asked.len(),
-        ambition_content::dialogue::yarn::YARN_SOURCES.len(),
+        ambition_content::dialogue::yarn::yarn_sources().len(),
     );
     assert!(
         unpublished.is_empty() && wrong_arity.is_empty(),
@@ -1041,7 +1041,7 @@ fn every_authored_boss_cleared_call_names_a_real_boss_placement() {
 
     let mut unresolved: Vec<String> = Vec::new();
     let mut asked = 0usize;
-    for (name, text) in ambition_content::dialogue::yarn::YARN_SOURCES {
+    for (name, text) in ambition_content::dialogue::yarn::yarn_sources() {
         for (line, region) in ambition_content::dialogue::yarn::executable_regions(text) {
             for rest in region.split("boss_cleared(").skip(1) {
                 let Some(inner) = rest.trim_start().strip_prefix('"') else {

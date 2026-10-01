@@ -23,7 +23,7 @@ use ambition_boss_encounter::pattern::seeds::SeedLibrary;
 use ambition_characters::brain::boss_pattern::{
     BossAttackPattern, BossAttackProfile, BossPatternStep,
 };
-use ambition_content::bosses::{seed_library, BOSS_PROFILES_RON};
+use ambition_content::bosses::{boss_profiles_ron, seed_library};
 use ambition_boss_encounter::pattern::profile::BossBehaviorProfile;
 
 /// One authored appearance of an attack: its telegraph and active durations.
@@ -43,7 +43,7 @@ struct Occurrence {
 /// occurrences; a band that ignored the `Cycle` bosses would be a lie about half
 /// the roster.
 fn occurrences_by_move_key() -> BTreeMap<String, Vec<Occurrence>> {
-    let profiles: BTreeMap<String, BossBehaviorProfile> = ron::from_str(BOSS_PROFILES_RON)
+    let profiles: BTreeMap<String, BossBehaviorProfile> = ron::from_str(&boss_profiles_ron())
         .expect("boss_profiles.ron parses as the shipped BossBehaviorProfile schema");
 
     let mut out: BTreeMap<String, Vec<Occurrence>> = BTreeMap::new();

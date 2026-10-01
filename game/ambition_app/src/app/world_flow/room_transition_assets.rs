@@ -1704,7 +1704,7 @@ mod tests {
         let catalog =
             ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog::from_data(
                 ambition_platformer2d::characters::actor::character_catalog::parse_catalog(
-                    ambition_content::character_catalog::CHARACTER_CATALOG_RON,
+                    &ambition_content::character_catalog::character_catalog_ron(),
                 ),
             );
         let mut roster = ambition_platformer2d::actor::MatchParticipantRoster::default();

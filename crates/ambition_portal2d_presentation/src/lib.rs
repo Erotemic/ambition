@@ -171,6 +171,23 @@ pub struct PortalAffordanceBody;
 /// `PortalBodyView::size` is the collision box, and a sprite is often larger.
 /// Collision bounds would miss the overhanging part of the sprite that draws
 /// over the window.
+/// The tint a portal piece draws a drawable with, in place of its `Sprite`'s
+/// color.
+///
+/// A drawable that paints itself another way keeps its `Sprite` as its portal
+/// look but draws that sprite transparent: a rigged body draws its parts and
+/// keeps its baked frame at zero alpha. A piece built from that sprite would be
+/// invisible. The drawable states here the tint its pieces are drawn with.
+#[derive(Component, Clone, Copy, Debug, PartialEq)]
+pub struct PortalPieceTint(pub Color);
+
+/// A piece's tint: the drawable's stated [`PortalPieceTint`], else its sprite's
+/// color.
+pub fn piece_tint(sprite: &Sprite, stated: Option<&PortalPieceTint>) -> Vec4 {
+    let c = stated.map_or(sprite.color, |stated| stated.0).to_linear();
+    Vec4::new(c.red, c.green, c.blue, c.alpha)
+}
+
 #[derive(Component, Clone, Copy, Debug)]
 pub struct PortalCompositingCandidate {
     /// World-space centre of the drawn sprite (engine coordinates).

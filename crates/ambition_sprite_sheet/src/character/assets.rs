@@ -109,8 +109,6 @@ impl CharacterSpriteAssets {
             .insert(display_name.to_string(), character_id.to_string());
     }
 
-    /// Publish a realization under every token declared for `character_id`,
-    /// plus the id itself. The declarations stay: see the type docs.
     /// Every ready sheet realization (once per declared token that holds it).
     pub fn ready_sheets(&self) -> impl Iterator<Item = &CharacterSpriteAsset> {
         self.sheets.values()
@@ -133,6 +131,8 @@ impl CharacterSpriteAssets {
         }
     }
 
+    /// Publish a realization under every token declared for `character_id`,
+    /// plus the id itself. The declarations stay: see the type docs.
     pub fn publish(&mut self, character_id: &str, asset: CharacterSpriteAsset) {
         let tokens: Vec<String> = self
             .declared

@@ -10,6 +10,10 @@ use super::*;
 const RENDER: Vec2 = Vec2::new(103.0, 114.0);
 
 fn raider(rigged: bool) -> CharacterSpriteAsset {
+    raider_with(rigged.then(|| RiggedSpriteAsset::baked("pirate_raider").expect("a published flipbook")))
+}
+
+fn raider_with(flipbook: Option<RiggedSpriteAsset>) -> CharacterSpriteAsset {
     let spec = try_load_spec_for_character_id("pirate_raider").expect("a baked pirate_raider sheet");
     CharacterSpriteAsset {
         texture: Handle::default(),
@@ -18,8 +22,8 @@ fn raider(rigged: bool) -> CharacterSpriteAsset {
         pages: Vec::new(),
         requested_tier: TextureResolutionScale::Full,
         resolved_tier: TextureResolutionScale::Full,
-        rigged: rigged.then(|| RiggedSpritePages {
-            flipbook: Arc::new(RiggedSpriteAsset::baked("pirate_raider").expect("a published flipbook")),
+        rigged: flipbook.map(|flipbook| RiggedSpritePages {
+            flipbook: Arc::new(flipbook),
             pages: vec![Handle::default()],
         }),
     }
@@ -28,15 +32,44 @@ fn raider(rigged: bool) -> CharacterSpriteAsset {
 /// An app with the two systems, the raider's sheet in the table, and one root
 /// drawn from it with its anchor on the sheet's feet.
 fn app(admit: bool) -> (App, Entity) {
+    app_with(admit, raider(true))
+}
+
+/// A page whose image is present: ready to draw.
+fn ready_page(app: &mut App) -> Handle<Image> {
+    let page = pending_page(app);
+    app.world_mut()
+        .resource_mut::<Assets<Image>>()
+        .insert(page.id(), Image::default())
+        .unwrap();
+    page
+}
+
+/// A page whose image is not there yet, as while it loads.
+fn pending_page(app: &mut App) -> Handle<Image> {
+    app.world_mut().resource_mut::<Assets<Image>>().reserve_handle()
+}
+
+/// `sheet` with its part pages replaced by pages from `page`.
+fn with_pages(mut sheet: CharacterSpriteAsset, mut page: impl FnMut() -> Handle<Image>) -> CharacterSpriteAsset {
+    if let Some(rigged) = sheet.rigged.as_mut() {
+        rigged.pages = rigged.pages.iter().map(|_| page()).collect();
+    }
+    sheet
+}
+
+fn app_with(admit: bool, sheet: CharacterSpriteAsset) -> (App, Entity) {
     let mut app = App::new();
+    app.init_resource::<Assets<Image>>();
+    let sheet = with_pages(sheet, || ready_page(&mut app));
     app.init_resource::<RiggedPresentations>()
         .insert_resource(RiggedSpriteAdmission { admit })
         .add_systems(Update, (bind_rigged_presentations, drive_rigged_presentations).chain());
     let mut assets = GameAssets::default();
     assets.characters.declare("raider", "Raider");
-    assets.characters.publish("raider", raider(true));
+    assets.characters.publish("raider", sheet.clone());
     app.insert_resource(assets);
-    let asset = raider(true);
+    let asset = sheet;
     let feet = Vec2::new(asset.spec.feet_anchor_x, asset.spec.feet_anchor_y);
     let (sprite, anchor, animator) = build_character_presentation_with_render_size(&asset, RENDER, Anchor(feet));
     let root = app
@@ -112,10 +145,13 @@ fn a_rigged_root_draws_its_frame_from_parts_in_reusable_slots() {
     assert_eq!(app.world().get::<Sprite>(root).unwrap().color.alpha(), 0.0, "the root still draws itself");
 
     // Another frame reuses the slots: nothing is spawned.
-    let entities = app.world().entities().len();
+    let entities = app.world().entities().count_spawned();
+    let slot_ids = app.world().get::<RiggedPresentation>(owner).unwrap().slots.clone();
     app.world_mut().get_mut::<CharacterAnimator>(root).unwrap().frame = 3;
     app.update();
-    assert_eq!(app.world().entities().len(), entities);
+    assert_eq!(app.world().entities().count_spawned(), entities);
+    assert_eq!(self::owner(&app, root), owner, "the frame change rebound the root");
+    assert_eq!(app.world().get::<RiggedPresentation>(owner).unwrap().slots, slot_ids);
     let expected = frame_draws(&app, root);
     for ((at, _), want) in slots(&app, owner).iter().zip(&expected) {
         assert!(close(*at, *want), "frame 3: a part at {at:?}, its draw at {want:?}");
@@ -153,4 +189,177 @@ fn a_root_whose_sheet_loses_its_flipbook_draws_itself_again() {
     let mut parts = app.world_mut().query::<&RiggedPartSlot>();
     assert_eq!(parts.iter(app.world()).count(), 0, "a slot outlived its owner");
     assert_eq!(app.world().get::<Sprite>(root).unwrap().color.alpha(), 1.0);
+}
+
+#[test]
+fn the_parts_are_drawn_by_each_camera_that_draws_their_root() {
+    let (mut app, root) = app(true);
+    app.update();
+    let owner = owner(&app, root);
+    let layers = |app: &App| -> Vec<Option<RenderLayers>> {
+        let presentation = app.world().get::<RiggedPresentation>(owner).unwrap();
+        presentation
+            .slots
+            .iter()
+            .filter(|slot| *app.world().get::<Visibility>(**slot).unwrap() != Visibility::Hidden)
+            .map(|slot| app.world().get::<RenderLayers>(*slot).cloned())
+            .collect()
+    };
+    assert!(layers(&app).iter().all(Option::is_none));
+
+    // A root on a pane's own layer: its parts go to that pane too.
+    let pane = RenderLayers::layer(0).with(5);
+    app.world_mut().entity_mut(root).insert(pane.clone());
+    app.update();
+    let drawn = layers(&app);
+    assert!(!drawn.is_empty());
+    assert!(drawn.iter().all(|layers| layers.as_ref() == Some(&pane)), "{drawn:?}");
+
+    app.world_mut().entity_mut(root).remove::<RenderLayers>();
+    app.update();
+    assert!(layers(&app).iter().all(Option::is_none));
+}
+
+/// The raider's published flipbook with `row` left to the baked sheet: its
+/// clip is taken out of `clips` and named in `baked_clips`, as a hybrid
+/// publish states it.
+fn hybrid_raider(row: &str) -> RiggedSpriteAsset {
+    let text = ambition_sprite_sheet::baked_part_flipbooks::baked_part_flipbook("pirate_raider").unwrap();
+    let key = format!("\"{row}\": (");
+    let start = text.find(&key).expect("the raider has the clip");
+    // The clip ends at the parenthesis that closes the one after its key.
+    let open = start + key.len() - 1;
+    let mut depth = 0;
+    let mut end = open;
+    for (offset, c) in text[open..].char_indices() {
+        match c {
+            '(' => depth += 1,
+            ')' => {
+                depth -= 1;
+                if depth == 0 {
+                    end = open + offset + 1;
+                    break;
+                }
+            }
+            _ => {}
+        }
+    }
+    let after = text[end..].strip_prefix(',').unwrap_or(&text[end..]);
+    let text = format!("{}{after}", &text[..start]);
+    let close = text.rfind(')').unwrap();
+    let text = format!("{}    baked_clips: [\"{row}\"],\n{}", &text[..close], &text[close..]);
+    let hybrid = RiggedSpriteAsset::from_published_ron(&text).expect("the hybrid parses");
+    let spec = try_load_spec_for_character_id("pirate_raider").unwrap();
+    hybrid.check_rows(spec.row_names()).expect("the hybrid states every row");
+    hybrid
+}
+
+/// Rig packet 9: one body moves between a part clip and a baked clip. The
+/// same root, animator and slots draw both, so nothing is spawned and the
+/// root does not move.
+#[test]
+fn a_hybrid_body_crosses_between_part_and_baked_clips_in_place() {
+    use ambition_sprite_sheet::character::rigged::ClipRealization;
+    use ambition_sprite_sheet::character::CharacterAnim;
+
+    let hybrid = hybrid_raider("slash");
+    assert_eq!(hybrid.realization("slash"), Some(ClipRealization::Baked));
+    assert_eq!(hybrid.realization("idle"), Some(ClipRealization::Parts));
+    let (mut app, root) = app_with(true, raider_with(Some(hybrid)));
+    app.update();
+    let owner = owner(&app, root);
+    let slot_ids = app.world().get::<RiggedPresentation>(owner).unwrap().slots.clone();
+    let placed = *app.world().get::<Transform>(root).unwrap();
+    let state = |app: &App| {
+        let parts = slots(app, owner).iter().filter(|(_, visible)| *visible).count();
+        (app.world().get::<Sprite>(root).unwrap().color.alpha(), parts)
+    };
+    let (alpha, parts) = state(&app);
+    assert_eq!(alpha, 0.0, "idle is a part clip: the root draws nothing");
+    assert!(parts > 0);
+
+    app.world_mut().get_mut::<CharacterAnimator>(root).unwrap().request(CharacterAnim::Slash);
+    app.update();
+    assert_eq!(state(&app), (1.0, 0), "slash is baked: the root draws, with no part");
+
+    app.world_mut().get_mut::<CharacterAnimator>(root).unwrap().request(CharacterAnim::Idle);
+    app.update();
+    let (alpha, parts) = state(&app);
+    assert_eq!((alpha, parts > 0), (0.0, true), "back to parts");
+    assert_eq!(self::owner(&app, root), owner);
+    assert_eq!(app.world().get::<RiggedPresentation>(owner).unwrap().slots, slot_ids);
+    assert_eq!(*app.world().get::<Transform>(root).unwrap(), placed);
+}
+
+/// The root draws its baked frame until every part page is ready, and the
+/// parts take over in one frame when they are.
+#[test]
+fn a_body_stays_baked_until_every_part_page_is_ready() {
+    let (mut app, root) = app_with(true, raider(false));
+    let pending: Vec<Handle<Image>> = (0..RiggedSpriteAsset::baked("pirate_raider").unwrap().pages.len())
+        .map(|_| pending_page(&mut app))
+        .collect();
+    let mut pages = pending.clone().into_iter();
+    let sheet = with_pages(raider(true), || pages.next().unwrap());
+    app.world_mut().resource_mut::<GameAssets>().characters.publish("raider", sheet);
+    for _ in 0..5 {
+        app.update();
+        assert!(app.world().resource::<RiggedPresentations>().0.is_empty(), "bound to pages still loading");
+        assert_eq!(app.world().get::<Sprite>(root).unwrap().color.alpha(), 1.0, "the baked root went transparent");
+    }
+
+    for page in &pending {
+        app.world_mut()
+            .resource_mut::<Assets<Image>>()
+            .insert(page.id(), Image::default())
+            .unwrap();
+    }
+    app.update();
+    let owner = owner(&app, root);
+    assert_eq!(app.world().get::<Sprite>(root).unwrap().color.alpha(), 0.0);
+    assert!(slots(&app, owner).iter().any(|(_, visible)| *visible), "no part drawn in the frame of the change");
+}
+
+/// A quality-tier change keeps drawing the parts of the old tier until every
+/// page of the new tier is ready, and then changes in one frame.
+#[test]
+fn a_tier_change_keeps_the_old_parts_until_the_new_pages_are_ready() {
+    let (mut app, root) = app(true);
+    app.update();
+    let full_owner = owner(&app, root);
+
+    let quarter = RiggedSpriteAsset::baked("pirate_raider")
+        .unwrap()
+        .for_tier(TextureResolutionScale::Quarter)
+        .expect("the raider publishes a quarter tier")
+        .expect("the quarter tier is the raider's");
+    let mut sheet = raider_with(Some(quarter));
+    sheet.requested_tier = TextureResolutionScale::Quarter;
+    sheet.resolved_tier = TextureResolutionScale::Quarter;
+    let pending: Vec<Handle<Image>> = sheet.rigged.as_ref().unwrap().pages.iter().map(|_| pending_page(&mut app)).collect();
+    let mut pages = pending.clone().into_iter();
+    let sheet = with_pages(sheet, || pages.next().unwrap());
+    app.world_mut().resource_mut::<GameAssets>().characters.publish("raider", sheet);
+    app.world_mut().get_mut::<BoundSpriteQuality>(root).unwrap().scale = TextureResolutionScale::Quarter;
+    for _ in 0..5 {
+        app.update();
+        assert_eq!(owner(&app, root), full_owner, "left the full tier's parts for pages still loading");
+        assert_eq!(app.world().get::<Sprite>(root).unwrap().color.alpha(), 0.0);
+        assert!(slots(&app, full_owner).iter().any(|(_, visible)| *visible));
+    }
+
+    for page in &pending {
+        app.world_mut()
+            .resource_mut::<Assets<Image>>()
+            .insert(page.id(), Image::default())
+            .unwrap();
+    }
+    app.update();
+    let quarter_owner = owner(&app, root);
+    assert_ne!(quarter_owner, full_owner);
+    assert!(app.world().get_entity(full_owner).is_err(), "the full tier's parts outlived the change");
+    let presentation = app.world().get::<RiggedPresentation>(quarter_owner).unwrap();
+    assert!(presentation.pages.flipbook.texel_scale < 1.0);
+    assert_eq!(app.world().get::<Sprite>(root).unwrap().color.alpha(), 0.0);
+    assert!(slots(&app, quarter_owner).iter().any(|(_, visible)| *visible), "no part drawn in the frame of the change");
 }

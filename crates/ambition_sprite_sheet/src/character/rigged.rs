@@ -11,11 +11,17 @@
 //! quality tier), and parsed here into a compact form. The atlas pages are
 //! images, loaded per quality tier through the sheet image funnel.
 //!
+//! A flipbook may realize only some rows: a hybrid. It states each row of its
+//! sheet as a part clip (`clips`) or as a baked clip (`baked_clips`), and the
+//! body draws a baked clip from its sheet. The choice is published with the
+//! clip, so no runtime rule picks it. A sheet row that the flipbook states as
+//! neither is refused ([`RiggedSpriteAsset::check_rows`]).
+//!
 //! Coordinates are the baked sheet's full-resolution frame pixels relative to
 //! its `feet_pixel`, +y down. A draw puts its part's pivot at `at`, turned by
 //! `rotation` (radians, clockwise) and scaled by `scale` in the part's axes.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use bevy::math::{URect, UVec2, Vec2};
 use serde::Deserialize;
@@ -84,6 +90,8 @@ pub struct RiggedSpriteAsset {
     pub feet_pixel: Vec2,
     pub parts: Vec<RigPart>,
     clips: BTreeMap<String, RigSpriteClip>,
+    /// The rows that this flipbook leaves to the baked sheet.
+    baked_clips: BTreeSet<String>,
     draws: Vec<PartDraw>,
     max_draws: usize,
 }
@@ -101,6 +109,22 @@ pub enum RiggedSpriteError {
         parts: usize,
         expected: usize,
     },
+    /// A row stated as a part clip and as a baked clip.
+    TwoRealizations(String),
+    /// A sheet row that the flipbook states as neither a part clip nor a baked
+    /// clip.
+    Unrealized(String),
+    /// A clip for a row that the sheet does not have.
+    UnknownRow(String),
+}
+
+/// How a body draws one row of its sheet.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ClipRealization {
+    /// From parts, with the flipbook's draws.
+    Parts,
+    /// From the baked sheet frame.
+    Baked,
 }
 
 impl std::fmt::Display for RiggedSpriteError {
@@ -120,6 +144,9 @@ impl std::fmt::Display for RiggedSpriteError {
                 f,
                 "has {parts} parts in its `{tier}` tier table and {expected} at full resolution"
             ),
+            Self::TwoRealizations(row) => write!(f, "states `{row}` as a part clip and as a baked clip"),
+            Self::Unrealized(row) => write!(f, "states the sheet row `{row}` as neither a part clip nor a baked clip"),
+            Self::UnknownRow(row) => write!(f, "has a clip `{row}`, which is not a row of its sheet"),
         }
     }
 }
@@ -137,6 +164,9 @@ struct Published {
     feet_pixel: (f32, f32),
     parts: Vec<PublishedPart>,
     clips: BTreeMap<String, PublishedClip>,
+    /// Absent in a flipbook that realizes every row from parts.
+    #[serde(default)]
+    baked_clips: Vec<String>,
 }
 
 fn full_resolution() -> f32 {
@@ -198,6 +228,10 @@ impl RiggedSpriteAsset {
                 })
             })
             .collect::<Result<Vec<_>, _>>()?;
+        let baked_clips: BTreeSet<String> = published.baked_clips.into_iter().collect();
+        if let Some(row) = baked_clips.iter().find(|row| published.clips.contains_key(*row)) {
+            return Err(RiggedSpriteError::TwoRealizations(row.clone()));
+        }
         let mut draws = Vec::new();
         let mut clips = BTreeMap::new();
         let mut max_draws = 0;
@@ -242,9 +276,40 @@ impl RiggedSpriteAsset {
             feet_pixel: Vec2::new(published.feet_pixel.0, published.feet_pixel.1),
             parts,
             clips,
+            baked_clips,
             draws,
             max_draws,
         })
+    }
+
+    /// Check that this flipbook states every row of its sheet, and only those:
+    /// each of `rows` is a part clip or a baked clip, and each clip is one of
+    /// `rows`.
+    pub fn check_rows<'a>(&self, rows: impl IntoIterator<Item = &'a str>) -> Result<(), RiggedSpriteError> {
+        let rows: BTreeSet<&str> = rows.into_iter().collect();
+        if let Some(row) = rows.iter().find(|row| self.realization(row).is_none()) {
+            return Err(RiggedSpriteError::Unrealized((*row).to_owned()));
+        }
+        let stated = self.clips.keys().chain(&self.baked_clips);
+        if let Some(row) = stated.into_iter().find(|row| !rows.contains(row.as_str())) {
+            return Err(RiggedSpriteError::UnknownRow(row.clone()));
+        }
+        Ok(())
+    }
+
+    /// How a body draws `row`, or `None` when the flipbook does not state it.
+    pub fn realization(&self, row: &str) -> Option<ClipRealization> {
+        if self.clips.contains_key(row) {
+            Some(ClipRealization::Parts)
+        } else if self.baked_clips.contains(row) {
+            Some(ClipRealization::Baked)
+        } else {
+            None
+        }
+    }
+
+    pub fn baked_clip_names(&self) -> impl Iterator<Item = &str> {
+        self.baked_clips.iter().map(String::as_str)
     }
 
     /// The flipbook sheet target `target` publishes, parsed, or `None` when
@@ -313,8 +378,9 @@ impl RiggedSpriteAsset {
         self.clips.keys().map(String::as_str)
     }
 
-    /// Frame `index` of `row`, in draw order. An index past the end holds the
-    /// last frame, as a one-shot row does.
+    /// Frame `index` of `row`, in draw order, or `None` when `row` is not a
+    /// part clip. An index past the end holds the last frame, as a one-shot row
+    /// does.
     pub fn frame(&self, row: &str, index: usize) -> Option<&[PartDraw]> {
         let clip = self.clips.get(row)?;
         let (start, len) = clip.frames[index.min(clip.frames.len() - 1)];

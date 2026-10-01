@@ -81,6 +81,7 @@ pub fn composite_far_side_bodies(
         // and lag behind a moving body.
         &Transform,
         Option<&ambition_portal2d::PortalTransit>,
+        Option<&crate::PortalPieceTint>,
     )>,
 ) {
     for entity in &stale {
@@ -109,7 +110,7 @@ pub fn composite_far_side_bodies(
         .get_or_insert_with(|| meshes.add(Rectangle::default()))
         .clone();
 
-    for (entity, candidate, sprite, declared, anchor, transform, transit) in &mut candidates {
+    for (entity, candidate, sprite, declared, anchor, transform, transit, stated_tint) in &mut candidates {
         let min = candidate.drawn_centre - candidate.drawn_half;
         let max = candidate.drawn_centre + candidate.drawn_half;
 
@@ -129,7 +130,7 @@ pub fn composite_far_side_bodies(
             give_back(&mut commands, entity, &hidden);
             continue;
         };
-        let Some(look) = piece_look(sprite, declared, anchor, &layouts, &images) else {
+        let Some(look) = piece_look(sprite, declared, anchor, stated_tint, &layouts, &images) else {
             // No loaded texture to rebuild from: leaving the whole sprite drawn
             // is the old bug, but blanking the body is a worse one.
             give_back(&mut commands, entity, &hidden);
@@ -206,6 +207,7 @@ fn piece_look(
     sprite: Option<&Sprite>,
     declared: Option<&DeclaredFrame>,
     anchor: Option<&Anchor>,
+    stated_tint: Option<&crate::PortalPieceTint>,
     layouts: &Assets<TextureAtlasLayout>,
     images: &Assets<Image>,
 ) -> Option<PieceLook> {
@@ -222,14 +224,13 @@ fn piece_look(
     }
     let sprite = sprite?;
     let basis = sprite_frame_basis(sprite, layouts, images)?;
-    let c = sprite.color.to_linear();
     Some(PieceLook {
         uv_rect: basis.uv_rect,
         size: basis.size,
         anchor: anchor.map_or(Vec2::ZERO, |a| a.0),
         image: sprite.image.clone(),
         flip_x: sprite.flip_x,
-        tint: Vec4::new(c.red, c.green, c.blue, c.alpha),
+        tint: crate::piece_tint(sprite, stated_tint),
         silhouette: false,
     })
 }
@@ -248,6 +249,7 @@ fn restore_hidden(
         // Same query as `composite_far_side_bodies`.
         &Transform,
         Option<&ambition_portal2d::PortalTransit>,
+        Option<&crate::PortalPieceTint>,
     )>,
 ) {
     for (entity, ..) in candidates.iter_mut() {

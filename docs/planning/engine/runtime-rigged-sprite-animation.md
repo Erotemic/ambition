@@ -24,7 +24,7 @@ Use two different production characters for two different proofs:
 1. **Pirate family — first runtime part-rendering prototype.**
    - The authoring pipeline already captures a deduplicated component scene.
    - All five measured pirates have 38 baked poses but only 21–22 registered rigid parts.
-   - A conservative representation that deduplicates only those existing rigid parts and leaves current dynamic limb/neck geometry as one per-frame overlay reduces estimated packed texture pixels by **75.6–76.3%**.
+   - A conservative representation that deduplicates only those existing rigid parts and leaves current dynamic limb/neck geometry as one per-frame overlay reduces estimated packed texture pixels by **75.6–76.3%**. ⚠ Superseded: the publisher measures about **38%**, because each frame also needs overlay layers for its dynamic geometry (see *Measured by the Packet 5 publisher*).
    - The Pirate Admiral already has a real `Muzzle::Hand` gameplay consumer, so the same family can also prove one semantic hand attachment without inventing a toy customer.
 
 2. **Mary-O — first semantic `BodyRig` / collision prototype.**
@@ -463,6 +463,8 @@ Current portal candidate publication reads a top-level sprite or declared mesh a
 
 **Resolved first implementation:** the rig presentation owner publishes **one union world-space drawn AABB** covering all currently visible part instances. Portal composition continues to see one actor-level candidate.
 
+**As built (Packet 7):** the one candidate is the rigged root with its baked frame, not a union AABB on the owner. See the Packet 7 status for the reason.
+
 Do not publish one portal candidate per body part.
 
 This keeps initial portal fidelity equivalent to the current one-rectangle full-sprite treatment. Per-part portal clipping is later work only if visible artifacts justify it.
@@ -748,7 +750,7 @@ For the pirate first implementation, current per-frame dynamic limb/neck geometr
 
 Do **not** block the project on converting every current dynamic curve into a reusable rigid limb.
 
-The initial savings already exceed 75% without doing that work.
+The initial saving without that work is about 38% (measured by the Packet 5 publisher). The 75% estimate before it is superseded.
 
 Later publisher work can convert more dynamic geometry into reusable parts if useful.
 
@@ -787,6 +789,8 @@ If runtime validation shows that child-entity/extraction cost is unacceptable at
 ### Portal bounds come from the owner
 
 Because child sprites are excluded from the current pre-propagation portal candidate query, the rigged presentation owner computes one union draw AABB from current part transforms and publishes one portal candidate.
+
+**As built (Packet 7):** the root is the candidate instead, and the owner hides with it. See the Packet 7 status.
 
 Do not make every child part a portal entity.
 
@@ -957,7 +961,7 @@ Acceptance:
 
 ### Packet 5 — publish Pirate transform-flipbook assets
 
-**Status (2026-09-30): done** for all five pirates. See *Measured by the Packet 5 publisher*: the saving is about 38%, not 75%. The pirates publish `<target>_parts.png` and `<target>_parts.ron` beside the sheet. `tests/test_pirate_part_flipbook.py` checks the parity of all 38 frames for the raider and the admiral. The quality tiers scale `_parts.png` but have no tier draw table yet; Packet 6 must define the tier metadata.
+**Status (2026-09-30): done** for all five pirates. See *Measured by the Packet 5 publisher*: the saving is about 38%, not 75%. The pirates publish `<target>_parts.png` and `<target>_parts.ron` beside the sheet. `tests/test_pirate_part_flipbook.py` checks the parity of all 38 frames for the raider and the admiral. Packet 6 added the tier tables: each tier publishes its own part rects and `texel_scale`.
 
 **Primary visual prototype:** `pirate_raider` first, then the remaining pirate family once the format is stable.
 
@@ -972,15 +976,7 @@ Work:
 7. Preserve semantic clip IDs, frame timing, facing behavior, and authored z-order.
 8. Add offline parity verification against the canonical baked renderer.
 
-Required measured target for Raider:
-
-- about 67,246 tight alternative texels before packing;
-- about 87,771 packed-equivalent texels if packing overhead stays comparable;
-- about 0.335 MiB RGBA8-equivalent part texture versus 1.375 MiB current baked atlas;
-- about 75.6% texture-pixel reduction;
-- about 10 visible quads per frame on average in the conservative representation.
-
-Treat a result below roughly 65% texture-pixel reduction as a publisher/packing regression to investigate before proceeding. The current source already demonstrates about 75.6% under the conservative model.
+~~Required measured target for Raider~~ — ⚠ SUPERSEDED (2026-09-30). The targets that were here (about 67,246 tight texels, about 87,771 packed texels, about 75.6% reduction, and "below roughly 65% is a packing regression") were an estimate before the publisher existed. They are not acceptance criteria. The publisher measures 183,752 tight and 222,336 packed texels for the Raider, a **38.3%** reduction, with every frame within the parity bound. The reason is in *Measured by the Packet 5 publisher*. The packet-5 acceptance is that measured result: the parity bound on every frame, and a saving of at least 35% (`tests/test_pirate_part_flipbook.py`). A drop below that is a packing regression to investigate.
 
 Do not require every dynamic limb to become a reusable rigid part in this packet.
 
@@ -1022,6 +1018,16 @@ Acceptance:
 
 ### Packet 7 — portal and multiview integration
 
+**Status (2026-09-30): done, behind the trial switch.** One change from the plan: the portal candidate is the rigged ROOT, drawn from its baked frame. It is not a union AABB of the parts on the owner.
+
+- Why: the compositor draws a far-side candidate as clipped pieces of ONE textured quad. A union AABB gives a rectangle, but a set of parts has no one texture to fill it. The baked frame of the root is that texture, and the flipbook matches it within the publisher parity bound. So the body through a portal is the actor-level rectangle of today, which is what the acceptance asks for.
+- `ambition_portal2d_presentation::PortalPieceTint` is a tint that a candidate states for its pieces. The rigged root keeps zero alpha, so the driver states its visible tint there. Both piece builders (`far_side::piece_look` and `visuals::sync_portal_body_pieces`) read it before the sprite color.
+- The owner is `PresentationOf(root)` and has no sprite. Thus it is not a candidate, and `resolve_portal_source_visibility` hides it in the same pass that hides the root. The parts and the pieces never draw together. Witness: `a_far_side_rigged_body_is_pieced_opaque_and_its_parts_hide_with_it` (`portal_compositing.rs`). It fails when the tint or the `PresentationOf` is removed.
+- Multiview: the part slots take the render layers of their root, so each camera that draws a root draws its parts (`the_parts_are_drawn_by_each_camera_that_draws_their_root`). `a_second_view_draws_the_same_parts_and_makes_no_more` (`ambition_app`) adds a second pane to the seated admirals as TwinTrack does: a `LocalView` in a column and a `MainCamera` that presents it. The presentations, the slots and the entity count do not change. TwinTrack itself casts no character that publishes a flipbook, so the witness uses its pane shape, not its route.
+- Not measured: without a window, the `VisibleEntities` of the host camera lists no sprite at all. Thus no headless test shows the pixels of each pane. The offscreen capture (`capture_scene`) can, when that is necessary.
+
+Gaps that remain: the hit flash copies the root sprite, which has zero alpha. The crouch squash of a sheet without a crouch row does not apply to parts.
+
 Work:
 
 1. Compute the union world-space draw bounds of active rig parts on the presentation owner.
@@ -1038,6 +1044,53 @@ Acceptance:
 - view-local UI isolation remains unchanged.
 
 ### Packet 8 — benchmark the first world implementation and decide whether extraction optimization is needed
+
+**Status (2026-09-30): measured on this machine; the decision needs a hardware GPU.** The bench is `crates/ambition_render/examples/rigged_sprite_bench.rs`. It uses the real `bind_rigged_presentations` and `drive_rigged_presentations` systems, the published admiral sheet and its flipbook (`max_draws` = 12), and a stand-in animator that changes pose every two seconds. The predictions were written before each run; the record is below the tables.
+
+ECS only (no renderer, `--profile profiling`, 3000 frames, the median of the update time):
+
+| Actors | Baked µs | Rigged µs | Added µs | Rig entities | Visible sprites (baked / rigged) |
+|---:|---:|---:|---:|---:|---:|
+| 1 | 3.3 | 4.5 | 1.2 | 14 | 1 / 13 |
+| 10 | 4.9 | 15.0 | 10.1 | 140 | 10 / 130 |
+| 50 | 13.6 | 68.7 | 55.1 | 700 | 50 / 650 |
+| 100 | 25.6 | 133.4 | 107.8 | 1400 | 100 / 1300 |
+
+The added CPU is about 1.1 µs for each actor and frame, and it is linear. "Rig entities" is exactly 14 for each actor (the root, the owner and 12 slots).
+
+With Bevy's renderer (`--render`, a 1280 × 720 offscreen target, llvmpipe, 300 frames, the median frame time):
+
+| Actors | Views | Frame ms (baked / rigged) | Extracted sprites | Sprite batches |
+|---:|---:|---:|---:|---:|
+| 1 | 1 | 8.5 / 9.2 | 1 / 13 | 1 / 2 |
+| 10 | 1 | 9.3 / 11.2 | 10 / 130 | 1 / 20 |
+| 50 | 1 | 9.5 / 13.8 | 50 / 650 | 1 / 100 |
+| 100 | 1 | 11.1 / 33.6 | 100 / 1300 | 1 / 200 |
+| 10 | 2 | 18.0 / 22.8 | 10 / 130 | 2 / 40 |
+| 100 | 2 | 20.4 / 71.0 | 100 / 1300 | 2 / 400 |
+
+- A second view extracts the same sprites and doubles the batches. That is one batch list per view, as for the baked path.
+- Each rigged actor makes two batches. The root still draws its baked quad with zero alpha, from the sheet page, between the parts of two bodies. So the root splits the batch of the part page at each body.
+- `--tiny` (a target ten times smaller that shows the same actors, so almost no pixels are filled) keeps most of the difference: 6.3 / 24.8 ms at 100 actors. So the difference is not the fill rate.
+- 1300 baked actors (1300 sprites in 1 batch) take 19.1 ms with `--tiny`. Thus, of the 18.5 ms that 100 rigged actors add, about 12.8 ms comes with the sprite count and about 5.7 ms with the batches.
+- On llvmpipe the vertex work for each sprite is CPU work. A hardware GPU does not do that work on the CPU. So these frame times show where the cost is, but they do not show the cost on a player's machine.
+
+Texture bytes (RGBA8, full tier): the admiral sheet is 361,674 texels (1.45 MB); its part page is 224,064 texels (0.90 MB, 0.62 of the sheet). In the trial both are resident, so the rigged path costs 1.62 × the baked texture bytes. The baked frame is also what a portal draws (Packet 7). So the saving needs the sheet page to go, and the portal to draw parts first.
+
+Not measured: the load and materialization time, the frame time on a hardware GPU, and the CPU time of each render system set.
+
+**Decision:** do not build a custom part-instance renderer now. The ECS cost is small (0.11 ms for 100 actors). The render cost on this machine comes from the sprite count and the batch count, and the per-sprite cost here is the software rasterizer's. Before a custom renderer, do these in this order:
+
+1. Run `rigged_sprite_bench --render` (with `--views 2`) on a machine with a hardware GPU.
+2. If the batches matter there, stop drawing the zero-alpha root. Then the parts of all actors of one target share one page and can share batches. The root must stay the portal candidate, so this needs another way to state its size and frame to the portal.
+3. Only if the sprite count itself is too expensive on hardware, replace the slot realization with an instance buffer, as this packet's text says.
+
+Pre-registration record (written before each run):
+
+- Hit: the rig entities for each actor (2 + `max_draws`, exact), the visible sprites (1 + the frame's draws), the added CPU at 100 actors (band 0.05 to 1 ms: 0.108), the scaling from 10 to 100 (band 5 to 15: 10.7), the part page at 0.62 of the sheet, the extracted sprites (N and 13N, exact), the batches (1 and 2N, exact), and a second view (the same sprites, the batches doubled, exact).
+- Missed: the rigged/baked frame-time ratio at 100 actors (band 1 to 3): 3.0 with one view, 3.5 with two.
+- Falsified: "the difference is mostly fill" (the `--tiny` run).
+- Between the bands: the 1300-sprite run (19.1 ms, between "the batches" below 10 ms and "the sprite count" at 20 ms or more), so the record gives the two parts in ms and no single cause.
 
 This is implementation validation, not architecture discovery.
 
@@ -1064,11 +1117,18 @@ Record:
 - frame time;
 - load/materialization time.
 
-The expected Pirate texture result is already known: roughly 75–76% lower raw texture pixels for the conservative representation.
+The expected Pirate texture result is the measured one: about 38% fewer raw texture pixels (Packet 5). The 75–76% estimate before it is superseded.
 
 Do **not** implement a custom part-instance renderer unless the fixed-slot world path demonstrates a material CPU/entity/extraction problem. If it does, preserve the published asset and semantic animation contracts and replace only the presentation realization.
 
 ### Packet 9 — hybrid clips
+
+**Status (2026-09-30): the runtime half is done, behind the trial switch. The Mary-O publish is open.**
+
+- A flipbook states each row of its sheet as a part clip (`clips`) or a baked clip (`baked_clips`, optional in the RON, absent for the pirates). `RiggedSpriteAsset::realization(row)` gives the choice. It is published with the clip, so no runtime rule picks it (work items 1 and 4).
+- `check_rows` refuses a flipbook that states a sheet row as neither, a row as both, or a clip for a row that the sheet does not have. The attach road calls it, so a body never meets a row that has no realization. All five pirates state every row as a part clip.
+- The driver draws a baked clip from the root: the root takes its tint back and the slots hide. The root, its animator and its feet are the same for both kinds of clip, so the crossing has no jump in place or in timing. Witness: `a_hybrid_body_crosses_between_part_and_baked_clips_in_place` (the raider with `slash` left baked). It fails when the driver does not give the root its tint back.
+- Open: work item 3, the Mary-O publish. Her SVG rig is rigid parts (`RigDocument.sprite_raster`), so her publisher can probably draw one locomotion clip (short `walk`) from parts and state her transform clips as baked. That needs the part-flipbook capture in her renderer and a parity check against her baked frames, as for the pirates.
 
 **First hybrid control:** Mary-O.
 
@@ -1274,11 +1334,11 @@ Report baked and rigged results for 1/10/50/100 visible Pirates and a split-view
 
 Do not call texture savings a runtime win without reporting CPU/presentation cost too.
 
-The already-measured economic baseline is:
+The measured economic baseline is:
 
 ```text
-Pirate texture-pixel saving: 75.6–76.3%
-Pirate visible quads: about 9–10 per actor in the conservative format
+Pirate texture-pixel saving: about 38% (Packet 5; the 75.6–76.3% estimate is superseded)
+Pirate visible quads: 12 or 13 per actor (Packet 8: max_draws 12, plus the zero-alpha root)
 ```
 
 ## Risks and resolved mitigations
@@ -1401,7 +1461,7 @@ Expected first implementation sequence:
 10. Only then consider hybrid Mary-O visuals or a custom extraction optimization.
 ```
 
-That sequence gives useful semantic rig architecture before the renderer bet, and it gives the renderer a measured 75%+ memory-saving candidate rather than a synthetic demo.
+That sequence gives useful semantic rig architecture before the renderer bet, and it gives the renderer a real memory-saving candidate (measured at about 38%, not the 75% first estimated) rather than a synthetic demo.
 
 ## Definition of success for this disjoint plan
 
@@ -1412,7 +1472,7 @@ The initial implementation tranche is successful when all of the following are t
 3. Mary-O can use rig-derived default hurt geometry while continuing to render her existing baked sheet.
 4. Pirate Admiral's `Muzzle::Hand` uses a semantic hand attachment when rig data is present.
 5. Pirate Raider can render from a published part atlas + transform flipbook with offline and runtime parity against the baked source.
-6. The Pirate visual prototype retains approximately the already-measured 75%+ reduction in raw texture pixels.
+6. The Pirate visual prototype keeps the measured reduction in raw texture pixels: about 38%, and at least 35% (`tests/test_pirate_part_flipbook.py`). (The 75%+ first written here was an estimate, superseded by the publisher's measurement.)
 7. Rigged presentation participates in existing demand, quality, retirement, portal, and multiview ownership rather than adding parallel subsystems.
 8. Headless simulation never depends on images or rendering.
 9. Baked sprites remain first-class and hybrid clips remain possible.

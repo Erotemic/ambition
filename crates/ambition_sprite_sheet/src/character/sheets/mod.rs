@@ -145,6 +145,11 @@ impl CharacterSheetSpec {
         self.record.rows.get(row).map(|row| row.animation.as_str())
     }
 
+    /// The names of all rows, in row order.
+    pub fn row_names(&self) -> impl Iterator<Item = &str> {
+        self.record.rows.iter().map(|row| row.animation.as_str())
+    }
+
     /// Which `record.rows` index draws this pose, if any. The mapping is built
     /// once at spec load (`anim_rows`).
     pub fn row_for_anim(&self, anim: CharacterAnim) -> Option<usize> {

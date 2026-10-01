@@ -228,6 +228,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
     "GameAssets": (
         "crates/ambition_platformer2d/src/game_assets.rs",
         "crates/ambition_platformer2d_actor_monolith/src/character_runtime/mod.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/character_sprites/rigged.rs",
         "crates/ambition_render/src/rendering/parallax.rs",
         "game/ambition_app/src/app/setup_systems.rs",
         "game/ambition_app/src/app/startup_loading.rs",
@@ -2753,7 +2754,28 @@ ADJUDICATED: dict[str, str] = {
         "what it just decided to keep.\" Every other writer touches a "
         "DISJOINT named/keyed slot under `characters` or `entities`. "
         "Measured by CalculexAmbition, 2026-09-18; the demo sheet and prop "
-        "loaders that also wrote it are gone (AP146, AP148)."
+        "loaders that also wrote it are gone (AP146, AP148). "
+        "Rig packet 6 added `attach_rigged_sprite_pages` "
+        "(`character_sprites/rigged.rs`): it writes only the `rigged` field "
+        "of a ready sheet whose `rigged` is `None` "
+        "(`CharacterSpriteAssets::attach_rigged_pages`), never inserts or "
+        "removes a sheet, and is chained directly after "
+        "`materialize_demanded_character_sheets` "
+        "(`character_runtime/mod.rs`), so a sheet republished at another tier "
+        "arrives without pages and gets its own tier's on the same frame. "
+        "With the rigged-sprite trial off it returns before it touches the "
+        "table. The pages go on the sheet while they load, as the sheet's "
+        "own pages do, and the renderer decides when to show them: "
+        "`bind_rigged_presentations` keeps the body baked (or on its old "
+        "tier's parts) until `texture_is_ready` holds for every part page "
+        "(witnesses `a_body_stays_baked_until_every_part_page_is_ready`, "
+        "`a_tier_change_keeps_the_old_parts_until_the_new_pages_are_ready`). "
+        "WHY A SEPARATE WRITER and not the materializer: the realization is "
+        "built by `materialize_character_demand`, which two room-lifecycle "
+        "roads also call; folding a trial-only switch into it would thread "
+        "the trial through the shipped load road, which must stay unchanged "
+        "until the trial is adopted. Fold it in then. Measured by "
+        "NamekAmbition, 2026-09-30."
     ),
     "PendingMechanicalEdits": (
         "A PER-DOMAIN KEYED LEDGER, REBUILT FROM A SINGLE-BOOL DEFECT ON "

@@ -341,3 +341,15 @@ fn portal_frame_draws_above_the_window_band_and_below_actors() {
         "frame parts live on the default WORLD layer so captures photograph them"
     );
 }
+
+/// A drawable that states a piece tint is pieced with it; one that does not is
+/// pieced with its sprite's color. A rigged body draws its baked sprite at zero
+/// alpha, so without the stated tint its portal pieces would be invisible.
+#[test]
+fn a_stated_piece_tint_outranks_the_sprite_color() {
+    let mut sprite = Sprite::default();
+    sprite.color = Color::srgba(1.0, 1.0, 1.0, 0.0);
+    assert_eq!(crate::piece_tint(&sprite, None).w, 0.0);
+    let stated = crate::PortalPieceTint(Color::srgba(1.0, 1.0, 1.0, 1.0));
+    assert_eq!(crate::piece_tint(&sprite, Some(&stated)).w, 1.0);
+}

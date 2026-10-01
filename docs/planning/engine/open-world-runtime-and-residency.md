@@ -1434,6 +1434,32 @@ changed (P5). Witness: `a_trail_keeps_a_loop_around_a_wall_of_its_own_live_room`
 control). Poison (the sole-room read restored): the #1 arm failed, and the
 loop was erased. `SoleLiveRoom` 67/47 -> 66/47.
 
+✅ **Cut 7r landed 2026-10-01: a mode lives while any live room is in its
+scope, and its owner follows a room of its own mode.** The mode sweep
+(`despawn_departed_mode_entities`) and the owner follow
+(`follow_mode_owner_rooms`) read the sole live room. With two rooms live,
+the sweep swept nothing and the follow did not move. Thus a mode that no
+player was in kept its entities, and an owner born on the tick a second
+room opened kept its `First` arrival: Sanic's act and Mary-O's lap start
+over on each arrival, so they started over on every tick. The sweep now
+asks whether any live room is in the mode's scope, the same question
+`CurrentRoom::in_scope` asks for the mode's systems. It runs when the room
+set is replaced, a live room gets another definition, or a live room
+retires; a retirement that did not change the room set did not wake it
+before. The owner stays in its room while that room is live and in its
+scope, else it goes to the first such room in instance order; while none
+is, its visit does not change and the sweep retires it. One owner per mode
+still follows one room: an owner per (mode, live room) is the later cut
+that the mode-owner decision above names. Witnesses in
+`ambition_platformer2d_runtime/tests/mode_scope.rs`:
+`a_mode_owner_follows_its_own_room_beside_another_live_room` and
+`a_mode_ends_when_no_live_room_is_in_it`. Poisons: with both systems back
+on the sole room, the owner stayed at `(a, First)` beside an untagged room,
+and a mode that no live room was in (`mary_o`, beside `a` and `b`) kept its
+entity. With only the retirement trigger removed, mode `a` kept its entity
+after Bob's room retired. `project_room_rule` (the portal camera rules)
+stays on the sole room: it is presentation, P5.
+
 ✅ **OW3, first slice, landed 2026-10-01: a runtime mint left in a room
 that is not live is still there when the room is live again.** A runtime
 mint (a boss's dropped gauntlet) has no authored record. Two facts rebuild

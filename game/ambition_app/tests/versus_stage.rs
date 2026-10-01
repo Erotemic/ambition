@@ -3024,3 +3024,108 @@ fn the_roster_arm_writes_the_scoreboard_before_the_timeline_starts() {
             .collect::<Vec<_>>()
     );
 }
+
+/// Review of the pose clock (2026-09-30): the long duelist authors a bigger
+/// `hitstun` hurtbox (13 x 24 half extents) over its default (11 x 22), and
+/// has no admitted rig. The clock that selects a pose profile came only with
+/// a rig, so the duelist was hit through its standing box in hitstun too.
+/// Here seat 1 hits seat 0 (the long duelist) in a live round: its box is
+/// 13 x 24 while it is in hitstun, and 11 x 22 again after.
+#[test]
+fn a_duelist_in_hitstun_is_hit_through_its_authored_hitstun_box() {
+    use ambition_platformer2d::characters::actor::BodyCombat;
+    use ambition_platformer2d::characters::control::DrivingParticipant;
+    use ambition_platformer2d::combat::hurtbox_resolution::ResolvedHurtboxes;
+    use ambition_platformer2d::engine_core::BodyKinematics;
+
+    let mut app = versus_app();
+    let _pad_one = app.world_mut().spawn(Gamepad::default()).id();
+    let pad_two = app.world_mut().spawn(Gamepad::default()).id();
+    settle_to_launcher(&mut app);
+    app.world_mut()
+        .write_message(ShellCommand::GoTo(ShellRouteId::new(VERSUS_GAMEPLAY_ROUTE)));
+    for _ in 0..900 {
+        app.update();
+        if ambition_platformer2d::world::rooms::sole_live_room_spec(app.world())
+            .is_some_and(|spec| spec.id == VERSUS_ROOM_ID)
+        {
+            break;
+        }
+    }
+    settle_into_a_live_round(&mut app);
+    let world = app.world_mut();
+    let mut drivers = world.query::<(Entity, &DrivingParticipant)>();
+    let mut seated: Vec<(u8, Entity)> = drivers
+        .iter(world)
+        .map(|(entity, driver)| (driver.0 .0, entity))
+        .collect();
+    seated.sort_by_key(|(slot, _)| *slot);
+    assert_eq!(seated.len(), 2, "the arena did not seat two players");
+    let (victim, attacker) = (seated[0].1, seated[1].1);
+    assert!(
+        app.world().get::<ambition_platformer2d::combat::body_rig::BodyRig>(victim).is_none(),
+        "precondition: this test is about a body with no admitted rig"
+    );
+
+    let half_extents = |app: &App| -> Option<(f32, f32)> {
+        let volumes = &app.world().get::<ResolvedHurtboxes>(victim)?.volumes;
+        match volumes.first()?.shape {
+            ambition_platformer2d::entity_catalog::VolumeShape::Rect { half_extents, .. } => Some(half_extents),
+            ambition_platformer2d::entity_catalog::VolumeShape::Circle { radius, .. } => Some((radius, radius)),
+        }
+    };
+    let in_hitstun = |app: &App| app.world().get::<BodyCombat>(victim).unwrap().hitstun_timer > 0.0;
+    assert_eq!(half_extents(&app), Some((11.0, 22.0)), "control: the standing box");
+
+    let a = app.world().get::<BodyKinematics>(attacker).unwrap().pos.x;
+    let v = app.world().get::<BodyKinematics>(victim).unwrap().pos.x;
+    let walk = if v > a { GamepadButton::DPadRight } else { GamepadButton::DPadLeft };
+    pad_set(&mut app, pad_two, walk, 1.0);
+    for _ in 0..240 {
+        app.update();
+        let a = app.world().get::<BodyKinematics>(attacker).unwrap().pos.x;
+        let v = app.world().get::<BodyKinematics>(victim).unwrap().pos.x;
+        if (v - a).abs() < 28.0 {
+            break;
+        }
+    }
+    pad_set(&mut app, pad_two, walk, 0.0);
+    for _ in 0..10 {
+        app.update();
+    }
+
+    let mut during = None;
+    'swings: for _ in 0..12 {
+        pad_set(&mut app, pad_two, GamepadButton::West, 1.0);
+        for _ in 0..3 {
+            app.update();
+        }
+        pad_set(&mut app, pad_two, GamepadButton::West, 0.0);
+        for _ in 0..20 {
+            app.update();
+            if in_hitstun(&app) {
+                // The clock reads the hitstun from the tick after the hit:
+                // the hit is applied after the clocks advance (measured: on
+                // the hit tick the pose is still `idle`).
+                app.update();
+                assert!(in_hitstun(&app), "the hitstun ended one tick after the hit");
+                during = half_extents(&app);
+                break 'swings;
+            }
+        }
+    }
+    let during = during.expect("seat 1 swung twelve times in range and seat 0 was never in hitstun");
+    for _ in 0..600 {
+        if !in_hitstun(&app) {
+            break;
+        }
+        app.update();
+    }
+    assert!(!in_hitstun(&app), "the duelist stayed in hitstun for 600 ticks");
+    app.update();
+    assert_eq!(
+        (during, half_extents(&app)),
+        ((13.0, 24.0), Some((11.0, 22.0))),
+        "(the box in hitstun, the box after): the authored hitstun box was not selected"
+    );
+}

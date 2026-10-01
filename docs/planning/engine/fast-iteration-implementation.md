@@ -356,6 +356,21 @@ local reload changes `ExtensionGeneration` but does not re-mint the running
 session's identity; a session whose timeline another owner holds refuses the
 reload, so a remote session keeps its generation.
 
+**M1 on the loaded road, measured 2026-10-01** (release, agent machine,
+`extension_inspect --time` and `ambition_extension_wasm`'s ignored
+`m1_cost_of_one_call`): one WASM call was ~30 us to instantiate plus ~32 us of
+guest time spent rebuilding all fifteen module descriptors, plus the entry.
+With one boss in the sandbox the loaded road cost **+445 us per tick**: three
+modules kept a counter across strikes and so took `IdlePolicy::Invoke`, which
+called them on every tick of every boss. Two fixes, both measured:
+`IdlePolicy::ResetStateExcept(keep)` (an idle tick resets the records except
+the kept ones, without a call; admission refuses a keep the entry does not
+write) took the three idle calls away, and `export_modules!(list: ...)` builds
+only the called module (guest time **31.8 -> 7.8 us** per call). The loaded
+road's per-tick overhead with one boss is now within the run-to-run noise
+(30-100 us). A fresh instance per call (~28 us) is kept: it is what makes a
+guest static unable to carry state across a rewind.
+
 **I7 item 5, first cut (2026-10-01):** `ambition_extension_host::inspect`
 (composition and per-body records as text) and the tool
 `ambition_app_tools --bin extension_inspect` (ports, serial order, linked or

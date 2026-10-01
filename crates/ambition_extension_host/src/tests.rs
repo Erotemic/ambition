@@ -686,3 +686,47 @@ fn a_call_that_leaves_its_record_initial_stores_nothing() {
     step(&mut counting);
     assert!(counting.world().get::<BodyRecords>(counted).is_some());
 }
+
+#[test]
+fn an_idle_trigger_keeps_the_records_a_reset_state_except_entry_names() {
+    let run = |policy: IdlePolicy| {
+        let mut app = App::new();
+        app.init_schedule(Sim);
+        let mut m = module(vec![entry("a", vec![])]);
+        m.entries[0].on_idle = policy;
+        app.add_plugins(ExtensionHostPlugin::new(Sim))
+            .init_resource::<Lowered>()
+            .init_resource::<SimTick>()
+            .init_resource::<ambition_time::WorldTime>()
+            .install_extension_trigger::<Poke, _>(PHASE, "test", collect_pokes)
+            .install_extension_observation::<Height>(PHASE, "test", height_of)
+            .install_extension_request::<Emit, _>(PHASE, "test", lower_emits)
+            .add_extension_module(m);
+        app.finish();
+        let body = app.world_mut().spawn((Poked(3), Tall(1.0))).id();
+        step(&mut app);
+        step(&mut app);
+        // `collect_pokes` marks a poke of 0 idle.
+        app.world_mut().get_mut::<Poked>(body).unwrap().0 = 0;
+        step(&mut app);
+        let lowered = app.world().resource::<Lowered>().0.len();
+        let count = app.world().get::<BodyRecords>(body).unwrap().get(&COUNTER).unwrap().get(COUNT).unwrap().clone();
+        (count, lowered)
+    };
+    // Kept: the idle tick neither calls the entry nor resets the counter.
+    assert_eq!(run(IdlePolicy::ResetStateExcept(vec![COUNTER])), (Value::U32(2), 2));
+    // The control: plain ResetState resets it, and also does not call.
+    assert_eq!(run(IdlePolicy::ResetState), (Value::U32(0), 2));
+}
+
+#[test]
+fn keeping_a_record_the_entry_does_not_write_is_refused() {
+    let mut m = module(vec![entry("a", vec![])]);
+    let other = SchemaKey::new("test", "other", 1);
+    m.entries[0].on_idle = IdlePolicy::ResetStateExcept(vec![other.clone()]);
+    let refusals = admit(API_VERSION, &offers(), &[DeclaredModule::from(m)]).unwrap_err();
+    assert!(
+        refusals.contains(&Refusal::IdleKeepsUnwrittenState { entry: "test::counter/a".into(), schema: other }),
+        "{refusals:?}"
+    );
+}

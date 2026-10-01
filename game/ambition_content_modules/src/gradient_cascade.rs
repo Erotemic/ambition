@@ -23,7 +23,9 @@ const SPAWN_Y: f32 = 80.0;
 /// The outermost minions are this far from the boss in x.
 const X_SPREAD: f32 = 220.0;
 
-pub const STRIKE: SchemaKey = SchemaKey::new(crate::PROVIDER, "gradient_cascade.strike", 1);
+pub const STRIKE: SchemaKey = SchemaKey::new(crate::PROVIDER, "gradient_cascade.strike", 2);
+/// The strike counter: it names the summons and continues across strikes.
+pub const NUMBER: SchemaKey = SchemaKey::new(crate::PROVIDER, "gradient_cascade.number", 1);
 
 pub fn module() -> ModuleDescriptor {
     ModuleDescriptor {
@@ -33,7 +35,7 @@ pub fn module() -> ModuleDescriptor {
             crate_name: env!("CARGO_PKG_NAME").into(),
             version: env!("CARGO_PKG_VERSION").into(),
         },
-        schemas: vec![strike::once_numbered_schema(STRIKE)],
+        schemas: vec![strike::once_schema(STRIKE), strike::number_schema(NUMBER)],
         entries: vec![EntryDescriptor {
             key: "cascade".into(),
             phase: TECHNIQUE_EXECUTION,
@@ -42,14 +44,14 @@ pub fn module() -> ModuleDescriptor {
                 selector: KEY.into(),
             },
             reads: Vec::new(),
-            writes: vec![STRIKE],
+            writes: vec![STRIKE, NUMBER],
             requests: vec![BossSummonPort::KEY],
             after: Vec::new(),
             limits: Limits {
                 max_requests: MINION_COUNT,
             },
-            // The strike number continues across strikes.
-            on_idle: IdlePolicy::Invoke,
+            // An idle tick ends the strike; the number continues.
+            on_idle: IdlePolicy::ResetStateExcept(vec![NUMBER]),
             run: EntryCode::Native(cascade),
         }],
     }
@@ -64,7 +66,7 @@ pub fn minion_x_offset(i: u32, count: u32) -> f32 {
 
 fn cascade(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     let caster: BossCaster = inv.trigger::<BossSpecialCast>()?.clone();
-    let Some(number) = strike::once_numbered(inv, &STRIKE, &caster)? else {
+    let Some(number) = strike::once_numbered(inv, &STRIKE, &NUMBER, &caster)? else {
         return Ok(());
     };
     let count = MINION_COUNT.max(1);

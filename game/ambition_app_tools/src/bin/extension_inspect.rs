@@ -12,8 +12,11 @@
 //! ```text
 //! cargo run -p ambition_app_tools --release --bin extension_inspect -- \
 //!     [--modules target/extension-modules/wasm32-unknown-unknown/release] \
-//!     [--boss mockingbird] [--ticks 600] [--try-replace path/to/modules.wasm]
+//!     [--boss mockingbird] [--ticks 600] [--try-replace path/to/modules.wasm] [--time]
 //! ```
+//!
+//! `--time` reports the wall time of the ticks (build it `--release`): run it
+//! with and without `--modules` to see what the loaded road costs.
 
 use ambition_app::rl_sim::{
     AgentAction, AmbitionSim, Platformer2dSimHarness, Platformer2dSimHarnessOptions,
@@ -29,6 +32,7 @@ struct Args {
     boss: Option<String>,
     ticks: usize,
     try_replace: Option<std::path::PathBuf>,
+    time: bool,
 }
 
 fn parse() -> Args {
@@ -37,6 +41,7 @@ fn parse() -> Args {
         boss: None,
         ticks: 0,
         try_replace: None,
+        time: false,
     };
     let mut it = std::env::args().skip(1);
     while let Some(arg) = it.next() {
@@ -46,6 +51,7 @@ fn parse() -> Args {
             "--boss" => args.boss = Some(value()),
             "--ticks" => args.ticks = value().parse().expect("--ticks takes a number"),
             "--try-replace" => args.try_replace = Some(value().into()),
+            "--time" => args.time = true,
             "-h" | "--help" => {
                 println!(
                     "extension_inspect [--modules PATH]... [--boss PROFILE] [--ticks N] [--try-replace FILE]"
@@ -84,8 +90,18 @@ fn main() {
             },
         );
     }
+    let start = std::time::Instant::now();
     for _ in 0..args.ticks {
         sim.step(AgentAction::default());
+    }
+    let elapsed = start.elapsed();
+    if args.time && args.ticks > 0 {
+        println!(
+            "time: {} ticks in {:.3} s ({:.1} us per tick)",
+            args.ticks,
+            elapsed.as_secs_f64(),
+            elapsed.as_secs_f64() * 1e6 / args.ticks as f64
+        );
     }
 
     print!("{}", inspect::describe_composition(sim.world()));

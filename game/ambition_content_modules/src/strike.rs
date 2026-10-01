@@ -6,8 +6,9 @@
 //! with no press ends the strike.
 //!
 //! [`once_numbered`]: [`once`], and each strike that fires gets the next
-//! number, from 0. The number continues across strikes: it names what the
-//! strike makes (a summon's id).
+//! number, from 0, in a record of its own. The number continues across
+//! strikes (the entry keeps it on an idle tick): it names what the strike
+//! makes (a summon's id).
 //!
 //! [`locked`]: the same, and the target is locked during the telegraph. Each
 //! tick, for one boss:
@@ -58,44 +59,35 @@ pub fn once(inv: &mut Invocation<'_>, key: &SchemaKey, caster: &BossCaster) -> R
     Ok(true)
 }
 
-const NUMBERED_FIRED: FieldRef = FieldRef(0);
-const NUMBERED_NEXT: FieldRef = FieldRef(1);
+const NEXT_NUMBER: FieldRef = FieldRef(0);
 
-/// The record schema for [`once_numbered`].
-pub fn once_numbered_schema(key: SchemaKey) -> StateSchema {
+/// The record schema of [`once_numbered`]'s number. An entry keeps it on an
+/// idle tick (`IdlePolicy::ResetStateExcept`): it continues across strikes.
+pub fn number_schema(key: SchemaKey) -> StateSchema {
     StateSchema {
         key,
         attachment: Attachment::Body,
         save: SaveEligibility::Transient,
-        fields: vec![
-            FieldDecl::new(1, "fired_this_strike", FieldKind::Bool),
-            FieldDecl::new(2, "next_number", FieldKind::U32),
-        ],
+        fields: vec![FieldDecl::new(1, "next_number", FieldKind::U32)],
     }
 }
 
-/// Advance the numbered once-per-strike rule. `Some(n)` means: fire now; this
-/// is strike `n`. An entry that uses it declares `IdlePolicy::Invoke`: an
-/// idle reset would forget the number.
+/// Advance [`once`] under `strike`, and number each strike that fires, from
+/// 0, under `number`. `Some(n)` means: fire now; this is strike `n`.
 pub fn once_numbered(
     inv: &mut Invocation<'_>,
-    key: &SchemaKey,
+    strike: &SchemaKey,
+    number: &SchemaKey,
     caster: &BossCaster,
 ) -> Result<Option<u32>, Fault> {
-    let record = inv.state(key)?;
-    let schema_fault = |error| Fault::Schema { schema: key.clone(), error };
-    if !caster.pressed {
-        record.set(NUMBERED_FIRED, Value::Bool(false)).map_err(schema_fault)?;
+    if !once(inv, strike, caster)? {
         return Ok(None);
     }
-    let fired = record.get(NUMBERED_FIRED).map_err(schema_fault)?.as_bool().unwrap_or(false);
-    if !caster.alive || fired {
-        return Ok(None);
-    }
-    let number = record.get(NUMBERED_NEXT).map_err(schema_fault)?.as_u32().unwrap_or(0);
-    record.set(NUMBERED_FIRED, Value::Bool(true)).map_err(schema_fault)?;
-    record.set(NUMBERED_NEXT, Value::U32(number.wrapping_add(1))).map_err(schema_fault)?;
-    Ok(Some(number))
+    let record = inv.state(number)?;
+    let schema_fault = |error| Fault::Schema { schema: number.clone(), error };
+    let n = record.get(NEXT_NUMBER).map_err(schema_fault)?.as_u32().unwrap_or(0);
+    record.set(NEXT_NUMBER, Value::U32(n.wrapping_add(1))).map_err(schema_fault)?;
+    Ok(Some(n))
 }
 
 /// The record schema for [`locked`].

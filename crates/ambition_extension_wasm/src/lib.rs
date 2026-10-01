@@ -256,3 +256,41 @@ mod tests {
         assert!(fault.contains("fuel"), "{fault}");
     }
 }
+
+/// M1 measurement, not a check: what one call of the game's module file
+/// costs, split into instantiation and the call. Needs the file built
+/// (`scripts/build_extension_modules.sh`).
+///
+/// `cargo test -p ambition_extension_wasm --release -- --ignored --nocapture m1_`
+#[cfg(test)]
+mod m1_measurement_tests {
+    use super::*;
+
+    #[test]
+    #[ignore = "measurement: prints the per-call costs of the built module file"]
+    fn m1_cost_of_one_call() {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../target/extension-modules/wasm32-unknown-unknown/release/ambition_content_modules.wasm");
+        let bytes = std::fs::read(&path).expect("build the module file first");
+        let (modules, described) = WasmModules::load(&bytes).unwrap();
+        let n = 300;
+        let start = std::time::Instant::now();
+        for _ in 0..n {
+            let _ = modules.instantiate().unwrap();
+        }
+        let instantiate = start.elapsed().as_secs_f64() * 1e6 / n as f64;
+        // A call with an input the guest refuses at decode: it pays the
+        // instantiation, the guest's module table and the decode, and runs no
+        // entry.
+        let start = std::time::Instant::now();
+        for _ in 0..n {
+            let _ = modules.invoke(0, 0, &[0xff]);
+        }
+        let call = start.elapsed().as_secs_f64() * 1e6 / n as f64;
+        println!(
+            "M1: {} modules; instantiate {instantiate:.1} us; a refused call {call:.1} us (so the guest side is {:.1} us)",
+            described.len(),
+            call - instantiate
+        );
+    }
+}

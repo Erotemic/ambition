@@ -1095,12 +1095,42 @@ room-blind on weight. ⚠ A root seated during a tick has no
 its bodies read the rules of no room (before, they read the previous
 room's rules for the same window). ⚠ Not witnessed reader by reader: the other
 `CombatTuningOf` readers are one call each and read the same component.
-⚠ Still the one-room read (`CurrentRoom`): the mode gates `in_mode`,
-`in_base_mode` and `in_rules_scope` (with two rooms live a gated system does
-not run; the shipped Ambition gates are menu and shell systems, and the
-hosted demos are one-room profiles), and the other `GoverningRules` readers:
+~~⚠ Still the one-room read (`CurrentRoom`): the mode gates `in_mode`,
+`in_base_mode` and `in_rules_scope`, and the other `GoverningRules` readers:
 `death.rs`, `wallet_shield.rs`, `dormancy.rs`, `starting_character.rs`,
-`control_prompt.rs`, the Smash limit meter and the TwinTrack participants.
+`control_prompt.rs`, the Smash limit meter and the TwinTrack participants.~~
+Done in the next paragraph.
+
+✅ **Rules per live room for the remaining readers, landed 2026-10-01.**
+A reader with a subject now reads `RulesOf<T>`: the rules of the live room
+its subject is in (`LiveRooms::of`; a subject in no live room reads the
+rules of no room, as `CombatTuningOf` does). Death opens the victim's room's
+beat, and a closing beat asks its body's room whether the level goes back.
+The wallet shield, the dormancy rule, the driven techniques, the prompt
+naming and the Smash limit fill read their body's room. A gate with no
+subject (`CurrentRoom::in_scope`, so `in_mode`, `in_base_mode`,
+`in_rules_scope`, the shell's menu suppression and the TwinTrack panes) is
+open while its scope governs ANY live room, and the gated systems key by
+subject. With one live room every answer is the same as before. Dormancy
+also had no room key on its observers: a player in #1 woke an actor at the
+same place in #0. Each observer now sees only its own room, and an actor
+whose room holds no observer stays awake, as a world with no observer did.
+Witnesses (unit, two live rooms of two games, the hall untagged and the
+stage `smash`): `each_subject_reads_the_rules_of_its_own_live_room`,
+`a_scope_governs_while_any_live_room_is_its_own` (controls: the one-room
+arms), `a_death_holds_the_beat_of_its_own_live_room`,
+`a_closing_beat_replays_by_its_own_live_rooms_rules`,
+`an_actor_sleeps_by_its_own_rooms_rule_and_observers` and
+`a_wallet_absorbs_by_its_own_rooms_rule_beside_another_live_room`. Each is
+red with its reader on THE live room again, and the dormancy witness is
+also red with the observer room key removed. ⚠ Not witnessed reader by
+reader: the driven techniques, the prompt naming and the Smash limit fill
+are one `RulesOf` call each. ⚠ Not changed: `project_room_rule` (a
+resource for a crate that cannot see rooms) and the mode owners
+(`despawn_departed_mode_entities`, `follow_mode_owner_rooms`) still read THE
+live room. A mode owner is one entity for each mode, so its two-room meaning
+(which room it follows) is a design question. The hosted demos are one-room
+profiles today.
 
 ✅ **Cut 7l landed 2026-09-30: the portal gun fires in its own live room.**
 The shot step and the host-depth measure read the sole live room's

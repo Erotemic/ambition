@@ -303,15 +303,16 @@ pub fn rebuild_control_prompt(
         bevy::prelude::Has<ambition_platformer2d_core::PoseOwnedExternally>,
     )>,
     cues: Option<Res<ActiveUiCues>>,
-    // Whether the active room's game wants the BUTTON named or the MOVE on it.
-    // Undeclared (the ordinary case) is `ByMove` — the behaviour every
-    // experience had before the knob existed.
-    naming: ambition_platformer2d_actor_monolith::session::governing_rules::GoverningRules<
+    // Whether the subject's room's game wants the BUTTON named or the MOVE on
+    // it. Undeclared (the ordinary case) is `ByMove` — the behaviour every
+    // experience had before the knob existed. The subject's OWN room (OW1):
+    // with two rooms live, THE live room's rules were the rules of no room.
+    naming: ambition_platformer2d_actor_monolith::session::governing_rules::RulesOf<
         PromptNaming,
     >,
-    // The techniques the active room's rules give the driven body, which the
-    // gate also reads.
-    driven: ambition_platformer2d_actor_monolith::session::governing_rules::GoverningRules<
+    // The techniques the subject's room's rules give the driven body, which
+    // the gate also reads.
+    driven: ambition_platformer2d_actor_monolith::session::governing_rules::RulesOf<
         ambition_characters::action_scheme::DrivenTechniques,
     >,
     mut last_driven: Local<Option<ambition_characters::action_scheme::DrivenTechniques>>,
@@ -351,9 +352,15 @@ pub fn rebuild_control_prompt(
     // SAME frame as the mutation — so skipping quiet frames cannot lag a kit
     // swap even one tick (the doc contract above). This was ~1.4% of frame
     // CPU re-deriving an identical scheme.
-    let naming = naming.get().unwrap_or_default();
+    // The subject is read here, before the rules, because the rules are its
+    // room's.
+    let subject = controlled
+        .as_deref()
+        .and_then(|s| s.0)
+        .or_else(|| primary.single().ok());
+    let naming = naming.of_subject(subject).unwrap_or_default();
     // A room change can change the driven techniques without touching any body.
-    let driven = driven.get();
+    let driven = driven.of_subject(subject);
     let driven_changed = *last_driven != driven;
     if driven_changed {
         *last_driven = driven.clone();
@@ -412,10 +419,6 @@ pub fn rebuild_control_prompt(
         return;
     }
 
-    let subject = controlled
-        .as_deref()
-        .and_then(|s| s.0)
-        .or_else(|| primary.single().ok());
     let Some((abilities, moveset, action_set, techniques, worn, pose_is_held)) =
         subject.and_then(|e| authorities.get(e).ok())
     else {

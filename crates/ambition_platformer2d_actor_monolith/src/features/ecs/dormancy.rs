@@ -70,8 +70,10 @@ pub struct Dormant;
 /// This naturally follows possession and multiple local seats.
 pub fn assess_dormancy(
     mut commands: Commands,
-    rule: crate::session::governing_rules::GoverningRules<DormancyRule>,
-    observers: Query<&ae::BodyKinematics, With<ambition_characters::control::DrivingParticipant>>,
+    // Each actor's own room's rule (OW1): with two rooms live, THE live
+    // room's rule was the rule of no room, so no actor slept.
+    rule: crate::session::governing_rules::RulesOf<DormancyRule>,
+    observers: Query<(Entity, &ae::BodyKinematics), With<ambition_characters::control::DrivingParticipant>>,
     mut actors: Query<(
         Entity,
         &ae::BodyKinematics,
@@ -86,24 +88,42 @@ pub fn assess_dormancy(
     )>,
 ) {
     // Collected once rather than re-iterated per actor: the observer set is
-    // tiny (one to four) and the actor set is not.
-    let eyes: Vec<ae::Vec2> = observers.iter().map(|body| body.pos).collect();
-    let rule = rule.get();
+    // tiny (one to four) and the actor set is not. Each eye carries its live
+    // room: an observer in another live room at the same place does not see
+    // this actor (OW1).
+    let eyes: Vec<_> = observers
+        .iter()
+        .map(|(observer, body)| (rule.room_of(observer), body.pos))
+        .collect();
+    // One rule per live room, resolved the first time an actor of that room
+    // asks: the actor set is large and the room set is one or two.
+    let mut rules: Vec<(Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>, Option<DormancyRule>)> =
+        Vec::new();
 
     for (entity, body, faction, is_encounter_mob, is_mount, is_limb, is_dormant, control) in
         &mut actors
     {
-        let awake = match wake_radius(rule.as_ref(), *faction, is_encounter_mob, is_mount || is_limb) {
+        let room = rule.room_of(entity);
+        let room_rule = match rules.iter().find(|(seen, _)| *seen == room) {
+            Some((_, resolved)) => *resolved,
+            None => {
+                let resolved = rule.in_live_room(room);
+                rules.push((room, resolved));
+                resolved
+            }
+        };
+        let awake = match wake_radius(room_rule.as_ref(), *faction, is_encounter_mob, is_mount || is_limb) {
             None => true,
             Some(radius) => {
                 // no observers  AWAKE. A world with nobody in it is a
                 // world between activations, not a world to freeze: sleeping
                 // every actor there would make a room's first frame after a
                 // transition depend on which system ran first.
-                eyes.is_empty()
-                    || eyes
-                        .iter()
-                        .any(|eye| eye.distance(body.pos) <= radius.max(0.0))
+                // Per room: an actor whose room holds no observer is awake,
+                // for the same reason.
+                let mut eyes_here = eyes.iter().filter(|(eye_room, _)| *eye_room == room).peekable();
+                eyes_here.peek().is_none()
+                    || eyes_here.any(|(_, eye)| eye.distance(body.pos) <= radius.max(0.0))
             }
         };
         match (awake, is_dormant) {
@@ -447,5 +467,56 @@ mod tests {
     fn no_observers_at_all_leaves_everything_awake() {
         let (app, actor) = app_with(Some(1.0), ActorFaction::Enemy, 10_000.0, &[]);
         assert!(!is_dormant(&app, actor));
+    }
+
+    /// OW1: each actor sleeps by its own room's rule and is seen only by the
+    /// observers in its own room. Ambition's hall (#0) has the rule, Smash's
+    /// stage (#1) has none. Bob observes the hall at x = 0 and Alice the stage
+    /// at x = 1000. A hall hostile at x = 1000 is far from Bob, so it sleeps,
+    /// although Alice stands at the same place in the other room. A stage
+    /// hostile far from everyone stays awake, because its room has no rule.
+    /// With THE live room's rule, both rooms had none and every actor was awake.
+    #[test]
+    fn an_actor_sleeps_by_its_own_rooms_rule_and_observers() {
+        use ambition_combat::scoped_rules::{DeclareRulesExt, RulesScope};
+        use ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance;
+        let mut app = App::new();
+        app.declare_rules(
+            RulesScope::UntaggedRooms,
+            DormancyRule {
+                hostile_wake_radius: RADIUS,
+            },
+        );
+        let hall = crate::session::governing_rules::tests::two_game_session(&mut app, true);
+        let stage = hall.next();
+        app.init_resource::<crate::control::possession::PossessionState>();
+        app.add_systems(
+            Update,
+            (crate::control::project_driving_participant, assess_dormancy).chain(),
+        );
+        for (slot, x, room) in [(1, 0.0, hall), (0, 1000.0, stage)] {
+            app.world_mut().spawn((
+                PlayerEntity,
+                ambition_characters::control::DrivingParticipant(
+                    ambition_characters::control::PlayerSlot(slot),
+                ),
+                body_at(x),
+                InRoomInstance(room),
+            ));
+        }
+        let in_hall = app
+            .world_mut()
+            .spawn((body_at(1000.0), ActorFaction::Enemy, InRoomInstance(hall)))
+            .id();
+        let on_stage = app
+            .world_mut()
+            .spawn((body_at(5000.0), ActorFaction::Enemy, InRoomInstance(stage)))
+            .id();
+        app.update();
+        assert_eq!(
+            (is_dormant(&app, in_hall), is_dormant(&app, on_stage)),
+            (true, false),
+            "(the hall hostile far from Bob sleeps, the stage hostile with no rule wakes)"
+        );
     }
 }

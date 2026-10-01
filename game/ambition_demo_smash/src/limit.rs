@@ -49,22 +49,27 @@ pub fn guarding_is_the_safe_option(fill: &LimitMeterFill) -> bool {
 }
 
 pub fn fill_limit_meters(
-    rule: ambition_platformer2d::actors::session::governing_rules::GoverningRules<SmashLimitFill>,
+    // Each fighter's own room's fill (OW1): with two rooms live, THE live
+    // room's rule was the rule of no room, and no meter filled.
+    rule: ambition_platformer2d::actors::session::governing_rules::RulesOf<SmashLimitFill>,
     time: Res<ambition_platformer2d::time::WorldTime>,
     mut hits: MessageReader<ambition_platformer2d::combat::hitbox::ResolvedBodyHit>,
     mut blocks: MessageReader<ambition_platformer2d::combat::hitbox::BlockedBodyHit>,
-    mut meters: Query<&mut ActorResources>,
+    mut meters: Query<(Entity, &mut ActorResources)>,
 ) {
-    let Some(SmashLimitFill(fill)) = rule.get() else {
-        return;
+    // The fill that pays `body`: its room's, when that room's game has a meter.
+    let fill_of = |body: Entity| {
+        rule.of(body)
+            .map(|SmashLimitFill(fill)| fill)
+            .filter(|fill| fill.cap > 0.0)
     };
-    if fill.cap <= 0.0 {
-        return;
-    }
     let dt = time.sim_dt();
 
-    for mut bank in &mut meters {
+    for (body, mut bank) in &mut meters {
         let Some(limit) = limit_of(&mut bank) else {
+            continue;
+        };
+        let Some(fill) = fill_of(body) else {
             continue;
         };
         if dt > 0.0 && fill.per_second > 0.0 {
@@ -84,14 +89,18 @@ pub fn fill_limit_meters(
         // Always the victim; the attacker only if one is known. A blast zone,
         // a hazard or a stage spike has no attacker, and the stage must not
         // pay a fighter for killing their opponent.
-        if let Some(limit) = meters.get_mut(hit.victim).ok().and_then(|bank| limit_of(bank.into_inner())) {
-            limit.refill(fill.taken(hit.damage));
+        if let Some(fill) = fill_of(hit.victim) {
+            if let Some(limit) = meters.get_mut(hit.victim).ok().and_then(|(_, bank)| limit_of(bank.into_inner())) {
+                limit.refill(fill.taken(hit.damage));
+            }
         }
         if let Some(attacker) = hit.attacker {
             // Not for hitting yourself: a self-damaging move would pay twice.
             if attacker != hit.victim {
-                if let Some(limit) = meters.get_mut(attacker).ok().and_then(|bank| limit_of(bank.into_inner())) {
-                    limit.refill(fill.dealt(hit.damage));
+                if let Some(fill) = fill_of(attacker) {
+                    if let Some(limit) = meters.get_mut(attacker).ok().and_then(|(_, bank)| limit_of(bank.into_inner())) {
+                        limit.refill(fill.dealt(hit.damage));
+                    }
                 }
             }
         }
@@ -106,7 +115,10 @@ pub fn fill_limit_meters(
     // Not gated on a known attacker. `BlockedBodyHit::attacker` is `None` for a
     // hazard, but the defender still blocked it.
     for block in blocks.read() {
-        if let Some(limit) = meters.get_mut(block.victim).ok().and_then(|bank| limit_of(bank.into_inner())) {
+        let Some(fill) = fill_of(block.victim) else {
+            continue;
+        };
+        if let Some(limit) = meters.get_mut(block.victim).ok().and_then(|(_, bank)| limit_of(bank.into_inner())) {
             limit.refill(fill.blocked());
         }
     }

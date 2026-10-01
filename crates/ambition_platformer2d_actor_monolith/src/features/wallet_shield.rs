@@ -15,7 +15,6 @@ use ambition_platformer2d_shared_tangle::schedule::{
     Platformer2dSimulationPhaseMonolith, PlayerInputSet, SimScheduleExt,
 };
 
-use crate::session::governing_rules::GoverningRules;
 
 /// A game's rule that a wallet absorbs a hit in the rooms it governs, for a
 /// body whose character states `wallet_shield`. Declared with
@@ -33,16 +32,19 @@ pub struct WalletShieldRule;
 /// answer again after a rewind.
 pub fn project_wallet_shields(
     mut commands: Commands,
-    rule: GoverningRules<WalletShieldRule>,
+    // Each body's own room's rule (OW1): with two rooms live, THE live room's
+    // rule was the rule of no room, and no wallet shielded anywhere.
+    rule: crate::session::governing_rules::RulesOf<WalletShieldRule>,
     cast: Option<Res<PreparedCharacterRegistry>>,
     bodies: Query<(Entity, Option<&WornCharacter>, Has<BodyWalletShield>)>,
 ) {
-    let governs = rule.get().is_some();
     for (entity, worn, shielded) in &bodies {
-        let shields = governs
-            && worn
-                .and_then(|worn| cast.as_deref()?.get(worn.id()))
-                .is_some_and(|character| character.wallet_shield);
+        // The character first: most bodies wear no shield, and the room
+        // lookup is the dearer question.
+        let shields = worn
+            .and_then(|worn| cast.as_deref()?.get(worn.id()))
+            .is_some_and(|character| character.wallet_shield)
+            && rule.of(entity).is_some();
         match (shields, shielded) {
             (true, false) => {
                 commands.entity(entity).try_insert(BodyWalletShield);
@@ -158,6 +160,42 @@ mod tests {
         assert!(
             app.world().get::<BodyWalletShield>(body).is_none(),
             "the body kept its shield where no rule lets a wallet absorb a hit"
+        );
+    }
+
+    /// OW1: a shielded character's wallet absorbs in a room the rule governs
+    /// while another room is live, and not in the other room. The rule is
+    /// Smash's here (#1); Ambition's hall (#0) has none. With THE live room's
+    /// rule, both rooms had none and no wallet absorbed.
+    #[test]
+    fn a_wallet_absorbs_by_its_own_rooms_rule_beside_another_live_room() {
+        use ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance;
+        let mut app = App::new();
+        let mut cast = PreparedCharacterRegistry::default();
+        let mut definition =
+            ambition_characters::actor::definition::CharacterDefinition::new("shielded", "shielded", "demo");
+        definition.wallet_shield = true;
+        cast.insert_prepared(
+            crate::character_runtime::prepare_and_finalize_for_test(
+                definition,
+                &ambition_characters::prepared::CharacterBindings::default(),
+            )
+            .prepared,
+        );
+        app.insert_resource(cast);
+        let hall = crate::session::governing_rules::tests::two_game_session(&mut app, true);
+        app.declare_rules(RulesScope::Mode("smash"), WalletShieldRule);
+        app.add_systems(Update, project_wallet_shields);
+        let bodies = [hall, hall.next()].map(|room| {
+            app.world_mut()
+                .spawn((WornCharacter::new("shielded"), InRoomInstance(room)))
+                .id()
+        });
+        app.update();
+        assert_eq!(
+            bodies.map(|body| app.world().get::<BodyWalletShield>(body).is_some()),
+            [false, true],
+            "[the hall body, the stage body] shielded"
         );
     }
 }

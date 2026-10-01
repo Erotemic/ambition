@@ -9,6 +9,14 @@ where
     R: RollbackRegistrar,
 {
     registrar.rollback_component_cursor::<crate::BossEncounter>(OWNER, "boss.encounter");
+    // The side a conducted boss faces: its module chose it on an earlier
+    // tick, and the integration applies it, so it is state a rewind restores.
+    registrar.rollback_component_clone_checksum::<crate::conduct::ConductedFacing>(
+        OWNER,
+        "boss.conducted_facing",
+        "the side a conducted boss faces while its module holds its pose",
+        |facing| facing.0.to_bits() as u64,
+    );
     registrar.rollback_component_clone::<crate::BossConfig>(OWNER, "boss.config");
     registrar.rollback_component_clone::<crate::BossOverrides>(OWNER, "boss.overrides");
     registrar.rollback_component_clone::<crate::EncounterDef>(OWNER, "encounter.definition");

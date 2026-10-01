@@ -14,7 +14,7 @@ use ambition_combat_port::{
     WieldedUsePort, Wielder,
 };
 use ambition_extension_host::{AdmittedExtensions, ExtensionAppExt, ExtensionInvocations, ExtensionOutbox};
-use ambition_extension_sdk::phases::{MODULE_ENTITY_TICK, WIELDED_USE};
+use ambition_extension_sdk::phases::{BOSS_CONDUCT, MODULE_ENTITY_TICK, WIELDED_USE};
 use ambition_extension_sdk::Port;
 use ambition_platformer2d_core::resources::ActorResources;
 use ambition_platformer2d_core::BodyKinematics;
@@ -64,11 +64,23 @@ pub fn install_module_entities(app: &mut App) {
     );
 }
 
+/// Install the sound request port in `boss_conduct` (a conducted boss is
+/// heard as itself).
+pub fn install_for_boss_conduct(app: &mut App) {
+    app.install_extension_request::<BodySoundPort, _>(
+        BOSS_CONDUCT,
+        "ambition_abilities",
+        lower_body_sounds::<InBossConduct>,
+    );
+}
+
 /// The phase a request adapter instance lowers for: one port offered in two
 /// phases has two named adapter systems, not one system registered twice.
 pub struct InWieldedUse;
 /// See [`InWieldedUse`].
 pub struct InModuleEntityTick;
+/// See [`InWieldedUse`].
+pub struct InBossConduct;
 
 /// One invocation for each body holding a bound item, in an order a rewind
 /// reproduces (the body's simulation identity, then its entity).

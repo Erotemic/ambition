@@ -9,6 +9,7 @@
 //! |---|---|---|
 //! | `technique_execution` | `CombatSet::ContentSpecials`, gameplay-gated | trigger `ambition.boss.special_cast` (boss domain); requests `ambition.projectiles.spawn` (projectile domain), `ambition.combat.damage_box` and `ambition.combat.held_damage_box` (combat domain), `ambition.boss.summon` (boss domain) |
 //! | `wielded_use` | `ItemPickupSet::WieldedAbilities`, after the native wielded chain, gameplay-gated | trigger `ambition.items.wielded_use`; requests `ambition.resources.spend_mana`, `ambition.feedback.body_sound` and `ambition.world.spawn_module_entity` (held-item domain, `ambition_abilities`), `ambition.combat.damage_box`, `ambition.projectiles.spawn` |
+//! | `boss_conduct` | `WorldPrepSet::AfterIntegrate`, gameplay-gated | trigger `ambition.boss.conduct`; requests `ambition.boss.conducted_pose`, `ambition.presentation.drawn_row`, `ambition.feedback.burst`, `ambition.boss.summon` (boss domain), `ambition.combat.held_damage_box`, `ambition.combat.riding_hitbox` (combat), `ambition.projectiles.spawn`, `ambition.feedback.body_sound` |
 //! | `module_entity_tick` | `ItemPickupSet::WieldedAbilities`, after `wielded_use`, gameplay-gated | trigger `ambition.world.module_entity_tick`; requests `ambition.feedback.body_sound`, `ambition.world.pull_bodies` (lowered in `BodyPathSet::Carry`) and `ambition.world.end_module_entity` (`ambition_abilities`), `ambition.projectiles.spawn` |
 
 use ambition_extension_host::{ExtensionHostPlugin, ExtensionSet};
@@ -16,7 +17,7 @@ use ambition_extension_host::{ExtensionHostPlugin, ExtensionSet};
 /// The declared modules as canonical text: a section of the prepared content
 /// identity (D6). See `ambition_extension_host::ExtensionGeneration`.
 pub use ambition_extension_host::ExtensionGeneration;
-use ambition_extension_sdk::phases::{MODULE_ENTITY_TICK, TECHNIQUE_EXECUTION, WIELDED_USE};
+use ambition_extension_sdk::phases::{BOSS_CONDUCT, MODULE_ENTITY_TICK, TECHNIQUE_EXECUTION, WIELDED_USE};
 use ambition_platformer2d_shared_tangle::schedule::{CombatSet, GameplayGated, ItemPickupSet, SimScheduleExt};
 use bevy::prelude::*;
 
@@ -38,6 +39,12 @@ pub fn install_ports(app: &mut App) {
     // module_entity_tick
     ambition_abilities::extension::install_module_entities(app);
     ambition_projectiles::extension::install_for_module_entity_tick(app);
+    // boss_conduct: the boss-domain ports first (the pose, the drawn row, a
+    // burst, a summon), then the swung volumes, the throws and the sounds.
+    ambition_boss_encounter::extension::install_conduct(app);
+    ambition_combat::extension::install_for_boss_conduct(app);
+    ambition_projectiles::extension::install_for_boss_conduct(app);
+    ambition_abilities::extension::install_for_boss_conduct(app);
 }
 
 /// Order the phases that depend on each other: an entity spawned in
@@ -115,6 +122,28 @@ impl Plugin for ExtensionCompositionPlugin {
                 <ambition_abilities::module_entity::PullBodiesPort as ambition_extension_sdk::Port>::KEY,
             )
                 .in_set(ambition_platformer2d_shared_tangle::schedule::BodyPathSet::Carry),
+        );
+        // `boss_conduct` guarantees: every non-boss body has integrated (the
+        // boss integration runs later in `WorldPrep` and leaves a held pose
+        // alone), and a request is consumed this tick (the effect and
+        // projectile executors run in the combat phase, after it).
+        app.configure_sets(
+            sim,
+            (
+                ExtensionSet::Collect(BOSS_CONDUCT),
+                ExtensionSet::Invoke(BOSS_CONDUCT),
+                ExtensionSet::Lower(BOSS_CONDUCT),
+            )
+                .in_set(GameplayGated)
+                .in_set(ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::AfterIntegrate),
+        );
+        // The side a conducted boss's module chose reaches the body through
+        // its control, which the boss integration applies.
+        app.add_systems(
+            sim,
+            ambition_boss_encounter::conduct::face_conducted_bosses
+                .in_set(GameplayGated)
+                .in_set(ambition_platformer2d_shared_tangle::schedule::BossSteerSlot),
         );
         order_phases(app, sim);
         install_ports(app);

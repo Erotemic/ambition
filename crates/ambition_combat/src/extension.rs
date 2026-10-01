@@ -10,9 +10,10 @@
 
 use std::sync::Arc;
 
-use ambition_combat_port::{DamageBoxPort, HeldDamageBoxPort};
-use ambition_extension_host::{ExtensionAppExt, ExtensionOutbox};
-use ambition_extension_sdk::phases::{TECHNIQUE_EXECUTION, WIELDED_USE};
+use ambition_combat_port::{DamageBoxPort, HeldDamageBoxPort, RidingHitboxPort, RidingKnockback};
+use ambition_extension_host::{AdmittedExtensions, ExtensionAppExt, ExtensionOutbox};
+use ambition_extension_sdk::phases::{BOSS_CONDUCT, TECHNIQUE_EXECUTION, WIELDED_USE};
+use ambition_extension_sdk::Phase;
 use ambition_platformer2d_core as ae;
 use bevy::prelude::*;
 
@@ -29,8 +30,18 @@ pub fn install(app: &mut App) {
     app.install_extension_request::<HeldDamageBoxPort, _>(
         TECHNIQUE_EXECUTION,
         "ambition_combat",
-        lower_held_damage_boxes,
+        lower_held_damage_boxes::<InTechniqueExecution>,
     );
+}
+
+/// Install the held damage box and the riding hitbox in `boss_conduct`.
+pub fn install_for_boss_conduct(app: &mut App) {
+    app.install_extension_request::<HeldDamageBoxPort, _>(
+        BOSS_CONDUCT,
+        "ambition_combat",
+        lower_held_damage_boxes::<InBossConduct>,
+    );
+    app.install_extension_request::<RidingHitboxPort, _>(BOSS_CONDUCT, "ambition_combat", lower_riding_hitboxes);
 }
 
 /// Install the damage box port in `wielded_use` (a held item's use), before
@@ -49,6 +60,21 @@ pub fn install_for_wielded_use(app: &mut App) {
 pub struct InTechniqueExecution;
 /// See [`InTechniqueExecution`].
 pub struct InWieldedUse;
+/// See [`InTechniqueExecution`].
+pub struct InBossConduct;
+
+/// The phase an adapter instance lowers for, for an adapter whose state spans
+/// phases: the held boxes of one phase's entries are not the other's to
+/// release.
+pub trait LowersIn: Send + Sync + 'static {
+    const PHASE: Phase;
+}
+impl LowersIn for InTechniqueExecution {
+    const PHASE: Phase = TECHNIQUE_EXECUTION;
+}
+impl LowersIn for InBossConduct {
+    const PHASE: Phase = BOSS_CONDUCT;
+}
 
 fn lower_damage_boxes<Phase: Send + Sync + 'static>(
     mut outbox: ResMut<ExtensionOutbox>,
@@ -127,23 +153,35 @@ impl ae::snapshot::SnapshotCursor for HeldDamageBoxes {
 
 /// See the port card on `HeldDamageBoxPort`: release what was not asked for
 /// this tick, then spawn what is asked for and not held.
-fn lower_held_damage_boxes(
+fn lower_held_damage_boxes<P: LowersIn>(
     mut commands: Commands,
     mut outbox: ResMut<ExtensionOutbox>,
+    admitted: Res<AdmittedExtensions>,
     mut holders: Query<(Entity, &mut HeldDamageBoxes)>,
+    mut hitboxes: Query<&mut crate::strike::Hitbox>,
     factions: Query<(
         &ActorFaction,
         Option<&ambition_characters::control::DrivingParticipant>,
     )>,
 ) {
     let submitted = outbox.drain::<HeldDamageBoxPort>();
+    // Only this phase's entries' boxes: the other phase's adapter releases
+    // its own.
+    let mine: Vec<&str> = admitted
+        .0
+        .entries
+        .iter()
+        .filter(|e| e.descriptor.phase == P::PHASE)
+        .map(|e| e.path.as_str())
+        .collect();
     let asked = |owner: Entity, r: &HeldDamageBoxRecord| {
-        submitted.iter().any(|s| {
-            s.scope == owner
-                && *s.entry == *r.entry
-                && s.value.slot == r.slot
-                && s.value.generation == r.generation
-        })
+        !mine.contains(&&*r.entry)
+            || submitted.iter().any(|s| {
+                s.scope == owner
+                    && *s.entry == *r.entry
+                    && s.value.slot == r.slot
+                    && s.value.generation == r.generation
+            })
     };
     for (owner, mut held) in &mut holders {
         if held.0.iter().all(|r| asked(owner, r)) {
@@ -172,6 +210,17 @@ fn lower_held_damage_boxes(
             .chain(pending.into_iter().flatten())
             .any(|r| *r.entry == *s.entry && r.slot == s.value.slot && r.generation == s.value.generation);
         if is_held {
+            // Held: it follows its submitted centre (version 2).
+            let entity = held
+                .into_iter()
+                .flat_map(|h| h.0.iter())
+                .find(|r| *r.entry == *s.entry && r.slot == s.value.slot && r.generation == s.value.generation)
+                .map(|r| r.entity);
+            if let Some(mut hitbox) = entity.and_then(|e| hitboxes.get_mut(e).ok()) {
+                hitbox.anchor = crate::strike::HitboxAnchor::World {
+                    center: ae::Vec2::from(s.value.center),
+                };
+            }
             continue;
         }
         // ⛔ SUBMITTED IS NOT APPLIED: a body with no faction cannot say whom
@@ -217,5 +266,57 @@ fn lower_held_damage_boxes(
         } else {
             commands.entity(owner).insert(HeldDamageBoxes(records));
         }
+    }
+}
+
+/// Lower `ambition.combat.riding_hitbox`: a hitbox that follows its owner, on
+/// the owner's effective side, shown by the owner's own art.
+fn lower_riding_hitboxes(
+    mut commands: Commands,
+    mut outbox: ResMut<ExtensionOutbox>,
+    factions: Query<(
+        &ActorFaction,
+        Option<&ambition_characters::control::DrivingParticipant>,
+    )>,
+) {
+    for s in outbox.drain::<RidingHitboxPort>() {
+        // ⛔ SUBMITTED IS NOT APPLIED: a body with no faction cannot say whom
+        // its hitbox hurts.
+        let Ok((authored, driver)) = factions.get(s.scope) else {
+            warn!(
+                "extension entry {} asked for a riding hitbox for {:?}, which has no faction; refused",
+                s.entry, s.scope
+            );
+            continue;
+        };
+        let h = s.value;
+        let side = crate::hit_side_from_actor_faction(crate::targeting::effective_faction(*authored, driver));
+        commands.spawn((
+            crate::strike::Hitbox {
+                strike_sfx: None,
+                owner: s.scope,
+                source: side,
+                anchor: crate::strike::HitboxAnchor::FollowOwner {
+                    local_offset: ae::Vec2::from(h.offset),
+                },
+                half_extent: ae::Vec2::from(h.half_extent),
+                shape: h.circle_radius.map(|radius| ae::VolumeShape::Circle { radius }),
+                facing: 1.0,
+                damage: h.damage,
+                knockback: match h.knockback {
+                    RidingKnockback::FeelScale(f) => crate::strike::HitboxKnockback::FeelScale(f),
+                    RidingKnockback::LaunchSpeed { base, growth } => {
+                        crate::strike::HitboxKnockback::LaunchSpeed { base, growth }
+                    }
+                },
+                launch_dir: h.launch_dir.map(ae::Vec2::from),
+                frame_down: ae::Vec2::new(0.0, 1.0),
+                reaction: None,
+            },
+            crate::strike::HitboxLifetime { remaining_s: h.lifetime_s },
+            crate::strike::HitboxHits::default(),
+            crate::strike::DepictedByOwner,
+            Name::new(h.name),
+        ));
     }
 }

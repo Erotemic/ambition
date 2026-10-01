@@ -15,11 +15,13 @@
 //! * **Result** — submitted is not applied. No acknowledgement port yet.
 
 pub mod module_entity;
+pub mod riding;
 pub mod wielded;
 pub use module_entity::{
     EndModuleEntity, EndModuleEntityPort, ModuleEntitySpawn, ModuleEntityTick, ModuleEntityTickPort, PullBodies,
     PullBodiesPort, SpawnModuleEntityPort,
 };
+pub use riding::{Burst, BurstPort, RidingHitbox, RidingHitboxPort, RidingKnockback};
 pub use wielded::{BodySound, BodySoundPort, SpendMana, SpendManaPort, WieldedUsePort, Wielder};
 
 use ambition_extension_sdk::wire::{self, WireError, WireReader};
@@ -73,13 +75,16 @@ impl Port for DamageBoxPort {
 ///   despawns the box entity. The module never holds an entity.
 /// * **Scope and grant** — as [`DamageBoxPort`]: the owner is the body the
 ///   invocation ran for, and the box is on that body's faction.
-/// * **Time** — offered in `technique_execution`. Each tick the adapter runs,
-///   for each body: a held box that the body's entry did NOT submit this tick
-///   is despawned; a submitted (slot, generation) that is not held is spawned
-///   (a held box of the same slot with another generation is despawned first);
-///   a submitted (slot, generation) that is held is kept as it is (it does not
-///   move, and its values are not read again). A box that ran out of lifetime
-///   is not spawned again for the same generation.
+/// * **Time** — offered in `technique_execution` and `boss_conduct`. Each
+///   tick the adapter runs, for each body: a held box that the body's entry
+///   did NOT submit this tick is despawned; a submitted (slot, generation)
+///   that is not held is spawned (a held box of the same slot with another
+///   generation is despawned first); a submitted (slot, generation) that is
+///   held is kept, and moves to the submitted `center` (its other values are
+///   not read again). A box that ran out of lifetime is not spawned again for
+///   the same generation.
+/// * **Version 2** (2026-10-01): a held box follows its submitted `center`
+///   (a shock rolling along a floor); version 1 kept it where it spawned.
 /// * **Read model** — world units, +Y down.
 /// * **Replay** — the adapter's record of what is held is rollback state on
 ///   the body.
@@ -103,7 +108,7 @@ pub struct HeldDamageBox {
 }
 
 impl Port for HeldDamageBoxPort {
-    const KEY: PortKey = PortKey::new("ambition.combat.held_damage_box", 1);
+    const KEY: PortKey = PortKey::new("ambition.combat.held_damage_box", 2);
     const ROLE: PortRole = PortRole::Request;
     type Value = HeldDamageBox;
 

@@ -951,7 +951,12 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// vortex is an extension module, its well a module entity
 /// (`ability.module_entity`) and the well's clock a record in
 /// `extension.body_records`.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 288;
+/// ⛔⛤ 288 -> 289: `content.fsm_conductor` and `map.content.fsm_conductor` are
+/// gone: the Flying Spaghetti Monster's conductor is an extension module (a
+/// conducted boss), its memory a record in `extension.body_records` and its
+/// shocks the combat domain's held boxes (`combat.held_damage_boxes`).
+/// `boss.conducted_facing` is new: the side a conducted boss faces.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 289;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

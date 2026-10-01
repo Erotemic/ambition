@@ -26,8 +26,8 @@ pub fn shipped(character: &str) -> MovesetContract {
 
 /// The move table `character` fights with on a platform-fighter stage: its
 /// shipped table with the damage its `smash_fighter` facet states, which is
-/// what a Smash seat applies (`MoveDamageSource::SmashFighterFacet`). A
-/// character with no facet fights with its shipped table.
+/// what a Smash seat applies (`smash_fighter::FIGHTER_DAMAGE`). A character
+/// with no facet fights with its shipped table.
 ///
 /// A test that compares fighters in PERCENT reads this, not [`shipped`]: the
 /// shipped table's damage is the character's home game's.
@@ -37,7 +37,7 @@ pub fn on_a_platform_fighter_stage(character: &str) -> MovesetContract {
         crate::pack::prepared(),
         character,
     ) {
-        Some(facet) => ambition_characters::smash_fighter::move_damage_over(
+        Some(facet) => ambition_characters::move_damage::move_damage_over(
             &facet.move_damage,
             moveset,
         )

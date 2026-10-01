@@ -6,6 +6,7 @@
 //! crate graph does not have. George's own facet is guarded where it lives.
 
 use super::*;
+use crate::move_damage::{move_damage_over, MoveDamage};
 
 fn facet() -> SmashFighterFacet {
     SmashFighterFacet {

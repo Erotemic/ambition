@@ -27,6 +27,7 @@ pub mod brain;
 pub mod control;
 pub mod equipment;
 pub mod load_demand;
+pub mod move_damage;
 pub mod moveset_prefabs;
 pub mod perception;
 pub mod prepared;

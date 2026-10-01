@@ -137,8 +137,8 @@ pub fn facet<'a>(
 
 /// Fold the facet into `definition`: its knockback weight, which applies
 /// wherever the character appears, and its move damage, which the definition
-/// only carries. A match that declares
-/// [`MoveDamageSource::SmashFighterFacet`](super::MoveDamageSource) applies it
+/// only carries. Its move damage is folded under [`super::FIGHTER_DAMAGE`], and a
+/// match that plays in that scale applies it
 /// (`ambition_combat::worn_kit::WornKit::resolve`). One of the folds in
 /// [`crate::pack_facets`]. The fighter body is a match fact; see
 /// [`fighter_body`].
@@ -152,7 +152,15 @@ pub fn fold_into_definition(
     if let Some(weight) = facet.knockback_weight {
         definition.vitals.knockback_weight = Some(weight);
     }
-    definition.fighter_move_damage = facet.move_damage.clone();
+    // Lowered here, under this capability's own scale: the match and the kit
+    // resolver read a scale, never the facet (AP78).
+    if facet.move_damage.is_empty() {
+        definition.scaled_move_damage.remove(&super::FIGHTER_DAMAGE);
+    } else {
+        definition
+            .scaled_move_damage
+            .insert(super::FIGHTER_DAMAGE, facet.move_damage.clone());
+    }
     definition
 }
 

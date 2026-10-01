@@ -150,12 +150,11 @@ pub fn apply_smash_match_rules(roster: &mut MatchParticipantRoster, stocks: u32)
     // The match supplies one health pool for percent calculation so crossover
     // characters are measured against this ruleset rather than their home games.
     roster.rules.health_pool = Some(SMASH_PERCENT_REFERENCE);
-    // Percent is not health, so a fighter's hits deal the damage its
-    // `smash_fighter` facet states for this ruleset. A move the facet does not
-    // name keeps its moveset damage, which is right for a fighter whose home
-    // game is this one.
+    // Percent is not health, so a fighter's hits deal the damage it states in
+    // the platform-fighter scale. A move it does not name keeps its moveset
+    // damage, which is right for a fighter whose home game is this one.
     roster.rules.move_damage =
-        ambition_platformer2d::characters::smash_fighter::MoveDamageSource::SmashFighterFacet;
+        Some(ambition_platformer2d::characters::smash_fighter::FIGHTER_DAMAGE);
     // The Limit is the match's resource: every seat is built holding it, empty.
     roster.rules.resources = vec![crate::limit::SMASH_LIMIT.declaration()];
     // Every fighter gets the ruleset floor, keeps what of its own kit the

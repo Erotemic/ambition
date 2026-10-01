@@ -35,6 +35,7 @@ use ambition_combat::strike::{DamageBox, DepictedByOwner, Hitbox, HitboxAnchor, 
 use ambition_platformer2d::sfx::{BodySfxWriter, SfxId, SfxMessage};
 use ambition_platformer2d::sprite_sheet::character::PinnedRow;
 use ambition_platformer2d::vfx::{ParticleKind, VfxMessage};
+use ambition_platformer2d::vfx::VfxWriter;
 use ambition_characters::control::DrivingParticipant;
 use ambition_combat::components::ActorTarget;
 use ambition_projectiles::{ProjectileSpawn, ProjectileSpawnRequest, ProjectileStart};
@@ -343,7 +344,7 @@ pub fn conduct_fsm(
     mut hitboxes: Query<&mut Hitbox>,
     mut projectiles: MessageWriter<ProjectileSpawnRequest>,
     mut effects: MessageWriter<ambition_vfx::EffectRequest>,
-    mut vfx: MessageWriter<VfxMessage>,
+    mut vfx: VfxWriter,
     mut sfx: BodySfxWriter,
 ) {
     let dt = time.sim_dt();
@@ -671,7 +672,7 @@ fn land(
     conductor: &mut FsmConductor,
     hall: &Hall,
     x: f32,
-    vfx: &mut MessageWriter<VfxMessage>,
+    vfx: &mut VfxWriter,
     sfx: &mut BodySfxWriter,
 ) {
     let feet = Vec2::new(x, hall.floor - WAVE_HALF.y);

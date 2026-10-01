@@ -95,7 +95,8 @@ pub fn wisp(host: Vec2, limb: Vec2, index: usize, time: f32) -> (Vec2, f32, f32)
 pub fn sync_limb_trails(
     mut commands: Commands,
     time: Res<Time>,
-    world: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<
+    // Each trail is placed by the live room of the body it hangs from.
+    world: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomOf<
         ambition_platformer2d_core::RoomGeometry,
     >,
     sprite: Option<Res<LimbTrailSprite>>,
@@ -122,7 +123,9 @@ pub fn sync_limb_trails(
             continue;
         };
         standing.insert(wisp_of.body);
-        place(&world.0, &mut transform, &mut art, wisp(host, limb, wisp_of.index, now));
+        if let Some(world) = world.of(entity) {
+            place(&world.0, &mut transform, &mut art, wisp(host, limb, wisp_of.index, now));
+        }
     }
 
     let Some(sprite) = sprite else {
@@ -135,12 +138,18 @@ pub fn sync_limb_trails(
         if standing.contains(&body) {
             continue;
         }
+        let Some(room) = world.room_of(body) else {
+            continue;
+        };
+        let Some(room_world) = world.in_room(room) else {
+            continue;
+        };
         for index in 0..WISPS {
             let mut transform = Transform::default();
             let mut art = Sprite::from_image(sprite.handle.clone());
-            place(&world.0, &mut transform, &mut art, wisp(host, limb, index, now));
+            place(&room_world.0, &mut transform, &mut art, wisp(host, limb, index, now));
             commands.spawn_session_scoped(
-                scope,
+                scope.in_room(Some(room)),
                 (
                     art,
                     transform,
@@ -186,5 +195,90 @@ mod tests {
         assert!(near_hand.2 > near_body.2, "brightest toward the hand: {near_body:?} vs {near_hand:?}");
         let middle = samples.iter().min_by(|a, b| (a.0.x - 150.0).abs().total_cmp(&(b.0.x - 150.0).abs())).unwrap();
         assert!(middle.0.y.abs() > 10.0, "the trail bows between them: {middle:?}");
+    }
+
+    /// A limb's row, with its hand on its host at `at`, so every wisp is at `at`.
+    fn limb_at(at: ambition_platformer2d_core::Vec2) -> ambition_sim_view::FeatureView {
+        ambition_sim_view::FeatureView {
+            pos: at,
+            size: ambition_platformer2d_core::Vec2::new(20.0, 20.0),
+            kind: ambition_platformer2d_shared_tangle::feature_kind::FeatureVisualKind::Actor,
+            visible: true,
+            submerged: false,
+            wire_anchor: None,
+            grab_reach: None,
+            line_anchor: None,
+            limb_host: Some(at),
+            depth_plane: ambition_platformer2d_core::DepthPlane::PLAYABLE,
+            flash: false,
+            breakable_state: None,
+            chest_opened: false,
+            fighting: false,
+            switch_on: false,
+            rotation_rad: 0.0,
+            alive: true,
+            hit_flash_secs: 0.0,
+            parry_flash_secs: 0.0,
+            hp_current: 1,
+            hp_max: 1,
+            training_dummy: false,
+            hit_strength: 0.0,
+            unhittable: false,
+            defense_cues: ambition_sim_view::DefenseCueCauses::NONE,
+            sprite_offset: None,
+        }
+    }
+
+    /// Each limb's trail is drawn in the live room of the body it hangs from
+    /// (view half, cut V2f). Two live rooms of different sizes, a limb in each
+    /// at one simulation position: each trail's wisps are stamped with their
+    /// body's room and placed by its flip, at spawn and on the next frame.
+    #[test]
+    fn each_limb_trail_is_drawn_in_its_body_s_own_live_room() {
+        use ambition_platformer2d_core as ae;
+        use ambition_platformer2d_shared_tangle::lifecycle::{
+            insert_live_room_component, spawn_live_room, InRoomInstance, LiveRoomInstance,
+        };
+        const AT: ae::Vec2 = ae::Vec2::new(100.0, 200.0);
+        let room = |size: ae::Vec2| {
+            ae::RoomGeometry(ae::World::new("limb room", size, ae::Vec2::new(40.0, 40.0), Vec::new()))
+        };
+        let (big, small) = (ae::Vec2::new(800.0, 600.0), ae::Vec2::new(400.0, 300.0));
+        let mut app = App::new();
+        app.init_resource::<Time>();
+        app.init_resource::<LimbTrailSprite>();
+        insert_live_room_component(app.world_mut(), room(big));
+        let second = LiveRoomInstance::ACTIVATION.next();
+        spawn_live_room(app.world_mut(), second, room(small));
+        app.insert_resource(ambition_sim_view::FeatureViewIndex::from_rows([
+            ("limb_in_big".to_string(), limb_at(AT)),
+            ("limb_in_small".to_string(), limb_at(AT)),
+        ]));
+        app.add_systems(Update, sync_limb_trails);
+        for (id, room) in [("limb_in_big", LiveRoomInstance::ACTIVATION), ("limb_in_small", second)] {
+            app.world_mut()
+                .spawn((super::super::FeatureVisual { id: id.to_string() }, InRoomInstance(room)));
+        }
+        let flipped = |size: ae::Vec2| Vec2::new(AT.x - size.x * 0.5, size.y * 0.5 - AT.y);
+        let expected = [
+            (Some(LiveRoomInstance::ACTIVATION.ordinal()), flipped(big)),
+            (Some(second.ordinal()), flipped(small)),
+        ];
+        // The first frame spawns the wisps; the second places the standing ones.
+        for frame in ["spawn", "follow"] {
+            app.update();
+            let mut q = app.world_mut().query::<(&LimbTrailWisp, &Transform, Option<&InRoomInstance>)>();
+            let mut drawn: Vec<(Option<u32>, Vec2)> = q
+                .iter(app.world())
+                .map(|(_, transform, stamp)| (stamp.map(|stamp| stamp.0.ordinal()), transform.translation.truncate()))
+                .collect();
+            drawn.sort_by(|a, b| a.0.cmp(&b.0));
+            drawn.dedup();
+            assert_eq!(
+                drawn, expected,
+                "(room, position) of the wisps after the {frame} frame: each trail must be stamped with and \
+                 placed by its body's live room"
+            );
+        }
     }
 }

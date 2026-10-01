@@ -1,4 +1,5 @@
 use super::*;
+use ambition_vfx::vfx::VfxInRoom;
 use ambition_characters::actor::character_catalog::{CharacterCatalog, CharacterCatalogData};
 use ambition_combat::components::ActorIdentity;
 use ambition_combat::components::ActorDisposition;
@@ -49,7 +50,7 @@ fn app() -> App {
         ..Default::default()
     });
     app.add_message::<PetRequested>();
-    app.add_message::<VfxMessage>();
+    app.add_message::<VfxInRoom>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_systems(
         Update,
@@ -86,8 +87,8 @@ fn knock(app: &mut App, body: Entity) {
 
 fn hearts(app: &App) -> usize {
     app.world()
-        .resource::<bevy::ecs::message::Messages<VfxMessage>>()
-        .iter_current_update_messages()
+        .resource::<bevy::ecs::message::Messages<VfxInRoom>>()
+        .iter_current_update_messages().map(|m| &m.vfx)
         .filter(|message| matches!(message, VfxMessage::Hearts { .. }))
         .count()
 }

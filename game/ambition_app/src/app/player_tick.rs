@@ -40,11 +40,13 @@ pub fn sync_player_presentation(
             Option<&ambition_platformer2d::platformer::markers::PrimaryPlayer>,
             // A13: whose cues this player body emits.
             Option<&ambition_platformer2d::sfx::BodyPresentationSource>,
+            // The live room the body is in: its movement effects are drawn there.
+            Option<&ambition_platformer2d::platformer::lifecycle::InRoomInstance>,
         ),
         With<ambition_platformer2d::platformer::markers::PlayerEntity>,
     >,
 ) {
-    for (mut cluster_item, mut anim, mut combat, mut blink_cam, frame_out, primary, source) in
+    for (mut cluster_item, mut anim, mut combat, mut blink_cam, frame_out, primary, source, room) in
         &mut player_q
     {
         let is_primary = primary.is_some();
@@ -56,7 +58,7 @@ pub fn sync_player_presentation(
             &mut blink_cam,
             &mut anim,
             &mut event_writers.sfx,
-            &mut event_writers.vfx,
+            &mut event_writers.vfx.for_room(room.map(|stamp| stamp.0)),
             &mut shake,
             *shake_tuning,
             is_primary,

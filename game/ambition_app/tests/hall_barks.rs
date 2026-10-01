@@ -10,6 +10,7 @@
 //! So this drives the REAL Hall room and collects what reaches the VFX bus.
 
 use ambition_platformer2d::vfx::vfx::VfxMessage;
+use ambition_platformer2d::vfx::vfx::VfxInRoom;
 use bevy::prelude::Messages;
 
 /// The Hall bark cadence is ~28s base plus up to 24s of per-pedestal jitter, so
@@ -23,8 +24,8 @@ fn speech_in_the_hall() -> Vec<String> {
     for _ in 0..TICKS {
         sim.step(crate::common::base());
         let world = sim.world_mut();
-        if let Some(mut messages) = world.get_resource_mut::<Messages<VfxMessage>>() {
-            for message in messages.drain() {
+        if let Some(mut messages) = world.get_resource_mut::<Messages<VfxInRoom>>() {
+            for message in messages.drain().map(|m| m.vfx) {
                 if let VfxMessage::SpeechBubble { text, .. } = message {
                     heard.push(text);
                 }

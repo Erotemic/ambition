@@ -184,7 +184,7 @@ pub fn collect_ecs_pickups(
     mut heals: MessageWriter<crate::avatar::PlayerHealRequested>,
     mut wallets: Query<&mut ambition_characters::actor::BodyWallet>,
     mut sfx: SfxWriter,
-    mut vfx: MessageWriter<VfxMessage>,
+    mut vfx: VfxWriter,
     mut set_flag: MessageWriter<SetFlagRequested>,
     mut owned: Option<ResMut<ambition_items::OwnedItems>>,
     // The tie-break's authority. Read through a lookup rather than joined onto

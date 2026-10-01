@@ -99,7 +99,7 @@ pub fn is_ai_slop_brain(brain: &CharacterBrain) -> bool {
 /// seam — a squash reads as a squash without adopting a wrong-ordered pipeline.
 pub fn bounce_squash_ai_slop(
     mut commands: Commands,
-    mut vfx: MessageWriter<ambition_platformer2d::vfx::VfxMessage>,
+    mut vfx: ambition_platformer2d::vfx::VfxWriter,
     mut sfx: ambition_platformer2d::sfx::BodySfxWriter,
     mut players: Query<(Entity, &mut ae::BodyKinematics), With<PrimaryPlayer>>,
     // Which bodies are AI Slop is their authored brain, read here rather

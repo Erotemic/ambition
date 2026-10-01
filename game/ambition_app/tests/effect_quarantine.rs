@@ -189,7 +189,7 @@ fn the_journal_drains_once_every_frame_confirms() {
 #[test]
 fn only_presentation_facing_effects_are_quarantined() {
     use ambition_platformer2d::vfx::vfx::DebrisBurstMessage;
-    use ambition_platformer2d::vfx::{EffectRequest, FireworksRequest, FxRequest, VfxMessage};
+    use ambition_platformer2d::vfx::{EffectRequest, FireworksRequest, FxRequest, VfxInRoom};
 
     let sim = sim_with_rewind_distance(4);
     let world = sim.world();
@@ -222,7 +222,7 @@ fn only_presentation_facing_effects_are_quarantined() {
 
     assert_quarantined!(
         OwnedSfxMessage,
-        VfxMessage,
+        VfxInRoom,
         FxRequest,
         FireworksRequest,
         DebrisBurstMessage,

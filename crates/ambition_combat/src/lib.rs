@@ -140,7 +140,7 @@ use ambition_sfx::SfxMessage;
 #[allow(unused_imports)]
 use ambition_time::WorldTime;
 #[allow(unused_imports)]
-use ambition_vfx::vfx::{DebrisBurstMessage, ParticleKind, PhysicsDebrisCue, VfxMessage};
+use ambition_vfx::vfx::{DebrisBurstMessage, ParticleKind, PhysicsDebrisCue, VfxInRoom, VfxMessage, VfxWriter};
 #[allow(unused_imports)]
 use bevy::prelude::*;
 

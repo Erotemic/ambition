@@ -142,6 +142,8 @@ pub(crate) fn apply_actor_hit(
     writers: &mut FeatureHitWriters<'_, '_>,
 ) -> bool {
     let session_scope = writers.spawn_scope_from(actor_entity);
+    // The struck body's live room: every effect of the hit is drawn there.
+    let room = session_scope.room();
     // THE QUESTION IS COMBAT STANDING, NOT SOCIAL MOOD. This asked
     // `disposition.is_peaceful()`, which made
     // `ActorDisposition` answer two things at once: *how does this actor regard
@@ -211,7 +213,7 @@ pub(crate) fn apply_actor_hit(
                 // flip in `apply_actor_stimuli` records it for every road that
                 // provokes, which a hit is only one of.
                 if aggression.provoked() {
-                    writers.vfx.write(VfxMessage::SpeechBubble {
+                    writers.vfx.write_in(room, VfxMessage::SpeechBubble {
                         pos: bark_anchor,
                         text: super::super::super::npcs::npc_hostile_bark_line(
                             catalog,
@@ -219,7 +221,7 @@ pub(crate) fn apply_actor_hit(
                         )
                         .to_string(),
                     });
-                    writers.vfx.write(VfxMessage::Burst {
+                    writers.vfx.write_in(room, VfxMessage::Burst {
                         pos,
                         count: 16,
                         speed: 230.0,
@@ -228,7 +230,7 @@ pub(crate) fn apply_actor_hit(
                     });
                     banner.show(format!("{} turns hostile", em.identity.name), 2.6);
                 } else {
-                    writers.vfx.write(VfxMessage::SpeechBubble {
+                    writers.vfx.write_in(room, VfxMessage::SpeechBubble {
                         pos: bark_anchor,
                         text: super::super::super::npcs::npc_hit_bark_line(
                             catalog,
@@ -373,7 +375,7 @@ pub(crate) fn apply_actor_hit(
                     combat_banter.and_then(|reg| reg.pick_hit_bark(&em.identity.name, strikes))
                 });
             if let Some(line) = line {
-                writers.vfx.write(VfxMessage::SpeechBubble {
+                writers.vfx.write_in(room, VfxMessage::SpeechBubble {
                     pos: em.bark_anchor(),
                     text: line.to_string(),
                 });
@@ -393,8 +395,8 @@ pub(crate) fn apply_actor_hit(
                     pos: em.kin.pos,
                 },
             );
-            writers.vfx.write(VfxMessage::Impact { pos: impact });
-            writers.vfx.write(VfxMessage::Burst {
+            writers.vfx.write_in(room, VfxMessage::Impact { pos: impact });
+            writers.vfx.write_in(room, VfxMessage::Burst {
                 pos: impact,
                 count: 8,
                 speed: 160.0,
@@ -631,7 +633,7 @@ pub(crate) fn apply_actor_hit(
                         actor_entity,
                         em.kin.pos,
                     );
-                    writers.vfx.write(VfxMessage::Effect {
+                    writers.vfx.write_in(room, VfxMessage::Effect {
                         pos: em.kin.pos,
                         fx: ambition_vfx::fx::ids::CLASSIC_BURST,
                         scale: 0.85,
@@ -708,7 +710,7 @@ pub(crate) fn apply_actor_hit(
         // split offspring, held-item drop, respawn timer. A body dying in its
         // own voice is not on that list and never was.
         if killed {
-            writers.vfx.write(VfxMessage::Burst {
+            writers.vfx.write_in(room, VfxMessage::Burst {
                 pos: em.kin.pos,
                 count: 16,
                 speed: 230.0,

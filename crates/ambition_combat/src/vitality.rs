@@ -26,7 +26,7 @@ use ambition_entity_catalog::smash_vitality::{VitalityParams, VITALITY};
 pub fn apply_authored_vitality(
     mut actions: MessageReader<ActorActionMessage>,
     mut bodies: Query<&mut ambition_characters::actor::body::BodyHealth>,
-    mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
+    mut vfx: ambition_vfx::vfx::VfxWriter,
     mut sfx: ambition_sfx::BodySfxWriter,
     positions: Query<&ambition_platformer2d_core::BodyKinematics>,
 ) {

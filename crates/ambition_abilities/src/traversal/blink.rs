@@ -94,7 +94,7 @@ pub fn blink_system(
         Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
     )>,
     mut sfx: ambition_sfx::BodySfxWriter,
-    mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
+    mut vfx: ambition_vfx::vfx::VfxWriter,
     mut hits: MessageWriter<ambition_combat::events::HitEvent>,
     // Optional diagnostic Class-B ledger (§3.2), so a minimal test app still
     // blinks.

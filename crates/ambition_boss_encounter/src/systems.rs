@@ -408,7 +408,7 @@ pub fn boss_phase_transition_feedback(
         ),
         With<crate::BossConfig>,
     >,
-    mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
+    mut vfx: ambition_vfx::vfx::VfxWriter,
 ) {
     use crate::BossEncounterPhase as P;
     for change in phase_changes.read() {
@@ -500,7 +500,7 @@ mod phase_feedback_tests {
     fn test_app() -> App {
         let mut app = App::new();
         app.add_message::<ambition_sfx::OwnedSfxMessage>();
-        app.add_message::<ambition_vfx::vfx::VfxMessage>();
+        app.add_message::<ambition_vfx::vfx::VfxInRoom>();
         app.add_message::<CameraShakeRequest>();
         app.add_message::<super::super::events::BossPhaseChanged>();
         app.add_systems(Update, boss_phase_transition_feedback);

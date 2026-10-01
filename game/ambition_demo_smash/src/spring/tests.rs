@@ -11,7 +11,7 @@ fn app() -> App {
     app.add_message::<ActorActionMessage>();
     // The cue channel: without this registered message, both spring systems
     // fail parameter validation and are silently dropped.
-    app.add_message::<ambition_platformer2d::vfx::vfx::VfxMessage>();
+    app.add_message::<ambition_platformer2d::vfx::vfx::VfxInRoom>();
     let mut time = app
         .world_mut()
         .resource_mut::<ambition_platformer2d::time::WorldTime>();
@@ -290,12 +290,12 @@ fn a_plate_with_an_authored_cue_announces_both_its_arrival_and_its_launch() {
     // One cursor for the whole run: a fresh cursor per tick re-reads the
     // double buffer and counts a cue twice.
     let mut seen =
-        bevy::ecs::message::MessageCursor::<ambition_platformer2d::vfx::vfx::VfxMessage>::default();
+        bevy::ecs::message::MessageCursor::<ambition_platformer2d::vfx::vfx::VfxInRoom>::default();
     let mut cues = |app: &mut App| -> usize {
         let messages = app
             .world()
-            .resource::<Messages<ambition_platformer2d::vfx::vfx::VfxMessage>>();
-        seen.read(messages)
+            .resource::<Messages<ambition_platformer2d::vfx::vfx::VfxInRoom>>();
+        seen.read(messages).map(|m| &m.vfx)
             .filter(|m| {
                 matches!(
                     m,
@@ -373,10 +373,10 @@ fn a_plate_with_an_authored_cue_announces_both_its_arrival_and_its_launch() {
     let quiet_cues = {
         let messages = quiet
             .world()
-            .resource::<Messages<ambition_platformer2d::vfx::vfx::VfxMessage>>();
+            .resource::<Messages<ambition_platformer2d::vfx::vfx::VfxInRoom>>();
         let mut cursor = messages.get_cursor();
         cursor
-            .read(messages)
+            .read(messages).map(|m| &m.vfx)
             .filter(|m| {
                 matches!(
                     m,

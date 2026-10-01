@@ -298,7 +298,7 @@ mod flow_tests {
             let mut app = App::new();
             app.add_message::<MoveEventMessage>();
             app.add_message::<ambition_combat::events::HitEvent>();
-            app.add_message::<ambition_vfx::VfxMessage>();
+            app.add_message::<ambition_vfx::VfxInRoom>();
             app.add_message::<ambition_sfx::OwnedSfxMessage>();
             app.add_message::<ambition_vfx::vfx::DebrisBurstMessage>();
             app.init_resource::<ambition_time::WorldTime>();

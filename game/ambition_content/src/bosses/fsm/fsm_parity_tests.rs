@@ -123,7 +123,7 @@ fn world(road: Road, arm: Arm) -> (App, Entity, Entity) {
     app.add_message::<ambition_characters::brain::ActorActionMessage>()
         .add_message::<ProjectileSpawnRequest>()
         .add_message::<ambition_vfx::EffectRequest>()
-        .add_message::<ambition_vfx::vfx::VfxMessage>()
+        .add_message::<ambition_vfx::vfx::VfxInRoom>()
         .add_message::<ambition_sfx::OwnedSfxMessage>()
         .init_resource::<ambition_time::SimTick>()
         .insert_resource(ambition_time::WorldTime { raw_dt: DT, scaled_dt: DT });
@@ -300,7 +300,7 @@ fn observe(app: &mut App, god: Entity, arm: Arm) -> Vec<String> {
             _ => out.push("effect (not a summon)".to_string()),
         }
     }
-    for vfx in world.resource_mut::<Messages<ambition_vfx::vfx::VfxMessage>>().drain() {
+    for vfx in world.resource_mut::<Messages<ambition_vfx::vfx::VfxInRoom>>().drain().map(|m| m.vfx) {
         out.push(format!("vfx {vfx:?}"));
     }
     let mut sounds: Vec<String> = world

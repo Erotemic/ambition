@@ -870,7 +870,7 @@ mod tests {
         app.add_message::<ambition_combat::hitbox::ParriedBodyHit>();
         app.add_message::<ambition_sfx::OwnedSfxMessage>();
         app.add_message::<ambition_combat::moveset::MoveEventMessage>();
-        app.add_message::<ambition_vfx::vfx::VfxMessage>();
+        app.add_message::<ambition_vfx::vfx::VfxInRoom>();
         app.add_message::<AttacksClanked>();
         app.init_resource::<ambition_time::WorldTime>();
         app.world_mut().resource_mut::<ambition_time::WorldTime>().scaled_dt = 0.016;

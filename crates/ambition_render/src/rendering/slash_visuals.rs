@@ -24,6 +24,7 @@ use ambition_platformer2d_shared_tangle::lifecycle::{
 };
 use ambition_sim_view::presented_pose::PresentedPose;
 use ambition_vfx::vfx::{SlashKind, SlashPose, VfxMessage};
+use ambition_vfx::vfx::VfxInRoom;
 
 use super::sheet_atlas::{atlas_layout_from_record, row_playback, RowPlayback};
 use ambition_platformer2d_shared_tangle::binding::BindingLedger;
@@ -154,8 +155,9 @@ fn build_slash_source(
 /// built lazily on the first cue.
 pub(crate) fn spawn_slash_effects(
     mut commands: Commands,
-    mut messages: MessageReader<VfxMessage>,
-    world: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<
+    mut messages: MessageReader<VfxInRoom>,
+    // Each slash is drawn in the live room of the body that swings it.
+    world: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomOf<
         ambition_platformer2d_core::RoomGeometry,
     >,
     asset_server: Res<AssetServer>,
@@ -185,8 +187,16 @@ pub(crate) fn spawn_slash_effects(
             owner,
             kind,
             pose,
-        } = message
+        } = &message.vfx
         else {
+            continue;
+        };
+        // The row's room, or the swinging body's own (its stamp, else the sole
+        // live room), so a body and its blade agree on the room.
+        let Some(room) = message.room.or_else(|| world.room_of(*owner)) else {
+            continue;
+        };
+        let Some(room_world) = world.in_room(room) else {
             continue;
         };
         // A character names its sheet or gets no sprite. The unauthored-volume
@@ -219,8 +229,8 @@ pub(crate) fn spawn_slash_effects(
         };
         spawn_one(
             &mut commands,
-            session_scope,
-            &world.0,
+            session_scope.in_room(Some(room)),
+            &room_world.0,
             &source,
             *shape,
             *owner,
@@ -317,13 +327,17 @@ fn owner_pos(owners: &Query<&PresentedPose>, owner: Entity) -> Option<ae::Vec2> 
 /// If the owner despawns mid-swing, the effect stays where it last was
 /// instead of snapping to the origin. A body can die inside its own swing.
 pub(crate) fn follow_slash_owner(
-    world: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<
+    world: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomOf<
         ambition_platformer2d_core::RoomGeometry,
     >,
     owners: Query<&PresentedPose>,
-    mut slashes: Query<(&SlashVisual, &mut Transform)>,
+    mut slashes: Query<(Entity, &SlashVisual, &mut Transform)>,
 ) {
-    for (slash, mut transform) in &mut slashes {
+    for (entity, slash, mut transform) in &mut slashes {
+        // Placed by the slash's own live room (it is stamped at spawn).
+        let Some(world) = world.of(entity) else {
+            continue;
+        };
         let Ok(presented) = owners.get(slash.owner) else {
             continue;
         };

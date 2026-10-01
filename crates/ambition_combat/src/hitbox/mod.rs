@@ -17,6 +17,7 @@ use super::util::midpoint;
 use crate::actor_faction_from_hit_side;
 use ambition_time::WorldTime;
 use ambition_vfx::vfx::VfxMessage;
+use ambition_vfx::vfx::{VfxInRoom, VfxWriter};
 
 // Public hitbox vocabulary remains available beside the resolution systems.
 pub use crate::strike::{
@@ -652,7 +653,7 @@ impl AttackerFacts<'_, '_> {
 /// this instead of enumerating, so the next output added to the struct reaches
 /// all of them at once.
 pub fn register_strike_outcome_messages(app: &mut bevy::prelude::App) {
-    app.add_message::<VfxMessage>();
+    app.add_message::<VfxInRoom>();
     app.add_message::<HitEvent>();
     app.add_message::<LandedBodyHit>();
     app.add_message::<ParriedBodyHit>();
@@ -674,7 +675,7 @@ pub fn register_strike_outcome_messages(app: &mut bevy::prelude::App) {
 #[derive(bevy::ecs::system::SystemParam)]
 pub struct StrikeOutcomeWriters<'w> {
     /// Wielded-AOE VFX only; victim-side `emit_hit_feedback` owns melee feedback.
-    pub vfx: MessageWriter<'w, VfxMessage>,
+    pub vfx: VfxWriter<'w>,
     pub hit_events: MessageWriter<'w, HitEvent>,
     /// Overlap.
     pub landed: MessageWriter<'w, LandedBodyHit>,

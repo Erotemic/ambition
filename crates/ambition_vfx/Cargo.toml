@@ -19,6 +19,10 @@ bevy = { version = "0.19.1", default-features = false }
 # Geometry (Vec2 / Aabb) — the pure-logic foundation.
 ambition_geometry = { path = "../ambition_geometry" }
 
+# `LiveRoomInstance`: the live room an effect is drawn in (`VfxInRoom`). The
+# room identity is defined there, below the room crate.
+ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
+
 # SfxId for FxRequest's OPTIONAL cue override. the effect's OWN cue is no
 # longer named here: it is derived from the authored effect name by the
 # presentation layer, because the bank already ships one `vfx.<family>.<row>`

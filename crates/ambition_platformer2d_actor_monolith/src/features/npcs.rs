@@ -370,7 +370,7 @@ pub fn speak_conversation_cut_barks(
         &ambition_combat::ActorInteraction,
     )>,
     character_catalog: bevy::prelude::Res<CharacterCatalog>,
-    mut vfx: bevy::prelude::MessageWriter<ambition_vfx::vfx::VfxMessage>,
+    mut vfx: ambition_vfx::vfx::VfxWriter,
 ) {
     for request in requests.read() {
         let Ok((kin, interaction)) = speakers.get(request.speaker) else {

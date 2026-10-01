@@ -11,7 +11,7 @@ const HALF: ae::Vec2 = ae::Vec2::new(16.0, 32.0);
 
 fn app_with_body(pos: ae::Vec2) -> (bevy::prelude::App, bevy::prelude::Entity) {
     let mut app = bevy::prelude::App::new();
-    app.add_message::<ambition_vfx::vfx::VfxMessage>();
+    app.add_message::<ambition_vfx::vfx::VfxInRoom>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<ActorActionMessage>();
     app.add_systems(bevy::prelude::Update, apply_authored_flylines);
@@ -170,8 +170,8 @@ fn a_body_on_another_policy_is_refused_quietly() {
     fire(&mut app, body, params());
     let effects = app
         .world()
-        .resource::<bevy::ecs::message::Messages<ambition_vfx::vfx::VfxMessage>>()
-        .iter_current_update_messages()
+        .resource::<bevy::ecs::message::Messages<ambition_vfx::vfx::VfxInRoom>>()
+        .iter_current_update_messages().map(|m| &m.vfx)
         .count();
     assert_eq!(effects, 0, "a refused wire draws nothing");
 }
@@ -197,8 +197,8 @@ fn a_flyline_that_authors_no_effect_draws_no_burst() {
     );
     let effects = app
         .world()
-        .resource::<bevy::ecs::message::Messages<ambition_vfx::vfx::VfxMessage>>()
-        .iter_current_update_messages()
+        .resource::<bevy::ecs::message::Messages<ambition_vfx::vfx::VfxInRoom>>()
+        .iter_current_update_messages().map(|m| &m.vfx)
         .count();
     assert_eq!(effects, 0, "a wire that asked for no burst drew one anyway");
 }

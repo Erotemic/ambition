@@ -40,7 +40,7 @@ use ambition_combat::util::{body_vulnerable, shield_blocks_hit};
 use bevy::prelude::{Entity, MessageReader, MessageWriter, Query, Res, ResMut};
 
 use ambition_platformer2d_core as ae;
-use ambition_vfx::vfx::{DebrisBurstMessage, VfxMessage};
+use ambition_vfx::vfx::{DebrisBurstMessage, VfxMessage, VfxWriter};
 
 use ambition_characters::actor::BodyAnimFacts;
 use ambition_characters::actor::{BodyCombat, BodyHealth, BodyWallet, BodyWalletShield};
@@ -504,7 +504,7 @@ pub(crate) fn handle_player_damage_events(
     strike_weight: Option<ambition_combat::strike_weight::StrikeWeightRules>,
     _world: &ae::World,
     sfx: &mut SfxWriter,
-    vfx: &mut MessageWriter<VfxMessage>,
+    vfx: &mut VfxWriter,
     debris: &mut MessageWriter<DebrisBurstMessage>,
     death_writers: &mut BodyDeathWriters<'_>,
     clusters: &mut ae::BodyClustersMut<'_>,
@@ -834,7 +834,7 @@ pub(crate) fn safe_respawn_player(
     sfx: &mut SfxWriter,
     // G1: the reset chime is this body's, for the same reason its death is.
     victim_source: Option<&ambition_sfx::PresentationSourceId>,
-    vfx: &mut MessageWriter<VfxMessage>,
+    vfx: &mut VfxWriter,
     clusters: &mut ae::BodyClustersMut<'_>,
     clock_resets: Option<&mut MessageWriter<ClockResetRequest>>,
     safety: &PlayerSafetyState,
@@ -1039,7 +1039,7 @@ pub(crate) fn apply_player_knockback(
     // than resolved here: the two `HitMode::Knockback` arms above used to call
     // `knock_off_ledge` themselves, which is the duplication D203 names.
     motion_model: &mut ambition_platformer2d_core::movement::MotionModel,
-    vfx: &mut MessageWriter<VfxMessage>,
+    vfx: &mut VfxWriter,
     debris: &mut MessageWriter<DebrisBurstMessage>,
     clusters: &mut ae::BodyClustersMut<'_>,
     combat: &mut BodyCombat,
@@ -1362,7 +1362,7 @@ pub fn apply_player_hit_events(
     mut pending_hits: ResMut<ambition_combat::events::PendingPlayerHitEvents>,
     mut death_writers: BodyDeathWriters,
     mut sfx_writer: SfxWriter,
-    mut vfx_writer: MessageWriter<VfxMessage>,
+    mut vfx_writer: VfxWriter,
     // SLOT-0 BY DESIGN: the safe-position memory this feeds is slot 0's respawn
     // point. Damage ROUTING itself is body-generic (it runs off factions and the
     // grudge); only "where does the local player wake up" is primary-scoped.

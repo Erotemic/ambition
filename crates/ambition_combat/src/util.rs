@@ -129,6 +129,7 @@ use ambition_characters::actor::BodyCombat;
 use ambition_characters::actor::Invulnerability;
 use ambition_platformer2d_core::BodyShieldState;
 use ambition_vfx::vfx::{SlashKind, SlashPose, VfxMessage};
+use ambition_vfx::vfx::VfxWriter;
 use bevy::prelude::MessageWriter;
 
 /// THE one "can this body take a hit right now?" rule, shared by every damage EMITTER that needs an
@@ -262,7 +263,7 @@ const SLASH_ART_MARGIN: f32 = 1.0;
 ///
 /// Melee presentation has one path; callers should route slash effects through this function.
 pub fn emit_melee_slash(
-    vfx: &mut MessageWriter<VfxMessage>,
+    vfx: &mut VfxWriter,
     volume: &ae::CombatVolume,
     from: ae::Vec2,
     owner: bevy::prelude::Entity,
@@ -344,7 +345,7 @@ pub fn resolve_strike_sfx(
 /// dropped an ignored hit.
 pub fn emit_hit_feedback(
     sfx: &mut ambition_sfx::SfxWriter,
-    vfx: &mut MessageWriter<VfxMessage>,
+    vfx: &mut VfxWriter,
     debris: &mut MessageWriter<DebrisBurstMessage>,
     hurt: ambition_vfx::HurtFeedback,
     strike_sfx: Option<ambition_sfx::SfxId>,
@@ -406,7 +407,7 @@ mod hit_feedback_tests {
     use super::*;
     use ambition_sfx::{OwnedSfxMessage, SfxId, ids};
     use ambition_vfx::vfx::DebrisBurstMessage;
-    use ambition_vfx::{HurtFeedback, VfxMessage};
+    use ambition_vfx::{HurtFeedback, VfxInRoom, VfxMessage};
     use bevy::ecs::message::Messages;
     use bevy::prelude::*;
 
@@ -427,7 +428,7 @@ mod hit_feedback_tests {
     fn emit_system(
         input: Res<Input>,
         mut sfx: ambition_sfx::SfxWriter,
-        mut vfx: MessageWriter<VfxMessage>,
+        mut vfx: VfxWriter,
         mut debris: MessageWriter<DebrisBurstMessage>,
     ) {
         emit_hit_feedback(
@@ -449,7 +450,7 @@ mod hit_feedback_tests {
     fn run_at_damage(hurt: HurtFeedback, strike: Option<SfxId>, damage: i32) -> Emitted {
         let mut world = World::new();
         world.init_resource::<Messages<OwnedSfxMessage>>();
-        world.init_resource::<Messages<VfxMessage>>();
+        world.init_resource::<Messages<VfxInRoom>>();
         world.init_resource::<Messages<DebrisBurstMessage>>();
         world.insert_resource(Input {
             hurt,
@@ -470,11 +471,11 @@ mod hit_feedback_tests {
             })
             .collect();
 
-        let vfx_msgs = world.resource::<Messages<VfxMessage>>();
+        let vfx_msgs = world.resource::<Messages<VfxInRoom>>();
         let mut vcursor = vfx_msgs.get_cursor();
         let mut impacts = 0;
         let mut bursts = 0;
-        for m in vcursor.read(vfx_msgs) {
+        for m in vcursor.read(vfx_msgs).map(|m| &m.vfx) {
             match m {
                 VfxMessage::Impact { .. } => impacts += 1,
                 VfxMessage::Burst { .. } => bursts += 1,

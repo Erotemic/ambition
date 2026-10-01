@@ -18,7 +18,7 @@ fn world_with_right_wall() -> ambition_platformer2d_core::RoomGeometry {
 fn test_app(world: Option<ambition_platformer2d_core::RoomGeometry>) -> App {
     let mut app = App::new();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
-    app.add_message::<ambition_vfx::vfx::VfxMessage>();
+    app.add_message::<ambition_vfx::vfx::VfxInRoom>();
     if let Some(w) = world {
         ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(
             app.world_mut(),

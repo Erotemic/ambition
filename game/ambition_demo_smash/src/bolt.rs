@@ -162,7 +162,7 @@ pub fn steer_and_fly_bolts(
         &ambition_platformer2d::characters::control::ActorControl,
     )>,
     // The bolt's trail; see `SteeredBoltParams::trail_vfx`.
-    mut cues: MessageWriter<ambition_platformer2d::vfx::vfx::VfxMessage>,
+    mut cues: ambition_platformer2d::vfx::vfx::VfxWriter,
 ) {
     let dt = time.sim_dt();
     if dt <= 0.0 {

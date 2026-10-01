@@ -1943,7 +1943,7 @@ names its subject by body or seat (`ViewSubject`, `ViewParticipant`).
 | Cut | Work | State |
 | --- | --- | --- |
 | V1 | The camera resolve frames each view in the live room of its framed body | ✅ below |
-| V2 | Draw roads place each entity by the geometry of its own live room (`LiveRoomOf`), not the sole room | ◐ the camera apply (V2a), feature/actor sprites (V2b), items and projectiles (V2c), lock walls (V2d) and nameplates (V2e), below; fx (V2f), health bars and debug overlays are open |
+| V2 | Draw roads place each entity by the geometry of its own live room (`LiveRoomOf`), not the sole room | ◐ the camera apply (V2a), feature/actor sprites (V2b), items and projectiles (V2c), lock walls (V2d) and nameplates (V2e), fx, slashes and limb trails (V2f), below; the unroomed fx producers (54 sites), the blink preview, health bars and debug overlays are open |
 | V3 | A camera draws only the live room of its view: a room render band, as the view band does for projections | ✅ below |
 | V4 | Room visuals and the LDtk level are presented per live room, and retire with it | ◐ static room visuals (V4a, below); the LDtk level and parallax are open |
 | V5 | Two seats in two live rooms get two views (the product rule: a split is mandatory in different rooms) | ✅ below |
@@ -2040,6 +2040,33 @@ drops in one room takes only that room's visual),
 `each_view_shows_the_plates_of_its_own_live_room`. Poisons: every item in
 the first room; every wall placed by the first room; the door-plate room
 filter removed (each view showed both rooms' doors).
+
+✅ **V2f landed 2026-10-01: effects are drawn in their own room.** The
+effect message is `VfxInRoom { room, vfx }` (`ambition_vfx`). A producer
+writes through `VfxWriter`: `write_in(room, vfx)` for a known room,
+`for_room(room)` for an emitter that writes several effects for one body,
+and `write(vfx)` for an UNROOMED row. `FxRequest` has a room too
+(`FxRequest::in_room`). `vfx_spawn_messages` places each row by its room
+and stamps the effect with it, so the room's view band draws it and the
+room's retirement takes it. An unroomed row is drawn in the sole live room,
+and not at all while two rooms are live. The particle, impact, effect and
+speech-bubble clocks place each effect by its own stamp. A slash takes its
+row's room or its swinging body's room, and so does a limb trail. Producers
+that name their room: the movement emitter (player, actor and boss bodies,
+each bound to its body's stamp), the actor-hit resolver (the struck body's
+room) and the NPC idle barks. Witnesses: `each_effect_is_drawn_in_its_own_live_room`
+(an unroomed row is not drawn; control `an_unroomed_effect_is_drawn_in_the_sole_live_room`),
+`each_limb_trail_is_drawn_in_its_body_s_own_live_room`, and in the app
+`each_body_s_movement_dust_is_drawn_in_its_own_live_room`. Poisons: every
+row in the first room; the particle clock placed by the first room; wisps
+not stamped; wisps placed by the first room; the player tick and the actor
+tick bound to no room. Each failed at the subject assertion.
+⚠ Open (named debt): 54 direct `write(VfxMessage::…)` sites in 36
+production files are unroomed (a lower bound: a write through a helper is
+not counted), and so are the `FxRequest` and `FireworksRequest` producers.
+`update_blink_preview` still reads the sole room, because
+`BlinkPreviewFact` names no room. `follow_slash_owner` has no unit
+witness: `PresentedPose` cannot be built outside `ambition_sim_view`.
 
 ✅ **V5 landed 2026-10-01: two players in two rooms get two views.**
 `split_views_by_live_room` (`ambition_sim_view`, in the camera observation

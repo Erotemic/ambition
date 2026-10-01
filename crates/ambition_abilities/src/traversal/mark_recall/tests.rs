@@ -4,7 +4,7 @@ use ambition_platformer2d_core::BodyKinematics;
 fn test_app() -> App {
     let mut app = App::new();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
-    app.add_message::<ambition_vfx::vfx::VfxMessage>();
+    app.add_message::<ambition_vfx::vfx::VfxInRoom>();
     app.add_message::<ambition_combat::events::HitEvent>();
     app.add_systems(Update, mark_recall_system);
     app

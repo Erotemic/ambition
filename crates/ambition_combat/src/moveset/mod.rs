@@ -1164,7 +1164,7 @@ pub fn advance_move_playback(
     // geometry — one box drives damage AND presentation, so they can never
     // point different ways (the one-box-drives-damage-and-slash invariant; this
     // is the sole melee strike path).
-    mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
+    mut vfx: ambition_vfx::vfx::VfxWriter,
     mut players: Query<(
         Entity,
         &mut MovePlayback,

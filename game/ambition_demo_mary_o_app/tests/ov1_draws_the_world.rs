@@ -362,7 +362,7 @@ fn visible_mary_o_presentation_retires_and_relaunches_with_the_session() {
 #[test]
 fn a_vfx_message_this_demo_writes_is_drawn_by_this_demo() {
     use ambition_platformer2d::render::fx::ParticleVisual;
-    use ambition_platformer2d::vfx::VfxMessage;
+    use ambition_platformer2d::vfx::{VfxInRoom, VfxMessage};
 
     let mut app = drawn_demo();
     settle(&mut app);
@@ -373,9 +373,9 @@ fn a_vfx_message_this_demo_writes_is_drawn_by_this_demo() {
     };
     let before = particle_count(&mut app);
 
-    app.world_mut().write_message(VfxMessage::CoinPop {
+    app.world_mut().write_message(VfxInRoom { room: None, vfx: VfxMessage::CoinPop {
         pos: ambition_platformer2d::engine_core::Vec2::new(64.0, 64.0),
-    });
+    } });
     settle(&mut app);
 
     // ⚠ THE DIAGNOSTIC IS PART OF THE ASSERTION, added 2026-09-04 after this

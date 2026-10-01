@@ -72,7 +72,7 @@ pub fn tick_bomb_fuses(
     mut bombs: Query<(Entity, &GroundItem, &mut BombFuse)>,
     mut hits: MessageWriter<HitEvent>,
     mut sfx: ambition_sfx::BodySfxWriter,
-    mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
+    mut vfx: ambition_vfx::vfx::VfxWriter,
     // The blast is in the bomb's live room. It has no attacker to ask.
     rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
 ) {
@@ -183,7 +183,7 @@ mod tests {
         let mut app = App::new();
         app.add_message::<HitEvent>();
         app.add_message::<ambition_sfx::OwnedSfxMessage>();
-        app.add_message::<ambition_vfx::vfx::VfxMessage>();
+        app.add_message::<ambition_vfx::vfx::VfxInRoom>();
         let mut wt = ambition_time::WorldTime::default();
         wt.scaled_dt = 0.05;
         app.insert_resource(wt);
@@ -260,7 +260,7 @@ mod tests {
         let mut app = App::new();
         app.add_message::<HitEvent>();
         app.add_message::<ambition_sfx::OwnedSfxMessage>();
-        app.add_message::<ambition_vfx::vfx::VfxMessage>();
+        app.add_message::<ambition_vfx::vfx::VfxInRoom>();
         app.init_resource::<CapturedHits>();
         let mut wt = ambition_time::WorldTime::default();
         wt.scaled_dt = 0.05; // sim_dt() > the 0.001 fuse

@@ -334,7 +334,7 @@ host in the shipped game; I4 is not complete (see *Open* below).
 | Request port `ambition.projectiles.spawn` | value `ambition_projectile_spec::ProjectileSpawnPort`; adapter `ambition_projectiles::extension` | card on `ProjectileSpawnPort` |
 | Request port `ambition.combat.damage_box` (the box's faction is its owner's EFFECTIVE faction, never the module's choice) | values `crates/ambition_combat_port`; adapter `ambition_combat::extension` | card in the port crate's docs |
 | Phase `technique_execution` → `CombatSet::ContentSpecials` | `ambition_platformer2d_runtime::extension_composition` | — |
-| Four boss techniques as modules: the echo fan, the eye beam, mode collapse and the seismic stomp (`strike::{once, locked}` hold the shared strike rules) | `game/ambition_content_modules`; the native systems are test-only references | `specials::module_parity_tests` (tick-for-tick on the linked AND the WASM road, owner and move-use credit, telegraph locks; poisons "no strike reset", "drop the occurrence", "no telegraph lock" and "drop one loaded request" each fail it); `app_it::a_boss_special_runs_on_the_extension_host` (real brain press, plus a GGRS sync-test arm) |
+| Five boss techniques as modules: the echo fan, the eye beam, the gradient nova, mode collapse and the seismic stomp (`strike::{once, locked}` hold the shared strike rules) | `game/ambition_content_modules`; the native systems are test-only references | `specials::module_parity_tests` (tick-for-tick on the linked AND the WASM road, owner and move-use credit, telegraph locks; poisons "no strike reset", "drop the occurrence", "no telegraph lock" and "drop one loaded request" each fail it); `app_it::a_boss_special_runs_on_the_extension_host` (real brain press, plus a GGRS sync-test arm) |
 
 **Deliberate change:** the native fan aimed at its target's body only when the
 target was the player, and otherwise at the stored point. The trigger adapter
@@ -360,7 +360,11 @@ for; the choice is recorded below so M1 can overturn it with numbers.
 
 **Measured (M0, this machine, 2026-10-01):** an edit to the echo fan to a
 loadable `.wasm` is **1.36 s** wall (`scripts/build_extension_modules.sh`,
-warm). Nothing in the engine compiles or links.
+first edit after a cold module build); a one-constant edit warm is
+**0.34 s**. The same constant edit to a technique still in
+`game/ambition_content` is **7.05 s** to relink `ambition_app`, plus a
+restart. Nothing in the engine compiles or links on the module road. Recipe:
+`docs/recipes/writing-a-procedural-module.md`.
 
 **Hot reload, the same day.** The runtime watches each loaded file (a stat
 every 20 frames). A changed file is loaded, the WHOLE composition is
@@ -381,8 +385,20 @@ sync-test session).
 ownership today.
 
 **Why wasmi first:** deterministic by construction (NaN canonicalization,
-fuel instead of a clock), pure Rust, builds for every shipped target. Its
-cost per call (a new instance each time) is unmeasured; M1 owns it.
+fuel instead of a clock), pure Rust, builds for every shipped target.
+
+**M1, first reading (2026-10-01, this machine, while a test lane ran):** one
+WASM call is **75–115 µs**, of which **~31 µs** is the new instance; a call
+that does nothing burns **86k fuel** in the ABI glue. Every boss invoked every
+bound key every tick only to reset strike latches, so five keys cost ~0.5 ms
+a tick per boss, and more under rollback resimulation. ⇒ **`IdlePolicy`:** a
+trigger marks the ticks with nothing to act on (the boss port: neither
+pressed nor telegraphed) and an entry may declare `ResetState`: the host puts
+its records back to their initial values WITHOUT the call. Every migrated
+technique declares it; the parity suite still matches the native systems tick
+for tick, so the shortcut is the same result. A WASM module now costs nothing
+on idle ticks. Open: the per-call glue cost (instance reuse with a restored
+image; a lighter input encoding).
 
 **Class:** DO. **Requires:** the execution contract; does not wait for a VM.
 Read actual boss special producers, domain request types, combat_schedule,

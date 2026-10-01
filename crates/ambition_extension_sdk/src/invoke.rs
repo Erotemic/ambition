@@ -108,6 +108,9 @@ pub struct HostParts<'a> {
     pub entry: &'a EntryDescriptor,
     /// The logical simulation tick.
     pub tick: u64,
+    /// The gameplay seconds this tick advances: zero while paused, scaled
+    /// by bullet time (the engine's `WorldTime::sim_dt`).
+    pub dt: f32,
     /// The use of a move that asked for this invocation, if a move asked.
     pub occurrence: Option<u32>,
     pub trigger_port: &'a PortKey,
@@ -161,6 +164,12 @@ impl<'a> Invocation<'a> {
     /// The logical simulation tick. There is no wall clock.
     pub fn tick(&self) -> u64 {
         self.parts.tick
+    }
+
+    /// The gameplay seconds this tick advances: zero while paused, scaled by
+    /// bullet time. A timer a module keeps counts these, never wall time.
+    pub fn dt(&self) -> f32 {
+        self.parts.dt
     }
 
     /// The move use that asked for this invocation. The host attaches it to

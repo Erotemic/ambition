@@ -1209,6 +1209,33 @@ does not happen today, because a player who comes back joins the instance
 held by another player (6e). If it does happen, the lowest instance has the
 sand.
 
+✅ **Cut 7n landed 2026-10-01: a boss fights in its own live room beside
+another live room.** Two readers stopped every boss while two rooms were
+live. The boss brain tick and the boss body step each read the walls of the
+sole live room through the unkeyed `CollisionWorld::solids()`. With two
+rooms live that is `None`, and each system returned before its loop. Thus
+no boss in either room chose an attack or moved: the 7j witnesses saw the
+conductors measure their halls, but the bosses they conduct did nothing.
+Each boss now reads `collision.room(its InRoomInstance)`, as the actor step
+does. The two boss specials that size their volley by the room, GNU-ton's
+apple rain and the overflow flood, read the width of their boss's own live
+room (`LiveRoomOf<RoomGeometry>`) and not the sole live room's. Witnesses
+(Bob in the Hall of Bosses, #0; Alice in the arena, #1):
+`the_overflow_boss_swoops_in_its_own_live_room` (the boss moves more than
+10 px in 120 ticks), `gnu_ton_s_apple_rain_falls_in_its_own_live_room` (the
+apples are in #1) and `the_overflow_flood_fills_its_own_live_room` (the
+boss at half health, so in phase 2: the flood columns, 24 by 28 with no
+visual, are in #1). Poisons, each one arm: with the body step on the sole
+room, only the swoop witness failed. With the brain tick on the sole room,
+all three failed. With a special's sole-room parameter restored, only its
+own witness failed. ⚠ The first flood witness matched any shot with no
+visual, and the overfit volley that comes before the flood in phase 1 has
+no visual too. It passed with the flood spawner poisoned, because the boss
+never reached phase 2 and the shots it found were the volley's. ⚠ The
+other unkeyed `CollisionWorld` readers (pogo, the damage safe point, the
+held items, the traversal abilities, the tether, the portal host, the
+trace) still answer only while one room is live.
+
 ⚠ **`physics_spawn_debris_messages` is presentation, not simulation, and is
 not changed.** Its Avian debris bounces off static colliders that are
 built with the room visuals, and both are placed through `world_to_bevy`

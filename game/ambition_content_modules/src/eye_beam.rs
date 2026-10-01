@@ -5,7 +5,7 @@
 
 use ambition_boss_special_port::{BossCaster, BossSpecialCast};
 use ambition_extension_sdk::{
-    phases::TECHNIQUE_EXECUTION, CodeIdentity, EntryCode, EntryDescriptor, Fault, Invocation,
+    phases::TECHNIQUE_EXECUTION, CodeIdentity, EntryCode, EntryDescriptor, Fault, IdlePolicy, Invocation,
     Limits, ModuleDescriptor, ModuleKey, Port, SchemaKey, TriggerBinding, API_VERSION,
 };
 use ambition_projectile_spec::{ProjectileSpawn, ProjectileSpawnPort};
@@ -48,6 +48,9 @@ pub fn module() -> ModuleDescriptor {
             limits: Limits {
                 max_requests: u32::from(BOX_COUNT),
             },
+            // An idle tick (no press, no telegraph) ends any strike: the
+            // same result as the call, without it.
+            on_idle: IdlePolicy::ResetState,
             run: EntryCode::Native(fire),
         }],
     }

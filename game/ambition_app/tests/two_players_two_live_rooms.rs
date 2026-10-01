@@ -1287,3 +1287,181 @@ fn the_falling_sand_room_runs_beside_another_live_room() {
         "(settled sand in #0's overlay, Alice still has the swim loan in the hub): {emitted} grains emitted"
     );
 }
+
+/// Alice goes from `hall_of_bosses` (#0), where Bob, driven by slot 1, stays,
+/// to `arena` (#1), untouchable so the fight cannot end her stay, and stands
+/// at `place(boss position)`, where its fight suite puts its player, after
+/// `prepare` has changed the boss. The live rooms of the first shots the boss
+/// `behavior` fires within `ticks` ticks that `shot` knows by their visual
+/// and body size, and #1.
+fn a_boss_fires_beside_bob(
+    arena: &str,
+    behavior: &str,
+    prepare: fn(&mut ambition_platformer2d::characters::actor::BodyHealth),
+    shot: fn(&str, ambition_platformer2d::engine_core::Vec2) -> bool,
+    place: fn(ambition_platformer2d::engine_core::Vec2) -> ambition_platformer2d::engine_core::Vec2,
+    ticks: usize,
+) -> (Vec<Option<LiveRoomInstance>>, LiveRoomInstance) {
+    let (mut sim, first) = alice_leaves_bob_in(
+        "hall_of_bosses",
+        arena,
+        Some(ambition_platformer2d::characters::control::PlayerSlot(1)),
+        walk_through_the_door_to,
+    );
+    let second = first.next();
+    assert_eq!(
+        where_they_are(&mut sim),
+        (Some(second), Some(Some(first))),
+        "precondition: Alice is not in #1 with Bob in #0"
+    );
+    let boss = {
+        let world = sim.world_mut();
+        let mut alice = world.query_filtered::<
+            &mut ambition_platformer2d::characters::actor::BodyHealth,
+            bevy::prelude::With<ambition_platformer2d::platformer::markers::PrimaryPlayer>,
+        >();
+        for mut health in alice.iter_mut(world) {
+            health.health.invulnerable.set(
+                ambition_platformer2d::characters::actor::Invulnerability::SCRIPTED,
+                true,
+            );
+        }
+        world
+            .query::<(bevy::prelude::Entity, &ambition_platformer2d::boss_encounter::BossConfig)>()
+            .iter(world)
+            .find(|(_, config)| config.behavior.id == behavior)
+            .map(|(entity, _)| entity)
+            .unwrap_or_else(|| panic!("precondition: #1 has no {behavior}"))
+    };
+    prepare(
+        &mut sim
+            .world_mut()
+            .get_mut::<ambition_platformer2d::characters::actor::BodyHealth>(boss)
+            .expect("the boss has health"),
+    );
+    {
+        let world = sim.world_mut();
+        let at = place(
+            world
+                .get::<ambition_platformer2d::engine_core::BodyKinematics>(boss)
+                .expect("the boss has a body")
+                .pos,
+        );
+        let mut alice = world.query_filtered::<
+            (
+                ambition_platformer2d::engine_core::BodyClusterQueryData,
+                &mut ambition_platformer2d::actor::MotionModel,
+            ),
+            ambition_platformer2d::platformer::markers::PrimaryPlayerOnly,
+        >();
+        let (mut clusters, mut model) = alice.single_mut(world).expect("Alice's body is in the world");
+        let mut clusters = clusters.as_clusters_mut();
+        ambition_platformer2d::engine_core::movement::transit_body(
+            &mut model,
+            &mut clusters,
+            at,
+            ambition_platformer2d::engine_core::movement::TransitVelocity::Zero,
+        );
+    }
+    let mut rooms = Vec::new();
+    for _ in 0..ticks {
+        sim.step(base());
+        let world = sim.world_mut();
+        rooms = world
+            .query::<(
+                &ambition_platformer2d::projectiles::ProjectileOwner,
+                &ambition_platformer2d::projectiles::ProjectileVisualId,
+                &ambition_platformer2d::engine_core::BodyKinematics,
+                Option<&InRoomInstance>,
+            )>()
+            .iter(world)
+            .filter(|(owner, id, kin, _)| owner.0 == boss && shot(id.as_str(), kin.size))
+            .map(|(_, _, _, room)| room.map(|room| room.0))
+            .collect();
+        if !rooms.is_empty() {
+            break;
+        }
+    }
+    rooms.dedup();
+    (rooms, second)
+}
+
+/// OW1 cut 7n: GNU-ton's apple rain falls in the scholar's own live room
+/// while another room is live. When the spawner read the sole live room's
+/// width, it did not run with two rooms live, and no apple fell.
+#[test]
+fn gnu_ton_s_apple_rain_falls_in_its_own_live_room() {
+    let (rooms, second) = a_boss_fires_beside_bob(
+        "gnu_ton_arena",
+        "gnu_ton_rider",
+        |_| {},
+        |visual, _| visual == "apple",
+        // Where `gnu_ton_fight` stands its player for the apple rain.
+        |_| ambition_platformer2d::engine_core::Vec2::new(300.0, 1200.0),
+        3000,
+    );
+    assert_eq!(rooms, vec![Some(second)], "the apples' live rooms: the apple rain did not fall in #1");
+}
+
+/// OW1 cut 7n: the overflow boss floods its own live room, the same.
+#[test]
+fn the_overflow_flood_fills_its_own_live_room() {
+    let (rooms, second) = a_boss_fires_beside_bob(
+        "overflow_arena",
+        "overflow_boss",
+        // The flood is a phase-2 move, and phase 2 starts below two thirds
+        // of the boss's health.
+        |health| {
+            health.damage(health.max() / 2);
+        },
+        // A flood column has no visual and is 24 by 28. The overfit volley
+        // that comes before it in the pattern also has no visual, but is
+        // 16 by 16.
+        |visual, size| visual.is_empty() && size == ambition_platformer2d::engine_core::Vec2::new(24.0, 28.0),
+        |boss| boss + ambition_platformer2d::engine_core::Vec2::new(-200.0, 0.0),
+        3000,
+    );
+    assert_eq!(rooms, vec![Some(second)], "the flood's live rooms: the flood did not fill #1");
+}
+
+/// OW1 cut 7n: the overflow boss swoops through its own live room while
+/// another room is live. When the boss's body read the sole live room's
+/// walls, it did not move with two rooms live.
+#[test]
+fn the_overflow_boss_swoops_in_its_own_live_room() {
+    let (mut sim, first) = alice_leaves_bob_in(
+        "hall_of_bosses",
+        "overflow_arena",
+        Some(ambition_platformer2d::characters::control::PlayerSlot(1)),
+        walk_through_the_door_to,
+    );
+    let second = first.next();
+    assert_eq!(
+        where_they_are(&mut sim),
+        (Some(second), Some(Some(first))),
+        "precondition: Alice is not in #1 with Bob in #0"
+    );
+    let boss_at = |sim: &mut Platformer2dSimHarness| {
+        let world = sim.world_mut();
+        world
+            .query::<(
+                &ambition_platformer2d::boss_encounter::BossConfig,
+                &ambition_platformer2d::engine_core::BodyKinematics,
+                Option<&InRoomInstance>,
+            )>()
+            .iter(world)
+            .find(|(config, ..)| config.behavior.id == "overflow_boss")
+            .map(|(_, kin, room)| (kin.pos, room.map(|room| room.0)))
+            .expect("precondition: #1 has the overflow boss")
+    };
+    let (start, room) = boss_at(&mut sim);
+    assert_eq!(room, Some(second), "precondition: the overflow boss is not in #1");
+    for _ in 0..120 {
+        sim.step(base());
+    }
+    let (end, _) = boss_at(&mut sim);
+    assert!(
+        start.distance(end) > 10.0,
+        "the overflow boss stood at {start} and then at {end}: its body did not move in #1"
+    );
+}

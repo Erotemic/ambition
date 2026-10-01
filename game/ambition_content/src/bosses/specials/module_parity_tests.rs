@@ -68,8 +68,17 @@ const SEISMIC_STOMP: Technique = Technique {
     },
 };
 
+const GRADIENT_NOVA: Technique = Technique {
+    key: "gradient_nova",
+    native: |app| {
+        use super::gradient_nova_reference_tests as r;
+        app.register_required_components::<BossConfig, r::ExplodingGradientState>();
+        app.add_systems(Sim, r::spawn_gradient_nova_from_special_messages);
+    },
+};
+
 /// Every migrated technique.
-const ALL: [&Technique; 4] = [&ECHO_FAN, &EYE_BEAM, &MODE_COLLAPSE, &SEISMIC_STOMP];
+const ALL: [&Technique; 5] = [&ECHO_FAN, &EYE_BEAM, &GRADIENT_NOVA, &MODE_COLLAPSE, &SEISMIC_STOMP];
 
 const MODE_COLLAPSE: Technique = Technique {
     key: "mode_collapse_converge",
@@ -121,7 +130,8 @@ fn world(road: Road, technique: &Technique) -> (App, Vec<Entity>) {
     app.add_message::<ActorActionMessage>()
         .add_message::<ProjectileSpawnRequest>()
         .add_message::<ambition_vfx::EffectRequest>()
-        .init_resource::<ambition_time::SimTick>();
+        .init_resource::<ambition_time::SimTick>()
+        .init_resource::<ambition_time::WorldTime>();
     match road {
         Road::NativeSystem => (technique.native)(&mut app),
         Road::Module | Road::Wasm => {

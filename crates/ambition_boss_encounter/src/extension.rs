@@ -105,6 +105,8 @@ pub fn queue_boss_special_casts(
                 key.to_string(),
                 entity,
                 press.and_then(|p| p.2),
+                // The port's IDLE: the key is neither pressed nor telegraphed.
+                press.is_none() && telegraphed != Some(*key),
                 BossCaster {
                     pressed: press.is_some(),
                     telegraphing: telegraphed == Some(*key),

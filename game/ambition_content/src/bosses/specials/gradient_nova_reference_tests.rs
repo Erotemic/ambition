@@ -1,3 +1,11 @@
+//! The NATIVE REFERENCE of the gradient nova — test-only — and the module
+//! road's materialization witnesses.
+//!
+//! Production runs the procedural module in `ambition_content_modules`;
+//! `module_parity_tests` holds it to this system. The two projectile tests
+//! below drive the MODULE through the extension host and the real
+//! materializer, so they still witness production.
+//!
 //! Exploding Gradient runaway nova boss-special Technique.
 
 use bevy::prelude::*;
@@ -112,6 +120,18 @@ mod tests {
     /// materializer. This catches wiring and registration mistakes the pure-core
     /// tests cannot. The boss is built with `BossClusterScratch` (public), so no
     /// engine `test-support` is needed.
+    /// The production road in a small App: the extension host, the boss
+    /// trigger and projectile request adapters, and the nova module.
+    fn module_road(app: &mut App) {
+        use ambition_extension_host::{ExtensionAppExt, ExtensionHostPlugin};
+        app.init_resource::<ambition_time::SimTick>();
+        app.add_plugins(ExtensionHostPlugin::new(Update));
+        ambition_boss_encounter::extension::install(app);
+        ambition_projectiles::extension::install(app);
+        app.add_extension_module(ambition_content_modules::gradient_nova::module());
+        app.finish();
+    }
+
     #[test]
     fn gradient_nova_consumer_materializes_a_full_burst_of_projectiles() {
         use ambition_entity_catalog::placements::BossBrain;
@@ -133,13 +153,14 @@ mod tests {
             wt.scaled_dt = 1.0 / 60.0;
             wt.raw_dt = 1.0 / 60.0;
         }
+        module_road(&mut app);
         app.add_systems(
             Update,
-            (
-                spawn_gradient_nova_from_special_messages,
-                materialize_projectiles_for_this_tick,
-            )
-                .chain(),
+            materialize_projectiles_for_this_tick.after(
+                ambition_extension_host::ExtensionSet::Lower(
+                    ambition_extension_sdk::phases::TECHNIQUE_EXECUTION,
+                ),
+            ),
         );
 
         let aabb = ae::Aabb::new(ae::Vec2::new(640.0, 400.0), ae::Vec2::new(64.0, 64.0));
@@ -154,7 +175,7 @@ mod tests {
         .into_components();
         let actor = app
             .world_mut()
-            .spawn((FeatureSimEntity, ExplodingGradientState::default(), boss))
+            .spawn((FeatureSimEntity, boss))
             .id();
 
         app.world_mut()
@@ -202,13 +223,14 @@ mod tests {
             wt.scaled_dt = 1.0 / 60.0;
             wt.raw_dt = 1.0 / 60.0;
         }
+        module_road(&mut app);
         app.add_systems(
             Update,
-            (
-                spawn_gradient_nova_from_special_messages,
-                materialize_projectiles_for_this_tick,
-            )
-                .chain(),
+            materialize_projectiles_for_this_tick.after(
+                ambition_extension_host::ExtensionSet::Lower(
+                    ambition_extension_sdk::phases::TECHNIQUE_EXECUTION,
+                ),
+            ),
         );
 
         let aabb = ae::Aabb::new(ae::Vec2::new(640.0, 400.0), ae::Vec2::new(64.0, 64.0));
@@ -223,7 +245,7 @@ mod tests {
         .into_components();
         let actor = app
             .world_mut()
-            .spawn((FeatureSimEntity, ExplodingGradientState::default(), boss))
+            .spawn((FeatureSimEntity, boss))
             .id();
 
         app.world_mut()

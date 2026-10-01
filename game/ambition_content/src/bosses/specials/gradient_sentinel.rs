@@ -108,7 +108,8 @@ fn apple_rain_spawn_x(spawn_index: u32, world_width: f32, boss_aabb: ae::Aabb) -
 /// leftover dt.
 pub fn spawn_apple_rain_from_special_messages(
     world_time: Res<WorldTime>,
-    world: ambition_platformer2d::platformer::lifecycle::SoleLiveRoom<
+    // The width of each boss's own live room (OW1 cut 7n).
+    world: ambition_platformer2d::platformer::lifecycle::LiveRoomOf<
         ambition_platformer2d_core::RoomGeometry,
     >,
     mut messages: MessageReader<ActorActionMessage>,
@@ -148,13 +149,16 @@ pub fn spawn_apple_rain_from_special_messages(
         if !health.alive() || interval_s <= 0.0 {
             continue;
         }
+        let Some(geometry) = world.of(entity) else {
+            continue;
+        };
         state.spawn_accum += dt;
         let self_aabb = boss.aabb();
         while state.spawn_accum >= interval_s {
             state.spawn_accum -= interval_s;
             // Golden-ratio spread across the playable width, slid out
             // from under the boss body. See `apple_rain_spawn_x`.
-            let spawn_x = apple_rain_spawn_x(state.spawn_index, world.0.size.x, self_aabb);
+            let spawn_x = apple_rain_spawn_x(state.spawn_index, geometry.0.size.x, self_aabb);
             let spawn_y = (boss.kin.pos.y - APPLE_RAIN_SPAWN_HEIGHT_ABOVE_PLAYER)
                 .max(APPLE_RAIN_HALF_EXTENT.y + 8.0);
             projectiles.write(ProjectileSpawnRequest::open(

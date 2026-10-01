@@ -24,5 +24,5 @@ crates/ambition_sprite_sheet/src/snapshot_impls.rs	5	3569516e5b2d4dd8
 crates/ambition_time/src/snapshot_impls.rs	13	a068fc2eda212f3f
 game/ambition_content/src/bosses/fsm/conductor.rs	17	0551dd58ad332e98
 game/ambition_content/src/bosses/gnu_ton/conductor.rs	16	2729d5ecbf3287a0
-game/ambition_content/src/bosses/specials/rollback.rs	34	b773eccb956ebcc6
+game/ambition_content/src/bosses/specials/rollback.rs	32	caf5e2819316dee5
 game/ambition_demo_twintrack/src/lib.rs	17	0cc0d2351e873b93

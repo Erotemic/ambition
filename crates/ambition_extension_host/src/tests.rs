@@ -8,7 +8,7 @@ use ambition_extension_sdk::{
     Invocation, Limits, ModuleDescriptor, ModuleKey, Phase, PortKey, SaveEligibility, SchemaKey,
     StateSchema, TriggerBinding, Value,
 };
-use ambition_extension_sdk::{wire, EntryCode};
+use ambition_extension_sdk::{wire, EntryCode, IdlePolicy};
 use ambition_time::SimTick;
 use bevy::ecs::schedule::ScheduleLabel;
 
@@ -109,6 +109,7 @@ fn entry(key: &'static str, after: Vec<&'static str>) -> EntryDescriptor {
         requests: vec![Emit::KEY],
         after: after.into_iter().map(Into::into).collect(),
         limits: Limits { max_requests: 1 },
+        on_idle: IdlePolicy::Invoke,
         run: EntryCode::Native(count_and_emit),
     }
 }
@@ -251,7 +252,7 @@ fn collect_pokes(mut invocations: ResMut<ExtensionInvocations>, bodies: Query<(E
     let mut bodies: Vec<_> = bodies.iter().collect();
     bodies.sort_by_key(|(_, poked)| poked.0);
     for (entity, poked) in bodies {
-        invocations.trigger::<Poke>(&PHASE, "go", entity, Some(poked.0 + 100), poked.0);
+        invocations.trigger::<Poke>(&PHASE, "go", entity, Some(poked.0 + 100), poked.0 == 0, poked.0);
     }
 }
 
@@ -271,6 +272,7 @@ fn app() -> App {
     app.add_plugins(ExtensionHostPlugin::new(Sim))
         .init_resource::<Lowered>()
         .init_resource::<SimTick>()
+        .init_resource::<ambition_time::WorldTime>()
         .install_extension_trigger::<Poke, _>(PHASE, "test", collect_pokes)
         .install_extension_observation::<Height>(PHASE, "test", height_of)
         .install_extension_request::<Emit, _>(PHASE, "test", lower_emits)
@@ -352,6 +354,7 @@ fn a_hand_driven_app_is_admitted_on_its_first_tick_and_a_second_finish_is_harmle
     app.add_plugins(ExtensionHostPlugin::new(Sim))
         .init_resource::<Lowered>()
         .init_resource::<SimTick>()
+        .init_resource::<ambition_time::WorldTime>()
         .install_extension_trigger::<Poke, _>(PHASE, "test", collect_pokes)
         .install_extension_observation::<Height>(PHASE, "test", height_of)
         .install_extension_request::<Emit, _>(PHASE, "test", lower_emits);
@@ -390,6 +393,7 @@ fn loaded_app(replaces: bool, also_native: bool) -> App {
     app.add_plugins(ExtensionHostPlugin::new(Sim))
         .init_resource::<Lowered>()
         .init_resource::<SimTick>()
+        .init_resource::<ambition_time::WorldTime>()
         .install_extension_trigger::<Poke, _>(PHASE, "test", collect_pokes)
         .install_extension_observation::<Height>(PHASE, "test", height_of)
         .install_extension_request::<Emit, _>(PHASE, "test", lower_emits);
@@ -457,6 +461,7 @@ fn a_loaded_module_cannot_submit_to_an_undeclared_port() {
     app.add_plugins(ExtensionHostPlugin::new(Sim))
         .init_resource::<Lowered>()
         .init_resource::<SimTick>()
+        .init_resource::<ambition_time::WorldTime>()
         .install_extension_trigger::<Poke, _>(PHASE, "test", collect_pokes)
         .install_extension_observation::<Height>(PHASE, "test", height_of)
         .install_extension_request::<Emit, _>(PHASE, "test", lower_emits)
@@ -526,4 +531,38 @@ fn a_reload_that_reshapes_live_state_or_is_refused_leaves_the_running_code() {
     assert!(!app.world().resource::<reload::StagedModuleReplacement>().is_staged());
     assert!(!reload::publish_staged_replacement(app.world_mut()));
     assert_eq!(app.world().resource::<AdmittedExtensions>().0.digest, before);
+}
+
+#[test]
+fn an_idle_trigger_resets_a_reset_state_entry_without_calling_it() {
+    let mut app = App::new();
+    app.init_schedule(Sim);
+    let mut m = module(vec![entry("a", vec![])]);
+    m.entries[0].on_idle = IdlePolicy::ResetState;
+    app.add_plugins(ExtensionHostPlugin::new(Sim))
+        .init_resource::<Lowered>()
+        .init_resource::<SimTick>()
+        .init_resource::<ambition_time::WorldTime>()
+        .install_extension_trigger::<Poke, _>(PHASE, "test", collect_pokes)
+        .install_extension_observation::<Height>(PHASE, "test", height_of)
+        .install_extension_request::<Emit, _>(PHASE, "test", lower_emits)
+        .add_extension_module(m);
+    app.finish();
+    // `collect_pokes` marks a poke of 0 idle.
+    let body = app.world_mut().spawn((Poked(3), Tall(1.0))).id();
+    step(&mut app);
+    step(&mut app);
+    let count = |app: &App| {
+        app.world().get::<BodyRecords>(body).unwrap().get(&COUNTER).unwrap().get(COUNT).unwrap().clone()
+    };
+    assert_eq!(count(&app), Value::U32(2));
+    app.world_mut().get_mut::<Poked>(body).unwrap().0 = 0;
+    step(&mut app);
+    assert_eq!(count(&app), Value::U32(0), "an idle tick put the record back");
+    assert_eq!(app.world().resource::<Lowered>().0.len(), 2, "and did not call the entry");
+
+    // A body with no record is not given one by an idle tick.
+    let fresh = app.world_mut().spawn((Poked(0), Tall(1.0))).id();
+    step(&mut app);
+    assert!(app.world().get::<BodyRecords>(fresh).is_none());
 }

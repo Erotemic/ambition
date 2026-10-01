@@ -12,6 +12,7 @@
 
 pub mod echo_fan;
 pub mod eye_beam;
+pub mod gradient_nova;
 pub mod mode_collapse;
 pub mod seismic_stomp;
 mod strike;
@@ -24,6 +25,7 @@ pub fn modules() -> Vec<ambition_extension_sdk::ModuleDescriptor> {
     vec![
         echo_fan::module(),
         eye_beam::module(),
+        gradient_nova::module(),
         mode_collapse::module(),
         seismic_stomp::module(),
     ]

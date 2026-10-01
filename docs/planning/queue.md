@@ -1832,6 +1832,30 @@ passes and a body that does not collides, in the same tick; a projectile and an
 undriven body follow the same per-actor rule stated for them; witnessed with
 two seats and with a control where both qualify.
 
+**Landed (2026-10-01).** A condition can publish a subject form
+(`SubjectConditionEvaluator`, `ConditionCatalog::ask_for`); `body.can` and
+`body.fits` publish one (`can_for`, `fits_for`). A gated wall whose question
+has a subject form always stands in its room's `gate_solids`, and the
+publisher writes a `GatePass` (block name, open bodies) into the same overlay
+for each body in that room that satisfies it. The actor and player body steps
+read `ComposedRooms::solids_for(collision, room, body)`, which is the composed
+walls without the gates open for that body. The rules for the other readers:
+
+- A projectile, a dropped item, and every reader that names no body meet the
+  wall as solid. They have no body state to ask.
+- An undriven body (an NPC) is asked as itself: an NPC that climbs passes a
+  `body.can wall_climb` wall.
+- The body-mode clearance check (crouch, morph) still meets the wall as solid,
+  so a body cannot grow back to full height inside a `body.fits` crawlspace.
+- A wall gated on a population fact (`world.flag_set`, `inventory.holds`) is
+  unchanged: one answer for every body.
+
+Witnesses: `a_body_gate_is_open_only_for_the_bodies_that_satisfy_it` (two
+seats, one climbs; control: both climb) and
+`a_gate_open_for_one_body_is_missing_only_from_that_body_s_walls` (collision).
+Open: perception and AI path decisions (`update.rs` decide pass) read the
+shared walls, so an NPC that can pass a wall does not yet plan through it.
+
 ### BOSS-REPLAY-RETRACTION — a replay that un-defeats a boss un-defeats it for every family
 
 **Owner:** the generic boss-progress road (`crates/ambition_boss_encounter`)

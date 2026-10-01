@@ -376,10 +376,18 @@ impl ConditionOutcome {
 /// the same distinction [`ConditionOutcome`] exists to keep.
 pub type ConditionEvaluator = fn(&World, &[AuthoredArg]) -> ConditionOutcome;
 
+/// The same question, asked of ONE subject (a body) instead of the population
+/// the plain evaluator asks. A route gate whose condition has this form is
+/// solid or open per actor (Q54): a wall gated on climbing is open for the body
+/// that climbs and solid for the one beside it.
+pub type SubjectConditionEvaluator = fn(&World, bevy::prelude::Entity, &[AuthoredArg]) -> ConditionOutcome;
+
 #[derive(Clone)]
 struct Registered {
     descriptor: ConditionDescriptor,
     evaluate: ConditionEvaluator,
+    /// `None` for a question that is not about one subject (a world flag).
+    evaluate_for: Option<SubjectConditionEvaluator>,
 }
 
 /// The composed, read-only catalog of every condition the installed engine can
@@ -412,7 +420,12 @@ impl ConditionCatalog {
     /// the simulation starts" is a property of the type rather than a promise in
     /// a comment.  making this `pub` for convenience would silently convert the
     /// waiver into a lie.
-    fn publish(&mut self, descriptor: ConditionDescriptor, evaluate: ConditionEvaluator) {
+    fn publish(
+        &mut self,
+        descriptor: ConditionDescriptor,
+        evaluate: ConditionEvaluator,
+        evaluate_for: Option<SubjectConditionEvaluator>,
+    ) {
         let id = descriptor.id.clone();
         if let Some(existing) = self.rows.get(&id) {
             panic!(
@@ -425,6 +438,7 @@ impl ConditionCatalog {
             Registered {
                 descriptor,
                 evaluate,
+                evaluate_for,
             },
         );
     }
@@ -488,6 +502,26 @@ impl ConditionCatalog {
             }));
         }
         outcome
+    }
+
+    /// Whether `id` can be asked of one subject.
+    pub fn answers_for_a_subject(&self, id: &ConditionId) -> bool {
+        self.rows.get(id).is_some_and(|row| row.evaluate_for.is_some())
+    }
+
+    /// Ask a prepared question of one subject. `None` when the condition has
+    /// no subject form, so the caller keeps the population answer. Private:
+    /// the only way in is [`Self::ask_for`], whose arguments were checked when
+    /// the question was prepared.
+    fn evaluate_for(
+        &self,
+        world: &World,
+        id: &ConditionId,
+        subject: bevy::prelude::Entity,
+        args: &[AuthoredArg],
+    ) -> Option<ConditionOutcome> {
+        let evaluate_for = self.rows.get(id)?.evaluate_for?;
+        Some(evaluate_for(world, subject, args))
     }
 
     /// The answer itself, with no diagnostic on the path: arity, kinds, then
@@ -1075,6 +1109,15 @@ pub trait PublishCondition {
         descriptor: ConditionDescriptor,
         evaluate: ConditionEvaluator,
     ) -> &mut Self;
+
+    /// Publish a condition that can also be asked of one subject
+    /// ([`SubjectConditionEvaluator`]).
+    fn publish_subject_condition(
+        &mut self,
+        descriptor: ConditionDescriptor,
+        evaluate: ConditionEvaluator,
+        evaluate_for: SubjectConditionEvaluator,
+    ) -> &mut Self;
 }
 
 impl PublishCondition for App {
@@ -1086,7 +1129,20 @@ impl PublishCondition for App {
         self.init_resource::<ConditionCatalog>();
         self.world_mut()
             .resource_mut::<ConditionCatalog>()
-            .publish(descriptor, evaluate);
+            .publish(descriptor, evaluate, None);
+        self
+    }
+
+    fn publish_subject_condition(
+        &mut self,
+        descriptor: ConditionDescriptor,
+        evaluate: ConditionEvaluator,
+        evaluate_for: SubjectConditionEvaluator,
+    ) -> &mut Self {
+        self.init_resource::<ConditionCatalog>();
+        self.world_mut()
+            .resource_mut::<ConditionCatalog>()
+            .publish(descriptor, evaluate, Some(evaluate_for));
         self
     }
 }

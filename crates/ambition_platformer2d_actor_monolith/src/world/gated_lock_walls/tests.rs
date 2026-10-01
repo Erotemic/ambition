@@ -179,6 +179,7 @@ fn world_with_one_wall_gated_by(gated_by: &str) -> App {
             |mut overlays: ambition_platformer2d_shared_tangle::feature_overlay::RoomOverlays| {
                 for mut overlay in overlays.each() {
                     overlay.gate_solids.clear();
+                    overlay.gate_passes.clear();
                 }
             },
             sync_authored_gated_lock_walls,
@@ -192,6 +193,16 @@ fn standing(app: &App) -> usize {
     ambition_platformer2d_shared_tangle::lifecycle::sole_live_room_component::<FeatureEcsWorldOverlay>(app.world()).expect("the live room has a collision overlay")
         .gate_solids
         .len()
+}
+
+/// The bodies each gate is open for, by block name (Q54).
+fn open_for(app: &App) -> Vec<(String, Vec<Entity>)> {
+    ambition_platformer2d_shared_tangle::lifecycle::sole_live_room_component::<FeatureEcsWorldOverlay>(app.world())
+        .expect("the live room has a collision overlay")
+        .gate_passes
+        .iter()
+        .map(|pass| (pass.block.clone(), pass.bodies.clone()))
+        .collect()
 }
 
 /// THE WALL STANDS UNTIL ITS CONDITION IS SATISFIED, AND THEN IT IS GONE.
@@ -296,6 +307,7 @@ fn a_wall_whose_question_cannot_be_prepared_yet_stands_until_the_catalog_moves()
             |mut overlays: ambition_platformer2d_shared_tangle::feature_overlay::RoomOverlays| {
                 for mut overlay in overlays.each() {
                     overlay.gate_solids.clear();
+                    overlay.gate_passes.clear();
                 }
             },
             sync_authored_gated_lock_walls,
@@ -438,9 +450,10 @@ fn a_wall_may_be_gated_on_what_the_body_can_do() {
     use ambition_platformer2d_shared_tangle::authored_logic::PublishCondition;
 
     let mut app = world_with_one_wall_gated_by("body.can wall_climb");
-    app.publish_condition(
+    app.publish_subject_condition(
         crate::body_conditions::can_descriptor(),
         crate::body_conditions::can,
+        crate::body_conditions::can_for,
     );
     let body = app
         .world_mut()
@@ -461,10 +474,10 @@ fn a_wall_may_be_gated_on_what_the_body_can_do() {
 
     app.update();
     assert_eq!(
-        standing(&app),
-        1,
+        (standing(&app), open_for(&app)),
+        (1, Vec::new()),
         "the body is here and cannot climb, so the wall the author gated on \
-         climbing stands"
+         climbing stands for it"
     );
 
     app.world_mut()
@@ -475,9 +488,10 @@ fn a_wall_may_be_gated_on_what_the_body_can_do() {
         .wall_climb = true;
     app.update();
     assert_eq!(
-        standing(&app),
-        0,
-        "the same body can climb now; the route it asked for opens"
+        (standing(&app), open_for(&app)),
+        (1, vec![(format!("{GATED_LOCK_BLOCK_PREFIX}alice_private_return_lock"), vec![body])]),
+        "the same body can climb now; the route opens for it, and the wall \
+         stands for every other body (Q54)"
     );
 }
 
@@ -494,9 +508,10 @@ fn a_wall_may_be_gated_on_the_body_being_small_enough_to_pass() {
     use ambition_platformer2d_core::body_clusters::BodyKinematics;
 
     let mut app = world_with_one_wall_gated_by("body.fits 32");
-    app.publish_condition(
+    app.publish_subject_condition(
         crate::body_conditions::fits_descriptor(),
         crate::body_conditions::fits,
+        crate::body_conditions::fits_for,
     );
     let mut standing_body = BodyKinematics::default();
     standing_body.size.y = 64.0;
@@ -517,8 +532,8 @@ fn a_wall_may_be_gated_on_the_body_being_small_enough_to_pass() {
 
     app.update();
     assert_eq!(
-        standing(&app),
-        1,
+        (standing(&app), open_for(&app)),
+        (1, Vec::new()),
         "a body twice the opening's height does not get through it"
     );
 
@@ -530,11 +545,66 @@ fn a_wall_may_be_gated_on_the_body_being_small_enough_to_pass() {
         .y = 30.0;
     app.update();
     assert_eq!(
-        standing(&app),
-        0,
-        "the same body, low enough now, and the crawlspace is open"
+        (standing(&app), open_for(&app)),
+        (1, vec![(format!("{GATED_LOCK_BLOCK_PREFIX}alice_private_return_lock"), vec![body])]),
+        "the same body, low enough now, and the crawlspace is open for it"
     );
 }
+
+/// GATE-PER-ACTOR (Q54): in one live room, the wall is open for the body that
+/// satisfies it and solid for the body beside it that does not, in the same
+/// tick. Two seats, one that climbs and one that does not; the population
+/// question ("does a driven body climb?") says yes, and that is not what opens
+/// the wall for the second body. The control: when both climb, both pass.
+#[test]
+fn a_body_gate_is_open_only_for_the_bodies_that_satisfy_it() {
+    use ambition_platformer2d_core::body_clusters::BodyAbilities;
+    use ambition_characters::control::{DrivingParticipant, PlayerSlot};
+
+    let mut app = world_with_one_wall_gated_by("body.can wall_climb");
+    app.publish_subject_condition(
+        crate::body_conditions::can_descriptor(),
+        crate::body_conditions::can,
+        crate::body_conditions::can_for,
+    );
+    let mut climbs = ambition_platformer2d_core::abilities::AbilitySet::default();
+    climbs.wall_climb = true;
+    let alice = app
+        .world_mut()
+        .spawn((BodyAbilities::new(climbs), DrivingParticipant(PlayerSlot::PRIMARY)))
+        .id();
+    let bob = app
+        .world_mut()
+        .spawn((
+            BodyAbilities::new(ambition_platformer2d_core::abilities::AbilitySet::default()),
+            DrivingParticipant(PlayerSlot(1)),
+        ))
+        .id();
+    let wall = format!("{GATED_LOCK_BLOCK_PREFIX}alice_private_return_lock");
+
+    app.update();
+    assert_eq!(
+        (standing(&app), open_for(&app)),
+        (1, vec![(wall.clone(), vec![alice])]),
+        "the wall is open for Alice, who climbs, and solid for Bob, who does not"
+    );
+
+    app.world_mut()
+        .get_mut::<BodyAbilities>(bob)
+        .expect("Bob's body")
+        .abilities
+        .wall_climb = true;
+    app.update();
+    let mut both = vec![alice, bob];
+    both.sort();
+    assert_eq!(
+        (standing(&app), open_for(&app)),
+        (1, vec![(wall, both)]),
+        "control: both climb, and the wall is open for both"
+    );
+}
+
+
 
 /// ⭐ A ROUTE GATED ON A WORLD MECHANISM — the seventh gate family, in its
 /// boolean form.
@@ -830,6 +900,7 @@ fn each_live_room_keeps_its_own_gated_walls() {
             |mut overlays: ambition_platformer2d_shared_tangle::feature_overlay::RoomOverlays| {
                 for mut overlay in overlays.each() {
                     overlay.gate_solids.clear();
+                    overlay.gate_passes.clear();
                 }
             },
             sync_authored_gated_lock_walls,

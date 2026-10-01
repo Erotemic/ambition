@@ -74,6 +74,24 @@ pub fn can(world: &World, args: &[AuthoredArg]) -> ConditionOutcome {
     })
 }
 
+/// `body.can`, asked of one body: may THIS body use the verb? A route gate
+/// reads this per actor (Q54), so a wall gated on climbing is open for the body
+/// that climbs and solid for the body beside it that does not.
+pub fn can_for(world: &World, subject: bevy::prelude::Entity, args: &[AuthoredArg]) -> ConditionOutcome {
+    let Some(verb) = args[0].as_name() else {
+        return ConditionOutcome::unanswerable("`verb` must be a name");
+    };
+    if ability_named(&AbilitySet::default(), verb).is_none() {
+        return ConditionOutcome::unanswerable(format!(
+            "no ability is spelled `{verb}`; `body.can` reads `AbilitySet` field names exactly"
+        ));
+    }
+    let enabled = world
+        .get::<BodyAbilities>(subject)
+        .is_some_and(|set| ability_named(&set.abilities, verb) == Some(true));
+    ConditionOutcome::from_bool(enabled, || WhyNot::new("body.can", verb, "this body does not have it"))
+}
+
 /// EVERY BODY A PARTICIPANT IS ACTUALLY DRIVING — the population both conditions
 /// in this file ask, and the one thing they must not get wrong.
 ///
@@ -293,6 +311,24 @@ pub fn fits(world: &World, args: &[AuthoredArg]) -> ConditionOutcome {
     })
 }
 
+/// `body.fits`, asked of one body: is THIS body short enough right now? The
+/// per-actor form a route gate reads (Q54).
+pub fn fits_for(world: &World, subject: bevy::prelude::Entity, args: &[AuthoredArg]) -> ConditionOutcome {
+    let Some(opening) = args[0].as_number() else {
+        return ConditionOutcome::unanswerable("`height` must be a number");
+    };
+    if !(opening > 0.0) {
+        return ConditionOutcome::unanswerable(format!(
+            "`{opening}` is not an opening; `body.fits` takes a positive height in world units"
+        ));
+    }
+    let opening = opening as f32;
+    let short_enough = world.get::<BodyKinematics>(subject).is_some_and(|body| body.size.y <= opening);
+    ConditionOutcome::from_bool(short_enough, || {
+        WhyNot::new("body.fits", format!("{opening}"), "this body is not short enough")
+    })
+}
+
 /// Publishes the body domain's conditions.
 ///
 /// One plugin for one registration line, matching
@@ -304,8 +340,8 @@ pub struct BodyCapabilityConditionsPlugin;
 impl bevy::prelude::Plugin for BodyCapabilityConditionsPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         use ambition_platformer2d_shared_tangle::authored_logic::PublishCondition;
-        app.publish_condition(can_descriptor(), can);
-        app.publish_condition(fits_descriptor(), fits);
+        app.publish_subject_condition(can_descriptor(), can, can_for);
+        app.publish_subject_condition(fits_descriptor(), fits, fits_for);
     }
 }
 

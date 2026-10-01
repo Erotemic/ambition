@@ -156,6 +156,39 @@ pub struct ComposedRooms<'a> {
 }
 
 impl<'a> ComposedRooms<'a> {
+    /// [`Self::solids`] as `subject` meets them: without the gate solids that
+    /// are open for it ([`GatePass`], Q54). With no gate open for the subject,
+    /// which is every tick of a room with no per-actor gate, these are the
+    /// same composed walls, borrowed.
+    ///
+    /// [`GatePass`]: ambition_platformer2d_shared_tangle::feature_overlay::GatePass
+    pub fn solids_for(
+        &mut self,
+        collision: &'a CollisionWorld<'_, '_>,
+        room: Option<&InRoomInstance>,
+        subject: bevy_ecs::entity::Entity,
+    ) -> Option<Cow<'_, ae::World>> {
+        let open: Vec<&str> = collision
+            .room(room)
+            .and_then(|room| room.overlay)
+            .map(|overlay| {
+                overlay
+                    .gate_passes
+                    .iter()
+                    .filter(|pass| pass.bodies.contains(&subject))
+                    .map(|pass| pass.block.as_str())
+                    .collect()
+            })
+            .unwrap_or_default();
+        let walls = self.solids(collision, room)?;
+        if open.is_empty() {
+            return Some(Cow::Borrowed(walls));
+        }
+        let mut walls = walls.clone();
+        walls.blocks.retain(|block| !open.contains(&block.name.as_str()));
+        Some(Cow::Owned(walls))
+    }
+
     /// The walls of the live room `room` names, as [`CollisionWorld::room`]
     /// resolves it. `None` if that room is not live.
     pub fn solids(
@@ -662,6 +695,56 @@ mod collision_world_tests {
             ae::RoomGeometry(geometry),
             FeatureEcsWorldOverlay::default(),
         ));
+    }
+
+    /// GATE-PER-ACTOR (Q54): a gate solid open for one body is absent from the
+    /// walls that body meets, and present in the walls every other body and
+    /// every reader with no body meets. The control: with no pass, every body
+    /// meets the composed walls.
+    #[test]
+    fn a_gate_open_for_one_body_is_missing_only_from_that_body_s_walls() {
+        #[derive(Resource, Default, Debug)]
+        struct Probe(Vec<Vec<String>>);
+        #[derive(Resource)]
+        struct Bodies([bevy_ecs::entity::Entity; 2]);
+        fn probe(world: CollisionWorld, bodies: bevy_ecs::prelude::Res<Bodies>, mut out: ResMut<Probe>) {
+            let mut composed = ComposedRooms::default();
+            let names = |walls: &ae::World| walls.blocks.iter().map(|block| block.name.clone()).collect::<Vec<_>>();
+            let mut seen: Vec<Vec<String>> = bodies
+                .0
+                .iter()
+                .map(|body| names(&composed.solids_for(&world, None, *body).expect("one live room")))
+                .collect();
+            seen.push(names(composed.solids(&world, None).expect("one live room")));
+            out.0 = seen;
+        }
+        let mut app = App::new();
+        app.init_resource::<Probe>();
+        let floor = ae::Block::solid("floor", ae::Vec2::new(0.0, 380.0), ae::Vec2::new(400.0, 20.0));
+        a_live_room(&mut app, LiveRoomInstance::ACTIVATION, vec![floor]);
+        let bodies = [app.world_mut().spawn_empty().id(), app.world_mut().spawn_empty().id()];
+        app.insert_resource(Bodies(bodies));
+        app.add_systems(Update, probe);
+        let mut overlay = app.world_mut().query::<&mut FeatureEcsWorldOverlay>();
+        overlay.single_mut(app.world_mut()).expect("one overlay").gate_solids.push(gate_wall());
+        app.update();
+        let both = vec!["floor".to_string(), "lockwall:test_encounter".to_string()];
+        assert_eq!(app.world().resource::<Probe>().0, vec![both.clone(); 3], "no pass: every body meets the gate");
+
+        overlay
+            .single_mut(app.world_mut())
+            .expect("one overlay")
+            .gate_passes
+            .push(ambition_platformer2d_shared_tangle::feature_overlay::GatePass {
+                block: "lockwall:test_encounter".to_string(),
+                bodies: vec![bodies[0]],
+            });
+        app.update();
+        assert_eq!(
+            app.world().resource::<Probe>().0,
+            vec![vec!["floor".to_string()], both.clone(), both],
+            "the gate is open for the first body only"
+        );
     }
 
     /// OW1 cut 3d: a reader in live room #1 collides with #1's walls, and

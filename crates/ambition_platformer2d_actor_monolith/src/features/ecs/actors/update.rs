@@ -1459,9 +1459,13 @@ pub fn integrate_sim_bodies(
         let Some(mut cq) = clusters else {
             continue;
         };
-        let Some(feature_world) = composed.solids(&collision, body_rooms.get(actor_entity).ok()) else {
+        // The walls as they stand for this body: a gate open for it (Q54) is
+        // not among them.
+        let Some(feature_world) = composed.solids_for(&collision, body_rooms.get(actor_entity).ok(), actor_entity)
+        else {
             continue;
         };
+        let feature_world: &ambition_platformer2d_core::World = &feature_world;
         let mut em = cq.as_actor_mut();
         integrate_actor_body(
             actor_entity,
@@ -1542,9 +1546,11 @@ pub fn integrate_sim_bodies(
         let player_tuning = authored_tuning
             .map(|t| t.0)
             .unwrap_or(editable_player_tuning);
-        let Some(feature_world) = composed.solids(&collision, body_rooms.get(player_entity).ok()) else {
+        let Some(feature_world) = composed.solids_for(&collision, body_rooms.get(player_entity).ok(), player_entity)
+        else {
             continue;
         };
+        let feature_world: &ambition_platformer2d_core::World = &feature_world;
         let mut clusters = cluster_item.as_clusters_mut();
         let player_motion_frame = resolved_frame.get();
         let riding_up = crate::avatar::integrate_home_body(

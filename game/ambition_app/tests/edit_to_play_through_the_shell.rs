@@ -728,6 +728,40 @@ fn a_movement_tuning_saved_while_the_game_runs_is_played() {
             "the player's jump launch did not follow the saved tuning: {before} before, {after} after"
         );
         eprintln!("the player's jump launch: {before} before the save, {after} after");
+
+        // ⭐ THE FEEL VALUES TAKE THE SAME ROAD (`EditableFeelTuning`), and a
+        // save that changes only them writes no movement tuning.
+        use ambition_platformer2d::combat::feel::Platformer2dFeelTuningMonolith;
+        let hitlag = |sim: &ambition_sim_harness::Platformer2dSimHarness| {
+            sim.world().resource::<Platformer2dFeelTuningMonolith>().hitlag_time
+        };
+        assert_eq!(hitlag(&sim), Platformer2dFeelTuningMonolith::default().hitlag_time, "the premise");
+        let with_feel = |jump_speed: &str, feel: &str| {
+            let moved = shipped.replace("jump_speed: 630.0,", &format!("jump_speed: {jump_speed},"));
+            let close = moved.rfind(')').expect("the file is one tuple");
+            format!("{}    feel: ({feel}),\n{}", &moved[..close], &moved[close..])
+        };
+        let feel_written = |sim: &ambition_sim_harness::Platformer2dSimHarness| {
+            sim.world().resource::<MovementDefaultsWatch>().applied_feel
+        };
+        // A field the feel does not have refuses the whole save, not only
+        // itself: the jump speed in the same save is not taken either.
+        std::thread::sleep(std::time::Duration::from_millis(20));
+        std::fs::write(&file, with_feel("710.0", "hitlag_tme: 0.25")).unwrap();
+        for _ in 0..45 {
+            sim.step(common::base());
+        }
+        assert_eq!((feel_written(&sim), jump(&sim)), (0, 700.0), "a misspelt feel field refuses the save");
+        std::thread::sleep(std::time::Duration::from_millis(20));
+        std::fs::write(&file, with_feel("700.0", "hitlag_time: 0.25")).unwrap();
+        let mut frames = 0;
+        while hitlag(&sim) != 0.25 {
+            sim.step(common::base());
+            frames += 1;
+            assert!(frames < 120, "120 frames after the save the hitlag is {}", hitlag(&sim));
+        }
+        assert_eq!((applied(&sim), feel_written(&sim)), (1, 1), "the feel save wrote the feel only");
+        assert_eq!(jump(&sim), 700.0, "and the movement tuning stayed");
     }));
     let _ = std::fs::remove_dir_all(&dir);
     if let Err(payload) = outcome {

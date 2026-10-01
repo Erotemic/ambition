@@ -209,6 +209,14 @@ edit takes the existing developer-edit road (proposed, admitted by the timeline
 owner, published in `PreUpdate`); a file that does not parse is refused, and a
 change to the starting abilities is reported and needs a restart. Witness:
 `edit_to_play_through_the_shell::a_movement_tuning_saved_while_the_game_runs_is_played`
+(the feel too: `platformer_defaults.ron` takes an optional `feel:` block, read
+field by field over `Platformer2dFeelTuningMonolith::default()` with
+`deny_unknown_fields`; the app seeds the feel from it, and the watch writes a
+changed feel to `EditableFeelTuning` only. MEASURED: a feel value in the
+`Default` impl costs 14.98 s and 27 crates per edit; in the file, 0.49 s at
+rest and `hitlag_time` 0.07 → 0.25 live. Poisons "drop `deny_unknown_fields`"
+(a misspelt field's save is taken) and "the watch does not write the feel"
+each fail it.)
 (`jump_speed` 630 → 700 in a copy: `ActiveMovementTuning` takes it **19 frames
 after the save**, and the player's jump launch goes from 555 to 625; an
 unparseable save first changes nothing). Poison "the watch does not write the

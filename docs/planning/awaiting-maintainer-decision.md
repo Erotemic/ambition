@@ -1614,3 +1614,21 @@ bespoke "mode collapse" track (a loop that degenerates); that is still a
 handoff. To change it for every Mode Collapse fight, edit the four `music_*`
 fields; to change it in one room, set that room's `fight_music_track`
 (`docs/recipes/room-music.md`).
+
+## Q149 — when a room retires and comes back, does a wounded enemy keep its wounds?
+
+Decided for now, so it is not blocking: **no, a returned room is built fresh
+from its placements.** OW3 asked what "the actor dispositions a retired room
+loses" are. Measured 2026-10-01: the save keeps an enemy's DEATH (the fate
+flag that `RespawnPolicy` writes, per placement or per room zone) and an
+encounter's outcome (`PersistedEncounterState`: `Untouched`, `Cleared`,
+`Failed`). It keeps no state of a LIVING enemy (its HP, its position, its
+aggro) and no wave index of an encounter that is in progress. So a skitter
+that a player hits to half HP is at full HP when its room comes back, and an
+encounter left mid-wave starts again at wave one. This agrees with
+`OnRoomReenter` ("fresh every time the player enters the room"). For a
+persistent world it means an actor exists only in its authored placement and
+its death. To change this, add a dormant record for a living actor. OW3's
+dormant mint rows (`docs/planning/engine/open-world-runtime-and-residency.md`,
+"OW3, first slice") are the road; the per-placement policy would then gain a
+variant such as `KeepsWounds`.

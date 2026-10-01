@@ -2203,3 +2203,43 @@ fn a_new_game_reset_reaches_the_wallet_and_the_bag() {
         "a committed New Game must restore the starter bag on the production road"
     );
 }
+
+/// After Reset Sandbox the player walks: a held move moves the body.
+#[test]
+fn the_player_walks_after_a_new_game() {
+    use ambition_app::{AmbitionSim as _, TimestepMode};
+    use ambition_platformer2d::engine_core::BodyKinematics;
+    use ambition_platformer2d::platformer::markers::PrimaryPlayerOnly;
+
+    fn x(sim: &mut Platformer2dSimHarness) -> f32 {
+        let world = sim.world_mut();
+        let mut q = world.query_filtered::<&BodyKinematics, PrimaryPlayerOnly>();
+        q.single(world).expect("primary player").pos.x
+    }
+    fn walk(sim: &mut Platformer2dSimHarness, dir: f32) -> f32 {
+        let start = x(sim);
+        for _ in 0..60 {
+            sim.step(AgentAction { move_x: dir, ..base() });
+        }
+        x(sim) - start
+    }
+
+    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+        .expect("sandbox sim builds");
+    for _ in 0..30 {
+        sim.step(base());
+    }
+    let before = walk(&mut sim, 1.0).abs().max(walk(&mut sim, -1.0).abs());
+    assert!(before > 20.0, "premise: the player walks before the reset (moved {before})");
+
+    request_sandbox_reset(&mut sim);
+    for _ in 0..30 {
+        sim.step(base());
+    }
+    let after = walk(&mut sim, 1.0).abs().max(walk(&mut sim, -1.0).abs());
+    assert!(
+        after > 20.0,
+        "after Reset Sandbox a held move moved the player {after} px in 60 frames \
+         (before the reset: {before} px)"
+    );
+}

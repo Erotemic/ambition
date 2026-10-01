@@ -4,7 +4,7 @@
 //! distinct reconstruction horizons.
 
 use bevy::ecs::schedule::ScheduleLabel;
-use bevy::prelude::{App, IntoScheduleConfigs, Message, Plugin, Resource, Schedule, SystemSet};
+use bevy::prelude::{App, IntoScheduleConfigs, Message, Plugin, Resource, SystemSet};
 
 use ambition_platformer2d_core::snapshot::RollbackRegistrar;
 
@@ -173,7 +173,10 @@ impl Plugin for LifecycleCheckpointHorizonPlugin {
         // schedule; a composition installing this plugin alone gets a schedule
         // nothing runs, which is the honest outcome — with no commit executor
         // there is no authorized moment to restore anything.
-        app.add_schedule(Schedule::new(CheckpointDomainApply));
+        // `init_schedule`, not `add_schedule`: domains in other plugins add their
+        // reducers to this schedule, and a replace drops every reducer a plugin
+        // built earlier added (the New Game save wipe was lost that way).
+        app.init_schedule(CheckpointDomainApply);
         app.init_resource::<OccurrenceBaseline>()
             .init_resource::<CustodyBaseline>()
             .add_systems(

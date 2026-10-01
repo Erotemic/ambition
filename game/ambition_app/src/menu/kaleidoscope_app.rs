@@ -944,9 +944,9 @@ fn kaleidoscope_focus_nav(
     // System window resumes following the selection cursor (the wheel/drag set it).
     mut scroll: ResMut<KaleidoscopeScroll>,
     mut pages: ResMut<ActiveMenuPages<MenuPage, MenuPageAction>>,
-    // Single mutable access to the overlay state — also read `.visible` from it (a
-    // separate `Res<InventoryUiState>` would be a B0002 conflict with this `ResMut`).
-    mut overlay: ResMut<ambition_platformer2d::inventory_ui::InventoryUiState>,
+    // Read-only: nav never closes the overlay. A close is the `CloseMenu` action,
+    // which the consumer applies through `close_kaleidoscope_menu`.
+    overlay: Res<ambition_platformer2d::inventory_ui::InventoryUiState>,
     // the game mode is GONE from nav. It was here only so a close-via-action
     // (Reset Sandbox) could unpause exactly like an Esc-close — and that close
     // travels with the dispatch, into `kaleidoscope_menu_action_activated`. Nav
@@ -1032,7 +1032,6 @@ fn kaleidoscope_focus_nav(
             &mut cursor,
             &mut system_nav,
             &mut pages,
-            &mut overlay,
             &mut settings,
             &mut quality_confirm,
             active_page,
@@ -1073,9 +1072,7 @@ fn kaleidoscope_focus_nav(
             });
         }
         if menu.back {
-            play_ui(&mut sfx, ambition_platformer2d::sfx::ids::UI_MENU_CLOSE);
-            quality_confirm.cancel();
-            overlay.visible = false;
+            activated.write(MenuActionActivated { action: MenuPageAction::CloseMenu });
         }
         emit_move_sfx(
             &mut sfx,
@@ -1104,9 +1101,7 @@ fn kaleidoscope_focus_nav(
     }
 
     if menu.back {
-        play_ui(&mut sfx, ambition_platformer2d::sfx::ids::UI_MENU_CLOSE);
-        quality_confirm.cancel();
-        overlay.visible = false;
+        activated.write(MenuActionActivated { action: MenuPageAction::CloseMenu });
         return;
     }
 
@@ -1248,8 +1243,6 @@ pub(crate) fn system_focus_nav(
     cursor: &mut KaleidoscopeCursor,
     system_nav: &mut KaleidoscopeSystemNav,
     pages: &mut ActiveMenuPages<MenuPage, MenuPageAction>,
-    // the game mode left this signature with the dispatch.
-    overlay: &mut ambition_platformer2d::inventory_ui::InventoryUiState,
     settings: &mut UserSettings,
     quality_confirm: &mut VisualQualityConfirmState,
     active_page: MenuPage,
@@ -1306,8 +1299,7 @@ pub(crate) fn system_focus_nav(
             quality_confirm.cancel();
             close_system_entry(system_nav, cursor);
         } else {
-            play_ui(sfx, ambition_platformer2d::sfx::ids::UI_MENU_CLOSE);
-            overlay.visible = false;
+            activated.write(MenuActionActivated { action: MenuPageAction::CloseMenu });
         }
         return;
     }
@@ -1756,7 +1748,8 @@ pub(crate) fn focus_without_system_model(
         | MenuPageAction::ConfirmVisualQuality
         | MenuPageAction::CancelVisualQuality
         | MenuPageAction::OpenSystemEntry(_)
-        | MenuPageAction::CloseSystemEntry => None,
+        | MenuPageAction::CloseSystemEntry
+        | MenuPageAction::CloseMenu => None,
     }
 }
 
@@ -1839,6 +1832,8 @@ pub(crate) fn focus_for_action(
         }
         MenuPageAction::OpenSystemEntry(entry) => system_row(SystemRow::Entry(entry)),
         MenuPageAction::CloseSystemEntry => system_row(SystemRow::Back),
+        // Back publishes it from the keyboard; no control carries it.
+        MenuPageAction::CloseMenu => MenuFocus::System(0),
     }
 }
 

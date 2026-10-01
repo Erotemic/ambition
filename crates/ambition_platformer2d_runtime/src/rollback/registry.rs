@@ -938,7 +938,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// in `extension.body_records`. `combat.held_damage_boxes` (with its entity map)
 /// is new: the held-box adapter's record of the box entities it holds for a
 /// module.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 285;
+/// ⛔⛤ 285 -> 286: `cutscene.last_room` holds the ids of every live room,
+/// not one id, so a room-entry cutscene is queued for a room that becomes
+/// live beside another (OW1 Cut C).
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 286;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

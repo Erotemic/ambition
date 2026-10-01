@@ -26,7 +26,11 @@ pub fn room_from_visited_flag(flag_id: &str) -> Option<&str> {
     flag_id.strip_prefix(ROOM_VISITED_FLAG_PREFIX)
 }
 
-/// Record the active room on the save, once per room per save.
+/// Record each live room on the save, once per room per save.
+///
+/// Every live room (OW1 Cut C): a room is live while a player is in it, so
+/// each player's own room is a visit. The sole live room was read, so while
+/// two rooms were live no visit was recorded.
 ///
 /// The edge comes from the save ("is this room flagged"), not a `Local`, so
 /// it has the save's lifetime and re-derives after a new game, a rewind, or a
@@ -35,14 +39,21 @@ pub fn room_from_visited_flag(flag_id: &str) -> Option<&str> {
 /// Writes only on the edge and otherwise reads through `Deref`: a `ResMut`
 /// deref-mut marks the save changed for every reader, including autosave.
 pub fn track_room_visits(
-    room_set: ambition_platformer2d_world::rooms::SoleLiveRoomSpec,
+    rooms: ambition_platformer2d_world::rooms::LiveRoomSpecs,
     mut save: ResMut<ambition_persistence::save::AmbitionGameSave>,
 ) {
-    let flag = room_visited_flag(&room_set.spec().id);
-    if save.data().flag(&flag) {
-        return;
+    let mut unvisited: Vec<String> = rooms
+        .live_definitions()
+        .map(|definition| room_visited_flag(&rooms.rooms().spec(definition).id))
+        .filter(|flag| !save.data().flag(flag))
+        .collect();
+    // In sorted order, so a resimulation writes the same flags in the same
+    // order.
+    unvisited.sort();
+    unvisited.dedup();
+    for flag in unvisited {
+        save.data_mut().set_flag(flag, true);
     }
-    save.data_mut().set_flag(flag, true);
 }
 
 /// Keep the map's visited set equal to what the save says.

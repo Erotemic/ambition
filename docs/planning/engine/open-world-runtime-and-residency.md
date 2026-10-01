@@ -1383,6 +1383,25 @@ check and its presence check. With two rooms live, both checks are weaker,
 but they do not fail a correct restore. No witness can make them fail, so
 they wait for a cut that needs them.
 
+✅ **OW1 Cut C, two readers, landed 2026-10-01: a room-entry cutscene and
+a map visit are recorded for a room that becomes live beside another.**
+The cutscene trigger (`auto_trigger_room_cutscenes`) and the map's visit
+tracker (`track_room_visits`) read the sole live room, so while two rooms
+were live neither ran: a room Alice entered beside Bob's room queued no
+cutscene and was not marked on the map. The trigger now remembers the
+sorted ids of every live room (`LastCutsceneRoom` is a list, as
+`LastQuestRoom` became at cut 7k) and queues the cutscenes of each id that
+becomes live, in id order. A second live room of an id already live
+queues nothing. The visit tracker flags each live room, because a room is
+live while a player is in it. Schema 285 -> 286. Witnesses in
+`two_players_two_live_rooms.rs`, each with a one-room control arm (Bob
+not driven): `a_room_cutscene_plays_when_its_room_becomes_live_beside_another`
+(a test cutscene bound to the hub) and
+`the_map_records_a_room_visited_beside_another_live_room`. Poisons, each
+reader back on `SoleLiveRoomSpec`, each failure predicted before the run:
+each witness failed in its two-room arm, and its control arm passed.
+`SoleLiveRoomSpec` 33/27 -> 31/25.
+
 ✅ **OW3, first slice, landed 2026-10-01: a runtime mint left in a room
 that is not live is still there when the room is live again.** A runtime
 mint (a boss's dropped gauntlet) has no authored record. Two facts rebuild

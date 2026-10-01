@@ -1845,3 +1845,73 @@ fn a_replay_of_the_cut_rope_arena_beside_another_live_room_hangs_the_next_heavy_
     // Two heavy objects: one advance is a change.
     assert_ne!(after, before, "the heavy object did not advance on the arena's replay");
 }
+
+/// [`alice_leaves_bob_with`] from `switch_lab` to the hub, with `prepare`
+/// run on the booted harness before Bob is placed.
+fn alice_leaves_bob_after(
+    slot: Option<ambition_platformer2d::characters::control::PlayerSlot>,
+    prepare: impl FnOnce(&mut Platformer2dSimHarness),
+) -> (Platformer2dSimHarness, LiveRoomInstance) {
+    let mut sim = Platformer2dSimHarness::new_with_options(
+        fixed_60hz_room_options(ROOM).with_save(a_save_that_has_seen_the_hub_intro()),
+    )
+    .unwrap_or_else(|error| panic!("{ROOM} boots: {error:?}"));
+    prepare(&mut sim);
+    alice_leaves_bob_with(sim, ROOM, HUB, slot, walk_through_the_door_to)
+}
+
+/// OW1 Cut C: a room-entry cutscene plays when its room becomes live beside
+/// another. A test cutscene is bound to the hub. Alice crosses into the hub:
+/// with Bob driven (two rooms live) and with Bob undriven (the control: one
+/// room), the cutscene plays. Before, the trigger read the sole live room, so
+/// in the two-room arm it queued nothing.
+#[test]
+fn a_room_cutscene_plays_when_its_room_becomes_live_beside_another() {
+    use ambition_platformer2d::cutscene::{ActiveCutscene, CutsceneBeat, CutsceneLibrary, CutsceneScript, RoomCutsceneBindings};
+    const CUTSCENE: &str = "ow1_hub_entry_probe";
+    for (slot, rooms) in [(None, 1), (Some(ambition_platformer2d::characters::control::PlayerSlot(1)), 2)] {
+        let (mut sim, _) = alice_leaves_bob_after(slot, |sim| {
+            let world = sim.world_mut();
+            world
+                .resource_mut::<CutsceneLibrary>()
+                .insert(CutsceneScript::new(CUTSCENE, vec![CutsceneBeat::Wait { seconds: 30.0 }]));
+            world.resource_mut::<RoomCutsceneBindings>().bindings.push((HUB.to_string(), CUTSCENE.to_string()));
+        });
+        assert_eq!(live_rooms(&mut sim).len(), rooms, "precondition ({slot:?}): the live room count");
+        let playing = sim
+            .world_mut()
+            .resource::<ActiveCutscene>()
+            .runtime
+            .as_ref()
+            .map(|runtime| runtime.script.id.clone());
+        assert_eq!(playing.as_deref(), Some(CUTSCENE), "the hub's cutscene is not playing with {rooms} live room(s)");
+    }
+}
+
+/// OW1 Cut C: the map records a visit to a room that becomes live beside
+/// another. The save does not have the hub's visit flag; Alice crosses into
+/// the hub, and the flag is set, with Bob driven (two rooms live) and with
+/// Bob undriven (the control: one room). Before, the visit tracker read the
+/// sole live room, so in the two-room arm the hub was never visited.
+#[test]
+fn the_map_records_a_room_visited_beside_another_live_room() {
+    use ambition_platformer2d::menu::map::room_visited_flag;
+    let flag = room_visited_flag(HUB);
+    for (slot, rooms) in [(None, 1), (Some(ambition_platformer2d::characters::control::PlayerSlot(1)), 2)] {
+        let (mut sim, _) = alice_leaves_bob_after(slot, |sim| {
+            let visited = sim
+                .world_mut()
+                .resource::<ambition_platformer2d::persistence::save::AmbitionGameSave>()
+                .data()
+                .flag(&room_visited_flag(HUB));
+            assert!(!visited, "precondition: the save has the hub's visit before Alice went there");
+        });
+        assert_eq!(live_rooms(&mut sim).len(), rooms, "precondition ({slot:?}): the live room count");
+        let visited = sim
+            .world_mut()
+            .resource::<ambition_platformer2d::persistence::save::AmbitionGameSave>()
+            .data()
+            .flag(&flag);
+        assert!(visited, "the hub visit was not recorded with {rooms} live room(s)");
+    }
+}

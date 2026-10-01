@@ -22,26 +22,42 @@ use ambition_cutscene::{
 use ambition_cutscene::CutsceneTriggerQueue;
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 
-/// Bevy system: when the active room changes, queue up a cutscene if
-/// the new room has a binding and the cutscene hasn't been seen.
-
+/// Bevy system: when a room id becomes live, queue up each cutscene bound to
+/// it. `drain_cutscene_triggers` skips a cutscene that was seen.
+///
+/// Every live room (OW1 Cut C): the sole live room was read, so while two
+/// rooms were live no room-entry cutscene was queued. A second live room of
+/// an id already live queues nothing. With no room live the memory is kept.
 pub fn auto_trigger_room_cutscenes(
     bindings: Res<RoomCutsceneBindings>,
-    room_set: ambition_platformer2d_world::rooms::SoleLiveRoomSpec,
+    rooms: ambition_platformer2d_world::rooms::LiveRoomSpecs,
     mut queue: ResMut<CutsceneTriggerQueue>,
-    mut last_room: ResMut<ambition_cutscene::LastCutsceneRoom>,
+    mut last_rooms: ResMut<ambition_cutscene::LastCutsceneRoom>,
 ) {
-    let current = room_set.spec().id.clone();
-    let changed = last_room.0.as_deref() != Some(current.as_str());
-    if !changed {
+    let mut live: Vec<String> = rooms
+        .live_rooms()
+        .map(|(_, definition)| rooms.rooms().spec(definition).id.clone())
+        .collect();
+    if live.is_empty() {
         return;
     }
-    last_room.0 = Some(current.clone());
-    for (room_id, cutscene_id) in &bindings.bindings {
-        if room_id == &current {
-            queue.request(cutscene_id);
+    live.sort();
+    live.dedup();
+    // Read through the immutable deref: on every frame but a change there is
+    // nothing to write, and a `DerefMut` would mark the resource changed.
+    if last_rooms.0 == live {
+        return;
+    }
+    // In sorted room order, so a resimulation queues the same cutscenes in
+    // the same order.
+    for current in live.iter().filter(|room| !last_rooms.0.contains(room)) {
+        for (room_id, cutscene_id) in &bindings.bindings {
+            if room_id == current {
+                queue.request(cutscene_id);
+            }
         }
     }
+    last_rooms.0 = live;
 }
 
 /// Drain the trigger queue: start the next cutscene if one isn't

@@ -1943,9 +1943,9 @@ names its subject by body or seat (`ViewSubject`, `ViewParticipant`).
 | Cut | Work | State |
 | --- | --- | --- |
 | V1 | The camera resolve frames each view in the live room of its framed body | ✅ below |
-| V2 | Draw roads place each entity by the geometry of its own live room (`LiveRoomOf`), not the sole room | open |
-| V3 | A camera draws only the live room of its view: a room render band, as the view band does for projections | open |
-| V4 | Room visuals and the LDtk level are presented per live room, and retire with it | open |
+| V2 | Draw roads place each entity by the geometry of its own live room (`LiveRoomOf`), not the sole room | ◐ the camera apply (V2a, below); the sprite and feature roads are open |
+| V3 | A camera draws only the live room of its view: a room render band, as the view band does for projections | ✅ below |
+| V4 | Room visuals and the LDtk level are presented per live room, and retire with it | ◐ static room visuals (V4a, below); the LDtk level and parallax are open |
 | V5 | Two seats in two live rooms get two views (the product rule: a split is mandatory in different rooms) | open |
 
 ✅ **V1 landed 2026-10-01: each view frames its own player while two rooms
@@ -1966,6 +1966,49 @@ she is alone. On HEAD the views did not move (Alice's view 130 px behind
 her, Bob's view never resolved). Poison (every view takes the session
 subject's room): Bob's view was clamped by the hub, with its right edge at
 984.
+
+✅ **V2a landed 2026-10-01: a camera places its view by the geometry of the
+view's own room.** `ResolvedCameraFrame` now names its `room`: the live room
+the resolve framed (V1). `camera_follow` read `SoleLiveRoom<RoomGeometry>` to
+flip the frame into Bevy space, so it did not run while two rooms were live;
+it reads `LiveRoomOf::in_room(frame.room)`. Witness:
+`each_camera_places_its_view_in_the_view_s_own_live_room` (rooms of 800×600
+and 400×300, two frames with one centre: the cameras differ by the room flip).
+Poison (every camera takes the first room): both cameras at the first room's
+flip.
+
+✅ **V3 landed 2026-10-01: each camera draws only the live room its view
+frames.** `isolate_live_rooms` (`rendering/view_isolation.rs`, in `PostUpdate`
+after `isolate_per_view_projections`, before visibility): while two or more
+rooms are live, an entity stamped `InRoomInstance`, and its descendants, draw
+on its room's band (`LIVE_ROOM_RENDER_LAYER_BASE` 256 + the room's place in
+instance order) in place of the world layer, and each main camera adds the
+band of its view's frame room. With one live room nothing is banded and every
+mask returns. An unstamped entity stays on the world layer, which every camera
+draws; a `PresentedForView` subtree is the view pass's, so the two passes own
+different bands of a camera mask. Witness:
+`each_camera_draws_only_the_live_room_its_view_frames` (a sprite per room, a
+child, an unstamped sprite; then one room again). Poison (every stamped entity
+on the first room's band): the second camera drew nothing of its room. ⚠ The
+pass walks every stamped entity each frame; presentation entities that are
+not stamped and not a stamped entity's descendants (dynamic feature visuals,
+fx, items) stay on the world layer, so they overlap until V2 stamps them.
+
+✅ **V4a landed 2026-10-01: each live room gets its own static visuals.**
+`present_live_room_visuals` (`rendering/world.rs`) spawns a live room's
+static visuals under a scope stamped with that room, with a
+`PresentedRoomVisuals` marker that is a `RoomVisual` too. The marker is the
+memo and it is in the world, so a room opened beside another is drawn, a room
+that replaces another is drawn again after the retirement takes the old
+visuals, and a retirement takes only its own room's visuals. Deleted: the
+per-session room memo (`PresentedSessionScope`) and the static-visual spawns
+of the crossing request (`respawn_room_visuals_on_request`), the session
+sync (`sync_session_room_visuals`) and the legacy start-up spawn; those three
+now rebuild parallax only. Witness: `each_live_room_gets_its_own_room_visuals`
+(two live rooms: visuals and one marker each, a second frame adds nothing,
+and a room whose visuals are taken is drawn again alone). Poison (the old
+sole-room rule: nothing while two rooms are live): no room was drawn.
+Control: one live room is drawn once.
 
 ## Existing repairs and standing lessons
 

@@ -794,7 +794,11 @@ impl Plugin for WorldLabelLayoutPlugin {
         // pass. The systems do nothing when there is nothing to iterate.
         app.add_systems(
             PostUpdate,
-            super::view_isolation::isolate_per_view_projections
+            (
+                super::view_isolation::isolate_per_view_projections,
+                super::view_isolation::isolate_live_rooms,
+            )
+                .chain()
                 .before(bevy::camera::visibility::VisibilitySystems::CheckVisibility),
         );
     }

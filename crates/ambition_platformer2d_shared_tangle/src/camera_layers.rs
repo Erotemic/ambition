@@ -18,6 +18,23 @@ pub const PARALLAX_BACKGROUND_LAYER: usize = 2;
 /// semantic limit on the number of local views.
 pub const LOCAL_VIEW_RENDER_LAYER_BASE: usize = 1024;
 
+/// Base of the render-layer band for live rooms. While two or more rooms are
+/// live, an entity stamped into a live room draws on its room's layer instead
+/// of the world layer, and a camera draws the room its view frames. The band
+/// is below the portal window band (512) and above the portal capture band
+/// (32 + slot).
+pub const LIVE_ROOM_RENDER_LAYER_BASE: usize = 256;
+
+/// The highest live-room render layer. More live rooms than the band holds
+/// share its last layer.
+pub const LIVE_ROOM_RENDER_LAYER_LAST: usize = 511;
+
+/// Render layer for a live-room ordinal (the room's place among the live
+/// rooms in instance order), not a `LiveRoomInstance`.
+pub fn live_room_render_layer(ordinal: usize) -> usize {
+    (LIVE_ROOM_RENDER_LAYER_BASE + ordinal).min(LIVE_ROOM_RENDER_LAYER_LAST)
+}
+
 /// Render layer for a live-view ordinal, not a semantic `LocalViewId`.
 ///
 /// Callers sort views by id and pass the dense ordinal so render-layer allocation

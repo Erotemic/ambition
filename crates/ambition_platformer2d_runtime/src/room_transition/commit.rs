@@ -726,10 +726,11 @@ impl RoomTransitionFinalize<'_, '_> {
         }
 
         // ── PRESENTATION: ASK, DON'T DRAW ────────────────────────────────────
-        // A room's static visuals + parallax are rebuilt by
+        // A room's parallax is rebuilt by
         // `ambition_render::rendering::respawn_room_visuals_on_request`, which
-        // reads the active room out of `RoomSet` for itself — the same channel
-        // the sandbox reset and the room stager already use. Calling
+        // reads the active room out of `RoomSet` for itself. Its static visuals
+        // need no request: `present_live_room_visuals` gives every live room
+        // its visuals, and this crossing's room is a live room. Calling
         // `spawn_room_visuals` here instead was what made a room transition name
         // `ambition_platformer2d::render`, and therefore what kept the whole
         // commit chain app-local and unreachable by a demo host. A headless build

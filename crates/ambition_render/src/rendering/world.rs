@@ -29,15 +29,14 @@ use ambition_sprite_sheet::game_assets::{self, entity_sprite, entity_sprite_or_c
 
 /// Presentation consumer of [`ambition_platformer2d_world::rooms::RespawnRoomVisualsRequested`].
 ///
-/// The sim (sandbox reset) emits the request after it changes the active room.
-/// This system reads the active room from [`RoomSet`] and rebuilds its static
-/// visuals and parallax. The spawn stays on the render side, so the sim does not
-/// import the render layer. A headless build does not run this system.
+/// A crossing's commit emits the request after it changes the room. This
+/// system reads the live room and rebuilds its parallax. The room's static
+/// visuals are not rebuilt here: [`present_live_room_visuals`] gives each live
+/// room its visuals. A headless build does not run this system.
 pub fn respawn_room_visuals_on_request(
     mut requests: MessageReader<ambition_platformer2d_world::rooms::RespawnRoomVisualsRequested>,
     mut commands: Commands,
     room_set: ambition_platformer2d_world::rooms::SoleLiveRoomSpec,
-    physics_settings: Res<ambition_platformer2d_shared_tangle::physics::PhysicsSandboxSettings>,
     assets: Option<Res<GameAssets>>,
     quality: Option<Res<crate::quality::ResolvedVisualQuality>>,
     active_session: Option<Res<ActiveSessionScope>>,
@@ -60,13 +59,54 @@ pub fn respawn_room_visuals_on_request(
         assets.as_deref(),
         quality.as_deref().map(|q| &q.budget.parallax),
     );
-    spawn_room_visuals(
-        &mut commands,
-        session_scope,
-        spec,
-        *physics_settings,
-        assets.as_deref(),
-    );
+}
+
+/// Marks that one live room's static visuals are spawned. It is stamped with
+/// its room and is a [`RoomVisual`], so it retires with the room's other
+/// visuals.
+#[derive(Component, Clone, Copy, Debug, Default)]
+pub struct PresentedRoomVisuals;
+
+/// Give each live room its static visuals, stamped with that room.
+///
+/// The marker is the memo, and it is in the world: a live room with no marker
+/// has no visuals. So a room opened beside another live room is drawn, a room
+/// that replaces another (a crossing, a reset) is drawn again after the
+/// retirement takes the old visuals, and a retirement takes only the visuals
+/// of the room that retires (`InRoomInstance::leaves_with`).
+pub fn present_live_room_visuals(
+    mut commands: Commands,
+    rooms: ambition_platformer2d_world::rooms::LiveRoomSpecs,
+    presented: Query<
+        &ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance,
+        With<PresentedRoomVisuals>,
+    >,
+    physics_settings: Res<ambition_platformer2d_shared_tangle::physics::PhysicsSandboxSettings>,
+    assets: Option<Res<GameAssets>>,
+    active_session: Option<Res<ActiveSessionScope>>,
+) {
+    let Some(session_scope) =
+        SessionSpawnScope::for_optional_active_session(active_session.as_deref())
+    else {
+        return;
+    };
+    for (room, definition) in rooms.live_rooms() {
+        if presented.iter().any(|stamp| stamp.0 == room) {
+            continue;
+        }
+        let scope = session_scope.in_room(Some(room));
+        spawn_room_visuals(
+            &mut commands,
+            scope,
+            rooms.rooms().spec(definition),
+            *physics_settings,
+            assets.as_deref(),
+        );
+        commands.spawn_session_scoped(
+            scope,
+            (PresentedRoomVisuals, RoomVisual, Name::new("presented room visuals")),
+        );
+    }
 }
 
 pub fn spawn_room_visuals(

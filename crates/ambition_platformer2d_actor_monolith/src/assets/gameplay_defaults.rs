@@ -34,8 +34,9 @@ pub struct Platformer2dGameplayDefaults {
     pub tuning: ae::MovementTuning,
 }
 
-/// The defaults file in the source tree.
-const PLATFORMER_DEFAULTS_FILE: &str =
+/// The defaults file in the source tree. A development build reads it at boot
+/// and watches it while it runs.
+pub const PLATFORMER_DEFAULTS_FILE: &str =
     concat!(env!("CARGO_MANIFEST_DIR"), "/assets/ambition/platformer_defaults.ron");
 
 /// The defaults text, when the build embeds it (`static_content`).
@@ -69,7 +70,12 @@ impl Platformer2dGameplayDefaults {
                 },
             )),
         };
-        ron::from_str(&text)
+        Self::parse(&text)
             .unwrap_or_else(|error| panic!("{PLATFORMER_DEFAULTS_FILE} does not parse: {error}"))
+    }
+
+    /// The defaults a text states.
+    pub fn parse(text: &str) -> Result<Self, ron::error::SpannedError> {
+        ron::from_str(text)
     }
 }

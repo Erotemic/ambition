@@ -662,3 +662,107 @@ fn a_character_row_saved_while_the_game_runs_is_played() {
         std::panic::resume_unwind(payload);
     }
 }
+
+/// ⭐ A MOVEMENT-DEFAULTS EDIT SAVED WHILE THE GAME RUNS IS PLAYED, through the
+/// developer-edit road (`MovementDefaultsWatch` writes the mirror the F3
+/// inspector writes; the proposal is admitted and published in `PreUpdate`).
+/// A save that does not parse is refused and the running tuning stays. The
+/// watch is pointed at a copy, so the arm edits no file another test reads.
+#[cfg(not(feature = "static_content"))]
+#[test]
+fn a_movement_tuning_saved_while_the_game_runs_is_played() {
+    use ambition_app::app::movement_defaults_watch::MovementDefaultsWatch;
+    use ambition_platformer2d::actors::assets::gameplay_defaults::PLATFORMER_DEFAULTS_FILE;
+    use ambition_platformer2d::runtime::demo_fixture::ActiveMovementTuning;
+    let mut sim = common::fixed_60hz_room_sim("proving_grounds");
+    for _ in 0..40 {
+        sim.step(common::base());
+    }
+    assert!(
+        sim.world().get_resource::<MovementDefaultsWatch>().is_some(),
+        "the premise: a build that reads the defaults off disk watches them"
+    );
+    let jump = |sim: &ambition_sim_harness::Platformer2dSimHarness| {
+        sim.world().resource::<ActiveMovementTuning>().0.jump_speed
+    };
+    let shipped = std::fs::read_to_string(PLATFORMER_DEFAULTS_FILE).expect("the defaults file");
+    assert_eq!(jump(&sim), 630.0, "the premise: the shipped jump speed is the one the edit changes");
+    assert_eq!(shipped.matches("jump_speed: 630.0,").count(), 1, "the premise: the file states it once");
+
+    let before = launch_speed(&mut sim);
+    assert!(before > 0.0, "the premise: the player leaves the floor when it jumps");
+
+    let dir = std::env::temp_dir().join(format!("ambition_movement_watch_{}", std::process::id()));
+    let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        std::fs::create_dir_all(&dir).unwrap();
+        let file = dir.join("platformer_defaults.ron");
+        std::fs::write(&file, &shipped).unwrap();
+        sim.world_mut().insert_resource(MovementDefaultsWatch::new(file.clone()));
+        let applied = |sim: &ambition_sim_harness::Platformer2dSimHarness| {
+            sim.world().resource::<MovementDefaultsWatch>().applied
+        };
+
+        // A file system's clock can be coarse: each save must look newer.
+        std::thread::sleep(std::time::Duration::from_millis(20));
+        std::fs::write(&file, "( this is not the defaults").unwrap();
+        for _ in 0..45 {
+            sim.step(common::base());
+        }
+        assert_eq!((applied(&sim), jump(&sim)), (0, 630.0), "a save that does not parse is refused");
+
+        std::thread::sleep(std::time::Duration::from_millis(20));
+        std::fs::write(&file, shipped.replace("jump_speed: 630.0,", "jump_speed: 700.0,")).unwrap();
+        let mut frames = 0;
+        while jump(&sim) != 700.0 {
+            sim.step(common::base());
+            frames += 1;
+            assert!(frames < 120, "120 frames after the save the jump speed is {}", jump(&sim));
+        }
+        assert_eq!(applied(&sim), 1, "one save, one write");
+        eprintln!("a saved movement tuning was played {frames} frames after the save");
+        // ⭐ AND THE PLAYER JUMPS WITH IT: the resource alone would pass if
+        // every body read an authored tuning of its own.
+        let after = launch_speed(&mut sim);
+        assert!(
+            after > before * 1.05,
+            "the player's jump launch did not follow the saved tuning: {before} before, {after} after"
+        );
+        eprintln!("the player's jump launch: {before} before the save, {after} after");
+    }));
+    let _ = std::fs::remove_dir_all(&dir);
+    if let Err(payload) = outcome {
+        std::panic::resume_unwind(payload);
+    }
+}
+
+/// The primary player's fastest upward speed in the frames after a jump press,
+/// from standing.
+#[cfg(not(feature = "static_content"))]
+fn launch_speed(sim: &mut ambition_sim_harness::Platformer2dSimHarness) -> f32 {
+    use ambition_platformer2d::engine_core::BodyKinematics;
+    use ambition_platformer2d::platformer::markers::PrimaryPlayerOnly;
+    let mut vertical = |sim: &mut ambition_sim_harness::Platformer2dSimHarness| {
+        let world = sim.world_mut();
+        let mut query = world.query_filtered::<&BodyKinematics, PrimaryPlayerOnly>();
+        query.single(world).expect("the primary player").vel.y
+    };
+    // ⚠ A WALK FIRST. MEASURED 2026-10-01: a press 40 frames into the room
+    // launches at -555, but one after 90 more idle frames left `vel.y` at 0 for
+    // four frames, and one later launched at -154. Something in the room acts
+    // on a player left idle; not explained yet. After a 10-frame walk the
+    // press launches at -555.
+    for _ in 0..10 {
+        sim.step(ambition_app::AgentAction { move_x: 1.0, right_pressed: true, ..common::base() });
+    }
+    for _ in 0..30 {
+        sim.step(common::base());
+    }
+    let resting = vertical(sim);
+    sim.step(ambition_app::AgentAction { jump: true, jump_held: true, ..common::base() });
+    let mut peak: f32 = 0.0;
+    for _ in 0..4 {
+        sim.step(ambition_app::AgentAction { jump_held: true, ..common::base() });
+        peak = peak.max((vertical(sim) - resting).abs());
+    }
+    peak
+}

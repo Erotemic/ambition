@@ -202,6 +202,21 @@ fails on it and the default check passes. Census of the engine crates for the
 same shape (`include_str!` of a data file outside a test): the LDtk entity
 contract (`ldtk_entity_contract.json`, a schema, not tuning) and
 `test_boss_catalog` (behind `test-support`) remain; neither is tuning data.
+The same day a running game plays a saved defaults edit:
+`ambition_app::app::movement_defaults_watch` (off-disk builds only) writes the
+file's tuning to `EditableMovementTuning`, the F3 inspector's mirror, so the
+edit takes the existing developer-edit road (proposed, admitted by the timeline
+owner, published in `PreUpdate`); a file that does not parse is refused, and a
+change to the starting abilities is reported and needs a restart. Witness:
+`edit_to_play_through_the_shell::a_movement_tuning_saved_while_the_game_runs_is_played`
+(`jump_speed` 630 → 700 in a copy: `ActiveMovementTuning` takes it **19 frames
+after the save**, and the player's jump launch goes from 555 to 625; an
+unparseable save first changes nothing). Poison "the watch does not write the
+mirror" fails it at 630. ⚠ Measured on the way, not explained: in
+`proving_grounds` a jump press 40 frames in launches at -555, but one after 90
+more idle frames left the player's `vel.y` at 0 for four frames, and one after
+about 128 launched at -154. Something in the room acts on a player left idle.
+The witness walks 10 frames first, which launches at -555.
 
 **Class:** DO. **Requires:** I1 for the lightweight Rust frontend; the data
 format/host side can be developed in parallel.

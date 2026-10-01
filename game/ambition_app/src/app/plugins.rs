@@ -102,6 +102,9 @@ pub fn add_simulation_plugins(app: &mut App) {
     // hooks, and portal adapters. Installed after simulation resources so content
     // registries land at the expected assembly point.
     app.add_plugins(ambition_content::AmbitionContentPlugin);
+    // A saved movement-defaults edit is played by a running development build.
+    #[cfg(not(feature = "static_content"))]
+    super::movement_defaults_watch::register(app);
 
     // Yarn dialogue stack: compile `.yarn`, bridge runner events into sandbox
     // state, and register the commands / functions / markup used by content.

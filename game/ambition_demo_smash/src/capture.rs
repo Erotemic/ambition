@@ -38,7 +38,7 @@ use ambition_platformer2d::engine_core as ae;
     fn chain_app() -> App {
         let mut app = App::new();
         app.add_message::<MoveEventMessage>();
-        app.add_message::<ambition_platformer2d::vfx::vfx::VfxMessage>();
+        app.add_message::<ambition_platformer2d::vfx::vfx::VfxInRoom>();
         app.add_message::<ambition_platformer2d::vfx::FxRequest>();
         app.add_message::<ambition_platformer2d::characters::brain::ActorActionMessage>();
         app.add_message::<ambition_platformer2d::combat::capture::CaptureAttemptRequested>();

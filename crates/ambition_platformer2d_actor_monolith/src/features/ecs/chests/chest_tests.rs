@@ -2,6 +2,7 @@
 //! a buffered interact over an overlapping, unopened chest inserts
 //! `Opened`; an unbuffered player or a non-overlapping chest does not.
 use super::*;
+use ambition_vfx::vfx::VfxInRoom;
 // ⭐ the module above stopped globbing `features/ecs`, so this fixture names
 // what it was borrowing through it.
 use ambition_characters::actor::BodyAnimFacts;
@@ -20,7 +21,7 @@ fn app() -> App {
     app.add_message::<SetFlagRequested>();
     app.add_message::<crate::avatar::PlayerHealRequested>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
-    app.add_message::<VfxMessage>();
+    app.add_message::<VfxInRoom>();
     app.add_systems(Update, open_ecs_chests);
     app
 }

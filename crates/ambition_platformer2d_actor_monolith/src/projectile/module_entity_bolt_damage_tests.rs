@@ -25,7 +25,7 @@ use ambition_combat::components::ActorFaction;
 use ambition_combat::events::{HitEvent, HitSource};
 use ambition_platformer2d_core as ae;
 use ambition_projectiles::ProjectileSpawnRequest;
-use ambition_vfx::vfx::VfxMessage;
+use ambition_vfx::vfx::VfxInRoom;
 use bevy::prelude::*;
 
 #[derive(Resource, Default)]
@@ -101,7 +101,7 @@ fn a_module_entitys_bolt_damages_the_enemy_it_was_fired_at() {
     });
     app.add_message::<HitEvent>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
-    app.add_message::<VfxMessage>();
+    app.add_message::<VfxInRoom>();
     app.add_message::<ProjectileSpawnRequest>();
     app.add_message::<crate::avatar::PlayerHealRequested>();
     app.init_resource::<ambition_projectiles::ProjectileSeqCounter>();

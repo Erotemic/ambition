@@ -29,7 +29,7 @@ fn cues_at_one_instant(
     let mut app = App::new();
     app.add_message::<MoveEventMessage>();
     app.add_message::<OwnedSfxMessage>();
-    app.add_message::<ambition_vfx::VfxMessage>();
+    app.add_message::<ambition_vfx::VfxInRoom>();
     app.add_message::<ambition_vfx::FxRequest>();
     app.add_message::<ambition_characters::brain::ActorActionMessage>();
     // `.chain()` inserts the `ApplyDeferred` that makes the fan-out see what

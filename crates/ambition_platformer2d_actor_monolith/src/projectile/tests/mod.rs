@@ -21,7 +21,7 @@ use ambition_combat::events::{GameplayBanner, HitEvent, SetFlagRequested};
 use ambition_platformer2d_core::{ControlFrame, RoomGeometry};
 use ambition_projectiles::state::PlayerProjectileState;
 use ambition_vfx::vfx::DebrisBurstMessage;
-use ambition_vfx::vfx::VfxMessage;
+use ambition_vfx::vfx::VfxInRoom;
 
 mod charging;
 mod collision;
@@ -120,7 +120,7 @@ fn projectile_test_app(world: World, player_pos: ae::Vec2, facing: f32) -> App {
     // production set lives in `ambition_content::input_techniques`).
     register_test_motion_techniques(&mut app);
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
-    app.add_message::<VfxMessage>();
+    app.add_message::<VfxInRoom>();
     app.add_message::<DebrisBurstMessage>();
     app.add_message::<SetFlagRequested>();
     app.add_message::<HitEvent>();

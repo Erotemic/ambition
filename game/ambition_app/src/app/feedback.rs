@@ -3,7 +3,7 @@ use bevy::prelude::*;
 
 use ambition_platformer2d::combat::GameplayBanner;
 use ambition_platformer2d::sfx::SfxWriter;
-use ambition_platformer2d::vfx::VfxMessage;
+use ambition_platformer2d::vfx::VfxWriter;
 
 /// Bundled `MessageWriter`s for the sim → presentation event channels
 /// the player tick (and the `player_body_phase` helper it calls) writes
@@ -20,7 +20,7 @@ use ambition_platformer2d::vfx::VfxMessage;
 #[derive(SystemParam)]
 pub struct GameplayFeedbackWriters<'w> {
     pub(super) sfx: SfxWriter<'w>,
-    pub(super) vfx: MessageWriter<'w, VfxMessage>,
+    pub(super) vfx: VfxWriter<'w>,
 }
 
 /// Read-only progression-state bundle for the HUD and pause menu.

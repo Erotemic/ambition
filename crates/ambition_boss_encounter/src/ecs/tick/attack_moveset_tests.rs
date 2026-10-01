@@ -136,7 +136,7 @@ fn telegraph_boss_app() -> (App, Entity) {
         wt.raw_dt = 0.05;
     }
     app.add_message::<ambition_combat::moveset::MoveEventMessage>();
-    app.add_message::<ambition_vfx::vfx::VfxMessage>();
+    app.add_message::<ambition_vfx::vfx::VfxInRoom>();
     app.add_systems(
         Update,
         (

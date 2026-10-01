@@ -1317,7 +1317,7 @@ impl Plugin for MaryORulesPlugin {
         // The snake squash pops a dust burst through the engine's vfx seam; a full
         // app registers this via the presentation plugins, but a thin rules-only
         // harness may not, and `add_message` is idempotent.
-        app.add_message::<ambition_platformer2d::vfx::VfxMessage>();
+        app.add_message::<ambition_platformer2d::vfx::VfxInRoom>();
         // Same story for the cue queue: the brick-break voices through the shared
         // sfx seam, a full app registers this via the audio plugins, and a thin
         // rules-only harness may not. `add_message` is idempotent.

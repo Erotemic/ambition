@@ -30,7 +30,9 @@ use ambition_combat::{banner, breakables, falling_chest, hazards, held_items, hi
 // since the `features` facade stopped re-exporting the shared body vocabulary.
 use ambition_characters::actor::BodyCombat;
 use ambition_platformer2d_shared_tangle::lifecycle::RoomVisual;
-use ambition_vfx::vfx::{ParticleKind, VfxMessage};
+use ambition_vfx::vfx::{ParticleKind, VfxMessage, VfxWriter};
+#[cfg(test)]
+use ambition_vfx::vfx::VfxInRoom;
 use bevy::prelude::{Commands, Entity, MessageWriter, Query, Res, ResMut, With, Without};
 
 use ambition_time::WorldTime;

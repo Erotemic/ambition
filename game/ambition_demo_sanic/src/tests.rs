@@ -838,7 +838,7 @@ fn the_declared_utility_technique_toggles_both_forms_and_eats_the_fly_verb() {
 fn the_super_transformation_sounds_like_sanic_and_not_like_the_session_owner() {
     let mut app = App::new();
     app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
-    app.add_message::<ambition_platformer2d::vfx::VfxMessage>();
+    app.add_message::<ambition_platformer2d::vfx::VfxInRoom>();
     app.init_resource::<ambition_platformer2d::time::WorldTime>();
     // A session whose speakers belong to somebody else.
     let mut context = ambition_platformer2d::sfx::SfxEmissionContext::default();
@@ -1659,7 +1659,7 @@ fn a_hit_spends_rings_instead_of_health_and_drops_them_back_as_real_pickups() {
 
     fn app_with_session() -> App {
         let mut app = App::new();
-        app.add_message::<ambition_platformer2d::vfx::VfxMessage>();
+        app.add_message::<ambition_platformer2d::vfx::VfxInRoom>();
         app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
         app.add_message::<ambition_platformer2d::damage::WalletShieldSpent>();
         let mut scope = ActiveSessionScope::default();
@@ -1730,7 +1730,7 @@ fn scattered_rings_burst_outward_and_then_become_collectible() {
     use ambition_platformer2d::platformer::lifecycle::ActiveSessionScope;
 
     let mut app = App::new();
-    app.add_message::<ambition_platformer2d::vfx::VfxMessage>();
+    app.add_message::<ambition_platformer2d::vfx::VfxInRoom>();
     app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
     app.add_message::<ambition_platformer2d::damage::WalletShieldSpent>();
     let mut scope = ActiveSessionScope::default();
@@ -1933,7 +1933,7 @@ fn the_ring_burst_is_not_reclaimed_on_spawn_under_the_real_chain() {
     use bevy::prelude::{IntoScheduleConfigs, With};
 
     let mut app = App::new();
-    app.add_message::<ambition_platformer2d::vfx::VfxMessage>();
+    app.add_message::<ambition_platformer2d::vfx::VfxInRoom>();
     app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
     app.add_message::<ambition_platformer2d::damage::WalletShieldSpent>();
     app.add_message::<ambition_platformer2d::actors::avatar::PlayerHealRequested>();
@@ -2063,7 +2063,7 @@ fn overlapping_ring_bursts_never_reuse_a_dropped_ring_id() {
     use ambition_platformer2d::platformer::sim_id::{SimId, SimIdCounter};
 
     let mut app = App::new();
-    app.add_message::<ambition_platformer2d::vfx::VfxMessage>();
+    app.add_message::<ambition_platformer2d::vfx::VfxInRoom>();
     app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
     app.add_message::<ambition_platformer2d::damage::WalletShieldSpent>();
     let mut scope = ActiveSessionScope::default();
@@ -2263,7 +2263,7 @@ fn losing_the_purse_buys_a_classic_length_recovery() {
     use ambition_platformer2d::platformer::lifecycle::ActiveSessionScope;
 
     let mut app = App::new();
-    app.add_message::<ambition_platformer2d::vfx::VfxMessage>();
+    app.add_message::<ambition_platformer2d::vfx::VfxInRoom>();
     app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
     app.add_message::<ambition_platformer2d::damage::WalletShieldSpent>();
     let mut scope = ActiveSessionScope::default();

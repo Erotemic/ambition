@@ -41,7 +41,7 @@ pub fn apply_authored_flylines(
         &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
         &mut ae::movement::MotionModel,
     )>,
-    mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
+    mut vfx: ambition_vfx::vfx::VfxWriter,
     mut sfx: ambition_sfx::BodySfxWriter,
 ) {
     for message in actions.read() {

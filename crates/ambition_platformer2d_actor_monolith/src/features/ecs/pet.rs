@@ -37,6 +37,7 @@ use ambition_platformer2d_shared_tangle::lifecycle::{
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
 use ambition_sfx::{SfxId, SfxMessage, SfxWriter};
 use ambition_vfx::vfx::VfxMessage;
+use ambition_vfx::vfx::VfxWriter;
 use bevy::prelude::*;
 
 /// How long a pet lasts. The petter's `pet` row is authored to this length.
@@ -266,7 +267,7 @@ pub fn advance_pet_beats(
     mut petters: Query<(Entity, &mut PetBeat)>,
     mut bodies: Query<(&mut BodyKinematics, Option<&BodyCombat>)>,
     mut sfx: SfxWriter,
-    mut vfx: MessageWriter<VfxMessage>,
+    mut vfx: VfxWriter,
 ) {
     let dt = world_time.scaled_dt;
     for (petter, mut beat) in &mut petters {

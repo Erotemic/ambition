@@ -25,6 +25,7 @@ use ambition_projectiles::{
 };
 use ambition_sfx::{SfxMessage, SfxWriter};
 use ambition_vfx::vfx::VfxMessage;
+use ambition_vfx::vfx::VfxWriter;
 
 /// Speed multiplier applied to a parried shot as it reverses — a timed parry
 /// sends the bolt back a little faster than it arrived.
@@ -45,7 +46,7 @@ fn reflect_parried_shot(
     parrier_allegiance: ProjectileAllegiance,
     parrier_source: Option<&ambition_sfx::PresentationSourceId>,
     sfx: &mut SfxWriter,
-    vfx: &mut MessageWriter<VfxMessage>,
+    vfx: &mut VfxWriter,
 ) {
     // ⭐ THE DOMAIN OPERATION, not this function's own edit. A parry is one
     // interception among several the game will grow — a reflector, an absorber —
@@ -543,7 +544,7 @@ pub(crate) fn emit_landing_splash(
     move_instance: Option<u32>,
     feature_damage: &mut MessageWriter<HitEvent>,
     sfx: &mut SfxWriter,
-    vfx: &mut MessageWriter<VfxMessage>,
+    vfx: &mut VfxWriter,
 ) {
     feature_damage.write(HitEvent {
         strike_sfx: None,
@@ -654,7 +655,7 @@ pub fn step_projectiles(
         (With<FeatureSimEntity>, With<BossConfig>),
     >,
     mut sfx: SfxWriter,
-    mut vfx: MessageWriter<VfxMessage>,
+    mut vfx: VfxWriter,
     mut heals: MessageWriter<crate::avatar::PlayerHealRequested>,
     mut trace: ResMut<GameplayTraceBuffer>,
     // Damage authority comes from the firer's faction/grudge/team. Match team outranks
@@ -1722,6 +1723,7 @@ pub fn step_projectiles(
 #[cfg(test)]
 mod parry_tests {
     use super::*;
+    use ambition_vfx::vfx::VfxInRoom;
 
     #[derive(Resource)]
     struct Parrier(Entity);
@@ -1730,7 +1732,7 @@ mod parry_tests {
         mut commands: Commands,
         parrier: Res<Parrier>,
         mut sfx: SfxWriter,
-        mut vfx: MessageWriter<VfxMessage>,
+        mut vfx: VfxWriter,
         sources: Query<&ambition_sfx::BodyPresentationSource>,
         mut shots: Query<(Entity, &mut BodyKinematics)>,
     ) {
@@ -1764,7 +1766,7 @@ mod parry_tests {
     fn a_reflected_shot_keeps_its_firers_voice_and_the_clang_is_the_parriers() {
         let mut app = App::new();
         app.add_message::<ambition_sfx::OwnedSfxMessage>();
-        app.add_message::<VfxMessage>();
+        app.add_message::<VfxInRoom>();
         let parrier = app
             .world_mut()
             .spawn(ambition_sfx::BodyPresentationSource(
@@ -1819,7 +1821,7 @@ mod parry_tests {
     fn reflect_re_owns_the_shot_to_the_parrier_and_reverses_velocity() {
         let mut app = App::new();
         app.add_message::<ambition_sfx::OwnedSfxMessage>();
-        app.add_message::<VfxMessage>();
+        app.add_message::<VfxInRoom>();
         let parrier = app.world_mut().spawn_empty().id();
         let proj = app
             .world_mut()

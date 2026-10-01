@@ -20,6 +20,7 @@ use ambition_encounter::switches::{SwitchActivated, SwitchFeature};
 use ambition_persistence::quest::QuestAdvanceRequested;
 use ambition_platformer2d_core::AabbExt;
 use ambition_vfx::vfx::{ParticleKind, VfxMessage};
+use ambition_vfx::vfx::VfxWriter;
 use bevy::prelude::*;
 
 // the ONLY dialogue name this module has left, and it is a port rather than a
@@ -158,7 +159,7 @@ pub fn interact_ecs_actors_and_switches(
         MessageWriter<SwitchActivated>,
         ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
     ),
-    mut vfx: MessageWriter<VfxMessage>,
+    mut vfx: VfxWriter,
 ) {
     // How long the player's `Interact` pose holds after the interaction
     // commits. Short enough that the gesture clears before dialogue UI

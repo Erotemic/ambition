@@ -19,6 +19,9 @@ use ambition_platformer2d_core::Vec2;
 use ambition_sim_view::{GuardBreakFact, GuardBreaksView};
 use ambition_time::SimTick;
 use ambition_vfx::vfx::{ParticleKind, VfxMessage};
+use ambition_vfx::vfx::VfxWriter;
+#[cfg(test)]
+use ambition_vfx::vfx::VfxInRoom;
 
 /// Stars in the ring. Three is the genre's count and the smallest number that
 /// reads as a circle.
@@ -84,7 +87,7 @@ pub fn emit_dizzy_stars(
     tick: Res<SimTick>,
     mut last_sampled: Local<Option<u64>>,
     breaks: Res<GuardBreaksView>,
-    mut vfx: MessageWriter<VfxMessage>,
+    mut vfx: VfxWriter,
 ) {
     if *last_sampled == Some(tick.0) {
         return;
@@ -248,7 +251,7 @@ mod tests {
         let mut app = App::new();
         app.init_resource::<SimTick>();
         app.init_resource::<GuardBreaksView>();
-        app.add_message::<VfxMessage>();
+        app.add_message::<VfxInRoom>();
         app.add_systems(Update, emit_dizzy_stars);
         app
     }
@@ -269,8 +272,8 @@ mod tests {
 
     fn drain(app: &mut App) -> Vec<VfxMessage> {
         app.world_mut()
-            .resource_mut::<Messages<VfxMessage>>()
-            .drain()
+            .resource_mut::<Messages<VfxInRoom>>()
+            .drain().map(|m| m.vfx)
             .collect()
     }
 }

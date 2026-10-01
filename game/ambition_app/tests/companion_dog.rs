@@ -6,6 +6,7 @@ use ambition_platformer2d::combat::components::ActorDisposition;
 use ambition_platformer2d::combat::components::FeatureId;
 use ambition_platformer2d::engine_core::{BodyAbilities, BodyKinematics};
 use ambition_platformer2d::vfx::vfx::VfxMessage;
+use ambition_platformer2d::vfx::vfx::VfxInRoom;
 use bevy::prelude::{Entity, Messages};
 
 #[test]
@@ -46,8 +47,8 @@ fn the_basement_dog_is_peaceful_and_roams_across_the_floor() {
         sim.step(base());
         // The bark pose is presentation: the sim asks for it with a message
         // naming the dog, and keeps no gesture state on the body.
-        if let Some(mut messages) = sim.world_mut().get_resource_mut::<Messages<VfxMessage>>() {
-            barked |= messages.drain().any(|message| {
+        if let Some(mut messages) = sim.world_mut().get_resource_mut::<Messages<VfxInRoom>>() {
+            barked |= messages.drain().map(|m| m.vfx).any(|message| {
                 matches!(message, VfxMessage::BarkGesture { ref feature_id, .. } if *feature_id == dog_id)
             });
         }

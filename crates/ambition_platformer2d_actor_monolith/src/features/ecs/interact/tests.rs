@@ -1,4 +1,5 @@
 use super::*;
+use ambition_vfx::vfx::VfxInRoom;
 use ambition_combat::components::{CenteredAabb, FeatureId, FeatureName};
 use ambition_encounter::switches::SwitchFeature;
 use ambition_platformer2d_core as ae;
@@ -69,7 +70,7 @@ fn buffered_interact_toggles_an_adjacent_switch() {
     app.add_message::<SetFlagRequested>();
     app.add_message::<QuestAdvanceRequested>();
     app.add_message::<SwitchActivated>();
-    app.add_message::<VfxMessage>();
+    app.add_message::<VfxInRoom>();
     spawn_interaction_player(&mut app, center);
 
     let _switch = app
@@ -137,7 +138,7 @@ fn interact_lands_on_the_controlled_subject_not_the_vacated_home_avatar() {
     app.add_message::<SetFlagRequested>();
     app.add_message::<QuestAdvanceRequested>();
     app.add_message::<SwitchActivated>();
-    app.add_message::<VfxMessage>();
+    app.add_message::<VfxInRoom>();
 
     // Slot-0 input surface: the home avatar, far from the switch, with a
     // buffered interact press from the device.
@@ -258,7 +259,7 @@ fn dialogue_app(nodes: &[&str]) -> App {
     app.add_message::<SetFlagRequested>();
     app.add_message::<QuestAdvanceRequested>();
     app.add_message::<SwitchActivated>();
-    app.add_message::<VfxMessage>();
+    app.add_message::<VfxInRoom>();
     app
 }
 
@@ -431,7 +432,7 @@ fn interaction_app() -> App {
     app.add_message::<SetFlagRequested>();
     app.add_message::<QuestAdvanceRequested>();
     app.add_message::<SwitchActivated>();
-    app.add_message::<VfxMessage>();
+    app.add_message::<VfxInRoom>();
     //  the SEAT is spawned on the body, because it IS the input road. `ActingParticipant`
     // answers *which seat drives this body* off `DrivingParticipant`, and a fixture whose
     // bodies carried no seat would hand every reader `None` — which `acting_slot` turns into

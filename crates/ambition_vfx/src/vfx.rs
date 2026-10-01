@@ -14,6 +14,7 @@
 use bevy::prelude::*;
 
 use crate::fx::FxId;
+use ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance;
 
 // VFX depends on generic geometry only; the message vocabulary has no
 // platformer dependency.
@@ -182,10 +183,67 @@ pub enum SlashPose {
     Down,
 }
 
-/// Typed visual-effects message (Bevy 0.18 buffered Message API). Emitted by
-/// simulation systems; the presentation-side subscriber spawns the actual
-/// particle / impact / slash entities. See the module docs.
+/// The live room an effect is drawn in, and the effect.
+///
+/// Positions in a [`VfxMessage`] are in the coordinates of a live room, and
+/// two live rooms use one coordinate space, so a position alone does not say
+/// which room's view draws the effect. The producer says it: `room` is the
+/// live room of the body, item or placement that made the effect.
+///
+/// `room: None` is an UNROOMED row, the named debt of the producers that do
+/// not say their room yet. It is drawn in the sole live room, and not at all
+/// while two rooms are live.
 #[derive(Message, Clone, Debug)]
+pub struct VfxInRoom {
+    pub room: Option<LiveRoomInstance>,
+    pub vfx: VfxMessage,
+}
+
+/// The writer of [`VfxInRoom`] for a producer of effects.
+#[derive(bevy::ecs::system::SystemParam)]
+pub struct VfxWriter<'w> {
+    messages: MessageWriter<'w, VfxInRoom>,
+}
+
+impl<'w> VfxWriter<'w> {
+    /// Write `vfx` UNROOMED: drawn in the sole live room, and not while two
+    /// rooms are live. See [`VfxInRoom`].
+    pub fn write(&mut self, vfx: VfxMessage) {
+        self.write_in(None, vfx);
+    }
+
+    /// Write `vfx` for the live room `room`. A producer with a body passes the
+    /// body's room by the rule of `LiveRooms::of`, so a body and its effect
+    /// agree on the room.
+    pub fn write_in(&mut self, room: Option<LiveRoomInstance>, vfx: VfxMessage) {
+        self.messages.write(VfxInRoom { room, vfx });
+    }
+
+    /// This writer, bound to the live room `room`: for an emitter that writes
+    /// several effects for one body.
+    pub fn for_room(&mut self, room: Option<LiveRoomInstance>) -> VfxForRoom<'_, 'w> {
+        VfxForRoom { writer: self, room }
+    }
+}
+
+/// A [`VfxWriter`] bound to one live room: every effect it writes is drawn in
+/// that room. Made by [`VfxWriter::for_room`].
+pub struct VfxForRoom<'a, 'w> {
+    writer: &'a mut VfxWriter<'w>,
+    room: Option<LiveRoomInstance>,
+}
+
+impl VfxForRoom<'_, '_> {
+    /// Write `vfx` for this writer's room.
+    pub fn write(&mut self, vfx: VfxMessage) {
+        self.writer.write_in(self.room, vfx);
+    }
+}
+
+/// A visual effect: the payload of [`VfxInRoom`]. Emitted by simulation
+/// systems; the presentation-side subscriber spawns the actual particle /
+/// impact / slash entities. See the module docs.
+#[derive(Clone, Debug)]
 pub enum VfxMessage {
     Burst {
         pos: ae::Vec2,
@@ -328,6 +386,9 @@ pub struct FxRequest {
     pub source: ambition_sfx::PresentationSourceId,
     /// How the art is oriented — see [`FxPose`]. [`FxPose::UPRIGHT`] by default.
     pub pose: FxPose,
+    /// The live room the effect is drawn in. `None` is unroomed; see
+    /// [`VfxInRoom`].
+    pub room: Option<LiveRoomInstance>,
 }
 
 impl FxRequest {
@@ -339,7 +400,14 @@ impl FxRequest {
             sfx: None,
             source: ambition_sfx::PresentationSourceId::unscoped(),
             pose: FxPose::UPRIGHT,
+            room: None,
         }
+    }
+
+    /// The same request, drawn in the live room `room`.
+    pub fn in_room(mut self, room: Option<LiveRoomInstance>) -> Self {
+        self.room = room;
+        self
     }
 
     /// The same request, drawn in `pose`.

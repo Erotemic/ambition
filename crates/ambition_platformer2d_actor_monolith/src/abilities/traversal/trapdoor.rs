@@ -45,7 +45,7 @@ pub fn apply_authored_trapdoors(
     // and a fighter who pressed down-B a frame after walking off a ledge hangs
     // motionless in mid-air for three seconds. See the refusal below.
     mut playbacks: Query<&mut ambition_combat::moveset::MovePlayback>,
-    mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
+    mut vfx: ambition_vfx::vfx::VfxWriter,
     mut sfx: ambition_sfx::BodySfxWriter,
     // ⛔⛔ THE SURFACING IS A CLASS-B REMAP AND WENT UNRECORDED. It picks a
     // position with `ledge_assisted_arrival` — up to `surface_reach` px from

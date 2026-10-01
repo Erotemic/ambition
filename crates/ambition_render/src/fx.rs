@@ -11,7 +11,7 @@ use std::f32::consts::TAU;
 
 use ambition_platformer2d_core::config::{world_to_bevy, WORLD_Z_FX};
 use ambition_platformer2d_shared_tangle::lifecycle::{
-    ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt,
+    ActiveSessionScope, LiveRoomOf, LiveRooms, SessionSpawnScope, SpawnSessionScopedExt,
 };
 use ambition_sfx::{SfxId, SfxMessage, SfxWriter};
 use ambition_sprite_sheet::character::CharacterAnimator;
@@ -22,6 +22,7 @@ use ambition_vfx::FxId;
 // emit a cue without depending on this render module. Re-exported so
 // `crate::fx::*` paths still resolve.
 pub use ambition_vfx::vfx::{FireworksRequest, FxRequest, ParticleKind, SlashKind, VfxMessage};
+use ambition_vfx::vfx::{VfxInRoom, VfxWriter};
 
 /// What an [`FxId`] names: the authored row, the sheet holding it, and the
 /// packed cue that ships with it.
@@ -172,18 +173,21 @@ pub struct BlinkPreviewVisual {
 /// audio backends.
 pub fn process_fx_requests(
     mut requests: MessageReader<FxRequest>,
-    mut vfx: MessageWriter<VfxMessage>,
+    mut vfx: VfxWriter,
     mut sfx: SfxWriter,
 ) {
     for request in requests.read() {
-        vfx.write(VfxMessage::Effect {
-            pos: request.pos,
-            fx: request.fx,
-            scale: request.scale,
-            // The requester's pose: the route a move's committed facing takes to
-            // the art.
-            pose: request.pose,
-        });
+        vfx.write_in(
+            request.room,
+            VfxMessage::Effect {
+                pos: request.pos,
+                fx: request.fx,
+                scale: request.scale,
+                // The requester's pose: the route a move's committed facing takes
+                // to the art.
+                pose: request.pose,
+            },
+        );
         // The override if there is one, otherwise the cue that the effect's
         // name addresses. `unscoped` is the default: the active context's
         // primary source decides.
@@ -293,14 +297,18 @@ pub fn tick_firework_sequences(
     }
 }
 
-/// Presentation-side subscriber. Reads `VfxMessage`s and spawns particle /
-/// impact / slash entities. Skipped in headless builds.
+/// Presentation-side subscriber. Reads [`VfxInRoom`] rows and spawns particle
+/// / impact / slash entities. Skipped in headless builds.
+///
+/// Each row is drawn in its own live room: placed by that room's geometry and
+/// stamped with that room, so the room's view band draws it and the room's
+/// retirement takes it (V2f). An unroomed row is drawn in the sole live room,
+/// and not at all while two rooms are live.
 pub fn vfx_spawn_messages(
     mut commands: Commands,
-    mut messages: MessageReader<VfxMessage>,
-    world: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<
-        ambition_platformer2d_core::RoomGeometry,
-    >,
+    mut messages: MessageReader<VfxInRoom>,
+    geometry: LiveRoomOf<ambition_platformer2d_core::RoomGeometry>,
+    rooms: LiveRooms,
     assets: Option<Res<ambition_sprite_sheet::game_assets::GameAssets>>,
     active_session: Option<Res<ActiveSessionScope>>,
     // Speech bubbles use typographic quotes, so they need a real face.
@@ -311,14 +319,21 @@ pub fn vfx_spawn_messages(
     mut images: Option<ResMut<Assets<Image>>>,
     mut heart_image: Local<Option<Handle<Image>>>,
 ) {
-    let spawn_scope = SessionSpawnScope::for_optional_active_session(active_session.as_deref());
-    let world = &world.0;
+    let session_scope = SessionSpawnScope::for_optional_active_session(active_session.as_deref());
     let bubble_font = ui_fonts
         .as_deref()
         .map(|fonts| fonts.text_font(18.0, crate::ui_fonts::UiFontWeight::Regular))
         .unwrap_or_default();
     for message in messages.read() {
-        match message.clone() {
+        let Some(room) = message.room.or_else(|| rooms.sole()) else {
+            continue;
+        };
+        let Some(world) = geometry.in_room(room) else {
+            continue;
+        };
+        let world = &world.0;
+        let spawn_scope = session_scope.map(|scope| scope.in_room(Some(room)));
+        match message.vfx.clone() {
             VfxMessage::Burst {
                 pos,
                 count,
@@ -624,9 +639,7 @@ fn publish_speech_bubble_label(
 pub fn update_speech_bubbles(
     mut commands: Commands,
     time: Res<Time>,
-    world: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<
-        ambition_platformer2d_core::RoomGeometry,
-    >,
+    world: LiveRoomOf<ambition_platformer2d_core::RoomGeometry>,
     mut query: Query<(
         Entity,
         &mut SpeechBubbleVisual,
@@ -640,16 +653,17 @@ pub fn update_speech_bubbles(
             commands.entity(entity).despawn();
             continue;
         }
-        publish_speech_bubble_label(&world.0, &bubble, &mut label);
+        // Each bubble is placed by its own live room.
+        if let Some(world) = world.of(entity) {
+            publish_speech_bubble_label(&world.0, &bubble, &mut label);
+        }
     }
 }
 
 pub fn update_effects(
     mut commands: Commands,
     time: Res<Time>,
-    world: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<
-        ambition_platformer2d_core::RoomGeometry,
-    >,
+    world: LiveRoomOf<ambition_platformer2d_core::RoomGeometry>,
     mut query: Query<(
         Entity,
         &mut EffectVisual,
@@ -671,7 +685,9 @@ pub fn update_effects(
         }
         let t = (fx.age / fx.duration).clamp(0.0, 1.0);
         let alpha = 1.0 - t;
-        transform.translation = world_to_bevy(&world.0, fx.pos, WORLD_Z_FX + 6.0);
+        if let Some(world) = world.of(entity) {
+            transform.translation = world_to_bevy(&world.0, fx.pos, WORLD_Z_FX + 6.0);
+        }
         sprite.color = Color::srgba(1.0, 1.0, 1.0, alpha);
     }
 }
@@ -679,9 +695,7 @@ pub fn update_effects(
 pub fn update_particles(
     mut commands: Commands,
     time: Res<Time>,
-    world: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<
-        ambition_platformer2d_core::RoomGeometry,
-    >,
+    world: LiveRoomOf<ambition_platformer2d_core::RoomGeometry>,
     mut query: Query<(Entity, &mut ParticleVisual, &mut Transform, &mut Sprite)>,
 ) {
     let dt = time.delta_secs();
@@ -705,7 +719,9 @@ pub fn update_particles(
             // Swells in, then holds its size as it fades.
             ParticleKind::Heart => p.radius * (0.6 + 0.4 * (t * 5.0).min(1.0)),
         };
-        transform.translation = world_to_bevy(&world.0, p.pos, WORLD_Z_FX);
+        if let Some(world) = world.of(entity) {
+            transform.translation = world_to_bevy(&world.0, p.pos, WORLD_Z_FX);
+        }
         sprite.custom_size = Some(BVec2::splat(size.max(0.5)));
         sprite.color = rgba(p.rgba[0], p.rgba[1], p.rgba[2], alpha);
     }
@@ -714,9 +730,7 @@ pub fn update_particles(
 pub fn update_impacts(
     mut commands: Commands,
     time: Res<Time>,
-    world: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<
-        ambition_platformer2d_core::RoomGeometry,
-    >,
+    world: LiveRoomOf<ambition_platformer2d_core::RoomGeometry>,
     mut query: Query<(Entity, &mut ImpactVisual, &mut Transform, &mut Sprite)>,
 ) {
     let dt = time.delta_secs();
@@ -729,7 +743,9 @@ pub fn update_impacts(
         let t = (fx.age / fx.duration).clamp(0.0, 1.0);
         let radius = fx.radius + 46.0 * t;
         let alpha = 0.82 * (1.0 - t);
-        transform.translation = world_to_bevy(&world.0, fx.pos, WORLD_Z_FX + 1.0);
+        if let Some(world) = world.of(entity) {
+            transform.translation = world_to_bevy(&world.0, fx.pos, WORLD_Z_FX + 1.0);
+        }
         sprite.custom_size = Some(BVec2::splat(radius));
         sprite.color = Color::srgba(1.0, 1.0, 0.35, alpha);
     }
@@ -1248,6 +1264,9 @@ pub fn update_blink_preview(
 }
 
 #[cfg(test)]
+mod room_tests;
+
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -1344,7 +1363,7 @@ mod tests {
 
         fn run(source: PresentationSourceId) -> Vec<OwnedSfxMessage> {
             let mut app = App::new();
-            app.add_message::<ambition_vfx::VfxMessage>();
+            app.add_message::<ambition_vfx::VfxInRoom>();
             app.add_message::<OwnedSfxMessage>();
             app.add_message::<FxRequest>();
             app.add_systems(Update, process_fx_requests);
@@ -1405,7 +1424,7 @@ mod tests {
 
             let mut app = App::new();
             app.init_resource::<Time>();
-            app.add_message::<ambition_vfx::VfxMessage>();
+            app.add_message::<ambition_vfx::VfxInRoom>();
             app.add_plugins(WorldLabelLayoutPlugin);
             app.add_systems(
                 Update,
@@ -1436,10 +1455,10 @@ mod tests {
         fn say(&mut self, pos: ae::Vec2, text: &str) {
             self.app
                 .world_mut()
-                .write_message(ambition_vfx::VfxMessage::SpeechBubble {
+                .write_message(ambition_vfx::VfxInRoom { room: None, vfx: ambition_vfx::VfxMessage::SpeechBubble {
                     pos,
                     text: text.into(),
-                });
+                } });
         }
 
         /// A name plate at a speaker's head, published exactly the way

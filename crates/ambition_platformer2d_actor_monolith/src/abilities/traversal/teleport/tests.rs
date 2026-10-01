@@ -223,7 +223,7 @@ fn an_authored_teleport_records_one_scripted_remap() {
         ambition_platformer2d_core::RoomGeometry(stage()),
     );
     app.init_resource::<ClassBRemapLog>();
-    app.add_message::<ambition_vfx::vfx::VfxMessage>();
+    app.add_message::<ambition_vfx::vfx::VfxInRoom>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<ActorActionMessage>();
     app.add_systems(bevy::prelude::Update, apply_authored_teleports);
@@ -592,7 +592,7 @@ fn teleport_from(
         app.world_mut(),
         ambition_platformer2d_core::RoomGeometry(world_with(Vec::new())),
     );
-    app.add_message::<ambition_vfx::vfx::VfxMessage>();
+    app.add_message::<ambition_vfx::vfx::VfxInRoom>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<ActorActionMessage>();
     app.add_systems(bevy::prelude::Update, apply_authored_teleports);
@@ -734,7 +734,7 @@ fn a_teleport_stops_under_a_ceiling_of_its_own_live_room() {
             ae::Vec2::new(200.0, 25.0),
         )])),
     );
-    app.add_message::<ambition_vfx::vfx::VfxMessage>();
+    app.add_message::<ambition_vfx::vfx::VfxInRoom>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<ActorActionMessage>();
     app.add_systems(bevy::prelude::Update, apply_authored_teleports);

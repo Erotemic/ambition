@@ -191,7 +191,7 @@ pub fn lower_drawn_rows(
 }
 
 /// Lower `ambition.feedback.burst` into `VfxMessage::Burst`.
-pub fn lower_bursts(mut outbox: ResMut<ExtensionOutbox>, mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>) {
+pub fn lower_bursts(mut outbox: ResMut<ExtensionOutbox>, mut vfx: ambition_vfx::vfx::VfxWriter) {
     use ambition_vfx::vfx::ParticleKind;
     for submitted in outbox.drain::<BurstPort>() {
         let burst = submitted.value;

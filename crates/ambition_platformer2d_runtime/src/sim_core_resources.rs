@@ -40,7 +40,8 @@ use bevy::prelude::*;
 use ambition_combat::death_rules::ActorDiedMessage;
 use ambition_platformer2d_actor_monolith::assets;
 use ambition_vfx::vfx::DebrisBurstMessage;
-use ambition_vfx::{FireworksRequest, FxRequest, VfxMessage};
+use ambition_vfx::{FireworksRequest, FxRequest};
+use ambition_vfx::VfxInRoom;
 
 /// Registers the engine sim messages and resource defaults (module docs).
 /// Part of [`crate::PlatformerEnginePlugins`], right after the sets plugin.
@@ -49,7 +50,7 @@ pub struct SimCoreResourcesPlugin;
 impl Plugin for SimCoreResourcesPlugin {
     fn build(&self, app: &mut App) {
         app.add_message::<ambition_sfx::OwnedSfxMessage>()
-            .add_message::<VfxMessage>()
+            .add_message::<VfxInRoom>()
             .add_message::<ambition_projectiles::ProjectileSpawnRequest>()
             .add_message::<FxRequest>()
             .add_message::<FireworksRequest>()

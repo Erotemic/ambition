@@ -47,7 +47,7 @@ pub fn install_conduct(app: &mut App) {
     use ambition_extension_sdk::phases::BOSS_CONDUCT;
     // The burst adapter writes this message; a composition with the port has
     // it, whether or not anything else in it draws particles.
-    app.add_message::<ambition_vfx::vfx::VfxMessage>();
+    app.add_message::<ambition_vfx::vfx::VfxInRoom>();
     app.install_extension_trigger::<BossConductPort, _>(
         BOSS_CONDUCT,
         "ambition_boss_encounter",

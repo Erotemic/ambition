@@ -67,7 +67,7 @@ pub fn detect_cut_rope_rope_cut(
     mut hit_events: MessageReader<HitEvent>,
     mut reset_events: MessageReader<RoomReplayAdmitted>,
     mut sfx: SfxWriter,
-    mut vfx: MessageWriter<VfxMessage>,
+    mut vfx: VfxWriter,
     mut gate_writer: MessageWriter<EncounterGate>,
 ) {
     // An arena whose live room is gone is forgotten; a new live room of the
@@ -148,7 +148,7 @@ pub fn tick_cut_rope_flavor(
     mut explosions: MessageWriter<FxRequest>,
     mut fireworks: MessageWriter<FireworksRequest>,
     mut debris: MessageWriter<DebrisBurstMessage>,
-    mut vfx: MessageWriter<VfxMessage>,
+    mut vfx: VfxWriter,
 ) {
     // Fully drain the gate reader (cursor hygiene) + note each room's anvil
     // impact.

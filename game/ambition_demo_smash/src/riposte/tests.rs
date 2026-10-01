@@ -10,7 +10,7 @@
 use super::*;
 use ambition_platformer2d::combat::events::{HitEvent, HitTarget};
 use ambition_platformer2d::combat::hitbox::{LandedBodyHit, ParriedBodyHit};
-use ambition_platformer2d::vfx::VfxMessage;
+use ambition_platformer2d::vfx::VfxInRoom;
 
 fn app() -> App {
     let mut app = App::new();
@@ -18,7 +18,7 @@ fn app() -> App {
     app.add_message::<HitEvent>();
     app.add_message::<LandedBodyHit>();
     app.add_message::<ParriedBodyHit>();
-    app.add_message::<VfxMessage>();
+    app.add_message::<VfxInRoom>();
     app.add_systems(
         Update,
         (

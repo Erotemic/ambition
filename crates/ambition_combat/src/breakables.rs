@@ -27,7 +27,7 @@ pub fn update_ecs_breakables(
         With<FeatureSimEntity>,
     >,
     mut sfx: SfxWriter,
-    mut vfx: MessageWriter<VfxMessage>,
+    mut vfx: VfxWriter,
     mut debris: MessageWriter<DebrisBurstMessage>,
 ) {
     // Sim clock: breakable respawn / stand-to-break should freeze in
@@ -110,7 +110,7 @@ mod breakable_tests {
             scaled_dt: 0.1,
         });
         app.add_message::<ambition_sfx::OwnedSfxMessage>();
-        app.add_message::<VfxMessage>();
+        app.add_message::<VfxInRoom>();
         app.add_message::<DebrisBurstMessage>();
         app.add_systems(Update, update_ecs_breakables);
         app
@@ -195,7 +195,7 @@ pub fn begin_ecs_breakable_respawn(
 pub fn emit_breakable_destroyed(
     pos: ae::Vec2,
     sfx: &mut SfxWriter,
-    vfx: &mut MessageWriter<VfxMessage>,
+    vfx: &mut VfxWriter,
     debris: &mut MessageWriter<DebrisBurstMessage>,
 ) {
     vfx.write(VfxMessage::Burst {

@@ -1346,15 +1346,17 @@ fn a_portal_shot_opens_its_portal_in_the_live_room_it_was_fired_in() {
 /// for each bark, in bark order.
 fn rooms_that_barked(sim: &mut Platformer2dSimHarness, ticks: usize) -> Vec<Option<LiveRoomInstance>> {
     use ambition_platformer2d::vfx::vfx::VfxMessage;
+    use ambition_platformer2d::vfx::vfx::VfxInRoom;
     let mut rooms = Vec::new();
     for _ in 0..ticks {
         sim.step(base());
         let world = sim.world_mut();
         let barked: Vec<String> = world
-            .get_resource_mut::<bevy::prelude::Messages<VfxMessage>>()
+            .get_resource_mut::<bevy::prelude::Messages<VfxInRoom>>()
             .map(|mut messages| {
                 messages
                     .drain()
+                    .map(|m| m.vfx)
                     .filter_map(|message| match message {
                         VfxMessage::BarkGesture { feature_id, .. } => Some(feature_id),
                         _ => None,
@@ -2314,8 +2316,8 @@ fn a_hazard_respawn_keeps_the_worlds_clock_while_another_room_is_live() {
             sim.step(base());
             let world = sim.world_mut();
             respawned |= world
-                .resource::<bevy::ecs::message::Messages<ambition_platformer2d::vfx::vfx::VfxMessage>>()
-                .iter_current_update_messages()
+                .resource::<bevy::ecs::message::Messages<ambition_platformer2d::vfx::vfx::VfxInRoom>>()
+                .iter_current_update_messages().map(|m| &m.vfx)
                 .any(|message| matches!(message, ambition_platformer2d::vfx::vfx::VfxMessage::ResetEffects { .. }));
             clock_reset |= world
                 .resource::<bevy::ecs::message::Messages<ClockResetRequest>>()
@@ -2897,5 +2899,60 @@ fn each_view_frames_its_own_player_while_two_rooms_are_live() {
     assert!(
         (right - lab.x).abs() < 1.0,
         "Bob's view is not clamped by switch_lab: its right edge is {right}, the room is {lab:?} (live rooms {sizes:?})"
+    );
+}
+
+/// Each body's movement effects are drawn in its own live room (view half,
+/// cut V2f). Alice (the hub) jumps, and Bob (the first room, driven by slot 1)
+/// lands from a height. Every dust row names the room of the body that raised it, so Alice's
+/// view draws her dust and Bob's view draws his. An unroomed row is drawn in
+/// no room while two are live.
+#[test]
+fn each_body_s_movement_dust_is_drawn_in_its_own_live_room() {
+    use ambition_platformer2d::vfx::vfx::{VfxInRoom, VfxMessage};
+    let (mut sim, _) = alice_leaves_bob_for_a_replay();
+    let (alice, bob) = where_they_are(&mut sim);
+    let bob = bob.flatten();
+    assert!(
+        alice.is_some() && bob.is_some() && alice != bob,
+        "precondition: Alice and Bob are in two live rooms ({alice:?}, {bob:?})"
+    );
+    // Bob lands from a height: the same movement emitter raises his dust.
+    let bob_spot = {
+        let world = sim.world_mut();
+        world
+            .query::<(&ambition_platformer2d::combat::components::FeatureId, &ambition_platformer2d::engine_core::BodyKinematics)>()
+            .iter(world)
+            .find(|(feature, _)| feature.0 == BOB)
+            .map(|(_, kinematics)| kinematics.pos)
+            .expect("Bob's body is in the world")
+    };
+    put_bob_at(&mut sim, bob_spot - ambition_platformer2d::engine_core::Vec2::new(0.0, 120.0));
+    let mut rooms = std::collections::BTreeSet::new();
+    let mut unroomed = 0usize;
+    for tick in 0..120 {
+        let press = tick % 20 == 0;
+        let mut action = base();
+        action.jump = press;
+        action.jump_held = tick % 20 < 8;
+        sim.step(action);
+        let world = sim.world_mut();
+        for row in world
+            .resource::<bevy::ecs::message::Messages<VfxInRoom>>()
+            .iter_current_update_messages()
+            .filter(|row| matches!(row.vfx, VfxMessage::Dust { .. }))
+        {
+            match row.room {
+                Some(room) => {
+                    rooms.insert(room);
+                }
+                None => unroomed += 1,
+            }
+        }
+    }
+    assert_eq!(
+        (rooms, unroomed),
+        ([alice.unwrap(), bob.unwrap()].into_iter().collect(), 0),
+        "(the rooms dust was drawn in, unroomed dust rows): each body's dust must name its own live room"
     );
 }

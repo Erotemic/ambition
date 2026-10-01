@@ -92,7 +92,7 @@ pub fn break_monitor_boxes(
     time: Res<ambition_platformer2d::time::WorldTime>,
     mut spent: ResMut<SpentMonitors>,
     geometry: ambition_platformer2d::platformer::lifecycle::SoleLiveRoom<ae::RoomGeometry>,
-    mut vfx: MessageWriter<ambition_platformer2d::vfx::VfxMessage>,
+    mut vfx: ambition_platformer2d::vfx::VfxWriter,
     mut sfx: ambition_platformer2d::sfx::BodySfxWriter,
     mut players: Query<
         (

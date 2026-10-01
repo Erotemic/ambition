@@ -1009,7 +1009,8 @@ pub(crate) fn integrate_actor_body(
     // function takes clusters, not a `World`.
     authored_tuning: Option<ae::MovementTuning>,
     sfx: &mut ambition_sfx::SfxWriter,
-    vfx: &mut MessageWriter<ambition_vfx::vfx::VfxMessage>,
+    // Bound to this body's live room: its movement effects are drawn there.
+    vfx: &mut ambition_vfx::vfx::VfxForRoom<'_, '_>,
     hit_events: &mut MessageWriter<HitEvent>,
     // The kernel's own operation list, for the causal instrument only. `Option`
     // for the reason the damage path documents: an instrument that can take
@@ -1280,7 +1281,7 @@ pub fn snapshot_body_contact(
 #[derive(bevy::ecs::system::SystemParam)]
 pub struct BodyIntegrationCues<'w> {
     pub sfx: ambition_sfx::SfxWriter<'w>,
-    pub vfx: MessageWriter<'w, ambition_vfx::vfx::VfxMessage>,
+    pub vfx: ambition_vfx::vfx::VfxWriter<'w>,
     pub hit_events: MessageWriter<'w, HitEvent>,
     /// The kernel's operation list, for the causal instrument. `Option` so a
     /// composition with no inspector registers nothing and publishes nothing —
@@ -1498,7 +1499,7 @@ pub fn integrate_sim_bodies(
             *feel_tuning,
             authored_tuning.map(|t| t.0),
             &mut cues.sfx,
-            &mut cues.vfx,
+            &mut cues.vfx.for_room(body_rooms.get(actor_entity).ok().map(|stamp| stamp.0)),
             &mut cues.hit_events,
             #[cfg(feature = "causal")]
             cues.movement_ops.as_mut(),
@@ -2517,7 +2518,7 @@ pub fn tick_npc_idle_barks(
         ),
         With<FeatureSimEntity>,
     >,
-    mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
+    mut vfx: ambition_vfx::vfx::VfxWriter,
     // Optional so narrow fixtures without a room set still bark.
     room_set: Option<ambition_platformer2d_world::rooms::LiveRoomSpecs>,
     // App-local authored voice. Required so a mis-composed production App
@@ -2606,11 +2607,11 @@ pub fn tick_npc_idle_barks(
             continue;
         };
         let anchor = kin.pos + ae::Vec2::new(0.0, -kin.size.y * 0.72 - 16.0);
-        vfx.write(ambition_vfx::vfx::VfxMessage::SpeechBubble {
+        vfx.write_in(room, ambition_vfx::vfx::VfxMessage::SpeechBubble {
             pos: anchor,
             text: line.to_string(),
         });
-        vfx.write(ambition_vfx::vfx::VfxMessage::BarkGesture {
+        vfx.write_in(room, ambition_vfx::vfx::VfxMessage::BarkGesture {
             feature_id: feature_id.as_str().to_string(),
             seconds: 0.48,
         });

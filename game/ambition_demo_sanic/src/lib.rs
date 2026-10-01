@@ -630,7 +630,7 @@ impl Plugin for SanicRulesPlugin {
         // app registers these through the engine plugins; a thin rules-only
         // harness may not. `add_message`/`init_resource` are idempotent.
         app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
-        app.add_message::<ambition_platformer2d::vfx::VfxMessage>();
+        app.add_message::<ambition_platformer2d::vfx::VfxInRoom>();
         app.add_message::<ambition_platformer2d::damage::WalletShieldSpent>();
         app.add_message::<ambition_platformer2d::world::rooms::RoomLoaded>();
         app.add_message::<ambition_platformer2d::portal::PortalBodyTransited>();
@@ -938,7 +938,7 @@ fn sync_super_form_traits(
     time: bevy::prelude::Res<ambition_platformer2d::time::WorldTime>,
     mut sparkle_accum: bevy::prelude::Local<f32>,
     mut sparkle_orbit: bevy::prelude::Local<f32>,
-    mut vfx: bevy::prelude::MessageWriter<ambition_platformer2d::vfx::VfxMessage>,
+    mut vfx: ambition_platformer2d::vfx::VfxWriter,
     mut sfx: ambition_platformer2d::sfx::BodySfxWriter,
     mut commands: bevy::prelude::Commands,
     mut players: bevy::prelude::Query<
@@ -1184,7 +1184,7 @@ pub fn scatter_rings_on_hit(
         bevy::prelude::Res<ambition_platformer2d::platformer::lifecycle::ActiveSessionScope>,
     >,
     mut spent: bevy::prelude::MessageReader<ambition_platformer2d::damage::WalletShieldSpent>,
-    mut vfx: bevy::prelude::MessageWriter<ambition_platformer2d::vfx::VfxMessage>,
+    mut vfx: ambition_platformer2d::vfx::VfxWriter,
     mut sfx: ambition_platformer2d::sfx::BodySfxWriter,
     mut bodies: bevy::prelude::Query<
         (
@@ -1514,7 +1514,7 @@ pub fn clear_act_at_goal(
     mut act: bevy::prelude::Query<&mut SanicActState>,
     rooms: ambition_platformer2d::world::rooms::SoleLiveRoomSpec,
     mut sfx: ambition_platformer2d::sfx::BodySfxWriter,
-    mut vfx: bevy::prelude::MessageWriter<ambition_platformer2d::vfx::VfxMessage>,
+    mut vfx: ambition_platformer2d::vfx::VfxWriter,
 ) {
     let Ok((kin, wallet)) = player.single() else {
         return;

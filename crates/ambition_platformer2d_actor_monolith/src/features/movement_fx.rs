@@ -8,10 +8,12 @@
 //! host's player-tick control/sim phases; it lived in `ambition_app` only because
 //! it was authored beside that glue.
 
-use bevy::prelude::MessageWriter;
 
 use ambition_platformer2d_core as ae;
 use ambition_vfx::vfx::{ParticleKind, VfxMessage};
+use ambition_vfx::vfx::VfxForRoom;
+#[cfg(test)]
+use ambition_vfx::vfx::VfxWriter;
 
 // ⛔ NAMED FROM `ambition_characters`, not through `crate::actor`, which merely
 // re-exports it. This file imported `BodyCombat` from the owning crate and
@@ -252,7 +254,7 @@ pub fn arm_movement_anim_overlays(anim: &mut BodyAnimFacts, events: &ae::FrameEv
 #[allow(clippy::too_many_arguments)]
 pub fn emit_movement_fx(
     sfx: &mut SfxWriter,
-    vfx: &mut MessageWriter<VfxMessage>,
+    vfx: &mut VfxForRoom<'_, '_>,
     events: &ae::FrameEvents,
     pos: ae::Vec2,
     facing: f32,
@@ -565,7 +567,7 @@ pub fn emit_movement_fx(
 
 /// Draw one arrival's splat: dust from the contact, plus the ring a CRASH gets
 /// and an ordinary hard arrival does not.
-fn write_splat(vfx: &mut MessageWriter<VfxMessage>, pos: ae::Vec2, splat: ImpactSplat) {
+fn write_splat(vfx: &mut VfxForRoom<'_, '_>, pos: ae::Vec2, splat: ImpactSplat) {
     vfx.write(VfxMessage::Burst {
         pos,
         count: splat.particles,
@@ -588,7 +590,7 @@ fn write_splat(vfx: &mut MessageWriter<VfxMessage>, pos: ae::Vec2, splat: Impact
 #[allow(clippy::too_many_arguments)]
 pub fn handle_player_events(
     sfx: &mut SfxWriter,
-    vfx: &mut MessageWriter<VfxMessage>,
+    vfx: &mut VfxForRoom<'_, '_>,
     clusters: &ae::BodyClustersMut<'_>,
     combat: &mut BodyCombat,
     blink_cam: &mut PlayerBlinkCameraState,
@@ -626,6 +628,7 @@ pub fn handle_player_events(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ambition_vfx::vfx::VfxInRoom;
     use bevy::prelude::*;
 
     #[derive(Resource)]
@@ -633,12 +636,12 @@ mod tests {
 
     fn emit_system(
         mut sfx: SfxWriter,
-        mut vfx: MessageWriter<VfxMessage>,
+        mut vfx: VfxWriter,
         events: Res<TestEvents>,
     ) {
         emit_movement_fx(
             &mut sfx,
-            &mut vfx,
+            &mut vfx.for_room(None),
             &events.0,
             ae::Vec2::ZERO,
             1.0,
@@ -664,7 +667,7 @@ mod tests {
         };
         let mut app = App::new();
         app.add_message::<ambition_sfx::OwnedSfxMessage>();
-        app.add_message::<VfxMessage>();
+        app.add_message::<VfxInRoom>();
         app.insert_resource(TestEvents(events));
         app.add_systems(Update, emit_system);
         app.update();
@@ -676,8 +679,8 @@ mod tests {
             .collect();
         let vfx: Vec<VfxMessage> = app
             .world_mut()
-            .resource_mut::<bevy::ecs::message::Messages<VfxMessage>>()
-            .drain()
+            .resource_mut::<bevy::ecs::message::Messages<VfxInRoom>>()
+            .drain().map(|m| m.vfx)
             .collect();
         assert_eq!(
             sfx.len(),
@@ -969,7 +972,7 @@ mod tests {
     fn run_events(events: ae::FrameEvents) -> (Vec<SfxMessage>, Vec<VfxMessage>) {
         let mut app = App::new();
         app.add_message::<ambition_sfx::OwnedSfxMessage>();
-        app.add_message::<VfxMessage>();
+        app.add_message::<VfxInRoom>();
         app.insert_resource(TestEvents(events));
         app.add_systems(Update, emit_system);
         app.update();
@@ -981,8 +984,8 @@ mod tests {
             .collect();
         let vfx = app
             .world_mut()
-            .resource_mut::<bevy::ecs::message::Messages<VfxMessage>>()
-            .drain()
+            .resource_mut::<bevy::ecs::message::Messages<VfxInRoom>>()
+            .drain().map(|m| m.vfx)
             .collect();
         (sfx, vfx)
     }
@@ -993,7 +996,7 @@ mod tests {
         events.operations.push(op);
         let mut app = App::new();
         app.add_message::<ambition_sfx::OwnedSfxMessage>();
-        app.add_message::<VfxMessage>();
+        app.add_message::<VfxInRoom>();
         app.insert_resource(TestEvents(events));
         app.add_systems(Update, emit_system);
         app.update();
@@ -1005,8 +1008,8 @@ mod tests {
             .collect();
         let vfx = app
             .world_mut()
-            .resource_mut::<bevy::ecs::message::Messages<VfxMessage>>()
-            .drain()
+            .resource_mut::<bevy::ecs::message::Messages<VfxInRoom>>()
+            .drain().map(|m| m.vfx)
             .collect();
         (sfx, vfx)
     }
@@ -1017,7 +1020,7 @@ mod tests {
         events.ground_contact = ae::GroundContactTransition::InitializedGrounded;
         let mut app = App::new();
         app.add_message::<ambition_sfx::OwnedSfxMessage>();
-        app.add_message::<VfxMessage>();
+        app.add_message::<VfxInRoom>();
         app.insert_resource(TestEvents(events));
         app.add_systems(Update, emit_system);
         app.update();
@@ -1030,8 +1033,8 @@ mod tests {
         );
         assert_eq!(
             app.world_mut()
-                .resource_mut::<bevy::ecs::message::Messages<VfxMessage>>()
-                .drain()
+                .resource_mut::<bevy::ecs::message::Messages<VfxInRoom>>()
+                .drain().map(|m| m.vfx)
                 .count(),
             0
         );

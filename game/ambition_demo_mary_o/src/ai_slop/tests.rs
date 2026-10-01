@@ -8,7 +8,7 @@ use ambition_platformer2d::characters::actor::{BodyHealth, Health};
 /// Build an app with the message seams the stomp writes into, and the rule wired.
 fn app() -> App {
     let mut app = App::new();
-    app.add_message::<ambition_platformer2d::vfx::VfxMessage>();
+    app.add_message::<ambition_platformer2d::vfx::VfxInRoom>();
     app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
     app.add_systems(Update, bounce_squash_ai_slop);
     app

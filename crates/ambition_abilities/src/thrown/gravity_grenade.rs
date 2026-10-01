@@ -122,7 +122,7 @@ pub fn tick_gravity_grenade_fuses(
         Option<&mut ambition_platformer2d_shared_tangle::sim_id::SimIdCounter>,
     )>,
     mut sfx: ambition_sfx::BodySfxWriter,
-    mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
+    mut vfx: ambition_vfx::vfx::VfxWriter,
 ) {
     let dt = time.sim_dt();
     if dt <= 0.0 {
@@ -236,7 +236,7 @@ mod tests {
     fn fuse_expiry_opens_a_temporary_up_well_and_despawns() {
         let mut app = App::new();
         app.add_message::<ambition_sfx::OwnedSfxMessage>();
-        app.add_message::<ambition_vfx::vfx::VfxMessage>();
+        app.add_message::<ambition_vfx::vfx::VfxInRoom>();
         let mut wt = ambition_time::WorldTime::default();
         wt.scaled_dt = GRAVITY_GRENADE_FUSE_SECS + 0.1;
         app.insert_resource(wt);

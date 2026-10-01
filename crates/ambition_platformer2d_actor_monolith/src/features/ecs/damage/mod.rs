@@ -35,6 +35,7 @@ use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 use ambition_sfx::SfxWriter;
 use ambition_vfx::vfx::DebrisBurstMessage;
 use ambition_vfx::vfx::VfxMessage;
+use ambition_vfx::vfx::VfxWriter;
 
 /// One side of a combat relationship, as this module reads it off a body.
 type CombatSide<'w> = (
@@ -82,7 +83,7 @@ pub struct FeatureHitWriters<'w, 's> {
     pub set_flag: MessageWriter<'w, SetFlagRequested>,
     pub actor_stimuli: MessageWriter<'w, ActorStimulus>,
     pub sfx: SfxWriter<'w>,
-    pub vfx: MessageWriter<'w, VfxMessage>,
+    pub vfx: VfxWriter<'w>,
     pub debris: MessageWriter<'w, DebrisBurstMessage>,
     pub wallet_shield_spent: MessageWriter<'w, ambition_damage::WalletShieldSpent>,
     /// S4: KOs of bodies a RULESET owns, for the stocks loop. Written from the

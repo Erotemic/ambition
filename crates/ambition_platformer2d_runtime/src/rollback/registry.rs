@@ -967,7 +967,9 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// (BOSS-REPLAY-RETRACTION), with `message.boss_defeat_retracted`; and
 /// `content.pending_cut_rope_room_replay`'s checksum also folds the re-fight
 /// latch.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 292;
+/// ⛔⛤ 292 -> 293: `message.vfx` clears `VfxInRoom` (an effect and the live
+/// room it is drawn in, view half V2f) where it cleared `VfxMessage`.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 293;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

@@ -28,7 +28,7 @@ use ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMo
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 use ambition_sfx::{SfxMessage, SfxWriter};
 use ambition_time::time_control::{ClockRequester, ClockResetRequest};
-use ambition_vfx::VfxMessage;
+use ambition_vfx::{VfxMessage, VfxWriter};
 
 /// Return a body to the room's spawn and clear its per-attempt state.
 ///
@@ -53,7 +53,7 @@ use ambition_vfx::VfxMessage;
 pub fn reset_sandbox(
     world: &ae::World,
     sfx: &mut SfxWriter,
-    vfx: &mut MessageWriter<VfxMessage>,
+    vfx: &mut VfxWriter,
     motion_model: &mut ae::MotionModel,
     clusters: &mut ae::BodyClustersMut<'_>,
     // `None` while another live room stays: the sim clock is one clock for
@@ -258,7 +258,7 @@ pub fn return_the_replay_subject_to_spawn(
     mut sim_state: ResMut<RoomTransitionCooldown>,
     mut clock_resets: MessageWriter<ClockResetRequest>,
     mut sfx_writer: SfxWriter,
-    mut vfx_writer: MessageWriter<VfxMessage>,
+    mut vfx_writer: VfxWriter,
     mut bodies: Query<(
         bevy::prelude::Entity,
         &ambition_platformer2d_shared_tangle::sim_id::SimId,
@@ -426,7 +426,7 @@ mod tests {
     fn a_sandbox_reset_leaves_the_camera_asking_to_snap() {
         let mut app = App::new();
         app.add_message::<ambition_sfx::OwnedSfxMessage>();
-        app.add_message::<ambition_vfx::vfx::VfxMessage>();
+        app.add_message::<ambition_vfx::vfx::VfxInRoom>();
         app.add_message::<ambition_time::time_control::ClockResetRequest>();
         app.init_resource::<ambition_sfx::SfxEmissionContext>();
 
@@ -467,7 +467,7 @@ mod tests {
     fn drive_one_reset(
         mut probe: ResMut<Probe>,
         mut sfx: ambition_sfx::SfxWriter,
-        mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
+        mut vfx: ambition_vfx::vfx::VfxWriter,
         mut clock_resets: MessageWriter<ambition_time::time_control::ClockResetRequest>,
     ) {
         // A room with one floor and a spawn away from where the body starts, so

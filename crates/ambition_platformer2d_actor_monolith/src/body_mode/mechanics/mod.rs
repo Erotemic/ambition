@@ -34,15 +34,16 @@ pub fn update_body_mode(
             &ambition_platformer2d_core::BodyAbilities,
             &ambition_platformer2d_core::BodyFlightState,
             &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
+            // The live room the body is in: its clearance is that room's.
+            Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
         ),
     )>,
 ) {
     // Body-mode changes test overhead/standing clearance against the composited
     // collision world so a moving platform / ECS solid blocks unmorphing the same
-    // way authored geometry does. No room (minimal test app) → nothing to clear.
-    let Some(collision) = world.solids() else {
-        return;
-    };
+    // way authored geometry does. No live room for a body (minimal test app) →
+    // nothing to clear.
+    let mut composed = ambition_platformer2d_world::collision::ComposedRooms::default();
     for (
         driver,
         mut kinematics,
@@ -54,9 +55,12 @@ pub fn update_body_mode(
         facts,
         env_contact,
         control,
-        (abilities, flight, resolved_frame),
+        (abilities, flight, resolved_frame, room),
     ) in &mut bodies
     {
+        let Some(collision) = composed.solids(&world, room) else {
+            continue;
+        };
         // `DrivingParticipant` is the control-authority filter.
         let slot = driver.0;
         // ActorControl supplies body-local intent; gesture edges remain slot-scoped.

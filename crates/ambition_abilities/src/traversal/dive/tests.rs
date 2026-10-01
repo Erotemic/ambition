@@ -220,3 +220,30 @@ fn two_driven_bodies_each_dive_from_their_own_position() {
         );
     }
 }
+
+/// OW1 cut 7o: a body lunges against the walls of its own live room. With two
+/// rooms live, the dive once read the sole live room, found none, and lunged
+/// the full distance through the wall.
+#[test]
+fn a_dive_stops_at_a_wall_of_its_own_live_room() {
+    let mut app = test_app();
+    let second = crate::test_support::two_live_rooms_with_a_wall_in_the_second(&mut app);
+    // The fixture with mana; then 80 px from the wall.
+    let player = spawn_primary_player_holding(&mut app, DIVE_ID);
+    app.world_mut().get_mut::<BodyKinematics>(player).unwrap().pos = ae::Vec2::new(300.0, 300.0);
+    app.world_mut()
+        .entity_mut(player)
+        .insert(ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance(second));
+    app.world_mut()
+        .get_mut::<ActorControl>(player)
+        .unwrap()
+        .0
+        .melee_pressed = true;
+    app.update();
+    let pos = app.world().get::<BodyKinematics>(player).unwrap().pos;
+    assert!(pos.x > 300.0, "the body did not lunge: {pos:?}");
+    assert!(
+        pos.x + 12.0 <= 380.0,
+        "the body lunged to {pos:?}, through #1's wall at x = 380"
+    );
+}

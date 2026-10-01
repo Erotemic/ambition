@@ -90,6 +90,8 @@ pub fn blink_system(
         &ActorControl,
         Option<&mut crate::ability_cooldown::AbilityCooldown>,
         &mut ambition_platformer2d_core::movement::MotionModel,
+        // The live room the body is in: it blinks against that room's walls.
+        Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
     )>,
     mut sfx: ambition_sfx::BodySfxWriter,
     mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
@@ -107,6 +109,7 @@ pub fn blink_system(
             control,
             mut cooldown,
             mut motion_model,
+            room,
         )) = bodies.get_mut(subject)
         else {
             continue;
@@ -149,8 +152,9 @@ pub fn blink_system(
         let from = clusters.kinematics.pos;
         let half = clusters.kinematics.size * 0.5;
         // One collision view (moving platforms and ECS solids included) for
-        // the clamp raycast and the embed check in `blink_target`.
-        let collision = world.solids();
+        // the clamp raycast and the embed check in `blink_target`: the walls
+        // of the body's own live room, not of "the" room.
+        let collision = world.room(room).and_then(|room| room.solids());
         let target = match collision.as_ref() {
             Some(w) => blink_target(&**w, from, dir, BLINK_DISTANCE, half),
             // No collision world (tests): blink the full distance.

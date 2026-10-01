@@ -303,3 +303,28 @@ fn two_driven_bodies_each_blink_from_their_own_position() {
         "seat b did not blink"
     );
 }
+
+/// OW1 cut 7o: a body blinks against the walls of its own live room. With two
+/// rooms live, the blink once read the sole live room, found none, and went
+/// the full distance through the wall.
+#[test]
+fn a_blink_stops_at_a_wall_of_its_own_live_room() {
+    let mut app = test_app();
+    let second = crate::test_support::two_live_rooms_with_a_wall_in_the_second(&mut app);
+    let player = spawn_player_holding(&mut app, BLINK_ID, 1.0);
+    app.world_mut()
+        .entity_mut(player)
+        .insert(ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance(second));
+    app.world_mut()
+        .get_mut::<ActorControl>(player)
+        .unwrap()
+        .0
+        .melee_pressed = true;
+    app.update();
+    let pos = player_pos(&app, player);
+    assert!(pos.x > 300.0, "the body did not blink: {pos:?}");
+    assert!(
+        pos.x + 12.0 <= 380.0,
+        "the body blinked to {pos:?}, through #1's wall at x = 380"
+    );
+}

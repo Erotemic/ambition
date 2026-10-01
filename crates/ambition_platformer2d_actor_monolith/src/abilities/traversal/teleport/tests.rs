@@ -712,3 +712,59 @@ fn the_default_rise_and_the_aim_are_both_in_the_bodys_own_frame() {
          side axis must travel along THAT axis"
     );
 }
+
+/// OW1 cut 7o: a teleport arrives against the walls of its own live room. With
+/// two rooms live, it once read the sole live room, found none, and went the
+/// full distance through the ceiling over it.
+#[test]
+fn a_teleport_stops_under_a_ceiling_of_its_own_live_room() {
+    let mut app = bevy::prelude::App::new();
+    // #0: open. #1: a ceiling whose lower side is at y = 75, over the body.
+    ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(
+        app.world_mut(),
+        ambition_platformer2d_core::RoomGeometry(world_with(Vec::new())),
+    );
+    let second = ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::ACTIVATION.next();
+    ambition_platformer2d_shared_tangle::lifecycle::spawn_live_room(
+        app.world_mut(),
+        second,
+        ambition_platformer2d_core::RoomGeometry(world_with(vec![solid(
+            "ceiling",
+            ae::Vec2::new(200.0, 50.0),
+            ae::Vec2::new(200.0, 25.0),
+        )])),
+    );
+    app.add_message::<ambition_vfx::vfx::VfxMessage>();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
+    app.add_message::<ActorActionMessage>();
+    app.add_systems(bevy::prelude::Update, apply_authored_teleports);
+    let body = spawn_teleporting_body(&mut app, ae::Vec2::new(200.0, 200.0));
+    app.world_mut()
+        .entity_mut(body)
+        .insert(ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance(second));
+    app.world_mut().write_message(ActorActionMessage {
+        actor: body,
+        request: ActionRequest::Special {
+            spec: SpecialActionSpec::Special(TELEPORT.to_string()),
+            params: ambition_entity_catalog::ParamValue::from_typed(&TeleportParams {
+                // No aim, so it goes up, into the ceiling.
+                behind_nearest_foe: false,
+                behind_gap: 0.0,
+                distance: 250.0,
+                ledge_assist: 0.0,
+                intangible_s: 0.0,
+                depart_vfx: "blink".to_string(),
+                arrive_vfx: "blink".to_string(),
+            })
+            .expect("teleport params serialize"),
+        },
+        move_instance: None,
+    });
+    app.update();
+    let pos = app.world().get::<ae::BodyKinematics>(body).unwrap().pos;
+    assert!(pos.y < 200.0, "the body did not teleport up: {pos:?}");
+    assert!(
+        pos.y - 24.0 >= 75.0 - 1e-3,
+        "the body teleported to {pos:?}, through #1's ceiling whose lower side is at y = 75"
+    );
+}

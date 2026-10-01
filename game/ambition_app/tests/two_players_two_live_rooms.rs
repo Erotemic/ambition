@@ -1465,3 +1465,116 @@ fn the_overflow_boss_swoops_in_its_own_live_room() {
         "the overflow boss stood at {start} and then at {end}: its body did not move in #1"
     );
 }
+
+/// OW1 cut 7o: Alice blinks against the walls of her own live room while Bob
+/// holds another. The blink read the walls of the sole live room. With two
+/// rooms live it had none, so it went the full distance through any wall.
+///
+/// Bob, driven by slot 1, stays in `blink_run` (#0). Alice carries its blink
+/// to `portal_bridge` (#1), stands 40 px left of a solid block of #1 that is
+/// taller than she is, and blinks right. Her right side must stop at the
+/// block's left side.
+#[test]
+fn a_blink_stops_at_a_wall_of_its_own_live_room() {
+    use ambition_platformer2d::engine_core::AabbExt as _;
+    let (mut sim, first) = alice_leaves_bob_in(
+        "blink_run",
+        "portal_bridge",
+        Some(ambition_platformer2d::characters::control::PlayerSlot(1)),
+        pick_up_and_walk_through_the_door_to,
+    );
+    let second = first.next();
+    assert_eq!(
+        where_they_are(&mut sim),
+        (Some(second), Some(Some(first))),
+        "precondition: Alice is not in #1 with Bob in #0"
+    );
+    let alice = {
+        let world = sim.world_mut();
+        world
+            .query_filtered::<bevy::prelude::Entity, ambition_platformer2d::platformer::markers::PrimaryPlayerOnly>()
+            .single(world)
+            .expect("Alice's body")
+    };
+    let held = sim
+        .world()
+        .get::<ambition_platformer2d::combat::held_items::HeldItem>(alice)
+        .map(|held| held.spec.id.clone());
+    assert_eq!(
+        held.as_deref(),
+        Some(ambition_platformer2d::abilities::traversal::blink::BLINK_ID),
+        "precondition: Alice does not hold the blink"
+    );
+    let half = sim
+        .world()
+        .get::<ambition_platformer2d::engine_core::BodyKinematics>(alice)
+        .expect("Alice's body")
+        .size
+        * 0.5;
+    // A block of #1 to stand beside: solid, taller than Alice, with 40 px of
+    // clear room on its left for her to stand in.
+    let (start, wall) = {
+        let world = sim.world_mut();
+        let geometry = world
+            .query::<(
+                &LiveRoomInstance,
+                &ambition_platformer2d::engine_core::RoomGeometry,
+            )>()
+            .iter(world)
+            .find(|(room, _)| **room == second)
+            .map(|(_, geometry)| geometry.0.clone())
+            .expect("#1 has its geometry");
+        let solid = |block: &ambition_platformer2d::engine_core::Block| {
+            matches!(block.kind, ambition_platformer2d::engine_core::BlockKind::Solid)
+        };
+        geometry
+            .blocks
+            .iter()
+            .filter(|block| solid(block) && block.aabb.height() > 2.0 * half.y + 8.0)
+            .find_map(|wall| {
+                let start = ambition_platformer2d::engine_core::Vec2::new(
+                    wall.aabb.left() - half.x - 40.0,
+                    wall.aabb.center().y,
+                );
+                // The box from Alice's start to the wall must be clear.
+                let lane = ambition_platformer2d::engine_core::Aabb::new(
+                    ambition_platformer2d::engine_core::Vec2::new(
+                        (start.x - half.x + wall.aabb.left()) * 0.5,
+                        start.y,
+                    ),
+                    ambition_platformer2d::engine_core::Vec2::new(
+                        (wall.aabb.left() - (start.x - half.x)) * 0.5 - 0.5,
+                        half.y,
+                    ),
+                );
+                let clear = !geometry
+                    .blocks
+                    .iter()
+                    .any(|other| solid(other) && other.aabb.strict_intersects(lane));
+                (clear && start.x - half.x > 0.0).then_some((start, wall.aabb))
+            })
+            .expect("precondition: #1 has no solid block to blink against")
+    };
+    sim.teleport_player((start.x, start.y));
+    sim.step(ambition_app::AgentAction {
+        move_x: 1.0,
+        right_pressed: true,
+        attack: true,
+        ..base()
+    });
+    sim.step(base());
+    let now = sim
+        .world()
+        .get::<ambition_platformer2d::engine_core::BodyKinematics>(alice)
+        .expect("Alice's body")
+        .pos;
+    assert!(
+        now.x - start.x > 10.0,
+        "precondition: Alice did not blink (from {start} to {now})"
+    );
+    assert!(
+        now.x + half.x <= wall.left() + 1.0,
+        "Alice blinked from {start} to {now}, through the wall whose left side is at {}",
+        wall.left()
+    );
+}

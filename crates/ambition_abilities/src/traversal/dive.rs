@@ -88,6 +88,8 @@ pub fn fire_dive_system(
         &mut ambition_platformer2d_core::movement::MotionModel,
         &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
         &HeldItem,
+        // The live room the body is in: it lunges against that room's walls.
+        Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
     )>,
     mut sfx: ambition_sfx::BodySfxWriter,
     mut hits: MessageWriter<ambition_combat::events::HitEvent>,
@@ -96,7 +98,7 @@ pub fn fire_dive_system(
     mut class_b: Option<ResMut<ClassBRemapLog>>,
 ) {
     for subject in driven.entities() {
-        let Ok((player, control, mut cluster_item, mut motion_model, resolved_frame, held)) =
+        let Ok((player, control, mut cluster_item, mut motion_model, resolved_frame, held, room)) =
             players.get_mut(subject)
         else {
             continue;
@@ -127,7 +129,7 @@ pub fn fire_dive_system(
         let margin = (half.x * dir.x.abs() + half.y * dir.y.abs()) + 2.0;
         // One collision view for the clamp raycast and the embed check, so
         // moving platforms and ECS solids also stop the lunge.
-        let collision = world.solids();
+        let collision = world.room(room).and_then(|room| room.solids());
         let mut target = match collision.as_ref().and_then(|w| {
             ambition_platformer2d_core::cast::raycast_solids(
                 &**w,

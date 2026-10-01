@@ -1234,7 +1234,35 @@ no visual too. It passed with the flood spawner poisoned, because the boss
 never reached phase 2 and the shots it found were the volley's. ⚠ The
 other unkeyed `CollisionWorld` readers (pogo, the damage safe point, the
 held items, the traversal abilities, the tether, the portal host, the
-trace) still answer only while one room is live.
+trace) still answered only while one room was live. Cut 7o keys the
+traversal abilities; cut 7p keyed the held items, pogo, the damage safe
+point and the tether; the trace cut keyed the trace and the blink
+reticle.
+
+✅ **Cut 7o landed 2026-10-01: a body's traversal reads the walls of its
+own live room.** Blink, dive, grapple, the authored teleport, the trapdoor
+and the body-mode driver read the walls through the unkeyed
+`CollisionWorld::solids()`. With two rooms live that is `None`. Blink,
+dive and teleport then went the full distance through any wall, the
+grapple fizzled, the trapdoor left her under the boards, and the body-mode
+driver returned before any body, so nobody could crouch. Each now reads
+the room of its body (`InRoomInstance`). The systems that share one
+composed world across bodies (teleport, trapdoor, body mode, and the actor
+step, whose private `composed_room` is deleted) use one cache,
+`ComposedRooms`: it composes each live room once per run, on the first ask.
+`spawn_live_room` (shared_tangle) spawns a second live room root for
+focused tests. Witnesses, each with #0 empty and the wall in #1 where the
+body is: `a_blink_stops_at_a_wall_of_its_own_live_room`,
+`a_dive_stops_at_a_wall_of_its_own_live_room`,
+`a_grapple_catches_a_wall_of_its_own_live_room`,
+`a_teleport_stops_under_a_ceiling_of_its_own_live_room`,
+`she_surfaces_through_the_floor_of_her_own_live_room` and
+`a_body_crouches_in_its_own_live_room_beside_another`. And the app
+witness, also `a_blink_stops_at_a_wall_of_its_own_live_room`, in
+`two_players_two_live_rooms.rs`: Bob in `blink_run` (#0), and Alice in
+`portal_bridge` (#1) with its blink, blinks at a wall of #1. Poisons (each
+reader back on the sole room): every witness failed at its own assertion.
+The app witness failed with Alice 149 px on, through the wall.
 
 ✅ **OW3, first slice, landed 2026-10-01: a runtime mint left in a room
 that is not live is still there when the room is live again.** A runtime

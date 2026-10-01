@@ -14,7 +14,11 @@ fn raider(rigged: bool) -> CharacterSpriteAsset {
 }
 
 fn raider_with(flipbook: Option<RiggedSpriteAsset>) -> CharacterSpriteAsset {
-    let spec = try_load_spec_for_character_id("pirate_raider").expect("a baked pirate_raider sheet");
+    sheet_with("pirate_raider", flipbook)
+}
+
+fn sheet_with(character: &str, flipbook: Option<RiggedSpriteAsset>) -> CharacterSpriteAsset {
+    let spec = try_load_spec_for_character_id(character).expect("a baked sheet");
     CharacterSpriteAsset {
         texture: Handle::default(),
         layout: Handle::default(),
@@ -362,6 +366,51 @@ fn a_tier_change_keeps_the_old_parts_until_the_new_pages_are_ready() {
     assert!(presentation.pages.flipbook.texel_scale < 1.0);
     assert_eq!(app.world().get::<Sprite>(root).unwrap().color.alpha(), 0.0);
     assert!(slots(&app, quarter_owner).iter().any(|(_, visible)| *visible), "no part drawn in the frame of the change");
+}
+
+/// Review of the readiness guard (2026-09-30): a re-wear to another rigged
+/// character whose pages still load drops the old character's parts in the
+/// same frame. The root draws the new character's baked sheet until its
+/// pages are ready, and then its parts. Only a tier change of one character
+/// keeps the old parts meanwhile.
+#[test]
+fn a_rewear_drops_the_old_characters_parts_while_the_new_pages_load() {
+    let (mut app, root) = app(true);
+    app.update();
+    let raider_owner = owner(&app, root);
+
+    let flipbook = RiggedSpriteAsset::baked("pirate_lookout").expect("the lookout publishes a flipbook");
+    let mut pending = Vec::new();
+    let lookout = with_pages(sheet_with("pirate_lookout", Some(flipbook)), || {
+        let page = pending_page(&mut app);
+        pending.push(page.clone());
+        page
+    });
+    app.world_mut().resource_mut::<GameAssets>().characters.publish("lookout", lookout.clone());
+    let feet = Vec2::new(lookout.spec.feet_anchor_x, lookout.spec.feet_anchor_y);
+    let (sprite, anchor, animator) = build_character_presentation_with_render_size(&lookout, RENDER, Anchor(feet));
+    app.world_mut().entity_mut(root).insert((sprite, anchor, animator));
+    for _ in 0..3 {
+        app.update();
+        assert!(
+            app.world().get_entity(raider_owner).is_err(),
+            "the raider's parts stayed on the lookout's root while its pages loaded"
+        );
+        assert!(app.world().resource::<RiggedPresentations>().0.is_empty(), "bound to pages still loading");
+        assert_eq!(app.world().get::<Sprite>(root).unwrap().color.alpha(), 1.0, "the baked root is not drawn");
+    }
+
+    for page in &pending {
+        app.world_mut()
+            .resource_mut::<Assets<Image>>()
+            .insert(page.id(), Image::default())
+            .unwrap();
+    }
+    app.update();
+    let lookout_owner = owner(&app, root);
+    assert_eq!(app.world().get::<RiggedPresentation>(lookout_owner).unwrap().target, "pirate_lookout");
+    assert_eq!(app.world().get::<Sprite>(root).unwrap().color.alpha(), 0.0);
+    assert!(slots(&app, lookout_owner).iter().any(|(_, visible)| *visible), "no part drawn in the frame of the change");
 }
 
 /// A sheet with no row for the compact pose is squashed: the root's quad is

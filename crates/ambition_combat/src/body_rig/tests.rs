@@ -90,12 +90,73 @@ fn a_walking_body_resolves_its_walk_clip_on_the_gait_clock() {
 }
 
 #[test]
-fn the_gait_rule_is_the_sprite_pickers() {
-    use crate::hurtbox_resolution::{grounded_gait, ACTOR_STANDING_BELOW, PLAYER_STANDING_BELOW};
-    assert_eq!(grounded_gait(11.0, false, false, PLAYER_STANDING_BELOW), Gait::Standing);
-    assert_eq!(grounded_gait(11.0, false, false, ACTOR_STANDING_BELOW), Gait::Walking);
-    assert_eq!(grounded_gait(200.0, true, false, PLAYER_STANDING_BELOW), Gait::Running);
-    assert_eq!(grounded_gait(0.0, false, true, PLAYER_STANDING_BELOW), Gait::Skidding);
+fn the_gait_rule_reads_speed_running_and_skidding() {
+    use crate::hurtbox_resolution::{grounded_gait, STANDING_BELOW};
+    assert_eq!(grounded_gait(7.0, false, false, STANDING_BELOW), Gait::Standing);
+    assert_eq!(grounded_gait(11.0, false, false, STANDING_BELOW), Gait::Walking);
+    assert_eq!(grounded_gait(200.0, true, false, STANDING_BELOW), Gait::Running);
+    assert_eq!(grounded_gait(0.0, false, true, STANDING_BELOW), Gait::Skidding);
+}
+
+/// Review of the gait (2026-09-30): the gait is a body fact. Two bodies with
+/// the same kinematics and motion facts, at a speed (11) inside the player
+/// sprite's dead band, differ only by a `PlayerBlinkCameraState`. They must
+/// have the same gait and the same rig pose, because the pose places the hurt
+/// geometry and the attachments.
+#[test]
+fn a_camera_state_does_not_change_a_bodys_gait_or_rig_pose() {
+    use ambition_platformer2d_core::{BodyGroundState, BodyKinematics, BodyMotionFacts};
+    let mut app = App::new();
+    app.insert_resource(ambition_time::WorldTime {
+        raw_dt: 1.0 / 60.0,
+        scaled_dt: 1.0 / 60.0,
+    });
+    app.add_systems(
+        Update,
+        (crate::hurtbox_resolution::advance_body_pose_clocks, resolve_body_rig_poses).chain(),
+    );
+    let body = || {
+        (
+            BodyRig(rig()),
+            BodyRigPose::default(),
+            BodyPoseClock::default(),
+            ambition_characters::actor::BodyCombat::default(),
+            BodyGroundState {
+                on_ground: true,
+                ..Default::default()
+            },
+            BodyKinematics {
+                pos: Vec2::ZERO,
+                vel: Vec2::new(11.0, 0.0),
+                size: Vec2::new(12.0, 16.0),
+                facing: 1.0,
+            },
+            BodyMotionFacts::default(),
+        )
+    };
+    let actor = app.world_mut().spawn(body()).id();
+    let player = app
+        .world_mut()
+        .spawn((
+            body(),
+            ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState::default(),
+        ))
+        .id();
+    for _ in 0..3 {
+        app.update();
+    }
+    let seen = |entity: Entity| {
+        let world = app.world();
+        let pose = world.get::<BodyRigPose>(entity).unwrap();
+        (
+            world.get::<BodyPoseClock>(entity).unwrap().gait,
+            pose.clip.clone(),
+            pose.frame,
+            hand(&app, entity),
+        )
+    };
+    assert_eq!(seen(player), seen(actor), "the camera state changed the gait or the rig pose");
+    assert_eq!(seen(actor).0, Gait::Walking, "control: speed 11 is a walk");
 }
 
 fn app_with_body(clock: BodyPoseClock) -> (App, Entity) {

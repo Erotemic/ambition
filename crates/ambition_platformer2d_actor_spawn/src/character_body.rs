@@ -35,6 +35,10 @@ pub struct GrantedBodyFacts {
     pub hurtboxes: bool,
     /// The character's semantic rig and the pose resolved from it.
     pub body_rig: bool,
+    /// The body's pose and gait clock ([`ambition_combat::hurtbox_resolution::BodyPoseClock`]).
+    /// Its readers are the rig solve and the authored hurtbox pose profiles,
+    /// so a body gets it when it has either.
+    pub pose_clock: bool,
     pub movement_tuning: bool,
     /// A sprite-authored body: the posed-body marker AND the standing geometry
     /// granted with it, carrying what that geometry displaced.
@@ -60,6 +64,12 @@ pub struct DisplacedGeometry {
     pub sprite_offset: Option<ambition_platformer2d_core::Vec2>,
 }
 
+/// The body has a reader of [`ambition_combat::hurtbox_resolution::BodyPoseClock`]:
+/// a semantic rig, or authored hurtbox pose profiles.
+fn reads_the_pose_clock(prepared: &ambition_characters::prepared::PreparedCharacterDefinition) -> bool {
+    prepared.body_rig.is_some() || prepared.hurtboxes.as_ref().is_some_and(|doc| !doc.poses.is_empty())
+}
+
 impl GrantedBodyFacts {
     /// What projecting `prepared` onto a body WILL grant.
     ///
@@ -75,6 +85,7 @@ impl GrantedBodyFacts {
         Self {
             hurtboxes: prepared.hurtboxes.is_some(),
             body_rig: prepared.body_rig.is_some(),
+            pose_clock: reads_the_pose_clock(prepared),
             movement_tuning: movement_tuning.is_some(),
             // Filled by the grant's capture edit, which reads the body.
             posed_body: posed_body_for(prepared).map(|_| DisplacedGeometry::default()),
@@ -112,6 +123,7 @@ impl GrantedBodyFacts {
         let Self {
             hurtboxes,
             body_rig,
+            pose_clock,
             movement_tuning,
             posed_body,
             unmirrored,
@@ -127,11 +139,10 @@ impl GrantedBodyFacts {
             scope.remove::<ambition_combat::hurtbox_resolution::AuthoredHurtboxes>();
         }
         if body_rig {
-            scope.remove::<(
-                ambition_combat::body_rig::BodyRig,
-                ambition_combat::body_rig::BodyRigPose,
-                ambition_combat::hurtbox_resolution::BodyPoseClock,
-            )>();
+            scope.remove::<(ambition_combat::body_rig::BodyRig, ambition_combat::body_rig::BodyRigPose)>();
+        }
+        if pose_clock {
+            scope.remove::<ambition_combat::hurtbox_resolution::BodyPoseClock>();
         }
         if movement_tuning {
             scope.remove::<ambition_platformer2d_core::AuthoredMovementTuning>();
@@ -380,12 +391,15 @@ pub fn grant_prepared_character_body(
                 ambition_combat::body_rig::BodyRig(rig),
                 ambition_combat::body_rig::BodyRigPose::default(),
             ));
-            // The clocks the pose is solved from: the body pose and the gait.
-            // Without them the rig is solved as standing idle on every tick,
-            // walking or not. The rig is the only source of this component
-            // today, so it goes and comes with the rig: on a body without a
-            // rig it would select authored hurtbox pose profiles, which the
-            // shipped bodies do not do.
+        }
+        // THE POSE AND GAIT CLOCK, for each body that reads it: the rig solve
+        // (without the clock a rig is solved as standing idle on every tick)
+        // and the authored hurtbox pose profiles (without it a `hitstun`
+        // profile is never selected).
+        // ⛔ Until 2026-09-30 the clock came only with a rig, so the shipped
+        // versus duelists, which author a bigger `hitstun` box and have no
+        // admitted rig, were hit through their standing box in hitstun too.
+        if reads_the_pose_clock(prepared) {
             scope.queue_component_upsert(ambition_combat::hurtbox_resolution::BodyPoseClock::default, |_| {});
         }
         // THE AUTHORED BODY, which had no consumer at all.

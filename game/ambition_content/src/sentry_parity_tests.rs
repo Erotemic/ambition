@@ -294,3 +294,51 @@ fn the_spawn_order_of_the_deployers_decides_nothing() {
         assert_eq!(b, f, "tick {tick}");
     }
 }
+
+/// OW: a turret is in its deployer's live room, and shoots only a body in
+/// that room. Two rooms are live; the turret's room has an enemy 250 to its
+/// right, the other room one 50 to its left, at the same coordinates a room
+/// apart. (The native sentry predates live rooms and read no room: this is
+/// the module road only.)
+#[test]
+fn a_turret_is_in_its_deployers_live_room_and_shoots_only_there() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
+    let (mut app, deployers) = world(Road::Module, false);
+    let ours = LiveRoomInstance::from_ordinal(1);
+    let theirs = LiveRoomInstance::ACTIVATION;
+    app.world_mut().spawn((RoomInstanceRoot, theirs));
+    app.world_mut().spawn((RoomInstanceRoot, ours));
+    app.world_mut().entity_mut(deployers[0]).insert(InRoomInstance(ours));
+    let at = DEPLOYERS[0].at;
+    let enemy = |app: &mut App, name: &str, x: f32, room: LiveRoomInstance| {
+        app.world_mut().spawn((
+            FeatureSimEntity,
+            CenteredAabb::new(ae::Vec2::new(x, at.y), ae::Vec2::new(12.0, 20.0)),
+            ActorFaction::Enemy,
+            SimId::placement(name),
+            InRoomInstance(room),
+        ));
+    };
+    enemy(&mut app, "near_other_room", at.x - 50.0, theirs);
+    enemy(&mut app, "far_own_room", at.x + 250.0, ours);
+    let mut shots = Vec::new();
+    for tick in 0..40 {
+        app.world_mut().get_mut::<ActorControl>(deployers[0]).unwrap().0.melee_pressed = tick == 0;
+        app.world_mut().run_schedule(Sim);
+        let requests: Vec<_> = app.world_mut().resource_mut::<Messages<ProjectileSpawnRequest>>().drain().collect();
+        shots.extend(requests.into_iter().map(|r| r.projectile.body.kin.vel));
+        app.world_mut().resource_mut::<ambition_time::SimTick>().0 += 1;
+    }
+    let world = app.world_mut();
+    let turrets: Vec<Option<InRoomInstance>> = world
+        .query::<(&ModuleEntity, Option<&InRoomInstance>)>()
+        .iter(world)
+        .map(|(_, room)| room.copied())
+        .collect();
+    assert_eq!(turrets, vec![Some(InRoomInstance(ours))], "one turret, in its deployer's room");
+    assert!(!shots.is_empty(), "the premise: the turret fired");
+    assert!(
+        shots.iter().all(|vel| vel.x > 0.0),
+        "the turret shot at a body in another live room: {shots:?}"
+    );
+}

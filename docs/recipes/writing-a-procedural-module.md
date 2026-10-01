@@ -82,7 +82,11 @@ Start from `game/ambition_content_modules/src/overfit_volley.rs` (its own record
 
    Field types: `bool`, `u32`, `i32`, `u64`, `f32`, `[f32; 2]`, `Option<T>`,
    `Vec<T>` with `[max N]`. Keep a field's tag when you rename it; a new tag
-   is a new field, and a changed SHAPE refuses a hot reload (restart).
+   is a new field. A hot reload that changes the fields carries the live
+   records over by tag: a kept field keeps its value (also under a new name),
+   a new field or one whose type changed starts at its initial value, a
+   removed field is dropped. Moving a record to another store (body ↔
+   session) is refused (restart).
 
    A record is the BODY's (one for each body the entry runs for). For one
    record that the whole session shares — a tally, a cursor across bodies —
@@ -115,7 +119,7 @@ boss's OWN live room. With two live rooms there is no "the" room.
 | `ambition.boss.special_cast` v4 | trigger | `ambition_boss_special_port::BossCaster` |
 | `ambition.projectiles.spawn` v1 | request | `ambition_projectile_spec::ProjectileSpawn` |
 | `ambition.combat.damage_box` v1 | request | `ambition_combat_port::DamageBox` (its faction is the owner's) |
-| `ambition.combat.held_damage_box` v1 | request | `ambition_combat_port::HeldDamageBox` (held while re-submitted each tick; a new generation replaces it) |
+| `ambition.combat.held_damage_box` v2 | request | `ambition_combat_port::HeldDamageBox` (held while re-submitted each tick, at the submitted centre; a new generation replaces it) |
 | `ambition.items.wielded_use` v2 | trigger (phase `wielded_use`) | `ambition_combat_port::Wielder` (selector: the held item id) |
 | `ambition.world.spawn_module_entity` v1 | request (phase `wielded_use`) | `ambition_combat_port::ModuleEntitySpawn` (a kind, a place, a lifetime; ask `Wielder::names_spawns` first) |
 | `ambition.world.module_entity_tick` v1 | trigger (phase `module_entity_tick`) | `ambition_combat_port::ModuleEntityTick` (selector: the kind; records are the entity's) |
@@ -123,7 +127,12 @@ boss's OWN live room. With two live rooms there is no "the" room.
 | `ambition.world.pull_bodies` v1 | request (phase `module_entity_tick`) | `ambition_combat_port::PullBodies` (pull `Enemy`-side bodies toward a point) |
 | `ambition.resources.spend_mana` v1 | request | `ambition_combat_port::SpendMana` (ask `Wielder::can_pay_mana` first) |
 | `ambition.feedback.body_sound` v1 | request | `ambition_combat_port::BodySound` (a cue id, as the body) |
-| `ambition.boss.summon` v1 | request | `ambition_boss_special_port::BossSummon` (a boss only; the minion joins its encounter) |
+| `ambition.boss.summon` v2 | request | `ambition_boss_special_port::BossSummon` (a boss only; the minion joins its encounter; `on_boss_side` lets the boss's volumes pass it) |
+| `ambition.boss.conduct` v1 | trigger (phase `boss_conduct`) | `ambition_boss_special_port::BossConduct` (selector: the boss's behaviour id; one call each tick) |
+| `ambition.boss.conducted_pose` v1 | request (`boss_conduct`) | `ambition_boss_special_port::ConductedPose` (hold the boss's pose, or release it; the side it faces) |
+| `ambition.presentation.drawn_row` v1 | request (`boss_conduct`) | `ambition_boss_special_port::DrawnRow` (the sheet row it is drawn with) |
+| `ambition.combat.riding_hitbox` v1 | request (`boss_conduct`) | `ambition_combat_port::RidingHitbox` (a volume that rides its owner) |
+| `ambition.feedback.burst` v1 | request (`boss_conduct`) | `ambition_combat_port::Burst` (particles) |
 
 A thing that outlives the press (a turret) is a module entity: one entry asks
 for it in `wielded_use`, a second entry bound to its kind runs each tick it

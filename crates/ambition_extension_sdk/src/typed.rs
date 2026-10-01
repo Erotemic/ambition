@@ -190,9 +190,15 @@ macro_rules! record {
             }
 
             /// This invocation's record, as the struct.
-            #[allow(unused_assignments)]
             pub fn load(inv: &mut $crate::Invocation<'_>) -> Result<Self, $crate::Fault> {
                 let record = inv.state(&Self::KEY)?;
+                Self::from_record(record)
+            }
+
+            /// A stored record, as the struct: what an inspector or a test
+            /// reads from the host's store.
+            #[allow(unused_assignments)]
+            pub fn from_record(record: &$crate::Record) -> Result<Self, $crate::Fault> {
                 let mut index = 0usize;
                 Ok(Self {
                     $(

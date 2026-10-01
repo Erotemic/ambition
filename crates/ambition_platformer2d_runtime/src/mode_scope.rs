@@ -7,9 +7,9 @@
 
 use bevy::prelude::*;
 
-use ambition_combat::scoped_rules::RulesScope;
+use ambition_combat::scoped_rules::{ActiveRoom, RulesScope};
 use ambition_platformer2d_shared_tangle::lifecycle::{
-    despawn_scoped_entity, ModeScopedEntity, ModeVisit,
+    despawn_scoped_entity, ModeScopedEntity, ModeVisit, RoomInstanceRoot,
 };
 use ambition_platformer2d_shared_tangle::schedule::{
     Platformer2dSimulationPhaseMonolith, SimScheduleExt as _,
@@ -89,30 +89,65 @@ impl ModeScopes {
     }
 }
 
-/// Despawn every [`ModeScopedEntity`] whose mode does not govern the active
-/// room: the mode's declared scope ([`ModeScopes`]), else the rooms tagged with
-/// its name.
+/// Whether `mode` governs a room that a rule scope sees as `room`: the mode's
+/// declared scope ([`ModeScopes`]), else the rooms tagged with its name.
+fn mode_governs(scopes: Option<&ModeScopes>, mode: &str, room: ActiveRoom<'_>) -> bool {
+    match scopes.and_then(|scopes| scopes.scope_of(mode)) {
+        Some(scope) => scope.governs(room),
+        None => room == ActiveRoom::Mode(mode),
+    }
+}
+
+/// Each live room, in instance order, as a rule scope sees it, with its id.
+fn live_rule_rooms<'a>(
+    rooms: &'a ambition_platformer2d_world::rooms::LiveRoomSpecs<'_, '_>,
+) -> Vec<(&'a str, ActiveRoom<'a>)> {
+    let mut live: Vec<_> = rooms.live_rooms().collect();
+    live.sort_by_key(|(instance, _)| *instance);
+    live.into_iter()
+        .map(|(_, definition)| {
+            let spec = rooms.rooms().spec(definition);
+            (spec.id.as_str(), ActiveRoom::live(spec.metadata.mode.as_deref()))
+        })
+        .collect()
+}
+
+/// Despawn every [`ModeScopedEntity`] whose mode governs no live room.
 ///
-/// Runs only when `RoomSet` changes, which is a room publication or a world
-/// replacement. A room change inside one mode leaves that mode's entities alone:
-/// the sweep compares scopes, not rooms, which is what makes a mode a lifetime
-/// distinct from a room.
+/// Runs only when the live rooms change: the room set is replaced, a live room
+/// gets another definition, or a live room retires. A room change inside one
+/// mode leaves that mode's entities alone: the sweep compares scopes, not
+/// rooms, which is what makes a mode a lifetime distinct from a room. With two
+/// rooms live (OW1), a mode lives while any live room is in its scope, the
+/// question `CurrentRoom::in_scope` asks for the mode's systems.
 pub fn despawn_departed_mode_entities(
     mut commands: Commands,
-    rooms: Option<ambition_platformer2d_world::rooms::SoleLiveRoomSpec>,
+    rooms: Option<ambition_platformer2d_world::rooms::LiveRoomSpecs>,
+    seated: Query<
+        (),
+        (
+            With<RoomInstanceRoot>,
+            Changed<ambition_platformer2d_world::rooms::LiveRoomDefinition>,
+        ),
+    >,
+    mut retired: RemovedComponents<RoomInstanceRoot>,
     scopes: Option<Res<ModeScopes>>,
     scoped: Query<(Entity, &ModeScopedEntity)>,
 ) {
     let Some(rooms) = rooms else { return };
-    if !rooms.is_changed() {
+    // Read every retirement, so that an old one does not cause a sweep later.
+    let retired = retired.read().count() > 0;
+    if !(rooms.is_changed() || retired || !seated.is_empty()) {
         return;
     }
-    let active = ambition_combat::scoped_rules::ActiveRoom::live((&rooms.spec().metadata).mode.as_deref());
+    let live = live_rule_rooms(&rooms);
+    if live.is_empty() {
+        return;
+    }
     for (entity, mode) in scoped.iter() {
-        let governs = match scopes.as_deref().and_then(|scopes| scopes.scope_of(&mode.0)) {
-            Some(scope) => scope.governs(active),
-            None => active == ambition_combat::scoped_rules::ActiveRoom::Mode(&mode.0),
-        };
+        let governs = live
+            .iter()
+            .any(|(_, room)| mode_governs(scopes.as_deref(), &mode.0, *room));
         if !governs {
             despawn_scoped_entity(&mut commands, entity);
         }
@@ -154,15 +189,33 @@ pub struct ModeOwnersSpawned;
 ///
 /// The one reading of "has the mode arrived in a room": each game read it by
 /// remembering a room on its own owner, one by index and one by id.
+///
+/// An owner is in a live room its mode governs. With two rooms live (OW1), it
+/// stays in its room while that room is live and governed, else it goes to the
+/// first governed room in instance order. While no live room is governed, the
+/// visit does not change: the mode sweep retires the owner. One owner per mode
+/// follows one room; an owner per (mode, live room) is a later OW cut.
 pub fn follow_mode_owner_rooms(
-    rooms: Option<ambition_platformer2d_world::rooms::SoleLiveRoomSpec>,
-    mut owners: Query<&mut ModeVisit>,
+    rooms: Option<ambition_platformer2d_world::rooms::LiveRoomSpecs>,
+    scopes: Option<Res<ModeScopes>>,
+    mut owners: Query<(&mut ModeVisit, Option<&ModeScopedEntity>)>,
 ) {
     let Some(rooms) = rooms else {
         return;
     };
-    let active = rooms.spec().id.as_str();
-    for mut visit in &mut owners {
+    let live = live_rule_rooms(&rooms);
+    for (mut visit, mode) in &mut owners {
+        let mut governed = live.iter().filter(|(_, room)| {
+            mode.is_none_or(|mode| mode_governs(scopes.as_deref(), &mode.0, *room))
+        });
+        let first = governed.clone().next().map(|(id, _)| *id);
+        let Some(active) = governed
+            .find(|(id, _)| visit.room() == Some(*id))
+            .map(|(id, _)| *id)
+            .or(first)
+        else {
+            continue;
+        };
         let next = visit.after(active);
         if *visit != next {
             *visit = next;

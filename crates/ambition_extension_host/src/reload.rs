@@ -84,12 +84,15 @@ pub fn stage_loaded_replacement(
         let lines: Vec<String> = refusals.iter().map(|r| format!("  - {r}")).collect();
         format!("the reloaded composition is refused:\n{}", lines.join("\n"))
     })?;
+    // A changed field list is migrated at publication (`migrate_records`).
+    // A record that would change STORE (its attachment) or save road cannot
+    // be carried over.
     for (key, schema) in &candidate.schemas {
         if let Some(live) = current.schemas.get(key) {
-            if live.shape != schema.shape {
+            if live.schema.attachment != schema.schema.attachment || live.schema.save != schema.schema.save {
                 return Err(format!(
-                    "schema {key} changed shape under live records; reconstruct the room or \
-                     restart to take a new state shape"
+                    "schema {key} changed its attachment or its save policy under live records; \
+                     reconstruct the room or restart to take it"
                 ));
             }
         }
@@ -117,8 +120,43 @@ pub fn publish_staged_replacement(world: &mut World) -> bool {
         "extension modules reloaded: admitted digest {:016x}; replaced {:?}",
         admitted.digest, admitted.replaced
     );
+    let before = world.resource::<AdmittedExtensions>().0.clone();
+    migrate_records(world, &before, &admitted);
     world.insert_resource(crate::ExtensionGeneration::of(&declared));
     world.resource_mut::<ExtensionComposition>().declared = declared;
     world.insert_resource(AdmittedExtensions(admitted));
     true
+}
+
+/// Carry every live record whose schema changed its fields over to the new
+/// shape, by field tag (`StateSchema::migrate`). The publication is a
+/// mechanical edit the timeline's owner admitted, so no rewind crosses it.
+fn migrate_records(world: &mut World, before: &crate::Admitted, after: &crate::Admitted) {
+    let changed: Vec<(&ambition_extension_sdk::SchemaKey, &crate::admission::AdmittedSchema, &crate::admission::AdmittedSchema)> = after
+        .schemas
+        .iter()
+        .filter_map(|(key, new)| {
+            let old = before.schemas.get(key)?;
+            (old.shape != new.shape).then_some((key, old, new))
+        })
+        .collect();
+    if changed.is_empty() {
+        return;
+    }
+    let migrate = |records: &mut crate::RecordSet| {
+        for (key, old, new) in &changed {
+            if let Some(record) = records.get(key) {
+                let migrated = new.schema.migrate(&old.schema, record);
+                records.put((*key).clone(), new.shape, migrated);
+            }
+        }
+    };
+    let mut bodies = world.query::<&mut crate::BodyRecords>();
+    for mut records in bodies.iter_mut(world) {
+        migrate(&mut records.0);
+    }
+    let mut sessions = world.query::<&mut crate::SessionRecords>();
+    for mut records in sessions.iter_mut(world) {
+        migrate(&mut records.0);
+    }
 }

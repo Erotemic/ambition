@@ -436,6 +436,102 @@ fn a_mode_owner_is_told_when_it_arrives_in_a_room() {
     );
 }
 
+/// Open live room `instance` beside the sole one, as the room `id` of the
+/// fixture set: a second player who went there (OW1).
+fn open_another_live_room(
+    app: &mut App,
+    instance: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
+    id: &str,
+) -> Entity {
+    let definition = ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<RoomSet>(app.world())
+        .and_then(|rooms| rooms.definition_by_id(id))
+        .expect("the fixture set holds the room");
+    ambition_platformer2d_shared_tangle::lifecycle::spawn_live_room(app.world_mut(), instance, definition)
+}
+
+/// OW1: a mode owner follows a live room of its mode while another live room
+/// is in another mode. Bob stays in `a` (#0); Alice goes to `base` (#1), then
+/// to `a_second_room` (#2); then Bob leaves `a`. The owner stays in `a` while
+/// `a` is live, then goes to the other room of its mode. When the follow read
+/// the sole live room, a second live room froze the visit: the owner stayed
+/// at its `First` arrival, so a game that starts over on each arrival started
+/// over on every tick.
+#[test]
+fn a_mode_owner_follows_its_own_room_beside_another_live_room() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{Arrival, LiveRoomInstance, ModeVisit};
+
+    let mut app = a_game_with_a_mode_owner();
+    let visit = |app: &mut App| {
+        let visit = app
+            .world_mut()
+            .query::<&ModeVisit>()
+            .single(app.world())
+            .expect("mode `a`'s owner")
+            .clone();
+        (visit.room().map(str::to_owned), visit.arrival())
+    };
+    let at = |room: &str, arrival| (Some(room.to_owned()), arrival);
+    enter_room(&mut app, "a");
+    app.update();
+    assert_eq!(visit(&mut app), at("a", Arrival::First), "precondition: the owner was not born in `a`");
+    let alice = LiveRoomInstance::ACTIVATION.next();
+    let base = open_another_live_room(&mut app, alice, "base");
+    app.update();
+    assert_eq!(visit(&mut app), at("a", Arrival::Staying), "with `base` live beside `a`");
+    app.world_mut().despawn(base);
+    open_another_live_room(&mut app, alice.next(), "a_second_room");
+    app.update();
+    assert_eq!(visit(&mut app), at("a", Arrival::Staying), "with `a_second_room` live beside `a`");
+    let bob = ambition_platformer2d_shared_tangle::lifecycle::sole_live_room_entity(app.world());
+    assert!(bob.is_none(), "precondition: two rooms are live");
+    let bob = app
+        .world_mut()
+        .query::<(Entity, &LiveRoomInstance)>()
+        .iter(app.world())
+        .find(|(_, room)| **room == LiveRoomInstance::ACTIVATION)
+        .map(|(entity, _)| entity)
+        .expect("Bob's room");
+    app.world_mut().despawn(bob);
+    app.update();
+    assert_eq!(visit(&mut app), at("a_second_room", Arrival::FromAnotherRoom), "after `a` retired");
+}
+
+/// OW1: a mode's entities live while any live room is in the mode's scope,
+/// and the sweep runs when a live room retires. Bob stays in `a` (#0) and
+/// Alice goes to `b` (#1): both modes live. Then Bob leaves: `a` ends. When
+/// the sweep read the sole live room, with two rooms live it swept nothing,
+/// and a retirement that did not change the room set did not wake it.
+#[test]
+fn a_mode_ends_when_no_live_room_is_in_it() {
+    use ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance;
+
+    let mut app = two_hosted_demos();
+    set_mode(&mut app, Some("a"));
+    app.update();
+    app.world_mut().commands().spawn_mode_scoped("a", ());
+    app.world_mut().flush();
+    open_another_live_room(&mut app, LiveRoomInstance::ACTIVATION.next(), "b");
+    app.world_mut().commands().spawn_mode_scoped("b", ());
+    app.world_mut().commands().spawn_mode_scoped("mary_o", ());
+    app.world_mut().flush();
+    app.update();
+    assert_eq!(
+        mode_scoped_entities(&mut app),
+        vec!["a", "b"],
+        "with `a` and `b` live, only the mode no live room is in ends"
+    );
+    let bob = app
+        .world_mut()
+        .query::<(Entity, &LiveRoomInstance)>()
+        .iter(app.world())
+        .find(|(_, room)| **room == LiveRoomInstance::ACTIVATION)
+        .map(|(entity, _)| entity)
+        .expect("Bob's room");
+    app.world_mut().despawn(bob);
+    app.update();
+    assert_eq!(mode_scoped_entities(&mut app), vec!["b"], "after Bob left `a`");
+}
+
 /// No owner is born while no session is live (at the launcher), even when the
 /// last room's metadata still names the mode.
 #[test]

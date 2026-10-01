@@ -1915,7 +1915,10 @@ I5's session-attached records (one record for the session, on its root; a
 module the game does not link declares one and it rewinds under GGRS). Next:
 save eligibility; the remaining wielded items (dive, blink, grapple,
 mark/recall) need ports for body motion (the vortex is a module since, on a
-pull port and an end-of-entity port).
+pull port and an end-of-entity port). The Flying Spaghetti Monster's
+conductor is a module (a CONDUCTED boss: the module holds the boss's pose,
+swings riding hitboxes, rolls held shocks, draws its row; schema 289);
+GNU-ton's conductor is the next of its kind.
 
 **Blocked by:** nothing.
 

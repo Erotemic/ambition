@@ -1424,6 +1424,16 @@ walls, `alice_relay` #1 with one gated wall; walls per room (0, 1), then
 the back). The census markers do not change: neither reader was a
 `SoleLiveRoom` marker.
 
+✅ **Landed 2026-10-01: each player's trail reads the walls of the
+player's own live room.** `update_player_trail` read the sole live room,
+so while two rooms were live no trail saw a wall, and a loop drawn around
+a wall was erased as empty. It now reads each player's room
+(`LiveRoomOf<RoomGeometry>`). `render_player_trail` is a view and is not
+changed (P5). Witness: `a_trail_keeps_a_loop_around_a_wall_of_its_own_live_room`
+(#0 open, #1 walled; the loop is kept in #1 and erased in #0, the
+control). Poison (the sole-room read restored): the #1 arm failed, and the
+loop was erased. `SoleLiveRoom` 67/47 -> 66/47.
+
 ✅ **Cut 7r landed 2026-10-01: a mode lives while any live room is in its
 scope, and its owner follows a room of its own mode.** The mode sweep
 (`despawn_departed_mode_entities`) and the owner follow

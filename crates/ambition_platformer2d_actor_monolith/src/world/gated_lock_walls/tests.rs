@@ -790,3 +790,75 @@ fn the_ring_says_which_wall_asked() {
         "the ring does not say which wall asked: {asked:?}"
     );
 }
+
+/// OW1 cut 7q: each live room's gated walls stand in that room's overlay.
+/// With two rooms live, the gate once read the sole live room's definition,
+/// found none, and retracted: the overlay rebuild then cleared every room's
+/// `gate_solids`, so every gated wall in both rooms was gone.
+///
+/// #0 is `drain_alley`, which authors no gated wall; #1 is `alice_relay`,
+/// which authors one. The wall stands in #1 only, and opens when its flag is
+/// set.
+#[test]
+fn each_live_room_keeps_its_own_gated_walls() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{
+        insert_live_room_component, spawn_live_room, LiveRoomInstance,
+    };
+    let mut app = App::new();
+    app.insert_resource(ActiveLdtkProject(project_with_one_wall(Some(FLAG))));
+    app.insert_resource(ambition_persistence::save::AmbitionGameSave::default());
+    app.publish_condition(
+        crate::world_facts::flag_set_descriptor(),
+        crate::world_facts::flag_set,
+    );
+    let set = ambition_platformer2d_world::rooms::RoomSet::from_parts_or_panic(
+        "drain_alley",
+        vec![
+            room_with_one_wall(Some(FLAG), "drain_alley"),
+            room_with_one_wall(Some(FLAG), "alice_relay"),
+        ],
+        Vec::new(),
+    );
+    let relay = set.definition_by_id("alice_relay").expect("alice_relay is in the set");
+    ambition_platformer2d_world::rooms::insert_room_set(app.world_mut(), set);
+    let first = insert_live_room_component(app.world_mut(), FeatureEcsWorldOverlay::default());
+    let second = spawn_live_room(app.world_mut(), LiveRoomInstance::ACTIVATION.next(), relay);
+    app.world_mut().entity_mut(second).insert(FeatureEcsWorldOverlay::default());
+    app.add_systems(
+        Update,
+        (
+            |mut overlays: ambition_platformer2d_shared_tangle::feature_overlay::RoomOverlays| {
+                for mut overlay in overlays.each() {
+                    overlay.gate_solids.clear();
+                }
+            },
+            sync_authored_gated_lock_walls,
+        )
+            .chain(),
+    );
+    let gates = |app: &App, root| {
+        app.world()
+            .get::<FeatureEcsWorldOverlay>(root)
+            .expect("each live room has a collision overlay")
+            .gate_solids
+            .len()
+    };
+
+    app.update();
+    assert_eq!(
+        (gates(&app, first), gates(&app, second)),
+        (0, 1),
+        "(#0's gated walls, #1's): the flag is clear, so #1's wall is up and #0 has none"
+    );
+
+    app.world_mut()
+        .resource_mut::<ambition_persistence::save::AmbitionGameSave>()
+        .data_mut()
+        .set_flag(FLAG, true);
+    app.update();
+    assert_eq!(
+        (gates(&app, first), gates(&app, second)),
+        (0, 0),
+        "(#0's gated walls, #1's): the flag is set, so #1's wall opens"
+    );
+}

@@ -942,17 +942,23 @@ pub fn conduct_gnu_ton(
 pub fn gnu_back_is_ground(
     scholars: Query<(&GnuTonConductor, &RidingOn)>,
     giants: Query<
-        (&ae::BodyKinematics, Has<ae::Unmirrored>, &ambition_sprite_sheet::character::sheets::SpritePosedBody),
+        (
+            &ae::BodyKinematics,
+            Has<ae::Unmirrored>,
+            &ambition_sprite_sheet::character::sheets::SpritePosedBody,
+            Option<&ambition_platformer2d::platformer::lifecycle::InRoomInstance>,
+        ),
         With<MountSlot>,
     >,
     mut overlays: ambition_platformer2d::world::RoomOverlays,
 ) {
-    // The sole live room's overlay: this content is one room.
-    let Some(mut overlay) = overlays.sole() else {
-        return;
-    };
     for (_, riding) in &scholars {
-        let Ok((giant, unmirrored, posed)) = giants.get(riding.mount) else {
+        let Ok((giant, unmirrored, posed, room)) = giants.get(riding.mount) else {
+            continue;
+        };
+        // The back is ground in the giant's own live room. A rider in
+        // another live room must not stand on it.
+        let Some(mut overlay) = overlays.for_room(room) else {
             continue;
         };
         let back = back_platform(giant, unmirrored, posed.world_per_pixel);

@@ -108,7 +108,7 @@ fn app_with_populated_mirrors() -> App {
         .0 = vec!["intro_wake_room".to_owned()];
     app.world_mut()
         .resource_mut::<ambition_cutscene::LastCutsceneRoom>()
-        .0 = Some("intro_wake_room".to_owned());
+        .0 = vec!["intro_wake_room".to_owned()];
     // ...and its world had somewhere to put things.
     {
         let world = app.world_mut();
@@ -298,7 +298,7 @@ fn retirement_clears_every_session_scoped_mirror() {
         app.world()
             .resource::<ambition_cutscene::LastCutsceneRoom>()
             .0,
-        None,
+        Vec::<String>::new(),
         "the cutscene room-entry memory survived teardown: the first room's \
          trigger would not fire"
     );

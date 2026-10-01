@@ -944,6 +944,9 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// lifetime), and the turret's cadence is a record in
 /// `extension.body_records` on the turret. `extension.session_records` is new:
 /// the session-attached module records, on the session root (I5).
+/// ⛔⛤ 286 -> 287: `cutscene.last_room` holds the ids of every live room,
+/// not one id, so a room-entry cutscene is queued for a room that becomes
+/// live beside another (OW1 Cut C).
 /// ⛔⛤ 287 -> 288: `ability.vortex_well` and `entity:vortex_well` are gone: the
 /// vortex is an extension module, its well a module entity
 /// (`ability.module_entity`) and the well's clock a record in

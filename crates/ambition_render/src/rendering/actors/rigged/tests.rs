@@ -363,3 +363,42 @@ fn a_tier_change_keeps_the_old_parts_until_the_new_pages_are_ready() {
     assert_eq!(app.world().get::<Sprite>(root).unwrap().color.alpha(), 0.0);
     assert!(slots(&app, quarter_owner).iter().any(|(_, visible)| *visible), "no part drawn in the frame of the change");
 }
+
+/// A sheet with no row for the compact pose is squashed: the root's quad is
+/// drawn shorter about a line that holds still. The parts take the same
+/// squash through their owner, about the same line, for both pivots
+/// `StanceSquash` uses: the anchor (a feet-anchored quad) and the quad's own
+/// foot edge (an authored-offset quad).
+#[test]
+fn a_squashed_root_squashes_its_parts_about_the_same_line() {
+    let (mut app, root) = app(true);
+    app.update();
+    let owner = owner(&app, root);
+    let at = app.world().get::<Transform>(root).unwrap().translation;
+    let (h0, a0) = {
+        let animator = app.world().get::<CharacterAnimator>(root).unwrap();
+        let (size, anchor) = animator.current_render().unwrap();
+        (size.y, anchor.y)
+    };
+
+    // About the anchor: the height halves, the anchor stays.
+    app.world_mut().get_mut::<Sprite>(root).unwrap().custom_size.as_mut().unwrap().y = h0 * 0.5;
+    app.update();
+    let squashed = *app.world().get::<Transform>(owner).unwrap();
+    assert!((squashed.scale.y - 0.5).abs() < 1.0e-5, "{squashed:?}");
+    assert!((squashed.translation - at).length() < 1.0e-3, "the anchor moved: {squashed:?}");
+
+    // About the quad's foot edge: the anchor moves so the foot edge holds.
+    let ratio = 0.6;
+    let foot = -(a0 + 0.5) * h0;
+    let top = foot + ((0.5 - a0) * h0 - foot) * ratio;
+    let h1 = h0 * ratio;
+    app.world_mut().get_mut::<Sprite>(root).unwrap().custom_size.as_mut().unwrap().y = h1;
+    app.world_mut().get_mut::<Anchor>(root).unwrap().0.y = 0.5 - top / h1;
+    app.update();
+    let squashed = *app.world().get::<Transform>(owner).unwrap();
+    assert!((squashed.scale.y - ratio).abs() < 1.0e-5, "{squashed:?}");
+    // A part point on the foot edge (local y = `foot`) stays where it was.
+    let held = squashed.translation.y + squashed.scale.y * foot;
+    assert!((held - (at.y + foot)).abs() < 1.0e-3, "the foot edge moved from {} to {held}", at.y + foot);
+}

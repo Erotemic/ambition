@@ -998,7 +998,7 @@ Do not require every dynamic limb to become a reusable rigid part in this packet
 - Measured in the real renderer (llvmpipe, `capture_scene hall_of_characters`, ultra, 16 shots over the idle cycle): each rigged shot matches the baked shot of the same tick, with a residual of 0.22 to 0.35 of the typical frame-to-frame difference. The pose, the sword angle, the feet and the size agree.
 - At the potato tier, the rigged pirate stays readable: 12 or 13 exact quads, with textures of a few texels each. The baked potato frame is one 8 × 9 texture.
 
-Gaps that remain for Packet 7 or later: the crouch squash of a sheet without a crouch row does not apply to parts. The portal far side and the hit flash copy the root sprite, which has zero alpha. The portal candidate is the baked quad of the root, not the union of the parts.
+Gaps that remained after this packet, all closed later: the portal far side copied the root sprite, which has zero alpha (Packet 7: `PortalPieceTint`). The crouch squash of a sheet without a crouch row did not apply to parts (closed 2026-09-30, see Packet 7). The hit flash was listed here by mistake: its material samples the root's texture and frame with its own tint and never reads the sprite color, so a rigged body flashes with its baked silhouette.
 
 **Primary visual prototype:** Pirate Raider.
 
@@ -1033,7 +1033,10 @@ Acceptance:
 - Multiview: the part slots take the render layers of their root, so each camera that draws a root draws its parts (`the_parts_are_drawn_by_each_camera_that_draws_their_root`). `a_second_view_draws_the_same_parts_and_makes_no_more` (`ambition_app`) adds a second pane to the seated admirals as TwinTrack does: a `LocalView` in a column and a `MainCamera` that presents it. The presentations, the slots and the entity count do not change. TwinTrack itself casts no character that publishes a flipbook, so the witness uses its pane shape, not its route.
 - Not measured: without a window, the `VisibleEntities` of the host camera lists no sprite at all. Thus no headless test shows the pixels of each pane. The offscreen capture (`capture_scene`) can, when that is necessary.
 
-Gaps that remain: the hit flash copies the root sprite, which has zero alpha. The crouch squash of a sheet without a crouch row does not apply to parts.
+- The crouch squash of a sheet without a row for the compact pose (`StanceSquash`) now reaches the parts. The driver reads the squash off the root itself: its drawn height and anchor against the animator's `current_render`. From these it gets the ratio and the line that holds still, and puts that squash on the owner's transform. So both of `StanceSquash`'s pivots (the anchor, the quad's foot edge) are followed with no copy of its rule, and rotated parts squash as the baked quad does. Witness: `a_squashed_root_squashes_its_parts_about_the_same_line`. It fails when the held line is dropped (poison run).
+- The hit flash needed no change; see the Packet 6 note.
+
+No known gap of the trial realization remains.
 
 Work:
 

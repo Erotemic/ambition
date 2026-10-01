@@ -176,6 +176,21 @@ the vanity card cost 7.18 s and two crates while it was still embedded. Only
 `pack.ron` itself stays embedded: a new source needs a new declaration in
 `pack.rs` anyway.
 
+**2026-10-01: the demo packs are read off disk too.** Sanic, Mary-O, Smash,
+Pocket, TwinTrack and the app's versus pack were `EmbeddedPack::new` over
+`include_str!`, so a demo tuning edit compiled the demo crate and the app.
+They are `content_pack!` now (`ambition_platformer2d`): a `PackText` per file,
+read when the pack is first compiled, embedded only under the CALLING crate's
+`static_content` (the macro's `cfg` is read in that crate). MEASURED: touching
+a smash, sanic or versus move table costs 0.43 to 0.45 s with no crate
+compiled; the smash pack embedded cost 6.62 s. Proven both ways: with
+`sanic.ron` renamed, `cargo check -p ambition_demo_sanic --features
+static_content` fails on the missing file and the default check passes. Witness:
+`content_sdk_tests::a_sourced_pack_reads_its_files_and_names_every_one_it_cannot`
+(poison "refuse at the first unreadable file" fails it). Not yet: a running
+demo does not reload its pack; that road is `ambition_content::reload`'s and
+Ambition's only.
+
 **Class:** DO. **Requires:** I1 for the lightweight Rust frontend; the data
 format/host side can be developed in parallel.
 Read `crates/ambition_content_pack/src/lib.rs`,

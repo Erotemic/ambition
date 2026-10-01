@@ -10,6 +10,13 @@ publish = false
 [lib]
 crate-type = ["rlib"]
 
+[features]
+default = []
+# Embed the content pack's texts (`content_pack!`). Off by default, so a
+# development build reads them off disk and a tuning edit needs no Rust build.
+# Turn it on where there is no source tree to read (web, Android, a bundle).
+static_content = []
+
 [dependencies]
 ambition_platformer2d = { path = "../../crates/ambition_platformer2d", default-features = false, features = ["all_capabilities", "content_pack"] }
 bevy = { version = "0.19.1", default-features = false }

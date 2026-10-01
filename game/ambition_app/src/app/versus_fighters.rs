@@ -9,23 +9,14 @@
 /// The versus pack: `assets/pack.ron` and every source it declares, with the
 /// path `pack.ron` spells.
 pub static PACK: ambition_platformer2d::content::EmbeddedPack =
-    ambition_platformer2d::content::EmbeddedPack::new(
-        include_str!("../../assets/pack.ron"),
-        &[
-            (
-                "data/character_catalog.ron",
-                include_str!("../../assets/data/character_catalog.ron"),
-            ),
-            (
-                "data/movesets/arena_duelist_long.ron",
-                include_str!("../../assets/data/movesets/arena_duelist_long.ron"),
-            ),
-            (
-                "data/movesets/arena_duelist_close.ron",
-                include_str!("../../assets/data/movesets/arena_duelist_close.ron"),
-            ),
+    ambition_platformer2d::content_pack! {
+        root: "assets",
+        sources: [
+            "data/character_catalog.ron",
+            "data/movesets/arena_duelist_long.ron",
+            "data/movesets/arena_duelist_close.ron",
         ],
-    );
+    };
 
 /// Register the duelists: the catalog fragment and every row as a character,
 /// with its move table. `default_character` is this experience's catalog

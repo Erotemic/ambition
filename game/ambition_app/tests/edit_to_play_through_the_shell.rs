@@ -746,11 +746,10 @@ fn launch_speed(sim: &mut ambition_sim_harness::Platformer2dSimHarness) -> f32 {
         let mut query = world.query_filtered::<&BodyKinematics, PrimaryPlayerOnly>();
         query.single(world).expect("the primary player").vel.y
     };
-    // ⚠ A WALK FIRST. MEASURED 2026-10-01: a press 40 frames into the room
-    // launches at -555, but one after 90 more idle frames left `vel.y` at 0 for
-    // four frames, and one later launched at -154. Something in the room acts
-    // on a player left idle; not explained yet. After a 10-frame walk the
-    // press launches at -555.
+    // ⚠ A WALK FIRST. MEASURED 2026-10-01: an idle player in this room is hit
+    // at frame 122 (60 -> 59 HP), and a press in the hitstun after it does not
+    // launch. The walk moves the player out of that reach; the press then
+    // launches at -555.
     for _ in 0..10 {
         sim.step(ambition_app::AgentAction { move_x: 1.0, right_pressed: true, ..common::base() });
     }

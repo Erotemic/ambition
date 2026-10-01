@@ -212,11 +212,9 @@ change to the starting abilities is reported and needs a restart. Witness:
 (`jump_speed` 630 → 700 in a copy: `ActiveMovementTuning` takes it **19 frames
 after the save**, and the player's jump launch goes from 555 to 625; an
 unparseable save first changes nothing). Poison "the watch does not write the
-mirror" fails it at 630. ⚠ Measured on the way, not explained: in
-`proving_grounds` a jump press 40 frames in launches at -555, but one after 90
-more idle frames left the player's `vel.y` at 0 for four frames, and one after
-about 128 launched at -154. Something in the room acts on a player left idle.
-The witness walks 10 frames first, which launches at -555.
+mirror" fails it at 630. The witness walks 10 frames before each jump: an idle
+player in `proving_grounds` is hit at frame 122 (60 → 59 HP, measured), and a
+press in the hitstun does not launch.
 
 **Class:** DO. **Requires:** I1 for the lightweight Rust frontend; the data
 format/host side can be developed in parallel.

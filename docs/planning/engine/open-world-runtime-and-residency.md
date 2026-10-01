@@ -1271,6 +1271,22 @@ That is the one-room control, because Bob's room retires when Alice
 crosses, so it passed under the poison. It now asserts that two rooms are
 live.
 
+✅ **Landed 2026-10-01: the dev traces and the blink reticle read their
+subject's own live room.** The player trace, the actor OOB trace and the
+blink reticle read the sole live room, so while two rooms were live no
+trace row was recorded and no reticle showed. The player trace reads its
+player's room (`LiveRoomOf`, `LiveRoomSpecs`). The actor OOB trace judges
+each body against its own room's world: a frame holds each live room a body
+was in (`RoomTraceSnapshot`: area, envelope, solids), and each body names
+its room. The reticle reads the controlled subject's room. Witnesses:
+`the_traces_record_each_body_in_its_own_live_room` (Alice in the hub, #1,
+beside Bob's `switch_lab`, #0: the player trace keeps recording in the hub;
+the actor frame holds both rooms and tags Alice with the hub; poisoned
+alone, the player trace recorded no row, and the actor frame held no room)
+and `the_blink_reticle_reads_the_walls_of_its_subjects_own_room` (#0
+walled, #1 open; poisoned, the reticle was inactive). `SoleLiveRoom`
+69/49 -> 68/48, `SoleLiveRoomSpec` 39/31 -> 37/29.
+
 ✅ **OW3, first slice, landed 2026-10-01: a runtime mint left in a room
 that is not live is still there when the room is live again.** A runtime
 mint (a boss's dropped gauntlet) has no authored record. Two facts rebuild

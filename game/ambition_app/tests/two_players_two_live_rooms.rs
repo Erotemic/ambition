@@ -1498,3 +1498,37 @@ fn a_safe_point_is_remembered_in_the_players_own_live_room() {
         "Alice's safe point did not follow her in #1: she stands at {pos}, the safe point is {safe}"
     );
 }
+
+/// OW1: the dev traces record each body against its own live room. With
+/// Alice in the hub (#1) beside Bob's `switch_lab` (#0), the player trace
+/// keeps recording, in the hub, and the actor trace's frame holds both rooms
+/// and tags Alice's body with the hub. Before, both traces read the sole live
+/// room, so while two rooms were live neither recorded a frame.
+#[test]
+fn the_traces_record_each_body_in_its_own_live_room() {
+    use ambition_platformer2d::gameplay_trace::{ActorTraceBuffer, GameplayTraceBuffer};
+    let (mut sim, _) = alice_leaves_bob(Some(ambition_platformer2d::characters::control::PlayerSlot(1)));
+    let rooms = live_rooms(&mut sim);
+    assert_eq!(rooms.len(), 2, "precondition: Bob's room did not stay live beside Alice's");
+    let hub = rooms.iter().find(|(_, id)| id == HUB).expect("the hub is live").0;
+    let last_tick = |sim: &mut Platformer2dSimHarness| {
+        sim.world_mut().resource::<GameplayTraceBuffer>().frames().last().map(|frame| frame.tick)
+    };
+    let before = last_tick(&mut sim);
+    for _ in 0..5 {
+        sim.step(base());
+    }
+    let world = sim.world_mut();
+    let player = world.resource::<GameplayTraceBuffer>().frames().last().cloned().expect("the player trace has a row");
+    assert!(
+        Some(player.tick) > before,
+        "the player trace recorded no row while two rooms were live (last tick {before:?})"
+    );
+    assert_eq!(player.active_area, HUB, "the player trace's row is not Alice's room");
+    let actor = world.resource::<ActorTraceBuffer>().frames().last().cloned().expect("the actor trace has a frame");
+    let mut areas: Vec<&str> = actor.rooms.iter().map(|room| room.area.as_str()).collect();
+    areas.sort();
+    assert_eq!(areas, vec![HUB, ROOM], "the actor trace's frame does not hold both live rooms");
+    let alice = actor.bodies.iter().find(|body| body.actor_id == "player").expect("Alice's body is traced");
+    assert_eq!(alice.room, Some(hub.ordinal()), "Alice's body is not traced in the hub");
+}

@@ -51,6 +51,11 @@ mid-timeline gives no mismatch; revising the player's does. The arm now
 revises the primary player's character (`PrimaryPlayerOnly`) and is not
 ignored; it records the mismatch with the watch present. Nothing here is a
 determinism defect. Kept as a row so the commits that cite it resolve.
+The same pattern elsewhere is NOT classified: a grep for `.iter(world).next()`
+and two spellings of it in `game/*/tests`, `crates/*/tests` and `crates/*/src`
+counts 75 sites (2026-10-01). Most read a population filtered to one entity,
+where order cannot matter. A site whose population has more than one member
+picks its subject by archetype order.
 
 ### SYNC-POINT-SENSITIVE-RESIM — a command sync point moves the death-reset replay
 

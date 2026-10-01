@@ -9,6 +9,13 @@ use ambition_sprite_sheet::character::{non_looping, CharacterAnim};
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState;
 
+/// Below this speed along its run axis a player's sprite shows its Idle row.
+/// A presentation dead band: the gameplay gait has one band for every body
+/// (`ambition_combat::hurtbox_resolution::STANDING_BELOW`).
+pub const PLAYER_IDLE_BELOW: f32 = 12.0;
+/// Below this speed along its run axis an actor's sprite shows its Idle row.
+pub const ACTOR_IDLE_BELOW: f32 = 8.0;
+
 use ambition_characters::actor::body::BodyAnimFacts;
 use ambition_combat::components::MeleeSwing;
 
@@ -497,8 +504,10 @@ pub fn pick_body_anim(v: &BodyAnimView) -> CharacterAnim {
                 Idle
             }
         }
-        // The simulation's gait rule, so the row agrees with the rig clip the
-        // body's hurt geometry is solved from (`BodyPoseClock::gait`). A skid
+        // The simulation's gait rule with this picker's own dead band
+        // (`idle_below`), so outside the band the row agrees with the rig clip
+        // the body's hurt geometry is solved from (`BodyPoseClock::gait`, whose
+        // band is `hurtbox_resolution::STANDING_BELOW` for every body). A skid
         // has already returned above.
         Locomotion::Grounded => match ambition_combat::hurtbox_resolution::grounded_gait(
             v.speed,
@@ -680,7 +689,7 @@ pub fn pick_player_anim(
     v.held = anim.held;
     v.dash_startup = anim.dash_startup_timer > 0.0;
     v.landing = (anim.land_anim_timer > 0.0).then_some(anim.land_anim_hard);
-    v.idle_below = ambition_combat::hurtbox_resolution::PLAYER_STANDING_BELOW;
+    v.idle_below = PLAYER_IDLE_BELOW;
     v.fly_above = 0.0;
     pick_body_anim(&v)
 }
@@ -821,7 +830,7 @@ pub fn pick_actor_anim(
         v.locomotion = Locomotion::Aerial;
         v.speed = kinematics.vel.length();
     }
-    v.idle_below = ambition_combat::hurtbox_resolution::ACTOR_STANDING_BELOW;
+    v.idle_below = ACTOR_IDLE_BELOW;
     v.fly_above = 12.0;
     pick_body_anim(&v)
 }

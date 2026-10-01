@@ -1053,6 +1053,53 @@ Acceptance:
 
 ### Packet 8 — benchmark the first world implementation and decide whether extraction optimization is needed
 
+**Status (2026-09-30): measured on this machine; the decision needs a hardware GPU.** The bench is `crates/ambition_render/examples/rigged_sprite_bench.rs`. It uses the real `bind_rigged_presentations` and `drive_rigged_presentations` systems, the published admiral sheet and its flipbook (`max_draws` = 12), and a stand-in animator that changes pose every two seconds. The predictions were written before each run; the record is below the tables.
+
+ECS only (no renderer, `--profile profiling`, 3000 frames, the median of the update time):
+
+| Actors | Baked µs | Rigged µs | Added µs | Rig entities | Visible sprites (baked / rigged) |
+|---:|---:|---:|---:|---:|---:|
+| 1 | 3.3 | 4.5 | 1.2 | 14 | 1 / 13 |
+| 10 | 4.9 | 15.0 | 10.1 | 140 | 10 / 130 |
+| 50 | 13.6 | 68.7 | 55.1 | 700 | 50 / 650 |
+| 100 | 25.6 | 133.4 | 107.8 | 1400 | 100 / 1300 |
+
+The added CPU is about 1.1 µs for each actor and frame, and it is linear. "Rig entities" is exactly 14 for each actor (the root, the owner and 12 slots).
+
+With Bevy's renderer (`--render`, a 1280 × 720 offscreen target, llvmpipe, 300 frames, the median frame time):
+
+| Actors | Views | Frame ms (baked / rigged) | Extracted sprites | Sprite batches |
+|---:|---:|---:|---:|---:|
+| 1 | 1 | 8.5 / 9.2 | 1 / 13 | 1 / 2 |
+| 10 | 1 | 9.3 / 11.2 | 10 / 130 | 1 / 20 |
+| 50 | 1 | 9.5 / 13.8 | 50 / 650 | 1 / 100 |
+| 100 | 1 | 11.1 / 33.6 | 100 / 1300 | 1 / 200 |
+| 10 | 2 | 18.0 / 22.8 | 10 / 130 | 2 / 40 |
+| 100 | 2 | 20.4 / 71.0 | 100 / 1300 | 2 / 400 |
+
+- A second view extracts the same sprites and doubles the batches. That is one batch list per view, as for the baked path.
+- Each rigged actor makes two batches. The root still draws its baked quad with zero alpha, from the sheet page, between the parts of two bodies. So the root splits the batch of the part page at each body.
+- `--tiny` (a target ten times smaller that shows the same actors, so almost no pixels are filled) keeps most of the difference: 6.3 / 24.8 ms at 100 actors. So the difference is not the fill rate.
+- 1300 baked actors (1300 sprites in 1 batch) take 19.1 ms with `--tiny`. Thus, of the 18.5 ms that 100 rigged actors add, about 12.8 ms comes with the sprite count and about 5.7 ms with the batches.
+- On llvmpipe the vertex work for each sprite is CPU work. A hardware GPU does not do that work on the CPU. So these frame times show where the cost is, but they do not show the cost on a player's machine.
+
+Texture bytes (RGBA8, full tier): the admiral sheet is 361,674 texels (1.45 MB); its part page is 224,064 texels (0.90 MB, 0.62 of the sheet). In the trial both are resident, so the rigged path costs 1.62 × the baked texture bytes. The baked frame is also what a portal draws (Packet 7). So the saving needs the sheet page to go, and the portal to draw parts first.
+
+Not measured: the load and materialization time, the frame time on a hardware GPU, and the CPU time of each render system set.
+
+**Decision:** do not build a custom part-instance renderer now. The ECS cost is small (0.11 ms for 100 actors). The render cost on this machine comes from the sprite count and the batch count, and the per-sprite cost here is the software rasterizer's. Before a custom renderer, do these in this order:
+
+1. Run `rigged_sprite_bench --render` (with `--views 2`) on a machine with a hardware GPU.
+2. If the batches matter there, stop drawing the zero-alpha root. Then the parts of all actors of one target share one page and can share batches. The root must stay the portal candidate, so this needs another way to state its size and frame to the portal.
+3. Only if the sprite count itself is too expensive on hardware, replace the slot realization with an instance buffer, as this packet's text says.
+
+Pre-registration record (written before each run):
+
+- Hit: the rig entities for each actor (2 + `max_draws`, exact), the visible sprites (1 + the frame's draws), the added CPU at 100 actors (band 0.05 to 1 ms: 0.108), the scaling from 10 to 100 (band 5 to 15: 10.7), the part page at 0.62 of the sheet, the extracted sprites (N and 13N, exact), the batches (1 and 2N, exact), and a second view (the same sprites, the batches doubled, exact).
+- Missed: the rigged/baked frame-time ratio at 100 actors (band 1 to 3): 3.0 with one view, 3.5 with two.
+- Falsified: "the difference is mostly fill" (the `--tiny` run).
+- Between the bands: the 1300-sprite run (19.1 ms, between "the batches" below 10 ms and "the sprite count" at 20 ms or more), so the record gives the two parts in ms and no single cause.
+
 This is implementation validation, not architecture discovery.
 
 Benchmark the completed fixed-slot path with:

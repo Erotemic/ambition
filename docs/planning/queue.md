@@ -81,7 +81,17 @@ or resimulation puts entities in a different archetype order than the first
 simulation did. The next probe: list the resimulated systems that fold an
 order-sensitive query (first match wins, float sums, `last()`), then shift the
 archetype order with this probe and diff the per-type checksums of the first
-resimulated frame.
+resimulated frame. One candidate, REASONED and not measured:
+`project_prepared_character_definitions` reads the App cast
+(`PreparedCharacterRegistry`) in the rewinding schedule behind
+`Changed<WornCharacter>`/`Added<CombatTuning>`. A load writes those components
+again, so the gate opens on the load frame (the class `fc092d9c7` measured for
+the mode sweep). Its row in `open-world-runtime-and-residency.md` calls it
+idempotent because "a candidate whose projected id and generation match is
+skipped", and a cast published mid-window is exactly the case where the
+generation does not match. So a resimulated frame can re-project the NEW cast
+where the first simulation did not. It is one of the ~30 App-cast readers
+recorded under I3.
 
 The arm is `#[ignore]`d with this row as its reason. It recorded an answer that
 the composition, not the cast, decides. The next probe: hash the checksum's

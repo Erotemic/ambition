@@ -502,6 +502,11 @@ fn arena_killing_the_boss(rollback: bool) -> Platformer2dSimHarness {
         // ⚠ The recorder reads the marker as the RELEASER sees it, so it is
         // ordered before it. Unordered, it could read the world after the
         // removal and report 0 for a pass that did emit.
+        //
+        // ⚠ And both are after the tick advance, so both read the tick of
+        // this pass. Without that edge the advance could run between them: the
+        // recorder logged tick 89, the kill read 90, and the death frame's
+        // pass saw no marker. Systems added elsewhere moved the advance there.
         app.add_systems(
             label,
             (
@@ -509,6 +514,7 @@ fn arena_killing_the_boss(rollback: bool) -> Platformer2dSimHarness {
                 kill_the_behemoth_at_the_death_tick,
             )
                 .chain()
+                .after(ambition_platformer2d::time::advance_sim_tick)
                 .before(ambition_platformer2d::boss_encounter::release_payloads_on_death),
         );
         Ok(())

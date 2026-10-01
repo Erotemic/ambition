@@ -513,15 +513,15 @@ fn a_reloaded_module_takes_over_at_publication_and_keeps_its_records() {
 }
 
 #[test]
-fn a_reload_that_reshapes_live_state_or_is_refused_leaves_the_running_code() {
+fn a_reload_that_moves_live_state_to_another_store_or_is_refused_leaves_the_running_code() {
     let mut app = loaded_app(true, true);
     let before = app.world().resource::<AdmittedExtensions>().0.digest;
 
-    let mut reshaped = module(vec![entry("a", vec![])]);
-    reshaped.schemas[0].fields.push(FieldDecl::new(2, "extra", FieldKind::Bool));
-    let (backend, published) = loaded(vec![reshaped]);
+    let mut moved = module(vec![entry("a", vec![])]);
+    moved.schemas[0].attachment = Attachment::Session;
+    let (backend, published) = loaded(vec![moved]);
     let err = reload::stage_loaded_replacement(app.world_mut(), backend, published).unwrap_err();
-    assert!(err.contains("changed shape"), "{err}");
+    assert!(err.contains("attachment"), "{err}");
 
     let mut broken = module(vec![entry("a", vec![])]);
     broken.entries[0].requests.push(PortKey::new("test.nowhere", 1));
@@ -822,4 +822,81 @@ fn a_new_session_starts_from_the_initial_record() {
     let second = app.world_mut().spawn(SessionRecords::default()).id();
     step(&mut app);
     assert_eq!(session_count(&app, second), Some(Value::U32(1)));
+}
+
+/// ⭐ A RELOAD THAT CHANGES A RECORD'S FIELDS KEEPS THE GAME RUNNING: the live
+/// records are carried to the new shape by field tag. The kept field keeps its
+/// value (also under a new name), a new field starts at its initial value,
+/// and a field whose kind changed starts again.
+#[test]
+fn a_reload_that_reshapes_a_record_migrates_the_live_records_by_tag() {
+    let mut app = loaded_app(true, true);
+    let body = app.world_mut().spawn((Poked(1), Tall(2.0))).id();
+    step(&mut app);
+    step(&mut app);
+    let count = |app: &App| app.world().get::<BodyRecords>(body).unwrap().get(&COUNTER).unwrap().clone();
+    assert_eq!(count(&app).get(COUNT).unwrap(), &Value::U32(2));
+
+    // The count renamed, a new flag before it, and an f32 field.
+    let mut reshaped = module(vec![entry("a", vec![])]);
+    reshaped.schemas[0].fields = vec![
+        FieldDecl::new(2, "flag", FieldKind::Bool),
+        FieldDecl::new(1, "renamed_count", FieldKind::U32),
+        FieldDecl::new(3, "scale", FieldKind::F32).with_initial(Value::F32(1.5)),
+    ];
+    // The entry reads the count by its new position.
+    reshaped.entries[0].run = EntryCode::Native(|inv| {
+        let record = inv.state(&COUNTER)?;
+        let count = record.get(FieldRef(1)).ok().and_then(Value::as_u32).unwrap_or(0) + 1;
+        record.set(FieldRef(1), Value::U32(count)).ok();
+        let poke = *inv.trigger::<Poke>()?;
+        let height = *inv.observe::<Height>()?;
+        inv.submit::<Emit>((poke, count, height))
+    });
+    let (backend, published) = loaded(vec![reshaped]);
+    reload::stage_loaded_replacement(app.world_mut(), backend, published).unwrap();
+    assert!(reload::publish_staged_replacement(app.world_mut()));
+    let migrated = count(&app);
+    assert_eq!(migrated.values(), &[Value::Bool(false), Value::U32(2), Value::F32(1.5)]);
+    step(&mut app);
+    let counts: Vec<u32> = app.world().resource::<Lowered>().0.iter().map(|l| l.2 .1).collect();
+    assert_eq!(counts, [1, 2, 3], "the new code counts on from the migrated record");
+
+    // The count's kind changes: it starts again.
+    let mut retyped = module(vec![entry("a", vec![])]);
+    retyped.schemas[0].fields = vec![FieldDecl::new(1, "count", FieldKind::F32)];
+    retyped.entries[0].run = EntryCode::Native(|_| Ok(()));
+    let (backend, published) = loaded(vec![retyped]);
+    reload::stage_loaded_replacement(app.world_mut(), backend, published).unwrap();
+    assert!(reload::publish_staged_replacement(app.world_mut()));
+    assert_eq!(count(&app).values(), &[Value::F32(0.0)]);
+}
+
+#[test]
+fn a_record_migrates_by_tag_not_by_position_or_name() {
+    let old = StateSchema {
+        key: COUNTER,
+        attachment: Attachment::Body,
+        save: SaveEligibility::Transient,
+        fields: vec![
+            FieldDecl::new(1, "a", FieldKind::U32),
+            FieldDecl::new(2, "b", FieldKind::Bool),
+            FieldDecl::new(3, "gone", FieldKind::F32),
+        ],
+    };
+    let mut record = old.initial_record();
+    record.set(FieldRef(0), Value::U32(7)).unwrap();
+    record.set(FieldRef(1), Value::Bool(true)).unwrap();
+    record.set(FieldRef(2), Value::F32(9.0)).unwrap();
+    let new = StateSchema {
+        fields: vec![
+            FieldDecl::new(2, "b_renamed", FieldKind::Bool),
+            FieldDecl::new(4, "new", FieldKind::U32).with_initial(Value::U32(5)),
+            FieldDecl::new(1, "a", FieldKind::U32),
+        ],
+        ..old.clone()
+    };
+    let migrated = new.migrate(&old, &record);
+    assert_eq!(migrated.values(), &[Value::Bool(true), Value::U32(5), Value::U32(7)]);
+    new.check(&migrated).unwrap();
 }

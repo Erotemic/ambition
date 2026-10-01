@@ -1486,6 +1486,13 @@ decision above. Witness:
 reset is asked for and gravity stays flipped; the control, Bob not driven,
 both are reset). Poisons, each gate forced open: the clock reset was asked
 for; gravity was put back down.
+The hazard respawn (`safe_respawn_player`, a pit or a spike that sends a
+player back to the safe point) asked for the same reset for every live
+room, and now asks only while its room is the one live room. Witness:
+`a_hazard_respawn_keeps_the_worlds_clock_while_another_room_is_live` (a
+`SafeRespawn` hazard hit on Alice: she respawns in both arms, and the reset
+is asked for only in the one-room control). Poison (the writer always
+passed): the reset was asked for with two rooms.
 
 ✅ **Cut 7r landed 2026-10-01: a mode lives while any live room is in its
 scope, and its owner follows a room of its own mode.** The mode sweep

@@ -2090,3 +2090,58 @@ fn a_replay_keeps_the_worlds_clock_and_gravity_while_another_room_is_live() {
         );
     }
 }
+
+/// OW1: a hazard respawn keeps the world's sim clock while another room is
+/// live. Alice, in the hub, takes a hazard hit that sends her back to her safe
+/// point. With Bob driven (two rooms), she respawns and no clock reset is
+/// asked for. The control, Bob not driven (one room): she respawns and the
+/// reset is asked for, as before.
+#[test]
+fn a_hazard_respawn_keeps_the_worlds_clock_while_another_room_is_live() {
+    use ambition_platformer2d::characters::control::PlayerSlot;
+    use ambition_platformer2d::combat::events::{HitEvent, HitMode, HitSource, HitTarget};
+    use ambition_platformer2d::time::time_control::ClockResetRequest;
+    for (slot, rooms, expected) in [(None, 1, (true, true)), (Some(PlayerSlot(1)), 2, (true, false))] {
+        let (mut sim, _) = alice_leaves_bob(slot);
+        assert_eq!(live_rooms(&mut sim).len(), rooms, "precondition ({slot:?}): the live room count");
+        {
+            let world = sim.world_mut();
+            let (alice, pos, room) = world
+                .query_filtered::<(bevy::prelude::Entity, &ambition_platformer2d::engine_core::BodyKinematics, Option<&InRoomInstance>), bevy::prelude::With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>()
+                .single(world)
+                .map(|(entity, kinematics, room)| (entity, kinematics.pos, room.map(|room| room.0)))
+                .expect("Alice's body is in the world");
+            world.write_message(HitEvent {
+                volume: ambition_platformer2d::engine_core::Aabb::new(pos, ambition_platformer2d::engine_core::Vec2::splat(8.0)).into(),
+                damage: 1,
+                source: HitSource::Hazard,
+                attacker: None,
+                room,
+                target: HitTarget::Body(alice),
+                mode: HitMode::SafeRespawn,
+                knockback: None,
+                ignored_targets: Vec::new(),
+                strike_sfx: None,
+                attacker_move_instance: None,
+            });
+        }
+        let (mut respawned, mut clock_reset) = (false, false);
+        for _ in 0..10 {
+            sim.step(base());
+            let world = sim.world_mut();
+            respawned |= world
+                .resource::<bevy::ecs::message::Messages<ambition_platformer2d::vfx::vfx::VfxMessage>>()
+                .iter_current_update_messages()
+                .any(|message| matches!(message, ambition_platformer2d::vfx::vfx::VfxMessage::ResetEffects { .. }));
+            clock_reset |= world
+                .resource::<bevy::ecs::message::Messages<ClockResetRequest>>()
+                .iter_current_update_messages()
+                .any(|request| request.reason == "safe_respawn");
+        }
+        assert_eq!(
+            (respawned, clock_reset),
+            expected,
+            "with {rooms} live room(s): (Alice respawned, the clock reset was asked for)"
+        );
+    }
+}

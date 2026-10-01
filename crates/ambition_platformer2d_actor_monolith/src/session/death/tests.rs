@@ -111,3 +111,76 @@ fn a_captor_letting_go_cannot_free_a_body_that_died_in_its_grip() {
         "the release cleared more than the one hold it owns"
     );
 }
+
+/// Two live rooms of two games: Ambition's hall (#0) replays its level after
+/// a 1.5 s beat, and Smash's stage (#1) holds a 4 s beat and never replays.
+fn app_with_two_games_death_rules() -> (App, crate::session::governing_rules::tests::TwoRooms) {
+    use ambition_combat::scoped_rules::{DeclareRulesExt, RulesScope};
+    let mut app = App::new();
+    app.add_message::<ActorDiedMessage>()
+        .add_message::<RoomReplayRequested>();
+    app.init_resource::<crate::session::lifecycle_commit::PendingLifecycleCommit>();
+    app.declare_rules(RulesScope::UntaggedRooms, DeathRules::replay_level_after(1.5));
+    app.declare_rules(
+        RulesScope::Mode("smash"),
+        DeathRules {
+            interlude: 4.0,
+            level_reset: LevelReset::Never,
+        },
+    );
+    let hall = crate::session::governing_rules::tests::two_game_session(&mut app, true);
+    (app, (hall, hall.next()))
+}
+
+/// OW1: a death opens the beat of its own room's rules. With THE live room's
+/// rules, both rooms had the rules of no room (no beat at all).
+#[test]
+fn a_death_holds_the_beat_of_its_own_live_room() {
+    use ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance;
+    let (mut app, (hall, stage)) = app_with_two_games_death_rules();
+    app.add_systems(Update, open_death_interlude);
+    let victims = [hall, stage].map(|room| app.world_mut().spawn((PlayerEntity, InRoomInstance(room))).id());
+    for victim in victims {
+        app.world_mut().write_message(ActorDiedMessage {
+            victim,
+            pos: ambition_platformer2d_core::Vec2::ZERO,
+            cause: DeathCause {
+                source: HitSource::Hazard,
+                attacker: None,
+            },
+        });
+    }
+    app.update();
+    assert_eq!(
+        victims.map(|victim| app.world().get::<DeathInterlude>(victim).map(|window| window.remaining)),
+        [Some(1.5), Some(4.0)],
+        "[the hall's beat, the stage's beat]"
+    );
+}
+
+/// OW1: a closing beat asks its own room's rules whether the level goes back.
+/// The last participant's beat closes in the hall, whose rules replay the
+/// level. With THE live room's rules (the rules of no room: never), nothing
+/// was replayed.
+#[test]
+fn a_closing_beat_replays_by_its_own_live_rooms_rules() {
+    use ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance;
+    let (mut app, (hall, _stage)) = app_with_two_games_death_rules();
+    app.add_systems(Update, close_death_interlude);
+    app.world_mut().spawn((
+        PlayerEntity,
+        OutOfPlay,
+        InRoomInstance(hall),
+        DeathInterlude {
+            remaining: 0.0,
+            consequence_pending: true,
+        },
+    ));
+    app.update();
+    let replays = app
+        .world_mut()
+        .resource_mut::<bevy::prelude::Messages<RoomReplayRequested>>()
+        .drain()
+        .count();
+    assert_eq!(replays, 1, "the hall's last beat did not send the level back");
+}

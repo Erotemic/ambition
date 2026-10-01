@@ -417,10 +417,11 @@ fn apply_cut_rope_heavy_object_sprite(
 /// room replay while gameplay is suspended, so this runs in the ungated
 /// room-reset chain and restores rope/anvil visuals on the reset frame.
 ///
-/// A replay is of the sole live room (a room replay with two live rooms is
-/// not built).
+/// The room reset is the live room of the replay's subject (OW1 Cut A); a
+/// replay with no subject, or of an unstamped subject, is of the sole live
+/// room.
 pub fn reset_cut_rope_boss_arena_on_room_reset(
-    room_set: ambition_platformer2d::world::rooms::SoleLiveRoomSpec,
+    rooms: ambition_platformer2d::world::rooms::LiveRoomSpecs,
     live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
     mut state: ResMut<CutRopeBossArenaState>,
     mut heavy_object: ResMut<CutRopeHeavyObjectCycle>,
@@ -435,23 +436,31 @@ pub fn reset_cut_rope_boss_arena_on_room_reset(
     )>,
     assets: Option<Res<GameAssets>>,
 ) {
-    if reset_events.read().next().is_none() {
-        return;
-    }
-    let Some(replayed) = live.sole() else {
+    let Some(subject_room) = reset_events
+        .read()
+        .next()
+        .map(|admitted| admitted.subject.as_ref().and_then(|subject| subject.room))
+    else {
         return;
     };
-    if room_set.spec().id != CUT_ROPE_ROOM_ID {
+    let Some(replayed) = subject_room.or_else(|| live.sole()) else {
+        return;
+    };
+    let Some(definition) = rooms.definition_in(replayed) else {
+        return;
+    };
+    let spec = rooms.rooms().spec(definition);
+    if spec.id != CUT_ROPE_ROOM_ID {
         state.arenas.remove(&replayed);
         return;
     }
     heavy_object.advance();
     let arena = CutRopeArena::default();
     state.arenas.insert(replayed, arena.clone());
-    if let Some(anvil) = authored_prop(&room_set.spec().props, ANVIL_KIND) {
+    if let Some(anvil) = authored_prop(&spec.props, ANVIL_KIND) {
         sync_cut_rope_prop_visuals(
             &mut prop_visuals,
-            &room_set.spec().world,
+            &spec.world,
             &arena,
             anvil,
             heavy_object.current(),

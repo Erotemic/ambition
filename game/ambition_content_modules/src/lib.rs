@@ -11,13 +11,16 @@
 //! host. The same descriptors are what a loaded module will declare (I6/I7).
 
 pub mod echo_fan;
+pub mod eye_beam;
+mod locked_strike;
+pub mod mode_collapse;
 
 /// The provider namespace of every module and schema in this crate.
 pub const PROVIDER: &str = "ambition";
 
 /// Every module this crate provides.
 pub fn modules() -> Vec<ambition_extension_sdk::ModuleDescriptor> {
-    vec![echo_fan::module()]
+    vec![echo_fan::module(), eye_beam::module(), mode_collapse::module()]
 }
 
 // Built for `wasm32-unknown-unknown`, this crate is a loaded module file

@@ -1,3 +1,9 @@
+//! The NATIVE REFERENCE of the mode collapse — test-only.
+//!
+//! Production runs the procedural module in `ambition_content_modules`; this
+//! system is the reference trace `module_parity_tests` holds it to. Do not
+//! compose it into an App: one producer.
+//!
 //! Mode Collapse converging ring boss-special Technique.
 
 use bevy::prelude::*;

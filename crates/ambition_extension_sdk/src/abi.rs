@@ -23,7 +23,7 @@ use crate::invoke::{HostParts, Observation, OwnedPayload, Payload, StagedRequest
 use crate::module::{EntryCode, ModuleDescriptor};
 use crate::port::PortKey;
 use crate::schema::{Record, SchemaKey, StateSchema};
-use crate::wire::{self, Reader, WireError};
+use crate::wire::{self, WireReader, WireError};
 use crate::{Fault, Invocation};
 
 /// The ABI name a loaded module's code identity records.
@@ -152,10 +152,10 @@ fn invoke_inner(
         return Err(format!("entry {} has no code in this guest", descriptor.key));
     };
 
-    let mut r = Reader::new(input);
+    let mut r = WireReader::new(input);
     let decoded = (|| -> Result<_, WireError> {
         let tick = r.u64()?;
-        let occurrence = r.opt(Reader::u32)?;
+        let occurrence = r.opt(WireReader::u32)?;
         let trigger_port = PortKey::read(&mut r)?;
         let trigger = r.bytes()?;
         let n = r.read_len()?;

@@ -90,9 +90,9 @@ impl ambition_extension_sdk::Port for ProjectileSpawnPort {
     }
 
     fn decode(
-        r: &mut ambition_extension_sdk::wire::Reader<'_>,
+        r: &mut ambition_extension_sdk::wire::WireReader<'_>,
     ) -> Result<ProjectileSpawn, ambition_extension_sdk::wire::WireError> {
-        use ambition_extension_sdk::wire::Reader;
+        use ambition_extension_sdk::wire::WireReader;
         Ok(ProjectileSpawn {
             origin: r.vec2()?.into(),
             dir: r.vec2()?.into(),
@@ -104,7 +104,7 @@ impl ambition_extension_sdk::Port for ProjectileSpawnPort {
             visual_id: r.str()?.to_owned(),
             bounces: r.u8()?,
             bounce_on_world_contact: r.bool()?,
-            boomerang_return_s: r.opt(Reader::f32)?,
+            boomerang_return_s: r.opt(WireReader::f32)?,
             splash_half_extent: r.f32()?,
         })
     }

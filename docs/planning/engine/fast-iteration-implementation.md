@@ -333,7 +333,7 @@ host in the shipped game; I4 is not complete (see *Open* below).
 | Trigger port `ambition.boss.special_cast` | values `crates/ambition_boss_special_port`; adapter `ambition_boss_encounter::extension` | card in the port crate's docs |
 | Request port `ambition.projectiles.spawn` | value `ambition_projectile_spec::ProjectileSpawnPort`; adapter `ambition_projectiles::extension` | card on `ProjectileSpawnPort` |
 | Phase `technique_execution` → `CombatSet::ContentSpecials` | `ambition_platformer2d_runtime::extension_composition` | — |
-| The echo fan as a module | `game/ambition_content_modules::echo_fan`; the native system is test-only | `module_parity` (tick-for-tick, owner and move-use credit; two poisons fail it); `app_it::a_boss_special_runs_on_the_extension_host` (real brain press, plus a GGRS sync-test arm) |
+| Three boss techniques as modules: the echo fan, the eye beam and mode collapse (the last two share `locked_strike`, the telegraph-lock rule) | `game/ambition_content_modules`; the native systems are test-only references | `specials::module_parity_tests` (tick-for-tick on the linked AND the WASM road, owner and move-use credit, telegraph locks; poisons "no strike reset", "drop the occurrence", "no telegraph lock" and "drop one loaded request" each fail it); `app_it::a_boss_special_runs_on_the_extension_host` (real brain press, plus a GGRS sync-test arm) |
 
 **Deliberate change:** the native fan aimed at its target's body only when the
 target was the player, and otherwise at the stored point. The trigger adapter

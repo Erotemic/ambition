@@ -84,7 +84,7 @@ fn fire(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         return Ok(());
     }
 
-    let origin = Vec2::from(caster.launch_origin);
+    let origin = Vec2::from(caster.position) + Vec2::from(caster.projectile_offset);
     // Aim at the target; with no target, straight ahead by facing.
     let aim = caster
         .target

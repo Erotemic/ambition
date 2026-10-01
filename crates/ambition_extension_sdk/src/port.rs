@@ -29,7 +29,7 @@ impl PortKey {
         crate::wire::put_u16(out, self.version);
     }
 
-    pub fn read(r: &mut crate::wire::Reader<'_>) -> Result<Self, crate::wire::WireError> {
+    pub fn read(r: &mut crate::wire::WireReader<'_>) -> Result<Self, crate::wire::WireError> {
         Ok(Self {
             name: r.str()?.to_owned().into(),
             version: r.u16()?,
@@ -72,7 +72,7 @@ pub trait Port: 'static {
 
     /// The inverse of [`Port::encode`]. It must read exactly the bytes
     /// `encode` wrote.
-    fn decode(r: &mut crate::wire::Reader<'_>) -> Result<Self::Value, crate::wire::WireError>;
+    fn decode(r: &mut crate::wire::WireReader<'_>) -> Result<Self::Value, crate::wire::WireError>;
 }
 
 /// Encode a type-erased value of port `P`. The host and the guest glue keep

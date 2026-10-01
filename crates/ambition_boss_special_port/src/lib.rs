@@ -16,39 +16,45 @@
 //! * **Time** — `technique_execution`. Kinematics and the tracked target are
 //!   this tick's settled values.
 //! * **Read model** — world units, y up; `facing` is the sign of the body's
-//!   facing (`1.0` or `-1.0`).
+//!   facing (`1.0` or `-1.0`). `telegraphing` is true while the boss's
+//!   pattern telegraphs THIS key, the ticks before the presses.
+//! * **Version 2** (2026-10-01): adds `telegraphing`, and gives the authored
+//!   `projectile_offset` itself instead of one technique's origin made from
+//!   it — the echo fan adds it as is, the eye beam mirrors it by facing.
 //! * **Absence** — `target` is `None` when the boss tracks nothing.
 //! * **Replay** — the value is derived each tick from rollback state; the
 //!   port keeps nothing between ticks.
 
-use ambition_extension_sdk::wire::{self, Reader, WireError};
+use ambition_extension_sdk::wire::{self, WireReader, WireError};
 use ambition_extension_sdk::{Port, PortKey, PortRole};
 
 /// The trigger port marker.
 pub struct BossSpecialCast;
 
 impl Port for BossSpecialCast {
-    const KEY: PortKey = PortKey::new("ambition.boss.special_cast", 1);
+    const KEY: PortKey = PortKey::new("ambition.boss.special_cast", 2);
     const ROLE: PortRole = PortRole::Trigger;
     type Value = BossCaster;
 
     fn encode(v: &BossCaster, out: &mut Vec<u8>) {
         wire::put_bool(out, v.pressed);
+        wire::put_bool(out, v.telegraphing);
         wire::put_bool(out, v.alive);
         wire::put_vec2(out, v.position);
         wire::put_f32(out, v.facing);
-        wire::put_vec2(out, v.launch_origin);
+        wire::put_vec2(out, v.projectile_offset);
         wire::put_opt(out, v.target, wire::put_vec2);
     }
 
-    fn decode(r: &mut Reader<'_>) -> Result<BossCaster, WireError> {
+    fn decode(r: &mut WireReader<'_>) -> Result<BossCaster, WireError> {
         Ok(BossCaster {
             pressed: r.bool()?,
+            telegraphing: r.bool()?,
             alive: r.bool()?,
             position: r.vec2()?,
             facing: r.f32()?,
-            launch_origin: r.vec2()?,
-            target: r.opt(Reader::vec2)?,
+            projectile_offset: r.vec2()?,
+            target: r.opt(WireReader::vec2)?,
         })
     }
 }
@@ -58,15 +64,17 @@ impl Port for BossSpecialCast {
 pub struct BossCaster {
     /// True when the boss pressed the selector key this tick.
     pub pressed: bool,
+    /// True while the boss's pattern telegraphs the selector key.
+    pub telegraphing: bool,
     /// False when the boss has no health left.
     pub alive: bool,
     /// The body's position.
     pub position: [f32; 2],
     /// `1.0` faces +x, `-1.0` faces -x.
     pub facing: f32,
-    /// Where the boss's authored shots leave its body: its position plus its
-    /// authored projectile-origin offset (not mirrored by facing).
-    pub launch_origin: [f32; 2],
+    /// The boss's authored projectile-origin offset from its position, as
+    /// authored (not mirrored by facing).
+    pub projectile_offset: [f32; 2],
     /// The centre of the body the boss tracks, or the tracked point when the
     /// target is not a body.
     pub target: Option<[f32; 2]>,

@@ -25,7 +25,7 @@ impl Port for Poke {
     fn encode(v: &u32, out: &mut Vec<u8>) {
         wire::put_u32(out, *v);
     }
-    fn decode(r: &mut wire::Reader<'_>) -> Result<u32, wire::WireError> {
+    fn decode(r: &mut wire::WireReader<'_>) -> Result<u32, wire::WireError> {
         r.u32()
     }
 }
@@ -38,7 +38,7 @@ impl Port for Height {
     fn encode(v: &f32, out: &mut Vec<u8>) {
         wire::put_f32(out, *v);
     }
-    fn decode(r: &mut wire::Reader<'_>) -> Result<f32, wire::WireError> {
+    fn decode(r: &mut wire::WireReader<'_>) -> Result<f32, wire::WireError> {
         r.f32()
     }
 }
@@ -53,7 +53,7 @@ impl Port for Emit {
         wire::put_u32(out, v.1);
         wire::put_f32(out, v.2);
     }
-    fn decode(r: &mut wire::Reader<'_>) -> Result<(u32, u32, f32), wire::WireError> {
+    fn decode(r: &mut wire::WireReader<'_>) -> Result<(u32, u32, f32), wire::WireError> {
         Ok((r.u32()?, r.u32()?, r.f32()?))
     }
 }

@@ -181,7 +181,15 @@ fn a_module_rebuilt_as_wasm_replaces_the_linked_one_in_the_same_game() {
         "the loaded build replaced the linked one: {:?}",
         fan.runner
     );
-    assert_eq!(admitted.replaced.len(), 1, "{:?}", admitted.replaced);
+    // Every module the file provides replaced its linked build: one entry
+    // each, all loaded, none linked.
+    let loaded = admitted
+        .entries
+        .iter()
+        .filter(|e| matches!(e.runner, ambition_platformer2d::extension::EntryRunner::Loaded { .. }))
+        .count();
+    assert_eq!(loaded, admitted.entries.len(), "no linked entry runs beside the loaded ones");
+    assert_eq!(admitted.replaced.len(), loaded, "{:?}", admitted.replaced);
     let bursts = fight_requests(&mut sim, TWO_STRIKES);
     assert!(bursts.len() >= 2, "{bursts:?}");
     assert!(bursts.iter().all(|&n| n == FAN), "{bursts:?}");

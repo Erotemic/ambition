@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v280
+ggrs-rollback-schema-v281
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -122,7 +122,6 @@ content.apple_rain_spawn_state	component-canonical	AppleRainSpawnState	bevy_ggrs
 content.cut_rope_heavy_object_cycle	resource-clone-custom-checksum	CutRopeHeavyObjectCycle	bevy_ggrs clone snapshot + heavy-object cycle index
 content.cut_rope_victory_npc	component-clone	SmirkingBehemothVictoryNpc	bevy_ggrs clone snapshot; not in the session checksum
 content.exploding_gradient_state	component-canonical	ExplodingGradientState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-content.eye_beam_state	component-canonical	EyeBeamState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 content.fsm_conductor	component-clone-cursor	FsmConductor	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
 content.gnu_ton_conductor	component-clone-cursor	GnuTonConductor	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
 content.gradient_cascade_state	component-canonical	GradientCascadeState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
@@ -134,7 +133,6 @@ content.mary_o_pipe_transit	component-clone	PipeTransit	bevy_ggrs clone snapshot
 content.mary_o_snake_shell	component-clone	SnakeShell	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 content.mary_o_spent_power_blocks	resource-clone-custom-checksum	SpentPowerBlocks	bevy_ggrs clone snapshot + an order-independent checksum over the spent ids
 content.minima_trap_state	component-canonical	MinimaTrapState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-content.mode_collapse_state	component-canonical	ModeCollapseState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 content.overfit_volley_state	component-canonical	OverfitVolleyState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 content.overflow_state	component-canonical	OverflowState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 content.pending_cut_rope_room_replay	resource-clone-custom-checksum	PendingCutRopeRoomReplay	the dialogue-authored room replay, latched until the conversation ends

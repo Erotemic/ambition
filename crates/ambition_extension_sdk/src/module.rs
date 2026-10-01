@@ -224,7 +224,7 @@ impl ModuleDescriptor {
 
     /// Decode a descriptor that a loaded module published. Its code identity
     /// is `Loaded` with digest 0 until the host fills it in.
-    pub fn read(r: &mut crate::wire::Reader<'_>, abi: &'static str) -> Result<Self, crate::wire::WireError> {
+    pub fn read(r: &mut crate::wire::WireReader<'_>, abi: &'static str) -> Result<Self, crate::wire::WireError> {
         let key = ModuleKey {
             provider: r.str()?.to_owned().into(),
             key: r.str()?.to_owned().into(),

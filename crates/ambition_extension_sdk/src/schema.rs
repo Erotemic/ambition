@@ -44,7 +44,7 @@ impl SchemaKey {
         crate::wire::put_u32(out, self.revision);
     }
 
-    pub fn read(r: &mut crate::wire::Reader<'_>) -> Result<Self, crate::wire::WireError> {
+    pub fn read(r: &mut crate::wire::WireReader<'_>) -> Result<Self, crate::wire::WireError> {
         Ok(Self {
             provider: r.str()?.to_owned().into(),
             key: r.str()?.to_owned().into(),
@@ -156,7 +156,7 @@ impl FieldKind {
         }
     }
 
-    pub fn read(r: &mut crate::wire::Reader<'_>) -> Result<Self, crate::wire::WireError> {
+    pub fn read(r: &mut crate::wire::WireReader<'_>) -> Result<Self, crate::wire::WireError> {
         Ok(match r.u8()? {
             1 => Self::Bool,
             2 => Self::U32,
@@ -331,7 +331,7 @@ impl Value {
     /// reader's; the reader only refuses lengths past [`crate::wire::MAX_LEN`].
     pub fn read_wire(
         kind: &FieldKind,
-        r: &mut crate::wire::Reader<'_>,
+        r: &mut crate::wire::WireReader<'_>,
     ) -> Result<Self, crate::wire::WireError> {
         Ok(match kind {
             FieldKind::Bool => Value::Bool(r.bool()?),
@@ -557,7 +557,7 @@ impl StateSchema {
         }
     }
 
-    pub fn read(r: &mut crate::wire::Reader<'_>) -> Result<Self, crate::wire::WireError> {
+    pub fn read(r: &mut crate::wire::WireReader<'_>) -> Result<Self, crate::wire::WireError> {
         use crate::wire::WireError;
         let key = SchemaKey::read(r)?;
         let attachment = match r.u8()? {
@@ -594,7 +594,7 @@ impl StateSchema {
     }
 
     /// A record of this schema on the wire.
-    pub fn read_record(&self, r: &mut crate::wire::Reader<'_>) -> Result<Record, crate::wire::WireError> {
+    pub fn read_record(&self, r: &mut crate::wire::WireReader<'_>) -> Result<Record, crate::wire::WireError> {
         Ok(Record {
             values: self
                 .fields

@@ -87,12 +87,12 @@ pub fn put_opt<T>(out: &mut Vec<u8>, v: Option<T>, put: impl FnOnce(&mut Vec<u8>
 }
 
 /// A cursor over bytes.
-pub struct Reader<'a> {
+pub struct WireReader<'a> {
     bytes: &'a [u8],
     pos: usize,
 }
 
-impl<'a> Reader<'a> {
+impl<'a> WireReader<'a> {
     pub fn new(bytes: &'a [u8]) -> Self {
         Self { bytes, pos: 0 }
     }
@@ -188,9 +188,9 @@ impl<'a> Reader<'a> {
 /// Decode a whole byte string with `read`, refusing trailing bytes.
 pub fn decode_all<T>(
     bytes: &[u8],
-    read: impl FnOnce(&mut Reader<'_>) -> Result<T, WireError>,
+    read: impl FnOnce(&mut WireReader<'_>) -> Result<T, WireError>,
 ) -> Result<T, WireError> {
-    let mut r = Reader::new(bytes);
+    let mut r = WireReader::new(bytes);
     let value = read(&mut r)?;
     r.finish()?;
     Ok(value)
@@ -207,15 +207,15 @@ mod tests {
         put_str(&mut out, "fan");
         put_opt(&mut out, Some([1.0f32, -2.5]), put_vec2);
         put_opt::<u64>(&mut out, None, put_u64);
-        let mut r = Reader::new(&out);
+        let mut r = WireReader::new(&out);
         assert_eq!(r.u32(), Ok(7));
         assert_eq!(r.str(), Ok("fan"));
-        assert_eq!(r.opt(Reader::vec2), Ok(Some([1.0, -2.5])));
-        assert_eq!(r.opt(Reader::u64), Ok(None));
+        assert_eq!(r.opt(WireReader::vec2), Ok(Some([1.0, -2.5])));
+        assert_eq!(r.opt(WireReader::u64), Ok(None));
         assert_eq!(r.finish(), Ok(()));
 
-        assert_eq!(Reader::new(&out[..5]).u64(), Err(WireError::Truncated));
+        assert_eq!(WireReader::new(&out[..5]).u64(), Err(WireError::Truncated));
         assert_eq!(decode_all(&out, |r| r.u32()), Err(WireError::Trailing(out.len() - 4)));
-        assert_eq!(Reader::new(&[2]).bool(), Err(WireError::BadTag(2)));
+        assert_eq!(WireReader::new(&[2]).bool(), Err(WireError::BadTag(2)));
     }
 }

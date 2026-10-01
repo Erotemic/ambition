@@ -584,3 +584,30 @@ forbid = [
     "ShellCompletionPolicy::GoTo",
     "ShellCommand::ExitProcess",
 ]
+
+# The game's procedural modules build against the extension SDK and port values
+# only (fast-iteration I4; FI1's portable closure).
+[[policy]]
+id = "game.ambition_content_modules-portable-closure"
+scope = "game"
+kind = "dependency-allowlist"
+owners = ["ambition_content_modules"]
+watch_paths = ["game/ambition_content_modules/Cargo.toml"]
+rationale = "a module names the SDK and the pure port values it uses; never the host, Bevy's ECS or a game runtime"
+source_doc = "docs/planning/engine/extension-model.md"
+severity = "error"
+exact = true
+allow = ["ambition_extension_sdk", "ambition_boss_special_port", "ambition_projectile_spec"]
+manifest = "game/ambition_content_modules/Cargo.toml"
+
+[[policy]]
+id = "game.ambition_content_modules-no-ecs"
+scope = "game"
+kind = "dependency-denylist"
+owners = ["ambition_content_modules"]
+watch_paths = ["game/ambition_content_modules/Cargo.toml"]
+rationale = "a module carries maths types at most; Bevy's ECS and app belong to the host"
+source_doc = "docs/planning/engine/extension-model.md"
+severity = "error"
+deny = ["bevy", "bevy_ecs", "bevy_app"]
+manifest = "game/ambition_content_modules/Cargo.toml"

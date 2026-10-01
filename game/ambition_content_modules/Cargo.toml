@@ -1,0 +1,18 @@
+[package]
+name = "ambition_content_modules"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Ambition's procedural extension modules, built against the extension SDK and domain port values only."
+
+# ⛔ NO BEVY ECS, NO HOST, NO GAME RUNTIME. A module builds against the SDK and
+# the pure values of the ports it uses. `bevy_math` is the maths type the
+# projectile domain's spawn value is written in; it carries no ECS. The
+# workspace policy `game.ambition_content_modules-portable-closure` keeps this
+# list closed.
+[dependencies]
+ambition_boss_special_port = { path = "../../crates/ambition_boss_special_port" }
+ambition_extension_sdk = { path = "../../crates/ambition_extension_sdk" }
+ambition_projectile_spec = { path = "../../crates/ambition_projectile_spec" }
+bevy_math = { version = "0.19.1" }

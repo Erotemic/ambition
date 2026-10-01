@@ -35,6 +35,8 @@ ambition_boss_encounter = { path = "../ambition_boss_encounter" }
 ambition_causal = { path = "../ambition_causal", features = ["bevy"], optional = true }
 ambition_dialog = { path = "../ambition_dialog", features = ["input"] }
 ambition_projectiles = { path = "../ambition_projectiles" }
+ambition_extension_host = { path = "../ambition_extension_host" }
+ambition_extension_sdk = { path = "../ambition_extension_sdk" }
 ambition_combat = { path = "../ambition_combat" }
 ambition_damage = { path = "../ambition_damage" }
 ambition_encounter = { path = "../ambition_encounter" }

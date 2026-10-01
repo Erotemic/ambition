@@ -1195,6 +1195,10 @@ DEPENDENCY_CONTRACTS: list[dict] = [
         "id": "projectile-spec-is-a-floor",
         "crate": "ambition_projectile_spec",
         "forbidden": "*",
+        # The one edge, named: the spawn value is the projectile domain's
+        # extension request port value (`ProjectileSpawnPort`), and the port
+        # trait lives in the SDK — which is itself a floor (below).
+        "allowed": ["ambition_extension_sdk"],
         "reason": (
             "Content-free spawn data. It exists so a consumer can take the "
             "vocabulary without taking a 16,927-line platformer crate, and that "
@@ -1203,6 +1207,18 @@ DEPENDENCY_CONTRACTS: list[dict] = [
             "⚠ this is the SECOND crate to carry `forbidden: \"*\"`, which is "
             "the rule an `allowed` entry has to satisfy: a named allowance is "
             "only safe if the crate it names is itself a floor."
+        ),
+    },
+    {
+        "id": "extension-sdk-is-a-floor",
+        "crate": "ambition_extension_sdk",
+        "forbidden": "*",
+        "reason": (
+            "The portable procedural extension contract. A module author builds "
+            "against it without Bevy, the host or any engine implementation "
+            "(extension-model D5; fast-iteration FI1). One workspace edge out of "
+            "here puts the engine into every module's build, and the no-relink "
+            "loop it exists for is gone."
         ),
     },
     {

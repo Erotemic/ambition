@@ -130,6 +130,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "ambition_extension_sdk"
+version = "0.1.0"
+
+[[package]]
 name = "ambition_geometry"
 version = "0.1.0"
 dependencies = [
@@ -199,6 +203,7 @@ dependencies = [
 name = "ambition_projectile_spec"
 version = "0.1.0"
 dependencies = [
+ "ambition_extension_sdk",
  "bevy_math",
 ]
 

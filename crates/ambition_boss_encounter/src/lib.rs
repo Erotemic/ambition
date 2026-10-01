@@ -26,6 +26,7 @@ pub mod conditions;
 mod catalog;
 mod clusters;
 pub mod ecs;
+pub mod extension;
 mod encounter_entity;
 mod encounter_script;
 mod events;

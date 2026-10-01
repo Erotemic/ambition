@@ -340,6 +340,26 @@
     },
     {
       "dev_workspace_dependencies": [],
+      "direct_bevy_dependency": false,
+      "direct_workspace_dependencies": [
+        "ambition_extension_sdk"
+      ],
+      "nonblank_rust_loc": 48,
+      "package": "ambition_boss_special_port",
+      "path": "crates/ambition_boss_special_port",
+      "public_items_heuristic": 2,
+      "public_root_reexports_or_modules_heuristic": 0,
+      "raw_rust_loc": 52,
+      "responsibility_clue": "The pure values of the boss domain's extension trigger port: a boss special was pressed, and what the boss looked like at the read cut.",
+      "reverse_workspace_dependencies": [
+        "ambition_boss_encounter",
+        "ambition_content_modules"
+      ],
+      "rust_files": 1,
+      "test_rust_loc_heuristic": 0
+    },
+    {
+      "dev_workspace_dependencies": [],
       "direct_bevy_dependency": true,
       "direct_workspace_dependencies": [],
       "nonblank_rust_loc": 1496,
@@ -554,6 +574,27 @@
       "reverse_workspace_dependencies": [],
       "rust_files": 3,
       "test_rust_loc_heuristic": 235
+    },
+    {
+      "dev_workspace_dependencies": [],
+      "direct_bevy_dependency": true,
+      "direct_workspace_dependencies": [
+        "ambition_boss_special_port",
+        "ambition_extension_sdk",
+        "ambition_projectile_spec"
+      ],
+      "nonblank_rust_loc": 173,
+      "package": "ambition_content_modules",
+      "path": "game/ambition_content_modules",
+      "public_items_heuristic": 8,
+      "public_root_reexports_or_modules_heuristic": 1,
+      "raw_rust_loc": 189,
+      "responsibility_clue": "Ambition's procedural extension modules, built against the extension SDK and domain port values only.",
+      "reverse_workspace_dependencies": [
+        "ambition_content"
+      ],
+      "rust_files": 2,
+      "test_rust_loc_heuristic": 0
     },
     {
       "dev_workspace_dependencies": [],
@@ -1021,6 +1062,53 @@
       ],
       "rust_files": 27,
       "test_rust_loc_heuristic": 2406
+    },
+    {
+      "dev_workspace_dependencies": [],
+      "direct_bevy_dependency": true,
+      "direct_workspace_dependencies": [
+        "ambition_extension_sdk",
+        "ambition_platformer2d_core",
+        "ambition_time"
+      ],
+      "nonblank_rust_loc": 1286,
+      "package": "ambition_extension_host",
+      "path": "crates/ambition_extension_host",
+      "public_items_heuristic": 35,
+      "public_root_reexports_or_modules_heuristic": 3,
+      "raw_rust_loc": 1408,
+      "responsibility_clue": "The Bevy host for procedural extension modules: port installation, admission, serial invocation, staged state and rollback participation. It names no game algorithm.",
+      "reverse_workspace_dependencies": [
+        "ambition_boss_encounter",
+        "ambition_content",
+        "ambition_platformer2d_runtime",
+        "ambition_projectiles"
+      ],
+      "rust_files": 5,
+      "test_rust_loc_heuristic": 305
+    },
+    {
+      "dev_workspace_dependencies": [],
+      "direct_bevy_dependency": false,
+      "direct_workspace_dependencies": [],
+      "nonblank_rust_loc": 1001,
+      "package": "ambition_extension_sdk",
+      "path": "crates/ambition_extension_sdk",
+      "public_items_heuristic": 86,
+      "public_root_reexports_or_modules_heuristic": 9,
+      "raw_rust_loc": 1117,
+      "responsibility_clue": "The portable procedural extension contract: module descriptors, state schemas, ports and the invocation API. It has no dependencies.",
+      "reverse_workspace_dependencies": [
+        "ambition_boss_encounter",
+        "ambition_boss_special_port",
+        "ambition_content_modules",
+        "ambition_extension_host",
+        "ambition_platformer2d_runtime",
+        "ambition_projectile_spec",
+        "ambition_projectiles"
+      ],
+      "rust_files": 6,
+      "test_rust_loc_heuristic": 0
     },
     {
       "dev_workspace_dependencies": [],
@@ -2532,7 +2620,8 @@
   "static_measurement_refresh": {
     "commit": "7b662e3b4b3170e602a3ab7cb512bd747076a259",
     "date": "2026-09-19",
-    "scope": "STATIC MEASUREMENTS ONLY. The semantic items were read at source_commit and have not been re-read; a refreshed count is not a refreshed claim."
+    "scope": "STATIC MEASUREMENTS ONLY. The semantic items were read at source_commit and have not been re-read; a refreshed count is not a refreshed claim.",
+    "added_2026_10_01": "Four crate rows added at their creation (the procedural extension tier, fast-iteration I4), measured by scripts/architecture_census.py on 2026-10-01. The other rows are still the 2026-09-19 refresh."
   },
   "duplicate_authority_states": {
     "OPEN_PRESSURE": "two owners of one CURRENT fact, or a supported road that creates a second source; carries the `suspect_duplicate_authority` metric tag",

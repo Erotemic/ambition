@@ -34,6 +34,10 @@ static_content = []
 falling_sand = ["dep:bevy_falling_sand"]
 
 [dependencies]
+# Ambition's procedural extension modules (the echo fan, fast-iteration I4),
+# declared to the host by `bosses::specials`.
+ambition_content_modules = { path = "../ambition_content_modules" }
+ambition_extension_host = { path = "../../crates/ambition_extension_host" }
 # `content_pack`: this crate's own content goes through the compiler, and the facade's
 # `content::engine_schemas()` is the ONE list of engine-owned schemas it compiles against.
 ambition_platformer2d = { path = "../../crates/ambition_platformer2d", default-features = false, features = ["all_capabilities", "content_pack"] }

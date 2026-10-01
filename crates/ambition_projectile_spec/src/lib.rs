@@ -48,3 +48,28 @@ pub struct ProjectileSpawn {
     /// held-shot simulation so one projectile road carries every projectile.
     pub splash_half_extent: f32,
 }
+
+/// The projectile domain's extension request port: a module submits one
+/// [`ProjectileSpawn`].
+///
+/// Port card (`docs/planning/engine/extension-domain-contracts.md`):
+///
+/// * **Operation** — spawn one in-flight projectile.
+/// * **Owner** — `ambition_projectiles::extension`, which lowers the value
+///   through `ProjectileSpawnRequest::open`, the one spawn-request seam.
+/// * **Scope and grant** — the projectile's owner is the body the invocation
+///   ran for. The module cannot name another owner.
+/// * **Time** — offered in `technique_execution`. The request materializes
+///   before this tick's projectile step (`ProjectileStart::StepThisTick`).
+/// * **Provenance** — the host attaches the invocation's move use; the damage
+///   result names that use, not the move playing at impact (A12).
+/// * **Result** — submitted is not applied: the projectile domain can still
+///   refuse or retire the shot. No acknowledgement port exists yet.
+pub struct ProjectileSpawnPort;
+
+impl ambition_extension_sdk::Port for ProjectileSpawnPort {
+    const KEY: ambition_extension_sdk::PortKey =
+        ambition_extension_sdk::PortKey::new("ambition.projectiles.spawn", 1);
+    const ROLE: ambition_extension_sdk::PortRole = ambition_extension_sdk::PortRole::Request;
+    type Value = ProjectileSpawn;
+}

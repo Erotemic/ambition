@@ -912,7 +912,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// ⛔⛤ 276 -> 277: `actor.body_rig` (clone) and `derived.body_rig_pose`
 /// (derived) — a body's semantic rig follows its worn character across a
 /// restore, and its pose is rebuilt from the clocks (rig packet 2).
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 277;
+/// ⛔⛤ 277 -> 278: `resource.quest_last_room` holds the ids of every live
+/// room, not one id, so a room that becomes live beside another is entered
+/// (OW1 cut 7k).
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 278;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

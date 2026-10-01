@@ -105,7 +105,7 @@ fn app_with_populated_mirrors() -> App {
     // Session A last announced this room to quests and cutscenes.
     app.world_mut()
         .resource_mut::<ambition_persistence::quest::LastQuestRoom>()
-        .0 = Some("intro_wake_room".to_owned());
+        .0 = vec!["intro_wake_room".to_owned()];
     app.world_mut()
         .resource_mut::<ambition_cutscene::LastCutsceneRoom>()
         .0 = Some("intro_wake_room".to_owned());
@@ -290,7 +290,7 @@ fn retirement_clears_every_session_scoped_mirror() {
         app.world()
             .resource::<ambition_persistence::quest::LastQuestRoom>()
             .0,
-        None,
+        Vec::<String>::new(),
         "the quest room-entry memory survived teardown: a new game starting in \
          the room the last session ended in would skip its first RoomEntered"
     );

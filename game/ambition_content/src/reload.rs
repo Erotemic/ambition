@@ -1043,6 +1043,20 @@ pub fn register(app: &mut bevy::prelude::App) {
                 .before(ambition_platformer2d::game_shell::AmbitionGameShellSet::Commands)
                 .run_if(shell_is_installed),
         );
+        // The dialogue: the running Yarn project's own files. See
+        // `crate::content_watch::yarn`. Only where a project is loaded.
+        #[cfg(feature = "ui")]
+        {
+            app.insert_resource(crate::content_watch::YarnSourceWatch::new(
+                crate::pack::source_root(),
+                crate::dialogue::yarn::yarn_sources().iter().map(|(name, _)| (*name).to_string()),
+            ));
+            app.add_systems(
+                bevy::prelude::Update,
+                crate::content_watch::watch_yarn_sources
+                    .run_if(bevy::prelude::resource_exists::<bevy_yarnspinner::prelude::YarnProject>),
+            );
+        }
     }
 }
 

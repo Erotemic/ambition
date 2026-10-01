@@ -349,6 +349,19 @@ Witness: `app_it::edit_to_play_through_the_shell::a_content_file_saved_while_the
 **19 frames after the save**, measured, with one request; poison "the watch
 returns early" fails it at 600 frames).
 
+**Dialogue reloads too (2026-10-01).** The Yarn files are not in the pack:
+they are the running `YarnProject`'s assets. `content_watch::YarnSourceWatch`
+(built with `ui`, not `static_content`) looks at each file the project was
+built from; a saved one is compiled with every other file of the project
+(`replace_yarn_sources`, the standalone Yarn compiler) and only then becomes the
+asset's text, which bevy_yarnspinner recompiles, restarting a running dialogue
+at its current node. Witness: `content_it::a_saved_dialogue_edit_is_played`
+(a saved line plays; an unclosed block and a type error are each refused and
+leave the file's text as well as the program; poisons "the watch never looks"
+and "no validation" each fail it). ⚠ The text is asserted, not only the line:
+bevy_yarnspinner's own recompile keeps the old program on a broken file, so the
+line alone could not tell a refused edit from a half-applied one.
+
 **Boss tuning reloads too (2026-10-01).** `boss_profiles` and
 `boss_encounter` are participating domains (`reload::BOSS_DOMAINS`). Like the
 moveset, they are admitted at request time against world state: the App's

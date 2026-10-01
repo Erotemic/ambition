@@ -1920,6 +1920,19 @@ conductor is a module (a CONDUCTED boss: the module holds the boss's pose,
 swings riding hitboxes, rolls held shocks, draws its row; schema 289);
 GNU-ton's conductor is the next of its kind.
 
+**2026-10-01, the running game plays content edits.** A build that reads its
+content off disk watches the pack's sources (`ambition_content::content_watch`)
+and asks for the reload on a save: `request_reload` had no production caller
+until then. A saved move retime is played 19 frames after the save; boss
+profiles and encounters joined the participating families (a saved boss tuning,
+22 frames). A module reload re-mints the session's content identity (D6), and
+the module reload's three review findings are closed (a file is the unit of
+replacement, one poll is one candidate, a departed schema takes its records).
+Still refused by the reload: items, audio, the character catalog, the boss seed
+library and validator bands. Open, found on the way: a boss's HP, phase
+triggers, death seconds, music and reward seed from the App catalog, not the
+frozen generation (see I3 in the implementation page).
+
 **Blocked by:** nothing.
 
 ⭐ **RULED 2026-09-19.** (Q110) Mechanical registry

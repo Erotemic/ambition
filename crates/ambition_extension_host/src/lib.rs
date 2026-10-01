@@ -236,21 +236,25 @@ pub trait ExtensionAppExt {
         self.add_declared_extension_module(module.into())
     }
 
-    /// Declare the modules of a loaded file. With `replaces`, each one
-    /// explicitly replaces a module of the same key that the game links (a
-    /// developer's rebuilt module); admission records the replacement.
+    /// Declare the modules of the loaded file `artifact`. With `replaces`,
+    /// each one explicitly replaces a module of the same key that the game
+    /// links (a developer's rebuilt module); admission records the
+    /// replacement.
     fn add_loaded_extension_modules(
         &mut self,
+        artifact: &str,
         backend: Arc<dyn ModuleBackend>,
         modules: Vec<ModuleDescriptor>,
         replaces: bool,
     ) -> &mut Self {
+        let artifact: Arc<str> = Arc::from(artifact);
         for (index, descriptor) in modules.into_iter().enumerate() {
             self.add_declared_extension_module(DeclaredModule {
                 descriptor,
                 code: ModuleCode::Loaded {
                     backend: backend.clone(),
                     module: index as u32,
+                    artifact: artifact.clone(),
                 },
                 replaces,
             });

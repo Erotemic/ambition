@@ -136,3 +136,140 @@ pub fn watch_content_sources(world: &mut World) {
         }
     }
 }
+
+/// ⭐ THE RUNNING GAME PLAYS A SAVED DIALOGUE EDIT. The Yarn files are not in
+/// the pack: they are the running `YarnProject`'s assets. A saved file is
+/// compiled with every other file of the project first, so an edit that does
+/// not compile changes nothing; then its asset takes the new text, and
+/// bevy_yarnspinner recompiles the project and restarts a running dialogue at
+/// its current node.
+#[cfg(feature = "ui")]
+mod yarn {
+    use bevy::prelude::*;
+    use bevy_yarnspinner::prelude::{YarnFile, YarnProject};
+
+    use super::{modified, POLL_FRAMES};
+
+    /// The Yarn files the running project was built from, by name, and the
+    /// modification time each was last seen at.
+    #[derive(Resource)]
+    pub struct YarnSourceWatch {
+        root: std::path::PathBuf,
+        files: Vec<(String, Option<std::time::SystemTime>)>,
+        frames_until_poll: u32,
+        /// Saved edits the running project took. For tests and the inspector.
+        pub reloaded: u32,
+    }
+
+    impl YarnSourceWatch {
+        /// Watch the files named (each read at `root`/name), as they are now.
+        pub fn new(root: std::path::PathBuf, names: impl IntoIterator<Item = String>) -> Self {
+            let files = names
+                .into_iter()
+                .map(|name| {
+                    let seen = modified(&root.join(&name));
+                    (name, seen)
+                })
+                .collect();
+            Self { root, files, frames_until_poll: POLL_FRAMES, reloaded: 0 }
+        }
+
+        /// Look at the files now, at the next poll.
+        pub fn poll_now(&mut self) {
+            self.frames_until_poll = 0;
+        }
+    }
+
+    /// Look at the files; give the running project each saved one that
+    /// compiles with the rest.
+    pub fn watch_yarn_sources(world: &mut World) {
+        let edits = {
+            let Some(mut watch) = world.get_resource_mut::<YarnSourceWatch>() else {
+                return;
+            };
+            if watch.frames_until_poll > 0 {
+                watch.frames_until_poll -= 1;
+                return;
+            }
+            watch.frames_until_poll = POLL_FRAMES;
+            let root = watch.root.clone();
+            let mut edits = Vec::new();
+            for (name, seen) in &mut watch.files {
+                let path = root.join(name.as_str());
+                let now = modified(&path);
+                if now == *seen {
+                    continue;
+                }
+                *seen = now;
+                match std::fs::read_to_string(&path) {
+                    Ok(text) => edits.push((name.clone(), text)),
+                    Err(error) => error!("Yarn file {} changed and cannot be read: {error}", path.display()),
+                }
+            }
+            edits
+        };
+        if edits.is_empty() {
+            return;
+        }
+        let names: Vec<String> = edits.iter().map(|(name, _)| name.clone()).collect();
+        match replace_yarn_sources(world, edits) {
+            Ok(()) => {
+                info!("dialogue reloaded from {names:?}");
+                world.resource_mut::<YarnSourceWatch>().reloaded += 1;
+            }
+            Err(reason) => error!("dialogue edit in {names:?} refused; the running dialogue stays:\n{reason}"),
+        }
+    }
+
+    /// Give the running project new text for some of its files. The whole
+    /// project is compiled with the new text first; `Err` changes nothing.
+    pub fn replace_yarn_sources(world: &mut World, edits: Vec<(String, String)>) -> Result<(), String> {
+        let project = world
+            .get_resource::<YarnProject>()
+            .ok_or("no Yarn project is loaded")?;
+        let assets = world.resource::<Assets<YarnFile>>();
+        let mut compiler = yarnspinner::compiler::Compiler::new();
+        let mut targets = Vec::new();
+        for handle in project.yarn_files() {
+            let file = assets.get(handle).ok_or("a project file is not loaded")?;
+            let edited = edits.iter().find(|(name, _)| name == file.file_name());
+            let source = edited.map_or_else(|| file.content().to_string(), |(_, text)| text.clone());
+            if edited.is_some() {
+                targets.push((handle.id(), source.clone()));
+            }
+            compiler.add_file(yarnspinner::compiler::File {
+                file_name: file.file_name().to_string(),
+                source,
+            });
+        }
+        if targets.len() != edits.len() {
+            return Err(format!(
+                "{} of the edited files are not in the running project",
+                edits.len() - targets.len()
+            ));
+        }
+        compiler.compile().map_err(|error| error.to_string())?;
+        // Each new file is built on a copy: `YarnFile::set_content` writes the
+        // text BEFORE it compiles the file's strings, so a refusal there on the
+        // live asset would leave text the program was not compiled from. The
+        // whole-project compile above refuses every source the strings pass
+        // refuses (probed: an unclosed block fails both, a type error only the
+        // compile), so this is the order of the writes, not a second check.
+        let mut built = Vec::new();
+        for (id, source) in targets {
+            let mut file = assets.get(id).ok_or("a project file is not loaded")?.clone();
+            file.set_content(source).map_err(|error| error.to_string())?;
+            built.push((id, file));
+        }
+        let mut assets = world.resource_mut::<Assets<YarnFile>>();
+        for (id, file) in built {
+            if let Some(mut live) = assets.get_mut(id) {
+                *live = file;
+            }
+        }
+        Ok(())
+    }
+}
+
+#[cfg(feature = "ui")]
+pub use yarn::{replace_yarn_sources, watch_yarn_sources, YarnSourceWatch};

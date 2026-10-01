@@ -15,7 +15,7 @@ default = []
 # missing-registration.
 portal = ["ambition_platformer2d_actor_monolith/portal"]
 portal_render = ["portal", "dep:ambition_portal2d_presentation"]
-ui = ["ambition_platformer2d_actor_monolith/ui", "ambition_dialog/ui", "dep:bevy_yarnspinner"]
+ui = ["ambition_platformer2d_actor_monolith/ui", "ambition_dialog/ui", "dep:bevy_yarnspinner", "dep:yarnspinner"]
 audio = ["ambition_platformer2d_actor_monolith/audio"]
 # Embed the LDtk world JSON into the binary (web / Android / bundled builds
 # + the desktop disk-failure fallback). Forwards to the machinery feature so
@@ -103,6 +103,9 @@ ambition_interaction = { path = "../../crates/ambition_interaction" }
 ambition_items = { path = "../../crates/ambition_items", features = ["content_pack"] }
 bevy = { version = "0.19.1", default-features = false, features = ["ui_api"] }
 bevy_yarnspinner = { version = "0.9", optional = true }
+# The Yarn compiler bevy_yarnspinner runs, for checking a saved dialogue edit
+# whole before the running project takes it (`content_watch`).
+yarnspinner = { version = "0.9", optional = true }
 # Drop bevy_falling_sand's default `physics` feature: it bundles its OWN
 # avian2d `PhysicsPlugins`, which collides with Ambition's `AmbitionPhysicsPlugin`
 # ("plugin already added" panic when the falling_sand feature is on). Ambition

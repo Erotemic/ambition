@@ -32,6 +32,10 @@ pub enum ModuleCode {
     Loaded {
         backend: Arc<dyn ModuleBackend>,
         module: u32,
+        /// The file it came from (a path, as the composition names it). A
+        /// reload of that file replaces every module that came from it, as
+        /// one set: a module the new build no longer exports leaves.
+        artifact: Arc<str>,
     },
 }
 
@@ -295,7 +299,7 @@ pub fn admit(
             }
             let runner = match (&declared_module.code, entry.run) {
                 (ModuleCode::Native, EntryCode::Native(run)) => EntryRunner::Native(run),
-                (ModuleCode::Loaded { backend, module }, EntryCode::Loaded { index }) => {
+                (ModuleCode::Loaded { backend, module, .. }, EntryCode::Loaded { index }) => {
                     EntryRunner::Loaded {
                         backend: backend.clone(),
                         module: *module,

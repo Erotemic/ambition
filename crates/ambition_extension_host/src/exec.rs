@@ -464,7 +464,8 @@ fn read_state(
     writes
         .iter()
         .map(|key| {
-            let schema = &admitted.schemas[key].schema;
+            let admitted_schema = &admitted.schemas[key];
+            let schema = &admitted_schema.schema;
             let stored = match schema.attachment {
                 Attachment::Body => world.get::<BodyRecords>(scope).map(|r| &r.0),
                 Attachment::Session => {
@@ -472,10 +473,19 @@ fn read_state(
                     world.get::<SessionRecords>(home).map(|r| &r.0)
                 }
             };
-            let record = stored
-                .and_then(|r| r.get(key))
-                .cloned()
-                .unwrap_or_else(|| schema.initial_record());
+            // ⛔ The shape is checked, not dropped: a record written under
+            // another shape of the schema is refused, never read as this one.
+            let record = match stored.and_then(|r| r.get_stored(key)) {
+                Some(stored) if stored.shape != admitted_schema.shape => {
+                    return Err(Fault::StaleRecord {
+                        schema: key.clone(),
+                        stored: stored.shape,
+                        admitted: admitted_schema.shape,
+                    })
+                }
+                Some(stored) => stored.record.clone(),
+                None => schema.initial_record(),
+            };
             Ok((key.clone(), record))
         })
         .collect()

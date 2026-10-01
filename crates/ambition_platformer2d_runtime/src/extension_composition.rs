@@ -207,7 +207,7 @@ fn load_developer_modules(app: &mut App) {
             path.display(),
             modules.iter().map(|m| m.key.to_string()).collect::<Vec<_>>()
         );
-        app.add_loaded_extension_modules(backend, modules, true);
+        app.add_loaded_extension_modules(&path.display().to_string(), backend, modules, true);
         watched.push((path.clone(), modified(&path)));
     }
     if watched.is_empty() {
@@ -279,28 +279,42 @@ fn propose_module_reload(world: &mut World) {
         }
         changed
     };
-    for path in changed {
-        let staged = std::fs::read(&path)
+    // ⛔ ONE POLL IS ONE CANDIDATE: every changed file that loads goes into
+    // one staged generation (`stage_loaded_replacements`). A file that does
+    // not load keeps its running code; the others still reload.
+    let mut loaded = Vec::new();
+    for path in &changed {
+        match std::fs::read(path)
             .map_err(|e| format!("cannot read: {e}"))
-            .and_then(|bytes| {
-                ambition_extension_wasm::WasmModules::load(&bytes).map_err(|e| e.to_string())
-            })
-            .and_then(|(backend, modules)| {
-                ambition_extension_host::reload::stage_loaded_replacement(world, backend, modules)
-            });
-        match staged {
-            Ok(()) => {
-                info!("{EXTENSION_MODULES_VAR}: {} changed; reload proposed", path.display());
-                world
-                    .resource_mut::<ambition_platformer2d_core::PendingMechanicalEdits>()
-                    .propose(module_code_domain());
-            }
+            .and_then(|bytes| ambition_extension_wasm::WasmModules::load(&bytes).map_err(|e| e.to_string()))
+        {
+            Ok((backend, modules)) => loaded.push(ambition_extension_host::reload::LoadedArtifact {
+                artifact: std::sync::Arc::from(path.display().to_string()),
+                backend,
+                modules,
+            }),
             Err(reason) => error!(
-                "{EXTENSION_MODULES_VAR}: {} changed and is NOT loaded; the running code \
+                "{EXTENSION_MODULES_VAR}: {} changed and does NOT load; its running code \
                  stays: {reason}",
                 path.display()
             ),
         }
+    }
+    if loaded.is_empty() {
+        return;
+    }
+    let names: Vec<String> = loaded.iter().map(|a| a.artifact.to_string()).collect();
+    match ambition_extension_host::reload::stage_loaded_replacements(world, loaded) {
+        Ok(()) => {
+            info!("{EXTENSION_MODULES_VAR}: {names:?} changed; reload proposed");
+            world
+                .resource_mut::<ambition_platformer2d_core::PendingMechanicalEdits>()
+                .propose(module_code_domain());
+        }
+        Err(reason) => error!(
+            "{EXTENSION_MODULES_VAR}: {names:?} changed and are NOT loaded; the running \
+             code stays: {reason}"
+        ),
     }
 }
 

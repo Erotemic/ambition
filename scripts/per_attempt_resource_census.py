@@ -81,6 +81,10 @@ NOT_PER_ATTEMPT = {
     # Catalogs and registries: authored data, must SURVIVE a death.
     "AmbitionDialogPortraitCatalog": "authored catalog",
     "FallingSandTypeIds": "id table built once from the type registry",
+    "YarnSourceWatch": (
+        "developer file watch over the running Yarn project's files: modification "
+        "times on disk and a reload count, which a death does not change"
+    ),
     "ContentSourceWatch": (
         "developer file watch: the modification times of the content sources on "
         "disk, which a death does not change; a reload it asks for re-prepares the "

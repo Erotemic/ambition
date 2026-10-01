@@ -115,8 +115,10 @@ fn main() {
             Ok((backend, modules)) => {
                 let keys: Vec<String> = modules.iter().map(|m| m.key.to_string()).collect();
                 println!("  the file provides {keys:?}");
+                // The file replaces the modules loaded from the same path.
                 match ambition_platformer2d::extension::reload::stage_loaded_replacement(
                     sim.world_mut(),
+                    &file.display().to_string(),
                     backend,
                     modules,
                 ) {

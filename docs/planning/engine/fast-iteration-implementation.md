@@ -349,6 +349,19 @@ Witness: `app_it::edit_to_play_through_the_shell::a_content_file_saved_while_the
 **19 frames after the save**, measured, with one request; poison "the watch
 returns early" fails it at 600 frames).
 
+**Dialogue reloads too (2026-10-01).** The Yarn files are not in the pack:
+they are the running `YarnProject`'s assets. `content_watch::YarnSourceWatch`
+(built with `ui`, not `static_content`) looks at each file the project was
+built from; a saved one is compiled with every other file of the project
+(`replace_yarn_sources`, the standalone Yarn compiler) and only then becomes the
+asset's text, which bevy_yarnspinner recompiles, restarting a running dialogue
+at its current node. Witness: `content_it::a_saved_dialogue_edit_is_played`
+(a saved line plays; an unclosed block and a type error are each refused and
+leave the file's text as well as the program; poisons "the watch never looks"
+and "no validation" each fail it). ⚠ The text is asserted, not only the line:
+bevy_yarnspinner's own recompile keeps the old program on a broken file, so the
+line alone could not tell a refused edit from a half-applied one.
+
 **Boss tuning reloads too (2026-10-01).** `boss_profiles` and
 `boss_encounter` are participating domains (`reload::BOSS_DOMAINS`). Like the
 moveset, they are admitted at request time against world state: the App's
@@ -487,6 +500,7 @@ for; the choice is recorded below so M1 can overturn it with numbers.
 | Host: loaded runner, output checked like native output, explicit replacement | `ambition_extension_host` (`DeclaredModule`, `ModuleBackend`, `Admitted::replaced`) | `a_loaded_module_replaces_a_native_one_only_when_it_says_so` |
 | WebAssembly backend: wasmi, `deterministic`, fuel, a new instance per call | `crates/ambition_extension_wasm` | refuses an importing module; a runaway entry runs out of fuel |
 | Hot reload in the SHIPPED composition: a changed file is polled, proposed through the mechanical-edit protocol, and published with no timeline (refused, staged and kept, under a sync-test session the harness owns) — `a_boss_special_runs_on_the_extension_host::a_module_file_that_changes_while_the_game_runs_is_reloaded`. And a reload that ADDS a module the running game did not have, with a schema the host never saw: it takes over and counts the next presses — `a_loaded_module_keeps_session_state::a_module_file_replaced_while_the_game_runs_takes_over` (2026-10-01; its commit message calls it the reload road's first app-level witness, which is wrong: the first is the one before it) | `ambition_platformer2d_runtime::extension_composition` (`load_developer_modules`, `propose_module_reload`, `publish_module_reload`) | the two tests named |
+| Reload, a review's three findings (2026-10-01): **a file is the unit of replacement** — a loaded module carries its origin (`ModuleCode::Loaded::artifact`), and a reload of that file removes every module that came from it as one set, so a module the new build no longer exports leaves; **one poll, one candidate** — `stage_loaded_replacements` takes every changed file, builds on a candidate already staged, admits once; **a departed schema takes its records** — publication removes them from `BodyRecords` and `SessionRecords`, and `read_state` faults a stored record of another shape (`Fault::StaleRecord`) instead of reading it as the admitted one | `ambition_extension_host::reload`, `exec::read_state`, `store::RecordSet::{get_stored, retain_schemas}`; the runtime's `propose_module_reload` | `a_module_a_rebuilt_file_no_longer_exports_leaves_with_it`, `two_files_changed_before_one_publication_both_take_over` (one poll and two), `a_departed_schemas_records_go_and_do_not_come_back`, `a_stored_record_of_another_shape_faults_the_invocation`; poisons "replace by the new keys", "build on the published composition", "keep departed records" and "ignore the stored shape" each fail exactly its own test |
 | The developer road | `AMBITION_EXTENSION_MODULES` or `ExtensionModuleFiles`, runtime feature `wasm_modules` (the app enables it); `scripts/build_extension_modules.sh` | `app_it::a_boss_special_runs_on_the_extension_host::a_module_rebuilt_as_wasm_replaces_the_linked_one_in_the_same_game`; content `wasm_parity` (floats to 1e-3: the guest's `sin`/`atan2` differ in the last bit, measured) |
 
 **Measured (M0, this machine, 2026-10-01):** an edit to the echo fan to a

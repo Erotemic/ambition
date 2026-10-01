@@ -31,15 +31,20 @@ use ambition_platformer2d::content::SfxRegistry;
 /// Gated the same way [`crate::worlds`] gates the LDtk world JSON behind
 /// `static_map`: OFF for desktop development, ON for the builds that have no
 /// filesystem to read from (web, Android) or that ship without the source tree.
-/// The sibling SFX registry stays embedded unconditionally — it is hand-authored
-/// and changes only when someone is already editing code.
+/// The sibling SFX registry is gated the same way (2026-10-01): it is
+/// hand-authored synth-cue data, and tuning a cue is a sound designer's edit
+/// loop, not a code edit.
 #[cfg(feature = "static_content")]
 pub const MUSIC_REGISTRY_RON_STATIC: Option<&'static str> =
     Some(include_str!("../assets/audio/music_registry.ron"));
 #[cfg(not(feature = "static_content"))]
 pub const MUSIC_REGISTRY_RON_STATIC: Option<&'static str> = None;
 
-pub const SFX_REGISTRY_RON: &str = include_str!("../assets/audio/sfx_registry.ron");
+#[cfg(feature = "static_content")]
+pub const SFX_REGISTRY_RON_STATIC: Option<&'static str> =
+    Some(include_str!("../assets/audio/sfx_registry.ron"));
+#[cfg(not(feature = "static_content"))]
+pub const SFX_REGISTRY_RON_STATIC: Option<&'static str> = None;
 
 /// Register Ambition's immutable audio fragments in one Bevy `App`. This is the
 /// sole authority: hosts read the assembled registries from the

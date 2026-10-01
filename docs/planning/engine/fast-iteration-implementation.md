@@ -162,11 +162,19 @@ music registry were; `boss_profiles.ron`, `boss_seeds.ron`,
 `pack::source_text` (embedded only under `static_content`: web, Android, a build
 without the source tree). MEASURED on the agent machine, warm, `cargo build -p
 ambition_app` after touching the file: `boss_profiles.ron` 0.44 s (nothing
-rebuilt), against 5.79 s for `sfx_registry.ron`, which stays embedded by its
-stated policy. A boss edit now costs a restart; it is not in the reload's
-participating families yet (`reload::participates`), so a running game refuses
-it. The sandbox Yarn dialogue (`dialogue/sandbox/*.yarn`, `yarn::yarn_sources`)
-followed the same day: a dialogue edit 0.43 s, nothing rebuilt.
+rebuilt), against 5.79 s for `sfx_registry.ron`, which then stayed embedded by
+its stated policy. The sandbox Yarn dialogue (`dialogue/sandbox/*.yarn`,
+`yarn::yarn_sources`) followed the same day: a dialogue edit 0.43 s, nothing
+rebuilt. Later the same day boss tuning and dialogue became live reloads (see
+I3), and the last embedded data files went off disk too: `sfx_registry.ron`
+(synth-cue tuning is a sound designer's loop, not a code edit),
+`boss_sheets.ron`, `boss_art_keys.ron` and the generated
+`vanity_card_made_this_meme.ron`. MEASURED the same way, `cargo build -p
+ambition_app --bin ambition_game_bin`: `sfx_registry.ron` 0.52 s,
+`boss_sheets.ron` 0.48 s, the vanity card 0.52 s, each with no crate compiled;
+the vanity card cost 7.18 s and two crates while it was still embedded. Only
+`pack.ron` itself stays embedded: a new source needs a new declaration in
+`pack.rs` anyway.
 
 **Class:** DO. **Requires:** I1 for the lightweight Rust frontend; the data
 format/host side can be developed in parallel.

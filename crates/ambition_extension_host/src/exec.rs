@@ -21,8 +21,8 @@ use std::sync::Arc;
 use ambition_extension_sdk::abi::{self, InvocationInput, InvocationOutput};
 use ambition_extension_sdk::invoke::{HostParts, Observation, OwnedPayload, Payload, StagedRequest};
 use ambition_extension_sdk::{
-    encode_erased, DecodeFn, EncodeFn, Fault, Invocation, Name, Phase, Port, PortKey, Record,
-    SchemaKey,
+    encode_erased, DecodeFn, EncodeFn, Fault, IdlePolicy, Invocation, Name, Phase, Port, PortKey,
+    Record, SchemaKey,
 };
 use ambition_time::SimTick;
 use bevy::prelude::*;
@@ -41,6 +41,9 @@ pub struct PendingInvocation {
     pub value: Box<dyn Any + Send + Sync>,
     /// Encodes `value` for a loaded module.
     pub encode: EncodeFn,
+    /// The trigger's domain says nothing is happening for this scope this
+    /// tick. An entry with `IdlePolicy::ResetState` is not called.
+    pub idle: bool,
 }
 
 /// The triggers queued in this phase.
@@ -51,13 +54,15 @@ pub struct ExtensionInvocations {
 
 impl ExtensionInvocations {
     /// Queue a trigger of port `P` for one scope. Only the adapter that
-    /// installed `P` calls this.
+    /// installed `P` calls this. `idle` is the port's own statement that
+    /// nothing is happening for this scope this tick (its card defines it).
     pub fn trigger<P: Port>(
         &mut self,
         phase: &Phase,
         selector: impl Into<Name>,
         scope: Entity,
         occurrence: Option<u32>,
+        idle: bool,
         value: P::Value,
     ) {
         self.pending.push(PendingInvocation {
@@ -68,6 +73,7 @@ impl ExtensionInvocations {
             occurrence,
             value: Box::new(value),
             encode: encode_erased::<P>,
+            idle,
         });
     }
 
@@ -207,6 +213,10 @@ pub fn run_phase(phase: Phase) -> impl FnMut(&mut World) {
                 p.port == descriptor.trigger.port && p.selector == descriptor.trigger.selector
             }) {
                 if world.get_entity(invocation.scope).is_err() {
+                    continue;
+                }
+                if invocation.idle && descriptor.on_idle == IdlePolicy::ResetState {
+                    reset_idle(world, &admitted, invocation.scope, &descriptor.writes);
                     continue;
                 }
                 let current = world.get::<BodyRecords>(invocation.scope);
@@ -398,6 +408,34 @@ fn run_loaded(
         requests.push((port, value));
     }
     Ok((staged, requests))
+}
+
+/// `IdlePolicy::ResetState`: put the entry's records back to their initial
+/// values without calling it. A body that has no record yet, or whose record
+/// is already initial, is left alone, so an idle tick writes nothing.
+fn reset_idle(world: &mut World, admitted: &Admitted, scope: Entity, writes: &[SchemaKey]) {
+    let Some(current) = world.get::<BodyRecords>(scope) else {
+        return;
+    };
+    let stale: Vec<SchemaKey> = writes
+        .iter()
+        .filter(|key| {
+            current
+                .get(key)
+                .is_some_and(|record| *record != admitted.schemas[*key].schema.initial_record())
+        })
+        .cloned()
+        .collect();
+    if stale.is_empty() {
+        return;
+    }
+    let mut records = world
+        .get_mut::<BodyRecords>(scope)
+        .expect("read on the lines above");
+    for key in stale {
+        let schema = &admitted.schemas[&key];
+        records.put(key, schema.shape, schema.schema.initial_record());
+    }
 }
 
 fn commit(

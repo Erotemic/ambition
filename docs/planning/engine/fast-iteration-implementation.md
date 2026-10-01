@@ -381,8 +381,20 @@ sync-test session).
 ownership today.
 
 **Why wasmi first:** deterministic by construction (NaN canonicalization,
-fuel instead of a clock), pure Rust, builds for every shipped target. Its
-cost per call (a new instance each time) is unmeasured; M1 owns it.
+fuel instead of a clock), pure Rust, builds for every shipped target.
+
+**M1, first reading (2026-10-01, this machine, while a test lane ran):** one
+WASM call is **75–115 µs**, of which **~31 µs** is the new instance; a call
+that does nothing burns **86k fuel** in the ABI glue. Every boss invoked every
+bound key every tick only to reset strike latches, so five keys cost ~0.5 ms
+a tick per boss, and more under rollback resimulation. ⇒ **`IdlePolicy`:** a
+trigger marks the ticks with nothing to act on (the boss port: neither
+pressed nor telegraphed) and an entry may declare `ResetState`: the host puts
+its records back to their initial values WITHOUT the call. Every migrated
+technique declares it; the parity suite still matches the native systems tick
+for tick, so the shortcut is the same result. A WASM module now costs nothing
+on idle ticks. Open: the per-call glue cost (instance reuse with a restored
+image; a lighter input encoding).
 
 **Class:** DO. **Requires:** the execution contract; does not wait for a VM.
 Read actual boss special producers, domain request types, combat_schedule,

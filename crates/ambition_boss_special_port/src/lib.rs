@@ -26,6 +26,9 @@
 //!   `body_half_size`), the box its hits are judged against; a stomp's
 //!   shock line stands on its bottom face.
 //! * **Absence** — `target` is `None` when the boss tracks nothing.
+//! * **Idle** — an invocation is IDLE when the key is neither pressed nor
+//!   telegraphed. An entry that declares `IdlePolicy::ResetState` is not
+//!   called on those ticks; its records go back to their initial values.
 //! * **Replay** — the value is derived each tick from rollback state; the
 //!   port keeps nothing between ticks.
 

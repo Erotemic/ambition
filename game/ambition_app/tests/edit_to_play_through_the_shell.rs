@@ -641,12 +641,12 @@ fn a_character_row_saved_while_the_game_runs_is_played() {
             Some(EDITED),
             "the App's catalog is the published one"
         );
-        // ⛔ AND THE CAST THE SESSION FROZE. The live HP alone cannot tell:
-        // MEASURED under the poison "the claim carries no candidate cast", the
-        // session froze 5 while the App's registry held 9, and the rebuilt
-        // goblins had 9 on the activation frame — so the body's pool is not
-        // read from the frozen cast (the road is not identified yet; see the
-        // I3 notes).
+        // ⛔ AND THE CAST THE SESSION FROZE. Under the poison "the claim
+        // carries no candidate cast" the session froze 5 while the App's
+        // registry held 9. Before 2026-10-01 the goblins still had 9:
+        // `apply_worn_character_gameplay` re-derived each body from the App
+        // cast. It reads the generation's cast now (`worn_cast_for`), and the
+        // same poison stops the loop above at [5, 5, 5].
         let frozen = sim
             .world()
             .resource::<ambition_platformer2d::actors::session::mechanics::SessionMechanics>()

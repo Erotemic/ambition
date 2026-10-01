@@ -369,7 +369,19 @@ pub fn sync_charge_projectile_capability(
 pub fn apply_worn_character_gameplay(
     // Optional, like every other reader of it: a composition with no registered
     // characters is the ordinary case and must not require the resource.
-    registry: Option<Res<ambition_characters::prepared::PreparedCharacterRegistry>>,
+    app_cast: Option<Res<ambition_characters::prepared::PreparedCharacterRegistry>>,
+    // The cast the activated generation was prepared against. It outranks the
+    // App: a reload publishes the App cast before the session that runs it is
+    // activated, and a body re-derived from the App in that window plays a cast
+    // its session was not prepared against. MEASURED 2026-10-01: with the
+    // reload's claim emptied, the frozen cast said 5 HP, the App said 9, and the
+    // live goblins had 9.
+    session_mechanics: Option<Res<crate::session::mechanics::SessionMechanics>>,
+    // Installed only by the shell's session plugin. With it and no generation,
+    // the session lost its cast, and this system refuses rather than read the App.
+    session_gate: Option<
+        Res<ambition_platformer2d_shared_tangle::lifecycle::SessionGatedSimulation>,
+    >,
     // What the MATCH decided, when one is running. `Option` because most
     // compositions are not a match, which is the ordinary case rather than a
     // degraded one.
@@ -412,6 +424,14 @@ pub fn apply_worn_character_gameplay(
         (With<ActionSet>, With<ActorMoveset>),
     >,
 ) {
+    let Some(registry) = crate::session::mechanics::worn_cast_for(
+        session_gate.is_some(),
+        session_mechanics.as_deref(),
+        app_cast.as_deref(),
+    ) else {
+        // A request stays on the body until a cast can answer it.
+        return;
+    };
     for (
         entity,
         character,
@@ -450,7 +470,7 @@ pub fn apply_worn_character_gameplay(
         }
         if recharacterize || stale_cast {
             let execution = wear_character(
-                registry.as_deref(),
+                registry,
                 &mut name,
                 &mut identity,
                 id,
@@ -502,7 +522,7 @@ pub fn apply_worn_character_gameplay(
             // ability edit would reset SurfaceMomentum's persistent riding
             // state to Airborne.
             sync_worn_motion_model_preserving_state(
-                registry.as_deref(),
+                registry,
                 id,
                 &mut motion_model,
             );
@@ -512,7 +532,7 @@ pub fn apply_worn_character_gameplay(
             // Insert it when the worn identity authors a tuning, remove it when
             // it does not — so a re-wear from an authored feel back to the
             // sandbox protagonist returns the body to the live inspector sliders.
-            match movement_tuning_for_character(registry.as_deref(), id) {
+            match movement_tuning_for_character(registry, id) {
                 Some(tuning) => {
                     commands
                         .entity(entity)
@@ -547,7 +567,7 @@ pub fn apply_worn_character_gameplay(
                 .and_then(|prepared| prepared.death_traits.as_ref())
                 .map(ambition_combat::CombatCapabilities::from);
             let previous_authored = baseline
-                .zip(registry.as_deref())
+                .zip(registry)
                 .and_then(|(baseline, registry)| registry.get(&baseline.id))
                 .is_some_and(|previous| previous.death_traits.is_some());
             match authored {

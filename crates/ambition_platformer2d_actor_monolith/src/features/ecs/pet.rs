@@ -100,6 +100,20 @@ pub struct PetRequested {
     pub petted: LiveBodyId,
 }
 
+/// Pin a body where it stands with no side speed, keeping its fall: the pet
+/// beat holds both bodies, and a held body is pinned by the motion authority,
+/// not by a bare velocity write.
+fn stop_where_it_stands(kinematics: &mut ambition_platformer2d_core::BodyKinematics) {
+    let at = kinematics.pos;
+    let fall = kinematics.vel.y;
+    ambition_platformer2d_core::movement::constrain_body_pose(
+        kinematics,
+        None,
+        at,
+        ambition_platformer2d_core::Vec2::new(0.0, fall),
+    );
+}
+
 /// Start the pet a conversation asked for: the petter walks to the petted
 /// body's front. (sim)
 ///
@@ -211,8 +225,8 @@ pub fn apply_pet_requests(
         petted_kin.facing = side;
         // It stops where it stands: the hold blanks its control from the next
         // tick, and a walking dog would otherwise slide off the mark on its
-        // momentum.
-        petted_kin.vel.x = 0.0;
+        // momentum. A pin, through the motion authority (ADR 0024).
+        stop_where_it_stands(&mut petted_kin);
         let mark_x = mark_for(side);
         let walk = (mark_x - petter_kin.pos.x).abs() / PET_WALK_SPEED;
         commands.entity(petter).insert((
@@ -297,8 +311,8 @@ pub fn advance_pet_beats(
                 commands.entity(petter).remove::<CommandedMove>();
                 petter_kin.facing = -beat.side;
                 petted_kin.facing = beat.side;
-                petter_kin.vel.x = 0.0;
-                petted_kin.vel.x = 0.0;
+                stop_where_it_stands(&mut petter_kin);
+                stop_where_it_stands(&mut petted_kin);
                 beat.stage = PetStage::Gesture {
                     remaining: PET_SECONDS,
                 };

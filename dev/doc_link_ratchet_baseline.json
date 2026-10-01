@@ -24,7 +24,6 @@
       "crates/ambition_boss_encounter/src/attack_moveset.rs: unresolved `HitVolume`",
       "crates/ambition_boss_encounter/src/behavior.rs: unresolved `ActorSpriteMetrics`",
       "crates/ambition_boss_encounter/src/clusters.rs: unresolved `BarkAnchorSpec`",
-      "crates/ambition_boss_encounter/src/ecs/tick.rs: unresolved `ActorPhaseState`",
       "crates/ambition_boss_encounter/src/ecs/tick.rs: unresolved `MovePlayback`",
       "crates/ambition_boss_encounter/src/ecs/tick.rs: unresolved `integrate_boss_bodies`"
     ],
@@ -44,15 +43,13 @@
       "crates/ambition_characters/src/brain/smash.rs: unresolved `SpecificAction::Sprint`",
       "crates/ambition_characters/src/brain/state_machine/mod.rs: unresolved `tick_state_machine_with_actions`",
       "crates/ambition_characters/src/prepared.rs: private `CharacterBindings -> PreparedCharacter::checked`",
-      "crates/ambition_characters/src/prepared.rs: unresolved `register_character`",
-      "crates/ambition_characters/src/smash_fighter/mod.rs: private `into_repertoire -> Self::problems`"
+      "crates/ambition_characters/src/prepared.rs: unresolved `register_character`"
     ],
     "ambition_combat": [
       "crates/ambition_combat/src/brain/smash/action.rs: unresolved `emit_inputs`",
       "crates/ambition_combat/src/capture/systems.rs: unresolved `BodyHurtboxesResolved`",
       "crates/ambition_combat/src/clank.rs: unresolved `ResolvedCombatTuning::clank_damage_window`",
       "crates/ambition_combat/src/events.rs: unresolved `CombatVolume`",
-      "crates/ambition_combat/src/hit_reaction.rs: unresolved `ambition_platformer2d::combat::rules::DeclaredCombatRules::crouch_cancel_scale`",
       "crates/ambition_combat/src/lib.rs: unresolved `ambition_mount::install_mount_simulation_systems`",
       "crates/ambition_combat/src/moveset/mod.rs: unresolved `FlowNode::Wait`",
       "crates/ambition_combat/src/moveset/prefab_registry.rs: unresolved `ParamValue`",
@@ -75,7 +72,6 @@
       "crates/ambition_items/src/lib.rs: private `to_persisted -> Self::stored`"
     ],
     "ambition_match": [
-      "crates/ambition_match/src/prepared.rs: unresolved `Self:death_policy`",
       "crates/ambition_match/src/prepared.rs: unresolved `crate::character_runtime::MatchRoster::time_limit_ticks`",
       "crates/ambition_match/src/prepared.rs: unresolved `super::staging::MatchParticipantRoster::fighter_body`",
       "crates/ambition_match/src/prepared.rs: unresolved `super::staging::MatchParticipantRoster::item_spawns`"
@@ -83,15 +79,12 @@
     "ambition_menu": [],
     "ambition_platformer2d_actor_monolith": [
       "<no location>: unresolved `DeathInterlude`",
-      "<no location>: unresolved `GoverningDeathRules`",
       "<no location>: unresolved `OutOfPlay`",
       "<no location>: unresolved `ParticipantId`",
       "<no location>: unresolved `PlayerSlot`",
       "<no location>: unresolved `super::blink::blink_target`",
-      "crates/ambition_platformer2d_actor_monolith/src/abilities/traversal/possession.rs: unresolved `SlotControls`",
       "crates/ambition_platformer2d_actor_monolith/src/avatar/body_integration.rs: unresolved `resolve_body_hit`",
       "crates/ambition_platformer2d_actor_monolith/src/body_mode/mod.rs: private `body_mode -> mechanics`",
-      "crates/ambition_platformer2d_actor_monolith/src/character_runtime/mod.rs: private `registered_portrait_target -> registered_sheet_target`",
       "crates/ambition_platformer2d_actor_monolith/src/character_runtime/mod.rs: unresolved `SessionScopeId`",
       "crates/ambition_platformer2d_actor_monolith/src/character_sprites/assets.rs: private `character_sprite_tier -> resolve_variant_pair`",
       "crates/ambition_platformer2d_actor_monolith/src/character_sprites/mod.rs: private `character_sprites -> assets`",
@@ -109,13 +102,11 @@
       "crates/ambition_platformer2d_actor_monolith/src/features/ecs/effect_bus.rs: unresolved `super::events`",
       "crates/ambition_platformer2d_actor_monolith/src/features/ecs/encounter_rewards.rs: private `EncounterRewardSyncPlugin -> sync_encounter_reward_chests`",
       "crates/ambition_platformer2d_actor_monolith/src/features/ecs/perception.rs: unresolved `BodyKinematics`",
-      "crates/ambition_platformer2d_actor_monolith/src/features/ecs/perception.rs: unresolved `WorldMemory`",
       "crates/ambition_platformer2d_actor_monolith/src/features/ecs/spawn/mod.rs: unresolved `ContentBinding::Content`",
       "crates/ambition_platformer2d_actor_monolith/src/music/intent.rs: unresolved `super::drive_music_director`",
       "crates/ambition_platformer2d_actor_monolith/src/music/mod.rs: private `music -> intent`",
       "crates/ambition_platformer2d_actor_monolith/src/music/mod.rs: unresolved `MusicIntent`",
       "crates/ambition_platformer2d_actor_monolith/src/schedule/input_systems.rs: private `seat_input_participants_for_roster -> sources_for_channel`",
-      "crates/ambition_platformer2d_actor_monolith/src/session/reset/mod.rs: unresolved `Platformer2dSimulationPhaseMonolith::ResetProcessing`",
       "crates/ambition_platformer2d_actor_monolith/src/time/time_control/mod.rs: unresolved `crate::update_time_scale`",
       "crates/ambition_platformer2d_actor_monolith/src/time/world_time.rs: unresolved `refresh_world_time`",
       "crates/ambition_platformer2d_actor_monolith/src/world/gated_lock_walls.rs: private `prepare_authored_gate -> names_its_own_condition`",

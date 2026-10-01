@@ -1,6 +1,6 @@
 //! The catalog's row rules, stated once.
 //!
-//! [`findings`] walks a catalog and lists what each row must not do and which
+//! `findings` walks a catalog and lists what each row must not do and which
 //! named presets each row refers to. Two readers show the list:
 //! [`validate`], for the RON reader (`CharacterCatalogFragment::from_ron`),
 //! and the content schema, which turns each preset reference into a pack

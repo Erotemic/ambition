@@ -161,14 +161,15 @@ pub fn record_frame_system(
     mut buffer: ResMut<GameplayTraceBuffer>,
     boundary: Option<Res<ae::ConfirmedFrameBoundary>>,
     replay: Option<Res<ambition_platformer2d_shared_tangle::schedule::SimulationReplayState>>,
-    platform_set: Option<
-        ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<
-            ambition_platformer2d_world::collision::MovingPlatformSet,
-        >,
+    // The traced player's own live room (OW1): its platforms, its area and
+    // its walls. The sole live room's were read here, so while two rooms were
+    // live nothing was recorded.
+    platform_set: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomOf<
+        ambition_platformer2d_world::collision::MovingPlatformSet,
     >,
     slots: Res<ambition_characters::control::SlotControls>,
     world_time: Res<ambition_time::WorldTime>,
-    rooms: Option<ambition_platformer2d_world::rooms::SoleLiveRoomSpec>,
+    rooms: ambition_platformer2d_world::rooms::LiveRoomSpecs,
     mode: Res<State<ambition_platformer2d_shared_tangle::schedule::GameMode>>,
     // The composed collision read-API. `platform_set` stays a separate param:
     // the trace records the platform STATES themselves, which is a different
@@ -176,6 +177,7 @@ pub fn record_frame_system(
     collision: ambition_platformer2d_world::collision::CollisionWorld,
     mut player_q: Query<
         (
+            Entity,
             ae::BodyClusterQueryData,
             // The movement policy + its published projection (ADR 0024): the
             // locomotion label reads the model; the maneuver flags read facts.
@@ -206,7 +208,7 @@ pub fn record_frame_system(
     if teleported.read().next().is_some() {
         buffer.teleport_suppress_ticks = ambition_gameplay_trace::PORTAL_TELEPORT_SUPPRESS_FRAMES;
     }
-    let Ok((mut cluster_item, model, facts, player_health, safety, combat, melee, life)) =
+    let Ok((player, mut cluster_item, model, facts, player_health, safety, combat, melee, life)) =
         player_q.single_mut()
     else {
         return;
@@ -220,8 +222,8 @@ pub fn record_frame_system(
     // tick's smoothing has since moved to. `ClockState` is not read here.
     let real_dt = world_time.wall_dt();
     let active_area = rooms
-        .as_ref()
-        .map(|r| r.spec().id.clone())
+        .definition_of(player)
+        .map(|definition| rooms.rooms().spec(definition).id.clone())
         .unwrap_or_else(|| "<unknown>".into());
     let mode_label = format!("{:?}", mode.get());
     let hp_current = player_health.map_or(0, |h| h.health.current);
@@ -231,7 +233,10 @@ pub fn record_frame_system(
     let locomotion = locomotion_state.label().to_string();
     let body_mode = body_mode_state.label().to_string();
 
-    let Some(augmented_world) = collision.solids() else {
+    let room = platform_set
+        .room_of(player)
+        .map(ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance);
+    let Some(augmented_world) = collision.room(room.as_ref()).and_then(|room| room.solids()) else {
         return;
     };
 
@@ -262,7 +267,7 @@ pub fn record_frame_system(
         &world_time,
         &mode_label,
         &active_area,
-        platform_set.as_ref().map_or(&[][..], |platforms| &platforms.0[..]),
+        platform_set.of(player).map_or(&[][..], |platforms| &platforms.0[..]),
         &locomotion,
         &body_mode,
         (

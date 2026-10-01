@@ -1332,6 +1332,89 @@ mod tests {
         );
     }
 
+    /// A session in `app` with two live rooms: `hall` (#0, no mode) and
+    /// `stage` (#1, mode `fight`). The two live rooms are returned.
+    fn hall_and_fight_stage(app: &mut App) -> [ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance; 2] {
+        use ambition_platformer2d_shared_tangle::lifecycle::{
+            session_world_component, sole_live_room_component, LiveRoomInstance, RoomInstanceRoot, SessionRoot,
+            SessionScopeId,
+        };
+        use ambition_platformer2d_world::rooms::{seat_sole_live_room_by_id, RoomSet, RoomSpec};
+        let room = |id: &str, mode: Option<&str>| {
+            let mut room = RoomSpec::new(
+                id,
+                ambition_platformer2d_core::World::new(
+                    id,
+                    ambition_platformer2d_core::Vec2::splat(1000.0),
+                    ambition_platformer2d_core::Vec2::ZERO,
+                    Vec::new(),
+                ),
+            );
+            room.metadata.mode = mode.map(str::to_owned);
+            room
+        };
+        app.world_mut().spawn((
+            SessionRoot(SessionScopeId(1)),
+            RoomSet::from_parts_or_panic("hall", vec![room("hall", None), room("stage", Some("fight"))], Vec::new()),
+        ));
+        seat_sole_live_room_by_id(app.world_mut(), "hall").expect("the set holds the hall");
+        let hall = *sole_live_room_component::<LiveRoomInstance>(app.world()).expect("the hall is live");
+        let stage = session_world_component::<RoomSet>(app.world())
+            .and_then(|rooms| rooms.definition_by_id("stage"))
+            .expect("the set holds the stage");
+        app.world_mut().spawn((RoomInstanceRoot, hall.next(), stage));
+        [hall, hall.next()]
+    }
+
+    /// OW1: the prompt names controls and wears driven techniques by the
+    /// rules of the controlled subject's OWN live room. The `fight` game asks
+    /// for button names and drives a Spin Dash on the Special slot, in its own
+    /// rooms only. With the hall (#0) and the fight stage (#1) live, a subject
+    /// on the stage is told the buttons ("Attack", and "Special" for the
+    /// driven technique, named by its button too); the same subject in the
+    /// hall is told the move ("Swat") and has no Special slot. Before, the
+    /// prompt read THE live room, which with two rooms live is no room.
+    #[test]
+    fn the_prompt_follows_the_rules_of_the_subjects_own_live_room() {
+        use ambition_characters::action_scheme::DrivenTechniques;
+        use ambition_combat::scoped_rules::{DeclareRulesExt as _, RulesScope};
+        use ambition_entity_catalog::action_scheme::{ActionGate, ActionId, ActionSpec};
+        use ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance;
+
+        let labels = |room: usize| {
+            let mut app = app();
+            app.declare_rules(RulesScope::Mode("fight"), PromptNaming::ByButton);
+            app.declare_rules(
+                RulesScope::Mode("fight"),
+                DrivenTechniques(vec![ActionSpec {
+                    id: ActionId::new("spin_dash"),
+                    slot: ControlSlot::Special,
+                    display_name: Some("Spin Dash".to_owned()),
+                    visual: None,
+                    gate: ActionGate::Technique("spin_dash".to_owned()),
+                }]),
+            );
+            let live = hall_and_fight_stage(&mut app);
+            let body = app
+                .world_mut()
+                .spawn((PlayerEntity, PrimaryPlayer, authorities(true, Some("swat")), InRoomInstance(live[room])))
+                .id();
+            app.world_mut().resource_mut::<ControlledSubject>().0 = Some(body);
+            app.update();
+            let prompt = app.world().resource::<ControlPrompt>();
+            (
+                prompt.label_for(ControlSlot::Attack).map(str::to_owned),
+                prompt.label_for(ControlSlot::Special).map(str::to_owned),
+            )
+        };
+        assert_eq!(
+            labels(1),
+            (Some("Attack".to_owned()), Some("Special".to_owned())),
+            "(attack, special) on the fight stage, #1: not by the fight game's rules"
+        );
+        assert_eq!(labels(0), (Some("Swat".to_owned()), None), "(attack, special) in the hall, #0: by the fight game's rules");
+    }
+
     /// A sign names controls by action. The text gets the key the prompt
     /// binds to that action, and `?` for an action the prompt lacks or that
     /// nothing binds.

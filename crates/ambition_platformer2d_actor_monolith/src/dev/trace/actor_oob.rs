@@ -21,6 +21,7 @@ use ambition_gameplay_trace::ActorTraceBuffer;
 use ambition_gameplay_trace::ActorTraceFrame;
 use ambition_gameplay_trace::BodyTraceSnapshot;
 use ambition_gameplay_trace::CollisionTraceShape;
+use ambition_gameplay_trace::RoomTraceSnapshot;
 use ambition_platformer2d_shared_tangle::markers::PlayerEntity;
 
 fn body_kind(is_player: bool, faction: Option<&ActorFaction>) -> String {
@@ -61,68 +62,14 @@ pub fn body_snapshot(
         size: kin.size.into(),
         aabb: aabb.into(),
         facing: kin.facing,
+        room: None,
         oob,
     }
 }
 
-/// Records one [`ActorTraceFrame`] per Update tick: a snapshot of every body
-/// with a [`ae::BodyKinematics`], each classified for OOB against the same
-/// augmented world the player tick uses. Runs in `Platformer2dSimulationPhaseMonolith::Trace` (after
-/// `CoreSimulation`) so it captures resolved post-integration positions.
-#[allow(clippy::too_many_arguments)]
-pub fn record_actor_oob_frame_system(
-    mut buffer: ResMut<ActorTraceBuffer>,
-    boundary: Option<Res<ae::ConfirmedFrameBoundary>>,
-    world_time: Res<ambition_time::WorldTime>,
-    // The composed collision read-API rather than its three ingredients — a
-    // trace must see exactly the world the simulation collided against.
-    collision: ambition_platformer2d_world::collision::CollisionWorld,
-    rooms: Option<ambition_platformer2d_world::rooms::SoleLiveRoomSpec>,
-    mode: Res<State<ambition_platformer2d_shared_tangle::schedule::GameMode>>,
-    bodies_q: Query<(
-        Entity,
-        &ae::BodyKinematics,
-        Option<&ActorIdentity>,
-        Option<&ActorFaction>,
-        Has<PlayerEntity>,
-    )>,
-) {
-    let Some(augmented_world) = collision.solids() else {
-        return;
-    };
-    // A flight recorder wants wall-clock timing (so a dump reads in real
-    // seconds), plus the scaled dt so bullet-time / pause is visible in the
-    // trace. `WorldTime` exposes both — no `Res<Time>` discipline exception.
-    let real_dt = world_time.wall_dt();
-    let sim_dt = world_time.sim_dt();
-    let time_scale = world_time.time_scale();
-    let active_area = rooms
-        .as_ref()
-        .map(|r| r.spec().id.clone())
-        .unwrap_or_else(|| "<unknown>".into());
-    let mode_label = format!("{:?}", mode.get());
-
-    let mut bodies = Vec::new();
-    for (entity, kin, identity, faction, is_player) in &bodies_q {
-        let (id, name) = match identity {
-            Some(idn) => (idn.id.clone(), idn.name.clone()),
-            None if is_player => ("player".to_string(), "Player".to_string()),
-            None => (format!("entity-{}", entity.index()), "<body>".to_string()),
-        };
-        bodies.push(body_snapshot(
-            id,
-            name,
-            body_kind(is_player, faction),
-            *kin,
-            &augmented_world,
-            OOB_MARGIN,
-        ));
-    }
-
-    // The augmented world's solid geometry, so a dump is self-contained:
-    // cross-referenced with a body's pre-anomaly trajectory it shows the exact
-    // wall/floor it was jammed into before leaving bounds.
-    let solids: Vec<CollisionTraceShape> = augmented_world
+/// A live room's solid blocks, the dump's self-contained geometry.
+fn solid_shapes(world: &ae::World) -> Vec<CollisionTraceShape> {
+    world
         .blocks
         .iter()
         .filter(|b| matches!(b.kind, ae::BlockKind::Solid))
@@ -137,6 +84,94 @@ pub fn record_actor_oob_frame_system(
             aabb: b.aabb.into(),
             distance: 0.0,
         })
+        .collect()
+}
+
+/// Records one [`ActorTraceFrame`] per Update tick: a snapshot of every body
+/// with a [`ae::BodyKinematics`], each classified for OOB against the same
+/// augmented world the player tick uses, of the body's own live room (OW1).
+/// The frame holds each live room a body was in: its area, envelope and
+/// solids. A body whose room cannot be told (two rooms live, no stamp) is
+/// not recorded. Runs in `Platformer2dSimulationPhaseMonolith::Trace` (after
+/// `CoreSimulation`) so it captures resolved post-integration positions.
+#[allow(clippy::too_many_arguments)]
+pub fn record_actor_oob_frame_system(
+    mut buffer: ResMut<ActorTraceBuffer>,
+    boundary: Option<Res<ae::ConfirmedFrameBoundary>>,
+    world_time: Res<ambition_time::WorldTime>,
+    // The composed collision read-API rather than its three ingredients — a
+    // trace must see exactly the world the simulation collided against.
+    collision: ambition_platformer2d_world::collision::CollisionWorld,
+    rooms: ambition_platformer2d_world::rooms::LiveRoomSpecs,
+    mode: Res<State<ambition_platformer2d_shared_tangle::schedule::GameMode>>,
+    bodies_q: Query<(
+        Entity,
+        &ae::BodyKinematics,
+        Option<&ActorIdentity>,
+        Option<&ActorFaction>,
+        Has<PlayerEntity>,
+    )>,
+) {
+    // A flight recorder wants wall-clock timing (so a dump reads in real
+    // seconds), plus the scaled dt so bullet-time / pause is visible in the
+    // trace. `WorldTime` exposes both — no `Res<Time>` discipline exception.
+    let real_dt = world_time.wall_dt();
+    let sim_dt = world_time.sim_dt();
+    let time_scale = world_time.time_scale();
+    let mode_label = format!("{:?}", mode.get());
+
+    // Each live room's composed world, built once: (room, area, world).
+    let mut worlds: Vec<(Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>, String, Option<std::borrow::Cow<'_, ae::World>>)> = Vec::new();
+    let mut bodies = Vec::new();
+    for (entity, kin, identity, faction, is_player) in &bodies_q {
+        let room = rooms.live().of(entity);
+        let index = match worlds.iter().position(|(seen, ..)| *seen == room) {
+            Some(index) => index,
+            None => {
+                let world = collision
+                    .room(room.map(ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance).as_ref())
+                    .and_then(|room| room.solids());
+                let area = rooms
+                    .definition_named(room)
+                    .map(|definition| rooms.rooms().spec(definition).id.clone())
+                    .unwrap_or_else(|| "<unknown>".into());
+                worlds.push((room, area, world));
+                worlds.len() - 1
+            }
+        };
+        let Some(world) = worlds[index].2.as_deref() else {
+            continue;
+        };
+        let (id, name) = match identity {
+            Some(idn) => (idn.id.clone(), idn.name.clone()),
+            None if is_player => ("player".to_string(), "Player".to_string()),
+            None => (format!("entity-{}", entity.index()), "<body>".to_string()),
+        };
+        let mut snapshot = body_snapshot(id, name, body_kind(is_player, faction), *kin, world, OOB_MARGIN);
+        snapshot.room = room.map(|room| room.ordinal());
+        bodies.push(snapshot);
+    }
+    // No live room at all (nothing loaded): nothing to record, as before.
+    if bodies.is_empty() && collision.room(None).is_none() && worlds.is_empty() {
+        return;
+    }
+
+    // Each room's world envelope and solid geometry, so a dump is
+    // self-contained: cross-referenced with a body's pre-anomaly trajectory it
+    // shows the exact wall/floor it was jammed into before leaving bounds.
+    worlds.sort_by_key(|(room, ..)| *room);
+    let rooms: Vec<RoomTraceSnapshot> = worlds
+        .iter()
+        .filter_map(|(room, area, world)| {
+            let world = world.as_deref()?;
+            Some(RoomTraceSnapshot {
+                room: room.map(|room| room.ordinal()),
+                area: area.clone(),
+                world_size: world.size.into(),
+                world_spawn: world.spawn.into(),
+                solids: solid_shapes(world),
+            })
+        })
         .collect();
 
     let timeline = boundary.as_deref().copied();
@@ -149,11 +184,8 @@ pub fn record_actor_oob_frame_system(
         sim_dt,
         time_scale,
         game_mode: mode_label,
-        active_area,
-        world_size: augmented_world.size.into(),
-        world_spawn: augmented_world.spawn.into(),
         bodies,
-        solids,
+        rooms,
     };
     buffer.record(frame, timeline.map(|boundary| boundary.confirmed));
 }

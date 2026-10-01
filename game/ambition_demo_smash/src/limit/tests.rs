@@ -526,3 +526,77 @@ fn blocking_alone_can_fill_a_meter_the_clock_cannot() {
          meter — the check must still say so, or adding `on_block` has disabled it"
     );
 }
+
+/// OW1: each fighter's meter fills by the rule of its own live room.
+///
+/// A session with two live rooms: `hall` (#0, no mode) and `stage` (#1,
+/// mode `smash`). Smash declares its fill for its own rooms only. A seat on
+/// the stage gains half a point in one second (`per_second` 0.5); a seat in
+/// the hall gains nothing. Before, the fill read THE live room, which with
+/// two rooms live is no room, so no meter filled.
+#[test]
+fn a_meter_fills_by_the_rule_of_its_own_live_room() {
+    use ambition_platformer2d::combat::scoped_rules::{DeclareRulesExt as _, RulesScope};
+    use ambition_platformer2d::platformer::lifecycle::{
+        session_world_component, sole_live_room_component, InRoomInstance, LiveRoomInstance, RoomInstanceRoot,
+        SessionRoot, SessionScopeId,
+    };
+    use ambition_platformer2d::world::rooms::{seat_sole_live_room_by_id, RoomSet, RoomSpec};
+
+    let room = |id: &str, mode: Option<&str>| {
+        let mut room = RoomSpec::new(
+            id,
+            ambition_platformer2d::engine_core::World::new(
+                id,
+                ambition_platformer2d::engine_core::Vec2::new(320.0, 240.0),
+                ambition_platformer2d::engine_core::Vec2::new(16.0, 16.0),
+                Vec::new(),
+            ),
+        );
+        room.metadata.mode = mode.map(str::to_owned);
+        room
+    };
+    let mut app = App::new();
+    app.add_message::<ActorActionMessage>();
+    app.add_message::<ResolvedBodyHit>();
+    app.add_message::<BlockedBodyHit>();
+    app.insert_resource(ambition_platformer2d::time::WorldTime {
+        scaled_dt: 1.0 / 60.0,
+        raw_dt: 1.0 / 60.0,
+        ..Default::default()
+    });
+    app.declare_rules(RulesScope::Mode("smash"), SmashLimitFill(SMASH_LIMIT));
+    app.add_systems(Update, fill_limit_meters);
+    app.world_mut().spawn((
+        SessionRoot(SessionScopeId(1)),
+        RoomSet::from_parts_or_panic("hall", vec![room("hall", None), room("stage", Some("smash"))], Vec::new()),
+    ));
+    seat_sole_live_room_by_id(app.world_mut(), "hall").expect("the set holds the hall");
+    let hall = *sole_live_room_component::<LiveRoomInstance>(app.world()).expect("the hall is live");
+    let stage = session_world_component::<RoomSet>(app.world())
+        .and_then(|rooms| rooms.definition_by_id("stage"))
+        .expect("the set holds the stage");
+    app.world_mut().spawn((RoomInstanceRoot, hall.next(), stage));
+
+    let seat = |app: &mut App, room: LiveRoomInstance, index: usize| {
+        app.world_mut()
+            .spawn((
+                ambition_platformer2d::actor::MatchSeat(index),
+                bank(&[SMASH_LIMIT.declaration()]),
+                InRoomInstance(room),
+            ))
+            .id()
+    };
+    let in_hall = seat(&mut app, hall, 0);
+    let on_stage = seat(&mut app, hall.next(), 1);
+    for _ in 0..60 {
+        app.update();
+    }
+    let gained = |who| meter(&app, who);
+    assert!(
+        (gained(on_stage) - 0.5).abs() < 0.02,
+        "the seat on the stage (#1, smash) did not fill by Smash's rule: {}",
+        gained(on_stage)
+    );
+    assert_eq!(gained(in_hall), 0.0, "the seat in the hall (#0) filled by Smash's rule");
+}

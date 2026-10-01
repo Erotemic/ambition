@@ -774,7 +774,7 @@ fn a_movement_tuning_saved_while_the_game_runs_is_played() {
 fn launch_speed(sim: &mut ambition_sim_harness::Platformer2dSimHarness) -> f32 {
     use ambition_platformer2d::engine_core::BodyKinematics;
     use ambition_platformer2d::platformer::markers::PrimaryPlayerOnly;
-    let mut vertical = |sim: &mut ambition_sim_harness::Platformer2dSimHarness| {
+    let vertical = |sim: &mut ambition_sim_harness::Platformer2dSimHarness| {
         let world = sim.world_mut();
         let mut query = world.query_filtered::<&BodyKinematics, PrimaryPlayerOnly>();
         query.single(world).expect("the primary player").vel.y

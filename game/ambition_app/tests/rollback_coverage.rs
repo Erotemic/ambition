@@ -1138,6 +1138,10 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "composition data: the sealed admission, inserted at Plugin::finish or the first tick and replaced only by a developer reload's publication in the PreUpdate MechanicalEditSet chain (before RunGgrsSystems); never written by the simulation",
     ),
     (
+        "ambition_extension_host::ExtensionGeneration",
+        "generation metadata (D6): the declared modules as text, a section of the prepared content identity; written at declaration (Plugin::build) and at a reload's publication in the PreUpdate MechanicalEditSet chain, never by the simulation",
+    ),
+    (
         "ambition_extension_host::ExtensionSchedule",
         "composition data: the schedule label the host was added to; written at build only",
     ),

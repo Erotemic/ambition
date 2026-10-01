@@ -10,6 +10,10 @@
 //! | `technique_execution` | `CombatSet::ContentSpecials`, gameplay-gated | trigger `ambition.boss.special_cast` (boss domain); requests `ambition.projectiles.spawn` (projectile domain) and `ambition.combat.damage_box` (combat domain) |
 
 use ambition_extension_host::{ExtensionHostPlugin, ExtensionSet};
+
+/// The declared modules as canonical text: a section of the prepared content
+/// identity (D6). See `ambition_extension_host::ExtensionGeneration`.
+pub use ambition_extension_host::ExtensionGeneration;
 use ambition_extension_sdk::phases::TECHNIQUE_EXECUTION;
 use ambition_platformer2d_shared_tangle::schedule::{CombatSet, GameplayGated, SimScheduleExt};
 use bevy::prelude::*;
@@ -36,6 +40,8 @@ impl Plugin for ExtensionCompositionPlugin {
         ambition_boss_encounter::extension::install(app);
         ambition_projectiles::extension::install(app);
         ambition_combat::extension::install(app);
+        // After the damage box: the host lowers request ports in install order.
+        ambition_boss_encounter::extension::install_summons(app);
         #[cfg(feature = "wasm_modules")]
         load_developer_modules(app);
         #[cfg(not(feature = "wasm_modules"))]

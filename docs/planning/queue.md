@@ -1900,7 +1900,13 @@ and one real technique (the echo fan) running as a module in the shipped game.
 State and open parts: [I4](engine/fast-iteration-implementation.md#i4---small-procedural-sdk-and-one-native-semantic-reference).
 The same day, the loaded road: the module crate builds as a `.wasm` file in
 1.36 s and the same game binary runs it (`AMBITION_EXTENSION_MODULES`), and a
-rebuilt file is hot-reloaded through the mechanical-edit protocol. Next: I5.
+rebuilt file is hot-reloaded through the mechanical-edit protocol. Later the
+same day, every boss special became a module (eleven; the native systems are
+test-only references held to the modules on the linked and WASM roads), with
+three more ports (the boss's live room on the trigger, a boss summon, and a HELD
+damage box whose entity the combat domain owns), and D6's first cut (the
+declared modules are a section of the prepared content identity). Next: I5's
+session-scoped records and save eligibility.
 
 **Blocked by:** nothing.
 

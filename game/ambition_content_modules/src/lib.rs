@@ -10,10 +10,16 @@
 //! fast-iteration I4, not the no-relink loop: a change here still rebuilds the
 //! host. The same descriptors are what a loaded module will declare (I6/I7).
 
+pub mod apple_rain;
 pub mod echo_fan;
 pub mod eye_beam;
+pub mod gradient_cascade;
 pub mod gradient_nova;
+pub mod minima_trap;
 pub mod mode_collapse;
+pub mod overfit_volley;
+pub mod overflow_flood;
+pub mod saddle_point;
 pub mod seismic_stomp;
 mod strike;
 
@@ -23,10 +29,16 @@ pub const PROVIDER: &str = "ambition";
 /// Every module this crate provides.
 pub fn modules() -> Vec<ambition_extension_sdk::ModuleDescriptor> {
     vec![
+        apple_rain::module(),
         echo_fan::module(),
         eye_beam::module(),
+        gradient_cascade::module(),
         gradient_nova::module(),
+        minima_trap::module(),
         mode_collapse::module(),
+        overfit_volley::module(),
+        overflow_flood::module(),
+        saddle_point::module(),
         seismic_stomp::module(),
     ]
 }

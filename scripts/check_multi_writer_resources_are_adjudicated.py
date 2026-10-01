@@ -210,6 +210,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_extension_host/src/exec.rs",
     ),
     "ExtensionOutbox": (
+        "crates/ambition_boss_encounter/src/extension.rs",
         "crates/ambition_combat/src/extension.rs",
         "crates/ambition_extension_host/src/exec.rs",
         "crates/ambition_projectiles/src/extension.rs",
@@ -882,8 +883,10 @@ ADJUDICATED: dict[str, str] = {
         "`run_phase` only APPENDS requests that passed the host's checks, in "
         "`ExtensionSet::Invoke`; a request adapter only DRAINS its own port's "
         "items (`ExtensionOutbox::drain::<P>`: the projectile domain's "
-        "`lower_projectile_spawns` and the combat domain's `lower_damage_boxes`, "
-        "in `ExtensionSet::Lower`, chained after Invoke); a drain takes only "
+        "`lower_projectile_spawns`, the combat domain's `lower_damage_boxes` and "
+        "the boss domain's `lower_boss_summons`, in `ExtensionSet::Lower`, chained "
+        "after Invoke, and each in its own `ExtensionSet::LowerPort` set, ordered "
+        "by install order); a drain takes only "
         "its own port's items. Each port has exactly one adapter: admission refuses a second "
         "offer for a port in a phase (`Refusal::DuplicateOffer`)."
     ),

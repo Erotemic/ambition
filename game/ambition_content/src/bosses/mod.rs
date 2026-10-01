@@ -240,7 +240,6 @@ pub fn register_rollback_state(
         "ambition_content::bosses",
         "content.cut_rope_victory_npc",
     );
-    specials::register_rollback_state(registrar);
 }
 
 impl Plugin for AmbitionBossContentPlugin {

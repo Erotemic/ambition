@@ -1,4 +1,6 @@
-//! Overflow boundary flood boss-special Technique.
+//! The NATIVE overflow flood, kept as the reference trace of its procedural
+//! module (`ambition_content_modules::overflow_flood`). Test-only: the game
+//! runs the module. `module_parity_tests` holds the module to this system.
 
 use bevy::prelude::*;
 

@@ -1,16 +1,11 @@
-//! Boss special-attack Techniques — the content-owned systems that drive
-//! each named boss special. A Technique reads the boss's brain signal
-//! (`ActorActionMessage::Special`) + its per-boss temporal state, and emits
-//! generic `ambition_vfx::Effect`s for the engine to execute. The
-//! engine owns no boss-special behavior; it lives here.
+//! Boss special-attack Techniques. Every one is a procedural module now
+//! (`ambition_content_modules`): it reads the boss's trigger port and submits
+//! typed requests, and the engine owns no boss-special behaviour. The modules
+//! are declared here, by [`BossSpecialContentPlugin`].
 //!
-//! Each Technique's per-boss state component is content-owned too, attached to
-//! every boss via `register_required_components::<BossConfig, _>()` in
-//! [`super::AmbitionBossContentPlugin`] — so the machinery lib names no boss
-//! technique.
-//!
-//! Migrated from `ambition_platformer2d_actor_monolith::features::ecs::brain_effects` one Technique
-//! at a time. First: the Smirking Behemoth eye beam.
+//! Their old native systems are kept as test-only reference traces
+//! (`*_reference_tests.rs`), and `module_parity_tests` holds every module to
+//! them, on the linked and the WASM road.
 
 use bevy::prelude::*;
 
@@ -31,6 +26,7 @@ use bevy::prelude::*;
 ///
 /// Returns a map rather than a set because every caller needs the value, and a
 /// set makes the value unavailable at exactly the site that has to spend it.
+#[cfg(test)]
 pub(crate) fn actors_firing(
     messages: &mut MessageReader<ambition_characters::brain::ActorActionMessage>,
     key: &str,
@@ -51,119 +47,44 @@ pub(crate) fn actors_firing(
     firing
 }
 
-// The echo fan, the eye beam, the gradient nova, mode collapse and the
-// seismic stomp are procedural modules now
-// (`ambition_content_modules`). Their native systems are kept as test-only
-// reference traces, and `module_parity_tests` holds every module to them.
+#[cfg(test)]
+mod apple_rain_reference_tests;
 #[cfg(test)]
 mod echo_fan_reference_tests;
 #[cfg(test)]
 mod eye_beam_reference_tests;
 #[cfg(test)]
+mod gradient_cascade_reference_tests;
+#[cfg(test)]
 mod gradient_nova_reference_tests;
+#[cfg(test)]
+mod minima_trap_reference_tests;
 #[cfg(test)]
 mod mode_collapse_reference_tests;
 #[cfg(test)]
 mod module_parity_tests;
 #[cfg(test)]
+mod overfit_volley_reference_tests;
+#[cfg(test)]
+mod overflow_flood_reference_tests;
+#[cfg(test)]
+mod saddle_point_reference_tests;
+#[cfg(test)]
 mod seismic_stomp_reference_tests;
-mod gradient_sentinel;
-mod overflow_flood;
 
-// Curated re-export of each Technique's public surface: the per-boss state
-// component (attached via required components + snapshot-registered) and the
-// `spawn_*_from_special_messages` system. Nothing outside this module consumes
-// them today — the hub feeds this file's plugin (below) and `rollback::register`
-// — but they are the Techniques' genuine public API, so an explicit `pub use`
-// (not a glob) states it without re-globbing each submodule's private imports.
-pub use gradient_sentinel::{
-    spawn_apple_rain_from_special_messages, spawn_gradient_cascade_minions_from_special_messages,
-    spawn_minima_trap_from_special_messages, spawn_overfit_volley_from_special_messages,
-    spawn_saddle_point_from_special_messages, AppleRainSpawnState, GradientCascadeState,
-    MinimaTrapState, OverfitVolleyState, SaddlePointState,
-};
-pub use overflow_flood::{spawn_overflow_flood_from_special_messages, OverflowState};
-
-use ambition_boss_encounter::BossConfig;
 use ambition_extension_host::ExtensionAppExt;
-use ambition_platformer2d_shared_tangle::schedule::GameplayGated;
-use ambition_platformer2d_shared_tangle::schedule::CombatSet;
-use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 
-/// Installs the named per-boss special-attack Techniques as a single
-/// self-contained content domain unit.
-///
-/// It owns both halves of the boss-special wiring that the engine
-/// deliberately names nothing of:
-///
-/// 1. State attachment — each Technique's per-boss temporal state is
-///    attached to every boss (`BossConfig`) via required components, so a
-///    boss spawned anywhere carries the state its Technique needs.
-/// 2. Schedule — each Technique system runs in
-///    [`CombatSet::ContentSpecials`], the engine's combat extension slot.
-///    The slot's position in the combat chain (after the enemy-action
-///    consumers, before the effect/projectile executors that drain a
-///    Technique's `ProjectileSpawnRequest`/`EffectRequest` output) is configured
-///    by the app's `CombatSchedulePlugin`.
+/// Declares the boss-special modules. Their per-boss records live in the
+/// extension host's store (`extension.body_records`), so a boss carries no
+/// technique component and this crate registers no technique rollback state.
 ///
 /// Installed by [`super::AmbitionBossContentPlugin`].
-mod rollback;
-
-pub(super) fn register_rollback_state(
-    registrar: &mut impl ambition_platformer2d_core::snapshot::RollbackRegistrar,
-) {
-    rollback::register(registrar);
-}
-
 pub struct BossSpecialContentPlugin;
 
 impl Plugin for BossSpecialContentPlugin {
     fn build(&self, app: &mut App) {
-        let sim = app.sim_schedule();
-        // Per-boss Technique state, attached to every boss via required
-        // components (registered at plugin-build time, before any boss
-        // spawns). The machinery lib's spawn names no boss Technique.
-        app.register_required_components::<BossConfig, AppleRainSpawnState>();
-        app.register_required_components::<BossConfig, OverfitVolleyState>();
-        app.register_required_components::<BossConfig, MinimaTrapState>();
-        app.register_required_components::<BossConfig, SaddlePointState>();
-        app.register_required_components::<BossConfig, GradientCascadeState>();
-        app.register_required_components::<BossConfig, OverflowState>();
-
-        // The procedural techniques run on the extension host. Their strike
-        // records live in the host's store, so they have no components here.
         for module in ambition_content_modules::modules() {
             app.add_extension_module(module);
         }
-
-        // This content crate owns six rollback state types. Record their
-        // host-independent schema here; a rollback composition installs the same
-        // declarations through its backend registrar.
-        {
-            let mut registrar = ambition_platformer2d_runtime::rollback::SchemaRollbackRegistrar::new(app);
-            rollback::register(&mut registrar);
-        }
-
-        // The 6 native Technique systems, hung on the engine's combat extension
-        // slot. They read `ActorActionMessage::Special` and emit
-        // `ProjectileSpawnRequest`/`EffectRequest`; the slot ordering guarantees
-        // those land before the executors that drain them. Each only acts
-        // during live gameplay. Nested into two tuples to stay under
-        // Bevy's 20-element add_systems limit; the Techniques are mutually
-        // independent (disjoint per-boss state), so no inter-system order
-        // is imposed within the slot.
-        app.add_systems(
-            sim,
-            (
-                spawn_apple_rain_from_special_messages,
-                spawn_overfit_volley_from_special_messages,
-                spawn_overflow_flood_from_special_messages,
-                spawn_minima_trap_from_special_messages,
-                spawn_saddle_point_from_special_messages,
-                spawn_gradient_cascade_minions_from_special_messages,
-            )
-                .in_set(GameplayGated)
-                .in_set(CombatSet::ContentSpecials),
-        );
     }
 }

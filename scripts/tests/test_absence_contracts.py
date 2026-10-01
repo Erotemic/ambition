@@ -1135,10 +1135,14 @@ def test_the_wire_format_baseline_is_not_silently_empty():
     from check_absence_contracts import ROLLBACK_SCHEMA_BASELINE
 
     baseline = json.loads((REPO / ROLLBACK_SCHEMA_BASELINE).read_text())
-    assert len(baseline["peer_checksum_schema"]["rows"]) >= 140, (
+    # The floor came down from 140 at schema 285 (2026-10-01), not because of a
+    # truncation: the boss specials became extension modules (281-285) and their
+    # `content.*` rows went with their native systems, into the one
+    # `extension.body_records` row. 139 rows at 285.
+    assert len(baseline["peer_checksum_schema"]["rows"]) >= 130, (
         f"only {len(baseline['peer_checksum_schema']['rows'])} rows feed the "
-        "peer checksum in the baseline; there were 144 when this was written, so "
-        "the file has been truncated rather than the format having shrunk"
+        "peer checksum in the baseline; there were 139 at schema 285, so the "
+        "file has been truncated rather than the format having shrunk"
     )
     assert len(baseline["encoded_types"]) >= 130, (
         f"only {len(baseline['encoded_types'])} encoded types; there were 137 "

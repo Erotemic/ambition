@@ -566,3 +566,74 @@ fn an_idle_trigger_resets_a_reset_state_entry_without_calling_it() {
     step(&mut app);
     assert!(app.world().get::<BodyRecords>(fresh).is_none());
 }
+
+/// A request port per `N`, for the lowering-order test.
+struct Req<const N: u16>;
+impl<const N: u16> Port for Req<N> {
+    const KEY: PortKey = PortKey::new("test.req", N);
+    const ROLE: PortRole = PortRole::Request;
+    type Value = u32;
+    fn encode(v: &u32, out: &mut Vec<u8>) {
+        wire::put_u32(out, *v);
+    }
+    fn decode(r: &mut wire::WireReader<'_>) -> Result<u32, wire::WireError> {
+        r.u32()
+    }
+}
+
+/// The adapters that ran, in order. Every adapter writes it, so two of them
+/// with no order between them are an ambiguity.
+#[derive(Resource, Default)]
+struct LowerOrder(Vec<u16>);
+
+fn lower_req<const N: u16>(mut order: ResMut<LowerOrder>) {
+    order.0.push(N);
+}
+
+#[test]
+fn request_ports_are_lowered_in_the_order_they_were_installed() {
+    use bevy::ecs::schedule::{LogLevel, ScheduleBuildSettings};
+    for reversed in [false, true] {
+        let mut app = App::new();
+        app.init_schedule(Sim);
+        // Two adapters that write one message with no order between them
+        // fail the build here, instead of running in an order nobody chose.
+        app.edit_schedule(Sim, |s| {
+            s.set_build_settings(ScheduleBuildSettings {
+                ambiguity_detection: LogLevel::Error,
+                ..Default::default()
+            });
+        });
+        app.add_plugins(ExtensionHostPlugin::new(Sim))
+            .init_resource::<LowerOrder>()
+            .init_resource::<SimTick>()
+            .init_resource::<ambition_time::WorldTime>();
+        if reversed {
+            app.install_extension_request::<Req<3>, _>(PHASE, "test", lower_req::<3>)
+                .install_extension_request::<Req<2>, _>(PHASE, "test", lower_req::<2>)
+                .install_extension_request::<Req<1>, _>(PHASE, "test", lower_req::<1>);
+        } else {
+            app.install_extension_request::<Req<1>, _>(PHASE, "test", lower_req::<1>)
+                .install_extension_request::<Req<2>, _>(PHASE, "test", lower_req::<2>)
+                .install_extension_request::<Req<3>, _>(PHASE, "test", lower_req::<3>);
+        }
+        app.finish();
+        step(&mut app);
+        let expected = if reversed { vec![3, 2, 1] } else { vec![1, 2, 3] };
+        assert_eq!(app.world().resource::<LowerOrder>().0, expected);
+    }
+}
+
+#[test]
+fn the_generation_names_each_declared_module_in_declaration_order() {
+    let replacing = loaded_app(true, true);
+    let generation = &replacing.world().resource::<ExtensionGeneration>().0;
+    let lines: Vec<&str> = generation.lines().collect();
+    assert_eq!(lines.len(), 2, "{generation}");
+    assert!(lines[0].starts_with("module\ttest::counter\t") && lines[0].ends_with("replaces=false"), "{generation}");
+    assert!(lines[1].ends_with("replaces=true"), "{generation}");
+    // The control: a composition without the replacement is another generation.
+    let native_only = app().world().resource::<ExtensionGeneration>().0.clone();
+    assert_ne!(native_only, *generation);
+    assert_eq!(native_only, app().world().resource::<ExtensionGeneration>().0, "the text is deterministic");
+}

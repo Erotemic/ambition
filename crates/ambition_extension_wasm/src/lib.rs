@@ -160,6 +160,26 @@ impl ModuleBackend for WasmModules {
     }
 }
 
+/// The target a loaded module is built for.
+pub const WASM_TARGET: &str = "wasm32-unknown-unknown";
+
+/// True when the toolchain that builds `workspace_root` has the standard
+/// library for [`WASM_TARGET`]. Without it, cargo fails with "can't find crate
+/// for `core`", which does not say what to do.
+fn wasm_target_installed(workspace_root: &std::path::Path) -> bool {
+    let rustc = std::env::var("RUSTC").unwrap_or_else(|_| "rustc".to_owned());
+    let Ok(out) = std::process::Command::new(rustc)
+        .current_dir(workspace_root)
+        .args(["--print", "sysroot"])
+        .output()
+    else {
+        // Let cargo report it.
+        return true;
+    };
+    let sysroot = String::from_utf8_lossy(&out.stdout).trim().to_owned();
+    std::path::Path::new(&sysroot).join("lib").join("rustlib").join(WASM_TARGET).join("lib").is_dir()
+}
+
 /// Build a workspace module crate for `wasm32-unknown-unknown` and return the
 /// `.wasm` path. For tests and developer tools: it runs Cargo, so the engine
 /// never calls it.
@@ -169,6 +189,12 @@ impl ModuleBackend for WasmModules {
 pub fn build_module_crate(workspace_root: &std::path::Path, package: &str) -> Result<std::path::PathBuf, String> {
     let cargo = std::env::var("CARGO").unwrap_or_else(|_| "cargo".to_owned());
     let target_dir = workspace_root.join("target").join("extension-modules");
+    if !wasm_target_installed(workspace_root) {
+        return Err(format!(
+            "the rust target {WASM_TARGET} is not installed; \
+             run `rustup target add {WASM_TARGET}` (or scripts/setup/web_prereq.sh)"
+        ));
+    }
     let status = std::process::Command::new(cargo)
         .current_dir(workspace_root)
         .args([
@@ -177,7 +203,7 @@ pub fn build_module_crate(workspace_root: &std::path::Path, package: &str) -> Re
             "-p",
             package,
             "--target",
-            "wasm32-unknown-unknown",
+            WASM_TARGET,
             "--release",
             "--crate-type",
             "cdylib",
@@ -190,7 +216,7 @@ pub fn build_module_crate(workspace_root: &std::path::Path, package: &str) -> Re
         return Err(format!("cargo rustc for {package} failed: {status}"));
     }
     let wasm = target_dir
-        .join("wasm32-unknown-unknown")
+        .join(WASM_TARGET)
         .join("release")
         .join(format!("{package}.wasm"));
     wasm.exists()

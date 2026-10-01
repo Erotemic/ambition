@@ -330,18 +330,32 @@ host in the shipped game; I4 is not complete (see *Open* below).
 | --- | --- | --- |
 | SDK: descriptors, schemas, records, canonical digest, typed ports, `Invocation` | `crates/ambition_extension_sdk` (no dependencies) | its unit tests; policy `engine.ambition_extension_sdk-portable` |
 | Host: offers installed WITH their adapter, admission, serial order, staged writes, fault discard, body store | `crates/ambition_extension_host` | `ambition_extension_host` tests (refusals, order cycle, fault discard, missing observation) |
-| Trigger port `ambition.boss.special_cast` | values `crates/ambition_boss_special_port`; adapter `ambition_boss_encounter::extension` | card in the port crate's docs |
+| Trigger port `ambition.boss.special_cast` (v4: the boss's own live-room size) | values `crates/ambition_boss_special_port`; adapter `ambition_boss_encounter::extension` | card in the port crate's docs |
 | Request port `ambition.projectiles.spawn` | value `ambition_projectile_spec::ProjectileSpawnPort`; adapter `ambition_projectiles::extension` | card on `ProjectileSpawnPort` |
 | Request port `ambition.combat.damage_box` (the box's faction is its owner's EFFECTIVE faction, never the module's choice) | values `crates/ambition_combat_port`; adapter `ambition_combat::extension` | card in the port crate's docs |
+| Request port `ambition.boss.summon` (only a boss summons; the minion joins its encounter on the enemy side; the id is `<label>:<boss id>:<serial>`, the module gives label and serial) | values `ambition_boss_special_port::BossSummonPort`; adapter `ambition_boss_encounter::extension::install_summons` | card on `BossSummonPort`; its id and wire tests |
+| Request port `ambition.combat.held_damage_box` (a box that lives while the module re-submits its slot and generation each tick; the combat domain owns the entity, its record `combat.held_damage_boxes` is rollback state with mapped entities) — the I5 "module-owned entity" pattern without an entity in the module | values `ambition_combat_port::HeldDamageBoxPort`; adapter `ambition_combat::extension::lower_held_damage_boxes` | card on `HeldDamageBoxPort`; the saddle point's parity and sync-test arms |
+| Request ports of one phase are lowered in INSTALL order (`ExtensionSet::LowerPort`), so two adapters that write one domain message have an order someone chose | `ambition_extension_host` | `request_ports_are_lowered_in_the_order_they_were_installed` (ambiguity detection at `Error`; without the rule the build fails) |
 | Phase `technique_execution` → `CombatSet::ContentSpecials` | `ambition_platformer2d_runtime::extension_composition` | — |
-| Five boss techniques as modules: the echo fan, the eye beam, the gradient nova, mode collapse and the seismic stomp (`strike::{once, locked}` hold the shared strike rules) | `game/ambition_content_modules`; the native systems are test-only references | `specials::module_parity_tests` (tick-for-tick on the linked AND the WASM road, owner and move-use credit, telegraph locks; poisons "no strike reset", "drop the occurrence", "no telegraph lock" and "drop one loaded request" each fail it); `app_it::a_boss_special_runs_on_the_extension_host` (real brain press, plus a GGRS sync-test arm) |
+| Every boss technique is a module (eleven: apple rain, the echo fan, the eye beam, the gradient cascade, the gradient nova, the minima trap, mode collapse, the overfit volley, the overflow flood, the saddle point and the seismic stomp; `strike::{once, once_numbered, locked, locked_when}` hold the shared strike rules) | `game/ambition_content_modules`; the native systems are test-only references; `ambition_content` registers no technique rollback state | `specials::module_parity_tests` (tick-for-tick on the linked AND the WASM road: requests, effects AND live hitbox entities, owner and move-use credit, telegraph locks, gameplay `dt`, the boss's OWN live room and a boss whose room cannot be told; poisons "no strike reset", "drop the occurrence", "no telegraph lock", "drop one loaded request", "apple rain forgets its lane sequence", "the flood floods without a room", "the volley skips its first sample", "the strike number does not advance", "the crawler on the wrong side", "the saddle arm never turns" and "a held box is never released" each fail it); `app_it::a_boss_special_runs_on_the_extension_host` (real brain press; GGRS sync-test arms for the fan's latch AND the saddle point's held arm entity — unregistering `combat.held_damage_boxes` fails it with a checksum mismatch); `app_it::two_players_two_live_rooms` (apple rain and the flood in each boss's own room) |
 
 **Deliberate change:** the native fan aimed at its target's body only when the
 target was the player, and otherwise at the stored point. The trigger adapter
 aims at whatever body the boss tracks.
 
+**D6, first cut (2026-10-01):** the declared modules are a section of the
+prepared content identity (`extension.modules`, from
+`ambition_extension_host::ExtensionGeneration`: each module's key, code
+identity — a loaded module's is the digest of its exact bytes — and
+descriptor digest, in declaration order), on both preparation roads. Witness:
+`app_it::a_boss_special_runs_on_the_extension_host::the_prepared_content_identity_names_the_module_code_the_session_runs`
+(the linked and the loaded build are different generations). ⚠ A published
+local reload changes `ExtensionGeneration` but does not re-mint the running
+session's identity; a session whose timeline another owner holds refuses the
+reload, so a remote session keeps its generation.
+
 **Open:** a compile-fail witness that the SDK offers no engine-state setter;
-a module digest in `PreparedContentIdentity` (D6); the deterministic fault
+re-minting the identity on a local reload (D6); the deterministic fault
 policy (today a fault discards the invocation's output and is counted in
 `ExtensionFaults`; it does not stop the session); a second technique with an
 observation port; session-scoped records (refused at admission until I5).

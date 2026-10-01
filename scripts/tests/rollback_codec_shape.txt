@@ -1,6 +1,7 @@
 crates/ambition_body_seed/src/snapshot_impls.rs	4	2e6f348fcf28159a
 crates/ambition_boss_encounter/src/clusters.rs	4	28422666ea225fd2
 crates/ambition_characters/src/snapshot_impls.rs	301	0c108d9c8471eda6
+crates/ambition_combat/src/extension.rs	4	a6f9c44535332e26
 crates/ambition_combat/src/snapshot_impls.rs	76	a91cb34ae9aea31d
 crates/ambition_cutscene/src/lib.rs	39	38b7171f5925ebc8
 crates/ambition_encounter/src/snapshot_impls.rs	35	bb87c343bf3d9ffd
@@ -24,5 +25,4 @@ crates/ambition_sprite_sheet/src/snapshot_impls.rs	5	3569516e5b2d4dd8
 crates/ambition_time/src/snapshot_impls.rs	13	a068fc2eda212f3f
 game/ambition_content/src/bosses/fsm/conductor.rs	17	0551dd58ad332e98
 game/ambition_content/src/bosses/gnu_ton/conductor.rs	16	2729d5ecbf3287a0
-game/ambition_content/src/bosses/specials/rollback.rs	32	caf5e2819316dee5
 game/ambition_demo_twintrack/src/lib.rs	17	0cc0d2351e873b93

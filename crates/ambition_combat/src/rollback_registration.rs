@@ -52,6 +52,17 @@ where
         |volume| volume.owner,
     );
     registrar.rollback_map_entities::<crate::moveset::StrikeVolume>(OWNER, "map.strike_volume");
+    // The held-box adapter's record of which box each module slot holds. A
+    // rewind that lost it would spawn the box again on the replay.
+    registrar
+        .rollback_component_cursor::<crate::extension::HeldDamageBoxes>(
+            OWNER,
+            "combat.held_damage_boxes",
+        )
+        .rollback_map_entities::<crate::extension::HeldDamageBoxes>(
+            OWNER,
+            "map.combat.held_damage_boxes",
+        );
     // The authored order the arbitration reads. DERIVED rather than registered:
     // it is stamped from the move's own `(window, volume)` indices by the same
     // system that spawns the volume, so a rewind that restores `MovePlayback`

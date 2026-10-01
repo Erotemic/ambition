@@ -60,17 +60,25 @@ Start from `game/ambition_content_modules/src/eye_beam.rs`. A module is:
    discards everything the call staged.
 4. **Registration**: add it to `ambition_content_modules::modules()`.
 
-Shared rules live in `strike.rs` (`once`, `locked`). Declare
+Shared rules live in `strike.rs` (`once`, `once_numbered`, `locked`, `locked_when`). Declare
 `on_idle: IdlePolicy::ResetState` when an idle tick (no press, no telegraph)
-means "my strike is over": the host then skips the call.
+means "my strike is over": the host then skips the call. It resets ALL the
+entry's records, so a technique that keeps something across strikes (apple
+rain's lane sequence) declares `IdlePolicy::Invoke` and resets the rest
+itself.
+
+A technique that sizes itself by the room reads `BossCaster::room_size`: the
+boss's OWN live room. With two live rooms there is no "the" room.
 
 ## Ports a module can use today
 
 | port | role | values |
 |---|---|---|
-| `ambition.boss.special_cast` v3 | trigger | `ambition_boss_special_port::BossCaster` |
+| `ambition.boss.special_cast` v4 | trigger | `ambition_boss_special_port::BossCaster` |
 | `ambition.projectiles.spawn` v1 | request | `ambition_projectile_spec::ProjectileSpawn` |
 | `ambition.combat.damage_box` v1 | request | `ambition_combat_port::DamageBox` (its faction is the owner's) |
+| `ambition.combat.held_damage_box` v1 | request | `ambition_combat_port::HeldDamageBox` (held while re-submitted each tick; a new generation replaces it) |
+| `ambition.boss.summon` v1 | request | `ambition_boss_special_port::BossSummon` (a boss only; the minion joins its encounter) |
 
 A mechanic that needs another engine fact or action needs a new port: pure
 values in a leaf crate (SDK only), an adapter in the owning domain installed

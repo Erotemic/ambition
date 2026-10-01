@@ -566,8 +566,14 @@ about (`a_call_that_leaves_its_record_initial_stores_nothing`).
 
 **Open:** the deterministic fault
 policy (today a fault discards the invocation's output and is counted in
-`ExtensionFaults`; it does not stop the session); a second technique with an
-observation port. (Session-attached records landed with I5's first cut; see I5.)
+`ExtensionFaults`; it does not stop the session — and, reasoned from the code,
+not measured: `ExtensionFaults::record` has no replay gate, so under a rollback
+session a fault is counted again on each resimulated tick); a second technique
+with an observation port (no production observation port exists yet: every
+module reads its trigger. Mark/recall's mark, if it becomes a module, would be
+the first: its native system writes an instant `HitEvent` and a typed fx
+effect, and its beacon visual reads `PlayerMark`, so it needs about five new
+ports). (Session-attached records landed with I5's first cut; see I5.)
 
 **The loaded road (an I6/I7 first cut), 2026-10-01: a module edit no longer
 compiles the engine.** One backend, not the two-backend comparison I6 asks

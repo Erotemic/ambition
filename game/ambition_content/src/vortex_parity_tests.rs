@@ -272,3 +272,30 @@ fn the_vortex_wasm_build_opens_and_pulls_as_its_native_systems_did() {
         assert_eq!(w, n, "tick {tick}: the WASM build");
     }
 }
+
+/// OW: a well pulls only the bodies in its own live room (its caster's).
+/// Two bodies stand at the same place near the well, one in each of two live
+/// rooms. (The native well predates live rooms: the module road only.)
+#[test]
+fn a_well_pulls_only_the_bodies_in_its_own_live_room() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
+    let (mut app, casters) = world(Road::Module);
+    let ours = LiveRoomInstance::from_ordinal(1);
+    let theirs = LiveRoomInstance::ACTIVATION;
+    app.world_mut().spawn((RoomInstanceRoot, theirs));
+    app.world_mut().spawn((RoomInstanceRoot, ours));
+    app.world_mut().entity_mut(casters[0]).insert(InRoomInstance(ours));
+    let start = ae::Vec2::new(500.0, 300.0);
+    let in_ours = body(&mut app, "in_ours", start, ActorFaction::Enemy);
+    app.world_mut().entity_mut(in_ours).insert(InRoomInstance(ours));
+    let in_theirs = body(&mut app, "in_theirs", start, ActorFaction::Enemy);
+    app.world_mut().entity_mut(in_theirs).insert(InRoomInstance(theirs));
+    for tick in 0..20 {
+        app.world_mut().get_mut::<ActorControl>(casters[0]).unwrap().0.melee_pressed = tick == 0;
+        app.world_mut().run_schedule(Sim);
+        app.world_mut().resource_mut::<ambition_time::SimTick>().0 += 1;
+    }
+    let pos = |app: &App, e: Entity| app.world().get::<BodyKinematics>(e).unwrap().pos;
+    assert_ne!(pos(&app, in_ours), start, "the premise: the well pulled the body in its own room");
+    assert_eq!(pos(&app, in_theirs), start, "the well pulled a body in another live room");
+}

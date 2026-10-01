@@ -30,6 +30,16 @@ AMBITION_EXTENSION_MODULES=target/extension-modules/wasm32-unknown-unknown/relea
 scripts/build_extension_modules.sh          # the game reloads the file within ~20 frames
 ```
 
+Or leave a watcher running instead of the second build:
+
+```bash
+scripts/build_extension_modules.sh --watch  # rebuilds on every save; a failed build keeps the last good one
+```
+
+Measured on the agent machine, 2026-10-01: a one-constant edit to the
+shockwave, from save to rebuilt `.wasm`, **0.53 s** (0.30 s of build, the rest
+the watcher's half-second poll); the game's reload poll adds up to 20 frames.
+
 The log says `AMBITION_EXTENSION_MODULES: … provides [...]` at start and
 `… changed; reload proposed` / `extension modules reloaded` on a reload.
 

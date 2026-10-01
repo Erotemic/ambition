@@ -853,9 +853,10 @@ pub fn another_player_stays(
     let Some(participant) = participant else {
         return false;
     };
-    drivers.into_iter().any(|(entity, slot, room)| {
-        Some(entity) != subject && slot != participant && room == Some(departing)
-    })
+    // The claims on the room are the one rule (OW4): the same answer the
+    // `[census] rooms` instrument prints as the room's holders.
+    ambition_platformer2d_actor_monolith::rooms::claims_on(departing, drivers)
+        .any(|claim| Some(claim.body) != subject && claim.slot != participant)
 }
 
 /// The live room a crossing by participant `participant` into room `target`

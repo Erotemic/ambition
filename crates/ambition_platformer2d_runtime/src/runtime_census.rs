@@ -58,22 +58,64 @@ pub fn report_room_census(
         bevy::prelude::With<RoomInstanceRoot>,
     >,
     crossing: Option<Res<RoomTransitionLoadState>>,
+    // Who holds each live room live (OW4): the driven bodies and their slots.
+    drivers: Query<(
+        bevy::prelude::Entity,
+        &ambition_characters::control::DrivingParticipant,
+        Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
+    )>,
 ) {
     let Some(at) = census.due() else {
         return;
     };
+    let claims = ambition_platformer2d_actor_monolith::rooms::live_room_claims(
+        rooms.iter().map(|(live, ..)| *live),
+        drivers
+            .iter()
+            .map(|(body, driver, room)| (body, driver.0, room.map(|room| room.0))),
+    );
     let rows: Vec<_> = sessions
         .iter()
         .map(|(room_set, root)| (room_set, root, live_room_of(root, rooms.iter())))
         .collect();
     eprintln!(
-        "{}",
+        "{}{}",
         room_census_row(
             at,
             rows.into_iter(),
             crossing.as_deref().and_then(|state| state.active.as_ref()),
-        )
+        ),
+        room_holders_segment(&claims),
     );
+}
+
+/// ` holders=[#0:slot1 #1:slot0,slot1]`: each live room and the slots whose
+/// driven bodies hold it live, in room order. `-` is a live room nothing
+/// holds, which a crossing out of it would retire (OW4).
+///
+/// ⚠ DERIVED from [`live_room_claims`], which is the rule the crossing reads
+/// (`another_player_stays`). It is printed, never consulted.
+///
+/// [`live_room_claims`]: ambition_platformer2d_actor_monolith::rooms::live_room_claims
+pub fn room_holders_segment(
+    claims: &[(LiveRoomInstance, Vec<ambition_platformer2d_actor_monolith::rooms::RoomClaim>)],
+) -> String {
+    let rooms: Vec<String> = claims
+        .iter()
+        .map(|(room, claims)| {
+            let slots = if claims.is_empty() {
+                "-".to_string()
+            } else {
+                claims
+                    .iter()
+                    .map(|claim| format!("slot{}", claim.slot.0))
+                    .collect::<Vec<_>>()
+                    .join(",")
+            };
+            format!("{room}:{slots}")
+        })
+        .collect();
+    format!(" holders=[{}]", rooms.join(" "))
 }
 
 /// The live room of the session `root`, and the definition it instantiates,

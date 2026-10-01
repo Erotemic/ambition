@@ -1645,3 +1645,65 @@ fn the_traces_record_each_body_in_its_own_live_room() {
     let alice = actor.bodies.iter().find(|body| body.actor_id == "player").expect("Alice's body is traced");
     assert_eq!(alice.room, Some(hub.ordinal()), "Alice's body is not traced in the hub");
 }
+
+/// OW4: each live room names the owners that hold it live, by the rule the
+/// crossing uses to retire a room. Bob (slot 1) holds `switch_lab` (#0) and
+/// Alice (slot 0) holds the hub (#1). Alice walks back to #0: her claim on
+/// #1 is released with her, #1 retires, and #0 is held by both. Bob's claim
+/// on #0 stands at every sample: before the crossing, after it, and on each
+/// of the 30 ticks after it (the door walk itself hides its ticks). The
+/// census prints the same answer.
+#[test]
+fn a_departing_player_releases_only_their_own_claim() {
+    use ambition_platformer2d::actors::rooms::{live_room_claims_in, RoomClaim};
+    use ambition_platformer2d::characters::control::PlayerSlot;
+    let (mut sim, first) = alice_leaves_bob(Some(PlayerSlot(1)));
+    let (alice, bob) = {
+        let world = sim.world_mut();
+        let alice = world
+            .query_filtered::<bevy::prelude::Entity, bevy::prelude::With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>()
+            .single(world)
+            .expect("Alice's body is in the world");
+        let bob = world
+            .query::<(bevy::prelude::Entity, &ambition_platformer2d::combat::components::FeatureId)>()
+            .iter(world)
+            .find(|(_, feature)| feature.0 == BOB)
+            .map(|(entity, _)| entity)
+            .expect("Bob's body is in the world");
+        (alice, bob)
+    };
+    let hub = live_rooms(&mut sim).iter().find(|(_, id)| id == HUB).expect("the hub is live").0;
+    let bob_holds_first = |claims: &[(LiveRoomInstance, Vec<RoomClaim>)]| {
+        claims.iter().any(|(room, claims)| {
+            *room == first && claims.contains(&RoomClaim { slot: PlayerSlot(1), body: bob })
+        })
+    };
+    assert_eq!(
+        live_room_claims_in(sim.world_mut()),
+        vec![
+            (first, vec![RoomClaim { slot: PlayerSlot(1), body: bob }]),
+            (hub, vec![RoomClaim { slot: PlayerSlot(0), body: alice }]),
+        ],
+        "before Alice comes back: Bob holds #0 and Alice holds the hub"
+    );
+    assert_eq!(walk_through_the_door_to(&mut sim, ROOM), ROOM);
+    for tick in 0..30 {
+        let claims = live_room_claims_in(sim.world_mut());
+        assert!(bob_holds_first(&claims), "tick {tick} after the crossing: Bob's claim on #0 was released: {claims:?}");
+        sim.step(base());
+    }
+    let claims = live_room_claims_in(sim.world_mut());
+    assert_eq!(
+        claims,
+        vec![(
+            first,
+            vec![RoomClaim { slot: PlayerSlot(0), body: alice }, RoomClaim { slot: PlayerSlot(1), body: bob }],
+        )],
+        "after Alice comes back: the hub retired with her claim, and both hold #0"
+    );
+    assert_eq!(
+        ambition_platformer2d::runtime::runtime_census::room_holders_segment(&claims),
+        format!(" holders=[{first}:slot0,slot1]"),
+        "the census does not print the claims"
+    );
+}

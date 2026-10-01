@@ -242,7 +242,7 @@ These cuts refine A8 and existing owner work. They are not another global queue.
 | --- | --- | --- |
 | OW1 | Two instances of one room; audit selection/identity/query/teardown paths | Same local IDs, separate contacts/observations, no cross-despawn; one-instance profile remains one path. ⭐ **A LIVE ROOM HAS AN IDENTITY AS OF 2026-09-20**: `LiveRoomInstance` (`crates/ambition_platformer2d_world/src/rooms/instance.rs`), an ordinal of this session's room publications, minted by `apply_world_replacement` — the one road that seats a session in a published room — and rollback state (`root.live_room_instance`, schema v202). Witnessed on the shipped Mary-O lap: 1-1 → 1-2 → 1-3 → 1-1 returns to index 0 and reaches instance `#3`, so the room she comes back to is not the room she left. ⚠ It lives on the SESSION ROOT because that is where the one live room lives; two simultaneous instances move the carrier, not the ordinal. ⚠ And residency is still UNKEYED — `RoomScopedEntity` says an occurrence dies with *a* room, never with *which* — so the teardown sweep is the next thing OW1 has to key. ⭐ **OW1 HAS AN INSTRUMENT AS OF 2026-09-20**: `[census] rooms` prints every session root's `active` INDEX beside its authored id, plus the live crossing, so the moment an index stops identifying one live instance is visible rather than inferred. It is derived and read-only; it owns nothing. |
 | OW2 | Accepted body/custody transfer and prepare/publish between instances | Refused transfer retains state; successful transfer preserves identity and exactly one writer. ✅ **The accepted arm between live rooms is witnessed (2026-09-30)**: the crossing's publication re-stamps the crossing body and its custody closure (`InCustodyOf`: what it holds, rides or wears) into the room it enters, for an opened room and a join alike (`publish_pending_world_replacement`). `an_item_carried_out_of_a_room_another_player_holds_crosses_whole`: Bob holds `blink_run` (#0); Alice carries its authored item to `portal_bridge` (#1): one occurrence of its `SimId`, held, stamped #1, #0 still live; thrown down, it lies in #1; when Alice joins #0 again, it retires with #1 and #0 has no copy. Poison (only the body moves): the item stayed stamped #0, fell into #0's world, and outlived #1 as a stray in Bob's room. ✅ The refused arm with two live rooms (2026-09-30): `a_crossing_into_a_room_another_player_holds_joins_it` stages a join into a live room that is not there; it is refused as `StaleJoinedRoom`, both live rooms and their bodies stand, and nothing is minted (poison, the stale-join check removed: it published, and #0 was retired with both its bodies). The one-room refusal is `a_room_staged_for_a_stale_live_room_is_refused`. ⚠ Witnessed at the publication, not through a shipped crossing: the app has no road that makes a crossing stale while two rooms are live. |
-| OW3 | Dormant durable records and active-state handoff | Save/load and promotion preserve occurrences; active step excludes unrelated dormant records. ✅ **First slice (2026-10-01): a runtime mint left in a room that is not live is a dormant record**, kept by the save's minted rows while the occurrence ledger places it; see "OW3, first slice" below. ⚠ Not yet: the all-rows walks in the active step (`project_custody_onto_authored_occurrences`, `persist_occurrence_horizon_to_save`, the whole save in each snapshot), and the actor dispositions a retired room loses (an enemy's HP, a fight in progress). |
+| OW3 | Dormant durable records and active-state handoff | Save/load and promotion preserve occurrences; active step excludes unrelated dormant records. ✅ **First slice (2026-10-01): a runtime mint left in a room that is not live is a dormant record**, kept by the save's minted rows while the occurrence ledger places it, and a mint enters the ledger when it is minted, not when it is first carried; see "OW3, first slice" and "second slice" below. ⚠ Not yet: the all-rows walks in the active step (`project_custody_onto_authored_occurrences`, `persist_occurrence_horizon_to_save`, the whole save in each snapshot), and the actor dispositions a retired room loses (an enemy's HP, a fight in progress). |
 | OW4 | Owner-scoped interest/budget accounting and diagnostics | Cancellation/re-entry release only the right claims; supported absence does not freeze unrelated work |
 | OW5 | One concrete background mechanism requiring logical time | Deterministic events/reconstruction under replay and room return; no camera/device dependence |
 
@@ -1168,7 +1168,15 @@ resource for a crate that cannot see rooms) and the mode owners
 (`despawn_departed_mode_entities`, `follow_mode_owner_rooms`) still read THE
 live room. A mode owner is one entity for each mode, so its two-room meaning
 (which room it follows) is a design question. The hosted demos are one-room
-profiles today.
+profiles today. ⭐ **Decided 2026-10-01 (autonomous-decision-making): a mode
+owner belongs to one live room.** It holds one game in progress (Mary-O's
+flag and timer, Sanic's act), so two live rooms of one mode are two games in
+progress. The target is one owner per (mode, live room), born in the room
+it governs and retired with that room. Until that lands, the sweep and the
+follow read keyed facts: `despawn_departed_mode_entities` retires a
+mode-scoped entity only when no live room is governed by its mode, as
+`CurrentRoom::in_scope` does. `project_room_rule` stays a one-room
+projection whose readers move to `RulesOf`.
 
 ✅ **Cut 7l landed 2026-09-30: the portal gun fires in its own live room.**
 The shot step and the host-depth measure read the sole live room's
@@ -1412,9 +1420,22 @@ witnesses failed; with the parent rule on every row, the load witness
 failed after the file had the row; with the mirror on live mints only, all
 three failed and so did `a_gauntlet_left_in_a_room_is_rebuilt_when_the_room_is`.
 ⚠ The door witnesses cannot see the parent rule: the harness stages its
-boss as room content, so the rebuild plans the boss again. ⚠ A mint that
-nobody carried (a drop nobody picked up) has no ledger row and is still
-lost with its room.
+boss as room content, so the rebuild plans the boss again.
+
+✅ **OW3, second slice, landed 2026-10-01: a runtime mint that nobody
+carried is still where it fell.** The ledger admitted an occurrence only
+through custody ("an object nobody ever carried has no relocation to
+remember"). That is true for an authored object, whose record rebuilds it.
+It is false for a runtime mint, which no record describes: a boss's
+gauntlet left on the floor had no row and was gone when its room was live
+again. A runtime mint (`SpawnOrigin::Dynamic`) now enters the ledger where
+it lies, in the tick it appears (`AuthoredOccurrences::admit_mints`, fed by
+`record_placed_ground_items`). An id that already has a row keeps it.
+Witness: `a_gauntlet_nobody_carried_is_still_where_it_fell` (the boss dies
+in the hub, the gauntlet stays on the floor, the player walks to the shaft
+and back). Unit witness: `a_mint_enters_where_it_lies_and_a_known_id_keeps_its_row`.
+Poison (nothing admitted): the witness failed, and the hub was rebuilt
+without the gauntlet.
 
 ⚠ **`physics_spawn_debris_messages` is presentation, not simulation, and is
 not changed.** Its Avian debris bounces off static colliders that are

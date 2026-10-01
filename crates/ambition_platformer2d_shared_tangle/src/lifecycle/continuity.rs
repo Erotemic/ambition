@@ -277,6 +277,27 @@ impl AuthoredOccurrences {
         }
     }
 
+    /// Admit runtime mints lying in `room` that the ledger has no row for
+    /// (OW3).
+    ///
+    /// A runtime mint has no authored record, so when its room is not live
+    /// nothing else can say that it exists. It enters the ledger when it is
+    /// minted, not when it is first carried: a boss's dropped gauntlet that
+    /// nobody picked up is still lying in the arena when the arena is live
+    /// again. An id with a row of any kind is not touched: its row already
+    /// says what became of it, and a `Consumed` row is terminal.
+    ///
+    /// The caller decides what a runtime mint is (its provenance); the
+    /// ledger decides only that a mint enters with no earlier row.
+    pub fn admit_mints(&mut self, room: &str, mints: BTreeMap<SimId, Vec2>) {
+        for (sim_id, at) in mints {
+            self.rows.entry(sim_id).or_insert_with(|| OccurrenceWhereabouts::Placed {
+                room: room.to_string(),
+                at,
+            });
+        }
+    }
+
     /// State where the occurrences of one room are lying right now, and
     /// REFUSE any id this ledger does not already hold as a live occurrence.
     ///
@@ -288,8 +309,9 @@ impl AuthoredOccurrences {
     /// whole ledger with its pinned one; a New Game pins an empty one), or the
     /// [`OccurrenceWhereabouts::Consumed`] producer that does not exist yet.
     ///
-    /// ⛔ **AN OCCURRENCE ENTERS THIS LEDGER THROUGH CUSTODY AND NOWHERE
-    /// ELSE, and that rule is enforced HERE because it is the ledger's rule.**
+    /// ⛔ **AN OCCURRENCE ENTERS THIS LEDGER THROUGH CUSTODY, OR AS A RUNTIME
+    /// MINT THROUGH [`Self::admit_mints`], AND NOWHERE ELSE, and that rule is
+    /// enforced HERE because it is the ledger's rule.**
     /// A placement may be written only for an id whose current row is
     /// `InCustody` (it was in a hand and is being put down) or `Placed` (it is
     /// being republished where it already lies). `None` is refused because an
@@ -648,6 +670,28 @@ pub fn project_custody_onto_authored_occurrences(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A mint with no row enters where it lies; an id that has a row keeps it.
+    /// A row already says what became of the occurrence, and an admission
+    /// that wrote over it would move a carried mint back to the floor.
+    #[test]
+    fn a_mint_enters_where_it_lies_and_a_known_id_keeps_its_row() {
+        let new = SimId::placement("boss/drop/weapon");
+        let carried = SimId::placement("other/drop/weapon");
+        let mut ledger = AuthoredOccurrences::default();
+        ledger.republish_custody([carried.clone()].into_iter().collect());
+        ledger.admit_mints(
+            "arena",
+            [(new.clone(), Vec2::new(10.0, 20.0)), (carried.clone(), Vec2::new(30.0, 40.0))]
+                .into_iter()
+                .collect(),
+        );
+        assert_eq!(
+            ledger.whereabouts(&new),
+            Some(&OccurrenceWhereabouts::Placed { room: "arena".into(), at: Vec2::new(10.0, 20.0) }),
+        );
+        assert_eq!(ledger.whereabouts(&carried), Some(&OccurrenceWhereabouts::InCustody));
+    }
 
     /// ONE ROW, TWO ROOMS, TWO OPPOSITE ANSWERS — and both are asserted.
     ///

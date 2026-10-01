@@ -345,6 +345,27 @@ policy (today a fault discards the invocation's output and is counted in
 `ExtensionFaults`; it does not stop the session); a second technique with an
 observation port; session-scoped records (refused at admission until I5).
 
+**The loaded road (an I6/I7 first cut), 2026-10-01: a module edit no longer
+compiles the engine.** One backend, not the two-backend comparison I6 asks
+for; the choice is recorded below so M1 can overturn it with numbers.
+
+| Part | Where | Witness |
+| --- | --- | --- |
+| ABI `ambition-ext-1`: three exports, no imports, bytes in and out | `ambition_extension_sdk::{abi, wire}`; `export_modules!` | `ambition_extension_host` tests run a loaded module through the full wire in-process and compare it with its native build; an undeclared request from a loaded module faults |
+| Port codecs | `Port::{encode, decode}` on each port | the two port crates |
+| Host: loaded runner, output checked like native output, explicit replacement | `ambition_extension_host` (`DeclaredModule`, `ModuleBackend`, `Admitted::replaced`) | `a_loaded_module_replaces_a_native_one_only_when_it_says_so` |
+| WebAssembly backend: wasmi, `deterministic`, fuel, a new instance per call | `crates/ambition_extension_wasm` | refuses an importing module; a runaway entry runs out of fuel |
+| The developer road | `AMBITION_EXTENSION_MODULES` or `ExtensionModuleFiles`, runtime feature `wasm_modules` (the app enables it); `scripts/build_extension_modules.sh` | `app_it::a_boss_special_runs_on_the_extension_host::a_module_rebuilt_as_wasm_replaces_the_linked_one_in_the_same_game`; content `wasm_parity` (floats to 1e-3: the guest's `sin`/`atan2` differ in the last bit, measured) |
+
+**Measured (M0, this machine, 2026-10-01):** an edit to the echo fan to a
+loadable `.wasm` is **1.36 s** wall (`scripts/build_extension_modules.sh`,
+warm). Nothing in the engine compiles or links. The game must be restarted to
+pick the file up; hot reload is the next cut (I3c's route re-request).
+
+**Why wasmi first:** deterministic by construction (NaN canonicalization,
+fuel instead of a clock), pure Rust, builds for every shipped target. Its
+cost per call (a new instance each time) is unmeasured; M1 owns it.
+
 **Class:** DO. **Requires:** the execution contract; does not wait for a VM.
 Read actual boss special producers, domain request types, combat_schedule,
 SimId/session ownership and RollbackRegistrar. Use one EchoFan-like technique as

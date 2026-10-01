@@ -1397,6 +1397,11 @@ MODULE_ALLOWLISTS: list[dict] = [
             "capture",
             "character",
             "engine",
+            # ⭐ PROCEDURAL EXTENSIONS ARE AN SDK CONCEPT, added 2026-10-01 when
+            # the harness took the loaded-module option (`ExtensionModuleFiles`).
+            # The facade module gathers the host, the SDK and the WASM backend
+            # under one engine concept, so the harness names no crate.
+            "extension",
             "item",
             # ⭐ WHAT AN OBSERVER READS IS AN SDK CONCEPT, added 2026-08-30 when
             # the harness took the combat observation in. It is NOT a crate

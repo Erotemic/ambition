@@ -445,6 +445,27 @@ pub use ambition_platformer2d_host as host;
 #[cfg(feature = "ambition_platformer2d_ldtk")]
 pub use ambition_platformer2d_ldtk as ldtk_map;
 pub use ambition_platformer2d_runtime as runtime;
+
+/// Procedural extensions: a game's own algorithms with their own rollback
+/// state, run by the engine's extension host (fast-iteration I4) and, with
+/// the `wasm_modules` feature, loaded from `.wasm` files so a module edit
+/// does not rebuild the engine (I6/I7).
+///
+/// [`sdk`] is what a module is written against. The rest is what a game or a
+/// tool composes with: declaring modules, naming module files to load, and
+/// reading what the host admitted.
+pub mod extension {
+    pub use ambition_extension_host::{
+        AdmittedExtensions, DeclaredModule, EntryRunner, ExtensionAppExt, ExtensionFaults,
+        ModuleBackend, ModuleCode,
+    };
+    pub use ambition_extension_sdk as sdk;
+    #[cfg(feature = "wasm_modules")]
+    pub use ambition_extension_wasm::{build_module_crate, LoadError, WasmModules};
+    pub use ambition_platformer2d_runtime::extension_composition::{
+        ExtensionModuleFiles, EXTENSION_MODULES_VAR,
+    };
+}
 pub use ambition_platformer2d_shared_tangle as platformer;
 #[cfg(feature = "ambition_portal2d")]
 pub use ambition_portal2d as portal;

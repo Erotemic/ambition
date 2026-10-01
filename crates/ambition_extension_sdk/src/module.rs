@@ -36,6 +36,10 @@ pub enum CodeIdentity {
     /// build. A change to it rebuilds the host, so this is NOT the no-relink
     /// procedural loop; it is the native semantic reference (I4).
     StaticNative { crate_name: Name, version: Name },
+    /// A loaded executable: its ABI name and the digest of its exact bytes.
+    /// A guest says `Loaded` with digest 0; the host that loads the bytes
+    /// fills the digest in.
+    Loaded { abi: Name, digest: u64 },
 }
 
 /// A public semantic phase, for example `technique_execution`. A phase is a
@@ -87,6 +91,16 @@ impl Default for Limits {
 /// The function an entry runs. The in-process Rust binding calls it directly.
 pub type EntryFn = fn(&mut Invocation<'_>) -> Result<(), Fault>;
 
+/// Where an entry's code is.
+#[derive(Clone, Copy, Debug)]
+pub enum EntryCode {
+    /// A Rust function in this process.
+    Native(EntryFn),
+    /// Entry number `index` of a loaded module. The host's backend for that
+    /// module runs it; the descriptor alone cannot.
+    Loaded { index: u32 },
+}
+
 /// One entry point of a module.
 #[derive(Clone, Debug)]
 pub struct EntryDescriptor {
@@ -104,7 +118,7 @@ pub struct EntryDescriptor {
     /// same phase. Admission refuses a cycle.
     pub after: Vec<Name>,
     pub limits: Limits,
-    pub run: EntryFn,
+    pub run: EntryCode,
 }
 
 /// The complete declaration of a module.
@@ -137,6 +151,9 @@ impl ModuleDescriptor {
             } => {
                 d.u8(1).str(crate_name).str(version);
             }
+            CodeIdentity::Loaded { abi, digest } => {
+                d.u8(2).str(abi).u64(*digest);
+            }
         }
         d.u32(self.schemas.len() as u32);
         for schema in &self.schemas {
@@ -165,5 +182,106 @@ impl ModuleDescriptor {
             d.u32(entry.limits.max_requests);
         }
         d.finish()
+    }
+}
+
+impl ModuleDescriptor {
+    /// The descriptor on the wire. Entry code is not encoded: a decoded
+    /// descriptor's entries are `EntryCode::Loaded` in declaration order.
+    pub fn put(&self, out: &mut Vec<u8>) {
+        use crate::wire::*;
+        put_str(out, &self.key.provider);
+        put_str(out, &self.key.key);
+        put_u16(out, self.api.major);
+        put_u16(out, self.api.minor);
+        put_u32(out, self.schemas.len() as u32);
+        for schema in &self.schemas {
+            schema.put(out);
+        }
+        put_u32(out, self.entries.len() as u32);
+        for entry in &self.entries {
+            put_str(out, &entry.key);
+            put_str(out, &entry.phase.0);
+            entry.trigger.port.put(out);
+            put_str(out, &entry.trigger.selector);
+            for list in [&entry.reads, &entry.requests] {
+                put_u32(out, list.len() as u32);
+                for port in list {
+                    port.put(out);
+                }
+            }
+            put_u32(out, entry.writes.len() as u32);
+            for key in &entry.writes {
+                key.put(out);
+            }
+            put_u32(out, entry.after.len() as u32);
+            for after in &entry.after {
+                put_str(out, after);
+            }
+            put_u32(out, entry.limits.max_requests);
+        }
+    }
+
+    /// Decode a descriptor that a loaded module published. Its code identity
+    /// is `Loaded` with digest 0 until the host fills it in.
+    pub fn read(r: &mut crate::wire::Reader<'_>, abi: &'static str) -> Result<Self, crate::wire::WireError> {
+        let key = ModuleKey {
+            provider: r.str()?.to_owned().into(),
+            key: r.str()?.to_owned().into(),
+        };
+        let api = ApiVersion {
+            major: r.u16()?,
+            minor: r.u16()?,
+        };
+        let n = r.read_len()?;
+        let schemas = (0..n)
+            .map(|_| StateSchema::read(r))
+            .collect::<Result<Vec<_>, _>>()?;
+        let n = r.read_len()?;
+        let mut entries = Vec::with_capacity(n.min(256));
+        for index in 0..n {
+            let key: Name = r.str()?.to_owned().into();
+            let phase = Phase(r.str()?.to_owned().into());
+            let port = PortKey::read(r)?;
+            let selector: Name = r.str()?.to_owned().into();
+            let mut lists = [Vec::new(), Vec::new()];
+            for list in &mut lists {
+                let m = r.read_len()?;
+                *list = (0..m).map(|_| PortKey::read(r)).collect::<Result<_, _>>()?;
+            }
+            let [reads, requests] = lists;
+            let m = r.read_len()?;
+            let writes = (0..m).map(|_| SchemaKey::read(r)).collect::<Result<_, _>>()?;
+            let m = r.read_len()?;
+            let after = (0..m)
+                .map(|_| r.str().map(|s| Name::from(s.to_owned())))
+                .collect::<Result<_, _>>()?;
+            let limits = Limits {
+                max_requests: r.u32()?,
+            };
+            entries.push(EntryDescriptor {
+                key,
+                phase,
+                trigger: TriggerBinding { port, selector },
+                reads,
+                writes,
+                requests,
+                after,
+                limits,
+                run: EntryCode::Loaded {
+                    index: index as u32,
+                },
+            });
+        }
+        Ok(Self {
+            key,
+            api,
+            code: CodeIdentity::Loaded {
+                abi: Name::Borrowed(abi),
+                digest: 0,
+            },
+            schemas,
+            entries,
+        })
     }
 }

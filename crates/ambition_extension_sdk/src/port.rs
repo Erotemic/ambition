@@ -23,6 +23,20 @@ impl PortKey {
     }
 }
 
+impl PortKey {
+    pub fn put(&self, out: &mut Vec<u8>) {
+        crate::wire::put_str(out, &self.name);
+        crate::wire::put_u16(out, self.version);
+    }
+
+    pub fn read(r: &mut crate::wire::Reader<'_>) -> Result<Self, crate::wire::WireError> {
+        Ok(Self {
+            name: r.str()?.to_owned().into(),
+            version: r.u16()?,
+        })
+    }
+}
+
 impl std::fmt::Display for PortKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}@{}", self.name, self.version)
@@ -50,4 +64,36 @@ pub trait Port: 'static {
     const KEY: PortKey;
     const ROLE: PortRole;
     type Value: 'static + Send + Sync;
+
+    /// The value's wire encoding (see [`crate::wire`]). A loaded module and
+    /// the host exchange these bytes; the encoding is part of the port's
+    /// version.
+    fn encode(value: &Self::Value, out: &mut Vec<u8>);
+
+    /// The inverse of [`Port::encode`]. It must read exactly the bytes
+    /// `encode` wrote.
+    fn decode(r: &mut crate::wire::Reader<'_>) -> Result<Self::Value, crate::wire::WireError>;
 }
+
+/// Encode a type-erased value of port `P`. The host and the guest glue keep
+/// one of these beside each value whose type they no longer name.
+pub fn encode_erased<P: Port>(value: &(dyn std::any::Any + Send + Sync), out: &mut Vec<u8>) {
+    let value = value
+        .downcast_ref::<P::Value>()
+        .unwrap_or_else(|| panic!("a value stored under port {} is not its type", P::KEY));
+    P::encode(value, out);
+}
+
+/// Decode and box a value of port `P`.
+pub fn decode_erased<P: Port>(
+    bytes: &[u8],
+) -> Result<Box<dyn std::any::Any + Send + Sync>, crate::wire::WireError> {
+    crate::wire::decode_all(bytes, P::decode).map(|v| Box::new(v) as Box<_>)
+}
+
+/// A type-erased encoder for one port's values.
+pub type EncodeFn = fn(&(dyn std::any::Any + Send + Sync), &mut Vec<u8>);
+
+/// A type-erased decoder for one port's values.
+pub type DecodeFn =
+    fn(&[u8]) -> Result<Box<dyn std::any::Any + Send + Sync>, crate::wire::WireError>;

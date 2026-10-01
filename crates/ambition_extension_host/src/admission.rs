@@ -7,12 +7,74 @@
 //! [`crate::ExtensionHostPlugin`]).
 
 use std::collections::{BTreeMap, HashMap};
+use std::sync::Arc;
 
 use ambition_extension_sdk::digest::Digest;
 use ambition_extension_sdk::{
-    ApiVersion, Attachment, EntryDescriptor, ModuleDescriptor, ModuleKey, Phase, PortKey,
-    PortRole, SaveEligibility, SchemaKey, StateSchema,
+    ApiVersion, Attachment, EntryCode, EntryDescriptor, EntryFn, ModuleDescriptor, ModuleKey,
+    Phase, PortKey, PortRole, SaveEligibility, SchemaKey, StateSchema,
 };
+
+/// The code of a loaded module file: something that runs entry `entry` of
+/// module `module` from `ambition-ext-1` input bytes and returns output bytes.
+/// An `Err` is a deterministic fault of that invocation (a trap, fuel run
+/// out), never a reason to skip it on one peer.
+pub trait ModuleBackend: Send + Sync + 'static {
+    fn invoke(&self, module: u32, entry: u32, input: &[u8]) -> Result<Vec<u8>, String>;
+}
+
+/// Where a declared module's code is.
+#[derive(Clone)]
+pub enum ModuleCode {
+    /// Rust functions in this process (`EntryCode::Native`).
+    Native,
+    /// Module number `module` of a loaded file.
+    Loaded {
+        backend: Arc<dyn ModuleBackend>,
+        module: u32,
+    },
+}
+
+/// One module as a composition declares it.
+#[derive(Clone)]
+pub struct DeclaredModule {
+    pub descriptor: ModuleDescriptor,
+    pub code: ModuleCode,
+    /// True when this module explicitly REPLACES a module with the same key
+    /// (a developer's loaded build of a module the game also links). Without
+    /// it, two modules with one key refuse.
+    pub replaces: bool,
+}
+
+impl From<ModuleDescriptor> for DeclaredModule {
+    fn from(descriptor: ModuleDescriptor) -> Self {
+        Self {
+            descriptor,
+            code: ModuleCode::Native,
+            replaces: false,
+        }
+    }
+}
+
+/// How the host runs one admitted entry.
+#[derive(Clone)]
+pub enum EntryRunner {
+    Native(EntryFn),
+    Loaded {
+        backend: Arc<dyn ModuleBackend>,
+        module: u32,
+        entry: u32,
+    },
+}
+
+impl std::fmt::Debug for EntryRunner {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Native(_) => f.write_str("Native"),
+            Self::Loaded { module, entry, .. } => write!(f, "Loaded({module}, {entry})"),
+        }
+    }
+}
 
 /// One installed port. The only way to make an offer is the install function
 /// that also adds the adapter that answers it.
@@ -81,6 +143,9 @@ pub enum Refusal {
     },
     /// Two adapters answer one port in one phase.
     DuplicateOffer(PortKey),
+    /// The entry's code is not where its module's code is (a loaded entry in
+    /// a native module, or the reverse).
+    NoCode { entry: String },
 }
 
 impl std::fmt::Display for Refusal {
@@ -96,6 +161,7 @@ pub struct AdmittedEntry {
     /// `provider::module/entry`.
     pub path: String,
     pub descriptor: EntryDescriptor,
+    pub runner: EntryRunner,
 }
 
 /// One admitted schema with its shape digest.
@@ -117,6 +183,8 @@ pub struct Admitted {
     /// The identity of the admitted set: every module's descriptor digest and
     /// every offer. A changed composition gives a different digest.
     pub digest: u64,
+    /// Modules replaced by an explicit replacement, as `replaced -> by`.
+    pub replaced: Vec<String>,
 }
 
 impl Admitted {
@@ -140,9 +208,10 @@ impl Admitted {
 pub fn admit(
     host_api: ApiVersion,
     offers: &[PortOffer],
-    modules: &[ModuleDescriptor],
+    declared: &[DeclaredModule],
 ) -> Result<Admitted, Vec<Refusal>> {
     let mut refusals = Vec::new();
+    let (declared, replaced) = resolve_replacements(declared, &mut refusals);
     let mut schemas: BTreeMap<SchemaKey, AdmittedSchema> = BTreeMap::new();
     let mut entries: Vec<AdmittedEntry> = Vec::new();
     let mut seen_modules: Vec<&ModuleKey> = Vec::new();
@@ -156,7 +225,8 @@ pub fn admit(
         }
     }
 
-    for module in modules {
+    for declared_module in &declared {
+        let module = &declared_module.descriptor;
         if seen_modules.contains(&&module.key) {
             refusals.push(Refusal::DuplicateModule(module.key.clone()));
             continue;
@@ -210,10 +280,25 @@ pub fn admit(
                     });
                 }
             }
+            let runner = match (&declared_module.code, entry.run) {
+                (ModuleCode::Native, EntryCode::Native(run)) => EntryRunner::Native(run),
+                (ModuleCode::Loaded { backend, module }, EntryCode::Loaded { index }) => {
+                    EntryRunner::Loaded {
+                        backend: backend.clone(),
+                        module: *module,
+                        entry: index,
+                    }
+                }
+                _ => {
+                    refusals.push(Refusal::NoCode { entry: path });
+                    continue;
+                }
+            };
             entries.push(AdmittedEntry {
                 module: module.key.clone(),
                 path,
                 descriptor: entry.clone(),
+                runner,
             });
         }
     }
@@ -232,9 +317,9 @@ pub fn admit(
 
     let mut d = Digest::new();
     d.u16(host_api.major).u16(host_api.minor);
-    d.u32(modules.len() as u32);
-    for module in modules {
-        d.u64(module.identity_digest());
+    d.u32(declared.len() as u32);
+    for module in &declared {
+        d.u64(module.descriptor.identity_digest());
     }
     d.u32(offers.len() as u32);
     for offer in offers {
@@ -249,7 +334,39 @@ pub fn admit(
         schemas,
         offers: offers.to_vec(),
         digest: d.finish(),
+        replaced,
     })
+}
+
+/// Apply explicit replacements: where several modules share a key and
+/// exactly one says `replaces`, that one stays. Every other shared key stays
+/// a duplicate for the main loop to refuse.
+fn resolve_replacements(
+    declared: &[DeclaredModule],
+    refusals: &mut Vec<Refusal>,
+) -> (Vec<DeclaredModule>, Vec<String>) {
+    let mut kept: Vec<DeclaredModule> = Vec::new();
+    let mut replaced = Vec::new();
+    for module in declared {
+        let key = &module.descriptor.key;
+        let same: Vec<&DeclaredModule> = declared.iter().filter(|m| m.descriptor.key == *key).collect();
+        let replacers = same.iter().filter(|m| m.replaces).count();
+        if same.len() == 1 || replacers == 0 {
+            kept.push(module.clone());
+        } else if replacers > 1 {
+            if !refusals.contains(&Refusal::DuplicateModule(key.clone())) {
+                refusals.push(Refusal::DuplicateModule(key.clone()));
+            }
+        } else if module.replaces {
+            replaced.push(format!(
+                "{key}: {:?} -> {:?}",
+                same.iter().find(|m| !m.replaces).map(|m| &m.descriptor.code),
+                module.descriptor.code
+            ));
+            kept.push(module.clone());
+        }
+    }
+    (kept, replaced)
 }
 
 fn role_code(role: PortRole) -> u8 {

@@ -156,7 +156,7 @@ mod tests {
 
 /// The module on the extension host emits the same projectile requests, with
 /// the same owner and move-use credit, as this native system, tick for tick.
-mod module_parity {
+pub(super) mod module_parity {
     use std::collections::BTreeMap;
 
     use ambition_boss_encounter::{BossClusterScratch, BossConfig};
@@ -173,14 +173,33 @@ mod module_parity {
     struct Sim;
 
     /// One tick of input: which boss presses `echo_fan`, with which move use.
-    type Presses = &'static [(usize, Option<u32>)];
+    pub(super) type Presses = &'static [(usize, Option<u32>)];
 
     struct World0 {
         app: App,
         bosses: Vec<Entity>,
     }
 
-    fn world(native: bool) -> World0 {
+    #[derive(Clone, Copy, PartialEq)]
+    pub(super) enum Road {
+        /// The old native system: the reference.
+        NativeSystem,
+        /// The module, linked into this process.
+        Module,
+        /// The module built for `wasm32-unknown-unknown` and run in wasmi.
+        Wasm,
+    }
+
+    fn wasm_echo_fan() -> (std::sync::Arc<ambition_extension_wasm::WasmModules>, Vec<ambition_extension_sdk::ModuleDescriptor>) {
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let path = ambition_extension_wasm::build_module_crate(&root, "ambition_content_modules")
+            .expect("the module crate builds for wasm32-unknown-unknown");
+        let bytes = std::fs::read(path).unwrap();
+        ambition_extension_wasm::WasmModules::load(&bytes).expect("the module file loads")
+    }
+
+    fn world(road: Road) -> World0 {
+        let native = road == Road::NativeSystem;
         let mut app = App::new();
         app.init_schedule(Sim);
         app.add_message::<ActorActionMessage>()
@@ -193,7 +212,12 @@ mod module_parity {
             app.add_plugins(ExtensionHostPlugin::new(Sim));
             ambition_boss_encounter::extension::install(&mut app);
             ambition_projectiles::extension::install(&mut app);
-            app.add_extension_module(ambition_content_modules::echo_fan::module());
+            if road == Road::Wasm {
+                let (backend, modules) = wasm_echo_fan();
+                app.add_loaded_extension_modules(backend, modules, false);
+            } else {
+                app.add_extension_module(ambition_content_modules::echo_fan::module());
+            }
             app.finish();
         }
         let catalog = crate::bosses::authored_boss_catalog();
@@ -259,8 +283,8 @@ mod module_parity {
     }
 
     /// Each tick's requests, grouped by owner in emission order.
-    fn run(native: bool, ticks: &[Presses], kill_boss_0_at: Option<usize>) -> Vec<BTreeMap<usize, Vec<String>>> {
-        let World0 { mut app, bosses } = world(native);
+    pub(super) fn run(road: Road, ticks: &[Presses], kill_boss_0_at: Option<usize>) -> Vec<BTreeMap<usize, Vec<String>>> {
+        let World0 { mut app, bosses } = world(road);
         let mut trace = Vec::new();
         for (tick, presses) in ticks.iter().enumerate() {
             if kill_boss_0_at == Some(tick) {
@@ -296,7 +320,7 @@ mod module_parity {
         trace
     }
 
-    const STRIKES: &[Presses] = &[
+    pub(super) const STRIKES: &[Presses] = &[
         &[],
         // A strike over three ticks fires once, on its first tick.
         &[(0, Some(4))],
@@ -314,8 +338,8 @@ mod module_parity {
 
     #[test]
     fn the_module_emits_what_the_native_system_emitted() {
-        let native = run(true, STRIKES, None);
-        let module = run(false, STRIKES, None);
+        let native = run(Road::NativeSystem, STRIKES, None);
+        let module = run(Road::Module, STRIKES, None);
         let fired: usize = native.iter().map(|t| t.values().map(Vec::len).sum::<usize>()).sum();
         // ⭐ The premise: the reference must fire, or the comparison is empty.
         // Strikes begin on ticks 1, 5 (two bosses), 6, 7 (boss 1 again: tick 6
@@ -329,10 +353,71 @@ mod module_parity {
         let ticks: &[Presses] = &[&[(0, None)], &[(0, None)], &[(0, None)], &[], &[(0, None)]];
         // Boss 0 starts a strike alive (fires), dies on tick 1 mid-strike,
         // and its next strike on tick 4 is a dead one: neither fires again.
-        let native = run(true, ticks, Some(1));
-        let module = run(false, ticks, Some(1));
+        let native = run(Road::NativeSystem, ticks, Some(1));
+        let module = run(Road::Module, ticks, Some(1));
         let fans: Vec<usize> = native.iter().map(|t| t.len()).collect();
         assert_eq!(fans, [1, 0, 0, 0, 0], "the native reference's fans by tick");
         assert_eq!(module, native);
     }
+}
+
+/// The same module, built as a `.wasm` file and run by the interpreter,
+/// emits what the native system emitted: the no-relink road (I6/I7) changes
+/// where the code runs, not what it does.
+mod wasm_parity {
+    #[test]
+    fn the_wasm_build_of_the_module_emits_what_the_native_system_emitted() {
+        use super::module_parity::*;
+        let native = run(Road::NativeSystem, STRIKES, None);
+        let wasm = run(Road::Wasm, STRIKES, None);
+        assert!(native.iter().any(|t| !t.is_empty()), "the premise: the reference fired");
+        // ⚠ NOT BIT-EQUAL, AND THAT IS EXPECTED: the guest's `sin`, `cos` and
+        // `atan2` are its own compiled code, so one shot's velocity differs in
+        // the last f32 bit (measured: -130.4897 against -130.48969). Every
+        // number is compared to 1e-3 and everything else exactly: owner, move
+        // use, count, order, damage, lifetime, size.
+        assert_eq!(super::quantize(&wasm), super::quantize(&native));
+
+    }
+}
+
+/// Each trace with every float rounded to 1e-3, so two executables whose
+/// transcendentals differ in the last bit compare equal and nothing else does.
+fn quantize(trace: &[std::collections::BTreeMap<usize, Vec<String>>]) -> Vec<std::collections::BTreeMap<usize, Vec<String>>> {
+    let float = regex_lite_float;
+    trace
+        .iter()
+        .map(|tick| tick.iter().map(|(b, shots)| (*b, shots.iter().map(|s| float(s)).collect())).collect())
+        .collect()
+}
+
+/// Replace every decimal literal `-?\d+\.\d+` with the same value at three
+/// places.
+fn regex_lite_float(s: &str) -> String {
+    let bytes = s.as_bytes();
+    let mut out = String::with_capacity(s.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        let start = i;
+        let neg = bytes[i] == b'-' && i + 1 < bytes.len() && bytes[i + 1].is_ascii_digit();
+        let mut j = if neg { i + 1 } else { i };
+        if j < bytes.len() && bytes[j].is_ascii_digit() && (start == 0 || !(bytes[start - 1].is_ascii_alphanumeric() || bytes[start - 1] == b'_')) {
+            while j < bytes.len() && bytes[j].is_ascii_digit() {
+                j += 1;
+            }
+            if j + 1 < bytes.len() && bytes[j] == b'.' && bytes[j + 1].is_ascii_digit() {
+                j += 1;
+                while j < bytes.len() && bytes[j].is_ascii_digit() {
+                    j += 1;
+                }
+                let v: f64 = s[start..j].parse().unwrap();
+                out.push_str(&format!("{:.3}", v));
+                i = j;
+                continue;
+            }
+        }
+        out.push(bytes[i] as char);
+        i += 1;
+    }
+    out
 }

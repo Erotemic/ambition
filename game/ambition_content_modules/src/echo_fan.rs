@@ -11,7 +11,7 @@
 
 use ambition_boss_special_port::{BossCaster, BossSpecialCast};
 use ambition_extension_sdk::{
-    phases::TECHNIQUE_EXECUTION, Attachment, CodeIdentity, EntryDescriptor, Fault, FieldDecl,
+    phases::TECHNIQUE_EXECUTION, Attachment, CodeIdentity, EntryCode, EntryDescriptor, Fault, FieldDecl,
     FieldKind, FieldRef, Invocation, Limits, ModuleDescriptor, ModuleKey, Port, SaveEligibility,
     SchemaKey, StateSchema, TriggerBinding, Value, API_VERSION,
 };
@@ -64,7 +64,7 @@ pub fn module() -> ModuleDescriptor {
             limits: Limits {
                 max_requests: COUNT,
             },
-            run: fire,
+            run: EntryCode::Native(fire),
         }],
     }
 }

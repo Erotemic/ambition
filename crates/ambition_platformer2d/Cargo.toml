@@ -123,6 +123,10 @@ static_map = ["ambition_platformer2d_actor_monolith/static_map"]
 static_core_assets = ["ambition_platformer2d_actor_monolith/static_core_assets"]
 static_sfx_bank = ["ambition_platformer2d_actor_monolith/static_sfx_bank"]
 ldtk_runtime = ["ambition_platformer2d_actor_monolith/ldtk_runtime"]
+# Load procedural modules from `.wasm` files at startup, so a module edit
+# rebuilds the module and not the engine. Off by default: see the runtime's
+# feature of the same name.
+wasm_modules = ["ambition_platformer2d_runtime/wasm_modules", "dep:ambition_extension_wasm"]
 physics_debris = ["ambition_platformer2d_actor_monolith/physics_debris"]
 frame_pacing = ["ambition_platformer2d_actor_monolith/frame_pacing"]
 profile = ["ambition_platformer2d_actor_monolith/profile"]
@@ -163,6 +167,11 @@ basic_shell_presentation = [
 ]
 
 [dependencies]
+# The `extension` namespace: the procedural extension host and SDK the runtime
+# already composes, named as one engine concept rather than as crate paths.
+ambition_extension_host = { path = "../ambition_extension_host" }
+ambition_extension_sdk = { path = "../ambition_extension_sdk" }
+ambition_extension_wasm = { path = "../ambition_extension_wasm", optional = true }
 ambition_damage = { path = "../ambition_damage" }
 ambition_mount = { path = "../ambition_mount" }
 ambition_platformer2d_actor_spawn = { path = "../ambition_platformer2d_actor_spawn" }

@@ -1142,8 +1142,8 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "composition data: the schedule label the host was added to; written at build only",
     ),
     (
-        "ambition_extension_host::exec::ObservationSuppliers",
-        "composition data: the installed observation projections, frozen at admission",
+        "ambition_extension_host::exec::InstalledPortCodecs",
+        "composition data: the installed observation projections and request decoders, frozen at admission",
     ),
     (
         "ambition_extension_host::exec::ExtensionInvocations",

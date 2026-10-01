@@ -560,6 +560,8 @@ dependencies = [
  "ambition_encounter",
  "ambition_encounter_features",
  "ambition_entity_catalog",
+ "ambition_extension_host",
+ "ambition_extension_sdk",
  "ambition_game_shell",
  "ambition_gameplay_trace",
  "ambition_held_items",

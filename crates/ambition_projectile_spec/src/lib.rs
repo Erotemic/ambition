@@ -72,4 +72,40 @@ impl ambition_extension_sdk::Port for ProjectileSpawnPort {
         ambition_extension_sdk::PortKey::new("ambition.projectiles.spawn", 1);
     const ROLE: ambition_extension_sdk::PortRole = ambition_extension_sdk::PortRole::Request;
     type Value = ProjectileSpawn;
+
+    fn encode(v: &ProjectileSpawn, out: &mut Vec<u8>) {
+        use ambition_extension_sdk::wire::*;
+        put_vec2(out, v.origin.into());
+        put_vec2(out, v.dir.into());
+        put_f32(out, v.speed);
+        put_i32(out, v.damage);
+        put_f32(out, v.max_lifetime);
+        put_vec2(out, v.half_extent.into());
+        put_f32(out, v.gravity);
+        put_str(out, &v.visual_id);
+        put_u8(out, v.bounces);
+        put_bool(out, v.bounce_on_world_contact);
+        put_opt(out, v.boomerang_return_s, put_f32);
+        put_f32(out, v.splash_half_extent);
+    }
+
+    fn decode(
+        r: &mut ambition_extension_sdk::wire::Reader<'_>,
+    ) -> Result<ProjectileSpawn, ambition_extension_sdk::wire::WireError> {
+        use ambition_extension_sdk::wire::Reader;
+        Ok(ProjectileSpawn {
+            origin: r.vec2()?.into(),
+            dir: r.vec2()?.into(),
+            speed: r.f32()?,
+            damage: r.i32()?,
+            max_lifetime: r.f32()?,
+            half_extent: r.vec2()?.into(),
+            gravity: r.f32()?,
+            visual_id: r.str()?.to_owned(),
+            bounces: r.u8()?,
+            bounce_on_world_contact: r.bool()?,
+            boomerang_return_s: r.opt(Reader::f32)?,
+            splash_half_extent: r.f32()?,
+        })
+    }
 }

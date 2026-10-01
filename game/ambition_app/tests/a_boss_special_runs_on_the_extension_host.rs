@@ -124,3 +124,40 @@ fn a_rollback_replays_the_fan_and_its_strike_latch() {
     );
     assert_eq!(first_error, None, "the sync-test session stayed healthy");
 }
+
+/// ⭐ THE NO-RELINK ROAD, IN THE ASSEMBLED GAME. The module crate is built for
+/// `wasm32-unknown-unknown` (only the module and its port values compile), the
+/// same game binary loads it, and the echo fan fires from the file: the
+/// admitted entry is the loaded one, and the fight still fires one fan of
+/// seven per strike.
+#[test]
+fn a_module_rebuilt_as_wasm_replaces_the_linked_one_in_the_same_game() {
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let wasm = ambition_platformer2d::extension::build_module_crate(&root, "ambition_content_modules")
+        .expect("the module crate builds for wasm32-unknown-unknown");
+    let mut sim = Platformer2dSimHarness::new_with_options(
+        Platformer2dSimHarnessOptions::default()
+            .with_timestep(TimestepMode::fixed_60hz())
+            .with_extension_module_files(vec![wasm]),
+    )
+    .expect("the sandbox builds with the loaded module");
+    let admitted = sim
+        .world()
+        .resource::<ambition_platformer2d::extension::AdmittedExtensions>()
+        .0
+        .clone();
+    let fan = admitted
+        .entries
+        .iter()
+        .find(|e| e.path == "ambition::echo_fan/fire")
+        .expect("the echo fan is admitted");
+    assert!(
+        matches!(fan.runner, ambition_platformer2d::extension::EntryRunner::Loaded { .. }),
+        "the loaded build replaced the linked one: {:?}",
+        fan.runner
+    );
+    assert_eq!(admitted.replaced.len(), 1, "{:?}", admitted.replaced);
+    let bursts = fight(&mut sim, TWO_STRIKES, |_| {});
+    assert!(bursts.len() >= 2, "{bursts:?}");
+    assert!(bursts.iter().all(|&n| n == FAN), "{bursts:?}");
+}

@@ -2,11 +2,13 @@
 //! that persists on the body, and the discard of a faulted invocation.
 
 use super::*;
+use std::sync::Arc;
 use ambition_extension_sdk::{
     ApiVersion, Attachment, CodeIdentity, EntryDescriptor, Fault, FieldDecl, FieldKind, FieldRef,
     Invocation, Limits, ModuleDescriptor, ModuleKey, Phase, PortKey, SaveEligibility, SchemaKey,
     StateSchema, TriggerBinding, Value,
 };
+use ambition_extension_sdk::{wire, EntryCode};
 use ambition_time::SimTick;
 use bevy::ecs::schedule::ScheduleLabel;
 
@@ -20,6 +22,12 @@ impl Port for Poke {
     const KEY: PortKey = PortKey::new("test.poke", 1);
     const ROLE: PortRole = PortRole::Trigger;
     type Value = u32;
+    fn encode(v: &u32, out: &mut Vec<u8>) {
+        wire::put_u32(out, *v);
+    }
+    fn decode(r: &mut wire::Reader<'_>) -> Result<u32, wire::WireError> {
+        r.u32()
+    }
 }
 
 struct Height;
@@ -27,6 +35,12 @@ impl Port for Height {
     const KEY: PortKey = PortKey::new("test.height", 1);
     const ROLE: PortRole = PortRole::Observation;
     type Value = f32;
+    fn encode(v: &f32, out: &mut Vec<u8>) {
+        wire::put_f32(out, *v);
+    }
+    fn decode(r: &mut wire::Reader<'_>) -> Result<f32, wire::WireError> {
+        r.f32()
+    }
 }
 
 struct Emit;
@@ -34,6 +48,14 @@ impl Port for Emit {
     const KEY: PortKey = PortKey::new("test.emit", 1);
     const ROLE: PortRole = PortRole::Request;
     type Value = (u32, u32, f32);
+    fn encode(v: &(u32, u32, f32), out: &mut Vec<u8>) {
+        wire::put_u32(out, v.0);
+        wire::put_u32(out, v.1);
+        wire::put_f32(out, v.2);
+    }
+    fn decode(r: &mut wire::Reader<'_>) -> Result<(u32, u32, f32), wire::WireError> {
+        Ok((r.u32()?, r.u32()?, r.f32()?))
+    }
 }
 
 #[derive(Component)]
@@ -43,7 +65,10 @@ struct Tall(f32);
 struct Poked(u32);
 
 #[derive(Resource, Default)]
-struct Lowered(Vec<(Entity, Option<u32>, (u32, u32, f32))>);
+struct Lowered(Vec<LoweredEmit>);
+
+/// (body, move use, (poke, count, height)).
+type LoweredEmit = (Entity, Option<u32>, (u32, u32, f32));
 
 const COUNTER: SchemaKey = SchemaKey::new("test", "counter", 1);
 const COUNT: FieldRef = FieldRef(0);
@@ -84,7 +109,7 @@ fn entry(key: &'static str, after: Vec<&'static str>) -> EntryDescriptor {
         requests: vec![Emit::KEY],
         after: after.into_iter().map(Into::into).collect(),
         limits: Limits { max_requests: 1 },
-        run: count_and_emit,
+        run: EntryCode::Native(count_and_emit),
     }
 }
 
@@ -126,7 +151,7 @@ fn offers() -> Vec<PortOffer> {
 
 #[test]
 fn a_complete_composition_is_admitted() {
-    let admitted = admit(API_VERSION, &offers(), &[module(vec![entry("a", vec![])])]).unwrap();
+    let admitted = admit(API_VERSION, &offers(), &[DeclaredModule::from(module(vec![entry("a", vec![])]))]).unwrap();
     assert_eq!(admitted.entries.len(), 1);
     assert!(admitted.wants(&Poke::KEY, "go"));
     assert!(!admitted.wants(&Poke::KEY, "stop"));
@@ -138,7 +163,7 @@ fn a_port_the_composition_did_not_install_refuses_the_module() {
     // with a submit that nothing answers.
     let mut offers = offers();
     offers.retain(|o| o.key != Emit::KEY);
-    let refusals = admit(API_VERSION, &offers, &[module(vec![entry("a", vec![])])]).unwrap_err();
+    let refusals = admit(API_VERSION, &offers, &[DeclaredModule::from(module(vec![entry("a", vec![])]))]).unwrap_err();
     assert_eq!(
         refusals,
         vec![Refusal::MissingPort {
@@ -154,7 +179,7 @@ fn a_port_the_composition_did_not_install_refuses_the_module() {
 fn a_port_installed_in_another_phase_does_not_count() {
     let mut offers = offers();
     offers[2].phase = Phase::new("later");
-    assert!(admit(API_VERSION, &offers, &[module(vec![entry("a", vec![])])]).is_err());
+    assert!(admit(API_VERSION, &offers, &[DeclaredModule::from(module(vec![entry("a", vec![])]))]).is_err());
 }
 
 #[test]
@@ -163,11 +188,11 @@ fn an_order_cycle_is_refused_and_an_order_is_obeyed() {
         entry("a", vec!["test::counter/b"]),
         entry("b", vec!["test::counter/a"]),
     ]);
-    let refusals = admit(API_VERSION, &offers(), &[cycle]).unwrap_err();
+    let refusals = admit(API_VERSION, &offers(), &[DeclaredModule::from(cycle)]).unwrap_err();
     assert!(matches!(refusals[0], Refusal::OrderCycle { .. }));
 
     let ordered = module(vec![entry("a", vec!["test::counter/b"]), entry("b", vec![])]);
-    let admitted = admit(API_VERSION, &offers(), &[ordered]).unwrap();
+    let admitted = admit(API_VERSION, &offers(), &[DeclaredModule::from(ordered)]).unwrap();
     let paths: Vec<&str> = admitted.entries.iter().map(|e| e.path.as_str()).collect();
     assert_eq!(paths, ["test::counter/b", "test::counter/a"]);
 }
@@ -181,7 +206,7 @@ fn a_policy_without_a_host_road_is_refused() {
         let mut m = module(vec![entry("a", vec![])]);
         m.schemas[0].attachment = attachment;
         m.schemas[0].save = save;
-        let refusals = admit(API_VERSION, &offers(), &[m]).unwrap_err();
+        let refusals = admit(API_VERSION, &offers(), &[DeclaredModule::from(m)]).unwrap_err();
         assert!(matches!(refusals[0], Refusal::UnsupportedPolicy { .. }));
     }
 }
@@ -194,14 +219,14 @@ fn a_newer_minor_api_and_a_foreign_schema_are_refused() {
         minor: API_VERSION.minor + 1,
     };
     assert!(matches!(
-        admit(API_VERSION, &offers(), &[newer]).unwrap_err()[0],
+        admit(API_VERSION, &offers(), &[DeclaredModule::from(newer)]).unwrap_err()[0],
         Refusal::ApiVersion { .. }
     ));
 
     let mut foreign = module(vec![]);
     foreign.schemas[0].key = SchemaKey::new("someone_else", "counter", 1);
     assert!(matches!(
-        admit(API_VERSION, &offers(), &[foreign]).unwrap_err()[0],
+        admit(API_VERSION, &offers(), &[DeclaredModule::from(foreign)]).unwrap_err()[0],
         Refusal::ForeignSchema { .. }
     ));
 }
@@ -209,8 +234,8 @@ fn a_newer_minor_api_and_a_foreign_schema_are_refused() {
 #[test]
 fn the_admitted_digest_follows_the_composition() {
     let m = || module(vec![entry("a", vec![])]);
-    let one = admit(API_VERSION, &offers(), &[m()]).unwrap().digest;
-    let same = admit(API_VERSION, &offers(), &[m()]).unwrap().digest;
+    let one = admit(API_VERSION, &offers(), &[DeclaredModule::from(m())]).unwrap().digest;
+    let same = admit(API_VERSION, &offers(), &[DeclaredModule::from(m())]).unwrap().digest;
     assert_eq!(one, same);
     let mut moved = offers();
     moved.push(PortOffer {
@@ -219,7 +244,7 @@ fn the_admitted_digest_follows_the_composition() {
         phase: PHASE,
         owner: "test",
     });
-    assert_ne!(one, admit(API_VERSION, &moved, &[m()]).unwrap().digest);
+    assert_ne!(one, admit(API_VERSION, &moved, &[DeclaredModule::from(m())]).unwrap().digest);
 }
 
 fn collect_pokes(mut invocations: ResMut<ExtensionInvocations>, bodies: Query<(Entity, &Poked)>) {
@@ -337,4 +362,111 @@ fn a_hand_driven_app_is_admitted_on_its_first_tick_and_a_second_finish_is_harmle
     app.finish();
     step(&mut app);
     assert_eq!(app.world().resource::<Lowered>().0.len(), 2);
+}
+
+/// The guest half of `ambition-ext-1`, run in this process: the same bytes a
+/// WebAssembly module would receive and return, without an interpreter.
+struct InProcess(Vec<ModuleDescriptor>);
+
+impl ModuleBackend for InProcess {
+    fn invoke(&self, module: u32, entry: u32, input: &[u8]) -> Result<Vec<u8>, String> {
+        Ok(ambition_extension_sdk::abi::invoke(&self.0, module, entry, input))
+    }
+}
+
+/// The modules as a loaded file publishes them: descriptors decoded from the
+/// wire, so every entry is `EntryCode::Loaded`.
+fn loaded(modules: Vec<ModuleDescriptor>) -> (Arc<dyn ModuleBackend>, Vec<ModuleDescriptor>) {
+    let published = ambition_extension_sdk::abi::read_description(
+        &ambition_extension_sdk::abi::describe(&modules),
+    )
+    .expect("a description round-trips");
+    (Arc::new(InProcess(modules)), published)
+}
+
+fn loaded_app(replaces: bool, also_native: bool) -> App {
+    let mut app = App::new();
+    app.init_schedule(Sim);
+    app.add_plugins(ExtensionHostPlugin::new(Sim))
+        .init_resource::<Lowered>()
+        .init_resource::<SimTick>()
+        .install_extension_trigger::<Poke, _>(PHASE, "test", collect_pokes)
+        .install_extension_observation::<Height>(PHASE, "test", height_of)
+        .install_extension_request::<Emit, _>(PHASE, "test", lower_emits);
+    if also_native {
+        app.add_extension_module(module(vec![entry("a", vec![])]));
+    }
+    let (backend, published) = loaded(vec![module(vec![entry("a", vec![])])]);
+    app.add_loaded_extension_modules(backend, published, replaces);
+    app.finish();
+    app
+}
+
+#[test]
+fn a_loaded_module_runs_the_same_as_its_native_build_across_the_wire() {
+    let run = |mut app: App| {
+        let a = app.world_mut().spawn((Poked(1), Tall(2.0))).id();
+        let b = app.world_mut().spawn((Poked(13), Tall(5.0))).id();
+        step(&mut app);
+        step(&mut app);
+        let lowered = app.world().resource::<Lowered>().0.clone();
+        let count = app.world().get::<BodyRecords>(a).cloned();
+        let faults = app.world().resource::<ExtensionFaults>().total;
+        let b_records = app.world().get::<BodyRecords>(b).is_some();
+        (lowered, count, faults, b_records)
+    };
+    let native = run(app());
+    let wire = run(loaded_app(false, false));
+    assert_eq!(native.0.len(), 2, "the premise: the native module emitted");
+    assert_eq!(wire, native);
+}
+
+#[test]
+fn a_loaded_module_replaces_a_native_one_only_when_it_says_so() {
+    let replaced = loaded_app(true, true);
+    let admitted = &replaced.world().resource::<AdmittedExtensions>().0;
+    assert_eq!(admitted.entries.len(), 1);
+    assert!(matches!(admitted.entries[0].runner, EntryRunner::Loaded { .. }));
+    assert_eq!(admitted.replaced.len(), 1);
+
+    let refused = std::panic::catch_unwind(|| loaded_app(false, true));
+    assert!(refused.is_err(), "two modules with one key and no replacement refuse");
+}
+
+/// A loaded module's output is checked as strictly as a native one's: a
+/// request to a port the entry did not declare faults the invocation.
+#[test]
+fn a_loaded_module_cannot_submit_to_an_undeclared_port() {
+    fn sneaky(inv: &mut Invocation<'_>) -> Result<(), Fault> {
+        // The guest has no `requests` check of its own beyond the SDK's, so
+        // forge the descriptor the GUEST sees to declare a port the host's
+        // copy does not.
+        inv.submit::<Emit>((0, 0, 0.0))
+    }
+    let mut guest = module(vec![entry("a", vec![])]);
+    guest.entries[0].run = EntryCode::Native(sneaky);
+    let mut host_view = ambition_extension_sdk::abi::read_description(
+        &ambition_extension_sdk::abi::describe(std::slice::from_ref(&guest)),
+    )
+    .unwrap();
+    host_view[0].entries[0].requests.clear();
+    let backend: Arc<dyn ModuleBackend> = Arc::new(InProcess(vec![guest]));
+
+    let mut app = App::new();
+    app.init_schedule(Sim);
+    app.add_plugins(ExtensionHostPlugin::new(Sim))
+        .init_resource::<Lowered>()
+        .init_resource::<SimTick>()
+        .install_extension_trigger::<Poke, _>(PHASE, "test", collect_pokes)
+        .install_extension_observation::<Height>(PHASE, "test", height_of)
+        .install_extension_request::<Emit, _>(PHASE, "test", lower_emits)
+        .add_loaded_extension_modules(backend, host_view, false);
+    app.finish();
+    app.world_mut().spawn((Poked(1), Tall(2.0)));
+    step(&mut app);
+    assert!(app.world().resource::<Lowered>().0.is_empty());
+    assert_eq!(
+        app.world().resource::<ExtensionFaults>().recent[0].fault,
+        Fault::UndeclaredRequest(Emit::KEY)
+    );
 }

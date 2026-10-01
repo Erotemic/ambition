@@ -19,3 +19,7 @@ pub const PROVIDER: &str = "ambition";
 pub fn modules() -> Vec<ambition_extension_sdk::ModuleDescriptor> {
     vec![echo_fan::module()]
 }
+
+// Built for `wasm32-unknown-unknown`, this crate is a loaded module file
+// (`ambition-ext-1`): `scripts/build_extension_modules.sh`.
+ambition_extension_sdk::export_modules!(crate::modules);

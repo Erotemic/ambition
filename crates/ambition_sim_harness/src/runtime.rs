@@ -99,6 +99,11 @@ impl Platformer2dSimHarness {
         // Caller-supplied composition: content install + world validation +
         // start-room override + the game's sim plugin(s). A content/world error
         // propagates out as the constructor's `Err`.
+        if !options.extension_module_files.is_empty() {
+            app.insert_resource(ambition_platformer2d::extension::ExtensionModuleFiles(
+                options.extension_module_files.clone(),
+            ));
+        }
         compose(&mut app, &options)?;
 
         // GGRS owns the simulation cadence. The exact integer-nanosecond period

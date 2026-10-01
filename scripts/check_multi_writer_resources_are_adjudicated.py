@@ -640,6 +640,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
     ),
     "ContentEpochSequence": (
         "crates/ambition_platformer2d_provider/src/lifecycle.rs",
+        "crates/ambition_platformer2d_runtime/src/extension_composition.rs",
         "game/ambition_app/src/app/dev_runtime.rs",
     ),
     "ControlFrame": (
@@ -2381,7 +2382,11 @@ ADJUDICATED: dict[str, str] = {
         "whether it is the generation something was planned against — any "
         "caller minting a fresh unique id is conflict-free regardless of "
         "interleaving. `census.shared_targets` is empty. Measured by "
-        "CalculexAmbition, 2026-09-18."
+        "CalculexAmbition, 2026-09-18.\n"
+        "    2026-10-01, a THIRD allocator: a published module reload re-mints the "
+        "session's content (`extension_composition::remint_session_content`, D6). "
+        "It calls `allocate()` once per changed generation and nothing else, so "
+        "the verdict holds."
     ),
     "RoomConstructionPlanPrefetch": (
         "A PRODUCER/CONSUMER CACHE, NOT TWO FILLERS. "

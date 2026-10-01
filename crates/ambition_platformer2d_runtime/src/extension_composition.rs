@@ -17,6 +17,9 @@ use ambition_extension_host::{ExtensionHostPlugin, ExtensionSet};
 /// The declared modules as canonical text: a section of the prepared content
 /// identity (D6). See `ambition_extension_host::ExtensionGeneration`.
 pub use ambition_extension_host::ExtensionGeneration;
+
+/// The name of the prepared-content section that holds [`ExtensionGeneration`].
+pub const EXTENSION_MODULES_SECTION: &str = "extension.modules";
 use ambition_extension_sdk::phases::{BOSS_CONDUCT, MODULE_ENTITY_TICK, TECHNIQUE_EXECUTION, WIELDED_USE};
 use ambition_platformer2d_shared_tangle::schedule::{CombatSet, GameplayGated, ItemPickupSet, SimScheduleExt};
 use bevy::prelude::*;
@@ -311,9 +314,54 @@ fn publish_module_reload(world: &mut World) {
     if world
         .resource_mut::<ambition_platformer2d_core::PendingMechanicalEdits>()
         .take(module_code_domain())
+        && ambition_extension_host::reload::publish_staged_replacement(world)
     {
-        ambition_extension_host::reload::publish_staged_replacement(world);
+        remint_session_content(world);
     }
+}
+
+/// ⭐ D6: A PUBLISHED RELOAD IS A NEW GENERATION OF THE SESSION'S CONTENT.
+/// When the declared modules changed, the session's prepared content gets the
+/// new [`EXTENSION_MODULES_SECTION`] and a new epoch, and its identity and its
+/// content binding move with it (`publish_session_content`, the road a world
+/// reload publishes by). The local rollback baseline (stopped at admission) starts
+/// again in `Update`, against this identity. A reload of the same code changes
+/// nothing, and keeps the epoch.
+///
+/// ⚠ The live rooms are not built again: their roots keep the generation they
+/// were built in, as the rooms a world reload does not rebuild do. A room plan
+/// made before the reload is refused as stale at its boundary.
+pub fn remint_session_content(world: &mut World) {
+    use crate::content_identity::{ContentEpochSequence, PreparedContent};
+    use ambition_platformer2d_shared_tangle::lifecycle::session_world_component;
+    let Some(generation) = world.get_resource::<ExtensionGeneration>() else {
+        return;
+    };
+    let bytes = generation.0.clone().into_bytes();
+    let Some(content) = session_world_component::<PreparedContent>(world) else {
+        return;
+    };
+    let unchanged = content
+        .sections()
+        .iter()
+        .any(|s| s.name == EXTENSION_MODULES_SECTION && s.canonical_bytes() == bytes.as_slice());
+    if unchanged {
+        return;
+    }
+    let content = content.clone();
+    let Some(mut epochs) = world.get_resource_mut::<ContentEpochSequence>() else {
+        error!(
+            "extension modules reloaded, and this composition has prepared content but no \
+             ContentEpochSequence: the session's content identity still names the old modules"
+        );
+        return;
+    };
+    let epoch = epochs.allocate();
+    let next = content
+        .with_section(EXTENSION_MODULES_SECTION, bytes, epoch)
+        .expect("a prepared content's sections are named and distinct");
+    crate::content_identity::publish_session_content(world, next);
+    info!("extension modules reloaded: the session's content is now generation {epoch:?}");
 }
 
 #[cfg(feature = "wasm_modules")]

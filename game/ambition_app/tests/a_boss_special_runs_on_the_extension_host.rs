@@ -232,6 +232,7 @@ fn a_module_file_that_changes_while_the_game_runs_is_reloaded() {
             sim.step(AgentAction::default());
         }
         assert_eq!(reloads(&sim), 0, "nothing changed yet");
+        let before = modules_section(&mut sim);
 
         // The rebuilt module: same bytes, a newer file.
         let file = std::fs::File::options().write(true).open(&watched).unwrap();
@@ -257,6 +258,8 @@ fn a_module_file_that_changes_while_the_game_runs_is_reloaded() {
             assert_eq!(ambition_platformer2d::rollback::session_health(sim.world()), Ok(()));
         } else {
             assert_eq!(reloads(&sim), 1, "the changed file was reloaded once");
+            // D6: the same bytes are the same generation; the identity holds.
+            assert_eq!(modules_section(&mut sim), before, "a reload of the same code is no new generation");
         }
         if rollback {
             // Live shots, because a resimulated tick repeats its requests. ⚠ A
@@ -283,7 +286,7 @@ fn modules_section(sim: &mut Platformer2dSimHarness) -> (String, String) {
     let section = content
         .sections()
         .iter()
-        .find(|s| s.name == "extension.modules")
+        .find(|s| s.name == ambition_platformer2d::extension::EXTENSION_MODULES_SECTION)
         .expect("the prepared content has an extension.modules section");
     (
         String::from_utf8(section.canonical_bytes().to_vec()).unwrap(),

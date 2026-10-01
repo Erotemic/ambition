@@ -141,7 +141,10 @@ pub(super) fn handle_ldtk_hot_reload(
         Option<Res<ambition_platformer2d::actors::session::mechanics::SessionMechanics>>,
     ),
     mut content_identity: (
-        ambition_platformer2d::platformer::lifecycle::SessionWorldMut<
+        // A GUARD AND A READ: the reload builds its candidate from the active
+        // content, and publishes the next one through `publish_session_content`
+        // behind the room's verdict, not through this parameter.
+        ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
             ambition_platformer2d::runtime::PreparedContent,
         >,
         // ⛤ A GUARD TOO, and `Ref` for the same reason as `_room_geometry`
@@ -264,7 +267,7 @@ pub(super) fn handle_ldtk_hot_reload(
             &catalogs.5,
             catalogs.6.as_deref(),
             catalogs.7.as_deref(),
-            &mut content_identity.0,
+            &content_identity.0,
             // ⚠ `content_identity.1` (the prepared IDENTITY) is no longer handed
             // in: the reload writes it behind the room's verdict now, through the
             // session root, and a `&mut` here would be a second road to the same
@@ -430,7 +433,7 @@ pub(super) fn reload_ldtk_world_from_disk(
     session_mechanics: Option<
         &ambition_platformer2d::actors::session::mechanics::SessionMechanics,
     >,
-    prepared_content: &mut ambition_platformer2d::runtime::PreparedContent,
+    prepared_content: &ambition_platformer2d::runtime::PreparedContent,
     epochs: &mut ambition_platformer2d::runtime::ContentEpochSequence,
     snapshot_schema: ambition_platformer2d::runtime::SnapshotSchemaFingerprint,
     session_scope: ambition_platformer2d::platformer::lifecycle::SessionSpawnScope,
@@ -626,8 +629,6 @@ pub(super) fn reload_ldtk_world_from_disk(
     // handle `replace_live_world` returned, so the question is *"did MY
     // publication succeed"* rather than *"did the last room with this name"*.
     let candidate_index = candidate_index;
-    let committed_identity = committed_content.identity();
-    let committed_epoch = committed_content.epoch();
     let committed_content = committed_content;
     let commit_generation = move |world: &mut bevy::prelude::World| {
         use ambition_platformer2d::platformer::lifecycle::session_world_component_mut;
@@ -641,30 +642,13 @@ pub(super) fn reload_ldtk_world_from_disk(
         }
         // ⛔ ON THE SESSION ROOT. The reload's own generation belongs to the
         // session it reloaded, not to the process — see `ActiveContentBinding`.
-        ambition_platformer2d::platformer::lifecycle::insert_session_world_component(
-            world,
-            ambition_platformer2d::actors::rooms::ActiveContentBinding::content(
-                committed_epoch,
-                ambition_platformer2d::session::PeerContentIdentity::from_bytes(
-                    *committed_content.fingerprint().as_bytes(),
-                ),
-            ),
-        );
+        // The content, its identity and its binding move by the one road a
+        // running session changes generation by.
+        ambition_platformer2d::runtime::publish_session_content(world, committed_content);
         if let Some(mut index) =
             session_world_component_mut::<ldtk_world::LdtkRuntimeIndex>(world)
         {
             *index = candidate_index;
-        }
-        if let Some(mut identity) = session_world_component_mut::<
-            ambition_platformer2d::runtime::PreparedContentIdentity,
-        >(world)
-        {
-            *identity = committed_identity;
-        }
-        if let Some(mut content) =
-            session_world_component_mut::<ambition_platformer2d::runtime::PreparedContent>(world)
-        {
-            *content = committed_content;
         }
     };
 

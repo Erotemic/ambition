@@ -457,6 +457,9 @@ pub fn tick_boss_brains_system(
             // A rider's mount takes its facing (`ambition_mount`), so a boss
             // riding a mount that mirrors turns by the mount's width.
             Option<&ambition_mount::RidingOn>,
+            // The live room the boss is in. Its walls are the walls of that
+            // room, and the room's size bounds its pattern.
+            Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
         ),
         With<FeatureSimEntity>,
     >,
@@ -473,9 +476,6 @@ pub fn tick_boss_brains_system(
     )>,
 ) {
     let dt = world_time.sim_dt();
-    let Some(feature_world) = collision.solids() else {
-        return;
-    };
     for (
         _entity,
         feature,
@@ -488,6 +488,7 @@ pub fn tick_boss_brains_system(
         capability,
         attack_state,
         riding,
+        room,
     ) in &mut bosses
     {
         let boss = feature.as_boss_ref();
@@ -557,6 +558,12 @@ pub fn tick_boss_brains_system(
         // documented policy: a boss carries no `Perception` component. A boss
         // with bounded senses would carry `Perception::Sighted` and branch
         // here as `tick_actor_brains` does; none do today.
+        // A boss with no live room has no walls to read, so its pattern does
+        // not tick. This is not "the" room: another live room's walls would
+        // put walls in a place the boss is not.
+        let Some(feature_world) = collision.room(room).and_then(|room| room.solids()) else {
+            continue;
+        };
         let target_pos = target.pos;
         // The target's body, not only its position: a contact chase asks
         // whether two bodies touch (see `lateral_body_gap`). Every body has

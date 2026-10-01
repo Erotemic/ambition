@@ -75,6 +75,9 @@ pub fn integrate_boss_bodies(
             // units a tick, toward his spawn point). A held boss declines the
             // locomotion pass, exactly as a held actor does.
             bevy::prelude::Has<ambition_platformer2d_core::PoseOwnedExternally>,
+            // The live room the boss is in: it collides with the walls of
+            // that room and no other.
+            Option<&'static ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
         ),
         (
             With<FeatureSimEntity>,
@@ -85,9 +88,6 @@ pub fn integrate_boss_bodies(
     >,
 ) {
     let dt = world_time.sim_dt();
-    let Some(feature_world) = collision.solids() else {
-        return;
-    };
     let combat_tuning = feel_tuning.feature_combat_tuning();
     for (
         entity,
@@ -103,8 +103,12 @@ pub fn integrate_boss_bodies(
         playback,
         boss_out_of_play,
         pose_owned_externally,
+        room,
     ) in &mut bosses
     {
+        let Some(feature_world) = collision.room(room).and_then(|room| room.solids()) else {
+            continue;
+        };
         let mut em = cq.as_actor_mut();
         crate::features::ecs::actors::integrate_actor_body(
             entity,

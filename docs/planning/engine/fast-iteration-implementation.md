@@ -510,6 +510,15 @@ activates a new generation; they differ in the frames between the commit and
 the activation, and under a broken claim. Most of them sit in crates below the
 monolith and cannot name `SessionMechanics`, so the fix is a session cast in a
 lower crate (`ambition_characters`), not one more `worn_cast_for` per reader.
+**Same day, the monolith's simple readers moved:** `session::mechanics::SessionCast`
+(a `SystemParam` over `worn_cast_for`) is what the wallet shield, brain
+commands, the three empowerment systems, aggression, summons, damage and the
+puppy-slug gun read now (9 systems; unit witness
+`a_session_reader_is_given_the_generations_cast`, poison "return the App cast"
+fails it). Still on the App cast: the `character_runtime` projection and match
+activation systems, which gate on the registry's change detection and need
+their own look; `serve_encounter_spawn_commands`; and every reader below the
+monolith.
 The boss seed was the same class, closed today. ⚠ Observed once, not reproduced in two reruns:
 `quality_change_keeps_each_character::a_quality_round_trip_converges_back_with_every_page_loaded_and_nothing_orphaned`
 failed in a filtered batch ("a direct gameplay boot has a PrimaryPlayer wearing

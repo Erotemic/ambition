@@ -271,6 +271,31 @@ pub fn perception_extent_for(
     }
 }
 
+/// The prepared cast a live-session system reads, through [`worn_cast_for`].
+///
+/// One answer for every reader: the activated generation's frozen cast, the
+/// App's only where no session gate exists, and none in a shell session that
+/// lost its generation. Before this, each reader took
+/// `Option<Res<PreparedCharacterRegistry>>`, the App's cast, which a content
+/// reload publishes before the session that runs it is activated.
+#[derive(bevy::ecs::system::SystemParam)]
+pub struct SessionCast<'w> {
+    app: Option<bevy::prelude::Res<'w, ambition_characters::prepared::PreparedCharacterRegistry>>,
+    generation: Option<bevy::prelude::Res<'w, SessionMechanics>>,
+    session_gate: Option<
+        bevy::prelude::Res<'w, ambition_platformer2d_shared_tangle::lifecycle::SessionGatedSimulation>,
+    >,
+}
+
+impl SessionCast<'_> {
+    /// The cast, or `None` when this composition has none or the session lost
+    /// it. A reader treats both as "no character data", as it treated an absent
+    /// App cast.
+    pub fn get(&self) -> Option<&ambition_characters::prepared::PreparedCharacterRegistry> {
+        worn_cast_for(self.session_gate.is_some(), self.generation.as_deref(), self.app.as_deref()).flatten()
+    }
+}
+
 /// The cast a worn body is re-derived from, or `None`, which is a refusal.
 ///
 /// The same live-generation contract as [`perception_extent_for`]: the
@@ -329,6 +354,39 @@ mod tests {
         registry
             .and_then(|cast| cast.get("alpha"))
             .and_then(|definition| definition.vitals.max_health)
+    }
+
+    /// A live-session reader is given the generation's cast, the App's only
+    /// where no session gate exists, and none in a shell session that lost its
+    /// generation ([`SessionCast`], the road the empowerment, damage, summon,
+    /// aggression, brain-command and wallet-shield readers take).
+    #[test]
+    fn a_session_reader_is_given_the_generations_cast() {
+        #[derive(bevy::prelude::Resource, Default)]
+        struct Seen(Option<i32>);
+        fn read(cast: SessionCast, mut seen: bevy::prelude::ResMut<Seen>) {
+            seen.0 = health(cast.get());
+        }
+        let run = |generation: Option<i32>, gated: bool| {
+            let mut app = bevy::app::App::new();
+            app.init_resource::<Seen>().insert_resource(cast(3));
+            if let Some(max_health) = generation {
+                app.insert_resource(SessionMechanics {
+                    characters: Some(cast(max_health)),
+                    ..Default::default()
+                });
+            }
+            if gated {
+                app.insert_resource(ambition_platformer2d_shared_tangle::lifecycle::SessionGatedSimulation);
+            }
+            app.add_systems(bevy::app::Update, read);
+            app.update();
+            app.world().resource::<Seen>().0
+        };
+        assert_eq!(run(Some(9), true), Some(9), "the generation outranks the App");
+        assert_eq!(run(Some(9), false), Some(9), "with or without a session gate");
+        assert_eq!(run(None, true), None, "a shell session that lost its generation reads no cast");
+        assert_eq!(run(None, false), Some(3), "only a composition with no gate reads the App");
     }
 
     /// ⛔⛤ **A GENERATION'S ROOMS ARE REBUILT FROM THAT GENERATION, WHATEVER THE

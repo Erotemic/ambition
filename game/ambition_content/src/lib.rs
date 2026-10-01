@@ -28,6 +28,8 @@ mod wielded_ability_parity_tests;
 mod wielded_ability_reference_tests;
 #[cfg(test)]
 mod sentry_parity_tests;
+#[cfg(test)]
+mod vortex_parity_tests;
 /// The character catalog data and curated playable cast, contributed as an
 /// immutable provider fragment to the App-local catalog assembly.
 pub mod character_catalog;

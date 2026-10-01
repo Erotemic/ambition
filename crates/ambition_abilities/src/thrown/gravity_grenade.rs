@@ -71,7 +71,7 @@ pub fn arm_thrown_gravity_grenades(
 /// Open one temporary up-gravity well. The only way a grenade's well enters
 /// the world.
 ///
-/// One place, like `module_entity::spawn_module_entity` and `open_vortex_well`, so tests can build
+/// One place, like `module_entity::spawn_module_entity`, so tests can build
 /// the real entity; it otherwise exists only after a fuse burns down.
 ///
 /// Not the same kind of thing as an authored gravity column. That is room

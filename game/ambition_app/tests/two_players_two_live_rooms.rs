@@ -1403,6 +1403,40 @@ fn gnu_ton_s_apple_rain_falls_in_its_own_live_room() {
     assert_eq!(rooms, vec![Some(second)], "the apples' live rooms: the apple rain did not fall in #1");
 }
 
+/// OW1 cut 7q: the gnu's back is ground in the giant's own live room. Bob
+/// holds the hall of bosses (#0); Alice goes to the gnu_ton arena (#1). The
+/// back platform wrote to the sole live room's overlay, so with two rooms
+/// live no room had it, and nobody could stand on the giant.
+#[test]
+fn the_gnu_s_back_is_ground_in_its_own_live_room() {
+    let (mut sim, first) = alice_leaves_bob_in(
+        "hall_of_bosses",
+        "gnu_ton_arena",
+        Some(ambition_platformer2d::characters::control::PlayerSlot(1)),
+        walk_through_the_door_to,
+    );
+    let second = first.next();
+    assert_eq!(
+        where_they_are(&mut sim),
+        (Some(second), Some(Some(first))),
+        "precondition: Alice is not in #1 with Bob in #0"
+    );
+    sim.step_n(base(), 10);
+    let world = sim.world_mut();
+    let mut backs: Vec<LiveRoomInstance> = world
+        .query_filtered::<
+            (&LiveRoomInstance, &ambition_platformer2d::world::FeatureEcsWorldOverlay),
+            bevy::prelude::With<RoomInstanceRoot>,
+        >()
+        .iter(world)
+        .flat_map(|(live, overlay)| {
+            overlay.blocks.iter().filter(|block| block.name == "gnu_back").map(move |_| *live)
+        })
+        .collect();
+    backs.dedup();
+    assert_eq!(backs, vec![second], "the live rooms whose overlay holds the gnu's back");
+}
+
 /// OW1 cut 7n: the overflow boss floods its own live room, the same.
 #[test]
 fn the_overflow_flood_fills_its_own_live_room() {

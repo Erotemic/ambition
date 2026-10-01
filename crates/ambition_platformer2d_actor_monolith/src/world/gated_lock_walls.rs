@@ -93,10 +93,13 @@ struct CachedWall {
 }
 
 /// Per-frame cache — see the module header on why its three inputs are three.
+/// The authored gated walls of each live room, with their prepared questions,
+/// keyed by room id. A room's entry is rebuilt when the room becomes live,
+/// when the room set or the condition catalog moves, and it is dropped when
+/// the room is no longer live (OW1 cut 7q).
 #[derive(Resource, Default)]
 pub struct GatedLockWallCache {
-    room: Option<String>,
-    walls: Vec<CachedWall>,
+    rooms: std::collections::BTreeMap<String, Vec<CachedWall>>,
 }
 
 /// WHY each authored gated wall of the active room stands or does not — the
@@ -150,6 +153,14 @@ type RoomSetQuery = bevy::ecs::query::QueryState<
     bevy::prelude::With<ambition_platformer2d_shared_tangle::lifecycle::SessionRoot>,
 >;
 
+/// Every live room root and the definition it instantiates, built once and
+/// reused for the same reason as [`RoomSetQuery`]. A hidden candidate's root
+/// is not in it.
+type LiveRoomQuery = bevy::ecs::query::QueryState<
+    (Entity, &'static ambition_platformer2d_world::rooms::LiveRoomDefinition),
+    bevy::prelude::With<ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot>,
+>;
+
 /// Retract the published verdicts rather than leaving the previous room's.
 ///
 /// ⛔ `GatedLockWallVerdicts` IS A STATEMENT ABOUT THE ACTIVE ROOM, so every
@@ -173,6 +184,7 @@ fn retract_gated_lock_wall_verdicts(world: &mut World) {
 pub fn sync_authored_gated_lock_walls(
     world: &mut World,
     mut rooms: bevy::prelude::Local<Option<RoomSetQuery>>,
+    mut live: bevy::prelude::Local<Option<LiveRoomQuery>>,
 ) {
     // ⭐ THE RETRACTION IS STATED ONCE, AND THE TYPE IS WHAT ENFORCES IT.
     // Four early exits each ran `retract_gated_lock_wall_verdicts(world); return;`
@@ -183,43 +195,53 @@ pub fn sync_authored_gated_lock_walls(
     // verdict nobody re-derives.
     // ⇒ The decision half answers an `Option` now, so "nothing to publish" IS the
     // `None`, and an exit that forgets to retract is no longer expressible.
-    let Some(walls) = gated_lock_walls_to_publish(world, &mut rooms) else {
+    let Some(walls) = gated_lock_walls_to_publish(world, &mut rooms, &mut live) else {
         retract_gated_lock_wall_verdicts(world);
         return;
     };
     publish_gated_lock_wall_verdicts(world, walls);
 }
 
-/// The room's cached walls, or `None` when there is nothing to publish.
+/// Each live room's cached walls, by the root of that room, or `None` when
+/// there is nothing to publish.
 ///
 /// ⚠ EVERY `None` HERE MEANS "RETRACT", and the caller is the one place that says
-/// so. The four reasons: no room set (twice — the borrow is taken in two scopes),
-/// no `ConditionCatalog` in this composition, and a room whose cache holds no
-/// gated walls at all, which is the COMMON case.
+/// so. The reasons: no room set, no `ConditionCatalog` in this composition, and
+/// no live room whose cache holds a gated wall, which is the COMMON case.
+///
+/// Every live room is served, not "the" live room (OW1 cut 7q): the overlay
+/// rebuild clears each room's `gate_solids` every tick, so a room this skipped
+/// would lose every gated wall it has.
 fn gated_lock_walls_to_publish(
     world: &mut World,
     rooms: &mut bevy::prelude::Local<Option<RoomSetQuery>>,
-) -> Option<Vec<CachedWall>> {
+    live: &mut bevy::prelude::Local<Option<LiveRoomQuery>>,
+) -> Option<Vec<(Entity, Vec<CachedWall>)>> {
     // the room set is a COMPONENT on the session root, not a resource — the `SessionWorldRef` a
     // normal system takes is a `Single<Ref<T>, With<SessionRoot>>`. An exclusive system has to
     // ask for it the long way.
     let rooms = rooms.get_or_insert_with(|| RoomSetQuery::new(world));
-    // The one-live-room read (OW1 cut 5e): which room is standing is the live
-    // room root's definition. A change of it changes the room id, which the
-    // cache compares below.
-    let definition = ambition_platformer2d_world::rooms::sole_live_room_definition(world)?;
+    let live = live.get_or_insert_with(|| LiveRoomQuery::new(world));
+    let live_rooms: Vec<(Entity, ambition_platformer2d_world::rooms::LiveRoomDefinition)> = live
+        .iter(world)
+        .map(|(root, definition)| (root, *definition))
+        .collect();
 
-    // ⭐ THE ROOM'S WALLS ARE READ ONLY WHEN THE CACHE IS ACTUALLY BEING
+    // ⭐ THE ROOMS' WALLS ARE READ ONLY WHEN THE CACHE IS ACTUALLY BEING
     // REFRESHED. `authored_gated_lock_walls` allocates a `Vec<GatedLockWall>`
     // with a `String` and a condition id cloned per wall; computing it every
     // frame and then discarding it unless `rooms_changed || stale` defeated the
     // cache it feeds. Room identity and the change tick are cheap, so decide
     // first and pay for the walls second.
-    let (active_room_id, rooms_changed) = {
+    let (live_ids, rooms_changed) = {
         let Some(set) = rooms.iter(world).next() else {
             return None;
         };
-        (set.spec(definition).id.clone(), set.is_changed())
+        let ids: Vec<(Entity, ambition_platformer2d_world::rooms::LiveRoomDefinition, String)> = live_rooms
+            .iter()
+            .map(|(root, definition)| (*root, *definition, set.spec(*definition).id.clone()))
+            .collect();
+        (ids, set.is_changed())
     };
     if world.get_resource::<ConditionCatalog>().is_none() {
         return None;
@@ -235,61 +257,81 @@ fn gated_lock_walls_to_publish(
     // rollback rather than registered: neither input can change inside a rollback window, since
     // a room transition commits only on a confirmed frame.
     // ⛔ THE CATALOG IS AN INPUT TO THE CACHE, so a catalog that moved makes it
-    // stale exactly as a changed room does. This is what the per-frame retry
-    // below used to stand in for: a provider that publishes its condition AFTER
-    // the first room was cached left every wall keyed on it unpreparable
-    // forever, and re-preparing on every tick was the workaround. Rebuild once
-    // on the edge instead — the question is asked at the same moment either way,
-    // and the per-tick preparation road goes.
+    // stale exactly as a changed room does. A provider that publishes its
+    // condition AFTER a room was cached would otherwise leave every wall keyed
+    // on it unpreparable forever. Rebuild once on the edge instead of
+    // re-preparing on every tick.
     let catalog_moved = world.is_resource_changed::<ConditionCatalog>();
-    let stale = {
+    // A quiet tick (the same live rooms, nothing moved) does not touch the
+    // cache at all.
+    let refresh = {
         let cache = world.get_resource::<GatedLockWallCache>();
-        cache.is_none_or(|cache| cache.room.as_deref() != Some(active_room_id.as_str()))
+        let cached = |id: &String| cache.is_some_and(|cache| cache.rooms.contains_key(id));
+        let gone = cache.is_some_and(|cache| {
+            cache
+                .rooms
+                .keys()
+                .any(|id| !live_ids.iter().any(|(_, _, live_id)| live_id == id))
+        });
+        rooms_changed || catalog_moved || gone || live_ids.iter().any(|(_, _, id)| !cached(id))
     };
-    if rooms_changed || stale || catalog_moved {
-        let walls = {
-            let Some(set) = rooms.iter(world).next() else {
-                return None;
-            };
-            authored_gated_lock_walls(set.spec(definition))
-        };
+    if refresh {
         let catalog = world.resource::<ConditionCatalog>().clone();
-        let prepared: Vec<CachedWall> = walls
-            .into_iter()
-            .map(|wall| CachedWall {
-                question: prepare_question(&active_room_id, &catalog, &wall),
-                wall,
-            })
-            .collect();
-        let mut cache = world.get_resource_or_insert_with(GatedLockWallCache::default);
-        cache.walls = prepared;
-        cache.room = Some(active_room_id.clone());
-    }
-
-    // ⛔ A ROOM WITH NO GATED WALLS IS THE COMMON CASE, and everything below it
-    // — two catalog clones, a cache clone, an overlay lookup — is work whose
-    // only possible result is an empty `standing`. Leave before paying for it,
-    // but RETRACT FIRST: skipping the publication below is not the same as
-    // publishing nothing, and the difference is the previous room's verdicts
-    // outliving the room they describe.
-    if world
-        .get_resource::<GatedLockWallCache>()
-        .is_none_or(|cache| cache.walls.is_empty())
-    {
-        return None;
-    }
-
-    Some(
+        let mut fresh = std::collections::BTreeMap::new();
+        for (_, definition, id) in &live_ids {
+            let kept = (!rooms_changed && !catalog_moved)
+                .then(|| {
+                    world
+                        .get_resource::<GatedLockWallCache>()
+                        .and_then(|cache| cache.rooms.get(id).cloned())
+                })
+                .flatten();
+            let walls = match kept {
+                Some(walls) => walls,
+                None => {
+                    let Some(set) = rooms.iter(world).next() else {
+                        return None;
+                    };
+                    authored_gated_lock_walls(set.spec(*definition))
+                        .into_iter()
+                        .map(|wall| CachedWall {
+                            question: prepare_question(id, &catalog, &wall),
+                            wall,
+                        })
+                        .collect()
+                }
+            };
+            fresh.insert(id.clone(), walls);
+        }
         world
-            .get_resource::<GatedLockWallCache>()
-            .map(|cache| cache.walls.clone())
-            .unwrap_or_default(),
-    )
+            .get_resource_or_insert_with(GatedLockWallCache::default)
+            .rooms = fresh;
+    }
+    let Some(cache) = world.get_resource::<GatedLockWallCache>() else {
+        return None;
+    };
+
+    // ⛔ A ROOM WITH NO GATED WALLS IS THE COMMON CASE, and everything after
+    // this — a catalog clone, a cache clone, an overlay lookup — is work whose
+    // only possible result is an empty `standing`. Leave before paying for it;
+    // the caller RETRACTS, because skipping the publication is not the same as
+    // publishing nothing.
+    let per_room: Vec<(Entity, Vec<CachedWall>)> = live_ids
+        .iter()
+        .filter_map(|(root, _, id)| {
+            cache
+                .rooms
+                .get(id)
+                .filter(|walls| !walls.is_empty())
+                .map(|walls| (*root, walls.clone()))
+        })
+        .collect();
+    (!per_room.is_empty()).then_some(per_room)
 }
 
 /// Ask each cached wall's question, publish every verdict, and contribute the
 /// walls that still stand to the overlay.
-fn publish_gated_lock_wall_verdicts(world: &mut World, walls: Vec<CachedWall>) {
+fn publish_gated_lock_wall_verdicts(world: &mut World, per_room: Vec<(Entity, Vec<CachedWall>)>) {
     // ── ask, then contribute ─────────────────────────────────────────────────
     //
     // The catalog and the cache are cloned out because evaluating needs `&World`
@@ -305,42 +347,46 @@ fn publish_gated_lock_wall_verdicts(world: &mut World, walls: Vec<CachedWall>) {
     // missed it by grepping `cargo check` for `^error` only.
     let catalog = world.resource::<ConditionCatalog>().clone();
     let mut verdicts = std::collections::BTreeMap::new();
-    let standing: Vec<&GatedLockWall> = walls
-        .iter()
-        .filter(|cached| {
-            // ⛔ AN UNPREPARABLE QUESTION LEAVES THE WALL STANDING, the same
-            // direction an unanswerable one does, and for the same reason: a gate
-            // that opened because nobody could ask its question would open in
-            // exactly the situations where the world is least well understood.
-            //
-            // ⭐ NO RE-PREPARATION HERE. The question was prepared when the cache
-            // was built, and the cache rebuilds when the catalog moves, so the
-            // late-provider case the old per-frame retry existed for is handled
-            // on that edge instead of by parsing on every tick for every wall.
-            let Some(question) = cached.question.clone() else {
-                verdicts.insert(
-                    cached.wall.id.clone(),
-                    ConditionOutcome::unanswerable("the wall's question could not be prepared"),
+    let mut standing_by_room: Vec<(Entity, Vec<GatedLockWall>)> = Vec::new();
+    for (root, walls) in &per_room {
+        let standing: Vec<GatedLockWall> = walls
+            .iter()
+            .filter(|cached| {
+                // ⛔ AN UNPREPARABLE QUESTION LEAVES THE WALL STANDING, the same
+                // direction an unanswerable one does, and for the same reason: a gate
+                // that opened because nobody could ask its question would open in
+                // exactly the situations where the world is least well understood.
+                //
+                // ⭐ NO RE-PREPARATION HERE. The question was prepared when the cache
+                // was built, and the cache rebuilds when the catalog moves, so the
+                // late-provider case the old per-frame retry existed for is handled
+                // on that edge instead of by parsing on every tick for every wall.
+                let Some(question) = cached.question.clone() else {
+                    verdicts.insert(
+                        cached.wall.id.clone(),
+                        ConditionOutcome::unanswerable("the wall's question could not be prepared"),
+                    );
+                    return true;
+                };
+                // ⭐ THE WALL NAMES ITSELF. Its id is what an author sees in the
+                // level, and it is what makes two walls asking one flag in one
+                // tick two readable entries rather than an apparent repeat.
+                let verdict = catalog.ask(
+                    world,
+                    &question,
+                    &ambition_platformer2d_shared_tangle::authored_logic::AuthoredAsk::new(
+                        "lock_wall",
+                        cached.wall.id.clone(),
+                    ),
                 );
-                return true;
-            };
-            // ⭐ THE WALL NAMES ITSELF. Its id is what an author sees in the
-            // level, and it is what makes two walls asking one flag in one
-            // tick two readable entries rather than an apparent repeat.
-            let verdict = catalog.ask(
-                world,
-                &question,
-                &ambition_platformer2d_shared_tangle::authored_logic::AuthoredAsk::new(
-                    "lock_wall",
-                    cached.wall.id.clone(),
-                ),
-            );
-            let stands = !verdict.is_satisfied();
-            verdicts.insert(cached.wall.id.clone(), verdict);
-            stands
-        })
-        .map(|cached| &cached.wall)
-        .collect();
+                let stands = !verdict.is_satisfied();
+                verdicts.insert(cached.wall.id.clone(), verdict);
+                stands
+            })
+            .map(|cached| cached.wall.clone())
+            .collect();
+        standing_by_room.push((*root, standing));
+    }
     // Published whether or not anything stands: an open wall's verdict is the
     // answer to "why is it open". A room with no walls never reaches here — it
     // publishes the same empty map through `retract_gated_lock_wall_verdicts`.
@@ -350,25 +396,28 @@ fn publish_gated_lock_wall_verdicts(world: &mut World, walls: Vec<CachedWall>) {
             published.by_wall = verdicts;
         }
     }
-    if standing.is_empty() {
-        return;
+    // Each room's standing walls are that room's authored walls, so they go to
+    // that room's own overlay.
+    for (root, standing) in standing_by_room {
+        if standing.is_empty() {
+            continue;
+        }
+        let Some(mut overlay) =
+            world.get_mut::<ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay>(root)
+        else {
+            continue;
+        };
+        for wall in standing {
+            overlay
+                .gate_solids
+                .push(ambition_platformer2d_core::Block::solid(
+                    format!("{GATED_LOCK_BLOCK_PREFIX}{}", wall.id),
+                    wall.min,
+                    wall.size,
+                ));
+        }
     }
-    // The walls are the active room's authored walls, so they go to the sole
-    // live room's overlay.
-    let Some(mut overlay) = ambition_platformer2d_shared_tangle::lifecycle::sole_live_room_component_mut::<
-        ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay,
-    >(world) else {
-        return;
-    };
-    for wall in standing {
-        overlay
-            .gate_solids
-            .push(ambition_platformer2d_core::Block::solid(
-                format!("{GATED_LOCK_BLOCK_PREFIX}{}", wall.id),
-                wall.min,
-                wall.size,
-            ));
-    }}
+}
 
 /// Prepare one wall's authored question, or `None` when the catalog cannot yet
 /// answer for it.

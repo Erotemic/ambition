@@ -106,6 +106,79 @@ impl Port for ModuleEntityTickPort {
     }
 }
 
+/// The request port marker for ending a module entity before its lifetime.
+///
+/// Port card:
+///
+/// * **Operation** — remove the module entity the invocation runs for. Its
+///   lifetime is the latest it lives; a module that keeps its own clock (a
+///   well that pulls and THEN ages) ends it at the tick it chooses.
+/// * **Owner** — `ambition_abilities::extension`.
+/// * **Scope** — the invocation's scope. A scope that is not a module entity
+///   is not removed, and the refusal is logged.
+/// * **Time** — `module_entity_tick`; the entity is gone before the next
+///   tick's `module_entity_tick`.
+pub struct EndModuleEntityPort;
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct EndModuleEntity;
+
+impl Port for EndModuleEntityPort {
+    const KEY: PortKey = PortKey::new("ambition.world.end_module_entity", 1);
+    const ROLE: PortRole = PortRole::Request;
+    type Value = EndModuleEntity;
+
+    fn encode(_: &EndModuleEntity, _: &mut Vec<u8>) {}
+
+    fn decode(_: &mut WireReader<'_>) -> Result<EndModuleEntity, WireError> {
+        Ok(EndModuleEntity)
+    }
+}
+
+/// The request port marker for a pull toward a point.
+///
+/// Port card:
+///
+/// * **Operation** — move each body that the pull reaches toward `center` by
+///   the fraction `min(rate * dt, 1)` of its distance, this tick. A body is
+///   reached when its centre is within `radius` of `center`, its effective
+///   side is `Enemy`, and it can be hit (in play, on the playable plane). The
+///   move is an external kinematic constraint (ADR 0024): the body's
+///   collision step resolves a wall the pull pushes it into.
+/// * **Owner** — `ambition_abilities::extension`.
+/// * **Time** — `module_entity_tick`, in the body-path `Carry` set: the move
+///   is travel the path readers see this tick. Two pulls on one tick apply in
+///   request order.
+pub struct PullBodiesPort;
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct PullBodies {
+    pub center: [f32; 2],
+    pub radius: f32,
+    /// The fraction of the remaining gap closed per second.
+    pub rate: f32,
+}
+
+impl Port for PullBodiesPort {
+    const KEY: PortKey = PortKey::new("ambition.world.pull_bodies", 1);
+    const ROLE: PortRole = PortRole::Request;
+    type Value = PullBodies;
+
+    fn encode(v: &PullBodies, out: &mut Vec<u8>) {
+        wire::put_vec2(out, v.center);
+        wire::put_f32(out, v.radius);
+        wire::put_f32(out, v.rate);
+    }
+
+    fn decode(r: &mut WireReader<'_>) -> Result<PullBodies, WireError> {
+        Ok(PullBodies {
+            center: r.vec2()?,
+            radius: r.f32()?,
+            rate: r.f32()?,
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -135,5 +208,16 @@ mod tests {
             assert_eq!(ModuleEntityTickPort::decode(&mut r).unwrap(), tick);
             r.finish().unwrap();
         }
+
+        let pull = PullBodies {
+            center: [5.0, 6.0],
+            radius: 220.0,
+            rate: 5.0,
+        };
+        let mut out = Vec::new();
+        PullBodiesPort::encode(&pull, &mut out);
+        let mut r = WireReader::new(&out);
+        assert_eq!(PullBodiesPort::decode(&mut r).unwrap(), pull);
+        r.finish().unwrap();
     }
 }

@@ -947,7 +947,11 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// ⛔⛤ 286 -> 287: `cutscene.last_room` holds the ids of every live room,
 /// not one id, so a room-entry cutscene is queued for a room that becomes
 /// live beside another (OW1 Cut C).
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 287;
+/// ⛔⛤ 287 -> 288: `ability.vortex_well` and `entity:vortex_well` are gone: the
+/// vortex is an extension module, its well a module entity
+/// (`ability.module_entity`) and the well's clock a record in
+/// `extension.body_records`.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 288;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

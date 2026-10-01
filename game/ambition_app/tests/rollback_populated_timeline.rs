@@ -45,6 +45,16 @@ fn busy(frame: usize) -> AgentAction {
     }
 }
 
+/// How many module entities of `kind` exist right now.
+fn count_kind(sim: &mut Platformer2dSimHarness, kind: &str) -> usize {
+    let world = sim.world_mut();
+    world
+        .query::<&ambition_platformer2d::abilities::module_entity::ModuleEntity>()
+        .iter(world)
+        .filter(|e| e.kind == kind)
+        .count()
+}
+
 /// How many entities carry `T` right now.
 fn count<T: bevy::prelude::Component>(sim: &mut Platformer2dSimHarness) -> usize {
     let world = sim.world_mut();
@@ -59,7 +69,6 @@ fn count<T: bevy::prelude::Component>(sim: &mut Platformer2dSimHarness) -> usize
 /// and make the result the session's frame-zero baseline.
 fn populate(sim: &mut Platformer2dSimHarness) {
     use ambition_platformer2d::abilities::module_entity::{spawn_module_entity, ModuleEntity, Spawner};
-    use ambition_platformer2d::abilities::ranged::vortex::open_vortex_well;
     use ambition_platformer2d::abilities::thrown::gravity_grenade::open_temporary_gravity_well;
     use ambition_platformer2d::boss_encounter::{drop_hazard, FallingHazard};
     use ambition_platformer2d::combat::components::ActorFaction;
@@ -157,11 +166,21 @@ fn populate(sim: &mut Platformer2dSimHarness) {
                 id: mint(),
             },
         );
-        open_vortex_well(
+        // The vortex well: its module pulls for 0.9 s and ends it.
+        spawn_module_entity(
             &mut commands,
-            SessionSpawnScope::UNSCOPED,
-            bevy::math::Vec2::new(128.0, 96.0),
-            Some(mint()),
+            ModuleEntity {
+                kind: "vortex".into(),
+                pos: bevy::math::Vec2::new(128.0, 96.0),
+                remaining_s: 1.9,
+            },
+            Spawner {
+                scope: SessionSpawnScope::UNSCOPED,
+                side: ActorFaction::Player,
+                team: None,
+                presentation: None,
+                id: mint(),
+            },
         );
         open_temporary_gravity_well(
             &mut commands,
@@ -506,8 +525,6 @@ fn no_anchor_rewinds_anonymously_on_any_frame_it_exists() {
 /// after frame, while every event-created family is live and stepping.
 #[test]
 fn the_event_created_families_are_rewind_stable_while_they_step() {
-    use ambition_platformer2d::abilities::module_entity::ModuleEntity;
-    use ambition_platformer2d::abilities::ranged::vortex::VortexWell;
     use ambition_platformer2d::boss_encounter::FallingHazard;
     use ambition_platformer2d::held_items::GroundItem;
     use ambition_platformer2d::platformer::gravity::TemporaryZone;
@@ -542,8 +559,8 @@ fn the_event_created_families_are_rewind_stable_while_they_step() {
     // first appear. A seam that stops spawning turns this red rather than
     // quietly shrinking what the timeline proves.
     let baseline = [
-        ("module entity (sentry turret)", count::<ModuleEntity>(&mut sim)),
-        ("vortex well", count::<VortexWell>(&mut sim)),
+        ("module entity (sentry turret)", count_kind(&mut sim, "sentry")),
+        ("vortex well", count_kind(&mut sim, "vortex")),
         ("temporary gravity zone", count::<TemporaryZone>(&mut sim)),
         ("falling hazard", count::<FallingHazard>(&mut sim)),
         ("portal shot", count::<PortalShot>(&mut sim)),
@@ -576,7 +593,7 @@ fn the_event_created_families_are_rewind_stable_while_they_step() {
             first_bolt_frame.get_or_insert(frame);
             *live_frames.entry("bolt").or_default() += 1;
         }
-        if count::<ModuleEntity>(&mut sim) > 0 {
+        if count_kind(&mut sim, "sentry") > 0 {
             *live_frames.entry("module entity").or_default() += 1;
         }
         if count::<FallingHazard>(&mut sim) > 0 {
@@ -585,7 +602,7 @@ fn the_event_created_families_are_rewind_stable_while_they_step() {
         if count::<PortalShot>(&mut sim) > 0 {
             *live_frames.entry("portal shot").or_default() += 1;
         }
-        if count::<VortexWell>(&mut sim) > 0 {
+        if count_kind(&mut sim, "vortex") > 0 {
             *live_frames.entry("vortex well").or_default() += 1;
         }
     }
@@ -655,7 +672,6 @@ fn the_event_created_families_are_rewind_stable_while_they_step() {
 #[test]
 fn every_rollback_anchored_entity_has_a_unique_sim_id_on_the_populated_timeline() {
     use ambition_platformer2d::abilities::module_entity::ModuleEntity;
-    use ambition_platformer2d::abilities::ranged::vortex::VortexWell;
     use ambition_platformer2d::boss_encounter::FallingHazard;
     use ambition_platformer2d::held_items::GroundItem;
     use ambition_platformer2d::platformer::gravity::TemporaryZone;
@@ -747,8 +763,14 @@ fn every_rollback_anchored_entity_has_a_unique_sim_id_on_the_populated_timeline(
     /// rather than a silently narrower corpus.
     fn walked(world: &mut bevy::prelude::World) -> Vec<(&'static str, usize)> {
         vec![
-            ("module entity (sentry turret)", world.query::<&ModuleEntity>().iter(world).count()),
-            ("vortex well", world.query::<&VortexWell>().iter(world).count()),
+            (
+                "module entity (sentry turret)",
+                world.query::<&ModuleEntity>().iter(world).filter(|e| e.kind == "sentry").count(),
+            ),
+            (
+                "vortex well",
+                world.query::<&ModuleEntity>().iter(world).filter(|e| e.kind == "vortex").count(),
+            ),
             (
                 "temporary gravity zone",
                 world.query::<&TemporaryZone>().iter(world).count(),

@@ -2801,7 +2801,6 @@ fn playing_the_shipped_composition_introduces_no_unaccounted_resource() {
 #[test]
 fn every_event_created_entity_is_registered_derived_or_waived_and_anchored() {
     use ambition_platformer2d::abilities::module_entity::{spawn_module_entity, ModuleEntity, Spawner};
-    use ambition_platformer2d::abilities::ranged::vortex::{open_vortex_well, VortexWell};
     use ambition_platformer2d::abilities::thrown::gravity_grenade::open_temporary_gravity_well;
     use ambition_platformer2d::boss_encounter::{drop_hazard, FallingHazard};
     use ambition_platformer2d::combat::components::ActorFaction;
@@ -2847,11 +2846,21 @@ fn every_event_created_entity_is_registered_derived_or_waived_and_anchored() {
                 id: SimId::spawned(&SimId::player_slot(0), 0),
             },
         );
-        open_vortex_well(
+        // The vortex well, a module entity like the turret.
+        spawn_module_entity(
             &mut commands,
-            SessionSpawnScope::UNSCOPED,
-            bevy::math::Vec2::new(128.0, 96.0),
-            Some(SimId::spawned(&SimId::player_slot(0), 1)),
+            ModuleEntity {
+                kind: "vortex".into(),
+                pos: bevy::math::Vec2::new(128.0, 96.0),
+                remaining_s: 1.9,
+            },
+            Spawner {
+                scope: SessionSpawnScope::UNSCOPED,
+                side: ActorFaction::Player,
+                team: None,
+                presentation: None,
+                id: SimId::spawned(&SimId::player_slot(0), 1),
+            },
         );
         open_temporary_gravity_well(
             &mut commands,
@@ -2900,14 +2909,15 @@ fn every_event_created_entity_is_registered_derived_or_waived_and_anchored() {
     // swept, so a seam that stops spawning turns this red rather than green.
     let counts = {
         let world = sim.world_mut();
-        let sentries = world
-            .query_filtered::<Entity, With<ambition_platformer2d::abilities::module_entity::ModuleEntity>>()
-            .iter(world)
-            .count();
-        let wells = world
-            .query_filtered::<Entity, With<VortexWell>>()
-            .iter(world)
-            .count();
+        let kind_count = |world: &mut bevy::prelude::World, kind: &str| {
+            world
+                .query::<&ambition_platformer2d::abilities::module_entity::ModuleEntity>()
+                .iter(world)
+                .filter(|e| e.kind == kind)
+                .count()
+        };
+        let sentries = kind_count(world, "sentry");
+        let wells = kind_count(world, "vortex");
         let zones = world
             .query_filtered::<Entity, With<ambition_platformer2d::platformer::gravity::TemporaryZone>>()
             .iter(world)

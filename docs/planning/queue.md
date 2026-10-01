@@ -1913,8 +1913,9 @@ asks the world for an entity of a kind it names, and the world ticks it through
 the module until its lifetime ends (the sentry is the first, schema 286), and
 I5's session-attached records (one record for the session, on its root; a
 module the game does not link declares one and it rewinds under GGRS). Next:
-save eligibility; the remaining wielded items (vortex, dive, blink, grapple,
-mark/recall) need ports for body motion.
+save eligibility; the remaining wielded items (dive, blink, grapple,
+mark/recall) need ports for body motion (the vortex is a module since, on a
+pull port and an end-of-entity port).
 
 **Blocked by:** nothing.
 

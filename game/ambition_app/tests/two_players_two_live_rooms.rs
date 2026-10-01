@@ -2596,3 +2596,128 @@ fn a_conversation_in_one_room_does_not_stop_the_other_players_room() {
         game_mode(&sim)
     );
 }
+
+/// Plant a sentry with a 1000 s lifetime in the sole live room, by the road
+/// production spawns a module entity by. Returns that room.
+fn plant_a_long_lived_sentry(sim: &mut Platformer2dSimHarness) -> LiveRoomInstance {
+    use ambition_platformer2d::abilities::module_entity::{spawn_module_entity, ModuleEntity, Spawner};
+    sim.step_n(base(), 5);
+    let world = sim.world_mut();
+    let room = *ambition_platformer2d::platformer::lifecycle::sole_live_room_component::<LiveRoomInstance>(world)
+        .expect("the session has one live room");
+    let scope = world
+        .get_resource::<ambition_platformer2d::platformer::lifecycle::ActiveSessionScope>()
+        .map_or(ambition_platformer2d::platformer::lifecycle::SessionSpawnScope::UNSCOPED, |scope| {
+            scope.spawn_scope()
+        })
+        .in_room(Some(room));
+    let mut commands = world.commands();
+    spawn_module_entity(
+        &mut commands,
+        ModuleEntity {
+            kind: "sentry".into(),
+            pos: bevy::math::Vec2::new(300.0, 300.0),
+            remaining_s: 1000.0,
+        },
+        Spawner {
+            scope,
+            side: ambition_platformer2d::combat::components::ActorFaction::Player,
+            team: None,
+            presentation: None,
+            id: ambition_platformer2d::platformer::sim_id::SimId::placement("ow1_long_lived_sentry"),
+        },
+    );
+    world.flush();
+    sim.rebase_rollback_history().expect("the rollback history rebases over the sentry");
+    room
+}
+
+/// Every module entity: its live room and the lifetime it has left.
+fn module_entities(sim: &mut Platformer2dSimHarness) -> Vec<(Option<LiveRoomInstance>, f32)> {
+    let world = sim.world_mut();
+    world
+        .query::<(&ambition_platformer2d::abilities::module_entity::ModuleEntity, Option<&InRoomInstance>)>()
+        .iter(world)
+        .map(|(entity, room)| (room.map(|room| room.0), entity.remaining_s))
+        .collect()
+}
+
+/// Bob, on slot 1, goes through `switch_lab`'s door to the hub, as
+/// `the_second_player_goes_through_a_door_of_his_own_room` sends him.
+fn bob_goes_to_the_hub(sim: &mut Platformer2dSimHarness, hub: LiveRoomInstance) {
+    use ambition_platformer2d::engine_core::AabbExt as _;
+    let door = door_of(sim, ROOM, HUB).aabb.center();
+    {
+        let world = sim.world_mut();
+        let mut bob = world.query::<(
+            &ambition_platformer2d::combat::components::FeatureId,
+            ambition_platformer2d::engine_core::BodyClusterQueryData,
+            &mut ambition_platformer2d::actor::MotionModel,
+        )>();
+        let (_, mut clusters, mut model) = bob
+            .iter_mut(world)
+            .find(|(feature, _, _)| feature.0 == BOB)
+            .expect("Bob's body is in the world");
+        let mut clusters = clusters.as_clusters_mut();
+        ambition_platformer2d::engine_core::movement::transit_body(
+            &mut model,
+            &mut clusters,
+            door,
+            ambition_platformer2d::engine_core::movement::TransitVelocity::Zero,
+        );
+    }
+    for _ in 0..120 {
+        sim.drive_seat(
+            1,
+            ambition_platformer2d::engine_core::ControlFrame {
+                interact_pressed: true,
+                interact_held: true,
+                ..Default::default()
+            },
+        );
+        sim.step(base());
+        if where_they_are(sim).1 == Some(Some(hub)) {
+            break;
+        }
+    }
+    sim.drive_seat(1, ambition_platformer2d::engine_core::ControlFrame::default());
+    sim.step_n(base(), 30);
+}
+
+/// OW1 cut 7v: a module entity retires with its live room, not with a
+/// player. A sentry with 1000 s left is planted in `switch_lab` (#0).
+/// Alone, Alice goes to the hub: #0 retires, and the sentry with it. With
+/// Bob holding #0 on slot 1, the sentry stays and ticks on; when Bob goes
+/// to the hub too, #0 retires and the sentry with it. A module entity was
+/// spawned session-scoped and stamped into its room, but not room-scoped, so
+/// no retirement swept it: it ticked on in a room that was gone until its
+/// timer ran out.
+#[test]
+fn a_module_entity_retires_with_its_room_and_not_with_a_player() {
+    let mut planted = None;
+    let (mut sim, first) = alice_leaves_bob_after(None, |sim| planted = Some(plant_a_long_lived_sentry(sim)));
+    assert_eq!(planted, Some(first), "precondition: the sentry is not in switch_lab");
+    assert_eq!(live_rooms(&mut sim).len(), 1, "precondition: switch_lab did not retire behind Alice");
+    assert_eq!(module_entities(&mut sim), Vec::new(), "a sentry outlived the room it was in");
+
+    let mut planted = None;
+    let (mut sim, held) = alice_leaves_bob_after(
+        Some(ambition_platformer2d::characters::control::PlayerSlot(1)),
+        |sim| planted = Some(plant_a_long_lived_sentry(sim)),
+    );
+    assert_eq!(planted, Some(held), "precondition: the sentry is not in the room Bob holds");
+    let before = module_entities(&mut sim);
+    sim.step_n(base(), 30);
+    let after = module_entities(&mut sim);
+    assert!(
+        matches!((before.as_slice(), after.as_slice()), ([(Some(a), r0)], [(Some(b), r1)]) if *a == held && *b == held && r1 < r0),
+        "the sentry in the room Bob holds did not stay and tick: {before:?} then {after:?}"
+    );
+    bob_goes_to_the_hub(&mut sim, held.next());
+    assert_eq!(
+        live_rooms(&mut sim).iter().map(|(room, _)| *room).collect::<Vec<_>>(),
+        vec![held.next()],
+        "precondition: switch_lab did not retire behind Bob"
+    );
+    assert_eq!(module_entities(&mut sim), Vec::new(), "a sentry outlived the room it was in");
+}

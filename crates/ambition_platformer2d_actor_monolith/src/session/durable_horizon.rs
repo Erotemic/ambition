@@ -494,9 +494,17 @@ pub fn count_the_dialogue_visit_when_a_conversation_opens(
 /// last ran, the rows in the save are still right, and the walk over every
 /// row (each dormant `Placed` row of every room that is not live) is skipped.
 /// Measured before the gate: 6.1 ms a tick with 10,000 dormant rows, 65 µs with
-/// none. A rollback restore marks the ledger and the save changed, so the
-/// rows are mirrored again after it. The live custody rows are read from live
-/// bodies only, so they are compared every tick.
+/// none. The live custody rows are read from live bodies only, so they are
+/// compared every tick.
+///
+/// ⛔ THE GATE ASKS WHETHER THE INPUTS ARE THE SAME VALUES, NOT WHETHER THEY WERE
+/// WRITTEN (M2 cut C). It asked `is_changed()` of the ledger, the save and
+/// `SaveRestored`. A rollback load writes all three on every resimulated
+/// frame, so under a rollback host the gate opened on every frame and walked
+/// every row: 10 ms a tick with 10,000 dormant rows in the sync test. The key
+/// ([`OccurrenceMirrorKey`]) holds the ledger's shared rows and the save's
+/// shared rows, so a load of unchanged rows matches it by allocation, and a
+/// load of other rows does not.
 ///
 /// Persist a custody relationship only when its owning domain can reconstruct that custody after
 /// process restart. `ItemCustody` qualifies; transient body possession does not. Other occurrence
@@ -520,9 +528,9 @@ pub fn persist_occurrence_horizon_to_save(
     // tidy-up. See `docs/planning/engine/item-custody-and-accounting.md`.
     durably_held: Query<&SimId, With<ambition_held_items::ItemCustody>>,
     mut save: ResMut<AmbitionGameSave>,
-    // The restorable set the rows were last mirrored with: a cache of a live
-    // input, not state. A rewind that changes it is seen as a difference.
-    mut mirrored_with: Local<Option<std::collections::BTreeSet<SimId>>>,
+    // The inputs the rows were last mirrored with: a cache of live inputs,
+    // not state. A rewind that changes one is seen as a difference.
+    mut mirrored_with: Local<Option<OccurrenceMirrorKey>>,
 ) {
     if !restored.0 {
         return;
@@ -531,18 +539,15 @@ pub fn persist_occurrence_horizon_to_save(
         return;
     };
     let restorable_now: std::collections::BTreeSet<SimId> = durably_held.iter().cloned().collect();
-    let rows_may_differ = restored.is_changed()
-        || occurrences.is_changed()
-        || save.is_changed()
-        || mirrored_with.as_ref() != Some(&restorable_now);
-    *mirrored_with = Some(restorable_now);
+    let key_now = OccurrenceMirrorKey {
+        ledger: occurrences.clone(),
+        save_rows: save.data().occurrences_shared().clone(),
+        restorable: restorable_now,
+    };
+    let rows_may_differ = mirrored_with.as_ref() != Some(&key_now);
     let rows: Option<Vec<PersistedOccurrence>> = rows_may_differ.then(|| {
-        let restorable: std::collections::BTreeSet<&str> = mirrored_with
-            .as_ref()
-            .into_iter()
-            .flatten()
-            .map(SimId::as_str)
-            .collect();
+        let restorable: std::collections::BTreeSet<&str> =
+            key_now.restorable.iter().map(SimId::as_str).collect();
         occurrences
             .rows()
             // An `InCustody` row is a claim that something is holding this, and the
@@ -601,14 +606,37 @@ pub fn persist_occurrence_horizon_to_save(
         .collect();
     let data = save.data();
     let rows_differ = rows.as_ref().is_some_and(|rows| data.occurrences() != rows.as_slice());
-    if !rows_differ && data.custody() == custody {
-        return;
+    if rows_differ || data.custody() != custody {
+        let rows = rows.unwrap_or_else(|| data.occurrences().to_vec());
+        // ⛔ `data_mut()` ONLY PAST THE GUARD ABOVE. Reaching it derefs the
+        // `ResMut`, which marks the resource changed whether or not the value
+        // differs -- that is what the guard protects.
+        save.data_mut().set_durable_horizon(rows, custody);
     }
-    let rows = rows.unwrap_or_else(|| data.occurrences().to_vec());
-    // ⛔ `data_mut()` ONLY PAST THE GUARD ABOVE. Reaching it derefs the
-    // `ResMut`, which marks the resource changed whether or not the value
-    // differs -- that is what the early return protects.
-    save.data_mut().set_durable_horizon(rows, custody);
+    // The key holds the save's rows as they are now, after the write, so the
+    // write does not open the gate on the next tick.
+    *mirrored_with = Some(OccurrenceMirrorKey {
+        save_rows: save.data().occurrences_shared().clone(),
+        ..key_now
+    });
+}
+
+/// The inputs the save's occurrence rows were last mirrored with: the
+/// ledger, the save's rows, and the restorable set. The ledger and the save's
+/// rows are shared allocations, so a match is by allocation first and costs
+/// nothing while they are unchanged.
+pub struct OccurrenceMirrorKey {
+    ledger: AuthoredOccurrences,
+    save_rows: std::sync::Arc<Vec<PersistedOccurrence>>,
+    restorable: std::collections::BTreeSet<SimId>,
+}
+
+impl PartialEq for OccurrenceMirrorKey {
+    fn eq(&self, other: &Self) -> bool {
+        std::sync::Arc::ptr_eq(&self.save_rows, &other.save_rows)
+            && self.ledger == other.ledger
+            && self.restorable == other.restorable
+    }
 }
 
 #[cfg(test)]

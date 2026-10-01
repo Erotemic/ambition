@@ -450,6 +450,40 @@ fn dormant_rows_add_no_walk_to_an_idle_tick() {
     );
 }
 
+/// M2 cut C: a rollback load of unchanged rows adds no walk. A load writes
+/// the ledger, the save and `SaveRestored` again on every resimulated frame,
+/// each a clone of its snapshot. With 10,000 dormant rows such a tick costs
+/// about what it costs with none. The gate asked `is_changed()`, which a load
+/// answers yes, and the two mirrors walked every row on each such frame.
+#[test]
+fn a_rollback_load_of_unchanged_rows_adds_no_walk() {
+    fn median_loaded_tick(app: &mut App) -> std::time::Duration {
+        let mut times: Vec<std::time::Duration> = (0..200)
+            .map(|_| {
+                let world = app.world_mut();
+                let ledger = world.resource::<AuthoredOccurrences>().clone();
+                let save = world.resource::<AmbitionGameSave>().clone();
+                let restored = world.resource::<SaveRestored>().clone();
+                world.insert_resource(ledger);
+                world.insert_resource(save);
+                world.insert_resource(restored);
+                let start = std::time::Instant::now();
+                app.update();
+                start.elapsed()
+            })
+            .collect();
+        times.sort();
+        times[100]
+    }
+    let mut empty = dormant_world(0);
+    let mut full = dormant_world(10_000);
+    let (empty, full) = (median_loaded_tick(&mut empty), median_loaded_tick(&mut full));
+    assert!(
+        full < empty * 3 + std::time::Duration::from_micros(100),
+        "a tick after a load of 10,000 unchanged dormant rows took {full:?}, against {empty:?} with none"
+    );
+}
+
 /// FI9: the gate skips only what did not change. With 10,000 dormant rows,
 /// one dormant mint put down somewhere else reaches the save's row on the
 /// next tick.

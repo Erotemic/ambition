@@ -407,31 +407,32 @@ pub fn persist_minted_item_horizon_to_save(
     minted: Query<(&SimId, &SpawnOrigin, &GroundItem, &ItemCustody), With<RoomScopedEntity>>,
     ledger: Option<Res<ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences>>,
     mut save: ResMut<AmbitionGameSave>,
-    // The live descriptions and the ledger's presence the rows were last
-    // mirrored with: a cache of live inputs, not state.
-    mut mirrored_with: bevy::prelude::Local<Option<(BTreeMap<SimId, MintedItemDescription>, bool)>>,
+    // The inputs the rows were last mirrored with: a cache of live inputs,
+    // not state.
+    mut mirrored_with: bevy::prelude::Local<Option<MintedMirrorKey>>,
 ) {
     if !restored.0 {
         return;
     }
     // ⭐ THE SAVE'S MINTED ROWS ARE MIRRORED ONLY WHEN SOMETHING THEY DEPEND ON
-    // CHANGED (FI9): the live mints, the ledger, or the save itself. Otherwise
-    // the walk over every dormant mint the save describes is skipped. Measured
-    // before the gate: 24 ms a tick with 10,000 dormant mints. A rollback
-    // restore marks the ledger and the save changed, so the rows are mirrored
-    // again after it.
-    use bevy::prelude::DetectChanges;
-    let live = live_minted_descriptions(&minted);
-    let inputs = (live, ledger.is_some());
-    let may_differ = restored.is_changed()
-        || ledger.as_ref().is_some_and(|ledger| ledger.is_changed())
-        || save.is_changed()
-        || mirrored_with.as_ref() != Some(&inputs);
-    let live = inputs.0.clone();
-    *mirrored_with = Some(inputs);
-    if !may_differ {
+    // CHANGED (FI9): the live mints, the ledger, or the save's minted rows.
+    // Otherwise the walk over every dormant mint the save describes is
+    // skipped. Measured before the gate: 24 ms a tick with 10,000 dormant
+    // mints.
+    //
+    // ⛔ THE SAME VALUES, NOT "WRITTEN" (M2 cut C). A rollback load writes the
+    // ledger and the save on every resimulated frame, so an `is_changed()`
+    // gate opened on every frame. The ledger and the save's rows are shared
+    // allocations, so a load of unchanged rows matches the key by allocation.
+    let key_now = MintedMirrorKey {
+        live: live_minted_descriptions(&minted),
+        ledger: ledger.as_deref().cloned(),
+        save_rows: save.data().minted_items_shared().clone(),
+    };
+    if mirrored_with.as_ref() == Some(&key_now) {
         return;
     }
+    let live = key_now.live.clone();
     let described = with_dormant_mints(
         live,
         minted_baseline_from_save(save.data()).minted,
@@ -452,13 +453,35 @@ pub fn persist_minted_item_horizon_to_save(
         })
         .collect();
 
-    if save.data().minted_items() == minted_items {
-        return;
+    if save.data().minted_items() != minted_items {
+        // ⛔ `data_mut()` ONLY PAST THE GUARD ABOVE. Reaching it derefs the
+        // `ResMut`, which marks the resource changed whether or not the value
+        // differs -- that is what the guard protects.
+        save.data_mut().set_minted_items(minted_items);
     }
-    // ⛔ `data_mut()` ONLY PAST THE GUARD ABOVE. Reaching it derefs the
-    // `ResMut`, which marks the resource changed whether or not the value
-    // differs -- that is what the early return protects.
-    save.data_mut().set_minted_items(minted_items);
+    // The key holds the save's rows as they are now, after the write.
+    *mirrored_with = Some(MintedMirrorKey {
+        save_rows: save.data().minted_items_shared().clone(),
+        ..key_now
+    });
+}
+
+/// The inputs the save's minted rows were last mirrored with: the live mint
+/// descriptions, the occurrence ledger, and the save's minted rows. The ledger
+/// and the save's rows are shared allocations, so a match is by allocation
+/// first.
+pub struct MintedMirrorKey {
+    live: BTreeMap<SimId, MintedItemDescription>,
+    ledger: Option<ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences>,
+    save_rows: std::sync::Arc<Vec<PersistedMintedItem>>,
+}
+
+impl PartialEq for MintedMirrorKey {
+    fn eq(&self, other: &Self) -> bool {
+        std::sync::Arc::ptr_eq(&self.save_rows, &other.save_rows)
+            && self.ledger == other.ledger
+            && self.live == other.live
+    }
 }
 
 /// Rollback facet of the item checkpoint contribution.

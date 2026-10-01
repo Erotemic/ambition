@@ -548,6 +548,14 @@ impl AmbitionGameSaveData {
         &self.occurrences
     }
 
+    /// The durable whereabouts rows as the allocation they are shared in.
+    /// Two reads that return one allocation (`Arc::ptr_eq`) read the same rows:
+    /// a setter replaces the whole `Arc`, and a shared `Arc` is not written in
+    /// place.
+    pub fn occurrences_shared(&self) -> &Arc<Vec<PersistedOccurrence>> {
+        &self.occurrences
+    }
+
     /// Who was holding what when this save was written.
     pub fn custody(&self) -> &[PersistedCustody] {
         &self.custody
@@ -566,6 +574,12 @@ impl AmbitionGameSaveData {
 
     /// How to remake the runtime-minted instances that were in a hand.
     pub fn minted_items(&self) -> &[PersistedMintedItem] {
+        &self.minted_items
+    }
+
+    /// The minted-item recipes as the allocation they are shared in; see
+    /// [`Self::occurrences_shared`].
+    pub fn minted_items_shared(&self) -> &Arc<Vec<PersistedMintedItem>> {
         &self.minted_items
     }
 

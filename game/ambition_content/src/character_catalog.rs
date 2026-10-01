@@ -38,7 +38,7 @@ pub fn load_catalog() -> ambition_characters::actor::character_catalog::Characte
 /// rebuild the deterministic assembled catalog resource.
 pub fn register(app: &mut bevy::prelude::App) {
     use ambition_characters::actor::character_catalog::{
-        CharacterCatalogAppExt, CharacterCatalogFragment,
+        CharacterCatalogAppExt,
     };
 
     let catalog =
@@ -46,21 +46,30 @@ pub fn register(app: &mut bevy::prelude::App) {
             .expect("the character schema lowers its catalog for every pack that compiles")
             .clone();
     app.register_character_catalog_fragment(
-        CharacterCatalogFragment::from_prepared(
-            CATALOG_SOURCE_PATH,
-            crate::AMBITION_CONTENT_PROVIDER,
-            Some(DEFAULT_CHARACTER),
-            catalog,
-        )
-        .expect("the prepared catalog carries this provider's default character")
-        // What an Ambition character that states no verbs can do as an actor.
-        .with_actor_default_abilities(
-            ambition_platformer2d_core::AbilitySet::classic_actor(),
-        )
-        // How an Ambition character that names no provoked policy fights once
-        // provoked. Without it, striking such a character provokes nothing.
-        .with_default_provoked_profile("provoked_combatant"),
+        catalog_fragment(catalog).expect("the prepared catalog carries this provider's default character"),
     );
+}
+
+/// Ambition's character fragment from a lowered catalog: the boot pack's at
+/// startup, a reload's candidate pack's at request time (`crate::reload`).
+pub fn catalog_fragment(
+    catalog: ambition_characters::actor::character_catalog::CharacterCatalogData,
+) -> Result<
+    ambition_characters::actor::character_catalog::CharacterCatalogFragment,
+    ambition_characters::actor::character_catalog::CharacterCatalogAssemblyError,
+> {
+    use ambition_characters::actor::character_catalog::CharacterCatalogFragment;
+    Ok(CharacterCatalogFragment::from_prepared(
+        CATALOG_SOURCE_PATH,
+        crate::AMBITION_CONTENT_PROVIDER,
+        Some(DEFAULT_CHARACTER),
+        catalog,
+    )?
+    // What an Ambition character that states no verbs can do as an actor.
+    .with_actor_default_abilities(ambition_platformer2d_core::AbilitySet::classic_actor())
+    // How an Ambition character that names no provoked policy fights once
+    // provoked. Without it, striking such a character provokes nothing.
+    .with_default_provoked_profile("provoked_combatant"))
 }
 
 /// Register the whole cast this provider ships, as the plugin does.
@@ -81,7 +90,6 @@ pub fn register_cast(app: &mut bevy::prelude::App) {
 /// row's sheet at its `posed_body` scale, the hurtbox inset from that body, and
 /// the pack's move table. Everything else is the row, folded at preparation.
 pub fn register_characters(app: &mut bevy::prelude::App) {
-    use ambition_platformer2d::character::CharacterDefinition;
     use ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinitionAppExt;
 
     let catalog = load_catalog();
@@ -93,9 +101,27 @@ pub fn register_characters(app: &mut bevy::prelude::App) {
     // The shipped game does not admit rigs (see `BodyRigAdmission`).
     let rigs_admitted =
         ambition_characters::actor::BodyRigAdmission::of(app.world()).admit;
+    for definition in buildable_definitions(&catalog, &pack, rigs_admitted) {
+        // A refusal stops the composition. A stable id authored by two
+        // providers, or a display name shared by two characters, is two
+        // authorities for one character; skipping the second registration would
+        // let the first provider's definition take this row's facts.
+        app.register_character(definition);
+    }
+}
+
+/// Every character this provider builds, defined from `catalog`'s rows and
+/// `pack`'s facets: the boot registration's and a reload's one road.
+pub fn buildable_definitions(
+    catalog: &ambition_characters::actor::character_catalog::CharacterCatalog,
+    pack: &ambition_content_pack::PreparedContentPack,
+    rigs_admitted: bool,
+) -> Vec<ambition_platformer2d::character::CharacterDefinition> {
+    use ambition_platformer2d::character::CharacterDefinition;
+    let mut out = Vec::new();
     // Only the rows that state a body. A bare registration for an exploration
     // NPC would incorrectly replace its archetype-authored body.
-    for id in buildable_cast() {
+    for id in rows_with_a_body_in(catalog.data()) {
         let Some(row) = catalog.get(id) else {
             continue;
         };
@@ -129,14 +155,9 @@ pub fn register_characters(app: &mut bevy::prelude::App) {
             definition = definition.with_body_rig(rig);
         }
         // Every character facet the pack authors, folded by its capability.
-        let definition =
-            ambition_characters::pack_facets::fold_character_facets(&pack, definition);
-        // A refusal stops the composition. A stable id authored by two
-        // providers, or a display name shared by two characters, is two
-        // authorities for one character; skipping the second registration would
-        // let the first provider's definition take this row's facts.
-        app.register_character(definition);
+        out.push(ambition_characters::pack_facets::fold_character_facets(pack, definition));
     }
+    out
 }
 
 /// The character this provider starts the player as: the current robot.
@@ -147,8 +168,26 @@ pub const DEFAULT_CHARACTER: &str = "player_robot_v3";
 
 /// The rows of the shipped pack's catalog that state how their body moves.
 fn rows_with_a_body() -> impl Iterator<Item = &'static str> {
-    ambition_characters::actor::character_catalog::lowered_catalog(crate::pack::prepared())
-        .expect("the character schema lowers its catalog for every pack that compiles")
+    rows_with_a_body_in(
+        ambition_characters::actor::character_catalog::lowered_catalog(crate::pack::prepared())
+            .expect("the character schema lowers its catalog for every pack that compiles"),
+    )
+}
+
+/// The ids of every character `catalog` builds. A reload compares these: a
+/// catalog edit that adds or removes a buildable character changes the cast's
+/// membership, which a revision cannot do.
+pub fn buildable_ids(
+    catalog: &ambition_characters::actor::character_catalog::CharacterCatalog,
+) -> std::collections::BTreeSet<String> {
+    rows_with_a_body_in(catalog.data()).map(str::to_string).collect()
+}
+
+/// The rows of `catalog` that state how their body moves.
+fn rows_with_a_body_in(
+    catalog: &ambition_characters::actor::character_catalog::CharacterCatalogData,
+) -> impl Iterator<Item = &str> {
+    catalog
         .characters
         .iter()
         .filter(|(_, row)| row.locomotion.is_some() || row.locomotion_preset.is_some())

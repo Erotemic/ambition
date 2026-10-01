@@ -580,3 +580,85 @@ fn a_content_file_saved_under_a_local_timeline_rebases_it() {
         std::panic::resume_unwind(payload);
     }
 }
+
+/// Each live goblin's maximum HP.
+#[cfg(not(feature = "static_content"))]
+fn goblin_max_hps(sim: &mut ambition_sim_harness::Platformer2dSimHarness) -> Vec<i32> {
+    let world = sim.world_mut();
+    let mut q = world.query::<(
+        &ambition_platformer2d::characters::actor::WornCharacter,
+        &ambition_platformer2d::characters::actor::BodyHealth,
+    )>();
+    q.iter(world)
+        .filter(|(worn, _)| worn.0.to_string() == "goblin")
+        .map(|(_, health)| health.max())
+        .collect()
+}
+
+/// ⭐ A CHARACTER CATALOG EDIT IS PLAYED WITHOUT A RESTART. A saved row is a
+/// revision of the whole cast, folded against the candidate catalog, frozen by
+/// the preparation and published with the catalog at the activation.
+#[cfg(not(feature = "static_content"))]
+#[test]
+fn a_character_row_saved_while_the_game_runs_is_played() {
+    use ambition_content::content_watch::ContentSourceWatch;
+    const EDITED: i32 = 9;
+    let mut sim = common::fixed_60hz_room_sim("proving_grounds");
+    for _ in 0..40 {
+        sim.step(common::base());
+    }
+    let before = goblin_max_hps(&mut sim);
+    assert!(before.len() >= 3, "the premise: the room builds three goblins, got {before:?}");
+    assert!(before.iter().all(|&hp| hp != EDITED), "the premise: the edit changes the HP: {before:?}");
+
+    let root = std::env::temp_dir().join(format!("ambition_catalog_watch_{}", std::process::id()));
+    let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        ambition_content::pack::export_sources_to(&root).expect("sources export");
+        sim.world_mut().insert_resource(ContentSourceWatch::new(root.clone()));
+        std::thread::sleep(std::time::Duration::from_millis(20));
+        let path = root.join("data/character_catalog.ron");
+        let text = std::fs::read_to_string(&path).unwrap();
+        let start = text.find("\"goblin\": (").expect("the catalog has a goblin row");
+        let at = start + text[start..].find("max_health: Some(").expect("the row states its HP");
+        let end = at + text[at..].find(')').unwrap() + 1;
+        std::fs::write(&path, format!("{}max_health: Some({EDITED}){}", &text[..at], &text[end..])).unwrap();
+
+        let mut frames = 0;
+        while goblin_max_hps(&mut sim).iter().any(|&hp| hp != EDITED) || goblin_max_hps(&mut sim).is_empty() {
+            sim.step(common::base());
+            frames += 1;
+            assert!(
+                frames < 600,
+                "600 frames after the save the goblins have {:?}; reloads requested: {}",
+                goblin_max_hps(&mut sim),
+                sim.world().resource::<ContentSourceWatch>().requested
+            );
+        }
+        assert_eq!(goblin_max_hps(&mut sim).len(), before.len(), "the same goblins, rebuilt");
+        let catalog = sim.world().resource::<ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog>();
+        assert_eq!(
+            catalog.get("goblin").and_then(|row| row.max_health),
+            Some(EDITED),
+            "the App's catalog is the published one"
+        );
+        // ⛔ AND THE CAST THE SESSION FROZE. The live HP alone cannot tell:
+        // MEASURED under the poison "the claim carries no candidate cast", the
+        // session froze 5 while the App's registry held 9, and the rebuilt
+        // goblins had 9 on the activation frame — so the body's pool is not
+        // read from the frozen cast (the road is not identified yet; see the
+        // I3 notes).
+        let frozen = sim
+            .world()
+            .resource::<ambition_platformer2d::actors::session::mechanics::SessionMechanics>()
+            .characters
+            .as_ref()
+            .and_then(|cast| cast.get("goblin"))
+            .and_then(|definition| definition.vitals.max_health);
+        assert_eq!(frozen, Some(EDITED), "the session froze the cast it was prepared from");
+        eprintln!("a saved character row was played {frames} frames after the save");
+    }));
+    let _ = std::fs::remove_dir_all(&root);
+    if let Err(payload) = outcome {
+        std::panic::resume_unwind(payload);
+    }
+}

@@ -1844,7 +1844,9 @@ seeded from the App's catalog after construction, closed the same day
 (`BossConfig::seed`). Encounter waves stay a standing projection
 (`project_live_encounter_occurrences` reads the App's `EncounterWaveBook` after
 activation), like the fighter ladder. Not yet in the channel because not yet
-in the reload: the character catalog (planned in I3, with its prerequisites).
+in the reload: none left from the character catalog, which joined the same
+day; its admitted cast rides the existing `characters` claim. Measured on the
+way: a body's health pool is not read from the frozen cast (see I3).
 
 ⚠ **AND THE GUARD STOPPED WITNESSING IT WITHOUT GOING RED.**
 `the_commit_sits_between_the_activation_and_session_adoption`
@@ -1939,7 +1941,9 @@ profiles and encounters joined the participating families (a saved boss tuning,
 22 frames). A module reload re-mints the session's content identity (D6), and
 the module reload's three review findings are closed (a file is the unit of
 replacement, one poll is one candidate, a departed schema takes its records).
-Still refused by the reload: items, audio, the character catalog, the boss seed
+Later the same day the character catalog joined (a whole-cast revision against
+the candidate catalog; a change to which characters are built is refused).
+Still refused by the reload: items, audio, fighter facets, the boss seed
 library and validator bands. Open, found on the way: a boss's HP, phase
 triggers, death seconds, music and reward seed from the App catalog, not the
 frozen generation (see I3 in the implementation page).

@@ -426,10 +426,34 @@ fixture fallback as its only reader. Still refused: items, audio, the character 
 the boss seed library and validator bands, and every source outside the pack
 (`boss_sheets.ron`, `boss_art_keys.ron`).
 
-**Next, planned not started: the character catalog in the reload.** The
-reload still refuses a `character_catalog` change, and the catalog is the
-largest tuning surface left (body sizes, health, motion, brains). What it takes,
-measured 2026-10-01:
+**The character catalog in the reload — LANDED 2026-10-01 (two increments).**
+`character_catalog` is a participating domain. Increment 1
+(`ambition_characters::prepared::admit_staged_revision_with_catalog`): a
+revision against a candidate catalog folds the WHOLE cast (authored source with
+the staged edits, plus a bare definition per catalog-only row, as the barrier
+does), carries the catalog, and publication inserts every resource the
+assembly publishes. Increment 2 (`ambition_content::reload`): the candidate
+fragment is assembled with `CharacterCatalogRegistry::with_replaced`; a change
+to WHICH characters are built is refused (restart); every buildable character
+is staged again from the candidate catalog and pack
+(`character_catalog::buildable_definitions`, the boot registration's one road,
+moves included) through `stage_character_revision_in` with the engine's art
+vocabulary; the admitted candidate cast rides `PendingGenerationInputs` as
+before. Witness: `edit_to_play_through_the_shell::a_character_row_saved_while_the_game_runs_is_played`
+(the goblin row's `max_health` 5 → 9 in an exported copy: the three rebuilt
+goblins have 9, **22 frames after the save**; the App's catalog and the
+session's frozen cast both say 9). Poisons: "admission ignores the candidate
+catalog" fails it on the live goblins (5, 5, 5); "the claim carries no
+candidate cast" fails it ONLY at the frozen-cast assertion — ⛔ MEASURED under
+that poison, the session froze 5 while the App's registry held 9 and the
+rebuilt goblins had 9 on the activation frame, so a body's health pool is not
+read from the frozen cast; the road is not identified yet (the boss seed was
+the same class, closed today). ⚠ Observed once, not reproduced in two reruns:
+`quality_change_keeps_each_character::a_quality_round_trip_converges_back_with_every_page_loaded_and_nothing_orphaned`
+failed in a filtered batch ("a direct gameplay boot has a PrimaryPlayer wearing
+a character") and passed alone and in the same batch twice.
+
+What it took, measured before it was built:
 
 1. The catalog is not only FOLDED, it is an INPUT to the definitions:
    `ambition_content::character_catalog::register_characters` builds each

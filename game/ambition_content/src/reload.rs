@@ -132,6 +132,11 @@ pub enum MoveReload {
     /// the other providers' fragments. Nothing was staged; the live bosses
     /// keep the published catalog.
     BossCatalogRefused(String),
+    /// The candidate's character catalog does not assemble, or it adds or
+    /// removes a buildable character (a revision cannot change the cast's
+    /// membership: restart for that), or a definition built from it does not
+    /// stage. Nothing was published; the live cast keeps its catalog.
+    CharacterCatalogRefused(String),
 }
 
 /// Republish the cast's move tables from an already-compiled pack.
@@ -359,6 +364,7 @@ pub(crate) fn publish_candidate(
 /// express a generation N+1.
 fn participates(domain: &str) -> bool {
     domain == ambition_characters::moveset_content_schema::MOVESET_SCHEMA
+        || domain == ambition_characters::actor::character_catalog::CHARACTER_CATALOG_SCHEMA
         || BOSS_DOMAINS.contains(&domain)
         || PACK_DERIVED_FAMILIES
             .iter()
@@ -375,6 +381,66 @@ const BOSS_DOMAINS: &[&str] = &[
     ambition_boss_encounter::pattern::content_schema::BOSS_PROFILES_SCHEMA,
     ambition_boss_encounter::pattern::content_schema::BOSS_ENCOUNTER_SCHEMA,
 ];
+
+/// The character catalog a candidate publishes with its cast, or `None` when
+/// it does not change the catalog. Assembled from the App's registry with
+/// Ambition's fragment rebuilt from the candidate pack, like the boss catalog.
+/// The cast is staged from it separately ([`stage_cast_from_catalog`]).
+fn candidate_character_catalog(
+    world: &bevy::ecs::world::World,
+    pack: &ambition_content_pack::PreparedContentPack,
+) -> Result<Option<ambition_characters::prepared::CandidateCatalog>, String> {
+    use ambition_characters::actor::character_catalog as cc;
+    let changes_catalog = crate::pack::selected(world).is_some_and(|active| {
+        ambition_content_pack::changed_domains(active, pack)
+            .iter()
+            .any(|schema| schema.0 == cc::CHARACTER_CATALOG_SCHEMA)
+    });
+    if !changes_catalog {
+        return Ok(None);
+    }
+    let data = cc::lowered_catalog(pack).ok_or("the pack carries no lowered character catalog")?;
+    let fragment = crate::character_catalog::catalog_fragment(data.clone()).map_err(|e| e.to_string())?;
+    let registry = world
+        .get_resource::<cc::CharacterCatalogRegistry>()
+        .ok_or("this App registers no character catalog")?;
+    let (registry, assembled) = registry.with_replaced(fragment).map_err(|e| e.to_string())?;
+    let live = world.get_resource::<cc::CharacterCatalog>().ok_or("this App has no character catalog")?;
+    let (before, after) = (
+        crate::character_catalog::buildable_ids(live),
+        crate::character_catalog::buildable_ids(&assembled.catalog),
+    );
+    if before != after {
+        let added: Vec<_> = after.difference(&before).collect();
+        let removed: Vec<_> = before.difference(&after).collect();
+        return Err(format!(
+            "the catalog changes which characters are built (added {added:?}, removed {removed:?}); \
+             restart to take it"
+        ));
+    }
+    Ok(Some(ambition_characters::prepared::CandidateCatalog { registry, assembled }))
+}
+
+/// Stage every buildable character again, defined from the candidate catalog
+/// and the candidate pack: the definitions are a function of both
+/// (`character_catalog::buildable_definitions`), the moves included.
+fn stage_cast_from_catalog(
+    world: &mut bevy::ecs::world::World,
+    pack: &ambition_content_pack::PreparedContentPack,
+    catalog: &ambition_characters::prepared::CandidateCatalog,
+) -> Result<(), String> {
+    let rigs_admitted = ambition_characters::actor::BodyRigAdmission::of(world).admit;
+    for definition in
+        crate::character_catalog::buildable_definitions(&catalog.assembled.catalog, pack, rigs_admitted)
+    {
+        let bindings = ambition_platformer2d_actor_monolith::character_runtime::definition::with_engine_vocabularies(
+            ambition_characters::prepared::CharacterBindings::default(),
+        );
+        ambition_characters::prepared::stage_character_revision_in(world, definition, &bindings)
+            .map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
 
 /// The boss catalog a candidate publishes, or `None` when it changes no boss
 /// domain. Built from the App's registry with Ambition's fragment replaced, so
@@ -742,6 +808,22 @@ pub fn request_reload(
             ));
         }
     }
+    // A character catalog edit re-stages the whole cast from the candidate
+    // catalog, and the revision is admitted against that catalog.
+    let character_catalog = match candidate_character_catalog(world, &pack) {
+        Ok(catalog) => catalog,
+        Err(reason) => {
+            discard_staged_reload(world);
+            return ReloadRequest::Refused(MoveReload::CharacterCatalogRefused(reason));
+        }
+    };
+    if let Some(catalog) = &character_catalog {
+        if let Err(reason) = stage_cast_from_catalog(world, &pack, catalog) {
+            discard_staged_reload(world);
+            return ReloadRequest::Refused(MoveReload::CharacterCatalogRefused(reason));
+        }
+    }
+    let stages_cast = stages_cast || character_catalog.is_some();
     // Stage as pending; do not install as the selection. Installing here let a
     // failed preparation leave the App on a pack whose cast it never built,
     // and the next save then compared equal and requested nothing.
@@ -786,7 +868,12 @@ pub fn request_reload(
         }
     };
     let admitted_cast = match support
-        .map(|support| ambition_characters::prepared::take_admitted_revision(world, &support))
+        .map(|support| match &character_catalog {
+            Some(catalog) => {
+                ambition_characters::prepared::take_admitted_revision_with_catalog(world, &support, catalog)
+            }
+            None => ambition_characters::prepared::take_admitted_revision(world, &support),
+        })
         .unwrap_or(ambition_characters::prepared::RevisionAdmission::NothingStaged)
     {
         ambition_characters::prepared::RevisionAdmission::Refused { refusals, .. } => {

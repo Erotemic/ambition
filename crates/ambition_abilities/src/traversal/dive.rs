@@ -1,7 +1,7 @@
 //! Overflow Crash: a player-wielded lunge strike. Dash forward along the aim
 //! and hit everything in the dash corridor. The wielded kit's only offensive
-//! mobility attack: [`crate::ranged::shockwave`], [`crate::ranged::beam`],
-//! and [`crate::ranged::volley`] are stationary, and
+//! mobility attack: the shockwave, the beam and the volley (procedural
+//! modules in `ambition_content_modules`) are stationary, and
 //! [`crate::traversal::blink`] is a defensive reposition. The dive's damage
 //! covers the whole path from start to landing.
 //!

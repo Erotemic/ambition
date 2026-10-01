@@ -182,7 +182,7 @@ const fn telegraph(telegraph: &'static [usize]) -> Tick {
 const IDLE: Tick = press(&[]);
 
 /// Each tick's requests, by boss index, in emission order.
-type Trace = Vec<BTreeMap<usize, Vec<String>>>;
+pub(crate) type Trace = Vec<BTreeMap<usize, Vec<String>>>;
 
 fn wasm_modules() -> (
     std::sync::Arc<ambition_extension_wasm::WasmModules>,
@@ -201,6 +201,7 @@ fn world(road: Road, technique: &Technique) -> (App, Vec<Entity>) {
     app.add_message::<ActorActionMessage>()
         .add_message::<ProjectileSpawnRequest>()
         .add_message::<ambition_vfx::EffectRequest>()
+        .add_message::<ambition_sfx::OwnedSfxMessage>()
         .init_resource::<ambition_time::SimTick>()
         .init_resource::<ambition_time::WorldTime>();
     {
@@ -212,10 +213,8 @@ fn world(road: Road, technique: &Technique) -> (App, Vec<Entity>) {
         Road::NativeSystem => (technique.native)(&mut app),
         Road::Module | Road::Wasm => {
             app.add_plugins(ExtensionHostPlugin::new(Sim));
-            ambition_boss_encounter::extension::install(&mut app);
-            ambition_projectiles::extension::install(&mut app);
-            ambition_combat::extension::install(&mut app);
-            ambition_boss_encounter::extension::install_summons(&mut app);
+            // Every module is declared, so every port the game offers is.
+            ambition_platformer2d_runtime::extension_composition::install_ports(&mut app);
             if road == Road::Wasm {
                 let (backend, modules) = wasm_modules();
                 app.add_loaded_extension_modules(backend, modules, false);
@@ -537,8 +536,9 @@ fn each_wasm_build_emits_what_its_native_system_emitted() {
     }
 }
 
-/// Each trace with every decimal literal rounded to 1e-3.
-fn quantize(trace: &Trace) -> Trace {
+/// Each trace with every decimal literal rounded to 1e-3. Shared with
+/// `wielded_ability_parity_tests`.
+pub(crate) fn quantize(trace: &Trace) -> Trace {
     trace
         .iter()
         .map(|tick| {

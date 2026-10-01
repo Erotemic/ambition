@@ -1905,8 +1905,12 @@ same day, every boss special became a module (eleven; the native systems are
 test-only references held to the modules on the linked and WASM roads), with
 three more ports (the boss's live room on the trigger, a boss summon, and a HELD
 damage box whose entity the combat domain owns), and D6's first cut (the
-declared modules are a section of the prepared content identity). Next: I5's
-session-scoped records and save eligibility.
+declared modules are a section of the prepared content identity). Then the
+wielded kit's four damage/projectile items (shockwave, beam, volley, meteor)
+became modules on a held-item use port, `record!` gave modules typed records,
+and `extension_inspect` shows what runs. Next: I5's session-scoped records and
+save eligibility; the remaining wielded items (vortex, sentry, dive, blink,
+grapple, mark/recall) need ports for body motion and spawned entities.
 
 **Blocked by:** nothing.
 

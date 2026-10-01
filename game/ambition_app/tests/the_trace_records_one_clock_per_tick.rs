@@ -34,6 +34,15 @@ fn every_trace_row_states_the_scale_its_dts_were_stepped_at() {
                 sim,
                 move_the_clock_before_the_trace
                     .after(Platformer2dSimulationPhaseMonolith::CoreSimulation)
+                    // Before the chain that owns the clock (requests, the
+                    // smoothing ramp, resets), so the ramp carries the moved
+                    // scale into the next tick's head. Unordered against it,
+                    // the move ran before the ramp or after it by the
+                    // schedule's topological accident; after it, the next
+                    // head read the moved scale, every source agreed, and the
+                    // premise below failed (2026-10-01, when two new extension
+                    // sets changed that order).
+                    .before(ambition_platformer2d::time::time_control::apply_clock_scale_requests)
                     .before(Platformer2dSimulationPhaseMonolith::Trace),
             );
             Ok(())

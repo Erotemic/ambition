@@ -11,17 +11,22 @@
 //! host. The same descriptors are what a loaded module will declare (I6/I7).
 
 pub mod apple_rain;
+pub mod beam;
 pub mod echo_fan;
 pub mod eye_beam;
 pub mod gradient_cascade;
 pub mod gradient_nova;
+pub mod meteor;
 pub mod minima_trap;
 pub mod mode_collapse;
 pub mod overfit_volley;
 pub mod overflow_flood;
 pub mod saddle_point;
 pub mod seismic_stomp;
+pub mod shockwave;
 mod strike;
+pub mod volley;
+mod wielded;
 
 /// The provider namespace of every module and schema in this crate.
 pub const PROVIDER: &str = "ambition";
@@ -30,16 +35,20 @@ pub const PROVIDER: &str = "ambition";
 pub fn modules() -> Vec<ambition_extension_sdk::ModuleDescriptor> {
     vec![
         apple_rain::module(),
+        beam::module(),
         echo_fan::module(),
         eye_beam::module(),
         gradient_cascade::module(),
         gradient_nova::module(),
+        meteor::module(),
         minima_trap::module(),
         mode_collapse::module(),
         overfit_volley::module(),
         overflow_flood::module(),
         saddle_point::module(),
         seismic_stomp::module(),
+        shockwave::module(),
+        volley::module(),
     ]
 }
 

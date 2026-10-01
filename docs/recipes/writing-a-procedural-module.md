@@ -6,7 +6,7 @@ last_verified: 2026-10-01
 # Writing a procedural module (no engine build)
 
 A procedural module is a gameplay algorithm with its own state: a boss
-technique today. It is written against `ambition_extension_sdk` and the pure
+technique, or a wielded item's use (the shockwave, beam, volley and meteor). It is written against `ambition_extension_sdk` and the pure
 values of the ports it uses, and nothing else. Edit it, rebuild only the
 module crate as a `.wasm` file, and the running game picks it up.
 
@@ -97,6 +97,9 @@ boss's OWN live room. With two live rooms there is no "the" room.
 | `ambition.projectiles.spawn` v1 | request | `ambition_projectile_spec::ProjectileSpawn` |
 | `ambition.combat.damage_box` v1 | request | `ambition_combat_port::DamageBox` (its faction is the owner's) |
 | `ambition.combat.held_damage_box` v1 | request | `ambition_combat_port::HeldDamageBox` (held while re-submitted each tick; a new generation replaces it) |
+| `ambition.items.wielded_use` v1 | trigger (phase `wielded_use`) | `ambition_combat_port::Wielder` (selector: the held item id) |
+| `ambition.resources.spend_mana` v1 | request | `ambition_combat_port::SpendMana` (ask `Wielder::can_pay_mana` first) |
+| `ambition.feedback.body_sound` v1 | request | `ambition_combat_port::BodySound` (a cue id, as the body) |
 | `ambition.boss.summon` v1 | request | `ambition_boss_special_port::BossSummon` (a boss only; the minion joins its encounter) |
 
 A mechanic that needs another engine fact or action needs a new port: pure

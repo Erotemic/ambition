@@ -1,0 +1,467 @@
+//! The NATIVE wielded abilities (shockwave, beam, volley, meteor), kept as the
+//! reference traces of their procedural modules (`ambition_content_modules`).
+//! Test-only: the game runs the modules. `wielded_ability_parity_tests` holds
+//! each module to its reference on the linked and the WASM road.
+
+
+pub mod shockwave {
+    use bevy::prelude::*;
+
+    use ambition_combat::held_items::HeldItem;
+    use ambition_characters::control::ActorControl;
+    use ambition_platformer2d_core as ae;
+    use ambition_platformer2d_core::BodyKinematics;
+
+    /// Held-item id of the shockwave gauntlet.
+    pub const SHOCKWAVE_ID: &str = "shockwave";
+
+    /// Mana per use (out of 100).
+    const SHOCKWAVE_MANA_COST: f32 = 25.0;
+
+    /// Player gauntlet tuning. A boss authors its own `DamageBox` values where it
+    /// emits.
+    const SHOCKWAVE_HALF: ae::Vec2 = ae::Vec2::new(120.0, 52.0);
+    const SHOCKWAVE_DAMAGE: i32 = 4;
+    const SHOCKWAVE_LIFETIME_S: f32 = 0.18;
+    const SHOCKWAVE_KNOCKBACK: f32 = 1.3;
+
+    /// `Attack` while holding the shockwave gauntlet emits a `DamageBox` effect
+    /// from the wielding body. Plain Attack only; `Shield + Attack` is the
+    /// throw/drop gesture (`item_pickup::throw_held_item_system` excludes this id
+    /// from throw-on-plain-Attack).
+    ///
+    /// Body-generic: reads the body's resolved intent ([`ActorControl`], the same
+    /// frame an NPC brain writes), not raw input, for every wielder. Mana is the
+    /// gate, and a body has Mana only when its experience declared the pool.
+    pub fn fire_shockwave_system(
+        mut wielders: Query<(
+            Entity,
+            &ActorControl,
+            &HeldItem,
+            &BodyKinematics,
+            &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
+            Option<&mut ambition_platformer2d_core::resources::ActorResources>,
+        )>,
+        mut effects: MessageWriter<ambition_vfx::EffectRequest>,
+        mut sfx: ambition_sfx::BodySfxWriter,
+    ) {
+        for (entity, control, held, kin, resolved_frame, mut mana) in &mut wielders {
+            if !control.0.melee_pressed || control.0.shield_held {
+                continue;
+            }
+            if held.spec.id != SHOCKWAVE_ID {
+                continue;
+            }
+            // Costs mana; with too little, no slam.
+            if !ambition_platformer2d::abilities::mana::spend(mana.as_deref_mut(), SHOCKWAVE_MANA_COST) {
+                continue;
+            }
+            // The body's per-tick resolved frame (ADR 0024 frame law).
+            let half_extent = resolved_frame.basis().to_world_half(SHOCKWAVE_HALF);
+            effects.write(ambition_vfx::EffectRequest {
+                owner: entity,
+                effect: ambition_vfx::Effect::DamageBox(ambition_vfx::DamageBoxEffect {
+                    center: kin.pos,
+                    faction: ambition_vfx::HitSide::Player,
+                    half_extent,
+                    damage: SHOCKWAVE_DAMAGE,
+                    knockback: SHOCKWAVE_KNOCKBACK,
+                    lifetime_s: SHOCKWAVE_LIFETIME_S,
+                    name: Some("Shockwave AOE"),
+                }),
+            });
+            sfx.write_for(
+                entity,
+                ambition_sfx::SfxMessage::Play {
+                    id: ambition_sfx::ids::WORLD_ROCK_HIT,
+                    pos: kin.pos,
+                },
+            );
+        }
+    }
+}
+
+
+pub mod beam {
+    use ambition_characters::control::ActorControl;
+    use bevy::prelude::*;
+
+    use ambition_combat::held_items::HeldItem;
+    use ambition_platformer2d_core as ae;
+    use ambition_platformer2d_core::BodyKinematics;
+
+    /// Held-item id of the focus-beam gauntlet.
+    pub const BEAM_ID: &str = "beam";
+
+    /// Mana per zap (out of 100). Expensive, because it is a strong,
+    /// long-reach, line-clearing hit.
+    const BEAM_MANA_COST: f32 = 30.0;
+
+    /// Beam length (px) along the aim axis: how far forward it reaches.
+    const BEAM_LENGTH: f32 = 300.0;
+    /// Beam thickness (px) across the aim axis.
+    const BEAM_WIDTH: f32 = 30.0;
+    const BEAM_DAMAGE: i32 = 5;
+    const BEAM_LIFETIME_S: f32 = 0.12;
+    const BEAM_KNOCKBACK: f32 = 1.1;
+
+    /// The beam's axis-aligned geometry from an aim vector. Snaps to the dominant
+    /// axis and returns `(center_offset_from_player, half_extent)`, reaching
+    /// `BEAM_LENGTH` forward. A zero aim uses `facing` (a forward horizontal
+    /// lance), so a plain Attack still fires.
+    fn beam_geometry(aim: ae::Vec2, facing: f32) -> (ae::Vec2, ae::Vec2) {
+        let half_len = BEAM_LENGTH * 0.5;
+        let half_wid = BEAM_WIDTH * 0.5;
+        // Pick the dominant axis; default to horizontal-facing on a null aim.
+        let horizontal = if aim == ae::Vec2::ZERO {
+            true
+        } else {
+            aim.x.abs() >= aim.y.abs()
+        };
+        if horizontal {
+            let dir = if aim.x.abs() > 0.001 {
+                aim.x.signum()
+            } else {
+                facing.signum()
+            };
+            (
+                ae::Vec2::new(dir * half_len, 0.0),
+                ae::Vec2::new(half_len, half_wid),
+            )
+        } else {
+            let dir = aim.y.signum();
+            (
+                ae::Vec2::new(0.0, dir * half_len),
+                ae::Vec2::new(half_wid, half_len),
+            )
+        }
+    }
+
+    /// `Attack` while holding the beam gauntlet fires an aimed `Player`-faction
+    /// line [`Hitbox`] along the dominant aim axis. Plain Attack only;
+    /// `Shield + Attack` drops the item (the id is `UseSystem`, excluded from
+    /// throw-on-plain-Attack in `throw_held_item_system`).
+    pub fn fire_beam_system(
+        // Every driven body, not only the primary seat's `ControlledSubject`, so
+        // a possessed body or a second seat can use it.
+        driven: ambition_held_items::DrivenBodies,
+        mut players: Query<(
+            Entity,
+            &ActorControl,
+            &HeldItem,
+            &BodyKinematics,
+            &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
+            Option<&mut ambition_platformer2d_core::resources::ActorResources>,
+        )>,
+        mut effects: MessageWriter<ambition_vfx::EffectRequest>,
+        mut sfx: ambition_sfx::BodySfxWriter,
+    ) {
+        for subject in driven.entities() {
+            let Ok((entity, control, held, kin, resolved_frame, mut mana)) = players.get_mut(subject)
+            else {
+                continue;
+            };
+            let c = control.0;
+            if !c.melee_pressed || c.shield_held {
+                continue;
+            }
+            if held.spec.id != BEAM_ID {
+                continue;
+            }
+            // Costs mana; with too little, no beam.
+            if !ambition_platformer2d::abilities::mana::spend(mana.as_deref_mut(), BEAM_MANA_COST) {
+                continue;
+            }
+            // The body's per-tick resolved frame (ADR 0024 frame law).
+            let frame = resolved_frame.basis();
+            let aim = ambition_held_items::ability_aim_local(&c, kin.facing);
+            let (offset_local, half_local) = beam_geometry(aim, kin.facing);
+            let offset = frame.to_world(offset_local);
+            let half_extent = frame.to_world_half(half_local);
+            effects.write(ambition_vfx::EffectRequest {
+                owner: entity,
+                effect: ambition_vfx::Effect::DamageBox(ambition_vfx::DamageBoxEffect {
+                    center: kin.pos + offset,
+                    faction: ambition_vfx::HitSide::Player,
+                    half_extent,
+                    damage: BEAM_DAMAGE,
+                    knockback: BEAM_KNOCKBACK,
+                    lifetime_s: BEAM_LIFETIME_S,
+                    name: Some("Focus Beam"),
+                }),
+            });
+            // G1: the beam is this body's ability, so it speaks in this body's voice.
+            sfx.write_for(
+                entity,
+                ambition_sfx::SfxMessage::Play {
+                    id: ambition_sfx::ids::WORLD_ROCK_HIT,
+                    pos: kin.pos,
+                },
+            );
+        }
+    }
+}
+
+
+pub mod volley {
+    use bevy::prelude::*;
+
+    use ambition_combat::held_items::HeldItem;
+    use ambition_characters::control::ActorControl;
+    use ambition_platformer2d_core as ae;
+    use ambition_platformer2d_core::BodyKinematics;
+    use ambition_projectiles::{ProjectileSpawn, ProjectileSpawnRequest, ProjectileStart};
+
+    /// Held-item id of the volley gauntlet.
+    pub const VOLLEY_ID: &str = "volley";
+
+    /// Mana per fan (out of 100). Cheaper than the shockwave slam.
+    const VOLLEY_MANA_COST: f32 = 18.0;
+
+    /// Bolts per volley.
+    const VOLLEY_SHOT_COUNT: usize = 5;
+    /// Total fan spread (degrees), centered on the aim direction.
+    const VOLLEY_SPREAD_DEG: f32 = 40.0;
+    const VOLLEY_SPEED: f32 = 460.0;
+    const VOLLEY_DAMAGE: i32 = 2;
+    const VOLLEY_LIFETIME: f32 = 1.6;
+    const VOLLEY_HALF: ae::Vec2 = ae::Vec2::new(8.0, 8.0);
+
+    fn volley_origin_local_offset(aim_local: ae::Vec2, body_size: ae::Vec2) -> ae::Vec2 {
+        let dir = aim_local.normalize_or_zero();
+        if dir == ae::Vec2::ZERO {
+            return ae::Vec2::ZERO;
+        }
+        let half = body_size * 0.5;
+        let body_extent_along_aim = half.x * dir.x.abs() + half.y * dir.y.abs();
+        dir * (body_extent_along_aim + 8.0)
+    }
+
+    fn volley_origin_world(
+        player_pos: ae::Vec2,
+        body_size: ae::Vec2,
+        aim_local: ae::Vec2,
+        frame: ae::AccelerationFrame,
+    ) -> ae::Vec2 {
+        player_pos + frame.to_world(volley_origin_local_offset(aim_local, body_size))
+    }
+
+    /// `Attack` while holding the volley gauntlet fires a fan of player-faction
+    /// bolts along the body's aim direction (`ActorControl` aim, locomotion, or
+    /// facing). Plain Attack only; `Shield + Attack` drops the item (the id is
+    /// excluded from throw-on-plain-Attack in `throw_held_item_system`).
+    pub fn fire_volley_system(
+        // Every driven body, not only the primary seat's `ControlledSubject`, so
+        // a possessed body or a second seat can use it.
+        driven: ambition_held_items::DrivenBodies,
+        mut players: Query<(
+            Entity,
+            &ActorControl,
+            &BodyKinematics,
+            &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
+            &HeldItem,
+            Option<&mut ambition_platformer2d_core::resources::ActorResources>,
+        )>,
+        mut projectiles: MessageWriter<ProjectileSpawnRequest>,
+        mut sfx: ambition_sfx::BodySfxWriter,
+    ) {
+        for subject in driven.entities() {
+            let Ok((entity, control, kin, resolved_frame, held, mut mana)) = players.get_mut(subject)
+            else {
+                continue;
+            };
+            let c = control.0;
+            if !c.melee_pressed || c.shield_held {
+                continue;
+            }
+            if held.spec.id != VOLLEY_ID {
+                continue;
+            }
+            // Costs mana; with too little, no volley.
+            if !ambition_platformer2d::abilities::mana::spend(mana.as_deref_mut(), VOLLEY_MANA_COST) {
+                continue;
+            }
+            // The body's per-tick resolved frame (ADR 0024 frame law).
+            let frame = resolved_frame.basis();
+            let aim_local = ambition_held_items::ability_aim_local(&c, kin.facing);
+            let aim = frame.to_world(aim_local).normalize_or_zero();
+            if aim == ae::Vec2::ZERO {
+                continue;
+            }
+            let base_angle = aim.y.atan2(aim.x);
+            let origin = volley_origin_world(kin.pos, kin.size, aim_local, frame);
+            let spread = VOLLEY_SPREAD_DEG.to_radians();
+            for i in 0..VOLLEY_SHOT_COUNT {
+                // Centered fan: t in [-0.5, 0.5].
+                let t = if VOLLEY_SHOT_COUNT > 1 {
+                    i as f32 / (VOLLEY_SHOT_COUNT - 1) as f32 - 0.5
+                } else {
+                    0.0
+                };
+                let angle = base_angle + t * spread;
+                let dir = ae::Vec2::new(angle.cos(), angle.sin());
+                projectiles.write(ProjectileSpawnRequest::open(
+                    // The firing actor owns every bolt, so a kill is credited to it
+                    // (materialization stamps `ProjectileOwner` from this).
+                    entity,
+                    ProjectileSpawn {
+                        origin,
+                        dir,
+                        speed: VOLLEY_SPEED,
+                        damage: VOLLEY_DAMAGE,
+                        max_lifetime: VOLLEY_LIFETIME,
+                        half_extent: VOLLEY_HALF,
+                        gravity: 0.0,
+                        visual_id: String::new(),
+                        // Straight volley: this ability authors no bounce.
+                        bounces: 0,
+                        bounce_on_world_contact: false,
+                        splash_half_extent: 0.0,
+                        boomerang_return_s: None,
+                    },
+                    ProjectileStart::StepThisTick,
+                ));
+            }
+            sfx.write_for(
+                entity,
+                ambition_sfx::SfxMessage::Play {
+                    id: ambition_sfx::ids::WORLD_ROCK_HIT,
+                    pos: kin.pos,
+                },
+            );
+        }
+    }
+}
+
+
+pub mod meteor {
+    use bevy::prelude::*;
+
+    use ambition_combat::held_items::HeldItem;
+    use ambition_characters::control::ActorControl;
+    use ambition_platformer2d_core as ae;
+    use ambition_platformer2d_core::BodyKinematics;
+    use ambition_projectiles::{ProjectileSpawn, ProjectileSpawnRequest, ProjectileStart};
+
+    /// Held-item id of the meteor gauntlet.
+    pub const METEOR_ID: &str = "meteor";
+
+    /// Mana per cast (out of 100): the most expensive wielded attack (a multi-hit
+    /// zone strike).
+    const METEOR_MANA_COST: f32 = 32.0;
+
+    /// How many meteors fall per cast.
+    const METEOR_COUNT: usize = 5;
+    /// How far ahead of the player (along the aim's horizontal) the strike zone centers.
+    const METEOR_RANGE: f32 = 190.0;
+    /// Horizontal width (px) the meteors are spread across.
+    const METEOR_SPREAD: f32 = 220.0;
+    /// How far above the player's level each meteor spawns (it falls from here).
+    const METEOR_DROP_HEIGHT: f32 = 270.0;
+    /// Initial downward speed (px/s); gravity accelerates it from there.
+    const METEOR_SPEED: f32 = 140.0;
+    /// Downward acceleration (px/s^2) — a fast, readable fall.
+    const METEOR_GRAVITY: f32 = 950.0;
+    /// Damage per meteor (the area comes from count and spread, not large hits).
+    const METEOR_DAMAGE: i32 = 2;
+    const METEOR_LIFETIME: f32 = 2.0;
+    const METEOR_HALF: ae::Vec2 = ae::Vec2::new(9.0, 9.0);
+
+    /// The spawn origins of one cast: `METEOR_COUNT` points spread evenly across
+    /// `METEOR_SPREAD`, centered `METEOR_RANGE` ahead along the aim's horizontal
+    /// (default `facing`), all `METEOR_DROP_HEIGHT` above the player so they fall
+    /// onto the zone. Pure, so the geometry is testable without the projectile
+    /// pool.
+    fn meteor_strike_origins(
+        player_pos: ae::Vec2,
+        aim_local: ae::Vec2,
+        facing: f32,
+        gravity_dir: ae::Vec2,
+    ) -> [ae::Vec2; METEOR_COUNT] {
+        let frame = ae::AccelerationFrame::new(gravity_dir);
+        let dir_x = if aim_local.x.abs() > 0.001 {
+            aim_local.x.signum()
+        } else {
+            facing.signum()
+        };
+        let zone = player_pos + frame.to_world(ae::Vec2::new(dir_x * METEOR_RANGE, 0.0));
+        let spawn_center = zone + frame.to_world(ae::Vec2::new(0.0, -METEOR_DROP_HEIGHT));
+        let mut origins = [ae::Vec2::ZERO; METEOR_COUNT];
+        for (i, slot) in origins.iter_mut().enumerate() {
+            // Spread evenly across [-0.5, 0.5] * SPREAD along local side.
+            let frac = (i as f32) / ((METEOR_COUNT - 1) as f32) - 0.5;
+            *slot = spawn_center + frame.to_world(ae::Vec2::new(frac * METEOR_SPREAD, 0.0));
+        }
+        origins
+    }
+
+    /// `Attack` while holding the meteor gauntlet drops [`METEOR_COUNT`] falling
+    /// `Player`-faction projectiles onto the zone ahead. Plain Attack only;
+    /// `Shield + Attack` drops the item (the id is `UseSystem`).
+    pub fn fire_meteor_system(
+        // Every driven body, not only the primary seat's `ControlledSubject`, so
+        // a possessed body or a second seat can use it.
+        driven: ambition_held_items::DrivenBodies,
+        mut players: Query<(
+            Entity,
+            &ActorControl,
+            &BodyKinematics,
+            &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
+            &HeldItem,
+            Option<&mut ambition_platformer2d_core::resources::ActorResources>,
+        )>,
+        mut projectiles: MessageWriter<ProjectileSpawnRequest>,
+        mut sfx: ambition_sfx::BodySfxWriter,
+    ) {
+        for subject in driven.entities() {
+            let Ok((entity, control, kin, resolved_frame, held, mut mana)) = players.get_mut(subject)
+            else {
+                continue;
+            };
+            let c = control.0;
+            if !c.melee_pressed || c.shield_held {
+                continue;
+            }
+            if held.spec.id != METEOR_ID {
+                continue;
+            }
+            if !ambition_platformer2d::abilities::mana::spend(mana.as_deref_mut(), METEOR_MANA_COST) {
+                continue;
+            }
+            // The body's per-tick resolved frame (ADR 0024 frame law).
+            let gravity_dir = resolved_frame.down();
+            let aim = ambition_held_items::ability_aim_local(&c, kin.facing);
+            for origin in meteor_strike_origins(kin.pos, aim, kin.facing, gravity_dir) {
+                projectiles.write(ProjectileSpawnRequest::open(
+                    // The firing actor owns every meteor, so a kill is credited to
+                    // it (materialization stamps `ProjectileOwner` from this).
+                    entity,
+                    ProjectileSpawn {
+                        origin,
+                        // Toward local down; gravity accelerates it the same way.
+                        dir: gravity_dir,
+                        speed: METEOR_SPEED,
+                        damage: METEOR_DAMAGE,
+                        max_lifetime: METEOR_LIFETIME,
+                        half_extent: METEOR_HALF,
+                        gravity: METEOR_GRAVITY,
+                        visual_id: String::new(),
+                        // Straight volley: this ability authors no bounce.
+                        bounces: 0,
+                        bounce_on_world_contact: false,
+                        splash_half_extent: 0.0,
+                        boomerang_return_s: None,
+                    },
+                    ProjectileStart::StepThisTick,
+                ));
+            }
+            sfx.write_for(
+                entity,
+                ambition_sfx::SfxMessage::Play {
+                    id: ambition_sfx::ids::WORLD_ROCK_HIT,
+                    pos: kin.pos,
+                },
+            );
+        }
+    }
+}

@@ -7,13 +7,14 @@
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
 | [`ability_cooldown`](src/ability_cooldown.rs) | Shared per-body cooldown for movement abilities such as Blink and Grapple. |
+| [`extension`](src/extension.rs) | The held-item domain's extension adapters (fast-iteration I7: a wielded ability as a procedural module). |
 | [`mana`](src/mana.rs) | The main game's Mana: the resource the held abilities in this crate spend. |
 | [`ranged`](src/ranged/mod.rs) | Ranged abilities: beam, meteor, shockwave, vortex, volley, bomb, sentry. |
 | [`test_support`](src/test_support.rs) | Test-only fixtures for ability modules. |
 | [`thrown`](src/thrown/mod.rs) | Thrown abilities: the gravity grenade. |
 | [`traversal`](src/traversal/mod.rs) | Traversal abilities a held item FIRES: blink, dive, grapple, mark/recall. |
 
-_6 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_7 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

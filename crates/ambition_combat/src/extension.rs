@@ -12,7 +12,7 @@ use std::sync::Arc;
 
 use ambition_combat_port::{DamageBoxPort, HeldDamageBoxPort};
 use ambition_extension_host::{ExtensionAppExt, ExtensionOutbox};
-use ambition_extension_sdk::phases::TECHNIQUE_EXECUTION;
+use ambition_extension_sdk::phases::{TECHNIQUE_EXECUTION, WIELDED_USE};
 use ambition_platformer2d_core as ae;
 use bevy::prelude::*;
 
@@ -24,7 +24,7 @@ pub fn install(app: &mut App) {
     app.install_extension_request::<DamageBoxPort, _>(
         TECHNIQUE_EXECUTION,
         "ambition_combat",
-        lower_damage_boxes,
+        lower_damage_boxes::<InTechniqueExecution>,
     );
     app.install_extension_request::<HeldDamageBoxPort, _>(
         TECHNIQUE_EXECUTION,
@@ -33,7 +33,24 @@ pub fn install(app: &mut App) {
     );
 }
 
-fn lower_damage_boxes(
+/// Install the damage box port in `wielded_use` (a held item's use), before
+/// the effect executor as in `technique_execution`.
+pub fn install_for_wielded_use(app: &mut App) {
+    app.install_extension_request::<DamageBoxPort, _>(
+        WIELDED_USE,
+        "ambition_combat",
+        lower_damage_boxes::<InWieldedUse>,
+    );
+}
+
+/// The phase a request adapter instance lowers for. One port offered in two
+/// phases has two adapter systems, one after each phase's invocations; the
+/// marker makes them two named systems, not one system registered twice.
+pub struct InTechniqueExecution;
+/// See [`InTechniqueExecution`].
+pub struct InWieldedUse;
+
+fn lower_damage_boxes<Phase: Send + Sync + 'static>(
     mut outbox: ResMut<ExtensionOutbox>,
     mut effects: MessageWriter<ambition_vfx::EffectRequest>,
     factions: Query<(

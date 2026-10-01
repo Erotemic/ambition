@@ -20,6 +20,12 @@
 pub mod audio_registries;
 pub mod banter;
 pub mod bosses;
+// The native wielded abilities, now modules, and the parity suite that holds
+// each module to them.
+#[cfg(test)]
+mod wielded_ability_parity_tests;
+#[cfg(test)]
+mod wielded_ability_reference_tests;
 /// The character catalog data and curated playable cast, contributed as an
 /// immutable provider fragment to the App-local catalog assembly.
 pub mod character_catalog;

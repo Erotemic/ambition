@@ -1663,7 +1663,7 @@ fn place_at(
         transit_body(&mut model, &mut clusters, target, velocity);
     }
     // Fire the volley ability's own authored bolt
-    // (`abilities::ranged::volley::authored_bolt`) from the foe toward the
+    // (`ambition_content_modules::volley::authored_bolt`) from the foe toward the
     // subject. Map the fixture's offset as `starting_positions_on` maps its
     // positions. Do not build a `ProjectileSpawn` from the fixture's numbers:
     // they describe the fixture's own 800x600 stage.
@@ -1691,9 +1691,7 @@ fn place_at(
                     let origin = subject_pos + *offset;
                     world.write_message(ProjectileSpawnRequest::open(
                         owner,
-                        ambition_platformer2d::abilities::ranged::volley::authored_bolt(
-                            origin, *dir,
-                        ),
+                        ambition_content_modules::volley::authored_bolt(origin, *dir),
                         ProjectileStart::StepThisTick,
                     ));
                 }

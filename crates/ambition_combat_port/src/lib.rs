@@ -1,4 +1,5 @@
-//! The combat domain's extension ports.
+//! The combat domain's extension ports, and the held-item ports of the
+//! [`wielded`] module.
 //!
 //! Port card for [`DamageBoxPort`] (`docs/planning/engine/extension-domain-contracts.md`):
 //!
@@ -8,10 +9,13 @@
 //! * **Scope and grant** — the box's owner is the body the invocation ran
 //!   for, and its FACTION is that body's own faction. A module cannot choose
 //!   whom a box hurts; a body with no faction has its boxes refused.
-//! * **Time** — offered in `technique_execution`, before the effect executor:
-//!   the box exists this tick.
+//! * **Time** — offered in `technique_execution` and `wielded_use`, before the
+//!   effect executor: the box exists this tick.
 //! * **Read model** — world units, +Y down.
 //! * **Result** — submitted is not applied. No acknowledgement port yet.
+
+pub mod wielded;
+pub use wielded::{BodySound, BodySoundPort, SpendMana, SpendManaPort, WieldedUsePort, Wielder};
 
 use ambition_extension_sdk::wire::{self, WireError, WireReader};
 use ambition_extension_sdk::{Port, PortKey, PortRole};

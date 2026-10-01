@@ -123,7 +123,10 @@ version = "0.1.0"
 dependencies = [
  "ambition_characters",
  "ambition_combat",
+ "ambition_combat_port",
  "ambition_entity_catalog",
+ "ambition_extension_host",
+ "ambition_extension_sdk",
  "ambition_held_items",
  "ambition_items",
  "ambition_platformer2d_core",

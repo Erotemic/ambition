@@ -68,10 +68,15 @@ pub fn attach_rigged_sprite_pages(
 /// # Panics
 ///
 /// When the tier's table is not the full table's (another part count): both
-/// are generated from one publish, so that is a stale tier.
+/// are generated from one publish, so that is a stale tier. Also when the
+/// flipbook does not state each row of the sheet as a part clip or a baked
+/// clip: the sheet and the flipbook are published together, so that is a
+/// stale or broken publish.
 pub fn rigged_pages_for(asset: &CharacterSpriteAsset, asset_server: &AssetServer) -> Option<RiggedSpritePages> {
     let target = asset.spec.target();
     let full = RiggedSpriteAsset::baked(target)?;
+    full.check_rows(asset.spec.row_names())
+        .unwrap_or_else(|error| panic!("the part flipbook of `{target}` {error}"));
     let flipbook = full
         .for_tier(asset.resolved_tier)?
         .unwrap_or_else(|error| panic!("the part flipbook of `{target}` {error}"));

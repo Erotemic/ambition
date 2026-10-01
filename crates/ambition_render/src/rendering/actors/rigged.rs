@@ -30,6 +30,12 @@
 //!   portal's visibility resolver hides it in the same pass that hides the root
 //!   and gives it back after. The parts and the pieces never draw together.
 //!
+//! A hybrid flipbook leaves some rows to the baked sheet. For such a row,
+//! and for a frame with no row or no render basis, the root draws its baked
+//! frame with its tint and the slots hide. The root, its feet and its animator
+//! are the same in both cases, so a body moves between a baked clip and a part
+//! clip with no jump in place or in timing.
+//!
 //! ⛔ Nothing here runs unless [`RiggedSpriteAdmission`] admits the trial.
 //! Known gaps of the trial: the crouch squash of a sheet without a crouch row
 //! is not applied to parts, and the hit flash copies the invisible root sprite.
@@ -247,14 +253,15 @@ pub fn drive_rigged_presentations(
                 .try_insert(ambition_portal2d_presentation::PortalPieceTint(presentation.tint));
         }
         let flipbook = &presentation.pages.flipbook;
+        // `None` for a baked clip of a hybrid: `check_rows` at attach makes
+        // sure that every other row has draws.
         let draws = animator
             .drawn_row()
             .and_then(|row| animator.spec.row_name(row))
             .and_then(|row| flipbook.frame(row, animator.frame));
-        let Some(basis) = animator.render_basis else {
-            continue;
-        };
-        let Some(draws) = draws else {
+        let (Some(draws), Some(basis)) = (draws, animator.render_basis) else {
+            // The baked frame draws the body.
+            root_sprite.color = presentation.tint;
             hide(&presentation.slots, &mut slots);
             continue;
         };

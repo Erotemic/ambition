@@ -10,6 +10,10 @@ use super::*;
 const RENDER: Vec2 = Vec2::new(103.0, 114.0);
 
 fn raider(rigged: bool) -> CharacterSpriteAsset {
+    raider_with(rigged.then(|| RiggedSpriteAsset::baked("pirate_raider").expect("a published flipbook")))
+}
+
+fn raider_with(flipbook: Option<RiggedSpriteAsset>) -> CharacterSpriteAsset {
     let spec = try_load_spec_for_character_id("pirate_raider").expect("a baked pirate_raider sheet");
     CharacterSpriteAsset {
         texture: Handle::default(),
@@ -18,8 +22,8 @@ fn raider(rigged: bool) -> CharacterSpriteAsset {
         pages: Vec::new(),
         requested_tier: TextureResolutionScale::Full,
         resolved_tier: TextureResolutionScale::Full,
-        rigged: rigged.then(|| RiggedSpritePages {
-            flipbook: Arc::new(RiggedSpriteAsset::baked("pirate_raider").expect("a published flipbook")),
+        rigged: flipbook.map(|flipbook| RiggedSpritePages {
+            flipbook: Arc::new(flipbook),
             pages: vec![Handle::default()],
         }),
     }
@@ -28,15 +32,19 @@ fn raider(rigged: bool) -> CharacterSpriteAsset {
 /// An app with the two systems, the raider's sheet in the table, and one root
 /// drawn from it with its anchor on the sheet's feet.
 fn app(admit: bool) -> (App, Entity) {
+    app_with(admit, raider(true))
+}
+
+fn app_with(admit: bool, sheet: CharacterSpriteAsset) -> (App, Entity) {
     let mut app = App::new();
     app.init_resource::<RiggedPresentations>()
         .insert_resource(RiggedSpriteAdmission { admit })
         .add_systems(Update, (bind_rigged_presentations, drive_rigged_presentations).chain());
     let mut assets = GameAssets::default();
     assets.characters.declare("raider", "Raider");
-    assets.characters.publish("raider", raider(true));
+    assets.characters.publish("raider", sheet.clone());
     app.insert_resource(assets);
-    let asset = raider(true);
+    let asset = sheet;
     let feet = Vec2::new(asset.spec.feet_anchor_x, asset.spec.feet_anchor_y);
     let (sprite, anchor, animator) = build_character_presentation_with_render_size(&asset, RENDER, Anchor(feet));
     let root = app
@@ -185,4 +193,75 @@ fn the_parts_are_drawn_by_each_camera_that_draws_their_root() {
     app.world_mut().entity_mut(root).remove::<RenderLayers>();
     app.update();
     assert!(layers(&app).iter().all(Option::is_none));
+}
+
+/// The raider's published flipbook with `row` left to the baked sheet: its
+/// clip is taken out of `clips` and named in `baked_clips`, as a hybrid
+/// publish states it.
+fn hybrid_raider(row: &str) -> RiggedSpriteAsset {
+    let text = ambition_sprite_sheet::baked_part_flipbooks::baked_part_flipbook("pirate_raider").unwrap();
+    let key = format!("\"{row}\": (");
+    let start = text.find(&key).expect("the raider has the clip");
+    // The clip ends at the parenthesis that closes the one after its key.
+    let open = start + key.len() - 1;
+    let mut depth = 0;
+    let mut end = open;
+    for (offset, c) in text[open..].char_indices() {
+        match c {
+            '(' => depth += 1,
+            ')' => {
+                depth -= 1;
+                if depth == 0 {
+                    end = open + offset + 1;
+                    break;
+                }
+            }
+            _ => {}
+        }
+    }
+    let after = text[end..].strip_prefix(',').unwrap_or(&text[end..]);
+    let text = format!("{}{after}", &text[..start]);
+    let close = text.rfind(')').unwrap();
+    let text = format!("{}    baked_clips: [\"{row}\"],\n{}", &text[..close], &text[close..]);
+    let hybrid = RiggedSpriteAsset::from_published_ron(&text).expect("the hybrid parses");
+    let spec = try_load_spec_for_character_id("pirate_raider").unwrap();
+    hybrid.check_rows(spec.row_names()).expect("the hybrid states every row");
+    hybrid
+}
+
+/// Rig packet 9: one body moves between a part clip and a baked clip. The
+/// same root, animator and slots draw both, so nothing is spawned and the
+/// root does not move.
+#[test]
+fn a_hybrid_body_crosses_between_part_and_baked_clips_in_place() {
+    use ambition_sprite_sheet::character::rigged::ClipRealization;
+    use ambition_sprite_sheet::character::CharacterAnim;
+
+    let hybrid = hybrid_raider("slash");
+    assert_eq!(hybrid.realization("slash"), Some(ClipRealization::Baked));
+    assert_eq!(hybrid.realization("idle"), Some(ClipRealization::Parts));
+    let (mut app, root) = app_with(true, raider_with(Some(hybrid)));
+    app.update();
+    let owner = owner(&app, root);
+    let slot_ids = app.world().get::<RiggedPresentation>(owner).unwrap().slots.clone();
+    let placed = *app.world().get::<Transform>(root).unwrap();
+    let state = |app: &App| {
+        let parts = slots(app, owner).iter().filter(|(_, visible)| *visible).count();
+        (app.world().get::<Sprite>(root).unwrap().color.alpha(), parts)
+    };
+    let (alpha, parts) = state(&app);
+    assert_eq!(alpha, 0.0, "idle is a part clip: the root draws nothing");
+    assert!(parts > 0);
+
+    app.world_mut().get_mut::<CharacterAnimator>(root).unwrap().request(CharacterAnim::Slash);
+    app.update();
+    assert_eq!(state(&app), (1.0, 0), "slash is baked: the root draws, with no part");
+
+    app.world_mut().get_mut::<CharacterAnimator>(root).unwrap().request(CharacterAnim::Idle);
+    app.update();
+    let (alpha, parts) = state(&app);
+    assert_eq!((alpha, parts > 0), (0.0, true), "back to parts");
+    assert_eq!(self::owner(&app, root), owner);
+    assert_eq!(app.world().get::<RiggedPresentation>(owner).unwrap().slots, slot_ids);
+    assert_eq!(*app.world().get::<Transform>(root).unwrap(), placed);
 }

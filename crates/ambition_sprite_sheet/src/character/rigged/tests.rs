@@ -50,6 +50,33 @@ fn a_flipbook_that_names_what_it_does_not_have_is_refused() {
     ));
 }
 
+/// A hybrid states each row of its sheet as a part clip or a baked clip, and
+/// a row it states as neither, or as both, is refused.
+#[test]
+fn a_hybrid_states_each_row_as_parts_or_baked() {
+    let hybrid = FIXTURE.replace("    },\n)", "    },\n    baked_clips: [\"transform\"],\n)");
+    assert_ne!(hybrid, FIXTURE, "the fixture edit did not apply");
+    let asset = RiggedSpriteAsset::from_published_ron(&hybrid).expect("the hybrid parses");
+    assert_eq!(asset.realization("idle"), Some(ClipRealization::Parts));
+    assert_eq!(asset.realization("transform"), Some(ClipRealization::Baked));
+    assert_eq!(asset.realization("walk"), None);
+    assert_eq!(asset.frame("transform", 0), None, "a baked clip has no draws");
+    assert_eq!(asset.check_rows(["idle", "transform"]), Ok(()));
+    assert_eq!(
+        asset.check_rows(["idle", "transform", "walk"]),
+        Err(RiggedSpriteError::Unrealized("walk".to_owned()))
+    );
+    assert_eq!(
+        asset.check_rows(["idle"]),
+        Err(RiggedSpriteError::UnknownRow("transform".to_owned()))
+    );
+    let both = FIXTURE.replace("    },\n)", "    },\n    baked_clips: [\"idle\"],\n)");
+    assert_eq!(
+        RiggedSpriteAsset::from_published_ron(&both),
+        Err(RiggedSpriteError::TwoRealizations("idle".to_owned()))
+    );
+}
+
 #[test]
 fn a_draw_record_fits_the_planned_budget() {
     assert!(std::mem::size_of::<PartDraw>() <= 32);
@@ -82,6 +109,10 @@ fn the_pirate_flipbooks_realize_the_rows_of_their_sheets() {
         clips.sort();
         expected.sort();
         assert_eq!(clips, expected, "`{target}`");
+        asset
+            .check_rows(rows.iter().map(|(row, _)| *row))
+            .unwrap_or_else(|error| panic!("`{target}` {error}"));
+        assert_eq!(asset.baked_clip_names().count(), 0, "`{target}` is drawn from parts in every row");
         assert_eq!(
             asset.frame_size,
             UVec2::new(record.frame_width, record.frame_height),

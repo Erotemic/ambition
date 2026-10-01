@@ -1131,6 +1131,13 @@ Do **not** implement a custom part-instance renderer unless the fixed-slot world
 
 ### Packet 9 — hybrid clips
 
+**Status (2026-09-30): the runtime half is done, behind the trial switch. The Mary-O publish is open.**
+
+- A flipbook states each row of its sheet as a part clip (`clips`) or a baked clip (`baked_clips`, optional in the RON, absent for the pirates). `RiggedSpriteAsset::realization(row)` gives the choice. It is published with the clip, so no runtime rule picks it (work items 1 and 4).
+- `check_rows` refuses a flipbook that states a sheet row as neither, a row as both, or a clip for a row that the sheet does not have. The attach road calls it, so a body never meets a row that has no realization. All five pirates state every row as a part clip.
+- The driver draws a baked clip from the root: the root takes its tint back and the slots hide. The root, its animator and its feet are the same for both kinds of clip, so the crossing has no jump in place or in timing. Witness: `a_hybrid_body_crosses_between_part_and_baked_clips_in_place` (the raider with `slash` left baked). It fails when the driver does not give the root its tint back.
+- Open: work item 3, the Mary-O publish. Her SVG rig is rigid parts (`RigDocument.sprite_raster`), so her publisher can probably draw one locomotion clip (short `walk`) from parts and state her transform clips as baked. That needs the part-flipbook capture in her renderer and a parity check against her baked frames, as for the pirates.
+
 **First hybrid control:** Mary-O.
 
 Only begin after Pirate proves runtime part rendering.

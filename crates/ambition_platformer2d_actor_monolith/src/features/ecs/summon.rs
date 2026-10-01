@@ -200,7 +200,9 @@ pub fn apply_summon_effects(
         context: {
             let context = crate::construction::placements::ActorPlacementContext::new(
                 &character_catalog,
-                &authored_sheets,
+                // The generation's sheets, as every construction road reads
+                // them (`GenerationMechanics::sheets`).
+                generation.as_deref().map_or(&*authored_sheets, |generation| &generation.sheets),
             );
             match prepared_characters.get() {
                 Some(prepared) => context.with_prepared(prepared),

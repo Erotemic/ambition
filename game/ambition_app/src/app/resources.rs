@@ -89,6 +89,7 @@ pub fn init_sandbox_resources(app: &mut App) {
     let world_manifest = ambition_content::worlds::world_manifest();
 
     let sandbox_data = ambition_platformer2d::actors::assets::gameplay_defaults::Platformer2dGameplayDefaults::load();
+    let feel: Platformer2dFeelTuningMonolith = sandbox_data.feel;
     // Audio lives in its own registries, separate from sandbox tuning and
     // from each other (SFX synthesis vs. generated music pointers).
     let (music_registry, sfx_registry) = {
@@ -356,7 +357,8 @@ pub fn init_sandbox_resources(app: &mut App) {
         .insert_resource(sandbox_catalog)
         .insert_resource(DeveloperTools::default())
         .insert_resource(EditablePlayerStats::default())
-        .insert_resource(Platformer2dFeelTuningMonolith::default())
+        // The feel values the defaults file states over the engine's.
+        .insert_resource(feel)
         // ⚠ `OwnedItems` IS NOT INSERTED HERE ANY MORE. The reason this line
         // gave — *"headless `Platformer2dSimHarness` runs quest reward systems
         // without loading `add_presentation_plugins`, so the resource must exist

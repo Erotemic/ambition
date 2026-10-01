@@ -36,6 +36,33 @@ hide a rebuild on a speculative frame. Witness:
 `a_new_game_asked_for_by_the_host_commits_once_under_a_rewind`, with
 `rollback_health()` on both arms.
 
+### RESOURCE-SET-SENSITIVE-RESIM — ⛔ RETRACTED 2026-10-01: the fixture's subject moved, not the resimulation
+
+Recorded and retracted the same day (ToothbrushAmbition2). The movement-defaults
+watch (7d16e6ce7) turned
+`developer_edits_under_rollback::publishing_a_cast_mid_timeline_changes_what_history_resimulates_to`
+(renamed the same day to `publishing_a_cast_mid_timeline_leaves_history_resimulating_the_same`, below)
+red, and one more resource of any type, or one entity with a new component
+type, removed the recorded mismatch. This row first read that as a
+resimulation that depends on the resource set. MEASURED cause: the arm chose
+its subject with `q.iter(world).next()` over `WornCharacter`, and query order
+follows archetype creation order. With the extra archetype the first match was
+`npc_kernel_guide`, not `player_robot_v3`. Revising the NPC's cast
+mid-timeline gives no mismatch; revising the player's does. The arm now
+revises the primary player's character (`PrimaryPlayerOnly`) and is not
+ignored; it records the mismatch with the watch present. Nothing here is a
+determinism defect. Kept as a row so the commits that cite it resolve.
+⭐ Later the same day the arm's gap CLOSED: with `project_prepared_character_definitions`
+on `SessionCast` too, a cast published mid-timeline no longer desyncs, and the
+arm is now `publishing_a_cast_mid_timeline_leaves_history_resimulating_the_same`
+(an assertion). Poisons, MEASURED: the projection back on the App cast, or the
+worn re-derivation back on it, each bring the mismatch back.
+The same pattern elsewhere is NOT classified: a grep for `.iter(world).next()`
+and two spellings of it in `game/*/tests`, `crates/*/tests` and `crates/*/src`
+counts 75 sites (2026-10-01). Most read a population filtered to one entity,
+where order cannot matter. A site whose population has more than one member
+picks its subject by archetype order.
+
 ### SYNC-POINT-SENSITIVE-RESIM — a command sync point moves the death-reset replay
 
 **Owner:** rollback determinism. **Found 2026-09-22** while moving the clock
@@ -1922,8 +1949,8 @@ in the reload: none left from the character catalog, which joined the same
 day; its admitted cast rides the existing `characters` claim. Measured on the
 way: a body's health pool was not read from the frozen cast;
 `apply_worn_character_gameplay` re-derived it from the App cast. Fixed
-2026-10-01 (`worn_cast_for`); about 30 other live readers of the App cast
-remain (see I3).
+2026-10-01 (`worn_cast_for`); 9 more monolith systems moved to `SessionCast`
+the same day, and about 20 live readers of the App cast remain (see I3).
 
 ⚠ **AND THE GUARD STOPPED WITNESSING IT WITHOUT GOING RED.**
 `the_commit_sits_between_the_activation_and_session_adoption`

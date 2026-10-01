@@ -209,6 +209,14 @@ edit takes the existing developer-edit road (proposed, admitted by the timeline
 owner, published in `PreUpdate`); a file that does not parse is refused, and a
 change to the starting abilities is reported and needs a restart. Witness:
 `edit_to_play_through_the_shell::a_movement_tuning_saved_while_the_game_runs_is_played`
+(the feel too: `platformer_defaults.ron` takes an optional `feel:` block, read
+field by field over `Platformer2dFeelTuningMonolith::default()` with
+`deny_unknown_fields`; the app seeds the feel from it, and the watch writes a
+changed feel to `EditableFeelTuning` only. MEASURED: a feel value in the
+`Default` impl costs 14.98 s and 27 crates per edit; in the file, 0.49 s at
+rest and `hitlag_time` 0.07 → 0.25 live. Poisons "drop `deny_unknown_fields`"
+(a misspelt field's save is taken) and "the watch does not write the feel"
+each fail it.)
 (`jump_speed` 630 → 700 in a copy: `ActiveMovementTuning` takes it **19 frames
 after the save**, and the player's jump launch goes from 555 to 625; an
 unparseable save first changes nothing). Poison "the watch does not write the
@@ -502,6 +510,21 @@ activates a new generation; they differ in the frames between the commit and
 the activation, and under a broken claim. Most of them sit in crates below the
 monolith and cannot name `SessionMechanics`, so the fix is a session cast in a
 lower crate (`ambition_characters`), not one more `worn_cast_for` per reader.
+**Same day, the monolith's simple readers moved:** `session::mechanics::SessionCast`
+(a `SystemParam` over `worn_cast_for`) is what the wallet shield, brain
+commands, the three empowerment systems, aggression, summons, damage and the
+puppy-slug gun read now (9 systems; unit witness
+`a_session_reader_is_given_the_generations_cast`, poison "return the App cast"
+fails it). `serve_encounter_spawn_commands` and `project_prepared_character_definitions`
+moved too (`SessionCast::is_changed` follows the source `get` reads). ⭐ With
+the projection on the session's cast, a cast published mid-timeline no longer
+desyncs the sync test: `developer_edits_under_rollback::publishing_a_cast_mid_timeline_leaves_history_resimulating_the_same`
+asserts it (MEASURED: putting either the projection or the worn re-derivation
+back on the App cast brings the mismatch back). Still on the App cast, on
+purpose for now: the presentation provider lookups and match preparation
+(shell menus have a session gate and no generation, so `SessionCast` would
+answer "none" there), the match activation's "the published cast moved on"
+warning (it is about the publication), and every reader below the monolith.
 The boss seed was the same class, closed today. ⚠ Observed once, not reproduced in two reruns:
 `quality_change_keeps_each_character::a_quality_round_trip_converges_back_with_every_page_loaded_and_nothing_orphaned`
 failed in a filtered batch ("a direct gameplay boot has a PrimaryPlayer wearing

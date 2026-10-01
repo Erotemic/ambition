@@ -21,7 +21,7 @@ pub fn apply_actor_stimuli(
     mut commands: Commands,
     // The prepared cast, so a provoked body can take its own CHARACTER's
     // answer instead of one matched out of its display name.
-    prepared: Option<Res<ambition_characters::prepared::PreparedCharacterRegistry>>,
+    prepared: crate::session::mechanics::SessionCast,
     mut stimuli: MessageReader<ActorStimulus>,
     mut actors: Query<
         (
@@ -71,7 +71,7 @@ pub fn apply_actor_stimuli(
         // at all, so neither its aggression nor its standing flips; flipping
         // them while `provoke_actor_in_place` declined the mind left a body
         // that read as hostile and ran its peaceful brain.
-        let provoked_policy = worn.zip(prepared.as_deref()).and_then(|(worn, registry)| {
+        let provoked_policy = worn.zip(prepared.get()).and_then(|(worn, registry)| {
             ambition_platformer2d_actor_spawn::brain_builders::authored_provoked_policy(
                 registry,
                 worn.id(),

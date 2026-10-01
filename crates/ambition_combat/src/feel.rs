@@ -76,8 +76,13 @@ pub fn publish_editable_feel_tuning(
 }
 
 /// Live-tunable time/input/combat feel values consumed by sandbox gameplay.
-#[derive(Resource, Reflect, Clone, Copy, Debug)]
+///
+/// Deserialized field by field over [`Default`]: a game's data states only the
+/// values it changes (`feel:` in `platformer_defaults.ron`), and a field name
+/// this type does not have is refused, not ignored.
+#[derive(Resource, Reflect, Clone, Copy, Debug, PartialEq, serde::Deserialize)]
 #[reflect(Resource)]
+#[serde(default, deny_unknown_fields)]
 pub struct Platformer2dFeelTuningMonolith {
     pub bullet_time_scale: f32,
     pub blink_hold_slow_scale: f32,

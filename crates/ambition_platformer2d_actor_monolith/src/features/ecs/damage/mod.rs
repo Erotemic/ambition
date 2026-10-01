@@ -357,7 +357,7 @@ pub struct FeatureHitCatalogs<'w> {
     /// OWN voice rather than the engine's. `Option` because a bare engine App
     /// legitimately has no prepared cast — the same shape the ambient ticker
     /// already uses.
-    pub prepared: Option<Res<'w, ambition_characters::prepared::PreparedCharacterRegistry>>,
+    pub prepared: crate::session::mechanics::SessionCast<'w>,
 }
 
 /// Coins a defeated standard enemy drops. A flat amount — a *working* earn-side
@@ -606,7 +606,7 @@ pub fn apply_feature_hit_events(
     let base_feel = bark_draw.feel();
     let catalog = &*catalogs.characters;
     // AD8: the prepared cast, borrowed once beside the catalog it stands behind.
-    let prepared = catalogs.prepared.as_deref();
+    let prepared = catalogs.prepared.get();
     // Wave-1 follow-up: apply the player's outgoing power-slider scale to their
     // MELEE, the way `ProjectileKind::spec` already scales player projectiles.
     // Enemy melee (a non-`PlayerSlash` source) is untouched; incoming

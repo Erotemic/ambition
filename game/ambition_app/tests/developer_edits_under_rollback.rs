@@ -181,8 +181,12 @@ fn editing_feel_tuning_mid_timeline_changes_what_history_resimulates_to() {
 /// (`rollback_component_clone`, `actor.moveset`) and then resimulates a
 /// historical frame with a system that reads the NEW registry. Identical shape
 /// to `ActiveMovementTuning`; the only question is whether it fires.
+///
+/// ⭐ 2026-10-01: that projection and `apply_worn_character_gameplay` read the
+/// session's frozen cast now (`SessionCast`), so the publication no longer
+/// reaches a resimulated frame, and this arm asserts that.
 #[test]
-fn publishing_a_cast_mid_timeline_changes_what_history_resimulates_to() {
+fn publishing_a_cast_mid_timeline_leaves_history_resimulating_the_same() {
     use ambition_platformer2d::characters::prepared::{
         activate_staged_revision, stage_character_revision, PreparedCharacterRegistry,
     };
@@ -197,10 +201,21 @@ fn publishing_a_cast_mid_timeline_changes_what_history_resimulates_to() {
     // ⛔ THE PREMISE: find the character a LIVE BODY is actually wearing, rather
     // than naming one and hoping. A revision of an unworn character reaches no
     // body, and would look exactly like "publication is rollback-safe".
+    //
+    // ⛔⛤ THE PRIMARY PLAYER'S, NOT THE FIRST MATCH. This was
+    // `q.iter(world).next()`, and query order follows archetype creation order.
+    // MEASURED 2026-10-01: one more resource or one entity with a new component
+    // type made the first match `npc_kernel_guide` instead of
+    // `player_robot_v3`, and the arm then saw no mismatch. It was recorded for
+    // a day as a resimulation that depends on the resource set
+    // (`RESOURCE-SET-SENSITIVE-RESIM`, retracted). The subject had moved.
     let worn: Option<String> = {
         let world = sim.world_mut();
-        let mut q = world.query::<&ambition_platformer2d::characters::actor::WornCharacter>();
-        q.iter(world).next().map(|worn| worn.0.as_str().to_string())
+        let mut q = world.query_filtered::<
+            &ambition_platformer2d::characters::actor::WornCharacter,
+            ambition_platformer2d::platformer::markers::PrimaryPlayerOnly,
+        >();
+        q.single(world).ok().map(|worn| worn.0.as_str().to_string())
     };
     let Some(worn) = worn else {
         panic!(
@@ -252,9 +267,9 @@ fn publishing_a_cast_mid_timeline_changes_what_history_resimulates_to() {
     // stop-and-rebase lifecycle is the work. No desync says the exposure may be
     // network-only, and refusing a reload in a rollback-COMPATIBLE session is the
     // cheap correct answer instead of a rebase.
-    // ⛔⛤ **IT DOES FIRE. MEASURED 2026-09-13: `GGRS sync-test checksum mismatch
-    // at frames [22, 23, 24]`**, with the file's own no-edit control green over
-    // the same frames.
+    // ⛔⛤ **IT FIRED UNTIL 2026-10-01. MEASURED 2026-09-13: `GGRS sync-test
+    // checksum mismatch at frames [22, 23, 24]`**, with the file's own no-edit
+    // control green over the same frames. (History; see the assertion below.)
     //
     // ⇒ **THAT ANSWERS `Q118`'s "should not be guessed" QUESTION, AND IT CLOSES
     // THE CHEAPER OF THE TWO ROADS.** Publishing across a live timeline is
@@ -262,44 +277,24 @@ fn publishing_a_cast_mid_timeline_changes_what_history_resimulates_to() {
     // — so *"refuse a reload only in a rollback/network-COMPATIBLE session"* is
     // not available as the cheap correct answer. What remains is the
     // stop-and-rebase lifecycle the row names.
-    let error = desync.unwrap_or_else(|| {
-        panic!(
-            "MEASURED GAP CLOSED? This arm records that publishing a cast \
-             mid-timeline DESYNCS the sync-test canary, which is what makes \
-             `Q118`'s live-timeline half a local problem rather than a \
-             network-only one. If it now stays healthy, name what sealed it — the \
-             cast entering rollback history, the publication becoming a bounded \
-             rebase, or the projection leaving the sim schedule — and this arm \
-             becomes the assertion that the chosen model holds."
-        )
-    });
-
-    // ⛔⛤ **AND THE GUARD THAT SHOULD HAVE CAUGHT THIS DID NOT FIRE, WHICH IS THE
-    // ACTIONABLE HALF.** `enforce_session_contract` already invalidates a live
-    // session on *"prepared content changed while the GGRS session was active"* —
-    // so the machinery for refusing this exists and RUNS. It compares
-    // `PreparedContentIdentity` read from the SESSION ROOT entity
-    // (`content_identity_of`), which is stamped at ACTIVATION and never updated
-    // while the session lives.
+    // ⭐ **THE GAP CLOSED 2026-10-01, AND THIS ARM IS NOW THE ASSERTION.** The
+    // projection did not leave the sim schedule and the cast did not enter
+    // rollback history. Instead, the live systems that spent the PUBLISHED cast
+    // now spend the activated generation's frozen one (`SessionCast`,
+    // `worn_cast_for`): `apply_worn_character_gameplay` and
+    // `project_prepared_character_definitions`. A publication changes the App's
+    // cast and nothing a resimulated frame reads, until a new generation is
+    // activated, which the reload road does at one boundary.
     //
-    // ⇒ **A cast published under a running session changes the world without
-    // changing that stamp, so the contract sees nothing.** The failure arrives as
-    // a CHECKSUM MISMATCH — the canary noticing after the fact — rather than as
-    // the contract's own refusal, and the two messages are how you tell them
-    // apart. That is the same blindness `Q120`'s developer edits exploit, which
-    // is why the two rows are one problem.
+    // ⚠ SCOPE: a `max_health` revision of the primary player's character. About
+    // 20 readers below the actor monolith still read the App cast (I3), and a
+    // revision of a value one of them reads is not covered here.
     assert!(
-        error.contains("checksum mismatch"),
-        "the failure was NOT a checksum mismatch: {error}. If `enforce_session_contract` \
-         now refuses this, the guard has stopped being blind to a change that does \
-         not move the session root's stamp — say what widened it, because `Q118` \
-         and `Q120` both rest on it being blind."
-    );
-    assert!(
-        !error.contains("prepared content changed"),
-        "the contract DID fire ({error}) — which would mean a cast publication now \
-         moves the session root's `PreparedContentIdentity`, and the interval \
-         `Q118` is about has a guard after all"
+        desync.is_none(),
+        "publishing a cast mid-timeline desynced the sync test again: {desync:?}. \
+         A live system spends the PUBLISHED cast instead of the session's \
+         (`SessionCast`); find it with the poisons recorded in the commit that \
+         turned this arm."
     );
 }
 

@@ -80,7 +80,10 @@ fn resolved(app: &App) -> ResolvedCombatTuning {
 /// making first.
 #[test]
 fn the_shipped_composition_installs_the_resolution() {
-    let app = composed_app();
+    let mut app = composed_app();
+    // One tick: the room's rules are put on its root by the projection, which
+    // runs each `WorldPrep`, and the fixture stops when the root is seated.
+    app.update();
     assert!(
         app.world().get_resource::<ResolvedCombatTuning>().is_some()
             && ambition_platformer2d::platformer::lifecycle::sole_live_room_component::<

@@ -1090,7 +1090,10 @@ line), `a_grab_does_not_reach_into_another_live_room`,
 `the_same_anchor_in_two_live_rooms_is_two_edges` and
 `it_does_not_harm_a_body_in_another_live_room` (each red with its room key
 removed). The strike is a written `HitEvent`; the swing that writes it is
-room-blind on weight. ⚠ Not witnessed reader by reader: the other
+room-blind on weight. ⚠ A root seated during a tick has no
+`RoomCombatTuning` until the next `WorldPrep`, so for that part of a tick
+its bodies read the rules of no room (before, they read the previous
+room's rules for the same window). ⚠ Not witnessed reader by reader: the other
 `CombatTuningOf` readers are one call each and read the same component.
 ⚠ Still the one-room read (`CurrentRoom`): the mode gates `in_mode`,
 `in_base_mode` and `in_rules_scope` (with two rooms live a gated system does

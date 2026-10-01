@@ -74,7 +74,10 @@ irreducible set shrank by three; the total fell 41 → 40.
 `ambition_resource_spec` (2026-09-23), a serde-only leaf the body floor links for
 the actor-resource vocabulary.
 
-The capability-footprint sentinel (`fixtures/minimal_game`) links 52 other
+The procedural extension tier (2026-10-01, fast-iteration I4) added three: the
+SDK, the host the runtime composes, and the boss domain's port value leaf.
+
+The capability-footprint sentinel (`fixtures/minimal_game`) links 55 other
 workspace packages besides the facade — the `ambition_closure` of
 `scripts/baselines/capability-footprint-baseline.json`, a different subject
 from the facade closure above.

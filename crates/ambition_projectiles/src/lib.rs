@@ -10,6 +10,7 @@
 pub mod collision_world;
 pub mod diagnostics;
 pub mod entity;
+pub mod extension;
 pub mod kind;
 pub mod materialize;
 #[cfg(feature = "portal")]

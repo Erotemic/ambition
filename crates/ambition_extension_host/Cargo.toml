@@ -1,0 +1,17 @@
+[package]
+name = "ambition_extension_host"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "The Bevy host for procedural extension modules: port installation, admission, serial invocation, staged state and rollback participation. It names no game algorithm."
+
+# The host sits BELOW the runtime composition root. It may use Bevy and the
+# neutral rollback registration vocabulary. It must not depend on
+# `ambition_platformer2d_runtime` or on any game crate: the runtime composes the
+# host with the domain adapters (fast-iteration I4 step 2).
+[dependencies]
+ambition_extension_sdk = { path = "../ambition_extension_sdk" }
+ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
+ambition_time = { path = "../ambition_time" }
+bevy = { version = "0.19.1", default-features = false, features = ["bevy_log"] }

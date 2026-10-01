@@ -19,6 +19,11 @@ test-support = []
 content_pack = ["dep:ambition_content_pack"]
 
 [dependencies]
+# The boss domain owns the adapter of its extension trigger port
+# (`extension.rs`); the port's pure values are a leaf so modules need no Bevy.
+ambition_boss_special_port = { path = "../ambition_boss_special_port" }
+ambition_extension_host = { path = "../ambition_extension_host" }
+ambition_extension_sdk = { path = "../ambition_extension_sdk" }
 bevy = { version = "0.19.1", default-features = false, features = ["bevy_log"] }
 # ⭐ OPTIONAL AND DEFAULT-OFF, the same shape `ambition_characters` and
 # `ambition_combat` use: `pattern::content_schema` compiles the authored

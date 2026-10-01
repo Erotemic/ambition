@@ -205,6 +205,14 @@ import multi_writer_resource_census as census  # noqa: E402
 #: than a second recorded fact that can disagree with the first — which is the
 #: rule this whole census exists to enforce, applied to the census.
 BASELINE: dict[str, tuple[str, ...]] = {
+    "ExtensionInvocations": (
+        "crates/ambition_boss_encounter/src/extension.rs",
+        "crates/ambition_extension_host/src/exec.rs",
+    ),
+    "ExtensionOutbox": (
+        "crates/ambition_extension_host/src/exec.rs",
+        "crates/ambition_projectiles/src/extension.rs",
+    ),
     "AmbitionGameSave": (
         "crates/ambition_boss_encounter/src/systems.rs",
         "crates/ambition_encounter/src/switches.rs",
@@ -857,6 +865,25 @@ BASELINE: dict[str, tuple[str, ...]] = {
 #: The ones somebody has actually read. ⚠ An entry here is a CITATION, not an
 #: opinion: it names the row or the source contract that owns the answer.
 ADJUDICATED: dict[str, str] = {
+    "ExtensionInvocations": (
+        "A QUEUE, AND ITS TWO WRITERS ARE ITS TWO ENDS (fast-iteration I4). "
+        "A trigger adapter only APPENDS (`ExtensionInvocations::trigger`, the "
+        "boss domain's `queue_boss_special_casts` in `ExtensionSet::Collect`); "
+        "`run_phase` only TAKES its phase's items, in `ExtensionSet::Invoke`, "
+        "which the host chains after Collect. No field is written by both, and "
+        "the queue is empty at every tick boundary, which is why "
+        "the app's rollback-coverage test waives it. A second trigger adapter adds a third "
+        "file and is the same shape."
+    ),
+    "ExtensionOutbox": (
+        "A QUEUE, AND ITS TWO WRITERS ARE ITS TWO ENDS (fast-iteration I4). "
+        "`run_phase` only APPENDS requests that passed the host's checks, in "
+        "`ExtensionSet::Invoke`; a request adapter only DRAINS its own port's "
+        "items (`ExtensionOutbox::drain::<P>`, the projectile domain's "
+        "`lower_projectile_spawns` in `ExtensionSet::Lower`, chained after "
+        "Invoke). Each port has exactly one adapter: admission refuses a second "
+        "offer for a port in a phase (`Refusal::DuplicateOffer`)."
+    ),
     "DeveloperTools": (
         "NO FIELD IS REACHED BY TWO FILES AT ALL — `census.shared_targets` "
         "returns the EMPTY SET over its six writers, which is the strongest "

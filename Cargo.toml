@@ -60,6 +60,9 @@ members = [
     "crates/ambition_platformer2d_provider",
     "crates/ambition_portal2d",
     "crates/ambition_projectiles",
+    "crates/ambition_extension_sdk",
+    "crates/ambition_extension_host",
+    "crates/ambition_boss_special_port",
     "crates/ambition_render",
     "crates/ambition_sim_harness",
     "crates/ambition_settings_menu",
@@ -80,6 +83,7 @@ members = [
     "crates/ambition_ui_nav",
     "crates/ambition_platformer2d_world",
     "game/ambition_menu_kaleidoscope",
+    "game/ambition_content_modules",
     "tests/ambition_workspace_policy",
 ]
 # `dev/bevy_ceiling` is the empty-window frame-time ceiling (its README): a

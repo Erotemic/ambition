@@ -14,6 +14,7 @@ use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt as _;
 
 pub mod checkpoint_horizon;
 mod combat_schedule;
+pub mod extension_composition;
 pub mod content_identity;
 pub mod durable_save_horizon;
 /// The reset horizon's composition: where checkpoint capture and restore sit in
@@ -553,6 +554,9 @@ impl PluginGroup for PlatformerEnginePlugins {
             // The combat-phase chain + the content extension slots
             // (CombatSet::ContentSpecials / ContentFlavor).
             .add(CombatSchedulePlugin)
+            // The procedural extension host and the domain adapters that
+            // answer its ports, placed in the combat chain (I4).
+            .add(extension_composition::ExtensionCompositionPlugin)
             // The per-frame player lifecycle (E5 step 5): time control →
             // input → controlled subject → brains → possession → hit events
             // → presentation write-back. Headless/RL runs all of it.

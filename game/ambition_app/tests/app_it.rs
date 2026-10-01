@@ -57,6 +57,7 @@ mod boomerang_hits_both_legs;
 mod boot_budget;
 mod boss_contact_iframes;
 mod boss_draw_cursor;
+mod a_boss_special_runs_on_the_extension_host;
 mod boss_lifecycle;
 mod boss_motion_parity;
 mod boss_possession_specials;

@@ -1128,6 +1128,35 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
     // is never touched by a tick — a rewind restoring it would restore the same
     // list it already holds. It exists so the refusal is an inspectable fact
     // rather than only a log line.
+    // ⭐ THE EXTENSION HOST (fast-iteration I4). Its one piece of simulation
+    // state is `BodyRecords`, a rollback-registered component. Everything else
+    // is either composition data fixed at admission or a queue that is filled
+    // and drained inside one phase of one tick, so it is empty at every
+    // snapshot boundary and a rewind has nothing to restore.
+    (
+        "ambition_extension_host::AdmittedExtensions",
+        "composition data: the sealed admission, inserted once at Plugin::finish or the first tick and never written by the simulation",
+    ),
+    (
+        "ambition_extension_host::ExtensionSchedule",
+        "composition data: the schedule label the host was added to; written at build only",
+    ),
+    (
+        "ambition_extension_host::exec::ObservationSuppliers",
+        "composition data: the installed observation projections, frozen at admission",
+    ),
+    (
+        "ambition_extension_host::exec::ExtensionInvocations",
+        "intra-phase queue: trigger adapters fill it in ExtensionSet::Collect and run_phase drains every entry of that phase in ExtensionSet::Invoke of the same tick, so it is empty at every snapshot boundary",
+    ),
+    (
+        "ambition_extension_host::exec::ExtensionOutbox",
+        "intra-phase queue: run_phase fills it in ExtensionSet::Invoke and the request adapters drain it in ExtensionSet::Lower of the same tick, so it is empty at every snapshot boundary",
+    ),
+    (
+        "ambition_extension_host::exec::ExtensionFaults",
+        "diagnostic: counts faulted invocations for a developer; nothing in the simulation reads it",
+    ),
     (
         "ambition_characters::prepared::AuthoredEffectRefusals",
         "preparation output: which authored effects the barrier refused; written once at the preparation barrier and never by the simulation",

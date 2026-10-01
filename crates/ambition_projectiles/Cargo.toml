@@ -14,6 +14,10 @@ default = []
 portal = ["dep:ambition_portal2d"]
 
 [dependencies]
+# The projectile domain owns the adapter of its extension request port
+# (`extension.rs`): submitted spawns enter the one spawn-request seam.
+ambition_extension_host = { path = "../ambition_extension_host" }
+ambition_extension_sdk = { path = "../ambition_extension_sdk" }
 # Geometry (Vec2 / Aabb / AabbExt / World) + the shared BodyKinematics body.
 ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
 # The generic projectile-physics primitive (spec / body / collision) the model

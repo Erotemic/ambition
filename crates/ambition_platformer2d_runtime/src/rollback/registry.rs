@@ -918,7 +918,11 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// ⛔⛤ 278 -> 279: `derived.room_combat_tuning` — each live room root carries
 /// the combat rules of its own room, and `derived.resolved_combat_tuning` is
 /// the rules of no room (GPT review of the robot strike-weight rules).
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 279;
+/// ⛔⛤ 279 -> 280: `extension.body_records` (clone, logical checksum) — the
+/// extension host's store of every module record a body carries. The echo
+/// fan's strike latch moved into it, so `content.echo_fan_state` is gone
+/// (fast-iteration I4).
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 280;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

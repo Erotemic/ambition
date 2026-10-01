@@ -51,7 +51,10 @@ pub(crate) fn actors_firing(
     firing
 }
 
-mod echo_fan;
+// The echo fan is a procedural module now: `ambition_content_modules::echo_fan`.
+// Its native system is kept as the test-only reference trace.
+#[cfg(test)]
+mod echo_fan_reference_tests;
 mod eye_beam;
 mod gradient_nova;
 mod gradient_sentinel;
@@ -65,7 +68,6 @@ mod seismic_stomp;
 // them today — the hub feeds this file's plugin (below) and `rollback::register`
 // — but they are the Techniques' genuine public API, so an explicit `pub use`
 // (not a glob) states it without re-globbing each submodule's private imports.
-pub use echo_fan::{spawn_echo_fan_from_special_messages, EchoFanState};
 pub use eye_beam::{spawn_eye_beam_from_special_messages, EyeBeamState};
 pub use gradient_nova::{spawn_gradient_nova_from_special_messages, ExplodingGradientState};
 pub use gradient_sentinel::{
@@ -79,6 +81,7 @@ pub use overflow_flood::{spawn_overflow_flood_from_special_messages, OverflowSta
 pub use seismic_stomp::{spawn_seismic_stomp_from_special_messages, SeismicStompState};
 
 use ambition_boss_encounter::BossConfig;
+use ambition_extension_host::ExtensionAppExt;
 use ambition_platformer2d_shared_tangle::schedule::GameplayGated;
 use ambition_platformer2d_shared_tangle::schedule::CombatSet;
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
@@ -126,9 +129,12 @@ impl Plugin for BossSpecialContentPlugin {
         app.register_required_components::<BossConfig, ExplodingGradientState>();
         app.register_required_components::<BossConfig, OverflowState>();
         app.register_required_components::<BossConfig, SeismicStompState>();
-        app.register_required_components::<BossConfig, EchoFanState>();
 
-        // This content crate owns eleven rollback state types. Record their
+        // The echo fan runs on the extension host. Its strike latch is a
+        // module record in the host's store, so it has no component here.
+        app.add_extension_module(ambition_content_modules::echo_fan::module());
+
+        // This content crate owns ten rollback state types. Record their
         // host-independent schema here; a rollback composition installs the same
         // declarations through its backend registrar.
         {
@@ -136,7 +142,7 @@ impl Plugin for BossSpecialContentPlugin {
             rollback::register(&mut registrar);
         }
 
-        // The 11 Technique systems, hung on the engine's combat extension
+        // The 10 native Technique systems, hung on the engine's combat extension
         // slot. They read `ActorActionMessage::Special` and emit
         // `ProjectileSpawnRequest`/`EffectRequest`; the slot ordering guarantees
         // those land before the executors that drain them. Each only acts
@@ -154,7 +160,6 @@ impl Plugin for BossSpecialContentPlugin {
                 spawn_gradient_nova_from_special_messages,
                 spawn_overflow_flood_from_special_messages,
                 spawn_seismic_stomp_from_special_messages,
-                spawn_echo_fan_from_special_messages,
                 spawn_minima_trap_from_special_messages,
                 spawn_saddle_point_from_special_messages,
                 spawn_gradient_cascade_minions_from_special_messages,

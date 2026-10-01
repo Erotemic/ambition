@@ -7,3 +7,7 @@ edition = "2021"
 # crate's own advice: anything that needs only the maths types should skip it.
 [dependencies]
 bevy_math = { version = "0.19.1", features = ["serialize"] }
+# The projectile domain owns the pure value of its extension request port
+# (`ProjectileSpawnPort`). The SDK has no dependencies, so a module that
+# submits a projectile still builds without Bevy's ECS or the host.
+ambition_extension_sdk = { path = "../ambition_extension_sdk" }

@@ -248,6 +248,12 @@ static_map = [
 # enables both.
 static_core_assets = ["ambition_asset_manager/static_core_assets", "ambition_sprite_sheet/static_core_assets"]
 
+# Embed this crate's authored data (`assets/ambition/platformer_defaults.ron`).
+# Off by default, so a development build reads it off disk and a movement
+# tuning edit compiles no crate (embedded, it compiled 15). Turn it on where
+# there is no source tree to read: `ambition_app`'s `static_content` forwards it.
+static_content = []
+
 # Opt-in static SFX bank embedding. This is mainly for Android until the
 # synchronous SFX-bank loader can read from APK assets. The build script enables
 # this automatically when crates/ambition_platformer2d_actor_monolith/assets/audio/sfx.bank exists

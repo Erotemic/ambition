@@ -191,6 +191,18 @@ static_content` fails on the missing file and the default check passes. Witness:
 demo does not reload its pack; that road is `ambition_content::reload`'s and
 Ambition's only.
 
+**2026-10-01: the movement defaults are read off disk too.**
+`platformer_defaults.ron` (the starting abilities and `MovementTuning`) was an
+unconditional `include_str!` in the actor monolith: MEASURED, a touch compiled
+15 crates in 14.10 s. `Platformer2dGameplayDefaults::load` reads it off disk and
+embeds it only under the monolith's new `static_content`, which
+`ambition_platformer2d` and `ambition_app`'s `static_content` forward. After:
+0.49 s, no crate compiled. With the file renamed, the `static_content` check
+fails on it and the default check passes. Census of the engine crates for the
+same shape (`include_str!` of a data file outside a test): the LDtk entity
+contract (`ldtk_entity_contract.json`, a schema, not tuning) and
+`test_boss_catalog` (behind `test-support`) remain; neither is tuning data.
+
 **Class:** DO. **Requires:** I1 for the lightweight Rust frontend; the data
 format/host side can be developed in parallel.
 Read `crates/ambition_content_pack/src/lib.rs`,

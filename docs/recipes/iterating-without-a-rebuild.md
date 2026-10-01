@@ -76,6 +76,7 @@ ambition_game_bin` after touching the file, with a warm target:
 | `audio/sfx_registry.ron` | 0.52 s, no crate compiled |
 | `data/boss_sheets.ron` | 0.48 s, no crate compiled |
 | A Yarn file | 0.43 s, no crate compiled |
+| Movement defaults (`crates/ambition_platformer2d_actor_monolith/assets/ambition/platformer_defaults.ron`) | 0.49 s, no crate compiled (embedded, it was 14.10 s: the actor monolith and 14 crates after it) |
 | A demo's move table, catalog or fighter facet (`game/ambition_demo_*/assets/`, the versus pack in `game/ambition_app/assets/`) | 0.43 to 0.45 s, no crate compiled (embedded, it was 6.62 s: the demo crate and the app) |
 | A file that is still embedded (`include_str!`) | about 6 to 7 s: `ambition_content` and the app compile again |
 

@@ -33,9 +33,13 @@ decisions already determine the direction."* A row whose ruling has landed and
 whose implementation is unfinished is a QUEUE row, not a question. ⇒ Before
 filing a new `Q`, check that the ruling above does not already decide it.
 
+**THE BLOCKING SET IS EMPTY (2026-10-01).** The last row, `Q69`, was ruled
+(potato stays at 1/16; see [`maintainer-decisions.md`](maintainer-decisions.md)),
+and `D-POTATO-ASPECT` closed with it. No open P0/P1 row states a `Blocked by:`
+question.
+
 | question | what it blocks | and if it stays open |
 |---|---|---|
-| [`Q69`](#q69--at-potato-should-character-sprites-fall-back-to-the-0_25x-tier) | **P1** `D-POTATO-ASPECT`, entirely — the row's only `Blocked by:` | a content/quality call; nothing else in the row is startable without it |
 
 ⭐ **AND TWO THINGS THAT LOOK LIKE BLOCKERS AND ARE NOT, WHICH IS THE USEFUL
 HALF OF MEASURING THIS.**
@@ -72,11 +76,6 @@ invent one presentation independently for every ranged weapon.
 
 The engine has a canonical-height contract; these remaining authored characters
 need product values rather than inferred sprite dimensions.
-
-## Q38 — does an actor released in a foreign room stay there?
-
-This is a world/product rule about custody and room membership after release, not
-a query-order choice.
 
 ## Q40 — should a held gun-sword kick the player the way it kicks the pirate?
 
@@ -132,11 +131,6 @@ simultaneity slot.
 If yes, no diversity mechanism is owed. If no, specify whether the desired
 variation is tactical policy, difficulty behavior or presentation/personality.
 
-## Q51 — does a boss reward survive a death/checkpoint rewind that un-fights the boss?
-
-Choose the reward's durability boundary. Boss defeat and reward occurrence are
-already separate facts; this decides which checkpoint/replay retracts the latter.
-
 ## Q52 — does a second bark set for one enemy replace the first or conflict?
 
 Choose whether bark sets are single-valued authoring or composable collections.
@@ -152,20 +146,10 @@ generic gate vocabulary.
 The vocabulary exists. Decide whether broader authored coverage is desired now or
 the unused families should remain capability surface without demo customers.
 
-## Q56 — should room replay retract boss defeat for every boss family or only the currently wired one?
-
-Choose the intended replay durability rule, then make the generic boss-progress
-road enforce it uniformly.
-
 ## Q58 — does the BODY gate family ask what a body *can do* or what it *is doing*?
 
 Capability and current action are different facts. Pick the authored gate
 semantics before extending content usage.
-
-## Q64 — what happens to a held gun when its holder is clipped by a far-side portal?
-
-Choose whether the item gets its own clipped body-owned presentation, disappears
-with the holder, or follows another explicit rule. Do not let draw order decide.
 
 ## Q67 — does the Limit meter survive stock loss?
 
@@ -210,56 +194,6 @@ still a product/debug affordance worth carrying.
 
 Product/content call. Do not add engine behavior merely to manufacture a stress
 scene unless the room itself is wanted.
-
-## Q69 — at `potato`, should character sprites fall back to the `0_25x` tier?
-
-The tier-drift defect is measured separately. This asks only for the interim
-quality policy while the generator/trim problem is repaired. The proposed
-`dev/patches/swing-fighter-render-honours-quality-scale-20260902.patch` is a
-separate renderer refusal/validation aid, not an answer to this product choice.
-
-⭐⭐ **THE TRADE IS MEASURABLE AND IT IS LARGER THAN "a bit blurrier",
-2026-09-19.** Reading the four shipped catalogs
-(`crates/ambition_platformer2d_actor_monolith/assets/sprite_packs/<tier>/ultrapack.json`):
-
-| tier | scale | page size | pages | on disk | targets |
-|---|--:|--:|--:|--:|--:|
-| `full` | 1.0 | 2048 | 122 | 262M | 179 |
-| `half` | 0.5 | 1024 | 133 | 121M | 179 |
-| `quarter` (`0_25x`) | 0.25 | 512 | 154 | **48M** | 179 |
-| `potato` | **0.0625** | 256 | 42 | **6.9M** | 179 |
-
-⇒ **Falling back to `0_25x` at `potato` is a 7× increase in sprite-pack bytes
-on the weakest hardware the game targets** — 48M against 6.9M. That is the
-cost of the proposal, and it is the number this question was missing.
-
-⭐ **AND ALL FOUR TIERS COVER THE SAME 179 TARGETS**, so this is not a coverage
-question and the fallback would not be filling a hole. ⚠ The page COUNT rising
-122 → 133 → 154 and then collapsing to 42 looks like missing content and is
-not: page size halves every tier, so the middle tiers pack the same art into
-more, smaller pages.
-
-⛔⛤ **THE LADDER IS NOT UNIFORM, AND THAT MAY BE THE REAL SUBJECT.** The scales
-are 1.0, 0.5, 0.25 — and then **0.0625**. Every step halves except the last,
-which quarters. `potato` is not one step below `quarter`, it is two, and the
-name vocabulary (`full`/`half`/`quarter`/`potato`) hides that: the fourth name
-is the only one that is not a fraction. ⇒ A reader choosing a tier from the
-names would predict 0.125.
-
-**The decision:**
-
-* **(a) Fall back to `0_25x` for character sprites at `potato`.** Characters
-  stay legible on the lowest budget. ⚠ Costs up to 7× the pack bytes there,
-  and it makes `potato` mean "quarter for characters, potato for everything
-  else" — a per-domain tier policy rather than one budget.
-* **(b) Keep `potato` at 0.0625 for characters.** Today's behaviour. ⚠ The
-  interim quality is whatever 0.0625× produces, which is what prompted the
-  question.
-* **(c) Change the LADDER instead** — make `potato` 0.125 so the steps are
-  uniform, and regenerate. ⚠ Not an interim policy, and it needs the
-  generator/trim repair the row says is measured separately; it is listed
-  because the non-uniform step is a plausible cause of the thing being
-  complained about, and (a) would paper over it.
 
 ## Q81 — what should happen to the mostly-unreferenced bespoke FX rows for Pirate Admiral and George Booul?
 
@@ -466,12 +400,6 @@ dependency rather than preserving hypothetical architecture. Recheck actual
 production call sites and supported profile closure separately. The A9 render
 dependency finding concerns a mandatory reachable path, not this older unused-seam
 inventory; one is not evidence for the other.
-
-## Q75 — can inventory, dialogue and map coexist in the same frame?
-
-This is the factual reachability question behind the unordered `MenuControlFrame`
-reader pairs. If coexistence is supported, input ownership/ordering needs a real
-fix; if forbidden, encode the exclusivity as an invariant/test.
 
 ## Q76 — are composite mount-riders actually planned?
 
@@ -1632,3 +1560,11 @@ its death. To change this, add a dormant record for a living actor. OW3's
 dormant mint rows (`docs/planning/engine/open-world-runtime-and-residency.md`,
 "OW3, first slice") are the road; the per-placement policy would then gain a
 variant such as `KeepsWounds`.
+
+⚠ Narrowed by the Q38 ruling (2026-10-01, `maintainer-decisions.md`). A
+respawning population occurrence that the game despawns comes back from its
+authored room, so "fresh" is right for `OnRoomReenter` mobs. A persistent
+open-world character's whereabouts are durable world state. What is left to
+rule here is whether its other live state (HP, a fight in progress) is durable
+with its whereabouts. ⚠ No shipped content authors a persistent character
+that a room retirement despawns today, so this blocks no row.

@@ -3427,15 +3427,16 @@ per pair — and the pairs cannot be resampled, since the seed is
 `(character, level)` with no clock. What is NOT bounded any more is the "one
 character" caveat: 21 fighters, both directions of the effect.
 
-### D-POTATO-ASPECT — finish low-tier sprite aspect/trim policy
+### ✅ DONE D-POTATO-ASPECT — finish low-tier sprite aspect/trim policy
 
 **Owner:** [`engine/asset-preparation-and-residency.md`](engine/asset-preparation-and-residency.md).
 
 **Current state:** systematic downscale/trim generation defects were repaired.
-The remaining product choice is whether character sprites at `potato` may fall
-back to the `0_25x` tier.
-
-**Blocked by:** [Q69](awaiting-maintainer-decision.md#q69--at-potato-should-character-sprites-fall-back-to-the-0_25x-tier).
+✅ Ruled 2026-10-01 (Q69, [`maintainer-decisions.md`](maintainer-decisions.md)):
+character sprites at `potato` stay at 1/16 linear scale, with no fallback to
+`0_25x`. That is today's behaviour, so the row closes on the ruling. Potato is
+a deliberately tiny caricature that keeps the gist; a comparison against
+`quarter` is not an acceptance criterion.
 
 **Acceptance:** the same authored frame preserves the intended world-space trim
 and aspect at each supported tier; missing tiers follow the explicit policy

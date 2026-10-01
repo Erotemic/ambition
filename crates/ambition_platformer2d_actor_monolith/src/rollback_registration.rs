@@ -71,16 +71,28 @@ where
     // walks the entities a booted room HAS; a turret exists only after somebody
     // fires, so its absence from the registry read exactly like a pass. See the
     // scenario sweep this landed with.
-    registrar
-        .require_rollback::<ambition_abilities::ranged::sentry::Sentry>(OWNER, "entity:sentry");
-    registrar.rollback_component_clone_probed::<ambition_abilities::ranged::sentry::Sentry>(
+    //
+    // The turret is now a module entity (2026-10-01): its position and
+    // lifetime are `ModuleEntity`, and its cooldown is the module's record, in
+    // the extension host's `BodyRecords` on the same entity.
+    registrar.require_rollback::<ambition_abilities::module_entity::ModuleEntity>(
         OWNER,
-        "ability.sentry",
-        |sentry| {
-            ((sentry.pos.x.to_bits() as u64) << 32)
-                ^ (sentry.pos.y.to_bits() as u64)
-                ^ ((sentry.remaining_s.to_bits() as u64) << 16)
-                ^ (sentry.fire_cooldown.to_bits() as u64)
+        "entity:module_entity",
+    );
+    // `kind` is in the value: two entities at one place with one lifetime and
+    // a different kind are a different world.
+    registrar.rollback_component_clone_probed::<ambition_abilities::module_entity::ModuleEntity>(
+        OWNER,
+        "ability.module_entity",
+        |entity| {
+            let kind = entity
+                .kind
+                .bytes()
+                .fold(0xcbf2_9ce4_8422_2325_u64, |h, b| (h ^ b as u64).wrapping_mul(0x0100_0000_01b3));
+            ((entity.pos.x.to_bits() as u64) << 32)
+                ^ (entity.pos.y.to_bits() as u64)
+                ^ ((entity.remaining_s.to_bits() as u64) << 16)
+                ^ kind
         },
     );
     registrar.require_rollback::<ambition_abilities::ranged::vortex::VortexWell>(

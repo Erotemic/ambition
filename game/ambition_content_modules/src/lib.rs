@@ -23,6 +23,7 @@ pub mod overfit_volley;
 pub mod overflow_flood;
 pub mod saddle_point;
 pub mod seismic_stomp;
+pub mod sentry;
 pub mod shockwave;
 mod strike;
 pub mod volley;
@@ -47,6 +48,7 @@ pub const MODULES: &[fn() -> ambition_extension_sdk::ModuleDescriptor] = &[
     overflow_flood::module,
     saddle_point::module,
     seismic_stomp::module,
+    sentry::module,
     shockwave::module,
     volley::module,
 ];

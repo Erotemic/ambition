@@ -2787,7 +2787,8 @@ fn playing_the_shipped_composition_introduces_no_unaccounted_resource() {
 ///
 /// This test closes the hole by BUILDING the population instead of hoping to
 /// find it. Each archetype comes into the world through the same named seam
-/// production uses — `deploy_sentry`, `open_vortex_well`,
+/// production uses — `spawn_module_entity` (the sentry turret's, since it
+/// became a module entity), `open_vortex_well`,
 /// `open_temporary_gravity_well`, `drop_hazard`, and a real `PortalFireIntent`
 /// through `portal_fire_system` — so a fixture cannot assemble a shape
 /// production never builds. Then both existing sweeps run over the result.
@@ -2799,7 +2800,7 @@ fn playing_the_shipped_composition_introduces_no_unaccounted_resource() {
 /// registered on trust forever.
 #[test]
 fn every_event_created_entity_is_registered_derived_or_waived_and_anchored() {
-    use ambition_platformer2d::abilities::ranged::sentry::deploy_sentry;
+    use ambition_platformer2d::abilities::module_entity::{spawn_module_entity, ModuleEntity, Spawner};
     use ambition_platformer2d::abilities::ranged::vortex::{open_vortex_well, VortexWell};
     use ambition_platformer2d::abilities::thrown::gravity_grenade::open_temporary_gravity_well;
     use ambition_platformer2d::boss_encounter::{drop_hazard, FallingHazard};
@@ -2829,16 +2830,22 @@ fn every_event_created_entity_is_registered_derived_or_waived_and_anchored() {
     {
         let world = sim.world_mut();
         let mut commands = world.commands();
-        deploy_sentry(
+        spawn_module_entity(
             &mut commands,
-            SessionSpawnScope::UNSCOPED,
-            bevy::math::Vec2::new(96.0, 96.0),
-            ActorFaction::Player,
-            None,
-            None,
-            // The identity production mints: these are dynamically-spawned sim
-            // entities, and a turret's bolts mint under IT.
-            Some(SimId::spawned(&SimId::player_slot(0), 0)),
+            ModuleEntity {
+                kind: "sentry".into(),
+                pos: bevy::math::Vec2::new(96.0, 96.0),
+                remaining_s: 5.0,
+            },
+            Spawner {
+                scope: SessionSpawnScope::UNSCOPED,
+                side: ActorFaction::Player,
+                team: None,
+                presentation: None,
+                // The identity production mints: these are dynamically-spawned sim
+                // entities, and a turret's bolts mint under IT.
+                id: SimId::spawned(&SimId::player_slot(0), 0),
+            },
         );
         open_vortex_well(
             &mut commands,
@@ -2894,7 +2901,7 @@ fn every_event_created_entity_is_registered_derived_or_waived_and_anchored() {
     let counts = {
         let world = sim.world_mut();
         let sentries = world
-            .query_filtered::<Entity, With<ambition_platformer2d::abilities::ranged::sentry::Sentry>>()
+            .query_filtered::<Entity, With<ambition_platformer2d::abilities::module_entity::ModuleEntity>>()
             .iter(world)
             .count();
         let wells = world
@@ -2937,7 +2944,7 @@ fn every_event_created_entity_is_registered_derived_or_waived_and_anchored() {
         let world = sim.world_mut();
         let mut found = Vec::new();
         for entity in world
-            .query_filtered::<Entity, With<ambition_platformer2d::abilities::ranged::sentry::Sentry>>()
+            .query_filtered::<Entity, With<ambition_platformer2d::abilities::module_entity::ModuleEntity>>()
             .iter(world)
             .collect::<Vec<_>>()
         {

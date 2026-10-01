@@ -369,10 +369,10 @@ scope = "game"
 kind = "required-path"
 owners = ["ambition_platformer2d_actor_monolith"]
 watch_paths = ["crates/ambition_abilities/src"]
-rationale = "player abilities live under src/abilities/"
+rationale = "player abilities live under src/abilities/; the shockwave, beam, volley, meteor and sentry are procedural modules (game/ambition_content_modules), held to their native references by ambition_content's parity tests"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-paths = ["crates/ambition_abilities/src/traversal/blink.rs", "crates/ambition_abilities/src/traversal/dive.rs", "crates/ambition_abilities/src/traversal/grapple.rs", "crates/ambition_abilities/src/traversal/mark_recall.rs", "crates/ambition_abilities/src/ranged/beam.rs", "crates/ambition_abilities/src/ranged/meteor.rs", "crates/ambition_abilities/src/ranged/shockwave.rs", "crates/ambition_abilities/src/ranged/vortex.rs", "crates/ambition_abilities/src/ranged/volley.rs", "crates/ambition_abilities/src/ranged/bomb.rs", "crates/ambition_abilities/src/ranged/sentry.rs", "crates/ambition_abilities/src/thrown/gravity_grenade.rs", "crates/ambition_platformer2d_actor_monolith/src/abilities/thrown/puppy_slug_gun.rs"]
+paths = ["crates/ambition_abilities/src/traversal/blink.rs", "crates/ambition_abilities/src/traversal/dive.rs", "crates/ambition_abilities/src/traversal/grapple.rs", "crates/ambition_abilities/src/traversal/mark_recall.rs", "crates/ambition_abilities/src/ranged/vortex.rs", "crates/ambition_abilities/src/ranged/bomb.rs", "crates/ambition_abilities/src/module_entity.rs", "crates/ambition_abilities/src/thrown/gravity_grenade.rs", "game/ambition_content_modules/src/shockwave.rs", "game/ambition_content_modules/src/beam.rs", "game/ambition_content_modules/src/volley.rs", "game/ambition_content_modules/src/meteor.rs", "game/ambition_content_modules/src/sentry.rs", "crates/ambition_platformer2d_actor_monolith/src/abilities/thrown/puppy_slug_gun.rs"]
 
 [[policy]]
 id = "game.abilities-not-at-crate-root"

@@ -1679,11 +1679,20 @@ fn a_conversation_opening_counts_exactly_one_visit_across_a_rewound_window() {
             // `interact_ecs_actors_and_switches` — the real opener — sits, and
             // the counter's `.after(interact_ecs_actors_and_switches)` edge is
             // the production form of this line.
+            //
+            // ⛔⛤ AND THE SET ALONE WAS NOT AN ORDER (2026-10-01). The counter is
+            // after the real opener SYSTEM, not after the set, so the stand-in
+            // was unordered against it and the topological sort decided. Adding
+            // unrelated sets elsewhere in the sim schedule flipped that sort
+            // and both openers here counted 0. The `.before` edge is the order
+            // the set only seemed to give.
             app.add_systems(
                 label,
-                open_a_conversation_on_known_ticks.in_set(
-                    ambition_platformer2d::platformer::schedule::FeatureInteractionSet::Actuate,
-                ),
+                open_a_conversation_on_known_ticks
+                    .in_set(ambition_platformer2d::platformer::schedule::FeatureInteractionSet::Actuate)
+                    .before(
+                        ambition_platformer2d::actors::session::durable_horizon::count_the_dialogue_visit_when_a_conversation_opens,
+                    ),
             );
             Ok(())
         },
@@ -2536,7 +2545,11 @@ fn sim_opening_a_conversation_on_the_first_tick(
                 label,
                 (
                     record_the_latch_from_inside_the_schedule,
-                    open_a_conversation_on_the_very_first_tick,
+                    // Before the counter, as an edge: see the note in
+                    // `a_conversation_opening_counts_exactly_one_visit_across_a_rewound_window`.
+                    open_a_conversation_on_the_very_first_tick.before(
+                        ambition_platformer2d::actors::session::durable_horizon::count_the_dialogue_visit_when_a_conversation_opens,
+                    ),
                 )
                     .in_set(
                         ambition_platformer2d::platformer::schedule::FeatureInteractionSet::Actuate,

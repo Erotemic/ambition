@@ -201,8 +201,9 @@ fn an_order_cycle_is_refused_and_an_order_is_obeyed() {
 #[test]
 fn a_policy_without_a_host_road_is_refused() {
     for (attachment, save) in [
-        (Attachment::Session, SaveEligibility::Transient),
+        (Attachment::Session, SaveEligibility::Durable),
         (Attachment::Body, SaveEligibility::Durable),
+        (Attachment::Body, SaveEligibility::Checkpoint),
     ] {
         let mut m = module(vec![entry("a", vec![])]);
         m.schemas[0].attachment = attachment;
@@ -729,4 +730,96 @@ fn keeping_a_record_the_entry_does_not_write_is_refused() {
         refusals.contains(&Refusal::IdleKeepsUnwrittenState { entry: "test::counter/a".into(), schema: other }),
         "{refusals:?}"
     );
+}
+
+/// The counter module with its counter attached to the session, idle on a
+/// poke of 0 with `policy`.
+fn session_app(policy: IdlePolicy) -> App {
+    let mut app = App::new();
+    app.init_schedule(Sim);
+    let mut m = module(vec![entry("a", vec![])]);
+    m.schemas[0].attachment = Attachment::Session;
+    m.entries[0].on_idle = policy;
+    app.add_plugins(ExtensionHostPlugin::new(Sim))
+        .init_resource::<Lowered>()
+        .init_resource::<SimTick>()
+        .init_resource::<ambition_time::WorldTime>()
+        .install_extension_trigger::<Poke, _>(PHASE, "test", collect_pokes)
+        .install_extension_observation::<Height>(PHASE, "test", height_of)
+        .install_extension_request::<Emit, _>(PHASE, "test", lower_emits)
+        .add_extension_module(m);
+    app.finish();
+    app
+}
+
+fn session_count(app: &App, session: Entity) -> Option<Value> {
+    app.world()
+        .get::<SessionRecords>(session)
+        .and_then(|r| r.get(&COUNTER))
+        .map(|r| r.get(COUNT).unwrap().clone())
+}
+
+/// ⭐ ONE RECORD FOR THE SESSION, SHARED BY EVERY BODY: two bodies count into
+/// one counter, in invocation order, and no body holds a record.
+#[test]
+fn a_session_record_is_one_record_that_every_invocation_shares() {
+    let mut app = session_app(IdlePolicy::Invoke);
+    let session = app.world_mut().spawn(SessionRecords::default()).id();
+    let a = app.world_mut().spawn((Poked(1), Tall(2.0))).id();
+    let b = app.world_mut().spawn((Poked(2), Tall(5.0))).id();
+    step(&mut app);
+    step(&mut app);
+    let counts: Vec<u32> = app.world().resource::<Lowered>().0.iter().map(|l| l.2 .1).collect();
+    assert_eq!(counts, [1, 2, 3, 4], "each call reads what the call before it stored");
+    assert_eq!(session_count(&app, session), Some(Value::U32(4)));
+    assert!(app.world().get::<BodyRecords>(a).is_none());
+    assert!(app.world().get::<BodyRecords>(b).is_none());
+}
+
+/// No session store, or two: the call faults, and nothing is stored or
+/// lowered. A default would make two sessions share one tally.
+#[test]
+fn a_session_record_with_no_one_session_faults() {
+    for stores in [0, 2] {
+        let mut app = session_app(IdlePolicy::Invoke);
+        for _ in 0..stores {
+            app.world_mut().spawn(SessionRecords::default());
+        }
+        app.world_mut().spawn((Poked(1), Tall(2.0)));
+        step(&mut app);
+        assert!(app.world().resource::<Lowered>().0.is_empty(), "{stores} stores");
+        let faults = app.world().resource::<ExtensionFaults>();
+        assert_eq!(faults.total, 1, "{stores} stores");
+        assert_eq!(faults.recent[0].fault, Fault::NoSession(COUNTER));
+    }
+}
+
+/// An idle body does not end the session's record: `ResetState` resets the
+/// body's records only.
+#[test]
+fn an_idle_body_does_not_reset_a_session_record() {
+    let mut app = session_app(IdlePolicy::ResetState);
+    let session = app.world_mut().spawn(SessionRecords::default()).id();
+    let body = app.world_mut().spawn((Poked(3), Tall(1.0))).id();
+    step(&mut app);
+    step(&mut app);
+    app.world_mut().get_mut::<Poked>(body).unwrap().0 = 0;
+    step(&mut app);
+    assert_eq!(session_count(&app, session), Some(Value::U32(2)));
+}
+
+/// The records retire with their session: a new session root starts from
+/// the initial record.
+#[test]
+fn a_new_session_starts_from_the_initial_record() {
+    let mut app = session_app(IdlePolicy::Invoke);
+    let first = app.world_mut().spawn(SessionRecords::default()).id();
+    app.world_mut().spawn((Poked(1), Tall(2.0)));
+    step(&mut app);
+    step(&mut app);
+    assert_eq!(session_count(&app, first), Some(Value::U32(2)));
+    app.world_mut().despawn(first);
+    let second = app.world_mut().spawn(SessionRecords::default()).id();
+    step(&mut app);
+    assert_eq!(session_count(&app, second), Some(Value::U32(1)));
 }

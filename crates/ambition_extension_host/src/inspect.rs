@@ -11,7 +11,7 @@ use std::fmt::Write as _;
 
 use bevy::prelude::*;
 
-use crate::{AdmittedExtensions, BodyRecords, EntryRunner, ExtensionGeneration};
+use crate::{AdmittedExtensions, BodyRecords, EntryRunner, ExtensionGeneration, RecordSet, SessionRecords};
 
 /// The admitted composition as text. Before admission, says so.
 pub fn describe_composition(world: &World) -> String {
@@ -64,42 +64,62 @@ pub fn describe_composition(world: &World) -> String {
     out
 }
 
-/// Every body's records, by schema and field name, ordered by entity.
+/// Every body's records, then the session's, by schema and field name,
+/// ordered by entity.
 pub fn describe_records(world: &mut World) -> String {
     let schemas = world
         .get_resource::<AdmittedExtensions>()
         .map(|a| a.0.schemas.clone())
         .unwrap_or_default();
-    let mut bodies: Vec<(Entity, BodyRecords)> = world
+    let mut bodies: Vec<(Entity, RecordSet)> = world
         .query::<(Entity, &BodyRecords)>()
         .iter(world)
-        .map(|(e, r)| (e, r.clone()))
+        .map(|(e, r)| (e, r.0.clone()))
         .collect();
     bodies.sort_by_key(|(e, _)| e.to_bits());
+    let sessions: Vec<(Entity, RecordSet)> = world
+        .query::<(Entity, &SessionRecords)>()
+        .iter(world)
+        .map(|(e, r)| (e, r.0.clone()))
+        .collect();
     let mut out = String::new();
     let _ = writeln!(out, "bodies with records: {}", bodies.len());
     for (entity, records) in bodies {
-        let name = world.get::<Name>(entity).map(|n| format!(" {n}")).unwrap_or_default();
-        let _ = writeln!(out, "  {entity}{name}");
-        for stored in records.records() {
-            let _ = write!(out, "    {}:", stored.key);
-            match schemas.get(&stored.key) {
-                Some(schema) => {
-                    for (i, field) in schema.schema.fields.iter().enumerate() {
-                        let value = stored
-                            .record
-                            .get(ambition_extension_sdk::FieldRef(i))
-                            .map(|v| format!("{v:?}"))
-                            .unwrap_or_else(|e| format!("<{e:?}>"));
-                        let _ = write!(out, " {}={value}", field.name);
-                    }
-                }
-                None => {
-                    let _ = write!(out, " <schema not admitted>");
-                }
-            }
-            let _ = writeln!(out);
-        }
+        write_records(world, &schemas, &mut out, entity, &records);
+    }
+    let _ = writeln!(out, "session records: {}", sessions.len());
+    for (entity, records) in sessions {
+        write_records(world, &schemas, &mut out, entity, &records);
     }
     out
+}
+
+fn write_records(
+    world: &World,
+    schemas: &std::collections::BTreeMap<ambition_extension_sdk::SchemaKey, crate::admission::AdmittedSchema>,
+    out: &mut String,
+    entity: Entity,
+    records: &RecordSet,
+) {
+    let name = world.get::<Name>(entity).map(|n| format!(" {n}")).unwrap_or_default();
+    let _ = writeln!(out, "  {entity}{name}");
+    for stored in records.records() {
+        let _ = write!(out, "    {}:", stored.key);
+        match schemas.get(&stored.key) {
+            Some(schema) => {
+                for (i, field) in schema.schema.fields.iter().enumerate() {
+                    let value = stored
+                        .record
+                        .get(ambition_extension_sdk::FieldRef(i))
+                        .map(|v| format!("{v:?}"))
+                        .unwrap_or_else(|e| format!("<{e:?}>"));
+                    let _ = write!(out, " {}={value}", field.name);
+                }
+            }
+            None => {
+                let _ = write!(out, " <schema not admitted>");
+            }
+        }
+        let _ = writeln!(out);
+    }
 }

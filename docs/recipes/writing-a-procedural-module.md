@@ -83,6 +83,12 @@ Start from `game/ambition_content_modules/src/overfit_volley.rs` (its own record
    Field types: `bool`, `u32`, `i32`, `u64`, `f32`, `[f32; 2]`, `Option<T>`,
    `Vec<T>` with `[max N]`. Keep a field's tag when you rename it; a new tag
    is a new field, and a changed SHAPE refuses a hot reload (restart).
+
+   A record is the BODY's (one for each body the entry runs for). For one
+   record that the whole session shares — a tally, a cursor across bodies —
+   write `= KEY, per session;` after the key. It lives on the session root
+   and ends with the session; an idle body does not reset it.
+   `fixtures/extension_fixture_modules` is the example.
 3. **An entry function** `fn(&mut Invocation) -> Result<(), Fault>`: read the
    trigger (`inv.trigger::<BossSpecialCast>()`), load and store your records,
    and `inv.submit::<Port>(value)` requests. A fault
@@ -110,10 +116,17 @@ boss's OWN live room. With two live rooms there is no "the" room.
 | `ambition.projectiles.spawn` v1 | request | `ambition_projectile_spec::ProjectileSpawn` |
 | `ambition.combat.damage_box` v1 | request | `ambition_combat_port::DamageBox` (its faction is the owner's) |
 | `ambition.combat.held_damage_box` v1 | request | `ambition_combat_port::HeldDamageBox` (held while re-submitted each tick; a new generation replaces it) |
-| `ambition.items.wielded_use` v1 | trigger (phase `wielded_use`) | `ambition_combat_port::Wielder` (selector: the held item id) |
+| `ambition.items.wielded_use` v2 | trigger (phase `wielded_use`) | `ambition_combat_port::Wielder` (selector: the held item id) |
+| `ambition.world.spawn_module_entity` v1 | request (phase `wielded_use`) | `ambition_combat_port::ModuleEntitySpawn` (a kind, a place, a lifetime; ask `Wielder::names_spawns` first) |
+| `ambition.world.module_entity_tick` v1 | trigger (phase `module_entity_tick`) | `ambition_combat_port::ModuleEntityTick` (selector: the kind; records are the entity's) |
 | `ambition.resources.spend_mana` v1 | request | `ambition_combat_port::SpendMana` (ask `Wielder::can_pay_mana` first) |
 | `ambition.feedback.body_sound` v1 | request | `ambition_combat_port::BodySound` (a cue id, as the body) |
 | `ambition.boss.summon` v1 | request | `ambition_boss_special_port::BossSummon` (a boss only; the minion joins its encounter) |
+
+A thing that outlives the press (a turret) is a module entity: one entry asks
+for it in `wielded_use`, a second entry bound to its kind runs each tick it
+lives, and keeps its state in a record (the record is scoped to the entity, so
+it goes with it). `sentry.rs` is the example.
 
 A mechanic that needs another engine fact or action needs a new port: pure
 values in a leaf crate (SDK only), an adapter in the owning domain installed

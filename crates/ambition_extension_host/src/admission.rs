@@ -11,7 +11,7 @@ use std::sync::Arc;
 
 use ambition_extension_sdk::digest::Digest;
 use ambition_extension_sdk::{
-    ApiVersion, Attachment, EntryCode, EntryDescriptor, EntryFn, ModuleDescriptor, ModuleKey,
+    ApiVersion, EntryCode, EntryDescriptor, EntryFn, ModuleDescriptor, ModuleKey,
     Phase, PortKey, PortRole, SaveEligibility, SchemaKey, StateSchema,
 };
 
@@ -403,15 +403,9 @@ fn schema_refusal(module: &ModuleDescriptor, schema: &StateSchema) -> Option<Ref
             schema: schema.key.clone(),
         });
     }
-    // Only body-attached, transient state has a host store and a retirement
-    // road today. A session store and the save roads are I5 work; until they
-    // exist, a module that needs them is refused, never silently downgraded.
-    if schema.attachment != Attachment::Body {
-        return Some(Refusal::UnsupportedPolicy {
-            schema: schema.key.clone(),
-            policy: format!("attachment {:?}", schema.attachment),
-        });
-    }
+    // Body- and session-attached transient state have a host store and a
+    // retirement road (`store`). The save roads are I5 work; until they exist,
+    // a module that needs one is refused, never silently downgraded.
     if schema.save != SaveEligibility::Transient {
         return Some(Refusal::UnsupportedPolicy {
             schema: schema.key.clone(),

@@ -1087,6 +1087,25 @@
       "dev_workspace_dependencies": [],
       "direct_bevy_dependency": true,
       "direct_workspace_dependencies": [
+        "ambition_combat_port",
+        "ambition_extension_sdk",
+        "ambition_projectile_spec"
+      ],
+      "nonblank_rust_loc": 311,
+      "package": "ambition_extension_fixture_modules",
+      "path": "fixtures/extension_fixture_modules",
+      "public_items_heuristic": 11,
+      "public_root_reexports_or_modules_heuristic": 0,
+      "raw_rust_loc": 338,
+      "responsibility_clue": "Test-only extension modules that the game does not link: built for wasm32-unknown-unknown and loaded by tests, to prove what a newly loaded module can add.",
+      "reverse_workspace_dependencies": [],
+      "rust_files": 1,
+      "test_rust_loc_heuristic": 0
+    },
+    {
+      "dev_workspace_dependencies": [],
+      "direct_bevy_dependency": true,
+      "direct_workspace_dependencies": [
         "ambition_extension_sdk",
         "ambition_platformer2d_core",
         "ambition_time"

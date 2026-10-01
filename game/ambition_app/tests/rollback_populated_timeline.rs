@@ -58,7 +58,7 @@ fn count<T: bevy::prelude::Component>(sim: &mut Platformer2dSimHarness) -> usize
 /// same calls `rollback_coverage.rs` makes), give the subject a bolt thrower,
 /// and make the result the session's frame-zero baseline.
 fn populate(sim: &mut Platformer2dSimHarness) {
-    use ambition_platformer2d::abilities::ranged::sentry::deploy_sentry;
+    use ambition_platformer2d::abilities::module_entity::{spawn_module_entity, ModuleEntity, Spawner};
     use ambition_platformer2d::abilities::ranged::vortex::open_vortex_well;
     use ambition_platformer2d::abilities::thrown::gravity_grenade::open_temporary_gravity_well;
     use ambition_platformer2d::boss_encounter::{drop_hazard, FallingHazard};
@@ -142,14 +142,20 @@ fn populate(sim: &mut Platformer2dSimHarness) {
             },
         ));
         let mut commands = world.commands();
-        deploy_sentry(
+        spawn_module_entity(
             &mut commands,
-            SessionSpawnScope::UNSCOPED,
-            bevy::math::Vec2::new(96.0, 96.0),
-            ActorFaction::Player,
-            None,
-            None,
-            Some(mint()),
+            ModuleEntity {
+                kind: "sentry".into(),
+                pos: bevy::math::Vec2::new(96.0, 96.0),
+                remaining_s: 5.0,
+            },
+            Spawner {
+                scope: SessionSpawnScope::UNSCOPED,
+                side: ActorFaction::Player,
+                team: None,
+                presentation: None,
+                id: mint(),
+            },
         );
         open_vortex_well(
             &mut commands,
@@ -500,7 +506,7 @@ fn no_anchor_rewinds_anonymously_on_any_frame_it_exists() {
 /// after frame, while every event-created family is live and stepping.
 #[test]
 fn the_event_created_families_are_rewind_stable_while_they_step() {
-    use ambition_platformer2d::abilities::ranged::sentry::Sentry;
+    use ambition_platformer2d::abilities::module_entity::ModuleEntity;
     use ambition_platformer2d::abilities::ranged::vortex::VortexWell;
     use ambition_platformer2d::boss_encounter::FallingHazard;
     use ambition_platformer2d::held_items::GroundItem;
@@ -536,7 +542,7 @@ fn the_event_created_families_are_rewind_stable_while_they_step() {
     // first appear. A seam that stops spawning turns this red rather than
     // quietly shrinking what the timeline proves.
     let baseline = [
-        ("sentry", count::<Sentry>(&mut sim)),
+        ("module entity (sentry turret)", count::<ModuleEntity>(&mut sim)),
         ("vortex well", count::<VortexWell>(&mut sim)),
         ("temporary gravity zone", count::<TemporaryZone>(&mut sim)),
         ("falling hazard", count::<FallingHazard>(&mut sim)),
@@ -570,8 +576,8 @@ fn the_event_created_families_are_rewind_stable_while_they_step() {
             first_bolt_frame.get_or_insert(frame);
             *live_frames.entry("bolt").or_default() += 1;
         }
-        if count::<Sentry>(&mut sim) > 0 {
-            *live_frames.entry("sentry").or_default() += 1;
+        if count::<ModuleEntity>(&mut sim) > 0 {
+            *live_frames.entry("module entity").or_default() += 1;
         }
         if count::<FallingHazard>(&mut sim) > 0 {
             *live_frames.entry("falling hazard").or_default() += 1;
@@ -599,7 +605,7 @@ fn the_event_created_families_are_rewind_stable_while_they_step() {
     // Each family must have been live for at least one full check window
     // (eight frames), or no rewind ever resimulated it stepping.
     for what in [
-        "sentry",
+        "module entity",
         "vortex well",
         "falling hazard",
         "portal shot",
@@ -648,7 +654,7 @@ fn the_event_created_families_are_rewind_stable_while_they_step() {
 /// (bolts, sentry shots), not on the empty boot room.
 #[test]
 fn every_rollback_anchored_entity_has_a_unique_sim_id_on_the_populated_timeline() {
-    use ambition_platformer2d::abilities::ranged::sentry::Sentry;
+    use ambition_platformer2d::abilities::module_entity::ModuleEntity;
     use ambition_platformer2d::abilities::ranged::vortex::VortexWell;
     use ambition_platformer2d::boss_encounter::FallingHazard;
     use ambition_platformer2d::held_items::GroundItem;
@@ -741,7 +747,7 @@ fn every_rollback_anchored_entity_has_a_unique_sim_id_on_the_populated_timeline(
     /// rather than a silently narrower corpus.
     fn walked(world: &mut bevy::prelude::World) -> Vec<(&'static str, usize)> {
         vec![
-            ("sentry", world.query::<&Sentry>().iter(world).count()),
+            ("module entity (sentry turret)", world.query::<&ModuleEntity>().iter(world).count()),
             ("vortex well", world.query::<&VortexWell>().iter(world).count()),
             (
                 "temporary gravity zone",
@@ -815,7 +821,7 @@ fn every_rollback_anchored_entity_has_a_unique_sim_id_on_the_populated_timeline(
 
     // The durable half, after sixty frames of play — the classes that are still
     // meant to be here, plus every anchor play itself created.
-    for what in ["sentry", "temporary gravity zone", "death-dropped ground item"] {
+    for what in ["module entity (sentry turret)", "temporary gravity zone", "death-dropped ground item"] {
         let n = walked(sim.world_mut())
             .into_iter()
             .find(|(name, _)| *name == what)

@@ -42,7 +42,7 @@ pub use exec::{
     run_phase, ExtensionFaults, ExtensionInvocations, ExtensionOutbox, FaultRecord,
     InstalledPortCodecs, PendingInvocation, Submitted, Supplier,
 };
-pub use store::{register_rollback_state, BodyRecords, StoredRecord};
+pub use store::{register_rollback_state, BodyRecords, RecordSet, SessionRecords, StoredRecord};
 
 /// The three host-owned steps of one phase. The composition places them in
 /// its schedule; the host chains them.

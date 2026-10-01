@@ -9,9 +9,9 @@
 
 use ambition_characters::control::ActorControl;
 use ambition_combat::held_items::HeldItem;
-use ambition_combat_port::{BodySoundPort, SpendManaPort, WieldedUsePort, Wielder};
+use ambition_combat_port::{BodySoundPort, ModuleEntityTickPort, SpawnModuleEntityPort, SpendManaPort, WieldedUsePort, Wielder};
 use ambition_extension_host::{AdmittedExtensions, ExtensionAppExt, ExtensionInvocations, ExtensionOutbox};
-use ambition_extension_sdk::phases::WIELDED_USE;
+use ambition_extension_sdk::phases::{MODULE_ENTITY_TICK, WIELDED_USE};
 use ambition_extension_sdk::Port;
 use ambition_platformer2d_core::resources::ActorResources;
 use ambition_platformer2d_core::BodyKinematics;
@@ -19,12 +19,42 @@ use ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame;
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
 use bevy::prelude::*;
 
-/// Install the trigger port and the two request ports in `wielded_use`.
+/// Install the trigger port and the three request ports in `wielded_use`.
 pub fn install(app: &mut App) {
     app.install_extension_trigger::<WieldedUsePort, _>(WIELDED_USE, "ambition_abilities", queue_wielded_uses);
     app.install_extension_request::<SpendManaPort, _>(WIELDED_USE, "ambition_abilities", lower_mana_spends);
-    app.install_extension_request::<BodySoundPort, _>(WIELDED_USE, "ambition_abilities", lower_body_sounds);
+    app.install_extension_request::<BodySoundPort, _>(
+        WIELDED_USE,
+        "ambition_abilities",
+        lower_body_sounds::<InWieldedUse>,
+    );
+    app.install_extension_request::<SpawnModuleEntityPort, _>(
+        WIELDED_USE,
+        "ambition_abilities",
+        crate::module_entity::lower_module_entity_spawns,
+    );
 }
+
+/// Install the module-entity trigger port and the sound request port in
+/// `module_entity_tick` (a module entity is heard as itself).
+pub fn install_module_entities(app: &mut App) {
+    app.install_extension_trigger::<ModuleEntityTickPort, _>(
+        MODULE_ENTITY_TICK,
+        "ambition_abilities",
+        crate::module_entity::queue_module_entity_ticks,
+    );
+    app.install_extension_request::<BodySoundPort, _>(
+        MODULE_ENTITY_TICK,
+        "ambition_abilities",
+        lower_body_sounds::<InModuleEntityTick>,
+    );
+}
+
+/// The phase a request adapter instance lowers for: one port offered in two
+/// phases has two named adapter systems, not one system registered twice.
+pub struct InWieldedUse;
+/// See [`InWieldedUse`].
+pub struct InModuleEntityTick;
 
 /// One invocation for each body holding a bound item, in an order a rewind
 /// reproduces (the body's simulation identity, then its entity).
@@ -40,6 +70,7 @@ pub fn queue_wielded_uses(
         &ResolvedMotionFrame,
         Option<&ActorResources>,
         Option<&SimId>,
+        Has<ambition_platformer2d_shared_tangle::sim_id::SimIdCounter>,
     )>,
 ) {
     let bound: Vec<&str> = admitted
@@ -60,7 +91,7 @@ pub fn queue_wielded_uses(
     using.sort_by(|a, b| {
         (a.6.map(SimId::as_str), a.0.to_bits()).cmp(&(b.6.map(SimId::as_str), b.0.to_bits()))
     });
-    for (entity, control, held, kin, frame, bank, _) in using {
+    for (entity, control, held, kin, frame, bank, id, counts) in using {
         let c = control.0;
         let pressed = c.melee_pressed && !c.shield_held;
         let basis = frame.basis();
@@ -82,6 +113,7 @@ pub fn queue_wielded_uses(
                 frame_down: [basis.down.x, basis.down.y],
                 aim_local: [aim.x, aim.y],
                 mana: crate::mana::level(bank).map(|level| level.current),
+                names_spawns: id.is_some() && counts,
             },
         );
     }
@@ -102,7 +134,7 @@ fn lower_mana_spends(mut outbox: ResMut<ExtensionOutbox>, mut banks: Query<Optio
     }
 }
 
-fn lower_body_sounds(mut outbox: ResMut<ExtensionOutbox>, mut sfx: ambition_sfx::BodySfxWriter) {
+fn lower_body_sounds<Phase: Send + Sync + 'static>(mut outbox: ResMut<ExtensionOutbox>, mut sfx: ambition_sfx::BodySfxWriter) {
     for submitted in outbox.drain::<BodySoundPort>() {
         let sound = submitted.value;
         sfx.write_for(

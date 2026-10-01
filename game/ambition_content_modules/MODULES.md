@@ -19,12 +19,13 @@
 | [`overflow_flood`](src/overflow_flood.rs) | Overflow's boundary flood: during the telegraph the boss locks where its target is (the safe lane); on the first strike tick shots fall from above in every column of the boss's room except that lane. |
 | [`saddle_point`](src/saddle_point.rs) | Saddle point: on the first strike tick a damage arm appears across the boss, horizontal; every period the arm turns (vertical, then horizontal again), each new arm where the boss is at that moment. |
 | [`seismic_stomp`](src/seismic_stomp.rs) | The seismic stomp: on the first tick of a strike, a line of damage boxes stands on the floor under the boss's feet, one under the boss and five each side. |
+| [`sentry`](src/sentry.rs) | Sentry: Attack while holding the sentry gauntlet drops a turret at the body. |
 | [`shockwave`](src/shockwave.rs) | Shockwave Slam: Attack while holding the shockwave gauntlet slams a damage box around the wielder. |
 | [`strike`](src/strike.rs) | The strike rules that several boss techniques share. |
 | [`volley`](src/volley.rs) | Volley: Attack while holding the volley fires a fan of bolts along the aim from the body's edge. |
 | [`wielded`](src/wielded.rs) | What the wielded abilities share: the descriptor of a stateless entry on the `wielded_use` trigger, and the payment rule. |
 
-_17 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_18 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

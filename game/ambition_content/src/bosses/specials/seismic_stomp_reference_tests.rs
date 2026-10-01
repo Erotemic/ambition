@@ -1,3 +1,9 @@
+//! The NATIVE REFERENCE of the seismic stomp — test-only.
+//!
+//! Production runs the procedural module in `ambition_content_modules`; this
+//! system is the reference trace `module_parity_tests` holds it to. Do not
+//! compose it into an App: one producer.
+//!
 //! T-Rex seismic stomp boss-special Technique.
 
 use bevy::prelude::*;

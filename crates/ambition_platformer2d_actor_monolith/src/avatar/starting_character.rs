@@ -598,8 +598,10 @@ pub fn apply_worn_character_gameplay(
 pub struct WornControlGateSet;
 
 pub fn gate_body_control(
-    // The driven body also wears the techniques the active room's rules give it.
-    driven: crate::session::governing_rules::GoverningRules<
+    // The driven body also wears the techniques its own room's rules give it
+    // (OW1: THE live room's rules were the rules of no room while two rooms
+    // were live).
+    driven: crate::session::governing_rules::RulesOf<
         ambition_characters::action_scheme::DrivenTechniques,
     >,
     subject: Option<Res<ambition_platformer2d_shared_tangle::markers::ControlledSubject>>,
@@ -635,8 +637,8 @@ pub fn gate_body_control(
         derive_action_scheme, resolve_control_slots, techniques_of,
     };
 
-    let driven = driven.get();
     let subject = subject.and_then(|subject| subject.0);
+    let driven = subject.and_then(|subject| driven.of(subject));
     for (
         entity,
         actions,

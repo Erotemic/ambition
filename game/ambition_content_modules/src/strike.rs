@@ -1,7 +1,12 @@
-//! The "lock the target during the telegraph, fire once per strike" rule that
-//! several boss techniques share.
+//! The strike rules that several boss techniques share.
 //!
-//! Each tick, for one boss:
+//! A STRIKE is a run of ticks on which the boss presses the technique's key.
+//!
+//! [`once`]: fire on the first tick of a strike the boss is alive; a tick
+//! with no press ends the strike.
+//!
+//! [`locked`]: the same, and the target is locked during the telegraph. Each
+//! tick, for one boss:
 //!
 //! * dead: forget the lock and the strike;
 //! * telegraphing this technique: lock the tracked target once, if there is
@@ -21,9 +26,36 @@ use ambition_extension_sdk::{
 
 const LOCKED_TARGET: FieldRef = FieldRef(0);
 const FIRED_THIS_STRIKE: FieldRef = FieldRef(1);
+const ONCE_FIRED: FieldRef = FieldRef(0);
 
-/// The record schema for one technique's locked strike.
-pub fn schema(key: SchemaKey) -> StateSchema {
+/// The record schema for [`once`].
+pub fn once_schema(key: SchemaKey) -> StateSchema {
+    StateSchema {
+        key,
+        attachment: Attachment::Body,
+        save: SaveEligibility::Transient,
+        fields: vec![FieldDecl::new(1, "fired_this_strike", FieldKind::Bool)],
+    }
+}
+
+/// Advance the once-per-strike rule. `true` means: fire now.
+pub fn once(inv: &mut Invocation<'_>, key: &SchemaKey, caster: &BossCaster) -> Result<bool, Fault> {
+    let record = inv.state(key)?;
+    let schema_fault = |error| Fault::Schema { schema: key.clone(), error };
+    if !caster.pressed {
+        record.set(ONCE_FIRED, Value::Bool(false)).map_err(schema_fault)?;
+        return Ok(false);
+    }
+    let fired = record.get(ONCE_FIRED).map_err(schema_fault)?.as_bool().unwrap_or(false);
+    if !caster.alive || fired {
+        return Ok(false);
+    }
+    record.set(ONCE_FIRED, Value::Bool(true)).map_err(schema_fault)?;
+    Ok(true)
+}
+
+/// The record schema for [`locked`].
+pub fn locked_schema(key: SchemaKey) -> StateSchema {
     StateSchema {
         key,
         attachment: Attachment::Body,
@@ -35,8 +67,8 @@ pub fn schema(key: SchemaKey) -> StateSchema {
     }
 }
 
-/// Advance the rule for this tick. `Some(point)` means: fire now, at `point`.
-pub fn advance(
+/// Advance the locked-strike rule. `Some(point)` means: fire now, at `point`.
+pub fn locked(
     inv: &mut Invocation<'_>,
     key: &SchemaKey,
     caster: &BossCaster,

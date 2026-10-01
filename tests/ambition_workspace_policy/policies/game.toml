@@ -597,7 +597,7 @@ rationale = "a module names the SDK and the pure port values it uses; never the 
 source_doc = "docs/planning/engine/extension-model.md"
 severity = "error"
 exact = true
-allow = ["ambition_extension_sdk", "ambition_boss_special_port", "ambition_projectile_spec"]
+allow = ["ambition_extension_sdk", "ambition_boss_special_port", "ambition_combat_port", "ambition_projectile_spec"]
 manifest = "game/ambition_content_modules/Cargo.toml"
 
 [[policy]]

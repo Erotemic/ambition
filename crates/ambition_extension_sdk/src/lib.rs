@@ -30,7 +30,7 @@ pub mod abi;
 
 pub use invoke::{Fault, HostParts, Invocation, Observation, OwnedPayload, Payload, StagedRequest};
 pub use module::{
-    phases, CodeIdentity, EntryCode, EntryDescriptor, EntryFn, Limits, ModuleDescriptor, ModuleKey, Phase,
+    phases, CodeIdentity, EntryCode, EntryDescriptor, EntryFn, IdlePolicy, Limits, ModuleDescriptor, ModuleKey, Phase,
     TriggerBinding,
 };
 pub use port::{decode_erased, encode_erased, DecodeFn, EncodeFn, Port, PortKey, PortRole};

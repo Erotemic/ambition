@@ -15,13 +15,20 @@
 //!   key by one boss in one tick are one press; the last gives the move use.
 //! * **Time** — `technique_execution`. Kinematics and the tracked target are
 //!   this tick's settled values.
-//! * **Read model** — world units, y up; `facing` is the sign of the body's
+//! * **Read model** — world units, +Y DOWN (the engine's frame: top-left
+//!   origin); `facing` is the sign of the body's
 //!   facing (`1.0` or `-1.0`). `telegraphing` is true while the boss's
 //!   pattern telegraphs THIS key, the ticks before the presses.
 //! * **Version 2** (2026-10-01): adds `telegraphing`, and gives the authored
 //!   `projectile_offset` itself instead of one technique's origin made from
 //!   it — the echo fan adds it as is, the eye beam mirrors it by facing.
+//! * **Version 3** (2026-10-01): adds the boss's combat box (`body_center`,
+//!   `body_half_size`), the box its hits are judged against; a stomp's
+//!   shock line stands on its bottom face.
 //! * **Absence** — `target` is `None` when the boss tracks nothing.
+//! * **Idle** — an invocation is IDLE when the key is neither pressed nor
+//!   telegraphed. An entry that declares `IdlePolicy::ResetState` is not
+//!   called on those ticks; its records go back to their initial values.
 //! * **Replay** — the value is derived each tick from rollback state; the
 //!   port keeps nothing between ticks.
 
@@ -32,7 +39,7 @@ use ambition_extension_sdk::{Port, PortKey, PortRole};
 pub struct BossSpecialCast;
 
 impl Port for BossSpecialCast {
-    const KEY: PortKey = PortKey::new("ambition.boss.special_cast", 2);
+    const KEY: PortKey = PortKey::new("ambition.boss.special_cast", 3);
     const ROLE: PortRole = PortRole::Trigger;
     type Value = BossCaster;
 
@@ -43,6 +50,8 @@ impl Port for BossSpecialCast {
         wire::put_vec2(out, v.position);
         wire::put_f32(out, v.facing);
         wire::put_vec2(out, v.projectile_offset);
+        wire::put_vec2(out, v.body_center);
+        wire::put_vec2(out, v.body_half_size);
         wire::put_opt(out, v.target, wire::put_vec2);
     }
 
@@ -54,6 +63,8 @@ impl Port for BossSpecialCast {
             position: r.vec2()?,
             facing: r.f32()?,
             projectile_offset: r.vec2()?,
+            body_center: r.vec2()?,
+            body_half_size: r.vec2()?,
             target: r.opt(WireReader::vec2)?,
         })
     }
@@ -75,6 +86,11 @@ pub struct BossCaster {
     /// The boss's authored projectile-origin offset from its position, as
     /// authored (not mirrored by facing).
     pub projectile_offset: [f32; 2],
+    /// The centre of the boss's combat box.
+    pub body_center: [f32; 2],
+    /// The half size of the boss's combat box. Its feet are at
+    /// `body_center.y + body_half_size.y` (+Y is down).
+    pub body_half_size: [f32; 2],
     /// The centre of the body the boss tracks, or the tracked point when the
     /// target is not a body.
     pub target: Option<[f32; 2]>,

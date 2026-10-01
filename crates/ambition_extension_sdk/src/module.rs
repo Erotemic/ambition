@@ -88,6 +88,21 @@ impl Default for Limits {
     }
 }
 
+/// What the host does with an IDLE trigger: one the trigger's domain marks as
+/// having nothing to act on this tick (for the boss special trigger: the key
+/// is neither pressed nor telegraphed).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Default)]
+pub enum IdlePolicy {
+    /// Call the entry anyway.
+    #[default]
+    Invoke,
+    /// Do not call the entry; put each of its declared records back to its
+    /// initial value. For an entry whose rule is "an idle tick ends what I was
+    /// doing", this is the same result without the call, and it is what makes
+    /// a loaded module cost nothing on the ticks it has nothing to do.
+    ResetState,
+}
+
 /// The function an entry runs. The in-process Rust binding calls it directly.
 pub type EntryFn = fn(&mut Invocation<'_>) -> Result<(), Fault>;
 
@@ -118,6 +133,7 @@ pub struct EntryDescriptor {
     /// same phase. Admission refuses a cycle.
     pub after: Vec<Name>,
     pub limits: Limits,
+    pub on_idle: IdlePolicy,
     pub run: EntryCode,
 }
 
@@ -180,6 +196,10 @@ impl ModuleDescriptor {
                 d.str(after);
             }
             d.u32(entry.limits.max_requests);
+            d.u8(match entry.on_idle {
+                IdlePolicy::Invoke => 0,
+                IdlePolicy::ResetState => 1,
+            });
         }
         d.finish()
     }
@@ -219,6 +239,13 @@ impl ModuleDescriptor {
                 put_str(out, after);
             }
             put_u32(out, entry.limits.max_requests);
+            put_u8(
+                out,
+                match entry.on_idle {
+                    IdlePolicy::Invoke => 0,
+                    IdlePolicy::ResetState => 1,
+                },
+            );
         }
     }
 
@@ -259,6 +286,11 @@ impl ModuleDescriptor {
             let limits = Limits {
                 max_requests: r.u32()?,
             };
+            let on_idle = match r.u8()? {
+                0 => IdlePolicy::Invoke,
+                1 => IdlePolicy::ResetState,
+                other => return Err(crate::wire::WireError::BadTag(other)),
+            };
             entries.push(EntryDescriptor {
                 key,
                 phase,
@@ -268,6 +300,7 @@ impl ModuleDescriptor {
                 requests,
                 after,
                 limits,
+                on_idle,
                 run: EntryCode::Loaded {
                     index: index as u32,
                 },

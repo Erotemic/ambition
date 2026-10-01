@@ -38,6 +38,7 @@ pub mod crowd;
 /// decides a level reset (ADR 0033).
 pub mod death_rules;
 pub mod events;
+pub mod extension;
 pub mod falling_chest;
 pub mod feel;
 pub mod finish_zoom;

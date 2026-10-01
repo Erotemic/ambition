@@ -51,7 +51,8 @@ pub(crate) fn actors_firing(
     firing
 }
 
-// The echo fan, the eye beam and mode collapse are procedural modules now
+// The echo fan, the eye beam, the gradient nova, mode collapse and the
+// seismic stomp are procedural modules now
 // (`ambition_content_modules`). Their native systems are kept as test-only
 // reference traces, and `module_parity_tests` holds every module to them.
 #[cfg(test)]
@@ -59,13 +60,15 @@ mod echo_fan_reference_tests;
 #[cfg(test)]
 mod eye_beam_reference_tests;
 #[cfg(test)]
+mod gradient_nova_reference_tests;
+#[cfg(test)]
 mod mode_collapse_reference_tests;
 #[cfg(test)]
 mod module_parity_tests;
-mod gradient_nova;
+#[cfg(test)]
+mod seismic_stomp_reference_tests;
 mod gradient_sentinel;
 mod overflow_flood;
-mod seismic_stomp;
 
 // Curated re-export of each Technique's public surface: the per-boss state
 // component (attached via required components + snapshot-registered) and the
@@ -73,7 +76,6 @@ mod seismic_stomp;
 // them today — the hub feeds this file's plugin (below) and `rollback::register`
 // — but they are the Techniques' genuine public API, so an explicit `pub use`
 // (not a glob) states it without re-globbing each submodule's private imports.
-pub use gradient_nova::{spawn_gradient_nova_from_special_messages, ExplodingGradientState};
 pub use gradient_sentinel::{
     spawn_apple_rain_from_special_messages, spawn_gradient_cascade_minions_from_special_messages,
     spawn_minima_trap_from_special_messages, spawn_overfit_volley_from_special_messages,
@@ -81,7 +83,6 @@ pub use gradient_sentinel::{
     MinimaTrapState, OverfitVolleyState, SaddlePointState,
 };
 pub use overflow_flood::{spawn_overflow_flood_from_special_messages, OverflowState};
-pub use seismic_stomp::{spawn_seismic_stomp_from_special_messages, SeismicStompState};
 
 use ambition_boss_encounter::BossConfig;
 use ambition_extension_host::ExtensionAppExt;
@@ -127,9 +128,7 @@ impl Plugin for BossSpecialContentPlugin {
         app.register_required_components::<BossConfig, MinimaTrapState>();
         app.register_required_components::<BossConfig, SaddlePointState>();
         app.register_required_components::<BossConfig, GradientCascadeState>();
-        app.register_required_components::<BossConfig, ExplodingGradientState>();
         app.register_required_components::<BossConfig, OverflowState>();
-        app.register_required_components::<BossConfig, SeismicStompState>();
 
         // The procedural techniques run on the extension host. Their strike
         // records live in the host's store, so they have no components here.
@@ -137,7 +136,7 @@ impl Plugin for BossSpecialContentPlugin {
             app.add_extension_module(module);
         }
 
-        // This content crate owns eight rollback state types. Record their
+        // This content crate owns six rollback state types. Record their
         // host-independent schema here; a rollback composition installs the same
         // declarations through its backend registrar.
         {
@@ -145,7 +144,7 @@ impl Plugin for BossSpecialContentPlugin {
             rollback::register(&mut registrar);
         }
 
-        // The 8 native Technique systems, hung on the engine's combat extension
+        // The 6 native Technique systems, hung on the engine's combat extension
         // slot. They read `ActorActionMessage::Special` and emit
         // `ProjectileSpawnRequest`/`EffectRequest`; the slot ordering guarantees
         // those land before the executors that drain them. Each only acts
@@ -158,9 +157,7 @@ impl Plugin for BossSpecialContentPlugin {
             (
                 spawn_apple_rain_from_special_messages,
                 spawn_overfit_volley_from_special_messages,
-                spawn_gradient_nova_from_special_messages,
                 spawn_overflow_flood_from_special_messages,
-                spawn_seismic_stomp_from_special_messages,
                 spawn_minima_trap_from_special_messages,
                 spawn_saddle_point_from_special_messages,
                 spawn_gradient_cascade_minions_from_special_messages,

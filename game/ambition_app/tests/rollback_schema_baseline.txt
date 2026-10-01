@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v281
+ggrs-rollback-schema-v283
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -121,7 +121,6 @@ component.projectile_owner	component-clone	ProjectileOwner	bevy_ggrs clone snaps
 content.apple_rain_spawn_state	component-canonical	AppleRainSpawnState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 content.cut_rope_heavy_object_cycle	resource-clone-custom-checksum	CutRopeHeavyObjectCycle	bevy_ggrs clone snapshot + heavy-object cycle index
 content.cut_rope_victory_npc	component-clone	SmirkingBehemothVictoryNpc	bevy_ggrs clone snapshot; not in the session checksum
-content.exploding_gradient_state	component-canonical	ExplodingGradientState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 content.fsm_conductor	component-clone-cursor	FsmConductor	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
 content.gnu_ton_conductor	component-clone-cursor	GnuTonConductor	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
 content.gradient_cascade_state	component-canonical	GradientCascadeState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
@@ -144,7 +143,6 @@ content.sanic_rolling	component-clone	Rolling	bevy_ggrs clone snapshot; not in t
 content.sanic_scattered_ring	component-clone	ScatteredRing	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 content.sanic_spent_monitors	resource-clone-custom-checksum	SpentMonitors	bevy_ggrs clone snapshot + an order-independent checksum over the spent names
 content.sanic_super_form_latch	component-clone	SuperFormLatch	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
-content.seismic_stomp_state	component-canonical	SeismicStompState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 cutscene.last_room	resource-canonical	LastCutsceneRoom	bevy_ggrs canonical codec snapshot + presence-aware canonical checksum projection
 cutscene.playback	resource-canonical	ActiveCutscene	bevy_ggrs canonical codec snapshot + presence-aware canonical checksum projection
 cutscene.skip_hold	resource-canonical	CutsceneSkipHold	bevy_ggrs canonical codec snapshot + presence-aware canonical checksum projection

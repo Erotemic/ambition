@@ -1,6 +1,6 @@
 {
   "peer_checksum_schema": {
-    "version": "ggrs-rollback-schema-v281",
+    "version": "ggrs-rollback-schema-v283",
     "rows": [
       "actor.active_combatant\tcomponent-canonical\tActiveCombatant",
       "actor.aggression\tcomponent-clone-cursor\tActorAggression",
@@ -67,7 +67,6 @@
       "component.construction_transaction_id\tcomponent-canonical-custom-checksum\tTransactionId",
       "content.apple_rain_spawn_state\tcomponent-canonical\tAppleRainSpawnState",
       "content.cut_rope_heavy_object_cycle\tresource-clone-custom-checksum\tCutRopeHeavyObjectCycle\tbevy_ggrs clone snapshot + heavy-object cycle index",
-      "content.exploding_gradient_state\tcomponent-canonical\tExplodingGradientState",
       "content.fsm_conductor\tcomponent-clone-cursor\tFsmConductor",
       "content.gnu_ton_conductor\tcomponent-clone-cursor\tGnuTonConductor",
       "content.gradient_cascade_state\tcomponent-canonical\tGradientCascadeState",
@@ -79,7 +78,6 @@
       "content.pending_cut_rope_room_replay\tresource-clone-custom-checksum\tPendingCutRopeRoomReplay\tthe dialogue-authored room replay, latched until the conversation ends",
       "content.saddle_point_state\tcomponent-clone-cursor\tSaddlePointState",
       "content.sanic_spent_monitors\tresource-clone-custom-checksum\tSpentMonitors\tbevy_ggrs clone snapshot + an order-independent checksum over the spent names",
-      "content.seismic_stomp_state\tcomponent-canonical\tSeismicStompState",
       "cutscene.last_room\tresource-canonical\tLastCutsceneRoom\tbevy_ggrs canonical codec snapshot + presence-aware canonical checksum projection",
       "cutscene.playback\tresource-canonical\tActiveCutscene\tbevy_ggrs canonical codec snapshot + presence-aware canonical checksum projection",
       "cutscene.skip_hold\tresource-canonical\tCutsceneSkipHold\tbevy_ggrs canonical codec snapshot + presence-aware canonical checksum projection",
@@ -192,12 +190,10 @@
     "ambition_combat::stocks::RespawnGrace",
     "ambition_combat::targeting::MatchTeam",
     "ambition_content::AppleRainSpawnState",
-    "ambition_content::ExplodingGradientState",
     "ambition_content::GradientCascadeState",
     "ambition_content::MinimaTrapState",
     "ambition_content::OverfitVolleyState",
     "ambition_content::OverflowState",
-    "ambition_content::SeismicStompState",
     "ambition_cutscene::ActiveCutscene",
     "ambition_cutscene::CutsceneBeat",
     "ambition_cutscene::CutsceneScript",

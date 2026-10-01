@@ -3303,7 +3303,7 @@ watch_paths = ["Cargo.toml"]
 rationale = "the extension SDK must stay a registered workspace member"
 source_doc = "docs/planning/engine/extension-model.md"
 severity = "error"
-members = ["ambition_extension_sdk", "ambition_extension_host", "ambition_extension_wasm", "ambition_boss_special_port", "ambition_content_modules"]
+members = ["ambition_extension_sdk", "ambition_extension_host", "ambition_extension_wasm", "ambition_boss_special_port", "ambition_combat_port", "ambition_content_modules"]
 
 [[policy]]
 id = "engine.ambition_extension_sdk-portable"
@@ -3366,3 +3366,16 @@ severity = "error"
 exact = true
 allow = ["ambition_extension_host", "ambition_extension_sdk"]
 manifest = "crates/ambition_extension_wasm/Cargo.toml"
+
+[[policy]]
+id = "engine.ambition_combat_port-portable"
+scope = "engine"
+kind = "dependency-allowlist"
+owners = ["ambition_combat_port"]
+watch_paths = ["crates/ambition_combat_port/Cargo.toml"]
+rationale = "the combat port's values are submitted by modules, so the leaf names only the SDK"
+source_doc = "docs/planning/engine/extension-domain-contracts.md"
+severity = "error"
+exact = true
+allow = ["ambition_extension_sdk"]
+manifest = "crates/ambition_combat_port/Cargo.toml"

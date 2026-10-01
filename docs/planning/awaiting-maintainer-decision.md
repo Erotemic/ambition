@@ -1567,7 +1567,7 @@ COULD NOT SEE THE CRATE THE SECOND ONE LIVES IN.**
 `check_presence_filtered_state_is_rollback_registered.py` derived its component
 population as `crates/<name>/src` for every registering crate — while its filter
 scan read `crates` AND `game` the whole time. `game/ambition_content` registers
-rollback state (`EchoFanState` and the rest of `bosses/specials/rollback.rs`,
+rollback state (`MinimaTrapState` and the rest of `bosses/specials/rollback.rs`,
 `PortalHostScanned` through `portal/plugin.rs`), so its entire component
 population was outside the question. Widening it added six subjects; five are
 presentation and are waived with the schedule each filter site runs in, and the

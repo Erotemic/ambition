@@ -80,6 +80,8 @@ pub fn queue_boss_special_casts(
         let boss = boss.as_boss_ref();
         let pos = boss.kin.pos;
         let offset = boss.config.behavior.projectile_origin_offset;
+        let body = boss.aabb();
+        let (body_center, body_half) = (body.center(), body.half_size());
         let telegraphed = attack.and_then(|a| match &a.telegraph_profile {
             Some(BossAttackProfile::Special(key)) => Some(key.as_str()),
             _ => None,
@@ -103,6 +105,8 @@ pub fn queue_boss_special_casts(
                 key.to_string(),
                 entity,
                 press.and_then(|p| p.2),
+                // The port's IDLE: the key is neither pressed nor telegraphed.
+                press.is_none() && telegraphed != Some(*key),
                 BossCaster {
                     pressed: press.is_some(),
                     telegraphing: telegraphed == Some(*key),
@@ -110,6 +114,8 @@ pub fn queue_boss_special_casts(
                     position: [pos.x, pos.y],
                     facing: boss.kin.facing.signum(),
                     projectile_offset: [offset.x, offset.y],
+                    body_center: [body_center.x, body_center.y],
+                    body_half_size: [body_half.x, body_half.y],
                     target,
                 },
             );

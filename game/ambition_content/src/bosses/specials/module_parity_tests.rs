@@ -59,6 +59,27 @@ const EYE_BEAM: Technique = Technique {
     },
 };
 
+const SEISMIC_STOMP: Technique = Technique {
+    key: "seismic_stomp",
+    native: |app| {
+        use super::seismic_stomp_reference_tests as r;
+        app.register_required_components::<BossConfig, r::SeismicStompState>();
+        app.add_systems(Sim, r::spawn_seismic_stomp_from_special_messages);
+    },
+};
+
+const GRADIENT_NOVA: Technique = Technique {
+    key: "gradient_nova",
+    native: |app| {
+        use super::gradient_nova_reference_tests as r;
+        app.register_required_components::<BossConfig, r::ExplodingGradientState>();
+        app.add_systems(Sim, r::spawn_gradient_nova_from_special_messages);
+    },
+};
+
+/// Every migrated technique.
+const ALL: [&Technique; 5] = [&ECHO_FAN, &EYE_BEAM, &GRADIENT_NOVA, &MODE_COLLAPSE, &SEISMIC_STOMP];
+
 const MODE_COLLAPSE: Technique = Technique {
     key: "mode_collapse_converge",
     native: |app| {
@@ -108,6 +129,7 @@ fn world(road: Road, technique: &Technique) -> (App, Vec<Entity>) {
     app.init_schedule(Sim);
     app.add_message::<ActorActionMessage>()
         .add_message::<ProjectileSpawnRequest>()
+        .add_message::<ambition_vfx::EffectRequest>()
         .init_resource::<ambition_time::SimTick>();
     match road {
         Road::NativeSystem => (technique.native)(&mut app),
@@ -115,6 +137,7 @@ fn world(road: Road, technique: &Technique) -> (App, Vec<Entity>) {
             app.add_plugins(ExtensionHostPlugin::new(Sim));
             ambition_boss_encounter::extension::install(&mut app);
             ambition_projectiles::extension::install(&mut app);
+            ambition_combat::extension::install(&mut app);
             if road == Road::Wasm {
                 let (backend, modules) = wasm_modules();
                 app.add_loaded_extension_modules(backend, modules, false);
@@ -171,6 +194,7 @@ fn world(road: Road, technique: &Technique) -> (App, Vec<Entity>) {
             boss.status,
             boss.health,
             BossAttackState::default(),
+            ambition_combat::components::ActorFaction::Boss,
             FeatureSimEntity,
         ));
         if let Some(target) = target {
@@ -237,6 +261,23 @@ fn run(road: Road, technique: &Technique, ticks: &[Tick], kill_boss_0_at: Option
             request.owner = Entity::PLACEHOLDER;
             by_boss.entry(boss).or_default().push(format!("{request:?}"));
         }
+        for effect in app
+            .world_mut()
+            .resource_mut::<Messages<ambition_vfx::EffectRequest>>()
+            .drain()
+        {
+            let boss = bosses
+                .iter()
+                .position(|b| *b == effect.owner)
+                .expect("only a boss emits");
+            let ambition_vfx::Effect::DamageBox(b) = effect.effect else {
+                panic!("only damage boxes are emitted here");
+            };
+            by_boss.entry(boss).or_default().push(format!(
+                "DamageBox {{ center: {:?}, faction: {:?}, half_extent: {:?}, damage: {}, knockback: {:?}, lifetime_s: {:?}, name: {:?} }}",
+                b.center, b.faction, b.half_extent, b.damage, b.knockback, b.lifetime_s, b.name
+            ));
+        }
         trace.push(by_boss);
         app.world_mut()
             .resource_mut::<Messages<ActorActionMessage>>()
@@ -291,7 +332,7 @@ fn assert_module_matches_native(technique: &Technique, ticks: &[Tick], kill: Opt
 
 #[test]
 fn each_module_emits_what_its_native_system_emitted() {
-    for technique in [&ECHO_FAN, &EYE_BEAM, &MODE_COLLAPSE] {
+    for technique in ALL {
         assert_module_matches_native(technique, STRIKES, None);
         assert_module_matches_native(technique, LOCKED, None);
     }
@@ -307,7 +348,7 @@ fn a_boss_that_dies_mid_strike_matches_its_native_system() {
         IDLE,
         press(&[(0, None)]),
     ];
-    for technique in [&ECHO_FAN, &EYE_BEAM, &MODE_COLLAPSE] {
+    for technique in ALL {
         assert_module_matches_native(technique, ticks, Some(2));
     }
 }
@@ -331,7 +372,7 @@ fn the_locked_target_is_the_one_taken_during_the_telegraph() {
 
 #[test]
 fn each_wasm_build_emits_what_its_native_system_emitted() {
-    for technique in [&ECHO_FAN, &EYE_BEAM, &MODE_COLLAPSE] {
+    for technique in ALL {
         for ticks in [STRIKES, LOCKED] {
             let native = run(Road::NativeSystem, technique, ticks, None);
             let wasm = run(Road::Wasm, technique, ticks, None);

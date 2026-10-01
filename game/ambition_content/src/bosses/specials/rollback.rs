@@ -1,7 +1,7 @@
 //! Boss-special rollback codecs, registered by the content crate that owns them.
 //!
 //! `docs/planning/engine/netcode.md` N3.1: *"each sim crate registers its components'
-//! serialization."* These eight Technique states are sim state — a `fired_this_strike`
+//! serialization."* These six Technique states are sim state — a `fired_this_strike`
 //! latch that survives a rollback is a strike that fires twice — and no crate below
 //! `ambition_content` can name them. The content domain declares them through
 //! the backend-neutral `RollbackRegistrar`; the selected host decides whether
@@ -20,19 +20,14 @@ use ambition_platformer2d_core::snapshot::{
 use bevy::prelude::*;
 
 use super::{
-    AppleRainSpawnState, ExplodingGradientState, GradientCascadeState, MinimaTrapState,
-    OverfitVolleyState, OverflowState, SaddlePointState, SeismicStompState,
+    AppleRainSpawnState, GradientCascadeState, MinimaTrapState,
+    OverfitVolleyState, OverflowState, SaddlePointState,
 };
 
 /// Add every boss-special state to the rollback contract.
 pub(super) fn register(registrar: &mut impl RollbackRegistrar) {
     const OWNER: &str = "ambition_content::bosses::specials";
     registrar
-        .rollback_component_canonical::<SeismicStompState>(OWNER, "content.seismic_stomp_state")
-        .rollback_component_canonical::<ExplodingGradientState>(
-            OWNER,
-            "content.exploding_gradient_state",
-        )
         .rollback_component_canonical::<OverflowState>(OWNER, "content.overflow_state")
         .rollback_component_canonical::<GradientCascadeState>(
             OWNER,
@@ -52,30 +47,6 @@ pub(super) fn register(registrar: &mut impl RollbackRegistrar) {
 // a `spawn_index` that survives one is a minion that is never born. Keep these
 // content-owned codecs explicit instead of exporting the runtime crate's private
 // convenience macro as a public API.
-impl SnapshotState for SeismicStompState {
-    fn encode(&self, out: &mut Vec<u8>) {
-        put_bool(out, self.fired_this_strike);
-    }
-
-    fn decode(r: &mut Reader<'_>) -> Option<Self> {
-        Some(Self {
-            fired_this_strike: r.bool()?,
-        })
-    }
-}
-
-impl SnapshotState for ExplodingGradientState {
-    fn encode(&self, out: &mut Vec<u8>) {
-        put_bool(out, self.fired_this_strike);
-    }
-
-    fn decode(r: &mut Reader<'_>) -> Option<Self> {
-        Some(Self {
-            fired_this_strike: r.bool()?,
-        })
-    }
-}
-
 impl SnapshotState for GradientCascadeState {
     fn encode(&self, out: &mut Vec<u8>) {
         put_bool(out, self.fired_this_strike);

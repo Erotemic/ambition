@@ -10,6 +10,11 @@ description = "Reusable, content-free combat MODEL: Damage / Hitbox / Hurtbox / 
 crate-type = ["rlib"]
 
 [dependencies]
+# The adapter of the combat domain's extension request port (`extension.rs`);
+# the port's pure values are a leaf so modules need no Bevy.
+ambition_combat_port = { path = "../ambition_combat_port" }
+ambition_extension_host = { path = "../ambition_extension_host" }
+ambition_extension_sdk = { path = "../ambition_extension_sdk" }
 # The brain MeleeActionSpec the attack specs reference.
 ambition_characters = { path = "../ambition_characters" }
 # The content compiler. OPTIONAL and default-OFF (§2e): a game that never

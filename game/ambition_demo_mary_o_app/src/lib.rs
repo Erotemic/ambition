@@ -145,9 +145,12 @@ pub fn build_windowed_demo_app_entering(
         // Startup asset binding precedes gameplay activation, so the theme comes from the
         // authored room rather than a session root that does not exist yet.
         .with_room(
+            // The entry room's metadata is its room set's (AP11).
             ambition_demo_mary_o::provider::mary_o_session_world_entering(entry_room)
+                .room_set
+                .activation_spec()
                 .metadata
-                .0,
+                .clone(),
         ),
     );
 

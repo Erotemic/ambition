@@ -44,8 +44,10 @@
 //! clip with no jump in place or in timing.
 //!
 //! ⛔ Nothing here runs unless [`RiggedSpriteAdmission`] admits the trial.
-//! Known gaps of the trial: the crouch squash of a sheet without a crouch row
-//! is not applied to parts, and the hit flash copies the invisible root sprite.
+//! The crouch squash of a sheet without a crouch row reaches the parts through
+//! the owner (`stance_squash`). The hit flash needs nothing: its material
+//! samples the root's texture and frame with its own tint and never reads the
+//! sprite color, so a rigged body flashes with its baked silhouette.
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -97,6 +99,7 @@ type Roots<'w, 's> = Query<
         &'static Transform,
         Option<&'static Visibility>,
         Option<&'static RenderLayers>,
+        Option<&'static Anchor>,
     ),
     (Without<RiggedPresentation>, Without<RiggedPartSlot>),
 >;
@@ -256,12 +259,20 @@ pub fn drive_rigged_presentations(
     mut slots: Slots,
 ) {
     for (mut presentation, mut owner_transform, mut owner_visibility) in &mut owners {
-        let Ok((animator, mut root_sprite, root_transform, root_visibility, root_layers)) =
+        let Ok((animator, mut root_sprite, root_transform, root_visibility, root_layers, root_anchor)) =
             roots.get_mut(presentation.root)
         else {
             continue;
         };
         *owner_transform = *root_transform;
+        // The stance squash of a sheet without a row for the compact pose
+        // (`StanceSquash`): the root's quad is drawn shorter about a line that
+        // holds still. The owner takes the same squash, so the parts do too.
+        if let Some((ratio, held_y)) = stance_squash(animator, &root_sprite, root_anchor) {
+            owner_transform.scale.y *= ratio;
+            owner_transform.translation +=
+                root_transform.rotation * (root_transform.scale * Vec3::new(0.0, held_y * (1.0 - ratio), 0.0));
+        }
         owner_visibility.set_if_neq(root_visibility.copied().unwrap_or(Visibility::Inherited));
         if root_sprite.color.alpha() > 0.0 {
             presentation.tint = root_sprite.color;
@@ -341,6 +352,26 @@ pub fn drive_rigged_presentations(
             visibility.set_if_neq(Visibility::Inherited);
         }
     }
+}
+
+/// The squash the root's quad is drawn with this frame, as `(ratio, held_y)`:
+/// its height over the height the animator gives the frame, and the y (in the
+/// root's local units) that holds still. `None` when the root is drawn at its
+/// full height.
+///
+/// Read from the root itself, not from the stance, so the two pivots of
+/// `StanceSquash` (the anchor, or the quad's foot edge) need no copy here. For
+/// a quad of height `h0` and anchor `a0` drawn at `h1` and `a1`, the
+/// normalized height `t` that holds still is `(a0 h0 - a1 h1) / (h0 - h1)`.
+fn stance_squash(animator: &CharacterAnimator, root: &Sprite, anchor: Option<&Anchor>) -> Option<(f32, f32)> {
+    let (unsquashed, unsquashed_anchor) = animator.current_render()?;
+    let (h0, a0) = (unsquashed.y, unsquashed_anchor.y);
+    let (h1, a1) = (root.custom_size?.y, anchor?.0.y);
+    if h0 <= f32::EPSILON || (h0 - h1).abs() <= 1.0e-4 * h0 {
+        return None;
+    }
+    let held = (a0 * h0 - a1 * h1) / (h0 - h1);
+    Some((h1 / h0, (held - a0) * h0))
 }
 
 fn hide(slots: &[Entity], query: &mut Slots) {

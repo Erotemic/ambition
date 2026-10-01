@@ -342,7 +342,12 @@ where
         .rollback_component_clone_probed::<ambition_combat::hurtbox_resolution::BodyPoseClock>(
             OWNER,
             "actor.body_pose_clock",
-            |clock| checksum_bytes(clock.pose.as_bytes()) ^ clock.elapsed_s.to_bits() as u64,
+            |clock| {
+                checksum_bytes(clock.pose.as_bytes())
+                    ^ clock.elapsed_s.to_bits() as u64
+                    ^ ((clock.gait as u64) << 32)
+                    ^ (u64::from(clock.gait_elapsed_s.to_bits()) << 8)
+            },
         );
     registrar.rollback_component_clone::<ambition_combat::hurtbox_resolution::AuthoredHurtboxes>(
         OWNER,

@@ -39,6 +39,7 @@ fn rig() -> Arc<PreparedBodyRig> {
                 ("idle".to_string(), clip(&[-10.0, -11.0], true)),
                 ("jump".to_string(), clip(&[-20.0], false)),
                 ("slash".to_string(), clip(&[-30.0, -31.0, -32.0], false)),
+                ("walk".to_string(), clip(&[-40.0, -41.0, -42.0], true)),
             ]),
         }
         .prepare()
@@ -58,17 +59,43 @@ fn a_playing_move_outranks_the_body_pose_and_is_slaved_to_its_progress() {
     let rig = rig();
     let slash = binding("slash");
     assert_eq!(
-        select_rig_frame(&rig, Some((&slash, 0.5)), Some(("airborne", 0.0))),
+        select_rig_frame(&rig, Some((&slash, 0.5)), Some(("airborne", 0.0)), None),
         Some(("slash", 1))
     );
     // A move whose clip the rig does not have falls through to the pose.
     let taunt = binding("taunt");
     assert_eq!(
-        select_rig_frame(&rig, Some((&taunt, 0.5)), Some(("airborne", 0.0))),
+        select_rig_frame(&rig, Some((&taunt, 0.5)), Some(("airborne", 0.0)), None),
         Some(("jump", 0))
     );
     // A pose whose clip the rig does not have falls back to idle, on its clock.
-    assert_eq!(select_rig_frame(&rig, None, Some(("crouch", 0.15))), Some(("idle", 1)));
+    assert_eq!(select_rig_frame(&rig, None, Some(("crouch", 0.15)), None), Some(("idle", 1)));
+}
+
+/// The gait picks the clip of a body in the idle pose, on the gait clock. Any
+/// other pose outranks the gait.
+#[test]
+fn a_walking_body_resolves_its_walk_clip_on_the_gait_clock() {
+    let rig = rig();
+    let walking = Some((Gait::Walking, 0.25));
+    assert_eq!(select_rig_frame(&rig, None, Some(("idle", 9.0)), walking), Some(("walk", 2)));
+    // A walk loops: 0.35 s is the fourth step of a three-frame clip.
+    assert_eq!(
+        select_rig_frame(&rig, None, Some(("idle", 0.0)), Some((Gait::Walking, 0.35))),
+        Some(("walk", 0))
+    );
+    assert_eq!(select_rig_frame(&rig, None, Some(("idle", 0.0)), Some((Gait::Running, 0.0))), Some(("walk", 0)), "no run clip: walk");
+    assert_eq!(select_rig_frame(&rig, None, Some(("idle", 0.15)), Some((Gait::Standing, 0.0))), Some(("idle", 0)), "standing reads the gait clock");
+    assert_eq!(select_rig_frame(&rig, None, Some(("airborne", 0.0)), walking), Some(("jump", 0)), "the pose outranks the gait");
+}
+
+#[test]
+fn the_gait_rule_is_the_sprite_pickers() {
+    use crate::hurtbox_resolution::{grounded_gait, ACTOR_STANDING_BELOW, PLAYER_STANDING_BELOW};
+    assert_eq!(grounded_gait(11.0, false, false, PLAYER_STANDING_BELOW), Gait::Standing);
+    assert_eq!(grounded_gait(11.0, false, false, ACTOR_STANDING_BELOW), Gait::Walking);
+    assert_eq!(grounded_gait(200.0, true, false, PLAYER_STANDING_BELOW), Gait::Running);
+    assert_eq!(grounded_gait(0.0, false, true, PLAYER_STANDING_BELOW), Gait::Skidding);
 }
 
 fn app_with_body(clock: BodyPoseClock) -> (App, Entity) {
@@ -94,7 +121,9 @@ fn a_headless_body_resolves_its_hand_from_the_pose_clock() {
     app.update();
     assert_eq!(hand(&app, body), Vec2::new(3.0, -20.0));
     app.world_mut().get_mut::<BodyPoseClock>(body).unwrap().pose = "idle".to_string();
-    app.world_mut().get_mut::<BodyPoseClock>(body).unwrap().elapsed_s = 0.1;
+    // In the idle pose the gait clock times the clip: idle starts again when
+    // the body stops walking, as the sprite's Idle row does.
+    app.world_mut().get_mut::<BodyPoseClock>(body).unwrap().gait_elapsed_s = 0.1;
     app.update();
     assert_eq!(hand(&app, body), Vec2::new(3.0, -11.0));
 }
@@ -103,7 +132,10 @@ fn a_headless_body_resolves_its_hand_from_the_pose_clock() {
 fn a_discarded_pose_is_rebuilt_identically_from_the_same_clocks() {
     // A rollback restore brings back the clocks and drops derived state. One
     // resolver pass must rebuild the pose exactly.
-    let (mut app, body) = app_with_body(BodyPoseClock::new("idle", 0.1));
+    let mut clock = BodyPoseClock::new("idle", 0.1);
+    clock.gait = Gait::Walking;
+    clock.gait_elapsed_s = 0.2;
+    let (mut app, body) = app_with_body(clock);
     app.update();
     let resolved = app.world().get::<BodyRigPose>(body).unwrap().clone();
     *app.world_mut().get_mut::<BodyRigPose>(body).unwrap() = BodyRigPose::default();

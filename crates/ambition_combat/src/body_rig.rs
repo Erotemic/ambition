@@ -19,7 +19,7 @@ use bevy::prelude::*;
 
 use ambition_characters::actor::body_rig::PreparedBodyRig;
 
-use crate::hurtbox_resolution::{BodyPoseClock, POSE_AIRBORNE, POSE_CROUCH, POSE_HITSTUN};
+use crate::hurtbox_resolution::{BodyPoseClock, Gait, POSE_AIRBORNE, POSE_CROUCH, POSE_HITSTUN, POSE_IDLE};
 
 /// The prepared rig this body's character granted. Shared by every body of
 /// the character.
@@ -108,10 +108,8 @@ pub struct BodyRigPoseResolved;
 /// The rig clips a body pose asks for, in preference order. The names are the
 /// sheet's row names, which is the vocabulary a rig clip is keyed by.
 ///
-/// Walking is not a body pose: the pose clock reads `idle` for a body that
-/// stands or walks, so a walking body resolves the `idle` clip. A locomotion
-/// clip needs a simulation fact that says the body walks; the presentation
-/// picker's speed threshold is not one.
+/// A body in the `idle` pose asks for its gait's clips instead
+/// ([`gait_clip_chain`]): walking is a gait, not a pose.
 pub fn pose_clip_chain(pose: &str) -> &'static [&'static str] {
     match pose {
         POSE_HITSTUN => &["hurt", "idle"],
@@ -121,16 +119,30 @@ pub fn pose_clip_chain(pose: &str) -> &'static [&'static str] {
     }
 }
 
+/// The rig clips a grounded gait asks for, in preference order, for a body in
+/// the `idle` pose. The same rule picks the sprite row
+/// ([`crate::hurtbox_resolution::grounded_gait`]).
+pub fn gait_clip_chain(gait: Gait) -> &'static [&'static str] {
+    match gait {
+        Gait::Standing => &["idle"],
+        Gait::Walking => &["walk", "idle"],
+        Gait::Running => &["run", "walk", "idle"],
+        Gait::Skidding => &["skid", "idle"],
+    }
+}
+
 /// Which clip and frame a body shows, from its authoritative clocks.
 ///
 /// A playing move outranks the body pose, and its clip is slaved to the move's
 /// progress: the same precedence and the same slaving the sheet row follows.
-/// A rig with none of the asked clips falls back to `idle`, then to its first
-/// clip, so a rig always resolves some pose.
+/// In the `idle` pose the gait picks the clip, on the gait clock. A rig with
+/// none of the asked clips falls back to `idle`, then to its first clip, so a
+/// rig always resolves some pose.
 pub fn select_rig_frame<'a>(
     rig: &'a PreparedBodyRig,
     active_move: Option<(&'a ambition_entity_catalog::ClipBinding, f32)>,
     pose: Option<(&str, f32)>,
+    gait: Option<(Gait, f32)>,
 ) -> Option<(&'a str, usize)> {
     if let Some((binding, phase)) = active_move {
         let chain = std::iter::once(binding.clip.as_str())
@@ -139,9 +151,13 @@ pub fn select_rig_frame<'a>(
             return Some((name, clip.frame_at_phase(phase)));
         }
     }
-    let (pose_id, elapsed_s) = pose.unwrap_or(("idle", 0.0));
+    let (pose_id, elapsed_s) = pose.unwrap_or((POSE_IDLE, 0.0));
+    let (chain, elapsed_s) = match gait {
+        Some((gait, gait_elapsed_s)) if pose_id == POSE_IDLE => (gait_clip_chain(gait), gait_elapsed_s),
+        _ => (pose_clip_chain(pose_id), elapsed_s),
+    };
     let (name, clip) = rig
-        .first_clip(pose_clip_chain(pose_id).iter().copied())
+        .first_clip(chain.iter().copied())
         .or_else(|| rig.first_clip(rig.clip_names()))?;
     Some((name, clip.frame_at_time(elapsed_s)))
 }
@@ -162,7 +178,8 @@ pub fn resolve_body_rig_poses(
         let rig = rig.0.as_ref();
         let active_move = playback.map(|playback| (&playback.spec.clip, playback.phase()));
         let pose_input = pose_clock.map(|clock| (clock.pose.as_str(), clock.elapsed_s));
-        let Some((clip, frame)) = select_rig_frame(rig, active_move, pose_input) else {
+        let gait_input = pose_clock.map(|clock| (clock.gait, clock.gait_elapsed_s));
+        let Some((clip, frame)) = select_rig_frame(rig, active_move, pose_input, gait_input) else {
             continue;
         };
         if pose.clip.as_deref() == Some(clip) && pose.frame == frame && !pose.joints.is_empty() {

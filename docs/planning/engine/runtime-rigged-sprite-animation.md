@@ -923,6 +923,13 @@ Acceptance:
 
 **Primary customer:** Mary-O.
 
+**Fix (2026-09-30, review finding [P3]): a walking body is solved from its walk clip.** Before this fix the "walk" half of the acceptance below was not met. Two causes:
+
+- Walking was not a simulation fact. `BodyPoseClock` now also carries a **gait** (`Standing`, `Walking`, `Running`, `Skidding`) and a gait clock, written by `advance_body_pose_clocks` from simulation facts only: the ground state, the velocity along the body's own run axis, and `BodyMotionFacts::running` / `skidding`. The rule is `grounded_gait`. The sprite picker's grounded Idle/Walk/Run branch calls the same rule with the same thresholds (12 for a player, 8 for an actor), so the shipped rows do not change and the row and the rig clip agree. In the `idle` pose the rig asks for the gait's clip (`walk`, then `idle`; `run`, then `walk`, then `idle`; `skid`, then `idle`) on the gait clock. The hurtbox pose ids are not changed, so the authored pose profiles select as before.
+- No production body had a `BodyPoseClock`: only tests spawned one. So every rigged body was solved as idle frame 0, standing or not. A body built with a rig now gets the clock in the same batch, and loses it with the rig. Bodies without a rig still get none. ⚠ For Jon: that means the authored hurtbox POSE PROFILES (`doc.poses`: hitstun, crouch, airborne) are never selected on a shipped body, because no shipped body has the clock that selects them. That is a pre-existing gap, and this fix does not change it.
+- Witness: `a_walking_mary_o_is_posed_from_her_walk_clip` (Mary-O app, rigs admitted). It drives her on the flat test course and checks three things: a moving gait solves `walk`, the walk frame advances, and her near hand leaves its idle place. It fails when the rig solve ignores the gait (poison run).
+
+
 Work:
 
 1. Add simple semantic hurt parts to the prepared Mary-O body rig.
@@ -991,7 +998,7 @@ Do not require every dynamic limb to become a reusable rigid part in this packet
 - Measured in the real renderer (llvmpipe, `capture_scene hall_of_characters`, ultra, 16 shots over the idle cycle): each rigged shot matches the baked shot of the same tick, with a residual of 0.22 to 0.35 of the typical frame-to-frame difference. The pose, the sword angle, the feet and the size agree.
 - At the potato tier, the rigged pirate stays readable: 12 or 13 exact quads, with textures of a few texels each. The baked potato frame is one 8 × 9 texture.
 
-Gaps that remain for Packet 7 or later: the crouch squash of a sheet without a crouch row does not apply to parts. The portal far side and the hit flash copy the root sprite, which has zero alpha. The portal candidate is the baked quad of the root, not the union of the parts.
+Gaps that remained after this packet, all closed later: the portal far side copied the root sprite, which has zero alpha (Packet 7: `PortalPieceTint`). The crouch squash of a sheet without a crouch row did not apply to parts (closed 2026-09-30, see Packet 7). The hit flash was listed here by mistake: its material samples the root's texture and frame with its own tint and never reads the sprite color, so a rigged body flashes with its baked silhouette.
 
 **Primary visual prototype:** Pirate Raider.
 
@@ -1026,7 +1033,10 @@ Acceptance:
 - Multiview: the part slots take the render layers of their root, so each camera that draws a root draws its parts (`the_parts_are_drawn_by_each_camera_that_draws_their_root`). `a_second_view_draws_the_same_parts_and_makes_no_more` (`ambition_app`) adds a second pane to the seated admirals as TwinTrack does: a `LocalView` in a column and a `MainCamera` that presents it. The presentations, the slots and the entity count do not change. TwinTrack itself casts no character that publishes a flipbook, so the witness uses its pane shape, not its route.
 - Not measured: without a window, the `VisibleEntities` of the host camera lists no sprite at all. Thus no headless test shows the pixels of each pane. The offscreen capture (`capture_scene`) can, when that is necessary.
 
-Gaps that remain: the hit flash copies the root sprite, which has zero alpha. The crouch squash of a sheet without a crouch row does not apply to parts.
+- The crouch squash of a sheet without a row for the compact pose (`StanceSquash`) now reaches the parts. The driver reads the squash off the root itself: its drawn height and anchor against the animator's `current_render`. From these it gets the ratio and the line that holds still, and puts that squash on the owner's transform. So both of `StanceSquash`'s pivots (the anchor, the quad's foot edge) are followed with no copy of its rule, and rotated parts squash as the baked quad does. Witness: `a_squashed_root_squashes_its_parts_about_the_same_line`. It fails when the held line is dropped (poison run).
+- The hit flash needed no change; see the Packet 6 note.
+
+No known gap of the trial realization remains.
 
 Work:
 
@@ -1123,12 +1133,12 @@ Do **not** implement a custom part-instance renderer unless the fixed-slot world
 
 ### Packet 9 — hybrid clips
 
-**Status (2026-09-30): the runtime half is done, behind the trial switch. The Mary-O publish is open.**
+**Status (2026-09-30): done, behind the trial switch.** The runtime half and the Mary-O publish are both done. Not measured: Mary-O drawn in the game from parts while she walks. Her demo's tests are headless, so the runtime crossing is shown by the raider witness below.
 
 - A flipbook states each row of its sheet as a part clip (`clips`) or a baked clip (`baked_clips`, optional in the RON, absent for the pirates). `RiggedSpriteAsset::realization(row)` gives the choice. It is published with the clip, so no runtime rule picks it (work items 1 and 4).
 - `check_rows` refuses a flipbook that states a sheet row as neither, a row as both, or a clip for a row that the sheet does not have. The attach road calls it, so a body never meets a row that has no realization. All five pirates state every row as a part clip.
 - The driver draws a baked clip from the root: the root takes its tint back and the slots hide. The root, its animator and its feet are the same for both kinds of clip, so the crossing has no jump in place or in timing. Witness: `a_hybrid_body_crosses_between_part_and_baked_clips_in_place` (the raider with `slash` left baked). It fails when the driver does not give the root its tint back.
-- Open: work item 3, the Mary-O publish. Her SVG rig is rigid parts (`RigDocument.sprite_raster`), so her publisher can probably draw one locomotion clip (short `walk`) from parts and state her transform clips as baked. That needs the part-flipbook capture in her renderer and a parity check against her baked frames, as for the pirates.
+- Work item 3, the Mary-O publish. Her `RigDocument` paints every frame from rigid sprite parts. So her flipbook is RECORDED from the real render, with nothing reconstructed: `part_flipbook.recorded_blits` records each `rigdoc.blit_rotated` call, and `build_rig_flipbook` makes the draws from those calls. `mary_o_v2.PART_ROWS = ("walk",)`: each form (short, tall, fire) draws its walk from parts and states every other row as baked, the transition clips and their effects among them. Every walk frame of all three forms recomposes within the pirates' 2.5% bound (`tests/test_mary_o_part_flipbook.py`). The short form's worst frame is 1.74%: a half-pixel placement that the render rounds. Her walk turns no part, it only moves them. The Rust side reads all three forms and their tiers as hybrids that state every sheet row (`mary_os_flipbooks_draw_her_walk_from_parts_and_leave_the_rest_baked`).
 
 **First hybrid control:** Mary-O.
 

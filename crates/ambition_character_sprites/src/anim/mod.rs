@@ -497,15 +497,20 @@ pub fn pick_body_anim(v: &BodyAnimView) -> CharacterAnim {
                 Idle
             }
         }
-        Locomotion::Grounded => {
-            if v.speed < v.idle_below {
-                Idle
-            } else if v.running {
-                Run
-            } else {
-                Walk
-            }
-        }
+        // The simulation's gait rule, so the row agrees with the rig clip the
+        // body's hurt geometry is solved from (`BodyPoseClock::gait`). A skid
+        // has already returned above.
+        Locomotion::Grounded => match ambition_combat::hurtbox_resolution::grounded_gait(
+            v.speed,
+            v.running,
+            false,
+            v.idle_below,
+        ) {
+            ambition_combat::hurtbox_resolution::Gait::Standing => Idle,
+            ambition_combat::hurtbox_resolution::Gait::Walking => Walk,
+            ambition_combat::hurtbox_resolution::Gait::Running => Run,
+            ambition_combat::hurtbox_resolution::Gait::Skidding => Skid,
+        },
     }
 }
 
@@ -675,7 +680,7 @@ pub fn pick_player_anim(
     v.held = anim.held;
     v.dash_startup = anim.dash_startup_timer > 0.0;
     v.landing = (anim.land_anim_timer > 0.0).then_some(anim.land_anim_hard);
-    v.idle_below = 12.0;
+    v.idle_below = ambition_combat::hurtbox_resolution::PLAYER_STANDING_BELOW;
     v.fly_above = 0.0;
     pick_body_anim(&v)
 }
@@ -816,7 +821,7 @@ pub fn pick_actor_anim(
         v.locomotion = Locomotion::Aerial;
         v.speed = kinematics.vel.length();
     }
-    v.idle_below = 8.0;
+    v.idle_below = ambition_combat::hurtbox_resolution::ACTOR_STANDING_BELOW;
     v.fly_above = 12.0;
     pick_body_anim(&v)
 }

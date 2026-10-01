@@ -73,14 +73,12 @@ def blocked_by_paragraph(lines: list[str], index: int) -> str:
 #: changes, this guard would compare an empty set against an empty set and pass
 #: while the page it protects says nothing.
 #:
-#: ⚠ A FLOOR ON A SHRINKING POPULATION IS A RATCHET POINTING THE WRONG WAY, and
-#: it fired the day the maintainer ruled twenty questions at once: the real
-#: count fell from 5 to 2 and the guard called the SCAN broken. The floor is
-#: only here to catch a scan that finds NOTHING, so it is 1 — the smallest
-#: number that still distinguishes "the convention moved" from "the queue got
-#: unblocked". MEASURED 2026-09-19, after those rulings: 2 gated rows (`Q147`,
-#: `Q69`).
-MIN_GATED_ROWS = 1
+#: ⚠ The floor is on the FIELD, not on the gated rows. Gated rows can
+#: legitimately be none: on 2026-10-01 the maintainer ruled `Q69`, the last
+#: gate, and the open P0/P1 gates fell to 0. A floor of one gated row would
+#: then call the scan broken. A queue with no `Blocked by:` field at all, in any
+#: row, open or closed, is the convention moving, and that refuses.
+MIN_BLOCKED_BY_FIELDS = 1
 
 
 def gated_rows() -> dict[str, set[str]]:
@@ -246,10 +244,13 @@ def main() -> int:
         return 1
 
     gated = gated_rows()
-    if len(gated) < MIN_GATED_ROWS:
+    fields = sum(
+        1 for line in QUEUE.read_text(encoding="utf-8").split("\n") if line.startswith(BLOCKED_BY)
+    )
+    if fields < MIN_BLOCKED_BY_FIELDS:
         print(
-            f"⛔⛔ found {len(gated)} gated P0/P1 row(s), below the floor of "
-            f"{MIN_GATED_ROWS}. That is a claim about this scan, not about the queue."
+            f"⛔⛔ found {fields} `{BLOCKED_BY}` field(s) in the queue, below the floor of "
+            f"{MIN_BLOCKED_BY_FIELDS}. That is a claim about this scan, not about the queue."
         )
         return 1
 

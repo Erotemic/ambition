@@ -1372,6 +1372,12 @@ pub fn serve_encounter_spawn_commands(
         return;
     };
     let Some(prepared) = cast.get() else {
+        if !events.is_empty() {
+            bevy::log::warn_once!(
+                "an encounter asked for a spawn in a session with no prepared cast; \
+                 nothing was spawned (the session lost its generation)"
+            );
+        }
         return;
     };
     for msg in events.read() {

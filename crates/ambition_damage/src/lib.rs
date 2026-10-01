@@ -508,7 +508,10 @@ pub(crate) fn handle_player_damage_events(
     debris: &mut MessageWriter<DebrisBurstMessage>,
     death_writers: &mut BodyDeathWriters<'_>,
     clusters: &mut ae::BodyClustersMut<'_>,
-    clock_resets: &mut MessageWriter<ClockResetRequest>,
+    // `None` while another live room stays: the sim clock is one clock for
+    // the whole world, and one body's respawn does not snap another room's
+    // bullet time (OW1; the decision is in the open-world plan).
+    clock_resets: Option<&mut MessageWriter<ClockResetRequest>>,
     safety: &mut PlayerSafetyState,
     banner_requests: &mut MessageWriter<GameplayBannerRequested>,
     mut player_health: Option<&mut BodyHealth>,
@@ -833,7 +836,7 @@ pub(crate) fn safe_respawn_player(
     victim_source: Option<&ambition_sfx::PresentationSourceId>,
     vfx: &mut MessageWriter<VfxMessage>,
     clusters: &mut ae::BodyClustersMut<'_>,
-    clock_resets: &mut MessageWriter<ClockResetRequest>,
+    clock_resets: Option<&mut MessageWriter<ClockResetRequest>>,
     safety: &PlayerSafetyState,
     combat: &mut BodyCombat,
     tuning: ae::MovementTuning,
@@ -865,10 +868,12 @@ pub(crate) fn safe_respawn_player(
     combat.recoil_lock_timer = 0.0;
     combat.hitstop_timer = 0.0;
     combat.hit_flash = feel.reset_flash_time;
-    clock_resets.write(ClockResetRequest::sim_clock(
-        ClockRequester::Engine,
-        "safe_respawn",
-    ));
+    if let Some(clock_resets) = clock_resets {
+        clock_resets.write(ClockResetRequest::sim_clock(
+            ClockRequester::Engine,
+            "safe_respawn",
+        ));
+    }
     sfx.write_for_body(victim_source, SfxMessage::Reset { pos: to });
     vfx.write(VfxMessage::ResetEffects { from, to });
 }
@@ -1573,7 +1578,8 @@ pub fn apply_player_hit_events(
             &mut debris_writer,
             &mut death_writers,
             &mut clusters,
-            &mut clock_resets,
+            // Only while this is the one live room.
+            rooms.sole().is_some().then_some(&mut clock_resets),
             &mut safety,
             &mut banner_requests,
             player_health.map(|h| h.into_inner()),

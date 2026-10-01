@@ -57,7 +57,10 @@ pub fn reset_sandbox(
     motion_model: &mut ae::MotionModel,
     clusters: &mut ae::BodyClustersMut<'_>,
     sim_state: &mut RoomTransitionCooldown,
-    clock_resets: &mut MessageWriter<ClockResetRequest>,
+    // `None` while another live room stays: the sim clock is one clock for
+    // the whole world, and one room's reset does not snap another's bullet
+    // time (OW1; the decision is in the open-world plan).
+    clock_resets: Option<&mut MessageWriter<ClockResetRequest>>,
     safety: Option<&mut ambition_platformer2d_shared_tangle::safe_position::PlayerSafetyState>,
     anim: &mut ambition_characters::actor::BodyAnimFacts,
     combat: &mut ambition_characters::actor::BodyCombat,
@@ -80,10 +83,12 @@ pub fn reset_sandbox(
     if let Some(safety) = safety {
         safety.last_safe_pos = world.spawn;
     }
-    clock_resets.write(ClockResetRequest::sim_clock(
-        ClockRequester::Engine,
-        "sandbox_reset",
-    ));
+    if let Some(clock_resets) = clock_resets {
+        clock_resets.write(ClockResetRequest::sim_clock(
+            ClockRequester::Engine,
+            "sandbox_reset",
+        ));
+    }
     sim_state.remaining = 0.0;
     anim.reset();
     combat.reset();
@@ -275,6 +280,9 @@ pub fn return_the_replay_subject_to_spawn(
         Option<&mut ambition_characters::actor::BodyHealth>,
     )>,
     mut slot_gestures: ResMut<ambition_characters::control::SlotInteractionState>,
+    // The live room roots: with more than one, another live room stays
+    // through this replay.
+    live_rooms: Query<(), bevy::prelude::With<ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot>>,
 ) {
     let Some(subject) = admitted
         .read()
@@ -319,7 +327,7 @@ pub fn return_the_replay_subject_to_spawn(
         &mut motion_model,
         &mut clusters,
         &mut sim_state,
-        &mut clock_resets,
+        (live_rooms.iter().count() <= 1).then_some(&mut clock_resets),
         safety.map(|s| s.into_inner()),
         &mut anim,
         &mut combat,
@@ -483,7 +491,7 @@ mod tests {
                 &mut model,
                 &mut clusters,
                 &mut sim_state,
-                &mut clock_resets,
+                Some(&mut clock_resets),
                 Some(&mut safety),
                 &mut anim,
                 &mut combat,

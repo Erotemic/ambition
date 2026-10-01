@@ -548,7 +548,16 @@ the mockingbird leaves its invulnerable phase at frame 119, but a player placed
 of 28. REASONED: it flies out of melee reach once the player falls back to the
 floor. The helper injects a `HitEvent`, which a sync-test arm cannot use
 (an injected message is not an input, so resimulation would not see it).
-Use a grounded boss whose volumes come from the catalog. (`SessionCast::is_changed` follows the source `get` reads). ⭐ With
+Use a grounded boss whose volumes come from the catalog.
+⭐ MEASURED with one: in `trex_arena` the T-rex (no authored hurtboxes) leaves
+its invulnerable phase at frame 155, and walking at it while attacking lands
+hits (44 → 38 HP in 240 frames). Emptying the App's `BossCatalog` at frame 60 of
+that run left the sync test healthy and the HP identical, and so did the same
+run with `refresh_boss_damageable_volumes` poisoned back onto the App catalog.
+⇒ An emptied catalog does not reach the outcome on this road, and the
+boss-volume change is a consistency move with no measured effect. The
+volume context evidently resolves without the catalog entry; a catalog change
+that DOES matter (a part's box) is the next arm's edit, not an empty catalog. (`SessionCast::is_changed` follows the source `get` reads). ⭐ With
 the projection on the session's cast, a cast published mid-timeline no longer
 desyncs the sync test: `developer_edits_under_rollback::publishing_a_cast_mid_timeline_leaves_history_resimulating_the_same`
 asserts it (MEASURED: putting either the projection or the worn re-derivation

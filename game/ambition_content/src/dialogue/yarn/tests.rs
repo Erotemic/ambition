@@ -36,7 +36,7 @@ fn catalog_hall_dialogue_ids_are_known() {
 fn every_catalog_hall_dialogue_id_has_a_yarn_node() {
     // Pure-text cross-check — no Yarn runtime — so it runs in every config and fails at `cargo
     // test`.
-    let yarn = YARN_SOURCES
+    let yarn = yarn_sources()
         .iter()
         .find(|(name, _)| name.ends_with("hall.yarn"))
         .map(|(_, text)| *text)
@@ -104,7 +104,7 @@ fn the_player_pedestal_has_a_self_branch_because_the_default_character_is_the_pl
 /// a dialogue that does not exist is dead content.
 #[test]
 fn every_self_branch_has_a_root_node() {
-    for (name, source) in YARN_SOURCES {
+    for (name, source) in yarn_sources() {
         let titles: Vec<&str> = yarn_title_ids(source).collect();
         for title in &titles {
             if let Some(root) = title.strip_suffix("__self") {

@@ -1995,7 +1995,7 @@ fn the_shipped_mockingbird_gate_opens_when_its_authored_placement_is_cleared() {
 
     // The id is READ FROM THE SHIPPED DIALOGUE, not typed here, so this test
     // cannot drift away from what an author actually wrote.
-    let authored: Vec<String> = ambition_content::dialogue::yarn::YARN_SOURCES
+    let authored: Vec<String> = ambition_content::dialogue::yarn::yarn_sources()
         .iter()
         .flat_map(|(_, text)| ambition_content::dialogue::yarn::executable_regions(text))
         .filter_map(|(_, region)| {

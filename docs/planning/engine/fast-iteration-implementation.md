@@ -165,7 +165,8 @@ ambition_app` after touching the file: `boss_profiles.ron` 0.44 s (nothing
 rebuilt), against 5.79 s for `sfx_registry.ron`, which stays embedded by its
 stated policy. A boss edit now costs a restart; it is not in the reload's
 participating families yet (`reload::participates`), so a running game refuses
-it.
+it. The sandbox Yarn dialogue (`dialogue/sandbox/*.yarn`, `yarn::yarn_sources`)
+followed the same day: a dialogue edit 0.43 s, nothing rebuilt.
 
 **Class:** DO. **Requires:** I1 for the lightweight Rust frontend; the data
 format/host side can be developed in parallel.

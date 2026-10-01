@@ -36,11 +36,52 @@ pub fn install_summons(app: &mut App) {
     app.install_extension_request::<BossSummonPort, _>(
         TECHNIQUE_EXECUTION,
         "ambition_boss_encounter",
-        lower_boss_summons,
+        lower_boss_summons::<InTechniqueExecution>,
     );
 }
 
-fn lower_boss_summons(
+/// Install the conducted-boss trigger and its boss-domain request ports in
+/// `boss_conduct`: the pose, the drawn row, a burst, and a summon.
+pub fn install_conduct(app: &mut App) {
+    use ambition_boss_special_port::{BossConductPort, ConductedPosePort, DrawnRowPort};
+    use ambition_extension_sdk::phases::BOSS_CONDUCT;
+    // The burst adapter writes this message; a composition with the port has
+    // it, whether or not anything else in it draws particles.
+    app.add_message::<ambition_vfx::vfx::VfxMessage>();
+    app.install_extension_trigger::<BossConductPort, _>(
+        BOSS_CONDUCT,
+        "ambition_boss_encounter",
+        crate::conduct::queue_boss_conducts,
+    );
+    app.install_extension_request::<ConductedPosePort, _>(
+        BOSS_CONDUCT,
+        "ambition_boss_encounter",
+        crate::conduct::lower_conducted_poses,
+    );
+    app.install_extension_request::<DrawnRowPort, _>(
+        BOSS_CONDUCT,
+        "ambition_boss_encounter",
+        crate::conduct::lower_drawn_rows,
+    );
+    app.install_extension_request::<ambition_combat_port::BurstPort, _>(
+        BOSS_CONDUCT,
+        "ambition_boss_encounter",
+        crate::conduct::lower_bursts,
+    );
+    app.install_extension_request::<BossSummonPort, _>(
+        BOSS_CONDUCT,
+        "ambition_boss_encounter",
+        lower_boss_summons::<InBossConduct>,
+    );
+}
+
+/// The phase a request adapter instance lowers for: one port offered in two
+/// phases has two named adapter systems, not one system registered twice.
+pub struct InTechniqueExecution;
+/// See [`InTechniqueExecution`].
+pub struct InBossConduct;
+
+fn lower_boss_summons<Phase: Send + Sync + 'static>(
     mut outbox: ResMut<ExtensionOutbox>,
     mut effects: MessageWriter<ambition_vfx::EffectRequest>,
     bosses: Query<&BossConfig>,
@@ -71,7 +112,12 @@ fn lower_boss_summons(
                 half_size: ambition_platformer2d_core::Vec2::from(summon.half_size),
                 character_id: summon.character_id,
                 encounter_id: boss.behavior.id.clone(),
-                faction: ambition_vfx::HitSide::Enemy,
+                // Its own appendages pass through the boss's volumes.
+                faction: if summon.on_boss_side {
+                    ambition_vfx::HitSide::Boss
+                } else {
+                    ambition_vfx::HitSide::Enemy
+                },
                 ridden_by_summoner: None,
                 health: summon.health,
                 keeps_contact_damage: summon.keeps_contact_damage,

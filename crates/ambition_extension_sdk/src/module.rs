@@ -81,6 +81,13 @@ pub mod phases {
     /// projectile executors run. In the Ambition runtime this is
     /// `ItemPickupSet::WieldedAbilities`, after `wielded_use`.
     pub const MODULE_ENTITY_TICK: Phase = Phase::new("module_entity_tick");
+
+    /// A conducted boss lives this tick. Guarantees: every non-boss body has
+    /// integrated, and the boss's pattern state for this tick is settled; a
+    /// pose asked for here is the last word before combat reads it, and
+    /// requests submitted here are consumed THIS tick. In the Ambition
+    /// runtime this is `WorldPrepSet::AfterIntegrate`.
+    pub const BOSS_CONDUCT: Phase = Phase::new("boss_conduct");
 }
 
 /// The trigger port that starts an entry, and the selector inside that port

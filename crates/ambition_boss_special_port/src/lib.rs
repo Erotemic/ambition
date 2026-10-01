@@ -141,10 +141,13 @@ pub struct BossSummon {
     pub health: Option<u32>,
     /// Whether the minion keeps the character's contact hazard.
     pub keeps_contact_damage: bool,
+    /// The minion fights on the boss's own side (`HitSide::Boss`): the boss's
+    /// own volumes pass through it. False: it is an enemy like any other.
+    pub on_boss_side: bool,
 }
 
 impl Port for BossSummonPort {
-    const KEY: PortKey = PortKey::new("ambition.boss.summon", 1);
+    const KEY: PortKey = PortKey::new("ambition.boss.summon", 2);
     const ROLE: PortRole = PortRole::Request;
     type Value = BossSummon;
 
@@ -159,6 +162,7 @@ impl Port for BossSummonPort {
         wire::put_str(out, &v.character_id);
         wire::put_opt(out, v.health, wire::put_u32);
         wire::put_bool(out, v.keeps_contact_damage);
+        wire::put_bool(out, v.on_boss_side);
     }
 
     fn decode(r: &mut WireReader<'_>) -> Result<BossSummon, WireError> {
@@ -173,6 +177,7 @@ impl Port for BossSummonPort {
             character_id: r.str()?.to_owned(),
             health: r.opt(WireReader::u32)?,
             keeps_contact_damage: r.bool()?,
+            on_boss_side: r.bool()?,
         })
     }
 }
@@ -193,6 +198,11 @@ impl BossSummon {
     }
 }
 
+pub mod conduct;
+pub use conduct::{
+    BossConduct, BossConductPort, ConductedPose, ConductedPosePort, DrawnRow, DrawnRowPort, LiveMove, Pose, RoomHall,
+};
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -207,6 +217,7 @@ mod tests {
             character_id: "npc_ai_slop".into(),
             health: None,
             keeps_contact_damage: true,
+            on_boss_side: false,
         };
         assert_eq!(s.id("gs").as_deref(), Some("gradient_sentinel_cascade:gs:3:1"));
         s.label = "a:b".into();
@@ -225,6 +236,7 @@ mod tests {
             character_id: "npc".into(),
             health: Some(9),
             keeps_contact_damage: false,
+            on_boss_side: true,
         };
         let mut out = Vec::new();
         BossSummonPort::encode(&s, &mut out);

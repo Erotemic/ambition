@@ -208,12 +208,14 @@ BASELINE: dict[str, tuple[str, ...]] = {
     "ExtensionInvocations": (
         "crates/ambition_abilities/src/extension.rs",
         "crates/ambition_abilities/src/module_entity.rs",
+        "crates/ambition_boss_encounter/src/conduct.rs",
         "crates/ambition_boss_encounter/src/extension.rs",
         "crates/ambition_extension_host/src/exec.rs",
     ),
     "ExtensionOutbox": (
         "crates/ambition_abilities/src/extension.rs",
         "crates/ambition_abilities/src/module_entity.rs",
+        "crates/ambition_boss_encounter/src/conduct.rs",
         "crates/ambition_boss_encounter/src/extension.rs",
         "crates/ambition_combat/src/extension.rs",
         "crates/ambition_extension_host/src/exec.rs",
@@ -883,7 +885,9 @@ ADJUDICATED: dict[str, str] = {
         "file and is the same shape: the held-item domain's `queue_wielded_uses` "
         "(in ambition_abilities, phase wielded_use) is that third file, and the "
         "module-entity domain's `queue_module_entity_ticks` (in the abilities "
-        "crate's module_entity file, phase module_entity_tick) is the fourth. "
+        "crate's module_entity file, phase module_entity_tick) is the fourth, and "
+        "the conducted-boss trigger `queue_boss_conducts` (in the boss-encounter "
+        "crate's conduct file, phase boss_conduct) the fifth. "
         "Each adapter appends only for its own port and phase."
     ),
     "ExtensionOutbox": (
@@ -894,8 +898,11 @@ ADJUDICATED: dict[str, str] = {
         "`lower_projectile_spawns`, the combat domain's `lower_damage_boxes` and "
         "the boss domain's `lower_boss_summons`, and the held-item domain's "
         "`lower_mana_spends` and `lower_body_sounds` (in ambition_abilities), and "
-        "the module-entity domain's `lower_module_entity_spawns` (in the abilities "
-        "crate's module_entity file), in "
+        "the module-entity domain's `lower_module_entity_spawns`, `lower_body_pulls` "
+        "and `lower_module_entity_ends` (in the abilities crate's module_entity "
+        "file), and the conducted-boss adapters `lower_conducted_poses`, "
+        "`lower_drawn_rows` and `lower_bursts` (in the boss-encounter crate's "
+        "conduct file), in "
         "`ExtensionSet::Lower`, chained "
         "after Invoke, and each in its own `ExtensionSet::LowerPort` set, ordered "
         "by install order); a drain takes only "

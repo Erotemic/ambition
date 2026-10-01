@@ -7,7 +7,7 @@
 use crate::common::base;
 use ambition_app::AmbitionSim;
 use ambition_app::{AgentAction, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode};
-use ambition_content::bosses::fsm::{FsmConductor, Move};
+use ambition_content::bosses::fsm::{conductor_of, Move, FSM_ID};
 use ambition_platformer2d::boss_encounter::{BossConfig, BossEncounter};
 use ambition_platformer2d::characters::actor::{BodyHealth, Invulnerability};
 use ambition_platformer2d::engine_core as ae;
@@ -40,17 +40,26 @@ struct God {
     floor: f32,
 }
 
+/// The god: the boss whose behaviour is the FSM's.
+fn the_god(world: &mut World) -> Option<Entity> {
+    let mut q = world.query::<(Entity, &BossConfig)>();
+    q.iter(world).find(|(_, config)| config.behavior.id == FSM_ID).map(|(e, _)| e)
+}
+
 fn god(sim: &mut Platformer2dSimHarness) -> God {
     let world = sim.world_mut();
-    let mut q = world.query::<(Entity, &ae::BodyKinematics, &FsmConductor, &BodyHealth)>();
-    let (entity, kin, conductor, health) = q.iter(world).next().expect("the FSM, conducted");
+    let entity = the_god(world).expect("the FSM");
+    let kin = *world.get::<ae::BodyKinematics>(entity).unwrap();
+    let hp = world.get::<BodyHealth>(entity).unwrap().current();
+    // Its conductor is the `fsm` module; its memory is the module's record.
+    let view = conductor_of(world, entity).expect("the FSM, conducted");
     God {
         entity,
         pos: kin.pos,
-        performing: conductor.performing(),
-        stranded: conductor.stranded(),
-        hp: health.current(),
-        floor: conductor.hall().map_or(f32::NAN, |hall| hall.floor),
+        performing: view.performing,
+        stranded: view.stranded,
+        hp,
+        floor: view.hall.map_or(f32::NAN, |hall| hall.floor),
     }
 }
 
@@ -91,8 +100,9 @@ fn step_until(sim: &mut Platformer2dSimHarness, max: usize, what: &str, mut done
 fn fight_started(sim: &mut Platformer2dSimHarness) {
     step_until(sim, 900, "the fight to start", |sim| {
         let world = sim.world_mut();
-        let mut q = world.query_filtered::<&BossEncounter, With<FsmConductor>>();
-        q.iter(world).next().is_some_and(|e| format!("{:?}", e.encounter_phase()) == "Phase1")
+        the_god(world)
+            .and_then(|god| world.get::<BossEncounter>(god))
+            .is_some_and(|e| format!("{:?}", e.encounter_phase()) == "Phase1")
     });
 }
 
@@ -240,16 +250,20 @@ fn the_dive_lands_on_you_and_leaves_it_stranded_in_reach() {
 }
 
 /// Each landing shock and where it stands: (entity, x of its centre).
+/// The landing's shocks: the god's volumes placed in the world (every other
+/// volume of the god rides it). Its conductor is a module, and a module's
+/// held box carries no inspector name.
 fn shocks(sim: &mut Platformer2dSimHarness) -> Vec<(Entity, f32)> {
     use ambition_platformer2d::combat::strike::{Hitbox, HitboxAnchor};
     let world = sim.world_mut();
-    let mut q = world.query::<(Entity, &Hitbox, &Name)>();
+    let god = the_god(world);
+    let mut q = world.query::<(Entity, &Hitbox)>();
     let mut shocks: Vec<_> = q
         .iter(world)
-        .filter(|(_, _, name)| name.as_str() == "fsm_dive_shock")
-        .map(|(entity, hitbox, _)| match hitbox.anchor {
-            HitboxAnchor::World { center } => (entity, center.x),
-            HitboxAnchor::FollowOwner { .. } => panic!("a landing shock is placed in the world"),
+        .filter(|(_, hitbox)| Some(hitbox.owner) == god)
+        .filter_map(|(entity, hitbox)| match hitbox.anchor {
+            HitboxAnchor::World { center } => Some((entity, center.x)),
+            HitboxAnchor::FollowOwner { .. } => None,
         })
         .collect();
     shocks.sort_by(|a, b| a.1.total_cmp(&b.1));
@@ -264,11 +278,7 @@ fn the_landing_shocks_roll_outward_and_end_with_the_god() {
     untouchable_player(&mut sim, true);
     // The dive lands where the player stands. Stand mid-hall, so that neither
     // shock starts at a wall, where it ends at once by design.
-    let hall = {
-        let world = sim.world_mut();
-        let mut q = world.query::<&FsmConductor>();
-        q.iter(world).next().and_then(FsmConductor::hall).expect("the god has measured its hall")
-    };
+    let hall = hall_of(&mut sim);
     let mid = ae::Vec2::new(hall.center_x(), player(&mut sim).1.y);
     step_until(&mut sim, 1800, "a dive's strike", |sim| {
         place_player(sim, mid);
@@ -310,8 +320,8 @@ fn down_interact(edge: bool) -> AgentAction {
 
 fn hall_of(sim: &mut Platformer2dSimHarness) -> ambition_content::bosses::hall::Hall {
     let world = sim.world_mut();
-    let mut q = world.query::<&FsmConductor>();
-    q.iter(world).next().and_then(FsmConductor::hall).expect("the god has measured its hall")
+    let god = the_god(world).expect("the FSM");
+    conductor_of(world, god).and_then(|view| view.hall).expect("the god has measured its hall")
 }
 
 /// Put any body at `at`, through the engine's transit.
@@ -528,8 +538,8 @@ fn wounded_it_sends_noodlings() {
     fight_started(&mut sim);
     {
         let world = sim.world_mut();
-        let mut q = world.query_filtered::<&mut BodyHealth, (With<FsmConductor>, With<BossConfig>)>();
-        let mut health = q.iter_mut(world).next().expect("the god");
+        let god = the_god(world).expect("the god");
+        let mut health = world.get_mut::<BodyHealth>(god).expect("the god");
         health.health.current = (health.max() as f32 * 0.5).ceil() as i32;
     }
     step_until(&mut sim, 1200, "the lesser appendages", |sim| god(sim).performing == Some((Move::Appendages, true)));
@@ -554,18 +564,24 @@ fn wounded_it_sends_noodlings() {
     );
 }
 
-/// The god is built with its conductor on every road that builds it: the
-/// arena's placement, and a boss staged by code. No tick sees it without one,
-/// because the conductor states who owns its pose.
+/// The god is built with what its conductor needs on every road that builds
+/// it: the arena's placement, and a boss staged by code — the side it faces
+/// (`ConductedFacing`, which its conductor module chooses from then on) and
+/// its drawn row. No tick sees it without them, because the side decides
+/// where its first move goes.
 #[test]
 fn the_god_is_built_with_its_conductor_on_every_road() {
     fn conducted(sim: &mut Platformer2dSimHarness) -> Option<(bool, bool)> {
         let world = sim.world_mut();
         world
-            .query::<(&BossConfig, Has<FsmConductor>, Has<ambition_platformer2d::sprite_sheet::character::PinnedRow>)>()
+            .query::<(
+                &BossConfig,
+                Has<ambition_platformer2d::boss_encounter::conduct::ConductedFacing>,
+                Has<ambition_platformer2d::sprite_sheet::character::PinnedRow>,
+            )>()
             .iter(world)
-            .find(|(config, ..)| config.behavior.id == ambition_content::bosses::fsm::conductor::FSM_ID)
-            .map(|(_, conductor, row)| (conductor, row))
+            .find(|(config, ..)| config.behavior.id == FSM_ID)
+            .map(|(_, facing, row)| (facing, row))
     }
     let mut placed = Platformer2dSimHarness::new_with_options(
         Platformer2dSimHarnessOptions::default()
@@ -589,7 +605,7 @@ fn the_god_is_built_with_its_conductor_on_every_road() {
         (400.0, 200.0),
         (60.0, 60.0),
         ambition_platformer2d::entity_catalog::placements::BossBrain::PhaseScript {
-            script_id: ambition_content::bosses::fsm::conductor::FSM_ID.to_string(),
+            script_id: FSM_ID.to_string(),
         },
     );
     assert_eq!(conducted(&mut staged), Some((true, true)), "the staged god, on the frame that builds it");

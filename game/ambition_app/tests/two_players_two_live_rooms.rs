@@ -886,6 +886,22 @@ fn a_conducted_boss_beside_bob<C: bevy::prelude::Component>(
     arena: &str,
     hall: fn(&C) -> Option<ambition_content::bosses::hall::Hall>,
 ) -> (Option<Option<LiveRoomInstance>>, bool, LiveRoomInstance) {
+    a_conducted_boss_beside_bob_by(arena, |world| {
+        world
+            .query::<(&C, Option<&InRoomInstance>)>()
+            .iter(world)
+            .next()
+            .map(|(conductor, room)| (room.map(|room| room.0), hall(conductor).is_some()))
+    })
+}
+
+/// As [`a_conducted_boss_beside_bob`], with the conducted boss and its hall
+/// found by `conducted`: a boss whose conductor is a module keeps its hall in
+/// the module's record, not in a component of its own.
+fn a_conducted_boss_beside_bob_by(
+    arena: &str,
+    conducted: impl Fn(&mut bevy::prelude::World) -> Option<(Option<LiveRoomInstance>, bool)>,
+) -> (Option<Option<LiveRoomInstance>>, bool, LiveRoomInstance) {
     let (mut sim, first) = alice_leaves_bob_in(
         "hall_of_bosses",
         arena,
@@ -901,12 +917,8 @@ fn a_conducted_boss_beside_bob<C: bevy::prelude::Component>(
     let mut seen = (None, false);
     for _ in 0..120 {
         sim.step(base());
-        let world = sim.world_mut();
-        seen = world
-            .query::<(&C, Option<&InRoomInstance>)>()
-            .iter(world)
-            .next()
-            .map(|(conductor, room)| (Some(room.map(|room| room.0)), hall(conductor).is_some()))
+        seen = conducted(sim.world_mut())
+            .map(|(room, measured)| (Some(room), measured))
             .unwrap_or((None, false));
         if seen.1 {
             break;
@@ -934,10 +946,17 @@ fn gnu_ton_measures_its_hall_in_its_own_live_room() {
 /// OW1 cut 7j: the flying spaghetti monster's conductor, the same.
 #[test]
 fn the_fsm_measures_its_hall_in_its_own_live_room() {
-    let (room, measured, second) = a_conducted_boss_beside_bob(
-        "flying_spaghetti_monster_arena",
-        ambition_content::bosses::fsm::FsmConductor::hall,
-    );
+    // The god's conductor is the `fsm` module: its hall is in the module's
+    // record on the god.
+    let (room, measured, second) = a_conducted_boss_beside_bob_by("flying_spaghetti_monster_arena", |world| {
+        let god = world
+            .query::<(bevy::prelude::Entity, &ambition_platformer2d::boss_encounter::BossConfig)>()
+            .iter(world)
+            .find(|(_, config)| config.behavior.id == ambition_content::bosses::fsm::FSM_ID)
+            .map(|(god, _)| god)?;
+        let room = world.get::<InRoomInstance>(god).map(|room| room.0);
+        Some((room, ambition_content::bosses::fsm::conductor_of(world, god).is_some_and(|v| v.hall.is_some())))
+    });
     assert_eq!(
         (room, measured),
         (Some(Some(second)), true),

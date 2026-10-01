@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v288
+ggrs-rollback-schema-v289
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -99,6 +99,7 @@ body.wallet	component-canonical	BodyWallet	bevy_ggrs canonical codec snapshot + 
 boss.attack_intent	component-canonical	BossAttackIntent	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 boss.attack_state	component-canonical	BossAttackState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 boss.capability	component-clone	BossCapability	bevy_ggrs clone snapshot; not in the session checksum
+boss.conducted_facing	component-clone-custom-checksum	ConductedFacing	bevy_ggrs clone snapshot + the side a conducted boss faces while its module holds its pose
 boss.config	component-clone	BossConfig	bevy_ggrs clone snapshot; not in the session checksum
 boss.death_animation	component-clone	BossDeathAnimation	bevy_ggrs clone snapshot; not in the session checksum
 boss.encounter	component-clone-cursor	BossEncounter	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
@@ -120,7 +121,6 @@ component.construction_transaction_id	component-canonical-custom-checksum	Transa
 component.projectile_owner	component-clone	ProjectileOwner	bevy_ggrs clone snapshot; entity handle remapped, probed through the target's stable sim identity
 content.cut_rope_heavy_object_cycle	resource-clone-custom-checksum	CutRopeHeavyObjectCycle	bevy_ggrs clone snapshot + heavy-object cycle index
 content.cut_rope_victory_npc	component-clone	SmirkingBehemothVictoryNpc	bevy_ggrs clone snapshot; not in the session checksum
-content.fsm_conductor	component-clone-cursor	FsmConductor	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
 content.gnu_ton_conductor	component-clone-cursor	GnuTonConductor	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
 content.mary_o_broken_bricks	resource-clone-custom-checksum	BrokenBricks	bevy_ggrs clone snapshot + an order-independent checksum over the broken names
 content.mary_o_flag_sequence	component-clone	FlagSequence	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -267,7 +267,6 @@ map.actor_aggression	entity-mapping	ActorAggression	bevy_ggrs LoadWorld entity-r
 map.actor_target	entity-mapping	ActorTarget	bevy_ggrs LoadWorld entity-reference remapping
 map.captured_by	entity-mapping	CapturedBy	bevy_ggrs LoadWorld entity-reference remapping
 map.combat.held_damage_boxes	entity-mapping	HeldDamageBoxes	bevy_ggrs LoadWorld entity-reference remapping
-map.content.fsm_conductor	entity-mapping	FsmConductor	bevy_ggrs LoadWorld entity-reference remapping
 map.content.gnu_ton_conductor	entity-mapping	GnuTonConductor	bevy_ggrs LoadWorld entity-reference remapping
 map.encounter_participants	entity-mapping	EncounterParticipants	bevy_ggrs LoadWorld entity-reference remapping
 map.falling_hazard	entity-mapping	FallingHazard	bevy_ggrs LoadWorld entity-reference remapping

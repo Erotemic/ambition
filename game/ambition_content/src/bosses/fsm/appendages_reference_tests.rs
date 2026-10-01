@@ -1,4 +1,5 @@
-//! The god's lesser appendages: noodlings, summoned in a pair to swim at you.
+//! The NATIVE conductor's lesser appendages (test-only reference): noodlings,
+//! summoned in a pair to swim at you.
 
 use ambition_platformer2d_core as ae;
 use ae::Vec2;
@@ -24,7 +25,7 @@ pub fn summon(effects: &mut MessageWriter<ambition_vfx::EffectRequest>, god: Ent
                 pos: Vec2::new(x, at.y),
                 half_size: NOODLING_HALF,
                 character_id: NOODLING.to_string(),
-                encounter_id: super::conductor::FSM_ID.to_string(),
+                encounter_id: super::conductor_reference_tests::FSM_ID.to_string(),
                 // Its OWN appendages: the god's side, so its sting and its
                 // pulse — Boss-side volumes, which hurt any other side they
                 // touch — pass through them, and they are no less your foe.

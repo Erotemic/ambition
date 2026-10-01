@@ -6,8 +6,9 @@
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
+| [`conduct`](src/conduct.rs) | A conducted boss: a module that performs a boss's moves itself — where the body goes, what it swings, what it is drawn as — every tick, while the boss's pattern decides WHICH move and WHEN. |
 
-_0 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_1 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

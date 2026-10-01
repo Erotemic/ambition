@@ -1,6 +1,6 @@
 {
   "peer_checksum_schema": {
-    "version": "ggrs-rollback-schema-v288",
+    "version": "ggrs-rollback-schema-v289",
     "rows": [
       "actor.active_combatant\tcomponent-canonical\tActiveCombatant",
       "actor.aggression\tcomponent-clone-cursor\tActorAggression",
@@ -59,6 +59,7 @@
       "body.wallet\tcomponent-canonical\tBodyWallet",
       "boss.attack_intent\tcomponent-canonical\tBossAttackIntent",
       "boss.attack_state\tcomponent-canonical\tBossAttackState",
+      "boss.conducted_facing\tcomponent-clone-custom-checksum\tConductedFacing\tbevy_ggrs clone snapshot + the side a conducted boss faces while its module holds its pose",
       "boss.encounter\tcomponent-clone-cursor\tBossEncounter",
       "boss.phase\tcomponent-canonical\tBossPhase",
       "combat.held_damage_boxes\tcomponent-clone-cursor\tHeldDamageBoxes",
@@ -67,7 +68,6 @@
       "component.boss_anim_frame\tcomponent-clone-cursor\tBossAnimFrame",
       "component.construction_transaction_id\tcomponent-canonical-custom-checksum\tTransactionId",
       "content.cut_rope_heavy_object_cycle\tresource-clone-custom-checksum\tCutRopeHeavyObjectCycle\tbevy_ggrs clone snapshot + heavy-object cycle index",
-      "content.fsm_conductor\tcomponent-clone-cursor\tFsmConductor",
       "content.gnu_ton_conductor\tcomponent-clone-cursor\tGnuTonConductor",
       "content.mary_o_broken_bricks\tresource-clone-custom-checksum\tBrokenBricks\tbevy_ggrs clone snapshot + an order-independent checksum over the broken names",
       "content.mary_o_spent_power_blocks\tresource-clone-custom-checksum\tSpentPowerBlocks\tbevy_ggrs clone snapshot + an order-independent checksum over the spent ids",

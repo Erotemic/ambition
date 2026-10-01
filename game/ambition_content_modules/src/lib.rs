@@ -14,6 +14,7 @@ pub mod apple_rain;
 pub mod beam;
 pub mod echo_fan;
 pub mod eye_beam;
+pub mod fsm;
 pub mod gradient_cascade;
 pub mod gradient_nova;
 pub mod meteor;
@@ -40,6 +41,7 @@ pub const MODULES: &[fn() -> ambition_extension_sdk::ModuleDescriptor] = &[
     beam::module,
     echo_fan::module,
     eye_beam::module,
+    fsm::module,
     gradient_cascade::module,
     gradient_nova::module,
     meteor::module,

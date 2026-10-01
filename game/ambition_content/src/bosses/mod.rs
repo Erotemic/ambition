@@ -227,12 +227,10 @@ pub fn register_rollback_state(
             "ambition_content::bosses",
             "map.content.gnu_ton_conductor",
         );
-    // The Flying Spaghetti Monster's conductor: the move it performs, where its
-    // dive lands, whether it lies stranded — sim state, like GNU-ton's; its
-    // shock handles are remapped.
-    registrar
-        .rollback_component_cursor::<fsm::FsmConductor>("ambition_content::bosses", "content.fsm_conductor")
-        .rollback_map_entities::<fsm::FsmConductor>("ambition_content::bosses", "map.content.fsm_conductor");
+    // The Flying Spaghetti Monster's conductor is a procedural module
+    // (`ambition_content_modules::fsm`): its memory is a record in the
+    // extension host's `extension.body_records`, its facing the boss domain's
+    // `boss.conducted_facing`, and its shocks the combat domain's held boxes.
     // The cut-rope celebrant's identity. The victory road spawns it only when
     // none has this marker, so a restored celebrant without it would be
     // spawned a second time.
@@ -385,24 +383,10 @@ impl Plugin for AmbitionBossContentPlugin {
                 .in_set(ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::AfterIntegrate),
         );
 
-        // The Flying Spaghetti Monster's conductor flies it and performs its
-        // moves, after every non-boss body has integrated. The boss integration
-        // runs later in `WorldPrep`; it leaves the locomotion of a god whose
-        // conductor holds the pose (`PoseOwnedExternally`) alone.
-        app.add_systems(
-            sim,
-            fsm::conduct_fsm
-                .in_set(GameplayGated)
-                .in_set(ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::AfterIntegrate),
-        );
-        // The side the conductor chose reaches the body through its control,
-        // which the boss integration applies; see `face_conducted_gods`.
-        app.add_systems(
-            sim,
-            fsm::face_conducted_gods
-                .in_set(GameplayGated)
-                .in_set(ambition_platformer2d_shared_tangle::schedule::BossSteerSlot),
-        );
+        // The Flying Spaghetti Monster's conductor is the `fsm` procedural
+        // module, a conducted boss: the extension composition runs it in
+        // `boss_conduct` (after every non-boss body has integrated) and turns
+        // the god to the side it chose in `BossSteerSlot`.
 
         // Cut-rope Yarn vocabulary: installed on the DialogueRunner via the
         // dialog runtime's content-bindings seam, plus the per-frame extras

@@ -927,7 +927,9 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// records live in `extension.body_records`.
 /// ⛔⛤ 281 -> 282: `content.seismic_stomp_state` is gone: the seismic stomp is
 /// an extension module, its strike latch a record in `extension.body_records`.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 282;
+/// ⛔⛤ 282 -> 283: `content.exploding_gradient_state` is gone the same way:
+/// the gradient nova is an extension module.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 283;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

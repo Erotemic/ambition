@@ -181,13 +181,7 @@ fn editing_feel_tuning_mid_timeline_changes_what_history_resimulates_to() {
 /// (`rollback_component_clone`, `actor.moveset`) and then resimulates a
 /// historical frame with a system that reads the NEW registry. Identical shape
 /// to `ActiveMovementTuning`; the only question is whether it fires.
-///
-/// ⛔ IGNORED 2026-10-01: its answer depends on which resources exist. One more
-/// resource of any type (the movement-defaults watch, an unrelated probe, or the
-/// restore audit) removes the mismatch. See `RESOURCE-SET-SENSITIVE-RESIM` in
-/// `docs/planning/queue.md` for the measured table.
 #[test]
-#[ignore = "RESOURCE-SET-SENSITIVE-RESIM: the mismatch appears or not with the world's resource set"]
 fn publishing_a_cast_mid_timeline_changes_what_history_resimulates_to() {
     use ambition_platformer2d::characters::prepared::{
         activate_staged_revision, stage_character_revision, PreparedCharacterRegistry,
@@ -203,10 +197,21 @@ fn publishing_a_cast_mid_timeline_changes_what_history_resimulates_to() {
     // ⛔ THE PREMISE: find the character a LIVE BODY is actually wearing, rather
     // than naming one and hoping. A revision of an unworn character reaches no
     // body, and would look exactly like "publication is rollback-safe".
+    //
+    // ⛔⛤ THE PRIMARY PLAYER'S, NOT THE FIRST MATCH. This was
+    // `q.iter(world).next()`, and query order follows archetype creation order.
+    // MEASURED 2026-10-01: one more resource or one entity with a new component
+    // type made the first match `npc_kernel_guide` instead of
+    // `player_robot_v3`, and the arm then saw no mismatch. It was recorded for
+    // a day as a resimulation that depends on the resource set
+    // (`RESOURCE-SET-SENSITIVE-RESIM`, retracted). The subject had moved.
     let worn: Option<String> = {
         let world = sim.world_mut();
-        let mut q = world.query::<&ambition_platformer2d::characters::actor::WornCharacter>();
-        q.iter(world).next().map(|worn| worn.0.as_str().to_string())
+        let mut q = world.query_filtered::<
+            &ambition_platformer2d::characters::actor::WornCharacter,
+            ambition_platformer2d::platformer::markers::PrimaryPlayerOnly,
+        >();
+        q.single(world).ok().map(|worn| worn.0.as_str().to_string())
     };
     let Some(worn) = worn else {
         panic!(

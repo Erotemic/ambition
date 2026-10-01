@@ -36,68 +36,21 @@ hide a rebuild on a speculative frame. Witness:
 `a_new_game_asked_for_by_the_host_commits_once_under_a_rewind`, with
 `rollback_health()` on both arms.
 
-### RESOURCE-SET-SENSITIVE-RESIM — whether a cast publication desyncs depends on which resources exist
+### RESOURCE-SET-SENSITIVE-RESIM — ⛔ RETRACTED 2026-10-01: the fixture's subject moved, not the resimulation
 
-**Owner:** rollback determinism. **Found 2026-10-01** (ToothbrushAmbition2),
-when `MovementDefaultsWatch` (7d16e6ce7) turned
+Recorded and retracted the same day (ToothbrushAmbition2). The movement-defaults
+watch (7d16e6ce7) turned
 `developer_edits_under_rollback::publishing_a_cast_mid_timeline_changes_what_history_resimulates_to`
-red. That arm records that a cast published mid-timeline desyncs the sync test.
-MEASURED, each arm run alone, each result stable over repeated runs:
-
-| Composition | Cast publication mid-timeline |
-| --- | --- |
-| HEAD before the watch | checksum mismatch (the arm's recorded answer) |
-| the watch registered (resource + `Update` system) | no mismatch, 4 runs of 4 |
-| a no-op `Update` system, no resource | mismatch |
-| the watch's resource inserted, no system | no mismatch |
-| an unrelated `struct ProbeUnrelated(u8)` resource inserted at the same point | no mismatch |
-| no watch, but `RollbackRestoreAudit::enabled()` inserted by the test | no mismatch |
-
-⇒ Whether a rewind resimulates a cast publication to the same checksum depends
-on the SET of resources in the world, not on what any of them hold: one more
-resource of any type, inserted at build or at run time, removes the mismatch.
-Something on the resimulation or checksum road iterates resources (or storage)
-in an order that the resource set moves. The audit instrument cannot name it,
-because inserting the audit is one of the changes that hides it. Also measured
-the same day: `apply_worn_character_gameplay` no longer re-derives bodies from
-the App cast (275230a3c), so the road this arm was written for (2026-09-13,
-frames 22–24) is closed. What remained is this sensitivity.
-
-Narrowed the same day, MEASURED: in Bevy 0.19 a resource is stored on an
-entity (`bevy_ecs::resource::ResourceEntities`), so "one more resource shifts
-every later Entity id" was the first suspect. It is not enough: with no watch,
-one `spawn_empty()` by the test at the point where the audit was inserted
-leaves the mismatch (2 runs: mismatch without, mismatch with). Whatever a
-resource changes, a bare entity does not.
-
-⭐ **THE LEVER IS A NEW ARCHETYPE.** MEASURED: one `spawn(ProbeArchetype)` (a
-test-local component type, so a new archetype and table) at the same point
-HIDES the mismatch, as a resource does (a resource's entity carries
-`IsResource` and its own type: also a new archetype). An empty entity joins an
-existing archetype and changes nothing. ⇒ REASONED from that: a system on the
-resimulated road folds a query whose result depends on the order its
-archetypes are iterated (archetype ids follow creation order), and a restore
-or resimulation puts entities in a different archetype order than the first
-simulation did. The next probe: list the resimulated systems that fold an
-order-sensitive query (first match wins, float sums, `last()`), then shift the
-archetype order with this probe and diff the per-type checksums of the first
-resimulated frame. One candidate, REASONED and not measured:
-`project_prepared_character_definitions` reads the App cast
-(`PreparedCharacterRegistry`) in the rewinding schedule behind
-`Changed<WornCharacter>`/`Added<CombatTuning>`. A load writes those components
-again, so the gate opens on the load frame (the class `fc092d9c7` measured for
-the mode sweep). Its row in `open-world-runtime-and-residency.md` calls it
-idempotent because "a candidate whose projected id and generation match is
-skipped", and a cast published mid-window is exactly the case where the
-generation does not match. So a resimulated frame can re-project the NEW cast
-where the first simulation did not. It is one of the ~30 App-cast readers
-recorded under I3.
-
-The arm is `#[ignore]`d with this row as its reason. It recorded an answer that
-the composition, not the cast, decides. The next probe: hash the checksum's
-inputs per resource, then diff the two compositions' first resimulated frame.
-Same class as `SYNC-POINT-SENSITIVE-RESIM` below (an incidental composition
-change moves a resimulation result).
+red, and one more resource of any type, or one entity with a new component
+type, removed the recorded mismatch. This row first read that as a
+resimulation that depends on the resource set. MEASURED cause: the arm chose
+its subject with `q.iter(world).next()` over `WornCharacter`, and query order
+follows archetype creation order. With the extra archetype the first match was
+`npc_kernel_guide`, not `player_robot_v3`. Revising the NPC's cast
+mid-timeline gives no mismatch; revising the player's does. The arm now
+revises the primary player's character (`PrimaryPlayerOnly`) and is not
+ignored; it records the mismatch with the watch present. Nothing here is a
+determinism defect. Kept as a row so the commits that cite it resolve.
 
 ### SYNC-POINT-SENSITIVE-RESIM — a command sync point moves the death-reset replay
 

@@ -142,6 +142,11 @@ fn alice_leaves_bob(
     alice_leaves_bob_by(slot, walk_through_the_door_to)
 }
 
+/// [`alice_leaves_bob`] with Bob driven by slot 1, for another module's arm.
+pub(crate) fn alice_leaves_bob_for_a_replay() -> (Platformer2dSimHarness, LiveRoomInstance) {
+    alice_leaves_bob(Some(ambition_platformer2d::characters::control::PlayerSlot(1)))
+}
+
 /// [`alice_leaves_bob`], with Alice crossing by `cross`.
 fn alice_leaves_bob_by(
     slot: Option<ambition_platformer2d::characters::control::PlayerSlot>,

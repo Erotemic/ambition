@@ -9,7 +9,7 @@
 use std::collections::BTreeMap;
 
 use bevy::prelude::{
-    App, IntoScheduleConfigs, MessageReader, Plugin, Query, Res, ResMut, Resource, With,
+    App, Commands, Entity, IntoScheduleConfigs, MessageReader, Plugin, Query, Res, ResMut, Resource, With,
 };
 
 use ambition_persistence::save::AmbitionGameSave;
@@ -295,6 +295,64 @@ pub fn start_the_item_domain_fresh(
     }
 }
 
+/// BOSS-REPLAY-RETRACTION (Q51): the mints of a boss defeat that a replay
+/// retracted go with it. "If you roll back to before the defeat, you do not
+/// have the item."
+///
+/// A mint names the boss it fell out of (`SpawnOrigin::Dynamic { parent }`).
+/// Every live mint of a retracted boss is despawned, and a held one leaves
+/// its holder's hand first. The ledger rows of those mints, and of the
+/// dormant mints the save describes in a room that is not live, are retracted,
+/// so no room build puts one back and the save mirrors drop their rows.
+///
+/// ⚠ What a mint already became is not taken back here: coins already in a
+/// wallet, a granted ability. Those are known issues in the queue row.
+pub fn retract_mints_of_retracted_boss_defeats(
+    mut commands: Commands,
+    mut retracted: bevy::prelude::MessageReader<ambition_boss_encounter::BossDefeatRetracted>,
+    mints: Query<(Entity, &SimId, &SpawnOrigin, Option<&GroundItem>, Option<&ItemCustody>)>,
+    mut hands: Query<ambition_combat::hand::RepertoireQuery>,
+    save: Option<Res<AmbitionGameSave>>,
+    occurrences: Option<ResMut<ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences>>,
+) {
+    let bosses: std::collections::BTreeSet<SimId> =
+        retracted.read().filter_map(|retracted| retracted.boss.clone()).collect();
+    if bosses.is_empty() {
+        return;
+    }
+    let fell_out_of_a_retracted_boss =
+        |origin: &SpawnOrigin| matches!(origin, SpawnOrigin::Dynamic { parent, .. } if bosses.contains(parent));
+    let mut ids: std::collections::BTreeSet<SimId> = std::collections::BTreeSet::new();
+    for (entity, sim_id, origin, ground, custody) in &mints {
+        if !fell_out_of_a_retracted_boss(origin) {
+            continue;
+        }
+        if let (Some(ItemCustody::Held { holder }), Some(ground)) = (custody, ground) {
+            if let Ok(mut repertoire) = hands.get_mut(*holder) {
+                if repertoire.held.is_some_and(|held| held.id() == ground.spec.id.as_str()) {
+                    ambition_held_items::unequip_held(&mut commands, *holder, &mut repertoire);
+                }
+            }
+        }
+        ambition_platformer2d_shared_tangle::lifecycle::despawn_scoped_entity(&mut commands, entity);
+        ids.insert(sim_id.clone());
+    }
+    if let Some(save) = save.as_deref() {
+        ids.extend(
+            save.data()
+                .minted_items()
+                .iter()
+                .filter(|row| bosses.iter().any(|boss| boss.as_str() == row.parent))
+                .map(|row| SimId::from_snapshot(row.occurrence.clone())),
+        );
+    }
+    if let Some(mut occurrences) = occurrences {
+        if ids.iter().any(|sim_id| occurrences.remembers(sim_id)) {
+            let _ = occurrences.retract(&ids);
+        }
+    }
+}
+
 /// The item domain's checkpoint contribution: its two private baseline values,
 /// their captures, and the item-specific restore of the generic custody
 /// relation.
@@ -318,6 +376,14 @@ impl Plugin for ItemCheckpointHorizonPlugin {
         .add_systems(
             sim,
             (capture_minted_item_baseline, capture_owned_items_baseline).in_set(CheckpointCapture),
+        )
+        // The mints of a boss defeat a replay retracted, in the replay
+        // chain's content slot, after the boss road retracts the defeat.
+        .add_systems(
+            sim,
+            retract_mints_of_retracted_boss_defeats
+                .in_set(crate::session::reset::ContentRoomReplayResetSet)
+                .after(ambition_boss_encounter::retract_boss_defeats_on_replay),
         )
         // ⭐ INTO THE COMMIT EXECUTOR'S SCHEDULE, not the simulation. Custody
         // materializes and despawns; doing that on a speculative frame for an

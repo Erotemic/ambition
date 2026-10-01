@@ -18,6 +18,18 @@ where
         |facing| facing.0.to_bits() as u64,
     );
     registrar.rollback_component_clone::<crate::BossConfig>(OWNER, "boss.config");
+    // The defeats since the last checkpoint: the defeat edge writes it on a
+    // tick, so a rewind across that tick takes it back with the save row.
+    registrar.rollback_resource_clone_checksum::<crate::BossDefeatsSinceCheckpoint>(
+        OWNER,
+        "boss.defeats_since_checkpoint",
+        "the boss placements cleared since the last checkpoint, which a replay of their room retracts",
+        crate::BossDefeatsSinceCheckpoint::checksum,
+    );
+    registrar.clear_message_on_rollback::<crate::BossDefeatRetracted>(
+        OWNER,
+        "message.boss_defeat_retracted",
+    );
     registrar.rollback_component_clone::<crate::BossOverrides>(OWNER, "boss.overrides");
     registrar.rollback_component_clone::<crate::EncounterDef>(OWNER, "encounter.definition");
     registrar.rollback_component_cursor::<crate::sprites::BossAnimFrame>(

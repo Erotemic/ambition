@@ -438,12 +438,9 @@ fn boss_revives_after_a_room_reset() {
         "precondition: defeated + cleared"
     );
 
-    // The NPC replay does two things: clear the placement save record + reset the
-    // room features. Do both, then let it settle.
-    sim.world_mut()
-        .resource_mut::<AmbitionGameSave>()
-        .data_mut()
-        .set_boss("respawner", PersistedEncounterState::Untouched);
+    // No hand retraction: the defeat fell after the last checkpoint (there is
+    // none), so the generic boss road retracts it on the admitted replay
+    // (BOSS-REPLAY-RETRACTION).
     // ⭐ THE ASK, NOT THE FACT. `RoomReplayAdmitted` is written by the engine's
     // admission system and nothing else; a fixture that wrote it would get the
     // replay's consequences without the room rebuild that makes them mean

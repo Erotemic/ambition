@@ -37,6 +37,7 @@ pub use events::BossPhaseChanged;
 mod ids;
 mod profile;
 mod registry;
+mod retraction;
 mod rewards;
 mod specs;
 pub mod sprites;
@@ -85,6 +86,11 @@ pub use ambition_encounter::{
 };
 pub use profile::{default_boss_profiles, BossProfile, BossRewardProfile};
 pub use registry::BossEncounterRegistry;
+pub use retraction::{
+    forget_boss_defeats_at_checkpoint, forget_boss_defeats_on_a_fresh_run,
+    retract_boss_defeats_on_replay, BossDefeatRetracted, BossDefeatSinceCheckpoint,
+    BossDefeatsSinceCheckpoint,
+};
 pub use rewards::{sync_boss_reward_chests_ecs, BossRewardAnchor};
 pub use roster::BossSpecRoster;
 pub use specs::default_boss_specs;
@@ -123,6 +129,20 @@ impl bevy::prelude::Plugin for BossEncounterSimulationPlugin {
         app.add_message::<EncounterGate>();
         app.add_message::<PayloadReleased>();
         app.add_message::<BossPhaseChanged>();
+        app.init_resource::<BossDefeatsSinceCheckpoint>();
+        app.add_message::<BossDefeatRetracted>();
+        // A committed checkpoint makes the defeats since the last one part of
+        // the baseline; a fresh run starts with none. The replay retraction
+        // itself is placed by the host, in its replay chain's content slot.
+        app.add_systems(
+            sim,
+            forget_boss_defeats_at_checkpoint
+                .in_set(ambition_platformer2d_shared_tangle::lifecycle::CheckpointCapture),
+        );
+        app.add_systems(
+            ambition_platformer2d_shared_tangle::lifecycle::CheckpointDomainApply,
+            forget_boss_defeats_on_a_fresh_run,
+        );
 
         app.add_systems(
             sim,

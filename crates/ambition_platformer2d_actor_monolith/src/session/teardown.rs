@@ -66,6 +66,11 @@ pub struct SessionScopedResources<'w> {
     encounter_view: ResMut<'w, EncounterView>,
     /// Boss profiles; `specs_loaded` re-arms the populate pass on next activation.
     boss_registry: ResMut<'w, BossEncounterRegistry>,
+    /// The boss defeats since the last checkpoint. The next session's file is
+    /// its baseline, so a replay there must retract none of this session's.
+    /// `Option` because a composition without the boss capability has none.
+    boss_defeats_since_checkpoint:
+        Option<ResMut<'w, ambition_boss_encounter::BossDefeatsSinceCheckpoint>>,
     /// Quest progress; the next activation reloads it from the session save.
     quest_registry: ResMut<'w, QuestRegistry>,
     /// Transient per-room bookkeeping (room-transition cooldown, etc.).
@@ -436,6 +441,7 @@ fn reset(resources: SessionScopedResources) {
         mut controlled_subject,
         mut encounter_view,
         mut boss_registry,
+        boss_defeats_since_checkpoint,
         mut quest_registry,
         mut sim_state,
         mut slot_interactions,
@@ -464,6 +470,9 @@ fn reset(resources: SessionScopedResources) {
     *controlled_subject = ControlledSubject::default();
     *encounter_view = EncounterView::default();
     *boss_registry = BossEncounterRegistry::default();
+    if let Some(mut since) = boss_defeats_since_checkpoint {
+        since.forget_all();
+    }
     *quest_registry = QuestRegistry::default();
     *sim_state = RoomTransitionCooldown::default();
     *slot_interactions = SlotInteractionState::default();

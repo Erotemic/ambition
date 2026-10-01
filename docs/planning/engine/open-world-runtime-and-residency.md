@@ -1619,6 +1619,32 @@ snapshot still clones the whole save and the whole ledger, and the peer
 checksum still folds every ledger row. Those are costs of the rollback
 frame, which M2 measures, not of the active step.
 
+📏 **M2, first measurement, 2026-10-01: the rollback frame's cost grows with
+the dormant records.** A temporary probe (not kept) timed the four
+per-frame costs of the two resources that hold dormant records, against N
+dormant mints (N ledger `Placed` rows, N save occurrence rows and N save
+minted rows; dev profile; microseconds per call):
+
+| N | save clone | save checksum (RON) | ledger clone | ledger checksum | save as RON |
+|---:|---:|---:|---:|---:|---:|
+| 0 | 0.5 | 6 | 0.2 | 0.4 | 181 B |
+| 1,000 | 478 | 2,964 | 136 | 122 | 161 kB |
+| 10,000 | 4,764 | 29,493 | 1,434 | 1,354 | 1.6 MB |
+
+All four are linear in N. A GGRS session saves a snapshot (the clones) and
+a checksum each frame it advances, so 10,000 dormant mints add about
+37 ms to each rollback frame, more than two frames at 60 Hz, and 1,000 add
+about 3.7 ms. The save checksum is most of it: it serializes the whole save
+to RON each time. Pre-registered bands: hit for the save checksum, the
+ledger clone and the ledger checksum; missed (high) for the save clone,
+4.8 ms against 0.5 to 3 ms (each row holds two or three owned strings).
+⚠ Not measured: whether a session with no rollback (offline) saves
+snapshots, and the restore and resimulation costs. Two cuts follow from
+the numbers, not decided here: share the unchanged dormant rows between
+snapshots (a clone that copies a pointer while the rows are unchanged),
+and stop serializing the whole save for each checksum (a checksum kept
+with the rows and computed again only when they change).
+
 ⚠ **`physics_spawn_debris_messages` is presentation, not simulation, and is
 not changed.** Its Avian debris bounces off static colliders that are
 built with the room visuals, and both are placed through `world_to_bevy`

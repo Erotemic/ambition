@@ -657,13 +657,13 @@ open it; when you follow a citation and it looks wrong, fix it and say so.
 `check_disk_headroom.py` blocks a run below 40 GB free, and it has fired four
 times across three long runs.
 
-⛔⛔⛔ **DO NOT RECLAIM IT YOURSELF.** This section used to open with a
-`rm -rf /home/joncrall/ambition-target/outlander` and call it the cheapest
-object to delete. AGENTS.md forbids that in its strongest terms — *"NEVER
-`rm -rf` anything under a `target/` … NOT AS A FAVOUR WHEN THE DISK IS FULL …
-the reclaim is Jon's call, on Jon's machine"* — and the advice was followed on
-2026-09-03 by an agent pruning a live target with the bind mount present.
-Corrected the same day.
+⛔ **VERIFY THE BIND BEFORE YOU DELETE ANYTHING.** This section used to open
+with a `rm -rf /home/joncrall/ambition-target/outlander` and call it the
+cheapest object to delete; the advice was followed on 2026-09-03 by an agent
+pruning a live target. The rule now (Q77, Jon 2026-10-01, `AGENTS.md`): the
+safety invariant is the target bind. Bound, destructive cleanup under
+`target/` is allowed, `rm -rf` included, and the volume is shared, so delete
+only what is yours. With the bind absent, delete nothing.
 
 ⇒ **The first move is `scripts/setup/target_bindmount.sh --status`**, because a
 target that has grown enormous is usually an ABSENT BIND and repairing it

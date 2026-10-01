@@ -106,6 +106,12 @@ def test_the_refusal_does_not_recommend_deleting_anything():
     ⚠ `unbound` CONTAINS `bound`, so the state word is matched with a boundary
     that rejects the negated spelling. A line reading "unbound: cargo clean"
     must not pass by accident -- that is the half of the grant Jon did NOT give.
+
+    ⭐ **AMENDED 2026-10-01 (Q77): `rm -rf` FOLLOWS THE SAME SPLIT.** Jon: the
+    safety invariant is the bind, not the path; bound, `rm -rf` under `target/`
+    is allowed, and unbound, nothing is deleted. So a line naming `rm -rf` must
+    now either negate it or say it applies to the bound state, as `cargo clean`
+    already did.
     """
     done = _run("--min-gb", "999999")
     negations = ("do not", "don't", "never", "forbid", "jon's", "is his")
@@ -113,9 +119,12 @@ def test_the_refusal_does_not_recommend_deleting_anything():
     for line in done.stderr.splitlines():
         lowered = line.lower()
         if "rm -rf" in lowered:
-            assert any(n in lowered for n in negations), (
-                "this line RECOMMENDS `rm -rf`, which AGENTS.md forbids in its "
-                "strongest terms, bound or not.\n"
+            assert any(n in lowered for n in negations) or scoped_to_bound.search(
+                lowered
+            ), (
+                "this line recommends `rm -rf` without saying WHICH STATE it "
+                "applies to. Jon's 2026-10-01 rule (Q77) is bound-only; unbound, "
+                "nothing under target/ is deleted.\n"
                 f"  line: {line.strip()}"
             )
         if "cargo clean" in lowered:

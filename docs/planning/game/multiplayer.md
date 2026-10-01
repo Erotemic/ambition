@@ -153,8 +153,13 @@ leave a room (`the_second_player_goes_through_a_door_of_his_own_room`).
 other player's room (OW1 cuts 7t and 7u). Two players in ONE room still
 share a conversation's pause; that is the first question in "Game-state
 questions" above.
-⚠ Not done: both players share one camera and one observation (the view
-half is A2/P5 multiview); the banner, music and HUD are session-wide; a
+◐ The view half is planned as cuts V1–V5 in "The view half" of
+[`open-world-runtime-and-residency.md`](../engine/open-world-runtime-and-residency.md).
+V1 (2026-10-01): each view frames its own player in that player's live
+room (`each_view_frames_its_own_player_while_two_rooms_are_live`). ⚠ Not
+done: most draw roads still read the sole live room and stop while two
+rooms are live, two rooms drawn at once overlap, and nothing spawns the
+second view (V2–V5); the banner, music and HUD are session-wide; a
 sync test is one peer, so what the crossing's rebase costs a remote
 player's rollback window is A4.
 

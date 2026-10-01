@@ -1816,6 +1816,56 @@ open. Close with a fresh census rather than a checked list.
 
 ## P1 — ownership, composition and iteration
 
+### GATE-PER-ACTOR — a body/capability gate is solid or open for each actor
+
+**Owner:** [`engine/capability-progression-and-world-gating.md`](engine/capability-progression-and-world-gating.md)
+jointly with the gated-wall road (`gated_lock_walls.rs`, the per-room collision
+overlay).
+
+**Ruling (Q54, 2026-10-01, [`maintainer-decisions.md`](maintainer-decisions.md)):**
+the gate is evaluated per actor. Alice in Phase Boots passes a phase wall; Bob
+without them collides with it. Not "any qualifying participant opens the wall
+for everybody".
+
+**Current state, measured 2026-10-01.** The route road evaluates body
+conditions over driven bodies, and the gated wall is one mechanical object in
+its live room's collision overlay (per room since OW1 cut 7q). So one
+qualifying body opens the wall for every body in that room, which the ruling
+forbids.
+
+**Acceptance:** in one live room, a body that satisfies a wall's body condition
+passes and a body that does not collides, in the same tick; a projectile and an
+undriven body follow the same per-actor rule stated for them; witnessed with
+two seats and with a control where both qualify.
+
+### BOSS-REPLAY-RETRACTION — a replay that un-defeats a boss un-defeats it for every family
+
+**Owner:** the generic boss-progress road (`crates/ambition_boss_encounter`)
+jointly with the save's replay policy
+(`crates/ambition_persistence/src/save_data.rs`,
+`every_durable_family_says_whether_a_replay_retracts_it`).
+
+**Ruling (Q51 and Q56, 2026-10-01, [`maintainer-decisions.md`](maintainer-decisions.md)):**
+if a replay or rewind makes a boss undefeated again, the consequences its
+defeat created after that point are undone too, for every boss family. A
+rollback boundary that does not yet enforce this is a known issue, not an open
+question.
+
+**Current state, measured 2026-10-01.** One family retracts:
+`reset_cut_rope_attempt_on_replay` sets each cut-rope placement's `bosses`
+record to `Untouched` on `RoomReplayAdmitted`. Every other `BossSpawn` defeat
+survives a replay (the save test's own answer list). ⚠ The cut-rope reset reads
+every live `BossConfig`, not the replay's live room
+(`RoomReplayAdmitted` names the room), so with two live rooms a replay in one
+retracts a cut-rope fight in the other.
+
+**Acceptance:** one generic retraction on `RoomReplayAdmitted`, keyed by the
+replay's live room, for every boss family whose defeat fell after the replay's
+baseline, with the cut-rope special case deleted into it; the reward its
+defeat minted goes with it (Q51); a witness per family shape (a conducted boss,
+a `BossSpawn` placement) and a control (a defeat from before the baseline
+survives the replay).
+
 ### MENU-OVER-DIALOGUE — an overlay opened during a conversation must not end it
 
 **Owner:** `crates/ambition_dialog/src/systems.rs` (dialogue input) jointly
@@ -3515,8 +3565,9 @@ production acceptance witness.
 
 **Blocked where applicable by:** [Q62](awaiting-maintainer-decision.md#q62--keep-or-discard-the-epoch-captured-4741-line-mary_oldtk-delta),
 [Q89](awaiting-maintainer-decision.md#q89--what-special-should-each-robot-stand-in-have),
-[Q115](awaiting-maintainer-decision.md#q115--which-per-move-hitboxinflate-values-should-the-untuned-bone-derived-specs-carry),
-and other product rows named by the inventory.
+and other product rows named by the inventory. (Q115 is ruled 2026-10-01:
+per-move inflation is tuning with the hitbox tooling, no roster-wide value, so it
+no longer blocks.)
 
 ### D166 — make character authoring boundaries load-bearing
 

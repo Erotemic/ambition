@@ -102,20 +102,6 @@ encode one authority rather than special-case the observed overlap.
 The mechanism is now broader than one game mode. Rename only if the intended API
 is reusable; do not churn names solely for aesthetics.
 
-## Q45 — is a unique capability item an entitlement or an occurrence?
-
-Choose whether losing/dropping the physical object also loses the capability.
-Keep occurrence, custody and entitlement separate in either answer.
-
-⇒ **The one shipped instance is measured, side by side with an ordinary held
-item, at I3 in [item custody](engine/item-custody-and-accounting.md).** Today the
-portal gun is an ENTITLEMENT with a cosmetic world token: `OwnedItems` is granted
-on pickup and never revoked on drop, the dropped token is room-scoped, and the
-menu re-equips from the entitlement without checking that a token exists. So the
-two readings differ observably in exactly one place — whether dropping the gun
-and walking away can ever lose it — and a ruling for "occurrence" is a behaviour
-change, not a cleanup.
-
 ## Q46 — does Mary-O 1-1 want a fourth question block over floor?
 
 Content-layout choice needed to make the floor-refusal behavior of the fire form
@@ -135,11 +121,6 @@ variation is tactical policy, difficulty behavior or presentation/personality.
 
 Choose whether bark sets are single-valued authoring or composable collections.
 The content validator should enforce the chosen cardinality.
-
-## Q54 — in co-op, does a body gate open for the party, the acting body, or only the primary body?
-
-Choose gate subject semantics. Do not hard-code primary-player behavior into the
-generic gate vocabulary.
 
 ## Q55 — should authored worlds grow to use all five route-gate families?
 
@@ -169,11 +150,6 @@ keep it out of generic validation.
 
 Choose the product legibility floor. Camera policy can then clamp against a named
 limit rather than an arbitrary tuning value.
-
-## Q80 — what does “the art agrees with the hitbox” mean in pixels?
-
-Choose the tolerance/measurement contract used by sprite/hitbox authoring tools.
-This should be a measurable visual-authoring rule, not a subjective test failure.
 
 ## Q87 — should the top platform and respawn point continue to overlap?
 
@@ -259,14 +235,6 @@ The current solid-breakable road publishes hard-wall behavior through the blink-
 
 The old write-only chest-state field was removed; runtime open state is the `Opened` marker. If authored worlds may start with an open chest, add an authored input and lower it to the marker at construction. If not, keep the authoring surface closed rather than restoring dead state vocabulary.
 
-## Q107 — do sprite `active` frames own contact timing, or does moveset authoring?
-
-Both presentation metadata and moveset data can describe an attack-active interval. Choose the mechanical owner. Presentation may project from mechanics, but two independently authored timing truths should not remain.
-
-## Q115 — which per-move `hitbox.inflate` values should the untuned bone-derived specs carry?
-
-The remaining roster has bone-derived hitboxes whose inflation values are not product-tuned. Choose the per-move feel values from measurement rather than applying one roster-wide generosity knob. The queue/Smash parity inventory owns the measurement work; this ledger owns only the tuning decision.
-
 ## Architecture and engine policy
 
 ## Q34 — should external/launch-owned motion become an explicit cross-game fact?
@@ -283,11 +251,6 @@ not each infer it from different move state.
 
 Decide whether the pulse demonstrates one rollback session or is a process-level
 debug affordance. Its resource lifetime should follow that answer.
-
-## Q48 — should the boss subsystem become a separately composed crate now?
-
-The reassessment requested earlier is due. Judge against current dependencies and
-customers, not the historical monolith shape.
 
 ## Q59 — two validation ledgers can be red when no lane ran: hook the lane or accept the state?
 
@@ -332,13 +295,6 @@ same class ran on 2026-09-18 and the first two undercounted: one used
 guards were wired before the population was measured rather than guessed. A
 scan root is a citation, and a member outside it reads as absent rather than as
 unlooked-at.
-
-## Q61 — where should ordering live when two systems write the same durable switch?
-
-Choose the intended winner/merge policy where product meaning is ambiguous.
-Engineering already requires one accepted mutation authority and explicit phase
-visibility; a public set by itself cannot decide between competing writes. See
-[composition](engine/capability-and-runtime-composition.md).
 
 ## Q62 — keep or discard the epoch-captured 4,741-line `mary_o.ldtk` delta?
 
@@ -386,13 +342,6 @@ controls already exist; this decides composition, not implementation feasibility
 If retained, multiple simultaneous scripts must not share one subsystem-wide
 claimant. If no authored use is planned, remove/defer the unused capability.
 
-## Q73 — may a capability plugin install private systems into a published set under the `ambition_combat` no-plugin stance?
-
-Clarify whether the stance forbids all plugins or only host-owned opaque
-installation. C2 needs one durable interpretation. Owner-local installation
-helpers and explicit host ordering remain available without prejudging this
-plugin-style decision; no registry or broad context is required.
-
 ## Q74 — keep or cut the three declared dependency seams that still have no customer?
 
 A seam with a plausible near-term composition use may stay; otherwise remove the
@@ -411,78 +360,6 @@ It is also the only body `apply_brain_commands`' source-only arm now serves
 (2026-09-23: the arm keys on the mount's control claim, which only a cached
 rider files), and nothing resumes the source that arm records when such a ride
 ends. A "yes" owes that resume; a "no" deletes the arm with the cache.
-
-## Q77 — which target-reclaim rule wins: the sanctioned cleanup-script exception or the repository's “never delete target” rule?
-
-Resolve the contradictory operational guidance before another cleanup tool acts
-on the target directory.
-
-⛔ **THE QUESTION IS NOT ONLY WHICH RULE WINS, IT IS THAT THE LOSING RULE IS
-STILL DERIVABLE.** Measured 2026-09-16: an agent that had never opened
-`AGENTS.md` hit ENOSPC (98M free of 290G, `target/debug` at 185G of which
-`incremental` was 92G), reasoned from where the bytes were, concluded
-`rm -rf target/debug/incremental` was the surgical cut because it preserves
-`deps`, did it, and recommended it to a peer as general practice — reproducing
-almost verbatim the sentence `AGENTS.md:107` retracted on 2026-09-03 after an
-agent following it pruned `target/debug/{deps,examples,incremental}` and deleted
-205 GB. The retraction is marked, in place, with the incident attached, and it
-did not reach the agent because nothing put it in front of the action.
-
-⇒ **A RETRACTED INSTRUCTION IS MORE DANGEROUS THAN AN ABSENT ONE**: the
-reasoning that produced it is still available to anyone who reasons from first
-principles about disk usage, and it still sounds correct. So a ruling that only
-picks a winner leaves this open. What would close it is a MECHANISM — the rule
-enforced where the action happens rather than stated where it is documented.
-
-⚠ AND THE SAME RUN MADE THE ERROR THE FILE PRESCRIBES AGAINST FIRST: it read
-`df -h $(readlink -f target)` instead of `scripts/setup/target_bindmount.sh
---status`. Run afterwards, `--status` reported `BOUND -> /dev/vda1[...]`, size
-99G, repo fs virtiofs — so the bind was healthy and this was genuine build
-output, not the absent-bind duplicate `AGENTS.md` says it usually is. The
-outcome was fine and the method was prohibited. `--status` would also have
-answered, without asking a peer, whether two sessions share a `target/`: they do
-not, it is bound per-worktree by hash.
-
-⚠ Related and unruled: repairing an absent bind SHADOWS the duplicate rather
-than reclaiming it, and `check_disk_headroom.py` goes GREEN across that repair
-because it then asks about `target/`, a different filesystem. A green check after
-a repair that freed nothing is the false comfort that makes the next deletion
-look justified.
-
-⛔⛤ **A THIRD INSTANCE, 2026-09-16.** Another agent, under a lane abort at
-33.8 GB, reached the same `target/debug/incremental` reasoning from the same
-first principles. What redirected it was a failure message at the point of
-action: a `scripts/tests` arm names `scripts/clean_workspace_crates.sh` in the
-assertion it fails on. ⇒ So the mechanism this question asks for already
-half-exists, and the missing half was that **the guidance did not say what each
-sanctioned reclaim COSTS.** `check_disk_headroom.py`'s refusal named
-`cargo clean` without saying it forces a rebuild, and never mentioned the
-incremental-cache wrapper — so the option that frees space without a long build
-was invisible exactly where somebody needs it, and the `rm -rf` cut looked like
-the only way to get it.
-
-✔ **LANDED WITHOUT A RULING, because it needed none.** The refusal and
-`AGENTS.md` now carry all three reclaims with what each costs, measured the same
-day on one box:
-
-| command | reclaimed | what you pay |
-| --- | --- | --- |
-| `cargo clean --workspace` | ~35 GB | rebuild Ambition; dependencies stay built |
-| `cargo clean` | ~80 GB | rebuild everything, Bevy included |
-| `clean_workspace_crates.sh --incremental-only` | 82 GB, 13 GB an hour later | nothing rebuilt |
-
-The third deletes the incremental CACHE rather than artifacts, so no fingerprint
-is invalidated. Three `scripts/tests` arms that had failed on the abort went 6/6
-after it. ⚠ **Jon's correction, same day: `cargo clean --workspace` plus plain
-`cargo clean` is the ordinary answer, and the first write-up here read as a riddle
-about a "forbidden" option instead of a table of trades.** The prose is the fix as
-much as the content was.
-
-⇒ **WHAT IS STILL OPEN IS THE RULING ITSELF** — which rule wins, and whether a
-retracted instruction can be made underivable rather than merely marked. The
-2026-09-16 instance is evidence for the answer this question already proposes: a
-rule stated where it is documented lost to first-principles reasoning three
-times, and a rule named at the moment of the action won.
 
 ## Q78 — how should the divergent/unpushed sprite-renderer submodule state be reconciled?
 

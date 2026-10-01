@@ -289,6 +289,15 @@ The current architecture slice is complete when:
 Use git history for the removed placeholder, Potato-tier, Mary-O, and hall
 measurement chronology.
 
+Potato stays at 1/16 linear scale for every sprite family (Q69, ruled
+2026-10-01 in [`maintainer-decisions.md`](../maintainer-decisions.md)). A
+proposed renderer aid is still not applied and not validated:
+`dev/patches/swing-fighter-render-honours-quality-scale-20260902.patch` makes
+the four swing-fighter targets in `tools/ambition_sprite2d_renderer` refuse a
+quality scale they cannot honour. Without it, they write a full-resolution
+sheet into a reduced tier. It is a validation aid, not a quality policy, and the
+patch states how to validate it with one render.
+
 ## Prepared simulation content versus presentation residency
 
 [A6/A8/A9](actor-monolith-work-frontier.md) rely on a hard separation: validated

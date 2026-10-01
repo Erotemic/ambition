@@ -2721,3 +2721,141 @@ fn a_module_entity_retires_with_its_room_and_not_with_a_player() {
     );
     assert_eq!(module_entities(&mut sim), Vec::new(), "a sentry outlived the room it was in");
 }
+
+/// Where view `id` looks: its follow point, and the centre of its frame.
+fn view_frame(
+    sim: &mut Platformer2dSimHarness,
+    id: ambition_platformer2d::sim_view::LocalViewId,
+) -> Option<(ambition_platformer2d::engine_core::Vec2, ambition_platformer2d::engine_core::Vec2)> {
+    let world = sim.world_mut();
+    world
+        .query::<(
+            &ambition_platformer2d::sim_view::LocalViewId,
+            &ambition_platformer2d::sim_view::camera_snapshot::ResolvedCameraSnapshot,
+        )>()
+        .iter(world)
+        .find(|(view, _)| **view == id)
+        .and_then(|(_, resolved)| resolved.0.as_ref().map(|frame| (frame.follow_world, frame.snapshot.center_world)))
+}
+
+/// Where Alice's and Bob's bodies are. Bob's is `None` when his body is gone.
+fn their_positions(
+    sim: &mut Platformer2dSimHarness,
+) -> (ambition_platformer2d::engine_core::Vec2, Option<ambition_platformer2d::engine_core::Vec2>) {
+    let world = sim.world_mut();
+    let alice = world
+        .query_filtered::<&ambition_platformer2d::engine_core::BodyKinematics, bevy::prelude::With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>()
+        .single(world)
+        .expect("Alice's body is in the world")
+        .pos;
+    let bob = world
+        .query::<(&ambition_platformer2d::combat::components::FeatureId, &ambition_platformer2d::engine_core::BodyKinematics)>()
+        .iter(world)
+        .find(|(feature, _)| feature.0 == BOB)
+        .map(|(_, kinematics)| kinematics.pos);
+    (alice, bob)
+}
+
+/// View half, cut V1: each view frames its own player while two rooms are
+/// live. Alice is in the hub (#1) and Bob holds `switch_lab` (#0). The first
+/// view frames the session's player, Alice; a second view follows slot 1,
+/// Bob. Both run for 30 ticks, and each view's follow point moves with its
+/// own player, by the geometry of that player's own room. The control: the
+/// first view follows Alice when she is alone. Before V1 the camera resolve
+/// read the sole live room, so it did not run while two rooms were live and
+/// both views stayed at the frame before the crossing.
+#[test]
+fn each_view_frames_its_own_player_while_two_rooms_are_live() {
+    use ambition_platformer2d::sim_view::LocalViewId;
+    let run = |sim: &mut Platformer2dSimHarness| {
+        for _ in 0..30 {
+            sim.drive_seat(
+                1,
+                ambition_platformer2d::engine_core::ControlFrame {
+                    axis_x: -1.0,
+                    ..Default::default()
+                },
+            );
+            sim.step(ambition_app::AgentAction { move_x: 1.0, ..base() });
+        }
+        sim.drive_seat(1, ambition_platformer2d::engine_core::ControlFrame::default());
+    };
+    // How far a view's follow point moved beside how far its player moved.
+    let followed = |before: Option<(ambition_platformer2d::engine_core::Vec2, _)>,
+                    after: Option<(ambition_platformer2d::engine_core::Vec2, _)>,
+                    moved: ambition_platformer2d::engine_core::Vec2| {
+        let (Some((from, _)), Some((to, _))) = (before, after) else {
+            return None;
+        };
+        Some(((to - from) - moved).length())
+    };
+
+    let (mut sim, _) = alice_leaves_bob(None);
+    let (alice, _) = their_positions(&mut sim);
+    let before = view_frame(&mut sim, LocalViewId::FIRST);
+    for _ in 0..30 {
+        sim.step(ambition_app::AgentAction { move_x: 1.0, ..base() });
+    }
+    let moved = their_positions(&mut sim).0 - alice;
+    assert!(moved.x > 20.0, "precondition: Alice did not run alone ({moved:?})");
+    let lag = followed(before, view_frame(&mut sim, LocalViewId::FIRST), moved);
+    assert!(lag.is_some_and(|lag| lag < 4.0), "control: the view did not follow Alice alone: {lag:?}");
+
+    let (mut sim, first) = alice_leaves_bob(Some(ambition_platformer2d::characters::control::PlayerSlot(1)));
+    assert_eq!(live_rooms(&mut sim).len(), 2, "precondition: Bob's room did not stay live");
+    sim.world_mut().spawn((
+        ambition_platformer2d::sim_view::LocalView,
+        LocalViewId(1),
+        ambition_platformer2d::sim_view::local_view_facts(),
+        ambition_platformer2d::sim_view::ViewParticipant(ambition_platformer2d::characters::control::PlayerSlot(1)),
+    ));
+    sim.step(base());
+    let (alice, bob) = their_positions(&mut sim);
+    let bob = bob.expect("Bob's body is in the world");
+    let (alice_view, bob_view) = (view_frame(&mut sim, LocalViewId::FIRST), view_frame(&mut sim, LocalViewId(1)));
+    run(&mut sim);
+    let (alice_now, bob_now) = their_positions(&mut sim);
+    let bob_now = bob_now.expect("Bob's body is in the world");
+    assert!(
+        (alice_now - alice).x > 20.0 && (bob_now - bob).x < -20.0,
+        "precondition: Alice and Bob did not both run ({:?}, {:?})",
+        alice_now - alice,
+        bob_now - bob
+    );
+    let lags = (
+        followed(alice_view, view_frame(&mut sim, LocalViewId::FIRST), alice_now - alice),
+        followed(bob_view, view_frame(&mut sim, LocalViewId(1)), bob_now - bob),
+    );
+    assert!(
+        matches!(lags, (Some(a), Some(b)) if a < 4.0 && b < 4.0),
+        "a view did not follow its own player while two rooms were live (Bob in {first:?}): {lags:?}"
+    );
+
+    // Bob's view is clamped by Bob's room. Bob stands at the far right of
+    // `switch_lab`, and the right edge of his view is that room's right wall.
+    let sizes: Vec<(LiveRoomInstance, ambition_platformer2d::engine_core::Vec2)> = {
+        let world = sim.world_mut();
+        world
+            .query_filtered::<(&LiveRoomInstance, &ambition_platformer2d::engine_core::RoomGeometry), bevy::prelude::With<RoomInstanceRoot>>()
+            .iter(world)
+            .map(|(room, geometry)| (*room, geometry.0.size))
+            .collect()
+    };
+    let lab = sizes.iter().find(|(room, _)| *room == first).expect("switch_lab is live").1;
+    put_bob_at(&mut sim, ambition_platformer2d::engine_core::Vec2::new(lab.x - 40.0, bob_now.y));
+    sim.step_n(base(), 10);
+    let frame = {
+        let world = sim.world_mut();
+        world
+            .query::<(&LocalViewId, &ambition_platformer2d::sim_view::camera_snapshot::ResolvedCameraSnapshot)>()
+            .iter(world)
+            .find(|(view, _)| **view == LocalViewId(1))
+            .and_then(|(_, resolved)| resolved.0.as_ref().map(|frame| frame.snapshot.clone()))
+            .expect("Bob's view resolved a frame")
+    };
+    let right = frame.center_world.x + frame.visible_view.x * 0.5;
+    assert!(
+        (right - lab.x).abs() < 1.0,
+        "Bob's view is not clamped by switch_lab: its right edge is {right}, the room is {lab:?} (live rooms {sizes:?})"
+    );
+}

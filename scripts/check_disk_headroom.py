@@ -184,14 +184,12 @@ def main() -> int:
             "⚠ do not start a build. A mid-build ENOSPC does not say 'disk full' — "
             "it surfaces as unrelated compile errors in whichever crate was "
             "unlucky, and the real cause appears nowhere.\n\n"
-            # ⛔⛔⛔ THIS USED TO PRINT A DELETION LADDER -- incremental, then
-            # the measurement targets, then `cargo clean` -- and AGENTS.md's
-            # standing rule forbids every rung of it: "NEVER `rm -rf` anything
-            # under a `target/`. NOT `incremental`, NOT `deps`, NOT AS A FAVOUR
-            # WHEN THE DISK IS FULL … the reclaim is Jon's call, on Jon's
-            # machine, and `cargo clean` is his to run." A refusal message is
-            # read at the exact moment someone is under pressure to free space,
-            # so it is the LAST place to leave advice that contradicts the rule.
+            # The rule (Q77, Jon 2026-10-01): the safety invariant is the BIND,
+            # not the path. Bound, destructive cleanup under `target/` is
+            # allowed, `rm -rf` included; unbound, delete nothing. A refusal
+            # message is read at the moment someone is under pressure to free
+            # space, so every line that names a deletion says which state it
+            # applies to (`test_disk_headroom.py` reads it line by line).
             "  1. scripts/setup/target_bindmount.sh --status\n"
             "     An enormous target/ is almost always an ABSENT BIND, and\n"
             "     repairing it returns the space without deleting anything --\n"
@@ -226,9 +224,11 @@ def main() -> int:
             "     --apply first; it prints the number. It REFUSES while a\n"
             "     build holds the profile's `.cargo-lock`: deleting the cache\n"
             "     under a live rustc can split its state or kill the compile.\n"
+            "  2b. Bound, `rm -rf` of a directory under it is also yours\n"
+            "     (AGENTS.md, Jon 2026-10-01). Bound, delete only your own:\n"
+            "     the volume is shared, so do not prune other builds by mtime.\n"
             "  3. UNBOUND, it is Jon's filesystem: report the numbers and stop.\n"
-            "     `rm -rf` is never the tool in either state, and never prune\n"
-            "     by mtime.\n"
+            "     Unbound, do not `rm -rf` or `cargo clean` anything there.\n"
             f"  Reading only (safe): du -sh {where}/debug/* | sort -h\n\n"
             "⚠ THE VOLUME IS SHARED with the main checkout and every other agent "
             "worktree, so a number you read here is not yours alone: on "

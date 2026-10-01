@@ -75,7 +75,8 @@ prepared. A missing optional service must not be replaced by a plausible default
 that makes a benchmark or gameplay test look meaningful.
 
 Keep product decisions explicit. Q63 still governs ignored authored semantics and
-the Interact policy; Q73 is about installer packaging; Q94 is a real hardware/
+the Interact policy; Q73 is ruled (capability-owned plugins are allowed, opaque
+installation is not); Q94 is a real hardware/
 residency budget. Reviewer recommendations do not become maintainer rulings.
 
 ## Program-level exit shape

@@ -157,8 +157,12 @@ answered rather than guessed at now:
   inferring custody from entitlement unless the invariant is read as being about
   the SIMULATION only.
 
-⇒ Neither is a defect to fix today; both are the same under-specification, and
-answering Q45 is what makes them precise.
+⇒ Neither is a defect to fix today; both are the same under-specification.
+✅ Q45 was ruled 2026-10-01 ([`maintainer-decisions.md`](../maintainer-decisions.md)):
+entitlement behaviour is acceptable during engine development, and no
+architecture is built to make the demo inventory physically rigorous. The
+distinction between an unlock and a physical item occurrence is made when the
+item model is reworked for the real game.
 
 ⭐⭐ **AND THE LAST INVARIANT GAINED A SHIPPED CASE WHERE IT GENUINELY DIVIDES
 (2026-09-05), which is the strongest evidence it is a real distinction and not an

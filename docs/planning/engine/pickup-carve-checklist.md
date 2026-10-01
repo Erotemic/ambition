@@ -287,13 +287,15 @@ touched six (`ambition_abilities`, `ambition_app`, `ambition_platformer2d`,
 individually is also what let the carve be verified at all when the box could
 not fit `cargo test --workspace`.
 
-### ⛔⛔⛔ SUPERSEDED 2026-09-03 — the carve campaign's disk bill, and why you may NOT reclaim it
+### ⛔⛔⛔ SUPERSEDED 2026-09-03 — the carve campaign's disk bill
 
-**AGENTS.md's standing rule forbids everything this section used to recommend:**
-*"NEVER `rm -rf` anything under a `target/`. NOT `incremental`, NOT `deps`, NOT
-"superseded" artifacts, NOT AS A FAVOUR WHEN THE DISK IS FULL … If the disk is
-genuinely short after that, SAY SO AND STOP — the reclaim is Jon's call, on
-Jon's machine, and `cargo clean` is his to run."*
+**The rule now (Q77, Jon 2026-10-01, `AGENTS.md`):** the safety invariant is
+the target BIND, not the path. After `scripts/setup/target_bindmount.sh
+--status` shows the expected bind, destructive cleanup under `target/`
+(`rm -rf` included) is allowed; with the bind absent, delete nothing. The
+blanket "never `rm -rf` under a `target/`" rule this section quoted from
+2026-09-03 to 2026-10-01 is withdrawn. Pruning a SHARED volume by mtime, as
+below, still deletes other builds and is not "your own".
 
 ⚠ **This section was a recipe, and it was followed.** An agent pruning
 `target/debug/{deps,examples,incremental}` by mtime on 2026-09-03, with the bind

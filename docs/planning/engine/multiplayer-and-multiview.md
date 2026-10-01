@@ -184,6 +184,10 @@ Required foundations:
 Do not create a universal dormant-world scheduler before a product customer
 requires one.
 
+◐ Promoted 2026-10-01: two live rooms run (OW1). The presentation half is
+cuts V1–V5 in "The view half" of
+[`open-world-runtime-and-residency.md`](open-world-runtime-and-residency.md).
+
 ### M5 — view-scoped HUD/prompt/presentation ownership
 
 The current `ControlPrompt` remains one global read model for the primary/shared
@@ -263,4 +267,5 @@ constraints. A8 requires an actual two-instance fixture before namespace or
 lifecycle generalization. Test repeated authored IDs across instances rather than
 only different room IDs; test one instance tearing down while the other remains
 live. Checkpoint restore currently follows its established primary-avatar policy;
-A1's ownership move does not decide co-op save ownership or Q54 gate policy.
+A1's ownership move does not decide co-op save ownership. Gate policy is
+ruled (Q54, 2026-10-01): a body/capability gate is evaluated per actor.

@@ -1150,8 +1150,11 @@ fn frame_the_cast(
 }
 
 pub fn resolve_camera_observation(
-    world: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<ae::RoomGeometry>,
-    room_set: ambition_platformer2d_world::rooms::SoleLiveRoomSpec,
+    // Each view reads the live room of the body it frames. A sole-room read
+    // does not run while two rooms are live, and then every view keeps the
+    // frame from before the second room opened.
+    geometry: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomOf<ae::RoomGeometry>,
+    room_specs: ambition_platformer2d_world::rooms::LiveRoomSpecs,
     time: bevy::prelude::Res<bevy::prelude::Time>,
     developer_tools: bevy::prelude::Res<ambition_dev_tools::dev_tools::DeveloperTools>,
     encounter_view: bevy::prelude::Res<ambition_encounter::EncounterView>,
@@ -1163,6 +1166,7 @@ pub fn resolve_camera_observation(
     // second local view is an extra row rather than an architecture. See `local_view`.
     mut views: bevy::prelude::Query<
         (
+            bevy::prelude::Entity,
             &CameraViewport,
             &CameraScreenFraming,
             &CameraPresentationInputs,
@@ -1175,7 +1179,9 @@ pub fn resolve_camera_observation(
         ),
         bevy::prelude::With<crate::local_view::LocalView>,
     >,
-    mut last_camera_room: bevy::prelude::Local<Option<String>>,
+    // The room each view framed on its last resolve, by view: two views can
+    // frame two rooms.
+    mut last_camera_room: bevy::prelude::Local<Vec<(bevy::prelude::Entity, String)>>,
     // WHERE THE FOLLOWED SUBJECT WAS on the previous resolve, so a body that
     // was PUT somewhere can be told from one that travelled there.
     //
@@ -1450,11 +1456,6 @@ pub fn resolve_camera_observation(
         player_body.pos += presented.delta();
     }
 
-    let active_spec = room_set.spec();
-    let room_changed = last_camera_room.as_deref() != Some(active_spec.id.as_str());
-    if room_changed {
-        *last_camera_room = Some(active_spec.id.clone());
-    }
     // ⭐⭐ AND THE SUBJECT WAS PUT THERE RATHER THAN TRAVELLING — the term the
     // FOLLOW path was missing. The cast camera has had it since the respawn
     // lurch (`CastFraming::teleported`); a single-subject view chased a teleport
@@ -1482,7 +1483,7 @@ pub fn resolve_camera_observation(
         None => false,
     };
     *last_subject_placement = Some((followed, subject_sim_pos));
-    let snap_camera = blink_cam.camera_snap_timer > 0.0 || room_changed;
+    let blink_snap = blink_cam.camera_snap_timer > 0.0;
 
     let focus = CameraFocus2d {
         center_world: player_body.pos,
@@ -1525,9 +1526,11 @@ pub fn resolve_camera_observation(
         ))
     };
     //  what to look at is a world question; how to present it is a VIEW
-    // question. Everything above is resolved once — the followed body, the
-    // room, the framing focus — and everything below is answered per observer.
+    // question. Everything above is resolved once — the followed body and the
+    // framing focus — and everything below is answered per observer, the room
+    // too: two views can frame two live rooms.
     for (
+        view,
         viewport,
         screen_framing,
         presentation,
@@ -1550,19 +1553,43 @@ pub fn resolve_camera_observation(
         //  whether the view named a body or a seat was decided upstream, by
         // `resolve_view_subjects`. What is left here is what a camera resolve
         // should be doing with it: framing.
-        let (focus, subject_down, follow_world, blink, must_frame_world) =
-            match view_subject.0.and_then(view_focus) {
-                Some((own_focus, own_down, own_center)) => {
-                    (own_focus, own_down, own_center, None, None)
-                }
-                None => (
-                    focus,
-                    subject_down,
-                    player_body.pos,
-                    Some(blink),
-                    must_frame_world,
-                ),
-            };
+        let (framed, focus, subject_down, follow_world, blink, must_frame_world) = match view_subject
+            .0
+            .and_then(|subject| view_focus(subject).map(|own| (subject, own)))
+        {
+            Some((subject, (own_focus, own_down, own_center))) => {
+                (subject, own_focus, own_down, own_center, None, None)
+            }
+            None => (
+                followed,
+                focus,
+                subject_down,
+                player_body.pos,
+                Some(blink),
+                must_frame_world,
+            ),
+        };
+        // The room this view frames is the live room of its framed body. When
+        // that room cannot be told, the view keeps its last frame.
+        let Some(room) = geometry.room_of(framed) else {
+            continue;
+        };
+        let (Some(room_geometry), Some(definition)) = (geometry.in_room(room), room_specs.definition_in(room)) else {
+            continue;
+        };
+        let active_spec = room_specs.rooms().spec(definition);
+        let room_changed = match last_camera_room.iter_mut().find(|(seen, _)| *seen == view) {
+            Some((_, last)) if *last == active_spec.id => false,
+            Some((_, last)) => {
+                *last = active_spec.id.clone();
+                true
+            }
+            None => {
+                last_camera_room.push((view, active_spec.id.clone()));
+                true
+            }
+        };
+        let snap_camera = blink_snap || room_changed;
         if room_changed {
             // Disjoint LDtk areas: reset target easing so it never interpolates
             // through unrelated world coordinates. PER VIEW, because each view
@@ -1587,7 +1614,7 @@ pub fn resolve_camera_observation(
         let snap_camera = snap_camera || (subject_placed && !portal_presents_this_translation);
         let snapshot = resolve_follow_camera_snapshot(
             CameraSnapshotResolveInput {
-                world: &world.0,
+                world: &room_geometry.0,
                 camera_zones: &active_spec.camera_zones,
                 focus,
                 base_view,
@@ -1621,6 +1648,8 @@ pub fn resolve_camera_observation(
             follow_world,
         }));
     }
+    // A view that is gone has no last room.
+    last_camera_room.retain(|(view, _)| views.contains(*view));
 }
 
 /// Ordering handle for the camera observation resolve.

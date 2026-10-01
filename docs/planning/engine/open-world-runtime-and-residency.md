@@ -1127,9 +1127,15 @@ arms), `a_death_holds_the_beat_of_its_own_live_room`,
 `an_actor_sleeps_by_its_own_rooms_rule_and_observers` and
 `a_wallet_absorbs_by_its_own_rooms_rule_beside_another_live_room`. Each is
 red with its reader on THE live room again, and the dormancy witness is
-also red with the observer room key removed. ⚠ Not witnessed reader by
-reader: the driven techniques, the prompt naming and the Smash limit fill
-are one `RulesOf` call each. ⚠ Not changed: `project_room_rule` (a
+also red with the observer room key removed. ✅ Witnessed reader by
+reader (2026-10-01), each red with its reader on THE live room again
+(`GoverningRules::get`):
+`the_driven_body_wears_the_techniques_of_its_own_live_room` (the gate: the
+body on the Smash stage did not spin),
+`the_prompt_follows_the_rules_of_the_subjects_own_live_room` (naming
+poisoned: "Swat" on the stage; driven poisoned: no Special slot) and
+`a_meter_fills_by_the_rule_of_its_own_live_room` (the stage seat gained 0
+in one second, not 0.5). ⚠ Not changed: `project_room_rule` (a
 resource for a crate that cannot see rooms) and the mode owners
 (`despawn_departed_mode_entities`, `follow_mode_owner_rooms`) still read THE
 live room. A mode owner is one entity for each mode, so its two-room meaning

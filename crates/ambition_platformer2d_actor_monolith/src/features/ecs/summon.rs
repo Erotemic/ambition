@@ -85,6 +85,10 @@ pub fn apply_summon_effects(
     // ordinary, not degraded.
     prepared_characters: crate::session::mechanics::SessionCast,
     boss_catalog: bevy::prelude::Res<BossCatalog>,
+    // The activated generation's frozen boss catalog outranks the App's, like
+    // the cast (`SessionCast`): a reload publishes the App's before the session
+    // that runs it is activated.
+    generation: Option<bevy::prelude::Res<crate::session::mechanics::SessionMechanics>>,
     recipes: bevy::prelude::Res<crate::construction::ActorConstructionRegistry>,
     active_session: Option<bevy::prelude::Res<ActiveSessionScope>>,
     identities: bevy::prelude::Query<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
@@ -203,7 +207,7 @@ pub fn apply_summon_effects(
                 None => context,
             }
         },
-        boss_catalog: boss_catalog.clone(),
+        boss_catalog: generation.as_deref().map_or(&*boss_catalog, |generation| &generation.bosses).clone(),
     };
 
     // Every minion's body is proved buildable before the batch is planned.

@@ -516,7 +516,8 @@ commands, the three empowerment systems, aggression, summons, damage and the
 puppy-slug gun read now (9 systems; unit witness
 `a_session_reader_is_given_the_generations_cast`, poison "return the App cast"
 fails it). `serve_encounter_spawn_commands` and `project_prepared_character_definitions`
-moved too (`SessionCast::is_changed` follows the source `get` reads). ⭐ With
+moved too, and the summon road takes the generation's frozen boss catalog
+(`SessionMechanics::bosses`) over the App's (`SessionCast::is_changed` follows the source `get` reads). ⭐ With
 the projection on the session's cast, a cast published mid-timeline no longer
 desyncs the sync test: `developer_edits_under_rollback::publishing_a_cast_mid_timeline_leaves_history_resimulating_the_same`
 asserts it (MEASURED: putting either the projection or the worn re-derivation

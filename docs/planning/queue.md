@@ -63,6 +63,13 @@ the same day: `apply_worn_character_gameplay` no longer re-derives bodies from
 the App cast (275230a3c), so the road this arm was written for (2026-09-13,
 frames 22–24) is closed. What remained is this sensitivity.
 
+Narrowed the same day, MEASURED: in Bevy 0.19 a resource is stored on an
+entity (`bevy_ecs::resource::ResourceEntities`), so "one more resource shifts
+every later Entity id" was the first suspect. It is not enough: with no watch,
+one `spawn_empty()` by the test at the point where the audit was inserted
+leaves the mismatch (2 runs: mismatch without, mismatch with). Whatever a
+resource changes, a bare entity does not.
+
 The arm is `#[ignore]`d with this row as its reason. It recorded an answer that
 the composition, not the cast, decides. The next probe: hash the checksum's
 inputs per resource, then diff the two compositions' first resimulated frame.

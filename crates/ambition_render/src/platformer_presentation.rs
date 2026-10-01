@@ -17,7 +17,7 @@ use ambition_platformer2d_shared_tangle::physics::PhysicsSandboxSettings;
 use ambition_sprite_sheet::game_assets::GameAssets;
 
 use crate::rendering::{
-    spawn_parallax_layers, spawn_room_visuals, PlayerVisualSchedulePlugin,
+    spawn_parallax_layers, PlayerVisualSchedulePlugin,
     PresentationVisualAnimationPlugin,
 };
 
@@ -26,18 +26,15 @@ use crate::rendering::{
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct PlatformerPresentationSetupSet;
 
-#[derive(Resource, Default)]
-struct PresentedSessionScope(Option<SessionScopeId>);
-
-/// The parallax half of the presentation memo. It is separate because a
-/// backdrop can become available later than its room. See
-/// `sync_session_room_visuals`.
+/// The parallax memo: the session whose backdrop is spawned. A backdrop can
+/// become available later than its room, and the room's static visuals do not
+/// wait for it (`present_live_room_visuals`). See `sync_session_room_visuals`.
 #[derive(Resource, Default)]
 struct PresentedParallaxScope(Option<SessionScopeId>);
 
-/// Per-session room presentation, independent of the provider. When a new
-/// session scope goes live, spawn the active room's parallax layers and static
-/// visuals once, owned by that scope.
+/// Per-session room presentation, independent of the provider. Each live room
+/// gets its static visuals, stamped with that room, and a new session scope
+/// gets the live room's parallax layers once, owned by that scope.
 ///
 /// `PlatformerPresentationPlugin` includes it. A host with its own camera and
 /// presentation stack (the Ambition shell host) adds only this plugin.
@@ -50,14 +47,14 @@ impl Plugin for SessionRoomVisualsPlugin {
         app.add_plugins(crate::rendering::WorldLabelLayoutPlugin);
         // Room/parallax passes consume the resolved quality budget; install its idempotent owner.
         app.add_plugins(crate::quality::VisualQualityPlugin);
-        app.init_resource::<PresentedSessionScope>();
         app.init_resource::<PresentedParallaxScope>();
         app.init_resource::<PhysicsSandboxSettings>();
         // The loader's outcome, read by presentation: see `ParallaxThemeAttempts`.
         app.init_resource::<crate::rendering::ParallaxThemeAttempts>();
         app.add_systems(
             Update,
-            sync_session_room_visuals.in_set(SessionScopeSet::Presentation),
+            (crate::rendering::present_live_room_visuals, sync_session_room_visuals)
+                .in_set(SessionScopeSet::Presentation),
         );
         // The composition that spawns blocks also applies authored per-block art overrides.
         app.add_systems(Update, crate::rendering::apply_block_art);
@@ -136,7 +133,7 @@ impl Plugin for PlatformerPresentationPlugin {
                 .in_set(PlatformerPresentationSetupSet),
         );
         app.add_plugins(SessionRoomVisualsPlugin);
-        // Room-transition requests rebuild visuals through the presentation animation plugin.
+        // Room-transition requests rebuild parallax through the presentation animation plugin.
         app.add_plugins((
             PresentationVisualAnimationPlugin,
             PlayerVisualSchedulePlugin,
@@ -197,12 +194,13 @@ fn spawn_main_camera(
     ));
 }
 
-/// Spawn the active room once for legacy hosts that do not install the
-/// gameplay-session lifecycle. Shell hosts wait for a real session activation.
+/// Spawn the active room's parallax once for legacy hosts that do not install
+/// the gameplay-session lifecycle. Shell hosts wait for a real session
+/// activation. The room's static visuals are `present_live_room_visuals`'s,
+/// for every host.
 fn spawn_initial_room_visuals(
     mut commands: Commands,
     room_set: Option<ambition_platformer2d_world::rooms::SoleLiveRoomSpec>,
-    physics_settings: Res<PhysicsSandboxSettings>,
     assets: Option<Res<GameAssets>>,
     quality: Option<Res<crate::quality::ResolvedVisualQuality>>,
     active_session: Option<Res<ActiveSessionScope>>,
@@ -224,25 +222,17 @@ fn spawn_initial_room_visuals(
         assets.as_deref(),
         quality.as_deref().map(|q| &q.budget.parallax),
     );
-    spawn_room_visuals(
-        &mut commands,
-        SessionSpawnScope::UNSCOPED,
-        spec,
-        *physics_settings,
-        assets.as_deref(),
-    );
 }
 
-/// Materialize the active session's room presentation exactly once. The scope
-/// is captured before any spawn request, so route retirement owns every static
-/// visual and parallax entity created here.
+/// Materialize the active session's parallax exactly once. The scope is
+/// captured before any spawn request, so route retirement owns every parallax
+/// entity created here. The room's static visuals are
+/// `present_live_room_visuals`'s.
 fn sync_session_room_visuals(
     mut commands: Commands,
     active_session: Option<Res<ActiveSessionScope>>,
-    mut presented: ResMut<PresentedSessionScope>,
     mut parallax_presented: ResMut<PresentedParallaxScope>,
     room_set: Option<ambition_platformer2d_world::rooms::SoleLiveRoomSpec>,
-    physics_settings: Res<PhysicsSandboxSettings>,
     assets: Option<Res<GameAssets>>,
     quality: Option<Res<crate::quality::ResolvedVisualQuality>>,
     // What the theme loader has already tried and found empty — the difference
@@ -254,11 +244,10 @@ fn sync_session_room_visuals(
     };
     let current = active_session.current();
     let Some(scope) = current else {
-        presented.0 = None;
         parallax_presented.0 = None;
         return;
     };
-    if presented.0 == Some(scope) && parallax_presented.0 == Some(scope) {
+    if parallax_presented.0 == Some(scope) {
         return;
     }
     let Some(room_set) = room_set else {
@@ -268,34 +257,13 @@ fn sync_session_room_visuals(
     };
     let spec = room_set.spec();
 
-    // Two memos, because the room and its backdrop become available at
-    // different times. `spawn_parallax_layers` returns early when `GameAssets`
-    // has no layers for the theme. `GameAssets` loads one theme at startup;
-    // `ensure_active_room_parallax_theme` lazy-loads the others.
-    //
-    // With one memo, setting it first means a session that activates before its
-    // theme arrives never gets parallax. Deferring it means the whole room (all
-    // static visuals and authored entities) waits on the backdrop. Room
-    // presentation must not depend on the backdrop. Only parallax waits.
-    //
-    // `spawn_initial_room_visuals` (the sandbox path) has no memo and retries
-    // every frame.
+    // The room and its backdrop become available at different times.
+    // `spawn_parallax_layers` returns early when `GameAssets` has no layers for
+    // the theme. `GameAssets` loads one theme at startup;
+    // `ensure_active_room_parallax_theme` lazy-loads the others. The room's
+    // static visuals are another system's, so they do not wait on the backdrop.
     let spawn_scope = SessionSpawnScope::scoped(scope);
 
-    if presented.0 != Some(scope) {
-        presented.0 = Some(scope);
-        spawn_room_visuals(
-            &mut commands,
-            spawn_scope,
-            spec,
-            *physics_settings,
-            assets.as_deref(),
-        );
-    }
-
-    if parallax_presented.0 == Some(scope) {
-        return;
-    }
     let wants_parallax = quality
         .as_deref()
         .map(|q| q.budget.parallax.enabled)
@@ -365,9 +333,9 @@ mod tests {
 
     /// How many room visuals this session has on screen.
     ///
-    /// The memo is not the property under test. A build that deletes the
-    /// `spawn_room_visuals` call but still sets `presented.0` would pass every
-    /// memo assertion, so the regression tests count entities.
+    /// The regression tests count entities, because a drawn room is the
+    /// property under test. A memo assertion would pass against a build that
+    /// remembers a room it never drew.
     fn room_visuals(app: &mut App) -> usize {
         let mut query = app.world_mut().query_filtered::<(), (
             With<ambition_platformer2d_shared_tangle::lifecycle::RoomVisual>,
@@ -379,10 +347,12 @@ mod tests {
     fn app_with_an_active_session() -> (App, SessionScopeId) {
         let mut app = App::new();
         app.add_plugins(MinimalPlugins);
-        app.init_resource::<PresentedSessionScope>();
         app.init_resource::<PresentedParallaxScope>();
         app.init_resource::<PhysicsSandboxSettings>();
-        app.add_systems(Update, sync_session_room_visuals);
+        app.add_systems(
+            Update,
+            (crate::rendering::present_live_room_visuals, sync_session_room_visuals),
+        );
 
         let mut active = ActiveSessionScope::default();
         let scope = active.begin();
@@ -406,15 +376,10 @@ mod tests {
     /// The room presents on the first frame it can; only parallax retries.
     #[test]
     fn the_room_presents_even_though_its_parallax_theme_has_not_arrived() {
-        let (mut app, scope) = app_with_an_active_session();
+        let (mut app, _) = app_with_an_active_session();
         // No `GameAssets`, so no theme can load. A new session starts this way.
         app.update();
 
-        assert_eq!(
-            app.world().resource::<PresentedSessionScope>().0,
-            Some(scope),
-            "the room must be presented on the frame it activates, whatever the backdrop is doing",
-        );
         assert_eq!(
             app.world().resource::<PresentedParallaxScope>().0,
             None,
@@ -513,8 +478,8 @@ mod tests {
     ///
     /// `draw_unclaimed_feature_views` draws a magenta stand-in for any
     /// `FeatureViewIndex` row that nothing claims for
-    /// `UNCLAIMED_STAND_IN_GRACE_FRAMES` (5) frames. If `sync_session_room_visuals`
-    /// withholds `spawn_room_visuals` behind a missing theme, every NPC gets the
+    /// `UNCLAIMED_STAND_IN_GRACE_FRAMES` (5) frames. If the room's visuals
+    /// waited behind a missing parallax theme, every NPC would get the
     /// stand-in.
     ///
     /// The control arm is required. `a_body_the_room_never_authored` has a view
@@ -528,7 +493,6 @@ mod tests {
 
         let mut app = App::new();
         app.add_plugins(MinimalPlugins);
-        app.init_resource::<PresentedSessionScope>();
         app.init_resource::<PresentedParallaxScope>();
         app.init_resource::<PhysicsSandboxSettings>();
         app.init_resource::<crate::rendering::UnclaimedFeatureViews>();
@@ -539,6 +503,7 @@ mod tests {
         app.add_systems(
             Update,
             (
+                crate::rendering::present_live_room_visuals,
                 sync_session_room_visuals,
                 crate::rendering::draw_unclaimed_feature_views,
             )
@@ -581,15 +546,12 @@ mod tests {
     /// Parallax stays unsettled on every frame while the theme is missing.
     #[test]
     fn parallax_keeps_retrying_while_the_theme_is_missing() {
-        let (mut app, scope) = app_with_an_active_session();
+        let (mut app, _) = app_with_an_active_session();
         app.update();
         app.update();
         app.update();
 
-        assert_eq!(
-            app.world().resource::<PresentedSessionScope>().0,
-            Some(scope)
-        );
+        assert!(room_visuals(&mut app) > 0, "the room is drawn");
         assert_eq!(
             app.world().resource::<PresentedParallaxScope>().0,
             None,
@@ -621,17 +583,106 @@ mod tests {
         app.update();
         app.update();
 
-        assert_eq!(
-            app.world().resource::<PresentedSessionScope>().0,
-            Some(scope),
-            "the room still presents",
-        );
+        assert!(room_visuals(&mut app) > 0, "the room still presents");
         assert_eq!(
             app.world().resource::<PresentedParallaxScope>().0,
             Some(scope),
             "nothing is coming, so parallax is settled rather than re-asked every \
              frame for the life of the session",
         );
+    }
+
+    /// View half, cut V4a: each live room gets its own static visuals, stamped
+    /// with that room. Two live rooms: each has visuals, and one presentation
+    /// marker. A second frame adds nothing. When one room's visuals are taken
+    /// (as its retirement takes them), that room alone is drawn again. The
+    /// control: one live room is drawn once.
+    #[test]
+    fn each_live_room_gets_its_own_room_visuals() {
+        use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance};
+        let room = |id: &str, width: f32| {
+            let mut spec = ambition_platformer2d_world::rooms::RoomSpec::new(
+                id,
+                ambition_platformer2d_core::World::new(
+                    id,
+                    ambition_platformer2d_core::Vec2::new(width, 480.0),
+                    ambition_platformer2d_core::Vec2::new(16.0, 16.0),
+                    Vec::new(),
+                ),
+            );
+            spec.metadata.visual_profile.parallax_theme = Some("a_theme_nobody_loaded".to_string());
+            spec
+        };
+        let set = || RoomSet::from_parts_or_panic("left", vec![room("left", 640.0), room("right", 320.0)], Vec::new());
+        let build = |rooms: usize| {
+            let mut app = App::new();
+            app.add_plugins(MinimalPlugins);
+            app.init_resource::<PresentedParallaxScope>();
+            app.init_resource::<PhysicsSandboxSettings>();
+            app.add_systems(
+                Update,
+                (crate::rendering::present_live_room_visuals, sync_session_room_visuals),
+            );
+            let mut active = ActiveSessionScope::default();
+            let scope = active.begin();
+            app.insert_resource(active);
+            let set = set();
+            let definitions = [set.activation_definition(), set.definition_by_id("right").expect("right")];
+            app.world_mut().spawn((SessionRoot(scope), set));
+            let mut live = LiveRoomInstance::ACTIVATION;
+            for definition in definitions.into_iter().take(rooms) {
+                app.world_mut()
+                    .spawn(ambition_platformer2d_shared_tangle::lifecycle::activation_room_root(scope))
+                    .insert((live, definition));
+                live = live.next();
+            }
+            app
+        };
+        // Per live room: the visuals stamped with it, and its markers.
+        let drawn = |app: &mut App| {
+            let mut visuals = app.world_mut().query_filtered::<(&InRoomInstance, Has<crate::rendering::PresentedRoomVisuals>), With<
+                ambition_platformer2d_shared_tangle::lifecycle::RoomVisual,
+            >>();
+            let mut per_room = std::collections::BTreeMap::<LiveRoomInstance, (usize, usize)>::new();
+            for (room, marker) in visuals.iter(app.world()) {
+                let entry = per_room.entry(room.0).or_default();
+                if marker {
+                    entry.1 += 1;
+                } else {
+                    entry.0 += 1;
+                }
+            }
+            per_room
+        };
+
+        let mut app = build(1);
+        app.update();
+        app.update();
+        let one = drawn(&mut app);
+        assert!(
+            matches!(one.get(&LiveRoomInstance::ACTIVATION), Some((visuals, 1)) if *visuals > 0) && one.len() == 1,
+            "control: one live room is not drawn once: {one:?}"
+        );
+
+        let mut app = build(2);
+        app.update();
+        app.update();
+        let two = drawn(&mut app);
+        let other = LiveRoomInstance::ACTIVATION.next();
+        assert!(
+            two.len() == 2 && two.values().all(|(visuals, markers)| *visuals > 0 && *markers == 1),
+            "each live room is not drawn once: {two:?}"
+        );
+        // The right room retires its visuals; it alone is drawn again.
+        let taken: Vec<Entity> = {
+            let mut stamped = app.world_mut().query::<(Entity, &InRoomInstance)>();
+            stamped.iter(app.world()).filter(|(_, room)| room.0 == other).map(|(entity, _)| entity).collect()
+        };
+        for entity in taken {
+            app.world_mut().despawn(entity);
+        }
+        app.update();
+        assert_eq!(drawn(&mut app), two, "a room whose visuals were taken was not drawn again, or another room was drawn twice");
     }
 
     /// Non-vacuity check for the tests above: a tier that wants no parallax
@@ -645,10 +696,7 @@ mod tests {
         app.insert_resource(quality);
         app.update();
 
-        assert_eq!(
-            app.world().resource::<PresentedSessionScope>().0,
-            Some(scope)
-        );
+        assert!(room_visuals(&mut app) > 0, "the room is drawn");
         assert_eq!(
             app.world().resource::<PresentedParallaxScope>().0,
             Some(scope),

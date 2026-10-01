@@ -111,7 +111,9 @@ pub fn camera_follow(
         ),
         With<LocalView>,
     >,
-    world: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<
+    // A camera places its view's frame by the geometry of the frame's own
+    // live room. A sole-room read does not run while two rooms are live.
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomOf<
         ambition_platformer2d_core::RoomGeometry,
     >,
     shake: Res<ambition_platformer2d_shared_tangle::camera_ease::CameraShakeState>,
@@ -159,6 +161,9 @@ pub fn camera_follow(
         // An unframed view is not presented; do not move the camera to a
         // default frame.
         let Some(frame) = resolved.frame() else {
+            continue;
+        };
+        let Some(world) = rooms.in_room(frame.room) else {
             continue;
         };
         // Presentation deltas apply to a copy; the resolved snapshot is
@@ -268,6 +273,22 @@ mod two_views_one_simulation_tests {
     }
 
     fn spawn_view(world: &mut World, id: u8, center: ae::Vec2, ortho: f32) -> Entity {
+        spawn_view_in(
+            world,
+            id,
+            center,
+            ortho,
+            ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::ACTIVATION,
+        )
+    }
+
+    fn spawn_view_in(
+        world: &mut World,
+        id: u8,
+        center: ae::Vec2,
+        ortho: f32,
+        room: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
+    ) -> Entity {
         world
             .spawn((
                 LocalView,
@@ -281,6 +302,7 @@ mod two_views_one_simulation_tests {
                             ..Default::default()
                         },
                         follow_world: center,
+                        room,
                     },
                 )),
                 CameraPresentationInputs::default(),
@@ -395,6 +417,55 @@ mod two_views_one_simulation_tests {
             "swapping only the two links must swap the two cameras. It did not, so \
              the framing is following camera iteration order and the assertion above \
              was passing for the wrong reason"
+        );
+    }
+
+    /// Two views in two live rooms (view half, cut V2a): each camera places
+    /// its view by the geometry of the view's own room. The rooms differ in
+    /// size and the two frames have one centre, so the two cameras differ only
+    /// by the room flip.
+    #[test]
+    fn each_camera_places_its_view_in_the_view_s_own_live_room() {
+        use ambition_platformer2d_shared_tangle::lifecycle::{LiveRoomInstance, RoomInstanceRoot};
+        let mut world = World::new();
+        ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(&mut world, room());
+        let small = LiveRoomInstance::ACTIVATION.next();
+        world.spawn((
+            RoomInstanceRoot,
+            small,
+            ae::RoomGeometry(ae::World::new(
+                "small",
+                ae::Vec2::new(400.0, 300.0),
+                ae::Vec2::new(50.0, 50.0),
+                Vec::new(),
+            )),
+        ));
+        world.init_resource::<CameraShakeState>();
+        world.init_resource::<ambition_platformer2d_shared_tangle::camera_ease::FinishZoomState>();
+        world.init_resource::<ambition_platformer2d_shared_tangle::camera_ease::FinishZoomTuning>();
+        let center = ae::Vec2::new(100.0, 200.0);
+        let views = [
+            spawn_view_in(&mut world, 0, center, 1.0, LiveRoomInstance::ACTIVATION),
+            spawn_view_in(&mut world, 1, center, 1.0, small),
+        ];
+        let cameras = views.map(|view| {
+            world
+                .spawn((
+                    MainCamera,
+                    Transform::default(),
+                    Projection::Orthographic(OrthographicProjection::default_2d()),
+                    PresentsView(view),
+                ))
+                .id()
+        });
+        world
+            .run_system_once(camera_follow)
+            .expect("camera_follow runs while two rooms are live");
+        let placed = cameras.map(|camera| world.entity(camera).get::<Transform>().expect("camera transform").translation.truncate());
+        assert_eq!(
+            placed,
+            [expected_translation(center), Vec2::new(100.0 - 200.0, 150.0 - 200.0)],
+            "a camera did not place its view by the geometry of the view's own room"
         );
     }
 }

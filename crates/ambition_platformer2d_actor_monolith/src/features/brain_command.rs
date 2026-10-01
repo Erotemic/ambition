@@ -246,7 +246,7 @@ pub fn apply_brain_commands(
     // policy: that policy is recovered by identity, never from the mutable
     // `ActorPolicy` a provocation has overwritten. `Option`
     // because compositions that register no cast are ordinary.
-    prepared: Option<Res<ambition_characters::prepared::PreparedCharacterRegistry>>,
+    prepared: crate::session::mechanics::SessionCast,
     mut commands_in: MessageReader<BrainCommand>,
     mut actors: Query<(
         Entity,
@@ -304,7 +304,7 @@ pub fn apply_brain_commands(
         // The durable answer to "what does this character normally do", resolved
         // once per body. `None` where no cast can answer; the lowering then
         // falls back to the body's current policy, which is the fixture road.
-        let character_profile = prepared.as_deref().zip(worn).and_then(|(registry, worn)| {
+        let character_profile = prepared.get().zip(worn).and_then(|(registry, worn)| {
             crate::features::ecs::character_policy::character_autonomous_profile(registry, worn)
         });
 

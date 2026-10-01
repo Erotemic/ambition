@@ -32,6 +32,10 @@ pub const PLATFORMER_DEFAULTS_ASSET: &str = "ambition/platformer_defaults.ron";
 pub struct Platformer2dGameplayDefaults {
     pub abilities: ae::AbilitySet,
     pub tuning: ae::MovementTuning,
+    /// The combat and time feel values this game changes. A field the file
+    /// does not state keeps `Platformer2dFeelTuningMonolith::default()`.
+    #[serde(default)]
+    pub feel: ambition_combat::feel::Platformer2dFeelTuningMonolith,
 }
 
 /// The defaults file in the source tree. A development build reads it at boot

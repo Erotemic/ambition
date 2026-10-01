@@ -106,7 +106,7 @@ impl Default for ContactHarm {
 /// the SET instead.
 pub fn run_empowerments(
     time: Res<ambition_time::WorldTime>,
-    cast: Option<Res<PreparedCharacterRegistry>>,
+    cast: crate::session::mechanics::SessionCast,
     mut commands: Commands,
     mut bodies: Query<
         (
@@ -145,7 +145,7 @@ pub fn run_empowerments(
         // Our reason only. A transformation beat overlapping this keeps its own,
         // and neither can strip the other by ending first. Written only when it
         // changes, because every worn body passes here each tick.
-        let untouchable = empowerment_of(live_grant.as_ref(), worn, cast.as_deref())
+        let untouchable = empowerment_of(live_grant.as_ref(), worn, cast.get())
             .holds(Empowerment::UNTOUCHABLE);
         if health.health.invulnerable.holds(Invulnerability::EMPOWERED) != untouchable {
             health
@@ -176,7 +176,7 @@ pub fn run_empowerments(
 /// something orders it `.after(EmpowermentExpiry)`.
 pub fn apply_contact_harm(
     mut hit_events: MessageWriter<HitEvent>,
-    cast: Option<Res<PreparedCharacterRegistry>>,
+    cast: crate::session::mechanics::SessionCast,
     empowered: Query<
         (
             Entity,
@@ -208,7 +208,7 @@ pub fn apply_contact_harm(
     tuning: ambition_combat::rules::CombatTuningOf,
 ) {
     for (striker, (grant, worn), kin, striker_faction, harm, striker_team) in &empowered {
-        if !empowerment_of(grant, worn, cast.as_deref()).holds(Empowerment::HARMS_ON_CONTACT) {
+        if !empowerment_of(grant, worn, cast.get()).holds(Empowerment::HARMS_ON_CONTACT) {
             continue;
         }
         // A body touches only bodies of its own live room (OW1): two live
@@ -324,11 +324,11 @@ impl Plugin for EmpowermentLifecyclePlugin {
 
 fn release_empowerment_projection(
     removal: On<bevy::ecs::lifecycle::Remove, Empowered>,
-    cast: Option<Res<PreparedCharacterRegistry>>,
+    cast: crate::session::mechanics::SessionCast,
     mut bodies: Query<(&mut BodyHealth, Option<&WornCharacter>)>,
 ) {
     if let Ok((mut health, worn)) = bodies.get_mut(removal.entity) {
-        let form_stays = empowerment_of(None, worn, cast.as_deref()).holds(Empowerment::UNTOUCHABLE);
+        let form_stays = empowerment_of(None, worn, cast.get()).holds(Empowerment::UNTOUCHABLE);
         health
             .health
             .invulnerable

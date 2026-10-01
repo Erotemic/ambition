@@ -83,9 +83,7 @@ pub fn apply_summon_effects(
     authored_sheets: bevy::prelude::Res<ambition_sprite_sheet::character::sheets::AuthoredSheets>,
     // `Option` like every other reader of it: a composition with no registered characters is
     // ordinary, not degraded.
-    prepared_characters: Option<
-        bevy::prelude::Res<ambition_characters::prepared::PreparedCharacterRegistry>,
-    >,
+    prepared_characters: crate::session::mechanics::SessionCast,
     boss_catalog: bevy::prelude::Res<BossCatalog>,
     recipes: bevy::prelude::Res<crate::construction::ActorConstructionRegistry>,
     active_session: Option<bevy::prelude::Res<ActiveSessionScope>>,
@@ -200,7 +198,7 @@ pub fn apply_summon_effects(
                 &character_catalog,
                 &authored_sheets,
             );
-            match prepared_characters.as_deref() {
+            match prepared_characters.get() {
                 Some(prepared) => context.with_prepared(prepared),
                 None => context,
             }
@@ -214,7 +212,7 @@ pub fn apply_summon_effects(
     // belongs here rather than inside the recipe: a rejected batch has spent
     // nothing, where a recipe-time refusal is a panic with rows already built.
     if let Err(error) =
-        crate::construction::preflight_planned_bodies(&planned, prepared_characters.as_deref())
+        crate::construction::preflight_planned_bodies(&planned, prepared_characters.get())
     {
         bevy::log::error!(
             target: "ambition_platformer2d::construction",

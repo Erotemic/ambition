@@ -10,7 +10,6 @@
 use bevy::prelude::*;
 
 use ambition_characters::actor::{BodyWalletShield, WornCharacter};
-use ambition_characters::prepared::PreparedCharacterRegistry;
 use ambition_platformer2d_shared_tangle::schedule::{
     Platformer2dSimulationPhaseMonolith, PlayerInputSet, SimScheduleExt,
 };
@@ -35,14 +34,14 @@ pub fn project_wallet_shields(
     // Each body's own room's rule (OW1): with two rooms live, THE live room's
     // rule was the rule of no room, and no wallet shielded anywhere.
     rule: crate::session::governing_rules::RulesOf<WalletShieldRule>,
-    cast: Option<Res<PreparedCharacterRegistry>>,
+    cast: crate::session::mechanics::SessionCast,
     bodies: Query<(Entity, Option<&WornCharacter>, Has<BodyWalletShield>)>,
 ) {
     for (entity, worn, shielded) in &bodies {
         // The character first: most bodies wear no shield, and the room
         // lookup is the dearer question.
         let shields = worn
-            .and_then(|worn| cast.as_deref()?.get(worn.id()))
+            .and_then(|worn| cast.get()?.get(worn.id()))
             .is_some_and(|character| character.wallet_shield)
             && rule.of(entity).is_some();
         match (shields, shielded) {
@@ -77,6 +76,7 @@ impl Plugin for WalletShieldPlugin {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ambition_characters::prepared::PreparedCharacterRegistry;
     use ambition_combat::scoped_rules::{DeclareRulesExt, RulesScope};
 
     /// A body that wears `shielded` (its row states `wallet_shield`) or

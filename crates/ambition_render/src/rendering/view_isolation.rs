@@ -10,7 +10,8 @@ use bevy::camera::visibility::RenderLayers;
 use bevy::prelude::*;
 
 use ambition_platformer2d_shared_tangle::camera_layers::{
-    local_view_render_layer, MainCamera, LOCAL_VIEW_RENDER_LAYER_BASE,
+    live_room_render_layer, local_view_render_layer, MainCamera, LIVE_ROOM_RENDER_LAYER_BASE,
+    LIVE_ROOM_RENDER_LAYER_LAST, LOCAL_VIEW_RENDER_LAYER_BASE,
 };
 
 /// Render layers to restore when a per-view projection is no longer isolated.
@@ -129,6 +130,128 @@ pub fn isolate_per_view_projections(
                 pending.extend(kids.iter());
             }
         }
+    }
+}
+
+/// Give each camera only the live room its view frames (view half, cut V3).
+///
+/// Live rooms use one coordinate space, so a camera that draws the world layer
+/// draws two live rooms on top of each other. While two or more rooms are
+/// live, an entity stamped into a live room (`InRoomInstance`), and its
+/// descendants, draw on that room's band in place of the world layer, and each
+/// main camera adds the band of the room its view frames
+/// (`ResolvedCameraFrame::room`). With one live room nothing is banded, and a
+/// banded entity returns to the world layer.
+///
+/// Only the world layer moves. An unstamped entity stays on it, and every
+/// camera draws it. An entity that does not draw on the world layer (a
+/// parallax panel) keeps its layers. A view's own projections belong to
+/// [`isolate_per_view_projections`], so this pass does not enter a
+/// `PresentedForView` subtree, and the two passes write different bands of a
+/// camera's mask.
+#[allow(clippy::type_complexity)]
+pub fn isolate_live_rooms(
+    mut commands: Commands,
+    rooms: Query<
+        &ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
+        With<ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot>,
+    >,
+    views: Query<(Entity, &ambition_sim_view::camera_snapshot::ResolvedCameraSnapshot), With<ambition_sim_view::LocalView>>,
+    cameras: Query<(Entity, Option<&ambition_sim_view::PresentsView>), With<MainCamera>>,
+    stamped: Query<
+        (Entity, &ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance),
+        Without<ambition_sim_view::PresentedForView>,
+    >,
+    per_view: Query<(), With<ambition_sim_view::PresentedForView>>,
+    children: Query<&Children>,
+    mut layers: Query<&mut RenderLayers>,
+) {
+    // In instance order, so a room keeps its band while the rooms around it
+    // stay live.
+    let mut ordered: Vec<_> = rooms.iter().copied().collect();
+    ordered.sort();
+    let isolating = ordered.len() > 1;
+    let band = |room| {
+        isolating
+            .then(|| ordered.iter().position(|live| *live == room))
+            .flatten()
+            .map(live_room_render_layer)
+    };
+
+    let on_hand = ambition_sim_view::ViewsOnHand::survey(views.iter().map(|(view, _)| view));
+    for (camera, link) in &cameras {
+        let wanted = on_hand
+            .presented_by(link.copied())
+            .and_then(|view| views.get(view).ok())
+            .and_then(|(_, resolved)| resolved.frame())
+            .and_then(|frame| band(frame.room));
+        match layers.get_mut(camera) {
+            Ok(mut current) => {
+                let base = without_room_layers(&current);
+                let desired = match wanted {
+                    Some(layer) => base.with(layer),
+                    None => base,
+                };
+                if *current != desired {
+                    *current = desired;
+                }
+            }
+            Err(_) => {
+                if let Some(layer) = wanted {
+                    commands.entity(camera).insert(RenderLayers::default().with(layer));
+                }
+            }
+        }
+    }
+
+    for (root, stamp) in &stamped {
+        let wanted = band(stamp.0);
+        let mut pending: Vec<Entity> = vec![root];
+        while let Some(entity) = pending.pop() {
+            if entity != root && per_view.contains(entity) {
+                continue;
+            }
+            match layers.get_mut(entity) {
+                Ok(mut current) => {
+                    let desired = in_room_band(&current, wanted);
+                    if *current != desired {
+                        *current = desired;
+                    }
+                }
+                Err(_) => {
+                    // No mask is the world layer.
+                    if let Some(layer) = wanted {
+                        commands.entity(entity).try_insert(RenderLayers::none().with(layer));
+                    }
+                }
+            }
+            if let Ok(kids) = children.get(entity) {
+                pending.extend(kids.iter());
+            }
+        }
+    }
+}
+
+/// A mask with the live-room band cleared: what a camera draws when its view
+/// frames no banded room.
+fn without_room_layers(layers: &RenderLayers) -> RenderLayers {
+    let mut base = layers.clone();
+    for layer in layers.iter() {
+        if (LIVE_ROOM_RENDER_LAYER_BASE..=LIVE_ROOM_RENDER_LAYER_LAST).contains(&layer) {
+            base = base.without(layer);
+        }
+    }
+    base
+}
+
+/// An entity's mask with its world layer on room band `wanted`, or back on
+/// the world layer when `wanted` is `None`.
+fn in_room_band(layers: &RenderLayers, wanted: Option<usize>) -> RenderLayers {
+    let banded = layers.iter().any(|layer| (LIVE_ROOM_RENDER_LAYER_BASE..=LIVE_ROOM_RENDER_LAYER_LAST).contains(&layer));
+    let world = if banded { without_room_layers(layers).with(0) } else { layers.clone() };
+    match wanted {
+        Some(layer) if world.intersects(&RenderLayers::layer(0)) => world.without(0).with(layer),
+        _ => world,
     }
 }
 
@@ -455,6 +578,61 @@ mod tests {
         assert!(
             camera_draws(&fixture.world, fixture.cameras[0], survivor),
             "the survivor is drawn by the remaining camera"
+        );
+    }
+
+    /// View half, cut V3: each camera draws only the live room its view
+    /// frames. Two live rooms, two views (one frames #0, one #1), two cameras.
+    /// A sprite in each room, the second with a child, and an unstamped
+    /// sprite. Each camera draws its own room's sprite and the unstamped one,
+    /// and not the other room's; the child goes with its parent. When #1 is
+    /// no longer live, every entity is back on the world layer and both
+    /// cameras draw all of it. The control: one live room bands nothing.
+    #[test]
+    fn each_camera_draws_only_the_live_room_its_view_frames() {
+        use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
+        let first = LiveRoomInstance::ACTIVATION;
+        let second = first.next();
+        let mut world = World::new();
+        let roots = [first, second].map(|room| world.spawn((RoomInstanceRoot, room)).id());
+        let views = [first, second].map(|room| {
+            world
+                .spawn((
+                    LocalView,
+                    LocalViewId(if room == first { 0 } else { 1 }),
+                    ambition_sim_view::camera_snapshot::ResolvedCameraSnapshot(Some(
+                        ambition_sim_view::camera_snapshot::ResolvedCameraFrame {
+                            snapshot: Default::default(),
+                            follow_world: Default::default(),
+                            room,
+                        },
+                    )),
+                ))
+                .id()
+        });
+        let cameras = views.map(|view| world.spawn((MainCamera, authored_camera_layers(), PresentsView(view))).id());
+        let in_first = world.spawn(InRoomInstance(first)).id();
+        let in_second = world.spawn(InRoomInstance(second)).id();
+        let child = world.spawn(ChildOf(in_second)).id();
+        let shared = world.spawn_empty().id();
+
+        world.run_system_once(isolate_live_rooms).expect("the pass runs");
+        let draws = |world: &World| {
+            cameras.map(|camera| [in_first, in_second, child, shared].map(|entity| camera_draws(world, camera, entity)))
+        };
+        assert_eq!(
+            draws(&world),
+            [[true, false, false, true], [false, true, true, true]],
+            "a camera drew another live room, or not its own"
+        );
+
+        world.entity_mut(roots[1]).despawn();
+        world.run_system_once(isolate_live_rooms).expect("the pass runs");
+        assert_eq!(draws(&world), [[true; 4]; 2], "one live room again, and a camera does not draw all of it");
+        assert_eq!(
+            [mask(&world, cameras[0]), mask(&world, in_second), mask(&world, child)],
+            [authored_camera_layers(), RenderLayers::default(), RenderLayers::default()],
+            "a mask did not return to the world layer"
         );
     }
 }

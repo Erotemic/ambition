@@ -56,7 +56,7 @@ pub fn fire_puppy_slug_gun_system(
     // the summoned ally IS a character (`npc_puppy_slug`), so this road needs
     // the cast to build it as one. `Option`: a composition that registers nobody
     // is ordinary, and there the summon is refused (`summon_cast`).
-    prepared: Option<Res<ambition_characters::prepared::PreparedCharacterRegistry>>,
+    prepared: crate::session::mechanics::SessionCast,
     players: Query<(
         &ActorControl,
         &BodyKinematics,
@@ -99,7 +99,7 @@ pub fn fire_puppy_slug_gun_system(
         }
         // Before the identity is minted: a refused summon spends nothing.
         let cast = match crate::features::summon_cast(
-            prepared.as_deref(),
+            prepared.get(),
             SLUG_ARCHETYPE,
         ) {
             Ok(cast) => cast,

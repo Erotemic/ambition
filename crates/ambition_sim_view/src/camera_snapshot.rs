@@ -920,6 +920,10 @@ pub struct ResolvedCameraFrame {
     /// this tick — the un-eased follow point presentation adapters (portal
     /// continuity) key their offsets from.
     pub follow_world: ae::Vec2,
+    /// The live room this frame is in: the live room of the body the view
+    /// frames. A camera places the frame by the geometry of this room, and
+    /// two views can be in two rooms.
+    pub room: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
 }
 
 impl ResolvedCameraSnapshot {
@@ -1646,6 +1650,7 @@ pub fn resolve_camera_observation(
         *resolved = ResolvedCameraSnapshot(Some(ResolvedCameraFrame {
             snapshot,
             follow_world,
+            room,
         }));
     }
     // A view that is gone has no last room.

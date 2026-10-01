@@ -2044,3 +2044,49 @@ fn a_crossing_resets_only_what_it_leaves_behind() {
         );
     }
 }
+
+/// OW1: a replay of one player's room keeps the world's shared facts while
+/// another live room stays. Alice, in the hub with gravity flipped, asks for
+/// a replay. With Bob driven (two rooms): no reset of the sim clock is asked
+/// for, and gravity stays flipped. The control, Bob not driven (one room):
+/// the clock reset is asked for and gravity is put back down, as before.
+/// Before, every replay did both, so Alice's retry cancelled Bob's bullet
+/// time and unflipped his room.
+#[test]
+fn a_replay_keeps_the_worlds_clock_and_gravity_while_another_room_is_live() {
+    use ambition_platformer2d::characters::control::PlayerSlot;
+    use ambition_platformer2d::time::time_control::ClockResetRequest;
+    for (slot, rooms, expected) in [(None, 1, (true, false)), (Some(PlayerSlot(1)), 2, (false, true))] {
+        let (mut sim, _) = alice_leaves_bob(slot);
+        assert_eq!(live_rooms(&mut sim).len(), rooms, "precondition ({slot:?}): the live room count");
+        {
+            let world = sim.world_mut();
+            let mut gravity = world.resource_mut::<ambition_platformer2d::world::BaseGravity>();
+            gravity.dir = -gravity.dir;
+            world.write_message(ambition_platformer2d::actors::session::reset::RoomReplayRequested::manual());
+        }
+        let mut clock_reset = false;
+        let mut admitted = false;
+        for _ in 0..30 {
+            sim.step(base());
+            let world = sim.world_mut();
+            clock_reset |= world
+                .resource::<bevy::ecs::message::Messages<ClockResetRequest>>()
+                .iter_current_update_messages()
+                .any(|request| request.reason == "sandbox_reset");
+            admitted |= world
+                .resource::<bevy::ecs::message::Messages<ambition_platformer2d::combat::events::RoomReplayAdmitted>>()
+                .iter_current_update_messages()
+                .next()
+                .is_some();
+        }
+        assert!(admitted, "precondition ({slot:?}): the replay was not admitted");
+        let flipped = sim.world_mut().resource::<ambition_platformer2d::world::BaseGravity>().dir
+            != ambition_platformer2d::world::BaseGravity::default().dir;
+        assert_eq!(
+            (clock_reset, flipped),
+            expected,
+            "with {rooms} live room(s): (the clock reset was asked for, gravity is flipped)"
+        );
+    }
+}

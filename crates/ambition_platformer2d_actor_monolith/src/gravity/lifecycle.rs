@@ -20,11 +20,19 @@ use bevy::prelude::*;
 /// three. ⚠ The SESSION edge is not here: `BaseGravity` is a member of
 /// `SessionScopedResources`, so activation and retirement clear it with the rest
 /// of the live-session mirrors and under that aggregate's compiler guard.
+///
+/// ⭐ NOT WHILE ANOTHER LIVE ROOM STAYS (OW1). The ambient gravity is one fact
+/// for the whole world, and a replay rebuilds one player's room: another
+/// live room keeps it. The decision is in the open-world plan.
 pub fn reset_gravity_on_room_reset(
     mut resets: MessageReader<ambition_combat::events::RoomReplayAdmitted>,
     mut base: ResMut<ambition_platformer2d_shared_tangle::gravity::BaseGravity>,
+    live_rooms: Query<(), With<ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot>>,
 ) {
     if resets.read().next().is_none() {
+        return;
+    }
+    if live_rooms.iter().count() > 1 {
         return;
     }
     *base = ambition_platformer2d_shared_tangle::gravity::BaseGravity::default();

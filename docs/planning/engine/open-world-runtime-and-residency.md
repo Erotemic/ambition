@@ -1471,11 +1471,21 @@ room-transition -> playing) freezes the clock and then asks for the
 default speed. So that arm read 1.0 with the gate working. The witness
 now reads the request.
 
-⚠ Found, not changed: (1) that game-mode change is session-wide, so every
-live room freezes for the frames of one player's crossing; (2) a replay
-(Cut A) still resets the shared clock (`reset_sandbox`) and the ambient
-gravity (`reset_gravity_on_room_reset`) for every live room. Both are the
-same shared-world question as the clock decision above.
+⚠ Found, not changed here: that game-mode change is session-wide, so every
+live room freezes for the frames of one player's crossing. It is OW4's own
+evidence ("supported absence does not freeze unrelated work"), and the
+OW4 work takes it.
+
+✅ Same day, the replay too: a replay (reachable with two rooms since Cut A)
+reset the shared clock (`reset_sandbox`) and the ambient gravity
+(`reset_gravity_on_room_reset`) for every live room. Both now keep them
+while another live room stays (more than one live room root), by the
+decision above. Witness:
+`a_replay_keeps_the_worlds_clock_and_gravity_while_another_room_is_live`
+(Alice replays the hub with gravity flipped: with Bob driven, no clock
+reset is asked for and gravity stays flipped; the control, Bob not driven,
+both are reset). Poisons, each gate forced open: the clock reset was asked
+for; gravity was put back down.
 
 ✅ **Cut 7r landed 2026-10-01: a mode lives while any live room is in its
 scope, and its owner follows a room of its own mode.** The mode sweep

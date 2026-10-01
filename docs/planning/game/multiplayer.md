@@ -149,6 +149,10 @@ under a GGRS sync test with two seats,
 ✅ Each seat crosses its own doors (OW1 cut 7s, 2026-10-01): before it, the
 door detector read only the primary seat, so only the first player could
 leave a room (`the_second_player_goes_through_a_door_of_his_own_room`).
+✅ One player's door load and one player's conversation no longer stop the
+other player's room (OW1 cuts 7t and 7u). Two players in ONE room still
+share a conversation's pause; that is the first question in "Game-state
+questions" above.
 ⚠ Not done: both players share one camera and one observation (the view
 half is A2/P5 multiview); the banner, music and HUD are session-wide; a
 sync test is one peer, so what the crossing's rebase costs a remote

@@ -651,7 +651,12 @@ pub fn begin_room_transition_load_system(
     tick: Res<SimTick>,
     mut loads: ResMut<LoadCoordinator>,
     mut load_events: MessageWriter<LoadEvent>,
-    mut next_mode: ResMut<NextState<ambition_platformer2d_shared_tangle::schedule::GameMode>>,
+    // PAIRED, and only because a Bevy system stops at sixteen params: the mode
+    // a load may set, and the driven bodies that say whether it may set it.
+    (mut next_mode, drivers): (
+        ResMut<NextState<ambition_platformer2d_shared_tangle::schedule::GameMode>>,
+        bevy::prelude::Query<&ambition_characters::control::DrivingParticipant>,
+    ),
 ) {
     let (
         _prepared_characters,
@@ -903,10 +908,6 @@ pub fn begin_room_transition_load_system(
             );
         }
 
-        ambition_platformer2d_shared_tangle::world_log::note_game_mode_request(
-            ambition_platformer2d_shared_tangle::schedule::GameMode::RoomTransition,
-            "room_transition_begin",
-        );
         // A ROLLBACK HOST DOES NOT PAUSE FOR ITS OWN LOADING SCREEN.
         //
         // and it is not merely unsound, it is wrong for the thing this
@@ -914,7 +915,22 @@ pub fn begin_room_transition_load_system(
         // The COVER still goes up — it is driven off `RoomTransitionLoadState`,
         // not off the mode — so the player sees the same screen; the world
         // behind it keeps its own time.
-        if !pending.is_rollback_host() {
+        //
+        // AN EAGER HOST PAUSES ONLY WHEN NOTHING ELSE IS IN PLAY (OW1 cut 7t):
+        // one live room, and no body of another seat that plays on in it. The
+        // `RoomTransition` mode stops every gameplay system of every live room,
+        // so a pause for one player's door stopped the other player's room.
+        // A crossing no seat drove is the session's own, and it pauses with
+        // one live room.
+        let nothing_else_in_play = room_set.live_rooms().count() == 1
+            && intent.participant().is_none_or(|participant| {
+                drivers.iter().all(|driver| driver.0 == participant)
+            });
+        if !pending.is_rollback_host() && nothing_else_in_play {
+            ambition_platformer2d_shared_tangle::world_log::note_game_mode_request(
+                ambition_platformer2d_shared_tangle::schedule::GameMode::RoomTransition,
+                "room_transition_begin",
+            );
             next_mode.set(ambition_platformer2d_shared_tangle::schedule::GameMode::RoomTransition);
         }
 

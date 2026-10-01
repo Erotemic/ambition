@@ -57,11 +57,26 @@ on `SessionCast` too, a cast published mid-timeline no longer desyncs, and the
 arm is now `publishing_a_cast_mid_timeline_leaves_history_resimulating_the_same`
 (an assertion). Poisons, MEASURED: the projection back on the App cast, or the
 worn re-derivation back on it, each bring the mismatch back.
-The same pattern elsewhere is NOT classified: a grep for `.iter(world).next()`
-and two spellings of it in `game/*/tests`, `crates/*/tests` and `crates/*/src`
-counts 75 sites (2026-10-01). Most read a population filtered to one entity,
-where order cannot matter. A site whose population has more than one member
-picks its subject by archetype order.
+The same pattern elsewhere is NOT classified.
+`scripts/measure_first_match_subjects.py` (2026-10-01) counts 156 first-match
+sites under `game/` and `crates/`, 75 with no query filter in the six lines
+above. Those are candidates, and the window is a heuristic. Many read a
+population of one ("one enemy body") or only ask `is_some()`. A site whose
+population has more than one member picks its subject by archetype order.
+Read the same day: the three candidates in rollback tests
+(`mary_o_app/tests/rollback_restore.rs`, `rollback_room_memory.rs`,
+`sanic_app/tests/rollback_restore.rs`) read `MaryOLevelState`/`SanicActState`,
+one per session root, so order cannot move them. Also classified: 21 read a
+`RoomSet` (one per session root; MEASURED by name in the listing), 6 only ask
+`is_some()` (order cannot matter), and the 11 in
+`actor_monolith/src/features/ecs/spawn/tests.rs` are hand-built Apps that spawn
+one body (one read; the other ten REASONED from the same fixture shape and
+their "one enemy body" / "the NPC was built" expectations). Of the other 34,
+read by listing: about 20 read a once-per-session mode owner (Mary-O level and
+timer, Sanic act), and the rest are single-subject fixtures (one CPU in
+`match_activation/tests.rs:1747`, one popped reward in Mary-O `two_rooms.rs`,
+boss probes in single-boss rooms). REASONED from each fixture, not measured.
+No second multi-member case was found.
 
 ### SYNC-POINT-SENSITIVE-RESIM — a command sync point moves the death-reset replay
 

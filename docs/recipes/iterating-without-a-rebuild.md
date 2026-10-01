@@ -31,8 +31,8 @@ A reload is refused, and the game keeps what it runs, when:
 
 - the pack does not compile (the log shows the compiler's message);
 - the change is to a file the reload does not take yet: `items.ron`, the
-  audio registries, a fighter facet (`data/fighters/*.ron`),
-  `boss_seeds.ron`, `boss_validator_bands.ron`;
+  audio registries, a fighter facet (`data/fighters/*.ron`; read only by a
+  match that plays fighter damage, such as a Smash match that seats the robot), `boss_seeds.ron`, `boss_validator_bands.ron`;
 - a catalog change adds or removes a character that is built. For these, restart the game (no rebuild; see
   below);
 - a rollback timeline another owner holds is live (a networked match).

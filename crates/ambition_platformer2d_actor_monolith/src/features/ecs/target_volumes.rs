@@ -78,6 +78,10 @@ fn authored_world_volumes(
 /// never the composite body's coarse envelope.
 pub fn refresh_boss_damageable_volumes(
     boss_catalog: Res<ambition_boss_encounter::BossCatalog>,
+    // The activated generation's frozen catalog outranks the App's: a reload
+    // publishes the App's before its session is activated, and a resimulated
+    // frame must not read it.
+    generation: Option<Res<crate::session::mechanics::SessionMechanics>>,
     mut bosses: Query<(
         ambition_boss_encounter::BossClusterRef,
         &ambition_characters::actor::BodyHealth,
@@ -93,6 +97,9 @@ pub fn refresh_boss_damageable_volumes(
         ),
     )>,
 ) {
+    let boss_catalog = generation
+        .as_deref()
+        .map_or(&*boss_catalog, |generation| &generation.bosses);
     for (
         feature,
         health,
@@ -116,7 +123,7 @@ pub fn refresh_boss_damageable_volumes(
             continue;
         }
         let ctx = ambition_boss_encounter::attack_geometry::BossVolumeContext::from_ref(
-            &boss_catalog,
+            boss_catalog,
             boss,
             attack_state,
         )

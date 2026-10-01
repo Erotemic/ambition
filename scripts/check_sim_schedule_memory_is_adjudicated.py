@@ -101,6 +101,8 @@ USEFUL PART** — they are what a reader should check a fourteenth against:
                         anyone makes can disagree
     A ONCE-PER-APP LATCH a condition no rewind and no session rebase recreates
     A CACHED QUERY      storage, not state
+    A CHANGE GATE       the inputs a mirror last wrote from; a rewind opens
+                        the gate, so the cache never decides a replayed tick
 
 Usage:
     python3 scripts/check_sim_schedule_memory_is_adjudicated.py
@@ -261,6 +263,26 @@ ADJUDICATED: dict[str, str] = {
         "`QueryState`, which is an index into the world's archetypes rather than a "
         "value about the world. Carrying it across a rewind is what every cached "
         "query does (read 2026-09-18)"
+    ),
+    # ── A CHANGE GATE: the inputs a mirror last wrote from ──────────────────
+    "persist_occurrence_horizon_to_save": (
+        "A CHANGE GATE (FI9). `mirrored_with` is the restorable set the save's "
+        "occurrence rows were last mirrored with. The mirror walks the ledger "
+        "rows only when the restore latch, the ledger or the save changed since "
+        "it last ran, or this tick's restorable set differs from the cache. A "
+        "rollback restore writes the ledger and the save, which marks them "
+        "changed, so the first replayed tick mirrors from the restored inputs and "
+        "fills the cache again; a later replayed tick holds what a run with no "
+        "rewind would hold. When the gate stays shut, the save already equals "
+        "the mirror of its inputs, so the save (registered and checksummed) is "
+        "the same with or without the cache (read 2026-10-01)"
+    ),
+    "persist_minted_item_horizon_to_save": (
+        "A CHANGE GATE (FI9), the same argument as "
+        "`persist_occurrence_horizon_to_save`: `mirrored_with` holds the live "
+        "mint descriptions and the ledger's presence that the save's minted rows "
+        "were last mirrored with. The restore writes the ledger and the save, so "
+        "the gate opens on the first replayed tick (read 2026-10-01)"
     ),
     # ── per-instance and idempotent ─────────────────────────────────────────
     "stamp_causal_frame": (

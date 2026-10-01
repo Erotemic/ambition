@@ -357,6 +357,19 @@ Witness: `app_it::edit_to_play_through_the_shell::a_content_file_saved_while_the
 **19 frames after the save**, measured, with one request; poison "the watch
 returns early" fails it at 600 frames).
 
+**A saved edit under the shipped ownership mode (2026-10-01).**
+`edit_to_play_through_the_shell::a_content_file_saved_under_a_local_timeline_rebases_it`:
+with a timeline the local maintainer owns, a saved move edit is played, the
+timeline the maintainer starts again binds the reloaded content, and it is
+healthy. ⚠ The poison "the commit does not rebase"
+(`reload::rebase_local_timeline_onto_the_new_generation` not called) left it
+GREEN, measured: a reload re-requests the route, the route's re-activation ends
+the session (`session-end` / `session-start` in the world-event log), and
+`retire_rollback_authority_with_its_scope` stands the timeline down with its
+scope before the new one is installed. On the shipped road the commit's rebase
+restates that; it is kept as a deliberate restatement (the content crate's
+hand-built hosts reach it without a shell), not as the protection of this road.
+
 **Dialogue reloads too (2026-10-01).** The Yarn files are not in the pack:
 they are the running `YarnProject`'s assets. `content_watch::YarnSourceWatch`
 (built with `ui`, not `static_content`) looks at each file the project was

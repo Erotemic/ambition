@@ -598,8 +598,9 @@ goes through the engine's mechanical-edit protocol: PROPOSED, the rollback
 timeline's owner ADMITS (a local timeline is stopped and rebased; a timeline
 the host did not start refuses), then PUBLISHED. Last-good by construction: a
 file that does not load or admit is reported and the running code stays. A
-reload that changes a state schema's SHAPE under live records is refused;
-that needs a reconstruction. Witnesses: host `a_reloaded_module_takes_over_at_publication_and_keeps_its_records`
+reload that changed a state schema's SHAPE under live records was refused in
+this first cut; since the schema-evolution row below, its records migrate by
+field tag, and only a changed attachment or save policy is refused. Witnesses: host `a_reloaded_module_takes_over_at_publication_and_keeps_its_records`
 and `a_reload_that_reshapes_live_state_or_is_refused_leaves_the_running_code`;
 app `a_module_file_that_changes_while_the_game_runs_is_reloaded` (published
 without a timeline; refused, still staged and healthy under the harness's own

@@ -9,7 +9,7 @@ use bevy::prelude::*;
 
 use ambition_combat::scoped_rules::{ActiveRoom, RulesScope};
 use ambition_platformer2d_shared_tangle::lifecycle::{
-    despawn_scoped_entity, ModeScopedEntity, ModeVisit, RoomInstanceRoot,
+    despawn_scoped_entity, ModeScopedEntity, ModeVisit,
 };
 use ambition_platformer2d_shared_tangle::schedule::{
     Platformer2dSimulationPhaseMonolith, SimScheduleExt as _,
@@ -114,30 +114,30 @@ fn live_rule_rooms<'a>(
 
 /// Despawn every [`ModeScopedEntity`] whose mode governs no live room.
 ///
-/// Runs only when the live rooms change: the room set is replaced, a live room
-/// gets another definition, or a live room retires. A room change inside one
-/// mode leaves that mode's entities alone: the sweep compares scopes, not
-/// rooms, which is what makes a mode a lifetime distinct from a room. With two
-/// rooms live (OW1), a mode lives while any live room is in its scope, the
-/// question `CurrentRoom::in_scope` asks for the mode's systems.
+/// A room change inside one mode leaves that mode's entities alone: the sweep
+/// compares scopes, not rooms, which is what makes a mode a lifetime distinct
+/// from a room. With two rooms live (OW1), a mode lives while any live room is
+/// in its scope, the question `CurrentRoom::in_scope` asks for the mode's
+/// systems.
+///
+/// ⛔ IT RUNS ON EVERY TICK, WITH NO GATE. It ran only when the live rooms
+/// changed: `RoomSet` or a root's `LiveRoomDefinition` marked changed, or a
+/// root removed. A rollback load writes the room set and every root again, so
+/// under a resimulating host the gate opened on each load frame and on no
+/// other. Measured (sync test, 4/10): the gate opened on 60 of 300 runs, and
+/// never on a host with no rollback. So a mode-scoped entity whose mode
+/// governs no live room was swept on a peer that loaded a snapshot and kept on
+/// a peer that did not. The sweep is a pure function of the live rooms and
+/// the mode-scoped entities, and there are few of them, so it runs on every
+/// tick on every host.
 pub fn despawn_departed_mode_entities(
     mut commands: Commands,
     rooms: Option<ambition_platformer2d_world::rooms::LiveRoomSpecs>,
-    seated: Query<
-        (),
-        (
-            With<RoomInstanceRoot>,
-            Changed<ambition_platformer2d_world::rooms::LiveRoomDefinition>,
-        ),
-    >,
-    mut retired: RemovedComponents<RoomInstanceRoot>,
     scopes: Option<Res<ModeScopes>>,
     scoped: Query<(Entity, &ModeScopedEntity)>,
 ) {
     let Some(rooms) = rooms else { return };
-    // Read every retirement, so that an old one does not cause a sweep later.
-    let retired = retired.read().count() > 0;
-    if !(rooms.is_changed() || retired || !seated.is_empty()) {
+    if scoped.is_empty() {
         return;
     }
     let live = live_rule_rooms(&rooms);

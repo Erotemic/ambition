@@ -8,10 +8,11 @@
 |---|---|
 | [`admission`](src/admission.rs) | Admission: match each module's requirements against the ports this composition installed, and fix one serial entry order. |
 | [`exec`](src/exec.rs) | Serial invocation: triggers in, staged state and requests out. |
+| [`inspect`](src/inspect.rs) | Text views of the extension host, for a developer or an agent that has no access to the `World` (fast-iteration I7 item 5). |
 | [`reload`](src/reload.rs) | Replacing a loaded module while the game runs. |
 | [`store`](src/store.rs) | The host-owned store for module state attached to a body. |
 
-_4 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_5 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

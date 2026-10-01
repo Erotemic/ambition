@@ -637,3 +637,52 @@ fn the_generation_names_each_declared_module_in_declaration_order() {
     assert_ne!(native_only, *generation);
     assert_eq!(native_only, app().world().resource::<ExtensionGeneration>().0, "the text is deterministic");
 }
+
+#[test]
+fn the_inspection_names_each_entry_its_code_and_the_records_by_field() {
+    let mut app = app();
+    let a = app.world_mut().spawn((Poked(1), Tall(2.0))).id();
+    step(&mut app);
+    let composition = crate::inspect::describe_composition(app.world());
+    assert!(composition.contains("test::counter/a [native]"), "{composition}");
+    assert!(composition.contains("test.emit"), "the request port is listed:\n{composition}");
+    assert!(composition.contains("generation:\nmodule\ttest::counter"), "{composition}");
+    let records = crate::inspect::describe_records(app.world_mut());
+    assert!(records.contains(&format!("{a}")), "{records}");
+    assert!(records.contains("=U32(1)"), "the counter field by name and value:\n{records}");
+}
+
+/// Leaves its record as it was.
+fn leave_alone(_: &mut Invocation<'_>) -> Result<(), Fault> {
+    Ok(())
+}
+
+#[test]
+fn a_call_that_leaves_its_record_initial_stores_nothing() {
+    let mut idle_entry = entry("a", vec![]);
+    idle_entry.run = EntryCode::Native(leave_alone);
+    let mut app = App::new();
+    app.init_schedule(Sim);
+    app.add_plugins(ExtensionHostPlugin::new(Sim))
+        .init_resource::<Lowered>()
+        .init_resource::<SimTick>()
+        .init_resource::<ambition_time::WorldTime>()
+        .install_extension_trigger::<Poke, _>(PHASE, "test", collect_pokes)
+        .install_extension_observation::<Height>(PHASE, "test", height_of)
+        .install_extension_request::<Emit, _>(PHASE, "test", lower_emits)
+        .add_extension_module(module(vec![idle_entry]));
+    app.finish();
+    let body = app.world_mut().spawn((Poked(1), Tall(2.0))).id();
+    step(&mut app);
+    step(&mut app);
+    assert!(
+        app.world().get::<BodyRecords>(body).is_none(),
+        "an initial record that was never stored is not stored by a call that leaves it"
+    );
+
+    // The control: the counting entry, whose call changes the record, stores it.
+    let mut counting = self::app();
+    let counted = counting.world_mut().spawn((Poked(1), Tall(2.0))).id();
+    step(&mut counting);
+    assert!(counting.world().get::<BodyRecords>(counted).is_some());
+}

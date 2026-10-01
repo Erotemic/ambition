@@ -104,6 +104,22 @@ values in a leaf crate (SDK only), an adapter in the owning domain installed
 by `ambition_platformer2d_runtime::extension_composition`, and a port card.
 That is engine work; every module after it is not.
 
+## Inspecting what runs
+
+```bash
+cargo run -p ambition_app_tools --release --bin extension_inspect -- \
+    --boss mockingbird --ticks 900 \
+    [--modules target/extension-modules/wasm32-unknown-unknown/release] \
+    [--try-replace target/extension-modules/wasm32-unknown-unknown/release/ambition_content_modules.wasm]
+```
+
+It prints the installed ports, each entry in serial order with its code
+(linked or loaded), what it writes and requests, which modules a file
+replaced, the generation text the content identity holds, each body's records
+by field name, and, with `--try-replace`, whether admission would take a
+rebuilt file and why not. A body has a record only after a call changed it
+from its initial value.
+
 ## Validation
 
 ```bash

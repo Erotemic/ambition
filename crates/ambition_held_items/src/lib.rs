@@ -811,7 +811,10 @@ pub fn project_custody_onto_residency(
 /// it tracks only occurrences the ledger ALREADY remembers. The condition
 /// is `remembers(sim_id)`, which on the tick a hand empties is still the
 /// outgoing `InCustody` row — so the population is exactly "things somebody
-/// carried", never "every object in the room". A producer that recorded every
+/// carried, and runtime mints", never "every object in the room". A runtime
+/// mint is admitted where it lies (`AuthoredOccurrences::admit_mints`):
+/// nothing authored it, so no record can rebuild it when its room is live
+/// again (OW3). A producer that recorded every
 /// authored occurrence's position would be the universal instance registry this
 /// ledger exists to not be, and would rewrite an enemy's row on every step it
 /// took.
@@ -828,6 +831,10 @@ pub fn record_placed_ground_items(
             &ambition_platformer2d_shared_tangle::sim_id::SimId,
             &GroundItem,
             &ItemCustody,
+            // A runtime mint (`Dynamic`) enters the ledger where it lies; see
+            // `AuthoredOccurrences::admit_mints`. An authored item does not:
+            // its record rebuilds it.
+            Option<&ambition_platformer2d_shared_tangle::construction::SpawnOrigin>,
         ),
         With<ambition_platformer2d_shared_tangle::lifecycle::RoomScopedEntity>,
     >,
@@ -838,6 +845,29 @@ pub fn record_placed_ground_items(
     let (Some(room_set), Some(mut occurrences)) = (room_set, occurrences) else {
         return;
     };
+    // The mints the ledger does not hold yet, by room. Admitted before the
+    // placements below, so a mint is placed in the tick it appears.
+    let mut mints: std::collections::BTreeMap<
+        String,
+        std::collections::BTreeMap<ambition_platformer2d_shared_tangle::sim_id::SimId, Vec2>,
+    > = std::collections::BTreeMap::new();
+    for (entity, sim_id, ground, custody, origin) in &items {
+        let minted = matches!(
+            origin,
+            Some(ambition_platformer2d_shared_tangle::construction::SpawnOrigin::Dynamic { .. })
+        );
+        if !minted || !custody.in_world() || occurrences.remembers(sim_id) {
+            continue;
+        }
+        let Some(definition) = room_set.definition_of(entity) else {
+            continue;
+        };
+        let room = &room_set.rooms().spec(definition).id;
+        mints.entry(room.clone()).or_default().insert(sim_id.clone(), ground.pos);
+    }
+    for (room, admitted) in mints {
+        occurrences.admit_mints(&room, admitted);
+    }
     // Each item comes to rest in the live room it is in, so with two live
     // rooms both rooms' placements are recorded (OW1 cut 7d). BTreeMaps, not
     // the query's order. This value reaches a construction plan; an
@@ -847,7 +877,7 @@ pub fn record_placed_ground_items(
         String,
         std::collections::BTreeMap<ambition_platformer2d_shared_tangle::sim_id::SimId, Vec2>,
     > = std::collections::BTreeMap::new();
-    for (entity, sim_id, ground, custody) in &items {
+    for (entity, sim_id, ground, custody, _) in &items {
         if !custody.in_world() {
             continue;
         }

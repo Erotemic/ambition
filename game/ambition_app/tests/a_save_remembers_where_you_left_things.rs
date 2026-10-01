@@ -744,8 +744,8 @@ fn the_gauntlet_is_back(sim: &mut Platformer2dSimHarness, occurrence: &SimId, wh
     assert_eq!(
         back.len(),
         1,
-        "exactly one live occurrence of `{}` in the hub: zero means the dormant \
-         gauntlet lost its minted description while the hub was not live. got {back:?}",
+        "exactly one live occurrence of `{}` in the hub: zero means the hub was \
+         rebuilt without the dormant gauntlet. got {back:?}",
         occurrence.as_str()
     );
     assert!(back[0].1.in_world(), "and it is lying in the room, not in a hand");
@@ -823,6 +823,35 @@ fn a_gauntlet_left_in_a_room_outlives_a_save_taken_in_another() {
 fn a_gauntlet_no_checkpoint_saw_is_still_where_it_was_left() {
     let mut sim = fixed_60hz_room_sim(TWO_ITEM_ROOM);
     let (occurrence, where_it_fell) = a_gauntlet_left_in_the_hub(&mut sim, "unbanked_gauntlet_boss", false);
+    walk_through_the_door_to(&mut sim, TWO_ITEM_ROOM);
+    sim.step_n(base(), 60);
+    the_gauntlet_is_back(&mut sim, &occurrence, where_it_fell);
+}
+
+/// OW3: a runtime mint that nobody carried is still where it fell when its
+/// room is live again. The ledger once admitted an occurrence only through
+/// custody, so a boss's gauntlet left on the floor had no row, and the hub
+/// was rebuilt without it.
+#[test]
+fn a_gauntlet_nobody_carried_is_still_where_it_fell() {
+    let mut sim = fixed_60hz_room_sim(TWO_ITEM_ROOM);
+    sim.step_n(base(), 30);
+    crate::boss_lifecycle::spawn_mockingbird(&mut sim, "uncarried_gauntlet_boss");
+    crate::boss_lifecycle::kill_boss_with_a_real_hit(&mut sim, "uncarried_gauntlet_boss", 600);
+    sim.step_n(base(), 120);
+    let dropped = dropped_gauntlet(&mut sim);
+    assert_eq!(dropped.len(), 1, "the kill must leave exactly one gauntlet");
+    let occurrence = dropped.into_iter().next().expect("one drop");
+    let where_it_fell = resting_place(&mut sim, &occurrence);
+    assert_eq!(
+        walk_through_the_door_to(&mut sim, "vertical_shaft"),
+        "vertical_shaft",
+        "precondition: the body did not leave the hub, so the hub is still live"
+    );
+    assert!(
+        occurrences(&mut sim, &occurrence).is_empty(),
+        "precondition: the gauntlet is still live, so it is not a dormant record"
+    );
     walk_through_the_door_to(&mut sim, TWO_ITEM_ROOM);
     sim.step_n(base(), 60);
     the_gauntlet_is_back(&mut sim, &occurrence, where_it_fell);

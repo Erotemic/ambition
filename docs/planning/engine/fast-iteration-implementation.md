@@ -542,7 +542,13 @@ either the boss cannot be struck this early in its encounter, or this
 `BossEncounterPhase::boss_invulnerable()` is true until the encounter reaches
 its attacking phase (`boss_lifecycle.rs:92`). Reuse
 `boss_lifecycle::kill_boss_with_a_real_hit`'s shape: step until the phase
-attacks, then strike, and publish the catalog inside that window. (`SessionCast::is_changed` follows the source `get` reads). ⭐ With
+attacks, then strike, and publish the catalog inside that window. ⚠ MEASURED:
+the mockingbird leaves its invulnerable phase at frame 119, but a player placed
+30 px beside it and attacking every 6 frames for 120 frames still left it at 28
+of 28. REASONED: it flies out of melee reach once the player falls back to the
+floor. The helper injects a `HitEvent`, which a sync-test arm cannot use
+(an injected message is not an input, so resimulation would not see it).
+Use a grounded boss whose volumes come from the catalog. (`SessionCast::is_changed` follows the source `get` reads). ⭐ With
 the projection on the session's cast, a cast published mid-timeline no longer
 desyncs the sync test: `developer_edits_under_rollback::publishing_a_cast_mid_timeline_leaves_history_resimulating_the_same`
 asserts it (MEASURED: putting either the projection or the worn re-derivation

@@ -47,7 +47,7 @@ where
         .rollback_resource_clone_checksum::<crate::quest::registry::LastQuestRoom>(
             OWNER,
             "resource.quest_last_room",
-            "the room the RoomEntered producer last announced",
+            "the room ids that were live when the RoomEntered producer last looked",
             crate::quest::registry::LastQuestRoom::checksum,
         )
         // ⛔ A SAME-TICK HANDSHAKE. The quest advance is announced and consumed

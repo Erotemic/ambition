@@ -35,28 +35,29 @@ pub struct QuestRegistry {
     pub initialized: bool,
 }
 
-/// The room `push_room_entered_quest_events` last announced — ROLLBACK STATE,
-/// not a system `Local`.
+/// The ids of the rooms that were live when `push_room_entered_quest_events`
+/// last looked, sorted and without repeats — ROLLBACK STATE, not a system
+/// `Local`.
 ///
-/// The producer fires a `RoomEntered` quest event on the frame the active
-/// room's id flips, so it has to remember the previous id; a `Local` remembers
-/// it across a rewind and lets a resimulation skip the push. Same shape and
-/// same reason as `ambition_cutscene::LastCutsceneRoom`. Registered beside
-/// `QuestRegistry` in this crate's rollback declaration.
+/// The producer fires a `RoomEntered` quest event on the frame a room id
+/// becomes live, so it has to remember which ids were live; a `Local`
+/// remembers them across a rewind and lets a resimulation skip the push.
+/// Registered beside `QuestRegistry` in this crate's rollback declaration.
+///
+/// A set, not one id: with two live rooms (Alice and Bob apart, OW1), each
+/// room is entered on its own, and one id could remember only one of them.
+/// With one live room the set has one member, and it flips as the one id did.
 #[derive(bevy::prelude::Resource, Debug, Default, Clone, PartialEq, Eq)]
-pub struct LastQuestRoom(pub Option<String>);
+pub struct LastQuestRoom(pub Vec<String>);
 
 impl LastQuestRoom {
-    /// Checksum projection: the room id, or a distinct byte for "none".
+    /// Checksum projection: the count, then each room id in order.
     pub fn checksum(&self) -> u64 {
-        use ambition_platformer2d_core::snapshot::{checksum_bytes, put_bool, put_str};
+        use ambition_platformer2d_core::snapshot::{checksum_bytes, put_str, put_u64};
         let mut out = Vec::new();
-        match &self.0 {
-            Some(room) => {
-                put_bool(&mut out, true);
-                put_str(&mut out, room);
-            }
-            None => put_bool(&mut out, false),
+        put_u64(&mut out, self.0.len() as u64);
+        for room in &self.0 {
+            put_str(&mut out, room);
         }
         checksum_bytes(&out)
     }

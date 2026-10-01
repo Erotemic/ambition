@@ -824,7 +824,14 @@ systems it stops (read from the parameter lists, 2026-09-30):
 `sync_encounter_reward_chests` ✅ (7d), `retire_rewards_for_rearmed_encounters` ✅ (7c),
 `record_placed_ground_items` ✅ (7d), `physics_spawn_debris_messages` and
 `tick_npc_idle_barks`, and the content bosses (`cut_rope` ✅ in the review of 7e, `gnu_ton` and the
-flying spaghetti monster ✅ in cut 7j). The
+flying spaghetti monster ✅ in cut 7j). ⚠ This list was not complete. A
+second reading at cut 7k (every non-render function that takes a sole-room
+parameter) also found `push_room_entered_quest_events` ✅ (7k),
+`auto_trigger_room_cutscenes`, the two boss specials
+`spawn_overflow_flood_from_special_messages` and
+`spawn_apple_rain_from_special_messages`, the portal gun's
+`portal_projectile_step` and `sync_portal_host_depths`, the falling-sand
+room, and the demos' one-room systems (Mary-O, Sanic, Smash). The
 presentation readers in `ambition_render` are P5's (a view per player). The
 new reader is `LiveRoomOf<T>`: `T` of the live room an entity is in, by the
 rule of `LiveRooms::of`. Item motion and falling chests now step each
@@ -1031,6 +1038,25 @@ hall was measured) and `each_live_arena_gates_its_ladder_by_its_own_boss`
 (two live arenas, the boss of the second dead: the first keeps its ladder
 hidden and its floor gate; with the room filter removed, the dead boss
 opened both).
+
+✅ **Cut 7k landed 2026-09-30: a room that becomes live beside another is
+entered.** The quest producer pushed `RoomEntered` when the sole live
+room's id flipped, so while two rooms were live it did not run, and the
+room Alice entered while Bob held another was never entered: a quest step
+"reach X" did not advance. Its memory (`LastQuestRoom`, rollback state) is
+now the set of live room ids, and each id that becomes live is entered
+once, in id order. A second live room of an id that is live already is not
+entered again. With one live room the set has one member and flips as the
+one id did. Schema 277 -> 278. Witness:
+`a_room_that_becomes_live_beside_another_is_entered` (`hall` live, then
+`cellar` beside it, then a second `hall`: `hall` and `cellar` entered once
+each; with the sole-room read restored, `cellar` was never entered). The
+one-room control is `restoring_the_last_room_makes_the_producer_announce_the_room_again`.
+⚠ Not changed: `auto_trigger_room_cutscenes` has the same shape, but a
+cutscene is one session-wide playback. Whether a cutscene that one player's
+room starts also stops the other player is a product question, not a
+keying one: multiplayer.md files it as "which story interactions pause
+only one participant versus the whole party".
 
 ⚠ Still owed from cut 5: `outlook_for(room: &str)` is keyed by definition;
 the `SoleLiveRoomSpec` readers each need a subject before a second live room

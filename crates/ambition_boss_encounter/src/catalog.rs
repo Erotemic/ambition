@@ -472,6 +472,20 @@ impl BossCatalogRegistry {
         Ok(())
     }
 
+    /// The registry with `fragment` in place of its provider's current one
+    /// (or added), and the catalog it assembles. For a content reload: the
+    /// candidate is checked whole before anything is published.
+    pub fn with_replaced(
+        &self,
+        fragment: BossCatalogFragment,
+    ) -> Result<(Self, BossCatalog), BossCatalogAssemblyError> {
+        fragment.validate()?;
+        let mut next = self.clone();
+        next.fragments.insert(fragment.provider_id.clone(), fragment);
+        let catalog = next.assemble()?;
+        Ok((next, catalog))
+    }
+
     pub fn assemble(&self) -> Result<BossCatalog, BossCatalogAssemblyError> {
         let mut behaviors = BTreeMap::new();
         let mut encounters = BTreeMap::new();

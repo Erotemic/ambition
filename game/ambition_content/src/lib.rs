@@ -67,6 +67,10 @@ pub mod falling_sand;
 /// feature-gated test silently stops running).
 pub mod falling_sand_sim;
 pub mod pack;
+/// The running game plays a content edit: the declared sources are watched,
+/// and a change asks for a reload.
+#[cfg(not(feature = "static_content"))]
+pub mod content_watch;
 /// The running host's move-table reload — the revision road's first customer.
 pub mod reload;
 /// The candidate a reload is about.

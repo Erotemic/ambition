@@ -81,6 +81,11 @@ NOT_PER_ATTEMPT = {
     # Catalogs and registries: authored data, must SURVIVE a death.
     "AmbitionDialogPortraitCatalog": "authored catalog",
     "FallingSandTypeIds": "id table built once from the type registry",
+    "ContentSourceWatch": (
+        "developer file watch: the modification times of the content sources on "
+        "disk, which a death does not change; a reload it asks for re-prepares the "
+        "whole route"
+    ),
     "SmashRoster": "authored roster",
     "CutRopeBossArenaState": (
         "presentation, keyed by live room: a replay mints a new live room whose "

@@ -12,6 +12,7 @@
 | [`bosses`](src/bosses/mod.rs) | Named Ambition boss content registration. |
 | [`character_catalog`](src/character_catalog.rs) | Ambition's character-catalog data and the cast it registers. |
 | [`content_validation`](src/content_validation.rs) | Cross-content validation for authored sandbox data. |
+| [`content_watch`](src/content_watch.rs) | ⭐ THE RUNNING GAME PLAYS A CONTENT EDIT (fast-iteration I3 step 4: "file watching calls the same request path"). |
 | [`dialogue`](src/dialogue/mod.rs) | Named Ambition dialogue / cutscene content registration. |
 | [`dormancy`](src/dormancy.rs) | Ambition's dormancy rule: how near an observer must be for a hostile to keep thinking. |
 | [`duel_arena`](src/duel_arena.rs) | Spectator-duel CONTENT — the PCA-vs-robot exhibition fight (R3.3: room mechanics split by kind; this one is a `RoomLoaded` consumer). |
@@ -37,7 +38,7 @@
 | [`worlds`](src/worlds.rs) | Ambition's LDtk WORLD payload + its `WorldManifest` — CONTENT, evicted from the engine core (R3.2, the #1 violation: the engine shipped the game's worlds). |
 | [`yarn_vocabulary`](src/yarn_vocabulary.rs) | Yarn command, function, and markup registrations available to authored `.yarn` content. |
 
-_30 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_31 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

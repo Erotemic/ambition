@@ -2136,8 +2136,10 @@ replacement, one poll is one candidate, a departed schema takes its records).
 Later the same day the character catalog joined (a whole-cast revision against
 the candidate catalog; since the same day a character added is staged and one
 removed is retired, `CandidateCatalog::retired`). Fighter facets, the boss seed
-library and the validator bands joined the same day. Still refused by the
-reload: items, audio. Open, found on the way: a boss's HP, phase
+library and the validator bands joined the same day, and so did items: the
+item catalog is an App-local `ItemCatalog` resource (it was a process-global
+`OnceLock`), and a saved item row is played 22 frames after the save. Still
+refused by the reload: audio. Open, found on the way: a boss's HP, phase
 triggers, death seconds, music and reward seed from the App catalog, not the
 frozen generation (see I3 in the implementation page).
 

@@ -178,7 +178,10 @@ impl OwnedItemsBaseline {
         // equipped projection for the same reason this checksum must. Reusing it
         // means the hash and the file can never come to disagree about what a
         // quantity is.
-        let rows = self.0.to_persisted();
+        // The BUILT-IN catalog's ids: a checksum has no world to ask, and the
+        // built-in table is the same in every process, so two peers hash the
+        // same bag to the same bytes whatever content each installed.
+        let rows = self.0.to_persisted(ambition_items::builtin_item_catalog());
         let mut bytes = Vec::new();
         put_u64(&mut bytes, rows.len() as u64);
         for row in &rows {

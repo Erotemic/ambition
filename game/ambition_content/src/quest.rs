@@ -229,9 +229,12 @@ pub fn populate_quest_registry(
 /// Apply the items in `PIRATE_TREASURE_REWARD` to the inventory and
 /// return a banner string for the HUD. Pure helper so tests can drive
 /// the payout without spinning up Bevy.
-pub fn grant_pirate_treasure_reward(inventory: &mut OwnedItems) -> String {
+pub fn grant_pirate_treasure_reward(
+    inventory: &mut OwnedItems,
+    items: &ambition_items::ItemCatalog,
+) -> String {
     for (item, count) in PIRATE_TREASURE_REWARD {
-        inventory.grant(*item, *count);
+        inventory.grant(items, *item, *count);
     }
     "TREASURE RETURNED — Admiral pays out the hoard".to_string()
 }
@@ -243,6 +246,7 @@ pub fn grant_quest_completion_rewards(
     registry: Res<QuestRegistry>,
     mut save: ResMut<ambition_persistence::save::AmbitionGameSave>,
     mut inventory: ResMut<OwnedItems>,
+    items: ambition_items::ItemCatalogRead,
     mut banner_state: ResMut<GameplayBanner>,
 ) {
     let Some(state) = registry.quests.get("pirate_treasure") else {
@@ -254,7 +258,7 @@ pub fn grant_quest_completion_rewards(
     if save.data().flag(PIRATE_TREASURE_REWARD_FLAG) {
         return;
     }
-    let banner = grant_pirate_treasure_reward(&mut inventory);
+    let banner = grant_pirate_treasure_reward(&mut inventory, items.get());
     save.data_mut().set_flag(PIRATE_TREASURE_REWARD_FLAG, true);
     banner_state.show(banner, 3.0);
 }
@@ -326,7 +330,7 @@ mod tests {
     #[test]
     fn grant_pirate_treasure_reward_adds_each_item_listed_in_payout() {
         let mut inventory = OwnedItems::default();
-        let banner = grant_pirate_treasure_reward(&mut inventory);
+        let banner = grant_pirate_treasure_reward(&mut inventory, ambition_items::builtin_item_catalog());
         for (item, count) in PIRATE_TREASURE_REWARD {
             assert_eq!(inventory.count(*item), *count);
         }

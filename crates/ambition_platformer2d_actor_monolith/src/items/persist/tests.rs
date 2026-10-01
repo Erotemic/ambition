@@ -33,13 +33,13 @@ fn a_loaded_save_restores_items_and_wallet_over_the_starter() {
     // HealthCell is a stacking consumable; Bomb is a unique weapon (cap 1).
     save.data_mut().set_inventory(
         vec![
-            ambition_persistence::save_data::PersistedItem::new(Item::HealthCell.dialog_id(), 4),
-            ambition_persistence::save_data::PersistedItem::new(Item::Bomb.dialog_id(), 1),
+            ambition_persistence::save_data::PersistedItem::new(ambition_items::builtin_item_catalog().dialog_id(Item::HealthCell), 4),
+            ambition_persistence::save_data::PersistedItem::new(ambition_items::builtin_item_catalog().dialog_id(Item::Bomb), 1),
         ],
         137,
     );
     // Live state is the starter (Fireball etc.), wallet 0.
-    let (mut app, player) = app_with(save, OwnedItems::starter(), 0);
+    let (mut app, player) = app_with(save, OwnedItems::starter(ambition_items::builtin_item_catalog()), 0);
     app.update();
     let owned = app.world().resource::<OwnedItems>();
     assert_eq!(
@@ -63,7 +63,7 @@ fn a_loaded_save_restores_items_and_wallet_over_the_starter() {
 #[test]
 fn a_fresh_save_keeps_the_starter_and_then_persists_it() {
     // inventory_saved == false → fresh; keep the live starter + wallet.
-    let (mut app, _player) = app_with(AmbitionGameSave::default(), OwnedItems::starter(), 25);
+    let (mut app, _player) = app_with(AmbitionGameSave::default(), OwnedItems::starter(ambition_items::builtin_item_catalog()), 25);
     app.update();
     let owned = app.world().resource::<OwnedItems>();
     assert!(
@@ -80,7 +80,7 @@ fn a_fresh_save_keeps_the_starter_and_then_persists_it() {
     assert!(
         data.items()
             .iter()
-            .any(|i| i.id == Item::Fireball.dialog_id()),
+            .any(|i| i.id == ambition_items::builtin_item_catalog().dialog_id(Item::Fireball)),
         "the starter items were written to the save"
     );
 }
@@ -90,14 +90,14 @@ fn a_fresh_process_adopts_the_post_load_bag_as_its_checkpoint_baseline() {
     let mut save = AmbitionGameSave::default();
     save.data_mut().set_inventory(
         vec![ambition_persistence::save_data::PersistedItem::new(
-            Item::HealthCell.dialog_id(),
+            ambition_items::builtin_item_catalog().dialog_id(Item::HealthCell),
             4,
         )],
         0,
     );
 
     // Deliberately start from a DIFFERENT live bag.
-    let (mut app, _player) = app_with(save, OwnedItems::starter(), 0);
+    let (mut app, _player) = app_with(save, OwnedItems::starter(ambition_items::builtin_item_catalog()), 0);
     app.update();
 
     let baseline = app
@@ -116,12 +116,12 @@ fn round_trips_the_owned_counts_by_id() {
     // to_persisted / apply_persisted survive a round-trip (the storage half).
     // Consumables stack; unique items (Bomb) cap at 1 via grant.
     let mut owned = OwnedItems::default();
-    owned.grant(Item::Bomb, 1);
-    owned.grant(Item::HealthCell, 5);
-    owned.grant(Item::ManaCell, 2);
-    let persisted = owned.to_persisted();
-    let mut restored = OwnedItems::starter();
-    restored.apply_persisted(&persisted);
+    owned.grant(ambition_items::builtin_item_catalog(), Item::Bomb, 1);
+    owned.grant(ambition_items::builtin_item_catalog(), Item::HealthCell, 5);
+    owned.grant(ambition_items::builtin_item_catalog(), Item::ManaCell, 2);
+    let persisted = owned.to_persisted(ambition_items::builtin_item_catalog());
+    let mut restored = OwnedItems::starter(ambition_items::builtin_item_catalog());
+    restored.apply_persisted(ambition_items::builtin_item_catalog(), &persisted);
     assert_eq!(restored.count(Item::Bomb), 1);
     assert_eq!(restored.count(Item::HealthCell), 5);
     assert_eq!(restored.count(Item::ManaCell), 2);
@@ -155,13 +155,13 @@ fn a_new_game_does_not_write_the_old_runs_inventory_back_into_the_fresh_save() {
     let mut save = AmbitionGameSave::default();
     save.data_mut().set_inventory(
         vec![ambition_persistence::save_data::PersistedItem::new(
-            Item::Bomb.dialog_id(),
+            ambition_items::builtin_item_catalog().dialog_id(Item::Bomb),
             1,
         )],
         137,
     );
-    let mut owned = OwnedItems::starter();
-    owned.grant(Item::Bomb, 1);
+    let mut owned = OwnedItems::starter(ambition_items::builtin_item_catalog());
+    owned.grant(ambition_items::builtin_item_catalog(), Item::Bomb, 1);
     let (mut app, player) = app_with(save, owned, 137);
     app.update();
 
@@ -182,7 +182,7 @@ fn a_new_game_does_not_write_the_old_runs_inventory_back_into_the_fresh_save() {
     // with the pinned fresh inputs installed.
     *app.world_mut().resource_mut::<AmbitionGameSave>() = AmbitionGameSave::default();
     let mut starter = OwnedItemsBaseline::default();
-    starter.adopt(OwnedItems::starter());
+    starter.adopt(OwnedItems::starter(ambition_items::builtin_item_catalog()));
     app.world_mut().insert_resource(ItemCheckpointRestoreInputs {
         minted: Default::default(),
         owned: starter,
@@ -222,7 +222,7 @@ fn a_new_game_does_not_write_the_old_runs_inventory_back_into_the_fresh_save() {
     assert!(
         data.items()
             .iter()
-            .all(|item| item.id != Item::Bomb.dialog_id()),
+            .all(|item| item.id != ambition_items::builtin_item_catalog().dialog_id(Item::Bomb)),
         "the freshly wiped save was repopulated with the old run's weapon: {:?}",
         data.items()
     );
@@ -238,7 +238,7 @@ fn a_new_game_does_not_write_the_old_runs_inventory_back_into_the_fresh_save() {
     // restored nothing to the bag.
     assert_eq!(
         app.world().resource::<OwnedItemsBaseline>().remembered(),
-        &OwnedItems::starter(),
+        &OwnedItems::starter(ambition_items::builtin_item_catalog()),
         "a death after this New Game would restore the wrong bag"
     );
 }

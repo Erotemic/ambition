@@ -1291,7 +1291,7 @@ fn defeated_boss_drops_its_signature_ability() {
         );
         if let Some(a) = ability {
             assert!(
-                ambition_items::Item::from_dialog_id(a).is_some(),
+                ambition_items::builtin_item_catalog().item_by_dialog_id(a).is_some(),
                 "boss {id} -> ability {a} must be a real catalog item",
             );
         }

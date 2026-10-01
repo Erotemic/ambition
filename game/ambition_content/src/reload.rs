@@ -99,11 +99,9 @@ pub enum MoveReload {
     /// identity false.
     ///
     /// [`participates`] is the authority for which domains participate. Do not
-    /// keep a list here. Domains installed in `AmbitionContentPlugin::build`
-    /// from `pack::prepared()` (`item_catalog`, `character_catalog`, the audio
-    /// registries, the boss families) do not participate, because no reload
-    /// road replaces them. An items-only candidate would make
-    /// `PreparedContentIdentity` name N+1 while the item catalog serves N.
+    /// keep a list here. A domain that no reload road replaces (2026-10-01:
+    /// the audio registries) does not participate: a candidate that changed it
+    /// would make `PreparedContentIdentity` name N+1 while that domain serves N.
     ///
     /// The rule fails safe: every non-participating domain is refused. When a
     /// domain joins the transaction, flip the test that pins its refusal to
@@ -358,10 +356,6 @@ pub(crate) fn publish_candidate(
 ///
 /// `fighter_brain_ladder` was the second family and needed no new resource,
 /// ordering edge or refusal; see [`publish_participant_families`].
-///
-/// Items cannot participate. `install_item_catalog` writes a process-global
-/// `OnceLock`, and its readers return `&'static str`, so the type cannot
-/// express a generation N+1.
 fn participates(domain: &str) -> bool {
     domain == ambition_characters::moveset_content_schema::MOVESET_SCHEMA
         || domain == ambition_characters::actor::character_catalog::CHARACTER_CATALOG_SCHEMA
@@ -513,6 +507,10 @@ const PACK_DERIVED_FAMILIES: &[PackDerivedFamily] = &[
         domain: ambition_boss_encounter::pattern::content_schema::BOSS_VALIDATOR_BANDS_SCHEMA,
         publish: publish_nothing_a_running_game_reads,
     },
+    PackDerivedFamily {
+        domain: ambition_items::content_schema::ITEM_CATALOG_SCHEMA,
+        publish: publish_item_catalog,
+    },
 ];
 
 /// A family no system of the running game reads: the new pack is selected,
@@ -536,6 +534,25 @@ fn publish_fighter_ladder(
         Some(ladder) => world.insert_resource(AuthoredFighterLadder(ladder.clone())),
         None => {
             world.remove_resource::<AuthoredFighterLadder>();
+        }
+    }
+}
+
+/// Absent in the candidate means remove. `ItemCatalogRead` treats an absent
+/// catalog as the built-in table, which is what a pack without `items.ron`
+/// plays at startup too.
+///
+/// The bag (`OwnedItems`) is not changed. It holds counts by grid slot, and a
+/// catalog revision changes what a slot is called and how it is used, not how
+/// many the player has.
+fn publish_item_catalog(
+    world: &mut bevy::ecs::world::World,
+    pack: &ambition_content_pack::PreparedContentPack,
+) {
+    match ambition_items::content_schema::lowered_item_catalog(pack) {
+        Some(catalog) => world.insert_resource(catalog.clone()),
+        None => {
+            world.remove_resource::<ambition_items::ItemCatalog>();
         }
     }
 }

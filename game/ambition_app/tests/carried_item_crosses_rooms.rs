@@ -2168,7 +2168,7 @@ fn a_new_game_reset_reaches_the_wallet_and_the_bag() {
          `BodyWallet::default()` afterwards cannot be the value it already had"
     );
 
-    let starter = OwnedItems::starter();
+    let starter = OwnedItems::starter(ambition_platformer2d::items::item_catalog(sim.world()));
     {
         let world = sim.world_mut();
         let mut owned = world.resource_mut::<OwnedItems>();

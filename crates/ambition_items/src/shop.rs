@@ -92,9 +92,14 @@ impl ShopTransactionRequested {
     /// Here rather than at the applier so the two sides cannot drift: a caller
     /// that had to remember which of [`buy`]/[`sell`] matches which
     /// [`ShopSide`] is one `match` away from paying the player for a purchase.
-    pub fn apply(&self, wallet: &mut BodyWallet, owned: &mut OwnedItems) -> ShopTx {
+    pub fn apply(
+        &self,
+        wallet: &mut BodyWallet,
+        owned: &mut OwnedItems,
+        catalog: &crate::ItemCatalog,
+    ) -> ShopTx {
         match self.side {
-            ShopSide::Buy => buy(wallet, owned, self.item, self.price),
+            ShopSide::Buy => buy(wallet, owned, catalog, self.item, self.price),
             ShopSide::Sell => sell(wallet, owned, self.item, self.price),
         }
     }
@@ -122,17 +127,23 @@ impl ShopTx {
 
 /// Attempt to buy one `item` for `price`: debit the wallet and grant the item
 /// only if affordable. A negative price is rejected as unaffordable.
-pub fn buy(wallet: &mut BodyWallet, owned: &mut OwnedItems, item: Item, price: i32) -> ShopTx {
+pub fn buy(
+    wallet: &mut BodyWallet,
+    owned: &mut OwnedItems,
+    catalog: &crate::ItemCatalog,
+    item: Item,
+    price: i32,
+) -> ShopTx {
     if price < 0 {
         return ShopTx::CantAfford;
     }
     // A unique item (weapon / ability) the player already owns can't stack — the
     // grant caps at one — so refuse the buy instead of pocketing the coins.
-    if item.category().is_unique() && owned.has(item) {
+    if catalog.category(item).is_unique() && owned.has(item) {
         return ShopTx::AlreadyOwned;
     }
     if wallet.try_spend(price) {
-        owned.grant(item, 1);
+        owned.grant(catalog, item, 1);
         ShopTx::Bought
     } else {
         ShopTx::CantAfford
@@ -154,11 +165,15 @@ pub fn sell(wallet: &mut BodyWallet, owned: &mut OwnedItems, item: Item, price: 
 mod tests {
     use super::*;
 
+    fn builtin() -> &'static crate::ItemCatalog {
+        crate::builtin_item_catalog()
+    }
+
     #[test]
     fn buying_an_affordable_item_debits_and_grants() {
         let mut wallet = BodyWallet { balance: 30 };
         let mut owned = OwnedItems::default();
-        assert_eq!(buy(&mut wallet, &mut owned, Item::Axe, 25), ShopTx::Bought);
+        assert_eq!(buy(&mut wallet, &mut owned, builtin(), Item::Axe, 25), ShopTx::Bought);
         assert_eq!(wallet.balance, 5);
         assert!(owned.has(Item::Axe));
     }
@@ -168,7 +183,7 @@ mod tests {
         let mut wallet = BodyWallet { balance: 10 };
         let mut owned = OwnedItems::default();
         assert_eq!(
-            buy(&mut wallet, &mut owned, Item::Axe, 25),
+            buy(&mut wallet, &mut owned, builtin(), Item::Axe, 25),
             ShopTx::CantAfford
         );
         assert_eq!(wallet.balance, 10, "wallet untouched on a failed buy");
@@ -179,8 +194,8 @@ mod tests {
     fn consumables_stack_when_bought_repeatedly() {
         let mut wallet = BodyWallet { balance: 100 };
         let mut owned = OwnedItems::default();
-        assert!(buy(&mut wallet, &mut owned, Item::HealthCell, 8).succeeded());
-        assert!(buy(&mut wallet, &mut owned, Item::HealthCell, 8).succeeded());
+        assert!(buy(&mut wallet, &mut owned, builtin(), Item::HealthCell, 8).succeeded());
+        assert!(buy(&mut wallet, &mut owned, builtin(), Item::HealthCell, 8).succeeded());
         assert_eq!(owned.count(Item::HealthCell), 2);
         assert_eq!(wallet.balance, 84);
     }
@@ -189,7 +204,7 @@ mod tests {
     fn selling_an_owned_item_credits_and_removes() {
         let mut wallet = BodyWallet { balance: 0 };
         let mut owned = OwnedItems::default();
-        owned.grant(Item::HealthCell, 2);
+        owned.grant(builtin(), Item::HealthCell, 2);
         assert_eq!(
             sell(&mut wallet, &mut owned, Item::HealthCell, 4),
             ShopTx::Sold
@@ -213,7 +228,7 @@ mod tests {
     fn buy_then_sell_round_trips_ownership() {
         let mut wallet = BodyWallet { balance: 25 };
         let mut owned = OwnedItems::default();
-        assert!(buy(&mut wallet, &mut owned, Item::Axe, 25).succeeded());
+        assert!(buy(&mut wallet, &mut owned, builtin(), Item::Axe, 25).succeeded());
         assert_eq!(wallet.balance, 0);
         assert!(sell(&mut wallet, &mut owned, Item::Axe, 12).succeeded());
         assert_eq!(wallet.balance, 12);
@@ -224,8 +239,8 @@ mod tests {
     fn re_buying_an_owned_unique_is_refused_without_spending() {
         let mut wallet = BodyWallet { balance: 100 };
         let mut owned = OwnedItems::default();
-        owned.grant(Item::Blink, 1); // an ability — unique
-        let tx = buy(&mut wallet, &mut owned, Item::Blink, 45);
+        owned.grant(builtin(), Item::Blink, 1); // an ability — unique
+        let tx = buy(&mut wallet, &mut owned, builtin(), Item::Blink, 45);
         assert_eq!(tx, ShopTx::AlreadyOwned, "can't re-buy a unique you own");
         assert_eq!(wallet.balance, 100, "wallet untouched");
         assert_eq!(owned.count(Item::Blink), 1, "still just one");
@@ -235,8 +250,8 @@ mod tests {
     fn non_unique_consumables_still_stack_on_buy() {
         let mut wallet = BodyWallet { balance: 100 };
         let mut owned = OwnedItems::default();
-        owned.grant(Item::HealthCell, 1); // consumable — stacks
-        assert!(buy(&mut wallet, &mut owned, Item::HealthCell, 8).succeeded());
+        owned.grant(builtin(), Item::HealthCell, 1); // consumable — stacks
+        assert!(buy(&mut wallet, &mut owned, builtin(), Item::HealthCell, 8).succeeded());
         assert_eq!(owned.count(Item::HealthCell), 2, "consumables stack");
     }
 }

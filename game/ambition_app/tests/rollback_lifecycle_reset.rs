@@ -548,7 +548,7 @@ fn a_confirmed_death_restores_the_entitlement_bag_the_checkpoint_banked() {
     // eager host.
     sim.world_mut()
         .resource_mut::<OwnedItems>()
-        .grant(STACKABLE, 1);
+        .grant(ambition_platformer2d::items::builtin_item_catalog(), STACKABLE, 1);
     sim.rebase_rollback_history()
         .expect("the post-checkpoint bag becomes the rollback baseline");
     assert_eq!(

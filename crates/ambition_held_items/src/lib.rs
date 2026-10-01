@@ -982,8 +982,12 @@ pub fn gunsword_spec() -> HeldItemSpec {
 /// Resolve a catalog [`ambition_items::Item`]'s held-item spec, for equipping from
 /// a non-pickup source (the inventory menu). The three wired weapons each have a
 /// spec; everything else returns `None`.
-pub fn held_spec_for_item(item: ambition_items::Item) -> Option<HeldItemSpec> {
-    item.held_item_id()
+pub fn held_spec_for_item(
+    catalog: &ambition_items::ItemCatalog,
+    item: ambition_items::Item,
+) -> Option<HeldItemSpec> {
+    catalog
+        .held_item_id(item)
         .and_then(ambition_characters::brain::held_item_by_id)
 }
 
@@ -1067,11 +1071,12 @@ pub fn empty_hand(
 
 /// The catalog [`Item`](ambition_items::Item) a body's hand holds, if the
 /// hand holds something the catalog has a row for: a [`HeldItem`] whose id
-/// maps through `Item::from_held_item_id` (the pirates' `gun_sword_heavy` maps
+/// maps through `ItemCatalog::item_by_held_item_id` (the pirates' `gun_sword_heavy` maps
 /// to nothing and reads as an empty hand, as it always did), or an active
 /// [`PortalGun`], which equips through its own component and carries no
 /// held-item id. The ONE projection every menu-side "is it equipped" reads.
 pub fn item_in_hand(
+    catalog: &ambition_items::ItemCatalog,
     held: Option<&HeldItem>,
     #[cfg(feature = "portal")] portal_gun: Option<&PortalGun>,
 ) -> Option<ambition_items::Item> {
@@ -1079,7 +1084,7 @@ pub fn item_in_hand(
     if portal_gun.is_some_and(|gun| gun.active) {
         return Some(ambition_items::Item::PortalGun);
     }
-    held.and_then(|held| ambition_items::Item::from_held_item_id(held.id()))
+    held.and_then(|held| catalog.item_by_held_item_id(held.id()))
 }
 
 /// RELEASE custody of a held item — the twin of [`equip_held_spec`].
@@ -1389,6 +1394,7 @@ pub fn throw_held_item_system(
         &mut ambition_platformer2d_shared_tangle::sim_id::SimIdCounter,
     )>,
     mut owned: Option<ResMut<ambition_items::OwnedItems>>,
+    items: ambition_items::ItemCatalogRead,
 ) {
     for player in driven.entities() {
         let Ok((mut control, kin, mut repertoire, room)) = bodies.get_mut(player) else {
@@ -1516,7 +1522,7 @@ pub fn throw_held_item_system(
         // quantity and has no row to spend.
         if let (Some(owned), Some(item)) = (
             owned.as_deref_mut(),
-            ambition_items::Item::from_held_item_id(spec.id.as_str()),
+            items.get().item_by_held_item_id(spec.id.as_str()),
         ) {
             owned.take(item, 1);
         }

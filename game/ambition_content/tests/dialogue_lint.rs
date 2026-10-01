@@ -328,18 +328,23 @@ mod tests {
     ///
     /// `<<give_item "sealednote" 1>>`, `<<buy_item "axe" 25>>` and
     /// `condition("inventory.holds", "gunsword")` all pass an author-typed string.
-    /// `Item::from_dialog_id` owns loose spelling (it accepts `HealthPotion`,
+    /// `ItemCatalog::item_by_dialog_id` owns loose spelling (it accepts `HealthPotion`,
     /// `health_potion` and `healthcell`), so a misspelling is neither a compile
     /// error nor a Yarn error. The command `warn!`s and returns; the condition
     /// answers `Unanswerable`, which collapses to false. Either way the line
     /// silently does nothing.
     ///
-    /// This calls `Item::from_dialog_id` instead of listing the items: a
+    /// This asks the shipped catalog (`item_by_dialog_id`) instead of listing the items: a
     /// hand-kept table of spellings would be a second authority on normalisation
     /// and would drift when an alias is added.
     #[test]
     fn every_authored_item_id_resolves_to_a_real_item() {
-        use ambition_items::Item;
+        // The catalog the shipped pack plays, not the built-in table: authored
+        // dialogue runs against that one.
+        let catalog = ambition_items::content_schema::lowered_item_catalog(
+            ambition_content::pack::prepared(),
+        )
+        .expect("the shipped pack carries an item catalog");
 
         let mut files = Vec::new();
         yarn_files(&dialogue_root(), &mut files);
@@ -379,7 +384,7 @@ mod tests {
 
         let unresolved: Vec<String> = asked
             .iter()
-            .filter(|(_, _, id)| Item::from_dialog_id(id).is_none())
+            .filter(|(_, _, id)| catalog.item_by_dialog_id(id).is_none())
             .map(|(file, line, id)| format!("{file}:{line}: `{id}`"))
             .collect();
         assert!(

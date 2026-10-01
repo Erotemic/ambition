@@ -952,6 +952,7 @@ fn kaleidoscope_focus_nav(
     // travels with the dispatch, into `kaleidoscope_menu_action_activated`. Nav
     // announces; it does not act.
     owned: Res<OwnedItems>,
+    items: ambition_platformer2d::items::ItemCatalogRead,
     mut settings: ResMut<UserSettings>,
     mut quality_confirm: ResMut<VisualQualityConfirmState>,
     // The ONE activation event. Nav announces the chosen action; the consumer
@@ -1109,7 +1110,7 @@ fn kaleidoscope_focus_nav(
         let action = match cursor.focus {
             MenuFocus::EdgeLeft => Some(MenuPageAction::ChangePage(active_page.on_viewer_left())),
             MenuFocus::EdgeRight => Some(MenuPageAction::ChangePage(active_page.on_viewer_right())),
-            MenuFocus::Item(idx) => owned_item_action(&owned, idx),
+            MenuFocus::Item(idx) => owned_item_action(&owned, items.get(), idx),
             // System focus is handled by the System branch above; never reached here.
             MenuFocus::System(_) => None,
         };
@@ -1498,12 +1499,16 @@ fn move_spatial(focus: MenuFocus, dx: i32, dy: i32, _page: MenuPage) -> SpatialM
 
 /// The `MenuPageAction` for an owned item slot, or `None` if the slot is empty/unowned
 /// (so confirming an empty cell is a no-op, matching the grid backend).
-pub(crate) fn owned_item_action(owned: &OwnedItems, idx: usize) -> Option<MenuPageAction> {
+pub(crate) fn owned_item_action(
+    owned: &OwnedItems,
+    items: &ambition_platformer2d::items::ItemCatalog,
+    idx: usize,
+) -> Option<MenuPageAction> {
     let item = Item::from_index(idx)?;
     if !owned.has(item) {
         return None;
     }
-    Some(if item.held_item_id().is_some() {
+    Some(if items.held_item_id(item).is_some() {
         MenuPageAction::Equip(item)
     } else {
         MenuPageAction::Use(item)
@@ -1523,6 +1528,7 @@ pub(crate) fn menu_confirm_label(
     menu_open: bool,
     focus: MenuFocus,
     owned: Option<&OwnedItems>,
+    items: &ambition_platformer2d::items::ItemCatalog,
 ) -> Option<String> {
     if !menu_open {
         return None;
@@ -1531,7 +1537,7 @@ pub(crate) fn menu_confirm_label(
     let MenuFocus::Item(idx) = focus else {
         return None;
     };
-    match owned_item_action(owned, idx)? {
+    match owned_item_action(owned, items, idx)? {
         MenuPageAction::Equip(_) => Some("Equip".to_owned()),
         MenuPageAction::Use(_) => Some("Use".to_owned()),
         _ => None,
@@ -1560,10 +1566,11 @@ fn publish_menu_confirm_prompt(
     ui_state: Option<Res<ambition_platformer2d::inventory_ui::InventoryUiState>>,
     cursor: Res<KaleidoscopeCursor>,
     owned: Option<Res<OwnedItems>>,
+    items: ambition_platformer2d::items::ItemCatalogRead,
     mut cues: ResMut<ambition_platformer2d::input::ActiveUiCues>,
 ) {
     let menu_open = ui_state.map(|s| s.visible).unwrap_or(false);
-    let label = menu_confirm_label(menu_open, cursor.focus(), owned.as_deref());
+    let label = menu_confirm_label(menu_open, cursor.focus(), owned.as_deref(), items.get());
     let cue = ambition_platformer2d::input::UiCue {
         context: INVENTORY_CUE_CONTEXT,
         priority: 150,
@@ -2194,7 +2201,7 @@ fn kaleidoscope_sync_detail_text(
     // Build the slot→string map for whichever face's detail panel is live. Only the
     // active page carries dynamic-text slots, so a single map covers the panel.
     let slot_text: Vec<(u32, String)> = match active_page {
-        MenuPage::Items => items_detail_slot_text(&owned, hand.in_hand(), cursor.focus),
+        MenuPage::Items => items_detail_slot_text(&owned, hand.items(), hand.in_hand(), cursor.focus),
         MenuPage::System => match cache.model.as_ref() {
             Some(model) => {
                 let focused = match cursor.focus {

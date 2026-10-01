@@ -67,9 +67,9 @@
 //! looks. The channel was one `static` in the harness, a few lines from the arms
 //! it broke. ⇒ Check the instrument's own globals before the subject's.
 //!
-//! ⚠ Not the item catalog: `install_item_catalog` is a documented process-global
-//! `OnceLock` that ALLOWS identical reinstallation, and both fixtures install the
-//! same one. That exclusion was correct and is kept.
+//! ⚠ Not the item catalog: it was then a process-global `OnceLock` that ALLOWED
+//! identical reinstallation, and both fixtures installed the same one. It is an
+//! App-local resource now (2026-10-01), so it cannot be a channel at all.
 //!
 //! ⚠ Not the wall-clock timestep (`013b70c89`'s mechanism), and this one is
 //! structural rather than statistical: `Platformer2dSimHarness::set_timestep`
@@ -101,7 +101,7 @@ fn grant_each_tick_from_four(
     mut owned: bevy::prelude::ResMut<OwnedItems>,
 ) {
     if tick.0 >= 4 {
-        owned.grant(Item::HealthCell, 1);
+        owned.grant(ambition_platformer2d::items::builtin_item_catalog(), Item::HealthCell, 1);
     }
 }
 
@@ -626,9 +626,9 @@ fn no_registered_type_is_written_outside_the_rewinding_schedule() {
 /// the engine because that is where the reader was looking. The channel was one
 /// `static` in the harness, four lines from the arms it broke.
 ///
-/// ⚠ NOT the item catalog: `install_item_catalog` is a documented process-global
-/// `OnceLock` that ALLOWS identical reinstallation, and both fixtures install the
-/// same one. That exclusion was correct and is kept.
+/// ⚠ NOT the item catalog: it was then a process-global `OnceLock` that ALLOWED
+/// identical reinstallation, and both fixtures installed the same one. It is an
+/// App-local resource now (2026-10-01), so it cannot be a channel at all.
 ///
 /// ⚠ AND THE LIMITATION THIS ARM RECORDS IS UNCHANGED: the detector cannot see a
 /// PRESENCE-probed resource's value change, so the `Update` write this fixture

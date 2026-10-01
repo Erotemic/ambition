@@ -39,19 +39,19 @@ impl Plugin for AmbitionContentPlugin {
         // App-local world manifest shared by runtime and presentation readers.
         app.insert_resource(super::worlds::world_manifest());
 
-        // Install the validated item catalog lowered from the prepared pack.
-        ambition_items::install_item_catalog(
-            ambition_items::content_schema::lowered_item_catalog(crate::pack::prepared())
-                .expect("the items schema lowers its catalog for every pack that compiles")
-                .clone(),
-        );
+        // Insert the validated item catalog lowered from the prepared pack. It is
+        // App-local: a content reload publishes a new one into this App only.
+        let items = ambition_items::content_schema::lowered_item_catalog(crate::pack::prepared())
+            .expect("the items schema lowers its catalog for every pack that compiles")
+            .clone();
 
         // The one place the game starts owning the item roster. The windowed app
         // and the headless harness both install this plugin, so both see it. The
         // 24-item catalog ownership model is always-on core state (pickups and
         // dialogue read and write it whatever menu renders it), and it is the
         // roster of the catalog installed above.
-        app.insert_resource(ambition_items::OwnedItems::starter());
+        app.insert_resource(ambition_items::OwnedItems::starter(&items));
+        app.insert_resource(items);
 
         // Register Ambition's adaptive music catalog under its content provider.
         #[cfg(feature = "audio")]

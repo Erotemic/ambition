@@ -24,7 +24,7 @@ use ambition_platformer2d::menu::{
     MenuTextAlign,
 };
 
-use ambition_platformer2d::items::{Item, OwnedItems, ITEM_GRID_COLS, ITEM_GRID_ROWS};
+use ambition_platformer2d::items::{Item, ItemCatalog, OwnedItems, ITEM_GRID_COLS, ITEM_GRID_ROWS};
 use ambition_platformer2d::persistence::settings::{UserSettings, VisualQualityProfile};
 use ambition_platformer2d::settings_menu::settings::{SettingsOption, SettingsOptionId, SettingsOptionKind};
 use ambition_platformer2d::settings_menu::system::{
@@ -246,12 +246,12 @@ pub enum MenuPageAction {
 /// A short, cell-sized verb hint for an item, mirroring the demo's
 /// `item_slot_detail` (e.g. "equip" / "use" / "key item"). Deliberately NOT the
 /// full description — the description lives in the detail panel.
-fn cell_hint(owned: &OwnedItems, equipped: Option<Item>, item: Item) -> &'static str {
+fn cell_hint(owned: &OwnedItems, items: &ItemCatalog, equipped: Option<Item>, item: Item) -> &'static str {
     if !owned.has(item) {
         "--"
     } else if equipped == Some(item) {
         "equipped"
-    } else if item.held_item_id().is_some() {
+    } else if items.held_item_id(item).is_some() {
         "equip"
     } else {
         "use"
@@ -274,6 +274,7 @@ fn cell_label(name: &str) -> String {
 /// detail panel (see [`build_items_page`]).
 pub fn items_spec(
     owned: &OwnedItems,
+    items: &ItemCatalog,
     equipped: Option<Item>,
 ) -> ItemsOnlyPageSpec<MenuPage, MenuPageAction> {
     let mut spec = ItemsOnlyPageSpec::new(MenuPage::Items, "ITEMS")
@@ -288,13 +289,13 @@ pub fn items_spec(
         .map(|item| {
             let owns = owned.has(item);
             let mut node = if owns {
-                InventoryItemNode::new(item.index(), cell_label(item.display_name()))
+                InventoryItemNode::new(item.index(), cell_label(items.display_name(item)))
             } else {
-                InventoryItemNode::unowned(item.index(), cell_label(item.display_name()))
+                InventoryItemNode::unowned(item.index(), cell_label(items.display_name(item)))
             };
             // The description is rendered once, in the detail panel.
             node = node
-                .detail(cell_hint(owned, equipped, item))
+                .detail(cell_hint(owned, items, equipped, item))
                 .equipped(equipped == Some(item));
             // Render the item's sprite in the cell when it has one; the catalog
             // returns `None` for items with no authored art, which keeps the text
@@ -305,7 +306,7 @@ pub fn items_spec(
             }
             if owns {
                 // Held-item weapons/abilities equip; everything else "uses".
-                let (action, label) = if item.held_item_id().is_some() {
+                let (action, label) = if items.held_item_id(item).is_some() {
                     (MenuPageAction::Equip(item), "Equip")
                 } else {
                     (MenuPageAction::Use(item), "Use")
@@ -323,9 +324,10 @@ pub fn items_spec(
 /// page-turn buttons — matching the demo's `add_items_page` structure.
 pub fn build_items_page(
     owned: &OwnedItems,
+    items: &ItemCatalog,
     equipped: Option<Item>,
 ) -> MenuPageModel<MenuPage, MenuPageAction> {
-    let mut model = items_spec(owned, equipped).into_page_model();
+    let mut model = items_spec(owned, items, equipped).into_page_model();
     add_detail_panel(&mut model);
     add_edge_buttons(&mut model, MenuPage::Items);
     model
@@ -366,11 +368,12 @@ fn add_detail_panel(model: &mut MenuPageModel<MenuPage, MenuPageAction>) {
 /// in-place equivalent of the old baked detail panel.
 pub fn items_detail_slot_text(
     owned: &OwnedItems,
+    items: &ItemCatalog,
     equipped: Option<Item>,
     focus: MenuFocus,
 ) -> Vec<(u32, String)> {
     let item = Item::from_index(focus.item_index()).unwrap_or(Item::ALL[0]);
-    let lines = detail_lines(owned, equipped, item);
+    let lines = detail_lines(owned, items, equipped, item);
     (0..ITEMS_DETAIL_BODY_LINES)
         .map(|i| {
             let slot = ITEMS_DETAIL_BODY_SLOT0 + i;
@@ -382,11 +385,16 @@ pub fn items_detail_slot_text(
 
 /// The wrapped detail-panel lines for an item: its name, a blank, the wrapped
 /// description, and a one-line status. Mirrors the demo's `detail_lines`.
-fn detail_lines(owned: &OwnedItems, equipped: Option<Item>, item: Item) -> Vec<String> {
+fn detail_lines(
+    owned: &OwnedItems,
+    items: &ItemCatalog,
+    equipped: Option<Item>,
+    item: Item,
+) -> Vec<String> {
     let mut lines = Vec::new();
-    lines.extend(wrap_text(item.display_name(), DETAIL_WRAP_COLS));
+    lines.extend(wrap_text(items.display_name(item), DETAIL_WRAP_COLS));
     lines.push(String::new());
-    lines.extend(wrap_text(item.description(), DETAIL_WRAP_COLS));
+    lines.extend(wrap_text(items.description(item), DETAIL_WRAP_COLS));
     // Cap the description so it stays inside the fixed panel (Text3d does not clip
     // to its parent rect — the demo wraps + caps for the same reason).
     lines.truncate(DETAIL_VISIBLE_LINES);
@@ -395,7 +403,7 @@ fn detail_lines(owned: &OwnedItems, equipped: Option<Item>, item: Item) -> Vec<S
         "not owned".to_string()
     } else if equipped == Some(item) {
         "equipped".to_string()
-    } else if item.held_item_id().is_some() {
+    } else if items.held_item_id(item).is_some() {
         "Activate to equip".to_string()
     } else {
         "Activate to use".to_string()
@@ -411,6 +419,7 @@ fn detail_lines(owned: &OwnedItems, equipped: Option<Item>, item: Item) -> Vec<S
 #[allow(clippy::too_many_arguments)]
 pub fn build_inventory_pages(
     owned: &OwnedItems,
+    items: &ItemCatalog,
     equipped: Option<Item>,
     focus: MenuFocus,
     settings: &UserSettings,
@@ -423,6 +432,7 @@ pub fn build_inventory_pages(
 ) -> Vec<MenuPageModel<MenuPage, MenuPageAction>> {
     build_inventory_pages_with_quality_prompt(
         owned,
+        items,
         equipped,
         focus,
         settings,
@@ -437,6 +447,7 @@ pub fn build_inventory_pages(
 #[allow(clippy::too_many_arguments)]
 pub fn build_inventory_pages_with_quality_prompt(
     owned: &OwnedItems,
+    items: &ItemCatalog,
     equipped: Option<Item>,
     focus: MenuFocus,
     settings: &UserSettings,
@@ -449,7 +460,7 @@ pub fn build_inventory_pages_with_quality_prompt(
     pending_quality: Option<VisualQualityProfile>,
 ) -> Vec<MenuPageModel<MenuPage, MenuPageAction>> {
     vec![
-        build_items_page(owned, equipped),
+        build_items_page(owned, items, equipped),
         placeholder_page(
             MenuPage::Map,
             "MAP",

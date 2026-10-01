@@ -61,7 +61,7 @@ pub fn open_ecs_chests(
     // walk-over pickup hands to `grant_pickup`.
     mut heals: MessageWriter<crate::avatar::PlayerHealRequested>,
     mut wallets: Query<&mut ambition_characters::actor::BodyWallet>,
-    mut owned: Option<ResMut<ambition_items::OwnedItems>>,
+    (mut owned, items): (Option<ResMut<ambition_items::OwnedItems>>, ambition_items::ItemCatalogRead),
 ) {
     // Iterate every player so each player's own buffered interact
     // can open a chest the player is overlapping. Per-player interact
@@ -112,6 +112,7 @@ pub fn open_ecs_chests(
                     &mut wallets,
                     &mut set_flag,
                     owned.as_deref_mut(),
+                    items.get(),
                 );
             }
             let pos = aabb.center;

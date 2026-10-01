@@ -121,6 +121,7 @@ fn hand_item(sim: &mut Platformer2dSimHarness) -> Option<Item> {
         .flatten()
         .cloned();
     ambition_platformer2d::held_items::item_in_hand(
+        ambition_platformer2d::items::item_catalog(world),
         held.as_ref(),
         #[cfg(feature = "portal")]
         gun.as_ref(),
@@ -134,7 +135,7 @@ fn saved_count(sim: &Platformer2dSimHarness, item: Item) -> u32 {
         .data()
         .items()
         .iter()
-        .find(|persisted| persisted.id == item.dialog_id())
+        .find(|persisted| persisted.id == ambition_platformer2d::items::builtin_item_catalog().dialog_id(item))
         .map(|persisted| persisted.count)
         .unwrap_or(0)
 }
@@ -229,13 +230,14 @@ fn load_the_save(sim: &mut Platformer2dSimHarness) {
 /// `MenuAction::Equip` in `menu::effects` with the portal fork removed.
 fn equip_the_counted_item(
     mut commands: bevy::prelude::Commands,
+    items: ambition_platformer2d::items::ItemCatalogRead,
     mut bodies: bevy::prelude::Query<
         (Entity, ambition_platformer2d::combat::hand::RepertoireQuery),
         ambition_platformer2d::platformer::markers::PrimaryPlayerOnly,
     >,
 ) {
     let (player, mut repertoire) = bodies.single_mut().expect("one primary body");
-    let spec = ambition_platformer2d::held_items::held_spec_for_item(COUNTED_ITEM)
+    let spec = ambition_platformer2d::held_items::held_spec_for_item(items.get(), COUNTED_ITEM)
         .expect("the javelin is a wired weapon with a held spec");
     ambition_platformer2d::held_items::equip_held_spec(
         &mut commands,
@@ -447,7 +449,7 @@ fn a_death_that_returns_the_object_leaves_nothing_in_the_catalog_claiming_it() {
         catalog_count(&mut sim, AUTHORED_REWARD_ITEM),
         0,
         "the catalog must start without a `{}`",
-        AUTHORED_REWARD_ITEM.dialog_id()
+        ambition_platformer2d::items::builtin_item_catalog().dialog_id(AUTHORED_REWARD_ITEM)
     );
 
     // ── the checkpoint FIRST, with empty hands ───────────────────────────────
@@ -507,7 +509,7 @@ fn a_death_that_returns_the_object_leaves_nothing_in_the_catalog_claiming_it() {
         "⛔ the object is back on its pedestal, so nothing may still claim it. A \
          `{}` that survives here is a phantom the menu will equip and mint a \
          second real one from",
-        AUTHORED_REWARD_ITEM.dialog_id()
+        ambition_platformer2d::items::builtin_item_catalog().dialog_id(AUTHORED_REWARD_ITEM)
     );
     assert_eq!(
         still_saved, 0,

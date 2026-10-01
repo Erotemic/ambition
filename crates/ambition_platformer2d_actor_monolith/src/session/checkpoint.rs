@@ -411,6 +411,8 @@ pub fn resume_at_checkpoint_on_reset(
         Option<Res<ambition_platformer2d_shared_tangle::lifecycle::CustodyBaseline>>,
         Option<Res<crate::items::pickup::minted_horizon::MintedItemBaseline>>,
         Option<Res<crate::items::pickup::minted_horizon::OwnedItemsBaseline>>,
+        // What a new game's starter bag is made of (which items stack).
+        ambition_items::ItemCatalogRead<'_>,
     ),
     mut admitted: bevy::prelude::MessageWriter<ambition_combat::events::RoomReplayAdmitted>,
 ) {
@@ -526,7 +528,7 @@ pub fn resume_at_checkpoint_on_reset(
         );
         return;
     };
-    let (occurrences, custody, minted, owned) = baselines;
+    let (occurrences, custody, minted, owned, items) = baselines;
     let fresh = restore_to == RestoreTo::NewGame;
     let (lifecycle, item) = if fresh {
         // The fresh baseline, pinned in the same shape as a checkpoint's. A
@@ -541,7 +543,7 @@ pub fn resume_at_checkpoint_on_reset(
             minted.zip(owned).map(|_| {
                 let mut owned = crate::items::pickup::minted_horizon::OwnedItemsBaseline::default();
                 // A new game begins with the bag a new process begins with.
-                owned.adopt(ambition_items::OwnedItems::starter());
+                owned.adopt(ambition_items::OwnedItems::starter(items.get()));
                 crate::items::pickup::minted_horizon::ItemCheckpointRestoreInputs {
                     minted: Default::default(),
                     owned,

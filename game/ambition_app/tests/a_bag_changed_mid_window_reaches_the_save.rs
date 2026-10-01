@@ -311,7 +311,7 @@ fn probe_how_many_consecutive_changed_ticks_desync() {
             mut owned: bevy::prelude::ResMut<OwnedItems>,
         ) {
             if (20..20 + N).contains(&tick.0) {
-                owned.grant(Item::HealthCell, 1);
+                owned.grant(ambition_platformer2d::items::builtin_item_catalog(), Item::HealthCell, 1);
             }
         }
         let mut sim = sim_composed_with(grant::<N>);
@@ -364,7 +364,7 @@ fn probe_which_start_tick_stops_desyncing() {
             mut owned: bevy::prelude::ResMut<OwnedItems>,
         ) {
             if tick.0 >= FROM {
-                owned.grant(Item::HealthCell, 1);
+                owned.grant(ambition_platformer2d::items::builtin_item_catalog(), Item::HealthCell, 1);
             }
         }
         let mut sim = sim_composed_with(grant::<FROM>);
@@ -426,7 +426,7 @@ fn probe_whether_a_pure_function_of_the_tick_also_desyncs() {
         // ⛔ A PURE FUNCTION OF THE TICK, which is the whole point: `take`
         // everything first so the result cannot depend on how many times this ran.
         owned.take(Item::HealthCell, u32::MAX);
-        owned.grant(Item::HealthCell, (tick.0 % 5) as u32);
+        owned.grant(ambition_platformer2d::items::builtin_item_catalog(), Item::HealthCell, (tick.0 % 5) as u32);
     }
     fn set_from_tick_once(
         tick: bevy::prelude::Res<ambition_platformer2d::time::SimTick>,
@@ -434,7 +434,7 @@ fn probe_whether_a_pure_function_of_the_tick_also_desyncs() {
     ) {
         if tick.0 == 20 {
             owned.take(Item::HealthCell, u32::MAX);
-            owned.grant(Item::HealthCell, 2);
+            owned.grant(ambition_platformer2d::items::builtin_item_catalog(), Item::HealthCell, 2);
         }
     }
 
@@ -451,7 +451,7 @@ fn probe_whether_a_pure_function_of_the_tick_also_desyncs() {
     ) {
         if tick.0 >= 4 {
             owned.take(Item::HealthCell, u32::MAX);
-            owned.grant(Item::HealthCell, (tick.0 % 5) as u32);
+            owned.grant(ambition_platformer2d::items::builtin_item_catalog(), Item::HealthCell, (tick.0 % 5) as u32);
         }
     }
 
@@ -575,7 +575,7 @@ fn sim_tick(sim: &Platformer2dSimHarness) -> u64 {
 }
 
 fn grant_each_tick(mut owned: bevy::prelude::ResMut<OwnedItems>) {
-    owned.grant(Item::HealthCell, 1);
+    owned.grant(ambition_platformer2d::items::builtin_item_catalog(), Item::HealthCell, 1);
 }
 
 /// The other half of the bisect: same road into the schedule, no writes at all.
@@ -595,7 +595,7 @@ fn grant_once_at_tick_20(
     mut owned: bevy::prelude::ResMut<OwnedItems>,
 ) {
     if tick.0 == 20 {
-        owned.grant(Item::HealthCell, 1);
+        owned.grant(ambition_platformer2d::items::builtin_item_catalog(), Item::HealthCell, 1);
     }
 }
 
@@ -605,7 +605,7 @@ fn grant_once_at_tick_20(
 /// desyncs, the trigger is a system's PRESENCE in the schedule and nothing in
 /// this file is about items at all.
 fn touch_the_bag_each_tick(mut owned: bevy::prelude::ResMut<OwnedItems>) {
-    owned.grant(Item::HealthCell, 0);
+    owned.grant(ambition_platformer2d::items::builtin_item_catalog(), Item::HealthCell, 0);
 }
 
 /// The SANCTIONED road, which is the whole difference from `grant_each_tick`:
@@ -712,7 +712,7 @@ fn a_bag_changed_from_update_is_silently_taken_back_by_the_rewind() {
     {
         let world = sim.world_mut();
         let mut owned = world.resource_mut::<OwnedItems>();
-        owned.grant(Item::HealthCell, 1);
+        owned.grant(ambition_platformer2d::items::builtin_item_catalog(), Item::HealthCell, 1);
     }
     let granted = live_cells(&sim);
     assert_eq!(
@@ -810,7 +810,7 @@ fn the_control_keeps_the_same_grant_when_nothing_rewinds() {
     }
     {
         let world = sim.world_mut();
-        world.resource_mut::<OwnedItems>().grant(Item::HealthCell, 1);
+        world.resource_mut::<OwnedItems>().grant(ambition_platformer2d::items::builtin_item_catalog(), Item::HealthCell, 1);
     }
     let granted = live_cells(&sim);
     assert!(granted > 0, "the grant did not reach the live bag at all");

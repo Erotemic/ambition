@@ -807,7 +807,7 @@ fn pack_with_every_move_retimed() -> ambition_content_pack::PreparedContentPack 
 ///
 /// Two existing `held_item_id` values are swapped, so the only difference is
 /// which slot grants which held item. That is mechanical content:
-/// `Item::from_held_item_id` resolves equipping. The field moves; the rows do
+/// `ItemCatalog::item_by_held_item_id` resolves equipping. The field moves; the rows do
 /// not.
 fn pack_with_one_item_rewired() -> ambition_content_pack::PreparedContentPack {
     let mut edited = false;
@@ -924,18 +924,11 @@ fn cast_generation(app: &bevy::app::App) -> u64 {
 /// same decision through `compile_pack_with`, the shipped roster and a live
 /// `PreparedCharacterRegistry`.
 ///
-/// An items-only candidate is refused. The live item catalog is installed in
-/// `AmbitionContentPlugin::build` from `pack::prepared()` and no reload road
-/// replaces it, so publishing would make `PreparedContentIdentity` name N+1
-/// while items serve N.
-///
-/// Items cannot join easily: `pack::prepared()` returns a `&'static` borrow,
-/// and the item read side re-exports it (`display_name`, `description`,
-/// `dialog_id` return `&'static str`) and adds `ITEM_CATALOG_OVERRIDE`, a
-/// second `OnceLock`. The second family is `fighter_brain_ladder` instead; see
-/// `the_fighter_ladder_is_the_second_family_the_transaction_carries`. When
-/// items join (after `ambition_items` returns owned values), flip this test to
-/// expect publication.
+/// An items-only candidate is published, and the App's `ItemCatalog` moves
+/// with the selection. Before 2026-10-01 the catalog was a process-global
+/// `OnceLock` that no reload could replace, so this arm asserted a refusal: a
+/// published pack would have named N+1 while items served N. The catalog is an
+/// App-local resource now, and the items family publishes it.
 ///
 /// The control runs first. A complete no-op must touch nothing; that is the
 /// only result that tells this apart from a `publish_candidate` that always
@@ -944,7 +937,7 @@ fn cast_generation(app: &bevy::app::App) -> u64 {
 /// allocations also shows the compile is deterministic, which every
 /// `assert_ne!` on fingerprints in this file relies on.
 #[test]
-fn a_candidate_that_changes_only_items_is_refused_as_an_unsupported_domain() {
+fn a_candidate_that_changes_only_items_publishes_the_item_catalog() {
     // ── the control: a complete no-op touches nothing ────────────────────────
     {
         let mut app = host_with_the_shipped_cast();
@@ -1006,35 +999,57 @@ fn a_candidate_that_changes_only_items_is_refused_as_an_unsupported_domain() {
     );
     let generation_before = cast_generation(&app);
 
-    let outcome = publish_candidate(
+    // The production road: request, then activate. The families are published
+    // at the activation, not by the request.
+    shell_active_on(&mut app, true);
+    app.add_systems(
+        bevy::app::Update,
+        (adopt_preparation_transaction, commit_content_generation).chain(),
+    );
+    let outcome = request_reload(
         app.world_mut(),
         ambition_content_pack::CandidateGeneration::prepared_against(
             std::sync::Arc::clone(&candidate),
             Some(live.fingerprint),
-        ));
-
-    match &outcome {
-        MoveReload::RefusedUnsupportedChangedDomain(domains) => assert!(
-            domains.iter().any(|d| d == "item_catalog"),
-            "the refusal does not name the domain that changed: {domains:?}"
         ),
-        other => panic!(
-            "an items-only candidate must be refused until items participate in \
-             the generation transaction; got {other:?}"
-        ),
-    }
+    );
+    assert!(
+        matches!(outcome, ReloadRequest::Requested { .. }),
+        "an items-only candidate was not requested; got {outcome:?}"
+    );
+    assert!(
+        app.world().get_resource::<ambition_items::ItemCatalog>().is_none(),
+        "the REQUEST published the item catalog; generation N must stay until activation"
+    );
+    let mine = a_preparation_for(&mut app, "shell.game.1");
+    app.world_mut()
+        .write_message(ambition_platformer2d::game_shell::ShellEvent::RouteActivated(mine));
+    app.update();
     assert!(
         std::ptr::eq(
             crate::pack::selected(app.world()).expect("a selection"),
-            std::sync::Arc::as_ref(&live)
+            std::sync::Arc::as_ref(&candidate)
         ),
-        "a refused candidate became the App's selection, so the engine's content \
-         identity now claims item content is active that is not"
+        "the items-only candidate did not become the App's selection"
+    );
+    let published = app
+        .world()
+        .get_resource::<ambition_items::ItemCatalog>()
+        .expect("the items family publishes the catalog resource");
+    assert_eq!(
+        Some(published),
+        ambition_items::content_schema::lowered_item_catalog(&candidate),
+        "the App plays an item catalog that is not the selected pack's"
+    );
+    assert_ne!(
+        Some(published),
+        ambition_items::content_schema::lowered_item_catalog(&live),
+        "the premise: the published catalog differs from generation N's"
     );
     assert_eq!(
         cast_generation(&app),
         generation_before,
-        "a refused candidate moved the cast generation"
+        "an items-only candidate consumed a cast generation"
     );
 }
 
@@ -1793,13 +1808,10 @@ fn a_candidate_that_renames_nobody_is_still_requested() {
     );
 }
 
-/// The production road refuses it too. The direct-road arm alone does not
+/// The production road requests it too. The direct-road arm alone does not
 /// cover the road the game takes.
-///
-/// When items join the generation transaction, flip this arm: expect
-/// `Requested`, and expect a shell command.
 #[test]
-fn the_request_road_refuses_an_items_only_candidate_too() {
+fn the_request_road_requests_an_items_only_candidate_too() {
     let mut app = host_with_the_shipped_cast();
     shell_active_on(&mut app, true);
     let live = live_pack(&app);
@@ -1821,25 +1833,16 @@ fn the_request_road_refuses_an_items_only_candidate_too() {
             Some(live.fingerprint),
         ),
     );
-    match &outcome {
-        ReloadRequest::Refused(MoveReload::RefusedUnsupportedChangedDomain(domains)) => assert!(
-            domains.iter().any(|d| d == "item_catalog"),
-            "the refusal does not name the domain that changed: {domains:?}"
-        ),
-        other => panic!(
-            "an items-only candidate must be refused on the REQUEST road until \
-             items participate in the generation transaction; got {other:?}"
-        ),
-    }
-    // And the shell gets no command, so no epoch, publication or reconstruction
-    // is spent.
     assert!(
-        issued_commands(&mut app).is_empty(),
-        "a refused request reached the shell anyway"
+        matches!(&outcome, ReloadRequest::Requested { route, .. } if route == "game"),
+        "an items-only candidate was not requested; got {outcome:?}"
     );
     assert!(
-        crate::reload::pending_pack(app.world()).is_none(),
-        "a refused request staged the candidate as pending"
+        matches!(
+            issued_commands(&mut app).as_slice(),
+            [ShellCommand::ReplaceWith { route, .. }] if route.as_str() == "game"
+        ),
+        "the request did not reach the shell as a ReplaceWith on the active route"
     );
 }
 
@@ -2884,10 +2887,9 @@ fn a_candidate_that_would_fail_admission_is_refused_before_the_request_is_issued
 // The second mechanical content family.
 //
 // These arms validate that the transaction absorbs a second family with no
-// new authority. The family is `fighter_brain_ladder`, not items: items still
-// use a process-global `OnceLock` and return `&'static str`, so they cannot
-// participate without a signature change (see
-// `a_candidate_that_changes_only_items_is_refused_as_an_unsupported_domain`).
+// new authority. The family is `fighter_brain_ladder`. (Items joined later,
+// on 2026-10-01, when the catalog became an App-local resource; see
+// `a_candidate_that_changes_only_items_publishes_the_item_catalog`.)
 // The ladder is one declared source with one lowering site, published as a
 // plain `AuthoredFighterLadder` resource.
 // ---------------------------------------------------------------------------

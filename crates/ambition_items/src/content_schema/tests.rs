@@ -244,7 +244,7 @@ fn reformatting_the_item_grid_does_not_move_the_fingerprint() {
     assert_eq!(at("reflow_base", &plain), at("reflow_moved", &reflowed));
 }
 
-/// An id no script can reach is unreachable content. `Item::from_dialog_id`
+/// An id no script can reach is unreachable content. `ItemCatalog::item_by_dialog_id`
 /// normalizes the QUERY (lowercase, alphanumerics only) and compares it to the
 /// stored spelling verbatim, so an un-normalized authored id silently never
 /// resolves.

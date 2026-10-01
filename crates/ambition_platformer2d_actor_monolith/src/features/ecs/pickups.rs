@@ -186,7 +186,7 @@ pub fn collect_ecs_pickups(
     mut sfx: SfxWriter,
     mut vfx: MessageWriter<VfxMessage>,
     mut set_flag: MessageWriter<SetFlagRequested>,
-    mut owned: Option<ResMut<ambition_items::OwnedItems>>,
+    (mut owned, items): (Option<ResMut<ambition_items::OwnedItems>>, ambition_items::ItemCatalogRead),
     // The tie-break's authority. Read through a lookup rather than joined onto
     // the collector query so a body without one still competes on distance —
     // it just cannot win a tie, which is what `winner_by` documents.
@@ -235,6 +235,7 @@ pub fn collect_ecs_pickups(
             &mut wallets,
             &mut set_flag,
             owned.as_deref_mut(),
+            items.get(),
         );
         let pos = aabb.center;
         vfx.write(VfxMessage::Burst {
@@ -281,6 +282,7 @@ pub fn grant_pickup(
     wallets: &mut Query<&mut ambition_characters::actor::BodyWallet>,
     set_flag: &mut MessageWriter<SetFlagRequested>,
     mut owned: Option<&mut ambition_items::OwnedItems>,
+    items: &ambition_items::ItemCatalog,
 ) {
     match kind {
         ambition_interaction::PickupKind::Health { amount } => {
@@ -299,8 +301,8 @@ pub fn grant_pickup(
             // the OoT inventory and can be equipped (wired abilities) — the
             // Metroidvania "learn a power from a boss" beat.
             if let Some(owned) = owned.as_deref_mut() {
-                if let Some(item) = ambition_items::Item::from_dialog_id(ability_id) {
-                    owned.grant(item, 1);
+                if let Some(item) = items.item_by_dialog_id(ability_id) {
+                    owned.grant(items, item, 1);
                 }
             }
         }

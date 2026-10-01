@@ -764,7 +764,7 @@ impl RoomFeatureConstructionPlan {
                     // `ambition_characters::brain::held_item_by_id` and there is one
                     // registry. Before that they differed, and this line named which:
                     // a mint that came out of the INVENTORY resolved through the item
-                    // catalog (`Item::from_held_item_id`), the narrow lookup answered
+                    // catalog (`ItemCatalog::item_by_held_item_id`), the narrow lookup answered
                     // `None`, and a javelin went down the "no item spec answers to
                     // that id" arm and was lost a second time.
                     match ambition_held_items::held_spec_by_id(&description.held_item) {

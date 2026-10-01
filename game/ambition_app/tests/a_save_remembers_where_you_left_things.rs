@@ -500,7 +500,7 @@ fn dropped_gauntlet(sim: &mut Platformer2dSimHarness) -> Vec<SimId> {
 /// says consulting one alone "silently loses half the items". Every other arm in
 /// this file and its siblings carries a spec the CATALOG knows — the axe, the
 /// gun-sword, the grapple, the menu-minted javelin. `volley` has no `Item` row
-/// at all, so `Item::from_held_item_id` answers `None` and only the second
+/// at all, so `ItemCatalog::item_by_held_item_id` answers `None` and only the second
 /// registry can rebuild it.
 ///
 /// The durable road this proves, end to end and across a process boundary:

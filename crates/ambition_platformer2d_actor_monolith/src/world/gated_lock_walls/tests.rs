@@ -419,7 +419,7 @@ fn a_wall_may_be_gated_on_an_item_the_player_carries() {
 
     app.world_mut()
         .resource_mut::<ambition_items::OwnedItems>()
-        .grant(ambition_items::Item::Axe, 1);
+        .grant(ambition_items::builtin_item_catalog(), ambition_items::Item::Axe, 1);
     app.update();
     assert_eq!(
         standing(&app),

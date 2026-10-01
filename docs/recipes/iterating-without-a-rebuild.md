@@ -23,6 +23,7 @@ from disk and watches nothing.
 | `data/character_catalog.ron` (a row's health, body, abilities, brain; a row added or removed) | The same reload; every character is folded again against the new catalog. An added row is built and staged; a removed one leaves the cast. | `a_character_row_saved_while_the_game_runs_is_played`, `a_catalog_save_that_adds_or_removes_a_character_is_played` |
 | `data/fighter_brain_ladder.ron`, `data/encounters/*.ron` | The same reload. | `ambition_content::reload` tests |
 | A fighter facet (`data/fighters/*.ron`) | The same reload: every character is staged again from the live catalog with the edited facet folded in (a match that plays fighter damage reads it). | `a_fighter_facet_saved_while_the_game_runs_reaches_the_cast` |
+| `data/items.ron` (an item's name, description, category, held item, dialogue id) | The same reload: the App's item catalog is replaced. The menu, pickups, shops and dialogue name items from the new rows. The bag keeps its counts. | `an_item_row_saved_while_the_game_runs_is_played` |
 | `data/boss_seeds.ron`, `data/boss_validator_bands.ron` | The same reload takes them, and nothing in the running game changes: only the offline fight validator (`tests/boss_fight_validator.rs`) reads them. | `a_candidate_that_changes_only_the_validator_calibration_publishes` |
 | `crates/ambition_platformer2d_actor_monolith/assets/ambition/platformer_defaults.ron` (movement tuning, and combat/time feel under `feel:`) | Writes a changed tuning to the F3 inspector's mirror (`EditableMovementTuning`, `EditableFeelTuning`); the developer-edit road publishes it about 20 frames after the save. A file that does not parse, or a `feel:` field the engine does not have, is refused. The starting abilities in the file need a restart. | `a_movement_tuning_saved_while_the_game_runs_is_played` |
 | A Yarn file (`assets/dialogue/sandbox/*.yarn`) | Compiles the whole dialogue project with the new file, then uses it. A dialogue that is open starts its current node again. | `content_it::a_saved_dialogue_edit_is_played` |
@@ -32,8 +33,8 @@ from disk and watches nothing.
 A reload is refused, and the game keeps what it runs, when:
 
 - the pack does not compile (the log shows the compiler's message);
-- the change is to a file the reload does not take yet: `items.ron`, the
-  audio registries (restart the game: no rebuild, see below);
+- the change is to a file the reload does not take yet: the audio
+  registries (restart the game: no rebuild, see below);
 - a rollback timeline another owner holds is live (a networked match).
 
 Read the log for the result. Each reload writes one line:

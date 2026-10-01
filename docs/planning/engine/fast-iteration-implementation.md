@@ -472,7 +472,8 @@ rebuilt mockingbird kept the frozen 28 (`a_boss_tuning_saved_while_the_game_runs
 now asserts the saved HP too). `BossEncounterRegistry` is left with that
 fixture fallback as its only reader. Still refused: items, audio, the character catalog,
 the boss seed library and validator bands, and every source outside the pack
-(`boss_sheets.ron`, `boss_art_keys.ron`).
+(`boss_sheets.ron`, `boss_art_keys.ron`). (Later the same day the character
+catalog, the seeds and bands, fighter facets and items joined; see the queue.)
 
 **The character catalog in the reload — LANDED 2026-10-01 (two increments).**
 `character_catalog` is a participating domain. Increment 1

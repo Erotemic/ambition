@@ -716,6 +716,54 @@ fn a_fighter_facet_saved_while_the_game_runs_reaches_the_cast() {
     }
 }
 
+/// ⭐ AN ITEM ROW SAVED WHILE THE GAME RUNS IS PLAYED. The item catalog is an
+/// App-local resource, and the items reload family publishes the edited pack's
+/// catalog with the selection. The watch is pointed at an exported copy.
+#[cfg(not(feature = "static_content"))]
+#[test]
+fn an_item_row_saved_while_the_game_runs_is_played() {
+    use ambition_content::content_watch::ContentSourceWatch;
+    use ambition_platformer2d::items::{item_catalog, Item};
+    let axe = |sim: &ambition_sim_harness::Platformer2dSimHarness| {
+        item_catalog(sim.world()).display_name(Item::Axe).to_string()
+    };
+    let mut sim = common::fixed_60hz_room_sim("proving_grounds");
+    for _ in 0..40 {
+        sim.step(common::base());
+    }
+    assert_eq!(axe(&sim), "Axe", "the premise: the shipped catalog names slot 1 `Axe`");
+
+    let root = std::env::temp_dir().join(format!("ambition_items_watch_{}", std::process::id()));
+    let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        ambition_content::pack::export_sources_to(&root).expect("sources export");
+        sim.world_mut().insert_resource(ContentSourceWatch::new(root.clone()));
+        std::thread::sleep(std::time::Duration::from_millis(20));
+        let path = root.join("data/items.ron");
+        let text = std::fs::read_to_string(&path).unwrap();
+        let from = "display_name: \"Axe\",";
+        assert_eq!(text.matches(from).count(), 1, "the premise: items.ron names the axe once");
+        std::fs::write(&path, text.replacen(from, "display_name: \"Hatchet\",", 1)).unwrap();
+
+        let mut frames = 0;
+        while axe(&sim) != "Hatchet" {
+            sim.step(common::base());
+            frames += 1;
+            assert!(
+                frames < 600,
+                "600 frames after the save the catalog names slot 1 {:?}; reloads requested: {}",
+                axe(&sim),
+                sim.world().resource::<ContentSourceWatch>().requested
+            );
+        }
+        assert_eq!(sim.world().resource::<ContentSourceWatch>().requested, 1, "one save, one reload");
+        eprintln!("a saved item row reached the item catalog {frames} frames after the save");
+    }));
+    let _ = std::fs::remove_dir_all(&root);
+    if let Err(payload) = outcome {
+        std::panic::resume_unwind(payload);
+    }
+}
+
 /// ⭐ A CATALOG SAVE THAT ADDS A CHARACTER, AND ONE THAT REMOVES IT, ARE BOTH
 /// PLAYED WITHOUT A RESTART. The added row is built and staged like every other
 /// row; the removed one is RETIRED: it leaves the cast and the stored source

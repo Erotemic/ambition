@@ -2,10 +2,10 @@
 //
 // Top-level shape: `[ItemMeta]` in OoT grid order (row-major, slot index =
 // row*6 + col; index 0 = PortalGun ... index 23 = ReservedSlot). Parsed into an
-// `ItemCatalog` and installed via `install_item_catalog` at plugin-build time
-// (mirrors `boss_profiles.ron` / boss `boss_sheets.ron`). An installed row
+// `ItemCatalog` resource at plugin-build time, and again by a live content
+// reload (mirrors `boss_profiles.ron` / boss `boss_sheets.ron`). An authored row
 // REPLACES the engine's built-in default for that grid slot; rows absent here (or
-// no install) fall back to the built-in `ITEM_META` default in
+// no resource) fall back to the built-in `ITEM_META` default in
 // `gameplay_core::items`.
 //
 // These 24 rows are byte-identical to the built-in defaults (pinned by

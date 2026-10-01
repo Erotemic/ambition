@@ -112,7 +112,9 @@ the gate is evaluated per actor.** A wall that needs worn Phase Boots is
 intangible for the actor who wears them and solid for one who does not. So the
 shared-wall behaviour above is now a defect against the ruling: collision
 between a gated wall and an actor must read that actor's state. The work is
-the queue row `GATE-PER-ACTOR`.
+the queue row `GATE-PER-ACTOR`, which landed the body steps: a wall gated on a
+body condition stands for every reader and is open (`GatePass`) for each body
+that satisfies it, and a body step reads `ComposedRooms::solids_for`.
 
 ## World-mechanism facts
 

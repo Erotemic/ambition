@@ -1943,10 +1943,10 @@ names its subject by body or seat (`ViewSubject`, `ViewParticipant`).
 | Cut | Work | State |
 | --- | --- | --- |
 | V1 | The camera resolve frames each view in the live room of its framed body | ✅ below |
-| V2 | Draw roads place each entity by the geometry of its own live room (`LiveRoomOf`), not the sole room | ◐ the camera apply (V2a, below); the sprite and feature roads are open |
+| V2 | Draw roads place each entity by the geometry of its own live room (`LiveRoomOf`), not the sole room | ◐ the camera apply (V2a), feature/actor sprites (V2b), items and projectiles (V2c), lock walls (V2d) and nameplates (V2e), below; fx (V2f), health bars and debug overlays are open |
 | V3 | A camera draws only the live room of its view: a room render band, as the view band does for projections | ✅ below |
 | V4 | Room visuals and the LDtk level are presented per live room, and retire with it | ◐ static room visuals (V4a, below); the LDtk level and parallax are open |
-| V5 | Two seats in two live rooms get two views (the product rule: a split is mandatory in different rooms) | open |
+| V5 | Two seats in two live rooms get two views (the product rule: a split is mandatory in different rooms) | ✅ below |
 
 ✅ **V1 landed 2026-10-01: each view frames its own player while two rooms
 are live.** `resolve_camera_observation` read `SoleLiveRoom<RoomGeometry>`
@@ -2009,6 +2009,54 @@ now rebuild parallax only. Witness: `each_live_room_gets_its_own_room_visuals`
 and a room whose visuals are taken is drawn again alone). Poison (the old
 sole-room rule: nothing while two rooms are live): no room was drawn.
 Control: one live room is drawn once.
+
+✅ **V2b landed 2026-10-01: a feature or actor sprite is placed by its own
+room.** `DynamicFeatureFact` names the `room` of its body (`LiveRooms::of`).
+`spawn_dynamic_feature_visuals` spawns the visual under a scope stamped with
+that room (so the room's retirement and render band take it), and
+`sync_visuals` places each visual and the player by `LiveRoomOf::of`. Both
+read the sole live room before, so they did not run while two rooms were live.
+Witness: `each_feature_visual_is_placed_in_its_own_live_room` (rooms of
+800×600 and 400×300, one simulation position: each visual takes its own
+room's flip). ⚠ The `FeatureViewIndex` is keyed by feature id, so one id live
+in two rooms is one row; two instances of ONE room drawn at once need the key
+to carry the room.
+
+✅ **V2c–V2e landed 2026-10-01: items, projectiles, lock walls and
+nameplates are drawn in their own room.** The ground, world and held item
+rows (`GroundItemFact`, `WorldItemFact`, `HeldItemFact`) name the `room` of
+their entity; their visuals are placed by that room and stamped with it,
+and a row with no room is not drawn. A projectile visual and the charge orb
+read their entity's room (`LiveRoomOf::room_of`). `sync_lock_wall_visuals`
+reads every live room's overlay and keys a visual by (room, block name), so
+two instances of one room each draw their wall. A nameplate row
+(`NameplateFact`) names its body's room; each view ranks and shows only the
+plates and door plates of the room it frames, under that room's nameplate
+policy, placed by that room. All of these read the sole live room before,
+so they drew nothing while two rooms were live. Witnesses:
+`each_world_item_is_drawn_in_its_own_live_room` (and a row with no room is
+not drawn), `each_live_room_draws_its_own_lock_walls` (and a wall that
+drops in one room takes only that room's visual),
+`each_view_shows_the_plates_of_its_own_live_room`. Poisons: every item in
+the first room; every wall placed by the first room; the door-plate room
+filter removed (each view showed both rooms' doors).
+
+✅ **V5 landed 2026-10-01: two players in two rooms get two views.**
+`split_views_by_live_room` (`ambition_sim_view`, in the camera observation
+chain): while the seats' driven bodies are in two or more live rooms, a seat
+that no view follows gets a view (`SplitForLiveRoom`, `ViewParticipant`), and
+every view takes one column in id order (`PlacedByLiveRoomSplit` records the
+placements it wrote). When the seats are in one room again, the views it
+opened close and its placements go. `present_split_view_rigs`
+(`ambition_render`) gives each opened view one camera and retires it with the
+view. A spectating seat (no driven body) does not open a split. Witnesses:
+`each_seat_has_a_view_while_the_seats_are_in_two_live_rooms` (control: two
+seats in one room share one view),
+`each_view_the_split_opened_gets_one_camera_until_it_closes`, and in the app
+`a_second_view_opens_while_the_players_are_in_two_rooms_and_closes_when_they_meet`;
+the V1 witness now reads the view the split opened, and no fixture spawns it.
+⚠ Open: A2's adaptive split inside one room, merge hysteresis, and the
+session-wide HUD, banner and music.
 
 ## Existing repairs and standing lessons
 

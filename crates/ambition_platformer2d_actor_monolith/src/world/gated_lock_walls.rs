@@ -347,8 +347,46 @@ fn publish_gated_lock_wall_verdicts(world: &mut World, per_room: Vec<(Entity, Ve
     // missed it by grepping `cargo check` for `^error` only.
     let catalog = world.resource::<ConditionCatalog>().clone();
     let mut verdicts = std::collections::BTreeMap::new();
-    let mut standing_by_room: Vec<(Entity, Vec<GatedLockWall>)> = Vec::new();
+    let mut standing_by_room: Vec<(Entity, Vec<GatedLockWall>, Vec<ambition_platformer2d_shared_tangle::feature_overlay::GatePass>)> =
+        Vec::new();
     for (root, walls) in &per_room {
+        // A wall whose question can be asked of one body is per actor (Q54):
+        // it stands for every reader that names no body, and it is open for
+        // each body in its room that satisfies it.
+        let per_actor: Vec<&CachedWall> = walls
+            .iter()
+            .filter(|cached| {
+                cached
+                    .question
+                    .as_ref()
+                    .is_some_and(|question| catalog.answers_for_a_subject(question.id()))
+            })
+            .collect();
+        let passes = if per_actor.is_empty() {
+            Vec::new()
+        } else {
+            let bodies = bodies_in_room(world, *root);
+            per_actor
+                .iter()
+                .filter_map(|cached| {
+                    let question = cached.question.as_ref()?;
+                    let open: Vec<Entity> = bodies
+                        .iter()
+                        .copied()
+                        .filter(|body| {
+                            catalog
+                                .ask_for(world, question, *body)
+                                .is_some_and(|outcome| outcome.is_satisfied())
+                        })
+                        .collect();
+                    Some(ambition_platformer2d_shared_tangle::feature_overlay::GatePass {
+                        block: format!("{GATED_LOCK_BLOCK_PREFIX}{}", cached.wall.id),
+                        bodies: open,
+                    })
+                })
+                .filter(|pass| !pass.bodies.is_empty())
+                .collect()
+        };
         let standing: Vec<GatedLockWall> = walls
             .iter()
             .filter(|cached| {
@@ -379,13 +417,16 @@ fn publish_gated_lock_wall_verdicts(world: &mut World, per_room: Vec<(Entity, Ve
                         cached.wall.id.clone(),
                     ),
                 );
-                let stands = !verdict.is_satisfied();
+                // A per-actor wall stands whatever the population answer is;
+                // the answer is still published, as the explanation.
+                let stands = !verdict.is_satisfied()
+                    || catalog.answers_for_a_subject(question.id());
                 verdicts.insert(cached.wall.id.clone(), verdict);
                 stands
             })
             .map(|cached| cached.wall.clone())
             .collect();
-        standing_by_room.push((*root, standing));
+        standing_by_room.push((*root, standing, passes));
     }
     // Published whether or not anything stands: an open wall's verdict is the
     // answer to "why is it open". A room with no walls never reaches here — it
@@ -398,7 +439,7 @@ fn publish_gated_lock_wall_verdicts(world: &mut World, per_room: Vec<(Entity, Ve
     }
     // Each room's standing walls are that room's authored walls, so they go to
     // that room's own overlay.
-    for (root, standing) in standing_by_room {
+    for (root, standing, passes) in standing_by_room {
         if standing.is_empty() {
             continue;
         }
@@ -416,7 +457,38 @@ fn publish_gated_lock_wall_verdicts(world: &mut World, per_room: Vec<(Entity, Ve
                     wall.size,
                 ));
         }
+        overlay.gate_passes.extend(passes);
     }
+}
+
+/// The bodies in the live room `root` is the root of, in entity order: each
+/// one stamped with that room, or unstamped while it is the only live room
+/// (the rule of `LiveRooms::of`). A body is anything a body condition can be
+/// asked of: it has kinematics or abilities.
+fn bodies_in_room(world: &mut World, root: Entity) -> Vec<Entity> {
+    use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
+    let Some(room) = world.get::<LiveRoomInstance>(root).copied() else {
+        return Vec::new();
+    };
+    let sole = world
+        .query_filtered::<(), With<RoomInstanceRoot>>()
+        .iter(world)
+        .count()
+        == 1;
+    let mut bodies: Vec<Entity> = world
+        .query_filtered::<(Entity, Option<&InRoomInstance>), Or<(
+            With<ambition_platformer2d_core::body_clusters::BodyKinematics>,
+            With<ambition_platformer2d_core::body_clusters::BodyAbilities>,
+        )>>()
+        .iter(world)
+        .filter(|(_, stamp)| match stamp {
+            Some(stamp) => stamp.0 == room,
+            None => sole,
+        })
+        .map(|(body, _)| body)
+        .collect();
+    bodies.sort();
+    bodies
 }
 
 /// Prepare one wall's authored question, or `None` when the catalog cannot yet

@@ -151,6 +151,16 @@ impl ConditionCatalog {
     ) -> ConditionOutcome {
         self.evaluate(world, &prepared.id, &prepared.args, asked_by)
     }
+
+    /// Ask a prepared question of one subject; see [`Self::evaluate_for`].
+    pub fn ask_for(
+        &self,
+        world: &World,
+        prepared: &PreparedCondition,
+        subject: bevy::prelude::Entity,
+    ) -> Option<ConditionOutcome> {
+        self.evaluate_for(world, &prepared.id, subject, &prepared.args)
+    }
 }
 
 impl CommandCatalog {

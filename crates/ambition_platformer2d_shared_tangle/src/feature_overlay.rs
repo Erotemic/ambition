@@ -10,10 +10,24 @@ use crate::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
 /// Collision/world contributions rebuilt from ECS feature state, for ONE live
 /// room: a component on its `RoomInstanceRoot`, beside its geometry and
 /// platforms (OW1 cut 3c). A second live room has its own.
+/// The bodies that pass one gate solid (Q54: a body/capability gate is
+/// evaluated per actor). The solid stays in `gate_solids`, so it is solid for
+/// every reader that names no body; a body that names itself and is listed
+/// here passes through it.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct GatePass {
+    /// The `Block::name` of the gate solid.
+    pub block: String,
+    /// The bodies the gate is open for, in entity order.
+    pub bodies: Vec<bevy::prelude::Entity>,
+}
+
 #[derive(Component, Default, Clone, Debug)]
 pub struct FeatureEcsWorldOverlay {
     pub blocks: Vec<ae::Block>,
     pub gate_solids: Vec<ae::Block>,
+    /// Per-actor openings of `gate_solids`; see [`GatePass`].
+    pub gate_passes: Vec<GatePass>,
     pub portal_carves: Vec<ae::Aabb>,
     pub removed_block_names: Vec<String>,
     pub climbable_carves: Vec<ae::Aabb>,
@@ -44,6 +58,7 @@ impl FeatureEcsWorldOverlay {
         let Self {
             blocks,
             gate_solids,
+            gate_passes,
             portal_carves,
             removed_block_names,
             climbable_carves,
@@ -51,6 +66,7 @@ impl FeatureEcsWorldOverlay {
         } = self;
         blocks.clear();
         gate_solids.clear();
+        gate_passes.clear();
         removed_block_names.clear();
         climbable_carves.clear();
         water_regions.clear();
@@ -81,6 +97,7 @@ impl FeatureEcsWorldOverlay {
         let Self {
             blocks,
             gate_solids,
+            gate_passes,
             portal_carves,
             removed_block_names,
             climbable_carves,
@@ -88,6 +105,7 @@ impl FeatureEcsWorldOverlay {
         } = self;
         blocks.clear();
         gate_solids.clear();
+        gate_passes.clear();
         // The portal bridge refills this from `PortalCarves` on its next run,
         // as it does every frame.
         portal_carves.clear();

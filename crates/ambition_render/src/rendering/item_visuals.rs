@@ -258,7 +258,8 @@ pub fn build_held_item_art(
 
 pub fn sync_ground_item_visuals(
     mut commands: Commands,
-    world: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<
+    // Each row is placed by the geometry of its own live room.
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomOf<
         ambition_platformer2d_core::RoomGeometry,
     >,
     art: Option<Res<HeldItemArt>>,
@@ -283,6 +284,11 @@ pub fn sync_ground_item_visuals(
         reported.clear();
     }
     for ground in &grounds.0 {
+        // A row whose live room cannot be told is not drawn.
+        let Some((room, world)) = ground.room.and_then(|room| Some((room, rooms.in_room(room)?))) else {
+            continue;
+        };
+        let session_scope = session_scope.in_room(Some(room));
         let translation =
             ambition_platformer2d_core::config::world_to_bevy(&world.0, ground.pos, 8.0);
         let bound = resolve_art(
@@ -367,7 +373,8 @@ pub fn build_world_item_art(
 /// (there are few items), like [`sync_ground_item_visuals`].
 pub fn sync_world_item_visuals(
     mut commands: Commands,
-    world: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<
+    // Each row is placed by the geometry of its own live room.
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomOf<
         ambition_platformer2d_core::RoomGeometry,
     >,
     active_session: Option<Res<ActiveSessionScope>>,
@@ -393,6 +400,10 @@ pub fn sync_world_item_visuals(
         // out of its block. `WORLD_Z_BLOCK` is 0.0, so anything below it is
         // hidden by the geometry; a free item uses 8.0.
         let z = if item.emerging { -1.0 } else { 8.0 };
+        let Some((room, world)) = item.room.and_then(|room| Some((room, rooms.in_room(room)?))) else {
+            continue;
+        };
+        let session_scope = session_scope.in_room(Some(room));
         let translation = ambition_platformer2d_core::config::world_to_bevy(&world.0, item.pos, z);
         // A bound sprite wins; otherwise the row-tinted quad. An item with no
         // sprite id is authored that way and reports nothing; an item with an
@@ -448,7 +459,8 @@ pub struct HeldItemVisual;
 /// comes from the subject's `ActorControl`, not raw device input.
 pub fn sync_held_item_visual(
     mut commands: Commands,
-    world: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<
+    // Each row is placed by the geometry of its own live room.
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomOf<
         ambition_platformer2d_core::RoomGeometry,
     >,
     art: Option<Res<HeldItemArt>>,
@@ -472,6 +484,10 @@ pub fn sync_held_item_visual(
         let facing = if held.facing >= 0.0 { 1.0 } else { -1.0 };
         // In the hand: just in front, at hand height (y-down, so small +y).
         let hand = held.pos + Vec2::new(facing * (held.size.x * 0.45 + 4.0), held.size.y * 0.06);
+        let Some((room, world)) = held.room.and_then(|room| Some((room, rooms.in_room(room)?))) else {
+            continue;
+        };
+        let session_scope = session_scope.in_room(Some(room));
         let translation = ambition_platformer2d_core::config::world_to_bevy(&world.0, hand, 12.0);
 
         // A ranged held item (the gun-sword) points where the subject aims,
@@ -628,6 +644,63 @@ mod tests {
         assert_eq!(
             pending.keys().map(String::as_str).collect::<Vec<_>>(),
             vec!["new_art"]
+        );
+    }
+
+    /// View half, cut V2c: a world item is drawn in its own live room. Two
+    /// live rooms of different sizes, a row in each at one simulation
+    /// position: each visual takes its own room's flip and is stamped with
+    /// its room, so the room's band and retirement take it. A row whose room
+    /// cannot be told is not drawn. Before V2c this road read the sole live
+    /// room and drew nothing while two rooms were live.
+    #[test]
+    fn each_world_item_is_drawn_in_its_own_live_room() {
+        use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance};
+        let at = ambition_platformer2d_core::Vec2::new(100.0, 200.0);
+        let size = |w: f32, h: f32| ambition_platformer2d_core::Vec2::new(w, h);
+        let geometry = |size| {
+            ambition_platformer2d_core::RoomGeometry(ambition_platformer2d_core::World::new(
+                "item room",
+                size,
+                ambition_platformer2d_core::Vec2::new(16.0, 16.0),
+                Vec::new(),
+            ))
+        };
+        let (big, small) = (size(800.0, 600.0), size(400.0, 300.0));
+        let second = LiveRoomInstance::ACTIVATION.next();
+        let row = |room| ambition_sim_view::WorldItemFact {
+            pos: at,
+            half_extent: size(8.0, 8.0),
+            row_id: "grow_cap".to_string(),
+            sprite: None,
+            emerging: false,
+            room,
+        };
+        let mut app = App::new();
+        let mut active = ActiveSessionScope::default();
+        active.begin();
+        app.insert_resource(active);
+        ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(app.world_mut(), geometry(big));
+        ambition_platformer2d_shared_tangle::lifecycle::spawn_live_room(app.world_mut(), second, geometry(small));
+        app.insert_resource(ambition_sim_view::WorldItemsView(vec![
+            row(Some(LiveRoomInstance::ACTIVATION)),
+            row(Some(second)),
+            row(None),
+        ]));
+        app.add_systems(Update, sync_world_item_visuals);
+        app.update();
+        let mut drawn: Vec<(LiveRoomInstance, Vec2)> = app
+            .world_mut()
+            .query_filtered::<(&InRoomInstance, &Transform), With<WorldItemVisual>>()
+            .iter(app.world())
+            .map(|(room, transform)| (room.0, transform.translation.truncate()))
+            .collect();
+        drawn.sort_by_key(|(room, _)| *room);
+        let flip = |room: ambition_platformer2d_core::Vec2| Vec2::new(at.x - room.x * 0.5, room.y * 0.5 - at.y);
+        assert_eq!(
+            drawn,
+            vec![(LiveRoomInstance::ACTIVATION, flip(big)), (second, flip(small))],
+            "a world item was not drawn in its own live room, or a row with no room was drawn"
         );
     }
 }

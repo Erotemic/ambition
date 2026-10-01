@@ -1220,14 +1220,22 @@ fn is_lock_wall_block(name: &str) -> bool {
 pub fn sync_lock_wall_visuals(
     mut commands: Commands,
     active_session: Option<Res<ActiveSessionScope>>,
-    world: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<
-        ambition_platformer2d_core::RoomGeometry,
-    >,
-    overlay: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<
-        ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay,
+    // Every live room's walls, each drawn in its own room and stamped with
+    // it. A sole-room read did not run while two rooms were live.
+    rooms: Query<
+        (
+            &ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
+            &ambition_platformer2d_core::RoomGeometry,
+            &ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay,
+        ),
+        With<ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot>,
     >,
     assets: Option<Res<GameAssets>>,
-    existing: Query<(Entity, &LockWallVisual)>,
+    existing: Query<(
+        Entity,
+        &LockWallVisual,
+        Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
+    )>,
 ) {
     use bevy::math::Vec2 as BVec2;
 
@@ -1237,22 +1245,28 @@ pub fn sync_lock_wall_visuals(
         return;
     };
 
-    // Index existing visuals by block name to diff in linear time.
-    let mut existing_by_name: std::collections::HashMap<String, Entity> =
-        std::collections::HashMap::new();
-    for (entity, visual) in &existing {
-        existing_by_name.insert(visual.block_name.clone(), entity);
+    // Index existing visuals by (live room, block name) to diff in linear
+    // time. Two live rooms can hold a wall with one name (two instances of
+    // one room).
+    type Key = (Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>, String);
+    let mut existing_by_name: std::collections::HashMap<Key, Entity> = std::collections::HashMap::new();
+    for (entity, visual, room) in &existing {
+        existing_by_name.insert((room.map(|room| room.0), visual.block_name.clone()), entity);
     }
 
     // Pass 1: spawn a visual for each lock-wall block without one. Mark
-    // consumed names so pass 2 keeps them.
-    let mut consumed: std::collections::HashSet<String> = std::collections::HashSet::new();
-    for block in &overlay.gate_solids {
+    // consumed keys so pass 2 keeps them.
+    let mut consumed: std::collections::HashSet<Key> = std::collections::HashSet::new();
+    let blocks = rooms.iter().flat_map(|(room, world, overlay)| {
+        overlay.gate_solids.iter().map(move |block| (*room, world, block))
+    });
+    for (room, world, block) in blocks {
         if !is_lock_wall_block(&block.name) {
             continue;
         }
-        if existing_by_name.contains_key(&block.name) {
-            consumed.insert(block.name.clone());
+        let key = (Some(room), block.name.clone());
+        if existing_by_name.contains_key(&key) {
+            consumed.insert(key);
             continue;
         }
         let size = block.aabb.half_size() * 2.0;
@@ -1270,7 +1284,7 @@ pub fn sync_lock_wall_visuals(
             None => Sprite::from_color(fallback, render),
         };
         commands.spawn_session_scoped(
-            session_scope,
+            session_scope.in_room(Some(room)),
             (
                 sprite,
                 Transform::from_translation(world_to_bevy(
@@ -1287,13 +1301,13 @@ pub fn sync_lock_wall_visuals(
                 RoomVisual,
             ),
         );
-        consumed.insert(block.name.clone());
+        consumed.insert(key);
     }
 
     // Pass 2: despawn visuals whose gate solid is gone.
-    for (name, entity) in &existing_by_name {
-        if !consumed.contains(name) {
-            commands.entity(*entity).despawn();
+    for (key, entity) in &existing_by_name {
+        if !consumed.contains(key) {
+            commands.entity(*entity).try_despawn();
         }
     }
 }
@@ -1487,6 +1501,63 @@ mod lock_wall_visual_tests {
         assert!(
             lock_wall_names(&mut app).is_empty(),
             "dropping the gate solid despawns the LockWallVisual"
+        );
+    }
+
+    /// View half, cut V2d: each live room draws its own lock walls. Two live
+    /// rooms of different sizes hold a wall with one name (two instances of
+    /// one room do). Each wall is drawn once, stamped with its room, and
+    /// placed by its room's flip. When one room's wall drops, only that
+    /// room's visual goes. Before V2d this road read the sole live room and
+    /// drew no wall while two rooms were live.
+    #[test]
+    fn each_live_room_draws_its_own_lock_walls() {
+        use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance};
+        let geometry = |w: f32, h: f32| {
+            ae::RoomGeometry(ae::World::new("lock room", ae::Vec2::new(w, h), ae::Vec2::new(16.0, 16.0), Vec::new()))
+        };
+        let walls = || FeatureEcsWorldOverlay {
+            gate_solids: vec![gate_wall()],
+            ..Default::default()
+        };
+        let second = LiveRoomInstance::ACTIVATION.next();
+        let mut app = App::new();
+        let first_root =
+            ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(app.world_mut(), geometry(800.0, 600.0));
+        app.world_mut().entity_mut(first_root).insert(walls());
+        let second_root =
+            ambition_platformer2d_shared_tangle::lifecycle::spawn_live_room(app.world_mut(), second, geometry(400.0, 300.0));
+        app.world_mut().entity_mut(second_root).insert(walls());
+        app.add_systems(Update, sync_lock_wall_visuals);
+        let drawn = |app: &mut App| {
+            let mut drawn: Vec<(LiveRoomInstance, bevy::math::Vec2)> = app
+                .world_mut()
+                .query_filtered::<(&InRoomInstance, &Transform), With<LockWallVisual>>()
+                .iter(app.world())
+                .map(|(room, transform)| (room.0, transform.translation.truncate()))
+                .collect();
+            drawn.sort_by_key(|(room, _)| *room);
+            drawn
+        };
+        // The wall's centre is (308, 350).
+        let flip = |w: f32, h: f32| bevy::math::Vec2::new(308.0 - w * 0.5, h * 0.5 - 350.0);
+        app.update();
+        app.update();
+        assert_eq!(
+            drawn(&mut app),
+            vec![(LiveRoomInstance::ACTIVATION, flip(800.0, 600.0)), (second, flip(400.0, 300.0))],
+            "a live room's lock wall was not drawn once, in its own room"
+        );
+        app.world_mut()
+            .get_mut::<FeatureEcsWorldOverlay>(second_root)
+            .expect("the second room's overlay")
+            .gate_solids
+            .clear();
+        app.update();
+        assert_eq!(
+            drawn(&mut app),
+            vec![(LiveRoomInstance::ACTIVATION, flip(800.0, 600.0))],
+            "a wall that dropped in one room took the other room's visual, or kept its own"
         );
     }
 

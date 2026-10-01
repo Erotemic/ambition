@@ -288,7 +288,9 @@ fn native_compact_render_pos(pos: ae::Vec2, gravity_dir: ae::Vec2, dy: f32) -> a
 }
 
 pub fn sync_visuals(
-    world: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<
+    // Each drawn body is placed by the geometry of its own live room. A
+    // sole-room read did not run while two rooms were live.
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomOf<
         ambition_platformer2d_core::RoomGeometry,
     >,
     primary_player: Query<Entity, (With<PlayerEntity>, With<PrimaryPlayer>)>,
@@ -313,7 +315,7 @@ pub fn sync_visuals(
         With<PlayerVisual>,
     >,
     mut feature_query: Query<
-        (&FeatureVisual, &mut Transform, &mut Sprite, &mut Visibility),
+        (Entity, &FeatureVisual, &mut Transform, &mut Sprite, &mut Visibility),
         Without<PlayerVisual>,
     >,
     mut warned_unsized_player: Local<bool>,
@@ -329,7 +331,7 @@ pub fn sync_visuals(
     let player = (primary_player.iter().count() == 1)
         .then(|| primary_player.iter().next())
         .flatten();
-    if let Some(player) = player {
+    if let Some((player, world)) = player.and_then(|player| rooms.of(player).map(|world| (player, world))) {
         if let Ok((mut transform, mut sprite, baseline, animator, pose, presented, anchor)) =
             player_query.get_mut(player)
         {
@@ -511,9 +513,14 @@ pub fn sync_visuals(
         }
     }
 
-    for (visual, mut transform, mut sprite, mut visibility) in &mut feature_query {
+    for (entity, visual, mut transform, mut sprite, mut visibility) in &mut feature_query {
         let Some(view) = feature_views.get(&visual.id) else {
             *visibility = Visibility::Hidden;
+            continue;
+        };
+        // The visual is stamped with its room (or is in the sole live room).
+        // A visual whose room cannot be told keeps its last placement.
+        let Some(world) = rooms.of(entity) else {
             continue;
         };
         // Moving features use the frame clock, like the player. The quad centre
@@ -968,6 +975,8 @@ mod quality_convergence_tests;
 mod worn_binder_tests;
 #[cfg(test)]
 mod depth_plane_tests;
+#[cfg(test)]
+mod room_placement_tests;
 
 #[cfg(test)]
 mod compact_pose_tests {

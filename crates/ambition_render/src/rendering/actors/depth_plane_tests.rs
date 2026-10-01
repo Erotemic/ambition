@@ -11,8 +11,13 @@ use super::*;
 const AT: ae::Vec2 = ae::Vec2::new(300.0, 500.0);
 
 fn view(depth_plane: ae::DepthPlane) -> ambition_sim_view::FeatureView {
+    view_at(AT, depth_plane)
+}
+
+/// A fighting actor's view row at `pos`, in `depth_plane`.
+pub(super) fn view_at(pos: ae::Vec2, depth_plane: ae::DepthPlane) -> ambition_sim_view::FeatureView {
     ambition_sim_view::FeatureView {
-        pos: AT,
+        pos,
         size: ae::Vec2::new(60.0, 110.0),
         kind: FeatureVisualKind::Actor,
         visible: true,

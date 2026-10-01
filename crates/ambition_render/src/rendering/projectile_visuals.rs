@@ -255,7 +255,8 @@ fn build_sheet_visual(
 #[allow(clippy::too_many_arguments)]
 pub fn sync_projectile_visuals(
     mut commands: Commands,
-    world: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<
+    // Each row is placed by the geometry of its own live room.
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomOf<
         ambition_platformer2d_core::RoomGeometry,
     >,
     presentation_time: ambition_time::PresentationTime,
@@ -292,12 +293,17 @@ pub fn sync_projectile_visuals(
 
     // Spawn one persistent visual per new projectile entity.
     for (proj_entity, view) in &new_projectiles {
+        // The projectile is stamped with the room it was fired in. One whose
+        // room cannot be told gets its visual when it can.
+        let Some((room, world)) = rooms.room_of(proj_entity).and_then(|room| Some((room, rooms.in_room(room)?))) else {
+            continue;
+        };
         let art = visual_catalog.resolve(&view.visual_id);
         let built = build_visual(view, &art, &asset_server, &sheets, energy);
         let translation =
             ambition_platformer2d_core::config::world_to_bevy(&world.0, view.pos, projectile_z());
         let mut visual = commands.spawn_session_scoped(
-            session_scope,
+            session_scope.in_room(Some(room)),
             (
                 built.sprite,
                 Transform::from_translation(translation),
@@ -324,6 +330,9 @@ pub fn sync_projectile_visuals(
     for (visual_entity, link, visual_id, anim, mut transform, mut sprite) in &mut visuals {
         let Ok(view) = bodies.get(link.0) else {
             commands.entity(visual_entity).despawn();
+            continue;
+        };
+        let Some(world) = rooms.of(link.0) else {
             continue;
         };
         transform.translation =
@@ -361,7 +370,8 @@ pub fn sync_projectile_visuals(
 /// Rebuilt each frame; player-only (it is not projectile art).
 pub fn sync_projectile_charge_visuals(
     mut commands: Commands,
-    world: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<
+    // Each row is placed by the geometry of its own live room.
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomOf<
         ambition_platformer2d_core::RoomGeometry,
     >,
     active_session: Option<Res<ActiveSessionScope>>,
@@ -369,6 +379,7 @@ pub fn sync_projectile_charge_visuals(
     // cluster or projectile-state reads.
     player_q: Query<
         (
+            Entity,
             &ambition_sim_view::BodyPoseView,
             Option<&ambition_sim_view::PresentedPose>,
         ),
@@ -384,10 +395,14 @@ pub fn sync_projectile_charge_visuals(
     else {
         return;
     };
-    for (pose, presented) in &player_q {
+    for (player, pose, presented) in &player_q {
         let Some(tier) = pose.charge_tier else {
             continue;
         };
+        let Some((room, world)) = rooms.room_of(player).and_then(|room| Some((room, rooms.in_room(room)?))) else {
+            continue;
+        };
+        let session_scope = session_scope.in_room(Some(room));
         // The charge orb hangs off the hand, so it tracks the presented body.
         let body_pos = ambition_sim_view::presented_pose::draw_pos(pose, presented);
         let base = ProjectileKind::Fireball.half_extent();

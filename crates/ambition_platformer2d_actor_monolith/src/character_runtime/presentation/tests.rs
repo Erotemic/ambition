@@ -196,6 +196,38 @@ fn a_new_session_does_not_inherit_the_previous_casts_providers() {
     );
 }
 
+/// A fighter the select screen stages between two sessions is in the next fight.
+///
+/// Smash stages its roster on the select screen, where no session is live, and
+/// the match's session begins after. The second match after a quit-to-title or
+/// a finished match lost every fighter's cues when the cast kept the ended
+/// session's scope and the new session dropped what the frontend had staged.
+#[test]
+fn a_cast_staged_between_sessions_belongs_to_the_next_session() {
+    let mut app = session_app();
+    app.register_character(CharacterDefinition::new("mary_o", "Mary-O", "mary_o_demo"));
+    app.register_character(CharacterDefinition::new("sanic", "Sanic", "sanic_demo"));
+    stage(&mut app, "mary_o");
+    finalize_and_update(&mut app);
+    assert!(is_authorized(&app, "mary_o_demo"), "session one's cast");
+
+    // Back to the select screen: no session is live while the roster is staged.
+    app.world_mut()
+        .resource_mut::<ambition_platformer2d_shared_tangle::lifecycle::ActiveSessionScope>()
+        .clear();
+    finalize_and_update(&mut app);
+    stage(&mut app, "sanic");
+    finalize_and_update(&mut app);
+
+    begin_session(&mut app, 2);
+    finalize_and_update(&mut app);
+    assert!(
+        is_authorized(&app, "sanic_demo"),
+        "the fighter staged on the select screen is silent in the match it was staged for"
+    );
+    assert!(!is_authorized(&app, "mary_o_demo"), "session one's fighter is not in this fight");
+}
+
 /// A character nobody claims is skipped, not guessed at.
 ///
 /// The load ledger already reports unknown characters with a reason; inventing a

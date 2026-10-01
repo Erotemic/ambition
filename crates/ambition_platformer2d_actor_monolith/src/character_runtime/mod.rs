@@ -276,20 +276,22 @@ impl StagedCast {
     /// Bind the cast to the session that is now current, dropping the previous
     /// session's cast.
     ///
-    /// Three cases, and the middle one is the load-bearing one:
-    ///
-    /// * `None` — no session owns anything yet, so there is nothing to reset
-    ///   AGAINST. Leave the cast alone.
-    /// * the cast has no scope — ADOPT this one and keep the ids. Startup stages
-    ///   the player's characters before the first session scope is minted, and
-    ///   treating that as a foreign cast would drop exactly the character the
-    ///   player is about to control.
+    /// * `None` — no session is live (startup, the title, a select screen). A
+    ///   cast bound to a session that has ended has left with it: drop it and
+    ///   become unscoped. What is staged now belongs to the NEXT session.
+    /// * the cast has no scope — ADOPT this one and keep the ids. Startup and a
+    ///   select screen stage characters before the session that uses them is
+    ///   minted, and treating that as a foreign cast would drop exactly the
+    ///   characters that are about to play.
     /// * a different scope — this is a new session. The previous cast has left.
     pub fn enter_scope(
         &mut self,
         scope: Option<ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId>,
     ) {
         let Some(scope) = scope else {
+            if self.scope.take().is_some() {
+                self.ids.clear();
+            }
             return;
         };
         match self.scope {

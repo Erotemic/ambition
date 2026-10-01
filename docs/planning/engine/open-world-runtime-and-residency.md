@@ -1583,7 +1583,11 @@ joins her). Control: Alice alone enters the dialogue mode. Poison (the
 unconditional mode restored): the control passed, and Bob stayed in #0 with
 the mode `Dialogue`. ⚠ The control prompt reads the mode for its
 "Advance" context, so with two rooms live the talker's prompt does not
-change. That is a view, P5.
+change. That is a view, P5. ⚠ Not changed: `GameMode::Cutscene` stops the
+world in every live room (`stops_the_world`), so a room-entry cutscene in
+one room stops the other player's room. A cutscene drives the one shared
+camera, so it waits for the views (P5) and for the party-pause product
+question.
 
 ✅ **OW3, first slice, landed 2026-10-01: a runtime mint left in a room
 that is not live is still there when the room is live again.** A runtime

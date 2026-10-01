@@ -173,6 +173,13 @@ impl RoomOccurrenceOutlook {
 #[derive(Resource, Clone, Debug, Default, PartialEq)]
 pub struct AuthoredOccurrences {
     rows: BTreeMap<SimId, OccurrenceWhereabouts>,
+    /// The ids whose row is `InCustody`: a DERIVED index of `rows` (FI9).
+    /// Each mutator below keeps it, and [`Self::adopt_rows`] builds it again,
+    /// so a clone (the rollback snapshot) carries it consistent with its rows.
+    /// It lets the custody producer compare and republish the carried set
+    /// without a walk over every row: dormant `Placed` rows add no work to a
+    /// tick that carries nothing new.
+    custody: BTreeSet<SimId>,
 }
 
 impl AuthoredOccurrences {
@@ -243,6 +250,11 @@ impl AuthoredOccurrences {
     /// would let a caller clone one authority into another and call it a load.
     pub fn adopt_rows(&mut self, rows: BTreeMap<SimId, OccurrenceWhereabouts>) {
         if self.rows != rows {
+            self.custody = rows
+                .iter()
+                .filter(|(_, whereabouts)| matches!(whereabouts, OccurrenceWhereabouts::InCustody))
+                .map(|(sim_id, _)| sim_id.clone())
+                .collect();
             self.rows = rows;
         }
     }
@@ -255,12 +267,10 @@ impl AuthoredOccurrences {
 
     /// The ids currently recorded as carried. Compared before a republish so
     /// change detection stays quiet on the overwhelming majority of ticks.
-    pub fn in_custody(&self) -> BTreeSet<SimId> {
-        self.rows
-            .iter()
-            .filter(|(_, whereabouts)| matches!(whereabouts, OccurrenceWhereabouts::InCustody))
-            .map(|(sim_id, _)| sim_id.clone())
-            .collect()
+    ///
+    /// From the custody index, so the cost is the carried set, not every row.
+    pub fn in_custody(&self) -> &BTreeSet<SimId> {
+        &self.custody
     }
 
     /// Republish the whole custody leg.
@@ -270,11 +280,14 @@ impl AuthoredOccurrences {
     /// producer, and a whole-ledger republish here would delete relocation the
     /// instant a hand emptied.
     pub fn republish_custody(&mut self, carried: BTreeSet<SimId>) {
-        self.rows
-            .retain(|_, whereabouts| !matches!(whereabouts, OccurrenceWhereabouts::InCustody));
-        for sim_id in carried {
-            self.rows.insert(sim_id, OccurrenceWhereabouts::InCustody);
+        // The index names every custody row, so only those rows are visited.
+        for sim_id in std::mem::take(&mut self.custody) {
+            self.rows.remove(&sim_id);
         }
+        for sim_id in &carried {
+            self.rows.insert(sim_id.clone(), OccurrenceWhereabouts::InCustody);
+        }
+        self.custody = carried;
     }
 
     /// Admit runtime mints lying in `room` that the ledger has no row for
@@ -347,6 +360,8 @@ impl AuthoredOccurrences {
                 refused.insert(sim_id);
                 continue;
             }
+            // A row put down is no longer in custody.
+            self.custody.remove(&sim_id);
             self.rows.insert(
                 sim_id,
                 OccurrenceWhereabouts::Placed {
@@ -662,7 +677,7 @@ pub fn project_custody_onto_authored_occurrences(
         return;
     };
     let alive: BTreeSet<SimId> = carried.iter().cloned().collect();
-    if occurrences.in_custody() != alive {
+    if *occurrences.in_custody() != alive {
         occurrences.republish_custody(alive);
     }
 }
@@ -670,6 +685,46 @@ pub fn project_custody_onto_authored_occurrences(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// FI9: the custody index is the `InCustody` rows after every mutator. The
+    /// custody producer reads the index and not the rows, so an index that
+    /// kept an id after its row was put down would keep that occurrence in a
+    /// hand forever.
+    #[test]
+    fn the_custody_index_is_the_custody_rows_after_every_mutation() {
+        let filtered = |ledger: &AuthoredOccurrences| -> BTreeSet<SimId> {
+            ledger
+                .rows()
+                .filter(|(_, whereabouts)| matches!(whereabouts, OccurrenceWhereabouts::InCustody))
+                .map(|(sim_id, _)| sim_id.clone())
+                .collect()
+        };
+        let (a, b, c) = (SimId::placement("a"), SimId::placement("b"), SimId::placement("c"));
+        let mut ledger = AuthoredOccurrences::default();
+        let mut steps = 0;
+        let mut check = |ledger: &AuthoredOccurrences, step: &str| {
+            assert_eq!(*ledger.in_custody(), filtered(ledger), "after {step}");
+            steps += 1;
+        };
+        ledger.republish_custody([a.clone(), b.clone()].into_iter().collect());
+        check(&ledger, "two carried");
+        assert!(ledger
+            .republish_placements("room", [(a.clone(), Vec2::new(1.0, 2.0))].into_iter().collect())
+            .is_empty());
+        check(&ledger, "one put down");
+        ledger.admit_mints("room", [(c.clone(), Vec2::ZERO), (b.clone(), Vec2::ZERO)].into_iter().collect());
+        check(&ledger, "a mint admitted beside a carried id");
+        ledger.republish_custody([c.clone()].into_iter().collect());
+        check(&ledger, "the carried set replaced");
+        ledger.adopt_rows(
+            [(a.clone(), OccurrenceWhereabouts::InCustody), (b.clone(), OccurrenceWhereabouts::Consumed)]
+                .into_iter()
+                .collect(),
+        );
+        check(&ledger, "rows adopted");
+        assert_eq!(*ledger.in_custody(), [a].into_iter().collect::<BTreeSet<_>>());
+        assert_eq!(steps, 5);
+    }
 
     /// A mint with no row enters where it lies; an id that has a row keeps it.
     /// A row already says what became of the occurrence, and an admission

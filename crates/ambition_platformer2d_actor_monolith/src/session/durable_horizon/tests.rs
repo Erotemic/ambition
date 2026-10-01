@@ -374,3 +374,137 @@ fn a_population_the_restore_cannot_complete_on_is_written_to_by_nobody() {
         .resource_mut::<bevy::ecs::message::Messages<ResetToCheckpoint>>();
     assert_eq!(resets.drain().count(), 0);
 }
+
+/// FI9: the durable mirrors and the custody projection, with `n` dormant
+/// mints lying in a room that is not live. Each is a ledger `Placed` row and a
+/// minted row of the save.
+fn dormant_world(n: usize) -> App {
+    use ambition_platformer2d_shared_tangle::lifecycle::OccurrenceWhereabouts;
+    let mut app = horizon_app();
+    app.world_mut().resource_mut::<SaveRestored>().0 = true;
+    install_horizon(&mut app);
+    app.add_systems(
+        Update,
+        ambition_platformer2d_shared_tangle::lifecycle::project_custody_onto_authored_occurrences,
+    );
+    let rows = (0..n)
+        .map(|i| {
+            (
+                dormant(i),
+                OccurrenceWhereabouts::Placed { room: "elsewhere".into(), at: Vec2::new(i as f32, 0.0) },
+            )
+        })
+        .collect();
+    app.world_mut().resource_mut::<AuthoredOccurrences>().adopt_rows(rows);
+    let minted = (0..n)
+        .map(|i| PersistedMintedItem {
+            occurrence: dormant(i).as_str().to_string(),
+            parent: "boss".into(),
+            sequence: i as u64,
+            held_item: Default::default(),
+        })
+        .collect();
+    app.world_mut().resource_mut::<AmbitionGameSave>().data_mut().set_minted_items(minted);
+    for _ in 0..3 {
+        app.update();
+    }
+    let data = app.world().resource::<AmbitionGameSave>().data();
+    assert_eq!(
+        (data.occurrences().len(), data.minted_items().len()),
+        (n, n),
+        "precondition: the save does not hold the {n} dormant rows"
+    );
+    app
+}
+
+fn dormant(i: usize) -> SimId {
+    SimId::placement(&format!("dormant/{i:05}"))
+}
+
+/// The median time of one tick, over `ticks` ticks.
+fn median_tick(app: &mut App, ticks: usize) -> std::time::Duration {
+    let mut times: Vec<std::time::Duration> = (0..ticks)
+        .map(|_| {
+            let start = std::time::Instant::now();
+            app.update();
+            start.elapsed()
+        })
+        .collect();
+    times.sort();
+    times[ticks / 2]
+}
+
+/// FI9: dormant records add no all-world walk to a tick that changes
+/// nothing. 10,000 dormant mints in a room that is not live cost an idle
+/// tick about what no dormant mint costs. Before the change gate, they cost
+/// 4.7 ms a tick against 0.14 ms (the save mirror walked every ledger row and
+/// the minted mirror every minted row, each tick).
+#[test]
+fn dormant_rows_add_no_walk_to_an_idle_tick() {
+    let mut empty = dormant_world(0);
+    let mut full = dormant_world(10_000);
+    let (empty, full) = (median_tick(&mut empty, 200), median_tick(&mut full, 200));
+    assert!(
+        full < empty * 3 + std::time::Duration::from_micros(100),
+        "an idle tick with 10,000 dormant rows took {full:?}, against {empty:?} with none"
+    );
+}
+
+/// FI9: the gate skips only what did not change. With 10,000 dormant rows,
+/// one dormant mint put down somewhere else reaches the save's row on the
+/// next tick.
+#[test]
+fn a_changed_dormant_row_still_reaches_the_save() {
+    let mut app = dormant_world(10_000);
+    let moved = dormant(4321);
+    let refused = app.world_mut().resource_mut::<AuthoredOccurrences>().republish_placements(
+        "elsewhere",
+        [(moved.clone(), Vec2::new(7.0, 9.0))].into_iter().collect(),
+    );
+    assert!(refused.is_empty(), "precondition: the ledger refused the move");
+    app.update();
+    let row = app
+        .world()
+        .resource::<AmbitionGameSave>()
+        .data()
+        .occurrences()
+        .iter()
+        .find(|row| row.id == moved.as_str())
+        .cloned()
+        .expect("the moved occurrence has a save row");
+    assert_eq!(
+        row.whereabouts,
+        PersistedWhereabouts::Placed { room: "elsewhere".into(), x: 7, y: 9 },
+        "the save did not follow the ledger"
+    );
+}
+
+/// FI9: a save replaced from outside (a load, a restore) is mirrored again,
+/// although the ledger and the live bodies did not change.
+#[test]
+fn a_replaced_save_is_mirrored_again() {
+    let mut app = dormant_world(1_000);
+    let mut replaced = app.world().resource::<AmbitionGameSave>().clone();
+    replaced.data_mut().set_durable_horizon(Vec::new(), Vec::new());
+    replaced.data_mut().set_minted_items(Vec::new());
+    app.world_mut().insert_resource(replaced);
+    app.update();
+    let data = app.world().resource::<AmbitionGameSave>().data();
+    assert_eq!(data.occurrences().len(), 1_000, "the replaced save's occurrence rows were not mirrored again");
+}
+
+/// FI9: a dormant mint taken into custody (its ledger row is no longer
+/// `Placed`, and no live body describes it) leaves the save's minted rows on
+/// the next tick.
+#[test]
+fn a_dormant_mint_taken_up_leaves_the_minted_rows() {
+    let mut app = dormant_world(1_000);
+    let taken = dormant(17);
+    app.world_mut()
+        .resource_mut::<AuthoredOccurrences>()
+        .republish_custody([taken.clone()].into_iter().collect());
+    app.update();
+    let minted = app.world().resource::<AmbitionGameSave>().data().minted_items().to_vec();
+    assert_eq!(minted.len(), 999, "the minted rows did not follow the ledger");
+    assert!(!minted.iter().any(|row| row.occurrence == taken.as_str()));
+}

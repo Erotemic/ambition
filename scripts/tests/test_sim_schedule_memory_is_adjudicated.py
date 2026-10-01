@@ -151,6 +151,11 @@ def test_every_reading_names_a_mechanism_and_a_date():
         "CACHED QUERY",
         "PER-INSTANCE",
         "NEVER WRITTEN",
+        # ⭐ The seventh, 2026-10-01 (FI9): a mirror's change gate keeps the
+        # inputs it last wrote from. A rewind writes the gated resources, so
+        # the gate opens on the first replayed tick and the cache never
+        # decides one.
+        "CHANGE GATE",
     )
     for name, reading in guard.ADJUDICATED.items():
         assert "read 2026-" in reading, f"{name}'s reading carries no date"

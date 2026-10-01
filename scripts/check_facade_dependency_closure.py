@@ -75,7 +75,10 @@ FACADE = "ambition_platformer2d"
 #: ⚠ A REFERENCE POINT, NOT A GATE. The run prints the delta against it; moving
 #: it is how a deliberate change is recorded, and forgetting to move it fails
 #: nothing here — the pages are what must agree.
-CLOSURE_LAST_READ = 48
+#:
+#: 2026-10-01: 52. The pages already said 49 (one rise had not moved this);
+#: the procedural extension tier added three (SDK, host, boss port leaf).
+CLOSURE_LAST_READ = 52
 
 #: ⛔ This package must not re-enter the mandatory graph. The host declares it
 #: `optional = true` and the facade takes the host with

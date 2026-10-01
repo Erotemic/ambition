@@ -1895,6 +1895,11 @@ tables.
 **Open work:** converge the remaining reloadable registries on one explicit
 prepare/admit/publish contract and settle the permanent authoring source.
 
+**Procedural tier (I4), 2026-10-01:** the first cut landed — an SDK, a Bevy host
+and one real technique (the echo fan) running as a module in the shipped game.
+State and open parts: [I4](engine/fast-iteration-implementation.md#i4---small-procedural-sdk-and-one-native-semantic-reference).
+I5 (generic module state through the rollback host) is next.
+
 **Blocked by:** nothing.
 
 ⭐ **RULED 2026-09-19.** (Q110) Mechanical registry

@@ -13,6 +13,7 @@
 | [`content_identity`](src/content_identity.rs) | Immutable prepared-content identity shared by preparation, activation, snapshots, and transactional hot reload. |
 | [`durable_save_horizon`](src/durable_save_horizon.rs) | Host installation of the durable save horizon. |
 | [`encounter_spawn_service`](src/encounter_spawn_service.rs) | The kernel's spawn server, registered where both sides are nameable. |
+| [`extension_composition`](src/extension_composition.rs) | The extension host in the platformer composition (fast-iteration I4). |
 | [`external_effects`](src/external_effects.rs) | Defers presentation-only simulation effects until their producing frame is confirmed. |
 | [`input_drive`](src/input_drive.rs) | Backend-neutral authored input delivery for simulation drivers. |
 | [`input_stream`](src/input_stream.rs) | Input-stream capture (netcode N0.2) — the one place a session's input is recorded. |
@@ -36,7 +37,7 @@
 | [`verdict_census`](src/verdict_census.rs) | `[census] verdicts` — WHAT AUTHORED CONTENT ASKED, AND WHAT IS STUCK. |
 | [`world_gating`](src/world_gating.rs) | The two roads into `gate_solids`, registered in one place. |
 
-_29 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_30 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

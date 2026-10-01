@@ -17,6 +17,7 @@
 | [`encounter_entity`](src/encounter_entity.rs) | The encounter as a first-class, optional entity. |
 | [`encounter_script`](src/encounter_script.rs) | Encounter-script execution and its actor-specific mechanics. |
 | [`events`](src/events.rs) | Boss-encounter presentation sink. |
+| [`extension`](src/extension.rs) | The boss domain's extension trigger adapter. |
 | [`ids`](src/ids.rs) | Boss encounter id helper: `encounter_id_from_name` slugs an authored boss name into a stable id (`"Clockwork Warden"` -> `"clockwork_warden"`). |
 | [`pattern`](src/pattern/mod.rs) | The boss pattern's thinking: tick, control flow, validator, seeds and profile. |
 | [`profile`](src/profile.rs) | Assembled per-boss profile: the content-facing bundle. |
@@ -28,7 +29,7 @@
 | [`sprites`](src/sprites/mod.rs) | Compatibility facade for boss sprite-sheet types. |
 | [`systems`](src/systems.rs) | Boss-encounter Bevy systems: the per-frame driver. |
 
-_21 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_22 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

@@ -823,7 +823,7 @@ systems it stops (read from the parameter lists, 2026-09-30):
 `prepare_authored_switch_commands` ✅ (7b), `drive_wave_encounters` ✅ (7c),
 `update_boss_encounters` ✅ (7e; its scripted road in the review of 7e), `heal_save_shrine_system` ✅ (7d),
 `sync_encounter_reward_chests` ✅ (7d), `retire_rewards_for_rearmed_encounters` ✅ (7c),
-`record_placed_ground_items` ✅ (7d), `physics_spawn_debris_messages` and
+`record_placed_ground_items` ✅ (7d), `physics_spawn_debris_messages` (presentation, see 7m) and
 `tick_npc_idle_barks` ✅ (7m), and the content bosses (`cut_rope` ✅ in the review of 7e, `gnu_ton` and the
 flying spaghetti monster ✅ in cut 7j). ⚠ This list was not complete. A
 second reading at cut 7k (every non-render function that takes a sole-room
@@ -832,7 +832,7 @@ parameter) also found `push_room_entered_quest_events` ✅ (7k),
 `spawn_overflow_flood_from_special_messages` and
 `spawn_apple_rain_from_special_messages`, the portal gun's
 `portal_projectile_step` and `sync_portal_host_depths` ✅ (7l), the falling-sand
-room, and the demos' one-room systems (Mary-O, Sanic, Smash). The
+room ✅ (7m), and the demos' one-room systems (Mary-O, Sanic, Smash). The
 presentation readers in `ambition_render` are P5's (a view per player). The
 new reader is `LiveRoomOf<T>`: `T` of the live room an entity is in, by the
 rule of `LiveRooms::of`. Item motion and falling chests now step each
@@ -1139,6 +1139,34 @@ Witness: `a_gallery_pedestal_barks_at_its_own_rooms_cadence_beside_another_live_
 (Bob in the hub, #0; Alice in the hall, #1: no hall bark in the first 24 s,
 some by 60 s; with the sole-room rule restored, the hall barked 80 times in
 the first 24 s).
+
+✅ **Cut 7m, second part, landed 2026-09-30: the falling-sand room runs
+beside another live room.** Ten falling-sand systems asked whether the sole
+live room was the sand room. While two rooms were live, none of them ran:
+no settled sand reached any collision overlay, and the room's swim loan
+stayed on a player who had left. They now read `LiveSandRoom`, the live
+room that instantiates the sand room. The settled sand and the particle
+projection write that room's overlay, and the swim loan goes to each
+player whose own live room it is. Witness (feature `falling_sand`):
+`the_falling_sand_room_runs_beside_another_live_room` (Bob in the sand
+room, #0; Alice in the hub, #1; the sand spout opens in #0: the settled
+sand reaches #0's overlay and Alice has no swim loan). Poison: with
+`LiveSandRoom` answering only for one live room, no sand reached the
+overlay. With the swim loan's sole-room parameter restored, Alice kept the
+loan. ⚠ Not changed: the sand world (grid, ledger, particles) is one set of
+resources, so two live instances of the sand room would share it. That
+does not happen today, because a player who comes back joins the instance
+held by another player (6e). If it does happen, the lowest instance has the
+sand.
+
+⚠ **`physics_spawn_debris_messages` is presentation, not simulation, and is
+not changed.** Its Avian debris bounces off static colliders that are
+built with the room visuals, and both are placed through `world_to_bevy`
+with one room's geometry. The room visuals are built for the sole live
+room (P5's view work), so with two rooms live the second room has no
+colliders and no visuals. A room-aware debris system alone would throw
+debris into a room with nothing to land on. It moves with the room visuals
+to P5.
 
 ⚠ Still owed from cut 5: `outlook_for(room: &str)` is keyed by definition;
 the `SoleLiveRoomSpec` readers each need a subject before a second live room

@@ -323,6 +323,28 @@ I3b into arbitrary ECS undo or all-world concurrent simulation.
 
 ## I4 - small procedural SDK and one native semantic reference
 
+**State (2026-10-01): the first cut is LANDED.** One real technique runs on the
+host in the shipped game; I4 is not complete (see *Open* below).
+
+| Part | Where | Witness |
+| --- | --- | --- |
+| SDK: descriptors, schemas, records, canonical digest, typed ports, `Invocation` | `crates/ambition_extension_sdk` (no dependencies) | its unit tests; policy `engine.ambition_extension_sdk-portable` |
+| Host: offers installed WITH their adapter, admission, serial order, staged writes, fault discard, body store | `crates/ambition_extension_host` | `ambition_extension_host` tests (refusals, order cycle, fault discard, missing observation) |
+| Trigger port `ambition.boss.special_cast` | values `crates/ambition_boss_special_port`; adapter `ambition_boss_encounter::extension` | card in the port crate's docs |
+| Request port `ambition.projectiles.spawn` | value `ambition_projectile_spec::ProjectileSpawnPort`; adapter `ambition_projectiles::extension` | card on `ProjectileSpawnPort` |
+| Phase `technique_execution` → `CombatSet::ContentSpecials` | `ambition_platformer2d_runtime::extension_composition` | — |
+| The echo fan as a module | `game/ambition_content_modules::echo_fan`; the native system is test-only | `module_parity` (tick-for-tick, owner and move-use credit; two poisons fail it); `app_it::a_boss_special_runs_on_the_extension_host` (real brain press, plus a GGRS sync-test arm) |
+
+**Deliberate change:** the native fan aimed at its target's body only when the
+target was the player, and otherwise at the stored point. The trigger adapter
+aims at whatever body the boss tracks.
+
+**Open:** a compile-fail witness that the SDK offers no engine-state setter;
+a module digest in `PreparedContentIdentity` (D6); the deterministic fault
+policy (today a fault discards the invocation's output and is counted in
+`ExtensionFaults`; it does not stop the session); a second technique with an
+observation port; session-scoped records (refused at admission until I5).
+
 **Class:** DO. **Requires:** the execution contract; does not wait for a VM.
 Read actual boss special producers, domain request types, combat_schedule,
 SimId/session ownership and RollbackRegistrar. Use one EchoFan-like technique as

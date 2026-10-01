@@ -1780,6 +1780,11 @@ allow = ["ambition_platformer2d_actor_monolith", "ambition_platformer2d_actor_sp
     "ambition_conversation",
     # Boss-encounter state is lower-tier domain state composed by the runtime.
     "ambition_boss_encounter",
+    # The procedural extension host and its SDK (fast-iteration I4): the runtime
+    # places the host's phases and installs the domain adapters that answer its
+    # ports (`extension_composition.rs`).
+    "ambition_extension_host",
+    "ambition_extension_sdk",
     # Player/victim hit resolution: the runtime schedules `apply_player_hit_events`
     # and `stage_player_victim_hit_events` into its player/combat chains and
     # registers `WalletShieldSpent` beside them. Same relationship as
@@ -3281,3 +3286,68 @@ source_doc = "docs/planning/engine/actor-monolith-decomposition.md"
 severity = "error"
 roots = ["crates/ambition_encounter_features/src"]
 forbid = ["ambition_platformer2d_actor_monolith"]
+
+# ── Procedural extension boundary (fast-iteration I4) ───────────────────────────
+# The portable closure: a module builds against the SDK and the pure values of
+# the ports it uses, without Bevy's ECS, the host or a game runtime
+# (docs/planning/engine/extension-model.md D1/D5, FI1).
+
+[[policy]]
+id = "engine.ambition_extension_sdk-member"
+scope = "engine"
+kind = "workspace-member"
+owners = ["ambition_extension_sdk"]
+watch_paths = ["Cargo.toml"]
+rationale = "the extension SDK must stay a registered workspace member"
+source_doc = "docs/planning/engine/extension-model.md"
+severity = "error"
+members = ["ambition_extension_sdk", "ambition_extension_host", "ambition_boss_special_port", "ambition_content_modules"]
+
+[[policy]]
+id = "engine.ambition_extension_sdk-portable"
+scope = "engine"
+kind = "dependency-denylist"
+owners = ["ambition_extension_sdk"]
+watch_paths = ["crates/ambition_extension_sdk/Cargo.toml"]
+rationale = "the extension SDK has no dependencies: a module author builds against it without Bevy, the host or any engine implementation (extension-model D5; FI1)"
+source_doc = "docs/planning/engine/extension-model.md"
+severity = "error"
+deny = ["bevy", "bevy_ecs", "bevy_app", "bevy_math", "ambition_platformer2d_core", "ambition_extension_host", "ambition_platformer2d_runtime", "ambition_platformer2d", "ambition_time"]
+manifest = "crates/ambition_extension_sdk/Cargo.toml"
+
+[[policy]]
+id = "engine.ambition_boss_special_port-portable"
+scope = "engine"
+kind = "dependency-allowlist"
+owners = ["ambition_boss_special_port"]
+watch_paths = ["crates/ambition_boss_special_port/Cargo.toml"]
+rationale = "the boss special port's values are read by modules, so the leaf names only the SDK"
+source_doc = "docs/planning/engine/extension-domain-contracts.md"
+severity = "error"
+exact = true
+allow = ["ambition_extension_sdk"]
+manifest = "crates/ambition_boss_special_port/Cargo.toml"
+
+[[policy]]
+id = "engine.ambition_projectile_spec-portable"
+scope = "engine"
+kind = "dependency-denylist"
+owners = ["ambition_projectile_spec"]
+watch_paths = ["crates/ambition_projectile_spec/Cargo.toml"]
+rationale = "the projectile spawn value is a module-facing port value, so it carries maths types and no ECS"
+source_doc = "docs/planning/engine/extension-domain-contracts.md"
+severity = "error"
+deny = ["bevy", "bevy_ecs", "bevy_app", "ambition_extension_host", "ambition_projectiles"]
+manifest = "crates/ambition_projectile_spec/Cargo.toml"
+
+[[policy]]
+id = "engine.ambition_extension_host-below-composition"
+scope = "engine"
+kind = "dependency-denylist"
+owners = ["ambition_extension_host"]
+watch_paths = ["crates/ambition_extension_host/Cargo.toml"]
+rationale = "the host sits below the runtime composition root and names no game algorithm: the runtime composes the host with domain adapters (fast-iteration I4 step 2)"
+source_doc = "docs/planning/engine/fast-iteration-implementation.md"
+severity = "error"
+deny = ["ambition_platformer2d_runtime", "ambition_platformer2d_actor_monolith", "ambition_characters", "ambition_combat", "ambition_projectiles", "ambition_boss_encounter", "ambition_content", "ambition_app"]
+manifest = "crates/ambition_extension_host/Cargo.toml"

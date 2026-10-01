@@ -71,8 +71,12 @@ one per session root, so order cannot move them. Also classified: 21 read a
 `is_some()` (order cannot matter), and the 11 in
 `actor_monolith/src/features/ecs/spawn/tests.rs` are hand-built Apps that spawn
 one body (one read; the other ten REASONED from the same fixture shape and
-their "one enemy body" / "the NPC was built" expectations). About 34 are unread,
-mostly boss probes in single-boss rooms.
+their "one enemy body" / "the NPC was built" expectations). Of the other 34,
+read by listing: about 20 read a once-per-session mode owner (Mary-O level and
+timer, Sanic act), and the rest are single-subject fixtures (one CPU in
+`match_activation/tests.rs:1747`, one popped reward in Mary-O `two_rooms.rs`,
+boss probes in single-boss rooms). REASONED from each fixture, not measured.
+No second multi-member case was found.
 
 ### SYNC-POINT-SENSITIVE-RESIM — a command sync point moves the death-reset replay
 

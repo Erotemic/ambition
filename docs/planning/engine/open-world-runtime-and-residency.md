@@ -1351,6 +1351,28 @@ and `the_blink_reticle_reads_the_walls_of_its_subjects_own_room` (#0
 walled, #1 open; poisoned, the reticle was inactive). `SoleLiveRoom`
 69/49 -> 68/48, `SoleLiveRoomSpec` 39/31 -> 37/29.
 
+✅ **Cut 7q landed 2026-10-01: each live room keeps its own gated lock
+walls, and the gnu's back is ground in the giant's own room.** Two overlay
+contributors wrote to the sole live room. With two rooms live, both wrote
+nothing. The gated lock walls cached one room's walls (the room the set
+named while one room was live) and pushed them to `RoomOverlays::sole()`,
+so no room had a gated wall and anyone could walk through a locked door.
+The gnu's back platform went to the same sole overlay, so nobody could
+stand on the giant. The cache (`GatedLockWallCache`) now holds walls by
+room id. It refreshes only when the room set or the catalog changes, a
+cached room is gone, or a live room is not cached. Each tick, each live
+room root gets the standing walls of its own room in its
+`FeatureEcsWorldOverlay`. The gnu's back goes to the overlay of the
+giant's own room (`RoomOverlays::for_room`). Witnesses, each poisoned with
+the sole-room write restored (the failure is in brackets):
+`each_live_room_keeps_its_own_gated_walls` (`drain_alley` #0 with no
+walls, `alice_relay` #1 with one gated wall; walls per room (0, 1), then
+(0, 0) after the flag is set; poisoned (0, 0) at the first assertion) and
+`the_gnu_s_back_is_ground_in_its_own_live_room` (Bob in
+`hall_of_bosses` #0, Alice in `gnu_ton_arena` #1; poisoned, no room held
+the back). The census markers do not change: neither reader was a
+`SoleLiveRoom` marker.
+
 ✅ **OW3, first slice, landed 2026-10-01: a runtime mint left in a room
 that is not live is still there when the room is live again.** A runtime
 mint (a boss's dropped gauntlet) has no authored record. Two facts rebuild

@@ -659,6 +659,10 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_audio/src/library.rs",
         "crates/ambition_platformer2d_actor_monolith/src/audio/plugin.rs",
     ),
+    "EditableMovementTuning": (
+        "game/ambition_app/src/app/movement_defaults_watch.rs",
+        "game/ambition_app/src/menu/kaleidoscope_app.rs",
+    ),
     "EditablePortalTuning": (
         "game/ambition_app/src/dev/portal_inspector.rs",
         "game/ambition_content/src/portal/reorient_setting.rs",
@@ -2615,6 +2619,25 @@ ADJUDICATED: dict[str, str] = {
         "files, which is expected for an arm/decay pair — the roles are "
         "temporally disjoint, not competing. Measured by CalculexAmbition, "
         "2026-09-18."
+    ),
+    "EditableMovementTuning": (
+        "A DEVELOPER MIRROR WITH TWO DEVELOPER INTENTS, AND ONE WRITER OF THE "
+        "AUTHORITY BEHIND IT. `watch_movement_defaults` "
+        "(`game/ambition_app/src/app/movement_defaults_watch.rs`) writes the "
+        "whole mirror when the defaults file is saved; "
+        "`reset_all_settings` (`game/ambition_app/src/menu/kaleidoscope_app.rs`) "
+        "writes it from the movement profile when the developer asks for a "
+        "reset (the F3 inspector writes it by reflection, which the census "
+        "does not see). Each is a whole-value write on a developer action, so "
+        "the later action wins, which is the meaning of both. Neither reaches "
+        "the simulation: `ActiveMovementTuning` has ONE writer, "
+        "`publish_editable_movement_tuning` "
+        "(`crates/ambition_dev_tools/src/dev_tools/editable.rs`), and only "
+        "after the timeline owner admits the proposal. Measured 2026-10-01 by "
+        "ToothbrushAmbition2: a grep for a mutable `ActiveMovementTuning` "
+        "outside tests finds only that publisher, and "
+        "`a_movement_tuning_saved_while_the_game_runs_is_played` fails at 630 "
+        "with the watch's write removed."
     ),
     "EditablePortalTuning": (
         "ONE FIELD HAS ONE AUTHOR, PROVED BY A CHANGE-GUARD RATHER THAN A "

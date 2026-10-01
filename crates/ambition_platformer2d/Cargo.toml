@@ -121,6 +121,7 @@ dev_tools = [
 dev_hot_reload = ["ambition_platformer2d_actor_monolith/dev_hot_reload"]
 static_map = ["ambition_platformer2d_actor_monolith/static_map"]
 static_core_assets = ["ambition_platformer2d_actor_monolith/static_core_assets"]
+static_content = ["ambition_platformer2d_actor_monolith/static_content"]
 static_sfx_bank = ["ambition_platformer2d_actor_monolith/static_sfx_bank"]
 ldtk_runtime = ["ambition_platformer2d_actor_monolith/ldtk_runtime"]
 # Load procedural modules from `.wasm` files at startup, so a module edit

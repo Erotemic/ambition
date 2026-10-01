@@ -1122,6 +1122,10 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "developer file watch: modification times of the content sources on disk and a reload request count, read and written only in Update by `watch_content_sources`, which runs no simulation; a reload it asks for goes through the content publication gate, which rebases the local timeline. Rewinding it would re-ask for a reload the shell already answered",
     ),
     (
+        "ambition_app::app::movement_defaults_watch::MovementDefaultsWatch",
+        "developer file watch: the modification time of the movement defaults on disk and a write count, read and written only in Update by `watch_movement_defaults`, which runs no simulation; the tuning it writes goes to `EditableMovementTuning` and reaches the simulation only through the admitted developer-edit proposal. Rewinding it would write a saved file again",
+    ),
+    (
         "ambition_platformer2d_core::movement::tuning::MechanicalEditAdmission",
         "host-side answer about the live timeline, decided in PreUpdate before RunGgrsSystems and consumed in the same chain; rewinding it would hand a frame an answer about a timeline that no longer exists",
     ),

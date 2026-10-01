@@ -27,6 +27,8 @@ mod combo_trace;
 mod dev_runtime;
 mod feedback;
 mod hud;
+#[cfg(not(feature = "static_content"))]
+pub mod movement_defaults_watch;
 mod phases;
 mod player_tick;
 mod plugins;

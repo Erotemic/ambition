@@ -191,6 +191,31 @@ static_content` fails on the missing file and the default check passes. Witness:
 demo does not reload its pack; that road is `ambition_content::reload`'s and
 Ambition's only.
 
+**2026-10-01: the movement defaults are read off disk too.**
+`platformer_defaults.ron` (the starting abilities and `MovementTuning`) was an
+unconditional `include_str!` in the actor monolith: MEASURED, a touch compiled
+15 crates in 14.10 s. `Platformer2dGameplayDefaults::load` reads it off disk and
+embeds it only under the monolith's new `static_content`, which
+`ambition_platformer2d` and `ambition_app`'s `static_content` forward. After:
+0.49 s, no crate compiled. With the file renamed, the `static_content` check
+fails on it and the default check passes. Census of the engine crates for the
+same shape (`include_str!` of a data file outside a test): the LDtk entity
+contract (`ldtk_entity_contract.json`, a schema, not tuning) and
+`test_boss_catalog` (behind `test-support`) remain; neither is tuning data.
+The same day a running game plays a saved defaults edit:
+`ambition_app::app::movement_defaults_watch` (off-disk builds only) writes the
+file's tuning to `EditableMovementTuning`, the F3 inspector's mirror, so the
+edit takes the existing developer-edit road (proposed, admitted by the timeline
+owner, published in `PreUpdate`); a file that does not parse is refused, and a
+change to the starting abilities is reported and needs a restart. Witness:
+`edit_to_play_through_the_shell::a_movement_tuning_saved_while_the_game_runs_is_played`
+(`jump_speed` 630 → 700 in a copy: `ActiveMovementTuning` takes it **19 frames
+after the save**, and the player's jump launch goes from 555 to 625; an
+unparseable save first changes nothing). Poison "the watch does not write the
+mirror" fails it at 630. The witness walks 10 frames before each jump: an idle
+player in `proving_grounds` is hit at frame 122 (60 → 59 HP, measured), and a
+press in the hitstun does not launch.
+
 **Class:** DO. **Requires:** I1 for the lightweight Rust frontend; the data
 format/host side can be developed in parallel.
 Read `crates/ambition_content_pack/src/lib.rs`,

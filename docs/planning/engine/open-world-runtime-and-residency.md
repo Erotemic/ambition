@@ -1855,6 +1855,45 @@ run:
 frame), and a session where dormant rows change often. Each tick that
 changes a row copies the shared rows once (about 1.4 ms at 10,000).
 
+✅ **Change-tick gates inside the rewinding schedule, classified
+2026-10-01.** Cut (C) found that an `is_changed()` gate opens on every load
+frame: a rollback load writes each snapshotted resource and component
+again, and change ticks are not rolled back. A census of the systems that
+`check_sim_schedule_memory_is_adjudicated.sim_schedule_systems()` lists
+(663; 513 found by name, so this is a LOWER BOUND) found 10 that read
+`is_changed()`, `Changed<` or `Added<` in code. Comments were stripped:
+`apply_worn_character_gameplay` names `is_changed()` only to say that it
+does not use it. For each, the question is whether the gated output differs
+on a load frame (a peer that loads a snapshot and a peer that does not get
+different answers) or only the cost does.
+
+| System | Finding |
+|---|---|
+| `advance_room_transition_content_epoch_system` | Already compares the room set by value. Its four registries are not rollback state, so a load does not mark them. |
+| `prepare_authored_switch_commands` | (a) A pure rebuild from the room set and the catalog. |
+| `project_prepared_character_definitions` | (a) A candidate whose projected id and generation match is skipped. |
+| `rebuild_control_prompt`, `rebuild_dialog_view` | (a) Pure rebuilds of view models. |
+| `sync_map_from_save` | (a) A pure projection of the save, assigned only when different. |
+| `observe_damageable_body_identity`, `observe_unminted_bodies` | Diagnostic counters only; not rollback state. |
+| `sync_plugin_spawned_ambition_entities` | `PluginEntityInstance` is not snapshotted, so a load does not add it. |
+| `despawn_departed_mode_entities` | **(b), fixed.** See below. |
+
+The mode sweep ran only when the live rooms changed. Measured with a
+temporary probe: under the sync test (4/10) the gate opened on 60 of 300
+runs, once per step, on the load frame. With no rollback it never opened.
+A mode-scoped entity of a mode that governs no live room, put in the world
+with no room change, was swept within 20 steps under the sync test and
+kept on the host with no rollback. So whether such an entity survived
+depended on whether this peer loaded a snapshot. In consistent states the
+sweep despawned nothing (a Mary-O lap and its 1-1 → 1-2 crossing: 0). The
+sweep is a pure function of the live rooms and the few mode-scoped
+entities, so it now runs on every tick with no gate. Witness:
+`an_ungoverned_mode_entity_is_swept_without_a_room_change`. Poison (the
+gate restored): the entity stayed. ⚠ The shipped single-player rollback
+host did not resimulate in the probe (281 runs in 300 updates), so it has
+no load frames. The hazard is for the sync test and for real peers after
+a misprediction.
+
 ⚠ **`physics_spawn_debris_messages` is presentation, not simulation, and is
 not changed.** Its Avian debris bounces off static colliders that are
 built with the room visuals, and both are placed through `world_to_bevy`

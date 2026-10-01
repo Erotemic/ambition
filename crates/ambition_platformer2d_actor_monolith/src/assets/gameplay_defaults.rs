@@ -8,16 +8,16 @@
 //! edge drops the knot from 15 modules to 13.
 //!
 //! ⛔ THE TYPE NEVER BELONGED TO `session`. It is a `Deserialize + Asset` struct
-//! of two fields from the core crate with a `load_embedded` reading a `.ron`; it
+//! of two fields from the core crate with a `load` reading a `.ron`; it
 //! names nothing in `session` and nothing in the crate at all. It was filed
 //! beside the system that first registered a handle for it, and a data type
 //! filed beside its first consumer is how a dependency graph acquires an edge
 //! nobody intended.
 //!
-//! ⚠ THE `include_str!` PATH SURVIVED THE MOVE BY ARITHMETIC, NOT BY LUCK BEING
-//! CHECKED: it is relative to the FILE, and `src/session/data.rs` and
-//! `src/assets/gameplay_defaults.rs` are the same depth. A move one level
-//! deeper would have needed it rewritten, silently, at compile time.
+//! ⚠ THE `include_str!` PATH IS RELATIVE TO THIS FILE: a move one level deeper
+//! needs it rewritten. It compiles only under `static_content`, so a default
+//! check does not see a wrong path; `cargo check --features static_content`
+//! does. The disk path is from the crate directory and does not move.
 
 use bevy::prelude::Resource;
 use bevy::asset::Asset;
@@ -34,9 +34,48 @@ pub struct Platformer2dGameplayDefaults {
     pub tuning: ae::MovementTuning,
 }
 
+/// The defaults file in the source tree. A development build reads it at boot
+/// and watches it while it runs.
+pub const PLATFORMER_DEFAULTS_FILE: &str =
+    concat!(env!("CARGO_MANIFEST_DIR"), "/assets/ambition/platformer_defaults.ron");
+
+/// The defaults text, when the build embeds it (`static_content`).
+///
+/// An `include_str!` is a compilation input: embedded unconditionally, a
+/// movement tuning edit compiled this crate and the 14 crates after it (14.10 s
+/// measured, 2026-10-01).
+#[cfg(feature = "static_content")]
+const PLATFORMER_DEFAULTS_RON: Option<&str> =
+    Some(include_str!("../../assets/ambition/platformer_defaults.ron"));
+#[cfg(not(feature = "static_content"))]
+const PLATFORMER_DEFAULTS_RON: Option<&str> = None;
+
 impl Platformer2dGameplayDefaults {
-    pub fn load_embedded() -> Self {
-        ron::from_str(include_str!("../../assets/ambition/platformer_defaults.ron"))
-            .expect("embedded assets/ambition/platformer_defaults.ron should parse")
+    /// The authored defaults: embedded under `static_content`, else read off
+    /// disk, so an edit costs a restart and no Rust build.
+    ///
+    /// # Panics
+    ///
+    /// When the file cannot be read or does not parse. The game cannot start
+    /// without its movement defaults, and the message names the file.
+    pub fn load() -> Self {
+        let text = match PLATFORMER_DEFAULTS_RON {
+            Some(text) => std::borrow::Cow::Borrowed(text),
+            None => std::borrow::Cow::Owned(std::fs::read_to_string(PLATFORMER_DEFAULTS_FILE).unwrap_or_else(
+                |error| {
+                    panic!(
+                        "{PLATFORMER_DEFAULTS_FILE} is not readable ({error}); a build with no source \
+                         tree must turn on `static_content`"
+                    )
+                },
+            )),
+        };
+        Self::parse(&text)
+            .unwrap_or_else(|error| panic!("{PLATFORMER_DEFAULTS_FILE} does not parse: {error}"))
+    }
+
+    /// The defaults a text states.
+    pub fn parse(text: &str) -> Result<Self, ron::error::SpannedError> {
+        ron::from_str(text)
     }
 }

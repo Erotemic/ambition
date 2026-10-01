@@ -122,6 +122,7 @@ static_map = ["ambition_platformer2d/static_map", "ambition_content/static_map"]
 # feature, so the hosted demos read no file either.
 static_content = [
     "ambition_content/static_content",
+    "ambition_platformer2d/static_content",
     "ambition_demo_sanic/static_content",
     "ambition_demo_mary_o/static_content",
     "ambition_demo_smash/static_content",

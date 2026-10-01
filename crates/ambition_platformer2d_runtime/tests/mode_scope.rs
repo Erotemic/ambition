@@ -211,6 +211,28 @@ fn a_room_change_inside_the_same_mode_spares_the_modes_entities() {
     assert_eq!(mode_scoped_entities(&mut app), vec!["a"]);
 }
 
+/// A mode-scoped entity whose mode governs no live room is swept on the next
+/// tick, although no room changed. The sweep was gated on a room change, and a
+/// rollback load writes the rooms again, so the same entity was swept on a
+/// host that loaded a snapshot and kept on a host that did not. A sweep with
+/// no gate gives one answer on every host.
+#[test]
+fn an_ungoverned_mode_entity_is_swept_without_a_room_change() {
+    let mut app = two_hosted_demos();
+    set_mode(&mut app, Some("a"));
+    app.update();
+    app.update();
+    app.world_mut().commands().spawn_mode_scoped("a", ());
+    app.world_mut().commands().spawn_mode_scoped("b", ());
+    app.world_mut().flush();
+    app.update();
+    assert_eq!(
+        mode_scoped_entities(&mut app),
+        vec!["a"],
+        "an entity of a mode that governs no live room stayed, because no room changed"
+    );
+}
+
 /// `in_base_mode` is the mirror of [`in_mode`]: it wakes a host-only system ONLY
 /// when the live session is Ambition's own (an active room with no demo mode tag).
 /// This is the gate the inventory/pause toggle needs — it stays asleep on the

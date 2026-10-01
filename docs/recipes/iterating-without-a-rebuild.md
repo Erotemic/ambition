@@ -22,6 +22,7 @@ from disk and watches nothing.
 | `data/boss_profiles.ron`, `data/boss_encounters/*.ron` | The same reload. A boss built after it has the new tuning and the new HP. | `a_boss_tuning_saved_while_the_game_runs_is_played` |
 | `data/character_catalog.ron` (a row's health, body, abilities, brain) | The same reload; every character is folded again against the new catalog. A row added or removed (a character that starts or stops being built) is refused: restart. | `a_character_row_saved_while_the_game_runs_is_played` |
 | `data/fighter_brain_ladder.ron`, `data/encounters/*.ron` | The same reload. | `ambition_content::reload` tests |
+| `crates/ambition_platformer2d_actor_monolith/assets/ambition/platformer_defaults.ron` (movement tuning) | Writes the new tuning to the F3 inspector's mirror (`EditableMovementTuning`); the developer-edit road publishes it about 20 frames after the save. A file that does not parse is refused. The starting abilities in the file need a restart. | `a_movement_tuning_saved_while_the_game_runs_is_played` |
 | A Yarn file (`assets/dialogue/sandbox/*.yarn`) | Compiles the whole dialogue project with the new file, then uses it. A dialogue that is open starts its current node again. | `content_it::a_saved_dialogue_edit_is_played` |
 | A procedural module (`game/ambition_content_modules/src/*.rs`) | Nothing until you rebuild the `.wasm` (next section); then the game loads the new code. | `a_module_file_that_changes_while_the_game_runs_is_reloaded` |
 | The LDtk world | Press F11 to apply the edit, or F12 to apply each save. | `an_edit_reaches_the_shipped_game` |
@@ -38,6 +39,7 @@ A reload is refused, and the game keeps what it runs, when:
 
 Read the log for the result. Each reload writes one line:
 `content reload requested for route ...`, `dialogue reloaded from [...]`,
+`movement tuning reloaded from ...`,
 `extension modules reloaded: ...`, or a refusal with its reason.
 
 ## Procedural modules: rebuild only the module
@@ -76,6 +78,7 @@ ambition_game_bin` after touching the file, with a warm target:
 | `audio/sfx_registry.ron` | 0.52 s, no crate compiled |
 | `data/boss_sheets.ron` | 0.48 s, no crate compiled |
 | A Yarn file | 0.43 s, no crate compiled |
+| Movement defaults (`crates/ambition_platformer2d_actor_monolith/assets/ambition/platformer_defaults.ron`) | 0.49 s, no crate compiled (embedded, it was 14.10 s: the actor monolith and 14 crates after it) |
 | A demo's move table, catalog or fighter facet (`game/ambition_demo_*/assets/`, the versus pack in `game/ambition_app/assets/`) | 0.43 to 0.45 s, no crate compiled (embedded, it was 6.62 s: the demo crate and the app) |
 | A file that is still embedded (`include_str!`) | about 6 to 7 s: `ambition_content` and the app compile again |
 

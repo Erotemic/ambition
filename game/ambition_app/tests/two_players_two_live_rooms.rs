@@ -1949,3 +1949,79 @@ fn the_map_records_a_room_visited_beside_another_live_room() {
         assert!(visited, "the hub visit was not recorded with {rooms} live room(s)");
     }
 }
+
+/// Whether the crossing asked for the shared sim clock to be reset.
+#[derive(bevy::prelude::Resource, Default)]
+struct CrossingResetTheClock(bool);
+
+/// [`walk_through_the_door_to`], with two facts of the room being left
+/// planted first, a projectile stamped into it and the ambient gravity
+/// flipped, and with each tick of the walk read for the crossing's request to
+/// reset the sim clock ([`CrossingResetTheClock`]).
+fn walk_through_the_door_leaving_a_shot_and_flipped_gravity(
+    sim: &mut Platformer2dSimHarness,
+    target: &str,
+) -> String {
+    use ambition_platformer2d::engine_core::AabbExt as _;
+    use ambition_platformer2d::time::time_control::ClockResetRequest;
+    {
+        let world = sim.world_mut();
+        let room = *ambition_platformer2d::platformer::lifecycle::sole_live_room_component::<LiveRoomInstance>(world)
+            .expect("one room is live before Alice crosses");
+        world.spawn((
+            ambition_platformer2d::projectiles::LiveProjectile,
+            InRoomInstance(room),
+            ambition_platformer2d::combat::components::FeatureId("ow1_bob_shot".to_string()),
+        ));
+        let mut gravity = world.resource_mut::<ambition_platformer2d::world::BaseGravity>();
+        gravity.dir = -gravity.dir;
+        world.insert_resource(CrossingResetTheClock(false));
+    }
+    let before = sim.observation().active_room.clone();
+    let door = crate::common::door_to(sim, target);
+    let center = door.aabb.center();
+    sim.teleport_player((center.x, center.y));
+    for _ in 0..120 {
+        let room = sim.step(ambition_app::AgentAction { interact: true, interact_held: true, ..base() }).active_room;
+        let world = sim.world_mut();
+        let reset = world
+            .resource::<bevy::ecs::message::Messages<ClockResetRequest>>()
+            .iter_current_update_messages()
+            .any(|request| request.reason == "room_transition");
+        world.resource_mut::<CrossingResetTheClock>().0 |= reset;
+        if room != before {
+            return room;
+        }
+    }
+    panic!("the '{}' door of '{before}' never took Alice across", door.name);
+}
+
+/// OW1, customer 2: a crossing resets only what it leaves behind. Before
+/// Alice leaves `switch_lab`, the room holds a shot and gravity is flipped.
+/// With Bob driven, the room stays live with him: the shot stays, and the
+/// world's gravity and sim clock (one of each for every live room) are not
+/// reset. The control, Bob not driven: the crossing replaces the world, and
+/// the shot goes, gravity is put back down and the clock reset is asked for,
+/// as before. Before, every crossing did all three, so Alice's door
+/// unflipped Bob's room and cancelled his bullet time.
+#[test]
+fn a_crossing_resets_only_what_it_leaves_behind() {
+    use ambition_platformer2d::characters::control::PlayerSlot;
+    for (slot, rooms, expected) in [(None, 1, (false, true, false)), (Some(PlayerSlot(1)), 2, (true, false, true))] {
+        let (mut sim, _) = alice_leaves_bob_by(slot, walk_through_the_door_leaving_a_shot_and_flipped_gravity);
+        assert_eq!(live_rooms(&mut sim).len(), rooms, "precondition ({slot:?}): the live room count");
+        let world = sim.world_mut();
+        let shot = world
+            .query::<&ambition_platformer2d::combat::components::FeatureId>()
+            .iter(world)
+            .any(|feature| feature.0 == "ow1_bob_shot");
+        let clock_reset = world.resource::<CrossingResetTheClock>().0;
+        let flipped = world.resource::<ambition_platformer2d::world::BaseGravity>().dir
+            != ambition_platformer2d::world::BaseGravity::default().dir;
+        assert_eq!(
+            (shot, clock_reset, flipped),
+            expected,
+            "with {rooms} live room(s) after the crossing: (the shot is there, the clock reset was asked for, gravity is flipped)"
+        );
+    }
+}

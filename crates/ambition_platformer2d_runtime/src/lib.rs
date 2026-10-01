@@ -75,6 +75,7 @@ pub use content_identity::{
     PreparedContent,
     PreparedContentBuildError, PreparedContentBuilder, PreparedContentIdentity,
     PreparedContentSection, SelectedContentIdentity, SnapshotSchemaFingerprint,
+    publish_session_content,
 };
 /// The demo-hosting seam (D-C): gate a hosted ruleset on the active room's mode.
 pub use mode_scope::{

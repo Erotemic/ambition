@@ -372,10 +372,28 @@ prepared content identity (`extension.modules`, from
 identity — a loaded module's is the digest of its exact bytes — and
 descriptor digest, in declaration order), on both preparation roads. Witness:
 `app_it::a_boss_special_runs_on_the_extension_host::the_prepared_content_identity_names_the_module_code_the_session_runs`
-(the linked and the loaded build are different generations). ⚠ A published
-local reload changes `ExtensionGeneration` but does not re-mint the running
-session's identity; a session whose timeline another owner holds refuses the
-reload, so a remote session keeps its generation.
+(the linked and the loaded build are different generations).
+
+**D6, the local reload (2026-10-01):** a published module reload that changes
+the declared modules re-mints the session's content
+(`extension_composition::remint_session_content`, at
+`MechanicalEditSet::Publish`): `PreparedContent::with_section` replaces
+`EXTENSION_MODULES_SECTION` and computes the fingerprint again, a new epoch is
+allocated, and `PreparedContentIdentity` and `ActiveContentBinding` move with
+it through `ambition_platformer2d_runtime::publish_session_content`, which is
+now the one road by which a running session changes generation in place (the
+LDtk world reload publishes through it too, and only reads the active content). A reload of the
+same bytes keeps the generation. The local rollback baseline, stopped at
+`Admit`, starts again in `Update` against the new identity (ordering reasoned
+from the set chain, not measured under local GGRS). The live rooms are not
+built again; a room built after the reload is stamped with the new content.
+A session whose timeline another owner holds refuses the reload, so a remote
+session keeps its generation. Witness:
+`a_loaded_module_keeps_session_state::a_module_file_replaced_while_the_game_runs_takes_over`
+(section, fingerprint, epoch, identity and binding; then a door, and the room
+behind it names the new content; poisons "no re-mint" and "binding not moved"
+each fail it) and `a_module_file_that_changes_while_the_game_runs_is_reloaded`
+(same bytes, same fingerprint).
 
 **M1 on the loaded road, measured 2026-10-01** (release, agent machine,
 `extension_inspect --time` and `ambition_extension_wasm`'s ignored
@@ -402,7 +420,7 @@ that a call left at its initial value (an absent record is initial), so an
 about (`a_call_that_leaves_its_record_initial_stores_nothing`).
 
 **Open:** a compile-fail witness that the SDK offers no engine-state setter;
-re-minting the identity on a local reload (D6); the deterministic fault
+the deterministic fault
 policy (today a fault discards the invocation's output and is counted in
 `ExtensionFaults`; it does not stop the session); a second technique with an
 observation port. (Session-attached records landed with I5's first cut; see I5.)

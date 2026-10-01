@@ -464,7 +464,7 @@ pub mod extension {
     #[cfg(feature = "wasm_modules")]
     pub use ambition_extension_wasm::{build_module_crate, LoadError, WasmModules};
     pub use ambition_platformer2d_runtime::extension_composition::{
-        ExtensionModuleFiles, EXTENSION_MODULES_VAR,
+        ExtensionGeneration, ExtensionModuleFiles, EXTENSION_MODULES_SECTION, EXTENSION_MODULES_VAR,
     };
 }
 pub use ambition_platformer2d_shared_tangle as platformer;

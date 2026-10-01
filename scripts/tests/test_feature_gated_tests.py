@@ -37,6 +37,20 @@ def test_a_gate_on_the_test_itself_is_seen(tmp_path):
     assert features == {'input'}
 
 
+def test_a_negated_gate_on_an_off_feature_runs_by_default(tmp_path):
+    path = tmp_path / 'a.rs'
+    path.write_text(
+        '#[cfg(not(feature = "static_content"))]\n#[test]\nfn reads_disk() {}\n\n'
+        '#[cfg(feature = "static_content")]\n#[test]\nfn embedded() {}\n',
+        encoding='utf8',
+    )
+    total, gated, _ = fgt.scan_file(path)
+    assert (total, gated) == (2, 1)
+    # ...and with the feature on by default, the negated one is the hidden one.
+    total, gated, _ = fgt.scan_file(path, {'static_content'})
+    assert (total, gated) == (2, 1)
+
+
 def test_a_gated_mod_block_is_seen(tmp_path):
     """Brace tracking, not line matching: the attribute is three lines above the
     test it guards."""

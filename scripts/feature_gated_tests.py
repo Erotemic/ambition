@@ -16,6 +16,23 @@ CRATE_ROOTS = ('crates', 'game')
 
 TEST_ATTR = re.compile(r'#\[\s*(?:tokio::)?test\s*[\]\(]')
 CFG_FEATURE = re.compile(r'#!?\[\s*cfg\s*\([^)]*feature\s*=\s*"([a-zA-Z0-9_\-]+)"')
+NEGATED_FEATURE = re.compile(r'not\s*\(\s*feature\s*=\s*"([a-zA-Z0-9_\-]+)"')
+
+
+def hides(cfg: str, feature: str, on_by_default: set[str]) -> bool:
+    """Does this `cfg` keep its item out of a default run?
+
+    ⛔ `cfg(not(feature = "x"))` with `x` OFF by default is IN the default run:
+    it is the build that does NOT ask for `x`. Counting it as hidden told the
+    ledger *"that test does NOT run in the default gate plan"* about two tests
+    that run in every default plan (`static_content`, 2026-10-01). The rule is
+    one equality: a gate hides its item exactly when the feature's default
+    state is the state the gate excludes.
+    """
+    negated = any(m.group(1) == feature for m in NEGATED_FEATURE.finditer(cfg))
+    return (feature in on_by_default) == negated
+
+
 MOD_DECL = re.compile(r'\bmod\s+[a-zA-Z0-9_]+\s*[;{]')
 
 
@@ -107,7 +124,7 @@ def scan_file(path: Path, on_by_default: set[str] = frozenset()) -> tuple[int, i
     features: set[str] = set()
     file_level = [m for m in CFG_FEATURE.finditer(text) if m.group(0).startswith('#![')]
     # A gate whose feature is ON BY DEFAULT hides nothing from a default run.
-    file_level = [m for m in file_level if m.group(1) not in on_by_default]
+    file_level = [m for m in file_level if hides(m.group(0), m.group(1), on_by_default)]
     file_gated = bool(file_level)
     features.update(m.group(1) for m in file_level)
 
@@ -122,7 +139,7 @@ def scan_file(path: Path, on_by_default: set[str] = frozenset()) -> tuple[int, i
         token = match.group(0)
         if token.startswith('#'):
             feature = CFG_FEATURE.search(token)
-            if feature and not token.startswith('#![') and feature.group(1) not in on_by_default:
+            if feature and not token.startswith('#![') and hides(token, feature.group(1), on_by_default):
                 pending_gate = feature.group(1)
                 features.add(feature.group(1))
             elif TEST_ATTR.match(token):

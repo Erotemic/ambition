@@ -353,3 +353,144 @@ fn an_edit_on_disk_reaches_the_constructed_actor_through_the_shell() {
         std::panic::resume_unwind(payload);
     }
 }
+
+/// ⭐ THE RUNNING GAME PLAYS A SAVED FILE, with no call from the test: the
+/// content watch (`ambition_content::content_watch`) sees the source change,
+/// compiles the pack from disk, and asks for the reload the arm above asks for
+/// by hand. The watch is pointed at an exported copy, so the arm edits no file
+/// another test reads.
+#[cfg(not(feature = "static_content"))]
+#[test]
+fn a_content_file_saved_while_the_game_runs_is_played() {
+    use ambition_content::content_watch::ContentSourceWatch;
+    let mut sim = common::fixed_60hz_room_sim("proving_grounds");
+    for _ in 0..40 {
+        sim.step(common::base());
+    }
+    let before = subject_durations_on_bodies(&mut sim)
+        .first()
+        .copied()
+        .expect("a constructed body plays the subject");
+    let subjects_before = subject_body_count_at(&mut sim, before);
+    assert!(subjects_before >= 3, "the premise: three bodies play `{SUBJECT}`");
+    assert!(
+        sim.world().get_resource::<ContentSourceWatch>().is_some(),
+        "the premise: a build that reads content off disk watches it"
+    );
+
+    let root = std::env::temp_dir().join(format!("ambition_content_watch_{}", std::process::id()));
+    let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        ambition_content::pack::export_sources_to(&root).expect("sources export");
+        sim.world_mut().insert_resource(ContentSourceWatch::new(root.clone()));
+        let requested = |sim: &ambition_sim_harness::Platformer2dSimHarness| {
+            sim.world().resource::<ContentSourceWatch>().requested
+        };
+        for _ in 0..45 {
+            sim.step(common::base());
+        }
+        assert_eq!(requested(&sim), 0, "an unchanged copy asks for nothing");
+
+        // A file system's clock can be coarse: the save must look newer.
+        std::thread::sleep(std::time::Duration::from_millis(20));
+        let (_, edited, _) = export_with_the_subject_retimed(&root);
+        assert_eq!(edited, 1);
+        let mut frames = 0;
+        while subject_body_count_at(&mut sim, before + BUMP) < subjects_before {
+            sim.step(common::base());
+            frames += 1;
+            assert!(
+                frames < 600,
+                "600 frames after the save the bodies still play `{SUBJECT}` at {:?}; \
+                 reloads requested: {}",
+                subject_durations_on_bodies(&mut sim),
+                requested(&sim)
+            );
+        }
+        assert_eq!(requested(&sim), 1, "one save, one reload");
+        eprintln!("a saved move edit was played {frames} frames after the save");
+    }));
+    let _ = std::fs::remove_dir_all(&root);
+    if let Err(payload) = outcome {
+        std::panic::resume_unwind(payload);
+    }
+}
+
+/// The live mockingbird's `strike_speed_scale`, and how many mockingbirds.
+#[cfg(not(feature = "static_content"))]
+fn mockingbird_strike_speed_scales(sim: &mut ambition_sim_harness::Platformer2dSimHarness) -> Vec<f32> {
+    let world = sim.world_mut();
+    let mut q = world.query::<&ambition_platformer2d::boss_encounter::BossConfig>();
+    q.iter(world)
+        .filter(|config| config.behavior.id == "mockingbird")
+        .map(|config| config.behavior.strike_speed_scale)
+        .collect()
+}
+
+/// ⭐ A BOSS TUNING EDIT IS PLAYED WITHOUT A RESTART. `boss_profiles.ron` is
+/// a participating domain of the reload (2026-10-01): the candidate catalog is
+/// admitted at request time, frozen by the preparation, and published at the
+/// activation, so the boss the new session builds plays the saved value.
+#[cfg(not(feature = "static_content"))]
+#[test]
+fn a_boss_tuning_saved_while_the_game_runs_is_played() {
+    use ambition_content::content_watch::ContentSourceWatch;
+    const EDITED: f32 = 0.37;
+    let mut sim = common::fixed_60hz_room_sim("mockingbird_arena");
+    for _ in 0..40 {
+        sim.step(common::base());
+    }
+    let before = mockingbird_strike_speed_scales(&mut sim);
+    assert_eq!(before.len(), 1, "the premise: the arena builds one mockingbird");
+    assert!((before[0] - EDITED).abs() > 0.1, "the premise: the edit changes the value");
+
+    let root = std::env::temp_dir().join(format!("ambition_boss_watch_{}", std::process::id()));
+    let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        ambition_content::pack::export_sources_to(&root).expect("sources export");
+        sim.world_mut().insert_resource(ContentSourceWatch::new(root.clone()));
+        std::thread::sleep(std::time::Duration::from_millis(20));
+        let path = root.join("data/boss_profiles.ron");
+        let text = std::fs::read_to_string(&path).unwrap();
+        let start = text.find("\"mockingbird\": (").expect("the roster has a mockingbird row");
+        let at = start + text[start..].find("strike_speed_scale: ").expect("the row has a strike speed scale");
+        let end = at + text[at..].find(',').unwrap();
+        let edited = format!("{}strike_speed_scale: {EDITED}{}", &text[..at], &text[end..]);
+        std::fs::write(&path, edited).unwrap();
+
+        let mut frames = 0;
+        while mockingbird_strike_speed_scales(&mut sim).first().is_none_or(|v| (v - EDITED).abs() > 1e-6) {
+            sim.step(common::base());
+            frames += 1;
+            assert!(
+                frames < 600,
+                "600 frames after the save the mockingbird plays {:?}; reloads requested: {}",
+                mockingbird_strike_speed_scales(&mut sim),
+                sim.world().resource::<ContentSourceWatch>().requested
+            );
+        }
+        assert_eq!(mockingbird_strike_speed_scales(&mut sim).len(), 1, "one mockingbird, rebuilt");
+        let catalog = sim.world().resource::<ambition_platformer2d::boss_encounter::BossCatalog>();
+        assert_eq!(
+            catalog.behavior("mockingbird").map(|b| b.strike_speed_scale),
+            Some(EDITED),
+            "the App's catalog is the published one"
+        );
+        // ⛔ AND THE GENERATION THE SESSION FROZE. Until 2026-10-01
+        // `update_boss_encounters` re-seeded the behaviour from the App's
+        // catalog after construction, so a session that froze N's catalog
+        // under N+1's identity still showed N+1 on the boss (poison "the claim
+        // carries no catalog" stayed green). The live value witnesses the
+        // freeze now; this asserts the frozen record directly as well.
+        let frozen = sim
+            .world()
+            .resource::<ambition_platformer2d::actors::session::mechanics::SessionMechanics>()
+            .bosses
+            .behavior("mockingbird")
+            .map(|b| b.strike_speed_scale);
+        assert_eq!(frozen, Some(EDITED), "the session froze the catalog it was prepared from");
+        eprintln!("a saved boss tuning was played {frames} frames after the save");
+    }));
+    let _ = std::fs::remove_dir_all(&root);
+    if let Err(payload) = outcome {
+        std::panic::resume_unwind(payload);
+    }
+}

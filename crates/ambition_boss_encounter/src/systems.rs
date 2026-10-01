@@ -150,15 +150,20 @@ pub fn update_boss_encounters(
             });
         let spec = profile.encounter.clone();
 
-        // Seed entity-local state once from the profile (phase triggers, HP,
-        // behavior), so two of the same boss have independent state. The
-        // per-spawn `BossOverrides` (hp / phase triggers) are applied here, so
-        // the profile cannot overwrite them. The body size is not seeded here:
+        // Seed entity-local state once from the profile (phase triggers, HP),
+        // so two of the same boss have independent state. The per-spawn
+        // `BossOverrides` (hp / phase triggers) are applied here, so the
+        // profile cannot overwrite them. The body size is not seeded here:
         // construction resolved `kin.size`.
+        //
+        // ⛔ NOR IS THE BEHAVIOUR (2026-10-01). Construction resolved it from
+        // the catalog the session's generation froze, and captured the brain's
+        // pattern and movement from that same value. Seeding it again from
+        // this system's App-global catalog could only repeat that value, or,
+        // when the App holds another generation, give the boss a config its
+        // own brain does not run. MEASURED: a reload whose session froze N
+        // showed N+1 here on the activation frame.
         if feature.status.encounter.is_none() {
-            feature
-                .as_boss_mut()
-                .apply_behavior_profile(profile.behavior.clone());
             let max_hp = overrides
                 .and_then(|o| o.max_hp)
                 .unwrap_or(spec.max_hp)

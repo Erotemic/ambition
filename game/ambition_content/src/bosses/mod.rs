@@ -151,22 +151,27 @@ boss_encounter_sources!(
 /// the compiler" is the kind of half-true claim this whole effort exists to stop
 /// making.
 pub fn boss_catalog_fragment() -> ambition_boss_encounter::BossCatalogFragment {
+    boss_catalog_fragment_from(crate::pack::prepared())
+        .unwrap_or_else(|error| panic!("Ambition boss content should form one valid catalog fragment: {error}"))
+}
+
+/// Ambition's boss fragment from `pack`: the boot pack at startup, a reload's
+/// candidate pack at request time (`crate::reload`).
+pub fn boss_catalog_fragment_from(
+    pack: &ambition_content_pack::PreparedContentPack,
+) -> Result<ambition_boss_encounter::BossCatalogFragment, String> {
     // The schema additionally refuses what `from_ron` accepted: a row whose `id`
     // disagrees with its map KEY. Every runtime path looks a boss up by key and
     // then reads `profile.id` for its sheet, music and barks — so a mismatch
     // means the boss is found under one name and draws as another, with each
     // half individually valid and nothing reporting it.
-    let behaviors = ambition_boss_encounter::pattern::content_schema::lowered_boss_profiles(
-        crate::pack::prepared(),
-    )
-    .expect("the boss-profile schema lowers its roster for every pack that compiles")
-    .clone();
-    let encounters = ambition_boss_encounter::pattern::content_schema::lowered_boss_encounters(
-        crate::pack::prepared(),
-    )
-    .expect("the encounter schema merges its nine files for every pack that compiles")
-    .clone();
-    ambition_boss_encounter::BossCatalogFragment::from_prepared(
+    let behaviors = ambition_boss_encounter::pattern::content_schema::lowered_boss_profiles(pack)
+        .ok_or("the pack carries no lowered boss roster")?
+        .clone();
+    let encounters = ambition_boss_encounter::pattern::content_schema::lowered_boss_encounters(pack)
+        .ok_or("the pack carries no lowered boss encounters")?
+        .clone();
+    let fragment = ambition_boss_encounter::BossCatalogFragment::from_prepared(
         crate::AMBITION_CONTENT_PROVIDER,
         Some("clockwork_warden"),
         Some("gradient_sentinel"),
@@ -176,14 +181,15 @@ pub fn boss_catalog_fragment() -> ambition_boss_encounter::BossCatalogFragment {
         ambition_boss_encounter::BossArtKeys::from_ron(include_str!(
             "../../assets/data/boss_art_keys.ron"
         ))
-        .expect("Ambition's boss art keys parse"),
+        .map_err(|error| format!("Ambition's boss art keys do not parse: {error}"))?,
     )
-    .expect("Ambition boss content should form one valid catalog fragment")
+    .map_err(|error| error.to_string())?
     // The conducted bosses are built with their conductors, and the behemoth
     // with the payload it frees.
     .with_birth_kit(gnu_ton::conductor::GNU_TON_ID, gnu_ton::conductor::birth)
     .with_birth_kit(fsm::conductor::FSM_ID, fsm::birth)
-    .with_birth_kit(cut_rope::CUT_ROPE_BOSS_ID, cut_rope::birth)
+    .with_birth_kit(cut_rope::CUT_ROPE_BOSS_ID, cut_rope::birth);
+    Ok(fragment)
 }
 
 /// Assemble Ambition's boss catalog without constructing a Bevy App.

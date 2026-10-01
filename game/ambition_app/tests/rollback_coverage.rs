@@ -1114,6 +1114,10 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "host-side edit proposals, one sticky key per domain: raised and drained in the PreUpdate MechanicalEditSet chain, declared before RunGgrsSystems, so it is outside the rollback window by construction; rewinding it would resurrect a published edit or discard a staged one",
     ),
     (
+        "ambition_content::content_watch::ContentSourceWatch",
+        "developer file watch: modification times of the content sources on disk and a reload request count, read and written only in Update by `watch_content_sources`, which runs no simulation; a reload it asks for goes through the content publication gate, which rebases the local timeline. Rewinding it would re-ask for a reload the shell already answered",
+    ),
+    (
         "ambition_platformer2d_core::movement::tuning::MechanicalEditAdmission",
         "host-side answer about the live timeline, decided in PreUpdate before RunGgrsSystems and consumed in the same chain; rewinding it would hand a frame an answer about a timeline that no longer exists",
     ),

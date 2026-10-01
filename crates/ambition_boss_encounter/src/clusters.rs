@@ -192,10 +192,6 @@ impl<'a> BossMut<'a> {
         self.as_ref().render_size()
     }
 
-    pub fn apply_behavior_profile(&mut self, behavior: BossBehaviorProfile) {
-        self.config.behavior = behavior;
-    }
-
     // `reset_to_spawn` is in the room-reset system (its only caller): a boss
     // respawn is a discrete transit (ADR 0024) and needs the unified
     // actor-cluster view and MotionModel, which this view does not carry.

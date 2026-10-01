@@ -63,6 +63,10 @@ sites under `game/` and `crates/`, 75 with no query filter in the six lines
 above. Those are candidates, and the window is a heuristic. Many read a
 population of one ("one enemy body") or only ask `is_some()`. A site whose
 population has more than one member picks its subject by archetype order.
+Read the same day: the three candidates in rollback tests
+(`mary_o_app/tests/rollback_restore.rs`, `rollback_room_memory.rs`,
+`sanic_app/tests/rollback_restore.rs`) read `MaryOLevelState`/`SanicActState`,
+one per session root, so order cannot move them. The other 72 are unread.
 
 ### SYNC-POINT-SENSITIVE-RESIM — a command sync point moves the death-reset replay
 

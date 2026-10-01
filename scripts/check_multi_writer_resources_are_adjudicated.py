@@ -228,6 +228,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
     "GameAssets": (
         "crates/ambition_platformer2d/src/game_assets.rs",
         "crates/ambition_platformer2d_actor_monolith/src/character_runtime/mod.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/character_sprites/rigged.rs",
         "crates/ambition_render/src/rendering/parallax.rs",
         "game/ambition_app/src/app/setup_systems.rs",
         "game/ambition_app/src/app/startup_loading.rs",
@@ -2753,7 +2754,17 @@ ADJUDICATED: dict[str, str] = {
         "what it just decided to keep.\" Every other writer touches a "
         "DISJOINT named/keyed slot under `characters` or `entities`. "
         "Measured by CalculexAmbition, 2026-09-18; the demo sheet and prop "
-        "loaders that also wrote it are gone (AP146, AP148)."
+        "loaders that also wrote it are gone (AP146, AP148). "
+        "Rig packet 6 added `attach_rigged_sprite_pages` "
+        "(`character_sprites/rigged.rs`): it writes only the `rigged` field "
+        "of a ready sheet whose `rigged` is `None` "
+        "(`CharacterSpriteAssets::attach_rigged_pages`), never inserts or "
+        "removes a sheet, and is chained directly after "
+        "`materialize_demanded_character_sheets` "
+        "(`character_runtime/mod.rs`), so a sheet republished at another tier "
+        "arrives without pages and gets its own tier's on the same frame. "
+        "With the rigged-sprite trial off it returns before it touches the "
+        "table. Measured by NamekAmbition, 2026-09-30."
     ),
     "PendingMechanicalEdits": (
         "A PER-DOMAIN KEYED LEDGER, REBUILT FROM A SINGLE-BOOL DEFECT ON "

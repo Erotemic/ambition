@@ -112,10 +112,13 @@ fn a_rigged_root_draws_its_frame_from_parts_in_reusable_slots() {
     assert_eq!(app.world().get::<Sprite>(root).unwrap().color.alpha(), 0.0, "the root still draws itself");
 
     // Another frame reuses the slots: nothing is spawned.
-    let entities = app.world().entities().len();
+    let entities = app.world().entities().count_spawned();
+    let slot_ids = app.world().get::<RiggedPresentation>(owner).unwrap().slots.clone();
     app.world_mut().get_mut::<CharacterAnimator>(root).unwrap().frame = 3;
     app.update();
-    assert_eq!(app.world().entities().len(), entities);
+    assert_eq!(app.world().entities().count_spawned(), entities);
+    assert_eq!(self::owner(&app, root), owner, "the frame change rebound the root");
+    assert_eq!(app.world().get::<RiggedPresentation>(owner).unwrap().slots, slot_ids);
     let expected = frame_draws(&app, root);
     for ((at, _), want) in slots(&app, owner).iter().zip(&expected) {
         assert!(close(*at, *want), "frame 3: a part at {at:?}, its draw at {want:?}");
@@ -153,4 +156,33 @@ fn a_root_whose_sheet_loses_its_flipbook_draws_itself_again() {
     let mut parts = app.world_mut().query::<&RiggedPartSlot>();
     assert_eq!(parts.iter(app.world()).count(), 0, "a slot outlived its owner");
     assert_eq!(app.world().get::<Sprite>(root).unwrap().color.alpha(), 1.0);
+}
+
+#[test]
+fn the_parts_are_drawn_by_each_camera_that_draws_their_root() {
+    let (mut app, root) = app(true);
+    app.update();
+    let owner = owner(&app, root);
+    let layers = |app: &App| -> Vec<Option<RenderLayers>> {
+        let presentation = app.world().get::<RiggedPresentation>(owner).unwrap();
+        presentation
+            .slots
+            .iter()
+            .filter(|slot| *app.world().get::<Visibility>(**slot).unwrap() != Visibility::Hidden)
+            .map(|slot| app.world().get::<RenderLayers>(*slot).cloned())
+            .collect()
+    };
+    assert!(layers(&app).iter().all(Option::is_none));
+
+    // A root on a pane's own layer: its parts go to that pane too.
+    let pane = RenderLayers::layer(0).with(5);
+    app.world_mut().entity_mut(root).insert(pane.clone());
+    app.update();
+    let drawn = layers(&app);
+    assert!(!drawn.is_empty());
+    assert!(drawn.iter().all(|layers| layers.as_ref() == Some(&pane)), "{drawn:?}");
+
+    app.world_mut().entity_mut(root).remove::<RenderLayers>();
+    app.update();
+    assert!(layers(&app).iter().all(Option::is_none));
 }

@@ -106,3 +106,87 @@ fn the_shipped_game_draws_no_parts() {
     let mut slots = app.world_mut().query::<&RiggedPartSlot>();
     assert_eq!(slots.iter(app.world()).count(), 0);
 }
+
+/// Rig packet 7: a second local view draws the same parts. It does not make
+/// more of them.
+///
+/// The second pane is made as TwinTrack makes its laboratory pane: a
+/// `LocalView` with its facts and a column placement, and a `MainCamera` on
+/// layer 0 that presents it. Then:
+///
+/// * the presentations, the slots and the entity count stay as they were with
+///   one view: the parts belong to the body, not to a view;
+/// * each main camera that draws a rigged root draws its parts (the render
+///   layers agree), so neither pane shows a body without its parts.
+///
+/// Today no actor root carries render layers, so the second check passes on
+/// defaults; `the_parts_are_drawn_by_each_camera_that_draws_their_root` (in
+/// `ambition_render`) is the one that fails when the slots stop following.
+///
+/// ⛔ Not each camera's `VisibleEntities`: without a window the host camera
+/// lists no sprite at all, so those lists cannot tell a missing part from a
+/// headless camera.
+#[test]
+fn a_second_view_draws_the_same_parts_and_makes_no_more() {
+    use ambition_platformer2d::platformer::camera_layers::MainCamera;
+    use ambition_platformer2d::sim_view::{local_view_facts, LocalView, LocalViewId, PresentsView, ViewPlacement};
+    use bevy::camera::visibility::RenderLayers;
+
+    let mut app = seated_admirals(true);
+    let census = |app: &mut App| {
+        let world = app.world_mut();
+        let presentations = world.resource::<RiggedPresentations>().0.len();
+        let mut slots = world.query::<&RiggedPartSlot>();
+        (presentations, slots.iter(world).count())
+    };
+    let before = census(&mut app);
+    let entities_before = app.world().entities().count_spawned();
+
+    let view = app
+        .world_mut()
+        .spawn((LocalView, LocalViewId(1), local_view_facts(), ViewPlacement::column(1, 2)))
+        .id();
+    app.world_mut().spawn((
+        Camera2d,
+        Camera { order: 1, ..default() },
+        MainCamera,
+        RenderLayers::layer(0),
+        PresentsView(view),
+    ));
+    for _ in 0..60 {
+        app.update();
+    }
+
+    assert_eq!(census(&mut app), before, "(presentations, slots) changed with a second view");
+    // The pane added one view and one camera. The rest of the host may churn a
+    // little (effects, particles), so this bound is loose, but a copy of the
+    // parts for the new view (two admirals of `max_draws` slots each) is not.
+    let grown = app.world().entities().count_spawned() as i64 - entities_before as i64;
+    assert!(grown < before.1 as i64, "{grown} entities appeared with the second view");
+
+    let world = app.world_mut();
+    let layers_of = |world: &World, entity: Entity| world.get::<RenderLayers>(entity).cloned().unwrap_or_default();
+    let mut cameras = world.query_filtered::<Option<&RenderLayers>, (With<MainCamera>, With<Camera>)>();
+    let cameras: Vec<RenderLayers> = cameras.iter(world).map(|layers| layers.cloned().unwrap_or_default()).collect();
+    assert_eq!(cameras.len(), 2, "the host camera and the pane camera");
+    let mut presentations = world.query::<&RiggedPresentation>();
+    let mut checked = 0;
+    for presentation in presentations.iter(world) {
+        let root = layers_of(world, presentation.root);
+        for slot in &presentation.slots {
+            if world.get::<Visibility>(*slot) == Some(&Visibility::Hidden) {
+                continue;
+            }
+            let part = layers_of(world, *slot);
+            for camera in &cameras {
+                assert_eq!(
+                    camera.intersects(&root),
+                    camera.intersects(&part),
+                    "a camera on {camera:?} draws the root on {root:?} but not its part on {part:?}, or the reverse"
+                );
+            }
+            checked += 1;
+        }
+    }
+    assert!(checked >= 16, "only {checked} drawn parts checked");
+}

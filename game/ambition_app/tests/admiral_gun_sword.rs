@@ -256,7 +256,11 @@ fn with_rigs_admitted_the_gun_sword_fires_from_the_rig_hand() {
         rigged,
         ..
     } = fire_the_side_b(true);
-    assert!(rigged, "the rig trial is on and the admiral wears no rig");
+    assert!(
+        rigged,
+        "the rig trial is on and the admiral wears no rig: `pirate_admiral_body_rig.ron` is a \
+         published asset (gitignored), so publish it with `scripts/regen/sprites.sh`"
+    );
     let rig_hand = rig_hand_before.expect("a rigged admiral resolved no weapon hand");
     // The shot flies along its fire line from the muzzle, so it is on the line
     // through the hand it was fired from: nothing to the side, and between

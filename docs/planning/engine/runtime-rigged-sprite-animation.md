@@ -463,6 +463,8 @@ Current portal candidate publication reads a top-level sprite or declared mesh a
 
 **Resolved first implementation:** the rig presentation owner publishes **one union world-space drawn AABB** covering all currently visible part instances. Portal composition continues to see one actor-level candidate.
 
+**As built (Packet 7):** the one candidate is the rigged root with its baked frame, not a union AABB on the owner. See the Packet 7 status for the reason.
+
 Do not publish one portal candidate per body part.
 
 This keeps initial portal fidelity equivalent to the current one-rectangle full-sprite treatment. Per-part portal clipping is later work only if visible artifacts justify it.
@@ -788,6 +790,8 @@ If runtime validation shows that child-entity/extraction cost is unacceptable at
 
 Because child sprites are excluded from the current pre-propagation portal candidate query, the rigged presentation owner computes one union draw AABB from current part transforms and publishes one portal candidate.
 
+**As built (Packet 7):** the root is the candidate instead, and the owner hides with it. See the Packet 7 status.
+
 Do not make every child part a portal entity.
 
 ### Hybrid visual realization
@@ -1021,6 +1025,16 @@ Acceptance:
 - disabling the presentation plugin leaves headless simulation unaffected.
 
 ### Packet 7 — portal and multiview integration
+
+**Status (2026-09-30): done, behind the trial switch.** One change from the plan: the portal candidate is the rigged ROOT, drawn from its baked frame. It is not a union AABB of the parts on the owner.
+
+- Why: the compositor draws a far-side candidate as clipped pieces of ONE textured quad. A union AABB gives a rectangle, but a set of parts has no one texture to fill it. The baked frame of the root is that texture, and the flipbook matches it within the publisher parity bound. So the body through a portal is the actor-level rectangle of today, which is what the acceptance asks for.
+- `ambition_portal2d_presentation::PortalPieceTint` is a tint that a candidate states for its pieces. The rigged root keeps zero alpha, so the driver states its visible tint there. Both piece builders (`far_side::piece_look` and `visuals::sync_portal_body_pieces`) read it before the sprite color.
+- The owner is `PresentationOf(root)` and has no sprite. Thus it is not a candidate, and `resolve_portal_source_visibility` hides it in the same pass that hides the root. The parts and the pieces never draw together. Witness: `a_far_side_rigged_body_is_pieced_opaque_and_its_parts_hide_with_it` (`portal_compositing.rs`). It fails when the tint or the `PresentationOf` is removed.
+- Multiview: the part slots take the render layers of their root, so each camera that draws a root draws its parts (`the_parts_are_drawn_by_each_camera_that_draws_their_root`). `a_second_view_draws_the_same_parts_and_makes_no_more` (`ambition_app`) adds a second pane to the seated admirals as TwinTrack does: a `LocalView` in a column and a `MainCamera` that presents it. The presentations, the slots and the entity count do not change. TwinTrack itself casts no character that publishes a flipbook, so the witness uses its pane shape, not its route.
+- Not measured: without a window, the `VisibleEntities` of the host camera lists no sprite at all. Thus no headless test shows the pixels of each pane. The offscreen capture (`capture_scene`) can, when that is necessary.
+
+Gaps that remain: the hit flash copies the root sprite, which has zero alpha. The crouch squash of a sheet without a crouch row does not apply to parts.
 
 Work:
 

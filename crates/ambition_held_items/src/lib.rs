@@ -39,6 +39,7 @@ use ambition_platformer2d_core::BodyKinematics;
 use ambition_platformer2d_core::{self as ae, AabbExt};
 use ambition_platformer2d_shared_tangle::prelude::SpawnScopedExt;
 use ambition_platformer2d_shared_tangle::schedule::{HeldItemStep, ItemPickupSet, SimScheduleExt};
+use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, LiveRooms};
 #[cfg(feature = "portal")]
 use ambition_portal2d::{OwnedPortalGunPair, PortalGun};
 
@@ -429,18 +430,24 @@ pub struct SettledItem {
 /// ⛔ AND `velocity` IS NOT DRAG. A conveyor belt has zero displacement and a
 /// non-zero drag, and its own doc says so — an item on a belt stays put, which
 /// is right: nothing is carrying it.
+///
+/// Each item rests on the solids of its own live room (OW1 cut 7p). This read
+/// the sole live room, so while two rooms were live it did not run: a settled
+/// item stayed put when its platform moved away.
 pub fn carry_or_wake_settled_items(
     mut commands: Commands,
     world: ambition_platformer2d_world::collision::CollisionWorld,
+    live: LiveRooms,
     mut settled: Query<(Entity, &mut GroundItem, &ItemCustody), With<SettledItem>>,
 ) {
-    let Some(world) = world.solids() else {
-        return;
-    };
+    let solids = SolidsByRoom::build(&world, settled.iter().map(|(entity, ..)| live.of(entity)));
     for (entity, mut item, custody) in &mut settled {
         if !custody.in_world() {
             continue;
         }
+        let Some(world) = solids.of(live.of(entity)) else {
+            continue;
+        };
         // A thin band just past the item's own footprint: what it would rest ON.
         let probe = ae::Aabb::new(
             item.pos + Vec2::new(0.0, 1.0),
@@ -470,6 +477,8 @@ pub fn carry_or_wake_settled_items(
 pub fn ground_item_physics(
     time: Res<ambition_time::WorldTime>,
     world: ambition_platformer2d_world::collision::CollisionWorld,
+    // The live room of an item and of a body (OW1 cut 7p).
+    live: LiveRooms,
     gravity: ambition_platformer2d_shared_tangle::gravity::GravityCtx,
     mut commands: Commands,
     mut grounds: Query<(Entity, &mut GroundItem, &ItemCustody), Without<SettledItem>>,
@@ -502,9 +511,12 @@ pub fn ground_item_physics(
     }
     // Thrown / dropped items settle on the composited collision world, so a
     // moving platform / ECS solid catches them the same as authored geometry.
-    let Some(world) = world.solids() else {
-        return;
-    };
+    //
+    // ⭐ THE WORLD OF THE ITEM'S OWN LIVE ROOM (OW1 cut 7p). This read the sole
+    // live room, so while two rooms were live no item fell. A body strikes an
+    // item only in the item's room, for the same reason: a body in another
+    // room at the same coordinates is not there.
+    let solids = SolidsByRoom::build(&world, grounds.iter().map(|(entity, ..)| live.of(entity)));
     // Thrown / dropped items are free bodies that integrate through the shared
     // world-forces seam. Gravity is resolved per item by position, so an item
     // thrown into a gravity column falls the column's way (localized).
@@ -516,6 +528,10 @@ pub fn ground_item_physics(
         if !custody.in_world() {
             continue;
         }
+        let room = live.of(entity);
+        let Some(world) = solids.of(room) else {
+            continue;
+        };
         // Free bodies resolve gravity by the body-overlap rule, not the center
         // point (ADR 0024) — a zone grabs an item the item TOUCHES.
         let local = ambition_platformer2d_shared_tangle::gravity::GravityField {
@@ -575,8 +591,9 @@ pub fn ground_item_physics(
             let here = ae::Aabb::new(item.pos, item.half_extent);
             bodies
                 .iter()
-                .filter(|(_, _, health, out_of_play, plane)| {
-                    !ambition_combat::util::body_is_untouchable(Some(*health), *out_of_play, *plane)
+                .filter(|(victim, _, health, out_of_play, plane)| {
+                    live.of(*victim) == room
+                        && !ambition_combat::util::body_is_untouchable(Some(*health), *out_of_play, *plane)
                 })
                 .any(|(victim, aabb, _, _, _)| {
                     ambition_platformer2d_core::cast::aabb_path_contacts(
@@ -620,6 +637,35 @@ pub fn ground_item_physics(
         } else {
             item.pos = next;
         }
+    }
+}
+
+/// The composed solids of each live room the items of one system are in,
+/// built once per room. With one live room it is the one world `solids()`
+/// gave.
+struct SolidsByRoom<'a>(Vec<(Option<LiveRoomInstance>, Option<std::borrow::Cow<'a, ae::World>>)>);
+
+impl<'a> SolidsByRoom<'a> {
+    fn build(
+        collision: &'a ambition_platformer2d_world::collision::CollisionWorld,
+        rooms: impl IntoIterator<Item = Option<LiveRoomInstance>>,
+    ) -> Self {
+        let mut built: Vec<(Option<LiveRoomInstance>, Option<std::borrow::Cow<'a, ae::World>>)> = Vec::new();
+        for room in rooms {
+            if built.iter().any(|(seen, _)| *seen == room) {
+                continue;
+            }
+            let solids = collision
+                .room(room.map(InRoomInstance).as_ref())
+                .and_then(|collision| collision.solids());
+            built.push((room, solids));
+        }
+        Self(built)
+    }
+
+    /// The solids of `room`, `None` when it is no live room.
+    fn of(&self, room: Option<LiveRoomInstance>) -> Option<&ae::World> {
+        self.0.iter().find(|(seen, _)| *seen == room).and_then(|(_, solids)| solids.as_deref())
     }
 }
 

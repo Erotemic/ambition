@@ -1363,10 +1363,15 @@ pub fn serve_encounter_spawn_commands(
     mut commands: ambition_platformer2d_shared_tangle::lifecycle::SessionCommands<'_, '_>,
     mut events: bevy::prelude::MessageReader<ambition_encounter::EncounterEventMsg>,
     catalog: bevy::prelude::Res<ambition_characters::actor::character_catalog::CharacterCatalog>,
-    prepared: bevy::prelude::Res<ambition_characters::prepared::PreparedCharacterRegistry>,
+    // The session's cast, not the App's (`SessionCast`). A shell session that
+    // lost its generation is answered with no spawn, as a live room rebuild is.
+    cast: crate::session::mechanics::SessionCast,
     authored_sheets: bevy::prelude::Res<ambition_sprite_sheet::character::sheets::AuthoredSheets>,
 ) {
     let Some(session_scope) = commands.spawn_scope() else {
+        return;
+    };
+    let Some(prepared) = cast.get() else {
         return;
     };
     for msg in events.read() {
@@ -1384,7 +1389,7 @@ pub fn serve_encounter_spawn_commands(
             &mut commands,
             &catalog,
             &authored_sheets,
-            &prepared,
+            prepared,
             // ⛔ INTO THE OCCURRENCE'S LIVE ROOM, which the request carries. An
             // unstamped body is in NO room while two are live: a wave there
             // spawned mobs nothing in either room could hit, see or count.

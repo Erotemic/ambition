@@ -211,7 +211,9 @@ pub fn inherit_projectile_presentation_sources(
 /// replacement. Live vitals are intentionally not projected here.
 pub fn project_prepared_character_definitions(
     mut commands: Commands,
-    registry: Option<Res<PreparedCharacterRegistry>>,
+    // The session's cast (`SessionCast`), not the App's: a cast a reload
+    // publishes reaches the bodies when its generation is activated.
+    cast: crate::session::mechanics::SessionCast,
     changed_bodies: Query<
         (
             Entity,
@@ -264,10 +266,10 @@ pub fn project_prepared_character_definitions(
     frames: Query<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
     #[cfg(feature = "portal")] guns: Query<&ambition_portal2d::PortalGun>,
 ) {
-    let Some(registry) = registry else {
+    let Some(registry) = cast.get() else {
         return;
     };
-    let candidates: Vec<_> = if registry.is_changed() {
+    let candidates: Vec<_> = if cast.is_changed() {
         all_bodies.iter().collect()
     } else {
         changed_bodies.iter().collect()

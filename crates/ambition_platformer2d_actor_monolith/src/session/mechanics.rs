@@ -294,6 +294,17 @@ impl SessionCast<'_> {
     pub fn get(&self) -> Option<&ambition_characters::prepared::PreparedCharacterRegistry> {
         worn_cast_for(self.session_gate.is_some(), self.generation.as_deref(), self.app.as_deref()).flatten()
     }
+
+    /// Did the cast [`Self::get`] answers with change since this system last
+    /// ran? The generation's when one is activated (it changes at activation),
+    /// the App's only where [`Self::get`] reads the App.
+    pub fn is_changed(&self) -> bool {
+        match (&self.generation, &self.app) {
+            (Some(generation), _) => bevy::prelude::DetectChanges::is_changed(generation),
+            (None, Some(app)) if self.session_gate.is_none() => bevy::prelude::DetectChanges::is_changed(app),
+            _ => false,
+        }
+    }
 }
 
 /// The cast a worn body is re-derived from, or `None`, which is a refusal.

@@ -515,10 +515,16 @@ lower crate (`ambition_characters`), not one more `worn_cast_for` per reader.
 commands, the three empowerment systems, aggression, summons, damage and the
 puppy-slug gun read now (9 systems; unit witness
 `a_session_reader_is_given_the_generations_cast`, poison "return the App cast"
-fails it). Still on the App cast: the `character_runtime` projection and match
-activation systems, which gate on the registry's change detection and need
-their own look; `serve_encounter_spawn_commands`; and every reader below the
-monolith.
+fails it). `serve_encounter_spawn_commands` and `project_prepared_character_definitions`
+moved too (`SessionCast::is_changed` follows the source `get` reads). ⭐ With
+the projection on the session's cast, a cast published mid-timeline no longer
+desyncs the sync test: `developer_edits_under_rollback::publishing_a_cast_mid_timeline_leaves_history_resimulating_the_same`
+asserts it (MEASURED: putting either the projection or the worn re-derivation
+back on the App cast brings the mismatch back). Still on the App cast, on
+purpose for now: the presentation provider lookups and match preparation
+(shell menus have a session gate and no generation, so `SessionCast` would
+answer "none" there), the match activation's "the published cast moved on"
+warning (it is about the publication), and every reader below the monolith.
 The boss seed was the same class, closed today. ⚠ Observed once, not reproduced in two reruns:
 `quality_change_keeps_each_character::a_quality_round_trip_converges_back_with_every_page_loaded_and_nothing_orphaned`
 failed in a filtered batch ("a direct gameplay boot has a PrimaryPlayer wearing

@@ -41,6 +41,7 @@ hide a rebuild on a speculative frame. Witness:
 Recorded and retracted the same day (ToothbrushAmbition2). The movement-defaults
 watch (7d16e6ce7) turned
 `developer_edits_under_rollback::publishing_a_cast_mid_timeline_changes_what_history_resimulates_to`
+(renamed the same day to `publishing_a_cast_mid_timeline_leaves_history_resimulating_the_same`, below)
 red, and one more resource of any type, or one entity with a new component
 type, removed the recorded mismatch. This row first read that as a
 resimulation that depends on the resource set. MEASURED cause: the arm chose
@@ -51,6 +52,11 @@ mid-timeline gives no mismatch; revising the player's does. The arm now
 revises the primary player's character (`PrimaryPlayerOnly`) and is not
 ignored; it records the mismatch with the watch present. Nothing here is a
 determinism defect. Kept as a row so the commits that cite it resolve.
+⭐ Later the same day the arm's gap CLOSED: with `project_prepared_character_definitions`
+on `SessionCast` too, a cast published mid-timeline no longer desyncs, and the
+arm is now `publishing_a_cast_mid_timeline_leaves_history_resimulating_the_same`
+(an assertion). Poisons, MEASURED: the projection back on the App cast, or the
+worn re-derivation back on it, each bring the mismatch back.
 The same pattern elsewhere is NOT classified: a grep for `.iter(world).next()`
 and two spellings of it in `game/*/tests`, `crates/*/tests` and `crates/*/src`
 counts 75 sites (2026-10-01). Most read a population filtered to one entity,

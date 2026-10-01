@@ -2134,9 +2134,10 @@ profiles and encounters joined the participating families (a saved boss tuning,
 the module reload's three review findings are closed (a file is the unit of
 replacement, one poll is one candidate, a departed schema takes its records).
 Later the same day the character catalog joined (a whole-cast revision against
-the candidate catalog; a change to which characters are built is refused).
-Still refused by the reload: items, audio, fighter facets, the boss seed
-library and validator bands. Open, found on the way: a boss's HP, phase
+the candidate catalog; since the same day a character added is staged and one
+removed is retired, `CandidateCatalog::retired`). Fighter facets, the boss seed
+library and the validator bands joined the same day. Still refused by the
+reload: items, audio. Open, found on the way: a boss's HP, phase
 triggers, death seconds, music and reward seed from the App catalog, not the
 frozen generation (see I3 in the implementation page).
 

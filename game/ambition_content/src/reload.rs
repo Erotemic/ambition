@@ -132,10 +132,10 @@ pub enum MoveReload {
     /// the other providers' fragments. Nothing was staged; the live bosses
     /// keep the published catalog.
     BossCatalogRefused(String),
-    /// The candidate's character catalog does not assemble, or it adds or
-    /// removes a buildable character (a revision cannot change the cast's
-    /// membership: restart for that), or a definition built from it does not
-    /// stage. Nothing was published; the live cast keeps its catalog.
+    /// The candidate's character catalog does not assemble, or a definition
+    /// built from it does not stage. Nothing was published; the live cast
+    /// keeps its catalog. (A character added or removed is NOT refused: an
+    /// added one is staged, a removed one retired; see `CandidateCatalog`.)
     CharacterCatalogRefused(String),
 }
 
@@ -365,6 +365,7 @@ pub(crate) fn publish_candidate(
 fn participates(domain: &str) -> bool {
     domain == ambition_characters::moveset_content_schema::MOVESET_SCHEMA
         || domain == ambition_characters::actor::character_catalog::CHARACTER_CATALOG_SCHEMA
+        || domain == ambition_characters::smash_fighter::SMASH_FIGHTER_SCHEMA
         || BOSS_DOMAINS.contains(&domain)
         || PACK_DERIVED_FAMILIES
             .iter()
@@ -406,19 +407,20 @@ fn candidate_character_catalog(
         .ok_or("this App registers no character catalog")?;
     let (registry, assembled) = registry.with_replaced(fragment).map_err(|e| e.to_string())?;
     let live = world.get_resource::<cc::CharacterCatalog>().ok_or("this App has no character catalog")?;
+    // A character the candidate builds and the live catalog did not is staged
+    // like every other (`stage_cast_from_catalog`); one the live catalog built
+    // and the candidate does not is RETIRED: it leaves the cast and the stored
+    // source with this revision. Only this provider knows which rows it builds,
+    // so it names them.
     let (before, after) = (
         crate::character_catalog::buildable_ids(live),
         crate::character_catalog::buildable_ids(&assembled.catalog),
     );
-    if before != after {
-        let added: Vec<_> = after.difference(&before).collect();
-        let removed: Vec<_> = before.difference(&after).collect();
-        return Err(format!(
-            "the catalog changes which characters are built (added {added:?}, removed {removed:?}); \
-             restart to take it"
-        ));
-    }
-    Ok(Some(ambition_characters::prepared::CandidateCatalog { registry, assembled }))
+    let retired = before
+        .difference(&after)
+        .map(|id| ambition_entity_catalog::CharacterId::new(id.as_str()))
+        .collect();
+    Ok(Some(ambition_characters::prepared::CandidateCatalog { registry, assembled, retired }))
 }
 
 /// Stage every buildable character again, defined from the candidate catalog
@@ -427,11 +429,10 @@ fn candidate_character_catalog(
 fn stage_cast_from_catalog(
     world: &mut bevy::ecs::world::World,
     pack: &ambition_content_pack::PreparedContentPack,
-    catalog: &ambition_characters::prepared::CandidateCatalog,
+    catalog: &ambition_characters::actor::character_catalog::CharacterCatalog,
 ) -> Result<(), String> {
     let rigs_admitted = ambition_characters::actor::BodyRigAdmission::of(world).admit;
-    for definition in
-        crate::character_catalog::buildable_definitions(&catalog.assembled.catalog, pack, rigs_admitted)
+    for definition in crate::character_catalog::buildable_definitions(catalog, pack, rigs_admitted)
     {
         let bindings = ambition_platformer2d_actor_monolith::character_runtime::definition::with_engine_vocabularies(
             ambition_characters::prepared::CharacterBindings::default(),
@@ -601,6 +602,18 @@ fn moveset_changed(
     ambition_content_pack::changed_domains(active, candidate)
         .iter()
         .any(|schema| schema.0 == ambition_characters::moveset_content_schema::MOVESET_SCHEMA)
+}
+
+/// Does this candidate change a character's platform-fighter facet?
+fn fighter_facets_changed(
+    world: &bevy::ecs::world::World,
+    candidate: &ambition_content_pack::PreparedContentPack,
+) -> bool {
+    crate::pack::selected(world).is_some_and(|active| {
+        ambition_content_pack::changed_domains(active, candidate)
+            .iter()
+            .any(|schema| schema.0 == ambition_characters::smash_fighter::SMASH_FIGHTER_SCHEMA)
+    })
 }
 
 /// Domains this candidate changes that nothing can publish.
@@ -840,12 +853,31 @@ pub fn request_reload(
         }
     };
     if let Some(catalog) = &character_catalog {
-        if let Err(reason) = stage_cast_from_catalog(world, &pack, catalog) {
+        if let Err(reason) = stage_cast_from_catalog(world, &pack, &catalog.assembled.catalog) {
             discard_staged_reload(world);
             return ReloadRequest::Refused(MoveReload::CharacterCatalogRefused(reason));
         }
     }
-    let stages_cast = stages_cast || character_catalog.is_some();
+    // A fighter facet folds into its character's definition
+    // (`pack_facets::fold_character_facets`), so a facet edit re-stages the cast
+    // from the LIVE catalog and the candidate pack, the road a catalog edit
+    // takes with the candidate catalog. A catalog edit in the same candidate has
+    // already staged every character with the candidate's facets folded in.
+    let facets_change = character_catalog.is_none() && fighter_facets_changed(world, &pack);
+    if facets_change {
+        let live = world
+            .get_resource::<ambition_characters::actor::character_catalog::CharacterCatalog>()
+            .cloned();
+        let staged = match live {
+            Some(live) => stage_cast_from_catalog(world, &pack, &live),
+            None => Err("this App has no character catalog to fold the facets into".to_string()),
+        };
+        if let Err(reason) = staged {
+            discard_staged_reload(world);
+            return ReloadRequest::Refused(MoveReload::CharacterCatalogRefused(reason));
+        }
+    }
+    let stages_cast = stages_cast || character_catalog.is_some() || facets_change;
     // Stage as pending; do not install as the selection. Installing here let a
     // failed preparation leave the App on a pack whose cast it never built,
     // and the next save then compared equal and requested nothing.

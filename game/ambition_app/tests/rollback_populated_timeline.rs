@@ -235,6 +235,7 @@ fn populate(sim: &mut Platformer2dSimHarness) {
         // identity — firing anonymously here would make the census assert
         // against a population the fixture itself broke.
         id: Some(mint()),
+        room: None,
     });
     // The intent is consumed by the sim on a SETUP frame the timeline does not
     // keep, and the populated world becomes the new baseline. ⛔ Not a plain
@@ -434,6 +435,7 @@ fn no_anchor_rewinds_anonymously_on_any_frame_it_exists() {
                     ambition_platformer2d::portal::PortalGunColor::BLUE,
                 ),
                 id: Some(SimId::death_drop(&spawner, ONE_STEP_SHOT)),
+                room: None,
             });
     }
 

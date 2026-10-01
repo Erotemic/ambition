@@ -1072,3 +1072,68 @@ fn a_heavy_robot_strike_stays_heavy_while_another_room_is_live() {
          play the heavy cue in both"
     );
 }
+
+/// OW1 cut 7l: Alice fires the portal gun in #1 while Bob holds #0. The shot
+/// steps against #1's solids and opens a portal in #1, and the portal's host
+/// depth is measured in #1. When the shot step read the sole live room, it
+/// did not run with two rooms live, and the shot hung in the air.
+#[test]
+fn a_portal_shot_opens_its_portal_in_the_live_room_it_was_fired_in() {
+    let (mut sim, first) = alice_leaves_bob_in(
+        ROOM,
+        HUB,
+        Some(ambition_platformer2d::characters::control::PlayerSlot(1)),
+        walk_through_the_door_to,
+    );
+    let second = first.next();
+    assert_eq!(
+        where_they_are(&mut sim),
+        (Some(second), Some(Some(first))),
+        "precondition: Alice is not in #1 with Bob in #0"
+    );
+    let alice = {
+        let world = sim.world_mut();
+        let alice = world
+            .query_filtered::<bevy::prelude::Entity, bevy::prelude::With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>()
+            .single(world)
+            .expect("Alice's body is in the world");
+        world.entity_mut(alice).insert(ambition_platformer2d::portal::PortalGun {
+            active: true,
+            ..ambition_platformer2d::portal::PortalGun::default()
+        });
+        alice
+    };
+    sim.world_mut().write_message(ambition_platformer2d::portal::FirePortalGun {
+        aim: bevy::math::Vec2::new(0.0, -1.0),
+        body: alice,
+    });
+    let mut opened = None;
+    for _ in 0..60 {
+        sim.step(base());
+        let world = sim.world_mut();
+        opened = world
+            .query::<(&ambition_platformer2d::portal::PlacedPortal, Option<&InRoomInstance>)>()
+            .iter(world)
+            .next()
+            .map(|(portal, room)| (portal.channel, room.map(|room| room.0)));
+        if opened.is_some() {
+            break;
+        }
+    }
+    let (channel, room) = opened.expect("Alice's shot opened no portal in 60 ticks");
+    // The entry itself: `PortalHostDepths::depth` answers infinity for a
+    // portal that was never measured.
+    sim.step(base());
+    let depth = sim
+        .world_mut()
+        .resource::<ambition_platformer2d::portal::PortalHostDepths>()
+        .0
+        .iter()
+        .find(|(measured, _)| *measured == channel)
+        .map(|(_, depth)| *depth);
+    assert_eq!(
+        (room, depth.is_some_and(|depth| depth.is_finite() && depth > 0.0)),
+        (Some(second), true),
+        "(the portal's live room, a finite host depth measured): the portal was not opened and measured in #1 (depth {depth:?})"
+    );
+}

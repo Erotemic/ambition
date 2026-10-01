@@ -8,6 +8,8 @@
 #
 # Environment:
 #   AMBITION_PYTHON=<python>    # install every tool into THIS interpreter; no venvs
+#   AMBITION_<TOOL>_PYTHON=<python>  # one tool's own interpreter; wins over
+#                               # AMBITION_PYTHON (names in `tool_projects`)
 #   AMBITION_TOOL_PYTHON=3.12
 #   AMBITION_TOOL_VENVS=<dir>   # moves the per-machine venv store
 #   UV_EXCLUDE_NEWER=YYYY-MM-DD
@@ -109,11 +111,24 @@ ensure_tool_venv() {
     fi
 }
 
-# The interpreter `project` is installed into: `AMBITION_PYTHON` when this
-# machine names one (no venv is created), else the project's venv in the
-# per-machine store, created if needed. See `scripts/lib/tool_python.sh`.
+# The interpreter `project` is installed into, in the order
+# `ambition_select_tool_python` reads at run time: the tool's own override
+# variable when it is set, then `AMBITION_PYTHON` (no venv is created), else the
+# project's venv in the per-machine store, created if needed. See
+# `scripts/lib/tool_python.sh`.
 install_python_for() {
     local project="$1"
+    local override_name="${2:-}"
+    local override_value=""
+    if [ -n "$override_name" ]; then
+        override_value="${!override_name:-}"
+    fi
+    if [ -n "$override_value" ]; then
+        ambition_python_exists "$override_value" \
+            || fatal "$override_name is set but is not an interpreter: $override_value"
+        printf '%s\n' "$override_value"
+        return 0
+    fi
     if [ -n "${AMBITION_PYTHON:-}" ]; then
         ambition_python_exists "$AMBITION_PYTHON" \
             || fatal "AMBITION_PYTHON is set but is not an interpreter: $AMBITION_PYTHON"
@@ -130,13 +145,15 @@ unplaced_tools=()
 install_tool_project() {
     local relative_project="$1"
     local import_name="$2"
-    local editable_target="${3:-.}"
+    local override_name="$3"
+    local editable_target="${4:-.}"
     local project="$repo_root/$relative_project"
+    [ -n "$override_name" ] || fatal "$relative_project has no override variable in tool_projects"
     [ -d "$project" ] || fatal "missing tool project: $relative_project (submodule not initialized?)"
     [ -f "$project/pyproject.toml" ] || fatal "missing $relative_project/pyproject.toml"
 
     local venv_python
-    venv_python="$(install_python_for "$project")"
+    venv_python="$(install_python_for "$project" "$override_name")"
     log "installing $relative_project into ${venv_python/#$HOME/~}"
     if ! (
         cd "$project"
@@ -148,9 +165,12 @@ install_tool_project() {
         # ⚠ ONE INTERPRETER CANNOT HOLD EVERY TOOL: the SFX renderer requires
         # Python < 3.13. Under `AMBITION_PYTHON` that is a tool to name, not a
         # reason to stop installing the others.
-        if [ -n "${AMBITION_PYTHON:-}" ]; then
-            warn "$relative_project cannot be installed into AMBITION_PYTHON ($venv_python); give it its own interpreter with its AMBITION_<TOOL>_PYTHON variable"
-            unplaced_tools+=("$relative_project")
+        # ⛔ ONLY WHEN `AMBITION_PYTHON` WAS THE CHOICE. When the tool's own
+        # variable chose the interpreter, the advice "set $override_name" is
+        # the advice the user already followed, so the failure is fatal.
+        if [ -n "${AMBITION_PYTHON:-}" ] && [ -z "${!override_name:-}" ]; then
+            warn "$relative_project cannot be installed into AMBITION_PYTHON ($venv_python); give it its own interpreter with $override_name"
+            unplaced_tools+=("$relative_project ($override_name)")
             return 0
         fi
         fatal "installing $relative_project into $venv_python failed"
@@ -159,14 +179,25 @@ install_tool_project() {
         || fatal "$relative_project installed but '$import_name' is not importable"
 }
 
+# ⭐ ONE TABLE FOR SETUP AND `--verify`: the project, the
+# module it must import, the variable that gives it its own interpreter, and
+# what to install editable. The variable must be the name that the regen
+# scripts for that tool give to `ambition_select_tool_python`;
+# `scripts/tests/test_python_tools_setup.py` checks that they agree.
+# ⛔⛔ THE VARIABLE WAS NOT IN THIS TABLE BEFORE 2026-09-30, so setup and
+# `--verify` never read it. With `AMBITION_PYTHON` = 3.13 and
+# `AMBITION_SFX_PYTHON` = 3.12, setup tried the SFX renderer in 3.13, failed,
+# told the user to set `AMBITION_SFX_PYTHON` (which was already set) and
+# returned success. `scripts/regen/sfx.sh` then chose 3.12, where nothing had
+# been installed.
 tool_projects() {
     cat <<'EOF'
-tools/ambition_sprite2d_renderer ambition_sprite2d_renderer
-tools/ambition_music_renderer ambition_music_renderer
-tools/ambition_sfx_renderer ambition_sfx_renderer
-tools/ambition_background_renderer ambition_background_renderer
-tools/ambition_parallax_renderer ambition_parallax_renderer
-tools/ambition_ldtk_tools ambition_ldtk_tools
+tools/ambition_sprite2d_renderer ambition_sprite2d_renderer AMBITION_SPRITE_PYTHON .
+tools/ambition_music_renderer ambition_music_renderer AMBITION_MUSIC_PYTHON .[all]
+tools/ambition_sfx_renderer ambition_sfx_renderer AMBITION_SFX_PYTHON .
+tools/ambition_background_renderer ambition_background_renderer AMBITION_BACKGROUND_PYTHON .
+tools/ambition_parallax_renderer ambition_parallax_renderer AMBITION_PARALLAX_PYTHON .
+tools/ambition_ldtk_tools ambition_ldtk_tools AMBITION_LDTK_PYTHON .
 EOF
 }
 
@@ -187,15 +218,16 @@ scripts_env_modules() {
 }
 
 verify_tool_environments() {
-    local relative_project import_name project python_bin
-    while read -r relative_project import_name; do
+    local relative_project import_name override_name _editable project python_bin
+    while read -r relative_project import_name override_name _editable; do
         project="$repo_root/$relative_project"
         # ⚠ Ask `tool_python.sh`, do not reconstruct the path: it is the ONE
         # place that knows the resolution order (per-machine store, then an
         # in-repo `.venv` for checkouts that predate the store). A verifier with
         # its own idea of where the interpreter lives will fail a machine that
-        # is actually fine.
-        python_bin="$(ambition_select_tool_python "$project" "" 0)"
+        # is actually fine. Pass the tool's override, so that `--verify` checks
+        # the interpreter the regen script for this tool will use.
+        python_bin="$(ambition_select_tool_python "$project" "$override_name" 0)"
         ambition_python_exists "$python_bin" \
             || fatal "no interpreter for $relative_project; rerun without --skip-python"
         "$python_bin" -c "import $import_name" >/dev/null 2>&1 \
@@ -339,17 +371,18 @@ ensure_python_tools() {
     # Keep every authoring project isolated. The SFX renderer intentionally
     # caps Python below 3.13, and the audio/sprite stacks carry native wheels
     # that should not constrain unrelated tools.
-    install_tool_project tools/ambition_sprite2d_renderer ambition_sprite2d_renderer
-    install_tool_project tools/ambition_music_renderer ambition_music_renderer '.[all]'
-    install_tool_project tools/ambition_sfx_renderer ambition_sfx_renderer
-    install_tool_project tools/ambition_background_renderer ambition_background_renderer
-    install_tool_project tools/ambition_parallax_renderer ambition_parallax_renderer
-    install_tool_project tools/ambition_ldtk_tools ambition_ldtk_tools
+    local relative_project import_name override_name editable_target
+    while read -r relative_project import_name override_name editable_target; do
+        install_tool_project "$relative_project" "$import_name" \
+            "$override_name" "$editable_target"
+    done < <(tool_projects)
 
     install_scripts_env
 
     if [ "${#unplaced_tools[@]}" -gt 0 ]; then
         warn "not installed into AMBITION_PYTHON: ${unplaced_tools[*]}"
+        log "Python authoring environments are ready, except the tools named above"
+        return 0
     fi
     log "Python authoring environments are ready"
 }

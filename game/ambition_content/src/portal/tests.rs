@@ -1125,6 +1125,7 @@ fn two_same_channel_shots_landing_on_one_tick_leave_exactly_one_portal() {
                 // A direct intent with no firing body has no identity to derive
                 // from; this test is about where the portal lands.
                 id: None,
+                room: None,
             });
     }
 
@@ -1729,4 +1730,56 @@ fn a_portal_the_adapter_has_decided_is_not_scanned_again() {
         PortalHost::Static,
         "a decided portal was scanned again"
     );
+}
+
+/// Two live room roots, each with its own overlay, a carve published this
+/// frame, and a portal pair whose rooms are `rooms`. The carves each overlay
+/// holds after [`crate::portal::bridge_portal_carves`] runs, by room.
+fn carves_by_room(rooms: [usize; 2]) -> [usize; 2] {
+    use ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay;
+    use ambition_platformer2d_shared_tangle::lifecycle::{
+        InRoomInstance, LiveRoomInstance, RoomInstanceRoot,
+    };
+    let mut app = App::new();
+    let live = [LiveRoomInstance::ACTIVATION, LiveRoomInstance::ACTIVATION.next()];
+    let roots = live.map(|room| {
+        app.world_mut()
+            .spawn((RoomInstanceRoot, room, FeatureEcsWorldOverlay::default()))
+            .id()
+    });
+    for (channel, room) in [BLUE, ORANGE].into_iter().zip(rooms) {
+        app.world_mut().spawn((
+            PlacedPortal::fixed(
+                channel,
+                Vec2::new(200.0, 380.0),
+                Vec2::new(0.0, -1.0),
+                portal_half_extent(Vec2::new(0.0, -1.0)),
+            ),
+            InRoomInstance(live[room]),
+        ));
+    }
+    app.insert_resource(PortalCarves {
+        holes: vec![ae::Aabb::new(Vec2::new(200.0, 390.0), Vec2::new(24.0, 10.0))],
+    });
+    app.add_systems(Update, crate::portal::bridge_portal_carves);
+    app.update();
+    roots.map(|root| {
+        app.world()
+            .get::<FeatureEcsWorldOverlay>(root)
+            .expect("the root keeps its overlay")
+            .portal_carves
+            .len()
+    })
+}
+
+/// OW1 cut 7l: with two live rooms, a carve goes to the overlay of the room
+/// the portals are in, and the other room stays sealed. When the bridge wrote
+/// the sole live room's overlay, no room was carved while two were live.
+/// A pair split across the two rooms carves neither: a carve does not name
+/// its portal, and a transit between rooms is not a crossing.
+#[test]
+fn a_carve_goes_to_the_live_room_its_portals_are_in() {
+    assert_eq!(carves_by_room([1, 1]), [0, 1], "a pair in #1 carves #1 only");
+    assert_eq!(carves_by_room([0, 0]), [1, 0], "a pair in #0 carves #0 only");
+    assert_eq!(carves_by_room([0, 1]), [0, 0], "a split pair carves neither room");
 }

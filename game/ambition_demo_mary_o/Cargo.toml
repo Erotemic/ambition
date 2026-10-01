@@ -6,6 +6,13 @@ license.workspace = true
 authors.workspace = true
 description = "Tiny Mary-O demo content home used as an oracle for the Ambition facade crate."
 
+[features]
+default = []
+# Embed the content pack's texts (`content_pack!`). Off by default, so a
+# development build reads them off disk and a tuning edit needs no Rust build.
+# Turn it on where there is no source tree to read (web, Android, a bundle).
+static_content = []
+
 [dependencies]
 # The pure move/entity value vocabulary and its authoring primitives.
 # ⭐ DIRECT, not through the engine facade: authoring a move is a value

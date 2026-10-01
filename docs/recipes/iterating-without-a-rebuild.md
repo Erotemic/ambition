@@ -76,10 +76,17 @@ ambition_game_bin` after touching the file, with a warm target:
 | `audio/sfx_registry.ron` | 0.52 s, no crate compiled |
 | `data/boss_sheets.ron` | 0.48 s, no crate compiled |
 | A Yarn file | 0.43 s, no crate compiled |
+| A demo's move table, catalog or fighter facet (`game/ambition_demo_*/assets/`, the versus pack in `game/ambition_app/assets/`) | 0.43 to 0.45 s, no crate compiled (embedded, it was 6.62 s: the demo crate and the app) |
 | A file that is still embedded (`include_str!`) | about 6 to 7 s: `ambition_content` and the app compile again |
 
 `assets/pack.ron` itself stays embedded: a new source also needs a new
 declaration in `game/ambition_content/src/pack.rs`.
+
+A demo's pack is written with `ambition_platformer2d::content_pack!`, which
+reads every text (its `pack.ron` included) off disk and embeds them only under
+the demo crate's own `static_content` feature. A new source is one more line in
+the macro's `sources`. `ambition_app`'s `static_content` turns the feature on
+for the demos it hosts.
 
 ## Validation
 

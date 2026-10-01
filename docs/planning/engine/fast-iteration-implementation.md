@@ -176,6 +176,21 @@ the vanity card cost 7.18 s and two crates while it was still embedded. Only
 `pack.ron` itself stays embedded: a new source needs a new declaration in
 `pack.rs` anyway.
 
+**2026-10-01: the demo packs are read off disk too.** Sanic, Mary-O, Smash,
+Pocket, TwinTrack and the app's versus pack were `EmbeddedPack::new` over
+`include_str!`, so a demo tuning edit compiled the demo crate and the app.
+They are `content_pack!` now (`ambition_platformer2d`): a `PackText` per file,
+read when the pack is first compiled, embedded only under the CALLING crate's
+`static_content` (the macro's `cfg` is read in that crate). MEASURED: touching
+a smash, sanic or versus move table costs 0.43 to 0.45 s with no crate
+compiled; the smash pack embedded cost 6.62 s. Proven both ways: with
+`sanic.ron` renamed, `cargo check -p ambition_demo_sanic --features
+static_content` fails on the missing file and the default check passes. Witness:
+`content_sdk_tests::a_sourced_pack_reads_its_files_and_names_every_one_it_cannot`
+(poison "refuse at the first unreadable file" fails it). Not yet: a running
+demo does not reload its pack; that road is `ambition_content::reload`'s and
+Ambition's only.
+
 **Class:** DO. **Requires:** I1 for the lightweight Rust frontend; the data
 format/host side can be developed in parallel.
 Read `crates/ambition_content_pack/src/lib.rs`,
@@ -444,11 +459,25 @@ before. Witness: `edit_to_play_through_the_shell::a_character_row_saved_while_th
 goblins have 9, **22 frames after the save**; the App's catalog and the
 session's frozen cast both say 9). Poisons: "admission ignores the candidate
 catalog" fails it on the live goblins (5, 5, 5); "the claim carries no
-candidate cast" fails it ONLY at the frozen-cast assertion — ⛔ MEASURED under
-that poison, the session froze 5 while the App's registry held 9 and the
-rebuilt goblins had 9 on the activation frame, so a body's health pool is not
-read from the frozen cast; the road is not identified yet (the boss seed was
-the same class, closed today). ⚠ Observed once, not reproduced in two reruns:
+candidate cast" failed it ONLY at the frozen-cast assertion: the session froze
+5 while the App's registry held 9, and the rebuilt goblins had 9. The road
+was `apply_worn_character_gameplay`: it re-derives a body whenever the cast
+generation changes, and it read the App's `PreparedCharacterRegistry`. It now
+reads the activated generation's cast (`session::mechanics::worn_cast_for`, the
+same contract as `perception_extent_for`: generation first, refusal in a shell
+session that lost it, the App only where no session gate exists). MEASURED
+after the fix, 2026-10-01: the same poison stops the live loop at [5, 5, 5].
+⛔ **OPEN: THE OTHER READERS.** A grep for `Res<…PreparedCharacterRegistry>`
+outside tests finds about 30 systems that read the App cast in a live session
+(combat moveset, sim_view pose and index, actor_spawn, damage, empowerment,
+summon, aggression, match activation, presentation, the three demo crates).
+REASONED, not measured per reader: they agree with the frozen cast in every
+normal run, because only a reload commit changes the App cast and the commit
+activates a new generation; they differ in the frames between the commit and
+the activation, and under a broken claim. Most of them sit in crates below the
+monolith and cannot name `SessionMechanics`, so the fix is a session cast in a
+lower crate (`ambition_characters`), not one more `worn_cast_for` per reader.
+The boss seed was the same class, closed today. ⚠ Observed once, not reproduced in two reruns:
 `quality_change_keeps_each_character::a_quality_round_trip_converges_back_with_every_page_loaded_and_nothing_orphaned`
 failed in a filtered batch ("a direct gameplay boot has a PrimaryPlayer wearing
 a character") and passed alone and in the same batch twice.

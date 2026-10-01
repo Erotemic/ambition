@@ -15,6 +15,8 @@ bench = false
 
 [features]
 default = []
+# Embed the demo's content pack: see `ambition_demo_twintrack`.
+static_content = ["ambition_demo_twintrack/static_content"]
 # Offscreen capture: the `capture_twintrack` binary. Implies `visible` and adds
 # the engine's capture module + its PNG encoder. Off by default so nothing that
 # ships links an encoder.

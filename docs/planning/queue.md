@@ -1846,7 +1846,10 @@ seeded from the App's catalog after construction, closed the same day
 activation), like the fighter ladder. Not yet in the channel because not yet
 in the reload: none left from the character catalog, which joined the same
 day; its admitted cast rides the existing `characters` claim. Measured on the
-way: a body's health pool is not read from the frozen cast (see I3).
+way: a body's health pool was not read from the frozen cast;
+`apply_worn_character_gameplay` re-derived it from the App cast. Fixed
+2026-10-01 (`worn_cast_for`); about 30 other live readers of the App cast
+remain (see I3).
 
 ⚠ **AND THE GUARD STOPPED WITNESSING IT WITHOUT GOING RED.**
 `the_commit_sits_between_the_activation_and_session_adoption`

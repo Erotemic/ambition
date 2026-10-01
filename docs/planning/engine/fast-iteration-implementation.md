@@ -519,7 +519,10 @@ fails it). `serve_encounter_spawn_commands` and `project_prepared_character_defi
 moved too, and the summon road and `refresh_boss_damageable_volumes` take the
 generation's frozen boss catalog (`SessionMechanics::bosses`) over the App's;
 the summon and encounter-spawn roads take its sheets too, as room construction
-does (`GenerationMechanics::sheets`) (`SessionCast::is_changed` follows the source `get` reads). ⭐ With
+does (`GenerationMechanics::sheets`). ⚠ OPEN: no arm publishes a BOSS catalog
+mid-timeline under the sync test, so the boss-volume half is REASONED from the
+cast arm, not measured; the next arm is the cast arm's shape with a boss
+tuning in place of the player's `max_health` (`SessionCast::is_changed` follows the source `get` reads). ⭐ With
 the projection on the session's cast, a cast published mid-timeline no longer
 desyncs the sync test: `developer_edits_under_rollback::publishing_a_cast_mid_timeline_leaves_history_resimulating_the_same`
 asserts it (MEASURED: putting either the projection or the worn re-derivation

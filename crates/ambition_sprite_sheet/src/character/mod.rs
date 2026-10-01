@@ -73,7 +73,7 @@ pub struct CharacterSpriteAsset {
     pub resolved_tier: ambition_persistence::settings::TextureResolutionScale,
     /// The sheet's transform flipbook at [`Self::resolved_tier`], when the
     /// rigged-sprite trial is admitted and the sheet publishes one
-    /// ([`rigged::RiggedSpriteAdmission`]). `None` in every shipped game.
+    /// ([`rigged::RiggedSpriteAdmission`]). `None` when the switch is off.
     pub rigged: Option<rigged::RiggedSpritePages>,
 }
 

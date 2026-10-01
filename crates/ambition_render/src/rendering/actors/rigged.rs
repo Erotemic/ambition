@@ -27,7 +27,7 @@
 //! its pages are ready.
 //!
 //! The root keeps its baked sprite with zero alpha. That keeps the baked sheet
-//! as the parity oracle of this trial, and keeps the root the body's ONE portal
+//! as the parity oracle of the flipbook, and keeps the root the body's ONE portal
 //! candidate, of the body's size: the parts are never candidates.
 //!
 //! Through a portal the body is drawn from its baked frame. The compositor
@@ -46,7 +46,8 @@
 //! are the same in both cases, so a body moves between a baked clip and a part
 //! clip with no jump in place or in timing.
 //!
-//! ⛔ Nothing here runs unless [`RiggedSpriteAdmission`] admits the trial.
+//! ⛔ Nothing here runs unless [`RiggedSpriteAdmission`] admits the flipbooks
+//! (on by default since 2026-10-01).
 //! The crouch squash of a sheet without a crouch row reaches the parts through
 //! the owner (`stance_squash`). The hit flash needs nothing: its material
 //! samples the root's texture and frame with its own tint and never reads the

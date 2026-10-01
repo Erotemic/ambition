@@ -181,3 +181,16 @@ fn mary_os_flipbooks_draw_her_walk_from_parts_and_leave_the_rest_baked() {
         }
     }
 }
+
+/// The flipbooks are on unless the environment turns them off (Jon's
+/// go-ahead, 2026-10-01): unset is on, and only an off word refuses them.
+#[test]
+fn the_flipbooks_are_on_unless_the_environment_turns_them_off() {
+    let admits = |value: Option<&str>| RiggedSpriteAdmission::from_setting(value).admit;
+    assert_eq!(
+        [None, Some("1"), Some("on"), Some(""), Some("0"), Some(" Off "), Some("false"), Some("no")].map(admits),
+        [true, true, true, true, false, false, false, false],
+        "admitted for: unset, 1, on, empty, 0, Off, false, no"
+    );
+    assert_eq!(RiggedSpriteAdmission::default(), RiggedSpriteAdmission::ADMIT);
+}

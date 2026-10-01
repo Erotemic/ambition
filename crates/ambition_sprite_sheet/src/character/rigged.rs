@@ -410,31 +410,47 @@ pub struct RiggedSpritePages {
 }
 
 /// Whether this composition draws characters from their transform flipbooks
-/// instead of their baked sheets: the rigged-sprite TRIAL switch.
+/// instead of their baked sheets.
 ///
-/// ⛔ Off in every shipped game. With it off, no flipbook page is loaded and
-/// no body draws a part. It is read from this resource when the composition
-/// inserts one, else from the environment ([`RIGGED_SPRITE_ADMISSION_ENV`]).
-#[derive(bevy::prelude::Resource, Debug, Clone, Copy, PartialEq, Eq, Default)]
+/// ON in the shipped games since 2026-10-01 (Jon's go-ahead; it was a trial
+/// switch, off by default, before that). A character that publishes no
+/// flipbook draws its baked sheet either way. With it off, no flipbook page is
+/// loaded and no body draws a part. It is read from this resource when the
+/// composition inserts one, else from the environment
+/// ([`RIGGED_SPRITE_ADMISSION_ENV`]).
+#[derive(bevy::prelude::Resource, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct RiggedSpriteAdmission {
     pub admit: bool,
 }
 
-/// The environment switch for [`RiggedSpriteAdmission`]: `1`, `true`, `on` or
-/// `yes` admits.
+/// The environment switch for [`RiggedSpriteAdmission`]: `0`, `false`, `off`
+/// or `no` turns the flipbooks off; unset (or any other value) leaves them on.
 pub const RIGGED_SPRITE_ADMISSION_ENV: &str = "AMBITION_RIGGED_SPRITES";
 
 impl RiggedSpriteAdmission {
     pub const ADMIT: Self = Self { admit: true };
+    pub const REFUSE: Self = Self { admit: false };
 
     pub fn from_env() -> Self {
-        let admit = std::env::var(RIGGED_SPRITE_ADMISSION_ENV).is_ok_and(|value| {
+        Self::from_setting(std::env::var(RIGGED_SPRITE_ADMISSION_ENV).ok().as_deref())
+    }
+
+    /// The switch for an environment value: on unless the value turns it off.
+    pub fn from_setting(value: Option<&str>) -> Self {
+        let off = value.is_some_and(|value| {
             matches!(
                 value.trim().to_ascii_lowercase().as_str(),
-                "1" | "true" | "on" | "yes"
+                "0" | "false" | "off" | "no"
             )
         });
-        Self { admit }
+        Self { admit: !off }
+    }
+}
+
+/// The shipped default: the flipbooks are drawn.
+impl Default for RiggedSpriteAdmission {
+    fn default() -> Self {
+        Self::ADMIT
     }
 }
 

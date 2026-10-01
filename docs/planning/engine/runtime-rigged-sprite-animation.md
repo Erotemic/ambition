@@ -4,6 +4,8 @@
 
 **Purpose:** add an optional semantic body-rig abstraction for deterministic articulated geometry, collision, and attachments, plus an optional runtime character-presentation path that reuses rasterized body parts instead of storing every pose as a complete raster frame. Baked sprite sheets remain first-class. Ragdoll is a later optional pose provider, not part of the initial implementation.
 
+**Rollout (2026-10-01):** Jon gave the go-ahead to put the rigged sprites into the shipped game. `RiggedSpriteAdmission` is now ON unless the composition inserts it off or the environment says `AMBITION_RIGGED_SPRITES=0` (`from_setting`; witness `the_flipbooks_are_on_unless_the_environment_turns_them_off`, and in the app `the_shipped_game_draws_the_admirals_from_their_parts`, poison: unset reads as off). A character that publishes a flipbook (the five pirates; Mary-O's three forms, whose walk is drawn from parts and every other row baked) draws from it; every other character draws its baked sheet. The baked sheet stays resident as the parity oracle and the portal candidate (Packet 7), so a rigged character holds about 1.62 × its baked texture bytes until the root stops drawing (Packet 8, step 2). With the switch on by default, the app suite and six other crates show no new red. `BodyRigAdmission` (the gameplay rigs: hurt parts, attachments) is a separate switch and is still off by default. Packet 8's GPU run is `scripts/rig_packet8_gpu_bench.py` (see Packet 8).
+
 This document intentionally contains the discovery work that an implementation agent would otherwise have to repeat. The implementation agent should verify that named symbols still exist after rebases, but should not begin with another architecture survey or asset-economics study.
 
 Related current owners:
@@ -989,7 +991,7 @@ Do not require every dynamic limb to become a reusable rigid part in this packet
 
 ### Packet 6 — add runtime `RiggedSpriteAsset` demand and world presentation
 
-**Status (2026-09-30): done, behind the trial switch.** The switch is `RiggedSpriteAdmission` (env `AMBITION_RIGGED_SPRITES=1`). It is off in every shipped game, and with it off no part page is loaded and no body draws a part.
+**Status (2026-09-30): done, behind the trial switch.** The switch is `RiggedSpriteAdmission` (env `AMBITION_RIGGED_SPRITES`). It was off in every shipped game until 2026-10-01; it is on by default since then (see *Rollout* at the top), and `AMBITION_RIGGED_SPRITES=0` turns it off. With it off no part page is loaded and no body draws a part.
 
 - `ambition_sprite_sheet::character::rigged::RiggedSpriteAsset` parses `<target>_parts.ron`. The draw table is baked into the build like a body rig. A quality tier has its own table (`<target>.<tier>`), with its own part rects and a `texel_scale`. A part keeps its full-resolution size and pivot at every tier.
 - `scripts/generate_visual_quality_variants.py` publishes the tier part atlases. It crops each part from its page on its own, downsamples it by the tier factor of the sibling sheet, and packs it again. It never resizes a packed page.
@@ -1102,6 +1104,14 @@ Pre-registration record (written before each run):
 - Missed: the rigged/baked frame-time ratio at 100 actors (band 1 to 3): 3.0 with one view, 3.5 with two.
 - Falsified: "the difference is mostly fill" (the `--tiny` run).
 - Between the bands: the 1300-sprite run (19.1 ms, between "the batches" below 10 ms and "the sprite count" at 20 ms or more), so the record gives the two parts in ms and no single cause.
+
+**Run it on a hardware GPU (2026-10-01).** On a machine with a hardware GPU, from the repository root:
+
+```sh
+python3 scripts/rig_packet8_gpu_bench.py
+```
+
+The script needs only `cargo` and the Python standard library. It builds the bench with the `profiling` profile and runs the matrix: the ECS mode, the renderer with one view, with two views, and with `--tiny`, each for 1, 10, 50 and 100 actors. Each measured render frame waits for the GPU (`RenderDevice::poll`), so the frame time includes the GPU work and not only its submission. The bench prints the adapter, and the script stops when the adapter is a software rasterizer (llvmpipe, lavapipe, SwiftShader, WARP, or a `Cpu` device type), because that is the measurement above. It writes `target/rig_packet8/<host>_<UTC time>/report.md` (the tables), `report.json`, and the log of each run. Send `report.md` back, and the decision above continues from step 2 of its list.
 
 This is implementation validation, not architecture discovery.
 

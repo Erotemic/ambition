@@ -451,6 +451,17 @@ measured 2026-10-01:
 4. Witness shape: `edit_to_play_through_the_shell`'s, a saved row value (a
    standing height or max health) on a live body after the reload, plus the
    frozen record, with the poison "the claim carries no candidate cast".
+5. What exists to build on (read 2026-10-01): `prepared::stage_character_revision`
+   stages a WHOLE definition as a revision, but takes `&mut App`; the reload
+   holds a `World`, so it needs a `World` form (the body is
+   `prepare_for_registration` plus an insert). The bindings need the engine's
+   art vocabulary (`with_engine_vocabularies`, in the actor monolith), so the
+   content side stages through a monolith wrapper. `admit_staged_revision`
+   folds only the STAGED characters over the live registry; a catalog change
+   re-folds EVERY character (the row feeds the fold), so the candidate catalog
+   form must re-fold the whole cast. The catalog itself is assembled from
+   provider fragments — the boss catalog's shape, so `with_replaced` on its
+   registry is the model (`BossCatalogRegistry::with_replaced`).
 
 I3a is independently useful. I3 is complete only after all three cuts. I1/I2 and
 I4 contract work need not wait for I3b; procedural replacement does. Do not turn
@@ -555,8 +566,14 @@ about (`a_call_that_leaves_its_record_initial_stores_nothing`).
 
 **Open:** the deterministic fault
 policy (today a fault discards the invocation's output and is counted in
-`ExtensionFaults`; it does not stop the session); a second technique with an
-observation port. (Session-attached records landed with I5's first cut; see I5.)
+`ExtensionFaults`; it does not stop the session — and, reasoned from the code,
+not measured: `ExtensionFaults::record` has no replay gate, so under a rollback
+session a fault is counted again on each resimulated tick); a second technique
+with an observation port (no production observation port exists yet: every
+module reads its trigger. Mark/recall's mark, if it becomes a module, would be
+the first: its native system writes an instant `HitEvent` and a typed fx
+effect, and its beacon visual reads `PlayerMark`, so it needs about five new
+ports). (Session-attached records landed with I5's first cut; see I5.)
 
 **The loaded road (an I6/I7 first cut), 2026-10-01: a module edit no longer
 compiles the engine.** One backend, not the two-backend comparison I6 asks
@@ -587,8 +604,9 @@ goes through the engine's mechanical-edit protocol: PROPOSED, the rollback
 timeline's owner ADMITS (a local timeline is stopped and rebased; a timeline
 the host did not start refuses), then PUBLISHED. Last-good by construction: a
 file that does not load or admit is reported and the running code stays. A
-reload that changes a state schema's SHAPE under live records is refused;
-that needs a reconstruction. Witnesses: host `a_reloaded_module_takes_over_at_publication_and_keeps_its_records`
+reload that changed a state schema's SHAPE under live records was refused in
+this first cut; since the schema-evolution row below, its records migrate by
+field tag, and only a changed attachment or save policy is refused. Witnesses: host `a_reloaded_module_takes_over_at_publication_and_keeps_its_records`
 and `a_reload_that_reshapes_live_state_or_is_refused_leaves_the_running_code`;
 app `a_module_file_that_changes_while_the_game_runs_is_reloaded` (published
 without a timeline; refused, still staged and healthy under the harness's own

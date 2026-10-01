@@ -5,6 +5,7 @@
 //! serialize the same values. No row means the occurrence remains as authored.
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::sync::Arc;
 
 use bevy::prelude::{Query, ResMut, Resource, Vec2, With};
 
@@ -170,17 +171,71 @@ impl RoomOccurrenceOutlook {
 /// requires a generic runtime census edit. The name still says
 /// `AuthoredOccurrences` because that is what it was when it held one derived
 /// set; what it holds now is stated by [`OccurrenceWhereabouts`].
-#[derive(Resource, Clone, Debug, Default, PartialEq)]
+///
+/// ⭐ THE ROWS ARE SHARED, NOT COPIED (M2 cut C). The rollback snapshot is a
+/// clone, taken on every frame, and a ledger with 10,000 dormant rows cost
+/// 1.4 ms per clone and as much per checksum. The rows and the custody index
+/// are `Arc`s, so a clone copies two pointers. A mutator writes through
+/// `Arc::make_mut`, which copies the rows only when a snapshot shares them, and
+/// only on a tick that changes a row. The checksum is kept with the `Arc` it
+/// was computed from ([`RowsDigest`]).
+#[derive(Resource, Clone, Debug, Default)]
 pub struct AuthoredOccurrences {
-    rows: BTreeMap<SimId, OccurrenceWhereabouts>,
+    rows: Arc<BTreeMap<SimId, OccurrenceWhereabouts>>,
     /// The ids whose row is `InCustody`: a DERIVED index of `rows` (FI9).
     /// Each mutator below keeps it, and [`Self::adopt_rows`] builds it again,
     /// so a clone (the rollback snapshot) carries it consistent with its rows.
     /// It lets the custody producer compare and republish the carried set
     /// without a walk over every row: dormant `Placed` rows add no work to a
     /// tick that carries nothing new.
-    custody: BTreeSet<SimId>,
+    custody: Arc<BTreeSet<SimId>>,
 }
+
+/// Equal rows, with the same allocation first: a snapshot and the live ledger
+/// share their rows while nothing changed, and that comparison costs nothing.
+impl PartialEq for AuthoredOccurrences {
+    fn eq(&self, other: &Self) -> bool {
+        (Arc::ptr_eq(&self.rows, &other.rows) || self.rows == other.rows)
+            && (Arc::ptr_eq(&self.custody, &other.custody) || self.custody == other.custody)
+    }
+}
+
+/// The peer checksum of one shared row set under one domain, kept with the
+/// `Arc` it was computed from. DERIVED STORAGE, NOT STATE: it holds a clone
+/// of that `Arc`, so the allocation is not freed and cannot be written in
+/// place (`Arc::make_mut` copies a shared `Arc`). An `Arc` that is the same
+/// allocation therefore holds the same rows, and any other `Arc` is hashed
+/// again. The value is the same fold as without the memo, so two peers agree
+/// whatever their memos hold.
+struct RowsDigest {
+    domain: &'static str,
+    slot: std::sync::Mutex<Option<(Arc<BTreeMap<SimId, OccurrenceWhereabouts>>, u64)>>,
+}
+
+impl RowsDigest {
+    const fn new(domain: &'static str) -> Self {
+        Self { domain, slot: std::sync::Mutex::new(None) }
+    }
+
+    fn of(&self, ledger: &AuthoredOccurrences) -> u64 {
+        // No rows costs nothing to hash, and leaves the slot to rows that do.
+        if ledger.rows.is_empty() {
+            return ledger.digest(self.domain);
+        }
+        let mut slot = self.slot.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        if let Some((held, digest)) = slot.as_ref() {
+            if Arc::ptr_eq(held, &ledger.rows) {
+                return *digest;
+            }
+        }
+        let digest = ledger.digest(self.domain);
+        *slot = Some((ledger.rows.clone(), digest));
+        digest
+    }
+}
+
+static LEDGER_DIGEST: RowsDigest = RowsDigest::new("lifecycle.authored_occurrences");
+static BASELINE_DIGEST: RowsDigest = RowsDigest::new("lifecycle.occurrence_baseline");
 
 impl AuthoredOccurrences {
     /// What construction must do about every record of `room`. The one
@@ -249,13 +304,14 @@ impl AuthoredOccurrences {
     /// ledger from outside is to state every row: a `From<AuthoredOccurrences>`
     /// would let a caller clone one authority into another and call it a load.
     pub fn adopt_rows(&mut self, rows: BTreeMap<SimId, OccurrenceWhereabouts>) {
-        if self.rows != rows {
-            self.custody = rows
-                .iter()
-                .filter(|(_, whereabouts)| matches!(whereabouts, OccurrenceWhereabouts::InCustody))
-                .map(|(sim_id, _)| sim_id.clone())
-                .collect();
-            self.rows = rows;
+        if *self.rows != rows {
+            self.custody = Arc::new(
+                rows.iter()
+                    .filter(|(_, whereabouts)| matches!(whereabouts, OccurrenceWhereabouts::InCustody))
+                    .map(|(sim_id, _)| sim_id.clone())
+                    .collect(),
+            );
+            self.rows = Arc::new(rows);
         }
     }
 
@@ -281,13 +337,14 @@ impl AuthoredOccurrences {
     /// instant a hand emptied.
     pub fn republish_custody(&mut self, carried: BTreeSet<SimId>) {
         // The index names every custody row, so only those rows are visited.
-        for sim_id in std::mem::take(&mut self.custody) {
-            self.rows.remove(&sim_id);
+        let rows = Arc::make_mut(&mut self.rows);
+        for sim_id in self.custody.iter() {
+            rows.remove(sim_id);
         }
         for sim_id in &carried {
-            self.rows.insert(sim_id.clone(), OccurrenceWhereabouts::InCustody);
+            rows.insert(sim_id.clone(), OccurrenceWhereabouts::InCustody);
         }
-        self.custody = carried;
+        self.custody = Arc::new(carried);
     }
 
     /// Admit runtime mints lying in `room` that the ledger has no row for
@@ -304,10 +361,16 @@ impl AuthoredOccurrences {
     /// ledger decides only that a mint enters with no earlier row.
     pub fn admit_mints(&mut self, room: &str, mints: BTreeMap<SimId, Vec2>) {
         for (sim_id, at) in mints {
-            self.rows.entry(sim_id).or_insert_with(|| OccurrenceWhereabouts::Placed {
-                room: room.to_string(),
-                at,
-            });
+            // Only a new row writes, so shared rows are copied only for one.
+            if !self.rows.contains_key(&sim_id) {
+                Arc::make_mut(&mut self.rows).insert(
+                    sim_id,
+                    OccurrenceWhereabouts::Placed {
+                        room: room.to_string(),
+                        at,
+                    },
+                );
+            }
         }
     }
 
@@ -361,8 +424,10 @@ impl AuthoredOccurrences {
                 continue;
             }
             // A row put down is no longer in custody.
-            self.custody.remove(&sim_id);
-            self.rows.insert(
+            if self.custody.contains(&sim_id) {
+                Arc::make_mut(&mut self.custody).remove(&sim_id);
+            }
+            Arc::make_mut(&mut self.rows).insert(
                 sim_id,
                 OccurrenceWhereabouts::Placed {
                     room: room.to_string(),
@@ -419,7 +484,7 @@ impl AuthoredOccurrences {
         put_u64(out, self.rows.len() as u64);
         // `BTreeMap`, so this walk is ordered by identity on every peer. An
         // unordered collection here would report iteration order as divergence.
-        for (sim_id, whereabouts) in &self.rows {
+        for (sim_id, whereabouts) in self.rows.iter() {
             put_str(out, sim_id.as_str());
             match whereabouts {
                 OccurrenceWhereabouts::InCustody => put_u8(out, 0),
@@ -461,12 +526,15 @@ impl AuthoredOccurrences {
     /// put the type in the encoded set that
     /// `rollback-wire-format-changes-are-declared` watches, for nothing.
     pub fn peer_stable_checksum(&self) -> u64 {
+        LEDGER_DIGEST.of(self)
+    }
+
+    /// The fold of [`Self::encode_rows`] under `domain`, computed now.
+    fn digest(&self, domain: &str) -> u64 {
         use ambition_platformer2d_core::snapshot::PeerDigest;
         let mut bytes = Vec::new();
         self.encode_rows(&mut bytes);
-        PeerDigest::in_domain("lifecycle.authored_occurrences")
-            .bytes(&bytes)
-            .finish()
+        PeerDigest::in_domain(domain).bytes(&bytes).finish()
     }
 
     /// Checkpoint baselines copy the entire occurrence ledger. Restoring that copy
@@ -551,12 +619,7 @@ impl OccurrenceBaseline {
     /// makes equal contents the steady state. See
     /// [`AuthoredOccurrences::peer_stable_checksum`] for the measurement.
     pub fn checksum(&self) -> u64 {
-        use ambition_platformer2d_core::snapshot::PeerDigest;
-        let mut bytes = Vec::new();
-        self.0.encode_rows(&mut bytes);
-        PeerDigest::in_domain("lifecycle.occurrence_baseline")
-            .bytes(&bytes)
-            .finish()
+        BASELINE_DIGEST.of(&self.0)
     }
 }
 
@@ -1059,6 +1122,76 @@ mod tests {
             baseline_part,
             "changing a row did not move the baseline's checksum, so the two are \
              no longer folding the same encoding"
+        );
+    }
+
+    /// A ledger of `n` dormant `Placed` rows.
+    fn dormant_ledger(n: usize) -> AuthoredOccurrences {
+        let mut ledger = AuthoredOccurrences::default();
+        ledger.adopt_rows(
+            (0..n)
+                .map(|i| {
+                    (
+                        SimId::placement(&format!("dormant/{i:05}")),
+                        OccurrenceWhereabouts::Placed { room: "elsewhere".into(), at: Vec2::new(i as f32, 0.0) },
+                    )
+                })
+                .collect(),
+        );
+        ledger
+    }
+
+    /// M2 cut C: the kept checksum is the fold it stands for, in each
+    /// domain. Each ledger and its baseline checksum equal the fold computed
+    /// now, after a row changes, and after the ledger goes back to rows it held.
+    #[test]
+    fn a_kept_checksum_is_the_fold_of_the_rows_it_was_kept_for() {
+        let first = dormant_ledger(3);
+        let mut second = first.clone();
+        assert!(second
+            .republish_placements("elsewhere", [(SimId::placement("dormant/00001"), Vec2::new(9.0, 9.0))].into_iter().collect())
+            .is_empty());
+        for (step, ledger) in [("first", &first), ("second", &second), ("first again", &first)] {
+            assert_eq!(
+                ledger.peer_stable_checksum(),
+                ledger.digest("lifecycle.authored_occurrences"),
+                "the ledger's checksum is not its fold ({step})"
+            );
+            let mut baseline = OccurrenceBaseline::default();
+            baseline.adopt(ledger.clone());
+            assert_eq!(
+                baseline.checksum(),
+                ledger.digest("lifecycle.occurrence_baseline"),
+                "the baseline's checksum is not its fold ({step})"
+            );
+        }
+        assert_ne!(first.peer_stable_checksum(), second.peer_stable_checksum(), "a moved row did not move the checksum");
+    }
+
+    /// M2 cut C: a clone of a ledger with 10,000 dormant rows, its checksum,
+    /// and a comparison with the live ledger cost little more than with none.
+    /// The rollback host does all three on every frame. Before the cut, a
+    /// clone and a checksum each cost about 1.4 ms at 10,000 rows.
+    #[test]
+    fn dormant_rows_add_little_to_a_snapshot_of_the_ledger() {
+        fn median_snapshot(ledger: &AuthoredOccurrences) -> std::time::Duration {
+            let mut times: Vec<_> = (0..101)
+                .map(|_| {
+                    let start = std::time::Instant::now();
+                    let snapshot = std::hint::black_box(ledger.clone());
+                    std::hint::black_box(snapshot.peer_stable_checksum());
+                    std::hint::black_box(snapshot == *ledger);
+                    start.elapsed()
+                })
+                .collect();
+            times.sort();
+            times[50]
+        }
+        let (empty, full) = (dormant_ledger(0), dormant_ledger(10_000));
+        let (empty, full) = (median_snapshot(&empty), median_snapshot(&full));
+        assert!(
+            full < empty * 5 + std::time::Duration::from_micros(20),
+            "a snapshot of 10,000 dormant rows took {full:?}, against {empty:?} with none"
         );
     }
 }

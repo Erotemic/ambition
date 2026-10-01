@@ -10,9 +10,12 @@
 //! the new modules. A candidate that admission refuses is never staged, so
 //! the running code stays the code that runs.
 //!
-//! ⛔ A STATE SHAPE MAY NOT CHANGE UNDER LIVE RECORDS. The records the bodies
-//! carry were written under the old schema. A reload whose schema of the same
-//! key has a different shape is refused; reconstructing the room (or a
+//! ⛔ LIVE RECORDS FOLLOW THE SCHEMA. The records the bodies and the session
+//! carry were written under the old schema. At publication, a record whose
+//! schema changed its fields is carried over by field tag
+//! (`StateSchema::migrate`), and a record whose schema left the generation is
+//! removed. A reload that changes a schema's attachment or save policy is
+//! refused: the record cannot change store; reconstructing the room (or a
 //! restart) is the road for that.
 
 use std::sync::Arc;

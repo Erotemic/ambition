@@ -1544,6 +1544,52 @@ witness drives a new press on every frame, and a seat's frame stands until
 it is replaced, so it lets go after the crossing: otherwise Bob goes back
 through the arrival door when the cooldown ends.
 
+✅ **Cut 7t landed 2026-10-01: one player's door does not stop the other
+player's room (OW4: supported absence does not freeze unrelated work).**
+The eager host set `GameMode::RoomTransition` for every crossing's load.
+That mode stops every gameplay system of every live room, so while Alice's
+room was prepared, Bob's room stood still. The rollback host, which the
+game ships, never paused for a load ("peers do not stop simulating because
+one of them is loading"). So the eager host was a second behaviour, and
+the tests measured it. Now the eager host pauses only when nothing else is
+in play: one live room, and no body of another seat in it. A crossing that
+no seat drove is the session's own, and it pauses with one live room. The
+restores of `Playing` (commit, refusal, retraction, abandonment) are not
+changed: each restores a pause that this rule entered. Witness:
+`a_door_one_player_takes_does_not_stop_the_other_players_room`. On each
+tick of Alice's crossing (the load open as the tick began or ended), Bob's
+body on slot 1 must move, and the session must not be paused. Control:
+Alice alone still pauses. Poison (the unconditional pause restored): the
+control passed, and the subject failed with Bob still and paused on the
+commit tick (`([1], 1)`). ⚠ The harness's load is two ticks long, so the
+freeze it measured was one tick. A load that waits on assets is longer.
+
+✅ **Cut 7u landed 2026-10-01: one player's conversation does not stop the
+other player's room.** Talking to an NPC set `GameMode::Dialogue`. That
+mode does not stop the clock (`DialogueStopsTheWorld` is off). But every
+system in `GameplayGated` stops in it, in every live room, the door
+detector among them. So while Alice talked in the hub, Bob in `switch_lab`
+could move but could not take a door. Measured first: Bob ran 20 px in 30
+ticks of her conversation, and held interact in his door for 60 ticks
+without crossing. The NPC interaction now sets the mode only while at most
+one room is live (`LiveRooms::count`). With another room live, the
+conversation holds only its participants: the talker's seat is captured
+by the dialogue input context (`declare_in_session_input_contexts`,
+whatever the mode), and the other participant by its conversation hold.
+Whether two players in ONE room share the conversation's pause is the
+product question in `multiplayer.md`, so that case is not changed.
+Witness: `a_conversation_in_one_room_does_not_stop_the_other_players_room`
+(Alice talks to the hub's dog, #1, and Bob goes through his door in #0 and
+joins her). Control: Alice alone enters the dialogue mode. Poison (the
+unconditional mode restored): the control passed, and Bob stayed in #0 with
+the mode `Dialogue`. ⚠ The control prompt reads the mode for its
+"Advance" context, so with two rooms live the talker's prompt does not
+change. That is a view, P5. ⚠ Not changed: `GameMode::Cutscene` stops the
+world in every live room (`stops_the_world`), so a room-entry cutscene in
+one room stops the other player's room. A cutscene drives the one shared
+camera, so it waits for the views (P5) and for the party-pause product
+question.
+
 ✅ **Landed 2026-10-01: a door holds only the seat that went through it
 (customer 2).** `RoomTransitionCooldown` was one countdown for the world.
 After any seat's door, every seat waited 0.16 s before it could cross. It is

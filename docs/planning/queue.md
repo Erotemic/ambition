@@ -1835,6 +1835,17 @@ rung on the tick after the commit without the ladder riding the transaction at
 all. A value that must be FROZEN at construction belongs in
 `PendingGenerationInputs`; a value that is a standing projection does not.
 
+**2026-10-01: the boss catalog is the second frozen input in that channel.**
+Boss profiles and encounters joined the reload; `PendingGenerationInputs::bosses`
+carries the admitted N+1 catalog to the transaction's own preparation
+(`candidate_bosses_for`), which fingerprints and freezes it, and the commit
+publishes it. The poison that dropped it from the claim found a live boss
+seeded from the App's catalog after construction, closed the same day
+(`BossConfig::seed`). Encounter waves stay a standing projection
+(`project_live_encounter_occurrences` reads the App's `EncounterWaveBook` after
+activation), like the fighter ladder. Not yet in the channel because not yet
+in the reload: the character catalog (planned in I3, with its prerequisites).
+
 ⚠ **AND THE GUARD STOPPED WITNESSING IT WITHOUT GOING RED.**
 `the_commit_sits_between_the_activation_and_session_adoption`
 (`game/ambition_app/tests/reload_publication_is_installed.rs`) asserts

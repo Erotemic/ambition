@@ -403,6 +403,7 @@ fn boss_rider_keeps_its_brain_and_emits_mount_died_on_dismount() {
                 ambition_boss_encounter::test_boss_catalog(),
                 "boss_rider",
             ),
+            seed: None,
         },
         Brain::npc_patrol(AUTHORED_BOSS_LANE_X, 17.0),
     ));
@@ -1010,6 +1011,7 @@ fn giant_gnu_mount_and_gnu_ton_rider_dismount_bridge_end_to_end() {
         spawn: rider_pos,
         brain: ambition_entity_catalog::placements::BossBrain::Dormant,
         behavior: profile.behavior.clone(),
+        seed: None,
     };
     let rider = app
         .world_mut()
@@ -1171,6 +1173,7 @@ fn gnu_ton_rider_hand_slam_routes_both_giant_hands_downward_with_a_strike_edge()
                 spawn: ae::Vec2::ZERO,
                 brain: ambition_entity_catalog::placements::BossBrain::Dormant,
                 behavior: profile.behavior.clone(),
+                seed: None,
             },
             RidingOn { mount: giant },
         ))
@@ -1377,6 +1380,7 @@ fn a_possessing_player_slams_the_giants_hands_via_the_verb_map() {
                 spawn: rider_pos,
                 brain: ambition_entity_catalog::placements::BossBrain::Dormant,
                 behavior: profile.behavior.clone(),
+                seed: None,
             },
             // the SEAT is what makes this boss possessed; its own `Brain` stays
             // put and simply stops deciding while a person is driving.

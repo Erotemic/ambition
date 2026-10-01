@@ -262,7 +262,7 @@ fn embedded_sources() -> impl IntoIterator<Item = (String, String)> {
         ),
         (
             SFX_REGISTRY_SOURCE_PATH.to_string(),
-            crate::audio_registries::SFX_REGISTRY_RON.to_string(),
+            source_text(SFX_REGISTRY_SOURCE_PATH, crate::audio_registries::SFX_REGISTRY_RON_STATIC),
         ),
     ];
     sources.extend(MIGRATED_MOVESETS.iter().map(|(table, embedded)| {

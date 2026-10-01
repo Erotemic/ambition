@@ -162,11 +162,19 @@ music registry were; `boss_profiles.ron`, `boss_seeds.ron`,
 `pack::source_text` (embedded only under `static_content`: web, Android, a build
 without the source tree). MEASURED on the agent machine, warm, `cargo build -p
 ambition_app` after touching the file: `boss_profiles.ron` 0.44 s (nothing
-rebuilt), against 5.79 s for `sfx_registry.ron`, which stays embedded by its
-stated policy. A boss edit now costs a restart; it is not in the reload's
-participating families yet (`reload::participates`), so a running game refuses
-it. The sandbox Yarn dialogue (`dialogue/sandbox/*.yarn`, `yarn::yarn_sources`)
-followed the same day: a dialogue edit 0.43 s, nothing rebuilt.
+rebuilt), against 5.79 s for `sfx_registry.ron`, which then stayed embedded by
+its stated policy. The sandbox Yarn dialogue (`dialogue/sandbox/*.yarn`,
+`yarn::yarn_sources`) followed the same day: a dialogue edit 0.43 s, nothing
+rebuilt. Later the same day boss tuning and dialogue became live reloads (see
+I3), and the last embedded data files went off disk too: `sfx_registry.ron`
+(synth-cue tuning is a sound designer's loop, not a code edit),
+`boss_sheets.ron`, `boss_art_keys.ron` and the generated
+`vanity_card_made_this_meme.ron`. MEASURED the same way, `cargo build -p
+ambition_app --bin ambition_game_bin`: `sfx_registry.ron` 0.52 s,
+`boss_sheets.ron` 0.48 s, the vanity card 0.52 s, each with no crate compiled;
+the vanity card cost 7.18 s and two crates while it was still embedded. Only
+`pack.ron` itself stays embedded: a new source needs a new declaration in
+`pack.rs` anyway.
 
 **Class:** DO. **Requires:** I1 for the lightweight Rust frontend; the data
 format/host side can be developed in parallel.
@@ -349,6 +357,19 @@ Witness: `app_it::edit_to_play_through_the_shell::a_content_file_saved_while_the
 **19 frames after the save**, measured, with one request; poison "the watch
 returns early" fails it at 600 frames).
 
+**A saved edit under the shipped ownership mode (2026-10-01).**
+`edit_to_play_through_the_shell::a_content_file_saved_under_a_local_timeline_rebases_it`:
+with a timeline the local maintainer owns, a saved move edit is played, the
+timeline the maintainer starts again binds the reloaded content, and it is
+healthy. ⚠ The poison "the commit does not rebase"
+(`reload::rebase_local_timeline_onto_the_new_generation` not called) left it
+GREEN, measured: a reload re-requests the route, the route's re-activation ends
+the session (`session-end` / `session-start` in the world-event log), and
+`retire_rollback_authority_with_its_scope` stands the timeline down with its
+scope before the new one is installed. On the shipped road the commit's rebase
+restates that; it is kept as a deliberate restatement (the content crate's
+hand-built hosts reach it without a shell), not as the protection of this road.
+
 **Dialogue reloads too (2026-10-01).** The Yarn files are not in the pack:
 they are the running `YarnProject`'s assets. `content_watch::YarnSourceWatch`
 (built with `ui`, not `static_content`) looks at each file the project was
@@ -391,11 +412,45 @@ behaviour:** the seed no longer writes it (`apply_behavior_profile` is gone);
 construction resolved it from the frozen catalog and captured the brain's
 pattern from the same value, so a second write could only repeat it or split
 the boss from its own brain. With that, the poison fails on the live boss.
-**Open:** HP, phase triggers, death seconds, music and reward still come from
-the App catalog through `BossEncounterRegistry` on the first tick; seed them
-at construction from the catalog the construction context carries. Still refused: items, audio, the character catalog,
+**Closed the same day for the rest:** `BossConfig::seed` (`BossSeed`: the
+encounter spec and the reward) is resolved at construction, with the
+behaviour, from the catalog the construction carries.
+`update_boss_encounters` seeds HP and phase triggers, and reads the death outro
+and the music, from it; the reward chest takes the boss's own reward
+(`BossRewardAnchor`) instead of a registry lookup by archetype. Only a
+hand-built config (a fixture) has no seed and is resolved from the App as
+before. Measured with the claim poison: the App held the saved HP 41 and the
+rebuilt mockingbird kept the frozen 28 (`a_boss_tuning_saved_while_the_game_runs_is_played`
+now asserts the saved HP too). `BossEncounterRegistry` is left with that
+fixture fallback as its only reader. Still refused: items, audio, the character catalog,
 the boss seed library and validator bands, and every source outside the pack
 (`boss_sheets.ron`, `boss_art_keys.ron`).
+
+**Next, planned not started: the character catalog in the reload.** The
+reload still refuses a `character_catalog` change, and the catalog is the
+largest tuning surface left (body sizes, health, motion, brains). What it takes,
+measured 2026-10-01:
+
+1. The catalog is not only FOLDED, it is an INPUT to the definitions:
+   `ambition_content::character_catalog::register_characters` builds each
+   definition from its row (display name, sheet target, the scale asked of the
+   baked sheet, the hurtbox inset). A candidate catalog therefore needs a
+   candidate set of definitions, built by the same function from the candidate
+   rows, not a re-fold of the retained `StagedCharacterOverrides` alone.
+2. The fold reads `CastAuthorities` (the catalog, `BrainProfileRegistry`,
+   `ProviderDeclarations`) from the App (`CastAuthorities::from_world`). An
+   admission over a candidate catalog needs those passed in, so
+   `admit_staged_revision` can fold the WHOLE cast against the candidate and
+   admit it as one `AdmittedRevision` that also carries the catalog to publish.
+3. 50 production sites read the App's `CharacterCatalog` directly (counted by a
+   grep for `Res<`/`resource::<`/`get_resource::<` of it). The commit must
+   publish it at the same boundary as the cast, and each reader is either fine
+   reading the published value after activation or is a frozen-generation
+   question like `SessionMechanics` — to be sorted before the first edit, not
+   after.
+4. Witness shape: `edit_to_play_through_the_shell`'s, a saved row value (a
+   standing height or max health) on a live body after the reload, plus the
+   frozen record, with the poison "the claim carries no candidate cast".
 
 I3a is independently useful. I3 is complete only after all three cuts. I1/I2 and
 I4 contract work need not wait for I3b; procedural replacement does. Do not turn
@@ -448,8 +503,12 @@ it through `ambition_platformer2d_runtime::publish_session_content`, which is
 now the one road by which a running session changes generation in place (the
 LDtk world reload publishes through it too, and only reads the active content). A reload of the
 same bytes keeps the generation. The local rollback baseline, stopped at
-`Admit`, starts again in `Update` against the new identity (ordering reasoned
-from the set chain, not measured under local GGRS). The live rooms are not
+`Admit`, starts again in `Update` against the new identity — MEASURED under
+the shipped ownership mode (a timeline the local maintainer owns):
+`a_module_reload_rebases_the_local_timeline_onto_the_new_identity`; poison "re-mint one
+frame late" leaves the restarted timeline bound to the old identity and the
+next frame reports it `Unhealthy` ("prepared content changed while the GGRS
+session was active"). The live rooms are not
 built again; a room built after the reload is stamped with the new content.
 A session whose timeline another owner holds refuses the reload, so a remote
 session keeps its generation. Witness:
@@ -474,6 +533,17 @@ road's per-tick overhead with one boss is now within the run-to-run noise
 (30-100 us). A fresh instance per call (~28 us) is kept: it is what makes a
 guest static unable to carry state across a rewind.
 
+**The SDK cannot name engine state (2026-10-01), held structurally instead of
+by a compile-fail test.** `ambition_extension_sdk` has no dependencies at all,
+so no SDK signature can carry a Bevy, host or engine type, and "direct
+health/body mutation through the SDK" cannot be written: a compile-fail test
+would only restate a missing method name. The workspace policy
+`engine.ambition_extension_sdk-portable` is now kind `dependency-none` (new): a
+dependency of ANY name fails it. It was a denylist of nine names, which passed
+every engine crate it did not list. Poisons: `bevy_reflect` added to the SDK
+(not on the old list) fails it; the rule's own fixture
+(`poison_dependency_none_reacts`).
+
 **I7 item 5, first cut (2026-10-01):** `ambition_extension_host::inspect`
 (composition and per-body records as text) and the tool
 `ambition_app_tools --bin extension_inspect` (ports, serial order, linked or
@@ -483,8 +553,7 @@ that a call left at its initial value (an absent record is initial), so an
 `IdlePolicy::Invoke` module adds no state to bodies it has nothing to remember
 about (`a_call_that_leaves_its_record_initial_stores_nothing`).
 
-**Open:** a compile-fail witness that the SDK offers no engine-state setter;
-the deterministic fault
+**Open:** the deterministic fault
 policy (today a fault discards the invocation's output and is counted in
 `ExtensionFaults`; it does not stop the session); a second technique with an
 observation port. (Session-attached records landed with I5's first cut; see I5.)

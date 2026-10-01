@@ -124,7 +124,7 @@ pub fn update_boss_encounters(
     let mut active_music_track: Option<String> = None;
     let mut boss_anchors: std::collections::BTreeMap<
         ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
-        Vec<(String, String, ae::Vec2)>,
+        Vec<crate::BossRewardAnchor>,
     > = std::collections::BTreeMap::new();
 
     for (boss_entity, _feature_id, mut feature, mut health, mut combat, overrides) in &mut bosses {
@@ -132,23 +132,29 @@ pub fn update_boss_encounters(
         let runtime_id = feature.config.id.clone();
         let boss_name = feature.config.name.clone();
 
-        // Resolve the authored profile from the read-only catalog (or a
-        // generic stub). `behavior.id` is the canonical archetype id resolved
-        // at spawn from the brain's `PhaseScript:` payload.
-        let profile = registry
-            .profiles
-            .get(&archetype_id)
-            .cloned()
-            .or_else(|| BossProfile::for_encounter_id_or_name(&catalog, &archetype_id))
-            .unwrap_or_else(|| {
-                BossProfile::generic(
-                    &catalog,
-                    archetype_id.clone(),
-                    boss_name.clone(),
-                    health.max(),
-                )
-            });
-        let spec = profile.encounter.clone();
+        // The encounter this boss was built with (`BossConfig::seed`, from the
+        // generation's catalog). Only a hand-built config has none; it is
+        // resolved here from the App's catalog (or a generic stub), by the
+        // canonical archetype id resolved at spawn.
+        let (spec, reward) = match &feature.config.seed {
+            Some(seed) => (seed.encounter.clone(), seed.reward.clone()),
+            None => {
+                let profile = registry
+                    .profiles
+                    .get(&archetype_id)
+                    .cloned()
+                    .or_else(|| BossProfile::for_encounter_id_or_name(&catalog, &archetype_id))
+                    .unwrap_or_else(|| {
+                        BossProfile::generic(
+                            &catalog,
+                            archetype_id.clone(),
+                            boss_name.clone(),
+                            health.max(),
+                        )
+                    });
+                (profile.encounter, profile.reward)
+            }
+        };
 
         // Seed entity-local state once from the profile (phase triggers, HP),
         // so two of the same boss have independent state. The per-spawn
@@ -284,11 +290,11 @@ pub fn update_boss_encounters(
         }
         // A boss in no live room drops nothing: no room is simulated there.
         if let Some(room) = geometry.room_of(boss_entity) {
-            boss_anchors.entry(room).or_default().push((
-                runtime_id.clone(),
-                archetype_id.clone(),
-                feature.config.spawn,
-            ));
+            boss_anchors.entry(room).or_default().push(crate::BossRewardAnchor {
+                placement_id: runtime_id.clone(),
+                spawn: feature.config.spawn,
+                reward: reward.clone(),
+            });
         }
     }
 
@@ -315,7 +321,6 @@ pub fn update_boss_encounters(
             &mut commands,
             session_scope.in_room(Some(*room)),
             save.data(),
-            &registry,
             &world.0,
             anchors,
             &reward_chests,

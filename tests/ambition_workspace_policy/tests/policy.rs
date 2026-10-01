@@ -461,6 +461,26 @@ fn poison_dependency_denylist_reacts() {
 }
 
 #[test]
+fn poison_dependency_none_reacts() {
+    let p = poison(&format!(
+        r#"
+        id = "poison.dependency-none"
+        scope = "engine"
+        kind = "dependency-none"
+        rationale = "poison"
+        manifest = "{POISON_MANIFEST}"
+    "#
+    ));
+    let report = run_one(&p);
+    assert!(
+        report.len() >= 2,
+        "dependency-none must name every dependency of the poison manifest, the \
+         non-ambition `bevy_ecs_ldtk` among them, got {}",
+        report.len()
+    );
+}
+
+#[test]
 fn poison_dependency_allowlist_reacts() {
     let p = poison(&format!(
         r#"

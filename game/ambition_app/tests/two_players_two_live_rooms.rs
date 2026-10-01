@@ -365,6 +365,96 @@ fn the_second_player_goes_through_a_door_of_his_own_room() {
     );
 }
 
+/// Alice goes from the hub back through its door to `switch_lab` while
+/// Bob's seat (slot 1) runs left. For each tick of her crossing (the load
+/// open as the tick began or as it ended): whether Bob's body stood still,
+/// and whether the session was in `GameMode::RoomTransition`. Returns
+/// (ticks of the crossing, ticks Bob stood still, ticks paused).
+fn bob_runs_while_alice_crosses(sim: &mut Platformer2dSimHarness) -> (usize, Vec<usize>, usize) {
+    use ambition_platformer2d::engine_core::AabbExt as _;
+    let bob_x = |sim: &mut Platformer2dSimHarness| {
+        let world = sim.world_mut();
+        world
+            .query::<(&ambition_platformer2d::combat::components::FeatureId, &ambition_platformer2d::engine_core::BodyKinematics)>()
+            .iter(world)
+            .find(|(feature, _)| feature.0 == BOB)
+            .map(|(_, kinematics)| kinematics.pos.x)
+    };
+    let loading = |sim: &Platformer2dSimHarness| {
+        sim.world()
+            .resource::<ambition_platformer2d::runtime::room_transition::RoomTransitionLoadState>()
+            .active
+            .is_some()
+    };
+    let paused = |sim: &Platformer2dSimHarness| {
+        sim.world()
+            .get_resource::<bevy::state::state::State<ambition_platformer2d::platformer::schedule::GameMode>>()
+            .is_some_and(|mode| *mode.get() == ambition_platformer2d::platformer::schedule::GameMode::RoomTransition)
+    };
+    let door = crate::common::door_to(sim, ROOM).aabb.center();
+    sim.teleport_player((door.x, door.y));
+    let (mut crossing, mut still, mut held) = (0, Vec::new(), 0);
+    let mut was_open = false;
+    for tick in 0..120 {
+        let before = bob_x(sim);
+        sim.drive_seat(
+            1,
+            ambition_platformer2d::engine_core::ControlFrame {
+                axis_x: -1.0,
+                ..Default::default()
+            },
+        );
+        let room = sim
+            .step(ambition_app::AgentAction {
+                interact: true,
+                interact_held: true,
+                ..base()
+            })
+            .active_room;
+        let open = loading(sim);
+        if open || was_open {
+            crossing += 1;
+            held += usize::from(paused(sim));
+            if let (Some(before), Some(after)) = (before, bob_x(sim)) {
+                if (after - before).abs() < 0.01 {
+                    still.push(tick);
+                }
+            }
+        }
+        if room == ROOM && !open {
+            break;
+        }
+        was_open = open;
+    }
+    sim.drive_seat(1, ambition_platformer2d::engine_core::ControlFrame::default());
+    (crossing, still, held)
+}
+
+/// OW1 cut 7t: Bob's room keeps its time while Alice goes through a door.
+/// Bob, on slot 1, runs in `switch_lab` (#0) while Alice goes from the hub
+/// back through its door to `switch_lab`; on each tick of her crossing,
+/// Bob's body must move. The eager host set `GameMode::RoomTransition` for
+/// every load, and that mode stops every gameplay system of every live
+/// room, so Bob stood still while another player's room was prepared. The
+/// rollback host, which the game ships, never paused for a load. The
+/// control: Alice alone (Bob driven by no seat, so his room retired with
+/// her first crossing) still pauses for her load.
+#[test]
+fn a_door_one_player_takes_does_not_stop_the_other_players_room() {
+    let (mut sim, _) = alice_leaves_bob(None);
+    let (crossing, _, held) = bob_runs_while_alice_crosses(&mut sim);
+    assert!(crossing > 0 && held > 0, "control: Alice's crossing alone did not pause ({held} of {crossing} ticks)");
+
+    let (mut sim, _) = alice_leaves_bob(Some(ambition_platformer2d::characters::control::PlayerSlot(1)));
+    let (crossing, still, held) = bob_runs_while_alice_crosses(&mut sim);
+    assert!(crossing > 0, "precondition: Alice's crossing opened no load");
+    assert_eq!(
+        (still, held),
+        (Vec::<usize>::new(), 0),
+        "(ticks Bob stood still, ticks paused) in Alice's crossing of {crossing} ticks"
+    );
+}
+
 /// OW1 cut 6e: Alice comes back through the hub's door to `switch_lab`,
 /// where Bob is. She joins his live room, #0, and the hub (#1), which
 /// nobody is in now, is retired: one live room, with both of them in it.
@@ -2397,4 +2487,112 @@ fn a_seat_cannot_cross_back_inside_its_own_cooldown() {
     );
     assert!(waited > 0, "precondition: Alice's seat never waited at the door back");
     assert!(accepted, "control: Alice never went back through the hub's door to switch_lab");
+}
+
+/// Alice talks to the hub's dog. Returns whether the conversation opened.
+fn alice_talks_to_the_dog(sim: &mut Platformer2dSimHarness) -> bool {
+    let dog = {
+        let world = sim.world_mut();
+        let mut query = world.query::<(bevy::prelude::Entity, &ambition_platformer2d::characters::actor::WornCharacter)>();
+        query
+            .iter(world)
+            .find(|(_, worn)| worn.id() == "npc_companion_dog")
+            .map(|(entity, _)| entity)
+            .expect("the hub stages the dog")
+    };
+    let here = sim
+        .world()
+        .get::<ambition_platformer2d::engine_core::BodyKinematics>(dog)
+        .expect("the dog has a body")
+        .pos;
+    sim.teleport_player((here.x, here.y));
+    sim.step(ambition_app::AgentAction {
+        interact: true,
+        interact_held: true,
+        ..base()
+    });
+    for _ in 0..10 {
+        sim.step(base());
+    }
+    sim.world()
+        .get_resource::<ambition_platformer2d::conversation::ActiveConversation>()
+        .is_some_and(|conversation| conversation.talker() == Some(dog))
+}
+
+/// The session's game mode now.
+fn game_mode(sim: &Platformer2dSimHarness) -> Option<ambition_platformer2d::platformer::schedule::GameMode> {
+    sim.world()
+        .get_resource::<bevy::state::state::State<ambition_platformer2d::platformer::schedule::GameMode>>()
+        .map(|mode| *mode.get())
+}
+
+/// OW1 cut 7u: Alice's conversation does not stop Bob's room. Alice talks to
+/// the hub's dog (#1) while Bob, on slot 1, stands in `switch_lab`'s door to
+/// the hub (#0) and his seat presses: he goes through and joins the hub. A
+/// conversation set `GameMode::Dialogue`, and every gameplay-gated system
+/// of every live room (the door detector among them) stops in that mode, so
+/// while another player talked in another room, Bob could not take a door.
+/// The talker's own presses are withheld by the dialogue input context, not
+/// by the mode. The control: Alice alone still enters the dialogue mode.
+#[test]
+fn a_conversation_in_one_room_does_not_stop_the_other_players_room() {
+    use ambition_platformer2d::engine_core::AabbExt as _;
+    let (mut sim, _) = alice_leaves_bob(None);
+    assert!(alice_talks_to_the_dog(&mut sim), "control: Alice alone did not talk to the dog");
+    assert_eq!(
+        game_mode(&sim),
+        Some(ambition_platformer2d::platformer::schedule::GameMode::Dialogue),
+        "control: a conversation with one live room is not modal"
+    );
+
+    let (mut sim, first) = alice_leaves_bob(Some(ambition_platformer2d::characters::control::PlayerSlot(1)));
+    let second = first.next();
+    assert!(alice_talks_to_the_dog(&mut sim), "precondition: Alice did not talk to the dog");
+    let door = door_of(&mut sim, ROOM, HUB).aabb.center();
+    {
+        let world = sim.world_mut();
+        let mut bob = world.query::<(
+            &ambition_platformer2d::combat::components::FeatureId,
+            ambition_platformer2d::engine_core::BodyClusterQueryData,
+            &mut ambition_platformer2d::actor::MotionModel,
+        )>();
+        let (_, mut clusters, mut model) = bob
+            .iter_mut(world)
+            .find(|(feature, _, _)| feature.0 == BOB)
+            .expect("Bob's body is in the world");
+        let mut clusters = clusters.as_clusters_mut();
+        ambition_platformer2d::engine_core::movement::transit_body(
+            &mut model,
+            &mut clusters,
+            door,
+            ambition_platformer2d::engine_core::movement::TransitVelocity::Zero,
+        );
+    }
+    let mut talking_while_he_pressed = true;
+    for _ in 0..60 {
+        talking_while_he_pressed &= sim
+            .world()
+            .get_resource::<ambition_platformer2d::conversation::ActiveConversation>()
+            .is_some_and(|conversation| conversation.talker().is_some());
+        sim.drive_seat(
+            1,
+            ambition_platformer2d::engine_core::ControlFrame {
+                interact_pressed: true,
+                interact_held: true,
+                ..Default::default()
+            },
+        );
+        sim.step(base());
+        if where_they_are(&mut sim).1 == Some(Some(second)) {
+            break;
+        }
+    }
+    sim.drive_seat(1, ambition_platformer2d::engine_core::ControlFrame::default());
+    assert!(talking_while_he_pressed, "precondition: Alice's conversation ended before Bob crossed");
+    assert_eq!(
+        where_they_are(&mut sim).1,
+        Some(Some(second)),
+        "Bob did not go through his door while Alice talked in the other room (mode {:?})",
+        game_mode(&sim)
+    );
 }

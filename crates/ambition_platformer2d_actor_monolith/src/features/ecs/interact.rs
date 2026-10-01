@@ -258,11 +258,21 @@ pub fn interact_ecs_actors_and_switches(
                 super::super::npcs::npc_message(interactable, &identity.name, false),
                 2.6,
             );
-            ambition_platformer2d_shared_tangle::world_log::note_game_mode_request(
-                ambition_platformer2d_shared_tangle::schedule::GameMode::Dialogue,
-                "npc_interact",
-            );
-            next_mode.set(ambition_platformer2d_shared_tangle::schedule::GameMode::Dialogue);
+            // THE DIALOGUE MODE IS FOR ONE LIVE ROOM (OW1 cut 7u). The mode
+            // stops every gameplay-gated system of every live room, so in it
+            // another player in another room could not take a door. With
+            // another room live, the conversation holds only its own
+            // participants: the talker's seat is captured by the dialogue
+            // input context, and the other participant by its conversation
+            // hold. Whether two players in ONE room share the pause is a
+            // product question (multiplayer.md), so that case is not changed.
+            if live_rooms.count() <= 1 {
+                ambition_platformer2d_shared_tangle::world_log::note_game_mode_request(
+                    ambition_platformer2d_shared_tangle::schedule::GameMode::Dialogue,
+                    "npc_interact",
+                );
+                next_mode.set(ambition_platformer2d_shared_tangle::schedule::GameMode::Dialogue);
+            }
             quest_advance.write(QuestAdvanceRequested(
                 ambition_persistence::quest::QuestAdvanceEvent::NpcTalked(identity.id.clone()),
             ));

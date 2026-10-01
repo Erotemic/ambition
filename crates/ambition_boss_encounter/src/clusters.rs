@@ -26,6 +26,23 @@ pub struct BossConfig {
     pub spawn: ae::Vec2,
     pub brain: ambition_entity_catalog::placements::BossBrain,
     pub behavior: BossBehaviorProfile,
+    /// What the encounter is seeded from and read against: resolved at
+    /// construction from the catalog the construction carries, which is the
+    /// session's frozen generation. `None` only for a hand-built config (a
+    /// fixture); `update_boss_encounters` then resolves from the App's catalog.
+    pub seed: Option<BossSeed>,
+}
+
+/// The rest of a boss's profile, beside its behaviour: the encounter (HP,
+/// phase triggers, death outro, music) and the reward.
+///
+/// ⛔ RESOLVED WITH THE BEHAVIOUR, from the same catalog. Seeded on the first
+/// tick from the App's catalog instead, a session that froze one generation
+/// ran its bosses on another's numbers whenever the two differed.
+#[derive(Clone, Debug)]
+pub struct BossSeed {
+    pub encounter: crate::BossEncounterSpec,
+    pub reward: crate::BossRewardProfile,
 }
 
 /// Mutable encounter-only boss state. Health, liveness, and hit flash live on
@@ -309,6 +326,7 @@ impl BossClusterScratch {
                 spawn: center,
                 brain,
                 behavior,
+                seed: None,
             },
             status: BossEncounter {
                 sprite_metrics: None,
@@ -320,6 +338,18 @@ impl BossClusterScratch {
             ),
         };
         boss.resolve_sheet_body(boss_catalog);
+        // The same resolution `update_boss_encounters` made on the first tick,
+        // from this catalog: by the behaviour's id, else a generic profile at
+        // the body's health.
+        let archetype = boss.config.behavior.id.clone();
+        let profile = crate::BossProfile::for_encounter_id_or_name(boss_catalog, &archetype)
+            .unwrap_or_else(|| {
+                crate::BossProfile::generic(boss_catalog, archetype, boss.config.name.clone(), boss.health.max())
+            });
+        boss.config.seed = Some(BossSeed {
+            encounter: profile.encounter,
+            reward: profile.reward,
+        });
         boss
     }
 
@@ -489,6 +519,7 @@ pub mod test_support {
                 super::super::test_boss_catalog(),
                 script_id,
             ),
+            seed: None,
         }
     }
 }

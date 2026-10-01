@@ -18,8 +18,15 @@ use serde::Deserialize;
 /// Registered shell-segment kind for the vanity card.
 pub const MADE_THIS_MEME_CARD_SEGMENT_KIND: &str = "ambition_vanity_card_made_this_meme";
 
-/// The baked animation. Committed, and generated — see the module docs.
-const MADE_THIS_MEME_RON: &str = include_str!("../../assets/data/vanity_card_made_this_meme.ron");
+/// The baked animation. Committed, and generated — see the module docs. Read
+/// off disk unless the build embeds content (`static_content`), so a re-render
+/// rebuilds nothing.
+const MADE_THIS_MEME_SOURCE_PATH: &str = "data/vanity_card_made_this_meme.ron";
+#[cfg(feature = "static_content")]
+const MADE_THIS_MEME_RON_STATIC: Option<&'static str> =
+    Some(include_str!("../../assets/data/vanity_card_made_this_meme.ron"));
+#[cfg(not(feature = "static_content"))]
+const MADE_THIS_MEME_RON_STATIC: Option<&'static str> = None;
 
 /// The `game://` asset source is the content crate's own `assets/` tree.
 const ASSET_SOURCE: &str = "game://";
@@ -83,8 +90,8 @@ fn card() -> &'static RigCard {
     use std::sync::OnceLock;
     static CARD: OnceLock<RigCard> = OnceLock::new();
     CARD.get_or_init(|| {
-        ron::from_str(MADE_THIS_MEME_RON)
-            .expect("vanity_card_made_this_meme.ron is generated and compiled in; it must parse")
+        ron::from_str(&crate::pack::source_text(MADE_THIS_MEME_SOURCE_PATH, MADE_THIS_MEME_RON_STATIC))
+            .expect("vanity_card_made_this_meme.ron is generated; it must parse")
     })
 }
 

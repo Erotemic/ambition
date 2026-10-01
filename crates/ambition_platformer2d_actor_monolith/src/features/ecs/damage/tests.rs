@@ -2114,6 +2114,7 @@ fn a_heavy_attacker_is_read_off_the_attacker_not_the_hit_source() {
                         ambition_boss_encounter::test_boss_catalog(),
                         "heavy",
                     ),
+                    seed: None,
                 })
                 .id()
         } else {

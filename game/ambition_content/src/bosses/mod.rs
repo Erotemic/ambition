@@ -43,6 +43,19 @@ const BOSS_PROFILES_RON_STATIC: Option<&'static str> = Some(include_str!("../../
 #[cfg(not(feature = "static_content"))]
 const BOSS_PROFILES_RON_STATIC: Option<&'static str> = None;
 
+/// `boss_sheets.ron` and `boss_art_keys.ron`: not pack sources (see
+/// [`boss_catalog_fragment`]), read off disk the same way.
+pub const BOSS_SHEETS_SOURCE_PATH: &str = "data/boss_sheets.ron";
+#[cfg(feature = "static_content")]
+const BOSS_SHEETS_RON_STATIC: Option<&'static str> = Some(include_str!("../../assets/data/boss_sheets.ron"));
+#[cfg(not(feature = "static_content"))]
+const BOSS_SHEETS_RON_STATIC: Option<&'static str> = None;
+pub const BOSS_ART_KEYS_SOURCE_PATH: &str = "data/boss_art_keys.ron";
+#[cfg(feature = "static_content")]
+const BOSS_ART_KEYS_RON_STATIC: Option<&'static str> = Some(include_str!("../../assets/data/boss_art_keys.ron"));
+#[cfg(not(feature = "static_content"))]
+const BOSS_ART_KEYS_RON_STATIC: Option<&'static str> = None;
+
 /// The text of `boss_profiles.ron` this build reads.
 pub fn boss_profiles_ron() -> String {
     crate::pack::source_text(BOSS_PROFILES_SOURCE_PATH, BOSS_PROFILES_RON_STATIC)
@@ -177,9 +190,10 @@ pub fn boss_catalog_fragment_from(
         Some("gradient_sentinel"),
         behaviors,
         encounters,
-        include_str!("../../assets/data/boss_sheets.ron"),
-        ambition_boss_encounter::BossArtKeys::from_ron(include_str!(
-            "../../assets/data/boss_art_keys.ron"
+        &crate::pack::source_text(BOSS_SHEETS_SOURCE_PATH, BOSS_SHEETS_RON_STATIC),
+        ambition_boss_encounter::BossArtKeys::from_ron(&crate::pack::source_text(
+            BOSS_ART_KEYS_SOURCE_PATH,
+            BOSS_ART_KEYS_RON_STATIC,
         ))
         .map_err(|error| format!("Ambition's boss art keys do not parse: {error}"))?,
     )

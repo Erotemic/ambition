@@ -190,6 +190,11 @@ impl LiveRooms<'_, '_> {
     pub fn sole(&self) -> Option<LiveRoomInstance> {
         self.roots.single().ok().copied()
     }
+
+    /// How many rooms are live.
+    pub fn count(&self) -> usize {
+        self.roots.iter().count()
+    }
 }
 
 /// The live rooms one room transaction's world is made of: the room it

@@ -90,6 +90,10 @@ pub enum RuleKind {
     DependencyAllowlist,
     /// `manifest` must not depend on any crate in `deny`.
     DependencyDenylist,
+    /// `manifest` must have no dependencies at all, of any name. For a leaf
+    /// whose whole contract is that it can name nothing: a denylist passes
+    /// every crate it does not list, and an allowlist sees only `ambition*`.
+    DependencyNone,
     /// No `.rs` file under `roots` may name any identifier in `forbid`.
     ForbiddenSourceReference,
     /// A single `file` must contain every string in `contains` (facade

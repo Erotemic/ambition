@@ -269,8 +269,9 @@ pub fn tick_actor_brains(
     // ⭐ THE STAGE'S DECLARED COMBAT LAW, so a fighter ranking its finishers
     // spends the same percent curve the hit resolver does. `None` is the
     // undeclared world — every Ambition room — and resolves to the identity
-    // law, which is exactly what `LaunchLaw::default()` means.
-    combat_rules: Option<Res<ambition_combat::rules::ResolvedCombatTuning>>,
+    // law, which is exactly what `LaunchLaw::default()` means. The law of each
+    // actor's own live room.
+    room_rules: ambition_combat::rules::CombatTuningOf,
     mut decisions: ResMut<ActorDecisionFrames>,
     // Any body's collision extent, read-only: a rider's mount, for its width,
     // and whether turning it mirrors it at all.
@@ -470,6 +471,7 @@ pub fn tick_actor_brains(
         ),
     ) in &mut actors
     {
+        let combat_rules = room_rules.of(this_actor_entity);
         // A body whose senses this session cannot decide does not decide. It
         // still integrates and still takes hits; see `perception::perception_of`.
         let Some(perception_policy) =
@@ -610,7 +612,7 @@ pub fn tick_actor_brains(
                         // declared rules stales nothing, and declared rules
                         // with no ring have nothing to stale.
                         stale_moves
-                            .zip(combat_rules.as_deref())
+                            .zip(combat_rules.as_ref())
                             .map(|(recent, rules)| WornMoves {
                                 recent: *recent,
                                 rules: *rules,
@@ -710,7 +712,7 @@ pub fn tick_actor_brains(
                         // derivation the hit resolver uses
                         // (`rules.rage_scale(attacker damage)`), read off the
                         // meter this fighter is carrying now.
-                        combat_rules.as_deref().map_or_else(
+                        combat_rules.as_ref().map_or_else(
                             ambition_characters::perception::LaunchLaw::default,
                             |rules| ambition_characters::perception::LaunchLaw {
                                 growth_scale: rules.victim_percent_knockback_scale,

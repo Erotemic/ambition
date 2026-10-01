@@ -944,3 +944,131 @@ fn the_fsm_measures_its_hall_in_its_own_live_room() {
         "(the god's live room, its hall measured): the god was not conducted in #1"
     );
 }
+
+/// Spawn a passive body named `id` beside Alice, in live room `room`, and
+/// strike it there with the robot's 3-damage slash. The strike cues played.
+fn robot_strike_cues(
+    sim: &mut Platformer2dSimHarness,
+    id: &str,
+    room: LiveRoomInstance,
+) -> Vec<ambition_platformer2d::sfx::SfxId> {
+    use ambition_platformer2d::combat::events::{HitEvent, HitMode, HitSource, HitTarget};
+    use ambition_platformer2d::sfx::{ids, OwnedSfxMessage, SfxMessage};
+    let alice = {
+        let world = sim.world_mut();
+        world
+            .query_filtered::<(bevy::prelude::Entity, &ambition_platformer2d::engine_core::BodyKinematics), bevy::prelude::With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>()
+            .single(world)
+            .map(|(entity, kinematics)| (entity, kinematics.pos))
+            .expect("Alice's body is in the world")
+    };
+    sim.spawn_enemy_character_at(
+        id,
+        id,
+        (alice.1.x + 30.0, alice.1.y),
+        (12.0, 16.0),
+        ambition_platformer2d::entity_catalog::placements::CharacterBrain::Passive,
+        "npc_puppy_slug",
+    );
+    for _ in 0..4 {
+        sim.step(base());
+    }
+    let victim = {
+        let world = sim.world_mut();
+        let victim = world
+            .query::<(bevy::prelude::Entity, &ambition_platformer2d::combat::components::FeatureId)>()
+            .iter(world)
+            .find(|(_, feature)| feature.0 == id)
+            .map(|(entity, _)| entity)
+            .unwrap_or_else(|| panic!("{id}'s body reached the world"));
+        world.entity_mut(victim).insert(InRoomInstance(room));
+        victim
+    };
+    sim.world_mut().write_message(HitEvent {
+        volume: ambition_platformer2d::engine_core::Aabb::new(
+            alice.1,
+            ambition_platformer2d::engine_core::Vec2::splat(24.0),
+        )
+        .into(),
+        damage: 3,
+        source: HitSource::Melee,
+        attacker: Some(alice.0),
+        room: Some(room),
+        target: HitTarget::Body(victim),
+        mode: HitMode::Knockback,
+        knockback: None,
+        ignored_targets: Vec::new(),
+        strike_sfx: Some(ids::PLAYER_ROBOT_SLASH_IMPACT),
+        attacker_move_instance: None,
+    });
+    let mut cues = Vec::new();
+    for _ in 0..3 {
+        sim.step(base());
+        let messages = sim
+            .world()
+            .resource::<bevy::ecs::message::Messages<OwnedSfxMessage>>();
+        cues.extend(messages.iter_current_update_messages().filter_map(|owned| match owned.request {
+            SfxMessage::Play { id, .. }
+                if [
+                    ids::PLAYER_ROBOT_SLASH_IMPACT_FLESH_DEEP,
+                    ids::PLAYER_ROBOT_SLASH_IMPACT_FLESH_LIGHT,
+                    ids::PLAYER_ROBOT_SLASH_IMPACT_METAL_GONG,
+                    ids::PLAYER_ROBOT_SLASH_IMPACT_ROBOT,
+                ]
+                .contains(&id)
+                || id == ids::PLAYER_ROBOT_SLASH_IMPACT =>
+            {
+                Some(id)
+            }
+            _ => None,
+        }));
+    }
+    cues
+}
+
+/// GPT review of the per-game heavy-hit rule: with Alice and Bob in two
+/// Ambition rooms, the robot's 3-damage strike in Alice's room is still
+/// heavy. Ambition draws its line at 3. When the rules were resolved from THE
+/// live room, two live rooms resolved the rules of no room, Ambition's line
+/// was gone, and every robot hit was light. Control: the same strike with one
+/// live room. The strike is a written `HitEvent`; the resolution, the room's
+/// rules and the cue are the shipped ones.
+#[test]
+fn a_heavy_robot_strike_stays_heavy_while_another_room_is_live() {
+    use ambition_platformer2d::sfx::ids;
+    let mut sim = Platformer2dSimHarness::new_with_options(
+        fixed_60hz_room_options(ROOM).with_save(a_save_that_has_seen_the_hub_intro()),
+    )
+    .unwrap_or_else(|error| panic!("{ROOM} boots: {error:?}"));
+    for _ in 0..10 {
+        sim.step(base());
+    }
+    let first = *ambition_platformer2d::platformer::lifecycle::sole_live_room_component::<LiveRoomInstance>(
+        sim.world_mut(),
+    )
+    .expect("the session has a live room");
+    let one_room = robot_strike_cues(&mut sim, "ow1_struck_alone", first);
+    let (mut sim, first) = alice_leaves_bob_with(
+        sim,
+        ROOM,
+        HUB,
+        Some(ambition_platformer2d::characters::control::PlayerSlot(1)),
+        walk_through_the_door_to,
+    );
+    let second = first.next();
+    assert_eq!(
+        where_they_are(&mut sim),
+        (Some(second), Some(Some(first))),
+        "precondition: Alice is not in #1 with Bob in #0"
+    );
+    let two_rooms = robot_strike_cues(&mut sim, "ow1_struck_beside_bob", second);
+    assert_eq!(
+        (one_room, two_rooms),
+        (
+            vec![ids::PLAYER_ROBOT_SLASH_IMPACT_FLESH_DEEP],
+            vec![ids::PLAYER_ROBOT_SLASH_IMPACT_FLESH_DEEP],
+        ),
+        "(one live room, Alice's room beside Bob's): the robot's 3-damage strike did not \
+         play the heavy cue in both"
+    );
+}

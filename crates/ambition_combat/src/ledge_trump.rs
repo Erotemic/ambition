@@ -47,13 +47,22 @@ pub fn resolve_ledge_trumps(
         // the edge, it simply falls under screen-down like it always did.
         Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
     )>,
-    // The match's own answer to *what does losing the edge cost*. Optional
-    // because a world that declares no combat rules still trumps — it simply
+    // The match's own answer to *what does losing the edge cost*, per live
+    // room. A world that declares no combat rules still trumps — it simply
     // drops the loser, which is what every trump did before the knob.
-    rules: Option<bevy::prelude::Res<crate::rules::ResolvedCombatTuning>>,
+    rules: crate::rules::CombatTuningOf,
 ) {
-    // (anchor, elapsed, id, entity) for every body currently hanging.
-    let mut holders: Vec<(ae::Vec2, f32, SimId, Entity)> = Vec::new();
+    // (room, anchor, elapsed, id, entity) for every body currently hanging.
+    // Two bodies share an edge only in one live room (OW1): the same anchor in
+    // two live rooms is two edges.
+    type Holder = (
+        Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+        ae::Vec2,
+        f32,
+        SimId,
+        Entity,
+    );
+    let mut holders: Vec<Holder> = Vec::new();
     for (entity, id, model, _, _, _) in bodies.iter() {
         let ae::MotionModel::AxisSwept(axis) = &*model else {
             continue;
@@ -64,7 +73,7 @@ pub fn resolve_ledge_trumps(
         let Some(hang) = axis.state.ledge_grab.as_ref().filter(|l| !l.climbing) else {
             continue;
         };
-        holders.push((hang.contact.anchor, hang.elapsed, id.clone(), entity));
+        holders.push((rules.room_of(entity), hang.contact.anchor, hang.elapsed, id.clone(), entity));
     }
     if holders.len() < 2 {
         return;
@@ -82,31 +91,39 @@ pub fn resolve_ledge_trumps(
     //
     // The `SimId` tiebreak stays ascending in both, so a same-tick contest has
     // a deterministic winner independent of query or archetype order.
-    let hog = matches!(
-        rules.as_ref().map(|r| r.ledge_occupancy),
-        Some(crate::rules::LedgeOccupancy::Hog)
-    );
+    //
+    // Each room's own rules choose its order, so the holders sort by room
+    // first.
+    let hog = |room| {
+        matches!(
+            rules.in_room(room).map(|r| r.ledge_occupancy),
+            Some(crate::rules::LedgeOccupancy::Hog)
+        )
+    };
     holders.sort_by(|a, b| {
-        let by_time = a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal);
-        let by_time = if hog { by_time.reverse() } else { by_time };
-        by_time.then_with(|| a.2.cmp(&b.2))
+        let by_time = a.2.partial_cmp(&b.2).unwrap_or(std::cmp::Ordering::Equal);
+        let by_time = if hog(a.0) { by_time.reverse() } else { by_time };
+        a.0.cmp(&b.0)
+            .then(by_time)
+            .then_with(|| a.3.cmp(&b.3))
     });
 
-    let mut kept: Vec<ae::Vec2> = Vec::new();
-    let mut trumped: Vec<Entity> = Vec::new();
-    for (anchor, _, _, entity) in &holders {
-        if kept
-            .iter()
-            .any(|held| held.distance_squared(*anchor) <= SAME_EDGE_EPSILON * SAME_EDGE_EPSILON)
-        {
-            trumped.push(*entity);
+    let mut kept: Vec<(Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>, ae::Vec2)> =
+        Vec::new();
+    let mut trumped: Vec<(Entity, f32)> = Vec::new();
+    for (room, anchor, _, _, entity) in &holders {
+        if kept.iter().any(|(held_room, held)| {
+            held_room == room
+                && held.distance_squared(*anchor) <= SAME_EDGE_EPSILON * SAME_EDGE_EPSILON
+        }) {
+            let pop = rules.in_room(*room).map_or(0.0, |rules| rules.ledge_trump_pop);
+            trumped.push((*entity, pop));
         } else {
-            kept.push(*anchor);
+            kept.push((*room, *anchor));
         }
     }
 
-    let pop = rules.map_or(0.0, |rules| rules.ledge_trump_pop);
-    for entity in trumped {
+    for (entity, pop) in trumped {
         let Ok((_, _, mut model, mut ledge, mut kin, frame)) = bodies.get_mut(entity) else {
             continue;
         };

@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v278
+ggrs-rollback-schema-v279
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -186,11 +186,12 @@ derived.portal_carves	derived	PortalCarves	rebuilt from placed portals and trans
 derived.portal_host_depths	derived	PortalHostDepths	republished from the authoritative collision world each frame
 derived.projectile_view	derived	ProjectileView	SimView projection rebuilt every tick
 derived.resolved_attack_gesture	derived	ResolvedAttackGesture	republished from ActorControl and rollback-backed gesture history before move triggering
-derived.resolved_combat_tuning	derived	ResolvedCombatTuning	refolded from the active room's CombatRules over the world baseline every WorldPrep
+derived.resolved_combat_tuning	derived	ResolvedCombatTuning	refolded from the CombatRules that govern no room over the world baseline every WorldPrep
 derived.resolved_hurtboxes	derived	ResolvedHurtboxes	recomputed from AuthoredHurtboxes plus the move and pose clocks each tick
 derived.resolved_motion_frame	derived	ResolvedMotionFrame	published every tick from the live environment
 derived.resolved_switch_activations	derived	ResolvedSwitchActivations	this tick's drained switch activations with their post-toggle values; rebuilt every drain
 derived.resolved_technique_edges	derived	ResolvedTechniqueEdges	cleared and republished from current input every frame
+derived.room_combat_tuning	derived	RoomCombatTuning	refolded on each live room root from that room's CombatRules over the world baseline every WorldPrep
 derived.slot_controls	derived	SlotControls	republished from GGRS PlayerInputs at the head of every frame
 derived.surface_upright	derived	SurfaceUpright	republished from support facts every movement step
 derived.wallet_shield	derived	BodyWalletShield	re-derived from the worn character and the room's rules every tick, before any hit is resolved

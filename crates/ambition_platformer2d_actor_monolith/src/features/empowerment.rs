@@ -204,13 +204,17 @@ pub fn apply_contact_harm(
             Option<&ambition_platformer2d_core::DepthPlane>,
         ),
     )>,
-    tuning: Option<Res<ambition_combat::rules::ResolvedCombatTuning>>,
+    // The rules of the striker's own live room, and the room it touches in.
+    tuning: ambition_combat::rules::CombatTuningOf,
 ) {
-    let friendly_fire = tuning.map(|t| t.friendly_fire()).unwrap_or_default();
     for (striker, (grant, worn), kin, striker_faction, harm, striker_team) in &empowered {
         if !empowerment_of(grant, worn, cast.as_deref()).holds(Empowerment::HARMS_ON_CONTACT) {
             continue;
         }
+        // A body touches only bodies of its own live room (OW1): two live
+        // rooms share one local frame.
+        let striker_room = tuning.room_of(striker);
+        let friendly_fire = tuning.in_room(striker_room).map(|t| t.friendly_fire()).unwrap_or_default();
         let harm = harm.copied().unwrap_or_default();
         // "Everything I touch" is literally this body's collision box.
         let volume = kin.aabb();
@@ -226,7 +230,7 @@ pub fn apply_contact_harm(
             (victim_out_of_play, victim_plane),
         ) in &victims
         {
-            if victim == striker {
+            if victim == striker || tuning.room_of(victim) != striker_room {
                 continue;
             }
             if ambition_combat::util::body_is_untouchable(Some(victim_health), victim_out_of_play, victim_plane) {

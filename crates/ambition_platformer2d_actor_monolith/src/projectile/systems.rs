@@ -659,7 +659,8 @@ pub fn step_projectiles(
     mut trace: ResMut<GameplayTraceBuffer>,
     // Damage authority comes from the firer's faction/grudge/team. Match team outranks
     // faction for whether a shot may land; bosses use the authored catalog below.
-    tuning: Option<Res<ambition_combat::rules::ResolvedCombatTuning>>,
+    // The rules of the shot's own live room.
+    tuning: ambition_combat::rules::CombatTuningOf,
     // Bundled into one SystemParam slot to stay under Bevy's parameter ceiling.
     // ⭐ A2a DELETED THE BOSS CATALOG FROM THIS SYSTEM. It was here for exactly
     // one reason — rebuilding a boss's hurt geometry to answer "does this shot
@@ -675,7 +676,6 @@ pub fn step_projectiles(
     ),
 ) {
     let dt = world_time.sim_dt();
-    let friendly_fire = tuning.map(|t| t.friendly_fire()).unwrap_or_default();
     // Each live room's projectile world, composed once per tick the first
     // time a shot in it asks.
     let mut composed: Vec<(Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>, Option<std::borrow::Cow<'_, ae::World>>)> = Vec::new();
@@ -733,6 +733,7 @@ pub fn step_projectiles(
         // and reaches only that room's bodies (OW1 cut 4). A shot whose room
         // is not live is not stepped.
         let shot_room = carved.shot_room(proj_entity, owner_entity);
+        let friendly_fire = tuning.in_room(shot_room).map(|t| t.friendly_fire()).unwrap_or_default();
         let room_index = match composed.iter().position(|(room, _)| *room == shot_room) {
             Some(index) => index,
             None => {

@@ -28,6 +28,33 @@ impl CurrentRoom<'_, '_> {
     }
 }
 
+/// Each live room as a rule scope sees it: the reading WITH a subject, where
+/// [`CurrentRoom`] is the reading without one (OW1).
+///
+/// [`CurrentRoom`] reads THE live room, so with two live rooms it reads none,
+/// and a rule resolved from it is the rule of no room in both.
+#[derive(bevy::ecs::system::SystemParam)]
+pub struct LiveRuleRooms<'w, 's> {
+    rooms: Option<ambition_platformer2d_world::rooms::LiveRoomSpecs<'w, 's>>,
+}
+
+impl LiveRuleRooms<'_, '_> {
+    /// Live room `room` as a rule scope sees it; `NoRoom` when it is not live.
+    pub fn of(
+        &self,
+        room: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
+    ) -> ActiveRoom<'_> {
+        self.rooms
+            .as_ref()
+            .and_then(|rooms| {
+                rooms
+                    .definition_in(room)
+                    .map(|definition| rooms.rooms().spec(definition).metadata.mode.as_deref())
+            })
+            .map_or(ActiveRoom::NoRoom, ActiveRoom::live)
+    }
+}
+
 /// Resolve one kind of rule `T` from the active room.
 ///
 /// It stores nothing: the declarations are authored constants and the active
@@ -45,6 +72,11 @@ impl<T: Clone + std::fmt::Debug + Send + Sync + 'static> GoverningRules<'_, '_, 
     /// them for it. With no session, only a whole-process (`EveryRoom`)
     /// declaration governs.
     pub fn get(&self) -> Option<T> {
-        self.declared.as_ref()?.governing(self.room.get())
+        self.in_room(self.room.get())
+    }
+
+    /// The rules in force for `room` ([`LiveRuleRooms::of`] names a live one).
+    pub fn in_room(&self, room: ActiveRoom<'_>) -> Option<T> {
+        self.declared.as_ref()?.governing(room)
     }
 }

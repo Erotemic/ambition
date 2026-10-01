@@ -392,8 +392,12 @@ impl Plugin for RoomReplaySchedulePlugin {
         );
         // The generic boss road's half of an admitted replay: every boss
         // family's defeat since the last checkpoint, in the replay's live room,
-        // is retracted (BOSS-REPLAY-RETRACTION, Q56).
-        app.add_systems(
+        // is retracted (BOSS-REPLAY-RETRACTION, Q56). A host can omit the
+        // boss plugin, so the state and the message this system uses are also
+        // registered here (registration is idempotent).
+        app.init_resource::<ambition_boss_encounter::BossDefeatsSinceCheckpoint>()
+            .add_message::<ambition_boss_encounter::BossDefeatRetracted>()
+            .add_systems(
             sim,
             ambition_boss_encounter::retract_boss_defeats_on_replay
                 .in_set(ambition_platformer2d_actor_monolith::session::reset::ContentRoomReplayResetSet),

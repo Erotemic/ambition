@@ -378,7 +378,10 @@ impl Plugin for ItemCheckpointHorizonPlugin {
             (capture_minted_item_baseline, capture_owned_items_baseline).in_set(CheckpointCapture),
         )
         // The mints of a boss defeat a replay retracted, in the replay
-        // chain's content slot, after the boss road retracts the defeat.
+        // chain's content slot, after the boss road retracts the defeat. A
+        // host can omit the boss plugin, so this plugin also registers the
+        // message it reads (registration is idempotent).
+        .add_message::<ambition_boss_encounter::BossDefeatRetracted>()
         .add_systems(
             sim,
             retract_mints_of_retracted_boss_defeats

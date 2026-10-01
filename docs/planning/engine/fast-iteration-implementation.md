@@ -510,6 +510,25 @@ activates a new generation; they differ in the frames between the commit and
 the activation, and under a broken claim. Most of them sit in crates below the
 monolith and cannot name `SessionMechanics`, so the fix is a session cast in a
 lower crate (`ambition_characters`), not one more `worn_cast_for` per reader.
+⭐ **CLOSED LATER THE SAME DAY.** The frozen cast has one owner now,
+`ambition_characters::prepared::ActiveSessionCast` (`SessionMechanics` no longer
+holds a cast; `GenerationMechanics::of` takes both), installed at adoption and by
+the direct-session freeze, removed at teardown. Every reader goes through
+`ambition_characters::prepared::SessionCast`: the frozen cast while a session
+runs, the PUBLISHED cast when none does. That second half is the menu decision:
+a shell menu or a select screen shows what the next session will be prepared
+from. Moved: combat move playback, `sim_view` pose and view index,
+`actor_spawn`, the monolith's projection, sprite declaration, sheet
+materializer, match preparation and presentation lookups, the Smash select
+screen, roster and kit, the Sanic badnik and kit, the Mary-O kit, the app's
+startup, transition and first-room asset demand (each prepared session's own
+cast), and the dialogue portraits. On the published cast BY DESIGN: preparation
+(the provider freezes it), the reload road, the direct-session freeze, the
+character-authority parity audit, and the match warning "the published cast
+moved on" (`SessionCast::published`). Witnesses:
+`session_cast::tests::a_reader_is_given_the_running_sessions_cast`,
+`teardown::tests::the_frozen_cast_retires_with_its_own_session` (poison "keep it
+installed" fails it), and the cast-publication rollback arm stays green.
 **Same day, the monolith's simple readers moved:** `session::mechanics::SessionCast`
 (a `SystemParam` over `worn_cast_for`) is what the wallet shield, brain
 commands, the three empowerment systems, aggression, summons, damage and the

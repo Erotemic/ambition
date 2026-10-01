@@ -35,10 +35,15 @@ fn empty_room(id: &str) -> ambition_platformer2d_world::rooms::RoomSpec {
 fn replacement_mechanics() -> &'static crate::session::mechanics::SessionMechanics {
     static MECHANICS: std::sync::OnceLock<crate::session::mechanics::SessionMechanics> =
         std::sync::OnceLock::new();
-    MECHANICS.get_or_init(|| crate::session::mechanics::SessionMechanics {
-        characters: Some(fixture_cast().clone()),
-        ..Default::default()
-    })
+    MECHANICS.get_or_init(Default::default)
+}
+
+/// The cast [`replacement_mechanics`] was frozen with, `'static` for the same
+/// reason.
+fn replacement_cast() -> &'static ambition_characters::prepared::ActiveSessionCast {
+    static CAST: std::sync::OnceLock<ambition_characters::prepared::ActiveSessionCast> =
+        std::sync::OnceLock::new();
+    CAST.get_or_init(|| ambition_characters::prepared::ActiveSessionCast(Some(fixture_cast().clone())))
 }
 
 /// THE FIXTURE CAST every construction test builds bodies from.
@@ -4345,7 +4350,7 @@ fn a_room_prepared_for_the_next_generation_still_expects_the_live_one() {
         ActorConstructionContext::for_content_replacement(
             &recipes,
             &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
-            &crate::session::mechanics::GenerationMechanics::of(&replacement_mechanics()),
+            &crate::session::mechanics::GenerationMechanics::of(replacement_mechanics(), replacement_cast()),
             // The world it is being committed into, which is still N.
             live.0,
             // The INCOMING generation — what a reload is publishing.
@@ -4407,7 +4412,7 @@ fn a_replacement_refuses_a_world_that_moved_under_it_and_names_the_binding_it_ex
             ActorConstructionContext::for_content_replacement(
                 &recipes,
                 &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
-                &crate::session::mechanics::GenerationMechanics::of(&replacement_mechanics()),
+                &crate::session::mechanics::GenerationMechanics::of(replacement_mechanics(), replacement_cast()),
                 // … to be committed INTO a world running 4.
                 expected.0,
                 // built FROM generation 5 …

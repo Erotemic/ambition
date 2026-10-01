@@ -5,7 +5,6 @@
 //! names, binds their control, releases the opening hold and declares the
 //! cast as the view -- construction and lifecycle, which are the kernel's.
 
-use ambition_characters::prepared::PreparedCharacterRegistry;
 use ambition_match::prepared::{
     prepare_match, ControlAuthority, MatchPreparationProblems, OpeningPhase, PreparedMatch,
     PreparedSeat,
@@ -230,7 +229,9 @@ fn bind_seat_control(commands: &mut Commands, body: Entity, authority: &ControlA
 pub fn prepare_the_match(
     mut commands: Commands,
     roster: Option<Res<MatchParticipantRoster>>,
-    registry: Option<Res<PreparedCharacterRegistry>>,
+    // The running session's frozen cast, or the published one with no session
+    // (`SessionCast`).
+    cast: crate::session::mechanics::SessionCast,
     // REQUIRED, not optional: `engine.character-authority-is-app-local` forbids
     // making the character authority optional. A composition with no catalog
     // must be NAMED by the capability audit, not silently prepare fighters that
@@ -283,7 +284,7 @@ pub fn prepare_the_match(
     if prepared.is_some_and(|prepared| prepared.session() == session) {
         return;
     }
-    let (Some(roster), Some(registry), Some(geometry)) = (roster, registry, geometry) else {
+    let (Some(roster), Some(registry), Some(geometry)) = (roster, cast.get(), geometry) else {
         return;
     };
     if roster.participants.is_empty() {
@@ -369,7 +370,9 @@ pub fn activate_the_prepared_match(
     // `Option` for the reason given on preparation's own `tick`.
     tick: Option<Res<ambition_time::SimTick>>,
     // not to re-resolve anything: see `PreparedMatch:cast_moved_on`.
-    registry: Option<Res<ambition_characters::prepared::PreparedCharacterRegistry>>,
+    // The PUBLISHED cast, read through `SessionCast::published`: the question
+    // is whether the publication moved on, not which cast to play.
+    cast: crate::session::mechanics::SessionCast,
 ) {
     let Some(prepared) = prepared else {
         return;
@@ -432,7 +435,7 @@ pub fn activate_the_prepared_match(
     // `warn_once!` because activation re-runs on every rewind to before it
     // (`bevy_ggrs` restores the ABSENCE of `ActiveMatch`), and a per-frame line
     // about a condition that cannot change is how a real warning gets muted.
-    if let Some(registry) = registry.as_deref() {
+    if let Some(registry) = cast.published() {
         if prepared.cast_moved_on(registry.generation()) {
             bevy::log::warn_once!(
                 target: "ambition_platformer2d::match_preparation",

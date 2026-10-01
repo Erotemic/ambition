@@ -280,15 +280,15 @@ fn publishing_a_cast_mid_timeline_leaves_history_resimulating_the_same() {
     // ⭐ **THE GAP CLOSED 2026-10-01, AND THIS ARM IS NOW THE ASSERTION.** The
     // projection did not leave the sim schedule and the cast did not enter
     // rollback history. Instead, the live systems that spent the PUBLISHED cast
-    // now spend the activated generation's frozen one (`SessionCast`,
-    // `worn_cast_for`): `apply_worn_character_gameplay` and
+    // now spend the activated generation's frozen one (`SessionCast` over
+    // `ActiveSessionCast`): `apply_worn_character_gameplay` and
     // `project_prepared_character_definitions`. A publication changes the App's
     // cast and nothing a resimulated frame reads, until a new generation is
     // activated, which the reload road does at one boundary.
     //
-    // ⚠ SCOPE: a `max_health` revision of the primary player's character. About
-    // 20 readers below the actor monolith still read the App cast (I3), and a
-    // revision of a value one of them reads is not covered here.
+    // ⚠ SCOPE: a `max_health` revision of the primary player's character. Every
+    // live reader reads `SessionCast` now; a revision of a value read only by
+    // a reader this arm's room does not run is not covered here.
     assert!(
         desync.is_none(),
         "publishing a cast mid-timeline desynced the sync test again: {desync:?}. \

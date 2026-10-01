@@ -1157,7 +1157,9 @@ pub fn advance_move_playback(
     character_catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>,
     // The attribution fallback for a body struck before its published source
     // lands: the same prepared provider `publish_body_presentation_sources` reads.
-    prepared: Option<Res<ambition_characters::prepared::PreparedCharacterRegistry>>,
+    // The running session's frozen cast, or the published one with no
+    // session (`SessionCast`).
+    prepared: ambition_characters::prepared::SessionCast,
     authored_volumes: Res<super::authored_volumes::AuthoredAttackVolumeResolver>,
     mut events: MessageWriter<MoveEventMessage>,
     // §7.2: a vfx-tagged volume draws its slash FROM the spawned hitbox
@@ -1285,7 +1287,7 @@ pub fn advance_move_playback(
             .map(|source| source.id().clone())
             .or_else(|| {
                 character_id
-                    .and_then(|id| prepared.as_deref()?.get(id))
+                    .and_then(|id| prepared.get()?.get(id))
                     .map(|prepared| PresentationSourceId::new(prepared.provider.as_str()))
             })
             .unwrap_or_else(PresentationSourceId::unscoped);

@@ -1342,9 +1342,8 @@ pub fn publish_smash_hud(
     // Ask the portrait manifests for a still. Both are optional: without
     // them the panel draws an uncropped portrait.
     portraits: Option<bevy::prelude::Res<ambition_platformer2d::character::PortraitSheetRegistry>>,
-    declared: Option<
-        bevy::prelude::Res<ambition_platformer2d::character::PreparedCharacterRegistry>,
-    >,
+    // The running session's frozen cast, or the published one with no session.
+    declared: ambition_platformer2d::characters::prepared::SessionCast,
     mut readouts: bevy::prelude::ResMut<ambition_platformer2d::presentation::HudReadouts>,
 ) {
     let mut rows: Vec<(usize, String, f32, Option<(u32, u32)>, Option<HudFace>, f32)> = fighters
@@ -1354,7 +1353,7 @@ pub fn publish_smash_hud(
                 hud_face(
                     catalog,
                     portraits.as_deref(),
-                    declared.as_deref(),
+                    declared.get(),
                     worn.id(),
                 )
             });
@@ -2339,15 +2338,13 @@ fn open_the_sudden_death_round(
 fn assemble_the_smash_roster(
     // The seatable authority, not the catalog; see `SmashRoster::assemble`.
     // Optional: with no characters registered, the grid is empty.
-    registry: Option<
-        bevy::prelude::Res<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>,
-    >,
+    registry: ambition_platformer2d::characters::prepared::SessionCast,
     mut fighters: bevy::prelude::ResMut<select::SmashRoster>,
 ) {
-    let Some(registry) = registry else {
+    let Some(registry) = registry.get() else {
         return;
     };
-    let assembled = select::SmashRoster::assemble(&registry);
+    let assembled = select::SmashRoster::assemble(registry);
     if *fighters != assembled {
         *fighters = assembled;
     }
@@ -2527,9 +2524,7 @@ fn start_the_battle_when_asked(
     assignment: bevy::prelude::Res<ambition_platformer2d::input::LocalSeatOffer>,
     // Characters that author their own moves do not get this stage's generic
     // kit. `Option`, like every other reader of the cast.
-    prepared: Option<
-        bevy::prelude::Res<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>,
-    >,
+    prepared: ambition_platformer2d::characters::prepared::SessionCast,
     mut shell: bevy::prelude::MessageWriter<ambition_platformer2d::game_shell::ShellCommand>,
     // The lobby's stocks choice, passed to `roster_seeded` as a value (see
     // that parameter's note).
@@ -2564,7 +2559,7 @@ fn start_the_battle_when_asked(
         // Ids whose character authors its own move timelines. Only this side
         // can see the prepared cast.
         &prepared
-            .as_deref()
+            .get()
             .map_or_else(Default::default, |registry| {
                 registry
                     .iter()

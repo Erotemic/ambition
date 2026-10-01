@@ -1114,9 +1114,7 @@ fn mary_o_setup(
     character_catalog: bevy::prelude::Res<
         ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog,
     >,
-    prepared_characters: Option<
-        bevy::prelude::Res<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>,
-    >,
+    prepared_characters: ambition_platformer2d::characters::prepared::SessionCast,
     authored_sheets: bevy::prelude::Res<ambition_platformer2d::character::AuthoredSheets>,
     boss_catalog: bevy::prelude::Res<ambition_platformer2d::boss_encounter::BossCatalog>,
     placement_lowering: bevy::prelude::Res<
@@ -1145,7 +1143,7 @@ fn mary_o_setup(
             initial_body: &initial_body,
             home_body_resources: &home_body_resources,
             home_body_abilities: &home_body_abilities,
-            prepared_characters: prepared_characters.as_deref(),
+            prepared_characters: prepared_characters.get(),
             placement_lowering: &placement_lowering,
             content_staging: &content_staging,
             // A demo enters directly rather than through provider activation,

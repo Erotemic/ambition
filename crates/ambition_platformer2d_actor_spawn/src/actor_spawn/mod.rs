@@ -226,7 +226,9 @@ pub fn apply_spawn_actor_requests(
     // `Option`, matching its sibling on the authored path, and the absence is MEANINGFUL rather
     // than defensive: a composition that never registered a character has no such resource at
     // all, and that is exactly the state is about.
-    prepared: Option<bevy::prelude::Res<ambition_characters::prepared::PreparedCharacterRegistry>>,
+    // The running session's frozen cast, or the published one with no
+    // session (`SessionCast`).
+    prepared: ambition_characters::prepared::SessionCast,
     boss_catalog: bevy::prelude::Res<BossCatalog>,
     cleared: ambition_boss_encounter::ClearedBossPlacements,
     active_session: Option<bevy::prelude::Res<ActiveSessionScope>>,
@@ -261,7 +263,7 @@ pub fn apply_spawn_actor_requests(
             &mut commands,
             &character_catalog,
             &authored_sheets,
-            prepared.as_deref().unwrap_or(&empty_cast),
+            prepared.get().unwrap_or(&empty_cast),
             &boss_catalog,
             session_scope,
             req,

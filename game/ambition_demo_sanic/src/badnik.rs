@@ -71,9 +71,7 @@ pub fn defeat_badniks(
         ),
         With<PrimaryPlayer>,
     >,
-    cast: Option<
-        bevy::prelude::Res<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>,
-    >,
+    cast: ambition_platformer2d::characters::prepared::SessionCast,
     mut badniks: Query<
         (Entity, &ae::BodyKinematics, &ActorFaction, &mut BodyHealth),
         (Without<PrimaryPlayer>, Without<PlayerEntity>),
@@ -86,7 +84,7 @@ pub fn defeat_badniks(
     // Rolling joins the kill condition but not the bounce: a super stomp
     // still bounces.
     let harms_on_contact =
-        ambition_platformer2d::actors::features::empowerment::empowerment_of(grant, worn, cast.as_deref())
+        ambition_platformer2d::actors::features::empowerment::empowerment_of(grant, worn, cast.get())
             .holds(ambition_platformer2d::actors::features::empowerment::Empowerment::HARMS_ON_CONTACT);
     let rolling = rolling.is_some();
     let lethal_touch = rolling || harms_on_contact;

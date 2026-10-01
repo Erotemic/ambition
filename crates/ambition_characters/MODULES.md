@@ -23,12 +23,13 @@
 | [`prepared_fixtures`](src/prepared_fixtures.rs) | Fixture builders shared by preparation's own tests and the registration tests one crate up. |
 | [`repertoire`](src/repertoire.rs) | What a body can do right now: one projection from its durable facts. |
 | [`rollback_registration`](src/rollback_registration.rs) | Rollback declaration owned by `ambition_characters`. |
+| [`session_cast`](src/session_cast.rs) | The cast a system reads: the running session's frozen cast, or the published one when no session runs. |
 | [`smash_fighter`](src/smash_fighter/mod.rs) | Character-owned authored `smash_fighter` facet. |
 | [`smash_hold_state`](src/smash_hold_state.rs) | `SmashHoldState` — the platform-fighter RULES of a hold, as runtime state. |
 | [`snapshot_impls`](src/snapshot_impls.rs) | `SnapshotState` for this crate's own types — the rollback wire format. |
 | [`technique`](src/technique.rs) | THE AUTHORED SCHEMAS OF ENGINE TECHNIQUES — the params an `on_hit` effect carries, and nothing that executes one. |
 
-_21 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_22 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

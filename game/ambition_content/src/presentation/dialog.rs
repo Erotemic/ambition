@@ -400,7 +400,7 @@ fn sync_ambition_dialog_ui(
     // Rust speaks with the face it asked for. `Option` because a composition
     // that registers nothing has no registry to read, not because the authority
     // is optional.
-    declared_characters: Option<Res<ambition_platformer2d::character::PreparedCharacterRegistry>>,
+    declared_characters: ambition_platformer2d::characters::prepared::SessionCast,
     mut portrait_playback: ResMut<AmbitionDialogPortraitPlayback>,
     asset_server: Option<Res<AssetServer>>,
     // Where the choice window is scrolled to, remembered across rebuilds.
@@ -483,7 +483,7 @@ fn sync_ambition_dialog_ui(
         &character_catalog,
         &portrait_catalog,
         &portrait_registry,
-        declared_characters.as_deref(),
+        declared_characters.get(),
     );
     let portrait_image_path = resolved_portrait
         .as_ref()

@@ -14,7 +14,7 @@
 //! state that lasts is in the records the host gives and takes back.
 //! [`export_modules!`](crate::export_modules) writes the exports.
 //!
-//! Input (host → guest): tick `u64`; occurrence `opt u32`; trigger port and
+//! Input (host → guest): tick `u64`; dt `f32`; occurrence `opt u32`; trigger port and
 //! bytes; observations `[(port, bytes)]`; state `[(schema key, record)]`.
 //! Output (guest → host): `0` then state `[(schema key, record)]` and
 //! requests `[(port, bytes)]`; or `1` then a fault message.
@@ -50,6 +50,7 @@ pub fn read_description(bytes: &[u8]) -> Result<Vec<ModuleDescriptor>, WireError
 /// One invocation's input, as the host holds it.
 pub struct InvocationInput<'a> {
     pub tick: u64,
+    pub dt: f32,
     pub occurrence: Option<u32>,
     pub trigger_port: &'a PortKey,
     pub trigger: &'a [u8],
@@ -61,6 +62,7 @@ impl InvocationInput<'_> {
     pub fn encode(&self) -> Vec<u8> {
         let mut out = Vec::new();
         wire::put_u64(&mut out, self.tick);
+        wire::put_f32(&mut out, self.dt);
         wire::put_opt(&mut out, self.occurrence, wire::put_u32);
         self.trigger_port.put(&mut out);
         wire::put_bytes(&mut out, self.trigger);
@@ -155,6 +157,7 @@ fn invoke_inner(
     let mut r = WireReader::new(input);
     let decoded = (|| -> Result<_, WireError> {
         let tick = r.u64()?;
+        let dt = r.f32()?;
         let occurrence = r.opt(WireReader::u32)?;
         let trigger_port = PortKey::read(&mut r)?;
         let trigger = r.bytes()?;
@@ -180,15 +183,16 @@ fn invoke_inner(
             state.push((key, wire::decode_all(bytes, |r| schema.read_record(r))?));
         }
         r.finish()?;
-        Ok((tick, occurrence, trigger_port, trigger, observations, state))
+        Ok((tick, dt, occurrence, trigger_port, trigger, observations, state))
     })()
     .map_err(|e| format!("the invocation input does not decode: {e}"))?;
-    let (tick, occurrence, trigger_port, trigger, observations, mut state) = decoded;
+    let (tick, dt, occurrence, trigger_port, trigger, observations, mut state) = decoded;
 
     let mut requests: Vec<StagedRequest> = Vec::new();
     let mut call = Invocation::from_host(HostParts {
         entry: descriptor,
         tick,
+        dt,
         occurrence,
         trigger_port: &trigger_port,
         trigger: Payload::Wire(trigger),

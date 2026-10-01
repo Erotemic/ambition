@@ -205,6 +205,8 @@ pub fn run_phase(phase: Phase) -> impl FnMut(&mut World) {
         // tick; a composition with modules and no `SimTick` is broken, and a
         // default of zero would hide that.
         let tick = world.resource::<SimTick>().get();
+        // The same authority: gameplay time is `WorldTime`, rollback-canonical.
+        let dt = world.resource::<ambition_time::WorldTime>().sim_dt();
 
         for entry in admitted.entries_in(&phase) {
             let descriptor = &entry.descriptor;
@@ -234,7 +236,7 @@ pub fn run_phase(phase: Phase) -> impl FnMut(&mut World) {
 
                 let result = match &entry.runner {
                     EntryRunner::Native(run) => {
-                        run_native(world, entry, *run, invocation, &codecs, tick, state)
+                        run_native(world, entry, *run, invocation, &codecs, (tick, dt), state)
                     }
                     EntryRunner::Loaded {
                         backend,
@@ -242,7 +244,7 @@ pub fn run_phase(phase: Phase) -> impl FnMut(&mut World) {
                         entry: index,
                     } => run_loaded(
                         world, &admitted, entry, backend.as_ref(), *module, *index, invocation,
-                        &codecs, tick, state,
+                        &codecs, (tick, dt), state,
                     ),
                 }
                 .and_then(|staged| {
@@ -296,7 +298,7 @@ fn run_native(
     run: ambition_extension_sdk::EntryFn,
     invocation: &PendingInvocation,
     codecs: &InstalledPortCodecs,
-    tick: u64,
+    (tick, dt): (u64, f32),
     mut state: Vec<(SchemaKey, Record)>,
 ) -> Result<Staged, Fault> {
     let observations: Vec<Observation> = entry
@@ -315,6 +317,7 @@ fn run_native(
     let mut call = Invocation::from_host(HostParts {
         entry: &entry.descriptor,
         tick,
+        dt,
         occurrence: invocation.occurrence,
         trigger_port: &invocation.port,
         trigger: Payload::Native(invocation.value.as_ref()),
@@ -340,7 +343,7 @@ fn run_loaded(
     index: u32,
     invocation: &PendingInvocation,
     codecs: &InstalledPortCodecs,
-    tick: u64,
+    (tick, dt): (u64, f32),
     state: Vec<(SchemaKey, Record)>,
 ) -> Result<Staged, Fault> {
     let descriptor = &entry.descriptor;
@@ -359,6 +362,7 @@ fn run_loaded(
         .collect();
     let input = InvocationInput {
         tick,
+        dt,
         occurrence: invocation.occurrence,
         trigger_port: &invocation.port,
         trigger: &trigger,

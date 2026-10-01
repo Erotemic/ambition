@@ -130,7 +130,8 @@ fn world(road: Road, technique: &Technique) -> (App, Vec<Entity>) {
     app.add_message::<ActorActionMessage>()
         .add_message::<ProjectileSpawnRequest>()
         .add_message::<ambition_vfx::EffectRequest>()
-        .init_resource::<ambition_time::SimTick>();
+        .init_resource::<ambition_time::SimTick>()
+        .init_resource::<ambition_time::WorldTime>();
     match road {
         Road::NativeSystem => (technique.native)(&mut app),
         Road::Module | Road::Wasm => {

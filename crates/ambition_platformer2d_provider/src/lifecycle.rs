@@ -372,6 +372,16 @@ impl PlatformerPreparation<'_> {
         )
     }
 
+    /// The character catalog this transaction publishes, or `None` when it
+    /// publishes none, so the App's is this generation's. See
+    /// [`candidate_catalog_for`].
+    fn candidate_catalog_for(
+        &self,
+        transaction: &ProviderLoadTransaction,
+    ) -> Option<ambition_characters::prepared::CandidateCatalog> {
+        candidate_catalog_for(self.content_inputs.2.as_deref(), transaction.barrier.load_id.as_str())
+    }
+
     fn candidate_bosses_for(
         &self,
         transaction: &ProviderLoadTransaction,
@@ -425,9 +435,18 @@ impl PlatformerPreparation<'_> {
             );
         }
 
-        if let Some((work_id, failure)) =
-            authored.validate(&self.character_catalog, &self.audio_catalogs)
-        {
+        // ⛔ THE TRANSACTION'S OWN CATALOG: validation, the starting
+        // character's sheet and the content's provider registry read the
+        // catalog the candidate cast is folded from, not the App's, which is
+        // still the outgoing generation's until the commit.
+        let candidate_catalog = self.candidate_catalog_for(transaction);
+        let validation = {
+            let catalog = candidate_catalog
+                .as_ref()
+                .map_or(&*self.character_catalog, |candidate| &candidate.assembled.catalog);
+            authored.validate(catalog, &self.audio_catalogs)
+        };
+        if let Some((work_id, failure)) = validation {
             self.fail(transaction, work_id, failure);
             return None;
         }
@@ -452,8 +471,9 @@ impl PlatformerPreparation<'_> {
         self.complete(transaction, PREPARE_WORLD_WORK_ID);
 
         let (sprite_asset, sprite_manifest) = {
-            let entry = self
-                .character_catalog
+            let entry = candidate_catalog
+                .as_ref()
+                .map_or(&*self.character_catalog, |candidate| &candidate.assembled.catalog)
                 .get(authored.starting_character.as_str())
                 .expect("catalog validation already proved the starting character exists");
             (entry.spritesheet.clone(), entry.manifest.clone())
@@ -688,7 +708,10 @@ impl PlatformerPreparation<'_> {
             prepare_platformer_content(
                 source,
                 &authored,
-                self.character_catalog_registry.as_deref(),
+                candidate_catalog
+                    .as_ref()
+                    .map(|candidate| &candidate.registry)
+                    .or(self.character_catalog_registry.as_deref()),
                 self.placement_lowering.as_deref(),
                 self.content_staging.as_deref(),
                 mechanical,
@@ -713,11 +736,13 @@ impl PlatformerPreparation<'_> {
         // ⚠ TAKEN BEFORE THE PUBLISH BORROW, not for style: `publish` borrows
         // `self.registry` mutably.
         let frozen_cast = self.candidate_cast_for(transaction);
+        let frozen_catalog = candidate_catalog;
         let identity = self.sessions.0.publish(
             transaction,
             PreparedPlatformerSession {
                 content,
                 report,
+                character_catalog: frozen_catalog,
                 // ⛔ FROZEN HERE, in the same system that took the identity, so
                 // the two cannot describe different worlds.
                 // ⛔ THE TRANSACTION'S OWN CANDIDATE, never the App's
@@ -1255,6 +1280,20 @@ pub(crate) fn candidate_bosses_for(
     }
 }
 
+/// The character catalog `load_id`'s transaction publishes, or `None` when it
+/// publishes none or the claim is a stranger's. Either `None` means the App's
+/// catalog: for the first it is this transaction's own generation's, and a
+/// stranger's candidate must never be read.
+pub(crate) fn candidate_catalog_for(
+    pending: Option<&ambition_platformer2d_runtime::PendingGenerationInputs>,
+    load_id: &str,
+) -> Option<ambition_characters::prepared::CandidateCatalog> {
+    pending
+        .and_then(|claim| claim.catalog_for(load_id))
+        .flatten()
+        .cloned()
+}
+
 pub(crate) fn candidate_cast_for(
     active: Option<&ambition_characters::prepared::PreparedCharacterRegistry>,
     pending: Option<&ambition_platformer2d_runtime::PendingGenerationInputs>,
@@ -1718,6 +1757,12 @@ pub struct PreparedPlatformerSession {
     /// The cast frozen with `mechanical`, installed beside it at adoption as
     /// `ActiveSessionCast` (its owner, readable below the actor monolith).
     pub cast: ambition_characters::prepared::ActiveSessionCast,
+    /// The character catalog this generation's cast is folded from, when the
+    /// transaction publishes one (`PendingGenerationInputs::catalog`). `None`:
+    /// it publishes none, and the App's catalog is this generation's. Not in
+    /// `mechanical`: the identity does not bind the raw catalog, and
+    /// `SessionMechanics` owns exactly what the identity binds.
+    pub character_catalog: Option<ambition_characters::prepared::CandidateCatalog>,
 }
 
 /// The mechanical registries a session is constructed from.
@@ -2065,6 +2110,7 @@ fn prepare_candidate_platformer_session(
         prepared.content.clone(),
         &prepared.mechanical,
         &prepared.cast,
+        prepared.character_catalog.as_ref(),
         default_character.as_str(),
         pending.route_id.clone(),
     );
@@ -2347,6 +2393,10 @@ impl PlatformerSessionBuilder<'_, '_> {
         mechanical: &SessionMechanics,
         // The cast frozen with it.
         cast: &ambition_characters::prepared::ActiveSessionCast,
+        // ⛔ THE CATALOG THE CAST IS FOLDED FROM, for the transaction that
+        // publishes one; `None` when it publishes none, so the App's is this
+        // generation's. See `PreparedPlatformerSession::character_catalog`.
+        candidate_catalog: Option<&ambition_characters::prepared::CandidateCatalog>,
         default_character_id: &str,
         // The route this candidate holds, carried on the candidate so any exit
         // can release that hold. See `PreparedCandidateSession::route`.
@@ -2500,7 +2550,8 @@ impl PlatformerSessionBuilder<'_, '_> {
                 construction:
                     ambition_platformer2d_actor_monolith::features::ActorConstructionContext::for_live_room_construction(
                         &self.construction_recipes,
-                        &self.character_catalog,
+                        candidate_catalog
+                            .map_or(&*self.character_catalog, |candidate| &candidate.assembled.catalog),
                         // ⛔ THE GENERATION BEING ACTIVATED, WITH NO FALLBACK.
                         // See `GenerationMechanics::of`.
                         &ambition_platformer2d_actor_monolith::session::mechanics::
@@ -2525,7 +2576,9 @@ impl PlatformerSessionBuilder<'_, '_> {
                         // and both halves are that one value. It used to pass
                         // `None` here for exactly that reason, which is why this
                         // road was the only one already correct.
-                        self.brain_profiles.as_deref(),
+                        candidate_catalog
+                            .map(|candidate| &candidate.assembled.brain_profiles)
+                            .or(self.brain_profiles.as_deref()),
                         // ⭐ THE SAVE'S LEDGER, AT CONSTRUCTION. A fresh session
                         // has an empty one and builds exactly what it always
                         // built; a LOAD has the file's rows here, so the room it
@@ -2585,7 +2638,8 @@ impl PlatformerSessionBuilder<'_, '_> {
                 root: world,
                 home_body: built.player,
                 actors: crate::session_contents::StagedActorAuthorities {
-                    character_catalog: &self.character_catalog,
+                    character_catalog: candidate_catalog
+                        .map_or(&*self.character_catalog, |candidate| &candidate.assembled.catalog),
                     sheets: &mechanical.sheets,
                     characters: cast.cast(),
                     bosses: &mechanical.bosses,
@@ -2981,6 +3035,7 @@ mod tests {
             identity: line.to_string(),
             characters: None,
             bosses: None,
+            catalog: None,
         }
     }
 
@@ -4075,6 +4130,7 @@ mod mechanical_registries_reach_the_identity {
             identity: "pack 2 cfp1:bb".to_string(),
             characters: Some(candidate.clone()),
             bosses: None,
+            catalog: None,
         };
 
         // ⛔ THE ASSERTION THE ARM IS FOR.

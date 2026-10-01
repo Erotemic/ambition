@@ -44,24 +44,60 @@ pub struct RoomClock<'w> {
 #[derive(SystemParam)]
 pub struct RoomTransitionCombatReset<'w, 's> {
     pub commands: Commands<'w, 's>,
-    pub live_projectiles: Query<'w, 's, Entity, With<ambition_projectiles::LiveProjectile>>,
+    pub live_projectiles: Query<
+        'w,
+        's,
+        (Entity, Option<&'static ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>),
+        With<ambition_projectiles::LiveProjectile>,
+    >,
     pub base_gravity: ResMut<'w, ambition_platformer2d_shared_tangle::gravity::BaseGravity>,
 }
 
 impl RoomTransitionCombatReset<'_, '_> {
-    /// Drop every in-flight projectile and return ambient gravity to its
-    /// default, so a fresh room does not inherit combat events or a stale
-    /// gravity frame. The walls of the room just left are retracted by the
-    /// publication itself, on the root whose geometry it replaces.
-    pub fn clear_carryover(&mut self) {
-        for entity in &self.live_projectiles {
-            self.commands.entity(entity).despawn();
+    /// Drop the in-flight projectiles of the room left behind and return
+    /// ambient gravity to its default, so a fresh room does not inherit combat
+    /// events or a stale gravity frame. The walls of the room just left are
+    /// retracted by the publication itself, on the root whose geometry it
+    /// replaces.
+    ///
+    /// ⭐ ONLY WHAT THE CROSSING LEAVES BEHIND (OW1, customer 2). With no
+    /// other live room standing, the crossing replaces the whole world: every
+    /// projectile goes, and the ambient gravity, one fact for the whole world,
+    /// goes back to its default. While another live room stays (another
+    /// player is in the room left, or in a room of its own), its shots and the
+    /// world's gravity are that room's: only the shots stamped into the room
+    /// left go, and only when that room retires.
+    pub fn clear_carryover(&mut self, scope: &CrossingScope) {
+        for (entity, stamp) in &self.live_projectiles {
+            let left_behind = !scope.other_rooms_stay
+                || (scope.departing_retires
+                    && scope.departing.is_some()
+                    && stamp.map(|stamp| stamp.0) == scope.departing);
+            if left_behind {
+                self.commands.entity(entity).despawn();
+            }
         }
-        // Resetting the AMBIENT is the real gravity reset; the presentation
-        // `GravityField` is a per-tick mirror of the primary body's resolved
-        // frame and has exactly one writer (`resolve_active_gravity`).
-        *self.base_gravity = ambition_platformer2d_shared_tangle::gravity::BaseGravity::default();
+        if !scope.other_rooms_stay {
+            // Resetting the AMBIENT is the real gravity reset; the presentation
+            // `GravityField` is a per-tick mirror of the primary body's resolved
+            // frame and has exactly one writer (`resolve_active_gravity`).
+            *self.base_gravity = ambition_platformer2d_shared_tangle::gravity::BaseGravity::default();
+        }
     }
+}
+
+/// What a crossing leaves standing, decided when it is staged (OW1).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct CrossingScope {
+    /// The live room the crossing leaves; `None` when it cannot be told.
+    pub departing: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+    /// Whether the room left retires: no other player's body stays in it.
+    pub departing_retires: bool,
+    /// Whether a live room stays standing through the crossing: the room
+    /// left (another player stays in it), or another live room. Then the
+    /// crossing does not replace the world, and the world's shared facts (the
+    /// sim clock, the ambient gravity) are not reset.
+    pub other_rooms_stay: bool,
 }
 
 /// Probe along the body's gravity direction from its feet for the nearest
@@ -520,8 +556,17 @@ impl RoomTransitionApplication<'_, '_> {
             succession,
         );
 
+        // Every live room but the one left stays standing; the one left stays
+        // too when another player is in it.
+        let other_rooms_stay = another_player_stays
+            || self.definitions.iter().any(|(live, _)| Some(*live) != departing);
         Ok(StagedRoomTransition {
             publication,
+            scope: CrossingScope {
+                departing,
+                departing_retires: !another_player_stays,
+                other_rooms_stay,
+            },
             subject,
             arrival_pos,
             target_room,
@@ -545,6 +590,8 @@ impl RoomTransitionApplication<'_, '_> {
 /// verdict.
 pub struct StagedRoomTransition {
     pub publication: rooms::PublicationHandle,
+    /// What the crossing leaves standing.
+    pub scope: CrossingScope,
     pub subject: Option<Entity>,
     pub arrival_pos: Option<ae::Vec2>,
     pub target_room: usize,
@@ -586,6 +633,7 @@ impl RoomTransitionFinalize<'_, '_> {
     fn apply_crossing(&mut self, staged: &StagedRoomTransition) {
         let feel = *self.feel;
         let StagedRoomTransition {
+            scope,
             subject,
             arrival_pos,
             target_room,
@@ -601,7 +649,7 @@ impl RoomTransitionFinalize<'_, '_> {
 
         // A fresh room inherits neither hostile shots nor the gravity frame of
         // the one just left.
-        self.carryover.clear_carryover();
+        self.carryover.clear_carryover(scope);
 
         if let Some((cue, pos)) = door_sfx {
             self.effects.sfx.write(SfxMessage::Play {
@@ -610,10 +658,16 @@ impl RoomTransitionFinalize<'_, '_> {
             });
         }
 
-        self.clock.clock_resets.write(ClockResetRequest::sim_clock(
-            ambition_time::time_control::ClockRequester::Engine,
-            "room_transition",
-        ));
+        // ⭐ THE SIM CLOCK IS ONE CLOCK FOR THE WHOLE WORLD (OW1): every live
+        // room steps on it. A crossing that replaces the world snaps it back to
+        // real time. While another live room stays, its bullet time or hitstop
+        // is not this crossing's to cancel.
+        if !scope.other_rooms_stay {
+            self.clock.clock_resets.write(ClockResetRequest::sim_clock(
+                ambition_time::time_control::ClockRequester::Engine,
+                "room_transition",
+            ));
+        }
         self.clock.sim_state.remaining = if edge_exit {
             feel.edge_transition_cooldown
         } else {

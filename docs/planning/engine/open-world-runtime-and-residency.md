@@ -1434,6 +1434,49 @@ changed (P5). Witness: `a_trail_keeps_a_loop_around_a_wall_of_its_own_live_room`
 control). Poison (the sole-room read restored): the #1 arm failed, and the
 loop was erased. `SoleLiveRoom` 67/47 -> 66/47.
 
+✅ **Landed 2026-10-01 (customer 2): a crossing resets only what it leaves
+behind.** The crossing's commit (`apply_crossing`) despawned every live
+projectile, put the ambient gravity back to its default and asked for the
+sim clock to be reset, for any player's crossing. With Bob's room live,
+Alice's door deleted Bob's shots, unflipped the gravity of his room and
+cancelled his bullet time or hitstop. The staged crossing now records what
+it leaves standing (`CrossingScope`: the room it leaves, whether that room
+retires, whether another live room stays). With no other live room
+standing, the crossing replaces the world, and all three are reset as
+before. While another live room stays, only the shots stamped into the
+room left go, and only when that room retires. The developer preset flash
+is a view and is not changed.
+
+⭐ **Decision: the sim clock and the ambient gravity are ONE fact each for
+the whole world.** Every live room steps on the one `ClockState` (the
+time-control code says the same: per-player clocks wait for the
+multiplayer regimes), and `BaseGravity` is one resource that a gravity
+switch in any room flips for every room. So a crossing does not reset
+them while another live room stays: a reset there would be one player
+changing the other's world. A clock or an ambient gravity per live room is
+a later design decision, not this cut.
+
+Witness: `a_crossing_resets_only_what_it_leaves_behind` in
+`two_players_two_live_rooms.rs`. A shot is stamped into `switch_lab` and
+gravity is flipped before Alice leaves. Each tick of the door walk is read
+for the clock reset request. With Bob driven (two rooms): the shot stays,
+no reset is asked for, gravity stays flipped. The control, Bob not driven
+(one room): all three are reset. Poisons, each one condition forced open,
+each failure predicted before the run: every shot despawned (the shot was
+gone), the clock reset always asked for (it was asked for), and gravity
+always reset (it was put down). ⚠ The first draft planted a half-speed clock
+target and read it after the crossing. The plant was overwritten before
+the commit, because a crossing's game-mode change (playing ->
+room-transition -> playing) freezes the clock and then asks for the
+default speed. So that arm read 1.0 with the gate working. The witness
+now reads the request.
+
+⚠ Found, not changed: (1) that game-mode change is session-wide, so every
+live room freezes for the frames of one player's crossing; (2) a replay
+(Cut A) still resets the shared clock (`reset_sandbox`) and the ambient
+gravity (`reset_gravity_on_room_reset`) for every live room. Both are the
+same shared-world question as the clock decision above.
+
 ✅ **Cut 7r landed 2026-10-01: a mode lives while any live room is in its
 scope, and its owner follows a room of its own mode.** The mode sweep
 (`despawn_departed_mode_entities`) and the owner follow

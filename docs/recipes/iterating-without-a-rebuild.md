@@ -20,7 +20,7 @@ from disk and watches nothing.
 | --- | --- | --- |
 | A move table (`game/ambition_content/assets/data/movesets/*.ron`) | Compiles the pack again from disk and reloads it: the bodies play the new moves about 20 frames after the save. | `edit_to_play_through_the_shell::a_content_file_saved_while_the_game_runs_is_played` |
 | `data/boss_profiles.ron`, `data/boss_encounters/*.ron` | The same reload. A boss built after it has the new tuning and the new HP. | `a_boss_tuning_saved_while_the_game_runs_is_played` |
-| `data/character_catalog.ron` (a row's health, body, abilities, brain) | The same reload; every character is folded again against the new catalog. A row added or removed (a character that starts or stops being built) is refused: restart. | `a_character_row_saved_while_the_game_runs_is_played` |
+| `data/character_catalog.ron` (a row's health, body, abilities, brain; a row added or removed) | The same reload; every character is folded again against the new catalog. An added row is built and staged; a removed one leaves the cast. | `a_character_row_saved_while_the_game_runs_is_played`, `a_catalog_save_that_adds_or_removes_a_character_is_played` |
 | `data/fighter_brain_ladder.ron`, `data/encounters/*.ron` | The same reload. | `ambition_content::reload` tests |
 | A fighter facet (`data/fighters/*.ron`) | The same reload: every character is staged again from the live catalog with the edited facet folded in (a match that plays fighter damage reads it). | `a_fighter_facet_saved_while_the_game_runs_reaches_the_cast` |
 | `data/boss_seeds.ron`, `data/boss_validator_bands.ron` | The same reload takes them, and nothing in the running game changes: only the offline fight validator (`tests/boss_fight_validator.rs`) reads them. | `a_candidate_that_changes_only_the_validator_calibration_publishes` |
@@ -33,9 +33,7 @@ A reload is refused, and the game keeps what it runs, when:
 
 - the pack does not compile (the log shows the compiler's message);
 - the change is to a file the reload does not take yet: `items.ron`, the
-  audio registries;
-- a catalog change adds or removes a character that is built. For these, restart the game (no rebuild; see
-  below);
+  audio registries (restart the game: no rebuild, see below);
 - a rollback timeline another owner holds is live (a networked match).
 
 Read the log for the result. Each reload writes one line:

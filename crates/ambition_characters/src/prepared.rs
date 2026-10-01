@@ -665,6 +665,11 @@ pub struct AdmittedRevision {
 pub struct CandidateCatalog {
     pub registry: crate::actor::character_catalog::CharacterCatalogRegistry,
     pub assembled: crate::actor::character_catalog::AssembledCharacterCatalog,
+    /// The characters this catalog stops building: their authored definitions
+    /// leave the cast and the stored source with this revision. Named by the
+    /// provider that builds them, because only it knows which rows it builds.
+    /// Empty when the catalog retires nobody.
+    pub retired: Vec<ambition_entity_catalog::CharacterId>,
 }
 
 impl AdmittedRevision {
@@ -849,6 +854,11 @@ pub fn admit_staged_revision_with_catalog(
     for character in &staged {
         authored.insert(ambition_entity_catalog::CharacterId::new(character.id()), character.clone());
     }
+    // A retired character leaves the fold. Without this its authored
+    // definition would stay in the cast under a catalog that no longer builds it.
+    for id in &catalog.retired {
+        authored.remove(id);
+    }
     let candidate = finalize_cast(
         cast_with_catalog_rows(authored, Some(&assembled.catalog)),
         &authorities,
@@ -913,12 +923,19 @@ pub fn publish_admitted_revision(
             let id = ambition_entity_catalog::CharacterId::new(character.id());
             overrides.by_id.insert(id, character);
         }
+        // And the source forgets a retired character, or the next revision
+        // (which folds the source) would bring it back.
+        if let Some(catalog) = &catalog {
+            for id in &catalog.retired {
+                overrides.by_id.remove(id);
+            }
+        }
     }
 
     // The catalog the cast was folded against lands at the same boundary,
     // every resource its assembly publishes
     // (`CharacterCatalogAppExt::try_register_character_catalog_fragment`).
-    if let Some(CandidateCatalog { registry, assembled }) = catalog {
+    if let Some(CandidateCatalog { registry, assembled, .. }) = catalog {
         world.insert_resource(registry);
         world.insert_resource(assembled.catalog);
         world.insert_resource(assembled.defaults);

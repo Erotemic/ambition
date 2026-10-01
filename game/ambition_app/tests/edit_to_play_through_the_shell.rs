@@ -716,6 +716,83 @@ fn a_fighter_facet_saved_while_the_game_runs_reaches_the_cast() {
     }
 }
 
+/// ⭐ A CATALOG SAVE THAT ADDS A CHARACTER, AND ONE THAT REMOVES IT, ARE BOTH
+/// PLAYED WITHOUT A RESTART. The added row is built and staged like every other
+/// row; the removed one is RETIRED: it leaves the cast and the stored source
+/// (`CandidateCatalog::retired`), so a later revision cannot bring it back. The
+/// watch is pointed at an exported copy.
+#[cfg(not(feature = "static_content"))]
+#[test]
+fn a_catalog_save_that_adds_or_removes_a_character_is_played() {
+    use ambition_content::content_watch::ContentSourceWatch;
+    use ambition_platformer2d::characters::prepared::ActiveSessionCast;
+    const ADDED: &str = "goblin_scout";
+    let frozen_has = |sim: &ambition_sim_harness::Platformer2dSimHarness, id: &str| {
+        sim.world()
+            .get_resource::<ActiveSessionCast>()
+            .and_then(ActiveSessionCast::cast)
+            .is_some_and(|cast| cast.get(id).is_some())
+    };
+    let published_has = |sim: &ambition_sim_harness::Platformer2dSimHarness, id: &str| {
+        sim.world()
+            .get_resource::<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>()
+            .is_some_and(|cast| cast.get(id).is_some())
+    };
+    let mut sim = common::fixed_60hz_room_sim("proving_grounds");
+    for _ in 0..40 {
+        sim.step(common::base());
+    }
+    assert!(frozen_has(&sim, "goblin"), "the premise: the goblin is in the cast");
+    assert!(!frozen_has(&sim, ADDED), "the premise: `{ADDED}` is not");
+
+    let root = std::env::temp_dir().join(format!("ambition_roster_watch_{}", std::process::id()));
+    let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        ambition_content::pack::export_sources_to(&root).expect("sources export");
+        sim.world_mut().insert_resource(ContentSourceWatch::new(root.clone()));
+        let path = root.join("data/character_catalog.ron");
+        let shipped = std::fs::read_to_string(&path).unwrap();
+        let start = shipped.find("\"goblin\": (").expect("the catalog has a goblin row");
+        let end = start + shipped[start..].find("\"sandbag\": (").expect("the sandbag row follows it");
+        let row = shipped[start..end]
+            .replacen("\"goblin\": (", &format!("\"{ADDED}\": ("), 1)
+            .replacen("display_name: \"Goblin\"", "display_name: \"Goblin Scout\"", 1);
+        let with_scout = format!("{}{row}{}", &shipped[..end], &shipped[end..]);
+        let requested = |sim: &ambition_sim_harness::Platformer2dSimHarness| {
+            sim.world().resource::<ContentSourceWatch>().requested
+        };
+        let step_until = |sim: &mut ambition_sim_harness::Platformer2dSimHarness,
+                          done: &dyn Fn(&ambition_sim_harness::Platformer2dSimHarness) -> bool,
+                          what: &str| {
+            let mut frames = 0;
+            while !done(sim) {
+                sim.step(common::base());
+                frames += 1;
+                assert!(frames < 600, "600 frames after the save, {what}; reloads requested: {}", requested(sim));
+            }
+            frames
+        };
+
+        std::thread::sleep(std::time::Duration::from_millis(20));
+        std::fs::write(&path, &with_scout).unwrap();
+        let frames = step_until(&mut sim, &|sim| frozen_has(sim, ADDED), "the added character is not in the frozen cast");
+        assert!(published_has(&sim, ADDED), "and the published cast has it");
+        assert!(frozen_has(&sim, "goblin"), "adding a character kept the others");
+        eprintln!("an added character reached the frozen cast {frames} frames after the save");
+
+        std::thread::sleep(std::time::Duration::from_millis(20));
+        std::fs::write(&path, &shipped).unwrap();
+        let frames = step_until(&mut sim, &|sim| !frozen_has(sim, ADDED), "the removed character is still in the frozen cast");
+        assert!(!published_has(&sim, ADDED), "and the published cast dropped it");
+        assert!(frozen_has(&sim, "goblin"), "removing a character kept the others");
+        assert_eq!(requested(&sim), 2, "two saves, two reloads");
+        eprintln!("a removed character left the frozen cast {frames} frames after the save");
+    }));
+    let _ = std::fs::remove_dir_all(&root);
+    if let Err(payload) = outcome {
+        std::panic::resume_unwind(payload);
+    }
+}
+
 /// ⭐ A MOVEMENT-DEFAULTS EDIT SAVED WHILE THE GAME RUNS IS PLAYED, through the
 /// developer-edit road (`MovementDefaultsWatch` writes the mirror the F3
 /// inspector writes; the proposal is admitted and published in `PreUpdate`).

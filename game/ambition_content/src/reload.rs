@@ -132,10 +132,10 @@ pub enum MoveReload {
     /// the other providers' fragments. Nothing was staged; the live bosses
     /// keep the published catalog.
     BossCatalogRefused(String),
-    /// The candidate's character catalog does not assemble, or it adds or
-    /// removes a buildable character (a revision cannot change the cast's
-    /// membership: restart for that), or a definition built from it does not
-    /// stage. Nothing was published; the live cast keeps its catalog.
+    /// The candidate's character catalog does not assemble, or a definition
+    /// built from it does not stage. Nothing was published; the live cast
+    /// keeps its catalog. (A character added or removed is NOT refused: an
+    /// added one is staged, a removed one retired; see `CandidateCatalog`.)
     CharacterCatalogRefused(String),
 }
 
@@ -407,19 +407,20 @@ fn candidate_character_catalog(
         .ok_or("this App registers no character catalog")?;
     let (registry, assembled) = registry.with_replaced(fragment).map_err(|e| e.to_string())?;
     let live = world.get_resource::<cc::CharacterCatalog>().ok_or("this App has no character catalog")?;
+    // A character the candidate builds and the live catalog did not is staged
+    // like every other (`stage_cast_from_catalog`); one the live catalog built
+    // and the candidate does not is RETIRED: it leaves the cast and the stored
+    // source with this revision. Only this provider knows which rows it builds,
+    // so it names them.
     let (before, after) = (
         crate::character_catalog::buildable_ids(live),
         crate::character_catalog::buildable_ids(&assembled.catalog),
     );
-    if before != after {
-        let added: Vec<_> = after.difference(&before).collect();
-        let removed: Vec<_> = before.difference(&after).collect();
-        return Err(format!(
-            "the catalog changes which characters are built (added {added:?}, removed {removed:?}); \
-             restart to take it"
-        ));
-    }
-    Ok(Some(ambition_characters::prepared::CandidateCatalog { registry, assembled }))
+    let retired = before
+        .difference(&after)
+        .map(|id| ambition_entity_catalog::CharacterId::new(id.as_str()))
+        .collect();
+    Ok(Some(ambition_characters::prepared::CandidateCatalog { registry, assembled, retired }))
 }
 
 /// Stage every buildable character again, defined from the candidate catalog

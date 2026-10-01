@@ -20,13 +20,14 @@
 | [`placement`](src/placement.rs) | Portal-aware geometry and the surface-fit / aperture-crossing decision logic. |
 | [`plugin`](src/plugin.rs) | Portal plugin assembly: reusable simulation plus an optional portal-gun opener. |
 | [`rollback_registration`](src/rollback_registration.rs) | Rollback declaration owned by `ambition_portal2d`. |
+| [`rooms`](src/rooms.rs) | Which live room a portal is in, and the portals of each live room (OW1). |
 | [`schedule`](src/schedule.rs) | The portal-owned [`PortalSet`] schedule labels (carves, input warp, weapon, transit, room-reset ordering). |
 | [`transit`](src/transit.rs) | Portal-specific transit systems: drive every body and in-flight item through a placed portal pair via the shared [`super::placement::transit_step`] aperture machine, plus the carve / input / ability-suppression guards that make a crossing feel right. |
 | [`tuning`](src/tuning.rs) | Runtime-tunable portal feel and convention policy. |
 | [`types`](src/types.rs) | Shared portal types, geometry constants, and small helpers used across the portal submodules (placement, transit, presentation, …). |
 | [`view`](src/view.rs) | Pure through-portal view geometry. |
 
-_19 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_20 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

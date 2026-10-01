@@ -532,7 +532,11 @@ next: the mockingbird has no `ResolvedHurtboxes`, so its volumes DO come from
 the catalog path. The volumes are recomputed each frame, and the probe's
 scripted run never strikes the boss, so no checksummed state depended on them.
 The probe was not kept (a check that cannot fail). The next arm keeps this room
-and adds a script that hits the boss during the window. (`SessionCast::is_changed` follows the source `get` reads). ⭐ With
+and adds a script that hits the boss during the window. ⚠ A naive one does not:
+walking toward the boss and attacking every 8 frames for 400 frames under the
+sync test left its HP at 28 of 28, with the player moving only from x=134 to
+162 (MEASURED). The fixture needs the player placed beside the boss
+(`--player-beside` is the capture tool's answer to the same problem). (`SessionCast::is_changed` follows the source `get` reads). ⭐ With
 the projection on the session's cast, a cast published mid-timeline no longer
 desyncs the sync test: `developer_edits_under_rollback::publishing_a_cast_mid_timeline_leaves_history_resimulating_the_same`
 asserts it (MEASURED: putting either the projection or the worn re-derivation

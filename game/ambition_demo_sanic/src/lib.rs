@@ -770,8 +770,12 @@ impl Plugin for SanicRulesPlugin {
         // The badnik defeat runs before the engine's shared body-contact-damage
         // pass so a stomp/roll never also hurts Sanic (the rule zeroes the
         // badnik's health that frame; the contact pass skips a dead attacker).
+        // And AFTER integration, so both read this tick's positions. Without
+        // that edge the order against `integrate_sim_bodies` was not stated,
+        // and the schedule's sort decided which tick's positions the defeat read.
         let badniks = badnik::defeat_badniks
             .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep)
+            .after(ambition_platformer2d::platformer::schedule::WorldPrepSet::AfterIntegrate)
             .before(ambition_platformer2d::platformer::schedule::WorldPrepSet::ContactDamage);
         // The shared player resolver spends wallet armor before death and emits
         // the deterministic fact this Sanic presentation consumes.

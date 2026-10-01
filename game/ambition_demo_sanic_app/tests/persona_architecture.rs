@@ -489,7 +489,17 @@ fn the_super_form_s_traits_are_stated_by_its_row() {
         }
     };
 
-    // An authored badnik moved into him: does it survive one tick?
+    // An authored badnik moved into him: does it survive one simulation tick?
+    //
+    // Measured 2026-10-01, when this arm went red: a badnik rides the momentum
+    // kernel, so its position is derived from its surface state, and a write to
+    // `BodyKinematics.pos` alone is replaced by integration in the same tick.
+    // The arm passed only while the schedule happened to sort the rule before
+    // integration. So the badnik is placed through every input integration
+    // reads: its kinematics, its box, and a motion model rebuilt from its own
+    // params (no surface state). And the arm runs until the simulation steps:
+    // an update that runs no tick runs no rule, and the base-form arm once
+    // passed that way.
     let badnik_survives = |app: &mut App| {
         let pos = app
             .world()
@@ -516,8 +526,29 @@ fn the_super_form_s_traits_are_stated_by_its_row() {
             .get_mut::<ambition_platformer2d::engine_core::BodyKinematics>(badnik)
             .unwrap()
             .pos = pos;
-        app.update();
-        app.world().get_entity(badnik).is_ok()
+        app.world_mut()
+            .get_mut::<ambition_platformer2d::engine_core::CenteredAabb>(badnik)
+            .expect("an integrated body carries its box")
+            .center = pos;
+        {
+            let mut model = app
+                .world_mut()
+                .get_mut::<ambition_platformer2d::engine_core::MotionModel>(badnik)
+                .expect("an integrated body carries its motion model");
+            if let ambition_platformer2d::engine_core::MotionModel::SurfaceMomentum(motion) = &*model {
+                let params = motion.params;
+                *model = ambition_platformer2d::engine_core::MotionModel::surface_momentum(params);
+            }
+        }
+        let tick = |app: &App| app.world().resource::<ambition_platformer2d::runtime::SimTick>().0;
+        let before = tick(app);
+        for _ in 0..30 {
+            app.update();
+            if tick(app) > before {
+                return app.world().get_entity(badnik).is_ok();
+            }
+        }
+        panic!("30 updates ran no simulation tick, so the badnik rule never ran")
     };
 
     assert_eq!(traits(&app), (false, false), "the base form is ordinary");

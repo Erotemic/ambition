@@ -114,7 +114,7 @@ fn the_shipped_game_draws_no_parts() {
 /// `LocalView` with its facts and a column placement, and a `MainCamera` on
 /// layer 0 that presents it. Then:
 ///
-/// * the presentations, the slots and the entity count stay as they were with
+/// * the presentations and the very same slot entities stay as they were with
 ///   one view: the parts belong to the body, not to a view;
 /// * each main camera that draws a rigged root draws its parts (the render
 ///   layers agree), so neither pane shows a body without its parts.
@@ -133,14 +133,19 @@ fn a_second_view_draws_the_same_parts_and_makes_no_more() {
     use bevy::camera::visibility::RenderLayers;
 
     let mut app = seated_admirals(true);
+    // The slot entities themselves, not a count: a count cannot see a slot
+    // despawned and another spawned.
     let census = |app: &mut App| {
         let world = app.world_mut();
-        let presentations = world.resource::<RiggedPresentations>().0.len();
-        let mut slots = world.query::<&RiggedPartSlot>();
-        (presentations, slots.iter(world).count())
+        let mut owners: Vec<Entity> = world.resource::<RiggedPresentations>().0.values().copied().collect();
+        owners.sort();
+        let mut slots = world.query_filtered::<Entity, With<RiggedPartSlot>>();
+        let mut slots: Vec<Entity> = slots.iter(world).collect();
+        slots.sort();
+        (owners, slots)
     };
     let before = census(&mut app);
-    let entities_before = app.world().entities().count_spawned();
+    assert_eq!(before.0.len(), 2, "two seated admirals, two presentations");
 
     let view = app
         .world_mut()
@@ -157,12 +162,10 @@ fn a_second_view_draws_the_same_parts_and_makes_no_more() {
         app.update();
     }
 
-    assert_eq!(census(&mut app), before, "(presentations, slots) changed with a second view");
-    // The pane added one view and one camera. The rest of the host may churn a
-    // little (effects, particles), so this bound is loose, but a copy of the
-    // parts for the new view (two admirals of `max_draws` slots each) is not.
-    let grown = app.world().entities().count_spawned() as i64 - entities_before as i64;
-    assert!(grown < before.1 as i64, "{grown} entities appeared with the second view");
+    // Not the total entity count: in 60 frames the host spawns about 40
+    // entities of its own (two of them `PresentedForView`, for the new view),
+    // and none of them is a part.
+    assert_eq!(census(&mut app), before, "the owners or the part slots changed with a second view");
 
     let world = app.world_mut();
     let layers_of = |world: &World, entity: Entity| world.get::<RenderLayers>(entity).cloned().unwrap_or_default();

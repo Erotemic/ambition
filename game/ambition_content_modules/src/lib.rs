@@ -31,27 +31,31 @@ mod wielded;
 /// The provider namespace of every module and schema in this crate.
 pub const PROVIDER: &str = "ambition";
 
+/// Every module this crate provides, as constructors: a loaded call builds
+/// only the module it runs.
+pub const MODULES: &[fn() -> ambition_extension_sdk::ModuleDescriptor] = &[
+    apple_rain::module,
+    beam::module,
+    echo_fan::module,
+    eye_beam::module,
+    gradient_cascade::module,
+    gradient_nova::module,
+    meteor::module,
+    minima_trap::module,
+    mode_collapse::module,
+    overfit_volley::module,
+    overflow_flood::module,
+    saddle_point::module,
+    seismic_stomp::module,
+    shockwave::module,
+    volley::module,
+];
+
 /// Every module this crate provides.
 pub fn modules() -> Vec<ambition_extension_sdk::ModuleDescriptor> {
-    vec![
-        apple_rain::module(),
-        beam::module(),
-        echo_fan::module(),
-        eye_beam::module(),
-        gradient_cascade::module(),
-        gradient_nova::module(),
-        meteor::module(),
-        minima_trap::module(),
-        mode_collapse::module(),
-        overfit_volley::module(),
-        overflow_flood::module(),
-        saddle_point::module(),
-        seismic_stomp::module(),
-        shockwave::module(),
-        volley::module(),
-    ]
+    MODULES.iter().map(|build| build()).collect()
 }
 
 // Built for `wasm32-unknown-unknown`, this crate is a loaded module file
 // (`ambition-ext-1`): `scripts/build_extension_modules.sh`.
-ambition_extension_sdk::export_modules!(crate::modules);
+ambition_extension_sdk::export_modules!(list: crate::MODULES);

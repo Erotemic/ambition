@@ -26,13 +26,16 @@ const PHI_FRAC: f32 = 0.618_033_99;
 const MAX_PER_CALL: u32 = 4;
 
 record! {
-    /// The rain's clock and lane sequence.
-    pub struct Rain = SchemaKey::new(crate::PROVIDER, "apple_rain.rain", 1);
-    /// Gameplay seconds since the last apple of this strike.
+    /// The rain's clock: gameplay seconds since the last apple of this strike.
+    pub struct Beat = SchemaKey::new(crate::PROVIDER, "apple_rain.beat", 1);
     1 spawn_accum: f32,
-    /// The golden-ratio sequence index of the next apple. It continues
-    /// across strikes.
-    2 spawn_index: u32,
+}
+
+record! {
+    /// The golden-ratio sequence index of the next apple. It continues across
+    /// strikes: an idle tick keeps it.
+    pub struct Lanes = SchemaKey::new(crate::PROVIDER, "apple_rain.lanes", 1);
+    1 spawn_index: u32,
 }
 
 pub fn module() -> ModuleDescriptor {
@@ -43,7 +46,7 @@ pub fn module() -> ModuleDescriptor {
             crate_name: env!("CARGO_PKG_NAME").into(),
             version: env!("CARGO_PKG_VERSION").into(),
         },
-        schemas: vec![Rain::schema()],
+        schemas: vec![Beat::schema(), Lanes::schema()],
         entries: vec![EntryDescriptor {
             key: "rain".into(),
             phase: TECHNIQUE_EXECUTION,
@@ -52,15 +55,15 @@ pub fn module() -> ModuleDescriptor {
                 selector: KEY.into(),
             },
             reads: Vec::new(),
-            writes: vec![Rain::KEY],
+            writes: vec![Beat::KEY, Lanes::KEY],
             requests: vec![ProjectileSpawnPort::KEY],
             after: Vec::new(),
             limits: Limits {
                 max_requests: MAX_PER_CALL,
             },
-            // NOT `ResetState`: an idle tick resets the interval, but the
-            // lane sequence continues into the next strike.
-            on_idle: IdlePolicy::Invoke,
+            // An idle tick resets the interval; the lane sequence continues
+            // into the next strike.
+            on_idle: IdlePolicy::ResetStateExcept(vec![Lanes::KEY]),
             run: EntryCode::Native(rain),
         }],
     }
@@ -87,27 +90,29 @@ pub fn spawn_x(spawn_index: u32, world_width: f32, body_min_x: f32, body_max_x: 
 fn rain(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     let caster: BossCaster = inv.trigger::<BossSpecialCast>()?.clone();
     let dt = inv.dt();
-    let mut rain = Rain::load(inv)?;
+    let mut beat = Beat::load(inv)?;
     if !caster.pressed {
         // The strike is over: the next one starts on a clean beat.
-        rain.spawn_accum = 0.0;
-        return rain.store(inv);
+        beat.spawn_accum = 0.0;
+        return beat.store(inv);
     }
     // A dead boss, or one whose room cannot be told, keeps its interval.
     let Some(room) = caster.room_size.filter(|_| caster.alive) else {
         return Ok(());
     };
-    rain.spawn_accum += dt;
+    let mut lanes = Lanes::load(inv)?;
+    beat.spawn_accum += dt;
     let body_min_x = caster.body_center[0] - caster.body_half_size[0];
     let body_max_x = caster.body_center[0] + caster.body_half_size[0];
     let spawn_y = (caster.position[1] - SPAWN_HEIGHT_ABOVE_BOSS).max(HALF_EXTENT.y + 8.0);
     let mut drops = Vec::new();
-    while rain.spawn_accum >= INTERVAL_S {
-        rain.spawn_accum -= INTERVAL_S;
-        drops.push(spawn_x(rain.spawn_index, room[0], body_min_x, body_max_x));
-        rain.spawn_index = rain.spawn_index.wrapping_add(1);
+    while beat.spawn_accum >= INTERVAL_S {
+        beat.spawn_accum -= INTERVAL_S;
+        drops.push(spawn_x(lanes.spawn_index, room[0], body_min_x, body_max_x));
+        lanes.spawn_index = lanes.spawn_index.wrapping_add(1);
     }
-    rain.store(inv)?;
+    beat.store(inv)?;
+    lanes.store(inv)?;
     for x in drops {
         inv.submit::<ProjectileSpawnPort>(ProjectileSpawn {
             origin: Vec2::new(x, spawn_y),

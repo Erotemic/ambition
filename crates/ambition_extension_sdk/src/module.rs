@@ -98,7 +98,7 @@ impl Default for Limits {
 /// What the host does with an IDLE trigger: one the trigger's domain marks as
 /// having nothing to act on this tick (for the boss special trigger: the key
 /// is neither pressed nor telegraphed).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Default)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub enum IdlePolicy {
     /// Call the entry anyway.
     #[default]
@@ -108,6 +108,23 @@ pub enum IdlePolicy {
     /// doing", this is the same result without the call, and it is what makes
     /// a loaded module cost nothing on the ticks it has nothing to do.
     ResetState,
+    /// As [`IdlePolicy::ResetState`], but the listed records KEEP their values:
+    /// what continues from one strike to the next (a lane sequence, a summon
+    /// counter). Each listed schema must be one the entry writes.
+    ResetStateExcept(Vec<SchemaKey>),
+}
+
+impl IdlePolicy {
+    /// The records an idle tick puts back to initial, of `writes`; `None` when
+    /// the entry is called on an idle tick.
+    pub fn resets<'a>(&'a self, writes: &'a [SchemaKey]) -> Option<impl Iterator<Item = &'a SchemaKey> + 'a> {
+        let keep: &[SchemaKey] = match self {
+            IdlePolicy::Invoke => return None,
+            IdlePolicy::ResetState => &[],
+            IdlePolicy::ResetStateExcept(keep) => keep,
+        };
+        Some(writes.iter().filter(move |key| !keep.contains(key)))
+    }
 }
 
 /// The function an entry runs. The in-process Rust binding calls it directly.
@@ -203,10 +220,20 @@ impl ModuleDescriptor {
                 d.str(after);
             }
             d.u32(entry.limits.max_requests);
-            d.u8(match entry.on_idle {
-                IdlePolicy::Invoke => 0,
-                IdlePolicy::ResetState => 1,
-            });
+            match &entry.on_idle {
+                IdlePolicy::Invoke => {
+                    d.u8(0);
+                }
+                IdlePolicy::ResetState => {
+                    d.u8(1);
+                }
+                IdlePolicy::ResetStateExcept(keep) => {
+                    d.u8(2).u32(keep.len() as u32);
+                    for key in keep {
+                        key.digest_into(&mut d);
+                    }
+                }
+            }
         }
         d.finish()
     }
@@ -246,13 +273,17 @@ impl ModuleDescriptor {
                 put_str(out, after);
             }
             put_u32(out, entry.limits.max_requests);
-            put_u8(
-                out,
-                match entry.on_idle {
-                    IdlePolicy::Invoke => 0,
-                    IdlePolicy::ResetState => 1,
-                },
-            );
+            match &entry.on_idle {
+                IdlePolicy::Invoke => put_u8(out, 0),
+                IdlePolicy::ResetState => put_u8(out, 1),
+                IdlePolicy::ResetStateExcept(keep) => {
+                    put_u8(out, 2);
+                    put_u32(out, keep.len() as u32);
+                    for key in keep {
+                        key.put(out);
+                    }
+                }
+            }
         }
     }
 
@@ -296,6 +327,10 @@ impl ModuleDescriptor {
             let on_idle = match r.u8()? {
                 0 => IdlePolicy::Invoke,
                 1 => IdlePolicy::ResetState,
+                2 => {
+                    let n = r.read_len()?;
+                    IdlePolicy::ResetStateExcept((0..n).map(|_| SchemaKey::read(r)).collect::<Result<_, _>>()?)
+                }
                 other => return Err(crate::wire::WireError::BadTag(other)),
             };
             entries.push(EntryDescriptor {

@@ -131,21 +131,23 @@ fn fault_bytes(message: &str) -> Vec<u8> {
 /// The guest half: decode the input, run entry `entry` of module `module`,
 /// encode what it staged. A decode failure or a fault is a fault output.
 pub fn invoke(modules: &[ModuleDescriptor], module: u32, entry: u32, input: &[u8]) -> Vec<u8> {
-    match invoke_inner(modules, module, entry, input) {
+    match modules.get(module as usize) {
+        Some(module) => invoke_one(module, entry, input),
+        None => fault_bytes(&format!("no module {module}")),
+    }
+}
+
+/// [`invoke`] for one module the caller built: a guest that can build each of
+/// its modules alone (`export_modules!(list: ...)`) builds only the one a
+/// call names, not its whole table.
+pub fn invoke_one(module: &ModuleDescriptor, entry: u32, input: &[u8]) -> Vec<u8> {
+    match invoke_inner(module, entry, input) {
         Ok(out) => out,
         Err(message) => fault_bytes(&message),
     }
 }
 
-fn invoke_inner(
-    modules: &[ModuleDescriptor],
-    module: u32,
-    entry: u32,
-    input: &[u8],
-) -> Result<Vec<u8>, String> {
-    let module = modules
-        .get(module as usize)
-        .ok_or_else(|| format!("no module {module}"))?;
+fn invoke_inner(module: &ModuleDescriptor, entry: u32, input: &[u8]) -> Result<Vec<u8>, String> {
     let descriptor = module
         .entries
         .get(entry as usize)
@@ -229,6 +231,44 @@ fn invoke_inner(
 /// ```
 #[macro_export]
 macro_rules! export_modules {
+    // A list of module constructors: a call builds only the module it names
+    // (each call is a new instance, so a whole table per call is the cost of
+    // every call). Measured 2026-10-01: about 30 us of guest time per call
+    // with fifteen modules.
+    (list: $list:path) => {
+        #[cfg(target_arch = "wasm32")]
+        mod __ambition_extension_exports {
+            fn publish(bytes: ::std::vec::Vec<u8>) -> u64 {
+                let bytes = ::std::mem::ManuallyDrop::new(bytes);
+                ((bytes.as_ptr() as u64) << 32) | bytes.len() as u64
+            }
+
+            #[no_mangle]
+            pub extern "C" fn amb_alloc(len: u32) -> u32 {
+                let buffer = ::std::mem::ManuallyDrop::new(::std::vec::Vec::<u8>::with_capacity(
+                    len as usize,
+                ));
+                buffer.as_ptr() as u32
+            }
+
+            #[no_mangle]
+            pub extern "C" fn amb_describe() -> u64 {
+                let modules: ::std::vec::Vec<_> = $list.iter().map(|build| build()).collect();
+                publish($crate::abi::describe(&modules))
+            }
+
+            #[no_mangle]
+            pub extern "C" fn amb_invoke(module: u32, entry: u32, ptr: u32, len: u32) -> u64 {
+                // SAFETY: the host wrote `len` bytes at `ptr`, a buffer
+                // `amb_alloc` returned, before this call.
+                let input = unsafe { ::std::slice::from_raw_parts(ptr as *const u8, len as usize) };
+                publish(match $list.get(module as usize) {
+                    Some(build) => $crate::abi::invoke_one(&build(), entry, input),
+                    None => $crate::abi::invoke(&[], module, entry, input),
+                })
+            }
+        }
+    };
     ($modules:path) => {
         #[cfg(target_arch = "wasm32")]
         mod __ambition_extension_exports {

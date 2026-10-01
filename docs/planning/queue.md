@@ -70,6 +70,19 @@ one `spawn_empty()` by the test at the point where the audit was inserted
 leaves the mismatch (2 runs: mismatch without, mismatch with). Whatever a
 resource changes, a bare entity does not.
 
+⭐ **THE LEVER IS A NEW ARCHETYPE.** MEASURED: one `spawn(ProbeArchetype)` (a
+test-local component type, so a new archetype and table) at the same point
+HIDES the mismatch, as a resource does (a resource's entity carries
+`IsResource` and its own type: also a new archetype). An empty entity joins an
+existing archetype and changes nothing. ⇒ REASONED from that: a system on the
+resimulated road folds a query whose result depends on the order its
+archetypes are iterated (archetype ids follow creation order), and a restore
+or resimulation puts entities in a different archetype order than the first
+simulation did. The next probe: list the resimulated systems that fold an
+order-sensitive query (first match wins, float sums, `last()`), then shift the
+archetype order with this probe and diff the per-type checksums of the first
+resimulated frame.
+
 The arm is `#[ignore]`d with this row as its reason. It recorded an answer that
 the composition, not the cast, decides. The next probe: hash the checksum's
 inputs per resource, then diff the two compositions' first resimulated frame.

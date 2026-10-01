@@ -280,6 +280,7 @@ mod tests {
                     ambition_boss_encounter::test_boss_catalog(),
                     "gnu_ton",
                 ),
+                seed: None,
             },
             ambition_characters::actor::BodyHealth::new(ambition_characters::actor::Health::new(9)),
             volumes,

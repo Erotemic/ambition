@@ -3310,13 +3310,12 @@ members = ["ambition_extension_sdk", "ambition_extension_host", "ambition_extens
 [[policy]]
 id = "engine.ambition_extension_sdk-portable"
 scope = "engine"
-kind = "dependency-denylist"
+kind = "dependency-none"
 owners = ["ambition_extension_sdk"]
 watch_paths = ["crates/ambition_extension_sdk/Cargo.toml"]
-rationale = "the extension SDK has no dependencies: a module author builds against it without Bevy, the host or any engine implementation (extension-model D5; FI1)"
+rationale = "the extension SDK has no dependencies: a module author builds against it without Bevy, the host or any engine implementation (extension-model D5; FI1). So no SDK API can name engine state: I4's 'direct health/body mutation through the SDK' cannot be written. No dependency of ANY name, not a denylist: a denylist passed every engine crate it did not list (2026-10-01)"
 source_doc = "docs/planning/engine/extension-model.md"
 severity = "error"
-deny = ["bevy", "bevy_ecs", "bevy_app", "bevy_math", "ambition_platformer2d_core", "ambition_extension_host", "ambition_platformer2d_runtime", "ambition_platformer2d", "ambition_time"]
 manifest = "crates/ambition_extension_sdk/Cargo.toml"
 
 [[policy]]

@@ -64,7 +64,7 @@ pub use catalog::{
 #[cfg(any(test, feature = "test-support"))]
 pub use clusters::test_support;
 pub use clusters::{
-    boss_is_cleared, placement_is_cleared, BossClusterQueryData, ClearedBossPlacements, BossClusterRef, BossClusterScratch, BossConfig,
+    boss_is_cleared, placement_is_cleared, BossClusterQueryData, ClearedBossPlacements, BossClusterRef, BossClusterScratch, BossConfig, BossSeed,
     BossEncounter, BossMut, BossOverrides, BossRef,
 };
 pub use encounter_entity::{
@@ -85,7 +85,7 @@ pub use ambition_encounter::{
 };
 pub use profile::{default_boss_profiles, BossProfile, BossRewardProfile};
 pub use registry::BossEncounterRegistry;
-pub use rewards::sync_boss_reward_chests_ecs;
+pub use rewards::{sync_boss_reward_chests_ecs, BossRewardAnchor};
 pub use roster::BossSpecRoster;
 pub use specs::default_boss_specs;
 pub use systems::{

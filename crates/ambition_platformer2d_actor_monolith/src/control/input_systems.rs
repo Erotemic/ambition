@@ -27,15 +27,15 @@ pub struct InputTimersAdvanced;
 
 /// Decay the cooldown that keeps a body from re-entering the door it just used.
 ///
-/// A whole-world timer with one owner, sharing nothing with the two systems
-/// below but the clock.
+/// One countdown per seat, all on the world clock, with one owner. It shares
+/// nothing with the two systems below but the clock.
 pub fn tick_room_transition_cooldown(
     world_time: Res<ambition_time::WorldTime>,
     mut sim_state: ResMut<
         ambition_platformer2d_shared_tangle::safe_position::RoomTransitionCooldown,
     >,
 ) {
-    sim_state.remaining = (sim_state.remaining - world_time.wall_dt()).max(0.0);
+    sim_state.tick(world_time.wall_dt());
 }
 
 /// Decay the home body's own reaction timers (`hitstun` / `hitstop` /

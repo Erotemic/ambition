@@ -708,7 +708,8 @@ pub(super) fn reload_ldtk_world_from_disk(
         if let Some(mut cooldown) = world.get_resource_mut::<
             ambition_platformer2d::platformer::safe_position::RoomTransitionCooldown,
         >() {
-            cooldown.remaining = 0.10;
+            // The dev reload moves the primary player: the primary seat waits.
+            cooldown.hold(0, 0.10);
         }
         if let Some(mut dev) = world.get_resource_mut::<DeveloperRuntimeState>() {
             dev.preset_flash = 1.0;

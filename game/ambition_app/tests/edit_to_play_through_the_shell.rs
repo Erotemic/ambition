@@ -415,6 +415,20 @@ fn a_content_file_saved_while_the_game_runs_is_played() {
     }
 }
 
+/// Each live mockingbird's maximum HP.
+#[cfg(not(feature = "static_content"))]
+fn mockingbird_max_hps(sim: &mut ambition_sim_harness::Platformer2dSimHarness) -> Vec<i32> {
+    let world = sim.world_mut();
+    let mut q = world.query::<(
+        &ambition_platformer2d::boss_encounter::BossConfig,
+        &ambition_platformer2d::characters::actor::BodyHealth,
+    )>();
+    q.iter(world)
+        .filter(|(config, _)| config.behavior.id == "mockingbird")
+        .map(|(_, health)| health.max())
+        .collect()
+}
+
 /// The live mockingbird's `strike_speed_scale`, and how many mockingbirds.
 #[cfg(not(feature = "static_content"))]
 fn mockingbird_strike_speed_scales(sim: &mut ambition_sim_harness::Platformer2dSimHarness) -> Vec<f32> {
@@ -442,6 +456,10 @@ fn a_boss_tuning_saved_while_the_game_runs_is_played() {
     let before = mockingbird_strike_speed_scales(&mut sim);
     assert_eq!(before.len(), 1, "the premise: the arena builds one mockingbird");
     assert!((before[0] - EDITED).abs() > 0.1, "the premise: the edit changes the value");
+    // And its encounter: the HP is seeded from the encounter file.
+    const EDITED_HP: i32 = 41;
+    assert_eq!(mockingbird_max_hps(&mut sim).len(), 1);
+    assert_ne!(mockingbird_max_hps(&mut sim)[0], EDITED_HP, "the premise: the edit changes the HP");
 
     let root = std::env::temp_dir().join(format!("ambition_boss_watch_{}", std::process::id()));
     let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
@@ -455,6 +473,11 @@ fn a_boss_tuning_saved_while_the_game_runs_is_played() {
         let end = at + text[at..].find(',').unwrap();
         let edited = format!("{}strike_speed_scale: {EDITED}{}", &text[..at], &text[end..]);
         std::fs::write(&path, edited).unwrap();
+        let encounter = root.join("data/boss_encounters/mockingbird.ron");
+        let text = std::fs::read_to_string(&encounter).unwrap();
+        let at = text.find("max_hp: ").expect("the encounter states its HP");
+        let end = at + text[at..].find(',').unwrap();
+        std::fs::write(&encounter, format!("{}max_hp: {EDITED_HP}{}", &text[..at], &text[end..])).unwrap();
 
         let mut frames = 0;
         while mockingbird_strike_speed_scales(&mut sim).first().is_none_or(|v| (v - EDITED).abs() > 1e-6) {
@@ -487,7 +510,70 @@ fn a_boss_tuning_saved_while_the_game_runs_is_played() {
             .behavior("mockingbird")
             .map(|b| b.strike_speed_scale);
         assert_eq!(frozen, Some(EDITED), "the session froze the catalog it was prepared from");
+        // ⛔ The encounter is seeded from the catalog the boss was built with
+        // (`BossConfig::seed`), not from the App's on the boss's first tick.
+        assert_eq!(mockingbird_max_hps(&mut sim), [EDITED_HP], "the rebuilt boss has the saved HP");
         eprintln!("a saved boss tuning was played {frames} frames after the save");
+    }));
+    let _ = std::fs::remove_dir_all(&root);
+    if let Err(payload) = outcome {
+        std::panic::resume_unwind(payload);
+    }
+}
+
+/// ⭐ THE SAVED EDIT UNDER THE SHIPPED OWNERSHIP MODE: a timeline the local
+/// maintainer owns is rebased onto the reloaded generation, not crossed by it.
+#[cfg(not(feature = "static_content"))]
+#[test]
+fn a_content_file_saved_under_a_local_timeline_rebases_it() {
+    use ambition_app::rl_sim::AmbitionSim as _;
+    use ambition_content::content_watch::ContentSourceWatch;
+    let mut sim = ambition_sim_harness::Platformer2dSimHarness::new_with_options(
+        common::fixed_60hz_room_options("proving_grounds").with_sync_test_rollback_settings(4, 10),
+    )
+    .expect("the room builds under a sync-test session");
+    common::hand_the_timeline_to_the_local_maintainer(&mut sim);
+    for _ in 0..40 {
+        sim.step(common::base());
+    }
+    let boundary = |sim: &ambition_sim_harness::Platformer2dSimHarness| {
+        format!("{:?}", ambition_platformer2d::rollback::mechanical_mutation_boundary(sim.world()))
+    };
+    let bound_and_live = |sim: &mut ambition_sim_harness::Platformer2dSimHarness| {
+        let bound = sim
+            .world()
+            .get_resource::<ambition_platformer2d::runtime::rollback::ActiveRollbackAuthority>()
+            .and_then(|authority| authority.contract().content);
+        let world = sim.world_mut();
+        let mut q = world.query::<&ambition_platformer2d::runtime::PreparedContentIdentity>();
+        (bound, q.single(world).ok().copied())
+    };
+    assert_eq!(boundary(&sim), "LocallyRebasable", "the premise: this host owns the timeline");
+    let (bound_before, live) = bound_and_live(&mut sim);
+    assert!(bound_before.is_some() && bound_before == live, "the premise: the timeline binds the session's content");
+    let before = subject_durations_on_bodies(&mut sim).first().copied().expect("a body plays the subject");
+    let subjects = subject_body_count_at(&mut sim, before);
+
+    let root = std::env::temp_dir().join(format!("ambition_content_watch_local_{}", std::process::id()));
+    let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        ambition_content::pack::export_sources_to(&root).expect("sources export");
+        sim.world_mut().insert_resource(ContentSourceWatch::new(root.clone()));
+        std::thread::sleep(std::time::Duration::from_millis(20));
+        export_with_the_subject_retimed(&root);
+        let mut frames = 0;
+        while subject_body_count_at(&mut sim, before + BUMP) < subjects {
+            sim.step(common::base());
+            frames += 1;
+            assert!(frames < 600, "600 frames after the save the bodies still play the old move");
+        }
+        for _ in 0..10 {
+            sim.step(common::base());
+        }
+        assert_eq!(boundary(&sim), "LocallyRebasable", "the maintainer started the timeline again");
+        let (bound, live) = bound_and_live(&mut sim);
+        assert_eq!(bound, live, "the new timeline binds the reloaded content");
+        assert_ne!(bound, bound_before, "and that content is a new generation");
+        sim.rollback_health().expect("the rebased timeline is healthy");
     }));
     let _ = std::fs::remove_dir_all(&root);
     if let Err(payload) = outcome {

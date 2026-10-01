@@ -7,7 +7,7 @@
 //! mob-encounter sibling (`sync_encounter_reward_chests_ecs`) stays in
 //! `features::ecs` with the `EncounterMob` wave vocabulary.
 
-use super::{BossEncounterRegistry, BossRewardProfile};
+use super::BossRewardProfile;
 use ambition_combat::falling_chest::settled_chest_center;
 use ambition_combat::{
     BossRewardChest, CenteredAabb, ChestFeature, FallingChest, FeatureId, FeatureName, Opened,
@@ -18,6 +18,17 @@ use ambition_platformer2d_shared_tangle::lifecycle::{
 };
 use bevy::prelude::{Commands, Entity, Name, Query, With};
 
+/// One boss placement's reward, where it would drop it.
+#[derive(Clone, Debug)]
+pub struct BossRewardAnchor {
+    /// The chest and its looted flag are keyed by placement, so a cleared
+    /// placement drops its own chest.
+    pub placement_id: String,
+    pub spawn: ae::Vec2,
+    /// The boss's own reward (`BossConfig::seed`), not a lookup by archetype.
+    pub reward: BossRewardProfile,
+}
+
 /// Idempotently ensure cleared boss encounters have ECS reward chests. This
 /// helper receives boss spawn anchors from the boss encounter system and owns
 /// the reward chest entity and state.
@@ -25,12 +36,8 @@ pub fn sync_boss_reward_chests_ecs(
     commands: &mut Commands,
     session_scope: SessionSpawnScope,
     save: &ambition_persistence::save_data::AmbitionGameSaveData,
-    registry: &BossEncounterRegistry,
     world: &ae::World,
-    // (placement_id, archetype_id, spawn) for each boss in the room. The chest
-    // and looted flag are keyed by placement (so a cleared placement drops its
-    // own chest); the DropChest reward comes from the archetype profile.
-    boss_placements: &[(String, String, ae::Vec2)],
+    boss_placements: &[BossRewardAnchor],
     chests: &Query<
         (
             Entity,
@@ -42,15 +49,12 @@ pub fn sync_boss_reward_chests_ecs(
         With<ChestFeature>,
     >,
 ) {
-    for (placement_id, archetype_id, boss_spawn) in boss_placements {
-        let Some(profile) = registry.profiles.get(archetype_id) else {
-            continue;
-        };
+    for BossRewardAnchor { placement_id, spawn: boss_spawn, reward } in boss_placements {
         let BossRewardProfile::DropChest {
             pickup,
             offset,
             size,
-        } = &profile.reward
+        } = reward
         else {
             continue;
         };

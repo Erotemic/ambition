@@ -1538,7 +1538,8 @@ stands in its door to the hub and his seat presses: he joins #1, and #0
 retires). Poison (the primary-only detector restored): Bob stayed in #0,
 and both rooms stayed live. ⚠ `RoomTransitionCooldown` is still one value
 for the session, so one seat's crossing holds every seat's crossing for
-the cooldown (0.16 s after a door, 0.14 s after an edge exit). ⚠ The
+the cooldown (0.16 s after a door, 0.14 s after an edge exit). (Closed by
+the per-seat cooldown below.) ⚠ The
 witness drives a new press on every frame, and a seat's frame stands until
 it is replaced, so it lets go after the crossing: otherwise Bob goes back
 through the arrival door when the cooldown ends.
@@ -1588,6 +1589,41 @@ world in every live room (`stops_the_world`), so a room-entry cutscene in
 one room stops the other player's room. A cutscene drives the one shared
 camera, so it waits for the views (P5) and for the party-pause product
 question.
+
+✅ **Landed 2026-10-01: a door holds only the seat that went through it
+(customer 2).** `RoomTransitionCooldown` was one countdown for the world.
+After any seat's door, every seat waited 0.16 s before it could cross. It is
+now one countdown per seat (`SEATS` = `SlotControls::MAX_SLOTS`, asserted at
+compile time), still the canonical resource `resource.sandbox_sim_state`
+(schema 290 → 291: four `f32`s where there was one).
+
+| Who | Before | Now |
+|---|---|---|
+| The commit | sets the one countdown | holds the crossing's participant seat (the primary seat for a rebuild with nobody crossing) |
+| The door detector | returns for every seat while the countdown runs | skips only a seat that waits, inside the seat loop |
+| The tick | counts the one countdown down | counts every seat down |
+| A replay (`return_the_replay_subject_to_spawn`) | clears the countdown | releases the subject's driving seat (`reset_sandbox` no longer touches it) |
+| Damage's safe-position gate | the countdown runs | the primary seat waits (that path is slot 0's) |
+| Teardown | default | default (every seat) |
+| The dev room reload | sets 0.10 s | holds the primary seat 0.10 s |
+
+Witness: `a_crossing_holds_only_the_seat_that_crossed`. Alice (seat 0)
+goes through the door to the hub and leaves Bob (seat 1) in `switch_lab`.
+On her commit tick, seat 0 waits and seat 1 does not. Bob, put in his
+room's door to the hub, is accepted on his first press while Alice's seat
+still waits. On his arrival, his own seat waits. Control:
+`a_seat_cannot_cross_back_inside_its_own_cooldown` (Alice alone presses in
+the hub's door back on every tick: nothing is accepted while her seat waits
+through the step, and she is accepted on the step it runs out). ⚠ The seat
+counts down inside the step, before the detector reads it. A check of
+"waits" before the step is one step late (the pre-registered control
+missed on exactly that, at tick 10).
+Poisons: the detector held every seat while any seat waited (Bob was
+accepted only on press 10, after Alice's seat stopped waiting); the commit
+held every seat (both seats waited at Alice's commit); the commit held the
+primary seat, not the participant (Bob's seat did not wait on his arrival);
+the detector did not read the cooldown (the control: Alice was accepted
+back on the first step).
 
 ✅ **OW3, first slice, landed 2026-10-01: a runtime mint left in a room
 that is not live is still there when the room is live again.** A runtime

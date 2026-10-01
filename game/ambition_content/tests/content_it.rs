@@ -33,3 +33,4 @@ mod summoned_minions_resolve;
 mod yarn_compile;
 mod the_dogs_pet_is_a_conversation_choice;
 mod yarn_condition_aliases;
+mod a_saved_dialogue_edit_is_played;

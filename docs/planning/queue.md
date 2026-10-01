@@ -1835,6 +1835,17 @@ rung on the tick after the commit without the ladder riding the transaction at
 all. A value that must be FROZEN at construction belongs in
 `PendingGenerationInputs`; a value that is a standing projection does not.
 
+**2026-10-01: the boss catalog is the second frozen input in that channel.**
+Boss profiles and encounters joined the reload; `PendingGenerationInputs::bosses`
+carries the admitted N+1 catalog to the transaction's own preparation
+(`candidate_bosses_for`), which fingerprints and freezes it, and the commit
+publishes it. The poison that dropped it from the claim found a live boss
+seeded from the App's catalog after construction, closed the same day
+(`BossConfig::seed`). Encounter waves stay a standing projection
+(`project_live_encounter_occurrences` reads the App's `EncounterWaveBook` after
+activation), like the fighter ladder. Not yet in the channel because not yet
+in the reload: the character catalog (planned in I3, with its prerequisites).
+
 ⚠ **AND THE GUARD STOPPED WITNESSING IT WITHOUT GOING RED.**
 `the_commit_sits_between_the_activation_and_session_adoption`
 (`game/ambition_app/tests/reload_publication_is_installed.rs`) asserts
@@ -1919,6 +1930,19 @@ pull port and an end-of-entity port). The Flying Spaghetti Monster's
 conductor is a module (a CONDUCTED boss: the module holds the boss's pose,
 swings riding hitboxes, rolls held shocks, draws its row; schema 289);
 GNU-ton's conductor is the next of its kind.
+
+**2026-10-01, the running game plays content edits.** A build that reads its
+content off disk watches the pack's sources (`ambition_content::content_watch`)
+and asks for the reload on a save: `request_reload` had no production caller
+until then. A saved move retime is played 19 frames after the save; boss
+profiles and encounters joined the participating families (a saved boss tuning,
+22 frames). A module reload re-mints the session's content identity (D6), and
+the module reload's three review findings are closed (a file is the unit of
+replacement, one poll is one candidate, a departed schema takes its records).
+Still refused by the reload: items, audio, the character catalog, the boss seed
+library and validator bands. Open, found on the way: a boss's HP, phase
+triggers, death seconds, music and reward seed from the App catalog, not the
+frozen generation (see I3 in the implementation page).
 
 **Blocked by:** nothing.
 

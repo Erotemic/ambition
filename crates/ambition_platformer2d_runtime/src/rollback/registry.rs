@@ -960,7 +960,9 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// hashes (the rest of the save, its occurrence rows, its minted rows), the
 /// row hashes kept with the `Arc` they were computed from (M2). Same rows,
 /// same layout; the checksum VALUE differs from v289's whole-save RON hash.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 290;
+/// ⛔⛤ 290 -> 291: `resource.sandbox_sim_state` (`RoomTransitionCooldown`) is
+/// one countdown per seat: four `f32`s where there was one (OW1, customer 2).
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 291;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

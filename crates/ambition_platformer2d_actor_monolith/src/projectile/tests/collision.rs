@@ -1088,6 +1088,7 @@ fn spawn_boss(app: &mut App, id: &str, center: ae::Vec2, half: ae::Vec2) -> Enti
                         ambition_boss_encounter::test_boss_catalog(),
                         id,
                     ),
+                seed: None,
             },
             BodyHealth::new(ambition_characters::actor::Health::new(9)),
             ambition_combat::components::ActorFaction::Enemy,

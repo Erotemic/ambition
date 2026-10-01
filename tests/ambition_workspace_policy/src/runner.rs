@@ -14,6 +14,7 @@ pub fn dispatch(ws: &Workspace, policy: &Policy, report: &mut Report) {
         RuleKind::WorkspaceMember => rules::workspace_member::check(ws, policy, report),
         RuleKind::DependencyAllowlist => rules::dependency::allowlist(ws, policy, report),
         RuleKind::DependencyDenylist => rules::dependency::denylist(ws, policy, report),
+        RuleKind::DependencyNone => rules::dependency::none(ws, policy, report),
         RuleKind::ForbiddenSourceReference => rules::source_reference::check(ws, policy, report),
         RuleKind::FileContains => rules::file_content::contains(ws, policy, report),
         RuleKind::FileOmits => rules::file_content::omits(ws, policy, report),

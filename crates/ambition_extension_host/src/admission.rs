@@ -129,6 +129,11 @@ pub enum Refusal {
         entry: String,
         schema: SchemaKey,
     },
+    /// `IdlePolicy::ResetStateExcept` keeps a schema the entry does not write.
+    IdleKeepsUnwrittenState {
+        entry: String,
+        schema: SchemaKey,
+    },
     UnknownOrderTarget {
         entry: String,
         after: String,
@@ -275,6 +280,14 @@ pub fn admit(
             for key in &entry.writes {
                 if !module.schemas.iter().any(|s| s.key == *key) {
                     refusals.push(Refusal::UndeclaredState {
+                        entry: path.clone(),
+                        schema: key.clone(),
+                    });
+                }
+            }
+            if let ambition_extension_sdk::IdlePolicy::ResetStateExcept(keep) = &entry.on_idle {
+                for key in keep.iter().filter(|key| !entry.writes.contains(key)) {
+                    refusals.push(Refusal::IdleKeepsUnwrittenState {
                         entry: path.clone(),
                         schema: key.clone(),
                     });

@@ -201,6 +201,34 @@ canceled transition or removed view must release its own claims even if its
 producer no longer ticks. Other owners' claims remain. Expose why each room is
 prepared/live/active and which owner prevents retirement.
 
+✅ **OW4, first slice, landed 2026-10-01: each live room names the owners
+that hold it live.** A live room is held by each driven body stamped into
+it, with the slot that drives it. That is the rule a crossing reads to
+choose whether the room it leaves stays whole or is retired
+(`another_player_stays`), and it is now one function,
+`rooms::residency::claims_on`. `live_room_claims` derives from it the
+answer for every live room, and `[census] rooms` prints it
+(` holders=[#0:slot1 #1:slot0]`; `-` is a room nothing holds). A claim is
+not stored: it is read from the driven bodies and their stamps, so a
+departed body's claim is gone with it even when its producer no longer
+ticks, and a refused crossing, which moves no body, releases nothing.
+Witnesses: `a_departing_player_releases_only_their_own_claim` (Bob, slot 1,
+holds `switch_lab`, #0; Alice, slot 0, holds the hub, #1; Alice walks back:
+Bob's claim on #0 stands at each sample, the hub retires with Alice's claim,
+and both hold #0; the census prints ` holders=[#0:slot0,slot1]`) and the
+refused arm of `a_crossing_into_a_room_another_player_holds_joins_it` (a
+stale join: slot 1 still holds #0 and slot 0 still holds #1). Poisons: with
+the claim rule counting a driver in any room, the first arm of the
+departure witness failed (both slots held both rooms), and
+`a_player_who_comes_back_joins_the_room_the_other_player_holds` failed (the
+hub stayed live): the crossing reads the same rule. With the stale-join
+check removed, the refused arm failed at its refusal assertion, before its
+claims assertion. ⚠ The door walk hides its ticks, so "at each sample" is
+before the crossing and on each of the 30 ticks after it. ⚠ Only driven
+bodies are owners in this slice: views and pending transitions hold no
+claim yet, and no budget is stored, because a budget with no consumer is
+not a policy.
+
 Do not require one particular map/chunk/COW implementation before measurement.
 Do require FI9 to show that adding dormant records does not add an all-world walk
 to an unrelated active step. M2 measures actual retention, promotion, restore and

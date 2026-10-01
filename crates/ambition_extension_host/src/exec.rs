@@ -21,7 +21,7 @@ use std::sync::Arc;
 use ambition_extension_sdk::abi::{self, InvocationInput, InvocationOutput};
 use ambition_extension_sdk::invoke::{HostParts, Observation, OwnedPayload, Payload, StagedRequest};
 use ambition_extension_sdk::{
-    encode_erased, DecodeFn, EncodeFn, Fault, IdlePolicy, Invocation, Name, Phase, Port, PortKey,
+    encode_erased, DecodeFn, EncodeFn, Fault, Invocation, Name, Phase, Port, PortKey,
     Record, SchemaKey,
 };
 use ambition_time::SimTick;
@@ -217,9 +217,12 @@ pub fn run_phase(phase: Phase) -> impl FnMut(&mut World) {
                 if world.get_entity(invocation.scope).is_err() {
                     continue;
                 }
-                if invocation.idle && descriptor.on_idle == IdlePolicy::ResetState {
-                    reset_idle(world, &admitted, invocation.scope, &descriptor.writes);
-                    continue;
+                if invocation.idle {
+                    if let Some(resets) = descriptor.on_idle.resets(&descriptor.writes) {
+                        let resets: Vec<SchemaKey> = resets.cloned().collect();
+                        reset_idle(world, &admitted, invocation.scope, &resets);
+                        continue;
+                    }
                 }
                 let current = world.get::<BodyRecords>(invocation.scope);
                 let state: Vec<(SchemaKey, Record)> = descriptor

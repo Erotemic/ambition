@@ -13,6 +13,7 @@ pub mod binding;
 // would have had to be applied, and a dead one. A fork you cannot reach is still a fork that
 // lies about how many commits this engine has.
 mod reconstitution;
+pub mod residency;
 pub(crate) mod stage;
 mod systems;
 pub(crate) mod transaction;
@@ -28,6 +29,7 @@ mod tests;
 // What this module re-exports below is what it OWNS.
 pub use binding::RoomBindings;
 pub use reconstitution::retire_the_previous_attempt;
+pub use residency::{claims_on, live_room_claims, live_room_claims_in, RoomClaim};
 pub use stage::{
     LastRoomConstructionCommit, RoomConstructionError, RoomConstructionPlan, RoomConstructionPlanId,
 };

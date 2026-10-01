@@ -2414,6 +2414,7 @@ mod tests {
             .expect("the candidate authors its occupant")
             .as_str()
             .to_string();
+        let claims_after = std::cell::Cell::new(Vec::new());
         let after_publication = |succession: LiveRoomSuccession| {
             let platform = MovingPlatformState::from_authored(
                 ae::Vec2::new(10.0, 20.0),
@@ -2425,6 +2426,10 @@ mod tests {
             for body in &outgoing {
                 app.world_mut().entity_mut(*body).insert(InRoomInstance(first));
             }
+            // Bob: slot 1 drives a body in #0 (OW4's claims).
+            app.world_mut()
+                .entity_mut(outgoing[0])
+                .insert(ambition_characters::control::DrivingParticipant(ambition_characters::control::PlayerSlot(1)));
             let scope = session_world_component::<SessionRoot>(app.world())
                 .expect("the fixture has a session root")
                 .0;
@@ -2449,6 +2454,8 @@ mod tests {
                 ambition_platformer2d_shared_tangle::sim_id::SimId::placement("held"),
                 RoomScopedEntity,
                 InRoomInstance(second),
+                // The player who holds #1: slot 0.
+                ambition_characters::control::DrivingParticipant(ambition_characters::control::PlayerSlot(0)),
             ));
             let outgoing = if succession.keeps_left() { Vec::new() } else { outgoing };
             stage_the_candidate_with(&mut app, candidate_plan(), outgoing, succession);
@@ -2461,6 +2468,12 @@ mod tests {
             let next = session_world_component::<RoomSet>(app.world())
                 .expect("the session keeps its room set")
                 .next_live_room();
+            // Who holds each live room after the publication: (room, slots).
+            let claims: Vec<(LiveRoomInstance, Vec<u8>)> = crate::world::rooms::residency::live_room_claims_in(app.world_mut())
+                .into_iter()
+                .map(|(room, claims)| (room, claims.iter().map(|claim| claim.slot.0).collect()))
+                .collect();
+            claims_after.set(claims);
             (verification, live_room_definitions(&mut app), bodies, next)
         };
         let held = |room| ("placement:held".to_string(), Some(room));
@@ -2528,6 +2541,13 @@ mod tests {
             "a crossing staged to join a room that is not there was not refused with both live rooms \
              and their bodies retained: (published, refused as stale, rooms, bodies, next): {:?}",
             verification.staged_violations
+        );
+        // OW4: a refused crossing releases no claim. Bob (slot 1) still holds
+        // #0 and the player in #1 (slot 0) still holds #1.
+        assert_eq!(
+            claims_after.take(),
+            vec![(first, vec![1]), (second, vec![0])],
+            "a refused crossing released a claim: (room, slots that hold it)"
         );
     }
 

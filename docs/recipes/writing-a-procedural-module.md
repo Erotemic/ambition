@@ -91,10 +91,13 @@ Start from `game/ambition_content_modules/src/overfit_volley.rs` (its own record
 
 Shared rules live in `strike.rs` (`once`, `once_numbered`, `locked`, `locked_when`). Declare
 `on_idle: IdlePolicy::ResetState` when an idle tick (no press, no telegraph)
-means "my strike is over": the host then skips the call. It resets ALL the
-entry's records, so a technique that keeps something across strikes (apple
-rain's lane sequence) declares `IdlePolicy::Invoke` and resets the rest
-itself.
+means "my strike is over": the host then skips the call and resets the
+entry's records. A technique that keeps something across strikes (apple
+rain's lane sequence, a summon counter) puts it in a record of its own and
+declares `IdlePolicy::ResetStateExcept(vec![THAT_RECORD])`. Avoid
+`IdlePolicy::Invoke` unless the entry must act on idle ticks: it is called on
+every tick of every body the trigger reaches, and a loaded call costs tens of
+microseconds.
 
 A technique that sizes itself by the room reads `BossCaster::room_size`: the
 boss's OWN live room. With two live rooms there is no "the" room.

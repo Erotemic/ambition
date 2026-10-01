@@ -145,8 +145,8 @@ pub use wielded_item_visuals::{
 };
 pub use world::{
     apply_block_art, build_filled_ground_meshes, flinch_struck_blocks, refresh_entity_sprite_handles_on_game_assets_change,
-    spawn_room_visuals, spawn_surface_chain_visuals, sync_lock_wall_visuals,
-    sync_removed_block_visuals,
+    present_live_room_visuals, spawn_room_visuals, spawn_surface_chain_visuals,
+    sync_lock_wall_visuals, sync_removed_block_visuals, PresentedRoomVisuals,
 };
 
 /// The public seam for content-owned per-actor overlays: sibling meshes and
@@ -414,10 +414,11 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
         app.add_systems(
             Update,
             (
-                // Head of the chain: the room must be drawn before `sync_visuals`
-                // reads its positions. The edge also gets an auto-inserted
+                // Head of the chain: a crossing's parallax is rebuilt before
+                // `sync_visuals` runs. The edge also gets an auto-inserted
                 // `ApplyDeferred` (`Update` keeps default build settings), which makes
-                // the spawns visible, not only earlier.
+                // the spawns visible, not only earlier. The room's static visuals
+                // are `present_live_room_visuals`'s (`SessionRoomVisualsPlugin`).
                 world::respawn_room_visuals_on_request,
                 // Spawn visuals for encounter-spawned enemies before `sync_visuals`
                 // reads them, and remove ones whose sim feature is gone (an expired

@@ -24,7 +24,9 @@ use std::collections::BTreeMap;
 
 use ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance;
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
-use bevy::prelude::{Commands, Entity, Message, MessageReader, MessageWriter, Query, Res, ResMut, Resource, With};
+use bevy::prelude::{
+    Commands, Entity, Message, MessageReader, MessageWriter, Query, Res, ResMut, Resource, With,
+};
 
 /// One boss defeat recorded since the last committed checkpoint.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -108,13 +110,22 @@ impl BossDefeatsSinceCheckpoint {
         put_u64(&mut bytes, self.defeats.len() as u64);
         for (placement, defeat) in &self.defeats {
             put_str(&mut bytes, placement);
-            put_u64(&mut bytes, defeat.room.map_or(0, |room| u64::from(room.ordinal()) + 1));
+            put_u64(
+                &mut bytes,
+                defeat.room.map_or(0, |room| u64::from(room.ordinal()) + 1),
+            );
             put_str(&mut bytes, &defeat.definition);
             put_str(&mut bytes, defeat.boss.as_ref().map_or("", SimId::as_str));
         }
         checksum_bytes(&bytes)
     }
 }
+
+/// The system set of the generic boss road's replay retraction
+/// ([`retract_boss_defeats_on_replay`]). A domain that retracts another
+/// consequence of a defeat orders after this set, not after the system.
+#[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct BossDefeatRetraction;
 
 /// A replay retracted the defeat of boss placement `placement`. The domain
 /// that owns a consequence of the defeat retracts it.
@@ -165,7 +176,11 @@ pub fn retract_boss_defeats_on_replay(
     mut since: ResMut<BossDefeatsSinceCheckpoint>,
     mut save: ResMut<ambition_persistence::save::AmbitionGameSave>,
     chests: Query<
-        (Entity, &ambition_combat::BossRewardChest, Option<&ambition_combat::Opened>),
+        (
+            Entity,
+            &ambition_combat::BossRewardChest,
+            Option<&ambition_combat::Opened>,
+        ),
         With<ambition_combat::ChestFeature>,
     >,
     mut retracted: MessageWriter<BossDefeatRetracted>,

@@ -222,6 +222,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_projectiles/src/extension.rs",
     ),
     "AmbitionGameSave": (
+        "crates/ambition_boss_encounter/src/retraction.rs",
         "crates/ambition_boss_encounter/src/systems.rs",
         "crates/ambition_encounter/src/switches.rs",
         "crates/ambition_encounter_features/src/systems.rs",
@@ -405,8 +406,14 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
         "crates/ambition_platformer2d_runtime/src/room_transition/commit.rs",
     ),
+    "BossDefeatsSinceCheckpoint": (
+        "crates/ambition_boss_encounter/src/retraction.rs",
+        "crates/ambition_boss_encounter/src/systems.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
+    ),
     "AuthoredOccurrences": (
         "crates/ambition_held_items/src/lib.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/items/pickup/minted_horizon.rs",
         "crates/ambition_platformer2d_actor_monolith/src/session/durable_horizon.rs",
         "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
         "crates/ambition_platformer2d_shared_tangle/src/lifecycle/continuity.rs",
@@ -1782,8 +1789,21 @@ ADJUDICATED: dict[str, str] = {
         "`QuestState::apply_persisted`. A method name is not a receiver. Follow "
         "each writer to the expression that changes `counts` instead."
     ),
+    "BossDefeatsSinceCheckpoint": (
+        "CORRECT — ONE RECORDER, ONE TAKER, TWO FORGETTERS, ONE TYPE "
+        "(BOSS-REPLAY-RETRACTION, 2026-10-01). The map is private "
+        "(`ambition_boss_encounter/src/retraction.rs`). `record` is called only at "
+        "the `Cleared` edge of `update_boss_encounters` (`systems.rs`). "
+        "`take_for_replay` is called only by `retract_boss_defeats_on_replay`, on "
+        "an ADMITTED replay. `forget_all` is called by the checkpoint commit and "
+        "the fresh-run reducer (both in `retraction.rs`) and by "
+        "`SessionScopedResources::reset` (`teardown.rs`) at the session edge. "
+        "Every writer runs in the simulation schedule or the checkpoint apply, "
+        "and the type is rollback state with a value checksum "
+        "(`boss.defeats_since_checkpoint`)."
+    ),
     "AuthoredOccurrences": (
-        "CORRECT — FIVE WRITER FILES ONTO FOUR `&mut self` METHODS, AND THE ENTRY "
+        "CORRECT — SIX WRITER FILES ONTO FIVE `&mut self` METHODS, AND THE ENTRY "
         "RULE IS ENFORCED INSIDE THE TYPE. `rows: BTreeMap<SimId, "
         "OccurrenceWhereabouts>` is PRIVATE "
         "(`shared_tangle/src/lifecycle/continuity.rs`) and there are exactly four "
@@ -1796,7 +1816,12 @@ ADJUDICATED: dict[str, str] = {
         "`actor_monolith/src/session/durable_horizon.rs`, "
         "`restore_occurrence_baseline` in the same continuity module, which is "
         "also how a New Game clears it: it restores a pinned EMPTY ledger); and "
-        "`SessionScopedResources::reset` at the session edge.\n"
+        "`SessionScopedResources::reset` at the session edge. The fifth, added "
+        "2026-10-01 (BOSS-REPLAY-RETRACTION), is `retract(ids)`: it REMOVES the "
+        "rows of the mints of a boss defeat that a replay retracted, taken by "
+        "`retract_mints_of_retracted_boss_defeats` (`items/pickup/"
+        "minted_horizon.rs`). It removes rows and adds none, so the entry rule "
+        "below is unchanged.\n"
         "    ⭐ THE UPDATER CANNOT BECOME AN ENTRY, AND THE TYPE IS WHAT STOPS IT. "
         "`republish_placements` inserts only where the existing row is "
         "`InCustody` or `Placed`, collects every other id into a `BTreeSet` and "

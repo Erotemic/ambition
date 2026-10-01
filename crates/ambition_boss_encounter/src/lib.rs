@@ -88,7 +88,7 @@ pub use profile::{default_boss_profiles, BossProfile, BossRewardProfile};
 pub use registry::BossEncounterRegistry;
 pub use retraction::{
     forget_boss_defeats_at_checkpoint, forget_boss_defeats_on_a_fresh_run,
-    retract_boss_defeats_on_replay, BossDefeatRetracted, BossDefeatSinceCheckpoint,
+    retract_boss_defeats_on_replay, BossDefeatRetracted, BossDefeatRetraction, BossDefeatSinceCheckpoint,
     BossDefeatsSinceCheckpoint,
 };
 pub use rewards::{sync_boss_reward_chests_ecs, BossRewardAnchor};

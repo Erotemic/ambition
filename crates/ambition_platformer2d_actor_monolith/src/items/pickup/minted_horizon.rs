@@ -386,7 +386,7 @@ impl Plugin for ItemCheckpointHorizonPlugin {
             sim,
             retract_mints_of_retracted_boss_defeats
                 .in_set(crate::session::reset::ContentRoomReplayResetSet)
-                .after(ambition_boss_encounter::retract_boss_defeats_on_replay),
+                .after(ambition_boss_encounter::BossDefeatRetraction),
         )
         // ⭐ INTO THE COMMIT EXECUTOR'S SCHEDULE, not the simulation. Custody
         // materializes and despawns; doing that on a speculative frame for an

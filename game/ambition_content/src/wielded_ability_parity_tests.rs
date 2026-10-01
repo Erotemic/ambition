@@ -129,7 +129,7 @@ fn world(road: Road, ability: &Ability) -> (App, Vec<Entity>) {
             ambition_platformer2d_runtime::extension_composition::install_ports(&mut app);
             if road == Road::Wasm {
                 let (backend, modules) = wasm_modules();
-                app.add_loaded_extension_modules(backend, modules, false);
+                app.add_loaded_extension_modules("ambition_content_modules.wasm", backend, modules, false);
             } else {
                 for module in ambition_content_modules::modules() {
                     app.add_extension_module(module);

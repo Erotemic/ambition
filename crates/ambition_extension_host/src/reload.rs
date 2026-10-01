@@ -41,14 +41,44 @@ impl StagedModuleReplacement {
     }
 }
 
-/// Stage the modules of a reloaded file as replacements. `Err` explains a
-/// refusal; the running code is unchanged either way until
-/// [`publish_staged_replacement`].
+/// One rebuilt file: where it came from, and what it now exports.
+pub struct LoadedArtifact {
+    pub artifact: Arc<str>,
+    pub backend: Arc<dyn ModuleBackend>,
+    pub modules: Vec<ModuleDescriptor>,
+}
+
+/// Stage the modules of one reloaded file. See [`stage_loaded_replacements`].
 pub fn stage_loaded_replacement(
     world: &mut World,
+    artifact: &str,
     backend: Arc<dyn ModuleBackend>,
     modules: Vec<ModuleDescriptor>,
 ) -> Result<(), String> {
+    stage_loaded_replacements(
+        world,
+        vec![LoadedArtifact {
+            artifact: Arc::from(artifact),
+            backend,
+            modules,
+        }],
+    )
+}
+
+/// Stage the modules of reloaded files as replacements: ONE candidate for
+/// every file, admitted once. `Err` explains a refusal; the running code is
+/// unchanged either way until [`publish_staged_replacement`].
+///
+/// ⛔ EVERY MODULE A FILE GAVE LEAVES WITH IT. The modules of a replaced file
+/// are found by their origin (`ModuleCode::Loaded::artifact`), never by the
+/// keys of the new build: a module the new build no longer exports must not
+/// stay, running its old code.
+///
+/// ⛔ ONE CANDIDATE, BUILT ON WHAT IS ALREADY STAGED. Two files changed in
+/// one poll, or a second change while the first waits for admission, are one
+/// generation; a candidate built only from the published composition dropped
+/// the other file's change.
+pub fn stage_loaded_replacements(world: &mut World, artifacts: Vec<LoadedArtifact>) -> Result<(), String> {
     let composition = world
         .get_resource::<ExtensionComposition>()
         .ok_or("the extension host has not admitted a composition yet")?;
@@ -57,28 +87,28 @@ pub fn stage_loaded_replacement(
         .ok_or("the extension host has not admitted a composition yet")?
         .0
         .clone();
-    let reloaded_keys: Vec<_> = modules.iter().map(|m| m.key.clone()).collect();
-    // The previous loaded build of each reloaded module leaves; a linked
-    // module of the same key stays, replaced again.
-    let mut declared: Vec<DeclaredModule> = composition
-        .declared
-        .iter()
-        .filter(|m| {
-            !(m.replaces
-                && matches!(m.code, ModuleCode::Loaded { .. })
-                && reloaded_keys.contains(&m.descriptor.key))
-        })
-        .cloned()
+    let base = world
+        .get_resource::<StagedModuleReplacement>()
+        .and_then(|staged| staged.candidate.as_ref().map(|(_, declared)| declared.clone()))
+        .unwrap_or_else(|| composition.declared.clone());
+    let replaced: Vec<Arc<str>> = artifacts.iter().map(|a| a.artifact.clone()).collect();
+    // A linked module of the same key stays, replaced again.
+    let mut declared: Vec<DeclaredModule> = base
+        .into_iter()
+        .filter(|m| !matches!(&m.code, ModuleCode::Loaded { artifact, .. } if replaced.contains(artifact)))
         .collect();
-    for (index, descriptor) in modules.into_iter().enumerate() {
-        declared.push(DeclaredModule {
-            descriptor,
-            code: ModuleCode::Loaded {
-                backend: backend.clone(),
-                module: index as u32,
-            },
-            replaces: true,
-        });
+    for loaded in artifacts {
+        for (index, descriptor) in loaded.modules.into_iter().enumerate() {
+            declared.push(DeclaredModule {
+                descriptor,
+                code: ModuleCode::Loaded {
+                    backend: loaded.backend.clone(),
+                    module: index as u32,
+                    artifact: loaded.artifact.clone(),
+                },
+                replaces: true,
+            });
+        }
     }
     let candidate = admit(API_VERSION, &composition.offers, &declared).map_err(|refusals| {
         let lines: Vec<String> = refusals.iter().map(|r| format!("  - {r}")).collect();
@@ -129,9 +159,29 @@ pub fn publish_staged_replacement(world: &mut World) -> bool {
 }
 
 /// Carry every live record whose schema changed its fields over to the new
-/// shape, by field tag (`StateSchema::migrate`). The publication is a
-/// mechanical edit the timeline's owner admitted, so no rewind crosses it.
+/// shape, by field tag (`StateSchema::migrate`), and remove every record of a
+/// schema that left the generation. The publication is a mechanical edit the
+/// timeline's owner admitted, so no rewind crosses it.
+///
+/// ⛔ A DEPARTED SCHEMA'S RECORDS GO. Kept, they stayed in the rollback state
+/// and its checksum, and a later generation that brought the key back with
+/// other fields read them as its own: the migration compares the generation
+/// before with the one after, and in neither was there a record to migrate.
 fn migrate_records(world: &mut World, before: &crate::Admitted, after: &crate::Admitted) {
+    let departed = |key: &ambition_extension_sdk::SchemaKey| !after.schemas.contains_key(key);
+    let mut bodies = world.query::<&mut crate::BodyRecords>();
+    for mut records in bodies.iter_mut(world) {
+        if records.0.records().iter().any(|r| departed(&r.key)) {
+            records.0.retain_schemas(|key| !departed(key));
+        }
+    }
+    let mut sessions = world.query::<&mut crate::SessionRecords>();
+    for mut records in sessions.iter_mut(world) {
+        if records.0.records().iter().any(|r| departed(&r.key)) {
+            records.0.retain_schemas(|key| !departed(key));
+        }
+    }
+
     let changed: Vec<(&ambition_extension_sdk::SchemaKey, &crate::admission::AdmittedSchema, &crate::admission::AdmittedSchema)> = after
         .schemas
         .iter()

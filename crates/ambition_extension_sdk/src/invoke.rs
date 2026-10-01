@@ -41,6 +41,10 @@ pub enum Fault {
     /// The entry declares session-attached state and the host has no one
     /// session to keep it in (no session, or more than one).
     NoSession(SchemaKey),
+    /// A stored record was written under another shape of its schema than
+    /// the admitted one. Publication migrates or removes every record, so
+    /// this is a broken invariant, not a module error.
+    StaleRecord { schema: SchemaKey, stored: u64, admitted: u64 },
 }
 
 impl std::fmt::Display for Fault {
@@ -58,6 +62,10 @@ impl std::fmt::Display for Fault {
             Self::Schema { schema, error } => write!(f, "state {schema}: {error}"),
             Self::Module(msg) => write!(f, "module fault: {msg}"),
             Self::NoSession(s) => write!(f, "state {s} is session-attached and there is no one session"),
+            Self::StaleRecord { schema, stored, admitted } => write!(
+                f,
+                "state {schema} has a record of shape {stored:016x}; the admitted shape is {admitted:016x}"
+            ),
         }
     }
 }

@@ -117,7 +117,7 @@ fn world(road: Road) -> (App, Vec<Entity>) {
             ambition_platformer2d_runtime::extension_composition::order_phases(&mut app, Sim);
             if road == Road::Wasm {
                 let (backend, modules) = wasm_modules();
-                app.add_loaded_extension_modules(backend, modules, false);
+                app.add_loaded_extension_modules("ambition_content_modules.wasm", backend, modules, false);
             } else {
                 for module in ambition_content_modules::modules() {
                     app.add_extension_module(module);

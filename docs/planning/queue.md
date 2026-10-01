@@ -1783,6 +1783,30 @@ open. Close with a fresh census rather than a checked list.
 
 ## P1 — ownership, composition and iteration
 
+### MENU-OVER-DIALOGUE — an overlay opened during a conversation must not end it
+
+**Owner:** `crates/ambition_dialog/src/systems.rs` (dialogue input) jointly
+with the menu input owner (`crates/ambition_input/src/menu.rs`,
+`MenuControlFrame`).
+
+**Ruling (Q75, 2026-10-01, [`maintainer-decisions.md`](maintainer-decisions.md)):**
+pause, map and inventory may open during dialogue. The dialogue stays live
+underneath without navigation input. Map and inventory are mutually exclusive
+primary overlays.
+
+**Current state, measured 2026-10-01.** `apply_dialog_menu_input` closes the
+conversation on `menu.back || menu.start`, so the Start press that opens the
+pause menu also ends the dialogue. That violates the ruling. The readers of
+`MenuControlFrame` (`dialog_input`, the map's `input.rs`, the grid and
+kaleidoscope menus) have no ordering or focus between them, so one press can
+reach the dialogue and an overlay in the same frame.
+
+**Acceptance:** a Start press during a conversation opens the pause menu and the
+conversation is still live, at the same line, when the menu closes; while an
+overlay is open, the dialogue reads no navigation; opening the map while the
+inventory is open (and the reverse) is refused or swaps, by one stated rule,
+with a witness for each.
+
 ### CANDIDATE-GENERATION-ORDER — a candidate session is prepared from the generation before its own activation
 
 **Owner:** [`engine/extension-model.md`](engine/extension-model.md) (content

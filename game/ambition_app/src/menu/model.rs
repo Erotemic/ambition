@@ -227,6 +227,9 @@ pub enum MenuPageAction {
     SystemOption(SystemOptionId),
     /// An immediate, screen-less System action (Reset Sandbox).
     SystemAction(SystemMenuAction),
+    /// Back at a menu's top level: close it. A close is an action so that every
+    /// close goes through the consumer's one close, which restores `Playing`.
+    CloseMenu,
     /// Apply the pending visual-quality profile after the confirmation row is
     /// selected. The chosen profile lives in app-local menu state until then.
     ConfirmVisualQuality,

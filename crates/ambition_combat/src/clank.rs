@@ -294,14 +294,14 @@ fn sides_are_opposed(
 /// mid-turn body is least reliable about.
 pub fn rebound_from_clanks(
     mut clanked: MessageReader<AttacksClanked>,
-    tuning: Option<Res<crate::rules::ResolvedCombatTuning>>,
+    // The rules of each rebounding body's own live room.
+    tuning: crate::rules::CombatTuningOf,
     feel: Option<Res<crate::feel::Platformer2dFeelTuningMonolith>>,
     mut bodies: Query<(
         &mut ae::BodyKinematics,
         &mut ambition_characters::actor::BodyCombat,
     )>,
 ) {
-    let rules = tuning.as_deref().copied().unwrap_or_default();
     let lock = feel
         .as_deref()
         .copied()
@@ -365,6 +365,7 @@ pub fn rebound_from_clanks(
         // through the beat just because the geometry was symmetrical.
         combat.recoil_lock_timer = combat.recoil_lock_timer.max(lock);
         if total.length_squared() > f32::EPSILON {
+            let rules = tuning.of(body).unwrap_or_default();
             kin.vel += total.normalize() * rules.clank_rebound_speed;
         }
     }

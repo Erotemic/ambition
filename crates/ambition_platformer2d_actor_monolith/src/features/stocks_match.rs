@@ -79,6 +79,19 @@ impl MatchAbandonRequest {
     }
 }
 
+/// The rules of the stage: the live room every seated fighter is in. A match
+/// is fought in one room; seats in two live rooms name no one stage, and get
+/// the rules of no room rather than the rules of either room.
+fn stage_rules(
+    tuning: &ambition_combat::rules::CombatTuningOf,
+    seated: &Query<bevy::prelude::Entity, bevy::prelude::With<ambition_match::MatchSeat>>,
+) -> Option<ambition_combat::rules::ResolvedCombatTuning> {
+    let mut rooms = seated.iter().map(|fighter| tuning.room_of(fighter));
+    let first = rooms.next().flatten();
+    let one_room = rooms.all(|room| room == first);
+    tuning.in_room(first.filter(|_| one_room))
+}
+
 pub fn decide_stocks_match(
     mut settled: ResMut<StocksMatchSettled>,
     mut decided: MessageWriter<StocksMatchDecided>,
@@ -88,10 +101,11 @@ pub fn decide_stocks_match(
     // them would need an ordering between two systems reading one clock.
     mut sudden_death: ResMut<SuddenDeathEntered>,
     mut began: MessageWriter<SuddenDeathBegan>,
-    // The stage's rules, for the one question this system asks of them.
-    // `Option` for the reason every other reader of the projection is: a bare
-    // fixture never installs it, and there the honest answer is no sudden death.
-    combat_rules: Option<Res<ambition_combat::rules::ResolvedCombatTuning>>,
+    // The stage's rules, for the one question this system asks of them: the
+    // rules of the live room the seated fighters are in. A bare fixture never
+    // installs them, and there the honest answer is no sudden death.
+    combat_rules: ambition_combat::rules::CombatTuningOf,
+    seated: Query<bevy::prelude::Entity, bevy::prelude::With<ambition_match::MatchSeat>>,
     // THE THIRD WAY A MATCH ENDS: somebody stopped it. Read here rather than in
     // a system of its own so that "the match is over" has exactly one author and
     // the once-only latch below covers all three roads.
@@ -207,8 +221,7 @@ pub fn decide_stocks_match(
             let outcome = clock_outcome(&sides);
             if let Some(damage) = timeout_continues_as_sudden_death(
                 &outcome,
-                combat_rules
-                    .as_deref()
+                stage_rules(&combat_rules, &seated)
                     .and_then(|rules| rules.sudden_death_damage),
             ) {
                 if !sudden_death.entered(&active) {

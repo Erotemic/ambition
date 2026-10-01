@@ -323,3 +323,32 @@ fn the_ledge_policy_decides_which_holder_survives() {
         "an undeclared world stopped trumping"
     );
 }
+
+/// ONE EDGE IS ONE EDGE IN ONE LIVE ROOM (OW1). Two live rooms share one local
+/// frame, so the same anchor in two rooms is two edges, and each body keeps
+/// its own. Control: the same two bodies in one room, where the later arrival
+/// keeps the edge.
+#[test]
+fn the_same_anchor_in_two_live_rooms_is_two_edges() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{
+        InRoomInstance, LiveRoomInstance, RoomInstanceRoot,
+    };
+    let first = LiveRoomInstance::ACTIVATION;
+    let hanging = |camper_room: LiveRoomInstance| {
+        let mut app = app();
+        app.world_mut().spawn((RoomInstanceRoot, first));
+        app.world_mut().spawn((RoomInstanceRoot, first.next()));
+        let anchor = ae::Vec2::new(100.0, 100.0);
+        let camper = hanging_at(&mut app, "camper", anchor, 1.4);
+        let arriving = hanging_at(&mut app, "arriving", anchor, 0.02);
+        app.world_mut().entity_mut(camper).insert(InRoomInstance(camper_room));
+        app.world_mut().entity_mut(arriving).insert(InRoomInstance(first));
+        app.update();
+        (still_hanging(&app, camper), still_hanging(&app, arriving))
+    };
+    assert_eq!(
+        (hanging(first), hanging(first.next())),
+        ((false, true), (true, true)),
+        "(camper and arrival in one room, camper in the other live room): (camper hangs, arrival hangs)"
+    );
+}

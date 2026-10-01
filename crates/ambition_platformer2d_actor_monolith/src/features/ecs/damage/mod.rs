@@ -224,22 +224,25 @@ impl FeatureHitWriters<'_, '_> {
 /// clock cannot draw, and answers `true`: every hit speaks, which is what every
 /// body did before the rate existed.
 #[derive(SystemParam)]
-pub struct BarkDraw<'w> {
+pub struct BarkDraw<'w, 's> {
     tick: Option<Res<'w, ambition_time::SimTick>>,
     active: Option<Res<'w, ambition_match::ActiveMatch>>,
     feel_tuning: Option<Res<'w, ambition_combat::feel::Platformer2dFeelTuningMonolith>>,
-    combat_rules: Option<Res<'w, ambition_combat::rules::ResolvedCombatTuning>>,
+    combat_rules: ambition_combat::rules::CombatTuningOf<'w, 's>,
 }
 
-impl BarkDraw<'_> {
+impl BarkDraw<'_, '_> {
     /// The world's feel tuning, or the default for a composition without it.
     pub fn feel(&self) -> ambition_combat::feel::Platformer2dFeelTuningMonolith {
         self.feel_tuning.as_deref().copied().unwrap_or_default()
     }
 
-    /// The match's resolved rules, or the baseline.
-    pub fn rules(&self) -> ambition_combat::rules::ResolvedCombatTuning {
-        self.combat_rules.as_deref().cloned().unwrap_or_default()
+    /// The resolved rules of live room `room`, or the baseline.
+    pub fn rules_in(
+        &self,
+        room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+    ) -> ambition_combat::rules::ResolvedCombatTuning {
+        self.combat_rules.in_room(room).unwrap_or_default()
     }
 
     /// May the hit on `victim` speak, under `rules`?
@@ -412,7 +415,7 @@ pub fn apply_feature_hit_events(
     // ⭐ WHEN, AND WHICH RUN OF THE WORLD — bundled, because this system is at
     // Bevy's parameter ceiling and two more bare `Res` put it over. See
     // [`BarkDraw`].
-    bark_draw: BarkDraw<'_>,
+    bark_draw: BarkDraw<'_, '_>,
     // Authored character voice for struck NPCs. This resource is required:
     // a production App that omitted provider catalog composition is malformed,
     // and must not silently degrade to anonymous barks.
@@ -600,15 +603,7 @@ pub fn apply_feature_hit_events(
     // encounter resources — death save/quest/music resolution lives in
     // `update_boss_encounters`.
 ) {
-    let mut feel = bark_draw.feel();
-    let resolved_rules = bark_draw.rules();
-    feel.di_max_angle = resolved_rules.di_max_angle;
-    // The MATCH's post-hit window, folded the way `di_max_angle` above is. An
-    // undeclared world scales by `1.0` and keeps the repeat guard it always had.
-    feel.hit_repeat_window_scale = resolved_rules.hit_repeat_window_scale;
-    // AE6: the MATCH's friendly-fire rule, not the world's baseline toggle —
-    // the same value the body resolver reads.
-    let friendly_fire = resolved_rules.friendly_fire();
+    let base_feel = bark_draw.feel();
     let catalog = &*catalogs.characters;
     // AD8: the prepared cast, borrowed once beside the catalog it stands behind.
     let prepared = catalogs.prepared.as_deref();
@@ -645,6 +640,18 @@ pub fn apply_feature_hit_events(
         // breakables, and two instances of one room have the same crates at
         // the same places.
         let event_room = event.live_room(&rooms);
+        // The rules of the hit's live room: two live rooms can play under two
+        // games' rules (OW1). A 3-damage robot hit in an Ambition room is heavy
+        // there whatever room another player holds.
+        let resolved_rules = bark_draw.rules_in(event_room);
+        let mut feel = base_feel;
+        feel.di_max_angle = resolved_rules.di_max_angle;
+        // The MATCH's post-hit window, folded the way `di_max_angle` above is. An
+        // undeclared world scales by `1.0` and keeps the repeat guard it always had.
+        feel.hit_repeat_window_scale = resolved_rules.hit_repeat_window_scale;
+        // AE6: the MATCH's friendly-fire rule, not the world's baseline toggle —
+        // the same value the body resolver reads.
+        let friendly_fire = resolved_rules.friendly_fire();
         if matches!(event.source, HitSource::Pogo) {
             for (entity, _id, name, aabb, mut feature) in &mut breakables {
                 if feature.broken() || !feature.breakable.pogo_refresh {

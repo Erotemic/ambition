@@ -96,6 +96,25 @@ pub(crate) fn apply_character_frame(
     // A sheet drawn from both sides answers the flip with its mirror rows, so
     // the texture is flipped only for a character that is left-right symmetric.
     let flip = animator.face(flip);
+    draw_animator_frame(sprite, animator, anchor, dt, flip, stance);
+    sprite.color = color;
+}
+
+/// Tick `animator` by `dt` and draw its current frame on `sprite`: the page,
+/// the atlas index, the facing flip, and the frame's trimmed size and anchor.
+///
+/// Every system that owns an animator draws through this. A packed sheet trims
+/// each frame to its own rect, so a system that sets only the atlas index
+/// draws every later frame inside the quad of the frame it was spawned on (a
+/// gate membrane that opens from a 1 px point stays 1 px).
+pub(crate) fn draw_animator_frame(
+    sprite: &mut Sprite,
+    animator: &mut CharacterAnimator,
+    anchor: Option<&mut bevy::sprite::Anchor>,
+    dt: f32,
+    flip: bool,
+    stance: StanceSquash,
+) {
     let index = animator.tick(dt);
     // Split sheets: select the page image the active animation draws from.
     // Single-page sheets (the common case) skip this entirely, so their
@@ -114,7 +133,6 @@ pub(crate) fn apply_character_frame(
         atlas.index = index;
     }
     sprite.flip_x = flip;
-    sprite.color = color;
     // Compatibility fallback for legacy sprite construction. Normal construction
     // seeds this basis before the sprite is drawable, so frame zero of a packed
     // sheet does not flash at full logical size. No-op once initialized.

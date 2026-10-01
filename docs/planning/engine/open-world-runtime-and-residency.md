@@ -810,8 +810,9 @@ again made both fail: Bob's room was replaced, and a second live room of
   not restore, once two rooms are live, reads as a checksum mismatch). A
   sync test has one peer, so it does not say what the rebase at the
   crossing costs a remote Bob's rollback window; that needs a two-peer
-  session. Not measured: what `GoverningRules` and the mode scope answer
-  for the room Bob is in.
+  session. ✅ Measured since (the review of the per-game heavy-hit rule,
+  below): `GoverningRules` read THE live room, so with two rooms live it
+  answered the rules of no room, in both rooms.
 
 ✅ **Cut 7a landed 2026-09-30: the systems a second live room froze, first
 two.** `SoleLiveRoom<T>` and `SoleLiveRoomSpec` are `Single`s, so a system
@@ -1057,6 +1058,49 @@ cutscene is one session-wide playback. Whether a cutscene that one player's
 room starts also stops the other player is a product question, not a
 keying one: multiplayer.md files it as "which story interactions pause
 only one participant versus the whole party".
+
+✅ **Review of the per-game heavy-hit rule, landed 2026-09-30: each live
+room plays under its own game's combat rules.** `project_combat_rules`
+resolved `CombatRules` and `StrikeWeightRules` through `GoverningRules`,
+which reads `CurrentRoom`, which is the one-live-room read. With Alice and
+Bob in two Ambition rooms it answered `NoRoom`, `UntaggedRooms` did not
+govern it, Ambition's heavy line (3) was gone, and every robot hit played
+the light cue. The projection now resolves the rules of each live room
+(`LiveRuleRooms::of`, from that room's mode tag) and puts them on the room's
+root as `RoomCombatTuning` (derived, schema 278 -> 279). The
+`ResolvedCombatTuning` resource is now the rules of no room. Every combat
+reader reads its subject's room through `CombatTuningOf::of`: the hit
+resolver and the projectile stepper read the strike's room, the clash
+arbiter each contender's, the body victim drain the hit's, the player
+drain the struck player's, the grab, the throw and the escape the captor's
+or captive's, and the pogo, the footstool, the clank rebound, the edge
+cancel, the special turn, the move trigger and the brain's launch law the
+body's. A stocks match reads the room its seated fighters share, and the
+rules of no room when they do not share one. Four pairwise reads had no
+room key and now have one: the grab, the clash, the ledge trump and the
+contact harm (a body in #0 could grab, clank with, trump or harm a body at
+the same place in #1). Witnesses:
+`a_heavy_robot_strike_stays_heavy_while_another_room_is_live` (control: the
+strike with one live room is heavy; with the one-room projection restored,
+the strike beside Bob's room was light),
+`two_live_rooms_of_two_games_hold_their_own_heavy_lines` (an Ambition room
+heavy at 3 and a Smash room heavy at 12 at once; restored, both had no
+line), `a_grab_does_not_reach_into_another_live_room`,
+`attacks_clash_only_in_their_own_live_room_under_its_rules`,
+`the_same_anchor_in_two_live_rooms_is_two_edges` and
+`it_does_not_harm_a_body_in_another_live_room` (each red with its room key
+removed). The strike is a written `HitEvent`; the swing that writes it is
+room-blind on weight. ⚠ A root seated during a tick has no
+`RoomCombatTuning` until the next `WorldPrep`, so for that part of a tick
+its bodies read the rules of no room (before, they read the previous
+room's rules for the same window). ⚠ Not witnessed reader by reader: the other
+`CombatTuningOf` readers are one call each and read the same component.
+⚠ Still the one-room read (`CurrentRoom`): the mode gates `in_mode`,
+`in_base_mode` and `in_rules_scope` (with two rooms live a gated system does
+not run; the shipped Ambition gates are menu and shell systems, and the
+hosted demos are one-room profiles), and the other `GoverningRules` readers:
+`death.rs`, `wallet_shield.rs`, `dormancy.rs`, `starting_character.rs`,
+`control_prompt.rs`, the Smash limit meter and the TwinTrack participants.
 
 ✅ **Cut 7l landed 2026-09-30: the portal gun fires in its own live room.**
 The shot step and the host-depth measure read the sole live room's

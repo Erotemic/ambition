@@ -114,9 +114,9 @@ pub fn pogo_sfx_from(effect: &EffectRef) -> Option<ambition_sfx::SfxId> {
 /// accepts that same contact.
 pub fn apply_pogo_bounce(
     mut messages: MessageReader<OnHitEffectMessage>,
-    // `Option`, like every other reader of the projection: a composition that
-    // never installs the rules projection keeps the baseline, which pogos.
-    rules: Option<bevy::prelude::Res<crate::rules::ResolvedCombatTuning>>,
+    // The rules of the owner's live room. A composition that never installs
+    // the rules projection keeps the baseline, which pogos.
+    rules: crate::rules::CombatTuningOf,
     pogo_targets: Query<(&PogoPolicy, Option<&PogoTargetVolumes>)>,
     mut owners: Query<(
         &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
@@ -125,17 +125,16 @@ pub fn apply_pogo_bounce(
     )>,
     mut sfx: ambition_sfx::BodySfxWriter,
 ) {
-    // read ONCE, and the read is what makes a spike a spike: a stage that
-    // declares `Spike` drops every rebound this frame rather than some of them.
-    if matches!(
-        rules.as_deref().copied().unwrap_or_default().downward_hit,
-        crate::rules::DownwardHitStyle::Spike
-    ) {
-        messages.clear();
-        return;
-    }
     for msg in messages.read() {
         if msg.effect.key != POGO_BOUNCE_KEY {
+            continue;
+        }
+        // A stage that declares `Spike` drops every rebound in its rooms, and
+        // only in its rooms: the owner's live room's rules decide.
+        if matches!(
+            rules.of(msg.owner).unwrap_or_default().downward_hit,
+            crate::rules::DownwardHitStyle::Spike
+        ) {
             continue;
         }
         let Ok((policy, pogo_volumes)) = pogo_targets.get(msg.victim) else {

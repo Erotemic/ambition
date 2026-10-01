@@ -876,18 +876,13 @@ fn pointer_motion_selects_a_kaleidoscope_control() {
     );
 }
 
-/// Faithful reproduction of the real app's input wiring: a leafwing player with
-/// Esc bound to BOTH `Start` (pause) and `MenuBack`, the menu-frame populate
-/// system, AND the cube routing — registered in the SAME default Update set so
-/// the scheduler is free to order them as it does in the real app.
-///
-/// Fix 1 behaviour: while the menu is open, Esc BACKS OUT one level when inside a
-/// nested System screen (`open_entry.is_some()`) and only CLOSES at the top level.
-/// So from a drilled-in category: first Esc → back to the entry list (still open),
-/// second Esc → close. There must be no double-trigger (Esc fires both
-/// `menu.start` and `menu.back`).
-#[test]
-fn esc_backs_out_then_closes_the_kaleidoscope_via_real_input() {
+/// The cube driven by real key input: the production input frame, open/close
+/// routing, nav and action consumer, with one primary participant bound by `map`.
+fn real_input_cube_app(
+    map: leafwing_input_manager::prelude::InputMap<
+        ambition_platformer2d::input::Platformer2dInputActionMonolith,
+    >,
+) -> App {
     use ambition_platformer2d::input::Platformer2dInputActionMonolith;
     use ambition_platformer2d::render::rendering::PlayerVisual;
     use leafwing_input_manager::prelude::*;
@@ -946,12 +941,6 @@ fn esc_backs_out_then_closes_the_kaleidoscope_via_real_input() {
     );
     *app.world_mut().resource_mut::<InventoryUiBackend>() = InventoryUiBackend::LunexKaleidoscope;
 
-    // Esc → both Start (pause) and MenuBack, exactly like the keyboard preset.
-    // Device state lives on the persistent participant, never on the player
-    // entity — the same split the real host boots with.
-    let mut map = InputMap::<Platformer2dInputActionMonolith>::default();
-    map.insert(Platformer2dInputActionMonolith::Start, KeyCode::Escape);
-    map.insert(Platformer2dInputActionMonolith::MenuBack, KeyCode::Escape);
     app.world_mut().spawn((
         ambition_platformer2d::input::InputParticipant::primary(),
         ambition_platformer2d::input::ParticipantContexts::default(),
@@ -968,6 +957,31 @@ fn esc_backs_out_then_closes_the_kaleidoscope_via_real_input() {
         ambition_platformer2d::abilities::mana::bank(),
     ));
     app.update();
+    app
+}
+
+/// Faithful reproduction of the real app's input wiring: a leafwing player with
+/// Esc bound to BOTH `Start` (pause) and `MenuBack`, the menu-frame populate
+/// system, AND the cube routing — registered in the SAME default Update set so
+/// the scheduler is free to order them as it does in the real app.
+///
+/// Fix 1 behaviour: while the menu is open, Esc BACKS OUT one level when inside a
+/// nested System screen (`open_entry.is_some()`) and only CLOSES at the top level.
+/// So from a drilled-in category: first Esc → back to the entry list (still open),
+/// second Esc → close. There must be no double-trigger (Esc fires both
+/// `menu.start` and `menu.back`).
+#[test]
+fn esc_backs_out_then_closes_the_kaleidoscope_via_real_input() {
+    use ambition_platformer2d::input::Platformer2dInputActionMonolith;
+    use leafwing_input_manager::prelude::*;
+
+    // Esc → both Start (pause) and MenuBack, exactly like the keyboard preset.
+    // Device state lives on the persistent participant, never on the player
+    // entity — the same split the real host boots with.
+    let mut map = InputMap::<Platformer2dInputActionMonolith>::default();
+    map.insert(Platformer2dInputActionMonolith::Start, KeyCode::Escape);
+    map.insert(Platformer2dInputActionMonolith::MenuBack, KeyCode::Escape);
+    let mut app = real_input_cube_app(map);
 
     let press_esc = |app: &mut App, down: bool| {
         let mut keys = app.world_mut().resource_mut::<ButtonInput<KeyCode>>();
@@ -1025,6 +1039,57 @@ fn esc_backs_out_then_closes_the_kaleidoscope_via_real_input() {
     press_esc(&mut app, false);
     app.update();
     assert!(!visible(&app), "third Esc (top level) closes the cube");
+}
+
+/// Back (Backspace / the gamepad East button) closes the cube AND unpauses.
+///
+/// A Back close that only hid the overlay left the game Paused under no menu:
+/// gameplay froze while the menu still opened, and every later open read the
+/// stray pause as "opened from pause", so no later close (Reset Sandbox
+/// included) restored Playing either.
+#[test]
+fn back_closes_the_kaleidoscope_and_resumes_play_via_real_input() {
+    use ambition_platformer2d::input::Platformer2dInputActionMonolith;
+    use leafwing_input_manager::prelude::*;
+
+    let mut map = InputMap::<Platformer2dInputActionMonolith>::default();
+    map.insert(Platformer2dInputActionMonolith::Start, KeyCode::Escape);
+    map.insert(Platformer2dInputActionMonolith::MenuBack, KeyCode::Escape);
+    map.insert(Platformer2dInputActionMonolith::MenuBack, KeyCode::Backspace);
+    let mut app = real_input_cube_app(map);
+    let tap = |app: &mut App, key: KeyCode| {
+        app.world_mut().resource_mut::<ButtonInput<KeyCode>>().press(key);
+        app.update();
+        app.world_mut().resource_mut::<ButtonInput<KeyCode>>().release(key);
+        app.update();
+    };
+    let mode = |app: &App| *app.world().resource::<State<GameMode>>().get();
+    let visible = |app: &App| {
+        app.world()
+            .resource::<ambition_platformer2d::inventory_ui::InventoryUiState>()
+            .visible
+    };
+    assert_eq!(mode(&app), GameMode::Playing, "premise: the game is being played");
+
+    for (round, page) in [MenuPage::System, MenuPage::Items, MenuPage::Map]
+        .into_iter()
+        .enumerate()
+    {
+        tap(&mut app, KeyCode::Escape);
+        assert!(visible(&app), "round {round}: Esc opens the cube");
+        assert_eq!(mode(&app), GameMode::Paused, "round {round}: the open cube pauses");
+        app.world_mut()
+            .resource_mut::<ActiveMenuPages<MenuPage, MenuPageAction>>()
+            .active = Some(page);
+        tap(&mut app, KeyCode::Backspace);
+        app.update();
+        assert!(!visible(&app), "round {round}: Back on the {page:?} face closes the cube");
+        assert_eq!(
+            mode(&app),
+            GameMode::Playing,
+            "round {round}: Back on the {page:?} face closed the cube and left the game paused"
+        );
+    }
 }
 
 /// ⛔ THE SHARED CURSOR IS NOT THIS BACKEND'S TO MOVE WHILE ITS MENU IS CLOSED.

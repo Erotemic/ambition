@@ -114,6 +114,11 @@ pub(crate) fn dispatch_menu_action(
             play_ui(sfx, ambition_platformer2d::sfx::ids::UI_MENU_BACK);
             info!("cube system action: cancelled visual quality change");
         }
+        MenuPageAction::CloseMenu => {
+            quality_confirm.cancel();
+            *close_menu = true;
+            play_ui(sfx, ambition_platformer2d::sfx::ids::UI_MENU_CLOSE);
+        }
         MenuPageAction::SystemAction(SystemMenuAction::ResetNewGame) => {
             // Immediate, no-confirm: queue the reset and fold the menu shut.
             system.request_reset();

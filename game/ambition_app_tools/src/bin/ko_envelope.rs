@@ -617,10 +617,12 @@ impl KoProbe {
             );
             // One tick for the projection system to re-fold the declaration.
             app.update();
-            let live = app
-                .world()
-                .resource::<ambition_platformer2d::combat::rules::ResolvedCombatTuning>()
-                .growth_base;
+            let live = ambition_platformer2d::platformer::lifecycle::sole_live_room_component::<
+                ambition_platformer2d::combat::rules::RoomCombatTuning,
+            >(app.world())
+            .expect("the live room's combat rules are projected onto it")
+            .0
+            .growth_base;
             assert_eq!(
                 live,
                 ambition_platformer2d::combat::rules::GrowthBaseCurve::IDENTITY,

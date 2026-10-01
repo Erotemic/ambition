@@ -66,7 +66,13 @@ population has more than one member picks its subject by archetype order.
 Read the same day: the three candidates in rollback tests
 (`mary_o_app/tests/rollback_restore.rs`, `rollback_room_memory.rs`,
 `sanic_app/tests/rollback_restore.rs`) read `MaryOLevelState`/`SanicActState`,
-one per session root, so order cannot move them. The other 72 are unread.
+one per session root, so order cannot move them. Also classified: 21 read a
+`RoomSet` (one per session root; MEASURED by name in the listing), 6 only ask
+`is_some()` (order cannot matter), and the 11 in
+`actor_monolith/src/features/ecs/spawn/tests.rs` are hand-built Apps that spawn
+one body (one read; the other ten REASONED from the same fixture shape and
+their "one enemy body" / "the NPC was built" expectations). About 34 are unread,
+mostly boss probes in single-boss rooms.
 
 ### SYNC-POINT-SENSITIVE-RESIM — a command sync point moves the death-reset replay
 

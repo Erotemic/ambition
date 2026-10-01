@@ -1293,6 +1293,11 @@ fn pipe_shell(room_id: &str) -> App {
         app.world_mut(),
         ambition_demo_mary_o::provider::mary_o_session_world_entering(room_id).room_set,
     );
+    // The room the body stands in is a LIVE room (OW1): the pipe rules read
+    // its definition from the live room root, and a set with no live room
+    // has no tubes.
+    ambition_platformer2d::world::rooms::seat_sole_live_room_by_id(app.world_mut(), room_id)
+        .expect("the fixture's set holds the room it enters");
     app
 }
 

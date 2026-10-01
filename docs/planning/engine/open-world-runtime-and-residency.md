@@ -956,8 +956,12 @@ room; with the reducer keyed by id only, Alice's entry started #2 too).
 Superseded: 7f's per-room-id death set is now per occurrence. The first
 draft of this repair looked the spawner's room up by authored room id; it
 was not landed, because two live rooms of one room are one authored id.
-⚠ Not witnessed on its own: the driver's per-occurrence mob liveness
-lookup (the witnesses above never have two occurrences with mobs at once).
+✅ The driver's per-occurrence mob liveness lookup is witnessed on its own
+(2026-10-01): `an_occurrence_reads_the_liveness_of_its_own_rooms_mobs` (two
+live rooms of `goblin_encounter` ask for mobs of the same ids on one tick;
+each request is served into its room, the mobs of one room killed: each
+occurrence holds its own room's liveness, in both arrangements; with the
+room filter removed from the lookup, #1 read #2's live mobs).
 ⚠ Still keyed by authored id: the music intent (`music/intent.rs`) and the
 encounter camera zoom, which are views (P5), and the symmetry attunement
 content encounter (✅ it reads every live room since cut 7i, below).
@@ -1235,6 +1239,31 @@ never reached phase 2 and the shots it found were the volley's. ⚠ The
 other unkeyed `CollisionWorld` readers (pogo, the damage safe point, the
 held items, the traversal abilities, the tether, the portal host, the
 trace) still answer only while one room is live.
+
+✅ **Cut 7p landed 2026-10-01: held items, the pogo, the damage step and
+the smash tether read the walls of their subject's own live room.** Each
+read the sole live room through the unkeyed `CollisionWorld` and returned
+while two rooms were live. Thus no item fell or rode its platform, no
+down-air bounced off an orb, no player took a hit or had a safe point
+remembered, and no tether bit. Each now reads
+`collision.room(LiveRooms::of(subject))`: the item, the striker, each
+player, and the fighter. The item physics builds each room's composed
+solids once per tick (`SolidsByRoom`). A flying item now strikes only a
+body of its own room: the strike read the bodies of every room.
+Witnesses, each poisoned with the sole-room read restored (the failure is
+in brackets): `an_item_falls_onto_the_floor_of_its_own_live_room` (it
+stayed at y=200), `a_settled_item_rides_the_platform_of_its_own_live_room`
+(x stayed at 200), `a_flying_item_strikes_only_a_body_of_its_own_live_room`
+(with the victim room filter removed, the body in #0 was struck),
+`a_down_air_bounces_off_an_orb_of_its_own_live_room` (the striker in #1 did
+not bounce), `a_tether_bites_a_ledge_of_its_own_live_room` (the throw:
+no bite in #1; the reel: released on tick 5, not on the one-room tick),
+and `a_safe_point_is_remembered_in_the_players_own_live_room` (Alice in
+the hub, #1, beside Bob's `switch_lab`, #0: her safe point stayed 131 px
+behind her). ⚠ The first draft of the last witness used Bob with no slot.
+That is the one-room control, because Bob's room retires when Alice
+crosses, so it passed under the poison. It now asserts that two rooms are
+live.
 
 ✅ **OW3, first slice, landed 2026-10-01: a runtime mint left in a room
 that is not live is still there when the room is live again.** A runtime

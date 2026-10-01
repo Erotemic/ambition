@@ -1465,3 +1465,36 @@ fn the_overflow_boss_swoops_in_its_own_live_room() {
         "the overflow boss stood at {start} and then at {end}: its body did not move in #1"
     );
 }
+
+/// OW1 cut 7p: a player's safe point is remembered on the walls of their own
+/// live room. Alice walks in the hub (#1) while Bob holds `switch_lab` (#0);
+/// standing again, her last safe point is where she stands. Before, the
+/// damage step read the sole live room, so while two rooms were live it did
+/// not run: no player took a hit and no safe point moved.
+#[test]
+fn a_safe_point_is_remembered_in_the_players_own_live_room() {
+    use ambition_platformer2d::platformer::safe_position::PlayerSafetyState;
+    let (mut sim, _) = alice_leaves_bob(Some(ambition_platformer2d::characters::control::PlayerSlot(1)));
+    let alice_now = |sim: &mut Platformer2dSimHarness| {
+        let world = sim.world_mut();
+        world
+            .query_filtered::<(&ambition_platformer2d::engine_core::BodyKinematics, &PlayerSafetyState), bevy::prelude::With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>()
+            .single(world)
+            .map(|(kinematics, safety)| (kinematics.pos, safety.last_safe_pos))
+            .expect("Alice's body is in the world")
+    };
+    let (start, _) = alice_now(&mut sim);
+    for _ in 0..30 {
+        sim.step(ambition_app::AgentAction { move_x: 1.0, ..base() });
+    }
+    for _ in 0..30 {
+        sim.step(base());
+    }
+    let (pos, safe) = alice_now(&mut sim);
+    assert_eq!(live_rooms(&mut sim).len(), 2, "precondition: Bob's room did not stay live beside Alice's");
+    assert!(pos.distance(start) > 30.0, "control: Alice did not walk in #1 ({start} -> {pos})");
+    assert!(
+        safe.distance(pos) < 2.0,
+        "Alice's safe point did not follow her in #1: she stands at {pos}, the safe point is {safe}"
+    );
+}

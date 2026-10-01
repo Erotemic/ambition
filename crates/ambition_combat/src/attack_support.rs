@@ -287,9 +287,14 @@ fn pogo_target_for_attack_hitbox(world: &ae::World, attack: ae::Aabb) -> Option<
 /// `LandedBodyHit` -> `dispatch_landed_hit_effects` -> `apply_pogo_bounce` and
 /// never enter the block world. Keeping those domains separate preserves body
 /// identity and makes self-pogo through an anonymous body projection impossible.
+///
+/// The surface is one of the striker's own live room (OW1 cut 7p). This read
+/// the sole live room, so while two rooms were live no down-air bounced off an
+/// orb.
 pub fn pogo_moveset_off_world_orbs(
     // The composed collision read-API rather than its three ingredients.
     collision: ambition_platformer2d_world::collision::CollisionWorld,
+    live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
     mut hitboxes: Query<(
         Entity,
         &crate::strike::Hitbox,
@@ -326,10 +331,11 @@ pub fn pogo_moveset_off_world_orbs(
     if pogo.is_empty() {
         return;
     }
-    let Some(assembled) = collision.solids() else {
-        return;
-    };
     for (hb_entity, owner, world_box, rise, cue) in pogo {
+        let room = live.of(owner).map(ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance);
+        let Some(assembled) = collision.room(room.as_ref()).and_then(|room| room.solids()) else {
+            continue;
+        };
         if pogo_target_for_attack_hitbox(&assembled, world_box).is_none() {
             continue;
         }
@@ -415,6 +421,79 @@ fn attack_intent_animation(intent: AttackIntent) -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Whether a down-air of a striker stamped `striker_room` bounces off a
+    /// pogo orb under it. Two live rooms: #0 (`ACTIVATION`) is empty, #1 holds
+    /// the orb.
+    fn pogo_bounces(striker_room: usize) -> bool {
+        use crate::on_hit::HitboxOnHit;
+        use crate::strike::{Hitbox, HitboxAnchor, HitboxKnockback};
+        use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
+        use bevy::prelude::*;
+        let mut app = App::new();
+        app.add_message::<ambition_sfx::OwnedSfxMessage>();
+        let live = [LiveRoomInstance::ACTIVATION, LiveRoomInstance::ACTIVATION.next()];
+        let orb = ae::Block {
+            kind: ae::BlockKind::PogoOrb,
+            ..ae::Block::solid("orb", ae::Vec2::new(90.0, 140.0), ae::Vec2::new(20.0, 20.0))
+        };
+        for (room, blocks) in live.into_iter().zip([Vec::new(), vec![orb]]) {
+            app.world_mut().spawn((
+                RoomInstanceRoot,
+                room,
+                ae::RoomGeometry(ae::World::new("pogo", ae::Vec2::new(400.0, 400.0), ae::Vec2::new(16.0, 16.0), blocks)),
+            ));
+        }
+        let center = ae::Vec2::new(100.0, 100.0);
+        let striker = app
+            .world_mut()
+            .spawn((
+                ae::CenteredAabb::from_center_size(center, ae::Vec2::new(20.0, 40.0)),
+                ae::BodyKinematics {
+                    pos: center,
+                    vel: ae::Vec2::ZERO,
+                    size: ae::Vec2::new(20.0, 40.0),
+                    facing: 1.0,
+                },
+                ambition_platformer2d_core::BodyGroundState::default(),
+                ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame::default(),
+                InRoomInstance(live[striker_room]),
+            ))
+            .id();
+        app.world_mut().spawn((
+            Hitbox {
+                strike_sfx: None,
+                owner: striker,
+                source: ambition_vfx::HitSide::Player,
+                // Below the striker's feet, over the orb.
+                anchor: HitboxAnchor::FollowOwner {
+                    local_offset: ae::Vec2::new(0.0, 40.0),
+                },
+                half_extent: ae::Vec2::new(18.0, 24.0),
+                shape: None,
+                facing: 1.0,
+                damage: 4,
+                knockback: HitboxKnockback::FeelScale(0.0),
+                launch_dir: None,
+                frame_down: ae::Vec2::new(0.0, 1.0),
+                reaction: None,
+            },
+            HitboxOnHit::new(ambition_entity_catalog::EffectRef::new(crate::on_hit::POGO_BOUNCE_KEY)),
+        ));
+        app.add_systems(Update, pogo_moveset_off_world_orbs);
+        app.update();
+        app.world().get::<ae::BodyKinematics>(striker).unwrap().vel.y < -1.0
+    }
+
+    /// OW1 cut 7p: a down-air bounces off an orb of the striker's own live
+    /// room. The orb is in #1: a striker in #1 bounces, and a striker in #0 at
+    /// the same place does not. Before, the pogo read the sole live room: with
+    /// two rooms live no down-air bounced.
+    #[test]
+    fn a_down_air_bounces_off_an_orb_of_its_own_live_room() {
+        assert!(pogo_bounces(1), "the striker in #1 did not bounce off #1's orb");
+        assert!(!pogo_bounces(0), "the striker in #0 bounced off an orb of #1");
+    }
 
     fn test_attack_box() -> ae::Aabb {
         ae::Aabb::new(ae::Vec2::new(100.0, 100.0), ae::Vec2::new(16.0, 16.0))

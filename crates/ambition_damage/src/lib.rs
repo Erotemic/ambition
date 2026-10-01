@@ -1436,14 +1436,6 @@ pub fn apply_player_hit_events(
     let difficulty_multiplier = damage_policy.incoming;
     let tuning = active_tuning.0;
     let base_feel = *feel_tuning;
-    // The bare authored room, for the death path that must NOT see moving
-    // platforms or overlay solids. `solids()` below proves one is loaded.
-    let Some(room) = collision.base() else {
-        return;
-    };
-    let Some(safe_world) = collision.solids() else {
-        return;
-    };
 
     // Resolve every event to a concrete target entity once: events
     // with `HitTarget::Body(e)` route to that player; events with
@@ -1495,6 +1487,21 @@ pub fn apply_player_hit_events(
         facts,
     ) in &mut player_q
     {
+        // The walls of this player's own live room (OW1 cut 7p). This read the
+        // sole live room, so while two rooms were live no player took damage
+        // and no safe point was remembered. `room` is the bare authored room,
+        // for the death path that must NOT see moving platforms or overlay
+        // solids; `safe_world` is the composed one.
+        let player_room = rooms
+            .of(player_entity)
+            .map(ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance);
+        let Some(room_collision) = collision.room(player_room.as_ref()) else {
+            continue;
+        };
+        let room = room_collision.base();
+        let Some(safe_world) = room_collision.solids() else {
+            continue;
+        };
         // The rules of this player's own live room.
         let combat_rules = room_rules.of(player_entity).unwrap_or_default();
         let friendly_fire = combat_rules.friendly_fire();

@@ -1469,3 +1469,153 @@ fn two_live_rooms_of_one_room_run_their_encounters_apart() {
         "a spawn request of #2's fight did not name #2: {requested:?}"
     );
 }
+
+/// OW1: an occurrence reads the liveness of its OWN room's mobs.
+///
+/// Live rooms #1 and #2 both instantiate `goblin_encounter`, and Alice and
+/// Bob enter on one tick, so the two occurrences ask for mobs of the same ids
+/// at once. This test serves each request into the room it names, with the
+/// mobs of `dead` killed and the other room's alive, and returns the liveness
+/// each occurrence then holds for the served ids, by room. Two occurrences
+/// mint the same mob ids, so a lookup by id alone reads one room's mob for
+/// both.
+fn liveness_by_room(dead: usize) -> Vec<(Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>, Vec<bool>)> {
+    use ambition_encounter::{EncounterCommand, EncounterEvent, EncounterEventMsg};
+    use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
+    use bevy::prelude::*;
+
+    let rooms = [LiveRoomInstance::ACTIVATION.next(), LiveRoomInstance::ACTIVATION.next().next()];
+    let mut goblin_room = ambition_platformer2d_world::rooms::RoomSpec::new(
+        "goblin_encounter",
+        ae::World::new("goblin_encounter", ae::Vec2::new(1600.0, 600.0), ae::Vec2::new(16.0, 16.0), Vec::new()),
+    );
+    goblin_room.encounter_triggers.push(ambition_platformer2d_world::rooms::EncounterTriggerSpec {
+        id: "goblin_encounter".into(),
+        min: ae::Vec2::new(0.0, 0.0),
+        size: ae::Vec2::new(400.0, 200.0),
+        camera_zoom: None,
+    });
+    let hall_room = ambition_platformer2d_world::rooms::RoomSpec::new(
+        "hall",
+        ae::World::new("hall", ae::Vec2::new(800.0, 600.0), ae::Vec2::new(16.0, 16.0), Vec::new()),
+    );
+    let mut app = App::new();
+    app.add_message::<ambition_combat::death_rules::ActorDiedMessage>();
+    app.add_message::<EncounterCommand>();
+    app.add_message::<EncounterEventMsg>();
+    app.insert_resource(ambition_time::WorldTime {
+        raw_dt: 1.0 / 60.0,
+        scaled_dt: 1.0 / 60.0,
+        ..Default::default()
+    });
+    app.insert_resource(ambition_platformer2d_shared_tangle::time::SimDt { dt: 1.0 / 60.0 });
+    app.init_resource::<ambition_persistence::save::AmbitionGameSave>();
+    app.init_resource::<ambition_encounter::switches::ResolvedSwitchActivations>();
+    app.insert_resource(switch_index(&[]));
+    app.init_resource::<ambition_persistence::quest::QuestRegistry>();
+    ambition_platformer2d_world::rooms::insert_room_set(
+        app.world_mut(),
+        ambition_platformer2d_world::rooms::RoomSet::from_parts_or_panic("hall", vec![hall_room, goblin_room], Vec::new()),
+    );
+    let goblin = ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<
+        ambition_platformer2d_world::rooms::RoomSet,
+    >(app.world())
+    .and_then(|set| set.definition_by_id("goblin_encounter"))
+    .expect("the set has the encounter's room");
+    for room in rooms {
+        app.world_mut().spawn((RoomInstanceRoot, room, goblin));
+        app.world_mut().spawn((
+            ambition_platformer2d_shared_tangle::markers::PlayerEntity,
+            ambition_platformer2d_core::BodyKinematics {
+                pos: ae::Vec2::new(100.0, 100.0),
+                vel: ae::Vec2::ZERO,
+                size: ae::Vec2::new(20.0, 40.0),
+                facing: 1.0,
+            },
+            InRoomInstance(room),
+        ));
+    }
+    app.add_systems(
+        Update,
+        (
+            crate::project_live_encounter_occurrences,
+            crate::drive_wave_encounters,
+            ambition_encounter::reduce_encounter_lifecycles,
+        )
+            .chain(),
+    );
+
+    // The first requests of both rooms, as (room, mob id).
+    let mut requested: Vec<(Option<LiveRoomInstance>, String)> = Vec::new();
+    for _ in 0..400 {
+        app.update();
+        requested.extend(
+            app.world()
+                .resource::<Messages<EncounterEventMsg>>()
+                .iter_current_update_messages()
+                .filter_map(|msg| match &msg.event {
+                    EncounterEvent::SpawnCommand { id, .. } => Some((msg.room, id.clone())),
+                    _ => None,
+                }),
+        );
+        if rooms.iter().all(|room| requested.iter().any(|(asked, _)| *asked == Some(*room))) {
+            break;
+        }
+    }
+    for room in rooms {
+        let ids: Vec<&String> = requested.iter().filter(|(asked, _)| *asked == Some(room)).map(|(_, id)| id).collect();
+        assert!(!ids.is_empty(), "precondition: #{room:?} asked for no mob in 400 ticks");
+    }
+    // Served in room order, so #2's mobs are the later entities.
+    for (index, room) in rooms.into_iter().enumerate() {
+        for (_, id) in requested.iter().filter(|(asked, _)| *asked == Some(room)) {
+            let current = if index == dead { 0 } else { 3 };
+            app.world_mut().spawn((
+                ambition_combat::components::EncounterMob::new("goblin_encounter"),
+                ambition_combat::components::FeatureId(id.clone()),
+                ambition_characters::actor::BodyHealth::new(ambition_characters::actor::Health {
+                    current,
+                    max: 3,
+                    invulnerable: Default::default(),
+                }),
+                InRoomInstance(room),
+            ));
+        }
+    }
+    app.update();
+    let world = app.world_mut();
+    let mut query = world.query::<(&ambition_encounter::EncounterParticipants, Option<&InRoomInstance>)>();
+    let mut liveness: Vec<_> = query
+        .iter(world)
+        .map(|(participants, room)| {
+            let room = room.map(|room| room.0);
+            let served: Vec<bool> = participants
+                .members
+                .iter()
+                .filter(|member| requested.iter().any(|(asked, id)| *asked == room && *id == member.id))
+                .map(|member| member.alive)
+                .collect();
+            (room, served)
+        })
+        .collect();
+    liveness.sort();
+    liveness
+}
+
+/// Each occurrence holds the liveness of its own room's mobs, whichever room
+/// the dead mobs are in. Before, the lookup took the mobs of the encounter id
+/// in every room, so one room's mob answered for the other's of the same id.
+#[test]
+fn an_occurrence_reads_the_liveness_of_its_own_rooms_mobs() {
+    for dead in [0, 1] {
+        let liveness = liveness_by_room(dead);
+        assert_eq!(liveness.len(), 2, "two occurrences, one in each room: {liveness:?}");
+        for (index, (_, alive)) in liveness.iter().enumerate() {
+            assert!(!alive.is_empty(), "precondition: occurrence {index} holds no served member");
+            assert!(
+                alive.iter().all(|alive| *alive == (index != dead)),
+                "with the mobs of room {dead} dead, occurrence {index} read another room's mobs: {liveness:?}"
+            );
+        }
+    }
+}

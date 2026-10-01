@@ -461,3 +461,36 @@ fn every_live_music_track_resolves_under_web_served_assets() {
          music_registry.ron — the procedural fallback is retired."
     );
 }
+
+/// A content reload revises the music track table in place: a track the new
+/// registry drops is gone, a new one is playable at its own path, and a moved
+/// one plays from its new file.
+#[test]
+fn a_revised_music_registry_replaces_the_track_table() {
+    let sfx = fixture_sfx_registry().clone();
+    let track = |id: &str, asset_path: Option<&str>| MusicTrack {
+        id: id.to_string(),
+        display_name: id.to_string(),
+        asset_path: asset_path.map(str::to_string),
+        one_shot: false,
+    };
+    let before = MusicRegistry {
+        default_track: "kept".to_string(),
+        tracks: vec![track("kept", None), track("moved", Some("audio/music/old.ogg")), track("dropped", None)],
+    };
+    let after = MusicRegistry {
+        default_track: "kept".to_string(),
+        tracks: vec![track("kept", None), track("moved", Some("audio/music/new.ogg")), track("added", None)],
+    };
+    let mut assets = Assets::<KiraAudioSource>::default();
+    let mut library = AudioLibrary::new(&mut assets, &sfx, &before, None, None, None);
+    library.revise_music_tracks(&after, None);
+
+    assert_eq!(library.track_count(), 3);
+    assert!(library.track("dropped").is_none());
+    assert_eq!(library.track("moved").map(|t| t.asset_path()), Some("audio/music/new.ogg"));
+    assert_eq!(
+        library.track("added").map(|t| t.asset_path()),
+        Some("audio/music/generated/added/full.ogg")
+    );
+}

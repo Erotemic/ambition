@@ -647,6 +647,44 @@ impl ActiveAudioSelection {
 
     /// Refresh one provider's runtime bank identities after asynchronous load.
     /// Every active source backed by that provider changes together.
+    /// Give the active context `provider_id`'s revised registries, for a
+    /// content reload.
+    ///
+    /// A reload activates a new session, and the session's selection reads the
+    /// catalog when it is activated. The publication and the selection are in
+    /// the same frame, and either can run first; this makes the result the same
+    /// in both orders. Every source backed by the provider takes the new SFX
+    /// registry (its authorization is derived again, and a frontend allowlist
+    /// stays narrow). A gameplay or direct context of the provider takes the new
+    /// music; a frontend context keeps its profile's music.
+    pub fn revise_provider(
+        &mut self,
+        provider_id: &str,
+        music: Option<&MusicRegistry>,
+        sfx: Option<&SfxRegistry>,
+        bank_ids: BTreeSet<SfxId>,
+    ) {
+        let Some(current) = self.current.as_mut() else {
+            return;
+        };
+        for source in current
+            .sfx_sources
+            .values_mut()
+            .filter(|source| source.provider_id == provider_id)
+        {
+            source.sfx = sfx.cloned();
+            source.refresh_bank_ids(bank_ids.clone());
+        }
+        if current.provider_id == provider_id
+            && !matches!(current.owner, AudioContextOwner::Frontend(_))
+        {
+            current.authorized_music = music
+                .map(|registry| registry.tracks.iter().map(|track| track.id.clone()).collect())
+                .unwrap_or_default();
+            current.music = music.cloned();
+        }
+    }
+
     pub fn refresh_provider_sfx_ids(&mut self, provider_id: &str, bank_ids: BTreeSet<SfxId>) {
         let Some(current) = self.current.as_mut() else {
             return;

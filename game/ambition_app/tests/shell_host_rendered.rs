@@ -1677,3 +1677,102 @@ fn a_settings_row_shows_its_value_and_the_value_follows_the_setting() {
          not name the values, so the row keeps showing whatever it was built with"
     );
 }
+
+/// ⭐ AN SFX CUE SAVED WHILE THE GAME RUNS IS PLAYED. The reload replaces
+/// Ambition's audio fragment, the new session selects it, and the handle cache
+/// does not play a synthesis of the old spec. Two saves: the first adds a cue
+/// (unauthorized before it), the second retunes it (the cached synthesis of
+/// the first spec must not play). The watch is pointed at an exported copy.
+#[cfg(not(feature = "static_content"))]
+#[test]
+fn an_sfx_cue_saved_while_the_game_runs_is_played() {
+    use ambition_content::content_watch::ContentSourceWatch;
+    use ambition_platformer2d::audio::render::SfxSourceKind;
+    use ambition_platformer2d::audio::selection::ActiveAudioSelection;
+    use ambition_platformer2d::sfx::{SfxId, SfxMessage};
+
+    const CUE: &str = "reload.witness.cue";
+    let id = SfxId::new(CUE);
+    let authored_frequency = |app: &App| {
+        let selection = app.world().resource::<ActiveAudioSelection>();
+        selection
+            .primary_sfx_source()
+            .and_then(|source| selection.sfx_for_source(source))
+            .and_then(|registry| registry.spec_for_id(id))
+            .map(|spec| spec.frequency)
+    };
+    let wait_for = |app: &mut App, frequency: f32| {
+        for frame in 0..1200 {
+            if authored_frequency(app) == Some(frequency) {
+                return frame;
+            }
+            app.update();
+            std::thread::sleep(std::time::Duration::from_millis(2));
+        }
+        let catalog_has = app
+            .world()
+            .resource::<ambition_platformer2d::audio::catalog::AudioCatalogRegistry>()
+            .sfx_for(ambition_content::AMBITION_CONTENT_PROVIDER)
+            .and_then(|registry| registry.spec_for_id(id))
+            .map(|spec| spec.frequency);
+        panic!(
+            "1200 frames after the save the session's registry authors {CUE} at {:?}, not \
+             {frequency} (the App's catalog: {catalog_has:?}); reloads requested: {}",
+            authored_frequency(app),
+            app.world().resource::<ContentSourceWatch>().requested
+        );
+    };
+
+    let mut app = rendered_app();
+    settle(&mut app);
+    app.world_mut().write_message(ShellCommand::GoTo(
+        shell_host::AMBITION_GAMEPLAY_ROUTE.into(),
+    ));
+    settle(&mut app);
+    assert_eq!(authored_frequency(&app), None, "the premise: the shipped registry has no {CUE}");
+
+    let root = std::env::temp_dir().join(format!("ambition_sfx_watch_{}", std::process::id()));
+    let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        ambition_content::pack::export_sources_to(&root).expect("sources export");
+        app.world_mut().insert_resource(ContentSourceWatch::new(root.clone()));
+        std::thread::sleep(std::time::Duration::from_millis(20));
+        let path = root.join("audio/sfx_registry.ron");
+        let shipped = std::fs::read_to_string(&path).unwrap();
+        let anchor = "    sfx: [\n";
+        assert_eq!(shipped.matches(anchor).count(), 1, "the premise: the registry opens its cue list once");
+        let with_cue = |frequency: f32| {
+            shipped.replacen(
+                anchor,
+                &format!(
+                    "{anchor}        (id: Some(\"{CUE}\"), waveform: Sine, frequency: {frequency:.1}, frequency_end: 200.0, duration: 0.050, volume: 0.10, attack: 0.003, release: 0.020, noise: 0.0),\n"
+                ),
+                1,
+            )
+        };
+
+        std::fs::write(&path, with_cue(300.0)).unwrap();
+        let frames = wait_for(&mut app, 300.0);
+        eprintln!("a saved new cue reached the session's registry {frames} frames after the save");
+        let first = play_owned_sfx(&mut app, SfxMessage::Play { id, pos: Vec2::ZERO })
+            .filter(|record| record.id == id)
+            .expect("the added cue plays once the reload is activated");
+        assert_eq!(first.source.kind, SfxSourceKind::Procedural);
+
+        std::thread::sleep(std::time::Duration::from_millis(20));
+        std::fs::write(&path, with_cue(400.0)).unwrap();
+        let frames = wait_for(&mut app, 400.0);
+        eprintln!("a retuned cue reached the session's registry {frames} frames after the save");
+        let second = play_owned_sfx(&mut app, SfxMessage::Play { id, pos: Vec2::ZERO })
+            .filter(|record| record.id == id)
+            .expect("the retuned cue plays");
+        assert_ne!(
+            second.source.fingerprint, first.source.fingerprint,
+            "the retuned cue played the cached synthesis of the spec it replaced"
+        );
+        assert_eq!(app.world().resource::<ContentSourceWatch>().requested, 2, "two saves, two reloads");
+    }));
+    let _ = std::fs::remove_dir_all(&root);
+    if let Err(payload) = outcome {
+        std::panic::resume_unwind(payload);
+    }
+}

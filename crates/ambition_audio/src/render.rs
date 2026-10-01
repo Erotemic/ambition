@@ -222,7 +222,12 @@ impl ProviderSfxHandleCache {
     ) -> Result<ResolvedSfxHandle, SfxSourceMiss> {
         let key = (provider_id.to_owned(), id);
         if let Some(handle) = self.handles.get(&key) {
-            if cached_sfx_source_is_current(handle.source, bank_fingerprint) {
+            let procedural_now = procedural.and_then(|registry| {
+                registry
+                    .spec_for_id(id)
+                    .map(|spec| procedural_sfx_fingerprint(registry.sample_rate, spec))
+            });
+            if cached_sfx_source_is_current(handle.source, bank_fingerprint, procedural_now) {
                 return Ok(handle.clone());
             }
             // Do not keep that fallback: the first request after the bank
@@ -281,12 +286,22 @@ impl ProviderSfxHandleCache {
     }
 }
 
-fn cached_sfx_source_is_current(cached: SfxSourceIdentity, bank_fingerprint: Option<u64>) -> bool {
-    match bank_fingerprint {
-        Some(fingerprint) => {
-            cached.kind == SfxSourceKind::Bank && cached.fingerprint == fingerprint
-        }
-        None => true,
+/// Is a cached source still the one the current content names?
+///
+/// A bank source is current while the bank holds the same clip. A procedural
+/// source is current while the registry holds the same spec: a content reload
+/// can replace the registry, and the cue must then play the new spec, not the
+/// cached synthesis of the old one.
+fn cached_sfx_source_is_current(
+    cached: SfxSourceIdentity,
+    bank_fingerprint: Option<u64>,
+    procedural_fingerprint: Option<u64>,
+) -> bool {
+    match (bank_fingerprint, cached.kind) {
+        (Some(fingerprint), SfxSourceKind::Bank) => cached.fingerprint == fingerprint,
+        (Some(_), _) => false,
+        (None, SfxSourceKind::Procedural) => procedural_fingerprint == Some(cached.fingerprint),
+        (None, _) => true,
     }
 }
 
@@ -587,17 +602,20 @@ mod tests {
             kind: SfxSourceKind::Procedural,
             fingerprint: 11,
         };
-        assert!(cached_sfx_source_is_current(procedural, None));
+        assert!(cached_sfx_source_is_current(procedural, None, Some(11)));
         assert!(
-            !cached_sfx_source_is_current(procedural, Some(22)),
+            !cached_sfx_source_is_current(procedural, Some(22), Some(11)),
             "a late packed bank must upgrade the provider's cached fallback"
         );
+        // A reload that retunes the spec, or removes it, retires the synthesis.
+        assert!(!cached_sfx_source_is_current(procedural, None, Some(12)));
+        assert!(!cached_sfx_source_is_current(procedural, None, None));
         let packed = SfxSourceIdentity {
             kind: SfxSourceKind::Bank,
             fingerprint: 22,
         };
-        assert!(cached_sfx_source_is_current(packed, Some(22)));
-        assert!(!cached_sfx_source_is_current(packed, Some(23)));
+        assert!(cached_sfx_source_is_current(packed, Some(22), None));
+        assert!(!cached_sfx_source_is_current(packed, Some(23), None));
     }
 
     #[test]

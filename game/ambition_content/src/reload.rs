@@ -99,9 +99,9 @@ pub enum MoveReload {
     /// identity false.
     ///
     /// [`participates`] is the authority for which domains participate. Do not
-    /// keep a list here. A domain that no reload road replaces (2026-10-01:
-    /// the audio registries) does not participate: a candidate that changed it
-    /// would make `PreparedContentIdentity` name N+1 while that domain serves N.
+    /// keep a list here. A domain that no reload road replaces must not
+    /// participate: a candidate that changed it would make
+    /// `PreparedContentIdentity` name N+1 while that domain serves N.
     ///
     /// The rule fails safe: every non-participating domain is refused. When a
     /// domain joins the transaction, flip the test that pins its refusal to
@@ -135,6 +135,10 @@ pub enum MoveReload {
     /// keeps its catalog. (A character added or removed is NOT refused: an
     /// added one is staged, a removed one retired; see `CandidateCatalog`.)
     CharacterCatalogRefused(String),
+    /// The candidate's audio registries do not compose with the other
+    /// providers' fragments (a music track id that another provider maps to a
+    /// different file). Nothing was staged; the live audio keeps its catalog.
+    AudioCatalogRefused(String),
 }
 
 /// Republish the cast's move tables from an already-compiled pack.
@@ -336,6 +340,10 @@ pub(crate) fn publish_candidate(
         }
         CandidateAdmission::Proceed => {}
     }
+    let audio = match candidate_audio(world, candidate.pack()) {
+        Ok(audio) => audio,
+        Err(error) => return MoveReload::AudioCatalogRefused(error),
+    };
     let pack = candidate.into_pack();
     let outcome = reload_move_tables_from(world, &pack);
     // The selection follows the cast's admission, not the compile. A refused
@@ -344,6 +352,9 @@ pub(crate) fn publish_candidate(
         outcome,
         MoveReload::Activated { .. } | MoveReload::Unchanged { .. }
     ) {
+        if let Some(audio) = audio {
+            publish_audio(world, audio);
+        }
         crate::pack::install_selection(world, pack);
     }
     outcome
@@ -361,6 +372,7 @@ fn participates(domain: &str) -> bool {
         || domain == ambition_characters::actor::character_catalog::CHARACTER_CATALOG_SCHEMA
         || domain == ambition_characters::smash_fighter::SMASH_FIGHTER_SCHEMA
         || BOSS_DOMAINS.contains(&domain)
+        || AUDIO_DOMAINS.contains(&domain)
         || PACK_DERIVED_FAMILIES
             .iter()
             .any(|family| family.domain == domain)
@@ -376,6 +388,91 @@ const BOSS_DOMAINS: &[&str] = &[
     ambition_boss_encounter::pattern::content_schema::BOSS_PROFILES_SCHEMA,
     ambition_boss_encounter::pattern::content_schema::BOSS_ENCOUNTER_SCHEMA,
 ];
+
+/// The domains of the audio registries. Admitted at request time against the
+/// other providers' fragments in `AudioCatalogRegistry` (a music track id is
+/// global across providers), so [`PendingGeneration`] carries the candidate
+/// registry. The cue and track domains are the rows inside the two registries.
+const AUDIO_DOMAINS: &[&str] = &[
+    ambition_audio::content_schema::MUSIC_REGISTRY_SCHEMA,
+    ambition_audio::content_schema::MUSIC_TRACK_SCHEMA,
+    ambition_audio::content_schema::SFX_REGISTRY_SCHEMA,
+    ambition_audio::content_schema::SFX_CUE_SCHEMA,
+];
+
+/// The audio catalog a candidate publishes, or `None` when it changes no audio
+/// domain. Built from the App's registry with Ambition's fragment replaced.
+fn candidate_audio(
+    world: &bevy::ecs::world::World,
+    pack: &ambition_content_pack::PreparedContentPack,
+) -> Result<Option<ambition_audio::catalog::AudioCatalogRegistry>, String> {
+    let changes_audio = crate::pack::selected(world).is_some_and(|active| {
+        ambition_content_pack::changed_domains(active, pack)
+            .iter()
+            .any(|schema| AUDIO_DOMAINS.contains(&schema.0.as_str()))
+    });
+    if !changes_audio {
+        return Ok(None);
+    }
+    let registry = world
+        .get_resource::<ambition_audio::catalog::AudioCatalogRegistry>()
+        .ok_or("this App registers no audio catalog")?;
+    let music = ambition_audio::content_schema::lowered_music_registry(pack).cloned();
+    let sfx = ambition_audio::content_schema::lowered_sfx_registry(pack).cloned();
+    registry
+        .with_replaced(crate::AMBITION_CONTENT_PROVIDER, music, sfx)
+        .map(Some)
+        .map_err(|error| error.to_string())
+}
+
+/// Publish a reload's audio catalog.
+///
+/// A gameplay session selects its provider's registries when it is activated
+/// (`select_shell_audio_context`), and a reload activates a new session, so
+/// the new cues and tracks are selected there; that selection can run before
+/// this command in the same frame, so the active selection is revised here
+/// too (`ActiveAudioSelection::revise_provider`). The other tables outlive a
+/// session: the catalog itself, the host's music track table, and the SFX
+/// registry copy the host built its library from. A cue
+/// synthesized from the old spec is not played again: the handle cache checks
+/// the spec's fingerprint (`ProviderSfxHandleCache::handle_for`).
+fn publish_audio(
+    world: &mut bevy::ecs::world::World,
+    audio: ambition_audio::catalog::AudioCatalogRegistry,
+) {
+    let provider = crate::AMBITION_CONTENT_PROVIDER;
+    if let Some(sfx) = audio.sfx_for(provider).cloned() {
+        if world.contains_resource::<ambition_audio::spec::SfxRegistry>() {
+            world.insert_resource(sfx);
+        }
+    }
+    let bank_ids = world
+        .get_resource::<ambition_audio::catalog::SfxBankRegistry>()
+        .map(|banks| banks.ids_for(provider))
+        .unwrap_or_default();
+    if let Some(mut selection) =
+        world.get_resource_mut::<ambition_audio::selection::ActiveAudioSelection>()
+    {
+        selection.revise_provider(provider, audio.music_for(provider), audio.sfx_for(provider), bank_ids);
+    }
+    #[cfg(feature = "audio")]
+    if let Ok(music) = audio.combined_music_registry(crate::AMBITION_CONTENT_PROVIDER) {
+        let catalog = world
+            .get_resource::<ambition_platformer2d::asset_manager::platformer_assets::Platformer2dAssetCatalog>()
+            .cloned();
+        if let Some(mut library) = world.get_resource_mut::<ambition_audio::library::AudioLibrary>() {
+            let resolve = |id: &str| {
+                catalog.as_ref().and_then(|catalog| {
+                    catalog.path_for(
+                        &ambition_platformer2d::asset_manager::platformer_assets::ids::music_track(id),
+                    )
+                })
+            };
+            library.revise_music_tracks(&music, Some(&resolve));
+        }
+    }
+    world.insert_resource(audio);
+}
 
 /// The character catalog a candidate publishes with its cast, or `None` when
 /// it does not change the catalog. Assembled from the App's registry with
@@ -938,6 +1035,13 @@ pub fn request_reload(
             return ReloadRequest::Refused(MoveReload::BossCatalogRefused(error));
         }
     };
+    let audio = match candidate_audio(world, &pack) {
+        Ok(audio) => audio,
+        Err(error) => {
+            discard_staged_reload(world);
+            return ReloadRequest::Refused(MoveReload::AudioCatalogRefused(error));
+        }
+    };
     let admitted_cast = match support
         .map(|support| match &character_catalog {
             Some(catalog) => {
@@ -977,6 +1081,7 @@ pub fn request_reload(
             pack,
             admitted_cast,
             bosses,
+            audio,
         },
     );
     // `ReplaceWith`, not `GoTo`: a reload is not navigation and must not push
@@ -1031,6 +1136,9 @@ pub struct PendingGeneration {
     /// The boss catalog this generation publishes; `None` when it changes no
     /// boss domain.
     bosses: Option<CandidateBosses>,
+    /// The audio catalog this generation publishes; `None` when it changes no
+    /// audio domain.
+    audio: Option<ambition_audio::catalog::AudioCatalogRegistry>,
 }
 
 impl PendingGeneration {
@@ -1514,6 +1622,9 @@ pub fn commit_content_generation(
                     if let Some(bosses) = generation.bosses {
                         world.insert_resource(bosses.registry);
                         world.insert_resource(bosses.catalog);
+                    }
+                    if let Some(audio) = generation.audio {
+                        publish_audio(world, audio);
                     }
                     // Every other participating family lands here too, from
                     // the same pack, in the same command.

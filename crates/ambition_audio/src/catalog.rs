@@ -132,6 +132,32 @@ impl AudioCatalogRegistry {
         self.fragments.keys().map(String::as_str)
     }
 
+    /// This registry with `provider_id`'s music and SFX replaced, or the reason
+    /// the result does not compose. For a content reload: the result is
+    /// computed before anything is published, so a refusal changes nothing.
+    ///
+    /// The provider must already be registered, and it keeps its
+    /// [`AudioCatalogFragment::with_resident_sfx_bank`] declaration: that is a
+    /// fact about the host's banks, not about the authored registries.
+    pub fn with_replaced(
+        &self,
+        provider_id: &str,
+        music: Option<MusicRegistry>,
+        sfx: Option<SfxRegistry>,
+    ) -> Result<Self, AudioCatalogError> {
+        let existing = self.fragments.get(provider_id).ok_or_else(|| {
+            AudioCatalogError::MissingMusicProvider {
+                provider_id: provider_id.to_string(),
+            }
+        })?;
+        let mut fragment = AudioCatalogFragment::new(provider_id, music, sfx)?;
+        fragment.resident_sfx_bank = existing.resident_sfx_bank;
+        let mut revised = self.clone();
+        revised.fragments.insert(provider_id.to_string(), fragment);
+        revised.validate_global_music_ids()?;
+        Ok(revised)
+    }
+
     /// Whether `provider_id` declared [`AudioCatalogFragment::with_resident_sfx_bank`].
     pub fn borrows_resident_sfx_bank(&self, provider_id: &str) -> bool {
         self.fragments
@@ -555,6 +581,38 @@ mod tests {
                 .collect::<Vec<_>>(),
             vec!["alpha", "beta"]
         );
+    }
+
+    /// A reload's revision replaces one provider's registries, keeps its
+    /// resident-bank declaration, and refuses a result that does not compose,
+    /// leaving the live registry as it was.
+    #[test]
+    fn a_revision_replaces_one_provider_or_refuses_without_change() {
+        let mut registry = AudioCatalogRegistry::default();
+        registry
+            .register(
+                AudioCatalogFragment::new("a", Some(music_at("a_theme", "a/x.ogg")), None)
+                    .unwrap()
+                    .with_resident_sfx_bank(),
+            )
+            .unwrap();
+        registry
+            .register(AudioCatalogFragment::new("b", Some(music_at("b_theme", "b/y.ogg")), None).unwrap())
+            .unwrap();
+
+        let revised = registry
+            .with_replaced("a", Some(music_at("a_new", "a/z.ogg")), None)
+            .expect("a revision that composes");
+        assert_eq!(revised.music_for("a").unwrap().tracks[0].id, "a_new");
+        assert!(revised.borrows_resident_sfx_bank("a"), "the bank declaration is kept");
+        assert_eq!(registry.music_for("a").unwrap().tracks[0].id, "a_theme", "the live registry is not changed");
+
+        // `b_theme` at another file: the id is global, so this does not compose.
+        assert!(matches!(
+            registry.with_replaced("a", Some(music_at("b_theme", "a/z.ogg")), None),
+            Err(AudioCatalogError::DuplicateMusicTrack { .. })
+        ));
+        assert!(registry.with_replaced("c", None, None).is_err(), "an unregistered provider is refused");
     }
 
     #[test]

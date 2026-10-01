@@ -309,6 +309,36 @@ impl AudioLibrary {
         }
     }
 
+    /// Replace the music track table with `music_registry`'s tracks, for a
+    /// content reload. A track whose id and asset path did not change keeps its
+    /// loaded handle; any other track loads on first use, as at startup.
+    pub fn revise_music_tracks(
+        &mut self,
+        music_registry: &MusicRegistry,
+        resolve_track_path: Option<&dyn Fn(&str) -> Option<String>>,
+    ) {
+        let previous = std::mem::take(&mut self.music_tracks);
+        self.music_tracks = music_registry
+            .tracks
+            .iter()
+            .map(|track| {
+                let asset_path = resolve_track_path
+                    .and_then(|resolve| resolve(&track.id))
+                    .unwrap_or_else(|| track.resolved_asset_path());
+                let handle = previous
+                    .iter()
+                    .find(|old| old.id == track.id && old.source.asset_path == asset_path)
+                    .and_then(|old| old.source.handle.clone());
+                MusicTrackRuntime {
+                    id: track.id.clone(),
+                    display_name: track.display_name.clone(),
+                    one_shot: track.one_shot,
+                    source: TrackSource { asset_path, handle },
+                }
+            })
+            .collect();
+    }
+
     pub fn sfx_handle(&self, cue: SoundCue) -> Handle<KiraAudioSource> {
         self.sfx
             .get(&cue)

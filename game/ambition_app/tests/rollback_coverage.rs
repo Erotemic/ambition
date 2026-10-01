@@ -2106,6 +2106,11 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "ambition_characters::brain::fighter::profile::AuthoredFighterLadder",
         "authored difficulty rungs, lowered from the content pack; the one runtime          writer is the reload transaction, which the publication boundary refuses          while a timeline is live, so no tick a rewind can reach changed it",
     ),
+    // The item catalog: what each grid slot is called and how it is used.
+    (
+        "ambition_items::ItemCatalog",
+        "the authored item catalog, lowered from the content pack. It was a process-global          `OnceLock` until 2026-10-01, so this sweep could not see it. The one runtime          writer is the reload transaction, at the same boundary as the fighter ladder:          the publication boundary refuses a foreign timeline and rebases a local one,          so no tick a rewind can reach changed it",
+    ),
     // HOW FAST A DRIVEN BODY'S MANA REFILLS, as the composition's statement.
     //
     // ⭐ Inserted once at plugin build, never written by a system. A rewind

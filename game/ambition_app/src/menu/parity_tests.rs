@@ -425,9 +425,10 @@ fn grid_and_cube_render_the_same_non_edge_controls_per_page() {
     // Equip/Use action, on a stable System window.
     let mut owned = OwnedItems::default();
     let axe = Item::from_index(1).expect("an item at index 1");
-    owned.grant(axe, 1);
+    owned.grant(ambition_platformer2d::items::builtin_item_catalog(), axe, 1);
     let pages = build_inventory_pages(
         &owned,
+        ambition_platformer2d::items::builtin_item_catalog(),
         Some(axe),
         MenuFocus::Item(1),
         &UserSettings::default(),
@@ -611,12 +612,12 @@ mod dispatch_parity {
     fn equip_dispatches_identically_on_both_backends() {
         let axe = Item::from_index(1).expect("equippable item at index 1");
         assert!(
-            axe.held_item_id().is_some(),
+            ambition_platformer2d::items::builtin_item_catalog().held_item_id(axe).is_some(),
             "index 1 is an equippable item"
         );
 
         let mut grid = menu_app(InventoryUiBackend::Grid);
-        grid.world_mut().resource_mut::<OwnedItems>().grant(axe, 1);
+        grid.world_mut().resource_mut::<OwnedItems>().grant(ambition_platformer2d::items::builtin_item_catalog(), axe, 1);
         activate(
             &mut grid,
             InventoryUiBackend::Grid,
@@ -625,7 +626,7 @@ mod dispatch_parity {
         let grid_equipped = crate::menu::effects::hand_of_primary_player(grid.world_mut());
 
         let mut cube = menu_app(InventoryUiBackend::LunexKaleidoscope);
-        cube.world_mut().resource_mut::<OwnedItems>().grant(axe, 1);
+        cube.world_mut().resource_mut::<OwnedItems>().grant(ambition_platformer2d::items::builtin_item_catalog(), axe, 1);
         activate(
             &mut cube,
             InventoryUiBackend::LunexKaleidoscope,

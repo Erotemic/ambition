@@ -178,7 +178,9 @@ pub(crate) fn republish_kaleidoscope_pages(
     // rebuilding immediately for real inventory or settings changes.
     let pages_empty = pages.pages.is_empty();
     let key_changed = last.as_ref() != Some(&key);
-    let dirty = pages_empty || just_opened || key_changed;
+    // A content reload that publishes a new item catalog changes the names
+    // and verbs on the faces; the value key cannot see that.
+    let dirty = pages_empty || just_opened || key_changed || hand.items_changed();
     if !dirty {
         return;
     }
@@ -203,6 +205,7 @@ pub(crate) fn republish_kaleidoscope_pages(
     // the cube faces.
     let built = build_inventory_pages_with_quality_prompt(
         &owned,
+        hand.items(),
         key.equipped,
         cursor.focus,
         &settings,

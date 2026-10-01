@@ -228,14 +228,15 @@ pub fn cmd_restore_brain(
 
 /// `<<give_item "kind" count>>` — grant the player an item by adding
 /// to the live `OwnedItems` catalog resource. The kind string is
-/// resolved through [`ambition_items::Item::from_dialog_id`]
+/// resolved through [`ambition_items::ItemCatalog::item_by_dialog_id`]
 /// (loose spelling); an unknown kind or non-positive count is logged
 /// and ignored.
 pub fn cmd_give_item(
     In((kind, count)): In<(String, f32)>,
     mut narrative: NarrativeInputWriter<ambition_items::ItemGrantRequested>,
+    items: ambition_items::ItemCatalogRead,
 ) {
-    let Some(request) = item_grant(&kind, count) else {
+    let Some(request) = item_grant(items.get(), &kind, count) else {
         warn!(
             target: "ambition_conversation::dialog::yarn",
             "give_item: ignored kind={kind:?} count={count} (unknown item or non-positive count)",
@@ -251,8 +252,9 @@ pub fn cmd_give_item(
 pub fn cmd_buy_item(
     In((id, price)): In<(String, f32)>,
     mut narrative: NarrativeInputWriter<ambition_items::shop::ShopTransactionRequested>,
+    items: ambition_items::ItemCatalogRead,
 ) {
-    let Some(item) = ambition_items::Item::from_dialog_id(&id) else {
+    let Some(item) = items.get().item_by_dialog_id(&id) else {
         warn!(target: "ambition_conversation::dialog::yarn", "buy_item: unknown item {id:?}");
         return;
     };
@@ -282,8 +284,9 @@ pub fn cmd_buy_item(
 pub fn cmd_sell_item(
     In((id, price)): In<(String, f32)>,
     mut narrative: NarrativeInputWriter<ambition_items::shop::ShopTransactionRequested>,
+    items: ambition_items::ItemCatalogRead,
 ) {
-    let Some(item) = ambition_items::Item::from_dialog_id(&id) else {
+    let Some(item) = items.get().item_by_dialog_id(&id) else {
         warn!(target: "ambition_conversation::dialog::yarn", "sell_item: unknown item {id:?}");
         return;
     };
@@ -315,11 +318,15 @@ pub fn cmd_sell_item(
 /// Flooring lives here, not in the applier: Yarn arithmetic is `f32`, so
 /// "1.9 potions" is a parsing question for the Yarn side. A second rule in the
 /// applier could drift.
-fn item_grant(kind: &str, count: f32) -> Option<ambition_items::ItemGrantRequested> {
+fn item_grant(
+    items: &ambition_items::ItemCatalog,
+    kind: &str,
+    count: f32,
+) -> Option<ambition_items::ItemGrantRequested> {
     if count <= 0.0 {
         return None;
     }
-    let item = ambition_items::Item::from_dialog_id(kind)?;
+    let item = items.item_by_dialog_id(kind)?;
     Some(ambition_items::ItemGrantRequested {
         item,
         count: count as u32,
@@ -565,11 +572,11 @@ pub fn register_functions(
     });
 
     // Inventory checks use `condition("inventory.holds", "<item>")`, which reads
-    // the live `OwnedItems`; `Item::from_dialog_id` owns loose spelling. See
+    // the live `OwnedItems`; `ItemCatalog::item_by_dialog_id` owns loose spelling. See
     // `ambition_platformer2d_actor_monolith::items::conditions`.
     }
 
-// Loose item spelling has one implementation: `Item::from_dialog_id`.
+// Loose item spelling has one implementation: `ItemCatalog::item_by_dialog_id`.
 
 /// Register the generic custom dialogue commands on the runner. Called
 /// from `spawn_dialogue_runner`; content commands are installed right
@@ -614,7 +621,7 @@ mod tests {
     fn item_grant_resolves_known_kinds_and_ignores_bad_input() {
         // The legacy "health_potion" / "healthpotion" alias resolves to HealthCell.
         assert_eq!(
-            item_grant("health_potion", 2.0),
+            item_grant(ambition_items::builtin_item_catalog(), "health_potion", 2.0),
             Some(ambition_items::ItemGrantRequested {
                 item: Item::HealthCell,
                 count: 2
@@ -623,7 +630,7 @@ mod tests {
         // Loose spelling resolves, and the count is floored: Yarn arithmetic is
         // f32, so "1.9 potions" is valid input.
         assert_eq!(
-            item_grant("HealthPotion", 1.9),
+            item_grant(ambition_items::builtin_item_catalog(), "HealthPotion", 1.9),
             Some(ambition_items::ItemGrantRequested {
                 item: Item::HealthCell,
                 count: 1
@@ -631,10 +638,10 @@ mod tests {
         );
 
         // Unknown kind asks for nothing.
-        assert_eq!(item_grant("definitely_not_an_item", 5.0), None);
+        assert_eq!(item_grant(ambition_items::builtin_item_catalog(), "definitely_not_an_item", 5.0), None);
         // Non-positive count asks for nothing.
-        assert_eq!(item_grant("DataChip", 0.0), None);
-        assert_eq!(item_grant("DataChip", -3.0), None);
+        assert_eq!(item_grant(ambition_items::builtin_item_catalog(), "DataChip", 0.0), None);
+        assert_eq!(item_grant(ambition_items::builtin_item_catalog(), "DataChip", -3.0), None);
     }
 
     // Inventory does not depend on a save: `inventory.holds` reads `OwnedItems`

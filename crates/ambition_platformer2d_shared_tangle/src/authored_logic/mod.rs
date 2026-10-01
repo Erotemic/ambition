@@ -152,7 +152,7 @@ pub enum ParamKind {
     ///
     /// 1. **REFUSE AT EVALUATE, because the roster is reachable.** `body.can`
     ///    (`AbilitySet`'s fields are compiled in, so `default()` is a complete
-    ///    roster needing no world), `inventory.holds` (`Item::from_dialog_id`
+    ///    roster needing no world), `inventory.holds` (`ItemCatalog::item_by_dialog_id`
     ///    resolves the spelling or refuses), and `quest.active` (the runtime
     ///    `QuestRegistry`, consulted only once `initialized` — a roster is not
     ///    authoritative until something has filled it).

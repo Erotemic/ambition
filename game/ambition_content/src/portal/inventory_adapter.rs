@@ -125,6 +125,7 @@ pub fn pickup_portal_gun_system(
     )>,
     pickups: Query<(Entity, &PortalGunPickup)>,
     mut owned: Option<ResMut<OwnedItems>>,
+    items: ambition_items::ItemCatalogRead,
     mut equipped: MessageWriter<PortalGunEquipped>,
     mut sfx: ambition_sfx::SfxWriter,
 ) {
@@ -149,6 +150,7 @@ pub fn pickup_portal_gun_system(
             &pickups,
             &mut claimed,
             owned.as_deref_mut(),
+            items.get(),
             &mut equipped,
             &mut sfx,
         );
@@ -169,6 +171,7 @@ fn pick_up_one_portal_gun(
     pickups: &Query<(bevy::prelude::Entity, &PortalGunPickup)>,
     claimed: &mut std::collections::HashSet<bevy::prelude::Entity>,
     mut owned: Option<&mut OwnedItems>,
+    items: &ambition_items::ItemCatalog,
     equipped: &mut MessageWriter<PortalGunEquipped>,
     sfx: &mut ambition_sfx::SfxWriter,
 ) {
@@ -190,7 +193,7 @@ fn pick_up_one_portal_gun(
             // below: owning and holding are different facts, and re-equipping from the
             // menu must not mint a second gun.
             if let Some(owned) = owned.as_deref_mut() {
-                owned.grant(Item::PortalGun, 1);
+                owned.grant(items, Item::PortalGun, 1);
             }
             // Custody: the one take-custody operation, shared with the inventory menu.
             // The pickup's pair travels with it: the gun you hold has the pair that was

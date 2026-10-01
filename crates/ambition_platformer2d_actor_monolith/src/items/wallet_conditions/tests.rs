@@ -161,7 +161,7 @@ fn the_question_and_the_transaction_agree_on_every_authored_price() {
             price: coins,
             side: ShopSide::Buy,
         }
-        .apply(&mut wallet, &mut owned);
+        .apply(&mut wallet, &mut owned, ambition_items::builtin_item_catalog());
 
         let affordable = asked == ConditionOutcome::Satisfied;
         let bought = outcome != ShopTx::CantAfford;

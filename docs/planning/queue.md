@@ -2039,6 +2039,13 @@ way: a body's health pool was not read from the frozen cast;
 `apply_worn_character_gameplay` re-derived it from the App cast. Fixed
 2026-10-01; every live reader now reads `ambition_characters::prepared::SessionCast`
 over `ActiveSessionCast`, the frozen cast's one owner (see I3).
+**The character catalog is the third, 2026-10-01 (review P2).** The claim
+carried the N+1 cast but not the catalog it is folded from, so candidate
+construction read N's App catalog (a body's hurt material from its tags, a
+placement's brain profile, the starting sheet, validation) beside N+1's cast.
+`PendingGenerationInputs::catalog` carries the admitted `CandidateCatalog`
+to `prepare` and `build_candidate` (`candidate_catalog_for`); see I3 in
+[`engine/fast-iteration-implementation.md`](engine/fast-iteration-implementation.md).
 
 ⚠ **AND THE GUARD STOPPED WITNESSING IT WITHOUT GOING RED.**
 `the_commit_sits_between_the_activation_and_session_adoption`
@@ -2136,8 +2143,10 @@ replacement, one poll is one candidate, a departed schema takes its records).
 Later the same day the character catalog joined (a whole-cast revision against
 the candidate catalog; since the same day a character added is staged and one
 removed is retired, `CandidateCatalog::retired`). Fighter facets, the boss seed
-library and the validator bands joined the same day. Still refused by the
-reload: items, audio. Open, found on the way: a boss's HP, phase
+library and the validator bands joined the same day, and so did items: the
+item catalog is an App-local `ItemCatalog` resource (it was a process-global
+`OnceLock`), and a saved item row is played 22 frames after the save. Still
+refused by the reload: audio. Open, found on the way: a boss's HP, phase
 triggers, death seconds, music and reward seed from the App catalog, not the
 frozen generation (see I3 in the implementation page).
 

@@ -591,7 +591,7 @@ pub(crate) fn grid_menu_nav(
                 // an empty cell has no action to publish, and the consumer
                 // could not tell "nothing there" from "nobody pressed".
                 let idx = cursor.focus().item_index();
-                match owned_item_action(&fx.owned, idx) {
+                match owned_item_action(&fx.owned, fx.hand.items(), idx) {
                     Some(action) => {
                         activated.write(MenuActionActivated { action });
                     }
@@ -762,7 +762,10 @@ pub(crate) fn grid_menu_republish_view(
     };
     // The dispatch paths ALSO clear `last_key` directly (the belt-and-braces force-republish),
     // so even a state change this key can't see (e.g. a dev snapshot) still re-renders.
-    let state_changed = owned.is_changed() || settings.is_changed() || quality_confirm.is_changed();
+    let state_changed = owned.is_changed()
+        || hand.items_changed()
+        || settings.is_changed()
+        || quality_confirm.is_changed();
     if tab_state.last_key == Some(key) && !roots.is_empty() && !state_changed {
         return;
     }
@@ -770,6 +773,7 @@ pub(crate) fn grid_menu_republish_view(
 
     let built = build_inventory_pages_with_quality_prompt(
         &owned,
+        hand.items(),
         key.in_hand,
         cursor.focus(),
         &settings,

@@ -1868,7 +1868,7 @@ mod multi_seat {
 fn every_catalog_item_with_a_held_form_resolves_in_the_one_registry() {
     let claimed: Vec<&'static str> = ambition_items::Item::ALL
         .into_iter()
-        .filter_map(|item| item.held_item_id())
+        .filter_map(|item| ambition_items::builtin_item_catalog().held_item_id(item))
         .collect();
     assert!(
         claimed.len() >= 3,

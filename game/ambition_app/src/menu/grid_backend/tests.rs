@@ -210,8 +210,8 @@ fn selecting_an_item_dispatches_equip() {
     let mut app = grid_app();
     // Own an equippable item (Axe at index 1 has a held_item_id).
     let axe = Item::from_index(1).unwrap();
-    assert!(axe.held_item_id().is_some());
-    app.world_mut().resource_mut::<OwnedItems>().grant(axe, 1);
+    assert!(ambition_platformer2d::items::builtin_item_catalog().held_item_id(axe).is_some());
+    app.world_mut().resource_mut::<OwnedItems>().grant(ambition_platformer2d::items::builtin_item_catalog(), axe, 1);
     // Open + focus item 1.
     set_frame(&mut app, |f| f.inventory = true);
     app.update();
@@ -239,7 +239,7 @@ fn a_keyboard_select_publishes_the_same_activation_a_tap_does() {
 
     let mut app = grid_app();
     let axe = Item::from_index(1).unwrap();
-    app.world_mut().resource_mut::<OwnedItems>().grant(axe, 1);
+    app.world_mut().resource_mut::<OwnedItems>().grant(ambition_platformer2d::items::builtin_item_catalog(), axe, 1);
     set_frame(&mut app, |f| f.inventory = true);
     app.update();
     app.world_mut()
@@ -413,10 +413,11 @@ fn back_closes_and_respects_opened_from_pause() {
 fn cursor_focus_key_matches_a_rendered_control() {
     let mut owned = OwnedItems::default();
     let axe = Item::from_index(1).unwrap();
-    owned.grant(axe, 1);
+    owned.grant(ambition_platformer2d::items::builtin_item_catalog(), axe, 1);
     let settings = UserSettings::default();
     let pages = build_inventory_pages(
         &owned,
+        ambition_platformer2d::items::builtin_item_catalog(),
         None,
         MenuFocus::Item(1),
         &settings,
@@ -684,7 +685,7 @@ fn switch_to_tab(app: &mut App, page: MenuPage) {
 fn select_forces_republish_so_view_refreshes_immediately() {
     let mut app = render_app();
     let axe = Item::from_index(1).unwrap();
-    app.world_mut().resource_mut::<OwnedItems>().grant(axe, 1);
+    app.world_mut().resource_mut::<OwnedItems>().grant(ambition_platformer2d::items::builtin_item_catalog(), axe, 1);
     set_frame(&mut app, |f| f.inventory = true);
     app.update();
     set_frame(&mut app, |_| {});
@@ -733,7 +734,7 @@ fn switching_tab_renders_that_pages_model() {
     let mut app = render_app();
     // Own an item so Items has an Equip action to distinguish from System.
     let axe = Item::from_index(1).unwrap();
-    app.world_mut().resource_mut::<OwnedItems>().grant(axe, 1);
+    app.world_mut().resource_mut::<OwnedItems>().grant(ambition_platformer2d::items::builtin_item_catalog(), axe, 1);
     set_frame(&mut app, |f| f.inventory = true);
     app.update();
     set_frame(&mut app, |_| {}); // release the key so it doesn't re-toggle
@@ -796,7 +797,7 @@ fn flat_renderer_skips_page_turn_edge_controls() {
 fn interaction_press_switches_tab_and_dispatches_item() {
     let mut app = render_app();
     let axe = Item::from_index(1).unwrap();
-    app.world_mut().resource_mut::<OwnedItems>().grant(axe, 1);
+    app.world_mut().resource_mut::<OwnedItems>().grant(ambition_platformer2d::items::builtin_item_catalog(), axe, 1);
     set_frame(&mut app, |f| f.inventory = true);
     app.update();
     set_frame(&mut app, |_| {});

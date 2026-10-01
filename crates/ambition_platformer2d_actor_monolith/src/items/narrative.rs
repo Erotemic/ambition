@@ -23,9 +23,10 @@ use ambition_items::{shop::ShopTransactionRequested, ItemGrantRequested, OwnedIt
 pub fn apply_item_grants(
     mut requests: MessageReader<ItemGrantRequested>,
     mut owned: ResMut<OwnedItems>,
+    items: ambition_items::ItemCatalogRead,
 ) {
     for request in requests.read() {
-        owned.grant(request.item, request.count);
+        owned.grant(items.get(), request.item, request.count);
         info!(
             target: "crate::items::narrative",
             "give_item: granted {}x {:?}", request.count, request.item,
@@ -44,12 +45,13 @@ pub fn apply_shop_transactions(
         &mut BodyWallet,
         With<ambition_platformer2d_shared_tangle::markers::PrimaryPlayer>,
     >,
+    items: ambition_items::ItemCatalogRead,
 ) {
     let Ok(mut wallet) = wallets.single_mut() else {
         return;
     };
     for request in requests.read() {
-        let outcome = request.apply(&mut wallet, &mut owned);
+        let outcome = request.apply(&mut wallet, &mut owned, items.get());
         info!(
             target: "crate::items::narrative",
             "{:?} {:?} @ {} -> {outcome:?} (balance now {})",

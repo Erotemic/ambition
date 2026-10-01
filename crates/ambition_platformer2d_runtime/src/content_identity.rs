@@ -264,6 +264,14 @@ pub struct PendingGenerationInputs {
     /// rule as `characters`: `None` is *"this transaction publishes no new
     /// catalog"*, not *"use the App's"*.
     pub bosses: Option<ambition_boss_encounter::BossCatalog>,
+    /// The candidate CHARACTER CATALOG the cast above is folded from (the
+    /// provider registry, the assembled catalog and its brain profiles), or
+    /// `None` when the candidate changes no catalog. Same rule as
+    /// `characters`. Candidate construction reads raw catalog facts the cast
+    /// does not carry (a body's hurt material from its tags, a placement's
+    /// brain profile, the starting character's sheet), so a claim that carried
+    /// only the cast built N+1's bodies with N's catalog beside N+1's cast.
+    pub catalog: Option<ambition_characters::prepared::CandidateCatalog>,
 }
 
 impl PendingGenerationInputs {
@@ -293,6 +301,13 @@ impl PendingGenerationInputs {
     #[allow(clippy::option_option)]
     pub fn bosses_for(&self, load_id: &str) -> Option<Option<&ambition_boss_encounter::BossCatalog>> {
         (self.load_id == load_id).then_some(self.bosses.as_ref())
+    }
+
+    /// The candidate character catalog for `load_id`; the two `None`s are
+    /// those of [`Self::characters_for`].
+    #[allow(clippy::option_option)]
+    pub fn catalog_for(&self, load_id: &str) -> Option<Option<&ambition_characters::prepared::CandidateCatalog>> {
+        (self.load_id == load_id).then_some(self.catalog.as_ref())
     }
 }
 

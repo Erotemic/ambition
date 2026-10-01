@@ -87,8 +87,8 @@ pub enum Item {
 /// match the [`Item`] discriminants (pinned by `item_meta_table_is_index_aligned`).
 ///
 /// Owned + serde-authorable (C1): the fields are owned + `serde`-round-trippable, so a
-/// content game authors its item flavor/wiring as DATA in `items.ron` (installed via
-/// [`install_item_catalog`], the [`ItemCatalog`] override) — the same "content out of core"
+/// content game authors its item flavor/wiring as DATA in `items.ron` (inserted as
+/// the [`ItemCatalog`] resource) — the same "content out of core"
 /// pattern as `boss_profiles.ron` / boss sheets (C6). The `item_catalog` schema maps the
 /// resulting serde error to `DiagnosticCode::UnknownField`. The built-in `ITEM_META` table is
 /// built in Rust rather than deserialized, so this constrains `items.ron` only.
@@ -104,14 +104,18 @@ pub struct ItemMeta {
     pub dialog_id: String,
 }
 
-/// Content-installed item CATALOG override (C1), mirroring
-/// the boss sheet/profile registry pattern in the actor sim.
-/// A content game authors its item table in `items.ron` (a `Vec<ItemMeta>` in grid
-/// order) and installs it via [`install_item_catalog`]; an installed row REPLACES
-/// the built-in default for that grid slot. Absent rows (and no install) fall back
-/// to the built-in [`ITEM_META`] — the E58/C6 "empty default = built-in" pattern,
-/// so no core edit is needed to re-author item flavor.
-#[derive(Clone, Debug, Default, PartialEq)]
+/// The item CATALOG one `App` plays (C1): what each grid slot is called, what it
+/// does, and how authoring names it.
+///
+/// A content game authors its item table in `items.ron` (a `Vec<ItemMeta>` in
+/// grid order) and inserts the catalog as a resource; an authored row REPLACES
+/// the built-in default for that grid slot, and an absent row falls back to the
+/// built-in [`ITEM_META`]. `ItemCatalog::default()` is the built-in table.
+///
+/// ⭐ APP-LOCAL (2026-10-01). It was a process-global `OnceLock` installed once,
+/// so a running game could not take an `items.ron` edit and two Apps in one
+/// process could not play two catalogs. Every reader asks the resource now.
+#[derive(bevy::prelude::Resource, Clone, Debug, Default, PartialEq)]
 pub struct ItemCatalog {
     rows: Vec<ItemMeta>,
 }
@@ -140,40 +144,101 @@ impl ItemCatalog {
         &self.rows
     }
 
-    fn row(&self, index: usize) -> Option<&ItemMeta> {
-        self.rows.get(index)
+    /// The row this catalog plays for `item`: the authored one, or the
+    /// built-in default when none is authored for that slot.
+    pub fn meta(&self, item: Item) -> &ItemMeta {
+        self.rows
+            .get(item.index())
+            .unwrap_or_else(|| &ITEM_META[item.index()])
     }
-}
 
-/// Content-installed item-catalog override. Set once at plugin-build time;
-/// ADDITIVE per grid slot (the engine ships its own 24-item default table).
-static ITEM_CATALOG_OVERRIDE: std::sync::OnceLock<ItemCatalog> = std::sync::OnceLock::new();
+    pub fn category(&self, item: Item) -> ItemCategory {
+        self.meta(item).category
+    }
 
-/// Install the authored item catalog — `ambition_content` calls this at
-/// plugin-build time alongside the other roster installs.
-pub fn install_item_catalog(catalog: ItemCatalog) {
-    // This seam is process-global. Identical reinstallation is allowed; a
-    // different second catalog is a conflict and must be reported.
-    if let Err(rejected) = ITEM_CATALOG_OVERRIDE.set(catalog) {
-        if ITEM_CATALOG_OVERRIDE.get() != Some(&rejected) {
-            bevy::log::error!(
-                "a SECOND, DIFFERENT item catalog was installed in this process and was \
-                 IGNORED — the first provider's items win for every App built here. This \
-                 seam is process-global; until it is App-local, one process serves one \
-                 game's items."
-            );
+    pub fn display_name(&self, item: Item) -> &str {
+        self.meta(item).display_name.as_str()
+    }
+
+    pub fn description(&self, item: Item) -> &str {
+        self.meta(item).description.as_str()
+    }
+
+    /// For [`ItemCategory::Weapon`] items, the `HeldItem` id whose `ActionSet` the
+    /// player gains on equip. `None` for non-equippables and for weapons whose
+    /// held-item wiring is not built yet. PortalGun equips through its own
+    /// `PortalGun` component (handled by the menu), so its row says `None`.
+    pub fn held_item_id(&self, item: Item) -> Option<&str> {
+        self.meta(item).held_item_id.as_deref()
+    }
+
+    /// Which catalog slot a world held-item (`GroundItem`/`HeldItemSpec` id)
+    /// corresponds to, so picking one up grants the right slot.
+    pub fn item_by_held_item_id(&self, id: &str) -> Option<Item> {
+        Item::ALL.into_iter().find(|item| self.held_item_id(*item) == Some(id))
+    }
+
+    /// Stable lowercase id for dialogue/authoring, e.g.
+    /// `condition("inventory.holds", "portal_gun")`.
+    pub fn dialog_id(&self, item: Item) -> &str {
+        self.meta(item).dialog_id.as_str()
+    }
+
+    /// Normalize a raw authoring string the way the Yarn bindings do
+    /// (lowercase, drop non-alphanumerics), so `"PortalGun"`, `"portal_gun"`
+    /// and `"portal gun"` all resolve, then look it up. Also accepts the legacy
+    /// `"healthpotion"` alias for [`Item::HealthCell`].
+    pub fn item_by_dialog_id(&self, raw: &str) -> Option<Item> {
+        let key: String = raw
+            .chars()
+            .filter(|c| c.is_alphanumeric())
+            .flat_map(|c| c.to_lowercase())
+            .collect();
+        if let Some(found) = Item::ALL.into_iter().find(|item| self.dialog_id(*item) == key) {
+            return Some(found);
         }
+        // The old 3-kind bag spelled the health consumable "healthpotion"; the
+        // catalog id is "healthcell". It is the only divergent alias.
+        if key == "healthpotion" {
+            return Some(Item::HealthCell);
+        }
+        None
     }
 }
 
-/// Resolve an item's metadata: the content-authored override row for `index` if one
-/// was installed, else the built-in default. Both live behind a process-global, so
-/// the borrow is effectively `'static`.
-fn item_meta(index: usize) -> &'static ItemMeta {
-    ITEM_CATALOG_OVERRIDE
-        .get()
-        .and_then(|c| c.row(index))
-        .unwrap_or_else(|| &ITEM_META[index])
+/// The built-in catalog, as one immutable value: what a composition that
+/// inserts no [`ItemCatalog`] plays.
+pub fn builtin_item_catalog() -> &'static ItemCatalog {
+    static BUILTIN: std::sync::OnceLock<ItemCatalog> = std::sync::OnceLock::new();
+    BUILTIN.get_or_init(ItemCatalog::default)
+}
+
+/// The item catalog a system reads: the App's, or the built-in table when the
+/// composition inserts none (the meaning "no catalog installed" always had).
+#[derive(bevy::ecs::system::SystemParam)]
+pub struct ItemCatalogRead<'w> {
+    catalog: Option<bevy::prelude::Res<'w, ItemCatalog>>,
+}
+
+impl ItemCatalogRead<'_> {
+    pub fn get(&self) -> &ItemCatalog {
+        self.catalog.as_deref().unwrap_or_else(|| builtin_item_catalog())
+    }
+
+    /// Did the App's catalog change since this system last ran? Only a content
+    /// reload writes it, so a change is a new catalog, not a spurious tick.
+    pub fn is_changed(&self) -> bool {
+        self.catalog.as_ref().is_some_and(|catalog| {
+            bevy::prelude::DetectChanges::is_changed(catalog)
+        })
+    }
+}
+
+/// [`ItemCatalogRead::get`] for code that holds a `&World`.
+pub fn item_catalog(world: &bevy::prelude::World) -> &ItemCatalog {
+    world
+        .get_resource::<ItemCatalog>()
+        .unwrap_or_else(|| builtin_item_catalog())
 }
 
 /// One row per [`Item`], in discriminant order — the engine's built-in default
@@ -355,12 +420,6 @@ static ITEM_META: std::sync::LazyLock<[ItemMeta; ITEM_COUNT]> = std::sync::LazyL
 });
 
 impl Item {
-    /// This item's row — the content-installed override if present, else the
-    /// built-in default (both `'static` behind a process-global).
-    fn meta(self) -> &'static ItemMeta {
-        item_meta(self.index())
-    }
-
     /// All 24 items in grid order. The compile-time length check below pins the
     /// catalog to exactly [`ITEM_COUNT`].
     pub const ALL: [Item; ITEM_COUNT] = [
@@ -414,28 +473,6 @@ impl Item {
         Item::from_index(row * ITEM_GRID_COLS + col)
     }
 
-    pub fn category(self) -> ItemCategory {
-        self.meta().category
-    }
-
-    pub fn display_name(self) -> &'static str {
-        self.meta().display_name.as_str()
-    }
-
-    pub fn description(self) -> &'static str {
-        self.meta().description.as_str()
-    }
-
-    /// For [`ItemCategory::Weapon`] items, the `HeldItem` id whose `ActionSet` the
-    /// player gains on equip (resolved via [`ambition_characters::brain::held_item_by_id`] or a
-    /// dedicated `*_spec` in the actor-sim pickup adapter). `None` for non-equippables
-    /// and for weapons whose held-item wiring is not built yet.
-    pub fn held_item_id(self) -> Option<&'static str> {
-        // PortalGun equips via its own `PortalGun` component (handled specially
-        // by the menu), not a HeldItemSpec — so its row's `held_item_id` is None.
-        self.meta().held_item_id.as_deref()
-    }
-
     /// Asset path (relative to Bevy's asset root) of this item's icon sprite, if
     /// one already exists in `sprites/props/`. Items render this picture in the OoT
     /// cube's Items grid instead of their name; items with no authored sprite return
@@ -468,43 +505,6 @@ impl Item {
             | ReservedSlot => return None,
         };
         Some(path)
-    }
-
-    /// Reverse of [`Self::held_item_id`]: which catalog slot a world held-item
-    /// (`GroundItem`/`HeldItemSpec` id) corresponds to, so picking one up grants
-    /// the right slot.
-    pub fn from_held_item_id(id: &str) -> Option<Item> {
-        Item::ALL.into_iter().find(|i| i.held_item_id() == Some(id))
-    }
-
-    /// Stable lowercase id for dialogue/authoring, e.g.
-    /// `condition("inventory.holds", "portal_gun")`.
-    /// Normalized the same way the Yarn bindings normalize (lowercase, drop
-    /// non-alphanumerics), so `"PortalGun"`, `"portal_gun"`, `"portal gun"` all
-    /// resolve here.
-    pub fn dialog_id(self) -> &'static str {
-        self.meta().dialog_id.as_str()
-    }
-
-    /// Normalize a raw authoring string the same way the Yarn bindings do, then
-    /// resolve it. Also accepts the legacy `"healthpotion"` alias →
-    /// [`Item::HealthCell`] so old scripts keep working.
-    pub fn from_dialog_id(raw: &str) -> Option<Item> {
-        let key: String = raw
-            .chars()
-            .filter(|c| c.is_alphanumeric())
-            .flat_map(|c| c.to_lowercase())
-            .collect();
-        if let Some(found) = Item::ALL.into_iter().find(|i| i.dialog_id() == key) {
-            return Some(found);
-        }
-        // Legacy alias: the old 3-kind bag spelled the health consumable
-        // "healthpotion"; the catalog id is "healthcell". (SpareBattery/DataChip
-        // already share their ids, so this is the only divergent alias.)
-        if key == "healthpotion" {
-            return Some(Item::HealthCell);
-        }
-        None
     }
 
 }
@@ -611,12 +611,12 @@ impl OwnedItems {
         self.count(item) > 0
     }
 
-    /// Add `n` of an item. Unique items clamp at 1 so a second pickup doesn't
-    /// inflate a non-stackable slot.
-    pub fn grant(&mut self, item: Item, n: u32) {
+    /// Add `n` of an item. Unique items (per `catalog`) clamp at 1 so a second
+    /// pickup doesn't inflate a non-stackable slot.
+    pub fn grant(&mut self, catalog: &ItemCatalog, item: Item, n: u32) {
         let slot = &mut self.counts[item.index()];
         let next = slot.saturating_add(n);
-        *slot = if item.category().is_unique() {
+        *slot = if catalog.category(item).is_unique() {
             next.min(1)
         } else {
             next
@@ -634,15 +634,15 @@ impl OwnedItems {
     /// Seed a small starter set so a fresh sandbox run has something to show in
     /// the grid: the consumables (health/mana cells, battery, chip), a couple of
     /// starter abilities, plus the items the sandbox debug-spawns.
-    pub fn starter() -> Self {
+    pub fn starter(catalog: &ItemCatalog) -> Self {
         let mut owned = Self::default();
-        owned.grant(Item::HealthCell, 3);
-        owned.grant(Item::ManaCell, 2);
-        owned.grant(Item::SpareBattery, 1);
-        owned.grant(Item::DataChip, 1);
-        owned.grant(Item::Fireball, 1);
-        owned.grant(Item::BubbleShield, 1);
-        owned.grant(Item::Blink, 1);
+        owned.grant(catalog, Item::HealthCell, 3);
+        owned.grant(catalog, Item::ManaCell, 2);
+        owned.grant(catalog, Item::SpareBattery, 1);
+        owned.grant(catalog, Item::DataChip, 1);
+        owned.grant(catalog, Item::Fireball, 1);
+        owned.grant(catalog, Item::BubbleShield, 1);
+        owned.grant(catalog, Item::Blink, 1);
         owned
     }
 
@@ -660,13 +660,16 @@ impl OwnedItems {
     /// the next load as a row while the room that authors it re-authors the
     /// object — one weapon saved, two loaded. What the save does not describe it
     /// does not keep, and durable custody is a frontier of its own.
-    pub fn to_persisted(&self) -> Vec<ambition_persistence::save_data::PersistedItem> {
+    pub fn to_persisted(
+        &self,
+        catalog: &ItemCatalog,
+    ) -> Vec<ambition_persistence::save_data::PersistedItem> {
         Item::ALL
             .into_iter()
             .filter_map(|item| {
                 let c = self.stored(item);
                 (c > 0).then(|| {
-                    ambition_persistence::save_data::PersistedItem::new(item.dialog_id(), c)
+                    ambition_persistence::save_data::PersistedItem::new(catalog.dialog_id(item), c)
                 })
             })
             .collect()
@@ -675,11 +678,15 @@ impl OwnedItems {
     /// Replace the owned counts from a persisted save (clears first, then grants
     /// each — so `grant`'s unique-item clamp still applies to a hand-edited save).
     /// Unknown ids (a catalog item removed since the save) are skipped.
-    pub fn apply_persisted(&mut self, items: &[ambition_persistence::save_data::PersistedItem]) {
+    pub fn apply_persisted(
+        &mut self,
+        catalog: &ItemCatalog,
+        items: &[ambition_persistence::save_data::PersistedItem],
+    ) {
         *self = Self::default();
         for p in items {
-            if let Some(item) = Item::from_dialog_id(&p.id) {
-                self.grant(item, p.count);
+            if let Some(item) = catalog.item_by_dialog_id(&p.id) {
+                self.grant(catalog, item, p.count);
             }
         }
     }

@@ -472,7 +472,8 @@ rebuilt mockingbird kept the frozen 28 (`a_boss_tuning_saved_while_the_game_runs
 now asserts the saved HP too). `BossEncounterRegistry` is left with that
 fixture fallback as its only reader. Still refused: items, audio, the character catalog,
 the boss seed library and validator bands, and every source outside the pack
-(`boss_sheets.ron`, `boss_art_keys.ron`).
+(`boss_sheets.ron`, `boss_art_keys.ron`). (Later the same day the character
+catalog, the seeds and bands, fighter facets and items joined; see the queue.)
 
 **The character catalog in the reload — LANDED 2026-10-01 (two increments).**
 `character_catalog` is a participating domain. Increment 1
@@ -593,6 +594,32 @@ The boss seed was the same class, closed today. ⚠ Observed once, not reproduce
 `quality_change_keeps_each_character::a_quality_round_trip_converges_back_with_every_page_loaded_and_nothing_orphaned`
 failed in a filtered batch ("a direct gameplay boot has a PrimaryPlayer wearing
 a character") and passed alone and in the same batch twice.
+
+⭐ **THE CANDIDATE CATALOG IS FROZEN WITH ITS CAST — LANDED 2026-10-01 (review
+P2).** The claim carried the N+1 cast and not the catalog it is folded from,
+so the preparation and the candidate builder read the App's catalog, which is
+still N until the commit, beside the N+1 cast. Construction reads raw catalog
+facts the cast does not carry: a body's hurt material from its row's tags
+(`actor_hurt_feedback`), a placement's brain profile, the starting
+character's sheet, provider validation. Now `PendingGenerationInputs::catalog`
+carries the admitted `CandidateCatalog` (`AdmittedRevision::candidate_catalog`),
+selected by `load_id` like the cast (`candidate_catalog_for`). `prepare` uses
+it for validation, the starting sheet and the content's provider registry;
+`PreparedPlatformerSession::character_catalog` carries it to `build_candidate`,
+which uses it for the `ActorConstructionContext` catalog and brain profiles and
+for `StagedActorAuthorities`. `None` means the transaction publishes no
+catalog, so the App's is the generation's. It is not session-lifetime (not an
+`Active*` resource like the cast): the commit publishes it to the App at the
+same boundary as the cast, so only the prepare-to-activate window needs it.
+Witness: `edit_to_play_through_the_shell::a_catalog_tag_saved_while_the_game_runs_is_built_from_the_candidate_catalog`
+(`"robot"` saved into the goblin row's tags: every rebuilt goblin's
+`hurt_feedback.material` is `Robot`; control: three `Flesh` goblins before).
+Poisons, MEASURED: "the claim carries no catalog" and "the builder's
+construction context reads the App's catalog" each fail it at the live
+goblins ([Flesh, Flesh, Flesh] while the App's catalog says robot). ⚠ OPEN:
+the brain-profile arm is the same selection but is not witnessed. No shipped
+placement names a `brain_profile`, so a witness must save a room placement and
+the catalog in one reload.
 
 What it took, measured before it was built:
 

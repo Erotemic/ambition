@@ -69,6 +69,7 @@ pub fn restore_inventory_from_save(
         &mut BodyWallet,
         ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
     >,
+    items: ambition_items::ItemCatalogRead,
 ) {
     if restored.0 {
         return;
@@ -78,7 +79,7 @@ pub fn restore_inventory_from_save(
     };
     let data = save.data();
     if data.inventory_saved() {
-        owned.apply_persisted(data.items());
+        owned.apply_persisted(items.get(), data.items());
         wallet.balance = data.wallet();
     }
     // Domain-owned durable adoption.
@@ -103,6 +104,7 @@ pub fn persist_inventory_to_save(
     // local player's, so only slot 0's wallet is persisted.
     wallet_q: Query<&BodyWallet, ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly>,
     mut save: ResMut<AmbitionGameSave>,
+    catalog: ambition_items::ItemCatalogRead,
 ) {
     if !restored.0 {
         return;
@@ -110,7 +112,7 @@ pub fn persist_inventory_to_save(
     let Ok(wallet) = wallet_q.single() else {
         return;
     };
-    let items = owned.to_persisted();
+    let items = owned.to_persisted(catalog.get());
     let data = save.data();
     if data.inventory_saved() && data.wallet() == wallet.balance && data.items() == items {
         return; // unchanged → leave the save clean (no redundant autosave)

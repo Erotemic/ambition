@@ -2,7 +2,7 @@
 //!
 //! `inventory.holds(item)` asks whether the player owns at least one item of a
 //! kind; it is distinct from occurrence-level custody. Item spelling and aliases
-//! are resolved only by [`Item::from_dialog_id`].
+//! are resolved only by [`ItemCatalog::item_by_dialog_id`](ambition_items::ItemCatalog::item_by_dialog_id).
 
 use ambition_platformer2d_shared_tangle::authored_logic::{
     AuthoredArg, ConditionDescriptor, ConditionId, ConditionOutcome, ParamKind, ParamSpec,
@@ -35,7 +35,8 @@ pub fn holds(world: &World, args: &[AuthoredArg]) -> ConditionOutcome {
     let Some(name) = args[0].as_name() else {
         return ConditionOutcome::unanswerable("`item` must be a name");
     };
-    let Some(item) = Item::from_dialog_id(name) else {
+    let catalog = ambition_items::item_catalog(world);
+    let Some(item) = catalog.item_by_dialog_id(name) else {
         return ConditionOutcome::unanswerable(format!(
             "no item kind is spelled `{name}` in this composition's catalog"
         ));
@@ -54,7 +55,7 @@ pub fn holds(world: &World, args: &[AuthoredArg]) -> ConditionOutcome {
     ConditionOutcome::from_bool(player_hand_holds(world, item), || {
         ambition_platformer2d_shared_tangle::authored_logic::WhyNot::new(
             "inventory.holds",
-            item.dialog_id(),
+            catalog.dialog_id(item),
             "the bag stores none and no player or driven hand wields one",
         )
     })
@@ -68,7 +69,8 @@ pub fn holds(world: &World, args: &[AuthoredArg]) -> ConditionOutcome {
 /// as "no driven body holds it", not as "the player population holds nothing".
 fn player_hand_holds(world: &World, item: Item) -> bool {
     use bevy::prelude::With;
-    let holds = |held: &ambition_combat::held_items::HeldItem| Item::from_held_item_id(held.id()) == Some(item);
+    let catalog = ambition_items::item_catalog(world);
+    let holds = |held: &ambition_combat::held_items::HeldItem| catalog.item_by_held_item_id(held.id()) == Some(item);
     let player_holds = world
         .try_query_filtered::<&ambition_combat::held_items::HeldItem, With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>>()
         .is_some_and(|mut hands| hands.iter(world).any(holds));
@@ -106,7 +108,7 @@ mod tests {
     #[test]
     fn the_inventory_domain_reads_the_live_bag_through_loose_spelling() {
         let mut app = App::new();
-        app.insert_resource(OwnedItems::starter());
+        app.insert_resource(OwnedItems::starter(ambition_items::builtin_item_catalog()));
         let world = app.world();
 
         // The starter bag carries health cells, however the author spells them.

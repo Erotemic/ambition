@@ -716,6 +716,54 @@ fn a_fighter_facet_saved_while_the_game_runs_reaches_the_cast() {
     }
 }
 
+/// ⭐ AN ITEM ROW SAVED WHILE THE GAME RUNS IS PLAYED. The item catalog is an
+/// App-local resource, and the items reload family publishes the edited pack's
+/// catalog with the selection. The watch is pointed at an exported copy.
+#[cfg(not(feature = "static_content"))]
+#[test]
+fn an_item_row_saved_while_the_game_runs_is_played() {
+    use ambition_content::content_watch::ContentSourceWatch;
+    use ambition_platformer2d::items::{item_catalog, Item};
+    let axe = |sim: &ambition_sim_harness::Platformer2dSimHarness| {
+        item_catalog(sim.world()).display_name(Item::Axe).to_string()
+    };
+    let mut sim = common::fixed_60hz_room_sim("proving_grounds");
+    for _ in 0..40 {
+        sim.step(common::base());
+    }
+    assert_eq!(axe(&sim), "Axe", "the premise: the shipped catalog names slot 1 `Axe`");
+
+    let root = std::env::temp_dir().join(format!("ambition_items_watch_{}", std::process::id()));
+    let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        ambition_content::pack::export_sources_to(&root).expect("sources export");
+        sim.world_mut().insert_resource(ContentSourceWatch::new(root.clone()));
+        std::thread::sleep(std::time::Duration::from_millis(20));
+        let path = root.join("data/items.ron");
+        let text = std::fs::read_to_string(&path).unwrap();
+        let from = "display_name: \"Axe\",";
+        assert_eq!(text.matches(from).count(), 1, "the premise: items.ron names the axe once");
+        std::fs::write(&path, text.replacen(from, "display_name: \"Hatchet\",", 1)).unwrap();
+
+        let mut frames = 0;
+        while axe(&sim) != "Hatchet" {
+            sim.step(common::base());
+            frames += 1;
+            assert!(
+                frames < 600,
+                "600 frames after the save the catalog names slot 1 {:?}; reloads requested: {}",
+                axe(&sim),
+                sim.world().resource::<ContentSourceWatch>().requested
+            );
+        }
+        assert_eq!(sim.world().resource::<ContentSourceWatch>().requested, 1, "one save, one reload");
+        eprintln!("a saved item row reached the item catalog {frames} frames after the save");
+    }));
+    let _ = std::fs::remove_dir_all(&root);
+    if let Err(payload) = outcome {
+        std::panic::resume_unwind(payload);
+    }
+}
+
 /// ⭐ A CATALOG SAVE THAT ADDS A CHARACTER, AND ONE THAT REMOVES IT, ARE BOTH
 /// PLAYED WITHOUT A RESTART. The added row is built and staged like every other
 /// row; the removed one is RETIRED: it leaves the cast and the stored source
@@ -786,6 +834,96 @@ fn a_catalog_save_that_adds_or_removes_a_character_is_played() {
         assert!(frozen_has(&sim, "goblin"), "removing a character kept the others");
         assert_eq!(requested(&sim), 2, "two saves, two reloads");
         eprintln!("a removed character left the frozen cast {frames} frames after the save");
+    }));
+    let _ = std::fs::remove_dir_all(&root);
+    if let Err(payload) = outcome {
+        std::panic::resume_unwind(payload);
+    }
+}
+
+/// The hurt material of every goblin the room built: a raw catalog fact (the
+/// row's tags), not a prepared-cast one.
+fn goblin_materials(
+    sim: &mut ambition_sim_harness::Platformer2dSimHarness,
+) -> Vec<ambition_platformer2d::vfx::vfx::ImpactMaterial> {
+    let world = sim.world_mut();
+    let mut q = world.query::<(
+        &ambition_platformer2d::characters::actor::WornCharacter,
+        &ambition_platformer2d::combat::components::CombatTuning,
+    )>();
+    q.iter(world)
+        .filter(|(worn, _)| worn.0.to_string() == "goblin")
+        .map(|(_, tuning)| tuning.hurt_feedback.material)
+        .collect()
+}
+
+/// ⭐ A CATALOG-ONLY EDIT IS BUILT FROM THE CANDIDATE CATALOG, NOT THE APP'S.
+/// A body's hurt material comes from its catalog row's tags
+/// (`actor_hurt_feedback`), which the prepared cast does not carry. The claim
+/// carried only the N+1 cast, so the candidate room built its goblins with
+/// the App's catalog, which is N until the commit: the goblins stayed flesh
+/// while the published catalog said robot. Saving `"robot"` into the goblin's
+/// tags now rebuilds every goblin as a robot, and the App's catalog says so.
+#[cfg(not(feature = "static_content"))]
+#[test]
+fn a_catalog_tag_saved_while_the_game_runs_is_built_from_the_candidate_catalog() {
+    use ambition_content::content_watch::ContentSourceWatch;
+    use ambition_platformer2d::vfx::vfx::ImpactMaterial;
+    let mut sim = common::fixed_60hz_room_sim("proving_grounds");
+    for _ in 0..40 {
+        sim.step(common::base());
+    }
+    let before = goblin_materials(&mut sim);
+    assert!(
+        before.len() >= 3 && before.iter().all(|material| *material == ImpactMaterial::Flesh),
+        "the premise: the room builds three flesh goblins, got {before:?}"
+    );
+
+    let root = std::env::temp_dir().join(format!("ambition_catalog_tag_watch_{}", std::process::id()));
+    let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        ambition_content::pack::export_sources_to(&root).expect("sources export");
+        sim.world_mut().insert_resource(ContentSourceWatch::new(root.clone()));
+        std::thread::sleep(std::time::Duration::from_millis(20));
+        let path = root.join("data/character_catalog.ron");
+        let text = std::fs::read_to_string(&path).unwrap();
+        let start = text.find("\"goblin\": (").expect("the catalog has a goblin row");
+        let at = start + text[start..].find("tags: [").expect("the row states its tags") + "tags: [".len();
+        std::fs::write(&path, format!("{}\"robot\", {}", &text[..at], &text[at..])).unwrap();
+
+        let mut frames = 0;
+        let robots = |sim: &mut ambition_sim_harness::Platformer2dSimHarness| {
+            let materials = goblin_materials(sim);
+            !materials.is_empty() && materials.iter().all(|material| *material == ImpactMaterial::Robot)
+        };
+        let published = |sim: &ambition_sim_harness::Platformer2dSimHarness| {
+            sim.world()
+                .resource::<ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog>()
+                .get("goblin")
+                .is_some_and(|row| row.tags.iter().any(|tag| tag == "robot"))
+        };
+        while !published(&sim) {
+            sim.step(common::base());
+            frames += 1;
+            assert!(
+                frames < 600,
+                "600 frames after the save the App's catalog has no robot goblin; reloads requested: {}",
+                sim.world().resource::<ContentSourceWatch>().requested
+            );
+        }
+        // The room the commit published was built before the App's catalog
+        // changed: give it the frames the HP arm gives its rebuild.
+        for _ in 0..30 {
+            if robots(&mut sim) {
+                break;
+            }
+            sim.step(common::base());
+        }
+        assert!(
+            robots(&mut sim),
+            "the App's catalog says the goblin is a robot, and the goblins the reload built are {:?}",
+            goblin_materials(&mut sim)
+        );
+        assert_eq!(goblin_materials(&mut sim).len(), before.len(), "the same goblins, rebuilt");
     }));
     let _ = std::fs::remove_dir_all(&root);
     if let Err(payload) = outcome {

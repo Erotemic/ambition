@@ -3,7 +3,7 @@ use super::*;
 #[test]
 fn items_face_wires_all_24_slots_from_our_catalog() {
     let owned = OwnedItems::default();
-    let spec = items_spec(&owned, None);
+    let spec = items_spec(&owned, ambition_platformer2d::items::builtin_item_catalog(), None);
     assert_eq!(
         spec.cells.len(),
         ambition_platformer2d::items::ITEM_COUNT,
@@ -12,15 +12,15 @@ fn items_face_wires_all_24_slots_from_our_catalog() {
     // Slots are in grid order; labels are wrapped from our catalog.
     for (idx, cell) in spec.cells.iter().enumerate() {
         assert_eq!(cell.slot.0, idx);
-        assert_eq!(cell.label, cell_label(Item::ALL[idx].display_name()));
+        assert_eq!(cell.label, cell_label(ambition_platformer2d::items::builtin_item_catalog().display_name(Item::ALL[idx])));
     }
 }
 
 #[test]
 fn owned_and_equipped_flags_reflect_inventory_state() {
     let mut owned = OwnedItems::default();
-    owned.grant(Item::Blink, 1);
-    let spec = items_spec(&owned, Some(Item::Blink));
+    owned.grant(ambition_platformer2d::items::builtin_item_catalog(), Item::Blink, 1);
+    let spec = items_spec(&owned, ambition_platformer2d::items::builtin_item_catalog(), Some(Item::Blink));
     let blink = &spec.cells[Item::Blink.index()];
     assert!(blink.owned, "granted item reads owned");
     assert!(blink.equipped, "equipped item reads equipped");
@@ -53,7 +53,7 @@ fn item_cells_carry_a_sprite_icon_when_one_exists_else_fall_back_to_text() {
     // Items with authored art emit an `icon` on their grid control; items
     // without art carry `None` (the lib then renders the text label).
     let owned = OwnedItems::default();
-    let page = build_items_page(&owned, None);
+    let page = build_items_page(&owned, ambition_platformer2d::items::builtin_item_catalog(), None);
     // Item-grid controls are emitted in catalog slot order, so the icon list
     // lines up 1:1 with `Item::ALL`.
     let icons: Vec<Option<String>> = page
@@ -90,7 +90,7 @@ fn item_cells_carry_a_sprite_icon_when_one_exists_else_fall_back_to_text() {
 #[test]
 fn items_page_has_one_detail_panel_not_per_cell_descriptions() {
     let owned = OwnedItems::default();
-    let page = build_items_page(&owned, None);
+    let page = build_items_page(&owned, ambition_platformer2d::items::builtin_item_catalog(), None);
     for node in &page.nodes {
         if let ambition_platformer2d::menu::MenuNode::Control {
             detail: Some(d),
@@ -100,7 +100,7 @@ fn items_page_has_one_detail_panel_not_per_cell_descriptions() {
         {
             if *kind == MenuControlKind::Item {
                 assert!(
-                    !d.contains(Item::Blink.description()),
+                    !d.contains(ambition_platformer2d::items::builtin_item_catalog().description(Item::Blink)),
                     "grid cell must not render the full description: {d:?}"
                 );
             }
@@ -121,14 +121,14 @@ fn items_page_has_one_detail_panel_not_per_cell_descriptions() {
     );
     // The in-place text for a focused item renders its description (this is what
     // `kaleidoscope_sync_detail_text` writes into the dynamic slots each move).
-    let slot_text = items_detail_slot_text(&owned, None, MenuFocus::Item(Item::Blink.index()));
+    let slot_text = items_detail_slot_text(&owned, ambition_platformer2d::items::builtin_item_catalog(), None, MenuFocus::Item(Item::Blink.index()));
     let joined: String = slot_text
         .iter()
         .map(|(_, s)| s.as_str())
         .collect::<Vec<_>>()
         .join(" ");
     assert!(
-        joined.contains(Item::Blink.description()),
+        joined.contains(ambition_platformer2d::items::builtin_item_catalog().description(Item::Blink)),
         "focused item's description is supplied by the in-place detail slots: {joined:?}"
     );
 }
@@ -634,7 +634,7 @@ fn viewer_left_button_turns_to_the_right_neighbor() {
     assert_eq!(MenuPage::Items.on_viewer_left(), MenuPage::Map);
     assert_eq!(MenuPage::Items.on_viewer_right(), MenuPage::System);
     let owned = OwnedItems::default();
-    let page = build_items_page(&owned, None);
+    let page = build_items_page(&owned, ambition_platformer2d::items::builtin_item_catalog(), None);
     let left = page.nodes.iter().find_map(|n| match n {
         ambition_platformer2d::menu::MenuNode::Control {
             action: Some(MenuPageAction::ChangePage(p)),

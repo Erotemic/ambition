@@ -362,6 +362,8 @@ pub struct FeatureHitCatalogs<'w> {
     /// The activated generation: its sheets and boss catalog outrank the App's,
     /// as for every construction road (`GenerationMechanics`).
     pub generation: Option<Res<'w, crate::session::mechanics::SessionMechanics>>,
+    /// The item catalog, for the ability a defeated boss drops.
+    pub items: ambition_items::ItemCatalogRead<'w>,
 }
 
 /// Coins a defeated standard enemy drops. A flat amount — a *working* earn-side
@@ -926,6 +928,7 @@ pub fn apply_feature_hit_events(
                 combat_banter.as_deref(),
                 hurt,
                 resolved_rules.strike_weight,
+                catalogs.items.get(),
                 &mut writers,
             ) {
                 boss_hit_this_event = true;

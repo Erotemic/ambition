@@ -690,6 +690,15 @@ impl AdmittedRevision {
         &self.candidate
     }
 
+    /// The catalog this revision publishes with its cast, BEFORE publication,
+    /// or `None` when it changes no catalog. The cast is a projection of this
+    /// catalog, and construction reads both (a catalog tag decides a body's
+    /// hurt material; a placement names a brain profile), so a preparation
+    /// that reads the candidate cast reads this beside it.
+    pub fn candidate_catalog(&self) -> Option<&CandidateCatalog> {
+        self.catalog.as_ref()
+    }
+
     /// How many definitions this revision replaces.
     pub fn changed(&self) -> usize {
         self.staged.len()

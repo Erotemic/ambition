@@ -125,6 +125,8 @@ pub(crate) fn apply_boss_hit(
     // The room's line between light and heavy hits (its game's rule). Only
     // the strike SOUND reads it.
     strike_weight: Option<ambition_combat::strike_weight::StrikeWeightRules>,
+    // The item catalog: which item the ability a defeated boss drops is.
+    items: &ambition_items::ItemCatalog,
     writers: &mut FeatureHitWriters<'_, '_>,
 ) -> bool {
     let session_scope = writers.spawn_scope_from(boss_entity);
@@ -290,7 +292,7 @@ pub(crate) fn apply_boss_hit(
         if let (Some(ability_id), Some(parent)) =
             (boss.config.behavior.reward_ability.as_deref(), &parent)
         {
-            if let Some(item) = ambition_items::Item::from_dialog_id(ability_id) {
+            if let Some(item) = items.item_by_dialog_id(ability_id) {
                 drop_ability_pickup(
                     &mut writers.commands,
                     session_scope,
@@ -298,7 +300,7 @@ pub(crate) fn apply_boss_hit(
                     &boss.config.behavior.id,
                     boss.kin.pos,
                     ability_id,
-                    item.display_name(),
+                    items.display_name(item),
                 );
             }
         }

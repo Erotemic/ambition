@@ -24,6 +24,11 @@
 //! ⚠ The frame time of `--render` includes the rasterizer of this machine. On
 //! a software adapter (llvmpipe) that is CPU work that a GPU does not do, so
 //! compare the two paths on one machine, not the numbers across machines.
+//! Each measured frame of `--render` waits for the GPU to finish the frame, so
+//! on a hardware GPU the time includes the GPU work, not only its submission.
+//! The first render run prints the adapter (`adapter name=…`), so a report
+//! states which rasterizer made it. `scripts/rig_packet8_gpu_bench.py` runs the
+//! Packet 8 matrix on a hardware GPU and writes the report.
 //!
 //! ```sh
 //! cargo run -p ambition_render --example rigged_sprite_bench --profile profiling -- --frames 3000
@@ -328,10 +333,16 @@ fn run(target: &str, actors: usize, rigged: bool, frames: usize, views: Option<u
     for _ in 0..(POSE_FRAMES as usize * POSES.len()) {
         app.update();
     }
+    if views.is_some() {
+        print_adapter_once(&app);
+    }
     let mut samples: Vec<f64> = Vec::with_capacity(frames);
     for _ in 0..frames {
         let start = Instant::now();
         app.update();
+        if views.is_some() {
+            wait_for_gpu(&app);
+        }
         samples.push(start.elapsed().as_secs_f64() * 1.0e6);
     }
     samples.sort_by(|a, b| a.partial_cmp(b).unwrap());
@@ -358,6 +369,34 @@ fn run(target: &str, actors: usize, rigged: bool, frames: usize, views: Option<u
         p95_us: samples[samples.len() * 95 / 100],
         render,
     }
+}
+
+/// Print the render adapter, once per process.
+fn print_adapter_once(app: &App) {
+    static PRINTED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+    if PRINTED.swap(true, std::sync::atomic::Ordering::Relaxed) {
+        return;
+    }
+    let info = &app
+        .sub_app(bevy::render::RenderApp)
+        .world()
+        .resource::<bevy::render::renderer::RenderAdapterInfo>()
+        .0;
+    println!(
+        "[rigged_sprite_bench] adapter name={} backend={:?} device_type={:?}",
+        info.name, info.backend, info.device_type
+    );
+}
+
+/// Block until the GPU has finished every submitted frame. Without it, a
+/// hardware GPU's work overlaps the next `update` and the frame time measures
+/// only the CPU that submits it.
+fn wait_for_gpu(app: &App) {
+    app.sub_app(bevy::render::RenderApp)
+        .world()
+        .resource::<bevy::render::renderer::RenderDevice>()
+        .poll(bevy::render::render_resource::PollType::wait_indefinitely())
+        .expect("the GPU finishes the frame");
 }
 
 /// Run frames until every sheet page and part page has loaded. A bench that

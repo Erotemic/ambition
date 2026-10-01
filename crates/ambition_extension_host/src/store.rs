@@ -50,6 +50,19 @@ impl RecordSet {
             .map(|i| &self.records[i].record)
     }
 
+    /// The stored record with the shape it was written under.
+    pub fn get_stored(&self, key: &SchemaKey) -> Option<&StoredRecord> {
+        self.records
+            .binary_search_by(|r| r.key.cmp(key))
+            .ok()
+            .map(|i| &self.records[i])
+    }
+
+    /// Keep only the records whose schema `keep` accepts.
+    pub fn retain_schemas(&mut self, mut keep: impl FnMut(&SchemaKey) -> bool) {
+        self.records.retain(|r| keep(&r.key));
+    }
+
     pub fn put(&mut self, key: SchemaKey, shape: u64, record: Record) {
         match self.records.binary_search_by(|r| r.key.cmp(&key)) {
             Ok(i) => {

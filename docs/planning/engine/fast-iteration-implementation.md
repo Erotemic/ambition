@@ -333,6 +333,57 @@ unit tests and one lifecycle integration module in the shared app_it binary.
 | I3b | Inventory the selected constructors and hooks; split typed candidate data from active mutation; validate relationships/resource deltas; connect one bounded publication path with A10 | FI4's candidate refusal and valid reconstruction, not only parser failure |
 | I3c | Add scenario pin/replay, changed-section explanation, actual activation status and generation-aware cancellation to existing tools | FI1-FI4 plus M0 measurements on the real edit loop |
 
+**Step 4's file watch, 2026-10-01: the running game plays a saved content
+file.** Until then `request_reload` had no production caller: the road was
+built and tested, and a developer had to restart the game to see an edit. A
+build that reads its content off disk (no `static_content`) now installs
+`ambition_content::content_watch` (from `reload::register`, under the same
+shell condition). Every 20 frames it compares the modification time of each
+source `pack.ron` declares; on a change it compiles the pack from
+`pack::source_root()` and calls `request_reload`. The reload road answers:
+a pack that does not compile, an unsupported domain and a foreign timeline are
+refused and logged, and the running content stays. A menu (no active
+preparing route) or a reload in flight keeps the change for the next look.
+Witness: `app_it::edit_to_play_through_the_shell::a_content_file_saved_while_the_game_runs_is_played`
+(a `jab` retimed in an exported copy: the three bodies play the new duration
+**19 frames after the save**, measured, with one request; poison "the watch
+returns early" fails it at 600 frames).
+
+**Boss tuning reloads too (2026-10-01).** `boss_profiles` and
+`boss_encounter` are participating domains (`reload::BOSS_DOMAINS`). Like the
+moveset, they are admitted at request time against world state: the App's
+`BossCatalogRegistry` with Ambition's fragment rebuilt from the candidate pack
+(`bosses::boss_catalog_fragment_from`, `BossCatalogRegistry::with_replaced`),
+so a roster that does not assemble is refused before anything is staged
+(`MoveReload::BossCatalogRefused`). The transaction carries the candidate
+catalog; `PendingGenerationInputs::bosses` hands it to its own preparation
+(`candidate_bosses_for`), which fingerprints AND freezes that one value; the
+commit publishes the registry and catalog to the App. Witness:
+`edit_to_play_through_the_shell::a_boss_tuning_saved_while_the_game_runs_is_played`
+(mockingbird's `strike_speed_scale` saved in an exported copy: the rebuilt
+boss plays it **22 frames after the save**, measured; poison "the claim carries
+no catalog" fails it, on the live boss and on `SessionMechanics.bosses`).
+
+⛔ **FOUND BY THAT POISON: THE LIVE BOSS IS NOT BUILT FROM THE FROZEN
+GENERATION.** With the claim emptied, the session froze N's catalog and
+construction spawned the mockingbird from it (probed: `strike_speed_scale` 1.0
+at freeze and at build), and the live boss still played N+1 on the activation
+frame. `ambition_boss_encounter::systems::update_boss_encounters` seeds a new
+boss's behaviour, HP and phase triggers on its first tick from
+`BossEncounterRegistry` (populated from the App's `BossCatalog`, reset at
+teardown) or from `Res<BossCatalog>` directly. The two agreed at that moment
+only because the commit publishes the App catalog before the new session
+ticks: an ordering that happened to hold, not a rule. **Fixed for the
+behaviour:** the seed no longer writes it (`apply_behavior_profile` is gone);
+construction resolved it from the frozen catalog and captured the brain's
+pattern from the same value, so a second write could only repeat it or split
+the boss from its own brain. With that, the poison fails on the live boss.
+**Open:** HP, phase triggers, death seconds, music and reward still come from
+the App catalog through `BossEncounterRegistry` on the first tick; seed them
+at construction from the catalog the construction context carries. Still refused: items, audio, the character catalog,
+the boss seed library and validator bands, and every source outside the pack
+(`boss_sheets.ron`, `boss_art_keys.ron`).
+
 I3a is independently useful. I3 is complete only after all three cuts. I1/I2 and
 I4 contract work need not wait for I3b; procedural replacement does. Do not turn
 I3b into arbitrary ECS undo or all-world concurrent simulation.
@@ -436,6 +487,7 @@ for; the choice is recorded below so M1 can overturn it with numbers.
 | Host: loaded runner, output checked like native output, explicit replacement | `ambition_extension_host` (`DeclaredModule`, `ModuleBackend`, `Admitted::replaced`) | `a_loaded_module_replaces_a_native_one_only_when_it_says_so` |
 | WebAssembly backend: wasmi, `deterministic`, fuel, a new instance per call | `crates/ambition_extension_wasm` | refuses an importing module; a runaway entry runs out of fuel |
 | Hot reload in the SHIPPED composition: a changed file is polled, proposed through the mechanical-edit protocol, and published with no timeline (refused, staged and kept, under a sync-test session the harness owns) — `a_boss_special_runs_on_the_extension_host::a_module_file_that_changes_while_the_game_runs_is_reloaded`. And a reload that ADDS a module the running game did not have, with a schema the host never saw: it takes over and counts the next presses — `a_loaded_module_keeps_session_state::a_module_file_replaced_while_the_game_runs_takes_over` (2026-10-01; its commit message calls it the reload road's first app-level witness, which is wrong: the first is the one before it) | `ambition_platformer2d_runtime::extension_composition` (`load_developer_modules`, `propose_module_reload`, `publish_module_reload`) | the two tests named |
+| Reload, a review's three findings (2026-10-01): **a file is the unit of replacement** — a loaded module carries its origin (`ModuleCode::Loaded::artifact`), and a reload of that file removes every module that came from it as one set, so a module the new build no longer exports leaves; **one poll, one candidate** — `stage_loaded_replacements` takes every changed file, builds on a candidate already staged, admits once; **a departed schema takes its records** — publication removes them from `BodyRecords` and `SessionRecords`, and `read_state` faults a stored record of another shape (`Fault::StaleRecord`) instead of reading it as the admitted one | `ambition_extension_host::reload`, `exec::read_state`, `store::RecordSet::{get_stored, retain_schemas}`; the runtime's `propose_module_reload` | `a_module_a_rebuilt_file_no_longer_exports_leaves_with_it`, `two_files_changed_before_one_publication_both_take_over` (one poll and two), `a_departed_schemas_records_go_and_do_not_come_back`, `a_stored_record_of_another_shape_faults_the_invocation`; poisons "replace by the new keys", "build on the published composition", "keep departed records" and "ignore the stored shape" each fail exactly its own test |
 | The developer road | `AMBITION_EXTENSION_MODULES` or `ExtensionModuleFiles`, runtime feature `wasm_modules` (the app enables it); `scripts/build_extension_modules.sh` | `app_it::a_boss_special_runs_on_the_extension_host::a_module_rebuilt_as_wasm_replaces_the_linked_one_in_the_same_game`; content `wasm_parity` (floats to 1e-3: the guest's `sin`/`atan2` differ in the last bit, measured) |
 
 **Measured (M0, this machine, 2026-10-01):** an edit to the echo fan to a

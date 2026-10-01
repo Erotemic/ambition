@@ -402,7 +402,7 @@ fn loaded_app(replaces: bool, also_native: bool) -> App {
         app.add_extension_module(module(vec![entry("a", vec![])]));
     }
     let (backend, published) = loaded(vec![module(vec![entry("a", vec![])])]);
-    app.add_loaded_extension_modules(backend, published, replaces);
+    app.add_loaded_extension_modules("fixture.wasm", backend, published, replaces);
     app.finish();
     app
 }
@@ -466,7 +466,7 @@ fn a_loaded_module_cannot_submit_to_an_undeclared_port() {
         .install_extension_trigger::<Poke, _>(PHASE, "test", collect_pokes)
         .install_extension_observation::<Height>(PHASE, "test", height_of)
         .install_extension_request::<Emit, _>(PHASE, "test", lower_emits)
-        .add_loaded_extension_modules(backend, host_view, false);
+        .add_loaded_extension_modules("fixture.wasm", backend, host_view, false);
     app.finish();
     app.world_mut().spawn((Poked(1), Tall(2.0)));
     step(&mut app);
@@ -496,7 +496,7 @@ fn a_reloaded_module_takes_over_at_publication_and_keeps_its_records() {
     let mut rebuilt = module(vec![entry("a", vec![])]);
     rebuilt.entries[0].run = EntryCode::Native(count_by_ten);
     let (backend, published) = loaded(vec![rebuilt]);
-    reload::stage_loaded_replacement(app.world_mut(), backend, published).unwrap();
+    reload::stage_loaded_replacement(app.world_mut(), "fixture.wasm", backend, published).unwrap();
     // Staged is not published: the old code still runs.
     step(&mut app);
     assert!(reload::publish_staged_replacement(app.world_mut()));
@@ -520,13 +520,13 @@ fn a_reload_that_moves_live_state_to_another_store_or_is_refused_leaves_the_runn
     let mut moved = module(vec![entry("a", vec![])]);
     moved.schemas[0].attachment = Attachment::Session;
     let (backend, published) = loaded(vec![moved]);
-    let err = reload::stage_loaded_replacement(app.world_mut(), backend, published).unwrap_err();
+    let err = reload::stage_loaded_replacement(app.world_mut(), "fixture.wasm", backend, published).unwrap_err();
     assert!(err.contains("attachment"), "{err}");
 
     let mut broken = module(vec![entry("a", vec![])]);
     broken.entries[0].requests.push(PortKey::new("test.nowhere", 1));
     let (backend, published) = loaded(vec![broken]);
-    let err = reload::stage_loaded_replacement(app.world_mut(), backend, published).unwrap_err();
+    let err = reload::stage_loaded_replacement(app.world_mut(), "fixture.wasm", backend, published).unwrap_err();
     assert!(err.contains("refused"), "{err}");
 
     assert!(!app.world().resource::<reload::StagedModuleReplacement>().is_staged());
@@ -854,7 +854,7 @@ fn a_reload_that_reshapes_a_record_migrates_the_live_records_by_tag() {
         inv.submit::<Emit>((poke, count, height))
     });
     let (backend, published) = loaded(vec![reshaped]);
-    reload::stage_loaded_replacement(app.world_mut(), backend, published).unwrap();
+    reload::stage_loaded_replacement(app.world_mut(), "fixture.wasm", backend, published).unwrap();
     assert!(reload::publish_staged_replacement(app.world_mut()));
     let migrated = count(&app);
     assert_eq!(migrated.values(), &[Value::Bool(false), Value::U32(2), Value::F32(1.5)]);
@@ -867,7 +867,7 @@ fn a_reload_that_reshapes_a_record_migrates_the_live_records_by_tag() {
     retyped.schemas[0].fields = vec![FieldDecl::new(1, "count", FieldKind::F32)];
     retyped.entries[0].run = EntryCode::Native(|_| Ok(()));
     let (backend, published) = loaded(vec![retyped]);
-    reload::stage_loaded_replacement(app.world_mut(), backend, published).unwrap();
+    reload::stage_loaded_replacement(app.world_mut(), "fixture.wasm", backend, published).unwrap();
     assert!(reload::publish_staged_replacement(app.world_mut()));
     assert_eq!(count(&app).values(), &[Value::F32(0.0)]);
 }
@@ -899,4 +899,197 @@ fn a_record_migrates_by_tag_not_by_position_or_name() {
     let migrated = new.migrate(&old, &record);
     assert_eq!(migrated.values(), &[Value::Bool(true), Value::U32(5), Value::U32(7)]);
     new.check(&migrated).unwrap();
+}
+
+/// A module with no state and no entries, under its own key: something a
+/// file can export beside the counter.
+fn extra(version: &'static str) -> ModuleDescriptor {
+    ModuleDescriptor {
+        key: ModuleKey::new("test", "extra"),
+        api: API_VERSION,
+        code: CodeIdentity::StaticNative {
+            crate_name: "test".into(),
+            version: version.into(),
+        },
+        schemas: vec![],
+        entries: vec![],
+    }
+}
+
+/// The counter module, without its state: entry `a` writes nothing.
+fn stateless() -> ModuleDescriptor {
+    let mut m = module(vec![entry("a", vec![])]);
+    m.schemas.clear();
+    m.entries[0].writes.clear();
+    m.entries[0].run = EntryCode::Native(|_| Ok(()));
+    m
+}
+
+fn bare_app() -> App {
+    let mut app = App::new();
+    app.init_schedule(Sim);
+    app.add_plugins(ExtensionHostPlugin::new(Sim))
+        .init_resource::<Lowered>()
+        .init_resource::<SimTick>()
+        .init_resource::<ambition_time::WorldTime>()
+        .install_extension_trigger::<Poke, _>(PHASE, "test", collect_pokes)
+        .install_extension_observation::<Height>(PHASE, "test", height_of)
+        .install_extension_request::<Emit, _>(PHASE, "test", lower_emits);
+    app
+}
+
+/// The declared module keys, and each one's code version.
+fn declared_versions(app: &App) -> Vec<(String, String)> {
+    let mut out: Vec<_> = app
+        .world()
+        .resource::<ExtensionComposition>()
+        .declared
+        .iter()
+        .map(|m| {
+            let version = match &m.descriptor.code {
+                CodeIdentity::StaticNative { version, .. } => version.to_string(),
+                CodeIdentity::Loaded { digest, .. } => format!("{digest:x}"),
+            };
+            (m.descriptor.key.to_string(), version)
+        })
+        .collect();
+    out.sort();
+    out
+}
+
+/// ⛔ P2a: A MODULE A REBUILT FILE NO LONGER EXPORTS LEAVES WITH IT. The old
+/// set was found by the keys of the new build, so `extra` stayed, running its
+/// old code.
+#[test]
+fn a_module_a_rebuilt_file_no_longer_exports_leaves_with_it() {
+    let mut app = bare_app();
+    let (backend, published) = loaded(vec![module(vec![entry("a", vec![])]), extra("0")]);
+    app.add_loaded_extension_modules("f.wasm", backend, published, false);
+    app.finish();
+    assert_eq!(declared_versions(&app).len(), 2, "the premise: the file exports two modules");
+
+    let (backend, published) = loaded(vec![module(vec![entry("a", vec![])])]);
+    reload::stage_loaded_replacement(app.world_mut(), "f.wasm", backend, published).unwrap();
+    assert!(reload::publish_staged_replacement(app.world_mut()));
+    let keys: Vec<String> = declared_versions(&app).into_iter().map(|(k, _)| k).collect();
+    assert_eq!(keys.len(), 1, "only the counter is left: {keys:?}");
+    assert!(!keys.iter().any(|k| k.contains("extra")), "{keys:?}");
+}
+
+/// ⛔ P2b: TWO FILES CHANGED BEFORE ONE PUBLICATION ARE ONE GENERATION, in one
+/// poll or in two. Each candidate was built from the published composition,
+/// so the second dropped the first.
+#[test]
+fn two_files_changed_before_one_publication_both_take_over() {
+    for one_poll in [true, false] {
+        let mut app = bare_app();
+        let (backend, published) = loaded(vec![module(vec![entry("a", vec![])])]);
+        app.add_loaded_extension_modules("counter.wasm", backend, published, false);
+        let (backend, published) = loaded(vec![extra("0")]);
+        app.add_loaded_extension_modules("extra.wasm", backend, published, false);
+        app.finish();
+        let body = app.world_mut().spawn((Poked(1), Tall(2.0))).id();
+        step(&mut app);
+
+        let mut rebuilt = module(vec![entry("a", vec![])]);
+        rebuilt.entries[0].run = EntryCode::Native(count_by_ten);
+        let (counter_backend, counter) = loaded(vec![rebuilt]);
+        let (extra_backend, extra_v1) = loaded(vec![extra("1")]);
+        let new_extra = Arc::as_ptr(&extra_backend) as *const ();
+        if one_poll {
+            reload::stage_loaded_replacements(
+                app.world_mut(),
+                vec![
+                    reload::LoadedArtifact { artifact: "counter.wasm".into(), backend: counter_backend, modules: counter },
+                    reload::LoadedArtifact { artifact: "extra.wasm".into(), backend: extra_backend, modules: extra_v1 },
+                ],
+            )
+            .unwrap();
+        } else {
+            reload::stage_loaded_replacement(app.world_mut(), "counter.wasm", counter_backend, counter).unwrap();
+            reload::stage_loaded_replacement(app.world_mut(), "extra.wasm", extra_backend, extra_v1).unwrap();
+        }
+        assert!(reload::publish_staged_replacement(app.world_mut()));
+        step(&mut app);
+        let extras: Vec<*const ()> = app
+            .world()
+            .resource::<ExtensionComposition>()
+            .declared
+            .iter()
+            .filter(|m| m.descriptor.key == ModuleKey::new("test", "extra"))
+            .filter_map(|m| match &m.code {
+                ModuleCode::Loaded { backend, .. } => Some(Arc::as_ptr(backend) as *const ()),
+                ModuleCode::Native => None,
+            })
+            .collect();
+        assert_eq!(extras, [new_extra], "one_poll={one_poll}: the new extra, and only it, is declared");
+        assert_eq!(
+            app.world().get::<BodyRecords>(body).unwrap().get(&COUNTER).unwrap().get(COUNT).unwrap(),
+            &Value::U32(11),
+            "one_poll={one_poll}: the new counter counts by ten"
+        );
+    }
+}
+
+/// ⛔ P3: A SCHEMA THAT LEAVES TAKES ITS RECORDS, from bodies and sessions;
+/// brought back with other fields, it starts from its initial record, not
+/// from the old one and not from a migration of it.
+#[test]
+fn a_departed_schemas_records_go_and_do_not_come_back() {
+    let mut app = loaded_app(true, true);
+    let body = app.world_mut().spawn((Poked(1), Tall(2.0))).id();
+    step(&mut app);
+    step(&mut app);
+    let shape = app.world().resource::<AdmittedExtensions>().0.schemas[&COUNTER].shape;
+    let mut session_record = counter_schema().initial_record();
+    session_record.set(COUNT, Value::U32(7)).unwrap();
+    let mut session = SessionRecords::default();
+    session.put(COUNTER, shape, session_record);
+    let session = app.world_mut().spawn(session).id();
+    assert!(app.world().get::<BodyRecords>(body).unwrap().get(&COUNTER).is_some(), "the premise");
+
+    let (backend, published) = loaded(vec![stateless()]);
+    reload::stage_loaded_replacement(app.world_mut(), "fixture.wasm", backend, published).unwrap();
+    assert!(reload::publish_staged_replacement(app.world_mut()));
+    assert!(app.world().get::<BodyRecords>(body).unwrap().get(&COUNTER).is_none(), "gone from the body");
+    assert!(app.world().get::<SessionRecords>(session).unwrap().get(&COUNTER).is_none(), "gone from the session");
+
+    // Back, with a new field before the count.
+    let mut back = module(vec![entry("a", vec![])]);
+    back.schemas[0].fields = vec![
+        FieldDecl::new(2, "flag", FieldKind::Bool),
+        FieldDecl::new(1, "count", FieldKind::U32),
+    ];
+    back.entries[0].run = EntryCode::Native(|inv| {
+        let record = inv.state(&COUNTER)?;
+        let count = record.get(FieldRef(1)).ok().and_then(Value::as_u32).unwrap_or(0) + 1;
+        record.set(FieldRef(1), Value::U32(count)).ok();
+        Ok(())
+    });
+    let (backend, published) = loaded(vec![back]);
+    reload::stage_loaded_replacement(app.world_mut(), "fixture.wasm", backend, published).unwrap();
+    assert!(reload::publish_staged_replacement(app.world_mut()));
+    step(&mut app);
+    assert_eq!(
+        app.world().get::<BodyRecords>(body).unwrap().get(&COUNTER).unwrap().values(),
+        &[Value::Bool(false), Value::U32(1)],
+        "the reintroduced schema counted from its initial record"
+    );
+}
+
+/// ⛔ P3: A RECORD OF ANOTHER SHAPE IS REFUSED, NOT READ AS THIS ONE.
+#[test]
+fn a_stored_record_of_another_shape_faults_the_invocation() {
+    let mut app = app();
+    let body = app.world_mut().spawn((Poked(1), Tall(2.0))).id();
+    let shape = app.world().resource::<AdmittedExtensions>().0.schemas[&COUNTER].shape;
+    let mut records = BodyRecords::default();
+    records.put(COUNTER, shape ^ 1, counter_schema().initial_record());
+    app.world_mut().entity_mut(body).insert(records);
+    step(&mut app);
+    assert!(app.world().resource::<Lowered>().0.is_empty(), "the entry did not run on the stale record");
+    assert_eq!(
+        app.world().resource::<ExtensionFaults>().recent[0].fault,
+        Fault::StaleRecord { schema: COUNTER, stored: shape ^ 1, admitted: shape }
+    );
 }

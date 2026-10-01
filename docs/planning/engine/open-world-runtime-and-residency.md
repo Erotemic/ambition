@@ -1710,6 +1710,30 @@ snapshots (a clone that copies a pointer while the rows are unchanged),
 and stop serializing the whole save for each checksum (a checksum kept
 with the rows and computed again only when they change).
 
+✅ **M2 cut (B), landed 2026-10-01: the save's dormant-record rows are
+hashed once per version.** The save's occurrence rows and minted rows are
+`Arc`-shared (`AmbitionGameSaveData`; the setters replace the whole `Arc`,
+and serde's `rc` keeps the file form unchanged). So a snapshot clone of the
+save copies two pointers for them. The checksum is the fold of three
+hashes: the rest of the save (its RON form, as before), and each row set.
+A row set's hash is kept with the `Arc` it was computed from
+(`RowsChecksum`, one slot per row set), and computed again for any other
+`Arc`. The memo holds a clone of that `Arc`, so the allocation cannot be
+freed or written in place while the memo names it. The hash is still of the
+rows' serde form, so it is content-derived and peer-stable. Schema 289 ->
+290 (the checksum value changes; the layout does not). Witnesses in
+`ambition_persistence` `save_checksum_tests`:
+`equal_rows_in_separate_arcs_have_one_checksum`,
+`a_restore_that_changes_the_rows_changes_the_checksum` (a restore back to
+the snapshot gives the first checksum again), and
+`dormant_rows_add_little_to_a_repeated_checksum` (10,000 dormant mints
+against none: under three times the empty save's checksum plus 100 µs).
+Poisons, each failure predicted before the run: a memo that answers for
+any `Arc` (the moved rows kept the old checksum); no memo (32.7 ms
+against 7.5 µs). ⚠ Not changed: the ledger (`AuthoredOccurrences`) still
+clones and folds every row each rollback frame, 1.4 ms each with 10,000
+rows; it is the next M2 cut if the save's cost is not enough.
+
 ⚠ **`physics_spawn_debris_messages` is presentation, not simulation, and is
 not changed.** Its Avian debris bounces off static colliders that are
 built with the room visuals, and both are placed through `world_to_bevy`

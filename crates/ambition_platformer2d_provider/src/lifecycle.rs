@@ -372,6 +372,17 @@ impl PlatformerPreparation<'_> {
         )
     }
 
+    fn candidate_bosses_for(
+        &self,
+        transaction: &ProviderLoadTransaction,
+    ) -> Option<ambition_boss_encounter::BossCatalog> {
+        candidate_bosses_for(
+            self.content_inputs.5.as_deref(),
+            self.content_inputs.2.as_deref(),
+            transaction.barrier.load_id.as_str(),
+        )
+    }
+
     pub(crate) fn prepare(
         &mut self,
         transaction: &ProviderLoadTransaction,
@@ -635,6 +646,9 @@ impl PlatformerPreparation<'_> {
         // PREPARATION FAILURE, routed through the SAME arm as every other
         // diagnostic below — see `canonical`. A dump that cannot be rendered has
         // no identity, so this refuses rather than hashing an error string.
+        // ⛔ ONE CAPTURE for the fingerprint and the freeze: the boss catalog
+        // this transaction publishes. See `candidate_bosses_for`.
+        let frozen_bosses = self.candidate_bosses_for(transaction);
         let content = match canonical(
             self.content_inputs.3.as_deref(),
             ambition_characters::prepared::StagedCharacterOverrides::deterministic_dump,
@@ -656,8 +670,9 @@ impl PlatformerPreparation<'_> {
                     .4
                     .as_deref()
                     .map(ambition_sprite_sheet::character::sheets::AuthoredSheets::deterministic_dump),
+                // ⛔ THE TRANSACTION'S OWN CANDIDATE, as the freeze below.
                 boss_catalog: canonical(
-                    self.content_inputs.5.as_deref(),
+                    frozen_bosses.as_ref(),
                     ambition_boss_encounter::BossCatalog::deterministic_dump,
                     "boss.catalog",
                 )?,
@@ -715,12 +730,8 @@ impl PlatformerPreparation<'_> {
                         .as_deref()
                         .cloned()
                         .unwrap_or_default(),
-                    bosses: self
-                        .content_inputs
-                        .5
-                        .as_deref()
-                        .cloned()
-                        .unwrap_or_default(),
+                    // ⛔ THE SAME VALUE the fingerprint was taken over.
+                    bosses: frozen_bosses.unwrap_or_default(),
                     // ⛔⛤ **FROZEN IN THE SAME BREATH AS THE FINGERPRINT THAT
                     // COVERS THEM.** `Q126` put these two into
                     // `PreparedContentIdentity` via
@@ -1228,6 +1239,22 @@ pub(crate) fn content_identity_for(
 /// thing for a different reason: the candidate does not change the cast, so N is
 /// N+1's cast. Both are stated rather than inferred — see
 /// `PendingGenerationInputs::characters_for`.
+/// The boss catalog THIS transaction must be built from: the same rule as
+/// [`candidate_cast_for`], for the boss domains a reload publishes since
+/// 2026-10-01. A boss-profile edit admits the N+1 catalog at request time and
+/// withholds it from the App until the commit, so a preparation in that window
+/// that read the App would freeze N's bosses under N+1's identity.
+pub(crate) fn candidate_bosses_for(
+    active: Option<&ambition_boss_encounter::BossCatalog>,
+    pending: Option<&ambition_platformer2d_runtime::PendingGenerationInputs>,
+    load_id: &str,
+) -> Option<ambition_boss_encounter::BossCatalog> {
+    match pending.and_then(|claim| claim.bosses_for(load_id)) {
+        Some(Some(candidate)) => Some(candidate.clone()),
+        Some(None) | None => active.cloned(),
+    }
+}
+
 pub(crate) fn candidate_cast_for(
     active: Option<&ambition_characters::prepared::PreparedCharacterRegistry>,
     pending: Option<&ambition_platformer2d_runtime::PendingGenerationInputs>,
@@ -2941,6 +2968,7 @@ mod tests {
             load_id: load.to_string(),
             identity: line.to_string(),
             characters: None,
+            bosses: None,
         }
     }
 
@@ -4029,6 +4057,7 @@ mod mechanical_registries_reach_the_identity {
             load_id: "shell.game.7".to_string(),
             identity: "pack 2 cfp1:bb".to_string(),
             characters: Some(candidate.clone()),
+            bosses: None,
         };
 
         // ⛔ THE ASSERTION THE ARM IS FOR.

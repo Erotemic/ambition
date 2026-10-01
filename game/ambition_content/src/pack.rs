@@ -197,9 +197,7 @@ pub(crate) fn source_text(declared_path: &str, embedded: Option<&'static str>) -
     if let Some(text) = embedded {
         return text.to_string();
     }
-    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("assets")
-        .join(declared_path);
+    let path = source_root().join(declared_path);
     std::fs::read_to_string(&path).unwrap_or_else(|err| {
         panic!(
             "content source {declared_path} is neither embedded in this build nor \
@@ -210,6 +208,17 @@ pub(crate) fn source_text(declared_path: &str, embedded: Option<&'static str>) -
             path.display()
         )
     })
+}
+
+/// The directory every declared source is read from when this build does not
+/// embed it: the root [`compile_pack_from`] takes to play the files on disk.
+pub fn source_root() -> std::path::PathBuf {
+    std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets")
+}
+
+/// Every source path `pack.ron` declares, relative to [`source_root`].
+pub fn declared_source_paths() -> Vec<String> {
+    embedded_sources().into_iter().map(|(path, _)| path).collect()
 }
 
 /// Every source `pack.ron` declares, paired with its embedded text.

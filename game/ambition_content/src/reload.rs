@@ -11,7 +11,7 @@
 //! A reload publishes the selected pack together with every participating
 //! domain: see [`participates`] (the moveset schema plus
 //! [`PACK_DERIVED_FAMILIES`]). [`ReloadRequest`] refuses a candidate that
-//! changes any other domain (items, audio, boss profiles, character catalog),
+//! changes any other domain (items, audio, character catalog),
 //! because the canonical identity would then name generation N+1 while that
 //! catalog still serves N. A family added later is refused by default.
 
@@ -128,6 +128,10 @@ pub enum MoveReload {
     /// installed, so `unwrap_or_default()` would report a false roster-wide
     /// refusal.
     NoTechniqueSupport,
+    /// The candidate's boss roster or encounters do not form one catalog with
+    /// the other providers' fragments. Nothing was staged; the live bosses
+    /// keep the published catalog.
+    BossCatalogRefused(String),
 }
 
 /// Republish the cast's move tables from an already-compiled pack.
@@ -355,9 +359,50 @@ pub(crate) fn publish_candidate(
 /// express a generation N+1.
 fn participates(domain: &str) -> bool {
     domain == ambition_characters::moveset_content_schema::MOVESET_SCHEMA
+        || BOSS_DOMAINS.contains(&domain)
         || PACK_DERIVED_FAMILIES
             .iter()
             .any(|family| family.domain == domain)
+}
+
+/// The domains of the boss catalog. Like `moveset`, they are admitted at
+/// request time against world state (the other providers' fragments in
+/// `BossCatalogRegistry`), so [`PendingGeneration`] carries the candidate
+/// catalog and the preparation freezes it (`PendingGenerationInputs::bosses`).
+/// The seed library and the validator bands are not in the catalog, and stay
+/// refused.
+const BOSS_DOMAINS: &[&str] = &[
+    ambition_boss_encounter::pattern::content_schema::BOSS_PROFILES_SCHEMA,
+    ambition_boss_encounter::pattern::content_schema::BOSS_ENCOUNTER_SCHEMA,
+];
+
+/// The boss catalog a candidate publishes, or `None` when it changes no boss
+/// domain. Built from the App's registry with Ambition's fragment replaced, so
+/// a candidate that does not assemble is refused before anything is staged.
+fn candidate_bosses(
+    world: &bevy::ecs::world::World,
+    pack: &ambition_content_pack::PreparedContentPack,
+) -> Result<Option<CandidateBosses>, String> {
+    let changes_bosses = crate::pack::selected(world).is_some_and(|active| {
+        ambition_content_pack::changed_domains(active, pack)
+            .iter()
+            .any(|schema| BOSS_DOMAINS.contains(&schema.0.as_str()))
+    });
+    if !changes_bosses {
+        return Ok(None);
+    }
+    let registry = world
+        .get_resource::<ambition_boss_encounter::BossCatalogRegistry>()
+        .ok_or("this App registers no boss catalog")?;
+    let fragment = crate::bosses::boss_catalog_fragment_from(pack)?;
+    let (registry, catalog) = registry.with_replaced(fragment).map_err(|error| error.to_string())?;
+    Ok(Some(CandidateBosses { registry, catalog }))
+}
+
+/// A reload's boss catalog, and the registry it was assembled from.
+struct CandidateBosses {
+    registry: ambition_boss_encounter::BossCatalogRegistry,
+    catalog: ambition_boss_encounter::BossCatalog,
 }
 
 /// One mechanical family whose whole publication is a function of the candidate
@@ -732,6 +777,14 @@ pub fn request_reload(
     // Take it, do not borrow it: `admit_staged_revision` leaves edits staged,
     // and an unrelated publication could otherwise drain this reload's staged
     // revision.
+    // The boss catalog, admitted here for the same reason as the cast.
+    let bosses = match candidate_bosses(world, &pack) {
+        Ok(bosses) => bosses,
+        Err(error) => {
+            discard_staged_reload(world);
+            return ReloadRequest::Refused(MoveReload::BossCatalogRefused(error));
+        }
+    };
     let admitted_cast = match support
         .map(|support| ambition_characters::prepared::take_admitted_revision(world, &support))
         .unwrap_or(ambition_characters::prepared::RevisionAdmission::NothingStaged)
@@ -765,6 +818,7 @@ pub fn request_reload(
             request: request.clone(),
             pack,
             admitted_cast,
+            bosses,
         },
     );
     // `ReplaceWith`, not `GoTo`: a reload is not navigation and must not push
@@ -816,6 +870,9 @@ pub struct PendingGeneration {
     /// The value admission computed. `None` means the candidate changed no
     /// move material; the engine's generation still has to move.
     admitted_cast: Option<ambition_characters::prepared::AdmittedRevision>,
+    /// The boss catalog this generation publishes; `None` when it changes no
+    /// boss domain.
+    bosses: Option<CandidateBosses>,
 }
 
 impl PendingGeneration {
@@ -973,6 +1030,20 @@ pub fn register(app: &mut bevy::prelude::App) {
             .before(ambition_platformer2d::game_shell::AmbitionGameShellSet::Commands)
             .run_if(shell_is_installed),
     );
+    // A build that reads its content off disk plays an edit of it. See
+    // `crate::content_watch`. Before `Commands`, which reads the
+    // `ReplaceWith` a request writes.
+    #[cfg(not(feature = "static_content"))]
+    {
+        app.insert_resource(crate::content_watch::ContentSourceWatch::new(crate::pack::source_root()));
+        app.add_systems(
+            bevy::prelude::Update,
+            crate::content_watch::watch_content_sources
+                .before(break_the_publication_lease_when_the_boundary_closes)
+                .before(ambition_platformer2d::game_shell::AmbitionGameShellSet::Commands)
+                .run_if(shell_is_installed),
+        );
+    }
 }
 
 /// The hold id that blocks this transaction's route until publication is
@@ -1154,6 +1225,7 @@ pub fn adopt_preparation_transaction(
                                 .admitted_cast
                                 .as_ref()
                                 .map(|admitted| admitted.candidate().clone()),
+                            pending.bosses.as_ref().map(|bosses| bosses.catalog.clone()),
                         )
                     };
                     // Hold the route from adoption. Only the gate's answer at
@@ -1181,13 +1253,14 @@ pub fn adopt_preparation_transaction(
                             }
                         }
                     }
-                    let (claim, characters) = claim;
+                    let (claim, characters, bosses) = claim;
                     // The only place the claim is made: the transaction first
                     // has a name here.
                     world.insert_resource(ambition_platformer2d_runtime::PendingGenerationInputs {
                         load_id: load_id.to_string(),
                         identity: claim,
                         characters,
+                        bosses,
                     });
                 });
             }
@@ -1258,6 +1331,10 @@ pub fn commit_content_generation(
                             world, admitted,
                         );
                         bevy::log::info!("a reloaded cast was published: {outcome:?}");
+                    }
+                    if let Some(bosses) = generation.bosses {
+                        world.insert_resource(bosses.registry);
+                        world.insert_resource(bosses.catalog);
                     }
                     // Every other participating family lands here too, from
                     // the same pack, in the same command.

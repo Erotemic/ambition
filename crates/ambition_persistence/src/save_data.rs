@@ -8,6 +8,8 @@
 //! mechanics (encounter defeat, switch latch, ability flags) one canonical form
 //! shared across sandbox and any future story / editor tooling.
 
+use std::sync::Arc;
+
 use serde::{Deserialize, Serialize};
 
 
@@ -331,16 +333,23 @@ pub struct AmbitionGameSaveData {
     ///
     /// Sparse: only occurrences that were moved, carried, or ended appear.
     /// All others reconstruct from their authored record.
+    ///
+    /// ⭐ `Arc`-SHARED (M2): the rows of every room that is not live, so they
+    /// grow with the world. A rollback snapshot clones the save each frame;
+    /// sharing the rows makes that clone copy a pointer while they are
+    /// unchanged, and lets the checksum keep their hash (see
+    /// `AmbitionGameSave::checksum`). A setter replaces the whole `Arc`.
     #[serde(default)]
-    pub(crate) occurrences: Vec<PersistedOccurrence>,
+    pub(crate) occurrences: Arc<Vec<PersistedOccurrence>>,
     /// Which body was holding which occurrence when this save was written.
     /// Empty hands is a real answer and writes an empty list.
     #[serde(default)]
     pub(crate) custody: Vec<PersistedCustody>,
     /// How to remake the runtime-minted instances that were in a hand. See
     /// [`PersistedMintedItem`].
+    /// `Arc`-shared, for the reason `occurrences` is.
     #[serde(default)]
-    pub(crate) minted_items: Vec<PersistedMintedItem>,
+    pub(crate) minted_items: Arc<Vec<PersistedMintedItem>>,
 }
 
 /// v4 adds `occurrences`, `custody` and `minted_items` — the durable horizon.
@@ -407,9 +416,9 @@ impl AmbitionGameSaveData {
             wallet: 0,
             inventory_saved: false,
             checkpoint: None,
-            occurrences: Vec::new(),
+            occurrences: Arc::default(),
             custody: Vec::new(),
-            minted_items: Vec::new(),
+            minted_items: Arc::default(),
         }
     }
 
@@ -551,7 +560,7 @@ impl AmbitionGameSaveData {
         occurrences: Vec<PersistedOccurrence>,
         custody: Vec<PersistedCustody>,
     ) {
-        self.occurrences = occurrences;
+        self.occurrences = Arc::new(occurrences);
         self.custody = custody;
     }
 
@@ -562,7 +571,7 @@ impl AmbitionGameSaveData {
 
     /// Replace the minted-item recipes.
     pub fn set_minted_items(&mut self, minted_items: Vec<PersistedMintedItem>) {
-        self.minted_items = minted_items;
+        self.minted_items = Arc::new(minted_items);
     }
 
     /// Which durable fact families differ between two saves, by name.
@@ -767,9 +776,9 @@ impl AmbitionGameSaveData {
         *wallet = 0;
         *inventory_saved = false;
         *checkpoint = None;
-        occurrences.clear();
+        *occurrences = Arc::default();
         custody.clear();
-        minted_items.clear();
+        *minted_items = Arc::default();
     }
 }
 
@@ -929,7 +938,7 @@ mod tests {
     #[test]
     fn every_whereabouts_variant_round_trips_including_the_terminal_one() {
         let mut s = AmbitionGameSaveData::new();
-        s.occurrences = vec![
+        s.occurrences = Arc::new(vec![
             PersistedOccurrence::new("placement:carried", PersistedWhereabouts::InCustody),
             PersistedOccurrence::new(
                 "placement:dropped",
@@ -940,14 +949,14 @@ mod tests {
                 },
             ),
             PersistedOccurrence::new("placement:eaten", PersistedWhereabouts::Consumed),
-        ];
+        ]);
         s.custody = vec![PersistedCustody::new("placement:carried", "player:0")];
-        s.minted_items = vec![PersistedMintedItem {
+        s.minted_items = Arc::new(vec![PersistedMintedItem {
             occurrence: "player:0/3".into(),
             parent: "player:0".into(),
             sequence: 3,
             held_item: "javelin".into(),
-        }];
+        }]);
 
         let text = ron::ser::to_string_pretty(&s, ron::ser::PrettyConfig::default())
             .expect("serialize as the writer does");
@@ -1118,7 +1127,7 @@ mod tests {
         });
         s.wallet = 400;
         s.inventory_saved = true;
-        s.occurrences.push(PersistedOccurrence::new(
+        Arc::make_mut(&mut s.occurrences).push(PersistedOccurrence::new(
             "placement:h",
             PersistedWhereabouts::Placed {
                 room: "portal_bridge".into(),
@@ -1128,7 +1137,7 @@ mod tests {
         ));
         s.custody
             .push(PersistedCustody::new("placement:h", "player:0"));
-        s.minted_items.push(PersistedMintedItem {
+        Arc::make_mut(&mut s.minted_items).push(PersistedMintedItem {
             occurrence: "player:0/0".into(),
             parent: "player:0".into(),
             sequence: 0,

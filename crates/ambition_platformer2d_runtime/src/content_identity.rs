@@ -236,12 +236,12 @@ pub struct SelectedContentIdentity(pub String);
 /// whole file. The transaction owns its candidate values and hands them to its
 /// own preparation, keyed by the same `load_id` claim the identity already uses.
 ///
-/// ⚠ **ONLY THE CAST RIDES HERE, AND THAT IS MEASURED RATHER THAN ASSUMED.** The
-/// participating families are the moveset, `fighter_brain_ladder` and
-/// `encounter_waves`; a candidate that changes `AuthoredSheets` or the
-/// `BossCatalog` is REFUSED by `ReloadRequest` rather than published (see
-/// `PACK_DERIVED_FAMILIES`). Those two therefore cannot move across the
-/// prepare→activate window, so freezing them from the App is not a second
+/// ⚠ **THE CAST AND THE BOSS CATALOG RIDE HERE.** The participating families
+/// are the moveset, the boss profiles and encounters (since 2026-10-01),
+/// `fighter_brain_ladder` and `encounter_waves`; a candidate that changes
+/// `AuthoredSheets` is REFUSED by `ReloadRequest` rather than published (see
+/// `PACK_DERIVED_FAMILIES`). It therefore cannot move across the
+/// prepare→activate window, so freezing it from the App is not a second
 /// generation — it is the same one. A family that gains a reload road gains a
 /// field here, and the compiler will not ask for it: the guard is
 /// `participates`.
@@ -259,6 +259,11 @@ pub struct PendingGenerationInputs {
     /// published cast the transaction's own value — the same one, not a
     /// fallback to a stranger's.
     pub characters: Option<ambition_characters::prepared::PreparedCharacterRegistry>,
+    /// The candidate boss catalog this transaction will publish at its commit
+    /// boundary, or `None` when the candidate changes no boss domain. Same
+    /// rule as `characters`: `None` is *"this transaction publishes no new
+    /// catalog"*, not *"use the App's"*.
+    pub bosses: Option<ambition_boss_encounter::BossCatalog>,
 }
 
 impl PendingGenerationInputs {
@@ -281,6 +286,13 @@ impl PendingGenerationInputs {
         load_id: &str,
     ) -> Option<Option<&ambition_characters::prepared::PreparedCharacterRegistry>> {
         (self.load_id == load_id).then_some(self.characters.as_ref())
+    }
+
+    /// The candidate boss catalog for `load_id`; the two `None`s are those of
+    /// [`Self::characters_for`].
+    #[allow(clippy::option_option)]
+    pub fn bosses_for(&self, load_id: &str) -> Option<Option<&ambition_boss_encounter::BossCatalog>> {
+        (self.load_id == load_id).then_some(self.bosses.as_ref())
     }
 }
 

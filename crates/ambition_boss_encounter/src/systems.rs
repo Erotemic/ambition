@@ -89,6 +89,12 @@ pub fn update_boss_encounters(
     >,
     // P0.2: the phase machine's own edge, announced where it is committed.
     mut phase_changes: MessageWriter<super::events::BossPhaseChanged>,
+    // The defeats since the last checkpoint, which a replay of their room
+    // retracts (BOSS-REPLAY-RETRACTION), and the live room each fell in.
+    (mut since_checkpoint, rooms): (
+        ResMut<crate::retraction::BossDefeatsSinceCheckpoint>,
+        ambition_platformer2d_world::rooms::LiveRoomSpecs,
+    ),
     mut bosses: Query<
         (
             Entity,
@@ -99,6 +105,8 @@ pub fn update_boss_encounters(
             &mut ambition_characters::actor::BodyHealth,
             &mut ambition_characters::actor::BodyCombat,
             Option<&crate::BossOverrides>,
+            // The parent the boss's mints name.
+            Option<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
         ),
         With<ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity>,
     >,
@@ -127,7 +135,7 @@ pub fn update_boss_encounters(
         Vec<crate::BossRewardAnchor>,
     > = std::collections::BTreeMap::new();
 
-    for (boss_entity, _feature_id, mut feature, mut health, mut combat, overrides) in &mut bosses {
+    for (boss_entity, _feature_id, mut feature, mut health, mut combat, overrides, boss_sim_id) in &mut bosses {
         let archetype_id = feature.config.behavior.id.clone();
         let runtime_id = feature.config.id.clone();
         let boss_name = feature.config.name.clone();
@@ -269,6 +277,18 @@ pub fn update_boss_encounters(
                     &runtime_id,
                     ambition_persistence::save_data::PersistedEncounterState::Cleared,
                 );
+                // A defeat after the last checkpoint: a replay of this room
+                // retracts it (Q56).
+                if let Some(definition) = rooms.definition_of(boss_entity) {
+                    since_checkpoint.record(
+                        runtime_id.clone(),
+                        crate::retraction::BossDefeatSinceCheckpoint {
+                            room: rooms.live().of(boss_entity),
+                            definition: rooms.rooms().spec(definition).id.clone(),
+                            boss: boss_sim_id.cloned(),
+                        },
+                    );
+                }
                 quests.push_event(
                     ambition_persistence::quest::QuestAdvanceEvent::BossDefeated(
                         archetype_id.clone(),

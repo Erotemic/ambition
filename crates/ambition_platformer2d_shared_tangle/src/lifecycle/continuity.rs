@@ -438,6 +438,33 @@ impl AuthoredOccurrences {
         refused
     }
 
+    /// Take back the rows of occurrences that never happened: the mints of a
+    /// boss defeat that a replay retracted (BOSS-REPLAY-RETRACTION, Q51). Not a
+    /// `Consumed` row: a consumed occurrence happened and ended, and a
+    /// retracted one did not happen at all, so nothing is left to remember.
+    /// Returns the ids that had a row.
+    pub fn retract(&mut self, sim_ids: &BTreeSet<SimId>) -> BTreeSet<SimId> {
+        let held: BTreeSet<SimId> = sim_ids
+            .iter()
+            .filter(|sim_id| self.rows.contains_key(*sim_id))
+            .cloned()
+            .collect();
+        if held.is_empty() {
+            return held;
+        }
+        let rows = Arc::make_mut(&mut self.rows);
+        for sim_id in &held {
+            rows.remove(sim_id);
+        }
+        if held.iter().any(|sim_id| self.custody.contains(sim_id)) {
+            let custody = Arc::make_mut(&mut self.custody);
+            for sim_id in &held {
+                custody.remove(sim_id);
+            }
+        }
+        held
+    }
+
     pub fn is_empty(&self) -> bool {
         self.rows.is_empty()
     }
@@ -779,6 +806,8 @@ mod tests {
         check(&ledger, "a mint admitted beside a carried id");
         ledger.republish_custody([c.clone()].into_iter().collect());
         check(&ledger, "the carried set replaced");
+        assert_eq!(ledger.retract(&[c.clone()].into_iter().collect()), [c.clone()].into_iter().collect());
+        check(&ledger, "a carried id retracted");
         ledger.adopt_rows(
             [(a.clone(), OccurrenceWhereabouts::InCustody), (b.clone(), OccurrenceWhereabouts::Consumed)]
                 .into_iter()
@@ -786,7 +815,7 @@ mod tests {
         );
         check(&ledger, "rows adopted");
         assert_eq!(*ledger.in_custody(), [a].into_iter().collect::<BTreeSet<_>>());
-        assert_eq!(steps, 5);
+        assert_eq!(steps, 6);
     }
 
     /// A mint with no row enters where it lies; an id that has a row keeps it.

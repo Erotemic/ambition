@@ -65,6 +65,11 @@ pub struct CutRopeRoomReplayRequested;
 /// until the conversation is over, so the final NPC line stays visible until
 /// the player dismisses it.
 ///
+/// `refight` is latched when the replay is requested and taken by the next
+/// admitted replay of the cut-rope room: the re-fight the player asked for.
+/// ⚠ A request the lifecycle refuses leaves it latched for the next admitted
+/// replay of that room.
+///
 /// This is rollback state because it spans ticks: the choice is made while the
 /// last line is on screen, and the reset happens an unbounded number of ticks
 /// later. Without it, a rewind across the choice would keep the intention and a
@@ -72,6 +77,7 @@ pub struct CutRopeRoomReplayRequested;
 #[derive(Resource, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct PendingCutRopeRoomReplay {
     pub requested: bool,
+    pub refight: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -163,6 +169,7 @@ pub fn emit_cut_rope_room_replay_after_the_conversation_ends(
         return;
     }
     pending.requested = false;
+    pending.refight = true;
     replay_requests
         .write(ambition_platformer2d_actor_monolith::session::reset::RoomReplayRequested::manual());
 }
@@ -245,20 +252,30 @@ pub fn release_cut_rope_music_outside_its_room(
     music.release_priority(CUT_ROPE_MUSIC_OWNER);
 }
 
-/// On an admitted room replay ([`RoomReplayAdmitted`](ambition_combat::events::RoomReplayAdmitted),
-/// not the request; see the parameter's comment), clear the cut-rope boss's
-/// per-attempt state for every cut-rope placement in the room: the
-/// placement's persisted "cleared" record and the non-durable intro music.
-/// This is the content half of the room replay. The host's replay consumer
-/// resets the player and world (and its `RoomReplayAdmitted` respawns the
-/// boss). This system, registered in the engine's `ContentRoomReplayResetSet`
-/// slot, owns the content-named reset, so the host never names cut-rope. Both
-/// read the same message in the frame it is emitted (independent cursors).
+/// On an admitted replay of the cut-rope room, reset the fight's per-attempt
+/// content: the intro music, and, when the player asked for it ("try again"),
+/// the re-fight.
+///
+/// ⭐ THE RE-FIGHT IS A SECOND ROAD WITH ITS OWN OWNER, NOT AN EXCEPTION TO THE
+/// REPLAY RULE. A replay retracts a boss defeat only when the defeat fell
+/// after the last checkpoint, for every family, on the generic boss road
+/// (`ambition_boss_encounter::retract_boss_defeats_on_replay`, Q56). "Try
+/// again" is a choice the content authored: the player asked to fight this
+/// boss again. So it puts the cut-rope placements of the replayed room back
+/// to `Untouched` whatever side of the checkpoint the defeat fell on. Its
+/// reward behaviour is what it was: only the record. This system no longer
+/// retracts a defeat on any other replay.
+///
+/// Keyed by the replay's live room (`RoomReplayAdmitted` names its subject's).
+/// It read every live `BossConfig`, so with two live rooms a replay in one
+/// retracted a cut-rope fight in the other.
 pub fn reset_cut_rope_attempt_on_replay(
     // The admitted replay, not the request. This retracts a persisted defeat;
     // doing that on a request the lifecycle might refuse would retract a defeat
     // for a replay that never happens.
     mut replays: MessageReader<ambition_combat::events::RoomReplayAdmitted>,
+    rooms: ambition_platformer2d::world::rooms::LiveRoomSpecs,
+    mut pending: ResMut<PendingCutRopeRoomReplay>,
     registry: Res<BossEncounterRegistry>,
     mut save: Option<ResMut<ambition_persistence::save::AmbitionGameSave>>,
     mut music: Option<
@@ -266,24 +283,37 @@ pub fn reset_cut_rope_attempt_on_replay(
             ambition_encounter::EncounterMusicRequest,
         >,
     >,
-    bosses: Query<&BossConfig>,
+    bosses: Query<(Entity, &BossConfig)>,
 ) {
-    if replays.read().count() == 0 {
-        return;
+    for replay in replays.read() {
+        let replayed = replay.subject.as_ref().and_then(|subject| subject.room);
+        let Some(definition) = rooms.definition_named(replayed) else {
+            continue;
+        };
+        if rooms.rooms().spec(definition).id != CUT_ROPE_ROOM_ID {
+            continue;
+        }
+        let replayed = replayed.or_else(|| rooms.live().sole());
+        let placements: Vec<String> = if std::mem::take(&mut pending.refight) {
+            bosses
+                .iter()
+                .filter(|(entity, config)| {
+                    is_cut_rope_boss(&config.behavior.id) && rooms.live().of(*entity) == replayed
+                })
+                .map(|(_, config)| config.id.clone())
+                .collect()
+        } else {
+            Vec::new()
+        };
+        reset_cut_rope_boss_attempt(
+            &registry,
+            save.as_deref_mut(),
+            // `Single<&mut T>` derefs to `Mut<T>`; peel the extra
+            // change-detection layer to `&mut T`.
+            music.as_deref_mut().map(|m| &mut **m),
+            &placements,
+        );
     }
-    let placements: Vec<String> = bosses
-        .iter()
-        .filter(|config| is_cut_rope_boss(&config.behavior.id))
-        .map(|config| config.id.clone())
-        .collect();
-    reset_cut_rope_boss_attempt(
-        &registry,
-        save.as_deref_mut(),
-        // `Single<&mut T>` derefs to `Mut<T>`; peel the extra
-        // change-detection layer to `&mut T`.
-        music.as_deref_mut().map(|m| &mut **m),
-        &placements,
-    );
 }
 
 /// The state the behemoth is built with: it frees its swallowed victory NPC

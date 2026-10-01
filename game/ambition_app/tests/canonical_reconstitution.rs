@@ -1703,9 +1703,10 @@ fn a_replay_keeps_session_progress_and_reports_what_it_touches() {
 ///
 /// The measurement above found that a replay changes ZERO durable families of
 /// its own accord, so every attempt-scoped fact that must be retracted is
-/// retracted by a CONTENT system that names it. Today there is exactly one:
-/// `reset_cut_rope_attempt_on_replay`, which clears the persisted record for
-/// cut-rope placements PRESENT IN THE ROOM on `RoomReplayAdmitted`.
+/// retracted by a system that names it. For a boss defeat that is the generic
+/// boss road (`retract_boss_defeats_on_replay`, BOSS-REPLAY-RETRACTION): every
+/// family's defeat since the last checkpoint, in the replay's live room. It was
+/// `reset_cut_rope_attempt_on_replay`, for cut-rope placements only.
 ///
 /// ⛔ IT HAD NO END-TO-END ARM, and it is the only thing standing between a
 /// retried fight and a permanently-open door. `boss.cleared` became a published
@@ -1721,7 +1722,6 @@ fn a_replay_keeps_session_progress_and_reports_what_it_touches() {
 #[test]
 fn a_replay_retracts_the_boss_defeat_a_gate_would_have_read() {
     use ambition_platformer2d::boss_encounter::BossConfig;
-    use ambition_platformer2d::persistence::save::AmbitionGameSave;
     use ambition_platformer2d::platformer::authored_logic::{
         AuthoredArg, ConditionCatalog, ConditionId, ConditionOutcome,
     };
@@ -1760,13 +1760,16 @@ fn a_replay_retracts_the_boss_defeat_a_gate_would_have_read() {
          cannot tell a retraction from a question that was never true"
     );
 
-    // Record the defeat the victory beat records.
-    {
-        let mut save = sim.world_mut().resource_mut::<AmbitionGameSave>();
-        save.data_mut().set_boss(
-            placement.clone(),
-            ambition_platformer2d::persistence::save_data::PersistedEncounterState::Cleared,
-        );
+    // Defeat the boss on the generic road, which records the defeat and that
+    // it fell after the last checkpoint. A row written into the save by hand
+    // is a defeat from before the baseline, which a replay keeps
+    // (BOSS-REPLAY-RETRACTION).
+    crate::boss_lifecycle::force_kill_boss(&mut sim, &placement);
+    for _ in 0..400 {
+        if matches!(ask(&mut sim, &placement), ConditionOutcome::Satisfied) {
+            break;
+        }
+        sim.step(ambition_app::AgentAction::default());
     }
     assert_eq!(
         ask(&mut sim, &placement),
@@ -1805,6 +1808,13 @@ fn a_replay_retracts_the_boss_defeat_a_gate_would_have_read() {
 /// behaviours are currently decided by which content author happened to write a
 /// reset system, with nothing recording the choice — so this arm exists to make
 /// the split visible and dated rather than to force it.
+///
+/// ⭐ RULED AND CLOSED (Q56, BOSS-REPLAY-RETRACTION, 2026-10-01): every family
+/// retracts a defeat recorded after the last checkpoint, on the generic boss
+/// road. This arm writes its rows into the save BY HAND, which is a defeat from
+/// before the baseline, so it now reports "STILL CLEARED" for both rooms: the
+/// control half of the rule. The retraction itself is witnessed in
+/// `boss_replay_retraction.rs`.
 #[test]
 fn how_many_boss_families_retract_their_defeat_on_a_replay() {
     use ambition_platformer2d::boss_encounter::BossConfig;

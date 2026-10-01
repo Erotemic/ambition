@@ -53,6 +53,9 @@ pub fn fire_puppy_slug_gun_system(
     driven: ambition_held_items::DrivenBodies,
     character_catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>,
     authored_sheets: Res<ambition_sprite_sheet::character::sheets::AuthoredSheets>,
+    // The activated generation's sheets outrank the App's, as for every
+    // construction road (`GenerationMechanics::sheets`).
+    generation: Option<Res<crate::session::mechanics::SessionMechanics>>,
     // the summoned ally IS a character (`npc_puppy_slug`), so this road needs
     // the cast to build it as one. `Option`: a composition that registers nobody
     // is ordinary, and there the summon is refused (`summon_cast`).
@@ -123,7 +126,7 @@ pub fn fire_puppy_slug_gun_system(
         let entity = crate::features::spawn_runtime_minion(
             &mut commands,
             &character_catalog,
-            &authored_sheets,
+            generation.as_deref().map_or(&*authored_sheets, |generation| &generation.sheets),
             cast,
             session_scope,
             minted

@@ -60,6 +60,7 @@ mod boss_draw_cursor;
 mod a_boss_special_runs_on_the_extension_host;
 mod a_loaded_module_keeps_session_state;
 mod boss_lifecycle;
+mod boss_replay_retraction;
 mod boss_motion_parity;
 mod boss_possession_specials;
 mod boss_sheet_wiring;

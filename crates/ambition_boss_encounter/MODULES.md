@@ -24,6 +24,7 @@
 | [`pattern`](src/pattern/mod.rs) | The boss pattern's thinking: tick, control flow, validator, seeds and profile. |
 | [`profile`](src/profile.rs) | Assembled per-boss profile: the content-facing bundle. |
 | [`registry`](src/registry.rs) | `BossEncounterRegistry`: the read-only boss data catalog. |
+| [`retraction`](src/retraction.rs) | BOSS-REPLAY-RETRACTION (Q51, Q56): a replay that makes a boss undefeated again makes it undefeated for every boss family, and the consequences of the defeat go with it. |
 | [`rewards`](src/rewards.rs) | Boss reward-chest sync: the ECS mirror of "this boss placement is cleared, so its authored `DropChest` reward exists in the room". |
 | [`rollback_registration`](src/rollback_registration.rs) | Rollback declaration owned by `ambition_boss_encounter`. |
 | [`roster`](src/roster.rs) | The lib's generic boss-encounter base. |
@@ -31,7 +32,7 @@
 | [`sprites`](src/sprites/mod.rs) | Compatibility facade for boss sprite-sheet types. |
 | [`systems`](src/systems.rs) | Boss-encounter Bevy systems: the per-frame driver. |
 
-_24 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_25 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

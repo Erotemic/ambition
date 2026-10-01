@@ -962,7 +962,12 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// same layout; the checksum VALUE differs from v289's whole-save RON hash.
 /// ⛔⛤ 290 -> 291: `resource.sandbox_sim_state` (`RoomTransitionCooldown`) is
 /// one countdown per seat: four `f32`s where there was one (OW1, customer 2).
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 291;
+/// ⛔⛤ 291 -> 292: `boss.defeats_since_checkpoint` is new: the boss defeats
+/// since the last checkpoint, which a replay of their room retracts
+/// (BOSS-REPLAY-RETRACTION), with `message.boss_defeat_retracted`; and
+/// `content.pending_cut_rope_room_replay`'s checksum also folds the re-fight
+/// latch.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 292;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v291
+ggrs-rollback-schema-v292
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -102,6 +102,7 @@ boss.capability	component-clone	BossCapability	bevy_ggrs clone snapshot; not in 
 boss.conducted_facing	component-clone-custom-checksum	ConductedFacing	bevy_ggrs clone snapshot + the side a conducted boss faces while its module holds its pose
 boss.config	component-clone	BossConfig	bevy_ggrs clone snapshot; not in the session checksum
 boss.death_animation	component-clone	BossDeathAnimation	bevy_ggrs clone snapshot; not in the session checksum
+boss.defeats_since_checkpoint	resource-clone-custom-checksum	BossDefeatsSinceCheckpoint	bevy_ggrs clone snapshot + the boss placements cleared since the last checkpoint, which a replay of their room retracts
 boss.encounter	component-clone-cursor	BossEncounter	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
 boss.overrides	component-clone	BossOverrides	bevy_ggrs clone snapshot; not in the session checksum
 boss.phase	component-canonical	BossPhase	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
@@ -129,7 +130,7 @@ content.mary_o_pipe_entry_latch	component-clone	PipeEntryLatch	bevy_ggrs clone s
 content.mary_o_pipe_transit	component-clone	PipeTransit	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 content.mary_o_snake_shell	component-clone	SnakeShell	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 content.mary_o_spent_power_blocks	resource-clone-custom-checksum	SpentPowerBlocks	bevy_ggrs clone snapshot + an order-independent checksum over the spent ids
-content.pending_cut_rope_room_replay	resource-clone-custom-checksum	PendingCutRopeRoomReplay	the dialogue-authored room replay, latched until the conversation ends
+content.pending_cut_rope_room_replay	resource-clone-custom-checksum	PendingCutRopeRoomReplay	the dialogue-authored room replay, latched until the conversation ends, and the re-fight, latched until its replay is admitted
 content.sanic_act_state	component-clone	SanicActState	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 content.sanic_ball_dash	component-clone	BallDash	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 content.sanic_ball_dash_input	component-clone	BallDashInput	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -302,6 +303,7 @@ message.attacks_clanked	message-clear	AttacksClanked	clear abandoned-future mess
 message.blocked_body_hit	message-clear	BlockedBodyHit	clear abandoned-future message buffer in LoadWorld::Mapping
 message.body_knocked_out	message-clear	BodyKnockedOut	clear abandoned-future message buffer in LoadWorld::Mapping
 message.body_teleported	message-clear	BodyTeleported	clear abandoned-future message buffer in LoadWorld::Mapping
+message.boss_defeat_retracted	message-clear	BossDefeatRetracted	clear abandoned-future message buffer in LoadWorld::Mapping
 message.boss_phase_changed	message-clear	BossPhaseChanged	clear abandoned-future message buffer in LoadWorld::Mapping
 message.brain_command	message-clear	BrainCommand	clear abandoned-future message buffer in LoadWorld::Mapping
 message.camera_shake_request	message-clear	CameraShakeRequest	clear abandoned-future message buffer in LoadWorld::Mapping

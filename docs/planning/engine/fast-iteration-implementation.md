@@ -516,7 +516,52 @@ commands, the three empowerment systems, aggression, summons, damage and the
 puppy-slug gun read now (9 systems; unit witness
 `a_session_reader_is_given_the_generations_cast`, poison "return the App cast"
 fails it). `serve_encounter_spawn_commands` and `project_prepared_character_definitions`
-moved too (`SessionCast::is_changed` follows the source `get` reads). ⭐ With
+moved too, and the summon road and `refresh_boss_damageable_volumes` take the
+generation's frozen boss catalog (`SessionMechanics::bosses`) over the App's;
+the summon and encounter-spawn roads take its sheets too, as room construction
+does (`GenerationMechanics::sheets`). ⚠ OPEN: no arm publishes a BOSS catalog
+mid-timeline under the sync test, so the boss-volume half is REASONED from the
+cast arm, not measured; the next arm is the cast arm's shape with a boss
+tuning in place of the player's `max_health`, started in a boss room
+(`rollback_sim()` starts in the default room, and a boss arm there would pass
+with no boss to read the catalog). MEASURED the same day, and NOT enough: a
+probe in `mockingbird_arena` (one live boss) that replaced the App's
+`BossCatalog` with an empty one at frame 24 stayed healthy, and stayed healthy
+with `refresh_boss_damageable_volumes` poisoned back onto the App catalog. MEASURED
+next: the mockingbird has no `ResolvedHurtboxes`, so its volumes DO come from
+the catalog path. The volumes are recomputed each frame, and the probe's
+scripted run never strikes the boss, so no checksummed state depended on them.
+The probe was not kept (a check that cannot fail). The next arm keeps this room
+and adds a script that hits the boss during the window. ⚠ A naive one does not:
+walking toward the boss and attacking every 8 frames for 400 frames under the
+sync test left its HP at 28 of 28, with the player moving only from x=134 to
+162 (MEASURED). Placing the player 40 px beside the boss (writing its
+`BodyKinematics`) and attacking for 200 frames also left 28 of 28 (MEASURED):
+either the boss cannot be struck this early in its encounter, or this
+`AgentAction` does not produce a strike that reaches it. The first holds:
+`BossEncounterPhase::boss_invulnerable()` is true until the encounter reaches
+its attacking phase (`boss_lifecycle.rs:92`). Reuse
+`boss_lifecycle::kill_boss_with_a_real_hit`'s shape: step until the phase
+attacks, then strike, and publish the catalog inside that window. ⚠ MEASURED:
+the mockingbird leaves its invulnerable phase at frame 119, but a player placed
+30 px beside it and attacking every 6 frames for 120 frames still left it at 28
+of 28. REASONED: it flies out of melee reach once the player falls back to the
+floor. The helper injects a `HitEvent`, which a sync-test arm cannot use
+(an injected message is not an input, so resimulation would not see it).
+Use a grounded boss whose volumes come from the catalog.
+⭐ MEASURED with one: in `trex_arena` the T-rex (no authored hurtboxes) leaves
+its invulnerable phase at frame 155, and walking at it while attacking lands
+hits (44 → 38 HP in 240 frames). Emptying the App's `BossCatalog` at frame 60 of
+that run left the sync test healthy and the HP identical, and so did the same
+run with `refresh_boss_damageable_volumes` poisoned back onto the App catalog.
+⇒ An emptied catalog does not reach the outcome on this road, and the
+boss-volume change is a consistency move with no measured effect. Read
+after: `BossVolumeContext` uses the catalog ONLY to look up a profile's
+animation keys for sprite-frame-derived boxes (`attack_geometry/frame.rs:23`,
+`:138`). Without baked boss art (absent on the agent VM, the same asset gate as
+the rig tests) that path is not taken, so no arm on this machine can witness
+the change. An arm belongs on a machine with the art, with an edit to an
+animation key the boss is playing. (`SessionCast::is_changed` follows the source `get` reads). ⭐ With
 the projection on the session's cast, a cast published mid-timeline no longer
 desyncs the sync test: `developer_edits_under_rollback::publishing_a_cast_mid_timeline_leaves_history_resimulating_the_same`
 asserts it (MEASURED: putting either the projection or the worn re-derivation

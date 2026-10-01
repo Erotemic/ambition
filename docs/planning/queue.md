@@ -57,11 +57,26 @@ on `SessionCast` too, a cast published mid-timeline no longer desyncs, and the
 arm is now `publishing_a_cast_mid_timeline_leaves_history_resimulating_the_same`
 (an assertion). Poisons, MEASURED: the projection back on the App cast, or the
 worn re-derivation back on it, each bring the mismatch back.
-The same pattern elsewhere is NOT classified: a grep for `.iter(world).next()`
-and two spellings of it in `game/*/tests`, `crates/*/tests` and `crates/*/src`
-counts 75 sites (2026-10-01). Most read a population filtered to one entity,
-where order cannot matter. A site whose population has more than one member
-picks its subject by archetype order.
+The same pattern elsewhere is NOT classified.
+`scripts/measure_first_match_subjects.py` (2026-10-01) counts 156 first-match
+sites under `game/` and `crates/`, 75 with no query filter in the six lines
+above. Those are candidates, and the window is a heuristic. Many read a
+population of one ("one enemy body") or only ask `is_some()`. A site whose
+population has more than one member picks its subject by archetype order.
+Read the same day: the three candidates in rollback tests
+(`mary_o_app/tests/rollback_restore.rs`, `rollback_room_memory.rs`,
+`sanic_app/tests/rollback_restore.rs`) read `MaryOLevelState`/`SanicActState`,
+one per session root, so order cannot move them. Also classified: 21 read a
+`RoomSet` (one per session root; MEASURED by name in the listing), 6 only ask
+`is_some()` (order cannot matter), and the 11 in
+`actor_monolith/src/features/ecs/spawn/tests.rs` are hand-built Apps that spawn
+one body (one read; the other ten REASONED from the same fixture shape and
+their "one enemy body" / "the NPC was built" expectations). Of the other 34,
+read by listing: about 20 read a once-per-session mode owner (Mary-O level and
+timer, Sanic act), and the rest are single-subject fixtures (one CPU in
+`match_activation/tests.rs:1747`, one popped reward in Mary-O `two_rooms.rs`,
+boss probes in single-boss rooms). REASONED from each fixture, not measured.
+No second multi-member case was found.
 
 ### SYNC-POINT-SENSITIVE-RESIM — a command sync point moves the death-reset replay
 
@@ -1883,6 +1898,55 @@ baseline, with the cut-rope special case deleted into it; the reward its
 defeat minted goes with it (Q51); a witness per family shape (a conducted boss,
 a `BossSpawn` placement) and a control (a defeat from before the baseline
 survives the replay).
+
+✅ **Landed 2026-10-01.** The generic boss road keeps the delta the save row
+cannot: `BossDefeatsSinceCheckpoint` (`ambition_boss_encounter::retraction`,
+rollback state `boss.defeats_since_checkpoint`, schema 292), one entry per
+placement cleared since the last committed checkpoint, with the live room it
+fell in, the room definition's id and the boss's `SimId`.
+`update_boss_encounters` records it at its `Cleared` edge. A
+`CheckpointCommitted` and a fresh run forget it. A load starts with none (the
+file is the baseline), and session teardown resets it.
+`retract_boss_defeats_on_replay` (in `ContentRoomReplayResetSet`) takes the
+entries of the replay's live room: those that fell in that instance, and those
+that fell in an earlier instance of the same room definition that is no longer
+live. An entry that another live instance of the room holds stays. Each taken
+placement goes back to `Untouched`, its unopened reward chest is despawned, and
+`BossDefeatRetracted` is announced. The item domain
+(`retract_mints_of_retracted_boss_defeats`) despawns every mint whose
+`SpawnOrigin::Dynamic` parent is that boss, live or in a hand, and retracts
+their ledger rows and the dormant ones the save describes
+(`AuthoredOccurrences::retract`), so no room build puts one back.
+
+The cut-rope special case is deleted into it. What is left in
+`reset_cut_rope_attempt_on_replay` is a second road with its own owner, not an
+exception to the rule. "Try again" is a re-fight the player asked for, so it
+puts the cut-rope placements of the replayed room back to `Untouched` whatever
+side of the checkpoint the defeat fell on, with its reward behaviour as before.
+It also claims the intro music. Both are keyed by the replay's live room.
+
+Witnesses (`game/ambition_app/tests/boss_replay_retraction.rs`):
+- `a_boss_spawn_defeat_after_the_checkpoint_is_retracted_by_a_replay`
+- `a_conducted_boss_defeat_after_the_checkpoint_is_retracted_by_a_replay` (the flying spaghetti monster)
+- `a_defeat_before_the_checkpoint_survives_a_replay` (the control)
+- `a_replay_takes_back_the_gauntlet_the_retracted_defeat_dropped`
+- `a_replay_in_one_live_room_keeps_a_boss_defeat_in_another`
+
+**Known issues (not enforced yet, by the Q51 ruling):**
+- Coins collected from the defeat are in the wallet, and a replay does not take
+  them back. A replay does not restore `BodyWallet`.
+- An ability or item the defeat granted into `OwnedItems` (a drop picked up, an
+  opened chest's grant) stays after a manual replay. A death restores the bag
+  from the checkpoint; a "try again" or a reset-key replay does not.
+- An opened reward chest stays, with its looted flag.
+- `QuestAdvanceEvent::BossDefeated` progress stays: quest progress is keyed by
+  archetype and has no baseline.
+- A death in a room other than the boss's retracts nothing in the boss's room.
+  `RoomReplayAdmitted` names the subject's room, and the checkpoint road
+  rebuilds the checkpoint's room. The defeat stays recorded until the boss's
+  room is replayed.
+- A "try again" request that the lifecycle refuses leaves the re-fight
+  latched. The next admitted replay of the cut-rope room takes it.
 
 ### MENU-OVER-DIALOGUE — an overlay opened during a conversation must not end it
 

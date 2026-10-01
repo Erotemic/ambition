@@ -1473,8 +1473,9 @@ now reads the request.
 
 ⚠ Found, not changed here: that game-mode change is session-wide, so every
 live room freezes for the frames of one player's crossing. It is OW4's own
-evidence ("supported absence does not freeze unrelated work"), and the
-OW4 work takes it.
+evidence ("supported absence does not freeze unrelated work"). ✅ Cut 7t
+(ceb56a885) took it: a crossing stops the world only when nothing else is
+in play.
 
 ✅ Same day, the replay too: a replay (reachable with two rooms since Cut A)
 reset the shared clock (`reset_sandbox`) and the ambient gravity

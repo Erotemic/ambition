@@ -65,6 +65,13 @@ pub mod phases {
     /// projectile and effect executors run. In the Ambition runtime this is
     /// `CombatSet::ContentSpecials`.
     pub const TECHNIQUE_EXECUTION: Phase = Phase::new("technique_execution");
+
+    /// A body uses the item it holds this tick. Guarantees: the body's
+    /// control frame, kinematics and gravity frame for this tick are settled;
+    /// requests submitted here are consumed THIS tick, before the effect and
+    /// projectile executors run. In the Ambition runtime this is
+    /// `ItemPickupSet::WieldedAbilities`.
+    pub const WIELDED_USE: Phase = Phase::new("wielded_use");
 }
 
 /// The trigger port that starts an entry, and the selector inside that port

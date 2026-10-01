@@ -7,16 +7,34 @@
 //!
 //! | phase | placement | ports |
 //! |---|---|---|
-//! | `technique_execution` | `CombatSet::ContentSpecials`, gameplay-gated | trigger `ambition.boss.special_cast` (boss domain); requests `ambition.projectiles.spawn` (projectile domain) and `ambition.combat.damage_box` (combat domain) |
+//! | `technique_execution` | `CombatSet::ContentSpecials`, gameplay-gated | trigger `ambition.boss.special_cast` (boss domain); requests `ambition.projectiles.spawn` (projectile domain), `ambition.combat.damage_box` and `ambition.combat.held_damage_box` (combat domain), `ambition.boss.summon` (boss domain) |
+//! | `wielded_use` | `ItemPickupSet::WieldedAbilities`, after the native wielded chain, gameplay-gated | trigger `ambition.items.wielded_use`; requests `ambition.resources.spend_mana` and `ambition.feedback.body_sound` (held-item domain, `ambition_abilities`), `ambition.combat.damage_box`, `ambition.projectiles.spawn` |
 
 use ambition_extension_host::{ExtensionHostPlugin, ExtensionSet};
 
 /// The declared modules as canonical text: a section of the prepared content
 /// identity (D6). See `ambition_extension_host::ExtensionGeneration`.
 pub use ambition_extension_host::ExtensionGeneration;
-use ambition_extension_sdk::phases::TECHNIQUE_EXECUTION;
-use ambition_platformer2d_shared_tangle::schedule::{CombatSet, GameplayGated, SimScheduleExt};
+use ambition_extension_sdk::phases::{TECHNIQUE_EXECUTION, WIELDED_USE};
+use ambition_platformer2d_shared_tangle::schedule::{CombatSet, GameplayGated, ItemPickupSet, SimScheduleExt};
 use bevy::prelude::*;
+
+/// Install every port this composition offers, with its adapter: the one list
+/// of which ports exist. A test harness that declares the game's modules
+/// calls it after adding `ExtensionHostPlugin`, so its admission sees what the
+/// game's does. It places no phase in the schedule (the plugin does).
+pub fn install_ports(app: &mut App) {
+    // technique_execution
+    ambition_boss_encounter::extension::install(app);
+    ambition_projectiles::extension::install(app);
+    ambition_combat::extension::install(app);
+    // After the damage box: the host lowers request ports in install order.
+    ambition_boss_encounter::extension::install_summons(app);
+    // wielded_use
+    ambition_abilities::extension::install(app);
+    ambition_combat::extension::install_for_wielded_use(app);
+    ambition_projectiles::extension::install_for_wielded_use(app);
+}
 
 pub struct ExtensionCompositionPlugin;
 
@@ -37,11 +55,24 @@ impl Plugin for ExtensionCompositionPlugin {
                 .in_set(GameplayGated)
                 .in_set(CombatSet::ContentSpecials),
         );
-        ambition_boss_encounter::extension::install(app);
-        ambition_projectiles::extension::install(app);
-        ambition_combat::extension::install(app);
-        // After the damage box: the host lowers request ports in install order.
-        ambition_boss_encounter::extension::install_summons(app);
+
+        // `wielded_use` guarantees: the body's control frame, kinematics and
+        // gravity frame are settled (the player phase), and a request is
+        // consumed this tick (the effect and projectile executors run in the
+        // combat phase, after it). After the native wielded chain, so mana
+        // has one order of spenders.
+        app.configure_sets(
+            sim,
+            (
+                ExtensionSet::Collect(WIELDED_USE),
+                ExtensionSet::Invoke(WIELDED_USE),
+                ExtensionSet::Lower(WIELDED_USE),
+            )
+                .in_set(GameplayGated)
+                .in_set(ItemPickupSet::WieldedAbilities)
+                .after(ambition_abilities::ability_cooldown::tick_ability_cooldown),
+        );
+        install_ports(app);
         #[cfg(feature = "wasm_modules")]
         load_developer_modules(app);
         #[cfg(not(feature = "wasm_modules"))]

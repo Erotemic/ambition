@@ -332,9 +332,9 @@ static HELD_ITEMS: std::sync::LazyLock<std::collections::HashMap<&'static str, H
             },
         );
         // The shockwave gauntlet has no melee/ranged verb — `Attack` is
-        // intercepted by `shockwave::fire_shockwave_system`, which emits a
-        // generic `DamageBox` effect so `apply_effects` spawns a player-faction
-        // AOE (the player wielding a boss-style attack).
+        // its use: the `shockwave` procedural module (on the
+        // `ambition.items.wielded_use` trigger) asks for a `DamageBox` on the
+        // wielder's own faction (the player wielding a boss-style attack).
         items.insert(
             "shockwave",
             HeldItemSpec {
@@ -344,9 +344,9 @@ static HELD_ITEMS: std::sync::LazyLock<std::collections::HashMap<&'static str, H
                 use_behavior: HeldUseBehavior::UseSystem,
             },
         );
-        // The volley gauntlet has no melee/ranged verb — `Attack` is intercepted
-        // by `volley::fire_volley_system`, which fires a fan of player-faction
-        // bolts through the faction-aware projectile pool.
+        // The volley gauntlet has no melee/ranged verb — `Attack` is its use:
+        // the `volley` procedural module fires a fan of bolts through the
+        // faction-aware projectile pool.
         items.insert(
             "volley",
             HeldItemSpec {
@@ -356,9 +356,9 @@ static HELD_ITEMS: std::sync::LazyLock<std::collections::HashMap<&'static str, H
                 use_behavior: HeldUseBehavior::UseSystem,
             },
         );
-        // The focus-beam gauntlet has no melee/ranged verb — `Attack` is
-        // intercepted by `beam::fire_beam_system`, which spawns an aimed line
-        // `Hitbox` of Player faction (the smirking_behemoth eye-beam, wielded).
+        // The focus-beam gauntlet has no melee/ranged verb — `Attack` is its
+        // use: the `beam` procedural module asks for an aimed line damage box
+        // on the wielder's faction (the smirking_behemoth eye-beam, wielded).
         items.insert(
             "beam",
             HeldItemSpec {
@@ -403,10 +403,9 @@ static HELD_ITEMS: std::sync::LazyLock<std::collections::HashMap<&'static str, H
                 use_behavior: HeldUseBehavior::UseSystem,
             },
         );
-        // The meteor gauntlet has no melee/ranged verb — `Attack` is intercepted
-        // by `meteor::fire_meteor_system`, which rains falling player-faction
-        // projectiles onto a zone ahead (a player-wielded analogue of the
-        // apple-rain technique).
+        // The meteor gauntlet has no melee/ranged verb — `Attack` is its use:
+        // the `meteor` procedural module rains falling projectiles onto a zone
+        // ahead (a player-wielded analogue of the apple-rain technique).
         items.insert(
             "meteor",
             HeldItemSpec {

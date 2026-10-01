@@ -29,6 +29,7 @@
 //! for a unit fixture; the game also installs the kernel.
 
 pub mod ability_cooldown;
+pub mod extension;
 pub mod mana;
 pub mod ranged;
 pub mod thrown;
@@ -84,9 +85,6 @@ impl Plugin for AbilitySimulationPlugin {
                 traversal::mark_recall::mark_recall_system.in_set(GameplayGated),
                 traversal::blink::blink_system.in_set(GameplayGated),
                 traversal::grapple::grapple_system.in_set(GameplayGated),
-                ranged::shockwave::fire_shockwave_system.in_set(GameplayGated),
-                ranged::volley::fire_volley_system.in_set(GameplayGated),
-                ranged::beam::fire_beam_system.in_set(GameplayGated),
                 ranged::vortex::fire_vortex_system.in_set(GameplayGated),
                 ranged::vortex::update_vortex_wells
                     .in_set(GameplayGated)
@@ -94,7 +92,6 @@ impl Plugin for AbilitySimulationPlugin {
                 ranged::sentry::fire_sentry_system.in_set(GameplayGated),
                 ranged::sentry::update_sentries.in_set(GameplayGated),
                 traversal::dive::fire_dive_system.in_set(GameplayGated),
-                ranged::meteor::fire_meteor_system.in_set(GameplayGated),
                 ability_cooldown::tick_ability_cooldown,
             )
                 .chain()

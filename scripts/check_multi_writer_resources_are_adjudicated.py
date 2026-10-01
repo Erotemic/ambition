@@ -206,10 +206,12 @@ import multi_writer_resource_census as census  # noqa: E402
 #: rule this whole census exists to enforce, applied to the census.
 BASELINE: dict[str, tuple[str, ...]] = {
     "ExtensionInvocations": (
+        "crates/ambition_abilities/src/extension.rs",
         "crates/ambition_boss_encounter/src/extension.rs",
         "crates/ambition_extension_host/src/exec.rs",
     ),
     "ExtensionOutbox": (
+        "crates/ambition_abilities/src/extension.rs",
         "crates/ambition_boss_encounter/src/extension.rs",
         "crates/ambition_combat/src/extension.rs",
         "crates/ambition_extension_host/src/exec.rs",
@@ -876,7 +878,9 @@ ADJUDICATED: dict[str, str] = {
         "which the host chains after Collect. No field is written by both, and "
         "the queue is empty at every tick boundary, which is why "
         "the app's rollback-coverage test waives it. A second trigger adapter adds a third "
-        "file and is the same shape."
+        "file and is the same shape: the held-item domain's `queue_wielded_uses` "
+        "(in ambition_abilities, phase wielded_use) is that third file. Each "
+        "adapter appends only for its own port and phase."
     ),
     "ExtensionOutbox": (
         "A QUEUE, AND ITS TWO WRITERS ARE ITS TWO ENDS (fast-iteration I4). "
@@ -884,7 +888,9 @@ ADJUDICATED: dict[str, str] = {
         "`ExtensionSet::Invoke`; a request adapter only DRAINS its own port's "
         "items (`ExtensionOutbox::drain::<P>`: the projectile domain's "
         "`lower_projectile_spawns`, the combat domain's `lower_damage_boxes` and "
-        "the boss domain's `lower_boss_summons`, in `ExtensionSet::Lower`, chained "
+        "the boss domain's `lower_boss_summons`, and the held-item domain's "
+        "`lower_mana_spends` and `lower_body_sounds` (in ambition_abilities), in "
+        "`ExtensionSet::Lower`, chained "
         "after Invoke, and each in its own `ExtensionSet::LowerPort` set, ordered "
         "by install order); a drain takes only "
         "its own port's items. Each port has exactly one adapter: admission refuses a second "

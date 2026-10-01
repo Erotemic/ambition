@@ -62,7 +62,7 @@ mod minima_trap_reference_tests;
 #[cfg(test)]
 mod mode_collapse_reference_tests;
 #[cfg(test)]
-mod module_parity_tests;
+pub(crate) mod module_parity_tests;
 #[cfg(test)]
 mod overfit_volley_reference_tests;
 #[cfg(test)]

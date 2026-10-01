@@ -1,7 +1,7 @@
 //! Vortex: a player-wielded crowd-control gauntlet. It fires a singularity at
 //! a point that drags nearby enemies toward it for a moment. It deals no
-//! damage; it gathers a group for a follow-up AOE (`crate::ranged::shockwave`
-//! / `crate::ranged::beam`) or a volley.
+//! damage; it gathers a group for a follow-up AOE (the shockwave or the beam
+//! module) or a volley.
 //!
 //! Unlike the gravity grenade's directional `GravityZone`, the vortex is a
 //! point attractor: it lerps each enemy's position toward the center, and the

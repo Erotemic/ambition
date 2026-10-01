@@ -3035,7 +3035,9 @@ source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
 # + the composable-resources edges (658bd337c, 3226eb168: the resource bank and
 # the Mana declaration), which landed while a stale watch path hid this check.
-allow = ["ambition_platformer2d_core", "ambition_platformer2d_shared_tangle", "ambition_platformer2d_world", "ambition_characters", "ambition_combat", "ambition_held_items", "ambition_items", "ambition_projectiles", "ambition_boss_encounter", "ambition_gameplay_trace", "ambition_sfx", "ambition_vfx", "ambition_time", "ambition_entity_catalog", "ambition_resource_spec"]
+# + the wielded-use extension ports (fast-iteration I7, 2026-10-01): the port
+# values, the host the adapters install into, and the SDK phase.
+allow = ["ambition_platformer2d_core", "ambition_platformer2d_shared_tangle", "ambition_platformer2d_world", "ambition_characters", "ambition_combat", "ambition_held_items", "ambition_items", "ambition_projectiles", "ambition_boss_encounter", "ambition_gameplay_trace", "ambition_sfx", "ambition_vfx", "ambition_time", "ambition_entity_catalog", "ambition_resource_spec", "ambition_combat_port", "ambition_extension_host", "ambition_extension_sdk"]
 manifest = "crates/ambition_abilities/Cargo.toml"
 
 [[policy]]

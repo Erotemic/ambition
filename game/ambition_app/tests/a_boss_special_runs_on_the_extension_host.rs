@@ -411,3 +411,66 @@ fn a_rollback_replays_the_saddle_points_held_arm() {
     assert_eq!(most_arms, 1, "the replays never doubled the arm");
     assert_eq!(first_error, None, "the sync-test session stayed healthy");
 }
+
+/// The primary player, holding `item`.
+fn arm_the_player(sim: &mut Platformer2dSimHarness, item: &str) -> Entity {
+    let world = sim.world_mut();
+    let mut q = world.query_filtered::<Entity, PrimaryPlayerOnly>();
+    let player = q.single(world).expect("primary player exists");
+    let spec = ambition_platformer2d::characters::brain::held_item_by_id(item).expect("a known held item");
+    world
+        .entity_mut(player)
+        .insert(ambition_platformer2d::combat::held_items::HeldItem::new(spec));
+    player
+}
+
+fn mana_of(sim: &Platformer2dSimHarness, body: Entity) -> Option<f32> {
+    ambition_platformer2d::abilities::mana::level(
+        sim.world().get::<ambition_platformer2d::engine_core::resources::ActorResources>(body),
+    )
+    .map(|level| level.current)
+}
+
+/// ⭐ A WIELDED ITEM'S USE RUNS ON THE EXTENSION HOST, in the assembled game:
+/// Attack while holding the shockwave gauntlet → the held-item domain's
+/// trigger adapter → the `shockwave` module → the mana and damage-box request
+/// adapters → 25 mana paid and the slam's box in the world. The second arm runs
+/// it under a GGRS sync-test session, where every use is rewound and replayed.
+#[test]
+fn a_wielded_shockwave_runs_on_the_extension_host() {
+    use ambition_platformer2d::combat::strike::Hitbox;
+    for rollback in [false, true] {
+        let mut options = Platformer2dSimHarnessOptions::default().with_timestep(TimestepMode::fixed_60hz());
+        if rollback {
+            options = options.with_sync_test_rollback_settings(4, 10);
+        }
+        let mut sim = Platformer2dSimHarness::new_with_options(options).expect("the sandbox builds");
+        let player = arm_the_player(&mut sim, "shockwave");
+        for _ in 0..5 {
+            sim.step(AgentAction::default());
+        }
+        let before = mana_of(&sim, player).expect("the home body holds mana");
+        let slam_boxes = |sim: &mut Platformer2dSimHarness| {
+            let world = sim.world_mut();
+            let mut q = world.query::<&Hitbox>();
+            q.iter(world)
+                .filter(|h| h.owner == player && (h.half_extent.x - 120.0).abs() < 0.5)
+                .count()
+        };
+        let mut seen = 0;
+        for frame in 0..4 {
+            sim.step(AgentAction {
+                attack: frame == 0,
+                ..AgentAction::default()
+            });
+            seen = seen.max(slam_boxes(&mut sim));
+        }
+        let after = mana_of(&sim, player).expect("the home body holds mana");
+        assert_eq!(seen, 1, "rollback={rollback}: one slam box from one press");
+        assert!(
+            (before - after - 25.0).abs() < 1.0,
+            "rollback={rollback}: the slam paid its 25 mana ({before} -> {after}, regen aside)"
+        );
+        assert_eq!(ambition_platformer2d::rollback::session_health(sim.world()), Ok(()));
+    }
+}

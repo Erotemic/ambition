@@ -759,6 +759,9 @@ pub fn rebuild_blink_preview_fact(
     // stops at, or stop at a portal aperture the blink passes through. A
     // preview that disagrees with the action is worse than none.
     collision: ambition_platformer2d_world::collision::CollisionWorld,
+    // The subject's own live room (OW1): the blink resolves against that
+    // room's walls, so the preview does too.
+    live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
     mode: Res<bevy::prelude::State<ambition_platformer2d_shared_tangle::schedule::GameMode>>,
     action_query: Query<
         &leafwing_input_manager::prelude::ActionState<
@@ -784,8 +787,8 @@ pub fn rebuild_blink_preview_fact(
     use ambition_platformer2d_core as ae;
 
     fact.active = false;
-    let Ok((kin, abilities, motion_facts)) =
-        controlled.0.and_then(|e| player_q.get(e).ok()).ok_or(())
+    let Some((subject, (kin, abilities, motion_facts))) =
+        controlled.0.and_then(|e| player_q.get(e).ok().map(|body| (e, body)))
     else {
         return;
     };
@@ -800,8 +803,13 @@ pub fn rebuild_blink_preview_fact(
         return;
     }
 
-    // The SAME composition `step_motion` collides against — see the parameter.
-    let Some(blink_world) = collision.solids() else {
+    // The SAME composition `step_motion` collides against — see the parameter
+    // — in the subject's own live room. The sole live room's was read here,
+    // so while two rooms were live no reticle showed.
+    let room = live
+        .of(subject)
+        .map(ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance);
+    let Some(blink_world) = collision.room(room.as_ref()).and_then(|room| room.solids()) else {
         return;
     };
     let target = if motion_facts.blink_aiming {
@@ -1197,5 +1205,63 @@ mod held_item_view_tests {
             Some(ambition_combat::components::ActorDisposition::Hostile),
             Some(true)
         ));
+    }
+}
+
+#[cfg(all(test, feature = "input"))]
+mod blink_preview_room_tests {
+    use super::*;
+    use ambition_platformer2d_core as ae;
+    use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
+
+    /// The reticle of a subject aiming a blink 100 px right from x=100, in
+    /// live room `room`. #0 has a wall at x 150..170 and #1 has none.
+    fn reticle(room: usize) -> BlinkPreviewFact {
+        let mut app = App::new();
+        app.add_plugins(bevy::state::app::StatesPlugin);
+        app.init_state::<ambition_platformer2d_shared_tangle::schedule::GameMode>();
+        app.init_resource::<BlinkPreviewFact>();
+        let live = [LiveRoomInstance::ACTIVATION, LiveRoomInstance::ACTIVATION.next()];
+        let wall = ae::Block::solid("wall", ae::Vec2::new(150.0, 0.0), ae::Vec2::new(20.0, 400.0));
+        for (instance, blocks) in live.into_iter().zip([vec![wall], Vec::new()]) {
+            app.world_mut().spawn((
+                RoomInstanceRoot,
+                instance,
+                ae::RoomGeometry(ae::World::new("blink", ae::Vec2::new(400.0, 400.0), ae::Vec2::ZERO, blocks)),
+            ));
+        }
+        let mut facts = ae::BodyMotionFacts::default();
+        facts.blink_aiming = true;
+        facts.blink_aim_offset = ae::Vec2::new(100.0, 0.0);
+        let subject = app
+            .world_mut()
+            .spawn((
+                ae::BodyKinematics {
+                    pos: ae::Vec2::new(100.0, 200.0),
+                    vel: ae::Vec2::ZERO,
+                    size: ae::Vec2::new(16.0, 32.0),
+                    facing: 1.0,
+                },
+                ae::BodyAbilities::new(ae::AbilitySet::sandbox_all()),
+                facts,
+                InRoomInstance(live[room]),
+            ))
+            .id();
+        app.insert_resource(ControlledSubject(Some(subject)));
+        app.add_systems(Update, rebuild_blink_preview_fact);
+        app.update();
+        *app.world().resource::<BlinkPreviewFact>()
+    }
+
+    /// OW1: the blink reticle resolves against the walls of the subject's
+    /// own live room. In #1 (no wall) it reaches past x=170; in #0 the wall
+    /// stops it before x=150. Before, the preview read the sole live room,
+    /// so while two rooms were live no reticle showed.
+    #[test]
+    fn the_blink_reticle_reads_the_walls_of_its_subjects_own_room() {
+        let open = reticle(1);
+        assert!(open.active && open.target.x > 170.0, "the reticle in #1: {open:?}");
+        let walled = reticle(0);
+        assert!(walled.active && walled.target.x < 150.0, "the reticle in #0: {walled:?}");
     }
 }

@@ -365,6 +365,7 @@ pub(crate) fn publish_candidate(
 fn participates(domain: &str) -> bool {
     domain == ambition_characters::moveset_content_schema::MOVESET_SCHEMA
         || domain == ambition_characters::actor::character_catalog::CHARACTER_CATALOG_SCHEMA
+        || domain == ambition_characters::smash_fighter::SMASH_FIGHTER_SCHEMA
         || BOSS_DOMAINS.contains(&domain)
         || PACK_DERIVED_FAMILIES
             .iter()
@@ -427,11 +428,10 @@ fn candidate_character_catalog(
 fn stage_cast_from_catalog(
     world: &mut bevy::ecs::world::World,
     pack: &ambition_content_pack::PreparedContentPack,
-    catalog: &ambition_characters::prepared::CandidateCatalog,
+    catalog: &ambition_characters::actor::character_catalog::CharacterCatalog,
 ) -> Result<(), String> {
     let rigs_admitted = ambition_characters::actor::BodyRigAdmission::of(world).admit;
-    for definition in
-        crate::character_catalog::buildable_definitions(&catalog.assembled.catalog, pack, rigs_admitted)
+    for definition in crate::character_catalog::buildable_definitions(catalog, pack, rigs_admitted)
     {
         let bindings = ambition_platformer2d_actor_monolith::character_runtime::definition::with_engine_vocabularies(
             ambition_characters::prepared::CharacterBindings::default(),
@@ -601,6 +601,18 @@ fn moveset_changed(
     ambition_content_pack::changed_domains(active, candidate)
         .iter()
         .any(|schema| schema.0 == ambition_characters::moveset_content_schema::MOVESET_SCHEMA)
+}
+
+/// Does this candidate change a character's platform-fighter facet?
+fn fighter_facets_changed(
+    world: &bevy::ecs::world::World,
+    candidate: &ambition_content_pack::PreparedContentPack,
+) -> bool {
+    crate::pack::selected(world).is_some_and(|active| {
+        ambition_content_pack::changed_domains(active, candidate)
+            .iter()
+            .any(|schema| schema.0 == ambition_characters::smash_fighter::SMASH_FIGHTER_SCHEMA)
+    })
 }
 
 /// Domains this candidate changes that nothing can publish.
@@ -840,12 +852,31 @@ pub fn request_reload(
         }
     };
     if let Some(catalog) = &character_catalog {
-        if let Err(reason) = stage_cast_from_catalog(world, &pack, catalog) {
+        if let Err(reason) = stage_cast_from_catalog(world, &pack, &catalog.assembled.catalog) {
             discard_staged_reload(world);
             return ReloadRequest::Refused(MoveReload::CharacterCatalogRefused(reason));
         }
     }
-    let stages_cast = stages_cast || character_catalog.is_some();
+    // A fighter facet folds into its character's definition
+    // (`pack_facets::fold_character_facets`), so a facet edit re-stages the cast
+    // from the LIVE catalog and the candidate pack, the road a catalog edit
+    // takes with the candidate catalog. A catalog edit in the same candidate has
+    // already staged every character with the candidate's facets folded in.
+    let facets_change = character_catalog.is_none() && fighter_facets_changed(world, &pack);
+    if facets_change {
+        let live = world
+            .get_resource::<ambition_characters::actor::character_catalog::CharacterCatalog>()
+            .cloned();
+        let staged = match live {
+            Some(live) => stage_cast_from_catalog(world, &pack, &live),
+            None => Err("this App has no character catalog to fold the facets into".to_string()),
+        };
+        if let Err(reason) = staged {
+            discard_staged_reload(world);
+            return ReloadRequest::Refused(MoveReload::CharacterCatalogRefused(reason));
+        }
+    }
+    let stages_cast = stages_cast || character_catalog.is_some() || facets_change;
     // Stage as pending; do not install as the selection. Installing here let a
     // failed preparation leave the App on a pack whose cast it never built,
     // and the next save then compared equal and requested nothing.

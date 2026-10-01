@@ -662,6 +662,60 @@ fn a_character_row_saved_while_the_game_runs_is_played() {
     }
 }
 
+/// ⭐ A FIGHTER FACET SAVED WHILE THE GAME RUNS REACHES THE CAST. The facet
+/// folds into its character's definition, so the reload re-stages the cast from
+/// the live catalog and the edited pack, and the next session freezes the edit.
+/// The watch is pointed at an exported copy.
+#[cfg(not(feature = "static_content"))]
+#[test]
+fn a_fighter_facet_saved_while_the_game_runs_reaches_the_cast() {
+    use ambition_content::content_watch::ContentSourceWatch;
+    use ambition_platformer2d::characters::prepared::ActiveSessionCast;
+    use ambition_platformer2d::characters::smash_fighter::FIGHTER_DAMAGE;
+    let jab = |sim: &ambition_sim_harness::Platformer2dSimHarness| {
+        sim.world()
+            .get_resource::<ActiveSessionCast>()
+            .and_then(ActiveSessionCast::cast)
+            .and_then(|cast| cast.get("player_robot_v3"))
+            .and_then(|definition| definition.scaled_move_damage.get(&FIGHTER_DAMAGE))
+            .and_then(|damage| damage.get("jab").cloned())
+    };
+    let mut sim = common::fixed_60hz_room_sim("proving_grounds");
+    for _ in 0..40 {
+        sim.step(common::base());
+    }
+    assert_eq!(jab(&sim), Some(vec![3]), "the premise: the shipped facet's jab deals 3");
+
+    let root = std::env::temp_dir().join(format!("ambition_facet_watch_{}", std::process::id()));
+    let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        ambition_content::pack::export_sources_to(&root).expect("sources export");
+        sim.world_mut().insert_resource(ContentSourceWatch::new(root.clone()));
+        std::thread::sleep(std::time::Duration::from_millis(20));
+        let path = root.join("data/fighters/player_robot_v3.ron");
+        let text = std::fs::read_to_string(&path).unwrap();
+        assert_eq!(text.matches("\"jab\": [3],").count(), 1, "the premise: the facet states the jab once");
+        std::fs::write(&path, text.replacen("\"jab\": [3],", "\"jab\": [4],", 1)).unwrap();
+
+        let mut frames = 0;
+        while jab(&sim) != Some(vec![4]) {
+            sim.step(common::base());
+            frames += 1;
+            assert!(
+                frames < 600,
+                "600 frames after the save the frozen jab is {:?}; reloads requested: {}",
+                jab(&sim),
+                sim.world().resource::<ContentSourceWatch>().requested
+            );
+        }
+        assert_eq!(sim.world().resource::<ContentSourceWatch>().requested, 1, "one save, one reload");
+        eprintln!("a saved fighter facet reached the frozen cast {frames} frames after the save");
+    }));
+    let _ = std::fs::remove_dir_all(&root);
+    if let Err(payload) = outcome {
+        std::panic::resume_unwind(payload);
+    }
+}
+
 /// ⭐ A MOVEMENT-DEFAULTS EDIT SAVED WHILE THE GAME RUNS IS PLAYED, through the
 /// developer-edit road (`MovementDefaultsWatch` writes the mirror the F3
 /// inspector writes; the proposal is admitted and published in `PreUpdate`).

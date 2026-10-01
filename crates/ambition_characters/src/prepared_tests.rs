@@ -2730,7 +2730,6 @@ fn a_fighter_damage_map_that_does_not_fit_the_moves_is_reported_by_preparation()
 /// into EVERY character, the catalog-only ones included, and the catalog lands
 /// with the cast.
 mod catalog_revision {
-    use super::*;
     use crate::actor::character_catalog::{
         parse_catalog, CharacterCatalog, CharacterCatalogAppExt, CharacterCatalogFragment,
         CharacterCatalogRegistry,

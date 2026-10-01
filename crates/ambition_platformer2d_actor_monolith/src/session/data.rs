@@ -2,7 +2,7 @@
 //!
 //! The goal of this module is to keep tuning/audio iteration data in RON while
 //! still letting the current code synthesize assets at startup. `bevy_common_assets` registers
-//! `Platformer2dGameplayDefaults` as a real Bevy asset type; `load_embedded` gives us a
+//! `Platformer2dGameplayDefaults` as a real Bevy asset type; `load` gives us a
 //! synchronous bootstrap path until the sandbox grows a loading state.
 //!
 //! Bevy resolves `ambition/platformer_defaults.ron` relative to the sandbox crate asset root

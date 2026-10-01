@@ -271,6 +271,31 @@ pub fn perception_extent_for(
     }
 }
 
+/// The cast a worn body is re-derived from, or `None`, which is a refusal.
+///
+/// The same live-generation contract as [`perception_extent_for`]: the
+/// activated generation's frozen cast outranks the App's, a shell session that
+/// lost its generation is refused, and only a composition with no session gate
+/// reads the App. The inner `None` is a composition with no cast at all, which
+/// is an ordinary state.
+///
+/// ⛔ The App cast changes only when a content reload publishes a new one, and
+/// the reload then activates a new generation. In normal runs the two casts are
+/// equal, so no value test can tell which one a road reads. Only a run where they
+/// differ can: the reload's claim emptied (2026-10-01) kept the frozen cast at 5
+/// HP while the App took 9, and the bodies took the App's 9.
+pub fn worn_cast_for<'a>(
+    shell_routed: bool,
+    generation: Option<&'a SessionMechanics>,
+    app: Option<&'a ambition_characters::prepared::PreparedCharacterRegistry>,
+) -> Option<Option<&'a ambition_characters::prepared::PreparedCharacterRegistry>> {
+    match generation {
+        Some(generation) => Some(generation.prepared_cast()),
+        None if shell_routed => None,
+        None => Some(app),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

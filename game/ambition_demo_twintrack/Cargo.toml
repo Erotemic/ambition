@@ -12,6 +12,10 @@ crate-type = ["rlib"]
 
 [features]
 default = []
+# Embed the content pack's texts (`content_pack!`). Off by default, so a
+# development build reads them off disk and a tuning edit needs no Rust build.
+# Turn it on where there is no source tree to read (web, Android, a bundle).
+static_content = []
 visible = [
     "bevy/bevy_gizmos",
     "bevy/2d_bevy_render",

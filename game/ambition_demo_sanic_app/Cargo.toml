@@ -15,6 +15,8 @@ bench = false
 
 [features]
 default = []
+# Embed the demo's content pack: see `ambition_demo_sanic`.
+static_content = ["ambition_demo_sanic/static_content"]
 # Draw the world AND make it playable. Adds the engine's generic presentation face
 # (OV1), the renderer's `visible` chain, AND the standard host input path (`input`)
 # — a windowed demo that ignored the keyboard would not be a playable-persona demo.

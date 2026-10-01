@@ -120,7 +120,7 @@ would actually be the first to exercise.
 | encounter persistent and spawned actors | ✔ the encounter suite, plus `a_spawn_request_on_the_bus_becomes_a_body` |
 | save/reload without losing instance/location truth | ✔ `loading_a_save_builds_the_room_a_re_entry_builds` and `a_relocated_occurrence_is_suppressed_by_a_load_and_by_a_re_entry_alike` |
 | navigate enough that tooling can reason about routes | ▢ open — the navigation frontier |
-| separate from another participant into another room | ◐ **the simulation half since 2026-09-30** (OW1 cuts 6–7; A3 in [`multiplayer.md`](multiplayer.md)): `a_door_crossed_by_one_player_leaves_the_other_players_room_live`, and each room's fights, switches and items run in their own room. ⚠ One shared camera and observation: the per-player view is A2/P5 |
+| separate from another participant into another room | ◐ **the simulation half since 2026-09-30** (OW1 cuts 6–7; A3 in [`multiplayer.md`](multiplayer.md)): `a_door_crossed_by_one_player_leaves_the_other_players_room_live`, and each room's fights, switches and items run in their own room. Since 2026-10-01 each seat crosses its own doors (`the_second_player_goes_through_a_door_of_his_own_room`), and one player's door load or conversation does not stop the other player's room (`a_door_one_player_takes_does_not_stop_the_other_players_room`, `a_conversation_in_one_room_does_not_stop_the_other_players_room`). ⚠ One shared camera and observation: the per-player view is A2/P5 |
 
 ⭐⭐ **THE SECOND ROW MOVED THE DAY AFTER THIS TABLE WAS MEASURED, and it
 moved for the engine only — which is the distinction the row now carries.**

@@ -29,6 +29,8 @@ bench = false
 
 [features]
 default = []
+# Embed the demo's content pack: see `ambition_demo_smash`.
+static_content = ["ambition_demo_smash/static_content"]
 # Draw it AND make it playable, exactly as the Sanic shell does.
 #
 # ⛔ `cargo test -p ambition_demo_smash_app --features visible` IS NOT A

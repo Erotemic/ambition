@@ -4,7 +4,7 @@ use ambition_audio::spec::MusicTrack;
 
 #[test]
 fn embedded_sandbox_data_parses() {
-    let _spec = Platformer2dGameplayDefaults::load_embedded();
+    let _spec = Platformer2dGameplayDefaults::load();
 }
 
 #[test]

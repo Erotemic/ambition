@@ -118,7 +118,15 @@ static_map = ["ambition_platformer2d/static_map", "ambition_content/static_map"]
 # JSON, for the same reason: no filesystem (web/Android) or no source tree
 # alongside the binary (Steam Deck). Desktop dev leaves it off so a music
 # regen does not rebuild the content crate and everything downstream.
-static_content = ["ambition_content/static_content"]
+# The demos' packs and the versus pack (`content_pack!`) embed by the same
+# feature, so the hosted demos read no file either.
+static_content = [
+    "ambition_content/static_content",
+    "ambition_platformer2d/static_content",
+    "ambition_demo_sanic/static_content",
+    "ambition_demo_mary_o/static_content",
+    "ambition_demo_smash/static_content",
+]
 static_core_assets = ["ambition_platformer2d/static_core_assets"]
 static_sfx_bank = ["ambition_platformer2d/static_sfx_bank"]
 android = [

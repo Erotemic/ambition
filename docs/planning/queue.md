@@ -1783,6 +1783,30 @@ open. Close with a fresh census rather than a checked list.
 
 ## P1 — ownership, composition and iteration
 
+### MENU-OVER-DIALOGUE — an overlay opened during a conversation must not end it
+
+**Owner:** `crates/ambition_dialog/src/systems.rs` (dialogue input) jointly
+with the menu input owner (`crates/ambition_input/src/menu.rs`,
+`MenuControlFrame`).
+
+**Ruling (Q75, 2026-10-01, [`maintainer-decisions.md`](maintainer-decisions.md)):**
+pause, map and inventory may open during dialogue. The dialogue stays live
+underneath without navigation input. Map and inventory are mutually exclusive
+primary overlays.
+
+**Current state, measured 2026-10-01.** `apply_dialog_menu_input` closes the
+conversation on `menu.back || menu.start`, so the Start press that opens the
+pause menu also ends the dialogue. That violates the ruling. The readers of
+`MenuControlFrame` (`dialog_input`, the map's `input.rs`, the grid and
+kaleidoscope menus) have no ordering or focus between them, so one press can
+reach the dialogue and an overlay in the same frame.
+
+**Acceptance:** a Start press during a conversation opens the pause menu and the
+conversation is still live, at the same line, when the menu closes; while an
+overlay is open, the dialogue reads no navigation; opening the map while the
+inventory is open (and the reverse) is refused or swaps, by one stated rule,
+with a witness for each.
+
 ### CANDIDATE-GENERATION-ORDER — a candidate session is prepared from the generation before its own activation
 
 **Owner:** [`engine/extension-model.md`](engine/extension-model.md) (content
@@ -1844,7 +1868,12 @@ seeded from the App's catalog after construction, closed the same day
 (`BossConfig::seed`). Encounter waves stay a standing projection
 (`project_live_encounter_occurrences` reads the App's `EncounterWaveBook` after
 activation), like the fighter ladder. Not yet in the channel because not yet
-in the reload: the character catalog (planned in I3, with its prerequisites).
+in the reload: none left from the character catalog, which joined the same
+day; its admitted cast rides the existing `characters` claim. Measured on the
+way: a body's health pool was not read from the frozen cast;
+`apply_worn_character_gameplay` re-derived it from the App cast. Fixed
+2026-10-01 (`worn_cast_for`); about 30 other live readers of the App cast
+remain (see I3).
 
 ⚠ **AND THE GUARD STOPPED WITNESSING IT WITHOUT GOING RED.**
 `the_commit_sits_between_the_activation_and_session_adoption`
@@ -1939,7 +1968,9 @@ profiles and encounters joined the participating families (a saved boss tuning,
 22 frames). A module reload re-mints the session's content identity (D6), and
 the module reload's three review findings are closed (a file is the unit of
 replacement, one poll is one candidate, a departed schema takes its records).
-Still refused by the reload: items, audio, the character catalog, the boss seed
+Later the same day the character catalog joined (a whole-cast revision against
+the candidate catalog; a change to which characters are built is refused).
+Still refused by the reload: items, audio, fighter facets, the boss seed
 library and validator bands. Open, found on the way: a boss's HP, phase
 triggers, death seconds, music and reward seed from the App catalog, not the
 frozen generation (see I3 in the implementation page).
@@ -3423,15 +3454,16 @@ per pair — and the pairs cannot be resampled, since the seed is
 `(character, level)` with no clock. What is NOT bounded any more is the "one
 character" caveat: 21 fighters, both directions of the effect.
 
-### D-POTATO-ASPECT — finish low-tier sprite aspect/trim policy
+### ✅ DONE D-POTATO-ASPECT — finish low-tier sprite aspect/trim policy
 
 **Owner:** [`engine/asset-preparation-and-residency.md`](engine/asset-preparation-and-residency.md).
 
 **Current state:** systematic downscale/trim generation defects were repaired.
-The remaining product choice is whether character sprites at `potato` may fall
-back to the `0_25x` tier.
-
-**Blocked by:** [Q69](awaiting-maintainer-decision.md#q69--at-potato-should-character-sprites-fall-back-to-the-0_25x-tier).
+✅ Ruled 2026-10-01 (Q69, [`maintainer-decisions.md`](maintainer-decisions.md)):
+character sprites at `potato` stay at 1/16 linear scale, with no fallback to
+`0_25x`. That is today's behaviour, so the row closes on the ruling. Potato is
+a deliberately tiny caricature that keeps the gist; a comparison against
+`quarter` is not an acceptance criterion.
 
 **Acceptance:** the same authored frame preserves the intended world-space trim
 and aspect at each supported tier; missing tiers follow the explicit policy

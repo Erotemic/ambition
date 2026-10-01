@@ -527,12 +527,12 @@ tuning in place of the player's `max_health`, started in a boss room
 with no boss to read the catalog). MEASURED the same day, and NOT enough: a
 probe in `mockingbird_arena` (one live boss) that replaced the App's
 `BossCatalog` with an empty one at frame 24 stayed healthy, and stayed healthy
-with `refresh_boss_damageable_volumes` poisoned back onto the App catalog. So
-that room cannot witness this road: either the mockingbird publishes authored
-hurtboxes and never reaches the catalog path, or nothing on the resimulated road
-reads its volumes in those frames. The probe was not kept (a check that cannot
-fail). The next arm needs a boss whose volumes come from the catalog and a
-script that hits it. (`SessionCast::is_changed` follows the source `get` reads). ⭐ With
+with `refresh_boss_damageable_volumes` poisoned back onto the App catalog. MEASURED
+next: the mockingbird has no `ResolvedHurtboxes`, so its volumes DO come from
+the catalog path. The volumes are recomputed each frame, and the probe's
+scripted run never strikes the boss, so no checksummed state depended on them.
+The probe was not kept (a check that cannot fail). The next arm keeps this room
+and adds a script that hits the boss during the window. (`SessionCast::is_changed` follows the source `get` reads). ⭐ With
 the projection on the session's cast, a cast published mid-timeline no longer
 desyncs the sync test: `developer_edits_under_rollback::publishing_a_cast_mid_timeline_leaves_history_resimulating_the_same`
 asserts it (MEASURED: putting either the projection or the worn re-derivation

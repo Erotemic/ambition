@@ -401,6 +401,7 @@ for; the choice is recorded below so M1 can overturn it with numbers.
 | Port codecs | `Port::{encode, decode}` on each port | the two port crates |
 | Host: loaded runner, output checked like native output, explicit replacement | `ambition_extension_host` (`DeclaredModule`, `ModuleBackend`, `Admitted::replaced`) | `a_loaded_module_replaces_a_native_one_only_when_it_says_so` |
 | WebAssembly backend: wasmi, `deterministic`, fuel, a new instance per call | `crates/ambition_extension_wasm` | refuses an importing module; a runaway entry runs out of fuel |
+| Hot reload in the SHIPPED composition, end to end: the game runs a loaded file, the file is replaced while it runs, the app polls it, proposes the reload through the mechanical-edit protocol, and publishes; a module the running game did not have takes over and counts the next presses | `ambition_platformer2d_runtime::extension_composition` (`load_developer_modules`, `propose_module_reload`, `publish_module_reload`) | `app_it::a_loaded_module_keeps_session_state::a_module_file_replaced_while_the_game_runs_takes_over` |
 | The developer road | `AMBITION_EXTENSION_MODULES` or `ExtensionModuleFiles`, runtime feature `wasm_modules` (the app enables it); `scripts/build_extension_modules.sh` | `app_it::a_boss_special_runs_on_the_extension_host::a_module_rebuilt_as_wasm_replaces_the_linked_one_in_the_same_game`; content `wasm_parity` (floats to 1e-3: the guest's `sin`/`atan2` differ in the last bit, measured) |
 
 **Measured (M0, this machine, 2026-10-01):** an edit to the echo fan to a

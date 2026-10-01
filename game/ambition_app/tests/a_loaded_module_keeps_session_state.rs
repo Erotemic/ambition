@@ -173,3 +173,67 @@ fn a_loaded_graph_module_closes_a_loop_the_same_way_through_rollback() {
     }
     assert_eq!(runs[0], runs[1], "the rewound graph closed different loops at different ticks");
 }
+
+/// ⭐ THE NO-COMPILE LOOP, END TO END, IN THE SHIPPED COMPOSITION: the game
+/// runs a loaded module file; the file is replaced while the game runs (as
+/// `scripts/build_extension_modules.sh --watch` does); the app sees the new
+/// file, proposes the reload through the mechanical-edit protocol, and the
+/// new file's module takes over at publication. Here the new file adds a
+/// module the running game did not have (the fixture crate's), and the
+/// module counts the very next presses.
+#[test]
+fn a_module_file_replaced_while_the_game_runs_takes_over() {
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let first = ambition_platformer2d::extension::build_module_crate(&root, "ambition_content_modules")
+        .expect("the module crate builds for wasm32-unknown-unknown");
+    let second = ambition_platformer2d::extension::build_module_crate(&root, "ambition_extension_fixture_modules")
+        .expect("the fixture crate builds for wasm32-unknown-unknown");
+    let dir = root.join("target/extension-modules/hot_reload_test");
+    std::fs::create_dir_all(&dir).unwrap();
+    let file = dir.join("game_modules.wasm");
+    std::fs::copy(&first, &file).unwrap();
+    let mut sim = Platformer2dSimHarness::new_with_options(
+        Platformer2dSimHarnessOptions::default()
+            .with_timestep(TimestepMode::fixed_60hz())
+            .with_extension_module_files(vec![file.clone()]),
+    )
+    .expect("the sandbox builds with the loaded file");
+    let has_tally = |sim: &Platformer2dSimHarness| {
+        sim.world()
+            .resource::<ambition_platformer2d::extension::AdmittedExtensions>()
+            .0
+            .entries
+            .iter()
+            .any(|e| e.path == "fixture::session_tally/count")
+    };
+    {
+        let world = sim.world_mut();
+        let mut q = world.query_filtered::<Entity, PrimaryPlayerOnly>();
+        let player = q.single(world).expect("primary player exists");
+        let spec = ambition_platformer2d::characters::brain::held_item_by_id("shockwave").expect("a known item");
+        world
+            .entity_mut(player)
+            .insert(ambition_platformer2d::combat::held_items::HeldItem::new(spec));
+    }
+    for _ in 0..30 {
+        sim.step(AgentAction::default());
+    }
+    assert!(!has_tally(&sim), "the premise: the running file has no tally module");
+
+    // A file system's clock can be coarse: the replacement must look newer.
+    std::thread::sleep(std::time::Duration::from_millis(20));
+    std::fs::copy(&second, &file).unwrap();
+    let mut frames = 0;
+    while !has_tally(&sim) {
+        sim.step(AgentAction::default());
+        frames += 1;
+        assert!(frames < 120, "the replaced file was not reloaded within 120 frames");
+    }
+    for frame in 0..60 {
+        sim.step(AgentAction {
+            attack: frame % 20 == 0,
+            ..AgentAction::default()
+        });
+    }
+    assert_eq!(tally(&mut sim), Some(Value::U32(3)), "the reloaded module counts the presses after it took over");
+}

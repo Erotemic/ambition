@@ -146,6 +146,9 @@ whole. Witnesses (`game/ambition_app/tests/two_players_two_live_rooms.rs`):
 `an_item_carried_out_of_a_room_another_player_holds_crosses_whole`, and
 under a GGRS sync test with two seats,
 `two_players_in_two_live_rooms_resimulate_to_the_same_world`.
+✅ Each seat crosses its own doors (OW1 cut 7s, 2026-10-01): before it, the
+door detector read only the primary seat, so only the first player could
+leave a room (`the_second_player_goes_through_a_door_of_his_own_room`).
 ⚠ Not done: both players share one camera and one observation (the view
 half is A2/P5 multiview); the banner, music and HUD are session-wide; a
 sync test is one peer, so what the crossing's rebase costs a remote

@@ -23,7 +23,6 @@ fn empty_world(name: &str) -> ae::World {
 fn a_possessed_actor_triggers_a_room_transition_through_a_walk_zone() {
     use ambition_characters::control::SlotInteractionState;
     use ambition_platformer2d_core::BodyKinematics;
-    use ambition_platformer2d_shared_tangle::markers::ControlledSubject;
     use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
     use bevy::prelude::*;
 
@@ -122,8 +121,7 @@ fn a_possessed_actor_triggers_a_room_transition_through_a_walk_zone() {
             },
         ))
         .id();
-    app.world_mut()
-        .insert_resource(ControlledSubject(Some(actor)));
+    app.world_mut().entity_mut(actor).insert(ambition_characters::control::DrivingParticipant(ambition_characters::control::PlayerSlot::PRIMARY));
 
     app.update();
 
@@ -272,7 +270,7 @@ fn a_fast_body_cannot_tunnel_a_walk_loading_zone() {
             half: ae::Vec2::new(12.0, 20.0),
         },
     )).id();
-    app.insert_resource(ambition_platformer2d_shared_tangle::markers::ControlledSubject(Some(body)));
+    app.world_mut().entity_mut(body).insert(ambition_characters::control::DrivingParticipant(ambition_characters::control::PlayerSlot::PRIMARY));
 
     app.update();
 
@@ -404,8 +402,7 @@ fn a_body_stopped_at_the_boundary_still_crosses_the_zone_it_walked_into() {
         if let Some(sample) = sample {
             entity.insert(sample);
         }
-        let body = entity.id();
-        app.insert_resource(ambition_platformer2d_shared_tangle::markers::ControlledSubject(Some(body)));
+        entity.insert(ambition_characters::control::DrivingParticipant(ambition_characters::control::PlayerSlot::PRIMARY));
         app.update();
         app.world().resource::<Captured>().0.clone()
     };
@@ -1440,7 +1437,7 @@ fn app_with_a_door(
                 },
             ))
             .id();
-        app.insert_resource(ambition_platformer2d_shared_tangle::markers::ControlledSubject(Some(body)));
+        app.world_mut().entity_mut(body).insert(ambition_characters::control::DrivingParticipant(ambition_characters::control::PlayerSlot::PRIMARY));
         app
     }
 }
@@ -1506,7 +1503,15 @@ fn an_undriven_home_body_in_a_door_is_not_crossed_for_anyone() {
     assert!(pending_intent(&driven).is_some(), "the driven body in the door did not cross");
 
     let mut undriven = app_with_a_door(true, None);
-    undriven.insert_resource(ambition_platformer2d_shared_tangle::markers::ControlledSubject(None));
+    let home = undriven
+        .world_mut()
+        .query_filtered::<bevy::prelude::Entity, bevy::prelude::With<ambition_platformer2d_shared_tangle::markers::PrimaryPlayer>>()
+        .single(undriven.world())
+        .expect("the home body");
+    undriven
+        .world_mut()
+        .entity_mut(home)
+        .remove::<ambition_characters::control::DrivingParticipant>();
     undriven.update();
     assert!(
         pending_intent(&undriven).is_none(),
@@ -1594,7 +1599,7 @@ fn a_crossing_reads_the_crossing_bodys_own_live_room() {
                 },
             ))
             .id();
-        app.insert_resource(ambition_platformer2d_shared_tangle::markers::ControlledSubject(Some(body)));
+        app.world_mut().entity_mut(body).insert(ambition_characters::control::DrivingParticipant(ambition_characters::control::PlayerSlot::PRIMARY));
         app.update();
         match pending_intent(&app) {
             Some(crate::session::lifecycle_commit::LifecycleIntent::Transition(transition)) => {

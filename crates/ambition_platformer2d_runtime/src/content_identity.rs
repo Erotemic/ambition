@@ -440,6 +440,28 @@ impl PreparedContent {
         }))
     }
 
+    /// The same definition with the canonical bytes of ONE section replaced
+    /// (or added), at a new activation generation. The fingerprint is computed
+    /// again over every section, so it is the fingerprint a full preparation
+    /// with these bytes gives. For a domain that changes in place while the
+    /// session runs: the extension modules (`extension.modules`, D6).
+    pub fn with_section(
+        &self,
+        name: &str,
+        canonical: impl Into<Vec<u8>>,
+        epoch: ContentEpoch,
+    ) -> Result<Self, PreparedContentBuildError> {
+        let mut builder = PreparedContentBuilder::default();
+        for owner in self.owners() {
+            builder.add_owner(owner.clone());
+        }
+        for section in self.sections().iter().filter(|s| s.name != name) {
+            builder.add_section(section.name.clone(), section.canonical_bytes().to_vec())?;
+        }
+        builder.add_section(name, canonical)?;
+        Ok(builder.finish(epoch, self.snapshot_schema(), self.source().clone()))
+    }
+
     pub fn identity(&self) -> PreparedContentIdentity {
         PreparedContentIdentity {
             fingerprint_schema: self.fingerprint_schema(),
@@ -468,6 +490,31 @@ impl PreparedContent {
             out.push_str(&format!("section\t{}\t{}\n", section.name, section.digest));
         }
         out
+    }
+}
+
+/// ⭐ THE ONE ROAD BY WHICH A RUNNING SESSION CHANGES GENERATION IN PLACE: put
+/// `content` on the live session root with its identity and its content
+/// binding, the three facts that say *"the session is now this generation"*.
+/// A world reload (`handle_ldtk_hot_reload`, behind its room's verdict) and a
+/// module reload (`extension_composition::remint_session_content`) call it;
+/// a session's first generation is inserted with the root.
+pub fn publish_session_content(world: &mut World, content: PreparedContent) {
+    use ambition_platformer2d_shared_tangle::lifecycle::{
+        insert_session_world_component, session_world_component_mut,
+    };
+    insert_session_world_component(
+        world,
+        ambition_platformer2d_actor_monolith::rooms::ActiveContentBinding::content(
+            content.epoch(),
+            ambition_platformer2d_core::PeerContentIdentity::from_bytes(*content.fingerprint().as_bytes()),
+        ),
+    );
+    if let Some(mut identity) = session_world_component_mut::<PreparedContentIdentity>(world) {
+        *identity = content.identity();
+    }
+    if let Some(mut live) = session_world_component_mut::<PreparedContent>(world) {
+        *live = content;
     }
 }
 

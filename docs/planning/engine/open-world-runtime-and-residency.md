@@ -1520,6 +1520,29 @@ entity. With only the retirement trigger removed, mode `a` kept its entity
 after Bob's room retired. `project_room_rule` (the portal camera rules)
 stays on the sole room: it is presentation, P5.
 
+✅ **Cut 7s landed 2026-10-01: each seat's driven body goes through the
+doors of its own room.** The door detector (`detect_room_transition_system`)
+took its subject from `ControlledSubject`, the body of the primary seat.
+Every seat's interact press was buffered for that seat (D175's loop), but
+the detector read only the primary seat's buffer. So only the first player
+could leave a room: the second player could stand in a door and press, and
+nothing happened. The detector now walks the seats in slot order. Each
+seat's driven body (`body_driving_seat`) is tested against the zones of its
+own live room, with its own seat's buffered press, and the crossing records
+the seat as its participant. The intent slot holds one crossing, so the
+first crossing admitted is the tick's crossing, and another seat asks again
+on a later tick. The commit already served a crossing by any participant
+(cut 6e). Witness: `the_second_player_goes_through_a_door_of_his_own_room`
+(Alice holds the hub, #1, and Bob, on slot 1, holds `switch_lab`, #0; Bob
+stands in its door to the hub and his seat presses: he joins #1, and #0
+retires). Poison (the primary-only detector restored): Bob stayed in #0,
+and both rooms stayed live. ⚠ `RoomTransitionCooldown` is still one value
+for the session, so one seat's crossing holds every seat's crossing for
+the cooldown (0.16 s after a door, 0.14 s after an edge exit). ⚠ The
+witness drives a new press on every frame, and a seat's frame stands until
+it is replaced, so it lets go after the crossing: otherwise Bob goes back
+through the arrival door when the cooldown ends.
+
 ✅ **OW3, first slice, landed 2026-10-01: a runtime mint left in a room
 that is not live is still there when the room is live again.** A runtime
 mint (a boss's dropped gauntlet) has no authored record. Two facts rebuild

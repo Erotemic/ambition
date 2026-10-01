@@ -76,11 +76,12 @@ pub fn detect_room_transition_system(
     sim_state: Res<ambition_platformer2d_shared_tangle::safe_position::RoomTransitionCooldown>,
     portals: Res<GatePortalRegistry>,
     phases: Res<GatePortalPhases>,
-    // The transition subject is the CONTROLLED body: if the driven body (home
-    // avatar or possessed actor) enters an exit/door, THAT body transitions. Future
-    // door restrictions gate on body properties (size/shape/locomotion), never on
-    // "is this the home avatar". Nobody driving means nobody crosses.
-    controlled: Option<Res<ambition_platformer2d_shared_tangle::markers::ControlledSubject>>,
+    // The transition subjects are the DRIVEN bodies, one per seat: if a driven
+    // body (home avatar or possessed actor) enters an exit/door, THAT body
+    // transitions. Future door restrictions gate on body properties
+    // (size/shape/locomotion), never on "is this the home avatar". Nobody
+    // driving means nobody crosses.
+    drivers: Query<(Entity, &ambition_characters::control::DrivingParticipant)>,
     mut slot_gestures: ResMut<ambition_characters::control::SlotInteractionState>,
     // Use the movement kernel's `SweepSample` for boundary crossings because collision may zero
     // velocity at time of impact — which is exactly when `vel * dt` lies, so a body without a
@@ -108,185 +109,192 @@ pub fn detect_room_transition_system(
     if sim_state.remaining > 0.0 {
         return;
     }
-    let Some(subject_entity) = controlled
-        .and_then(|subject| subject.0)
-    else {
-        return;
-    };
-    let Ok((kin, sweep, driver)) = bodies.get(subject_entity) else {
-        return;
-    };
-    let Some(definition) = rooms.definition_of(subject_entity) else {
-        return;
-    };
-    // CC2 (§3.3): sweep the body's frame path into the zone so a fast body
-    // can't tunnel an overlap-fire (`Walk`) loading zone between frames. The
-    // discrete standing-in-it case is `delta == 0`, preserved exactly — a body
-    // that did not move produces a zero-length sample and the test degrades to
-    // the overlap it always was. The path is read whole — its own end box and
-    // segment — and only when it ends where the body is; otherwise the body is
-    // tested where it stands.
-    let (path_end, delta) = sweep
-        .and_then(|sample| sample.ending_at(kin.pos))
-        .map_or((kin.aabb(), ae::Vec2::ZERO), |path| (path.end_aabb(), path.delta()));
-    let wants_interact = slot_gestures.primary().buffered();
-    let Some(zone) = rooms
-        .rooms()
-        .transition_for_player(definition, path_end, delta, wants_interact) else {
-        // `warn_once`: a stuck body re-enters this branch every tick, and the
-        // situation is a standing one — the first report is the whole message.
-        // and it costs nothing on the normal path: it runs only after the
-        // swept test has already declined, and only for a body actually
-        // overlapping an authored zone.
-        //
-        // Suppressing that silences the instrument in its own founding scenario.
-        //
-        //  WARN when the press HAPPENED and nothing moved (unambiguous), DEBUG
-        // when it did not (ordinary, and still one log level away). Every fact
-        // stays in the message either way. `EdgeExit`/`Walk` need no press, so
-        // they are anomalous whenever they are touched without transitioning.
-        use ae::AabbExt as _;
-        if let Some(touching) = rooms
+    // Each seat's driven body crosses the doors of its own live room, in slot
+    // order (OW1). The intent slot holds one crossing, so the first crossing
+    // admitted is this tick's, and another seat asks again on a later tick.
+    for index in 0..ambition_characters::control::SlotControls::MAX_SLOTS {
+        let seat = ambition_characters::control::PlayerSlot(index as u8);
+        let Some(subject_entity) = crate::control::body_driving_seat(&drivers, seat) else {
+            continue;
+        };
+        let Ok((kin, sweep, driver)) = bodies.get(subject_entity) else {
+            continue;
+        };
+        let Some(definition) = rooms.definition_of(subject_entity) else {
+            continue;
+        };
+        // CC2 (§3.3): sweep the body's frame path into the zone so a fast body
+        // can't tunnel an overlap-fire (`Walk`) loading zone between frames. The
+        // discrete standing-in-it case is `delta == 0`, preserved exactly — a body
+        // that did not move produces a zero-length sample and the test degrades to
+        // the overlap it always was. The path is read whole — its own end box and
+        // segment — and only when it ends where the body is; otherwise the body is
+        // tested where it stands.
+        let (path_end, delta) = sweep
+            .and_then(|sample| sample.ending_at(kin.pos))
+            .map_or((kin.aabb(), ae::Vec2::ZERO), |path| (path.end_aabb(), path.delta()));
+        let wants_interact = slot_gestures.get(seat).buffered();
+        let Some(zone) = rooms
             .rooms()
-            .spec(definition)
-            .loading_zones
-            .iter()
-            .find(|zone| kin.aabb().strict_intersects(zone.aabb))
-        {
-            let ordinary_unpressed = !wants_interact
-                && matches!(
-                    touching.activation,
-                    ambition_platformer2d_world::rooms::LoadingZoneActivation::Door
-                );
-            if ordinary_unpressed {
-                bevy::log::debug_once!(
+            .transition_for_player(definition, path_end, delta, wants_interact) else {
+            // `warn_once`: a stuck body re-enters this branch every tick, and the
+            // situation is a standing one — the first report is the whole message.
+            // and it costs nothing on the normal path: it runs only after the
+            // swept test has already declined, and only for a body actually
+            // overlapping an authored zone.
+            //
+            // Suppressing that silences the instrument in its own founding scenario.
+            //
+            //  WARN when the press HAPPENED and nothing moved (unambiguous), DEBUG
+            // when it did not (ordinary, and still one log level away). Every fact
+            // stays in the message either way. `EdgeExit`/`Walk` need no press, so
+            // they are anomalous whenever they are touched without transitioning.
+            use ae::AabbExt as _;
+            if let Some(touching) = rooms
+                .rooms()
+                .spec(definition)
+                .loading_zones
+                .iter()
+                .find(|zone| kin.aabb().strict_intersects(zone.aabb))
+            {
+                let ordinary_unpressed = !wants_interact
+                    && matches!(
+                        touching.activation,
+                        ambition_platformer2d_world::rooms::LoadingZoneActivation::Door
+                    );
+                if ordinary_unpressed {
+                    bevy::log::debug_once!(
+                        target: "crate::rooms",
+                        "the controlled body is touching `{}` (Door) and has not \
+                         pressed interact — ordinary; raised to WARN once a press \
+                         is buffered and the transition still does not fire.",
+                        touching.id,
+                    );
+                    continue;
+                }
+                bevy::log::warn_once!(
                     target: "crate::rooms",
-                    "the controlled body is touching `{}` (Door) and has not \
-                     pressed interact — ordinary; raised to WARN once a press \
-                     is buffered and the transition still does not fire.",
+                    "the controlled body is TOUCHING loading zone `{}` ({:?}) and the \
+                     transition did not fire. path delta = {:?} (sweep sample {}), \
+                     interact buffered = {wants_interact}. A `Door` needs the press; \
+                     an `EdgeExit` does not. A zero delta on a body that moved means \
+                     the path is being reconstructed from a velocity collision has \
+                     already zeroed.",
                     touching.id,
+                    touching.activation,
+                    delta,
+                    if sweep.is_some() { "present" } else { "ABSENT" },
                 );
-                return;
             }
-            bevy::log::warn_once!(
-                target: "crate::rooms",
-                "the controlled body is TOUCHING loading zone `{}` ({:?}) and the \
-                 transition did not fire. path delta = {:?} (sweep sample {}), \
-                 interact buffered = {wants_interact}. A `Door` needs the press; \
-                 an `EdgeExit` does not. A zero delta on a body that moved means \
-                 the path is being reconstructed from a velocity collision has \
-                 already zeroed.",
-                touching.id,
-                touching.activation,
-                delta,
-                if sweep.is_some() { "present" } else { "ABSENT" },
-            );
+            continue;
+        };
+        // A body the press can talk to, nearer than the door, keeps the press: an
+        // NPC standing in front of a door is talked to, and the door is used from
+        // its own side. The conversation opens later this tick, in the feature
+        // interaction phase.
+        if matches!(zone.zone.activation, LoadingZoneActivation::Door) {
+            let door = ae::AabbExt::center(zone.zone.aabb).distance(kin.pos);
+            if talkable
+                .nearest_in_reach(subject_entity, kin.pos, kin.aabb())
+                .is_some_and(|talk| talk < door)
+            {
+                continue;
+            }
         }
-        return;
-    };
-    // A body the press can talk to, nearer than the door, keeps the press: an
-    // NPC standing in front of a door is talked to, and the door is used from
-    // its own side. The conversation opens later this tick, in the feature
-    // interaction phase.
-    if matches!(zone.zone.activation, LoadingZoneActivation::Door) {
-        let door = ae::AabbExt::center(zone.zone.aabb).distance(kin.pos);
-        if talkable
-            .nearest_in_reach(subject_entity, kin.pos, kin.aabb())
-            .is_some_and(|talk| talk < door)
-        {
+        // Portal check: if this zone is registered as a portal, the
+        // portal's own phase must be `On` for traversal to be allowed.
+        // The switch only commands the boot/shutdown sequence — the
+        // portal itself runs the state machine. Non-portal zones pass
+        // through unchanged.
+        if portals.is_portal(&zone.zone.id) && !phases.allows_traversal(&zone.zone.id) {
+            continue;
+        }
+        let zone_sfx = match zone.zone.activation {
+            LoadingZoneActivation::Door => Some(RoomSfxId::new("world.door.open")),
+            // Walk-through zones (mid-room portals and side-edge exits)
+            // both use the portal-enter sfx — the door-open sound only
+            // fits the discrete interact door beat.
+            LoadingZoneActivation::EdgeExit | LoadingZoneActivation::Walk => {
+                Some(RoomSfxId::new("world.portal.enter"))
+            }
+        };
+        // Two descriptions of one crossing that disagreed about the body is exactly the fork exists
+        // to close, so the refusal below is now universal: a body we cannot name is a crossing we
+        // cannot describe, on any host.
+        let Some(subject) = sim_ids.id_of(subject_entity) else {
+            bevy::log::error_once!(
+                "transition subject {:?} has no SimId; refusing an ambiguous crossing",
+                subject_entity
+            );
+            continue;
+        };
+        // ONE description, recorded the same way on every host.
+        //
+        // Two descriptions of one crossing, and only the message opened the readiness transaction — so
+        // the SHIPPED game, which composes the rollback host, changed rooms with no cover, no failure
+        // reporting and no asset accounting. Now both hosts record the intent and the transaction is
+        // its only consumer; they differ only in WHEN it is safe to act on, which is the frame stamped
+        // here.
+        //
+        // the intent names the room by ID, so it needs the target's spec. A
+        // failure here leaves the press buffered on purpose (the transition is still
+        // wanted; we just cannot describe it yet), so this system re-runs every tick
+        // the body stays on the exit — `_once` keeps a stuck exit out of the log.
+        let Some(target_spec) = rooms.rooms().spec_at(zone.target_room) else {
+            bevy::log::error_once!(
+                "transition target {:?} has no room spec; leaving input buffered",
+                zone.target_room
+            );
+            continue;
+        };
+        // ⛔⛤ **ADMIT FIRST, SPEND SECOND — AND THIS WAS THE OTHER WAY ROUND.**
+        // `record` is `#[must_use]` because the slot is earliest-sticky: *"a refused
+        // intent must not have its consequences run"*. Clearing the buffer IS a
+        // consequence. The comment that used to sit here said a refusal *"mutated
+        // nothing"*, which was true of everything except the line above it.
+        //
+        // ⚠ WHAT IT COST IS SMALL, REACHABLE AND UNRECOVERABLE. A held press is
+        // refilled by the producer next tick, so the loss is invisible while the
+        // player keeps the button down — which is what every authored door arm
+        // does. A TAP is spent: the slot says `AlreadyPending` because a checkpoint
+        // resume, a replay admission or a death respawn got there first this tick,
+        // the press is gone, and the crossing is never asked again. The other three
+        // callers of a buffered interact (`chests.rs`, and the NPC and switch loops
+        // in `features/ecs/interact.rs`) already consume only after their operation
+        // has committed; this was the one outlier.
+        let admission = pending_lifecycle.record(
+            // an eager host has no frames to be ahead of. `0` is not a
+            // placeholder: with no `ConfirmedFrameBoundary` there is no speculation,
+            // so the intent is confirmed the instant it is recorded, which is what
+            // `ConfirmedRoomTransitionIntent` reads it as.
+            boundary.map_or(0, |boundary| boundary.current),
+            crate::session::lifecycle_commit::LifecycleIntent::Transition(
+                crate::session::lifecycle_commit::RoomTransitionIntent {
+                    subject: subject.clone(),
+                    target_room: target_spec.id.clone(),
+                    arrival: zone.arrival,
+                    edge_exit: matches!(zone.zone.activation, LoadingZoneActivation::EdgeExit),
+                    // Carried because the commit happens far from the zone that
+                    // named it.
+                    zone_sfx: zone_sfx.as_ref().map(|id| id.as_str().to_string()),
+                    // Whose crossing it is, recorded now: see the field.
+                    participant: driver.map(|driver| driver.0),
+                },
+            ),
+        );
+        if !admission.admitted() {
+            // The zone re-emits every tick the body overlaps it, so a HELD press
+            // asks again next frame; a tap keeps its buffer for the rest of the
+            // window and can ask again then. Either way nothing here has mutated
+            // anything, which is now true of the whole function.
             return;
         }
-    }
-    // Portal check: if this zone is registered as a portal, the
-    // portal's own phase must be `On` for traversal to be allowed.
-    // The switch only commands the boot/shutdown sequence — the
-    // portal itself runs the state machine. Non-portal zones pass
-    // through unchanged.
-    if portals.is_portal(&zone.zone.id) && !phases.allows_traversal(&zone.zone.id) {
-        return;
-    }
-    let zone_sfx = match zone.zone.activation {
-        LoadingZoneActivation::Door => Some(RoomSfxId::new("world.door.open")),
-        // Walk-through zones (mid-room portals and side-edge exits)
-        // both use the portal-enter sfx — the door-open sound only
-        // fits the discrete interact door beat.
-        LoadingZoneActivation::EdgeExit | LoadingZoneActivation::Walk => {
-            Some(RoomSfxId::new("world.portal.enter"))
+        // Consume the gesture only once the crossing is ADMITTED — not merely
+        // describable. Every invariant needed to describe it was checked above; the
+        // slot is the one that decides whether it happens.
+        if let Some(gestures) = slot_gestures.get_mut(seat) {
+            gestures.clear();
         }
-    };
-    // Two descriptions of one crossing that disagreed about the body is exactly the fork exists
-    // to close, so the refusal below is now universal: a body we cannot name is a crossing we
-    // cannot describe, on any host.
-    let Some(subject) = sim_ids.id_of(subject_entity) else {
-        bevy::log::error_once!(
-            "transition subject {:?} has no SimId; refusing an ambiguous crossing",
-            subject_entity
-        );
-        return;
-    };
-    // ONE description, recorded the same way on every host.
-    //
-    // Two descriptions of one crossing, and only the message opened the readiness transaction — so
-    // the SHIPPED game, which composes the rollback host, changed rooms with no cover, no failure
-    // reporting and no asset accounting. Now both hosts record the intent and the transaction is
-    // its only consumer; they differ only in WHEN it is safe to act on, which is the frame stamped
-    // here.
-    //
-    // the intent names the room by ID, so it needs the target's spec. A
-    // failure here leaves the press buffered on purpose (the transition is still
-    // wanted; we just cannot describe it yet), so this system re-runs every tick
-    // the body stays on the exit — `_once` keeps a stuck exit out of the log.
-    let Some(target_spec) = rooms.rooms().spec_at(zone.target_room) else {
-        bevy::log::error_once!(
-            "transition target {:?} has no room spec; leaving input buffered",
-            zone.target_room
-        );
-        return;
-    };
-    // ⛔⛤ **ADMIT FIRST, SPEND SECOND — AND THIS WAS THE OTHER WAY ROUND.**
-    // `record` is `#[must_use]` because the slot is earliest-sticky: *"a refused
-    // intent must not have its consequences run"*. Clearing the buffer IS a
-    // consequence. The comment that used to sit here said a refusal *"mutated
-    // nothing"*, which was true of everything except the line above it.
-    //
-    // ⚠ WHAT IT COST IS SMALL, REACHABLE AND UNRECOVERABLE. A held press is
-    // refilled by the producer next tick, so the loss is invisible while the
-    // player keeps the button down — which is what every authored door arm
-    // does. A TAP is spent: the slot says `AlreadyPending` because a checkpoint
-    // resume, a replay admission or a death respawn got there first this tick,
-    // the press is gone, and the crossing is never asked again. The other three
-    // callers of a buffered interact (`chests.rs`, and the NPC and switch loops
-    // in `features/ecs/interact.rs`) already consume only after their operation
-    // has committed; this was the one outlier.
-    let admission = pending_lifecycle.record(
-        // an eager host has no frames to be ahead of. `0` is not a
-        // placeholder: with no `ConfirmedFrameBoundary` there is no speculation,
-        // so the intent is confirmed the instant it is recorded, which is what
-        // `ConfirmedRoomTransitionIntent` reads it as.
-        boundary.map_or(0, |boundary| boundary.current),
-        crate::session::lifecycle_commit::LifecycleIntent::Transition(
-            crate::session::lifecycle_commit::RoomTransitionIntent {
-                subject: subject.clone(),
-                target_room: target_spec.id.clone(),
-                arrival: zone.arrival,
-                edge_exit: matches!(zone.zone.activation, LoadingZoneActivation::EdgeExit),
-                // Carried because the commit happens far from the zone that
-                // named it.
-                zone_sfx: zone_sfx.as_ref().map(|id| id.as_str().to_string()),
-                // Whose crossing it is, recorded now: see the field.
-                participant: driver.map(|driver| driver.0),
-            },
-        ),
-    );
-    if !admission.admitted() {
-        // The zone re-emits every tick the body overlaps it, so a HELD press
-        // asks again next frame; a tap keeps its buffer for the rest of the
-        // window and can ask again then. Either way nothing here has mutated
-        // anything, which is now true of the whole function.
         return;
     }
-    // Consume the gesture only once the crossing is ADMITTED — not merely
-    // describable. Every invariant needed to describe it was checked above; the
-    // slot is the one that decides whether it happens.
-    slot_gestures.primary_mut().clear();
 }

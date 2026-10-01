@@ -1650,7 +1650,7 @@ pub fn prepare_platformer_content(
         // See `MechanicalRegistries::developer_construction`.
         ("construction.developer", developer_construction),
         // The procedural modules: see `MechanicalRegistries::extension_modules`.
-        ("extension.modules", extension_modules),
+        (ambition_platformer2d_runtime::extension_composition::EXTENSION_MODULES_SECTION, extension_modules),
     ] {
         builder
             .add_section(section, material.map_or_else(Vec::new, String::into_bytes))

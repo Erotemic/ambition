@@ -219,6 +219,10 @@ fn a_module_file_replaced_while_the_game_runs_takes_over() {
         sim.step(AgentAction::default());
     }
     assert!(!has_tally(&sim), "the premise: the running file has no tally module");
+    let before = session_generation(&mut sim);
+    let before_terms = stated_content_terms(&mut sim);
+    assert!(!before_terms.is_empty(), "the premise: the live room's roots name their content");
+    assert_eq!(before.modules, before.generation, "the premise: the identity names the running modules");
 
     // A file system's clock can be coarse: the replacement must look newer.
     std::thread::sleep(std::time::Duration::from_millis(20));
@@ -236,4 +240,104 @@ fn a_module_file_replaced_while_the_game_runs_takes_over() {
         });
     }
     assert_eq!(tally(&mut sim), Some(Value::U32(3)), "the reloaded module counts the presses after it took over");
+
+    // D6: the session's content is a new generation, and says which modules.
+    let after = session_generation(&mut sim);
+    assert_ne!(after.generation, before.generation, "the premise: the modules changed");
+    assert_eq!(after.modules, after.generation, "the identity names the modules that now run");
+    assert_ne!(after.identity.fingerprint, before.identity.fingerprint);
+    assert_ne!(after.identity.epoch, before.identity.epoch);
+    assert_eq!(after.identity, after.prepared, "the identity is the prepared content's");
+    assert!(after.binding.is_some(), "the premise: the sandbox's session root has a content binding");
+    assert_eq!(after.binding, after.expected_binding, "the content binding moved with it");
+
+    // A room built after the reload is built in the new generation, and the
+    // boundary does not refuse it as stale.
+    let before_room = sim.observation().active_room.clone();
+    let door = stand_in_a_door(&mut sim).expect("the start room authors a door");
+    for _ in 0..90 {
+        sim.step(AgentAction { interact: true, ..AgentAction::default() });
+        if sim.observation().active_room != before_room {
+            break;
+        }
+    }
+    assert_ne!(sim.observation().active_room, before_room, "the door `{door}` did not open after the reload");
+    let after_terms = stated_content_terms(&mut sim);
+    assert!(
+        after_terms.iter().any(|t| !before_terms.contains(t)),
+        "the room behind the door names no content generation but the old one: {after_terms:?}"
+    );
+}
+
+/// Each distinct content term the live construction stamps state.
+fn stated_content_terms(sim: &mut Platformer2dSimHarness) -> Vec<String> {
+    let world = sim.world_mut();
+    let mut q = world.query::<&ambition_platformer2d::platformer::construction::TransactionId>();
+    let mut out: Vec<String> = q
+        .iter(world)
+        .map(|stamp| stamp.peer_content_term().to_string())
+        .filter(|t| t != "content-unstated" && t != "runtime-dynamic")
+        .collect();
+    out.sort();
+    out.dedup();
+    out
+}
+
+/// Stand the primary player in an authored `Door` zone of the live room.
+fn stand_in_a_door(sim: &mut Platformer2dSimHarness) -> Option<String> {
+    use ambition_platformer2d::engine_core::AabbExt;
+    let world = sim.world_mut();
+    let live = ambition_platformer2d::world::rooms::sole_live_room_definition(world)?;
+    let mut rooms = world.query::<&ambition_platformer2d::world::rooms::RoomSet>();
+    let door = rooms
+        .iter(world)
+        .next()?
+        .spec(live)
+        .loading_zones
+        .iter()
+        .find(|z| z.activation == ambition_platformer2d::world::rooms::LoadingZoneActivation::Door)
+        .cloned()?;
+    let mut player = world.query_filtered::<&mut ambition_platformer2d::platformer::body::BodyKinematics, PrimaryPlayerOnly>();
+    let mut kin = player.single_mut(world).ok()?;
+    kin.pos = door.aabb.center();
+    kin.vel = ambition_platformer2d::engine_core::Vec2::ZERO;
+    Some(door.name.clone())
+}
+
+struct SessionGeneration {
+    generation: String,
+    modules: String,
+    identity: ambition_platformer2d::runtime::PreparedContentIdentity,
+    prepared: ambition_platformer2d::runtime::PreparedContentIdentity,
+    binding: Option<ambition_platformer2d::actors::rooms::ActiveContentBinding>,
+    expected_binding: Option<ambition_platformer2d::actors::rooms::ActiveContentBinding>,
+}
+
+/// The declared modules, and what the session root says about them.
+fn session_generation(sim: &mut Platformer2dSimHarness) -> SessionGeneration {
+    use ambition_platformer2d::actors::rooms::ActiveContentBinding;
+    use ambition_platformer2d::runtime::{PreparedContent, PreparedContentIdentity};
+    let world = sim.world_mut();
+    let generation = world.resource::<ambition_platformer2d::extension::ExtensionGeneration>().0.clone();
+    let mut q = world.query::<(&PreparedContent, &PreparedContentIdentity, Option<&ActiveContentBinding>)>();
+    let (content, identity, binding) = q.single(world).expect("one prepared session");
+    let modules = content
+        .sections()
+        .iter()
+        .find(|s| s.name == ambition_platformer2d::extension::EXTENSION_MODULES_SECTION)
+        .map(|s| String::from_utf8(s.canonical_bytes().to_vec()).unwrap())
+        .expect("the prepared content has the modules section");
+    SessionGeneration {
+        generation,
+        modules,
+        identity: *identity,
+        prepared: content.identity(),
+        binding: binding.copied(),
+        expected_binding: binding.map(|_| {
+            ActiveContentBinding::content(
+                content.epoch(),
+                ambition_platformer2d::session::PeerContentIdentity::from_bytes(*content.fingerprint().as_bytes()),
+            )
+        }),
+    }
 }

@@ -1299,7 +1299,7 @@ fn place_player_beside(
     config: Res<SceneCaptureConfig>,
     tick: Res<ambition_platformer2d::time::SimTick>,
     mut player: Query<
-        &mut ambition_platformer2d::platformer::body::BodyKinematics,
+        (ae::BodyClusterQueryData, &mut ambition_platformer2d::actor::MotionModel),
         ambition_platformer2d::platformer::markers::PrimaryPlayerOnly,
     >,
     mut seats: ResMut<ambition_platformer2d::characters::control::SlotInteractionState>,
@@ -1321,19 +1321,26 @@ fn place_player_beside(
         eprintln!("capture_scene: --player-beside found no body wearing {id} on tick {arrival}");
         return;
     };
-    let Ok(mut kin) = player.single_mut() else {
+    let Ok((mut clusters, mut model)) = player.single_mut() else {
         return;
     };
+    let mut clusters = clusters.as_clusters_mut();
     // Overlapping its right edge, where a player walking up would be: an
-    // interaction reaches a body whose box its own box overlaps.
-    kin.pos.x = target.pos.x + target.size.x * 0.5;
-    // Positions are centres and y grows down: line the feet up.
-    kin.pos.y = target.pos.y + (target.size.y - kin.size.y) * 0.5;
-    kin.vel = ae::Vec2::ZERO;
+    // interaction reaches a body whose box its own box overlaps. Positions are
+    // centres and y grows down: line the feet up. A teleport, at rest, through
+    // the motion authority (ADR 0024).
+    let at = ae::Vec2::new(
+        target.pos.x + target.size.x * 0.5,
+        target.pos.y + (target.size.y - clusters.kinematics.size.y) * 0.5,
+    );
+    ae::movement::transit_body(&mut model, &mut clusters, at, ae::movement::TransitVelocity::Zero);
     if config.interact_on_arrival {
         seats.primary_mut().interact_buffer_timer = 0.15;
     }
-    eprintln!("capture_scene: placed the player beside {id} at {:?} on tick {arrival}", kin.pos);
+    eprintln!(
+        "capture_scene: placed the player beside {id} at {:?} on tick {arrival}",
+        clusters.kinematics.pos
+    );
 }
 
 /// A cube camera [`adopt_menu_camera`] has already pointed at the capture.

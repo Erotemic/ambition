@@ -14,7 +14,7 @@ use ambition_characters::brain::{ActionSet, RangedExecution};
 use ambition_characters::prepared::{
     overlay_authored_moves, PreparedCharacterRegistry,
 };
-use ambition_characters::smash_fighter::{move_damage_over, MoveDamageSource};
+use ambition_characters::move_damage::{move_damage_over, DamageScale};
 use ambition_entity_catalog::MovesetContract;
 
 use crate::moveset::build_actor_moveset;
@@ -28,8 +28,9 @@ pub struct SeatTerms<'a> {
     /// The stage's borrowed repertoire. It replaces the action set; see
     /// [`WornKit::resolve`].
     pub action_set: Option<&'a ActionSet>,
-    /// Which damage the fighter's moves deal on this stage.
-    pub move_damage: MoveDamageSource,
+    /// The damage scale the fighter's moves deal on this stage; `None` is
+    /// each moveset's own damage.
+    pub move_damage: Option<DamageScale>,
 }
 
 impl<'a> SeatTerms<'a> {
@@ -119,11 +120,14 @@ impl WornKit {
                 }
             }
         };
-        let derived = match (terms.move_damage, prepared) {
-            (MoveDamageSource::SmashFighterFacet, Some(prepared))
-                if !prepared.fighter_move_damage.is_empty() =>
-            {
-                match move_damage_over(&prepared.fighter_move_damage, derived.clone()) {
+        let scaled = terms
+            .move_damage
+            .zip(prepared)
+            .and_then(|(scale, prepared)| prepared.scaled_move_damage.get(&scale))
+            .filter(|damage| !damage.is_empty());
+        let derived = match scaled {
+            Some(damage) => {
+                match move_damage_over(damage, derived.clone()) {
                     Ok(moveset) => moveset,
                     // Preparation already reported this on the published value
                     // (`unresolved_references`). The body keeps one game's damage
@@ -137,7 +141,7 @@ impl WornKit {
                     }
                 }
             }
-            _ => derived,
+            None => derived,
         };
         Self {
             identity: IdentityKit::of(set.clone(), derived.clone()),

@@ -429,7 +429,7 @@ pub struct VictimStance {
     pub grounded: bool,
     /// Crouching? CROUCH CANCEL — a crouching body takes less knockback, so
     /// ducking is a defensive option at low percent rather than only a shorter
-    /// hurtbox. See [`ambition_platformer2d::combat::rules::CombatRules::crouch_cancel_scale`].
+    /// hurtbox. See [`CombatRules::crouch_cancel_scale`](crate::rules::CombatRules::crouch_cancel_scale).
     pub crouching: bool,
 }
 

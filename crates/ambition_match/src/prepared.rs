@@ -211,9 +211,10 @@ pub struct MatchRules {
     /// its first frame.
     pub fighter_contact: Option<ambition_platformer2d_shared_tangle::body::BodyContact>,
     /// Which damage the fighters' moves deal in this match: each moveset's own
-    /// (the default), or the damage each character's `smash_fighter` facet
-    /// states. See [`ambition_combat::worn_kit::SeatTerms`].
-    pub move_damage: ambition_characters::smash_fighter::MoveDamageSource,
+    /// (`None`, the default), or the damage each character states in this
+    /// damage scale. The capability that authors a scale gives its name to the
+    /// composition. See [`ambition_combat::worn_kit::SeatTerms`].
+    pub move_damage: Option<ambition_characters::move_damage::DamageScale>,
 }
 
 impl MatchRules {

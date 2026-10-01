@@ -117,12 +117,12 @@ pub struct CharacterDefinition {
     /// Changing characters must retract any previously projected death traits.
     pub death_traits: Option<crate::actor::CharacterDeathTraits>,
     pub moveset: Option<MovesetContract>,
-    /// The damage its moves deal on a platform-fighter stage, from its
-    /// `smash_fighter` facet. Empty: every move keeps its moveset damage there.
-    /// Only a match that declares
-    /// [`MoveDamageSource::SmashFighterFacet`](crate::smash_fighter::MoveDamageSource)
-    /// reads it. See [`crate::smash_fighter::SmashFighterFacet::move_damage`].
-    pub fighter_move_damage: crate::smash_fighter::MoveDamage,
+    /// The damage its moves deal in each damage scale other than its
+    /// moveset's own, folded in by the capability that authors the scale
+    /// (`smash_fighter` folds its facet's under
+    /// [`crate::smash_fighter::FIGHTER_DAMAGE`]). Only a match that plays in a
+    /// scale reads that scale's map. See [`crate::move_damage`].
+    pub scaled_move_damage: crate::move_damage::ScaledMoveDamage,
     /// Actions this character may choose, separate from the moveset that defines the moves.
     pub action_set: Option<crate::brain::ActionSet>,
     /// How this character MOVES — the state-free movement policy.
@@ -220,7 +220,7 @@ impl CharacterDefinition {
             vitals: Vitals::default(),
             death_traits: None,
             moveset: None,
-            fighter_move_damage: crate::smash_fighter::MoveDamage::new(),
+            scaled_move_damage: crate::move_damage::ScaledMoveDamage::new(),
             action_set: None,
             motion_model: None,
             movement_tuning: None,
@@ -436,7 +436,7 @@ mod authority_tests {
             vitals: _,
             death_traits: _,
             moveset: _,
-            fighter_move_damage: _,
+            scaled_move_damage: _,
             action_set: _,
             motion_model: _,
             movement_tuning: _,

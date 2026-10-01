@@ -64,8 +64,8 @@ pub struct SmashFighterFacet {
     #[serde(default)]
     pub knockback_weight: Option<f32>,
     /// The damage this fighter's moves deal on a platform-fighter stage, where
-    /// damage is percent. A match reads it only when it declares
-    /// [`MoveDamageSource::SmashFighterFacet`].
+    /// damage is percent. Folded under [`FIGHTER_DAMAGE`]; a match applies it
+    /// only when it plays in that scale.
     ///
     /// ⭐ A MOVE HAS ONE SHAPE AND ONE DAMAGE PER GAME. The moveset states the
     /// frames, the geometry, and the damage of the character's HOME game. A
@@ -76,72 +76,15 @@ pub struct SmashFighterFacet {
     /// that deals damage, in authoring order (window by window). A move this
     /// map does not name keeps its moveset damage.
     #[serde(default)]
-    pub move_damage: MoveDamage,
+    pub move_damage: crate::move_damage::MoveDamage,
 }
 
-/// Damage per move id, one value for each damaging volume. See
-/// [`SmashFighterFacet::move_damage`].
-pub type MoveDamage = std::collections::BTreeMap<String, Vec<i32>>;
-
-/// Which damage a body's moves deal: its moveset's own, or the damage its
-/// `smash_fighter` facet states.
-///
-/// A MATCH decides this, not the engine and not the character. A body in no
-/// match always deals its moveset damage.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum MoveDamageSource {
-    /// The damage the moveset authors: the character's home game.
-    #[default]
-    Moveset,
-    /// The damage the character's `smash_fighter` facet states, where it
-    /// states one. A move the facet does not name keeps its moveset damage.
-    SmashFighterFacet,
-}
-
-/// `moveset` with each named move's damaging volumes set to `damage`.
-///
-/// `Err` names every move id the moveset does not have and every move whose
-/// list does not have one value for each of its damaging volumes. On `Err`
-/// nothing is applied, so the body never deals half one game's damage and half
-/// the other's.
-pub fn move_damage_over(
-    damage: &MoveDamage,
-    mut moveset: ambition_entity_catalog::MovesetContract,
-) -> Result<ambition_entity_catalog::MovesetContract, Vec<String>> {
-    let mut problems = Vec::new();
-    for (move_id, values) in damage {
-        let Some(spec) = moveset.moves.iter_mut().find(|spec| &spec.id == move_id) else {
-            problems.push(format!(
-                "`move_damage` names move `{move_id}`, which the moveset does not have"
-            ));
-            continue;
-        };
-        let mut volumes: Vec<&mut i32> = spec
-            .windows
-            .iter_mut()
-            .flat_map(|window| window.volumes.iter_mut())
-            .map(|volume| &mut volume.damage)
-            .filter(|damage| **damage > 0)
-            .collect();
-        if volumes.len() != values.len() {
-            problems.push(format!(
-                "`move_damage` gives move `{move_id}` {} value(s), and the move has {} \
-                 volume(s) that deal damage",
-                values.len(),
-                volumes.len()
-            ));
-            continue;
-        }
-        for (slot, value) in volumes.iter_mut().zip(values) {
-            **slot = *value;
-        }
-    }
-    if problems.is_empty() {
-        Ok(moveset)
-    } else {
-        Err(problems)
-    }
-}
+/// The damage scale this capability folds a facet's `move_damage` under. A
+/// composition that plays its moves in platform-fighter percent gives it to
+/// the match as `MatchRules::move_damage`, as it gives `content_schema::fighter_body`
+/// to the seat; the match and the kit resolver read only the scale.
+pub const FIGHTER_DAMAGE: crate::move_damage::DamageScale =
+    crate::move_damage::DamageScale("smash_fighter");
 
 /// A fighter's body, as a PATCH over the body it would otherwise have.
 ///

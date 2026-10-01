@@ -2,7 +2,7 @@
 //!
 //! Death opens [`DeathInterlude`] and marks the participant [`OutOfPlay`]; the
 //! interlude advances on simulation time, then the death rules that govern the
-//! active room ([`GoverningRules`]) decide
+//! active room ([`GoverningRules`](crate::session::governing_rules::GoverningRules)) decide
 //! whether the active room should replay. Body restart is owned elsewhere and
 //! clears `OutOfPlay` through the shared `BodyRestarted` observer.
 

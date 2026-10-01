@@ -3,7 +3,7 @@
 //! [`ambition_platformer2d_core::RoomGeometry`] base — that would break the resolved authored-base
 //! model (the base is swapped at room boundaries, never edited mid-room).
 //! Instead [`contribute_encounter_lock_walls`] derives the live wall set every
-//! frame and pushes it onto [`FeatureEcsWorldOverlay::gate_solids`], the overlay
+//! frame and pushes it onto [`FeatureEcsWorldOverlay::gate_solids`](ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay::gate_solids), the overlay
 //! category composited into every collision read-path and surfaced to the render
 //! layer — so a lock wall collides and draws exactly as it did when it lived in
 //! the base, while the base stays immutable.

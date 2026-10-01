@@ -198,9 +198,9 @@ fn a_definition_carries_no_controller_binding() {
         // no controller changes. A possessed mite still splits.
         death_traits: _,
         moveset: _,
-        // The same moves' damage on a platform-fighter stage: a body fact read
+        // The same moves' damage in another game's scale: a body fact read
         // under one ruleset, not a controller binding.
-        fighter_move_damage: _,
+        scaled_move_damage: _,
         // A CAPABILITY, not a controller binding, and the distinction is the
         // whole of §4.7: this says what the body can reach for, and says nothing
         // about who decides to reach. A human and a CPU wearing this character
@@ -2693,10 +2693,16 @@ fn a_fighter_damage_map_that_does_not_fit_the_moves_is_reported_by_preparation()
         let mut definition = CharacterDefinition::new("robot", "Robot", "demo")
             .with_action_set(ActionSet::default())
             .with_moveset(moveset_with(&[], vec![slash("jab", "swing", "hit")]));
-        definition.fighter_move_damage = damage
-            .iter()
-            .map(|(id, values)| (id.to_string(), values.clone()))
-            .collect();
+        definition.scaled_move_damage = [(
+            crate::smash_fighter::FIGHTER_DAMAGE,
+            damage
+                .iter()
+                .map(|(id, values)| (id.to_string(), values.clone()))
+                .collect(),
+        )]
+        .into_iter()
+        .filter(|(_, damage): &(_, crate::move_damage::MoveDamage)| !damage.is_empty())
+        .collect();
         prepare_and_finalize_for_test(definition, &CharacterBindings::default())
             .prepared
             .unresolved_references()

@@ -45,12 +45,14 @@ pub fn grapple_system(
         &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
         &HeldItem,
         Option<&mut crate::ability_cooldown::AbilityCooldown>,
+        // The live room the body is in: the hook catches that room's walls.
+        Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
     )>,
     mut sfx: ambition_sfx::BodySfxWriter,
     mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
 ) {
     for subject in driven.entities() {
-        let Ok((player, control, mut kin, resolved_frame, held, mut cooldown)) =
+        let Ok((player, control, mut kin, resolved_frame, held, mut cooldown, room)) =
             bodies.get_mut(subject)
         else {
             continue;
@@ -72,7 +74,7 @@ pub fn grapple_system(
         let from = kin.pos;
         // Raycast against the composited collision world, so the grapple can
         // latch a moving platform or ECS solid.
-        let Some((hit, _normal)) = world.solids().and_then(|w| {
+        let Some((hit, _normal)) = world.room(room).and_then(|room| room.solids()).and_then(|w| {
             ambition_platformer2d_core::cast::raycast_solids(&*w, from, dir, GRAPPLE_RANGE, false)
         }) else {
             // Grapple into empty space: a fizzle, no pull, no cooldown used.

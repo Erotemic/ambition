@@ -140,3 +140,27 @@ fn two_driven_bodies_each_grapple_the_wall_they_face() {
         player_vel(&app, b)
     );
 }
+
+/// OW1 cut 7o: the hook catches a wall of the body's own live room. With two
+/// rooms live, the grapple once read the sole live room, found none, and
+/// fizzled.
+#[test]
+fn a_grapple_catches_a_wall_of_its_own_live_room() {
+    let mut app = test_app(None);
+    let second = crate::test_support::two_live_rooms_with_a_wall_in_the_second(&mut app);
+    let player = spawn_player_holding(&mut app, GRAPPLE_ID, ae::Vec2::new(100.0, 300.0), 1.0);
+    app.world_mut()
+        .entity_mut(player)
+        .insert(ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance(second));
+    app.world_mut()
+        .get_mut::<ActorControl>(player)
+        .unwrap()
+        .0
+        .melee_pressed = true;
+    app.update();
+    let vel = player_vel(&app, player);
+    assert!(
+        vel.x > 0.0,
+        "the hook did not catch #1's wall: velocity {vel:?}"
+    );
+}

@@ -450,6 +450,27 @@ pub fn activation_room_root(scope: SessionScopeId) -> impl bevy::prelude::Bundle
     )
 }
 
+/// Spawn the root of live room `instance`, holding `component`, beside any
+/// live room already there. For small direct hosts and focused tests that need
+/// two live rooms; [`insert_live_room_component`] is the one-room twin.
+pub fn spawn_live_room<T: Component>(
+    world: &mut World,
+    instance: LiveRoomInstance,
+    component: T,
+) -> Entity {
+    let session_root = match session_world_entity(world) {
+        Some(root) => root,
+        None => super::insert_session_world_component(world, Name::new("direct session world")),
+    };
+    let scope = world
+        .get::<SessionRoot>(session_root)
+        .map_or(SessionScopeId(0), |root| root.0);
+    world
+        .spawn(activation_room_root(scope))
+        .insert((instance, component))
+        .id()
+}
+
 /// Insert one component into the sole live room root of the direct/test
 /// session, spawning the session root and its activation room root if they do
 /// not exist yet. The live-room twin of

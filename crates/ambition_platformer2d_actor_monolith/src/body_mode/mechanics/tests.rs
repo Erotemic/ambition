@@ -563,3 +563,36 @@ fn a_submerged_body_is_not_stood_back_up_by_the_posture_driver() {
         );
     }
 }
+
+/// OW1 cut 7o: a body changes posture against the walls of its own live room.
+/// With two rooms live, the driver once read the sole live room, found none,
+/// and returned before any body: a crouch did nothing.
+#[test]
+fn a_body_crouches_in_its_own_live_room_beside_another() {
+    let mut app = App::new();
+    ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(
+        app.world_mut(),
+        ambition_platformer2d_core::RoomGeometry(open_world()),
+    );
+    let second = ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::ACTIVATION.next();
+    ambition_platformer2d_shared_tangle::lifecycle::spawn_live_room(
+        app.world_mut(),
+        second,
+        ambition_platformer2d_core::RoomGeometry(open_world()),
+    );
+    app.init_resource::<SlotInteractionState>();
+    app.add_systems(Update, super::update_body_mode);
+    let body = spawn_mode_body(&mut app, open_world().spawn, Some(PlayerSlot::PRIMARY));
+    app.world_mut()
+        .entity_mut(body)
+        .insert(ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance(second));
+    set_control(&mut app, body, |c| {
+        c.locomotion = ambition_platformer2d_core::LocalAxes::new(0.0, 1.0)
+    });
+    app.update();
+    assert_eq!(
+        app.world().get::<BodyModeState>(body).unwrap().body_mode,
+        ae::BodyMode::Crouching,
+        "the body in #1 did not crouch while #0 is also live",
+    );
+}

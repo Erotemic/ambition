@@ -285,6 +285,9 @@ pub fn apply_authored_teleports(
             ae::BodyClusterQueryData,
             &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
             &mut ae::movement::MotionModel,
+            // The live room the body is in: it arrives against that room's
+            // walls.
+            Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
         )>,
         Query<(
             Entity,
@@ -313,7 +316,7 @@ pub fn apply_authored_teleports(
     // fixture installs no log, and a teleport is still a teleport without one.
     mut class_b: Option<ResMut<ambition_platformer2d_shared_tangle::class_b::ClassBRemapLog>>,
 ) {
-    let mut collision = None;
+    let mut collision = ambition_platformer2d_world::collision::ComposedRooms::default();
     // Drained first: the mutable body pass below cannot borrow the reader and
     // the candidate query at the same time.
     let requests: Vec<ActorActionMessage> = actions.read().cloned().collect();
@@ -346,7 +349,7 @@ pub fn apply_authored_teleports(
                 continue;
             }
         };
-        let Ok((mut cluster_item, resolved_frame, mut motion_model)) =
+        let Ok((mut cluster_item, resolved_frame, mut motion_model, room)) =
             bodies.get_mut(message.actor)
         else {
             continue;
@@ -406,11 +409,10 @@ pub fn apply_authored_teleports(
             }
             (offset / length, length, Some(ambush.facing))
         };
-        let solids = collision.get_or_insert_with(|| world.solids());
-        let target = match solids.as_ref() {
+        let target = match collision.solids(&world, room) {
             Some(w) => {
-                let clamped = ambition_abilities::traversal::blink::blink_target(&**w, from, dir, distance, half);
-                ledge_assisted_arrival(&**w, clamped, half, params.ledge_assist, gravity_dir)
+                let clamped = ambition_abilities::traversal::blink::blink_target(w, from, dir, distance, half);
+                ledge_assisted_arrival(w, clamped, half, params.ledge_assist, gravity_dir)
             }
             // No collision world (a minimal test app) — the full distance, which
             // is what `blink_system` does in the same situation.

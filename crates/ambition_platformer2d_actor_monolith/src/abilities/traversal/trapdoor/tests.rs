@@ -384,3 +384,39 @@ fn surfacing_without_a_leap_speed_stands_her_still() {
     fire(&mut app, body, up(140.0));
     assert_eq!(kin(&app, body).vel, ae::Vec2::ZERO);
 }
+
+/// OW1 cut 7o: she surfaces through the floor of her own live room. With two
+/// rooms live, the hatch once read the sole live room, found none, and left
+/// her under the boards where she went down.
+#[test]
+fn she_surfaces_through_the_floor_of_her_own_live_room() {
+    let (mut app, body) = app_with_body(ae::Vec2::new(150.0, 60.0));
+    // The stage moves to #1; #0, also live, is empty.
+    let second = ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::ACTIVATION.next();
+    ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(
+        app.world_mut(),
+        ae::RoomGeometry(ae::World::new(
+            "empty",
+            ae::Vec2::new(2000.0, 2000.0),
+            ae::Vec2::ZERO,
+            Vec::new(),
+        )),
+    );
+    ambition_platformer2d_shared_tangle::lifecycle::spawn_live_room(
+        app.world_mut(),
+        second,
+        ae::RoomGeometry(stage()),
+    );
+    app.world_mut()
+        .entity_mut(body)
+        .insert(ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance(second));
+    fire(&mut app, body, down(120.0));
+    fire(&mut app, body, up(120.0));
+    let after = kin(&app, body);
+    assert!(
+        (after.pos.y - (0.0 - HALF.y)).abs() < 1e-3,
+        "she must stand on #1's boards (y = {}), and she is at {}",
+        0.0 - HALF.y,
+        after.pos.y
+    );
+}

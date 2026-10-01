@@ -403,8 +403,8 @@ pub fn tick_actor_brains(
     let dt = world_time.sim_dt();
     // Accumulating sim-time for brain perception (reaction-latency lookback).
     let sim_now = sim_clock.0;
-    // Each live room is composed once per tick; see `composed_room`.
-    let mut composed = Vec::new();
+    // Each live room is composed once per tick.
+    let mut composed = ambition_platformer2d_world::collision::ComposedRooms::default();
     // The live hostility table for every brain's world-out view this frame (§A7),
     // all-peaceful when a fixture registers none.
     let relations = perceived.relations();
@@ -484,8 +484,7 @@ pub fn tick_actor_brains(
         let stamp = rooms
             .stamped(this_actor_entity)
             .map(ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance);
-        let composed_index = composed_room(&mut composed, &collision, stamp.as_ref());
-        let Some(feature_world) = composed[composed_index].1.as_deref() else {
+        let Some(feature_world) = composed.solids(&collision, stamp.as_ref()) else {
             continue;
         };
         let room = rooms.of(this_actor_entity);
@@ -1290,26 +1289,6 @@ pub struct BodyIntegrationCues<'w> {
     pub movement_ops: Option<MessageWriter<'w, crate::causal::BodyMovementOps>>,
 }
 
-/// The index in `composed` of the collision world of the live room `room`
-/// names, composed on the first ask in this step. `None` in the slot means
-/// that room is not live.
-fn composed_room<'a>(
-    composed: &mut Vec<(
-        Option<ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
-        Option<std::borrow::Cow<'a, ae::World>>,
-    )>,
-    collision: &'a ambition_platformer2d_world::collision::CollisionWorld,
-    room: Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
-) -> usize {
-    let room = room.copied();
-    if let Some(index) = composed.iter().position(|(seen, _)| *seen == room) {
-        return index;
-    }
-    let solids = collision.room(room.as_ref()).and_then(|room| room.solids());
-    composed.push((room, solids));
-    composed.len() - 1
-}
-
 #[allow(clippy::too_many_arguments)]
 pub fn integrate_sim_bodies(
     // A13: whose cues each body emits, looked up by entity. A separate read-only
@@ -1457,7 +1436,7 @@ pub fn integrate_sim_bodies(
     // Each live room is composed once per step, the first time a body in it
     // asks. A body with no live room (no room loaded, or a room that is not
     // live) is not integrated: there is nothing to integrate it against.
-    let mut composed = Vec::new();
+    let mut composed = ambition_platformer2d_world::collision::ComposedRooms::default();
     let combat_tuning = feel_tuning.feature_combat_tuning();
     // ── ACTOR bodies (the per-body integrator, symmetric with the home body's) ──
     for (
@@ -1480,8 +1459,7 @@ pub fn integrate_sim_bodies(
         let Some(mut cq) = clusters else {
             continue;
         };
-        let room = composed_room(&mut composed, &collision, body_rooms.get(actor_entity).ok());
-        let Some(feature_world) = composed[room].1.as_deref() else {
+        let Some(feature_world) = composed.solids(&collision, body_rooms.get(actor_entity).ok()) else {
             continue;
         };
         let mut em = cq.as_actor_mut();
@@ -1564,8 +1542,7 @@ pub fn integrate_sim_bodies(
         let player_tuning = authored_tuning
             .map(|t| t.0)
             .unwrap_or(editable_player_tuning);
-        let room = composed_room(&mut composed, &collision, body_rooms.get(player_entity).ok());
-        let Some(feature_world) = composed[room].1.as_deref() else {
+        let Some(feature_world) = composed.solids(&collision, body_rooms.get(player_entity).ok()) else {
             continue;
         };
         let mut clusters = cluster_item.as_clusters_mut();

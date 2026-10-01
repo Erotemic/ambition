@@ -198,3 +198,34 @@ pub fn live_projectile_bodies(
     rows.sort_by_key(|(seq, _)| *seq);
     rows.into_iter().map(|(_, body)| body).collect()
 }
+
+/// Two live rooms: #0, open, and #1, with a solid wall whose left side is at
+/// x = 380 (from y = 0 to 600). Returns #1. A body stamped into #1 must meet
+/// the wall; a body that reads #0, or no room, does not.
+pub fn two_live_rooms_with_a_wall_in_the_second(
+    app: &mut App,
+) -> ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance {
+    use ambition_platformer2d_shared_tangle::lifecycle::{
+        insert_live_room_component, spawn_live_room, LiveRoomInstance,
+    };
+    let room = |blocks| {
+        ambition_platformer2d_core::RoomGeometry(ae::World::new(
+            "two_live_rooms",
+            ae::Vec2::new(1000.0, 600.0),
+            ae::Vec2::new(100.0, 300.0),
+            blocks,
+        ))
+    };
+    insert_live_room_component(app.world_mut(), room(Vec::new()));
+    let second = LiveRoomInstance::ACTIVATION.next();
+    spawn_live_room(
+        app.world_mut(),
+        second,
+        room(vec![ae::Block::solid(
+            "wall",
+            ae::Vec2::new(380.0, 0.0),
+            ae::Vec2::new(20.0, 600.0),
+        )]),
+    );
+    second
+}

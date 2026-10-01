@@ -35,6 +35,9 @@ pub fn apply_authored_trapdoors(
         // on — the same reason the teleport's ledge assist takes it.
         &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
         &mut ae::movement::MotionModel,
+        // The live room the body is in: she surfaces through that room's
+        // floor.
+        Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
     )>,
     // ⛔⛔ THE MOVE THAT AUTHORED THE BEAT, so a refused submerge can END it.
     // Without this the timeline runs on regardless — including the three-second
@@ -57,7 +60,7 @@ pub fn apply_authored_trapdoors(
     // instrument deciding gameplay.
     mut class_b: Option<ResMut<ambition_platformer2d_shared_tangle::class_b::ClassBRemapLog>>,
 ) {
-    let mut collision = None;
+    let mut collision = ambition_platformer2d_world::collision::ComposedRooms::default();
     for message in actions.read() {
         let ActionRequest::Special { spec, params } = &message.request else {
             continue;
@@ -73,7 +76,7 @@ pub fn apply_authored_trapdoors(
                 continue;
             }
         };
-        let Ok((mut cluster_item, resolved_frame, mut motion_model)) =
+        let Ok((mut cluster_item, resolved_frame, mut motion_model, room)) =
             bodies.get_mut(message.actor)
         else {
             continue;
@@ -136,10 +139,9 @@ pub fn apply_authored_trapdoors(
             // and is why this file borrows it rather than restating it.
             let half = clusters.kinematics.size * 0.5;
             let from = clusters.kinematics.pos;
-            let solids = collision.get_or_insert_with(|| world.solids());
-            let surfaced = match solids.as_ref() {
+            let surfaced = match collision.solids(&world, room) {
                 Some(w) => super::teleport::ledge_assisted_arrival(
-                    &**w,
+                    w,
                     from,
                     half,
                     params.surface_reach,

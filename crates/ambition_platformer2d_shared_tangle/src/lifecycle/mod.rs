@@ -38,7 +38,7 @@ pub use markers::{
     PlayerVisual, PosedBody, PresentationOf, RoomResident, RoomScopedEntity, RoomVisual,
 };
 pub use room_instance::{
-    activation_room_root, insert_live_room_component, live_room_of, live_room_root_for, LiveBodies,
+    activation_room_root, insert_live_room_component, live_room_of, spawn_live_room, live_room_root_for, LiveBodies,
     LiveBodyId,
     sole_live_room_component,
     sole_live_room_component_mut, sole_live_room_entity, InRoomInstance, LiveRoomInstance,

@@ -143,6 +143,39 @@ impl CollisionWorld<'_, '_> {
     }
 }
 
+/// The composed walls ([`RoomCollision::solids`]) of each live room that the
+/// subjects of one system run stand in.
+///
+/// A room is composed on the first ask and then reused, so a run that steps
+/// many bodies in one room composes it once. Two bodies in two live rooms get
+/// two worlds, each one the walls of its body's own room. Hold one per system
+/// run: the overlays and platforms change between ticks.
+#[derive(Default)]
+pub struct ComposedRooms<'a> {
+    rooms: Vec<(Option<InRoomInstance>, Option<Cow<'a, ae::World>>)>,
+}
+
+impl<'a> ComposedRooms<'a> {
+    /// The walls of the live room `room` names, as [`CollisionWorld::room`]
+    /// resolves it. `None` if that room is not live.
+    pub fn solids(
+        &mut self,
+        collision: &'a CollisionWorld<'_, '_>,
+        room: Option<&InRoomInstance>,
+    ) -> Option<&ae::World> {
+        let room = room.copied();
+        let index = match self.rooms.iter().position(|(seen, _)| *seen == room) {
+            Some(index) => index,
+            None => {
+                let solids = collision.room(room.as_ref()).and_then(RoomCollision::solids);
+                self.rooms.push((room, solids));
+                self.rooms.len() - 1
+            }
+        };
+        self.rooms[index].1.as_deref()
+    }
+}
+
 /// One live room's collision inputs, from [`CollisionWorld::room`].
 #[derive(Clone, Copy)]
 pub struct RoomCollision<'a> {

@@ -135,4 +135,9 @@ A2 in the [frontier](actor-monolith-work-frontier.md) first aligns projectile bo
 admission and damage with published authored hurt geometry, including an explicit
 empty set. That fix precedes removal of feature-family dispatch. Boss health,
 invulnerability and reward policy remain with their existing semantic owners;
-Q48 and boss replay/reward choices are not answered by the geometry repair.
+The geometry repair does not answer the composition or replay questions, and
+both are now ruled (2026-10-01, [`maintainer-decisions.md`](../maintainer-decisions.md)).
+Q48: boss support as an independent capability is engineering; extract it if the
+seams are mature, and do not force it. Q51/Q56: a replay or rewind that
+un-defeats a boss un-grants the consequences of the defeat, for every family
+(queue row `BOSS-REPLAY-RETRACTION`).

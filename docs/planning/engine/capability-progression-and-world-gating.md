@@ -107,8 +107,12 @@ wall is one mechanical object used by collision, projectiles and rendering,
 per-player passability would require a different mechanism rather than a stricter
 query.
 
-The intended rule is open in
-[Q54](../awaiting-maintainer-decision.md#q54--in-co-op-does-a-body-gate-open-for-the-party-the-acting-body-or-only-the-primary-body).
+✅ **Ruled 2026-10-01 (Q54, [`maintainer-decisions.md`](../maintainer-decisions.md)):
+the gate is evaluated per actor.** A wall that needs worn Phase Boots is
+intangible for the actor who wears them and solid for one who does not. So the
+shared-wall behaviour above is now a defect against the ruling: collision
+between a gated wall and an actor must read that actor's state. The work is
+the queue row `GATE-PER-ACTOR`.
 
 ## World-mechanism facts
 
@@ -124,9 +128,10 @@ every transient object in order to make a gate expression possible.
 ## Item/equipment and progression
 
 Item possession can already be queried through the published item/custody facts.
-The unresolved product question is whether a unique capability item is itself the
-entitlement or only one occurrence of an entitlement; see
-[Q45](../awaiting-maintainer-decision.md#q45--is-a-unique-capability-item-an-entitlement-or-an-occurrence).
+✅ Q45 is ruled (2026-10-01, [`maintainer-decisions.md`](../maintainer-decisions.md)):
+a unique capability item may behave as an entitlement during engine development.
+The game will distinguish an unlock from a physical item occurrence when the
+item model is reworked.
 
 Permanent participant-level ability progression does not currently exist as a
 separate authority. If the game needs it, prefer a grant that contributes to the
@@ -170,8 +175,16 @@ published fact can serve them all.
 ## Open work
 
 1. **Resolve Q58** before authoring `body.fits`/body-state gates broadly.
-2. **Resolve Q54** before a co-op product depends on asymmetric traversal rights.
-3. **Resolve Q45** before unique capability items become permanent progression.
+2. ✅ **Q54 ruled 2026-10-01: a body/capability gate is evaluated per actor.**
+   A phase wall that needs Phase Boots is intangible for the actor who wears
+   them and solid for one who does not. Collision between the wall and an
+   actor reads that actor's state; a party never opens one shared wall. So
+   the work is actor-specific traversal/collision, not a gate "opened" for
+   everybody.
+3. ✅ **Q45 ruled 2026-10-01: entitlement behaviour is acceptable for now.**
+   The demo inventory's capability items may stay entitlements; the item model
+   is reworked when real game development begins, and then an unlock and a
+   physical item occurrence are distinguished on purpose.
 4. When a second real temporary/permanent ability grant appears, design one
    contribution/projection road with the falling-sand swim customer and remove
    direct save/restore writes of the effective set.

@@ -1783,6 +1783,28 @@ open. Close with a fresh census rather than a checked list.
 
 ## P1 — ownership, composition and iteration
 
+### GATE-PER-ACTOR — a body/capability gate is solid or open for each actor
+
+**Owner:** [`engine/capability-progression-and-world-gating.md`](engine/capability-progression-and-world-gating.md)
+jointly with the gated-wall road (`gated_lock_walls.rs`, the per-room collision
+overlay).
+
+**Ruling (Q54, 2026-10-01, [`maintainer-decisions.md`](maintainer-decisions.md)):**
+the gate is evaluated per actor. Alice in Phase Boots passes a phase wall; Bob
+without them collides with it. Not "any qualifying participant opens the wall
+for everybody".
+
+**Current state, measured 2026-10-01.** The route road evaluates body
+conditions over driven bodies, and the gated wall is one mechanical object in
+its live room's collision overlay (per room since OW1 cut 7q). So one
+qualifying body opens the wall for every body in that room, which the ruling
+forbids.
+
+**Acceptance:** in one live room, a body that satisfies a wall's body condition
+passes and a body that does not collides, in the same tick; a projectile and an
+undriven body follow the same per-actor rule stated for them; witnessed with
+two seats and with a control where both qualify.
+
 ### BOSS-REPLAY-RETRACTION — a replay that un-defeats a boss un-defeats it for every family
 
 **Owner:** the generic boss-progress road (`crates/ambition_boss_encounter`)
@@ -3510,8 +3532,9 @@ production acceptance witness.
 
 **Blocked where applicable by:** [Q62](awaiting-maintainer-decision.md#q62--keep-or-discard-the-epoch-captured-4741-line-mary_oldtk-delta),
 [Q89](awaiting-maintainer-decision.md#q89--what-special-should-each-robot-stand-in-have),
-[Q115](awaiting-maintainer-decision.md#q115--which-per-move-hitboxinflate-values-should-the-untuned-bone-derived-specs-carry),
-and other product rows named by the inventory.
+and other product rows named by the inventory. (Q115 is ruled 2026-10-01:
+per-move inflation is tuning with the hitbox tooling, no roster-wide value, so it
+no longer blocks.)
 
 ### D166 — make character authoring boundaries load-bearing
 

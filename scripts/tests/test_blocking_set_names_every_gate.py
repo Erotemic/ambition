@@ -23,8 +23,8 @@ def test_the_shipped_pages_agree():
 
 
 def test_every_gated_row_is_open_and_p0_or_p1():
+    # The population may be empty: on 2026-10-01 the last gate was ruled.
     rows = guard.gated_rows()
-    assert rows
     assert all(name.startswith(("P0 ", "P1 ")) for name in rows)
 
 
@@ -47,8 +47,17 @@ def test_the_shipped_section_covers_the_shipped_gates():
 
 
 def test_the_floor_is_below_the_shipped_count():
-    """⛔ ANTI-VACUITY: a scan that lost the queue's convention must red."""
-    assert 0 < guard.MIN_GATED_ROWS <= len(guard.gated_rows())
+    """⛔ ANTI-VACUITY: a scan that lost the queue's convention must red.
+
+    The floor is on the `Blocked by:` field in any row, not on gated rows,
+    because gated rows may legitimately be none.
+    """
+    fields = sum(
+        1
+        for line in guard.QUEUE.read_text(encoding="utf-8").split("\n")
+        if line.startswith(guard.BLOCKED_BY)
+    )
+    assert 0 < guard.MIN_BLOCKED_BY_FIELDS <= fields
 
 
 def test_the_field_ends_at_the_blank_line_not_after_n_lines():

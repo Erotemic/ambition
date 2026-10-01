@@ -132,9 +132,15 @@ resources or let required behavior vanish behind an Option parameter. Do not
 recognize render readiness by the presence of a proxy such as AssetPlugin when
 the actual system requires render-device resources.
 
-The combat no-plugin packaging question remains Q73. This plan recommends
-owner-controlled installation against public phases; it does not fabricate a
-maintainer ruling or require every crate to expose a Plugin type.
+Q73 is ruled (2026-10-01, [`maintainer-decisions.md`](../maintainer-decisions.md)):
+opaque installation is prohibited, not the Bevy `Plugin` type. A capability may
+install its private systems through a capability-owned plugin when the host
+requests the capability explicitly, the systems sit in documented public
+milestones, and the composition root controls whether the capability exists and
+the order between published boundaries. `app.add_plugins(CombatPlugin)` is fine
+as the mechanism of an explicitly selected combat capability. A plugin that
+silently installs unrelated capabilities or hides scheduling dependencies is
+not.
 
 ## Procedural port installation
 

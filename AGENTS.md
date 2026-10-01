@@ -95,7 +95,7 @@ scripts/setup/target_bindmount.sh
 
 Do not build until the required target bind is active.
 
-* Never use `rm -rf` under `target/`; use Cargo or repository cleanup tools.
+* Destructive cleanup under `target/` (`rm -rf target/<something>`, `cargo clean`) is allowed only after `scripts/setup/target_bindmount.sh --status` shows the expected bind. If the bind is absent, or `target/` is ordinary repository-local storage, stop and delete nothing there (Q77, Jon 2026-10-01). The bound volume is shared with other worktrees: delete only what is yours.
 * Do not substitute `CARGO_TARGET_DIR` for the main repository target-bind policy.
 * If an old shadowed `target/` copy exists underneath the bind, report it rather than deleting it.
 * Do not run concurrent Cargo builds against one target directory.

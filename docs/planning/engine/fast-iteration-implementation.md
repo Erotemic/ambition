@@ -524,7 +524,15 @@ mid-timeline under the sync test, so the boss-volume half is REASONED from the
 cast arm, not measured; the next arm is the cast arm's shape with a boss
 tuning in place of the player's `max_health`, started in a boss room
 (`rollback_sim()` starts in the default room, and a boss arm there would pass
-with no boss to read the catalog) (`SessionCast::is_changed` follows the source `get` reads). ⭐ With
+with no boss to read the catalog). MEASURED the same day, and NOT enough: a
+probe in `mockingbird_arena` (one live boss) that replaced the App's
+`BossCatalog` with an empty one at frame 24 stayed healthy, and stayed healthy
+with `refresh_boss_damageable_volumes` poisoned back onto the App catalog. So
+that room cannot witness this road: either the mockingbird publishes authored
+hurtboxes and never reaches the catalog path, or nothing on the resimulated road
+reads its volumes in those frames. The probe was not kept (a check that cannot
+fail). The next arm needs a boss whose volumes come from the catalog and a
+script that hits it. (`SessionCast::is_changed` follows the source `get` reads). ⭐ With
 the projection on the session's cast, a cast published mid-timeline no longer
 desyncs the sync test: `developer_edits_under_rollback::publishing_a_cast_mid_timeline_leaves_history_resimulating_the_same`
 asserts it (MEASURED: putting either the projection or the worn re-derivation

@@ -21,7 +21,10 @@
 //! when every part page is ready ([`super::texture_is_ready`], the rule of the
 //! baked binder). Until then it keeps what it draws now: its baked sprite, or
 //! the parts of the tier it had. Then it changes in one frame. A page that
-//! fails to load is never ready, and the body stays as it was.
+//! fails to load is never ready, and the body stays as it was. A re-wear to
+//! another character does not keep the old character's parts: they are
+//! dropped at once, and the root draws the new character's baked sheet until
+//! its pages are ready.
 //!
 //! The root keeps its baked sprite with zero alpha. That keeps the baked sheet
 //! as the parity oracle of this trial, and keeps the root the body's ONE portal
@@ -75,6 +78,8 @@ pub struct RiggedPresentations(pub HashMap<Entity, Entity>);
 #[derive(Component)]
 pub struct RiggedPresentation {
     pub root: Entity,
+    /// The sheet target whose parts these are.
+    pub target: String,
     pub pages: RiggedSpritePages,
     /// Reusable part sprites, children of the owner, in draw order.
     pub slots: Vec<Entity>,
@@ -171,32 +176,50 @@ pub fn bind_rigged_presentations(
         if same {
             continue;
         }
+        let target = animator.spec.target();
+        let tint = current.map(|current| current.tint);
         // Not until every part page is ready: the root draws nothing while it
         // has parts, so parts with no pixels would make the body vanish.
         if wanted.is_some_and(|wanted| !pages_ready(asset_server.as_deref(), &images, wanted)) {
+            // ⛔ ONLY THE SAME CHARACTER KEEPS ITS OLD PARTS MEANWHILE (a tier
+            // change). After a re-wear the root's animator is the new
+            // character's, so the old parts would be driven with the new rows
+            // (both have `idle`, `walk`). Drop them now: the root draws the new
+            // character's baked sheet until its pages are ready.
+            if current.is_some_and(|current| current.target != target) {
+                if let Some(owner) = owners.0.remove(&root) {
+                    commands.entity(owner).try_despawn();
+                }
+                draw_the_root_itself(&mut commands, &mut sprites, root, tint);
+            }
             continue;
         }
-        let tint = current.map(|current| current.tint);
         if let Some(owner) = owners.0.remove(&root) {
             commands.entity(owner).try_despawn();
         }
         match wanted {
             Some(pages) => {
-                let owner = spawn_presentation(&mut commands, root, pages.clone(), tint.unwrap_or(Color::WHITE));
+                let owner = spawn_presentation(&mut commands, root, target, pages.clone(), tint.unwrap_or(Color::WHITE));
                 owners.0.insert(root, owner);
             }
             // Back to the baked sheet: the root draws itself again.
-            None => {
-                if let (Ok(mut sprite), Some(tint)) = (sprites.get_mut(root), tint) {
-                    sprite.color = tint;
-                }
-                #[cfg(feature = "portal_render")]
-                commands
-                    .entity(root)
-                    .try_remove::<ambition_portal2d_presentation::PortalPieceTint>();
-            }
+            None => draw_the_root_itself(&mut commands, &mut sprites, root, tint),
         }
     }
+}
+
+/// A root with no parts draws its baked sheet again, in the tint its parts
+/// last had.
+fn draw_the_root_itself(commands: &mut Commands, sprites: &mut Query<&mut Sprite>, root: Entity, tint: Option<Color>) {
+    if let (Ok(mut sprite), Some(tint)) = (sprites.get_mut(root), tint) {
+        sprite.color = tint;
+    }
+    #[cfg(feature = "portal_render")]
+    commands
+        .entity(root)
+        .try_remove::<ambition_portal2d_presentation::PortalPieceTint>();
+    #[cfg(not(feature = "portal_render"))]
+    let _ = commands;
 }
 
 /// Every page of `pages` is ready to draw. Without an asset server (a
@@ -208,7 +231,7 @@ fn pages_ready(asset_server: Option<&AssetServer>, images: &Assets<Image>, pages
     })
 }
 
-fn spawn_presentation(commands: &mut Commands, root: Entity, pages: RiggedSpritePages, tint: Color) -> Entity {
+fn spawn_presentation(commands: &mut Commands, root: Entity, target: &str, pages: RiggedSpritePages, tint: Color) -> Entity {
     let owner = commands
         .spawn((
             Name::new("rigged presentation"),
@@ -235,6 +258,7 @@ fn spawn_presentation(commands: &mut Commands, root: Entity, pages: RiggedSprite
         .collect();
     commands.entity(owner).insert(RiggedPresentation {
         root,
+        target: target.to_owned(),
         pages,
         slots,
         tint,

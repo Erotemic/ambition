@@ -46,8 +46,9 @@ impl BodyPoseClock {
 }
 
 /// How a grounded body moves, from simulation facts only. Presentation picks
-/// its Idle / Walk / Run row with the same rule ([`grounded_gait`]), so the
-/// sprite row and the rig clip of a body agree.
+/// its Idle / Walk / Run row with the same rule ([`grounded_gait`]) but with
+/// its own dead band, so the sprite row and the rig clip of a body agree
+/// outside that band.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum Gait {
     #[default]
@@ -57,11 +58,16 @@ pub enum Gait {
     Skidding,
 }
 
-/// Below this speed along its run axis a PLAYER body stands. The dead band of
-/// the player's sprite rows.
-pub const PLAYER_STANDING_BELOW: f32 = 12.0;
-/// Below this speed along its run axis a brain-driven ACTOR stands.
-pub const ACTOR_STANDING_BELOW: f32 = 8.0;
+/// Below this speed along its run axis a body stands. One value for every
+/// body: the gait selects the rig clip that the hurt geometry and the
+/// attachments are solved from, so it is a gameplay fact.
+///
+/// ⛔ NOT THE SPRITE DEAD BAND. The sprite pickers keep their own (12 for a
+/// player, 8 for an actor) in `ambition_character_sprites`. Until 2026-09-30
+/// this rule took the player's 12 when the body had a
+/// `PlayerBlinkCameraState`, so two bodies at speed 11 with the same motion
+/// facts had different hurt geometry because one had a camera state.
+pub const STANDING_BELOW: f32 = 8.0;
 
 /// The gait of a grounded body. `speed` is the size of its velocity along its
 /// own run axis (not total speed: a body that slides down its own wall
@@ -324,14 +330,11 @@ pub fn advance_body_pose_clocks(
             Option<&ambition_platformer2d_core::BodyKinematics>,
             Option<&ambition_platformer2d_core::BodyMotionFacts>,
             Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
-            // The split the sprite pickers draw: the player picker reads this
-            // camera state, the actor picker does not.
-            Has<ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState>,
         ),
         &mut BodyPoseClock,
     )>,
 ) {
-    for ((combat, ground, body_mode, scale), (kinematics, facts, frame, player), mut clock) in &mut bodies {
+    for ((combat, ground, body_mode, scale), (kinematics, facts, frame), mut clock) in &mut bodies {
         // The body's OWN proper time, the same clock `advance_move_playback` uses.
         // A dilated body's hitstun profile and its move profile must not disagree
         // about how much time passed, or a bullet-time hit resolves against a
@@ -357,8 +360,7 @@ pub fn advance_body_pose_clocks(
                     |frame| frame.basis(),
                 )
                 .side;
-                let standing_below = if player { PLAYER_STANDING_BELOW } else { ACTOR_STANDING_BELOW };
-                grounded_gait(kinematics.vel.dot(side).abs(), facts.running, facts.skidding, standing_below)
+                grounded_gait(kinematics.vel.dot(side).abs(), facts.running, facts.skidding, STANDING_BELOW)
             }
             _ => Gait::Standing,
         };

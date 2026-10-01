@@ -573,10 +573,10 @@ pub fn ensure_player_trail(
 /// trails as they collapse away.
 pub fn update_player_trail(
     world_time: Res<ambition_time::WorldTime>,
-    world: Option<
-        ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<
-            ambition_platformer2d_core::RoomGeometry,
-        >,
+    // Each player's own live room (OW1): the sole live room was read, so while
+    // two rooms were live no trail saw a wall, and a loop around one was erased.
+    world: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomOf<
+        ambition_platformer2d_core::RoomGeometry,
     >,
     enabled: Option<Res<PlayerTrailEnabled>>,
     mut continuity_breaks: MessageReader<TrailContinuityBreak>,
@@ -591,10 +591,10 @@ pub fn update_player_trail(
     >,
 ) {
     let dt = world_time.sim_dt();
-    let world_surfaces = world.as_deref().map(|world| &world.0);
     let emission_enabled = enabled.as_ref().is_some_and(|enabled| enabled.enabled);
     let breaks: Vec<TrailContinuityBreak> = continuity_breaks.read().copied().collect();
     for (entity, kin, mut trail) in &mut players {
+        let world_surfaces = world.of(entity).map(|geometry| &geometry.0);
         trail.collapse_self_loops_step(dt);
         let anchor = trail_anchor(kin);
         match trail.status {
@@ -1006,6 +1006,54 @@ mod tests {
         );
         assert!(!trail.collapsing_loops[0].step(TRAIL_SELF_LOOP_COLLAPSE_SECONDS * 0.5));
         assert!(trail.collapsing_loops[0].step(TRAIL_SELF_LOOP_COLLAPSE_SECONDS));
+    }
+
+    /// OW1: a player's trail reads the walls of the player's own live room.
+    /// A loop around a block of #1 is kept for a player in #1, and the same
+    /// loop is erased for a player in #0, where nothing is inside it. Before,
+    /// the trail read the sole live room, so with two rooms live it saw no
+    /// wall and erased the loop in #1 too.
+    #[test]
+    fn a_trail_keeps_a_loop_around_a_wall_of_its_own_live_room() {
+        use ambition_platformer2d_shared_tangle::lifecycle::{
+            insert_live_room_component, spawn_live_room, InRoomInstance, LiveRoomInstance,
+        };
+        let walled = |blocks| ae::World::new("test", v(200.0, 200.0), v(0.0, 0.0), blocks);
+        let collapsed_in = |room: LiveRoomInstance| {
+            let mut app = App::new();
+            insert_live_room_component(app.world_mut(), ambition_platformer2d_core::RoomGeometry(walled(Vec::new())));
+            spawn_live_room(
+                app.world_mut(),
+                LiveRoomInstance::ACTIVATION.next(),
+                ambition_platformer2d_core::RoomGeometry(walled(vec![ae::Block::solid(
+                    "obstruction",
+                    v(20.0, 20.0),
+                    v(10.0, 10.0),
+                )])),
+            );
+            app.init_resource::<ambition_time::WorldTime>();
+            app.insert_resource(PlayerTrailEnabled { enabled: true });
+            app.add_message::<TrailContinuityBreak>();
+            app.add_systems(Update, update_player_trail);
+            let kin = ambition_platformer2d_core::BodyKinematics { pos: v(0.0, 0.0), ..Default::default() };
+            let offset = trail_anchor(&kin) - kin.pos;
+            let body = app
+                .world_mut()
+                .spawn((
+                    kin,
+                    PlayerTrail::emitting_from(v(0.0, 0.0)),
+                    ambition_platformer2d_shared_tangle::markers::PlayerEntity,
+                    InRoomInstance(room),
+                ))
+                .id();
+            for at in [v(50.0, 0.0), v(50.0, 50.0), v(0.0, 50.0), v(20.0, -10.0)] {
+                app.world_mut().get_mut::<ambition_platformer2d_core::BodyKinematics>(body).unwrap().pos = at - offset;
+                app.update();
+            }
+            app.world().get::<PlayerTrail>(body).unwrap().collapsing_loops.len()
+        };
+        assert_eq!(collapsed_in(LiveRoomInstance::ACTIVATION.next()), 0, "the loop around #1's wall was erased");
+        assert_eq!(collapsed_in(LiveRoomInstance::ACTIVATION), 1, "control: the loop in open #0 was kept");
     }
 
     #[test]

@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v289
+ggrs-rollback-schema-v290
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -439,7 +439,7 @@ resource.projectile_seq_counter	resource-canonical	ProjectileSeqCounter	bevy_ggr
 resource.quest_last_room	resource-clone-custom-checksum	LastQuestRoom	bevy_ggrs clone snapshot + the room ids that were live when the RoomEntered producer last looked
 resource.quest_registry	resource-clone-custom-checksum	QuestRegistry	bevy_ggrs clone snapshot + quest identity, progression and pending-advance checksum projection
 resource.requested_clock_scale	resource-canonical	RequestedClockScale	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-resource.sandbox_save	resource-clone-custom-checksum	AmbitionGameSave	bevy_ggrs clone snapshot + serialized whole-save checksum projection
+resource.sandbox_save	resource-clone-custom-checksum	AmbitionGameSave	bevy_ggrs clone snapshot + serialized whole-save checksum projection, its dormant-record rows hashed once per Arc
 resource.sandbox_sim_state	resource-canonical	RoomTransitionCooldown	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.save_restored	resource-clone	SaveRestored	bevy_ggrs clone snapshot; not in the session checksum
 resource.session_checkpoint_operations	resource-clone-custom-checksum	SessionCheckpointOperations	bevy_ggrs clone snapshot + how many checkpoint restores this session has admitted

@@ -956,7 +956,11 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// conducted boss), its memory a record in `extension.body_records` and its
 /// shocks the combat domain's held boxes (`combat.held_damage_boxes`).
 /// `boss.conducted_facing` is new: the side a conducted boss faces.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 289;
+/// ⛔⛤ 289 -> 290: `resource.sandbox_save`'s checksum is the fold of three
+/// hashes (the rest of the save, its occurrence rows, its minted rows), the
+/// row hashes kept with the `Arc` they were computed from (M2). Same rows,
+/// same layout; the checksum VALUE differs from v289's whole-save RON hash.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 290;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

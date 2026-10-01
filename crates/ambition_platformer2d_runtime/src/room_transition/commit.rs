@@ -568,6 +568,7 @@ impl RoomTransitionApplication<'_, '_> {
                 other_rooms_stay,
             },
             subject,
+            participant,
             arrival_pos,
             target_room,
             edge_exit,
@@ -593,6 +594,9 @@ pub struct StagedRoomTransition {
     /// What the crossing leaves standing.
     pub scope: CrossingScope,
     pub subject: Option<Entity>,
+    /// Whose crossing this is, as the intent recorded it: the seat that waits
+    /// out the cooldown. `None` for a rebuild with nobody crossing.
+    pub participant: Option<ambition_characters::control::PlayerSlot>,
     pub arrival_pos: Option<ae::Vec2>,
     pub target_room: usize,
     pub edge_exit: bool,
@@ -635,6 +639,7 @@ impl RoomTransitionFinalize<'_, '_> {
         let StagedRoomTransition {
             scope,
             subject,
+            participant,
             arrival_pos,
             target_room,
             edge_exit,
@@ -668,11 +673,18 @@ impl RoomTransitionFinalize<'_, '_> {
                 "room_transition",
             ));
         }
-        self.clock.sim_state.remaining = if edge_exit {
-            feel.edge_transition_cooldown
-        } else {
-            feel.door_transition_cooldown
-        };
+        // The seat that crossed waits before it crosses again. Another
+        // seat's door stays open to it (OW1, customer 2). A rebuild with
+        // nobody crossing holds the primary seat, as the one cooldown did.
+        let seat = participant.unwrap_or(ambition_characters::control::PlayerSlot::PRIMARY);
+        self.clock.sim_state.hold(
+            usize::from(seat.0),
+            if edge_exit {
+                feel.edge_transition_cooldown
+            } else {
+                feel.door_transition_cooldown
+            },
+        );
         self.dev_state.preset_flash = 1.0;
 
         // ── CROSS-DOMAIN PER-TRANSITION RESETS ───────────────────────────────

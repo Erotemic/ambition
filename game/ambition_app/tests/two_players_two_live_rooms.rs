@@ -299,6 +299,27 @@ fn door_of(sim: &mut Platformer2dSimHarness, room: &str, target: &str) -> ambiti
         .unwrap_or_else(|| panic!("'{room}' has no Door to '{target}'"))
 }
 
+/// Move Bob's body to `at`, at rest.
+fn put_bob_at(sim: &mut Platformer2dSimHarness, at: ambition_platformer2d::engine_core::Vec2) {
+    let world = sim.world_mut();
+    let mut bob = world.query::<(
+        &ambition_platformer2d::combat::components::FeatureId,
+        ambition_platformer2d::engine_core::BodyClusterQueryData,
+        &mut ambition_platformer2d::actor::MotionModel,
+    )>();
+    let (_, mut clusters, mut model) = bob
+        .iter_mut(world)
+        .find(|(feature, _, _)| feature.0 == BOB)
+        .expect("Bob's body is in the world");
+    let mut clusters = clusters.as_clusters_mut();
+    ambition_platformer2d::engine_core::movement::transit_body(
+        &mut model,
+        &mut clusters,
+        at,
+        ambition_platformer2d::engine_core::movement::TransitVelocity::Zero,
+    );
+}
+
 /// OW1 cut 7s: Bob, driven by slot 1, goes through a door himself. Alice
 /// holds the hub (#1) and Bob holds `switch_lab` (#0); Bob stands in the
 /// `switch_lab` door to the hub and his seat presses interact. He joins
@@ -316,25 +337,7 @@ fn the_second_player_goes_through_a_door_of_his_own_room() {
         "precondition: Alice is not in the hub (#1) with Bob in `switch_lab` (#0)"
     );
     let door = door_of(&mut sim, ROOM, HUB).aabb.center();
-    {
-        let world = sim.world_mut();
-        let mut bob = world.query::<(
-            &ambition_platformer2d::combat::components::FeatureId,
-            ambition_platformer2d::engine_core::BodyClusterQueryData,
-            &mut ambition_platformer2d::actor::MotionModel,
-        )>();
-        let (_, mut clusters, mut model) = bob
-            .iter_mut(world)
-            .find(|(feature, _, _)| feature.0 == BOB)
-            .expect("Bob's body is in the world");
-        let mut clusters = clusters.as_clusters_mut();
-        ambition_platformer2d::engine_core::movement::transit_body(
-            &mut model,
-            &mut clusters,
-            door,
-            ambition_platformer2d::engine_core::movement::TransitVelocity::Zero,
-        );
-    }
+    put_bob_at(&mut sim, door);
     for _ in 0..120 {
         sim.drive_seat(
             1,
@@ -2230,4 +2233,168 @@ fn a_hazard_respawn_keeps_the_worlds_clock_while_another_room_is_live() {
             "with {rooms} live room(s): (Alice respawned, the clock reset was asked for)"
         );
     }
+}
+
+/// The crossing cooldown of seat `seat`: whether it must wait before it
+/// crosses again.
+fn seat_waits(sim: &Platformer2dSimHarness, seat: usize) -> bool {
+    sim.world()
+        .resource::<ambition_platformer2d::platformer::safe_position::RoomTransitionCooldown>()
+        .holds(seat)
+}
+
+/// Whether a crossing is accepted and waits to commit.
+fn a_crossing_is_pending(sim: &Platformer2dSimHarness) -> bool {
+    sim.world()
+        .resource::<ambition_platformer2d::actors::session::lifecycle_commit::PendingLifecycleCommit>()
+        .pending
+        .is_some()
+}
+
+/// What the seats' cooldowns were as Alice and then Bob went through their
+/// doors: written by [`alice_and_then_bob_go_through_their_doors`].
+#[derive(bevy::prelude::Resource, Debug)]
+struct SeatsAtTheDoors {
+    /// Whether seats 0 and 1 wait, on the tick Alice's crossing commits.
+    at_alices_commit: (bool, bool),
+    /// The tick of Bob's press on which his crossing is accepted, and whether
+    /// Alice's seat still waits on it.
+    bob_accepted: Option<(usize, bool)>,
+    /// Whether seats 0 and 1 wait, on the tick Bob arrives in the hub.
+    at_bobs_arrival: Option<(bool, bool)>,
+}
+
+/// Alice goes through the door to `target`. On the tick that commits, Bob is
+/// put in `switch_lab`'s door to the hub and his seat presses interact until
+/// his crossing is accepted. He then goes through it.
+fn alice_and_then_bob_go_through_their_doors(sim: &mut Platformer2dSimHarness, target: &str) -> String {
+    use ambition_platformer2d::engine_core::AabbExt as _;
+    let (_, bob_was) = where_they_are(sim);
+    let room = walk_through_the_door_to(sim, target);
+    let at_alices_commit = (seat_waits(sim, 0), seat_waits(sim, 1));
+    let door = door_of(sim, ROOM, HUB).aabb.center();
+    put_bob_at(sim, door);
+    let bob_moved = |sim: &mut Platformer2dSimHarness| where_they_are(sim).1 != bob_was;
+    let mut bob_accepted = None;
+    for tick in 1..=30 {
+        sim.drive_seat(
+            1,
+            ambition_platformer2d::engine_core::ControlFrame {
+                interact_pressed: true,
+                interact_held: true,
+                ..Default::default()
+            },
+        );
+        sim.step(base());
+        if a_crossing_is_pending(sim) || bob_moved(sim) {
+            bob_accepted = Some((tick, seat_waits(sim, 0)));
+            break;
+        }
+    }
+    // A seat's frame stands until it is replaced: let go of the press.
+    sim.drive_seat(1, ambition_platformer2d::engine_core::ControlFrame::default());
+    let mut at_bobs_arrival = None;
+    for _ in 0..120 {
+        if bob_moved(sim) {
+            at_bobs_arrival = Some((seat_waits(sim, 0), seat_waits(sim, 1)));
+            break;
+        }
+        sim.step(base());
+    }
+    sim.world_mut().insert_resource(SeatsAtTheDoors {
+        at_alices_commit,
+        bob_accepted,
+        at_bobs_arrival,
+    });
+    room
+}
+
+/// OW1, customer 2: a door holds only the seat that went through it. Alice
+/// (seat 0) goes through the door to the hub and leaves Bob (seat 1) in
+/// `switch_lab`. Her seat waits out the crossing cooldown and his does not.
+/// Bob, put in his room's door to the hub, goes through it on his first
+/// press, while Alice's seat still waits. Then his own seat waits. Before
+/// this, the cooldown was one countdown for the whole world, and every seat
+/// waited after any seat's door. The control is
+/// `a_seat_cannot_cross_back_inside_its_own_cooldown`.
+#[test]
+fn a_crossing_holds_only_the_seat_that_crossed() {
+    let (sim, _) = alice_leaves_bob_by(
+        Some(ambition_platformer2d::characters::control::PlayerSlot(1)),
+        alice_and_then_bob_go_through_their_doors,
+    );
+    let seats = sim.world().resource::<SeatsAtTheDoors>();
+    assert_eq!(
+        seats.at_alices_commit,
+        (true, false),
+        "Alice's crossing did not hold her seat, and only hers ({seats:?})"
+    );
+    let (tick, alice_waits) = seats
+        .bob_accepted
+        .unwrap_or_else(|| panic!("Bob's press in his door was never accepted ({seats:?})"));
+    assert!(
+        alice_waits,
+        "Bob's crossing was accepted only on press {tick}, after Alice's seat stopped waiting: \
+         her cooldown held his seat ({seats:?})"
+    );
+    assert_eq!(
+        seats.at_bobs_arrival.map(|(_, bob)| bob),
+        Some(true),
+        "Bob's crossing did not hold his own seat ({seats:?})"
+    );
+}
+
+/// The control for `a_crossing_holds_only_the_seat_that_crossed`: the seat
+/// that crossed still waits. Alice, alone, goes through the door to the hub
+/// and is put in the hub's door back to `switch_lab`, pressing interact on
+/// every tick. No crossing is accepted while her seat waits, and one is
+/// accepted after, so the door is one she can go through.
+#[test]
+fn a_seat_cannot_cross_back_inside_its_own_cooldown() {
+    use ambition_platformer2d::engine_core::AabbExt as _;
+    let mut sim = Platformer2dSimHarness::new_with_options(
+        fixed_60hz_room_options(ROOM).with_save(a_save_that_has_seen_the_hub_intro()),
+    )
+    .expect("switch_lab boots");
+    for _ in 0..10 {
+        sim.step(base());
+    }
+    assert_eq!(walk_through_the_door_to(&mut sim, HUB), HUB);
+    assert!(seat_waits(&sim, 0), "precondition: Alice's crossing did not hold her seat");
+    let back = door_of(&mut sim, HUB, ROOM).aabb.center();
+    sim.teleport_player((back.x, back.y));
+    // The seat counts down inside the step, before the door detector reads
+    // it: the seat waits through a step when more than one step is left.
+    let step = 1.0 / 60.0;
+    let mut waited = 0;
+    let mut accepted_while_waiting = None;
+    let mut accepted = false;
+    for tick in 1..=60 {
+        let waits = sim
+            .world()
+            .resource::<ambition_platformer2d::platformer::safe_position::RoomTransitionCooldown>()
+            .remaining(0)
+            > step;
+        let room = sim
+            .step(ambition_app::AgentAction {
+                interact: true,
+                interact_held: true,
+                ..base()
+            })
+            .active_room;
+        if a_crossing_is_pending(&sim) || room != HUB {
+            if waits {
+                accepted_while_waiting = Some(tick);
+            }
+            accepted = true;
+            break;
+        }
+        waited += usize::from(waits);
+    }
+    assert_eq!(
+        accepted_while_waiting, None,
+        "Alice went back through the door inside her own cooldown"
+    );
+    assert!(waited > 0, "precondition: Alice's seat never waited at the door back");
+    assert!(accepted, "control: Alice never went back through the hub's door to switch_lab");
 }

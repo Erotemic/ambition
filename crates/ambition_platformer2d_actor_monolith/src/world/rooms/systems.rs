@@ -56,6 +56,12 @@ pub fn tick_portal_phases_system(
     }
 }
 
+// The cooldown has one countdown for each seat the detector visits.
+const _: () = assert!(
+    ambition_platformer2d_shared_tangle::safe_position::RoomTransitionCooldown::SEATS
+        == ambition_characters::control::SlotControls::MAX_SLOTS
+);
+
 /// Detect a loading-zone overlap and RECORD the crossing it describes. The host
 /// opens a readiness transaction from that record while the current room remains
 /// authoritative; the actual room load (despawn old, spawn new, place the
@@ -106,14 +112,16 @@ pub fn detect_room_transition_system(
     mut pending_lifecycle: ResMut<crate::session::lifecycle_commit::PendingLifecycleCommit>,
     talkable: crate::features::ecs::TalkableBodies,
 ) {
-    if sim_state.remaining > 0.0 {
-        return;
-    }
     // Each seat's driven body crosses the doors of its own live room, in slot
     // order (OW1). The intent slot holds one crossing, so the first crossing
     // admitted is this tick's, and another seat asks again on a later tick.
     for index in 0..ambition_characters::control::SlotControls::MAX_SLOTS {
         let seat = ambition_characters::control::PlayerSlot(index as u8);
+        // A seat that has just crossed waits out its own cooldown. Another
+        // seat's crossing does not hold this one (OW1, customer 2).
+        if sim_state.holds(index) {
+            continue;
+        }
         let Some(subject_entity) = crate::control::body_driving_seat(&drivers, seat) else {
             continue;
         };

@@ -417,3 +417,71 @@ fn two_seats_drive_independent_streams_through_a_rewind() {
         seat_one.axis_x,
     );
 }
+
+/// ⭐ AN HP-TRIGGERED BOSS PHASE CHANGE REPLAYS IDENTICALLY.
+///
+/// The clockwork warden at half health leaves Phase1 for Phase2 on its HP
+/// trigger, under a sync-test session that rewinds every tick. The change
+/// emits a shockwave damage box. It was an `EffectRequest` written in
+/// Progression, AFTER the combat phase's effect executor, so it was executed
+/// one tick later; a restore of the snapshot between the two ticks cleared the
+/// waiting request, the replay had no shockwave, and the session mismatched at
+/// the phase-change frame (measured 2026-10-01: frames 243-245; the restore
+/// audit's first divergence was the boss's hitbox count, 2 against 1). The box
+/// is now spawned in the tick that decides it.
+#[test]
+fn an_hp_triggered_boss_phase_change_replays_identically() {
+    use ambition_platformer2d::characters::brain::BossEncounterPhase;
+    let mut sim = rollback_sim();
+    let (px, py) = {
+        let world = sim.world_mut();
+        let mut q = world.query_filtered::<
+            &ambition_platformer2d::engine_core::BodyKinematics,
+            ambition_platformer2d::platformer::markers::PrimaryPlayerOnly,
+        >();
+        let kin = q.single(world).expect("primary player exists");
+        (kin.pos.x, kin.pos.y)
+    };
+    sim.spawn_boss_at(
+        "phase_warden",
+        "clockwork_warden",
+        (px + 150.0, py - 40.0),
+        (40.0, 40.0),
+        ambition_platformer2d::entity_catalog::placements::BossBrain::PhaseScript {
+            script_id: "clockwork_warden".to_string(),
+        },
+    );
+    let boss = {
+        let world = sim.world_mut();
+        let mut q = world.query::<(bevy::prelude::Entity, &ambition_platformer2d::combat::components::FeatureId)>();
+        q.iter(world)
+            .find(|(_, f)| f.as_str() == "phase_warden")
+            .map(|(e, _)| e)
+            .expect("the spawned boss is present")
+    };
+    // Below the Phase1 → Phase2 threshold (0.66), so the HP trigger fires once
+    // the intro is over. Before any tick: every snapshot includes it.
+    {
+        let mut health = sim
+            .world_mut()
+            .get_mut::<ambition_platformer2d::characters::actor::BodyHealth>(boss)
+            .expect("the boss has health");
+        health.health.current = health.health.max / 2;
+    }
+    let phase = |sim: &mut Platformer2dSimHarness| {
+        sim.world()
+            .get::<ambition_platformer2d::boss_encounter::BossEncounter>(boss)
+            .and_then(|b| b.encounter.as_ref().map(|e| e.phase))
+    };
+    let mut reached = None;
+    for frame in 0..420 {
+        sim.step(AgentAction::default());
+        sim.rollback_health()
+            .unwrap_or_else(|error| panic!("frame {frame}: {error}"));
+        if reached.is_none() && phase(&mut sim) == Some(BossEncounterPhase::Phase2) {
+            reached = Some(frame);
+        }
+    }
+    let reached = reached.expect("the premise: the HP trigger moved the warden to Phase2");
+    assert!(reached + 60 < 420, "the arm kept rewinding well past the change (frame {reached})");
+}

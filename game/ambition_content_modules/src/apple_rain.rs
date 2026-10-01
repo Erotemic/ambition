@@ -5,9 +5,8 @@
 
 use ambition_boss_special_port::{BossCaster, BossSpecialCast};
 use ambition_extension_sdk::{
-    phases::TECHNIQUE_EXECUTION, Attachment, CodeIdentity, EntryCode, EntryDescriptor, Fault, FieldDecl,
-    FieldKind, FieldRef, IdlePolicy, Invocation, Limits, ModuleDescriptor, ModuleKey, Port,
-    SaveEligibility, SchemaKey, StateSchema, TriggerBinding, Value, API_VERSION,
+    phases::TECHNIQUE_EXECUTION, record, CodeIdentity, EntryCode, EntryDescriptor, Fault, IdlePolicy,
+    Invocation, Limits, ModuleDescriptor, ModuleKey, Port, SchemaKey, TriggerBinding, API_VERSION,
 };
 use ambition_projectile_spec::{ProjectileSpawn, ProjectileSpawnPort};
 use bevy_math::Vec2;
@@ -26,9 +25,15 @@ const PHI_FRAC: f32 = 0.618_033_99;
 /// The most apples one call can drop: a tick of up to 1.4 s.
 const MAX_PER_CALL: u32 = 4;
 
-pub const RAIN: SchemaKey = SchemaKey::new(crate::PROVIDER, "apple_rain.rain", 1);
-const SPAWN_ACCUM: FieldRef = FieldRef(0);
-const SPAWN_INDEX: FieldRef = FieldRef(1);
+record! {
+    /// The rain's clock and lane sequence.
+    pub struct Rain = SchemaKey::new(crate::PROVIDER, "apple_rain.rain", 1);
+    /// Gameplay seconds since the last apple of this strike.
+    1 spawn_accum: f32,
+    /// The golden-ratio sequence index of the next apple. It continues
+    /// across strikes.
+    2 spawn_index: u32,
+}
 
 pub fn module() -> ModuleDescriptor {
     ModuleDescriptor {
@@ -38,18 +43,7 @@ pub fn module() -> ModuleDescriptor {
             crate_name: env!("CARGO_PKG_NAME").into(),
             version: env!("CARGO_PKG_VERSION").into(),
         },
-        schemas: vec![StateSchema {
-            key: RAIN,
-            attachment: Attachment::Body,
-            save: SaveEligibility::Transient,
-            fields: vec![
-                // Gameplay seconds since the last apple of this strike.
-                FieldDecl::new(1, "spawn_accum", FieldKind::F32),
-                // The golden-ratio sequence index of the next apple. It
-                // continues across strikes.
-                FieldDecl::new(2, "spawn_index", FieldKind::U32),
-            ],
-        }],
+        schemas: vec![Rain::schema()],
         entries: vec![EntryDescriptor {
             key: "rain".into(),
             phase: TECHNIQUE_EXECUTION,
@@ -58,7 +52,7 @@ pub fn module() -> ModuleDescriptor {
                 selector: KEY.into(),
             },
             reads: Vec::new(),
-            writes: vec![RAIN],
+            writes: vec![Rain::KEY],
             requests: vec![ProjectileSpawnPort::KEY],
             after: Vec::new(),
             limits: Limits {
@@ -93,29 +87,27 @@ pub fn spawn_x(spawn_index: u32, world_width: f32, body_min_x: f32, body_max_x: 
 fn rain(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     let caster: BossCaster = inv.trigger::<BossSpecialCast>()?.clone();
     let dt = inv.dt();
-    let schema_fault = |error| Fault::Schema { schema: RAIN, error };
-    let record = inv.state(&RAIN)?;
+    let mut rain = Rain::load(inv)?;
     if !caster.pressed {
         // The strike is over: the next one starts on a clean beat.
-        return record.set(SPAWN_ACCUM, Value::F32(0.0)).map_err(schema_fault);
+        rain.spawn_accum = 0.0;
+        return rain.store(inv);
     }
     // A dead boss, or one whose room cannot be told, keeps its interval.
     let Some(room) = caster.room_size.filter(|_| caster.alive) else {
         return Ok(());
     };
-    let mut accum = record.get(SPAWN_ACCUM).map_err(schema_fault)?.as_f32().unwrap_or(0.0) + dt;
-    let mut index = record.get(SPAWN_INDEX).map_err(schema_fault)?.as_u32().unwrap_or(0);
+    rain.spawn_accum += dt;
     let body_min_x = caster.body_center[0] - caster.body_half_size[0];
     let body_max_x = caster.body_center[0] + caster.body_half_size[0];
     let spawn_y = (caster.position[1] - SPAWN_HEIGHT_ABOVE_BOSS).max(HALF_EXTENT.y + 8.0);
     let mut drops = Vec::new();
-    while accum >= INTERVAL_S {
-        accum -= INTERVAL_S;
-        drops.push(spawn_x(index, room[0], body_min_x, body_max_x));
-        index = index.wrapping_add(1);
+    while rain.spawn_accum >= INTERVAL_S {
+        rain.spawn_accum -= INTERVAL_S;
+        drops.push(spawn_x(rain.spawn_index, room[0], body_min_x, body_max_x));
+        rain.spawn_index = rain.spawn_index.wrapping_add(1);
     }
-    record.set(SPAWN_ACCUM, Value::F32(accum)).map_err(schema_fault)?;
-    record.set(SPAWN_INDEX, Value::U32(index)).map_err(schema_fault)?;
+    rain.store(inv)?;
     for x in drops {
         inv.submit::<ProjectileSpawnPort>(ProjectileSpawn {
             origin: Vec2::new(x, spawn_y),

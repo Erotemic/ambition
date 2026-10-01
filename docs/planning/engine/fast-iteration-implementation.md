@@ -354,6 +354,15 @@ local reload changes `ExtensionGeneration` but does not re-mint the running
 session's identity; a session whose timeline another owner holds refuses the
 reload, so a remote session keeps its generation.
 
+**I7 item 5, first cut (2026-10-01):** `ambition_extension_host::inspect`
+(composition and per-body records as text) and the tool
+`ambition_app_tools --bin extension_inspect` (ports, serial order, linked or
+loaded code, replacements, generation, records by field, and a dry-run
+`--try-replace` that reports an admission refusal). The host stores no record
+that a call left at its initial value (an absent record is initial), so an
+`IdlePolicy::Invoke` module adds no state to bodies it has nothing to remember
+about (`a_call_that_leaves_its_record_initial_stores_nothing`).
+
 **Open:** a compile-fail witness that the SDK offers no engine-state setter;
 re-minting the identity on a local reload (D6); the deterministic fault
 policy (today a fault discards the invocation's output and is counted in

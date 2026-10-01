@@ -22,6 +22,7 @@
 
 mod admission;
 mod exec;
+pub mod inspect;
 pub mod reload;
 mod store;
 

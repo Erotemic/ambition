@@ -5,9 +5,8 @@
 
 use ambition_boss_special_port::{BossCaster, BossSpecialCast};
 use ambition_extension_sdk::{
-    phases::TECHNIQUE_EXECUTION, Attachment, CodeIdentity, EntryCode, EntryDescriptor, Fault, FieldDecl,
-    FieldKind, FieldRef, IdlePolicy, Invocation, Limits, ModuleDescriptor, ModuleKey, Port,
-    SaveEligibility, SchemaKey, StateSchema, TriggerBinding, Value, API_VERSION,
+    phases::TECHNIQUE_EXECUTION, record, CodeIdentity, EntryCode, EntryDescriptor, Fault, IdlePolicy,
+    Invocation, Limits, ModuleDescriptor, ModuleKey, Port, SchemaKey, TriggerBinding, API_VERSION,
 };
 use ambition_projectile_spec::{ProjectileSpawn, ProjectileSpawnPort};
 use bevy_math::Vec2;
@@ -22,11 +21,17 @@ const SHOT_DAMAGE: i32 = 1;
 const BOLT_HALF_EXTENT: Vec2 = Vec2::new(8.0, 8.0);
 const BOLT_LIFETIME: f32 = 2.4;
 
-pub const VOLLEY: SchemaKey = SchemaKey::new(crate::PROVIDER, "overfit_volley.volley", 1);
-const SAMPLES: FieldRef = FieldRef(0);
-const SAMPLE_ACCUM: FieldRef = FieldRef(1);
-const FIRED_THIS_STRIKE: FieldRef = FieldRef(2);
-const HAD_SEED_SAMPLE: FieldRef = FieldRef(3);
+record! {
+    /// What the volley remembers between ticks.
+    pub struct Volley = SchemaKey::new(crate::PROVIDER, "overfit_volley.volley", 1);
+    /// The memorised target points, in the order taken.
+    1 samples: Vec<[f32; 2]> [max SAMPLE_COUNT],
+    /// Gameplay seconds since the last sample.
+    2 sample_accum: f32,
+    3 fired_this_strike: bool,
+    /// True when this telegraph took its first sample.
+    4 had_seed_sample: bool,
+}
 
 pub fn module() -> ModuleDescriptor {
     ModuleDescriptor {
@@ -36,20 +41,7 @@ pub fn module() -> ModuleDescriptor {
             crate_name: env!("CARGO_PKG_NAME").into(),
             version: env!("CARGO_PKG_VERSION").into(),
         },
-        schemas: vec![StateSchema {
-            key: VOLLEY,
-            attachment: Attachment::Body,
-            save: SaveEligibility::Transient,
-            fields: vec![
-                // The memorised target points, in the order taken.
-                FieldDecl::new(1, "samples", FieldKind::seq(FieldKind::Vec2, SAMPLE_COUNT)),
-                // Gameplay seconds since the last sample.
-                FieldDecl::new(2, "sample_accum", FieldKind::F32),
-                FieldDecl::new(3, "fired_this_strike", FieldKind::Bool),
-                // True when this telegraph took its first sample.
-                FieldDecl::new(4, "had_seed_sample", FieldKind::Bool),
-            ],
-        }],
+        schemas: vec![Volley::schema()],
         entries: vec![EntryDescriptor {
             key: "volley".into(),
             phase: TECHNIQUE_EXECUTION,
@@ -58,7 +50,7 @@ pub fn module() -> ModuleDescriptor {
                 selector: KEY.into(),
             },
             reads: Vec::new(),
-            writes: vec![VOLLEY],
+            writes: vec![Volley::KEY],
             requests: vec![ProjectileSpawnPort::KEY],
             after: Vec::new(),
             limits: Limits {
@@ -72,31 +64,13 @@ pub fn module() -> ModuleDescriptor {
     }
 }
 
-struct Volley {
-    samples: Vec<[f32; 2]>,
-    sample_accum: f32,
-    fired_this_strike: bool,
-    had_seed_sample: bool,
-}
-
 fn volley(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     let caster: BossCaster = inv.trigger::<BossSpecialCast>()?.clone();
     let dt = inv.dt();
-    let schema_fault = |error| Fault::Schema { schema: VOLLEY, error };
-    let record = inv.state(&VOLLEY)?;
-    let samples = match record.get(SAMPLES).map_err(schema_fault)? {
-        Value::Seq(points) => points.iter().filter_map(Value::as_vec2).collect(),
-        _ => Vec::new(),
-    };
-    let mut s = Volley {
-        samples,
-        sample_accum: record.get(SAMPLE_ACCUM).map_err(schema_fault)?.as_f32().unwrap_or(0.0),
-        fired_this_strike: record.get(FIRED_THIS_STRIKE).map_err(schema_fault)?.as_bool().unwrap_or(false),
-        had_seed_sample: record.get(HAD_SEED_SAMPLE).map_err(schema_fault)?.as_bool().unwrap_or(false),
-    };
+    let mut s = Volley::load(inv)?;
     let mut fire = Vec::new();
     if !caster.alive {
-        s = Volley { samples: Vec::new(), sample_accum: 0.0, fired_this_strike: false, had_seed_sample: false };
+        s = Volley::default();
     } else if caster.telegraphing {
         if !s.had_seed_sample {
             s.samples.extend(caster.target);
@@ -118,15 +92,10 @@ fn volley(inv: &mut Invocation<'_>) -> Result<(), Fault> {
             s.had_seed_sample = false;
         }
     } else {
-        s = Volley { samples: Vec::new(), sample_accum: 0.0, fired_this_strike: false, had_seed_sample: false };
+        s = Volley::default();
     }
 
-    let record = inv.state(&VOLLEY)?;
-    let points = s.samples.iter().map(|p| Value::Vec2(*p)).collect();
-    record.set(SAMPLES, Value::Seq(points)).map_err(schema_fault)?;
-    record.set(SAMPLE_ACCUM, Value::F32(s.sample_accum)).map_err(schema_fault)?;
-    record.set(FIRED_THIS_STRIKE, Value::Bool(s.fired_this_strike)).map_err(schema_fault)?;
-    record.set(HAD_SEED_SAMPLE, Value::Bool(s.had_seed_sample)).map_err(schema_fault)?;
+    s.store(inv)?;
 
     let origin = Vec2::from(caster.position) + Vec2::from(caster.projectile_offset);
     for point in fire {

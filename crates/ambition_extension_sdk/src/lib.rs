@@ -25,6 +25,7 @@ pub mod invoke;
 pub mod module;
 pub mod port;
 pub mod schema;
+pub mod typed;
 pub mod wire;
 pub mod abi;
 

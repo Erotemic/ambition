@@ -3003,3 +3003,59 @@ fn a_driven_actor_outside_the_player_population_is_gated_by_its_own_scheme() {
         "a body without the shield ability kept its guard verb"
     );
 }
+
+/// OW1: the driven body wears the techniques of its OWN live room's rules.
+/// Smash drives a Spin Dash in its own rooms only. With the hall (#0, no
+/// mode) and the Smash stage (#1) live, the driven body on the stage spins on
+/// an attack press, and the same body driven in the hall does not. Before,
+/// the gate read THE live room, which with two rooms live is no room.
+#[test]
+fn the_driven_body_wears_the_techniques_of_its_own_live_room() {
+    use ambition_characters::action_scheme::{DrivenTechniques, ResolvedTechniqueEdges};
+    use ambition_characters::actor::control::ActorControlFrame;
+    use ambition_characters::brain::ActionSet;
+    use ambition_characters::control::ActorControl;
+    use ambition_combat::scoped_rules::{DeclareRulesExt, RulesScope};
+    use ambition_entity_catalog::action_scheme::{ActionGate, ActionId, ActionSpec, ControlSlot};
+    use ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance;
+    use ambition_platformer2d_shared_tangle::markers::ControlledSubject;
+    use bevy::prelude::*;
+
+    let spins_in = |stage: bool| {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        install_test_catalog(&mut app);
+        app.declare_rules(
+            RulesScope::Mode("smash"),
+            DrivenTechniques(vec![ActionSpec {
+                id: ActionId::new("spin_dash"),
+                slot: ControlSlot::Attack,
+                display_name: None,
+                visual: None,
+                gate: ActionGate::Technique("spin_dash".to_owned()),
+            }]),
+        );
+        app.add_systems(Update, gate_body_control);
+        let hall = crate::session::governing_rules::tests::two_game_session(&mut app, true);
+        let room = if stage { hall.next() } else { hall };
+        let mut frame = ActorControlFrame::neutral();
+        frame.melee_pressed = true;
+        let body = app
+            .world_mut()
+            .spawn((
+                ambition_platformer2d_core::BodyAbilities::new(ambition_platformer2d_core::AbilitySet::sandbox_all()),
+                ActionSet::peaceful(),
+                ActorControl(frame),
+                InRoomInstance(room),
+            ))
+            .id();
+        app.insert_resource(ControlledSubject(Some(body)));
+        app.update();
+        app.world()
+            .get::<ResolvedTechniqueEdges>(body)
+            .expect("an action set brings its edge sink")
+            .pressed("spin_dash")
+    };
+    assert!(spins_in(true), "the driven body on the Smash stage (#1) did not wear Smash's technique");
+    assert!(!spins_in(false), "the driven body in the hall (#0) wore Smash's technique");
+}

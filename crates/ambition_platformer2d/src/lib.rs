@@ -459,7 +459,7 @@ pub mod extension {
         AdmittedExtensions, DeclaredModule, EntryRunner, ExtensionAppExt, ExtensionFaults,
         ModuleBackend, ModuleCode,
     };
-    pub use ambition_extension_host::reload;
+    pub use ambition_extension_host::{inspect, reload};
     pub use ambition_extension_sdk as sdk;
     #[cfg(feature = "wasm_modules")]
     pub use ambition_extension_wasm::{build_module_crate, LoadError, WasmModules};

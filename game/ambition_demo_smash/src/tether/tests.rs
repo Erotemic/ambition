@@ -370,3 +370,66 @@ fn a_reel_that_gives_up_leaves_her_momentum_alone() {
         "giving up stopped her dead instead of leaving her momentum alone",
     );
 }
+
+/// [`app`] with two live rooms: #0 (`ACTIVATION`) is empty and #1 holds
+/// `blocks`. The two live rooms are returned.
+fn two_room_app(blocks: Vec<Block>) -> (App, [ambition_platformer2d::platformer::lifecycle::LiveRoomInstance; 2]) {
+    use ambition_platformer2d::platformer::lifecycle::{LiveRoomInstance, RoomInstanceRoot};
+    let mut app = app(Vec::new());
+    // `app` seats the empty room as the session's live room; mark it #0.
+    let first = {
+        let world = app.world_mut();
+        world
+            .query_filtered::<Entity, With<RoomInstanceRoot>>()
+            .single(world)
+            .expect("the fixture seats one live room")
+    };
+    let live = [LiveRoomInstance::ACTIVATION, LiveRoomInstance::ACTIVATION.next()];
+    app.world_mut().entity_mut(first).insert(live[0]);
+    app.world_mut().spawn((
+        RoomInstanceRoot,
+        live[1],
+        ae::RoomGeometry(ae::World::new("tether", ae::Vec2::new(800.0, 600.0), ae::Vec2::ZERO, blocks)),
+    ));
+    (app, live)
+}
+
+/// The tick the reel lets go, and her velocity then, for a fighter that
+/// throws a 150px line in `room` of [`two_room_app`] (`None`: the one-room
+/// [`app`]). `None` when the line bit nothing.
+fn release(room: Option<usize>) -> Option<(usize, ae::Vec2)> {
+    let (mut app, her) = match room {
+        None => {
+            let mut app = app(stage());
+            let her = fighter(&mut app, START, false);
+            (app, her)
+        }
+        Some(room) => {
+            let (mut app, live) = two_room_app(stage());
+            let her = fighter(&mut app, START, false);
+            app.world_mut()
+                .entity_mut(her)
+                .insert(ambition_platformer2d::platformer::lifecycle::InRoomInstance(live[room]));
+            (app, her)
+        }
+    };
+    throw(&mut app, her, 150.0);
+    reel(&app, her)?;
+    let tick = (1..=30).find(|_| {
+        app.update();
+        reel(&app, her).is_none()
+    })?;
+    Some((tick, body(&app, her).vel))
+}
+
+/// OW1 cut 7p: a tether bites a ledge of the fighter's own live room, and
+/// the reel lets go where the one-room fixture's does. The ledge is in #1. A
+/// fighter in #1 bites it; a fighter in #0 at the same place bites nothing.
+/// Before, both systems read the sole live room: with two rooms live no line
+/// bit.
+#[test]
+fn a_tether_bites_a_ledge_of_its_own_live_room() {
+    let one_room = release(None).expect("control: the one-room fixture's line did not bite");
+    assert_eq!(release(Some(1)), Some(one_room), "the fighter in #1 did not reel as in one room");
+    assert_eq!(release(Some(0)), None, "the fighter in #0 bit a ledge of #1");
+}

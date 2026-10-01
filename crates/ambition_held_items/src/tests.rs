@@ -1967,3 +1967,133 @@ fn each_item_put_down_is_placed_in_its_own_live_room() {
         "each item put down was not placed in its own live room"
     );
 }
+
+/// Two live rooms: #0 (`ACTIVATION`) holds `zero`, #1 holds `one`. An app
+/// running `systems` at 60 Hz. The two live rooms are returned.
+fn two_live_rooms<M>(
+    zero: Vec<ae::Block>,
+    one: Vec<ae::Block>,
+    systems: impl IntoScheduleConfigs<bevy::ecs::system::ScheduleSystem, M>,
+) -> (App, [ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance; 2]) {
+    use ambition_platformer2d_shared_tangle::lifecycle::{LiveRoomInstance, RoomInstanceRoot};
+    let mut app = App::new();
+    let live = [LiveRoomInstance::ACTIVATION, LiveRoomInstance::ACTIVATION.next()];
+    for (room, blocks) in live.into_iter().zip([zero, one]) {
+        app.world_mut().spawn((
+            RoomInstanceRoot,
+            room,
+            ambition_platformer2d_core::RoomGeometry(ae::World::new(
+                "phys",
+                Vec2::new(800.0, 400.0),
+                Vec2::new(200.0, 360.0),
+                blocks,
+            )),
+        ));
+    }
+    app.insert_resource(ambition_time::WorldTime {
+        raw_dt: 1.0 / 60.0,
+        scaled_dt: 1.0 / 60.0,
+    });
+    app.add_systems(Update, systems);
+    (app, live)
+}
+
+fn floor_at(y: f32) -> ae::Block {
+    ae::Block::solid("floor", Vec2::new(0.0, y), Vec2::new(800.0, 20.0))
+}
+
+/// OW1 cut 7p: an item falls and lands on the solids of its own live room.
+/// #0 has a ledge at y=250 and #1 a floor at y=380; an item in #1 at y=200
+/// falls past the height of #0's ledge and settles on #1's floor. Before, the
+/// item physics read the sole live room: with two rooms live no item moved.
+#[test]
+fn an_item_falls_onto_the_floor_of_its_own_live_room() {
+    use ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance;
+    let (mut app, live) = two_live_rooms(vec![floor_at(250.0)], vec![floor_at(380.0)], ground_item_physics);
+    let item = app
+        .world_mut()
+        .spawn((
+            GroundItem {
+                spec: axe_spec(),
+                pos: Vec2::new(200.0, 200.0),
+                vel: Vec2::ZERO,
+                half_extent: Vec2::splat(PICKUP_HALF),
+            },
+            InRoomInstance(live[1]),
+        ))
+        .id();
+    for _ in 0..120 {
+        app.update();
+    }
+    let y = app.world().get::<GroundItem>(item).unwrap().pos.y;
+    assert!(app.world().get::<SettledItem>(item).is_some(), "the item in #1 never settled: y={y}");
+    assert!(y > 300.0 && y < 380.0, "the item in #1 did not land on #1's floor: y={y}");
+}
+
+/// OW1 cut 7p: a flying item strikes only a body of its own live room. An
+/// item in #1 flies through the place a body in #0 stands, and strikes
+/// nothing. The control puts the body in #1, where it is struck. Before, the
+/// strike read the bodies of every room.
+#[test]
+fn a_flying_item_strikes_only_a_body_of_its_own_live_room() {
+    use ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance;
+    let struck = |body_room: usize| {
+        let (mut app, live) = two_live_rooms(vec![floor_at(380.0)], vec![floor_at(380.0)], ground_item_physics);
+        app.world_mut().spawn((
+            ambition_platformer2d_core::CenteredAabb::new(Vec2::new(300.0, 200.0), Vec2::new(16.0, 24.0)),
+            ambition_characters::actor::BodyHealth::new(ambition_characters::actor::Health::new(100)),
+            InRoomInstance(live[body_room]),
+        ));
+        let flying = app
+            .world_mut()
+            .spawn((
+                GroundItem {
+                    spec: axe_spec(),
+                    pos: Vec2::new(200.0, 200.0),
+                    vel: Vec2::new(600.0, 0.0),
+                    half_extent: Vec2::splat(PICKUP_HALF),
+                },
+                InRoomInstance(live[1]),
+            ))
+            .id();
+        (0..20).any(|_| {
+            app.update();
+            app.world().get::<ItemStruckBody>(flying).is_some()
+        })
+    };
+    assert!(struck(1), "control: the item in #1 passed through a body in #1");
+    assert!(!struck(0), "the item in #1 struck a body in #0");
+}
+
+/// OW1 cut 7p: a settled item rides the moving block of its own live room.
+/// The block under an item in #1 moves 2 px a tick; in ten ticks the item
+/// moves 20 px with it. Before, the carry read the sole live room: with two
+/// rooms live the item stayed while its platform moved away.
+#[test]
+fn a_settled_item_rides_the_platform_of_its_own_live_room() {
+    use ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance;
+    let mut platform = floor_at(380.0);
+    platform.velocity = Vec2::new(2.0, 0.0);
+    // The world holds the block where it is now: it came from 2 px back.
+    platform.aabb = platform.aabb.translated(Vec2::new(2.0, 0.0));
+    let (mut app, live) = two_live_rooms(Vec::new(), vec![platform], carry_or_wake_settled_items);
+    let item = app
+        .world_mut()
+        .spawn((
+            GroundItem {
+                spec: axe_spec(),
+                pos: Vec2::new(200.0, 380.0 - PICKUP_HALF),
+                vel: Vec2::ZERO,
+                half_extent: Vec2::splat(PICKUP_HALF),
+            },
+            SettledItem { impact_speed: 0.0 },
+            InRoomInstance(live[1]),
+        ))
+        .id();
+    for _ in 0..10 {
+        app.update();
+    }
+    let x = app.world().get::<GroundItem>(item).unwrap().pos.x;
+    assert!(app.world().get::<SettledItem>(item).is_some(), "the item in #1 woke: it found no support");
+    assert_eq!(x, 220.0, "the item in #1 did not ride its platform");
+}

@@ -44,19 +44,38 @@ The log says `AMBITION_EXTENSION_MODULES: … provides [...]` at start and
 
 ## Writing one
 
-Start from `game/ambition_content_modules/src/eye_beam.rs`. A module is:
+Start from `game/ambition_content_modules/src/overfit_volley.rs` (its own record) or `eye_beam.rs` (a shared strike rule). A module is:
 
 1. **A descriptor** (`ModuleDescriptor`): its key, its state schemas, and its
    entries. Each entry names its phase, its trigger (port + selector, for a
    boss technique the `Special("<key>")` in `boss_profiles.ron`), the ports it
    reads and submits to, the schemas it writes, a request limit, and its
    `on_idle` policy.
-2. **State** as schema records (`StateSchema`, fields with stable TAGS). The
-   host stores them on the body, rolls them back and checksums them. Never
-   keep state in a static: each WASM call is a new instance.
+2. **State** as a typed record. `record!` declares the struct and its schema
+   together; each field has a stable TAG, and the struct's `Default` is the
+   initial record. The host stores it on the body, rolls it back and
+   checksums it. Never keep state in a static: each WASM call is a new
+   instance.
+
+   ```rust
+   record! {
+       pub struct Volley = SchemaKey::new(crate::PROVIDER, "overfit_volley.volley", 1);
+       1 samples: Vec<[f32; 2]> [max SAMPLE_COUNT],  // a Vec declares its bound
+       2 sample_accum: f32,
+       3 fired_this_strike: bool,
+   }
+   // schemas: vec![Volley::schema()], writes: vec![Volley::KEY]
+   let mut s = Volley::load(inv)?;   // in the entry
+   s.sample_accum += inv.dt();
+   s.store(inv)?;
+   ```
+
+   Field types: `bool`, `u32`, `i32`, `u64`, `f32`, `[f32; 2]`, `Option<T>`,
+   `Vec<T>` with `[max N]`. Keep a field's tag when you rename it; a new tag
+   is a new field, and a changed SHAPE refuses a hot reload (restart).
 3. **An entry function** `fn(&mut Invocation) -> Result<(), Fault>`: read the
-   trigger (`inv.trigger::<BossSpecialCast>()`), change your records
-   (`inv.state(&KEY)`), and `inv.submit::<Port>(value)` requests. A fault
+   trigger (`inv.trigger::<BossSpecialCast>()`), load and store your records,
+   and `inv.submit::<Port>(value)` requests. A fault
    discards everything the call staged.
 4. **Registration**: add it to `ambition_content_modules::modules()`.
 
@@ -84,6 +103,22 @@ A mechanic that needs another engine fact or action needs a new port: pure
 values in a leaf crate (SDK only), an adapter in the owning domain installed
 by `ambition_platformer2d_runtime::extension_composition`, and a port card.
 That is engine work; every module after it is not.
+
+## Inspecting what runs
+
+```bash
+cargo run -p ambition_app_tools --release --bin extension_inspect -- \
+    --boss mockingbird --ticks 900 \
+    [--modules target/extension-modules/wasm32-unknown-unknown/release] \
+    [--try-replace target/extension-modules/wasm32-unknown-unknown/release/ambition_content_modules.wasm]
+```
+
+It prints the installed ports, each entry in serial order with its code
+(linked or loaded), what it writes and requests, which modules a file
+replaced, the generation text the content identity holds, each body's records
+by field name, and, with `--try-replace`, whether admission would take a
+rebuilt file and why not. A body has a record only after a call changed it
+from its initial value.
 
 ## Validation
 

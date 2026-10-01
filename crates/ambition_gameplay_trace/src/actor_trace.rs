@@ -40,8 +40,33 @@ pub struct BodyTraceSnapshot {
     pub size: TracePoint,
     pub aabb: TraceAabb,
     pub facing: f32,
+    /// The ordinal of the live room the body is in, and so the room its
+    /// `oob` was judged against. `None` when its room cannot be told.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub room: Option<u32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub oob: Option<String>,
+}
+
+/// One live room in one frame: its area, its world envelope, and its solid
+/// geometry. A frame has one entry for each live room a body was in (OW1),
+/// so a dump with two rooms live shows each room's walls.
+#[derive(Serialize, Clone, Debug)]
+pub struct RoomTraceSnapshot {
+    /// The live room's ordinal; matches [`BodyTraceSnapshot::room`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub room: Option<u32>,
+    pub area: String,
+    pub world_size: TracePoint,
+    pub world_spawn: TracePoint,
+    /// The augmented world's solid blocks this frame (static geometry +
+    /// feature/overlay solids). Captured so a dump is self-contained for
+    /// geometry analysis: cross-referenced with a body's pre-anomaly
+    /// trajectory it shows exactly which wall/floor a body was jammed into
+    /// before it left bounds. The same set every frame for a static room, so
+    /// the markdown only renders the latest.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub solids: Vec<CollisionTraceShape>,
 }
 
 impl BodyTraceSnapshot {
@@ -67,18 +92,9 @@ pub struct ActorTraceFrame {
     pub sim_dt: f32,
     pub time_scale: f32,
     pub game_mode: String,
-    pub active_area: String,
-    pub world_size: TracePoint,
-    pub world_spawn: TracePoint,
     pub bodies: Vec<BodyTraceSnapshot>,
-    /// The augmented world's solid blocks this frame (static geometry +
-    /// feature/overlay solids). Captured so a dump is self-contained for
-    /// geometry analysis: cross-referenced with a body's pre-anomaly
-    /// trajectory it shows exactly which wall/floor a body was jammed into
-    /// before it left bounds. The same set every frame for a static room, so
-    /// the markdown only renders the latest.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub solids: Vec<CollisionTraceShape>,
+    /// Each live room a body was in this frame, in room order.
+    pub rooms: Vec<RoomTraceSnapshot>,
 }
 
 impl ActorTraceFrame {
@@ -136,6 +152,12 @@ impl ActorDumpReason {
             ActorDumpReason::Manual => None,
         }
     }
+}
+
+/// A live room's ordinal as a dump prints it: `#1`, or `?` when the room
+/// cannot be told.
+fn room_label(room: Option<u32>) -> String {
+    room.map_or_else(|| "?".to_owned(), |room| format!("#{room}"))
 }
 
 /// Rolling ring buffer of [`ActorTraceFrame`]s. Mirrors
@@ -359,20 +381,27 @@ fn render_actor_markdown(payload: &ActorDumpPayload<'_>, reason: &ActorDumpReaso
 
     if let Some(latest) = payload.frames.last() {
         out.push_str("## Latest frame\n\n");
-        out.push_str(&format!("- Active area: `{}`\n", latest.active_area));
-        out.push_str(&format!(
-            "- World: size ({:.0}, {:.0}), spawn ({:.0}, {:.0})\n",
-            latest.world_size.x, latest.world_size.y, latest.world_spawn.x, latest.world_spawn.y
-        ));
+        for room in &latest.rooms {
+            out.push_str(&format!(
+                "- Room {}: area `{}`, size ({:.0}, {:.0}), spawn ({:.0}, {:.0})\n",
+                room_label(room.room),
+                room.area,
+                room.world_size.x,
+                room.world_size.y,
+                room.world_spawn.x,
+                room.world_spawn.y
+            ));
+        }
         out.push_str(&format!("- Bodies: {}\n\n", latest.bodies.len()));
-        out.push_str("| actor | kind | pos | vel | oob |\n");
-        out.push_str("|---|---|---|---|---|\n");
+        out.push_str("| actor | kind | room | pos | vel | oob |\n");
+        out.push_str("|---|---|---|---|---|---|\n");
         for b in &latest.bodies {
             out.push_str(&format!(
-                "| `{}` ({}) | {} | ({:.1}, {:.1}) | ({:.1}, {:.1}) | {} |\n",
+                "| `{}` ({}) | {} | {} | ({:.1}, {:.1}) | ({:.1}, {:.1}) | {} |\n",
                 b.actor_id,
                 b.name,
                 b.kind,
+                room_label(b.room),
                 b.pos.x,
                 b.pos.y,
                 b.vel.x,
@@ -382,9 +411,12 @@ fn render_actor_markdown(payload: &ActorDumpPayload<'_>, reason: &ActorDumpReaso
         }
         out.push('\n');
 
-        if !latest.solids.is_empty() {
-            out.push_str("### World solids (geometry the bodies collide with)\n\n");
-            for s in latest.solids.iter().take(40) {
+        for room in latest.rooms.iter().filter(|room| !room.solids.is_empty()) {
+            out.push_str(&format!(
+                "### World solids of room {} (geometry its bodies collide with)\n\n",
+                room_label(room.room)
+            ));
+            for s in room.solids.iter().take(40) {
                 out.push_str(&format!(
                     "- `{}` `{}` ({:.0}, {:.0}) → ({:.0}, {:.0})\n",
                     s.kind, s.name, s.aabb.min.x, s.aabb.min.y, s.aabb.max.x, s.aabb.max.y,
@@ -447,6 +479,7 @@ mod tests {
             size: TracePoint::default(),
             aabb: TraceAabb::default(),
             facing: 1.0,
+            room: None,
             oob: oob.map(|s| s.into()),
         }
     }
@@ -461,11 +494,14 @@ mod tests {
             sim_dt: 0.016,
             time_scale: 1.0,
             game_mode: "Playing".into(),
-            active_area: "arena".into(),
-            world_size: TracePoint { x: 960.0, y: 768.0 },
-            world_spawn: TracePoint::default(),
             bodies,
-            solids: Vec::new(),
+            rooms: vec![RoomTraceSnapshot {
+                room: None,
+                area: "arena".into(),
+                world_size: TracePoint { x: 960.0, y: 768.0 },
+                world_spawn: TracePoint::default(),
+                solids: Vec::new(),
+            }],
         }
     }
 

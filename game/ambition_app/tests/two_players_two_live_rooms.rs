@@ -1578,3 +1578,70 @@ fn a_blink_stops_at_a_wall_of_its_own_live_room() {
         wall.left()
     );
 }
+
+/// OW1 cut 7p: a player's safe point is remembered on the walls of their own
+/// live room. Alice walks in the hub (#1) while Bob holds `switch_lab` (#0);
+/// standing again, her last safe point is where she stands. Before, the
+/// damage step read the sole live room, so while two rooms were live it did
+/// not run: no player took a hit and no safe point moved.
+#[test]
+fn a_safe_point_is_remembered_in_the_players_own_live_room() {
+    use ambition_platformer2d::platformer::safe_position::PlayerSafetyState;
+    let (mut sim, _) = alice_leaves_bob(Some(ambition_platformer2d::characters::control::PlayerSlot(1)));
+    let alice_now = |sim: &mut Platformer2dSimHarness| {
+        let world = sim.world_mut();
+        world
+            .query_filtered::<(&ambition_platformer2d::engine_core::BodyKinematics, &PlayerSafetyState), bevy::prelude::With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>()
+            .single(world)
+            .map(|(kinematics, safety)| (kinematics.pos, safety.last_safe_pos))
+            .expect("Alice's body is in the world")
+    };
+    let (start, _) = alice_now(&mut sim);
+    for _ in 0..30 {
+        sim.step(ambition_app::AgentAction { move_x: 1.0, ..base() });
+    }
+    for _ in 0..30 {
+        sim.step(base());
+    }
+    let (pos, safe) = alice_now(&mut sim);
+    assert_eq!(live_rooms(&mut sim).len(), 2, "precondition: Bob's room did not stay live beside Alice's");
+    assert!(pos.distance(start) > 30.0, "control: Alice did not walk in #1 ({start} -> {pos})");
+    assert!(
+        safe.distance(pos) < 2.0,
+        "Alice's safe point did not follow her in #1: she stands at {pos}, the safe point is {safe}"
+    );
+}
+
+/// OW1: the dev traces record each body against its own live room. With
+/// Alice in the hub (#1) beside Bob's `switch_lab` (#0), the player trace
+/// keeps recording, in the hub, and the actor trace's frame holds both rooms
+/// and tags Alice's body with the hub. Before, both traces read the sole live
+/// room, so while two rooms were live neither recorded a frame.
+#[test]
+fn the_traces_record_each_body_in_its_own_live_room() {
+    use ambition_platformer2d::gameplay_trace::{ActorTraceBuffer, GameplayTraceBuffer};
+    let (mut sim, _) = alice_leaves_bob(Some(ambition_platformer2d::characters::control::PlayerSlot(1)));
+    let rooms = live_rooms(&mut sim);
+    assert_eq!(rooms.len(), 2, "precondition: Bob's room did not stay live beside Alice's");
+    let hub = rooms.iter().find(|(_, id)| id == HUB).expect("the hub is live").0;
+    let last_tick = |sim: &mut Platformer2dSimHarness| {
+        sim.world_mut().resource::<GameplayTraceBuffer>().frames().last().map(|frame| frame.tick)
+    };
+    let before = last_tick(&mut sim);
+    for _ in 0..5 {
+        sim.step(base());
+    }
+    let world = sim.world_mut();
+    let player = world.resource::<GameplayTraceBuffer>().frames().last().cloned().expect("the player trace has a row");
+    assert!(
+        Some(player.tick) > before,
+        "the player trace recorded no row while two rooms were live (last tick {before:?})"
+    );
+    assert_eq!(player.active_area, HUB, "the player trace's row is not Alice's room");
+    let actor = world.resource::<ActorTraceBuffer>().frames().last().cloned().expect("the actor trace has a frame");
+    let mut areas: Vec<&str> = actor.rooms.iter().map(|room| room.area.as_str()).collect();
+    areas.sort();
+    assert_eq!(areas, vec![HUB, ROOM], "the actor trace's frame does not hold both live rooms");
+    let alice = actor.bodies.iter().find(|body| body.actor_id == "player").expect("Alice's body is traced");
+    assert_eq!(alice.room, Some(hub.ordinal()), "Alice's body is not traced in the hub");
+}

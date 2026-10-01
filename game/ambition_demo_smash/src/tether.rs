@@ -59,11 +59,15 @@ pub fn tether_reel_probe(reel: &TetherReel) -> u64 {
 }
 
 /// Throw the line where a move asked for one, and latch what it bit.
+///
+/// The line bites a ledge of the fighter's own live room (OW1 cut 7p). This
+/// read the sole live room, so while two rooms were live no tether bit.
 pub fn begin_authored_tether_pulls(
     mut commands: Commands,
     mut actions: MessageReader<ActorActionMessage>,
     // The composed collision read-API, as the pogo strike uses.
     collision: ambition_platformer2d::world::collision::CollisionWorld,
+    live: ambition_platformer2d::platformer::lifecycle::LiveRooms,
     bodies: Query<(
         &ae::BodyKinematics,
         &ae::BodyGroundState,
@@ -93,7 +97,10 @@ pub fn begin_authored_tether_pulls(
         if ground.on_ground {
             continue;
         }
-        let Some(solids) = collision.solids() else {
+        let room = live
+            .of(message.actor)
+            .map(ambition_platformer2d::platformer::lifecycle::InRoomInstance);
+        let Some(solids) = collision.room(room.as_ref()).and_then(|room| room.solids()) else {
             continue;
         };
         // The line goes where she faces, and the wall she wants faces back at
@@ -154,10 +161,13 @@ pub fn begin_authored_tether_pulls(
 }
 
 /// Reel each tethered fighter toward her anchor, and let go when she arrives.
+///
+/// The catch is asked of the fighter's own live room (OW1 cut 7p).
 pub fn reel_tethered_fighters(
     mut commands: Commands,
     time: Res<ambition_platformer2d::time::WorldTime>,
     collision: ambition_platformer2d::world::collision::CollisionWorld,
+    live: ambition_platformer2d::platformer::lifecycle::LiveRooms,
     mut bodies: Query<(
         Entity,
         &mut ae::BodyKinematics,
@@ -166,8 +176,9 @@ pub fn reel_tethered_fighters(
     )>,
 ) {
     let dt = time.sim_dt();
-    let solids = collision.solids();
     for (entity, mut kin, mut reel, frame) in &mut bodies {
+        let room = live.of(entity).map(ambition_platformer2d::platformer::lifecycle::InRoomInstance);
+        let solids = collision.room(room.as_ref()).and_then(|room| room.solids());
         // Test the budget before spending it, so an N-tick reel gets N pulls.
         // `author_tether_pull` asserts `speed * timeout_s >= reach`, a promise
         // measured in exactly those ticks.

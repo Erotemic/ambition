@@ -104,12 +104,11 @@ pub(crate) fn prepare_first_room_art_system(
         return;
     };
     let empty_registry = Default::default();
-    let registry = context
-        .prepared_characters
-        .as_deref()
-        .unwrap_or(&empty_registry);
 
     for (transaction, prepared) in sessions.published() {
+        // The cast THIS prepared session froze: its first room is built from
+        // it, so its art is demanded from it (not from whatever the App holds).
+        let registry = prepared.cast.cast().unwrap_or(&empty_registry);
         let load_id = transaction.barrier.load_id.clone();
         if jobs.answered.contains(&load_id) {
             continue;

@@ -720,10 +720,10 @@ impl PlatformerPreparation<'_> {
                 report,
                 // ⛔ FROZEN HERE, in the same system that took the identity, so
                 // the two cannot describe different worlds.
+                // ⛔ THE TRANSACTION'S OWN CANDIDATE, never the App's
+                // published registry — see `candidate_cast_for`.
+                cast: ambition_characters::prepared::ActiveSessionCast(frozen_cast),
                 mechanical: SessionMechanics {
-                    // ⛔ THE TRANSACTION'S OWN CANDIDATE, never the App's
-                    // published registry — see `candidate_cast_for`.
-                    characters: frozen_cast,
                     sheets: self
                         .content_inputs
                         .4
@@ -1117,9 +1117,8 @@ pub fn install_direct_session_root(
         .unwrap_or(SessionScopeId(0));
     let content = prepare_platformer_content_for_app(app, source, authored)?;
     let world = app.world();
+    // The cast is folded at the barrier; see `freeze_direct_session_mechanics`.
     let mechanics = SessionMechanics {
-        // Folded at the barrier; see `freeze_direct_session_mechanics`.
-        characters: None,
         sheets: world
             .get_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>()
             .cloned()
@@ -1176,7 +1175,7 @@ struct DirectSessionMechanicsCapture(SessionMechanics);
 /// construction authority, and the two could describe different casts. That
 /// is a composition error, so it aborts.
 fn freeze_direct_session_mechanics(world: &mut World) {
-    let Some(DirectSessionMechanicsCapture(mut mechanics)) =
+    let Some(DirectSessionMechanicsCapture(mechanics)) =
         world.remove_resource::<DirectSessionMechanicsCapture>()
     else {
         return;
@@ -1186,9 +1185,10 @@ fn freeze_direct_session_mechanics(world: &mut World) {
         "a direct session already holds SessionMechanics; install_direct_session_root \
          freezes them, and a second insert is a second construction authority"
     );
-    mechanics.characters = world
+    let cast = world
         .get_resource::<ambition_characters::prepared::PreparedCharacterRegistry>()
         .cloned();
+    world.insert_resource(ambition_characters::prepared::ActiveSessionCast(cast));
     world.insert_resource(mechanics);
 }
 
@@ -1715,6 +1715,9 @@ pub struct PreparedPlatformerSession {
     /// *"`PreparedContent` says N, and at activation query whatever these
     /// resources contain now"*.
     pub mechanical: SessionMechanics,
+    /// The cast frozen with `mechanical`, installed beside it at adoption as
+    /// `ActiveSessionCast` (its owner, readable below the actor monolith).
+    pub cast: ambition_characters::prepared::ActiveSessionCast,
 }
 
 /// The mechanical registries a session is constructed from.
@@ -2061,6 +2064,7 @@ fn prepare_candidate_platformer_session(
         scope,
         prepared.content.clone(),
         &prepared.mechanical,
+        &prepared.cast,
         default_character.as_str(),
         pending.route_id.clone(),
     );
@@ -2341,6 +2345,8 @@ impl PlatformerSessionBuilder<'_, '_> {
         // the `SystemParam`, so building from whatever the world contains now is
         // not something this function can express. See `SessionMechanics`.
         mechanical: &SessionMechanics,
+        // The cast frozen with it.
+        cast: &ambition_characters::prepared::ActiveSessionCast,
         default_character_id: &str,
         // The route this candidate holds, carried on the candidate so any exit
         // can release that hold. See `PreparedCandidateSession::route`.
@@ -2475,7 +2481,7 @@ impl PlatformerSessionBuilder<'_, '_> {
                 initial_body: &initial_body,
                 home_body_resources: &home_body_resources,
                 home_body_abilities: &home_body_abilities,
-                prepared_characters: mechanical.characters.as_ref(),
+                prepared_characters: cast.cast(),
                 placement_lowering: &self.placement_lowering,
                 content_staging: &self.content_staging,
                 // Activation is the one place that holds the exact prepared
@@ -2498,7 +2504,7 @@ impl PlatformerSessionBuilder<'_, '_> {
                         // ⛔ THE GENERATION BEING ACTIVATED, WITH NO FALLBACK.
                         // See `GenerationMechanics::of`.
                         &ambition_platformer2d_actor_monolith::session::mechanics::
-                            GenerationMechanics::of(mechanical),
+                            GenerationMechanics::of(mechanical, cast),
                         // ⭐ THE ACTIVATION GENERATION, BOTH HALVES, FROM THE
                         // ONE VALUE THAT HOLDS THEM. `PreparedContentIdentity`
                         // carries `epoch` and `fingerprint` side by side; naming
@@ -2581,7 +2587,7 @@ impl PlatformerSessionBuilder<'_, '_> {
                 actors: crate::session_contents::StagedActorAuthorities {
                     character_catalog: &self.character_catalog,
                     sheets: &mechanical.sheets,
-                    characters: mechanical.characters.as_ref(),
+                    characters: cast.cast(),
                     bosses: &mechanical.bosses,
                 },
             });
@@ -2596,6 +2602,7 @@ impl PlatformerSessionBuilder<'_, '_> {
             horizon,
             publication: built.publication,
             mechanics: mechanical.clone(),
+            cast: cast.clone(),
         }
     }
 }
@@ -2632,6 +2639,8 @@ pub struct PreparedCandidateSession {
     horizon: ambition_platformer2d_actor_monolith::session::durable_horizon::CandidateDurableHorizon,
     /// The generation's frozen registries, installed at adoption.
     mechanics: ambition_platformer2d_actor_monolith::session::mechanics::SessionMechanics,
+    /// The cast frozen with them, installed beside them.
+    cast: ambition_characters::prepared::ActiveSessionCast,
 }
 
 /// The one candidate session this provider has prepared and not yet adopted.
@@ -2663,10 +2672,12 @@ impl PreparedCandidateSession {
             experience,
             publication,
             mechanics,
+            cast,
             horizon,
             ..
         } = self;
         world.insert_resource(mechanics);
+        world.insert_resource(cast);
         // The first room's moving platforms are not installed here: they are on
         // the candidate's own live room root, promoted with the rest of it.
         // ⛔⛤ AND THE DURABLE HORIZON, HERE AND NOWHERE ELSE. Preparing this
@@ -2891,6 +2902,7 @@ mod tests {
                 route: route.clone(),
                 horizon: Default::default(),
                 mechanics: Default::default(),
+                cast: Default::default(),
             })));
             (world, route)
         }
@@ -4008,15 +4020,19 @@ mod mechanical_registries_reach_the_identity {
             .world()
             .get_resource::<SessionMechanics>()
             .expect("a direct session has a construction authority once its cast exists");
+        let frozen_cast = app
+            .world()
+            .get_resource::<ambition_characters::prepared::ActiveSessionCast>()
+            .expect("and its frozen cast beside it");
         let published = app
             .world()
             .resource::<ambition_characters::prepared::PreparedCharacterRegistry>();
         assert_eq!(
-            health_of(frozen.prepared_cast().expect("the composition published a cast")),
+            health_of(frozen_cast.cast().expect("the composition published a cast")),
             Some(7),
             "the frozen cast is the one this composition prepared"
         );
-        assert_eq!(frozen.prepared_cast().map(|cast| cast.generation()), Some(published.generation()));
+        assert_eq!(frozen_cast.cast().map(|cast| cast.generation()), Some(published.generation()));
         assert_eq!(frozen.population_cap.cap(), Some(3));
         assert_eq!(
             frozen.bosses.deterministic_dump(),
@@ -4024,7 +4040,8 @@ mod mechanical_registries_reach_the_identity {
         );
         assert!(
             ambition_platformer2d_actor_monolith::session::mechanics::GenerationMechanics::for_live_session(
-                Some(frozen)
+                Some(frozen),
+                Some(frozen_cast),
             )
             .is_some(),
             "a live rebuild accepts the frozen authority"

@@ -582,17 +582,19 @@ pub fn registered_portrait_target<'a>(
 /// not happened yet). Those two answers demand different responses, which is why
 /// §7.1 separated them in the first place.
 pub fn declare_registered_characters(
-    registry: Option<Res<PreparedCharacterRegistry>>,
+    // The running session's frozen cast, or the published one with no session
+    // (`SessionCast`); its change is that source's change.
+    cast: crate::session::mechanics::SessionCast,
     // The sheet table lives INSIDE `GameAssets`, not as a standalone resource.
     assets: Option<ResMut<ambition_sprite_sheet::game_assets::GameAssets>>,
 ) {
-    let (Some(registry), Some(mut assets)) = (registry, assets) else {
+    let (Some(registry), Some(mut assets)) = (cast.get(), assets) else {
         // No registered characters, or no sprite table at all (an art-free
         // composition). The demand path reports `NoAssetPipeline` for the latter,
         // which is a named terminal state, not silence.
         return;
     };
-    if !registry.is_changed() {
+    if !cast.is_changed() {
         return;
     }
     let sprites = &mut assets.characters;
@@ -835,13 +837,18 @@ pub fn materialize_demanded_character_sheets(
     // The prepared cast: the one answer to which sheet each character wears (see
     // `sheet_for_prepared_character`). REQUIRED, like the catalog: it holds a
     // definition for every catalog row, so a composition with characters has it.
-    registry: Res<PreparedCharacterRegistry>,
+    // The running session's frozen cast, or the published one with no session
+    // (`SessionCast`).
+    cast: crate::session::mechanics::SessionCast,
     asset_catalog: Option<Res<Platformer2dAssetCatalog>>,
     asset_server: Option<Res<AssetServer>>,
     layouts: Option<ResMut<Assets<TextureAtlasLayout>>>,
     settings: Option<Res<ambition_persistence::settings::UserSettings>>,
     resolved: Option<Res<ambition_persistence::settings::ResolvedVisualQuality>>,
 ) {
+    let Some(registry) = cast.get() else {
+        return;
+    };
     // The ledger and the demand come first and separately: the no-pipeline path
     // still has to SETTLE what was staged, so it cannot be inside a destructuring
     // that also consumes them.
@@ -866,7 +873,7 @@ pub fn materialize_demanded_character_sheets(
             // `mary_o_demo`, or the one build where nothing is visible is also the
             // one where nothing is audible.
             let character_id =
-                canonical_character_id(&registry, &character_catalog, &token).to_string();
+                canonical_character_id(registry, &character_catalog, &token).to_string();
             states.record(
                 token,
                 &character_id,
@@ -892,7 +899,7 @@ pub fn materialize_demanded_character_sheets(
         &mut assets.fx,
         &character_catalog,
         &authored_sheets,
-        &registry,
+        registry,
         &asset_catalog,
         &asset_server,
         &mut layouts,

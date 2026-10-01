@@ -184,8 +184,7 @@ pub(crate) struct RoomTransitionAssetContext<'w, 's> {
     /// `register_character`, in which case this is the only place its sheet is
     /// named — so the synchronous room decode has to consult it or a
     /// registered-only fighter reaches the reveal barrier as a placeholder.
-    pub(crate) prepared_characters:
-        Option<Res<'w, ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>>,
+    pub(crate) prepared_characters: ambition_platformer2d::characters::prepared::SessionCast<'w>,
     /// Sheets this app's providers authored — the other place a
     /// character's sheet can be named, and the only one reachable from outside
     /// this workspace.
@@ -1026,7 +1025,7 @@ pub(crate) fn contribute_room_transition_assets_system(
 
     let prepared_characters = context
         .prepared_characters
-        .as_deref()
+        .get()
         .cloned()
         .unwrap_or_default();
 
@@ -1414,14 +1413,16 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
     (
         mut layouts,
         mut character_load_states,
-        prepared_characters,
+        frozen_cast,
         authored_sheets,
         generation,
     ): (
         ResMut<Assets<TextureAtlasLayout>>,
         // Grouped with `layouts` to stay under Bevy's SystemParam arity limit.
         ResMut<ambition_platformer2d::actors::character_runtime::CharacterLoadStates>,
-        Option<Res<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>>,
+        // The cast the running session was frozen with: the door builds the
+        // room from it, so the prefetch demands that cast's sheets.
+        Option<Res<ambition_platformer2d::characters::prepared::ActiveSessionCast>>,
         Res<ambition_platformer2d::sprite_sheet::character::sheets::AuthoredSheets>,
         // ⛔⛤ **THE PREFETCH MUST READ THE SAME GENERATION THE REAL TRANSITION
         // DOES.** A plan is promoted only if it was prepared against what the
@@ -1447,6 +1448,7 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
     let Some(mechanics) =
         ambition_platformer2d::actors::session::mechanics::GenerationMechanics::for_live_session(
             generation.as_deref(),
+            frozen_cast.as_deref(),
         )
     else {
         // No prefetch this frame. The door prepares its own plan, and refuses for
@@ -1632,7 +1634,7 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
             &mut layouts,
             &quality,
             &mut character_load_states,
-            prepared_characters.as_deref().unwrap_or(&empty_registry),
+            mechanics.characters().unwrap_or(&empty_registry),
             &authored_sheets,
             Some(&boss_catalog),
             &[],

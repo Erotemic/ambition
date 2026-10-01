@@ -367,21 +367,13 @@ pub fn sync_charge_projectile_capability(
 /// prepared cast. In particular, an authored Sanic keeps the persistent `MomentumMotion.state`
 /// it accumulated while riding a surface.
 pub fn apply_worn_character_gameplay(
-    // Optional, like every other reader of it: a composition with no registered
-    // characters is the ordinary case and must not require the resource.
-    app_cast: Option<Res<ambition_characters::prepared::PreparedCharacterRegistry>>,
-    // The cast the activated generation was prepared against. It outranks the
-    // App: a reload publishes the App cast before the session that runs it is
-    // activated, and a body re-derived from the App in that window plays a cast
-    // its session was not prepared against. MEASURED 2026-10-01: with the
-    // reload's claim emptied, the frozen cast said 5 HP, the App said 9, and the
-    // live goblins had 9.
-    session_mechanics: Option<Res<crate::session::mechanics::SessionMechanics>>,
-    // Installed only by the shell's session plugin. With it and no generation,
-    // the session lost its cast, and this system refuses rather than read the App.
-    session_gate: Option<
-        Res<ambition_platformer2d_shared_tangle::lifecycle::SessionGatedSimulation>,
-    >,
+    // The running session's frozen cast (`SessionCast`), not the published
+    // one: a reload publishes the App cast before the session that runs it is
+    // activated, and a body re-derived from it in that window plays a cast its
+    // session was not prepared against. MEASURED 2026-10-01: with the reload's
+    // claim emptied, the frozen cast said 5 HP, the App said 9, and the live
+    // goblins had 9 until this read the frozen cast.
+    cast: crate::session::mechanics::SessionCast,
     // What the MATCH decided, when one is running. `Option` because most
     // compositions are not a match, which is the ordinary case rather than a
     // degraded one.
@@ -424,14 +416,7 @@ pub fn apply_worn_character_gameplay(
         (With<ActionSet>, With<ActorMoveset>),
     >,
 ) {
-    let Some(registry) = crate::session::mechanics::worn_cast_for(
-        session_gate.is_some(),
-        session_mechanics.as_deref(),
-        app_cast.as_deref(),
-    ) else {
-        // A request stays on the body until a cast can answer it.
-        return;
-    };
+    let registry = cast.get();
     for (
         entity,
         character,

@@ -12,6 +12,7 @@ use crate::actor::definition::{BodySource, CharacterDefinition, Lineage, Vitals}
 use ambition_binding::{BindingLedger, BindingReport, Namespace, Resolver};
 use ambition_entity_catalog::{HurtboxDoc, MoveEventKind, MovesetContract};
 
+pub use crate::session_cast::{session_cast, ActiveSessionCast, SessionCast};
 pub use crate::binding_namespaces::{
     MoveId, PortraitTarget, RangedPayload, SfxCueId, SheetTarget, VerbId, VfxTag,
 };

@@ -75,9 +75,10 @@
 /// The two move together or neither moves.
 #[derive(bevy::prelude::Resource, Clone, Debug, Default)]
 pub struct SessionMechanics {
-    /// `None` where the composition published no cast — a real state, and not a
-    /// missing value.
-    pub characters: Option<ambition_characters::prepared::PreparedCharacterRegistry>,
+    // ⭐ THE CAST IS NOT HERE ANY MORE (2026-10-01). It is
+    // `ambition_characters::prepared::ActiveSessionCast`, inserted and removed
+    // with this resource, so the crates below this one can read the frozen cast
+    // too. Read it through `SessionCast`.
     pub sheets: ambition_sprite_sheet::character::sheets::AuthoredSheets,
     pub bosses: ambition_boss_encounter::BossCatalog,
     /// The forced preset/profile a developer build asked for.
@@ -104,16 +105,6 @@ pub struct SessionMechanics {
     /// constructed later in the generation, and nothing about two peers agreeing
     /// they run the same mechanics.
     pub perception_extent: ambition_characters::perception::PerceptionExtentOverride,
-}
-
-impl SessionMechanics {
-    /// The prepared cast for construction, or `None` when this composition
-    /// published none.
-    pub fn prepared_cast(
-        &self,
-    ) -> Option<&ambition_characters::prepared::PreparedCharacterRegistry> {
-        self.characters.as_ref()
-    }
 }
 
 /// The mechanical registries ONE construction reads — and only one set of them.
@@ -181,9 +172,12 @@ impl<'a> GenerationMechanics<'a> {
     /// them — so offering it a fallback parameter would be offering it a value
     /// it must never use. Once the fallback left the live roads, the same is
     /// true of them.
-    pub fn of(generation: &'a SessionMechanics) -> Self {
+    pub fn of(
+        generation: &'a SessionMechanics,
+        cast: &'a ambition_characters::prepared::ActiveSessionCast,
+    ) -> Self {
         Self {
-            characters: generation.characters.as_ref(),
+            characters: cast.cast(),
             sheets: &generation.sheets,
             bosses: &generation.bosses,
             forced_brains: Some(&generation.forced_brains),
@@ -209,8 +203,13 @@ impl<'a> GenerationMechanics<'a> {
     /// to rebuild rooms declares its construction inputs — a `SessionMechanics`
     /// it installs itself is the scoped fixture authority the ruling permits —
     /// and one that declares nothing is told no rather than handed the App.
-    pub fn for_live_session(active: Option<&'a SessionMechanics>) -> Option<Self> {
-        active.map(Self::of)
+    pub fn for_live_session(
+        active: Option<&'a SessionMechanics>,
+        cast: Option<&'a ambition_characters::prepared::ActiveSessionCast>,
+    ) -> Option<Self> {
+        // Inserted and removed together; one without the other is a session
+        // that lost half its generation, and it is refused like a lost whole.
+        Some(Self::of(active?, cast?))
     }
 
     pub fn characters(
@@ -271,66 +270,10 @@ pub fn perception_extent_for(
     }
 }
 
-/// The prepared cast a live-session system reads, through [`worn_cast_for`].
-///
-/// One answer for every reader: the activated generation's frozen cast, the
-/// App's only where no session gate exists, and none in a shell session that
-/// lost its generation. Before this, each reader took
-/// `Option<Res<PreparedCharacterRegistry>>`, the App's cast, which a content
-/// reload publishes before the session that runs it is activated.
-#[derive(bevy::ecs::system::SystemParam)]
-pub struct SessionCast<'w> {
-    app: Option<bevy::prelude::Res<'w, ambition_characters::prepared::PreparedCharacterRegistry>>,
-    generation: Option<bevy::prelude::Res<'w, SessionMechanics>>,
-    session_gate: Option<
-        bevy::prelude::Res<'w, ambition_platformer2d_shared_tangle::lifecycle::SessionGatedSimulation>,
-    >,
-}
-
-impl SessionCast<'_> {
-    /// The cast, or `None` when this composition has none or the session lost
-    /// it. A reader treats both as "no character data", as it treated an absent
-    /// App cast.
-    pub fn get(&self) -> Option<&ambition_characters::prepared::PreparedCharacterRegistry> {
-        worn_cast_for(self.session_gate.is_some(), self.generation.as_deref(), self.app.as_deref()).flatten()
-    }
-
-    /// Did the cast [`Self::get`] answers with change since this system last
-    /// ran? The generation's when one is activated (it changes at activation),
-    /// the App's only where [`Self::get`] reads the App.
-    pub fn is_changed(&self) -> bool {
-        match (&self.generation, &self.app) {
-            (Some(generation), _) => bevy::prelude::DetectChanges::is_changed(generation),
-            (None, Some(app)) if self.session_gate.is_none() => bevy::prelude::DetectChanges::is_changed(app),
-            _ => false,
-        }
-    }
-}
-
-/// The cast a worn body is re-derived from, or `None`, which is a refusal.
-///
-/// The same live-generation contract as [`perception_extent_for`]: the
-/// activated generation's frozen cast outranks the App's, a shell session that
-/// lost its generation is refused, and only a composition with no session gate
-/// reads the App. The inner `None` is a composition with no cast at all, which
-/// is an ordinary state.
-///
-/// ⛔ The App cast changes only when a content reload publishes a new one, and
-/// the reload then activates a new generation. In normal runs the two casts are
-/// equal, so no value test can tell which one a road reads. Only a run where they
-/// differ can: the reload's claim emptied (2026-10-01) kept the frozen cast at 5
-/// HP while the App took 9, and the bodies took the App's 9.
-pub fn worn_cast_for<'a>(
-    shell_routed: bool,
-    generation: Option<&'a SessionMechanics>,
-    app: Option<&'a ambition_characters::prepared::PreparedCharacterRegistry>,
-) -> Option<Option<&'a ambition_characters::prepared::PreparedCharacterRegistry>> {
-    match generation {
-        Some(generation) => Some(generation.prepared_cast()),
-        None if shell_routed => None,
-        None => Some(app),
-    }
-}
+/// The cast a live-session system reads. Defined beside the cast it reads
+/// (`ambition_characters::session_cast`), so the crates below this one read the
+/// same answer; re-exported here for the monolith's readers.
+pub use ambition_characters::prepared::SessionCast;
 
 #[cfg(test)]
 mod tests {
@@ -367,39 +310,6 @@ mod tests {
             .and_then(|definition| definition.vitals.max_health)
     }
 
-    /// A live-session reader is given the generation's cast, the App's only
-    /// where no session gate exists, and none in a shell session that lost its
-    /// generation ([`SessionCast`], the road the empowerment, damage, summon,
-    /// aggression, brain-command and wallet-shield readers take).
-    #[test]
-    fn a_session_reader_is_given_the_generations_cast() {
-        #[derive(bevy::prelude::Resource, Default)]
-        struct Seen(Option<i32>);
-        fn read(cast: SessionCast, mut seen: bevy::prelude::ResMut<Seen>) {
-            seen.0 = health(cast.get());
-        }
-        let run = |generation: Option<i32>, gated: bool| {
-            let mut app = bevy::app::App::new();
-            app.init_resource::<Seen>().insert_resource(cast(3));
-            if let Some(max_health) = generation {
-                app.insert_resource(SessionMechanics {
-                    characters: Some(cast(max_health)),
-                    ..Default::default()
-                });
-            }
-            if gated {
-                app.insert_resource(ambition_platformer2d_shared_tangle::lifecycle::SessionGatedSimulation);
-            }
-            app.add_systems(bevy::app::Update, read);
-            app.update();
-            app.world().resource::<Seen>().0
-        };
-        assert_eq!(run(Some(9), true), Some(9), "the generation outranks the App");
-        assert_eq!(run(Some(9), false), Some(9), "with or without a session gate");
-        assert_eq!(run(None, true), None, "a shell session that lost its generation reads no cast");
-        assert_eq!(run(None, false), Some(3), "only a composition with no gate reads the App");
-    }
-
     /// ⛔⛤ **A GENERATION'S ROOMS ARE REBUILT FROM THAT GENERATION, WHATEVER THE
     /// App IS HOLDING NOW.**
     ///
@@ -413,17 +323,15 @@ mod tests {
     /// it.
     #[test]
     fn an_activated_generation_outranks_whatever_the_app_publishes_later() {
-        let generation = SessionMechanics {
-            characters: Some(cast(9)),
-            ..Default::default()
-        };
+        let generation = SessionMechanics::default();
+        let frozen = ambition_characters::prepared::ActiveSessionCast(Some(cast(9)));
         // What a later reload published into the App, with no admitted
         // transition for THIS session.
         let app_now = cast(3);
 
         // ⭐ THE PREMISE FIRST: the two casts must actually differ, or every
         // assertion below is satisfied by a resolver that returns anything.
-        assert_eq!(health(generation.characters.as_ref()), Some(9));
+        assert_eq!(health(frozen.cast()), Some(9));
         assert_eq!(health(Some(&app_now)), Some(3));
 
         let sheets = ambition_sprite_sheet::character::sheets::AuthoredSheets::default();
@@ -435,7 +343,7 @@ mod tests {
         // it is structural rather than a ranking: a live rebuild is given the
         // generation and has nowhere else to read.
         assert_eq!(
-            health(GenerationMechanics::of(&generation).characters()),
+            health(GenerationMechanics::of(&generation, &frozen).characters()),
             Some(9),
             "a room rebuilt inside an activated generation was built from a cast \
              the App published later and this session never activated",
@@ -446,7 +354,13 @@ mod tests {
         // silently substituting a stranger's registry for it is the defect this
         // whole type removes, one layer down.
         assert_eq!(
-            health(GenerationMechanics::of(&SessionMechanics::default()).characters()),
+            health(
+                GenerationMechanics::of(
+                    &SessionMechanics::default(),
+                    &ambition_characters::prepared::ActiveSessionCast(None),
+                )
+                .characters()
+            ),
             None,
             "a castless generation was handed the App's cast",
         );
@@ -461,10 +375,10 @@ mod tests {
         // loose registries to a room any more.
         assert_eq!(
             health(
-                GenerationMechanics::of(&SessionMechanics {
-                    characters: Some(app_now.clone()),
-                    ..SessionMechanics::default()
-                })
+                GenerationMechanics::of(
+                    &SessionMechanics::default(),
+                    &ambition_characters::prepared::ActiveSessionCast(Some(app_now.clone())),
+                )
                 .characters()
             ),
             Some(3),
@@ -504,7 +418,8 @@ mod tests {
         // took loose registries is deleted, so a generation's knobs cannot
         // lose to anything. The arms stay because they name WHICH value a
         // construction spends, and the control below gives them their teeth.
-        let mechanics = GenerationMechanics::of(&generation);
+        let no_cast = ambition_characters::prepared::ActiveSessionCast(None);
+        let mechanics = GenerationMechanics::of(&generation, &no_cast);
 
         assert_eq!(
             mechanics.population_cap(),
@@ -528,7 +443,7 @@ mod tests {
             population_cap: AuthoredPopulationCap::capped_at(99),
             ..SessionMechanics::default()
         };
-        let other_generation = GenerationMechanics::of(&capped_generation);
+        let other_generation = GenerationMechanics::of(&capped_generation, &no_cast);
         assert_eq!(
             other_generation.population_cap(),
             Some(&AuthoredPopulationCap::capped_at(99)),
@@ -557,7 +472,7 @@ mod tests {
     #[test]
     fn a_live_room_rebuild_refuses_when_there_is_no_generation_to_rebuild_from() {
         assert!(
-            GenerationMechanics::for_live_session(None).is_none(),
+            GenerationMechanics::for_live_session(None, None).is_none(),
             "a live rebuild with no activated generation was handed something to \
              build out of anyway"
         );
@@ -566,7 +481,12 @@ mod tests {
         // reading that generation. Without this arm the assertion above is
         // satisfied by a constructor that refuses everything.
         let generation = SessionMechanics::default();
-        let mechanics = GenerationMechanics::for_live_session(Some(&generation))
+        let frozen = ambition_characters::prepared::ActiveSessionCast(None);
+        assert!(
+            GenerationMechanics::for_live_session(Some(&generation), None).is_none(),
+            "a session that kept its mechanics and lost its cast was handed a rebuild"
+        );
+        let mechanics = GenerationMechanics::for_live_session(Some(&generation), Some(&frozen))
             .expect("a session holding its generation may rebuild");
         assert!(
             mechanics.characters().is_none(),

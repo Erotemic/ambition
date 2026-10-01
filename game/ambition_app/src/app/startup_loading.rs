@@ -140,8 +140,7 @@ struct StartupAssetInputs<'w, 's> {
         Res<'w, ambition_platformer2d::sprite_sheet::character::sheets::AuthoredSheets>,
     /// Registered character definitions: a real source of sheets, since a
     /// character may be declared only through `register_character`.
-    prepared_characters:
-        Option<Res<'w, ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>>,
+    prepared_characters: ambition_platformer2d::characters::prepared::SessionCast<'w>,
     ldtk_worlds: Option<Res<'w, LdtkWorldAssets>>,
     ui_fonts: Option<Res<'w, UiFonts>>,
     #[cfg(feature = "audio")]
@@ -466,7 +465,7 @@ fn build_startup_manifest(
         &mut inputs.character_load_states,
         inputs
             .prepared_characters
-            .as_deref()
+            .get()
             .unwrap_or(&Default::default()),
         &inputs.authored_sheets,
         &worn,

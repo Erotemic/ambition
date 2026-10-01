@@ -422,6 +422,11 @@ pub fn reset_session_scoped_resources_on_retire(
     // ⚠ This is hygiene like the rest of this system, not correctness: the next
     // activation overwrites the resource before any road reads it.
     commands.remove_resource::<crate::session::mechanics::SessionMechanics>();
+    // ⛔ AND THE CAST FROZEN WITH THEM, and for this one absence is NOT only
+    // hygiene: `SessionCast` reads its presence as "a session runs", so a
+    // retired session's cast left installed would be what a menu or a select
+    // screen shows instead of the published cast.
+    commands.remove_resource::<ambition_characters::prepared::ActiveSessionCast>();
 }
 
 fn reset(resources: SessionScopedResources) {

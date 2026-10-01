@@ -138,7 +138,11 @@ pub(super) fn handle_ldtk_hot_reload(
         // that is the same argument that took them out of the reset and
         // transition roads. See the construction site for why the frozen ones
         // are the correct answer for a WORLD-only reload.
-        Option<Res<ambition_platformer2d::actors::session::mechanics::SessionMechanics>>,
+        // And the cast frozen beside them (`ActiveSessionCast`, its owner).
+        (
+            Option<Res<ambition_platformer2d::actors::session::mechanics::SessionMechanics>>,
+            Option<Res<ambition_platformer2d::characters::prepared::ActiveSessionCast>>,
+        ),
     ),
     mut content_identity: (
         // A GUARD AND A READ: the reload builds its candidate from the active
@@ -266,7 +270,8 @@ pub(super) fn handle_ldtk_hot_reload(
             &catalogs.4,
             &catalogs.5,
             catalogs.6.as_deref(),
-            catalogs.7.as_deref(),
+            catalogs.7 .0.as_deref(),
+            catalogs.7 .1.as_deref(),
             &content_identity.0,
             // ⚠ `content_identity.1` (the prepared IDENTITY) is no longer handed
             // in: the reload writes it behind the room's verdict now, through the
@@ -433,6 +438,8 @@ pub(super) fn reload_ldtk_world_from_disk(
     session_mechanics: Option<
         &ambition_platformer2d::actors::session::mechanics::SessionMechanics,
     >,
+    // The cast frozen with them; refused with them when absent.
+    session_cast: Option<&ambition_platformer2d::characters::prepared::ActiveSessionCast>,
     prepared_content: &ambition_platformer2d::runtime::PreparedContent,
     epochs: &mut ambition_platformer2d::runtime::ContentEpochSequence,
     snapshot_schema: ambition_platformer2d::runtime::SnapshotSchemaFingerprint,
@@ -527,6 +534,7 @@ pub(super) fn reload_ldtk_world_from_disk(
     let live_mechanics =
         ambition_platformer2d::actors::session::mechanics::GenerationMechanics::for_live_session(
             session_mechanics,
+            session_cast,
         )
         .ok_or_else(|| {
             vec![

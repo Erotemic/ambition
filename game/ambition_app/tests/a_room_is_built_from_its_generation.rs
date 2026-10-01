@@ -186,9 +186,8 @@ fn a_room_entered_after_activation_is_built_from_the_generation_not_the_app() {
     // says WHICH half broke: the generation still holds its own cast...
     let frozen_ids: Vec<String> = sim
         .world_mut()
-        .resource::<ambition_platformer2d::actors::session::mechanics::SessionMechanics>()
-        .characters
-        .as_ref()
+        .resource::<ambition_platformer2d::characters::prepared::ActiveSessionCast>()
+        .cast()
         .expect("the activated generation published a cast")
         .ids()
         .map(str::to_string)

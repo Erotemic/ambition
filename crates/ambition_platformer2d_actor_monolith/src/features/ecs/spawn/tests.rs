@@ -1827,7 +1827,10 @@ fn the_population_cap_is_spent_at_plan_time_and_each_plan_gets_its_own_quota() {
             crate::features::ActorConstructionContext::for_live_room_construction(
                 &recipes,
                 &catalog,
-                &crate::session::mechanics::GenerationMechanics::of(&generation),
+                &crate::session::mechanics::GenerationMechanics::of(
+                    &generation,
+                    &ambition_characters::prepared::ActiveSessionCast(None),
+                ),
                 // This fixture activates no content, so `content_unstated` is
                 // its honest answer for the one binding an ordinary road states.
                 ambition_platformer2d_shared_tangle::construction::ContentBinding::content_unstated(

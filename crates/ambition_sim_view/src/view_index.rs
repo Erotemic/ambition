@@ -818,7 +818,9 @@ pub fn rebuild_actor_render_index(
         Option<&ActorRenderSize>,
         Option<&ambition_platformer2d_actor_spawn::ProjectedCharacterKit>,
     )>,
-    registry: Option<Res<ambition_characters::prepared::PreparedCharacterRegistry>>,
+    // The running session's frozen cast, or the published one with no
+    // session (`SessionCast`).
+    registry: ambition_characters::prepared::SessionCast,
 ) {
     index.begin_rebuild();
     for (a, render_size, granted) in &actors {
@@ -829,7 +831,7 @@ pub fn rebuild_actor_render_index(
             a.combat.training_dummy,
             render_size.map(|s| s.0),
             a.config.tuning.dream_seed,
-            crate::PoseGeometry::of(a.worn, granted, registry.as_deref()),
+            crate::PoseGeometry::of(a.worn, granted, registry.get()),
         );
     }
     index.end_rebuild();

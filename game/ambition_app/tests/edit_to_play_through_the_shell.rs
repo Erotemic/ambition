@@ -645,13 +645,12 @@ fn a_character_row_saved_while_the_game_runs_is_played() {
         // carries no candidate cast" the session froze 5 while the App's
         // registry held 9. Before 2026-10-01 the goblins still had 9:
         // `apply_worn_character_gameplay` re-derived each body from the App
-        // cast. It reads the generation's cast now (`worn_cast_for`), and the
+        // cast. It reads the generation's cast now (`SessionCast`), and the
         // same poison stops the loop above at [5, 5, 5].
         let frozen = sim
             .world()
-            .resource::<ambition_platformer2d::actors::session::mechanics::SessionMechanics>()
-            .characters
-            .as_ref()
+            .resource::<ambition_platformer2d::characters::prepared::ActiveSessionCast>()
+            .cast()
             .and_then(|cast| cast.get("goblin"))
             .and_then(|definition| definition.vitals.max_health);
         assert_eq!(frozen, Some(EDITED), "the session froze the cast it was prepared from");

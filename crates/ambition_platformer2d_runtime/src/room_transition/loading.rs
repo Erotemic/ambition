@@ -610,7 +610,10 @@ pub fn begin_room_transition_load_system(
     // two authorities travel together anyway: a placement names a character and
     // may name the policy that drives it.
     character_authorities: (
-        Option<Res<ambition_characters::prepared::PreparedCharacterRegistry>>,
+        // The cast the running session was frozen with, which a door rebuilds
+        // from (`GenerationMechanics::for_live_session`). Not the published
+        // `PreparedCharacterRegistry`: that is the next session's.
+        Option<Res<ambition_characters::prepared::ActiveSessionCast>>,
         // The published controller policies, so an enemy placement may name
         // one. A composition that publishes none is ordinary, and a placement
         // naming into an absent registry is what refuses.
@@ -659,7 +662,7 @@ pub fn begin_room_transition_load_system(
     ),
 ) {
     let (
-        _prepared_characters,
+        frozen_cast,
         brain_profiles,
         _forced_brains,
         _population_cap,
@@ -675,6 +678,7 @@ pub fn begin_room_transition_load_system(
     let mechanics =
         ambition_platformer2d_actor_monolith::session::mechanics::GenerationMechanics::for_live_session(
             generation.as_deref(),
+            frozen_cast.as_deref(),
         );
 
     // A rollback app stays a rollback app when its session is stopped. If readiness was already

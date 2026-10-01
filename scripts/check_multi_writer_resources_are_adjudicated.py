@@ -458,12 +458,14 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_audio/src/bank_asset.rs",
         "crates/ambition_game_shell/src/session.rs",
         "crates/ambition_platformer2d_actor_monolith/src/character_runtime/presentation.rs",
+        "game/ambition_content/src/reload.rs",
     ),
     "AudioLibrary": (
         "crates/ambition_audio/src/library.rs",
         "crates/ambition_audio/src/music/director/mod.rs",
         "crates/ambition_platformer2d_actor_monolith/src/audio/plugin.rs",
         "game/ambition_app/src/menu/kaleidoscope_app.rs",
+        "game/ambition_content/src/reload.rs",
     ),
     "CharacterLoadDemand": (
         "crates/ambition_platformer2d_actor_monolith/src/character_runtime/mod.rs",
@@ -1048,7 +1050,16 @@ ADJUDICATED: dict[str, str] = {
         "and four readers that warm it. ⚠ The census cannot see this: `&mut` is "
         "all a `SystemParam` signature carries, and the director threads one "
         "through four call layers to reach `switch_to_music_track`, whose only "
-        "library call is the resolve."
+        "library call is the resolve. ⚠ RESTATED 2026-10-01: \"nothing adds, "
+        "removes or reorders a track\" stopped being true with the audio "
+        "reload (`8e3cd091f`). `AudioLibrary::revise_music_tracks` replaces the "
+        "track table, and its one caller is `publish_audio` "
+        "(`game/ambition_content/src/reload.rs`), on the reload's commit path: "
+        "one write per published generation, from the same RON catalogue the "
+        "table was built from. It keeps the cached handle of a track whose id "
+        "and path did not change, so it does not conflict with the lazy "
+        "fill above. Still one authority, the catalogue, and now two "
+        "moments it is read: startup and a reload's commit."
     ),
     "MapMenuState": (
         "ONE OWNER — `ambition_menu::map` — AND ONE WRITE FROM OUTSIDE IT THAT "
@@ -3120,7 +3131,16 @@ ADJUDICATED: dict[str, str] = {
         "(`crates/ambition_platformer2d_actor_monolith/src/character_runtime/presentation.rs:58`) "
         "documents itself as \"Idempotent by construction: ... merges by "
         "union\" and no-ops when `selection.current()` is `None`. Measured "
-        "by CalculexAmbition, 2026-09-18."
+        "by CalculexAmbition, 2026-09-18. ⭐ ADDED 2026-10-01: "
+        "`publish_audio` (`game/ambition_content/src/reload.rs`) calls "
+        "`revise_provider` on a reload's commit. It is provider-keyed like "
+        "`refresh_provider_sfx_ids`. It neither sets nor clears `current`; it "
+        "replaces the provider's registries inside it, and leaves a frontend "
+        "context's music as its profile chose. It exists because the new "
+        "session's `select_gameplay` and the commit run in the same frame in "
+        "either order. With it, the result is the published catalogue in both "
+        "orders, so `select_shell_audio_context` stays the one owner of "
+        "`current`."
     ),
     "SessionSeatingSource": (
         "ROUTE-GATED MUTUAL EXCLUSION FOR THE TWO IN-PROCESS PRODUCERS, AND "

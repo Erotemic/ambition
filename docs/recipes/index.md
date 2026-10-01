@@ -30,6 +30,9 @@ When a command changes, update or delete the recipe in the same patch.
   contributes behaviour, an authored schema, a semantic action, rollback state
   and causal facts without editing a central enum. `examples/capability_demo` is
   the worked example.
+- [`writing-a-procedural-module.md`](writing-a-procedural-module.md) — a
+  gameplay algorithm with its own state, rebuilt as `.wasm` in ~0.3 s and
+  hot-reloaded into the running game; no engine build.
 - [`validating-a-content-pack.md`](validating-a-content-pack.md) — the ~5 ms
   edit/validate loop, every refusal code and what it means, and how a capability
   registers its own authored schema.

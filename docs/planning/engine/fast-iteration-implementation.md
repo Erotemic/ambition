@@ -360,7 +360,11 @@ for; the choice is recorded below so M1 can overturn it with numbers.
 
 **Measured (M0, this machine, 2026-10-01):** an edit to the echo fan to a
 loadable `.wasm` is **1.36 s** wall (`scripts/build_extension_modules.sh`,
-warm). Nothing in the engine compiles or links.
+first edit after a cold module build); a one-constant edit warm is
+**0.34 s**. The same constant edit to a technique still in
+`game/ambition_content` is **7.05 s** to relink `ambition_app`, plus a
+restart. Nothing in the engine compiles or links on the module road. Recipe:
+`docs/recipes/writing-a-procedural-module.md`.
 
 **Hot reload, the same day.** The runtime watches each loaded file (a stat
 every 20 frames). A changed file is loaded, the WHOLE composition is

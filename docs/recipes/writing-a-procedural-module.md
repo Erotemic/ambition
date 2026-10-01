@@ -47,8 +47,14 @@ The log says `AMBITION_EXTENSION_MODULES: … provides [...]` at start and
   admission records it (`AdmittedExtensions::replaced`).
 - A file that does not load or admit is **reported and the running code
   stays**. A file named at start that does not load stops the run.
-- A reload that changes a state schema's **shape** is refused (records already
-  live under the old shape). Restart for that.
+- A reload that changes a state schema's **fields** carries every live record
+  over by field tag (`StateSchema::migrate`): a renamed or moved field keeps its
+  value, a field whose kind changed starts from its initial value. A reload that
+  changes a schema's **attachment** (body or session) or **save policy** is
+  refused; restart for that.
+- A reloaded file replaces **every module it gave**, as one set: a module the
+  new build no longer exports leaves. Files changed before one publication are
+  one reload. A schema no module declares any more takes its records with it.
 - A reload is a mechanical edit (`Q120`): a local rollback timeline is rebased
   for it; a timeline this process did not start refuses it.
 

@@ -2724,3 +2724,92 @@ fn a_fighter_damage_map_that_does_not_fit_the_moves_is_reported_by_preparation()
         "a list of the wrong length was not reported: {wrong_length:?}"
     );
 }
+
+/// ⭐ A CATALOG EDIT IS A REVISION OF THE WHOLE CAST (fast-iteration I3, the
+/// character catalog in the reload): the candidate catalog's rows are folded
+/// into EVERY character, the catalog-only ones included, and the catalog lands
+/// with the cast.
+mod catalog_revision {
+    use super::*;
+    use crate::actor::character_catalog::{
+        parse_catalog, CharacterCatalog, CharacterCatalogAppExt, CharacterCatalogFragment,
+        CharacterCatalogRegistry,
+    };
+    use crate::prepared::{
+        admit_staged_revision_with_catalog, close_preparation_barrier_without_admission,
+        publish_admitted_revision, CandidateCatalog, CharacterPreparationPlugin,
+        PreparedCharacterRegistry, RevisionAdmission,
+    };
+    use ambition_entity_catalog::TechniqueSupport;
+    use ambition_platformer2d_core::{AbilityGrant, AbilitySet};
+
+    fn fragment(abilities: &str) -> CharacterCatalogFragment {
+        let catalog = format!(
+            r#"(
+            brain_presets: {{ "stand_still": StandStill }},
+            action_set_presets: {{ "peaceful": (move_style: Walk, melee: None, ranged: None, special: None) }},
+            characters: {{
+                "runner": (
+                    display_name: "Runner",
+                    spritesheet: "sprites/x.png",
+                    manifest: "sprites/x.ron",
+                    tier: MainHall,
+                    body_kind: Standard,
+                    composition: None,
+                    default_brain: "stand_still",
+                    default_action_set: "peaceful",
+                    tags: [],
+                    fallback_dialogue: [],
+                    abilities: Some({abilities}),
+                ),
+            }},
+        )"#
+        );
+        CharacterCatalogFragment::from_prepared("t.ron", "test", Some("runner"), parse_catalog(&catalog))
+            .expect("the fragment is valid")
+    }
+
+    fn live_abilities(app: &bevy::app::App) -> Option<AbilitySet> {
+        app.world().resource::<PreparedCharacterRegistry>().get("runner").and_then(|d| d.abilities)
+    }
+
+    #[test]
+    fn a_catalog_revision_folds_every_character_against_the_candidate_catalog() {
+        let mut app = bevy::app::App::new();
+        app.add_plugins(CharacterPreparationPlugin);
+        app.register_character_catalog_fragment(fragment("[RunJump]"));
+        close_preparation_barrier_without_admission(app.world_mut());
+        let before = Some(AbilitySet::compose(&[AbilityGrant::RunJump]));
+        assert_eq!(live_abilities(&app), before, "the premise: the barrier folded the row");
+
+        let (registry, assembled) = app
+            .world()
+            .resource::<CharacterCatalogRegistry>()
+            .with_replaced(fragment("[RunJump, Blink]"))
+            .expect("the candidate assembles");
+        let candidate = CandidateCatalog { registry, assembled };
+        let support = TechniqueSupport::default();
+        let RevisionAdmission::Admitted(admitted) =
+            admit_staged_revision_with_catalog(app.world(), &support, &candidate)
+        else {
+            panic!("a catalog that changes a row is a revision");
+        };
+        // Admission mutates nothing.
+        assert_eq!(live_abilities(&app), before);
+        publish_admitted_revision(app.world_mut(), admitted);
+        let after = Some(AbilitySet::compose(&[AbilityGrant::RunJump, AbilityGrant::Blink]));
+        assert_eq!(live_abilities(&app), after, "the catalog-only character was folded again");
+        assert_eq!(
+            app.world().resource::<CharacterCatalog>(),
+            &candidate.assembled.catalog,
+            "the catalog landed with the cast"
+        );
+        assert!(
+            matches!(
+                admit_staged_revision_with_catalog(app.world(), &support, &candidate),
+                RevisionAdmission::Unchanged { .. }
+            ),
+            "the same catalog again is no revision"
+        );
+    }
+}

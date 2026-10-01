@@ -499,7 +499,29 @@ const PACK_DERIVED_FAMILIES: &[PackDerivedFamily] = &[
         domain: ambition_encounter::content_schema::ENCOUNTER_WAVES_SCHEMA,
         publish: publish_encounter_waves,
     },
+    // The boss seed library and the validator bands are calibration for the
+    // offline fight validator. MEASURED 2026-10-01: their only readers are
+    // `bosses::seed_library` and `bosses::validator_bands`, and only
+    // `tests/boss_fight_validator.rs` calls those. A running game reads neither,
+    // so a reload takes their change and has nothing to publish.
+    PackDerivedFamily {
+        domain: ambition_boss_encounter::pattern::content_schema::BOSS_SEEDS_SCHEMA,
+        publish: publish_nothing_a_running_game_reads,
+    },
+    PackDerivedFamily {
+        domain: ambition_boss_encounter::pattern::content_schema::BOSS_VALIDATOR_BANDS_SCHEMA,
+        publish: publish_nothing_a_running_game_reads,
+    },
 ];
+
+/// A family no system of the running game reads: the new pack is selected,
+/// and nothing else changes. If a runtime reader appears, this row must publish
+/// what it reads instead.
+fn publish_nothing_a_running_game_reads(
+    _world: &mut bevy::ecs::world::World,
+    _pack: &ambition_content_pack::PreparedContentPack,
+) {
+}
 
 /// Absent in the candidate means remove, not keep. See
 /// [`publish_participant_families`]; `profile_for_level` treats absent as the

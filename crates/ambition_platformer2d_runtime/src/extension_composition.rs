@@ -8,14 +8,15 @@
 //! | phase | placement | ports |
 //! |---|---|---|
 //! | `technique_execution` | `CombatSet::ContentSpecials`, gameplay-gated | trigger `ambition.boss.special_cast` (boss domain); requests `ambition.projectiles.spawn` (projectile domain), `ambition.combat.damage_box` and `ambition.combat.held_damage_box` (combat domain), `ambition.boss.summon` (boss domain) |
-//! | `wielded_use` | `ItemPickupSet::WieldedAbilities`, after the native wielded chain, gameplay-gated | trigger `ambition.items.wielded_use`; requests `ambition.resources.spend_mana` and `ambition.feedback.body_sound` (held-item domain, `ambition_abilities`), `ambition.combat.damage_box`, `ambition.projectiles.spawn` |
+//! | `wielded_use` | `ItemPickupSet::WieldedAbilities`, after the native wielded chain, gameplay-gated | trigger `ambition.items.wielded_use`; requests `ambition.resources.spend_mana`, `ambition.feedback.body_sound` and `ambition.world.spawn_module_entity` (held-item domain, `ambition_abilities`), `ambition.combat.damage_box`, `ambition.projectiles.spawn` |
+//! | `module_entity_tick` | `ItemPickupSet::WieldedAbilities`, after `wielded_use`, gameplay-gated | trigger `ambition.world.module_entity_tick`; requests `ambition.feedback.body_sound` (`ambition_abilities`), `ambition.projectiles.spawn` |
 
 use ambition_extension_host::{ExtensionHostPlugin, ExtensionSet};
 
 /// The declared modules as canonical text: a section of the prepared content
 /// identity (D6). See `ambition_extension_host::ExtensionGeneration`.
 pub use ambition_extension_host::ExtensionGeneration;
-use ambition_extension_sdk::phases::{TECHNIQUE_EXECUTION, WIELDED_USE};
+use ambition_extension_sdk::phases::{MODULE_ENTITY_TICK, TECHNIQUE_EXECUTION, WIELDED_USE};
 use ambition_platformer2d_shared_tangle::schedule::{CombatSet, GameplayGated, ItemPickupSet, SimScheduleExt};
 use bevy::prelude::*;
 
@@ -34,6 +35,19 @@ pub fn install_ports(app: &mut App) {
     ambition_abilities::extension::install(app);
     ambition_combat::extension::install_for_wielded_use(app);
     ambition_projectiles::extension::install_for_wielded_use(app);
+    // module_entity_tick
+    ambition_abilities::extension::install_module_entities(app);
+    ambition_projectiles::extension::install_for_module_entity_tick(app);
+}
+
+/// Order the phases that depend on each other: an entity spawned in
+/// `wielded_use` ticks in `module_entity_tick` of the same tick. The one
+/// statement of that order; a test harness that runs both phases calls it.
+pub fn order_phases(app: &mut App, schedule: impl bevy::ecs::schedule::ScheduleLabel) {
+    app.configure_sets(
+        schedule,
+        ExtensionSet::Collect(MODULE_ENTITY_TICK).after(ExtensionSet::Lower(WIELDED_USE)),
+    );
 }
 
 pub struct ExtensionCompositionPlugin;
@@ -42,6 +56,13 @@ impl Plugin for ExtensionCompositionPlugin {
     fn build(&self, app: &mut App) {
         let sim = app.sim_schedule();
         app.add_plugins(ExtensionHostPlugin::new(sim));
+        // The session root holds the session-attached module records: they
+        // retire with the session, and a new session starts from initial
+        // records.
+        app.register_required_components::<
+            ambition_platformer2d_shared_tangle::lifecycle::SessionRoot,
+            ambition_extension_host::SessionRecords,
+        >();
         // `technique_execution` guarantees: the asking body's facts are
         // settled, and a request is consumed this tick. `ContentSpecials`
         // sits before the effect and projectile executors that drain it.
@@ -72,6 +93,20 @@ impl Plugin for ExtensionCompositionPlugin {
                 .in_set(ItemPickupSet::WieldedAbilities)
                 .after(ambition_abilities::ability_cooldown::tick_ability_cooldown),
         );
+        // `module_entity_tick` guarantees: an entity spawned in `wielded_use`
+        // this tick exists (the ordering edge gives the spawn's commands a
+        // sync point), and a request is consumed this tick.
+        app.configure_sets(
+            sim,
+            (
+                ExtensionSet::Collect(MODULE_ENTITY_TICK),
+                ExtensionSet::Invoke(MODULE_ENTITY_TICK),
+                ExtensionSet::Lower(MODULE_ENTITY_TICK),
+            )
+                .in_set(GameplayGated)
+                .in_set(ItemPickupSet::WieldedAbilities),
+        );
+        order_phases(app, sim);
         install_ports(app);
         #[cfg(feature = "wasm_modules")]
         load_developer_modules(app);

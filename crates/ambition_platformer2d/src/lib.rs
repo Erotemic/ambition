@@ -456,7 +456,7 @@ pub use ambition_platformer2d_runtime as runtime;
 /// reading what the host admitted.
 pub mod extension {
     pub use ambition_extension_host::{
-        AdmittedExtensions, DeclaredModule, EntryRunner, ExtensionAppExt, ExtensionFaults,
+        AdmittedExtensions, BodyRecords, DeclaredModule, SessionRecords, EntryRunner, ExtensionAppExt, ExtensionFaults,
         ModuleBackend, ModuleCode,
     };
     pub use ambition_extension_host::{inspect, reload};

@@ -23,6 +23,8 @@ use ambition_extension_sdk::{Port, PortKey, PortRole};
 ///   `aim_local` is body-local: the aim stick, else the movement stick, else
 ///   the facing.
 /// * **Absence** — `mana` is `None` when the body has no mana pool.
+///   `names_spawns` is false when the body has no simulation identity or no
+///   mint stream: a spawn it asks for is refused (ADR 0030).
 /// * **Replay** — derived each tick from rollback state.
 pub struct WieldedUsePort;
 
@@ -43,6 +45,10 @@ pub struct Wielder {
     pub aim_local: [f32; 2],
     /// The body's mana now, before any use this tick.
     pub mana: Option<f32>,
+    /// The body can name what it spawns (it has a `SimId` and a
+    /// `SimIdCounter`). A module that asked is never refused by
+    /// `ambition.world.spawn_module_entity`.
+    pub names_spawns: bool,
 }
 
 /// A bank pays a cost when it holds at least the cost less this. The bank's
@@ -75,7 +81,7 @@ impl Wielder {
 }
 
 impl Port for WieldedUsePort {
-    const KEY: PortKey = PortKey::new("ambition.items.wielded_use", 1);
+    const KEY: PortKey = PortKey::new("ambition.items.wielded_use", 2);
     const ROLE: PortRole = PortRole::Trigger;
     type Value = Wielder;
 
@@ -89,6 +95,7 @@ impl Port for WieldedUsePort {
         wire::put_vec2(out, v.frame_down);
         wire::put_vec2(out, v.aim_local);
         wire::put_opt(out, v.mana, wire::put_f32);
+        wire::put_bool(out, v.names_spawns);
     }
 
     fn decode(r: &mut WireReader<'_>) -> Result<Wielder, WireError> {
@@ -102,6 +109,7 @@ impl Port for WieldedUsePort {
             frame_down: r.vec2()?,
             aim_local: r.vec2()?,
             mana: r.opt(WireReader::f32)?,
+            names_spawns: r.bool()?,
         })
     }
 }
@@ -189,6 +197,7 @@ mod tests {
             frame_down: [1.0, 0.0],
             aim_local: [0.5, 0.5],
             mana: Some(42.0),
+            names_spawns: true,
         };
         let mut out = Vec::new();
         WieldedUsePort::encode(&w, &mut out);

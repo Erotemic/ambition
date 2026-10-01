@@ -207,11 +207,13 @@ import multi_writer_resource_census as census  # noqa: E402
 BASELINE: dict[str, tuple[str, ...]] = {
     "ExtensionInvocations": (
         "crates/ambition_abilities/src/extension.rs",
+        "crates/ambition_abilities/src/module_entity.rs",
         "crates/ambition_boss_encounter/src/extension.rs",
         "crates/ambition_extension_host/src/exec.rs",
     ),
     "ExtensionOutbox": (
         "crates/ambition_abilities/src/extension.rs",
+        "crates/ambition_abilities/src/module_entity.rs",
         "crates/ambition_boss_encounter/src/extension.rs",
         "crates/ambition_combat/src/extension.rs",
         "crates/ambition_extension_host/src/exec.rs",
@@ -879,8 +881,10 @@ ADJUDICATED: dict[str, str] = {
         "the queue is empty at every tick boundary, which is why "
         "the app's rollback-coverage test waives it. A second trigger adapter adds a third "
         "file and is the same shape: the held-item domain's `queue_wielded_uses` "
-        "(in ambition_abilities, phase wielded_use) is that third file. Each "
-        "adapter appends only for its own port and phase."
+        "(in ambition_abilities, phase wielded_use) is that third file, and the "
+        "module-entity domain's `queue_module_entity_ticks` (in the abilities "
+        "crate's module_entity file, phase module_entity_tick) is the fourth. "
+        "Each adapter appends only for its own port and phase."
     ),
     "ExtensionOutbox": (
         "A QUEUE, AND ITS TWO WRITERS ARE ITS TWO ENDS (fast-iteration I4). "
@@ -889,7 +893,9 @@ ADJUDICATED: dict[str, str] = {
         "items (`ExtensionOutbox::drain::<P>`: the projectile domain's "
         "`lower_projectile_spawns`, the combat domain's `lower_damage_boxes` and "
         "the boss domain's `lower_boss_summons`, and the held-item domain's "
-        "`lower_mana_spends` and `lower_body_sounds` (in ambition_abilities), in "
+        "`lower_mana_spends` and `lower_body_sounds` (in ambition_abilities), and "
+        "the module-entity domain's `lower_module_entity_spawns` (in the abilities "
+        "crate's module_entity file), in "
         "`ExtensionSet::Lower`, chained "
         "after Invoke, and each in its own `ExtensionSet::LowerPort` set, ordered "
         "by install order); a drain takes only "

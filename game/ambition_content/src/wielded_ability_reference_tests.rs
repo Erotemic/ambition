@@ -1,4 +1,4 @@
-//! The NATIVE wielded abilities (shockwave, beam, volley, meteor), kept as the
+//! The NATIVE wielded abilities (shockwave, beam, volley, meteor, sentry), kept as the
 //! reference traces of their procedural modules (`ambition_content_modules`).
 //! Test-only: the game runs the modules. `wielded_ability_parity_tests` holds
 //! each module to its reference on the linked and the WASM road.
@@ -460,6 +460,340 @@ pub mod meteor {
                 ambition_sfx::SfxMessage::Play {
                     id: ambition_sfx::ids::WORLD_ROCK_HIT,
                     pos: kin.pos,
+                },
+            );
+        }
+    }
+}
+
+/// The native sentry: the deploy, the turret and its tick. The module road
+/// is `ambition_content_modules::sentry` on the module-entity ports.
+pub mod sentry {
+    use bevy::prelude::*;
+
+    use ambition_combat::held_items::HeldItem;
+    use ambition_characters::control::ActorControl;
+    use ambition_combat::components::{ActorFaction, CenteredAabb};
+    use ambition_platformer2d_core as ae;
+    use ambition_platformer2d_core::BodyKinematics;
+    use ambition_platformer2d_shared_tangle::lifecycle::{
+        SessionScopedEntity, SessionSpawnScope, SpawnSessionScopedExt,
+    };
+    use ambition_projectiles::{ProjectileSpawn, ProjectileSpawnRequest, ProjectileStart};
+    use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
+    use ambition_platformer2d_shared_tangle::sim_id::SimId;
+    use ambition_platformer2d_shared_tangle::sim_selection::winner_by;
+
+    /// Held-item id of the sentry gauntlet.
+    pub const SENTRY_ID: &str = "sentry";
+
+    /// Mana the sentry spends per deploy (out of 100).
+    const SENTRY_MANA_COST: f32 = 28.0;
+
+    /// How long (s) a deployed sentry lives.
+    const SENTRY_LIFETIME_S: f32 = 5.0;
+    /// Seconds between shots.
+    const SENTRY_FIRE_INTERVAL_S: f32 = 0.55;
+    /// Targeting range (px) — enemies beyond this are ignored.
+    const SENTRY_RANGE: f32 = 480.0;
+    const SENTRY_BOLT_SPEED: f32 = 430.0;
+    /// `pub` so the kernel's end-to-end bolt damage test (which chains two kernel
+    /// projectile systems) can name this value.
+    pub const SENTRY_BOLT_DAMAGE: i32 = 2;
+    const SENTRY_BOLT_LIFETIME: f32 = 1.4;
+    const SENTRY_BOLT_HALF: ae::Vec2 = ae::Vec2::new(7.0, 7.0);
+
+    /// A deployed sentry: lives at `pos`, fires when `fire_cooldown` hits zero.
+    #[derive(Component, Debug, Clone, Copy)]
+    pub struct Sentry {
+        pub pos: ae::Vec2,
+        pub remaining_s: f32,
+        pub fire_cooldown: f32,
+    }
+
+    /// `Attack` while holding the sentry gauntlet drops a [`Sentry`] at the
+    /// wielder's feet. Plain Attack only; `Shield + Attack` drops the item (the id
+    /// is `UseSystem`).
+    ///
+    /// Body-generic: gated on the body's resolved intent ([`ActorControl`], the
+    /// same frame an NPC brain writes) for every wielder, so a possessed or robot
+    /// body deploys through this path. Mana is the gate; a body has it only when
+    /// its experience declares the pool.
+    pub fn fire_sentry_system(
+        mut wielders: Query<(
+            Entity,
+            &ActorControl,
+            &BodyKinematics,
+            &HeldItem,
+            Option<&mut ambition_platformer2d_core::resources::ActorResources>,
+            Option<&SessionScopedEntity>,
+            // The deployer's combat side, copied onto the turret. `Option` because
+            // only fixtures lack one.
+            Option<&ActorFaction>,
+            // The driver too: possession keeps a possessed NPC's faction as
+            // `Enemy` and moves its side through the driving relationship
+            // (`targeting::effective_faction`). The authored faction alone would
+            // make a player's sentry shoot the player.
+            Option<&ambition_characters::control::DrivingParticipant>,
+            Option<&ambition_combat::targeting::MatchTeam>,
+            // The deployer's identity and mint stream. Fixtures carry neither.
+            Option<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
+            Option<&mut ambition_platformer2d_shared_tangle::sim_id::SimIdCounter>,
+        )>,
+        mut commands: Commands,
+        mut sfx: ambition_sfx::BodySfxWriter,
+    ) {
+        for (
+            wielder,
+            control,
+            kin,
+            held,
+            mut mana,
+            owner,
+            side,
+            driver,
+            team,
+            deployer_id,
+            mut deployer_counter,
+        ) in &mut wielders
+        {
+            if !control.0.melee_pressed || control.0.shield_held {
+                continue;
+            }
+            if held.spec.id != SENTRY_ID {
+                continue;
+            }
+            // Refuse before spending (ADR 0030): a dynamic entity that cannot name
+            // its spawner does not spawn, and its bolts, which mint under the
+            // turret, would be skipped by `mint_spawned_sim_ids`. The refusal must
+            // stay above `try_spend`, or it takes mana and deploys nothing.
+            let (Some(deployer), Some(counter)) = (deployer_id, deployer_counter.as_mut()) else {
+                warn!(
+                    "a sentry deploy was refused: the deployer carries no SimId or no \
+                     SimIdCounter, so the turret could not be named and its bolts \
+                     could not mint under it"
+                );
+                continue;
+            };
+            // The turret is a dynamically spawned sim entity, and its bolts mint
+            // under it.
+            let id = Some(ambition_platformer2d_shared_tangle::sim_id::SimId::spawned(
+                deployer,
+                counter.next(),
+            ));
+            if !ambition_platformer2d::abilities::mana::spend(mana.as_deref_mut(), SENTRY_MANA_COST) {
+                continue;
+            }
+            // G1: the turret inherits its summoner's presentation source, so its
+            // shots sound like the placing character, even after it leaves.
+            let inherited = sfx.source_of(wielder);
+            deploy_sentry(
+                &mut commands,
+                SessionSpawnScope::new(owner.map(|owner| owner.0)),
+                kin.pos,
+                ambition_combat::targeting::effective_faction(
+                    side.copied().unwrap_or(ActorFaction::Player),
+                    driver,
+                ),
+                team.cloned(),
+                inherited,
+                id,
+            );
+            sfx.write_for(
+                wielder,
+                ambition_sfx::SfxMessage::Play {
+                    id: ambition_sfx::ids::WORLD_ROCK_HIT,
+                    pos: kin.pos,
+                },
+            );
+        }
+    }
+
+    /// Place one turret. The only way a sentry enters the world, so tests build
+    /// the same turret production does, and bolt provenance is decided once.
+    ///
+    /// The turret carries its deployer's combat side. A bolt's allegiance is
+    /// stamped from its `ProjectileOwner` (the turret); with no `ActorFaction` on
+    /// the turret, `can_hit` is false against every victim and the bolts do
+    /// nothing.
+    ///
+    /// It also carries an identity: a bolt's `SimId` is
+    /// `SimId::spawned(owner, ..)` with the turret as owner, so an unnamed turret
+    /// makes bolts `mint_spawned_sim_ids` skips.
+    ///
+    /// Both are frozen at deploy, not looked up at fire time, because the turret
+    /// outlives its deployer. The presentation source is inherited for the same
+    /// reason.
+    pub fn deploy_sentry(
+        commands: &mut Commands,
+        scope: SessionSpawnScope,
+        pos: ae::Vec2,
+        side: ActorFaction,
+        team: Option<ambition_combat::targeting::MatchTeam>,
+        inherited_presentation: Option<ambition_sfx::PresentationSourceId>,
+        id: Option<ambition_platformer2d_shared_tangle::sim_id::SimId>,
+    ) -> Entity {
+        let mut turret = commands.spawn_session_scoped(
+            scope,
+            (
+                Sentry {
+                    pos,
+                    remaining_s: SENTRY_LIFETIME_S,
+                    // A short arm delay before the first shot.
+                    fire_cooldown: 0.25,
+                },
+                Name::new("Sentry turret"),
+                side,
+            ),
+        );
+        if let Some(team) = team {
+            turret.insert(team);
+        }
+        if let Some(source) = inherited_presentation {
+            turret.insert(ambition_sfx::BodyPresentationSource(source));
+        }
+        if let Some(id) = id {
+            turret.insert(id);
+        }
+        turret.id()
+    }
+
+    /// Tick every sentry: age it out, and when its cadence is ready, fire one
+    /// player-faction bolt at the nearest Enemy-faction actor within range. Runs on
+    /// `scaled_dt` (bullet-time slows the turret with everything else).
+    ///
+    /// The outer loop order is a gameplay decision. Two turrets firing on one
+    /// tick write two `ProjectileSpawnRequest`s, and the materializer assigns the
+    /// global `ProjectileSeq` in request order, which decides each bolt's
+    /// identity. So turrets are ordered by their own state, then identity, like
+    /// [`update_vortex_wells`]. Position and the two timers fully decide a
+    /// turret's action, so two that tie emit identical requests.
+    pub fn update_sentries(
+        world_time: Res<ambition_time::WorldTime>,
+        mut commands: Commands,
+        mut sentries: Query<(Entity, &mut Sentry)>,
+        // Tie-break authority for the outer loop, read separately so a turret
+        // with no id still fires.
+        ids: Query<&SimId>,
+        enemies: Query<
+            (
+                &CenteredAabb,
+                &ActorFaction,
+                Option<&ambition_characters::actor::BodyHealth>,
+                // A body out of play, or behind the playable plane, is not a target.
+                (
+                    bevy::prelude::Has<ambition_combat::death_rules::OutOfPlay>,
+                    Option<&ambition_platformer2d_core::DepthPlane>,
+                ),
+                // Tie-break authority: two equidistant enemies are common, and
+                // query order must not decide.
+                Option<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
+                // Whether a participant drives this body, which decides its
+                // effective side. See the filter below.
+                Option<&ambition_characters::control::DrivingParticipant>,
+            ),
+            With<FeatureSimEntity>,
+        >,
+        mut projectiles: MessageWriter<ProjectileSpawnRequest>,
+        mut sfx: ambition_sfx::BodySfxWriter,
+    ) {
+        let dt = world_time.scaled_dt;
+        if dt <= 0.0 {
+            return;
+        }
+        let mut order: Vec<(ae::Vec2, f32, f32, Option<SimId>, Entity)> = sentries
+            .iter()
+            .map(|(entity, sentry)| {
+                (
+                    sentry.pos,
+                    sentry.remaining_s,
+                    sentry.fire_cooldown,
+                    ids.get(entity).ok().cloned(),
+                    entity,
+                )
+            })
+            .collect();
+        order.sort_by(|a, b| {
+            a.0.x
+                .total_cmp(&b.0.x)
+                .then_with(|| a.0.y.total_cmp(&b.0.y))
+                .then_with(|| a.1.total_cmp(&b.1))
+                .then_with(|| a.2.total_cmp(&b.2))
+                .then_with(|| a.3.cmp(&b.3))
+        });
+        for (_, _, _, _, entity) in order {
+            let Ok((entity, mut sentry)) = sentries.get_mut(entity) else {
+                continue;
+            };
+            sentry.remaining_s -= dt;
+            if sentry.remaining_s <= 0.0 {
+                if let Ok(mut ec) = commands.get_entity(entity) {
+                    ec.despawn();
+                }
+                continue;
+            }
+            sentry.fire_cooldown -= dt;
+            if sentry.fire_cooldown > 0.0 {
+                continue;
+            }
+            // Nearest enemy, with a named tie-break. `min_by` on distance alone
+            // keeps the first minimum, so query order would pick between
+            // equidistant enemies, and that changes who dies.
+            let target = winner_by(
+                enemies
+                    .iter()
+                    // A dead enemy is an intangible corpse; skip it.
+                    // Use the effective faction, not the authored one: a possessed
+                    // NPC keeps `ActorFaction::Enemy` and fights as a Player
+                    // through its driver. Same answer as the strike resolver.
+                    // Not widened to `can_damage`: which classes a sentry engages
+                    // (Enemy, not Npc/Boss/Neutral) is a separate design question.
+                    .filter(|(_, f, health, (out_of_play, plane), _, driver)| {
+                        ambition_combat::targeting::effective_faction(**f, *driver)
+                            == ActorFaction::Enemy
+                            && !ambition_combat::util::body_is_untouchable(*health, *out_of_play, *plane)
+                    })
+                    .filter(|(aabb, _, _, _, _, _)| aabb.center.distance(sentry.pos) <= SENTRY_RANGE),
+                |(aabb, _, _, _, _, _)| aabb.center.distance_squared(sentry.pos),
+                |(_, _, _, _, id, _)| *id,
+            )
+            .map(|(aabb, _, _, _, _, _)| aabb.center);
+            let Some(target) = target else {
+                // No target: idle, with the cadence ready to fire as soon as an
+                // enemy arrives.
+                sentry.fire_cooldown = 0.0;
+                continue;
+            };
+            let dir = (target - sentry.pos).normalize_or_zero();
+            if dir == ae::Vec2::ZERO {
+                continue;
+            }
+            projectiles.write(ProjectileSpawnRequest::open(
+                entity,
+                ProjectileSpawn {
+                    origin: sentry.pos,
+                    dir,
+                    speed: SENTRY_BOLT_SPEED,
+                    damage: SENTRY_BOLT_DAMAGE,
+                    max_lifetime: SENTRY_BOLT_LIFETIME,
+                    half_extent: SENTRY_BOLT_HALF,
+                    gravity: 0.0,
+                    visual_id: String::new(),
+                    // Straight volley: this ability authors no bounce.
+                    bounces: 0,
+                    bounce_on_world_contact: false,
+                    splash_half_extent: 0.0,
+                    boomerang_return_s: None,
+                },
+                ProjectileStart::StepThisTick,
+            ));
+            sentry.fire_cooldown = SENTRY_FIRE_INTERVAL_S;
+            // The turret fires, with the source it inherited at spawn.
+            sfx.write_for(
+                entity,
+                ambition_sfx::SfxMessage::Play {
+                    id: ambition_sfx::ids::WORLD_ROCK_HIT,
+                    pos: sentry.pos,
                 },
             );
         }

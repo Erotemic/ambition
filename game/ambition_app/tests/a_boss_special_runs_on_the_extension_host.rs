@@ -181,15 +181,18 @@ fn a_module_rebuilt_as_wasm_replaces_the_linked_one_in_the_same_game() {
         "the loaded build replaced the linked one: {:?}",
         fan.runner
     );
-    // Every module the file provides replaced its linked build: one entry
-    // each, all loaded, none linked.
+    // Every module the file provides replaced its linked build: all its
+    // entries loaded, none linked. A module can have more than one entry (the
+    // sentry deploys and ticks its turret), so the replacements are counted
+    // by module.
     let loaded = admitted
         .entries
         .iter()
         .filter(|e| matches!(e.runner, ambition_platformer2d::extension::EntryRunner::Loaded { .. }))
         .count();
     assert_eq!(loaded, admitted.entries.len(), "no linked entry runs beside the loaded ones");
-    assert_eq!(admitted.replaced.len(), loaded, "{:?}", admitted.replaced);
+    let modules: std::collections::BTreeSet<_> = admitted.entries.iter().map(|e| e.module.to_string()).collect();
+    assert_eq!(admitted.replaced.len(), modules.len(), "{:?}", admitted.replaced);
     let bursts = fight_requests(&mut sim, TWO_STRIKES);
     assert!(bursts.len() >= 2, "{bursts:?}");
     assert!(bursts.iter().all(|&n| n == FAN), "{bursts:?}");
@@ -471,6 +474,74 @@ fn a_wielded_shockwave_runs_on_the_extension_host() {
             (before - after - 25.0).abs() < 1.0,
             "rollback={rollback}: the slam paid its 25 mana ({before} -> {after}, regen aside)"
         );
+        assert_eq!(ambition_platformer2d::rollback::session_health(sim.world()), Ok(()));
+    }
+}
+
+/// ⭐ A MODULE-OWNED ENTITY, in the assembled game: Attack while holding the
+/// sentry gauntlet → the `sentry` module's `deploy` entry → 28 mana paid and a
+/// turret spawned by the world (its identity minted from the player's, its
+/// side the player's) → each tick the `turret` entry keeps its cadence in a
+/// record on the turret → at the end of its 5 s lifetime the world removes
+/// it. The second arm runs it under a GGRS sync-test session, where the
+/// deploy and every turret tick are rewound and replayed.
+#[test]
+fn a_wielded_sentry_deploys_a_module_entity_on_the_extension_host() {
+    use ambition_platformer2d::abilities::module_entity::ModuleEntity;
+    use ambition_platformer2d::combat::components::ActorFaction;
+    use ambition_platformer2d::platformer::sim_id::SimId;
+    for rollback in [false, true] {
+        let mut options = Platformer2dSimHarnessOptions::default().with_timestep(TimestepMode::fixed_60hz());
+        if rollback {
+            options = options.with_sync_test_rollback_settings(4, 10);
+        }
+        let mut sim = Platformer2dSimHarness::new_with_options(options).expect("the sandbox builds");
+        let player = arm_the_player(&mut sim, "sentry");
+        for _ in 0..5 {
+            sim.step(AgentAction::default());
+        }
+        let before = mana_of(&sim, player).expect("the home body holds mana");
+        let player_id = sim.world().get::<SimId>(player).cloned().expect("the player has an identity");
+        let turrets = |sim: &mut Platformer2dSimHarness| {
+            let world = sim.world_mut();
+            let mut q = world.query::<(Entity, &ModuleEntity, &SimId, &ActorFaction)>();
+            q.iter(world)
+                .map(|(e, m, id, side)| (e, m.kind.clone(), id.clone(), *side))
+                .collect::<Vec<_>>()
+        };
+        let mut after = before;
+        for frame in 0..30 {
+            sim.step(AgentAction {
+                attack: frame == 0,
+                ..AgentAction::default()
+            });
+            // Read close to the press: the pool refills over time.
+            if frame == 3 {
+                after = mana_of(&sim, player).expect("the home body holds mana");
+            }
+        }
+        let deployed = turrets(&mut sim);
+        assert_eq!(deployed.len(), 1, "rollback={rollback}: one turret from one press: {deployed:?}");
+        let (turret, kind, id, side) = deployed[0].clone();
+        assert_eq!(kind, "sentry");
+        assert!(
+            id.as_str().starts_with(player_id.as_str()),
+            "rollback={rollback}: the turret's identity {id:?} is minted from the player's {player_id:?}"
+        );
+        assert_eq!(side, ActorFaction::Player, "rollback={rollback}");
+        assert!(
+            sim.world().get::<ambition_platformer2d::extension::BodyRecords>(turret).is_some(),
+            "rollback={rollback}: the turret's cadence is a record on the turret"
+        );
+        assert!(
+            (before - after - 28.0).abs() < 1.0,
+            "rollback={rollback}: the deploy paid its 28 mana ({before} -> {after}, regen aside)"
+        );
+        // 5 s at 60 Hz, from the press.
+        for _ in 0..280 {
+            sim.step(AgentAction::default());
+        }
+        assert!(turrets(&mut sim).is_empty(), "rollback={rollback}: the turret's lifetime ended");
         assert_eq!(ambition_platformer2d::rollback::session_health(sim.world()), Ok(()));
     }
 }

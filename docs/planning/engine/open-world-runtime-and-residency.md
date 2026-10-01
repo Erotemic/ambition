@@ -1393,7 +1393,7 @@ sorted ids of every live room (`LastCutsceneRoom` is a list, as
 `LastQuestRoom` became at cut 7k) and queues the cutscenes of each id that
 becomes live, in id order. A second live room of an id already live
 queues nothing. The visit tracker flags each live room, because a room is
-live while a player is in it. Schema 285 -> 286. Witnesses in
+live while a player is in it. Schema 286 -> 287. Witnesses in
 `two_players_two_live_rooms.rs`, each with a one-room control arm (Bob
 not driven): `a_room_cutscene_plays_when_its_room_becomes_live_beside_another`
 (a test cutscene bound to the hub) and

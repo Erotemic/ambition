@@ -1,6 +1,6 @@
 {
   "peer_checksum_schema": {
-    "version": "ggrs-rollback-schema-v286",
+    "version": "ggrs-rollback-schema-v287",
     "rows": [
       "actor.active_combatant\tcomponent-canonical\tActiveCombatant",
       "actor.aggression\tcomponent-clone-cursor\tActorAggression",
@@ -87,6 +87,7 @@
       "entity:pending_respawn\tcomponent-canonical\tPendingRespawn",
       "entity:respawn_grace\tcomponent-canonical\tRespawnGrace",
       "extension.body_records\tcomponent-clone-custom-checksum\tBodyRecords\tbevy_ggrs clone snapshot + every module record of the body: schema shape digest and canonical values",
+      "extension.session_records\tcomponent-clone-custom-checksum\tSessionRecords\tbevy_ggrs clone snapshot + every session-attached module record: schema shape digest and canonical values",
       "player.projectile_state\tcomponent-canonical\tPlayerProjectileState",
       "player.safety_state\tcomponent-canonical\tPlayerSafetyState",
       "projectile.allegiance\tcomponent-canonical\tProjectileAllegiance",

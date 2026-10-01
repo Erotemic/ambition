@@ -3305,7 +3305,7 @@ watch_paths = ["Cargo.toml"]
 rationale = "the extension SDK must stay a registered workspace member"
 source_doc = "docs/planning/engine/extension-model.md"
 severity = "error"
-members = ["ambition_extension_sdk", "ambition_extension_host", "ambition_extension_wasm", "ambition_boss_special_port", "ambition_combat_port", "ambition_content_modules"]
+members = ["ambition_extension_sdk", "ambition_extension_host", "ambition_extension_wasm", "ambition_boss_special_port", "ambition_combat_port", "ambition_content_modules", "ambition_extension_fixture_modules"]
 
 [[policy]]
 id = "engine.ambition_extension_sdk-portable"

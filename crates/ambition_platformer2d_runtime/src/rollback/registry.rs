@@ -938,10 +938,16 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// in `extension.body_records`. `combat.held_damage_boxes` (with its entity map)
 /// is new: the held-box adapter's record of the box entities it holds for a
 /// module.
-/// ⛔⛤ 285 -> 286: `cutscene.last_room` holds the ids of every live room,
+/// ⛔⛤ 285 -> 286: `ability.sentry` and `entity:sentry` are gone: the sentry is
+/// an extension module. Its turret is a module entity: `ability.module_entity`
+/// and `entity:module_entity` are new (`ModuleEntity`: kind, position,
+/// lifetime), and the turret's cadence is a record in
+/// `extension.body_records` on the turret. `extension.session_records` is new:
+/// the session-attached module records, on the session root (I5).
+/// ⛔⛤ 286 -> 287: `cutscene.last_room` holds the ids of every live room,
 /// not one id, so a room-entry cutscene is queued for a room that becomes
 /// live beside another (OW1 Cut C).
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 286;
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 287;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

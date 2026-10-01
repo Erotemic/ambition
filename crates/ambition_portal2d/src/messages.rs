@@ -38,7 +38,7 @@ pub struct PortalFireIntent {
     ///
     /// A portal shot is a rollback anchor (`require_rollback::<PortalShot>`),
     /// so it needs an identity. Only the emitter can derive one, as with
-    /// `deploy_sentry`, `open_vortex_well`, and `drop_hazard`.
+    /// `spawn_module_entity`, `open_vortex_well`, and `drop_hazard`.
     ///
     /// `None` is a shot with no identity (a script or fixture without a body).
     /// The populated timeline's identity census reports every anonymous

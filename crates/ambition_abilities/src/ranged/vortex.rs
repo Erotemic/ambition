@@ -135,7 +135,7 @@ pub fn fire_vortex_system(
 
 /// Open one singularity. The only way a vortex well enters the world.
 ///
-/// One place, like `deploy_sentry`, so tests can spawn the entity the way
+/// One place, like `module_entity::spawn_module_entity`, so tests can spawn the entity the way
 /// production does. An archetype spawned only inside a system that needs a
 /// held gauntlet, mana, and an aim would be unreachable by coverage sweeps.
 ///
@@ -235,7 +235,7 @@ pub fn update_vortex_wells(
             // Use the effective faction, not the authored one: a possessed NPC
             // keeps `ActorFaction::Enemy` and moves its side through the
             // driver, so the authored field would pull the player's own body.
-            // Not widened past the `Enemy` class (see `update_sentries`).
+            // Not widened past the `Enemy` class (as the sentry: `ambition.world.module_entity_tick`'s `nearest_enemy`).
             // A dead enemy is an intangible corpse; the well does not drag it.
             if ambition_combat::targeting::effective_faction(*faction, driver)
                 != ActorFaction::Enemy

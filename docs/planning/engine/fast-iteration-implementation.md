@@ -337,6 +337,8 @@ host in the shipped game; I4 is not complete (see *Open* below).
 | Request port `ambition.combat.held_damage_box` (a box that lives while the module re-submits its slot and generation each tick; the combat domain owns the entity, its record `combat.held_damage_boxes` is rollback state with mapped entities) — the I5 "module-owned entity" pattern without an entity in the module | values `ambition_combat_port::HeldDamageBoxPort`; adapter `ambition_combat::extension::lower_held_damage_boxes` | card on `HeldDamageBoxPort`; the saddle point's parity and sync-test arms |
 | Phase `wielded_use` → `ItemPickupSet::WieldedAbilities` (after the native wielded chain); trigger `ambition.items.wielded_use` (selector = held item id; press, driven, body, gravity basis, aim, mana) and requests `ambition.resources.spend_mana`, `ambition.feedback.body_sound`, plus the damage box and projectile ports offered again in this phase. `extension_composition::install_ports` is the one list of offered ports; test harnesses call it | values `ambition_combat_port::wielded`; adapters `ambition_abilities::extension` | port cards; `the_ports_mana_rule_is_the_banks` (the port's `can_pay_mana` and the bank's `pay` are one rule) |
 | Four wielded abilities as modules: the shockwave, the beam, the volley and the meteor (the wielded kit's damage/projectile verbs). Their native systems left `ambition_abilities`; they are test-only references in `ambition_content` | `game/ambition_content_modules/src/{shockwave,beam,volley,meteor,wielded}.rs` | `wielded_ability_parity_tests` (linked AND WASM, five bodies: driven and brain-driven, gravity down/sideways/up, aim stick/movement stick/none, too little mana, no pool; damage boxes, projectiles, mana paid, sounds; poisons "ignore the gravity frame", "a beam for an undriven body" and "never pay" each fail it). Deliberate change: a module's box is on the wielder's EFFECTIVE faction (the native hard-coded the player side) and has no inspector name |
+| Module-owned entities (I5's pattern WITH an entity): request `ambition.world.spawn_module_entity` (`kind`, position, lifetime; the world mints the identity from the spawner's, freezes its effective side, team, session and presentation source; a spawner that cannot name it is refused, and `Wielder::names_spawns` (wielded_use v2) lets a module ask first) and phase `module_entity_tick` → `ItemPickupSet::WieldedAbilities`, after `wielded_use` (`extension_composition::order_phases`), with trigger `ambition.world.module_entity_tick` (selector = kind; position, lifetime left, nearest `Enemy`-side hittable body) and requests `ambition.projectiles.spawn` and `ambition.feedback.body_sound`. The world ages every module entity, bound or not, and removes it at the end of its lifetime; the module's per-entity state is a record on the entity (`extension.body_records`), so it goes with it. Rollback: `ModuleEntity` (`entity:module_entity`, `ability.module_entity`), schema 286 | values `ambition_combat_port::module_entity`; adapters `ambition_abilities::module_entity` | port cards; their wire test |
+| The sentry is a module: `deploy` on `wielded_use`, `turret` on `module_entity_tick` (a `Cadence` record on the turret). The native systems left `ambition_abilities` (WIELDED_MEMBERS 9 → 7) for the test-only references | `game/ambition_content_modules/src/sentry.rs` | `sentry_parity_tests` (linked AND WASM, tick for tick: turret identity, side, team, presentation source, position, lifetime; bolts by owner; sounds; mana; five deployers — driven, brain-driven, possessed, too little mana, no identity — and an equidistant pair, a dead, a far and an out-of-range enemy; poisons "arm delay 0.15" and "no identity tie-break" each fail it); `the_spawn_order_of_the_deployers_decides_nothing`; `app_it::a_boss_special_runs_on_the_extension_host::a_wielded_sentry_deploys_a_module_entity_on_the_extension_host` (with a GGRS sync-test arm); `app_it::rollback_populated_timeline` (the module road's turret on the populated SyncTest timeline). Deliberate change: the native deploy minted the turret's identity before it asked for mana, so an unpaid press used a number of the body's mint stream; the module does not |
 | Request ports of one phase are lowered in INSTALL order (`ExtensionSet::LowerPort`), so two adapters that write one domain message have an order someone chose | `ambition_extension_host` | `request_ports_are_lowered_in_the_order_they_were_installed` (ambiguity detection at `Error`; without the rule the build fails) |
 | Phase `technique_execution` → `CombatSet::ContentSpecials` | `ambition_platformer2d_runtime::extension_composition` | — |
 | Every boss technique is a module (eleven: apple rain, the echo fan, the eye beam, the gradient cascade, the gradient nova, the minima trap, mode collapse, the overfit volley, the overflow flood, the saddle point and the seismic stomp; `strike::{once, once_numbered, locked, locked_when}` hold the shared strike rules) | `game/ambition_content_modules`; the native systems are test-only references; `ambition_content` registers no technique rollback state | `specials::module_parity_tests` (tick-for-tick on the linked AND the WASM road: requests, effects AND live hitbox entities, owner and move-use credit, telegraph locks, gameplay `dt`, the boss's OWN live room and a boss whose room cannot be told; poisons "no strike reset", "drop the occurrence", "no telegraph lock", "drop one loaded request", "apple rain forgets its lane sequence", "the flood floods without a room", "the volley skips its first sample", "the strike number does not advance", "the crawler on the wrong side", "the saddle arm never turns" and "a held box is never released" each fail it); `app_it::a_boss_special_runs_on_the_extension_host` (real brain press; GGRS sync-test arms for the fan's latch AND the saddle point's held arm entity — unregistering `combat.held_damage_boxes` fails it with a checksum mismatch); `app_it::two_players_two_live_rooms` (apple rain and the flood in each boss's own room) |
@@ -384,7 +386,7 @@ about (`a_call_that_leaves_its_record_initial_stores_nothing`).
 re-minting the identity on a local reload (D6); the deterministic fault
 policy (today a fault discards the invocation's output and is counted in
 `ExtensionFaults`; it does not stop the session); a second technique with an
-observation port; session-scoped records (refused at admission until I5).
+observation port. (Session-attached records landed with I5's first cut; see I5.)
 
 **The loaded road (an I6/I7 first cut), 2026-10-01: a module edit no longer
 compiles the engine.** One backend, not the two-backend comparison I6 asks
@@ -493,6 +495,18 @@ reference into the host does not satisfy no-relink procedural iteration.
 
 ## I5 - generic extension state through the existing rollback host
 
+**First cut, 2026-10-01 (state as it stands):**
+
+| Part | Where | Witness |
+| --- | --- | --- |
+| Body-attached records (`BodyRecords`, `extension.body_records`): the store, its checksum, retirement with the body; typed accessors from `record!` | `ambition_extension_host::store`, `ambition_extension_sdk::typed` | host tests; every migrated module's parity suite |
+| Session-attached records (`Attachment::Session`; `record! { .. = KEY, per session; .. }`): ONE record for the session, shared by every invocation of the module whatever body it runs for, in `SessionRecords` (`extension.session_records`, schema 286) on the session root — the runtime makes it a required component of `SessionRoot`, so it retires with the session and a new session starts from initial records. No session, or two, faults the call (`Fault::NoSession`); an idle body's `ResetState` does not reset a session record | `ambition_extension_host::{store, exec}`; `ambition_platformer2d_runtime::extension_composition` | host tests (`a_session_record_is_one_record_that_every_invocation_shares`, `a_session_record_with_no_one_session_faults`, `an_idle_body_does_not_reset_a_session_record`, `a_new_session_starts_from_the_initial_record`); `app_it::a_loaded_module_keeps_session_state` — a module the game does NOT link (`fixtures/extension_fixture_modules`, built to WASM and loaded) declares a session tally the host was never compiled with; it counts every press and every third press fires a bolt (a record field deciding a later spawn), under a GGRS sync-test arm. Poison: unregister `extension.session_records` ⇒ the rollback arm counts 3 of 7 |
+| Module-owned entities: per-entity records go with the entity | see I4's table (`ambition.world.spawn_module_entity`) | `sentry_parity_tests`; the sentry's sync-test arm |
+
+**Open:** save eligibility (`Checkpoint`, `Durable` are refused at admission);
+durable references to unloaded entities; a graph/list record populated in real
+play (I7.3's fixture); measurement of record visits and copied bytes.
+
 **Class:** DO. **Requires:** I4; I3 before activation of changed state schemas.
 Read core snapshot traits, rollback registry/registrar implementation, current
 GGRS participation/identity probes, and
@@ -574,6 +588,21 @@ M1 loops. **Do not expand:** into a public mod marketplace, stable ABI for all
 Bevy internals, or several production language bindings.
 
 ## I7 - deliver the selected procedural path and retire its old road
+
+**I7.3 first cut, 2026-10-01: the graph fixture.** `fixtures/extension_fixture_modules`'s
+`trail_loop` (a crate the game does not link; the test builds it to WASM and
+loads it) keeps the cells a body passes through as a bounded graph in a
+body record (nodes, edges, the last cell, a loop cursor). A move that joins
+two connected nodes closes a cycle: breadth-first path, a damage box over the
+cycle's cells, the cycle's edges out of the graph. No engine IR, no new port:
+it uses `ambition.items.wielded_use` and `ambition.combat.damage_box`.
+Witnesses: its unit tests (a straight walk and its way back close nothing; a
+jump back over walked ground closes exactly that loop; the bound restarts the
+graph); `app_it::a_loaded_module_keeps_session_state::a_loaded_graph_module_closes_a_loop_the_same_way_through_rollback`
+(the player walks right, jumps back left and lands on walked floor; one loop
+closes near frame 110, the same tick on the GGRS sync-test arm; poison:
+unregister `extension.body_records` ⇒ a checksum mismatch at frame 108, the
+landing). Open: the graph is a fixture, not a shipped mechanic.
 
 **Class:** DO after M1 selection. **Requires:** I6.
 Keep the I4 reference as a test oracle where useful, not a second live provider.

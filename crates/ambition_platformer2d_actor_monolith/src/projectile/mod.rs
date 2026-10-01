@@ -21,7 +21,7 @@ pub use allegiance::{stamp_new_projectile_allegiance, ProjectileAllegiance};
 
 pub mod systems;
 #[cfg(test)]
-mod sentry_bolt_damage_tests;
+mod module_entity_bolt_damage_tests;
 
 pub use systems::{charge_projectile_input, step_projectiles, ProjectileStepSet};
 

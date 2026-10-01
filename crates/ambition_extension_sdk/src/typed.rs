@@ -7,6 +7,10 @@
 //! tag is the stable identity a schema change keeps. The struct's `Default` is
 //! the record's initial value (false, zero, `None`, empty).
 //!
+//! A record is attached to the body the entry runs for. `= KEY, per session;`
+//! declares one record for the whole session instead, shared by every
+//! invocation of the module (a session tally, a cursor across bodies).
+//!
 //! ```
 //! use ambition_extension_sdk::{record, SchemaKey};
 //!
@@ -149,7 +153,7 @@ impl<T: RecordField> RecordField for Vec<T> {
 macro_rules! record {
     (
         $(#[$meta:meta])*
-        $vis:vis struct $name:ident = $key:expr;
+        $vis:vis struct $name:ident = $key:expr $(, per $attach:ident)?;
         $(
             $(#[$fmeta:meta])*
             $tag:literal $field:ident : $ty:ty $([max $max:expr])?
@@ -164,11 +168,12 @@ macro_rules! record {
         impl $name {
             pub const KEY: $crate::SchemaKey = $key;
 
-            /// The schema: one body record, transient.
+            /// The schema: one record for each body (or, with `per session`,
+            /// one for the session), transient.
             pub fn schema() -> $crate::StateSchema {
                 $crate::StateSchema {
                     key: Self::KEY,
-                    attachment: $crate::Attachment::Body,
+                    attachment: $crate::record!(@attach $($attach)?),
                     save: $crate::SaveEligibility::Transient,
                     fields: vec![
                         $(
@@ -233,6 +238,9 @@ macro_rules! record {
     };
     (@max $max:expr) => { Some($max) };
     (@max) => { None };
+    (@attach session) => { $crate::Attachment::Session };
+    (@attach body) => { $crate::Attachment::Body };
+    (@attach) => { $crate::Attachment::Body };
 }
 
 #[cfg(test)]

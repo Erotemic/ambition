@@ -377,7 +377,8 @@ fn buck_throw(owner: Entity, owner_pos: Vec2, back: ae::Aabb) -> impl Bundle {
 pub fn conduct_gnu_ton(
     mut commands: Commands,
     time: Res<ambition_time::WorldTime>,
-    world: ambition_platformer2d::platformer::lifecycle::SoleLiveRoom<ae::RoomGeometry>,
+    // The hall is the scholar's own live room's (OW1 cut 7).
+    world: ambition_platformer2d::platformer::lifecycle::LiveRoomOf<ae::RoomGeometry>,
     mut scholars: Query<
         (
             Entity,
@@ -454,7 +455,7 @@ pub fn conduct_gnu_ton(
         // Measured every tick, not once: the pair can be carried into another
         // room (a possessed rider pilots the gnu through a door), and fists posed
         // against the last room's floor fall out of this one.
-        let Some(hall) = measure_hall(&world.0, giant_kin.pos) else {
+        let Some(hall) = world.of(scholar).and_then(|geometry| measure_hall(&geometry.0, giant_kin.pos)) else {
             continue;
         };
         conductor.hall = Some(hall);

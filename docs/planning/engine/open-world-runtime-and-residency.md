@@ -823,7 +823,8 @@ systems it stops (read from the parameter lists, 2026-09-30):
 `update_boss_encounters` ✅ (7e; its scripted road in the review of 7e), `heal_save_shrine_system` ✅ (7d),
 `sync_encounter_reward_chests` ✅ (7d), `retire_rewards_for_rearmed_encounters` ✅ (7c),
 `record_placed_ground_items` ✅ (7d), `physics_spawn_debris_messages` and
-`tick_npc_idle_barks`, and the content bosses (`cut_rope` ✅ in the review of 7e, `gnu_ton`). The
+`tick_npc_idle_barks`, and the content bosses (`cut_rope` ✅ in the review of 7e, `gnu_ton` and the
+flying spaghetti monster ✅ in cut 7j). The
 presentation readers in `ambition_render` are P5's (a view per player). The
 new reader is `LiveRoomOf<T>`: `T` of the live room an entity is in, by the
 rule of `LiveRooms::of`. Item motion and falling chests now step each
@@ -1013,6 +1014,23 @@ occurrence rule with one live room and with two. Witness:
 `the_attunement_starts_when_the_chamber_is_one_of_two_live_rooms` (the
 control, `hall` live alone, starts nothing; with the sole-room read
 restored, neither case started it).
+
+✅ **Cut 7j landed 2026-09-30: GNU-ton and the flying spaghetti monster
+fight in their own live rooms.** Their conductors measured the hall against
+the sole live room's geometry, so with two rooms live they did not run, and
+the bosses stood still. The GNU-ton ladder gate read the sole live room's
+geometry and overlay, and asked whether ANY GNU-ton was dead. Each conductor
+now measures the hall against its boss's own live room (`LiveRoomOf`). The
+ladder gate runs for each live room root: it hides that room's ladders
+until the GNU-ton in that room is dead, and writes that room's overlay.
+Witnesses: `gnu_ton_measures_its_hall_in_its_own_live_room` and
+`the_fsm_measures_its_hall_in_its_own_live_room` (Bob in `hall_of_bosses`,
+#0; Alice through its door to the arena, #1: the boss is in #1 and its hall
+is measured; with the sole-room read restored, the boss was in #1 and no
+hall was measured) and `each_live_arena_gates_its_ladder_by_its_own_boss`
+(two live arenas, the boss of the second dead: the first keeps its ladder
+hidden and its floor gate; with the room filter removed, the dead boss
+opened both).
 
 ⚠ Still owed from cut 5: `outlook_for(room: &str)` is keyed by definition;
 the `SoleLiveRoomSpec` readers each need a subject before a second live room

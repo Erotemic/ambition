@@ -43,29 +43,46 @@ fn boss_is_gnu_ton(
         || boss.config.name.eq_ignore_ascii_case("gnu-ton")
 }
 
-/// Derive GNU-ton arena collision overlays from current boss state.
+/// Derive GNU-ton arena collision overlays from current boss state, in each
+/// live room that is the arena.
 ///
-/// The authored `RoomGeometry` remains immutable: while the boss is alive the
-/// overlay hides ladder regions; after defeat it exposes those regions and removes
-/// the named floor gate. `WorldPrep` rebuilds this overlay from scratch each
-/// frame.
+/// The authored `RoomGeometry` remains immutable: while the room's boss is
+/// alive the room's overlay hides ladder regions; after defeat it exposes those
+/// regions and removes the named floor gate. `WorldPrep` rebuilds this overlay
+/// from scratch each frame. Each live arena reads its own boss, so a defeat in
+/// one live room opens only that room's ladder.
 pub fn gate_gnu_ton_arena_ladder(
-    world: ambition_platformer2d::platformer::lifecycle::SoleLiveRoom<RoomGeometry>,
-    bosses: Query<(BossClusterRef, &ambition_characters::actor::BodyHealth)>,
+    arenas: Query<
+        (&ambition_platformer2d::platformer::lifecycle::LiveRoomInstance, &RoomGeometry),
+        With<ambition_platformer2d::platformer::lifecycle::RoomInstanceRoot>,
+    >,
+    live: ambition_platformer2d::platformer::lifecycle::LiveRooms,
+    bosses: Query<(Entity, BossClusterRef, &ambition_characters::actor::BodyHealth)>,
     mut overlays: ambition_platformer2d::world::RoomOverlays,
 ) {
-    // The sole live room's overlay: this content is one room.
-    let Some(mut overlay) = overlays.sole() else {
-        return;
-    };
-    if world.0.name != ARENA_ROOM_NAME {
-        return;
+    for (room, world) in &arenas {
+        if world.0.name != ARENA_ROOM_NAME {
+            continue;
+        }
+        let Some(overlay) = overlays.for_room(Some(&ambition_platformer2d::platformer::lifecycle::InRoomInstance(*room))) else {
+            continue;
+        };
+        gate_one_arena(world, *room, &live, &bosses, overlay);
     }
-    // Defeat = an ECS gnu_ton boss observed `alive = false`. An empty query
-    // (boss not yet spawned) is NOT defeat — the ladder stays hidden.
-    let boss_defeated = bosses.iter().any(|(feature, health)| {
+}
+
+fn gate_one_arena(
+    world: &RoomGeometry,
+    room: ambition_platformer2d::platformer::lifecycle::LiveRoomInstance,
+    live: &ambition_platformer2d::platformer::lifecycle::LiveRooms,
+    bosses: &Query<(Entity, BossClusterRef, &ambition_characters::actor::BodyHealth)>,
+    mut overlay: Mut<ambition_platformer2d::world::FeatureEcsWorldOverlay>,
+) {
+    // Defeat = an ECS gnu_ton boss in this room observed `alive = false`. An
+    // empty query (boss not yet spawned) is NOT defeat — the ladder stays hidden.
+    let boss_defeated = bosses.iter().any(|(entity, feature, health)| {
         let boss = feature.as_boss_ref();
-        boss_is_gnu_ton(&boss) && !health.alive()
+        live.of(entity) == Some(room) && boss_is_gnu_ton(&boss) && !health.alive()
     });
 
     if boss_defeated {

@@ -877,3 +877,70 @@ fn an_item_carried_out_of_a_room_another_player_holds_crosses_whole() {
          or was not put down in #1, or outlived #1 or was copied into #0"
     );
 }
+
+/// Alice goes from `hall_of_bosses` (#0), where Bob, driven by slot 1, stays,
+/// to `arena` (#1).
+/// The boss's live room, and whether its conductor has measured its hall
+/// within 120 ticks.
+fn a_conducted_boss_beside_bob<C: bevy::prelude::Component>(
+    arena: &str,
+    hall: fn(&C) -> Option<ambition_content::bosses::hall::Hall>,
+) -> (Option<Option<LiveRoomInstance>>, bool, LiveRoomInstance) {
+    let (mut sim, first) = alice_leaves_bob_in(
+        "hall_of_bosses",
+        arena,
+        Some(ambition_platformer2d::characters::control::PlayerSlot(1)),
+        walk_through_the_door_to,
+    );
+    let second = first.next();
+    assert_eq!(
+        where_they_are(&mut sim),
+        (Some(second), Some(Some(first))),
+        "precondition: Alice is not in #1 with Bob in #0"
+    );
+    let mut seen = (None, false);
+    for _ in 0..120 {
+        sim.step(base());
+        let world = sim.world_mut();
+        seen = world
+            .query::<(&C, Option<&InRoomInstance>)>()
+            .iter(world)
+            .next()
+            .map(|(conductor, room)| (Some(room.map(|room| room.0)), hall(conductor).is_some()))
+            .unwrap_or((None, false));
+        if seen.1 {
+            break;
+        }
+    }
+    (seen.0, seen.1, second)
+}
+
+/// OW1 cut 7j: GNU-ton's conductor measures the hall of the scholar's own live
+/// room while another room is live. When it read the sole live room, it did
+/// not run with two rooms live, and the pair stood still.
+#[test]
+fn gnu_ton_measures_its_hall_in_its_own_live_room() {
+    let (room, measured, second) = a_conducted_boss_beside_bob(
+        "gnu_ton_arena",
+        ambition_content::bosses::gnu_ton::GnuTonConductor::hall,
+    );
+    assert_eq!(
+        (room, measured),
+        (Some(Some(second)), true),
+        "(the scholar's live room, its hall measured): GNU-ton was not conducted in #1"
+    );
+}
+
+/// OW1 cut 7j: the flying spaghetti monster's conductor, the same.
+#[test]
+fn the_fsm_measures_its_hall_in_its_own_live_room() {
+    let (room, measured, second) = a_conducted_boss_beside_bob(
+        "flying_spaghetti_monster_arena",
+        ambition_content::bosses::fsm::FsmConductor::hall,
+    );
+    assert_eq!(
+        (room, measured),
+        (Some(Some(second)), true),
+        "(the god's live room, its hall measured): the god was not conducted in #1"
+    );
+}

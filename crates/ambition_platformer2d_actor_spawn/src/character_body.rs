@@ -130,6 +130,7 @@ impl GrantedBodyFacts {
             scope.remove::<(
                 ambition_combat::body_rig::BodyRig,
                 ambition_combat::body_rig::BodyRigPose,
+                ambition_combat::hurtbox_resolution::BodyPoseClock,
             )>();
         }
         if movement_tuning {
@@ -379,6 +380,13 @@ pub fn grant_prepared_character_body(
                 ambition_combat::body_rig::BodyRig(rig),
                 ambition_combat::body_rig::BodyRigPose::default(),
             ));
+            // The clocks the pose is solved from: the body pose and the gait.
+            // Without them the rig is solved as standing idle on every tick,
+            // walking or not. The rig is the only source of this component
+            // today, so it goes and comes with the rig: on a body without a
+            // rig it would select authored hurtbox pose profiles, which the
+            // shipped bodies do not do.
+            scope.queue_component_upsert(ambition_combat::hurtbox_resolution::BodyPoseClock::default, |_| {});
         }
         // THE AUTHORED BODY, which had no consumer at all.
         //

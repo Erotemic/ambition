@@ -18,13 +18,20 @@ use ambition_entity_catalog::{HurtboxDoc, HurtboxVolume};
 #[derive(Component, Debug, Clone, PartialEq)]
 pub struct AuthoredHurtboxes(pub HurtboxDoc);
 
-/// Authoritative body-state pose and elapsed proper time. Pose ids are gameplay
-/// facts from [`BODY_POSES`], not renderer animation rows.
+/// Authoritative body-state pose and gait, each with its elapsed proper time.
+/// Pose ids are gameplay facts from [`BODY_POSES`], not renderer animation
+/// rows. The gait is how a grounded body moves ([`grounded_gait`]); it is kept
+/// apart from the pose, so the hurtbox profiles keyed by pose id do not change
+/// when a body walks.
 #[derive(Component, Debug, Clone, PartialEq)]
 pub struct BodyPoseClock {
     pub pose: String,
     /// Seconds since this pose was entered, in the body's own proper time.
     pub elapsed_s: f32,
+    pub gait: Gait,
+    /// Seconds since this gait was entered, in the body's own proper time: the
+    /// phase of a walk or run clip.
+    pub gait_elapsed_s: f32,
 }
 
 impl BodyPoseClock {
@@ -32,7 +39,42 @@ impl BodyPoseClock {
         Self {
             pose: pose.into(),
             elapsed_s,
+            gait: Gait::Standing,
+            gait_elapsed_s: 0.0,
         }
+    }
+}
+
+/// How a grounded body moves, from simulation facts only. Presentation picks
+/// its Idle / Walk / Run row with the same rule ([`grounded_gait`]), so the
+/// sprite row and the rig clip of a body agree.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum Gait {
+    #[default]
+    Standing,
+    Walking,
+    Running,
+    Skidding,
+}
+
+/// Below this speed along its run axis a PLAYER body stands. The dead band of
+/// the player's sprite rows.
+pub const PLAYER_STANDING_BELOW: f32 = 12.0;
+/// Below this speed along its run axis a brain-driven ACTOR stands.
+pub const ACTOR_STANDING_BELOW: f32 = 8.0;
+
+/// The gait of a grounded body. `speed` is the size of its velocity along its
+/// own run axis (not total speed: a body that slides down its own wall
+/// stands). `running` and `skidding` are `BodyMotionFacts`.
+pub fn grounded_gait(speed: f32, running: bool, skidding: bool, standing_below: f32) -> Gait {
+    if skidding {
+        Gait::Skidding
+    } else if speed < standing_below {
+        Gait::Standing
+    } else if running {
+        Gait::Running
+    } else {
+        Gait::Walking
     }
 }
 
@@ -264,18 +306,32 @@ pub fn resolve_body_hurtboxes(
 
 /// Write each body's pose clock from authoritative simulation state.
 ///
-/// Hitstun outranks airborne outranks idle.
+/// Hitstun outranks airborne outranks idle. The gait is written for a body on
+/// the ground and is `Standing` in the air. Both the actors (in `WorldPrep`)
+/// and the players (in `PlayerSimulation`) have moved this tick before this
+/// runs in `Combat`, so the gait reads this tick's motion.
+#[allow(clippy::type_complexity)]
 pub fn advance_body_pose_clocks(
     world_time: Res<ambition_time::WorldTime>,
     mut bodies: Query<(
-        &ambition_characters::actor::BodyCombat,
-        Option<&ambition_platformer2d_core::BodyGroundState>,
-        Option<&ambition_platformer2d_core::BodyModeState>,
-        Option<&ambition_time::ProperTimeScale>,
+        (
+            &ambition_characters::actor::BodyCombat,
+            Option<&ambition_platformer2d_core::BodyGroundState>,
+            Option<&ambition_platformer2d_core::BodyModeState>,
+            Option<&ambition_time::ProperTimeScale>,
+        ),
+        (
+            Option<&ambition_platformer2d_core::BodyKinematics>,
+            Option<&ambition_platformer2d_core::BodyMotionFacts>,
+            Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
+            // The split the sprite pickers draw: the player picker reads this
+            // camera state, the actor picker does not.
+            Has<ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState>,
+        ),
         &mut BodyPoseClock,
     )>,
 ) {
-    for (combat, ground, body_mode, scale, mut clock) in &mut bodies {
+    for ((combat, ground, body_mode, scale), (kinematics, facts, frame, player), mut clock) in &mut bodies {
         // The body's OWN proper time, the same clock `advance_move_playback` uses.
         // A dilated body's hitstun profile and its move profile must not disagree
         // about how much time passed, or a bullet-time hit resolves against a
@@ -293,6 +349,24 @@ pub fn advance_body_pose_clocks(
         } else {
             clock.pose = pose.to_string();
             clock.elapsed_s = 0.0;
+        }
+        let gait = match (ground.is_some_and(|g| g.on_ground), kinematics, facts) {
+            (true, Some(kinematics), Some(facts)) => {
+                let side = frame.map_or_else(
+                    || ambition_platformer2d_core::AccelerationFrame::new(ambition_platformer2d_core::DEFAULT_GRAVITY_DIR),
+                    |frame| frame.basis(),
+                )
+                .side;
+                let standing_below = if player { PLAYER_STANDING_BELOW } else { ACTOR_STANDING_BELOW };
+                grounded_gait(kinematics.vel.dot(side).abs(), facts.running, facts.skidding, standing_below)
+            }
+            _ => Gait::Standing,
+        };
+        if clock.gait == gait {
+            clock.gait_elapsed_s += dt;
+        } else {
+            clock.gait = gait;
+            clock.gait_elapsed_s = 0.0;
         }
     }
 }

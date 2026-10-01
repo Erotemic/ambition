@@ -140,3 +140,85 @@ fn an_admitted_rig_is_mary_os_default_hurt_geometry() {
         assert!(body.min.x <= x && x <= body.max.x, "{part:?} is outside {body:?}");
     }
 }
+
+/// Review finding [P3]: a walking body is posed from its walk clip, not from
+/// idle. Her rig's walk frames move her near hand away from where idle puts it,
+/// so a body solved from the wrong clip shows here.
+///
+/// She stands on the flat test course, then walks right. The gait is a
+/// simulation fact (`BodyPoseClock::gait`); the rig clip follows it and its
+/// frame advances on the gait clock.
+#[test]
+fn a_walking_mary_o_is_posed_from_her_walk_clip() {
+    use ambition_platformer2d::combat::body_rig::BodyRigPose;
+    use ambition_platformer2d::combat::hurtbox_resolution::{BodyPoseClock, Gait};
+    use ambition_platformer2d::input::ControlFrame;
+
+    let mut app = build_demo_app_with_body_rigs();
+    app.insert_resource(ambition_demo_mary_o::provider::MaryOEntryRoom(
+        ambition_demo_mary_o::test_course::TEST_COURSE_ROOM_ID.to_string(),
+    ));
+    ambition_platformer2d::scripted_input::drive_the_local_participant(&mut app);
+    let step = |app: &mut App, frame: ControlFrame| {
+        app.world_mut()
+            .resource_mut::<ambition_platformer2d::scripted_input::ScriptedControls>()
+            .0 = frame;
+        app.update();
+    };
+    let read = |app: &mut App| {
+        let mut players = app
+            .world_mut()
+            .query_filtered::<(&BodyRig, &BodyRigPose, &BodyPoseClock), With<PrimaryPlayer>>();
+        players.single(app.world()).ok().map(|(rig, pose, clock)| {
+            (
+                pose.clip.clone(),
+                pose.frame,
+                clock.gait,
+                pose.attachment(&rig.0, HAND_NEAR),
+            )
+        })
+    };
+
+    // Standing still on the ground: the idle clip.
+    // Thirty ticks in a row in the idle clip: she is settled on the floor.
+    let mut standing = (0, None);
+    let mut last = None;
+    for _ in 0..600 {
+        step(&mut app, ControlFrame::default());
+        last = read(&mut app);
+        match &last {
+            Some((Some(clip), _, Gait::Standing, hand)) if clip == "idle" => standing = (standing.0 + 1, *hand),
+            _ => standing = (0, None),
+        }
+        if standing.0 >= 30 {
+            break;
+        }
+    }
+    let standing_hand = standing
+        .1
+        .filter(|_| standing.0 >= 30)
+        .unwrap_or_else(|| panic!("Mary-O never stood in her idle clip; last read {last:?}"));
+
+    let walk = ControlFrame {
+        axis_x: 1.0,
+        aim_x: 1.0,
+        right_pressed: true,
+        ..ControlFrame::default()
+    };
+    let mut walk_frames = std::collections::BTreeSet::new();
+    let mut moved_hand = false;
+    let mut gaits = Vec::new();
+    for _ in 0..120 {
+        step(&mut app, walk.clone());
+        let Some((clip, frame, gait, hand)) = read(&mut app) else { continue };
+        gaits.push(gait);
+        if matches!(gait, Gait::Walking | Gait::Running) {
+            assert_eq!(clip.as_deref(), Some("walk"), "moving with gait {gait:?} and posed from {clip:?}");
+            walk_frames.insert(frame);
+            moved_hand |= hand.is_some_and(|hand| hand.distance(standing_hand) > 1.0);
+        }
+    }
+    assert!(!walk_frames.is_empty(), "she never had a moving gait; gaits: {gaits:?}");
+    assert!(walk_frames.len() >= 2, "the walk clip never advanced: frames {walk_frames:?}");
+    assert!(moved_hand, "her near hand stayed at its idle place for the whole walk");
+}

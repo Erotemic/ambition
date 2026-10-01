@@ -923,6 +923,13 @@ Acceptance:
 
 **Primary customer:** Mary-O.
 
+**Fix (2026-09-30, review finding [P3]): a walking body is solved from its walk clip.** Before this fix the "walk" half of the acceptance below was not met. Two causes:
+
+- Walking was not a simulation fact. `BodyPoseClock` now also carries a **gait** (`Standing`, `Walking`, `Running`, `Skidding`) and a gait clock, written by `advance_body_pose_clocks` from simulation facts only: the ground state, the velocity along the body's own run axis, and `BodyMotionFacts::running` / `skidding`. The rule is `grounded_gait`. The sprite picker's grounded Idle/Walk/Run branch calls the same rule with the same thresholds (12 for a player, 8 for an actor), so the shipped rows do not change and the row and the rig clip agree. In the `idle` pose the rig asks for the gait's clip (`walk`, then `idle`; `run`, then `walk`, then `idle`; `skid`, then `idle`) on the gait clock. The hurtbox pose ids are not changed, so the authored pose profiles select as before.
+- No production body had a `BodyPoseClock`: only tests spawned one. So every rigged body was solved as idle frame 0, standing or not. A body built with a rig now gets the clock in the same batch, and loses it with the rig. Bodies without a rig still get none. ⚠ For Jon: that means the authored hurtbox POSE PROFILES (`doc.poses`: hitstun, crouch, airborne) are never selected on a shipped body, because no shipped body has the clock that selects them. That is a pre-existing gap, and this fix does not change it.
+- Witness: `a_walking_mary_o_is_posed_from_her_walk_clip` (Mary-O app, rigs admitted). It drives her on the flat test course and checks three things: a moving gait solves `walk`, the walk frame advances, and her near hand leaves its idle place. It fails when the rig solve ignores the gait (poison run).
+
+
 Work:
 
 1. Add simple semantic hurt parts to the prepared Mary-O body rig.

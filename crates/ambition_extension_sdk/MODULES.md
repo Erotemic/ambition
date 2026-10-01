@@ -12,9 +12,10 @@
 | [`module`](src/module.rs) | Module and entry descriptors. |
 | [`port`](src/port.rs) | Ports: the typed doors between a module and a domain. |
 | [`schema`](src/schema.rs) | State schemas, logical values and records. |
+| [`typed`](src/typed.rs) | Typed records: a Rust struct for a state schema, with no handwritten codec. |
 | [`wire`](src/wire.rs) | The portable wire encoding: little-endian, length-prefixed, no type tags. |
 
-_7 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_8 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

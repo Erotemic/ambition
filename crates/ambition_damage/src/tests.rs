@@ -2324,7 +2324,7 @@ fn a_hazard_respawn_does_not_turn_the_body_around() {
                 None,
                 &mut vfx,
                 &mut clusters,
-                &mut clocks,
+                Some(&mut clocks),
                 &safety,
                 &mut combat,
                 ae::MovementTuning::default(),

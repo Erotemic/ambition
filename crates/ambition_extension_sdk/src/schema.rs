@@ -518,6 +518,29 @@ impl StateSchema {
         }
     }
 
+    /// `record`, written under `from`, as a record of this schema: a field
+    /// keeps the value of the field with its TAG in `from` when that field has
+    /// the same kind, and takes its initial value otherwise (a new field, or
+    /// one whose kind changed). A field `from` had and this schema does not is
+    /// dropped. A name is not an identity: a renamed field keeps its value.
+    pub fn migrate(&self, from: &StateSchema, record: &Record) -> Record {
+        Record {
+            values: self
+                .fields
+                .iter()
+                .map(|field| {
+                    from.fields
+                        .iter()
+                        .position(|old| old.tag == field.tag && old.kind == field.kind)
+                        .and_then(|i| record.values.get(i))
+                        .filter(|value| value.conforms(&field.kind, field.tag).is_ok())
+                        .cloned()
+                        .unwrap_or_else(|| field.initial.clone())
+                })
+                .collect(),
+        }
+    }
+
     /// Checks that a record is a valid value of this schema.
     pub fn check(&self, record: &Record) -> Result<(), SchemaError> {
         if record.values.len() != self.fields.len() {

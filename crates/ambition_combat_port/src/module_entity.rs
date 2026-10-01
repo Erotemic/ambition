@@ -20,7 +20,8 @@ use ambition_extension_sdk::{Port, PortKey, PortRole};
 /// * **Scope** — the spawner: the body the invocation ran for. The entity
 ///   takes the spawner's effective side, match team, session and
 ///   presentation source, frozen at the spawn (the entity outlives its
-///   spawner). Its identity is minted from the spawner's identity.
+///   spawner). Its identity is minted from the spawner's identity, and it is
+///   in the spawner's live room.
 /// * **Time** — `wielded_use`. The entity exists at `module_entity_tick` of
 ///   the same tick.
 /// * **Result** — a spawner that cannot name the entity (no `SimId` or no
@@ -71,9 +72,10 @@ impl Port for SpawnModuleEntityPort {
 /// * **Time** — `module_entity_tick`, after `wielded_use` in the same tick.
 ///   Requests are consumed this tick.
 /// * **Read model** — world units, +Y down. `nearest_enemy` is the centre of
-///   the nearest body whose effective side is `Enemy` and that can be hit (in
-///   play, on the playable plane), with ties broken by identity. It is the
-///   `Enemy` side, NOT the side hostile to the entity's own side.
+///   the nearest body IN THE ENTITY'S OWN LIVE ROOM whose effective side is
+///   `Enemy` and that can be hit (in play, on the playable plane), with ties
+///   broken by identity. It is the `Enemy` side, NOT the side hostile to the
+///   entity's own side.
 /// * **Absence** — `nearest_enemy` is `None` when there is no such body.
 /// * **Replay** — derived each tick from rollback state.
 pub struct ModuleEntityTickPort;
@@ -142,7 +144,8 @@ impl Port for EndModuleEntityPort {
 /// * **Operation** — move each body that the pull reaches toward `center` by
 ///   the fraction `min(rate * dt, 1)` of its distance, this tick. A body is
 ///   reached when its centre is within `radius` of `center`, its effective
-///   side is `Enemy`, and it can be hit (in play, on the playable plane). The
+///   side is `Enemy`, it can be hit (in play, on the playable plane), and it is
+///   in the puller's own live room. The
 ///   move is an external kinematic constraint (ADR 0024): the body's
 ///   collision step resolves a wall the pull pushes it into.
 /// * **Owner** — `ambition_abilities::extension`.

@@ -2054,3 +2054,180 @@ fn the_map_records_a_room_visited_beside_another_live_room() {
         assert!(visited, "the hub visit was not recorded with {rooms} live room(s)");
     }
 }
+
+/// Whether the crossing asked for the shared sim clock to be reset.
+#[derive(bevy::prelude::Resource, Default)]
+struct CrossingResetTheClock(bool);
+
+/// [`walk_through_the_door_to`], with two facts of the room being left
+/// planted first, a projectile stamped into it and the ambient gravity
+/// flipped, and with each tick of the walk read for the crossing's request to
+/// reset the sim clock ([`CrossingResetTheClock`]).
+fn walk_through_the_door_leaving_a_shot_and_flipped_gravity(
+    sim: &mut Platformer2dSimHarness,
+    target: &str,
+) -> String {
+    use ambition_platformer2d::engine_core::AabbExt as _;
+    use ambition_platformer2d::time::time_control::ClockResetRequest;
+    {
+        let world = sim.world_mut();
+        let room = *ambition_platformer2d::platformer::lifecycle::sole_live_room_component::<LiveRoomInstance>(world)
+            .expect("one room is live before Alice crosses");
+        world.spawn((
+            ambition_platformer2d::projectiles::LiveProjectile,
+            InRoomInstance(room),
+            ambition_platformer2d::combat::components::FeatureId("ow1_bob_shot".to_string()),
+        ));
+        let mut gravity = world.resource_mut::<ambition_platformer2d::world::BaseGravity>();
+        gravity.dir = -gravity.dir;
+        world.insert_resource(CrossingResetTheClock(false));
+    }
+    let before = sim.observation().active_room.clone();
+    let door = crate::common::door_to(sim, target);
+    let center = door.aabb.center();
+    sim.teleport_player((center.x, center.y));
+    for _ in 0..120 {
+        let room = sim.step(ambition_app::AgentAction { interact: true, interact_held: true, ..base() }).active_room;
+        let world = sim.world_mut();
+        let reset = world
+            .resource::<bevy::ecs::message::Messages<ClockResetRequest>>()
+            .iter_current_update_messages()
+            .any(|request| request.reason == "room_transition");
+        world.resource_mut::<CrossingResetTheClock>().0 |= reset;
+        if room != before {
+            return room;
+        }
+    }
+    panic!("the '{}' door of '{before}' never took Alice across", door.name);
+}
+
+/// OW1, customer 2: a crossing resets only what it leaves behind. Before
+/// Alice leaves `switch_lab`, the room holds a shot and gravity is flipped.
+/// With Bob driven, the room stays live with him: the shot stays, and the
+/// world's gravity and sim clock (one of each for every live room) are not
+/// reset. The control, Bob not driven: the crossing replaces the world, and
+/// the shot goes, gravity is put back down and the clock reset is asked for,
+/// as before. Before, every crossing did all three, so Alice's door
+/// unflipped Bob's room and cancelled his bullet time.
+#[test]
+fn a_crossing_resets_only_what_it_leaves_behind() {
+    use ambition_platformer2d::characters::control::PlayerSlot;
+    for (slot, rooms, expected) in [(None, 1, (false, true, false)), (Some(PlayerSlot(1)), 2, (true, false, true))] {
+        let (mut sim, _) = alice_leaves_bob_by(slot, walk_through_the_door_leaving_a_shot_and_flipped_gravity);
+        assert_eq!(live_rooms(&mut sim).len(), rooms, "precondition ({slot:?}): the live room count");
+        let world = sim.world_mut();
+        let shot = world
+            .query::<&ambition_platformer2d::combat::components::FeatureId>()
+            .iter(world)
+            .any(|feature| feature.0 == "ow1_bob_shot");
+        let clock_reset = world.resource::<CrossingResetTheClock>().0;
+        let flipped = world.resource::<ambition_platformer2d::world::BaseGravity>().dir
+            != ambition_platformer2d::world::BaseGravity::default().dir;
+        assert_eq!(
+            (shot, clock_reset, flipped),
+            expected,
+            "with {rooms} live room(s) after the crossing: (the shot is there, the clock reset was asked for, gravity is flipped)"
+        );
+    }
+}
+
+/// OW1: a replay of one player's room keeps the world's shared facts while
+/// another live room stays. Alice, in the hub with gravity flipped, asks for
+/// a replay. With Bob driven (two rooms): no reset of the sim clock is asked
+/// for, and gravity stays flipped. The control, Bob not driven (one room):
+/// the clock reset is asked for and gravity is put back down, as before.
+/// Before, every replay did both, so Alice's retry cancelled Bob's bullet
+/// time and unflipped his room.
+#[test]
+fn a_replay_keeps_the_worlds_clock_and_gravity_while_another_room_is_live() {
+    use ambition_platformer2d::characters::control::PlayerSlot;
+    use ambition_platformer2d::time::time_control::ClockResetRequest;
+    for (slot, rooms, expected) in [(None, 1, (true, false)), (Some(PlayerSlot(1)), 2, (false, true))] {
+        let (mut sim, _) = alice_leaves_bob(slot);
+        assert_eq!(live_rooms(&mut sim).len(), rooms, "precondition ({slot:?}): the live room count");
+        {
+            let world = sim.world_mut();
+            let mut gravity = world.resource_mut::<ambition_platformer2d::world::BaseGravity>();
+            gravity.dir = -gravity.dir;
+            world.write_message(ambition_platformer2d::actors::session::reset::RoomReplayRequested::manual());
+        }
+        let mut clock_reset = false;
+        let mut admitted = false;
+        for _ in 0..30 {
+            sim.step(base());
+            let world = sim.world_mut();
+            clock_reset |= world
+                .resource::<bevy::ecs::message::Messages<ClockResetRequest>>()
+                .iter_current_update_messages()
+                .any(|request| request.reason == "sandbox_reset");
+            admitted |= world
+                .resource::<bevy::ecs::message::Messages<ambition_platformer2d::combat::events::RoomReplayAdmitted>>()
+                .iter_current_update_messages()
+                .next()
+                .is_some();
+        }
+        assert!(admitted, "precondition ({slot:?}): the replay was not admitted");
+        let flipped = sim.world_mut().resource::<ambition_platformer2d::world::BaseGravity>().dir
+            != ambition_platformer2d::world::BaseGravity::default().dir;
+        assert_eq!(
+            (clock_reset, flipped),
+            expected,
+            "with {rooms} live room(s): (the clock reset was asked for, gravity is flipped)"
+        );
+    }
+}
+
+/// OW1: a hazard respawn keeps the world's sim clock while another room is
+/// live. Alice, in the hub, takes a hazard hit that sends her back to her safe
+/// point. With Bob driven (two rooms), she respawns and no clock reset is
+/// asked for. The control, Bob not driven (one room): she respawns and the
+/// reset is asked for, as before.
+#[test]
+fn a_hazard_respawn_keeps_the_worlds_clock_while_another_room_is_live() {
+    use ambition_platformer2d::characters::control::PlayerSlot;
+    use ambition_platformer2d::combat::events::{HitEvent, HitMode, HitSource, HitTarget};
+    use ambition_platformer2d::time::time_control::ClockResetRequest;
+    for (slot, rooms, expected) in [(None, 1, (true, true)), (Some(PlayerSlot(1)), 2, (true, false))] {
+        let (mut sim, _) = alice_leaves_bob(slot);
+        assert_eq!(live_rooms(&mut sim).len(), rooms, "precondition ({slot:?}): the live room count");
+        {
+            let world = sim.world_mut();
+            let (alice, pos, room) = world
+                .query_filtered::<(bevy::prelude::Entity, &ambition_platformer2d::engine_core::BodyKinematics, Option<&InRoomInstance>), bevy::prelude::With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>()
+                .single(world)
+                .map(|(entity, kinematics, room)| (entity, kinematics.pos, room.map(|room| room.0)))
+                .expect("Alice's body is in the world");
+            world.write_message(HitEvent {
+                volume: ambition_platformer2d::engine_core::Aabb::new(pos, ambition_platformer2d::engine_core::Vec2::splat(8.0)).into(),
+                damage: 1,
+                source: HitSource::Hazard,
+                attacker: None,
+                room,
+                target: HitTarget::Body(alice),
+                mode: HitMode::SafeRespawn,
+                knockback: None,
+                ignored_targets: Vec::new(),
+                strike_sfx: None,
+                attacker_move_instance: None,
+            });
+        }
+        let (mut respawned, mut clock_reset) = (false, false);
+        for _ in 0..10 {
+            sim.step(base());
+            let world = sim.world_mut();
+            respawned |= world
+                .resource::<bevy::ecs::message::Messages<ambition_platformer2d::vfx::vfx::VfxMessage>>()
+                .iter_current_update_messages()
+                .any(|message| matches!(message, ambition_platformer2d::vfx::vfx::VfxMessage::ResetEffects { .. }));
+            clock_reset |= world
+                .resource::<bevy::ecs::message::Messages<ClockResetRequest>>()
+                .iter_current_update_messages()
+                .any(|request| request.reason == "safe_respawn");
+        }
+        assert_eq!(
+            (respawned, clock_reset),
+            expected,
+            "with {rooms} live room(s): (Alice respawned, the clock reset was asked for)"
+        );
+    }
+}

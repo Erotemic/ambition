@@ -6,7 +6,7 @@
 //! coupling remains and desktop / web / Android all load the same bytes.
 //!
 //! Single source of truth: [`yarn_spinner_plugin`] registers exactly
-//! [`YARN_SOURCES`]; the `yarn_compile` integration test compiles exactly the
+//! [`yarn_sources`]; the `yarn_compile` integration test compiles exactly the
 //! same set as one project (matching startup); [`known_dialogue_ids`] derives
 //! the validator's accepted ids from the same texts. A new `.yarn` added here
 //! is automatically covered by all three.
@@ -42,37 +42,40 @@ pub fn executable_regions(text: &str) -> Vec<(usize, &str)> {
     regions
 }
 
-/// `(logical name, source text)` for every Yarn file the game loads.
-pub const YARN_SOURCES: &[(&str, &str)] = &[
-    (
-        "dialogue/sandbox/intro.yarn",
-        include_str!("../../assets/dialogue/sandbox/intro.yarn"),
-    ),
-    (
-        "dialogue/sandbox/kernel.yarn",
-        include_str!("../../assets/dialogue/sandbox/kernel.yarn"),
-    ),
-    (
-        "dialogue/sandbox/factions.yarn",
-        include_str!("../../assets/dialogue/sandbox/factions.yarn"),
-    ),
-    (
-        "dialogue/sandbox/cove.yarn",
-        include_str!("../../assets/dialogue/sandbox/cove.yarn"),
-    ),
-    (
-        "dialogue/sandbox/dojo.yarn",
-        include_str!("../../assets/dialogue/sandbox/dojo.yarn"),
-    ),
-    (
-        "dialogue/sandbox/symmetry.yarn",
-        include_str!("../../assets/dialogue/sandbox/symmetry.yarn"),
-    ),
-    (
-        "dialogue/sandbox/hall.yarn",
-        include_str!("../../assets/dialogue/sandbox/hall.yarn"),
-    ),
-];
+/// Each Yarn file the game loads: its logical name, and its text when this
+/// build embeds it (`static_content`: web, Android, a build without the source
+/// tree). Otherwise the text is read off disk at startup, so a dialogue edit
+/// costs a restart, not a rebuild (see [`crate::pack::source_text`]).
+macro_rules! yarn_files {
+    ($($file:literal),* $(,)?) => {
+        #[cfg(feature = "static_content")]
+        const YARN_FILES: &[(&str, Option<&'static str>)] = &[$(
+            (
+                concat!("dialogue/sandbox/", $file),
+                Some(include_str!(concat!("../../assets/dialogue/sandbox/", $file))),
+            ),
+        )*];
+        #[cfg(not(feature = "static_content"))]
+        const YARN_FILES: &[(&str, Option<&'static str>)] =
+            &[$((concat!("dialogue/sandbox/", $file), None),)*];
+    };
+}
+yarn_files!("intro.yarn", "kernel.yarn", "factions.yarn", "cove.yarn", "dojo.yarn", "symmetry.yarn", "hall.yarn");
+
+/// `(logical name, source text)` for every Yarn file the game loads, read
+/// once per process.
+pub fn yarn_sources() -> &'static [(&'static str, &'static str)] {
+    static SOURCES: std::sync::OnceLock<Vec<(&'static str, &'static str)>> = std::sync::OnceLock::new();
+    SOURCES.get_or_init(|| {
+        YARN_FILES
+            .iter()
+            .map(|(name, embedded)| {
+                let text: &'static str = Box::leak(crate::pack::source_text(name, *embedded).into_boxed_str());
+                (*name, text)
+            })
+            .collect()
+    })
+}
 
 /// Registers Yarn Spinner with the game's dialogue set as IN-MEMORY sources
 /// (no folder scan, no asset-root dependency — identical on desktop, web,
@@ -81,7 +84,7 @@ pub const YARN_SOURCES: &[(&str, &str)] = &[
 pub fn yarn_spinner_plugin() -> bevy_yarnspinner::prelude::YarnSpinnerPlugin {
     use bevy_yarnspinner::prelude::{YarnFile, YarnFileSource, YarnSpinnerPlugin};
     YarnSpinnerPlugin::with_yarn_sources(
-        YARN_SOURCES
+        yarn_sources()
             .iter()
             .map(|(name, text)| YarnFileSource::InMemory(YarnFile::new(*name, *text))),
     )
@@ -103,7 +106,7 @@ pub fn known_dialogue_ids(
     catalog: &ambition_characters::actor::character_catalog::CharacterCatalog,
 ) -> Vec<String> {
     let mut ids: Vec<String> = Vec::new();
-    for (_, source) in YARN_SOURCES {
+    for (_, source) in yarn_sources() {
         for title in yarn_title_ids(source) {
             ids.push(title.to_string());
             if let Some((root, _)) = title.split_once("__") {

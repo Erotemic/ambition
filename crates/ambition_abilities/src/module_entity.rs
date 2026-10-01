@@ -79,6 +79,7 @@ pub fn lower_module_entity_spawns(
         Option<&ambition_combat::targeting::MatchTeam>,
     )>,
     sfx: ambition_sfx::BodySfxWriter,
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
     mut commands: Commands,
 ) {
     for submitted in outbox.drain::<SpawnModuleEntityPort>() {
@@ -104,7 +105,8 @@ pub fn lower_module_entity_spawns(
                 remaining_s: lifetime_s,
             },
             Spawner {
-                scope: SessionSpawnScope::new(session.map(|s| s.0)),
+                // In its spawner's live room, as a shot is in its owner's.
+                scope: SessionSpawnScope::new(session.map(|s| s.0)).in_room(rooms.stamped(submitted.scope)),
                 side: ambition_combat::targeting::effective_faction(
                     side.copied().unwrap_or(ActorFaction::Player),
                     driver,
@@ -133,8 +135,10 @@ pub fn queue_module_entity_ticks(
     mut invocations: ResMut<ExtensionInvocations>,
     mut commands: Commands,
     mut entities: Query<(Entity, &mut ModuleEntity, Option<&SimId>)>,
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
     bodies: Query<
         (
+            Entity,
             &CenteredAabb,
             &ActorFaction,
             Option<&ambition_characters::actor::BodyHealth>,
@@ -186,22 +190,24 @@ pub fn queue_module_entity_ticks(
     // untouchable (a corpse, a body out of play or behind the playable plane).
     let enemies: Vec<_> = bodies
         .iter()
-        .filter(|(_, side, health, (out_of_play, plane), _, driver)| {
+        .filter(|(_, _, side, health, (out_of_play, plane), _, driver)| {
             ambition_combat::targeting::effective_faction(**side, *driver) == ActorFaction::Enemy
                 && !ambition_combat::util::body_is_untouchable(*health, *out_of_play, *plane)
         })
-        .map(|(aabb, _, _, _, id, _)| (aabb.center, id))
+        .map(|(body, aabb, _, _, _, id, _)| (aabb.center, id, rooms.of(body)))
         .collect();
     for (pos, remaining_s, _, entity) in living {
         let kind = entities.get(entity).map(|(_, e, _)| e.kind.clone()).unwrap_or_default();
         // Nearest, with a named tie-break: equidistant bodies are common, and
-        // query order must not decide.
+        // query order must not decide. Only a body in the entity's own live
+        // room: two entities meet only when they are in one room.
+        let room = rooms.of(entity);
         let nearest_enemy = winner_by(
-            enemies.iter(),
-            |(center, _)| center.distance_squared(pos),
-            |(_, id)| *id,
+            enemies.iter().filter(|(_, _, body_room)| *body_room == room),
+            |(center, _, _)| center.distance_squared(pos),
+            |(_, id, _)| *id,
         )
-        .map(|(center, _)| [center.x, center.y]);
+        .map(|(center, _, _)| [center.x, center.y]);
         invocations.trigger::<ModuleEntityTickPort>(
             &MODULE_ENTITY_TICK,
             kind,
@@ -245,8 +251,10 @@ pub fn lower_module_entity_ends(
 pub fn lower_body_pulls(
     mut outbox: ResMut<ExtensionOutbox>,
     world_time: Res<ambition_time::WorldTime>,
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
     mut bodies: Query<
         (
+            Entity,
             &mut ambition_platformer2d_core::BodyKinematics,
             Option<&mut ae::SweepSample>,
             &ActorFaction,
@@ -269,7 +277,12 @@ pub fn lower_body_pulls(
         let pull = submitted.value;
         let center = ae::Vec2::from(pull.center);
         let factor = (pull.rate * dt).min(1.0);
-        for (mut kin, mut sweep, side, health, (out_of_play, plane), driver) in &mut bodies {
+        // Only bodies in the puller's own live room.
+        let room = rooms.of(submitted.scope);
+        for (body, mut kin, mut sweep, side, health, (out_of_play, plane), driver) in &mut bodies {
+            if rooms.of(body) != room {
+                continue;
+            }
             // The effective side: a possessed NPC keeps `ActorFaction::Enemy`
             // and fights for its driver, so its authored side would pull the
             // player's own body. A corpse is not pulled.

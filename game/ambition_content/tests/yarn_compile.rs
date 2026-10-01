@@ -5,7 +5,7 @@
 //! its `===`, an unclosed `<<if>>` — surfaces only as a runtime
 //! `ERROR bevy_asset` and the dialogue silently never loads. This test runs
 //! the same `yarnspinner` compiler over exactly the sources
-//! `ambition_content::dialogue::YARN_SOURCES` registers, compiled as one
+//! `ambition_content::dialogue::yarn_sources()` registers, compiled as one
 //! project (matching startup), so cross-file references and duplicate node
 //! names are caught the same way they would be at runtime.
 //!
@@ -19,7 +19,7 @@ use yarnspinner::compiler::{Compiler, File};
 #[test]
 fn every_yarn_source_compiles() {
     let mut compiler = Compiler::new();
-    for (name, text) in ambition_content::dialogue::YARN_SOURCES {
+    for (name, text) in ambition_content::dialogue::yarn_sources() {
         compiler.add_file(File {
             file_name: (*name).to_string(),
             source: (*text).to_string(),

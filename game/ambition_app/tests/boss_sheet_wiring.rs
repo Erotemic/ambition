@@ -28,7 +28,7 @@ fn every_dedicated_boss_sheet_resolves_a_catalog_path() {
     let character_catalog =
         ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog::from_data(
             ambition_platformer2d::characters::actor::character_catalog::parse_catalog(
-                ambition_content::character_catalog::CHARACTER_CATALOG_RON,
+                &ambition_content::character_catalog::character_catalog_ron(),
             ),
         );
     let world_manifest = ambition_content::worlds::world_manifest();
@@ -310,7 +310,7 @@ fn boss_sheets_are_decoded_by_the_first_boss_room_and_not_at_boot() {
     let character_catalog =
         ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog::from_data(
             ambition_platformer2d::characters::actor::character_catalog::parse_catalog(
-                ambition_content::character_catalog::CHARACTER_CATALOG_RON,
+                &ambition_content::character_catalog::character_catalog_ron(),
             ),
         );
     let world_manifest = ambition_content::worlds::world_manifest();

@@ -15,11 +15,11 @@ use std::collections::BTreeMap;
 use ambition_boss_encounter::pattern::validator::{
     fight_beats, validate_fight, FightFinding, Severity,
 };
-use ambition_content::bosses::{seed_library, validator_bands, BOSS_PROFILES_RON};
+use ambition_content::bosses::{boss_profiles_ron, seed_library, validator_bands};
 use ambition_boss_encounter::pattern::profile::BossBehaviorProfile;
 
 fn profiles() -> BTreeMap<String, BossBehaviorProfile> {
-    ron::from_str(BOSS_PROFILES_RON).expect("boss_profiles.ron parses")
+    ron::from_str(&boss_profiles_ron()).expect("boss_profiles.ron parses")
 }
 
 fn findings_for(id: &str, profile: &BossBehaviorProfile) -> Vec<FightFinding> {

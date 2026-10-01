@@ -82,7 +82,11 @@ Start from `game/ambition_content_modules/src/overfit_volley.rs` (its own record
 
    Field types: `bool`, `u32`, `i32`, `u64`, `f32`, `[f32; 2]`, `Option<T>`,
    `Vec<T>` with `[max N]`. Keep a field's tag when you rename it; a new tag
-   is a new field, and a changed SHAPE refuses a hot reload (restart).
+   is a new field. A hot reload that changes the fields carries the live
+   records over by tag: a kept field keeps its value (also under a new name),
+   a new field or one whose type changed starts at its initial value, a
+   removed field is dropped. Moving a record to another store (body ↔
+   session) is refused (restart).
 
    A record is the BODY's (one for each body the entry runs for). For one
    record that the whole session shares — a tally, a cursor across bodies —

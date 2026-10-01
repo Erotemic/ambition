@@ -70,7 +70,7 @@ fn every_intro_npc_spawn_names_a_character_the_catalog_knows() {
     };
     let catalog = ambition_characters::actor::character_catalog::CharacterCatalog::from_data(
         ambition_characters::actor::character_catalog::parse_catalog(
-            crate::character_catalog::CHARACTER_CATALOG_RON,
+            &crate::character_catalog::character_catalog_ron(),
         ),
     );
     let doc: serde_json::Value =

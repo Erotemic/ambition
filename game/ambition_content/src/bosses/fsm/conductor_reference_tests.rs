@@ -233,21 +233,6 @@ impl FsmConductor {
         }
     }
 
-    /// The move being performed and whether it is striking, for tests and
-    /// inspectors.
-    pub fn performing(&self) -> Option<(Move, bool)> {
-        self.part.map(|part| (part.mv, part.striking))
-    }
-
-    /// Lying on the floor after a dive: the punish window.
-    pub fn stranded(&self) -> bool {
-        self.stranded.is_some()
-    }
-
-    pub fn hall(&self) -> Option<Hall> {
-        self.hall
-    }
-
     /// The dive moves the god by its own arc: up over its foe, down onto the
     /// floor, stranded there, and up again. The conductor keeps the pose
     /// through all of it, even while a participant drives the god.
@@ -256,13 +241,6 @@ impl FsmConductor {
             || self.rising.is_some()
             || matches!(part, Some(Part { mv: Move::Dive, .. }))
     }
-}
-
-/// The state the god is built with: its conductor, facing the side the body
-/// was built facing, and its drawn row. The conductor states who owns the
-/// pose each tick. See [`ambition_boss_encounter::BossBirthKit`].
-pub fn birth(scope: &mut ambition_platformer2d_shared_tangle::construction::EntityScope, body: &ae::BodyKinematics) {
-    scope.insert((FsmConductor::new(if body.facing < 0.0 { -1.0 } else { 1.0 }), PinnedRow::default()));
 }
 
 /// The live part of the god's move.

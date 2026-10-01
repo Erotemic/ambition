@@ -242,7 +242,7 @@ These cuts refine A8 and existing owner work. They are not another global queue.
 | --- | --- | --- |
 | OW1 | Two instances of one room; audit selection/identity/query/teardown paths | Same local IDs, separate contacts/observations, no cross-despawn; one-instance profile remains one path. ⭐ **A LIVE ROOM HAS AN IDENTITY AS OF 2026-09-20**: `LiveRoomInstance` (`crates/ambition_platformer2d_world/src/rooms/instance.rs`), an ordinal of this session's room publications, minted by `apply_world_replacement` — the one road that seats a session in a published room — and rollback state (`root.live_room_instance`, schema v202). Witnessed on the shipped Mary-O lap: 1-1 → 1-2 → 1-3 → 1-1 returns to index 0 and reaches instance `#3`, so the room she comes back to is not the room she left. ⚠ It lives on the SESSION ROOT because that is where the one live room lives; two simultaneous instances move the carrier, not the ordinal. ⚠ And residency is still UNKEYED — `RoomScopedEntity` says an occurrence dies with *a* room, never with *which* — so the teardown sweep is the next thing OW1 has to key. ⭐ **OW1 HAS AN INSTRUMENT AS OF 2026-09-20**: `[census] rooms` prints every session root's `active` INDEX beside its authored id, plus the live crossing, so the moment an index stops identifying one live instance is visible rather than inferred. It is derived and read-only; it owns nothing. |
 | OW2 | Accepted body/custody transfer and prepare/publish between instances | Refused transfer retains state; successful transfer preserves identity and exactly one writer. ✅ **The accepted arm between live rooms is witnessed (2026-09-30)**: the crossing's publication re-stamps the crossing body and its custody closure (`InCustodyOf`: what it holds, rides or wears) into the room it enters, for an opened room and a join alike (`publish_pending_world_replacement`). `an_item_carried_out_of_a_room_another_player_holds_crosses_whole`: Bob holds `blink_run` (#0); Alice carries its authored item to `portal_bridge` (#1): one occurrence of its `SimId`, held, stamped #1, #0 still live; thrown down, it lies in #1; when Alice joins #0 again, it retires with #1 and #0 has no copy. Poison (only the body moves): the item stayed stamped #0, fell into #0's world, and outlived #1 as a stray in Bob's room. ✅ The refused arm with two live rooms (2026-09-30): `a_crossing_into_a_room_another_player_holds_joins_it` stages a join into a live room that is not there; it is refused as `StaleJoinedRoom`, both live rooms and their bodies stand, and nothing is minted (poison, the stale-join check removed: it published, and #0 was retired with both its bodies). The one-room refusal is `a_room_staged_for_a_stale_live_room_is_refused`. ⚠ Witnessed at the publication, not through a shipped crossing: the app has no road that makes a crossing stale while two rooms are live. |
-| OW3 | Dormant durable records and active-state handoff | Save/load and promotion preserve occurrences; active step excludes unrelated dormant records. ✅ **First slice (2026-10-01): a runtime mint left in a room that is not live is a dormant record**, kept by the save's minted rows while the occurrence ledger places it, and a mint enters the ledger when it is minted, not when it is first carried; see "OW3, first slice" and "second slice" below. ✅ **FI9 (2026-10-01): dormant records add no all-world walk to an idle tick**: the custody projection reads a custody index, and the two save mirrors walk the dormant rows only when an input changed; see "OW3 / FI9" below. ⚠ Not yet: the rollback frame's costs (a snapshot clones the whole save and ledger, and the peer checksum folds every ledger row; M2 measures them), and the actor dispositions a retired room loses (an enemy's HP, a fight in progress). |
+| OW3 | Dormant durable records and active-state handoff | Save/load and promotion preserve occurrences; active step excludes unrelated dormant records. ✅ **First slice (2026-10-01): a runtime mint left in a room that is not live is a dormant record**, kept by the save's minted rows while the occurrence ledger places it, and a mint enters the ledger when it is minted, not when it is first carried; see "OW3, first slice" and "second slice" below. ✅ **FI9 (2026-10-01): dormant records add no all-world walk to an idle tick**: the custody projection reads a custody index, and the two save mirrors walk the dormant rows only when an input changed; see "OW3 / FI9" below. ✅ **M2 cuts (B) and (C) (2026-10-01): a rollback frame no longer copies or hashes unchanged dormant rows**: the save's rows and the ledger are `Arc`-shared with checksums kept per allocation, and the save mirrors compare their inputs by allocation; see "M2 cut (B)" and "M2 cut (C)" below. ⚠ Not yet: the actor dispositions a retired room loses (an enemy's HP, a fight in progress). |
 | OW4 | Owner-scoped interest/budget accounting and diagnostics | Cancellation/re-entry release only the right claims; supported absence does not freeze unrelated work |
 | OW5 | One concrete background mechanism requiring logical time | Deterministic events/reconstruction under replay and room return; no camera/device dependence |
 
@@ -1727,6 +1727,67 @@ any `Arc` (the moved rows kept the old checksum); no memo (32.7 ms
 against 7.5 µs). ⚠ Not changed: the ledger (`AuthoredOccurrences`) still
 clones and folds every row each rollback frame, 1.4 ms each with 10,000
 rows; it is the next M2 cut if the save's cost is not enough.
+
+✅ **M2 cut (C), landed 2026-10-01: the occurrence ledger is shared
+between snapshots, and the save mirrors ask for the same values, not for a
+write.** First, a gate: a probe in the shipped app counted the ledger's
+mutations with 10,000 dormant rows. It counted none in 120 idle or walking
+ticks, with or without a rollback host, and 10 clones per tick under the
+sync-test host (check distance 4). That host took 106 ms a tick with the
+rows against 51 ms without them.
+
+1. **The ledger.** `AuthoredOccurrences` holds its rows and its custody
+   index in `Arc`s. A clone copies two pointers. A mutator writes through
+   `Arc::make_mut`, so it copies the rows only when a snapshot shares them,
+   and only on a tick that changes a row (`admit_mints` and
+   `republish_placements` write only a row that changes). Equality checks
+   the allocation first. The peer checksum and the baseline's checksum are
+   kept with the `Arc` they were computed from (`RowsDigest`, one per
+   domain). The values are the same folds as before, so no schema change.
+   The ledger has no wire encoding (bevy_ggrs stores it by clone).
+2. **The save mirrors.** The FI9 gates asked `is_changed()` of the ledger,
+   the save and `SaveRestored`. A rollback load writes all three on every
+   resimulated frame, so under a rollback host both mirrors walked every
+   row on every frame. The gates now compare a key of the inputs:
+   `OccurrenceMirrorKey` (the ledger, the save's occurrence rows, the
+   restorable set) and `MintedMirrorKey` (the live mints, the ledger, the
+   save's minted rows). The ledger and the save's rows match by allocation
+   (`occurrences_shared`, `minted_items_shared`). The key is stored after
+   the write, so a write does not open the gate on the next tick.
+
+| Sync-test host, 10,000 dormant rows | ms per tick |
+|---|---:|
+| Before the cut | 106.0 (51.4 with none) |
+| After step 1 | 60.3 (50.1 with none) |
+| After step 2, three runs | 57.6, 53.2, 50.9 (50.4, 55.0, 50.0 with none) |
+
+⚠ The spread from run to run (about ±5 ms) is larger than what is left of
+the effect. The band pre-registered for one run (≤ 1.1× of none) was
+missed on the first run (1.14×) and hit by the median of three (1.06×). The
+band was tighter than the probe's own noise.
+
+Witnesses: `a_kept_checksum_is_the_fold_of_the_rows_it_was_kept_for` and
+`dormant_rows_add_little_to_a_snapshot_of_the_ledger` (continuity), and
+`a_rollback_load_of_unchanged_rows_adds_no_walk` (durable horizon: each tick
+inserts clones of the ledger, the save and `SaveRestored`, as a load does).
+The FI9 witnesses still pass. Poisons, each failure predicted before the
+run:
+
+| Poison | Result |
+|---|---|
+| A memo that answers for any `Arc` | the fold witness failed, and two existing checksum tests failed |
+| One domain for both memos | the fold witness and `the_baseline_and_the_ledger_do_not_cancel_each_other_out` failed |
+| No memo | 1.56 ms against 364 ns |
+| A clone that copies the rows | 3.7 ms |
+| Equality without the allocation check | 497 µs |
+| The occurrence gate asks `is_changed()` again | 5.1 ms against 138 µs |
+| The occurrence key without the save's rows | `a_replaced_save_is_mirrored_again` failed |
+| The minted key without the ledger | `a_dormant_mint_taken_up_leaves_the_minted_rows` failed |
+| The minted gate asks `is_changed()` again (added after the results above) | 13.7 ms |
+
+⚠ Not measured: a host with real peers (the sync test resimulates every
+frame), and a session where dormant rows change often. Each tick that
+changes a row copies the shared rows once (about 1.4 ms at 10,000).
 
 ⚠ **`physics_spawn_debris_messages` is presentation, not simulation, and is
 not changed.** Its Avian debris bounces off static colliders that are

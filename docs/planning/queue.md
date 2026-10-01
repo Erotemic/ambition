@@ -1899,8 +1899,8 @@ prepare/admit/publish contract and settle the permanent authoring source.
 and one real technique (the echo fan) running as a module in the shipped game.
 State and open parts: [I4](engine/fast-iteration-implementation.md#i4---small-procedural-sdk-and-one-native-semantic-reference).
 The same day, the loaded road: the module crate builds as a `.wasm` file in
-1.36 s and the same game binary runs it (`AMBITION_EXTENSION_MODULES`). Next:
-hot reload of a module file through the route re-request, then I5.
+1.36 s and the same game binary runs it (`AMBITION_EXTENSION_MODULES`), and a
+rebuilt file is hot-reloaded through the mechanical-edit protocol. Next: I5.
 
 **Blocked by:** nothing.
 

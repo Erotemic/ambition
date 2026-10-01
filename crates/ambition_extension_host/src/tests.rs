@@ -470,3 +470,60 @@ fn a_loaded_module_cannot_submit_to_an_undeclared_port() {
         Fault::UndeclaredRequest(Emit::KEY)
     );
 }
+
+/// The same counter module, counting by ten: a "rebuilt" module.
+fn count_by_ten(inv: &mut Invocation<'_>) -> Result<(), Fault> {
+    let poke = *inv.trigger::<Poke>()?;
+    let height = *inv.observe::<Height>()?;
+    let record = inv.state(&COUNTER)?;
+    let count = record.get(COUNT).ok().and_then(Value::as_u32).unwrap_or(0) + 10;
+    record.set(COUNT, Value::U32(count)).ok();
+    inv.submit::<Emit>((poke, count, height))
+}
+
+#[test]
+fn a_reloaded_module_takes_over_at_publication_and_keeps_its_records() {
+    let mut app = loaded_app(true, true);
+    let body = app.world_mut().spawn((Poked(1), Tall(2.0))).id();
+    step(&mut app);
+
+    let mut rebuilt = module(vec![entry("a", vec![])]);
+    rebuilt.entries[0].run = EntryCode::Native(count_by_ten);
+    let (backend, published) = loaded(vec![rebuilt]);
+    reload::stage_loaded_replacement(app.world_mut(), backend, published).unwrap();
+    // Staged is not published: the old code still runs.
+    step(&mut app);
+    assert!(reload::publish_staged_replacement(app.world_mut()));
+    step(&mut app);
+
+    let counts: Vec<u32> = app.world().resource::<Lowered>().0.iter().map(|l| l.2 .1).collect();
+    // 1, 2 by the old code; 12 by the new one, from the record the old code left.
+    assert_eq!(counts, [1, 2, 12]);
+    assert_eq!(
+        app.world().get::<BodyRecords>(body).unwrap().get(&COUNTER).unwrap().get(COUNT).unwrap(),
+        &Value::U32(12)
+    );
+    assert!(!reload::publish_staged_replacement(app.world_mut()), "a publication spends the candidate");
+}
+
+#[test]
+fn a_reload_that_reshapes_live_state_or_is_refused_leaves_the_running_code() {
+    let mut app = loaded_app(true, true);
+    let before = app.world().resource::<AdmittedExtensions>().0.digest;
+
+    let mut reshaped = module(vec![entry("a", vec![])]);
+    reshaped.schemas[0].fields.push(FieldDecl::new(2, "extra", FieldKind::Bool));
+    let (backend, published) = loaded(vec![reshaped]);
+    let err = reload::stage_loaded_replacement(app.world_mut(), backend, published).unwrap_err();
+    assert!(err.contains("changed shape"), "{err}");
+
+    let mut broken = module(vec![entry("a", vec![])]);
+    broken.entries[0].requests.push(PortKey::new("test.nowhere", 1));
+    let (backend, published) = loaded(vec![broken]);
+    let err = reload::stage_loaded_replacement(app.world_mut(), backend, published).unwrap_err();
+    assert!(err.contains("refused"), "{err}");
+
+    assert!(!app.world().resource::<reload::StagedModuleReplacement>().is_staged());
+    assert!(!reload::publish_staged_replacement(app.world_mut()));
+    assert_eq!(app.world().resource::<AdmittedExtensions>().0.digest, before);
+}

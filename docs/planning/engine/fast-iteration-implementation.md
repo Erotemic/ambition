@@ -359,8 +359,25 @@ for; the choice is recorded below so M1 can overturn it with numbers.
 
 **Measured (M0, this machine, 2026-10-01):** an edit to the echo fan to a
 loadable `.wasm` is **1.36 s** wall (`scripts/build_extension_modules.sh`,
-warm). Nothing in the engine compiles or links. The game must be restarted to
-pick the file up; hot reload is the next cut (I3c's route re-request).
+warm). Nothing in the engine compiles or links.
+
+**Hot reload, the same day.** The runtime watches each loaded file (a stat
+every 20 frames). A changed file is loaded, the WHOLE composition is
+re-admitted with it (`ambition_extension_host::reload`), and the candidate
+goes through the engine's mechanical-edit protocol: PROPOSED, the rollback
+timeline's owner ADMITS (a local timeline is stopped and rebased; a timeline
+the host did not start refuses), then PUBLISHED. Last-good by construction: a
+file that does not load or admit is reported and the running code stays. A
+reload that changes a state schema's SHAPE under live records is refused;
+that needs a reconstruction. Witnesses: host `a_reloaded_module_takes_over_at_publication_and_keeps_its_records`
+and `a_reload_that_reshapes_live_state_or_is_refused_leaves_the_running_code`;
+app `a_module_file_that_changes_while_the_game_runs_is_reloaded` (published
+without a timeline; refused, still staged and healthy under the harness's own
+sync-test session).
+
+⚠ Not covered by a test: the SHIPPED app's own local session (the
+`LocallyRebasable` arm) taking a reload. The harness cannot construct that
+ownership today.
 
 **Why wasmi first:** deterministic by construction (NaN canonicalization,
 fuel instead of a clock), pure Rust, builds for every shipped target. Its

@@ -428,6 +428,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_combat/src/feel.rs",
         "crates/ambition_dev_tools/src/dev_tools/editable.rs",
         "crates/ambition_dev_tools/src/lib.rs",
+        "crates/ambition_platformer2d_runtime/src/extension_composition.rs",
         "crates/ambition_portal2d/src/tuning.rs",
         "game/ambition_content/src/portal/reorient_setting.rs",
     ),

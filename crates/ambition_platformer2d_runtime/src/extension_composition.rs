@@ -81,6 +81,7 @@ fn load_developer_modules(app: &mut App) {
             Err(_) => return,
         },
     };
+    let mut watched = Vec::new();
     for path in wasm_files(&listed) {
         let bytes = std::fs::read(&path)
             .unwrap_or_else(|e| panic!("{EXTENSION_MODULES_VAR}: cannot read {}: {e}", path.display()));
@@ -92,6 +93,114 @@ fn load_developer_modules(app: &mut App) {
             modules.iter().map(|m| m.key.to_string()).collect::<Vec<_>>()
         );
         app.add_loaded_extension_modules(backend, modules, true);
+        watched.push((path.clone(), modified(&path)));
+    }
+    if watched.is_empty() {
+        return;
+    }
+    // ⭐ HOT RELOAD, ON THE ENGINE'S MECHANICAL-EDIT PROTOCOL (`Q120`): a
+    // changed file is PROPOSED, the rollback timeline's owner ADMITS (and may
+    // stop its own baseline to do so), and only then is the new code
+    // PUBLISHED. A file that fails to load or to admit is reported and the
+    // running code stays.
+    app.insert_resource(WatchedModuleFiles {
+        files: watched,
+        frames_until_poll: 0,
+    });
+    app.init_resource::<ambition_platformer2d_core::PendingMechanicalEdits>();
+    app.init_resource::<ambition_platformer2d_core::MechanicalEditAdmission>();
+    ambition_platformer2d_shared_tangle::schedule::configure_mechanical_edit_sets(app);
+    app.add_systems(
+        PreUpdate,
+        (
+            propose_module_reload.in_set(ambition_platformer2d_core::MechanicalEditSet::Propose),
+            publish_module_reload.in_set(ambition_platformer2d_core::MechanicalEditSet::Publish),
+        ),
+    );
+}
+
+/// The loaded files and the modification time each was last read at.
+#[cfg(feature = "wasm_modules")]
+#[derive(Resource)]
+struct WatchedModuleFiles {
+    files: Vec<(std::path::PathBuf, Option<std::time::SystemTime>)>,
+    frames_until_poll: u32,
+}
+
+/// Frames between two looks at the files: a stat per file is cheap, and a
+/// third of a second is below a developer's switch from editor to game.
+#[cfg(feature = "wasm_modules")]
+const POLL_FRAMES: u32 = 20;
+
+#[cfg(feature = "wasm_modules")]
+struct ExtensionModuleCode;
+
+#[cfg(feature = "wasm_modules")]
+fn module_code_domain() -> ambition_platformer2d_core::MechanicalDomain {
+    ambition_platformer2d_core::MechanicalDomain::of::<ExtensionModuleCode>("extension module code")
+}
+
+#[cfg(feature = "wasm_modules")]
+fn modified(path: &std::path::Path) -> Option<std::time::SystemTime> {
+    std::fs::metadata(path).and_then(|m| m.modified()).ok()
+}
+
+#[cfg(feature = "wasm_modules")]
+fn propose_module_reload(world: &mut World) {
+    let changed: Vec<std::path::PathBuf> = {
+        let mut watched = world.resource_mut::<WatchedModuleFiles>();
+        if watched.frames_until_poll > 0 {
+            watched.frames_until_poll -= 1;
+            return;
+        }
+        watched.frames_until_poll = POLL_FRAMES;
+        let mut changed = Vec::new();
+        for (path, seen) in &mut watched.files {
+            let now = modified(path);
+            if now.is_some() && now != *seen {
+                *seen = now;
+                changed.push(path.clone());
+            }
+        }
+        changed
+    };
+    for path in changed {
+        let staged = std::fs::read(&path)
+            .map_err(|e| format!("cannot read: {e}"))
+            .and_then(|bytes| {
+                ambition_extension_wasm::WasmModules::load(&bytes).map_err(|e| e.to_string())
+            })
+            .and_then(|(backend, modules)| {
+                ambition_extension_host::reload::stage_loaded_replacement(world, backend, modules)
+            });
+        match staged {
+            Ok(()) => {
+                info!("{EXTENSION_MODULES_VAR}: {} changed; reload proposed", path.display());
+                world
+                    .resource_mut::<ambition_platformer2d_core::PendingMechanicalEdits>()
+                    .propose(module_code_domain());
+            }
+            Err(reason) => error!(
+                "{EXTENSION_MODULES_VAR}: {} changed and is NOT loaded; the running code \
+                 stays: {reason}",
+                path.display()
+            ),
+        }
+    }
+}
+
+#[cfg(feature = "wasm_modules")]
+fn publish_module_reload(world: &mut World) {
+    if *world.resource::<ambition_platformer2d_core::MechanicalEditAdmission>()
+        != ambition_platformer2d_core::MechanicalEditAdmission::Publish
+    {
+        return;
+    }
+    if world
+        .resource_mut::<ambition_platformer2d_core::PendingMechanicalEdits>()
+        .take(module_code_domain())
+    {
+        ambition_extension_host::reload::publish_staged_replacement(world);
     }
 }
 

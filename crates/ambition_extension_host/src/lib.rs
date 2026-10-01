@@ -22,6 +22,7 @@
 
 mod admission;
 mod exec;
+pub mod reload;
 mod store;
 
 use std::collections::{BTreeSet, HashMap};
@@ -60,6 +61,14 @@ pub enum ExtensionSet {
 /// The sealed admission of this App.
 #[derive(Resource, Clone)]
 pub struct AdmittedExtensions(pub Arc<Admitted>);
+
+/// What the admission was made from, kept so a reload can re-admit the whole
+/// composition (see [`reload`]).
+#[derive(Resource, Clone)]
+pub struct ExtensionComposition {
+    pub(crate) offers: Vec<PortOffer>,
+    pub(crate) declared: Vec<DeclaredModule>,
+}
 
 /// The schedule the host and its adapters run in.
 #[derive(Resource, Clone, Copy)]
@@ -133,6 +142,11 @@ pub fn admit_world(world: &mut World) {
     if !admitted.replaced.is_empty() {
         info!("extension modules replaced: {:?}", admitted.replaced);
     }
+    world.insert_resource(ExtensionComposition {
+        offers: installation.offers.clone(),
+        declared: installation.modules.clone(),
+    });
+    world.init_resource::<reload::StagedModuleReplacement>();
     world.insert_resource(InstalledPortCodecs {
         suppliers: Arc::new(installation.suppliers),
         request_decoders: Arc::new(installation.request_decoders),

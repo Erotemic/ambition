@@ -63,6 +63,31 @@ fn fan_shots(world: &mut World, boss: Entity) -> usize {
         .count()
 }
 
+/// The size of each burst of echo-fan SPAWN REQUESTS the boss made, in tick
+/// order. Exact without a rollback session: a request is counted once, when
+/// it is made, whatever happens to the shot after. (Under a sync-test session
+/// a resimulated tick makes its requests again, so that arm counts live shots
+/// instead: [`fight`].)
+fn fight_requests(sim: &mut Platformer2dSimHarness, ticks: usize) -> Vec<usize> {
+    use ambition_platformer2d::projectiles::spawn_request::ProjectileSpawnRequest;
+    use bevy::ecs::message::Messages;
+    let boss = spawn_mockingbird(sim);
+    let mut cursor = sim.world().resource::<Messages<ProjectileSpawnRequest>>().get_cursor();
+    let mut bursts = Vec::new();
+    for _ in 0..ticks {
+        sim.step(AgentAction::default());
+        let messages = sim.world().resource::<Messages<ProjectileSpawnRequest>>();
+        let fan = cursor
+            .read(messages)
+            .filter(|r| r.owner == boss && (r.projectile.body.kin.vel.length() - 300.0).abs() < 1.0)
+            .count();
+        if fan > 0 {
+            bursts.push(fan);
+        }
+    }
+    bursts
+}
+
 /// The size of each rise in the boss's echo-fan shot count, in tick order.
 /// A fan lives 2 s and the boss's cycle reaches it every ~7 s, so two fans
 /// never overlap.
@@ -86,7 +111,7 @@ fn fight(sim: &mut Platformer2dSimHarness, ticks: usize, mut each_tick: impl FnM
 fn the_mockingbird_fires_one_fan_per_strike_through_the_extension_host() {
     let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
         .expect("sandbox sim builds");
-    let bursts = fight(&mut sim, TWO_STRIKES, |_| {});
+    let bursts = fight_requests(&mut sim, TWO_STRIKES);
     assert!(
         bursts.len() >= 2,
         "the boss reached its echo fan {} times in {TWO_STRIKES} ticks; the arm needs two \
@@ -157,7 +182,84 @@ fn a_module_rebuilt_as_wasm_replaces_the_linked_one_in_the_same_game() {
         fan.runner
     );
     assert_eq!(admitted.replaced.len(), 1, "{:?}", admitted.replaced);
-    let bursts = fight(&mut sim, TWO_STRIKES, |_| {});
+    let bursts = fight_requests(&mut sim, TWO_STRIKES);
     assert!(bursts.len() >= 2, "{bursts:?}");
     assert!(bursts.iter().all(|&n| n == FAN), "{bursts:?}");
+}
+
+/// ⭐ HOT RELOAD, IN THE ASSEMBLED GAME. A module file that changes while the
+/// game runs is PROPOSED and the rollback timeline's owner decides. With no
+/// timeline it is published and the fight goes on with the new code. Under a
+/// sync-test session the HARNESS started, the host may not rebase a timeline
+/// it does not own, so the reload is REFUSED: it stays pending, the old code
+/// keeps running, and the session stays healthy (`Q120`'s model 1).
+#[test]
+fn a_module_file_that_changes_while_the_game_runs_is_reloaded() {
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let built = ambition_platformer2d::extension::build_module_crate(&root, "ambition_content_modules")
+        .expect("the module crate builds for wasm32-unknown-unknown");
+    for rollback in [false, true] {
+        // A file of this arm's own, so touching it disturbs no other test.
+        let watched = root.join(format!(
+            "target/extension-modules/hot_reload_{}_{rollback}.wasm",
+            std::process::id()
+        ));
+        std::fs::copy(&built, &watched).unwrap();
+        let mut options = Platformer2dSimHarnessOptions::default()
+            .with_timestep(TimestepMode::fixed_60hz())
+            .with_extension_module_files(vec![watched.clone()]);
+        if rollback {
+            options = options.with_sync_test_rollback_settings(4, 10);
+        }
+        let mut sim = Platformer2dSimHarness::new_with_options(options).expect("the sandbox builds");
+        let reloads = |sim: &Platformer2dSimHarness| {
+            sim.world()
+                .resource::<ambition_platformer2d::extension::reload::StagedModuleReplacement>()
+                .published()
+        };
+        for _ in 0..30 {
+            sim.step(AgentAction::default());
+        }
+        assert_eq!(reloads(&sim), 0, "nothing changed yet");
+
+        // The rebuilt module: same bytes, a newer file.
+        let file = std::fs::File::options().write(true).open(&watched).unwrap();
+        file.set_modified(std::time::SystemTime::now() + std::time::Duration::from_secs(5))
+            .unwrap();
+        drop(file);
+        for _ in 0..60 {
+            sim.step(AgentAction::default());
+        }
+        if rollback {
+            assert_eq!(reloads(&sim), 0, "a caller's timeline is not crossed by new code");
+            assert_eq!(
+                *sim.world().resource::<ambition_platformer2d::engine_core::MechanicalEditAdmission>(),
+                ambition_platformer2d::engine_core::MechanicalEditAdmission::Refuse,
+                "the timeline's owner refused the edit"
+            );
+            assert!(
+                sim.world()
+                    .resource::<ambition_platformer2d::extension::reload::StagedModuleReplacement>()
+                    .is_staged(),
+                "the refused reload stays staged, not lost"
+            );
+            assert_eq!(ambition_platformer2d::rollback::session_health(sim.world()), Ok(()));
+        } else {
+            assert_eq!(reloads(&sim), 1, "the changed file was reloaded once");
+        }
+        if rollback {
+            // Live shots, because a resimulated tick repeats its requests. ⚠ A
+            // shot that dies on the tick it spawns (a fan fired into a wall)
+            // is never seen alive, so a later burst can read short; the first
+            // one, fired in open air, must be whole.
+            let bursts = fight(&mut sim, ONE_STRIKE, |_| {});
+            assert_eq!(bursts.first(), Some(&FAN), "{bursts:?}");
+            assert!(bursts.iter().all(|&n| n <= FAN), "{bursts:?}");
+            assert_eq!(ambition_platformer2d::rollback::session_health(sim.world()), Ok(()));
+        } else {
+            let bursts = fight_requests(&mut sim, TWO_STRIKES);
+            assert!(!bursts.is_empty() && bursts.iter().all(|&n| n == FAN), "{bursts:?}");
+        }
+        let _ = std::fs::remove_file(&watched);
+    }
 }

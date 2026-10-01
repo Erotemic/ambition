@@ -538,8 +538,11 @@ sync test left its HP at 28 of 28, with the player moving only from x=134 to
 162 (MEASURED). Placing the player 40 px beside the boss (writing its
 `BodyKinematics`) and attacking for 200 frames also left 28 of 28 (MEASURED):
 either the boss cannot be struck this early in its encounter, or this
-`AgentAction` does not produce a strike that reaches it. Find a passing
-"the player damages the mockingbird" test in `app_it` and reuse its inputs. (`SessionCast::is_changed` follows the source `get` reads). ⭐ With
+`AgentAction` does not produce a strike that reaches it. The first holds:
+`BossEncounterPhase::boss_invulnerable()` is true until the encounter reaches
+its attacking phase (`boss_lifecycle.rs:92`). Reuse
+`boss_lifecycle::kill_boss_with_a_real_hit`'s shape: step until the phase
+attacks, then strike, and publish the catalog inside that window. (`SessionCast::is_changed` follows the source `get` reads). ⭐ With
 the projection on the session's cast, a cast published mid-timeline no longer
 desyncs the sync test: `developer_edits_under_rollback::publishing_a_cast_mid_timeline_leaves_history_resimulating_the_same`
 asserts it (MEASURED: putting either the projection or the worn re-derivation

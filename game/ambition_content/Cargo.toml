@@ -117,6 +117,9 @@ serde = { workspace = true }
 ron = { workspace = true }
 
 [dev-dependencies]
+# The echo fan's wasm parity arm builds the module crate for wasm32 and runs it.
+ambition_extension_sdk = { path = "../../crates/ambition_extension_sdk" }
+ambition_extension_wasm = { path = "../../crates/ambition_extension_wasm" }
 # Compiler-confirmed unused under default AND --all-features at [dependencies]
 # (-W unused_crate_dependencies, docs/planning/triage/unused-dependency-census.md,
 # 2026-09-18): every use (encounters/tests.rs, intro/tests.rs, intro/route_state/tests.rs)

@@ -244,7 +244,10 @@ name = "ambition_combat"
 version = "0.1.0"
 dependencies = [
  "ambition_characters",
+ "ambition_combat_port",
  "ambition_entity_catalog",
+ "ambition_extension_host",
+ "ambition_extension_sdk",
  "ambition_interaction",
  "ambition_platformer2d_core",
  "ambition_platformer2d_shared_tangle",
@@ -258,6 +261,13 @@ dependencies = [
  "ambition_vfx",
  "bevy",
  "serde",
+]
+
+[[package]]
+name = "ambition_combat_port"
+version = "0.1.0"
+dependencies = [
+ "ambition_extension_sdk",
 ]
 
 [[package]]
@@ -560,6 +570,8 @@ dependencies = [
  "ambition_encounter",
  "ambition_encounter_features",
  "ambition_entity_catalog",
+ "ambition_extension_host",
+ "ambition_extension_sdk",
  "ambition_game_shell",
  "ambition_gameplay_trace",
  "ambition_held_items",

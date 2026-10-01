@@ -37,6 +37,22 @@ impl SchemaKey {
     }
 }
 
+impl SchemaKey {
+    pub fn put(&self, out: &mut Vec<u8>) {
+        crate::wire::put_str(out, &self.provider);
+        crate::wire::put_str(out, &self.key);
+        crate::wire::put_u32(out, self.revision);
+    }
+
+    pub fn read(r: &mut crate::wire::WireReader<'_>) -> Result<Self, crate::wire::WireError> {
+        Ok(Self {
+            provider: r.str()?.to_owned().into(),
+            key: r.str()?.to_owned().into(),
+            revision: r.u32()?,
+        })
+    }
+}
+
 impl std::fmt::Display for SchemaKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}::{}@{}", self.provider, self.key, self.revision)
@@ -116,6 +132,45 @@ impl FieldKind {
             Self::Opt(inner) => 1 + inner.max_encoded_len(),
             Self::Seq { elem, max_len } => 4 + u64::from(*max_len) * elem.max_encoded_len(),
         }
+    }
+
+    /// The kind on the wire: the same codes as the digest.
+    pub fn put(&self, out: &mut Vec<u8>) {
+        use crate::wire::{put_u32, put_u8};
+        match self {
+            Self::Bool => put_u8(out, 1),
+            Self::U32 => put_u8(out, 2),
+            Self::I32 => put_u8(out, 3),
+            Self::U64 => put_u8(out, 4),
+            Self::F32 => put_u8(out, 5),
+            Self::Vec2 => put_u8(out, 6),
+            Self::Opt(inner) => {
+                put_u8(out, 7);
+                inner.put(out);
+            }
+            Self::Seq { elem, max_len } => {
+                put_u8(out, 8);
+                put_u32(out, *max_len);
+                elem.put(out);
+            }
+        }
+    }
+
+    pub fn read(r: &mut crate::wire::WireReader<'_>) -> Result<Self, crate::wire::WireError> {
+        Ok(match r.u8()? {
+            1 => Self::Bool,
+            2 => Self::U32,
+            3 => Self::I32,
+            4 => Self::U64,
+            5 => Self::F32,
+            6 => Self::Vec2,
+            7 => Self::opt(Self::read(r)?),
+            8 => {
+                let max_len = r.u32()?;
+                Self::seq(Self::read(r)?, max_len)
+            }
+            other => return Err(crate::wire::WireError::BadTag(other)),
+        })
     }
 
     fn digest_into(&self, d: &mut Digest) {
@@ -246,6 +301,51 @@ impl Value {
                 }
             }
         }
+    }
+
+    /// The exact wire encoding: bit patterns kept as they are.
+    pub fn put_wire(&self, out: &mut Vec<u8>) {
+        use crate::wire::*;
+        match self {
+            Value::Bool(v) => put_bool(out, *v),
+            Value::U32(v) => put_u32(out, *v),
+            Value::I32(v) => put_i32(out, *v),
+            Value::U64(v) => put_u64(out, *v),
+            Value::F32(v) => put_f32(out, *v),
+            Value::Vec2(v) => put_vec2(out, *v),
+            Value::Opt(None) => put_u8(out, 0),
+            Value::Opt(Some(inner)) => {
+                put_u8(out, 1);
+                inner.put_wire(out);
+            }
+            Value::Seq(items) => {
+                put_u32(out, items.len() as u32);
+                for item in items {
+                    item.put_wire(out);
+                }
+            }
+        }
+    }
+
+    /// Read a value of `kind`. Bounds are the schema check's job, not the
+    /// reader's; the reader only refuses lengths past [`crate::wire::MAX_LEN`].
+    pub fn read_wire(
+        kind: &FieldKind,
+        r: &mut crate::wire::WireReader<'_>,
+    ) -> Result<Self, crate::wire::WireError> {
+        Ok(match kind {
+            FieldKind::Bool => Value::Bool(r.bool()?),
+            FieldKind::U32 => Value::U32(r.u32()?),
+            FieldKind::I32 => Value::I32(r.i32()?),
+            FieldKind::U64 => Value::U64(r.u64()?),
+            FieldKind::F32 => Value::F32(r.f32()?),
+            FieldKind::Vec2 => Value::Vec2(r.vec2()?),
+            FieldKind::Opt(inner) => Value::Opt(r.opt(|r| Self::read_wire(inner, r).map(Box::new))?),
+            FieldKind::Seq { elem, .. } => {
+                let n = r.read_len()?;
+                Value::Seq((0..n).map(|_| Self::read_wire(elem, r)).collect::<Result<_, _>>()?)
+            }
+        })
     }
 
     pub fn as_bool(&self) -> Option<bool> {
@@ -430,6 +530,80 @@ impl StateSchema {
         Ok(())
     }
 
+    pub fn put(&self, out: &mut Vec<u8>) {
+        use crate::wire::*;
+        self.key.put(out);
+        put_u8(
+            out,
+            match self.attachment {
+                Attachment::Body => 1,
+                Attachment::Session => 2,
+            },
+        );
+        put_u8(
+            out,
+            match self.save {
+                SaveEligibility::Transient => 1,
+                SaveEligibility::Checkpoint => 2,
+                SaveEligibility::Durable => 3,
+            },
+        );
+        put_u32(out, self.fields.len() as u32);
+        for field in &self.fields {
+            put_u16(out, field.tag);
+            put_str(out, &field.name);
+            field.kind.put(out);
+            field.initial.put_wire(out);
+        }
+    }
+
+    pub fn read(r: &mut crate::wire::WireReader<'_>) -> Result<Self, crate::wire::WireError> {
+        use crate::wire::WireError;
+        let key = SchemaKey::read(r)?;
+        let attachment = match r.u8()? {
+            1 => Attachment::Body,
+            2 => Attachment::Session,
+            other => return Err(WireError::BadTag(other)),
+        };
+        let save = match r.u8()? {
+            1 => SaveEligibility::Transient,
+            2 => SaveEligibility::Checkpoint,
+            3 => SaveEligibility::Durable,
+            other => return Err(WireError::BadTag(other)),
+        };
+        let n = r.read_len()?;
+        let mut fields = Vec::with_capacity(n.min(256));
+        for _ in 0..n {
+            let tag = r.u16()?;
+            let name: Name = r.str()?.to_owned().into();
+            let kind = FieldKind::read(r)?;
+            let initial = Value::read_wire(&kind, r)?;
+            fields.push(FieldDecl {
+                tag,
+                name,
+                kind,
+                initial,
+            });
+        }
+        Ok(Self {
+            key,
+            attachment,
+            save,
+            fields,
+        })
+    }
+
+    /// A record of this schema on the wire.
+    pub fn read_record(&self, r: &mut crate::wire::WireReader<'_>) -> Result<Record, crate::wire::WireError> {
+        Ok(Record {
+            values: self
+                .fields
+                .iter()
+                .map(|f| Value::read_wire(&f.kind, r))
+                .collect::<Result<_, _>>()?,
+        })
+    }
+
     /// The largest canonical encoding of one record.
     pub fn max_encoded_len(&self) -> u64 {
         self.fields.iter().map(|f| f.kind.max_encoded_len()).sum()
@@ -462,6 +636,13 @@ impl Record {
 
     pub fn values(&self) -> &[Value] {
         &self.values
+    }
+
+    /// The exact wire encoding of the record (its schema gives the kinds).
+    pub fn put_wire(&self, out: &mut Vec<u8>) {
+        for value in &self.values {
+            value.put_wire(out);
+        }
     }
 
     /// The canonical encoding of the record.

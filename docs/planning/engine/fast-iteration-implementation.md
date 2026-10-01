@@ -332,8 +332,9 @@ host in the shipped game; I4 is not complete (see *Open* below).
 | Host: offers installed WITH their adapter, admission, serial order, staged writes, fault discard, body store | `crates/ambition_extension_host` | `ambition_extension_host` tests (refusals, order cycle, fault discard, missing observation) |
 | Trigger port `ambition.boss.special_cast` | values `crates/ambition_boss_special_port`; adapter `ambition_boss_encounter::extension` | card in the port crate's docs |
 | Request port `ambition.projectiles.spawn` | value `ambition_projectile_spec::ProjectileSpawnPort`; adapter `ambition_projectiles::extension` | card on `ProjectileSpawnPort` |
+| Request port `ambition.combat.damage_box` (the box's faction is its owner's EFFECTIVE faction, never the module's choice) | values `crates/ambition_combat_port`; adapter `ambition_combat::extension` | card in the port crate's docs |
 | Phase `technique_execution` → `CombatSet::ContentSpecials` | `ambition_platformer2d_runtime::extension_composition` | — |
-| The echo fan as a module | `game/ambition_content_modules::echo_fan`; the native system is test-only | `module_parity` (tick-for-tick, owner and move-use credit; two poisons fail it); `app_it::a_boss_special_runs_on_the_extension_host` (real brain press, plus a GGRS sync-test arm) |
+| Four boss techniques as modules: the echo fan, the eye beam, mode collapse and the seismic stomp (`strike::{once, locked}` hold the shared strike rules) | `game/ambition_content_modules`; the native systems are test-only references | `specials::module_parity_tests` (tick-for-tick on the linked AND the WASM road, owner and move-use credit, telegraph locks; poisons "no strike reset", "drop the occurrence", "no telegraph lock" and "drop one loaded request" each fail it); `app_it::a_boss_special_runs_on_the_extension_host` (real brain press, plus a GGRS sync-test arm) |
 
 **Deliberate change:** the native fan aimed at its target's body only when the
 target was the player, and otherwise at the stored point. The trigger adapter
@@ -344,6 +345,44 @@ a module digest in `PreparedContentIdentity` (D6); the deterministic fault
 policy (today a fault discards the invocation's output and is counted in
 `ExtensionFaults`; it does not stop the session); a second technique with an
 observation port; session-scoped records (refused at admission until I5).
+
+**The loaded road (an I6/I7 first cut), 2026-10-01: a module edit no longer
+compiles the engine.** One backend, not the two-backend comparison I6 asks
+for; the choice is recorded below so M1 can overturn it with numbers.
+
+| Part | Where | Witness |
+| --- | --- | --- |
+| ABI `ambition-ext-1`: three exports, no imports, bytes in and out | `ambition_extension_sdk::{abi, wire}`; `export_modules!` | `ambition_extension_host` tests run a loaded module through the full wire in-process and compare it with its native build; an undeclared request from a loaded module faults |
+| Port codecs | `Port::{encode, decode}` on each port | the two port crates |
+| Host: loaded runner, output checked like native output, explicit replacement | `ambition_extension_host` (`DeclaredModule`, `ModuleBackend`, `Admitted::replaced`) | `a_loaded_module_replaces_a_native_one_only_when_it_says_so` |
+| WebAssembly backend: wasmi, `deterministic`, fuel, a new instance per call | `crates/ambition_extension_wasm` | refuses an importing module; a runaway entry runs out of fuel |
+| The developer road | `AMBITION_EXTENSION_MODULES` or `ExtensionModuleFiles`, runtime feature `wasm_modules` (the app enables it); `scripts/build_extension_modules.sh` | `app_it::a_boss_special_runs_on_the_extension_host::a_module_rebuilt_as_wasm_replaces_the_linked_one_in_the_same_game`; content `wasm_parity` (floats to 1e-3: the guest's `sin`/`atan2` differ in the last bit, measured) |
+
+**Measured (M0, this machine, 2026-10-01):** an edit to the echo fan to a
+loadable `.wasm` is **1.36 s** wall (`scripts/build_extension_modules.sh`,
+warm). Nothing in the engine compiles or links.
+
+**Hot reload, the same day.** The runtime watches each loaded file (a stat
+every 20 frames). A changed file is loaded, the WHOLE composition is
+re-admitted with it (`ambition_extension_host::reload`), and the candidate
+goes through the engine's mechanical-edit protocol: PROPOSED, the rollback
+timeline's owner ADMITS (a local timeline is stopped and rebased; a timeline
+the host did not start refuses), then PUBLISHED. Last-good by construction: a
+file that does not load or admit is reported and the running code stays. A
+reload that changes a state schema's SHAPE under live records is refused;
+that needs a reconstruction. Witnesses: host `a_reloaded_module_takes_over_at_publication_and_keeps_its_records`
+and `a_reload_that_reshapes_live_state_or_is_refused_leaves_the_running_code`;
+app `a_module_file_that_changes_while_the_game_runs_is_reloaded` (published
+without a timeline; refused, still staged and healthy under the harness's own
+sync-test session).
+
+⚠ Not covered by a test: the SHIPPED app's own local session (the
+`LocallyRebasable` arm) taking a reload. The harness cannot construct that
+ownership today.
+
+**Why wasmi first:** deterministic by construction (NaN canonicalization,
+fuel instead of a clock), pure Rust, builds for every shipped target. Its
+cost per call (a new instance each time) is unmeasured; M1 owns it.
 
 **Class:** DO. **Requires:** the execution contract; does not wait for a VM.
 Read actual boss special producers, domain request types, combat_schedule,

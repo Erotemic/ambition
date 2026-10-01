@@ -25,13 +25,15 @@ pub mod invoke;
 pub mod module;
 pub mod port;
 pub mod schema;
+pub mod wire;
+pub mod abi;
 
-pub use invoke::{Fault, HostParts, Invocation, Observation, StagedRequest};
+pub use invoke::{Fault, HostParts, Invocation, Observation, OwnedPayload, Payload, StagedRequest};
 pub use module::{
-    phases, CodeIdentity, EntryDescriptor, EntryFn, Limits, ModuleDescriptor, ModuleKey, Phase,
+    phases, CodeIdentity, EntryCode, EntryDescriptor, EntryFn, Limits, ModuleDescriptor, ModuleKey, Phase,
     TriggerBinding,
 };
-pub use port::{Port, PortKey, PortRole};
+pub use port::{decode_erased, encode_erased, DecodeFn, EncodeFn, Port, PortKey, PortRole};
 pub use schema::{
     Attachment, FieldDecl, FieldKind, FieldRef, Record, SaveEligibility, SchemaKey, StateSchema,
     Value,

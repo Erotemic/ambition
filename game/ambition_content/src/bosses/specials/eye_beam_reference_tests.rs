@@ -1,3 +1,9 @@
+//! The NATIVE REFERENCE of the eye beam — test-only.
+//!
+//! Production runs the procedural module in `ambition_content_modules`; this
+//! system is the reference trace `module_parity_tests` holds it to. Do not
+//! compose it into an App: one producer.
+//!
 //! Smirking Behemoth eye-beam boss-special Technique.
 
 use bevy::prelude::*;

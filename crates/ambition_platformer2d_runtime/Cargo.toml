@@ -37,6 +37,7 @@ ambition_dialog = { path = "../ambition_dialog", features = ["input"] }
 ambition_projectiles = { path = "../ambition_projectiles" }
 ambition_extension_host = { path = "../ambition_extension_host" }
 ambition_extension_sdk = { path = "../ambition_extension_sdk" }
+ambition_extension_wasm = { path = "../ambition_extension_wasm", optional = true }
 ambition_combat = { path = "../ambition_combat" }
 ambition_damage = { path = "../ambition_damage" }
 ambition_encounter = { path = "../ambition_encounter" }
@@ -118,3 +119,8 @@ map = ["dep:ambition_menu"]
 # The LDtk runtime spine and its rollback row, offered to a game that has an
 # LDtk world. Default-OFF: see the dependency's own note.
 ldtk = ["dep:ambition_platformer2d_ldtk", "ambition_platformer2d_ldtk/ldtk_runtime"]
+# Loaded procedural modules (fast-iteration I6/I7): the WebAssembly backend
+# of the extension host. Default-OFF so a game that never loads a module does
+# not link an interpreter. With it on, `AMBITION_EXTENSION_MODULES` names
+# `.wasm` files whose modules replace the linked ones of the same key.
+wasm_modules = ["dep:ambition_extension_wasm"]

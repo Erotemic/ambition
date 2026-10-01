@@ -1135,15 +1135,23 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
     // snapshot boundary and a rewind has nothing to restore.
     (
         "ambition_extension_host::AdmittedExtensions",
-        "composition data: the sealed admission, inserted once at Plugin::finish or the first tick and never written by the simulation",
+        "composition data: the sealed admission, inserted at Plugin::finish or the first tick and replaced only by a developer reload's publication in the PreUpdate MechanicalEditSet chain (before RunGgrsSystems); never written by the simulation",
     ),
     (
         "ambition_extension_host::ExtensionSchedule",
         "composition data: the schedule label the host was added to; written at build only",
     ),
     (
-        "ambition_extension_host::exec::ObservationSuppliers",
-        "composition data: the installed observation projections, frozen at admission",
+        "ambition_extension_host::ExtensionComposition",
+        "composition data: the offers and declared modules admission was made from, kept so a developer reload can re-admit; written at admission and at a reload's publication in the PreUpdate MechanicalEditSet chain, never by the simulation",
+    ),
+    (
+        "ambition_extension_host::reload::StagedModuleReplacement",
+        "host-side reload candidate: staged in PreUpdate MechanicalEditSet::Propose and spent in ::Publish, before RunGgrsSystems, so it is outside the rollback window by construction like PendingMechanicalEdits",
+    ),
+    (
+        "ambition_extension_host::exec::InstalledPortCodecs",
+        "composition data: the installed observation projections and request decoders, frozen at admission",
     ),
     (
         "ambition_extension_host::exec::ExtensionInvocations",

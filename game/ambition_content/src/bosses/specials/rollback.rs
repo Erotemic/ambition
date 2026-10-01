@@ -1,7 +1,7 @@
 //! Boss-special rollback codecs, registered by the content crate that owns them.
 //!
 //! `docs/planning/engine/netcode.md` N3.1: *"each sim crate registers its components'
-//! serialization."* These ten Technique states are sim state — a `fired_this_strike`
+//! serialization."* These seven Technique states are sim state — a `fired_this_strike`
 //! latch that survives a rollback is a strike that fires twice — and no crate below
 //! `ambition_content` can name them. The content domain declares them through
 //! the backend-neutral `RollbackRegistrar`; the selected host decides whether
@@ -20,16 +20,14 @@ use ambition_platformer2d_core::snapshot::{
 use bevy::prelude::*;
 
 use super::{
-    AppleRainSpawnState, ExplodingGradientState, EyeBeamState, GradientCascadeState,
-    MinimaTrapState, ModeCollapseState, OverfitVolleyState, OverflowState, SaddlePointState,
-    SeismicStompState,
+    AppleRainSpawnState, ExplodingGradientState, GradientCascadeState, MinimaTrapState,
+    OverfitVolleyState, OverflowState, SaddlePointState,
 };
 
 /// Add every boss-special state to the rollback contract.
 pub(super) fn register(registrar: &mut impl RollbackRegistrar) {
     const OWNER: &str = "ambition_content::bosses::specials";
     registrar
-        .rollback_component_canonical::<SeismicStompState>(OWNER, "content.seismic_stomp_state")
         .rollback_component_canonical::<ExplodingGradientState>(
             OWNER,
             "content.exploding_gradient_state",
@@ -44,8 +42,6 @@ pub(super) fn register(registrar: &mut impl RollbackRegistrar) {
             OWNER,
             "content.apple_rain_spawn_state",
         )
-        .rollback_component_canonical::<ModeCollapseState>(OWNER, "content.mode_collapse_state")
-        .rollback_component_canonical::<EyeBeamState>(OWNER, "content.eye_beam_state")
         .rollback_component_canonical::<OverfitVolleyState>(OWNER, "content.overfit_volley_state")
         .rollback_component_cursor::<SaddlePointState>(OWNER, "content.saddle_point_state")
         .rollback_map_entities::<SaddlePointState>(OWNER, "map.content.saddle_point_state");
@@ -55,18 +51,6 @@ pub(super) fn register(registrar: &mut impl RollbackRegistrar) {
 // a `spawn_index` that survives one is a minion that is never born. Keep these
 // content-owned codecs explicit instead of exporting the runtime crate's private
 // convenience macro as a public API.
-impl SnapshotState for SeismicStompState {
-    fn encode(&self, out: &mut Vec<u8>) {
-        put_bool(out, self.fired_this_strike);
-    }
-
-    fn decode(r: &mut Reader<'_>) -> Option<Self> {
-        Some(Self {
-            fired_this_strike: r.bool()?,
-        })
-    }
-}
-
 impl SnapshotState for ExplodingGradientState {
     fn encode(&self, out: &mut Vec<u8>) {
         put_bool(out, self.fired_this_strike);
@@ -143,31 +127,6 @@ impl SnapshotState for OverflowState {
     }
 }
 
-macro_rules! locked_target_state {
-    ($ty:ty) => {
-        impl SnapshotState for $ty {
-            fn encode(&self, out: &mut Vec<u8>) {
-                match self.locked_target {
-                    None => put_bool(out, false),
-                    Some(p) => {
-                        put_bool(out, true);
-                        put_vec2(out, p);
-                    }
-                }
-                put_bool(out, self.fired_this_strike);
-            }
-            fn decode(r: &mut Reader<'_>) -> Option<Self> {
-                let locked_target = if r.bool()? { Some(r.vec2()?) } else { None };
-                Some(Self {
-                    locked_target,
-                    fired_this_strike: r.bool()?,
-                })
-            }
-        }
-    };
-}
-locked_target_state!(ModeCollapseState);
-locked_target_state!(EyeBeamState);
 
 /// The volley's sampled aim points, in the order it took them. A `Vec`, so its order
 /// IS its meaning.

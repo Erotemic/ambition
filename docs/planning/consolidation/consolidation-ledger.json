@@ -499,6 +499,26 @@
       "test_rust_loc_heuristic": 21270
     },
     {
+      "dev_workspace_dependencies": [],
+      "direct_bevy_dependency": false,
+      "direct_workspace_dependencies": [
+        "ambition_extension_sdk"
+      ],
+      "nonblank_rust_loc": 49,
+      "package": "ambition_combat_port",
+      "path": "crates/ambition_combat_port",
+      "public_items_heuristic": 2,
+      "public_root_reexports_or_modules_heuristic": 0,
+      "raw_rust_loc": 55,
+      "responsibility_clue": "The pure values of the combat domain's extension ports: a damage box a module may ask for.",
+      "reverse_workspace_dependencies": [
+        "ambition_combat",
+        "ambition_content_modules"
+      ],
+      "rust_files": 1,
+      "test_rust_loc_heuristic": 0
+    },
+    {
       "dev_workspace_dependencies": [
         "ambition_content",
         "ambition_content_cli"
@@ -1108,6 +1128,26 @@
         "ambition_projectiles"
       ],
       "rust_files": 6,
+      "test_rust_loc_heuristic": 0
+    },
+    {
+      "dev_workspace_dependencies": [],
+      "direct_bevy_dependency": false,
+      "direct_workspace_dependencies": [
+        "ambition_extension_host",
+        "ambition_extension_sdk"
+      ],
+      "nonblank_rust_loc": 215,
+      "package": "ambition_extension_wasm",
+      "path": "crates/ambition_extension_wasm",
+      "public_items_heuristic": 6,
+      "public_root_reexports_or_modules_heuristic": 0,
+      "raw_rust_loc": 232,
+      "responsibility_clue": "The WebAssembly backend of the extension host: a module built against the SDK runs in an interpreter, so an edit to it rebuilds the module and never the engine.",
+      "reverse_workspace_dependencies": [
+        "ambition_platformer2d_runtime"
+      ],
+      "rust_files": 1,
       "test_rust_loc_heuristic": 0
     },
     {
@@ -2621,7 +2661,7 @@
     "commit": "7b662e3b4b3170e602a3ab7cb512bd747076a259",
     "date": "2026-09-19",
     "scope": "STATIC MEASUREMENTS ONLY. The semantic items were read at source_commit and have not been re-read; a refreshed count is not a refreshed claim.",
-    "added_2026_10_01": "Four crate rows added at their creation (the procedural extension tier, fast-iteration I4), measured by scripts/architecture_census.py on 2026-10-01. The other rows are still the 2026-09-19 refresh."
+    "added_2026_10_01": "Six crate rows added at their creation (the procedural extension tier, fast-iteration I4), measured by scripts/architecture_census.py on 2026-10-01. The other rows are still the 2026-09-19 refresh."
   },
   "duplicate_authority_states": {
     "OPEN_PRESSURE": "two owners of one CURRENT fact, or a supported road that creates a second source; carries the `suspect_duplicate_authority` metric tag",

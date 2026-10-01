@@ -11,9 +11,8 @@
 
 use ambition_boss_special_port::{BossCaster, BossSpecialCast};
 use ambition_extension_sdk::{
-    phases::TECHNIQUE_EXECUTION, Attachment, CodeIdentity, EntryDescriptor, Fault, FieldDecl,
-    FieldKind, FieldRef, Invocation, Limits, ModuleDescriptor, ModuleKey, Port, SaveEligibility,
-    SchemaKey, StateSchema, TriggerBinding, Value, API_VERSION,
+    phases::TECHNIQUE_EXECUTION, CodeIdentity, EntryCode, EntryDescriptor, Fault, Invocation,
+    Limits, ModuleDescriptor, ModuleKey, Port, SchemaKey, StateSchema, TriggerBinding, API_VERSION,
 };
 use ambition_projectile_spec::{ProjectileSpawn, ProjectileSpawnPort};
 use bevy_math::Vec2;
@@ -30,15 +29,9 @@ const LIFETIME: f32 = 2.0;
 
 /// The strike record of one boss.
 pub const STRIKE: SchemaKey = SchemaKey::new(crate::PROVIDER, "echo_fan.strike", 1);
-const FIRED_THIS_STRIKE: FieldRef = FieldRef(0);
 
 pub fn schema() -> StateSchema {
-    StateSchema {
-        key: STRIKE,
-        attachment: Attachment::Body,
-        save: SaveEligibility::Transient,
-        fields: vec![FieldDecl::new(1, "fired_this_strike", FieldKind::Bool)],
-    }
+    crate::strike::once_schema(STRIKE)
 }
 
 pub fn module() -> ModuleDescriptor {
@@ -64,27 +57,18 @@ pub fn module() -> ModuleDescriptor {
             limits: Limits {
                 max_requests: COUNT,
             },
-            run: fire,
+            run: EntryCode::Native(fire),
         }],
     }
 }
 
 fn fire(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     let caster: BossCaster = inv.trigger::<BossSpecialCast>()?.clone();
-    if !caster.pressed {
-        return set(inv, FIRED_THIS_STRIKE, Value::Bool(false));
-    }
-    let fired = inv
-        .state(&STRIKE)?
-        .get(FIRED_THIS_STRIKE)
-        .ok()
-        .and_then(Value::as_bool)
-        .unwrap_or(false);
-    if !caster.alive || fired {
+    if !crate::strike::once(inv, &STRIKE, &caster)? {
         return Ok(());
     }
 
-    let origin = Vec2::from(caster.launch_origin);
+    let origin = Vec2::from(caster.position) + Vec2::from(caster.projectile_offset);
     // Aim at the target; with no target, straight ahead by facing.
     let aim = caster
         .target
@@ -108,16 +92,7 @@ fn fire(inv: &mut Invocation<'_>) -> Result<(), Fault> {
             boomerang_return_s: None,
         })?;
     }
-    set(inv, FIRED_THIS_STRIKE, Value::Bool(true))
-}
-
-fn set(inv: &mut Invocation<'_>, field: FieldRef, value: Value) -> Result<(), Fault> {
-    inv.state(&STRIKE)?
-        .set(field, value)
-        .map_err(|error| Fault::Schema {
-            schema: STRIKE,
-            error,
-        })
+    Ok(())
 }
 
 /// `count` unit directions, evenly across a `spread` cone centred on `aim`.

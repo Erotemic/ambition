@@ -7,7 +7,7 @@
 
 use ambition_boss_special_port::{BossCaster, BossSpecialCast};
 use ambition_characters::brain::action_set::{ActionRequest, SpecialActionSpec};
-use ambition_characters::brain::ActorActionMessage;
+use ambition_characters::brain::{ActorActionMessage, BossAttackProfile, BossAttackState};
 use ambition_combat::components::ActorTarget;
 use ambition_extension_host::{AdmittedExtensions, ExtensionAppExt, ExtensionInvocations};
 use ambition_extension_sdk::phases::TECHNIQUE_EXECUTION;
@@ -39,6 +39,7 @@ pub fn queue_boss_special_casts(
         BossClusterRef,
         &ambition_characters::actor::BodyHealth,
         Option<&ActorTarget>,
+        Option<&BossAttackState>,
     )>,
     bodies: Query<&BodyKinematics>,
 ) {
@@ -75,10 +76,16 @@ pub fn queue_boss_special_casts(
     if keys.is_empty() {
         return;
     }
-    for (entity, boss, health, target) in &bosses {
+    for (entity, boss, health, target, attack) in &bosses {
         let boss = boss.as_boss_ref();
         let pos = boss.kin.pos;
-        let origin = pos + boss.config.behavior.projectile_origin_offset;
+        let offset = boss.config.behavior.projectile_origin_offset;
+        let body = boss.aabb();
+        let (body_center, body_half) = (body.center(), body.half_size());
+        let telegraphed = attack.and_then(|a| match &a.telegraph_profile {
+            Some(BossAttackProfile::Special(key)) => Some(key.as_str()),
+            _ => None,
+        });
         // The tracked body's centre, whoever it is; the tracked point when the
         // target is not a live body.
         let target = target.map(|t| {
@@ -100,10 +107,13 @@ pub fn queue_boss_special_casts(
                 press.and_then(|p| p.2),
                 BossCaster {
                     pressed: press.is_some(),
+                    telegraphing: telegraphed == Some(*key),
                     alive: health.alive(),
                     position: [pos.x, pos.y],
                     facing: boss.kin.facing.signum(),
-                    launch_origin: [origin.x, origin.y],
+                    projectile_offset: [offset.x, offset.y],
+                    body_center: [body_center.x, body_center.y],
+                    body_half_size: [body_half.x, body_half.y],
                     target,
                 },
             );

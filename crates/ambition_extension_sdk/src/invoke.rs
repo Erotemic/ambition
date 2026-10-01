@@ -10,6 +10,7 @@
 //! entry faults, the host discards ALL of its staged writes and requests.
 
 use std::any::Any;
+use std::cell::OnceCell;
 
 use crate::module::EntryDescriptor;
 use crate::port::{Port, PortKey, PortRole};
@@ -62,6 +63,8 @@ impl std::fmt::Display for Fault {
 pub struct StagedRequest {
     pub port: PortKey,
     pub value: Box<dyn Any + Send + Sync>,
+    /// Encodes `value` for a guest that must hand it back as bytes.
+    pub encode: crate::port::EncodeFn,
 }
 
 impl std::fmt::Debug for StagedRequest {
@@ -72,10 +75,32 @@ impl std::fmt::Debug for StagedRequest {
     }
 }
 
+/// A port value as the invocation holds it: a Rust value in this process,
+/// or bytes that a loaded module decodes when it first asks.
+pub enum Payload<'a> {
+    Native(&'a (dyn Any + Send + Sync)),
+    Wire(&'a [u8]),
+}
+
 /// One observation value in the read cut.
 pub struct Observation {
     pub port: PortKey,
-    pub value: Box<dyn Any + Send + Sync>,
+    pub value: OwnedPayload,
+}
+
+/// An owned [`Payload`].
+pub enum OwnedPayload {
+    Native(Box<dyn Any + Send + Sync>),
+    Wire(Vec<u8>),
+}
+
+impl OwnedPayload {
+    pub fn as_payload(&self) -> Payload<'_> {
+        match self {
+            OwnedPayload::Native(v) => Payload::Native(v.as_ref()),
+            OwnedPayload::Wire(b) => Payload::Wire(b),
+        }
+    }
 }
 
 /// The parts the host gives to [`Invocation::from_host`].
@@ -86,7 +111,7 @@ pub struct HostParts<'a> {
     /// The use of a move that asked for this invocation, if a move asked.
     pub occurrence: Option<u32>,
     pub trigger_port: &'a PortKey,
-    pub trigger: &'a (dyn Any + Send + Sync),
+    pub trigger: Payload<'a>,
     pub observations: &'a [Observation],
     /// Staged copies of the scope's records, one for each declared schema.
     pub state: &'a mut [(SchemaKey, Record)],
@@ -96,12 +121,41 @@ pub struct HostParts<'a> {
 /// What an entry receives.
 pub struct Invocation<'a> {
     parts: HostParts<'a>,
+    /// Decoded wire values, one cell for the trigger and one per observation.
+    decoded_trigger: OnceCell<Box<dyn Any + Send + Sync>>,
+    decoded_observations: Vec<OnceCell<Box<dyn Any + Send + Sync>>>,
+}
+
+/// Read a payload as port `P`'s value, decoding wire bytes once.
+fn payload_value<'c, P: Port>(
+    payload: Payload<'c>,
+    cell: &'c OnceCell<Box<dyn Any + Send + Sync>>,
+) -> Result<&'c P::Value, Fault> {
+    match payload {
+        Payload::Native(v) => v.downcast_ref::<P::Value>().ok_or(Fault::MissingObservation(P::KEY)),
+        Payload::Wire(bytes) => {
+            if cell.get().is_none() {
+                let value = crate::wire::decode_all(bytes, P::decode).map_err(|e| {
+                    Fault::Module(format!("port {} value does not decode: {e}", P::KEY).into())
+                })?;
+                let _ = cell.set(Box::new(value));
+            }
+            cell.get()
+                .and_then(|v| v.downcast_ref::<P::Value>())
+                .ok_or(Fault::MissingObservation(P::KEY))
+        }
+    }
 }
 
 impl<'a> Invocation<'a> {
     /// Host API: build an invocation. A module never calls this.
     pub fn from_host(parts: HostParts<'a>) -> Self {
-        Self { parts }
+        let decoded_observations = parts.observations.iter().map(|_| OnceCell::new()).collect();
+        Self {
+            parts,
+            decoded_trigger: OnceCell::new(),
+            decoded_observations,
+        }
     }
 
     /// The logical simulation tick. There is no wall clock.
@@ -129,10 +183,11 @@ impl<'a> Invocation<'a> {
                 actual: self.parts.trigger_port.clone(),
             });
         }
-        self.parts
-            .trigger
-            .downcast_ref::<P::Value>()
-            .ok_or(Fault::MissingObservation(P::KEY))
+        let payload = match &self.parts.trigger {
+            Payload::Native(v) => Payload::Native(*v),
+            Payload::Wire(b) => Payload::Wire(b),
+        };
+        payload_value::<P>(payload, &self.decoded_trigger)
     }
 
     /// An observation from port `P`. The entry must declare `P` in `reads`.
@@ -146,12 +201,16 @@ impl<'a> Invocation<'a> {
         if !self.parts.entry.reads.contains(&P::KEY) {
             return Err(Fault::UndeclaredRead(P::KEY));
         }
-        self.parts
+        let index = self
+            .parts
             .observations
             .iter()
-            .find(|o| o.port == P::KEY)
-            .and_then(|o| o.value.downcast_ref::<P::Value>())
-            .ok_or(Fault::MissingObservation(P::KEY))
+            .position(|o| o.port == P::KEY)
+            .ok_or(Fault::MissingObservation(P::KEY))?;
+        payload_value::<P>(
+            self.parts.observations[index].value.as_payload(),
+            &self.decoded_observations[index],
+        )
     }
 
     /// The staged record of a declared schema for this scope.
@@ -183,6 +242,7 @@ impl<'a> Invocation<'a> {
         self.parts.requests.push(StagedRequest {
             port: P::KEY,
             value: Box::new(value),
+            encode: crate::port::encode_erased::<P>,
         });
         Ok(())
     }

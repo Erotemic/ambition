@@ -77,8 +77,9 @@ FACADE = "ambition_platformer2d"
 #: nothing here — the pages are what must agree.
 #:
 #: 2026-10-01: 52. The pages already said 49 (one rise had not moved this);
-#: the procedural extension tier added three (SDK, host, boss port leaf).
-CLOSURE_LAST_READ = 52
+#: the procedural extension tier added three (SDK, host, boss port leaf),
+#: then the combat port leaf (53).
+CLOSURE_LAST_READ = 53
 
 #: ⛔ This package must not re-enter the mandatory graph. The host declares it
 #: `optional = true` and the facade takes the host with

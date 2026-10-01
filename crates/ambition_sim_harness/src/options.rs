@@ -56,6 +56,8 @@ pub struct Platformer2dSimHarnessOptions {
     /// harness's first `update`, which is the same pair of facts the startup
     /// loader produces: bytes present, `SaveRestored` false.
     pub save: Option<ambition_platformer2d::session::AmbitionGameSaveData>,
+    /// Loaded module files (`.wasm`) that replace the linked modules.
+    pub extension_module_files: Vec<std::path::PathBuf>,
 }
 
 impl Platformer2dSimHarnessOptions {
@@ -129,6 +131,13 @@ impl Platformer2dSimHarnessOptions {
 
     /// Builder: number of seats in a sync-test session. No-op when rollback is
     /// disabled.
+    /// Load these `.wasm` module files; their modules replace the linked
+    /// modules of the same key (`ExtensionModuleFiles`).
+    pub fn with_extension_module_files(mut self, files: Vec<std::path::PathBuf>) -> Self {
+        self.extension_module_files = files;
+        self
+    }
+
     pub fn with_rollback_players(mut self, count: usize) -> Self {
         if let RollbackMode::SyncTest { players, .. } = &mut self.rollback {
             *players = count;

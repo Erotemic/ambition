@@ -335,8 +335,11 @@ version = "0.1.0"
 dependencies = [
  "ambition_causal",
  "ambition_characters",
+ "ambition_combat_port",
  "ambition_content_pack",
  "ambition_entity_catalog",
+ "ambition_extension_host",
+ "ambition_extension_sdk",
  "ambition_interaction",
  "ambition_platformer2d_core",
  "ambition_platformer2d_shared_tangle",
@@ -351,6 +354,13 @@ dependencies = [
  "bevy",
  "ron 0.11.0",
  "serde",
+]
+
+[[package]]
+name = "ambition_combat_port"
+version = "0.1.0"
+dependencies = [
+ "ambition_extension_sdk",
 ]
 
 [[package]]
@@ -374,6 +384,8 @@ dependencies = [
  "ambition_encounter_features",
  "ambition_entity_catalog",
  "ambition_extension_host",
+ "ambition_extension_sdk",
+ "ambition_extension_wasm",
  "ambition_held_items",
  "ambition_input",
  "ambition_interaction",
@@ -422,6 +434,7 @@ name = "ambition_content_modules"
 version = "0.1.0"
 dependencies = [
  "ambition_boss_special_port",
+ "ambition_combat_port",
  "ambition_extension_sdk",
  "ambition_projectile_spec",
  "bevy_math",
@@ -663,6 +676,16 @@ name = "ambition_extension_sdk"
 version = "0.1.0"
 
 [[package]]
+name = "ambition_extension_wasm"
+version = "0.1.0"
+dependencies = [
+ "ambition_extension_host",
+ "ambition_extension_sdk",
+ "wasmi",
+ "wat",
+]
+
+[[package]]
 name = "ambition_game_shell"
 version = "0.1.0"
 dependencies = [
@@ -864,6 +887,9 @@ dependencies = [
  "ambition_encounter_features",
  "ambition_engine_schemas",
  "ambition_entity_catalog",
+ "ambition_extension_host",
+ "ambition_extension_sdk",
+ "ambition_extension_wasm",
  "ambition_game_shell",
  "ambition_gameplay_trace",
  "ambition_held_items",
@@ -1099,6 +1125,7 @@ dependencies = [
  "ambition_entity_catalog",
  "ambition_extension_host",
  "ambition_extension_sdk",
+ "ambition_extension_wasm",
  "ambition_gameplay_trace",
  "ambition_held_items",
  "ambition_input",
@@ -1509,7 +1536,7 @@ version = "1.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "40c48f72fd53cd289104fc64099abca73db4166ad86ea0b4341abe65af83dadc"
 dependencies = [
- "windows-sys 0.60.2",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -1520,7 +1547,7 @@ checksum = "291e6a250ff86cd4a820112fb8898808a366d8f9f58ce16d1f538353ad55747d"
 dependencies = [
  "anstyle",
  "once_cell_polyfill",
- "windows-sys 0.60.2",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -2926,7 +2953,7 @@ dependencies = [
  "portable-atomic",
  "portable-atomic-util",
  "serde",
- "spin",
+ "spin 0.10.1",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-time",
@@ -8000,6 +8027,12 @@ dependencies = [
 
 [[package]]
 name = "spin"
+version = "0.9.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3763264f6b73151db08c50ff20d7d8a0b8796e021cdea7ceedad07b80155fa0e"
+
+[[package]]
+name = "spin"
 version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "023a211cb3138dbc438680b32560ad89f699977624c9f8dbb95a47d5b4c07dd3"
@@ -8051,6 +8084,16 @@ name = "strict-num"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6637bab7722d379c8b41ba849228d680cc12d0a45ba1fa2b48f2a30577a06731"
+
+[[package]]
+name = "string-interner"
+version = "0.19.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "23de088478b31c349c9ba67816fa55d9355232d63c3afea8bf513e31f0f1d2c0"
+dependencies = [
+ "hashbrown 0.15.5",
+ "serde",
+]
 
 [[package]]
 name = "strsim"
@@ -8957,7 +9000,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "990065f2fe63003fe337b932cfb5e3b80e0b4d0f5ff650e6985b1048f62c8319"
 dependencies = [
  "leb128fmt",
- "wasmparser",
+ "wasmparser 0.244.0",
+]
+
+[[package]]
+name = "wasm-encoder"
+version = "0.260.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e1e9692da9ef627c5ee12b45378f68ac2689ce306f88078f5cf849b7c3444ed8"
+dependencies = [
+ "leb128fmt",
+ "wasmparser 0.260.0",
 ]
 
 [[package]]
@@ -8968,8 +9021,59 @@ checksum = "bb0e353e6a2fbdc176932bbaab493762eb1255a7900fe0fea1a2f96c296cc909"
 dependencies = [
  "anyhow",
  "indexmap",
- "wasm-encoder",
- "wasmparser",
+ "wasm-encoder 0.244.0",
+ "wasmparser 0.244.0",
+]
+
+[[package]]
+name = "wasmi"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "78693fcdd618e0fc34af59c6b8efa9ac5d58c68df940beff4bedddb6acfe7c27"
+dependencies = [
+ "spin 0.9.9",
+ "wasmi_collections",
+ "wasmi_core",
+ "wasmi_ir",
+ "wasmparser 0.228.0",
+ "wat",
+]
+
+[[package]]
+name = "wasmi_collections"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8a8be2aa467cf2d29e96ff759472c36eeb44a3c81c67fc9cb76c9a24c519c557"
+dependencies = [
+ "string-interner",
+]
+
+[[package]]
+name = "wasmi_core"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "69372d5fda3ea3d1e0aa6603c7888110e0187e88ea17cd8fc2e2df0a0e1f37fa"
+dependencies = [
+ "libm",
+]
+
+[[package]]
+name = "wasmi_ir"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8f17b774caa13c618c7244f1ee51fe23c5e7b8538a471fa46d9949779758aed6"
+dependencies = [
+ "wasmi_core",
+]
+
+[[package]]
+name = "wasmparser"
+version = "0.228.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4abf1132c1fdf747d56bbc1bb52152400c70f336870f968b85e89ea422198ae3"
+dependencies = [
+ "bitflags 2.13.1",
+ "indexmap",
 ]
 
 [[package]]
@@ -8982,6 +9086,39 @@ dependencies = [
  "hashbrown 0.15.5",
  "indexmap",
  "semver",
+]
+
+[[package]]
+name = "wasmparser"
+version = "0.260.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4c94519d78304dc4a4bb5925eda6ff153bf06167467cff9233dc9593bae28fdd"
+dependencies = [
+ "bitflags 2.13.1",
+ "indexmap",
+ "semver",
+]
+
+[[package]]
+name = "wast"
+version = "260.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "17573754cde137d26852892330414efb6d1d33480adcd10e8825d092b2132229"
+dependencies = [
+ "bumpalo",
+ "leb128fmt",
+ "memchr",
+ "unicode-width",
+ "wasm-encoder 0.260.0",
+]
+
+[[package]]
+name = "wat"
+version = "1.260.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5f56de9341c410d04121da51dd16c11d095cb6a914bd2b2850cd3c60558c0c15"
+dependencies = [
+ "wast",
 ]
 
 [[package]]
@@ -9783,9 +9920,9 @@ dependencies = [
  "serde",
  "serde_derive",
  "serde_json",
- "wasm-encoder",
+ "wasm-encoder 0.244.0",
  "wasm-metadata",
- "wasmparser",
+ "wasmparser 0.244.0",
  "wit-parser",
 ]
 
@@ -9804,7 +9941,7 @@ dependencies = [
  "serde_derive",
  "serde_json",
  "unicode-xid",
- "wasmparser",
+ "wasmparser 0.244.0",
 ]
 
 [[package]]

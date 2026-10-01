@@ -6,13 +6,15 @@
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
+| [`abi`](src/abi.rs) | The loaded-module ABI, `ambition-ext-1`: the bytes a host and a guest exchange, and the guest half that runs an entry from them. |
 | [`digest`](src/digest.rs) | A small deterministic 64-bit digest (FNV-1a). |
 | [`invoke`](src/invoke.rs) | The invocation an entry receives. |
 | [`module`](src/module.rs) | Module and entry descriptors. |
 | [`port`](src/port.rs) | Ports: the typed doors between a module and a domain. |
 | [`schema`](src/schema.rs) | State schemas, logical values and records. |
+| [`wire`](src/wire.rs) | The portable wire encoding: little-endian, length-prefixed, no type tags. |
 
-_5 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_7 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

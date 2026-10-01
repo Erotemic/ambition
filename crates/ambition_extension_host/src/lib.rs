@@ -22,6 +22,7 @@
 
 mod admission;
 mod exec;
+pub mod reload;
 mod store;
 
 use std::collections::{BTreeSet, HashMap};
@@ -32,10 +33,13 @@ use bevy::ecs::intern::Interned;
 use bevy::ecs::schedule::ScheduleLabel;
 use bevy::prelude::*;
 
-pub use admission::{admit, Admitted, AdmittedEntry, AdmittedSchema, PortOffer, Refusal};
+pub use admission::{
+    admit, Admitted, AdmittedEntry, AdmittedSchema, DeclaredModule, EntryRunner, ModuleBackend,
+    ModuleCode, PortOffer, Refusal,
+};
 pub use exec::{
     run_phase, ExtensionFaults, ExtensionInvocations, ExtensionOutbox, FaultRecord,
-    ObservationSuppliers, PendingInvocation, Submitted, Supplier,
+    InstalledPortCodecs, PendingInvocation, Submitted, Supplier,
 };
 pub use store::{register_rollback_state, BodyRecords, StoredRecord};
 
@@ -58,6 +62,14 @@ pub enum ExtensionSet {
 #[derive(Resource, Clone)]
 pub struct AdmittedExtensions(pub Arc<Admitted>);
 
+/// What the admission was made from, kept so a reload can re-admit the whole
+/// composition (see [`reload`]).
+#[derive(Resource, Clone)]
+pub struct ExtensionComposition {
+    pub(crate) offers: Vec<PortOffer>,
+    pub(crate) declared: Vec<DeclaredModule>,
+}
+
 /// The schedule the host and its adapters run in.
 #[derive(Resource, Clone, Copy)]
 struct ExtensionSchedule(Interned<dyn ScheduleLabel>);
@@ -66,8 +78,9 @@ struct ExtensionSchedule(Interned<dyn ScheduleLabel>);
 #[derive(Resource, Default)]
 struct ExtensionInstallation {
     offers: Vec<PortOffer>,
-    suppliers: HashMap<ambition_extension_sdk::PortKey, Supplier>,
-    modules: Vec<ModuleDescriptor>,
+    suppliers: HashMap<ambition_extension_sdk::PortKey, (Supplier, ambition_extension_sdk::EncodeFn)>,
+    request_decoders: HashMap<ambition_extension_sdk::PortKey, ambition_extension_sdk::DecodeFn>,
+    modules: Vec<DeclaredModule>,
     /// Phases whose systems are already in the schedule.
     phases: BTreeSet<Phase>,
 }
@@ -126,7 +139,18 @@ pub fn admit_world(world: &mut World) {
             );
         }
     };
-    world.insert_resource(ObservationSuppliers(Arc::new(installation.suppliers)));
+    if !admitted.replaced.is_empty() {
+        info!("extension modules replaced: {:?}", admitted.replaced);
+    }
+    world.insert_resource(ExtensionComposition {
+        offers: installation.offers.clone(),
+        declared: installation.modules.clone(),
+    });
+    world.init_resource::<reload::StagedModuleReplacement>();
+    world.insert_resource(InstalledPortCodecs {
+        suppliers: Arc::new(installation.suppliers),
+        request_decoders: Arc::new(installation.request_decoders),
+    });
     world.insert_resource(AdmittedExtensions(Arc::new(admitted)));
 }
 
@@ -161,7 +185,34 @@ pub trait ExtensionAppExt {
     ) -> &mut Self;
 
     /// Declare a module. Admission runs in `Plugin::finish`.
-    fn add_extension_module(&mut self, module: ModuleDescriptor) -> &mut Self;
+    fn add_extension_module(&mut self, module: ModuleDescriptor) -> &mut Self {
+        self.add_declared_extension_module(module.into())
+    }
+
+    /// Declare the modules of a loaded file. With `replaces`, each one
+    /// explicitly replaces a module of the same key that the game links (a
+    /// developer's rebuilt module); admission records the replacement.
+    fn add_loaded_extension_modules(
+        &mut self,
+        backend: Arc<dyn ModuleBackend>,
+        modules: Vec<ModuleDescriptor>,
+        replaces: bool,
+    ) -> &mut Self {
+        for (index, descriptor) in modules.into_iter().enumerate() {
+            self.add_declared_extension_module(DeclaredModule {
+                descriptor,
+                code: ModuleCode::Loaded {
+                    backend: backend.clone(),
+                    module: index as u32,
+                },
+                replaces,
+            });
+        }
+        self
+    }
+
+    /// Declare one module with its code.
+    fn add_declared_extension_module(&mut self, module: DeclaredModule) -> &mut Self;
 }
 
 fn installation(app: &mut App) -> (Interned<dyn ScheduleLabel>, Mut<'_, ExtensionInstallation>) {
@@ -244,13 +295,14 @@ impl ExtensionAppExt for App {
         installation
             .offers
             .push(offer::<P>(PortRole::Observation, phase.clone(), owner));
-        drop(installation);
         ensure_phase(self, schedule, &phase);
         let mut installation = self.world_mut().resource_mut::<ExtensionInstallation>();
         let erased: Supplier = Arc::new(move |world: &World, scope: Entity| {
             supplier(world, scope).map(|v| Box::new(v) as Box<dyn std::any::Any + Send + Sync>)
         });
-        installation.suppliers.insert(P::KEY, erased);
+        installation
+            .suppliers
+            .insert(P::KEY, (erased, ambition_extension_sdk::encode_erased::<P>));
         self
     }
 
@@ -264,6 +316,9 @@ impl ExtensionAppExt for App {
         installation
             .offers
             .push(offer::<P>(PortRole::Request, phase.clone(), owner));
+        installation
+            .request_decoders
+            .insert(P::KEY, ambition_extension_sdk::decode_erased::<P>);
         ensure_phase(self, schedule, &phase);
         self.add_systems(schedule, adapter.in_set(ExtensionSet::Lower(phase)))
     }
@@ -271,11 +326,11 @@ impl ExtensionAppExt for App {
     /// A game plugin may run before or after the composition adds the host,
     /// so this needs no schedule. ⚠ An App that declares a module and never
     /// adds the host admits nothing; the module never runs.
-    fn add_extension_module(&mut self, module: ModuleDescriptor) -> &mut Self {
+    fn add_declared_extension_module(&mut self, module: DeclaredModule) -> &mut Self {
         assert!(
             !self.world().contains_resource::<AdmittedExtensions>(),
             "module {} declared after admission; declare it during Plugin::build",
-            module.key
+            module.descriptor.key
         );
         self.world_mut()
             .get_resource_or_init::<ExtensionInstallation>()

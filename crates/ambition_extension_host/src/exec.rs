@@ -18,11 +18,16 @@ use std::any::Any;
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use ambition_extension_sdk::invoke::{HostParts, Observation, StagedRequest};
-use ambition_extension_sdk::{Fault, Invocation, Name, Phase, Port, PortKey, Record, SchemaKey};
+use ambition_extension_sdk::abi::{self, InvocationInput, InvocationOutput};
+use ambition_extension_sdk::invoke::{HostParts, Observation, OwnedPayload, Payload, StagedRequest};
+use ambition_extension_sdk::{
+    encode_erased, DecodeFn, EncodeFn, Fault, Invocation, Name, Phase, Port, PortKey, Record,
+    SchemaKey,
+};
 use ambition_time::SimTick;
 use bevy::prelude::*;
 
+use crate::admission::{Admitted, AdmittedEntry, EntryRunner};
 use crate::store::BodyRecords;
 use crate::AdmittedExtensions;
 
@@ -34,6 +39,8 @@ pub struct PendingInvocation {
     pub scope: Entity,
     pub occurrence: Option<u32>,
     pub value: Box<dyn Any + Send + Sync>,
+    /// Encodes `value` for a loaded module.
+    pub encode: EncodeFn,
 }
 
 /// The triggers queued in this phase.
@@ -60,6 +67,7 @@ impl ExtensionInvocations {
             scope,
             occurrence,
             value: Box::new(value),
+            encode: encode_erased::<P>,
         });
     }
 
@@ -159,9 +167,17 @@ impl ExtensionFaults {
 /// the read cut, or `None` when the domain has no value for that scope.
 pub type Supplier = Arc<dyn Fn(&World, Entity) -> Option<Box<dyn Any + Send + Sync>> + Send + Sync>;
 
-/// The installed observation suppliers, by port.
+/// What the installed ports need at invocation time, frozen at admission:
+/// each observation port's projection and encoder, and each request port's
+/// decoder (a loaded module hands its requests back as bytes).
 #[derive(Resource, Default, Clone)]
-pub struct ObservationSuppliers(pub(crate) Arc<HashMap<PortKey, Supplier>>);
+pub struct InstalledPortCodecs {
+    pub(crate) suppliers: Arc<HashMap<PortKey, (Supplier, EncodeFn)>>,
+    pub(crate) request_decoders: Arc<HashMap<PortKey, DecodeFn>>,
+}
+
+/// What an invocation staged, after the host's checks.
+type Staged = (Vec<(SchemaKey, Record)>, Vec<(PortKey, Box<dyn Any + Send + Sync>)>);
 
 /// The exclusive system for one phase.
 pub fn run_phase(phase: Phase) -> impl FnMut(&mut World) {
@@ -178,7 +194,7 @@ pub fn run_phase(phase: Phase) -> impl FnMut(&mut World) {
             return;
         }
         let admitted = world.resource::<AdmittedExtensions>().0.clone();
-        let suppliers = world.resource::<ObservationSuppliers>().0.clone();
+        let codecs = world.resource::<InstalledPortCodecs>().clone();
         // ⛔ A REQUIRED AUTHORITY, NOT AN OPTION. An entry reads the logical
         // tick; a composition with modules and no `SimTick` is broken, and a
         // default of zero would hide that.
@@ -193,19 +209,8 @@ pub fn run_phase(phase: Phase) -> impl FnMut(&mut World) {
                 if world.get_entity(invocation.scope).is_err() {
                     continue;
                 }
-                let observations: Vec<Observation> = descriptor
-                    .reads
-                    .iter()
-                    .filter_map(|port| {
-                        let supply = suppliers.get(port)?;
-                        supply(world, invocation.scope).map(|value| Observation {
-                            port: port.clone(),
-                            value,
-                        })
-                    })
-                    .collect();
                 let current = world.get::<BodyRecords>(invocation.scope);
-                let mut state: Vec<(SchemaKey, Record)> = descriptor
+                let state: Vec<(SchemaKey, Record)> = descriptor
                     .writes
                     .iter()
                     .map(|key| {
@@ -216,20 +221,22 @@ pub fn run_phase(phase: Phase) -> impl FnMut(&mut World) {
                         (key.clone(), record)
                     })
                     .collect();
-                let mut requests: Vec<StagedRequest> = Vec::new();
 
-                let mut call = Invocation::from_host(HostParts {
-                    entry: descriptor,
-                    tick,
-                    occurrence: invocation.occurrence,
-                    trigger_port: &invocation.port,
-                    trigger: invocation.value.as_ref(),
-                    observations: &observations,
-                    state: &mut state,
-                    requests: &mut requests,
-                });
-                let result = (descriptor.run)(&mut call).and_then(|()| {
-                    state.iter().try_for_each(|(key, record)| {
+                let result = match &entry.runner {
+                    EntryRunner::Native(run) => {
+                        run_native(world, entry, *run, invocation, &codecs, tick, state)
+                    }
+                    EntryRunner::Loaded {
+                        backend,
+                        module,
+                        entry: index,
+                    } => run_loaded(
+                        world, &admitted, entry, backend.as_ref(), *module, *index, invocation,
+                        &codecs, tick, state,
+                    ),
+                }
+                .and_then(|staged| {
+                    staged.0.iter().try_for_each(|(key, record)| {
                         admitted.schemas[key]
                             .schema
                             .check(record)
@@ -237,19 +244,20 @@ pub fn run_phase(phase: Phase) -> impl FnMut(&mut World) {
                                 schema: key.clone(),
                                 error,
                             })
-                    })
+                    })?;
+                    Ok(staged)
                 });
 
                 match result {
-                    Ok(()) => {
+                    Ok((state, requests)) => {
                         commit(world, &admitted, invocation, state);
                         let mut outbox = world.resource_mut::<ExtensionOutbox>();
-                        outbox.items.extend(requests.into_iter().map(|r| OutboxItem {
-                            port: r.port,
+                        outbox.items.extend(requests.into_iter().map(|(port, value)| OutboxItem {
+                            port,
                             scope: invocation.scope,
                             occurrence: invocation.occurrence,
                             entry: path.clone(),
-                            value: r.value,
+                            value,
                         }));
                     }
                     Err(fault) => {
@@ -271,9 +279,130 @@ pub fn run_phase(phase: Phase) -> impl FnMut(&mut World) {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
+fn run_native(
+    world: &World,
+    entry: &AdmittedEntry,
+    run: ambition_extension_sdk::EntryFn,
+    invocation: &PendingInvocation,
+    codecs: &InstalledPortCodecs,
+    tick: u64,
+    mut state: Vec<(SchemaKey, Record)>,
+) -> Result<Staged, Fault> {
+    let observations: Vec<Observation> = entry
+        .descriptor
+        .reads
+        .iter()
+        .filter_map(|port| {
+            let (supply, _) = codecs.suppliers.get(port)?;
+            supply(world, invocation.scope).map(|value| Observation {
+                port: port.clone(),
+                value: OwnedPayload::Native(value),
+            })
+        })
+        .collect();
+    let mut requests: Vec<StagedRequest> = Vec::new();
+    let mut call = Invocation::from_host(HostParts {
+        entry: &entry.descriptor,
+        tick,
+        occurrence: invocation.occurrence,
+        trigger_port: &invocation.port,
+        trigger: Payload::Native(invocation.value.as_ref()),
+        observations: &observations,
+        state: &mut state,
+        requests: &mut requests,
+    });
+    run(&mut call)?;
+    drop(call);
+    Ok((state, requests.into_iter().map(|r| (r.port, r.value)).collect()))
+}
+
+/// Run an entry of a loaded module: encode the read cut, call the backend,
+/// and accept its output only if every record matches a DECLARED write and
+/// every request is a declared port that decodes, within the entry's limit.
+#[allow(clippy::too_many_arguments)]
+fn run_loaded(
+    world: &World,
+    admitted: &Admitted,
+    entry: &AdmittedEntry,
+    backend: &dyn crate::ModuleBackend,
+    module: u32,
+    index: u32,
+    invocation: &PendingInvocation,
+    codecs: &InstalledPortCodecs,
+    tick: u64,
+    state: Vec<(SchemaKey, Record)>,
+) -> Result<Staged, Fault> {
+    let descriptor = &entry.descriptor;
+    let mut trigger = Vec::new();
+    (invocation.encode)(invocation.value.as_ref(), &mut trigger);
+    let observations: Vec<(PortKey, Vec<u8>)> = descriptor
+        .reads
+        .iter()
+        .filter_map(|port| {
+            let (supply, encode) = codecs.suppliers.get(port)?;
+            let value = supply(world, invocation.scope)?;
+            let mut bytes = Vec::new();
+            encode(value.as_ref(), &mut bytes);
+            Some((port.clone(), bytes))
+        })
+        .collect();
+    let input = InvocationInput {
+        tick,
+        occurrence: invocation.occurrence,
+        trigger_port: &invocation.port,
+        trigger: &trigger,
+        observations: &observations,
+        state: &state,
+    }
+    .encode();
+    let output = backend
+        .invoke(module, index, &input)
+        .map_err(|e| Fault::Module(format!("the loaded module failed: {e}").into()))?;
+    let output = abi::read_output(&output, |key| {
+        descriptor
+            .writes
+            .contains(key)
+            .then(|| admitted.schemas.get(key).map(|a| &a.schema))
+            .flatten()
+    })
+    .map_err(|e| Fault::Module(format!("the module's output does not decode: {e}").into()))?;
+    let (out_state, out_requests) = match output {
+        InvocationOutput::Fault(message) => return Err(Fault::Module(message.into())),
+        InvocationOutput::Ok { state, requests } => (state, requests),
+    };
+    let limit = descriptor.limits.max_requests;
+    if out_requests.len() > limit as usize {
+        return Err(Fault::RequestLimit { limit });
+    }
+    // The staged state starts as the read state; the module's records replace
+    // the ones it returned. A record it did not return keeps its value.
+    let mut staged = state;
+    for (key, record) in out_state {
+        if let Some(slot) = staged.iter_mut().find(|(k, _)| *k == key) {
+            slot.1 = record;
+        }
+    }
+    let mut requests = Vec::with_capacity(out_requests.len());
+    for (port, bytes) in out_requests {
+        if !descriptor.requests.contains(&port) {
+            return Err(Fault::UndeclaredRequest(port));
+        }
+        let decode = codecs
+            .request_decoders
+            .get(&port)
+            .ok_or_else(|| Fault::UndeclaredRequest(port.clone()))?;
+        let value = decode(&bytes).map_err(|e| {
+            Fault::Module(format!("request to {port} does not decode: {e}").into())
+        })?;
+        requests.push((port, value));
+    }
+    Ok((staged, requests))
+}
+
 fn commit(
     world: &mut World,
-    admitted: &crate::Admitted,
+    admitted: &Admitted,
     invocation: &PendingInvocation,
     state: Vec<(SchemaKey, Record)>,
 ) {

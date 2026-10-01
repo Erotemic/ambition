@@ -1785,6 +1785,8 @@ allow = ["ambition_platformer2d_actor_monolith", "ambition_platformer2d_actor_sp
     # ports (`extension_composition.rs`).
     "ambition_extension_host",
     "ambition_extension_sdk",
+    # The WebAssembly backend, behind the default-off `wasm_modules` feature.
+    "ambition_extension_wasm",
     # Player/victim hit resolution: the runtime schedules `apply_player_hit_events`
     # and `stage_player_victim_hit_events` into its player/combat chains and
     # registers `WalletShieldSpent` beside them. Same relationship as
@@ -3301,7 +3303,7 @@ watch_paths = ["Cargo.toml"]
 rationale = "the extension SDK must stay a registered workspace member"
 source_doc = "docs/planning/engine/extension-model.md"
 severity = "error"
-members = ["ambition_extension_sdk", "ambition_extension_host", "ambition_boss_special_port", "ambition_content_modules"]
+members = ["ambition_extension_sdk", "ambition_extension_host", "ambition_extension_wasm", "ambition_boss_special_port", "ambition_combat_port", "ambition_content_modules"]
 
 [[policy]]
 id = "engine.ambition_extension_sdk-portable"
@@ -3351,3 +3353,29 @@ source_doc = "docs/planning/engine/fast-iteration-implementation.md"
 severity = "error"
 deny = ["ambition_platformer2d_runtime", "ambition_platformer2d_actor_monolith", "ambition_characters", "ambition_combat", "ambition_projectiles", "ambition_boss_encounter", "ambition_content", "ambition_app"]
 manifest = "crates/ambition_extension_host/Cargo.toml"
+
+[[policy]]
+id = "engine.ambition_extension_wasm-is-a-backend"
+scope = "engine"
+kind = "dependency-allowlist"
+owners = ["ambition_extension_wasm"]
+watch_paths = ["crates/ambition_extension_wasm/Cargo.toml"]
+rationale = "the WebAssembly backend implements the host's ModuleBackend for the SDK's ABI and names nothing else in the workspace: no domain, no runtime, no game"
+source_doc = "docs/planning/engine/fast-iteration-implementation.md"
+severity = "error"
+exact = true
+allow = ["ambition_extension_host", "ambition_extension_sdk"]
+manifest = "crates/ambition_extension_wasm/Cargo.toml"
+
+[[policy]]
+id = "engine.ambition_combat_port-portable"
+scope = "engine"
+kind = "dependency-allowlist"
+owners = ["ambition_combat_port"]
+watch_paths = ["crates/ambition_combat_port/Cargo.toml"]
+rationale = "the combat port's values are submitted by modules, so the leaf names only the SDK"
+source_doc = "docs/planning/engine/extension-domain-contracts.md"
+severity = "error"
+exact = true
+allow = ["ambition_extension_sdk"]
+manifest = "crates/ambition_combat_port/Cargo.toml"

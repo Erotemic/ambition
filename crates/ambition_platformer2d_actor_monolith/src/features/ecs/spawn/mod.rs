@@ -724,8 +724,28 @@ impl RoomFeatureConstructionPlan {
                 // back and cannot produce it; that is a preflight failure — raised while the
                 // outgoing room is still whole, like every other one here — and not a silent
                 // deletion.
-                let candidates = crate::construction::reinstatable_authored_requests(foreign)
+                let mut candidates = crate::construction::reinstatable_authored_requests(foreign)
                     .map_err(RoomFeatureConstructionError::ActorConstruction)?;
+                // A persistent character left here (`body_whereabouts`) is a
+                // placement of the foreign room. Only the records this room
+                // owes are planned, through the foreign room's own lowering.
+                let owed_placements: Vec<_> = foreign
+                    .placements
+                    .iter()
+                    .filter(|record| owed.contains_key(&ambition_platformer2d_shared_tangle::sim_id::SimId::placement(record.id.as_str())))
+                    .cloned()
+                    .collect();
+                if !owed_placements.is_empty() {
+                    let foreign_paths = room_spec_paths(foreign);
+                    let planned = registry
+                        .plan_room(&foreign.id, &foreign_paths, &owed_placements)
+                        .map_err(RoomFeatureConstructionError::Placement)?;
+                    candidates.extend(crate::construction::placement_requests(
+                        &planned,
+                        &foreign.id,
+                        &foreign_paths,
+                    ));
+                }
                 for mut request in candidates {
                     let Some(at) = owed.remove(&request.sim_id) else {
                         continue;

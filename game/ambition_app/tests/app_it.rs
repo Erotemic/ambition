@@ -161,6 +161,7 @@ mod rollback_lifecycle_reset;
 mod rollback_match_activation;
 mod rollback_populated_timeline;
 mod rollback_provoked_actor;
+mod a_character_left_elsewhere_stays_there;
 mod a_challenged_body_is_provoked_whole;
 mod rollback_room_transition;
 mod rollback_schema_baseline;

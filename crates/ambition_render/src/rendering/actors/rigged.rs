@@ -16,6 +16,13 @@
 //! reused: a frame change writes their rect, transform and visibility, and
 //! never spawns or despawns one.
 //!
+//! A sheet carries its part pages from the frame they are requested, still
+//! loading, as it carries its own pages. So a body changes to its parts only
+//! when every part page is ready ([`super::texture_is_ready`], the rule of the
+//! baked binder). Until then it keeps what it draws now: its baked sprite, or
+//! the parts of the tier it had. Then it changes in one frame. A page that
+//! fails to load is never ready, and the body stays as it was.
+//!
 //! The root keeps its baked sprite with zero alpha. That keeps the baked sheet
 //! as the parity oracle of this trial, and keeps the root the body's ONE portal
 //! candidate, of the body's size: the parts are never candidates.
@@ -111,10 +118,13 @@ type Slots<'w, 's> = Query<
 /// Bind, rebind and unbind each root's rigged presentation: a root whose sheet
 /// carries a flipbook for the tier it is bound at gets an owner with slots; a
 /// root that loses it, or goes away, loses its owner.
+#[allow(clippy::too_many_arguments)]
 pub fn bind_rigged_presentations(
     mut commands: Commands,
     admission: Option<Res<RiggedSpriteAdmission>>,
     assets: Option<Res<GameAssets>>,
+    asset_server: Option<Res<AssetServer>>,
+    images: Option<Res<Assets<Image>>>,
     mut owners: ResMut<RiggedPresentations>,
     mut by_sheet: Local<HashMap<(String, TextureResolutionScale), RiggedSpritePages>>,
     roots: Query<(Entity, &CharacterAnimator, Option<&BoundSpriteQuality>)>,
@@ -124,7 +134,7 @@ pub fn bind_rigged_presentations(
     if !admission.is_some_and(|admission| admission.admit) {
         return;
     }
-    let Some(assets) = assets else {
+    let (Some(assets), Some(images)) = (assets, images) else {
         return;
     };
     if assets.is_changed() {
@@ -158,6 +168,11 @@ pub fn bind_rigged_presentations(
         if same {
             continue;
         }
+        // Not until every part page is ready: the root draws nothing while it
+        // has parts, so parts with no pixels would make the body vanish.
+        if wanted.is_some_and(|wanted| !pages_ready(asset_server.as_deref(), &images, wanted)) {
+            continue;
+        }
         let tint = current.map(|current| current.tint);
         if let Some(owner) = owners.0.remove(&root) {
             commands.entity(owner).try_despawn();
@@ -179,6 +194,15 @@ pub fn bind_rigged_presentations(
             }
         }
     }
+}
+
+/// Every page of `pages` is ready to draw. Without an asset server (a
+/// composition with no asset IO) a page is ready when its image is present.
+fn pages_ready(asset_server: Option<&AssetServer>, images: &Assets<Image>, pages: &RiggedSpritePages) -> bool {
+    pages.pages.iter().all(|page| match asset_server {
+        Some(server) => super::texture_is_ready(server, images, page),
+        None => images.contains(page),
+    })
 }
 
 fn spawn_presentation(commands: &mut Commands, root: Entity, pages: RiggedSpritePages, tint: Color) -> Entity {

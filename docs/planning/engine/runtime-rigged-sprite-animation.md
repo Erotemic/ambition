@@ -24,7 +24,7 @@ Use two different production characters for two different proofs:
 1. **Pirate family — first runtime part-rendering prototype.**
    - The authoring pipeline already captures a deduplicated component scene.
    - All five measured pirates have 38 baked poses but only 21–22 registered rigid parts.
-   - A conservative representation that deduplicates only those existing rigid parts and leaves current dynamic limb/neck geometry as one per-frame overlay reduces estimated packed texture pixels by **75.6–76.3%**.
+   - A conservative representation that deduplicates only those existing rigid parts and leaves current dynamic limb/neck geometry as one per-frame overlay reduces estimated packed texture pixels by **75.6–76.3%**. ⚠ Superseded: the publisher measures about **38%**, because each frame also needs overlay layers for its dynamic geometry (see *Measured by the Packet 5 publisher*).
    - The Pirate Admiral already has a real `Muzzle::Hand` gameplay consumer, so the same family can also prove one semantic hand attachment without inventing a toy customer.
 
 2. **Mary-O — first semantic `BodyRig` / collision prototype.**
@@ -750,7 +750,7 @@ For the pirate first implementation, current per-frame dynamic limb/neck geometr
 
 Do **not** block the project on converting every current dynamic curve into a reusable rigid limb.
 
-The initial savings already exceed 75% without doing that work.
+The initial saving without that work is about 38% (measured by the Packet 5 publisher). The 75% estimate before it is superseded.
 
 Later publisher work can convert more dynamic geometry into reusable parts if useful.
 
@@ -961,7 +961,7 @@ Acceptance:
 
 ### Packet 5 — publish Pirate transform-flipbook assets
 
-**Status (2026-09-30): done** for all five pirates. See *Measured by the Packet 5 publisher*: the saving is about 38%, not 75%. The pirates publish `<target>_parts.png` and `<target>_parts.ron` beside the sheet. `tests/test_pirate_part_flipbook.py` checks the parity of all 38 frames for the raider and the admiral. The quality tiers scale `_parts.png` but have no tier draw table yet; Packet 6 must define the tier metadata.
+**Status (2026-09-30): done** for all five pirates. See *Measured by the Packet 5 publisher*: the saving is about 38%, not 75%. The pirates publish `<target>_parts.png` and `<target>_parts.ron` beside the sheet. `tests/test_pirate_part_flipbook.py` checks the parity of all 38 frames for the raider and the admiral. Packet 6 added the tier tables: each tier publishes its own part rects and `texel_scale`.
 
 **Primary visual prototype:** `pirate_raider` first, then the remaining pirate family once the format is stable.
 
@@ -976,15 +976,7 @@ Work:
 7. Preserve semantic clip IDs, frame timing, facing behavior, and authored z-order.
 8. Add offline parity verification against the canonical baked renderer.
 
-Required measured target for Raider:
-
-- about 67,246 tight alternative texels before packing;
-- about 87,771 packed-equivalent texels if packing overhead stays comparable;
-- about 0.335 MiB RGBA8-equivalent part texture versus 1.375 MiB current baked atlas;
-- about 75.6% texture-pixel reduction;
-- about 10 visible quads per frame on average in the conservative representation.
-
-Treat a result below roughly 65% texture-pixel reduction as a publisher/packing regression to investigate before proceeding. The current source already demonstrates about 75.6% under the conservative model.
+~~Required measured target for Raider~~ — ⚠ SUPERSEDED (2026-09-30). The targets that were here (about 67,246 tight texels, about 87,771 packed texels, about 75.6% reduction, and "below roughly 65% is a packing regression") were an estimate before the publisher existed. They are not acceptance criteria. The publisher measures 183,752 tight and 222,336 packed texels for the Raider, a **38.3%** reduction, with every frame within the parity bound. The reason is in *Measured by the Packet 5 publisher*. The packet-5 acceptance is that measured result: the parity bound on every frame, and a saving of at least 35% (`tests/test_pirate_part_flipbook.py`). A drop below that is a packing regression to investigate.
 
 Do not require every dynamic limb to become a reusable rigid part in this packet.
 
@@ -1125,7 +1117,7 @@ Record:
 - frame time;
 - load/materialization time.
 
-The expected Pirate texture result is already known: roughly 75–76% lower raw texture pixels for the conservative representation.
+The expected Pirate texture result is the measured one: about 38% fewer raw texture pixels (Packet 5). The 75–76% estimate before it is superseded.
 
 Do **not** implement a custom part-instance renderer unless the fixed-slot world path demonstrates a material CPU/entity/extraction problem. If it does, preserve the published asset and semantic animation contracts and replace only the presentation realization.
 
@@ -1342,11 +1334,11 @@ Report baked and rigged results for 1/10/50/100 visible Pirates and a split-view
 
 Do not call texture savings a runtime win without reporting CPU/presentation cost too.
 
-The already-measured economic baseline is:
+The measured economic baseline is:
 
 ```text
-Pirate texture-pixel saving: 75.6–76.3%
-Pirate visible quads: about 9–10 per actor in the conservative format
+Pirate texture-pixel saving: about 38% (Packet 5; the 75.6–76.3% estimate is superseded)
+Pirate visible quads: 12 or 13 per actor (Packet 8: max_draws 12, plus the zero-alpha root)
 ```
 
 ## Risks and resolved mitigations
@@ -1469,7 +1461,7 @@ Expected first implementation sequence:
 10. Only then consider hybrid Mary-O visuals or a custom extraction optimization.
 ```
 
-That sequence gives useful semantic rig architecture before the renderer bet, and it gives the renderer a measured 75%+ memory-saving candidate rather than a synthetic demo.
+That sequence gives useful semantic rig architecture before the renderer bet, and it gives the renderer a real memory-saving candidate (measured at about 38%, not the 75% first estimated) rather than a synthetic demo.
 
 ## Definition of success for this disjoint plan
 
@@ -1480,7 +1472,7 @@ The initial implementation tranche is successful when all of the following are t
 3. Mary-O can use rig-derived default hurt geometry while continuing to render her existing baked sheet.
 4. Pirate Admiral's `Muzzle::Hand` uses a semantic hand attachment when rig data is present.
 5. Pirate Raider can render from a published part atlas + transform flipbook with offline and runtime parity against the baked source.
-6. The Pirate visual prototype retains approximately the already-measured 75%+ reduction in raw texture pixels.
+6. The Pirate visual prototype keeps the measured reduction in raw texture pixels: about 38%, and at least 35% (`tests/test_pirate_part_flipbook.py`). (The 75%+ first written here was an estimate, superseded by the publisher's measurement.)
 7. Rigged presentation participates in existing demand, quality, retirement, portal, and multiview ownership rather than adding parallel subsystems.
 8. Headless simulation never depends on images or rendering.
 9. Baked sprites remain first-class and hybrid clips remain possible.

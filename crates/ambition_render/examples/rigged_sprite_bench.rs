@@ -285,7 +285,18 @@ fn run(target: &str, actors: usize, rigged: bool, frames: usize, views: Option<u
         let mut layouts = world.resource_mut::<Assets<TextureAtlasLayout>>();
         sheet(target, rigged, Some((&server, &mut layouts)))
     } else {
-        sheet(target, rigged, None)
+        // No renderer: the pages are images made present by hand, so the
+        // binder (which waits for every page) binds at once.
+        let mut asset = sheet(target, rigged, None);
+        let mut images = Assets::<Image>::default();
+        if let Some(pages) = asset.rigged.as_mut() {
+            for page in &mut pages.pages {
+                *page = images.reserve_handle();
+                images.insert(page.id(), Image::default()).unwrap();
+            }
+        }
+        app.insert_resource(images);
+        asset
     };
     if views.is_some() {
         wait_for_pages(&mut app, &asset);

@@ -35,8 +35,33 @@ fn app(admit: bool) -> (App, Entity) {
     app_with(admit, raider(true))
 }
 
+/// A page whose image is present: ready to draw.
+fn ready_page(app: &mut App) -> Handle<Image> {
+    let page = pending_page(app);
+    app.world_mut()
+        .resource_mut::<Assets<Image>>()
+        .insert(page.id(), Image::default())
+        .unwrap();
+    page
+}
+
+/// A page whose image is not there yet, as while it loads.
+fn pending_page(app: &mut App) -> Handle<Image> {
+    app.world_mut().resource_mut::<Assets<Image>>().reserve_handle()
+}
+
+/// `sheet` with its part pages replaced by pages from `page`.
+fn with_pages(mut sheet: CharacterSpriteAsset, mut page: impl FnMut() -> Handle<Image>) -> CharacterSpriteAsset {
+    if let Some(rigged) = sheet.rigged.as_mut() {
+        rigged.pages = rigged.pages.iter().map(|_| page()).collect();
+    }
+    sheet
+}
+
 fn app_with(admit: bool, sheet: CharacterSpriteAsset) -> (App, Entity) {
     let mut app = App::new();
+    app.init_resource::<Assets<Image>>();
+    let sheet = with_pages(sheet, || ready_page(&mut app));
     app.init_resource::<RiggedPresentations>()
         .insert_resource(RiggedSpriteAdmission { admit })
         .add_systems(Update, (bind_rigged_presentations, drive_rigged_presentations).chain());
@@ -264,4 +289,77 @@ fn a_hybrid_body_crosses_between_part_and_baked_clips_in_place() {
     assert_eq!(self::owner(&app, root), owner);
     assert_eq!(app.world().get::<RiggedPresentation>(owner).unwrap().slots, slot_ids);
     assert_eq!(*app.world().get::<Transform>(root).unwrap(), placed);
+}
+
+/// The root draws its baked frame until every part page is ready, and the
+/// parts take over in one frame when they are.
+#[test]
+fn a_body_stays_baked_until_every_part_page_is_ready() {
+    let (mut app, root) = app_with(true, raider(false));
+    let pending: Vec<Handle<Image>> = (0..RiggedSpriteAsset::baked("pirate_raider").unwrap().pages.len())
+        .map(|_| pending_page(&mut app))
+        .collect();
+    let mut pages = pending.clone().into_iter();
+    let sheet = with_pages(raider(true), || pages.next().unwrap());
+    app.world_mut().resource_mut::<GameAssets>().characters.publish("raider", sheet);
+    for _ in 0..5 {
+        app.update();
+        assert!(app.world().resource::<RiggedPresentations>().0.is_empty(), "bound to pages still loading");
+        assert_eq!(app.world().get::<Sprite>(root).unwrap().color.alpha(), 1.0, "the baked root went transparent");
+    }
+
+    for page in &pending {
+        app.world_mut()
+            .resource_mut::<Assets<Image>>()
+            .insert(page.id(), Image::default())
+            .unwrap();
+    }
+    app.update();
+    let owner = owner(&app, root);
+    assert_eq!(app.world().get::<Sprite>(root).unwrap().color.alpha(), 0.0);
+    assert!(slots(&app, owner).iter().any(|(_, visible)| *visible), "no part drawn in the frame of the change");
+}
+
+/// A quality-tier change keeps drawing the parts of the old tier until every
+/// page of the new tier is ready, and then changes in one frame.
+#[test]
+fn a_tier_change_keeps_the_old_parts_until_the_new_pages_are_ready() {
+    let (mut app, root) = app(true);
+    app.update();
+    let full_owner = owner(&app, root);
+
+    let quarter = RiggedSpriteAsset::baked("pirate_raider")
+        .unwrap()
+        .for_tier(TextureResolutionScale::Quarter)
+        .expect("the raider publishes a quarter tier")
+        .expect("the quarter tier is the raider's");
+    let mut sheet = raider_with(Some(quarter));
+    sheet.requested_tier = TextureResolutionScale::Quarter;
+    sheet.resolved_tier = TextureResolutionScale::Quarter;
+    let pending: Vec<Handle<Image>> = sheet.rigged.as_ref().unwrap().pages.iter().map(|_| pending_page(&mut app)).collect();
+    let mut pages = pending.clone().into_iter();
+    let sheet = with_pages(sheet, || pages.next().unwrap());
+    app.world_mut().resource_mut::<GameAssets>().characters.publish("raider", sheet);
+    app.world_mut().get_mut::<BoundSpriteQuality>(root).unwrap().scale = TextureResolutionScale::Quarter;
+    for _ in 0..5 {
+        app.update();
+        assert_eq!(owner(&app, root), full_owner, "left the full tier's parts for pages still loading");
+        assert_eq!(app.world().get::<Sprite>(root).unwrap().color.alpha(), 0.0);
+        assert!(slots(&app, full_owner).iter().any(|(_, visible)| *visible));
+    }
+
+    for page in &pending {
+        app.world_mut()
+            .resource_mut::<Assets<Image>>()
+            .insert(page.id(), Image::default())
+            .unwrap();
+    }
+    app.update();
+    let quarter_owner = owner(&app, root);
+    assert_ne!(quarter_owner, full_owner);
+    assert!(app.world().get_entity(full_owner).is_err(), "the full tier's parts outlived the change");
+    let presentation = app.world().get::<RiggedPresentation>(quarter_owner).unwrap();
+    assert!(presentation.pages.flipbook.texel_scale < 1.0);
+    assert_eq!(app.world().get::<Sprite>(root).unwrap().color.alpha(), 0.0);
+    assert!(slots(&app, quarter_owner).iter().any(|(_, visible)| *visible), "no part drawn in the frame of the change");
 }

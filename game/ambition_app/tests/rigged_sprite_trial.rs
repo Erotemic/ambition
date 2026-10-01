@@ -3,6 +3,12 @@
 //!
 //! ⛔ IN THE SHIPPED COMPOSITION, for the reason `admiral_gun_sword` gives: the
 //! demo shell's catalog cannot seat `npc_pirate_admiral`.
+//!
+//! Not here: that a body stays baked while its part pages load. In this
+//! composition the pages have loaded before a body binds, so a check on every
+//! frame passed with the readiness guard removed (measured 2026-09-30). The
+//! witnesses are in `ambition_render` (`rendering::actors::rigged::tests`),
+//! which hold a page pending.
 
 use ambition_platformer2d::game_shell::{ShellCommand, ShellRouteId};
 use ambition_platformer2d::render::rendering::actors::rigged::{

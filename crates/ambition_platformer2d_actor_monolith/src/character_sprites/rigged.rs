@@ -8,6 +8,14 @@
 //! own the sheet own them too: a sheet republished at another tier starts
 //! without pages and is given the new tier's.
 //!
+//! The pages go on the sheet while they load, as the sheet's own pages do.
+//! The renderer shows them only when every page is ready (see
+//! `ambition_render::rendering::actors::rigged`), so a body never draws parts
+//! that have no pixels yet.
+//!
+//! This is a system of its own, not part of the materializer, so that the
+//! shipped load road stays unchanged while the trial is a trial.
+//!
 //! ⛔ With the trial off this does nothing, and no flipbook page is loaded.
 
 use std::collections::HashSet;

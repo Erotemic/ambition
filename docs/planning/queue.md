@@ -1783,6 +1783,34 @@ open. Close with a fresh census rather than a checked list.
 
 ## P1 — ownership, composition and iteration
 
+### BOSS-REPLAY-RETRACTION — a replay that un-defeats a boss un-defeats it for every family
+
+**Owner:** the generic boss-progress road (`crates/ambition_boss_encounter`)
+jointly with the save's replay policy
+(`crates/ambition_persistence/src/save_data.rs`,
+`every_durable_family_says_whether_a_replay_retracts_it`).
+
+**Ruling (Q51 and Q56, 2026-10-01, [`maintainer-decisions.md`](maintainer-decisions.md)):**
+if a replay or rewind makes a boss undefeated again, the consequences its
+defeat created after that point are undone too, for every boss family. A
+rollback boundary that does not yet enforce this is a known issue, not an open
+question.
+
+**Current state, measured 2026-10-01.** One family retracts:
+`reset_cut_rope_attempt_on_replay` sets each cut-rope placement's `bosses`
+record to `Untouched` on `RoomReplayAdmitted`. Every other `BossSpawn` defeat
+survives a replay (the save test's own answer list). ⚠ The cut-rope reset reads
+every live `BossConfig`, not the replay's live room
+(`RoomReplayAdmitted` names the room), so with two live rooms a replay in one
+retracts a cut-rope fight in the other.
+
+**Acceptance:** one generic retraction on `RoomReplayAdmitted`, keyed by the
+replay's live room, for every boss family whose defeat fell after the replay's
+baseline, with the cut-rope special case deleted into it; the reward its
+defeat minted goes with it (Q51); a witness per family shape (a conducted boss,
+a `BossSpawn` placement) and a control (a defeat from before the baseline
+survives the replay).
+
 ### MENU-OVER-DIALOGUE — an overlay opened during a conversation must not end it
 
 **Owner:** `crates/ambition_dialog/src/systems.rs` (dialogue input) jointly

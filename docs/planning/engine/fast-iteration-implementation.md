@@ -451,6 +451,17 @@ measured 2026-10-01:
 4. Witness shape: `edit_to_play_through_the_shell`'s, a saved row value (a
    standing height or max health) on a live body after the reload, plus the
    frozen record, with the poison "the claim carries no candidate cast".
+5. What exists to build on (read 2026-10-01): `prepared::stage_character_revision`
+   stages a WHOLE definition as a revision, but takes `&mut App`; the reload
+   holds a `World`, so it needs a `World` form (the body is
+   `prepare_for_registration` plus an insert). The bindings need the engine's
+   art vocabulary (`with_engine_vocabularies`, in the actor monolith), so the
+   content side stages through a monolith wrapper. `admit_staged_revision`
+   folds only the STAGED characters over the live registry; a catalog change
+   re-folds EVERY character (the row feeds the fold), so the candidate catalog
+   form must re-fold the whole cast. The catalog itself is assembled from
+   provider fragments — the boss catalog's shape, so `with_replaced` on its
+   registry is the model (`BossCatalogRegistry::with_replaced`).
 
 I3a is independently useful. I3 is complete only after all three cuts. I1/I2 and
 I4 contract work need not wait for I3b; procedural replacement does. Do not turn

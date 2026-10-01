@@ -59,7 +59,8 @@ fn overflow_columns(world_width: f32, spacing: f32, gap_x: f32, gap_half: f32) -
 
 /// Technique: Overflow boundary flood (content-only; open-seam special).
 pub fn spawn_overflow_flood_from_special_messages(
-    world: ambition_platformer2d::platformer::lifecycle::SoleLiveRoom<
+    // The width of each boss's own live room (OW1 cut 7n).
+    world: ambition_platformer2d::platformer::lifecycle::LiveRoomOf<
         ambition_platformer2d_core::RoomGeometry,
     >,
     mut projectiles: MessageWriter<ProjectileSpawnRequest>,
@@ -110,10 +111,13 @@ pub fn spawn_overflow_flood_from_special_messages(
         if state.fired_this_strike {
             continue;
         }
+        let Some(geometry) = world.of(entity) else {
+            continue;
+        };
         let gap_x = state.locked_x.or(player_x).unwrap_or(boss.kin.pos.x);
         let spawn_y =
             (boss.kin.pos.y - FLOOD_SPAWN_HEIGHT_ABOVE_BOSS).max(FLOOD_HALF_EXTENT.y + 8.0);
-        for x in overflow_columns(world.0.size.x, FLOOD_SPACING, gap_x, FLOOD_GAP_HALF) {
+        for x in overflow_columns(geometry.0.size.x, FLOOD_SPACING, gap_x, FLOOD_GAP_HALF) {
             projectiles.write(ProjectileSpawnRequest::open(
                 entity,
                 ProjectileSpawn {

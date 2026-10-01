@@ -2030,8 +2030,10 @@ fn the_peer_visible_surface_does_not_record_which_route_the_host_visited_first()
          {} type(s) declare one: {projected:?}",
         projected.len()
     );
+    // 139 at schema 285 (2026-10-01): the boss specials' `content.*` rows left
+    // with their native systems (281-285), so the floor came down from 140.
     assert!(
-        keep.len() >= 140,
+        keep.len() >= 130,
         "only {} registrations feed the peer checksum, so this arm is reading a \
          fragment of the surface rather than the surface",
         keep.len()

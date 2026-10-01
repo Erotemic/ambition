@@ -14,6 +14,11 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 scripts/setup/target_bindmount.sh --check >/dev/null
 package="${1:-ambition_content_modules}"
+if ! [ -d "$(rustc --print sysroot)/lib/rustlib/wasm32-unknown-unknown/lib" ]; then
+    echo "the rust target wasm32-unknown-unknown is not installed:" >&2
+    echo "    rustup target add wasm32-unknown-unknown" >&2
+    exit 1
+fi
 cargo rustc --quiet -p "$package" --target wasm32-unknown-unknown --release \
     --crate-type cdylib --target-dir target/extension-modules
 out="target/extension-modules/wasm32-unknown-unknown/release/${package}.wasm"

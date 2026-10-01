@@ -390,20 +390,33 @@ pub fn adopt_checkpoint_baselines_from_save(
     }
 }
 
-/// Mirror the current runtime-minted item descriptions into the durable save.
+/// Mirror the descriptions of every runtime mint that exists into the durable
+/// save: the live ones, and the dormant ones (OW3).
 ///
 /// Occurrence/custody rows are persisted by the lifecycle-facing durable
 /// adapter; the item domain owns this field because only it knows what a minted
 /// item description means.
+///
+/// The save's field is the one record of a DORMANT mint's description. A mint
+/// left lying in a room that is not live has no entity to describe it, and no
+/// room authors a record to rebuild it from. Its row stays while the occurrence
+/// ledger places it in a room (see [`with_dormant_mints`]). The room build
+/// reads this field when that room becomes live again, and a load adopts it.
 pub fn persist_minted_item_horizon_to_save(
     restored: Res<crate::session::durable_horizon::SaveRestored>,
     minted: Query<(&SimId, &SpawnOrigin, &GroundItem, &ItemCustody), With<RoomScopedEntity>>,
+    ledger: Option<Res<ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences>>,
     mut save: ResMut<AmbitionGameSave>,
 ) {
     if !restored.0 {
         return;
     }
-    let minted_items: Vec<PersistedMintedItem> = live_minted_descriptions(&minted)
+    let described = with_dormant_mints(
+        live_minted_descriptions(&minted),
+        minted_baseline_from_save(save.data()).minted,
+        ledger.as_deref(),
+    );
+    let minted_items: Vec<PersistedMintedItem> = described
         .into_iter()
         .filter_map(|(occurrence, description)| {
             let SpawnOrigin::Dynamic { parent, sequence } = &description.origin else {
@@ -446,6 +459,34 @@ where
         "entity-free stored-quantity checksum projection",
         OwnedItemsBaseline::checksum,
     );
+}
+
+/// The live descriptions, and each earlier description of a mint that is not
+/// live but that the occurrence ledger places in a room: a dormant mint.
+///
+/// The ledger decides how long a dormant description lives. When it no longer
+/// places the occurrence (taken up again, retracted by a checkpoint restore, or
+/// gone), the description goes too. A composition with no ledger has no
+/// dormant mints.
+pub fn with_dormant_mints(
+    live: BTreeMap<SimId, MintedItemDescription>,
+    earlier: BTreeMap<SimId, MintedItemDescription>,
+    ledger: Option<&ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences>,
+) -> BTreeMap<SimId, MintedItemDescription> {
+    let mut described = live;
+    let Some(ledger) = ledger else {
+        return described;
+    };
+    for (occurrence, description) in earlier {
+        let placed = matches!(
+            ledger.whereabouts(&occurrence),
+            Some(ambition_platformer2d_shared_tangle::lifecycle::OccurrenceWhereabouts::Placed { .. })
+        );
+        if placed {
+            described.entry(occurrence).or_insert(description);
+        }
+    }
+    described
 }
 
 /// How to remake every runtime mint that exists RIGHT NOW — in a hand or

@@ -579,14 +579,16 @@ pub fn begin_room_transition_load_system(
         // travel together for the same reason `remembered` and `world` do —
         // handing over the memory without the means to act on it deletes the
         // object.
-        Option<
-            Res<
-                ambition_platformer2d_actor_monolith::items::pickup::minted_horizon::MintedItemBaseline,
-            >,
-        >,
+        //
+        // It is the save's minted rows, the one record of a dormant mint
+        // (OW3), and not the checkpoint's minted baseline. The baseline
+        // describes only what a checkpoint saw, so a mint put down after the
+        // last checkpoint, or forgotten by a checkpoint taken in another room,
+        // was not rebuilt when its room became live again.
+        Option<Res<ambition_persistence::save::AmbitionGameSave>>,
         // ⛔⛔ THE PINNED CONTINUITY, AND WHY THE LIVE ONES ABOVE ARE NOT ENOUGH
         // FOR A CHECKPOINT RESET. The two members above are the LIVE ledger and
-        // the LIVE minted baseline, which are the right inputs for a door. For a
+        // the save's minted rows, which are the right inputs for a door. For a
         // checkpoint reconstruction they were only ever right because
         // `restore_occurrence_baseline` had overwritten the live ledger with the
         // checkpoint's earlier in the SAME FRAME — `CheckpointRestore` sits in
@@ -1157,9 +1159,14 @@ pub fn begin_room_transition_load_system(
             .and_then(|accepted| accepted.lifecycle.as_ref())
             .map(|lifecycle| lifecycle.occurrences.remembered())
             .or(construction_services.6.as_deref());
+        let door_minted = construction_services.7.as_deref().map(|save| {
+            ambition_platformer2d_actor_monolith::items::pickup::minted_horizon::minted_baseline_from_save(
+                save.data(),
+            )
+        });
         let selected_minted = match selected_restore {
             Some(accepted) => accepted.item.as_ref().map(|item| &item.minted),
-            None => construction_services.7.as_deref(),
+            None => door_minted.as_ref(),
         };
         // the outlook is ROOM-SCOPED, so it is derived for the room being built
         // and for no other: the same ledger answers differently for two rooms,

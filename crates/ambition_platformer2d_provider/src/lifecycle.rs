@@ -320,6 +320,9 @@ pub(crate) struct PlatformerPreparation<'w> {
         // so it is mechanical and IMMUTABLE and belongs in the first row's
         // treatment.
         Option<Res<'w, ambition_characters::perception::PerceptionExtentOverride>>,
+        // The procedural modules the session runs (D6). See
+        // `MechanicalRegistries::extension_modules`.
+        Option<Res<'w, ambition_platformer2d_runtime::extension_composition::ExtensionGeneration>>,
     ),
     epochs: ResMut<'w, ContentEpochSequence>,
     audio_catalogs: Res<'w, ambition_audio::catalog::AudioCatalogRegistry>,
@@ -663,6 +666,7 @@ impl PlatformerPreparation<'_> {
                     self.content_inputs.8.as_deref(),
                     self.content_inputs.9.as_deref(),
                 ),
+                extension_modules: self.content_inputs.10.as_deref().map(|g| g.0.clone()),
             })
         })
         .and_then(|mechanical| {
@@ -1007,6 +1011,10 @@ pub fn prepare_platformer_content_for_app(
         app.world()
             .get_resource::<ambition_characters::perception::PerceptionExtentOverride>(),
     );
+    let extension_modules = app
+        .world()
+        .get_resource::<ambition_platformer2d_runtime::extension_composition::ExtensionGeneration>()
+        .map(|g| g.0.clone());
     app.init_resource::<ContentEpochSequence>();
     let mut epochs = app.world_mut().resource_mut::<ContentEpochSequence>();
     prepare_platformer_content(
@@ -1022,6 +1030,7 @@ pub fn prepare_platformer_content_for_app(
             authored_sheets,
             boss_catalog,
             developer_construction,
+            extension_modules,
         },
         snapshot_schema,
         &mut epochs,
@@ -1390,6 +1399,12 @@ pub struct MechanicalRegistries {
     /// developer tools, which is what an unset environment variable has always
     /// meant and is a real state rather than a missing value.
     pub developer_construction: Option<String>,
+    /// ⛔ **THE PROCEDURAL MODULES THE SESSION RUNS** (D6): the declared
+    /// extension modules, with each loaded module's byte digest —
+    /// `ExtensionGeneration`. Two Apps with a different `.wasm` file run
+    /// different techniques; without this section they shared one identity.
+    /// `None` means the composition has no extension host.
+    pub extension_modules: Option<String>,
 }
 
 pub fn prepare_platformer_content(
@@ -1618,6 +1633,7 @@ pub fn prepare_platformer_content(
         authored_sheets,
         boss_catalog,
         developer_construction,
+        extension_modules,
     } = mechanical;
     // ⛔ DESTRUCTURED EXHAUSTIVELY, so a field added to `MechanicalRegistries`
     // and not bound below is a compile error rather than a silent omission —
@@ -1633,6 +1649,8 @@ pub fn prepare_platformer_content(
         // ⛔ THE IMMUTABLE DEVELOPER KNOBS THAT CHANGE THE CONSTRUCTED ROSTER.
         // See `MechanicalRegistries::developer_construction`.
         ("construction.developer", developer_construction),
+        // The procedural modules: see `MechanicalRegistries::extension_modules`.
+        ("extension.modules", extension_modules),
     ] {
         builder
             .add_section(section, material.map_or_else(Vec::new, String::into_bytes))

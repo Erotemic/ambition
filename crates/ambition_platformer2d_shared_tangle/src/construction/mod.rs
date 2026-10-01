@@ -1713,6 +1713,25 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
         live: &BTreeSet<SimId>,
         registry: &ConstructionRegistry<D>,
     ) -> Result<Self, ConstructionError> {
+        Self::prepare_reinstating(scope, lane, requests, live, &BTreeSet::new(), registry)
+    }
+
+    /// [`Self::prepare_in_lane`] for a build that also reinstates occurrences
+    /// the world already holds: `reinstated` names them.
+    ///
+    /// A reinstated row is not minted by this plan. Its identity and its
+    /// provenance were fixed when it was first minted, so its parent is history
+    /// and does not have to resolve. A boss that dropped a weapon can be gone
+    /// for good while the weapon lies in a room that is not live. Every other
+    /// rule applies to it as to any row.
+    pub fn prepare_reinstating(
+        scope: ConstructionScope,
+        lane: ConstructionLane,
+        requests: impl IntoIterator<Item = ConstructionRequest<D>>,
+        live: &BTreeSet<SimId>,
+        reinstated: &BTreeSet<SimId>,
+        registry: &ConstructionRegistry<D>,
+    ) -> Result<Self, ConstructionError> {
         let mut requests: Vec<ConstructionRequest<D>> = requests.into_iter().collect();
         requests.sort_by(|a, b| a.sim_id.cmp(&b.sim_id));
 
@@ -1751,7 +1770,7 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
             // The parent comes from the provenance, not from a second field
             // beside it: the fact validated here is the fact the world receives.
             if let Some(parent) = request.origin.parent() {
-                if !parent_resolvable(parent) {
+                if !reinstated.contains(&request.sim_id) && !parent_resolvable(parent) {
                     return Err(ConstructionError::UnresolvedParent {
                         sim_id: request.sim_id.clone(),
                         parent: parent.clone(),

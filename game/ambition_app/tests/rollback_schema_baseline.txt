@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v284
+ggrs-rollback-schema-v285
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -108,6 +108,7 @@ boss.phase	component-canonical	BossPhase	bevy_ggrs canonical codec snapshot + id
 capture.captured_by	component-clone	CapturedBy	bevy_ggrs clone snapshot; entity handle remapped, probed through the target's stable sim identity
 combat.capabilities	component-clone	CombatCapabilities	bevy_ggrs clone snapshot; not in the session checksum
 combat.depicted_by_owner	component-clone	DepictedByOwner	bevy_ggrs clone snapshot; not in the session checksum
+combat.held_damage_boxes	component-clone-cursor	HeldDamageBoxes	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
 combat.hitbox	component-clone	Hitbox	bevy_ggrs clone snapshot; entity handle remapped, probed through the target's stable sim identity
 combat.hitbox_hits	component-clone	HitboxHits	bevy_ggrs clone snapshot; entity SET remapped, probed through the targets' stable sim identities
 combat.hitbox_lifetime	component-clone	HitboxLifetime	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -118,12 +119,10 @@ combat.tuning	component-clone	CombatTuning	bevy_ggrs clone snapshot; not in the 
 component.boss_anim_frame	component-clone-cursor	BossAnimFrame	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
 component.construction_transaction_id	component-canonical-custom-checksum	TransactionId	bevy_ggrs canonical codec snapshot + checksum over the content identity, the room and the construction lane, excluding the host-local content epoch and session stamps
 component.projectile_owner	component-clone	ProjectileOwner	bevy_ggrs clone snapshot; entity handle remapped, probed through the target's stable sim identity
-content.apple_rain_spawn_state	component-canonical	AppleRainSpawnState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 content.cut_rope_heavy_object_cycle	resource-clone-custom-checksum	CutRopeHeavyObjectCycle	bevy_ggrs clone snapshot + heavy-object cycle index
 content.cut_rope_victory_npc	component-clone	SmirkingBehemothVictoryNpc	bevy_ggrs clone snapshot; not in the session checksum
 content.fsm_conductor	component-clone-cursor	FsmConductor	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
 content.gnu_ton_conductor	component-clone-cursor	GnuTonConductor	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
-content.gradient_cascade_state	component-canonical	GradientCascadeState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 content.mary_o_broken_bricks	resource-clone-custom-checksum	BrokenBricks	bevy_ggrs clone snapshot + an order-independent checksum over the broken names
 content.mary_o_flag_sequence	component-clone	FlagSequence	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 content.mary_o_level_state	component-clone	MaryOLevelState	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -131,11 +130,7 @@ content.mary_o_pipe_entry_latch	component-clone	PipeEntryLatch	bevy_ggrs clone s
 content.mary_o_pipe_transit	component-clone	PipeTransit	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 content.mary_o_snake_shell	component-clone	SnakeShell	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 content.mary_o_spent_power_blocks	resource-clone-custom-checksum	SpentPowerBlocks	bevy_ggrs clone snapshot + an order-independent checksum over the spent ids
-content.minima_trap_state	component-canonical	MinimaTrapState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-content.overfit_volley_state	component-canonical	OverfitVolleyState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-content.overflow_state	component-canonical	OverflowState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 content.pending_cut_rope_room_replay	resource-clone-custom-checksum	PendingCutRopeRoomReplay	the dialogue-authored room replay, latched until the conversation ends
-content.saddle_point_state	component-clone-cursor	SaddlePointState	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
 content.sanic_act_state	component-clone	SanicActState	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 content.sanic_ball_dash	component-clone	BallDash	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 content.sanic_ball_dash_input	component-clone	BallDashInput	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -272,9 +267,9 @@ limb.route_state	component-clone	LimbRouteState	bevy_ggrs clone snapshot; not in
 map.actor_aggression	entity-mapping	ActorAggression	bevy_ggrs LoadWorld entity-reference remapping
 map.actor_target	entity-mapping	ActorTarget	bevy_ggrs LoadWorld entity-reference remapping
 map.captured_by	entity-mapping	CapturedBy	bevy_ggrs LoadWorld entity-reference remapping
+map.combat.held_damage_boxes	entity-mapping	HeldDamageBoxes	bevy_ggrs LoadWorld entity-reference remapping
 map.content.fsm_conductor	entity-mapping	FsmConductor	bevy_ggrs LoadWorld entity-reference remapping
 map.content.gnu_ton_conductor	entity-mapping	GnuTonConductor	bevy_ggrs LoadWorld entity-reference remapping
-map.content.saddle_point_state	entity-mapping	SaddlePointState	bevy_ggrs LoadWorld entity-reference remapping
 map.encounter_participants	entity-mapping	EncounterParticipants	bevy_ggrs LoadWorld entity-reference remapping
 map.falling_hazard	entity-mapping	FallingHazard	bevy_ggrs LoadWorld entity-reference remapping
 map.hitbox	entity-mapping	Hitbox	bevy_ggrs LoadWorld entity-reference remapping

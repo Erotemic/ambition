@@ -117,6 +117,7 @@ pub fn publish_staged_replacement(world: &mut World) -> bool {
         "extension modules reloaded: admitted digest {:016x}; replaced {:?}",
         admitted.digest, admitted.replaced
     );
+    world.insert_resource(crate::ExtensionGeneration::of(&declared));
     world.resource_mut::<ExtensionComposition>().declared = declared;
     world.insert_resource(AdmittedExtensions(admitted));
     true

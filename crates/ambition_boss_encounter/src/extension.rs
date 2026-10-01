@@ -1,21 +1,24 @@
-//! The boss domain's extension trigger adapter.
+//! The boss domain's extension adapters.
 //!
-//! For each special key that an admitted module entry is bound to, this
-//! adapter queues one [`BossSpecialCast`] invocation for each boss, each tick,
-//! with the boss's settled facts and whether it pressed the key. See the port card in
-//! `ambition_boss_special_port`.
+//! The trigger: for each special key that an admitted module entry is bound
+//! to, one [`BossSpecialCast`] invocation for each boss, each tick, with the
+//! boss's settled facts and whether it pressed the key.
+//!
+//! The request: a boss module's [`BossSummonPort`] minion enters the summon
+//! executor's one road (`EffectRequest` → `Effect::Summon`), in the boss's
+//! encounter. See the port cards in `ambition_boss_special_port`.
 
-use ambition_boss_special_port::{BossCaster, BossSpecialCast};
+use ambition_boss_special_port::{BossCaster, BossSpecialCast, BossSummonPort};
 use ambition_characters::brain::action_set::{ActionRequest, SpecialActionSpec};
 use ambition_characters::brain::{ActorActionMessage, BossAttackProfile, BossAttackState};
 use ambition_combat::components::ActorTarget;
-use ambition_extension_host::{AdmittedExtensions, ExtensionAppExt, ExtensionInvocations};
+use ambition_extension_host::{AdmittedExtensions, ExtensionAppExt, ExtensionInvocations, ExtensionOutbox};
 use ambition_extension_sdk::phases::TECHNIQUE_EXECUTION;
 use ambition_extension_sdk::Port;
 use ambition_platformer2d_core::{AabbExt, BodyKinematics};
 use bevy::prelude::*;
 
-use crate::BossClusterRef;
+use crate::{BossClusterRef, BossConfig};
 
 /// Install the trigger port in `technique_execution`.
 pub fn install(app: &mut App) {
@@ -24,6 +27,57 @@ pub fn install(app: &mut App) {
         "ambition_boss_encounter",
         queue_boss_special_casts,
     );
+}
+
+/// Install the summon request port in `technique_execution`. The host
+/// lowers a phase's request ports in install order; the composition installs
+/// this one after the damage box, as the native techniques wrote them.
+pub fn install_summons(app: &mut App) {
+    app.install_extension_request::<BossSummonPort, _>(
+        TECHNIQUE_EXECUTION,
+        "ambition_boss_encounter",
+        lower_boss_summons,
+    );
+}
+
+fn lower_boss_summons(
+    mut outbox: ResMut<ExtensionOutbox>,
+    mut effects: MessageWriter<ambition_vfx::EffectRequest>,
+    bosses: Query<&BossConfig>,
+) {
+    for submitted in outbox.drain::<BossSummonPort>() {
+        // ⛔ SUBMITTED IS NOT APPLIED. Only a boss has an encounter to put a
+        // minion in.
+        let Ok(boss) = bosses.get(submitted.scope) else {
+            warn!(
+                "extension entry {} asked for a summon for {:?}, which is not a boss; refused",
+                submitted.entry, submitted.scope
+            );
+            continue;
+        };
+        let summon = submitted.value;
+        let Some(id) = summon.id(&boss.id) else {
+            warn!(
+                "extension entry {} asked for a summon with the label {:?}; refused",
+                submitted.entry, summon.label
+            );
+            continue;
+        };
+        effects.write(ambition_vfx::EffectRequest {
+            owner: submitted.scope,
+            effect: ambition_vfx::Effect::Summon(ambition_vfx::SummonSpec {
+                id,
+                pos: ambition_platformer2d_core::Vec2::from(summon.position),
+                half_size: ambition_platformer2d_core::Vec2::from(summon.half_size),
+                character_id: summon.character_id,
+                encounter_id: boss.behavior.id.clone(),
+                faction: ambition_vfx::HitSide::Enemy,
+                ridden_by_summoner: None,
+                health: summon.health,
+                keeps_contact_damage: summon.keeps_contact_damage,
+            }),
+        });
+    }
 }
 
 /// One invocation for each boss and each bound key, every tick, in boss
@@ -42,6 +96,9 @@ pub fn queue_boss_special_casts(
         Option<&BossAttackState>,
     )>,
     bodies: Query<&BodyKinematics>,
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomOf<
+        ambition_platformer2d_core::RoomGeometry,
+    >,
 ) {
     let keys: Vec<&str> = admitted
         .0
@@ -96,6 +153,8 @@ pub fn queue_boss_special_casts(
                 .unwrap_or(t.pos);
             [at.x, at.y]
         });
+        // The boss's OWN live room (OW1 cut 7n), never a sole room.
+        let room_size = rooms.of(entity).map(|g| [g.0.size.x, g.0.size.y]);
         for key in &keys {
             let press = presses
                 .iter()
@@ -117,6 +176,7 @@ pub fn queue_boss_special_casts(
                     body_center: [body_center.x, body_center.y],
                     body_half_size: [body_half.x, body_half.y],
                     target,
+                    room_size,
                 },
             );
         }

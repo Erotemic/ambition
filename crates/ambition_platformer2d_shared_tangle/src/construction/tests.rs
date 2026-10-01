@@ -407,6 +407,44 @@ fn a_relation_onto_a_merely_live_entity_is_rejected() {
     );
 }
 
+/// A reinstated row's parent does not have to resolve: the row is not minted
+/// by this plan, and its parent can be gone for good (OW3). The same row that
+/// is not reinstated is still refused.
+#[test]
+fn a_reinstated_row_does_not_need_its_parent() {
+    let registry = registry();
+    let orphan = || {
+        let mut a = request("a");
+        a.origin = SpawnOrigin::Dynamic {
+            parent: SimId::placement("ghost"),
+            sequence: 0,
+        };
+        a
+    };
+    let reinstated: BTreeSet<SimId> = [SimId::placement("a")].into_iter().collect();
+    ConstructionPlan::prepare_reinstating(
+        scope(),
+        ConstructionLane::primary(),
+        vec![orphan()],
+        &nothing_live(),
+        &reinstated,
+        &registry,
+    )
+    .expect("a reinstated row keeps the provenance it was minted with");
+    let refused = ConstructionPlan::prepare_reinstating(
+        scope(),
+        ConstructionLane::primary(),
+        vec![orphan()],
+        &nothing_live(),
+        &[SimId::placement("b")].into_iter().collect(),
+        &registry,
+    );
+    assert!(
+        matches!(refused, Err(ConstructionError::UnresolvedParent { .. })),
+        "a row that is not reinstated still needs its parent"
+    );
+}
+
 /// A PARENT, unlike a relation target, may be live — a summoner outlives the
 /// summon it plans. The two rules are deliberately different, so both are
 /// pinned.

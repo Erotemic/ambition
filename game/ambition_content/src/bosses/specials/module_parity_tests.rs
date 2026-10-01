@@ -20,6 +20,7 @@ use ambition_combat::components::ActorTarget;
 use ambition_extension_host::{ExtensionAppExt, ExtensionHostPlugin};
 use ambition_platformer2d::actor::FeatureSimEntity;
 use ambition_platformer2d_core::{self as ae, BodyKinematics};
+use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
 use ambition_platformer2d_shared_tangle::markers::PlayerEntity;
 use ambition_projectiles::ProjectileSpawnRequest;
 use bevy::ecs::schedule::ScheduleLabel;
@@ -77,8 +78,78 @@ const GRADIENT_NOVA: Technique = Technique {
     },
 };
 
+const APPLE_RAIN: Technique = Technique {
+    key: "apple_rain",
+    native: |app| {
+        use super::apple_rain_reference_tests as r;
+        app.register_required_components::<BossConfig, r::AppleRainSpawnState>();
+        app.add_systems(Sim, r::spawn_apple_rain_from_special_messages);
+    },
+};
+
+const OVERFIT_VOLLEY: Technique = Technique {
+    key: "overfit_volley",
+    native: |app| {
+        use super::overfit_volley_reference_tests as r;
+        app.register_required_components::<BossConfig, r::OverfitVolleyState>();
+        app.add_systems(Sim, r::spawn_overfit_volley_from_special_messages);
+    },
+};
+
+const OVERFLOW_FLOOD: Technique = Technique {
+    key: "overflow_flood",
+    native: |app| {
+        use super::overflow_flood_reference_tests as r;
+        app.register_required_components::<BossConfig, r::OverflowState>();
+        app.add_systems(Sim, r::spawn_overflow_flood_from_special_messages);
+    },
+};
+
+const MINIMA_TRAP: Technique = Technique {
+    key: "minima_trap",
+    native: |app| {
+        use super::minima_trap_reference_tests as r;
+        app.register_required_components::<BossConfig, r::MinimaTrapState>();
+        app.add_systems(Sim, r::spawn_minima_trap_from_special_messages);
+    },
+};
+
+const GRADIENT_CASCADE: Technique = Technique {
+    key: "gradient_cascade",
+    native: |app| {
+        use super::gradient_cascade_reference_tests as r;
+        app.register_required_components::<BossConfig, r::GradientCascadeState>();
+        app.add_systems(Sim, r::spawn_gradient_cascade_minions_from_special_messages);
+    },
+};
+
+const SADDLE_POINT: Technique = Technique {
+    key: "saddle_point",
+    native: |app| {
+        use super::saddle_point_reference_tests as r;
+        app.register_required_components::<BossConfig, r::SaddlePointState>();
+        app.add_systems(Sim, r::spawn_saddle_point_from_special_messages);
+    },
+};
+
 /// Every migrated technique.
-const ALL: [&Technique; 5] = [&ECHO_FAN, &EYE_BEAM, &GRADIENT_NOVA, &MODE_COLLAPSE, &SEISMIC_STOMP];
+const ALL: [&Technique; 11] = [
+    &APPLE_RAIN,
+    &ECHO_FAN,
+    &EYE_BEAM,
+    &GRADIENT_CASCADE,
+    &GRADIENT_NOVA,
+    &MINIMA_TRAP,
+    &MODE_COLLAPSE,
+    &OVERFIT_VOLLEY,
+    &OVERFLOW_FLOOD,
+    &SADDLE_POINT,
+    &SEISMIC_STOMP,
+];
+
+/// The gameplay time of one tick. Long, so a technique on an interval acts
+/// within a short trace (apple rain: every 0.35 s).
+const DT: f32 = 0.2;
 
 const MODE_COLLAPSE: Technique = Technique {
     key: "mode_collapse_converge",
@@ -132,6 +203,11 @@ fn world(road: Road, technique: &Technique) -> (App, Vec<Entity>) {
         .add_message::<ambition_vfx::EffectRequest>()
         .init_resource::<ambition_time::SimTick>()
         .init_resource::<ambition_time::WorldTime>();
+    {
+        let mut time = app.world_mut().resource_mut::<ambition_time::WorldTime>();
+        time.scaled_dt = DT;
+        time.raw_dt = DT;
+    }
     match road {
         Road::NativeSystem => (technique.native)(&mut app),
         Road::Module | Road::Wasm => {
@@ -139,6 +215,7 @@ fn world(road: Road, technique: &Technique) -> (App, Vec<Entity>) {
             ambition_boss_encounter::extension::install(&mut app);
             ambition_projectiles::extension::install(&mut app);
             ambition_combat::extension::install(&mut app);
+            ambition_boss_encounter::extension::install_summons(&mut app);
             if road == Road::Wasm {
                 let (backend, modules) = wasm_modules();
                 app.add_loaded_extension_modules(backend, modules, false);
@@ -150,6 +227,14 @@ fn world(road: Road, technique: &Technique) -> (App, Vec<Entity>) {
             app.finish();
         }
     }
+    // The one live room. Bosses 0 and 1 carry no room stamp, so they are in
+    // it; boss 2 is stamped with a room that is not live, so its room cannot
+    // be told.
+    app.world_mut().spawn((
+        RoomInstanceRoot,
+        LiveRoomInstance::ACTIVATION,
+        ae::RoomGeometry(ae::World::new("arena", ae::Vec2::new(1792.0, 900.0), ae::Vec2::ZERO, Vec::new())),
+    ));
     let catalog = crate::bosses::authored_boss_catalog();
     let player = app
         .world_mut()
@@ -200,6 +285,9 @@ fn world(road: Road, technique: &Technique) -> (App, Vec<Entity>) {
         ));
         if let Some(target) = target {
             entity.insert(target);
+        }
+        if i == 2 {
+            entity.insert(InRoomInstance(LiveRoomInstance::from_ordinal(7)));
         }
         bosses.push(entity.id());
     }
@@ -271,13 +359,44 @@ fn run(road: Road, technique: &Technique, ticks: &[Tick], kill_boss_0_at: Option
                 .iter()
                 .position(|b| *b == effect.owner)
                 .expect("only a boss emits");
-            let ambition_vfx::Effect::DamageBox(b) = effect.effect else {
-                panic!("only damage boxes are emitted here");
+            let line = match effect.effect {
+                ambition_vfx::Effect::DamageBox(b) => format!(
+                    "DamageBox {{ center: {:?}, faction: {:?}, half_extent: {:?}, damage: {}, knockback: {:?}, lifetime_s: {:?}, name: {:?} }}",
+                    b.center, b.faction, b.half_extent, b.damage, b.knockback, b.lifetime_s, b.name
+                ),
+                ambition_vfx::Effect::Summon(m) => format!(
+                    "Summon {{ id: {}, pos: {:?}, half_size: {:?}, character_id: {}, encounter_id: {}, faction: {:?}, ridden: {}, health: {:?}, keeps_contact_damage: {} }}",
+                    m.id, m.pos, m.half_size, m.character_id, m.encounter_id, m.faction,
+                    m.ridden_by_summoner.is_some(), m.health, m.keeps_contact_damage
+                ),
             };
-            by_boss.entry(boss).or_default().push(format!(
-                "DamageBox {{ center: {:?}, faction: {:?}, half_extent: {:?}, damage: {}, knockback: {:?}, lifetime_s: {:?}, name: {:?} }}",
-                b.center, b.faction, b.half_extent, b.damage, b.knockback, b.lifetime_s, b.name
-            ));
+            by_boss.entry(boss).or_default().push(line);
+        }
+        // The live damage boxes each boss owns (a held box is an entity, not a
+        // message), sorted: the two Apps allocate entities differently.
+        let mut boxes = app
+            .world_mut()
+            .query::<(&ambition_combat::strike::Hitbox, &ambition_combat::strike::HitboxLifetime)>();
+        let mut live: Vec<(usize, String)> = boxes
+            .iter(app.world())
+            .map(|(hitbox, lifetime)| {
+                let boss = bosses
+                    .iter()
+                    .position(|b| *b == hitbox.owner)
+                    .expect("only a boss owns a box");
+                (
+                    boss,
+                    format!(
+                        "LiveBox {{ source: {:?}, anchor: {:?}, half_extent: {:?}, damage: {}, knockback: {:?}, lifetime: {:?} }}",
+                        hitbox.source, hitbox.anchor, hitbox.half_extent, hitbox.damage, hitbox.knockback,
+                        lifetime.remaining_s
+                    ),
+                )
+            })
+            .collect();
+        live.sort();
+        for (boss, line) in live {
+            by_boss.entry(boss).or_default().push(line);
         }
         trace.push(by_boss);
         app.world_mut()
@@ -320,22 +439,55 @@ const LOCKED: &[Tick] = &[
     press(&[(1, Some(5))]),
 ];
 
+/// Long strikes, two by one boss: a technique on an interval (apple rain,
+/// every 0.35 s at 0.2 s a tick) acts more than once in each, and what it
+/// keeps from one strike into the next (apple rain's lane sequence) shows.
+/// Boss 0's first strike is 14 ticks (2.8 s): the saddle point's arm turns
+/// twice (every 1.2 s).
+const LONG_STRIKES: &[Tick] = &[
+    press(&[(0, Some(1)), (1, None)]),
+    press(&[(0, Some(1)), (1, None)]),
+    press(&[(0, Some(1)), (1, None)]),
+    press(&[(0, Some(1)), (1, None)]),
+    press(&[(0, Some(1))]),
+    press(&[(0, Some(1))]),
+    press(&[(0, Some(1))]),
+    press(&[(0, Some(1))]),
+    press(&[(0, Some(1))]),
+    press(&[(0, Some(1))]),
+    press(&[(0, Some(1))]),
+    press(&[(0, Some(1))]),
+    press(&[(0, Some(1))]),
+    press(&[(0, Some(1))]),
+    IDLE,
+    press(&[(0, Some(2))]),
+    press(&[(0, Some(2))]),
+    press(&[(0, Some(2))]),
+    press(&[(0, Some(2))]),
+];
+
 fn fired(trace: &Trace) -> usize {
     trace.iter().map(|t| t.values().map(Vec::len).sum::<usize>()).sum()
 }
 
-fn assert_module_matches_native(technique: &Technique, ticks: &[Tick], kill: Option<usize>) {
+/// Hold the linked module to the native system on `ticks`; the number of
+/// requests the native system made.
+fn assert_module_matches_native(technique: &Technique, ticks: &[Tick], kill: Option<usize>) -> usize {
     let native = run(Road::NativeSystem, technique, ticks, kill);
-    assert!(fired(&native) > 0, "{}: the premise: the reference fired", technique.key);
     let module = run(Road::Module, technique, ticks, kill);
     assert_eq!(module, native, "{}: the linked module", technique.key);
+    fired(&native)
 }
 
 #[test]
 fn each_module_emits_what_its_native_system_emitted() {
     for technique in ALL {
-        assert_module_matches_native(technique, STRIKES, None);
-        assert_module_matches_native(technique, LOCKED, None);
+        let fired = assert_module_matches_native(technique, STRIKES, None)
+            + assert_module_matches_native(technique, LOCKED, None)
+            + assert_module_matches_native(technique, LONG_STRIKES, None);
+        // The premise: the reference fired. (A volley without a telegraph
+        // has no samples, so one arm alone can be empty.)
+        assert!(fired > 0, "{}: the reference fired", technique.key);
     }
 }
 
@@ -350,7 +502,10 @@ fn a_boss_that_dies_mid_strike_matches_its_native_system() {
         press(&[(0, None)]),
     ];
     for technique in ALL {
-        assert_module_matches_native(technique, ticks, Some(2));
+        // Dies on the third strike tick: late enough for apple rain's first
+        // apple (0.4 s of strike).
+        let fired = assert_module_matches_native(technique, ticks, Some(3));
+        assert!(fired > 0, "{}: the reference fired", technique.key);
     }
 }
 
@@ -374,7 +529,7 @@ fn the_locked_target_is_the_one_taken_during_the_telegraph() {
 #[test]
 fn each_wasm_build_emits_what_its_native_system_emitted() {
     for technique in ALL {
-        for ticks in [STRIKES, LOCKED] {
+        for ticks in [STRIKES, LOCKED, LONG_STRIKES] {
             let native = run(Road::NativeSystem, technique, ticks, None);
             let wasm = run(Road::Wasm, technique, ticks, None);
             assert_eq!(quantize(&wasm), quantize(&native), "{}", technique.key);

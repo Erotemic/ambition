@@ -363,6 +363,7 @@ const BOSS_PHASE_SHAKE_PX: f32 = 11.0;
 /// edges and materialize their gameplay/presentation feedback. The edge comes
 /// from the rollback-owned phase machine rather than being re-derived here.
 pub fn boss_phase_transition_feedback(
+    mut commands: Commands,
     mut phase_changes: MessageReader<super::events::BossPhaseChanged>,
     mut sfx: ambition_sfx::SfxWriter,
     // An intent, not a write. The kick is applied after the confirmed-frame
@@ -377,7 +378,6 @@ pub fn boss_phase_transition_feedback(
         ),
         With<crate::BossConfig>,
     >,
-    mut effects: MessageWriter<ambition_vfx::EffectRequest>,
     mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
 ) {
     use crate::BossEncounterPhase as P;
@@ -398,23 +398,33 @@ pub fn boss_phase_transition_feedback(
                 pos: ae::Vec2::ZERO,
             });
             // The transition is a dodgeable gameplay beat, not only feel: the
-            // boss emits a `DamageBox` effect through the same generic
-            // `apply_effects` consumer the player's shockwave gauntlet uses.
-            // It is resolved at the boss's position and side
+            // boss puts a damage box at its centre, on its side
             // (`HitSide::Boss`), so the shared `apply_hitbox_damage` lands it
             // on the player.
-            effects.write(ambition_vfx::EffectRequest {
-                owner: entity,
-                effect: ambition_vfx::Effect::DamageBox(ambition_vfx::DamageBoxEffect {
-                    center: aabb.center,
-                    faction: ambition_vfx::HitSide::Boss,
+            //
+            // ⛔ SPAWNED HERE, NOT REQUESTED. This system runs in Progression,
+            // AFTER the combat phase's effect executor, so an `EffectRequest`
+            // written here was only executed on the NEXT tick. A rollback that
+            // restored the snapshot between the two ticks cleared the waiting
+            // request (a message buffer is cleared on load), and the replay had
+            // no shockwave: a GGRS sync test of an HP-triggered phase change
+            // mismatched on that frame (2026-10-01). The box is the same
+            // `spawn_damage_box` the executor would have called, made in the
+            // tick that decides it, so the snapshot of that tick holds it.
+            ambition_combat::strike::spawn_damage_box(
+                &mut commands,
+                entity,
+                ambition_vfx::HitSide::Boss,
+                aabb.center,
+                ambition_combat::strike::DamageBox {
                     half_extent: ae::Vec2::new(170.0, 80.0),
+                    shape: None,
                     damage: 2,
                     knockback: 1.6,
                     lifetime_s: 0.30,
                     name: Some("Shockwave AOE"),
-                }),
-            });
+                },
+            );
             // "Scream lines": a sharp radial spark burst from the boss, so the
             // phase change is noticeable and not a silent state flip.
             vfx.write(ambition_vfx::vfx::VfxMessage::Burst {
@@ -460,7 +470,6 @@ mod phase_feedback_tests {
     fn test_app() -> App {
         let mut app = App::new();
         app.add_message::<ambition_sfx::OwnedSfxMessage>();
-        app.add_message::<ambition_vfx::EffectRequest>();
         app.add_message::<ambition_vfx::vfx::VfxMessage>();
         app.add_message::<CameraShakeRequest>();
         app.add_message::<super::super::events::BossPhaseChanged>();
@@ -476,15 +485,17 @@ mod phase_feedback_tests {
             .write(super::super::events::BossPhaseChanged { boss, from, to });
     }
 
-    /// What the transition asked the world for this frame. The shockwave is
-    /// the gameplay half, which makes correctness a rollback question.
-    fn requested(app: &App) -> (usize, usize) {
-        (
-            app.world().resource::<Messages<CameraShakeRequest>>().len(),
-            app.world()
-                .resource::<Messages<ambition_vfx::EffectRequest>>()
-                .len(),
-        )
+    /// What the transition asked the world for this frame: the shake it
+    /// requested and the shockwave boxes standing. The shockwave is the
+    /// gameplay half, which makes correctness a rollback question.
+    fn requested(app: &mut App) -> (usize, usize) {
+        let shakes = app.world().resource::<Messages<CameraShakeRequest>>().len();
+        let boxes = app
+            .world_mut()
+            .query::<&ambition_combat::strike::Hitbox>()
+            .iter(app.world())
+            .count();
+        (shakes, boxes)
     }
 
     #[test]
@@ -499,7 +510,7 @@ mod phase_feedback_tests {
         );
         app.update();
         assert_eq!(
-            requested(&app),
+            requested(&mut app),
             (1, 1),
             "a dramatic phase change produced no shake and no shockwave"
         );
@@ -517,7 +528,7 @@ mod phase_feedback_tests {
         );
         app.update();
         assert_eq!(
-            requested(&app),
+            requested(&mut app),
             (0, 0),
             "Phase1 is not a dramatic transition and must be silent"
         );
@@ -535,7 +546,7 @@ mod phase_feedback_tests {
         app.update();
         app.update();
         assert_eq!(
-            requested(&app),
+            requested(&mut app),
             (0, 0),
             "a boss that has been enraged for two frames re-fired its entry"
         );
@@ -566,17 +577,22 @@ mod phase_feedback_tests {
             BossEncounterPhase::Enrage,
         );
         app.update();
-        assert_eq!(requested(&app), (1, 1), "the predicted pass fired");
+        assert_eq!(requested(&mut app), (1, 1), "the predicted pass fired");
 
-        // The rewind: everything the abandoned pass produced is gone. These
-        // channels are what presentation and the effect consumer would have
-        // seen, so clearing them models the pass being taken back.
+        // The rewind: everything the abandoned pass produced is gone. The
+        // shake channel is what presentation would have seen, and the
+        // shockwave box is a rollback entity the restore removes.
         app.world_mut()
             .resource_mut::<Messages<CameraShakeRequest>>()
             .clear();
-        app.world_mut()
-            .resource_mut::<Messages<ambition_vfx::EffectRequest>>()
-            .clear();
+        let boxes: Vec<Entity> = app
+            .world_mut()
+            .query_filtered::<Entity, With<ambition_combat::strike::Hitbox>>()
+            .iter(app.world())
+            .collect();
+        for entity in boxes {
+            app.world_mut().despawn(entity);
+        }
 
         // The corrected pass re-runs the phase machine, which announces the
         // same change again because the corrected timeline crosses it.
@@ -589,7 +605,7 @@ mod phase_feedback_tests {
         app.update();
 
         assert_eq!(
-            requested(&app),
+            requested(&mut app),
             (1, 1),
             "the re-simulated transition produced nothing. Under the old `Local` \
              diff this is exactly what happened: the map still held `Enrage` from \

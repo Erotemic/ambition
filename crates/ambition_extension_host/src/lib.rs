@@ -56,6 +56,12 @@ pub enum ExtensionSet {
     Invoke(Phase),
     /// Request adapters give submitted requests to their domains.
     Lower(Phase),
+    /// One request port's adapter, inside `Lower(phase)`. The host runs the
+    /// request ports of a phase in the order they were installed: two
+    /// adapters can write to one domain message (a damage box and a summon
+    /// are both `EffectRequest`s), and their order is the order the domain
+    /// executes them in.
+    LowerPort(Phase, ambition_extension_sdk::PortKey),
 }
 
 /// The sealed admission of this App.
@@ -68,6 +74,43 @@ pub struct AdmittedExtensions(pub Arc<Admitted>);
 pub struct ExtensionComposition {
     pub(crate) offers: Vec<PortOffer>,
     pub(crate) declared: Vec<DeclaredModule>,
+}
+
+/// The extension generation (D6, `docs/planning/engine/extension-model.md`):
+/// the declared modules, in declaration order (it decides the serial order),
+/// as canonical text. Each line names the module, its code identity (a loaded
+/// module's identity is the digest of its exact bytes) and its descriptor
+/// digest. The prepared content identity takes it as a section, so two Apps
+/// that would run different module code cannot share one identity.
+///
+/// Present from `ExtensionHostPlugin::build`; changed by each declaration and
+/// by a published reload (a local session only: a session whose timeline
+/// another owner holds refuses a reload, so a remote session keeps its
+/// generation).
+#[derive(Resource, Clone, Debug, Default, PartialEq, Eq)]
+pub struct ExtensionGeneration(pub String);
+
+impl ExtensionGeneration {
+    pub fn of(declared: &[DeclaredModule]) -> Self {
+        use ambition_extension_sdk::CodeIdentity;
+        let mut out = String::new();
+        for module in declared {
+            let d = &module.descriptor;
+            let code = match &d.code {
+                CodeIdentity::StaticNative { crate_name, version } => {
+                    format!("native {crate_name} {version}")
+                }
+                CodeIdentity::Loaded { abi, digest } => format!("loaded {abi} {digest:016x}"),
+            };
+            out.push_str(&format!(
+                "module\t{}\t{code}\t{:016x}\treplaces={}\n",
+                d.key,
+                d.identity_digest(),
+                module.replaces
+            ));
+        }
+        Self(out)
+    }
 }
 
 /// The schedule the host and its adapters run in.
@@ -83,6 +126,8 @@ struct ExtensionInstallation {
     modules: Vec<DeclaredModule>,
     /// Phases whose systems are already in the schedule.
     phases: BTreeSet<Phase>,
+    /// The request port installed last in each phase.
+    last_request: HashMap<Phase, ambition_extension_sdk::PortKey>,
 }
 
 /// Adds the extension host to the simulation schedule given here.
@@ -104,6 +149,7 @@ impl Plugin for ExtensionHostPlugin {
         // the composition adds the host.
         app.insert_resource(ExtensionSchedule(self.schedule))
             .init_resource::<ExtensionInstallation>()
+            .init_resource::<ExtensionGeneration>()
             .init_resource::<ExtensionInvocations>()
             .init_resource::<ExtensionOutbox>()
             .init_resource::<ExtensionFaults>()
@@ -319,8 +365,14 @@ impl ExtensionAppExt for App {
         installation
             .request_decoders
             .insert(P::KEY, ambition_extension_sdk::decode_erased::<P>);
+        let previous = installation.last_request.insert(phase.clone(), P::KEY);
         ensure_phase(self, schedule, &phase);
-        self.add_systems(schedule, adapter.in_set(ExtensionSet::Lower(phase)))
+        let set = ExtensionSet::LowerPort(phase.clone(), P::KEY);
+        self.configure_sets(schedule, set.clone().in_set(ExtensionSet::Lower(phase.clone())));
+        if let Some(previous) = previous {
+            self.configure_sets(schedule, set.clone().after(ExtensionSet::LowerPort(phase, previous)));
+        }
+        self.add_systems(schedule, adapter.in_set(set))
     }
 
     /// A game plugin may run before or after the composition adds the host,
@@ -332,10 +384,12 @@ impl ExtensionAppExt for App {
             "module {} declared after admission; declare it during Plugin::build",
             module.descriptor.key
         );
-        self.world_mut()
-            .get_resource_or_init::<ExtensionInstallation>()
-            .modules
-            .push(module);
+        let generation = {
+            let mut installation = self.world_mut().get_resource_or_init::<ExtensionInstallation>();
+            installation.modules.push(module);
+            ExtensionGeneration::of(&installation.modules)
+        };
+        self.world_mut().insert_resource(generation);
         self
     }
 }

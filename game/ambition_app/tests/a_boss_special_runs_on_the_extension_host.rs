@@ -271,3 +271,143 @@ fn a_module_file_that_changes_while_the_game_runs_is_reloaded() {
         let _ = std::fs::remove_file(&watched);
     }
 }
+
+/// The `extension.modules` section of the session's prepared content.
+fn modules_section(sim: &mut Platformer2dSimHarness) -> (String, String) {
+    let world = sim.world_mut();
+    let mut q = world.query::<&ambition_platformer2d::runtime::PreparedContent>();
+    let content = q.single(world).expect("one prepared session");
+    let section = content
+        .sections()
+        .iter()
+        .find(|s| s.name == "extension.modules")
+        .expect("the prepared content has an extension.modules section");
+    (
+        String::from_utf8(section.canonical_bytes().to_vec()).unwrap(),
+        content.fingerprint().to_string(),
+    )
+}
+
+/// ⭐ D6: THE PREPARED CONTENT IDENTITY NAMES THE MODULE CODE. A session that
+/// runs a loaded `.wasm` build is a different generation from one that runs
+/// the linked build, so a peer or a saved timeline cannot take one for the
+/// other.
+#[test]
+fn the_prepared_content_identity_names_the_module_code_the_session_runs() {
+    let mut linked = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+        .expect("sandbox sim builds");
+    let (linked_modules, linked_fingerprint) = modules_section(&mut linked);
+    assert!(
+        linked_modules.contains("module\tambition::echo_fan\tnative ambition_content_modules "),
+        "the linked echo fan is in the generation:\n{linked_modules}"
+    );
+    assert!(!linked_modules.contains("loaded"), "{linked_modules}");
+
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let wasm = ambition_platformer2d::extension::build_module_crate(&root, "ambition_content_modules")
+        .expect("the module crate builds for wasm32-unknown-unknown");
+    let mut loaded = Platformer2dSimHarness::new_with_options(
+        Platformer2dSimHarnessOptions::default()
+            .with_timestep(TimestepMode::fixed_60hz())
+            .with_extension_module_files(vec![wasm]),
+    )
+    .expect("the sandbox builds with the loaded module");
+    let (loaded_modules, loaded_fingerprint) = modules_section(&mut loaded);
+    assert!(
+        loaded_modules.contains("module\tambition::echo_fan\tloaded ambition-ext-1 "),
+        "the loaded echo fan, with its byte digest, is in the generation:\n{loaded_modules}"
+    );
+    assert_ne!(linked_fingerprint, loaded_fingerprint);
+}
+
+/// The saddle point's arms the boss owns this tick: world damage boxes of the
+/// arm's size, as (horizontal, vertical).
+fn saddle_arms(world: &mut World, boss: Entity) -> (usize, usize) {
+    use ambition_platformer2d::combat::strike::Hitbox;
+    let near = |a: f32, b: f32| (a - b).abs() < 0.5;
+    let mut q = world.query::<&Hitbox>();
+    q.iter(world).filter(|h| h.owner == boss).fold((0, 0), |(h, v), b| {
+        let he = b.half_extent;
+        (
+            h + usize::from(near(he.x, 220.0) && near(he.y, 36.0)),
+            v + usize::from(near(he.x, 36.0) && near(he.y, 220.0)),
+        )
+    })
+}
+
+/// ⭐ I5: A ROLLBACK REPLAYS A MODULE'S HELD ENTITY. The saddle point's arm is
+/// a box entity the combat domain spawns and holds for the module
+/// (`HeldDamageBoxPort`), and turns every 1.2 s. Under a GGRS sync-test session
+/// every tick is rewound and resimulated: the box entities are re-created and
+/// the adapter's record of them (`combat.held_damage_boxes`) remapped. If that
+/// record were not rollback state, a replay would spawn a second arm; if the
+/// module's generation were not, the arm would turn at a different tick and
+/// the checksums would disagree.
+#[test]
+fn a_rollback_replays_the_saddle_points_held_arm() {
+    const WARDEN: &str = "saddle_warden";
+    let mut sim = Platformer2dSimHarness::new_with_options(
+        Platformer2dSimHarnessOptions::default()
+            .with_timestep(TimestepMode::fixed_60hz())
+            .with_sync_test_rollback_settings(4, 10),
+    )
+    .expect("the GGRS sync-test harness builds");
+    let (px, py) = {
+        let world = sim.world_mut();
+        let mut q = world.query_filtered::<&BodyKinematics, PrimaryPlayerOnly>();
+        let kin = q.single(world).expect("primary player exists");
+        (kin.pos.x, kin.pos.y)
+    };
+    sim.spawn_boss_at(
+        WARDEN,
+        "clockwork_warden",
+        (px + 150.0, py - 40.0),
+        (40.0, 40.0),
+        BossBrain::PhaseScript {
+            script_id: "clockwork_warden".to_string(),
+        },
+    );
+    let boss = {
+        let world = sim.world_mut();
+        let mut q = world.query::<(Entity, &FeatureId)>();
+        q.iter(world)
+            .find(|(_, f)| f.as_str() == WARDEN)
+            .map(|(e, _)| e)
+            .expect("the spawned boss is present")
+    };
+    // Phase 2 from the start, where the saddle point is, with the health
+    // that phase has. (Before any tick: the session's snapshots all include
+    // it.)
+    {
+        let world = sim.world_mut();
+        let mut health = world
+            .get_mut::<ambition_platformer2d::characters::actor::BodyHealth>(boss)
+            .expect("the boss has health");
+        health.health.current = health.health.max / 2;
+        let mut status = world
+            .get_mut::<ambition_platformer2d::boss_encounter::BossEncounter>(boss)
+            .expect("the boss has an encounter");
+        let phase = status.encounter.as_mut().expect("the encounter has a phase state");
+        phase.phase = ambition_platformer2d::characters::brain::BossEncounterPhase::Phase2;
+        phase.phase_elapsed = 0.0;
+    }
+    let mut first_error: Option<String> = None;
+    let (mut horizontal_ticks, mut vertical_ticks, mut most_arms) = (0, 0, 0);
+    for _ in 0..1500 {
+        sim.step(AgentAction::default());
+        if first_error.is_none() {
+            first_error = ambition_platformer2d::rollback::session_health(sim.world()).err();
+        }
+        let (h, v) = saddle_arms(sim.world_mut(), boss);
+        horizontal_ticks += usize::from(h > 0);
+        vertical_ticks += usize::from(v > 0);
+        most_arms = most_arms.max(h + v);
+    }
+    assert!(
+        horizontal_ticks > 0 && vertical_ticks > 0,
+        "the premise: the warden's saddle point turned its arm in 1500 ticks \
+         ({horizontal_ticks} horizontal, {vertical_ticks} vertical)"
+    );
+    assert_eq!(most_arms, 1, "the replays never doubled the arm");
+    assert_eq!(first_error, None, "the sync-test session stayed healthy");
+}

@@ -9,7 +9,10 @@
 
 use ambition_characters::control::ActorControl;
 use ambition_combat::held_items::HeldItem;
-use ambition_combat_port::{BodySoundPort, ModuleEntityTickPort, SpawnModuleEntityPort, SpendManaPort, WieldedUsePort, Wielder};
+use ambition_combat_port::{
+    BodySoundPort, EndModuleEntityPort, ModuleEntityTickPort, PullBodiesPort, SpawnModuleEntityPort, SpendManaPort,
+    WieldedUsePort, Wielder,
+};
 use ambition_extension_host::{AdmittedExtensions, ExtensionAppExt, ExtensionInvocations, ExtensionOutbox};
 use ambition_extension_sdk::phases::{MODULE_ENTITY_TICK, WIELDED_USE};
 use ambition_extension_sdk::Port;
@@ -35,8 +38,9 @@ pub fn install(app: &mut App) {
     );
 }
 
-/// Install the module-entity trigger port and the sound request port in
-/// `module_entity_tick` (a module entity is heard as itself).
+/// Install the module-entity trigger port and its request ports in
+/// `module_entity_tick`: a sound (a module entity is heard as itself), a pull,
+/// and the end of the entity.
 pub fn install_module_entities(app: &mut App) {
     app.install_extension_trigger::<ModuleEntityTickPort, _>(
         MODULE_ENTITY_TICK,
@@ -47,6 +51,16 @@ pub fn install_module_entities(app: &mut App) {
         MODULE_ENTITY_TICK,
         "ambition_abilities",
         lower_body_sounds::<InModuleEntityTick>,
+    );
+    app.install_extension_request::<PullBodiesPort, _>(
+        MODULE_ENTITY_TICK,
+        "ambition_abilities",
+        crate::module_entity::lower_body_pulls,
+    );
+    app.install_extension_request::<EndModuleEntityPort, _>(
+        MODULE_ENTITY_TICK,
+        "ambition_abilities",
+        crate::module_entity::lower_module_entity_ends,
     );
 }
 

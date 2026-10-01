@@ -119,6 +119,8 @@ boss's OWN live room. With two live rooms there is no "the" room.
 | `ambition.items.wielded_use` v2 | trigger (phase `wielded_use`) | `ambition_combat_port::Wielder` (selector: the held item id) |
 | `ambition.world.spawn_module_entity` v1 | request (phase `wielded_use`) | `ambition_combat_port::ModuleEntitySpawn` (a kind, a place, a lifetime; ask `Wielder::names_spawns` first) |
 | `ambition.world.module_entity_tick` v1 | trigger (phase `module_entity_tick`) | `ambition_combat_port::ModuleEntityTick` (selector: the kind; records are the entity's) |
+| `ambition.world.end_module_entity` v1 | request (phase `module_entity_tick`) | `ambition_combat_port::EndModuleEntity` (end the entity before its lifetime) |
+| `ambition.world.pull_bodies` v1 | request (phase `module_entity_tick`) | `ambition_combat_port::PullBodies` (pull `Enemy`-side bodies toward a point) |
 | `ambition.resources.spend_mana` v1 | request | `ambition_combat_port::SpendMana` (ask `Wielder::can_pay_mana` first) |
 | `ambition.feedback.body_sound` v1 | request | `ambition_combat_port::BodySound` (a cue id, as the body) |
 | `ambition.boss.summon` v1 | request | `ambition_boss_special_port::BossSummon` (a boss only; the minion joins its encounter) |
@@ -126,7 +128,8 @@ boss's OWN live room. With two live rooms there is no "the" room.
 A thing that outlives the press (a turret) is a module entity: one entry asks
 for it in `wielded_use`, a second entry bound to its kind runs each tick it
 lives, and keeps its state in a record (the record is scoped to the entity, so
-it goes with it). `sentry.rs` is the example.
+it goes with it). `sentry.rs` is the example; `vortex.rs` keeps its own clock
+and ends its entity itself.
 
 A mechanic that needs another engine fact or action needs a new port: pure
 values in a leaf crate (SDK only), an adapter in the owning domain installed

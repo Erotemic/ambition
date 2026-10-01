@@ -1,4 +1,5 @@
-//! The NATIVE wielded abilities (shockwave, beam, volley, meteor, sentry), kept as the
+//! The NATIVE wielded abilities (shockwave, beam, volley, meteor, sentry,
+//! vortex), kept as the
 //! reference traces of their procedural modules (`ambition_content_modules`).
 //! Test-only: the game runs the modules. `wielded_ability_parity_tests` holds
 //! each module to its reference on the linked and the WASM road.
@@ -796,6 +797,260 @@ pub mod sentry {
                     pos: sentry.pos,
                 },
             );
+        }
+    }
+}
+
+/// The native vortex: the cast and the well. The module road is
+/// `ambition_content_modules::vortex` on the module-entity ports.
+pub mod vortex {
+    use ambition_characters::control::ActorControl;
+    use bevy::prelude::*;
+
+    use ambition_combat::held_items::HeldItem;
+    use ambition_combat::components::ActorFaction;
+    use ambition_platformer2d_core as ae;
+    use ambition_platformer2d_core::body_clusters::BodyKinematics;
+    use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
+    use ambition_platformer2d_shared_tangle::lifecycle::{
+        SessionScopedEntity, SessionSpawnScope, SpawnSessionScopedExt,
+    };
+    use ambition_platformer2d_shared_tangle::sim_id::SimId;
+
+    /// Held-item id of the vortex gauntlet.
+    pub const VORTEX_ID: &str = "vortex";
+
+    /// Mana per cast (out of 100).
+    const VORTEX_MANA_COST: f32 = 22.0;
+
+    /// How far in front of the player (along aim) the singularity spawns.
+    const VORTEX_RANGE: f32 = 200.0;
+    /// Radius (px) within which enemies get dragged toward the center.
+    const VORTEX_RADIUS: f32 = 220.0;
+    /// Pull rate (1/s): the fraction of the remaining gap closed per second
+    /// (`lerp` factor `rate * dt`). Higher gathers faster.
+    const VORTEX_PULL_RATE: f32 = 5.0;
+    /// How long (s) the singularity persists pulling.
+    const VORTEX_LIFETIME_S: f32 = 0.9;
+
+    /// A live vortex singularity: pulls enemies toward `center` until `remaining_s`
+    /// hits zero.
+    #[derive(Component, Debug, Clone, Copy)]
+    pub struct VortexWell {
+        pub center: ae::Vec2,
+        pub remaining_s: f32,
+    }
+
+    /// `Attack` while holding the vortex gauntlet spawns a [`VortexWell`] ahead of
+    /// the player along the aim. Plain Attack only; `Shield + Attack` drops the
+    /// item (the id is `UseSystem`, excluded from throw-on-plain-Attack).
+    pub fn fire_vortex_system(
+        // Every driven body, not only the primary seat's `ControlledSubject`, so a
+        // possessed body or a second seat can cast.
+        driven: ambition_held_items::DrivenBodies,
+        mut bodies: Query<(
+            &ActorControl,
+            &BodyKinematics,
+            &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
+            &HeldItem,
+            Option<&mut ambition_platformer2d_core::resources::ActorResources>,
+            Option<&SessionScopedEntity>,
+            // The caster's identity and mint stream. `Option` because fixtures
+            // carry neither; production bodies get them from `ensure_sim_id` or
+            // their spawn site.
+            Option<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
+            Option<&mut ambition_platformer2d_shared_tangle::sim_id::SimIdCounter>,
+        )>,
+        mut commands: Commands,
+        mut sfx: ambition_sfx::BodySfxWriter,
+    ) {
+        for subject in driven.entities() {
+            let Ok((
+                control,
+                kin,
+                resolved_frame,
+                held,
+                mut mana,
+                owner,
+                caster_id,
+                mut caster_counter,
+            )) = bodies.get_mut(subject)
+            else {
+                continue;
+            };
+            let c = control.0;
+            if !c.melee_pressed || c.shield_held {
+                continue;
+            }
+            if held.spec.id != VORTEX_ID {
+                continue;
+            }
+            // Refuse before spending (ADR 0030): a refusal after `try_spend`
+            // would take mana and open nothing.
+            let (Some(caster), Some(counter)) = (caster_id, caster_counter.as_mut()) else {
+                warn!(
+                    "a vortex cast was refused: the caster carries no SimId or no \
+                     SimIdCounter, so the well could not be named"
+                );
+                continue;
+            };
+            // N3.1: a dynamically spawned sim entity is `SimId::spawned(caster,
+            // counter.next())`. The counter lives on the caster, so casters never
+            // share a stream; taking a number is snapshot state.
+            let id = Some(ambition_platformer2d_shared_tangle::sim_id::SimId::spawned(
+                caster,
+                counter.next(),
+            ));
+            if !ambition_platformer2d::abilities::mana::spend(mana.as_deref_mut(), VORTEX_MANA_COST) {
+                continue;
+            }
+            // The body's per-tick resolved frame (ADR 0024 frame law).
+            let gravity_dir = resolved_frame.down();
+            let aim = ambition_held_items::ability_aim_world(&c, kin.facing, gravity_dir)
+                .normalize_or_zero();
+            if aim == ae::Vec2::ZERO {
+                continue;
+            }
+            let center = kin.pos + aim * VORTEX_RANGE;
+            open_vortex_well(
+                &mut commands,
+                SessionSpawnScope::new(owner.map(|owner| owner.0)),
+                center,
+                id,
+            );
+            sfx.write_for(
+                subject,
+                ambition_sfx::SfxMessage::Play {
+                    id: ambition_sfx::ids::PLAYER_BLINK,
+                    pos: center,
+                },
+            );
+        }
+    }
+
+    /// Open one singularity. The only way a vortex well enters the world.
+    ///
+    /// One place, like `module_entity::spawn_module_entity`, so tests can spawn the entity the way
+    /// production does. An archetype spawned only inside a system that needs a
+    /// held gauntlet, mana, and an aim would be unreachable by coverage sweeps.
+    ///
+    /// `id` is `Option`: a well cast by a named caster gets `SimId::spawned`; a
+    /// fixture well has no caster. It never decides the order (see
+    /// [`update_vortex_wells`]).
+    ///
+    /// `remaining_s` is authoritative simulation state: the well pulls every body
+    /// in radius while it counts down. The component and entity anchor are
+    /// declared in the actor crate's `register_rollback_state`.
+    pub fn open_vortex_well(
+        commands: &mut Commands,
+        scope: SessionSpawnScope,
+        center: ae::Vec2,
+        id: Option<ambition_platformer2d_shared_tangle::sim_id::SimId>,
+    ) -> Entity {
+        let mut well = commands.spawn_session_scoped(
+            scope,
+            (
+                VortexWell {
+                    center,
+                    remaining_s: VORTEX_LIFETIME_S,
+                },
+                Name::new("Vortex singularity"),
+            ),
+        );
+        if let Some(id) = id {
+            well.insert(id);
+        }
+        well.id()
+    }
+
+    /// Drag every Enemy-faction actor within [`VORTEX_RADIUS`] of each live well
+    /// toward its center (a position lerp; the actor's `step_motion` next tick
+    /// resolves walls), then age the wells out. Runs on `scaled_dt`, so
+    /// bullet-time slows the gather.
+    ///
+    /// Overlapping wells do not commute. Each well lerps a fraction `f` toward
+    /// its own center, so A-then-B ends `f²·(B−A)` away from B-then-A (about
+    /// 1.3px per tick for wells 200px apart at 60 Hz). Rollback registration does
+    /// not fix the order, so wells are sorted by their own state (center,
+    /// remaining life), then by identity. Wells that tie on state are the same
+    /// pull, and fixtures without ids stay repeatable.
+    pub fn update_vortex_wells(
+        world_time: Res<ambition_time::WorldTime>,
+        mut commands: Commands,
+        mut wells: Query<(Entity, &mut VortexWell)>,
+        // Tie-break authority, read separately so a well with no id still
+        // applies.
+        ids: Query<&SimId>,
+        mut actors: Query<
+            (
+                &mut BodyKinematics,
+                Option<&mut ae::SweepSample>,
+                &ActorFaction,
+                Option<&ambition_characters::actor::BodyHealth>,
+                // A body out of play, or behind the playable plane, is not a target.
+                (
+                    bevy::prelude::Has<ambition_combat::death_rules::OutOfPlay>,
+                    Option<&ambition_platformer2d_core::DepthPlane>,
+                ),
+                // Whether a participant drives this body, which decides its
+                // effective side. See the filter below.
+                Option<&ambition_characters::control::DrivingParticipant>,
+            ),
+            With<FeatureSimEntity>,
+        >,
+    ) {
+        let dt = world_time.scaled_dt;
+        if dt <= 0.0 {
+            return;
+        }
+        let factor = (VORTEX_PULL_RATE * dt).min(1.0);
+        let mut order: Vec<(ae::Vec2, f32, Option<SimId>, Entity)> = wells
+            .iter()
+            .map(|(entity, well)| {
+                (
+                    well.center,
+                    well.remaining_s,
+                    ids.get(entity).ok().cloned(),
+                    entity,
+                )
+            })
+            .collect();
+        order.sort_by(|a, b| {
+            a.0.x
+                .total_cmp(&b.0.x)
+                .then_with(|| a.0.y.total_cmp(&b.0.y))
+                .then_with(|| a.1.total_cmp(&b.1))
+                .then_with(|| a.2.cmp(&b.2))
+        });
+        for (_, _, _, entity) in order {
+            let Ok((entity, mut well)) = wells.get_mut(entity) else {
+                continue;
+            };
+            for (mut kin, mut sweep, faction, health, (out_of_play, plane), driver) in &mut actors {
+                // Use the effective faction, not the authored one: a possessed NPC
+                // keeps `ActorFaction::Enemy` and moves its side through the
+                // driver, so the authored field would pull the player's own body.
+                // Not widened past the `Enemy` class (as the sentry: `ambition.world.module_entity_tick`'s `nearest_enemy`).
+                // A dead enemy is an intangible corpse; the well does not drag it.
+                if ambition_combat::targeting::effective_faction(*faction, driver)
+                    != ActorFaction::Enemy
+                    || ambition_combat::util::body_is_untouchable(health, out_of_play, plane)
+                {
+                    continue;
+                }
+                if kin.pos.distance(well.center) <= VORTEX_RADIUS {
+                    // The well is an external kinematic constraint (ADR 0024): it
+                    // moves the body toward the center by this tick's pull delta.
+                    let delta = kin.pos.lerp(well.center, factor) - kin.pos;
+                    ae::movement::carry_body(&mut kin, sweep.as_deref_mut(), delta);
+                }
+            }
+            well.remaining_s -= dt;
+            if well.remaining_s <= 0.0 {
+                if let Ok(mut ec) = commands.get_entity(entity) {
+                    ec.despawn();
+                }
+            }
         }
     }
 }

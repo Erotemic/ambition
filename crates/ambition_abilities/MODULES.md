@@ -10,7 +10,7 @@
 | [`extension`](src/extension.rs) | The held-item domain's extension adapters (fast-iteration I7: a wielded ability as a procedural module). |
 | [`mana`](src/mana.rs) | The main game's Mana: the resource the held abilities in this crate spend. |
 | [`module_entity`](src/module_entity.rs) | Module-owned entities (fast-iteration I7): the adapters of `ambition.world.spawn_module_entity` and `ambition.world.module_entity_tick`. |
-| [`ranged`](src/ranged/mod.rs) | Ranged abilities: vortex and bomb. |
+| [`ranged`](src/ranged/mod.rs) | Ranged abilities: the bomb. |
 | [`test_support`](src/test_support.rs) | Test-only fixtures for ability modules. |
 | [`thrown`](src/thrown/mod.rs) | Thrown abilities: the gravity grenade. |
 | [`traversal`](src/traversal/mod.rs) | Traversal abilities a held item FIRES: blink, dive, grapple, mark/recall. |
@@ -77,7 +77,7 @@ here would have required the edge this carve removed.
 
 `AbilitySimulationPlugin` configures `ItemPickupSet::ThrownItemEffects` and
 `ItemPickupSet::WieldedAbilities` — their nesting in `PlayerSimulation` — and
-registers all 12 members (the procedural-module abilities run in the extension
+registers all 10 members (the procedural-module abilities run in the extension
 host, not as members). `src/schedule_tests.rs` pins that by SHAPE on a bare
-`App`: 5 and 7 direct members, both variants inside the phase.
+`App`: 5 and 5 direct members, both variants inside the phase.
 

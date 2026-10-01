@@ -72,9 +72,10 @@ where
     // fires, so its absence from the registry read exactly like a pass. See the
     // scenario sweep this landed with.
     //
-    // The turret is now a module entity (2026-10-01): its position and
-    // lifetime are `ModuleEntity`, and its cooldown is the module's record, in
-    // the extension host's `BodyRecords` on the same entity.
+    // The turret and the well are now module entities (2026-10-01): their
+    // position and lifetime are `ModuleEntity`, and the turret's cooldown and
+    // the well's clock are module records, in the extension host's
+    // `BodyRecords` on the same entity.
     registrar.require_rollback::<ambition_abilities::module_entity::ModuleEntity>(
         OWNER,
         "entity:module_entity",
@@ -93,19 +94,6 @@ where
                 ^ (entity.pos.y.to_bits() as u64)
                 ^ ((entity.remaining_s.to_bits() as u64) << 16)
                 ^ kind
-        },
-    );
-    registrar.require_rollback::<ambition_abilities::ranged::vortex::VortexWell>(
-        OWNER,
-        "entity:vortex_well",
-    );
-    registrar.rollback_component_clone_probed::<ambition_abilities::ranged::vortex::VortexWell>(
-        OWNER,
-        "ability.vortex_well",
-        |well| {
-            ((well.center.x.to_bits() as u64) << 32)
-                ^ (well.center.y.to_bits() as u64)
-                ^ (well.remaining_s.to_bits() as u64)
         },
     );
     // It is not an actor fact and not an every-game fact — it is an authoring format's. Its

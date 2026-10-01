@@ -745,13 +745,15 @@ impl RoomFeatureConstructionPlan {
                 }
             }
             // ── the SECOND DESCRIBER: a debt no RECORD can settle, that the
-            //    CHECKPOINT can. ─────────────────────────────────────────────
+            //    minted description can. ────────────────────────────────────
             //
             // a runtime mint has no authored record anywhere, so the search
-            // above could never settle its debt; what rebuilds it is the
-            // description the checkpoint captured. The position is the ledger's
-            // `at`, which is the whole point — this is an object lying where
-            // somebody dropped it, and nothing else supplies where.
+            // above could never settle its debt; what rebuilds it is its minted
+            // description. A door gives the save's record, which keeps a
+            // dormant mint's description (OW3); a checkpoint restore gives the
+            // checkpoint's. The position is the ledger's `at`, which is the
+            // whole point — this is an object lying where somebody dropped it,
+            // and nothing else supplies where.
             for (sim_id, at) in owed {
                 let described = continuity
                     .minted
@@ -842,8 +844,9 @@ impl RoomFeatureConstructionPlan {
                 construction.incoming,
                 Some(room.id.clone()),
             );
-        let construction_plan = crate::construction::ActorConstructionPlan::prepare(
+        let construction_plan = crate::construction::ActorConstructionPlan::prepare_reinstating(
             construction_scope.clone(),
+            ambition_platformer2d_shared_tangle::construction::ConstructionLane::primary(),
             requests,
             // An occurrence in somebody's custody crosses the boundary alive, so a room CAN be
             // prepared while one of the identities it authors is already out there.
@@ -855,6 +858,9 @@ impl RoomFeatureConstructionPlan {
             // outgoing room is still whole, instead of two live things behind
             // one `SimId`.
             &suppressed,
+            // What the ledger places in this room: a runtime mint among them
+            // keeps the provenance it was minted with, whose parent can be gone.
+            &outlook.reinstatements().into_keys().collect(),
             construction.recipes,
         )
         .map_err(RoomFeatureConstructionError::Construction)?;

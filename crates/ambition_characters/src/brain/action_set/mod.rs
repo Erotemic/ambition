@@ -368,8 +368,8 @@ static HELD_ITEMS: std::sync::LazyLock<std::collections::HashMap<&'static str, H
                 use_behavior: HeldUseBehavior::UseSystem,
             },
         );
-        // The vortex gauntlet has no melee/ranged verb — `Attack` is intercepted
-        // by `vortex::fire_vortex_system`, which spawns a point attractor that
+        // The vortex gauntlet has no melee/ranged verb — `Attack` runs the
+        // `vortex` procedural module, which opens a point attractor that
         // gathers enemies (crowd-control; no damage — pull-then-slam).
         items.insert(
             "vortex",

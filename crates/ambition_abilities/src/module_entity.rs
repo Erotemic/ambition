@@ -8,7 +8,9 @@
 //! (`ambition_content_modules::sentry`).
 
 use ambition_combat::components::{ActorFaction, CenteredAabb};
-use ambition_combat_port::{ModuleEntitySpawn, ModuleEntityTick, ModuleEntityTickPort, SpawnModuleEntityPort};
+use ambition_combat_port::{
+    EndModuleEntityPort, ModuleEntitySpawn, ModuleEntityTick, ModuleEntityTickPort, SpawnModuleEntityPort,
+};
 use ambition_extension_host::{AdmittedExtensions, ExtensionInvocations, ExtensionOutbox};
 use ambition_extension_sdk::phases::MODULE_ENTITY_TICK;
 use ambition_extension_sdk::Port;
@@ -19,6 +21,10 @@ use ambition_platformer2d_shared_tangle::lifecycle::{
 use ambition_platformer2d_shared_tangle::sim_id::{SimId, SimIdCounter};
 use ambition_platformer2d_shared_tangle::sim_selection::winner_by;
 use bevy::prelude::*;
+
+/// The pull port, named here for the composition that places its lowering in
+/// the body-path `Carry` set.
+pub use ambition_combat_port::PullBodiesPort;
 
 /// An entity a module asked for. The module that ticks it is the one bound to
 /// its `kind`.
@@ -208,5 +214,74 @@ pub fn queue_module_entity_ticks(
                 nearest_enemy,
             },
         );
+    }
+}
+
+/// Lower `ambition.world.end_module_entity`: remove the module entity the
+/// invocation ran for.
+pub fn lower_module_entity_ends(
+    mut outbox: ResMut<ExtensionOutbox>,
+    entities: Query<(), With<ModuleEntity>>,
+    mut commands: Commands,
+) {
+    for submitted in outbox.drain::<EndModuleEntityPort>() {
+        if entities.contains(submitted.scope) {
+            commands.entity(submitted.scope).despawn();
+        } else {
+            warn!(
+                "extension entry {} asked to end {:?}, which is not a module entity; refused",
+                submitted.entry, submitted.scope
+            );
+        }
+    }
+}
+
+/// Lower `ambition.world.pull_bodies`: each pull, in request order, moves
+/// every reached body toward its centre (see the port card). Runs on the
+/// gameplay step, so bullet-time slows the pull with everything else.
+///
+/// Two pulls do not commute (each closes a fraction of ITS gap), so the
+/// request order decides; it is the module-entity tick's order.
+pub fn lower_body_pulls(
+    mut outbox: ResMut<ExtensionOutbox>,
+    world_time: Res<ambition_time::WorldTime>,
+    mut bodies: Query<
+        (
+            &mut ambition_platformer2d_core::BodyKinematics,
+            Option<&mut ae::SweepSample>,
+            &ActorFaction,
+            Option<&ambition_characters::actor::BodyHealth>,
+            (
+                Has<ambition_combat::death_rules::OutOfPlay>,
+                Option<&ambition_platformer2d_core::DepthPlane>,
+            ),
+            Option<&ambition_characters::control::DrivingParticipant>,
+        ),
+        With<FeatureSimEntity>,
+    >,
+) {
+    let pulls = outbox.drain::<PullBodiesPort>();
+    let dt = world_time.sim_dt();
+    if dt <= 0.0 {
+        return;
+    }
+    for submitted in pulls {
+        let pull = submitted.value;
+        let center = ae::Vec2::from(pull.center);
+        let factor = (pull.rate * dt).min(1.0);
+        for (mut kin, mut sweep, side, health, (out_of_play, plane), driver) in &mut bodies {
+            // The effective side: a possessed NPC keeps `ActorFaction::Enemy`
+            // and fights for its driver, so its authored side would pull the
+            // player's own body. A corpse is not pulled.
+            if ambition_combat::targeting::effective_faction(*side, driver) != ActorFaction::Enemy
+                || ambition_combat::util::body_is_untouchable(health, out_of_play, plane)
+            {
+                continue;
+            }
+            if kin.pos.distance(center) <= pull.radius {
+                let delta = kin.pos.lerp(center, factor) - kin.pos;
+                ae::movement::carry_body(&mut kin, sweep.as_deref_mut(), delta);
+            }
+        }
     }
 }

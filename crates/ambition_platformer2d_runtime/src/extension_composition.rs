@@ -9,7 +9,7 @@
 //! |---|---|---|
 //! | `technique_execution` | `CombatSet::ContentSpecials`, gameplay-gated | trigger `ambition.boss.special_cast` (boss domain); requests `ambition.projectiles.spawn` (projectile domain), `ambition.combat.damage_box` and `ambition.combat.held_damage_box` (combat domain), `ambition.boss.summon` (boss domain) |
 //! | `wielded_use` | `ItemPickupSet::WieldedAbilities`, after the native wielded chain, gameplay-gated | trigger `ambition.items.wielded_use`; requests `ambition.resources.spend_mana`, `ambition.feedback.body_sound` and `ambition.world.spawn_module_entity` (held-item domain, `ambition_abilities`), `ambition.combat.damage_box`, `ambition.projectiles.spawn` |
-//! | `module_entity_tick` | `ItemPickupSet::WieldedAbilities`, after `wielded_use`, gameplay-gated | trigger `ambition.world.module_entity_tick`; requests `ambition.feedback.body_sound` (`ambition_abilities`), `ambition.projectiles.spawn` |
+//! | `module_entity_tick` | `ItemPickupSet::WieldedAbilities`, after `wielded_use`, gameplay-gated | trigger `ambition.world.module_entity_tick`; requests `ambition.feedback.body_sound`, `ambition.world.pull_bodies` (lowered in `BodyPathSet::Carry`) and `ambition.world.end_module_entity` (`ambition_abilities`), `ambition.projectiles.spawn` |
 
 use ambition_extension_host::{ExtensionHostPlugin, ExtensionSet};
 
@@ -105,6 +105,16 @@ impl Plugin for ExtensionCompositionPlugin {
             )
                 .in_set(GameplayGated)
                 .in_set(ItemPickupSet::WieldedAbilities),
+        );
+        // A pull is travel: its lowering is a body-path carry, before the
+        // path's readers (constraints, contacts, crossings) this tick.
+        app.configure_sets(
+            sim,
+            ExtensionSet::LowerPort(
+                MODULE_ENTITY_TICK,
+                <ambition_abilities::module_entity::PullBodiesPort as ambition_extension_sdk::Port>::KEY,
+            )
+                .in_set(ambition_platformer2d_shared_tangle::schedule::BodyPathSet::Carry),
         );
         order_phases(app, sim);
         install_ports(app);

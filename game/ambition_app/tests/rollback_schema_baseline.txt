@@ -1,11 +1,10 @@
-ggrs-rollback-schema-v286
+ggrs-rollback-schema-v288
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.module_entity	component-clone	ModuleEntity	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.player_mark	component-clone	PlayerMark	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.puppy_slug_ally	component-clone	PuppySlugAlly	bevy_ggrs clone snapshot; not in the session checksum
-ability.vortex_well	component-clone	VortexWell	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 actor.action_set	component-clone	ActionSet	bevy_ggrs clone snapshot; not in the session checksum
 actor.active_combatant	component-canonical	ActiveCombatant	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.aggression	component-clone-cursor	ActorAggression	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
@@ -225,7 +224,6 @@ entity:sanic_mode_owner	required-rollback	SanicActState	component presence autom
 entity:settled_item	required-rollback	SettledItem	component presence automatically installs bevy_ggrs::Rollback
 entity:temporary_zone	required-rollback	TemporaryZone	component presence automatically installs bevy_ggrs::Rollback
 entity:transform_beat	required-rollback	TransformBeat	component presence automatically installs bevy_ggrs::Rollback
-entity:vortex_well	required-rollback	VortexWell	component presence automatically installs bevy_ggrs::Rollback
 entity:world_item	required-rollback	WorldItem	component presence automatically installs bevy_ggrs::Rollback
 extension.body_records	component-clone-custom-checksum	BodyRecords	bevy_ggrs clone snapshot + every module record of the body: schema shape digest and canonical values
 extension.session_records	component-clone-custom-checksum	SessionRecords	bevy_ggrs clone snapshot + every session-attached module record: schema shape digest and canonical values

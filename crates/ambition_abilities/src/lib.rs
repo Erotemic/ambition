@@ -1,9 +1,9 @@
 //! The wielded ability kit, split from the actor kernel (D33).
 //!
-//! * [`ranged`]: vortex, bomb
+//! * [`ranged`]: bomb
 //! * [`extension`] and [`module_entity`]: the extension adapters of the
 //!   wielded abilities that are procedural modules (shockwave, beam, volley,
-//!   meteor, sentry)
+//!   meteor, sentry, vortex)
 //! * [`thrown`]: the gravity grenade
 //! * [`traversal`]: blink, dive, grapple, mark/recall
 //! * [`ability_cooldown`]: the shared cooldown
@@ -89,10 +89,6 @@ impl Plugin for AbilitySimulationPlugin {
                 traversal::mark_recall::mark_recall_system.in_set(GameplayGated),
                 traversal::blink::blink_system.in_set(GameplayGated),
                 traversal::grapple::grapple_system.in_set(GameplayGated),
-                ranged::vortex::fire_vortex_system.in_set(GameplayGated),
-                ranged::vortex::update_vortex_wells
-                    .in_set(GameplayGated)
-                    .in_set(ambition_platformer2d_shared_tangle::schedule::BodyPathSet::Carry),
                 traversal::dive::fire_dive_system.in_set(GameplayGated),
                 ability_cooldown::tick_ability_cooldown,
             )

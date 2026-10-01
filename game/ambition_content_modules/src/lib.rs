@@ -27,6 +27,7 @@ pub mod sentry;
 pub mod shockwave;
 mod strike;
 pub mod volley;
+pub mod vortex;
 mod wielded;
 
 /// The provider namespace of every module and schema in this crate.
@@ -51,6 +52,7 @@ pub const MODULES: &[fn() -> ambition_extension_sdk::ModuleDescriptor] = &[
     sentry::module,
     shockwave::module,
     volley::module,
+    vortex::module,
 ];
 
 /// Every module this crate provides.

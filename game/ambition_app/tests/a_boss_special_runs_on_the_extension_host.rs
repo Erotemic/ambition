@@ -545,3 +545,56 @@ fn a_wielded_sentry_deploys_a_module_entity_on_the_extension_host() {
         assert_eq!(ambition_platformer2d::rollback::session_health(sim.world()), Ok(()));
     }
 }
+
+/// The vortex in the assembled game: Attack while holding the vortex
+/// gauntlet → the `vortex` module's `cast` → 22 mana paid and a well opened
+/// ahead of the player → the `well` entry pulls each tick and ENDS the well
+/// itself after 0.9 s (its world lifetime is only the backstop). The second
+/// arm runs it under a GGRS sync-test session.
+#[test]
+fn a_wielded_vortex_opens_and_ends_its_well_on_the_extension_host() {
+    use ambition_platformer2d::abilities::module_entity::ModuleEntity;
+    for rollback in [false, true] {
+        let mut options = Platformer2dSimHarnessOptions::default().with_timestep(TimestepMode::fixed_60hz());
+        if rollback {
+            options = options.with_sync_test_rollback_settings(4, 10);
+        }
+        let mut sim = Platformer2dSimHarness::new_with_options(options).expect("the sandbox builds");
+        let player = arm_the_player(&mut sim, "vortex");
+        for _ in 0..5 {
+            sim.step(AgentAction::default());
+        }
+        let before = mana_of(&sim, player).expect("the home body holds mana");
+        let wells = |sim: &mut Platformer2dSimHarness| {
+            let world = sim.world_mut();
+            let mut q = world.query::<&ModuleEntity>();
+            q.iter(world).filter(|e| e.kind == "vortex").count()
+        };
+        let mut after = before;
+        let mut open_frames = 0;
+        for frame in 0..90 {
+            sim.step(AgentAction {
+                attack: frame == 0,
+                ..AgentAction::default()
+            });
+            if frame == 3 {
+                after = mana_of(&sim, player).expect("the home body holds mana");
+            }
+            if wells(&mut sim) > 0 {
+                open_frames += 1;
+            }
+        }
+        assert!(
+            (before - after - 22.0).abs() < 1.0,
+            "rollback={rollback}: the cast paid its 22 mana ({before} -> {after}, regen aside)"
+        );
+        // 0.9 s at 60 Hz: the module ends the well, long before the world's
+        // backstop (1.9 s).
+        assert!(
+            (53..=56).contains(&open_frames),
+            "rollback={rollback}: the well was open for {open_frames} frames"
+        );
+        assert_eq!(wells(&mut sim), 0, "rollback={rollback}: the well ended");
+        assert_eq!(ambition_platformer2d::rollback::session_health(sim.world()), Ok(()));
+    }
+}

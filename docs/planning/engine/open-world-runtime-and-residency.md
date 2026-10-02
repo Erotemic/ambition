@@ -2132,7 +2132,7 @@ names its subject by body or seat (`ViewSubject`, `ViewParticipant`).
 | Cut | Work | State |
 | --- | --- | --- |
 | V1 | The camera resolve frames each view in the live room of its framed body | ✅ below |
-| V2 | Draw roads place each entity by the geometry of its own live room (`LiveRoomOf`), not the sole room | ◐ the camera apply (V2a), feature/actor sprites (V2b), items and projectiles (V2c), lock walls (V2d) and nameplates (V2e), fx, slashes and limb trails (V2f), the visuals that ride a body (V2g), gravity zones, shrines and attack stand-ins (V2h), the blink ring (V2i), broken-block visuals (V2j), health bars and the gradient-lane telegraph (V2k), and the world-label layout (V2l) and the portal visuals (V2m), below; and the through-portal window's capture (V2n), below; the unroomed fx producers (54 sites) and the debug overlays are open |
+| V2 | Draw roads place each entity by the geometry of its own live room (`LiveRoomOf`), not the sole room | ◐ the camera apply (V2a), feature/actor sprites (V2b), items and projectiles (V2c), lock walls (V2d) and nameplates (V2e), fx, slashes and limb trails (V2f), the visuals that ride a body (V2g), gravity zones, shrines and attack stand-ins (V2h), the blink ring (V2i), broken-block visuals (V2j), health bars and the gradient-lane telegraph (V2k), and the world-label layout (V2l) and the portal visuals (V2m), below; and the through-portal window's capture (V2n), and the launch trail, dizzy stars and knockout beat (V2o), below; the other unroomed fx producers (54 sites) and the debug overlays are open |
 | V3 | A camera draws only the live room of its view: a room render band, as the view band does for projections | ✅ below |
 | V4 | Room visuals and the LDtk level are presented per live room, and retire with it | ✅ static room visuals (V4a), the LDtk level (V4b) and parallax (V4c), below |
 | V5 | Two seats in two live rooms get two views (the product rule: a split is mandatory in different rooms) | ✅ below |
@@ -2447,6 +2447,21 @@ not counted), and so are the `FxRequest` and `FireworksRequest` producers.
 `update_blink_preview` still reads the sole room, because
 `BlinkPreviewFact` names no room. `follow_slash_owner` has no unit
 witness: `PresentedPose` cannot be built outside `ambition_sim_view`.
+
+✅ **V2o landed 2026-10-02: the launch trail, the dizzy stars and the
+knockout beat are drawn in their body's room.** `LaunchedBodyFact` and
+`GuardBreakFact` (`ambition_sim_view`) carry `room` (`LiveRooms::of` the
+body), and `KnockoutBeatRequested` carries the room the body left play in,
+read where the stock is spent (`spend_fighter_stocks`). `emit_launch_trails`,
+`emit_dizzy_stars` and `emit_knockout_beat` write each effect in that room;
+these were 5 of the unroomed sites above. Witnesses:
+`a_broken_or_launched_body_names_its_own_live_room` (two live rooms, one body
+stamped in each), `the_knockout_beat_names_the_room_the_body_left_play_in`,
+and one per emitter (`each_ring_is_drawn_in_its_bodys_live_room`, whose
+control is a row with no room; `each_trail_is_drawn_in_its_bodys_live_room`;
+`the_beat_is_drawn_in_the_room_the_body_left_play_in`). Poisons: each fact,
+the beat and each emitter set to no room. Each failed at its own assertion,
+and the two fact arms failed one at a time.
 
 ✅ **V5 landed 2026-10-01: two players in two rooms get two views.**
 `split_views_by_live_room` (`ambition_sim_view`, in the camera observation

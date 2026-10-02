@@ -698,6 +698,9 @@ pub struct GuardBreakFact {
     /// This body's OWN toward-feet direction. Dizzy stars orbit the body's up,
     /// which is the opposite of this — never screen `-Y`.
     pub gravity_dir: ambition_platformer2d_core::Vec2,
+    /// The live room of the body (`LiveRooms::of`). The stars are drawn in
+    /// that room.
+    pub room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
 }
 
 /// Every body currently in a guard break, in query order.
@@ -706,7 +709,9 @@ pub struct GuardBreaksView(pub Vec<GuardBreakFact>);
 
 pub fn rebuild_guard_breaks_view(
     mut view: ResMut<GuardBreaksView>,
+    live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
     bodies: Query<(
+        Entity,
         &ambition_platformer2d_core::BodyKinematics,
         &ambition_platformer2d_core::BodyShieldState,
         Option<&crate::presented_pose::PresentedPose>,
@@ -715,12 +720,13 @@ pub fn rebuild_guard_breaks_view(
 ) {
     view.0.clear();
     view.0
-        .extend(bodies.iter().filter_map(|(kin, shield, presented, frame)| {
+        .extend(bodies.iter().filter_map(|(entity, kin, shield, presented, frame)| {
             shield.break_phase().map(|phase| GuardBreakFact {
                 pos: presented.map_or(kin.pos, |p| p.presented()),
                 size: kin.size,
                 phase,
                 gravity_dir: body_down(frame),
+                room: live.of(entity),
             })
         }));
 }
@@ -769,6 +775,9 @@ pub struct LaunchedBodyFact {
     /// outside a match: such a body never tumbles, so a threshold of zero is
     /// the honest answer rather than a sentinel.
     pub tumble_speed: f32,
+    /// The live room of the body (`LiveRooms::of`). The trail is drawn in
+    /// that room.
+    pub room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
 }
 
 /// Every body (player AND brain-driven fighter) currently in an involuntary
@@ -784,8 +793,10 @@ pub struct LaunchedBodiesView(pub Vec<LaunchedBodyFact>);
 
 pub fn rebuild_launched_bodies_view(
     mut view: ResMut<LaunchedBodiesView>,
+    live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
     bodies: Query<
         (
+            Entity,
             &ambition_platformer2d_core::BodyKinematics,
             Option<&ambition_platformer2d_core::BodyMotionFacts>,
             Option<&BodyCombat>,
@@ -819,7 +830,7 @@ pub fn rebuild_launched_bodies_view(
     view.0.extend(
         bodies
             .iter()
-            .filter_map(|(kin, motion, combat, presented, model)| {
+            .filter_map(|(entity, kin, motion, combat, presented, model)| {
                 // Two published sim facts, one resolved answer: the tumble is the
                 // helpless half of a launch and the hitstun is the rest of it. A
                 // consumer reading only the tumble would drop the row the instant a
@@ -838,6 +849,7 @@ pub fn rebuild_launched_bodies_view(
                         // A policy with no floor game has no launch threshold.
                         _ => 0.0,
                     },
+                    room: live.of(entity),
                 })
             }),
     );
@@ -846,6 +858,67 @@ pub fn rebuild_launched_bodies_view(
 #[cfg(test)]
 mod pose_view_tests {
     use super::*;
+
+    /// Two live rooms, one body broken and launched in each, and a stamp
+    /// telling each body's room. Returns (guard-break rooms, launched rooms).
+    #[allow(clippy::type_complexity)]
+    fn rooms_of_two_rooms_of_bodies() -> (
+        Vec<Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>>,
+        Vec<Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>>,
+    ) {
+        use ambition_platformer2d_core as ae;
+        use ambition_platformer2d_shared_tangle::lifecycle::{
+            InRoomInstance, LiveRoomInstance, RoomInstanceRoot,
+        };
+        use bevy::prelude::{App, Update};
+        let mut app = App::new();
+        app.init_resource::<GuardBreaksView>();
+        app.init_resource::<LaunchedBodiesView>();
+        let live = [LiveRoomInstance::ACTIVATION, LiveRoomInstance::ACTIVATION.next()];
+        for instance in live {
+            app.world_mut().spawn((RoomInstanceRoot, instance));
+        }
+        for instance in live {
+            let mut facts = ae::BodyMotionFacts::default();
+            facts.tumbling = true;
+            let mut shield = ae::BodyShieldState::default();
+            shield.break_timer = 0.5;
+            shield.break_total = 1.0;
+            app.world_mut().spawn((
+                ae::BodyKinematics {
+                    pos: ae::Vec2::new(100.0, 200.0),
+                    vel: ae::Vec2::new(900.0, 0.0),
+                    size: ae::Vec2::new(16.0, 32.0),
+                    facing: 1.0,
+                },
+                facts,
+                shield,
+                InRoomInstance(instance),
+            ));
+        }
+        app.add_systems(Update, (rebuild_guard_breaks_view, rebuild_launched_bodies_view));
+        app.update();
+        let sorted = |mut rooms: Vec<Option<LiveRoomInstance>>| {
+            rooms.sort_by_key(|room| room.map(|room| room.ordinal()));
+            rooms
+        };
+        (
+            sorted(app.world().resource::<GuardBreaksView>().0.iter().map(|f| f.room).collect()),
+            sorted(app.world().resource::<LaunchedBodiesView>().0.iter().map(|f| f.room).collect()),
+        )
+    }
+
+    /// V2o: while two rooms are live, a guard-break row and a launch row each
+    /// name their body's own room, so the stars and the trail are drawn
+    /// there. A row with no room is drawn in no room.
+    #[test]
+    fn a_broken_or_launched_body_names_its_own_live_room() {
+        use ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance;
+        let both = vec![Some(LiveRoomInstance::ACTIVATION), Some(LiveRoomInstance::ACTIVATION.next())];
+        let (breaks, launched) = rooms_of_two_rooms_of_bodies();
+        assert_eq!(breaks, both, "the room of each guard-break row");
+        assert_eq!(launched, both, "the room of each launch row");
+    }
 
     #[test]
     fn shield_rings_view_defaults_empty() {

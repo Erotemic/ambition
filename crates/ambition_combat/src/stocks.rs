@@ -365,6 +365,7 @@ pub fn spend_fighter_stocks(
     // the problem it existed for. An ELIMINATED body still gets despawned by its
     // ruleset, which is why the beat is published HERE and not later.
     positions: Query<&ambition_platformer2d_core::BodyKinematics>,
+    live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
     mut beat: MessageWriter<ambition_vfx::vfx::KnockoutBeatRequested>,
 ) {
     // Message order is write order, which is deterministic; nothing here sorts
@@ -394,6 +395,7 @@ pub fn spend_fighter_stocks(
                 pos: kin.pos,
                 eliminated,
                 speed: kin.vel.length(),
+                room: live.of(knockout.body),
             });
         }
         if eliminated {
@@ -774,6 +776,33 @@ mod tests {
             "the beat did not carry the flight that ended: {}",
             beats[0].speed
         );
+    }
+
+    /// V2o: while two rooms are live, the beat names the room the body left
+    /// play in, so the burst is drawn there and not in the other room.
+    #[test]
+    fn the_knockout_beat_names_the_room_the_body_left_play_in() {
+        use ambition_platformer2d_shared_tangle::lifecycle::{
+            InRoomInstance, LiveRoomInstance, RoomInstanceRoot,
+        };
+        let mut app = respawn_app(0.5);
+        let second = LiveRoomInstance::ACTIVATION.next();
+        for instance in [LiveRoomInstance::ACTIVATION, second] {
+            app.world_mut().spawn((RoomInstanceRoot, instance));
+        }
+        let body = combat_fighter(&mut app, 3);
+        app.world_mut().entity_mut(body).insert((
+            ambition_platformer2d_core::BodyKinematics::default(),
+            InRoomInstance(second),
+        ));
+        app.update();
+        let _ = returned_this_tick(&mut app);
+        knock_out(&mut app, body);
+        let messages = app
+            .world()
+            .resource::<Messages<ambition_vfx::vfx::KnockoutBeatRequested>>();
+        let rooms: Vec<_> = messages.get_cursor().read(messages).map(|beat| beat.room).collect();
+        assert_eq!(rooms, vec![Some(second)], "the room of each beat");
     }
 
     /// A five-second swing: long enough that nothing ends it but the rule under

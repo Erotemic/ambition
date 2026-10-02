@@ -190,6 +190,7 @@ pub fn emit_knockout_beat(
             }
             None => knockout.pos,
         };
+        let mut vfx = vfx.for_room(knockout.room);
         vfx.write(VfxMessage::Effect {
             pos,
             fx: ambition_vfx::fx::ids::SHOCKWAVE,
@@ -359,6 +360,34 @@ mod tests {
         );
     }
 
+    /// A knockout in the second of two live rooms: its ring and its sparks
+    /// are drawn in that room.
+    #[test]
+    fn the_beat_is_drawn_in_the_room_the_body_left_play_in() {
+        use ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance;
+        use ambition_vfx::vfx::KnockoutBeatRequested;
+        let second = LiveRoomInstance::ACTIVATION.next();
+        let mut app = bevy::prelude::App::new();
+        app.add_message::<VfxInRoom>();
+        app.add_message::<ambition_sfx::OwnedSfxMessage>();
+        app.add_message::<KnockoutBeatRequested>();
+        app.world_mut().write_message(KnockoutBeatRequested {
+            pos: MEASURED_KO,
+            eliminated: true,
+            speed: 1261.0,
+            room: Some(second),
+        });
+        app.add_systems(bevy::prelude::Update, emit_knockout_beat);
+        app.update();
+        let rooms: Vec<_> = app
+            .world_mut()
+            .resource_mut::<bevy::prelude::Messages<VfxInRoom>>()
+            .drain()
+            .map(|m| m.room)
+            .collect();
+        assert_eq!(rooms, vec![Some(second); 2], "the room of the ring and of the sparks");
+    }
+
     /// Where one knockout's spark burst was asked for, with or without a view.
     fn emitted_burst_pos(with_view: bool) -> Vec2 {
         use ambition_sim_view::{CameraViewState, LocalView};
@@ -373,6 +402,7 @@ mod tests {
             pos: MEASURED_KO,
             eliminated: false,
             speed: 1261.0,
+            room: None,
         });
         if with_view {
             app.world_mut().spawn((

@@ -102,7 +102,7 @@ pub fn emit_dizzy_stars(
             continue;
         }
         for index in 0..STAR_COUNT {
-            vfx.write(star_message(body, index, tick.0, alpha));
+            vfx.write_in(body.room, star_message(body, index, tick.0, alpha));
         }
     }
 }
@@ -135,7 +135,36 @@ mod tests {
             size: Vec2::new(30.0, 48.0),
             phase,
             gravity_dir: down,
+            room: None,
         }
+    }
+
+    /// Two bodies dizzy in two live rooms: each ring is drawn in its body's
+    /// room, and a ring with no room stays without one.
+    #[test]
+    fn each_ring_is_drawn_in_its_bodys_live_room() {
+        use ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance;
+        let second = LiveRoomInstance::ACTIVATION.next();
+        let mut app = harness();
+        let in_room = |room| GuardBreakFact { room, ..broken(0.1, Vec2::new(0.0, 1.0)) };
+        set_breaks(
+            &mut app,
+            &[in_room(Some(LiveRoomInstance::ACTIVATION)), in_room(Some(second)), in_room(None)],
+        );
+        app.world_mut().resource_mut::<SimTick>().0 = EMIT_STRIDE;
+        app.update();
+        let rooms: Vec<_> = app
+            .world_mut()
+            .resource_mut::<Messages<VfxInRoom>>()
+            .drain()
+            .map(|m| m.room)
+            .collect();
+        let per_ring = STAR_COUNT as usize;
+        let expected: Vec<_> = [Some(LiveRoomInstance::ACTIVATION), Some(second), None]
+            .into_iter()
+            .flat_map(|room| std::iter::repeat_n(room, per_ring))
+            .collect();
+        assert_eq!(rooms, expected, "the room of each star, in body order");
     }
 
     /// The ring is built in the body's frame. Under flipped gravity the stars

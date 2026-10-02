@@ -704,6 +704,15 @@ pub enum StagedWorldViolation {
         mints: ambition_platformer2d_world::rooms::LiveRoomInstance,
         next: ambition_platformer2d_world::rooms::LiveRoomInstance,
     },
+    /// The publication builds a live room of a room that another live room,
+    /// which it does not replace, already instantiates. The durable rows
+    /// (`AuthoredOccurrences`, `BreakableRespawnSchedule`) name a place by its
+    /// room id, so two live rooms of one room would write one row each and
+    /// build each other's occurrences. No shipped road gets here: a crossing
+    /// into a held room joins it, and a replay or a reset replaces.
+    DefinitionAlreadyLive {
+        live: ambition_platformer2d_world::rooms::LiveRoomInstance,
+    },
 }
 
 impl std::fmt::Display for StagedWorldViolation {
@@ -749,6 +758,12 @@ impl std::fmt::Display for StagedWorldViolation {
                 "this room was staged to replace live room {replaces}, which the \
                  session no longer has, so its occupants would belong to a room \
                  the session is not in"
+            ),
+            Self::DefinitionAlreadyLive { live } => write!(
+                f,
+                "this publication builds a second live room of the room that \
+                 live room {live} already is, and the durable rows name a place \
+                 by its room id, so the two would share them"
             ),
             Self::StaleMint { mints, next } => write!(
                 f,
@@ -819,6 +834,18 @@ pub(crate) fn verify_staged_world(
                             });
                         }
                     }
+                }
+            }
+            // One live room per room: see `DefinitionAlreadyLive`.
+            let built = match pending.succession {
+                Some(LiveRoomSuccession::Open { .. }) => Some(None),
+                Some(LiveRoomSuccession::Replace { replaces, .. }) => Some(Some(replaces)),
+                _ => None,
+            };
+            let target = world.get::<RoomSet>(root).and_then(|rooms| rooms.definition(pending.target_index));
+            if let (Some(replaces), Some(target), Some(scope)) = (built, target, scope_of_root(world, root)) {
+                if let Some(live) = live_room_of_definition(world, scope, target, replaces) {
+                    violations.push(StagedWorldViolation::DefinitionAlreadyLive { live });
                 }
             }
             // The geometry's sink is the root of the live room this replaces,
@@ -1222,6 +1249,31 @@ pub(crate) fn apply_world_replacement(
 
 /// The session scope a publication target root belongs to, candidate or
 /// live.
+/// A live room of `scope` that instantiates `definition`, other than
+/// `except`.
+fn live_room_of_definition(
+    world: &World,
+    scope: ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId,
+    definition: ambition_platformer2d_world::rooms::LiveRoomDefinition,
+    except: Option<ambition_platformer2d_world::rooms::LiveRoomInstance>,
+) -> Option<ambition_platformer2d_world::rooms::LiveRoomInstance> {
+    use ambition_platformer2d_shared_tangle::lifecycle::{RoomInstanceRoot, SessionScopedEntity};
+    let mut roots = world.try_query_filtered::<(
+        &ambition_platformer2d_world::rooms::LiveRoomInstance,
+        &ambition_platformer2d_world::rooms::LiveRoomDefinition,
+        Option<&SessionScopedEntity>,
+    ), bevy::prelude::With<RoomInstanceRoot>>()?;
+    let mut live: Vec<_> = roots
+        .iter(world)
+        .filter(|(instance, of, owner)| {
+            **of == definition && Some(**instance) != except && owner.is_none_or(|owner| owner.0 == scope)
+        })
+        .map(|(instance, ..)| *instance)
+        .collect();
+    live.sort();
+    live.into_iter().next()
+}
+
 fn scope_of_root(
     world: &World,
     root: bevy::ecs::entity::Entity,

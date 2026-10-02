@@ -99,6 +99,14 @@ budget is stored, because a budget with no consumer is not a policy.
 - Dormant records add no all-world walk to an idle tick: the custody projection
   reads a custody index, and the save mirrors walk dormant rows only when an
   input changed (FI9).
+- A room has at most one live room, so the durable rows can name a place by
+  its room id (`outlook_for(room)`, `BreakableRespawnSchedule`). The
+  publication verifier refuses an open or a replace into a room another live
+  room already is (`DefinitionAlreadyLive`). Measured 2026-10-02 before the
+  refusal: no shipped road reached it. A crossing into a held room joins it,
+  a replay or a checkpoint reset beside another player rebuilds the one live
+  room with both players in it, and none of the 72 rooms has a door into
+  itself. Instanced copies of a room need Q109 first.
 - A rollback frame does not copy or hash unchanged dormant rows. The save's
   rows and the ledger are `Arc`-shared with checksums kept per allocation (M2).
 
@@ -239,8 +247,6 @@ per-room rollback clocks are not part of this plan.
 | Root identity | Two live room roots wear one `session:room_instance` identity. A join works around it with a one-room transaction world | Per-instance root identity, with the checksum change |
 | OW4 budgets | Views and pending transitions as claim holders; admission/eviction with a consumer | Cancellation and re-entry release only their own claims |
 | Multi-room hot reload | Hot reload is gated to one live room. `LiveRoomDefinition` is an index into the current `RoomSet`, not a generation-stable identity | Removing the gate re-prepares every resident root with the set, or makes the root name its generation. An old index never takes a new generation's meaning |
-| `outlook_for(room: &str)` | Keyed by definition, so two instances of one room merge | Keyed by live room |
-| Breakable key | `BreakableRespawnSchedule` is keyed by definition. Two live instances of one definition would share a key | Decide when a second instance of one definition can be live at once |
 | Remote peers | Rebase cost at a crossing for a remote peer's rollback window is not measured (sync test has one peer) | A two-peer measurement |
 | Product policy | Q149 (wounds), Q150 (HUD/banner/music), Q151 (join and death), Q152 (world clock across a save) | Rulings in `maintainer-decisions.md` |
 

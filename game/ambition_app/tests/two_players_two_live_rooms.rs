@@ -192,6 +192,21 @@ fn alice_leaves_bob_with(
     slot: Option<ambition_platformer2d::characters::control::PlayerSlot>,
     cross: fn(&mut Platformer2dSimHarness, &str) -> String,
 ) -> (Platformer2dSimHarness, LiveRoomInstance) {
+    let first = bob_beside_alice(&mut sim, start, slot);
+    assert_eq!(cross(&mut sim, target), target);
+    for _ in 0..30 {
+        sim.step(base());
+    }
+    (sim, first)
+}
+
+/// Put Bob, driven by `slot` or by nobody, beside Alice in `start`, the room
+/// `sim` booted in. Returns their live room.
+fn bob_beside_alice(
+    sim: &mut Platformer2dSimHarness,
+    start: &str,
+    slot: Option<ambition_platformer2d::characters::control::PlayerSlot>,
+) -> LiveRoomInstance {
     assert_eq!(sim.observation().active_room, start, "precondition: the harness did not boot in {start}");
     for _ in 0..10 {
         sim.step(base());
@@ -242,19 +257,15 @@ fn alice_leaves_bob_with(
     // starts again from here. Without rollback, this does nothing.
     sim.rebase_rollback_history().expect("the rollback history rebases over Bob");
     assert_eq!(
-        where_they_are(&mut sim),
+        where_they_are(sim),
         (Some(first), Some(Some(first))),
         "precondition: Alice and Bob are not both in the first live room"
     );
     if slot.is_some() {
-        let ahead = bob_runs(&mut sim, 1.0);
+        let ahead = bob_runs(sim, 1.0);
         assert!(ahead > 1.0, "control: slot 1 moved Bob's body {ahead} before anyone left");
     }
-    assert_eq!(cross(&mut sim, target), target);
-    for _ in 0..30 {
-        sim.step(base());
-    }
-    (sim, first)
+    first
 }
 
 /// Alice goes through the door to the hub while Bob, driven by slot 1, stays
@@ -3549,4 +3560,40 @@ fn a_death_in_one_room_restarts_that_player_and_leaves_the_other_players_room() 
         sim.world().get::<ambition_platformer2d::combat::death_rules::OutOfPlay>(alice_again).is_none(),
         "Alice is still out of play after the reset"
     );
+}
+
+/// Alice replays (or resets to a checkpoint in) the room Bob is in, and
+/// asks again for whatever leaves it: one live room per room
+/// (`DefinitionAlreadyLive`, OW3).
+fn one_room_after(reset: fn(&mut Platformer2dSimHarness)) -> (Vec<(LiveRoomInstance, String)>, (Option<LiveRoomInstance>, Option<Option<LiveRoomInstance>>)) {
+    let mut sim = Platformer2dSimHarness::new_with_options(
+        fixed_60hz_room_options(ROOM).with_save(a_save_that_has_seen_the_hub_intro()),
+    )
+    .expect("switch_lab boots");
+    let first = bob_beside_alice(&mut sim, ROOM, Some(ambition_platformer2d::characters::control::PlayerSlot(1)));
+    reset(&mut sim);
+    for _ in 0..30 {
+        sim.step(base());
+    }
+    let rooms = live_rooms(&mut sim);
+    assert!(rooms.iter().all(|(room, _)| *room != first), "precondition: the reset did not rebuild the room: {rooms:?}");
+    (rooms, where_they_are(&mut sim))
+}
+
+/// OW3: the durable rows name a place by its room id, so a room has at most
+/// one live room. Alice and Bob (slot 1) stand in `switch_lab` (#0). A
+/// replay, and a reset to a checkpoint, each rebuild it as #1 with both of
+/// them in it: neither opens a second live room of `switch_lab` beside Bob's.
+/// Measured before the refusal was added; it pins the roads it relies on.
+#[test]
+fn a_reset_beside_a_player_in_the_same_room_rebuilds_the_one_live_room() {
+    let second = LiveRoomInstance::ACTIVATION.next();
+    let replay = one_room_after(|sim| {
+        sim.world_mut().write_message(ambition_platformer2d::actors::session::reset::RoomReplayRequested::manual());
+    });
+    let checkpoint = one_room_after(|sim| {
+        sim.world_mut().write_message(ambition_platformer2d::platformer::lifecycle::ResetToCheckpoint);
+    });
+    let one = (vec![(second, ROOM.to_string())], (Some(second), Some(Some(second))));
+    assert_eq!((replay, checkpoint), (one.clone(), one), "(replay, checkpoint reset): (live rooms, (Alice's room, Bob's room))");
 }

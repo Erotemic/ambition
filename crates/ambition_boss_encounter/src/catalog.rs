@@ -36,6 +36,7 @@ pub struct BossCatalog {
     sheets: BTreeMap<String, BossSheetSpec>,
     sprite_filenames: BTreeMap<String, String>,
     special_anim_keys: BTreeMap<String, Vec<String>>,
+    strike_anim_keys: BTreeMap<String, Vec<String>>,
     fallback_boss_ids: BTreeMap<String, String>,
     fallback_sheet_keys: BTreeMap<String, String>,
     #[serde(skip)]
@@ -70,6 +71,7 @@ impl BossCatalog {
             && self.sheets.is_empty()
             && self.sprite_filenames.is_empty()
             && self.special_anim_keys.is_empty()
+            && self.strike_anim_keys.is_empty()
             && self.fallback_boss_ids.is_empty()
             && self.fallback_sheet_keys.is_empty()
     }
@@ -206,6 +208,16 @@ impl BossCatalog {
             .map(Vec::as_slice)
             .unwrap_or(&[])
     }
+
+    /// The sheet rows the geometry strike `key` claims, in the order they are
+    /// tried. Empty for a strike no provider gives rows to: that strike keeps
+    /// its static boxes.
+    pub fn strike_animation_keys(&self, key: &str) -> &[String] {
+        self.strike_anim_keys
+            .get(key)
+            .map(Vec::as_slice)
+            .unwrap_or(&[])
+    }
 }
 
 /// A provider's boss art keys, authored as one RON file beside its sheets.
@@ -218,6 +230,10 @@ pub struct BossArtKeys {
     /// The sheet rows each special move claims, by special id.
     #[serde(default)]
     pub special_animation_rows: BTreeMap<String, Vec<String>>,
+    /// The sheet rows each geometry strike claims, by strike key. The first
+    /// row is the canonical runtime key; the others are row-name aliases.
+    #[serde(default)]
+    pub strike_animation_rows: BTreeMap<String, Vec<String>>,
 }
 
 impl BossArtKeys {
@@ -237,6 +253,7 @@ pub struct BossCatalogFragment {
     sheets: BTreeMap<String, BossSheetSpec>,
     sprite_filenames: BTreeMap<String, String>,
     special_anim_keys: BTreeMap<String, Vec<String>>,
+    strike_anim_keys: BTreeMap<String, Vec<String>>,
     #[serde(skip)]
     birth_kits: BTreeMap<String, BossBirthKit>,
 }
@@ -316,6 +333,7 @@ impl BossCatalogFragment {
             sheets,
             sprite_filenames: art.sprite_filenames,
             special_anim_keys: art.special_animation_rows,
+            strike_anim_keys: art.strike_animation_rows,
             birth_kits: BTreeMap::new(),
         };
         fragment.validate()?;
@@ -440,6 +458,14 @@ impl BossCatalogFragment {
                 });
             }
         }
+        for (strike, rows) in &self.strike_anim_keys {
+            if strike.trim().is_empty() || rows.iter().any(|row| row.trim().is_empty()) {
+                return Err(BossCatalogAssemblyError::InvalidStrikeAnimation {
+                    provider_id: self.provider_id.clone(),
+                    strike: strike.clone(),
+                });
+            }
+        }
         Ok(())
     }
 }
@@ -493,6 +519,8 @@ impl BossCatalogRegistry {
         let mut sheets = BTreeMap::new();
         let mut sprite_filenames = BTreeMap::new();
         let mut special_anim_keys = BTreeMap::new();
+        let mut strike_anim_keys = BTreeMap::new();
+        let mut strike_owners = BTreeMap::<String, String>::new();
         let mut behavior_owners = BTreeMap::<String, String>::new();
         let mut sheet_owners = BTreeMap::<String, String>::new();
         let mut sprite_owners = BTreeMap::<String, String>::new();
@@ -557,6 +585,17 @@ impl BossCatalogRegistry {
                 special_owners.insert(key.clone(), provider_id.clone());
                 special_anim_keys.insert(key.clone(), rows.clone());
             }
+            for (key, rows) in &fragment.strike_anim_keys {
+                if let Some(first_provider) = strike_owners.get(key) {
+                    return Err(BossCatalogAssemblyError::DuplicateStrikeAnimation {
+                        strike: key.clone(),
+                        first_provider: first_provider.clone(),
+                        second_provider: provider_id.clone(),
+                    });
+                }
+                strike_owners.insert(key.clone(), provider_id.clone());
+                strike_anim_keys.insert(key.clone(), rows.clone());
+            }
             if let Some(boss_id) = fragment.fallback_boss_id.as_ref() {
                 fallback_boss_ids.insert(provider_id.clone(), boss_id.clone());
             }
@@ -571,6 +610,7 @@ impl BossCatalogRegistry {
             sheets,
             sprite_filenames,
             special_anim_keys,
+            strike_anim_keys,
             fallback_boss_ids,
             fallback_sheet_keys,
             birth_kits,
@@ -644,6 +684,10 @@ pub enum BossCatalogAssemblyError {
         provider_id: String,
         special: String,
     },
+    InvalidStrikeAnimation {
+        provider_id: String,
+        strike: String,
+    },
     DuplicateBoss {
         boss_id: String,
         first_provider: String,
@@ -661,6 +705,11 @@ pub enum BossCatalogAssemblyError {
     },
     DuplicateSpecialAnimation {
         special: String,
+        first_provider: String,
+        second_provider: String,
+    },
+    DuplicateStrikeAnimation {
+        strike: String,
         first_provider: String,
         second_provider: String,
     },
@@ -731,6 +780,10 @@ impl fmt::Display for BossCatalogAssemblyError {
                 f,
                 "boss catalog fragment '{provider_id}' has invalid special-animation row '{special}'"
             ),
+            Self::InvalidStrikeAnimation { provider_id, strike } => write!(
+                f,
+                "boss catalog fragment '{provider_id}' has invalid strike-animation row '{strike}'"
+            ),
             Self::DuplicateBoss { boss_id, first_provider, second_provider } => write!(
                 f,
                 "boss id '{boss_id}' is authored by both '{first_provider}' and '{second_provider}'"
@@ -746,6 +799,10 @@ impl fmt::Display for BossCatalogAssemblyError {
             Self::DuplicateSpecialAnimation { special, first_provider, second_provider } => write!(
                 f,
                 "boss special animation '{special}' is authored by both '{first_provider}' and '{second_provider}'"
+            ),
+            Self::DuplicateStrikeAnimation { strike, first_provider, second_provider } => write!(
+                f,
+                "boss strike animation '{strike}' is authored by both '{first_provider}' and '{second_provider}'"
             ),
         }
     }
@@ -874,6 +931,7 @@ mod tests {
             sheets: BTreeMap::new(),
             sprite_filenames: BTreeMap::new(),
             special_anim_keys: BTreeMap::new(),
+            strike_anim_keys: BTreeMap::new(),
             birth_kits: BTreeMap::new(),
         }
     }

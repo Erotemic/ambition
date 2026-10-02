@@ -57,6 +57,55 @@ const EXPECTED_TELEGRAPHS: [(&str, &[&str]); 10] = [
     ("seismic_stomp", &["floor_slam", "spike_halo"]),
 ];
 
+/// The sheet rows each geometry strike asks for, for each of the engine's
+/// eleven strike keys. The first key is the canonical runtime key; the others
+/// are row-name aliases. Three strikes ask for none and keep their static
+/// boxes.
+///
+/// These are the values of the table that was in the boss crate's Rust
+/// (`boss_animation_keys_for_profile`) before the rows were authored in
+/// `boss_art_keys.ron`. This test passed on that table first, and then on the
+/// authored rows, so the move changed no value.
+const EXPECTED_STRIKE_ROWS: [(&str, &[&str]); 11] = [
+    ("broadside", &[]),
+    ("converging_shockwave", &["gnu_shockwave", "hand_slam"]),
+    ("dive_lane", &[]),
+    ("floor_slam", &["floor_slam", "mouth_open"]),
+    ("full_body_pulse", &["spike_halo", "eye_beam"]),
+    ("hand_slam", &["gnu_hand_slam", "hand_slam"]),
+    ("hand_sweep", &["gnu_hand_sweep", "hand_sweep"]),
+    ("hazard_column", &["dash_echo", "eye_beam"]),
+    ("head_descent", &["gnu_head_descent", "head_down"]),
+    ("side_sweep", &["side_sweep"]),
+    ("wing_sweep", &[]),
+];
+
+#[test]
+fn each_geometry_strike_asks_for_exactly_these_rows() {
+    use ambition_characters::brain::boss_pattern::BUILTIN_STRIKE_KEYS;
+    use ambition_characters::brain::BossAttackProfile;
+    let catalog = ambition_content::bosses::authored_boss_catalog();
+    let got: BTreeMap<&str, Vec<String>> = BUILTIN_STRIKE_KEYS
+        .iter()
+        .map(|key| {
+            let profile = BossAttackProfile::Strike((*key).to_string());
+            (
+                *key,
+                ambition_boss_encounter::behavior::boss_animation_keys_for_profile(&catalog, &profile),
+            )
+        })
+        .collect();
+    let want: BTreeMap<&str, Vec<String>> = EXPECTED_STRIKE_ROWS
+        .iter()
+        .map(|(key, rows)| (*key, rows.iter().map(|row| (*row).to_string()).collect()))
+        .collect();
+    assert_eq!(
+        got, want,
+        "the sheet rows of a geometry strike changed. `boss_art_keys.ron` is their one authored \
+         home; a change there must be deliberate"
+    );
+}
+
 #[test]
 fn the_boss_sheet_filenames_are_exactly_these_seven() {
     let catalog = ambition_content::bosses::authored_boss_catalog();

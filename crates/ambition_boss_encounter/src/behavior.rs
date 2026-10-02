@@ -186,40 +186,22 @@ pub fn canonical_boss_id_from(
 
 /// Ordered sprite-metadata keys that may describe a boss attack profile's
 /// gameplay geometry. The first key is the canonical runtime key; later keys
-/// are row-name aliases used by generated sheets and visual review tools. The
-/// aliases stop GNU-ton from falling back to rest/static boxes when the
-/// generator names the row `head_down` but gameplay asks for `HeadDescent`.
+/// are row-name aliases used by generated sheets and visual review tools.
+///
+/// The rows are authored data in the App-local boss catalog, for a geometry
+/// strike and for a content special, so this function names no sheet row. A move
+/// that no provider gives rows to has none: a strike keeps its static boxes,
+/// and a special telegraphs nothing.
 pub fn boss_animation_keys_for_profile(
     catalog: &super::BossCatalog,
     profile: &ambition_characters::brain::BossAttackProfile,
 ) -> Vec<String> {
     use ambition_characters::brain::BossAttackProfile;
-    // Content specials carry their telegraph rows in the App-local boss catalog, so the engine names no
-    // specific special here. Unregistered → no special row.
-    if let BossAttackProfile::Special(key) = profile {
-        return catalog
-            .special_animation_keys(key)
-            .iter()
-            .cloned()
-            .collect();
+    match profile {
+        BossAttackProfile::Special(key) => catalog.special_animation_keys(key),
+        BossAttackProfile::Strike(key) => catalog.strike_animation_keys(key),
     }
-    match profile.move_id().as_str() {
-        "floor_slam" => vec!["floor_slam".into(), "mouth_open".into()],
-        "side_sweep" => vec!["side_sweep".into()],
-        "full_body_pulse" => vec!["spike_halo".into(), "eye_beam".into()],
-        "hazard_column" => vec!["dash_echo".into(), "eye_beam".into()],
-        // GNU-ton profiles use gameplay-specific canonical keys in the runtime
-        // RON, so one visual row can expose several boxes (e.g. hand_slam vs
-        // shockwave). The visual row names are accepted too, so regenerated
-        // manifests and review images stay row-oriented.
-        "hand_slam" => vec!["gnu_hand_slam".into(), "hand_slam".into()],
-        "converging_shockwave" => vec!["gnu_shockwave".into(), "hand_slam".into()],
-        "hand_sweep" => vec!["gnu_hand_sweep".into(), "hand_sweep".into()],
-        "head_descent" => vec!["gnu_head_descent".into(), "head_down".into()],
-        // Remaining strikes (wing_sweep / dive_lane / broadside) belong to
-        // the legacy aerial bosses that still rely on `volumes_for_profile`.
-        _ => Vec::new(),
-    }
+    .to_vec()
 }
 
 #[cfg(test)]

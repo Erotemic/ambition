@@ -1,5 +1,5 @@
 // Ambition's boss art keys: which file draws each boss sheet, and which sheet
-// rows each special move claims. Read by `ambition_content::bosses` and by the
+// rows each special move and each geometry strike claims. Read by `ambition_content::bosses` and by the
 // boss crate's test catalog, so the two cannot disagree.
 (
     sprite_filenames: {
@@ -43,5 +43,24 @@
         "noodly_dive": ["dive"],
         "noodly_grasp": ["grasp"],
         "lesser_appendages": ["summon"],
+    },
+    // The sheet rows each geometry strike claims. The first row is the
+    // canonical runtime key; the others are row-name aliases, so a
+    // regenerated manifest and a review image can stay row-oriented. A strike
+    // with no entry (`wing_sweep`, `dive_lane`, `broadside`) keeps its static
+    // boxes.
+    strike_animation_rows: {
+        "floor_slam": ["floor_slam", "mouth_open"],
+        "side_sweep": ["side_sweep"],
+        "full_body_pulse": ["spike_halo", "eye_beam"],
+        "hazard_column": ["dash_echo", "eye_beam"],
+        // GNU-ton's strikes use gameplay keys of their own, so one visual row
+        // can expose several boxes (`hand_slam` and the shockwave). The visual
+        // row name is the alias: without it GNU-ton would fall back to rest
+        // boxes when the generator names the row `head_down`.
+        "hand_slam": ["gnu_hand_slam", "hand_slam"],
+        "converging_shockwave": ["gnu_shockwave", "hand_slam"],
+        "hand_sweep": ["gnu_hand_sweep", "hand_sweep"],
+        "head_descent": ["gnu_head_descent", "head_down"],
     },
 )

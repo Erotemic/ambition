@@ -158,7 +158,8 @@ boss_encounter_sources!(
 ///   pulls `bevy_render`; migrating it needs the same placement analysis the
 ///   profile vocabulary got, not just a handler;
 /// * `boss_art_keys.ron` — the sprite file of each sheet and the rows each
-///   special claims. It is authored data, and no schema owns it yet.
+///   special and each geometry strike claims. It is authored data, and no
+///   schema owns it yet.
 ///
 /// Stated here rather than left implied, because "the boss content goes through
 /// the compiler" is the kind of half-true claim this whole effort exists to stop

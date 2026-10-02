@@ -1,44 +1,5 @@
 # Ambition open-world roadmap — world first, story over reality
 
-⚠ **THE TRACKED CRITERION IS NARROWER THAN THE STATED ONE (noticed 2026-09-05).**
-The milestone list says *"acquire materially different traversal**/interaction**
-capabilities"*; the status row drops `/interaction` and has only ever been
-assessed on traversal. That is not a wording nit: **`interact` IS an ability
-verb** (`AbilitySet::interact`, `platformer2d_core/src/abilities.rs:157`), so
-`body.can(interact)` is a publishable gate today and an interaction capability
-could be acquired and gated exactly as a traversal one is.
-
-⇒ Either the criterion means both halves and this row is under-tracking one, or
-it means traversal alone and the list above should say so. ⓘ It also bears on
-[decision #58](../awaiting-maintainer-decision.md), which asks whether the body
-gate family is about CAPABILITY or about STATE — the answer changes what
-"acquire" can mean for the interaction half too.
-
-⭐⭐ **MEASURED 2026-09-06, AND IT MOVES THE QUESTION: NO AUTHORED GATE NAMES A
-BODY CAPABILITY AT ALL — neither half.** Across every shipped `.ldtk`, the entire
-authored condition surface is **six `gated_by` values, all of them the same quest
-flag** (`bob_field_survey_received`). Zero `body.can`, zero `body.fits`, zero of
-any other condition field. `sync_authored_gated_lock_walls` reads exactly that
-field, and all six ARE `LockWall` entities — three in `intro.ldtk:alice_relay`,
-three in `intro.ldtk:gate_stack_lower`. ⇒ **the gated-lock-wall machinery is LIVE
-with six authored customers**; what is absent is not the mechanism but any gate
-whose condition is a body capability rather than a quest flag.
-
-⇒ **So the row is not under-tracking interaction relative to traversal; it is
-tracking a criterion the authored world does not yet exercise in EITHER half.**
-The capability vocabulary is real and publishable — `body.can` resolves,
-`AbilitySet::interact` is a field (`platformer2d_core/src/abilities.rs:157`,
-verified), and the gated-lock-wall machinery is built and tested — but no author
-has written a gate against it. ⚠ That is a CONTENT gap, not an engine one, and it
-is the kind that reads as an engine gap from a status row.
-
-⚠ **What this does NOT settle**: whether the milestone means "the player can
-ACQUIRE materially different capabilities" (they can — the dive, the blink and the
-portal gun are all authored pickups) or "the WORLD gates on them" (nothing does).
-Both readings survive the measurement, and the wording is the maintainer's to
-pick — but the choice is now between two things that have been counted rather than
-two that have not.
-
 **State:** OPEN — this is the flagship product direction, not a linear quest checklist.
 
 ## North star
@@ -104,59 +65,29 @@ A convincing pre-story milestone is a session where the robot can:
 - optionally separate from another participant into a different room once the
   multiplayer architecture is ready.
 
-### Which of these the ENGINE already pins, measured 2026-09-03
+### Engine acceptance today
 
-A product milestone is judged by playing it, not by grepping — but five of the
-eight have engine acceptance today, and naming which does two things: it stops a
-reader assuming none of it is real, and it isolates the three that a session
-would actually be the first to exercise.
+A product milestone is judged by playing it. This table names which criteria
+already have engine acceptance, so a session knows which ones it would exercise
+first.
 
-| acceptance criterion | engine acceptance at HEAD |
+| acceptance criterion | engine acceptance |
 |---|---|
 | explore multiple interconnected regions | ✔ `leaving_a_room_and_returning_rebuilds_what_entering_it_built` |
-| acquire materially different traversal capabilities ⚠ (the criterion above says traversal**/interaction**; this row has only ever tracked the traversal half — see the note below the table) | ◐ **the ENGINE pins it since 2026-09-04; no shipped level authors it** — `a_wall_may_be_gated_on_what_the_body_can_do` and `a_wall_may_be_gated_on_the_body_being_small_enough_to_pass` (`gated_lock_walls/tests.rs`), see below. Since 2026-10-01 the gate is per actor (Q54, `GATE-PER-ACTOR`): the wall is open for the body that can and solid for the body beside it that cannot (`a_body_gate_is_open_only_for_the_bodies_that_satisfy_it`) |
-| move/hold/equip/drop persistent objects | ✔ `an_object_in_your_hands_survives_a_replay_and_is_not_re_authored` (both retention legs) |
-| alter world mechanisms, return to the changed state | ✔ `a_lever_left_on_is_on_when_you_come_back` (2026-09-29): Interact on `switch_lab`'s lever, out to the hub and back, and the save and the rebuilt switch both read on. The save is a switch's one authority since `561055516`. ⚠ The lever did nothing until that day: its authored action `ToggleFlag` had no reader. |
-| encounter persistent and spawned actors | ✔ the encounter suite, plus `a_spawn_request_on_the_bus_becomes_a_body` |
-| save/reload without losing instance/location truth | ✔ `loading_a_save_builds_the_room_a_re_entry_builds` and `a_relocated_occurrence_is_suppressed_by_a_load_and_by_a_re_entry_alike` |
-| navigate enough that tooling can reason about routes | ▢ open — the navigation frontier |
-| separate from another participant into another room | ◐ **the simulation half since 2026-09-30** (OW1 cuts 6–7; A3 in [`multiplayer.md`](multiplayer.md)): `a_door_crossed_by_one_player_leaves_the_other_players_room_live`, and each room's fights, switches and items run in their own room. Since 2026-10-01 each seat crosses its own doors (`the_second_player_goes_through_a_door_of_his_own_room`), and one player's door load or conversation does not stop the other player's room (`a_door_one_player_takes_does_not_stop_the_other_players_room`, `a_conversation_in_one_room_does_not_stop_the_other_players_room`). Since 2026-10-01 each player also has a view of their own room while they are apart: a second view opens and closes with the separation (`a_second_view_opens_while_the_players_are_in_two_rooms_and_closes_when_they_meet`), frames its own player (`each_view_frames_its_own_player_while_two_rooms_are_live`), and its camera draws only that room (view half V1–V5 in [`open-world-runtime-and-residency.md`](../engine/open-world-runtime-and-residency.md)). Fx (V2f), the visuals that ride a body (V2g), gravity zones and shrines (V2h), the blink ring (V2i), the LDtk level (V4b) and parallax (V4c) are each room's own too. Health bars (V2k) and world labels (V2l) too. ⚠ Open: the debug overlays read the sole live room, and the HUD, banner and music are session-wide |
+| acquire materially different traversal/interaction capabilities | ◐ The player can acquire capabilities (the dive, the blink and the portal gun are authored pickups). The world can gate on them: `body.can(verb)` and `body.fits(height)` are published conditions, and a `gated_by` line on a `LockWall` may read them (`a_wall_may_be_gated_on_what_the_body_can_do`, `a_wall_may_be_gated_on_the_body_being_small_enough_to_pass`). The gate is per actor (`a_body_gate_is_open_only_for_the_bodies_that_satisfy_it`). `interact` is an ability verb too. No shipped level authors a body gate; the authored gates read a quest flag. Measure with `scripts/authored_route_gates.py`. |
+| move/hold/equip/drop persistent objects | ✔ `an_object_in_your_hands_survives_a_replay_and_is_not_re_authored` |
+| alter world mechanisms, return to the changed state | ✔ `a_lever_left_on_is_on_when_you_come_back` (the save is a switch's one authority) |
+| encounter persistent and spawned actors | ✔ the encounter suite, `a_spawn_request_on_the_bus_becomes_a_body` |
+| save/reload without losing instance/location truth | ✔ `loading_a_save_builds_the_room_a_re_entry_builds`, `a_relocated_occurrence_is_suppressed_by_a_load_and_by_a_re_entry_alike` |
+| navigate enough that tooling can reason about routes | ▢ the navigation frontier |
+| separate from another participant into another room | ◐ simulation and most of the view are built; see A3 in [`multiplayer.md`](multiplayer.md) |
 
-⭐⭐ **THE SECOND ROW MOVED THE DAY AFTER THIS TABLE WAS MEASURED, and it
-moved for the engine only — which is the distinction the row now carries.**
-
-✔ **THE MECHANISM EXISTS.** `body.can(verb)` and `body.fits(height)` are
-published conditions as of 2026-09-04, and a `gated_by` is an authored condition
-LINE, so a wall may read `body.can wall_climb` or `body.fits 32` directly.
-Verified 2026-09-04 by running them, not by reading: the four
-`a_wall_may_be_gated_on_*` arms pass, including the capability and body-size
-ones. ⇒ *"Why can I go there now?"* — this page's North Star question — **has a
-mechanism behind it.**
-
-⛔ **AND NO SHIPPED LEVEL USES IT**, which is why this row is `◐` and not `✔`.
-✔ **Re-run 2026-09-05 and every figure below still holds** — same 5 of 10
-unauthored, 24 total authored uses (2 route gates + 22 dialogue lines). Two of
-those numbers were also reached independently that day from the other direction:
-a hand count of `<<if boss_cleared(..)>>` gates found THREE, and
-`items/wallet_conditions.rs` documents `can_afford` being called TEN times. The
-census and the two spot checks agree, which is worth more than any of them alone.
-`scripts/authored_route_gates.py` measures the whole authored corpus of route
-gates at **three walls**, two of them gated, both on the same story flag; and
-five of ten published conditions — `body.can`, `body.fits`, `custody.is_held`,
-`encounter.cleared`, `world.switch_on` — are authored nowhere at all. ⇒ The
-product criterion is judged by PLAYING, and a player cannot yet meet a door that
-opens because they learned to climb.
-⚠ **That is a content question with a filed answer pending** (question 55), and
-this page should not pre-empt it: the honest reading is *"the vocabulary is not
-unused because authors chose flags, it is unused because the world has almost no
-gates at all"*.
-
-⚠ **What this page said before, kept because the correction is only legible
-beside it:** *"nothing gates a route on a body capability … a capability changes
-what a body CAN DO and never what the world will LET IT PAST."* True when
-measured on 2026-09-03 and false one day later. ⇒ A dated engine-acceptance
-table goes stale at the speed of the engine, and this row was the fastest-moving
-one on the page.
+Open content questions for the maintainer, in
+[`../awaiting-maintainer-decision.md`](../awaiting-maintainer-decision.md): Q55
+(should authored worlds use all five route-gate families?) and Q58 (does the body
+gate family ask what a body can do or what it is doing?). The milestone wording
+"traversal/interaction" can mean "the player can acquire" or "the world gates on";
+Q55 decides which the world must exercise.
 
 ## Open design questions — deliberately unresolved
 

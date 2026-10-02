@@ -487,6 +487,37 @@ generation; identical content is a no-op; stale work refuses rather than folding
 against a generation it did not read; no runtime road silently falls back to a
 second authoring source.
 
+### CONTENT-AUTHORITY-DUPLICATES — one authoritative reader per authored fact
+
+**Owner:** [`engine/extension-model.md`](engine/extension-model.md) and
+[`engine/participant-action-system.md`](engine/participant-action-system.md).
+
+**Current state:** some authored facts have two readers:
+
+- `ambition_sprite_sheet::boss::BOSS_SHEET` duplicates
+  `game/ambition_content/assets/data/boss_sheets.ron`.
+- Boss animation and sprite maps are hand-written in Rust beside the published
+  sheet metadata.
+- Yarn dialogue has its reader, and
+  `game/ambition_content/src/content_validation.rs` checks dialogue references
+  again.
+- LDtk/world cross-reference rules in `content_validation.rs` repeat rules that
+  a world owner already checks.
+
+**Open work:**
+
+- Remove each duplicate. Do not wrap Yarn in a schema unless that removes an
+  authority. Do not move worlds into a content pack only for uniformity.
+- External-capability witness: one capability outside the actor monolith uses a
+  provider schema, a provider semantic action with a real device binding
+  (`ProviderBindings`), and a causal fact, through public APIs only. It needs no
+  new central enum variant and no private reader.
+
+**Blocked by:** nothing.
+
+**Acceptance:** each fact has one authoritative read; diagnostics name the
+authored source; the old reader is deleted.
+
 ### A9 — establish truthful minimal engine profiles
 
 **Owner:** public SDK/composition architecture.

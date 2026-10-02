@@ -11,16 +11,19 @@ Ambition remains the main game.
 
 Index of this directory:
 
-- [Sanic](sanic.md) — momentum acceptance.
-- [Super Mary-O](super-mary-o.md) — classic axis-swept AABB platforming.
-- [Super Smash Siblings](super-smash-siblings.md) — platform-fighter product
-  charter; a possible first-class game.
-  - [Smash parity inventory](smash-parity-inventory.md) — current Smash feature
-    backlog and execution order.
-  - [Moveset reviews](moveset-reviews.md) — maintainer-authored move intent.
-- [Hollow Lite](hollow-lite.md) — encounters and boss authoring.
-- [TwinTrack](twintrack.md) — independent observers and reference-frame
-  presentation.
+| demo | stresses | status | run |
+|---|---|---|---|
+| [Sanic](sanic.md) | surface-momentum movement beside AABB platforming | built (three acts) | `./run_game.sh sanic` |
+| [Super Mary-O](super-mary-o.md) | classic axis-swept AABB platforming, items, room transitions | built (three levels) | `./run_game.sh mary-o` |
+| [Super Smash Siblings](super-smash-siblings.md) | body-generic combat, participants, fighter brain | active; `S0.*` gate open | `./run_game.sh smash` |
+| [Hollow Lite](hollow-lite.md) | encounters and the boss-design pipeline | not built | — |
+| [TwinTrack](twintrack.md) | multi-view observers, reference-frame presentation | built, parked | `./run_game.sh twintrack` |
+
+Smash also has [the parity inventory](smash-parity-inventory.md) (feature status
+and execution order) and [moveset reviews](moveset-reviews.md) (maintainer move
+intent). Each demo crate pair is `game/ambition_demo_<name>` (content) and
+`game/ambition_demo_<name>_app` (standalone shell). Add `--headless` to a
+`run_game.sh` demo target for its sim-only shell.
 
 `game/ambition_demo_pocket` is not a customer. Its manifest calls it a "tiny
 fourth-provider acceptance fixture for Ambition's provider authoring surface".

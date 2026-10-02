@@ -6,11 +6,11 @@ M3 art/geometry agreement, the untraced consequence kinds in M5, and gathering
 renders into the M7 bundle. The tool's own design notes are in
 [`tools/ambition_moveset_inspector/docs/inspector.md`](../../tools/ambition_moveset_inspector/docs/inspector.md).
 
-The [architecture reassessment](engine/architecture-reassessment.md) adds two
-constraints: discovery uses the actual installed/prepared technique catalog, and
-contact inspection consumes A2's accepted target/geometry fact rather than
-reconstructing an independent hit decision. Cached takes remain evidence, not
-content authority. A11/A12 reject invalid keys/flows before a take is scheduled.
+Two further constraints: discovery uses the actual installed/prepared technique
+catalog, and contact inspection consumes the runtime's accepted target/geometry
+fact rather than reconstructing an independent hit decision. Cached takes remain
+evidence, not content authority. Invalid technique keys and flows are rejected
+before a take is scheduled.
 
 ## Purpose
 
@@ -210,6 +210,8 @@ Extend these rather than replacing them:
 tools/ambition_moveset_inspector/check_browser_acceptance.mjs
 tools/ambition_moveset_inspector/check_bundle_contract.mjs
 tools/ambition_moveset_inspector/check_draw_path.mjs
+tools/ambition_moveset_inspector/check_runtime_contract.mjs
+tools/ambition_moveset_inspector/check_takes_discovery.mjs
 scripts/tests/test_moveset_inspector_renderer.py
 scripts/check_absence_contracts.py
 ```

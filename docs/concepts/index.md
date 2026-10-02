@@ -39,7 +39,7 @@ should survive crate moves. Exact current symbols and files belong in source,
 | [`agent-native-authoring.md`](agent-native-authoring.md) | designing or using LLM-facing content discovery, inspection, mutation, validation, provenance, or review workflows |
 | [`generated-assets-audio.md`](generated-assets-audio.md) | changing reproducible music, SFX, sprite, or background generation |
 | [`engineering-memory.md`](engineering-memory.md) | searching or promoting hard-won lessons from `dev/` |
-| [`patch-overlays-and-repo-state.md`](patch-overlays-and-repo-state.md) | preparing overlays or broad file replacements |
+| [`patch-overlays-and-repo-state.md`](patch-overlays-and-repo-state.md) | preparing overlays or broad file replacements (dormant workflow) |
 | [`llm-spatial-authoring-discipline.md`](llm-spatial-authoring-discipline.md) | placing gates, walls, hitboxes, one-ways, breakables, or encounter geometry |
 | [`brainstorms-design-incubation.md`](brainstorms-design-incubation.md) | handling Jon's active brainstorm space correctly |
 | [`anti-llmism-style-guide.md`](anti-llmism-style-guide.md) | writing or auditing player-facing text — Yarn dialogue, barks, banter, cutscenes, fallback lines. Its general rhetorical rules MAY be applied to documentation; its hard bans are scoped to dialogue |

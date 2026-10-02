@@ -79,9 +79,7 @@ System docs are intentionally fewer and shorter than the source. They explain a
 current cross-crate flow or authority boundary that cannot be discovered from a
 single module map. Exact symbol inventories belong in `.agent/`, not prose.
 
-- [`systems/camera-reference-frames.md`](systems/camera-reference-frames.md) — shipped world-fixed/subject-relative camera policy and per-view authority.
-
-See [`systems/index.md`](systems/index.md). If a system page reads like a
+Start with [`systems/index.md`](systems/index.md). If a system page reads like a
 migration ledger, future plan, or dated audit, DELETE it.
 
 ## Procedures and tools

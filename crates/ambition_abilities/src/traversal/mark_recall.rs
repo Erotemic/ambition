@@ -56,6 +56,8 @@ pub fn mark_recall_system(
         &mut ambition_platformer2d_core::movement::MotionModel,
         &HeldItem,
         Option<&mut PlayerMark>,
+        // The live room the body is in: its effects are drawn there.
+        Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
     )>,
     mut sfx: ambition_sfx::BodySfxWriter,
     mut vfx: ambition_vfx::vfx::VfxWriter,
@@ -65,11 +67,12 @@ pub fn mark_recall_system(
     mut class_b: Option<ResMut<ClassBRemapLog>>,
 ) {
     for subject in driven.entities() {
-        let Ok((player, control, mut cluster_item, mut motion_model, held, mut mark)) =
+        let Ok((player, control, mut cluster_item, mut motion_model, held, mut mark, room)) =
             players.get_mut(subject)
         else {
             continue;
         };
+        let mut vfx = vfx.for_room(room.map(|stamp| stamp.0));
         let mut clusters = cluster_item.as_clusters_mut();
         let c = control.0;
         if held.spec.id != MARK_RECALL_ID {

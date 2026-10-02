@@ -144,6 +144,52 @@ fn the_respawn_platform_lives_exactly_as_long_as_the_grant() {
     );
 }
 
+/// Each respawn platform is in the live room of the fighter it protects. Two
+/// rooms are live, with one protected fighter in each. Each room's platform
+/// set holds the platform of its own fighter and not the other's. When the
+/// system wrote the sole live room's platforms, it did not run while two
+/// rooms were live, so a protected fighter had no platform.
+#[test]
+fn each_respawn_platform_is_in_its_fighters_own_live_room() {
+    use ambition_platformer2d::platformer::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
+    use ambition_platformer2d::world::collision::MovingPlatformSet;
+
+    let mut app = bevy::prelude::App::new();
+    app.add_systems(bevy::prelude::Update, hold_the_respawn_platforms);
+    let rooms = [LiveRoomInstance::ACTIVATION, LiveRoomInstance::ACTIVATION.next()];
+    let roots = rooms.map(|room| {
+        app.world_mut().spawn((RoomInstanceRoot, room, MovingPlatformSet::default())).id()
+    });
+    for (room, seat) in rooms.into_iter().zip([1, 2]) {
+        app.world_mut().spawn((
+            ambition_platformer2d::actor::MatchSeat(seat),
+            ambition_platformer2d::engine_core::BodyKinematics {
+                pos: Vec2::new(120.0, 40.0),
+                ..Default::default()
+            },
+            ambition_platformer2d::actor::RespawnGrace {
+                remaining: RESPAWN_PROTECTION_SECONDS,
+            },
+            InRoomInstance(room),
+        ));
+    }
+    app.update();
+    let held = roots.map(|root| {
+        app.world()
+            .get::<MovingPlatformSet>(root)
+            .expect("the root has a platform set")
+            .0
+            .iter()
+            .map(|platform| platform.id.clone())
+            .collect::<Vec<_>>()
+    });
+    assert_eq!(
+        held,
+        [vec![respawn_platform_id(1)], vec![respawn_platform_id(2)]],
+        "the respawn platforms each live room holds: seat 1 is in the first room and seat 2 in the second"
+    );
+}
+
 /// It leaves every other platform alone. The stage's platforms share the
 /// resource, so clearing the Vec or retaining by position would delete them.
 #[test]

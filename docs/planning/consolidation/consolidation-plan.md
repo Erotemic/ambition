@@ -176,16 +176,17 @@ with its ingress question (Q136 ruling: choose ingress by semantic ownership).
 
 ### The session-root aliases
 
-<!-- alias-split: SessionWorldRef=22/12 SessionWorldMut=10/9 live_session_world_root=3/1 session_root_for_scope=2/2 SoleLiveRoom=26/20 SoleLiveRoomMut=2/2 SoleLiveRoomSpec=20/18 -->
+<!-- alias-split: SessionWorldRef=22/12 SessionWorldMut=10/9 live_session_world_root=3/1 session_root_for_scope=2/2 SoleLiveRoom=20/16 SoleLiveRoomSpec=13/12 -->
 | spelling | what it is | production uses / files |
 | --- | --- | ---: |
 | `SessionWorldRef<T>` | `Single<Ref<T>, With<SessionRoot>>` | 22 / 12 |
 | `SessionWorldMut<T>` | `Single<&mut T, With<SessionRoot>>` | 10 / 9 |
 | `live_session_world_root` | the root whose scope is the active scope | 3 / 1 |
 | `session_root_for_scope` | a named scope's root, through the disabling marker | 2 / 2 |
-| `SoleLiveRoom<T>` | `Single<Ref<T>, With<RoomInstanceRoot>>`; one-live-room debt, not a session alias | 26 / 20 |
-| `SoleLiveRoomMut<T>` | the same debt, writing | 2 / 2 |
-| `SoleLiveRoomSpec` | the authored spec of the one live room; same debt | 20 / 18 |
+| `SoleLiveRoom<T>` | `Single<Ref<T>, With<RoomInstanceRoot>>`; one-live-room debt, not a session alias | 20 / 16 |
+| `SoleLiveRoomSpec` | the authored spec of the one live room; same debt | 13 / 12 |
+
+`SoleLiveRoomMut<T>` is deleted: its last user, Smash's respawn platforms, writes each protected body's own live room.
 
 Method: parameter form (`Name<` for aliases, `name(` for functions) over
 `crates/` and `game/`, test files dropped, `#[cfg(test)]` modules and comments

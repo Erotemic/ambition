@@ -454,6 +454,8 @@ pub fn apply_authored_teleports(
         }
 
         // The look is the MOVE's, not this system's — see `TeleportParams`.
+        // The two ends are drawn in the live room of the body that moves.
+        let mut vfx = vfx.for_room(room.map(|stamp| stamp.0));
         vfx.write(ambition_vfx::vfx::VfxMessage::Effect {
             pos: from,
             fx: ambition_vfx::fx::FxId::new(&params.depart_vfx),

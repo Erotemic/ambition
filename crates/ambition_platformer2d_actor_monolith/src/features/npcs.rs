@@ -371,6 +371,8 @@ pub fn speak_conversation_cut_barks(
     )>,
     character_catalog: bevy::prelude::Res<CharacterCatalog>,
     mut vfx: ambition_vfx::vfx::VfxWriter,
+    // The bark is drawn in the speaker's own live room.
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
 ) {
     for request in requests.read() {
         let Ok((kin, interaction)) = speakers.get(request.speaker) else {
@@ -384,7 +386,7 @@ pub fn speak_conversation_cut_barks(
         ) else {
             continue;
         };
-        vfx.write(ambition_vfx::vfx::VfxMessage::SpeechBubble {
+        vfx.for_room(rooms.of(request.speaker)).write(ambition_vfx::vfx::VfxMessage::SpeechBubble {
             pos: kin.pos + ambition_platformer2d_core::Vec2::new(0.0, -kin.size.y * 0.72 - 16.0),
             text: line.to_string(),
         });

@@ -221,7 +221,7 @@ pub fn portal_transit(
         let all = by_room.in_room(room);
         // Per body, not once for all: `placement::wall_to_wall` classifies each
         // aperture as wall or floor/ceiling relative to this body's down.
-        let gravity_dir = gravity.dir_for(ambition_platformer2d_core::Aabb::new(
+        let gravity_dir = gravity.dir_for(room, ambition_platformer2d_core::Aabb::new(
             kin.pos,
             kin.size * 0.5,
         ));

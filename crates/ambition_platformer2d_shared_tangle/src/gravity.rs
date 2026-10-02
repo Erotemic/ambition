@@ -172,8 +172,30 @@ pub struct GravityZone {
 /// [`collect_gravity_zones`].
 #[derive(Resource, Default, Clone, Debug)]
 pub struct GravityZones {
-    /// `(region, gravity direction)` for each zone.
-    pub zones: Vec<(ambition_platformer2d_core::Aabb, Vec2)>,
+    /// `(region, gravity direction, live room)` for each zone. A zone pulls
+    /// only the bodies of its own live room (`LiveRooms::of` the zone), so a
+    /// column in one live room does not turn a body at the same position in
+    /// another. See [`zone_acts_in`].
+    pub zones: Vec<(
+        ambition_platformer2d_core::Aabb,
+        Vec2,
+        Option<crate::lifecycle::LiveRoomInstance>,
+    )>,
+}
+
+/// Whether a zone row of live room `zone` acts on a body of live room `body`.
+/// One rule for gravity and force zones. Only a zone and a body known to be
+/// in two different rooms are kept apart: a zone with no room acts on every
+/// body, and a body whose room cannot be told feels every zone, as before
+/// zones had rooms.
+pub fn zone_acts_in(
+    zone: Option<crate::lifecycle::LiveRoomInstance>,
+    body: Option<crate::lifecycle::LiveRoomInstance>,
+) -> bool {
+    match (zone, body) {
+        (Some(zone), Some(body)) => zone == body,
+        _ => true,
+    }
 }
 
 /// The set [`collect_gravity_zones`] runs in — this tick's zone snapshot exists.
@@ -203,18 +225,30 @@ pub struct GravityZonesCollected;
 /// exactly one place that knows what first MEANS.
 pub fn collect_gravity_zones(
     mut snapshot: ResMut<GravityZones>,
-    zones: Query<(&GravityZone, bevy::prelude::Has<TemporaryZone>)>,
+    live: crate::lifecycle::LiveRooms,
+    zones: Query<(Entity, &GravityZone, bevy::prelude::Has<TemporaryZone>)>,
 ) {
-    let mut ranked: Vec<(u8, ambition_platformer2d_core::Aabb, Vec2)> = zones
+    let mut ranked: Vec<RankedZone> = zones
         .iter()
-        .map(|(zone, temporary)| (u8::from(!temporary), zone.aabb, zone.dir))
+        .map(|(entity, zone, temporary)| {
+            (u8::from(!temporary), zone.aabb, zone.dir, live.of(entity))
+        })
         .collect();
     ranked.sort_by(zone_precedence);
     snapshot.zones.clear();
     snapshot
         .zones
-        .extend(ranked.into_iter().map(|(_, aabb, dir)| (aabb, dir)));
+        .extend(ranked.into_iter().map(|(_, aabb, dir, room)| (aabb, dir, room)));
 }
+
+/// `(rank, region, direction, live room)`: one zone as the precedence rule
+/// sorts it.
+type RankedZone = (
+    u8,
+    ambition_platformer2d_core::Aabb,
+    Vec2,
+    Option<crate::lifecycle::LiveRoomInstance>,
+);
 
 /// Which of two overlapping gravity zones governs a body inside both.
 ///
@@ -227,10 +261,7 @@ pub fn collect_gravity_zones(
 /// more specific authoring. Then the geometry itself, which is a TOTAL order: two
 /// zones agreeing on rank, area, region and direction are the same pull, so which
 /// one answers cannot be observed.
-fn zone_precedence(
-    a: &(u8, ambition_platformer2d_core::Aabb, Vec2),
-    b: &(u8, ambition_platformer2d_core::Aabb, Vec2),
-) -> std::cmp::Ordering {
+fn zone_precedence(a: &RankedZone, b: &RankedZone) -> std::cmp::Ordering {
     fn area(aabb: &ambition_platformer2d_core::Aabb) -> f32 {
         let size = aabb.max - aabb.min;
         size.x * size.y
@@ -243,6 +274,9 @@ fn zone_precedence(
         .then_with(|| a.1.max.y.total_cmp(&b.1.max.y))
         .then_with(|| a.2.x.total_cmp(&b.2.x))
         .then_with(|| a.2.y.total_cmp(&b.2.y))
+        // Zones of different rooms never govern one body together; the room
+        // only makes the order total.
+        .then_with(|| a.3.map(|room| room.ordinal()).cmp(&b.3.map(|room| room.ordinal())))
 }
 
 /// A [`GravityZone`] that slides horizontally — a "gravity column riding a moving
@@ -312,9 +346,18 @@ pub fn oscillate_gravity_zones(
 /// gravity column feels the column independently of where the player is. (The
 /// player resolves the same way via [`resolve_active_gravity`] into its
 /// [`GravityField`].)
-pub fn gravity_dir_at(pos: Vec2, zones: &GravityZones, base_dir: Vec2) -> Vec2 {
-    for (aabb, dir) in &zones.zones {
-        if pos.x >= aabb.min.x && pos.x <= aabb.max.x && pos.y >= aabb.min.y && pos.y <= aabb.max.y
+pub fn gravity_dir_at(
+    pos: Vec2,
+    room: Option<crate::lifecycle::LiveRoomInstance>,
+    zones: &GravityZones,
+    base_dir: Vec2,
+) -> Vec2 {
+    for (aabb, dir, zone_room) in &zones.zones {
+        if zone_acts_in(*zone_room, room)
+            && pos.x >= aabb.min.x
+            && pos.x <= aabb.max.x
+            && pos.y >= aabb.min.y
+            && pos.y <= aabb.max.y
         {
             return dir.normalize_or_zero();
         }
@@ -330,12 +373,13 @@ pub fn gravity_dir_at(pos: Vec2, zones: &GravityZones, base_dir: Vec2) -> Vec2 {
 /// (perception, VFX).
 pub fn gravity_dir_for(
     body: ambition_platformer2d_core::Aabb,
+    room: Option<crate::lifecycle::LiveRoomInstance>,
     zones: &GravityZones,
     base_dir: Vec2,
 ) -> Vec2 {
     use ambition_platformer2d_core::AabbExt;
-    for (aabb, dir) in &zones.zones {
-        if body.strict_intersects(*aabb) {
+    for (aabb, dir, zone_room) in &zones.zones {
+        if zone_acts_in(*zone_room, room) && body.strict_intersects(*aabb) {
             return dir.normalize_or_zero();
         }
     }
@@ -345,8 +389,13 @@ pub fn gravity_dir_for(
 /// Sign of the localized gravity along Y at `pos` (`+1` down / `-1` up) — the
 /// per-body analogue of [`GravityField::vertical_sign`] for the axis-based
 /// collision controllers (enemies, NPCs).
-pub fn local_gravity_sign(pos: Vec2, zones: &GravityZones, base_dir: Vec2) -> f32 {
-    if gravity_dir_at(pos, zones, base_dir).y >= 0.0 {
+pub fn local_gravity_sign(
+    pos: Vec2,
+    room: Option<crate::lifecycle::LiveRoomInstance>,
+    zones: &GravityZones,
+    base_dir: Vec2,
+) -> f32 {
+    if gravity_dir_at(pos, room, zones, base_dir).y >= 0.0 {
         1.0
     } else {
         -1.0
@@ -395,26 +444,32 @@ impl GravityCtx<'_> {
             .map_or(ambition_platformer2d_core::DEFAULT_GRAVITY_DIR, |b| b.dir)
     }
 
-    /// Localized gravity direction at `pos` (zone-or-ambient).
-    pub fn dir_at(&self, pos: Vec2) -> Vec2 {
+    /// Localized gravity direction at `pos` for a body of live room `room`
+    /// (zone-or-ambient).
+    pub fn dir_at(&self, room: Option<crate::lifecycle::LiveRoomInstance>, pos: Vec2) -> Vec2 {
         match self.zones.as_deref() {
-            Some(zones) => gravity_dir_at(pos, zones, self.base_dir()),
+            Some(zones) => gravity_dir_at(pos, room, zones, self.base_dir()),
             None => self.base_dir().normalize_or_zero(),
         }
     }
 
     /// Localized gravity direction for a body AABB (zone grabs on OVERLAP —
     /// the same rule [`resolve_active_gravity`] applies to the primary body).
-    pub fn dir_for(&self, body: ambition_platformer2d_core::Aabb) -> Vec2 {
+    pub fn dir_for(
+        &self,
+        room: Option<crate::lifecycle::LiveRoomInstance>,
+        body: ambition_platformer2d_core::Aabb,
+    ) -> Vec2 {
         match self.zones.as_deref() {
-            Some(zones) => gravity_dir_for(body, zones, self.base_dir()),
+            Some(zones) => gravity_dir_for(body, room, zones, self.base_dir()),
             None => self.base_dir().normalize_or_zero(),
         }
     }
 
-    /// Localized gravity sign at `pos` (`+1` down / `-1` up).
-    pub fn sign_at(&self, pos: Vec2) -> f32 {
-        if self.dir_at(pos).y >= 0.0 {
+    /// Localized gravity sign at `pos` for a body of live room `room` (`+1`
+    /// down / `-1` up).
+    pub fn sign_at(&self, room: Option<crate::lifecycle::LiveRoomInstance>, pos: Vec2) -> f32 {
+        if self.dir_at(room, pos).y >= 0.0 {
             1.0
         } else {
             -1.0
@@ -496,8 +551,8 @@ mod tests {
             .world_mut()
             .run_system_once(|ctx: GravityCtx| {
                 (
-                    ctx.dir_for(ambition_platformer2d_core::Aabb::new(Vec2::ZERO, Vec2::ONE)),
-                    ctx.sign_at(Vec2::ZERO),
+                    ctx.dir_for(None, ambition_platformer2d_core::Aabb::new(Vec2::ZERO, Vec2::ONE)),
+                    ctx.sign_at(None, Vec2::ZERO),
                 )
             })
             .expect("the system runs");
@@ -585,6 +640,7 @@ mod tests {
             zones: vec![(
                 ambition_platformer2d_core::Aabb::new(up_at, half),
                 Vec2::new(0.0, -1.0), // up
+                None,
             )],
         }
     }
@@ -598,29 +654,29 @@ mod tests {
         // A body INSIDE the column feels up — independent of any other body.
         let inside = Vec2::new(300.0, 50.0);
         assert!(
-            gravity_dir_at(inside, &zones, base).y < 0.0,
+            gravity_dir_at(inside, None, &zones, base).y < 0.0,
             "inside the column → up"
         );
-        assert_eq!(local_gravity_sign(inside, &zones, base), -1.0);
+        assert_eq!(local_gravity_sign(inside, None, &zones, base), -1.0);
 
         let outside = Vec2::new(-200.0, 50.0);
         assert!(
-            gravity_dir_at(outside, &zones, base).y > 0.0,
+            gravity_dir_at(outside, None, &zones, base).y > 0.0,
             "outside → ambient down"
         );
-        assert_eq!(local_gravity_sign(outside, &zones, base), 1.0);
+        assert_eq!(local_gravity_sign(outside, None, &zones, base), 1.0);
     }
 
     #[test]
     fn gravity_dir_at_falls_back_to_ambient_with_no_zones() {
         let empty = GravityZones::default();
         assert_eq!(
-            gravity_dir_at(Vec2::new(10.0, 10.0), &empty, Vec2::new(0.0, 1.0)),
+            gravity_dir_at(Vec2::new(10.0, 10.0), None, &empty, Vec2::new(0.0, 1.0)),
             Vec2::new(0.0, 1.0),
         );
         // Flipped ambient (the global switch) reaches a zone-less body.
         assert_eq!(
-            gravity_dir_at(Vec2::new(10.0, 10.0), &empty, Vec2::new(0.0, -1.0)),
+            gravity_dir_at(Vec2::new(10.0, 10.0), None, &empty, Vec2::new(0.0, -1.0)),
             Vec2::new(0.0, -1.0),
         );
     }
@@ -679,7 +735,7 @@ mod tests {
             }
             app.update();
             let zones = app.world().resource::<GravityZones>();
-            gravity_dir_at(here, zones, Vec2::new(0.0, 1.0))
+            gravity_dir_at(here, None, zones, Vec2::new(0.0, 1.0))
         }
 
         let well_first = resolved(true);
@@ -718,7 +774,7 @@ mod tests {
             spawn(second.0, second.1);
             app.update();
             let zones = app.world().resource::<GravityZones>();
-            gravity_dir_at(here, zones, Vec2::new(0.0, 1.0))
+            gravity_dir_at(here, None, zones, Vec2::new(0.0, 1.0))
         }
         assert_eq!(resolved(true), resolved(false));
         assert_eq!(resolved(true), Vec2::new(1.0, 0.0), "the smaller region wins");

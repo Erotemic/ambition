@@ -335,6 +335,12 @@ impl LiveRoomSpecs<'_, '_> {
             .map(|(_, definition)| *definition)
     }
 
+    /// The authored spec of the live room `entity` is in. `None` when
+    /// [`Self::definition_of`] is `None`.
+    pub fn spec_of(&self, entity: bevy_ecs::entity::Entity) -> Option<&RoomSpec> {
+        self.definition_of(entity).map(|definition| self.rooms.spec(definition))
+    }
+
     /// The session's room set.
     pub fn rooms(&self) -> &RoomSet {
         &self.rooms

@@ -344,7 +344,9 @@ pub fn sync_projectile_visuals(
             }
             ProjectileRotation::GravityUpright => {
                 transform.rotation =
-                    Quat::from_rotation_z(gravity_upright_angle(gravity.dir_at(view.pos)));
+                    Quat::from_rotation_z(gravity_upright_angle(
+                        gravity.dir_at(rooms.room_of(link.0), view.pos),
+                    ));
             }
             ProjectileRotation::VelocityAligned => {
                 transform.rotation = Quat::from_rotation_z(velocity_aligned_angle(view.vel));

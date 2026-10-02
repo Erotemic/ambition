@@ -300,7 +300,7 @@ fn homes(giant: &ae::BodyKinematics, offsets: [Option<Vec2>; 2]) -> [Vec2; 2] {
     [giant.pos + left, giant.pos + right]
 }
 
-fn spark(vfx: &mut VfxWriter, pos: Vec2, color: [f32; 4], count: u32, speed: f32) {
+fn spark(vfx: &mut ambition_platformer2d::vfx::VfxForRoom<'_, '_>, pos: Vec2, color: [f32; 4], count: u32, speed: f32) {
     vfx.write(VfxMessage::Burst {
         pos,
         count,
@@ -460,6 +460,8 @@ pub fn conduct_gnu_ton(
             continue;
         };
         conductor.hall = Some(hall);
+        // Every effect of the fight is drawn in the scholar's own live room.
+        let mut vfx = vfx.for_room(world.room_of(scholar));
         if !scholar_health.alive() {
             // Defeated: he draws his own death, the gnu stands, and the fists
             // fall where they are and stay there.

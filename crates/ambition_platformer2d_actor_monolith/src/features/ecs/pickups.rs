@@ -238,7 +238,7 @@ pub fn collect_ecs_pickups(
             items.get(),
         );
         let pos = aabb.center;
-        vfx.write(VfxMessage::Burst {
+        vfx.for_room(rooms.of(entity)).write(VfxMessage::Burst {
             pos,
             count: 16,
             speed: 230.0,

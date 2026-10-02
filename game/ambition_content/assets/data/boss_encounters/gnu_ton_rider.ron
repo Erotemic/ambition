@@ -19,4 +19,6 @@
     music_phase1: "standing_on_shoulders",
     music_phase2: "standing_on_shoulders",
     music_enrage: "standing_on_shoulders",
+    // He speaks with the `npc_gnu_ton_boss` row's barks: Newton's voice.
+    voice: Some("npc_gnu_ton_boss"),
 )

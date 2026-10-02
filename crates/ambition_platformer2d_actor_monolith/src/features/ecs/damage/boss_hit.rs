@@ -118,7 +118,9 @@ pub(crate) fn apply_boss_hit(
     // override still offered a target. One publication, read here.
     damageable: &ambition_combat::components::DamageableVolumes,
     banner: &mut GameplayBanner,
-    combat_banter: Option<&ambition_conversation::banter::CombatBanterRegistry>,
+    // The character catalog: a boss speaks the barks of the row its
+    // encounter names as `voice`.
+    characters: &ambition_characters::actor::character_catalog::CharacterCatalog,
     // CM8: how this boss reacts to being hurt (its `CombatTuning.hurt_feedback`,
     // ENEMY by default). The attack contributes only its strike sound.
     hurt: ambition_vfx::HurtFeedback,
@@ -130,6 +132,8 @@ pub(crate) fn apply_boss_hit(
     writers: &mut FeatureHitWriters<'_, '_>,
 ) -> bool {
     let session_scope = writers.spawn_scope_from(boss_entity);
+    // The effects of a hit on the boss are drawn in the boss's own live room.
+    let room = session_scope.room();
     if !health.alive() {
         return false;
     }
@@ -161,7 +165,7 @@ pub(crate) fn apply_boss_hit(
             let victim_source = writers.source_of(Some(boss_entity));
             ambition_combat::util::emit_hit_feedback(
                 &mut writers.sfx,
-                &mut writers.vfx,
+                &mut writers.vfx.for_room(room),
                 &mut writers.debris,
                 hurt,
                 event.strike_sfx,
@@ -193,14 +197,16 @@ pub(crate) fn apply_boss_hit(
     combat.note_struck();
     combat.hit_flash = 0.18;
     if should_bark {
-        if let Some(reg) = combat_banter {
-            let strikes = health.max() - health.current();
-            if let Some(line) = reg.pick_hit_bark(&boss.config.name, strikes.max(0) as u32) {
-                writers.vfx.write(VfxMessage::SpeechBubble {
-                    pos: boss.bark_anchor(),
-                    text: line.to_string(),
-                });
-            }
+        let strikes = health.max() - health.current();
+        if let Some(line) = boss.config.bark(
+            characters,
+            ambition_characters::actor::character_catalog::BarkSituation::OnHit,
+            strikes.max(0) as u32,
+        ) {
+            writers.vfx.write_in(room, VfxMessage::SpeechBubble {
+                pos: boss.bark_anchor(),
+                text: line.to_string(),
+            });
         }
     }
     let amount = event.damage.max(1);
@@ -236,7 +242,7 @@ pub(crate) fn apply_boss_hit(
     let victim_source = writers.source_of(Some(boss_entity));
     ambition_combat::util::emit_hit_feedback(
         &mut writers.sfx,
-        &mut writers.vfx,
+        &mut writers.vfx.for_room(room),
         &mut writers.debris,
         hurt,
         event.strike_sfx,
@@ -248,7 +254,7 @@ pub(crate) fn apply_boss_hit(
     );
     if killed {
         banner.show(format!("defeated boss {}", boss.config.name), 2.6);
-        writers.vfx.write(VfxMessage::Burst {
+        writers.vfx.for_room(room).write(VfxMessage::Burst {
             pos: boss.kin.pos,
             count: 16,
             speed: 230.0,

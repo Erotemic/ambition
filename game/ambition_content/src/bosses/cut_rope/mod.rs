@@ -11,7 +11,7 @@ use bevy::prelude::*;
 use bevy::sprite::Anchor;
 
 /// This boss's claim on the encounter layer's priority music tier.
-const CUT_ROPE_MUSIC_OWNER: &str = "cut_rope_boss";
+pub const CUT_ROPE_MUSIC_OWNER: &str = "cut_rope_boss";
 
 use ambition_boss_encounter::BossConfig;
 use ambition_boss_encounter::{BossClusterQueryData, BossClusterRef, BossRef};
@@ -236,7 +236,8 @@ pub fn reset_cut_rope_boss_attempt(
 /// It releases only its own claim (`release_priority` is owner-checked), so a
 /// conversation, a demo death cue or the generic boss owner keep theirs.
 pub fn release_cut_rope_music_outside_its_room(
-    room_set: ambition_platformer2d::world::rooms::SoleLiveRoomSpec,
+    // Every live room: the claim stays while one of them is the boss's room.
+    rooms: ambition_platformer2d::world::rooms::LiveRoomSpecs,
     music: Option<
         ambition_platformer2d::platformer::lifecycle::SessionWorldMut<
             ambition_encounter::EncounterMusicRequest,
@@ -246,7 +247,10 @@ pub fn release_cut_rope_music_outside_its_room(
     let Some(mut music) = music else {
         return;
     };
-    if room_set.spec().id == CUT_ROPE_ROOM_ID {
+    if rooms
+        .live_definitions()
+        .any(|definition| rooms.rooms().spec(definition).id == CUT_ROPE_ROOM_ID)
+    {
         return;
     }
     music.release_priority(CUT_ROPE_MUSIC_OWNER);
@@ -428,10 +432,10 @@ mod tests {
         // Elsewhere: the call the system makes when the active room is not this
         // boss's.
         //
-        // Not covered: the system's room predicate. This test pins the claim
-        // lifetime (a released claim stops winning, and the release is owner-scoped).
-        // Whether `release_cut_rope_music_outside_its_room` compares the right room
-        // needs a session-world fixture.
+        // This test pins the claim lifetime (a released claim stops winning, and
+        // the release is owner-scoped). The room predicate of
+        // `release_cut_rope_music_outside_its_room` has its witness in the app:
+        // `the_cut_rope_music_claim_is_released_when_no_live_room_is_its_room`.
         music.release_priority(CUT_ROPE_MUSIC_OWNER);
         assert_eq!(
             music.desired_track(),

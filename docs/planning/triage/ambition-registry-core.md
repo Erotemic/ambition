@@ -62,8 +62,10 @@ kind from its name or return type.
   without covering its duplicate-registration behavior.
 - `PreparedCharacterRegistry` keeps declaration admission and prepared/
   hot-reload replacement as distinct operations.
-- `FrontendAudioRegistry` and the banter tables state override semantics in
-  source. Their precedence is product layering and needs its own ruling.
+- `FrontendAudioRegistry` states override semantics in source. Its precedence
+  is product layering and needs its own ruling. (`CombatBanterRegistry` is
+  deleted: a character's lines are its catalog row's `barks`, and a boss names
+  its row as `voice` in its encounter data.)
 
 ## Evidence command
 

@@ -365,6 +365,8 @@ pub fn conduct_fsm(
         };
         conductor.clock += dt;
         conductor.ticks = conductor.ticks.wrapping_add(1);
+        // Every effect of the fight is drawn in the god's own live room.
+        let mut vfx = vfx.for_room(world.room_of(god));
         let at = kin.pos;
         let target = foe.entity.map_or(Vec2::new(hall.center_x(), hall.floor - 24.0), |_| foe.pos);
 
@@ -672,7 +674,7 @@ fn land(
     conductor: &mut FsmConductor,
     hall: &Hall,
     x: f32,
-    vfx: &mut VfxWriter,
+    vfx: &mut ambition_platformer2d::vfx::VfxForRoom<'_, '_>,
     sfx: &mut BodySfxWriter,
 ) {
     let feet = Vec2::new(x, hall.floor - WAVE_HALF.y);

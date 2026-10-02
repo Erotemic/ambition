@@ -1167,6 +1167,8 @@ pub fn advance_move_playback(
     // point different ways (the one-box-drives-damage-and-slash invariant; this
     // is the sole melee strike path).
     mut vfx: ambition_vfx::vfx::VfxWriter,
+    // A slash is drawn in the live room of the body that swings it.
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
     mut players: Query<(
         Entity,
         &mut MovePlayback,
@@ -1890,7 +1892,7 @@ pub fn advance_move_playback(
                                 _ => ambition_vfx::vfx::SlashPose::Side,
                             };
                             crate::util::emit_melee_slash(
-                                &mut vfx,
+                                &mut vfx.for_room(rooms.of(owner)),
                                 &hb.world_volume(kin.pos),
                                 kin.pos,
                                 owner,
@@ -4367,6 +4369,8 @@ pub fn dispatch_move_events(
     // name addresses, so a move's author states the picture and gets the sound.
     mut fx_requests: MessageWriter<ambition_vfx::FxRequest>,
     mut actions: MessageWriter<ActorActionMessage>,
+    // The effect of a move is drawn in the live room of the body that moves.
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
 ) {
     for ev in events.read() {
         match &ev.kind {
@@ -4411,7 +4415,7 @@ pub fn dispatch_move_events(
                 // `sfx: None` means *say what the art says* — and that is what
                 // 74 of those 145 calls were laboriously spelling out.
                 let mut request =
-                    ambition_vfx::FxRequest::new(pos, ambition_vfx::FxId::new(effect))
+                    ambition_vfx::FxRequest::new(rooms.of(ev.owner), pos, ambition_vfx::FxId::new(effect))
                         .with_scale(*scale)
                         .from_source(ev.presentation_source.clone())
                         // the pose derived beside the OFFSET, so the artwork and the place it

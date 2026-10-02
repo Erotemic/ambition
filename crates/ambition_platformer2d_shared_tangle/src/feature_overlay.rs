@@ -149,7 +149,7 @@ impl RoomOverlays<'_, '_> {
     }
 
     /// The sole live room's overlay. ⚠ The one-live-room write, the same debt
-    /// as `SoleLiveRoomMut`: a contributor that says no room.
+    /// as `SoleLiveRoom`: a contributor that says no room.
     pub fn sole(&mut self) -> Option<Mut<'_, FeatureEcsWorldOverlay>> {
         self.rooms.single_mut().ok().map(|(_, overlay)| overlay)
     }

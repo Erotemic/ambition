@@ -40,6 +40,8 @@ pub fn apply_authored_flylines(
         // that rotates gravity rotates where the wire comes down from.
         &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
         &mut ae::movement::MotionModel,
+        // The live room the body is in: the catch effect is drawn there.
+        Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
     )>,
     mut vfx: ambition_vfx::vfx::VfxWriter,
     mut sfx: ambition_sfx::BodySfxWriter,
@@ -59,7 +61,8 @@ pub fn apply_authored_flylines(
                 continue;
             }
         };
-        let Ok((kinematics, resolved_frame, mut motion_model)) = bodies.get_mut(message.actor)
+        let Ok((kinematics, resolved_frame, mut motion_model, room)) =
+            bodies.get_mut(message.actor)
         else {
             continue;
         };
@@ -111,7 +114,7 @@ pub fn apply_authored_flylines(
         // says so — see `FlylineParams::vfx` for what a REQUIRED field got filled
         // with when it could not.
         if let Some(effect) = params.vfx.as_deref() {
-            vfx.write(ambition_vfx::vfx::VfxMessage::Effect {
+            vfx.for_room(room.map(|stamp| stamp.0)).write(ambition_vfx::vfx::VfxMessage::Effect {
                 pos: at,
                 fx: ambition_vfx::fx::FxId::new(effect),
                 scale: 1.0,

@@ -4,7 +4,7 @@
 //! [`BossEncounterRegistry`] resource used by an active session. The general
 //! boss machinery (profiles, specs, encounter registry/system, patterns) still
 //! lives in `ambition_boss_encounter`; this module owns the bespoke per-boss
-//! *behavior* and *bark content* that names individual bosses:
+//! *behavior* that names individual bosses, and the idle-bark ticker:
 
 use ambition_platformer2d_shared_tangle::schedule::GameplayGated;
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
@@ -19,7 +19,7 @@ pub mod specials;
 #[cfg(feature = "ui")]
 pub mod yarn;
 
-pub use banter::{install_boss_banter, tick_boss_idle_barks};
+pub use banter::tick_boss_idle_barks;
 pub use cut_rope::{
     detect_cut_rope_rope_cut, emit_cut_rope_room_replay_after_the_conversation_ends,
     is_cut_rope_boss, release_cut_rope_music_outside_its_room, reset_cut_rope_attempt_on_replay, reset_cut_rope_boss_arena_on_room_reset,

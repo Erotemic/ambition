@@ -29,6 +29,8 @@ pub fn apply_authored_vitality(
     mut vfx: ambition_vfx::vfx::VfxWriter,
     mut sfx: ambition_sfx::BodySfxWriter,
     positions: Query<&ambition_platformer2d_core::BodyKinematics>,
+    // The effect is drawn in the live room of the body that changed.
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
 ) {
     for message in actions.read() {
         let ActionRequest::Special { spec, params } = &message.request else {
@@ -72,7 +74,7 @@ pub fn apply_authored_vitality(
         // The look is the MOVE's, not this system's — the same rule the
         // authored teleport follows, so two characters can spend health and
         // look nothing alike.
-        vfx.write(ambition_vfx::vfx::VfxMessage::Effect {
+        vfx.for_room(rooms.of(message.actor)).write(ambition_vfx::vfx::VfxMessage::Effect {
             pos: at,
             fx: ambition_vfx::fx::FxId::new(&params.vfx),
             scale: 1.0,

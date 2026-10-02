@@ -110,6 +110,8 @@ pub fn grapple_system(
         // Draw the grapple line as a tan spark trail from the player to the
         // latch point, so the ability reads as a rope pulling you in (#53).
         const GRAPPLE_LINE_SEGMENTS: i32 = 8;
+        // The line and its end are drawn in the live room of the body.
+        let mut vfx = vfx.for_room(room.map(|stamp| stamp.0));
         for i in 1..GRAPPLE_LINE_SEGMENTS {
             let p = from.lerp(hit, i as f32 / GRAPPLE_LINE_SEGMENTS as f32);
             vfx.write(ambition_vfx::vfx::VfxMessage::Burst {

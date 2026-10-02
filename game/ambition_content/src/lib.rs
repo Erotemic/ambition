@@ -12,13 +12,12 @@
 //! Most top-level modules are thin install plugins ([`plugin`], [`quests`],
 //! [`bosses`], [`dialogue`], [`items`]) that seed named rosters into
 //! machinery resources, alongside the authored data/content itself
-//! ([`quest`], [`banter`], [`music`], [`intro`]) and the
+//! ([`quest`], [`music`], [`intro`]) and the
 //! [`content_validation`] cross-reference checker. Several names re-export
 //! their machinery half (e.g. [`data`], [`features`]) so historical
 //! `crate::…` paths keep resolving.
 
 pub mod audio_registries;
-pub mod banter;
 pub mod bosses;
 // The native wielded abilities, now modules, and the parity suite that holds
 // each module to them.

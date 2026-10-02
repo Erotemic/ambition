@@ -148,7 +148,6 @@ fn the_intro_rows_are_in_their_registries_before_the_first_tick() {
     // same registries. A plugin that replaced a registry would lose the other's
     // rows, and an install in a system would be missing until the first tick.
     // No `App::finish`: the sim harness drives `App::update` and never runs it.
-    use crate::banter::CombatBanterRegistry;
     use ambition_platformer2d::world::rooms::GatePortalRegistry;
     use bevy::prelude::*;
 
@@ -166,16 +165,6 @@ fn the_intro_rows_are_in_their_registries_before_the_first_tick() {
             "the intro cutscene `{cutscene}` is not in the library"
         );
     }
-    let banter = world.resource::<CombatBanterRegistry>();
-    assert!(
-        banter.pick_hit_bark("Lab Raider", 0).is_some(),
-        "the intro raiders have no barks"
-    );
-    // The dialogue plugin's own rows stay beside the intro's.
-    assert!(
-        banter.pick_hit_bark("Iron Mary", 0).is_some(),
-        "the pirate barks were replaced"
-    );
     assert!(
         world
             .resource::<GatePortalRegistry>()

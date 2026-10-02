@@ -104,7 +104,6 @@ pub(crate) fn apply_actor_hit(
     aggression: Option<&mut ambition_combat::components::ActorAggression>,
     interactable: Option<&ambition_interaction::Interactable>,
     banner: &mut GameplayBanner,
-    combat_banter: Option<&ambition_conversation::banter::CombatBanterRegistry>,
     // Knockback feel values (§A2 step 6) — the same tuning the player's
     // knockback resolution reads.
     feel: ambition_combat::feel::Platformer2dFeelTuningMonolith,
@@ -188,7 +187,7 @@ pub(crate) fn apply_actor_hit(
         let victim_source = writers.source_of(Some(actor_entity));
         ambition_combat::util::emit_hit_feedback(
             &mut writers.sfx,
-            &mut writers.vfx,
+            &mut writers.vfx.for_room(room),
             &mut writers.debris,
             hurt,
             event.strike_sfx,
@@ -370,9 +369,6 @@ pub(crate) fn apply_actor_hit(
                         ambition_characters::actor::character_catalog::BarkSituation::OnHit,
                         strikes,
                     )
-                })
-                .or_else(|| {
-                    combat_banter.and_then(|reg| reg.pick_hit_bark(&em.identity.name, strikes))
                 });
             if let Some(line) = line {
                 writers.vfx.write_in(room, VfxMessage::SpeechBubble {
@@ -539,7 +535,7 @@ pub(crate) fn apply_actor_hit(
         // emitters borrow the writers.
         ambition_combat::util::emit_hit_feedback(
             &mut writers.sfx,
-            &mut writers.vfx,
+            &mut writers.vfx.for_room(room),
             &mut writers.debris,
             hurt,
             event.strike_sfx,

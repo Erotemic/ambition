@@ -409,6 +409,8 @@ pub fn boss_phase_transition_feedback(
         With<crate::BossConfig>,
     >,
     mut vfx: ambition_vfx::vfx::VfxWriter,
+    // The burst is drawn in the boss's own live room.
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
 ) {
     use crate::BossEncounterPhase as P;
     for change in phase_changes.read() {
@@ -457,7 +459,7 @@ pub fn boss_phase_transition_feedback(
             );
             // "Scream lines": a sharp radial spark burst from the boss, so the
             // phase change is noticeable and not a silent state flip.
-            vfx.write(ambition_vfx::vfx::VfxMessage::Burst {
+            vfx.for_room(rooms.of(entity)).write(ambition_vfx::vfx::VfxMessage::Burst {
                 pos: kin.pos,
                 count: 24,
                 speed: 340.0,

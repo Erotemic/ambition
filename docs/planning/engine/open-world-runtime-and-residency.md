@@ -38,7 +38,7 @@ A session holds one or more **live rooms**. Each live room is one entity.
 | One live occurrence of a body | `LiveBodyId` (`SimId` plus live room), resolved by `LiveBodies` |
 | The rule "which room is this entity in" | `LiveRooms::of` (its stamp, else the sole live room); `live_room_of` for identity (its stamp only) |
 | Per-room reads | `LiveRoomOf<T>`, `LiveRoomSpecs` (`definition_in`, `left_by`), `CollisionWorld::room(..)`, `RulesOf<T>` |
-| The one-live-room read (named debt) | `SoleLiveRoom<T>`, `SoleLiveRoomMut<T>`, `SoleLiveRoomSpec`, `RoomOverlays::sole()` |
+| The one-live-room read (named debt) | `SoleLiveRoom<T>`, `SoleLiveRoomSpec`, `RoomOverlays::sole()` (`SoleLiveRoomMut` is deleted) |
 
 `InRoomInstance` is a value, not an `Entity`, so it snapshots without entity
 mapping. The ordinal is never durable. The save names places by room id.
@@ -128,6 +128,22 @@ Each player sees their own live room:
   items, projectiles, lock walls, nameplates, effects, body-riding visuals,
   zones, shrines, the blink ring, broken blocks, health bars, world labels,
   portals and the through-portal capture are per room.
+- Every effect producer names a room. `VfxWriter::write` is deleted; a
+  producer writes `write_in(room, …)`, and helpers take `&mut VfxForRoom`.
+  `FxRequest::new(room, …)` and `FireworksRequest::around(room, …)` take the
+  room. Each producer names the room of its subject by `LiveRooms::of`.
+- Live rooms share one coordinate space, so interaction compares rooms: a body
+  opens a chest, talks to an NPC, and collapses a breakable only in its own
+  live room.
+- Gravity and force zones act in their own live room. Each `GravityZones` and
+  `ForceZones` row carries its room; `FrameEnv::resolve` and
+  `GravityCtx::dir_for/dir_at` take the body's room. `gravity::zone_acts_in`
+  separates a zone and a body only when both rooms are known and differ, so a
+  one-room game is unchanged.
+- The demo readers (Sanic rings, monitors, milestone and act clear; Mary-O
+  bricks, power blocks, flag, pipes, title card and hidden blocks; Smash
+  respawn platforms; the cut-rope props and music release) read their own
+  subject's live room or every live room.
 
 The HUD, the banner and the music stay one per session and follow the primary
 seat (Q150).
@@ -207,7 +223,9 @@ per-room rollback clocks are not part of this plan.
 | Item | Work | Acceptance |
 | --- | --- | --- |
 | Sole-room readers | Key the remaining `SoleLiveRoom*` readers by subject: music intent, governing rules fallback, checkpoint, trail render, match activation, LDtk systems, map UI, physics debris, debug overlays, `features.rs` | Each runs per room while two rooms are live; one-room control unchanged. `check_alias_census_agrees_with_source.py` holds the count |
-| Unroomed effects | About 54 direct `VfxMessage` writes and the `FxRequest`/`FireworksRequest` producers name no room; `update_blink_preview` reads the sole room | Each effect draws only in its subject's room |
+| Remaining one-room state | `update_blink_preview` reads the sole room. `BaseGravity` is one direction for every live room. `BrokenBricks` and `SpentMonitors` are keyed by block name with no room and write `RoomOverlays::sole()`. `mary_o_setup` and `sanic_setup` run at `Startup` with one room | Each runs or is keyed per room while two rooms are live |
+| `PlayerMark` | A mark records a position with no room, and a crossing does not clear it | Decide: a crossing clears a mark, or a mark carries its room |
+| Replay reset effect | A replay writes its reset effect for the room it replays, then replaces that room on the next tick. Whether the effect retires with the old room is not measured | A witness that the effect retires with its room |
 | Join road | Ambition has no production road that seats a second player (Q151). A join road must stamp its body into the room it joins | A second seat's body keeps its room live in ordinary play |
 | Root identity | Two live room roots wear one `session:room_instance` identity. A join works around it with a one-room transaction world | Per-instance root identity, with the checksum change |
 | OW4 budgets | Views and pending transitions as claim holders; admission/eviction with a consumer | Cancellation and re-entry release only their own claims |

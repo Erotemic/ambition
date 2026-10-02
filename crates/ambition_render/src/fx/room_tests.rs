@@ -133,3 +133,45 @@ fn the_blink_ring_is_drawn_in_its_body_s_own_live_room() {
     app.update();
     assert_eq!(embers(&mut app), Vec::new(), "a ring whose room cannot be told is drawn");
 }
+
+/// Each burst of a firework sequence is asked for in the room of its
+/// sequence (view half, cut V2f). Two sequences, one for each of two live
+/// rooms, each with one burst that is due. Each effect request names the room
+/// of its own sequence, so `process_fx_requests` writes each effect for that
+/// room.
+#[test]
+fn each_firework_burst_is_asked_for_in_the_room_of_its_sequence() {
+    let mut app = App::new();
+    app.init_resource::<Time>();
+    app.insert_resource(ambition_time::ClockState { time_scale: 1.0 });
+    app.add_message::<FxRequest>();
+    app.add_systems(Update, tick_firework_sequences);
+    let rooms = [LiveRoomInstance::ACTIVATION, LiveRoomInstance::ACTIVATION.next()];
+    // Each sequence has its own origin, so a request tells its sequence.
+    for (room, x) in rooms.into_iter().zip([100.0, 200.0]) {
+        app.world_mut().spawn(FireworkSequence {
+            room: Some(room),
+            origin: ae::Vec2::new(x, 0.0),
+            age: 0.0,
+            next_index: 0,
+            schedule: vec![FireworkBurstSpec {
+                at: 0.0,
+                offset: ae::Vec2::ZERO,
+                fx: ambition_vfx::fx::ids::CLASSIC_BURST,
+                scale: 1.0,
+            }],
+        });
+    }
+    app.update();
+    let messages = app.world().resource::<Messages<FxRequest>>();
+    let mut asked: Vec<_> = messages
+        .iter_current_update_messages()
+        .map(|request| (request.pos.x as i32, request.room))
+        .collect();
+    asked.sort();
+    assert_eq!(
+        asked,
+        vec![(100, Some(rooms[0])), (200, Some(rooms[1]))],
+        "(the x of each burst request, the live room it names): each names the room of its own sequence"
+    );
+}

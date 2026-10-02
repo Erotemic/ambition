@@ -45,6 +45,8 @@ fn reflect_parried_shot(
     parrier: Entity,
     parrier_allegiance: ProjectileAllegiance,
     parrier_source: Option<&ambition_sfx::PresentationSourceId>,
+    // The live room the shot flies in: the parry impact is drawn there.
+    room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
     sfx: &mut SfxWriter,
     vfx: &mut VfxWriter,
 ) {
@@ -77,7 +79,7 @@ fn reflect_parried_shot(
             pos: kin.pos,
         },
     );
-    vfx.write(VfxMessage::Impact { pos: kin.pos });
+    vfx.write_in(room, VfxMessage::Impact { pos: kin.pos });
 }
 const PLAYER_PROJECTILE_MUZZLE_CLEARANCE: f32 = 4.0;
 
@@ -563,7 +565,7 @@ pub(crate) fn emit_landing_splash(
         id: ambition_sfx::ids::WORLD_ROCK_HIT,
         pos,
     });
-    vfx.write(VfxMessage::Effect {
+    vfx.for_room(room).write(VfxMessage::Effect {
         pos,
         fx: ambition_vfx::fx::ids::CLASSIC_BURST,
         scale: 1.0,
@@ -777,7 +779,7 @@ pub fn step_projectiles(
         // Expired trace event.
         // A projectile is a FREE body (not a kernel body): resolve its gravity
         // inline by the body-overlap rule, not the center point (ADR 0024).
-        let gravity_dir = gravity.dir_for(kin.aabb());
+        let gravity_dir = gravity.dir_for(shot_room, kin.aabb());
         // ⛔⛔ **A2b: THE LEG IS CAPTURED, NOT RECONSTRUCTED.** Two places below
         // used to derive this shot's travel segment as `kin.pos - kin.vel * dt`.
         // That is EXACT for today's integrator — `tick` accelerates and then
@@ -801,7 +803,7 @@ pub fn step_projectiles(
         let shot_world_hit = game.world_hit;
         if !game.tick(&mut kin, dt, gravity_dir) {
             if let Some(boom) = expiry_burst.map(|b| b.to_message(kin.pos)) {
-                vfx.write(boom);
+                vfx.write_in(shot_room, boom);
                 sfx.write(SfxMessage::Play {
                     id: ambition_sfx::ids::WORLD_EXPLOSION,
                     pos: kin.pos,
@@ -1364,6 +1366,7 @@ pub fn step_projectiles(
                             team: victim.team.cloned(),
                         },
                         victim.voice.map(ambition_sfx::BodyPresentationSource::id),
+                        shot_room,
                         &mut sfx,
                         &mut vfx,
                     );
@@ -1693,7 +1696,7 @@ pub fn step_projectiles(
                 }
                 match expiry_burst.map(|b| b.to_message(pos)) {
                     Some(boom) => {
-                        vfx.write(boom);
+                        vfx.write_in(shot_room, boom);
                         sfx.write_for_body(
                             bolt_source.as_ref(),
                             SfxMessage::Play {
@@ -1710,7 +1713,7 @@ pub fn step_projectiles(
                             }
                             .into_trace_event(tick),
                         );
-                        vfx.write(VfxMessage::Impact { pos });
+                        vfx.write_in(shot_room, VfxMessage::Impact { pos });
                     }
                 }
                 commands.entity(proj_entity).despawn();
@@ -1748,6 +1751,7 @@ mod parry_tests {
                     team: None,
                 },
                 parrier_source.as_ref(),
+                None,
                 &mut sfx,
                 &mut vfx,
             );

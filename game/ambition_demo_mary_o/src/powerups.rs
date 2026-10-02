@@ -416,22 +416,27 @@ pub fn refuse_a_weaker_form_pickup(
 /// were already solid.
 pub fn contribute_discovered_hidden_blocks_to_overlay(
     spent: Res<SpentPowerBlocks>,
-    geometry: Option<
-        ambition_platformer2d::platformer::lifecycle::SoleLiveRoom<ae::RoomGeometry>,
+    // The authored blocks of each live room.
+    rooms: Query<
+        (
+            &ambition_platformer2d::platformer::lifecycle::LiveRoomInstance,
+            &ae::RoomGeometry,
+        ),
+        With<ambition_platformer2d::platformer::lifecycle::RoomInstanceRoot>,
     >,
     mut overlays: ambition_platformer2d::world::RoomOverlays,
 ) {
-    // The sole live room's overlay: this content is one room.
-    let Some(mut overlay) = overlays.sole() else {
-        return;
-    };
-    let Some(geometry) = geometry else {
-        return;
-    };
-    for block in &geometry.0.blocks {
-        if let Some(solid) = discovered_solid(&spent, block) {
-            overlay.removed_block_names.push(block.name.clone());
-            overlay.blocks.push(solid);
+    // Each live room's discovered blocks go into that room's own overlay.
+    for (room, geometry) in &rooms {
+        let stamp = ambition_platformer2d::platformer::lifecycle::InRoomInstance(*room);
+        let Some(mut overlay) = overlays.for_room(Some(&stamp)) else {
+            continue;
+        };
+        for block in &geometry.0.blocks {
+            if let Some(solid) = discovered_solid(&spent, block) {
+                overlay.removed_block_names.push(block.name.clone());
+                overlay.blocks.push(solid);
+            }
         }
     }
 }
@@ -475,10 +480,14 @@ pub fn bonk_power_blocks(
     rooms: ambition_platformer2d::platformer::lifecycle::LiveRooms,
     mut sfx: ambition_platformer2d::sfx::BodySfxWriter,
     // The room the contact happened in — a `GeoId` names a block, and only the
-    // world can say WHICH block that is.
-    geometry: ambition_platformer2d::platformer::lifecycle::SoleLiveRoom<ae::RoomGeometry>,
+    // world can say WHICH block that is. It is the live room of the body that
+    // struck the block.
+    geometry: ambition_platformer2d::platformer::lifecycle::LiveRoomOf<ae::RoomGeometry>,
 ) {
     let Ok((striker, frame, worn, mut wallet)) = players.single_mut() else {
+        return;
+    };
+    let Some(room_geometry) = geometry.of(striker) else {
         return;
     };
     for contact in &frame.events.contacts {
@@ -489,7 +498,7 @@ pub fn bonk_power_blocks(
             continue;
         };
         // The room answers now, and the answer is the KIND the author picked.
-        let Some(block) = crate::authored_block_by_id(&geometry.0, id) else {
+        let Some(block) = crate::authored_block_by_id(&room_geometry.0, id) else {
             continue;
         };
         // WHAT IT HOLDS, not what it looks like. This matched the block's
@@ -539,7 +548,7 @@ pub fn bonk_power_blocks(
                 }
                 // into it."* One coin per payout, launched from the block's top
                 // face so it reads as coming OUT rather than through.
-                vfx.write(ambition_platformer2d::vfx::VfxMessage::CoinPop {
+                vfx.for_room(rooms.of(striker)).write(ambition_platformer2d::vfx::VfxMessage::CoinPop {
                     pos: ae::Vec2::new(pos.x, block_aabb.min.y),
                 });
                 // this was the `Hit` cue — the MASONRY THUNK — and the
@@ -2360,6 +2369,59 @@ mod discovery_tests {
             art_color: None,
             velocity: ae::Vec2::ZERO,
         }
+    }
+
+    /// Each live room's discovered hidden block goes into that room's own
+    /// overlay. Two rooms are live, each with one hidden block that is spent.
+    /// Each room's overlay holds its own block as a solid and removes its own
+    /// authored block. When the system wrote the sole live room's overlay, it
+    /// wrote nothing while two rooms were live, so a discovered block stayed
+    /// air.
+    #[test]
+    fn each_live_rooms_discovered_block_is_solid_in_its_own_overlay() {
+        use ambition_platformer2d::platformer::lifecycle::{LiveRoomInstance, RoomInstanceRoot};
+        use ambition_platformer2d::world::FeatureEcsWorldOverlay;
+        let mut app = bevy::prelude::App::new();
+        let rooms = [LiveRoomInstance::ACTIVATION, LiveRoomInstance::ACTIVATION.next()];
+        let mut spent = SpentPowerBlocks::default();
+        let roots: Vec<_> = rooms
+            .into_iter()
+            .zip(["hidden_coin_first", "hidden_coin_second"])
+            .map(|(room, name)| {
+                let id = ae::GeoId::anon();
+                spent.spend(id.clone());
+                let world = ae::World::new(
+                    "hidden",
+                    ae::Vec2::new(400.0, 300.0),
+                    ae::Vec2::new(40.0, 40.0),
+                    vec![block(ae::BlockKind::BonkOnly, id, name)],
+                );
+                app.world_mut()
+                    .spawn((RoomInstanceRoot, room, ae::RoomGeometry(world), FeatureEcsWorldOverlay::default()))
+                    .id()
+            })
+            .collect();
+        app.insert_resource(spent);
+        app.add_systems(bevy::prelude::Update, contribute_discovered_hidden_blocks_to_overlay);
+        app.update();
+        let written: Vec<(Vec<String>, Vec<(String, ae::BlockKind)>)> = roots
+            .iter()
+            .map(|root| {
+                let overlay = app.world().get::<FeatureEcsWorldOverlay>(*root).expect("the root has an overlay");
+                (
+                    overlay.removed_block_names.clone(),
+                    overlay.blocks.iter().map(|block| (block.name.clone(), block.kind)).collect(),
+                )
+            })
+            .collect();
+        assert_eq!(
+            written,
+            vec![
+                (vec!["hidden_coin_first".to_string()], vec![("hidden_coin_first".to_string(), ae::BlockKind::Solid)]),
+                (vec!["hidden_coin_second".to_string()], vec![("hidden_coin_second".to_string(), ae::BlockKind::Solid)]),
+            ],
+            "(the authored blocks each room's overlay removes, the solids it adds), by live room"
+        );
     }
 
     /// Discovery turns an invisible block into a real solid — both halves.

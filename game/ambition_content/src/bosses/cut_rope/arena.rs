@@ -117,6 +117,8 @@ pub fn detect_cut_rope_rope_cut(
         arena.awaiting_alignment = true;
         arena.rope_fx_timer = 0.0;
         arena.rope_fx_pulse = 0;
+        // The cut is drawn in the arena's own live room.
+        let mut vfx = vfx.for_room(Some(room));
         vfx.write(VfxMessage::Impact {
             pos: event.volume.center(),
         });
@@ -179,6 +181,7 @@ pub fn tick_cut_rope_flavor(
                 let rope_pos = rope.pos;
                 pulse_waiting_rope_explosions(
                     arena,
+                    room,
                     dt,
                     rope_pos,
                     boss_pos.unwrap_or(rope_pos),
@@ -199,16 +202,16 @@ pub fn tick_cut_rope_flavor(
                 ),
                 2.8,
             );
-            explosions.write(FxRequest::classic(center).with_scale(1.25));
+            explosions.write(FxRequest::classic(Some(room), center).with_scale(1.25));
             if !arena.death_fireworks_sent {
-                let mut death_show = FireworksRequest::around(burst_pos);
+                let mut death_show = FireworksRequest::around(Some(room), burst_pos);
                 death_show.count = 18;
                 death_show.spread = ae::Vec2::new(420.0, 280.0);
                 death_show.duration = 2.75;
                 fireworks.write(death_show);
                 arena.death_fireworks_sent = true;
             }
-            vfx.write(VfxMessage::Burst {
+            vfx.for_room(Some(room)).write(VfxMessage::Burst {
                 pos: burst_pos,
                 count: 28,
                 speed: 260.0,
@@ -225,14 +228,14 @@ pub fn tick_cut_rope_flavor(
 
 /// Keep the authored rope and heavy-object prop visuals in sync with the arena
 /// state. Separate from the gameplay systems so the rendering query does not
-/// grow their parameter count. A view: it draws the sole live room's arena
-/// (a view per player is P5).
+/// grow their parameter count. Each live cut-rope room draws its own arena:
+/// its props are the prop visuals in that live room.
 pub fn sync_cut_rope_boss_arena_prop_visuals(
-    room_set: ambition_platformer2d::world::rooms::SoleLiveRoomSpec,
-    live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
+    rooms: ambition_platformer2d::world::rooms::LiveRoomSpecs,
     state: Res<CutRopeBossArenaState>,
     heavy_object: Res<CutRopeHeavyObjectCycle>,
     mut prop_visuals: Query<(
+        Entity,
         &mut PropVisual,
         &mut Transform,
         &mut Sprite,
@@ -242,27 +245,29 @@ pub fn sync_cut_rope_boss_arena_prop_visuals(
     )>,
     assets: Option<Res<GameAssets>>,
 ) {
-    if room_set.spec().id != CUT_ROPE_ROOM_ID {
-        return;
+    for (room, spec) in live_arenas(&rooms) {
+        let Some(arena) = state.arenas.get(&room) else {
+            continue;
+        };
+        let Some(anvil) = authored_prop(&spec.props, ANVIL_KIND) else {
+            continue;
+        };
+        sync_cut_rope_prop_visuals(
+            &mut prop_visuals,
+            |prop| rooms.live().of(prop) == Some(room),
+            &spec.world,
+            arena,
+            anvil,
+            heavy_object.current(),
+            assets.as_deref(),
+        );
     }
-    let Some(arena) = live.sole().and_then(|room| state.arenas.get(&room)) else {
-        return;
-    };
-    let Some(anvil) = authored_prop(&room_set.spec().props, ANVIL_KIND) else {
-        return;
-    };
-    sync_cut_rope_prop_visuals(
-        &mut prop_visuals,
-        &room_set.spec().world,
-        arena,
-        anvil,
-        heavy_object.current(),
-        assets.as_deref(),
-    );
 }
 
 fn pulse_waiting_rope_explosions(
     state: &mut CutRopeArena,
+    // The arena's live room: the sparks are drawn there.
+    room: LiveRoomInstance,
     dt: f32,
     rope_pos: ae::Vec2,
     boss_pos: ae::Vec2,
@@ -286,7 +291,8 @@ fn pulse_waiting_rope_explosions(
         _ => ambition_vfx::fx::ids::SMOKE_BURST,
     };
     explosions.write(
-        FxRequest::new(rope_pos + ae::Vec2::new(horizontal_pull + x, y), fx).with_scale(0.48),
+        FxRequest::new(Some(room), rope_pos + ae::Vec2::new(horizontal_pull + x, y), fx)
+            .with_scale(0.48),
     );
 }
 
@@ -318,6 +324,7 @@ fn prop_aabb(prop: &PropSpec) -> ae::Aabb {
 
 fn sync_cut_rope_prop_visuals(
     prop_visuals: &mut Query<(
+        Entity,
         &mut PropVisual,
         &mut Transform,
         &mut Sprite,
@@ -325,15 +332,21 @@ fn sync_cut_rope_prop_visuals(
         Option<&mut Anchor>,
         Option<&mut Visibility>,
     )>,
+    // Whether a prop visual is in the arena's live room. Two live rooms of
+    // the arena hold the same props.
+    in_arena: impl Fn(Entity) -> bool,
     world: &ae::World,
     state: &CutRopeArena,
     anvil: &PropSpec,
     object_kind: CutRopeHeavyObjectKind,
     assets: Option<&GameAssets>,
 ) {
-    for (mut prop, mut transform, mut sprite, animator, anchor, visibility) in
+    for (entity, mut prop, mut transform, mut sprite, animator, anchor, visibility) in
         prop_visuals.iter_mut()
     {
+        if !in_arena(entity) {
+            continue;
+        }
         // The heavy object is matched by its authored id, not by `kind`:
         // `apply_cut_rope_heavy_object_sprite` writes `prop.kind` when the trap
         // cycles anvil -> piano, so `kind` is what it is drawn as now, not an
@@ -427,6 +440,7 @@ pub fn reset_cut_rope_boss_arena_on_room_reset(
     mut heavy_object: ResMut<CutRopeHeavyObjectCycle>,
     mut reset_events: MessageReader<RoomReplayAdmitted>,
     mut prop_visuals: Query<(
+        Entity,
         &mut PropVisual,
         &mut Transform,
         &mut Sprite,
@@ -460,6 +474,7 @@ pub fn reset_cut_rope_boss_arena_on_room_reset(
     if let Some(anvil) = authored_prop(&spec.props, ANVIL_KIND) {
         sync_cut_rope_prop_visuals(
             &mut prop_visuals,
+            |prop| live.of(prop) == Some(replayed),
             &spec.world,
             &arena,
             anvil,

@@ -18,81 +18,26 @@ A participant is not a body, room, or camera. A local view is not a participant.
 
 ## Current architecture
 
-The earlier one-view migration has substantially landed:
-
-- `ParticipantId` and participant/seat input state are explicit;
-- `DrivingParticipant` represents body control rather than encoding humans as a
-  special brain variant;
-- `LocalView` / `LocalViewId` identify local presentation views;
-- camera reference-frame, ease and resolved snapshot state are carried per view;
-- `PresentedViewState` exposes view-scoped presentation facts;
-- host tests compose two local views in one room through the same view-spawn
-  seam;
-- `CameraReferenceFrame` is a view component, and the user-facing world-fixed /
+- `ParticipantId` and participant/seat input state are explicit.
+- `DrivingParticipant` represents body control. Humans are not a special brain
+  variant.
+- `LocalView` / `LocalViewId` identify local presentation views. The one-view
+  path is `LocalViewId::FIRST`, not a separate singleton architecture.
+- Camera reference frame, ease and resolved snapshot are per view.
+  `PresentedViewState` exposes view-scoped presentation facts.
+- Host tests compose two views through the one view-spawn seam
+  (`spawn_local_view`).
+- `CameraReferenceFrame` is a view component. The world-fixed /
   subject-relative option is shipped.
-
-The one-view path should continue to be represented as `LocalViewId::FIRST`, not
-as a separate singleton architecture.
-
-### Re-measured 2026-09-03 — accurate, and the runtime shows why it matters
-
-The claims above hold. Two were checked by reading the code rather than the
-types: `two_views_one_host` in
-`crates/ambition_platformer2d_host/src/gameplay_presentation/tests.rs:915`
-composes two views as *two calls to the one seam* (`LocalViewId::FIRST` then
-`LocalViewId(1)`, both through `spawn_local_view`), which is exactly the
-"through the same view-spawn seam" wording; and M5's premise that `ControlPrompt`
-is still one global read model is true — `crates/ambition_sim_view/src/lib.rs:87`
-init_resources it, with no view-scoped variant.
-
-**The runtime makes the camera/view distinction concrete.** One headless frame
-in `hall_of_characters` on a no-GPU host, from `[census] views` and
-`[census] camera` (`crates/ambition_render/src/runtime_census.rs:423`):
-
-    views  cameras=4  active=3  world_rendering=1  offscreen=0  local_views=1
-
-| Camera | role | active | order | layers | presents_view |
-|---|---|---|---|---|---|
-| Main Camera | `local_view` | yes | 0 | 0+2+5 | `818v0` |
-| Front HUD Camera | `hud` | yes | 9 | 1 | — |
-| Cube scrim display camera | `other` | yes | 7 | **none** | — |
-| Cube pause camera | `other` | no | 8 | 0 | — |
-
-Four cameras, one view, and **exactly one camera names a view**. This is the
-doc's own thesis as a measurement: a camera count is not a view count, and
-`local_views=1` is the one-view path represented as `LocalViewId::FIRST` just as
-the section above requires. Anything that reasons about "how many players" from
-a camera count would read 4 here.
-
-⚠ **One row is worth a question, not a conclusion:** the scrim camera is
-`active=true` with `layers=none` — an active camera drawing no layers. Whether
-that still costs a render pass was recorded here as *"not measurable on this
-arm"*, because the headless host composes no render app and
-`[census] render_pass_summary` reports `cpu_spans=0 gpu_spans=0`.
-
-◐ **PARTLY ANSWERED 2026-09-03, and the confound matters more than the answer.**
-This arm CAN measure render passes after all — `capture_scene` renders offscreen
-through Mesa's lavapipe, and under `AMBITION_PROFILE_CENSUS=1` it reports real
-spans: `cpu_spans=2 gpu_spans=2 pipeline_stat_spans=4`, over exactly two paths,
-`render/main_transparent_pass_2d` and `render/upscaling`. With the layerless
-scrim camera `active=true` in that same frame, **no third pass appears**.
-
-⛔ **But that is NOT yet the answer to the question, because of a confound this
-composition introduces:** in `capture_scene` the scrim camera's `target=window`
-and there IS no window — every camera is retargeted to the offscreen image
-except the ones that are not, and this is one of them. So the run cannot separate
-*"`layers=none` costs no pass"* from *"a camera whose render target does not
-exist costs no pass"*. Two explanations, one observation.
-⇒ What is still needed is the WINDOWED composition, where the scrim camera has a
-real target. That is now a question about a window rather than about a GPU, which
-is a smaller thing to ask for.
-
-*Method note.* The first pass at this reported that no `views` census existed —
-a `grep` over the run's `*.stdout` came back empty. The census writes to
-**stderr**; the phase had fired seven times. An empty result from the wrong
-stream reads identically to an absent feature, which is the same shape as the
-`grep -v` filter error recorded in
-[`netcode.md`](netcode.md).
+- **Several live rooms.** Two seats' driven bodies can be in two live rooms at
+  once. Each seat's driven body takes the doors of its own room. While the
+  seats are in two or more live rooms, each seat gets a view
+  (`split_views_by_live_room`), and the views close when the seats meet. Each
+  camera draws only its view's live room. See "The view half" in
+  [`open-world-runtime-and-residency.md`](open-world-runtime-and-residency.md).
+- A camera count is not a view count. `[census] views` and `[census] camera`
+  (`crates/ambition_render/src/runtime_census.rs`) print both; the census
+  writes to stderr. Exactly one camera names each view.
 
 ## Target model
 
@@ -171,28 +116,16 @@ Acceptance should cover:
 
 ### M4 — several resident rooms
 
-Promote with the persistent-world architecture when participants must occupy
-separate rooms concurrently.
-
-Required foundations:
-
-- explicit occurrence/lifetime ownership;
-- canonical construction/reconstitution;
-- room/residency identity independent of camera visibility;
-- deterministic simulation policy for resident/background partitions.
-
-Do not create a universal dormant-world scheduler before a product customer
-requires one.
-
-◐ Promoted 2026-10-01: two live rooms run (OW1). The presentation half is
-cuts V1–V5 in "The view half" of
-[`open-world-runtime-and-residency.md`](open-world-runtime-and-residency.md).
+Built for the simulation and the view (OW1, V1-V5 in
+[`open-world-runtime-and-residency.md`](open-world-runtime-and-residency.md)).
+Open: Ambition has no production join road for a second seat, and a seat-driven
+body's death takes the enemy road (Q151).
 
 ### M5 — view-scoped HUD/prompt/presentation ownership
 
-The current `ControlPrompt` remains one global read model for the primary/shared
-screen. That may be correct for one display/touch overlay, but independent split
-views may require participant- or view-scoped prompts/HUD facts.
+`ControlPrompt`, the gameplay HUD, the banner and music are one per session and
+follow the primary seat (Q150 decided for now). Independent split views may
+require participant- or view-scoped prompts and HUD facts.
 
 Resolve this with
 [`participant-action-system.md`](participant-action-system.md) from product/UI
@@ -244,9 +177,7 @@ Do not introduce:
 - player-number-specific camera types;
 - transport state on actor identity;
 - one camera per participant as an invariant;
-- a global "main camera" fallback for state that has become genuinely per-view;
-- several-room residency machinery before occurrence/lifetime/reconstitution
-  foundations and a concrete customer require it.
+- a global "main camera" fallback for state that has become genuinely per-view.
 
 ## Exit
 
@@ -257,15 +188,12 @@ split / different-room cases covered by representative hosts.
 
 ## Separate participant multiplicity from world multiplicity
 
-The [architecture map](architecture-responsibility-map.md) treats seat/control
-arbitration, multiple views, multiple live world instances and network transport
-as independent axes. Two players in one room do not prove two rooms can coexist;
+Seat/control arbitration, multiple views, multiple live world instances and
+network transport are independent axes. Two players in one room do not prove two rooms can coexist;
 two cameras do not require two authoritative simulations.
 
 A4 preserves one accepted driving relation with all current mount/possession
-constraints. A8 requires an actual two-instance fixture before namespace or
-lifecycle generalization. Test repeated authored IDs across instances rather than
-only different room IDs; test one instance tearing down while the other remains
-live. Checkpoint restore currently follows its established primary-avatar policy;
+constraints. Two-instance tests use repeated authored IDs across instances, not
+only different room IDs, and tear one instance down while the other stays live. Checkpoint restore currently follows its established primary-avatar policy;
 A1's ownership move does not decide co-op save ownership. Gate policy is
 ruled (Q54, 2026-10-01): a body/capability gate is evaluated per actor.

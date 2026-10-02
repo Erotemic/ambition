@@ -1,25 +1,33 @@
 # Editable SVG component scenes for character sprites
 
-**Status: DIRECTION.** This is the intended migration direction, not an order to
-rewrite the roster immediately. Profiling and ordinary character work may make
-small enabling changes when they pay for themselves now.
+**Status: DIRECTION.** This is a migration direction, not an order to rewrite
+the roster. Profiling and ordinary character work may make small enabling
+changes when they pay for themselves now. Slow adoption is not a defect.
+Escalate only when a character needs this road and cannot use it.
 
-State on 2026-09-17: the enabling work is built and adoption is small, as
-intended.
+The tooling lives in the `tools/ambition_sprite2d_renderer` submodule. Count
+the SVG-sourced targets with `find targets/characters -maxdepth 1 -name
+'*_svg*.py'` inside it.
 
-- `tools/ambition_sprite2d_renderer/equivalence_harness.py` compares a Pillow
-  reference with an SVG candidate (`compare --ref pil_out/ --cand svg_out/`).
-- Two of 138 top-level character targets are SVG-sourced
-  (`charley_beagle_svg.py`, `mary_o_v2_svg_poc.py`). `charley_beagle` ships from
-  SVG.
-- Count the roster with `find targets/characters -maxdepth 1 -name '*.py'`.
+## Current end state
 
-Slow adoption is not a defect. Escalate only when a character needs this road
-and cannot use it.
+- **Non-rigged characters:** Python/PIL code stays the source. It is the better
+  compressed representation and may never retire. The SVG scene is another
+  output format and the annotation medium: Jon edits the scene in Inkscape to
+  show what is wrong, the agent back-ports the change into the PIL generator,
+  regenerates, and the equivalence harness verifies convergence (`export`,
+  human edit, `rebuild --scene`, `compare --target X --against rebuilt/`).
+  Scene SVGs are regenerable and stay out of the repo (gitignored `tmp/`).
+- **Rigged characters** (Oiler, hunny_horror): the SVG component scene is the
+  authoring source. A reviewed scene with good part grouping is the starting
+  point for rigging a formerly procedural character. See
+  [`runtime-rigged-sprite-animation.md`](runtime-rigged-sprite-animation.md).
+- A PIL generator retires per target only after Jon approves both the SVG
+  visuals and the layer grouping in Inkscape.
 
-## Decision
+## Component-scene model
 
-For most articulated characters, prefer an editable SVG component scene as the
+For articulated characters that move to SVG, prefer an editable SVG component scene as the
 long-term visual source while keeping Python as the freeform animation and
 composition language. Bones, FK, IK, keyframes, and constraints are optional
 helpers inside that model; they are not the required representation of a pose.
@@ -251,12 +259,9 @@ Landed in `tools/ambition_sprite2d_renderer`:
 
 ### The authoring system
 
-The end state Jon specified: PIL remains a first-class authoring language for
-NEW sprites, but every target — characters, props, tiles — routes to an SVG
-backend whose **parts are registered once in an editable scene file** and
-whose frames are assembled from those parts; PIL generators are retired
-per-target only after Jon approves both the SVG visuals *and* the layer
-grouping in Inkscape. Landed:
+PIL remains a first-class authoring language for new sprites. Every target
+can route to an SVG backend whose parts are registered once in an editable
+scene file and whose frames are assembled from those parts. Landed:
 
 - **Component scene** (`authoring/svg_scene.py`): ONE SVG per target — a
   visible `parts` gallery layer (labelled local-geometry groups) + hidden
@@ -283,21 +288,7 @@ grouping in Inkscape. Landed:
   translucent glow is a documented divergence class). "partial" = needs
   review, never silently wrong.
 
-### Revised end-state (Jon, 2026-07-23 evening): SVG as interchange, not replacement
-
-For **non-rigged** characters, Python/PIL code is the better *compressed
-representation* and may never retire; the SVG scene is **another output
-format** — and, critically, the annotation medium: Jon edits the scene in
-Inkscape to *show* an agent exactly what is wrong with a PIL sprite, the
-agent back-ports the change into the PIL generator, regenerates, and the
-equivalence harness verifies convergence (`export` -> human edit ->
-`rebuild --scene` -> `compare --target X --against rebuilt/`). Scene SVGs are
-redundant/regenerable and stay out of the repo (gitignored `tmp/`).
-
-For **rigged** characters (Oiler, hunny_horror) SVG is where authoring
-shines, and the non-rigged -> rigged transition is exactly where this interop
-pays off: a reviewed scene with good part grouping is the natural starting
-point for rigging a formerly procedural character.
+### Open
 
 Still open: per-target Inkscape review by Jon (the acceptance gate for
 retiring any PIL generator); auto-discovered part grouping is `geomNNN`-named
@@ -309,17 +300,14 @@ conservative verifier under-report matches.
 
 ### Discovery correctness
 
-Three structural bugs in the universal converter's part discovery were fixed
-(`authoring/auto_capture.py` + `equivalence_harness.py`): occurrences that
-differed only by an ancestor transform were collapsing onto a single
-placement, fixed by flattening every flattenable transform into geometry
-first (`_flatten_tree`) before matching, so only the non-peelable inner
-transforms are baked in and unflattenable residuals (rotated ellipse/image,
-`<use>`, filtered group) stay opaque rather than dropped; named components
-with identical geometry (`left_thruster`/`right_thruster`) were merging,
-fixed by keying candidate identity on the full Inkscape label path
-(unlabelled geometry keeps geometry-only `geomNNN` keys); and `captured`
-status was verifying only a ~6-frame sample. Status vocabulary: `captured` =
+Part discovery (`authoring/auto_capture.py`, `equivalence_harness.py`) holds
+three rules. Flatten every flattenable transform into geometry before matching
+(`_flatten_tree`), so occurrences that differ only by an ancestor transform do
+not collapse onto one placement; unflattenable residuals (rotated
+ellipse/image, `<use>`, filtered group) stay opaque. Key candidate identity on
+the full Inkscape label path, so named components with identical geometry
+(`left_thruster`/`right_thruster`) do not merge; unlabelled geometry keeps
+`geomNNN` keys. `captured` means every frame was verified. Status vocabulary: `captured` =
 every published frame verified; `sampled` = complete + clean capture, subset
 checked; `partial` = any gap. `autoconvert`/`coverage --full` verify every
 frame; the mockingbird boss reaches `captured 36/36` under `--full`. Poison
@@ -340,8 +328,6 @@ extended translucent thruster beam floors at ~0.056 occupancy (resvg vs
 Pillow gradient alpha), so the occupancy bar is `0.07`; alpha-weighted rgb
 collapses to ~0.008, bar stays `0.12`. The reviewer's defect class
 (limb/beam/glow, 12–50% of alpha mass) scores 0.12–0.14 and fails; mockingbird
-holds `captured 36/36`. This replaced an earlier metric built on a binary
-`alpha>200` "solid" mask, under which a missing/invented/wrong-alpha
-*translucent* component beside matching opaque geometry scored `(0,0)` and
-passed. Poison tests: `tests/test_fidelity_metric.py` (omitted / invented /
+holds `captured 36/36`. Do not grade on a binary `alpha>200` "solid" mask: it passes a missing or
+wrong-alpha translucent component beside matching opaque geometry. Poison tests: `tests/test_fidelity_metric.py` (omitted / invented /
 wrong-alpha / shift / colour-noise / non-wrapping translate).

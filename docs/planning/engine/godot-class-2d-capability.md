@@ -170,17 +170,17 @@ customer demonstrates a concrete gap.
 | **Triggers, areas, surfaces and world interactions** | Portals, zones, gravity/surface semantics, encounters and world mechanisms exist across domains | Typed interaction/overlap semantics compose without one central taxonomy; authored mechanisms can participate through provider/domain seams | spatial architecture, interaction/domain plans |
 | **General 2D physics integration** | Ambition owns platformer-specific kinematics rather than a general rigid-body engine | Real rigid-body/joint customers have a supported Bevy/ecosystem path; Ambition does not block integration with unnecessary parallel physics authority | trigger-based; no standing rewrite |
 | **World/room composition** | LDtk lowering, prepared world records, rooms, transitions and transactional construction are strong | Backend-neutral prepared world semantics; canonical construct/reconstitute path; reusable authored composition solves real repeated structures without prefab mimicry | `construction-and-reconstitution.md`, `ldtk-authoring-and-world-tools.md`, `reusable-authored-world-composition.md` |
-| **Persistent/open-world state** | Session/provenance/persistence foundations exist; residency and occurrence semantics remain active | World existence, residency, simulation and visibility are independent; durable occurrences reconstruct coherently across unload/reload/save | `open-world-runtime-and-residency.md`, persistence/lifetime plans |
+| **Persistent/open-world state** | Several live rooms per session, durable whereabouts for items and persistent characters, dormant mint records and one logical-time mechanism exist; budgets and more background mechanics remain | World existence, residency, simulation and visibility are independent; durable occurrences reconstruct coherently across unload/reload/save | `open-world-runtime-and-residency.md`, persistence/lifetime plans |
 | **Actions, abilities and gameplay orchestration** | Semantic actions, movesets, participant actions and authored provider vocabulary exist; general authored verb/relationship composition remains incomplete | Common game behavior can be composed from typed commands/facts/rules; Rust adds vocabulary, content composes it; no app-shaped central behavior switch | `participant-action-system.md`, `authored-gameplay-logic-and-orchestration.md`, `extension-model.md` |
 | **2D rendering** | Sprites, atlases/materials, parallax, cameras, VFX and custom presentation paths exist over Bevy | Several materially different games can express their 2D visual language through supported Bevy/Ambition/provider seams; missing lights/shadows/custom-draw/shader features are filled only when a real visual target requires them | `render-animation-and-vfx.md`, renderer/system docs |
-| **Animation** | Sprite animation, authored clips, move/portrait animation and domain presentation policy exist | Animation selection is semantic/provider-owned, supports ordinary state/one-shot/loop/transition needs, and remains presentation-only under rollback/headless execution | `render-animation-and-vfx.md`, character authoring |
+| **Animation** | Sprite animation, authored clips, move/portrait animation, part-flipbook (rigged) sprites and domain presentation policy exist | Animation selection is semantic/provider-owned, supports ordinary state/one-shot/loop/transition needs, and remains presentation-only under rollback/headless execution | `render-animation-and-vfx.md`, character authoring |
 | **VFX and particles** | Built-in semantic effect requests, authored sprite FX and procedural particles exist | Common effects are expressible without gameplay depending on render entities; richer providers remain optional; persistent emitters reconcile from semantic source state | `render-animation-and-vfx.md` |
 | **Cameras and views** | Strong camera/reference-frame concepts and per-view foundations exist | One or many local views can compose tracking, constraints, transitions, shake/impulse and quality policy without conflating camera with control authority | `multiplayer-and-multiview.md`, camera system docs |
 | **Audio and music** | Audio/SFX/music systems and generated content pipelines exist | Games can express cues, music routing, spatial/nonspatial playback and product-required mix policy through semantic APIs; confirmed irreversible effects respect netcode boundaries | audio/VFX system docs; product pressure |
 | **UI and text** | Shell, menus, settings, dialogue, inventory UI and navigation exist | Participant/view-aware runtime UI supports controller/touch/mouse, adaptive layout, text, settings and required accessibility/localization targets using Bevy UI rather than a second widget engine | `ui-localization-and-accessibility.md`, input/UI systems |
 | **Input and control** | Keyboard/gamepad/touch, semantic actions, participants, control authority and prompts exist | N local devices/participants route predictably through one semantic action/control model; rebinding/context/prompt policy is supported and testable | `participant-action-system.md`, multiplayer/control docs |
 | **Assets and resource readiness** | Asset manager, provider preparation, generated assets, loading transactions and packaging exist | Stable semantic identity, readiness/preparation, source provenance, render materialization, residency budgets and target packaging are inspectable and bounded | `asset-preparation-and-residency.md`, asset concept |
-| **Hot reload / fast content iteration** | Focused asset workflows, in-process prepared packs and cast staging exist; portable bundle/module loading remains planned | Independent data and procedural edits avoid host linking; invalid candidates retain the active generation; local mechanical changes use supported reconstruction, not arbitrary-state hot swap | [extension model](extension-model.md), [iteration packets](fast-iteration-implementation.md) |
+| **Hot reload / fast content iteration** | Focused asset workflows, in-process prepared packs, cast staging and an in-process content reload for several registries exist; portable bundle/module loading remains planned | Independent data and procedural edits avoid host linking; invalid candidates retain the active generation; local mechanical changes use supported reconstruction, not arbitrary-state hot swap | [extension model](extension-model.md), [iteration packets](fast-iteration-implementation.md) |
 | **Persistence/save compatibility** | Persistence crate and provenance/reconstitution model exist | Durable domain facts are versioned intentionally and restored through canonical construction; saves do not serialize accidental ECS topology as public format | construction/open-world/persistence plans |
 | **Navigation and AI** | Platformer reachability, fighter brains and deterministic behavior machinery exist | Navigation understands body capabilities and dynamic platformer mechanics; AI consumes simulation observations/facts through typed action surfaces | `platformer-navigation-and-reachability.md`, world facts/agentic plans |
 | **Multiplayer/netcode** | Local-N foundations and GGRS rollback architecture exist | Local multiplayer is ordinary engine usage; online transport/lifecycle can be installed without a multiplayer-only ontology; deterministic state contracts remain the same | `netcode.md`, `multiplayer-and-multiview.md` |
@@ -294,26 +294,13 @@ customers.
 A capability is not proven reusable merely because Ambition can reach an
 internal crate that implements it.
 
-> ⚠ **CHECKED AGAINST THE WORKSPACE 2026-09-03: one customer on this list does
-> not exist, and one that exists is not on it.**
->
-> - **Hollow Lite is UNBUILT.** There is no `hollow_lite` crate, app or authored
->   world; [`../demos/hollow-lite.md`](../demos/hollow-lite.md) says so itself
->   (*"STILL ENTIRELY UNBUILT"*, re-checked 2026-09-02). It is a planned
->   customer, and listing it beside five that ship makes the pressure-testing
->   claim read as broader than it is — **encounters, bosses and richer
->   combat/presentation are currently pressure-tested by Ambition alone.**
-> - **`ambition_demo_pocket` is missing from the list**, and it is the one that
->   most directly tests this section's own closing sentence: its manifest calls
->   it a *"tiny fourth-provider acceptance fixture for Ambition's provider
->   authoring surface"*. A fourth provider is exactly the evidence that a
->   capability is reusable rather than reachable.
->
-> ⇒ Neither is an error in the list's intent — it is an acceptance TARGET list.
-> But the difference between "six materially different customers pressure-test
-> this" and "five do, one is planned, and a sixth nobody listed does the
-> provider half" is the difference between a claim and a plan, and the section
-> is quoted elsewhere as if it were the former.
+Status of the list: Hollow Lite is unbuilt (no crate, app or world; see
+[`../demos/hollow-lite.md`](../demos/hollow-lite.md)), so encounters, bosses and
+richer combat presentation are pressure-tested by Ambition alone today.
+`ambition_demo_pocket` is a fourth-provider acceptance fixture for the provider
+authoring surface, and it is the direct evidence that a capability is reusable
+rather than reachable. This is an acceptance target list, not a claim that every
+customer ships.
 
 ## Engine 1.0 competitive gates
 
@@ -351,29 +338,14 @@ A clean external/minimal game can compose supported capabilities, diagnose
 configuration/content failures, run tests, and produce a release artifact
 without importing implementation crates.
 
-> ⭐ **MEASURED 2026-09-03 against the three out-of-workspace consumers, and the
-> "without importing implementation crates" clause splits them two to one.**
->
-> | consumer | `[dependencies]` reach |
-> |---|---|
-> | `fixtures/minimal_game` | `ambition_platformer2d` only |
-> | `fixtures/external_consumer` (outlander) | `ambition_platformer2d` only |
-> | `examples/capability_demo` | **four implementation crates** — `ambition_content_pack`, `ambition_causal`, `ambition_input`, `ambition_platformer2d_core` |
->
-> ⚠ **The third is not obviously a violation, which is why it is recorded rather
-> than filed as a gap.** The capability demo exists to prove that a capability
-> can register its own content schema without editing a central enum — its own
-> header says *"`ambition_content_pack` never heard of pulses; the schema is
-> registered by the capability that owns it"* — and that is a claim about
-> EXTENSION, which the facade does not currently surface. ⇒ So C5 has two
-> readings and the page should say which it means: if a game extending the
-> engine must also go through the facade, this demo is the gap; if extension is
-> allowed to name the crates it extends, C5 is about CONSUMPTION and the two
-> fixtures already satisfy it.
->
-> Either way the fixtures are the evidence for C5 and the demo is not — and it
-> is the demo whose lockfile the abilities carve had to update, which is how the
-> distinction surfaced.
+Evidence: `fixtures/minimal_game`, `fixtures/external_consumer` and
+`fixtures/headless_profile` depend on `ambition_platformer2d` only.
+`examples/capability_demo` names implementation crates (`ambition_content_pack`,
+`ambition_causal`, `ambition_input`, `ambition_platformer2d_core`) because it
+proves that a capability registers its own content schema, which the facade does
+not surface. So C5 has two readings. If a game that extends the engine must also
+go through the facade, the capability demo is the gap. If extension may name the
+crates it extends, C5 is about consumption and the fixtures satisfy it.
 
 ### Gate C6 — agent-first operability
 
@@ -448,10 +420,9 @@ or deployment requirement:
 
 The goal is a stronger **engine**, not a look-alike editor product.
 
-## Programmatic engine acceptance after the reassessment
+## Programmatic engine acceptance
 
-The [reassessment](architecture-reassessment.md) retains the serious-2D wedge and
-LLM-first authoring target. Godot/Unity are capability and shipping comparators,
+The serious-2D wedge and the LLM-first authoring target stand. Godot/Unity are capability and shipping comparators,
 not a request to clone a scene tree, editor, server stack or all 3D facilities.
 
 Accept the engine through independent executable profiles: headless body/control,

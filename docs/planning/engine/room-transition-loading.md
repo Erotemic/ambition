@@ -1,9 +1,8 @@
 # Room-transition loading
 
-**State:** OPEN — the canonical readiness/authorization transaction is
-implemented for room transitions. Checkpoint restoration still needs A1's
-cross-domain accepted-snapshot/commit contract; remaining work also includes
-latency/residency quality and the future external peer lifecycle barrier.
+**State:** OPEN. The readiness/authorization transaction is implemented for
+room transitions. Remaining work: transition latency and residency quality, and
+the external peer lifecycle barrier.
 The [checkpoint protocol](checkpoint-restoration-protocol.md) is normative for
 restore inputs, cancellation, prefetch coherence and domain mutation timing.
 
@@ -24,6 +23,13 @@ intent
 The eager/headless and rollback hosts consume the same construction semantics.
 They differ only in when commitment is authorized.
 
+A crossing publication names the live room it leaves and carries a
+`LiveRoomSuccession`: it replaces that room, opens a second live room while
+another seat stays, or joins a live room another seat holds. A crossing does
+not stop or reset another live room. Both hosts keep simulating other live rooms
+while one room loads. The succession rules are owned by
+[`open-world-runtime-and-residency.md`](open-world-runtime-and-residency.md).
+
 ### Eager host
 
 An eager host may commit a ready transition at its lifecycle boundary because no
@@ -37,18 +43,14 @@ for the same authorized construction plan/readiness transaction. It commits the
 room outside speculative execution and installs a new GGRS frame-zero baseline.
 The old rollback ring is no longer a source of room state.
 
-This means the prior planning requirement "make rollback transitions use the
-readiness transaction" is complete.
-
 ## Session ownership
 
 Rollback confirmation is read for the current gameplay `SessionScopeId` through
 `SessionRollbackConfirmation`. A stale/unrelated session's rollback authority
 cannot make the current session's transition unhealthy.
 
-`26ec7b19` added acceptance coverage for Smash -> title -> Ambition under the
-rollback host and for adverse local-session/shell ordering. ADR 0027 owns the
-lifetime rule.
+Acceptance covers Smash -> title -> Ambition under the rollback host and
+adverse local-session/shell ordering. ADR 0027 owns the lifetime rule.
 
 ## Construction authority
 
@@ -84,44 +86,27 @@ Keep the measurement stages separate:
 
 Do not quote a headless preflight time as a rendered transition budget.
 
-### T2 — make prefetch/residency policy explicit where measurements justify it — ◐ BOTH HALVES NOW EXIST
+### T2 — make prefetch/residency policy explicit where measurements justify it
 
-A room transition should request what the next room needs through the asset
-preparation/residency authority rather than ad hoc eager loading. Avoid a broad
-prefetch-every-neighbour policy that merely moves a hitch earlier and grows
-resident memory without a budget.
+A room transition requests what the next room needs through the asset
+preparation/residency authority, not ad hoc eager loading. Do not prefetch
+every neighbour.
 
-> **RE-MEASURED against `1afa3723d` (2026-09-02). The warning was heeded on both
-> counts, and the second half landed the same day this was re-read.**
->
-> ⭐ **The prefetch is NOT "every neighbour".**
-> `const NEIGHBOR_PREFETCH_ROOM_BUDGET: usize = 4`
-> (`game/ambition_app/src/app/world_flow/room_transition_assets.rs`), with
-> its own reasoning in place: four "covers ordinary corridor/lab branching while
-> bounding uncovered decode work at high-degree hubs", and excess neighbours are
-> skipped as WHOLE rooms because cached manifests are promoted only when
-> complete. Measured consequence: `central_hub_main` has 21 exits into six
-> biomes, and standing in it holds **three** parallax themes, not six.
->
-> ⭐ **And resident memory now has an eviction counterpart, for the first asset
-> class to get one.** `ParallaxLayerSet::retain_themes`
-> (`crates/ambition_sprite_sheet/src/game_assets/mod.rs:396`) is the API;
-> `retire_departed_parallax_themes`
-> (`game/ambition_app/src/app/world_flow/parallax_residency.rs:73`) is the
-> policy — keep the active room's theme plus its one-hop neighbours', which is
-> exactly the set the prefetch loads, so residency and prefetch cannot disagree.
-> Verified end to end by `scripts/measure_parallax_retire.sh`: a hub → basement
-> walk goes `[Hub, Basement, Boss]` → `[Hub, Basement]`, and the retired theme's
-> images leave `Assets<Image>` rather than merely losing a handle.
->
-> ⛔ **WHAT IS STILL OPEN, and it is the general half.** Parallax is ONE asset
-> class. Character pages, FX sheets and boss sheets have no equivalent retire,
-> and "the asset preparation/residency authority" this item asks for does not
-> exist as a single owner — what exists is one bounded prefetch and one
-> per-class eviction rule that happen to agree. Generalising that agreement into
-> a stated authority is the residual, and it is
-> [`asset-preparation-and-residency.md`](asset-preparation-and-residency.md)
-> open work 4, not this row.
+Current shape:
+
+- Neighbour prefetch is bounded: `NEIGHBOR_PREFETCH_ROOM_BUDGET = 4`
+  (`game/ambition_app/src/app/world_flow/room_transition_assets.rs`). Excess
+  neighbours are skipped as whole rooms, because cached manifests are promoted
+  only when complete.
+- Parallax has an eviction counterpart: `ParallaxLayerSet::retain_themes` (API)
+  and `retire_departed_parallax_themes` (policy: keep the active room's theme
+  and its one-hop neighbours', the same set the prefetch loads).
+  `scripts/measure_parallax_retire.sh` verifies that retired images leave
+  `Assets<Image>`.
+
+Open: character pages, FX sheets and boss sheets have no retire. One stated
+residency authority does not exist yet. That is open work 4 in
+[`asset-preparation-and-residency.md`](asset-preparation-and-residency.md).
 
 ### T3 — keep carry/retention semantics lifecycle-owned
 
@@ -168,10 +153,11 @@ observe lifecycle admission before it latches progress. F9 also requires domain
 restorers to stop interpreting a raw reset as admitted authority. A request can be
 refused; it is not evidence that either a room transition or domain restore should
 happen. Prepare a checkpoint transition from its pinned continuity input; do not
-modify live ledgers just to make the ordinary builder see checkpoint state. Preserve the startup road's
-current non-gameplay-gated installation and reset's public phase ancestry.
+modify live ledgers just to make the ordinary builder see checkpoint state.
+Preserve the startup road's non-gameplay-gated installation and reset's public
+phase ancestry.
 
-[Finding F6](architecture-review-findings.md) bounds the word transaction here:
+The word transaction has a limit here:
 raw Bevy construction commands can have effects that post-commit verification
 cannot undo. Verification must prevent normal publication of a failed candidate,
 but retaining the prior room needs a separately staged and constrained operation.

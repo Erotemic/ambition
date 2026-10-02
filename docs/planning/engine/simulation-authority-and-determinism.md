@@ -1,6 +1,6 @@
 # Simulation authority and determinism
 
-**State:** open. Rollback backend ownership and domain registration are largely
+**State:** OPEN. Rollback backend ownership and domain registration are
 settled. Current work is peer-stable identity, owner-scoped lifetime, deterministic
 composition and explicit phase/authority boundaries.
 
@@ -47,7 +47,10 @@ codec and still be absent from the actual rewound population.
 `bevy_ggrs::RollbackId` is frame-history machinery, not gameplay identity.
 
 Use semantic identity when reconstruction, relationships, deterministic selection
-or peer comparison need to refer to the same logical object. Do not mint canonical
+or peer comparison need to refer to the same logical object. Two live instances
+of one room share authored `SimId`s, so a live occurrence is (`SimId`, live room)
+(`LiveBodyId`; the GGRS carrier order and construction baselines key by the
+pair; see [open-world residency](open-world-runtime-and-residency.md)). Do not mint canonical
 identity from ECS entity order or an App-local activation count.
 
 A type census cannot see a violation of this rule when the offending value is a
@@ -361,10 +364,10 @@ responding to the state it covers. So un-pinning is asserted beside emptiness.
 A hashed entry written outside the rewinding schedule is a defect only if all
 three hold: it is hashed (`feeds_peer_checksum()`), its writer is outside the
 rewinding schedule, and its value actually differs at a frame compared twice.
-The New Game latch (deleted 2026-09-29) met the first two and did not desync,
-because the flag was put back before it was taken.
+A latch that is put back before it is taken meets the first two and does not
+desync.
 
-**Closed: `CustodyBaseline` and `OccurrenceBaseline` (2026-09-28).** Both
+**Closed: `CustodyBaseline` and `OccurrenceBaseline`.** Both
 desync when a load lowers the restore latch on a LIVE timeline, which
 `probe_what_a_mid_session_load_writes_outside_the_rewinding_schedule`
 (`game/ambition_app/tests/a_bag_changed_mid_window_reaches_the_save.rs`,
@@ -372,8 +375,7 @@ desync when a load lowers the restore latch on a LIVE timeline, which
 at `Startup` (`load_save_at_startup`), `SaveRestored` is lowered only by session
 activation/retirement (`session/teardown.rs`), a retiring scope retires its
 rollback authority with it, and
-[Q135](../awaiting-maintainer-decision.md#q135--should-ggrs-start-before-the-durable-restore-has-finished)
-(landed 2026-09-16) stops `maintain_local_session` from creating a session while
+the [Q135 ruling](../maintainer-decisions.md) stops `maintain_local_session` from creating a session while
 hydration is pending. The production road is witnessed by
 `a_startup_load_hydrates_both_baselines_before_the_timeline_starts` in the same
 file: both halves seeded, 240 sync-test frames healthy, and no frame with a live
@@ -401,9 +403,8 @@ acknowledged offenders.
 ### Host-to-host determinism witness
 
 An older two-host measurement found a duel that agreed for hundreds of ticks and
-then diverged while each host remained repeatable on its own. That evidence was
-stamped to an older commit and does **not** establish that current HEAD still
-diverges.
+then diverged while each host stayed repeatable on its own. It does not establish
+that current HEAD still diverges.
 
 Before drawing architecture conclusions, reproduce on current HEAD on both hosts
 and capture the **first divergent authoritative state**, keyed by stable identity.

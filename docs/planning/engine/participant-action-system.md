@@ -1,6 +1,6 @@
 # Participant and semantic action system — current residual work
 
-**State:** OPEN, narrowed 2026-08-30.
+**State:** OPEN, narrow.
 
 The original participant/input migration is largely landed. This plan owns only
 remaining participant-context and provider-action architecture.
@@ -24,48 +24,20 @@ The current architecture already provides:
 
 These pieces should be extended rather than replaced by another input manager.
 
-## P1 — decide the per-seat dialogue/gameplay model — ✔ DONE (verified `f51619ae2`, 2026-09-02)
+## P1 — per-seat dialogue/gameplay model — DONE
 
-⭐ **THIS IS BUILT AND ITS THREE ACCEPTANCE CONDITIONS ARE ALL PINNED BY ONE
-TEST.** `dialogue_claims_the_talker_while_a_pause_still_stops_everybody`
-(`actor_monolith/src/schedule/input_systems.rs`) sets `GameMode::Dialogue`, gives
-seat 0 a `ConversationInputOwner`, and asserts seat 0's context owner is
-`DIALOGUE_CONTEXT` while `seats.gameplay_owned(1)` holds and seat 1's
-`jump_held` still arrives — *"ONE PLAYER READS A DIALOGUE BOX WHILE THE OTHER
-KEEPS RUNNING — the thing the GameMode gate could not express, and the reason
-this moved"*. Its second half then sets `Paused` and pins that pausing still
-stops everybody.
+The context claim carries input ownership, and `stops_the_world` carries the
+clock. Dialogue says only the first. Ownership lives in `SeatInputContexts` /
+`ParticipantContexts` (`ambition_input::participant`: `DIALOGUE_CONTEXT`,
+`owner()`, `gameplay_owned(slot)`), not in `GameMode`. One seat can read a
+dialogue box while another keeps running. Pause, room transition and cutscene
+still stop everybody. Witness:
+`dialogue_claims_the_talker_while_a_pause_still_stops_everybody`
+(`actor_monolith/src/schedule/input_systems.rs`).
 
-**The answer to the design question, as the code states it:** *the context claim
-carries ownership; `stops_the_world` carries the clock; and dialogue now says
-only the first.* Ownership lives in `SeatInputContexts` / `ParticipantContexts`
-(`ambition_input::participant`, with `DIALOGUE_CONTEXT`, `owner()` and
-`gameplay_owned(slot)`), not in the mode.
-
-⚠ **AND THE PARAGRAPH BELOW WAS TRUE BUT MISLEADING, WHICH IS WHY IT IS KEPT
-HERE RATHER THAN DELETED.** `GameMode::allows_gameplay()` is still literally
-`matches!(self, Self::Playing)` — unchanged. A reader checking that one function
-would conclude nothing had happened. What changed is that it is no longer the
-thing deciding per-seat gameplay routing. The repair was explicitly NOT "delete
-the mode gate": pause, room transition and cutscene must keep stopping
-everybody, and they still do.
-
-Original text, for the record:
-
-> `DialogueStopsTheWorld` already makes simulation-clock suspension explicit, but
-> `GameMode::allows_gameplay()` still treats `Dialogue` as globally unable to
-> route gameplay input. That is coherent for one active local participant. It
-> cannot express one seat conversing while another seat continues gameplay.
-> Do not solve this by threading the world-stop flag into another global gate.
-> The open design question is what owns **per-seat permission to route gameplay
-> while another seat owns a dialogue surface**.
->
-> Acceptance for a promoted slice:
->
-> - one seat can own/advance dialogue without stealing another seat's unrelated
->   gameplay controls when the experience permits it;
-> - an experience may still explicitly choose world-stopping/global dialogue;
-> - simulation-clock policy and input-ownership policy remain separate concepts.
+`GameMode::allows_gameplay()` is still `matches!(self, Self::Playing)`. It no
+longer decides per-seat gameplay routing. Do not "fix" it by deleting the mode
+gate, and do not thread the world-stop flag into another global gate.
 
 ## P2 — finish provider actions at composition boundaries
 
@@ -88,7 +60,8 @@ Do not make `ambition_input` learn actor/body concepts to close the final hop.
 
 `ControlPrompt` is one global read model describing the primary local gameplay
 surface. That is reasonable for one screen, especially for one shared touch
-overlay.
+overlay. Split views by live room exist, and the HUD, banner, music and prompt
+follow the primary seat for now (Q150).
 
 With several independent local views/seats, one participant may need a different
 prompt from another. Do not make `ControlPrompt` plural solely for naming

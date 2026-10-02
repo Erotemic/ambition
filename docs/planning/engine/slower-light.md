@@ -1,27 +1,21 @@
 # Slower Light — future 3D observer-relativity game
 
-> **Status: deferred until Ambition has a 3D game/runtime surface. TwinTrack is the separate 2D SR foundation and observer laboratory, not a reduced version of this game.**
->
-> Original directive (2026-07-05): Jon:
-> *"I would also like to add a 'slower speed of light' mechanic where you can
-> lower the speed of light. I'm not sure how feasible this is in 2D but I
-> think we could use shaders to modify light — the trick is how to warp
-> space. This is again a stretch goal but I want the core system to make it
-> easy when the time comes. (and it will)"*
->
-> Adjudicated as **AJ14** in the 2026-07-05 plan (in Git history);
-> the live queue is [`../tracks.md`](../tracks.md).
-> Nothing here builds the mechanic. The page keeps the seams open so that it
-> is later a content and shader task, not an engine rewrite.
->
-> **State (checked 2026-09-02).** The 2D half of the seam is done. No constant
-> fixes the invariant speed: `ambition_relativity` takes a validated
-> `InvariantSpeed` as a parameter to `minkowski_interval`,
-> `minkowski_clock_rate` and `lorentz_boost_event`, and TwinTrack threads an
-> authored value through `dual_observer.rs`. A provider can thus author a lower
-> speed of light in 2D. Still deferred: the 3D runtime surface and the shader
-> work that makes a lower speed visible ("how to warp space"). Related:
-> [`frame-awareness.md`](frame-awareness.md).
+**Status:** DEFERRED until Ambition has a 3D game/runtime surface. TwinTrack
+is the separate 2D special-relativity foundation and observer laboratory, not a
+reduced version of this game. Nothing here builds the mechanic. The page keeps
+the seams open, so that the mechanic is later a content and shader task, not an
+engine rewrite. The live queue is [`../tracks.md`](../tracks.md).
+
+Maintainer directive: a "slower speed of light" mechanic where the speed of
+light can be lowered, with shaders to modify light; the core system should make
+it easy when the time comes.
+
+**Current state.** The 2D half of the seam is done. No constant fixes the
+invariant speed: `ambition_relativity` takes a validated `InvariantSpeed` as a
+parameter to `minkowski_interval`, `minkowski_clock_rate` and
+`lorentz_boost_event`, and TwinTrack threads an authored value through
+`dual_observer.rs`. Still deferred: the 3D runtime surface and the shader work
+that makes a lower speed visible. Related: [`frame-awareness.md`](frame-awareness.md).
 
 ## Relationship to TwinTrack
 
@@ -142,47 +136,17 @@ while the drama (warp, Doppler, contraction) is presentation.
    light-delayed state — recorded here so slices don't invent
    competing terms.
 
-### Re-measured 2026-09-03 — the Tier 0 obligations are intact, and #4 is already met
+### Status of the obligations
 
-These are preservation obligations ("it is ALREADY true; keep it true"), which
-is the kind that rots without anyone editing them. Three of the five are
-checkable state; re-checked against HEAD:
-
-| # | obligation | verdict |
-|---|---|---|
-| 1 | per-body position AND velocity; observer velocity in the camera snapshot | ✔ BOTH halves |
-| 2 | build funnels stay functions OF inputs, no global aliasing live state | ✔ |
-| 4 | a single full-screen post seam exists (or is gained when E4 lands) | ⭐ ALREADY EXISTS |
-
-* **#1** — `BodyPoseView` carries `pos` and `vel` as adjacent fields
-  (`crates/ambition_sim_view/src/pose_view.rs:26`), and the observer's own
-  velocity is `CameraFocus2d::velocity_world`
-  (`crates/ambition_sim_view/src/camera_snapshot.rs:179`), inside the camera
-  snapshot exactly as the obligation requires. The perception path carries it
-  too (`SelfView { pos, vel }`). ⇒ The schema break this obligation exists to
-  prevent is not pending.
-* **#2** — `build_world_view`
-  (`crates/ambition_platformer2d_actor_monolith/src/features/ecs/perception.rs:746`)
-  takes eight explicit inputs and returns a `WorldView`. No resource, no global,
-  no live-state alias: a history-sourced view remains constructible by handing it
-  different arguments, which is the whole point of the obligation.
-* **#4** — the doc hedges ("keeps, **or gains, when E4 lands**"). It does not
-  need to: `crates/ambition_render/src/screen_effects.rs` is that seam today —
-  *"the pass runs after the 2D main pass, samples the already-rendered view
-  texture, and writes a fullscreen filtered result back into Bevy's post-process
-  destination."* L3 has somewhere to register whenever it arrives.
-
-#3 (speed caps stay seam-shaped) and #5 (naming) are conventions for future
-code, not state a check can read; they are not evaluated here rather than
-silently counted as passing.
-
-*Method note.* The search for #4 first came back EMPTY and would have supported
-"the post seam does not exist yet, as the doc allows". It failed because it used
-the DOC's vocabulary — `post_process`, `fullscreen` — and the code's is
-`ScreenEffects`, with "post-processing" only ever appearing hyphenated in a
-module comment. ⇒ When a plan and the code were written by different hands,
-an absence result is a claim about the SEARCH TERM first and the repository
-second.
+- #1 is met: `BodyPoseView` carries `pos` and `vel`
+  (`crates/ambition_sim_view/src/pose_view.rs`), the camera snapshot carries
+  the observer's `CameraFocus2d::velocity_world`, and perception carries
+  `SelfView { pos, vel }`.
+- #2 is met: `build_world_view` (`features/ecs/perception.rs`) takes explicit
+  inputs and returns a `WorldView`, with no global aliasing live state.
+- #4 is met: `crates/ambition_render/src/screen_effects.rs` (`ScreenEffects`)
+  is the full-screen post seam. It runs after the 2D main pass.
+- #3 and #5 are conventions for future code.
 
 ## Non-goals (explicit)
 

@@ -1,13 +1,8 @@
 # Render, animation and VFX — Engine 1.0 program
 
-**State:** OPEN — the built-in semantic presentation road is established. Current
-work is about completing body-owned drawable scheduling/compositing and adding
-new providers only when a real effect requires them.
-
-This is a **live design/acceptance document**, not an investigation log. Dated
-render investigations, rejected hypotheses, screenshots, intermediate numeric
-tables, and superseded repairs belong in git history once their surviving rule
-is captured here.
+**State:** OPEN. The built-in semantic presentation road and the body-owned
+drawable schedule are built. Remaining work adds persistent emitters and new
+providers only when a real effect requires them.
 
 ## Scope
 
@@ -26,9 +21,12 @@ Asset preparation, quality-tier materialization, residency and first-use hitches
 are owned by [`asset-preparation-and-residency.md`](asset-preparation-and-residency.md).
 Runtime/frame-cost measurement is owned by
 [`performance-and-iteration.md`](performance-and-iteration.md).
-A separate plan, not yet triaged, evaluates characters drawn from reusable
-rigged parts instead of whole frames:
+Characters drawn from reusable parts (transform flipbooks, on in the shipped
+game) are owned by
 [`runtime-rigged-sprite-animation.md`](runtime-rigged-sprite-animation.md).
+Per-live-room drawing (each entity drawn in its own live room's band and view)
+is owned by [`open-world-runtime-and-residency.md`](open-world-runtime-and-residency.md)
+("The view half").
 
 ## Authority contract
 
@@ -75,8 +73,12 @@ body-owned drawable producer/update
     -> draw
 ```
 
-This should be represented by semantic sets/phases, not by each new overlay
-ordering itself against concrete foreign systems.
+The boundary is the `BodyOwnedDrawableSync` set (`ambition_render::rendering`).
+`publish_portal_compositing_candidates` runs after it. A new body-owned drawable
+writer joins the set; outside it, the writer is composited a frame late at
+best. The set edge also flushes commands, so a drawable spawned inside the set
+is a candidate on its first frame. Do not order a new overlay against concrete
+foreign systems.
 
 ### Portal relationships are per pane and per drawable
 
@@ -135,59 +137,19 @@ The current engine already has:
 - a generic body-clock read model and visible clock presentation;
 - shared render-basis logic for sheet-authored player/actor sprites.
 
-Player and actor presentation share the same render-basis authority. That was
-stated here as "the old Mary-O offset investigation is closed at the
-architecture seam", and it was too strong: sharing the basis logic is not the
-same as binding it at the right moment. Reopened and re-closed 2026-09-21 on the
-readiness half — `bind_worn_character_presentation` initialized
-`CharacterAnimator::render_basis` before `BodyPoseView` existed, so the one
-initialization the design allows was spent on a collision-derived guess that the
-binder's only key (the worn identity) could never invalidate. Mary-O's small form
-drew misaligned against her box until a wand swapped her identity. A sheet-backed
-presentation is now FINAL only once the pose exists; before it, the body is drawn
-provisionally and stays eligible.
+Player and actor presentation share one render-basis authority. A
+presentation basis is chosen once, and only when the authored answer is
+available: a sheet-backed presentation is final only once `BodyPoseView` exists;
+before that the body is drawn provisionally. `capture_mary_o` in a headless
+environment renders placeholder rectangles (no decode demand), so it cannot
+validate a binding fix.
 
-Still do not retain an investigation diary here. The two rules this left behind
-are: a presentation basis is chosen once, and it may only be chosen when the
-authored answer is available. Re-run the capture/probe tools if a new visual
-defect appears — noting that `capture_mary_o` in a headless environment renders
-placeholder rectangles, because nothing in that composition registers decode
-demand, so it cannot validate a binding fix.
+Normal presentation writes its desired visibility each frame, and portal
+resolution reasserts `Hidden` after every other writer while a hide reason
+stands. Witnesses: `a_clock_bar_is_composited_on_its_first_frame_and_follows_its_body`,
+`a_flashing_silhouette_is_back_the_frame_its_body_returns_to_the_near_side`.
 
 ## Current work
-
-### R1 — publish a body-owned-drawable-finalized scheduling seam
-
-**Problem:** new body-owned producers can currently exist without an explicit
-edge into portal candidate publication. That permits first-frame or one-frame
-stale geometry.
-
-**Required change:**
-
-1. publish a semantic render/presentation set owned by the presentation layer;
-2. put body-clock creation/update, hit-flash frame update and equivalent
-   body-owned geometry writers before it;
-3. publish portal candidates after it;
-4. ensure deferred spawns are visible to the publisher in the same frame;
-5. keep `ambition_demo_smash` and other rulesets from naming concrete
-   `sim_view`/render systems for this ordering.
-
-**Acceptance:**
-
-- a body clock created while its fighter is partially far-side is clipped on its
-  first visible frame;
-- a moving/shrinking clock is classified from this frame's geometry;
-- the capability/ruleset foreign-private-ordering ratchet returns to zero.
-
-### R2 — make normal presentation reassert visibility before portal resolution
-
-Presentation owners should write their ordinary desired visibility each frame;
-portal resolution should then reassert `Hidden` while a portal hide reason
-exists.
-
-Concrete poison: an active hit flash goes far-side and then near-side on the
-next frame. It must be visible immediately on the near-side frame, with no
-one-frame disappearance caused by the previous frame's portal bookkeeping.
 
 ### R3 — persistent emitter reconciliation, only with a real customer
 
@@ -246,11 +208,7 @@ This program is healthy for Engine 1.0 when:
 - no gameplay dependency on renderer/provider entities;
 - no per-effect foreign private-system ordering;
 - no hidden second copy of authored sprite geometry;
-- no third-party provider added because a category called “particles” exists;
-- no dated investigation diary appended below the current answer.
-
-Use git history for the removed portal/Mary-O/provider investigations and the
-measurements that led to the current contract.
+- no third-party provider added because a category called “particles” exists.
 
 ## Consequences of the ownership reassessment
 

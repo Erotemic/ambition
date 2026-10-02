@@ -714,6 +714,7 @@ pub(crate) fn apply_actor_hit(
                 kind: ParticleKind::Spark,
             });
             writers.debris.write(DebrisBurstMessage {
+                room,
                 pos: em.kin.pos,
                 cue: PhysicsDebrisCue::EnemyRagdoll,
             });

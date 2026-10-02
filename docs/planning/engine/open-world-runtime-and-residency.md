@@ -2552,6 +2552,38 @@ block name with no room, and their contributors write
 The two demo setup systems (`mary_o_setup`, `sanic_setup`) run at
 `Startup` with one room and keep `SoleLiveRoom`.
 
+✅ **V2f debt, the `DebrisBurstMessage` producers, landed 2026-10-02.** The
+debris reader (`physics_spawn_debris_messages`, built only with
+`physics_debris`) read `SoleLiveRoom<RoomGeometry>`, so no debris was
+thrown while two rooms were live. `DebrisBurstMessage` now carries `room`.
+The five producers give it the room of their effects (`VfxForRoom::room`
+for the hit feedback and the breakable, the struck body's room for the
+enemy and boss ragdolls, the arena's room for the cut-rope death). The
+reader places each burst by the geometry of that room and stamps each
+piece `InRoomInstance`, so the room retires its own debris; a message that
+names no room is thrown in the sole live room, and dropped while there are
+two. `SoleLiveRoom` 20/16 -> 19/15. Witnesses:
+`each_debris_burst_is_thrown_in_the_live_room_its_message_names` (the
+reader; ⚠ it is built only with `--features physics_debris`, so the
+default lane does not run it),
+`the_hurt_debris_of_a_hit_names_the_room_of_its_effects`,
+`the_debris_of_a_killed_body_is_thrown_in_its_own_live_room`, a debris
+column in `a_player_collapses_only_the_breakable_of_its_own_live_room`
+and one in the app's `the_cut_rope_fight_runs_in_its_own_live_room`.
+Poisons, each predicted before the run: the reader on the sole room threw
+no piece; the reader with no stamp left each piece unroomed at the right
+height; each of four producers set to no room gave an unroomed row. The
+boss ragdoll row (`boss_hit.rs`) has no witness of its own.
+⚠ One prediction missed. The first kill fixture gave `[None]`: its enemy
+had a stamp but no `SimId`, and `FeatureHitWriters::spawn_scope_from`
+reads the room in one query with the identity. With a `SimId` on the
+enemy the row named the room.
+⚠ Found, open (read from the code, not run in the shipped app): by that
+query a stamped body with no `SimId` gets no room for its hit effects,
+which is not the rule of `LiveRooms::of`. Avian has one space, so the
+debris of one live room can collide with the debris and the static
+colliders of another at the same position.
+
 ✅ **V2o landed 2026-10-02: the launch trail, the dizzy stars and the
 knockout beat are drawn in their body's room.** `LaunchedBodyFact` and
 `GuardBreakFact` (`ambition_sim_view`) carry `room` (`LiveRooms::of` the

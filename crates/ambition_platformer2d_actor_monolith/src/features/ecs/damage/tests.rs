@@ -689,6 +689,64 @@ fn a_broadcast_hit_does_not_reach_a_body_in_another_live_room() {
     assert_eq!(health_after_a_slash(first.next()), 5, "a slash reached a body in another live room");
 }
 
+/// The debris of a killed body is thrown in the body's own live room. Two
+/// rooms are live. An enemy in the second room takes a lethal slash from an
+/// attacker in that room. The ragdoll debris row names the second room: two
+/// live rooms share one coordinate space, so a row that names no room is
+/// thrown in no room.
+#[test]
+fn the_debris_of_a_killed_body_is_thrown_in_its_own_live_room() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{
+        InRoomInstance, LiveRoomInstance, RoomInstanceRoot,
+    };
+    use ambition_vfx::vfx::PhysicsDebrisCue;
+    let rooms = [LiveRoomInstance::ACTIVATION, LiveRoomInstance::ACTIVATION.next()];
+    let mut app = App::new();
+    app.insert_resource(ambition_boss_encounter::test_boss_catalog().clone());
+    app.insert_resource(GameplayBanner::default());
+    app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
+    app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
+    register_hit_pipeline_messages(&mut app);
+    app.add_systems(Update, apply_feature_hit_events);
+    for room in rooms {
+        app.world_mut().spawn((RoomInstanceRoot, room));
+    }
+    let attacker = app.world_mut().spawn(InRoomInstance(rooms[1])).id();
+    let enemy = spawn_hostile_actor(&mut app); // HP 5
+    // The room of a hit's effects is read with the body's identity
+    // (`FeatureHitWriters::spawn_scope_from`), as a shipped body has one.
+    app.world_mut().entity_mut(enemy).insert((
+        InRoomInstance(rooms[1]),
+        ambition_platformer2d_shared_tangle::sim_id::SimId::placement("kernel_guide"),
+    ));
+    app.world_mut().write_message(HitEvent {
+        strike_sfx: None,
+        volume: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0)).into(),
+        damage: 99,
+        source: HitSource::Melee,
+        attacker: Some(attacker),
+        room: None,
+        target: HitTarget::Volume,
+        mode: HitMode::Knockback,
+        knockback: None,
+        ignored_targets: Vec::new(),
+        attacker_move_instance: None,
+    });
+    app.update();
+    let ragdoll_rooms: Vec<_> = app
+        .world()
+        .resource::<bevy::ecs::message::Messages<DebrisBurstMessage>>()
+        .iter_current_update_messages()
+        .filter(|row| row.cue == PhysicsDebrisCue::EnemyRagdoll)
+        .map(|row| row.room)
+        .collect();
+    assert_eq!(
+        ragdoll_rooms,
+        vec![Some(rooms[1])],
+        "the rooms the ragdoll debris of the killed enemy names (the enemy is in the second room)"
+    );
+}
+
 /// OW1 cut 4b: a blast with no attacker hits only the bodies of the live
 /// room it happens in.
 ///

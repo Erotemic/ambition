@@ -124,3 +124,26 @@ fn drain(app: &mut App) -> Vec<EncounterCommand> {
         .drain()
         .collect()
 }
+
+/// `encounter.start` reaches the reducer's bus as one `Start` for the
+/// occurrence's own id. It goes through the shared runner, so the catalog
+/// must dispatch the line to this verb and not to `signal`. The control is
+/// the bus before the runner: empty.
+#[test]
+fn an_authored_start_line_asks_the_reducer_to_start_the_encounter() {
+    let mut app = app_with_one_encounter();
+    app.add_message::<RunAuthoredCommand>();
+    let call = prepare(&app, "encounter.start encounter:symmetry_attunement")
+        .expect("the line names the published verb");
+    assert!(drain(&mut app).is_empty(), "a command was on the bus before the runner");
+    app.world_mut().write_message(RunAuthoredCommand::prepared(
+        &call,
+        ambition_platformer2d_shared_tangle::authored_logic::AuthoredAsk::new("room", "symmetry_room"),
+    ));
+    ambition_platformer2d_shared_tangle::authored_logic::commands::run_requested_authored_commands(app.world_mut());
+    let kinds: Vec<(String, EncounterCommandKind)> = drain(&mut app)
+        .into_iter()
+        .map(|command| (command.encounter, command.kind))
+        .collect();
+    assert_eq!(kinds, vec![(ATTUNEMENT.to_string(), EncounterCommandKind::Start)]);
+}

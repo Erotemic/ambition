@@ -1415,6 +1415,19 @@ refuses an unknown script or two values in one area. All eight shipped
 worlds declare the field; `sandbox.ldtk` sets it on three levels and
 `intro.ldtk` on three.
 
+✅ **2026-10-02 (customer 3): a room starts its encounter in data.** The
+Noether attunement started from a content system that compared each live
+room's id with the constant `symmetry_room` (`drive_symmetry_attunement`).
+Both are deleted. A room now authors one command line in the level field
+`while_live` (`RoomMetadata::while_live`). `AuthoredRoomCommandPlugin`
+prepares each live room's line against the command catalog and asks for it
+on each tick while the room is live, through the same runner as a switch's
+`on_activate`. It keeps no memory of earlier live rooms, so a rewind has
+nothing of it to restore. The new verb `encounter.start` starts an inactive
+encounter, and the reducer ignores `Start` in any other phase, so asking on
+each tick starts the puzzle once and does not restart a completed one.
+`symmetry_room` says `encounter.start encounter:symmetry_attunement`.
+
 ✅ **Cut 7q landed 2026-10-01: each live room keeps its own gated lock
 walls, and the gnu's back is ground in the giant's own room.** Two overlay
 contributors wrote to the sole live room. With two rooms live, both wrote

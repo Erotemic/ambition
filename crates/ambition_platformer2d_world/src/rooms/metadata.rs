@@ -198,6 +198,15 @@ pub struct RoomMetadata {
     /// first-`Some`-wins like every other string field here, so a field on
     /// any level of an active area is the area's.
     pub entry_cutscene: Option<String>,
+    /// One authored command line that is asked for on each tick while this
+    /// room is live, for example `encounter.start encounter:symmetry_attunement`.
+    /// It is a condition on the live rooms, not an edge, so the verb must do
+    /// nothing when its work is already done (`encounter.start` ignores an
+    /// encounter that is not inactive). `None` asks for nothing.
+    ///
+    /// Authored as the LDtk level string field `while_live`, merged
+    /// first-`Some`-wins like every other string field here.
+    pub while_live: Option<String>,
 }
 
 impl RoomMetadata {
@@ -217,6 +226,7 @@ impl RoomMetadata {
             && self.next_room.is_none()
             && self.title.is_none()
             && self.entry_cutscene.is_none()
+            && self.while_live.is_none()
     }
 
     /// Fold `other` into `self`, preferring values already set.
@@ -258,6 +268,9 @@ impl RoomMetadata {
         }
         if self.entry_cutscene.is_none() {
             self.entry_cutscene = other.entry_cutscene;
+        }
+        if self.while_live.is_none() {
+            self.while_live = other.while_live;
         }
         // A multi-level area is a gallery if ANY member level marks it one.
         self.gallery = self.gallery || other.gallery;

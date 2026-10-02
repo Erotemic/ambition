@@ -97,6 +97,23 @@ PYTHONPATH=tools/ambition_ldtk_tools python3 -m ambition_ldtk_tools level set-fi
   --level cutscene_lab --set entry_cutscene=cutscene_lab_intro
 ```
 
+## A command while the room is live
+
+A level's `while_live` is one authored command line, in the vocabulary a
+`Switch`'s `on_activate` uses. It is asked for on each tick while the room is
+live, so the verb must do nothing when its work is done. `encounter.start`
+is such a verb: it starts an inactive encounter and ignores one in any other
+phase. The Noether Chamber (`symmetry_room`) starts its puzzle this way:
+
+```bash
+PYTHONPATH=tools/ambition_ldtk_tools python3 -m ambition_ldtk_tools level set-field \
+  --ldtk game/ambition_content/assets/worlds/sandbox.ldtk --in-place \
+  --level symmetry_room --set "while_live=encounter.start encounter:symmetry_attunement"
+```
+
+A line that does not prepare against the composed command catalog is dropped
+with a warning that names the room.
+
 ## Safe manual edit loop
 
 ```bash

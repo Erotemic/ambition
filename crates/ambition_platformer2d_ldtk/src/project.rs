@@ -158,6 +158,7 @@ impl LdtkLevel {
             // author who clears the box in the editor means it.
             next_room: take("next_room"),
             entry_cutscene: take("entry_cutscene"),
+            while_live: take("while_live"),
             title: take("title"),
         }
     }

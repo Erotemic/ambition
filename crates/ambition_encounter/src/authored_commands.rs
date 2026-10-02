@@ -1,4 +1,4 @@
-//! Authored `encounter.signal` command.
+//! Authored `encounter.signal` and `encounter.start` commands.
 //!
 //! The command publishes the encounter domain's existing [`EncounterCommand`]
 //! through the shared authored-command catalog. Its target uses a prepared
@@ -39,6 +39,51 @@ pub(crate) fn publish_authored_commands(app: &mut App) {
         },
         signal,
     );
+    app.publish_command(
+        CommandDescriptor {
+            id: CommandId::new("encounter", "start"),
+            summary: "start a live encounter that is inactive; any other phase ignores it",
+            params: &[START_TARGET],
+        },
+        start,
+    );
+}
+
+const START_TARGET: ParamSpec = ParamSpec {
+    name: "encounter",
+    kind: ParamKind::Reference,
+    summary: "the encounter occurrence to start, as `encounter:<id>`",
+};
+
+/// Start one live encounter.
+///
+/// It writes [`EncounterCommandKind::Start`](crate::lifecycle::EncounterCommandKind::Start),
+/// which the reducer performs only from `Inactive`. So a caller that asks on
+/// every tick (a room's `while_live` line) starts it once, and a completed
+/// encounter is not started again. The occurrence rule is the one
+/// [`signal`] uses.
+fn start(world: &mut World, args: &[AuthoredArg]) -> CommandOutcome {
+    let Some(target) = args[0].as_reference() else {
+        return CommandOutcome::refused("`encounter.start` takes an occurrence reference");
+    };
+    let occurrences = resolve_encounter(world, target);
+    let [(encounter_id, room)] = occurrences.as_slice() else {
+        return CommandOutcome::refused(if occurrences.is_empty() {
+            format!(
+                "no live encounter occurrence `{target}` — either the room that spawns it \
+                 is not active or the authored reference names something else"
+            )
+        } else {
+            format!(
+                "`{target}` has {} live occurrences (rooms {:?}), and the start names no \
+                 room to tell them apart",
+                occurrences.len(),
+                occurrences.iter().map(|(_, room)| *room).collect::<Vec<_>>(),
+            )
+        });
+    };
+    world.write_message(EncounterCommand::new(encounter_id.clone(), crate::lifecycle::EncounterCommandKind::Start).in_room(*room));
+    CommandOutcome::Done
 }
 
 /// Tell one live encounter that a fact it is waiting for has happened.

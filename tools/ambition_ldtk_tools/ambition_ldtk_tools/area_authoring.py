@@ -373,6 +373,9 @@ OPTIONAL_LEVEL_FIELDS = (
     # The cutscene that plays the first time the room becomes live
     # (`RoomMetadata::entry_cutscene`).
     "entry_cutscene",
+    # One command line asked for on each tick while the room is live
+    # (`RoomMetadata::while_live`).
+    "while_live",
 )
 
 

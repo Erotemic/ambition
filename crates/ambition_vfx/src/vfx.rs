@@ -190,9 +190,10 @@ pub enum SlashPose {
 /// which room's view draws the effect. The producer says it: `room` is the
 /// live room of the body, item or placement that made the effect.
 ///
-/// `room: None` is an UNROOMED row, the named debt of the producers that do
-/// not say their room yet. It is drawn in the sole live room, and not at all
-/// while two rooms are live.
+/// `room: None` is an UNROOMED row: the room of its subject cannot be told
+/// (`LiveRooms::of` gives `None` for an unstamped entity while two rooms are
+/// live). It is drawn in the sole live room, and not at all while two rooms
+/// are live.
 #[derive(Message, Clone, Debug)]
 pub struct VfxInRoom {
     pub room: Option<LiveRoomInstance>,
@@ -206,15 +207,11 @@ pub struct VfxWriter<'w> {
 }
 
 impl<'w> VfxWriter<'w> {
-    /// Write `vfx` UNROOMED: drawn in the sole live room, and not while two
-    /// rooms are live. See [`VfxInRoom`].
-    pub fn write(&mut self, vfx: VfxMessage) {
-        self.write_in(None, vfx);
-    }
-
     /// Write `vfx` for the live room `room`. A producer with a body passes the
     /// body's room by the rule of `LiveRooms::of`, so a body and its effect
-    /// agree on the room.
+    /// agree on the room. `None` is an unroomed row; see [`VfxInRoom`]. There
+    /// is no writer without a room argument, so a producer cannot write an
+    /// unroomed row by omission.
     pub fn write_in(&mut self, room: Option<LiveRoomInstance>, vfx: VfxMessage) {
         self.messages.write(VfxInRoom { room, vfx });
     }

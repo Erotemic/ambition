@@ -674,21 +674,26 @@ const VICTORY_MUSIC_OWNER: &str = "mary_o_flag";
 /// The track is authorized by Mary-O's audio fragment
 /// ([`crate::provider::MARY_O_VICTORY_MUSIC_TRACK`]); under provider-relative
 /// playback an undeclared id is gated to silence however loudly it is requested.
+///
+/// The claim is in the live room of the flag sequence.
 pub fn play_victory_music(
-    sequences: Query<&FlagSequence>,
+    sequences: Query<(Entity, &FlagSequence)>,
+    live: ambition_platformer2d::platformer::lifecycle::LiveRooms,
     music: Option<
         ambition_platformer2d::platformer::lifecycle::SessionWorldMut<
             ambition_platformer2d::encounter::EncounterMusicRequest,
         >,
     >,
 ) {
-    let (Ok(sequence), Some(mut music)) = (sequences.single(), music) else {
+    let (Ok((entity, sequence)), Some(mut music)) = (sequences.single(), music) else {
         return;
     };
+    let room = live.of(entity);
     if matches!(sequence.phase, FlagPhase::Idle) {
-        music.release_priority(VICTORY_MUSIC_OWNER);
+        music.release_priority(room, VICTORY_MUSIC_OWNER);
     } else {
         music.claim_priority(
+            room,
             VICTORY_MUSIC_OWNER,
             crate::provider::MARY_O_VICTORY_MUSIC_TRACK,
         );

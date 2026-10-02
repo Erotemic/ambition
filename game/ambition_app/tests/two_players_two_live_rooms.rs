@@ -650,7 +650,7 @@ fn a_crossing_is_the_participant_it_was_accepted_for_when_it_joins_a_room() {
 #[cfg(feature = "rl_sim")]
 #[test]
 fn a_boss_in_one_of_two_live_rooms_fights_and_drops_its_chest_in_its_own_room() {
-    use crate::boss_lifecycle::{boss_cleared, force_kill_boss, music_track, spawn_mockingbird, MOCKINGBIRD_TRACK};
+    use crate::boss_lifecycle::{boss_cleared, force_kill_boss, music_track_in, spawn_mockingbird, MOCKINGBIRD_TRACK};
     const BOSS: &str = "ow1_boss";
     let (mut sim, first) = alice_leaves_bob(Some(ambition_platformer2d::characters::control::PlayerSlot(1)));
     let second = first.next();
@@ -671,9 +671,10 @@ fn a_boss_in_one_of_two_live_rooms_fights_and_drops_its_chest_in_its_own_room() 
         sim.step(base());
     }
     assert_eq!(
-        music_track(&sim).as_deref(),
-        Some(MOCKINGBIRD_TRACK),
-        "the boss in #1 did not wake while two rooms are live"
+        (music_track_in(&sim, Some(first)).as_deref(), music_track_in(&sim, Some(second)).as_deref()),
+        (None, Some(MOCKINGBIRD_TRACK)),
+        "(the fight music of #0, of #1): the boss in #1 did not wake while two rooms are live, \
+         or its music was claimed in the other room"
     );
     force_kill_boss(&mut sim, BOSS);
     for _ in 0..200 {
@@ -688,7 +689,7 @@ fn a_boss_in_one_of_two_live_rooms_fights_and_drops_its_chest_in_its_own_room() 
             .collect()
     };
     assert_eq!(
-        (boss_cleared(&sim, BOSS), chests, music_track(&sim)),
+        (boss_cleared(&sim, BOSS), chests, music_track_in(&sim, Some(second))),
         (true, vec![Some(second)], None),
         "the boss in #1 was not recorded cleared with one chest in its own room and its music released"
     );
@@ -1017,10 +1018,11 @@ fn the_cut_rope_fight_runs_in_its_own_live_room() {
 
 /// The cut-rope boss's music claim is released while no live room is its
 /// room, and kept while one is. A claim under the boss's owner name is put on
-/// the session's music request, and the release system runs one time, alone.
+/// the music of each live room, and the release system runs one time, alone.
 /// With two live rooms that are not the arena (`switch_lab` and the hub), the
-/// claim is released. With two live rooms of which one is the arena (the hall
-/// and the arena), the claim is kept. The first fixture then runs 5 ticks
+/// claim is released in both. With two live rooms of which one is the arena
+/// (the hall and the arena), the claim is kept in the arena and released in
+/// the hall. The first fixture then runs 5 ticks
 /// with a new claim, which shows that the scheduled system does the same.
 /// When the release read the sole live room, it did not run while two rooms
 /// were live, so a claim left behind was kept for as long as two rooms were
@@ -1037,17 +1039,26 @@ fn the_cut_rope_music_claim_is_released_when_no_live_room_is_its_room() {
     use bevy::ecs::system::RunSystemOnce;
     const TRACK: &str = "ow_probe_track";
     fn claim(sim: &mut Platformer2dSimHarness) {
-        ambition_platformer2d::platformer::lifecycle::session_world_component_mut::<EncounterMusicRequest>(
+        let rooms = live_rooms(sim);
+        let mut music = ambition_platformer2d::platformer::lifecycle::session_world_component_mut::<EncounterMusicRequest>(
             sim.world_mut(),
         )
-        .expect("the session has a music request")
-        .claim_priority(CUT_ROPE_MUSIC_OWNER, TRACK);
+        .expect("the session has a music request");
+        for (room, _) in rooms {
+            music.claim_priority(Some(room), CUT_ROPE_MUSIC_OWNER, TRACK);
+        }
     }
-    fn claimed(sim: &Platformer2dSimHarness) -> Option<String> {
-        ambition_platformer2d::platformer::lifecycle::session_world_component::<EncounterMusicRequest>(sim.world())
-            .expect("the session has a music request")
-            .priority_track()
-            .map(str::to_string)
+    /// Each live room by its authored id, and whether it keeps the claim.
+    fn claimed(sim: &mut Platformer2dSimHarness) -> Vec<(String, bool)> {
+        let rooms = live_rooms(sim);
+        let music = ambition_platformer2d::platformer::lifecycle::session_world_component::<EncounterMusicRequest>(sim.world())
+            .expect("the session has a music request");
+        let mut claimed: Vec<_> = rooms
+            .into_iter()
+            .map(|(room, id)| (id, music.priority_track(Some(room)) == Some(TRACK)))
+            .collect();
+        claimed.sort();
+        claimed
     }
     let claim_after_one_release = |sim: &mut Platformer2dSimHarness| {
         assert_eq!(live_rooms(sim).len(), 2, "precondition: two rooms are live");
@@ -1067,8 +1078,12 @@ fn the_cut_rope_music_claim_is_released_when_no_live_room_is_its_room() {
         elsewhere.step(base());
     }
     assert_eq!(
-        (released_elsewhere, claimed(&elsewhere), kept_beside_the_arena),
-        (None, None, Some(TRACK.to_string())),
+        (released_elsewhere, claimed(&mut elsewhere), kept_beside_the_arena),
+        (
+            vec![(HUB.to_string(), false), (ROOM.to_string(), false)],
+            vec![(HUB.to_string(), false), (ROOM.to_string(), false)],
+            vec![("hall_of_bosses".to_string(), false), ("you_have_to_cut_the_rope".to_string(), true)],
+        ),
         "(the claim after one release with no live arena, the same after 5 ticks, the claim after one \
          release with the arena live beside the hall)"
     );

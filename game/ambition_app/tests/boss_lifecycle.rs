@@ -241,12 +241,25 @@ fn ground_item_specs(world: &mut World) -> Vec<String> {
     q.iter(world).map(|item| item.spec.id.to_string()).collect()
 }
 
+/// The fight's claim on the music of the one live room.
 pub(crate) fn music_track(sim: &Platformer2dSimHarness) -> Option<String> {
+    let room = ambition_platformer2d::platformer::lifecycle::sole_live_room_component::<
+        ambition_platformer2d::platformer::lifecycle::LiveRoomInstance,
+    >(sim.world())
+    .copied();
+    music_track_in(sim, room)
+}
+
+/// The fight's claim on the music of live room `room`.
+pub(crate) fn music_track_in(
+    sim: &Platformer2dSimHarness,
+    room: Option<ambition_platformer2d::platformer::lifecycle::LiveRoomInstance>,
+) -> Option<String> {
     ambition_platformer2d::platformer::lifecycle::session_world_component::<EncounterMusicRequest>(
         sim.world(),
     )
     .expect("live encounter-music request")
-    .priority_track()
+    .priority_track(room)
     .map(str::to_owned)
 }
 

@@ -39,6 +39,7 @@ A session holds one or more **live rooms**. Each live room is one entity.
 | The rule "which room is this entity in" | `LiveRooms::of` (its stamp, else the sole live room); `live_room_of` for identity (its stamp only) |
 | Per-room reads | `LiveRoomOf<T>`, `LiveRoomSpecs` (`definition_in`, `left_by`), `CollisionWorld::room(..)`, `RulesOf<T>` |
 | Ambient gravity | `BaseGravity`: the turned live rooms only, keyed by `Option<LiveRoomInstance>`. A switch turns its own room; a body reads its own room's (else the sole room's); a replay forgets its room; a crossing that leaves a room standing forgets the room left when it retires. Gravity and force zones carry their room too (`zone_acts_in`) |
+| Music | `EncounterMusicRequest` keeps its two tiers per live room: a boss, a script, a wave, the cut-rope intro and Mary-O's beats claim the tier of their own room. `compute_music_intent` plays for `PrimaryLiveRoom` (the primary body's room, else the sole room; Q150 (a)): that room's music and its fight. The developer's gravity cycle turns the same room |
 | The one-live-room read (named debt) | `SoleLiveRoom<T>`, `SoleLiveRoomSpec`, `RoomOverlays::sole()` (`SoleLiveRoomMut` is deleted) |
 
 `InRoomInstance` is a value, not an `Entity`, so it snapshots without entity
@@ -223,7 +224,7 @@ per-room rollback clocks are not part of this plan.
 
 | Item | Work | Acceptance |
 | --- | --- | --- |
-| Sole-room readers | Key the remaining `SoleLiveRoom*` readers by subject: music intent, governing rules fallback, checkpoint, trail render, match activation, LDtk systems, map UI, physics debris, debug overlays, `features.rs` | Each runs per room while two rooms are live; one-room control unchanged. `check_alias_census_agrees_with_source.py` holds the count |
+| Sole-room readers | Key the remaining `SoleLiveRoom*` readers by subject: governing rules fallback, checkpoint, trail render, match activation, LDtk systems, map UI, physics debris, debug overlays, `features.rs` | Each runs per room while two rooms are live; one-room control unchanged. `check_alias_census_agrees_with_source.py` holds the count |
 | Remaining one-room state | `BrokenBricks` and `SpentMonitors` are keyed by block name with no room and write `RoomOverlays::sole()`. `mary_o_setup` and `sanic_setup` run at `Startup` with one room | Each runs or is keyed per room while two rooms are live |
 | `PlayerMark` | A mark records a position with no room, and a crossing does not clear it | Decide: a crossing clears a mark, or a mark carries its room |
 | Replay reset effect | A replay writes its reset effect for the room it replays, then replaces that room on the next tick. Whether the effect retires with the old room is not measured | A witness that the effect retires with its room |

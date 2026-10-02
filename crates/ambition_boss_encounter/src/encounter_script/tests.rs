@@ -309,13 +309,13 @@ fn a_scripts_music_claim_does_not_outlive_the_script() {
     // What a `SetMusic(Some(..))` beat leaves behind.
     session_world_component_mut::<EncounterMusicRequest>(app.world_mut())
         .expect("the fixture inserts one")
-        .claim_priority(super::SCRIPT_MUSIC_OWNER, "smirking_behemoth_intro");
+        .claim_priority(None, super::SCRIPT_MUSIC_OWNER, "smirking_behemoth_intro");
 
     app.update();
     assert_eq!(
         session_world_component_mut::<EncounterMusicRequest>(app.world_mut())
             .expect("present")
-            .desired_track(),
+            .desired_track(None),
         Some("smirking_behemoth_intro"),
         "premise: a LIVE script keeps its music claim"
     );
@@ -326,7 +326,7 @@ fn a_scripts_music_claim_does_not_outlive_the_script() {
     assert_eq!(
         session_world_component_mut::<EncounterMusicRequest>(app.world_mut())
             .expect("present")
-            .desired_track(),
+            .desired_track(None),
         None,
         "the script is gone but its claim still wins, so its track beats room \
          music in every room the player visits"

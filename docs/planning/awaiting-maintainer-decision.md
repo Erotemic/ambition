@@ -264,8 +264,12 @@ player in a separate room has a view of their own, and every world drawable is
 drawn in its own room (V1-V5 in
 [open-world runtime and residency](engine/open-world-runtime-and-residency.md)).
 Three surfaces are still one per session: the gameplay HUD (`PlayerHudFacts`),
-the gameplay banner (`GameplayBanner`), and the music claims (there is one audio
-output).
+the gameplay banner (`GameplayBanner`), and the music (there is one audio
+output). Since 2026-10-02 the music does follow the primary seat: each live
+room keeps its own fight claims, and the music intent plays the primary
+seat's room (`PrimaryLiveRoom`). Before, the intent did not run while two
+rooms were live, and any room's fight took the one claim. Options (b) and (c)
+can build on the per-room claims.
 
 This blocks only the last ◐ of the "separate from another participant" row in
 [`game/open-world-roadmap.md`](game/open-world-roadmap.md).

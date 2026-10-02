@@ -121,5 +121,5 @@ fn session_scope_for_test() -> ambition_platformer2d::platformer::lifecycle::Ses
 fn requested(app: &App, root: bevy::prelude::Entity) -> Option<String> {
     app.world()
         .get::<ambition_platformer2d::encounter::EncounterMusicRequest>(root)
-        .and_then(|music| music.priority_track().map(str::to_owned))
+        .and_then(|music| music.priority_track(None).map(str::to_owned))
 }

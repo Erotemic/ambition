@@ -191,6 +191,8 @@ pub fn reset_cut_rope_boss_attempt(
     registry: &BossEncounterRegistry,
     save: Option<&mut ambition_persistence::save::AmbitionGameSave>,
     music_request: Option<&mut ambition_encounter::EncounterMusicRequest>,
+    // The live room replayed: the intro is claimed in its music only.
+    room: Option<ambition_platformer2d::platformer::lifecycle::LiveRoomInstance>,
     placement_ids: &[String],
 ) {
     let intro_track = registry
@@ -214,13 +216,13 @@ pub fn reset_cut_rope_boss_attempt(
     }
     if let Some(music) = music_request {
         match intro_track.filter(|track| !track.is_empty()) {
-            Some(track) => music.claim_priority(CUT_ROPE_MUSIC_OWNER, track),
-            None => music.release_priority(CUT_ROPE_MUSIC_OWNER),
+            Some(track) => music.claim_priority(room, CUT_ROPE_MUSIC_OWNER, track),
+            None => music.release_priority(room, CUT_ROPE_MUSIC_OWNER),
         }
     }
 }
 
-/// Release the cut-rope boss's music claim once the player is not in its room.
+/// Release the cut-rope boss's music claim in each room that is not its arena.
 ///
 /// `reset_cut_rope_boss_attempt` claims `CUT_ROPE_MUSIC_OWNER` for the intro
 /// track on an admitted room replay, which is what a death is. Its only
@@ -236,7 +238,7 @@ pub fn reset_cut_rope_boss_attempt(
 /// It releases only its own claim (`release_priority` is owner-checked), so a
 /// conversation, a demo death cue or the generic boss owner keep theirs.
 pub fn release_cut_rope_music_outside_its_room(
-    // Every live room: the claim stays while one of them is the boss's room.
+    // Every live room: the claim stays in each live room that is the boss's.
     rooms: ambition_platformer2d::world::rooms::LiveRoomSpecs,
     music: Option<
         ambition_platformer2d::platformer::lifecycle::SessionWorldMut<
@@ -247,13 +249,11 @@ pub fn release_cut_rope_music_outside_its_room(
     let Some(mut music) = music else {
         return;
     };
-    if rooms
-        .live_definitions()
-        .any(|definition| rooms.rooms().spec(definition).id == CUT_ROPE_ROOM_ID)
-    {
-        return;
-    }
-    music.release_priority(CUT_ROPE_MUSIC_OWNER);
+    music.release_priority_where(CUT_ROPE_MUSIC_OWNER, |room| {
+        rooms
+            .definition_named(room)
+            .is_none_or(|definition| rooms.rooms().spec(definition).id != CUT_ROPE_ROOM_ID)
+    });
 }
 
 /// On an admitted replay of the cut-rope room, reset the fight's per-attempt
@@ -315,6 +315,7 @@ pub fn reset_cut_rope_attempt_on_replay(
             // `Single<&mut T>` derefs to `Mut<T>`; peel the extra
             // change-detection layer to `&mut T`.
             music.as_deref_mut().map(|m| &mut **m),
+            replayed,
             &placements,
         );
     }
@@ -422,9 +423,9 @@ mod tests {
     #[test]
     fn the_boss_music_claim_does_not_follow_the_player_out_of_the_room() {
         let mut music = ambition_encounter::EncounterMusicRequest::default();
-        music.claim_priority(CUT_ROPE_MUSIC_OWNER, "smirking_behemoth_intro");
+        music.claim_priority(None, CUT_ROPE_MUSIC_OWNER, "smirking_behemoth_intro");
         assert_eq!(
-            music.desired_track(),
+            music.desired_track(None),
             Some("smirking_behemoth_intro"),
             "premise: the claim is what makes the boss track win"
         );
@@ -436,9 +437,9 @@ mod tests {
         // the release is owner-scoped). The room predicate of
         // `release_cut_rope_music_outside_its_room` has its witness in the app:
         // `the_cut_rope_music_claim_is_released_when_no_live_room_is_its_room`.
-        music.release_priority(CUT_ROPE_MUSIC_OWNER);
+        music.release_priority(None, CUT_ROPE_MUSIC_OWNER);
         assert_eq!(
-            music.desired_track(),
+            music.desired_track(None),
             None,
             "the boss's music claim outlived its room, so it beats room music \
              everywhere the player goes"
@@ -450,10 +451,10 @@ mod tests {
     #[test]
     fn releasing_the_cut_rope_claim_does_not_silence_another_owner() {
         let mut music = ambition_encounter::EncounterMusicRequest::default();
-        music.claim_priority("some_other_fight", "another_track");
-        music.release_priority(CUT_ROPE_MUSIC_OWNER);
+        music.claim_priority(None, "some_other_fight", "another_track");
+        music.release_priority(None, CUT_ROPE_MUSIC_OWNER);
         assert_eq!(
-            music.desired_track(),
+            music.desired_track(None),
             Some("another_track"),
             "leaving the cut-rope room cancelled a claim it does not own"
         );

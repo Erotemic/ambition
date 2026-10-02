@@ -129,7 +129,12 @@ pub fn update_boss_encounters(
     // (placement_id, archetype_id, spawn): "cleared" and rewards are keyed by
     // placement. The music is still one track for the session: a view per
     // player is P5.
-    let mut active_music_track: Option<String> = None;
+    // The active fight's track of each live room: a boss claims the music of
+    // the room it fights in (customer 2).
+    let mut active_music_tracks: std::collections::BTreeMap<
+        Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+        String,
+    > = std::collections::BTreeMap::new();
     let mut boss_anchors: std::collections::BTreeMap<
         ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
         Vec<crate::BossRewardAnchor>,
@@ -301,11 +306,11 @@ pub fn update_boss_encounters(
         // (placement_id, archetype_id, spawn): the reward sync keys the chest
         // and looted flag by placement and resolves the DropChest reward via
         // the archetype profile.
-        if active_music_track.is_none() {
-            if let Some(track) = phase_music_track(&spec, phase) {
-                if !track.is_empty() {
-                    active_music_track = Some(track.to_string());
-                }
+        if let Some(track) = phase_music_track(&spec, phase) {
+            if !track.is_empty() {
+                active_music_tracks
+                    .entry(rooms.live().of(boss_entity))
+                    .or_insert_with(|| track.to_string());
             }
         }
         // A boss in no live room drops nothing: no room is simulated there.
@@ -318,8 +323,8 @@ pub fn update_boss_encounters(
         }
     }
 
-    // Music-request lifetime: keep the active boss's track up; clear it when
-    // no boss is in an active-fight phase (defeated, or the player left the
+    // Music-request lifetime: keep each room's active boss track up; clear it
+    // in each room where no boss is in an active-fight phase (defeated, or the player left the
     // room), so room music resumes. Guarded by
     // `boss_music_plays_during_the_fight` and
     // `defeated_boss_is_recorded_cleared_drops_reward_and_clears_music`.
@@ -327,9 +332,11 @@ pub fn update_boss_encounters(
     // Release only this system's own claim. It has no run condition, so the
     // "no boss is fighting" arm runs every frame of every game; clearing the
     // whole tier would silence every other music claimant.
-    match active_music_track {
-        Some(track) => music_request.claim_priority(BOSS_MUSIC_OWNER, track),
-        None => music_request.release_priority(BOSS_MUSIC_OWNER),
+    music_request.release_priority_where(BOSS_MUSIC_OWNER, |room| {
+        !active_music_tracks.contains_key(&room)
+    });
+    for (room, track) in active_music_tracks {
+        music_request.claim_priority(room, BOSS_MUSIC_OWNER, track);
     }
 
     // Each live room's chests, in that room and on its floor.

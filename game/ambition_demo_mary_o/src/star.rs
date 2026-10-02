@@ -110,8 +110,11 @@ pub fn end_star_power_at_victory(
 /// The star's theme, on the same priority-music seam the death and victory
 /// beats use — claimed while it burns, released when it ends, so the level theme
 /// returns on its own with no restore bookkeeping here.
+///
+/// The claim is in the live room of each empowered body.
 pub fn play_star_music(
-    stars: Query<&Empowered>,
+    stars: Query<Entity, With<Empowered>>,
+    live: ambition_platformer2d::platformer::lifecycle::LiveRooms,
     music: Option<
         ambition_platformer2d::platformer::lifecycle::SessionWorldMut<
             ambition_platformer2d::encounter::EncounterMusicRequest,
@@ -121,10 +124,10 @@ pub fn play_star_music(
     let Some(mut music) = music else {
         return;
     };
-    if stars.iter().next().is_some() {
-        music.claim_priority(STAR_MUSIC_OWNER, crate::provider::MARY_O_STAR_MUSIC_TRACK);
-    } else {
-        music.release_priority(STAR_MUSIC_OWNER);
+    let rooms: Vec<_> = stars.iter().map(|body| live.of(body)).collect();
+    music.release_priority_where(STAR_MUSIC_OWNER, |room| !rooms.contains(&room));
+    for room in rooms {
+        music.claim_priority(room, STAR_MUSIC_OWNER, crate::provider::MARY_O_STAR_MUSIC_TRACK);
     }
 }
 

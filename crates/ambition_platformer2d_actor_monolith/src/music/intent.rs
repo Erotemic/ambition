@@ -56,7 +56,13 @@ pub fn compute_music_intent(
     encounter_music: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
         EncounterMusicRequest,
     >,
-    rooms: ambition_platformer2d_world::rooms::SoleLiveRoomSpec,
+    // ⭐ THE MUSIC PLAYS FOR THE PRIMARY SEAT'S ROOM (Q150 (a)). There is one
+    // audio output, so with two live rooms the session hears the room of the
+    // primary seat's body: its room music and its fights. This read was the
+    // sole live room, so while two rooms were live this system did not run
+    // and the music froze.
+    rooms: ambition_platformer2d_world::rooms::LiveRoomSpecs,
+    heard: ambition_platformer2d_shared_tangle::lifecycle::PrimaryLiveRoom,
     narrative_music: Option<Res<ambition_conversation::NarrativeMusicRequest>>,
     radio: Option<Res<RadioStationState>>,
     audio_selection: Res<ActiveAudioSelection>,
@@ -79,14 +85,20 @@ pub fn compute_music_intent(
         _ => None,
     };
 
-    let room = &rooms.spec().metadata;
+    let heard = heard.get();
+    // No live room to hear: the music stays as it is, as it did when this
+    // read could not run.
+    let Some(definition) = rooms.definition_named(heard) else {
+        return;
+    };
+    let room = &rooms.rooms().spec(definition).metadata;
     let candidates = simple_track_candidates(
         room.music_track.as_deref(),
         room.fight_music_track.as_deref(),
         narrative_music.as_deref(),
         radio.as_deref(),
         &audio_selection,
-        &encounter_music,
+        encounter_music.desired_track(heard),
     );
 
     intent.provider_id = audio_selection.provider_id().map(str::to_owned);
@@ -118,10 +130,11 @@ pub(super) fn simple_track_candidates(
     narrative_music: Option<&ambition_conversation::NarrativeMusicRequest>,
     radio: Option<&RadioStationState>,
     audio_selection: &ActiveAudioSelection,
-    encounter_music: &EncounterMusicRequest,
+    // The fight track of the room the music plays for, if a fight is on.
+    encounter_track: Option<&str>,
 ) -> Vec<String> {
     let mut candidates = Vec::new();
-    if let Some(track) = encounter_music.desired_track() {
+    if let Some(track) = encounter_track {
         // A fight is on. The room says what its fights sound like, before the
         // boss or wave does.
         if let Some(room_fight) = room_fight_track {

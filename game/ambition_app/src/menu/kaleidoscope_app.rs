@@ -601,7 +601,7 @@ pub(crate) struct SystemMenuParams<'w, 's> {
     // Read-only, for the row's direction label: the ambient of the room the
     // cycle turns.
     base_gravity: Option<Res<'w, ambition_platformer2d::world::BaseGravity>>,
-    gravity_room: ambition_platformer2d::world::DeveloperGravityRoom<'w, 's>,
+    gravity_room: ambition_platformer2d::session::PrimaryLiveRoom<'w, 's>,
     // New Game is a host intent: the simulation arms its reset on the tick
     // the ledger stamps, so a rewind cannot erase the press.
     reset: ambition_platformer2d::actors::session::host_intents::HostIntentWriter<
@@ -852,7 +852,7 @@ pub(crate) struct SystemMenuSnapshotParams<'w, 's> {
         Res<'w, ambition_platformer2d::portal_presentation::PortalCameraContinuitySelection>,
     >,
     base_gravity: Option<Res<'w, ambition_platformer2d::world::BaseGravity>>,
-    gravity_room: ambition_platformer2d::world::DeveloperGravityRoom<'w, 's>,
+    gravity_room: ambition_platformer2d::session::PrimaryLiveRoom<'w, 's>,
     #[cfg(feature = "audio")]
     library: Option<Res<'w, ambition_platformer2d::audio::library::AudioLibrary>>,
     #[cfg(feature = "audio")]

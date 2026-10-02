@@ -555,10 +555,13 @@ pub fn apply_wave_encounter_effects(
     // The staging-policy view (E12): lifecycle + authored presentation
     // effects, with no wave requirement — any encounter kind stages alike.
     staged: Query<(
+        Entity,
         &EncounterLifecycle,
         Option<&ambition_encounter::EncounterCameraZoom>,
         Option<&ambition_encounter::EncounterTrack>,
     )>,
+    // The live room of each staged encounter, whose music it asks for.
+    live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
 ) {
     // ⭐ THIS ADAPTER NO LONGER SPAWNS ANYTHING. The reward-chest sync it used to
     // call was its only spawner; reward chests are the feature layer's now, and
@@ -604,21 +607,21 @@ pub fn apply_wave_encounter_effects(
     // Jon 2026-09-06: "the music changes in a way I was not expecting and
     // seems to get into some sort of stuck state."
 
-    // Music: pick the first encounter currently in flight with an authored
-    // track and request it (the base-priority source of the shared
-    // `EncounterMusicRequest`); otherwise clear it. Generic over the
+    // Music: in each live room, pick the first encounter currently in flight
+    // with an authored track and request it (the base-priority source of the
+    // shared `EncounterMusicRequest`); a room with none gets none. Generic over the
     // lifecycle + staging policy (E12). Writing the base source every frame —
     // including `None` — is safe: `desired_track()` ranks `priority_track`
     // above `base_track`, so this can't clobber a concurrent focused fight's
     // music.
-    let active_track = staged.iter().find_map(|(lifecycle, _, track)| {
+    let active_tracks = staged.iter().filter_map(|(occurrence, lifecycle, _, track)| {
         if lifecycle.phase().in_flight() {
-            track.map(|t| t.0.clone())
+            track.map(|t| (live.of(occurrence), t.0.clone()))
         } else {
             None
         }
     });
-    music_request.set_base_track(active_track);
+    music_request.set_base_tracks(active_tracks);
 
     if player_body_q.is_empty() {
         return;
@@ -658,7 +661,7 @@ pub fn apply_wave_encounter_effects(
     encounter_view.camera_zoom = ambition_encounter::active_encounter_camera_zoom(
         staged
             .iter()
-            .filter_map(|(lifecycle, zoom, _)| zoom.map(|z| (lifecycle.phase(), z.0))),
+            .filter_map(|(_, lifecycle, zoom, _)| zoom.map(|z| (lifecycle.phase(), z.0))),
     );
 
     // Project the lifecycle to the save (Completed/Failed survive, in-flight

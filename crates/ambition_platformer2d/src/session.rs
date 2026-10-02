@@ -42,3 +42,6 @@ pub use ambition_platformer2d_shared_tangle::lifecycle::{
     insert_live_room_component, sole_live_room_component, sole_live_room_component_mut,
     RoomInstanceRoot, SoleLiveRoom,
 };
+/// The primary seat's live room: what one audio output and one developer
+/// control serve while two rooms are live (Q150).
+pub use ambition_platformer2d_shared_tangle::lifecycle::PrimaryLiveRoom;

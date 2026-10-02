@@ -181,37 +181,18 @@ pub enum AmbientGravityRequest {
 /// copies the ambient into each body's frame, so a request made this frame is
 /// felt this tick. Two requests in one tick cycle twice, in write order.
 ///
-/// The developer turns the [`DeveloperGravityRoom`].
+/// The developer turns the primary seat's room, which is the room the
+/// developer looks at ([`crate::lifecycle::PrimaryLiveRoom`]).
 pub fn apply_ambient_gravity_requests(
     mut requests: MessageReader<AmbientGravityRequest>,
     mut base: ResMut<BaseGravity>,
-    developer: DeveloperGravityRoom,
+    developer: crate::lifecycle::PrimaryLiveRoom,
 ) {
     let room = developer.get();
     for request in requests.read() {
         match request {
             AmbientGravityRequest::Cycle => base.cycle(room),
         }
-    }
-}
-
-/// The live room the developer's gravity controls turn and label: the room of
-/// the primary body, which is the room the developer looks at. With no primary
-/// body, the sole live room. The sim's applier and the menu's label both ask
-/// here, so the label names the room the cycle turns.
-#[derive(SystemParam)]
-pub struct DeveloperGravityRoom<'w, 's> {
-    live: crate::lifecycle::LiveRooms<'w, 's>,
-    primary: Query<'w, 's, Entity, With<crate::body::PrimaryBody>>,
-}
-
-impl DeveloperGravityRoom<'_, '_> {
-    pub fn get(&self) -> Option<crate::lifecycle::LiveRoomInstance> {
-        self.primary
-            .single()
-            .ok()
-            .and_then(|body| self.live.of(body))
-            .or_else(|| self.live.sole())
     }
 }
 

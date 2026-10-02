@@ -18,13 +18,44 @@
 //! (`actor_spawn_center_for_collision`), and the feet do not depend on the
 //! size the character is built at.
 //!
-//! Only a persistent character is recorded: a body whose respawn policy is
-//! `DeadStaysDead` (an NPC placement always is, `NPC_PLACEMENT_RESPAWN`). A
-//! respawning population occurrence stays where it is carried while it lives
-//! and comes back from its authored room when its room retires, which is what
-//! having no row does.
+//! Only a persistent character that a room can build again somewhere else is
+//! recorded: a `DeadStaysDead` NPC placement (an NPC placement always is,
+//! `NPC_PLACEMENT_RESPAWN`). A respawning population occurrence stays where it
+//! is carried while it lives and comes back from its authored room when its
+//! room retires, which is what having no row does. A persistent enemy has no
+//! row yet either, so it does the same.
 
 use bevy::prelude::*;
+
+/// Does this body keep durable whereabouts: a `DeadStaysDead` body that a
+/// room can build again somewhere else? Today that is an authored PLACEMENT
+/// record (an NPC), which the room it lies in plans through its home room's
+/// lowering.
+///
+/// One rule for both producers here. A body that this says `true` for gets a
+/// `Placed` row from [`record_placed_bodies`]; every other authored body that
+/// lives away from home is held as carried by
+/// [`record_bodies_away_from_home`]. A persistent enemy or boss has no row,
+/// so it is held as carried like a population body while it lives, and its
+/// home builds it when its room retires.
+fn keeps_durable_whereabouts(
+    room_set: &ambition_platformer2d_world::rooms::LiveRoomSpecs,
+    config: &ambition_combat::actor_tuning::ActorConfig,
+    origin: Option<&ambition_platformer2d_shared_tangle::construction::SpawnOrigin>,
+) -> bool {
+    if config.tuning.respawn != ambition_entity_catalog::placements::RespawnPolicy::DeadStaysDead {
+        return false;
+    }
+    match origin {
+        Some(ambition_platformer2d_shared_tangle::construction::SpawnOrigin::Authored { source, instance }) => room_set
+            .rooms()
+            .rooms
+            .iter()
+            .find(|home| &home.id == source)
+            .is_some_and(|home| home.placements.iter().any(|record| record.id.as_str() == instance)),
+        _ => false,
+    }
+}
 
 /// A body's row is written again only when it changes rooms or moves this far
 /// from the recorded point. A roaming character would otherwise rewrite the
@@ -73,7 +104,7 @@ pub fn record_placed_bodies(
         std::collections::BTreeMap<ambition_platformer2d_shared_tangle::sim_id::SimId, ambition_platformer2d_core::Vec2>,
     > = std::collections::BTreeMap::new();
     for (entity, sim_id, kinematics, config, origin) in &bodies {
-        if config.tuning.respawn != ambition_entity_catalog::placements::RespawnPolicy::DeadStaysDead {
+        if !keeps_durable_whereabouts(&room_set, config, origin) {
             continue;
         }
         let Some(definition) = room_set.definition_of(entity) else {
@@ -91,21 +122,9 @@ pub fn record_placed_bodies(
             }
             None | Some(OccurrenceWhereabouts::Consumed) => false,
         };
-        // Only a body a room can build again somewhere else gets a row: an
-        // authored PLACEMENT record (an NPC), which the room it lies in plans
-        // through its home room's lowering. A row for any other family would
-        // suppress the body at home and build it nowhere, so a persistent
-        // enemy or boss keeps going home until its family is reinstatable.
-        let reinstatable = || match origin {
-            Some(ambition_platformer2d_shared_tangle::construction::SpawnOrigin::Authored { source, instance }) => room_set
-                .rooms()
-                .rooms
-                .iter()
-                .find(|home| &home.id == source)
-                .is_some_and(|home| home.placements.iter().any(|record| record.id.as_str() == instance)),
-            _ => false,
-        };
-        if write && reinstatable() {
+        // A row for a family no room can build elsewhere would suppress the
+        // body at home and build it nowhere (`keeps_durable_whereabouts`).
+        if write {
             rooms.entry(room.clone()).or_default().insert(sim_id.clone(), feet);
         }
     }
@@ -118,8 +137,9 @@ pub fn record_placed_bodies(
     }
 }
 
-/// The authored population bodies that live in a live room other than the
-/// room that authored them, for the custody projection (Q38).
+/// The authored bodies with no durable whereabouts (the population, and a
+/// persistent enemy) that live in a live room other than the room that
+/// authored them, for the custody projection (Q38).
 ///
 /// A respawning occurrence carried into another room and let go there has no
 /// durable row (it is not a persistent character), so without this its home
@@ -134,8 +154,9 @@ pub fn record_placed_bodies(
 /// is released for that preparation by [`CustodyEndingAtCommit`], not here.
 ///
 /// Written every tick from rollback state, before its one reader. A body in
-/// custody is already carried, and a persistent character has a durable row
-/// instead.
+/// custody is already carried, and a body with durable whereabouts
+/// ([`keeps_durable_whereabouts`]) has a row instead. A persistent body with
+/// no row (an enemy) is in the set.
 #[allow(clippy::type_complexity)]
 pub fn record_bodies_away_from_home(
     room_set: Option<ambition_platformer2d_world::rooms::LiveRoomSpecs>,
@@ -159,7 +180,8 @@ pub fn record_bodies_away_from_home(
     let mut now = std::collections::BTreeSet::new();
     if let Some(room_set) = room_set {
         for (entity, sim_id, config, origin) in &bodies {
-            if config.tuning.respawn == ambition_entity_catalog::placements::RespawnPolicy::DeadStaysDead {
+            // A body with durable whereabouts has a row instead.
+            if keeps_durable_whereabouts(&room_set, config, Some(origin)) {
                 continue;
             }
             let ambition_platformer2d_shared_tangle::construction::SpawnOrigin::Authored { source, .. } = origin else {

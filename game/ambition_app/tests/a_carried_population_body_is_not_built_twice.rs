@@ -81,7 +81,13 @@ fn carry_through_the_door(sim: &mut Platformer2dSimHarness, body: Entity, target
 /// releases it there, with Bob's slot on Bob (`bob`) or on nobody. She then
 /// goes back to `vertical_shaft`. Returns the enemy's identity and the live
 /// bodies that carry it when she is back.
-fn carry_an_enemy_into_the_hub_and_go_back(bob: Option<PlayerSlot>) -> (SimId, Vec<Entity>, Vec<String>) {
+///
+/// `persistent` makes the enemy `DeadStaysDead` before anything happens, the
+/// policy a content pack can author for an enemy (no shipped one does).
+fn carry_an_enemy_into_the_hub_and_go_back(
+    bob: Option<PlayerSlot>,
+    persistent: bool,
+) -> (SimId, Vec<Entity>, Vec<String>) {
     let (mut sim, _hub) = alice_leaves_bob_in(HUB, HOME, bob, walk_through_the_door_to);
     sim.step_n(base(), 20);
     let (enemy, id, respawn) = {
@@ -100,6 +106,13 @@ fn carry_an_enemy_into_the_hub_and_go_back(bob: Option<PlayerSlot>) -> (SimId, V
         ambition_platformer2d::entity_catalog::placements::RespawnPolicy::DeadStaysDead,
         "premise: the enemy is a respawning population occurrence, not a persistent character"
     );
+    if persistent {
+        sim.world_mut()
+            .get_mut::<ambition_platformer2d::combat::actor_tuning::ActorConfig>(enemy)
+            .expect("the enemy has a config")
+            .tuning
+            .respawn = ambition_platformer2d::entity_catalog::placements::RespawnPolicy::DeadStaysDead;
+    }
     assert_eq!(occurrences(&mut sim, &id).len(), 1, "setup: one occurrence before anything happens");
 
     for i in 0..900 {
@@ -153,7 +166,7 @@ fn carry_an_enemy_into_the_hub_and_go_back(bob: Option<PlayerSlot>) -> (SimId, V
 /// `vertical_shaft` authors the replacement.
 #[test]
 fn a_population_body_left_in_a_room_another_player_holds_is_not_built_at_home() {
-    let (id, control, rooms) = carry_an_enemy_into_the_hub_and_go_back(None);
+    let (id, control, rooms) = carry_an_enemy_into_the_hub_and_go_back(None, false);
     assert_eq!(rooms, vec![HOME.to_string()], "control: with Bob undriven the hub retires");
     assert_eq!(
         control.len(),
@@ -161,7 +174,7 @@ fn a_population_body_left_in_a_room_another_player_holds_is_not_built_at_home() 
         "control: the hub retired with the carried enemy, and '{HOME}' authors its replacement ({id})"
     );
 
-    let (id, found, rooms) = carry_an_enemy_into_the_hub_and_go_back(Some(PlayerSlot(1)));
+    let (id, found, rooms) = carry_an_enemy_into_the_hub_and_go_back(Some(PlayerSlot(1)), false);
     assert_eq!(
         rooms,
         vec![HUB.to_string(), HOME.to_string()],
@@ -171,5 +184,30 @@ fn a_population_body_left_in_a_room_another_player_holds_is_not_built_at_home() 
         found.len(),
         1,
         "'{HOME}' authored a second body for {id} while the carried one lives in the hub Bob holds: {found:?}"
+    );
+}
+
+/// The same for a persistent (`DeadStaysDead`) enemy. A persistent body gets
+/// a durable row only when a room can build it again somewhere else (an NPC
+/// placement), so an enemy has no row; while it lives in the hub Bob holds,
+/// it must be held as carried like a population body, or its home room
+/// authors it again. The control is the same run with Bob's slot on nobody:
+/// the hub retires with the enemy, and its home authors it.
+#[test]
+fn a_persistent_enemy_left_in_a_room_another_player_holds_is_not_built_at_home() {
+    let (id, control, rooms) = carry_an_enemy_into_the_hub_and_go_back(None, true);
+    assert_eq!(rooms, vec![HOME.to_string()], "control: with Bob undriven the hub retires");
+    assert_eq!(control.len(), 1, "control: the hub retired with the carried enemy, and '{HOME}' authors {id}");
+
+    let (id, found, rooms) = carry_an_enemy_into_the_hub_and_go_back(Some(PlayerSlot(1)), true);
+    assert_eq!(
+        rooms,
+        vec![HUB.to_string(), HOME.to_string()],
+        "setup: Bob holds the hub, so both rooms are live"
+    );
+    assert_eq!(
+        found.len(),
+        1,
+        "'{HOME}' authored a second body for the persistent {id} while the carried one lives in the hub Bob holds: {found:?}"
     );
 }

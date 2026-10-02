@@ -1,199 +1,115 @@
 # Planning status
 
 This page is a short orientation snapshot. Live execution is in
-[`queue.md`](queue.md). Product rulings are in
-[`maintainer-decisions.md`](maintainer-decisions.md); unresolved choices are in
+[`queue.md`](queue.md). Rulings are in
+[`maintainer-decisions.md`](maintainer-decisions.md). Open choices are in
 [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md). Durable
-architecture belongs in the focused owner documents.
+architecture is in
+[`../architecture/engine-architecture.md`](../architecture/engine-architecture.md)
+and the focused owner documents.
 
-Do not copy detailed packet history into this file. Git history is the receipt for
-completed work. Do not copy counts from a live queue row into this page: a copy
-does not receive the corrections that the owner row gets.
+Do not copy counts or row history into this page. A copy does not get the
+corrections that the owner row gets.
 
 ## Current architecture posture
 
-Ambition is converging on **one mechanical owner plus explicit projections**.
-Bevy remains the normal implementation substrate. Custom engine mechanisms are
-reserved for semantics Bevy does not define: rollback authority, deterministic
-identity, content generations, transactional construction/publication, session
-ownership and persistence/custody.
+Ambition is converging on **one mechanical owner per fact, plus explicit
+projections**. Bevy is the normal implementation substrate. Custom engine
+mechanisms exist only for semantics Bevy does not define: rollback authority,
+deterministic identity, content generations, transactional
+construction/publication, session ownership, and persistence/custody.
 
-The current architecture map and consolidation ledger are under
-[`consolidation/`](consolidation/README.md). They are the cross-cutting reference
-for authority/lifetime duplication; focused owner documents remain authoritative
-for implementation details.
+## Converged shapes
 
-### Candidate world / last-good-world
+These are settled. Code against them; do not reopen them without a new ruling.
 
-A10 is closed. Room and session state are candidate-owned: validation precedes one
-publication switch at both scopes, and outgoing state retires only afterward. A
-verified publication also freezes the effects it owes the world outside its own
-population, so a room published inside a pending candidate session announces
-nothing to the live one until that session is admitted. There is no active A10
-lane. The row is
-[A10 in the queue](queue.md#a10--candidate-world--last-good-world-publication---done-demolition-closed-2026-09-16).
+- **One constructor, candidate publication.** Fresh session, room transition,
+  same-room replay, New Game and save restore use one construction model. A new
+  session or room is built as a hidden candidate, verified, and published at one
+  switch. A failed candidate leaves the live world unchanged. (Consolidation
+  C01, C04 and C06 are closed.)
+- **One canonical `SessionRoot`.** A candidate carries `CandidateSessionRoot`
+  until it is published (`Q132`).
+- **Several live rooms.** Each live room is a root entity; entities carry an
+  `InRoomInstance` stamp; each view draws the room it frames. Ambition has no
+  production join road for a second seat yet (`Q151`). Owner:
+  [`engine/open-world-runtime-and-residency.md`](engine/open-world-runtime-and-residency.md).
+- **Content is data, and it reloads.** Content packs compile through
+  `ambition_content_pack::compile`. A running session reads the content
+  generation it was prepared against (`SessionCast` for the cast). Duplicate
+  Rust content tables are migration scaffolding (`Q104`); registry changes use
+  explicit lifecycle semantics (`Q110`).
+- **Rollback-safe mechanical editing.** Live editors use a
+  proposal/admission/publication boundary. A new editable domain extends that
+  protocol; it does not add a second rollback road.
+- **Durable save state rewinds.** Every writer of hashed save state runs in the
+  simulation schedule. Disk I/O stays outside the simulation.
+- **Rigged sprites are on** in the shipped game. Owner:
+  [`engine/runtime-rigged-sprite-animation.md`](engine/runtime-rigged-sprite-animation.md).
 
-Consolidation gates that followed from A10:
+## Active campaigns
 
-- C03 and C06 are startable. C03 is a migration of ownership, not of fields:
-  under the `Q132` ruling there is exactly one canonical live `SessionRoot`, and
-  session-dependent mutable state must carry explicit scope rather than anonymous
-  App-global identity.
-- C05 is decided: do not start. Its authority collapse has already happened; the
-  remainder is one value's storage kind with no defect behind it.
-
-The rulings and their evidence live once, in
-[`consolidation/consolidation-plan.md`](consolidation/consolidation-plan.md) and
-[`maintainer-decisions.md`](maintainer-decisions.md).
-
-### Deterministic identity
-
-Peer-stable identity (ID-PEER) is a separate campaign. Its open roads are blocked
-outside the campaign, on maintainer rulings or on a P2P session this workspace
-does not construct:
-
-| open road | blocked on |
+| Campaign | Where it is tracked |
 | --- | --- |
-| the snapshot schema fingerprint hashing English prose | not blocked — [ruled](maintainer-decisions.md) (`Q122`): mechanical identity fingerprints mechanical facts, not explanatory prose. The naive fix is refuted in the row |
-| the unchecksummed float rows | netcode **N2** for the whole class. They carry no host-local id and are never compared. The state half is measured by two-host differing-history arms; the count is in the owner row |
-| the canonical timeline itself (absolute `SimTick`) | [Q128](awaiting-maintainer-decision.md#q128--should-the-simulation-tick-be-rebased-when-peers-agree-to-start-or-stay-an-absolute-per-app-count) — a projection excluding the tick would exclude the timeline |
+| Peer-stable identity | [ID-PEER](queue.md#id-peer--remove-host-local-lineage-from-peer-stable-mechanical-identity) (consolidation C02) |
+| One owner per mechanical fact | [AUTHORITY-POLISH](queue.md#authority-polish--one-owner-per-mechanical-fact-and-no-mirror-in-the-rollback-kernel) (C11) |
+| Session-owned App state | C03 in [`consolidation/consolidation-plan.md`](consolidation/consolidation-plan.md) — startable |
+| Composition contracts | C07 in the consolidation plan — startable |
+| Safe reload across every registry | [I2/I3](queue.md#i2i3--finish-independent-content-authoring-and-safe-reload) |
+| Truthful minimal engine profiles | A9 in the queue |
+| Persistent world | OW cuts in [`engine/open-world-runtime-and-residency.md`](engine/open-world-runtime-and-residency.md) |
 
-The per-road table, the arm that holds each closed road, and every measurement are
-in [ID-PEER](queue.md#id-peer--remove-host-local-lineage-from-peer-stable-mechanical-identity).
-This section deliberately carries no road count.
+## Ruled but not yet implemented
 
-Local lifetime/correlation identity and peer-stable mechanical identity remain a
-separate seam. `SessionScopeId`, shell activation ids, content epochs and
-monotonic counters stay valid for cleanup and stale-message rejection; none of
-them may determine authoritative RNG, deterministic construction provenance,
-rollback identity, contact/projectile identity, or a peer checksum.
+- `Q122`: mechanical identity fingerprints mechanical facts, not prose. The
+  rollback schema fingerprint still hashes the prose `detail`.
+- `Q138`: an invalidated harness must refuse or fail. The harness step does not
+  yet check rollback health.
 
-No session in this repository observes a real peer: `SyncTestSession` is the only
-one constructed. A test can compare two hosts, though:
-`the_peer_visible_surface_does_not_record_which_route_the_host_visited_first`
-builds two hosts with different route histories and compares only the
-registrations that feed the peer checksum. Defects in this seam have been found by
-reading what the pinned dependency actually hashes and by deleting fallbacks, not
-by a clean census. That is why this seam gets more review than any current test
-can justify.
-
-### Rollback-safe mechanical editing
-
-Live mechanical editors use an explicit proposal/admission/publication boundary
-rather than writing simulation authority directly. The census records six current
-editor domains. Remaining work should extend that protocol when a new mechanical
-editable domain appears; it should not create a second editor-specific rollback
-road.
-
-Mutable user preferences are distinct from admitted mechanical policy. Direct
-`UserSettings` reads have been removed from the simulation schedule. Difficulty is
-[ruled](maintainer-decisions.md) (`Q127`): no generic engine difficulty
-architecture; difficulty is game policy as presets, handicaps and CPU brain levels
-are separate concepts, and the topic is deprioritised until the default game plays
-exceptionally well.
-
-### Persistence and the peer contract
-
-The save mirrors and the dialogue visit count now run in the simulation schedule,
-so a rewind replays them; no hashed-save writer remains outside the rewind window.
-Disk I/O stays outside the simulation. The measurement and the repair live in
-[DURABLE-HORIZON-CHECKSUM](queue.md#durable-horizon-checksum--the-save-mirrors-write-hashed-state-from-update)
-and
-[ROLLBACK-BAG-DESYNC](queue.md#rollback-bag-desync--ambitiongamesave-disagrees-with-its-own-rollback-replay---repaired-2026-09-16-acceptance-met-the-authorityrepresentation-split-is-deferred-and-q129-is-open).
-
-Almost every system that writes `AmbitionGameSave` is in a rewinding schedule, so
-the save is simulation state in practice. Removing it from the checksum is
-therefore the large option, and it was refused: it would discard comparison
-coverage for real simulation state. The census is owned by `queue.md`.
-
-Open: [Q129](awaiting-maintainer-decision.md#q129--must-the-save-file-be-part-of-what-two-peers-agree-on)
-asks whether a save file should be part of what two peers agree on.
-
-Ruled (`Q138`): an invalidated harness must refuse or fail rather than silently
-produce frozen observations. `scripts/a_rollback_arm_must_refuse_a_frozen_world.py`
-runs in `--maintenance`: each sync-test arm reads a health API or states what a
-frozen world breaks in it.
-
-### Content generations and fast iteration
-
-The host can consume edited move content without a Cargo/link step. Reload has
-explicit unchanged/stale/refused/activated outcomes rather than unconditional
-generation churn. Remaining design work is to finish one prepare/admit/publish
-contract across reloadable registries and settle the permanent moveset authoring
-source. See [I2/I3](queue.md#i2i3--finish-independent-content-authoring-and-safe-reload).
-Rulings ([`maintainer-decisions.md`](maintainer-decisions.md)): content-authored
-movesets are the long-term authority and duplicate Rust tables are migration
-scaffolding (`Q104`); mechanical registry changes use explicit
-lifecycle/replacement semantics rather than a universal silent overwrite (`Q110`).
-
-### Composition and public profiles
-
-A9 remains the owner for truthful minimum engine profiles. The target is a named
-capability contract, not a crate-count budget. Current product/architecture choices
-that shape the profile are Q97, Q100, Q106 and Q108 in the decision ledger.
-
-A profile witness must step. `MinimalPlugins` leaves
-`TimeUpdateStrategy::Automatic`, and a fast run never crosses 1/60 s, so an
-unpinned probe runs zero fixed steps and only proves that the engine builds. Pin
-the step, then assert that the step happened.
+Netplay is not a goal this year. No session in this repository observes a real
+peer: `SyncTestSession` is the only one constructed. A green local rollback lane
+says nothing about two peers agreeing.
 
 ## Current execution
 
-For what is blocked, read the section *What actually blocks architecture work
-today* in [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md).
-It is derived from `queue.md`'s `**Blocked by:**` fields, its prose gates and
-every `DO NOT START BEFORE` in the consolidation plan.
-`scripts/check_blocking_set_names_every_gate.py` keeps the two in agreement.
-This page does not restate that set or its size.
+Read the rows in `queue.md` before you pick up work. In summary:
 
-The queue is intentionally compact. Its groups are listed below. This list is a
-summary; read the rows in `queue.md` before you pick up work.
+- **P0:** sync-point resimulation, peer-stable identity, the rollback mutator
+  population, settings/rollback admission, throw modifiers, the CPU duel guard,
+  A4 control/body execution, and authority polish.
+- **P1:** per-actor gates, boss replay retraction, menu over dialogue,
+  candidate generation order, content reload (I2/I3), duplicate content
+  authorities, A9 profiles, A7 item occurrences, fighter attack selection, Smash
+  parity, character authoring, dead-session refusal, the durable-horizon
+  checksum, and test lanes.
 
-- **P0:** peer-stable identity (ID-PEER; its open roads want a maintainer or a
-  P2P session), settings/rollback policy, throw modifier consistency, A2a/A2b/A2c
-  projectile geometry and contact contracts, A12 move-contact attribution and A4
-  control/body execution.
-- **P1:** content reload, A9 composition, item occurrence ownership, fighter-brain
-  selection, low-tier sprite policy, Smash parity, character authoring and
-  scenario identity. TEST-LANES holds the fails-in-company class; its instances,
-  cause and remainder are on
-  [its triage page](triage/a-composition-acceptance-that-only-fails-in-company.md).
-- **P2:** product/authoring work that has an executable owner after a maintainer
-  rule.
-- **P3:** measurements that require a particular machine, device or interactive
-  runtime.
+No open P0/P1 row is blocked on a maintainer ruling today.
+`scripts/check_blocking_set_names_every_gate.py` keeps the queue's
+`**Blocked by:**` fields and the blocking-set table in
+`awaiting-maintainer-decision.md` in agreement.
 
 If a row closes, remove it from the queue unless another open row needs a short
 receipt.
 
 ## Evidence discipline
 
-Architecture documents distinguish source facts, inferred source behavior and
-claims that require compilation/runtime verification. Do not convert a static
-observation into a runtime claim. Re-run the measurement that supports a current
-number before using it as a new baseline.
-
-The architecture census uses:
-
-- `SOURCE_CONFIRMED`
-- `SOURCE_INFERRED`
-- `DOC_CLAIM`
-- `NEEDS_COMPILED_VERIFICATION`
-- `NEEDS_RUNTIME_VERIFICATION`
-
-Counts are campaign observability, not quality budgets.
+Keep source facts, inferred behavior and runtime claims apart. Do not turn a
+static observation into a runtime claim. Re-run the measurement that supports a
+number before you use it as a new baseline. The architecture census marks each
+claim `SOURCE_CONFIRMED`, `SOURCE_INFERRED`, `DOC_CLAIM`,
+`NEEDS_COMPILED_VERIFICATION` or `NEEDS_RUNTIME_VERIFICATION`. Counts are
+campaign observability, not quality budgets.
 
 ## Planning control plane
 
-Use the planning tree according to [`README.md`](README.md):
+Use the planning tree as [`README.md`](README.md) says:
 
 - `queue.md` — executable work only;
-- `awaiting-maintainer-decision.md` — unresolved maintainer/product choices only;
-- `maintainer-decisions.md` — durable rulings;
-- focused owner documents — current authority, topology, executable work and
-  acceptance;
+- `awaiting-maintainer-decision.md` — open maintainer choices only;
+- `maintainer-decisions.md` — rulings;
+- focused owner documents — current authority, shape, open work and acceptance;
 - `tracks.md` — standing reservoir, not active execution;
-- Git history / `dev/` — investigation chronology and completed campaign history.
+- Git history and `dev/` — investigation chronology.
 
-Do not recreate archive files inside `docs/`. When a current-state document is
-superseded, delete or rewrite it and let Git preserve the old text.
+Do not create archive files inside `docs/`. When a document is superseded,
+delete or rewrite it.

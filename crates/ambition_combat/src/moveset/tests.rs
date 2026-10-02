@@ -315,6 +315,73 @@ fn move_event_dispatch_asks_for_a_paired_cosmetic_effect() {
     );
 }
 
+/// The cosmetic effect of a move is asked for in the live room of the body
+/// that moves (view half, cut V2f). Two rooms are live, and a body in each
+/// plays a move with a `Vfx` event. Each request names the room of its own
+/// body. A request that names no room is drawn in no room while two are
+/// live.
+#[test]
+fn a_moves_cosmetic_effect_is_asked_for_in_its_owners_live_room() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
+    use bevy::prelude::*;
+
+    #[derive(Resource, Default)]
+    struct Seen(Vec<(f32, Option<LiveRoomInstance>)>);
+
+    fn capture(mut requests: MessageReader<ambition_vfx::FxRequest>, mut seen: ResMut<Seen>) {
+        seen.0.extend(requests.read().map(|request| (request.pos.x, request.room)));
+    }
+
+    let mut app = App::new();
+    app.add_message::<MoveEventMessage>();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
+    app.add_message::<ambition_vfx::FxRequest>();
+    app.add_message::<ActorActionMessage>();
+    app.init_resource::<Seen>();
+    app.add_systems(Update, (dispatch_move_events, capture).chain());
+    let live = [LiveRoomInstance::ACTIVATION, LiveRoomInstance::ACTIVATION.next()];
+    for room in live {
+        app.world_mut().spawn((RoomInstanceRoot, room));
+    }
+    // One body in each room, each at its own x so a request tells its owner.
+    for (room, x) in live.into_iter().zip([100.0, 200.0]) {
+        let owner = app
+            .world_mut()
+            .spawn((
+                ae::BodyKinematics {
+                    pos: ae::Vec2::new(x, 20.0),
+                    vel: ae::Vec2::ZERO,
+                    size: ae::Vec2::new(16.0, 24.0),
+                    facing: 1.0,
+                },
+                InRoomInstance(room),
+            ))
+            .id();
+        app.world_mut()
+            .resource_mut::<Messages<MoveEventMessage>>()
+            .write(MoveEventMessage {
+                move_instance: 0,
+                world_offset: ae::Vec2::ZERO,
+                owner,
+                move_id: "smash".into(),
+                presentation_source: ambition_sfx::PresentationSourceId::unscoped(),
+                kind: MoveEventKind::Vfx {
+                    effect: "starburst".to_string(),
+                    at: (0.0, 0.0),
+                    scale: 1.0,
+                    sfx: None,
+                },
+                world_pose: ambition_vfx::FxPose::UPRIGHT,
+            });
+    }
+    app.update();
+    assert_eq!(
+        app.world().resource::<Seen>().0,
+        vec![(100.0, Some(live[0])), (200.0, Some(live[1]))],
+        "(the x of each effect request, the live room it names): each names the room of its own body"
+    );
+}
+
 #[test]
 fn authored_melee_adapter_matches_the_simple_melee_prefab() {
     // The MeleeActionSpec path and the prefab produce the same move for the

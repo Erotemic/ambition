@@ -34,10 +34,19 @@ const RECALL_SHOCKWAVE_DAMAGE: i32 = 2;
 
 /// The teleport mark a player dropped with the Mark/Recall item, if any. A
 /// component, not a resource, so each player's mark is independent.
+///
+/// ⭐ A MARK IS A PLACE IN ONE LIVE ROOM (customers 1 and 2). A position names
+/// a place only together with the room it is in. The mark keeps the live room
+/// it was dropped in, and a recall from any other room does nothing. Before,
+/// a recall after a crossing moved the body to the old coordinates in the new
+/// room's geometry, with one player too.
 #[derive(Component, Clone, Copy, Debug, Default)]
 pub struct PlayerMark {
     /// World position of the dropped mark, or `None` until one is set.
     pub pos: Option<ae::Vec2>,
+    /// The live room the mark was dropped in: the body's stamp then (`None`
+    /// for a body with no stamp).
+    pub room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
 }
 
 /// While holding the Mark/Recall item: a plain `Attack` drops or moves the
@@ -72,7 +81,8 @@ pub fn mark_recall_system(
         else {
             continue;
         };
-        let mut vfx = vfx.for_room(room.map(|stamp| stamp.0));
+        let room = room.map(|stamp| stamp.0);
+        let mut vfx = vfx.for_room(room);
         let mut clusters = cluster_item.as_clusters_mut();
         let c = control.0;
         if held.spec.id != MARK_RECALL_ID {
@@ -83,12 +93,11 @@ pub fn mark_recall_system(
         // away, so a shielded frame does not mark.
         if c.melee_pressed && !c.shield_held {
             let pos = clusters.kinematics.pos;
+            let dropped = PlayerMark { pos: Some(pos), room };
             match mark.as_deref_mut() {
-                Some(existing) => existing.pos = Some(pos),
+                Some(existing) => *existing = dropped,
                 None => {
-                    commands
-                        .entity(player)
-                        .insert(PlayerMark { pos: Some(pos) });
+                    commands.entity(player).insert(dropped);
                 }
             }
             sfx.write_for(
@@ -107,9 +116,9 @@ pub fn mark_recall_system(
             continue;
         }
 
-        // Blink recalls to the mark, if one is set.
+        // Blink recalls to the mark, if one is set in the room the body is in.
         if c.blink_pressed {
-            if let Some(target) = mark.and_then(|m| m.pos) {
+            if let Some(target) = mark.filter(|m| m.room == room).and_then(|m| m.pos) {
                 // The discrete-transit authority: momentum kept, departure
                 // contacts and attachment reconciled (ADR 0024).
                 ae::movement::transit_body(

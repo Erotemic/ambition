@@ -319,8 +319,8 @@ pub fn rebuild_world_items_view(
         }));
 }
 
-/// Every player's dropped recall-mark position, with the live room of the
-/// player who dropped it: a mark is in its player's room.
+/// Every player's dropped recall-mark position, with the live room it was
+/// dropped in (for a mark with no room, its player's room).
 #[derive(Resource, Default, Clone, Debug)]
 pub struct MarkBeaconsView(
     pub Vec<(ae::Vec2, Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>)>,
@@ -335,7 +335,11 @@ pub fn rebuild_mark_beacons_view(
     )>,
 ) {
     view.0.clear();
-    view.0.extend(marks.iter().filter_map(|(entity, mark)| Some((mark.pos?, live.of(entity)))));
+    view.0.extend(
+        marks
+            .iter()
+            .filter_map(|(entity, mark)| Some((mark.pos?, mark.room.or_else(|| live.of(entity))))),
+    );
 }
 
 /// A countdown riding one body that the PLAYER must be able to read.
@@ -1319,5 +1323,33 @@ mod blink_preview_room_tests {
         assert_eq!(open.room, Some(LiveRoomInstance::ACTIVATION.next()), "the reticle names its subject's room");
         let walled = reticle(0);
         assert!(walled.active && walled.target.x < 150.0, "the reticle in #0: {walled:?}");
+    }
+}
+
+#[cfg(test)]
+mod mark_beacon_room_tests {
+    use super::*;
+
+    /// A mark is drawn in the live room it was dropped in, not in the room its
+    /// player stands in now. The player crossed from #1 into #2 after
+    /// dropping the mark. The control: a mark with no room is drawn in its
+    /// player's room. Poison: read the player's room and the mark is drawn in
+    /// #2.
+    #[test]
+    fn a_mark_is_drawn_in_the_live_room_it_was_dropped_in() {
+        use ambition_abilities::traversal::mark_recall::PlayerMark;
+        use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance};
+        let first = LiveRoomInstance::ACTIVATION.next();
+        let second = first.next();
+        let mut app = App::new();
+        app.init_resource::<MarkBeaconsView>();
+        app.add_systems(Update, rebuild_mark_beacons_view);
+        let pos = ae::Vec2::new(10.0, 20.0);
+        app.world_mut().spawn((PlayerMark { pos: Some(pos), room: Some(first) }, InRoomInstance(second)));
+        app.world_mut().spawn((PlayerMark { pos: Some(pos), room: None }, InRoomInstance(second)));
+        app.update();
+        let mut rows: Vec<_> = app.world().resource::<MarkBeaconsView>().0.iter().map(|(_, room)| *room).collect();
+        rows.sort();
+        assert_eq!(rows, vec![Some(first), Some(second)], "(the dropped room, the unroomed mark's player's room)");
     }
 }

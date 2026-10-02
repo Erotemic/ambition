@@ -181,3 +181,33 @@ fn two_driven_bodies_each_recall_to_their_own_mark() {
         "seat b recalled to the wrong mark (or did not recall)"
     );
 }
+
+/// A mark is a place in one live room. A mark dropped in one room is not
+/// recalled from another: the body stays where it is. The control: the
+/// same recall from the mark's own room moves the body. Poison: recall
+/// whatever the room, and the body moves to the old coordinates in the
+/// other room.
+#[test]
+fn a_mark_dropped_in_another_live_room_is_not_recalled() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance};
+    let first = LiveRoomInstance::ACTIVATION.next();
+    let second = first.next();
+    let recall_from = |room: LiveRoomInstance| {
+        let mut app = test_app();
+        let player = spawn_player_holding(&mut app, MARK_RECALL_ID, ae::Vec2::new(100.0, 100.0));
+        app.world_mut().entity_mut(player).insert(InRoomInstance(first));
+        press(&mut app, player, true, false);
+        app.update();
+        // The body crosses into `room` and stands somewhere else.
+        app.world_mut().entity_mut(player).insert(InRoomInstance(room));
+        app.world_mut().get_mut::<BodyKinematics>(player).unwrap().pos = ae::Vec2::new(900.0, 50.0);
+        press(&mut app, player, false, true);
+        app.update();
+        player_pos(&app, player)
+    };
+    assert_eq!(
+        (recall_from(first), recall_from(second)),
+        (ae::Vec2::new(100.0, 100.0), ae::Vec2::new(900.0, 50.0)),
+        "(a recall from the mark's room, from another room)"
+    );
+}

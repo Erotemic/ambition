@@ -123,6 +123,8 @@ pub fn tick_gravity_grenade_fuses(
     )>,
     mut sfx: ambition_sfx::BodySfxWriter,
     mut vfx: ambition_vfx::vfx::VfxWriter,
+    // The well and the burst are in the grenade's own live room.
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
 ) {
     let dt = time.sim_dt();
     if dt <= 0.0 {
@@ -150,7 +152,7 @@ pub fn tick_gravity_grenade_fuses(
         ));
         open_temporary_gravity_well(
             &mut commands,
-            SessionSpawnScope::new(owner.map(|owner| owner.0)),
+            SessionSpawnScope::new(owner.map(|owner| owner.0)).in_room(rooms.of(entity)),
             ground.pos,
             well_id,
         );
@@ -161,7 +163,7 @@ pub fn tick_gravity_grenade_fuses(
                 pos: ground.pos,
             },
         );
-        vfx.write(ambition_vfx::vfx::VfxMessage::Effect {
+        vfx.for_room(rooms.of(entity)).write(ambition_vfx::vfx::VfxMessage::Effect {
             pos: ground.pos,
             fx: ambition_vfx::fx::ids::CLASSIC_BURST,
             scale: 0.7,
@@ -271,5 +273,51 @@ mod tests {
             "the well pulls up"
         );
         assert!(wells[0].1.remaining > 0.0, "the well has a lifetime");
+    }
+
+    /// The well a grenade opens is in the grenade's own live room. Two rooms
+    /// are live and the grenade is in the second. The well carries the stamp
+    /// of the second room, so that room's view draws it and that room's
+    /// retirement takes it. The burst names that room too.
+    #[test]
+    fn a_grenades_well_opens_in_the_grenades_own_live_room() {
+        use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
+        let mut app = App::new();
+        app.add_message::<ambition_sfx::OwnedSfxMessage>();
+        app.add_message::<ambition_vfx::vfx::VfxInRoom>();
+        let mut wt = ambition_time::WorldTime::default();
+        wt.scaled_dt = GRAVITY_GRENADE_FUSE_SECS + 0.1;
+        app.insert_resource(wt);
+        app.add_systems(Update, tick_gravity_grenade_fuses);
+        let rooms = [LiveRoomInstance::ACTIVATION, LiveRoomInstance::ACTIVATION.next()];
+        for room in rooms {
+            app.world_mut().spawn((RoomInstanceRoot, room));
+        }
+        app.world_mut().spawn((
+            grenade_ground(ae::Vec2::new(40.0, -120.0)),
+            GravityGrenadeFuse {
+                timer: GRAVITY_GRENADE_FUSE_SECS,
+            },
+            ambition_platformer2d_shared_tangle::sim_id::SimId::placement("test_grenade"),
+            ambition_platformer2d_shared_tangle::sim_id::SimIdCounter::default(),
+            InRoomInstance(rooms[1]),
+        ));
+        app.update();
+
+        let mut q = app
+            .world_mut()
+            .query_filtered::<Option<&InRoomInstance>, bevy::prelude::With<TemporaryZone>>();
+        let well_rooms: Vec<_> = q.iter(app.world()).map(|stamp| stamp.map(|stamp| stamp.0)).collect();
+        let burst_rooms: Vec<_> = app
+            .world()
+            .resource::<bevy::ecs::message::Messages<ambition_vfx::vfx::VfxInRoom>>()
+            .iter_current_update_messages()
+            .map(|row| row.room)
+            .collect();
+        assert_eq!(
+            (well_rooms, burst_rooms),
+            (vec![Some(rooms[1])], vec![Some(rooms[1])]),
+            "(the room stamp of each well, the room each burst names): the grenade is in the second room"
+        );
     }
 }

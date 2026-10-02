@@ -539,7 +539,7 @@ pub fn bonk_power_blocks(
                 }
                 // into it."* One coin per payout, launched from the block's top
                 // face so it reads as coming OUT rather than through.
-                vfx.write(ambition_platformer2d::vfx::VfxMessage::CoinPop {
+                vfx.for_room(rooms.of(striker)).write(ambition_platformer2d::vfx::VfxMessage::CoinPop {
                     pos: ae::Vec2::new(pos.x, block_aabb.min.y),
                 });
                 // this was the `Hit` cue — the MASONRY THUNK — and the

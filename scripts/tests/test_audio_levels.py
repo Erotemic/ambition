@@ -194,17 +194,23 @@ def test_no_spec_source_hides_a_slash_pair_inside_a_string():
     (`game://worlds/{file}`, `embedded://…/puppy_slug_deep_dream.wgsl`). None
     is in a spec-authoring file today — that is what this pins, not luck.
     """
-    ron = sorted((REPO_ROOT / 'game').rglob('*.ron'))
+    # The corpus is the files `audio_levels` gives to the stripper: the
+    # providers, and the pack audio registries that `discover_procedural_specs`
+    # globs. Other RON under `game/` is not a spec source. A cutscene line can
+    # hold `//` in its text (`text: "// boot"`, since the cutscenes moved to
+    # data on 2026-10-02), and `audio_levels` does not read that file.
+    audio_registries = sorted(REPO_ROOT.glob('game/*/assets/audio/*registry*.ron'))
     providers = _provider_files_that_author_specs()
     registries = _pack_registries_that_author_specs()
     # Anti-vacuity: an empty population would pass this test perfectly. The
-    # voices are in pack registries (AP134/AP138), which `ron` below contains.
+    # voices are in pack registries (AP134/AP138), which the sweep contains.
     assert len(registries) >= 4, f'only {len(registries)} spec-authoring registries found'
-    assert all(path in ron for path in registries), 'a spec registry is outside the RON sweep'
-    assert len(ron) >= 20, f'only {len(ron)} RON files found under game/'
+    assert all(path in audio_registries for path in registries), (
+        'a spec registry is outside the registry sweep'
+    )
 
     offenders = []
-    for path in providers + ron:
+    for path in providers + audio_registries:
         for number, line in enumerate(path.read_text(errors='replace').splitlines(), 1):
             if _SLASHES_INSIDE_A_STRING.search(line):
                 offenders.append(f'{path.relative_to(REPO_ROOT)}:{number}: {line.strip()}')

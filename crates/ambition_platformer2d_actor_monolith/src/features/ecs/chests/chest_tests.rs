@@ -118,6 +118,40 @@ fn distant_chest_is_not_opened() {
     );
 }
 
+/// A body opens only the chest of its own live room. Two live rooms each
+/// hold a chest at one position, and the player stands there, in the second
+/// room, and presses interact. Only the chest of the second room opens, and
+/// the burst names that room. Two live rooms share one coordinate space, so
+/// the position alone does not say which chest the body reaches.
+#[test]
+fn a_body_opens_only_the_chest_of_its_own_live_room() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
+    let mut app = app();
+    let rooms = [LiveRoomInstance::ACTIVATION, LiveRoomInstance::ACTIVATION.next()];
+    let center = ae::Vec2::new(64.0, 64.0);
+    let chests = rooms.map(|room| {
+        app.world_mut().spawn((RoomInstanceRoot, room));
+        let chest = chest(&mut app, "c1", center);
+        app.world_mut().entity_mut(chest).insert(InRoomInstance(room));
+        chest
+    });
+    let player = player(&mut app, center, true);
+    app.world_mut().entity_mut(player).insert(InRoomInstance(rooms[1]));
+    app.update();
+    let opened = chests.map(|chest| app.world().get::<Opened>(chest).is_some());
+    let burst_rooms: Vec<_> = app
+        .world()
+        .resource::<bevy::ecs::message::Messages<VfxInRoom>>()
+        .iter_current_update_messages()
+        .map(|row| row.room)
+        .collect();
+    assert_eq!(
+        (opened, burst_rooms),
+        ([false, true], vec![Some(rooms[1])]),
+        "(which of the two chests opened, the rooms the open burst names): the player is in the second room"
+    );
+}
+
 /// AN OPENED CHEST PAYS OUT WHAT IT WAS AUTHORED WITH.
 ///
 ///  this is the guard for a payload that had ZERO READERS.

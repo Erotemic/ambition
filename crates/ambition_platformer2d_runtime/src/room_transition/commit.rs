@@ -630,6 +630,9 @@ pub struct RoomTransitionFinalize<'w, 's> {
         &'static world_rooms::RoomSet,
         With<ambition_platformer2d_shared_tangle::lifecycle::SessionRoot>,
     >,
+    /// The live rooms AFTER publication: the arrival effect is drawn in the
+    /// live room the body arrived in.
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms<'w, 's>,
     feel: Res<'w, Platformer2dFeelTuningMonolith>,
 }
 
@@ -736,11 +739,12 @@ impl RoomTransitionFinalize<'_, '_> {
         // there is no position to place a puff at and no landing to log, and the
         // room's own visuals were already asked for above, unconditionally.
         if let (Some(arrival_pos), Some(player_size)) = (arrival_pos, *player_size) {
+            let arrival_room = subject.and_then(|subject| self.rooms.of(subject));
             if edge_exit {
                 // Edge exits should feel like contiguous room scrolling, not a
                 // death-like teleport. Only an arrival puff in the new room, because
                 // `from` would be expressed in the previous room's coordinate space.
-                self.effects.vfx.write(VfxMessage::Burst {
+                self.effects.vfx.for_room(arrival_room).write(VfxMessage::Burst {
                     pos: arrival_pos,
                     count: 18,
                     speed: 260.0,
@@ -751,7 +755,7 @@ impl RoomTransitionFinalize<'_, '_> {
                 // Door transitions are discrete interactions, so a teleport-like
                 // effect is acceptable; use the destination for both endpoints to
                 // avoid mixing coordinate systems from two rooms.
-                self.effects.vfx.write(VfxMessage::ResetEffects {
+                self.effects.vfx.for_room(arrival_room).write(VfxMessage::ResetEffects {
                     from: arrival_pos,
                     to: arrival_pos,
                 });

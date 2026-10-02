@@ -268,6 +268,8 @@ pub fn advance_pet_beats(
     mut bodies: Query<(&mut BodyKinematics, Option<&BodyCombat>)>,
     mut sfx: SfxWriter,
     mut vfx: VfxWriter,
+    // The hearts are drawn in the live room of the body that pets.
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
 ) {
     let dt = world_time.scaled_dt;
     for (petter, mut beat) in &mut petters {
@@ -323,7 +325,7 @@ pub fn advance_pet_beats(
                         pos: center.center,
                     });
                 }
-                vfx.write(VfxMessage::Hearts {
+                vfx.for_room(rooms.of(petter)).write(VfxMessage::Hearts {
                     pos: center.center
                         + ambition_platformer2d_core::Vec2::new(
                             beat.side * center.half_size.x,

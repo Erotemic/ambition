@@ -119,6 +119,8 @@ pub struct EffectVisual {
 
 #[derive(Component)]
 pub struct FireworkSequence {
+    /// The live room each burst of the sequence is drawn in.
+    room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
     origin: ae::Vec2,
     age: f32,
     next_index: usize,
@@ -257,6 +259,7 @@ pub fn process_fireworks_requests(
             (
                 Name::new("Firework explosion sequence"),
                 FireworkSequence {
+                    room: request.room,
                     origin: request.origin,
                     age: 0.0,
                     next_index: 0,
@@ -281,7 +284,8 @@ pub fn tick_firework_sequences(
         {
             let burst = sequence.schedule[sequence.next_index];
             effects.write(
-                FxRequest::new(sequence.origin + burst.offset, burst.fx).with_scale(burst.scale),
+                FxRequest::new(sequence.room, sequence.origin + burst.offset, burst.fx)
+                    .with_scale(burst.scale),
             );
             sequence.next_index += 1;
         }
@@ -1386,7 +1390,7 @@ mod tests {
             app.add_message::<FxRequest>();
             app.add_systems(Update, process_fx_requests);
             app.world_mut().write_message(
-                FxRequest::new(ae::Vec2::ZERO, ambition_vfx::fx::ids::CLASSIC_BURST)
+                FxRequest::new(None, ae::Vec2::ZERO, ambition_vfx::fx::ids::CLASSIC_BURST)
                     .from_source(source),
             );
             app.update();

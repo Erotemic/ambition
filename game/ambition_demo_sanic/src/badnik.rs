@@ -59,6 +59,8 @@ const STOMP_BAND: f32 = 16.0;
 pub fn defeat_badniks(
     mut commands: Commands,
     mut vfx: ambition_platformer2d::vfx::VfxWriter,
+    // The burst is drawn in the badnik's own live room.
+    rooms: ambition_platformer2d::platformer::lifecycle::LiveRooms,
     mut sfx: ambition_platformer2d::sfx::BodySfxWriter,
     mut players: Query<
         (
@@ -111,7 +113,7 @@ pub fn defeat_badniks(
         if stomp && !rolling {
             ae::movement::set_jump_velocity(&mut player.vel, ae::DEFAULT_GRAVITY_DIR, BOUNCE_SPEED);
         }
-        vfx.write(ambition_platformer2d::vfx::VfxMessage::Burst {
+        vfx.for_room(rooms.of(entity)).write(ambition_platformer2d::vfx::VfxMessage::Burst {
             pos: badnik_kin.pos,
             count: 12,
             speed: 150.0,

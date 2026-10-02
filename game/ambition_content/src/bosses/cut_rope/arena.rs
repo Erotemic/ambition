@@ -117,6 +117,8 @@ pub fn detect_cut_rope_rope_cut(
         arena.awaiting_alignment = true;
         arena.rope_fx_timer = 0.0;
         arena.rope_fx_pulse = 0;
+        // The cut is drawn in the arena's own live room.
+        let mut vfx = vfx.for_room(Some(room));
         vfx.write(VfxMessage::Impact {
             pos: event.volume.center(),
         });
@@ -179,6 +181,7 @@ pub fn tick_cut_rope_flavor(
                 let rope_pos = rope.pos;
                 pulse_waiting_rope_explosions(
                     arena,
+                    room,
                     dt,
                     rope_pos,
                     boss_pos.unwrap_or(rope_pos),
@@ -199,16 +202,16 @@ pub fn tick_cut_rope_flavor(
                 ),
                 2.8,
             );
-            explosions.write(FxRequest::classic(center).with_scale(1.25));
+            explosions.write(FxRequest::classic(Some(room), center).with_scale(1.25));
             if !arena.death_fireworks_sent {
-                let mut death_show = FireworksRequest::around(burst_pos);
+                let mut death_show = FireworksRequest::around(Some(room), burst_pos);
                 death_show.count = 18;
                 death_show.spread = ae::Vec2::new(420.0, 280.0);
                 death_show.duration = 2.75;
                 fireworks.write(death_show);
                 arena.death_fireworks_sent = true;
             }
-            vfx.write(VfxMessage::Burst {
+            vfx.for_room(Some(room)).write(VfxMessage::Burst {
                 pos: burst_pos,
                 count: 28,
                 speed: 260.0,
@@ -263,6 +266,8 @@ pub fn sync_cut_rope_boss_arena_prop_visuals(
 
 fn pulse_waiting_rope_explosions(
     state: &mut CutRopeArena,
+    // The arena's live room: the sparks are drawn there.
+    room: LiveRoomInstance,
     dt: f32,
     rope_pos: ae::Vec2,
     boss_pos: ae::Vec2,
@@ -286,7 +291,8 @@ fn pulse_waiting_rope_explosions(
         _ => ambition_vfx::fx::ids::SMOKE_BURST,
     };
     explosions.write(
-        FxRequest::new(rope_pos + ae::Vec2::new(horizontal_pull + x, y), fx).with_scale(0.48),
+        FxRequest::new(Some(room), rope_pos + ae::Vec2::new(horizontal_pull + x, y), fx)
+            .with_scale(0.48),
     );
 }
 

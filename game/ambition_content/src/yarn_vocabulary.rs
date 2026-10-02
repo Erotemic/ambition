@@ -370,15 +370,17 @@ pub fn cmd_spawn_fireworks(
     // Slot 0 by design: Yarn's `$player_x`/`$player_y` refer to the local
     // player; dialogue is told to a human, not to a body.
     player_q: Query<
-        &ambition_platformer2d_core::BodyKinematics,
+        (Entity, &ambition_platformer2d_core::BodyKinematics),
         ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
     >,
+    // The fireworks are drawn in the live room of the player they are near.
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
 ) {
-    let origin = player_q
+    let (room, origin) = player_q
         .single()
-        .map(|kin| kin.pos + ae::Vec2::new(0.0, -40.0))
-        .unwrap_or(ae::Vec2::new(480.0, 260.0));
-    fireworks.write(ambition_vfx::vfx::FireworksRequest::around(origin));
+        .map(|(player, kin)| (rooms.of(player), kin.pos + ae::Vec2::new(0.0, -40.0)))
+        .unwrap_or((rooms.sole(), ae::Vec2::new(480.0, 260.0)));
+    fireworks.write(ambition_vfx::vfx::FireworksRequest::around(room, origin));
 }
 
 /// `<<camera_zoom factor>>` — adjust camera zoom. Logged-stub; the

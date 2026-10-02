@@ -109,7 +109,7 @@ pub fn tick_bomb_fuses(
                 pos: ground.pos,
             },
         );
-        vfx.write(ambition_vfx::vfx::VfxMessage::Effect {
+        vfx.for_room(rooms.of(entity)).write(ambition_vfx::vfx::VfxMessage::Effect {
             pos: ground.pos,
             fx: ambition_vfx::fx::ids::CLASSIC_BURST,
             scale: 1.0,

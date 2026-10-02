@@ -129,7 +129,7 @@ use ambition_characters::actor::BodyCombat;
 use ambition_characters::actor::Invulnerability;
 use ambition_platformer2d_core::BodyShieldState;
 use ambition_vfx::vfx::{SlashKind, SlashPose, VfxMessage};
-use ambition_vfx::vfx::VfxWriter;
+use ambition_vfx::vfx::VfxForRoom;
 use bevy::prelude::MessageWriter;
 
 /// THE one "can this body take a hit right now?" rule, shared by every damage EMITTER that needs an
@@ -263,7 +263,8 @@ const SLASH_ART_MARGIN: f32 = 1.0;
 ///
 /// Melee presentation has one path; callers should route slash effects through this function.
 pub fn emit_melee_slash(
-    vfx: &mut VfxWriter,
+    // Bound to the live room of the body that swings.
+    vfx: &mut VfxForRoom<'_, '_>,
     volume: &ae::CombatVolume,
     from: ae::Vec2,
     owner: bevy::prelude::Entity,
@@ -345,7 +346,8 @@ pub fn resolve_strike_sfx(
 /// dropped an ignored hit.
 pub fn emit_hit_feedback(
     sfx: &mut ambition_sfx::SfxWriter,
-    vfx: &mut VfxWriter,
+    // Bound to the live room of the struck body.
+    vfx: &mut VfxForRoom<'_, '_>,
     debris: &mut MessageWriter<DebrisBurstMessage>,
     hurt: ambition_vfx::HurtFeedback,
     strike_sfx: Option<ambition_sfx::SfxId>,
@@ -428,12 +430,12 @@ mod hit_feedback_tests {
     fn emit_system(
         input: Res<Input>,
         mut sfx: ambition_sfx::SfxWriter,
-        mut vfx: VfxWriter,
+        mut vfx: ambition_vfx::vfx::VfxWriter,
         mut debris: MessageWriter<DebrisBurstMessage>,
     ) {
         emit_hit_feedback(
             &mut sfx,
-            &mut vfx,
+            &mut vfx.for_room(None),
             &mut debris,
             input.hurt,
             input.strike,

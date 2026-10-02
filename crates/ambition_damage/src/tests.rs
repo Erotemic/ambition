@@ -2323,7 +2323,7 @@ fn a_hazard_respawn_does_not_turn_the_body_around() {
             super::safe_respawn_player(
                 &mut sfx,
                 None,
-                &mut vfx,
+                &mut vfx.for_room(None),
                 &mut clusters,
                 Some(&mut clocks),
                 &safety,

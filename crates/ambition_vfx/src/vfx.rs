@@ -190,9 +190,10 @@ pub enum SlashPose {
 /// which room's view draws the effect. The producer says it: `room` is the
 /// live room of the body, item or placement that made the effect.
 ///
-/// `room: None` is an UNROOMED row, the named debt of the producers that do
-/// not say their room yet. It is drawn in the sole live room, and not at all
-/// while two rooms are live.
+/// `room: None` is an UNROOMED row: the room of its subject cannot be told
+/// (`LiveRooms::of` gives `None` for an unstamped entity while two rooms are
+/// live). It is drawn in the sole live room, and not at all while two rooms
+/// are live.
 #[derive(Message, Clone, Debug)]
 pub struct VfxInRoom {
     pub room: Option<LiveRoomInstance>,
@@ -206,15 +207,11 @@ pub struct VfxWriter<'w> {
 }
 
 impl<'w> VfxWriter<'w> {
-    /// Write `vfx` UNROOMED: drawn in the sole live room, and not while two
-    /// rooms are live. See [`VfxInRoom`].
-    pub fn write(&mut self, vfx: VfxMessage) {
-        self.write_in(None, vfx);
-    }
-
     /// Write `vfx` for the live room `room`. A producer with a body passes the
     /// body's room by the rule of `LiveRooms::of`, so a body and its effect
-    /// agree on the room.
+    /// agree on the room. `None` is an unroomed row; see [`VfxInRoom`]. There
+    /// is no writer without a room argument, so a producer cannot write an
+    /// unroomed row by omission.
     pub fn write_in(&mut self, room: Option<LiveRoomInstance>, vfx: VfxMessage) {
         self.messages.write(VfxInRoom { room, vfx });
     }
@@ -392,7 +389,11 @@ pub struct FxRequest {
 }
 
 impl FxRequest {
-    pub fn new(pos: ae::Vec2, fx: FxId) -> Self {
+    /// The effect `fx` at `pos`, drawn in the live room `room`. A producer
+    /// with a body passes the body's room by the rule of `LiveRooms::of`.
+    /// There is no constructor without a room argument, so a producer cannot
+    /// make an unroomed request by omission.
+    pub fn new(room: Option<LiveRoomInstance>, pos: ae::Vec2, fx: FxId) -> Self {
         Self {
             pos,
             fx,
@@ -400,14 +401,8 @@ impl FxRequest {
             sfx: None,
             source: ambition_sfx::PresentationSourceId::unscoped(),
             pose: FxPose::UPRIGHT,
-            room: None,
+            room,
         }
-    }
-
-    /// The same request, drawn in the live room `room`.
-    pub fn in_room(mut self, room: Option<LiveRoomInstance>) -> Self {
-        self.room = room;
-        self
     }
 
     /// The same request, drawn in `pose`.
@@ -422,8 +417,8 @@ impl FxRequest {
         self
     }
 
-    pub fn classic(pos: ae::Vec2) -> Self {
-        Self::new(pos, crate::fx::ids::CLASSIC_BURST)
+    pub fn classic(room: Option<LiveRoomInstance>, pos: ae::Vec2) -> Self {
+        Self::new(room, pos, crate::fx::ids::CLASSIC_BURST)
     }
 
     pub fn with_scale(mut self, scale: f32) -> Self {
@@ -477,11 +472,16 @@ pub struct FireworksRequest {
     pub count: u32,
     pub spread: ae::Vec2,
     pub duration: f32,
+    /// The live room the sequence is drawn in. `None` is unroomed; see
+    /// [`VfxInRoom`].
+    pub room: Option<LiveRoomInstance>,
 }
 
 impl FireworksRequest {
-    pub fn around(origin: ae::Vec2) -> Self {
+    /// Fireworks around `origin`, drawn in the live room `room`.
+    pub fn around(room: Option<LiveRoomInstance>, origin: ae::Vec2) -> Self {
         Self {
+            room,
             origin,
             count: 11,
             spread: ae::Vec2::new(360.0, 210.0),

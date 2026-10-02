@@ -829,6 +829,12 @@ pub fn apply_hitbox_damage(
             (HitSide::Environment, _) => Some(HitSource::Melee),
         };
 
+        // The strike's live room: the volume's own, else its owner's. Two
+        // live rooms share one local frame, so a body at the same place
+        // in another room is not in reach.
+        let strike_room = rooms
+            .stamped(hitbox_entity)
+            .or_else(|| rooms.of(hitbox.owner));
         if let Some(source_kind) = melee_source {
             let owner_grudge = attacker.grudge(hitbox.owner);
 
@@ -852,12 +858,6 @@ pub fn apply_hitbox_damage(
             // damageable rollback-authoritative body should carry identity by
             // the time it reaches a resolver — and it is not made worse by
             // ordering the rest.
-            // The strike's live room: the volume's own, else its owner's. Two
-            // live rooms share one local frame, so a body at the same place
-            // in another room is not in reach.
-            let strike_room = rooms
-                .stamped(hitbox_entity)
-                .or_else(|| rooms.of(hitbox.owner));
             // The rules of the strike's room: two live rooms can play under
             // two games' rules.
             let room_rules = tuning.in_room(strike_room);
@@ -1221,7 +1221,7 @@ pub fn apply_hitbox_damage(
             HitSide::Player => {
                 debug_assert!(matches!(hitbox.anchor, HitboxAnchor::World { .. }));
                 if hits.hit.insert(hitbox.owner) {
-                    out.vfx.write(VfxMessage::Impact {
+                    out.vfx.write_in(strike_room, VfxMessage::Impact {
                         pos: world_volume.center(),
                     });
                     out.hit_events.write(HitEvent {

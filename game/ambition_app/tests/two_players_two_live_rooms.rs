@@ -804,9 +804,14 @@ fn the_cut_rope_fight_runs_in_its_own_live_room() {
     let mut hazards = std::collections::BTreeSet::new();
     let mut dropped = false;
     let mut dead = false;
+    // The rooms the arena's effect requests name: the rope sparks and the
+    // blast (`FxRequest`), and the death fireworks.
+    let mut fx_rooms = std::collections::BTreeSet::new();
+    let mut firework_rooms = Vec::new();
     for _ in 0..1800 {
         sim.step(base());
         let world = sim.world_mut();
+        effect_request_rooms(world, &mut fx_rooms, &mut firework_rooms);
         if let Some(gates) = world.get_resource::<bevy::ecs::message::Messages<EncounterGate>>() {
             for gate in gates.iter_current_update_messages() {
                 match gate.gate.as_str() {
@@ -843,9 +848,11 @@ fn the_cut_rope_fight_runs_in_its_own_live_room() {
             break;
         }
     }
-    // The death beat runs out before the defeat is recorded.
+    // The death beat runs out before the defeat is recorded. The arena's
+    // blast and fireworks answer the impact gate on the tick after it.
     for _ in 0..300 {
         sim.step(base());
+        effect_request_rooms(sim.world_mut(), &mut fx_rooms, &mut firework_rooms);
     }
     let world = sim.world_mut();
     let cleared = matches!(
@@ -873,6 +880,8 @@ fn the_cut_rope_fight_runs_in_its_own_live_room() {
             dead,
             cleared,
             victory_npcs,
+            fx_rooms.into_iter().collect::<Vec<_>>(),
+            firework_rooms,
         ),
         (
             vec![Some(second)],
@@ -884,10 +893,34 @@ fn the_cut_rope_fight_runs_in_its_own_live_room() {
             true,
             true,
             vec![Some(second)],
+            vec![Some(second)],
+            vec![Some(second)],
         ),
         "the cut-rope road did not run whole in #1: (rope_cut rooms, lured to #1's anvil, \
          walked toward it, hazard rooms, it fell, impact rooms, the behemoth died, it is \
-         recorded cleared, victory NPC rooms)"
+         recorded cleared, victory NPC rooms, the rooms its effect requests name, the rooms \
+         its fireworks name)"
+    );
+}
+
+/// Add the rooms that this tick's `FxRequest` rows and `FireworksRequest` rows
+/// name to `fx` and `fireworks`.
+fn effect_request_rooms(
+    world: &bevy::prelude::World,
+    fx: &mut std::collections::BTreeSet<Option<LiveRoomInstance>>,
+    fireworks: &mut Vec<Option<LiveRoomInstance>>,
+) {
+    fx.extend(
+        world
+            .resource::<bevy::ecs::message::Messages<ambition_platformer2d::vfx::FxRequest>>()
+            .iter_current_update_messages()
+            .map(|request| request.room),
+    );
+    fireworks.extend(
+        world
+            .resource::<bevy::ecs::message::Messages<ambition_platformer2d::vfx::FireworksRequest>>()
+            .iter_current_update_messages()
+            .map(|request| request.room),
     );
 }
 
@@ -2959,6 +2992,211 @@ fn each_body_s_movement_dust_is_drawn_in_its_own_live_room() {
         (rooms, unroomed),
         ([alice.unwrap(), bob.unwrap()].into_iter().collect(), 0),
         "(the rooms dust was drawn in, unroomed dust rows): each body's dust must name its own live room"
+    );
+}
+
+/// The rooms that the effect rows `keep` accepts were written for, in the
+/// next `ticks` ticks. `None` is an unroomed row.
+fn rooms_of_effect_rows(
+    sim: &mut Platformer2dSimHarness,
+    ticks: usize,
+    keep: fn(&ambition_platformer2d::vfx::vfx::VfxMessage) -> bool,
+) -> std::collections::BTreeSet<Option<LiveRoomInstance>> {
+    let mut rooms = std::collections::BTreeSet::new();
+    for _ in 0..ticks {
+        sim.step(base());
+        rooms.extend(
+            sim.world()
+                .resource::<bevy::ecs::message::Messages<ambition_platformer2d::vfx::vfx::VfxInRoom>>()
+                .iter_current_update_messages()
+                .filter(|row| keep(&row.vfx))
+                .map(|row| row.room),
+        );
+    }
+    rooms
+}
+
+/// The effects of a hit are drawn in the struck body's own live room (view
+/// half, cut V2f, the producers that write through a helper). Alice is in
+/// the hub and Bob, driven by slot 1, is in the first room. A hit on Bob
+/// (the actor road) writes its impact for Bob's room. A hit on Alice (the
+/// player road) writes its impact for Alice's room, and so does the reset
+/// effect of her hazard respawn. No row is unroomed: an unroomed row is
+/// drawn in no room while two are live.
+#[test]
+fn each_hit_s_effects_are_drawn_in_the_struck_body_s_own_live_room() {
+    use ambition_platformer2d::combat::events::{HitEvent, HitMode, HitSource, HitTarget};
+    use ambition_platformer2d::vfx::vfx::VfxMessage;
+    let (mut sim, _) = alice_leaves_bob_for_a_replay();
+    let (alice_room, bob_room) = where_they_are(&mut sim);
+    let (alice_room, bob_room) = (
+        alice_room.expect("Alice is in a live room"),
+        bob_room.flatten().expect("Bob is in a live room"),
+    );
+    assert!(
+        alice_room != bob_room && live_rooms(&mut sim).len() == 2,
+        "precondition: Alice and Bob are in two live rooms ({alice_room:?}, {bob_room:?})"
+    );
+    let strike = |sim: &mut Platformer2dSimHarness, alice: bool, mode: HitMode| {
+        let world = sim.world_mut();
+        let (victim, pos, room) = if alice {
+            world
+                .query_filtered::<(bevy::prelude::Entity, &ambition_platformer2d::engine_core::BodyKinematics), bevy::prelude::With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>()
+                .single(world)
+                .map(|(entity, kinematics)| (entity, kinematics.pos, alice_room))
+                .expect("Alice's body is in the world")
+        } else {
+            world
+                .query::<(bevy::prelude::Entity, &ambition_platformer2d::combat::components::FeatureId, &ambition_platformer2d::engine_core::BodyKinematics)>()
+                .iter(world)
+                .find(|(_, feature, _)| feature.0 == BOB)
+                .map(|(entity, _, kinematics)| (entity, kinematics.pos, bob_room))
+                .expect("Bob's body is in the world")
+        };
+        world.write_message(HitEvent {
+            volume: ambition_platformer2d::engine_core::Aabb::new(pos, ambition_platformer2d::engine_core::Vec2::splat(8.0)).into(),
+            damage: 1,
+            source: HitSource::Hazard,
+            attacker: None,
+            room: Some(room),
+            target: HitTarget::Body(victim),
+            mode,
+            knockback: None,
+            ignored_targets: Vec::new(),
+            strike_sfx: None,
+            attacker_move_instance: None,
+        });
+    };
+    let impact: fn(&VfxMessage) -> bool = |vfx| matches!(vfx, VfxMessage::Impact { .. });
+    let reset: fn(&VfxMessage) -> bool = |vfx| matches!(vfx, VfxMessage::ResetEffects { .. });
+
+    strike(&mut sim, false, HitMode::Knockback);
+    assert_eq!(
+        rooms_of_effect_rows(&mut sim, 4, impact),
+        [Some(bob_room)].into_iter().collect(),
+        "the rooms the impact of a hit on Bob was written for (Bob is in {bob_room:?}, Alice in {alice_room:?})"
+    );
+    // The impact of the hit on Bob is drawn and gone before Alice is struck.
+    for _ in 0..90 {
+        sim.step(base());
+    }
+    strike(&mut sim, true, HitMode::Knockback);
+    assert_eq!(
+        rooms_of_effect_rows(&mut sim, 4, impact),
+        [Some(alice_room)].into_iter().collect(),
+        "the rooms the impact of a hit on Alice was written for (Alice is in {alice_room:?}, Bob in {bob_room:?})"
+    );
+    // Her invulnerability after the hit ends before the hazard strikes.
+    for _ in 0..180 {
+        sim.step(base());
+    }
+    strike(&mut sim, true, HitMode::SafeRespawn);
+    assert_eq!(
+        rooms_of_effect_rows(&mut sim, 10, reset),
+        [Some(alice_room)].into_iter().collect(),
+        "the rooms the reset effect of Alice's hazard respawn was written for (Alice is in {alice_room:?})"
+    );
+}
+
+thread_local! {
+    /// The rooms the reset effects of the last recorded crossing were written
+    /// for. See [`walk_through_the_door_recording_its_reset_effects`].
+    static CROSSING_RESET_EFFECT_ROOMS: std::cell::RefCell<Vec<Option<LiveRoomInstance>>> =
+        const { std::cell::RefCell::new(Vec::new()) };
+}
+
+/// `walk_through_the_door_to`, which also records the room of each
+/// `ResetEffects` row of the crossing (the tick that changes the room and
+/// the four ticks after it).
+fn walk_through_the_door_recording_its_reset_effects(sim: &mut Platformer2dSimHarness, target: &str) -> String {
+    use ambition_platformer2d::engine_core::AabbExt as _;
+    use ambition_platformer2d::vfx::vfx::{VfxInRoom, VfxMessage};
+    let record = |sim: &Platformer2dSimHarness| {
+        let rooms: Vec<_> = sim
+            .world()
+            .resource::<bevy::ecs::message::Messages<VfxInRoom>>()
+            .iter_current_update_messages()
+            .filter(|row| matches!(row.vfx, VfxMessage::ResetEffects { .. }))
+            .map(|row| row.room)
+            .collect();
+        CROSSING_RESET_EFFECT_ROOMS.with(|recorded| recorded.borrow_mut().extend(rooms));
+    };
+    CROSSING_RESET_EFFECT_ROOMS.with(|recorded| recorded.borrow_mut().clear());
+    let before = sim.observation().active_room.clone();
+    let center = crate::common::door_to(sim, target).aabb.center();
+    sim.teleport_player((center.x, center.y));
+    for _ in 0..120 {
+        let room = sim.step(ambition_app::AgentAction { interact: true, interact_held: true, ..base() }).active_room;
+        record(sim);
+        if room != before {
+            for _ in 0..4 {
+                sim.step(base());
+                record(sim);
+            }
+            return room;
+        }
+    }
+    panic!("held interact inside the door of '{before}' to '{target}' for 120 frames and the room never changed");
+}
+
+/// The arrival effect of a crossing is drawn in the live room the body
+/// arrives in (view half, cut V2f). Alice goes through the door to the hub
+/// while Bob, driven by slot 1, stays: two rooms are live when she arrives,
+/// and the reset effect of her arrival names the hub's live room. An
+/// unroomed row is drawn in no room while two are live.
+#[test]
+fn the_arrival_effect_of_a_crossing_is_drawn_in_the_room_the_body_arrives_in() {
+    let (mut sim, first) = alice_leaves_bob_by(
+        Some(ambition_platformer2d::characters::control::PlayerSlot(1)),
+        walk_through_the_door_recording_its_reset_effects,
+    );
+    let (alice_room, bob_room) = where_they_are(&mut sim);
+    let alice_room = alice_room.expect("Alice is in a live room");
+    assert!(
+        bob_room == Some(Some(first)) && alice_room != first && live_rooms(&mut sim).len() == 2,
+        "precondition: Alice and Bob are in two live rooms ({alice_room:?}, {bob_room:?})"
+    );
+    let recorded = CROSSING_RESET_EFFECT_ROOMS.with(|recorded| recorded.borrow().clone());
+    assert_eq!(
+        recorded,
+        vec![Some(alice_room)],
+        "the rooms the reset effects of Alice's crossing were written for (she arrived in {alice_room:?}, Bob holds {first:?})"
+    );
+}
+
+/// The reset effects of a room replay are drawn in the live room of the
+/// player who replays (view half, cut V2f). Alice, hurt and away from the hub
+/// spawn beside Bob's live room, asks for a replay. The replay writes two
+/// reset effects: one where she is put back, in the room she replays, and
+/// one where she arrives, in the room the replay builds. Each names the room
+/// she is in on the tick it is written, and no row is unroomed.
+#[test]
+fn the_reset_effects_of_a_replay_are_drawn_in_the_players_own_live_room() {
+    use ambition_platformer2d::vfx::vfx::{VfxInRoom, VfxMessage};
+    let (mut sim, _) = alice_leaves_bob(Some(ambition_platformer2d::characters::control::PlayerSlot(1)));
+    alice_walks_off_hurt_in_the_hub(&mut sim);
+    let before = where_they_are(&mut sim).0.expect("Alice is in a live room");
+    sim.world_mut().write_message(ambition_platformer2d::actors::session::reset::RoomReplayRequested::manual());
+    // (the room a reset effect was written for, Alice's room on that tick)
+    let mut rows: Vec<(Option<LiveRoomInstance>, Option<LiveRoomInstance>)> = Vec::new();
+    for _ in 0..30 {
+        sim.step(base());
+        let written: Vec<_> = sim
+            .world()
+            .resource::<bevy::ecs::message::Messages<VfxInRoom>>()
+            .iter_current_update_messages()
+            .filter(|row| matches!(row.vfx, VfxMessage::ResetEffects { .. }))
+            .map(|row| row.room)
+            .collect();
+        let hers = where_they_are(&mut sim).0;
+        rows.extend(written.into_iter().map(|room| (room, hers)));
+    }
+    let after = where_they_are(&mut sim).0.expect("Alice is in a live room");
+    assert_eq!(live_rooms(&mut sim).len(), 2, "precondition: Bob's room did not stay live through the replay");
+    assert_eq!(
+        rows,
+        vec![(Some(before), Some(before)), (Some(after), Some(after))],
+        "(the room each reset effect of Alice's replay was written for, her room on that tick): she replayed {before:?} and the replay built {after:?}"
     );
 }
 

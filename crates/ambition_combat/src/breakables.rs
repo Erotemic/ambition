@@ -29,11 +29,14 @@ pub fn update_ecs_breakables(
     mut sfx: SfxWriter,
     mut vfx: VfxWriter,
     mut debris: MessageWriter<DebrisBurstMessage>,
+    // The effects of a breakable are drawn in its own live room.
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
 ) {
     // Sim clock: breakable respawn / stand-to-break should freeze in
     // bullet-time alongside the player and enemies (ADR 0010).
     let dt = world_time.sim_dt();
     for (entity, name, aabb, mut feature, respawn_timer, stand_timer) in &mut breakables {
+        let mut vfx = vfx.for_room(rooms.of(entity));
         if feature.broken() {
             if let Some(mut timer) = respawn_timer {
                 timer.0 = (timer.0 - dt).max(0.0);
@@ -195,7 +198,8 @@ pub fn begin_ecs_breakable_respawn(
 pub fn emit_breakable_destroyed(
     pos: ae::Vec2,
     sfx: &mut SfxWriter,
-    vfx: &mut VfxWriter,
+    // Bound to the live room of the breakable.
+    vfx: &mut ambition_vfx::vfx::VfxForRoom<'_, '_>,
     debris: &mut MessageWriter<DebrisBurstMessage>,
 ) {
     vfx.write(VfxMessage::Burst {

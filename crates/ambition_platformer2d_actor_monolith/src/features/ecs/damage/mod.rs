@@ -670,14 +670,14 @@ pub fn apply_feature_hit_events(
                     continue;
                 }
                 let broke = feature.breakable.apply_damage(event.damage.max(1));
-                writers.vfx.write(VfxMessage::Impact { pos: aabb.center });
+                writers.vfx.write_in(rooms.of(entity), VfxMessage::Impact { pos: aabb.center });
                 if broke {
                     begin_ecs_breakable_respawn(&mut writers.commands, entity, &feature.breakable);
                     banner.show(format!("shattered {}", name.0.as_str()), 2.6);
                     emit_breakable_destroyed(
                         aabb.center,
                         &mut writers.sfx,
-                        &mut writers.vfx,
+                        &mut writers.vfx.for_room(rooms.of(entity)),
                         &mut writers.debris,
                     );
                 }
@@ -1085,7 +1085,7 @@ pub fn apply_feature_hit_events(
                     pos: impact,
                 });
             }
-            writers.vfx.write(VfxMessage::Impact { pos: impact });
+            writers.vfx.write_in(rooms.of(entity), VfxMessage::Impact { pos: impact });
             if broke {
                 begin_ecs_breakable_respawn(&mut writers.commands, entity, &feature.breakable);
                 banner.show(format!("broke {}", name.0.as_str()), 2.6);
@@ -1105,7 +1105,7 @@ pub fn apply_feature_hit_events(
                 emit_breakable_destroyed(
                     aabb.center,
                     &mut writers.sfx,
-                    &mut writers.vfx,
+                    &mut writers.vfx.for_room(rooms.of(entity)),
                     &mut writers.debris,
                 );
             }

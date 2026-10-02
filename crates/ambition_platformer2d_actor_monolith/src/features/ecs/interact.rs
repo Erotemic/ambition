@@ -285,7 +285,7 @@ pub fn interact_ecs_actors_and_switches(
                 id: crate::features::npc_talked_flag(&request.dialogue_id),
                 on: true,
             });
-            vfx.write(VfxMessage::Burst {
+            vfx.for_room(live_rooms.of(actor_entity)).write(VfxMessage::Burst {
                 pos: aabb.center,
                 count: 16,
                 speed: 230.0,
@@ -317,7 +317,7 @@ pub fn interact_ecs_actors_and_switches(
                 pos: aabb.center,
                 room,
             });
-            vfx.write(VfxMessage::Burst {
+            vfx.for_room(room).write(VfxMessage::Burst {
                 pos: aabb.center,
                 count: 16,
                 speed: 230.0,

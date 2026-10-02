@@ -185,6 +185,8 @@ pub fn apply_authored_trapdoors(
         // The look and the sound are the MOVE's, not this system's — the same
         // rule the authored teleport follows, so a mole and a stagehand can use
         // one technique and share nothing else.
+        // The door is drawn in the live room of the body that opens it.
+        let mut vfx = vfx.for_room(room.map(|stamp| stamp.0));
         vfx.write(ambition_vfx::vfx::VfxMessage::Effect {
             pos: door,
             fx: ambition_vfx::fx::FxId::new(&params.vfx),

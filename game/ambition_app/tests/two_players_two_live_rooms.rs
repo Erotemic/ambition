@@ -2962,6 +2962,109 @@ fn each_body_s_movement_dust_is_drawn_in_its_own_live_room() {
     );
 }
 
+/// The rooms that the effect rows `keep` accepts were written for, in the
+/// next `ticks` ticks. `None` is an unroomed row.
+fn rooms_of_effect_rows(
+    sim: &mut Platformer2dSimHarness,
+    ticks: usize,
+    keep: fn(&ambition_platformer2d::vfx::vfx::VfxMessage) -> bool,
+) -> std::collections::BTreeSet<Option<LiveRoomInstance>> {
+    let mut rooms = std::collections::BTreeSet::new();
+    for _ in 0..ticks {
+        sim.step(base());
+        rooms.extend(
+            sim.world()
+                .resource::<bevy::ecs::message::Messages<ambition_platformer2d::vfx::vfx::VfxInRoom>>()
+                .iter_current_update_messages()
+                .filter(|row| keep(&row.vfx))
+                .map(|row| row.room),
+        );
+    }
+    rooms
+}
+
+/// The effects of a hit are drawn in the struck body's own live room (view
+/// half, cut V2f, the producers that write through a helper). Alice is in
+/// the hub and Bob, driven by slot 1, is in the first room. A hit on Bob
+/// (the actor road) writes its impact for Bob's room. A hit on Alice (the
+/// player road) writes its impact for Alice's room, and so does the reset
+/// effect of her hazard respawn. No row is unroomed: an unroomed row is
+/// drawn in no room while two are live.
+#[test]
+fn each_hit_s_effects_are_drawn_in_the_struck_body_s_own_live_room() {
+    use ambition_platformer2d::combat::events::{HitEvent, HitMode, HitSource, HitTarget};
+    use ambition_platformer2d::vfx::vfx::VfxMessage;
+    let (mut sim, _) = alice_leaves_bob_for_a_replay();
+    let (alice_room, bob_room) = where_they_are(&mut sim);
+    let (alice_room, bob_room) = (
+        alice_room.expect("Alice is in a live room"),
+        bob_room.flatten().expect("Bob is in a live room"),
+    );
+    assert!(
+        alice_room != bob_room && live_rooms(&mut sim).len() == 2,
+        "precondition: Alice and Bob are in two live rooms ({alice_room:?}, {bob_room:?})"
+    );
+    let strike = |sim: &mut Platformer2dSimHarness, alice: bool, mode: HitMode| {
+        let world = sim.world_mut();
+        let (victim, pos, room) = if alice {
+            world
+                .query_filtered::<(bevy::prelude::Entity, &ambition_platformer2d::engine_core::BodyKinematics), bevy::prelude::With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>()
+                .single(world)
+                .map(|(entity, kinematics)| (entity, kinematics.pos, alice_room))
+                .expect("Alice's body is in the world")
+        } else {
+            world
+                .query::<(bevy::prelude::Entity, &ambition_platformer2d::combat::components::FeatureId, &ambition_platformer2d::engine_core::BodyKinematics)>()
+                .iter(world)
+                .find(|(_, feature, _)| feature.0 == BOB)
+                .map(|(entity, _, kinematics)| (entity, kinematics.pos, bob_room))
+                .expect("Bob's body is in the world")
+        };
+        world.write_message(HitEvent {
+            volume: ambition_platformer2d::engine_core::Aabb::new(pos, ambition_platformer2d::engine_core::Vec2::splat(8.0)).into(),
+            damage: 1,
+            source: HitSource::Hazard,
+            attacker: None,
+            room: Some(room),
+            target: HitTarget::Body(victim),
+            mode,
+            knockback: None,
+            ignored_targets: Vec::new(),
+            strike_sfx: None,
+            attacker_move_instance: None,
+        });
+    };
+    let impact: fn(&VfxMessage) -> bool = |vfx| matches!(vfx, VfxMessage::Impact { .. });
+    let reset: fn(&VfxMessage) -> bool = |vfx| matches!(vfx, VfxMessage::ResetEffects { .. });
+
+    strike(&mut sim, false, HitMode::Knockback);
+    assert_eq!(
+        rooms_of_effect_rows(&mut sim, 4, impact),
+        [Some(bob_room)].into_iter().collect(),
+        "the rooms the impact of a hit on Bob was written for (Bob is in {bob_room:?}, Alice in {alice_room:?})"
+    );
+    // The impact of the hit on Bob is drawn and gone before Alice is struck.
+    for _ in 0..90 {
+        sim.step(base());
+    }
+    strike(&mut sim, true, HitMode::Knockback);
+    assert_eq!(
+        rooms_of_effect_rows(&mut sim, 4, impact),
+        [Some(alice_room)].into_iter().collect(),
+        "the rooms the impact of a hit on Alice was written for (Alice is in {alice_room:?}, Bob in {bob_room:?})"
+    );
+    // Her invulnerability after the hit ends before the hazard strikes.
+    for _ in 0..180 {
+        sim.step(base());
+    }
+    strike(&mut sim, true, HitMode::SafeRespawn);
+    assert_eq!(
+        rooms_of_effect_rows(&mut sim, 10, reset),
+        [Some(alice_room)].into_iter().collect(),
+        "the rooms the reset effect of Alice's hazard respawn was written for (Alice is in {alice_room:?})"
+    );
+}
+
 /// Alice dies in the hub while Bob, driven by slot 1, plays on in
 /// `switch_lab`. Bob's body is not a `PlayerEntity`, so the roster finds
 /// nobody left in play and the death resets to the checkpoint: Alice starts

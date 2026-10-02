@@ -191,7 +191,12 @@ pub fn lower_drawn_rows(
 }
 
 /// Lower `ambition.feedback.burst` into `VfxMessage::Burst`.
-pub fn lower_bursts(mut outbox: ResMut<ExtensionOutbox>, mut vfx: ambition_vfx::vfx::VfxWriter) {
+pub fn lower_bursts(
+    mut outbox: ResMut<ExtensionOutbox>,
+    mut vfx: ambition_vfx::vfx::VfxWriter,
+    // A burst is drawn in the live room of the body its entry runs for.
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
+) {
     use ambition_vfx::vfx::ParticleKind;
     for submitted in outbox.drain::<BurstPort>() {
         let burst = submitted.value;
@@ -205,7 +210,7 @@ pub fn lower_bursts(mut outbox: ResMut<ExtensionOutbox>, mut vfx: ambition_vfx::
                 continue;
             }
         };
-        vfx.write(ambition_vfx::vfx::VfxMessage::Burst {
+        vfx.for_room(rooms.of(submitted.scope)).write(ambition_vfx::vfx::VfxMessage::Burst {
             pos: ae::Vec2::from(burst.at),
             count: burst.count,
             speed: burst.speed,

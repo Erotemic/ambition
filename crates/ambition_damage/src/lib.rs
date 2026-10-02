@@ -40,7 +40,7 @@ use ambition_combat::util::{body_vulnerable, shield_blocks_hit};
 use bevy::prelude::{Entity, MessageReader, MessageWriter, Query, Res, ResMut};
 
 use ambition_platformer2d_core as ae;
-use ambition_vfx::vfx::{DebrisBurstMessage, VfxMessage, VfxWriter};
+use ambition_vfx::vfx::{DebrisBurstMessage, VfxForRoom, VfxMessage, VfxWriter};
 
 use ambition_characters::actor::BodyAnimFacts;
 use ambition_characters::actor::{BodyCombat, BodyHealth, BodyWallet, BodyWalletShield};
@@ -504,7 +504,8 @@ pub(crate) fn handle_player_damage_events(
     strike_weight: Option<ambition_combat::strike_weight::StrikeWeightRules>,
     _world: &ae::World,
     sfx: &mut SfxWriter,
-    vfx: &mut VfxWriter,
+    // Bound to the live room of the struck body.
+    vfx: &mut VfxForRoom<'_, '_>,
     debris: &mut MessageWriter<DebrisBurstMessage>,
     death_writers: &mut BodyDeathWriters<'_>,
     clusters: &mut ae::BodyClustersMut<'_>,
@@ -834,7 +835,8 @@ pub(crate) fn safe_respawn_player(
     sfx: &mut SfxWriter,
     // G1: the reset chime is this body's, for the same reason its death is.
     victim_source: Option<&ambition_sfx::PresentationSourceId>,
-    vfx: &mut VfxWriter,
+    // Bound to the live room of the body that respawns.
+    vfx: &mut VfxForRoom<'_, '_>,
     clusters: &mut ae::BodyClustersMut<'_>,
     clock_resets: Option<&mut MessageWriter<ClockResetRequest>>,
     safety: &PlayerSafetyState,
@@ -1039,7 +1041,8 @@ pub(crate) fn apply_player_knockback(
     // than resolved here: the two `HitMode::Knockback` arms above used to call
     // `knock_off_ledge` themselves, which is the duplication D203 names.
     motion_model: &mut ambition_platformer2d_core::movement::MotionModel,
-    vfx: &mut VfxWriter,
+    // Bound to the live room of the struck body.
+    vfx: &mut VfxForRoom<'_, '_>,
     debris: &mut MessageWriter<DebrisBurstMessage>,
     clusters: &mut ae::BodyClustersMut<'_>,
     combat: &mut BodyCombat,
@@ -1574,7 +1577,7 @@ pub fn apply_player_hit_events(
             combat_rules.strike_weight,
             room,
             &mut sfx_writer,
-            &mut vfx_writer,
+            &mut vfx_writer.for_room(player_room.map(|stamp| stamp.0)),
             &mut debris_writer,
             &mut death_writers,
             &mut clusters,

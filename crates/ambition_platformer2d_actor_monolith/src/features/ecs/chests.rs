@@ -58,6 +58,8 @@ pub fn open_ecs_chests(
     mut set_flag: MessageWriter<SetFlagRequested>,
     mut sfx: SfxWriter,
     mut vfx: VfxWriter,
+    // The open burst is drawn in the chest's own live room.
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
     // The grant, routed to the body that opened it — the same three writers the
     // walk-over pickup hands to `grant_pickup`.
     mut heals: MessageWriter<crate::avatar::PlayerHealRequested>,
@@ -117,7 +119,7 @@ pub fn open_ecs_chests(
                 );
             }
             let pos = aabb.center;
-            vfx.write(VfxMessage::Burst {
+            vfx.for_room(rooms.of(entity)).write(VfxMessage::Burst {
                 pos,
                 count: 16,
                 speed: 230.0,

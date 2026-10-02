@@ -188,7 +188,7 @@ pub(crate) fn apply_actor_hit(
         let victim_source = writers.source_of(Some(actor_entity));
         ambition_combat::util::emit_hit_feedback(
             &mut writers.sfx,
-            &mut writers.vfx,
+            &mut writers.vfx.for_room(room),
             &mut writers.debris,
             hurt,
             event.strike_sfx,
@@ -539,7 +539,7 @@ pub(crate) fn apply_actor_hit(
         // emitters borrow the writers.
         ambition_combat::util::emit_hit_feedback(
             &mut writers.sfx,
-            &mut writers.vfx,
+            &mut writers.vfx.for_room(room),
             &mut writers.debris,
             hurt,
             event.strike_sfx,

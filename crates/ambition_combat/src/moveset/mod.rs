@@ -1167,6 +1167,8 @@ pub fn advance_move_playback(
     // point different ways (the one-box-drives-damage-and-slash invariant; this
     // is the sole melee strike path).
     mut vfx: ambition_vfx::vfx::VfxWriter,
+    // A slash is drawn in the live room of the body that swings it.
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
     mut players: Query<(
         Entity,
         &mut MovePlayback,
@@ -1890,7 +1892,7 @@ pub fn advance_move_playback(
                                 _ => ambition_vfx::vfx::SlashPose::Side,
                             };
                             crate::util::emit_melee_slash(
-                                &mut vfx,
+                                &mut vfx.for_room(rooms.of(owner)),
                                 &hb.world_volume(kin.pos),
                                 kin.pos,
                                 owner,

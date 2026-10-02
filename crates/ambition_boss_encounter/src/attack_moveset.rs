@@ -4,17 +4,9 @@
 //! starts the corresponding move, and `MovePlayback` is the sole attack timeline
 //! for geometry and content-technique specials alike.
 
-// TODO(compat-remove): migrate remaining boss-pattern callers to
-// `ambition_characters::brain::boss_pattern`, then remove these re-exports.
 use crate::pattern::profile::BossBehaviorProfile;
-// `BossPattern` and `BossPatternStep` appear only in the scripted profiles in
-// `boss_profiles.ron`. They are public via
-// `ambition_characters::brain::boss_pattern` and not re-exported here.
 
-// The engine retains only the generic boss machinery (profile/spec/resolver) below.
-
-// TODO(compat-remove): migrate remaining behavior-profile callers to
-// `crate::behavior`, then remove these re-exports.
+// For the tests of this module, which take it through `super::*`.
 #[cfg(test)]
 use crate::behavior::canonical_boss_id_from;
 

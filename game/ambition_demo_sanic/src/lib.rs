@@ -196,8 +196,9 @@ const START_LINE_LEGEND: &str = "START   {action:jump}: JUMP   DOWN+{action:spin
 /// Build the Sanic showcase room from the demo's LDtk world. Everything spatial
 /// is authored there: the painted ground (hills, pit, finish tower) and the
 /// loop, a `SurfaceLoop` whose box is its circle, attached to the painted
-/// floor, and the distance markers. This adds only the mode, the theme and the
-/// start, loop and finish signs.
+/// floor, and the distance markers, and the level fields say its mode, biome
+/// and visual profile (the skybridge parallax). This adds only the start, loop
+/// and finish signs.
 pub fn sanic_speedway() -> RoomSpec {
     let project = ambition_platformer2d::ldtk_map::LdtkProject::from_json_str(SPEEDWAY_WORLD_JSON)
         .expect("sanic_speedway.ldtk parses (regen: game/ambition_demo_sanic/tools/author_speedway_ldtk.py)");
@@ -216,14 +217,6 @@ pub fn sanic_speedway() -> RoomSpec {
         .expect("the world file authors the sanic_speedway area");
 
     let loop_top = loop_top(&room.world);
-    room.metadata.mode = Some(SANIC_MODE.to_string());
-    // Borrow Ambition's generated skybridge stack. The visible shell loads the
-    // shared `GameAssets`; if those optional images are absent the renderer keeps
-    // the deterministic clear-color + landmark geometry fallback.
-    room.metadata.biome = Some("skybridge".to_string());
-    room.metadata.visual_theme = Some("skybridge".to_string());
-    room.metadata.visual_profile.id = Some("sanic_speedway".to_string());
-    room.metadata.visual_profile.parallax_theme = Some("skybridge".to_string());
 
     // World-space signs, beside the distance markers the file authors. They are
     // ordinary room debug labels rendered by the generic presentation face, not
@@ -282,10 +275,6 @@ pub fn sanic_highway() -> RoomSpec {
         .into_iter()
         .find(|room| room.id == HIGHWAY_ROOM_ID)
         .expect("the world file authors the sanic_highway area");
-    room.metadata.biome = Some("cove".to_string());
-    room.metadata.visual_theme = Some("cove".to_string());
-    room.metadata.visual_profile.id = Some("sanic_highway".to_string());
-    room.metadata.visual_profile.parallax_theme = Some("cove".to_string());
     let finish = ae::Vec2::new(goal_x_of(&room.world), FLOOR_TOP - 300.0);
     room.debug_labels = vec![ambition_platformer2d::world::rooms::Authored::new(
         "sanic_highway_finish",
@@ -315,10 +304,6 @@ pub fn sanic_darkness() -> RoomSpec {
         .into_iter()
         .find(|room| room.id == DARKNESS_ROOM_ID)
         .expect("the world file authors the sanic_darkness area");
-    room.metadata.biome = Some("basement".to_string());
-    room.metadata.visual_theme = Some("eclipse".to_string());
-    room.metadata.visual_profile.id = Some("sanic_darkness".to_string());
-    room.metadata.visual_profile.parallax_theme = Some("eclipse".to_string());
     let finish = ae::Vec2::new(goal_x_of(&room.world), 1120.0);
     room.debug_labels = vec![ambition_platformer2d::world::rooms::Authored::new(
         "sanic_darkness_finish",

@@ -350,6 +350,10 @@ OPTIONAL_LEVEL_FIELDS = (
     "fight_music_track",
     "ambient_profile",
     "visual_theme",
+    # The room's visual profile and its parallax stack (`RoomVisualProfile`,
+    # docs/systems/camera-and-visual-profiles.md).
+    "visual_profile",
+    "parallax_theme",
     "nameplate_full_opacity_count",
     "nameplate_fade_out_count",
     "gallery",

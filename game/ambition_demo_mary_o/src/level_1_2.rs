@@ -49,14 +49,6 @@ pub const LEVEL_1_2_ROOM_ID: &str = "mary_o_1_2";
 /// something an author chose on purpose.
 pub const FERRY_ID: &str = "mary_o_1_2_ferry";
 
-/// The stone the cavern is cut from. The one thing about 1-2 the LDtk file
-/// cannot say, since a block carries no authored colour — the same reason 1-1
-/// paints its vault masonry from Rust.
-///
-/// read by [`crate::authored_level`] rather than applied here, so there is one
-/// room builder and this stays the datum it is.
-pub(crate) const UNDERGROUND_STONE: [f32; 4] = [0.20, 0.17, 0.28, 1.0];
-
 /// 1-2's goal.
 pub fn goal_pole() -> crate::flag::FlagPole {
     crate::authored_pole(&level_1_2())

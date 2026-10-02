@@ -170,8 +170,9 @@ const VAULT_DEPTH_TILES: f32 = 9.0;
 const DESCENT_LINK: &str = "descent";
 const ASCENT_LINK: &str = "ascent";
 
-/// The stone the secret chamber is cut from — the one thing about the vault the
-/// LDtk file cannot say, since a block carries no authored colour.
+/// The stone the secret chamber is cut from. The LDtk file cannot say it: a
+/// level's `block_color` paints every block of the level, and the vault is only
+/// some of 1-1's blocks.
 const VAULT_STONE_COLOR: [f32; 4] = [0.24, 0.20, 0.30, 1.0];
 
 /// The vault's interior, in world coordinates.
@@ -538,31 +539,10 @@ pub fn authored_area_ids() -> Vec<String> {
         .collect()
 }
 
-/// The stone an area is cut from — the one thing about a level the LDtk file
-/// cannot say, since a block carries no authored colour.
-///
-/// this is the whole remaining Rust-owned content datum, and it is here
-/// rather than inline so it reads as the exception it is. The elegant end
-/// state is an authored level field (`palette` is already declared in every
-/// project's `levelFields`) lowered into `RoomMetadata`; that is an engine
-/// change to `RoomMetadata`, not a demo one.
-fn authored_stone(area: &str) -> Option<[f32; 4]> {
-    (area == level_1_2::LEVEL_1_2_ROOM_ID).then_some(level_1_2::UNDERGROUND_STONE)
-}
-
 fn finish_authored_room(mut room: RoomSpec) -> RoomSpec {
-    room.metadata.mode = Some(MARY_O_MODE.to_string());
     // A `MaryOPipe` whose `link` is a typo makes building the room fail, loudly,
     // naming the half that is there and the partner it wants.
     let _ = pipe_tubes(&room).unwrap_or_else(|why| panic!("{why}"));
-    // A one-stone cavern is painted BEFORE the by-name dressing rather than
-    // instead of it: `dress_authored_blocks` then takes the pole back out again
-    // (its look is the prop laid over it).
-    if let Some(stone) = authored_stone(&room.id) {
-        for block in &mut room.world.blocks {
-            block.art_color = Some(stone);
-        }
-    }
     dress_authored_blocks(&mut room);
     room.props.extend(scenery_for_authored_room(&room));
     room
@@ -621,7 +601,8 @@ pub fn authored_zone<'a>(
 
 /// Paint the authored blocks that wear something other than their kind's art.
 ///
-/// LDtk cannot author a block's colour, so the game says it here — BY NAME. That is the whole
+/// A level can author the colour of all its blocks (`block_color`), but not of
+/// one block, so the game says it here — BY NAME. That is the whole
 /// authored vocabulary at work: a warp pipe and the flagpole are collision only (their look comes
 /// from the props below, laid over them), and the vault's masonry is its own stone.
 fn dress_authored_blocks(room: &mut RoomSpec) {
@@ -2434,6 +2415,31 @@ mod tests {
     fn level_1_1_claims_the_mary_o_mode() {
         assert_eq!(level_1_1().metadata.mode.as_deref(), Some(MARY_O_MODE));
         assert_ne!(MARY_O_MODE, "sanic", "two demos, two modes, one binary");
+    }
+
+    /// Each authored area says its mode and its stone in the LDtk file (the
+    /// `mode` and `block_color` level fields), not in Rust. 1-2 is cut from one
+    /// stone; 1-1 and 1-3 author no level colour, so a block there that the game
+    /// does not dress has none.
+    #[test]
+    fn each_area_says_its_mode_and_its_stone_in_data() {
+        let cavern_stone = [51.0 / 255.0, 43.0 / 255.0, 71.0 / 255.0, 1.0];
+        for room in authored_levels() {
+            assert_eq!(room.metadata.mode.as_deref(), Some(MARY_O_MODE), "{} claims no mode", room.id);
+            let undressed: Vec<_> = room
+                .world
+                .blocks
+                .iter()
+                .filter(|block| ldtk_vocabulary::block_look_of(&block.name).is_none())
+                .filter(|block| ldtk_vocabulary::pipe_of(&block.name).is_none())
+                .filter(|block| !block.name.starts_with(GOAL_POLE_PREFIX) && !block.name.starts_with(VAULT_MASONRY_PREFIX))
+                .collect();
+            assert!(!undressed.is_empty(), "{} authors no plain block", room.id);
+            let expected = (room.id == level_1_2::LEVEL_1_2_ROOM_ID).then_some(cavern_stone);
+            for block in undressed {
+                assert_eq!(block.art_color, expected, "{} block `{}`", room.id, block.name);
+            }
+        }
     }
 
     /// The level clock counts DOWN on the sim clock and clamps at zero. `hosted()`

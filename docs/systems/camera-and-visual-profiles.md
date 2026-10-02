@@ -49,6 +49,11 @@ Supported level fields:
 | `lighting_hint` | Lighting mood hint for future post-process or shader passes. |
 | `foreground_treatment` | Foreground/atmosphere treatment hint. |
 
+One more level field colours geometry, not the profile: `block_color`
+(`#RRGGBB` or `#RRGGBBAA`) is the colour of every block the level authors that
+has no colour of its own (`Block::art_color`). Conversion refuses a value that is
+not a colour. Mary-O's 1-2 cavern uses it.
+
 `ParallaxTheme::from_room_metadata` now checks `visual_profile.parallax_theme`
 first, then `visual_profile.id`, and only then falls back to the legacy loose
 metadata heuristic. New story rooms should set `parallax_theme` explicitly.

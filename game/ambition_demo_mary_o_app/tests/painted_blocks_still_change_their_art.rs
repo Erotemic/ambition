@@ -1,9 +1,8 @@
 //! A block the level PAINTED must still be able to change its picture.
 //!
 //! one line in `level_1_2()` opted every block in the cavern out of art
-//! updates, permanently. The level paints its stone —
-//! `for block in &mut room.world.blocks { block.art_color = Some(UNDERGROUND_STONE) }`
-//! — and `spawn_block` read that authored colour as *"content has said this
+//! updates, permanently. The level paints its stone (now the `block_color`
+//! level field of `mary_o_1_2` in the LDtk file) and `spawn_block` read that authored colour as *"content has said this
 //! shape has no sprite yet"*, dropped the sprite key on the floor and therefore
 //! attached no `BoundEntitySprite`. `apply_block_art`, the ONE system that
 //! changes a block's picture mid-run, queries `&mut BoundEntitySprite`. No

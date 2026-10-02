@@ -271,6 +271,13 @@ def area_spec() -> dict:
         "px_hei": LEVEL_H,
         "fill_collision": "empty",
         "bg_color": "#16202e",
+        "mode": "sanic",
+        # Ambition's generated skybridge stack. Without those optional images
+        # the renderer keeps its clear colour and the landmark geometry.
+        "biome": "skybridge",
+        "visual_theme": "skybridge",
+        "visual_profile": "sanic_speedway",
+        "parallax_theme": "skybridge",
         "entities": entities,
     }
 

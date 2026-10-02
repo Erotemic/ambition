@@ -209,6 +209,26 @@ impl LdtkProject {
                 ));
                 continue;
             }
+            // The level's block colour (`block_color`, a string such as
+            // `#332B47`): the blocks this level authors are drawn in it, unless an
+            // entity gave a block a colour of its own. A cavern cut from one stone
+            // says so in data.
+            let level_blocks_from = blocks.len();
+            let block_color = match level.field_string("block_color").map(|text| text.trim().to_string()) {
+                None => None,
+                Some(text) if text.is_empty() => None,
+                Some(text) => match parse_block_color(&text) {
+                    Some(color) => Some(color),
+                    None => {
+                        errors.push(format!(
+                            "level '{}' authors block_color `{text}`, which is not a colour \
+                             (#RRGGBB or #RRGGBBAA)",
+                            level.identifier
+                        ));
+                        None
+                    }
+                },
+            };
             // The level's enemy ZONE policy: when its enemies come back, for every
             // `EnemySpawn` in it that does not author its own `respawn`. One switch
             // for the zone instead of one per placement, lowered here onto the
@@ -284,6 +304,12 @@ impl LdtkProject {
                     Err(message) => {
                         errors.push(format!("level '{}' Collision: {message}", level.identifier))
                     }
+                }
+            }
+
+            if let Some(color) = block_color {
+                for block in &mut blocks[level_blocks_from..] {
+                    block.art_color.get_or_insert(color);
                 }
             }
 
@@ -938,6 +964,18 @@ pub(super) fn entity_to_runtime(
 mod entity_converters;
 use entity_converters::*;
 
+/// Parse an authored block colour, `#RRGGBB` or `#RRGGBBAA`, into sRGB
+/// channels in `0.0..=1.0`.
+fn parse_block_color(text: &str) -> Option<[f32; 4]> {
+    let hex = text.strip_prefix('#')?;
+    if !(hex.len() == 6 || hex.len() == 8) || !hex.is_ascii() {
+        return None;
+    }
+    let channel = |at: usize| u8::from_str_radix(&hex[at..at + 2], 16).ok().map(|value| f32::from(value) / 255.0);
+    let alpha = if hex.len() == 8 { channel(6)? } else { 1.0 };
+    Some([channel(0)?, channel(2)?, channel(4)?, alpha])
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1085,6 +1123,42 @@ mod tests {
         assert!(
             refused.is_err_and(|error| format!("{error:?}").contains("enemy_respawn")),
             "a misspelled zone policy is refused, not read as no policy"
+        );
+    }
+
+    /// A level authors the colour its blocks are drawn in (`block_color`).
+    /// Mary-O's 1-2 cavern is cut from one stone, and that colour was the one
+    /// datum of the level written in Rust. Without the field, a block has no
+    /// colour; a value that is not a colour is refused, not read as none.
+    #[test]
+    fn a_level_authors_the_colour_of_its_blocks() {
+        let project = |color: Option<&str>| {
+            let mut project = synthetic_level(vec![
+                entity_at("Solid", [160, 400], [64, 16], &[]),
+                entity_at("Solid", [320, 400], [64, 16], &[]),
+            ]);
+            if let Some(color) = color {
+                project.levels[0].field_instances.push(level_field("block_color", Value::String(color.into())));
+            }
+            project
+        };
+        let colors = |color: Option<&str>| {
+            let room_set = project(color)
+                .to_room_set_with_entry("registry_lab", &LdtkVocabulary::engine())
+                .expect("the project composes");
+            room_set.rooms[0].world.blocks.iter().map(|block| block.art_color).collect::<Vec<_>>()
+        };
+        assert_eq!(
+            colors(Some("#336699")),
+            vec![Some([0.2, 0.4, 0.6, 1.0]); 2],
+            "every block of the level is drawn in its authored colour"
+        );
+        assert_eq!(colors(Some("#33669980"))[0].map(|color| color[3]), Some(128.0 / 255.0), "an alpha is read");
+        assert_eq!(colors(None), vec![None; 2], "no field: no colour");
+        let refused = project(Some("purple")).to_room_set_with_entry("registry_lab", &LdtkVocabulary::engine());
+        assert!(
+            refused.is_err_and(|error| format!("{error:?}").contains("block_color")),
+            "a value that is not a colour is refused, not read as no colour"
         );
     }
 

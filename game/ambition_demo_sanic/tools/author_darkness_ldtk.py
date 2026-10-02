@@ -222,7 +222,10 @@ def area_spec() -> dict:
         "id": ROOM_ID, "level_id": ROOM_ID, "world_x": 0, "world_y": 0,
         "px_wid": LEVEL_W, "px_hei": LEVEL_H,
         "fill_collision": "empty", "bg_color": "#090b1d",
-        "mode": "sanic", "music_track": MUSIC_TRACK, "entities": entities,
+        "mode": "sanic", "music_track": MUSIC_TRACK,
+        "biome": "basement", "visual_theme": "eclipse",
+        "visual_profile": "sanic_darkness", "parallax_theme": "eclipse",
+        "entities": entities,
     }
 
 

@@ -1528,6 +1528,35 @@ fn the_three_acts_form_one_course() {
     }
 }
 
+/// Each act says its mode, biome and look in its LDtk world (level fields),
+/// not in Rust. The room an act builds has exactly the metadata its world file
+/// converts to, and that is the act's own look.
+#[test]
+fn each_act_says_its_mode_and_look_in_its_world_file() {
+    let acts = [
+        (sanic_speedway(), SPEEDWAY_WORLD_JSON, SPEEDWAY_ROOM_ID, "skybridge", "skybridge"),
+        (sanic_highway(), HIGHWAY_WORLD_JSON, HIGHWAY_ROOM_ID, "cove", "cove"),
+        (sanic_darkness(), DARKNESS_WORLD_JSON, DARKNESS_ROOM_ID, "basement", "eclipse"),
+    ];
+    for (room, world, id, biome, theme) in acts {
+        let converted = ambition_platformer2d::ldtk_map::LdtkProject::from_json_str(world)
+            .expect("the act's world parses")
+            .to_room_set_with_entry(id, &ambition_platformer2d::ldtk_map::LdtkVocabulary::engine())
+            .expect("the act's world converts")
+            .rooms
+            .into_iter()
+            .find(|room| room.id == id)
+            .expect("the world file authors the act");
+        assert_eq!(room.metadata, converted.metadata, "{id}: the builder wrote metadata the file does not say");
+        let look = &room.metadata;
+        assert_eq!(look.mode.as_deref(), Some(SANIC_MODE), "{id}");
+        assert_eq!(look.biome.as_deref(), Some(biome), "{id}");
+        assert_eq!(look.visual_theme.as_deref(), Some(theme), "{id}");
+        assert_eq!(look.visual_profile.id.as_deref(), Some(id), "{id}");
+        assert_eq!(look.visual_profile.parallax_theme.as_deref(), Some(theme), "{id}");
+    }
+}
+
 #[test]
 fn the_dark_act_has_three_portal_pairs_and_room_to_run() {
     use ambition_platformer2d::entity_catalog::placements::PlacementSchema;

@@ -339,6 +339,10 @@ def area_spec() -> dict:
         "bg_color": "#0f1a2a",
         "mode": "sanic",
         "music_track": MUSIC_TRACK,
+        "biome": "cove",
+        "visual_theme": "cove",
+        "visual_profile": "sanic_highway",
+        "parallax_theme": "cove",
         "entities": entities,
     }
 

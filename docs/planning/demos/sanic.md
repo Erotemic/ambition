@@ -166,6 +166,10 @@ Git history has the detailed 2026-07-11 recovery investigation.
 - the shared body/control path and `MotionModel` selection;
 - surface-momentum movement and frame-aware input;
 - world IR + LDtk conversion for chains, loops, ramps, boosters, and routes;
+  since 2026-10-02 each act's level fields also say its mode, biome and visual
+  profile (`biome`, `visual_theme`, `visual_profile`, `parallax_theme`), so the
+  act builders in `lib.rs` add only the world-space signs
+  (`each_act_says_its_mode_and_look_in_its_world_file`);
 - combat/effect vocabulary for rolling contact and bit scatter;
 - `SimView` for HUD/agent observation;
 - provider-owned character, action, sprite, audio, and world catalogs.

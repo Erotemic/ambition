@@ -291,11 +291,17 @@ Remaining acceptance work
 - the shared body/control path using the axis-swept motion model;
 - item/equipment and canonical action/moveset execution;
 - combat/contact vocabulary for stomps and sliding hazards;
-- world IR — her rooms and loading zones are constructed as `RoomSpec` values in
-  Rust rather than authored in LDtk. That is acceptable **because she is a demo**;
-  LDtk is still the preferred path and is required for the Ambition game itself
-  (see `demos/README.md` and ADR 0009). Do not grow the programmatic path — a
-  missing authoring concept goes into LDtk + the tooling;
+- world IR — her three areas, their loading zones and pipes are authored in
+  LDtk (`worlds/mary_o.ldtk` in `ambition_map_assets`) and read through
+  `authored_levels`. Since 2026-10-02 each level also says its game mode
+  (`mode`) and 1-2 says the stone it is cut from (`block_color`, `#332B47`) as
+  level fields; before, `finish_authored_room` wrote both in Rust. What Rust
+  still says is the by-name dressing in `dress_authored_blocks` (pipes, the
+  pole, hidden blocks and 1-1's vault masonry are drawn other than their
+  kind's art), because a level field colours every block of a level and LDtk
+  authors no per-block colour. `test_course.rs` builds a synthetic room in
+  code on purpose. Do not grow the programmatic path — a missing authoring
+  concept goes into LDtk + the tooling;
 - the cutscene domain for presentation sequencing where appropriate;
 - `SimView` for HUD and programmatic observation.
 

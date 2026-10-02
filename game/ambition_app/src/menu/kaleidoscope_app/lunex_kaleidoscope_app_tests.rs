@@ -170,6 +170,7 @@ fn extra_dev_toggles_flip_their_non_developer_resources() {
         #[cfg(feature = "portal_render")]
         portal_camera: None,
         base_gravity: None,
+        gravity_room: None,
     });
     let read = |id: DevToggleId| snap.values.iter().find(|(d, _, _)| *d == id).unwrap().1;
     assert_eq!(read(DevToggleId::DebugOverlay), dev_state.debug);
@@ -204,6 +205,7 @@ fn menu_backend_dev_row_cycles_inventory_backend() {
             #[cfg(feature = "portal_render")]
             portal_camera: None,
             base_gravity: None,
+            gravity_room: None,
         })
         .values
         .iter()
@@ -294,6 +296,7 @@ fn show_hitboxes_toggles_feature_and_player_fields_like_pause() {
         #[cfg(feature = "portal_render")]
         portal_camera: None,
         base_gravity: None,
+        gravity_room: None,
     });
     let on = snap
         .values
@@ -1548,6 +1551,7 @@ fn scroll_total_rows(app: &App) -> usize {
         #[cfg(feature = "portal_render")]
         portal_camera: None,
         base_gravity: None,
+        gravity_room: None,
     });
     let model = SystemMenuModel::build(settings, &RadioSnapshot::default(), &snap);
     system_rows(&model, Some(SystemMenuEntryId::Developer)).len()

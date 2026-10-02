@@ -712,16 +712,19 @@ impl Platformer2dSimHarness {
         &mut self.app
     }
 
-    /// Set the room's ambient gravity direction (unit vector). `(0, 1)`
-    /// is default down; `(0, -1)` inverts to up. Writes [`BaseGravity`],
-    /// which `resolve_active_gravity` copies into the live `GravityField`
-    /// each frame (so it is the durable, frame-stable invert — poking
-    /// `GravityField` directly gets overwritten next tick). Test-only
-    /// scaffolding for gravity-symmetry checks.
+    /// Set the ambient gravity direction (unit vector) of the sole live room.
+    /// `(0, 1)` is default down; `(0, -1)` inverts to up. Writes
+    /// [`BaseGravity`], which the frame resolver reads into each body's frame
+    /// (so it is the durable, frame-stable invert — poking `GravityField`
+    /// directly gets overwritten next tick). Test-only scaffolding for
+    /// gravity-symmetry checks.
     pub fn set_base_gravity_dir(&mut self, dir: (f32, f32)) {
-        let mut base = self.app.world_mut().resource_mut::<BaseGravity>();
-        base.dir = Vec2::new(dir.0, dir.1);
-        drop(base);
+        let world = self.app.world_mut();
+        let room = ambition_platformer2d::session::sole_live_room_component::<
+            ambition_platformer2d::world::rooms::LiveRoomInstance,
+        >(world)
+        .copied();
+        world.resource_mut::<BaseGravity>().turn(room, Vec2::new(dir.0, dir.1));
         self.rebase_after_direct_setup_mutation();
     }
 

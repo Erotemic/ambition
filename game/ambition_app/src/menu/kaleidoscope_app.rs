@@ -598,8 +598,10 @@ pub(crate) struct SystemMenuParams<'w, 's> {
     // no-op; the sim applies the request (`BaseGravity` is rollback state).
     gravity_requests:
         Option<ResMut<'w, Messages<ambition_platformer2d::world::AmbientGravityRequest>>>,
-    // Read-only, for the row's direction label.
+    // Read-only, for the row's direction label: the ambient of the room the
+    // cycle turns.
     base_gravity: Option<Res<'w, ambition_platformer2d::world::BaseGravity>>,
+    gravity_room: ambition_platformer2d::world::DeveloperGravityRoom<'w, 's>,
     // New Game is a host intent: the simulation arms its reset on the tick
     // the ledger stamps, so a rewind cannot erase the press.
     reset: ambition_platformer2d::actors::session::host_intents::HostIntentWriter<
@@ -811,6 +813,7 @@ impl SystemMenuParams<'_, '_> {
             #[cfg(feature = "portal_render")]
             portal_camera: self.portal_camera.as_deref(),
             base_gravity: self.base_gravity.as_deref(),
+            gravity_room: self.gravity_room.get(),
         })
     }
 
@@ -836,7 +839,7 @@ pub(crate) struct GameModeIo<'w> {
 /// state into the SYSTEM IR. Separate `Res` bundle so it never conflicts with the
 /// mutable `SystemMenuParams` (different systems).
 #[derive(bevy::ecs::system::SystemParam)]
-pub(crate) struct SystemMenuSnapshotParams<'w> {
+pub(crate) struct SystemMenuSnapshotParams<'w, 's> {
     dev_tools: Res<'w, ambition_platformer2d::dev_tools::dev_tools::DeveloperTools>,
     dev_state: Res<'w, ambition_platformer2d::dev_tools::DeveloperRuntimeState>,
     ldtk_reload: Res<'w, ambition_platformer2d::dev_tools::WorldSourceHotReload>,
@@ -849,6 +852,7 @@ pub(crate) struct SystemMenuSnapshotParams<'w> {
         Res<'w, ambition_platformer2d::portal_presentation::PortalCameraContinuitySelection>,
     >,
     base_gravity: Option<Res<'w, ambition_platformer2d::world::BaseGravity>>,
+    gravity_room: ambition_platformer2d::world::DeveloperGravityRoom<'w, 's>,
     #[cfg(feature = "audio")]
     library: Option<Res<'w, ambition_platformer2d::audio::library::AudioLibrary>>,
     #[cfg(feature = "audio")]
@@ -858,7 +862,7 @@ pub(crate) struct SystemMenuSnapshotParams<'w> {
 }
 
 #[cfg(feature = "kaleidoscope_menu")]
-impl SystemMenuSnapshotParams<'_> {
+impl SystemMenuSnapshotParams<'_, '_> {
     /// Build the live radio-station snapshot for the SYSTEM IR (empty under no
     /// `audio` / when the radio resources are absent).
     fn radio_snapshot(&self) -> RadioSnapshot {
@@ -883,6 +887,7 @@ impl SystemMenuSnapshotParams<'_> {
             #[cfg(feature = "portal_render")]
             portal_camera: self.portal_camera.as_deref(),
             base_gravity: self.base_gravity.as_deref(),
+            gravity_room: self.gravity_room.get(),
         })
     }
 }

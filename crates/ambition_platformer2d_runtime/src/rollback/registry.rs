@@ -982,7 +982,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// retires (OW5). This step also records `derived.authored_room_commands`
 /// (each live room's prepared `while_live` line), which was registered at 295
 /// with no baseline row.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 296;
+/// ⛔⛤ 296 -> 297: `resource.base_gravity` is one ambient per live room: a
+/// count, then each turned room and its direction, where it was one `Vec2`
+/// for the whole world (customer 2).
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 297;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

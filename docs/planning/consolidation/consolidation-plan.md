@@ -944,7 +944,7 @@ label"*) — rollback state, a menu composition, session-owned member: every
 surface feature of a defect. Following it to its consumer settles it the other
 way. The value is passed as `Option<&BaseGravity>` into `dev_toggles`, whose
 whole use is
-`ctx.base_gravity.map_or("n/a", |g| g.direction_label())` — the `None` arm
+`ctx.base_gravity.map_or("n/a", |g| g.direction_label(ctx.gravity_room))` — the `None` arm
 renders a placeholder string. It reads no substitute, writes nothing, and
 manufactures no simulation state. ⇒ **A LEGITIMATE optional read, and the
 clearest example on this page of the rule the row already states**: the

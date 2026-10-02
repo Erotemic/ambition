@@ -461,11 +461,23 @@ fn a_transaction_authorized_under_a_stale_content_epoch_never_commits() {
     );
 }
 
-/// The ambient gravity direction the whole room simulates under.
+/// The live room the sim stands in: the one live room of this one-player run.
+fn sole_live_room(
+    world: &bevy::prelude::World,
+) -> Option<ambition_platformer2d::platformer::lifecycle::LiveRoomInstance> {
+    ambition_platformer2d::platformer::lifecycle::sole_live_room_component::<
+        ambition_platformer2d::platformer::lifecycle::LiveRoomInstance,
+    >(world)
+    .copied()
+}
+
+/// The ambient gravity direction the live room simulates under.
 fn base_gravity_dir(sim: &Platformer2dSimHarness) -> Option<bevy::prelude::Vec2> {
-    sim.world()
+    let world = sim.world();
+    let room = sole_live_room(world);
+    world
         .get_resource::<ambition_platformer2d::world::BaseGravity>()
-        .map(|gravity| gravity.dir)
+        .map(|gravity| gravity.dir_in(room))
 }
 
 /// A ROOM YOU LEFT MUST NOT KEEP SIMULATING THE ROOM YOU ENTERED.
@@ -500,9 +512,10 @@ fn a_confirmed_room_transition_leaves_the_old_room_s_gravity_behind() {
     let flipped_dir = -default_dir;
     {
         let world = sim.world_mut();
+        let room = sole_live_room(world);
         world
             .resource_mut::<ambition_platformer2d::world::BaseGravity>()
-            .dir = flipped_dir;
+            .turn(room, flipped_dir);
     }
     assert_eq!(
         base_gravity_dir(&sim),

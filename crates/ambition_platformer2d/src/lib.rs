@@ -1050,8 +1050,8 @@ pub mod world {
     pub use ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame;
     /// The authored/base gravity and its resolved live field.
     pub use ambition_platformer2d_shared_tangle::gravity::{
-        gravity_dir_or_default, AmbientGravityRequest, BaseGravity, GravityField, GravityZone,
-        TemporaryZone,
+        gravity_dir_or_default, AmbientGravityRequest, BaseGravity, DeveloperGravityRoom,
+        GravityField, GravityZone, TemporaryZone,
     };
     /// Everything needed to author a room, in one import.
     pub use ambition_platformer2d_world::prelude;

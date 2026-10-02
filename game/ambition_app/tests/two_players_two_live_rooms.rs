@@ -59,6 +59,15 @@ fn where_they_are(
     (alice, bob)
 }
 
+/// Alice's live room: her stamp, or with one room live, that room.
+fn alices_room(sim: &mut Platformer2dSimHarness) -> LiveRoomInstance {
+    let (alice, _) = where_they_are(sim);
+    let live = live_rooms(sim);
+    alice
+        .or_else(|| (live.len() == 1).then(|| live[0].0))
+        .expect("Alice stands in a live room")
+}
+
 /// How far Bob's slot runs his body in 30 ticks, holding `direction`.
 fn bob_runs(sim: &mut Platformer2dSimHarness, direction: f32) -> f32 {
     let bob_x = |sim: &mut Platformer2dSimHarness| {
@@ -332,6 +341,55 @@ fn a_gravity_well_lifts_only_the_bodies_of_its_own_live_room() {
         bobs_down_under_a_well_in_his_room(false),
         ambition_platformer2d::engine_core::Vec2::new(0.0, 1.0),
         "a well in Alice's room turned Bob in his"
+    );
+}
+
+/// The resolved down of each player's body: (Alice's, Bob's).
+fn downs(sim: &mut Platformer2dSimHarness) -> (ambition_platformer2d::engine_core::Vec2, ambition_platformer2d::engine_core::Vec2) {
+    let world = sim.world_mut();
+    let alice = world
+        .query_filtered::<&ambition_platformer2d::world::ResolvedMotionFrame, bevy::prelude::With<ambition_platformer2d::platformer::body::PrimaryBody>>()
+        .single(world)
+        .expect("Alice has a resolved frame")
+        .get()
+        .down();
+    let bob = world
+        .query::<(&ambition_platformer2d::combat::components::FeatureId, &ambition_platformer2d::world::ResolvedMotionFrame)>()
+        .iter(world)
+        .find(|(feature, _)| feature.0 == BOB)
+        .map(|(_, frame)| frame.get().down())
+        .expect("Bob has a resolved frame");
+    (alice, bob)
+}
+
+/// OW1 (customer 2): a gravity switch turns the ambient of its own live room.
+/// Alice holds the hub and Bob holds `switch_lab`; a `FlipGravity` switch is
+/// pressed in Bob's room. Bob falls up (the control: the switch acted), and
+/// Alice still falls down. Before, `BaseGravity` was one direction for the
+/// whole world, and Bob's switch turned Alice upside down in her room.
+#[test]
+fn a_gravity_switch_turns_only_the_live_room_it_is_in() {
+    use ambition_platformer2d::encounter::switches::{QueuedSwitchActivation, SwitchActivationQueue};
+    let (mut sim, first) = alice_leaves_bob(Some(ambition_platformer2d::characters::control::PlayerSlot(1)));
+    let (alice, bob) = where_they_are(&mut sim);
+    assert_eq!((alice, bob), (Some(first.next()), Some(Some(first))), "Alice in the hub, Bob in switch_lab");
+    let down = ambition_platformer2d::engine_core::Vec2::new(0.0, 1.0);
+    assert_eq!(downs(&mut sim), (down, down), "precondition: both players fall down");
+    sim.world_mut().resource_mut::<SwitchActivationQueue>().0.push(QueuedSwitchActivation {
+        activation: ambition_platformer2d::encounter::registry::SwitchActivation {
+            id: "ow1_bobs_flip".to_string(),
+            action: "FlipGravity".to_string(),
+            target_encounter: String::new(),
+        },
+        room: Some(first),
+    });
+    for _ in 0..3 {
+        sim.step(base());
+    }
+    assert_eq!(
+        downs(&mut sim),
+        (down, -down),
+        "(Alice's down, Bob's down) after a switch in Bob's room"
     );
 }
 
@@ -2310,6 +2368,10 @@ fn the_map_records_a_room_visited_beside_another_live_room() {
 #[derive(bevy::prelude::Resource, Default)]
 struct CrossingResetTheClock(bool);
 
+/// The live room Alice crossed out of.
+#[derive(bevy::prelude::Resource)]
+struct TheRoomLeft(LiveRoomInstance);
+
 /// [`walk_through_the_door_to`], with two facts of the room being left
 /// planted first, a projectile stamped into it and the ambient gravity
 /// flipped, and with each tick of the walk read for the crossing's request to
@@ -2330,8 +2392,10 @@ fn walk_through_the_door_leaving_a_shot_and_flipped_gravity(
             ambition_platformer2d::combat::components::FeatureId("ow1_bob_shot".to_string()),
         ));
         let mut gravity = world.resource_mut::<ambition_platformer2d::world::BaseGravity>();
-        gravity.dir = -gravity.dir;
+        let up = -gravity.dir_in(Some(room));
+        gravity.turn(Some(room), up);
         world.insert_resource(CrossingResetTheClock(false));
+        world.insert_resource(TheRoomLeft(room));
     }
     let before = sim.observation().active_room.clone();
     let door = crate::common::door_to(sim, target);
@@ -2353,13 +2417,14 @@ fn walk_through_the_door_leaving_a_shot_and_flipped_gravity(
 }
 
 /// OW1, customer 2: a crossing resets only what it leaves behind. Before
-/// Alice leaves `switch_lab`, the room holds a shot and gravity is flipped.
-/// With Bob driven, the room stays live with him: the shot stays, and the
-/// world's gravity and sim clock (one of each for every live room) are not
-/// reset. The control, Bob not driven: the crossing replaces the world, and
-/// the shot goes, gravity is put back down and the clock reset is asked for,
-/// as before. Before, every crossing did all three, so Alice's door
-/// unflipped Bob's room and cancelled his bullet time.
+/// Alice leaves `switch_lab`, the room holds a shot and its gravity is
+/// flipped. With Bob driven, the room stays live with him: the shot stays,
+/// the room keeps its gravity, and the world's sim clock is not reset. The
+/// control, Bob not driven: the crossing replaces the world, and the shot
+/// goes, gravity is put back down and the clock reset is asked for, as
+/// before. In both, Alice enters the hub under the default gravity. Before,
+/// every crossing did all three, so Alice's door unflipped Bob's room and
+/// cancelled his bullet time.
 #[test]
 fn a_crossing_resets_only_what_it_leaves_behind() {
     use ambition_platformer2d::characters::control::PlayerSlot;
@@ -2372,8 +2437,13 @@ fn a_crossing_resets_only_what_it_leaves_behind() {
             .iter(world)
             .any(|feature| feature.0 == "ow1_bob_shot");
         let clock_reset = world.resource::<CrossingResetTheClock>().0;
-        let flipped = world.resource::<ambition_platformer2d::world::BaseGravity>().dir
-            != ambition_platformer2d::world::BaseGravity::default().dir;
+        let left = world.resource::<TheRoomLeft>().0;
+        let gravity = world.resource::<ambition_platformer2d::world::BaseGravity>();
+        let default = ambition_platformer2d::world::BaseGravity::default().dir_in(None);
+        let flipped = gravity.dir_in(Some(left)) != default;
+        let alice = alices_room(&mut sim);
+        let gravity = sim.world_mut().resource::<ambition_platformer2d::world::BaseGravity>();
+        assert_eq!(gravity.dir_in(Some(alice)), default, "Alice entered the hub under a turned gravity with {rooms} live room(s)");
         assert_eq!(
             (shot, clock_reset, flipped),
             expected,
@@ -2382,24 +2452,31 @@ fn a_crossing_resets_only_what_it_leaves_behind() {
     }
 }
 
-/// OW1: a replay of one player's room keeps the world's shared facts while
-/// another live room stays. Alice, in the hub with gravity flipped, asks for
-/// a replay. With Bob driven (two rooms): no reset of the sim clock is asked
-/// for, and gravity stays flipped. The control, Bob not driven (one room):
-/// the clock reset is asked for and gravity is put back down, as before.
-/// Before, every replay did both, so Alice's retry cancelled Bob's bullet
-/// time and unflipped his room.
+/// OW1: a replay of one player's room keeps the world's sim clock while
+/// another live room stays, and puts down only the gravity of the room it
+/// replays. Every live room is flipped; Alice, in the hub, asks for a
+/// replay. With Bob driven (two rooms): no reset of the sim clock is asked
+/// for, the hub is put back down and Bob's room stays flipped. The control,
+/// Bob not driven (one room): the clock reset is asked for and the hub is
+/// put back down, as before. Before, every replay did both for the whole
+/// world, so Alice's retry cancelled Bob's bullet time and unflipped his
+/// room.
 #[test]
 fn a_replay_keeps_the_worlds_clock_and_gravity_while_another_room_is_live() {
     use ambition_platformer2d::characters::control::PlayerSlot;
     use ambition_platformer2d::time::time_control::ClockResetRequest;
-    for (slot, rooms, expected) in [(None, 1, (true, false)), (Some(PlayerSlot(1)), 2, (false, true))] {
+    let up = ambition_platformer2d::engine_core::Vec2::new(0.0, -1.0);
+    for (slot, rooms, expected) in [(None, 1, (true, false, false)), (Some(PlayerSlot(1)), 2, (false, false, true))] {
         let (mut sim, _) = alice_leaves_bob(slot);
-        assert_eq!(live_rooms(&mut sim).len(), rooms, "precondition ({slot:?}): the live room count");
+        let live = live_rooms(&mut sim);
+        assert_eq!(live.len(), rooms, "precondition ({slot:?}): the live room count");
+        let alice = alices_room(&mut sim);
         {
             let world = sim.world_mut();
             let mut gravity = world.resource_mut::<ambition_platformer2d::world::BaseGravity>();
-            gravity.dir = -gravity.dir;
+            for (room, _) in &live {
+                gravity.turn(Some(*room), up);
+            }
             world.write_message(ambition_platformer2d::actors::session::reset::RoomReplayRequested::manual());
         }
         let mut clock_reset = false;
@@ -2418,12 +2495,13 @@ fn a_replay_keeps_the_worlds_clock_and_gravity_while_another_room_is_live() {
                 .is_some();
         }
         assert!(admitted, "precondition ({slot:?}): the replay was not admitted");
-        let flipped = sim.world_mut().resource::<ambition_platformer2d::world::BaseGravity>().dir
-            != ambition_platformer2d::world::BaseGravity::default().dir;
+        let gravity = sim.world_mut().resource::<ambition_platformer2d::world::BaseGravity>();
+        let hub_flipped = gravity.dir_in(Some(alice)) == up;
+        let other_flipped = live.iter().any(|(room, _)| *room != alice && gravity.dir_in(Some(*room)) == up);
         assert_eq!(
-            (clock_reset, flipped),
+            (clock_reset, hub_flipped, other_flipped),
             expected,
-            "with {rooms} live room(s): (the clock reset was asked for, gravity is flipped)"
+            "with {rooms} live room(s): (the clock reset was asked for, the hub is flipped, Bob's room is flipped)"
         );
     }
 }

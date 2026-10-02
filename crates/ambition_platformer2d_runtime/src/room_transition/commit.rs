@@ -62,11 +62,12 @@ impl RoomTransitionCombatReset<'_, '_> {
     ///
     /// ⭐ ONLY WHAT THE CROSSING LEAVES BEHIND (OW1, customer 2). With no
     /// other live room standing, the crossing replaces the whole world: every
-    /// projectile goes, and the ambient gravity, one fact for the whole world,
-    /// goes back to its default. While another live room stays (another
-    /// player is in the room left, or in a room of its own), its shots and the
-    /// world's gravity are that room's: only the shots stamped into the room
-    /// left go, and only when that room retires.
+    /// projectile goes, and every ambient gravity goes back to its default.
+    /// While another live room stays (another player is in the room left, or
+    /// in a room of its own), its shots and its gravity are that room's: only
+    /// the shots stamped into the room left go, and only the gravity of the
+    /// room left is forgotten, and only when that room retires. The room
+    /// entered has a new identity, so it starts under the default.
     pub fn clear_carryover(&mut self, scope: &CrossingScope) {
         for (entity, stamp) in &self.live_projectiles {
             let left_behind = !scope.other_rooms_stay
@@ -77,11 +78,13 @@ impl RoomTransitionCombatReset<'_, '_> {
                 self.commands.entity(entity).despawn();
             }
         }
+        // Resetting the AMBIENT is the real gravity reset; the presentation
+        // `GravityField` is a per-tick mirror of the primary body's resolved
+        // frame and has exactly one writer (`resolve_active_gravity`).
         if !scope.other_rooms_stay {
-            // Resetting the AMBIENT is the real gravity reset; the presentation
-            // `GravityField` is a per-tick mirror of the primary body's resolved
-            // frame and has exactly one writer (`resolve_active_gravity`).
             *self.base_gravity = ambition_platformer2d_shared_tangle::gravity::BaseGravity::default();
+        } else if scope.departing_retires && scope.departing.is_some() {
+            self.base_gravity.forget(scope.departing);
         }
     }
 }
@@ -95,8 +98,8 @@ pub struct CrossingScope {
     pub departing_retires: bool,
     /// Whether a live room stays standing through the crossing: the room
     /// left (another player stays in it), or another live room. Then the
-    /// crossing does not replace the world, and the world's shared facts (the
-    /// sim clock, the ambient gravity) are not reset.
+    /// crossing does not replace the world: the world's shared sim clock is
+    /// not reset, and each room that stays keeps its ambient gravity.
     pub other_rooms_stay: bool,
 }
 

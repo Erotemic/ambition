@@ -21,21 +21,19 @@ use bevy::prelude::*;
 /// `SessionScopedResources`, so activation and retirement clear it with the rest
 /// of the live-session mirrors and under that aggregate's compiler guard.
 ///
-/// ⭐ NOT WHILE ANOTHER LIVE ROOM STAYS (OW1). The ambient gravity is one fact
-/// for the whole world, and a replay rebuilds one player's room: another
-/// live room keeps it. The decision is in the open-world plan.
+/// ⭐ ONLY THE ROOM REPLAYED (customer 2). Each live room has its own ambient,
+/// and a replay rebuilds one player's room: the ambient of that room goes back
+/// down, and another live room keeps its own. A replay with nobody in it
+/// names no room, and resets the sole live room.
 pub fn reset_gravity_on_room_reset(
     mut resets: MessageReader<ambition_combat::events::RoomReplayAdmitted>,
     mut base: ResMut<ambition_platformer2d_shared_tangle::gravity::BaseGravity>,
-    live_rooms: Query<(), With<ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot>>,
+    live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
 ) {
-    if resets.read().next().is_none() {
-        return;
+    for reset in resets.read() {
+        let room = reset.subject.as_ref().and_then(|subject| subject.room).or_else(|| live.sole());
+        base.forget(room);
     }
-    if live_rooms.iter().count() > 1 {
-        return;
-    }
-    *base = ambition_platformer2d_shared_tangle::gravity::BaseGravity::default();
 }
 
 #[cfg(test)]
@@ -53,10 +51,10 @@ mod tests {
         app.add_systems(Update, reset_gravity_on_room_reset);
 
         let flipped = ambition_platformer2d_core::Vec2::new(0.0, -1.0);
-        app.world_mut().insert_resource(BaseGravity { dir: flipped });
+        app.world_mut().insert_resource(BaseGravity::in_room(None, flipped));
         app.update();
         assert_eq!(
-            app.world().resource::<BaseGravity>().dir,
+            app.world().resource::<BaseGravity>().dir_in(None),
             flipped,
             "gravity reset with no lifecycle message at all"
         );
@@ -65,10 +63,47 @@ mod tests {
             .write_message(ambition_combat::events::RoomReplayAdmitted::manual());
         app.update();
         assert_eq!(
-            app.world().resource::<BaseGravity>().dir,
-            BaseGravity::default().dir,
+            app.world().resource::<BaseGravity>().dir_in(None),
+            BaseGravity::default().dir_in(None),
             "a replay left the ambient gravity flipped, so the new world starts \
              upside down"
+        );
+    }
+
+    /// A replay resets only the ambient of the room it replays. Two live
+    /// rooms, both turned up; Alice's replay names the second. The first
+    /// keeps its gravity. Poison: forget every room and the first is put
+    /// down too.
+    #[test]
+    fn a_replay_puts_down_only_the_gravity_of_the_room_it_replays() {
+        use ambition_platformer2d_shared_tangle::lifecycle::{
+            LiveBodyId, LiveRoomInstance, RoomInstanceRoot,
+        };
+        let first = LiveRoomInstance::ACTIVATION.next();
+        let second = first.next();
+        let up = ambition_platformer2d_core::Vec2::new(0.0, -1.0);
+        let mut app = App::new();
+        app.add_message::<ambition_combat::events::RoomReplayAdmitted>();
+        let mut base = BaseGravity::in_room(Some(first), up);
+        base.turn(Some(second), up);
+        app.insert_resource(base);
+        for room in [first, second] {
+            app.world_mut().spawn((RoomInstanceRoot, room));
+        }
+        app.add_systems(Update, reset_gravity_on_room_reset);
+        let alice = LiveBodyId::new(
+            ambition_platformer2d_shared_tangle::sim_id::SimId::player_slot(0),
+            Some(second),
+        );
+        app.world_mut().write_message(
+            ambition_combat::events::RoomReplayAdmitted::manual().for_subject(alice),
+        );
+        app.update();
+        let base = app.world().resource::<BaseGravity>();
+        assert_eq!(
+            (base.dir_in(Some(first)), base.dir_in(Some(second))),
+            (up, BaseGravity::default().dir_in(None)),
+            "(the room not replayed, the room replayed)"
         );
     }
 }

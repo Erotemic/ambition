@@ -3346,9 +3346,9 @@ fn sim_cycling_gravity(with_an_in_sim_producer: bool) -> Platformer2dSimHarness 
 /// production rotation rather than restating it — a hand-written `(-1, 0)`
 /// here would agree with a broken `BaseGravity::cycle`.
 fn one_cycle_from(from: bevy::prelude::Vec2) -> bevy::prelude::Vec2 {
-    let mut probe = ambition_platformer2d::world::BaseGravity { dir: from };
-    probe.cycle();
-    probe.dir
+    let mut probe = ambition_platformer2d::world::BaseGravity::in_room(None, from);
+    probe.cycle(None);
+    probe.dir_in(None)
 }
 
 /// The ambient gravity direction the room simulates under. ⭐ `BaseGravity` is
@@ -3357,10 +3357,16 @@ fn one_cycle_from(from: bevy::prelude::Vec2) -> bevy::prelude::Vec2 {
 /// so it is ITSELF rollback state — which is what lets it witness a rollback
 /// defect. A visible consequence that a rewind does not own could not.
 fn base_gravity(sim: &Platformer2dSimHarness) -> bevy::prelude::Vec2 {
-    sim.world()
+    let world = sim.world();
+    // The one live room of this run, which is the room the request turns.
+    let room = ambition_platformer2d::platformer::lifecycle::sole_live_room_component::<
+        ambition_platformer2d::platformer::lifecycle::LiveRoomInstance,
+    >(world)
+    .copied();
+    world
         .get_resource::<ambition_platformer2d::world::BaseGravity>()
         .expect("the sim composition publishes ambient gravity as `BaseGravity`")
-        .dir
+        .dir_in(room)
 }
 
 /// ⛔ THE FOURTH [Q136] INGRESS FINDING, AND UNTIL NOW THE ONLY ONE WITHOUT A

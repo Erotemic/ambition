@@ -414,12 +414,23 @@ pub fn drive_wave_encounters(
             "test_switch_toggled".into(),
         ));
         match &activation.action {
+            // A gravity switch turns the ambient of the live room it is in,
+            // and of no other (customer 2): Bob's switch does not turn Alice's
+            // world. An activation that names no room is the sole live room's.
             ambition_encounter::switches::SwitchAction::FlipGravity => {
-                commands.queue(|world: &mut bevy::prelude::World| {
+                let room = activation.room;
+                commands.queue(move |world: &mut bevy::prelude::World| {
+                    let room = room.or_else(|| {
+                        ambition_platformer2d_shared_tangle::lifecycle::sole_live_room_component::<
+                            ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
+                        >(world)
+                        .copied()
+                    });
                     let mut base = world
                         .resource_mut::<ambition_platformer2d_shared_tangle::gravity::BaseGravity>(
                         );
-                    base.dir = -base.dir;
+                    let dir = -base.dir_in(room);
+                    base.turn(room, dir);
                 });
             }
             // Cardinal gravity switch (Noether Chamber kernel faces): the face
@@ -427,10 +438,17 @@ pub fn drive_wave_encounters(
             ambition_encounter::switches::SwitchAction::SetGravity(face) => {
                 let [x, y] = face.direction();
                 let dir = bevy::prelude::Vec2::new(x, y);
+                let room = activation.room;
                 commands.queue(move |world: &mut bevy::prelude::World| {
+                    let room = room.or_else(|| {
+                        ambition_platformer2d_shared_tangle::lifecycle::sole_live_room_component::<
+                            ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
+                        >(world)
+                        .copied()
+                    });
                     world
                         .resource_mut::<ambition_platformer2d_shared_tangle::gravity::BaseGravity>()
-                        .dir = dir;
+                        .turn(room, dir);
                 });
             }
             ambition_encounter::switches::SwitchAction::ResetEncounter => {

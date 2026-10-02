@@ -1480,7 +1480,9 @@ multiplayer regimes), and `BaseGravity` is one resource that a gravity
 switch in any room flips for every room. So a crossing does not reset
 them while another live room stays: a reset there would be one player
 changing the other's world. A clock or an ambient gravity per live room is
-a later design decision, not this cut.
+a later design decision, not this cut. ✅ Taken for the ambient gravity
+on 2026-10-02 (below, "One ambient gravity per live room"): it is now one
+fact per live room. The sim clock stays one fact for the whole world.
 
 Witness: `a_crossing_resets_only_what_it_leaves_behind` in
 `two_players_two_live_rooms.rs`. A shot is stamped into `switch_lab` and
@@ -2441,8 +2443,9 @@ room) and the NPC idle barks. Witnesses: `each_effect_is_drawn_in_its_own_live_r
 row in the first room; the particle clock placed by the first room; wisps
 not stamped; wisps placed by the first room; the player tick and the actor
 tick bound to no room. Each failed at the subject assertion.
-⚠ Open (named debt): `update_blink_preview` still reads the sole room, because
-`BlinkPreviewFact` names no room. `follow_slash_owner` has no unit
+✅ Closed by V2i (fcf4fd8e4): `BlinkPreviewFact` names its body's room, and
+`update_blink_preview` draws the ring in it
+(`the_blink_ring_is_drawn_in_its_body_s_own_live_room`). `follow_slash_owner` has no unit
 witness: `PresentedPose` cannot be built outside `ambition_sim_view`.
 
 ✅ **V2f debt, the `VfxWriter` producers, landed 2026-10-02.** The count of
@@ -2542,8 +2545,46 @@ the hub leaves him falling down; control: stamped into his own room it
 turns him). Poisons, each failed at the subject: the rule always true
 (all three), gravity rows with no room, force rows with no room (only the
 push leaked), the resolver given no body room.
-⚠ Still session-wide: the ambient `BaseGravity` (one direction for every
-live room).
+✅ The ambient `BaseGravity` followed the same day (next paragraph).
+
+✅ **One ambient gravity per live room (2026-10-02, customer 2).**
+`BaseGravity` was one direction for the whole world, so Bob's
+`FlipGravity` switch in `switch_lab` turned Alice upside down in the hub.
+⭐ Decision (an architecture fork in service of customer 2, decided per
+`autonomous-decision-making.md`): a switch turns the gravity of the live
+room it is in. `BaseGravity` now keeps the turned rooms only, keyed by
+`Option<LiveRoomInstance>`, so a room with no entry is under the default,
+and the `None` key is the world of a composition with no live room. A new
+live room has a new identity and so starts under the default with no
+reset. The one reader, `GravityCtx`, asks for the body's room, and a body
+that names no room uses the sole live room (`LiveRooms::sole`), as its
+other facts do. The writers name their room: a switch uses its
+activation's room, the developer cycle and the menu label use
+`DeveloperGravityRoom` (the primary body's room), a replay forgets the
+room of its subject, a crossing that leaves a live room standing forgets
+only the room left when that room retires, and a crossing that replaces
+the world and the session edge clear all rooms. The guard in
+`reset_gravity_on_room_reset` ("not while another live room stays") is
+deleted: it guarded a world-wide fact that is no longer world-wide.
+Schema 296 -> 297 (`resource.base_gravity` encodes a count and each room).
+Witnesses: `a_body_falls_under_the_ambient_of_its_own_live_room` and
+`a_body_that_names_no_room_falls_under_the_sole_live_rooms_ambient` (the
+gravity context), `a_cycle_request_turns_the_room_of_the_primary_body`,
+`a_replay_puts_down_only_the_gravity_of_the_room_it_replays`, and in the
+app `a_gravity_switch_turns_only_the_live_room_it_is_in` (a `FlipGravity`
+activation in Bob's room: Bob falls up, which is the control, and Alice
+still falls down). The crossing and replay witnesses changed:
+`a_crossing_resets_only_what_it_leaves_behind` now reads the gravity of
+the room left and checks that Alice enters the hub under the default, and
+`a_replay_keeps_the_worlds_clock_and_gravity_while_another_room_is_live`
+turns every live room up and expects only the hub to go back down.
+Poisons, each predicted before the run and each failed at its own
+assertion: one ambient for every room (the context, the switch, the
+crossing and the replay witnesses), the switch ignoring its room (Bob
+stayed down), a replay clearing every room (Bob's room went down), a
+crossing that leaves a room standing clearing every room (the room left
+went down), the developer cycle turning no room, and the context with no
+sole-room fallback.
 
 ✅ **The demo and cut-rope readers of the sole live room, landed 2026-10-02.**
 These systems read `SoleLiveRoom<T>` or `SoleLiveRoomSpec`, so each did not

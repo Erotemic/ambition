@@ -197,12 +197,18 @@ pub fn interact_ecs_actors_and_switches(
             interactions.get(subject).ok(),
             identities.get(subject).ok(),
         );
+        // A body reaches an NPC or a switch only in its own live room (OW1
+        // cut 7b): two live rooms can hold one at the same position.
+        let subject_room = live_rooms.of(subject);
         for (actor_entity, aabb, disposition, identity, interaction_payload, health, (out_of_play, plane)) in
             &actors
         {
             let Some(speaker_id) = speaker_id.as_deref() else {
                 break;
             };
+            if live_rooms.of(actor_entity) != subject_room {
+                continue;
+            }
             // A hostile actor gates dialogue off; a dead one is an intangible corpse
             // and cannot be talked to.
             if disposition.is_hostile()
@@ -298,9 +304,6 @@ pub fn interact_ecs_actors_and_switches(
             // flipped. Unlike the switch loop below, that is the right scope.
             return;
         }
-        // A body reaches a switch only in its own live room (OW1 cut 7b): two
-        // live rooms can hold a switch at one position.
-        let subject_room = live_rooms.of(subject);
         for (switch_entity, name, aabb, switch) in &switches {
             if !aabb.aabb().strict_intersects(reach_aabb) {
                 continue;

@@ -700,3 +700,41 @@ fn a_body_presses_only_the_switch_in_its_own_live_room() {
         "each body did not press only the switch in its own live room"
     );
 }
+
+/// A body talks only to the NPC of its own live room. Two live rooms each
+/// hold an NPC at one position, each with its own dialogue, and the player
+/// stands there, in the second room, and presses interact. The conversation
+/// that opens is the one of the NPC in the second room. Two live rooms share
+/// one coordinate space, so the position alone does not say which NPC the
+/// body reaches. When the loop did not ask the rooms, the body reached the
+/// first NPC found.
+#[test]
+fn a_body_talks_only_to_the_npc_of_its_own_live_room() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
+    let rooms = [LiveRoomInstance::ACTIVATION, LiveRoomInstance::ACTIVATION.next()];
+    let center = ae::Vec2::new(100.0, 100.0);
+    let mut app = dialogue_app(&["hall_first", "hall_second"]);
+    for (room, dialogue) in rooms.into_iter().zip(["hall_first", "hall_second"]) {
+        app.world_mut().spawn((RoomInstanceRoot, room));
+        let npc = spawn_pedestal(&mut app, center, "player_robot_v3", dialogue);
+        app.world_mut().entity_mut(npc).insert(InRoomInstance(room));
+    }
+    let player = spawn_interaction_player_wearing(&mut app, center, "goblin");
+    app.world_mut().entity_mut(player).insert(InRoomInstance(rooms[1]));
+    app.add_systems(
+        Update,
+        (
+            interact_ecs_actors_and_switches,
+            ambition_conversation::project_the_dialog_ui_from_the_conversation,
+        )
+            .chain(),
+    );
+    app.update();
+
+    let state = app.world().resource::<ambition_dialog::DialogState>();
+    assert_eq!(
+        (state.active(), state.dialogue_id()),
+        (true, "hall_second"),
+        "(a conversation opened, its dialogue): the player is in the second room"
+    );
+}

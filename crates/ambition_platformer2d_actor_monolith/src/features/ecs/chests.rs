@@ -58,7 +58,8 @@ pub fn open_ecs_chests(
     mut set_flag: MessageWriter<SetFlagRequested>,
     mut sfx: SfxWriter,
     mut vfx: VfxWriter,
-    // The open burst is drawn in the chest's own live room.
+    // A body opens only a chest in its own live room: two live rooms can
+    // hold a chest at one position. The open burst is drawn in that room.
     rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
     // The grant, routed to the body that opened it — the same three writers the
     // walk-over pickup hands to `grant_pickup`.
@@ -94,8 +95,12 @@ pub fn open_ecs_chests(
             continue;
         };
         let reach_aabb = subject_kin.aabb();
+        let subject_room = rooms.of(subject);
         for (entity, id, name, aabb, chest, opened, falling) in &chests {
             if falling.is_some() || opened.is_some() || !aabb.aabb().strict_intersects(reach_aabb) {
+                continue;
+            }
+            if rooms.of(entity) != subject_room {
                 continue;
             }
             commands.entity(entity).insert(Opened);

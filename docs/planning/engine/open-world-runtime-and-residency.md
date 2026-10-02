@@ -2132,7 +2132,7 @@ names its subject by body or seat (`ViewSubject`, `ViewParticipant`).
 | Cut | Work | State |
 | --- | --- | --- |
 | V1 | The camera resolve frames each view in the live room of its framed body | ✅ below |
-| V2 | Draw roads place each entity by the geometry of its own live room (`LiveRoomOf`), not the sole room | ◐ the camera apply (V2a), feature/actor sprites (V2b), items and projectiles (V2c), lock walls (V2d) and nameplates (V2e), fx, slashes and limb trails (V2f), the visuals that ride a body (V2g), gravity zones, shrines and attack stand-ins (V2h), the blink ring (V2i), broken-block visuals (V2j), health bars and the gradient-lane telegraph (V2k), and the world-label layout (V2l) and the portal visuals (V2m), below; and the through-portal window's capture (V2n), and the launch trail, dizzy stars and knockout beat (V2o), below; the `FxRequest` and `FireworksRequest` producers and the debug overlays are open (every `VfxWriter` producer names its room: `VfxWriter::write` is deleted) |
+| V2 | Draw roads place each entity by the geometry of its own live room (`LiveRoomOf`), not the sole room | ◐ the camera apply (V2a), feature/actor sprites (V2b), items and projectiles (V2c), lock walls (V2d) and nameplates (V2e), fx, slashes and limb trails (V2f), the visuals that ride a body (V2g), gravity zones, shrines and attack stand-ins (V2h), the blink ring (V2i), broken-block visuals (V2j), health bars and the gradient-lane telegraph (V2k), and the world-label layout (V2l) and the portal visuals (V2m), below; and the through-portal window's capture (V2n), and the launch trail, dizzy stars and knockout beat (V2o), below; the debug overlays are open (every effect producer names its room: `VfxWriter::write` is deleted, and `FxRequest` and `FireworksRequest` take a room) |
 | V3 | A camera draws only the live room of its view: a room render band, as the view band does for projections | ✅ below |
 | V4 | Room visuals and the LDtk level are presented per live room, and retire with it | ✅ static room visuals (V4a), the LDtk level (V4b) and parallax (V4c), below |
 | V5 | Two seats in two live rooms get two views (the product rule: a split is mandatory in different rooms) | ✅ below |
@@ -2441,8 +2441,7 @@ room) and the NPC idle barks. Witnesses: `each_effect_is_drawn_in_its_own_live_r
 row in the first room; the particle clock placed by the first room; wisps
 not stamped; wisps placed by the first room; the player tick and the actor
 tick bound to no room. Each failed at the subject assertion.
-⚠ Open (named debt): the `FxRequest` and `FireworksRequest` producers are
-unroomed. `update_blink_preview` still reads the sole room, because
+⚠ Open (named debt): `update_blink_preview` still reads the sole room, because
 `BlinkPreviewFact` names no room. `follow_slash_owner` has no unit
 witness: `PresentedPose` cannot be built outside `ambition_sim_view`.
 
@@ -2471,19 +2470,51 @@ Witnesses (app, Alice in the hub and Bob driven in the first room):
 Poisons, each predicted before the run, each failed at its own row with
 `None`: the actor-hit helper call, the player damage caller, the crossing
 arrival effect, and the replay reset, each bound to no room.
+✅ **V2f debt, the `FxRequest` and `FireworksRequest` producers, landed
+2026-10-02.** `FxRequest::new(room, pos, fx)` and `FxRequest::classic(room,
+pos)` take the room (the `in_room` builder is removed), and
+`FireworksRequest` has a `room` (`around(room, origin)`), so neither can be
+made unroomed by omission. A move's cosmetic effect names the room of the
+body that moves (`dispatch_move_events`), the cut-rope sparks, blast and
+fireworks name the arena's room, the dialogue fireworks name the player's
+room, and a `FireworkSequence` gives its room to each burst. Witnesses:
+`a_moves_cosmetic_effect_is_asked_for_in_its_owners_live_room` (combat),
+`each_firework_burst_is_asked_for_in_the_room_of_its_sequence` (render),
+and two columns added to `the_cut_rope_fight_runs_in_its_own_live_room`
+(the rooms its effect requests and its fireworks name). Poisons, each
+predicted, each `None` at its own row: the move effect, the sequence's
+bursts, the rope sparks and the death fireworks.
+
 ⚠ Measured, not fixed: a replay writes its from-to reset effect for the
 room it replays (#1, on the tick of the request), and on the next tick the
 replay replaces that room (#2). Not measured: whether the effect is
 retired with #1 after that one frame, and whether one live room does the
 same.
-⚠ Found, open (customer 2: live rooms share one coordinate space):
-`open_ecs_chests` does not compare the room of the body with the room of
-the chest, the NPC talk loop of `interact_ecs_actors_and_switches` does
-not compare the room of the body with the room of the NPC,
-`update_ecs_breakables` lets a player in one room collapse a
-stand-to-break block of another, `PlayerMark` records a position with no
-room, and a gravity grenade opens its well with a scope that names no
-room.
+✅ **Four room checks, landed 2026-10-02 (customer 2: live rooms share one
+coordinate space).** Found while the producers above were given their
+rooms: a body opened a chest of another live room at the same position
+(`open_ecs_chests`), talked to an NPC of another live room
+(`interact_ecs_actors_and_switches`; the switch loop had the check from
+cut 7b), and collapsed a stand-to-break block of another live room
+(`update_ecs_breakables`); and a gravity grenade opened its well with a
+scope that named no room, so no view drew the well while two rooms were
+live. Each now compares, or stamps, by `LiveRooms::of`. Witnesses (two
+live rooms, one subject in each at one position, the body in the second):
+`a_body_opens_only_the_chest_of_its_own_live_room`,
+`a_body_talks_only_to_the_npc_of_its_own_live_room`,
+`a_player_collapses_only_the_breakable_of_its_own_live_room`,
+`a_grenades_well_opens_in_the_grenades_own_live_room`. Poisons (the check
+or the stamp removed), each failed at the subject: the chest of the first
+room opened, the first room's dialogue opened, both blocks collapsed, the
+well had no stamp.
+⚠ Found, open (read from the type, not run): `GravityZones` is one
+session-wide snapshot whose rows are `(region, direction)` with no room,
+and the resolvers ask it by position. So a gravity zone of one live room
+turns the gravity of a body at the same position in another (the
+grenade's well too; its stamp is for the view and the retirement only). `PlayerMark` records a position with no room, and a
+crossing does not clear it, so a recall goes to that position in whatever
+room the body is in (so with one live room too). Whether a mark is
+cleared by a crossing, or carries its room, is a design question.
 
 ✅ **V2o landed 2026-10-02: the launch trail, the dizzy stars and the
 knockout beat are drawn in their body's room.** `LaunchedBodyFact` and

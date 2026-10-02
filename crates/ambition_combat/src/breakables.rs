@@ -11,7 +11,7 @@ pub fn update_ecs_breakables(
     mut commands: Commands,
     world_time: Res<WorldTime>,
     player_body_q: Query<
-        &ambition_platformer2d_core::BodyKinematics,
+        (Entity, &ambition_platformer2d_core::BodyKinematics),
         With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
     >,
     mut banner: ResMut<GameplayBanner>,
@@ -29,14 +29,17 @@ pub fn update_ecs_breakables(
     mut sfx: SfxWriter,
     mut vfx: VfxWriter,
     mut debris: MessageWriter<DebrisBurstMessage>,
-    // The effects of a breakable are drawn in its own live room.
+    // A player stands only on a breakable of its own live room: two live
+    // rooms can hold one at the same position. The effects of a breakable are
+    // drawn in its own live room.
     rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
 ) {
     // Sim clock: breakable respawn / stand-to-break should freeze in
     // bullet-time alongside the player and enemies (ADR 0010).
     let dt = world_time.sim_dt();
     for (entity, name, aabb, mut feature, respawn_timer, stand_timer) in &mut breakables {
-        let mut vfx = vfx.for_room(rooms.of(entity));
+        let room = rooms.of(entity);
+        let mut vfx = vfx.for_room(room);
         if feature.broken() {
             if let Some(mut timer) = respawn_timer {
                 timer.0 = (timer.0 - dt).max(0.0);
@@ -70,7 +73,7 @@ pub fn update_ecs_breakables(
         let any_player_standing = breaks_on_stand
             && player_body_q
                 .iter()
-                .any(|kin| player_is_standing_on(kin.aabb(), aabb.aabb()));
+                .any(|(player, kin)| rooms.of(player) == room && player_is_standing_on(kin.aabb(), aabb.aabb()));
         if any_player_standing {
             stand_timer.0 += dt;
             if stand_timer.0 >= BREAK_ON_STAND_SECONDS {
@@ -173,6 +176,41 @@ mod breakable_tests {
         assert!(
             !app.world().get::<BreakableFeature>(brk).unwrap().broken(),
             "no player standing -> the stand timer decays, no collapse"
+        );
+    }
+
+    /// A player collapses only a breakable of its own live room. Two live
+    /// rooms each hold a stand-to-break block at one position, and one player
+    /// stands there, in the second room. Only the block of the second room
+    /// collapses, and its effects name that room. Two live rooms share one
+    /// coordinate space, so the position alone does not say which block the
+    /// player stands on.
+    #[test]
+    fn a_player_collapses_only_the_breakable_of_its_own_live_room() {
+        use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
+        let mut app = app();
+        let rooms = [LiveRoomInstance::ACTIVATION, LiveRoomInstance::ACTIVATION.next()];
+        let center = ae::Vec2::new(64.0, 100.0);
+        let blocks = rooms.map(|room| {
+            app.world_mut().spawn((RoomInstanceRoot, room));
+            let block = stand_breakable(&mut app, center, THRESHOLD - 0.05);
+            app.world_mut().entity_mut(block).insert(InRoomInstance(room));
+            block
+        });
+        let player = player_at(&mut app, ae::Vec2::new(64.0, 65.0));
+        app.world_mut().entity_mut(player).insert(InRoomInstance(rooms[1]));
+        app.update();
+        let broken = blocks.map(|block| app.world().get::<BreakableFeature>(block).unwrap().broken());
+        let effect_rooms: std::collections::BTreeSet<_> = app
+            .world()
+            .resource::<bevy::ecs::message::Messages<VfxInRoom>>()
+            .iter_current_update_messages()
+            .map(|row| row.room)
+            .collect();
+        assert_eq!(
+            (broken, effect_rooms),
+            ([false, true], [Some(rooms[1])].into_iter().collect()),
+            "(which of the two blocks collapsed, the rooms the effects name): the player stands in the second room"
         );
     }
 }

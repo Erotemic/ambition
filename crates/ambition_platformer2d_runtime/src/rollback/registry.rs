@@ -977,7 +977,12 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// `RespawnRoomVisualsRequested`: presentation dresses each live room by
 /// itself, so a crossing asks it for nothing (view half V4c). The message was
 /// cleared, not snapshotted, so no snapshot bytes change.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 295;
+/// ⛔⛤ 295 -> 296: `feature.breakable_respawn_schedule` is new: the respawn
+/// due times of broken breakables on the session clock, kept when their room
+/// retires (OW5). This step also records `derived.authored_room_commands`
+/// (each live room's prepared `while_live` line), which was registered at 295
+/// with no baseline row.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 296;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

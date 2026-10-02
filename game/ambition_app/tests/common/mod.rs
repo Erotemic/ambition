@@ -486,6 +486,23 @@ pub fn door_to(
     sim: &mut Platformer2dSimHarness,
     target: &str,
 ) -> ambition_platformer2d::world::rooms::LoadingZone {
+    loading_zone_to(sim, target, true)
+}
+
+/// The loading zone in the active room, of any activation, that leads to
+/// `target`. [`door_to`] with walk and edge exits too.
+pub fn zone_to(
+    sim: &mut Platformer2dSimHarness,
+    target: &str,
+) -> ambition_platformer2d::world::rooms::LoadingZone {
+    loading_zone_to(sim, target, false)
+}
+
+fn loading_zone_to(
+    sim: &mut Platformer2dSimHarness,
+    target: &str,
+    doors_only: bool,
+) -> ambition_platformer2d::world::rooms::LoadingZone {
     let before = sim.observation().active_room.clone();
     let world = sim.world_mut();
     // The live room the player stands in: with two live rooms, "the" live
@@ -505,7 +522,9 @@ pub fn door_to(
     let mut reachable: Vec<String> = Vec::new();
     let mut chosen = None;
     for zone in &room_set.spec(live_definition).loading_zones {
-        if zone.activation != ambition_platformer2d::world::rooms::LoadingZoneActivation::Door {
+        if doors_only
+            && zone.activation != ambition_platformer2d::world::rooms::LoadingZoneActivation::Door
+        {
             continue;
         }
         let Some(transition) = room_set.transition_for_player(
@@ -526,7 +545,7 @@ pub fn door_to(
         }
     }
     chosen.unwrap_or_else(|| {
-        panic!("'{before}' has no Door to '{target}'; its doors reach {reachable:?}")
+        panic!("'{before}' has no zone to '{target}' (doors only: {doors_only}); its zones reach {reachable:?}")
     })
 }
 

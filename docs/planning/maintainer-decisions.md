@@ -163,8 +163,15 @@ script fails if the two disagree. They moved here from
 `awaiting-maintainer-decision.md` when `Q136` was ruled and deleted — a marker
 pinned to a page that no longer states the fact is a check against nothing.
 
-<!-- crossing-census: both_side_resources=53 rollback_registered=32 adjudicated_harmless=18 session_edge_only=3 filed=0 unclassified=0 -->
+<!-- crossing-census: both_side_resources=54 rollback_registered=33 adjudicated_harmless=18 session_edge_only=3 filed=0 unclassified=0 -->
 <!-- ingress-census: spent_resources=54 resource_crossings=1 written_messages=93 message_crossings=2 unlocated=43 unlocated_types=15 -->
+
+⛔ **`both_side_resources` WENT 53 → 54 AND `rollback_registered` 32 → 33
+ON 2026-10-02, AND WHAT ARRIVED IS NAMED:** `BreakableRespawnSchedule` (OW5).
+The simulation records and forgets its due times, and the session teardown
+in `Update` clears it. It is rollback-registered with a value checksum
+(`feature.breakable_respawn_schedule`), so it crosses as rollback state, not
+as a defect.
 
 ⛔ **`both_side_resources` WENT 52 → 53 AND `rollback_registered` 31 → 32
 ON 2026-10-01, AND WHAT ARRIVED IS NAMED:** `BossDefeatsSinceCheckpoint`

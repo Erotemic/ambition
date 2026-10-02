@@ -244,7 +244,7 @@ These cuts refine A8 and existing owner work. They are not another global queue.
 | OW2 | Accepted body/custody transfer and prepare/publish between instances | Refused transfer retains state; successful transfer preserves identity and exactly one writer. ✅ **The accepted arm between live rooms is witnessed (2026-09-30)**: the crossing's publication re-stamps the crossing body and its custody closure (`InCustodyOf`: what it holds, rides or wears) into the room it enters, for an opened room and a join alike (`publish_pending_world_replacement`). `an_item_carried_out_of_a_room_another_player_holds_crosses_whole`: Bob holds `blink_run` (#0); Alice carries its authored item to `portal_bridge` (#1): one occurrence of its `SimId`, held, stamped #1, #0 still live; thrown down, it lies in #1; when Alice joins #0 again, it retires with #1 and #0 has no copy. Poison (only the body moves): the item stayed stamped #0, fell into #0's world, and outlived #1 as a stray in Bob's room. ✅ The refused arm with two live rooms (2026-09-30): `a_crossing_into_a_room_another_player_holds_joins_it` stages a join into a live room that is not there; it is refused as `StaleJoinedRoom`, both live rooms and their bodies stand, and nothing is minted (poison, the stale-join check removed: it published, and #0 was retired with both its bodies). The one-room refusal is `a_room_staged_for_a_stale_live_room_is_refused`. ⚠ Witnessed at the publication, not through a shipped crossing: the app has no road that makes a crossing stale while two rooms are live. |
 | OW3 | Dormant durable records and active-state handoff | Save/load and promotion preserve occurrences; active step excludes unrelated dormant records. ✅ **First slice (2026-10-01): a runtime mint left in a room that is not live is a dormant record**, kept by the save's minted rows while the occurrence ledger places it, and a mint enters the ledger when it is minted, not when it is first carried; see "OW3, first slice" and "second slice" below. ✅ **FI9 (2026-10-01): dormant records add no all-world walk to an idle tick**: the custody projection reads a custody index, and the two save mirrors walk the dormant rows only when an input changed; see "OW3 / FI9" below. ✅ **M2 cuts (B) and (C) (2026-10-01): a rollback frame no longer copies or hashes unchanged dormant rows**: the save's rows and the ledger are `Arc`-shared with checksums kept per allocation, and the save mirrors compare their inputs by allocation; see "M2 cut (B)" and "M2 cut (C)" below. Measured (2026-10-01): an enemy's death and an encounter's outcome persist (`RespawnPolicy` fate flags, `PersistedEncounterState`), and a living enemy's HP or an encounter's wave index does not, so a returned room is fresh. Whether a wounded enemy keeps its wounds is product policy, so it is filed as `Q149` (decided for now: fresh). Ruled 2026-10-01 (Q38): a persistent open-world character's whereabouts are durable and its authored room is not a tether; a respawning population occurrence stays where it is carried while it lives, and its replacement comes from its authored room. So authored population/home, durable whereabouts and the live room occurrence are three facts. ✅ **Third slice (2026-10-01): a persistent character keeps its whereabouts**: a `DeadStaysDead` authored body released in another room is not rebuilt at home and is rebuilt where it was left, across a save; see "OW3, third slice" below. ✅ **Fourth slice (2026-10-01): a population occurrence is not built twice**: while it lives in a room another player holds, its home room does not author it; when that room retires, its home authors the replacement; see "OW3, fourth slice" below. ✅ **Fifth slice (2026-10-01): nor is a persistent enemy**, which has no durable row: one rule (`keeps_durable_whereabouts`) splits the bodies with a row from the bodies held as carried; see "OW3, fifth slice" below. |
 | OW4 | Owner-scoped interest/budget accounting and diagnostics | Cancellation/re-entry release only the right claims; supported absence does not freeze unrelated work |
-| OW5 | One concrete background mechanism requiring logical time | Deterministic events/reconstruction under replay and room return; no camera/device dependence Measured 2026-10-02: no shipped mechanic keeps time while its room is not live. The one timer on a world occurrence, the `InPlace(seconds)` revive, lives on the live body, and a returned room builds it fresh, as Q149 decides. So the mechanic is a product choice, filed as `Q152` in `docs/planning/awaiting-maintainer-decision.md` (decided for now: none). |
+| OW5 | One concrete background mechanism requiring logical time | Deterministic events/reconstruction under replay and room return; no camera/device dependence ✅ **First mechanism (2026-10-02): a broken breakable's respawn is due on the session clock**, kept when its room retires and read when the room is built again; see "OW5, first mechanism" below. ⛔ The 2026-10-02 measurement "no shipped mechanic keeps time while its room is not live" was wrong: it searched `RespawnPolicy` only and missed `HazardRespawn::AfterSeconds` (ten breakables in `sandbox.ldtk`: four at 3.0 s, six at 3.5 s). `Q152` (`docs/planning/awaiting-maintainer-decision.md`) is amended: the breakable respawn is the mechanism, and its open part is whether a world clock must survive a save. |
 
 OW1 is the first scope proof, not completion of streaming. OW2 reuses A1/A10 and
 existing construction; it does not add another lifecycle state machine. OW3 can
@@ -1996,6 +1996,53 @@ run:
 ⚠ Not measured: a host with real peers (the sync test resimulates every
 frame), and a session where dormant rows change often. Each tick that
 changes a row copies the shared rows once (about 1.4 ms at 10,000).
+
+✅ **OW5, first mechanism, landed 2026-10-02: a broken breakable's respawn
+is a scheduled logical event.** Measured before: `basement_breakables`
+authors "respawning breakable platform" (`AfterSeconds:3.0`). Broken, then
+left through the hub door and entered again 0.2 s later, it was whole: its
+`RespawnTimer` was a component and died with the room, so the countdown
+was thrown away, not frozen and not reconstructed. Now the respawn is due
+at a time on `GameplayElapsed`, the session's sum of the scaled simulation
+dt (the dt the live timer counts down by; rollback state, reset at
+teardown). `BreakableRespawnSchedule` (`features/ecs/breakable_respawns.rs`,
+rollback row `feature.breakable_respawn_schedule`, schema 296) keeps the
+due time by (room definition id, authored breakable id):
+
+* while the room is live, the live timer is the authority, and
+  `mirror_breakable_respawns` writes the record when a timer runs with no
+  record and removes it when the breakable is whole again;
+* when the room retires, the record stays, and nothing ticks it;
+* the commit facts carry the time that remains (`stage.rs` reads
+  `remaining_breakable_respawns` and passes it to
+  `PersistedFates::with_broken_breakables`; construction does not name the
+  feature layer), and lowering builds a breakable that is not yet due broken,
+  with `RespawnTimer(remaining)`; a due one is built whole.
+
+A replay is a fresh attempt: `forget_breakable_respawns_on_replay` (in
+`ContentRoomReplayResetSet`) forgets the room's records and stops the old
+attempt's timers, because the old broken breakables live on until the
+rebuild and the mirror recorded them again (measured: the replayed room
+was built with the platform broken, 2.95 s to go). A checkpoint restore
+(`CheckpointDomainApply`) and session teardown forget all records, because
+the save holds no broken breakable. Witnesses
+(`breakable_respawn_across_rooms.rs`): a quick return finds it broken for
+exactly the time that remains; a return after 4 s finds it whole with no
+record; a replay rebuilds it whole. Poisons: construction ignores the
+schedule (the quick return found it whole); the replay keeps the room's
+records (the replay built it broken); the replay keeps the old timers
+(the replay built it broken). ⚠ The first version ordered the replay
+system `.after(FeatureInteractionSet::WorldObjects)`. On the 2026-10-02
+base that is a cycle (`RoomReplayConsequences` follows the reset set and is
+in `PlayerInput`), and the schedule build did not finish: every `app_it`
+test stopped before its first frame. The edge is gone; the replay chain
+already runs before the mirror's phase in the same tick. ⚠ Keyed by room DEFINITION, because a record
+must outlive its instance; two live instances of one definition would
+share a key, and the shipped crossing joins a held room instead of opening
+a second one. ⚠ Found by a code read and not measured: a breakable
+authored `Never` seems to behave like `OnRoomReload` (whole on any
+return). That is a fate-record gap, not a time gap, and OW5 does not
+change it.
 
 ✅ **Change-tick gates inside the rewinding schedule, classified
 2026-10-01.** Cut (C) found that an `is_changed()` gate opens on every load

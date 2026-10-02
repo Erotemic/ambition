@@ -1511,12 +1511,31 @@ device, which body, which room) is the larger half of the question.
 
 ## Q152 — which world mechanic should keep time while its room is not live?
 
-Decided for now, so it is not blocking: **none. A room that is not live
-does not keep time, and a room that comes back is built from its records.**
-OW5 (`docs/planning/engine/open-world-runtime-and-residency.md`) asks for
-"one concrete background mechanism requiring logical time", and says it
-follows a real mechanic, not a general offscreen simulator. Measured
-2026-10-02: no shipped mechanic needs it.
+⛔ **Corrected 2026-10-02.** The first version of this entry said "none: a
+room that is not live does not keep time", from a measurement that "no
+shipped mechanic needs it". That measurement searched `RespawnPolicy` only.
+It missed `HazardRespawn::AfterSeconds`: ten breakables in `sandbox.ldtk`
+(four at 3.0 s, six at 3.5 s) count a respawn down on the entity's
+`RespawnTimer`, which died with the room. Measured in `basement_breakables`:
+a platform broken and left was whole 0.2 s later.
+
+Decided for now, so it is not blocking: **the breakable respawn keeps time.**
+Its due time is on `GameplayElapsed`, kept by `BreakableRespawnSchedule` when
+the room retires and read when the room is built again (OW5, first
+mechanism, `docs/planning/engine/open-world-runtime-and-residency.md`). A
+quick return finds the platform broken for the time that remains; a late
+return finds it whole. The body respawn policies below do not keep time, and
+that stands.
+
+What is still a product choice:
+
+- Whether the same rule applies to a body (`InPlace(seconds)`, option (a)
+  below), which today is built fresh on return, as Q149 decides.
+- Whether a world clock must survive a save. `GameplayElapsed` is a session
+  clock: a rewind restores it, the save does not keep it, and a checkpoint
+  restore and the session edge forget every breakable record.
+
+The measurement of the body policies, which is correct:
 
 - The one authored timer on a world occurrence is `RespawnPolicy::InPlace(seconds)`
   (the training sandbags). Its countdown is `respawn_timer` on the live body
@@ -1527,7 +1546,7 @@ follows a real mechanic, not a general offscreen simulator. Measured
   entry. `DeadStaysDead` waits for nothing.
 - Encounters persist an outcome (`PersistedEncounterState`), not a clock.
 
-So OW5 needs a product choice of the mechanic first. The options:
+So a second mechanism needs a product choice first. The options:
 
 - (a) **A respawn that counts world time**: a policy such as
   `After(seconds)` that writes the death time to the save, so a mob killed

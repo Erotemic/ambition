@@ -41,6 +41,7 @@ pub(crate) mod actors;
 mod aggression;
 pub mod anim_helpers;
 pub mod body_identity;
+pub mod breakable_respawns;
 mod boss_bodies;
 #[cfg(test)]
 mod boss_scripted_pattern_tests;

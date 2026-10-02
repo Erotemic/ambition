@@ -71,6 +71,11 @@ pub struct SessionScopedResources<'w> {
     /// `Option` because a composition without the boss capability has none.
     boss_defeats_since_checkpoint:
         Option<ResMut<'w, ambition_boss_encounter::BossDefeatsSinceCheckpoint>>,
+    /// The respawn due times of broken breakables, on this session's clock
+    /// (OW5). The next session's clock starts again at zero, and its rooms
+    /// are built whole.
+    breakable_respawns:
+        Option<ResMut<'w, crate::features::ecs::breakable_respawns::BreakableRespawnSchedule>>,
     /// Quest progress; the next activation reloads it from the session save.
     quest_registry: ResMut<'w, QuestRegistry>,
     /// Transient per-room bookkeeping (room-transition cooldown, etc.).
@@ -447,6 +452,7 @@ fn reset(resources: SessionScopedResources) {
         mut encounter_view,
         mut boss_registry,
         boss_defeats_since_checkpoint,
+        breakable_respawns,
         mut quest_registry,
         mut sim_state,
         mut slot_interactions,
@@ -477,6 +483,9 @@ fn reset(resources: SessionScopedResources) {
     *boss_registry = BossEncounterRegistry::default();
     if let Some(mut since) = boss_defeats_since_checkpoint {
         since.forget_all();
+    }
+    if let Some(mut schedule) = breakable_respawns {
+        schedule.forget_all();
     }
     *quest_registry = QuestRegistry::default();
     *sim_state = RoomTransitionCooldown::default();

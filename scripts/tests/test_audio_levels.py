@@ -114,18 +114,45 @@ def _provider_files_that_author_specs() -> list[Path]:
     return found
 
 
+def _pack_registries_that_author_specs() -> list[Path]:
+    """The pack registries that hold at least one synthesized voice.
+
+    AP134 and AP138 (2026-09-28) moved every game's SFX out of Rust tables and
+    into `assets/audio/*registry*.ron`. A voice row is the one that has a
+    `waveform`; a music registry has none and is not a spec source.
+    """
+    found = []
+    for ron in sorted(REPO_ROOT.glob('game/*/assets/audio/*registry*.ron')):
+        if re.search(r'\bwaveform\s*:', al.strip_comments(ron.read_text(errors='replace'))):
+            found.append(ron)
+    return found
+
+
 def test_every_source_that_authors_a_spec_yields_at_least_one_resolved_spec():
     """The extractor's failure mode is silence, so absence is what is asserted.
 
     ⛔ "zero unresolved fields" passes trivially on an empty list. The load-
-    bearing half is that every file which *contains* an `SfxSpec` literal
-    produces specs — that is what catches a provider refactoring its helper out
-    from under the regex and vanishing from the report.
+    bearing half is that every source which *contains* a spec produces specs:
+    a pack registry gives one spec for each `waveform` row, and a provider that
+    still writes an `SfxSpec` literal gives at least one. That is what catches a
+    source changing shape out from under the regex and vanishing from the
+    report.
     """
-    authoring = _provider_files_that_author_specs()
-    assert authoring, 'no provider authors an SfxSpec — the search itself is broken'
+    registries = _pack_registries_that_author_specs()
+    assert registries, 'no pack registry authors a voice — the search itself is broken'
 
-    for path in authoring:
+    for path in registries:
+        text = al.strip_comments(path.read_text(errors='replace'))
+        rows = len(re.findall(r'\bwaveform\s*:', text))
+        specs = al.extract_ron_specs(path)
+        named = [s for s in specs if s.sfx_id != '<unknown>']
+        assert len(named) == rows, (
+            f'{path.relative_to(REPO_ROOT)} authors {rows} voice rows and the extractor '
+            f'named {len(named)} of them; a row fell out of the report'
+        )
+
+    # No provider writes a literal today. One that does again is still read.
+    for path in _provider_files_that_author_specs():
         specs = al.extract_rust_specs(path)
         named = [s for s in specs if s.sfx_id != '<unknown>']
         assert named, f'{path.relative_to(REPO_ROOT)} authors SfxSpec but yielded no spec'
@@ -169,8 +196,11 @@ def test_no_spec_source_hides_a_slash_pair_inside_a_string():
     """
     ron = sorted((REPO_ROOT / 'game').rglob('*.ron'))
     providers = _provider_files_that_author_specs()
-    # Anti-vacuity: an empty population would pass this test perfectly.
-    assert len(providers) >= 4, f'only {len(providers)} spec-authoring providers found'
+    registries = _pack_registries_that_author_specs()
+    # Anti-vacuity: an empty population would pass this test perfectly. The
+    # voices are in pack registries (AP134/AP138), which `ron` below contains.
+    assert len(registries) >= 4, f'only {len(registries)} spec-authoring registries found'
+    assert all(path in ron for path in registries), 'a spec registry is outside the RON sweep'
     assert len(ron) >= 20, f'only {len(ron)} RON files found under game/'
 
     offenders = []

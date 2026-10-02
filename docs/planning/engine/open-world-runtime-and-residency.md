@@ -39,7 +39,7 @@ A session holds one or more **live rooms**. Each live room is one entity.
 | The rule "which room is this entity in" | `LiveRooms::of` (its stamp, else the sole live room); `live_room_of` for identity (its stamp only) |
 | Per-room reads | `LiveRoomOf<T>`, `LiveRoomSpecs` (`definition_in`, `left_by`), `CollisionWorld::room(..)`, `RulesOf<T>` |
 | Ambient gravity | `BaseGravity`: the turned live rooms only, keyed by `Option<LiveRoomInstance>`. A switch turns its own room; a body reads its own room's (else the sole room's); a replay forgets its room; a crossing that leaves a room standing forgets the room left when it retires. Gravity and force zones carry their room too (`zone_acts_in`) |
-| Music | `EncounterMusicRequest` keeps its two tiers per live room: a boss, a script, a wave, the cut-rope intro and Mary-O's beats claim the tier of their own room. `compute_music_intent` plays for `PrimaryLiveRoom` (the primary body's room, else the sole room; Q150 (a)): that room's music and its fight. The developer's gravity cycle turns the same room |
+| Music | `EncounterMusicRequest` keeps its two tiers per live room: a boss, a script, a wave, the cut-rope intro and Mary-O's beats claim the tier of their own room. `compute_music_intent` plays for `PrimaryLiveRoom` (the primary body's room, else the sole room; Q150 (a)): that room's music and its fight, and a conversation's track is released when that room changes to another authored room. The developer's gravity cycle turns the same room |
 | The one-live-room read (named debt) | `SoleLiveRoom<T>`, `SoleLiveRoomSpec`, `RoomOverlays::sole()` (`SoleLiveRoomMut` is deleted) |
 
 `InRoomInstance` is a value, not an `Entity`, so it snapshots without entity

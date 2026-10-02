@@ -471,3 +471,60 @@ fn the_music_plays_for_the_primary_seats_room() {
         "a fight in the other room is not heard: {in_hall:?}"
     );
 }
+
+/// A conversation's track is released when the primary seat goes to another
+/// room, with two rooms live. The primary body stands in chapel with a
+/// narrative track asked for: a tick in chapel keeps it (the control), and
+/// moving the body to the hall clears it. Poison: read the sole live room
+/// and the track is never cleared while two rooms are live.
+#[test]
+fn a_conversation_track_is_released_when_the_primary_seat_changes_room() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{
+        insert_session_world_component, session_world_component, InRoomInstance,
+        LiveRoomInstance, RoomInstanceRoot,
+    };
+    use bevy::prelude::*;
+    let mut app = App::new();
+    let room = |id: &str| {
+        ambition_platformer2d_world::rooms::RoomSpec::new(
+            id,
+            ambition_platformer2d_core::World::new(id, Vec2::new(800.0, 600.0), Vec2::new(16.0, 16.0), Vec::new()),
+        )
+    };
+    ambition_platformer2d_world::rooms::insert_room_set(
+        app.world_mut(),
+        ambition_platformer2d_world::rooms::RoomSet::from_parts_or_panic(
+            "hall",
+            vec![room("hall"), room("chapel")],
+            Vec::new(),
+        ),
+    );
+    let chapel = session_world_component::<ambition_platformer2d_world::rooms::RoomSet>(app.world())
+        .and_then(|rooms| rooms.definition_by_id("chapel"))
+        .expect("the set has `chapel`");
+    let hall = LiveRoomInstance::ACTIVATION;
+    let second = hall.next();
+    app.world_mut().spawn((RoomInstanceRoot, second, chapel));
+    let body = app
+        .world_mut()
+        .spawn((ambition_platformer2d_shared_tangle::body::PrimaryBody, InRoomInstance(second)))
+        .id();
+    insert_session_world_component(app.world_mut(), EncounterMusicRequest::default());
+    app.init_resource::<ambition_conversation::NarrativeMusicRequest>();
+    app.add_systems(Update, super::intent::release_narrative_music_on_room_change);
+    // The first tick learns the room.
+    app.update();
+    app.world_mut()
+        .resource_mut::<ambition_conversation::NarrativeMusicRequest>()
+        .request("chapel_hymn");
+    app.update();
+    let kept = app.world().resource::<ambition_conversation::NarrativeMusicRequest>().track().map(str::to_owned);
+    app.world_mut().entity_mut(body).insert(InRoomInstance(hall));
+    app.update();
+    let after_leaving = app.world().resource::<ambition_conversation::NarrativeMusicRequest>().track().map(str::to_owned);
+    assert_eq!(
+        (kept.as_deref(), after_leaving.as_deref()),
+        (Some("chapel_hymn"), None),
+        "(the track after a tick in chapel, after the primary seat went to the hall)"
+    );
+}

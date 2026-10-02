@@ -30,16 +30,29 @@ use ambition_audio::music::{AdaptiveMusicCatalogRegistry, EncounterMusicBinding,
 /// (large-brute) state. Content tuning — owned here, not by the director.
 pub(super) const LARGE_BRUTE_DELAY_SECONDS: f32 = 3.5;
 
-/// Clear room-scoped narrative music when the active room changes.
+/// Clear room-scoped narrative music when the room the music plays for changes
+/// to another authored room.
+///
+/// The room is the primary seat's (`PrimaryLiveRoom`, as for
+/// [`compute_music_intent`]). This read was the sole live room, so while two
+/// rooms were live it did not run, and a conversation's track stayed after the
+/// primary seat left its room. Another player's crossing does not change the
+/// primary seat's room, so it does not clear the track.
 pub fn release_narrative_music_on_room_change(
-    rooms: ambition_platformer2d_world::rooms::SoleLiveRoomSpec,
+    rooms: ambition_platformer2d_world::rooms::LiveRoomSpecs,
+    heard: ambition_platformer2d_shared_tangle::lifecycle::PrimaryLiveRoom,
+    mut last: Local<Option<ambition_platformer2d_world::rooms::LiveRoomDefinition>>,
     // Conversation support is optional in hosts that still install the audio plugin.
     narrative_music: Option<ResMut<ambition_conversation::NarrativeMusicRequest>>,
 ) {
+    let Some(definition) = rooms.definition_named(heard.get()) else {
+        return;
+    };
+    let changed = last.replace(definition) != Some(definition);
     let Some(mut narrative_music) = narrative_music else {
         return;
     };
-    if rooms.is_changed() && narrative_music.track().is_some() {
+    if changed && narrative_music.track().is_some() {
         narrative_music.clear();
     }
 }

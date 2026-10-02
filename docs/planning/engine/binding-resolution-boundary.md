@@ -21,39 +21,18 @@ passes generic declarers such as `"ground item"` rather than provider/source
 identity. Two providers with the same unresolved id can therefore suppress one
 another's diagnostic in one process.
 
-⛔⛔ **THE FIX AS WRITTEN IS NOT IMPLEMENTABLE, MEASURED 2026-09-02.** "Fix the
-declarer at the call site" assumes provider identity is reachable there. It is
-not, on either side of the join:
+Provider identity is not reachable at the call site. `WorldItemArtEntry` and
+`HeldItemArtEntry` are `{ sprite_id, asset_path, size }`, and
+`WorldItemArtManifest::effective()` is a last-wins merge keyed by `sprite_id`.
+`GroundItemFact` is `{ pos, half_extent, item_id }`. A fix is one of two
+different choices:
 
-- **the art side** — `WorldItemArtEntry` is `{ sprite_id, asset_path, size }`
-  and `HeldItemArtEntry` matches it. Providers construct them with exactly those
-  three fields (`ambition_demo_mary_o/src/provider.rs:151,161,174`), and
-  `WorldItemArtManifest::effective()` is a LAST-WINS merge keyed by `sprite_id`,
-  so not even the winning entry records who contributed it;
-- **the content side** — `GroundItemFact` is `{ pos, half_extent, item_id }`
-  (`ambition_sim_view/src/facts.rs:215`). The renderer iterates
-  `GroundItemsView` and holds the id and nothing else.
+1. attribute the art: a source on the art entries, carried through
+   `effective()` (this also makes the last-wins merge auditable);
+2. attribute the content: the declaring source on `GroundItemFact`.
 
-⇒ Qualifying the declarer with the ID buys nothing: `ReportedOnce` already keys
-by (namespace, declarer, id), so the id is in the key. Only PROVIDER identity
-separates two providers' reports, and it does not exist to be named.
-
-A real fix is a design choice between two DIFFERENT questions, and this row does
-not say which it wants:
-
-1. **attribute the ART** — a source on `WorldItemArtEntry` / `HeldItemArtEntry`,
-   carried through `effective()`. Answers "whose art binding is missing", and
-   incidentally makes the last-wins merge auditable: today one provider can
-   silently override another's sprite and nothing records it;
-2. **attribute the CONTENT** — the declaring source on `GroundItemFact`. Answers
-   "whose level authored an item with an unbound id", which is closer to this
-   row's wording.
-
-⚠ **AND SETTLE THE PRIOR QUESTION FIRST.** This row asserts the suppression is a
-defect but cites no case where a real diagnostic was lost. Two providers failing
-on one id may be ONE authoring defect seen twice, in which case reporting it once
-per process is correct and there is nothing here to fix. Find the case before
-building either shape.
+First find a real case where a diagnostic was lost. Two providers failing on one
+id can be one authoring defect, and then one report per process is correct.
 
 Do not add another global reporting registry.
 
@@ -88,8 +67,7 @@ binding boundary would actually eliminate.
 
 ## Prepared resolution and runtime authority
 
-The [architecture review](architecture-reassessment.md) retains explicit binding
-resolution but separates known support from installed support. A11 couples the
+Explicit binding resolution separates known support from installed support. A11 couples the
 technique support declaration to its actual handler installer; a validator lookup
 alone cannot establish either existence or availability.
 

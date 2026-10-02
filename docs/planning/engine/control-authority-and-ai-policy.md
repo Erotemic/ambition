@@ -1,9 +1,9 @@
 # Control authority and AI policy are two facts in one component
 
-**Owner: the engine.** This page owns the split between who drives a body
-(control authority) and what the body's own brain would do (AI policy). The
-first slice of that split is built. What remains is the A4 regrouping (see the
-[frontier](actor-monolith-work-frontier.md)) and one owed rewind witness.
+**Scope:** the split between who drives a body (control authority) and what the
+body's own brain would do (AI policy). **Owner:** the engine. The split is
+built. Open work is in A4 of the [frontier](actor-monolith-work-frontier.md) and
+in the owed rewind witness below.
 
 ## Current model
 
@@ -17,19 +17,20 @@ first slice of that split is built. What remains is the A4 regrouping (see the
   with wanderer arms. A driven body keeps its own policy for the whole
   possession; nothing is stashed or restored. Collapsing `Brain` into a struct is
   a separate decision, not taken.
-- **Temporary control is a claim, arbitrated in one place.** `ControlClaims` in
+- **Temporary control is a claim.** `ControlClaims` in
   `shared_tangle::temporary_control` holds one named `Option<SimId>` field per
-  `ControlClaimant` (`Possession`, `Mount`). Domains file and drop claims;
-  `project_control_claims` decides the winner, ordered after
-  `PlayerSimulationSet::Possession` and `CombatSet::Settle`. Readers ask
-  `ControlClaims::holds(..)` directly. Precedence is the enum's order, in one
-  place. The claims are rollback state (`actor.control_claims`).
+  `ControlClaimant` (`Possession`, `Mount`). Domains file and drop claims through
+  `file_claim` and `drop_claim`. There is no stored winner and no per-tick
+  projection: a reader asks `ControlClaims::holds(..)` for the claim it cares
+  about, so no projection can lag the claims. Precedence is the enum's order
+  (possession outranks a ride). The claims are rollback state
+  (`actor.control_claims`).
 - **Named fields, not a collection:** two claimants exist, precedence is total,
   and a fixed struct clones without allocation or ordering ambiguity. A third
   claimant is a field and a match arm that the compiler makes you visit.
-- **Release reveals the remaining winner.** `drop_claim` clears one field and the
-  projection re-reads what is left. A dead mount ends the ride's claim; it does
-  not make the body autonomous.
+- **Release reveals the remaining claim.** `drop_claim` clears one field; the
+  other stays. A dead mount ends the ride's claim; it does not make the body
+  autonomous.
 - `ActorControl` is a separate component so a brain swap cannot disturb the
   frame.
 
@@ -67,19 +68,15 @@ into seat binding.
 |---|---|---|
 | `DrivingParticipant` | `ambition_characters::control` | `actor_monolith::control::authority` |
 | `PossessionState` | `actor_monolith::control::possession` | `possession.rs`, `control/authority.rs`, `session/teardown.rs` (defaults it at session end) |
-| `TemporaryControl` projection | `shared_tangle::temporary_control` | the claim arbiter only |
+| `ControlClaims` | `shared_tangle::temporary_control` | `file_claim` and `drop_claim`, called by the possession and mount domains |
 | `ControlledSubject` | `shared_tangle::markers` | `possession.rs`, `session/teardown.rs` |
 
 `session/teardown.rs` is a lifetime edge, not a second authority. A census of
 "who writes this" cannot tell those apart by itself.
 
-Three of the four types are floor- or domain-owned already, and the writers
-concentrate in two monolith files. `PossessionState` is filed under
-`abilities/traversal/`, which makes possession look like a traversal ability.
-The remaining carve is not "extract control": name the transition authority and
-move it out of the ability tree, so that `possession.rs` and
-`control/authority.rs` are one domain with a module path that says so. That is
-A4's regrouping.
+The writers concentrate in the monolith's `control/` module:
+`control/authority.rs` and `control/possession.rs` are one domain with a module
+path that says so. Possession eligibility stays optional ability policy.
 
 Test-support modules must be gated (`#[cfg(any(test, feature = "test-support"))]`);
 an ungated fixture that writes control state reads as production authority in a
@@ -97,7 +94,7 @@ running process can answer. No `Any`, no `TypeId`, no `BrainId`, no executable
 registry, no service locator. The same prohibition shaped
 `capability_lanes::CapabilityLanes`.
 
-## Brain data stays in `ambition_characters` (decided 2026-09-02)
+## Brain data stays in `ambition_characters`
 
 The fighter and smash brain behavior lives in `ambition_combat/src/brain`. What
 remains in `ambition_characters` is data (about a tenth of the crate's non-test

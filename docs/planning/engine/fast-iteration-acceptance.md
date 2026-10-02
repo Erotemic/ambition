@@ -1,13 +1,12 @@
 # Fast iteration acceptance fixtures
 
-**State:** executable specifications for future implementation, not executed tests.
+**Scope:** fixture specifications for the fast-iteration packets. They are not executed tests.
 [Packets](fast-iteration-implementation.md) own sequencing. This page owns the
 cross-packet fixture definitions. Put implementation tests in existing shared
 binaries/modules where possible. Do not create a separate executable per row.
 
-FI1-FI10 name iteration fixtures only. They are distinct from F1-F9 findings in
-older architecture/checkpoint reviews. None of these fixture IDs claims a test
-with that name already exists in the source.
+FI1-FI10 name iteration fixtures only. A fixture ID does not claim that a test
+with that name exists in the source.
 
 ## What a completion claim contains
 

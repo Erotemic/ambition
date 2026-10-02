@@ -5,9 +5,7 @@ Current work is stage-specific observability, demand timing, pacing of expensive
 completion, explicit residency ownership, and robust live-quality/readiness
 semantics.
 
-This page owns the **current asset lifecycle contract and open packets**. The
-multi-day history of placeholder investigations, tier experiments, invalid
-captures and per-run tables remains in git history and measurement artifacts.
+This page owns the **current asset lifecycle contract and open packets**.
 
 Performance conclusions that span the whole frame belong in
 [`performance-and-iteration.md`](performance-and-iteration.md).
@@ -66,8 +64,7 @@ deliberately not stamped.
 Every quality-aware materialization road consumes the active shared quality
 budget/tier selection.
 
-The earlier FX-sheet omission is repaired: FX loading now resolves the quality
-variant through the same tier authority.
+FX-sheet loading resolves its quality variant through the same tier authority.
 
 A deliberately full-resolution narrow loader may opt out only with that policy
 stated at the call site.
@@ -286,11 +283,8 @@ The current architecture slice is complete when:
 7. live quality switching is replacement/swap and covers character + FX roads;
 8. transitions wait on the readiness stage they actually require.
 
-Use git history for the removed placeholder, Potato-tier, Mary-O, and hall
-measurement chronology.
-
-Potato stays at 1/16 linear scale for every sprite family (Q69, ruled
-2026-10-01 in [`maintainer-decisions.md`](../maintainer-decisions.md)). A
+Potato stays at 1/16 linear scale for every sprite family (Q69 in
+[`maintainer-decisions.md`](../maintainer-decisions.md)). A
 proposed renderer aid is still not applied and not validated:
 `dev/patches/swing-fighter-render-honours-quality-scale-20260902.patch` makes
 the four swing-fighter targets in `tools/ambition_sprite2d_renderer` refuse a

@@ -1,9 +1,6 @@
-# Character authoring package — current migration frontier
+# Character authoring package
 
-**State:** OPEN, narrowed 2026-08-30.
-
-This plan owns the remaining character-authoring boundary. It no longer carries
-the full history of the migration.
+**State:** OPEN. This page owns the remaining character-authoring boundary.
 
 ## Goal
 
@@ -26,10 +23,9 @@ The repository already has important pieces of the target:
 - `PreparedCharacterDefinition` is the resolved immutable runtime-facing
   character definition. It carries body facts, hurtboxes, abilities, autonomous
   policy, authored movesets, presentation references and validation results.
-- canonical character height is authored as a shared character fact; art quality
-  scales presentation rather than changing declared gameplay height — ⚠ the
-  SECOND clause is guarded (`quality_change_keeps_each_character.rs`), the first
-  is only half true, see the height residual under A1;
+- standing height is a catalog fact of the character; art quality scales
+  presentation and never changes gameplay height
+  (`quality_change_keeps_each_character.rs`);
 - ordinary Smash move repertoires are character-authored `MovesetContract`
   values rather than one shared fighter kit;
 - `ambition_characters::smash_fighter::SmashFighterFacet` is a typed,
@@ -83,247 +79,58 @@ layout and bindings; runtime systems do not search authored names again.
 
 ## Current execution work
 
-### A1 — re-measure bypasses before migrating another field
+### A1 — migrate a field only when it has a named bypass
 
-The old plan listed a broad M0–M8 migration. That is no longer the right unit of
-work. Before moving another fact, find a concrete character value that still has
-one authoring source but is being re-authored or patched at game/runtime
-composition.
-
-Promote only a slice that can name:
+Before moving another fact, find a concrete character value that has one
+authoring source but is re-authored, patched or re-derived at game or runtime
+composition. Promote a slice only when it names:
 
 1. the current source of truth;
-2. the duplicate/override road to delete;
-3. the target character/facet owner;
-4. the preparation/lowering path;
+2. the duplicate or override road to delete;
+3. the target character or facet owner;
+4. the preparation and lowering path;
 5. the acceptance test proving the old authority is gone.
 
-This is queue row D166.
+This is queue row D166. Search two ways: *who writes a character fact they do
+not own*, and *which character facts does construction re-derive instead of
+reading from the character*. A missing author and a redundant derivation are the
+same defect seen from two ends. A geometry fact is three components (collision
+size, render quad, quad offset); closing one of them looks like closing the seam.
 
-⭐⭐ **A FOURTH RESIDUAL, NAMED 2026-09-04, AND IT ANSWERS ALL FIVE PARTS:
-the stand-in table (`smash_duelist_a.ron`) — the moveset both Smash stand-ins carry.**
+**Open residuals:**
 
-1. **Current source of truth** — a hand-written verb list in
-   `game/ambition_demo_smash/src/moveset.rs`, built by pushing `(verb, move_id)`
-   pairs and chaining them.
-2. **The duplicate road to delete** — that verb list. ⓘ Only the ATTACK half: the
-   same function already builds its capture half through
-   `SmashCaptureRepertoire`, so the boundary is half-crossed here already.
-3. **The target owner** — `SmashRepertoire` → `into_contract()`, which every other
-   smash-seatable moveset reaches (fourteen directly; medic, performer, author and
-   officer borrow an archetype's table in their move files, `borrows: (archetype,
-   prefixes)`, with their own specials laid over it).
-4. **The lowering path** — already exists and is in daily use; nothing new is
-   required. If the stand-ins should share a base rather than author their own,
-   a `borrows` entry in the move file is the established derive
-   (`MovesetContract::under_own_name` then `overlaid_with`).
-5. **The acceptance test proving the old authority is gone** — ⭐ **already written,
-   and it fails in the right direction today.**
-   `the_stand_in_is_george_s_genre_shape_with_the_special_button_removed`
-   (`game/ambition_demo_smash/src/moveset.rs`) asserts George's unanswered presses
-   are a strict SUBSET of the stand-ins' with a surplus of exactly **eight**, every
-   one a `special`. ⇒ **After a correct migration that surplus is ZERO**, because
-   `SmashRepertoire` has nineteen fields and no `Option`s — the struct will not
-   compile without every slot. The test reddening on the count IS the proof.
+- **The stand-in table** (`smash_duelist_a.ron`). The source is a hand-written
+  verb list in `game/ambition_demo_smash/src/moveset.rs`; the target owner is
+  `SmashRepertoire` -> `into_contract()`, with `borrows:` as the established
+  derive. `the_stand_in_is_george_s_genre_shape_with_the_special_button_removed`
+  measures the surplus that a correct migration takes to zero. It waits on the
+  product question of how thin a stand-in is (Q89 in
+  [`../awaiting-maintainer-decision.md`](../awaiting-maintainer-decision.md)).
+- **The display-name join.** `canonical_character_id`
+  (`character_runtime/mod.rs`) returns the token when the registry or the
+  catalog knows it, else falls through to `id_for_display_name`.
+  `game/ambition_content/src/duel_arena.rs` relies on it, and room and roster
+  tokens arrive as display names. Not a one-slice promotion; see A3.
 
-⚠ **Why this one is not simply takeable**: unlike the three residuals above it, it
-is also a product question — how thin a stand-in should be — and a nineteen-slot
-type is a real tax on a placeholder. ⇒ Indexed as decision 2 in
-[`../awaiting-maintainer-decision.md`](../awaiting-maintainer-decision.md); the
-migration wants that answer first rather than architectural grounds alone.
+**Closed slices and their guards:**
 
+- Knockback weight is authored in George's `smash_fighter.ron`, not patched by
+  the demo (`george_carries_the_knockback_weight_his_own_facet_authors`).
+- Mary-O's transformation beat follows the catalog row's sheet
+  (`every_mary_o_form_resolves_a_real_sheet_in_the_shipped_demo`).
+- A sprite-authored body is constructed from its sheet through the same
+  `posed_body_geometry` call the pose pass uses
+  (`a_sprite_authored_body_is_constructed_from_its_sheet`). `ActorClusterSeed`
+  carries the resolved geometry and `render_size`; spawn sites no longer look a
+  quad up by placement name (`a_skirmisher_is_drawn_at_the_quad_its_character_resolves`).
+- `Vitals::canonical_height` is deleted; height comes from the catalog's <!-- cite-ok: a deleted name -->
+  standing height.
 
-**Censused 2026-08-31, and one slice closed.** Ten sites were examined against
-the five-part test. Most are two *legitimate* authors — a demo mechanic keyed on
-identity, or a match rule composed through `MatchRules` — and are explicitly not
-targets. Four residuals name all five parts — three from the 2026-08-31 census, and the stand-in table (`smash_duelist_a.ron`) added 2026-09-04 (above):
-
-- ✔ **Knockback weight — CLOSED 2026-08-31.** `smash_reading_of_character` in
-  `ambition_demo_smash` was a `match definition.id` writing `Vitals::knockback_
-  weight`, an ordinary character fact the engine already owns, for a character
-  the demo does not own — the falsifier below in as many words. George now states
-  `knockback_weight: Some(1.35)` in his own `smash_fighter.ron`; the two
-  stand-ins state theirs where they are constructed, which is authoring rather
-  than override. Guard: `george_carries_the_knockback_weight_his_own_facet_
-  authors` in `game/ambition_app/tests/smash_in_the_host.rs`, red under both
-  poisons (strip the RON field; cut the facet out of registration).
-- ✔ **Mary-O `sheet_target` — CLOSED 2026-08-31.** It re-derived a character's
-  sheet from its id at runtime when the same pairing was already authored three
-  other ways. `clip_seconds` now asks
-  `ambition_sprite_sheet::character::catalog_join::sheet_for_character_id_from_data`,
-  and the transformation beat follows the catalog row: point the spark form's
-  row at another manifest and the beat changes, which is the assertion the old
-  table could not have moved. ⚠ the system's catalog and sheets are
-  `Option<Res<_>>` — the absence means *"no sheet to read"*, the case the beat
-  already answered with its fallback, and
-  `every_mary_o_form_resolves_a_real_sheet_in_the_shipped_demo` is what keeps
-  that from becoming a silent veto in the shipped demo.
-- ▢ **The display-name join** (`character_runtime/mod.rs`'s
-  `canonical_character_id` falling through to `id_for_display_name`) is a real
-  A3 residual, but content deliberately rides it and room/roster tokens
-  legitimately arrive as display names. Not a one-slice promotion — see A3.
-  ✔ **Premise re-verified against the code 2026-09-02 and it holds exactly**:
-  `canonical_character_id` returns the token when either the registry or the
-  catalog knows it, and otherwise falls through to `id_for_display_name` on BOTH
-  — registry first, then catalog. Nothing has quietly closed this; the deferral
-  is still the right call, and now a reader can see when that was last true.
-
-⛔ **NOT a residual, and worth stating so it is not re-filed**: most grid fighters
-author no fighter body of their own. That is a *missing author*, not a duplicate
-authority, and it is a product call.
-
-⛔⛔ **THE PREMISE UNDER THAT SENTENCE WAS WRONG AND IS CORRECTED 2026-09-04 — it
-read *"eleven of the fourteen grid fighters play on the ACTOR BASELINE"*, and they
-do not.** Traced in the demo:
-
-- `apply_smash_match_rules` sets **`roster.rules.body = Some(SMASH_FIGHTER_BODY)`**,
-  so the ruleset hands every seat a PLATFORM-FIGHTER body.
-- Per participant, `fighter_body(character)` returns `Some` only where a
-  `smash_fighter` facet states one; the arm is
-  `Some(body) => participant.with_body(body), None => participant` — an
-  unauthored fighter is left on the ruleset's body, **not dropped to the
-  baseline**.
-- The actor baseline (`BodyMovementTuning::BASELINE`, an eighth of the player's
-  ground acceleration) is what a seat gets when **no ruleset body is declared** —
-  which is the case in other games, and is exactly why the smash roster declares
-  one.
-
-⚠ **And the count does not match any current roster figure either**: the wish list
-is **23**, the composed grid assembles **≥8**, the standalone demo seats **3**, and
-exactly **one** character authors a `smash_fighter` facet at all (George). Fourteen
-is none of those. ⇒ **The conclusion survives — an unauthored body is a missing
-author and a product call — but the reason given for it was the wrong mechanism**,
-and read literally it says most of the roster moves like a wandering enemy.
-
-### Re-censused 2026-09-02 — NO NEW CANDIDATE, and here is what was searched
-
-D166 said *"re-census before migrating another field"*. Done, and the answer is
-that the boundary has no fifth slice waiting: nothing found writes an
-engine-owned character fact for a character it does not author. What was swept,
-so the next person does not repeat it:
-
-- **id-keyed branches** (`match character_id`, `match definition.id`,
-  `match worn.id()`, `match id.as_str()`) across `game/` and `crates/`. The two
-  that touch character facts are legitimate by this document's own rule:
-  `mary_o::powerups::power_tier` is a demo mechanic keyed on identity (the power
-  ladder is Mary-O's product concept, not an engine fact), and
-  `attack_hitbox::authored_attack_volume_resolver` matches `Option`, not an id —
-  `Some(cid)` vs the player fallback, which is dispatch rather than a table.
-- **writes to `definition.vitals` / `.locomotion` / `.movement_tuning`** outside
-  `authored/`. Every hit is a character setting its OWN facts where it is
-  constructed — `sanic::badnik`, `mary_o::plane`, `mary_o::snake`,
-  `player_robot_lineage` — which is authoring. The one demo write to a fact it
-  does not own (`smash_reading_of_character`) was the slice that closed on
-  2026-08-31, and the crate now says so in as many words at its old site.
-- **`ambition_demo_smash/src/lib.rs`'s `definition.movement_tuning = DEFAULT_TUNING`**
-  is the nearest thing to a residual and is already adjudicated above: which
-  baseline a platform fighter's body uses is the product call, and eleven of
-  fourteen fighters not authoring one is a missing author.
-
-⛔⛤ **THE RE-CENSUS MISSED A RESIDUAL, FOUND 2026-09-21 AS A VISUAL BUG.** The
-bullet above reads *"every hit is a character setting its OWN facts where it is
-constructed — … `mary_o::snake` … — which is authoring"*, and that was true of
-every line it looked at. The residual was in the shape the sweep could not see:
-not a write to a fact the character does not own, but a fact the character
-**never authored** being answered by a **second derivation** downstream.
-
-`mary_o::snake` declared no `BodySource`. `CharacterBodyBlueprint` — whose
-doc-comment says it holds "everything construction needs to build this
-character's body" — had no field for one, so `ActorClusterSeed::new_character_in`
-sized the body from `sprite_body_collision_for_character_id_from_data` (the
-catalog join, which answers from `body_kind`'s default standing height) while
-`sync_sprite_posed_bodies` sized the same body from `posed_body_geometry` (the
-sheet). Two derivations of one authored scale, 108x48 against 21.3x9.5, with the
-demo patching the difference back in `tag_mary_o_snakes` — the migration's
-signature failure, one layer further down than the sweep looked.
-
-**What the sweep would have had to ask** to see it: not *"who writes a character
-fact they do not own"* but *"which character facts does construction re-derive
-instead of reading from the character"*. A missing author and a redundant
-derivation are the same defect seen from the two ends, and only the second
-spelling finds a character that authors nothing.
-
-Closed 2026-09-21: `mary_o::snake` and `mary_o::ai_slop` author
-`BodySource::SpriteAuthored`, `CharacterBodyBlueprint` carries `body` and
-`sheet`, construction resolves through the same `posed_body_geometry` call the
-pose pass uses, and both demo geometry patches are deleted. Guarded by
-`ambition_body_seed`'s `a_sprite_authored_body_is_constructed_from_its_sheet`.
-
-⚠ **AND THE SAME DEFECT WAS ONE COMPONENT OVER.** Fixing the collision size
-alone left the SPAWN SITES asking `sprite_render_size_for_name_in` — the
-catalog join again — for `ActorRenderSize`, so the snake was still born with a
-118x118 quad against the sheet's 23x23 and corrected a moment later. It was
-invisible: `sync_sprite_posed_bodies` happened to run before any binder in the
-same tick, so a once-per-tick instrument reads it as clean, and the fix was
-only distinguishable from the bug by probing the spawn site directly.
-`ActorClusterSeed` now carries the resolved `PosedBodyGeometry` and the spawn
-sites seed the quad and the quad offset from it.
-⭐ The general lesson: **a geometry fact is three components, and closing one
-of them reads exactly like closing the seam.**
-
-⚠ **AND THE QUAD WAS STILL LOOKED UP AGAIN FOR EVERY BODY WITHOUT A POSE
-(2026-09-25).** `spawn_render_geometry` fell back to
-`sprite_render_size_for_name_in`, keyed by the placement's NAME, a free label.
-Of the 43 enemy placements, 39 labels happened to be their character's display
-name; the four `Skirmisher` placements of `npc_pirate_raider` resolved to
-nothing and spawned with no quad. The seed now carries `render_size`, the quad
-of the same resolution that sized its collider (posed geometry, else the
-catalog join by character), and the name lookup is deleted. Guarded by
-`a_skirmisher_is_drawn_at_the_quad_its_character_resolves`.
-
-⚠ **ONE ASYMMETRY FOUND, AND IT IS NOT A D166 SLICE.** `CharacterDefinition` has
-twenty-two `with_*` builders — abilities, locomotion, mount, contact damage,
-moveset, sheet, hurtboxes, canonical height — and **none for `vitals`**, so every
-character that wants health assigns the public field after `new`. That is an
-ergonomic gap, not a duplicate authority: there is no second road to delete, and
-the five-part test needs one. Recorded here so it is not re-filed as a residual;
-if it is ever worth closing, it closes as a builder addition and not as a
-migration.
-
-⛔⛔ **A THIRD residual — RETRACTED IN PLACE 2026-08-31, THE SAME DAY IT WAS
-FILED.** It read *"two fields hold one fact… two independent live truths for one
-character fact is the second falsifier below"*. **That was wrong, and the
-correction is more useful than the claim.** `Vitals::canonical_height` and the
-catalog row's `standing_height` have **DISJOINT POPULATIONS**: 18 catalog rows
-author a standing height, and neither caller of `with_canonical_height`
-(`player_robot_lineage`, Mary-O's three forms) is among them. Two mechanisms used
-by different characters, not two truths about one.
-
-⭐ **What IS true, and it is smaller:** `canonical_height` is read by nothing in
-gameplay — measured, the only non-test reader in the tree is `moveset_export`'s
-JSON dump. The scaling its doc claimed happens at AUTHORING time through
-`world_per_pixel_for_height`, whose OUTPUT is what gets stored
-(`BodySource::SpriteAuthored`). So it is a record of an authoring input, and the
-fix was to make its doc say so rather than to delete a field a tool reports.
-⛔ do not re-file this as a migration; the falsifier does not fire.
-✅ 2026-09-26 (AP76): the field is deleted. Its last writer was the robot lineage (Mary-O's forms had already moved to their rows), and the lineage is now three catalog rows: v3 states `posed_body: Some(OwnHeight)`, which stands it at its body kind's 48. `moveset_export` fills the same `vitals.canonical_height` key from the prepared standing height, so the inspector's "Height" row keeps its contract.
-
-⛔ **Two names cited in comments do not exist.** `character_id_for_display_name`
-(cited twice in `game/ambition_content/src/duel_arena.rs`, at lines that no
-longer hold it — the fix moved them) is really `id_for_display_name`; `smash_fighter_kit()` is cited as a live generic floor in
-five places and no such function exists — only the const `SMASH_FIGHTER_KIT`
-survives. `select.rs`'s "adopter count is supposed to be FALLING" note is
-therefore measuring something already at zero.
-✔ **BOTH CITATIONS ARE FIXED** — `861cd3d95`, the same D166 work that found
-them; re-checked 2026-09-03 and neither name occurs anywhere in `*.rs` now,
-while the const `SMASH_FIGHTER_KIT` is still declared in
-`game/ambition_demo_smash/src/lib.rs` (at line 398 as of 2026-09-17; it was
-written here as `:354` on 2026-09-03 and has drifted 44 lines since). ⚠ Kept as a
-receipt rather than deleted, because the finding is the reusable part: a comment
-can cite a function that never existed and greps to nothing, which is
-indistinguishable from one that MOVED — the same class
-`scripts/check_planning_citations.py` was later built for. ⛔ Do not re-file it as
-open work; the present tense above is the census speaking, not the tree.
-
-⛔⛤ **AND THE `:354` IS ITS OWN EXAMPLE, WHICH IS WHY IT IS ANNOTATED RATHER THAN
-QUIETLY CORRECTED.** `check_planning_citations.py`'s `FILE_LINE` rule verifies
-that the path exists, that the line is not past the end of the file, and that the
-path is unambiguous — **not that the line still holds what the sentence says**.
-`scripts/citation_line_content_feasibility.py` records the measured NEGATIVE that
-pairing a `file:line` with nearby prose tokens does not recover the content check
-(23% bound at ±30 lines; a clause-bound, uniquely-defined-name narrowing was
-worse at 32% miss). ⇒ A line number inside a living file is a citation that rots
-silently, and the durable form is the SYMBOL plus its file, or a commit sha.
+**Not residuals:** a demo mechanic keyed on identity (Mary-O's power tier), a
+character setting its own facts where it is constructed, and a grid fighter that
+authors no fighter body (it plays on the ruleset body
+`SMASH_FIGHTER_BODY`; a missing author is a product call). `CharacterDefinition`
+has no `with_vitals` builder; that is ergonomics, not a duplicate authority.
 
 ### A2 — keep the first fighter facet load-bearing
 
@@ -342,11 +149,8 @@ Legacy adapters may feed the same preparation boundary during migration, but
 there must be one published `PreparedCharacterDefinition` and no downstream
 re-derivation from parent/patch/name-search state.
 
-⚠ **The second clause is a GOAL, not a standing invariant — measured 2026-08-31.**
-`canonical_character_id` resolves an identity by searching display names, and
-`game/ambition_content/src/duel_arena.rs` depends on it on purpose. Recording it
-as a known residual is honest; leaving it written as an invariant implies a guard
-that does not exist.
+The second clause is a goal, not an invariant: the display-name join under A1
+is a known residual with no guard.
 
 A new serialized facet must define its schema/version and content compatibility
 behavior before it becomes a stable public format.
@@ -370,7 +174,7 @@ a second one.
 
 ## Shared versus ruleset-specific facts
 
-Canonical height has enough evidence to be a shared character fact. Other facts
+Standing height has enough evidence to be a shared character fact. Other facts
 remain ruleset-specific until multiple consumers prove shared semantics:
 
 - physical mass/weight;

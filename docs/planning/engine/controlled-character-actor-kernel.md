@@ -1,10 +1,9 @@
 # Controlled-character actor kernel
 
-**Target contract, baseline:** `300004d601af1e633cfaee969f079cf9bb368ca8`.
-Use the [responsibility map](architecture-responsibility-map.md) and
-[A4 packet](actor-monolith-work-frontier.md). This is not a claim that every
-current body policy has converged or that a future six-module SCC defines the
-kernel.
+**Scope:** the target contract for the controlled-character actor kernel.
+**Authorities:** [target logical authorities](architecture.md#target-logical-authorities)
+and the [A4 packet](actor-monolith-work-frontier.md). The kernel is defined by
+this contract, not by an SCC size.
 
 ## Kernel contract
 
@@ -36,7 +35,7 @@ Retraction on disappearance, unmount, release and session retirement is part of
 the relation. A saved room-transition intent captures the body subject when it
 is admitted, not whichever body is driven when it eventually commits.
 
-## Current source evidence and unresolved work
+## Current shape and open work
 
 `crates/ambition_platformer2d_actor_monolith/src/control/authority.rs` projects
 control from possession/claim state. Its neighboring input code invokes
@@ -52,7 +51,10 @@ gets one tick or that home-avatar assumptions have disappeared.
 `crates/ambition_platformer2d_actor_monolith/src/actor_clusters.rs` is the live
 query/mutation authority restored by the spawn correction. Builders remain in
 `ambition_platformer2d_actor_spawn`; live provocation, ladder projection and rider
-rebuild remain kernel operations. Preserve that distinction during further work.
+rebuild remain kernel operations. Keep that distinction.
+
+A held item's shot is an `ActorActionMessage::Ranged` on the one projectile
+road (`ambition_held_items`). There is no second projectile simulation.
 
 ## Decisions for the remaining cycles
 
@@ -67,9 +69,9 @@ checkpoints and object construction to their owners. Item relations coordinate
 with the kernel through explicit custody facts, while accounting and physical
 item lifetime remain item responsibilities.
 
-Do not wait for an SCC target before establishing these decisions. The
-[edge ledger](actor-monolith-hard-core-edge-ledger.md) can keep unresolved
-operations on HOLD while A1/A3 proceed independently.
+Do not wait for an SCC target before you apply these decisions. Unresolved
+edges use the [edge dispositions](actor-monolith-decomposition.md#edge-dispositions)
+vocabulary.
 
 ## Invariants
 

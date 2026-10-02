@@ -1,319 +1,180 @@
 # Capability and runtime composition
 
-**Baseline:** `300004d601af1e633cfaee969f079cf9bb368ca8`, 2026-09-08.
-**State:** active, with readiness assessed per authority. Prior statements that
-all authority prerequisites were crossed were too broad. The spawn correction,
-checkpoint ownership and contact geometry show why those conclusions must remain
-local to the boundary that was actually tested.
+**Scope:** installation, scheduling, prerequisites and supported absence of
+engine capabilities. **Doctrine:** [engine architecture](architecture.md).
+**Profiles and closure work:** A9 in the
+[packet catalog](actor-monolith-work-frontier.md). **Priority:**
+[the queue](../queue.md). Readiness is assessed per authority; a claim that one
+boundary is ready does not certify another.
 
-[The queue](../queue.md) selects work. The
-[responsibility map](architecture-responsibility-map.md) defines the target and
-[A9](actor-monolith-work-frontier.md) defines profile/closure work. This page owns
-installation, scheduling, prerequisites and supported absence.
+## Measurements
 
-## Fresh source measurements
-
-Executed on the baseline with the existing Python tools:
-
-⚠ **THE SECOND COLUMN IS THE BASELINE AND THE THIRD IS TODAY, BECAUSE THIS
-TABLE HAD ONE COLUMN AND A READER COULD NOT TELL WHICH IT WAS.** Two of the
-three rows had moved and neither said so in the row; the ordering row's
-re-measurement lived in the block below and the other two had none. A single
-`Result` column makes a baseline record and a live reading look identical, which
-is how the closure row came to be quoted as current on three other pages.
-
-| Instrument | At the review baseline | Re-measured 2026-09-18 | What it establishes |
-| --- | --- | --- | --- |
-| `scripts/measure_foreign_system_ordering.py` | 0 capability/ruleset foreign private orderings; 73 composition orderings; 174 foreign installations | 10 / 68 / 217 by TODAY's classifier — and the comparison is not the obvious one; see the confound block below, which is why that block exists | Syntactic installation/ordering inventory, not semantic correctness |
-| `scripts/measure_carveable_installations.py` | 3 mechanically reducible blocks; 38 mechanically irreducible blocks | **5 reducible, 35 irreducible.** ⛤ Two blocks moved from irreducible to reducible and one appeared; nothing on this page had noticed | Upper-bound candidates using present package edges; package names may conceal mixed authorities |
-| `scripts/check_facade_dependency_closure.py` | 51 other workspace packages reachable, render mandatory through host <!-- cite-ok: the review baseline reading, kept as the record; the owner measures today -->  | **48, and `ambition_render` is NOT among them.** ⛤ This row named no instrument until 2026-09-18 and three other pages quoted its stale 51 as current | Lower bound on dependency closure; not full Cargo resolution, binary size or installed-system population |
-
-⚠ Only the third row has an instrument that FAILS on drift. The first two are
-measurements someone must choose to re-run, which is why their "today" column
-carries a date and not a promise.
-
-⭐⭐ **RE-RUN 2026-09-17 WITH THE CONFOUND CONTROLLED, because both ordering
-instruments were REWRITTEN since the baseline** — `D-FOREIGN-ORDER-SPELLING`
-landed *"the census counted an import style, not an architecture"* and then *"a
-classifier keyed on the site"*. Reading today's number against the table above
-would have credited the instrument's change to the code. So the baseline script
-was checked out of the baseline commit and run against TODAY's tree:
-
-| ordering | capability | composition | total edges | installations |
-|---|---|---|---|---|
-| baseline script, baseline tree (the row above) | 0 | 73 | 73 | 174 |
-| **baseline script, today's tree** | **2** | **59** | **61** | **171** |
-| today's script, today's tree | 10 | 68 | 78 | 217 |
-
-⇒ **THE CODE AND THE INSTRUMENT MOVED IN OPPOSITE DIRECTIONS.** By the baseline
-measure the composition's foreign orderings fell 73 → 59 and installations 174 →
-171; the newer classifier then adds 17 edges and 46 installations that the old
-one could not see. A reader comparing 73 with 68 would conclude a small
-improvement; the truth is a larger improvement plus a wider instrument.
-
-⚠ **THE ONE ROW THAT LOOKS LIKE A REGRESSION IS NOT ONE, and checking it is the
-point of keeping the control.** Capability orderings read 0 → 2 by the baseline
-script — and both edges are in `game/ambition_app_tools/src/bin/moveset_render.rs`,
-a TOOL BINARY. The newer classifier states in its own words that *"a binary root
-is a composition whatever its package is called"*, so it does not count those two
-at all; its capability 10 is a different population drawn from real capability
-crates. ⇒ Neither number contradicts the other and neither says a capability
-newly reached into another layer's schedule. **A control that only confirms is
-still worth running: this row would otherwise have been reported as the sharp
-defect returning.**
-
-✔ **`measure_carveable_installations.py` needs no control: the baseline script
-and today's agree exactly on today's tree (5 reducible, 35 irreducible), so the
-move from 3 / 38 is entirely the CODE.** Two blocks became reducible and the
-irreducible set shrank by three; the total fell 41 → 40.
-
-ⓘ Reproduce: `python3 scripts/measure_foreign_system_ordering.py`,
-`python3 scripts/measure_carveable_installations.py`, and for the closure
-`cargo tree -e normal --no-default-features -p ambition_platformer2d` — 50 unique
-`ambition_*` names at HEAD: the 2026-09-10 re-measure's 49 plus
-`ambition_resource_spec` (2026-09-23), a serde-only leaf the body floor links for
-the actor-resource vocabulary.
-
-The procedural extension tier (2026-10-01, fast-iteration I4) added four: the
-SDK, the host the runtime composes, and the boss and combat domains' port value
-leaves.
-
-The capability-footprint sentinel (`fixtures/minimal_game`) links 56 other
-workspace packages besides the facade — the `ambition_closure` of
-`scripts/baselines/capability-footprint-baseline.json`, a different subject
-from the facade closure above.
-
-⚠ **RE-MEASURED 2026-09-10: it is 48, at `939d6aaa5`.** The 51 is the
-`300004d601af1e633cfaee969f079cf9bb368ca8` baseline. Three edges closed
-between the two, all on 2026-09-09: the render path through host, five dead
-dependency declarations, and the map capability. ⇒ Reproduce with
-`cargo tree -e normal --no-default-features -p ambition_platformer2d`, count the
-unique `ambition_*` names (49) and subtract the facade itself (48).
-⛔ **THE UNIT IS THE TRAP.** 49 counts the facade, 48 does not, and this page's
-51 is an *other-packages* count. A number that cannot say which it is cannot be
-quoted. See `scripts/measure_minimum_profile_parentage.py`.
-
-The body-clock contribution is already expressed through published reset/
-contribute vocabulary. Do not reopen that repaired C1 row. Older counts of one
-capability ordering or 175 installations are not this receipt.
+Re-run these before you quote a number. Do not copy counts into other pages.
 
 ```bash
 python3 scripts/measure_foreign_system_ordering.py
 python3 scripts/measure_carveable_installations.py
+python3 scripts/check_facade_dependency_closure.py
+python3 scripts/measure_minimum_profile_closure.py --minimum
 ```
 
-A tool's irreducible label means two current packages occur in the block without
-a suitable dependency edge. It does not prove that their responsibilities are
-semantically independent. Reassess ownership before adding a composition wrapper.
+- `measure_foreign_system_ordering.py` is a syntactic inventory of foreign
+  installations and orderings. A binary root counts as composition whatever its
+  package is called. It does not prove semantic correctness.
+- `measure_carveable_installations.py` lists upper-bound candidates. An
+  "irreducible" label means two packages share a block without a suitable
+  dependency edge; it does not prove semantic independence.
+- `check_facade_dependency_closure.py` owns the facade closure count and fails
+  any planning page that disagrees. It also fails if `ambition_render` re-enters
+  the facade's mandatory graph.
+
+The capability-footprint sentinel (`fixtures/minimal_game`) links 56 other
+workspace packages besides the facade — the `ambition_closure` of
+`scripts/baselines/capability-footprint-baseline.json`, a different subject
+from the facade closure. Re-quote this sentence in the commit that changes the
+baseline.
 
 ## Four independently testable contracts
 
-**Authority:** private state and its transition rules have a coherent owner.
-**Installation/lifetime:** an installed capability runs and retires with only
-its documented prerequisites. **Compile closure:** an absent optional capability
-is absent from the intended dependency/feature closure. **SDK:** an external
-consumer uses stable semantic entry points instead of internal topology.
+- **Authority:** private state and its transitions have one coherent owner.
+- **Installation and lifetime:** an installed capability runs and retires with
+  only its documented prerequisites.
+- **Compile closure:** an absent optional capability is absent from the
+  intended dependency and feature closure.
+- **SDK:** an external consumer uses semantic entry points, not internal
+  topology.
 
 A passing optional-plugin suite does not prove compile closure. A green SDK
-allowlist does not prove the allowed API is well designed. A decreasing foreign-
-installation count does not prove the new installer owns the behavior.
+allowlist does not prove a good API. A falling foreign-installation count does
+not prove the new installer owns the behavior.
 
 ## Capability installation contract
 
-A capability declares required resources/services, optional integrations, private
-systems, public milestones, state scope, rollback participation and retirement.
-It owns internal ordering. An installer may be an ordinary Bevy-native function
-or plugin according to the owner's public API; a new trait hierarchy is not
-required.
+A capability declares required resources and services, optional integrations,
+private systems, public milestones, state scope, rollback participation and
+retirement. It owns its internal ordering. An installer is an ordinary Bevy
+function or plugin; no new trait hierarchy.
 
-Missing required prerequisites fail with a concrete installation/preparation
-diagnostic. Supported absence is modeled intentionally. Do not require dummy
-resources or let required behavior vanish behind an Option parameter. Do not
-recognize render readiness by the presence of a proxy such as AssetPlugin when
-the actual system requires render-device resources.
+A missing required prerequisite fails with a concrete installation or
+preparation diagnostic. Model supported absence on purpose. Do not require
+dummy resources or hide required behavior behind an `Option` parameter. Do not
+detect render readiness by a proxy such as `AssetPlugin` when the system needs
+render-device resources.
 
-Q73 is ruled (2026-10-01, [`maintainer-decisions.md`](../maintainer-decisions.md)):
-opaque installation is prohibited, not the Bevy `Plugin` type. A capability may
-install its private systems through a capability-owned plugin when the host
-requests the capability explicitly, the systems sit in documented public
-milestones, and the composition root controls whether the capability exists and
-the order between published boundaries. `app.add_plugins(CombatPlugin)` is fine
-as the mechanism of an explicitly selected combat capability. A plugin that
-silently installs unrelated capabilities or hides scheduling dependencies is
-not.
+**Q73 (ruled):** opaque installation is prohibited, not the Bevy `Plugin` type.
+A capability may install its private systems through its own plugin when the
+host requests the capability explicitly, the systems sit in documented public
+milestones and the composition root controls whether the capability exists and
+the order between published boundaries. A plugin that silently installs
+unrelated capabilities or hides scheduling dependencies is not allowed.
 
 ## Procedural port installation
 
-The [extension contract](extension-state-and-execution.md) adds an executable
-consumer of published domain ports. The owning capability installs each port's
+The [extension contract](extension-state-and-execution.md) adds executable
+consumers of published domain ports. The owning capability installs each port's
 schema, read projection or request reducer, phase guarantee and prerequisites
 together. A metadata-only declaration cannot authorize a call. The runtime
-composition root wires the host adapter to selected domain offers; the adapter
-must not depend back on the runtime crate or enumerate game algorithms.
+composition root wires the host to selected domain offers; the host never
+depends back on the runtime crate or enumerates game algorithms.
 
-Portable modules write only their own registered state. Engine state still has
-its current owner. Native engine plugins remain normal Bevy plugins/systems.
-Resolve semantic phase dependencies at admission, reject cycles, and preserve
-current Commands flush/run-condition contracts. Begin with stable serial module
-invocation; parallel scheduling requires the declared-access and merge proof.
-This is a bounded provider seam, not a replacement for Bevy scheduling.
+Modules write only their own registered state. Engine state keeps its owner.
+Resolve phase dependencies at admission, reject cycles and preserve `Commands`
+flush and run-condition contracts. Module invocation is stable and serial;
+parallel invocation needs declared access and a merge proof.
+
+[Domain contracts](extension-domain-contracts.md) keep operation schemas at the
+domain owner and common wire and state primitives in the SDK. No central
+all-requests enum, and the executor never imports every domain. An installed
+port includes implementation, scope and grant, observation cut, consume barrier
+and result. Bevy messages are not rollback queues.
 
 ## Composition owns integration, not every algorithm
 
-A full host may select capabilities and order their public milestones. The
-lifecycle coordinator legitimately owns admission/loading/commit state machines.
-Those are different roles even where they currently share the runtime crate.
+A host selects capabilities and orders their public milestones. The lifecycle
+coordinator owns admission, loading and commit state machines. Those roles can
+share the runtime crate and still differ.
 
 A composition block is justified when it states a real relation between
-independent owners, such as capture after custody settlement or presentation
-after body geometry publication. It is suspect when it enumerates the private
-steps of one owner, performs that owner's state transitions, or knows every
-special case inside a generic context.
-
-Do not move gameplay into runtime to escape Cargo direction. Do not delete
-cross-capability coordination merely to reach zero foreign installation counts.
-A wrapper that forwards the same 15 private calls has not reduced knowledge.
+independent owners (capture after custody settlement, presentation after body
+geometry publication). It is suspect when it lists one owner's private steps,
+performs that owner's transitions or knows its special cases. Do not move
+gameplay into runtime to escape Cargo direction. A wrapper that forwards the
+same private calls has not reduced knowledge.
 
 ## Scheduling contract
 
-For every public milestone, specify what is true on entry/exit, its enclosing
-simulation phase, run conditions, whether Commands have been applied, and the
-scope/population to which its guarantee applies. Use ordering only where a real
-read/write or semantic prerequisite exists; do not chain unrelated systems to
-avoid reasoning about them.
+For every public milestone, state what is true on entry and exit, the enclosing
+phase, run conditions, whether `Commands` have been applied and the population
+the guarantee covers. Order only on a real read/write or semantic prerequisite.
 
-The A1 checkpoint move must preserve two different requirements: reset admission
-runs before replay admission in PlayerInput; startup restoration can run before
-gameplay is enabled. Item capture observes settled item/custody state in the full
-composition. Those cannot be captured by copying one `.before` expression.
+Examples that one `.before` cannot capture: reset admission runs before replay
+admission in `PlayerInput`; startup checkpoint restoration can run before
+gameplay is enabled; item capture observes settled custody. Empty optional
+phases must not stop required phases.
 
-A milestone named after every private function merely republishes implementation
-order. Prefer a guarantee such as body geometry published, accepted control
-settled, or checkpoint capture ready. Empty optional phases must not prevent
-required phases from running.
+## Separation mechanisms
 
-## Separation mechanisms: when they reduce knowledge
-
-| Mechanism | Legitimate use in this repository | Failure to reject |
+| Mechanism | Legitimate use | Reject |
 | --- | --- | --- |
-| Direct Cargo dependency | Body execution using geometry; a domain adapter using prepared definitions | Assuming an acyclic graph proves that data and writers are at the right owner |
-| Bevy plugin/installer | Owner installs private systems and state against documented phases | Wrapper around foreign private algorithms solely to change a metric |
-| Published SystemSet | Stable ordering/visibility guarantee between independent owners | One public set per private function, with the same undocumented pairwise graph |
-| Typed intra-tick message | Explicit event observation with known delivery/consumption semantics | Replacing a required synchronous contact/admission result with next-tick delivery |
-| Rollback state/journal | Speculative state restored on rewind; confirmed external effects released once in the current session/process | Treating all Bevy message buffers as rollback history or using the effect journal for ordinary gameplay communication |
-| App-local provider registry | Explicit independent game/content providers registered and frozen before use | Dynamic gameplay service discovery or arbitrary implementation replacement during a deterministic tick |
-| Schema/metadata registry | Validate IDs, schemas, revisions and conflicts; fingerprint declared data | Treating metadata-only registration as an executable extension point |
-| Backend-neutral registrar | Domain declares its rewind state without importing the GGRS backend | A backend-owned global type list that must understand every optional domain |
-| Shared values / SystemParam | Small semantically owned values or borrow grouping of one operation | Dependency-neutral bags that carry every sibling's private resources and policy |
+| Direct Cargo dependency | body execution using geometry; a domain adapter using prepared definitions | assuming an acyclic graph proves correct ownership |
+| Bevy plugin or installer | owner installs private systems against documented phases | a wrapper around foreign algorithms to move a metric |
+| Published `SystemSet` | ordering and visibility between independent owners | one public set per private function |
+| Typed intra-tick message | explicit observation with known delivery | replacing a required synchronous result with next-tick delivery |
+| Rollback state and effect journal | speculative state restored on rewind; confirmed effects released once per process | treating every message buffer as rollback history |
+| App-local provider registry | independent providers registered and frozen before use | dynamic service discovery during a tick |
+| Schema or metadata registry | validate IDs, schemas, revisions and conflicts | metadata-only registration as an executable extension |
+| Backend-neutral registrar | a domain declares rewind state without importing GGRS | a backend-owned list of every domain type |
+| Shared values or `SystemParam` | small owned values; borrow grouping for one operation | bags that carry siblings' private resources |
 
-`ambition_registry_core` is a small canonical-registration helper. It does not
-supply the authority, lifetime or meaning of a registry's entries. Retain explicit
-New/Idempotent/Conflict behavior and deterministic enumeration; do not promote it
-to a universal capability service locator.
+`ambition_registry_core` is a canonical-registration helper with explicit
+New/Idempotent/Conflict behavior. It is not a service locator.
 
 ## Compile-time optionality
 
-At this baseline, the facade's direct render edge is optional, but facade ->
-platformer2d_host -> ambition_render is nonoptional. Removing the direct feature
-therefore does not remove renderer dependencies. Other capability paths must be
-traced individually. See F5 in [findings](architecture-review-findings.md).
-
 Measure a real independent consumer manifest under the intended feature set.
-Cargo features unify across dependency paths; a default-features opt-out on one
-edge does not erase another edge's request. Check normal, build, dev and target
-closures separately. The supported production profile is defined by normal
-runtime dependencies and its deployment assets, while tests may need additional
-tooling. Do not infer binary bytes from any of those graph counts.
+Cargo features unify across paths, so an opt-out on one edge does not remove
+another edge's request. Check normal, build, dev and target closures
+separately. Do not infer binary bytes from graph counts.
 
-### ⛔⛔ The graph the SUITE compiles is not the graph the game ships — measured 2026-09-10
+**The graph the suite compiles is not the graph the game ships.** `relativity`
+is out of `all_capabilities`, and `cargo tree -e normal -p ambition_app` has no
+`ambition_relativity2d`. A `--workspace` invocation unifies features and links
+it, because `ambition_demo_twintrack` asks for it. So the suite compiles and
+exercises a capability that the shipped game omits, and a defect that appears
+only when the capability is absent is invisible to a workspace lane.
+`the-featureless-facade-links-none-of-these` walks a per-package
+feature-resolved tree and measures the right graph.
 
-The paragraph above states the rule; here is what it costs in practice, and it is
-one feature.
-
-`relativity` was deliberately taken OUT of `all_capabilities` on 2026-09-01, and
-the manifest says why in as many words: *"nothing in the shipped game asks for
-spacetime, and listing it here put `ambition_relativity` +
-`ambition_relativity2d` into every build that took the default features."*
-`game/ambition_demo_twintrack` then names it explicitly, which is the correct way
-for its one real consumer to ask.
-
-MEASURED, both directions:
-
-| invocation | `ambition_relativity2d` under `ambition_platformer2d` |
-|---|---|
-| `cargo tree -e normal -p ambition_app` | **absent** — the intent holds for the ship |
-| `cargo tree -e normal --workspace -i ambition_relativity2d` | **present**, and `ambition_platformer2d` is its parent, so it reaches `ambition_app`, `ambition_content`, `ambition_demo_mary_o` and the rest |
-
-⇒ **The stated decision is intact for `cargo build -p ambition_app` and reversed
-for every workspace-wide invocation** — which is what `./run_tests.sh` and every
-`--workspace` lint or test run is. Nothing is broken: unification is doing what
-it is documented to do, and A9's
-`the-featureless-facade-links-none-of-these` contract walks a per-package
-feature-resolved tree, so it still measures the right graph.
-
-⚠ **AND THE COMMENT IS NOT WRONG, WHICH IS THE WORSE CASE.** It is right about
-the intent and silently untrue in one lane, so a reader who checks the manifest
-gets the correct answer for the wrong graph. A statement that is false is
-eventually corrected; one that is true of a build nobody runs is quoted forever.
-
-⚠ **The asymmetry is what to carry.** A capability kept out of the
-default set is still compiled, linked and exercised by the suite, so the suite
-cannot tell you that removing it works — and a defect that only appears when it
-is ABSENT is invisible to a lane that never builds that shape. "A green result
-names its lane" applies to Cargo's feature resolution too, and the lane the gate
-runs is the union.
-
-Start with a small supported profile set rather than promising every combination:
-headless body/world; windowed body/world; headless combat; collection without held
-use; generic encounters without named boss content. Rich default composition
-continues to be supported. Each profile must instantiate a real domain object and
-advance behavior, not merely build an empty App.
+Start with a small profile set: headless body and world; windowed body and
+world; headless combat; collection without held use; generic encounters without
+named bosses. Each profile instantiates a real domain object and advances
+behavior.
 
 ## Rollback and external effects
 
-A domain owns declaration of its authoritative rewind state, with the backend
-implementing the registrar. Install/register an optional domain only when its
-profile includes it. Runtime loading/unloading of arbitrary rewind-owning plugins
-is outside the present compile-time composition contract.
+A domain declares its authoritative rewind state; the backend implements the
+registrar. Register an optional domain only when its profile includes it.
+Loading or unloading arbitrary rewind-owning native plugins at runtime is out of
+scope. Preserve wire IDs and encoding during an ownership-only move; the
+same-build policy stands.
 
-Preserve wire IDs/encoding during an ownership-only move. The engine's same-build
-policy remains authoritative; this is not a promise of cross-release wire
-compatibility. Definitions, derived projections and external effects have
-different restoration semantics and must not share one generic default policy.
-
-`crates/ambition_platformer2d_runtime/src/external_effects.rs` already provides a
-bounded confirmed-effects journal. Preserve replacement on resimulation, empty
-frame replacement, session reset and delivery after confirmation. Exactly-once
-in-process release is not a durable exactly-once guarantee at a disk/network sink;
-that sink needs its own identity/idempotence contract when required.
+`crates/ambition_platformer2d_runtime/src/external_effects.rs` is a bounded
+confirmed-effects journal: replacement on resimulation, empty-frame
+replacement, session reset and delivery after confirmation. Exactly-once
+in-process release is not durable exactly-once delivery at a disk or network
+sink.
 
 ## Ruleset and session scope
 
-Games choose policy and capabilities; sessions own active lifetime; hosts choose
-platform/backends. Restore the exact prior process policy when a scoped ruleset
-leaves. A demo plugin must not permanently become the global owner of a setting
-used by another experience. Re-entry, not only first startup, is a profile test.
+Games choose policy and capabilities; sessions own active lifetime; hosts
+choose platform and backends. Restore the prior process policy when a scoped
+ruleset leaves. A demo plugin never becomes the permanent owner of a setting
+another experience uses. Re-entry, not only first startup, is a profile test.
 
 ## Completion evidence
 
-Keep zero capability/ruleset foreign private ordering, but do not use that as the
-only criterion. Every claimed optional capability needs explicit prerequisites,
-a minimal positive case, a supported absence case, correct re-entry/retirement,
-rollback declaration and a resolved dependency-closure statement. Cross-owner
-composition has a reason and a phase guarantee. SDK consumers need no internal
-module map. Unsupported configurations report unsupported; they do not use a
-plausible sibling default and produce misleading benchmark results.
-
-## Port payload ownership and actual visibility
-
-[Domain contracts](extension-domain-contracts.md) keeps pure operation schemas at
-the domain owner and common wire/state primitives in the small SDK. Do not make
-the executor import every domain, use a central all-requests enum, or move runtime
-support facts into a lower schema crate to avoid passing them into preparation.
-
-An installed port includes implementation, scope/grant, observation cut, consume
-barrier and result. Bevy messages are not automatically rollback queues. Cleanup
-and acknowledgements that survive a tick have explicit registered ownership.
-The initial serial execution order preserves domain arbitration; it is not a new
-priority rule. Publication visibility also covers observers/hooks and resource
-writes, not only fixed-schedule systems.
+Every claimed optional capability needs explicit prerequisites, a minimal
+positive case, a supported absence case, correct re-entry and retirement,
+rollback declaration and a resolved closure statement. Cross-owner composition
+has a reason and a phase guarantee. Unsupported configurations report
+unsupported; they do not borrow a plausible sibling default.

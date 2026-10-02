@@ -1266,7 +1266,6 @@ pub fn resolve_camera_observation(
     };
     let mut base_view = ae::Vec2::new(base_view_w, base_view_h);
     let overview_scale = developer_tools.overview_camera_scale.max(1.0);
-    let encounter_scale = encounter_view.camera_zoom.max(1.0);
 
     // That is the failure mode this repo has been bitten by repeatedly: presentation not
     // running looks exactly like presentation running badly.
@@ -1627,7 +1626,8 @@ pub fn resolve_camera_observation(
                 aspect_policy: user_settings.video.camera_aspect,
                 framing: user_settings.video.camera_framing,
                 overview_scale,
-                encounter_scale,
+                // The zoom of the encounters of the room this view frames.
+                encounter_scale: encounter_view.camera_zoom_in(Some(room)).max(1.0),
                 overview_camera: developer_tools.overview_camera,
                 snap_camera,
                 blink,

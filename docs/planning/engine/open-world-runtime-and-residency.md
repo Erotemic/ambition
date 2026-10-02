@@ -41,6 +41,7 @@ A session holds one or more **live rooms**. Each live room is one entity.
 | Ambient gravity | `BaseGravity`: the turned live rooms only, keyed by `Option<LiveRoomInstance>`. A switch turns its own room; a body reads its own room's (else the sole room's); a replay forgets its room; a crossing that leaves a room standing forgets the room left when it retires. Gravity and force zones carry their room too (`zone_acts_in`) |
 | Music | `EncounterMusicRequest` keeps its two tiers per live room: a boss, a script, a wave, the cut-rope intro and Mary-O's beats claim the tier of their own room. `compute_music_intent` plays for `PrimaryLiveRoom` (the primary body's room, else the sole room; Q150 (a)): that room's music and its fight, and a conversation's track is released when that room changes to another authored room. The developer's gravity cycle turns the same room |
 | A recall mark | `PlayerMark` keeps the live room it was dropped in: a recall from any other room does nothing, and its beacon is drawn in its own room. Decided 2026-10-02 (a position names a place only with its room); before, a recall after a crossing moved the body to the old coordinates in the new room |
+| Encounter camera zoom | `EncounterView` keeps the zoom per live room (`set_camera_zooms`, `camera_zoom_in`); each view reads the zoom of the room it frames |
 | The one-live-room read (named debt) | `SoleLiveRoom<T>`, `SoleLiveRoomSpec`, `RoomOverlays::sole()` (`SoleLiveRoomMut` is deleted) |
 
 `InRoomInstance` is a value, not an `Entity`, so it snapshots without entity

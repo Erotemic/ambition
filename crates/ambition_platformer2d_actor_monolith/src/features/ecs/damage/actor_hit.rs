@@ -104,7 +104,6 @@ pub(crate) fn apply_actor_hit(
     aggression: Option<&mut ambition_combat::components::ActorAggression>,
     interactable: Option<&ambition_interaction::Interactable>,
     banner: &mut GameplayBanner,
-    combat_banter: Option<&ambition_conversation::banter::CombatBanterRegistry>,
     // Knockback feel values (§A2 step 6) — the same tuning the player's
     // knockback resolution reads.
     feel: ambition_combat::feel::Platformer2dFeelTuningMonolith,
@@ -370,9 +369,6 @@ pub(crate) fn apply_actor_hit(
                         ambition_characters::actor::character_catalog::BarkSituation::OnHit,
                         strikes,
                     )
-                })
-                .or_else(|| {
-                    combat_banter.and_then(|reg| reg.pick_hit_bark(&em.identity.name, strikes))
                 });
             if let Some(line) = line {
                 writers.vfx.write_in(room, VfxMessage::SpeechBubble {

@@ -24,10 +24,6 @@
 //!   this crate reason about seats it cannot see.
 
 mod authority;
-// ⛔ NOT GATED, and it must not be: the COMBAT hit path reads this, and the hit
-// path exists in a headless sim with no `ui`. It sits below the `dialog` line
-// rather than above it because that line's `#[cfg]` belongs to `dialog`.
-pub mod banter;
 // Session/UI glue that projects the conversation authority into `ambition_dialog`.
 #[cfg(feature = "ui")]
 pub mod dialog;

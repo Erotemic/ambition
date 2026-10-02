@@ -409,7 +409,6 @@ pub fn apply_feature_hit_events(
         Query<&ambition_platformer2d_core::BodyMotionFacts>,
     ),
     mut banner: ResMut<GameplayBanner>,
-    combat_banter: Option<Res<ambition_conversation::banter::CombatBanterRegistry>>,
     // Knockback feel for struck actors (§A2 step 6). `Option` so minimal
     // headless test worlds that don't stand up the tuning resource still run
     // (they get the default feel).
@@ -825,7 +824,6 @@ pub fn apply_feature_hit_events(
                 aggression.as_deref_mut(),
                 interactable,
                 &mut banner,
-                combat_banter.as_deref(),
                 feel,
                 di_input_local,
                 hurt,
@@ -925,7 +923,7 @@ pub fn apply_feature_hit_events(
                 }),
                 boss_damageable,
                 &mut banner,
-                combat_banter.as_deref(),
+                catalog,
                 hurt,
                 resolved_rules.strike_weight,
                 catalogs.items.get(),

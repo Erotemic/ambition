@@ -33,6 +33,8 @@ impl BossSpecRoster for BossEncounterSpec {
             music_enrage: "fast_paced_violin_boss".into(),
             // The generic base carries no bespoke External gates.
             extra_phase_triggers: Vec::new(),
+            // A generic boss has no character, so it is silent.
+            voice: None,
         }
     }
 }

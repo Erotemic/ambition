@@ -660,10 +660,9 @@ pub struct CharacterCatalogEntry {
     #[serde(default)]
     pub sprite_tuning: Option<SpriteTuningSpec>,
     /// Speech-bubble lines for this character, keyed by occasion. Defaults
-    /// to all-empty (silent). The single source of truth for a character's
-    /// voice — supersedes the hardcoded `features::npcs` match tables and the
-    /// `CombatBanterRegistry` content installers, which remain only as a
-    /// fallback until every row is populated.
+    /// to all-empty (silent). The one source of a character's voice: an actor
+    /// speaks its worn character's lines, and a boss speaks the lines of the
+    /// row its encounter names as `voice`.
     #[serde(default)]
     pub barks: CharacterBarks,
     /// How this character takes being petted. `Some` lets its conversation's

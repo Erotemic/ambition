@@ -46,6 +46,11 @@ pub struct BossEncounterSpec {
     /// are byte-unchanged; a rider boss authors one row here.
     #[serde(default)]
     pub extra_phase_triggers: Vec<PhaseTrigger>,
+    /// The character catalog row whose `barks` this boss speaks: its
+    /// `on_hit` lines when it is struck and its `idle` lines between strikes.
+    /// `None` is a silent boss.
+    #[serde(default)]
+    pub voice: Option<String>,
 }
 
 // Entity-local phase state. Health stays on `BodyHealth`; phase progression

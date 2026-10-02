@@ -90,7 +90,8 @@ ownership and freeze/revision policy when durable identity is required.
 | ~~`EncounterRegistry`~~ | Deleted 2026-09-30: live encounters are occurrences per live room, built by `project_live_encounter_occurrences`, with no latch | — |
 | `PreparedCharacterRegistry` | Declaration admission versus intentional prepared/hot-reload replacement | Keep these operations distinct; a blanket reject/replace policy is insufficient |
 | `MovePrefabRegistry` | Expansion API must establish a production customer before wider investment | Recheck current install/expand callers; do not mistake tests for adoption |
-| `FrontendAudioRegistry` / banter tables | Explicit override semantics in current source | Precedence/product layering requires its own ruling; naming registry_core is not acceptance |
+| `FrontendAudioRegistry` | Explicit override semantics in current source | Precedence/product layering requires its own ruling; naming registry_core is not acceptance |
+| ~~`CombatBanterRegistry`~~ | Deleted 2026-10-02: a character's lines are its catalog row's `barks`, and a boss names its row as `voice` in its encounter data | — |
 | `ParamSchemaRegistry` | Unwired validator surface, permissive unknown lookup, replacement rationale defect | A11; do not classify the rationale as settled solely because source comments explain it |
 
 Find definitions/callers rather than copying return signatures into a permanent

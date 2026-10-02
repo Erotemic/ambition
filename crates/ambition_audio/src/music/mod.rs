@@ -19,7 +19,7 @@ use crate::library::{
 use crate::mix::MusicMix;
 
 pub const MUSIC_LOG_TARGET: &str = "ambition_music";
-const MAX_LAYERS: usize = 6;
+const MAX_LAYERS: usize = crate::cue_spec::MAX_MUSIC_LAYERS;
 
 /// Runtime gain smoothing for adaptive layer targets.
 ///

@@ -118,9 +118,6 @@ pub fn validate_content_graph(
     let boss_catalog = crate::bosses::authored_boss_catalog();
     validate_boss_music_tracks(music, &boss_catalog, &mut report);
 
-    #[cfg(feature = "audio")]
-    validate_adaptive_music_catalog(&mut report);
-
     report
 }
 
@@ -524,17 +521,6 @@ fn validate_boss_music_tracks(
             }
         }
     }
-}
-
-#[cfg(feature = "audio")]
-fn validate_adaptive_music_catalog(report: &mut ContentValidationReport) {
-    let catalog = crate::music::ambition_music_cue_catalog();
-    report.extend_errors(
-        catalog
-            .validate_references()
-            .into_iter()
-            .map(|error| format!("adaptive music catalog: {error}")),
-    );
 }
 
 fn active_area_ids(project: &LdtkProject) -> BTreeSet<String> {

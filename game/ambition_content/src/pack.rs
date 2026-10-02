@@ -28,6 +28,7 @@ const QUESTS_SOURCE_PATH: &str = "data/quests.ron";
 const FIGHTER_BRAIN_LADDER_SOURCE_PATH: &str = "data/fighter_brain_ladder.ron";
 const MUSIC_REGISTRY_SOURCE_PATH: &str = "audio/music_registry.ron";
 const SFX_REGISTRY_SOURCE_PATH: &str = "audio/sfx_registry.ron";
+const MUSIC_CUES_SOURCE_PATH: &str = "audio/music_cues.ron";
 
 /// The authored encounter wave timelines.
 const ENCOUNTER_WAVES_SOURCE_PATH: &str = "data/encounters/goblin_encounter.ron";
@@ -55,6 +56,13 @@ const CUTSCENE_SOURCES: &[(&str, Option<&'static str>)] = &[
 #[cfg(not(feature = "static_content"))]
 const CUTSCENE_SOURCES: &[(&str, Option<&'static str>)] =
     &[("data/cutscenes/sandbox.ron", None), ("data/cutscenes/intro.ron", None)];
+
+/// The adaptive music cues, gated like the item grid.
+#[cfg(feature = "static_content")]
+const MUSIC_CUES_RON_STATIC: Option<&'static str> =
+    Some(include_str!("../assets/audio/music_cues.ron"));
+#[cfg(not(feature = "static_content"))]
+const MUSIC_CUES_RON_STATIC: Option<&'static str> = None;
 
 /// The authored quests, gated like the item grid.
 #[cfg(feature = "static_content")]
@@ -288,6 +296,10 @@ fn embedded_sources() -> impl IntoIterator<Item = (String, String)> {
         (
             SFX_REGISTRY_SOURCE_PATH.to_string(),
             source_text(SFX_REGISTRY_SOURCE_PATH, crate::audio_registries::SFX_REGISTRY_RON_STATIC),
+        ),
+        (
+            MUSIC_CUES_SOURCE_PATH.to_string(),
+            source_text(MUSIC_CUES_SOURCE_PATH, MUSIC_CUES_RON_STATIC),
         ),
     ];
     sources.extend(MIGRATED_MOVESETS.iter().map(|(table, embedded)| {

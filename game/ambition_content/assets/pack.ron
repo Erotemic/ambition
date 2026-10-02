@@ -90,5 +90,6 @@
         (path: "data/boss_validator_bands.ron", schema: "boss_validator_bands", version: 1),
         (path: "audio/music_registry.ron", schema: "music_registry", version: 1),
         (path: "audio/sfx_registry.ron", schema: "sfx_registry", version: 1),
+        (path: "audio/music_cues.ron", schema: "music_cue_catalog", version: 1),
     ],
 )

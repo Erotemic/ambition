@@ -1,178 +1,76 @@
-//! Ambition's authored music-cue catalog + encounter bindings.
+//! Ambition's adaptive music, handed to the reusable music director.
 //!
-//! Named content data: the adaptive cues that ship and the encounters they
-//! bind to (e.g. the goblin-lab tune). The reusable music director in
-//! `ambition_audio` plays whatever [`MusicCueCatalog`] the host inserts;
-//! this module is the one Ambition installs. Gated behind the `audio`
-//! feature.
+//! The cues and the encounters that bind to them are content:
+//! `assets/audio/music_cues.ron` (schema `music_cue_catalog`, owned by
+//! `ambition_audio`). The content compiler checks every reference in it and
+//! requires each section's audio file. This module only builds the director's
+//! catalog from what the pack lowered. Gated behind the `audio` feature.
 
-use ambition_audio::music::{
-    EncounterMusicBinding, MusicCueCatalog, MusicCueSpec, MusicLayerGainSpec, MusicLayerSourceSpec,
-    MusicLayerSpec, MusicSectionSpec, MusicStateSpec,
-};
+use ambition_audio::music::MusicCueCatalog;
 
-/// Sandbox encounter id the goblin cue binds to.
-pub const MOB_LAB_ENCOUNTER_ID: &str = "goblin_encounter";
-/// Cue id for the generated first-goblin adaptive tune.
-pub const FIRST_GOBLIN_CUE_ID: &str = "first_goblin_tune_v2";
-
-/// Relative volume for adaptive cues after user music volume. Stacked
-/// layers sum hotter than the single-channel room tracks, so keep the
-/// per-cue default conservative.
-const ADAPTIVE_MUSIC_RELATIVE_VOLUME: f32 = 1.0;
-
-/// Ambition's authored music-cue catalog: the cues that ship and the
-/// encounters that bind to them. The reusable director plays whatever
-/// catalog the host inserts; THIS is the sandbox's.
+/// Ambition's adaptive music catalog, from its boot pack.
 pub fn ambition_music_cue_catalog() -> MusicCueCatalog {
-    MusicCueCatalog::from_parts(
-        vec![first_goblin_tune_v2_spec()],
-        vec![EncounterMusicBinding {
-            encounter_id: MOB_LAB_ENCOUNTER_ID.to_string(),
-            cue_id: FIRST_GOBLIN_CUE_ID.to_string(),
-            starting_state: "intro".to_string(),
-            wave_states: vec![
-                "wave1".to_string(),
-                "wave2".to_string(),
-                "wave3".to_string(),
-            ],
-            wave2_reinforced_state: Some("wave2_brute".to_string()),
-            cleared_state: "outro".to_string(),
-        }],
-    )
+    music_cue_catalog_from(crate::pack::prepared())
 }
 
-pub fn first_goblin_tune_v2_spec() -> MusicCueSpec {
-    let asset_root = "audio/music/generated/first_goblin_tune_v2".to_string();
-    let layers = vec![
-        // The current generated goblin cue intentionally plays mastered per-section full mixes
-        // rather than raw per-stem files.
-        MusicLayerSpec {
-            id: "full".into(),
-            slot: 0,
-        },
-    ];
+/// The director's catalog for the adaptive music `pack` lowered.
+fn music_cue_catalog_from(pack: &ambition_content_pack::PreparedContentPack) -> MusicCueCatalog {
+    let authored = ambition_audio::content_schema::lowered_music_cues(pack)
+        .cloned()
+        .expect("the music_cue_catalog schema lowers its file for every pack that compiles");
+    MusicCueCatalog::from_parts(authored.cues, authored.encounter_bindings)
+}
 
-    // Re-add it only after the renderer applies its mastering chain to per-stem outputs and
-    // stems are individually audible.
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-    fn full_source(section: &str) -> Vec<MusicLayerSourceSpec> {
-        vec![MusicLayerSourceSpec {
-            layer_id: "full".into(),
-            path: format!("adaptive/{section}/{section}.full.ogg"),
-        }]
+    const CUES: &str = "audio/music_cues.ron";
+
+    /// The pack with one edit to the cue file.
+    fn compiled_with(
+        from: &'static str,
+        to: &'static str,
+    ) -> Result<ambition_content_pack::PreparedContentPack, ambition_content_pack::CompileFailure>
+    {
+        crate::pack::compile_pack_with(move |path: &str, text: String| {
+            if path != CUES {
+                return text;
+            }
+            assert_eq!(text.matches(from).count(), 1, "the edit anchor {from:?}");
+            text.replace(from, to)
+        })
     }
 
-    fn gains(items: &[(&str, f32)]) -> Vec<MusicLayerGainSpec> {
-        items
-            .iter()
-            .map(|(layer, gain)| MusicLayerGainSpec {
-                layer_id: (*layer).to_string(),
-                gain: *gain,
-            })
-            .collect()
-    }
+    /// The goblin lab's binding is what the cue file says. An edit to the
+    /// file changes the catalog the game registers, and a binding that names
+    /// a state the cue does not have refuses the pack.
+    #[test]
+    fn the_adaptive_music_the_game_plays_is_authored_in_the_pack() {
+        let binding = |catalog: &MusicCueCatalog| {
+            let binding = catalog
+                .encounter_bindings()
+                .iter()
+                .find(|binding| binding.encounter_id == "goblin_encounter")
+                .expect("the goblin lab binds a cue")
+                .clone();
+            (binding.cue_id, binding.starting_state)
+        };
+        assert_eq!(
+            binding(&ambition_music_cue_catalog()),
+            ("first_goblin_tune_v2".to_string(), "intro".to_string())
+        );
+        assert!(ambition_music_cue_catalog().validate_references().is_empty());
 
-    // Full-mix sections should arrive from the renderer at roughly matched
-    // perceived loudness. Keep runtime gains near unity so the music director
-    // is not acting as a fake mastering stage: large runtime boosts magnify
-    // SoundFont/reverb/codec noise floors and make section boundaries obvious.
-    // If a section needs +10 dB here, fix the YAML/generator and rerender.
-    //
-    // Cost: wave2_brute still degenerates to wave2 while the cue uses one
-    // mastered full mix per section. Reintroduce stem state gains only after
-    // the renderer masters per-stem outputs at usable levels.
-    let wave_state_gain = 1.0;
-    let bridge_state_gain = 0.85;
-    MusicCueSpec {
-        id: FIRST_GOBLIN_CUE_ID.to_string(),
-        asset_root,
-        bpm: 132.0,
-        beats_per_bar: 4.0,
-        relative_volume: ADAPTIVE_MUSIC_RELATIVE_VOLUME,
-        // Single mastered `full` layer per section: the renderer owns
-        // loudness, so no per-stem runtime balance table.
-        runtime_balance_overrides: Vec::new(),
-        layers,
-        sections: vec![
-            MusicSectionSpec {
-                id: "intro".into(),
-                duration_beats: 16.0,
-                looped: false,
-                sources: full_source("intro"),
-            },
-            MusicSectionSpec {
-                id: "wave1".into(),
-                duration_beats: 32.0,
-                looped: true,
-                sources: full_source("wave1"),
-            },
-            MusicSectionSpec {
-                id: "wave2".into(),
-                duration_beats: 32.0,
-                looped: true,
-                sources: full_source("wave2"),
-            },
-            MusicSectionSpec {
-                id: "wave3".into(),
-                duration_beats: 32.0,
-                looped: true,
-                sources: full_source("wave3"),
-            },
-            MusicSectionSpec {
-                id: "recap_loop".into(),
-                duration_beats: 32.0,
-                looped: true,
-                sources: full_source("recap_loop"),
-            },
-            MusicSectionSpec {
-                id: "outro".into(),
-                duration_beats: 16.0,
-                looped: false,
-                sources: full_source("outro"),
-            },
-        ],
-        states: vec![
-            MusicStateSpec {
-                id: "intro".into(),
-                section_id: "intro".into(),
-                gains: gains(&[("full", 1.0)]),
-            },
-            MusicStateSpec {
-                id: "wave1".into(),
-                section_id: "wave1".into(),
-                gains: gains(&[("full", wave_state_gain)]),
-            },
-            MusicStateSpec {
-                id: "wave2".into(),
-                section_id: "wave2".into(),
-                gains: gains(&[("full", wave_state_gain)]),
-            },
-            MusicStateSpec {
-                // wave2_brute degenerates to wave2 with the full-mix
-                // approach -- keep the state so existing encounter
-                // wiring (`wave2_reinforced_state`) still resolves.
-                id: "wave2_brute".into(),
-                section_id: "wave2".into(),
-                gains: gains(&[("full", wave_state_gain)]),
-            },
-            MusicStateSpec {
-                id: "wave3".into(),
-                section_id: "wave3".into(),
-                gains: gains(&[("full", wave_state_gain)]),
-            },
-            MusicStateSpec {
-                id: "cleared_bridge".into(),
-                section_id: "recap_loop".into(),
-                gains: gains(&[("full", bridge_state_gain)]),
-            },
-            MusicStateSpec {
-                id: "outro".into(),
-                section_id: "outro".into(),
-                gains: gains(&[("full", 1.0)]),
-            },
-        ],
-        outro_state: Some("outro".into()),
-        post_clear_bridge_state: Some("cleared_bridge".into()),
+        let edited = compiled_with(r#"starting_state: "intro""#, r#"starting_state: "wave1""#)
+            .expect("a binding that starts on another state compiles");
+        assert_eq!(
+            binding(&music_cue_catalog_from(&edited)),
+            ("first_goblin_tune_v2".to_string(), "wave1".to_string())
+        );
+
+        let dangling = compiled_with(r#"cleared_state: "outro""#, r#"cleared_state: "missing""#);
+        let failure = format!("{:?}", dangling.expect_err("a dangling state refuses the pack"));
+        assert!(failure.contains("unknown state 'missing'"), "{failure}");
     }
 }

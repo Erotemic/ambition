@@ -1,107 +1,14 @@
 use super::*;
 
-#[derive(Clone, Debug, PartialEq)]
-pub struct MusicCueSpec {
-    pub id: String,
-    pub asset_root: String,
-    pub bpm: f32,
-    pub beats_per_bar: f32,
-    pub relative_volume: f32,
-    pub sections: Vec<MusicSectionSpec>,
-    pub layers: Vec<MusicLayerSpec>,
-    pub states: Vec<MusicStateSpec>,
-    pub outro_state: Option<String>,
-    pub post_clear_bridge_state: Option<String>,
-    /// Optional per-state runtime layer-balance table, authored with
-    /// the cue (legacy stem-balance data for multi-stem cues; cues
-    /// that play one mastered `full` layer per section leave this
-    /// empty and let the renderer own loudness).
-    pub runtime_balance_overrides: Vec<MusicStateBalanceOverride>,
-}
-
-impl MusicCueSpec {
-    pub(super) fn section(&self, id: &str) -> Option<&MusicSectionSpec> {
-        self.sections.iter().find(|section| section.id == id)
-    }
-
-    pub(super) fn state(&self, id: &str) -> Option<&MusicStateSpec> {
-        self.states.iter().find(|state| state.id == id)
-    }
-
-    pub(super) fn layer(&self, id: &str) -> Option<&MusicLayerSpec> {
-        self.layers.iter().find(|layer| layer.id == id)
-    }
-
-    pub(super) fn seconds_per_beat(&self) -> f32 {
-        60.0 / self.bpm.max(1.0)
-    }
-
-    pub(super) fn seconds_per_bar(&self) -> f32 {
-        self.beats_per_bar.max(1.0) * self.seconds_per_beat()
-    }
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct MusicSectionSpec {
-    pub id: String,
-    pub duration_beats: f32,
-    pub looped: bool,
-    pub sources: Vec<MusicLayerSourceSpec>,
-}
-
-impl MusicSectionSpec {
-    pub(super) fn duration_seconds(&self, cue: &MusicCueSpec) -> f32 {
-        self.duration_beats.max(0.0) * cue.seconds_per_beat()
-    }
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct MusicLayerSpec {
-    pub id: String,
-    pub slot: usize,
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct MusicLayerSourceSpec {
-    pub layer_id: String,
-    pub path: String,
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct MusicStateSpec {
-    pub id: String,
-    pub section_id: String,
-    pub gains: Vec<MusicLayerGainSpec>,
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct MusicLayerGainSpec {
-    pub layer_id: String,
-    pub gain: f32,
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct EncounterMusicBinding {
-    pub encounter_id: String,
-    pub cue_id: String,
-    pub starting_state: String,
-    pub wave_states: Vec<String>,
-    pub wave2_reinforced_state: Option<String>,
-    pub cleared_state: String,
-}
+pub use crate::cue_spec::{
+    EncounterMusicBinding, MusicCueSpec, MusicLayerGainSpec, MusicLayerSourceSpec,
+    MusicLayerSpec, MusicSectionSpec, MusicStateBalanceOverride, MusicStateSpec,
+};
 
 #[derive(Resource, Clone, Debug, PartialEq)]
 pub struct MusicCueCatalog {
     pub(super) cues: HashMap<String, MusicCueSpec>,
     pub(super) encounter_bindings: Vec<EncounterMusicBinding>,
-}
-
-/// One state's authored layer-gain overrides (see
-/// [`MusicCueSpec::runtime_balance_overrides`]).
-#[derive(Clone, Debug, PartialEq)]
-pub struct MusicStateBalanceOverride {
-    pub state_id: String,
-    pub layer_gains: Vec<(String, f32)>,
 }
 
 impl MusicCueCatalog {
@@ -151,118 +58,10 @@ impl MusicCueCatalog {
     /// authored adaptive-music graph before the director tries to resolve a
     /// state or play a layer source at runtime.
     pub fn validate_references(&self) -> Vec<String> {
-        let mut errors = Vec::new();
-        for cue in self.cues.values() {
-            let sections = cue
-                .sections
-                .iter()
-                .map(|section| section.id.as_str())
-                .collect::<std::collections::BTreeSet<_>>();
-            let layers = cue
-                .layers
-                .iter()
-                .map(|layer| layer.id.as_str())
-                .collect::<std::collections::BTreeSet<_>>();
-            let states = cue
-                .states
-                .iter()
-                .map(|state| state.id.as_str())
-                .collect::<std::collections::BTreeSet<_>>();
-
-            for state in &cue.states {
-                if !sections.contains(state.section_id.as_str()) {
-                    errors.push(format!(
-                        "cue '{}' state '{}' references unknown section '{}'",
-                        cue.id, state.id, state.section_id
-                    ));
-                }
-                for gain in &state.gains {
-                    if !layers.contains(gain.layer_id.as_str()) {
-                        errors.push(format!(
-                            "cue '{}' state '{}' references unknown layer '{}'",
-                            cue.id, state.id, gain.layer_id
-                        ));
-                    }
-                }
-            }
-
-            for section in &cue.sections {
-                for source in &section.sources {
-                    if !layers.contains(source.layer_id.as_str()) {
-                        errors.push(format!(
-                            "cue '{}' section '{}' references unknown layer '{}'",
-                            cue.id, section.id, source.layer_id
-                        ));
-                    }
-                    if source.path.trim().is_empty() {
-                        errors.push(format!(
-                            "cue '{}' section '{}' has an empty source path for layer '{}'",
-                            cue.id, section.id, source.layer_id
-                        ));
-                    }
-                }
-            }
-
-            for (field, value) in [
-                ("outro_state", cue.outro_state.as_ref()),
-                (
-                    "post_clear_bridge_state",
-                    cue.post_clear_bridge_state.as_ref(),
-                ),
-            ] {
-                if let Some(state_id) = value {
-                    if !states.contains(state_id.as_str()) {
-                        errors.push(format!(
-                            "cue '{}' {field} references unknown state '{}'",
-                            cue.id, state_id
-                        ));
-                    }
-                }
-            }
-        }
-
-        for binding in &self.encounter_bindings {
-            let Some(cue) = self.cues.get(&binding.cue_id) else {
-                errors.push(format!(
-                    "encounter binding '{}' references unknown cue '{}'",
-                    binding.encounter_id, binding.cue_id
-                ));
-                continue;
-            };
-            let states = cue
-                .states
-                .iter()
-                .map(|state| state.id.as_str())
-                .collect::<std::collections::BTreeSet<_>>();
-            for (field, state_id) in [
-                ("starting_state", binding.starting_state.as_str()),
-                ("cleared_state", binding.cleared_state.as_str()),
-            ] {
-                if !states.contains(state_id) {
-                    errors.push(format!(
-                        "encounter binding '{}' {field} references unknown state '{}' on cue '{}'",
-                        binding.encounter_id, state_id, binding.cue_id
-                    ));
-                }
-            }
-            for state_id in &binding.wave_states {
-                if !states.contains(state_id.as_str()) {
-                    errors.push(format!(
-                        "encounter binding '{}' wave_states references unknown state '{}' on cue '{}'",
-                        binding.encounter_id, state_id, binding.cue_id
-                    ));
-                }
-            }
-            if let Some(state_id) = &binding.wave2_reinforced_state {
-                if !states.contains(state_id.as_str()) {
-                    errors.push(format!(
-                        "encounter binding '{}' wave2_reinforced_state references unknown state '{}' on cue '{}'",
-                        binding.encounter_id, state_id, binding.cue_id
-                    ));
-                }
-            }
-        }
-        errors
+        // In id order, so one catalog gives one report.
+        let mut cues: Vec<&MusicCueSpec> = self.cues.values().collect();
+        cues.sort_by(|a, b| a.id.cmp(&b.id));
+        crate::cue_spec::cue_reference_errors(cues, &self.encounter_bindings)
     }
 
     /// Find the binding that maps an encounter id to its adaptive

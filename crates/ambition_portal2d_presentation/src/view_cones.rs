@@ -119,6 +119,10 @@ pub struct PortalViewer {
     pub present: bool,
     /// The controlled character's eye position (body center), world space.
     pub eye: Vec2,
+    /// The live room the eye is in. Near and far are relative to an eye, so a
+    /// window or a far-side composite is made only in this room; `None` is a
+    /// room that cannot be told.
+    pub room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
     /// The character's body half-size: line-of-sight is tested from all four
     /// body corners, so partial cover yields a partial (smoothly blended)
     /// window instead of a binary popping one.
@@ -808,11 +812,11 @@ pub fn sync_portal_view_cones(
     view_cones: PortalViewCones,
     quality: Res<PortalCaptureQualityBudget>,
     viewer: Option<Res<PortalViewer>>,
-    frame: Res<PortalWorldFrame>,
+    frames: crate::PortalFrames,
     host_view: Option<Res<PortalCameraContinuityHostView>>,
     mut assets: ConeRigAssets,
     time: Res<Time>,
-    portals: Query<&PlacedPortal>,
+    portals: Query<(Entity, &PlacedPortal)>,
     cone_materials: Query<&MeshMaterial2d<ColorMaterial>, With<PortalConeMesh>>,
     mut rigs: Query<(
         Entity,
@@ -853,10 +857,20 @@ pub fn sync_portal_view_cones(
         }
         return;
     }
+    // A window is what the eye sees through a portal of its own live room, so
+    // the rigs are the viewer room's, in that room's frame.
+    let Some(placement) = viewer.as_deref().and_then(|viewer| frames.in_room(viewer.room)) else {
+        for (entity, rig, ..) in &rigs {
+            retire_rig(&mut commands, entity, rig);
+        }
+        return;
+    };
+    let frame = placement.frame;
     if frame.size == Vec2::ZERO {
         return;
     }
-    let all: Vec<PlacedPortal> = portals.iter().cloned().collect();
+    let by_room = frames.portals_by_room(portals.iter());
+    let all: Vec<PlacedPortal> = by_room.in_room(Some(placement.room)).to_vec();
     let viewer = viewer.as_deref();
     let (clip_min, clip_max) = portal_window_clip_rect(&frame, host_view.as_deref());
     let effective = effective_portal_capture_budget(&config, &quality);

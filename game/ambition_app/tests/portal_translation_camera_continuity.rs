@@ -14,7 +14,7 @@ use ambition_platformer2d::platformer::schedule::GameMode;
 use ambition_platformer2d::portal::{PlacedPortal, PortalTransit};
 use ambition_platformer2d::portal_presentation::{
     PortalCameraContinuityConfig, PortalCameraContinuityHostView, PortalCameraContinuitySelection,
-    PortalCameraContinuityState, PortalWorldFrame,
+    PortalCameraContinuityState,
 };
 use ambition_platformer2d::render::rendering::{camera_follow, CameraViewState};
 use bevy::asset::AssetPlugin;
@@ -88,7 +88,6 @@ impl HeadlessCameraHarness {
         .unwrap_or_else(|budget| {
             panic!("the portal harness produced no session world in {budget} frames")
         });
-        app.init_resource::<PortalWorldFrame>();
         app.init_resource::<PortalCameraContinuitySelection>();
         app.init_resource::<PortalCameraContinuityConfig>();
         app.init_resource::<PortalCameraContinuityState>();
@@ -104,8 +103,6 @@ impl HeadlessCameraHarness {
         app.add_systems(
             Update,
             (
-                ambition_platformer2d::host::portal::sync_portal_world_frame
-                    .before(ambition_platformer2d::host::portal::apply_portal_camera_continuity),
                 ambition_platformer2d::host::portal::sync_portal_camera_continuity_focus
                     .before(ambition_platformer2d::host::portal::apply_portal_camera_continuity),
                 ambition_platformer2d::host::portal::apply_portal_camera_continuity

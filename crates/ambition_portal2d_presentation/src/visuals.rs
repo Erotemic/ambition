@@ -26,7 +26,7 @@ use ambition_portal2d::{
 use crate::clip_material::{
     clip_piece_transform, clip_plane_render, sprite_frame_basis, PortalClipMaterial, CLIP_PLANE_OFF,
 };
-use crate::{gun_visuals, PortalGunArt, PortalSceneBody, PortalWorldFrame};
+use crate::{gun_visuals, PortalFrames, PortalGunArt, PortalSceneBody};
 
 /// Marks a sprite entity that visualizes a [`PlacedPortal`]. Rebuilt each frame from
 /// the sim portals, so it never drifts.
@@ -53,27 +53,31 @@ pub struct PortalDisorientIndicator;
 /// never names a "player".
 pub fn sync_portal_disorientation_indicator(
     mut commands: Commands,
-    frame: Res<PortalWorldFrame>,
+    frames: PortalFrames,
     existing: Query<Entity, With<PortalDisorientIndicator>>,
     carrier: Query<
-        (&crate::PortalBodyView, Has<PortalInputWarp>),
+        (Entity, &crate::PortalBodyView, Has<PortalInputWarp>),
         With<crate::PortalAffordanceBody>,
     >,
 ) {
     for entity in &existing {
         commands.entity(entity).despawn();
     }
-    let Ok((kin, warped)) = carrier.single() else {
+    let Ok((body, kin, warped)) = carrier.single() else {
         return;
     };
     if !warped {
         return;
     }
+    let Some(placement) = frames.of(body) else {
+        return;
+    };
     // A little spinning-arrow glyph just above the head.
     let pos = kin.pos + Vec2::new(0.0, -(kin.size.y * 0.5 + 16.0));
-    let translation = frame.to_render(pos, ae::config::WORLD_Z_PLAYER + 9.0);
+    let translation = placement.frame.to_render(pos, ae::config::WORLD_Z_PLAYER + 9.0);
     commands.spawn((
         PortalDisorientIndicator,
+        placement.stamp(),
         Text2d::new("\u{21BB}"), // ↻ clockwise open circle arrow
         TextFont {
             font_size: FontSize::Px(18.0),
@@ -110,9 +114,9 @@ pub fn sync_portal_disorientation_indicator(
 /// Operates on the host-tagged [`PortalSceneBody`] visual entity.
 pub fn sync_portal_body_pieces(
     mut commands: Commands,
-    frame: Res<PortalWorldFrame>,
+    frames: PortalFrames,
     pieces: Query<Entity, With<PortalBodyPiece>>,
-    portals: Query<&PlacedPortal>,
+    portals: Query<(Entity, &PlacedPortal)>,
     images: Option<Res<Assets<Image>>>,
     layouts: Option<Res<Assets<TextureAtlasLayout>>>,
     meshes: Option<ResMut<Assets<Mesh>>>,
@@ -158,10 +162,16 @@ pub fn sync_portal_body_pieces(
     let Some(transit) = transit else {
         return;
     };
-    let all: Vec<PlacedPortal> = portals.iter().cloned().collect();
+    // The body's own room: its frame, and the pair it is crossing in it.
+    let Some(placement) = frames.of(source_body) else {
+        return;
+    };
+    let frame = placement.frame;
+    let by_room = frames.portals_by_room(portals.iter());
+    let all = by_room.in_room(Some(placement.room));
     let (Some(enter_portal), Some(exit_portal)) = (
-        find_portal(&all, transit.straddling),
-        find_portal(&all, transit.straddling.partner()),
+        find_portal(all, transit.straddling),
+        find_portal(all, transit.straddling.partner()),
     ) else {
         return;
     };
@@ -236,6 +246,7 @@ pub fn sync_portal_body_pieces(
                     color_texture: sprite.image.clone(),
                 })),
                 clip_piece_transform(source_transform, source_anchor_v, basis.size),
+                placement.stamp(),
                 Name::new("Portal body piece (here)"),
             ));
 
@@ -269,6 +280,7 @@ pub fn sync_portal_body_pieces(
                     color_texture: sprite.image.clone(),
                 })),
                 clip_piece_transform(&through_base, through_anchor, basis.size),
+                placement.stamp(),
                 Name::new("Portal body piece (through)"),
             ));
 
@@ -299,6 +311,7 @@ pub fn sync_portal_body_pieces(
             exit_sprite,
             exit_transform,
             Anchor(through_anchor),
+            placement.stamp(),
             Name::new("Portal body copy (exit)"),
         ));
     }
@@ -314,23 +327,42 @@ pub fn sync_portal_body_pieces(
 /// renderers allowed to replace this system.
 pub fn sync_portal_visuals(
     mut commands: Commands,
-    frame: Res<PortalWorldFrame>,
+    frames: PortalFrames,
     art: Option<Res<PortalGunArt>>,
     viewer: Option<Res<crate::PortalViewer>>,
     rigs: Query<&crate::PortalViewRig>,
     visuals: Query<Entity, With<PortalVisual>>,
-    portals: Query<&PlacedPortal>,
-    pickups: Query<&PortalGunPickup>,
-    projectiles: Query<&PortalShot>,
+    portals: Query<(Entity, &PlacedPortal)>,
+    pickups: Query<(Entity, &PortalGunPickup)>,
+    projectiles: Query<(Entity, &PortalShot)>,
 ) {
     for entity in &visuals {
         commands.entity(entity).despawn();
     }
-    gun_visuals::spawn_portal_shot_visuals(&mut commands, &frame, &projectiles);
-    gun_visuals::spawn_portal_gun_pickup_visuals(&mut commands, &frame, art.as_deref(), &pickups);
-    let all_portals: Vec<PlacedPortal> = portals.iter().cloned().collect();
-    for portal in &all_portals {
-        let partner = find_portal(&all_portals, portal.channel.partner());
+    gun_visuals::spawn_portal_shot_visuals(&mut commands, &frames, &projectiles);
+    gun_visuals::spawn_portal_gun_pickup_visuals(&mut commands, &frames, art.as_deref(), &pickups);
+    // Each live room's portals, in that room's frame. A portal's partner is in
+    // its own room, as the mechanic pairs them.
+    let by_room = frames.portals_by_room(portals.iter());
+    for (room, room_portals) in by_room.rooms() {
+        let Some(placement) = frames.in_room(room) else {
+            continue;
+        };
+        spawn_room_portal_visuals(&mut commands, placement, room_portals, viewer.as_deref(), &rigs);
+    }
+}
+
+/// The rim, core and label of each portal of one live room.
+fn spawn_room_portal_visuals(
+    commands: &mut Commands,
+    placement: crate::PortalPlacement,
+    all_portals: &[PlacedPortal],
+    viewer: Option<&crate::PortalViewer>,
+    rigs: &Query<&crate::PortalViewRig>,
+) {
+    let frame = placement.frame;
+    for portal in all_portals {
+        let partner = find_portal(all_portals, portal.channel.partner());
         // Frame z rides the PANE-DOMINANCE decision (the rig's sticky winner,
         // or the stateless sign when no window rig serves this portal): the
         // frame of the portal you are in front of draws ABOVE the glass —
@@ -343,7 +375,7 @@ pub fn sync_portal_visuals(
             .find(|rig| rig.channel() == portal.channel)
             .map(|rig| rig.pane_dominant())
             .or_else(|| {
-                let (partner, v) = (partner.as_ref()?, viewer.as_deref()?);
+                let (partner, v) = (partner.as_ref()?, viewer?);
                 v.present
                     .then(|| crate::view_cones::pane_dominance(portal, partner, v.eye) >= 0.0)
             })
@@ -396,6 +428,7 @@ pub fn sync_portal_visuals(
                 PortalVisual,
                 Sprite::from_color(rim, Vec2::new(length, rim_thickness * 0.5)),
                 Transform::from_translation(rim_translation).with_rotation(rotation),
+                placement.stamp(),
                 Name::new(format!("Portal visual (rim {side})")),
             ));
 
@@ -407,6 +440,7 @@ pub fn sync_portal_visuals(
                 PortalVisual,
                 Sprite::from_color(core, Vec2::new(core_length, core_thickness * 0.5)),
                 Transform::from_translation(core_translation).with_rotation(rotation),
+                placement.stamp(),
                 Name::new(format!("Portal visual (core {side})")),
             ));
         }
@@ -425,6 +459,7 @@ pub fn sync_portal_visuals(
             },
             TextColor(core),
             Transform::from_translation(label_translation),
+            placement.stamp(),
             Name::new("Portal label"),
         ));
     }

@@ -893,7 +893,7 @@ fn transit_is_gradual_centroid_crossing_flags_the_teleport_then_clears() {
 #[cfg(feature = "portal_render")]
 mod host_bridges {
     use super::*;
-    use ambition_portal2d_presentation::{PortalBodyView, PortalSceneBody, PortalWorldFrame};
+    use ambition_portal2d_presentation::{PortalBodyView, PortalSceneBody};
     use ambition_render::rendering::PlayerVisual;
 
     /// Mirror of the host's read-model publisher: presentation reads
@@ -911,15 +911,6 @@ mod host_bridges {
         }
     }
 
-    pub fn sync_portal_world_frame(
-        world: ambition_platformer2d::platformer::lifecycle::SoleLiveRoom<RoomGeometry>,
-        mut frame: ResMut<PortalWorldFrame>,
-    ) {
-        if frame.size != world.0.size {
-            frame.size = world.0.size;
-        }
-    }
-
     pub fn tag_portal_scene_bodies(
         mut commands: Commands,
         untagged: Query<Entity, (With<PlayerVisual>, Without<PortalSceneBody>)>,
@@ -933,30 +924,25 @@ mod host_bridges {
 #[cfg(feature = "portal_render")]
 #[test]
 fn partial_render_keeps_the_sprite_and_adds_the_exit_copy() {
-    use ambition_portal2d_presentation::{
-        sync_portal_body_pieces, PortalBodyPiece, PortalWorldFrame,
-    };
+    use ambition_portal2d_presentation::{sync_portal_body_pieces, PortalBodyPiece};
     use ambition_render::rendering::PlayerVisual;
-    use host_bridges::{
-        publish_portal_body_views, sync_portal_world_frame, tag_portal_scene_bodies,
-    };
+    use host_bridges::{publish_portal_body_views, tag_portal_scene_bodies};
     let mut app = App::new();
     ambition_platformer2d::platformer::lifecycle::insert_live_room_component(
         app.world_mut(),
         world_with_two_walls(),
     );
-    // Drive the visual through the same adapter chain the host runs: world-frame
-    // sync + scene-body tagging bridge the sandbox types (RoomGeometry /
-    // PlayerVisual) to the crate-owned seams the presentation system reads (auto
-    // sync points flush the tag's commands between the chained systems).
-    app.init_resource::<PortalWorldFrame>();
+    // Drive the visual through the same adapter chain the host runs:
+    // scene-body tagging bridges the sandbox's `PlayerVisual` to the
+    // crate-owned seam the presentation system reads (auto sync points flush
+    // the tag's commands between the chained systems). The frame is the live
+    // room's own `RoomGeometry`.
     // The body-pieces system reads the live effect selection (for the legacy
     // mask mode); default = first compiled effect.
     app.init_resource::<ambition_portal2d_presentation::PortalEffectSelection>();
     app.add_systems(
         Update,
         (
-            sync_portal_world_frame,
             tag_portal_scene_bodies,
             publish_portal_body_views,
             sync_portal_body_pieces,

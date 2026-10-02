@@ -2,8 +2,9 @@
 //!
 //! Provides placed-portal visuals, mid-transit body pieces, disorientation
 //! indicators, through-portal view windows, and a sequestered compatibility
-//! module for Ambition's portal-gun sprites. Hosts sync the
-//! crate-owned seams ([`PortalWorldFrame`], [`PortalSceneBody`],
+//! module for Ambition's portal-gun sprites. Each visual is placed in the live
+//! room of the thing it draws ([`PortalFrames`]). Hosts sync the
+//! crate-owned seams ([`PortalSceneBody`],
 //! [`PortalAffordanceBody`], [`PortalBodyView`], [`PortalGunArt`],
 //! [`PortalAimHint`]) and may replace any visual by disabling that
 //! [`PortalPresentationPlugin`] flag and registering an alternative system.
@@ -110,16 +111,13 @@ const _: () = assert!(
 // which checks all three constants and explains why raising the window above
 // the cast inverts the bug. These asserts cover only the internal order.
 
-/// The host-world half of the render transform: the world's size, copied from
-/// the host each frame. Engine coordinates are top-left-origin y-down; Bevy's
-/// 2D camera is centered y-up; [`Self::to_render`] is the one adapter between
-/// them (delegating to `ambition_platformer2d_core::config::world_size_to_bevy` so
-/// the math is defined exactly once).
-///
-/// Host seam: keep `size` synced (e.g. from Ambition's `RoomGeometry`). A zero
-/// size just centers everything on the camera origin for a frame — wrong but
-/// harmless until the first sync runs.
-#[derive(Resource, Clone, Copy, Debug, Default)]
+/// The host-world half of the render transform: the size of one live room.
+/// Engine coordinates are top-left-origin y-down; Bevy's 2D camera is centered
+/// y-up; [`Self::to_render`] is the one adapter between them (delegating to
+/// `ambition_platformer2d_core::config::world_size_to_bevy` so the math is
+/// defined exactly once). Each live room has its own frame: read it with
+/// [`PortalFrames`].
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct PortalWorldFrame {
     /// World size in engine units (the world's bottom-right corner).
     pub size: Vec2,
@@ -129,6 +127,83 @@ impl PortalWorldFrame {
     /// Engine world position → Bevy render translation at layer `z`.
     pub fn to_render(&self, p: Vec2, z: f32) -> Vec3 {
         ae::config::world_size_to_bevy(self.size, p, z)
+    }
+}
+
+/// The live room of a portal, a body or a visual, and that room's render frame.
+///
+/// One rule for every visual in this crate: a visual is placed by the frame of
+/// the live room of the thing it draws, and is stamped into that room
+/// ([`PortalPlacement::stamp`]), so a view draws only the portal visuals of
+/// the room it frames. The room is `LiveRooms::of`, the rule the portal
+/// mechanic pairs portals by (`ambition_portal2d::rooms`). A thing whose room
+/// cannot be told (with two live rooms, an unstamped entity) is not drawn.
+#[derive(bevy::ecs::system::SystemParam)]
+pub struct PortalFrames<'w, 's> {
+    roots: Query<
+        'w,
+        's,
+        (
+            &'static ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
+            &'static ae::RoomGeometry,
+        ),
+        With<ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot>,
+    >,
+    live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms<'w, 's>,
+}
+
+impl PortalFrames<'_, '_> {
+    /// Where `entity` is drawn: its live room and that room's frame.
+    pub fn of(&self, entity: Entity) -> Option<PortalPlacement> {
+        self.in_room(self.room_of(entity))
+    }
+
+    /// The placement in live room `room`, when that room is live.
+    pub fn in_room(&self, room: ambition_portal2d::PortalRoom) -> Option<PortalPlacement> {
+        let room = room?;
+        let (_, geometry) = self.roots.iter().find(|(live, _)| **live == room)?;
+        Some(PortalPlacement {
+            room,
+            frame: PortalWorldFrame { size: geometry.0.size },
+        })
+    }
+
+    /// The live room of `entity`, by the rule [`Self::of`] uses.
+    pub fn room_of(&self, entity: Entity) -> ambition_portal2d::PortalRoom {
+        self.live.of(entity)
+    }
+
+    /// The placed portals grouped by live room, as the mechanic pairs them: a
+    /// portal's partner is in its own room.
+    pub fn portals_by_room<'a>(
+        &self,
+        portals: impl IntoIterator<Item = (Entity, &'a PlacedPortal)>,
+    ) -> ambition_portal2d::PortalsByRoom {
+        ambition_portal2d::PortalsByRoom::collect(portals, &self.live)
+    }
+}
+
+/// Give a test app one live room of `size`: the activation room, whose frame
+/// every portal visual of these tests is placed by.
+#[cfg(test)]
+pub(crate) fn one_live_room(app: &mut App, size: Vec2) {
+    ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(
+        app.world_mut(),
+        ae::RoomGeometry(ae::World::new("portal test room", size, size * 0.5, Vec::new())),
+    );
+}
+
+/// A live room and its render frame: where one portal visual is drawn.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct PortalPlacement {
+    pub room: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
+    pub frame: PortalWorldFrame,
+}
+
+impl PortalPlacement {
+    /// The stamp that puts a spawned visual in this room's render band.
+    pub fn stamp(&self) -> ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance {
+        ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance(self.room)
     }
 }
 

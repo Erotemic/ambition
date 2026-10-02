@@ -18,7 +18,6 @@ use crate::PortalDebugOverlay;
 use crate::{
     PortalAimHint, PortalCameraContinuityConfig, PortalCameraContinuityHostView,
     PortalCameraContinuitySelection, PortalCameraContinuityState, PortalEffectSelection,
-    PortalWorldFrame,
 };
 
 /// The one schedule label every portal visual runs in. Hosts order this set
@@ -83,7 +82,6 @@ impl Plugin for PortalPresentationPlugin {
         // Crate-owned seam resources. `PortalAimHint` is render-only state, so
         // it is initialised HERE, not by the headless mechanic's plugin; the
         // host's input adapter writes it each frame.
-        app.init_resource::<PortalWorldFrame>();
         app.init_resource::<PortalAimHint>();
         // The live effect choice (view cones / off), cycled from the host's
         // developer menu for in-session A/B profiling.

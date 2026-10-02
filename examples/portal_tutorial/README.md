@@ -17,7 +17,8 @@ The reusable crates do not own a game loop. This example supplies the four host 
 1. `SimDt`: mirrors Bevy frame time into the portal simulation clock.
 2. `BodyKinematics`: a tiny motion system advances one square.
 3. `PlacedPortal`: two authored channels create a linked static pair.
-4. `PortalBodyView` and `PortalWorldFrame`: copy simulation facts into presentation.
+4. `PortalBodyView` copies simulation facts into presentation, and one live room
+   root holds the room's `RoomGeometry`, whose size places every portal visual.
 
 The tutorial is its own nested Cargo workspace so its desktop render features do not leak into Ambition's main workspace. The important setup is visible in `src/main.rs` and intentionally kept in one file.
 

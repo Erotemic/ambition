@@ -29,7 +29,7 @@ pub fn flush_portal_view_cone_debug_dump(
     cones: super::PortalViewCones,
     quality: Res<PortalCaptureQualityBudget>,
     viewer: Option<Res<PortalViewer>>,
-    frame: Res<PortalWorldFrame>,
+    frames: crate::PortalFrames,
     host_view: Option<Res<PortalCameraContinuityHostView>>,
     portals: Query<&PlacedPortal>,
     candidates: Query<(
@@ -73,6 +73,13 @@ pub fn flush_portal_view_cone_debug_dump(
     };
     request.pending = false;
     request.reason.clear();
+    // The viewer room's frame: the windows are made in that room. A zero frame
+    // when it cannot be told, which the dump reports as it is.
+    let frame = viewer
+        .as_deref()
+        .and_then(|viewer| frames.in_room(viewer.room))
+        .map(|placement| placement.frame)
+        .unwrap_or_default();
 
     // The host-tagged drawables as plain data, so the text builder is a pure
     // function that tests can call without a `World`.
@@ -1185,8 +1192,8 @@ pub fn debug_portal_view_zones(
     cones: super::PortalViewCones,
     debug: Res<PortalDebugOverlay>,
     viewer: Option<Res<PortalViewer>>,
-    frame: Res<PortalWorldFrame>,
-    portals: Query<&PlacedPortal>,
+    frames: crate::PortalFrames,
+    portals: Query<(Entity, &PlacedPortal)>,
     // The transform gives the drawn z for the overlay.
     compositing: Query<(
         &crate::PortalCompositingCandidate,
@@ -1200,6 +1207,11 @@ pub fn debug_portal_view_zones(
 ) {
     let config = cones.config();
     let config: &PortalViewConeConfig = &config;
+    // The viewer room's frame and portals, as the windows are made.
+    let Some(placement) = viewer.as_deref().and_then(|viewer| frames.in_room(viewer.room)) else {
+        return;
+    };
+    let frame = placement.frame;
     if selection.active != crate::PortalVisualEffect::ViewCones
         || !debug.enabled
         || frame.size == Vec2::ZERO
@@ -1211,7 +1223,7 @@ pub fn debug_portal_view_zones(
         .as_deref()
         .map(|tuning| tuning.convention.map_convention())
         .unwrap_or_default();
-    let all: Vec<PlacedPortal> = portals.iter().cloned().collect();
+    let all: Vec<PlacedPortal> = frames.portals_by_room(portals.iter()).in_room(Some(placement.room)).to_vec();
     let viewer = viewer.as_deref();
     let to_render = |p: Vec2| frame.to_render(p, 0.0).truncate();
     draw_compositing_relations(&mut gizmos, &all, viewer, &compositing, to_render);

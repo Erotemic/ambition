@@ -54,6 +54,11 @@ impl PortalsByRoom {
             .map_or(&[], |(_, list)| list.as_slice())
     }
 
+    /// Each room and its portals, in room order.
+    pub fn rooms(&self) -> impl Iterator<Item = (PortalRoom, &[PlacedPortal])> {
+        self.0.iter().map(|(room, list)| (*room, list.as_slice()))
+    }
+
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }

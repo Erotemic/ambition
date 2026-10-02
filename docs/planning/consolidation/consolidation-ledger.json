@@ -2139,7 +2139,7 @@
       "public_items_heuristic": 127,
       "public_root_reexports_or_modules_heuristic": 11,
       "raw_rust_loc": 9573,
-      "responsibility_clue": "Reusable default renderer for the ambition_portal2d mechanic: placed-portal quads + labels, the held/pickup gun sprite, mid-transit body pieces, the disorientation indicator, and the through-portal view cones (render-to-texture with 1-frame-lag infinite recursion). A host tags PortalSceneBody / syncs PortalWorldFrame / loads PortalGunArt and adds PortalPresentationPlugin; each visual is a separately registered public system so hosts can disable one flag and register their own in the same set. Pure presentation: reads the portal sim, never mutates it.",
+      "responsibility_clue": "Reusable default renderer for the ambition_portal2d mechanic: placed-portal quads + labels, the held/pickup gun sprite, mid-transit body pieces, the disorientation indicator, and the through-portal view cones (render-to-texture with 1-frame-lag infinite recursion). A host tags PortalSceneBody / gives each live room its RoomGeometry / loads PortalGunArt and adds PortalPresentationPlugin; each visual is a separately registered public system so hosts can disable one flag and register their own in the same set. Pure presentation: reads the portal sim, never mutates it.",
       "reverse_workspace_dependencies": [
         "ambition_content",
         "ambition_platformer2d",

@@ -15,7 +15,6 @@ use ambition_portal2d::{
 };
 use ambition_portal2d_presentation::{
     PortalBodyView, PortalPresentationPlugin, PortalPresentationSet, PortalSceneBody,
-    PortalWorldFrame,
 };
 use bevy::prelude::ButtonInput;
 use bevy::prelude::KeyCode;
@@ -80,7 +79,7 @@ fn main() {
             .chain(),
     );
 
-    app.add_systems(Startup, setup);
+    app.add_systems(Startup, (setup_room, setup));
     app.add_systems(
         Update,
         (
@@ -93,9 +92,22 @@ fn main() {
     app.run();
 }
 
-fn setup(mut commands: Commands, mut frame: ResMut<PortalWorldFrame>) {
-    frame.size = WORLD_SIZE;
+/// The tutorial's one live room. The portal renderer places each visual by
+/// the frame of the live room it is in, so even a host with one room says
+/// which room that is and how big it is.
+fn setup_room(world: &mut World) {
+    ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(
+        world,
+        ambition_platformer2d_core::RoomGeometry(ambition_platformer2d_core::World::new(
+            "portal tutorial",
+            WORLD_SIZE,
+            WORLD_SIZE * 0.5,
+            Vec::new(),
+        )),
+    );
+}
 
+fn setup(mut commands: Commands) {
     commands.spawn(Camera2d);
 
     // A little room dressing. These are ordinary Bevy sprites; the portals
@@ -207,7 +219,6 @@ fn move_body(
 }
 
 fn observe_body(
-    frame: Res<PortalWorldFrame>,
     mut body: Single<(&BodyKinematics, &mut PortalBodyView, &mut Transform), With<TutorialBody>>,
 ) {
     let (kin, mut view, mut transform) = body.into_inner();
@@ -216,7 +227,7 @@ fn observe_body(
         size: kin.size,
         facing: kin.facing,
     };
-    transform.translation = frame.to_render(kin.pos, 20.0);
+    transform.translation = world_to_render(kin.pos, 20.0);
 }
 
 fn spawn_rect(commands: &mut Commands, center: Vec2, size: Vec2, color: Color, z: f32) {

@@ -1,5 +1,6 @@
 use super::*;
 use ambition_portal2d::PortalChannelColor;
+use crate::PortalWorldFrame;
 use bevy::camera::visibility::RenderLayers;
 use bevy::sprite_render::MeshMaterial2d;
 
@@ -25,7 +26,7 @@ fn thin_wall_pair() -> (PlacedPortal, PlacedPortal) {
 
 fn test_app() -> App {
     let mut app = App::new();
-    app.insert_resource(PortalWorldFrame { size: WORLD });
+    crate::one_live_room(&mut app, WORLD);
     app.insert_resource(Assets::<Image>::default());
     app.insert_resource(Assets::<TextureAtlasLayout>::default());
     app.insert_resource(Assets::<Mesh>::default());
@@ -249,6 +250,7 @@ fn far_portal_frame_hides_under_the_glass() {
     app.world_mut().spawn(right);
     app.insert_resource(crate::PortalViewer {
         present: true,
+        room: Some(ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::ACTIVATION),
         eye: Vec2::new(460.0, 300.0), // left of the left face
         half_size: Vec2::new(12.0, 20.0),
         occluders: Vec::new(),
@@ -352,4 +354,56 @@ fn a_stated_piece_tint_outranks_the_sprite_color() {
     assert_eq!(crate::piece_tint(&sprite, None).w, 0.0);
     let stated = crate::PortalPieceTint(Color::srgba(1.0, 1.0, 1.0, 1.0));
     assert_eq!(crate::piece_tint(&sprite, Some(&stated)).w, 1.0);
+}
+
+/// Two live rooms of different sizes, and the same portal pair in each (view
+/// half, V2m). Each portal's visuals are placed by its own room's frame and
+/// stamped into its own room, so each view draws only its room's portals.
+/// Before, one size was copied from the sole live room, so with two rooms
+/// live no frame was synced and every portal was drawn unbanded, by a stale
+/// size, in every view.
+#[test]
+fn each_portal_is_drawn_in_its_own_live_room() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance};
+    let mut app = test_app();
+    app.add_systems(Update, sync_portal_visuals);
+    let small = Vec2::new(400.0, 300.0);
+    let first = LiveRoomInstance::ACTIVATION;
+    let second = LiveRoomInstance::from_ordinal(1);
+    ambition_platformer2d_shared_tangle::lifecycle::spawn_live_room(
+        app.world_mut(),
+        second,
+        ae::RoomGeometry(ae::World::new("small portal room", small, small * 0.5, Vec::new())),
+    );
+    let (left, right) = thin_wall_pair();
+    for room in [first, second] {
+        app.world_mut().spawn((left.clone(), InRoomInstance(room)));
+        app.world_mut().spawn((right.clone(), InRoomInstance(room)));
+    }
+    app.update();
+
+    let labels: Vec<(Option<LiveRoomInstance>, Vec3)> = app
+        .world_mut()
+        .query_filtered::<(&Name, &Transform, Option<&InRoomInstance>), With<PortalVisual>>()
+        .iter(app.world())
+        .filter(|(name, ..)| name.as_str() == "Portal label")
+        .map(|(_, transform, stamp)| (stamp.map(|stamp| stamp.0), transform.translation))
+        .collect();
+    assert_eq!(labels.len(), 4, "two portals in each of two rooms, one label each: {labels:?}");
+    for (room, size) in [(first, WORLD), (second, small)] {
+        let frame = PortalWorldFrame { size };
+        let mut expected: Vec<Vec2> = [&left, &right]
+            .iter()
+            .map(|portal| frame.to_render(portal.pos + portal.normal.normalize_or_zero() * 24.0, 0.0).truncate())
+            .collect();
+        let mut drawn: Vec<Vec2> = labels
+            .iter()
+            .filter(|(stamp, _)| *stamp == Some(room))
+            .map(|(_, at)| at.truncate())
+            .collect();
+        let key = |v: &Vec2| (v.x.round() as i32, v.y.round() as i32);
+        expected.sort_by_key(key);
+        drawn.sort_by_key(key);
+        assert_eq!(drawn, expected, "room {room:?} ({size}): its portals' labels by its own frame");
+    }
 }

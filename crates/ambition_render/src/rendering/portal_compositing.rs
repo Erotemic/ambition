@@ -23,11 +23,12 @@ use bevy::prelude::*;
 /// Sprites with no `custom_size` are skipped. A texture-sized sprite's bounds
 /// are unknown here without the atlas, and a guessed rectangle would make the
 /// result untrustworthy.
+///
+/// Each drawable is in the engine coordinates of its own live room; a
+/// drawable whose room cannot be told is not a candidate.
 pub fn publish_portal_compositing_candidates(
     mut commands: Commands,
-    world: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<
-        ambition_platformer2d_core::RoomGeometry,
-    >,
+    frames: ambition_portal2d_presentation::PortalFrames,
     // Both `FeatureVisual` and `PlayerVisual`: the exploration player is
     // spawned with `PlayerVisual` (`session/setup.rs`), not `FeatureVisual`.
     //
@@ -84,16 +85,16 @@ pub fn publish_portal_compositing_candidates(
         ),
     >,
 ) {
-    // `SessionWorldRef` is a `Single`, so this system does not run without a
-    // session world. There is then no frame to publish engine positions in.
-    let size = world.0.size;
     for (entity, frame, transform, visibility, portal_hid_it) in &declared {
         if matches!(visibility, Visibility::Hidden) && portal_hid_it.is_none() {
             continue;
         }
+        let Some(placement) = frames.of(entity) else {
+            continue;
+        };
         commands
             .entity(entity)
-            .insert(candidate_for(size, transform, frame.anchor, frame.size));
+            .insert(candidate_for(placement.frame.size, transform, frame.anchor, frame.size));
     }
     for (entity, sprite, transform, anchor, visibility, portal_hid_it) in &drawables {
         // A drawable that nothing draws is not a candidate. For example, a
@@ -110,8 +111,11 @@ pub fn publish_portal_compositing_candidates(
         let Some(drawn) = sprite.custom_size else {
             continue;
         };
+        let Some(placement) = frames.of(entity) else {
+            continue;
+        };
         commands.entity(entity).insert(candidate_for(
-            size,
+            placement.frame.size,
             transform,
             anchor.map_or(Vec2::ZERO, |a| a.0),
             drawn,
@@ -560,7 +564,6 @@ mod bridge_meets_compositor_tests {
                 Vec::new(),
             )),
         );
-        app.insert_resource(PortalWorldFrame { size: WORLD });
         app.insert_resource(Assets::<Image>::default());
         app.insert_resource(Assets::<TextureAtlasLayout>::default());
         app.insert_resource(Assets::<Mesh>::default());
@@ -571,6 +574,7 @@ mod bridge_meets_compositor_tests {
             present: true,
             // Well in front of the pane, so a body at high x is far-side.
             eye: ambition_platformer2d_core::Vec2::new(400.0, 300.0),
+            room: Some(ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::ACTIVATION),
             ..default()
         });
         app.world_mut().spawn(pane());

@@ -558,7 +558,17 @@ mod enabled {
                 };
 
                 let viewer = world.get_resource::<PortalViewer>().cloned();
-                let frame = world.get_resource::<PortalWorldFrame>().copied();
+                // The viewer room's frame: the windows are made in that room.
+                let frame = viewer.as_ref().and_then(|viewer| viewer.room).and_then(|room| {
+                    world
+                        .query_filtered::<(
+                            &ambition_platformer2d::platformer::lifecycle::LiveRoomInstance,
+                            &ambition_platformer2d::engine_core::RoomGeometry,
+                        ), With<ambition_platformer2d::platformer::lifecycle::RoomInstanceRoot>>()
+                        .iter(world)
+                        .find(|(live, _)| **live == room)
+                        .map(|(_, geometry)| PortalWorldFrame { size: geometry.0.size })
+                });
                 let host_view = world.get_resource::<PortalCameraContinuityHostView>().cloned();
                 let portals: Vec<PlacedPortal> =
                     world.query::<&PlacedPortal>().iter(world).cloned().collect();

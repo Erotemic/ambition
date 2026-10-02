@@ -14,8 +14,8 @@ mod host_adapter {
         PortalAffordanceBody, PortalBodyView, PortalCameraContinuityCamera,
         PortalCameraContinuityConfig, PortalCameraContinuityFocus, PortalCameraContinuityHostView,
         PortalCameraContinuityState, PortalCameraTransitMode,
-        PortalDebugOverlay, PortalGunArt, PortalObservationSet, PortalSceneBody, PortalViewer,
-        PortalWorldFrame,
+        PortalDebugOverlay, PortalFrames, PortalGunArt, PortalObservationSet, PortalSceneBody,
+        PortalViewer,
     };
 
     use ambition_platformer2d_core::RoomGeometry;
@@ -31,11 +31,13 @@ mod host_adapter {
     /// can actually see through the aperture. The eye is the CONTROLLED SUBJECT —
     /// the body holding `DrivingParticipant(PRIMARY)`, i.e. the possessed actor while
     /// possessing (the view follows the body you're driving), else the home
-    /// avatar. `occluders` is a snapshot of the world's solid blocks for the
-    /// line-of-sight test. Absent controlled body  `present = false`, and the
-    /// renderer falls back to the static window.
+    /// avatar. The eye is in the controlled body's own live room, and
+    /// `occluders` is a snapshot of that room's solid blocks for the
+    /// line-of-sight test. Absent controlled body, or a body whose room cannot
+    /// be told  `present = false`, and the renderer falls back to the static
+    /// window.
     pub fn sync_portal_viewer(
-        world: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<RoomGeometry>,
+        rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomOf<RoomGeometry>,
         controlled: Res<ControlledSubject>,
         bodies: Query<&BodyKinematics>,
         viewer: Option<ResMut<PortalViewer>>,
@@ -43,34 +45,26 @@ mod host_adapter {
         let Some(mut viewer) = viewer else {
             return;
         };
-        let body = controlled
-            .0
-            .and_then(|e| bodies.get(e).ok())
-            .map(|k| (k.pos, k.size * 0.5));
+        let body = controlled.0.and_then(|e| {
+            let kin = bodies.get(e).ok()?;
+            let room = rooms.room_of(e)?;
+            Some((kin.pos, kin.size * 0.5, room, rooms.in_room(room)?))
+        });
         match body {
-            Some((eye, half_size)) => {
+            Some((eye, half_size, room, world)) => {
                 viewer.present = true;
                 viewer.eye = eye;
                 viewer.half_size = half_size;
+                viewer.room = Some(room);
                 viewer.occluders.clear();
                 world
                     .0
                     .for_each_solid_aabb(false, &mut |aabb| viewer.occluders.push(aabb));
             }
-            None => viewer.present = false,
-        }
-    }
-
-    /// Bridge [`RoomGeometry`] → the crate-owned [`PortalWorldFrame`] seam: the
-    /// presentation crate only ever needs the world's size for its centered
-    /// y-flip render transform, so the host copies that one field each frame
-    /// (room transitions resize the world).
-    pub fn sync_portal_world_frame(
-        world: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<RoomGeometry>,
-        mut frame: ResMut<PortalWorldFrame>,
-    ) {
-        if frame.size != world.0.size {
-            frame.size = world.0.size;
+            None => {
+                viewer.present = false;
+                viewer.room = None;
+            }
         }
     }
 
@@ -237,7 +231,9 @@ mod host_adapter {
         transit: ambition_portal2d_presentation::PortalCameraTransit,
         config: Option<Res<PortalCameraContinuityConfig>>,
         host_view: Option<Res<PortalCameraContinuityHostView>>,
-        world_frame: Option<Res<PortalWorldFrame>>,
+        // The focus body's own live room: its size is the room the camera is in.
+        frames: PortalFrames,
+        focus_bodies: Query<Entity, With<PortalCameraContinuityFocus>>,
         state: Option<ResMut<PortalCameraContinuityState>>,
         // THE EASING STATE OF EVERY LOCAL VIEW. A portal maps the world, so every observer
         // of that world has to carry its own smoothed target through the same map
@@ -268,7 +264,12 @@ mod host_adapter {
         let Some(mut state) = state else {
             return;
         };
-        let Some(world_frame) = world_frame else {
+        let Some(world_frame) = focus_bodies
+            .iter()
+            .next()
+            .and_then(|focus| frames.of(focus))
+            .map(|placement| placement.frame)
+        else {
             for _ in transited.read() {}
             return;
         };
@@ -750,8 +751,8 @@ mod host_adapter {
     /// 20 — render used to register these sim-side systems, the exact
     /// ownership inversion the observation boundary kills):
     ///
-    /// - the presentation-seam publishers (`sync_portal_world_frame`,
-    ///   `sync_portal_viewer`, `sync_portal_camera_continuity_focus`,
+    /// - the presentation-seam publishers (`sync_portal_viewer`,
+    ///   `sync_portal_camera_continuity_focus`,
     ///   `sync_portal_debug_overlay_to_f1`) in [`PortalObservationSet`];
     /// - `tag_portal_scene_bodies` too — the audit ruled its old
     ///   `.after(sync_visuals)` pin STALE: it tags SIM bodies
@@ -766,17 +767,10 @@ mod host_adapter {
             app.add_plugins(ambition_platformer2d_runtime::host_intents::HostIntentPlugin::<
                 ambition_portal2d::TogglePortalGunsActive,
             >::default());
-            // This plugin registers the publishers that WRITE the presentation
-            // seam resources, so it owns their existence too. A host without
-            // Ambition's composition (a demo app under workspace feature
-            // unification) gets the documented zero-size default until the
-            // first `RoomGeometry` sync — wrong for a frame, never a panic.
-            app.init_resource::<PortalWorldFrame>();
             app.add_systems(Startup, load_portal_gun_art).add_systems(
                 Update,
                 (
                     (
-                        sync_portal_world_frame,
                         sync_portal_viewer,
                         // `.before(apply_portal_camera_continuity)` is enforced
                         // by the host's registration of the APPLY side, so no
@@ -998,7 +992,7 @@ mod tests {
 pub use host_adapter::{
     apply_portal_camera_continuity, load_portal_gun_art, portal_dev_toggle_system,
     publish_portal_body_views, sync_portal_camera_continuity_focus,
-    sync_portal_debug_overlay_to_f1, sync_portal_viewer, sync_portal_world_frame,
+    sync_portal_debug_overlay_to_f1, sync_portal_viewer,
     tag_portal_affordance_body, tag_portal_camera_continuity_camera, tag_portal_scene_bodies,
     PortalContinuityCameraTagged, PortalObservationPlugin,
 };

@@ -16,8 +16,7 @@ use crate::clip_material::{
     clip_piece_transform, clip_plane_render, sprite_frame_basis, PortalClipMaterial, CLIP_PLANE_OFF,
 };
 use crate::{
-    PortalAffordanceBody, PortalAimHint, PortalBodyView, PortalGunArt, PortalVisual,
-    PortalWorldFrame,
+    PortalAffordanceBody, PortalAimHint, PortalBodyView, PortalFrames, PortalGunArt, PortalVisual,
 };
 
 /// Marks the held portal-gun sprite carried by the current controlled actor.
@@ -39,17 +38,17 @@ const PORTAL_GUN_DISPLAY: Vec2 = Vec2::new(52.0, 24.0);
 pub fn sync_portal_mode_indicator(
     mut commands: Commands,
     aim_hint: Option<Res<PortalAimHint>>,
-    frame: Res<PortalWorldFrame>,
+    frames: PortalFrames,
     art: Option<Res<PortalGunArt>>,
     visuals: Query<Entity, With<PortalModeIndicator>>,
-    portals: Query<&PlacedPortal>,
+    portals: Query<(Entity, &PlacedPortal)>,
     images: Option<Res<Assets<Image>>>,
     layouts: Option<Res<Assets<bevy::image::TextureAtlasLayout>>>,
     meshes: Option<ResMut<Assets<Mesh>>>,
     clip_materials: Option<ResMut<Assets<PortalClipMaterial>>>,
     mut unit_mesh: Local<Option<Handle<Mesh>>>,
     carriers: Query<
-        (&PortalBodyView, &PortalGun, Option<&PortalTransit>),
+        (Entity, &PortalBodyView, &PortalGun, Option<&PortalTransit>),
         With<PortalAffordanceBody>,
     >,
     tuning: Option<Res<ambition_portal2d::PortalTuning>>,
@@ -64,12 +63,17 @@ pub fn sync_portal_mode_indicator(
     for entity in &visuals {
         commands.entity(entity).despawn();
     }
-    let Ok((kin, gun, transit)) = carriers.single() else {
+    let Ok((carrier, kin, gun, transit)) = carriers.single() else {
         return;
     };
     if !gun.active {
         return;
     }
+    // In the carrier's own live room.
+    let Some(placement) = frames.of(carrier) else {
+        return;
+    };
+    let frame = placement.frame;
     let Some(art) = art else {
         return;
     };
@@ -102,10 +106,11 @@ pub fn sync_portal_mode_indicator(
     // Mid-transit with a through slice: the gun exists in both charts, like
     // the body. Decompose against the same pair, from the same Core function.
     if let Some(transit) = transit {
-        let all: Vec<PlacedPortal> = portals.iter().cloned().collect();
+        let by_room = frames.portals_by_room(portals.iter());
+        let all = by_room.in_room(Some(placement.room));
         if let (Some(enter_portal), Some(exit_portal)) = (
-            find_portal(&all, transit.straddling),
-            find_portal(&all, transit.straddling.partner()),
+            find_portal(all, transit.straddling),
+            find_portal(all, transit.straddling.partner()),
         ) {
             let body = ae::Aabb::new(kin.pos, kin.size * 0.5);
             let pieces = pp::compute_body_pieces(
@@ -195,6 +200,7 @@ pub fn sync_portal_mode_indicator(
                                     color_texture: image.clone(),
                                 })),
                                 clip_piece_transform(&base, Vec2::ZERO, basis.size),
+                                placement.stamp(),
                                 Name::new(format!("Held portal gun ({chart})")),
                             ));
                         }
@@ -217,6 +223,7 @@ pub fn sync_portal_mode_indicator(
         },
         Transform::from_translation(frame.to_render(pos, 12.0))
             .with_rotation(Quat::from_rotation_z(angle)),
+        placement.stamp(),
         Name::new("Held portal gun"),
         ))
         .id();
@@ -236,16 +243,21 @@ pub fn sync_portal_mode_indicator(
 /// a non-gun host can replace or omit this without touching portal rendering.
 pub(crate) fn spawn_portal_shot_visuals(
     commands: &mut Commands,
-    frame: &PortalWorldFrame,
-    projectiles: &Query<&PortalShot>,
+    frames: &PortalFrames,
+    projectiles: &Query<(Entity, &PortalShot)>,
 ) {
-    for proj in projectiles.iter() {
+    for (shot, proj) in projectiles.iter() {
+        // In the shot's own live room (it carries the room it was fired in).
+        let Some(placement) = frames.of(shot) else {
+            continue;
+        };
         let color = proj.channel.display().1;
-        let translation = frame.to_render(proj.pos, 9.5);
+        let translation = placement.frame.to_render(proj.pos, 9.5);
         commands.spawn((
             PortalVisual,
             Sprite::from_color(color, Vec2::new(16.0, 8.0)),
             Transform::from_translation(translation),
+            placement.stamp(),
             Name::new("Portal shot visual"),
         ));
     }
@@ -255,12 +267,15 @@ pub(crate) fn spawn_portal_shot_visuals(
 /// Ambition's current gun acquisition loop, not a requirement for portal use.
 pub(crate) fn spawn_portal_gun_pickup_visuals(
     commands: &mut Commands,
-    frame: &PortalWorldFrame,
+    frames: &PortalFrames,
     art: Option<&PortalGunArt>,
-    pickups: &Query<&PortalGunPickup>,
+    pickups: &Query<(Entity, &PortalGunPickup)>,
 ) {
-    for pickup in pickups.iter() {
-        let translation = frame.to_render(pickup.pos, 9.0);
+    for (entity, pickup) in pickups.iter() {
+        let Some(placement) = frames.of(entity) else {
+            continue;
+        };
+        let translation = placement.frame.to_render(pickup.pos, 9.0);
         // The world pickup shows the actual gun sprite (blue mode by default);
         // falls back to a marker quad before the art has loaded.
         let sprite = match art {
@@ -278,6 +293,7 @@ pub(crate) fn spawn_portal_gun_pickup_visuals(
                 PortalVisual,
                 sprite,
                 Transform::from_translation(translation),
+                placement.stamp(),
                 Name::new("Portal gun pickup visual"),
             ))
             .id();
@@ -307,9 +323,7 @@ mod tests {
     #[test]
     fn transiting_carrier_gun_decomposes_into_two_clipped_charts() {
         let mut app = App::new();
-        app.insert_resource(PortalWorldFrame {
-            size: Vec2::new(1000.0, 600.0),
-        });
+        crate::one_live_room(&mut app, Vec2::new(1000.0, 600.0));
         app.insert_resource(Assets::<Image>::default());
         app.insert_resource(Assets::<TextureAtlasLayout>::default());
         app.insert_resource(Assets::<Mesh>::default());

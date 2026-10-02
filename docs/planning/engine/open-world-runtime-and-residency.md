@@ -2059,7 +2059,7 @@ names its subject by body or seat (`ViewSubject`, `ViewParticipant`).
 | Cut | Work | State |
 | --- | --- | --- |
 | V1 | The camera resolve frames each view in the live room of its framed body | ✅ below |
-| V2 | Draw roads place each entity by the geometry of its own live room (`LiveRoomOf`), not the sole room | ◐ the camera apply (V2a), feature/actor sprites (V2b), items and projectiles (V2c), lock walls (V2d) and nameplates (V2e), fx, slashes and limb trails (V2f), the visuals that ride a body (V2g), gravity zones, shrines and attack stand-ins (V2h), the blink ring (V2i), broken-block visuals (V2j), health bars and the gradient-lane telegraph (V2k), and the world-label layout (V2l), below; the unroomed fx producers (54 sites) and the debug overlays are open |
+| V2 | Draw roads place each entity by the geometry of its own live room (`LiveRoomOf`), not the sole room | ◐ the camera apply (V2a), feature/actor sprites (V2b), items and projectiles (V2c), lock walls (V2d) and nameplates (V2e), fx, slashes and limb trails (V2f), the visuals that ride a body (V2g), gravity zones, shrines and attack stand-ins (V2h), the blink ring (V2i), broken-block visuals (V2j), health bars and the gradient-lane telegraph (V2k), and the world-label layout (V2l) and the portal visuals (V2m), below; the unroomed fx producers (54 sites), the debug overlays and the through-portal window's view band are open |
 | V3 | A camera draws only the live room of its view: a room render band, as the view band does for projections | ✅ below |
 | V4 | Room visuals and the LDtk level are presented per live room, and retire with it | ✅ static room visuals (V4a), the LDtk level (V4b) and parallax (V4c), below |
 | V5 | Two seats in two live rooms get two views (the product rule: a split is mandatory in different rooms) | ✅ below |
@@ -2177,6 +2177,33 @@ second view) and `an_equivalent_world_reload_draws_its_room_once` (the
 shipped game; the room visual, marker, parallax and LDtk counts are the same
 10 frames after an equivalent reload; before the fix, 258 against 140).
 `SoleLiveRoomSpec` 25/21 -> 20/18, `SoleLiveRoom` 46/39 -> 45/38.
+
+✅ **V2m landed 2026-10-02: each portal is drawn in its own live room.**
+The portal renderer read one `PortalWorldFrame` resource, a copy of the sole
+live room's size that the host synced each frame. While two rooms were live
+the sync did not run, so every portal visual was placed by a stale size and
+drawn, unbanded, in every view; and the viewer's eye and occluders came from
+the sole room too. The copy is deleted (the resource, its host sync and its
+`init_resource`s). `PortalFrames` gives each thing the frame of its own live
+room (`LiveRooms::of`, the rule the mechanic pairs portals by) and the stamp
+that bands its visuals: portal rims, cores and labels (grouped with
+`PortalsByRoom`, so a partner is in its own room), shots, pickups, the held
+gun, the disorientation indicator and the body pieces. `PortalViewer` names
+the eye's `room`, and the host takes the eye's occluders from that room. A
+far-side composite is made only in the viewer's room, and a pane covers only
+the bodies of its own room; the compositing candidates are published in
+their own room's coordinates. Witnesses: `each_portal_is_drawn_in_its_own_live_room`
+(one portal pair in each of two rooms of different sizes: each label at its
+own room's flip with its stamp; poison, every room's frame taken from the
+first room: room #1's labels at #0's flip) and
+`a_pane_covers_only_the_bodies_of_its_own_room_in_the_viewers_room` (the
+control, pane and body in the viewer's room, is composited; a pane and a body
+in different rooms are not; poison, no room filter: the body of the other
+room was hidden). ⚠ Not done: the through-portal window (`PortalViewRig`) is
+made for one viewer, the primary seat's controlled body, and its cone mesh
+and capture camera are on the portal window layers, which the room band does
+not move, so every view draws that window and its capture does not see a
+banded room. `SoleLiveRoom` 29/22 -> 26/20.
 
 ✅ **V2l landed 2026-10-02: each view lays out its world labels in the room
 it frames.** `layout_world_labels` read the sole live room, so while two

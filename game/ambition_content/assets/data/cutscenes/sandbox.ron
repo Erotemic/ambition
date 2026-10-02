@@ -1,0 +1,76 @@
+// The sandbox cutscenes, schema `cutscene_library` (owned by the cutscene capability,
+// `ambition_cutscene::content_schema`). Every file of this schema merges into
+// one library; a script id may be in one file only.
+//
+// A script is an id, ordered beats and an optional seen flag (the runtime does
+// not play a script whose seen flag is set). Beats: Wait(seconds),
+// Dialogue(speaker, text) (waits for the dismiss button), CameraPan(target,
+// seconds), Fade(from_alpha, to_alpha, seconds) with 0.0 clear and 1.0 black
+// (both ends are authored, Q143), SetFlag(id, on) and Banner(text, seconds).
+// A room plays a script on entry when its `entry_cutscene` level field names it.
+
+[
+    // basement_boss's `entry_cutscene`.
+    (
+        id: "boss_intro_gradient_sentinel",
+        beats: [
+            Banner(
+                text: "GRADIENT SENTINEL",
+                seconds: 1.6,
+            ),
+            Wait(
+                seconds: 0.4,
+            ),
+            Dialogue(
+                speaker: "SENTINEL",
+                text: "Your loss surface is steep. I am its slope.",
+            ),
+        ],
+        seen_flag: Some("boss_intro_gradient_sentinel_seen"),
+    ),
+    // The cutscene proof room's: cutscene_lab's `entry_cutscene`.
+    (
+        id: "cutscene_lab_intro",
+        beats: [
+            Banner(
+                text: "// cutscene proof",
+                seconds: 1.0,
+            ),
+            Dialogue(
+                speaker: "WARDEN",
+                text: "This is the cutscene-proof room. The seen-flag stops me from talking twice.",
+            ),
+            Wait(
+                seconds: 0.4,
+            ),
+            Dialogue(
+                speaker: "WARDEN",
+                text: "Hold Reset to skip cutscenes -- useful when you\'ve heard a beat already.",
+            ),
+            SetFlag(
+                id: "cutscene_lab_intro_seen",
+                on: true,
+            ),
+        ],
+        seen_flag: Some("cutscene_lab_intro_seen"),
+    ),
+    // The hub's boot cutscene: central_hub_main's `entry_cutscene`.
+    (
+        id: "test_intro",
+        beats: [
+            Banner(
+                text: "// boot sequence",
+                seconds: 1.4,
+            ),
+            Dialogue(
+                speaker: "WARDEN",
+                text: "Instance online. You\'ll know your purpose when you find it.",
+            ),
+            SetFlag(
+                id: "test_intro_seen",
+                on: true,
+            ),
+        ],
+        seen_flag: Some("test_intro_seen"),
+    ),
+]

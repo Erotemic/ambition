@@ -1,0 +1,146 @@
+// The intro cutscenes, schema `cutscene_library` (owned by the cutscene capability,
+// `ambition_cutscene::content_schema`). Every file of this schema merges into
+// one library; a script id may be in one file only.
+//
+// A script is an id, ordered beats and an optional seen flag (the runtime does
+// not play a script whose seen flag is set). Beats: Wait(seconds),
+// Dialogue(speaker, text) (waits for the dismiss button), CameraPan(target,
+// seconds), Fade(from_alpha, to_alpha, seconds) with 0.0 clear and 1.0 black
+// (both ends are authored, Q143), SetFlag(id, on) and Banner(text, seconds).
+// A room plays a script on entry when its `entry_cutscene` level field names it.
+//
+// Beats are short: the intro design is firm that the intro must not become a
+// long cutscene wall.
+
+[
+    // The creator's interrupted final lines. v1 plays the normal route; the
+    // fast and impossible variants are in the design doc for a v1.x pass.
+    (
+        id: "creator_final_fragment",
+        beats: [
+            Dialogue(
+                speaker: "Creator",
+                text: "There\'s a question you were made to—",
+            ),
+            SetFlag(
+                id: "intro_creator_dead",
+                on: true,
+            ),
+            SetFlag(
+                id: "intro_creator_fragment_normal",
+                on: true,
+            ),
+        ],
+        seen_flag: Some("intro_creator_fragment_seen"),
+    ),
+    // drain_alley's `entry_cutscene`. The fade comes up from black.
+    (
+        id: "drain_market_arrival",
+        beats: [
+            Fade(
+                from_alpha: 1.0,
+                to_alpha: 0.0,
+                seconds: 0.6,
+            ),
+            Banner(
+                text: "Drain Market — STAFF ONLY",
+                seconds: 1.2,
+            ),
+            Dialogue(
+                speaker: "Oiler",
+                text: "Well. That\'s not a rat. You came out of the bad pipe.",
+            ),
+            SetFlag(
+                id: "drain_market_arrival_seen",
+                on: true,
+            ),
+        ],
+        seen_flag: Some("drain_market_arrival_seen"),
+    ),
+    // No room plays this: the player starts it at the ripple. The interaction
+    // is v1.1 work; the script is here so the trigger can request it.
+    (
+        id: "first_ripple",
+        beats: [
+            Dialogue(
+                speaker: "Gate Janitor",
+                text: "Don\'t touch that. That\'s not a gate.",
+            ),
+            Wait(
+                seconds: 0.4,
+            ),
+            Dialogue(
+                speaker: "Gate Janitor",
+                text: "Okay. That\'s a problem.",
+            ),
+            SetFlag(
+                id: "first_ripple_used",
+                on: true,
+            ),
+        ],
+        seen_flag: Some("first_ripple_seen"),
+    ),
+    // intro_raid_corridor's `entry_cutscene`.
+    (
+        id: "intro_raid",
+        beats: [
+            Banner(
+                text: "// PERIMETER BREACH",
+                seconds: 1.2,
+            ),
+            Dialogue(
+                speaker: "Salvage Lead",
+                text: "Wrong room. Secure anything that boots.",
+            ),
+            Dialogue(
+                speaker: "Lab Raider",
+                text: "Prototype is awake. Keep it away from the doors.",
+            ),
+            Dialogue(
+                speaker: "Salvage Lead",
+                text: "This one isn\'t on the manifest. Tag it and move.",
+            ),
+            SetFlag(
+                id: "intro_raid_started",
+                on: true,
+            ),
+            SetFlag(
+                id: "wrong_list_clue_1",
+                on: true,
+            ),
+            SetFlag(
+                id: "intro_raid_seen",
+                on: true,
+            ),
+        ],
+        seen_flag: Some("intro_raid_seen"),
+    ),
+    // intro_wake_room's `entry_cutscene`. The fade comes up from black.
+    (
+        id: "intro_wake",
+        beats: [
+            Fade(
+                from_alpha: 1.0,
+                to_alpha: 0.0,
+                seconds: 0.8,
+            ),
+            Banner(
+                text: "// boot",
+                seconds: 1.0,
+            ),
+            Dialogue(
+                speaker: "Creator",
+                text: "Hey you, you\'re finally awake.",
+            ),
+            SetFlag(
+                id: "intro_started",
+                on: true,
+            ),
+            SetFlag(
+                id: "intro_wake_seen",
+                on: true,
+            ),
+        ],
+        seen_flag: Some("intro_wake_seen"),
+    ),
+]

@@ -10,9 +10,8 @@ edition = "2021"
 # 2026-09-11, by MEMBER rather than by count: the CLI's closure goes 324 -> 325
 # and the only addition is this crate. Every capability it names was already
 # there, which is what makes the list movable at all.
-# 2026-10-02: seven. `ambition_persistence` joined for the quest capability's
-# `quest_book`; it was already in the CLI's closure (through the capabilities
-# above), so the closure did not grow.
+# 2026-10-02: eight. `ambition_persistence` joined for the quest capability's
+# `quest_book` and `ambition_cutscene` for `cutscene_library`.
 #
 # ⛔ AND IT MUST NEVER DEPEND ON `ambition_platformer2d`. That facade is what the
 # CLI deliberately does not link — it is a lightweight validator — and routing
@@ -27,3 +26,4 @@ ambition_audio = { path = "../ambition_audio", features = ["content_pack"] }
 ambition_combat = { path = "../ambition_combat", features = ["content_pack"] }
 ambition_boss_encounter = { path = "../ambition_boss_encounter", features = ["content_pack"] }
 ambition_persistence = { path = "../ambition_persistence", features = ["content_pack"] }
+ambition_cutscene = { path = "../ambition_cutscene", features = ["content_pack"] }

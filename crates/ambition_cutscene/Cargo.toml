@@ -16,3 +16,10 @@ ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
 # The live playback-state Resources (ActiveCutscene / CutsceneAdvanceRequest) +
 # Vec2. The format/stepper is bevy-free; only the running state needs the ECS.
 bevy = { version = "0.19.1", default-features = false }
+# The `cutscene_library` schema (`content_schema`), for a composition that
+# compiles content packs.
+ambition_content_pack = { path = "../ambition_content_pack", optional = true }
+ron = { workspace = true, optional = true }
+
+[features]
+content_pack = ["dep:ambition_content_pack", "dep:ron"]

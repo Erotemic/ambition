@@ -39,6 +39,23 @@ const ITEMS_RON_STATIC: Option<&'static str> = Some(include_str!("../assets/data
 #[cfg(not(feature = "static_content"))]
 const ITEMS_RON_STATIC: Option<&'static str> = None;
 
+/// The authored cutscenes, gated like the item grid. One list: the path and
+/// the embedded text travel together.
+#[cfg(feature = "static_content")]
+const CUTSCENE_SOURCES: &[(&str, Option<&'static str>)] = &[
+    (
+        "data/cutscenes/sandbox.ron",
+        Some(include_str!("../assets/data/cutscenes/sandbox.ron")),
+    ),
+    (
+        "data/cutscenes/intro.ron",
+        Some(include_str!("../assets/data/cutscenes/intro.ron")),
+    ),
+];
+#[cfg(not(feature = "static_content"))]
+const CUTSCENE_SOURCES: &[(&str, Option<&'static str>)] =
+    &[("data/cutscenes/sandbox.ron", None), ("data/cutscenes/intro.ron", None)];
+
 /// The authored quests, gated like the item grid.
 #[cfg(feature = "static_content")]
 const QUESTS_RON_STATIC: Option<&'static str> = Some(include_str!("../assets/data/quests.ron"));
@@ -278,6 +295,11 @@ fn embedded_sources() -> impl IntoIterator<Item = (String, String)> {
         let text = source_text(&path, *embedded);
         (path, text)
     }));
+    sources.extend(
+        CUTSCENE_SOURCES
+            .iter()
+            .map(|(path, embedded)| ((*path).to_string(), source_text(path, *embedded))),
+    );
     sources.extend(FIGHTER_FACETS.iter().map(|(file, embedded)| {
         let path = format!("data/fighters/{file}.ron");
         let text = source_text(&path, *embedded);

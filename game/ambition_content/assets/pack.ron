@@ -32,6 +32,9 @@
         (path: "data/character_catalog.ron", schema: "character_catalog", version: 1),
         (path: "data/items.ron", schema: "item_catalog", version: 1),
         (path: "data/quests.ron", schema: "quest_book", version: 1),
+        // Several files, one library: the schema merges them in this order.
+        (path: "data/cutscenes/sandbox.ron", schema: "cutscene_library", version: 1),
+        (path: "data/cutscenes/intro.ron", schema: "cutscene_library", version: 1),
         // ⭐⭐ EVERY MOVE TABLE THIS PROVIDER AUTHORS IS CONTENT, NOT CODE
         // (fast-iteration I2, step 5). No `authored/*.rs` and no robot lineage
         // code compiles a moveset into the host any more;

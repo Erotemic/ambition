@@ -10,7 +10,7 @@ technique, or a wielded item's use (the shockwave, beam, volley and meteor). It 
 values of the ports it uses, and nothing else. Edit it, rebuild only the
 module crate as a `.wasm` file, and the running game picks it up.
 
-Measured on the agent machine, 2026-10-01, for a one-constant edit:
+Typical cost of a one-constant edit, warm build:
 
 | road | edit → playable |
 |---|---|
@@ -36,9 +36,8 @@ Or leave a watcher running instead of the second build:
 scripts/build_extension_modules.sh --watch  # rebuilds on every save; a failed build keeps the last good one
 ```
 
-Measured on the agent machine, 2026-10-01: a one-constant edit to the
-shockwave, from save to rebuilt `.wasm`, **0.53 s** (0.30 s of build, the rest
-the watcher's half-second poll); the game's reload poll adds up to 20 frames.
+With the watcher, save to rebuilt `.wasm` is about half a second (build plus the
+watcher's half-second poll). The game's reload poll adds up to 20 frames.
 
 The log says `AMBITION_EXTENSION_MODULES: … provides [...]` at start and
 `… changed; reload proposed` / `extension modules reloaded` on a reload.

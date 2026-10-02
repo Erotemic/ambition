@@ -4,9 +4,7 @@
 
 **Accepted; implemented** (the input-ownership seam — decisions 1–7 — is in;
 only the P1 bindings source, P5 remap UX, and P6 cast authoring remain, and a
-runtime playtest). Current residual planning lives in `docs/planning/engine/participant-action-system.md` and `docs/planning/engine/character-authoring-package.md`. A first
-implementation pass over-claimed completion; a GPT-5.6 follow-up review
-(2026-07-17) drove the remaining seams to done. This ADR records the design of
+runtime playtest). Current residual planning lives in `docs/planning/engine/participant-action-system.md` and `docs/planning/engine/character-authoring-package.md`. This ADR records the design of
 record.
 
 Landed:

@@ -51,8 +51,6 @@ python3 scripts/package_asset_guard.py audit-tree \
     --contract target/package-assets/manual/contract.json \
     --asset-root target/package-assets/manual/assets \
     --reject-extras
-
-python3 -m unittest scripts.tests.test_package_asset_guard
 ```
 
 The JSON contract records path, source provenance, size, and SHA-256. The

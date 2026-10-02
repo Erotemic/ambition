@@ -3,7 +3,7 @@ id: testing-and-validation
 aliases: []
 status: current
 authority: durable-concept
-last_verified: 2026-09-03
+last_verified: 2026-10-02
 implemented_by:
   - scripts/run_tests.py
   - run_tests.sh
@@ -26,23 +26,16 @@ The runner executes the default workspace suite. It deliberately does not use
 workspace-wide `--all-features`, which would mix incompatible platform/device
 feature sets.
 
-⛔ **CORRECTED 2026-09-03: THE DEFAULT RUN DOES NOT COVER FEATURE-HIDDEN TESTS,
-and this page used to say it did.** The runner's own coverage footer is explicit
-and counts them — *"this was the default BACKBONE plan, which does NOT cover:
-tests behind `#[cfg(feature = "...")]` — MEASURED 2026-09-03 at 783 tests across
-29 crates, the largest single omission this footer names"*. The union job that
-executes them lives in the exhaustive plan. `python3 scripts/feature_gated_tests.py`
-prints the current per-crate figure, and `--verify <crate>` asks cargo for the
-exact pair.
-⇒ A green `./run_tests.sh` is SILENT about 783 tests. That is a fine default —
-it is a backbone, and the footer says so — but a reader who trusted this page
-would have believed the opposite.
+⛔ **The default run does not cover feature-hidden tests.** Tests behind
+`#[cfg(feature = "...")]` run only in the feature-union job of the exhaustive
+plan. The runner's coverage footer states the count.
+`python3 scripts/feature_gated_tests.py` prints the per-crate figure, and
+`--verify <crate>` asks cargo for the exact pair.
 
 Useful modes:
 
 ```bash
 ./run_tests.sh --list                 # inspect the generated job plan
-./run_tests.sh --fast                 # DEPRECATED no-op; the backbone IS the default now
 ./run_tests.sh -p ambition_platformer2d_world      # restrict to an owning crate
 ./run_tests.sh -k room_transition     # libtest name substring across jobs
 ./run_tests.sh --heavy                # ignored (probes skipped, serial) + acceptance cycles
@@ -107,16 +100,15 @@ python scripts/generate_agent_index.py
 python -m ambition_ldtk_tools validate <world.ldtk>
 ```
 
-⚠ **That list is three of SIXTEEN `scripts/check_*.py`.** The ones a change is
-most likely to owe are not on it:
+Other `scripts/check_*.py` that a change often owes:
 
 | check | when you owe it |
 |---|---|
-| `check_absence_contracts.py` | any carve — 39 contracts (2026-09-10, `93dd37c34`), including the capability-footprint ratchet |
+| `check_absence_contracts.py` | any carve; the architectural absence contracts, including the capability-footprint ratchet |
 | `check_planning_citations.py` | any commit that MOVES a file a planning doc cites |
 | `check_no_warnings.py` | before a tip: warnings are CI-red under `-D warnings` and the per-crate runs do not see them |
 | `feature_gated_tests.py` | to see what a green default run was silent about |
-| `check_disk_headroom.py` | already wired into the runner; see its own measured counter-example |
+| `check_disk_headroom.py` | already wired into the runner |
 
 ⇒ Prefer `./run_tests.sh` over hand-picking from this list — the point of naming
 them here is that a reader who reaches for a focused check should know the list

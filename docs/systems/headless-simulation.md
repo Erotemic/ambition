@@ -1,6 +1,6 @@
 ---
 status: current
-last_verified: 2026-07-18
+last_verified: 2026-10-02
 ---
 
 # Headless simulation
@@ -17,8 +17,8 @@ netcode—not a stripped mock of the visible game.
 - `ambition_sim_harness` provides programmatic reset/step, typed actions,
   observations, reward, and termination adapters with caller-supplied
   composition.
-- `ambition_app` exposes the `headless` and `trace_replay` binaries and app-level
-  acceptance tests.
+- `ambition_app_tools` provides the `headless` and `trace_replay` binaries;
+  `ambition_app` holds the app-level acceptance tests (`app_it`).
 - presentation crates are optional consumers above the simulation/read-model
   seam.
 

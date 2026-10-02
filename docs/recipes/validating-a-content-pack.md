@@ -79,13 +79,6 @@ On a checkout whose art was never generated they are legitimately absent, so:
 * **`--no-asset-check`** — do not look. The prepared pack records `<unchecked>`
   provenance, so it is visibly not claiming anything about its assets.
 
-✔ **The three art-less characters are FIXED** (re-measured 2026-08-03).
-`npc_giant_gnu_hands`, `npc_hypatia_prime` and `npc_le_beast` were reported by
-this tool on its first run as having no art; their sheets and manifests are all
-present now, and the whole pack passes the STRICT asset path with zero missing
-assets. Recorded because the old note read as a standing defect and is no longer
-one — and because the tool finding them is what got them made.
-
 ## Add a content family (a new schema)
 
 A capability owns its schemas; there is no central content enum to edit.

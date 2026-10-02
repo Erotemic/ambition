@@ -11,12 +11,12 @@ implemented_by:
   - tools/ambition_ldtk_tools/ambition_ldtk_tools/edit/entities.py
   - tools/ambition_ldtk_tools/ambition_ldtk_tools/edit/measure.py
   - tools/ambition_ldtk_tools/ambition_ldtk_tools/edit/gates.py
-  - game/ambition_content/src/bosses/gnu_ton.rs
+  - game/ambition_content/src/bosses/gnu_ton/mod.rs
 related_docs:
   - docs/concepts/ldtk-world-composition.md
   - docs/recipes/ldtk-authoring.md
   - docs/tools/ldtk-tools.md
-last_verified: 2026-09-03
+last_verified: 2026-10-02
 ---
 
 # LLM spatial authoring discipline
@@ -87,15 +87,6 @@ some lifecycle state (encounter active, boss alive, switch off).
   to descend INTO the fight; you're stopping them climbing back OUT.
 - **Mob encounter:** gate the hallway-to-arena passage at the
   doorway, mirroring `LockWall` in `goblin_cantina`.
-  ⚠ **This example named `mob_lab` too until 2026-09-03; that room is gone.**
-  `goblin_cantina` is live — it is in `hall_of_characters.ldtk` and
-  `sandbox.ldtk`, both of which author `LockWall` — but `mob_lab` appears in no
-  authored world, only in a `ledge_grab` test fixture, an archived roadmap, a
-  journal and an `ambition_ldtk_tools` example. ⇒ Half of a worked example
-  pointing at a room that is not there is worse than no example on a page that
-  tells an agent to **read the map before placing anything**: the first thing it
-  would read is absent, and the page gives it no way to tell that from its own
-  mistake.
 - **One-way descent:** prefer `BreakablePlatform { trigger: OnStand,
   respawn: Never }` over a Solid that gets removed — the breakable
   pattern carries the "you can only go down" semantics in the entity
@@ -148,16 +139,16 @@ This list is the running TODO; add to it as you find friction.
 - `intgrid summarize` — exists. Per-value cell counts + bboxes.
 - `intgrid erase --px X,Y --size W,H` — exists. Cell-aligned erase.
 - `entity query --level X` — exists. Lists entity instances.
-- `intgrid query --px X,Y --size W,H` — exists (2026-06-02). What
+- `intgrid query --px X,Y --size W,H` — exists. What
   IntGrid values (Solid / OneWay / Hazard / …) are present in this
   rect? Read-only mirror of `intgrid erase` — ask "what collision is
   here?" before painting or placing. (`edit/intgrid.py::_cmd_query`)
-- `entity measure --level X --identifier foo` — exists (2026-06-02).
+- `entity measure --level X --identifier foo` — exists.
   The entity's size + center + nearest Solid distance (px) in each of
   the four directions. Saves you from doing pixel arithmetic in your
   head, and shows how much open space surrounds the spawn.
   (`edit/measure.py`)
-- `gates audit --level X` — exists (2026-06-02). Lists a level's
+- `gates audit --level X` — exists. Lists a level's
   gating / destructible elements in one view: switches (with action /
   target / prompt), runtime lock walls, encounter triggers, and
   breakable platforms / pogo orbs. A switch that drives terrain by id

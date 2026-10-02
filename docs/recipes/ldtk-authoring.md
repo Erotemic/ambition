@@ -1,6 +1,6 @@
 ---
 status: current
-last_verified: 2026-08-13
+last_verified: 2026-10-02
 related_docs:
   - docs/concepts/ldtk-world-composition.md
   - docs/systems/ldtk-world-composition.md
@@ -21,10 +21,10 @@ python scripts/agent_query.py "LDtk <room or entity type>"
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools --help
 ```
 
-## Discover the vocabulary before you author (2026-08-15)
+## Discover the vocabulary before you author
 
-⛔ **most authored vocabulary in this project is typed `String`, and the legal
-values live in a Rust parser.** `PickupSpawn.kind`, `Prop.kind`,
+Most authored vocabulary in this project is typed `String`, and the legal values
+live in a Rust parser. `PickupSpawn.kind`, `Prop.kind`,
 `EnemySpawn.character_id` / `respawn`, `MaryOBlock.contents`,
 `KinematicPath.mode`, `LoadingZone.activation`, `BreakablePlatform.trigger` —
 the entity def tells you the field exists and nothing more. Do not guess and do
@@ -42,15 +42,12 @@ PYTHONPATH=tools/ambition_ldtk_tools python3 -m ambition_ldtk_tools vocabulary c
   --ldtk "$WORLD" [--level mary_o_1_3]
 ```
 
-⭐ **the census is the discoverable source of truth, and it cannot drift** — it
-counts content rather than restating a Rust rule. `respawn` reads as an opaque
-string until you are told 24 of 24 enemies say `OnRoomReenter`.
+The census counts content rather than restating a Rust rule, so it cannot drift.
 
-⚠ **`validate` does NOT enforce the converter's required/refused contract.**
-`mary_o_1_3` was authored through `area create` + `repair` + `validate`, all
-three green, with six `EnemySpawn` entities carrying no `character_id` — which
-`convert_enemy_spawn` refuses, i.e. the room would have panicked the game on
-load. `vocabulary check` is what caught it. Run it before you hand a room off.
+⚠ **`validate` does NOT enforce the converter's required/refused contract.** A
+room can pass `area create`, `repair` and `validate` while an `EnemySpawn` has no
+`character_id`, which the converter refuses at load. Run `vocabulary check`
+before you hand a room off.
 
 ## ⛔ `area create` DROPS the name of a static-collision entity
 
@@ -157,25 +154,10 @@ Use `--output /tmp/review.ldtk` for a non-destructive review file and
 
 ## Moving platforms and kinematic world objects
 
-Moving platforms are **already authored from LDtk**. The current converter can
-lower authored position/size plus `speed`, horizontal `sweep_dx`, referenced
-`KinematicPath`/legacy path id, and vertical wrapping fields such as `loop_dy`
-and `loop_min_y` into `MovingPlatformSpec`.
-
-That means the forward task is not "add LDtk moving platforms". It is to make the
-existing path Engine-1.0 quality:
-
-- prefer native/typed `EntityRef` linkage for a platform's path instead of a
-  string relation;
-- make motion mode explicit/validated instead of depending on precedence among
-  optional fields;
-- improve path/point editing beyond coordinate strings where LDtk can represent
-  the intent directly;
-- surface mode-specific validation and provenance as authoring diagnostics; and
-- keep runtime moving-geometry/contact semantics in the reusable world/simulation
-  model rather than in an Ambition-only adapter.
-
-See
+Moving platforms are authored in LDtk. The converter lowers position and size,
+`speed`, horizontal `sweep_dx`, a referenced `KinematicPath`, and vertical
+wrapping fields such as `loop_dy` and `loop_min_y` into `MovingPlatformSpec`.
+Open work is in
 [`../planning/engine/ldtk-authoring-and-world-tools.md`](../planning/engine/ldtk-authoring-and-world-tools.md)
 and
 [`../planning/engine/kinematic-world-objects.md`](../planning/engine/kinematic-world-objects.md).
@@ -215,37 +197,22 @@ PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools diff semantic
 Use [`headless-room-verification.md`](headless-room-verification.md) for runtime
 proof. CLI help and source override old recipe flags.
 
-## ⛔⛔ A REGENERATED `.ldtk` SILENTLY DROPS LEVELS ITS SPECS DO NOT KNOW
+## ⛔ A regenerated `.ldtk` silently drops levels its specs do not know
 
-**Found 2026-08-15, caught one command before it landed.** A commit that added
-authored enemy `facing` also **deleted `mary_o_1_3` entirely** — 139 insertions
-against **1316 deletions**, and the deletions were an entire authored level.
+A world generator script rebuilds the whole world from the specs it knows. A level
+authored by another road (`area create` + `entity add`) is not in those specs, so
+a regenerate writes a valid world without it. `doctor`, `roundtrip` and the
+schema checks all stay green. A dropped level also leaves a dangling `next_room`
+successor.
 
-⭐ **the cause is the authoring script, not the agent.** `author_mary_o_ldtk.py`
-rebuilds the world from the specs it knows; a level authored by a *different*
-road — `area create` + `entity add`, which is how `mary_o_1_3` was built — is not
-in those specs, so a regenerate writes a world without it. The `.ldtk` is one
-file, so "regenerate the part I own" is not a thing it can do.
-
-⛔ **and every check downstream stays GREEN.** The result is valid LDtk, the
-roundtrip passes, `doctor` passes, the schema is intact. Nothing is corrupt —
-there is simply one less level, and every tool that derives the roster from the
-file agrees with the smaller world. ⚠ the only thing that noticed was a diffstat
-whose deletion count was suspiciously close to the size of the level added one
-commit earlier.
-
-⇒ **before merging any `.ldtk` change, COUNT THE LEVELS on both sides:**
+Before you merge any `.ldtk` change, count the levels on both sides. World files
+live in the `game/ambition_map_assets` submodule, so run this inside it:
 
 ```bash
-git show <ref>:ambition_demo_mary_o/worlds/mary_o.ldtk | python3 -c "
+git -C game/ambition_map_assets show <ref>:ambition_demo_mary_o/worlds/mary_o.ldtk | python3 -c "
 import json,sys; print([l['identifier'] for l in json.load(sys.stdin)['levels']])"
 ```
 
-⭐ **and prefer re-applying the semantic change over merging the file.** A field
-def plus its instances can be re-authored onto the current world with
-`level add-field-def` / `entity set-field`; a wholesale file merge inherits
-whatever the other side's generator believed the world contained.
-
-⚠ **`next_room` makes this worse than it was.** The exit chain is authored in the
-file now, so a dropped level is also a dangling successor: 1-2 points at a room
-that no longer exists, and the circuit test fails a level later than the deletion.
+Prefer re-applying the semantic change over merging the file. Re-author a field
+def and its instances onto the current world with `level add-field-def` /
+`entity set-field`.

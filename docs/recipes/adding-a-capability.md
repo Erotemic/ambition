@@ -4,19 +4,16 @@ Operational recipe. `examples/capability_demo` is the **worked example** — a
 shockwave mechanic that does everything below and nothing else. Read it beside
 this page; it is deliberately small.
 
-⚠ **it lives OUTSIDE the engine's workspace, on purpose** (moved there
-2026-08-01). A capability that proves an outside author can write one has to be
-built the way an outsider builds it: its own lock, its own `[workspace]`, no
-feature unification from the engine. Two things broke the moment it moved, and
-both are costs an outside author really pays:
+It lives OUTSIDE the engine's workspace on purpose. A capability that proves an
+outside author can write one is built the way an outsider builds it: its own
+lock, its own `[workspace]`, no feature unification from the engine. Two costs
+an outside author pays:
 
 * **`workspace = true` dependencies do not exist out there.** `ron` and `serde`
   are declared with versions, like anyone else's manifest.
 * ⛔ **`[patch.crates-io]` is not inherited.** The engine pins a forked
-  `bevy_ggrs` rev; outside, `ambition_platformer2d_runtime` resolved the released crate and
-  failed on a missing `GgrsFrameTiming`. Any consumer that reaches
-  `ambition_platformer2d_runtime` must repeat the patch — invisible while the crate lived
-  inside and inherited it for free.
+  `bevy_ggrs` rev. Any consumer that reaches `ambition_platformer2d_runtime` must
+  repeat the patch, or it resolves the released crate and fails to build.
 
 `scripts/run_tests.py` runs it explicitly, because leaving the workspace drops a
 crate from `cargo test --workspace` silently.
@@ -67,9 +64,9 @@ whoever is composing, so a mechanic never has to link the thing that owns them.
 
 ⚠ the one that catches people: **do not register your own rollback state.** The
 registration trait lives in `ambition_platformer2d_runtime`, and reaching for it drags the
-whole simulation into a mechanic that uses none of it. `capability_demo` linked
-133 crates that way and links 8 now (the eighth is
-`ambition_platformer2d_shared_tangle`, for the schedule seam in §1).
+whole simulation into a mechanic that uses none of it. `capability_demo` links
+only a handful of crates, one of them `ambition_platformer2d_shared_tangle` for
+the schedule seam in §1.
 
 ## 1. Behaviour
 
@@ -92,9 +89,8 @@ impl Plugin for MyPlugin {
 }
 ```
 
-⛔ **`Update` is the mistake this recipe exists to prevent, and the sentinel
-made it anyway** (found by review, 2026-08-01). Two failures, neither visible in
-a bare-`App` test because `sim_schedule()` DEFAULTS to `Update`:
+⛔ **Do not register into `Update`.** Two failures follow, and neither is visible
+in a bare-`App` test because `sim_schedule()` DEFAULTS to `Update`:
 
 * a **fixed-tick** host ages your cooldowns once per rendered frame, so your
   timing follows the frame rate;
@@ -125,13 +121,11 @@ let mut registry = ambition_platformer2d::content::engine_schemas();
 registry.register(my_mechanic::my_schema())?;
 ```
 
-⛔ **and then it must reach the RUNNING capability, which is a separate step and
-the one that gets forgotten.** `capability_demo` registered its schema, compiled
-and lowered packs correctly, and its plugin still called
-`init_resource::<PulseProfiles>()` — the built-in defaults. A game could author a
-radius, watch the compiler accept it, mount the capability, and pulse at the
-default radius forever. **A compiler that validates content the runtime ignores
-is worse than no compiler**, because it certifies the wrong thing.
+⛔ **Then the lowered content must reach the RUNNING capability.** This is a
+separate step and the one that gets forgotten. A plugin that calls
+`init_resource::<Profiles>()` uses built-in defaults while the compiler accepts
+the authored values. A compiler that validates content the runtime ignores
+certifies the wrong thing.
 
 Take the LOWERED artifact at mount time:
 
@@ -157,12 +151,13 @@ pub const MY_ACTION: SemanticActionDef = SemanticActionDef {
 };
 ```
 
-⚠ **it can be declared and queried; it cannot yet carry a device binding of its
-own.** `InputMap` is still keyed by the engine's closed `Platformer2dInputActionMonolith`, so a
-consumer fires your mechanic by writing your own request message — which is also
-how a scripted sequence or an AI would. The migration that closes this is in
-`docs/planning/authoring-loop-program-2026-07-31.md`; do not invent a private
-binding path around it.
+A provider binds physical keyboard keys to its semantic actions through
+`ProviderBindings` (`ambition_input::semantic`). A press publishes
+`SemanticActionPressed { id, participant }`, filtered by the action's contexts.
+A scripted sequence or an AI can also fire your mechanic by writing your own
+request message. Open input work (bindings source, remap UX) is in
+[`../planning/engine/participant-action-system.md`](../planning/engine/participant-action-system.md);
+do not invent a private binding path.
 
 ## 4. Rollback state
 
@@ -198,12 +193,8 @@ module
 owner satisfies nothing, which is what makes the two calls a contract rather
 than two lists.
 
-⛔ **the `requires` half shipped without the `provides` half**, so for a while a
-module could declare what must rewind and had no supported way to supply it: a
-rollback game mounting such a capability could not be composed at all. The
-capability's own acceptance test papered over that by asserting on a REJECTED
-app and reading the resources its failed installation had already written. If
-your positive test is inspecting an `Err`, you are testing the refusal.
+If your positive test inspects an `Err`, you are testing the refusal, not the
+installation.
 
 ## 5. Causal facts
 
@@ -227,7 +218,7 @@ that mounts it through the facade (`ambition_platformer2d` as a **dev**-dependen
 capability's own closure is unaffected) — `capability_demo/tests/
 composed_through_the_sdk.rs` is the template.
 
-**Headlessly, against the real sim**: `Platformer2dSimHarness::new_with_options(..).step(..)`
+**Headlessly, against the real sim**: `Platformer2dSimHarness` (`ambition_sim_harness`)
 builds the actual app with rendering, audio and windowing stripped and the
 systems intact. The doctrine — drive the real sim, assert invariants rather than
 tuned values, treat replay tests as canaries not cages — is

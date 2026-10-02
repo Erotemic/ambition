@@ -21,7 +21,7 @@ last_verified: 2026-05-17
 
 ## Core invariants
 
-- Brainstorms are alive, not archive material.
+- Brainstorms are alive, not historical material.
 - Brainstorms can be provisional without being stale.
 - Current implementation docs and ADRs govern code behavior; brainstorms supply direction, concepts, themes, and possibility space.
 - Story and world ideas should not force bespoke engine behavior until promoted into reusable primitives or explicit implementation docs.
@@ -31,7 +31,7 @@ last_verified: 2026-05-17
 1. Keep speculative language when an idea is not implemented.
 2. When an idea becomes current behavior, promote it into `docs/planning/` (a slice in tracks.md), `docs/concepts/`, a focused system doc, or an ADR.
 3. Link back to the brainstorm when preserving design lineage matters.
-4. Do not bulk-move brainstorms into `archive/` as part of documentation cleanup.
+4. Do not bulk-move or delete brainstorms as part of documentation cleanup.
 
 ## Validation
 

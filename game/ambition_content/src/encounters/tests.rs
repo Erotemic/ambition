@@ -84,46 +84,30 @@ fn the_sandbox_world_authors_what_each_kernel_switch_does() {
     }
 }
 
-/// OW1 cut 7: the attunement starts when the chamber is one of two live
-/// rooms. Live room #0 is `hall` and #1 is the chamber. The subject: a
-/// `Start` for the attunement. The control: with only `hall` live, none.
-/// When the driver read the sole live room, it did not run while two rooms
-/// were live, and the puzzle never started.
+/// The Noether Chamber starts the attunement in data: its `while_live` line,
+/// read through the composed room set as the runtime reads it. No other
+/// shipped room authors one, so the chamber is the only room that starts the
+/// puzzle. The engine half (a line asked for while its room is live, also as
+/// one of two live rooms) is pinned in the monolith's
+/// `authored_room_commands` tests.
 #[test]
-fn the_attunement_starts_when_the_chamber_is_one_of_two_live_rooms() {
-    use super::{drive_symmetry_attunement, SYMMETRY_ROOM_ID};
-    use ambition_encounter::{Encounter, EncounterCommand, EncounterCommandKind, EncounterLifecycle};
-    use ambition_platformer2d::world::rooms::{insert_room_set, RoomSet, RoomSpec};
-    use ambition_platformer2d_core as ae;
-    use ambition_platformer2d_shared_tangle::lifecycle::{session_world_component, LiveRoomInstance, RoomInstanceRoot};
-    use bevy::prelude::*;
-    let starts = |chamber_live: bool| {
-        let mut app = App::new();
-        app.add_message::<EncounterCommand>();
-        let room = |id: &str| RoomSpec::new(id, ae::World::new(id, ae::Vec2::new(320.0, 240.0), ae::Vec2::new(16.0, 16.0), Vec::new()));
-        insert_room_set(
-            app.world_mut(),
-            RoomSet::from_parts_or_panic("hall", vec![room("hall"), room(SYMMETRY_ROOM_ID)], Vec::new()),
-        );
-        let definition = |app: &App, id: &str| {
-            session_world_component::<RoomSet>(app.world())
-                .and_then(|rooms| rooms.definition_by_id(id))
-                .expect("the set has the room")
-        };
-        let hall = definition(&app, "hall");
-        app.world_mut().spawn((RoomInstanceRoot, LiveRoomInstance::ACTIVATION, hall));
-        if chamber_live {
-            let chamber = definition(&app, SYMMETRY_ROOM_ID);
-            app.world_mut().spawn((RoomInstanceRoot, LiveRoomInstance::ACTIVATION.next(), chamber));
-        }
-        app.world_mut().spawn((Encounter::new(SYMMETRY_ATTUNEMENT_ID), EncounterLifecycle::default()));
-        app.add_systems(Update, drive_symmetry_attunement);
-        app.update();
-        app.world()
-            .resource::<bevy::ecs::message::Messages<EncounterCommand>>()
-            .iter_current_update_messages()
-            .filter(|command| command.encounter == SYMMETRY_ATTUNEMENT_ID && matches!(command.kind, EncounterCommandKind::Start))
-            .count()
-    };
-    assert_eq!((starts(false), starts(true)), (0, 1), "(hall live alone, the chamber also live)");
+fn the_chamber_starts_the_attunement_in_its_world_file() {
+    use ambition_platformer2d_ldtk::{LdtkProject, LdtkVocabulary};
+    let manifest = crate::worlds::world_manifest();
+    let rooms = LdtkProject::load_default_for_dev(&manifest)
+        .expect("the shipped worlds load")
+        .to_room_set(&manifest, &LdtkVocabulary::engine())
+        .expect("the shipped worlds compose")
+        .rooms;
+    let lines: Vec<(String, String)> = rooms
+        .iter()
+        .filter_map(|spec| Some((spec.id.clone(), spec.metadata.while_live.clone()?)))
+        .collect();
+    assert_eq!(
+        lines,
+        vec![(
+            "symmetry_room".to_string(),
+            format!("encounter.start encounter:{SYMMETRY_ATTUNEMENT_ID}")
+        )]
+    );
 }

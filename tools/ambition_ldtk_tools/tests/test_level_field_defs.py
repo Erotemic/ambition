@@ -39,6 +39,7 @@ ENGINE_READ_LEVEL_FIELDS = {
     "side_out_margin",
     "rise_out_margin",
     "entry_cutscene",
+    "while_live",
 }
 
 

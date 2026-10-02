@@ -793,4 +793,11 @@ where
         "derived.authored_switch_commands",
         "authored switch verbs prepared for the active room; recomputed from the room set and LDtk project",
     );
+    registrar.declare_rollback_derived_resource::<
+        crate::world::authored_room_commands::AuthoredRoomCommands,
+    >(
+        OWNER,
+        "derived.authored_room_commands",
+        "each live room's prepared `while_live` line; recomputed from the room set and the command catalog",
+    );
 }

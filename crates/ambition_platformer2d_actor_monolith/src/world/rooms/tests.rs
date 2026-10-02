@@ -477,6 +477,7 @@ fn active_metadata_returns_active_room_metadata() {
         next_room: None,
         title: None,
         entry_cutscene: None,
+        while_live: None,
     };
     let m2 = RoomMetadata {
         biome: Some("cave".into()),
@@ -494,6 +495,7 @@ fn active_metadata_returns_active_room_metadata() {
         next_room: None,
         title: None,
         entry_cutscene: None,
+        while_live: None,
     };
     let set = RoomSet::from_parts_or_panic(
         "first",
@@ -536,6 +538,7 @@ fn room_metadata_is_empty_false_when_any_field_set() {
         next_room: None,
         title: None,
         entry_cutscene: None,
+        while_live: None,
     };
     assert!(!m.is_empty());
 
@@ -552,6 +555,10 @@ fn room_metadata_is_empty_false_when_any_field_set() {
     assert!(!m.is_empty());
     let mut m = RoomMetadata::default();
     m.entry_cutscene = Some("intro".into());
+    assert!(!m.is_empty());
+
+    let mut m = RoomMetadata::default();
+    m.while_live = Some("encounter.start encounter:cave".into());
     assert!(!m.is_empty());
 }
 
@@ -573,6 +580,7 @@ fn room_metadata_merge_preserves_existing_values() {
         next_room: None,
         title: None,
         entry_cutscene: None,
+        while_live: None,
     };
     let b = RoomMetadata {
         biome: Some("CONFLICT".into()),        // ignored — a.biome wins
@@ -602,9 +610,12 @@ fn room_metadata_merge_preserves_existing_values() {
         // takes effect — a had none. Content validation refuses a second
         // value in one area, because this merge would drop it.
         entry_cutscene: Some("cave_intro".into()),
+        // takes effect — a had none.
+        while_live: Some("encounter.start encounter:cave".into()),
     };
     a.merge(b);
     assert_eq!(a.entry_cutscene.as_deref(), Some("cave_intro"));
+    assert_eq!(a.while_live.as_deref(), Some("encounter.start encounter:cave"));
     assert_eq!(a.title.as_deref(), Some("CAVE 1"));
     assert_eq!(a.biome.as_deref(), Some("hub"));
     assert!(a.gallery, "merge ORs the gallery flag from a member level");

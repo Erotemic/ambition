@@ -6,7 +6,7 @@
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
-| [`authored_commands`](src/authored_commands.rs) | Authored `encounter.signal` command. |
+| [`authored_commands`](src/authored_commands.rs) | Authored `encounter.signal` and `encounter.start` commands. |
 | [`content_schema`](src/content_schema.rs) | The `encounter_waves` authored-content schema, owned by this capability. |
 | [`entity`](src/entity.rs) | The encounter as a first-class ENTITY. |
 | [`events`](src/events.rs) | `EncounterEvent` — the output stream of the encounter lifecycle reducer and the wave director. |

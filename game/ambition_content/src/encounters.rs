@@ -8,19 +8,18 @@
 //! The generic encounter contract this module proves (docs/systems/boss-encounter-architecture.md): content
 //! adds rules WITHOUT adding another lifecycle, objective evaluator, cleanup
 //! path, or presentation authority. Everything here is either generic
-//! vocabulary (the authority components at spawn), a command EMITTER (room
-//! entry → `Start`), or an effect CONSUMER (the celebration off the generic
-//! `Completed` event). The engine names none of it; the lifecycle reducer
-//! decides everything.
+//! vocabulary (the authority components at spawn) or an effect CONSUMER (the
+//! celebration off the generic `Completed` event). The engine names none of
+//! it; the lifecycle reducer decides everything.
 //!
-//! The `(switch id, signal key)` const table and the system that walked it are gone; what is
-//! left of the pairing is the level.
+//! The commands are in the level: each kernel switch's `on_activate` line
+//! signals the attunement, and the chamber's `while_live` line starts it.
 
 use bevy::prelude::*;
 
 use ambition_encounter::{
-    Encounter, EncounterCommand, EncounterCommandKind, EncounterEvent, EncounterEventMsg,
-    EncounterLifecycle, EncounterObjective, EncounterParticipants, EncounterPhase, Objective,
+    Encounter, EncounterEvent, EncounterEventMsg, EncounterLifecycle, EncounterObjective,
+    EncounterParticipants, Objective,
 };
 use ambition_persistence::save_data::PersistedEncounterState;
 use ambition_platformer2d_shared_tangle::schedule::{
@@ -29,9 +28,6 @@ use ambition_platformer2d_shared_tangle::schedule::{
 
 /// The puzzle's stable encounter id (and save-flag namespace).
 pub const SYMMETRY_ATTUNEMENT_ID: &str = "symmetry_attunement";
-
-/// The room whose entry starts the attunement.
-const SYMMETRY_ROOM_ID: &str = "symmetry_room";
 
 /// Save flag remembering a completed attunement across save/load.
 pub const SYMMETRY_ATTUNEMENT_FLAG: &str = "symmetry_attunement_complete";
@@ -93,43 +89,6 @@ pub fn spawn_symmetry_attunement(
     scope.apply_to(&mut entity);
 }
 
-/// Command EMITTER: entering the Noether Chamber starts the attunement.
-///
-/// The four switches now carry their own `on_activate` lines and the engine performs them
-/// through the authored-command contract, so there is no adapter here at all — the level talks
-/// to the encounter domain directly.
-///
-/// what is left is room ENTRY, which is a genuinely different shape: it is
-/// a level-triggered condition on the live rooms rather than an edge on a
-/// placement, and no authored surface expresses it yet. Naming that limit is
-/// better than inventing a second one to hide it.
-///
-/// The attunement is one puzzle for the session, not one per live room, so
-/// any live room that is the chamber starts it. With two live rooms, one
-/// player in the chamber is enough.
-pub fn drive_symmetry_attunement(
-    rooms: ambition_platformer2d::world::rooms::LiveRoomSpecs,
-    encounters: Query<(&Encounter, &EncounterLifecycle)>,
-    mut lifecycle_commands: MessageWriter<EncounterCommand>,
-) {
-    let Some((_, lifecycle)) = encounters
-        .iter()
-        .find(|(enc, _)| enc.id == SYMMETRY_ATTUNEMENT_ID)
-    else {
-        return;
-    };
-    let chamber_is_live = rooms
-        .live_definitions()
-        .any(|definition| rooms.rooms().spec(definition).id == SYMMETRY_ROOM_ID);
-    if chamber_is_live && matches!(lifecycle.phase(), EncounterPhase::Inactive)
-    {
-        lifecycle_commands.write(EncounterCommand::new(
-            SYMMETRY_ATTUNEMENT_ID,
-            EncounterCommandKind::Start,
-        ));
-    }
-}
-
 /// Effect CONSUMER: the generic `Completed` event pays the puzzle out —
 /// a celebration banner and the persistent save flag. No lifecycle authority
 /// here; the reducer already decided.
@@ -163,8 +122,9 @@ impl Plugin for AmbitionEncounterContentPlugin {
         let sim = app.sim_schedule();
         app.add_systems(
             sim,
-            (spawn_symmetry_attunement, drive_symmetry_attunement)
-                .chain()
+            // The chamber starts the attunement in data: `symmetry_room`'s
+            // `while_live` line is `encounter.start encounter:symmetry_attunement`.
+            spawn_symmetry_attunement
                 .in_set(Platformer2dSimulationPhaseMonolith::GameplayEffects),
         );
         app.add_systems(

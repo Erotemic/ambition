@@ -629,6 +629,9 @@ impl PluginGroup for PlatformerEnginePlugins {
             // happens to know, which is why it can live here beside the
             // machinery rather than inside whichever domain a level asks for.
             .add(ambition_platformer2d_actor_monolith::world::authored_switch_commands::AuthoredSwitchCommandPlugin)
+            // The second consumer: a room's `while_live` line, asked for on each
+            // tick while the room is live.
+            .add(ambition_platformer2d_actor_monolith::world::authored_room_commands::AuthoredRoomCommandPlugin)
             .add(ambition_platformer2d_actor_monolith::world_facts::WorldFactConditionsPlugin)
             // The inventory domain's provider, added for the same reason and in
             // the same way. it is the THIRD provider and it cost one line of

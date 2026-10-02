@@ -9,6 +9,7 @@
 //! resolve via re-exports at the crate root so this reorg is a pure
 //! relocation.
 
+pub mod authored_room_commands;
 pub mod authored_switch_commands;
 pub mod gated_lock_walls;
 pub mod physics;

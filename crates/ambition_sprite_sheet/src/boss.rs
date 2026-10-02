@@ -43,7 +43,8 @@ pub struct AnimRow {
 ///
 /// The spec is owned and serde round-trippable, so a provider can author its
 /// layout as data. Provider composition lives above this crate; this module
-/// supplies only the schema and built-in fallback sheets.
+/// supplies only the schema and the layout of a boss with no authored sheet
+/// ([`BossSheetSpec::unauthored`]).
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct BossSheetSpec {
     pub label_width: u32,
@@ -104,72 +105,61 @@ impl BossSheetRegistry {
     }
 }
 
-// `feet_anchor_y` matches the body-metrics measurement. After a regen, resync
-// with the manifest's `body_metrics.feet_anchor_norm.y`.
-pub static BOSS_SHEET: std::sync::LazyLock<BossSheetSpec> =
-    std::sync::LazyLock::new(|| BossSheetSpec {
-        label_width: 100,
-        frame_width: 128,
-        frame_height: 128,
+impl BossSheetSpec {
+    /// The layout of a boss that has no authored sheet: its catalog authors
+    /// none for it, and its provider names no fallback sheet. One `Rest` row
+    /// of one frame, drawn at the size of the collision box and centred on
+    /// it.
+    ///
+    /// It is not the layout of an authored sheet. Each authored layout has
+    /// one reader, the provider's sheet data (for Ambition,
+    /// `boss_sheets.ron`), and this crate holds no copy of one.
+    pub fn unauthored() -> Self {
+        Self {
+            label_width: 0,
+            frame_width: 64,
+            frame_height: 64,
+            rows: vec![(
+                BossAnim::Rest,
+                AnimRow {
+                    frame_count: 1,
+                    duration_secs: 1.0,
+                },
+            )],
+            collision_scale: 1.0,
+            feet_anchor_y: -0.5,
+            frame_sample_inset: 0,
+            body_centered: false,
+            authored_faces_left: false,
+            layers: Vec::new(),
+        }
+    }
+}
+
+/// A sheet for this crate's tests: two rows the tests address by name. It is
+/// a fixture, and no shipped boss wears it.
+#[cfg(test)]
+fn fixture_sheet() -> BossSheetSpec {
+    BossSheetSpec {
         rows: vec![
             (
                 BossAnim::Rest,
                 AnimRow {
-                    frame_count: 8,
-                    duration_secs: 0.120,
-                },
-            ),
-            (
-                BossAnim::FloorSlam,
-                AnimRow {
-                    frame_count: 7,
-                    duration_secs: 0.082,
-                },
-            ),
-            (
-                BossAnim::SideSweep,
-                AnimRow {
-                    frame_count: 7,
-                    duration_secs: 0.072,
-                },
-            ),
-            (
-                BossAnim::SpikeHalo,
-                AnimRow {
-                    frame_count: 8,
-                    duration_secs: 0.092,
-                },
-            ),
-            (
-                BossAnim::DashEcho,
-                AnimRow {
-                    frame_count: 7,
-                    duration_secs: 0.062,
+                    frame_count: 4,
+                    duration_secs: 0.12,
                 },
             ),
             (
                 BossAnim::Hit,
                 AnimRow {
                     frame_count: 5,
-                    duration_secs: 0.090,
-                },
-            ),
-            (
-                BossAnim::Death,
-                AnimRow {
-                    frame_count: 8,
-                    duration_secs: 0.110,
+                    duration_secs: 0.09,
                 },
             ),
         ],
-        // A slightly smaller scale keeps bosses from overpowering the scene.
-        collision_scale: 1.6,
-        feet_anchor_y: -0.336,
-        frame_sample_inset: 1,
-        body_centered: false,
-        authored_faces_left: false,
-        layers: Vec::new(),
-    });
+        ..BossSheetSpec::unauthored()
+    }
+}
 
 impl BossSheetSpec {
     fn row_index(&self, anim: BossAnim) -> Option<usize> {
@@ -852,7 +842,7 @@ mod layer_tests {
     /// addressing it by position would draw the wrong pose's sauce.
     #[test]
     fn a_layer_cell_is_the_same_named_row_and_frame() {
-        let spec = BOSS_SHEET.clone();
+        let spec = fixture_sheet();
         let art = spec.synth_record("art_spritesheet.png");
         let mut layer = spec.synth_record("art_sauce_spritesheet.png");
         layer.rows.reverse();
@@ -884,7 +874,7 @@ mod hit_reaction_tests {
     /// as the flash runs out, and a sheet without a `Hit` row keeps the cursor.
     #[test]
     fn the_hit_row_plays_forward_as_the_flash_runs_out() {
-        let sheet = &*BOSS_SHEET;
+        let sheet = &fixture_sheet();
         let row = sheet.row(BossAnim::Hit);
         let full = row.duration_secs * row.frame_count as f32;
         assert_eq!(sheet.hit_reaction_frame(full), Some((BossAnim::Hit, 0)));

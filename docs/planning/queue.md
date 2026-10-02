@@ -494,8 +494,6 @@ second authoring source.
 
 **Current state:** some authored facts have two readers:
 
-- `ambition_sprite_sheet::boss::BOSS_SHEET` duplicates
-  `game/ambition_content/assets/data/boss_sheets.ron`.
 - Boss animation and sprite maps are hand-written in Rust beside the published
   sheet metadata.
 - Yarn dialogue has its reader, and

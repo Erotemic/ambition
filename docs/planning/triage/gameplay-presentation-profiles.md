@@ -1,57 +1,53 @@
 # Gameplay presentation profiles — remaining work
 
-> **Verified against `7e3510f5c` (2026-09-17); originally `cecd01ca`
-> (2026-08-13).** GP1–GP5 are implemented: profile resolution, fixed/aspect
-> viewport policy, surround layout, provider profile declaration,
-> occupancy/control regions, touch placement, and the player HUD's first
-> surround-region consumer exist. `GameAuthored` and `DecorativeWorldExtension`
-> are still spelled (`shared_tangle/src/gameplay_presentation/mod.rs`,
-> `ambition_render/src/gameplay_surround.rs`) and the host still resolves
-> surround regions, so the remaining bullets below are the same remaining
-> bullets. Git history has the original design and review
-> history.
+**Status:** GP1–GP5 are built: profile resolution, fixed/aspect viewport policy,
+surround layout, provider profile declaration, occupancy/control regions, touch
+placement, and the player HUD as the first surround-region consumer. Source
+files cite this page as the design of record:
+`crates/ambition_platformer2d_shared_tangle/src/gameplay_presentation/mod.rs`,
+`crates/ambition_platformer2d_host/src/gameplay_presentation.rs` and
+`crates/ambition_render/src/gameplay_surround.rs`.
 
-## Remaining
+## Finding
 
-- ▢ **Bridge real platform safe-area insets.** `DisplaySafeAreaInsets` exists and
-  is consumed, but the runtime still lacks a production writer that publishes
-  non-zero platform insets where appropriate.
-  ✔ **RE-MEASURED 2026-09-03 AND AGAIN 2026-09-17 — UNCHANGED, and it is a total
-  absence rather than a partial one.** ⚠ Two weeks and several campaigns apart,
-  the count and the four sites are IDENTICAL, which is the reading that matters:
-  nothing has quietly grown a producer and nothing has quietly lost the reader.
-  The type has exactly FOUR references in the entire repository:
-  the definition
-  (`crates/ambition_platformer2d_shared_tangle/src/gameplay_presentation/mod.rs:262`),
-  an import, one `init_resource`
-  (`crates/ambition_platformer2d_host/src/gameplay_presentation.rs:62`) and one
-  `Res` read (`:235`). No `ResMut`, no `insert_resource` with a value, anywhere.
-  ⇒ **The resource is `Default` — zero on every edge — for the entire life of
-  every process**, and the reader is not a leaf: it is
-  `resolve_host_gameplay_presentation`, which feeds `safe_area_insets` into the
-  whole layout resolve. So the safe-area path is wired end to end except for its
-  producer, and every layout the game has ever computed used zero insets.
-  ⚠ The consequence is device-shaped and cannot be seen here: on a display with
-  a notch, a cutout or rounded corners, gameplay is laid out into the unsafe
-  region and looks correct on every desktop and in every headless test. Same
-  family as the Android font path in
-  [`../../recipes/checks-that-did-not-run.md`](../../recipes/checks-that-did-not-run.md)
-  — closing it needs a device, not a build.
+`DisplaySafeAreaInsets` is wired end to end except for its producer. It is
+defined in `shared_tangle/src/gameplay_presentation/mod.rs`, `init_resource`'d
+in `ambition_platformer2d_host/src/gameplay_presentation.rs`, and read by
+`resolve_host_gameplay_presentation`, which feeds the whole layout resolve.
+Nothing writes a non-zero value, so every layout uses zero insets. On a display
+with a notch, a cutout or rounded corners, gameplay is laid out into the unsafe
+region. Desktop runs and headless tests cannot show this; closing it needs a
+device (same family as the Android font path in
+[checks that did not run](../../recipes/checks-that-did-not-run.md)).
 
-- ▢ **Finish overlap fallbacks only as real cases demand them.** The current
-  layout can reserve control/HUD regions; remaining escalation steps are
-  repositioning contextual controls, fading presentation near the controlled
-  subject when necessary, and strengthening silhouette/readability. Implement
-  from observed overlap cases, not as a speculative framework.
+Other remaining work, each only when a real case needs it:
 
-- ▢ **Participant-facing layout preference.** Add an actual user-facing profile
-  or layout preference only when the settings/UI owner is clear.
+- **Overlap fallbacks.** Reposition contextual controls, fade presentation near
+  the controlled subject, strengthen silhouette/readability. Build from
+  observed overlap cases, not as a speculative framework.
+- **Participant-facing layout preference.** Add it only when the settings/UI
+  owner is clear.
+- **Authored surround art.** `GameAuthored` and `DecorativeWorldExtension` need
+  a content path that supplies authored surround art, not only the base fill.
+- **Overlays on computed layout.** Quest, debug, map and dialogue surfaces
+  consume resolved regions where they compete with gameplay or control space.
+  Do not build one responsive-HUD manager.
 
-- ▢ **Authored surround art.** `GameAuthored` and
-  `DecorativeWorldExtension` modes still need a content path that can supply the
-  authored surround rather than only the base fill.
+## Evidence command
 
-- ▢ **Move remaining overlays onto computed layout where useful.** Quest, debug,
-  map, dialogue, and other HUD/menu surfaces should consume resolved regions when
-  they materially compete with gameplay/control space. Do not build one giant
-  responsive-HUD manager.
+```bash
+rg -n "DisplaySafeAreaInsets" crates game --type rust
+```
+
+A fix shows a production writer (`ResMut<DisplaySafeAreaInsets>` or an
+`insert_resource` with a value).
+
+## Owner
+
+None.
+
+## Trigger to promote
+
+A shipped target with a notch, cutout or rounded corners (Android, iOS or a web
+build on a phone), or a reported overlap between gameplay and a HUD/control
+region.

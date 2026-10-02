@@ -1,139 +1,96 @@
 # Registry protocol, identity and deliberate duplicate policy
 
-`ambition_registry_core` already exists. This is a bounded owner/triage contract,
-not a campaign to make every map adopt it. The architecture review corrects the
-old argument that a function-valued registry cannot honestly reject duplicates.
-See [finding F7](../engine/architecture-review-findings.md) and
-[packet A11](../engine/actor-monolith-work-frontier.md).
+**Status:** bounded owner contract for `ambition_registry_core`. It is not a
+campaign to make every registry adopt the core. Workspace policies in
+`tests/ambition_workspace_policy/policies/engine.toml` cite this page.
 
-## What the shared core owns
+## Finding
 
-`crates/ambition_registry_core/src/lib.rs` provides stable registration metadata,
-required-field checks, equality-based new/idempotent/conflict classification and
-canonical row/section framing. Domains retain keys, storage, semantic validation,
-provider policy, executable behavior and lifecycle. The core remains
-low-dependency; it is not a generic Bevy registry or service locator.
+Each `*Registry` type decides on its own what counts as identity, whether a
+second registration of a key is a no-op, a refusal or a replacement, what enters
+a fingerprint, and whether a conflict leaves the old entry unchanged. The shared
+core gives that decision one vocabulary; it does not choose the policy for a
+domain.
 
-Canonical row framing currently rejects unsupported separators rather than
-escaping them. Changing that grammar changes downstream fingerprint bytes and
-requires a deliberate compatibility change. Canonical sections preserve the
-caller-defined row grammar/order; deterministic order is still the domain's
-responsibility. The core does not own the complete prepared-content fingerprint.
+## What the core owns
 
-## Four independent questions per registry
+`crates/ambition_registry_core/src/lib.rs` provides stable registration
+metadata, required-field checks, equality-based new/idempotent/conflict
+classification, and canonical row/section framing. `ConstructionRegistry`,
+`RollbackRegistry` and `PlacementLoweringRegistry` use it.
 
-A review must identify the key's scope, the value's meaning, duplicate admission
-policy, and the stable metadata included in diagnostics/fingerprints. Then trace
-actual production registration and lookup customers. A healthy unit test does not
-establish that any game installs or reads the registry.
+- The core stays dependency-free: no `ambition_*` crate and no Bevy. It is not
+  a generic Bevy registry or service locator.
+- Domains keep keys, storage, semantic validation, provider policy, executable
+  behavior and lifecycle.
+- Canonical row framing rejects unsupported separators instead of escaping
+  them. Changing that grammar changes fingerprint bytes and needs a deliberate
+  compatibility change.
+- The core does not own the complete prepared-content fingerprint. Deterministic
+  row order is the domain's responsibility.
 
-| Kind | Typical policy | What must remain explicit |
+## Rules for a registry review
+
+Identify four things: the key's scope, the value's meaning, the duplicate
+admission policy, and the stable metadata in diagnostics and fingerprints. Then
+trace real production registration and lookup callers. A unit test does not
+prove that any game installs or reads the registry. Do not infer a registry's
+kind from its name or return type.
+
+| Kind | Typical policy | What must stay explicit |
 | --- | --- | --- |
-| Immutable declaration table | Reject duplicate keys, or support narrowly defined idempotence | Owner/source/schema, preparation freeze, conflict leaves old entry unchanged |
-| Layered content override | Deliberate replacement with deterministic precedence | Which layer can replace which, diagnostics/provenance, active revision boundary |
-| Live identity-to-entity index | Replacement on an authorized new live entity | Lifetime/generation, stale entry removal, scope and live-target validity |
-| Derived cache | Replace or invalidate under a key/revision contract | Rebuild inputs, cache-key completeness, no independent semantic authority |
-| Closed implementation dispatch | Prefer ordinary typed code | No new registry merely to invert a dependency or lower an SCC |
-| Genuinely open provider extension | Explicit registration during composition | One installed owner, collision policy, validation, ordering and testable absence |
+| Immutable declaration table | Reject duplicate keys, or a narrowly defined idempotence | Owner/source/schema, preparation freeze, conflict leaves the old entry unchanged |
+| Layered content override | Deliberate replacement with deterministic precedence | Which layer replaces which, provenance, revision boundary |
+| Live identity-to-entity index | Replacement on an authorized new live entity | Lifetime/generation, stale-entry removal, scope |
+| Derived cache | Replace or invalidate under a key/revision contract | Rebuild inputs, cache-key completeness, no semantic authority |
+| Closed implementation dispatch | Ordinary typed code | No registry only to invert a dependency |
+| Open provider extension | Explicit registration during composition | One owner, collision policy, validation, ordering, testable absence |
 
-Do not infer a registry's kind from its suffix or function return type.
+- A function-valued registry can still refuse duplicate keys. "A key may be
+  declared once per installed catalog" needs no function comparison.
+  `TechniqueSupport::declare` (`crates/ambition_entity_catalog/src/lib.rs`)
+  does this and replaces `ParamSchemaRegistry`, which accepted unknown keys
+  and overwrote duplicates.
+- Idempotent installation needs a stated registration token, owner/source/
+  revision and installer lifecycle. Equal metadata does not prove equal
+  behavior. Hot-reload replacement is a separately named operation, not the
+  accidental meaning of ordinary registration.
+- Do not hash function addresses. `fn_addr_eq` (used for local equality in
+  `PlacementLoweringRegistry`, `crates/ambition_platformer2d_world/src/placements.rs`)
+  can give false negatives and can merge distinct
+  functions; it is not a portable identity. Do not remove a local pointer check
+  without covering its duplicate-registration behavior.
+- `PreparedCharacterRegistry` keeps declaration admission and prepared/
+  hot-reload replacement as distinct operations.
+- `FrontendAudioRegistry` and the banter tables state override semantics in
+  source. Their precedence is product layering and needs its own ruling.
 
-## Function equality is not required to reject duplicate keys
-
-`ParamSchemaRegistry` stores validators as function pointers. Its current comment
-concludes that unavailable stable behavior equality rules out an honest Conflict
-case and therefore replacement is necessary. That inference is incorrect.
-
-The default can simply be: **a key may be declared once per installed catalog**.
-An occupied key returns a duplicate-registration error without comparing either
-function. This is the same useful policy already available for closure-valued
-room content staging. Lack of a meaningful Idempotent case does not remove the
-Duplicate case.
-
-Where idempotent installation is necessary, specify the registration token,
-owner/source/revision and installer lifecycle that justify it. Equal metadata is
-not proof of equal executable behavior. A separate explicitly named replacement
-operation may be appropriate for a hot-reload boundary; it should not be the
-accidental semantics of ordinary registration.
-
-A11 also closes the more immediate problem: the validator registry currently has
-no production register/validate callers, and an absent validator accepts an
-unknown technique key. Couple installed support declarations to real handler
-installation, distinguish unknown/uninstalled/parameterless cases and validate
-all effect-reference locations before content activation. Do not add another
-unconnected table of supported names.
-
-## Local pointer checks and portable identity are different
-
-`PlacementLoweringRegistry` currently includes `fn_addr_eq` in local equality;
-`RoomContentStagingRegistry` rejects repeated sources without closure equality.
-Neither pattern is a universal registry policy. Rust documents that function
-address comparisons can have false negatives and can merge distinct source
-functions. They do not provide a portable source-function identity or a proof of
-cross-build compatibility. Even where equal compatible function pointers imply
-equivalent calls, equal metadata alone does not.
-
-Reference: https://doc.rust-lang.org/std/ptr/fn.fn_addr_eq.html
-
-Do not hash function addresses. Do not remove a local pointer check without
-covering its duplicate-registration behavior. Prefer explicit registration
-ownership and freeze/revision policy when durable identity is required.
-
-## Current examples to preserve or revisit
-
-| Surface | Existing role / evidence | Consequence |
-| --- | --- | --- |
-| `ConstructionRegistry` | Typed recipe/relation metadata in shared construction | Keep validation/fingerprint grammar; do not turn metadata into an executable recipe service |
-| `RollbackRegistry` | Backend-neutral domain state registration plus wire identity | Preserve domain semantics and wire collision checks beyond common metadata |
-| `PlacementLoweringRegistry` | Open, typed placement lowering in world | A3 relocates actor-specific adapters, not all providers into a universal registry |
-| `RoomContentStagingRegistry` | Explicit source registration, sealed stagers, duplicate refusal | Retain duplicate refusal without inventing closure equality |
-| ~~`EncounterRegistry`~~ | Deleted 2026-09-30: live encounters are occurrences per live room, built by `project_live_encounter_occurrences`, with no latch | — |
-| `PreparedCharacterRegistry` | Declaration admission versus intentional prepared/hot-reload replacement | Keep these operations distinct; a blanket reject/replace policy is insufficient |
-| `MovePrefabRegistry` | Expansion API must establish a production customer before wider investment | Recheck current install/expand callers; do not mistake tests for adoption |
-| `FrontendAudioRegistry` / banter tables | Explicit override semantics in current source | Precedence/product layering requires its own ruling; naming registry_core is not acceptance |
-| `ParamSchemaRegistry` | Unwired validator surface, permissive unknown lookup, replacement rationale defect | A11; do not classify the rationale as settled solely because source comments explain it |
-
-Find definitions/callers rather than copying return signatures into a permanent
-inventory. Source paths and the named snapshot are the receipt; old counts and
-pilot history remain in Git.
-
-⛔ **AND THE DERIVATION SCRIPT WENT WITH THE COLUMN, 2026-09-08.**
-`scripts/registry_register_returns.py` and its test existed because an earlier <!-- cite-ok: names a DELETED file, which is this row's whole point -->
-version of the table above carried a hand-typed *verdict* column that had gone
-stale in three of three rows re-read; the script derived that column from
-`register`'s actual signature so the copy could not rot. Deleting the column is
-the stronger form of the same fix — there is no copy left to police — so the
-script was retired rather than taught the new table shape, which would have
-rebuilt the inventory this section declines. Read it back with
-`git show 542481fae:scripts/registry_register_returns.py` if a future ruling
-wants the derivation; do not resurrect it as a standing check without a consumer
-for its output.
-
-## Measurement and expansion rule
+## Evidence command
 
 ```bash
 python3 scripts/measure_registry_core_adoption.py
 ```
 
-The script's ADOPTED/JUSTIFIED/UNREFERENCED buckets measure manifest/code/prose
-references. In particular, JUSTIFIED does not prove that the prose argument is
-valid: F7 is a counterexample. UNREFERENCED does not prove absence of a documented
-policy. Inline/comment filtering is textual, not semantic Rust analysis.
+ADOPTED/JUSTIFIED/UNREFERENCED measure references, not policy. JUSTIFIED does
+not prove that the prose argument is valid, and UNREFERENCED is an upper bound
+on work, not a list of it. Read each `register` function before you treat a row
+as a task.
 
-Promote only a named registry whose production role and repeated invariant are
-known. A per-change review obligation can be justified by correctness risk; it
-does not require reconstructing a historical registry growth rate. Do not impose
-a workspace adoption count merely because the census can count names.
+## Owner
 
-A migration must preserve or intentionally change duplicate handling,
+None. The core crate is maintained by whoever changes a registry that uses it.
+
+## Trigger to promote
+
+Promote one named registry when its production role and a repeated invariant
+are known. A migration must keep (or deliberately change) duplicate handling,
 transactional rejection, ordering, diagnostic provenance, canonical bytes and
-lookup behavior. Use a real caller, a conflict fixture, reversed registration
-order, and a freeze/reload case where applicable. Stop when sharing the helper
-requires weaker diagnostics or broader dependencies than the invariant warrants.
+lookup behavior. Test it with a real caller, a conflict fixture, reversed
+registration order, and a freeze/reload case where that applies. Stop when
+sharing the helper needs weaker diagnostics or broader dependencies than the
+invariant warrants.
 
-## Non-goals
-
-No universal `Registry<K,V>`, global discovery, `Any`/TypeId service lookup,
-executable provider callbacks for closed domains, shared complete engine context,
-forced policy uniformity, automatic schema inference from functions, or new
-registry for a single consumer just to remove a direct import.
+Non-goals: a universal `Registry<K,V>`, global discovery, `Any`/`TypeId`
+service lookup, executable provider callbacks for closed domains, forced policy
+uniformity, schema inference from functions, a workspace adoption count, or a
+new registry for one consumer.

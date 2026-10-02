@@ -1,277 +1,73 @@
 # Stable identifier centralization - semantic scope before shared syntax
 
-The shared `string_id!` mechanism already lives in `ambition_load`; do not replay
-the completed consolidation or infer that its panic/serialization policy should
-apply to every identifier. Explicit, locally readable newtypes remain valid.
-The inventory below is for semantic classification, not a mandate for a derive
-macro or a universal ID crate.
+**Status:** triage. `tracks.md` gates it on concrete identity families that
+share actual operations.
 
-⚠ **MEASURED 2026-09-16, because this page's motivation had gone stale in one
-direction and its central question had been answered in another.** Over the 1601
-tracked files under `crates/*/src` and `game/*/src`:
+## Finding
 
-| | | method |
-| --- | --- | --- |
-| distinct `macro_rules!` names | 16 | `macro_rules! <name>`, deduplicated |
-| …that generate an identifier TYPE | **2** | `string_id!` (`ambition_load/src/id.rs`) and `digest_type!` (`ambition_platformer2d_runtime/src/content_identity.rs`) |
-| `string_id!` invocations | 11 | across 3 crates — `ambition_load` 3, `ambition_game_shell` 5, `ambition_load_presentation` 3 |
-| `digest_type!` invocations | 2 | `ContentFingerprint` (`"cfp1:"`), `SnapshotSchemaFingerprint` (`"ssp1:"`) |
-| distinct identifier types | 67 | 54 declared as `struct`/`enum`/`type <X>Id` + the 11 + the 2 |
-| identifiers minted by `format!` | 26 sites | the class table below |
+Identifier newtypes repeat the same operations (construction, `as_str`,
+`Display`, conversions, serde, validation, ordering). Shared machinery could
+prevent drift, but two identifiers with the same representation need not share
+equality, validation, persistence or retirement rules. The problem to solve is
+consistency, not boilerplate.
 
-⛔⛤ **THE "1" IN THAT SECOND ROW WAS WRONG, AND THE TABLE'S OWN 67 IS WHAT SAYS
-SO — RE-MEASURED 2026-09-17.** `digest_type!` declares
-`pub struct $name([u8; 32])` with `from_bytes`/`as_bytes`/`Display`/`Debug`; it
-generates identifier types exactly as `string_id!` does. And the 67 does not
-reproduce without it: distinct `struct`/`enum`/`type` declarations ending in `Id`
-come to **54**, plus the 11 `string_id!` types is 65, and only counting
-`digest_type!`'s two reaches 67. ⇒ Two rows of one table disagreed about the same
-population, and the row with no method attached was the one that was right. **A
-number published without its instrument cannot be argued with — it can only be
-re-derived**, which is why every row above now carries one.
+Current shape:
 
-⭐⭐ **AND THE SECOND GENERATOR STRENGTHENS THIS PAGE'S THESIS RATHER THAN
-COMPLICATING IT.** The whole argument here is that two identifiers sharing a
-representation need not share a policy. `string_id!` and `digest_type!` share
-NEITHER: `String` versus `[u8; 32]`, a panic-on-empty constructor versus
-`from_bytes` with nothing to validate, transparent serde versus none, an authored
-spelling versus a digest nobody types. They are also on opposite sides of the
-authority axis above — `string_id!`'s carriers include `LoadId` and `ShellHoldId`
-(host-local lifecycle), while `digest_type!`'s `ContentFingerprint` is the
-CONTENT-DERIVED identity a construction plan is stamped against. Two generators,
-two policies, and the page counted one.
+- The syntax consolidation is done. There is one `string_id!` definition
+  (`ambition_load/src/id.rs`); other crates `use ambition_load::string_id`.
+- A second type generator, `digest_type!`
+  (`ambition_platformer2d_runtime/src/content_identity.rs`), mints
+  `[u8; 32]` digests (`ContentFingerprint`, `SnapshotSchemaFingerprint`). It
+  shares no policy with `string_id!`. This supports the rule above.
+- `sfx_ids!` (`ambition_sfx`) and `fx_ids!` (`ambition_vfx`) mint values, not
+  types, and generate a `NAMED` census from their own declarations. That is the
+  idiomatic shape for a derived census when one module owns the whole
+  population.
+- The authority axis (may a value enter what two peers compare?) has a
+  mechanical owner: `RollbackEntryKind::feeds_peer_checksum`,
+  `in_peer_schema_identity` and `HOST_LOCAL_IDENTITIES` (`id_peer_audit.rs`).
+  The mint site decides it, not the type: `LoadId` (host-local) and
+  `LoadWorkId` (content-derived) share one `string_id!` policy and have opposite
+  answers. So a policy inventory keyed on the type cannot answer this axis.
+  `LoadPresentationOwnerId` and `ShellHoldId` are host-local carriers that
+  `HOST_LOCAL_IDENTITIES` does not list. That is not a defect today, because
+  neither is rollback-registered.
 
-⚠ **A THIRD SHAPE EXISTS AND IS THE ANSWER THIS PAGE ASKS FOR BELOW.**
-`sfx_ids!` (`ambition_sfx`, 165 entries) and `fx_ids!` (`ambition_vfx`, 6) mint
-identifier VALUES of an existing type rather than types — and each generates a
-`NAMED: &[(Id, &str)]` census **from the declarations themselves**, in declaration
-order. That is precisely the *"derived census over mint sites … that would not
-need updating by whoever adds a carrier"* named at the end of the authority
-section, already working in two crates. ⛔ It is not a template for
-`HOST_LOCAL_IDENTITIES`, because those two macros own their whole population in
-one place and host-local ids are minted across many crates — but it is the
-existence proof that the shape is idiomatic here, and it is where to start
-reading if that census is ever built.
+## Rules
 
-⇒ **THE SYNTAX CONSOLIDATION IS DONE AND THIS PAGE'S "several local `string_id!`
-macros" WAS ITS PRE-STATE.** There is exactly one definition; the other two
-crates `use ambition_load::string_id`. Its own doc records the three
-byte-identical copies it replaced. So Options B and C below are not answering a
-live duplication — they are answering whether the remaining 67 explicit newtypes
-want the same treatment.
+- Explicit, locally readable newtypes stay valid. Do not mass-change
+  constructor behavior because a macro exists.
+- For untrusted authored data, validation produces source-local errors. A
+  constructor panic is acceptable only for an internal trusted invariant. Record
+  which boundary a constructor serves.
+- The policy of an id is visible at its declaration, and `rg` finds where its
+  construction and validation come from.
+- Use typed or generated ids to make bad references unrepresentable only when
+  the owning pipeline already exposes stable generated symbols. Do not open a
+  standalone symbol-generation campaign to replace strings, and do not add an
+  always-on boot census of declared ids.
+- Non-goals: a general utilities crate, unifying ids because they wrap strings,
+  a universal delimiter convention, a procedural derive before the policy
+  inventory exists, one crate for all identifier types.
 
-The [architecture reassessment](../engine/architecture-reassessment.md) distinguishes
-authored content identity, live entity identity, occurrence identity,
-construction-attempt identity, session/instance scope and rollback wire identity.
-Two identifiers with the same representation need not have the same equality,
-validation, persistence or retirement rule.
+## Evidence command
 
-For new untrusted authored data, validation should produce source-local errors
-rather than depend on a constructor panic. For an internal trusted invariant, a
-panic may be intentional. Record which boundary the constructor serves; do not
-mass-change behavior because a macro is available.
+```bash
+rg -n 'macro_rules! (string_id|digest_type|sfx_ids|fx_ids)' crates game
+rg -n 'string_id!\(' crates game --type rust
+rg -n 'HOST_LOCAL_IDENTITIES' game crates
+```
 
-A8 requires two copies of the same room as the namespace witness before adding
-instance qualification. A1 preserves existing rollback wire IDs during a pure
-move. Canonical content metadata cannot identify executable function behavior;
-see [registry protocol](ambition-registry-core.md). The dependency graph can locate
-a shared syntax helper, but cannot establish the semantic owner of all IDs.
+## Owner
 
-## The authority axis now has a mechanical owner, and it is not the declaration
+None.
 
-⭐⭐ **THE FIRST AXIS IN THE LIST BELOW — "authority" — STOPPED BEING A TASTE
-QUESTION**, because `ID-PEER` gave it a consumer that fails a build. The binary
-that matters is not the six-way taxonomy: it is whether a value may enter what
-two peers compare.
+## Trigger to promote
 
-    local lifecycle / correlation identity   ≠   peer-stable canonical identity
-
-`RollbackEntryKind::feeds_peer_checksum`, `in_peer_schema_identity` and
-`HOST_LOCAL_IDENTITIES` (in `id_peer_audit.rs`) own that question today, and
-`rollback-schema-baseline.json` member-diffs the peer-visible set.
-
-⛔⛤ **AND THE MEASUREMENT SAYS THE DECLARATION CANNOT ANSWER IT.** All 11
-`string_id!` types share one representation, one constructor policy, one panic
-rule and one `Display`. Their authority is decided at the MINT SITE, and two of
-them sit one line apart in the same file with opposite answers:
-
-    LoadId       ← format!("shell.{route}.{next_load_transaction}")   host-local
-    LoadWorkId   ← format!("{ROOM_ASSET_WORK_PREFIX}:{target_label}") content-derived
-
-`LoadId` is in `HOST_LOCAL_IDENTITIES`; `LoadWorkId` is not, and both are
-correct. ⇒ **A policy inventory keyed on the TYPE is looking in the wrong place
-for this axis.** The 26 `format!` mint sites classify cleanly and the type name
-does not predict the class:
-
-| class | sites | shape |
-| --- | --- | --- |
-| content-derived | 9 | `AssetId` × 7 (`sprite.character.{name}`), `BrainPresetId`, `LoadWorkId` |
-| authored-record-derived | 3 | `FeatureId` × 3 — `coin:{id}` from the defeated enemy's `config.id` |
-| host-local lifecycle | 7 | `LoadId` × 2, `ShellRequestId`, `LoadPresentationOwnerId` × 2, `ShellHoldId` × 2 |
-| test fixtures | 7 | not production |
-
-⚠ **AND TWO OF THE FOUR HOST-LOCAL TYPES ARE NOT NAMED BY THE HAND LIST**:
-`LoadPresentationOwnerId` (`room-transition:{sequence}` and
-`shell:{route}:{load_id}`) and `ShellHoldId` (`session-publication:{activation}`
-and `content-publication:{request}`). Both are DERIVED CARRIERS — the exact
-failure mode `HOST_LOCAL_IDENTITIES`'s own comment says bit it twice, *"a
-registered type never matches the name of the id it holds"*.
-
-⇒ **IT IS NOT A DEFECT TODAY AND SAYING SO IS THE POINT.** Neither type is
-rollback-registered, so the guard's verdict is unchanged and adding them would be
-a true-but-vacuous widening. What the measurement establishes is that the
-list is maintained along the wrong axis: the mint site decides, so the hand list
-is a second authority over a question the mint sites already answer. A derived
-census over mint sites is the shape that would not need updating by whoever adds
-a carrier.
-
-## Why this is in triage
-
-The workspace contains many identifier-like newtypes, all now sharing one
-`string_id!` where they share a policy. They repeat familiar operations:
-
-- construction from strings or integers;
-- `as_str` or raw-value access;
-- `Display`;
-- conversion from owned and borrowed values;
-- transparent serialization;
-- empty-value or format validation;
-- ordering and hashing.
-
-Some consolidation could prevent semantic drift. However, these types are easy
-to understand when written explicitly, while a macro or derive can hide policy
-from both human maintainers and coding agents. Saving twenty lines is not useful
-if every future edit requires finding an expansion rule in another crate.
-
-The problem to solve is **consistency**, not boilerplate at any cost.
-
-## Questions that must be answered first
-
-Inventory active identifier types and classify them along independent axes:
-
-- **authority:** authored content ID, runtime identity, presentation key, local
-  slot/index, protocol/session ID, or opaque handle;
-- **representation:** `String`, `&'static str`, integer, composite value;
-- **validation:** infallible wrapper, nonempty string, namespaced path, restricted
-  alphabet, or domain parser;
-- **stability:** serialized across saves/content, stable only within a process,
-  or ephemeral test/presentation value;
-- **construction:** public `new`, fallible parser, crate-private constructor, or
-  generated value;
-- **serialization:** transparent serde, custom codec, or deliberately absent;
-- **interchange:** `From<String>`, `From<&str>`, `Borrow<str>`, `AsRef<str>`, or
-  intentionally none;
-- **error policy:** panic on programmer error, return a structured validation
-  error, or accept all values.
-
-Types should share machinery only when these policies agree. Similar spelling is
-not sufficient.
-
-## Candidate outcomes
-
-The design review should compare at least these options.
-
-### Option A — conventions only
-
-Keep explicit newtypes in their owning modules. Add a short normative document
-and a few reusable tests or review rules:
-
-- stable authored IDs validate at their boundary;
-- runtime IDs do not pretend to be authored IDs;
-- serialized IDs state their compatibility contract;
-- `Display` is not silently treated as a parser format unless documented;
-- no domain parses identity from delimiters unless that grammar is the actual
-  type contract.
-
-This has the best local readability and no abstraction cost.
-
-### Option B — a tiny declarative macro
-
-Provide a deliberately obvious macro for the most uniform string wrappers. It
-should expand to ordinary derives and small methods, with validation supplied
-explicitly rather than hidden.
-
-The invocation must communicate the policy at the use site. For example, a
-reader should be able to tell whether empty strings are accepted and whether
-serde is part of the contract without opening the macro implementation.
-
-This could live in an existing low-level crate or a narrowly named crate. The
-name `ambition_id` is a candidate, not a decision.
-
-### Option C — a procedural derive
-
-Use a derive only if the inventory shows enough genuinely uniform types that the
-compile-time and discoverability cost is justified. A derive that secretly adds
-constructors, validation, conversions, or serialization policy is disfavored.
-
-The default bias is against this option until a pilot proves it remains obvious
-to coding agents and humans.
-
-### Option D — explicit types plus shared validation primitives
-
-Centralize only stable validation and error vocabulary while keeping each
-newtype implementation explicit. This may provide the consistency benefit with
-less hidden machinery than generated implementations.
-
-## LLM and maintainer legibility requirements
-
-Any abstraction must pass a source-reading test:
-
-- the policy of an ID is visible at its declaration;
-- `rg` can find where construction and validation behavior comes from;
-- compiler errors point to understandable code;
-- generated methods do not surprise a reader;
-- an agent can add a new ID correctly without copying an unrelated domain's
-  policy;
-- ordinary Rust remains available for exceptional identifiers;
-- no abstraction encourages converting every string wrapper into the same
-  semantic type.
-
-A few repeated explicit implementations are preferable to a magical abstraction
-that makes domain contracts harder to inspect.
-
-## Proposed next step
-
-⭐ **THE BOUNDED INVENTORY THIS ASKED FOR EXISTS FOR ONE AXIS AND IS ABOVE.** What
-remains is the other seven — representation, validation, stability, construction,
-serialization, interchange, error policy — over the 67 explicit newtypes, and
-note that the axis already done is the one where a wrong answer causes a DESYNC
-rather than mild inconsistency. That ordering was not planned; it is what having
-a consumer does to a question.
-
-Do not create a crate yet. Produce the remaining inventory and group only exact
-policy matches. Then implement one pilot using either:
-
-- conventions plus explicit code; or
-- a small declarative macro whose invocation exposes all policy choices.
-
-Compare:
-
-- lines removed;
-- clarity at the declaration site;
-- quality of rustdoc and compiler diagnostics;
-- ease of exceptional behavior;
-- incremental compile cost;
-- whether an unfamiliar coding agent can correctly explain and extend the type.
-
-The pilot should be reverted if the abstraction primarily hides straightforward
-code rather than centralizing a real invariant.
-
-## Non-goals
-
-This work must not:
-
-- introduce a general utilities crate;
-- unify semantically different IDs merely because they wrap strings;
-- replace domain parsers with a universal delimiter convention;
-- add a procedural macro before the policy inventory exists;
-- move all identifier types into one crate;
-- make serialized compatibility depend on generated behavior that is not
-  documented at the declaration site.
-
-## Promotion criterion
-
-Promote a concrete implementation only after the inventory identifies a group
-of exact policy matches and a pilot demonstrates better consistency without
-making the code harder to understand. Until then, this document records a
-question and evaluation method, not a chosen abstraction.
+Concrete identity families that share actual operations. Then classify the
+explicit newtypes on the remaining axes (representation, validation, stability,
+construction, serialization, interchange, error policy), group only exact
+policy matches, and pilot one option: conventions plus explicit code, a small
+declarative macro whose invocation shows every policy choice, or shared
+validation primitives with explicit types. Revert the pilot if it mainly hides
+straightforward code.

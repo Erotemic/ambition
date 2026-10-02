@@ -1,69 +1,44 @@
 # Awaiting a maintainer decision
 
-This file contains only **currently unresolved maintainer/product decisions**.
-Engineering work that can proceed without a ruling belongs in
-[`queue.md`](queue.md). Answered, withdrawn and superseded questions are deleted
-from this live ledger; Git history preserves the discussion.
+This file holds only open maintainer and product questions. Engineering work
+that can proceed without a ruling goes in [`queue.md`](queue.md).
 
-Use one unique `Q<number>` per live question. Do not reuse a retired number.
-Every queue row blocked on a maintainer choice must name its `Q` here. When a
-question is answered, record the durable ruling in
-[`maintainer-decisions.md`](maintainer-decisions.md), update the owning plan/source,
-and delete the question here.
+- Give each question one unique `Q<number>`. Do not reuse a retired number.
+- Use the heading shape `## Q<number> — <question>`. Other documents link to
+  these anchors, so do not change the text of a heading.
+- Each entry states the question, the context needed to choose, the owner, and
+  what changes for each answer.
+- A queue row that waits on a question names it in a `**Blocked by:**` field.
+- When a question is answered, record the ruling in
+  [`maintainer-decisions.md`](maintainer-decisions.md), update the owner plan or
+  source, and delete the question here.
+- Before you file a question, make sure that no ruling already decides it. A
+  decided direction with unfinished implementation is a queue row, not a
+  question.
 
 ## What actually blocks architecture work today
 
-**MEASURED 2026-09-19, after the maintainer ruled twenty of this page's
-questions in one pass.** ⚠ This list is the BLOCKING set, not the important
-set: a question can matter and block nothing.
+This is the blocking set, not the important set. A question can matter and
+block nothing.
 
-⭐⭐ **THE BLOCKING SET IS NOW TWO.** The 2026-09-19 rulings closed the
-composition cluster (`Q146`, `Q144`, `Q108`, `Q106`, `Q100`, `Q97`), the
-contact-provenance question (`Q101`), the difficulty cluster (`Q127`), throws
-and rage (`Q133`), gravity switches (`Q137`), item-menu latency (`Q140`),
-cutscene fade (`Q143`), and explicitly declared **not blocked** the set that had
-been read as pending rulings: `Q132`, `Q136`, `Q138`, `Q139`, `Q122`, `Q104`,
-`Q110`, `Q145`, `Q141`. Every one of those is recorded in
-[`maintainer-decisions.md`](maintainer-decisions.md) and deleted here.
-
-⛔⛤ **SO THE WORK IS NOW ENGINEERING, AND SAYING OTHERWISE IS THE FAILURE MODE
-THIS SECTION EXISTS TO PREVENT.** The maintainer's instruction with the rulings
-was explicit: *"Do not invent replacement maintainer blockers where these
-decisions already determine the direction."* A row whose ruling has landed and
-whose implementation is unfinished is a QUEUE row, not a question. ⇒ Before
-filing a new `Q`, check that the ruling above does not already decide it.
-
-**THE BLOCKING SET IS EMPTY (2026-10-01).** The last row, `Q69`, was ruled
-(potato stays at 1/16; see [`maintainer-decisions.md`](maintainer-decisions.md)),
-and `D-POTATO-ASPECT` closed with it. No open P0/P1 row states a `Blocked by:`
-question.
+**The blocking set is empty (2026-10-01).** No open P0/P1 queue row states a
+`**Blocked by:**` question.
 
 | question | what it blocks | and if it stays open |
 |---|---|---|
 
-⭐ **AND TWO THINGS THAT LOOK LIKE BLOCKERS AND ARE NOT, WHICH IS THE USEFUL
-HALF OF MEASURING THIS.**
+`scripts/check_blocking_set_names_every_gate.py` reads the queue's
+`**Blocked by:**` fields and fails if this table has no row for a gate. Each
+table row links a `Q` that has a section on this page with at least two
+options, written `* **(a) …`. Derive gates from the field, not from row prose.
+
+Two questions look like blockers and are not:
 
 - [`Q128`](#q128--should-the-simulation-tick-be-rebased-when-peers-agree-to-start-or-stay-an-absolute-per-app-count)
-  is a **coordination re-arm condition** on `C03` and `C05`, not a gate: both
-  rows say *"if that road is ruled and started while this migration is in
-  flight, coordinate rather than assume."* Its other half — the timeline
-  comparison — is blocked by `N2`'s absent P2P session, which is engineering
-  rather than a ruling, **and which the 2026-09-19 priority adjustment
-  deprioritises outright: netplay is not this year's goal.**
-- `Q142` is named in `ID-PEER` only as history (*"after `Q142` added three"*),
-  and it is three-quarters resolved. Matching on a question number near the
-  word "blocked" finds mentions, not gates.
-
-⚠ **THE DERIVATION METHOD STAYS, EVEN THOUGH THE SET SHRANK**, because it is
-the part that was wrong twice. `queue.md` states gates in a canonical
-`**Blocked by:**` field; deriving them from prose instead missed two the first
-time and eight the second, and both misses read as *"this row is pickable"*.
-`scripts/check_blocking_set_names_every_gate.py` fails if this section omits a
-gate the field names, and it prints the live triple rather than letting a
-sentence here go stale. ⇒ When a corpus has a structured field for the fact you
-are deriving, deriving it from prose is not a conservative choice, it is a
-different and worse question.
+  is a coordination condition on `C03` and `C05`, not a gate. Its timeline half
+  waits on netcode `N2` (no P2P session exists), and the 2026-09-19 priority
+  ruling makes netplay a non-goal for this year.
+- `Q142` appears in `ID-PEER` only as history.
 
 ## Gameplay and content
 
@@ -130,7 +105,8 @@ the unused families should remain capability surface without demo customers.
 ## Q58 — does the BODY gate family ask what a body *can do* or what it *is doing*?
 
 Capability and current action are different facts. Pick the authored gate
-semantics before extending content usage.
+semantics before extending content usage. The Q54 ruling (2026-10-01) already
+says that such a gate is evaluated per actor; this asks which body fact it reads.
 
 ## Q67 — does the Limit meter survive stock loss?
 
@@ -173,8 +149,7 @@ scene unless the room itself is wanted.
 
 ## Q81 — what should happen to the mostly-unreferenced bespoke FX rows for Pirate Admiral and George Booul?
 
-The existing FX-row census found these sheets as the extreme unreferenced-art
-case (historically summarized as 34 of 35 rows unnamed by production callers).
+The FX-row census finds these sheets as the extreme unreferenced-art case.
 Either wire effects that correspond to intended authored moves, deliberately keep
 rows as future art, or remove superseded rows. The count is owned by
 `scripts/measure_fx_row_reachability.py`; do not copy a stale number into code.
@@ -196,7 +171,9 @@ that should be split/deferred.
 Current generated tiers preserve existence but not necessarily readability.
 Choose the product quality requirement before adding portrait-specific generation.
 `dev/patches/portrait-tiers-are-never-baked-20260902.patch` is the existing proposed
-implementation for the "full-resolution only" answer.
+implementation for the "full-resolution only" answer. Related: the Q69 ruling
+(2026-10-01) says readability is not an acceptance criterion for the potato
+tier.
 
 ## Q85 — should Hall characters without authored interaction dialogue remain non-interactive?
 
@@ -207,11 +184,18 @@ visual/background only.
 
 Choose whether ladder tuning is Smash ruleset content, generic fighter-brain
 policy, or a combination with an explicit boundary. The current engine should not
-infer this from table location.
+infer this from table location. The Q127 ruling (2026-09-19) already says that
+difficulty is game policy and that CPU brain levels are separate from
+participant handicaps; this asks only where the ladder's tuning lives.
 
 ## Q90 — `read_weight` is authored on the ladder and inert: wire it or delete it?
 
-Do not retain an authored difficulty field that never affects a decision.
+`read_weight` is authored on every rung of `fighter_brain_ladder.ron`, but it is
+read only behind `uses_rollouts()`, and every shipped rung sets the rollout
+fields to zero. Do not retain an authored difficulty field that never affects a
+decision. `read_weight_changes_nothing_while_the_shipped_rows_disable_the_rollout`
+(`crates/ambition_combat/src/brain/fighter/rollout/tests.rs`) pins the current
+state and must be deleted with either answer.
 
 ## Q92 — is the BODY-PROFILE developer experiment still wanted?
 
@@ -221,19 +205,132 @@ measurement it must produce before more implementation work.
 ## Q95 — fast-forward the music renderer's main and repin the superproject so fresh clones refuse General-MIDI fallback?
 
 The refusal exists on the renderer line prepared for this purpose, but the
-superproject pin at the reference state does not contain it. The safe operation
-is a durable fast-forward/push of the renderer's main followed by the parent
-pointer bump; do **not** repoint the parent at a deletable agent-only commit. In
-the same change, flip `scripts/check_pinned_music_renderer_refuses_gm.py` from
+superproject pin does not contain it. The safe operation is a durable
+fast-forward/push of the renderer's main followed by the parent pointer bump; do
+**not** repoint the parent at a deletable agent-only commit. In the same change,
+flip `GATES` in `scripts/check_pinned_music_renderer_refuses_gm.py` from
 reporting to gating.
 
 ## Q102 — is a solid breakable represented as `BlinkWall { Hard }`, or is that a temporary borrow?
 
-The current solid-breakable road publishes hard-wall behavior through the blink-wall vocabulary. Decide whether that is the intended durable representation or whether breakable solidity needs its own semantic fact. Do not split the type only for naming; split it only if the gameplay contracts differ.
+The current solid-breakable road publishes hard-wall behavior through the
+blink-wall vocabulary. Decide whether that is the intended durable
+representation or whether breakable solidity needs its own semantic fact. Do not
+split the type only for naming; split it only if the gameplay contracts differ.
 
 ## Q105 — may an author place a chest that is already open?
 
-The old write-only chest-state field was removed; runtime open state is the `Opened` marker. If authored worlds may start with an open chest, add an authored input and lower it to the marker at construction. If not, keep the authoring surface closed rather than restoring dead state vocabulary.
+Runtime open state is the `Opened` marker. If authored worlds may start with an
+open chest, add an authored input and lower it to the marker at construction. If
+not, keep the authoring surface closed rather than restoring dead state
+vocabulary.
+
+## Q148 — which track should Mode Collapse fight to?
+
+Current default, so this blocks nothing: `crooked_ascent_boss`, an authored boss
+track that nothing else uses. The spec's note wants a bespoke "mode collapse"
+track (a loop that degenerates); that is an art handoff.
+
+* **(a) Keep `crooked_ascent_boss`.** No change.
+* **(b) Commission the bespoke track.** Edit the four `music_*` fields of
+  `mode_collapse_boss.ron` when it exists. To change one room only, set that
+  room's `fight_music_track` ([room music recipe](../recipes/room-music.md)).
+
+## Q149 — when a room retires and comes back, does a wounded enemy keep its wounds?
+
+Current default, so this blocks nothing: **no, a returned room is built fresh
+from its placements.** The save keeps an enemy's death (the `RespawnPolicy` fate
+flag) and an encounter's outcome (`PersistedEncounterState`). It keeps no state
+of a living enemy (HP, position, aggro) and no wave index of an encounter in
+progress. This agrees with `OnRoomReenter`.
+
+The Q38 ruling (2026-10-01) already makes a persistent character's whereabouts
+durable, and OW3 keeps them: such a character is rebuilt from its record with
+full health. So the open part is only whether its other live state (HP, a fight
+in progress) is durable with its whereabouts.
+
+Owner: [open-world runtime and residency](engine/open-world-runtime-and-residency.md), OW3.
+
+* **(a) Fresh on return** (current). No work.
+* **(b) Wounds persist.** Add a dormant record for a living actor (OW3's
+  dormant mint rows are the road) and a per-placement policy variant such as
+  `KeepsWounds`.
+
+## Q150 — while two players are in two rooms (split view), whose HUD, banner and music show?
+
+Current default, so this blocks nothing: **the session keeps one HUD, one
+banner and one music stream, and they follow the primary seat's subject.** Each
+player in a separate room has a view of their own, and every world drawable is
+drawn in its own room (V1-V5 in
+[open-world runtime and residency](engine/open-world-runtime-and-residency.md)).
+Three surfaces are still one per session: the gameplay HUD (`PlayerHudFacts`),
+the gameplay banner (`GameplayBanner`), and the music claims (there is one audio
+output).
+
+This blocks only the last ◐ of the "separate from another participant" row in
+[`game/open-world-roadmap.md`](game/open-world-roadmap.md).
+
+* **(a) One of each, following the primary seat** (current).
+* **(b) A HUD panel and a banner per view**, each from its own seat, with one
+  music stream that follows the primary seat or the most urgent claim (a fight
+  outranks exploration). Needs a per-seat HUD fact and a banner keyed by room.
+* **(c) Per-view HUD and banner**, and music that crossfades to the room of the
+  view with focus.
+
+## Q151 — in Ambition, how does a second player join, and what does one player's death do while the other plays on?
+
+Current default, so this blocks nothing: **a death resets the dying player's
+own room to the checkpoint, and the other player's room goes on untouched.**
+Held by `a_death_in_one_room_restarts_that_player_and_leaves_the_other_players_room`
+(`game/ambition_app/tests/two_players_two_live_rooms.rs`).
+
+Two facts under that answer are not decisions yet:
+
+- **Ambition has no join road.** Only the primary seat gets a body in
+  production (`avatar/bundles.rs`). The only production code that seats slot 1
+  is Smash's match activation.
+- **The death rules count only `PlayerEntity` as a participant**
+  (`session/death.rs`). A seat-driven body that dies takes the enemy road
+  (`actor_hit.rs`): a "defeated" banner, a bounty coin and its authored respawn
+  policy.
+
+The join road (which device, which body, which room) is the larger half of the
+question. For the death rule:
+
+* **(a) Restart the dying player at the checkpoint at once** (current), and
+  give a seat-driven body the same participant death.
+* **(b) NSMB co-op:** a dead player waits out of play until the other player
+  also dies or rests at a shrine (`LevelReset::WhenNoParticipantRemains`). The
+  roster must count seat-driven bodies. Poor fit for players far apart.
+* **(c) The dead player restarts at the other player's room**, so the party
+  regroups.
+
+## Q152 — which world mechanic should keep time while its room is not live?
+
+Current default, so this blocks nothing: **the breakable respawn keeps time.**
+`HazardRespawn::AfterSeconds` due times are on `GameplayElapsed`, kept by
+`BreakableRespawnSchedule` when the room retires and read when the room is built
+again (OW5 in
+[open-world runtime and residency](engine/open-world-runtime-and-residency.md)).
+Body respawn policies do not keep time: `RespawnPolicy::InPlace(seconds)` counts
+down on the live body and goes with the room (Q149). `OnRest`, `OnRoomReenter`
+and `DeadStaysDead` do not wait on time. Encounters persist an outcome, not a
+clock.
+
+Also open: whether a world clock must survive a save. `GameplayElapsed` is a
+session clock; a rewind restores it, the save does not keep it, and a checkpoint
+restore forgets every breakable record.
+
+Each option needs a logical clock that a rewind restores and that runs while a
+room is not live, plus a durable record that a built room reads.
+
+* **(a) A respawn that counts world time:** a policy such as `After(seconds)`
+  that writes the death time to the save. Smallest: one durable timestamp per
+  placement.
+* **(b) A persistent character that moves on a schedule** between rooms. Needs
+  a route and a reconstruction of where the character is at a given time.
+* **(c) Regrowth or restock:** a pickup or a shop stock that refills after an
+  amount of world time.
 
 ## Architecture and engine policy
 
@@ -245,56 +342,27 @@ current local mechanism local.
 ## Q35 — what owns fighter reach during move startup?
 
 Choose the semantic owner of startup reach so AI, collision and presentation do
-not each infer it from different move state.
+not each infer it from different move state. The Q107 ruling (2026-10-01) makes
+the moveset the owner of mechanical attack timing; this asks about reach.
 
 ## Q37 — should the F9 rollback proof pulse survive a gameplay-session change?
 
 Decide whether the pulse demonstrates one rollback session or is a process-level
-debug affordance. Its resource lifetime should follow that answer.
+debug affordance (`game/ambition_app/src/dev/rollback_observatory.rs`). Its
+resource lifetime should follow that answer.
 
 ## Q59 — two validation ledgers can be red when no lane ran: hook the lane or accept the state?
 
-Choose whether “not run” is a first-class incomplete receipt or whether those
-ledgers should be removed from the required surface.
+The engineering half is done: the verdict-bearing scripts that carry a budget,
+a waiver table or an absence contract run in `./run_tests.sh --maintenance`
+(`scripts/run_tests.py`). Reports (`measure_*`, `render_*`) exit 0 by design.
+The open part is the receipt model.
 
-⭐⛤ **THIS ROW HAD NO MEASUREMENT FOR ITS OWN SUBJECT UNTIL 2026-09-18, AND THE
-SUBJECT IS MUCH BIGGER THAN TWO LEDGERS.** Censused over every `scripts/*.py`
-whose `main()` returns a verdict — the population, rather than a naming
-convention over it:
-
-| what holds the verdict | count |
-|---|--:|
-| named as a `--maintenance` job | 41 |
-| not in the lane, but a pytest arm calls `main()` | 24 |
-| **nothing** | **77** |
-
-⚠ **THE 77 IS NOT 77 DEFECTS, AND SAYING SO IS THE POINT OF THE ROW.** Most of
-it is `measure_*` and `render_*` — REPORTS, which always exit 0 and are held by
-nobody on purpose. A report is exactly the *"remove it from the required
-surface"* answer, already taken, for most of the population. ⇒ The question is
-only live for the ones carrying a BUDGET, a WAIVER TABLE or an ABSENCE
-CONTRACT, and there were **eight** of those:
-`check_pinned_music_renderer_refuses_gm`, `check_capability_ships`,
-`check_engine_systems_are_engine_installed`, `check_headless_arms_can_fail`,
-`check_retired_crate_names`, `check_set_pins_have_engine_members`,
-`check_severed_sentences`, `check_quality_variants_are_fresh`. All eight were
-GREEN, which is how they stayed invisible — and all eight now run in the lane,
-at 11 seconds for the set.
-
-⇒ **SO THE ENGINEERING HALF ANSWERED ITSELF: at this price, hooking the lane
-wins.** What remains for a maintainer is the narrow version — whether *"not
-run"* should be a first-class **incomplete** receipt distinct from **pass** and
-**fail**, which is a receipt-model question and is not settled by any of the
-above. A ratchet costing 1–3 seconds does not need a policy; a ratchet costing
-minutes does, and the lane will grow ones that do.
-
-⚠ **AND THE CENSUS ITSELF IS THE ROW'S CAUTIONARY TALE.** Three sweeps for this
-same class ran on 2026-09-18 and the first two undercounted: one used
-`check_*.py` as its population and could not see `a_*.py`; the next used the
-`a_*` / `*_must_*` / `*_is_*` spellings and could not see these eight. Five
-guards were wired before the population was measured rather than guessed. A
-scan root is a citation, and a member outside it reads as absent rather than as
-unlooked-at.
+* **(a) "Not run" is a first-class incomplete receipt**, distinct from pass and
+  fail. Ledgers and the lane must record it.
+* **(b) No incomplete state.** A ledger that no lane runs leaves the required
+  surface. This is acceptable while each check costs seconds; a check that
+  costs minutes would need a policy.
 
 ## Q62 — keep or discard the epoch-captured 4,741-line `mary_o.ldtk` delta?
 
@@ -303,29 +371,15 @@ files until the ruling is made.
 
 ## Q63 — should interactables gate on facing, chests persist per-chest, pickups carry collected state, breakables author a debris cue?
 
-⚠ **THE FIELDS ARE GONE; THE FEATURES ARE THE QUESTION.** This question used to
-read *"five authored fields still have no runtime consumer: wire them or delete
-them?"* — and that phrasing kept four no-op authoring fields alive while it
-waited. All four are now deleted:
-`InteractableSpec.requires_facing`, `PickupSpec.collected` and
-`ChestSpec.persistent` on 2026-09-12, `BreakableSpec.debris_cue` on 2026-09-17.
-Each was serializable, documented, threaded through construction into a runtime
-representation, and consulted by nothing. See
-[item custody](engine/item-custody-and-accounting.md) for the measurement of all
-four and F4 in [the source findings](engine/architecture-review-findings.md) for
-the three traced by review.
-
-⇒ **Deleting a false capability did not answer this question and was never
-blocked on it.** What remains for a maintainer is the product choice: whether
-facing-gated interaction, per-chest persistence, per-pickup collected state and
-per-breakable debris cues are intended capabilities. Whoever wants one adds the
-field and its consumer together — an authoring field alone is what this question
-was originally filed about.
-
-ⓘ The "five-field" label was an inherited inventory with no surviving list; the
-traceable population is the four above, found by sweeping every field
-`spawn_static.rs` threads. Until a capability is chosen, unsupported nondefault
-values should receive diagnostics, not an invented runtime meaning.
+The four no-op authoring fields are deleted (`InteractableSpec.requires_facing`,
+`PickupSpec.collected`, `ChestSpec.persistent`, `BreakableSpec.debris_cue`).
+What remains is the product choice: are facing-gated interaction, per-chest
+persistence, per-pickup collected state and per-breakable debris cues intended
+capabilities? For each "yes", add the field and its consumer in one change. For
+each "no", nothing changes. Until a capability is chosen, unsupported
+nondefault values get diagnostics, not an invented runtime meaning. The Q45
+ruling (2026-10-01) already lets a unique capability item behave as an
+entitlement. See [item custody](engine/item-custody-and-accounting.md).
 
 ## Q66 — should the citation checker become a ratcheted gate now that its baseline is zero?
 
@@ -347,19 +401,18 @@ claimant. If no authored use is planned, remove/defer the unused capability.
 A seam with a plausible near-term composition use may stay; otherwise remove the
 dependency rather than preserving hypothetical architecture. Recheck actual
 production call sites and supported profile closure separately. The A9 render
-dependency finding concerns a mandatory reachable path, not this older unused-seam
-inventory; one is not evidence for the other.
+dependency finding concerns a mandatory reachable path, not this older
+unused-seam inventory; one is not evidence for the other.
 
 ## Q76 — are composite mount-riders actually planned?
 
-`MountedBrainCache` has no production constructor at the reference head. Keep the
-capability if future authored composite riders are intended; otherwise simplify
-rather than maintaining an unused semantic branch.
+`MountedBrainCache` has no production constructor. It is also the only body that
+`apply_brain_commands`' source-only arm serves (the arm keys on the mount's
+control claim, which only a cached rider files), and nothing resumes the source
+that arm records when such a ride ends.
 
-It is also the only body `apply_brain_commands`' source-only arm now serves
-(2026-09-23: the arm keys on the mount's control claim, which only a cached
-rider files), and nothing resumes the source that arm records when such a ride
-ends. A "yes" owes that resume; a "no" deletes the arm with the cache.
+* **(a) Yes.** Keep the capability, and add the resume when a ride ends.
+* **(b) No.** Delete the cache and the source-only arm.
 
 ## Q78 — how should the divergent/unpushed sprite-renderer submodule state be reconciled?
 
@@ -381,1188 +434,107 @@ closure do not supply a hardware budget.
 
 ## Q103 — what should an unprepared character id inherit at wear time?
 
-Prepared characters fold catalog movement tuning and motion model at admission, but the wear road still has a fallback for ids outside the prepared registry. Choose one contract: inherit the catalog's authored tuning at wear time, inherit engine defaults, or refuse an unprepared wear. The shipped compositions currently have no orphan prepared ids, so this is a boundary-policy decision rather than a live content defect.
+Prepared characters fold catalog movement tuning and motion model at admission,
+but the wear road still has a fallback for ids outside the prepared registry.
+The shipped compositions have no orphan prepared ids, so this is a
+boundary-policy decision, not a live content defect.
+
+* **(a) Inherit the catalog's authored tuning at wear time.**
+* **(b) Inherit engine defaults.**
+* **(c) Refuse an unprepared wear.**
 
 ## Q109 — should a simulated identity be able to name its room instance?
 
-Current deterministic ids identify authored/simulated objects but do not encode a room-instance dimension, so a second instance of the same authored room can collide with an already-live identity. Decide whether room-instance identity belongs in canonical `SimId` semantics or should be represented by a separate deterministic scope. This gates A8's two-instance proof.
+Deterministic ids identify authored/simulated objects but do not encode a
+room-instance dimension, so a second instance of the same authored room can
+collide with an already-live identity. This gates A8's two-instance proof.
+
+* **(a) Room-instance identity belongs in canonical `SimId` semantics.**
+* **(b) Room instance is a separate deterministic scope** beside `SimId`.
 
 ## Q128 — should the simulation tick be rebased when peers agree to start, or stay an absolute per-App count?
 
-**The last open road of the ID-PEER campaign, and the only one that cannot be
-closed by engineering alone.** ⭐ **AND "LAST" IS NOW A MEASUREMENT RATHER THAN A
-FIGURE OF SPEECH, 2026-09-17.** Two hosts that reach the shipped Ambition route
-by different shell histories now agree on **144 of the 146 real GGRS
-`ChecksumPart`s**, and the two that differ are this question and `Q129`. It was
-59 of 146 the same morning, before the rollback carrier ordering was rebased at
-frame zero. So a ruling here is not one improvement among many: with `Q129` it is
-the whole remaining peer-visible difference between two hosts whose canonical
-identities and values are identical
-(`two_local_histories_compute_the_same_ggrs_component_checksums`, which asserts
-BOTH still differ, so this line cannot go stale in the quiet direction). `ambition_time::SimTick` is registered
-`resource-canonical`, so its ABSOLUTE value is inside the checksum two peers
-compare. Measured 2026-09-15: one writer (`advance_sim_tick`, `+1` per step),
-`init_resource`'d once at App build, never rebased anywhere in the workspace, and
-sitting unconditionally at the head of the sim schedule — so it counts menu
-frames. ⇒ Two Apps that have been running for different lengths of time disagree
-about `sim_tick` from the first compared frame, before anything else in that
-campaign matters.
+`ambition_time::SimTick` is registered `resource-canonical`, so its absolute
+value is in the peer checksum. It has one writer (`advance_sim_tick`), it is
+never rebased, and it counts menu frames. Two hosts that reach the same route by
+different shell histories differ on 2 of 146 GGRS `ChecksumPart`s: this one and
+`AmbitionGameSave` ([Q129](#q129--must-the-save-file-be-part-of-what-two-peers-agree-on)).
+`two_local_histories_compute_the_same_ggrs_component_checksums`
+(`game/ambition_app/tests/shell_host_lifecycle.rs`) asserts that both still
+differ. A projection cannot close this road: excluding the tick excludes the
+timeline. Nothing observes a two-peer disagreement today, because the workspace
+builds only `Session::SyncTest`.
 
-⛔ **IT CANNOT BE CLOSED THE WAY THE OTHER NINE WERE.** Every one of those was a
-projection or an ownership move: exclude the local term, or make the stale value
-impossible. A projection that excluded the tick would exclude the TIMELINE
-ITSELF, which is the one thing a rollback comparison is about. What is needed is
-a session-relative tick, rebased at the moment peers agree to start — and where
-that agreement comes from is a netcode decision, not a refactor.
+Owner: the canonical-timeline road of `ID-PEER` in [`queue.md`](queue.md).
+`C03` and `C05` coordinate with it if it starts.
 
-⚠ **NOTHING IN THE REPOSITORY CAN CURRENTLY OBSERVE THE DEFECT.** Re-derived
-2026-09-16 rather than carried: `Session::SyncTest` is constructed in **exactly one
-place** in this workspace (`ambition_platformer2d_rollback_ggrs/src/session.rs`),
-and `Session::P2P` appears **exactly once**, in a match arm reading
-`confirmed_frame()` — so no P2P session is ever built. One machine rewinding
-itself, zero distance; a canary comparing a machine against its own past is
-structurally incapable of catching a two-peer disagreement. Every leak in that
-campaign had to be found by reading. So this will not announce itself, and it does
-not get more urgent on its own.
-
-⛔⛤ **BUT OPTION (b) NOW DEFERS TWO POPULATIONS, NOT ONE, AND THAT IS NEW SINCE
-THIS WAS WRITTEN.** The ID-PEER campaign's twelfth road is **S7's 25 rows** —
-registered rollback state that is outside the session checksum, read by an
-unfiltered per-tick query, and float-bearing, twelve of them mutably written in
-production (`engine/simulation-authority-and-determinism.md`). Those rows carry no
-host-local id, so no projection closes them and no ownership move closes them;
-they are simply never compared between peers, and **the same absent session is the
-only thing that could ask whether two peers agree about them.** Two of the twelve
-were measured clean 2026-09-16 and that clears them of a LOCAL RESTORE defect and
-nothing else — a value nothing compares between peers is reproducible locally and
-divergent across peers at the same time.
-
-⇒ So "(b) keep it absolute and accept that peer comparison waits for real
-sessions" is a bet on one absent session covering the tick AND 25 ranked
-float-bearing rows AND both halves of `SETTINGS-ROLLBACK`'s policy resources. That
-does not make (a) right; it makes the price of (b) larger than the paragraph above
-it implies, and the price was not visible when it was written.
-
-The choice: (a) rebase the tick at an agreed session start, which means deciding
-what "agreed" is before there is a handshake to carry it; (b) keep it absolute
-and accept that peer comparison waits for real sessions, recording it as a known
-hole rather than an oversight; (c) project it out and replace the timeline term
-with something else, which nobody has proposed a shape for. Recorded by the
-`queue.md` ID-PEER table, which names this as one of two roads still open — the
-other is `Q122` above, the snapshot schema fingerprint hashing prose.
+* **(a) Rebase the tick at an agreed session start.** First decide what
+  "agreed" is; netcode `N2` has no handshake yet.
+* **(b) Keep it absolute** and record that peer comparison waits for real P2P
+  sessions. The same wait also defers S7's unchecksummed float rows
+  ([simulation authority](engine/simulation-authority-and-determinism.md)) and
+  the policy resources of `SETTINGS-ROLLBACK`.
+* **(c) Project the tick out** and replace the timeline term with something
+  else. Nobody has proposed a shape.
 
 ## Q129 — must the save file be part of what two peers agree on?
 
-**MEASURED 2026-09-16, and unlike Q128 this one announces itself today.** A bag
-that changes once per tick desyncs a GGRS sync test within six ticks. ⭐ **AND A
-SECOND, INDEPENDENT MEASUREMENT REACHED IT FROM THE OTHER SIDE ON 2026-09-17:**
-two hosts that reach the shipped Ambition route by different shell histories now
-agree on 144 of the 146 real GGRS `ChecksumPart`s, and the two that differ are
-this question and `Q128`. Different instrument, different population — one App
-rewinding itself against one bag, versus two Apps with different route histories
-compared whole — and the same row. ⇒ A ruling here and on `Q128` is the whole
-remaining peer-visible difference between two hosts whose canonical identities
-and values are identical. The chain, AS IT STOOD WHEN THIS WAS FILED:
-`persist_inventory_to_save` sat in top-level `Update` and wrote the live bag
-into `AmbitionGameSave` once per FRAME; `AmbitionGameSave` is registered
-`rollback_resource_clone_checksum`, so its value is compared once per TICK; and a
-rewind re-simulates ticks without re-running `Update`. The hashed save therefore
-described a different frame from the tick it was compared at. Of 364 probed
-rollback entries, exactly ONE differed between a run whose bag moves and an
-otherwise identical run whose bag does not, and it was this one.
-✅ **THAT PLACEMENT IS REPAIRED and the question is not.** Re-derived 2026-09-18:
-all three `persist_*_to_save` mirrors are registered through `app.sim_schedule()`
-(the table above counts them on the sim side), the divergence set is empty, and
-`resources_crossing_the_rewind_boundary.py` reports `AmbitionGameSave` does not
-cross the rewind boundary. ⇒ What remains is the OWNERSHIP question this entry is
-named for, and the two-host measurement above is the reason to answer it — not a
-live desync.
-
-⛔ **A SYNC TEST IS ONE MACHINE REWINDING ITSELF, WHICH IS WHY THIS MATTERS
-NOW.** No second peer is required for the divergence — a single App already
-disagrees with its own replay. Every road that changes a bag during play crosses
-this: a pickup, a shop sale, a drop. ⭐⭐ **IT IS NOT CADENCE AND IT IS NOT SUSTAINED CHANGE — IT IS THE FIRST THREE
-TICKS.** Sweeping the tick at which an every-tick grant STARTS, 120 steps each:
-
-| grants every tick from | end tick | bag | health |
-|---|---|---|---|
-| 1 | 6 | 8 | ⛔ `Err(mismatch at [2, 3, 4, …])` |
-| 2 | 6 | 7 | ⛔ `Err(mismatch at [2, 3, 4, …])` |
-| 4 | 121 | 120 | `Ok` |
-| 6 | 121 | 118 | `Ok` |
-| 8, 12, 16, 20 | 121 | 116, 112, 108, 104 | `Ok` |
-
-⇒ **A BAG CHANGING ON EVERY ONE OF 118 CONSECUTIVE TICKS IS CLEAN IF IT STARTS AT
-TICK 4.** The defect lives entirely in the first three ticks, and `check_distance`
-is 4 — the mismatch is reported at frames `[2, 3, 4]`, which is the window before
-the session has a full rollback history behind it.
-
-⚠ **THIS IS THE THIRD FRAMING OF THIS ROW AND EACH ONE WAS MEASURED.** First "a
-per-tick change desyncs", then "sustained change desyncs and a single change does
-not" — which survived a floor check and was still wrong, because the two cases
-differed in START TICK as well as in cadence and I had varied both at once. A
-cadence sweep (N consecutive grants from tick 20, N ∈ {1,2,3,4,5,8}) came back
-clean at every N, which is what said cadence was not the variable at all.
-
-⛔ **TWO MECHANISMS PROPOSED AND BOTH REFUTED.** YardratAmbition offered a pair
-with OPPOSITE predictions, which is the right shape — a mechanism that explains a
-number is not evidence for it. **(A) ACCUMULATION:** `grant` makes the bag
-`3 + (times the system RAN)` rather than a function of the frame, and a
-resimulation re-executes steps; predicts that a pure function of the tick runs
-clean. **(B) THE ONE-UPDATE LAG:** the mirror runs in `Update` once per
-`app.update()` while GGRS snapshots inside the sim schedule, so a frame's snapshot
-holds the save as of the previous update; predicts that a pure function of the
-tick still desyncs.
-
-Measured, 120 steps each, writing `take(all)` then `grant(tick % 5)` so the value
-cannot depend on how many times the system ran:
-
-| write | end tick | peak bag | health |
-|---|---|---|---|
-| pure `f(tick)`, every tick from 1 | 6 | 4 | ⛔ mismatch |
-| pure `f(tick)`, every tick from 4 | 121 | 4 | `Ok` |
-| pure `f(tick)`, once at 20 | 121 | 3 | `Ok` |
-| accumulating `grant`, every tick from 1 | 6 | 10 | ⛔ mismatch |
-
-⇒ **(A) IS DEAD** — a pure function of the tick desyncs exactly as the
-accumulating write does, so the arithmetic is irrelevant. ⇒ **(B) IS DEAD TOO**
-— it predicts a desync from tick 4, and tick 4 is clean. The only variable that
-predicts the outcome remains the START TICK, and no proposed mechanism yet
-explains why the first three ticks are different.
-
-⚠ The `peak` column exists because `tick % 5` is zero once every five ticks, so
-the FINAL bag reads 0 both when the write ran and when it never ran at all. The
-high-water mark separates them; without it the "from 4" row would have been a
-clean result from a write nobody had shown fired. ⚠⚠ And the first version of
-this experiment compared a write starting at tick 1 against a control firing at
-tick 20 — varying start tick alongside arithmetic, the SAME confound that made
-the sustained-versus-single framing wrong two hours earlier. The "from 4" row is
-the repair, and it was added before the result was written down rather than after.
-
-⛔ **A THIRD CANDIDATE, MINE, ALSO REFUTED — AND BEFORE IT WAS ASSERTED.**
-`complete_durable_restore` sets `SaveRestored` once from `Update` on the first
-frame a primary player body exists, and that latch gates whether the mirrors
-write at all; it is `rollback_resource_clone`, so a rewind into a frame where it
-was still false would let the latch re-open and run the system a second time.
-That shape would make ticks 1..=3 special and everything after boring. ⇒ It is
-wrong: measured, `SaveRestored` reads `true` at step 0 of both a desyncing run
-and a clean one and never moves. The latch has already settled before the window
-opens.
-
-⭐⭐ **BUT THE SAME PROBE PRODUCED THE SHARPEST FACT IN THIS ROW, and it is two
-independent measurements agreeing.** The save's census in a desyncing run, per
-tick: `0xce4e4758…` at tick 1, then `0x4f52c70a…`, `0x8cf64e57…`, `0xe2f498aa…`,
-`0xb8f85fb1…`, `0xd41e15e0…` — a new value every tick. YardratAmbition's
-`RollbackRestoreAudit`, reading the resimulation from inside one run, reports
-frames 2, 3 and 4 each diverging with **the replay xor CONSTANT at
-`0xce4e4758…`** while the first-pass xor moves every frame. ⇒ **THE REPLAY OF
-EVERY COMPARED FRAME SEES THE SAVE AS IT WAS AT TICK 1.** Two different
-instruments, two sessions, one number.
-
-⚠ **A FOURTH CANDIDATE, PARTLY CONSTRAINED.** YardratAmbition's: the frame-1
-lifecycle trace shows roots admitted, a candidate session published and entities
-promoted, so ticks 1..=3 might be special because the ENTITY POPULATION is still
-settling — a structural property of the window rather than of anything a test
-writes. ⇒ Measured against the room this row uses, with NO writer installed: the
-`FeatureSimEntity` roster reads 7 at tick 1 and 7 at every tick through 13, never
-changing. So that population is already settled before the first observable tick.
-⚠ **That constrains the candidate without killing it** — `feature_roster` counts
-one population, and session roots, promoted entities and custody holders are not
-in it. If the window's specialness is about entities, it is not about these.
-
-⛔ AND ANY SURVIVING VERSION MUST SATISFY A CONSTRAINT ALREADY MEASURED: a system
-granting ZERO every tick from tick 1 — same `ResMut<OwnedItems>`, same schedule
-position, same change detection, value unchanged — is CLEAN. So the window alone
-is never sufficient. The property is a conjunction: a CHANGED hashed value during
-a window that is still settling in some way not yet identified.
-
-⚠ What that does NOT yet explain is why a change starting at tick 4 is clean. If
-the replay always read a stale save, a change at tick 20 would diverge too. ⇒ The
-honest reading is that the replay holds whatever the restore point carried and
-the sampled window was ticks 2–4, so "the restore point is tick 1" and "the
-restore point is stale by a fixed amount" are not yet separated. That is the next
-measurement, and it wants the audit pointed at a window starting well after tick
-4 rather than another hypothesis.
-
-⇒ **SO THE PRACTICAL SEVERITY IS MUCH LOWER THAN THE FIRST TWO FRAMINGS SAID.** A
-pickup, a shop sale or a drop during play does not desync — measured, not
-inferred. What desyncs is inventory changing in the session's first three ticks,
-which is startup: a save restore, an opening script, a debug grant at boot.
-⛔ That is still a real hole and still wants the ruling below, because the repair
-is the same and because "do not touch the bag for the first three ticks" is not a
-contract anything states or checks.
-
-⚠ **AND THE ROLLBACK ARMS DO NOT EXERCISE IT**, corrected twice. I first wrote
-that they never change inventory in a rewinding window, then retracted that on
-finding `grant_pickup` writes `OwnedItems` and `carried_item_crosses_rooms` picks
-items up. ToothbrushAmbition measured the retraction and it was the over-correction:
-that file's only `with_sync_test_rollback_settings` arm is
-`a_mount_dying_under_a_possession_survives_rewinds`, which does not touch the bag,
-and every `pick_it_up` caller in it is in a `fixed_60hz_room_sim` arm with no GGRS
-session. The file matches a grep for both terms because it holds both KINDS of arm.
-⇒ The first claim was right and the correction was wrong, and neither was measured
-when written.
-
-⛔⛤ **THE CLEAN RESULTS ABOVE ARE WEAKER THAN THEY LOOK, AND THIS REFRAMES THE
-WHOLE ROW — MEASURED 2026-09-16 BY YardratAmbition, RE-RUN HERE.** Every "clean"
-verdict in the tables above is a comparison that came back equal. But over that
-same window the save's HASHED PROJECTION barely moves.
-`probe_how_much_of_the_peer_checksum_actually_varies`, run at `f96493e31`: of the
-**144** entries whose kind feeds the peer checksum,
-`ambition_persistence::save::AmbitionGameSave` shows **2 distinct censuses**,
-against **238** for each of its nine busiest neighbours (`SimTick`,
-`BodyKinematics`, `ActorPose`, `CenteredAabb`, `MotionModel`, `SweepSample`,
-`BodyLifetime`, `GameplayElapsed`, `PlayerProjectileState`). The sibling file's
-header puts it more sharply still: exactly one value across every frame GGRS
-saved twice, while the LIVE save reaches 247 mirrored items.
-
-⇒ **SO "A PICKUP DURING PLAY DOES NOT DESYNC" IS TRUE FOR A REASON THAT MAKES IT
-WORSE, NOT BETTER.** A comparison that cannot differ cannot fail. The 120-step
-runs that came back `Ok` with a bag reaching 120 did not show the mechanism is
-benign during play; they show that during play the save is not effectively being
-compared at all. ⛔ The severity paragraph below stands as a statement about
-OBSERVED desyncs and must not be read as a statement about coverage.
-
-⚠ **WHICH MAKES A PRIOR QUESTION, AND IT IS ARGUABLY THE ONE TO ANSWER FIRST:
-is a registered-but-pinned hashed entry a defect in the REGISTRATION, a defect in
-the SNAPSHOT ROAD, or an intended property nobody wrote down?** `AmbitionGameSave`
-is in the peer contract by registration and out of it in effect. Whichever of
-(a)/(b)/(c) is chosen, that stays true unless the projection itself changes —
-and if the answer is "intended", then (b) is closer to describing the tree as it
-already behaves than to changing it.
-
-⚠ **THREE CAVEATS, CARRIED BECAUSE THE NUMBERS INVITE A WRONG READING.**
-(1) **116 entries are constant under BOTH idle and play, and that is NOT a defect
-list** — a component nobody spawns in this room, a resource only a boss
-encounter writes, and a genuinely frozen projection all land in the same bucket;
-separating them needs the live value read beside the census, which no instrument
-does for 144 types. (2) Playing rather than idling wakes **15** entries that were
-constant while idle, so the bucket is a property of the exercise as much as of
-the registration. (3) The probe reports the SIZE of each bucket, which is what
-nobody had — not which members are wrong.
-
-⛔⛤ **THE 2026-09-16 MERGED-STATE REVIEW REFUSES (b) OUTRIGHT AND RATES THE
-DEFECT P0, ABOVE CONSOLIDATION WORK.** Its words: *"Do not fix this by simply
-removing `AmbitionGameSave` from the checksum. The night's later census
-invalidated that tempting solution."* ⇒ So the choice below is preserved for its
-reasoning, but (b) is no longer live: it *"would make the immediate test green by
-throwing away comparison coverage for substantial simulation state"*, which is
-this ledger's own 13-of-19 count read back to it.
-
-⇒ **The direction it prefers is (a)'s smallest form** — the three live→save
-mirrors cross the same rollback boundary as the state they mirror, so a replay
-can reproduce them, with disk I/O and autosave staying outside the simulation and
-the layering *rollback-owned durable mechanical representation → confirmed/local
-persistence projection → disk*. ⛔ And explicitly NOT the larger "is
-`AmbitionGameSave` both simulation authority and disk representation" split
-before the replay defect is fixed.
-
-✅ **THE REPAIR LANDED 2026-09-16 AND THIS Q IS NARROWER FOR IT.** The three
-mirrors now register through `app.sim_schedule()`; the divergence set is empty
-and the projection moved from 1 distinct census to 236 across the compared
-frames. ⇒ So the desync is no longer the reason to answer this question, and the
-pinned-projection half of it is ANSWERED for the save: it was pinned BECAUSE the
-mirrors wrote from `Update`, and it tracks now that they do not. What remains is
-the ownership question on its own merits — should a save FILE be part of what two
-peers agree on — plus the general form of the prior question, which the save no
-longer instantiates: whether any OTHER registered-but-pinned hashed entry exists,
-and whether that is a defect in the registration, in the snapshot road, or an
-intended property nobody wrote down. The 116-constant-under-both bucket is where
-that would be looked for, and it is still not a defect list.
-
-⚠ **IT ALSO SHARPENED THE ACCEPTANCE, AND THE SHARPENING WAS THIS Q's OWN PINNED
-PROJECTION.** Verbatim: *"I would not accept merely: startup repro now passes"* —
-because the reason the mismatch manifests primarily in the opening few ticks is
-still unexplained, and the registered checksum *"barely changes during some long
-play windows even when the live save changes substantially"*. ⇒ Acceptance must
-show a representative in-simulation save mutation is genuinely being COMPARED
-across repeated snapshots, *"rather than the checksum becoming accidentally
-pinned and therefore incapable of disagreement"*. That is the 2-against-238
-measurement above, arrived at independently, and it means the prior question is
-not optional bookkeeping: a repair validated against a pinned projection would
-report success from a comparison that cannot fail.
-
-The choice: (a) derive the save inside the sim schedule so a rewind re-derives
-it, which makes a persistence mirror into simulation work and raises the cost of
-every rewind; (b) take `AmbitionGameSave` out of the peer checksum, on the ground
-that a save FILE is a local artifact and not simulation authority two peers must
-agree on; (c) keep both and gate the mirror so it only runs on confirmed frames,
-which needs a confirmed-frame hook the `Update` schedule does not currently have.
-
-⛔ **(b) LOOKED SMALLEST UNTIL THE WRITERS WERE COUNTED, AND THE COUNT ARGUES
-AGAINST IT.** The test is whether anything OTHER than the three `Update` mirrors
-writes `AmbitionGameSave` inside a REWINDING schedule — because if nothing does,
-taking it out of the checksum costs only the coverage those mirrors never
-honestly provided, while if something does, (b) silently drops a real guarantee.
-**Something does.** `apply_flag_effects` takes `ResMut<AmbitionGameSave>`
-(`crates/ambition_platformer2d_actor_monolith/src/features/ecs/effect_bus.rs:18`)
-and is registered through `app.sim_schedule()`
-(`crates/ambition_platformer2d_actor_monolith/src/features/mod.rs:204`). A story
-flag set by the simulation lands in the save inside the rewinding schedule, where
-the checksum is doing real work. ⇒ On that evidence (a) is the honest option and
-(b) trades a defect for a blind spot.
-
-**AND THE CENSUS IS NOW DONE: 18 OF THE 19 WRITERS ARE IN A REWINDING SCHEDULE —
-RE-DERIVED 2026-09-18.** Every system taking `ResMut<AmbitionGameSave>`
-workspace-wide, resolved to the `add_systems` call that registers it and that
-call's first argument:
-
-| registered in the sim schedule (18) | not (1) |
-|---|---|
-| `apply_flag_effects`, `apply_quest_advance_events`, `apply_wave_encounter_effects`, `capture_falling_sand_switch_interactions`, `celebrate_symmetry_attunement`, `count_the_dialogue_visit_when_a_conversation_opens`, `drain_switch_activations`, `drive_wave_encounters`, `grant_quest_completion_rewards`, `heal_save_shrine_system`, `persist_inventory_to_save`, `persist_minted_item_horizon_to_save`, `persist_occurrence_horizon_to_save`, `reset_cut_rope_attempt_on_replay`, `retire_rewards_for_rearmed_encounters`, `tick_active_cutscene`, `track_room_visits`, `update_boss_encounters` | `load_save_at_startup` (`Startup`) |
-
-⚠ 2026-09-23: `capture_falling_sand_switch_interactions` was DELETED (it was a
-second writer of the spout switch flags the drain already toggles), so a re-run
-finds 18 writers, 17 in the sim schedule. The row above is the 2026-09-18 census.
-
-⛔⛤ **THIS TABLE READ "13 of the 19" AND NAMED SIX OUTSIDERS UNTIL 2026-09-18, AND
-EVERY ONE OF THE FIVE THAT LEFT THAT COLUMN LEFT FOR A DIFFERENT REASON.** The
-three `persist_*_to_save` mirrors and `track_room_visits` are registered in the
-sim schedule now; `dispatch_pending_dialog_requests` left the POPULATION rather
-than the column — it no longer takes the resource at all — and
-`count_the_dialogue_visit_when_a_conversation_opens` arrived inside the schedule
-as its replacement. ⇒ A census kept as a static table is a duplicate of the tree;
-this one now carries the command that rebuilds it.
-
-⇒ **THE SAVE IS SIMULATION STATE IN PRACTICE, WHATEVER IT IS IN PRINCIPLE**, and
-the margin is no longer arguable: quest advances, boss encounter progress, switch
-activations, shrine heals, cutscene ticks, the map's visit stamp, the three save
-mirrors and the dialogue visit counter all write it from inside the rewinding
-schedule, where the checksum is doing real work. Taking it out of the peer
-contract would stop comparing all eighteen. (b) is therefore not the small
-option; it is the largest one, measured by what it stops checking. ⚠ The single
-outsider is `Startup`, before any timeline exists — so there is no longer a
-"writes it from `Update`" tail to point at.
-
-**Method, so the next reader redoes it rather than trusting it.**
-`ResMut<'?, AmbitionGameSave>` parameter occurrences over
-`multi_writer_resource_census.production_files()` with comments and test modules
-stripped: 19 occurrences in 17 files, 19 distinct enclosing `fn`s. Each name is
-then found inside an `add_systems(..)` call in a production file and the call's
-first argument read.
-⚠ Three method notes, because the count would have been wrong without them.
-(1) A name inside `.after(...)` is an ORDERING EDGE, not a registration — two
-systems appear in a second `add_systems` call for that reason
-(`heal_save_shrine_system` at `checkpoint.rs:1802`,
-`capture_falling_sand_switch_interactions` at `falling_sand.rs:141`), and both
-resolve to `sim` either way, so the classification does not turn on it here.
-(2) A schedule can be a PARAMETER: `track_room_visits` is registered with
-`install_map_simulation_systems(app, schedule)`, and the one production caller
-(`progression_schedule.rs:99`) passes `sim`. A classifier that read the callee
-alone would have said "unknown" and a careless one "not sim".
-(3) The three `persist_*` mirrors landing on the sim side is now the positive
-control — while they were in `Update` it was the other way round, which is why
-this note changed direction rather than being deleted.
-
-⛔⛤ **AND THE SAME FACT IS ALREADY IN THE PEER CONTRACT BY A SECOND ROAD, WHICH
-NARROWS THIS QUESTION — MEASURED 2026-09-18.** The bag is out of the checksum and
-its BASELINE is in:
-
-| resource | registration | in the peer checksum? |
-|---|---|---|
-| `OwnedItems` | `rollback_resource_clone` | **no** |
-| `OwnedItemsBaseline(OwnedItems)` | `rollback_resource_clone_checksum`, projecting `to_persisted()` rows | **YES** |
-
-⇒ `capture_owned_items_baseline` copies the live bag into the baseline on every
-`CheckpointCommitted`, so **the first checkpoint commit carries the player's
-stored quantities across the line this question is about.** Answering "the save
-file is not peer state" by leaving `OwnedItems` unhashed does not achieve that
-today.
-
-⚠ **AND NEITHER SIDE OF THAT ASYMMETRY IS A RECORDED DECISION.** `OwnedItems` is
-unhashed by KIND — `rollback_resource_clone`'s `feeds_peer_checksum()` is false —
-and its registration in `ambition_items/src/rollback_registration.rs` carries no
-reason at all; the baseline is hashed because somebody chose `_clone_checksum`
-for it, also without a reason. ⇒ One fact, two projections, opposite answers, no
-argument on either side. That is what makes it this entry's business rather than
-a defect somebody can just fix.
-
-⛔ **NOTHING CAN OBSERVE IT TODAY, AND THAT IS THE USUAL REASON.** Only
-`SyncTestSession` is ever constructed — one peer replaying itself, whose two save
-files are the same file — so no arm can produce two peers whose bags differ. The
-same limit the sync-test witnesses elsewhere in this document state about
-themselves.
-
-⚠ **AND THE ADJACENT ASYMMETRY IS NOT THIS ONE, so do not fold them.**
-`OwnedItemsBaseline` is also the one checkpoint baseline of four that is NOT in
-`SessionScopedResources`, and that part IS consistent: `OwnedItems` is not
-session-scoped either, so the baseline travels with the value it baselines, while
-the three that do reset describe world placement. That reason is now stated at
-`session/teardown.rs` beside the three, where its absence used to be a default.
-
-Reproduction, eliminations and the full harness matrix are in
-[ROLLBACK-BAG-DESYNC](queue.md#rollback-bag-desync--ambitiongamesave-disagrees-with-its-own-rollback-replay---repaired-2026-09-16-acceptance-met-the-authorityrepresentation-split-is-deferred-and-q129-is-open);
-the owner document is
-[DURABLE-HORIZON-CHECKSUM](queue.md#durable-horizon-checksum--the-save-mirrors-write-hashed-state-from-update).
-
-## Q135 — should GGRS start before the durable restore has finished?
-
-✅ **ANSWERED AND LANDED 2026-09-16: NO, AND IT NO LONGER CAN.** (The heading
-keeps the question because five other planning rows link to this anchor.)
-
-**The session-start gate is in.** `maintain_local_session` now refuses to CREATE
-a rollback session while a durable restore is pending, so no simulation tick is
-ever run over a world whose save is still being applied. Held by
-`a_conversation_on_the_first_tick_of_a_session_is_counted_exactly_once`
-(`game/ambition_app/tests/a_bag_changed_mid_window_reaches_the_save.rs`), which
-poison-verifies both the gate and the predicate behind it.
-
-⛔⛤ **AND THE HARD-WON PART IS THE PREDICATE, NOT THE GATE. `SaveRestored` IS
-NOT A LATCH THAT ALWAYS RISES.** The obvious implementation — wait while
-`!restored.0` — was written, measured, and **failed 66 app tests** with *"the
-match seats a first fighter"* and *"the opening ceremony never released the
-cast"*. `complete_durable_restore` needs exactly one `PrimaryPlayerOnly` body
-carrying a `BodyWallet`; a smash match never has that singleton, so **its latch
-reads false for the entire process.** Gating on the bare boolean hung every
-smash composition at session start.
-
-⇒ `SaveRestored` is a **completion fact about one domain in one experience**, not
-a readiness fact about the world, and "nothing to hydrate" and "hydration
-pending" are the same bit in it. The gate therefore asks a three-valued question
-that `session::durable_horizon::durable_hydration_is_pending` owns: the save is
-unapplied **and** this world has the body that lets it be applied. One fact, one
-owner, read over a dependency edge (`rollback_ggrs -> actor_monolith`) that
-already existed — no readiness flag mirrored into a lower layer, and no new state
-machine.
-
-⚠ **AN EARLIER NOTE IN THIS FILE SAID THE ROLLBACK-HOST CRATE COULD NOT LEGALLY
-SEE `SaveRestored`, AND THAT WAS WRONG.** `ambition_platformer2d_rollback_ggrs`
-already depends on `ambition_platformer2d_actor_monolith` and uses it heavily
-(`lifecycle_commit.rs`). That false belief was the entire reason this item was
-held for a ruling about introducing a new lower-layer capability. There was
-nothing to introduce.
-
-⚠ The predicate's body condition restates `complete_durable_restore`'s own, and
-the drift guard is those 66 tests: if it ever reports "pending" where the system
-cannot complete, every smash fixture in `app_it` hangs and names itself.
-
-**The original question, for the record.** `maintain_local_session` started the
-rollback session on `session_world_entity(world).is_some()`, while the
-durable-restore chain — `adopt_occurrence_checkpoint_from_save`,
-`restore_inventory_from_save`, `complete_durable_restore` — waited for a primary
-player BODY, a later fact. Both lived in top-level `Update` with **no ordering
-edge between them.**
-
-**MEASURED 2026-09-16**, `probe_when_the_durable_restore_latch_flips_against_ggrs_start`
-in `game/ambition_app/tests/a_bag_changed_mid_window_reaches_the_save.rs`:
-
-| | session world | primary body | GGRS live | latch set |
-|---|--:|--:|--:|--:|
-| first frame true | 1 | 1 | 1 or 2 | 2 |
-
-- A sampler with an explicit `.after(complete_durable_restore)` edge finds the
-  GGRS session **already live** at the instant the latch is set.
-
-⛔⛤ **RE-MEASURED 2026-09-16, AND THE ANSWER IS NOT A FRAME COUNT. WHETHER THE
-PRE-HYDRATION HOLE EXISTS AT ALL IS DECIDED BY UNRELATED `Update` MEMBERSHIP.**
-
-The between-frame probe above reports when GGRS becomes **live**. Liveness is not
-**advance**: a session can exist for a frame without stepping the timeline, and a
-frame of that shape carries no tick for anything to happen on. So the question
-was re-asked with a recorder INSIDE the simulation schedule, in
-`FeatureInteractionSet::Actuate` — where the real conversation opener sits —
-reading `SaveRestored` at the instant an opener would read it.
-
-Two worlds, identical but for whether ONE unrelated `Update` system is installed
-(this file's own within-frame sampler):
-
-```text
-sampler absent    first simulated tick = tick 0 on host frame 3, latch TRUE
-sampler present   first simulated tick = tick 0 on host frame 2, latch FALSE
-```
-
-⇒ In one composition **no tick is ever simulated unrestored** and the hole does
-not exist. In the other, **exactly one tick — tick 0, the first tick of the
-session — is simulated with the latch false.** Same options, same recorder, same
-harness.
-
-⭐ **THAT IS WHY THE GATE EXISTS, AND IT IS A STRONGER REASON THAN A WINDOW
-WIDTH.** The
-defect is not "a window of N frames", which could be argued down by making N
-small. It is that **nothing orders durable hydration against the start of the
-synchronised timeline**, so the answer is decided by whichever systems happen to
-share `Update` — a property no reviewer of either system can see. Adding an
-unrelated system to `Update` can open the hole; removing one can close it. A
-lifecycle that is correct by coincidence is the thing option 1 exists to end.
-
-That defect was held by an arm asserting the PAIR — **1 visit** when hydration
-won the race, **0 visits** when it lost — and the repair inverted it, as the row
-above said it had to. The arm is now
-`a_conversation_on_the_first_tick_of_a_session_is_counted_exactly_once`
-(`game/ambition_app/tests/a_bag_changed_mid_window_reaches_the_save.rs`): it
-still runs BOTH compositions with the same first-tick conversation opener, and
-both now read **1 visit** with an EMPTY unrestored-tick list. It also carries a
-premise guard the pre-repair form did not need — *"a world that never simulates
-is not a world that never loses a visit"* — because the failure this repair can
-plausibly cause is a gate that refuses to start a session at all.
-
-⛔ The edge stays an edge. Satisfying this by relaxing the counter's
-`opened_at == tick` to `opened_at <= tick` was explicitly out then and is still
-out: that turns an edge into a level and over-counts every tick a conversation
-stays live.
-- `RollbackFrameCount` reads **1** there — timeline frame one, inside a check
-  distance of four, so a resimulation reaches back past the write.
-- All three restored resources are `rollback_resource_clone_checksum`
-  registrations. A rewind across frame 1 restores them to their pre-write
-  snapshot, and `Update` does not re-run.
-- The gap is not stable: adding ONE exclusive system to `Update` moved the
-  session start from frame 2 to frame 1 and shortened the boot by a frame. Each
-  configuration is repeatable (3/3 and 6/6) and they disagree.
-
-⇒ So the session-scope waivers' *"the write precedes the timeline"* is not merely
-unavailable here; **the reverse is what happens.**
-
-**THE RULING.** Either
-
-1. **GGRS must not start until the durable restore is complete.** Gate
-   `maintain_local_session` on `SaveRestored`, or on a broader "the session world
-   is finished loading" fact, so a synchronised timeline never begins over a world
-   that is still being filled in. This is the semantically clean answer and it is
-   a lifecycle change in `ambition_platformer2d_rollback_ggrs::local_session`.
-   ⚠ It needs a decision about what else belongs behind the same gate, or the next
-   loader to appear reopens this.
-2. **The restore chain must move inside the rewinding schedule**, so a rewind
-   re-derives what it wrote. ✅⛤ **ITS PREREQUISITES WERE ALREADY MET AND ITS
-   BLOCKING DEFECT IS NOW FIXED, BUT IT WAS NEVER THE WHOLE ANSWER — all
-   measured 2026-09-16.** This option used to say it *"needs `SaveRestored` to
-   become rollback state and the 'one-shot at boot' shape to survive being
-   replayed"*. Against the tree: `SaveRestored` **is** `rollback_resource_clone`,
-   `ResetToCheckpoint` **is** `clear_message_on_rollback` (so the one-shot's
-   effect already takes the `ItemGrantRequested` road), and `adopt_the_ledger`
-   is a pure function of `AmbitionGameSave`. Nothing had to be built first.
-
-   ⛔ Moving the three systems was tried and was **necessary without being
-   sufficient**: the outside set emptied and the checksum mismatch stood. The
-   real cause was that `AuthoredOccurrences` was not a derived resource — see
-   the [DURABLE-HORIZON-CHECKSUM row](queue.md#durable-horizon-checksum--the-save-mirrors-write-hashed-state-from-update)
-   for the measurement and the repair (`rollback_resource_clone_checksum`,
-   schema v195). After it, **no entry of the 364 probed disagrees between two
-   passes of one frame** outside world construction.
-
-3. ~~**The writes do not matter**~~ — ⛔ **REFUTED BY MEASUREMENT, so this is a
-   two-way ruling and not a three-way one.** A mid-session load staged at tick 40
-   inside the rewinding schedule makes
-   `written_outside_the_rewinding_schedule()` return BOTH
-   `["...continuity::OccurrenceBaseline", "...custody_horizon::CustodyBaseline"]`
-   and made the sync test report
-   `Err("checksum mismatch at frames [38, 39, 40]")` — a real desync at the frames
-   of the load. ⚠ THE DESYNC IS FIXED NOW (schema v195; the ledger is registered),
-   and the refutation stands on what replaced it: the write is not harmless, it is
-   **discarded**, so the durable restore silently does not reach the ledger. The staging system's own writes to `AmbitionGameSave` and
-   `SaveRestored` are inside the schedule and do NOT appear in the outside set;
-   what appears is the pair of baselines, whose only writer is
-   `adopt_occurrence_checkpoint_from_save` in `Update`. ⇒ **Two hashed resources,
-   not one, so option 1's gate has to cover the whole `adopt_the_ledger` call and
-   not a single field.**
-
-⚠ **AND THE DETECTOR IS GREEN FOR A REASON THAT IS NOT SAFETY.**
-`no_registered_type_is_written_outside_the_rewinding_schedule` can see these types
-— they are value-probed — and passes because the harness boots with NO SAVE FILE,
-so `adopt_the_ledger` writes the same empty value it found. The comparison is
-between two identical censuses. Do not quote that arm's green against this question.
-✅ The seeded save now exists —
-`probe_what_a_mid_session_load_writes_outside_the_rewinding_schedule` in
-`game/ambition_app/tests/a_bag_changed_mid_window_reaches_the_save.rs`. ⛤ **ITS
-`#[ignore]` REASON NO LONGER READS "demonstrates an unfixed defect" AND THIS
-SENTENCE SAID IT DID UNTIL 2026-09-19** — the probe is `#[ignore = "PROBE,
-print-only: ..."]` like its nine siblings, and the defect it found is held by a
-running `#[test]`, `a_mid_session_load_does_not_reach_back_across_the_rewind`.
-⇒ An ignore REASON is a claim about the tree, and it drifts like any other. ⛔ Note its fixture shape:
-staging from OUTSIDE the timeline does nothing, because both the save and the
-latch are rollback-registered and the next rollback restores them. The staging
-must live in the rewinding schedule.
-
-⭐ **AND THE DETECTOR NOW NAMES THREE WRITERS, NOT TWO, WHICH IS THE v195
-PROMOTION WORKING.** `outside_after` reads
-`[AuthoredOccurrences, OccurrenceBaseline, CustodyBaseline]`. The ledger joined
-the set because the detector's population is REGISTERED types, and a
-`declare_rollback_derived_*` type was never in it — so the `Update` write that
-caused everything was invisible to the one instrument named after it. ⇒ A
-detector whose population is "registered" cannot see a write to something that
-declared itself derived, and a false derived declaration therefore removes its
-own subject from the guard. Same shape as the presence-probe blindness, one layer
-out.
-
-⛔⛤ **AND ONE DEPENDENT INVARIANT, FOUND BY REVIEW RATHER THAN BY MEASUREMENT —
-NOW CLOSED BY THE SAME GATE.** `count_the_dialogue_visit_when_a_conversation_opens`
-(Q134's repair) early-returns on `!restored.0`, and the table above showed a real
-interval where the session world existed, a primary body existed, GGRS was
-running and `SaveRestored` was still false. `interact_ecs_actors_and_switches` is NOT gated on
-the latch. ⇒ A conversation opened in that interval was counted by nobody: the
-counter declines while `opened_at == tick` is true, and by the time the latch
-rises that equality is permanently false. ⚠ **The edge must not be relaxed to
-`opened_at <= tick` to paper over this** — that is poison-verified to overcount
-(6 visits for 5 openings). The gate removes the interval and with it the hole,
-which is why this belonged here rather than in Q134.
-
-✔ **THAT ACCEPTANCE IS DISCHARGED.**
-`a_conversation_on_the_first_tick_of_a_session_is_counted_exactly_once` opens a
-conversation on tick 0 — the earliest openable moment of a session, and the only
-tick the measurement ever found running unhydrated — in BOTH compositions, and
-asserts one visit in each with the unrestored-tick list empty in each. The edge
-was NOT relaxed to `opened_at <= tick`; the gate removed the interval instead,
-which is what made the counter's `!restored.0` guard unreachable with a live
-conversation behind it rather than merely tolerable.
-
-✅⛤ **AND ONE OF THIS QUESTION'S TWO ROADS IS GONE, 2026-09-16: THERE IS NO
-MID-SESSION SAVE REPLACEMENT ANY MORE.** Censused: `SaveRestored` was lowered in
-exactly ONE place in the whole codebase — `reset_inventory_on_new_game`'s closing
-`restored.0 = false`, on `NewGameResetCommitted`. It did that so the generic load
-chain would re-adopt `OccurrenceBaseline` and `CustodyBaseline` from the wiped
-file; every other fresh-run durable fact was already reset in that same function.
-
-⇒ Those two are reset directly now, the latch stays true, and New Game is a
-checkpoint restore to the fresh baseline (since 2026-09-29; before that, a
-self-contained simulation transaction). **So the only `false -> true` transition
-left is initial session activation** — which is the case option 1 is about, and
-an arbitrary "load another save while the rollback game continues" road is no
-longer being created by accident.
-
-⛔⛤ **THE WINDOW IT CLOSED WAS TWO FRAMES WIDE AND INVISIBLE TO THE OBVIOUS
-INSTRUMENT.** Sampling `SaveRestored` between `sim.step()` calls reported it TRUE
-for the whole run with the defect fully present, because the sim schedule lowered
-it from `PreUpdate` and the `Update` chain raised it again in the same frame. The
-arm had to sample at the HEAD of that chain
-(`.before(adopt_occurrence_checkpoint_from_save)`) to see frames 33 and 34. ⇒ A
-latch that is lowered and re-raised within one frame is invisible to any
-between-frame reader, and the first version of that acceptance passed with the
-defect live. Held by
-`a_new_game_clears_the_occurrence_baselines_without_lowering_the_latch`.
+`AmbitionGameSave` is registered `resource-clone-custom-checksum`, and its
+checksum projection serializes the whole save. The `Update` mirror desync is
+repaired: the three `persist_*_to_save` mirrors run in the sim schedule. Almost
+every writer of the save runs in the rewinding schedule (quest, boss encounter,
+switch, shrine, cutscene, map visit, dialogue visit, the mirrors). The only
+outside writer is `load_save_at_startup` (`Startup`). To re-derive the writer
+set, find each production `ResMut<AmbitionGameSave>` parameter and read the
+schedule of the `add_systems` call that registers its system.
+
+A second asymmetry has no recorded reason: `OwnedItems` is `resource-clone`
+(not hashed), but `OwnedItemsBaseline` is `resource-clone-custom-checksum`, so
+each checkpoint commit carries the bag into the peer checksum.
+
+Owner: `DURABLE-HORIZON-CHECKSUM` and the deferred authority/representation
+split of `ROLLBACK-BAG-DESYNC`, both in [`queue.md`](queue.md).
+
+* **(a) The save is peer state** (current). Peers compare every simulation
+  write to it, and the mirrors stay in the sim schedule. Make `OwnedItems` and
+  its baseline agree.
+* **(b) The save is a local artifact** and leaves the peer checksum. This stops
+  comparing every sim-side writer above. The 2026-09-16 merged-state review
+  rejected this option.
+* **(c) Keep both and run the mirrors only on confirmed frames.** Needs a
+  confirmed-frame hook that does not exist.
 
 ## Q134 — is a dialog visit count something two peers must agree on?
 
-✅ **THE DEFECT THIS QUESTION WAS BLOCKING IS CLOSED; WHAT IS LEFT IS THE PRODUCT
-QUESTION IN THE TITLE.** Read the ✅⛤ paragraph before the ruling below — the
-increment is in the rewinding schedule and a visit survives a rewind. This entry
-keeps its measurements because they are what made Option 1 refusable.
-
-[DURABLE-HORIZON-CHECKSUM](queue.md#durable-horizon-checksum--the-save-mirrors-write-hashed-state-from-update)
-repaired the three `persist_*_to_save` mirrors by moving them into the rewinding
-schedule: they DERIVE the save from simulation state, so a replay reproduces the
-value. `dispatch_pending_dialog_requests` WAS a fourth writer of the same hashed
-resource and that answer was not available to it — it called
-`save.data_mut().increment_dialog_visit(&dialogue_id)` from `Update`. ⚠ It no
-longer does; re-measured 2026-09-18, that method has exactly one production call
-site and it is in the sim schedule.
-
-⛔⛤ **THIS QUESTION USED TO ARGUE FROM "AN INCREMENT IS NEITHER IDEMPOTENT NOR
-DERIVABLE". BOTH HALVES ARE NOW MEASURED FALSE, AND BOTH OF ITS OPTIONS CHANGE
-SHAPE AS A RESULT.** Measured 2026-09-16 by three arms in
-`game/ambition_app/tests/a_bag_changed_mid_window_reaches_the_save.rs`:
-
-| placement of the increment | after 200 frames of sync test |
-|---|---|
-| `Update` (as it shipped) | the visit is **LOST** — `a_dialogue_visit_counted_from_update_is_taken_back_by_the_rewind` |
-| inside the sim schedule, 5 known ticks | **exactly 5** — `an_increment_inside_the_tick_is_made_idempotent_by_the_restore` |
-| inside the sim schedule, no rollback session | exactly 5 — the control |
-
-⇒ **THE RESTORE MAKES AN INCREMENT IDEMPOTENT.** A resimulated tick does not add
-to what the previous run left: the snapshot puts `AmbitionGameSave` back to its
-state BEFORE the tick, so every replay adds one to the same base. Non-idempotence
-only bites a write the snapshot cannot reach, which is exactly where this one is.
-⚠ The in-schedule arm fires on FIVE separate ticks on purpose — one tick reaching
-1 is also what "no replay happened" looks like — and it asserts
-`live_comparisons > 0` so the rewind is a witnessed premise rather than an
-assumption.
-
-**MEASURED 2026-09-16, and the measurement closes one of the two branches the row
-had been holding open.** The row asked whether the visit is LOST on a rewind or
-COUNTED TWICE. It can only be lost:
-
-- `DialogState` is a plain `#[derive(Resource)]`, registered on no road:
-  re-derived 2026-09-18, no `rollback_resource*`, `register_rollback*`,
-  `clear_*_on_rollback` or `SessionScopedResources` mention names it anywhere in
-  the workspace. ⛔⛤ THIS SAID *"`ambition_dialog` contains the string
-  `rollback` **zero times**"* until 2026-09-18, and it contains it twice now —
-  both inside the comment at `crates/ambition_dialog/src/bridge.rs:160-167`
-  that records THIS finding and the repair it caused. A crate-wide string count
-  is a fine way to find a road and a poor way to own a claim, because writing
-  the claim down falsifies it. The substance is unchanged; the sentence that
-  carried it could not survive its own result.
-- The dispatcher consumed the request with `state.pending_start.take()`, in
-  `Update`.
-- ⇒ A rewind restores `AmbitionGameSave` to its pre-increment value. The request
-  that produced the increment was consumed from a resource that does not rewind,
-  so it does not come back and nothing re-runs the dispatcher. One outcome.
-
-**AND THE PATH IS LIVE IN A ROLLBACK SESSION.** `game/ambition_app/src/app/plugins.rs`
-installs the Yarn stack under `#[cfg(feature = "ui")]` and nothing else — it is
-not gated on `simulation_host.is_rollback()`, which is checked thirteen lines
-above for `AmbitionRollbackPlugin`.
-
-**AND THE FIELD IS INSIDE THE COMPARED VALUE.**
-`AmbitionGameSave::checksum` serialises the whole save with
-`ron::ser::to_string(&self.0)`, so `dialog_visits` is part of what two peers
-compare. Nothing narrows it today.
-
-**THE RULING.** Either
-
-1. ~~**A visit count is durable PROGRESS**, and the save's checksum projection
-   should stop covering fields no tick derives.~~ ⛔ **THIS IS NOT A REPAIR, AND
-   THE DISTINCTION IS IN THE REGISTRATION.** `install_resource_clone_checksum`
-   (`crates/ambition_platformer2d_rollback_ggrs/src/registration.rs`) installs
-   `rollback_resource_with_clone` and `checksum_resource` INDEPENDENTLY.
-   Narrowing the checksum changes only what two peers compare; the whole
-   resource is still snapshotted and restored, and **the restore is what loses
-   the visit.** ⭐ Measured, not read: `OwnedItems` is `rollback_resource_clone`
-   — restored, in no peer checksum at all — and
-   `a_bag_changed_from_update_is_silently_taken_back_by_the_rewind` has been
-   green over its lost `Update` write all along. ⇒ A ruling here would silence a
-   peer disagreement and keep the data loss. It remains a live question about
-   what peers should AGREE on; it is not an answer to this defect.
-2. **A visit count is simulation state**, and the increment moves into the
-   rewinding schedule. ⭐ **This is now much cheaper than this entry used to
-   price it, and `ambition_dialog` needs no rollback vocabulary.** The measured
-   idempotence above means the increment itself is safe there; what it needs is
-   a replayable EDGE to fire on, and one already exists.
-   `ambition_conversation::ActiveConversation` is rollback state
-   (`rollback_resource_clone_entity_set_probed` + `rollback_resource_map_entities`)
-   carrying a deterministic `ConversationInstanceId` with an `opened_at` tick, and
-   `project_the_dialog_ui_from_the_conversation` already treats the opening as
-   simulation-owned and the Yarn box as its projection. ⇒ The repair is the same
-   one the three `persist_*_to_save` mirrors got: count the visit in the sim
-   schedule off "this instance became live", and delete the presentation
-   dispatcher's write. Yarn stays presentation-side.
-
-⇒ This is narrower than
-[Q129](#q129--must-the-save-file-be-part-of-what-two-peers-agree-on) and does not
-wait on it: Q129 asks whether the save belongs in the CHECKSUM, and the
-measurement above shows that answer cannot reach this defect either way, because
-the loss is in the SNAPSHOT. ⇒ **Nothing about the checksum moots this, and that
-is a change from what this entry said before.** Only taking the save out of the
-rollback set entirely would, which is neither option here nor Q129's question.
-
-✅⛤ **AND OPTION 2 IS TAKEN AND LANDED, SO WHAT IS LEFT HERE IS A PRODUCT
-QUESTION AND NOT A DEFECT.** `count_the_dialogue_visit_when_a_conversation_opens`
+The rewind defect is closed:
+`count_the_dialogue_visit_when_a_conversation_opens`
 (`crates/ambition_platformer2d_actor_monolith/src/session/durable_horizon.rs`)
-counts the visit in the sim schedule from `ActiveConversation`'s
-`opened_at == SimTick`, and `ambition_dialog::bridge` no longer takes
-`ResMut<AmbitionGameSave>` at all. Held by
-`a_conversation_opening_counts_exactly_one_visit_across_a_rewound_window`: two
-openings reach exactly 2 across 240 rewound frames, poisoned to 0 (counter
-unregistered) and 6 (edge relaxed to a level rule).
+counts a visit in the sim schedule when an `ActiveConversation` opens. Held by
+`a_conversation_opening_counts_exactly_one_visit_across_a_rewound_window`. What
+remains is product: `dialog_visits` is inside the save's checksum projection.
 
-⚠ **THE QUESTION THAT REMAINS IS THE PRODUCT ONE:** is a dialogue visit a fact two
-peers must agree on, or per-player progress that should not be in a shared save at
-all? Answering it would change what the save's checksum covers; it no longer
-changes whether a visit survives a rewind.
+Owner: `DURABLE-HORIZON-CHECKSUM` in [`queue.md`](queue.md). Related:
+[Q129](#q129--must-the-save-file-be-part-of-what-two-peers-agree-on).
 
-## Q142 — ✔ THREE OF THE FOUR ARE REGISTERED AND WITNESSED; TWO subjects are still owed
+* **(a) A visit is shared world state** that peers agree on (current).
+* **(b) A visit is per-player progress.** Move it out of the shared save or out
+  of the checksum projection. Narrowing the checksum changes only what peers
+  compare; the resource is still snapshotted and restored.
 
-The repository already states the rule, in
-[`engine/simulation-authority-and-determinism.md`](engine/simulation-authority-and-determinism.md):
-*"A COMPONENT WHOSE PRESENCE IS READ BY A QUERY FILTER IS AUTHORITATIVE EVEN WHEN
-ITS VALUE IS DERIVED."* It was written about the DEMOTION direction — registered
-rows whose doc sounds like they could be dropped. This is the inverse reading,
-and it had no instrument until 2026-09-17:
-`scripts/check_presence_filtered_state_is_rollback_registered.py`.
+## Q142 — must every presence-filtered component be rollback-registered?
 
-**The population and how it was measured.** A component is in scope when it is
-defined in a crate that registers at least one rollback row AND a literal
-`With<X>` / `Without<X>` / `Has<X>` outside test code reads its presence.
-**Measured 2026-09-17 when this row was filed: 95 such components, 73
-registered, 18 waived by name with the measurement beside each, 4 left. After
-the three fixes below, the same run read 76 registered and 1 left** — that
-movement was the code, not the instrument or a waiver.
+Resolved by engineering. Kept only because
+`scripts/check_presence_filtered_state_is_rollback_registered.py` (its
+`ACKNOWLEDGED` table) still owes `PostBossNpc` and `SmirkingBehemothVictoryNpc`
+to this section and fails if the section does not name them. Both are now
+registered (`marker.post_boss_npc` and `content.cut_rope_victory_npc` in
+`game/ambition_app/tests/rollback_schema_baseline.txt`), and the checker
+reports 0 owed. Delete this section in the change that removes those two
+`ACKNOWLEDGED` entries.
 
-⚠ **EVERY COUNT IN THIS SECTION IS DATED, AND THE POPULATION KEEPS GROWING
-BECAUSE THE TREE DOES.** Re-measured 2026-09-19: **121 presence-filtered
-components across 21 registering crates, 92 registered, 27 waived, 2 owed.**
-The 95/73/18/4 above and the 104/83/20/1 below are what the same instrument
-said on 2026-09-17 and 2026-09-18; they are kept as written, because a count
-re-stated without its reference point is the defect this page keeps finding.
-⇒ Today's two owed are the two the closing paragraph names, so the heading and
-the decision agree — it was the middle reading that had drifted, and the
-heading a reader would have distrusted first was the one that was right.
-
-⛔⛤ **AND THEN THE POPULATION ITSELF MOVED, LATER THE SAME DAY, BECAUSE THE
-INSTRUMENT WAS BLIND TO HALF A CRATE.** `component_definitions` cut each file at
-its FIRST `#[cfg(test)]`, and in this tree a module declares its tests near the
-TOP: `shared_tangle/src/construction/mod.rs` writes `#[cfg(test)] mod tests;` and
-then defines most of A10's vocabulary underneath it. ⇒ **288 definitions became
-305 and the intersection 95 became 104** — the run now reads **104 components,
-83 registered, 20 waived, 1 owed**. Two of the nine that appeared were neither
-registered nor waived, `InactiveCandidate` and `PresentationOnly`, and both are
-now waived with their measurements: three `&mut World` filter sites inside the
-component's own module for the first, and **zero production insert sites at all**
-for the second. ⚠ The blindness failed in the GREEN direction and no floor was
-low enough to notice; the arm that holds it now pins a SUBJECT rather than a
-count.
-
-The registered set is read from `rollback_schema_baseline.txt`, which
-`rollback_schema_baseline.rs` holds byte-identical against the live registry.
-
-⛔⛤ **THE INSTRUMENT'S FIRST VERSION MISSED THE COMPONENT ITS OWN DOCSTRING
-QUOTES.** Deleting `Dormant`'s row from the recorded schema left the check green:
-all three of `Dormant`'s production filter sites spell it
-`Without<crate::features::ecs::dormancy::Dormant>`, and the regex required a bare
-name. Widening it for the path prefix — and for `Has<T>`, which is the same
-presence read — took the intersection from 73 to 95 and produced six of the rows
-below. ⇒ The poison that found it is planted as
-`test_a_path_qualified_filter_is_seen`.
-
-⛔⛤ **AND THREE OF THE FOUR WERE NEVER A DECISION. FIXED 2026-09-17, schema
-v197 → v198.** This row was filed as a policy question — *"registering all four
-is a wire-format change"* — and a review read the evidence back and pointed out
-that the framing was wrong for three of them: an unregistered component that a
-sim system mutates every tick is a rollback defect, not an option. Re-checked
-one at a time before changing anything, and each holds:
-
-* **`EncounterScript`** — `cursor` and `elapsed` are advanced by
-  `EncounterScript::advance` (`timeline.rs`), called from `tick_encounter_scripts`,
-  which `ambition_boss_encounter` registers into the sim schedule at
-  `ProgressionSet::BossHazards`. Now `component-clone-custom-checksum`, projecting
-  `cursor` and the beat-elapsed bits; `beats` is authored content and stays out of
-  the projection.
-* **`ReleaseOnDeath`** — `release_payloads_on_death` writes `PayloadReleased` and
-  removes the marker in the same loop, and `PayloadReleased` is registered
-  `message-clear` so a resimulation may re-emit it. The pair was asymmetric in the
-  direction that loses the release entirely. Now `component-clone`.
-* **`RecharacterizeBody`** — Mary-O inserts it in `FeatureInteraction`;
-  `apply_worn_character_gameplay` consumes and removes it in
-  `PlayerInputSet::Persona`, an EARLIER phase of the next frame. It is a request
-  that deliberately waits a frame, so a rewind across that frame decides whether
-  the template is applied nought, one or two times. Now `component-clone`.
-
-⇒ `the_rollback_schema_matches_its_recorded_baseline` and
-`the_shipped_app_registers_the_same_schema_as_the_sandbox` both passed at v198
-when these three rows landed, so all three are live in the shipped app and not
-only in the sandbox. ⚠ **v198 IS WHEN, NOT WHAT IS CURRENT** — the schema is at
-v200 as of 2026-09-19 (`Q137` deleted `GravityFlipSwitch`'s two rows) and the
-baseline holds 489. The version is stated because it dates the reading; re-derive
-the count with `tail -n +2 game/ambition_app/tests/rollback_schema_baseline.txt |
-wc -l` rather than reading a number on a page as today's.
-
-⭐⭐ **AND `EncounterScript` NOW HAS THE REWIND ARM, WITH THE NUMBER.**
-`the_encounter_script_clock_reaches_the_same_value_with_and_without_a_rewind`
-(`cut_rope_arena`) boots the one room whose PRODUCTION code attaches a script,
-waits 240 frames without driving any input, and compares the beat clock against
-the sim tick in both worlds. Registered: the clock and the tick agree exactly.
-⛔ With the registration removed: **the clock moved 945 frames more while the
-world ran 1 tick more — 19.77 s against 4.02 s** — which is the resimulation
-multiplier of a `check_distance` of 4, not a rounding difference.
-
-⛔⛤ **TWO THINGS ABOUT THAT ARM ARE WORTH MORE THAN THE RESULT.** Its first
-version CUT THE ROPE, and the slash is a `HitEvent` written by the test from
-outside the rewinding schedule: the rewind took the write back, **1 gate fired
-without a rollback window and 0 under one**, and the script sat on beat 0. The
-arm read `Some(0)` vs `Some(2)` and looked exactly like a lost cursor while it
-had never reached its subject. And the second version compared the clocks
-directly, reading `4.0333` against `4.0167` — one frame, which looks like the
-same defect until you ask how many ticks each world ran. `SimTick` said **241
-against 240**: the sync-test harness steps once more. ⇒ The property is a RATE,
-and the control is the tick count.
-
-✔ **`ReleaseOnDeath` NOW HAS ITS ARM, 2026-09-17, AND WHAT IT COST WAS THE
-OBSERVABLE RATHER THAN THE FIXTURE.**
-`a_resimulated_kill_frame_still_carries_the_release_marker`
-(`game/ambition_app/tests/cut_rope_arena.rs`) stages the behemoth's death from a
-system inside the sim schedule at tick 90 — replayed by every resimulation, so
-the kill lands on the same tick in every pass — and records, per PASS of that
-tick and ordered before `release_payloads_on_death`, how many hosts still carry
-the marker. Registered it reads `[1, 1, 1, 1]`; poisoned by deleting
-`encounter.release_on_death` it reads **`[1, 1, 1, 1, 0]`** — a resimulated pass
-that cannot emit what the first pass emitted.
-
-⛔⛤ **AND THE FIRST DESIGN OF THAT ARM WAS VACUOUS, WHICH IS THE PART WORTH
-KEEPING.** It asserted the VICTORY NPC's presence — the visible consequence, and
-the obvious observable — and the poison PASSED. The NPC is not rollback state:
-it spawns on the first pass of the kill frame, nothing despawns it on a rewind,
-and `spawn_cut_rope_victory_npc` then returns early on `existing`. So its
-presence answers *"did the release ever fire"*, which is true either way. ⇒ **A
-visible consequence that is not itself rollback state cannot witness a rollback
-defect**, and the property the registration buys is the marker being back at the
-head of every resimulated pass.
-
-⛔ **WHY IT STAGES A DEATH INSTEAD OF CUTTING THE ROPE — priced, so nobody pays
-for it twice.** A test-written `HitEvent` does not survive a rewind (1 `rope_cut`
-gate without a rollback window, 0 under one), so the rope must be cut by a real
-PRESS, which the harness does feed into the GGRS input stream. The obstacle is
-the ROUTE: the authored rope is at `(908, 96)` and the player spawns at
-`(110, 712)` — 798 px right and **616 px up**. A walk-and-swing script closes to
-660 px; adding a jump cadence and a held up-axis climbs to `y = 293` and closes
-to **187 px**. Tuning a blind script onto a 24 px volume that high is a search,
-not a fixture, and the whole-fight arm is priced at an authored platforming
-route. That is not what this registration owes.
-
-✔ **AND `RecharacterizeBody` HAS ITS ARM TOO, the same day and by the same
-shape.** `a_staged_recharacterize_request_survives_every_pass_of_the_frame_that_reads_it`
-(`game/ambition_app/tests/a_recharacterize_request_crosses_a_rewind.rs`) stages
-the request from a sim-schedule system ordered AFTER the consumer — so it waits a
-frame exactly as the Mary-O producer's does — and censuses, per pass of the frame
-that reads it, whether the request is still there. Registered `[1, 1, 1, 1]`;
-poisoned by deleting `actor.recharacterize_request`, `[1, 1, 1, 1, 0]`.
-⚠ It stages rather than driving a Mary-O powerup pickup, which costs coverage of
-the PICKUP road and buys the registration's own property; the arm says so at its
-own definition.
-
-⛔⛤ **AND BUILDING IT COST AN OFF-BY-ONE WORTH KEEPING.** `advance_sim_tick` runs
-BETWEEN a system early in the frame and one late in it, so the head recorder
-reads the tick number of the frame BEFORE it while the staging system reads the
-new one. The control failed with `[0]` and looked exactly like an insert that
-never landed. What separated them was reading the same world from OUTSIDE the
-schedule: the marker is there at tick 40 and gone at 41.
-
-**The three that closed, and the two still open.** ⚠ The count in that sentence
-is the instrument's, not this table's, and the two do not both appear below:
-`scripts/check_presence_filtered_state_is_rollback_registered.py` reads
-**121 presence-filtered components across 21 registering crates, 92 registered,
-27 waived, 2 owed** (re-run 2026-09-20, unchanged from 2026-09-19). The two owed
-are `PostBossNpc`, whose row is below, and `SmirkingBehemothVictoryNpc`, which
-this table predates and which is set out after it — a component the question
-could not name until the instrument learned to see `game/ambition_content` on
-2026-09-18. ⇒ Read the instrument for membership; this table is why each row is
-not hygiene.
-
-| component | the filter that reads it | why it is not hygiene |
-|---|---|---|
-| `ReleaseOnDeath` (`ambition_boss_encounter`) | `release_payloads_on_death`, `With<ReleaseOnDeath>`, registered into the SIM schedule at `ProgressionSet::BossHazards` | the system REMOVES the marker after emitting, so its absence is what stops a second emission — while the message it emits, `PayloadReleased`, IS registered `message-clear` so a resimulation can re-emit. The pair is asymmetric: the clearing is there to allow a re-emission the missing registration prevents |
-| `RecharacterizeBody` (`ambition_characters`) | `Has<>` in `avatar/starting_character.rs` | its own doc: *"One-shot request to reapply a body's character template … The request is consumed after application."* The consumption IS the state |
-| `EncounterScript` (`ambition_encounter`) | `Without<EncounterScript>` in `setup_cut_rope_encounter` (**that system and its filter are gone since AP128: the encounter is spawned with its authored script**) | ⛔ **the sharpest of the four.** It is an idempotence gate on a component that also holds `cursor: usize` and `elapsed: f32` — the beat a scripted fight has reached and how long it has been in it — advanced every tick by `tick_encounter_scripts`, which is in the sim schedule beside `release_payloads_on_death`. A rewind restores neither |
-| `PostBossNpc` (`ambition_combat`) | `AttemptResidue` in `world/rooms/reconstitution.rs` | presence decides whether the celebrant a defeated boss left behind is swept when a replay is admitted |
-
-⛔⛤ **AND `S7`'s FLOAT-ROW CENSUS CANNOT SEE `EncounterScript.elapsed` EITHER,
-FOR THE SAME STRUCTURAL REASON.** S7 ranks the rows *outside the session
-checksum* — and it derives that population from the REGISTRY. ⛔⛤ THIS SAID
-*"99 of them, 25 float-bearing, 12 mutably written"* until 2026-09-18, which
-compressed three DIFFERENT populations into one chain and then went stale in
-all three. The 99 (today **101**) is the no-value-projection subset of 177
-unhashed rows; 25 is not its float-bearing subset but the intersection of
-no-projection × unfiltered per-tick read × float-bearing; 12 is the mutably
-borrowed subset of THAT. ⇒ S7 owns those numbers and this row owns the
-structural point, which does not depend on any of them. A float advanced every tick by a sim system on
-a component nobody registered is not a row in the 99; it is not in the population
-at all. ⇒ The two censuses are complements, and neither is the whole surface: one
-asks which registered rows are uncompared, this one asks which authoritative
-components are unregistered.
-
-✔ **THIS PARAGRAPH SAID "No arm has been run that drives a rewind across any of
-these four latches" AND THAT IS NO LONGER TRUE — three of the four now have one,
-2026-09-17.** The finding was STRUCTURAL when it was written: presence is
-authoritative and the snapshot did not know about it. It is now measured for the
-three that closed:
-
-| latch | arm | poison reading |
-|---|---|---|
-| `EncounterScript` | `the_encounter_script_clock_reaches_the_same_value_with_and_without_a_rewind` | 945 frames of excess script-clock advance |
-| `ReleaseOnDeath` | `a_resimulated_kill_frame_still_carries_the_release_marker` | `[1, 1, 1, 1, 0]` — a pass that cannot re-emit |
-| `RecharacterizeBody` | `a_staged_recharacterize_request_survives_every_pass_of_the_frame_that_reads_it` | `[1, 1, 1, 1, 0]` — a pass that applies the template zero times |
-
-⛔⛤ **AND THE SHAPE THAT WORKED IS NOT THE ONE THIS PARAGRAPH PRESCRIBED.** It
-said to use the same measurement as
-`a_move_occurrence_reaches_the_same_number_with_and_without_a_rewind` — two
-worlds, one number each. That shape cannot see a presence latch: the visible
-CONSEQUENCE is usually not itself rollback state, so it survives the rewind
-whatever the registration does. The first `ReleaseOnDeath` arm asserted the
-victory NPC's presence and its poison PASSED for exactly that reason. What works
-is a PER-PASS census of the latch itself, read by a system ordered before its
-consumer, with the state change staged from inside the sim schedule so it is
-replayed. ⚠ `spawn_cut_rope_victory_npc`'s second road (`boss_is_cleared` from
-the save) does mask the defect on room re-entry — that part of the paragraph was
-right, and it is why the arm never re-enters the room.
-
-⚠ **`PostBossNpc` STILL HAS NO ARM**, and its question is about what a LOAD does
-rather than what a tick does, so the per-pass shape above does not reach it
-either. ⛤ Neither does `SmirkingBehemothVictoryNpc`, which joined this row on
-2026-09-18 — see below for how a component in a rewinding system's filter stayed
-outside the question for as long as it did.
-
-⛔⛤ **AND IT IS TWO COMPONENTS WIDE AGAIN SINCE 2026-09-18, BECAUSE THE GUARD
-COULD NOT SEE THE CRATE THE SECOND ONE LIVES IN.**
-`check_presence_filtered_state_is_rollback_registered.py` derived its component
-population as `crates/<name>/src` for every registering crate — while its filter
-scan read `crates` AND `game` the whole time. `game/ambition_content` registers
-rollback state (`MinimaTrapState` and the rest of `bosses/specials/rollback.rs`,
-`PortalHostScanned` through `portal/plugin.rs`), so its entire component
-population was outside the question. Widening it added six subjects; five are
-presentation and are waived with the schedule each filter site runs in, and the
-sixth is `SmirkingBehemothVictoryNpc`.
-
-⚠ **THE FLOORS COULD NOT HAVE CAUGHT THIS, AND THAT IS THE GENERAL LESSON.** The
-guard has four anti-vacuity floors and every one of them stayed comfortably
-satisfied: they catch a join that returns almost NOTHING, and a stable omitted
-CATEGORY leaves the remaining population large. A floor is a defence against a
-broken instrument, not against a instrument pointed at part of the tree.
-
-`SmirkingBehemothVictoryNpc` belongs to this question and not to a new one. Its
-one filter site is `spawn_cut_rope_victory_npc`'s
-`existing: Query<&FeatureId, With<SmirkingBehemothVictoryNpc>>` — a SPAWN-ONCE
-guard — and that system is registered in the REWINDING schedule
-(`app.add_systems(sim, .. .in_set(ContentEncounterVictorySet))`,
-`game/ambition_content/src/bosses/mod.rs:379`). So its presence decides whether a
-re-simulated victory frame spawns a SECOND celebrant. ⛔ It is NOT being
-registered by analogy, for the reason this row already records above: the first
-`ReleaseOnDeath` arm asserted this very NPC's presence and its poison PASSED,
-because a visible consequence that is not itself rollback state survives a
-rewind whatever the registration says. It wants the per-pass census shape that
-closed the other three.
-
-**The decision, and it is TWO components wide.** `PostBossNpc` is the other row.
-Its presence decides whether the celebrant a defeated boss left behind
-is swept when a replay is admitted — which is a question about what a LOAD does,
-not about what a tick does, and none of the three arguments above reaches it.
-⇒ It wants a targeted behavioural arm (does an admitted replay sweep the
-celebrant it should keep?), not a fourth registration by analogy. ⛔ Registering
-it anyway would be the sweep this row warned against: the guard's waivers each
-state a measurement — 18 of them when this paragraph was written, 27 as of
-2026-09-19 — and a fourth row added because its three neighbours moved would be
-a waiver with the opposite sign and no measurement behind it.
-
-## Q148 — which track should Mode Collapse fight to?
-
-Decided for now, so it is not blocking: `crooked_ascent_boss`. Until
-2026-09-27 `mode_collapse_boss.ron` named the Flying Spaghetti Monster's choir
-track for all four phases (a placeholder from before the FSM had a fight of
-its own), so both Mode Collapse arenas played the FSM's music. `crooked_ascent_boss`
-is an authored boss track that nothing else used. The spec's own note wanted a
-bespoke "mode collapse" track (a loop that degenerates); that is still a
-handoff. To change it for every Mode Collapse fight, edit the four `music_*`
-fields; to change it in one room, set that room's `fight_music_track`
-(`docs/recipes/room-music.md`).
-
-## Q149 — when a room retires and comes back, does a wounded enemy keep its wounds?
-
-Decided for now, so it is not blocking: **no, a returned room is built fresh
-from its placements.** OW3 asked what "the actor dispositions a retired room
-loses" are. Measured 2026-10-01: the save keeps an enemy's DEATH (the fate
-flag that `RespawnPolicy` writes, per placement or per room zone) and an
-encounter's outcome (`PersistedEncounterState`: `Untouched`, `Cleared`,
-`Failed`). It keeps no state of a LIVING enemy (its HP, its position, its
-aggro) and no wave index of an encounter that is in progress. So a skitter
-that a player hits to half HP is at full HP when its room comes back, and an
-encounter left mid-wave starts again at wave one. This agrees with
-`OnRoomReenter` ("fresh every time the player enters the room"). For a
-persistent world it means an actor exists only in its authored placement and
-its death. To change this, add a dormant record for a living actor. OW3's
-dormant mint rows (`docs/planning/engine/open-world-runtime-and-residency.md`,
-"OW3, first slice") are the road; the per-placement policy would then gain a
-variant such as `KeepsWounds`.
-
-⚠ Narrowed by the Q38 ruling (2026-10-01, `maintainer-decisions.md`). A
-respawning population occurrence that the game despawns comes back from its
-authored room, so "fresh" is right for `OnRoomReenter` mobs. A persistent
-open-world character's whereabouts are durable world state. What is left to
-rule here is whether its other live state (HP, a fight in progress) is durable
-with its whereabouts. Since 2026-10-01 a persistent character's whereabouts
-are kept (OW3 third slice: the hub's dog, released in another room, is
-there when the player comes back), and it is rebuilt from its record with
-full health. So the remaining question is only its live state, and it
-blocks no row.
-
-## Q150 — while two players are in two rooms (split view), whose HUD, banner and music show?
-
-Decided for now, so it is not blocking: **the session keeps one HUD, one
-banner and one music stream, and they follow the primary seat's subject.**
-The view half (`docs/planning/engine/open-world-runtime-and-residency.md`,
-V1-V5) gives each player in a separate room a view of their own, and every
-world drawable is now drawn in its own room (V2a-V2l, V4a-V4c). Three
-surfaces are still one per session:
-
-- the gameplay HUD (`PlayerHudFacts`) shows the controlled subject's meters,
-  which is the primary seat's body. Bob's health is not on the screen;
-- the gameplay banner (`GameplayBanner`) is one resource, so a banner that
-  Bob's room raises shows across both views;
-- the music claims choose one track for the session. There is one audio
-  output, so two rooms' tracks cannot both play.
-
-The options: (a) keep one of each, following the primary seat (the current
-behaviour); (b) a HUD panel and a banner per view, each from its own seat,
-with one music stream that follows the primary seat or the most urgent
-claim (a fight outranks exploration); (c) per-view HUD and banner, and
-music that crossfades to the room of the view with focus. (b) needs a
-per-seat HUD fact and a banner keyed by room; the view half already has the
-per-view rectangles to place them in. This blocks only the "separate from
-another participant" row's last ◐ in `open-world-roadmap.md`.
-
-## Q151 — in Ambition, how does a second player join, and what does one player's death do while the other plays on?
-
-Decided for now, so it is not blocking: **a death resets the dying player's
-own room to the checkpoint, and the other player's room goes on untouched.**
-Measured 2026-10-02 (`a_death_in_one_room_restarts_that_player_and_leaves_the_other_players_room`,
-`game/ambition_app/tests/two_players_two_live_rooms.rs`): Alice dies in the
-hub while Bob, driven by slot 1, is in `switch_lab`. Alice starts again in a
-new instance of the hub, and Bob's room is the same live room with the same
-body in it.
-
-That answer comes from two facts that are not decisions yet:
-
-- **Ambition has no join road.** Only the primary seat gets a body in
-  production (`avatar/bundles.rs`). Every Alice/Bob witness gives slot 1 an
-  NPC body by hand; the only production code that seats slot 1 is Smash's
-  match activation. So what body a second Ambition player drives (a second
-  robot, a character from the cast, a possessed body) is not said anywhere.
-- **The death rules count only `PlayerEntity` as a participant**
-  (`session/death.rs`): `open_death_interlude` opens a window only for the
-  primary seat's body, and `close_death_interlude` asks whether any
-  `PlayerEntity` is still in play. Bob's body is not one, so Alice's death
-  finds nobody left and resets at once. A body that a seat drives and that
-  dies takes the ENEMY road (`actor_hit.rs`): a "defeated" banner, a bounty
-  coin and its authored respawn policy, so its seat loses its body.
-
-The options, for when a second player can join: (a) the current behaviour
-for the player who dies (restart from the checkpoint at once), and give a
-seat-driven body the same participant death; (b) NSMB co-op: a dead player
-waits out of play until the other player also dies or rests at a shrine
-(this is what `LevelReset::WhenNoParticipantRemains` says, and it would need
-the roster to count seat-driven bodies); (c) the dead player restarts at the
-other player's room, so the party regroups. (b) is a poor fit for players who
-are far apart; (a) or (c) suit separated play. The join road itself (which
-device, which body, which room) is the larger half of the question.
-
-## Q152 — which world mechanic should keep time while its room is not live?
-
-⛔ **Corrected 2026-10-02.** The first version of this entry said "none: a
-room that is not live does not keep time", from a measurement that "no
-shipped mechanic needs it". That measurement searched `RespawnPolicy` only.
-It missed `HazardRespawn::AfterSeconds`: ten breakables in `sandbox.ldtk`
-(four at 3.0 s, six at 3.5 s) count a respawn down on the entity's
-`RespawnTimer`, which died with the room. Measured in `basement_breakables`:
-a platform broken and left was whole 0.2 s later.
-
-Decided for now, so it is not blocking: **the breakable respawn keeps time.**
-Its due time is on `GameplayElapsed`, kept by `BreakableRespawnSchedule` when
-the room retires and read when the room is built again (OW5, first
-mechanism, `docs/planning/engine/open-world-runtime-and-residency.md`). A
-quick return finds the platform broken for the time that remains; a late
-return finds it whole. The body respawn policies below do not keep time, and
-that stands.
-
-What is still a product choice:
-
-- Whether the same rule applies to a body (`InPlace(seconds)`, option (a)
-  below), which today is built fresh on return, as Q149 decides.
-- Whether a world clock must survive a save. `GameplayElapsed` is a session
-  clock: a rewind restores it, the save does not keep it, and a checkpoint
-  restore and the session edge forget every breakable record.
-
-The measurement of the body policies, which is correct:
-
-- The one authored timer on a world occurrence is `RespawnPolicy::InPlace(seconds)`
-  (the training sandbags). Its countdown is `respawn_timer` on the live body
-  (`features/enemies/integration.rs`). When the room retires the body goes
-  with it, and the room that comes back builds the sandbag alive. That agrees
-  with Q149 (a returned room is fresh).
-- `OnRest` waits for a rest, not for time. `OnRoomReenter` waits for an
-  entry. `DeadStaysDead` waits for nothing.
-- Encounters persist an outcome (`PersistedEncounterState`), not a clock.
-
-So a second mechanism needs a product choice first. The options:
-
-- (a) **A respawn that counts world time**: a policy such as
-  `After(seconds)` that writes the death time to the save, so a mob killed
-  and left comes back only when that much session time has passed, whether
-  or not its room was live. Smallest: one durable timestamp per placement,
-  and the room reads it when it is built.
-- (b) **A persistent character that moves on a schedule**: the Q38 ruling
-  made a character's whereabouts durable. A schedule would move a
-  character between rooms with time, so a player who comes back finds it
-  somewhere else. Larger: it needs a route and a reconstruction of where
-  the character is at a given time.
-- (c) **Regrowth or restock**: a pickup or a shop stock that refills after
-  an amount of world time.
-
-Each needs the same engine part: a logical clock that a rewind restores and
-that does not stop while a room is not live, and a durable record that a
-built room reads. `GameplayElapsed` is a session clock that a rewind
-restores, but the save does not keep it, so a world clock that survives a
-save is also new work. (a) is the smallest test of that part.
+The rule is owned by
+[simulation authority](engine/simulation-authority-and-determinism.md): a
+component whose presence a query filter reads is authoritative, even when its
+value is derived. To witness a presence latch across a rewind, census the latch
+on each resimulated pass. A visible consequence that is not itself rollback
+state cannot witness the defect.

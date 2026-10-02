@@ -1,18 +1,17 @@
 # Maintainer decisions
 
-This is the compact durable record of decisions Jon made explicitly. It is not
-an investigation log. Git history retains the rationale that was present when a
-decision was recorded.
+This is the compact record of decisions Jon made explicitly. Each row gives the
+decision, its date and confidence, and only the consequence needed to apply it.
+Git history keeps the rationale and the investigation.
 
 Confidence means:
 
-- **High** — proceed on this basis; reopen only with new concrete evidence.
-- **Medium** — current direction; implementation or play may refine it.
-- **Low** — tentative preference or deliberately deferred choice.
+- **High**: proceed on this basis. Reopen only with new concrete evidence.
+- **Medium**: current direction. Implementation or play may refine it.
+- **Low**: tentative preference or deliberately deferred choice.
 
-Agents may add a short consequence when a new decision would otherwise be
-ambiguous, but do not paste the investigation that led to it. Open questions
-belong in [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md).
+Open questions belong in
+[`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md).
 
 ## Decision ledger
 
@@ -29,300 +28,198 @@ belong in [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md).
 | 2026-07-16 | Repository-wide knowledge-base hygiene checks are CI/maintainer tools, not routine local validation. | High |
 | 2026-07-16 | Preserve historical journals as historical records during documentation cleanup. | High |
 | 2026-07-16 | A full rename of `ambition_platformer2d_actor_monolith/src/features/` may be worthwhile, but the name `sim` is not settled and the work is low priority. | Low |
-| 2026-07-29 | **Label occlusion / transition nameplates are LOW PRIORITY** — not touched until combat is good. | Low |
-| 2026-07-29 | **Do NOT gate or redesign `Interact` yet — it needs a design discussion.** | High |
-| 2026-07-29 | **Build the portrait target → art resolver.** | High |
-| 2026-07-29 | **Replace the invented lab dummy enemies with real ones that already exist.** | High |
-| 2026-07-29 | **DI matters — Smash-style physics is wanted in Ambition itself, not only in versus.** | High |
-| 2026-07-29 | **Generic versus ends on HEALTH. Smash Siblings is a separate, specified mode.** | High |
-| 2026-07-29 | **Smash Siblings HUD: per-character portrait, stock icons, percentage. No score.** | High |
-| 2026-07-31 | **Each robot version is a DIFFERENT CHARACTER. Intended.** | High |
-| 2026-08-06 | **Input FILTERING is keyed to the PAD; BINDINGS stay machine-wide.** | High |
-| 2026-08-06 | **Dialogue claims only the TALKER's input by default. It no longer stops the world.** | High |
-| 2026-08-06 | **A conversation is SUSTAINED, not modal: it breaks on damage or separation, holds its participants if they are capable of it, and barks when it breaks.** | High |
-| 2026-08-06 | **Any seat may pause, and the seat that paused drives the menu.** | High |
-| 2026-07-30 | Defer the `bevy_ggrs` patch-table leak; revisit once upstream merges the `GgrsFrameTiming` accessor to crates.io. | High |
-| 2026-08-08 | **YES — a game may compose this engine WITHOUT a given capability. Capabilities are OPTIONAL.** | High |
-| 2026-08-08 | **AMENDMENT to the bbox route: the target figure height is an AUTHORED number with a per-character override — not a compiled constant.** | High |
-| 2026-08-08 | **TAKE THE BBOX ROUTE — size and crop the character quad from `body_pixel_bbox`, not the padded frame.** | High |
-| 2026-08-08 | **Run a MUCH smaller suite on a docs-only change. Bias toward running fewer tests.** | High |
-| 2026-08-08 | **"Declared no abilities" does NOT mean "inherit the dev kit". Character capabilities are AUTHORED, EXPLICIT and COMPOSABLE.** | High |
-| 2026-08-08 | **The Perfect Cellular Automaton CAN fly.** | High |
-| 2026-08-08 | **Sanic does NOT have blink.** | High |
-| 2026-08-08 | **Hitstun needs a REDESIGN in its own session, not a tweak.** | High |
-| 2026-08-08 | **The three named robot heavies are DEPRIORITISED, not decided.** | Low |
-| 2026-08-08 | **⭐⭐ THE ROLLBACK WIRE FORMAT IS UNSTABLE BY POLICY. The latest build is compatible with itself and nothing else. STOP ASKING.** | High |
-| 2026-08-08 | **Portal orientation is AUTHORED per portal, in LDtk. No global setting. Rotation is the default; scale inversion is opt-in and may be unsupported per game.** | High |
-| 2026-08-08 | **It is FINE that 1-1's first `?`-block drops its wand into a pit.** | Low |
-| 2026-08-08 | **You SHOULD be able to hit GNU-ton during its special.** ⚠ and the boss's authoring is stale generally — not worth deep work unless it is a symptom of an architecture problem. | High |
-| 2026-08-08 | **The world keeps living while you die — but it must KNOW you are dying and stop attacking you.** | High |
-| 2026-08-08 | **YES — a crawler's collision volume orients with its attachment, and it is the SAME concept as a body under different gravity.** | High |
-| 2026-08-08 | **Make most of the Hall cast dormant.** | Medium |
-| 2026-08-08 | **Defer all GNU-ton work.** | Low |
-| 2026-08-08 | **⭐ MARK staleness where it is found, with EVIDENCE. Sweep later, separately.** | High |
-| 2026-08-08 | **(b) Fix the one site; leave the authored-id rule to prose. Revisit the refactor only if it becomes important.** | Medium |
-| 2026-08-08 | **⚙ OPERATING NOTE: Jon does not have design intuitions about rollback, and has delegated that design to agents.** | High |
-| 2026-08-10 | **⭐⭐ A CHARACTER IS A REUSABLE AUTHORED TEMPLATE, NOT A SINGLETON PERSON — and the enemy-archetype system is deleted.** (answers queue D48; opened D73, closed 2026-08-13) | High |
-| 2026-08-13 | **⭐⭐ THERE IS NO SEPARATE "CAN FIGHT" CHARACTER PROPERTY. A character can fight exactly to the extent that its body has abilities/capabilities that can produce combat effects.** | High |
-| 2026-08-13 | **Carl Stargan does NOT fly. He fights — because his BODY has abilities, not because of a fighter flag.** (closes D96 5) | High |
-| 2026-08-13 | **Skitters ARE Puppy Slug.** `SmallSkitter` and `under_town_skitter` are authored as `npc_puppy_slug`. (closes 2 of D96 1/3/3b) | High |
-| 2026-08-13 | **`large_brute` becomes a REAL authored reusable character — a Goblin Brute, with its own Python sprite generator.** (closes the goblin-lab heavy casting call) | High |
-| 2026-08-13 | **The dive-drill and its anonymous `Target` may be DELETED. Deletion over architecture for disposable AI-authored content.** | High |
-| 2026-08-13 | **Previously unauthored body health is TUNING, not a blocked product decision — pick reasonable numbers and AUTHOR them.** (closes D96 7 and D96 8) | High |
-| 2026-08-13 | **Camera orientation is a per-view observer policy. Preserve the existing world-fixed/external-observer camera and add an optional controlled-body/view-subject-relative mode.** | High |
-| 2026-08-17 | **⭐⭐ KEEP THE LANDED PER-BODY HITLAG FREEZE. The old *"do not reintroduce a per-body zero-dt"* prohibition is SUPERSEDED. D114 is CLOSED.** | High |
-| 2026-08-17 | **⭐⭐ KEEP THE PER-TURN GATE SMALL — `cargo test --workspace --lib` stays OUT of `gate_suite.py` DELIBERATELY.** "Gate" continues to mean an EXECUTABLE gate; the pre-push checklist is a separate validation tier. **D160 CLOSED as an intentional policy choice, and `awaiting-maintainer-decision.md` §9 is ANSWERED.** | High |
-| 2026-08-17 | **ACCEPT the CPU showcase's current pacing. Do NOT retune stock count, knockback or damage. D128's pacing/product-acceptance blocker is CLEARED** — D128 stays open for its engineering/presentation defects. | High |
-| 2026-08-17 | **REPLACE the `central_hub_main` developer-note sign — do NOT delete it.** The hub wants an orientation sign; only the authoring-language content was wrong. | High |
-| 2026-08-17 | **Inventory becomes Morrowind-style: the OCCURRENCE owns, and EVERY inventory entry carries a COUNT — usually 1.** | Medium |
-| 2026-08-17 | **A line count is a PROXY. Decompose where it makes sense, and stop making the monolith worse.** | High |
-| 2026-08-17 | **Split-screen layout is ADAPTIVE WITH HYSTERESIS.** | Medium |
-| 2026-08-17 | **Sprite sizing: give every scale a SHARED UNIT first, then revisit the quad-from-bbox route.** | High |
-| 2026-08-17 | **Capability progression SPLITS BY WHAT THE VERB IS: physical verbs are BODY-owned, knowledge is PARTICIPANT-owned.** | Medium |
-| 2026-08-17 | **⭐⭐ A MODEL-BACKED CHARACTER IS A REMOTE PLAYER, NOT A BRAIN IN THE TICK — and the question is DEFERRED.** | Medium |
-| 2026-08-17 | **The 23 already-clipped sprite sheets are fixed CASE BY CASE, driven by the draw-time warning.** | High |
-| 2026-08-17 | **A dropped held weapon PERSISTS OR NOT PER ITEM — authored, not global.** | Medium |
-| 2026-08-17 | **ONE WORLD UNIT IS ONE BASE-GRID PIXEL — 16 units to a tile.** | High |
-| 2026-08-17 | **A declared character height is a CONTRACT: art scales to it, and a tight tolerance WARNS when the scale drifts.** | High |
-| 2026-08-17 | **Landmarks are OPTIONAL SLOTS on a character package — authored when useful, never required.** | Medium |
-| 2026-08-17 | **PROMOTE `engine/character-authoring-package.md` to a live ledger row, with canonical height as its FIRST SLICE.** | High |
-| 2026-08-17 | **Giant and multi-part bodies declare canonical height by the SAME rule — one vocabulary, no exemption list.** | High |
-| 2026-08-17 | **Camera shake stays CONSTANT IN THE WORLD; the field is renamed to say so.** | High |
-| 2026-08-17 | **A projectile respects the AUTHORED HURT VOLUME — the same geometry melee uses.** | High |
-| 2026-08-17 | **DEFER the per-creature ability absence list until the cast is bigger.** | Medium |
-| 2026-08-18 | **MINIMIZE POISON TESTS — poison only below ~60% certainty that the guard bites.** | High |
-| 2026-08-18 | **AUTHORING A CHARACTER'S SIZE MUST BE CONSISTENT AND TRIVIAL TO TUNE — one number, and the geometry follows.** | High |
-| 2026-08-18 | **MARY-O IS ONE BRICK TALL SMALL (16) AND TWO GROWN (32), AND HER SMALL ART IS REWORKED TO HALF THE GROWN HEIGHT AT THE SAME WIDTH.** | High |
-| 2026-08-18 | **THE TALL SPRITE MAY BE VISUALLY WIDER; THE COLLISION WIDTH STAYS IDENTICAL FOR BIG AND SMALL.** | High |
-| 2026-08-19 | **D166's CPU-GRAB WORK IS THE POLICY HALF FIRST: the FIGHTER CAPABILITY owns what a HOLD is WORTH.** The mechanical fixes (a start-gate on the option list, tighter grab spacing) wait behind it. | High |
-| 2026-08-19 | **`body.action_buffer` STAYS — a registered rollback row with no writer, DOCUMENTED as declared-but-unfed.** | Low |
-| 2026-08-19 | **AI SLOP HONOURS ITS AUTHORED SIZE CONSTANT — every slop shrinks from 73.9 × 48 to 28 × 18.2.** | Medium |
-| 2026-08-19 | **THE `.loop` CUE DERIVATION TRAP IS LEFT RECORDED — no exemption list, no fallback.** | Low |
-| 2026-08-19 | **`test_oiler_svg_rig.py`'s EIGHT AUTHORING-STRUCTURE TESTS STAY. Oiler's SVG is settled.** | Low |
-| 2026-08-19 | **D162's THREE SHEET-MANIFEST COLLISIONS GO TO JON PAIR BY PAIR — written up, not resolved by rule.** | Medium |
-| 2026-08-20 | **AVOID PUSHOUT is about PORTALS, not bodies. Jostle is allowed — but it may NEVER be a mandatory part of the movement kernel.** | High |
-| 2026-08-22 | **RENAME THE BLAST ZONE OUT OF EVERY WORLD — `World.edges: WorldEdgeMargins { fall, side, rise }`, Rust and LDtk keys in ONE change.** | High |
-| 2026-08-22 | **THE BAKED SHEET REGISTRY KEYS BY FILE ROOT — a renderer target string may not be a durable engine identity.** | High |
-| 2026-08-22 | **`SeatRawFrames` STAYS GENUINELY RAW — build the stage model, and world-dependent semantics land AFTER the boundary, not before it.** | High |
-| 2026-08-22 | **SWEEP THE CRATES A CARVE TOUCHES — do not widen the gate to `--workspace --all-targets`.** | High |
-| 2026-08-22 | **A LEVEL'S POSITION IS OWNED BY THE LAYOUT TOOL — and ownership FOLLOWS THE LAYOUT MODE.** | High |
-| 2026-08-22 | **HEIGHT OWNS WORLD SIZE; SOURCE-ART DENSITY IS A SEPARATE CONTRACT — and the 1.0 warning is REMOVED, not replaced.** | High |
-| 2026-08-22 | **A HIT'S ART FOLLOWS BOTH THE VICTIM'S MATERIAL AND THE BLOW'S STRENGTH.** | High |
-| 2026-08-22 | **IMPACT HITSTOP IS A BOUNDED MATCH-LEVEL REQUEST FROM THE CONNECT — it is combat presentation, not a slot-0 affordance.** | High |
-| 2026-08-22 | **A BOSS'S HOARD IS PER-BOSS EVENTUALLY; FOR THE DEMO IT IS CURRENCY.** | High |
-| 2026-08-22 | **`DebugLabel` IS DEBUG, AND IT KEEPS SHIPPING — the whole world is scaffold.** | High |
-| 2026-08-22 | **PROXIMITY-GATE EDGE-EXIT LABELS — and label visibility is a GAME-SELECTABLE POLICY, not a fixed rule.** | High |
-| 2026-08-22 | **DISABLE rust-analyzer — no second target directory.** | High |
-| 2026-08-22 | **CORRECT THE LEVEL-1 CPU FOR FEEL — the easiest rung is bad at FIGHTING, not self-destructive.** | Medium |
-| 2026-08-22 | **MARY-O KEEPS THE 56 px SHARED COLLISION WIDTH, AND HER SHORT-FORM CROWN RISES ~6 px.** | High |
-| 2026-08-22 | **FIX MARY-O'S WALK DIP PROPERLY — add a pose field that lowers the TORSO without moving `foot_y`.** | High |
-| 2026-08-22 | **THE MARY-O RESTART REPORT IS CLOSED — it was Mary-O, and it is believed RESOLVED.** | Medium |
-| 2026-08-22 | **ADVANCE THE `dev/ambition_dev_measurements` POINTER PERIODICALLY — the cadence does not matter.** | Low |
-| 2026-09-10 | **A PUBLISHED COLLISION SURFACE PARTICIPATES IN PROJECTILE COLLISION, AND A DESTRUCTIBLE'S SURFACE PLUS ITS HURT VOLUME ARE ONE COMPOUND CONTACT** — damage once AND apply the surface response. (Q96) | High |
-| 2026-09-12 | **TAKE THE STRONGER LAST-GOOD-WORLD GUARANTEE — A10 IS THE NEXT MAJOR ARCHITECTURE PACKET.** A candidate scene is constructed and validated OFF TO THE SIDE and published only on success; a rejected candidate leaves the running world untouched. NOT arbitrary transactional rollback of arbitrary ECS commands — A10 stays bounded to typed construction recipes, constrained candidate construction, relationship/resource validation, one controlled publication boundary and explicit retirement of the old world. (Q113) ⚠ Provenance: ruled in the architecture review Jon forwarded 2026-09-12, not from a separate instruction. | High |
-| 2026-09-12 | **A PLANNER THAT SCORES MOVE A WHILE THE EXECUTOR PERFORMS MOVE B VIOLATES THE ACTION MODEL WHATEVER THE MATCHUPS SAY** — so the truthful attack kit landed unconditionally, the `truthful_attack_kit` feature flag is gone, and **re-pricing CPU matchups is the EXPECTED consequence, not an objection to it**. Measured at the shipped duel: the admiral's dash attack went from 18 of 75 to 33 of 69 damage events and the duel now DECIDES at tick 2320 where it ran 3613 undecided. ⚠ What remains is Jon's and is TUNING, not this ruling: which utility / run / dash-attack parameters give the fighter quality he wants now that the brain reads the frame data of the move it actually takes. (Q117) ⚠ Provenance: ruled in the review that found the mismatch. | High |
-| 2026-09-13 | **A CONTENT PUBLICATION MAY STOP AND REBASE A ROLLBACK TIMELINE THIS HOST OWNS — THAT IS NOT A REFUSAL.** A pending generation is admitted only against a timeline that is healthy AND locally rebasable; `External` and `Caller`-owned timelines are never replaced unilaterally, and a RECORDED divergence refuses outright. The admission is a transaction-lifetime LEASE re-asked at the activation — not a check at the instant somebody asked — and the stop-and-rebase happens in the same exclusive step as the publication, because a frame between the two resimulates new content on the old timeline. ⚠ Not closed: the interval between the publication breaker and `commit_content_generation` is narrowed by ORDERING and owned by nobody; making the commit fallible is rejected, since it would recreate the half-transaction this road exists to prevent. Owner: `ambition_content::reload::reload_tests::a_boundary_that_closes_after_the_breaker_still_publishes`, which records that the mutation can be inserted and flips the day one activation authority owns the whole boundary. (Q118) ⚠ Provenance: ruled across the 2026-09-13 architecture review and the canary measurements it asked for, not from a separate instruction. | High |
-| 2026-09-13 | **A DEVELOPER MECHANICAL EDIT IS A PROPOSAL UNTIL THE TIMELINE'S OWNER ADMITS IT, AND THE DECISION HAPPENS BEFORE THE ADVANCE.** No live timeline → publish; a timeline this host owns → stop it, then publish (model 2, by precedent with Q118's road); `External`/`Caller`-owned or diverged → **refuse, meaning the authoritative value does not move**, with the proposal RETAINED so it publishes the moment ownership returns. Editor panels are MIRRORS of the authoritative mechanical values, never the authority. ⚠ Not closed: the acceptance the review asked for — a real GGRS canary that also carries the developer-tools chain — belongs to no single composition today. Owner: `game/ambition_app/tests/developer_edits_under_rollback.rs::the_canary_rig_has_no_developer_edit_road_to_admit`, which fails the day that harness gains the chain. (Q120) ⚠ Provenance: ruled in the 2026-09-13 architecture review. | High |
-| 2026-09-13 | **ONE AUTHORITY ANSWERS *“is mechanical mutation legal around rollback?”*, AND THE CALLERS DIFFER ONLY IN TRANSACTION LIFETIME.** `ambition_platformer2d::rollback::mechanical_mutation_boundary` owns the fact; Q120 consumes it instantaneously and Q118 holds it as a lease. Q118 and Q120 had each implemented the predicate, and the duplication produced a real defect — the content lease re-asked HEALTH and not the OWNERSHIP condition that authorized publication. (Q118, Q120) | High |
-| 2026-09-13 | **WITHDRAWN AS NOT A MAINTAINER'S CHOICE: WHAT A DEATH-RESET DOES WITH AN OBJECT IN YOUR CUSTODY IS ALREADY DECIDED, AND IT IS TEMPORAL RATHER THAN ITEM-KIND.** The reset restores the state at the checkpoint, PER OBJECT, by which side of the checkpoint each acquisition fell on — pinned by `a_death_returns_what_was_not_banked_and_keeps_what_was` (`game/ambition_app/tests/death_restores_the_checkpoint.rs`), whose beat 7 has two objects of the same kind in the same hand in the same frame reaching OPPOSITE answers. Any kind-shaped or road-shaped rule has ONE answer for those two and would have contradicted a shipped arm. ⇒ What remained was A10 engineering and is done: the transaction declares `superseding(id, id)` for an identity the baseline still holds and `reconstructing` for the rest, so the verifier names which body is unexpected. (Q124) | High |
-| 2026-09-19 | **⭐⭐ PRIORITY ADJUSTMENT: SCRIPTS ARE NOT THE PRODUCT.** Static review and ordinary code inspection are sufficient for many architecture invariants — do NOT build a parser, witness generator, poison suite or permanent guard for every ADR statement. Scripts earn their place by giving genuinely valuable observability or by catching a repeatedly demonstrated failure class. Effort belongs on: structurally better Rust architecture; direct runtime/game observability; tools that help balance and polish combat; edit-to-play iteration; world/content authoring and beginning to lay out the open world; and current rollback correctness *where it affects real mechanics*. ⛔ **Netplay is a future goal and NOT a goal for this year** — do not burn large effort on speculative P2P-only problems, especially in architecture likely to be refactored first. ⚠ The removed `K` clone feature is the cautionary example: substantial engineering went into preserving and debugging a temporary affordance whose only purpose was to force the actor architecture to stop treating the player as special. Do not repeat that pattern. | High |
-| 2026-09-19 | **⭐⭐ TWO EXPLICIT COMPOSITION MODES, AND THE GAME IS ESSENTIALLY IDENTICAL IN BOTH.** A game must be able to launch DIRECTLY or run INSIDE THE SHELL. The one meaningful semantic difference under the shell is that the game can RETURN to it; for parity the direct-launch build still shows the same "return to shell" menu item, disabled/greyed out because there is nowhere to return. ⛔ Shell presence must NOT alter ordinary game simulation, mechanics, capabilities, registries, content or game policy, and future platform-level overlays are not a reason to couple more shell behaviour into the game. Production shell sessions use the proper prepared/session lifecycle; explicit direct/headless/test compositions may hold scoped fixture/direct-entry authority where needed, but **no anonymous App-global fallback state returns**. Capabilities stay optional and composable: a capability an authored production content item REQUIRES and the composition lacks must REFUSE that content or its admission rather than silently pretending it works, while deliberately reduced tools and tests may omit capabilities explicitly. ⇒ Implement this architecture rather than continuing to census hypothetical composition variants. (Q146, Q144, Q108, Q106, Q100, Q97) | High |
-| 2026-09-19 | **⭐⭐ AN ABILITY CONTACT IS INDEPENDENT BY DEFAULT — PROVENANCE IS EXPLICIT.** It credits a move's `Connected`/contact condition ONLY when it explicitly carries provenance identifying the launching move occurrence. ⛔ `None` must NOT mean *"credit whatever move happens to be playing now"*. ⛔ `Some(old_instance)` must never credit a different current occurrence — that was a BUG, fixed directly, and never a policy question. If Blink, Dive, Mark Recall, an empowerment or another mechanic is intentionally designed to count toward its launching move, thread the launching occurrence explicitly. (Q101) | High |
-| 2026-09-19 | **⛔ NO GENERIC ONE-DIMENSIONAL ENGINE "DIFFICULTY" ARCHITECTURE, AND THE WHOLE TOPIC IS DEPRIORITISED.** Difficulty is primarily GAME POLICY expressed as presets over whatever that particular game cares about. For the Ambition exploration game an Easy/Hard preset might eventually adjust player health, incoming damage, and perhaps game-authored enemy behaviour — not important now. For Smash-like modes there may be no general difficulty at all: participants may have explicit HANDICAPS and CPUs have BRAIN/AI LEVELS, and those are separate concepts. ⇒ Participant-specific accessibility/assist/handicap state and game/match policy stay DISTINCT. ⚠ Most importantly: get the default/Normal game playing exceptionally well first. Preserve enough architecture not to be boxed in later; do not spend substantial current effort designing difficulty systems. (Q127) | High |
-| 2026-09-19 | **⭐ FOR THE SMASH-LIKE GAME, FOLLOW SMASH: ORDINARY SCALING THROWS PARTICIPATE IN RAGE, AND SET-KNOCKBACK KEEPS ITS SET-KNOCKBACK SEMANTICS (as in Ultimate).** ⛔ Not a universal engine law: rage, and whether a particular move or throw is influenced by it, are game-level combat policy the engine must be CAPABLE of expressing. ⚠ If the CPU-duel benchmark changes when throws correctly obey rage, that is combat/AI/balance evidence — not a reason to preserve a mechanics inconsistency. (Q133) | High |
-| 2026-09-19 | **⛔ DO NOT REMOVE GRAVITY SWITCHING. The LDtk-authored gravity switches are real game content and stay** — the symmetry/C4 room's four directional switches, the authored hub gravity flip, and any other legitimate encounter-authored gravity control. Developer ability to change gravity is also important right now and stays available. ⇒ What disappears, absent an actual current product use, is the separate unreachable `GravityFlipSwitch` overlap/pressure-plate vertical that nothing authors or spawns; do not preserve rollback/view/render/schema infrastructure solely for the dead plate. ⭐ Converge the legitimate roads: authored LDtk/encounter switches, developer/debug gravity controls and future gravity-changing mechanics should share substantial lower-level machinery for applying ambient gravity changes rather than each owning its own implementation of the same fact. If a gravity pressure plate is wanted later, build it as an INPUT feeding the shared mechanism, not as a revived parallel gravity implementation. (Q137) | High |
-| 2026-09-19 | **⭐ ONE FRAME OF STALE UI IS ACCEPTABLE.** The UI does not need rollback merely because it displays rollback-owned game state; actions initiated through UI that affect authoritative simulation state need the appropriate deterministic/simulation ingress, and presentation may remain presentation. ⛔ Do not introduce duplicate authoritative inventory state or substantial optimistic-reconciliation machinery to hide one frame. Finish the existing fix simply and move on; spend no more architecture budget here unless playtesting demonstrates a UX problem. (Q140) | High |
-| 2026-09-19 | **⭐ A CUTSCENE FADE CARRIES AN EXPLICIT AUTHORED START AND TARGET ALPHA** (`from_alpha` / target alpha or equivalent). ⛔ Do not rely on a hidden *"all cutscenes start black"* convention. ⚠ Cutscenes are currently low priority and the existing authored ones are not valuable enough to justify substantial preservation effort: make the semantics sane with minimal work, update the few authored sites, move on. (Q143) | Medium |
-| 2026-09-19 | **⛔ NOT BLOCKED, DO NOT WAIT FOR A FURTHER RULING** on any of: **Q132** — one canonical live `SessionRoot`, and a prepared candidate has a DISTINCT candidate identity that must not masquerade as `SessionRoot`; **Q136** — choose ingress by semantic ownership, and current rollback correctness is engineering, not a maintainer policy blocker; **Q138** — an invalidated harness must REFUSE or FAIL rather than silently produce frozen observations; **Q139** — do not grow architecture merely to satisfy a static presentation-writer census; **Q122** — mechanical identity fingerprints MECHANICAL FACTS, not explanatory prose; **Q104** — content-authored movesets are the long-term authority and duplicate Rust tables are migration scaffolding, not permanent architecture; **Q110** — mechanical registry changes use proper explicit lifecycle/replacement semantics, and no universal silent overwrite is invented; **Q145** — derive room-transition ordering from actual transaction semantics; **Q141** — durability is per-item and authored, and a runtime-spawned item MAY be durable when explicitly authored that way. | High |
-| 2026-09-24 | **AP19: A BODY'S DEFAULT ABILITIES ARE THE CONTENT PROVIDER'S DECLARATION.** Each provider declares its actor default; preparation resolves every character's `abilities` to authored-or-declared, so the blueprint carries a set rather than an `Option`, and `ambition_body_seed` holds no default. | High |
-| 2026-09-24 | **AP12: ARM THE MELEE COOLDOWN.** The move road arms `BodyMelee::cooldown` from the authored profile (`BrainProfile::attack_cooldown_mult`), so the AI swing gates close as authored. This is an accepted behaviour change: AI swings get slower. | High |
-| 2026-09-24 | **AP12, REFINED: THE PACE IS AUTHORED.** The ruling above rested on a base constant that never existed. Asked again, the answer was "author it somewhere": the profile authors `attack_cooldown_s` in seconds, unauthored means no floor, and the engine holds no pacing number. | High |
-| 2026-09-24 | **W004: IMPLEMENT THE LUNGE STEP.** `LungeSpec::step_px` is carried into the attack move as windup self-motion. The velocity law is an engineering choice that needs play-tuning. | High |
-| 2026-09-24 | **W026: THE PROVOKED POLICY IS RULESET/CONTENT-OWNED.** `default_provoked_policy()` stops being an engine answer; an explicit ruleset or content policy states what a provoked actor becomes. | High |
-| 2026-10-01 | **POTATO STAYS AT 1/16 LINEAR SCALE, FOR CHARACTERS TOO.** The tier is meant to be absurdly, humorously small, but it still gives the general gist of the sprite or part. It is not "the lowest acceptable normal quality", so a comparison against `quarter` or a low-quality readability threshold is not an acceptance criterion. No fallback to `0_25x`. (Q69) | High |
-| 2026-10-01 | **AN ACTOR RELEASED IN A FOREIGN ROOM: THE ENGINE KEEPS DURABLE WHEREABOUTS APART FROM THE AUTHORED POPULATION.** A persistent open-world character's current whereabouts are durable world state: it can be carried anywhere, stay there, move about or plant itself freely, and its authored room is not a respawn tether. A respawning population occurrence (the puppy slugs of a room) stays in the room it is carried to while that occurrence lives; when the game despawns it and the population respawns, the replacement appears in its authored room. Whether an actor "wants" to go back, and can navigate there, is character policy on top of durable whereabouts, not an engine rule. In short: authored population/home ≠ current durable whereabouts ≠ current live room occurrence. (Q38) | High |
-| 2026-10-01 | **A REWIND THAT UN-DEFEATS A BOSS ALSO UN-GRANTS ITS REWARD.** If you roll back to before the defeat, you do not have the item. Boss defeat and the consequences it causally produced rewind together. This should be extremely rare. A rollback boundary where the engine does not yet enforce it is implementation debt, kept as a known issue until there is evidence of its effect on feel, not an undecided behaviour. (Q51) | High |
-| 2026-10-01 | **ROOM REPLAY: THE SAME RULE, FOR EVERY BOSS FAMILY.** If a replay makes the boss undefeated again, the consequences of its defeat created after that point are undone too. The generic boss-progress road enforces it uniformly. (Q56) | High |
-| 2026-10-01 | **A PORTAL IS AN APERTURE, AND HELD ITEMS, MOUNTS AND EVERYTHING ELSE OBEY IT.** The portal must give the illusion of an aperture through space and handle all the complexity the engine can put through it: held items, riders and mounts, attached objects, projectiles and other composites. No special "hide, drop or teleport the whole object" shortcut because a configuration is complicated. This is the architectural north star; not every clipping edge case must be solved at once. (Q64) | High |
-| 2026-10-01 | **PAUSE, MAP AND INVENTORY MAY OPEN DURING DIALOGUE; MAP AND INVENTORY ARE EXCLUSIVE.** An overlay opened during a conversation does not end it or change what it means: the dialogue stays live underneath without navigation input. Map and inventory are mutually exclusive primary overlays. So input ownership needs explicit layering and focus between dialogue and an overlay, and the map/inventory exclusivity is an invariant. (Q75) | High |
-| 2026-10-01 | **A UNIQUE CAPABILITY ITEM MAY BEHAVE AS AN ENTITLEMENT FOR NOW.** A pickup that unlocks a capability is not a physical item whose continued possession is required. The Ocarina-of-Time-style inventory is a demonstration (the puppy-slug gun and the portal gun show that the engine supports an inventory and selectable equipment), not the final game's item model. Today, dropping the world token need not revoke the capability or stop it being selected again. Build no significant architecture to make the demo inventory physically rigorous; the inventory and item model will be reworked when real game development begins, and then the game distinguishes on purpose between an unlock/learned capability/entitlement and a physical item occurrence with custody and location that must be possessed to be used. (Q45) | High |
-| 2026-10-01 | **BOSS SUPPORT AS AN INDEPENDENT CAPABILITY IS ENGINEERING, NOT A RULING.** The wanted property: a small game or profile that does not request bosses does not inherit boss machinery because of historical topology. The implementing agent evaluates the boss subsystem and its seams, extracts it if it is mature enough, repairs concrete blockers where that improves the reusable engine, and does not force an artificial extraction if the blockers show the abstraction is not yet coherent. (Q48) | High |
-| 2026-10-01 | **A BODY/CAPABILITY GATE IS EVALUATED PER ACTOR.** A phase wall that requires worn Phase Boots is intangible for Alice, who wears them, and solid for Bob, who does not. Not "any qualifying participant opens a shared gate for everybody": that is a workaround for a shared-wall limitation. Collision between a wall and an actor evaluates that actor's body/capability state; the party does not mutate one global wall. This generalizes to every gate whose passability depends on the body that traverses it, so the engine supports actor-specific traversal/collision. (Q54) | High |
-| 2026-10-01 | **CONFLICTING DURABLE SWITCH COMMANDS: DETERMINISTIC, ONE ADJUDICATED AUTHORITY, NO BIG MACHINERY YET.** Two legitimate commands on one durable switch in one step must resolve deterministically, through one mutation authority, and system execution order must not decide the winner. A priority with a deterministic tie-break is acceptable; a cleaner semantic merge is preferred if the work finds one. With no authored collision today, narrowly scoped known policy debt is acceptable until a real use case needs it. (Q61) | Medium |
-| 2026-10-01 | **OPAQUE INSTALLATION IS PROHIBITED, NOT THE BEVY `Plugin` TYPE.** A capability may install its private systems and resources through a capability-owned plugin when the host/profile requests the capability explicitly, the plugin places its systems in documented public schedule milestones, and the composition root controls whether the capability exists and the order between published boundaries. Not acceptable: a large plugin that silently installs unrelated capabilities, adds hidden scheduling dependencies, or makes composition impossible to inspect. `app.add_plugins(CombatPlugin)` is fine as the mechanism of an explicitly selected combat capability. Wording that reads "no plugin" as a ban on the `Plugin` trait is to be removed. (Q73) | High |
-| 2026-10-01 | **`rm -rf` UNDER A BOUND `target/` IS PERMITTED; THE PROHIBITION IS DESTRUCTIVE CLEANUP WITHOUT THE BIND.** The safety invariant is the target bind mount, not the path. Verify the expected bind is present (`scripts/setup/target_bindmount.sh --status`); then `rm -rf target/<something>` is allowed when appropriate, without routing through `cargo clean` or a special script. When the bind is missing, or `target/` is ordinary repository-local storage, stop and do not delete target contents. Prose, reviewer guidance, scripts and absence checks that encode the old blanket ban are to be updated, and no prose may say that tools may delete these paths while agents may not. (Q77) | High |
-| 2026-10-01 | **VISUAL AND MECHANICAL GEOMETRY COME FROM ONE AUTHORED SOURCE.** Order of preference: (1) shared authored limb/weapon/body geometry, realized visually and mechanically, so disagreement is structurally impossible; (2) an explicit gameplay adjustment (hitbox inflation/extension) where disagreement is intended; (3) a small measured tolerance for unavoidable rasterization, scaling, floating-point, quantization and pixel-boundary effects. The tolerance is not chosen from this ruling: measure the pipeline's representational error and take the smallest practical value. (Q80) | High |
-| 2026-10-01 | **THE MOVESET OWNS MECHANICAL ATTACK TIMING.** Startup, active interval, recovery and cancel windows have one simulation-owned authority, the moveset/semantic move timeline, which feeds combat mechanics and then presentation. Sprite metadata is never an independent mechanical timing authority, so headless simulation has the whole answer, skins and texture quality cannot change balance, and rigged, baked and procedural presentations share one move. Art may annotate active frames for authoring, visualization and checks, derived from or validated against the moveset; when art timing drifts, tooling shows the discrepancy instead of changing mechanics. (Q107) | High |
-| 2026-10-01 | **PER-MOVE HITBOX INFLATION IS TUNING, NOT A RULING.** Bone-derived geometry gives the natural mechanical shape; a move may specify `inflate`/`extend` where feel needs reach. No roster-wide value. Inspect the move with the hitbox tooling, play it, compare visible contact with mechanical reach, and tune that move; keep zero where the derived geometry is already right. (Q115) | High |
+| 2026-07-29 | Label occlusion and transition nameplates are low priority. Do not touch them until combat is good. | Low |
+| 2026-07-29 | Do not gate or redesign `Interact` yet. It needs a design discussion. | High |
+| 2026-07-29 | Build the portrait target → art resolver. | High |
+| 2026-07-29 | Replace the invented lab dummy enemies with real ones that already exist. | High |
+| 2026-07-29 | DI matters: Smash-style physics is wanted in Ambition itself, not only in versus. | High |
+| 2026-07-29 | Generic versus ends on health. Smash Siblings is a separate, specified mode. | High |
+| 2026-07-29 | Smash Siblings HUD: per-character portrait, stock icons, percentage. No score. | High |
+| 2026-07-30 | Defer the `bevy_ggrs` patch-table leak. Revisit when upstream publishes the `GgrsFrameTiming` accessor on crates.io. | High |
+| 2026-07-31 | Each robot version is a different character, on purpose. | High |
+| 2026-08-06 | Input filtering is keyed to the pad. Bindings stay machine-wide. | High |
+| 2026-08-06 | Dialogue claims only the talker's input by default. It does not stop the world. | High |
+| 2026-08-06 | A conversation is sustained, not modal: it breaks on damage or separation, holds its participants if they can be held, and barks when it breaks. | High |
+| 2026-08-06 | Any seat may pause, and the seat that paused drives the menu. | High |
+| 2026-08-08 | A game may compose this engine without a given capability. Capabilities are optional. | High |
+| 2026-08-08 | Take the bbox route: size and crop the character quad from `body_pixel_bbox`, not the padded frame. The target figure height is an authored number with a per-character override, not a compiled constant. | High |
+| 2026-08-08 | Run a much smaller suite on a docs-only change. Bias toward running fewer tests. | High |
+| 2026-08-08 | "Declared no abilities" does not mean "inherit the dev kit". Character capabilities are authored, explicit and composable. | High |
+| 2026-08-08 | The Perfect Cellular Automaton can fly. | High |
+| 2026-08-08 | Sanic does not have blink. | High |
+| 2026-08-08 | Hitstun needs a redesign in its own session, not a tweak. | High |
+| 2026-08-08 | The three named robot heavies are deprioritised, not decided. | Low |
+| 2026-08-08 | The rollback wire format is unstable by policy. The latest build is compatible with itself and nothing else. Do not ask again. | High |
+| 2026-08-08 | Portal orientation is authored per portal, in LDtk. No global setting. Rotation is the default; scale inversion is opt-in and may be unsupported per game. | High |
+| 2026-08-08 | It is fine that 1-1's first `?`-block drops its wand into a pit. | Low |
+| 2026-08-08 | GNU-ton should be hittable during its special. Its authoring is stale in general; do deep work only if the staleness is a symptom of an architecture problem. | High |
+| 2026-08-08 | The world keeps living while you die, but it must know you are dying and stop attacking you. | High |
+| 2026-08-08 | A crawler's collision volume orients with its attachment. It is the same concept as a body under different gravity. | High |
+| 2026-08-08 | Make most of the Hall cast dormant. | Medium |
+| 2026-08-08 | Defer all GNU-ton work. | Low |
+| 2026-08-08 | Mark staleness where you find it, with evidence. Sweep later, separately. | High |
+| 2026-08-08 | (b) Fix the one site; leave the authored-id rule to prose. Revisit the refactor only if it becomes important. | Medium |
+| 2026-08-08 | Operating note: Jon has no design intuitions about rollback and delegates that design to agents. | High |
+| 2026-08-10 | A character is a reusable authored template, not a singleton person. The enemy-archetype system is deleted. (D48, D73) | High |
+| 2026-08-13 | There is no separate "can fight" character property. A character can fight to the extent that its body has abilities that produce combat effects. | High |
+| 2026-08-13 | Carl Stargan does not fly. He fights because his body has abilities, not because of a fighter flag. (D96 5) | High |
+| 2026-08-13 | Skitters are Puppy Slug: `SmallSkitter` and `under_town_skitter` are authored as `npc_puppy_slug`. | High |
+| 2026-08-13 | `large_brute` becomes a real authored reusable character, a Goblin Brute, with its own Python sprite generator. | High |
+| 2026-08-13 | The dive-drill and its anonymous `Target` may be deleted. For disposable AI-authored content, prefer deletion to architecture. | High |
+| 2026-08-13 | Unauthored body health is tuning, not a product decision. Pick reasonable numbers and author them. (D96 7, D96 8) | High |
+| 2026-08-13 | Camera orientation is a per-view observer policy. Keep the world-fixed/external-observer camera and add an optional controlled-body/view-subject-relative mode. | High |
+| 2026-08-17 | Keep the per-body hitlag freeze. The old "do not reintroduce a per-body zero-dt" prohibition is superseded. (D114) | High |
+| 2026-08-17 | Keep the per-turn gate small: `cargo test --workspace --lib` stays out of `gate_suite.py` on purpose. "Gate" means an executable gate; the pre-push checklist is a separate validation tier. (D160) | High |
+| 2026-08-17 | Accept the CPU showcase's current pacing. Do not retune stock count, knockback or damage. (D128) | High |
+| 2026-08-17 | Replace the `central_hub_main` developer-note sign; do not delete it. The hub wants an orientation sign. | High |
+| 2026-08-17 | Inventory is Morrowind-style: the occurrence owns, and every inventory entry carries a count (usually 1). | Medium |
+| 2026-08-17 | A line count is a proxy. Decompose where it makes sense, and stop making the monolith worse. | High |
+| 2026-08-17 | Split-screen layout is adaptive with hysteresis. | Medium |
+| 2026-08-17 | Sprite sizing: give every scale a shared unit first, then revisit the quad-from-bbox route. | High |
+| 2026-08-17 | Capability progression splits by verb: physical verbs are body-owned, knowledge is participant-owned. | Medium |
+| 2026-08-17 | A model-backed character is a remote player, not a brain in the tick. The question is deferred. | Medium |
+| 2026-08-17 | Fix the clipped sprite sheets case by case, driven by the draw-time warning. | High |
+| 2026-08-17 | A dropped held weapon persists or not per item, by authoring, not by a global rule. | Medium |
+| 2026-08-17 | One world unit is one base-grid pixel: 16 units to a tile. | High |
+| 2026-08-17 | A declared character height is a contract: art scales to it, and a tight tolerance warns when the scale drifts. | High |
+| 2026-08-17 | Landmarks are optional slots on a character package: authored when useful, never required. | Medium |
+| 2026-08-17 | Promote `engine/character-authoring-package.md` to a live ledger row, with canonical height as its first slice. | High |
+| 2026-08-17 | Giant and multi-part bodies declare canonical height by the same rule. One vocabulary, no exemption list. | High |
+| 2026-08-17 | Camera shake stays constant in the world; the field is renamed to say so. | High |
+| 2026-08-17 | A projectile respects the authored hurt volume, the same geometry melee uses. | High |
+| 2026-08-17 | Defer the per-creature ability absence list until the cast is bigger. | Medium |
+| 2026-08-18 | Minimize poison tests. Poison only below about 60% certainty that the guard bites. | High |
+| 2026-08-18 | Authoring a character's size must be consistent and trivial to tune: one number, and the geometry follows. | High |
+| 2026-08-18 | Mary-O is one brick tall small (16) and two grown (32). Her small art is half the grown height at the same width. | High |
+| 2026-08-18 | The tall sprite may be visually wider. The collision width stays identical for big and small. | High |
+| 2026-08-19 | D166 CPU-grab work does the policy half first: the fighter capability owns what a hold is worth. The mechanical fixes (a start-gate on the option list, tighter grab spacing) wait behind it. | High |
+| 2026-08-19 | `body.action_buffer` stays: a registered rollback row with no writer, documented as declared-but-unfed. | Low |
+| 2026-08-19 | AI Slop honours its authored size constant (28 × 18.2). | Medium |
+| 2026-08-19 | The `.loop` cue derivation trap stays recorded. No exemption list, no fallback. | Low |
+| 2026-08-19 | The eight authoring-structure tests in `test_oiler_svg_rig.py` stay. Oiler's SVG is settled. | Low |
+| 2026-08-19 | D162's three sheet-manifest collisions go to Jon pair by pair, written up, not resolved by rule. | Medium |
+| 2026-08-20 | Avoid-pushout is about portals, not bodies. Jostle is allowed, but it may never be a mandatory part of the movement kernel. | High |
+| 2026-08-22 | Rename the blast zone out of every world: `World.edges: WorldEdgeMargins { fall, side, rise }`, Rust and LDtk keys in one change. | High |
+| 2026-08-22 | The baked sheet registry keys by file root. A renderer target string may not be a durable engine identity. | High |
+| 2026-08-22 | `SeatRawFrames` stays raw. Build the stage model; world-dependent semantics land after the boundary, not before it. | High |
+| 2026-08-22 | Sweep the crates a carve touches. Do not widen the gate to `--workspace --all-targets`. | High |
+| 2026-08-22 | The layout tool owns a level's position, and ownership follows the layout mode. | High |
+| 2026-08-22 | Height owns world size. Source-art density is a separate contract. The 1.0 warning is removed, not replaced. | High |
+| 2026-08-22 | A hit's art follows both the victim's material and the blow's strength. | High |
+| 2026-08-22 | Impact hitstop is a bounded match-level request from the connect. It is combat presentation, not a slot-0 affordance. | High |
+| 2026-08-22 | A boss's hoard is per-boss eventually. For the demo it is currency. | High |
+| 2026-08-22 | `DebugLabel` is debug, and it keeps shipping: the whole world is scaffold. | High |
+| 2026-08-22 | Proximity-gate edge-exit labels. Label visibility is a game-selectable policy, not a fixed rule. | High |
+| 2026-08-22 | Disable rust-analyzer. No second target directory. | High |
+| 2026-08-22 | Correct the level-1 CPU for feel: the easiest rung is bad at fighting, not self-destructive. | Medium |
+| 2026-08-22 | Mary-O keeps the 56 px shared collision width, and her short-form crown rises about 6 px. | High |
+| 2026-08-22 | Fix Mary-O's walk dip with a pose field that lowers the torso without moving `foot_y`. | High |
+| 2026-08-22 | The Mary-O restart report is closed and believed resolved. | Medium |
+| 2026-08-22 | Advance the `dev/ambition_dev_measurements` pointer periodically. The cadence does not matter. | Low |
+| 2026-09-10 | A published collision surface participates in projectile collision. A destructible's surface plus its hurt volume are one compound contact: damage once and apply the surface response. See the Q96 consequences below. (Q96) | High |
+| 2026-09-12 | Take the stronger last-good-world guarantee. A candidate scene is built and validated off to the side and published only on success; a rejected candidate leaves the running world untouched. A10 stays bounded to typed construction recipes, constrained candidate construction, relationship/resource validation, one controlled publication boundary and explicit retirement of the old world. It is not transactional rollback of arbitrary ECS commands. (Q113) | High |
+| 2026-09-12 | A planner that scores move A while the executor performs move B violates the action model. The truthful attack kit is unconditional, and re-pricing CPU matchups is the expected consequence. Which utility, run and dash-attack parameters give the wanted fighter quality is tuning. (Q117) | High |
+| 2026-09-13 | A content publication may stop and rebase a rollback timeline this host owns; that is not a refusal. A pending generation is admitted only against a timeline that is healthy and locally rebasable. `External`- and `Caller`-owned timelines are never replaced unilaterally, and a recorded divergence refuses. The admission is a transaction-lifetime lease re-asked at activation, and the stop-and-rebase happens in the same exclusive step as the publication. Known gap: ordering alone narrows the interval between the publication breaker and `commit_content_generation`. Do not make the commit fallible. Tracked by `a_boundary_that_closes_after_the_breaker_still_publishes` (`game/ambition_content/src/reload_tests.rs`). (Q118) | High |
+| 2026-09-13 | A developer mechanical edit is a proposal until the timeline's owner admits it, and the decision happens before the advance. No live timeline: publish. A timeline this host owns: stop it, then publish. `External`/`Caller`-owned or diverged: refuse (the authoritative value does not move) and retain the proposal so it publishes when ownership returns. Editor panels mirror the authoritative mechanical values and are never the authority. Known gap: no composition runs a real GGRS canary with the developer-tools chain; `the_canary_rig_has_no_developer_edit_road_to_admit` (`game/ambition_app/tests/developer_edits_under_rollback.rs`) fails when one does. (Q120) | High |
+| 2026-09-13 | One authority, `ambition_platformer2d::rollback::mechanical_mutation_boundary`, answers whether mechanical mutation is legal around rollback. Callers differ only in transaction lifetime: Q120 asks once, Q118 holds a lease. (Q118, Q120) | High |
+| 2026-09-13 | Withdrawn as not a maintainer choice: a death-reset restores each object in custody by which side of the checkpoint its acquisition fell on (temporal, per object), not by item kind. Pinned by `a_death_returns_what_was_not_banked_and_keeps_what_was` (`game/ambition_app/tests/death_restores_the_checkpoint.rs`). (Q124) | High |
+| 2026-09-16 | GGRS does not start before the durable restore finishes. `maintain_local_session` refuses to create a rollback session while `durable_hydration_is_pending` (the save is unapplied and this world has the body that can apply it). Do not gate on the bare `SaveRestored` flag: a Smash match never raises it. Held by `a_conversation_on_the_first_tick_of_a_session_is_counted_exactly_once` (`game/ambition_app/tests/a_bag_changed_mid_window_reaches_the_save.rs`). (Q135) | High |
+| 2026-09-19 | Priority adjustment: scripts are not the product. Static review and code inspection are enough for many architecture invariants. Do not build a parser, witness generator, poison suite or permanent guard for every ADR statement. A script earns its place by valuable observability or by catching a repeatedly demonstrated failure class. Effort goes to: better Rust architecture; runtime and game observability; combat balance and polish tools; edit-to-play iteration; world/content authoring and open-world layout; and rollback correctness where it affects real mechanics. ⛔ Netplay is not a goal for this year: do not spend large effort on speculative P2P-only problems. Do not spend heavy engineering on preserving a temporary affordance (the removed `K` clone feature is the example). | High |
+| 2026-09-19 | Two explicit composition modes, and the game is essentially identical in both: launch directly or run inside the shell. Under the shell the game can return to it; the direct build shows the same "return to shell" item, disabled. Shell presence must not change simulation, mechanics, capabilities, registries, content or game policy. Production shell sessions use the prepared/session lifecycle; explicit direct, headless and test compositions may hold scoped fixture/direct-entry authority. No anonymous App-global fallback state returns. A capability that authored production content requires and the composition lacks refuses that content or its admission; reduced tools and tests may omit capabilities explicitly. Implement this; do not census hypothetical composition variants. (Q146, Q144, Q108, Q106, Q100, Q97) | High |
+| 2026-09-19 | An ability contact is independent by default. It credits a move's `Connected`/contact condition only when it carries explicit provenance naming the launching move occurrence. `None` does not mean "the move playing now", and `Some(old_instance)` never credits a different current occurrence. A mechanic meant to count toward its launching move threads that occurrence explicitly. (Q101) | High |
+| 2026-09-19 | No generic one-dimensional engine difficulty architecture, and the topic is deprioritised. Difficulty is game policy expressed as presets. Smash-like modes may have participant handicaps and CPU brain levels, which are separate concepts. Keep participant accessibility/assist/handicap state distinct from game/match policy. Get Normal play excellent first. (Q127) | High |
+| 2026-09-19 | For the Smash-like game, ordinary scaling throws participate in rage, and set-knockback keeps set-knockback semantics (as in Ultimate). This is game-level combat policy that the engine must be able to express, not an engine law. A changed CPU-duel benchmark is balance evidence, not a reason to keep the inconsistency. (Q133) | High |
+| 2026-09-19 | Do not remove gravity switching. LDtk-authored gravity switches and developer gravity controls stay. The unreachable `GravityFlipSwitch` plate goes. Authored switches, developer controls and future gravity mechanics share one lower-level mechanism for ambient gravity changes; a future gravity plate is an input to it. (Q137) | High |
+| 2026-09-19 | One frame of stale UI is acceptable. UI does not need rollback because it displays rollback-owned state. UI actions that affect the simulation use deterministic simulation ingress. Do not add duplicate authoritative inventory state or optimistic-reconciliation machinery to hide one frame. (Q140) | High |
+| 2026-09-19 | A cutscene fade carries an explicit authored start and target alpha. Do not rely on an "all cutscenes start black" convention. Cutscenes are low priority: make the semantics sane with minimal work. (Q143) | Medium |
+| 2026-09-19 | Not blocked; do not wait for a further ruling. **Q132**: see the session-identity consequences below. **Q136**: choose ingress by semantic ownership; current rollback correctness is engineering. **Q138**: an invalidated harness refuses or fails; it never produces frozen observations. **Q139**: do not grow architecture only to satisfy a static presentation-writer census. **Q122**: the mechanical identity fingerprints mechanical facts, not explanatory prose. **Q104**: content-authored movesets are the long-term authority; duplicate Rust tables are migration scaffolding. **Q110**: mechanical registry changes use explicit lifecycle/replacement semantics; no universal silent overwrite. **Q145**: derive room-transition ordering from actual transaction semantics. **Q141**: durability is per item and authored; a runtime-spawned item may be durable when authored so. | High |
+| 2026-09-24 | AP19: a body's default abilities are the content provider's declaration. Preparation resolves every character's `abilities` to authored-or-declared, so the blueprint carries a set, not an `Option`, and `ambition_body_seed` holds no default. | High |
+| 2026-09-24 | AP12: the melee cooldown is armed and its pace is authored. The move road arms `BodyMelee::cooldown` from the profile's `attack_cooldown_s` (seconds); unauthored means no floor, and the engine holds no pacing number. Accepted behaviour change: AI swings get slower. | High |
+| 2026-09-24 | W004: implement the lunge step. `LungeSpec::step_px` is carried into the attack move as windup self-motion. The velocity law is an engineering choice that needs play-tuning. | High |
+| 2026-09-24 | W026: the provoked policy is ruleset/content-owned. An explicit ruleset or content policy states what a provoked actor becomes; the engine has no default answer. | High |
+| 2026-10-01 | The potato tier stays at 1/16 linear scale, for characters too. It is meant to be humorously small while it keeps the gist of the sprite. Readability against `quarter` or a low-quality threshold is not an acceptance criterion. No fallback to `0_25x`. (Q69) | High |
+| 2026-10-01 | Durable whereabouts are separate from the authored population. A persistent open-world character's current whereabouts are durable world state; its authored room is not a respawn tether. A respawning population occurrence stays where it is carried while it lives; when the population respawns, the replacement appears in its authored room. Wanting to go home is character policy, not an engine rule. Authored home ≠ durable whereabouts ≠ live room occurrence. (Q38) | High |
+| 2026-10-01 | A rewind that un-defeats a boss also un-grants its reward. Boss defeat and the consequences it caused rewind together. Where the engine does not yet enforce this, it is known implementation debt, not an undecided behaviour. (Q51) | High |
+| 2026-10-01 | Room replay uses the same rule for every boss family: if a replay makes the boss undefeated again, the consequences of its defeat created after that point are undone. The generic boss-progress road enforces it. (Q56) | High |
+| 2026-10-01 | A portal is an aperture, and held items, riders and mounts, attached objects, projectiles and other composites obey it. No "hide, drop or teleport the whole object" shortcut for complicated configurations. This is the north star; not every clipping edge case must be solved at once. (Q64) | High |
+| 2026-10-01 | Pause, map and inventory may open during dialogue; the conversation stays live underneath without navigation input. Map and inventory are mutually exclusive primary overlays. Input ownership needs explicit layering and focus between dialogue and an overlay. (Q75) | High |
+| 2026-10-01 | A unique capability item may behave as an entitlement for now: dropping the world token need not revoke the capability. The demo inventory is a demonstration, not the final item model; build no significant architecture to make it physically rigorous. When real game development begins, the game distinguishes an unlock/entitlement from a physical item occurrence with custody and location. (Q45) | High |
+| 2026-10-01 | Boss support as an independent capability is engineering, not a ruling. A game or profile that does not request bosses must not inherit boss machinery from historical topology. Extract the subsystem if it is mature enough, repair concrete blockers where that improves the engine, and do not force an artificial extraction. (Q48) | High |
+| 2026-10-01 | A body/capability gate is evaluated per actor. A phase wall that requires worn Phase Boots is intangible for the actor who wears them and solid for one who does not. Collision evaluates the traversing actor's body/capability state; no actor mutates one shared wall for the party. (Q54) | High |
+| 2026-10-01 | Conflicting durable switch commands in one step resolve deterministically through one mutation authority; system order must not choose the winner. A priority with a deterministic tie-break is acceptable; a clean semantic merge is preferred. With no authored collision today, narrow known policy debt is acceptable. (Q61) | Medium |
+| 2026-10-01 | Opaque installation is prohibited, not the Bevy `Plugin` type. A capability may install its private systems and resources through a capability-owned plugin when the host/profile requests the capability explicitly, the plugin uses documented public schedule milestones, and the composition root controls whether the capability exists and the order between published boundaries. A plugin that silently installs unrelated capabilities or hides scheduling dependencies is not acceptable. Remove wording that reads "no plugin" as a ban on the `Plugin` trait. (Q73) | High |
+| 2026-10-01 | `rm -rf` under a bound `target/` is permitted. The safety invariant is the target bind mount, not the path: verify it with `scripts/setup/target_bindmount.sh --status`, then delete `target/<something>` when appropriate. When the bind is missing, do not delete target contents. Prose and checks that encode the old blanket ban are to be updated. (Q77) | High |
+| 2026-10-01 | Visual and mechanical geometry come from one authored source. In order of preference: (1) shared authored limb/weapon/body geometry, so disagreement is structurally impossible; (2) an explicit gameplay adjustment (hitbox inflation/extension) where disagreement is intended; (3) a small measured tolerance for rasterization, scaling and quantization effects, set from the pipeline's measured representational error. (Q80) | High |
+| 2026-10-01 | The moveset owns mechanical attack timing. Startup, active interval, recovery and cancel windows come from the moveset/semantic move timeline, which feeds mechanics and then presentation. Sprite metadata is never a mechanical timing authority. Art may annotate active frames for authoring and checks, derived from or validated against the moveset; tooling shows drift instead of changing mechanics. (Q107) | High |
+| 2026-10-01 | Per-move hitbox inflation is tuning, not a ruling. Bone-derived geometry gives the natural shape; a move may set `inflate`/`extend` where feel needs reach. No roster-wide value: inspect, play and tune each move, and keep zero where the derived geometry is right. (Q115) | High |
+
+## Consequences that need more than one row
+
+- **2026-08-15, reset semantics:** the checkpoint is the reset baseline. A
+  replay restores what the checkpoint promises. Do not infer a second reset
+  policy from entity lifetime.
+- **2026-08-17, item semantics:** physical occurrence, custody, entitlement and
+  durability are separate facts. Ordinary drops may be room-scoped while
+  story/unique items persist.
+- **2026-09-02, visual quality:** a lower quality setting may use fewer source
+  pixels, but no mechanism may draw fewer pixels than the selected quality tier
+  promises.
+- **2026-09-03, doc-only dependencies:** keep a dependency that is named only
+  in a doc comment or intra-doc link, and keep the link. The link serves a
+  reader; the cost is one manifest line.
+- **2026-09-05, portal presentation:** portal presentation is a composition
+  policy. Smash may disable the seamless presentation without weakening the
+  reusable portal mechanism.
+- **2026-09-05, Limit:** the meter may fill from the obvious authored sources.
+  Generic meter validation must not encode one Smash balance doctrine.
+- **2026-09-05, demo items:** important demo items deserve real presentation.
+  Placeholder art is not a permanent design decision.
+- **2026-09-05, authorship:** what Jon explicitly authored is the demo's claim.
+  Agents may polish execution, but must not replace an authored idea with a
+  different move/content concept because it is easier to implement.
+- **2026-09-10, projectile contact (Q96):** a projectile knows only that the
+  collision world published a surface with given collision semantics, never
+  that a target is an ECS breakable. Where one contributor supplies a surface
+  and a damageable volume at the same time of impact, they coalesce into one
+  compound contact: a bouncing shot damages a solid crate and bounces. Where the
+  surface lies before an inset hurt volume, only the surface was reached.
+  Exemptions (ghost, phase, terrain-piercing, one-way-ignoring shots) exclude
+  collision classes, never individual targets. Contributor identity is real
+  identity, not inferred from matching AABBs or name strings.
+- **2026-09-19, session identity (Q132):** there is exactly one canonical live
+  `SessionRoot`. A replacement may be prepared while the current session stays
+  live, but the candidate carries a distinct prepared-session identity and does
+  not masquerade as a `SessionRoot`. Order: prepare B; A stays the sole
+  canonical root; retire A; publish B atomically. Do not weaken this for test
+  or direct-entry convenience.
+- **2026-09-19, scoped mutable state (Q132):** mutable state that can hold
+  different values for two sessions, generations, participants or timelines that
+  coexist (during preparation, handoff, rollback, multiplayer or testing)
+  carries an explicit scope, not anonymous App-global identity. App-global
+  mutable state is right only when simultaneous sessions would share exactly the
+  same value. Scoped resources need not be ECS children of `SessionRoot`;
+  explicit identity and lifecycle ownership are what matter. Prepared immutable
+  data may be generation-scoped. Render/device services, logging, asset
+  infrastructure, networking transport and caches stay global. User settings
+  and durable save data are separate authorities: a mechanical projection from
+  them needs explicit admission into a session.
 
 ### The census numbers the 2026-09-19 ingress rulings were sized against
 
-⛔ These are TRANSCRIPTION CHECKS, not a second classification. Each census owns
-its own verdicts; the marker states what the ruling was sized against, and the
-script fails if the two disagree. They moved here from
-`awaiting-maintainer-decision.md` when `Q136` was ruled and deleted — a marker
-pinned to a page that no longer states the fact is a check against nothing.
+These markers are transcription checks for the Q136 ruling.
+`scripts/resources_crossing_the_rewind_boundary.py` checks `crossing-census`,
+and `scripts/check_host_produced_sim_consumed_requests.py` checks
+`ingress-census`. Each script owns its own classification; when a number moves,
+update the marker in the same change and name what moved in the commit message.
 
 <!-- crossing-census: both_side_resources=54 rollback_registered=33 adjudicated_harmless=18 session_edge_only=3 filed=0 unclassified=0 -->
 <!-- ingress-census: spent_resources=54 resource_crossings=1 written_messages=93 message_crossings=2 unlocated=43 unlocated_types=15 -->
 
-⛔ **`both_side_resources` WENT 53 → 54 AND `rollback_registered` 32 → 33
-ON 2026-10-02, AND WHAT ARRIVED IS NAMED:** `BreakableRespawnSchedule` (OW5).
-The simulation records and forgets its due times, and the session teardown
-in `Update` clears it. It is rollback-registered with a value checksum
-(`feature.breakable_respawn_schedule`), so it crosses as rollback state, not
-as a defect.
-
-⛔ **`both_side_resources` WENT 52 → 53 AND `rollback_registered` 31 → 32
-ON 2026-10-01, AND WHAT ARRIVED IS NAMED:** `BossDefeatsSinceCheckpoint`
-(BOSS-REPLAY-RETRACTION). The simulation records and takes its entries, and
-the session teardown in `Update` clears it. It is rollback-registered with a
-value checksum (`boss.defeats_since_checkpoint`), so it crosses as rollback
-state, not as a defect.
-
-⛔ **`both_side_resources` WENT 54 → 53 AND `rollback_registered` 33 → 32
-LATER ON 2026-09-29, AND WHAT LEFT IS NAMED:** `MovingPlatformSet`. It is not
-a resource any more: OW1 cut 3b made it a component on each live room's root,
-so the session teardown that wrote it in `Update` is gone with it. No
-crossing moved.
-
-⛔ **`spent_resources` WENT 55 → 54 AND `written_messages` 95 → 93 ON
-2026-09-29, AND WHAT LEFT IS NAMED:** the resource `NewGameResetRequested` and
-the messages `NewGameResetCommitted` and `RespawnRoomVisualsRequested` (the
-room commit still writes the second through a system parameter, which this
-census does not attribute). A New Game is a checkpoint restore to the fresh
-baseline now (NEW-GAME-RESYNC): the owed request is `OutstandingCheckpointRequest`
-and the room commit runs the fresh-run reducers, so the latch and its commit
-message are deleted. No crossing moved.
-
-⛔ **`resource_crossings` WENT 2 → 1 AND `message_crossings` 3 → 2 LATER ON
-2026-09-28, AND THE TWO THAT LEFT ARE NAMED:** `NewGameResetRequested` and
-`PlayerHealRequested`. The menu writes `NewGameRequested` and
-`ItemUseRequested` host intents (`HostIntentWriter`); the simulation releases
-each on its stamped tick, arms the reset and spends the consumable. The
-crossing census moved with them: `both_side_resources` 55 → 54 and
-`rollback_registered` 34 → 33 (`NewGameResetRequested` is written inside the
-timeline only).
-
-⛔ **`resource_crossings` WENT 3 → 2 AND `spent_resources` 56 → 55 ON
-2026-09-28, AND THE ONE THAT LEFT IS NAMED:** `CutsceneAdvanceRequest`. The
-crossing census moved with it: `filed` 1 → 0 and `both_side_resources` 56 → 55
-for the same type, and `CutsceneSkipHold` moved from `adjudicated_harmless` to
-`rollback_registered` because it is now simulation state. The
-cutscene dismiss and skip now ride the seat's `ControlFrame`
-(`confirm_pressed`, `cancel_held`), and `tick_active_cutscene` reads them from
-`SlotControls`, so no `Update` system writes a request for the simulation to
-spend. **`unlocated` WENT 41 → 43 IN THE SAME WINDOW, AND THE TWO THAT JOINED ARE
-NAMED:** `break_monitor_boxes` and `defeat_badniks`, both Sanic simulation
-systems that the demo installs through a `let` binding the script cannot
-follow. Neither is a host writer, so neither is a crossing.
-
-⛔ **`both_side_resources` WENT 57 → 56 AND `adjudicated_harmless` 20 → 19 ON
-2026-09-24, and the one that left is named:** `DeveloperRuntimeState`. AP17
-(`5539d8667`) moved its HUD-flash decay out of the simulation into `Update`, so
-it no longer crosses the boundary.
-
-⛔⛤ **`unlocated` WENT 42 → 41 ON 2026-09-21, AND THE ONE THAT LEFT IS NAMED
-RATHER THAN SUBTRACTED.** Diffed against `ace00e006`, the commit that wrote this
-marker, by running `unlocated_message_systems` over both trees: the set lost
-exactly `gravity_flip_switch_system` and gained nothing. That is `9732f9d45`
-(Q137) deleting the unreachable gravity pressure plate — **the same commit, the
-same afternoon, also took the alias census from 183 to 182**, and neither guard
-was run against it. ⇒ One deletion, two stale transcriptions on two different
-pages, and both were found by running the guards rather than by reading either
-page. ⚠ A number that falls because its subject was correctly deleted is not
-drift in the population; it is drift in the TRANSCRIPTION, which is exactly what
-these markers exist to catch.
-
-
-## Supplemental rulings that were previously stored as long-form sections
-
-- **2026-08-15 — reset semantics:** the checkpoint is the reset baseline. A
-  replay restores what the checkpoint promises; do not infer a second reset
-  policy from entity lifetime.
-- **2026-08-17 — item semantics:** physical occurrence, custody, entitlement and
-  durability are separate facts. Dropped weapons persist or not **per item**, by
-  authoring; ordinary drops may be room-scoped while story/unique items persist.
-- **2026-09-02 — visual quality:** a lower quality setting may use fewer source
-  pixels, but no mechanism may draw fewer pixels than the selected quality tier
-  promises.
-- **2026-09-05 — portal presentation:** portal presentation is a composition
-  policy; Smash may disable the seamless presentation without weakening the
-  reusable portal mechanism.
-- **2026-09-05 — Limit:** the meter may fill from the obvious authored sources;
-  generic meter validation must not encode one Smash balance doctrine.
-- **2026-09-05 — demo items:** important demo items deserve real presentation;
-  placeholder art is not a permanent design decision.
-- **2026-09-05 — authorship:** what Jon explicitly authored is the demo's claim.
-  Agents may polish execution, but should not replace that authored idea with a
-  different move/content concept merely because it is easier to implement.
-- **2026-09-10 — projectile contact with published surfaces (Q96):** a projectile
-  must not know *"this is an ECS breakable"*; it must know *"the collision world
-  published a surface with these collision semantics."* A
-  `BreakableCollision::Solid` surface therefore participates in projectile
-  collision. Where the same contributor supplies both a surface and a damageable
-  volume at the same time of impact, they **coalesce into ONE compound contact**:
-  damage the target once **and** apply the projectile's physical surface response.
-  A bouncing shot damages a solid crate **and** bounces. *"Wall wins, therefore the
-  crate is invulnerable"* is rejected. Where the surface lies before an INSET hurt
-  volume, only the surface was reached — no damage yet.
-- **2026-09-10 — projectile exemptions are POLICY, not FAMILY (Q96):** a ghost
-  shot, phase shot, terrain-piercing round or one that ignores one-ways excludes
-  appropriate **collision CLASSES**. Never a per-target carve-out.
-- **2026-09-10 — contributor identity must be REAL identity (Q96):** not inferred
-  from matching AABBs, and not from name strings such as `"ecs-breakable foo"`.
-  This ratifies the projectile contact protocol's existing wording.
-
-- **2026-09-19 — exactly one canonical live `SessionRoot` (Q132):** two
-  published/canonical roots are INVALID. Normal lifecycle transitions — game A →
-  menu → game B, game A → direct replacement by game B, and preparing game B
-  while A is still live — must preserve that invariant. Preparing a replacement
-  while the current session stays live is allowed, but the incoming candidate
-  must carry a DISTINCT candidate/prepared-session identity and must not
-  masquerade as a `SessionRoot`. The order is: prepare candidate B → A remains
-  the sole canonical root → retire/terminalize A → publish B atomically as the
-  new canonical root. Do not weaken the invariant for test or direct-entry
-  convenience.
-- **2026-09-19 — session-dependent mutable state must carry explicit scope
-  (Q132, and it governs beyond it):** *if mutable state can legitimately hold
-  different values for two sessions, generations, participants or timelines that
-  could coexist during preparation, handoff, rollback, multiplayer or testing,
-  it must carry the appropriate explicit scope rather than relying on anonymous
-  App-global singleton identity.* Conversely, App-global mutable state is
-  appropriate ONLY when simultaneous sessions would legitimately share exactly
-  the same object or value. This does not require every piece of session state
-  to be an ECS child of `SessionRoot` — explicitly keyed or scoped resources and
-  other clearly owned state are fine. The property that matters is explicit
-  identity and lifecycle ownership. Generally scoped: current room/world/session
-  state, participant state, encounter state, simulation clocks and timeline
-  state, checkpoint/restore state, transient progression, session
-  request/admission queues, admitted mechanics/configuration, rollback
-  authorities, cutscene/session gameplay state. Prepared IMMUTABLE data may
-  instead be generation-scoped and may coexist across generations. Truly
-  application-global infrastructure — render/device services, logging, asset
-  infrastructure, networking transport, caches — stays global where that is
-  genuinely its ownership. User/account settings and durable save data are
-  SEPARATE AUTHORITIES: they must not silently become live simulation state
-  merely because they are App-global, and a mechanical projection from them
-  needs explicit admission into a session.
-
 ## Maintenance rule
 
-When a decision is superseded, edit or replace the row. Do not append a second
-page of commentary underneath it. Git history is the record of how the ruling
-changed.
+When a decision is superseded, edit or replace its row. Do not append
+commentary underneath it. Git history records how the ruling changed.
 
-⛔ **AND A `Qnnn` A COMMENT DEFERS TO MUST RESOLVE — HERE, OR AS A LIVE QUESTION
-ON [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md).** An
-answered question is normally DELETED from that page, which is right; what is
-not right is deleting one that source comments send the reader to. Measured
-2026-09-19 across the tracked tree: 119 distinct Q numbers are cited, 90 are
-live questions, and 22 resolved to nothing at all — but **only Q117, Q118, Q120
-and Q124 actually DEFERRED** (*"see `Q118` in the decision ledger"*, *"what the
-ruling in `Q124` decides"*, a bare *"See `Q117`"*). The other eighteen carry
-their own answer in the same paragraph and lose nothing, so the rule is about
-the DEFERRAL and not about the number. (`Q123` is the near miss: three sites
-name an *"open clause"* of it, but each QUOTES the clause verbatim and then
-measures it, so nothing is being sent anywhere.) All four now resolve, and no checker was
-added for it: the population that matters is four, and telling a deferral from
-a self-contained citation is a prose judgement.
+Keep each row's `Q` label. Source comments cite `Q117`, `Q118`, `Q120`, `Q124`
+and `Q135` and send the reader here, so those labels must stay findable on this
+page.

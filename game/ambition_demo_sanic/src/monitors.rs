@@ -91,10 +91,10 @@ impl SpentMonitors {
 pub fn break_monitor_boxes(
     time: Res<ambition_platformer2d::time::WorldTime>,
     mut spent: ResMut<SpentMonitors>,
-    geometry: ambition_platformer2d::platformer::lifecycle::SoleLiveRoom<ae::RoomGeometry>,
+    // The boxes of the live room the body is in. A break is drawn in that
+    // room.
+    geometry: ambition_platformer2d::platformer::lifecycle::LiveRoomOf<ae::RoomGeometry>,
     mut vfx: ambition_platformer2d::vfx::VfxWriter,
-    // A break is drawn in the live room of the body that breaks the box.
-    rooms: ambition_platformer2d::platformer::lifecycle::LiveRooms,
     mut sfx: ambition_platformer2d::sfx::BodySfxWriter,
     mut players: Query<
         (
@@ -112,7 +112,10 @@ pub fn break_monitor_boxes(
     else {
         return;
     };
-    let mut vfx = vfx.for_room(rooms.of(player));
+    let Some(room_geometry) = geometry.of(player) else {
+        return;
+    };
+    let mut vfx = vfx.for_room(geometry.room_of(player));
     let rolling = rolling.is_some();
     let falling = kin.vel.y > 0.0;
     if !rolling && !falling {
@@ -121,7 +124,7 @@ pub fn break_monitor_boxes(
     let p = kin.aabb();
     // Where a rolling body will be by next tick, plus a little: see `BREAK_REACH`.
     let reach = kin.vel.abs() * time.scaled_dt * 2.0 + ae::Vec2::splat(BREAK_REACH);
-    for block in &geometry.0.blocks {
+    for block in &room_geometry.0.blocks {
         if block.name.starts_with(BREAKABLE_WALL) && !spent.is_broken(&block.name) {
             let b = block.aabb;
             let near = p.min.x - reach.x < b.max.x

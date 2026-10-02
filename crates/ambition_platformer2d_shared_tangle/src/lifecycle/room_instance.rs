@@ -154,9 +154,6 @@ impl<T: Component> LiveRoomOf<'_, '_, T> {
     }
 }
 
-/// The one-live-room WRITE: [`SoleLiveRoom`]'s mutable twin, and the same debt.
-pub type SoleLiveRoomMut<'w, 's, T> = Single<'w, 's, &'static mut T, With<RoomInstanceRoot>>;
-
 /// Which live room an entity is in, by one rule for every question that
 /// pairs two entities (a contact, a hit, a sighting): its own
 /// [`InRoomInstance`], or the sole live room when it carries none.

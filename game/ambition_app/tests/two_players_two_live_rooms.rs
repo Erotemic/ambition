@@ -903,6 +903,65 @@ fn the_cut_rope_fight_runs_in_its_own_live_room() {
     );
 }
 
+/// The cut-rope boss's music claim is released while no live room is its
+/// room, and kept while one is. A claim under the boss's owner name is put on
+/// the session's music request, and the release system runs one time, alone.
+/// With two live rooms that are not the arena (`switch_lab` and the hub), the
+/// claim is released. With two live rooms of which one is the arena (the hall
+/// and the arena), the claim is kept. The first fixture then runs 5 ticks
+/// with a new claim, which shows that the scheduled system does the same.
+/// When the release read the sole live room, it did not run while two rooms
+/// were live, so a claim left behind was kept for as long as two rooms were
+/// live.
+///
+/// The arena arm does not run ticks. The generic boss owner
+/// (`BOSS_MUSIC_OWNER`) takes the priority tier while the boss fights, so
+/// after a tick the track in the tier is not this owner's claim.
+#[test]
+fn the_cut_rope_music_claim_is_released_when_no_live_room_is_its_room() {
+    use ambition_content::bosses::cut_rope::{release_cut_rope_music_outside_its_room, CUT_ROPE_MUSIC_OWNER};
+    use ambition_platformer2d::characters::control::PlayerSlot;
+    use ambition_platformer2d::encounter::EncounterMusicRequest;
+    use bevy::ecs::system::RunSystemOnce;
+    const TRACK: &str = "ow_probe_track";
+    fn claim(sim: &mut Platformer2dSimHarness) {
+        ambition_platformer2d::platformer::lifecycle::session_world_component_mut::<EncounterMusicRequest>(
+            sim.world_mut(),
+        )
+        .expect("the session has a music request")
+        .claim_priority(CUT_ROPE_MUSIC_OWNER, TRACK);
+    }
+    fn claimed(sim: &Platformer2dSimHarness) -> Option<String> {
+        ambition_platformer2d::platformer::lifecycle::session_world_component::<EncounterMusicRequest>(sim.world())
+            .expect("the session has a music request")
+            .priority_track()
+            .map(str::to_string)
+    }
+    let claim_after_one_release = |sim: &mut Platformer2dSimHarness| {
+        assert_eq!(live_rooms(sim).len(), 2, "precondition: two rooms are live");
+        claim(sim);
+        sim.world_mut()
+            .run_system_once(release_cut_rope_music_outside_its_room)
+            .expect("the release system runs");
+        claimed(sim)
+    };
+    let mut elsewhere = alice_leaves_bob(Some(PlayerSlot(1))).0;
+    let mut beside_the_arena =
+        alice_leaves_bob_in("hall_of_bosses", "you_have_to_cut_the_rope", Some(PlayerSlot(1)), walk_through_the_door_to).0;
+    let released_elsewhere = claim_after_one_release(&mut elsewhere);
+    let kept_beside_the_arena = claim_after_one_release(&mut beside_the_arena);
+    claim(&mut elsewhere);
+    for _ in 0..5 {
+        elsewhere.step(base());
+    }
+    assert_eq!(
+        (released_elsewhere, claimed(&elsewhere), kept_beside_the_arena),
+        (None, None, Some(TRACK.to_string())),
+        "(the claim after one release with no live arena, the same after 5 ticks, the claim after one \
+         release with the arena live beside the hall)"
+    );
+}
+
 /// Add the rooms that this tick's `FxRequest` rows and `FireworksRequest` rows
 /// name to `fx` and `fireworks`.
 fn effect_request_rooms(

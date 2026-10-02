@@ -1059,17 +1059,21 @@ fn tick_sanic_act(
 /// seam; it is not a separate audio stack.
 fn emit_sanic_milestone_sfx(
     player: bevy::prelude::Query<
-        &ae::BodyKinematics,
+        (bevy::prelude::Entity, &ae::BodyKinematics),
         bevy::prelude::With<ambition_platformer2d::platformer::markers::PrimaryPlayer>,
     >,
     mut act: bevy::prelude::Query<&mut SanicActState>,
-    rooms: ambition_platformer2d::world::rooms::SoleLiveRoomSpec,
+    // The markers of the room the runner is in.
+    rooms: ambition_platformer2d::world::rooms::LiveRoomSpecs,
     mut sfx: ambition_platformer2d::sfx::BodySfxWriter,
 ) {
-    let Ok(kin) = player.single() else {
+    let Ok((runner, kin)) = player.single() else {
         return;
     };
-    let markers = distance_markers(rooms.spec());
+    let Some(spec) = rooms.spec_of(runner) else {
+        return;
+    };
+    let markers = distance_markers(spec);
     for mut state in &mut act {
         while let Some(&marker_x) = markers.get(state.next_milestone) {
             if kin.pos.x < marker_x {
@@ -1307,12 +1311,10 @@ pub fn scatter_rings_on_hit(
 pub fn arc_scattered_rings(
     mut commands: bevy::prelude::Commands,
     time: bevy::prelude::Res<ambition_platformer2d::time::WorldTime>,
-    // Optional: a `Single` that matches nothing skips the system, which would
-    // freeze every ring mid-air. No geometry means nothing to bounce off.
-    world: Option<
-        ambition_platformer2d::platformer::lifecycle::SoleLiveRoom<
-            ambition_platformer2d::engine_core::RoomGeometry,
-        >,
+    // Each ring bounces off the walls of its own live room. A ring in no
+    // live room has nothing to bounce off, and still falls and expires.
+    world: ambition_platformer2d::platformer::lifecycle::LiveRoomOf<
+        ambition_platformer2d::engine_core::RoomGeometry,
     >,
     mut rings: bevy::prelude::Query<(
         bevy::prelude::Entity,
@@ -1321,8 +1323,8 @@ pub fn arc_scattered_rings(
     )>,
 ) {
     let dt = time.scaled_dt;
-    let solids = world.as_deref().map(|geometry| &geometry.0);
     for (entity, mut ring, mut aabb) in &mut rings {
+        let solids = world.of(entity).map(|geometry| &geometry.0);
         ring.life -= dt;
         if ring.life <= 0.0 {
             // Expired. Despawn instead of marking `Collected`: nobody took it.
@@ -1506,16 +1508,19 @@ pub fn clear_act_at_goal(
         ambition_platformer2d::platformer::markers::PrimaryPlayerOnly,
     >,
     mut act: bevy::prelude::Query<&mut SanicActState>,
-    rooms: ambition_platformer2d::world::rooms::SoleLiveRoomSpec,
+    // The goal of the room the runner is in. The clear burst is drawn in
+    // that live room.
+    rooms: ambition_platformer2d::world::rooms::LiveRoomSpecs,
     mut sfx: ambition_platformer2d::sfx::BodySfxWriter,
     mut vfx: ambition_platformer2d::vfx::VfxWriter,
-    // The clear burst is drawn in the live room of the runner.
-    live: ambition_platformer2d::platformer::lifecycle::LiveRooms,
 ) {
     let Ok((runner, kin, wallet)) = player.single() else {
         return;
     };
-    let goal = goal_x_of(&rooms.spec().world);
+    let Some(spec) = rooms.spec_of(runner) else {
+        return;
+    };
+    let goal = goal_x_of(&spec.world);
     for mut state in &mut act {
         if !matches!(state.phase, SanicActPhase::Running) || kin.pos.x < goal {
             continue;
@@ -1525,7 +1530,7 @@ pub fn clear_act_at_goal(
             rings: wallet.balance,
             dwell: ACT_CLEAR_DWELL,
         };
-        vfx.for_room(live.of(runner)).write(ambition_platformer2d::vfx::VfxMessage::Burst {
+        vfx.for_room(rooms.live().of(runner)).write(ambition_platformer2d::vfx::VfxMessage::Burst {
             pos: kin.pos,
             count: 40,
             speed: 320.0,

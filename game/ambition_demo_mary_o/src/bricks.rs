@@ -103,16 +103,19 @@ impl BrokenBricks {
 pub fn break_bricks(
     mut broken: ResMut<BrokenBricks>,
     mut vfx: ambition_platformer2d::vfx::VfxWriter,
-    // The shards are drawn in the live room of the body that broke the brick.
-    rooms: ambition_platformer2d::platformer::lifecycle::LiveRooms,
     mut sfx: ambition_platformer2d::sfx::BodySfxWriter,
     // her FORM rides the same query, `Option` because a body with no
     // equipment component at all is small — that is what small IS, not a bug.
     players: Query<(Entity, &PlayerBodyFrameOutput, Option<&WornEquipment>), With<PrimaryPlayer>>,
-    // A `GeoId` names a block; only the room can say which one.
-    geometry: ambition_platformer2d::platformer::lifecycle::SoleLiveRoom<ae::RoomGeometry>,
+    // A `GeoId` names a block; only the room can say which one. The room is
+    // the live room of the body that struck it, and the shards are drawn
+    // there.
+    geometry: ambition_platformer2d::platformer::lifecycle::LiveRoomOf<ae::RoomGeometry>,
 ) {
     let Ok((striker, frame, worn)) = players.single() else {
+        return;
+    };
+    let Some(room_geometry) = geometry.of(striker) else {
         return;
     };
     // a system-wide `return`, and here that is honest. Guarding a whole
@@ -138,7 +141,7 @@ pub fn break_bricks(
         // ask the ROOM, then ask the BLOCK what it is. This looked the id
         // up in a table of ids reconstructed from a column array, so an authored
         // brick was simply not in it.
-        let Some(block) = crate::authored_block_by_id(&geometry.0, id) else {
+        let Some(block) = crate::authored_block_by_id(&room_geometry.0, id) else {
             continue;
         };
         // See `MaryOBlockContents::breaks_when_empty`.
@@ -152,7 +155,7 @@ pub fn break_bricks(
             // A fresh break shatters into brick-red shards through the engine's
             // shared particle seam — the same `VfxMessage::Burst` the snake squash
             // pops, so a brick reads as breaking with no bespoke vfx.
-            vfx.for_room(rooms.of(striker)).write(ambition_platformer2d::vfx::VfxMessage::Burst {
+            vfx.for_room(geometry.room_of(striker)).write(ambition_platformer2d::vfx::VfxMessage::Burst {
                 pos: center,
                 count: 14,
                 speed: 155.0,

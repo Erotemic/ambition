@@ -577,7 +577,8 @@ mod tests {
 /// player mashing jump from fighting the slide.
 pub fn run_flag_sequence(
     time: Res<ambition_platformer2d::time::WorldTime>,
-    rooms: Option<ambition_platformer2d::world::rooms::SoleLiveRoomSpec>,
+    // The pole of the room the controlled body is in.
+    rooms: Option<ambition_platformer2d::world::rooms::LiveRoomSpecs>,
     subject: Option<Res<ambition_platformer2d::platformer::markers::ControlledSubject>>,
     mut commands: Commands,
     mut sequences: Query<&mut FlagSequence>,
@@ -587,8 +588,14 @@ pub fn run_flag_sequence(
     // picker choose the clip.
     mut modes: Query<&mut ae::BodyModeState>,
 ) {
-    let pole = rooms.as_ref().and_then(|set| crate::room_pole(set.spec()));
-    let (Some(pole), Some(entity)) = (pole, subject.and_then(|s| s.0)) else {
+    let Some(entity) = subject.and_then(|s| s.0) else {
+        return;
+    };
+    let pole = rooms
+        .as_ref()
+        .and_then(|rooms| rooms.spec_of(entity))
+        .and_then(crate::room_pole);
+    let Some(pole) = pole else {
         return;
     };
     let Ok(mut sequence) = sequences.single_mut() else {

@@ -1677,7 +1677,8 @@ fn publish_timeout_death(
 fn warp_through_secret_pipe(
     mut commands: bevy::prelude::Commands,
     mut sfx: ambition_platformer2d::sfx::BodySfxWriter,
-    room_set: Option<ambition_platformer2d::world::rooms::SoleLiveRoomSpec>,
+    // The tubes of the room each body is in.
+    room_set: Option<ambition_platformer2d::world::rooms::LiveRoomSpecs>,
     mut bodies: bevy::prelude::Query<
         (
             bevy::prelude::Entity,
@@ -1708,11 +1709,12 @@ fn warp_through_secret_pipe(
     // empty slice enters nothing and clears the latch, which is the same
     // answer a pipeless room gives.
     const NO_ROOM_NO_TUBES: &[PipeTube] = &[];
-    let tubes = room_set.as_ref().map_or(NO_ROOM_NO_TUBES, |set| {
-        tubes_for_room(&set.spec().id)
-    });
 
     for (entity, kin, control, mut latch) in &mut bodies {
+        let tubes = room_set
+            .as_ref()
+            .and_then(|set| set.spec_of(entity))
+            .map_or(NO_ROOM_NO_TUBES, |spec| tubes_for_room(&spec.id));
         let down = control.0.locomotion.y > DIR_DEADZONE;
         let up = control.0.locomotion.y < -DIR_DEADZONE;
         let body = ae::Aabb::new(kin.pos, kin.size * 0.5);

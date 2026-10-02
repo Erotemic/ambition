@@ -279,7 +279,7 @@ fn world(road: Road, technique: &Technique) -> (App, Vec<Entity>) {
             boss.status,
             boss.health,
             BossAttackState::default(),
-            ambition_combat::components::ActorFaction::Boss,
+            ambition_characters::actor::ActorFaction::Boss,
             FeatureSimEntity,
         ));
         if let Some(target) = target {

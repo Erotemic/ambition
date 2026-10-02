@@ -4,7 +4,7 @@
 //! body shape production materialization uses while keeping collision/routing
 //! tests independent of message scheduling.
 
-use ambition_combat::components::ActorFaction;
+use ambition_characters::actor::ActorFaction;
 use ambition_projectiles::ProjectileSpawn;
 use ambition_projectiles::{
     build_in_flight_projectile, ProjectileGameplay, ProjectileOwner, ProjectileSeq,

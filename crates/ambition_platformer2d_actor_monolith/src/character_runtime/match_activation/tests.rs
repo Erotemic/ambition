@@ -152,14 +152,14 @@ fn a_roster_of_two_cpu_participants_becomes_two_bodies_wearing_their_characters(
     let mut q = world.query::<(
         &ambition_characters::actor::WornCharacter,
         &ambition_platformer2d_core::BodyKinematics,
-        &ambition_combat::components::ActorFaction,
+        &ambition_characters::actor::ActorFaction,
         Option<&ambition_combat::targeting::MatchTeam>,
     )>();
     let mut seated: Vec<(
         String,
         f32,
         f32,
-        ambition_combat::components::ActorFaction,
+        ambition_characters::actor::ActorFaction,
         Option<ambition_combat::targeting::MatchTeam>,
     )> = q
         .iter(world)
@@ -656,13 +656,13 @@ fn four_fighters_on_two_teams_can_hit_their_opponents_and_not_their_partners() {
         Entity,
         &MatchSeat,
         &MatchTeam,
-        &ambition_combat::components::ActorFaction,
+        &ambition_characters::actor::ActorFaction,
     )>();
     let mut fighters: Vec<(
         Entity,
         usize,
         String,
-        ambition_combat::components::ActorFaction,
+        ambition_characters::actor::ActorFaction,
     )> = q
         .iter(world)
         .map(|(entity, seat, team, faction)| (entity, seat.0, team.0.clone(), *faction))

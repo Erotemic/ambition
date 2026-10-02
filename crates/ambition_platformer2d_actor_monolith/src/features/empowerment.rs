@@ -9,7 +9,8 @@ use bevy::prelude::*;
 
 use ambition_characters::actor::{BodyCombat, BodyHealth, Invulnerability, WornCharacter};
 use ambition_characters::prepared::PreparedCharacterRegistry;
-use ambition_combat::components::{ActorFaction, CenteredAabb};
+use ambition_combat::components::CenteredAabb;
+use ambition_characters::actor::ActorFaction;
 use ambition_combat::events::{
     HitEvent, HitKnockback, HitKnockbackMagnitude, HitMode, HitSource, HitTarget,
 };

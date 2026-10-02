@@ -287,7 +287,7 @@ impl RoomContentStagingRegistry {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ambition_combat::components::ActorFaction;
+    use ambition_characters::actor::ActorFaction;
     use ambition_entity_catalog::placements::CharacterBrain;
     use ambition_platformer2d_core as ae;
 

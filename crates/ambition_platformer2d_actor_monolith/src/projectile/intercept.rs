@@ -118,7 +118,7 @@ pub fn intercept_projectile(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ambition_combat::components::ActorFaction;
+    use ambition_characters::actor::ActorFaction;
 
     fn allegiance(faction: ActorFaction) -> ProjectileAllegiance {
         ProjectileAllegiance {

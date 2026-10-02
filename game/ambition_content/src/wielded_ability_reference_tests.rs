@@ -474,7 +474,8 @@ pub mod sentry {
 
     use ambition_combat::held_items::HeldItem;
     use ambition_characters::control::ActorControl;
-    use ambition_combat::components::{ActorFaction, CenteredAabb};
+    use ambition_combat::components::CenteredAabb;
+    use ambition_characters::actor::ActorFaction;
     use ambition_platformer2d_core as ae;
     use ambition_platformer2d_core::BodyKinematics;
     use ambition_platformer2d_shared_tangle::lifecycle::{
@@ -808,7 +809,7 @@ pub mod vortex {
     use bevy::prelude::*;
 
     use ambition_combat::held_items::HeldItem;
-    use ambition_combat::components::ActorFaction;
+    use ambition_characters::actor::ActorFaction;
     use ambition_platformer2d_core as ae;
     use ambition_platformer2d_core::body_clusters::BodyKinematics;
     use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;

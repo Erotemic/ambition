@@ -757,7 +757,7 @@ pub mod actor {
     pub use ambition_combat::actor_tuning::ActorPolicy;
     /// Who a spawned body is: its stable id and display name.
     pub use ambition_combat::components::ActorIdentity;
-    pub use ambition_combat::components::ActorFaction;
+    pub use ambition_characters::actor::ActorFaction;
     pub use ambition_platformer2d_actor_spawn::{SpawnActorKind, SpawnActorRequest};
     /// ⛔ NAMED FROM `_core`, NOT THROUGH THE ACTOR CRATE. `MotionModel` is the
     /// movement kernel's own type; the monolith re-exported it twice

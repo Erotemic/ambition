@@ -1390,7 +1390,7 @@ fn a_possessing_player_slams_the_giants_hands_via_the_verb_map() {
             BossAttackState::default(),
             capability,
             moveset,
-            ambition_combat::components::ActorFaction::Boss,
+            ambition_characters::actor::ActorFaction::Boss,
             ambition_combat::components::ActorTarget::default(),
             ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity,
             Mounted,

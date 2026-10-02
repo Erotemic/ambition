@@ -373,7 +373,7 @@ fn spawn_fighter(
     character_id: &str,
     at: Vec2,
     facing: f32,
-    faction: ambition_combat::components::ActorFaction,
+    faction: ambition_characters::actor::ActorFaction,
 ) -> Entity {
     finalize(app);
     let prepared = app
@@ -601,14 +601,14 @@ fn two_provider_characters_trade_damage_through_the_real_damage_path() {
         "mary_o",
         Vec2::new(0.0, 0.0),
         1.0,
-        ambition_combat::components::ActorFaction::Enemy,
+        ambition_characters::actor::ActorFaction::Enemy,
     );
     let sanic = spawn_fighter(
         &mut app,
         "sanic",
         Vec2::new(22.0, 0.0),
         -1.0,
-        ambition_combat::components::ActorFaction::Npc,
+        ambition_characters::actor::ActorFaction::Npc,
     );
     assert_eq!(health(&app, mary), 10);
     assert_eq!(health(&app, sanic), 10);
@@ -683,14 +683,14 @@ fn a_strike_that_clears_the_authored_torso_lands_on_nobody() {
         "mary_o",
         Vec2::new(0.0, 0.0),
         1.0,
-        ambition_combat::components::ActorFaction::Enemy,
+        ambition_characters::actor::ActorFaction::Enemy,
     );
     let sanic = spawn_fighter(
         &mut app,
         "sanic",
         Vec2::new(sanic_x, 0.0),
         -1.0,
-        ambition_combat::components::ActorFaction::Npc,
+        ambition_characters::actor::ActorFaction::Npc,
     );
     press_attack(&mut app, mary);
     finalize_and_update(&mut app);
@@ -790,14 +790,14 @@ fn a_dying_body_dies_in_its_own_voice() {
         "mary_o",
         Vec2::new(0.0, 0.0),
         1.0,
-        ambition_combat::components::ActorFaction::Enemy,
+        ambition_characters::actor::ActorFaction::Enemy,
     );
     let sanic = spawn_fighter(
         &mut app,
         "sanic",
         Vec2::new(22.0, 0.0),
         -1.0,
-        ambition_combat::components::ActorFaction::Npc,
+        ambition_characters::actor::ActorFaction::Npc,
     );
 
     // Mary-O's stomp authors 3 damage against 10 HP, and a struck body holds

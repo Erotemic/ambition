@@ -147,7 +147,7 @@ pub enum ActorConstructionParams {
         authored: ambition_platformer2d_world::rooms::Authored<
             ambition_platformer2d_world::rooms::EnemySpawnSpec,
         >,
-        faction: ambition_combat::components::ActorFaction,
+        faction: ambition_characters::actor::ActorFaction,
         paths: Vec<(String, ambition_platformer2d_core::KinematicPath)>,
         /// A rider the room seats on it conducts it (`CharacterMount::rider_conducts`).
         conducted: bool,
@@ -160,7 +160,7 @@ pub enum ActorConstructionParams {
         >,
         /// The side of the rider that conducts the host, which makes this hand
         /// the rider's. `None`: the hand is its host's own.
-        conductor: Option<ambition_combat::components::ActorFaction>,
+        conductor: Option<ambition_characters::actor::ActorFaction>,
     },
     /// An ordinary authored enemy. Every authored enemy is a plan row, built by
     /// the same populate function the former family loop used.
@@ -207,7 +207,7 @@ pub struct SummonedMinionParams {
     pub half_size: ambition_platformer2d_core::Vec2,
     pub character_id: String,
     pub encounter_id: String,
-    pub faction: ambition_combat::components::ActorFaction,
+    pub faction: ambition_characters::actor::ActorFaction,
     /// Health for this occurrence, overriding the character's authored vitals.
     /// See `ambition_vfx::SummonSpec::health`.
     pub health: Option<u32>,
@@ -846,7 +846,7 @@ fn construct_giant_hand(
         &services.context.brain_profiles,
         authored,
         &[],
-        conductor.unwrap_or(ambition_combat::components::ActorFaction::Enemy),
+        conductor.unwrap_or(ambition_characters::actor::ActorFaction::Enemy),
         fate,
     );
     // A conducted hand is the rider's: its blows are the rider's side's and
@@ -887,7 +887,7 @@ fn construct_authored_enemy(
         &services.context.brain_profiles,
         authored,
         paths,
-        ambition_combat::components::ActorFaction::Enemy,
+        ambition_characters::actor::ActorFaction::Enemy,
         fate,
     );
 }
@@ -2004,7 +2004,7 @@ pub fn authored_actor_requests(
             requests.append(&mut giant_cluster_rows(
                 giant_sim,
                 enemy.clone(),
-                ambition_combat::components::ActorFaction::Enemy,
+                ambition_characters::actor::ActorFaction::Enemy,
                 // The host receives the SAME frozen room paths an ordinary
                 // authored enemy does; the pre-`e164f22` migration dropped
                 // them with `paths: Vec::new()`.
@@ -2072,10 +2072,10 @@ fn giant_cluster_rows(
     host_authored: ambition_platformer2d_world::rooms::Authored<
         ambition_platformer2d_world::rooms::EnemySpawnSpec,
     >,
-    faction: ambition_combat::components::ActorFaction,
+    faction: ambition_characters::actor::ActorFaction,
     paths: Vec<(String, ambition_platformer2d_core::KinematicPath)>,
     hands: Vec<ambition_platformer2d_actor_spawn::GiantHandPlan>,
-    conductor: Option<ambition_combat::components::ActorFaction>,
+    conductor: Option<ambition_characters::actor::ActorFaction>,
     host_origin: SpawnOrigin,
     mut hand_origin: impl FnMut(&ambition_platformer2d_actor_spawn::GiantHandPlan) -> SpawnOrigin,
 ) -> Vec<ActorConstructionRequest> {
@@ -2151,16 +2151,16 @@ fn conducting_rider(
     room: &ambition_platformer2d_world::rooms::RoomSpec,
     host_id: &str,
     host: Option<&ambition_characters::prepared::PreparedCharacterDefinition>,
-) -> Option<ambition_combat::components::ActorFaction> {
+) -> Option<ambition_characters::actor::ActorFaction> {
     host?.mount.as_ref().filter(|mount| mount.rider_conducts)?;
     let (rider, _) = room.mount_links.iter().find(|(_, mount)| mount == host_id)?;
     if room.boss_spawns.iter().any(|boss| &boss.id == rider) {
-        Some(ambition_combat::components::ActorFaction::Boss)
+        Some(ambition_characters::actor::ActorFaction::Boss)
     } else {
         room.enemy_spawns
             .iter()
             .any(|enemy| &enemy.id == rider)
-            .then_some(ambition_combat::components::ActorFaction::Enemy)
+            .then_some(ambition_characters::actor::ActorFaction::Enemy)
     }
 }
 

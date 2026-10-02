@@ -1381,7 +1381,7 @@ pub fn apply_player_hit_events(
     // world's rules got to disagree. The rules of each struck player's own
     // live room (OW1).
     room_rules: ambition_combat::rules::CombatTuningOf,
-    attacker_factions: Query<&ambition_combat::components::ActorFaction>,
+    attacker_factions: Query<&ambition_characters::actor::ActorFaction>,
     mut player_q: Query<
         (
             Entity,
@@ -1532,7 +1532,7 @@ pub fn apply_player_hit_events(
                 |e| match e.attacker.and_then(|a| attacker_factions.get(a).ok()) {
                     Some(faction) => ambition_combat::targeting::can_damage(
                         *faction,
-                        ambition_combat::components::ActorFaction::Player,
+                        ambition_characters::actor::ActorFaction::Player,
                         friendly_fire,
                     ),
                     None => true,

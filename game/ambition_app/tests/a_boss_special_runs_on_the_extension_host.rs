@@ -491,7 +491,7 @@ fn a_wielded_shockwave_runs_on_the_extension_host() {
 #[test]
 fn a_wielded_sentry_deploys_a_module_entity_on_the_extension_host() {
     use ambition_platformer2d::abilities::module_entity::ModuleEntity;
-    use ambition_platformer2d::combat::components::ActorFaction;
+    use ambition_platformer2d::actor::ActorFaction;
     use ambition_platformer2d::platformer::sim_id::SimId;
     for rollback in [false, true] {
         let mut options = Platformer2dSimHarnessOptions::default().with_timestep(TimestepMode::fixed_60hz());

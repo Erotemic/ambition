@@ -111,7 +111,8 @@ fn every_authored_enemy_sleeps_when_she_is_far() {
     };
     use ambition_platformer2d::characters::actor::limb::Limb;
     use ambition_platformer2d::characters::control::DrivingParticipant;
-    use ambition_platformer2d::combat::components::{ActorFaction, EncounterMob};
+    use ambition_platformer2d::combat::components::EncounterMob;
+    use ambition_platformer2d::actor::ActorFaction;
     use ambition_platformer2d::combat::scoped_rules::DeclaredRules;
     use ambition_platformer2d::engine_core::BodyKinematics;
     use ambition_platformer2d::mount::Mountable;

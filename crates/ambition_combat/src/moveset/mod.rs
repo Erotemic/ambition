@@ -34,7 +34,8 @@ use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::AabbExt;
 use ambition_time::ProperTimeScale;
 
-use super::components::{ActorFaction, MeleeSwing, RangedRefire};
+use super::components::{MeleeSwing, RangedRefire};
+use ambition_characters::actor::ActorFaction;
 use super::hitbox::{Hitbox, HitboxAnchor, HitboxHits};
 use crate::{hit_side_from_actor_faction, AttackIntent, AttackSpec};
 use ambition_characters::actor::attack_gesture::{

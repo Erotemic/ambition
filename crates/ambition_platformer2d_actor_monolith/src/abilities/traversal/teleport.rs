@@ -148,7 +148,7 @@ struct FoeCandidate {
     entity: Entity,
     pos: ae::Vec2,
     half: ae::Vec2,
-    faction: ambition_combat::components::ActorFaction,
+    faction: ambition_characters::actor::ActorFaction,
     team: Option<ambition_combat::targeting::MatchTeam>,
     driving: Option<ambition_characters::control::DrivingParticipant>,
     sim: Option<ambition_platformer2d_shared_tangle::sim_id::SimId>,
@@ -292,7 +292,7 @@ pub fn apply_authored_teleports(
         Query<(
             Entity,
             &ae::BodyKinematics,
-            Option<&ambition_combat::components::ActorFaction>,
+            Option<&ambition_characters::actor::ActorFaction>,
             Option<&ambition_combat::targeting::MatchTeam>,
             Option<&ambition_characters::control::DrivingParticipant>,
             Option<&ambition_platformer2d_shared_tangle::sim_id::SimId>,

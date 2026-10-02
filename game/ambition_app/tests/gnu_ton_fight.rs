@@ -779,7 +779,7 @@ fn the_fists_are_built_as_the_scholars() {
             let world = sim.world_mut();
             let fists: Vec<_> = world
                 .query_filtered::<(
-                    &ambition_platformer2d::combat::components::ActorFaction,
+                    &ambition_platformer2d::actor::ActorFaction,
                     Has<ae::PoseOwnedExternally>,
                     Has<ambition_platformer2d::combat::components::ActiveCombatant>,
                     Has<ambition_platformer2d::combat::components::RulesetOwnsDeath>,
@@ -796,7 +796,7 @@ fn the_fists_are_built_as_the_scholars() {
             found
         })
         .expect("the arena builds the gnu and both fists");
-    let theirs = (ambition_platformer2d::combat::components::ActorFaction::Boss, true, true, true, true);
+    let theirs = (ambition_platformer2d::actor::ActorFaction::Boss, true, true, true, true);
     assert_eq!(fists, vec![theirs, theirs], "each fist, on the first tick it exists");
     assert!(gnu_row, "the gnu's row is his to choose");
 }

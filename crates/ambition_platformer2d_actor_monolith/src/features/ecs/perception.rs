@@ -508,7 +508,7 @@ pub(crate) struct CrewCall {
     /// A call is heard only in the caller's live room (OW1 cut 4).
     room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
     view: ambition_characters::perception::Viewport,
-    faction: Option<ambition_combat::components::ActorFaction>,
+    faction: Option<ambition_characters::actor::ActorFaction>,
     foe: String,
     seen: ambition_characters::perception::RememberedActor,
 }
@@ -518,7 +518,7 @@ pub(crate) fn crew_calls(
     caller: bevy::prelude::Entity,
     room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
     pos: ae::Vec2,
-    faction: Option<ambition_combat::components::ActorFaction>,
+    faction: Option<ambition_characters::actor::ActorFaction>,
     perception: Perception,
     memory: &ambition_characters::perception::WorldMemory,
     calls: &mut Vec<CrewCall>,
@@ -535,7 +535,7 @@ pub(crate) fn hear_crew(
     listener: bevy::prelude::Entity,
     room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
     pos: ae::Vec2,
-    faction: Option<ambition_combat::components::ActorFaction>,
+    faction: Option<ambition_characters::actor::ActorFaction>,
     memory: &mut ambition_characters::perception::WorldMemory,
 ) {
     for call in calls {

@@ -2343,7 +2343,7 @@ fn a_parry_names_the_attacker_it_caught() {
     // The striker, so the assertion can name both sides rather than just count.
     let attacker = app
         .world_mut()
-        .query_filtered::<Entity, With<crate::components::ActorFaction>>()
+        .query_filtered::<Entity, With<ambition_characters::actor::ActorFaction>>()
         .iter(app.world())
         .find(|e| *e != victim)
         .expect("the fixture stands up an attacker beside the victim");

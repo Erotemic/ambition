@@ -10,7 +10,7 @@ use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::AabbExt;
 
 use super::components::ActorAggression;
-use super::components::ActorFaction;
+use ambition_characters::actor::ActorFaction;
 use super::events::{HitEvent, HitKnockback, HitKnockbackMagnitude, HitMode, HitSource, HitTarget};
 use super::targeting::effective_faction;
 use super::util::midpoint;

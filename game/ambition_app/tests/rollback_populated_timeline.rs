@@ -71,7 +71,7 @@ fn populate(sim: &mut Platformer2dSimHarness) {
     use ambition_platformer2d::abilities::module_entity::{spawn_module_entity, ModuleEntity, Spawner};
     use ambition_platformer2d::abilities::thrown::gravity_grenade::open_temporary_gravity_well;
     use ambition_platformer2d::boss_encounter::{drop_hazard, FallingHazard};
-    use ambition_platformer2d::combat::components::ActorFaction;
+    use ambition_platformer2d::actor::ActorFaction;
     use ambition_platformer2d::platformer::lifecycle::SessionSpawnScope;
     use ambition_platformer2d::platformer::sim_id::SimId;
     use ambition_platformer2d::portal::{PortalFireIntent, PortalGunColor};

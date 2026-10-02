@@ -16,7 +16,8 @@ use ambition_characters::control::ActorControl;
 use bevy::prelude::*;
 
 use ambition_combat::held_items::HeldItem;
-use ambition_combat::components::{ActorAggression, ActorFaction};
+use ambition_combat::components::ActorAggression;
+use ambition_characters::actor::ActorFaction;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::BodyKinematics;
 use ambition_platformer2d_shared_tangle::lifecycle::{SessionScopedEntity, SessionSpawnScope};
@@ -163,7 +164,7 @@ pub fn fire_puppy_slug_gun_system(
 mod tests {
     use super::*;
     use ambition_abilities::test_support::spawn_primary_player_holding;
-    use ambition_combat::ActorFaction as Faction;
+    use ambition_characters::actor::ActorFaction as Faction;
 
     pub(super) fn test_app() -> App {
         let mut app = App::new();

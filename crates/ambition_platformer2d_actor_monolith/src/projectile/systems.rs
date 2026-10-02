@@ -8,8 +8,12 @@ use bevy::prelude::*;
 use super::allegiance::ProjectileAllegiance;
 use ambition_boss_encounter::BossConfig;
 use ambition_combat::components::{
-    ActorAggression, ActorFaction, BreakableFeature, CenteredAabb, FeatureId,
+    ActorAggression,
+    BreakableFeature,
+    CenteredAabb,
+    FeatureId,
 };
+use ambition_characters::actor::ActorFaction;
 use ambition_combat::events::{
     HitEvent, HitKnockback, HitKnockbackMagnitude, HitMode, HitSource, HitTarget,
 };

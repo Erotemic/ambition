@@ -73,7 +73,7 @@ pub(crate) fn observe_actor_decision_inputs(
             &ActorDisposition,
             &ambition_combat::components::ActorTarget,
             Option<crate::actor_clusters::ActorClusterQueryDataReadOnly>,
-            Option<&ambition_combat::components::ActorFaction>,
+            Option<&ambition_characters::actor::ActorFaction>,
             bevy::prelude::Has<ambition_combat::components::ActiveCombatant>,
             // A ridden mount contests no space of its own. See below.
             Option<&ambition_mount::MountSlot>,
@@ -310,7 +310,7 @@ pub fn tick_actor_brains(
                 Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
                 // Faction is still a self-view input; crowd observation consumed
                 // its own copy in the preceding phase.
-                Option<&ambition_combat::components::ActorFaction>,
+                Option<&ambition_characters::actor::ActorFaction>,
                 // §A7: this body's per-entity grudge, so its world-out `WorldView`
                 // resolves a same-faction grudge-duel opponent as hostile (matching
                 // `select_actor_targets`), not by faction alone. `Option` — a body
@@ -1772,7 +1772,7 @@ pub(crate) fn compute_nearest_neighbors(
 /// unit-testable in isolation from the actor tick.
 pub(crate) fn compute_crowding_by_id(
     requests: &[(String, ae::Vec2, ambition_combat::crowd::CrowdKind)],
-    faction_by_id: &std::collections::HashMap<String, ambition_combat::components::ActorFaction>,
+    faction_by_id: &std::collections::HashMap<String, ambition_characters::actor::ActorFaction>,
     // id → the id of the body it's actively fighting (its `ActorTarget`), so a foe is
     // never mistaken for an ally to spread from — even a SAME-faction one (two `Npc`
     // duelists feuding via a grudge).

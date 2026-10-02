@@ -72,12 +72,12 @@ fn nearest_neighbor_is_same_kind_and_closest() {
 /// should fire. Crowding only counts same-faction allies now.
 fn same_faction(
     ids: &[&str],
-) -> std::collections::HashMap<String, ambition_combat::components::ActorFaction> {
+) -> std::collections::HashMap<String, ambition_characters::actor::ActorFaction> {
     ids.iter()
         .map(|id| {
             (
                 id.to_string(),
-                ambition_combat::components::ActorFaction::Enemy,
+                ambition_characters::actor::ActorFaction::Enemy,
             )
         })
         .collect()
@@ -152,11 +152,11 @@ fn crowding_ignores_a_different_faction_opponent() {
     let mut factions = std::collections::HashMap::new();
     factions.insert(
         "pca".to_string(),
-        ambition_combat::components::ActorFaction::Enemy,
+        ambition_characters::actor::ActorFaction::Enemy,
     );
     factions.insert(
         "robot".to_string(),
-        ambition_combat::components::ActorFaction::Boss,
+        ambition_characters::actor::ActorFaction::Boss,
     );
     assert!(
         compute_crowding_by_id(&reqs, &factions, &no_opponents()).is_empty(),

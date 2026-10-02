@@ -107,7 +107,7 @@ pub fn carry_homing_dashes(
             bevy::prelude::Has<ambition_platformer2d::combat::death_rules::OutOfPlay>,
             Option<&ambition_platformer2d::engine_core::DepthPlane>,
         ),
-        Option<&ambition_platformer2d::combat::components::ActorFaction>,
+        Option<&ambition_platformer2d::actor::ActorFaction>,
         Option<&ambition_platformer2d::combat::targeting::MatchTeam>,
     )>,
     // The faction matrix: targeting is relational and wants it. The damage
@@ -127,7 +127,7 @@ pub fn carry_homing_dashes(
         ae::Vec2,
         // The eligibility inputs, captured with the position on the same tick.
         bool,
-        Option<ambition_platformer2d::combat::components::ActorFaction>,
+        Option<ambition_platformer2d::actor::ActorFaction>,
         Option<ambition_platformer2d::combat::targeting::MatchTeam>,
     )> = bodies
         .iter()

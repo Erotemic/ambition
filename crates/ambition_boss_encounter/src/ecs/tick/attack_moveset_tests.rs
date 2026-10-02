@@ -159,7 +159,7 @@ fn telegraph_boss_app() -> (App, Entity) {
             intent,
             BossAttackState::default(),
             moveset,
-            ambition_combat::components::ActorFaction::Boss,
+            ambition_characters::actor::ActorFaction::Boss,
             ambition_platformer2d_core::BodyKinematics {
                 pos: ambition_platformer2d_core::Vec2::ZERO,
                 vel: ambition_platformer2d_core::Vec2::ZERO,

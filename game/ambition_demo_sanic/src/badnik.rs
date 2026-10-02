@@ -21,7 +21,7 @@
 use bevy::prelude::*;
 
 use ambition_platformer2d::characters::actor::BodyHealth;
-use ambition_platformer2d::combat::components::ActorFaction;
+use ambition_platformer2d::actor::ActorFaction;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::platformer::markers::{PlayerEntity, PrimaryPlayer};
 

@@ -17,7 +17,7 @@ use ambition_extension_sdk::Phase;
 use ambition_platformer2d_core as ae;
 use bevy::prelude::*;
 
-use crate::components::ActorFaction;
+use ambition_characters::actor::ActorFaction;
 
 /// Install the request port in `technique_execution`, before the effect
 /// executor.

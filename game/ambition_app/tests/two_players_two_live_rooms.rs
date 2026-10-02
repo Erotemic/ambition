@@ -2946,7 +2946,7 @@ fn plant_a_long_lived_sentry(sim: &mut Platformer2dSimHarness) -> LiveRoomInstan
         },
         Spawner {
             scope,
-            side: ambition_platformer2d::combat::components::ActorFaction::Player,
+            side: ambition_platformer2d::actor::ActorFaction::Player,
             team: None,
             presentation: None,
             id: ambition_platformer2d::platformer::sim_id::SimId::placement("ow1_long_lived_sentry"),

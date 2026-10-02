@@ -396,7 +396,8 @@ fn every_authored_badnik_sleeps_under_sanics_rule() {
     use ambition_platformer2d::actors::features::ecs::dormancy::{wake_radius, DormancyRule};
     use ambition_platformer2d::characters::actor::limb::Limb;
     use ambition_platformer2d::combat::actor_tuning::ActorConfig;
-    use ambition_platformer2d::combat::components::{ActorFaction, EncounterMob};
+    use ambition_platformer2d::combat::components::EncounterMob;
+    use ambition_platformer2d::actor::ActorFaction;
     use ambition_platformer2d::combat::scoped_rules::DeclaredRules;
     use ambition_platformer2d::mount::Mountable;
 

@@ -100,7 +100,7 @@ fn the_cut_rope_victory_npc_is_a_damageable_body_with_a_stable_identity() {
             (Entity, Option<&Name>, Option<&ambition_platformer2d::platformer::sim_id::SimId>),
             (
                 With<ambition_platformer2d::combat::components::CenteredAabb>,
-                With<ambition_platformer2d::combat::components::ActorFaction>,
+                With<ambition_platformer2d::actor::ActorFaction>,
             ),
         >();
         q.iter(world)

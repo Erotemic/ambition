@@ -62,7 +62,7 @@ pub struct CaptureParticipant {
 #[derive(bevy::ecs::query::QueryData)]
 pub struct CaptorView {
     body: CaptureParticipant,
-    faction: &'static crate::components::ActorFaction,
+    faction: &'static ambition_characters::actor::ActorFaction,
     team: Option<&'static crate::targeting::MatchTeam>,
     frame: Option<&'static ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
 }
@@ -635,7 +635,7 @@ mod tests {
                     ..Default::default()
                 },
                 crate::components::CenteredAabb::new(pos, ae::Vec2::new(8.0, 12.0)),
-                crate::components::ActorFaction::Enemy,
+                ambition_characters::actor::ActorFaction::Enemy,
                 ambition_platformer2d_core::BodyGroundState {
                     head_contact: false,
                     on_ground: true,
@@ -720,7 +720,7 @@ mod tests {
         // Opposed sides, or friendly fire refuses the grab.
         app.world_mut()
             .entity_mut(victim)
-            .insert(crate::components::ActorFaction::Player);
+            .insert(ambition_characters::actor::ActorFaction::Player);
         {
             let mut victim_mut = app.world_mut().entity_mut(victim);
             // ⭐ GRANTED, not assumed. `BodyAbilities::default()` authors no
@@ -844,7 +844,7 @@ mod tests {
             // and a captor may not grab its own side with friendly fire off.
             app.world_mut()
                 .entity_mut(victim)
-                .insert(crate::components::ActorFaction::Player);
+                .insert(ambition_characters::actor::ActorFaction::Player);
             app.world_mut().entity_mut(victim).insert(
                 ambition_characters::actor::BodyHealth::restored(
                     ambition_characters::actor::Health {
@@ -908,7 +908,7 @@ mod tests {
             .insert(BodyShieldState::default());
         app.world_mut()
             .entity_mut(victim)
-            .insert(crate::components::ActorFaction::Player);
+            .insert(ambition_characters::actor::ActorFaction::Player);
         app.world_mut().write_message(attempt(captor));
         app.update();
         assert!(
@@ -934,7 +934,7 @@ mod tests {
         let victim = grounded_body(&mut app, "victim", ae::Vec2::new(16.0, 0.0));
         app.world_mut()
             .entity_mut(victim)
-            .insert(crate::components::ActorFaction::Player);
+            .insert(ambition_characters::actor::ActorFaction::Player);
         app.world_mut()
             .entity_mut(victim)
             .insert(ambition_characters::control::ActorControl(
@@ -999,7 +999,7 @@ mod tests {
         let victim = grounded_body(&mut app, "victim", ae::Vec2::new(16.0, 0.0));
         app.world_mut()
             .entity_mut(victim)
-            .insert(crate::components::ActorFaction::Player);
+            .insert(ambition_characters::actor::ActorFaction::Player);
         app.world_mut().write_message(attempt(captor));
         app.update();
 
@@ -1052,7 +1052,7 @@ mod tests {
         // Hostile to each other, so neither grab is refused by friendly fire.
         app.world_mut()
             .entity_mut(west)
-            .insert(crate::components::ActorFaction::Player);
+            .insert(ambition_characters::actor::ActorFaction::Player);
         // Facing each other, so each one's grab volume reaches the other.
         app.world_mut()
             .entity_mut(west)
@@ -1124,13 +1124,13 @@ mod tests {
             // assert nothing about C.
             app.world_mut()
                 .entity_mut(a)
-                .insert(crate::components::ActorFaction::Enemy);
+                .insert(ambition_characters::actor::ActorFaction::Enemy);
             app.world_mut()
                 .entity_mut(b)
-                .insert(crate::components::ActorFaction::Player);
+                .insert(ambition_characters::actor::ActorFaction::Player);
             app.world_mut()
                 .entity_mut(c)
-                .insert(crate::components::ActorFaction::Enemy);
+                .insert(ambition_characters::actor::ActorFaction::Enemy);
             (app, a, b, c)
         };
 
@@ -1217,7 +1217,7 @@ mod tests {
                 .facing = -1.0;
             app.world_mut()
                 .entity_mut(c)
-                .insert(crate::components::ActorFaction::Player);
+                .insert(ambition_characters::actor::ActorFaction::Player);
             (app, a, b, c)
         };
 
@@ -1270,7 +1270,7 @@ mod tests {
         let victim = grounded_body(&mut app, "victim", ae::Vec2::new(16.0, 0.0));
         app.world_mut()
             .entity_mut(victim)
-            .insert(crate::components::ActorFaction::Player);
+            .insert(ambition_characters::actor::ActorFaction::Player);
         app.world_mut()
             .entity_mut(victim)
             .insert(ambition_platformer2d_core::BodyGroundState {
@@ -1918,7 +1918,7 @@ mod tests {
             let victim = grounded_body(&mut app, "victim", ae::Vec2::new(16.0, 0.0));
             app.world_mut()
                 .entity_mut(victim)
-                .insert(crate::components::ActorFaction::Player);
+                .insert(ambition_characters::actor::ActorFaction::Player);
             // Health, because a pummel and a throw both spend it, and a body
             // without it is one no beat after the first could touch.
             let stripped = if strip_captor { captor } else { victim };
@@ -2274,7 +2274,7 @@ mod tests {
         for body in [first, second] {
             app.world_mut()
                 .entity_mut(body)
-                .insert(crate::components::ActorFaction::Player);
+                .insert(ambition_characters::actor::ActorFaction::Player);
         }
         //  a hold is TWO components: the relation, and this ruleset's half.
         app.world_mut().entity_mut(first).insert((
@@ -2310,7 +2310,7 @@ mod tests {
             app.world_mut().entity_mut(captor).insert(InRoomInstance(first));
             app.world_mut()
                 .entity_mut(victim)
-                .insert((crate::components::ActorFaction::Player, InRoomInstance(victim_room)));
+                .insert((ambition_characters::actor::ActorFaction::Player, InRoomInstance(victim_room)));
             app.world_mut().write_message(attempt(captor));
             app.update();
             app.world().get::<CapturedBy>(victim).is_some()

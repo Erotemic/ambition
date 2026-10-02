@@ -14,7 +14,8 @@
 //! player tunnelling a one-way platform.
 
 use super::*;
-use ambition_combat::components::{ActorFaction, ActorIdentity};
+use ambition_combat::components::ActorIdentity;
+use ambition_characters::actor::ActorFaction;
 use ambition_gameplay_trace::default_dump_dir;
 use ambition_gameplay_trace::write_actor_dump;
 use ambition_gameplay_trace::ActorTraceBuffer;

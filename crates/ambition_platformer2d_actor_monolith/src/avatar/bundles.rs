@@ -16,8 +16,11 @@ use ambition_characters::control::ActorControl;
 use ambition_characters::control::DrivingParticipant;
 use ambition_characters::control::PlayerSlot;
 use ambition_combat::components::{
-    ActorFaction, DamageableVolumes, PogoPolicy, PogoTargetVolumes,
+    DamageableVolumes,
+    PogoPolicy,
+    PogoTargetVolumes,
 };
+use ambition_characters::actor::ActorFaction;
 use ambition_combat::BodyMelee;
 use ambition_platformer2d_core::BodyKinematics;
 use ambition_platformer2d_shared_tangle::body::AncillaryMovementBundle;

@@ -16,7 +16,8 @@
 
 use bevy::prelude::*;
 
-use ambition_combat::components::{ActorFaction, CenteredAabb, DamageableVolumes};
+use ambition_combat::components::{CenteredAabb, DamageableVolumes};
+use ambition_characters::actor::ActorFaction;
 use ambition_combat::events::HitEvent;
 use ambition_combat::hitbox::{apply_hitbox_damage, HitSide, Hitbox, HitboxHits, HitboxLifetime};
 use ambition_entity_catalog::{HurtboxKeyframe, HurtboxTimeline, VolumeShape};

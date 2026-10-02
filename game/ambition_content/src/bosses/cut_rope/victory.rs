@@ -157,7 +157,7 @@ fn spawn_victory_npc_entity(
                     CenteredAabb::from_aabb(aabb),
                 ),
                 disposition,
-                faction: ambition_combat::components::ActorFaction::Npc,
+                faction: ambition_characters::actor::ActorFaction::Npc,
                 target: ambition_combat::components::ActorTarget::default(),
                 motion_model: ambition_platformer2d_core::movement::MotionModel::default(),
                 identity_kit,

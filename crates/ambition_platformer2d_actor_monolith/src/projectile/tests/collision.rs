@@ -1091,7 +1091,7 @@ fn spawn_boss(app: &mut App, id: &str, center: ae::Vec2, half: ae::Vec2) -> Enti
                 seed: None,
             },
             BodyHealth::new(ambition_characters::actor::Health::new(9)),
-            ambition_combat::components::ActorFaction::Enemy,
+            ambition_characters::actor::ActorFaction::Enemy,
         ))
         .id()
 }
@@ -1986,7 +1986,7 @@ fn an_open_parry_window_reflects_a_shot_and_takes_it_over() {
     let parrier = app
         .world_mut()
         .spawn((
-            ambition_combat::components::ActorFaction::Enemy,
+            ambition_characters::actor::ActorFaction::Enemy,
             ae::BodyKinematics {
                 pos: ae::Vec2::new(500.0, 300.0),
                 size: ae::Vec2::new(28.0, 46.0),
@@ -2074,7 +2074,7 @@ fn a_closed_parry_window_lets_the_shot_through() {
     app.update();
 
     app.world_mut().spawn((
-        ambition_combat::components::ActorFaction::Enemy,
+        ambition_characters::actor::ActorFaction::Enemy,
         ae::BodyKinematics {
             pos: ae::Vec2::new(500.0, 300.0),
             size: ae::Vec2::new(28.0, 46.0),
@@ -2143,7 +2143,7 @@ fn an_absorbing_parry_consumes_the_shot_rather_than_returning_it() {
     app.update();
 
     app.world_mut().spawn((
-        ambition_combat::components::ActorFaction::Enemy,
+        ambition_characters::actor::ActorFaction::Enemy,
         ae::BodyKinematics {
             pos: ae::Vec2::new(500.0, 300.0),
             size: ae::Vec2::new(28.0, 46.0),
@@ -2221,7 +2221,7 @@ fn a_shot_swallowed_by_an_absorber_never_reaches_the_body_behind_it() {
         let spawn_absorber = |app: &mut App| {
             app.world_mut()
                 .spawn((
-                    ambition_combat::components::ActorFaction::Enemy,
+                    ambition_characters::actor::ActorFaction::Enemy,
                     ae::BodyKinematics {
                         pos: ae::Vec2::new(500.0, 300.0),
                         size: ae::Vec2::new(28.0, 46.0),
@@ -2249,7 +2249,7 @@ fn a_shot_swallowed_by_an_absorber_never_reaches_the_body_behind_it() {
         let spawn_bystander = |app: &mut App| {
             app.world_mut()
                 .spawn((
-                    ambition_combat::components::ActorFaction::Enemy,
+                    ambition_characters::actor::ActorFaction::Enemy,
                     ae::BodyKinematics {
                         pos: ae::Vec2::new(508.0, 300.0),
                         size: ae::Vec2::new(28.0, 46.0),
@@ -2739,7 +2739,8 @@ fn the_same_two_victims_with_identities_do_not() {
 }
 
 fn stacked_unidentified_victims(identified: bool) {
-    use ambition_combat::components::{ActorFaction, CenteredAabb};
+    use ambition_combat::components::CenteredAabb;
+    use ambition_characters::actor::ActorFaction;
     use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 
     let world = ae::World::new(

@@ -325,7 +325,7 @@ mod flow_tests {
                 .spawn((
                     // `advance_move_playback` narrows to combat bodies: with no
                     // faction the query does not match and the flow never runs.
-                    ambition_combat::components::ActorFaction::Player,
+                    ambition_characters::actor::ActorFaction::Player,
                     ambition_platformer2d_core::BodyKinematics::default(),
                     ambition_platformer2d_core::CenteredAabb::from_center_size(
                         ambition_platformer2d_core::Vec2::ZERO,

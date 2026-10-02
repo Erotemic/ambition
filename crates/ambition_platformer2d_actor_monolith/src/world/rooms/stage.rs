@@ -10,7 +10,7 @@
 //! Snapshot reconstruction also executes this canonical construction plan; it
 //! is not a second construction authority.
 
-use ambition_combat::components::ActorFaction;
+use ambition_characters::actor::ActorFaction;
 use std::collections::BTreeSet;
 use std::hash::{Hash, Hasher};
 
@@ -1115,7 +1115,7 @@ mod tests {
                     name: "occupant".into(),
                     pos: ae::Vec2::ZERO,
                     half_size: ae::Vec2::splat(10.0),
-                    faction: ambition_combat::components::ActorFaction::Npc,
+                    faction: ambition_characters::actor::ActorFaction::Npc,
                     grudge_against: None,
                     kind: ambition_platformer2d_actor_spawn::SpawnActorKind::Enemy {
                         brain: ambition_entity_catalog::placements::CharacterBrain::Custom(
@@ -1289,7 +1289,7 @@ mod tests {
                     name: "occupant".into(),
                     pos: ae::Vec2::ZERO,
                     half_size: ae::Vec2::splat(10.0),
-                    faction: ambition_combat::components::ActorFaction::Npc,
+                    faction: ambition_characters::actor::ActorFaction::Npc,
                     grudge_against: None,
                     kind: ambition_platformer2d_actor_spawn::SpawnActorKind::Enemy {
                         brain: ambition_entity_catalog::placements::CharacterBrain::Custom(

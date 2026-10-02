@@ -22,7 +22,8 @@
 //! lower number.
 
 use ambition_characters::control::{ActorControl, DrivingParticipant, PlayerSlot};
-use ambition_combat::components::{ActorFaction, CenteredAabb};
+use ambition_combat::components::CenteredAabb;
+use ambition_characters::actor::ActorFaction;
 use ambition_combat::held_items::HeldItem;
 use ambition_extension_host::{ExtensionAppExt, ExtensionHostPlugin};
 use ambition_platformer2d::abilities::module_entity::ModuleEntity;

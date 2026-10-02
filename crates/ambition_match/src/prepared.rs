@@ -132,7 +132,7 @@ pub struct PreparedSeat {
     pub seed: ambition_body_seed::ActorClusterSeed,
     /// The body box this fighter was resolved to occupy.
     pub body_px: Vec2,
-    pub faction: ambition_combat::components::ActorFaction,
+    pub faction: ambition_characters::actor::ActorFaction,
     pub team: Option<ambition_combat::targeting::MatchTeam>,
     /// What will drive it. Attached after the body exists; it never changes
     /// how the body is built.
@@ -749,7 +749,7 @@ pub fn prepare_match(
             body_px,
             // Every seat has a team, so match relationships never fall back to
             // faction, and faction keeps its world meaning.
-            faction: ambition_combat::components::ActorFaction::Player,
+            faction: ambition_characters::actor::ActorFaction::Player,
             team: Some(team_for(index, participant.team.as_ref())),
             authority,
             match_kit: participant.action_set.clone(),

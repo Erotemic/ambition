@@ -4571,7 +4571,7 @@ fn report_the_factions_and_teams_a_seated_fighter_carries() {
     let world = app.world_mut();
     let mut query = world.query::<(
         &MatchSeat,
-        Option<&ambition_platformer2d::combat::components::ActorFaction>,
+        Option<&ambition_platformer2d::actor::ActorFaction>,
         Option<&ambition_platformer2d::combat::targeting::MatchTeam>,
     )>();
     let mut rows: Vec<(usize, String, String)> = query

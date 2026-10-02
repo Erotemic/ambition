@@ -7,9 +7,14 @@ use ambition_platformer2d_core as ae;
 use bevy::prelude::*;
 
 use super::components::{
-    ActiveCombatant, ActorAggression, ActorDisposition, ActorFaction, ActorTarget, AggressionTarget,
+    ActiveCombatant,
+    ActorAggression,
+    ActorDisposition,
+    ActorTarget,
+    AggressionTarget,
     CenteredAabb,
 };
+use ambition_characters::actor::ActorFaction;
 use super::FeatureSimEntity;
 use ambition_characters::actor::BodyHealth;
 use ambition_platformer2d_core::BodyKinematics;

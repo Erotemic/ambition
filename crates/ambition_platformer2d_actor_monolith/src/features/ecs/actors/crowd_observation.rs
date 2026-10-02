@@ -21,7 +21,7 @@ use ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance;
 use bevy::prelude::Entity;
 use std::collections::{BTreeMap, HashMap};
 
-use ambition_combat::components::ActorFaction;
+use ambition_characters::actor::ActorFaction;
 use ambition_combat::crowd::CrowdKind;
 
 /// One body's contribution to the crowd picture.

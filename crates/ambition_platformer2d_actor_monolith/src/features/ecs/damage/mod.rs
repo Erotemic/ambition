@@ -39,7 +39,7 @@ use ambition_vfx::vfx::VfxWriter;
 
 /// One side of a combat relationship, as this module reads it off a body.
 type CombatSide<'w> = (
-    &'w ambition_combat::components::ActorFaction,
+    &'w ambition_characters::actor::ActorFaction,
     Option<&'w ambition_characters::control::DrivingParticipant>,
     Option<&'w ambition_combat::targeting::MatchTeam>,
 );
@@ -597,7 +597,7 @@ pub fn apply_feature_hit_events(
         // that read the authored faction would have it defending the team it was
         // taken from.
         Query<(
-            &'static ambition_combat::components::ActorFaction,
+            &'static ambition_characters::actor::ActorFaction,
             Option<&'static ambition_characters::control::DrivingParticipant>,
             Option<&'static ambition_combat::targeting::MatchTeam>,
         )>,

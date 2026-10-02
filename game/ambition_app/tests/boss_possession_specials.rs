@@ -14,7 +14,8 @@ use ambition_platformer2d::actors::control::possession::PossessionState;
 use ambition_platformer2d::characters::brain::{
     BossAttackProfile, BossAttackState, BossCapability, Brain,
 };
-use ambition_platformer2d::combat::components::{ActorFaction, FeatureId};
+use ambition_platformer2d::combat::components::FeatureId;
+use ambition_platformer2d::actor::ActorFaction;
 use ambition_platformer2d::engine_core::BodyKinematics;
 use ambition_platformer2d::entity_catalog::placements::BossBrain;
 use ambition_platformer2d::platformer::markers::PrimaryPlayerOnly;

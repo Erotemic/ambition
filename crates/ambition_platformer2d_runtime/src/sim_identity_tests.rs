@@ -169,7 +169,7 @@ fn damageable() -> impl Bundle {
                 ambition_platformer2d_core::Vec2::new(8.0, 16.0),
             ),
         ),
-        ambition_combat::components::ActorFaction::Npc,
+        ambition_characters::actor::ActorFaction::Npc,
     )
 }
 

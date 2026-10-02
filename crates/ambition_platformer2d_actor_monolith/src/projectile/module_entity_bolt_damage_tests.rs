@@ -21,7 +21,7 @@
 
 use ambition_abilities::module_entity::{spawn_module_entity, ModuleEntity, Spawner};
 use ambition_projectiles::{ProjectileSpawn, ProjectileStart};
-use ambition_combat::components::ActorFaction;
+use ambition_characters::actor::ActorFaction;
 use ambition_combat::events::{HitEvent, HitSource};
 use ambition_platformer2d_core as ae;
 use ambition_projectiles::ProjectileSpawnRequest;

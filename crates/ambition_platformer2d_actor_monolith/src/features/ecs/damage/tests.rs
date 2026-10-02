@@ -59,7 +59,7 @@ fn spawn_hostile_actor(app: &mut App) -> bevy::prelude::Entity {
             // Production hostile actors receive this from `EnemyActorBundle`.
             // Keep the shared damage fixture structurally representative so
             // body-generic contact resolution can see it as a `StrikeVictim`.
-            ambition_combat::components::ActorFaction::Enemy,
+            ambition_characters::actor::ActorFaction::Enemy,
             disposition,
             combat,
         ))
@@ -1491,8 +1491,8 @@ fn dividing_mite_splits_into_two_hostile_offspring_on_death() {
     app.update();
     let mut q = app
         .world_mut()
-        .query::<&ambition_combat::components::ActorFaction>();
-    let factions: Vec<ambition_combat::components::ActorFaction> =
+        .query::<&ambition_characters::actor::ActorFaction>();
+    let factions: Vec<ambition_characters::actor::ActorFaction> =
         q.iter(app.world()).cloned().collect();
     assert_eq!(
         factions.len(),
@@ -1502,7 +1502,7 @@ fn dividing_mite_splits_into_two_hostile_offspring_on_death() {
     assert!(
         factions
             .iter()
-            .all(|f| *f == ambition_combat::components::ActorFaction::Enemy),
+            .all(|f| *f == ambition_characters::actor::ActorFaction::Enemy),
         "the offspring are hostile (Enemy faction), not player-allies",
     );
 }
@@ -1535,7 +1535,7 @@ fn a_split_with_no_prepared_cast_is_refused() {
     app.update();
     let built = app
         .world_mut()
-        .query::<&ambition_combat::components::ActorFaction>()
+        .query::<&ambition_characters::actor::ActorFaction>()
         .iter(app.world())
         .count();
     assert_eq!(built, 0, "a split whose offspring cannot be built builds nothing");
@@ -2688,7 +2688,7 @@ fn a_projectile_hit_flashes_its_victim_but_never_its_thrower() {
 #[test]
 fn a_boss_is_adjudicated_by_the_same_relationship_rule_as_any_other_body() {
     use ambition_characters::control::DrivingParticipant;
-    use ambition_combat::components::ActorFaction;
+    use ambition_characters::actor::ActorFaction;
     use ambition_combat::targeting::FriendlyFire;
 
     let boss_entity = bevy::prelude::Entity::from_raw_u32(7).expect("nonzero raw index");

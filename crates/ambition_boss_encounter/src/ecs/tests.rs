@@ -52,7 +52,7 @@ fn boss_strike_spawns_a_boss_hitbox_through_the_moveset() {
         ..Default::default()
     };
     app.world_mut().spawn((
-        ambition_combat::components::ActorFaction::Boss,
+        ambition_characters::actor::ActorFaction::Boss,
         ambition_platformer2d_core::BodyKinematics {
             pos: ae::Vec2::new(300.0, 300.0),
             vel: ae::Vec2::ZERO,

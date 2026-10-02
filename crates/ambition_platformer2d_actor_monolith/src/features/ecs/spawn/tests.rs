@@ -796,7 +796,7 @@ mod authored_enemy_reads_its_character {
                     &Default::default(),
                     &authored,
                     &[],
-                    ambition_combat::components::ActorFaction::Enemy,
+                    ambition_characters::actor::ActorFaction::Enemy,
                     ambition_platformer2d_actor_spawn::RecordedFate::AsAuthored,
                 );
             },
@@ -1128,7 +1128,7 @@ mod authored_enemy_reads_its_character {
                     &Default::default(),
                     &authored,
                     &[],
-                    ambition_combat::components::ActorFaction::Enemy,
+                    ambition_characters::actor::ActorFaction::Enemy,
                     ambition_platformer2d_actor_spawn::RecordedFate::AsAuthored,
                 );
             },
@@ -1257,7 +1257,7 @@ mod authored_enemy_reads_its_character {
                     &profiles,
                     &authored,
                     &[],
-                    ambition_combat::components::ActorFaction::Enemy,
+                    ambition_characters::actor::ActorFaction::Enemy,
                     ambition_platformer2d_actor_spawn::RecordedFate::AsAuthored,
                 );
             },
@@ -1445,7 +1445,7 @@ mod authored_enemy_reads_its_character {
                     &Default::default(),
                     &authored,
                     &[],
-                    ambition_combat::components::ActorFaction::Enemy,
+                    ambition_characters::actor::ActorFaction::Enemy,
                     ambition_platformer2d_actor_spawn::RecordedFate::AsAuthored,
                 );
             },
@@ -1586,7 +1586,7 @@ mod authored_enemy_reads_its_character {
                     &Default::default(),
                     &authored,
                     &[],
-                    ambition_combat::components::ActorFaction::Enemy,
+                    ambition_characters::actor::ActorFaction::Enemy,
                     ambition_platformer2d_actor_spawn::RecordedFate::AsAuthored,
                 );
             },
@@ -1652,7 +1652,7 @@ mod authored_enemy_reads_its_character {
                     &Default::default(),
                     &authored,
                     &[],
-                    ambition_combat::components::ActorFaction::Enemy,
+                    ambition_characters::actor::ActorFaction::Enemy,
                     ambition_platformer2d_actor_spawn::RecordedFate::AsAuthored,
                 );
             },
@@ -1710,7 +1710,7 @@ mod authored_enemy_reads_its_character {
                     &Default::default(),
                     &authored,
                     &[],
-                    ambition_combat::components::ActorFaction::Enemy,
+                    ambition_characters::actor::ActorFaction::Enemy,
                     ambition_platformer2d_actor_spawn::RecordedFate::AsAuthored,
                 );
             },

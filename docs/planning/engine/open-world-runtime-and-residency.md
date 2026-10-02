@@ -2059,7 +2059,7 @@ names its subject by body or seat (`ViewSubject`, `ViewParticipant`).
 | Cut | Work | State |
 | --- | --- | --- |
 | V1 | The camera resolve frames each view in the live room of its framed body | ✅ below |
-| V2 | Draw roads place each entity by the geometry of its own live room (`LiveRoomOf`), not the sole room | ◐ the camera apply (V2a), feature/actor sprites (V2b), items and projectiles (V2c), lock walls (V2d) and nameplates (V2e), fx, slashes and limb trails (V2f), and the visuals that ride a body (V2g), below; the unroomed fx producers (54 sites), the blink preview, health bars, debug overlays and the world labels are open; the gravity zones, shrines and unauthored attack stand-ins (V2h) are done |
+| V2 | Draw roads place each entity by the geometry of its own live room (`LiveRoomOf`), not the sole room | ◐ the camera apply (V2a), feature/actor sprites (V2b), items and projectiles (V2c), lock walls (V2d) and nameplates (V2e), fx, slashes and limb trails (V2f), and the visuals that ride a body (V2g), below; the unroomed fx producers (54 sites), health bars, debug overlays and the world labels are open; the gravity zones, shrines and unauthored attack stand-ins (V2h) and the blink ring (V2i) are done |
 | V3 | A camera draws only the live room of its view: a room render band, as the view band does for projections | ✅ below |
 | V4 | Room visuals and the LDtk level are presented per live room, and retire with it | ✅ static room visuals (V4a), the LDtk level (V4b) and parallax (V4c), below |
 | V5 | Two seats in two live rooms get two views (the product rule: a split is mandatory in different rooms) | ✅ below |
@@ -2177,6 +2177,19 @@ second view) and `an_equivalent_world_reload_draws_its_room_once` (the
 shipped game; the room visual, marker, parallax and LDtk counts are the same
 10 frames after an equivalent reload; before the fix, 258 against 140).
 `SoleLiveRoomSpec` 25/21 -> 20/18, `SoleLiveRoom` 46/39 -> 45/38.
+
+✅ **V2i landed 2026-10-02: the blink ring is drawn in its body's live
+room.** The reticle already resolved against the walls of its subject's own
+room (OW1), but the ring read the sole live room, so while two rooms were
+live it was not drawn. `BlinkPreviewFact` now names the subject's `room`,
+and `update_blink_preview` places the embers by that room's geometry and
+stamps them with it (again if the body blinks into another live room while
+the ring shows). Witness: `the_blink_ring_is_drawn_in_its_body_s_own_live_room`
+(the ring in the second of two rooms of different sizes is placed by that
+room and stamped with it; a ring with no room is not drawn; poison, placed
+by the first room: the first room's position), and
+`the_blink_reticle_reads_the_walls_of_its_subjects_own_room` now asserts the
+row names the room. `SoleLiveRoom` 34/27 -> 33/26.
 
 ✅ **V2h landed 2026-10-02: gravity zones, shrines and unauthored attack
 stand-ins are drawn in their own live rooms.** All three read the sole live

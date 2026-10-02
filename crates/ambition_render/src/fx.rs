@@ -1201,21 +1201,33 @@ pub fn spawn_blink_effects(
 pub fn update_blink_preview(
     mut commands: Commands,
     time: Res<Time>,
-    world: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<
+    // The ring is drawn in its blinking body's live room, by that room's
+    // geometry.
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomOf<
         ambition_platformer2d_core::RoomGeometry,
     >,
     fact: Res<ambition_sim_view::BlinkPreviewFact>,
     active_session: Option<Res<ActiveSessionScope>>,
-    mut existing: Query<(Entity, &BlinkPreviewVisual, &mut Transform, &mut Sprite)>,
+    mut existing: Query<(
+        Entity,
+        &BlinkPreviewVisual,
+        &mut Transform,
+        &mut Sprite,
+        Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
+    )>,
 ) {
     let spawn_scope = SessionSpawnScope::for_optional_active_session(active_session.as_deref());
-    if !fact.active || spawn_scope.is_none() {
-        for (entity, _, _, _) in &existing {
+    // A body whose live room cannot be told shows no ring.
+    let placed = fact
+        .room
+        .and_then(|room| Some((room, rooms.in_room(room)?)));
+    let (Some(session_scope), Some((room, world)), true) = (spawn_scope, placed, fact.active) else {
+        for (entity, ..) in &existing {
             commands.entity(entity).despawn();
         }
         return;
-    }
-    let session_scope = spawn_scope.expect("active preview requires a spawn scope");
+    };
+    let session_scope = session_scope.in_room(Some(room));
     let target = fact.target;
     let precision = fact.precision;
     // Match the post-blink burst palette, so the preview shows what is
@@ -1233,7 +1245,13 @@ pub fn update_blink_preview(
     let ember_size = (fact.body_min_extent * 0.18) * pulse;
 
     let mut emitted = 0;
-    for (_, ember, mut transform, mut sprite) in &mut existing {
+    for (entity, ember, mut transform, mut sprite, stamp) in &mut existing {
+        // The body can blink into another live room while the ring shows.
+        if stamp.map(|stamp| stamp.0) != Some(room) {
+            commands
+                .entity(entity)
+                .try_insert(ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance(room));
+        }
         let angle = spin + ember.angle_offset;
         let offset = ae::Vec2::new(angle.cos(), angle.sin()) * radius;
         transform.translation = world_to_bevy(&world.0, target + offset, WORLD_Z_FX + 1.5);

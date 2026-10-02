@@ -89,3 +89,47 @@ fn an_unroomed_effect_is_drawn_in_the_sole_live_room() {
         "(room, position) of an unroomed effect with one live room"
     );
 }
+
+/// The blink ring is drawn in its blinking body's live room (view half, cut
+/// V2i): placed by that room's flip and stamped with it. A ring whose room
+/// cannot be told is not drawn.
+#[cfg(feature = "input")]
+#[test]
+fn the_blink_ring_is_drawn_in_its_body_s_own_live_room() {
+    let mut app = App::new();
+    app.init_resource::<Time>();
+    insert_live_room_component(app.world_mut(), room(BIG));
+    let second = LiveRoomInstance::ACTIVATION.next();
+    spawn_live_room(app.world_mut(), second, room(SMALL));
+    let fact = |room| ambition_sim_view::BlinkPreviewFact {
+        active: true,
+        target: AT,
+        precision: false,
+        body_min_extent: 0.0,
+        room,
+    };
+    app.insert_resource(fact(Some(second)));
+    app.add_systems(Update, update_blink_preview);
+    app.update();
+    app.update();
+    let embers = |app: &mut App| -> Vec<(Option<u32>, BVec2)> {
+        let mut q = app
+            .world_mut()
+            .query::<(&BlinkPreviewVisual, &Transform, Option<&InRoomInstance>)>();
+        let mut rows: Vec<_> = q
+            .iter(app.world())
+            .map(|(_, transform, stamp)| (stamp.map(|stamp| stamp.0.ordinal()), transform.translation.truncate()))
+            .collect();
+        rows.dedup();
+        rows
+    };
+    assert_eq!(
+        embers(&mut app),
+        vec![(Some(second.ordinal()), flipped(SMALL))],
+        "the ring must be placed by its body's live room and stamped with it"
+    );
+    app.insert_resource(fact(None));
+    app.update();
+    app.update();
+    assert_eq!(embers(&mut app), Vec::new(), "a ring whose room cannot be told is drawn");
+}

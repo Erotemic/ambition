@@ -2295,11 +2295,11 @@ def coverage_notice(
         notices.append(
             f"\n  ⚠ this was {scope}, which does NOT cover:\n"
             "      - tests behind an OPT-IN #[cfg(feature = \"...\")] — MEASURED\n"
-            "        2026-10-01 by `scripts/feature_gated_tests.py`, 473 tests\n"
+            "        2026-10-02 by `scripts/feature_gated_tests.py`, 474 tests\n"
             "        across 28 crates, the largest single omission this\n"
             "        footer names — though the scanner counts `#[cfg(feature)]`\n"
             "        STATICALLY, and a feature another workspace member turns on\n"
-            "        IS unified into `--workspace`, so some of the 472 do run\n"
+            "        IS unified into `--workspace`, so some of the 474 do run\n"
             "        here (MEASURED 2026-09-12: `ambition_characters`'\n"
             "        content_pack arms execute, via `game/ambition_content`).\n"
             "        footer names. `python3 scripts/feature_gated_tests.py` prints\n"

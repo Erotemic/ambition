@@ -785,6 +785,9 @@ pub struct BlinkPreviewFact {
     /// The blinking body's smaller AABB extent — ring radius + ember size
     /// scale off it.
     pub body_min_extent: f32,
+    /// The live room of the blinking body (`LiveRooms::of`). The ring is
+    /// placed by that room's geometry and stamped with it.
+    pub room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
 }
 
 /// Rebuild [`BlinkPreviewFact`] each tick. Mirrors the destination
@@ -856,9 +859,8 @@ pub fn rebuild_blink_preview_fact(
     // The SAME composition `step_motion` collides against — see the parameter
     // — in the subject's own live room. The sole live room's was read here,
     // so while two rooms were live no reticle showed.
-    let room = live
-        .of(subject)
-        .map(ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance);
+    let live_room = live.of(subject);
+    let room = live_room.map(ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance);
     let Some(blink_world) = collision.room(room.as_ref()).and_then(|room| room.solids()) else {
         return;
     };
@@ -880,6 +882,7 @@ pub fn rebuild_blink_preview_fact(
         target,
         precision: motion_facts.blink_aiming,
         body_min_extent: kin.size.min_element(),
+        room: live_room,
     };
 }
 
@@ -1311,6 +1314,7 @@ mod blink_preview_room_tests {
     fn the_blink_reticle_reads_the_walls_of_its_subjects_own_room() {
         let open = reticle(1);
         assert!(open.active && open.target.x > 170.0, "the reticle in #1: {open:?}");
+        assert_eq!(open.room, Some(LiveRoomInstance::ACTIVATION.next()), "the reticle names its subject's room");
         let walled = reticle(0);
         assert!(walled.active && walled.target.x < 150.0, "the reticle in #0: {walled:?}");
     }

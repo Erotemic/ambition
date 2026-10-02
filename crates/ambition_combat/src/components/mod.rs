@@ -202,7 +202,3 @@ impl Default for CombatTuning {
         }
     }
 }
-
-/// TODO(compat-remove): migrate combat callers to `ambition_characters::actor::DeathPolicy`,
-/// then delete this re-export.
-pub use ambition_characters::actor::DeathPolicy;

@@ -190,8 +190,8 @@ pub struct MovingPlatformTraceState {
     /// patterns (e.g. an OOB always coincides with the platform at the
     /// far end of its sweep).
     pub direction: f32,
-    /// True if the player is currently riding this platform per
-    /// `MovingPlatformState::is_riding`.
+    /// True if this platform supports the player's feet, in the player's
+    /// own gravity frame, per `MovingPlatformState::is_supporting_body`.
     pub player_riding: bool,
     /// Distance from player center to platform center in world units.
     pub player_distance: f32,

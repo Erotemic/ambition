@@ -1508,3 +1508,42 @@ the roster to count seat-driven bodies); (c) the dead player restarts at the
 other player's room, so the party regroups. (b) is a poor fit for players who
 are far apart; (a) or (c) suit separated play. The join road itself (which
 device, which body, which room) is the larger half of the question.
+
+## Q152 — which world mechanic should keep time while its room is not live?
+
+Decided for now, so it is not blocking: **none. A room that is not live
+does not keep time, and a room that comes back is built from its records.**
+OW5 (`docs/planning/engine/open-world-runtime-and-residency.md`) asks for
+"one concrete background mechanism requiring logical time", and says it
+follows a real mechanic, not a general offscreen simulator. Measured
+2026-10-02: no shipped mechanic needs it.
+
+- The one authored timer on a world occurrence is `RespawnPolicy::InPlace(seconds)`
+  (the training sandbags). Its countdown is `respawn_timer` on the live body
+  (`features/enemies/integration.rs`). When the room retires the body goes
+  with it, and the room that comes back builds the sandbag alive. That agrees
+  with Q149 (a returned room is fresh).
+- `OnRest` waits for a rest, not for time. `OnRoomReenter` waits for an
+  entry. `DeadStaysDead` waits for nothing.
+- Encounters persist an outcome (`PersistedEncounterState`), not a clock.
+
+So OW5 needs a product choice of the mechanic first. The options:
+
+- (a) **A respawn that counts world time**: a policy such as
+  `After(seconds)` that writes the death time to the save, so a mob killed
+  and left comes back only when that much session time has passed, whether
+  or not its room was live. Smallest: one durable timestamp per placement,
+  and the room reads it when it is built.
+- (b) **A persistent character that moves on a schedule**: the Q38 ruling
+  made a character's whereabouts durable. A schedule would move a
+  character between rooms with time, so a player who comes back finds it
+  somewhere else. Larger: it needs a route and a reconstruction of where
+  the character is at a given time.
+- (c) **Regrowth or restock**: a pickup or a shop stock that refills after
+  an amount of world time.
+
+Each needs the same engine part: a logical clock that a rewind restores and
+that does not stop while a room is not live, and a durable record that a
+built room reads. `GameplayElapsed` is a session clock that a rewind
+restores, but the save does not keep it, so a world clock that survives a
+save is also new work. (a) is the smallest test of that part.

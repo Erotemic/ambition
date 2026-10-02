@@ -14,9 +14,8 @@ world's pressure is uncertainty rather than a tidy moral binary.
 
 ## World-first development direction
 
-The previous planning emphasis on building a linear intro/story spine first is
-retired as an **implementation order**. Those story beats remain desired content,
-but the near-term game goal is:
+Build the world first. A linear intro/story spine is not the implementation
+order. The story beats remain desired content, but the near-term game goal is:
 
 > Put the robot into a substantial persistent world with the real movement,
 > possession, item, ability and interaction vocabulary. Make exploration and
@@ -57,7 +56,8 @@ See [`reactive-characters-and-dialogue.md`](reactive-characters-and-dialogue.md)
 Ambition should support solo, local couch co-op, online co-op and mixed
 local+remote parties through one body/control architecture. Presentation may be
 shared, fixed split or adaptively split/rejoined. When the rules allow independent
-exploration, participants may occupy different rooms/regions.
+exploration, participants may occupy different rooms/regions. Local players can
+already separate: each keeps a live room, and each view draws its own room.
 
 See [`multiplayer.md`](multiplayer.md).
 

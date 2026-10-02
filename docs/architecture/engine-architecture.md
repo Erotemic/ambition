@@ -3,7 +3,7 @@ id: engine-architecture
 aliases: []
 status: current
 authority: durable-architecture
-last_verified: 2026-08-30
+last_verified: 2026-10-02
 related_docs:
   - docs/concepts/engine-mental-model.md
   - docs/concepts/content-and-provider-boundaries.md
@@ -33,7 +33,7 @@ engine.
 crates/   reusable engine vocabulary, kernels, services, presentation, and hosts
 game/     Ambition/demo providers, content, apps, and game-owned extensions
 tools/    author-time generators, importers, validators, and publishing tools
-docs/     durable architecture/concepts/systems plus forward planning and history
+docs/     durable architecture, concepts and systems, plus forward planning
 ```
 
 Directory placement is secondary to Cargo dependency direction and semantic
@@ -137,28 +137,46 @@ composition convenient; it must not make a lower package depend upward.
 The durable content flow is:
 
 ```text
-authoring backend
-    -> backend-neutral authored records
-    -> validation/lowering
-    -> immutable provider content
+authoring backend (LDtk, RON, YAML, ...)
+    -> content pack draft
+    -> compile: schema resolution, references, validation, fingerprint
+    -> immutable prepared content (one content generation)
     -> prepared construction plan
-    -> authorized transaction
+    -> candidate session or room (hidden)
+    -> verdict, then one publication switch
     -> live authoritative population
 ```
 
 Import, validation, lowering, preparation, commit, and publication are distinct
-phases. Preflight does not mutate the live world. A room/session replacement
-remains authoritative until the replacement is ready to commit.
+phases. Preflight does not mutate the live world.
 
-New-session construction, room transition, same-room replay, and new-game reset
-consume this one model. They differ in three values — which room they target,
-which population they retire, and whether they read or forget durable occurrence
-facts — and in nothing else. Retention is decided by declared lifetime: an
-object in a body's custody rides through a rebuild, room residents do not.
+**Content packs.** `ambition_content_pack::compile` is the one
+parse/resolve/validate/fingerprint path for tests, reload, packaging and tools.
+The crate does not depend on Bevy or on game types. Each capability owner
+registers its schemas in a `SchemaRegistry`. Named content (quests, cutscenes,
+music cues, movesets, room bindings) is pack data, not Rust tables. A content
+edit does not rebuild Rust.
 
-Durable restoration is the remaining exception: a loaded save adopts its facts
-into an already-built world rather than informing that world's construction. The
-active migration is owned by
+**Content generations.** A reload prepares a complete candidate generation and
+reports an explicit outcome (for the cast, `RevisionOutcome`: nothing staged,
+unchanged, refused or activated). It never overwrites a registry silently. A running
+session reads the generation it was prepared against. For example,
+`SessionCast` reads the session's frozen cast (`ActiveSessionCast`) while a
+session runs, and the published cast only when no session runs. A system that
+reads published content mid-session breaks rollback.
+
+**Candidate publication.** A new session or room is built as a hidden candidate
+under its own scope (`CandidateSessionRoot`, `InactiveCandidate`). It is
+verified before the live world changes. `publish_candidate_session` and
+`publish_candidate` are the only switch points. A failed candidate leaves the
+live world playable and unchanged. Outgoing state retires only after the switch.
+
+New-session construction, room transition, same-room replay, new-game reset and
+save restore consume this one model. They differ in three values — which room
+they target, which population they retire, and whether they read or forget
+durable occurrence facts. A save load adopts its occurrence ledger at activation,
+before initial construction. Retention follows declared lifetime: an object in a
+body's custody rides through a rebuild; room residents do not. The owner is
 `docs/planning/engine/construction-and-reconstitution.md`.
 
 ## Gameplay-session and rollback authority
@@ -174,6 +192,11 @@ Process
 
 A rollback timeline rebase within one gameplay session is continuity. Starting
 a different gameplay session is not.
+
+There is exactly one canonical live `SessionRoot` entity, counting hidden
+entities. A prepared candidate carries `CandidateSessionRoot` until it is
+published. Session-dependent mutable state carries an explicit scope; it does not
+rely on an App-global identity.
 
 Current rollback authority is installed for a gameplay-session owner. Health or
 diagnosis carries across timeline generations only for that same owner. A
@@ -252,6 +275,24 @@ world occurrence exists
 Persistent-world architecture builds on session/lifetime ownership and canonical
 reconstitution. It should not assume that one resident entity instance is the
 same thing as durable occurrence identity.
+
+Current shape:
+
+- **Rooms are the residency unit, and several can be live.** Each live room is a
+  `RoomInstanceRoot` entity with a `LiveRoomInstance` and its own
+  `LiveRoomDefinition`. Two live rooms can instantiate two different
+  definitions. When players separate, each one's room is live.
+- **Entities carry their room.** An `InRoomInstance` stamp names the live room of
+  an entity. `LiveRooms` answers "which room is this entity in" by one rule. Two
+  entities interact only when they are in one room.
+- **Presentation is per live room.** Each view frames its own player and draws
+  the world of the room it frames.
+- **A room that is not live does not simulate.** A mechanic that must keep time
+  while its room is not live uses the session clock (for example, a respawn that
+  is due at a session tick).
+- `SoleLiveRoom` reads are a named debt: they assume one live room.
+
+The owner is `docs/planning/engine/open-world-runtime-and-residency.md`.
 
 ## Architectural enforcement
 

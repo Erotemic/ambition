@@ -3,7 +3,7 @@ id: engine-mental-model
 aliases: []
 status: current
 authority: durable-concept
-last_verified: 2026-08-30
+last_verified: 2026-10-02
 related_docs:
   - docs/planning/vision.md
   - docs/architecture/engine-architecture.md
@@ -111,14 +111,14 @@ See [`input-and-game-modes.md`](input-and-game-modes.md) and
 The durable world/content flow is:
 
 ```text
-LDtk or another authoring backend
-    -> typed backend adapter
-    -> backend-neutral authored world records
-    -> validation and lowering registries
-    -> provider-owned immutable content fragments
-    -> prepared content / construction plan
-    -> one transaction commits a session or room
-    -> simulation state
+LDtk, RON or another authoring backend
+    -> typed backend adapter / content pack draft
+    -> backend-neutral authored records (schemas registered by capability owners)
+    -> validation and lowering (ambition_content_pack::compile)
+    -> immutable prepared content: one content generation
+    -> prepared construction plan
+    -> hidden candidate session or room, verified, then published at one switch
+    -> simulation state (one or more live rooms)
     -> observation read models
     -> presentation
 ```
@@ -129,8 +129,13 @@ Rules:
   depend on LDtk JSON shapes.
 - Import/deserialization, validation, lowering, construction, and commit are
   different phases. Do not mutate the live world during preflight.
-- The old room/session remains authoritative until the replacement can commit.
-- Prepared content is immutable evidence, not live gameplay authority.
+- The old room/session remains authoritative until the candidate is verified
+  and published. A failed candidate changes nothing live.
+- Prepared content is immutable evidence, not live gameplay authority. A running
+  session reads the generation it was prepared against, not a newer published
+  one.
+- Named content is pack data. Do not add a Rust table for content an author
+  should edit.
 - Live authority belongs to the exact session scope and its entities/resources.
 - Provider-owned IDs are stable content identity. Bevy `Entity` values are
   allocator handles and must not become persisted identity.

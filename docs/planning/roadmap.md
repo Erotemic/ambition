@@ -49,28 +49,34 @@ Owner: [`engine/simulation-authority-and-determinism.md`](engine/simulation-auth
 
 ### P1 — canonical construction and reconstitution
 
-Fresh room construction, confirmed room transitions, same-room replay,
-checkpoint/save restoration, and persistent occurrence reconstruction should
-consume one semantic construction model rather than maintain independent reset
-or reconstruction ledgers.
-
-Fresh construction, transition, same-room replay and durable restore already run
-one constructor: a save load prepares its first room against the saved occurrence
-facts at the activation edge. This item is closed; the owner doc's C3 records the
-proof.
+**Converged.** Fresh construction, room transition, same-room replay, new-game
+reset and save restore run one constructor. A save load adopts its occurrence
+ledger at activation, before initial construction. Each new session or room is a
+hidden candidate that is verified before one publication switch; a failed
+candidate leaves the live world unchanged. The shape is stated in
+[`../architecture/engine-architecture.md`](../architecture/engine-architecture.md#content-and-construction).
+New reset or reconstruction roads must use this model, not a separate ledger.
 
 Owner: [`engine/construction-and-reconstitution.md`](engine/construction-and-reconstitution.md).
 
 ### Fast iteration - current cross-program priority
 
 The maintainer's edit-to-play latency is a current architecture requirement, not
-only the lower-priority profiling work below. After applicable correctness
-blockers, use the P1 fast-iteration row in [the queue](queue.md) and the
-[extension model](engine/extension-model.md). Start with pure move authoring and
-a runtime-loaded artifact, then add procedural modules with shared rollback state.
-Do not wait for a public mod marketplace, completion of every demo or a whole
-actor-monolith carve. Measurements choose implementation costs; single authority,
-last-good definitions and the no-host-relink content boundary are design work now.
+only the lower-priority profiling work below.
+
+Where it stands: content packs compile through one path
+(`ambition_content_pack::compile`) with no Rust rebuild. A development build
+reads content off disk, and a running game plays a saved edit to movement
+defaults, combat and time feel, boss tuning, dialogue, items, audio registries,
+fighter facets and the character catalog. A session reads the content generation
+it was prepared against. Named content keeps moving out of Rust tables into pack
+schemas (quests, cutscenes, music cues, room bindings).
+
+Remaining work: one prepare/admit/publish contract across every reloadable
+registry, and procedural modules with shared rollback state. The owners are the
+I2/I3 row in [the queue](queue.md) and the
+[extension model](engine/extension-model.md). Do not wait for a mod marketplace,
+every demo, or a whole actor-monolith carve.
 
 ### P2 — persistent systemic world foundation
 
@@ -102,9 +108,12 @@ Where P2 stands:
 - **Occurrence lifetime.** An occurrence enters the whereabouts ledger through
   custody, and the ledger enforces it, so a room unload cannot silently erase a
   persistent instance.
-- **World residency** is not built and stays so until a customer needs two
-  resident rooms. `RoomSet.active` is a `usize`, singular by type. With one
-  resident room every residency query has a trivial answer.
+- **World residency.** Several rooms can be live at once. Each live room is its
+  own root entity, entities carry an `InRoomInstance` stamp, and each view draws
+  the room it frames. Separated players each keep their room live. A room that
+  is not live does not simulate; a mechanic that must keep time uses the session
+  clock. Open work (the OW cuts and the remaining `SoleLiveRoom` readers) is in
+  [`engine/open-world-runtime-and-residency.md`](engine/open-world-runtime-and-residency.md).
 
 ### P3 — measured runtime quality and developer iteration
 
@@ -153,8 +162,10 @@ count, zero foreign installs, zero SCCs or a cosmetically renamed runtime.
 ### P5 — multiplayer and multiview
 
 Apply the same participant, actor, lifetime, world-residency and presentation
-semantics to local, online and mixed participants, shared/fixed/adaptive split
-presentation and eventually different-room play.
+semantics to local, online and mixed participants and to shared/fixed/adaptive
+split presentation. Local different-room play exists: separated players each keep
+a live room and each view draws its own room. Online transport waits for a real
+customer.
 
 Owners: [`engine/multiplayer-and-multiview.md`](engine/multiplayer-and-multiview.md)
 and [`game/multiplayer.md`](game/multiplayer.md).

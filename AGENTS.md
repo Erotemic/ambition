@@ -16,7 +16,8 @@ This is the repository operating guide for coding agents. Keep it short, session
 
 For non-trivial work, localize in this order:
 
-1. `README.md`, `AGENTS.md`, `.agent/README.md`, `docs/README.md`.
+1. `README.md`, `AGENTS.md`, `.agent/README.md`, `docs/README.md`. `.agent/` is
+   generated and git-ignored; if it is absent, run `python scripts/generate_agent_index.py`.
 2. `python scripts/agent_query.py "<task words>"` before broad source search.
 3. `docs/concepts/engine-mental-model.md`; skim `docs/concepts/invariants.md`.
 4. `docs/planning/vision.md` plus the relevant `docs/planning/tracks.md` entry.
@@ -65,6 +66,7 @@ for intended direction.
 * Ambition is Bevy-native. Do not resurrect backend-neutral constraints unless a new ADR says so.
 * Prefer data-driven ECS flow: authored/generated data -> Bevy components/entities -> systems -> messages/effects.
 * LDtk owns world/level authoring. RON remains appropriate for tuning, save/settings, and other structured data.
+* Named content says it in data. Content packs compile through `ambition_content_pack::compile` against schemas that capability owners register, and a running game reloads them. A Rust table that duplicates authored content is migration scaffolding: move it to data, do not extend it.
 * Preserve desktop, web, Android/mobile/touch, controller, and Steam Deck paths. iOS is deferred for hardware, not excluded.
 * **Crate layering:** foundations and domain services feed the unified simulation heart; observation/presentation consume it; runtime/provider/host compose it; game providers own named content. Do not carve `ambition_platformer2d_actor_monolith` merely because it is large. See `docs/architecture/engine-architecture.md` and `docs/planning/tracks.md`.
 
@@ -95,7 +97,7 @@ scripts/setup/target_bindmount.sh
 
 Do not build until the required target bind is active.
 
-* Destructive cleanup under `target/` (`rm -rf target/<something>`, `cargo clean`) is allowed only after `scripts/setup/target_bindmount.sh --status` shows the expected bind. If the bind is absent, or `target/` is ordinary repository-local storage, stop and delete nothing there (Q77, Jon 2026-10-01). The bound volume is shared with other worktrees: delete only what is yours.
+* Destructive cleanup under `target/` (`rm -rf target/<something>`, `cargo clean`) is allowed only after `scripts/setup/target_bindmount.sh --status` shows the expected bind. If the bind is absent, or `target/` is ordinary repository-local storage, stop and delete nothing there (Q77). The bound volume is shared with other worktrees: delete only what is yours.
 * Do not substitute `CARGO_TARGET_DIR` for the main repository target-bind policy.
 * If an old shadowed `target/` copy exists underneath the bind, report it rather than deleting it.
 * Do not run concurrent Cargo builds against one target directory.

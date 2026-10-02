@@ -1,8 +1,8 @@
 //! Authored quest conditions: "is this quest under way?"
 //!
 //! The game publishes this condition, not an engine crate. Quests are Ambition
-//! content: the engine has no quest crate, the roster lives in
-//! `crate::quest::default_quest_specs`, and
+//! content: the roster is the pack's `quest_book` (`assets/data/quests.ron`),
+//! read by `crate::quest::default_quest_specs`, and
 //! [`super::AmbitionQuestContentPlugin`] registers the pump that advances them.
 //! A domain owns its own publication, so the condition catalog is extensible
 //! by a game. A composition without Ambition's quests never sees the

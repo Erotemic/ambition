@@ -14,6 +14,12 @@ ron = { workspace = true }
 # `rc`: the save's dormant-record rows are `Arc`-shared between rollback
 # snapshots, and serialize as the rows themselves (the file form is unchanged).
 serde = { workspace = true, features = ["rc"] }
+# The `quest_book` schema (`quest::content_schema`), for a composition that
+# compiles content packs.
+ambition_content_pack = { path = "../ambition_content_pack", optional = true }
+
+[features]
+content_pack = ["dep:ambition_content_pack"]
 
 # ⛔ WASM ONLY, so native pays nothing for it. `store.rs` needs `localStorage`
 # to give the web build any persistence at all; before 2026-08-31 the four

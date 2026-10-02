@@ -98,7 +98,7 @@ ambition_characters = { path = "../../crates/ambition_characters", features = ["
 # The content compiler. This provider LOADS through it: the bytes the
 # validator judged and the bytes the game runs are one read.
 ambition_content_pack = { path = "../../crates/ambition_content_pack" }
-ambition_persistence = { path = "../../crates/ambition_persistence" }
+ambition_persistence = { path = "../../crates/ambition_persistence", features = ["content_pack"] }
 ambition_interaction = { path = "../../crates/ambition_interaction" }
 ambition_items = { path = "../../crates/ambition_items", features = ["content_pack"] }
 bevy = { version = "0.19.1", default-features = false, features = ["ui_api"] }

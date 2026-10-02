@@ -1004,7 +1004,7 @@ fn capture_layers_exclude_the_rigs_own_window() {
     // built-in buffer; large per-portal layers need the growable `with`.
     let probe = |n: usize| RenderLayers::none().with(n);
 
-    let layers = capture_render_layers(1, false, 0, &other_window_layers(&all, a.channel));
+    let layers = capture_render_layers(1, false, 0, &other_window_layers(&all, a.channel), None);
     assert!(
         layers.intersects(&probe(other)),
         "recursion includes the partner's window layer",
@@ -1018,7 +1018,7 @@ fn capture_layers_exclude_the_rigs_own_window() {
         "captures never use the shared main-camera window layer",
     );
 
-    let flat = capture_render_layers(0, false, 0, &other_window_layers(&all, a.channel));
+    let flat = capture_render_layers(0, false, 0, &other_window_layers(&all, a.channel), None);
     assert!(
         !flat.intersects(&probe(other)),
         "recursion depth 0 sees no window layers at all",

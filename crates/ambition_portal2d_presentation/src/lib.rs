@@ -168,6 +168,15 @@ impl PortalFrames<'_, '_> {
         })
     }
 
+    /// The render band of live room `room` while two or more rooms are live
+    /// (`None` with one): what a capture adds to see that room's world.
+    pub fn band(&self, room: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance) -> Option<usize> {
+        ambition_platformer2d_shared_tangle::camera_layers::live_room_band(
+            self.roots.iter().map(|(live, _)| *live),
+            room,
+        )
+    }
+
     /// The live room of `entity`, by the rule [`Self::of`] uses.
     pub fn room_of(&self, entity: Entity) -> ambition_portal2d::PortalRoom {
         self.live.of(entity)

@@ -197,17 +197,6 @@ impl ProjectileGameplay {
         true
     }
 
-    /// TODO(compat-remove): migrate callers to [`Self::tick`] with a full gravity direction,
-    /// then delete this scalar-gravity wrapper.
-    pub fn tick_with_gravity_sign(
-        &mut self,
-        body: &mut BodyKinematics,
-        dt: f32,
-        gravity_sign: f32,
-    ) -> bool {
-        self.tick(body, dt, Vec2::new(0.0, gravity_sign.signum()))
-    }
-
     /// True when the contact geometry qualifies as a support-face landing:
     /// projectile moving toward its feet, with overlap on the perpendicular axis,
     /// and with the body straddling the candidate surface's support face. The
@@ -362,11 +351,6 @@ impl ProjectileBody {
     /// [`ProjectileGameplay::tick`] on the split halves.
     pub fn tick(&mut self, dt: f32, gravity_dir: Vec2) -> bool {
         self.game.tick(&mut self.kin, dt, gravity_dir)
-    }
-
-    pub fn tick_with_gravity_sign(&mut self, dt: f32, gravity_sign: f32) -> bool {
-        self.game
-            .tick_with_gravity_sign(&mut self.kin, dt, gravity_sign)
     }
 
     pub fn is_expired(&self) -> bool {

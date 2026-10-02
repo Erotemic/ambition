@@ -257,6 +257,7 @@ pub fn emit_launch_trails(
     }
     *last_sampled = Some(tick.0);
     for body in &launched.0 {
+        let mut vfx = vfx.for_room(body.room);
         let speed = body.vel.length();
         // The blast first. It adds to the plume, so a launch smokes from the
         // tick it starts to flare. Sparks sit at the body, not behind it.
@@ -491,6 +492,37 @@ mod tests {
         assert!(sparks(&drain(&mut app)).is_empty());
     }
 
+    /// Two bodies launched in two live rooms: the blast and the plume of each
+    /// are drawn in its body's room.
+    #[test]
+    fn each_trail_is_drawn_in_its_bodys_live_room() {
+        use ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance;
+        let second = LiveRoomInstance::ACTIVATION.next();
+        let mut app = harness();
+        set_launched_beat(&mut app, Some(Vec2::new(2000.0, 0.0)), 0.1);
+        let row = app.world().resource::<LaunchedBodiesView>().0[0];
+        app.world_mut().resource_mut::<LaunchedBodiesView>().0 = vec![
+            LaunchedBodyFact { room: Some(LiveRoomInstance::ACTIVATION), ..row },
+            LaunchedBodyFact { room: Some(second), ..row },
+        ];
+        let mut rooms = std::collections::BTreeMap::<_, usize>::new();
+        for _ in 0..8 {
+            app.world_mut().resource_mut::<SimTick>().0 += 1;
+            app.update();
+            for message in app.world_mut().resource_mut::<Messages<VfxInRoom>>().drain() {
+                *rooms.entry(message.room.map(|room| room.ordinal())).or_default() += 1;
+            }
+        }
+        let first = rooms.get(&Some(LiveRoomInstance::ACTIVATION.ordinal())).copied();
+        assert!(first.is_some_and(|n| n > 0), "the first body's trail is drawn in its room: {rooms:?}");
+        assert_eq!(
+            rooms.get(&Some(second.ordinal())).copied(),
+            first,
+            "two equal flights draw equally in their own rooms, and nothing without a room: {rooms:?}"
+        );
+        assert_eq!(rooms.len(), 2, "{rooms:?}");
+    }
+
     fn harness() -> App {
         let mut app = App::new();
         app.init_resource::<SimTick>();
@@ -516,6 +548,7 @@ mod tests {
                 launch_beat_secs: beat,
                 // The fighter kit's authored threshold. Not under test here.
                 tumble_speed: 500.0,
+                room: None,
             });
         }
     }

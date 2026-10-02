@@ -463,6 +463,9 @@ pub struct KnockoutBeatRequested {
     /// How fast it was going when it went out — the launch trail's own band, so
     /// the plume and the burst that ends it agree about the same flight.
     pub speed: f32,
+    /// The live room the body left play in (`LiveRooms::of`). The beat is
+    /// drawn in that room.
+    pub room: Option<LiveRoomInstance>,
 }
 
 /// Request a short, spatially distributed sequence of explosion VFX/SFX. Higher

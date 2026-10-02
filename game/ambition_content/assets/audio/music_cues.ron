@@ -1,0 +1,59 @@
+// Ambition's adaptive music: the cues that ship and the encounters that bind
+// to them. Schema `music_cue_catalog` (owned by `ambition_audio`); the content
+// compiler checks every reference and requires each section's audio file.
+//
+// The audio is rendered by tools/ambition_music_renderer
+// (scores/active/first_goblin_tune_v2.music.yaml). Each section is one
+// mastered `full` mix, so the renderer owns loudness: keep gains near unity.
+// If a section needs +10 dB here, fix the score or the generator and render
+// again. Large runtime boosts make the noise floor and the section boundaries
+// audible.
+(
+    cues: [
+        (
+            id: "first_goblin_tune_v2",
+            asset_root: "audio/music/generated/first_goblin_tune_v2",
+            bpm: 132.0,
+            beats_per_bar: 4.0,
+            // Stacked layers sum hotter than the one-channel room tracks, so
+            // keep this conservative.
+            relative_volume: 1.0,
+            sections: [
+                (id: "intro", duration_beats: 16.0, looped: false, sources: [(layer_id: "full", path: "adaptive/intro/intro.full.ogg")]),
+                (id: "wave1", duration_beats: 32.0, looped: true, sources: [(layer_id: "full", path: "adaptive/wave1/wave1.full.ogg")]),
+                (id: "wave2", duration_beats: 32.0, looped: true, sources: [(layer_id: "full", path: "adaptive/wave2/wave2.full.ogg")]),
+                (id: "wave3", duration_beats: 32.0, looped: true, sources: [(layer_id: "full", path: "adaptive/wave3/wave3.full.ogg")]),
+                (id: "recap_loop", duration_beats: 32.0, looped: true, sources: [(layer_id: "full", path: "adaptive/recap_loop/recap_loop.full.ogg")]),
+                (id: "outro", duration_beats: 16.0, looped: false, sources: [(layer_id: "full", path: "adaptive/outro/outro.full.ogg")]),
+            ],
+            // One mastered layer. Add per-stem layers again only when the
+            // renderer masters per-stem outputs and each stem is audible.
+            layers: [(id: "full", slot: 0)],
+            states: [
+                (id: "intro", section_id: "intro", gains: [(layer_id: "full", gain: 1.0)]),
+                (id: "wave1", section_id: "wave1", gains: [(layer_id: "full", gain: 1.0)]),
+                (id: "wave2", section_id: "wave2", gains: [(layer_id: "full", gain: 1.0)]),
+                // With one full mix per section this state is the same as
+                // wave2. It stays so that the binding's
+                // `wave2_reinforced_state` names a state.
+                (id: "wave2_brute", section_id: "wave2", gains: [(layer_id: "full", gain: 1.0)]),
+                (id: "wave3", section_id: "wave3", gains: [(layer_id: "full", gain: 1.0)]),
+                (id: "cleared_bridge", section_id: "recap_loop", gains: [(layer_id: "full", gain: 0.85)]),
+                (id: "outro", section_id: "outro", gains: [(layer_id: "full", gain: 1.0)]),
+            ],
+            outro_state: Some("outro"),
+            post_clear_bridge_state: Some("cleared_bridge"),
+        ),
+    ],
+    encounter_bindings: [
+        (
+            // The sandbox goblin lab.
+            encounter_id: "goblin_encounter",
+            cue_id: "first_goblin_tune_v2",
+            starting_state: "intro",
+            wave_states: ["wave1", "wave2", "wave3"],
+            wave2_reinforced_state: Some("wave2_brute"),
+            cleared_state: "outro",
+        ),
+    ],
+)

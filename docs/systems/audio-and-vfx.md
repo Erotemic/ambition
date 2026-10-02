@@ -22,6 +22,13 @@ simulation facts. They may be absent in headless mode without changing outcomes.
 Generated audio is rendered by author-time tools and explicitly published into
 provider assets. Runtime does not synthesize the whole shipped bank at startup.
 
+A provider says its audio in content-pack data, and `ambition_audio` owns the
+three schemas: `music_registry` (tracks), `sfx_registry` (procedural cues) and
+`music_cue_catalog` (adaptive cues: sections, layers, states, and the
+encounters that bind to a cue). The compiler refuses a cue file whose states,
+layers or bindings name nothing, and it requires each section's audio file.
+Ambition's cues are in `game/ambition_content/assets/audio/music_cues.ron`.
+
 ## VFX ownership
 
 `ambition_vfx` provides presentation-neutral effect messages. Render/content

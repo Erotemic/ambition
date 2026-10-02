@@ -32,6 +32,9 @@ fn registry() -> SchemaRegistry {
         .register(sfx_registry_schema())
         .expect("fresh registry");
     registry
+        .register(music_cue_catalog_schema())
+        .expect("fresh registry");
+    registry
 }
 
 fn draft(
@@ -260,4 +263,123 @@ fn two_orders_of_comma_bearing_track_ids_do_not_collide() {
         pack("collide_b", ["a,b", "c", "a", "b,c"]),
         "both used to flatten to `a,b,c,a,b,c`"
     );
+}
+
+// ── music_cue_catalog ────────────────────────────────────────────────────────
+
+/// A cue with two sections, one layer and two states, and one binding.
+const CUES: &str = r#"(
+    cues: [(
+        id: "lab",
+        asset_root: "audio/music/generated/lab",
+        bpm: 120.0,
+        beats_per_bar: 4.0,
+        relative_volume: 1.0,
+        sections: [
+            (id: "fight", duration_beats: 32.0, looped: true, sources: [(layer_id: "full", path: "fight.ogg")]),
+            (id: "done", duration_beats: 8.0, looped: false, sources: [(layer_id: "full", path: "done.ogg")]),
+        ],
+        layers: [(id: "full", slot: 0)],
+        states: [
+            (id: "fight", section_id: "fight", gains: [(layer_id: "full", gain: 1.0)]),
+            (id: "done", section_id: "done", gains: [(layer_id: "full", gain: 1.0)]),
+        ],
+        outro_state: Some("done"),
+    )],
+    encounter_bindings: [(
+        encounter_id: "lab_fight",
+        cue_id: "lab",
+        starting_state: "fight",
+        wave_states: ["fight"],
+        cleared_state: "done",
+    )],
+)"#;
+
+fn cue_draft(name: &str, text: &str) -> ContentPackDraft {
+    draft(name, "cues.ron", text, MUSIC_CUE_CATALOG_SCHEMA, MUSIC_CUE_CATALOG_VERSION)
+}
+
+/// The cue file with one edit, which must apply exactly once.
+fn cues_with(from: &str, to: &str) -> String {
+    assert_eq!(CUES.matches(from).count(), 1, "the edit anchor {from:?}");
+    CUES.replace(from, to)
+}
+
+fn refuse_cues(name: &str, text: &str) -> CompileFailure {
+    compile(&cue_draft(name, text), &registry(), &AssetsUnchecked)
+        .expect_err("this cue file must be refused")
+}
+
+#[test]
+fn a_compiled_pack_carries_the_cues_and_bindings_the_director_will_load() {
+    let pack = compile(&cue_draft("cues", CUES), &registry(), &AssetsUnchecked)
+        .expect("a well-formed cue file compiles");
+    let cues = lowered_music_cues(&pack).expect("a Runtime schema lowers its artifact");
+    assert_eq!(cues.cues.len(), 1);
+    assert_eq!(cues.cues[0].post_clear_bridge_state, None, "an absent option is None");
+    assert_eq!(cues.encounter_bindings[0].cue_id, "lab");
+    assert_eq!(cues.encounter_bindings[0].wave2_reinforced_state, None);
+}
+
+/// The director's own reference rules refuse the pack, not only the runtime
+/// registry.
+#[test]
+fn a_reference_to_nothing_refuses_the_cue_file() {
+    for (name, from, to) in [
+        ("cue_section", r#"(id: "done", section_id: "done""#, r#"(id: "done", section_id: "gone""#),
+        ("cue_binding_state", r#"cleared_state: "done""#, r#"cleared_state: "gone""#),
+        ("cue_binding_cue", r#"cue_id: "lab""#, r#"cue_id: "gone""#),
+    ] {
+        let failure = refuse_cues(name, &cues_with(from, to));
+        assert!(failure.has(DiagnosticCode::MalformedSource), "{name}: {:?}", failure.codes());
+    }
+}
+
+/// The numbers the director reads as a tempo, a length, a channel and a
+/// volume.
+#[test]
+fn a_cue_the_director_cannot_play_refuses_the_cue_file() {
+    for (name, from, to) in [
+        ("cue_bpm", "bpm: 120.0", "bpm: 0.0"),
+        ("cue_length", "duration_beats: 8.0", "duration_beats: -8.0"),
+        ("cue_slot", "slot: 0", "slot: 6"),
+        ("cue_gain", r#"(id: "done", section_id: "done", gains: [(layer_id: "full", gain: 1.0)])"#,
+            r#"(id: "done", section_id: "done", gains: [(layer_id: "full", gain: -1.0)])"#),
+    ] {
+        let failure = refuse_cues(name, &cues_with(from, to));
+        assert!(failure.has(DiagnosticCode::MalformedSource), "{name}: {:?}", failure.codes());
+    }
+}
+
+#[test]
+fn a_misspelt_cue_field_is_refused() {
+    let failure = refuse_cues("cue_unknown", &cues_with("looped: false", "loops: false"));
+    assert!(failure.has(DiagnosticCode::UnknownField), "{:?}", failure.codes());
+}
+
+#[test]
+fn one_encounter_bound_twice_is_refused() {
+    let second = r#"encounter_bindings: [(
+        encounter_id: "lab_fight",
+        cue_id: "lab",
+        starting_state: "done",
+        wave_states: [],
+        cleared_state: "done",
+    ), ("#;
+    let failure = refuse_cues("cue_twice", &cues_with("encounter_bindings: [(", second));
+    assert!(failure.has(DiagnosticCode::DuplicateIdentity), "{:?}", failure.codes());
+}
+
+/// Each section's audio file is a declared requirement.
+#[test]
+fn a_cue_section_whose_audio_file_is_missing_is_reported() {
+    let some = FixedAssets::new(["audio/music/generated/lab/fight.ogg"]);
+    let failure = compile(&cue_draft("cue_missing_ogg", CUES), &registry(), &some)
+        .expect_err("a missing section file is refused under a strict asset source");
+    assert!(failure.has(DiagnosticCode::MissingAsset), "{:?}", failure.codes());
+    let all = FixedAssets::new([
+        "audio/music/generated/lab/fight.ogg",
+        "audio/music/generated/lab/done.ogg",
+    ]);
+    compile(&cue_draft("cue_all_ogg", CUES), &registry(), &all).expect("every section file is there");
 }

@@ -62,7 +62,8 @@ pub(crate) fn draw_unauthored_attack_volumes(
     // Render assets are optional so this runs in headless/test apps.
     meshes: Option<ResMut<Assets<Mesh>>>,
     materials: Option<ResMut<Assets<ColorMaterial>>>,
-    world: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<
+    // A stand-in is drawn in its owner's live room, by that room's geometry.
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomOf<
         ambition_platformer2d_core::RoomGeometry,
     >,
     active_session: Option<Res<ActiveSessionScope>>,
@@ -133,6 +134,10 @@ pub(crate) fn draw_unauthored_attack_volumes(
         if attack_vfx.authored() {
             continue;
         }
+        // An owner whose live room cannot be told is not drawn.
+        let Some((room, world)) = rooms.room_of(strike.owner).and_then(|room| Some((room, rooms.in_room(room)?))) else {
+            continue;
+        };
 
         // Use the drawn position, not the simulated one, like the slash visual.
         // A stand-in on the sim pose shudders against a body drawn from the
@@ -173,7 +178,7 @@ pub(crate) fn draw_unauthored_attack_volumes(
             continue;
         };
         commands.spawn_session_scoped(
-            session_scope,
+            session_scope.in_room(Some(room)),
             (
                 Name::new("VFX default attack swing"),
                 Mesh2d(meshes.add(mesh)),

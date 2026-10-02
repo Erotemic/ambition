@@ -387,16 +387,21 @@ pub struct ShrinesView(pub Vec<ShrineFact>);
 pub struct ShrineFact {
     pub pos: ae::Vec2,
     pub half_extent: ae::Vec2,
+    /// The live room of the thing this row draws (`LiveRooms::of`). The
+    /// visual is placed by that room's geometry and stamped with it.
+    pub room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
 }
 
 pub fn rebuild_shrines_view(
     mut view: ResMut<ShrinesView>,
-    shrines: Query<&ambition_platformer2d_actor_monolith::shrine::HealShrine>,
+    live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
+    shrines: Query<(Entity, &ambition_platformer2d_actor_monolith::shrine::HealShrine)>,
 ) {
     view.0.clear();
-    view.0.extend(shrines.iter().map(|shrine| ShrineFact {
+    view.0.extend(shrines.iter().map(|(entity, shrine)| ShrineFact {
         pos: shrine.pos,
         half_extent: shrine.half_extent,
+        room: live.of(entity),
     }));
 }
 

@@ -2059,7 +2059,7 @@ names its subject by body or seat (`ViewSubject`, `ViewParticipant`).
 | Cut | Work | State |
 | --- | --- | --- |
 | V1 | The camera resolve frames each view in the live room of its framed body | ✅ below |
-| V2 | Draw roads place each entity by the geometry of its own live room (`LiveRoomOf`), not the sole room | ◐ the camera apply (V2a), feature/actor sprites (V2b), items and projectiles (V2c), lock walls (V2d) and nameplates (V2e), fx, slashes and limb trails (V2f), and the visuals that ride a body (V2g), below; the unroomed fx producers (54 sites), the blink preview, health bars, debug overlays and the room-feature visuals (gravity zones, shrines, labels, unauthored volumes) are open |
+| V2 | Draw roads place each entity by the geometry of its own live room (`LiveRoomOf`), not the sole room | ◐ the camera apply (V2a), feature/actor sprites (V2b), items and projectiles (V2c), lock walls (V2d) and nameplates (V2e), fx, slashes and limb trails (V2f), and the visuals that ride a body (V2g), below; the unroomed fx producers (54 sites), the blink preview, health bars, debug overlays and the world labels are open; the gravity zones, shrines and unauthored attack stand-ins (V2h) are done |
 | V3 | A camera draws only the live room of its view: a room render band, as the view band does for projections | ✅ below |
 | V4 | Room visuals and the LDtk level are presented per live room, and retire with it | ✅ static room visuals (V4a), the LDtk level (V4b) and parallax (V4c), below |
 | V5 | Two seats in two live rooms get two views (the product rule: a split is mandatory in different rooms) | ✅ below |
@@ -2177,6 +2177,25 @@ second view) and `an_equivalent_world_reload_draws_its_room_once` (the
 shipped game; the room visual, marker, parallax and LDtk counts are the same
 10 frames after an equivalent reload; before the fix, 258 against 140).
 `SoleLiveRoomSpec` 25/21 -> 20/18, `SoleLiveRoom` 46/39 -> 45/38.
+
+✅ **V2h landed 2026-10-02: gravity zones, shrines and unauthored attack
+stand-ins are drawn in their own live rooms.** All three read the sole live
+room, so none was drawn while two rooms were live. A gravity zone is placed
+by its zone entity's room (`LiveRoomOf::room_of`), a shrine by the `room` its
+`ShrineFact` now carries, and a stand-in by its strike owner's room; each is
+spawned with that room's stamp. The shrine visual key names the room too:
+two live instances of one room have their shrines at the same point, and
+with one key they shared a visual, so when one instance retired its shrine
+kept drawing. Witnesses: `each_gravity_zone_is_drawn_in_its_own_live_room`
+(two rooms of different sizes: each zone visual has its room's stamp and
+position; poison, spawned without the room: no stamps) and
+`two_instances_of_one_room_each_draw_their_own_shrine` (two instances, one
+shrine each, and a shrine with no room: two visuals, one per room; when the
+second instance's shrine goes, its visual goes; poison, the key without the
+room: the second visual stayed). ⚠ The first frame of that poison passed:
+the cache misses an entity that is not spawned yet, so one key got two
+visuals, and only the retirement shows the merge. The stand-in has no
+witness of its own. `SoleLiveRoom` 37/30 -> 34/27.
 
 ✅ **V2g landed 2026-10-01: the visuals that ride a body are drawn in the
 body's own live room.** The shield bubble, the body clock, the morph ball,

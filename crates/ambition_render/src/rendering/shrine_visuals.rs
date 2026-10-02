@@ -68,7 +68,8 @@ pub enum ShrineVisualSource {
 /// footprint so its base sits at the floor.
 pub fn sync_shrine_visual(
     mut commands: Commands,
-    world: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<
+    // Each shrine is drawn in its own live room, by that room's geometry.
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomOf<
         ambition_platformer2d_core::RoomGeometry,
     >,
     active_session: Option<Res<ActiveSessionScope>>,
@@ -102,6 +103,10 @@ pub fn sync_shrine_visual(
     for shrine in &shrines.0 {
         let key = shrine_visual_key(shrine);
         present.insert(key);
+        // A shrine whose live room cannot be told is not drawn.
+        let Some((room, world)) = shrine.room.and_then(|room| Some((room, rooms.in_room(room)?))) else {
+            continue;
+        };
         let translation = ambition_platformer2d_core::config::world_to_bevy(&world.0, shrine.pos, 8.0);
 
         if let Some(&entity) = visual_cache.get(&key) {
@@ -141,7 +146,7 @@ pub fn sync_shrine_visual(
 
         let entity = commands
             .spawn_session_scoped(
-                session_scope,
+                session_scope.in_room(Some(room)),
                 (
                     ShrineVisual,
                     ShrineVisualKey(key),
@@ -346,12 +351,75 @@ fn shrine_visual_key(shrine: &ShrineFact) -> u64 {
     shrine.pos.y.to_bits().hash(&mut hasher);
     shrine.half_extent.x.to_bits().hash(&mut hasher);
     shrine.half_extent.y.to_bits().hash(&mut hasher);
+    // Two live instances of one room have their shrines at the same point;
+    // each is its own visual.
+    shrine.room.map(|room| room.ordinal()).hash(&mut hasher);
     hasher.finish()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Two live instances of one room each draw their shrine (view half, cut
+    /// V2h). The shrines stand at the same point of the same room, so the
+    /// visual key must tell them apart by room, and each visual carries its
+    /// room's stamp. A shrine whose room cannot be told is not drawn.
+    #[test]
+    fn two_instances_of_one_room_each_draw_their_own_shrine() {
+        use ambition_platformer2d_core as ae;
+        use ambition_platformer2d_shared_tangle::lifecycle::{
+            insert_live_room_component, spawn_live_room, InRoomInstance, LiveRoomInstance,
+        };
+        let world = || {
+            ae::RoomGeometry(ae::World::new("shrine room", ae::Vec2::new(800.0, 600.0), ae::Vec2::new(40.0, 40.0), Vec::new()))
+        };
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.add_plugins(bevy::asset::AssetPlugin::default());
+        app.init_asset::<Image>();
+        app.init_asset::<TextureAtlasLayout>();
+        insert_live_room_component(app.world_mut(), world());
+        let second = LiveRoomInstance::ACTIVATION.next();
+        spawn_live_room(app.world_mut(), second, world());
+        let shrine = |room| ShrineFact {
+            pos: ae::Vec2::new(100.0, 200.0),
+            half_extent: ae::Vec2::new(16.0, 32.0),
+            room,
+        };
+        app.insert_resource(ShrinesView(vec![
+            shrine(Some(LiveRoomInstance::ACTIVATION)),
+            shrine(Some(second)),
+            shrine(None),
+        ]));
+        app.add_systems(Update, sync_shrine_visual);
+        app.update();
+        app.update();
+
+        let world = app.world_mut();
+        let mut q = world.query_filtered::<Option<&InRoomInstance>, With<ShrineVisual>>();
+        let mut rooms: Vec<Option<u32>> = q.iter(world).map(|stamp| stamp.map(|stamp| stamp.0.ordinal())).collect();
+        rooms.sort();
+        assert_eq!(
+            rooms,
+            vec![Some(LiveRoomInstance::ACTIVATION.ordinal()), Some(second.ordinal())],
+            "each live instance must draw its own shrine, stamped with its room"
+        );
+
+        // The second instance's shrine goes (its room retired): its visual
+        // goes with it, and the first instance keeps its own.
+        app.insert_resource(ShrinesView(vec![shrine(Some(LiveRoomInstance::ACTIVATION))]));
+        app.update();
+        app.update();
+        let world = app.world_mut();
+        let mut q = world.query_filtered::<Option<&InRoomInstance>, With<ShrineVisual>>();
+        let rooms: Vec<Option<u32>> = q.iter(world).map(|stamp| stamp.map(|stamp| stamp.0.ordinal())).collect();
+        assert_eq!(
+            rooms,
+            vec![Some(LiveRoomInstance::ACTIVATION.ordinal())],
+            "the second instance's shrine is gone and its visual stayed"
+        );
+    }
     #[test]
     fn shrine_sheet_exposes_idle_then_activate_rows() {
         let registry = ambition_sprite_sheet::baked_sheet_registry();

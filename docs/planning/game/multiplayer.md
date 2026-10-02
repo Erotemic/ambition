@@ -180,8 +180,8 @@ Items, projectiles, lock walls and nameplates (V2c–V2e), effects (V2f) and
 the LDtk levels (V4b), parallax (V4c) and the visuals that ride a body
 (V2g: shields, clocks, ropes, wielded items) and the portals (V2m) are
 each room's own too. ⚠ Not done: the debug overlays still read the sole live
-room; the through-portal window is made for the primary seat's eye and drawn
-by every view; the banner, music and HUD are session-wide and follow the primary
+room; the through-portal window is made for the primary seat's eye, and only
+the primary view draws it (its capture sees that room's band since V2n); the banner, music and HUD are session-wide and follow the primary
 seat (Q150 in `awaiting-maintainer-decision.md`, decided for now); a
 sync test is one peer, so what the crossing's rebase costs a remote
 player's rollback window is A4.

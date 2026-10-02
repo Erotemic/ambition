@@ -97,8 +97,15 @@ fn capture_render_layers(
     include_parallax: bool,
     parallax_layer: usize,
     other_windows: &[usize],
+    room_band: Option<usize>,
 ) -> RenderLayers {
     let mut layers = RenderLayers::layer(WORLD_RENDER_LAYER);
+    // While two rooms are live, the viewer room's world is on its room band
+    // and not on the world layer, so the capture must add that band to see
+    // it. The window mesh is not on a room band, so this adds no feedback.
+    if let Some(band) = room_band {
+        layers = layers.with(band);
+    }
     if include_parallax {
         layers = layers.with(parallax_layer);
     }
@@ -869,6 +876,7 @@ pub fn sync_portal_view_cones(
     if frame.size == Vec2::ZERO {
         return;
     }
+    let room_band = frames.band(placement.room);
     let by_room = frames.portals_by_room(portals.iter());
     let all: Vec<PlacedPortal> = by_room.in_room(Some(placement.room)).to_vec();
     let viewer = viewer.as_deref();
@@ -917,6 +925,7 @@ pub fn sync_portal_view_cones(
             effective.include_parallax,
             rig.parallax_layer,
             &other_window_layers(&all, rig.channel),
+            room_band,
         );
         sync_cone_material_tint(&cone_materials, materials, rig.cone, config.tint);
 
@@ -1157,6 +1166,7 @@ pub fn sync_portal_view_cones(
                 effective.include_parallax,
                 portal_capture_parallax_layer(portal.channel),
                 &other_window_layers(&all, portal.channel),
+                room_band,
             ),
             Projection::Orthographic(OrthographicProjection {
                 scaling_mode: scaling,
@@ -1251,3 +1261,6 @@ mod rule_tests {
         );
     }
 }
+
+#[cfg(test)]
+mod rig_tests;

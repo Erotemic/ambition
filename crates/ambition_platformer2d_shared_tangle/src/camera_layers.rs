@@ -35,6 +35,24 @@ pub fn live_room_render_layer(ordinal: usize) -> usize {
     (LIVE_ROOM_RENDER_LAYER_BASE + ordinal).min(LIVE_ROOM_RENDER_LAYER_LAST)
 }
 
+/// The render band of live room `room` among the `live` rooms: its ordinal in
+/// instance order. `None` while fewer than two rooms are live (nothing is
+/// banded) or when `room` is not live. The room-band pass puts a stamped
+/// entity's world layer on this band, and a camera that must see that room's
+/// world adds it, so both read this one rule.
+pub fn live_room_band(
+    live: impl IntoIterator<Item = crate::lifecycle::LiveRoomInstance>,
+    room: crate::lifecycle::LiveRoomInstance,
+) -> Option<usize> {
+    let mut ordered: Vec<_> = live.into_iter().collect();
+    ordered.sort();
+    ordered.dedup();
+    if ordered.len() < 2 {
+        return None;
+    }
+    ordered.iter().position(|live| *live == room).map(live_room_render_layer)
+}
+
 /// Render layer for a live-view ordinal, not a semantic `LocalViewId`.
 ///
 /// Callers sort views by id and pass the dense ordinal so render-layer allocation

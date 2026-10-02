@@ -10,7 +10,7 @@ use bevy::camera::visibility::RenderLayers;
 use bevy::prelude::*;
 
 use ambition_platformer2d_shared_tangle::camera_layers::{
-    live_room_render_layer, local_view_render_layer, MainCamera, LIVE_ROOM_RENDER_LAYER_BASE,
+    local_view_render_layer, MainCamera, LIVE_ROOM_RENDER_LAYER_BASE,
     LIVE_ROOM_RENDER_LAYER_LAST, LOCAL_VIEW_RENDER_LAYER_BASE,
 };
 
@@ -215,14 +215,8 @@ pub fn isolate_live_rooms(
 ) {
     // In instance order, so a room keeps its band while the rooms around it
     // stay live.
-    let mut ordered: Vec<_> = rooms.iter().copied().collect();
-    ordered.sort();
-    let isolating = ordered.len() > 1;
     let band = |room| {
-        isolating
-            .then(|| ordered.iter().position(|live| *live == room))
-            .flatten()
-            .map(live_room_render_layer)
+        ambition_platformer2d_shared_tangle::camera_layers::live_room_band(rooms.iter().copied(), room)
     };
 
     let on_hand = ambition_sim_view::ViewsOnHand::survey(views.iter().map(|(view, _)| view));

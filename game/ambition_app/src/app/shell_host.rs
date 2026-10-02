@@ -13,8 +13,6 @@ use ambition_platformer2d::game_shell::{
     ShellRouteCatalog, ShellRouteSpec,
 };
 
-use ambition_platformer2d::ldtk_map as ldtk_world;
-use ambition_platformer2d::world::world_manifest;
 use ambition_platformer2d::platformer::lifecycle::SessionScopeSet;
 
 /// The host's home/title route. Providers never name it — `QuitToHome`
@@ -280,21 +278,15 @@ fn ambition_activate_session_visuals(
     mut sessions: MessageReader<GameplaySessionEvent>,
     mut commands: Commands,
     active_session: Res<ambition_platformer2d::game_shell::ActiveGameplaySession>,
-    session_worlds: Query<(
-        &ambition_platformer2d::world::rooms::RoomSet,
-        &ambition_platformer2d::ldtk_map::LdtkRuntimeIndex,
-    )>,
+    session_worlds: Query<
+        (),
+        (
+            With<ambition_platformer2d::world::rooms::RoomSet>,
+            With<ambition_platformer2d::ldtk_map::LdtkRuntimeIndex>,
+        ),
+    >,
     game_assets: Option<Res<ambition_platformer2d::sprite_sheet::game_assets::GameAssets>>,
     ui_fonts: Option<Res<ambition_platformer2d::render::ui_fonts::UiFonts>>,
-    asset_server: Res<AssetServer>,
-    world_assets: Option<Res<ldtk_world::LdtkWorldAssets>>,
-    sandbox_asset_collection: Option<
-        Res<ambition_platformer2d::actors::assets::loading::Platformer2dStartupAssets>,
-    >,
-    // Present iff the LDtk plugin stack is composed (absent in the no-window
-    // render recipe, where bevy_ecs_tilemap cannot run without a RenderApp).
-    ldtk_projects: Option<Res<Assets<bevy_ecs_ldtk::assets::LdtkProject>>>,
-    world_manifest: Res<world_manifest::WorldManifest>,
 ) {
     for event in sessions.read() {
         let GameplaySessionEvent::Activated { activation, scope } = event else {
@@ -311,11 +303,10 @@ fn ambition_activate_session_visuals(
         let Some(world_entity) = active_session.active_world_entity() else {
             continue;
         };
-        // The room geometry is not read here: it is on the live room's own
-        // root, and the dressing needs only the room set and the LDtk index.
-        let Ok((room_set, runtime_rooms)) = session_worlds.get(world_entity) else {
+        // Ambition's own world: a room set and an LDtk index.
+        if session_worlds.get(world_entity).is_err() {
             continue;
-        };
+        }
         let scope = ambition_platformer2d::platformer::lifecycle::SessionSpawnScope::scoped(*scope);
         ambition_platformer2d::menu::map::spawn_map_menu_with_scope(&mut commands, scope);
         // Parallax + room visuals are the generic `SessionRoomVisualsPlugin`'s
@@ -327,18 +318,8 @@ fn ambition_activate_session_visuals(
                 ui_fonts: ui_fonts.as_deref(),
             },
         );
-        if ldtk_projects.is_some() {
-            super::plugins::spawn_ldtk_world_roots_scoped(
-                &mut commands,
-                scope,
-                &asset_server,
-                runtime_rooms,
-                room_set,
-                world_assets.as_deref(),
-                sandbox_asset_collection.as_deref(),
-                &world_manifest,
-            );
-        }
+        // The LDtk levels are each live room's own, presented by
+        // `present_ldtk_levels_per_live_room` (V4b), not dressed here.
     }
 }
 

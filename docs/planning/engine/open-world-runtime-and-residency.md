@@ -2008,7 +2008,7 @@ names its subject by body or seat (`ViewSubject`, `ViewParticipant`).
 | V1 | The camera resolve frames each view in the live room of its framed body | ✅ below |
 | V2 | Draw roads place each entity by the geometry of its own live room (`LiveRoomOf`), not the sole room | ◐ the camera apply (V2a), feature/actor sprites (V2b), items and projectiles (V2c), lock walls (V2d) and nameplates (V2e), fx, slashes and limb trails (V2f), below; the unroomed fx producers (54 sites), the blink preview, health bars and debug overlays are open |
 | V3 | A camera draws only the live room of its view: a room render band, as the view band does for projections | ✅ below |
-| V4 | Room visuals and the LDtk level are presented per live room, and retire with it | ◐ static room visuals (V4a, below); the LDtk level and parallax are open |
+| V4 | Room visuals and the LDtk level are presented per live room, and retire with it | ◐ static room visuals (V4a) and the LDtk level (V4b), below; parallax is open |
 | V5 | Two seats in two live rooms get two views (the product rule: a split is mandatory in different rooms) | ✅ below |
 
 ✅ **V1 landed 2026-10-01: each view frames its own player while two rooms
@@ -2072,6 +2072,28 @@ now rebuild parallax only. Witness: `each_live_room_gets_its_own_room_visuals`
 and a room whose visuals are taken is drawn again alone). Poison (the old
 sole-room rule: nothing while two rooms are live): no room was drawn.
 Control: one live room is drawn once.
+
+✅ **V4b landed 2026-10-01: each live room shows its own LDtk levels.** One
+set of LDtk bundles (one per world file) showed the sole live room
+(`sync_ldtk_level_set` and `sync_ldtk_world_transform` read
+`SoleLiveRoomSpec`), so while two rooms were live neither system ran and the
+bundles kept the last room's levels, and no second room could have its own.
+`present_ldtk_levels_per_live_room` (`ambition_platformer2d_ldtk`,
+`bevy_runtime/asset.rs`) gives each live room its own bundles, stamped with
+the room and room-scoped, with the room's `LevelSet` and its origin. The
+bundles are the memo, as V4a's marker is: a live room with none gets them.
+The stamp is what the rest of the view half reads: V3's band draws a room's
+bundles and the levels under them only in the views that frame that room,
+and the room's retirement takes them. Deleted: the two sole-room systems
+and the session-activation spawn (`spawn_ldtk_world_roots_scoped`).
+Witness: `each_live_room_shows_its_own_ldtk_levels` (rooms 640 and 320
+wide: each live room one bundle, its own levels, its own origin; a second
+pass adds nothing; a reload reaches the room it changes; every bundle is
+room-scoped; control: one live room, one bundle). Poison (the first live
+room only, the old rule): the second room had no bundle. ⚠ REASONED, not
+measured: `bevy_ecs_tilemap` 0.19 queues tiles from each view's
+`RenderVisibleEntities`, so the band reaches the tiles; no test here
+renders pixels. `SoleLiveRoomSpec` 27/22 -> 25/21.
 
 ✅ **V2b landed 2026-10-01: a feature or actor sprite is placed by its own
 room.** `DynamicFeatureFact` names the `room` of its body (`LiveRooms::of`).

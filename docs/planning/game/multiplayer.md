@@ -161,9 +161,10 @@ V2b, V3, V4a and V5: each camera is placed and draws only its own view's
 room, room visuals and feature sprites are per room, and a second view opens
 while the players are in two rooms and closes when they meet
 (`a_second_view_opens_while_the_players_are_in_two_rooms_and_closes_when_they_meet`).
-⚠ Not done: fx, items, projectiles, nameplates, health bars, the LDtk
-level and parallax still read the sole live room; the banner, music and HUD
-are session-wide; a
+Items, projectiles, lock walls and nameplates (V2c–V2e), effects (V2f) and
+the LDtk levels (V4b) are each room's own too. ⚠ Not done: health bars,
+debug overlays, the blink preview and parallax still read the sole live
+room; the banner, music and HUD are session-wide; a
 sync test is one peer, so what the crossing's rebase costs a remote
 player's rollback window is A4.
 

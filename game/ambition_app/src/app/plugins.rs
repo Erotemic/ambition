@@ -8,7 +8,6 @@
 // runtime. The two imports stand or fall together, and the warning above still applies to both —
 // gate the USES and the IMPORT as one pair, or neither.
 use ambition_platformer2d::actors::assets::loading;
-use ambition_platformer2d::world::rooms as world_rooms;
 
 #[cfg(feature = "physics_debris")]
 use ambition_platformer2d::actors::world::physics;
@@ -24,7 +23,6 @@ use ambition_platformer2d::ldtk_map as ldtk_world;
 use ambition_platformer2d::platformer::schedule::{
     Platformer2dSimulationPhaseMonolith, PresentationSetupSet, SimScheduleExt,
 };
-use ambition_platformer2d::world::world_manifest;
 // The rest of `fx` moved to `HostVfxPresentationPlugin` (see
 // `install_projectile_and_vfx_systems`); the blink preview ring is the one
 // pass still registered here, and only under the `input` persona.
@@ -279,70 +277,16 @@ pub fn add_ldtk_runtime_plugin(app: &mut App) {
             // K2b edit 3: the direct-entry world-spine spawn is GONE.
             // It ran only when `AmbitionShellHosted` was absent, and every
             // composition inserts it now — so it was dead code that looked
-            // live. The shell spawns SESSION-scoped roots per activation
-            // (`spawn_ldtk_world_roots_scoped`), which is the only path.
+            // live. Each live room's bundles are spawned by
+            // `present_ldtk_levels_per_live_room` (V4b), the only path.
             ldtk_world::load_ldtk_asset_handle,
         )
         .add_systems(
             Update,
-            (
-                ldtk_world::sync_ldtk_level_set,
-                // ADR 0015 §Coordinate-frame reconciliation — keep the
-                // LdtkWorldBundle's root transform aligned with the
-                // current active area's centered frame. Runs every
-                // gameplay frame; cheap and idempotent.
-                ldtk_world::sync_ldtk_world_transform,
-            )
+            // Each live room's painted levels, at its own origin (V4b).
+            ldtk_world::present_ldtk_levels_per_live_room
                 .run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),
         );
-}
-
-/// The LdtkWorldBundle spawn shared by direct startup (`UNSCOPED`,
-/// process-resident) and the shell host's per-session activation (scoped, so
-/// the session sweep retires the visual spine roots with the session).
-pub(crate) fn spawn_ldtk_world_roots_scoped(
-    commands: &mut Commands,
-    scope: ambition_platformer2d::platformer::lifecycle::SessionSpawnScope,
-    asset_server: &AssetServer,
-    ldtk_index: &ldtk_world::LdtkRuntimeIndex,
-    room_set: &world_rooms::RoomSet,
-    world_assets: Option<&ldtk_world::LdtkWorldAssets>,
-    sandbox_asset_collection: Option<&loading::Platformer2dStartupAssets>,
-    manifest: &world_manifest::WorldManifest,
-) {
-    // One LdtkWorldBundle per prepared WorldManifest row. bevy_ecs_ldtk's
-    // asset loader is per-file; Ambition's merged JSON loader doesn't
-    // propagate into the Bevy asset system, so each .ldtk file needs its
-    // own bundle to get its painted tile layers rendered. The shared sync
-    // system writes the same LevelSet to every bundle; only the bundle
-    // whose loaded asset contains the active level iids spawns any levels
-    // (iids are unique per file).
-    let initial_level_set = ldtk_index.level_set_for(&room_set.activation_spec().id);
-    for (index, source) in manifest.worlds.iter().enumerate() {
-        let handle = world_assets
-            .and_then(|assets| assets.0.get(index).cloned())
-            .or_else(|| {
-                // Web loading-state preload covers the primary world only.
-                (index == 0)
-                    .then(|| {
-                        sandbox_asset_collection.map(|collection| collection.ldtk_project.clone())
-                    })
-                    .flatten()
-            })
-            .unwrap_or_else(|| asset_server.load(world_manifest::world_bevy_asset_path(source)));
-        let mut root = commands.spawn((
-            bevy_ecs_ldtk::prelude::LdtkWorldBundle {
-                ldtk_handle: handle.into(),
-                level_set: initial_level_set.clone(),
-                // AMBITION_REVIEW(spatial): migrate each registered marker from
-                // adapter-driven semantics to direct Ambition components.
-                ..default()
-            },
-            ldtk_world::LdtkWorldRoot,
-            Name::new(format!("LDtk Runtime Spine Root ({})", source.id)),
-        ));
-        scope.apply_to(&mut root);
-    }
 }
 
 /// Register presentation-side plugins (input, dialogue, inspector, audio

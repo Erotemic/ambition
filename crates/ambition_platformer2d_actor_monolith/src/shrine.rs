@@ -100,14 +100,9 @@ pub fn heal_save_shrine_system(
     // `driven.entities()`' rewind-stable order that actually rests, so the value
     // does not depend on query order.
     //
-    // ⚠ WHICH BODY SHOULD OWN IT IS AN OPEN QUESTION, and this preserves today's
-    // answer rather than deciding it: the comment below has long claimed the
-    // checkpoint is "the PRIMARY player's session, not the possessed subject's
-    // body" while the code has always written the RESTING body's position — so a
-    // checkpoint taken while possessing resumes the primary avatar somewhere it
-    // never stood. See D-SHRINE-CHECKPOINT-OWNER in `docs/planning/queue.md`;
-    // changing it is a save-compatibility ruling, not a side effect of a
-    // multi-seat conversion.
+    // The checkpoint is where the RESTING body stood, also while it possesses a
+    // vessel: "I rested here, I come back here" is what a player means by a
+    // checkpoint (`the_checkpoint_records_where_the_resting_body_stood`).
     let mut checkpoint_written = false;
     for subject in subjects {
         let Ok((control, kin, mut health, mut bank)) = bodies.get_mut(subject) else {
@@ -169,10 +164,9 @@ pub fn heal_save_shrine_system(
 
         // THE CHECKPOINT.
         //
-        // Written for the PRIMARY player's session, not the possessed subject's body:
-        // the checkpoint is where this player resumes, and a possessed actor's
-        // position is not where the player will be standing next session. The heal
-        // above is the subject's; the checkpoint is the session's.
+        // The resting body's room and position (see the rule above the loop). A
+        // body in no room writes no checkpoint: a position with no room would be
+        // applied in the wrong place.
         if let Some(room_id) = room_set.as_ref().and_then(|rooms| {
             rooms
                 .definition_of(subject)

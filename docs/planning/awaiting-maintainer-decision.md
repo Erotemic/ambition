@@ -1473,3 +1473,38 @@ music that crossfades to the room of the view with focus. (b) needs a
 per-seat HUD fact and a banner keyed by room; the view half already has the
 per-view rectangles to place them in. This blocks only the "separate from
 another participant" row's last ◐ in `open-world-roadmap.md`.
+
+## Q151 — in Ambition, how does a second player join, and what does one player's death do while the other plays on?
+
+Decided for now, so it is not blocking: **a death resets the dying player's
+own room to the checkpoint, and the other player's room goes on untouched.**
+Measured 2026-10-02 (`a_death_in_one_room_restarts_that_player_and_leaves_the_other_players_room`,
+`game/ambition_app/tests/two_players_two_live_rooms.rs`): Alice dies in the
+hub while Bob, driven by slot 1, is in `switch_lab`. Alice starts again in a
+new instance of the hub, and Bob's room is the same live room with the same
+body in it.
+
+That answer comes from two facts that are not decisions yet:
+
+- **Ambition has no join road.** Only the primary seat gets a body in
+  production (`avatar/bundles.rs`). Every Alice/Bob witness gives slot 1 an
+  NPC body by hand; the only production code that seats slot 1 is Smash's
+  match activation. So what body a second Ambition player drives (a second
+  robot, a character from the cast, a possessed body) is not said anywhere.
+- **The death rules count only `PlayerEntity` as a participant**
+  (`session/death.rs`): `open_death_interlude` opens a window only for the
+  primary seat's body, and `close_death_interlude` asks whether any
+  `PlayerEntity` is still in play. Bob's body is not one, so Alice's death
+  finds nobody left and resets at once. A body that a seat drives and that
+  dies takes the ENEMY road (`actor_hit.rs`): a "defeated" banner, a bounty
+  coin and its authored respawn policy, so its seat loses its body.
+
+The options, for when a second player can join: (a) the current behaviour
+for the player who dies (restart from the checkpoint at once), and give a
+seat-driven body the same participant death; (b) NSMB co-op: a dead player
+waits out of play until the other player also dies or rests at a shrine
+(this is what `LevelReset::WhenNoParticipantRemains` says, and it would need
+the roster to count seat-driven bodies); (c) the dead player restarts at the
+other player's room, so the party regroups. (b) is a poor fit for players who
+are far apart; (a) or (c) suit separated play. The join road itself (which
+device, which body, which room) is the larger half of the question.

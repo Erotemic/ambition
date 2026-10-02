@@ -63,7 +63,10 @@ These are product questions, not reasons to block the engine architecture:
 - which story interactions pause only one participant versus the whole party;
 - how dialogue choices work when participants are in different rooms;
 - whether critical quest transitions require party regrouping;
-- respawn/rejoin behavior when another participant remains alive elsewhere;
+- respawn/rejoin behavior when another participant remains alive elsewhere
+  (decided for now and filed as Q151, 2026-10-02: the dying player's room
+  resets to the checkpoint and the other player's room goes on; Ambition
+  has no road for a second player to join yet);
 - inventory transfer/trading rules between controlled bodies;
 - save ownership and join/leave policy for remote participants;
 - how far shared quest/world causality extends when players explore separately.
@@ -121,6 +124,18 @@ Ambition gameplay with one shared camera and body-owned HUD state.
 > per-participant when two people share a camera?* — and for a checkpoint shrine
 > the answer may well stay "no". The value of the number is that A1's remaining
 > work is enumerable today rather than discovered during it.
+>
+> ✅ **The shrine question is answered (re-measured 2026-10-02).** In
+> `heal_save_shrine_system` every driven body heals, and each rests only at a
+> shrine in its own live room (OW1 cut 7d). The checkpoint stays ONE fact: it is
+> written by the first resting body in the rewind-stable seat order, at the
+> place that body stood. `PrimaryPlayerOnly` is left only as the startup-frame
+> subject, before a seat is attached. Witnesses (`shrine/tests.rs`):
+> `two_driven_bodies_resting_at_a_shrine_both_heal_and_write_one_checkpoint`,
+> `the_checkpoint_records_where_the_resting_body_stood` and
+> `a_body_rests_only_at_a_shrine_in_its_own_live_room`. `morph_ball.rs` now
+> names `PrimaryPlayer` only in its test module. So A1 has no open
+> per-participant simulation question left in this list.
 
 ### A2 — adaptive split in one room
 

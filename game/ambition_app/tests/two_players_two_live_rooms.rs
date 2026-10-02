@@ -2956,3 +2956,74 @@ fn each_body_s_movement_dust_is_drawn_in_its_own_live_room() {
         "(the rooms dust was drawn in, unroomed dust rows): each body's dust must name its own live room"
     );
 }
+
+/// Alice dies in the hub while Bob, driven by slot 1, plays on in
+/// `switch_lab`. Bob's body is not a `PlayerEntity`, so the roster finds
+/// nobody left in play and the death resets to the checkpoint: Alice starts
+/// again in a NEW instance of the hub, and Bob's room is the same live room
+/// with the same body in it. One player's death does not take the other
+/// player's room. Whether Alice should instead wait for Bob is Q151.
+#[test]
+fn a_death_in_one_room_restarts_that_player_and_leaves_the_other_players_room() {
+    let (mut sim, first) = alice_leaves_bob(Some(ambition_platformer2d::characters::control::PlayerSlot(1)));
+    let rooms_before = live_rooms(&mut sim);
+    let alice_room = where_they_are(&mut sim).0.expect("Alice is in a live room");
+    assert_eq!(
+        rooms_before,
+        vec![(first, ROOM.to_string()), (alice_room, HUB.to_string())],
+        "precondition: Bob holds {ROOM} and Alice the hub"
+    );
+    let bob_body = |sim: &mut Platformer2dSimHarness| {
+        let world = sim.world_mut();
+        world
+            .query::<(bevy::prelude::Entity, &ambition_platformer2d::combat::components::FeatureId)>()
+            .iter(world)
+            .find(|(_, feature)| feature.0 == BOB)
+            .map(|(entity, _)| entity)
+    };
+    let bob = bob_body(&mut sim).expect("Bob's body is in the world");
+    let alice = {
+        let world = sim.world_mut();
+        world
+            .query_filtered::<bevy::prelude::Entity, bevy::prelude::With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>()
+            .single(world)
+            .expect("Alice's body is in the world")
+    };
+    sim.world_mut().write_message(ambition_platformer2d::combat::death_rules::ActorDiedMessage {
+        victim: alice,
+        pos: ambition_platformer2d::engine_core::Vec2::new(0.0, 0.0),
+        cause: ambition_platformer2d::combat::death_rules::DeathCause {
+            source: ambition_platformer2d::combat::HitSource::Hazard,
+            attacker: None,
+        },
+    });
+    sim.step(base());
+    assert!(
+        sim.world().get::<ambition_platformer2d::combat::death_rules::OutOfPlay>(alice).is_some(),
+        "precondition: the death took Alice out of play"
+    );
+    // The interlude, then the reset and the rebuild it asks for.
+    sim.step_n(base(), 240);
+    let rooms_after = live_rooms(&mut sim);
+    let (alice_now, bob_now) = where_they_are(&mut sim);
+    assert_eq!(bob_body(&mut sim), Some(bob), "Bob's body was rebuilt or removed by Alice's death");
+    assert_eq!(bob_now, Some(Some(first)), "Bob left his live room when Alice died");
+    let alice_now = alice_now.expect("Alice is in a live room again");
+    assert_ne!(alice_now, alice_room, "Alice did not start again: her hub is the instance she died in");
+    assert_eq!(
+        rooms_after,
+        vec![(first, ROOM.to_string()), (alice_now, HUB.to_string())],
+        "Bob's room must stay the same live room, and Alice's must be a new hub"
+    );
+    let alice_again = {
+        let world = sim.world_mut();
+        world
+            .query_filtered::<bevy::prelude::Entity, bevy::prelude::With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>()
+            .single(world)
+            .expect("Alice's body is in the world")
+    };
+    assert!(
+        sim.world().get::<ambition_platformer2d::combat::death_rules::OutOfPlay>(alice_again).is_none(),
+        "Alice is still out of play after the reset"
+    );
+}

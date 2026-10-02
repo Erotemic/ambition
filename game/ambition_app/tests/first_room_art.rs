@@ -10,7 +10,7 @@
 
 use bevy::prelude::*;
 
-use ambition_app::app::{VisibleRenderMode, build_visible_app, shell_host};
+use ambition_app::app::{VisibleRenderMode, build_visible_app};
 use ambition_platformer2d::game_shell::ShellCommand;
 
 fn step(app: &mut App) {
@@ -50,7 +50,7 @@ fn the_starting_characters_sheet_is_decoded_before_the_route_activates() {
         step(&mut app);
     }
     app.world_mut().write_message(ShellCommand::GoTo(
-        shell_host::AMBITION_GAMEPLAY_ROUTE.into(),
+        ambition_content::provider::AMBITION_GAMEPLAY_ROUTE.into(),
     ));
 
     // The first frame a session world exists is the activation frame; what is

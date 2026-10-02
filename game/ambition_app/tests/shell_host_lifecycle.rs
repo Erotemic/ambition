@@ -626,8 +626,8 @@ fn the_full_multi_game_lifecycle(host: ambition_platformer2d::runtime::Simulatio
     launch_labeled(&mut app, "Ambition");
     let scope = assert_in_game(
         &mut app,
-        shell_host::AMBITION_GAMEPLAY_ROUTE,
-        shell_host::AMBITION_EXPERIENCE,
+        ambition_content::provider::AMBITION_GAMEPLAY_ROUTE,
+        ambition_content::provider::AMBITION_EXPERIENCE,
         None,
         "ambition",
         "ambition",

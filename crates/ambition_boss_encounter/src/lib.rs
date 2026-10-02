@@ -40,7 +40,8 @@ mod registry;
 mod retraction;
 mod rewards;
 mod specs;
-pub mod sprites;
+#[cfg(test)]
+mod sprite_sheet_tests;
 mod systems;
 
 mod roster;

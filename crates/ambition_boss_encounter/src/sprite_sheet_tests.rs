@@ -1,6 +1,7 @@
 //! Tests pinning each boss sheet's row count + frame dimensions to its published layout.
 
-use super::*;
+use ambition_sprite_sheet::boss::*;
+use bevy::prelude::*;
 
 use ambition_sprite_sheet::character::sheets::record_for_sheet_key;
 

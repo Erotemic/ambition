@@ -11,7 +11,7 @@ pub fn boss_anim_state_for(
     alive: bool,
     attack_state: &ambition_characters::brain::BossAttackState,
     brain: &ambition_characters::brain::Brain,
-) -> crate::sprites::BossAnimState {
+) -> ambition_sprite_sheet::boss::BossAnimState {
     // attack_active / attack_windup read the move-derived `BossAttackState`
     // read-model. pattern_timer is durable brain cursor state; non-BossPattern
     // brains (test fixtures) fall back to 0.0.
@@ -19,7 +19,7 @@ pub fn boss_anim_state_for(
         .boss_pattern_state()
         .map(|s| s.pattern_timer)
         .unwrap_or(0.0);
-    crate::sprites::BossAnimState {
+    ambition_sprite_sheet::boss::BossAnimState {
         alive,
         attack_active: attack_state.active_profile.is_some(),
         attack_windup: attack_state.telegraph_profile.is_some(),
@@ -50,7 +50,7 @@ pub fn ecs_boss_anim_state_and_entity(
     )>,
 ) -> Option<(
     bevy::prelude::Entity,
-    crate::sprites::BossAnimState,
+    ambition_sprite_sheet::boss::BossAnimState,
 )> {
     bosses.iter().find_map(
         |(entity, feature_id, boss, health, attack_state, brain)| {
@@ -88,7 +88,7 @@ pub fn ecs_boss_animation_frame_sample(
         &ambition_characters::brain::BossAttackState,
         &ambition_characters::brain::Brain,
     )>,
-    anim: crate::sprites::BossAnim,
+    anim: ambition_sprite_sheet::boss::BossAnim,
     frame_index: usize,
 ) -> Option<(
     bevy::prelude::Entity,
@@ -140,7 +140,7 @@ pub fn ecs_boss_animation_frame_sample(
             // sample, so the rest-pose hurtbox bobs with the breathing
             // animation. The Death row stays `None`: geometry keeps the
             // rest-pose shape and does not follow a recoil/death frame.
-            if result.is_none() && anim == crate::sprites::BossAnim::Rest {
+            if result.is_none() && anim == ambition_sprite_sheet::boss::BossAnim::Rest {
                 result = Some((
                     entity,
                     crate::attack_geometry::BossAnimationFrameSample {
@@ -164,7 +164,7 @@ pub fn ecs_boss_anim_state(
         &ambition_characters::brain::BossAttackState,
         &ambition_characters::brain::Brain,
     )>,
-) -> Option<crate::sprites::BossAnimState> {
+) -> Option<ambition_sprite_sheet::boss::BossAnimState> {
     bosses
         .iter()
         .find_map(|(feature_id, boss, health, attack_state, brain)| {
@@ -182,8 +182,8 @@ pub fn ecs_boss_anim_state(
 
 fn boss_anim_for_attack_profile(
     profile: &ambition_characters::brain::BossAttackProfile,
-) -> Option<crate::sprites::BossAnim> {
-    use crate::sprites::BossAnim;
+) -> Option<ambition_sprite_sheet::boss::BossAnim> {
+    use ambition_sprite_sheet::boss::BossAnim;
     match profile.move_id().as_str() {
         "floor_slam" | "hand_slam" | "converging_shockwave" => Some(BossAnim::FloorSlam),
         "side_sweep" | "hand_sweep" | "broadside" => Some(BossAnim::SideSweep),
@@ -199,9 +199,9 @@ fn boss_anim_for_attack_profile(
 fn boss_animation_key_for_sample(
     catalog: &crate::BossCatalog,
     profile: &ambition_characters::brain::BossAttackProfile,
-    anim: crate::sprites::BossAnim,
+    anim: ambition_sprite_sheet::boss::BossAnim,
 ) -> Option<String> {
-    use crate::sprites::BossAnim;
+    use ambition_sprite_sheet::boss::BossAnim;
     match (profile.move_id().as_str(), anim) {
         // GNU-ton has profile-specific dangerous boxes (for example
         // `gnu_shockwave`), but the damageable head/body box follows the

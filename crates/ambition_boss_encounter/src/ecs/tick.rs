@@ -361,7 +361,7 @@ fn project_boss_attack_state(
 /// reads. The simulation owns the cursor: it picks the anim from the
 /// projected `BossAttackState`, advances the frame, and writes the sample. The
 /// renderer mirrors that cursor into its draw-only
-/// [`BossAnimator`](crate::sprites::BossAnimator).
+/// [`BossAnimator`](ambition_sprite_sheet::boss::BossAnimator).
 pub fn drive_boss_animators(
     mut commands: Commands,
     boss_catalog: Res<crate::BossCatalog>,
@@ -377,7 +377,7 @@ pub fn drive_boss_animators(
     mut frames: Query<(
         Entity,
         &ambition_combat::components::FeatureId,
-        &mut crate::sprites::BossAnimFrame,
+        &mut ambition_sprite_sheet::boss::BossAnimFrame,
         Option<&ambition_time::ProperTimeScale>,
     )>,
 ) {
@@ -389,7 +389,7 @@ pub fn drive_boss_animators(
         else {
             continue;
         };
-        let anim = crate::sprites::pick_boss_anim(state);
+        let anim = ambition_sprite_sheet::boss::pick_boss_anim(state);
         frame.request_for_phase(anim, state.drive_phase());
         frame.tick(dt);
         match crate::anim::ecs_boss_animation_frame_sample(

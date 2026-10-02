@@ -423,7 +423,7 @@ pub fn run_shared_host_headless_in_room(
         use ambition_platformer2d::game_shell::ShellLauncherCommand;
         use shell_drive::*;
         let launcher = super::shell_host::AMBITION_LAUNCHER_ROUTE;
-        let route = super::shell_host::AMBITION_GAMEPLAY_ROUTE;
+        let route = ambition_content::provider::AMBITION_GAMEPLAY_ROUTE;
         // LOUD at every step: a benchmark that quietly idled on the launcher
         // would publish the launcher's cost under the room's name.
         assert!(
@@ -697,7 +697,7 @@ pub fn run_shared_host_acceptance_cycle() -> SharedHostAcceptanceReport {
     }
 
     for route in [
-        super::shell_host::AMBITION_GAMEPLAY_ROUTE,
+        ambition_content::provider::AMBITION_GAMEPLAY_ROUTE,
         "sanic_gameplay",
         "mary_o_gameplay",
         "sanic_gameplay",

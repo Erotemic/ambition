@@ -7,7 +7,7 @@
 use bevy::prelude::*;
 use std::collections::HashMap;
 
-use ambition_boss_encounter::sprites;
+use ambition_sprite_sheet::boss as sprites;
 use crate::character_sprites;
 use ambition_platformer2d_world::rooms::RoomMetadata;
 use ambition_persistence::settings::VisualQualityBudget;

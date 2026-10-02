@@ -657,12 +657,11 @@ pub fn apply_wave_encounter_effects(
     // Publish the presentation read-model (§6): the camera zoom the active
     // encounters want, from the authored staging policy (E12). Cross-crate
     // presentation reads `EncounterView`, not the entities. `max`-based, so
-    // it is query-order-independent.
-    encounter_view.camera_zoom = ambition_encounter::active_encounter_camera_zoom(
-        staged
-            .iter()
-            .filter_map(|(_, lifecycle, zoom, _)| zoom.map(|z| (lifecycle.phase(), z.0))),
-    );
+    // it is query-order-independent. Each live room's encounters zoom the
+    // views of that room.
+    encounter_view.set_camera_zooms(staged.iter().filter_map(|(occurrence, lifecycle, zoom, _)| {
+        zoom.map(|z| (live.of(occurrence), lifecycle.phase(), z.0))
+    }));
 
     // Project the lifecycle to the save (Completed/Failed survive, in-flight
     // collapses to Untouched). Wave encounters only — a boss wrap persists

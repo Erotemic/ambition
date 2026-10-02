@@ -362,6 +362,52 @@ fn downs(sim: &mut Platformer2dSimHarness) -> (ambition_platformer2d::engine_cor
     (alice, bob)
 }
 
+/// OW1 (customer 2): a wave zooms the views of its own live room. Bob holds
+/// the hub (#0) and Alice starts the goblin wave in `goblin_encounter` (#1).
+/// The zoom the encounter publishes is in #1 (the control: the wave's own
+/// room zooms) and not in #0. Before, the zoom was one value for the session,
+/// and Bob's view zoomed out for Alice's fight.
+#[test]
+fn a_wave_zooms_only_the_views_of_its_own_live_room() {
+    const ARENA: &str = "goblin_encounter";
+    let (mut sim, first) = alice_leaves_bob_in(
+        HUB,
+        ARENA,
+        Some(ambition_platformer2d::characters::control::PlayerSlot(1)),
+        walk_through_the_door_to,
+    );
+    let second = first.next();
+    assert_eq!(where_they_are(&mut sim), (Some(second), Some(Some(first))), "precondition: Alice in #1, Bob in #0");
+    let trigger = {
+        let world = sim.world_mut();
+        world
+            .query::<(&ambition_platformer2d::encounter::EncounterWaves, &InRoomInstance)>()
+            .iter(world)
+            .find(|(waves, room)| waves.spec.id == ARENA && room.0 == second)
+            .map(|(waves, _)| waves.spec.trigger_aabb())
+            .expect("precondition: #1 has an occurrence of the goblin encounter")
+    };
+    {
+        use ambition_platformer2d::engine_core::AabbExt as _;
+        let center = trigger.center();
+        sim.teleport_player((center.x, center.y));
+    }
+    let zooms = |sim: &mut Platformer2dSimHarness| {
+        let view = sim.world_mut().resource::<ambition_platformer2d::encounter::EncounterView>().clone();
+        (view.camera_zoom_in(Some(first)), view.camera_zoom_in(Some(second)))
+    };
+    let mut seen = zooms(&mut sim);
+    for _ in 0..900 {
+        sim.step(base());
+        seen = zooms(&mut sim);
+        if seen.1 > 1.0 {
+            break;
+        }
+    }
+    assert!(seen.1 > 1.0, "precondition: the goblin wave in #1 never asked for a zoom: {seen:?}");
+    assert_eq!(seen.0, 1.0, "the wave in #1 zoomed the views of #0: {seen:?}");
+}
+
 /// OW1 (customer 2): a gravity switch turns the ambient of its own live room.
 /// Alice holds the hub and Bob holds `switch_lab`; a `FlipGravity` switch is
 /// pressed in Bob's room. Bob falls up (the control: the switch acted), and

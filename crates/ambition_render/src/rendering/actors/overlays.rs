@@ -78,9 +78,12 @@ const GRADIENT_LANE_VISUAL_Z: f32 = 10.5;
 /// `HazardColumn`.
 pub fn manage_gradient_lane_visual(
     mut commands: Commands,
-    world: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<
+    // A lane is drawn in its boss's live room, by that room's geometry: the
+    // room the boss's own sprite is stamped with (V2b).
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomOf<
         ambition_platformer2d_core::RoomGeometry,
     >,
+    sprites: Query<(Entity, &FeatureVisual)>,
     active_session: Option<Res<ActiveSessionScope>>,
     boss_frames: Res<ambition_sim_view::BossFrameIndex>,
     mut visuals: Query<(Entity, &GradientLaneVisual, &mut Transform, &mut Sprite)>,
@@ -90,9 +93,20 @@ pub fn manage_gradient_lane_visual(
     else {
         return;
     };
-    let mut active: std::collections::HashMap<&str, (bool, ae::Vec2, BVec2)> =
-        std::collections::HashMap::new();
+    let room_of_boss: std::collections::HashMap<&str, ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance> =
+        sprites
+            .iter()
+            .filter_map(|(entity, sprite)| Some((sprite.id.as_str(), rooms.room_of(entity)?)))
+            .collect();
+    let mut active: std::collections::HashMap<
+        &str,
+        (bool, ae::Vec2, BVec2, ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance),
+    > = std::collections::HashMap::new();
     for (id, frame) in boss_frames.iter() {
+        // A boss whose live room cannot be told draws no lane.
+        let Some(room) = room_of_boss.get(id).copied() else {
+            continue;
+        };
         if let Some(lane) = frame.hazard_lane {
             active.insert(
                 id,
@@ -100,6 +114,7 @@ pub fn manage_gradient_lane_visual(
                     lane.striking,
                     lane.center,
                     BVec2::new(lane.size.x, lane.size.y),
+                    room,
                 ),
             );
         }
@@ -107,7 +122,10 @@ pub fn manage_gradient_lane_visual(
 
     // Update existing visuals + remove stale ones.
     for (visual_entity, visual, mut transform, mut sprite) in &mut visuals {
-        if let Some((in_strike, center, size)) = active.remove(visual.owner_id.as_str()) {
+        let lane = active.remove(visual.owner_id.as_str());
+        if let Some((in_strike, center, size, world)) =
+            lane.and_then(|(in_strike, center, size, room)| Some((in_strike, center, size, rooms.in_room(room)?)))
+        {
             transform.translation = world_to_bevy(&world.0, center, GRADIENT_LANE_VISUAL_Z);
             sprite.custom_size = Some(size);
             sprite.color = if in_strike {
@@ -122,14 +140,17 @@ pub fn manage_gradient_lane_visual(
     }
 
     // Spawn visuals for bosses that newly entered HazardColumn.
-    for (owner_id, (in_strike, center, size)) in active {
+    for (owner_id, (in_strike, center, size, room)) in active {
+        let Some(world) = rooms.in_room(room) else {
+            continue;
+        };
         let color = if in_strike {
             GRADIENT_LANE_STRIKE_COLOR
         } else {
             GRADIENT_LANE_TELEGRAPH_COLOR
         };
         commands.spawn_session_scoped(
-            session_scope,
+            session_scope.in_room(Some(room)),
             (
                 Sprite {
                     color,

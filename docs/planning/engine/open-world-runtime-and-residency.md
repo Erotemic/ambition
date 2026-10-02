@@ -2059,7 +2059,7 @@ names its subject by body or seat (`ViewSubject`, `ViewParticipant`).
 | Cut | Work | State |
 | --- | --- | --- |
 | V1 | The camera resolve frames each view in the live room of its framed body | ✅ below |
-| V2 | Draw roads place each entity by the geometry of its own live room (`LiveRoomOf`), not the sole room | ◐ the camera apply (V2a), feature/actor sprites (V2b), items and projectiles (V2c), lock walls (V2d) and nameplates (V2e), fx, slashes and limb trails (V2f), and the visuals that ride a body (V2g), below; the unroomed fx producers (54 sites), health bars, debug overlays and the world labels are open; the gravity zones, shrines and unauthored attack stand-ins (V2h) and the blink ring (V2i) and the broken-block visuals (V2j) are done |
+| V2 | Draw roads place each entity by the geometry of its own live room (`LiveRoomOf`), not the sole room | ◐ the camera apply (V2a), feature/actor sprites (V2b), items and projectiles (V2c), lock walls (V2d) and nameplates (V2e), fx, slashes and limb trails (V2f), the visuals that ride a body (V2g), gravity zones, shrines and attack stand-ins (V2h), the blink ring (V2i), broken-block visuals (V2j), and health bars and the gradient-lane telegraph (V2k), below; the unroomed fx producers (54 sites), debug overlays and the world labels are open |
 | V3 | A camera draws only the live room of its view: a room render band, as the view band does for projections | ✅ below |
 | V4 | Room visuals and the LDtk level are presented per live room, and retire with it | ✅ static room visuals (V4a), the LDtk level (V4b) and parallax (V4c), below |
 | V5 | Two seats in two live rooms get two views (the product rule: a split is mandatory in different rooms) | ✅ below |
@@ -2177,6 +2177,19 @@ second view) and `an_equivalent_world_reload_draws_its_room_once` (the
 shipped game; the room visual, marker, parallax and LDtk counts are the same
 10 frames after an equivalent reload; before the fix, 258 against 140).
 `SoleLiveRoomSpec` 25/21 -> 20/18, `SoleLiveRoom` 46/39 -> 45/38.
+
+✅ **V2k landed 2026-10-02: the health bars and a boss's gradient-lane
+telegraph are drawn in their body's live room.** Both read the sole live
+room, so while two rooms were live neither was drawn. Their rows are keyed
+by feature id (`FeatureViewIndex`, `BossFrameIndex`) and carry no room, so
+each takes the room its body's own sprite is stamped with (`FeatureVisual`,
+V2b); the player's bar takes the player's room. Each is spawned with that
+room's stamp. Witness: `each_health_bar_is_drawn_in_its_body_s_own_live_room`
+(a breakable in each of two rooms of different sizes: each bar has its
+room's stamp and position; a body with no sprite gets no bar; poison, every
+bar placed by the first room: the second bar at the first room's position).
+⚠ The gradient lane has no witness of its own (`BossFrameIndex` has no
+fixture constructor). `SoleLiveRoom` 32/25 -> 30/23.
 
 ✅ **V2j landed 2026-10-02: a brick broken in one live room loses its
 visual there and only there.** `sync_removed_block_visuals` read the sole

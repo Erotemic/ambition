@@ -164,8 +164,8 @@ while the players are in two rooms and closes when they meet
 Items, projectiles, lock walls and nameplates (V2c–V2e), effects (V2f) and
 the LDtk levels (V4b), parallax (V4c) and the visuals that ride a body
 (V2g: shields, clocks, ropes, wielded items) are each room's own too. ⚠ Not
-done: health bars, debug overlays and the world labels still read the
-sole live room; the banner, music and HUD are session-wide; a
+done: debug overlays and the world labels still read the sole live
+room; the banner, music and HUD are session-wide; a
 sync test is one peer, so what the crossing's rebase costs a remote
 player's rollback window is A4.
 

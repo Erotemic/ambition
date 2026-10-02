@@ -29,7 +29,7 @@ impl Plugin for PlayerSchedulePlugin {
         app.register_required_components::<ambition_platformer2d_shared_tangle::markers::PlayerEntity, ambition_combat::components::DamageableVolumes>();
 
         // Snapshot time before input: suspension first zeros the clock target, then
-        // `refresh_world_time` publishes one coherent `scaled_dt` for the frame.
+        // `refresh_world_time` publishes one coherent `sim_dt` for the frame.
         app.add_systems(
             sim,
             (

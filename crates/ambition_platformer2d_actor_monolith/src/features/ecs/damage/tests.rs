@@ -770,7 +770,7 @@ fn a_blast_with_no_attacker_hits_only_its_own_live_room() {
         app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
         register_hit_pipeline_messages(&mut app);
         let mut time = ambition_time::WorldTime::default();
-        time.scaled_dt = 0.05;
+        time.set_sim_dt(0.05);
         app.insert_resource(time);
         app.add_systems(
             Update,

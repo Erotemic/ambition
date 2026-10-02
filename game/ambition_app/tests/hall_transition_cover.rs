@@ -7,7 +7,7 @@
 
 use bevy::prelude::*;
 
-use ambition_app::app::{VisibleRenderMode, build_visible_app, shell_host};
+use ambition_app::app::{VisibleRenderMode, build_visible_app};
 use ambition_platformer2d::game_shell::ShellCommand;
 
 /// The authored door from the hub. Named rather than "any zone" so this test
@@ -115,7 +115,7 @@ fn boot_and_record_the_hall_transition() -> (App, usize) {
     settle_launcher(&mut app);
 
     app.world_mut().write_message(ShellCommand::GoTo(
-        shell_host::AMBITION_GAMEPLAY_ROUTE.into(),
+        ambition_content::provider::AMBITION_GAMEPLAY_ROUTE.into(),
     ));
     wait_for_a_session_room_set(&mut app, "the hub was activating");
     let before = staged_cast_len(&app);
@@ -523,7 +523,7 @@ fn leaving_the_gallery_keeps_the_shared_cast_and_retires_the_rest() {
     ));
     settle_launcher(&mut app);
     app.world_mut().write_message(ShellCommand::GoTo(
-        shell_host::AMBITION_GAMEPLAY_ROUTE.into(),
+        ambition_content::provider::AMBITION_GAMEPLAY_ROUTE.into(),
     ));
     wait_for_a_session_room_set(&mut app, "the hall was activating as the start room");
     {
@@ -1075,7 +1075,7 @@ fn two_round_trips_through_the_gallery_return_the_same_working_set() {
     ));
     settle_launcher(&mut app);
     app.world_mut().write_message(ShellCommand::GoTo(
-        shell_host::AMBITION_GAMEPLAY_ROUTE.into(),
+        ambition_content::provider::AMBITION_GAMEPLAY_ROUTE.into(),
     ));
     wait_for_a_session_room_set(&mut app, "the hub was activating");
     settle_resident_pages(&mut app, "the hub was settling after activation");

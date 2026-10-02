@@ -107,7 +107,7 @@ pub fn refresh_hosted_portal_frames(
         return;
     }
     let mut surfaces = SurfacesByRoom::new(&collision);
-    let dt = time.as_deref().map(|t| t.scaled_dt).unwrap_or(0.0);
+    let dt = time.as_deref().map(|t| t.sim_dt()).unwrap_or(0.0);
     for (entity, mut portal) in &mut portals {
         let Some((host, lift)) = portal.host.face().map(|(face, lift)| (face.clone(), lift)) else {
             continue;

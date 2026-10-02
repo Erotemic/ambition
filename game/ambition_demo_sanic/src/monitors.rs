@@ -123,7 +123,7 @@ pub fn break_monitor_boxes(
     }
     let p = kin.aabb();
     // Where a rolling body will be by next tick, plus a little: see `BREAK_REACH`.
-    let reach = kin.vel.abs() * time.scaled_dt * 2.0 + ae::Vec2::splat(BREAK_REACH);
+    let reach = kin.vel.abs() * time.sim_dt() * 2.0 + ae::Vec2::splat(BREAK_REACH);
     for block in &room_geometry.0.blocks {
         if block.name.starts_with(BREAKABLE_WALL) && !spent.is_broken(&block.name) {
             let b = block.aabb;

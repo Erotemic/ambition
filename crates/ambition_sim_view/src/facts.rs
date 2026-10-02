@@ -415,7 +415,7 @@ pub fn tick_shrine_activation_pulse(
     mut activation: ResMut<ambition_platformer2d_shared_tangle::shrine::ShrineActivationPulse>,
 ) {
     if activation.remaining > 0.0 {
-        activation.remaining = (activation.remaining - world_time.scaled_dt).max(0.0);
+        activation.remaining = (activation.remaining - world_time.sim_dt()).max(0.0);
     }
 }
 
@@ -1059,10 +1059,7 @@ mod tests {
     #[test]
     fn shrine_pulse_ticks_down_sim_side() {
         let mut app = App::new();
-        app.insert_resource(ambition_time::WorldTime {
-            raw_dt: 0.1,
-            scaled_dt: 0.1,
-        });
+        app.insert_resource(ambition_time::WorldTime::new(0.1, 0.1));
         app.insert_resource(
             ambition_platformer2d_shared_tangle::shrine::ShrineActivationPulse { remaining: 0.25 },
         );

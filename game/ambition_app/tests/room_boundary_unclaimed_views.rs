@@ -11,7 +11,7 @@ use std::time::Duration;
 use bevy::prelude::*;
 use bevy::time::TimeUpdateStrategy;
 
-use ambition_app::app::{build_visible_app, shell_host, VisibleRenderMode};
+use ambition_app::app::{build_visible_app, VisibleRenderMode};
 use ambition_platformer2d::combat::components::ActorDisposition;
 use ambition_platformer2d::combat::components::FeatureId;
 use ambition_platformer2d::combat::events::{HitEvent, HitMode, HitSource, HitTarget};
@@ -144,7 +144,7 @@ fn gameplay_app() -> App {
         step(&mut app);
     }
     app.world_mut().write_message(ShellCommand::GoTo(
-        shell_host::AMBITION_GAMEPLAY_ROUTE.into(),
+        ambition_content::provider::AMBITION_GAMEPLAY_ROUTE.into(),
     ));
     for _ in 0..CROSSING_CAP {
         step(&mut app);

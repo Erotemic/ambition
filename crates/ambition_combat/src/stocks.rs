@@ -655,10 +655,7 @@ mod tests {
         // channel has to exist or the spend cannot run at all.
         app.add_message::<ambition_vfx::vfx::KnockoutBeatRequested>();
         app.insert_resource(HarnessInterval(interval_seconds));
-        app.insert_resource(ambition_time::WorldTime {
-            raw_dt: TEST_DT,
-            scaled_dt: TEST_DT,
-        });
+        app.insert_resource(ambition_time::WorldTime::new(TEST_DT, TEST_DT));
         app.add_systems(
             Update,
             (

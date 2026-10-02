@@ -1072,7 +1072,7 @@ pub fn spawn_boss_with_overrides_into(
     // overrides) to the right boss.
     let encounter_id = boss.config.behavior.id.clone();
     // The sheet it wears, by the rule its body was sized from.
-    let boss_anim_frame = ambition_boss_encounter::sprites::BossAnimFrame::new(
+    let boss_anim_frame = ambition_sprite_sheet::boss::BossAnimFrame::new(
         boss_catalog.sheet_for_behavior(&boss.config.behavior),
     );
     let combat_tuning =

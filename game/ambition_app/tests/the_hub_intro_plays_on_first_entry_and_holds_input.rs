@@ -67,7 +67,7 @@ fn hub_on_arrival(intro_already_seen: bool) -> App {
         app.update();
     }
     app.world_mut().write_message(ShellCommand::GoTo(
-        shell_host::AMBITION_GAMEPLAY_ROUTE.into(),
+        ambition_content::provider::AMBITION_GAMEPLAY_ROUTE.into(),
     ));
     app
 }

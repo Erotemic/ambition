@@ -479,8 +479,8 @@ fn fight_app() -> App {
     app.init_resource::<ambition_time::WorldTime>();
     {
         let mut time = app.world_mut().resource_mut::<ambition_time::WorldTime>();
-        time.scaled_dt = TICK;
-        time.raw_dt = TICK;
+        time.set_sim_dt(TICK);
+        time.set_wall_dt(TICK);
     }
     ambition_combat::hitbox::register_strike_outcome_messages(&mut app);
     app.add_message::<ambition_combat::events::SetFlagRequested>();

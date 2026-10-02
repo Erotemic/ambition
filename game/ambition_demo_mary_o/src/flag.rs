@@ -629,7 +629,7 @@ pub fn run_flag_sequence(
     // not left with her knees in it.
     let half_height = kin.size.y * 0.5;
     let Some(drive) =
-        step_flag_sequence(&mut sequence, &pole, kin.pos, half_height, time.scaled_dt)
+        step_flag_sequence(&mut sequence, &pole, kin.pos, half_height, time.sim_dt())
     else {
         return;
     };

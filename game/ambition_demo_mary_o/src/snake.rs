@@ -399,7 +399,7 @@ pub fn run_snake_shells(
         (Without<PrimaryPlayer>, Without<PlayerEntity>),
     >,
 ) {
-    let dt = world_time.scaled_dt;
+    let dt = world_time.sim_dt();
     // Read the player once (entity + body): a missing player means no stomp/hit.
     let player_read = players
         .single()

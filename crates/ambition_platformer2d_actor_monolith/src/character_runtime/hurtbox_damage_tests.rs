@@ -441,8 +441,8 @@ fn a_widening_move_silhouette_is_hittable_on_the_tick_it_widens() {
     app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
     {
         let mut time = app.world_mut().resource_mut::<ambition_time::WorldTime>();
-        time.scaled_dt = 1.0 / 60.0;
-        time.raw_dt = 1.0 / 60.0;
+        time.set_sim_dt(1.0 / 60.0);
+        time.set_wall_dt(1.0 / 60.0);
     }
 
     let body = app

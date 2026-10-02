@@ -347,23 +347,23 @@ fn gameplay_systems_must_not_read_res_time_directly() {
     }
 }
 
-/// Integration check: with `WorldTime::scaled_dt` at 0.25, a timer driven by `sim_dt()`
+/// Integration check: with `WorldTime::sim_dt` at 0.25, a timer driven by `sim_dt()`
 /// advances at exactly 0.25× the wall-clock dt.
 #[test]
 fn world_time_sim_dt_respects_time_scale() {
     use ambition_time::WorldTime;
 
     let mut wt = WorldTime::default();
-    wt.raw_dt = 0.016;
-    wt.scaled_dt = 0.016 * 0.25;
+    wt.set_wall_dt(0.016);
+    wt.set_sim_dt(0.016 * 0.25);
     assert!((wt.wall_dt() - 0.016).abs() < 1e-6);
     assert!((wt.sim_dt() - 0.004).abs() < 1e-6);
 
     // Pause behaviour: time_scale == 0 -> sim_dt == 0 even
     // though wall_dt keeps ticking.
     let mut paused = WorldTime::default();
-    paused.raw_dt = 0.016;
-    paused.scaled_dt = 0.0;
+    paused.set_wall_dt(0.016);
+    paused.set_sim_dt(0.0);
     assert_eq!(paused.sim_dt(), 0.0);
     assert!((paused.wall_dt() - 0.016).abs() < 1e-6);
 }
@@ -371,7 +371,7 @@ fn world_time_sim_dt_respects_time_scale() {
 /// Regression: when gameplay is suspended (pause / dialogue / cutscene / room
 /// transition), `apply_suspended_time_scale_system` must zero both
 /// `ClockState::time_scale` AND `RequestedClockScale::sim_clock` BEFORE
-/// `refresh_world_time` snapshots them — otherwise `WorldTime::scaled_dt` stays
+/// `refresh_world_time` snapshots them — otherwise `WorldTime::sim_dt` stays
 /// non-zero on the first suspended frame and any presentation system multiplying
 /// by it ticks one extra frame after pause lands.
 #[test]
@@ -388,10 +388,7 @@ fn suspended_frame_zeros_world_time_scaled_dt() {
         sim_clock: 1.0,
         ..Default::default()
     });
-    app.insert_resource(WorldTime {
-        raw_dt: 0.016,
-        scaled_dt: 0.016,
-    });
+    app.insert_resource(WorldTime::new(0.016, 0.016));
     app.insert_resource(Time::<()>::default());
 
     // Mirror the host ordering from `register_player_input_systems`:
@@ -421,8 +418,8 @@ fn suspended_frame_zeros_world_time_scaled_dt() {
         "suspended frame must zero RequestedClockScale.sim_clock"
     );
     assert_eq!(
-        wt.scaled_dt, 0.0,
-        "suspended frame must zero WorldTime.scaled_dt (refresh_world_time must \
+        wt.sim_dt(), 0.0,
+        "suspended frame must zero WorldTime::sim_dt (refresh_world_time must \
          see the zeroed time_scale, not last frame's 1.0)"
     );
     assert!(
@@ -434,7 +431,7 @@ fn suspended_frame_zeros_world_time_scaled_dt() {
 /// Gameplay-allowed frames take the regular emit → apply → smooth path; the
 /// suspended fallback is short-circuited by `run_if`. `refresh_world_time` then
 /// sees `ClockState::time_scale = 1.0` (the default) and reports a non-zero
-/// `scaled_dt`.
+/// `sim_dt`.
 #[test]
 fn gameplay_frame_preserves_world_time_scaled_dt() {
     use ambition_platformer2d_shared_tangle::schedule::{gameplay_suspended, GameMode};
@@ -464,8 +461,8 @@ fn gameplay_frame_preserves_world_time_scaled_dt() {
 
     let wt = app.world().resource::<WorldTime>();
     assert!(
-        wt.scaled_dt > 0.0,
-        "gameplay frame must produce a non-zero scaled_dt; got {}",
-        wt.scaled_dt
+        wt.sim_dt() > 0.0,
+        "gameplay frame must produce a non-zero sim_dt; got {}",
+        wt.sim_dt()
     );
 }

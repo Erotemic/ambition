@@ -339,7 +339,7 @@ fn a_gameplay_session_stages_no_more_of_the_cast_than_its_budget() {
     );
 
     app.world_mut().write_message(ShellCommand::GoTo(
-        ambition_app::app::shell_host::AMBITION_GAMEPLAY_ROUTE.into(),
+        ambition_content::provider::AMBITION_GAMEPLAY_ROUTE.into(),
     ));
     let mut settled = app;
     settle_in_place(&mut settled);

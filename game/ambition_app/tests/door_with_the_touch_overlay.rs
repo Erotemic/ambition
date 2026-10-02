@@ -70,7 +70,7 @@ fn a_door_still_opens_with_the_touch_overlay_installed() {
         app.update();
     }
     app.world_mut().write_message(ShellCommand::GoTo(
-        shell_host::AMBITION_GAMEPLAY_ROUTE.into(),
+        ambition_content::provider::AMBITION_GAMEPLAY_ROUTE.into(),
     ));
     for _ in 0..40 {
         app.update();

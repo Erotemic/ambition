@@ -106,7 +106,7 @@ fn world(road: Road) -> (App, Vec<Entity>) {
         .add_message::<ambition_sfx::OwnedSfxMessage>()
         .add_message::<ambition_characters::brain::ActorActionMessage>()
         .init_resource::<ambition_time::SimTick>()
-        .insert_resource(ambition_time::WorldTime { raw_dt: DT, scaled_dt: DT });
+        .insert_resource(ambition_time::WorldTime::new(DT, DT));
     match road {
         Road::NativeSystem => {
             app.add_systems(Sim, (native::fire_vortex_system, native::update_vortex_wells).chain());

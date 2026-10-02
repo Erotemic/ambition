@@ -223,7 +223,7 @@ pub fn possession_trigger_system(
         state.hold_timer = 0.0;
         return;
     }
-    state.hold_timer += world_time.raw_dt;
+    state.hold_timer += world_time.wall_dt();
     if state.hold_timer < POSSESS_HOLD_S {
         return;
     }

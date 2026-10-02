@@ -42,7 +42,7 @@ pub fn tick_portal_phases_system(
     // Scaled dt — pause / hitstop / bullet-time naturally freezes
     // or slows the portal boot/shutdown sequence so the ring spin
     // and one-shot anims stay in sync with everything else.
-    let dt = world_time.scaled_dt;
+    let dt = world_time.sim_dt();
     if dt <= 0.0 {
         return;
     }

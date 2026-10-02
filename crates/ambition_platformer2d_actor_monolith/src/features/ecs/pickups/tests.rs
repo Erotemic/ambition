@@ -183,10 +183,7 @@ fn collect_is_a_noop_with_no_player() {
 #[test]
 fn a_pickup_that_declares_no_magnet_stays_where_it_landed() {
     let mut app = App::new();
-    app.insert_resource(ambition_time::WorldTime {
-        scaled_dt: 0.1,
-        ..Default::default()
-    });
+    app.insert_resource(ambition_time::WorldTime::new(0.0, 0.1));
     app.add_systems(Update, magnetize_pickups);
     player_at(&mut app, ae::Vec2::new(100.0, 100.0));
     // Well inside the CLASSIC range (dist 100 < 130), and carrying no magnet.
@@ -208,10 +205,7 @@ fn a_pickup_that_declares_no_magnet_stays_where_it_landed() {
 #[test]
 fn a_magnetized_pickup_goes_to_the_nearest_collector_of_several() {
     let mut app = App::new();
-    app.insert_resource(ambition_time::WorldTime {
-        scaled_dt: 0.1,
-        ..Default::default()
-    });
+    app.insert_resource(ambition_time::WorldTime::new(0.0, 0.1));
     app.add_systems(Update, magnetize_pickups);
     player_at(&mut app, ae::Vec2::new(0.0, 100.0));
     player_at(&mut app, ae::Vec2::new(260.0, 100.0));
@@ -246,10 +240,7 @@ fn a_magnetized_pickup_goes_to_the_nearest_collector_of_several() {
 fn a_pickup_between_two_equidistant_collectors_goes_the_same_way_whichever_spawned_first() {
     fn drift(left_first: bool) -> f32 {
         let mut app = App::new();
-        app.insert_resource(ambition_time::WorldTime {
-            scaled_dt: 0.1,
-            ..Default::default()
-        });
+        app.insert_resource(ambition_time::WorldTime::new(0.0, 0.1));
         app.add_systems(Update, magnetize_pickups);
         // EXACTLY equidistant, and both inside the classic 130px range.
         let left = ae::Vec2::new(100.0, 100.0);
@@ -298,10 +289,7 @@ fn a_pickup_between_two_equidistant_collectors_goes_the_same_way_whichever_spawn
 #[test]
 fn nearby_pickups_drift_toward_the_player() {
     let mut app = App::new();
-    app.insert_resource(ambition_time::WorldTime {
-        scaled_dt: 0.1,
-        ..Default::default()
-    });
+    app.insert_resource(ambition_time::WorldTime::new(0.0, 0.1));
     app.add_systems(Update, magnetize_pickups);
     player_at(&mut app, ae::Vec2::new(100.0, 100.0));
     // In range (dist 100 < 130) -> drifts toward the collector (leftward).

@@ -617,10 +617,7 @@ fn thrown_item_arcs_and_settles_on_the_floor() {
             blocks,
         )),
     );
-    app.insert_resource(ambition_time::WorldTime {
-        raw_dt: 1.0 / 60.0,
-        scaled_dt: 1.0 / 60.0,
-    });
+    app.insert_resource(ambition_time::WorldTime::new(1.0 / 60.0, 1.0 / 60.0));
     app.add_systems(Update, ground_item_physics);
     let item = app
         .world_mut()
@@ -1208,10 +1205,7 @@ fn a_settled_item_wakes_when_its_support_goes_away() {
             Vec2::new(400.0, 20.0),
         )]),
     );
-    app.insert_resource(ambition_time::WorldTime {
-        raw_dt: 1.0 / 60.0,
-        scaled_dt: 1.0 / 60.0,
-    });
+    app.insert_resource(ambition_time::WorldTime::new(1.0 / 60.0, 1.0 / 60.0));
     app.add_systems(
         Update,
         (carry_or_wake_settled_items, ground_item_physics).chain(),
@@ -1295,10 +1289,7 @@ fn a_settled_item_rides_the_platform_it_landed_on() {
                 vec![ledge],
             )),
         );
-        app.insert_resource(ambition_time::WorldTime {
-            raw_dt: 1.0 / 60.0,
-            scaled_dt: 1.0 / 60.0,
-        });
+        app.insert_resource(ambition_time::WorldTime::new(1.0 / 60.0, 1.0 / 60.0));
         app.add_systems(
             Update,
             (carry_or_wake_settled_items, ground_item_physics).chain(),
@@ -1373,10 +1364,7 @@ fn a_blocked_step_publishes_the_speed_it_was_stopped_at() {
             )],
         )),
     );
-    app.insert_resource(ambition_time::WorldTime {
-        raw_dt: 1.0 / 60.0,
-        scaled_dt: 1.0 / 60.0,
-    });
+    app.insert_resource(ambition_time::WorldTime::new(1.0 / 60.0, 1.0 / 60.0));
     app.add_systems(Update, ground_item_physics);
 
     // Just clear of the wall, thrown at it hard enough that one step lands
@@ -1522,10 +1510,7 @@ fn a_flying_item_strikes_the_body_it_reaches_and_not_the_one_it_left() {
                 )],
             )),
         );
-        app.insert_resource(ambition_time::WorldTime {
-            raw_dt: 1.0 / 60.0,
-            scaled_dt: 1.0 / 60.0,
-        });
+        app.insert_resource(ambition_time::WorldTime::new(1.0 / 60.0, 1.0 / 60.0));
         app.add_systems(Update, ground_item_physics);
     };
     let body_at = |app: &mut App, at: Vec2| {
@@ -1691,10 +1676,7 @@ fn an_item_stopped_by_a_wall_does_not_strike_the_body_behind_it() {
                 blocks,
             )),
         );
-        app.insert_resource(ambition_time::WorldTime {
-            raw_dt: 1.0 / 60.0,
-            scaled_dt: 1.0 / 60.0,
-        });
+        app.insert_resource(ambition_time::WorldTime::new(1.0 / 60.0, 1.0 / 60.0));
         app.add_systems(Update, ground_item_physics);
         app.world_mut().spawn((
             ambition_platformer2d_core::CenteredAabb::new(
@@ -1990,10 +1972,7 @@ fn two_live_rooms<M>(
             )),
         ));
     }
-    app.insert_resource(ambition_time::WorldTime {
-        raw_dt: 1.0 / 60.0,
-        scaled_dt: 1.0 / 60.0,
-    });
+    app.insert_resource(ambition_time::WorldTime::new(1.0 / 60.0, 1.0 / 60.0));
     app.add_systems(Update, systems);
     (app, live)
 }

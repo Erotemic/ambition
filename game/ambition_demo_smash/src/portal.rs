@@ -234,8 +234,8 @@ mod tests {
             let mut time = app
                 .world_mut()
                 .resource_mut::<ambition_platformer2d::time::WorldTime>();
-            time.scaled_dt = 1.0 / 60.0;
-            time.raw_dt = 1.0 / 60.0;
+            time.set_sim_dt(1.0 / 60.0);
+            time.set_wall_dt(1.0 / 60.0);
         }
         app.add_systems(
             Update,
@@ -284,8 +284,8 @@ mod tests {
             let mut time = app
                 .world_mut()
                 .resource_mut::<ambition_platformer2d::time::WorldTime>();
-            time.scaled_dt = 1.0 / 60.0;
-            time.raw_dt = 1.0 / 60.0;
+            time.set_sim_dt(1.0 / 60.0);
+            time.set_wall_dt(1.0 / 60.0);
         }
         app.add_systems(Update, open_authored_portal_pairs);
         for seat in [0usize, 1usize] {
@@ -357,8 +357,8 @@ mod tests {
             let mut time = app
                 .world_mut()
                 .resource_mut::<ambition_platformer2d::time::WorldTime>();
-            time.scaled_dt = 1.0 / 60.0;
-            time.raw_dt = 1.0 / 60.0;
+            time.set_sim_dt(1.0 / 60.0);
+            time.set_wall_dt(1.0 / 60.0);
         }
         app.add_systems(Update, open_authored_portal_pairs);
         let body = app
@@ -473,8 +473,8 @@ mod tests {
             let mut time = app
                 .world_mut()
                 .resource_mut::<ambition_platformer2d::time::WorldTime>();
-            time.scaled_dt = 1.0 / 60.0;
-            time.raw_dt = 1.0 / 60.0;
+            time.set_sim_dt(1.0 / 60.0);
+            time.set_wall_dt(1.0 / 60.0);
         }
         // The sweep reads transits; without this message its parameter
         // validation fails and it never runs.
@@ -532,8 +532,8 @@ mod tests {
             let mut time = app
                 .world_mut()
                 .resource_mut::<ambition_platformer2d::time::WorldTime>();
-            time.scaled_dt = 1.0 / 60.0;
-            time.raw_dt = 1.0 / 60.0;
+            time.set_sim_dt(1.0 / 60.0);
+            time.set_wall_dt(1.0 / 60.0);
         }
         app.add_message::<ambition_platformer2d::portal::PortalBodyTransited>();
         app.add_message::<ambition_platformer2d::portal::PortalBodyTransited>();

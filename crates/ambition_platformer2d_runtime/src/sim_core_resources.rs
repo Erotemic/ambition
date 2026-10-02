@@ -147,7 +147,7 @@ impl Plugin for SimCoreResourcesPlugin {
             // disk by the presentation half only — headless/RL never touch
             // disk; mutated by encounter/switch systems.
             .init_resource::<ambition_persistence::save::AmbitionGameSave>()
-            // World-clock dt mirror — `WorldTime::scaled_dt` is the
+            // World-clock dt mirror — `WorldTime::sim_dt` is the
             // bullet-time-respecting delta for gameplay timers.
             .init_resource::<ambition_time::WorldTime>()
             // The canonical timeline (N0.1): the index of the sim step now

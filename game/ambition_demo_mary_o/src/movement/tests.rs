@@ -23,10 +23,7 @@ fn body(app: &mut App) -> Entity {
 
 fn app_with_policy() -> (App, Entity) {
     let mut app = App::new();
-    app.insert_resource(ambition_platformer2d::time::WorldTime {
-        scaled_dt: 1.0 / 60.0,
-        ..Default::default()
-    });
+    app.insert_resource(ambition_platformer2d::time::WorldTime::new(0.0, 1.0 / 60.0));
     let body = body(&mut app);
     app.add_systems(Update, walk_by_default_run_while_held);
     (app, body)
@@ -228,10 +225,7 @@ fn the_run_policy_never_adds_velocity_or_amplifies_intent() {
 
 fn app_with_fire(worn: WornEquipment) -> (App, Entity) {
     let mut app = App::new();
-    app.insert_resource(ambition_platformer2d::time::WorldTime {
-        scaled_dt: 1.0 / 60.0,
-        ..Default::default()
-    });
+    app.insert_resource(ambition_platformer2d::time::WorldTime::new(0.0, 1.0 / 60.0));
     let body = body(&mut app);
     app.world_mut().entity_mut(body).insert(worn);
     app.add_systems(Update, fire_spark_on_run_press);

@@ -80,7 +80,7 @@ pub fn record_combo_trace(
     for (entity, frame_out, trace) in &mut bodies {
         let ops = &frame_out.events.operations;
         match trace {
-            Some(mut trace) => trace.advance(world_time.scaled_dt, ops),
+            Some(mut trace) => trace.advance(world_time.sim_dt(), ops),
             None if !ops.is_empty() => {
                 let mut trace = ComboTrace::default();
                 trace.advance(0.0, ops);

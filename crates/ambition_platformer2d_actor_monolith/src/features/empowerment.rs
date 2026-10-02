@@ -118,7 +118,7 @@ pub fn run_empowerments(
         Or<(With<Empowered>, With<WornCharacter>)>,
     >,
 ) {
-    let dt = time.scaled_dt;
+    let dt = time.sim_dt();
     for (body, grant, worn, mut health) in &mut bodies {
         let mut live_grant = None;
         if let Some(mut empowered) = grant {

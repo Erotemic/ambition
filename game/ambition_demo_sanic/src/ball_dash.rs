@@ -251,7 +251,7 @@ pub fn tick_ball_dash(
             input.crouch_held,
             input.crouch_released,
             input.rev_pressed,
-            time.scaled_dt,
+            time.sim_dt(),
             &tuning,
         ) {
             BallDashStep::Idle => {}

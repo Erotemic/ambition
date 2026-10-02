@@ -32,7 +32,7 @@ where
     );
     registrar.rollback_component_clone::<crate::BossOverrides>(OWNER, "boss.overrides");
     registrar.rollback_component_clone::<crate::EncounterDef>(OWNER, "encounter.definition");
-    registrar.rollback_component_cursor::<crate::sprites::BossAnimFrame>(
+    registrar.rollback_component_cursor::<ambition_sprite_sheet::boss::BossAnimFrame>(
         OWNER,
         "component.boss_anim_frame",
     );

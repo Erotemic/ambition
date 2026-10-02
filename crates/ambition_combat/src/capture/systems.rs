@@ -557,7 +557,7 @@ pub fn tick_capture_holds(
         Option<&mut ambition_characters::control::ControlHolds>,
     )>,
 ) {
-    let dt = time.scaled_dt;
+    let dt = time.sim_dt();
     for (victim, _, mut state, ground, holds) in &mut captives {
         state.held_for += dt;
         if !state.escaped() {
@@ -1778,8 +1778,8 @@ mod tests {
         for struggling in [false, true] {
             let mut app = App::new();
             let mut time = ambition_time::WorldTime::default();
-            time.scaled_dt = 1.0 / 60.0;
-            time.raw_dt = 1.0 / 60.0;
+            time.set_sim_dt(1.0 / 60.0);
+            time.set_wall_dt(1.0 / 60.0);
             app.insert_resource(time);
             app.add_systems(Update, (sample_capture_escape, tick_capture_holds).chain());
             let captor = grounded_body(&mut app, "captor", ae::Vec2::ZERO);

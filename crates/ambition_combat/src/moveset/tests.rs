@@ -655,8 +655,8 @@ fn app_with_victim() -> (App, Entity) {
     app.add_message::<ambition_vfx::vfx::VfxInRoom>();
     app.init_resource::<Captured>();
     app.init_resource::<WorldTime>();
-    app.world_mut().resource_mut::<WorldTime>().scaled_dt = 0.016;
-    app.world_mut().resource_mut::<WorldTime>().raw_dt = 0.016;
+    app.world_mut().resource_mut::<WorldTime>().set_sim_dt(0.016);
+    app.world_mut().resource_mut::<WorldTime>().set_wall_dt(0.016);
     app.add_systems(
         Update,
         (
@@ -1670,8 +1670,8 @@ fn a_control_verb_edge_triggers_the_moveset_move_and_lands_it() {
     app.add_message::<ambition_vfx::vfx::VfxInRoom>();
     app.init_resource::<Captured>();
     app.init_resource::<WorldTime>();
-    app.world_mut().resource_mut::<WorldTime>().scaled_dt = 0.016;
-    app.world_mut().resource_mut::<WorldTime>().raw_dt = 0.016;
+    app.world_mut().resource_mut::<WorldTime>().set_sim_dt(0.016);
+    app.world_mut().resource_mut::<WorldTime>().set_wall_dt(0.016);
     app.add_systems(
         Update,
         (
@@ -1733,8 +1733,8 @@ fn a_forward_special_selects_the_directional_move() {
     app.add_message::<MoveEventMessage>();
     app.add_message::<ambition_vfx::vfx::VfxInRoom>();
     app.init_resource::<WorldTime>();
-    app.world_mut().resource_mut::<WorldTime>().scaled_dt = 0.016;
-    app.world_mut().resource_mut::<WorldTime>().raw_dt = 0.016;
+    app.world_mut().resource_mut::<WorldTime>().set_sim_dt(0.016);
+    app.world_mut().resource_mut::<WorldTime>().set_wall_dt(0.016);
     app.add_systems(
         Update,
         (
@@ -1936,8 +1936,8 @@ fn lunge_facing_left(unmirrored: bool) -> (ae::Vec2, f32) {
     app.add_message::<MoveEventMessage>();
     app.add_message::<ambition_vfx::vfx::VfxInRoom>();
     app.init_resource::<WorldTime>();
-    app.world_mut().resource_mut::<WorldTime>().scaled_dt = 0.016;
-    app.world_mut().resource_mut::<WorldTime>().raw_dt = 0.016;
+    app.world_mut().resource_mut::<WorldTime>().set_sim_dt(0.016);
+    app.world_mut().resource_mut::<WorldTime>().set_wall_dt(0.016);
     app.add_systems(
         Update,
         (
@@ -3061,8 +3061,8 @@ fn effect_bridge_app(moveset: MovesetContract) -> (App, Entity) {
     app.add_message::<ambition_vfx::FxRequest>();
     app.add_message::<ambition_characters::brain::ActorActionMessage>();
     app.init_resource::<WorldTime>();
-    app.world_mut().resource_mut::<WorldTime>().scaled_dt = 0.3;
-    app.world_mut().resource_mut::<WorldTime>().raw_dt = 0.3;
+    app.world_mut().resource_mut::<WorldTime>().set_sim_dt(0.3);
+    app.world_mut().resource_mut::<WorldTime>().set_wall_dt(0.3);
     app.add_systems(
         Update,
         (
@@ -4201,8 +4201,8 @@ fn capture_context_app_in(
     app.add_message::<MoveEventMessage>();
     app.add_message::<ambition_vfx::vfx::VfxInRoom>();
     app.init_resource::<WorldTime>();
-    app.world_mut().resource_mut::<WorldTime>().scaled_dt = 0.016;
-    app.world_mut().resource_mut::<WorldTime>().raw_dt = 0.016;
+    app.world_mut().resource_mut::<WorldTime>().set_sim_dt(0.016);
+    app.world_mut().resource_mut::<WorldTime>().set_wall_dt(0.016);
     app.add_systems(
         Update,
         (
@@ -4272,8 +4272,8 @@ fn shielding_app(frame: ambition_characters::actor::control::ActorControlFrame) 
     app.add_message::<MoveEventMessage>();
     app.add_message::<ambition_vfx::vfx::VfxInRoom>();
     app.init_resource::<WorldTime>();
-    app.world_mut().resource_mut::<WorldTime>().scaled_dt = 0.016;
-    app.world_mut().resource_mut::<WorldTime>().raw_dt = 0.016;
+    app.world_mut().resource_mut::<WorldTime>().set_sim_dt(0.016);
+    app.world_mut().resource_mut::<WorldTime>().set_wall_dt(0.016);
     app.add_systems(
         Update,
         (resolve_attack_gestures, trigger_moveset_moves).chain(),
@@ -4651,8 +4651,8 @@ fn buffer_app(moveset: MovesetContract, buffer_s: f32) -> (App, Entity) {
     app.add_message::<MoveEventMessage>();
     app.add_message::<ambition_vfx::vfx::VfxInRoom>();
     app.init_resource::<WorldTime>();
-    app.world_mut().resource_mut::<WorldTime>().scaled_dt = 0.016;
-    app.world_mut().resource_mut::<WorldTime>().raw_dt = 0.016;
+    app.world_mut().resource_mut::<WorldTime>().set_sim_dt(0.016);
+    app.world_mut().resource_mut::<WorldTime>().set_wall_dt(0.016);
     app.add_systems(
         Update,
         (
@@ -5026,8 +5026,8 @@ fn smash_charge_app() -> (App, Entity) {
     app.add_message::<MoveEventMessage>();
     app.add_message::<ambition_vfx::vfx::VfxInRoom>();
     app.init_resource::<WorldTime>();
-    app.world_mut().resource_mut::<WorldTime>().scaled_dt = 0.016;
-    app.world_mut().resource_mut::<WorldTime>().raw_dt = 0.016;
+    app.world_mut().resource_mut::<WorldTime>().set_sim_dt(0.016);
+    app.world_mut().resource_mut::<WorldTime>().set_wall_dt(0.016);
     app.add_systems(
         Update,
         (
@@ -5711,8 +5711,8 @@ fn playing_app(moveset: MovesetContract) -> (App, Entity) {
     app.add_message::<MoveEventMessage>();
     app.add_message::<ambition_vfx::vfx::VfxInRoom>();
     app.init_resource::<WorldTime>();
-    app.world_mut().resource_mut::<WorldTime>().scaled_dt = 0.016;
-    app.world_mut().resource_mut::<WorldTime>().raw_dt = 0.016;
+    app.world_mut().resource_mut::<WorldTime>().set_sim_dt(0.016);
+    app.world_mut().resource_mut::<WorldTime>().set_wall_dt(0.016);
     // ⛔⛔ THE PRODUCTION PHASE GRAPH, NOT A BAG OF SYSTEMS. `combat_schedule`
     // orders `CombatSet::Trigger` — the first three — before
     // `CombatSet::Playback`, which runs `advance_move_playback` and then
@@ -6805,8 +6805,8 @@ fn a_direction_held_through_the_grab_does_not_throw_until_it_is_pressed_again() 
     app.add_message::<MoveEventMessage>();
     app.add_message::<ambition_vfx::vfx::VfxInRoom>();
     app.init_resource::<WorldTime>();
-    app.world_mut().resource_mut::<WorldTime>().scaled_dt = 0.016;
-    app.world_mut().resource_mut::<WorldTime>().raw_dt = 0.016;
+    app.world_mut().resource_mut::<WorldTime>().set_sim_dt(0.016);
+    app.world_mut().resource_mut::<WorldTime>().set_wall_dt(0.016);
     app.add_systems(
         Update,
         (
@@ -6897,8 +6897,8 @@ fn an_attack_press_throws_and_pummels_on_a_capture_that_never_armed() {
         app.add_message::<MoveEventMessage>();
         app.add_message::<ambition_vfx::vfx::VfxInRoom>();
         app.init_resource::<WorldTime>();
-        app.world_mut().resource_mut::<WorldTime>().scaled_dt = 0.016;
-        app.world_mut().resource_mut::<WorldTime>().raw_dt = 0.016;
+        app.world_mut().resource_mut::<WorldTime>().set_sim_dt(0.016);
+        app.world_mut().resource_mut::<WorldTime>().set_wall_dt(0.016);
         app.add_systems(
             Update,
             (
@@ -7430,8 +7430,8 @@ fn a_move_that_costs_meter_is_refused_when_the_body_cannot_pay() {
         app.add_message::<MoveEventMessage>();
         app.add_message::<ambition_vfx::vfx::VfxInRoom>();
         app.init_resource::<WorldTime>();
-        app.world_mut().resource_mut::<WorldTime>().scaled_dt = 0.016;
-        app.world_mut().resource_mut::<WorldTime>().raw_dt = 0.016;
+        app.world_mut().resource_mut::<WorldTime>().set_sim_dt(0.016);
+        app.world_mut().resource_mut::<WorldTime>().set_wall_dt(0.016);
         app.add_systems(
             Update,
             (
@@ -7527,8 +7527,8 @@ fn a_move_that_costs_meter_is_refused_when_the_body_cannot_pay() {
         app.add_message::<MoveEventMessage>();
         app.add_message::<ambition_vfx::vfx::VfxInRoom>();
         app.init_resource::<WorldTime>();
-        app.world_mut().resource_mut::<WorldTime>().scaled_dt = 0.016;
-        app.world_mut().resource_mut::<WorldTime>().raw_dt = 0.016;
+        app.world_mut().resource_mut::<WorldTime>().set_sim_dt(0.016);
+        app.world_mut().resource_mut::<WorldTime>().set_wall_dt(0.016);
         app.add_systems(
             Update,
             (
@@ -7659,8 +7659,8 @@ fn a_refused_priced_move_falls_through_to_its_authored_variant() {
         app.add_message::<MoveEventMessage>();
         app.add_message::<ambition_vfx::vfx::VfxInRoom>();
         app.init_resource::<WorldTime>();
-        app.world_mut().resource_mut::<WorldTime>().scaled_dt = 0.016;
-        app.world_mut().resource_mut::<WorldTime>().raw_dt = 0.016;
+        app.world_mut().resource_mut::<WorldTime>().set_sim_dt(0.016);
+        app.world_mut().resource_mut::<WorldTime>().set_wall_dt(0.016);
         app.add_systems(
             Update,
             (
@@ -7919,8 +7919,8 @@ fn a_special_charge_is_held_by_the_special_button_and_not_the_attack_button() {
     let hold_ticks = |special_held: bool, attack_held: bool| -> f32 {
         let mut app = App::new();
         app.init_resource::<WorldTime>();
-        app.world_mut().resource_mut::<WorldTime>().scaled_dt = 1.0 / 60.0;
-        app.world_mut().resource_mut::<WorldTime>().raw_dt = 1.0 / 60.0;
+        app.world_mut().resource_mut::<WorldTime>().set_sim_dt(1.0 / 60.0);
+        app.world_mut().resource_mut::<WorldTime>().set_wall_dt(1.0 / 60.0);
         app.insert_resource(
             ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
         );
@@ -8336,10 +8336,10 @@ fn the_b_reverse_window_is_the_same_number_of_ticks_at_every_time_scale() {
             moves: vec![gesture_test_move("neutral_b")],
         };
         let (mut app, body) = playing_app(moveset);
-        // The SCALED clock only — `raw_dt` is the unscaled one, and a window
+        // The SCALED clock only — `wall_dt` is the unscaled one, and a window
         // that had quietly moved to it would pass this test while still being
         // the wrong clock for an input window.
-        app.world_mut().resource_mut::<WorldTime>().scaled_dt = scaled_dt;
+        app.world_mut().resource_mut::<WorldTime>().set_sim_dt(scaled_dt);
         app.insert_resource(crate::rules::ResolvedCombatTuning {
             special_turn: true,
             special_turn_reverses_drift: true,
@@ -9435,8 +9435,8 @@ fn latch_after(
     app.add_message::<MoveEventMessage>();
     app.add_message::<ambition_vfx::vfx::VfxInRoom>();
     app.init_resource::<WorldTime>();
-    app.world_mut().resource_mut::<WorldTime>().scaled_dt = 0.016;
-    app.world_mut().resource_mut::<WorldTime>().raw_dt = 0.016;
+    app.world_mut().resource_mut::<WorldTime>().set_sim_dt(0.016);
+    app.world_mut().resource_mut::<WorldTime>().set_wall_dt(0.016);
     app.add_systems(Update, advance_move_playback);
     let body = app
         .world_mut()
@@ -9574,8 +9574,8 @@ fn the_press_that_bought_an_up_special_is_the_first_thing_in_its_aim_window() {
     app.add_message::<MoveEventMessage>();
     app.add_message::<ambition_vfx::vfx::VfxInRoom>();
     app.init_resource::<WorldTime>();
-    app.world_mut().resource_mut::<WorldTime>().scaled_dt = 0.016;
-    app.world_mut().resource_mut::<WorldTime>().raw_dt = 0.016;
+    app.world_mut().resource_mut::<WorldTime>().set_sim_dt(0.016);
+    app.world_mut().resource_mut::<WorldTime>().set_wall_dt(0.016);
     app.add_systems(
         Update,
         (
@@ -9636,8 +9636,8 @@ fn a_special_pressed_with_a_resting_stick_opens_an_empty_aim_window() {
     app.add_message::<MoveEventMessage>();
     app.add_message::<ambition_vfx::vfx::VfxInRoom>();
     app.init_resource::<WorldTime>();
-    app.world_mut().resource_mut::<WorldTime>().scaled_dt = 0.016;
-    app.world_mut().resource_mut::<WorldTime>().raw_dt = 0.016;
+    app.world_mut().resource_mut::<WorldTime>().set_sim_dt(0.016);
+    app.world_mut().resource_mut::<WorldTime>().set_wall_dt(0.016);
     app.add_systems(
         Update,
         (
@@ -9890,8 +9890,8 @@ mod technique_flow {
             ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
         );
         app.init_resource::<crate::authored_volumes::AuthoredAttackVolumeResolver>();
-        app.world_mut().resource_mut::<WorldTime>().scaled_dt = 0.1;
-        app.world_mut().resource_mut::<WorldTime>().raw_dt = 0.1;
+        app.world_mut().resource_mut::<WorldTime>().set_sim_dt(0.1);
+        app.world_mut().resource_mut::<WorldTime>().set_wall_dt(0.1);
         app.add_systems(Update, (advance_move_playback, capture_effects).chain());
         let mut pb = MovePlayback::new(move_with_validity(flow, validate), 1.0);
         // The fact the flow branches on, stated up front — this is the same
@@ -9951,8 +9951,8 @@ mod technique_flow {
             ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
         );
         app.init_resource::<crate::authored_volumes::AuthoredAttackVolumeResolver>();
-        app.world_mut().resource_mut::<WorldTime>().scaled_dt = 0.1;
-        app.world_mut().resource_mut::<WorldTime>().raw_dt = 0.1;
+        app.world_mut().resource_mut::<WorldTime>().set_sim_dt(0.1);
+        app.world_mut().resource_mut::<WorldTime>().set_wall_dt(0.1);
         app.add_systems(Update, (advance_move_playback, capture_effects).chain());
         let mut pb = MovePlayback::new(move_with_validity(flow, true), 1.0);
         pb.connected_hit = connected;
@@ -10307,8 +10307,8 @@ fn an_authored_gravity_beat_reaches_the_movement_policy_and_outlives_the_move() 
     app.add_message::<MoveEventMessage>();
     app.add_message::<ambition_vfx::vfx::VfxInRoom>();
     app.init_resource::<WorldTime>();
-    app.world_mut().resource_mut::<WorldTime>().scaled_dt = 0.05;
-    app.world_mut().resource_mut::<WorldTime>().raw_dt = 0.05;
+    app.world_mut().resource_mut::<WorldTime>().set_sim_dt(0.05);
+    app.world_mut().resource_mut::<WorldTime>().set_wall_dt(0.05);
     app.add_systems(Update, advance_move_playback);
 
     // A SHORT move — 0.05s of startup and nothing else — that opens a two
@@ -10458,8 +10458,8 @@ fn a_flow_takes_the_blocked_road_and_only_the_blocked_road() {
         app.add_message::<MoveEventMessage>();
         app.add_message::<ambition_vfx::vfx::VfxInRoom>();
         app.init_resource::<WorldTime>();
-        app.world_mut().resource_mut::<WorldTime>().scaled_dt = 0.05;
-        app.world_mut().resource_mut::<WorldTime>().raw_dt = 0.05;
+        app.world_mut().resource_mut::<WorldTime>().set_sim_dt(0.05);
+        app.world_mut().resource_mut::<WorldTime>().set_wall_dt(0.05);
         app.add_systems(Update, advance_move_playback);
 
         let mut playback = MovePlayback::new(spec, 1.0);

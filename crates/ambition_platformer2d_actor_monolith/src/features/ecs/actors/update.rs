@@ -1522,8 +1522,8 @@ pub fn integrate_sim_bodies(
     // (below) overrides it per-body. Built once, cheaply copied.
     let editable_player_tuning = active_tuning.0;
     let player_feel = *feel_tuning;
-    let frame_dt = world_time.raw_dt;
-    let scaled_dt = world_time.scaled_dt;
+    let frame_dt = world_time.wall_dt();
+    let scaled_dt = world_time.sim_dt();
     for (
         player_entity,
         mut cluster_item,
@@ -2526,7 +2526,7 @@ pub fn tick_npc_idle_barks(
     character_catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>,
     mut state: Local<NpcIdleBarkState>,
 ) {
-    let dt = world_time.scaled_dt;
+    let dt = world_time.sim_dt();
     if dt <= 0.0 {
         return;
     }

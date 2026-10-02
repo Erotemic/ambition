@@ -128,7 +128,7 @@ fn census(rollback: bool, frames: usize) -> Census {
 #[ignore = "PROBE, print-only: panics to report its census. Preserved mid-investigation \
            (D71) when the run was paused; run explicitly with --ignored."]
 fn probe_d71_shipped_app_host() {
-    use ambition_app::app::{build_visible_app, shell_host, VisibleRenderMode};
+    use ambition_app::app::{build_visible_app, VisibleRenderMode};
     use ambition_platformer2d::game_shell::ShellCommand;
 
     let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
@@ -139,7 +139,7 @@ fn probe_d71_shipped_app_host() {
         app.update();
     }
     app.world_mut().write_message(ShellCommand::GoTo(
-        shell_host::AMBITION_GAMEPLAY_ROUTE.into(),
+        ambition_content::provider::AMBITION_GAMEPLAY_ROUTE.into(),
     ));
     let mut boundary = false;
     let mut ownership = String::from("<none>");

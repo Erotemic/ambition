@@ -271,7 +271,7 @@ pub fn advance_pet_beats(
     // The hearts are drawn in the live room of the body that pets.
     rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
 ) {
-    let dt = world_time.scaled_dt;
+    let dt = world_time.sim_dt();
     for (petter, mut beat) in &mut petters {
         let petted = ids.entity_of(&beat.petted);
         let pair = petted.and_then(|petted| bodies.get_many_mut([petter, petted]).ok());

@@ -661,7 +661,7 @@ pub mod sentry {
 
     /// Tick every sentry: age it out, and when its cadence is ready, fire one
     /// player-faction bolt at the nearest Enemy-faction actor within range. Runs on
-    /// `scaled_dt` (bullet-time slows the turret with everything else).
+    /// `sim_dt` (bullet-time slows the turret with everything else).
     ///
     /// The outer loop order is a gameplay decision. Two turrets firing on one
     /// tick write two `ProjectileSpawnRequest`s, and the materializer assigns the
@@ -698,7 +698,7 @@ pub mod sentry {
         mut projectiles: MessageWriter<ProjectileSpawnRequest>,
         mut sfx: ambition_sfx::BodySfxWriter,
     ) {
-        let dt = world_time.scaled_dt;
+        let dt = world_time.sim_dt();
         if dt <= 0.0 {
             return;
         }
@@ -965,7 +965,7 @@ pub mod vortex {
 
     /// Drag every Enemy-faction actor within [`VORTEX_RADIUS`] of each live well
     /// toward its center (a position lerp; the actor's `step_motion` next tick
-    /// resolves walls), then age the wells out. Runs on `scaled_dt`, so
+    /// resolves walls), then age the wells out. Runs on `sim_dt`, so
     /// bullet-time slows the gather.
     ///
     /// Overlapping wells do not commute. Each well lerps a fraction `f` toward
@@ -999,7 +999,7 @@ pub mod vortex {
             With<FeatureSimEntity>,
         >,
     ) {
-        let dt = world_time.scaled_dt;
+        let dt = world_time.sim_dt();
         if dt <= 0.0 {
             return;
         }

@@ -25,11 +25,8 @@ pub const AMBITION_LAUNCHER_ROUTE: &str = "ambition_launcher";
 #[derive(Resource, Default, Debug, Clone, Copy)]
 pub struct AmbitionShellHosted;
 
-/// Ambition gameplay provider identities temporarily re-exported by the host.
-/// TODO(compat-remove): migrate callers to `ambition_content::provider`, then
-/// remove this host-level re-export.
-pub use ambition_content::provider::{
-    AmbitionExperienceConfig, AmbitionExperiencePlugin, AmbitionPreparedWorld, AMBITION_EXPERIENCE,
+use ambition_content::provider::{
+    AmbitionExperienceConfig, AmbitionExperiencePlugin, AMBITION_EXPERIENCE,
     AMBITION_GAMEPLAY_ROUTE,
 };
 

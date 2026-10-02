@@ -45,10 +45,7 @@ fn catalog() -> CharacterCatalog {
 fn app() -> App {
     let mut app = App::new();
     app.insert_resource(catalog());
-    app.insert_resource(ambition_time::WorldTime {
-        scaled_dt: 1.0 / 60.0,
-        ..Default::default()
-    });
+    app.insert_resource(ambition_time::WorldTime::new(0.0, 1.0 / 60.0));
     app.add_message::<PetRequested>();
     app.add_message::<VfxInRoom>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();

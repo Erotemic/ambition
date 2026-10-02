@@ -245,7 +245,7 @@ pub fn advance_gameplay_elapsed(
     mut elapsed: bevy::prelude::ResMut<GameplayElapsed>,
     world_time: bevy::prelude::Res<ambition_time::WorldTime>,
 ) {
-    elapsed.0 += world_time.scaled_dt;
+    elapsed.0 += world_time.sim_dt();
 }
 
 /// Advance each body's diagnostic [`ae::BodyLifeStats`].
@@ -261,7 +261,7 @@ pub fn track_body_life_stats(
             stats.resets += 1;
             stats.time_alive = 0.0;
         } else {
-            stats.time_alive += world_time.scaled_dt;
+            stats.time_alive += world_time.sim_dt();
         }
     }
 }
@@ -1524,10 +1524,7 @@ mod sim_clock_tests {
     #[test]
     fn gameplay_clock_accumulates_scaled_dt() {
         let mut app = App::new();
-        app.insert_resource(ambition_time::WorldTime {
-            raw_dt: 1.0 / 60.0,
-            scaled_dt: 1.0 / 60.0,
-        });
+        app.insert_resource(ambition_time::WorldTime::new(1.0 / 60.0, 1.0 / 60.0));
         app.init_resource::<GameplayElapsed>();
         app.add_systems(Update, advance_gameplay_elapsed);
 
@@ -1540,12 +1537,9 @@ mod sim_clock_tests {
             "three ticks at 1/60 s must accumulate 3/60 s; got {elapsed}"
         );
 
-        // Paused (scaled_dt == 0) the clock freezes — reaction latency, hitstun,
+        // Paused (sim_dt == 0) the clock freezes — reaction latency, hitstun,
         // and every other sim timer that reads it stop together.
-        app.insert_resource(ambition_time::WorldTime {
-            raw_dt: 1.0 / 60.0,
-            scaled_dt: 0.0,
-        });
+        app.insert_resource(ambition_time::WorldTime::new(1.0 / 60.0, 0.0));
         app.update();
         let after_pause = app.world().resource::<GameplayElapsed>().0;
         assert_eq!(
@@ -1566,10 +1560,7 @@ mod body_life_stats_tests {
     #[test]
     fn a_restart_is_counted_once_and_restarts_the_clock() {
         let mut app = App::new();
-        app.insert_resource(ambition_time::WorldTime {
-            raw_dt: 0.5,
-            scaled_dt: 0.5,
-        });
+        app.insert_resource(ambition_time::WorldTime::new(0.5, 0.5));
         app.add_systems(
             Update,
             (track_body_life_stats, ae::announce_body_restarts).chain(),

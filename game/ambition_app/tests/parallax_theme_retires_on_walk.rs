@@ -30,7 +30,7 @@
 
 use bevy::prelude::*;
 
-use ambition_app::app::{build_visible_app, shell_host, VisibleRenderMode};
+use ambition_app::app::{build_visible_app, VisibleRenderMode};
 use ambition_platformer2d::game_shell::ShellCommand;
 use ambition_platformer2d::sprite_sheet::game_assets::{
     GameAssets, ParallaxLayerAsset, ParallaxTheme,
@@ -88,7 +88,7 @@ fn a_theme_the_player_walked_away_from_leaves_assets_image() {
     settle(&mut app, 240);
 
     app.world_mut().write_message(ShellCommand::GoTo(
-        shell_host::AMBITION_GAMEPLAY_ROUTE.into(),
+        ambition_content::provider::AMBITION_GAMEPLAY_ROUTE.into(),
     ));
     settle(&mut app, 600);
 

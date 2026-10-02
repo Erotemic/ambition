@@ -14,8 +14,8 @@ fn app_with_dt(dt: f32) -> App {
         let mut time = app
             .world_mut()
             .resource_mut::<ambition_platformer2d::time::WorldTime>();
-        time.scaled_dt = dt;
-        time.raw_dt = dt;
+        time.set_sim_dt(dt);
+        time.set_wall_dt(dt);
     }
     app.init_resource::<CapturedBlasts>();
     app.init_resource::<ambition_platformer2d::sim_view::BodyClocksView>();

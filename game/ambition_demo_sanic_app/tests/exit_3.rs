@@ -167,7 +167,7 @@ fn the_demos_own_rules_run_because_its_room_claims_its_mode() {
     // slow everything else.
     assert!(
         (end - start - 60.0 * TICK_DT).abs() < 1e-3,
-        "the act timer runs on `WorldTime::scaled_dt`: expected +{}, got +{}",
+        "the act timer runs on `WorldTime::sim_dt`: expected +{}, got +{}",
         60.0 * TICK_DT,
         end - start
     );

@@ -12,8 +12,8 @@ fn app() -> App {
     let mut time = app
         .world_mut()
         .resource_mut::<ambition_platformer2d::time::WorldTime>();
-    time.scaled_dt = 1.0 / 60.0;
-    time.raw_dt = 1.0 / 60.0;
+    time.set_sim_dt(1.0 / 60.0);
+    time.set_wall_dt(1.0 / 60.0);
     app.add_systems(Update, burn_fuses_and_answer_impacts);
     app
 }

@@ -1,7 +1,7 @@
 //! Animation enum + per-actor animation pickers.
 //!
 //! `CharacterAnim` is the union of all animation rows a character sheet can
-//! define. The boss has its own row set (`boss_encounter::sprites::BossAnim`).
+//! define. The boss has its own row set (`ambition_sprite_sheet::boss::BossAnim`).
 //! A sheet need not define every row: `CharacterSheetSpec::resolve_anim` falls
 //! back for rows the sheet does not have.
 

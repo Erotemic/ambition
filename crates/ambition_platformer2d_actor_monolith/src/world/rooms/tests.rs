@@ -229,10 +229,7 @@ fn a_fast_body_cannot_tunnel_a_walk_loading_zone() {
     app.init_resource::<SlotInteractionState>();
     app.init_resource::<Captured>();
     // A 60 fps frame; the body crosses the whole zone within it.
-    app.insert_resource(ambition_time::WorldTime {
-        scaled_dt: 1.0 / 60.0,
-        ..Default::default()
-    });
+    app.insert_resource(ambition_time::WorldTime::new(0.0, 1.0 / 60.0));
     app.init_resource::<crate::session::lifecycle_commit::PendingLifecycleCommit>();
     app.add_systems(Update, (detect_room_transition_system, capture).chain());
 
@@ -378,10 +375,7 @@ fn a_body_stopped_at_the_boundary_still_crosses_the_zone_it_walked_into() {
         app.init_resource::<GatePortalPhases>();
         app.init_resource::<SlotInteractionState>();
         app.init_resource::<Captured>();
-        app.insert_resource(ambition_time::WorldTime {
-            scaled_dt: 1.0 / 60.0,
-            ..Default::default()
-        });
+        app.insert_resource(ambition_time::WorldTime::new(0.0, 1.0 / 60.0));
         app.init_resource::<crate::session::lifecycle_commit::PendingLifecycleCommit>();
         app.add_systems(Update, (detect_room_transition_system, capture).chain());
 
@@ -974,10 +968,7 @@ fn a_rewind_across_the_portal_opening_window_restores_the_confirmed_phase() {
         let mut save = ambition_persistence::save::AmbitionGameSave::default();
         save.data_mut().set_switch("gate_switch", true);
         app.insert_resource(save);
-        app.insert_resource(ambition_time::WorldTime {
-            scaled_dt: DT,
-            ..Default::default()
-        });
+        app.insert_resource(ambition_time::WorldTime::new(0.0, DT));
         app.add_systems(Update, tick_portal_phases_system);
         app
     }

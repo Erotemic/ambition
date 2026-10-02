@@ -32,10 +32,10 @@ fn boss_strike_spawns_a_boss_hitbox_through_the_moveset() {
     app.init_resource::<ambition_time::WorldTime>();
     app.world_mut()
         .resource_mut::<ambition_time::WorldTime>()
-        .scaled_dt = 0.016;
+        .set_sim_dt(0.016);
     app.world_mut()
         .resource_mut::<ambition_time::WorldTime>()
-        .raw_dt = 0.016;
+        .set_wall_dt(0.016);
     app.add_message::<ambition_combat::moveset::MoveEventMessage>();
     app.add_message::<ambition_vfx::vfx::VfxInRoom>();
     app.add_systems(

@@ -1156,11 +1156,7 @@ fn a_player_in_either_live_room_starts_only_that_rooms_encounter() {
         app.add_message::<ambition_combat::death_rules::ActorDiedMessage>();
         app.add_message::<ambition_encounter::EncounterCommand>();
         app.add_message::<ambition_encounter::EncounterEventMsg>();
-        app.insert_resource(ambition_time::WorldTime {
-            raw_dt: 1.0 / 60.0,
-            scaled_dt: 1.0 / 60.0,
-            ..Default::default()
-        });
+        app.insert_resource(ambition_time::WorldTime::new(1.0 / 60.0, 1.0 / 60.0));
         app.init_resource::<ambition_persistence::save::AmbitionGameSave>();
         app.init_resource::<ambition_encounter::switches::ResolvedSwitchActivations>();
         app.insert_resource(switch_index(&[]));
@@ -1238,11 +1234,7 @@ fn a_death_fails_only_the_encounter_of_its_own_live_room() {
         app.add_message::<ambition_combat::death_rules::ActorDiedMessage>();
         app.add_message::<ambition_encounter::EncounterCommand>();
         app.add_message::<ambition_encounter::EncounterEventMsg>();
-        app.insert_resource(ambition_time::WorldTime {
-            raw_dt: 1.0 / 60.0,
-            scaled_dt: 1.0 / 60.0,
-            ..Default::default()
-        });
+        app.insert_resource(ambition_time::WorldTime::new(1.0 / 60.0, 1.0 / 60.0));
         app.init_resource::<ambition_persistence::save::AmbitionGameSave>();
         app.init_resource::<ambition_encounter::switches::ResolvedSwitchActivations>();
         app.insert_resource(switch_index(&[]));
@@ -1348,11 +1340,7 @@ fn two_live_rooms_of_one_room_run_their_encounters_apart() {
     app.add_message::<ambition_combat::death_rules::ActorDiedMessage>();
     app.add_message::<EncounterCommand>();
     app.add_message::<EncounterEventMsg>();
-    app.insert_resource(ambition_time::WorldTime {
-        raw_dt: 1.0 / 60.0,
-        scaled_dt: 1.0 / 60.0,
-        ..Default::default()
-    });
+    app.insert_resource(ambition_time::WorldTime::new(1.0 / 60.0, 1.0 / 60.0));
     app.insert_resource(ambition_platformer2d_shared_tangle::time::SimDt { dt: 1.0 / 60.0 });
     app.init_resource::<ambition_persistence::save::AmbitionGameSave>();
     app.init_resource::<ambition_encounter::switches::ResolvedSwitchActivations>();
@@ -1503,11 +1491,7 @@ fn liveness_by_room(dead: usize) -> Vec<(Option<ambition_platformer2d_shared_tan
     app.add_message::<ambition_combat::death_rules::ActorDiedMessage>();
     app.add_message::<EncounterCommand>();
     app.add_message::<EncounterEventMsg>();
-    app.insert_resource(ambition_time::WorldTime {
-        raw_dt: 1.0 / 60.0,
-        scaled_dt: 1.0 / 60.0,
-        ..Default::default()
-    });
+    app.insert_resource(ambition_time::WorldTime::new(1.0 / 60.0, 1.0 / 60.0));
     app.insert_resource(ambition_platformer2d_shared_tangle::time::SimDt { dt: 1.0 / 60.0 });
     app.init_resource::<ambition_persistence::save::AmbitionGameSave>();
     app.init_resource::<ambition_encounter::switches::ResolvedSwitchActivations>();

@@ -23,10 +23,7 @@ fn drain_mana(app: &mut App, body: Entity, amount: f32) {
 
 fn mana_regen_app(dt: f32, policy: Option<f32>) -> App {
     let mut app = App::new();
-    app.insert_resource(ambition_time::WorldTime {
-        raw_dt: dt,
-        scaled_dt: dt,
-    });
+    app.insert_resource(ambition_time::WorldTime::new(dt, dt));
     if let Some(per_second) = policy {
         app.insert_resource(PlayerManaRegen(per_second));
     }

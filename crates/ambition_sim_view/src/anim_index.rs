@@ -88,6 +88,10 @@ pub struct ActorAnimFrame {
     /// The side the body is DRAWN toward ([`ae::mirror_side`]), not its facing:
     /// an [`ae::Unmirrored`] body reads `+1` while it faces left.
     pub facing: f32,
+    /// The body's own toward-feet direction, from its resolved frame (the
+    /// default down for a body with none). The facing flip reads it, so the
+    /// render does not resolve gravity a second time.
+    pub gravity_dir: ae::Vec2,
     /// The authored clip the body's ACTIVE MOVE asks to be drawn as, with
     /// its fallbacks, or `None` when no move is playing.
     ///
@@ -352,6 +356,7 @@ pub fn rebuild_actor_anim_index(mut index: ResMut<ActorAnimIndex>, actors: Query
                 }),
                 pos: a.kin.pos,
                 facing: ae::mirror_side(a.kin.facing, a.unmirrored),
+                gravity_dir: a.frame.map_or(ae::DEFAULT_GRAVITY_DIR, |f| f.down()),
                 // what the ACTIVE MOVE asks to be drawn as. The move's own
                 // timeline is authoritative for presentation as well as
                 // gameplay, so this is the move speaking, not a guess about it.
@@ -451,6 +456,9 @@ pub struct BossFrameView {
     /// The boss's combat AABB (debug health bars anchor here).
     pub aabb: ae::Aabb,
     pub hazard_lane: Option<HazardLaneFact>,
+    /// The boss's own toward-feet direction, from its resolved frame (the
+    /// default down for a boss with none). The facing flip reads it.
+    pub gravity_dir: ae::Vec2,
 }
 
 impl BossFrameIndex {
@@ -505,12 +513,13 @@ pub fn rebuild_boss_frame_index(
         // still lands in the index (it just draws Rest frame 0).
         Option<&ambition_boss_encounter::sprites::BossAnimFrame>,
         Option<&ambition_sprite_sheet::character::PinnedRow>,
+        Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
     )>,
 ) {
     use ambition_boss_encounter::sprites::BossAnim;
     use ambition_characters::brain::BossAttackProfile;
     index.begin_rebuild();
-    for (id, feature, health, combat, attack_state, brain, anim_frame, pinned) in &bosses {
+    for (id, feature, health, combat, attack_state, brain, anim_frame, pinned, frame) in &bosses {
         let boss = feature.as_boss_ref();
         let anim = boss_anim_state_for(boss, health.alive(), attack_state, brain);
         let (cursor_anim, cursor_frame) = anim_frame
@@ -558,6 +567,7 @@ pub fn rebuild_boss_frame_index(
                 },
                 aabb: boss.aabb(),
                 hazard_lane,
+                gravity_dir: frame.map_or(ae::DEFAULT_GRAVITY_DIR, |f| f.down()),
             },
         );
     }

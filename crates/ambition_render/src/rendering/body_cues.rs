@@ -338,6 +338,7 @@ mod tests {
                         conversation_held: false,
                         pos: ambition_platformer2d_core::Vec2::ZERO,
                         facing: 1.0,
+                        gravity_dir: ambition_platformer2d_core::DEFAULT_GRAVITY_DIR,
                         clip: None,
                         smash_charge: Some(*charge),
                     },

@@ -85,28 +85,45 @@ pub struct ForceZone {
 /// one resource. Rebuilt by [`collect_force_zones`] in the zone-snapshot phase.
 #[derive(Resource, Default, Clone, Debug)]
 pub struct ForceZones {
-    pub zones: Vec<(ambition_platformer2d_core::Aabb, Vec2)>,
+    /// `(region, acceleration, live room)`: a force zone acts only on the
+    /// bodies of its own live room, by the rule gravity zones use
+    /// ([`crate::gravity::zone_acts_in`]).
+    pub zones: Vec<(
+        ambition_platformer2d_core::Aabb,
+        Vec2,
+        Option<crate::lifecycle::LiveRoomInstance>,
+    )>,
 }
 
 impl ForceZones {
-    /// Sum of the world-space acceleration contributions grabbing `body` (the
-    /// same body-overlap rule gravity zones use).
-    pub fn accel_for(&self, body: ambition_platformer2d_core::Aabb) -> Vec2 {
+    /// Sum of the world-space acceleration contributions grabbing `body`, a
+    /// body of live room `room` (the same body-overlap rule gravity zones use).
+    pub fn accel_for(
+        &self,
+        room: Option<crate::lifecycle::LiveRoomInstance>,
+        body: ambition_platformer2d_core::Aabb,
+    ) -> Vec2 {
         self.zones
             .iter()
-            .filter(|(aabb, _)| body.strict_intersects(*aabb))
-            .map(|(_, accel)| *accel)
+            .filter(|(aabb, _, zone_room)| {
+                crate::gravity::zone_acts_in(*zone_room, room) && body.strict_intersects(*aabb)
+            })
+            .map(|(_, accel, _)| *accel)
             .sum()
     }
 }
 
 /// Rebuild the [`ForceZones`] snapshot from live components. Scheduled with the
 /// gravity-zone snapshot, before the frame resolution phase.
-pub fn collect_force_zones(mut snapshot: ResMut<ForceZones>, zones: Query<&ForceZone>) {
+pub fn collect_force_zones(
+    mut snapshot: ResMut<ForceZones>,
+    live: crate::lifecycle::LiveRooms,
+    zones: Query<(Entity, &ForceZone)>,
+) {
     snapshot.zones.clear();
     snapshot
         .zones
-        .extend(zones.iter().map(|z| (z.aabb, z.accel)));
+        .extend(zones.iter().map(|(entity, z)| (z.aabb, z.accel, live.of(entity))));
 }
 
 /// The frame resolution phase: publishes every integrated body's
@@ -139,14 +156,15 @@ impl FrameEnv<'_> {
     pub fn resolve(
         &self,
         body: ambition_platformer2d_core::Aabb,
+        room: Option<crate::lifecycle::LiveRoomInstance>,
         gravity_response: f32,
     ) -> MotionFrame {
-        let dir = self.gravity.dir_for(body);
+        let dir = self.gravity.dir_for(room, body);
         let gravity_acceleration = dir * gravity_response.max(0.0);
         let external_acceleration = self
             .forces
             .as_deref()
-            .map(|forces| forces.accel_for(body))
+            .map(|forces| forces.accel_for(room, body))
             .unwrap_or(Vec2::ZERO);
         MotionFrame::with_accelerations(
             AccelerationFrame::new(dir),
@@ -179,7 +197,50 @@ mod tests {
         let mut state: bevy::ecs::system::SystemState<FrameEnv> =
             bevy::ecs::system::SystemState::new(app.world_mut());
         let env = state.get(app.world()).expect("frame env params");
-        env.resolve(body, response)
+        env.resolve(body, None, response)
+    }
+
+    /// OW1: two live rooms, and a gravity zone and a force zone stamped into
+    /// the first. A body of the first room in their region is turned and
+    /// pushed; a body of the second room at the same place stands under the
+    /// ambient with no push.
+    #[test]
+    fn a_zone_acts_only_on_the_bodies_of_its_own_live_room() {
+        use crate::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
+        let mut app = env_app();
+        let first = LiveRoomInstance::ACTIVATION;
+        let second = first.next();
+        for room in [first, second] {
+            app.world_mut().spawn((RoomInstanceRoot, room));
+        }
+        let region = Aabb::new(Vec2::new(100.0, 0.0), Vec2::new(50.0, 50.0));
+        app.world_mut().spawn((
+            GravityZone { aabb: region, dir: Vec2::new(-1.0, 0.0) },
+            InRoomInstance(first),
+        ));
+        app.world_mut().spawn((
+            ForceZone { aabb: region, accel: Vec2::new(0.0, -300.0) },
+            InRoomInstance(first),
+        ));
+        app.update();
+        let body = Aabb::new(Vec2::new(100.0, 0.0), Vec2::new(10.0, 10.0));
+        let resolve = |app: &mut App, room| {
+            let mut state: bevy::ecs::system::SystemState<FrameEnv> =
+                bevy::ecs::system::SystemState::new(app.world_mut());
+            let env = state.get(app.world()).expect("frame env params");
+            let frame = env.resolve(body, room, 900.0);
+            (frame.down(), frame.external_acceleration())
+        };
+        assert_eq!(
+            resolve(&mut app, Some(first)),
+            (Vec2::new(-1.0, 0.0), Vec2::new(0.0, -300.0)),
+            "a body of the zones' own room"
+        );
+        assert_eq!(
+            resolve(&mut app, Some(second)),
+            (Vec2::new(0.0, 1.0), Vec2::ZERO),
+            "a body of the other live room at the same place"
+        );
     }
 
     #[test]

@@ -2511,10 +2511,39 @@ well had no stamp.
 session-wide snapshot whose rows are `(region, direction)` with no room,
 and the resolvers ask it by position. So a gravity zone of one live room
 turns the gravity of a body at the same position in another (the
-grenade's well too; its stamp is for the view and the retirement only). `PlayerMark` records a position with no room, and a
+grenade's well too; its stamp is for the view and the retirement only).
+✅ Closed the same day (below, "Gravity and force zones act in their own
+live room"). `PlayerMark` records a position with no room, and a
 crossing does not clear it, so a recall goes to that position in whatever
 room the body is in (so with one live room too). Whether a mark is
 cleared by a crossing, or carries its room, is a design question.
+
+✅ **Gravity and force zones act in their own live room (2026-10-02).**
+Each `GravityZones` and `ForceZones` row carries its zone's live room
+(`LiveRooms::of` the zone entity: an authored column's construction stamp,
+a grenade well's spawn scope). Every resolver takes the body's room:
+`FrameEnv::resolve(aabb, room, response)`, which
+`resolve_body_motion_frames` calls with `LiveRooms::of` the body, and
+`GravityCtx::dir_for/dir_at(room, ..)` for free bodies (items, a thrown
+item's launch, shots, portal transit, the actor roll). One rule,
+`gravity::zone_acts_in`, keeps a zone and a body apart only when both
+rooms are known and differ, so the one-room profile is unchanged. The
+actor and boss sprite flips now read the body's resolved frame
+(`ActorAnimFrame::gravity_dir`, `BossFrameView::gravity_dir`) instead of
+resolving gravity a second time. Witnesses:
+`a_zone_acts_only_on_the_bodies_of_its_own_live_room` (frame env: a
+gravity zone and a force zone in the first of two rooms),
+`a_gravity_zone_turns_only_the_bodies_of_its_own_live_room` (the frame
+resolution phase: Alice in the column's room is turned, Bob in the other
+is not; control: a body whose room cannot be told feels it), and in the
+app `a_gravity_well_lifts_only_the_bodies_of_its_own_live_room` (Alice
+holds the hub, Bob `switch_lab`; an up-well at Bob's place stamped into
+the hub leaves him falling down; control: stamped into his own room it
+turns him). Poisons, each failed at the subject: the rule always true
+(all three), gravity rows with no room, force rows with no room (only the
+push leaked), the resolver given no body room.
+⚠ Still session-wide: the ambient `BaseGravity` (one direction for every
+live room).
 
 ✅ **V2o landed 2026-10-02: the launch trail, the dizzy stars and the
 knockout beat are drawn in their body's room.** `LaunchedBodyFact` and

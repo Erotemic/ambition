@@ -252,8 +252,6 @@ pub fn animate_characters(
     // Per-actor pose read-model, built by `rebuild_actor_anim_index` just before
     // this system. The renderer does not borrow live actor clusters.
     anim_index: Res<ambition_sim_view::ActorAnimIndex>,
-    // Localized gravity, so a wall-walking or ceiling actor flips correctly.
-    gravity: ambition_platformer2d_shared_tangle::gravity::GravityCtx,
 ) {
     // ADR 0011: per-entity proper time on the presentation clock. No SP entity
     // carries `ProperTimeScale` yet, so every actor ticks at the world rate.
@@ -282,7 +280,9 @@ pub fn animate_characters(
             barking,
             dt,
             frame.facing,
-            gravity.dir_at(frame.pos),
+            // The body's own resolved down, so a wall-walking or ceiling
+            // actor flips correctly.
+            frame.gravity_dir,
             Color::WHITE,
             // Enemies and NPCs do not use the stance squash.
             StanceSquash::NONE,

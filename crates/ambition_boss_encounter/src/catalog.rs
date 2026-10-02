@@ -150,14 +150,15 @@ impl BossCatalog {
     }
 
     /// The content-authored sheet for `key`, else the provider's fallback
-    /// sheet, else the engine's one default layout (`BOSS_SHEET`) for a
-    /// catalog that authors no sheets.
+    /// sheet, else the unauthored layout
+    /// ([`BossSheetSpec::unauthored`](ambition_sprite_sheet::boss::BossSheetSpec::unauthored))
+    /// for a catalog that authors no sheets.
     pub fn sheet_for_key(&self, key: &str) -> BossSheetSpec {
         self.sheets
             .get(key)
             .or_else(|| self.sheets.get(self.fallback_sheet_key()?))
             .cloned()
-            .unwrap_or_else(|| (*ambition_sprite_sheet::boss::BOSS_SHEET).clone())
+            .unwrap_or_else(ambition_sprite_sheet::boss::BossSheetSpec::unauthored)
     }
 
     /// Resolve render geometry for a live behavior. Providers usually key a
@@ -167,7 +168,7 @@ impl BossCatalog {
     /// key, so generator record names do not accidentally replace behavior ids.
     pub fn sheet_for_behavior(&self, behavior: &BossBehaviorProfile) -> BossSheetSpec {
         self.worn_sheet_key(behavior).map_or_else(
-            || (*ambition_sprite_sheet::boss::BOSS_SHEET).clone(),
+            ambition_sprite_sheet::boss::BossSheetSpec::unauthored,
             |key| self.sheet_for_key(key),
         )
     }
@@ -976,6 +977,31 @@ mod tests {
             catalog.sheet_for_behavior(&rider),
             catalog.sheet_for_key("giant_gnu"),
             "an explicit authored sheet target overrides the provider fallback"
+        );
+    }
+
+    /// A catalog that authors no sheet gives the unauthored layout, and that
+    /// layout is not the layout of an authored sheet. The engine held a copy
+    /// of the gradient sentinel's layout as its default, so that layout had
+    /// two readers: the constant and `boss_sheets.ron`.
+    #[test]
+    fn a_boss_with_no_authored_sheet_wears_the_unauthored_layout() {
+        use ambition_sprite_sheet::boss::BossSheetSpec;
+        let empty = BossCatalog::default();
+        let worn = empty.sheet_for_key("no_such_sheet");
+        let size = worn.render_size(bevy::math::Vec2::new(50.0, 80.0));
+        let catalog = test_boss_catalog();
+        let copies: Vec<&String> = catalog
+            .sheets
+            .iter()
+            .filter(|(_, sheet)| **sheet == BossSheetSpec::unauthored())
+            .map(|(key, _)| key)
+            .collect();
+        assert_eq!(
+            (worn == BossSheetSpec::unauthored(), (size.x, size.y), catalog.sheets.len(), copies),
+            (true, (80.0, 80.0), 7, Vec::<&String>::new()),
+            "(an empty catalog gives the unauthored layout, its size for a 50 x 80 body, the \
+             authored sheets read, the authored sheets equal to the unauthored layout)"
         );
     }
 

@@ -46,13 +46,14 @@ pub fn sprite_target_for_boss<'a>(
 /// boss's spawn / collision size and its sprite target.
 ///
 /// The visible sprite is rendered at `max(size) * collision_scale`, where
-/// `collision_scale` is per sheet (for example 1.6 for the clockwork /
-/// gradient sentinel `BOSS_SHEET`, 1.25 for the mockingbird, 4.5 for
-/// GNU-ton). The hurtbox/hitbox math needs this value, not `boss.size`, as
-/// the world scale, so the boxes cover the visible body.
+/// `collision_scale` is per sheet (for example 1.6 for the gradient
+/// sentinel's sheet, which the clockwork warden wears, 1.25 for the
+/// mockingbird, 4.5 for GNU-ton). The hurtbox/hitbox math needs this value,
+/// not `boss.size`, as the world scale, so the boxes cover the visible body.
 ///
-/// Unknown targets get a 1.0 scale (the sprite renders at `boss.size`), for
-/// test fixtures and bosses without a registered sheet.
+/// A boss with no authored sheet and no provider fallback gets the unauthored
+/// layout: a 1.0 scale, so the sprite renders at the larger dimension of
+/// `boss.size`.
 pub fn sprite_render_size_for(
     catalog: &crate::BossCatalog,
     behavior: &crate::pattern::profile::BossBehaviorProfile,

@@ -28,13 +28,9 @@ gets a unique silhouette and a personality; the cryptographic
 inspiration shows up in name, palette, prop, and dialog rather than in
 literal job titles.
 
-> ✔ **RE-VERIFIED 2026-09-03, three and a half months on: the roster is real and
-> fully realised.** All thirteen names are entries in
-> `game/ambition_content/assets/data/character_catalog.ron`, and all thirteen have
-> spritesheet art on disk. Alice and Bob reach further into content than the other
-> eleven — movesets, dialogue — but none of the crew is a name without a
-> character behind it. ⇒ The page describes a cast that exists, so its
-> anti-stereotype rules below are live art direction rather than aspiration.
+All thirteen are entries in
+`game/ambition_content/assets/data/character_catalog.ron` and have spritesheet
+art. Alice and Bob also have movesets and dialogue.
 
 ## Anti-stereotype rule
 
@@ -55,7 +51,7 @@ These characters are a *fun crew*, not a 1990s textbook diagram. Avoid:
 
 Lean into the names as character ideas, not as job descriptions.
 
-## Batch 1 — landed (2026-05-21)
+## Batch 1
 
 These six have review configs in `configs/review/` and render into
 `crates/ambition_platformer2d_actor_monolith/assets/sprites/` via `draw-runtime-npcs`. Bob, Alice,
@@ -73,8 +69,8 @@ shared toon target.
 
 The pair (Bob ↔ Alice), the eavesdropper (Eve), the attacker
 (Mallory), the arbitrator (Trent), and the judge (Judy) cover the
-core protocol vocabulary on their own — they're a self-sufficient
-storytelling unit even before the second batch lands.
+core protocol vocabulary on their own; they are a self-sufficient
+storytelling unit.
 
 ### Why these six first
 
@@ -110,7 +106,7 @@ Current spread (skin → hair):
 - Peggy: rich brown `#97694A` → black ponytail
 - Sybil: deep brown `#6B4530` → black braids
 
-## Batch 2 — landed (sketches)
+## Batch 2 (toon sketches)
 
 Seven first-pass sketches on the toon template. Each may be
 promoted to a bespoke template (like trent_elder / bob_engineer /

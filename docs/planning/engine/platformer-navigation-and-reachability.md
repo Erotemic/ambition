@@ -40,8 +40,8 @@ Substrate locations: `RecoveryLens`
 `CollisionWorld` questions `solids`, `carves_only`, `hostable_surfaces` and
 `base` (`crates/ambition_platformer2d_world/src/collision.rs`).
 
-**No navigation exists** (checked 2026-09-05): no reachability type, nav graph
-or pathfinding in `crates/` or `game/`. Search hits for `navigation` are menu
+**No navigation exists:** no reachability type, nav graph or pathfinding in
+`crates/` or `game/`. Search hits for `navigation` are menu
 navigation, and `a_star` and `reachability` hits are substrings. This page is
 also the one missing foundation for
 [`agentic-character-runtime.md`](agentic-character-runtime.md).
@@ -58,74 +58,25 @@ only, not physical reachability. It has no production reader yet. So:
   `ambition_encounter_features/src/lock_walls.rs`) until something reads the
   first.
 
-## ✔ THE ROOM GRAPH IS NAVIGABLE, measured 2026-09-05 — a POSITIVE verdict
+## The room graph is navigable by its doors
 
-⭐ **Written down because an unmeasured row and a satisfied one look identical in
-a summary.** Across the four shipped worlds:
+`scripts/check_world_graph_is_navigable.py` checks the shipped worlds: every
+`LoadingZone` targets a real area, and no area can be entered but not left. The
+engine's own response to a dangling target is a build-time `eprintln!` on a door
+that then does nothing, so the script is the guard.
 
-```text
-areas (activeArea, falling back to the level id)   72
-directed room edges                               150
-LoadingZones with a target                        151
-   of those, authoring `bidirectional`            122
-doors targeting a room that is not an area          0
-areas you can ENTER but not LEAVE                   0
-```
+- An area is a level's `activeArea` (camelCase), falling back to the level id.
+  The script verifies the key against `LdtkLevel::raw_active_area`.
+- `RoomLink.bidirectional` is authored on most zones. Read LDtk through a
+  structured `fieldInstances` parse; a Rust/RON text matcher cannot read it.
+- The predicate is "a door is a `LoadingZone`". Portals are not modeled. No
+  shipped portal pair spans two areas, and the script fails (with a control
+  arm) if one does. When that happens, teach the check about portal pairs.
+- The script reads the map submodule through symlinks. It exits 3 and skips
+  when the submodule is absent, so it is not evidence between two machines.
 
-⇒ Every authored door leads to a real area and nothing is a one-way trap. Guarded
-by `scripts/check_world_graph_is_navigable.py`, because the engine's own response
-to a dangling target is `eprintln!("room graph warning: unknown target room …")`
-— a build-time warning nobody reads, on a door that then silently does nothing.
-
-⛔⛔ **AND `RoomLink.bidirectional` IS NOT DORMANT — the dormant-mode census could
-not read LDtk.** 122 of 151 zones set it. The census matcher is Rust/RON syntax
-(`field: true`) and LDtk is JSON with the name and value in DIFFERENT KEYS, so
-`sandbox.ldtk` mentions `bidirectional` 124 times and matched ZERO times. Fixed
-with a structured `fieldInstances` parse. ⇒ **A corpus that is present but
-unreadable by the matcher is worse than an absent one: it looks like coverage.**
-
-⚠ **THE KEY IS `activeArea`, camelCase, and getting it wrong is invisible.**
-Keying on the level identifier invents areas and reports their cross-area doors
-as dangling; keying on `active_area` matches nothing and falls back to
-identifiers everywhere, which looks the same as working. I produced BOTH false
-findings before the script existed, which is why it verifies the key against
-`LdtkLevel::raw_active_area` rather than commenting it.
-
-⚠ This gate reads the map SUBMODULE through symlinks, so it exits 3 and SKIPS
-when the submodule is absent, and **cannot be evidence between two machines** —
-two boxes at the same commit can hold different worlds (#62).
-
-### ⭐⭐ THE VERDICT'S PREDICATE IS "A DOOR IS A `LoadingZone`", AND IT IS NOW ASSERTED
-
-**MEASURED 2026-09-05.** The claim above is exactly as large as what it counted,
-and what it counted is loading zones. A PORTAL is also a way between two places
-and this check does not model one, so the honest form of the verdict is *"no area
-is a trap **by the doors**"*.
-
-That bound is complete today, and the number says why rather than asserting it:
-
-```text
-authored Portal entities                            14
-portal groups (keyed by the `link` field)            7
-   of those, groups spanning MORE THAN ONE area      0
-   of those, falling back to `iid` (ungrouped)       0
-```
-
-⇒ Every group is a real PAIR — none is a singleton that could never span — so all
-seven are genuine candidates and none crosses an area. The predicate has no blind
-spot in the shipped content.
-
-⛔⛔ **But that is a fact with an expiry date, so the script FAILS on it rather
-than commenting it.** A cross-area portal breaks the verdict in BOTH directions at
-once: an area whose only exit is that portal reads as a trap it is not, and a
-connection the player can really use is missing from the graph. The new arm names
-what to do (teach the check about portal pairs) instead of just going red, and it
-ships with the control arm — without one, the guard would fire on every world that
-authors a portal at all, and all four do.
-
-⭐ The general shape, which cost two false findings on this page already: **audit
-the PREDICATE, not only the corpus.** `bidirectional` above was a matcher that
-could not read its corpus; this is a corpus the matcher never asked for.
+Audit the predicate, not only the corpus. A corpus the matcher cannot read
+looks like coverage.
 
 ## Important correction from fighter measurements
 
@@ -184,33 +135,15 @@ Promote focused work from one of these:
 2. persistent/open-world actors need room-to-room route reasoning;
 3. portal/gravity/moving-platform traversal exposes duplicated reachability
    logic;
-4. authoring/inspection needs to explain why a route is unreachable;
-   ⭐⭐ **THIS CUSTOMER ACQUIRED ITS EVIDENCE 2026-09-04, and the interesting
-   part is that the ANSWER exists while the QUESTION has no asker.** A route can
-   now be closed by a body capability — `body.can(verb)` and `body.fits(height)`
-   are published conditions and `gated_by` is an authored condition line — and
-   when a wall stands, the domain that refused it states why:
-   `GatedLockWallVerdicts::why_standing(wall)` returns the structured
-   `WhyNot { term, subject, observed }`, derived and keyed by wall id.
-   ⛔ **And nothing in production reads it.** Measured the same day: that
-   resource has no production reader, and `AgentObservation`
-   (`ambition_sim_harness/src/observation.rs`) carries body state only —
-   position, velocity, ability charges, health — with no world-gate field at
-   all. ⇒ An agent driving the harness cannot learn that a wall is standing, let
-   alone why, which is exactly the product criterion
-   [`../game/open-world-roadmap.md`](../game/open-world-roadmap.md) still marks
-   `▢`: *"navigate enough of the world that AI and agent tooling can reason
-   about routes."*
-   ⇒ **So the navigation slice this page is waiting for is smaller than a
-   planner:** the reachability facts a tool needs are already computed and
-   already structured; what is missing is a surface. ⚠ **NOT built here, and
-   deliberately** — which surface is an open design question on
-   [`inspection-diagnostics-and-workbench.md`](inspection-diagnostics-and-workbench.md)
-   (*"In-process query API versus trace/report artifacts?"*), and adding a field
-   to `AgentObservation` with no consumer would be the dormant-cluster growth
-   this project refuses. What is recorded is that the customer is now REAL and
-   the input already exists, so whoever answers that design question can cut
-   this without re-deriving any of it.
+4. authoring/inspection needs to explain why a route is unreachable. The
+   answer exists: `body.can(verb)` and `body.fits(height)` are published
+   conditions, `gated_by` is an authored condition line, and
+   `GatedLockWallVerdicts::why_standing(wall)` returns `WhyNot` per standing
+   wall of the live room. Nothing in production reads it, and
+   `AgentObservation` carries body state only. The missing piece is a surface,
+   not a planner. Which surface is an open question on
+   [`inspection-diagnostics-and-workbench.md`](inspection-diagnostics-and-workbench.md).
+   Do not add an `AgentObservation` field without a consumer;
 5. a second game needs the same capability-aware query.
 
 Do not build a universal navmesh/path planner merely because these customers may
@@ -239,12 +172,11 @@ A navigation slice should:
 ## Spatial reuse without a universal world context
 
 Navigation consumes spatial/body-motion facts and proposes movement; accepted
-body control and the existing motion kernel execute it. The
-[responsibility map](architecture-responsibility-map.md) does not move actor live
-mutation into a path service merely because AI and player motion share geometry.
+body control and the existing motion kernel execute it. Do not move actor live
+mutation into a path service because AI and player motion share geometry.
 
-A8's instance-isolation witness must include navigation/obstacle queries when that
-capability participates. A9's minimal profiles should not require navigation to
+Navigation and obstacle queries read the subject's own live room
+(`LiveRooms::of`, `CollisionWorld::room`), as every pairwise query does. A9's minimal profiles should not require navigation to
 step an otherwise self-contained body. Preserve deterministic motion-policy and
 shape assumptions in reachability tests; a new spatial index requires measured
 cost rather than a decomposition target.

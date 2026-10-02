@@ -14,7 +14,6 @@ The supported interface is the repository-root build script. Its `--help` and
 ./scripts/setup/android_prereqs.sh --doctor
 ./scripts/setup/android_prereqs.sh
 ./build_for_android.sh --doctor
-python3 -m unittest scripts.tests.test_package_asset_guard
 ```
 
 The setup helper manages/checks the Android SDK/NDK, Rust target, `cargo-ndk`,
@@ -88,7 +87,6 @@ staging directory is not accepted as proof that the APK is healthy.
 ./run_tests.sh -p ambition_input
 ./run_tests.sh -p ambition_content
 ./build_for_android.sh --doctor
-python3 -m unittest scripts.tests.test_package_asset_guard
 ```
 
 For a failure, capture the exact script command, selected ABI/profile/features,

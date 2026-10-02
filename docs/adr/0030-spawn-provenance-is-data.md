@@ -2,12 +2,9 @@
 
 ## Status
 
-**Accepted; construction-family migration complete** (2026-07-22; migration
-completed 2026-08-18; revised twice the same day after two rounds of external
-review. The second round found four of
-the first round's five repairs incomplete and one — permitting a subset to cut a
-relation's target — actively wrong. The Decision section below describes the
-mechanism as it now stands, not as either round intended it.) Completes
+**Accepted; construction-family migration complete** (accepted 2026-07-22;
+migration completed 2026-08-18). The Decision section describes the mechanism as
+it now stands. Completes
 Milestone B of
 [`../planning/engine/immutable-content-and-transactional-construction.md`](../planning/engine/immutable-content-and-transactional-construction.md)
 and the provenance/planning half of that campaign's Phase-0 ADR obligation.

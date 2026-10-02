@@ -1,102 +1,56 @@
 # leafwing clash-scan short-circuit — deferred upstream patch
 
-> **State:** TRIAGE, 2026-07-23. Deliberately NOT applied — Jon does not want
-> to carry a leafwing fork right now. Everything Ambition-side is already
-> landed and inert until the dependency changes.
+**Status:** deferred, 2026-07-23. Jon does not want to carry a leafwing fork
+now. Re-checked against `leafwing-input-manager` 0.21.0 on 2026-09-03.
 
-> **Re-checked 2026-09-03 against leafwing-input-manager 0.21** (the version in
-> `game/ambition_app/Cargo.toml` and `crates/ambition_platformer2d_host/Cargo.toml`).
-> The defect is unchanged: `handle_clashes` calls `get_clashes(...)` before it
-> consults `ClashStrategy`, and `possible_clashes()` rebuilds its `Vec` on each
-> call. The upstream comment about a "cached set" is not correct; there is no
-> cache field. The bindings now have about 31 buttonlike actions (35 of 36
-> variants bound, 4 axis-like), about 2.4 times the pairs of the measured map,
-> so read 1–3.1% below as a lower bound until a `timeline-run` capture replaces
-> it. If you pick this up, fork at 0.21, not 0.20, and re-check the patch against
-> 0.21's `clashing_inputs.rs`.
+## Finding
 
-## The cost
+Upstream `handle_clashes` calls `get_clashes(..)`, which runs the full
+O(actions²) `possible_clashes()` pair scan every frame for every `InputMap`, and
+only then consults `ClashStrategy`. With `PressAll` and no chords, the scan is a
+semantic no-op that still costs 1–3.1% of frame CPU in the gameplay chunks of
+`desktop-lifecycle-5` (measured on a map with about 20 actions; the current
+bindings have more, so treat that range as a lower bound). The upstream comment
+about a "cached set" is wrong: `possible_clashes()` builds a new `Vec` on each
+call.
 
-`possible_clash` / `handle_clashes` burns **1–3.1% of frame CPU** in every
-gameplay chunk of `desktop-lifecycle-5` (single ~20-action `Platformer2dInputActionMonolith`
-map, zero chords). Upstream `handle_clashes` runs the full O(actions²)
-`possible_clashes()` pair scan — `decompose()` allocations per pair, rebuilt
-from scratch every frame, per `InputMap` — **before** consulting
-`ClashStrategy`; `PressAll` only nulls each clash afterward inside
-`resolve_clash`. So with zero chords the entire pass is a semantic no-op that
-still pays full price, and no strategy value can avoid it from outside.
+The Ambition side is in place and inert by design:
+`tune_clash_strategy_to_bindings` (`crates/ambition_platformer2d_host/src/lib.rs`)
+sets `PressAll` for chord-free bindings and `PrioritizeLongest` when a chord is
+bound. `cargo test -p ambition_platformer2d_host --features input` pins both
+directions.
 
-## What is already in place (no action needed)
+The patch is `dev/patches/leafwing-0.20-pressall-shortcircuit.patch`: two lines
+in `src/clashing_inputs.rs::handle_clashes` that return early on
+`ClashStrategy::PressAll`. Despite its filename, it targets 0.21.0. Apply it
+with `git apply`; `patch -p1` refuses it.
 
-- `tune_clash_strategy_to_bindings` (`ambition_platformer2d_host`, 07bb6bd8c): derives the
-  strategy from the live bindings — chord-free maps relax to `PressAll`; the
-  frame any composed game authors a chorded binding it returns to
-  `PrioritizeLongest`. Both directions pinned by
-  `cargo test -p ambition_platformer2d_host --features input`. Harmless today, becomes the
-  payoff switch the moment the patched dep lands.
-- The exact patch, with rationale and wiring instructions:
-  `dev/patches/leafwing-0.20-pressall-shortcircuit.patch` (5f92c96fa).
-  Two lines in `src/clashing_inputs.rs::handle_clashes`: return early when
-  `clash_strategy == ClashStrategy::PressAll`.
+## Evidence command
 
-## Re-measured 2026-09-03 — the dependency moved, the defect did not, and the patch was corrupt
+```bash
+grep -n -A2 'name = "leafwing-input-manager"' Cargo.lock
+```
 
-The page's own last line says *"bumping to a newer leafwing (with a Bevy
-upgrade) may obsolete this — re-measure before carrying anything."* The bump
-happened. Re-measured:
+Then read `handle_clashes` and `possible_clashes` in that version's
+`src/clashing_inputs.rs` (upstream crate, not this repo; cite-ok), and take a
+`timeline-run` capture to measure the
+`clash` category in gameplay chunks.
 
-⚠ **leafwing is `0.21.0` at HEAD, not `0.20.0`.** Step 1 below ("fork at
-v0.20.0") is stale, and so is the patch's filename.
+## Owner
 
-⛔ **THE DEFECT SURVIVED THE BUMP — verified by reading 0.21's source, not its
-changelog.** `handle_clashes` still calls `get_clashes(..)` and only then hands
-each result to `resolve_clash(.., clash_strategy, ..)`, so the strategy is still
-consulted AFTER the scan; and `get_clashes` still loops over
-`self.possible_clashes()`, which still builds a fresh `Vec` of every
-action-pair on every call. The cost analysis above therefore still stands at
-0.21.
+None. `tracks.md` "Trigger-based work" holds it.
 
-⚠ **AND UPSTREAM NOW CLAIMS A CACHE IT DOES NOT HAVE.** 0.21's `get_clashes`
-carries the comment *"We can limit our search to the cached set of possibly
-clashing actions"*, and the function it calls allocates a new vector each time.
-A reader who trusted that comment would conclude this triage item was fixed
-upstream. It is not — reading the callee is what separates the two.
+## Trigger to promote
 
-⛔⛔ **THE STORED PATCH COULD NEVER HAVE BEEN APPLIED BY ANYONE.** Its hunk
-header read `@@ -173,6 +173,11 @@` while the hunk body carries 8 old and 13 new
-lines (7 context, 5 added, 1 trailing context). Both `git apply` ("corrupt patch
-at line 32") and `patch(1)` ("malformed patch") refuse it. It was written by
-hand, described here as *"the exact patch, with rationale and wiring
-instructions"*, and never test-applied — for six weeks it was a ready-to-use
-artifact that was not usable.
+A leafwing version change, or a measured clash cost that matters to a declared
+target profile. When promoted:
 
-✔ **FIXED AND VERIFIED, 2026-09-03.** The header is now `@@ -173,8 +173,13 @@`,
-and `git apply` applies it cleanly to leafwing `0.21.0`'s
-`src/clashing_inputs.rs` (a path in the upstream crate, not this repo; cite-ok),
-producing exactly the intended early return. Verified
-by applying it to a pristine copy of the 0.21 source and reading the result, and
-by confirming `git apply` REJECTS the old counts — so this is a real check, not
-a lenient one.
-⚠ `patch -p1` still refuses the corrected file for a reason I did not run down;
-`git apply` is the verified path. Whoever picks this up should use it.
+1. Fork `leafwing-input-manager` at the lockfile version and apply the patch
+   with `git apply`.
+2. Add a `[patch.crates-io]` entry in the workspace `Cargo.toml` with the same
+   shape and retire discipline as the `bevy_ggrs` entry.
+3. Verify with a `timeline-run` capture: the `clash` category drops to about 0.
+4. Send the change upstream. That is also the retirement path for the fork.
 
-⇒ **The item is still LIVE and still deferred** — the Ambition side
-(`tune_clash_strategy_to_bindings`,
-`crates/ambition_platformer2d_host/src/lib.rs:344`) is present and still inert
-by design. Nothing here argues for taking the fork; it argues that if it is ever
-taken, the artifact now works and targets the version actually in the lockfile.
-
-## When picked up
-
-1. Fork `leafwing-input-manager` at **v0.21.0** (the version in the lockfile; the
-   patch is verified against it), apply the patch with `git apply`.
-2. Add a `[patch.crates-io]` entry in the workspace `Cargo.toml`, same shape
-   and RETIRE discipline as the existing `bevy_ggrs` entry (git fork + rev,
-   HACK-tagged comment).
-3. Verify with a `timeline-run` capture: the `clash` category should drop to
-   ~0 in gameplay chunks.
-4. Upstream it: the change is a clean PR candidate (pure fast-path, no
-   behavior change), which is also the retirement path for the fork.
-
-Alternative if a fork is never wanted: bumping to a newer leafwing (with a
-Bevy upgrade) may obsolete this — re-measure before carrying anything.
+A newer leafwing release can make this obsolete. Re-measure before you carry a
+fork.

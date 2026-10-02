@@ -18,6 +18,8 @@ runtime architecture and must not become an alternate source of live authority.
 | Packaged assets | [`packaged-asset-guard.md`](packaged-asset-guard.md) | One composed tree plus byte contract for Android and installed desktop builds. |
 | Combat inspection | [`../../tools/ambition_moveset_inspector/docs/inspector.md`](../../tools/ambition_moveset_inspector/docs/inspector.md) — design and remaining work: [`../planning/moveset-inspector.md`](../planning/moveset-inspector.md) | Runtime-published combat geometry; the tool never resolves a volume itself. |
 | Tool policy | [`tool-authoring-policy.md`](tool-authoring-policy.md) | Requirements for adding/promoting tools. |
+| Goal guard | [`goal-guard.md`](goal-guard.md) | Stop-hook guard for long agent runs: an armed goal blocks Stop until a release condition. |
+| Agent worktrees | [`agent-worktrees.md`](agent-worktrees.md) | Fixed worktree slots for coordinated agents. |
 
 ## First-class authoring submodules
 

@@ -906,7 +906,8 @@ pub struct CameraPresentationInputs {
 /// origin on any tick. The frame was `Default`, verbatim, dimensions and all.
 ///
 /// ⭐ So absence is representable now and the compiler asks every reader about
-/// it. `decomposition.md`'s rule in one line: **a default that is a plausible
+/// it. The decomposition doctrine's rule (`docs/planning/engine/architecture.md`)
+/// in one line: **a default that is a plausible
 /// member of the value space it replaces turns a composition error into a silent
 /// measurement error.**
 #[derive(bevy::prelude::Component, Clone, Debug, Default)]

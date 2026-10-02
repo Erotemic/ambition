@@ -1,6 +1,6 @@
 ---
 status: current
-last_verified: 2026-08-15
+last_verified: 2026-10-02
 related_docs:
   - AGENTS.md
   - docs/recipes/cheapest-sufficient-check.md
@@ -8,140 +8,89 @@ related_docs:
 
 # Coordinating subagents, and worktrees
 
-⚠ **This is for a session that spawns and integrates subagents.** A solo linear
+This page is for a session that spawns and integrates subagents. A solo linear
 session needs none of it.
 
-The shape that works: **workers write, the coordinator holds the build lease and
-verifies.** Everything below is a measured consequence of that split, not taste.
+The shape that works: **workers write; the coordinator holds the build lease and
+verifies.**
 
-## ⚠ Workers do not run `cargo` — but the REASON changed on 2026-08-15
+## Workers do not run `cargo` by default
 
-⛔⛔ **the old reason is gone; re-measure before repeating it.** This section
-said per-worktree target dirs were unavailable because one shared dir was
-~143 GB against ~143 GB free. Both halves are now false: the stale dirs are
-deleted (**379 GB free**), and `scripts/setup/target_bindmount.sh` gives **each
-worktree its own backing store on ext4**, keyed by path, so two agents no longer
-share a lock or thrash each other's fingerprints.
+`scripts/setup/target_bindmount.sh` gives each worktree its own target store, so
+two agents do not share a lock or fingerprints. The remaining reason for the
+default is CPU and cache: several cold builds contend for the cores, and a cold
+target is tens of GB of writes before a test runs. The default is a scheduling
+choice. You may reverse it for one worker.
 
-⇒ **the surviving reason is CPU and cache, not capacity.** Three cold builds on
-8 cores still contend, and a cold target dir is ~40–80 GB of writes before a
-single test runs. So the default stays "workers write, the coordinator
-compiles" — but it is now a *scheduling* choice you may reverse for one worker,
-not a hard limit.
+- Treat every worker test claim as UNRUN. Budget coordinator time for repairs.
+- If a worker must compile, bind-mount its worktree and let it build in its own
+  store, or hand it the lease and stop verifying while it holds it.
+- ⛔ Do not let two parties build into one directory, or into two directories
+  while they believe it is one.
 
-⭐ **and the cost of that default is measured, not theoretical.** Of six lanes on
-2026-08-15, two handed back code that did not compile (a `u32`/`usize` pair, a
-borrow of a temporary) and one handed back a confident diagnosis that a
-five-minute source read overturned. ⇒ **treat every worker test claim as UNRUN**,
-and budget coordinator time for repairs rather than being surprised by them.
+## The coordinator is the workers' compiler
 
-⇒ if a worker genuinely needs to compile, either **bind-mount its worktree** and
-let it build in its own store, or **hand it the lease** and stop verifying while
-it holds it. ⛔ what you must not do is let two parties build into one directory,
-or into two directories while believing they are one — see the
-`CARGO_TARGET_DIR` note in `.cargo/config.toml` for what that cost.
+A worker that edits the **shared tree** produces diagnostics that the
+coordinator's editor integration shows. Relay them while the worker runs. A
+relayed error is often architectural (for example, a field the worker's whole
+route depends on does not exist). A worktree gives up this property.
 
-## ⭐ The coordinator IS the workers' compiler
+## A fresh worktree needs two commands
 
-A worker editing the **shared tree** produces diagnostics the coordinator's editor
-integration surfaces automatically. **Relay them mid-flight.** This is what makes
-no-compile workers cheap, and it is the property a worktree gives up.
-
-⚠ a relayed error is often architectural, not syntactic — *"`BrainSnapshot` has no
-`abilities` field"* told a worker its whole route did not exist, hours before its
-handback would have.
-
-## ⛔⛔ A fresh worktree needs TWO commands before it is usable
-
-**Run both FROM INSIDE the worktree.** Neither takes a path argument; each finds
-what it needs itself.
+Run both from inside the worktree. Neither takes a path argument.
 
 ```sh
-# 1. assets + submodules. A fresh `git worktree` has neither.
+# 1. assets and submodules. A fresh `git worktree` has neither.
 python3 scripts/mirror_assets_for_worktree.py
 python3 scripts/mirror_assets_for_worktree.py --dry-run   # see what it would do
 
-# 2. put THIS worktree's target/ on ext4 instead of the shared virtiofs mount.
-#    Idempotent, and a no-op on a machine whose checkout is already local.
+# 2. put THIS worktree's target/ on its own store. Idempotent.
 scripts/setup/target_bindmount.sh
 scripts/setup/target_bindmount.sh --status                # which dir am I building into?
 ```
 
-⚠ **the bind mount is opt-in and safe to skip** — you just get a slower target
-dir on the shared mount. ⛔ **what is NOT safe is exporting `CARGO_TARGET_DIR`
-instead**, because an env var set in your shell does not reach cargo runs made
-by anything else. On 2026-08-15 the goal guard ran `cargo test --test app_it` as
-one of its checks, resolved the target dir from the committed config, and hit a
-link failure there — for hours, while the session was green in the directory it
-had exported. A bind mount cannot split that way: the path stays cargo's
-default, so every caller lands in the same place.
-
-⚠ a bind mount does not survive a reboot; re-run after one. `--status` says
-plainly whether this worktree is bound.
-
-Generated art/audio/packs are gitignored, so a fresh `git worktree` has none.
-**The sheet registry is baked from those directories at build time, so an
-assetless worktree compiles a binary with an EMPTY sheet table** — around forty
-tests then fail for reasons unrelated to the change under test. The script
-symlinks **file by file** on purpose, so a regenerated sprite lands as a real file
-in the worktree instead of writing back into the main checkout.
-
-⚠ **and it now checks out `game/ambition_map_assets` first, which it did not
-before.** That submodule holds every `.ldtk` world, and the files under
-`game/*/assets/worlds/` are symlinks into it — so an uninitialised submodule makes
-them dangling links and any LDtk work dies at minute one on a bare
-`FileNotFoundError` naming a path that visibly exists. Nothing in that traceback
-says "submodule". A submodule is **checked out, never mirrored**: it is
-version-controlled content, and a symlink would route an edit made in the worktree
-into the main checkout's index.
-
-⇒ **run it, and authored-content work can go to a worktree too.**
+- Generated art, audio and packs are gitignored. The sheet registry is baked from
+  those directories at build time, so an assetless worktree compiles an EMPTY
+  sheet table and unrelated tests fail. The script symlinks file by file, so a
+  regenerated sprite lands as a real file in the worktree.
+- The script checks out the `game/ambition_map_assets` submodule. It holds every
+  `.ldtk` world, and the files under `game/*/assets/worlds/` are symlinks into
+  it. Without it, LDtk work fails with `FileNotFoundError` on a path that looks
+  present. A submodule is checked out, never mirrored.
+- ⛔ Do not export `CARGO_TARGET_DIR` instead of the bind mount. Other callers
+  (for example the goal guard) do not see your shell's variable and build into
+  the default directory. A bind mount keeps cargo's default path for every
+  caller.
+- A bind mount does not survive a reboot. Run the script again after one.
 
 ## Which lane belongs where
 
-- **shared tree** — narrow, design-risky slices, where the coordinator wants live
-  diagnostics. ⚠ **one at a time**: a single broken core crate blocks verification
-  of *every* lane, because only the coordinator can build.
-- **worktree** — wide mechanical changes (their errors are mechanical and the
-  noise is unactionable) and pure measurement.
+- **Shared tree:** narrow, design-risky slices where the coordinator wants live
+  diagnostics. One at a time: a broken core crate blocks verification of every
+  lane.
+- **Worktree:** wide mechanical changes and pure measurement.
 
-## Traps that have actually cost work here
+## Traps
 
-- ⛔⛔ **`git commit` commits the WHOLE INDEX.** `git add <my paths>` then
-  `git commit` sweeps whatever a concurrent worker had staged. In a shared tree
-  use the pathspec form: `git commit -F - -- path/one path/two`.
-- ⛔⛔ **do not prune worktrees by "merged into `main`".** An agent-created worktree
-  with no commits yet is indistinguishable from a stale merged one; pruning that
-  way destroyed a live worker's uncommitted work.
-- ⛔ **a subagent only gets a worktree if the spawn explicitly asks for one.**
-  Otherwise it is editing the shared tree, and a brief that says *"work in your
-  worktree"* is a lie the worker will act on.
-- ⚠ **baselines are the coordinator's job.** A worker that cannot run `cargo`
-  cannot regenerate `rollback_schema_baseline.txt` or the ratchet under
-  `scripts/baselines/`. It must say loudly that one is owed; the coordinator runs it.
+- ⛔ **`git commit` commits the whole index.** In a shared tree, use the pathspec
+  form: `git commit -F - -- path/one path/two`.
+- ⛔ **Do not prune worktrees by "merged into `main`".** A new worktree with no
+  commits looks the same as a stale merged one.
+- **A subagent gets a worktree only if the spawn asks for one.** Otherwise it
+  edits the shared tree. Do not tell it to "work in your worktree" when it has
+  none.
+- **Baselines are the coordinator's job.** A worker that cannot run `cargo`
+  cannot regenerate `game/ambition_app/tests/rollback_schema_baseline.txt` or the
+  ratchets under `scripts/baselines/`. It must say that one is owed.
 
 ## Accepting a handback
 
-Require *"what you could NOT verify, lowest confidence first"*, and read it — it
-has been accurate about its own weakest claims every time.
-
-⛔⛔ **and run the falsifier yourself.** *"Poison reasoned, not executed"* has been
-**wrong** here: a fix's test stayed green with its system unregistered, because the
-test listed that system in its own chain. Verify a worker's red finding by a
-different route too — a census once reported six brain families failing to rewind
-when the snapshot clones the whole component and only *detection* was missing.
-
-⛔⛔ **A PEER'S REASONING GETS THE SAME CHECK AS A PEER'S RELAY.** Provenance
-discipline covers the quote and leaves the argument bare, and the argument is the
-half that reaches the maintainer. Measured 2026-09-10 on Q96: a peer relayed a
-ruling with a one-word paraphrase that SELECTED a model where the maintainer had
-only AFFIRMED, caught it, and in the same message sent a recommendation whose
-second argument — *"an exemption has nowhere to go under the other model"* — was
-false. It has somewhere: it is today's behaviour for that pair.
-
-⭐ **The tell is that the false claim was the DISQUALIFIER.** The first argument was
-sound and complete; the second was reached for to make it decisive. ⇒ **A
-disqualifier is aimed at the decision, so it is what the maintainer weighs hardest
-and what its author examined least.** **A sound argument gets weaker when padded,
-because the pad is what gets tested.** ⇒ When a handback carries two arguments,
-check the one that closes the question first.
+- Require "what you could NOT verify, lowest confidence first", and read it.
+- Run the falsifier yourself. A poison that was reasoned and not executed has
+  been wrong: a test can stay green with its system unregistered when the test
+  lists that system in its own chain.
+- Verify a worker's red finding by a different route too.
+- Check a peer's argument as well as a peer's quote. When a handback carries two
+  arguments, check the one that closes the question first. A disqualifier added
+  to make an argument decisive is what the maintainer weighs hardest and what its
+  author checked least.

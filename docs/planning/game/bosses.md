@@ -1,109 +1,57 @@
 # Bosses (game content)
 
-The *system* is engine ([`../engine/boss-system.md`](../engine/boss-system.md)); this
-is the **design language** and the specific bosses. The engine machinery (Smash brain
-verbs, the glider projectile primitive, `CharacterAnim::Special`, the dialogue→provoke
-command) belongs to the corresponding reusable actor, projectile, animation and
-interaction authorities; `core` is not a common destination for all of it. A
-boss's stats, tuning, placement and dialogue remain game content.
-
----
+The boss *system* is engine work
+([`../engine/boss-system.md`](../engine/boss-system.md)). This page is the
+**design language** and the specific bosses. Generic machinery (fighter-brain
+verbs, the glider projectile primitive, `CharacterAnim::Special`, the
+dialogue→provoke Yarn command) belongs to the reusable actor, projectile,
+animation and interaction owners, not to a common `core`. A boss's stats,
+tuning, placement and dialogue are game content in `ambition_content`.
 
 ## The design language
 
 > Every boss is a failed objective function.
 
-A boss is a character whose flawed optimization the player reads, exploits, and
-out-learns. A boss *proves the player can learn* — its defeat is the player
-demonstrating a better policy than the boss's. Concretely: the Mockingbird mimics and
-steals your moves; the Clockwork Warden reads your patterns; the PCA is a cellular
-automaton converging on a poor fixed point.
+A boss is a character whose flawed optimization the player reads, exploits and
+out-learns. Its defeat is the player demonstrating a better policy than the
+boss's.
 
 ## The Perfect Cell-ular Automaton (the exemplar)
 
-The PCA is the proof that the unified actor pipeline works: it is **not a special-case
-boss**. It starts as a talking NPC and becomes a reactive melee boss *only if the
-player chooses "Challenge it"* in dialogue — the same body, the same `Brain` +
-`ActorControlFrame` seam, from peaceful to hostile to (one day) possessed.
+The PCA proves the unified actor pipeline: it is not a special-case boss. It
+starts as a talking NPC and becomes a melee boss only if the player chooses
+"Challenge" in dialogue. It is the same body and the same `Brain` +
+`ActorControlFrame` seam from peaceful to hostile (and, one day, possessed).
 
-- **Concept:** a cellular-automaton entity; its ranged zoning tool is a Conway
-  Game-of-Life **glider**.
-- **Brain:** the Smash fighter — a 5-stage utility pipeline (observe → mode → action →
-  difficulty filter → emit). Brain output is abstract *intent*; the per-actor
-  `ActionSet` resolves it to concrete verbs (the policy/capability split). Difficulty
-  is data: `reaction_delay_s`, `commit_probability`, `accuracy` — it perceives a
-  *lagged* opponent, so it can't frame-perfectly counter.
-- **Kit:** melee (approach / dash / jab / reactive block), jump, fly-reposition, the
-  **glider** ranged poke, **blink-evade**, the aerial dive/perch game, and the
-  data-driven **Cellular Pulse** signature move are all landed (glider/blink/fly are
-  body-enforced capabilities, so a possessing player inherits them). Remaining work is
-  encounter/narrative polish, not kit.
-- **Encounter:** dormant NPC → Yarn dialogue (a "Challenge" branch + peaceful exits) →
-  combat → win/loss. The dialogue→provoke bridge flips the brain + disposition and arms
-  the hostile volumes. Placed in the Noether Chamber via LDtk as a peaceful archetype.
+- **Concept:** a cellular-automaton entity. Its ranged zoning tool is a Conway
+  Game-of-Life glider.
+- **Brain:** the fighter brain. Brain output is abstract intent; the per-actor
+  `ActionSet` resolves it to concrete verbs. Difficulty is data
+  (`reaction_delay_s`, `commit_probability`, `accuracy`), and the brain perceives
+  a lagged opponent.
+- **Kit (built):** melee, jump, fly-reposition, the glider, blink-evade, the
+  aerial dive/perch game, and the `cellular_pulse` signature move
+  (`game/ambition_content/src/cellular_automaton_moveset.rs`). Glider, blink and
+  fly are body capabilities, so a possessing player inherits them.
+- **Encounter:** dormant NPC → Yarn dialogue (a Challenge branch and peaceful
+  exits) → combat → win or loss. The dialogue→provoke bridge flips the brain and
+  disposition and arms the hostile volumes.
+- **Placement:** the design name "Noether Chamber" is the LDtk level
+  `symmetry_room`. The PCA is an `NpcSpawn` there (`character_id` and
+  `dialogue_id` `perfect_cellular_automaton`, `brain_override: stand_still`). It
+  is also placed in `hall_of_characters`.
 
-> ⭐ **RE-VERIFIED against `8bb0dd5a7` (2026-09-03)** (this page had gone two months unread, the oldest
-> in `docs/planning/`, and every claim above holds). The kit is where it says:
-> `cellular_pulse` is named in five files including its own
-> `game/ambition_content/src/cellular_automaton_moveset.rs`, and the glider,
-> blink and dialogue→provoke bridge all resolve.
->
-> ⚠ **ONE NAMING TRAP, which is the only thing a reader would trip on.** There
-> is no LDtk level called "Noether Chamber" — that is the DESIGN name, and it
-> survives in the tree only as a comment in `character_catalog.ron` ("Symmetry
-> tutorial (Noether Chamber)"). The authored level id is **`symmetry_room`** in
-> `sandbox.ldtk`. ⇒ Search for the design name and you conclude the placement
-> was never made. ⭐ And it is placed TWICE: `symmetry_room` and
-> `hall_of_characters`, the second of which this page does not mention.
+Remaining PCA work is encounter and narrative polish, not kit.
 
-> Engine vs content split: generic machinery (Smash verbs, the glider primitive,
-> `CharacterAnim::Special`, the dialogue→provoke Yarn command) lives in the engine;
-> the PCA's stats / tuning / placement / dialogue live in `ambition_content`.
-
-### Re-measured 2026-09-03 — the kit is real, the PLACEMENT line is stale
-
-* ✔ **The kit claims hold where spot-checked.** The signature move is authored
-  content, not a plan: `cellular_pulse` appears in the content crate's
-  `cellular_automaton_moveset.rs`, `authored_movesets.rs` and
-  `authored/perfect_cellular_automaton.rs`, with coverage in
-  `game/ambition_content/tests/aerial_authoring.rs` and in
-  `crates/ambition_combat/src/brain/smash/action/tests.rs`.
-
-* ⛔⛔ **RETRACTED, SAME DAY — the placement line is CORRECT and my correction
-  was wrong.** I wrote here that *"Placed in the Noether Chamber via LDtk"*
-  named a room that does not exist. It does exist: it is the level
-  **`symmetry_room`** in `sandbox.ldtk`, and the PCA is placed in it exactly as
-  this page describes — an `NpcSpawn` with `character_id:
-  perfect_cellular_automaton`, `dialogue_id: perfect_cellular_automaton`,
-  `brain_override: stand_still` and the prompt *"Challenge the Perfect Cell-ular
-  Automaton"*. A dormant NPC with a Challenge branch, which is the encounter
-  this page specifies.
-  ⭐ Noether's theorem IS the symmetry/conservation law, and the actor kernel's
-  switch code calls that room's cardinal gravity switches *"Noether Chamber
-  kernel faces"* — so the design name and the level id are the same place.
-  ⚠ **How I got it wrong is the useful part, and it is the error this session
-  kept finding in other people's rows.** I DID suspect the rename and went
-  looking for it — but I checked ONE candidate, `symmetry_chamber`, found it was
-  a synthetic combat-test `Stage` rather than a level, and stopped. The actual
-  match was `symmetry_room`, one word away, in a world file I had already listed.
-  Chasing a hypothesis and stopping at the first near-miss reads exactly like
-  having chased it, which is why the write-up sounded careful and was not.
-
-* ⚠ **A sibling this page does not mention.** `imperfect_cellular_automaton` is
-  fully authored in `game/ambition_content/assets/data/character_catalog.ron:905` — its own display name,
-  spritesheet, `tier: MainHall`, `body_kind: Floating` and a
-  `hall_dialogue_id` — and it is placed in the same world as the PCA. Whether an
-  *Imperfect* Cellular Automaton belongs in a page about failed objective
-  functions is a design call for this page's owner, not a gap I should close:
-  it may be a peaceful hall NPC by intent. Recorded so the roster is a decision
-  rather than an oversight.
+`imperfect_cellular_automaton` is a separate catalog character (a hall NPC). It
+wears the PCA's move table. Whether it is a boss is an open design call.
 
 ## Roster (story bosses)
 
 - **Perfect Cell-ular Automaton** — the dialogue-gated fighter above.
-- **Mockingbird** — mimics/steals the player's moves (a boss that proves you can do
-  better than your own copied policy).
-- **Clockwork Warden** — reads the player's patterns; beating it means breaking pattern.
+- **Mockingbird** — mimics and steals the player's moves.
+- **Clockwork Warden** — reads the player's patterns; beating it means breaking
+  pattern.
 
-Each is authored as content data on the engine boss system; none needs a bespoke
+Each is authored as content on the engine boss system. None needs a bespoke
 simulation path.

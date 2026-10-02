@@ -1,107 +1,68 @@
 # Interact dialogue should read the same IR the barks already do
 
-**Status:** SHELVED 2026-07-26, design settled, nothing built. Opened after
-wiring nine generated characters into the Hall and finding two channels reading
-two different sources.
+**Status:** shelved 2026-07-26. Design settled; nothing built.
 
-## Remaining scope (measured 2026-09-17)
+## Finding
 
-The generator is not built. `fallback_dialogue` feeds only barks, and
-`npc_dialogue_request` (`features/npcs.rs`) reads only the LDtk `dialogue_id`
-and falls through to `"generic_npc"`; it does not consult the catalog.
-
-The Hall was covered by authoring instead: catalog rows have a
-`hall_dialogue_id`, and `known_dialogue_ids`
-(`ambition_content/src/dialogue/yarn.rs`) adds those ids to the validator's
-accepted set. The residual is small:
-
-- 8 of the 132 character rows in `character_catalog.ron` have
-  `hall_dialogue_id: None`. Count rows inside the `characters:` block only; the
-  presets before it are not characters.
-- 2 of 163 `NpcSpawn` placements have no `dialogue_id`: `npc_puppy_slug` in
-  `gravity_lab` and `npc_viking_warrior` in `sanic_sandbox`. Both nodes exist
-  (`hall_npc_puppy_slug`, `hall_npc_viking_warrior`). The fix is a commit in the
-  `game/ambition_map_assets` submodule.
-- Only 24 of the 132 rows declare a `fallback_dialogue`.
-
-Each residual item is one line of authoring, not a generation pipeline.
-Re-scope against these numbers before you implement anything here.
-
-## The state today
-
-A character arriving from the sprite pipeline declares
-`dialogue_hints.suggested_barks` / `fallback_dialogue` in its target's
-`ACTOR_METADATA`. `character_notes.py` carries those into the catalog row's
-`fallback_dialogue`, and `CharacterCatalogEntry::bark` falls through to that pool
-whenever a situation has no authored one. So a generated character **mutters in
-its own voice** on its pedestal, when struck, when provoked, and while idling.
-
-Pressing *interact* on that same character reaches a different channel:
+A generated character speaks its own lines through ambient barks but not
+through *interact*:
 
 | channel | reads | result |
 |---|---|---|
 | ambient bark | catalog `fallback_dialogue` | the character's own line |
-| interact conversation | a Yarn node named by `dialogue_id` | `generic_npc` placeholder |
+| interact conversation | the Yarn node named by the LDtk `dialogue_id` | the `generic_npc` placeholder |
 
-`generic_npc` is a real authored node whose text is *"This NPC has no named Yarn
-node yet."* — so the fallback is honest, just not the character.
+`npc_dialogue_request`
+(`crates/ambition_platformer2d_actor_monolith/src/features/npcs.rs`) reads only
+the LDtk `dialogue_id`, treats a blank value as absent, and falls through to
+`generic_npc`. That placeholder is correct current behaviour, not a bug.
 
-**Fixed already (do not re-fix):** LDtk stores an unset string field as `""`, so
-a spawn with no conversation used to arrive as `Some("")` and get forwarded
-verbatim, producing `start(""): Yarn node not found` and an NPC that opened
-nothing at all. `npc_dialogue_request` now treats blank as absent. That is why
-these characters reach `generic_npc` instead of failing — the placeholder is the
-current *correct* behaviour, not a bug.
+The Hall is covered by authoring instead: catalog rows carry a
+`hall_dialogue_id`, and `known_dialogue_ids`
+(`game/ambition_content/src/dialogue/yarn.rs`) adds those ids to the validator's
+accepted set. The residual is small, and each item is one line of authoring:
 
-## The decision (Jon, 2026-07-26)
+- Some catalog characters have `hall_dialogue_id: None`.
+- A few `NpcSpawn` placements have no `dialogue_id`. The fix is a commit in the
+  `game/ambition_map_assets` submodule.
+- Few rows declare a `fallback_dialogue`.
 
-Generate a conversation per character from `fallback_dialogue`; **a
-hand-authored node of the same title overrides it by existing** — the same rule
-the bark fallback already follows, so writing real dialogue is never blocked.
+Re-scope against these counts before you build a generator.
 
-Not a second, non-Yarn dialogue path for "characters without scenes". That means
-two conversation runtimes and two sets of bugs.
+## Decision (Jon, 2026-07-26)
 
-## Shape
+Generate one conversation per character from `fallback_dialogue`. A
+hand-authored node with the same title overrides it by existing, which is the
+rule the bark fallback already follows. Do not add a second, non-Yarn dialogue
+path.
 
-Generated Yarn is committed text, like `music_registry.ron` — a regen script, not
-runtime compilation:
+Shape, if built:
 
+- A regen script writes committed Yarn text (like `music_registry.ron`) to one
+  generated `.yarn` file, one node `character_<id>` per catalog character, and
+  skips any title that the authored set already defines.
+- Every character gets a node (the generic line when it has no suggestions), so
+  the runtime needs no "does it exist" branch.
+- A generated node is one line from the bark pool and a Close. No choices, no
+  state.
+- `npc_dialogue_request` routes a blank or absent `dialogue_id` to
+  `character_<character_id>` instead of `generic_npc`.
+- Regen works on a fresh clone. The generator reads the same `CharacterNotes`
+  as `tools/ambition_ldtk_tools/ambition_ldtk_tools/character_notes.py`.
+
+## Evidence command
+
+```bash
+grep -c "hall_dialogue_id: None" game/ambition_content/assets/data/character_catalog.ron
+grep -c "fallback_dialogue" game/ambition_content/assets/data/character_catalog.ron
+rg -n "generic_npc" crates/ambition_platformer2d_actor_monolith/src/features/npcs.rs
 ```
-title: character_npc_marie_curry
----
-Marie Curry: Careful, it is still reactive.
--> Close.
-===
-```
 
-- Emit one node per catalog character into a single generated
-  `assets/dialogue/sandbox/generated_characters.yarn`, **skipping any title the
-  authored `.yarn` set already defines** — that is the override.
-- Emit a node for EVERY character, using the generic line when the row has no
-  suggested dialogue, so `character_<id>` always resolves and the runtime needs
-  no "does it exist" branch.
-- `npc_dialogue_request` routes a blank/absent `dialogue_id` to
-  `character_<character_id>` rather than `generic_npc`.
-- Regen must work on a fresh clone (project invariant).
+## Owner
 
-Sources are declared in `game/ambition_content/src/dialogue/yarn.rs`
-(`YarnSpinnerPlugin::with_yarn_sources`, `YarnFileSource::InMemory`), so a
-generated file joins the set the same way the authored ones do.
+None.
 
-## What a generated conversation IS
+## Trigger to promote
 
-One line (rotating over the same pool the barks use) and a Close. Deliberately
-not choices, branches, or state: that is what a hand-written node is for, and a
-richer generated node would become something authors have to fight rather than
-replace.
-
-## Prior art
-
-- `docs/recipes/adding-a-character.md` §0 — the three-command hookup this
-  completes.
-- `tools/ambition_ldtk_tools/ambition_ldtk_tools/character_notes.py` — the
-  existing target→catalog join; the dialogue generator is its sibling and should
-  read the same normalized `CharacterNotes`.
-- `crates/ambition_platformer2d_actor_monolith/src/features/npcs.rs::npc_dialogue_request` — the one
-  routing decision to change.
+The cast grows faster than hand-authored Hall dialogue, or a playtest finds
+generic placeholder conversations on characters that players meet.

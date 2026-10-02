@@ -2,13 +2,10 @@
 
 **State:** OPEN authoring program. Ambition is the primary customer.
 
-> **Guard pointer, added 0ac499bb1 (2026-09-02).**
-> `scripts/check_authored_levels_survive.py` baselines each world file's set of
-> level identifiers: adding levels is fine, REMOVING a recorded one is an error
-> unless the baseline is explicitly `--bless`ed. Green at `0ac499bb1`: **77 authored
-> levels across 6 worlds, none lost.** ⛔ Deliberately narrow — it guards roster
-> SURVIVAL only; other validators own level contents and entity correctness. It
-> is the thing standing between an editor session and a silently deleted level.
+`scripts/check_authored_levels_survive.py` baselines each world file's level
+identifiers. Adding levels is fine. Removing a recorded one is an error unless
+the baseline is explicitly `--bless`ed. It guards roster survival only; other
+validators own level contents and entity correctness.
 
 ## Goal
 
@@ -34,79 +31,44 @@ The repository already has substantial authoring infrastructure:
 - provider-owned `LdtkVocabulary` extension exists;
 - hot reload validates/prepares candidate worlds before commit;
 - entity-layer rules and editor icons/visual manifests keep authored data legible for both agents and optional human editing;
-- room tooling can describe/render moving platforms and other spatial features.
+- room tooling can describe/render moving platforms and other spatial features;
+- level fields carry room behaviour in data: `mode`, `next_room`,
+  `entry_cutscene` and `while_live` (an authored command line run while the room
+  is live) lower to `RoomMetadata` (`crates/ambition_platformer2d_ldtk/src/project.rs`).
 
-The next phase should consolidate these into a coherent authoring product.
+The next phase consolidates these into a coherent authoring product.
 
 ## Current weaknesses
 
-1. Some authored relationships remain strings even though the toolchain already
-   supports native LDtk `EntityRef` values. ⚠ **Measured 2026-09-17: ONE remains,
-   and it has no customer.** `MovingPlatform.path_id` is the last string
-   relation; `EnemySpawn.path_ref` is a native `EntityRef` and
-   `LdtkEntityCtx::kinematic_path_ref` has exactly one caller. Across the six
-   distinct `.ldtk` projects there are **8 `MovingPlatform` placements and none
-   authors `path_id`**, while both authored `KinematicPath` entities are consumed by
-   `path_ref`. See K5 in
-   [`kinematic-world-objects.md`](kinematic-world-objects.md) — author a
+1. One authored relationship is still a string: `MovingPlatform.path_id`. No
+   shipped platform authors it. `EnemySpawn.path_ref` is a native `EntityRef`.
+   See K5 in [`kinematic-world-objects.md`](kinematic-world-objects.md): author a
    path-following platform and migrate the field in the same change.
-2. `KinematicPath` points are currently parsed from an opaque string such as
-   `"10,20; 30,40"` rather than an editor-native point/path representation.
-   ⚠ **This is the one of the two worth doing first**: unlike `path_id` it has
-   two authored customers today, and `SurfaceChain` authors its polyline the same
-   way.
+2. `KinematicPath` points are parsed from an opaque string such as
+   `"10,20; 30,40"`, not an editor-native point/path value. Do this first: it has
+   authored customers, and `SurfaceChain` authors its polyline the same way.
 3. Runtime converters contain field defaults and precedence rules that are hard
    to discover from the LDtk editor alone.
-4. Engine/provider vocabulary, editor entity definitions, validation and docs can
-   drift because they are not generated/checked from one declarative schema.
-   ⭐⭐ **THIS STOPPED BEING A HYPOTHESIS ON 2026-09-17: IT HAS DRIFTED, AND HALF
-   THE GAP NOW HAS A CHECK.** `ldtk_entity_contract.json` is pinned against the
-   Rust converters in both directions by `contract::prover`, and
-   `entity_contract_issues` reads authored PLACEMENTS against it — but a
-   placement can only ever disagree about a field the editor offered in the first
-   place, and **nothing compared the contract to `defs.entities`**. Measured
-   across the six distinct projects:
-
-   | contract rule | projects whose editor definition has the field |
-   |---|---|
-   | `CameraZone.scroll_policy` | **0 of 6** |
-   | `PortalGunSpawn.pair` | **0 of 6** |
-   | `EnemySpawn.facing` | **1 of 6** |
-   | `EnemySpawn.path_ref` | **2 of 6** (`intro`, `sandbox`) |
-   | `EnemySpawn.disposition` | 2 of 6 |
-   | `EnemySpawn.respawn` | 3 of 6 |
-   | `MovingPlatform.loop_dy` / `loop_min_y` | 3 of 6 |
-
-   ⚠ **THE POPULATION IS SIX, AND A GLOB SAYS EIGHT.**
-   `game/ambition_demo_{mary_o,sanic}/assets/worlds/*.ldtk` are SYMLINKS into
-   `game/ambition_map_assets/ambition_demo_*/worlds/`, so a naive
-   `game/**/worlds/*.ldtk` counts two files twice and moves every ratio. Resolve
-   the real path before counting.
-
-   ⇒ A capability lands in the converter, the contract records it truthfully, and
-   the projects that never grew the field cannot author it — which is how the
-   flagship `path_ref` landing reaches two worlds out of six.
-   `contract_authorability_issues` (`validate_rules/entity_contract.py`) now
-   warns per field, wired into `validate_issues` so the CLI actually runs it.
-   ⛔ **WARNINGS, NOT ERRORS**, because a project that authors no vertical loops
-   is not broken by having no `loop_dy`; escalating would fail every world on
-   a run, which is a report wearing a gate's costume. ⛔ And the ENTITY-level half
-   is deliberately NOT in the new rule: `validate.py`'s `missing_known_defs`
-   already warns it (that is how `SurfaceRamp` is reported today), and the first
-   version of the rule said it a second time under a second code.
+4. Engine/provider vocabulary, editor entity definitions, validation and docs
+   drift. `ldtk_entity_contract.json` is pinned against the Rust converters in
+   both directions by `contract::prover`. `entity_contract_issues` checks
+   authored placements against it. `contract_authorability_issues`
+   (`validate_rules/entity_contract.py`, wired into `validate_issues`) warns per
+   field when a project's `defs.entities` lacks a field the contract supports.
+   These are warnings, not errors: a project that authors no vertical loops is
+   not broken by lacking `loop_dy`. Missing entity definitions are warned once,
+   by `validate.py`'s `missing_known_defs`.
+   Count distinct projects by real path: the demo worlds under
+   `game/ambition_demo_{mary_o,sanic}/assets/worlds/` are symlinks into
+   `game/ambition_map_assets/`.
 5. Some useful errors arrive only at runtime conversion rather than as immediate
    authoring diagnostics.
 6. The tools know many intent-level operations, but capability-specific recipes
    are still scattered.
-7. ⛔⛔ **`tools/ambition_ldtk_tools/specs/*.ron` LAG THE `.ldtk`, AND THE `.ldtk`
-   IS THE TRUTH.** A spec is the input that AUTHORED a level; later
-   `entity set-field` edits (the `specs/*.yaml` form) change the world without
-   changing it. Measured 2026-09-02: `intro_wake_room_area.ron` still shows an
-   `NpcSpawn` with `name: "Creator"` and no `character_id`, while `intro.ldtk`
-   has `character_id: "npc_creator"` and `name: None` — the opposite shape.
-   Anyone scoping work from the specs gets a world that no longer exists; read
-   the `.ldtk` (or `static_world_text!`'s embedded copy) when the question is
-   "what does the game load".
+7. `tools/ambition_ldtk_tools/specs/*.ron` lag the `.ldtk`. The `.ldtk` is the
+   truth. A spec is the input that authored a level; later `entity set-field`
+   edits change the world without changing the spec. Read the `.ldtk` (or
+   `static_world_text!`'s embedded copy) to know what the game loads.
 
 ## First vertical slice: moving platforms
 
@@ -117,13 +79,8 @@ supports:
 - stable `id` (falling back to iid);
 - `speed`;
 - `sweep_dx` for the simple horizontal ping-pong form;
-- `path_id` referencing a `KinematicPath`. ⛔ **the legacy `patrol_path_id`
-  spelling is DELETED (2026-08-14)** — it was declared by no entity definition and
-  authored on no instance. ⚠⚠ **and `path_id` itself is authored on ZERO instances
-  across all six worlds**, so this bullet describes a supported capability with no
-  content: the corpus holds two `KinematicPath` entities and both are reached
-  through `EnemySpawn.brain = "Patrol:<id>"`, a relationship hidden inside an
-  unrelated string field;
+- `path_id` referencing a `KinematicPath` (supported, authored on no shipped
+  platform);
 - `loop_dy` and `loop_min_y` for a wrapping vertical elevator/conveyor shaft.
 
 `KinematicPath` currently authors a string `points`, `speed`, `mode`, and
@@ -177,8 +134,8 @@ and game-owned vocabulary.
 
 Diagnostics should name the LDtk level/entity/field and the expected target.
 
-⛔ **and one thing the tools must NOT do: classify motion themselves.**
-`AuthoredPlatformMotion::classify` is now the single place that turns authored
+The tools must not classify motion themselves.
+`AuthoredPlatformMotion::classify` (`ambition_platformer2d_world::platforms`) is the single place that turns authored
 fields into a motion and refuses ambiguous combinations, naming the LDtk level in
 the message. A Python re-implementation inside `room describe`/`render` — so the
 inspector could print "downward wrapping loop, 300px shaft" — would be a second
@@ -238,12 +195,9 @@ placement lowering toward construction integration. LDtk and other providers
 continue producing typed world input; generic world geometry must not depend on
 character sheets and prepared actors merely because they share a placement file.
 
-[Finding F4](architecture-review-findings.md) confirms three carried-but-unconsumed
-fields: `requires_facing`, pickup `collected` and chest `persistent`. Product
-meaning remains Q63. Before a choice is made, validation should identify a
-nondefault unsupported value rather than promise that serialization alone makes
-it effective. Do not delete authored data or change manual-interaction semantics
-under an architecture-only cleanup.
+The carried-but-unconsumed fields (`requires_facing`, pickup `collected`, chest `persistent`, breakable
+`debris_cue`) are deleted. Product meaning for those features stays on Q63. An
+authored field that reaches a runtime representation must have a consumer.
 
 Importer diagnostics should retain provider, source entity/field and normalized
 semantic path so an authoring agent can fix the actual source. One shared

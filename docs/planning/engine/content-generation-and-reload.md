@@ -1,50 +1,79 @@
 # Content generations, incremental preparation and development reload
 
-**State:** selected design; not an implemented reload service.
-[Extension model](extension-model.md) owns the architecture. This page owns the
-artifact-to-activation protocol. [Construction](construction-and-reconstitution.md)
-owns materialization. [Packets](fast-iteration-implementation.md) select the
-implementation steps; [the queue](../queue.md) selects work.
+**Scope:** the protocol from an authored artifact to an active content
+generation, and the development reload that uses it.
+[Extension model](extension-model.md) owns the architecture.
+[Construction](construction-and-reconstitution.md) owns materialization.
+[Packets](fast-iteration-implementation.md) (I2, I3) select the implementation
+steps; [the queue](../queue.md) selects work.
 
 ## The contract
 
-An ordinary content edit must change the running result without rebuilding the
-host. A failed edit must not silently select built-in defaults, publish half a
-revision, consume a gameplay reset, or erase the developer's reproducible scene.
-The system reports the exact artifact and behavior it is using.
+An ordinary content edit changes the running result without a rebuild of the
+host. A failed edit does not select built-in defaults, publish half a revision,
+consume a gameplay reset or erase the developer's reproducible scene. The
+system reports the exact artifact and behavior that it uses.
 
-These are DO decisions. Compression, cache layout, preparation worker count and
-snapshot layout are MEASURE choices. No latency value is established here.
+These are DO decisions. Compression, cache layout, the number of preparation
+workers and snapshot layout are MEASURE choices. This page sets no latency
+value.
+
+## Current shape
+
+The data reload road is implemented.
+
+| Part | Where |
+| --- | --- |
+| File watch: polls every source that `pack.ron` declares, compiles the pack again from disk and asks for a reload | `ambition_content::content_watch` (`ContentSourceWatch`) |
+| Request: one generation in flight; a refused, unchanged or blocked request is a stated `ReloadRequest` variant | `ambition_content::reload::request_reload` |
+| Pending candidate: stored, not selected | `reload::PendingGeneration`; the preparation reads `PendingGenerationInputs` (`ambition_platformer2d_runtime::content_identity`), not the App-wide selection |
+| Re-preparation: re-requests the active shell route with a minted `ShellRequestId` | `request_reload` |
+| Publication at one boundary | `reload::commit_content_generation`; `content_identity::publish_session_content` |
+| Module reload (procedural code) | `ambition_platformer2d_runtime::extension_composition` (`load_developer_modules`, `propose_module_reload`, `publish_module_reload`); `ambition_extension_host::reload` |
+
+**Families that take part** (`reload::participates`): movesets, the character
+catalog, the smash-fighter facet, boss profiles and encounters, the audio
+registries (music and SFX), and the pack-derived families in
+`PACK_DERIVED_FAMILIES`: the fighter-brain ladder, encounter waves, the boss
+seed library, the validator bands and the item catalog. A changed family that
+is not in that list refuses the candidate. A family that is added later is
+refused until it declares a publisher. The cutscene libraries, the quest book
+and the music-cue catalog do not take part today.
+
+A candidate that is mechanically identical to the selected pack is
+`Unchanged` and requests nothing. A file watcher fires on a save, not on a
+change, so this is the usual result.
 
 ## Representations and owners
 
 | Value | Owner and contents | Excluded responsibility |
 | --- | --- | --- |
-| Authored source | Existing Rust/data/media authoring tool; editable values and diagnostic spans | Installed runtime support or live ECS handles |
+| Authored source | Existing Rust, data or media authoring tool; editable values and diagnostic spans | Installed runtime support or live ECS handles |
 | Portable section | Pure domain schema; canonical values, references, codec version | Domain callbacks, `Any`, Bevy entities, source-loader policy |
-| Artifact manifest | Content pack; immutable section digests, module inputs and requirements | A duplicate character catalog or service locator |
-| Prepared domain value | Owning validator/hydrator; resolved immutable definition | Current actor health, inventory or mutable playback |
-| Candidate generation | Lifecycle/content coordinator; complete selected domain view and executable profile | A partially published set of domain revisions |
+| Artifact manifest | Content pack; immutable section digests, module inputs and requirements | A duplicate character catalog or a service locator |
+| Prepared domain value | Owning validator or hydrator; resolved immutable definition | Current actor health, inventory or mutable playback |
+| Candidate generation | Lifecycle and content coordinator; complete selected domain view and executable profile | A partially published set of domain revisions |
 | Active selection | Session owner; admitted generation and local activation epoch | Process-global mutable selection |
 | Live state | Existing body, combat, item, world and extension owners | A second copy inside a content cache |
 
-The existing `PreparedContentPack::lowered` may remain an in-process hydration
-container. Do not make it the wire format. Extract the pure validator used by both
-frontends when necessary; do not rewrite its rules independently in the loader.
-A compiler cannot certify installed support. The host checks actual offers.
+`PreparedContentPack::lowered` can stay an in-process hydration container. Do
+not make it the wire format. Extract the pure validator that both frontends use
+when necessary; do not write its rules again in the loader. A compiler cannot
+certify installed support. The host checks actual offers.
 
 ## Dependency graph, not one rebuild switch
 
-A generation consists of independently identified immutable sections. Each domain
-adapter declares its inputs and references. The pack provides one graph of these
-requirements, not another evaluator for the domain's own rules.
+A generation is a set of independently identified immutable sections. Each
+domain adapter declares its inputs and references. The pack supplies one graph
+of these requirements, not another evaluator for the domain's own rules.
 
-A cache key includes the source/section digest, codec and validator versions,
-dependencies used during preparation, and the selected profile facts that affect
-the result. Runtime hydration also includes its host contract/build identity.
-Caches may reuse immutable results across Apps; activation authority is App-local.
+A cache key includes the source or section digest, the codec and validator
+versions, the dependencies that preparation used and the selected profile facts
+that affect the result. Runtime hydration also includes the host contract and
+build identity. Caches can reuse immutable results across Apps; activation
+authority is App-local.
 
-For a move edit, trace the real dependency closure:
+For a move edit, follow the real dependency closure:
 
 ```text
 move values -> referenced techniques/moves/mechanical assets
@@ -52,317 +81,212 @@ move values -> referenced techniques/moves/mechanical assets
             -> selected generation -> dependent live bindings
 ```
 
-Do not re-prepare unrelated rooms, audio or characters because one scalar changed.
-Do not ignore a dependency to achieve that result. A domain with no precise
-invalidation description must conservatively re-prepare its own section and
-reported dependents, not claim an incremental hit. Instrument why each section
-was rebuilt or reused. Add precision where measured invalidation is expensive.
+Do not prepare unrelated rooms, audio or characters again because one scalar
+changed. Do not ignore a dependency to get that result. A domain with no
+precise invalidation description prepares its own section and its reported
+dependents again; it does not claim an incremental hit. Record why each section
+was rebuilt or reused.
 
-The graph includes deletions and reverse references. Removing a move used by a
-character must fail or update that character in the same candidate. A missing
-required section cannot fall back to a compiled table. A field with uncertain
-mechanical influence is mechanical until its owner establishes otherwise.
+The graph includes deletions and reverse references. If you remove a move that
+a character uses, that character fails or changes in the same candidate. A
+missing required section cannot fall back to a compiled table. A field with
+uncertain mechanical influence is mechanical until its owner shows otherwise.
 
-**Example:** changing only diagnostic source spans changes diagnostic provenance,
-not mechanical identity. Changing attack duration must change the mechanical
-digest, invalidate the dependent preparation and alter the observed trace.
-Changing a sprite used for authored collision must do the same. Changing a purely
-visual texture need not restart simulation if its owner proves that classification.
+**Example:** a change to diagnostic source spans changes diagnostic
+provenance, not mechanical identity. A change to attack duration changes the
+mechanical digest, invalidates the dependent preparation and changes the
+observed trace. A change to a sprite that authored collision uses does the
+same. A change to a purely visual texture need not restart simulation if its
+owner proves that classification.
 
 ## Identity and canonical form
 
-Extend `PreparedContentBuilder`; do not replace it with a parallel hash authority.
-Separate these meanings in the implementation:
+Extend `PreparedContentBuilder`; do not add a parallel hash authority. Keep
+these meanings separate:
 
 | Identity | Purpose |
 | --- | --- |
-| Source revision/provenance | Explain which author input produced a value |
+| Source revision and provenance | Tell which author input made a value |
 | Portable section digest | Reuse and verify exact canonical domain data |
 | Mechanical generation digest | Bind selected definitions, code, schemas, ports and execution policy |
-| Host compatibility identity | State the engine/build/target policy required for execution |
-| ContentEpoch | Reject stale App-local activation plans |
-| PeerContentIdentity | State WHICH CONTENT, in the vocabulary two peers share |
-| Gameplay session / rollback timeline | Own live state and the history being replayed |
+| Host compatibility identity | State the engine, build and target policy that execution needs |
+| ContentEpoch | Refuse stale App-local activation plans |
+| PeerContentIdentity | State which content, in the vocabulary two peers share |
+| Gameplay session and rollback timeline | Own live state and the history that is replayed |
 | Construction attempt | Own candidate work and cleanup, not durable object identity |
 
-⭐⭐ **THE TWO CONTENT ROWS ARE ONE PAIR AND MUST BE MINTED TOGETHER.**
-`ContentEpoch` is an App-LOCAL activation count — which committed activation of
-prepared content this is — and it does the staleness job. `PeerContentIdentity`
-is which CONTENT, and two Apps holding the same prepared definition agree on it
-no matter how many times either one reloaded. `ContentBinding::Content` carries
-both, and `TransactionId`'s peer projection keeps the second and drops the first.
+**The two content rows are one pair. Mint them together.** `ContentEpoch` is an
+App-local activation count and does the staleness job. `PeerContentIdentity`
+names which content; two Apps that hold the same prepared definition agree on
+it, however many times each one reloaded. `ContentBinding::Content` carries
+both. The peer projection of `TransactionId` keeps the identity and drops the
+epoch.
 
-⛔⛤ **MINTED APART, THEY PRODUCED A LIVE BINDING NOTHING COULD MATCH — 2026-09-16.**
-`ContentBinding::Content` was reachable by struct literal, so a road holding a
-`PreparedContent` could state the epoch and let the peer half default to thirty-two
-zero bytes. Provider activation did exactly that and published `epoch: 1,
-content: 0` onto the session root, while the hot-reload road — which draws both
-halves from the same `PreparedContent` — was refused against it as
-`ContentBindingMismatch` with the EPOCHS EQUAL and only the identity disagreeing.
-Every committed world reload was refused.
+Rules that the code enforces:
 
-⇒ The repair was not to populate that one site. `ActorConstructionContext` takes a
-whole `ContentBinding` now, so a road states both halves or says
-`ContentBinding::content_unstated(epoch)` and means it —
-`PeerContentIdentity::unstated()` spells a fixture's answer rather than leaving it
-to `Default`. ⚠ "Content-derived, nobody stated which" and "not content-derived
-at all" are DIFFERENT answers and a projection must keep them apart; that is what
-`ContentBinding::peer_content` returning `Option` is for.
+- `ContentBinding::Content` is `#[non_exhaustive]`
+  (`crates/ambition_platformer2d_shared_tangle/src/construction/mod.rs`). Outside
+  that crate a caller uses `ContentBinding::content(..)` or
+  `ContentBinding::content_unstated(..)`. The half-stated form does not compile.
+- "Content-derived, but no road stated which content" and "not content-derived"
+  are different answers. `ContentBinding::peer_content` returns `Option` to keep
+  them apart.
+- A construction plan has two bindings. `expected_live` is the generation that
+  the plan is committed into (the staleness comparison at the commit boundary).
+  `incoming` is the generation that the plan's content came from (the stamp on
+  each root's `TransactionId`).
+- Only a content replacement can state two generations.
+  `ActorConstructionContext::for_live_room_construction` takes one binding;
+  activation, door, death, reset, prefetch and fixtures use it.
+  `ActorConstructionContext::for_content_replacement` takes `expected_live` and
+  `incoming` by name. Both delegate to one private body.
+- A room behind a door is built from the generation that runs, so that
+  generation is its incoming identity. Ordinary roads pass
+  `ActiveContentBinding::live_or(active, content_unstated(..))`: a session that
+  publishes a binding always stamps it, and a headless fixture that publishes
+  none keeps an honest gap.
 
-⛔⛤ **AND `content_unstated` THEN BECAME THE DEFECT — THE SAME HOLE, ONE LAYER UP,
-FOUND BY THE GPT REVIEW OF 2026-09-16.** Making the sentence available was right;
-what was missing is that only a REPLACEMENT may state two generations.
+Witnesses: `an_ordinary_room_transition_stamps_its_roots_with_the_session_content`
+(asserts on `TransactionId::peer_content_term`, the one term that the rule
+decides; the full projection also folds in the room, so two rooms always
+differ) and the disagreement arm of
+`an_edited_pack_reaches_the_cast_the_shipped_composition_plays` (one process
+at two prepared fingerprints).
 
-A construction plan holds two bindings, and they answer different questions:
+**An agreement guard needs a disagreement arm.** An assertion `f(a) == f(b)`
+passes for every `f` that discards information, including a constant. For each
+agreement guard, ask what a constant would do. If the constant passes, add an
+arm that asserts disagreement. A guard of this shape
+(`two_hosts_at_different_content_epochs_share_one_construction_provenance` in
+`game/ambition_app/tests/id_peer_audit.rs`) stayed green while every root was
+stamped with a constant content term.
 
-    expected_live   the generation this plan will be COMMITTED INTO
-                    → the commit boundary's staleness comparison
-    incoming        the generation this plan's content CAME FROM
-                    → what every root's `TransactionId` is stamped with
+Canonical bytes specify tag order, integer width, sequence order, string
+encoding, map order, numeric restrictions and unknown-field behavior. Do not
+hash Rust memory or default `Debug`/`Hash` output. Keep `-0`, NaN and infinity
+handling explicit at the owning numeric contract. Required unknown fields or
+sections refuse admission. An optional field can be ignored only under a
+versioned rule that excludes simulation influence.
 
-`ConstructionScope::in_generation` cannot express a split, deliberately. But
-`ActorConstructionContext::for_room_construction` <!-- cite-ok: the removed signature is the subject of this note --> took `content` and
-`active_binding` as SEPARATE parameters and applied the second to the
-expected-live half only — so the split was spellable one layer above the layer
-that had forbidden it. **Three production roads filled it wrong:** the door
-transition (`room_transition/loading.rs`), the reset (`session/reset/mod.rs`) and
-the neighbour prefetch (`world_flow/room_transition_assets.rs`). Each read
-`content` as *"the content THIS ROAD publishes"* — a transition publishes none —
-answered `content_unstated`, and stamped every root it built `content-unstated +
-room`.
+Source timestamps, local paths, temporary IDs and file enumeration order are
+not mechanical identity. Diagnostic metadata can have its own digest. Identical
+input with the same selected preparation contract is a no-op, not a new epoch
+or timeline.
 
-⇒ **PUBLISHING NO CONTENT IS A FACT ABOUT THE COMMIT BOUNDARY, NOT ABOUT
-PROVENANCE.** A room behind a door is built from the generation already running,
-so that generation IS its incoming content identity. Each of the three comments
-argued correctly about the boundary half and none about the stamp — three careful
-authors writing three true sentences about the wrong field.
-
-⭐⭐ MEASURED, not inferred: after one door transition in the shipped app, the
-ONLY peer content term anywhere in the live world was `content-unstated`. Not
-merely the new room — the transition rebuilds the world, so the whole world's
-construction provenance was content-blind. Two peers running DIFFERENT prepared
-content projected the same `TransactionId`, which is the one thing that
-projection exists to prevent.
-
-⛔⛤ **AND THE CAMPAIGN'S OWN GUARD WAS GREEN OVER IT, STRUCTURALLY — this is the
-durable lesson.** `two_hosts_at_different_content_epochs_share_one_construction_provenance`
-mints two hosts with the same content at different local epochs and asserts
-their projections AGREE. `content-unstated` agrees with `content-unstated`
-perfectly, so erasing the discriminating term made that assertion MORE true. **An
-equality assertion `f(a) == f(b)` is satisfied by every `f` that throws
-information away, the constant function included** — so for any agreement guard,
-ask what the CONSTANT would do to it, and if the constant passes, the other half
-of the claim is a DISAGREEMENT arm.
-
-⇒ THE REPAIR, and it is a shape rather than a patch:
-
-| road | constructor | bindings |
-| --- | --- | --- |
-| activation, door, death, reset, prefetch, fixtures | `for_live_room_construction` | ONE — the split is unspellable |
-| hot reload / content replacement | `for_content_replacement` | `expected_live` and `incoming`, independently, by name |
-
-Both delegate to one private body, so the two roads cannot drift. The three
-ordinary roads pass `ActiveContentBinding::live_or(active, content_unstated(..))`,
-which keeps `None` an honest gap — a headless fixture publishes no binding and
-has nothing to name — while making it impossible for a session that DOES publish
-one to build roots that do not name it.
-
-⚠ The projection was the wrong level to witness this at: it folds `content ⊗
-room`, so any two ROOMS differ whatever the content term says.
-`TransactionId::peer_content_term` exposes the one term the rule decides, and
-`an_ordinary_room_transition_stamps_its_roots_with_the_session_content` asserts
-on that.
-
-⭐⭐ **AND THE AGREEMENT ARM'S BLINDNESS IS MEASURED, NOT INFERRED.** Poison
-`ContentBinding::canonical_summary` to render a STATED BUT CONSTANT content term
-(`format!("{epoch}|pinned")`) and all six arms of `id_peer_audit` pass, the
-agreement arm included. The disagreement arm added to
-`an_edited_pack_reaches_the_cast_the_shipped_composition_plays` — one process
-through two prepared fingerprints via a materially changed reload — is the only
-thing in the workspace that reddens. ⚠ One process at two fingerprints is not two
-peers; it is a real test of discriminating power because the projection already
-excludes the epoch and the session, leaving the content term the only thing that
-can move. Two hosts agreeing needs the P2P session N2 records as absent.
-
-⛔⛤ **AND THE SPELLING WAS CLOSED, NOT JUST THE ONE ROAD — THE COMMENT SAYING SO
-WAS FALSE FOR A DAY.** `ContentBinding::content`'s doc read *"`Content` used to be
-reachable by struct literal"* while **the literal was still spelled at 25 sites**
-— 24 constructions and one doc comment teaching the form — six of them outside
-the defining crate, and one of those six a production wrapper
-(`ActiveContentBinding::content`) re-spelling the pair instead of calling the
-constructor. A fixed road does not close a spelling. The variant is
-`#[non_exhaustive]` now, which makes the half-stated form a COMPILE ERROR outside
-`shared_tangle` rather than a convention, and every remaining literal became
-`content(..)` or `content_unstated(..)`. ⚠ The census that found this was
-`grep -rn 'ContentBinding::Content\s*{'` — the same one command that should have
-been run before writing the word "used to".
-
-Canonical bytes specify tag order, integer width, sequence order, string encoding,
-map order, numeric restrictions and unknown-field behavior. Do not hash Rust
-memory or default Debug/Hash output. Keep `-0`, NaN and infinity handling explicit
-at the owning numeric contract; never normalize away a mechanically meaningful
-value. Required unknown fields/sections refuse admission. An optional field is
-ignorable only under a versioned rule that excludes simulation influence.
-
-Source timestamps, local paths, temporary IDs and file enumeration order are not
-mechanical identity. Diagnostic metadata may have its own digest. A producer must
-not claim identical generations merely because the character IDs are unchanged.
-Identical input plus the same selected preparation contract is a no-op, not a new
-epoch or timeline. Tests compare semantic section bytes and dependent behavior.
-
-Do not make persistent saves use ContentEpoch or executable addresses. Same-build
-network compatibility, save-schema compatibility and authoring-format compatibility
-are separate contracts. A code digest establishes identity, not trust or safety.
+Persistent saves do not use ContentEpoch or executable addresses. Same-build
+network compatibility, save-schema compatibility and authoring-format
+compatibility are separate contracts. A code digest gives identity, not trust
+or safety.
 
 ## Producer, source transport and complete candidates
 
-Use the existing source/asset resolver for local, packaged and web transports.
-An authoring tool publishes immutable section/module objects and a complete
-manifest last. For a local filesystem this can use write-to-new-path plus atomic
-manifest replacement. Other transports need an equivalent complete-object rule.
-A watcher only requests inspection. It is not ordered simulation input.
+Use the existing source and asset resolver for local, packaged and web
+transports. An authoring tool publishes immutable section and module objects
+and then a complete manifest. A watcher only requests inspection; it is not
+ordered simulation input.
 
-The reader verifies lengths, versions, dependency identities and complete bytes
-before building a candidate. Missing or still-writing objects report pending or
-invalid; they never activate a mixture. A later notification does not mutate bytes
-already captured by an earlier preparation task.
+The reader verifies lengths, versions, dependency identities and complete
+bytes before it builds a candidate. Missing or partly written objects report
+pending or invalid; they never activate a mixture.
 
 A candidate carries its requested source revision, base ContentEpoch, selected
-profile identity and an attempt key. Superseded work may finish, but it cannot
-publish. Cancellation retires only that attempt's resources. Shared immutable
-cache objects remain valid while any generation holds them. Coalescing requests
-may discard intermediate edits, but the UI must state which revision won.
+profile identity and an attempt key. Superseded work can finish but cannot
+publish. Today a second request while one is in flight is refused
+(`ReloadRequest::AlreadyPending`), not superseded.
 
 ## Activation state machine
 
-Names below specify roles, not mandatory new public Rust type names.
+The names below are roles, not required Rust type names.
 
 ```text
 Requested -> ReadComplete -> Prepared -> Admitted -> Sealed
           -> BoundaryGranted -> CandidateReady -> Published -> Retired
 ```
 
-Preparation and admission can occur without stopping active simulation. Candidate
-construction may require a pause; the coordinator explicitly owns that pause.
-Failure before publication has one terminal result. It does not retry forever
-unless a new source revision or explicit retry requests another attempt.
-
 | Transition | Required input and invariant |
 | --- | --- |
 | ReadComplete | Immutable complete manifest and verified dependencies |
-| Prepared | Domain validators produce values; active registries and live state are unchanged |
-| Admitted | Actual installed ports, capabilities, schemas and resource limits satisfy requirements |
-| Sealed | Complete replacement view plus base epoch/profile and reconstruction policy |
-| BoundaryGranted | Local lifecycle owner authorizes the operation; stale or remote-active candidates refuse |
-| CandidateReady | Supported materialization and state mapping are verified without publishing partial state |
-| Published | One active selection changes; all participating owners and new timeline name it |
-| Retired | Old calls, readers, snapshots, effects, tasks and code-owned destructors are no longer reachable |
+| Prepared | Domain validators make values; active registries and live state do not change |
+| Admitted | Installed ports, capabilities, schemas and resource limits satisfy the requirements |
+| Sealed | Complete replacement view plus base epoch, profile and reconstruction policy |
+| BoundaryGranted | The local lifecycle owner authorizes the operation; a stale candidate or a timeline that another owner holds refuses |
+| CandidateReady | Materialization and state mapping are verified without publishing partial state |
+| Published | One active selection changes; all participating owners and the new timeline name it |
+| Retired | Old calls, readers, snapshots, effects, tasks and code-owned destructors are not reachable |
 
-Publication is a simulation visibility barrier, not necessarily one machine-word
-store. No simulation, event reader, observer or presentation extractor may observe
-half the committed generation. A Bevy deferred-command flush is not proof of this.
-The owner must specify the systems and hooks covered by its barrier.
+Publication is a simulation visibility barrier. No simulation, event reader,
+observer or presentation extractor sees half of the committed generation. A
+deferred-command flush does not prove this; the owner names the systems and
+hooks that its barrier covers.
 
-Snapshots may only be replayed with their bound mechanical generation. A fresh
-local timeline does not clear an unhealthy diagnosis for the same gameplay session.
-Remote sessions retain their admitted generation; next-session packaging is not
-online hot migration.
+Snapshots replay only with their bound mechanical generation. Remote sessions
+keep their admitted generation; next-session packaging is not online hot
+migration.
 
-## Reload policies with explicit limits
+Room construction for a reload uses the hidden-candidate road
+(`construction-and-reconstitution.md`): every root is built as an inactive
+candidate, verified and published or dropped. There is no destructive phase
+before the decision.
 
-Every migrated family declares one supported action. Tooling reports it before
-activation; it does not choose reset versus retain from a heuristic.
+## Reload policies
+
+Each family declares one supported action. Tooling reports it before
+activation; it does not choose between reset and retain by a heuristic.
 
 | Class | Allowed action and proof |
 | --- | --- |
 | Diagnostic-only | Refresh diagnostics; mechanical generation and timeline do not change |
-| Presentation-only | Use existing asset reload; prove no simulation reader depends on the changed bytes |
-| Immutable mechanical definitions | Replace at a local barrier only after every affected live binding has a declared retain/rebind/retire policy |
-| State/schema or body-construction change | Reconstruct the selected development scenario through the accepted lifecycle and domain restore paths |
-| Fundamental host/port change | Rebuild the engine/profile; report this as engine iteration |
-| Unsupported migration | Reject or require an explicit scenario restart; never silently discard durable progress |
+| Presentation-only | Use existing asset reload; prove that no simulation reader depends on the changed bytes |
+| Immutable mechanical definitions | Replace at a local barrier after every affected live binding has a declared retain, rebind or retire policy |
+| State, schema or body-construction change | Reconstruct the selected development scenario through the lifecycle and domain restore paths |
+| Fundamental host or port change | Rebuild the engine or profile; report this as engine iteration |
+| Unsupported migration | Refuse, or require an explicit scenario restart; never silently discard durable progress |
 
-The first supported mechanical path is **repeatable scenario reconstruction**.
-It is not an arbitrary save migration or seamless mid-attack swap. Capture the
-scenario seed, input trace, start point and selected checkpoint before requesting
-activation. A checkpoint usable with generation N is not automatically usable
-with N+1. Each affected owner validates the mapping, including removed definitions,
-state schema changes and semantic references.
+The current mechanical path is **scenario reconstruction**: the active route is
+prepared again against the candidate. It is not an arbitrary save migration or
+a swap in the middle of an attack. A checkpoint that is usable with generation N
+is not automatically usable with N+1.
 
-An unchanged schema does not prove unchanged meaning. Initially reject a changed
-schema's state transfer unless a named migration exists. A developer may explicitly
-restart that scenario from authored initial state. Persistent game saves remain
-untouched by this local operation.
+A faster path for immutable definitions must state what happens to active
+`MovePlayback` references, cooldowns, attached capabilities, prepared collision
+facts and derived caches. Either finish or retire the affected occurrences
+before publication, or include the retained definitions in the admitted
+generation.
 
-An owner can later add the narrower immutable-definition fast path. It must state
-what happens to active MovePlayback references, cooldowns, attached capabilities,
-prepared collision facts and derived caches. Either finish/retire the affected
-occurrences before publication, or include the retained definitions explicitly in
-the admitted generation. Do not keep an unnamed old Arc while advertising a single
-new mechanical identity. A globally idle arena is not a required long-term boundary.
+A supported refusal keeps the old selection and scene. If the implementation
+can only recover by building the pinned old scenario again, it reports
+**recovered**, not **unchanged**. If it can do neither, it reports
+**failed/stopped** and keeps normal simulation disabled.
 
-## Bounded safe construction, not arbitrary World undo
+## Tool operations
 
-The existing raw-Commands recipe context does not meet a preserve-old-scene
-contract across arbitrary commit failure. A10 now has a concrete customer: I3's
-repeated development reconstruction. I1/I2 do not wait for that work. I3 may ship
-an explicitly labeled fail-stop prototype, but cannot close the reliable reload
-acceptance on that prototype.
+Use the existing CLI and workbench routes. The operations are: validate a
+candidate; explain affected sections; request activation; inspect status;
+inspect the active generation; replay the selected scenario. A status result
+names the attempt, source revision, base, active and candidate identity,
+policy, stage, refusal owner and reason, rebuilt and reused sections, and
+whether the prior scene is unchanged, recovered or stopped.
 
-For the migrated reload path, prepare a **domain-owned candidate draft** with
-resolved definitions, component values, relationship targets, resource deltas and
-retention decisions. No callback during this phase receives mutation access to
-active World or process state. Do not invent a universal construction opcode enum
-or deep-clone an arbitrary Bevy World.
+## Open work
 
-The default design is typed inactive data produced by the existing domain
-constructors' preparation halves. The restricted materializer consumes it after
-validation. Separate recoverable preparation errors from internal commit defects.
-Hooks and observers reached by installation must be inventoried: they cannot
-perform fallible IO, publish effects, discover new requirements, or mutate unrelated
-live owners inside this transaction. Unsupported engine plugins keep the explicit
-fail-stop contract until they implement this bounded path.
+- `ambition_content::pack::prepared()` is a process-global `OnceLock` that
+  serves the boot-time pack. Readers that still call it do not see a reload.
+  Move them to the App-scoped selection (I3 step 1).
+- The cutscene libraries, the quest book and the music-cue catalog do not take
+  part in reload.
+- Supersession of an in-flight generation through a real cancellation.
+- Demo packs do not reload in a running demo.
+- Measure source read, changed-section preparation, candidate construction,
+  activation, scenario reset and first observed behavior separately (M0).
+  Fixtures FI1-FI4 in [acceptance](fast-iteration-acceptance.md).
 
-A same-World candidate population is acceptable only with a stronger isolation
-proof: all relevant queries, observers, hooks, message writers and resource writes
-exclude or isolate it. A `Pending` marker alone proves none of those properties.
-Do not refactor every Bevy query merely to justify that shortcut. A separate World
-is not a drop-in fix either: entity mapping, resources and hooks need explicit
-transfer contracts. Select physical staging after the typed boundary is clear.
+## Forbidden regressions
 
-Before retirement, the candidate must pass domain verification, relationship
-resolution and checkpoint policy. The publication section performs only the
-specified materialization/selection and timeline establishment. A supported
-validation/materialization refusal retains the old selection and scene. An
-unexpected native panic, allocator failure or rogue unsafe plugin is an engine
-fault, not a recoverable content refusal and not a sandbox guarantee.
-
-When the implementation can only recover by rebuilding the pinned old scenario,
-report **recovered**, not **unchanged**. If neither retention nor recovery is
-available, report **failed/stopped** and leave normal simulation disabled. Do not
-call that successful hot reload. These result distinctions are part of I3 tests.
-
-## Required tool operations
-
-Use existing CLI/workbench routing. Add operations that expose actual owners:
-validate candidate; explain affected sections; request activation; inspect status;
-inspect active generation; replay the selected scenario. Names are chosen in the
-owning tooling packet, not by creating a second general launcher.
-
-A status result includes attempt, source revision, base/active/candidate identity,
-policy, state-machine stage, refusal owner/reason, rebuilt/reused sections and
-whether the prior scene was unchanged, recovered, or stopped. Successful status
-also names the behavior witness that observed the new generation. A file read or
-successful build is not playable readiness.
-
-## Implementation and evidence
-
-I2 implements portable sections and complete-object publication. I3a implements
-the candidate coordinator and seals. I3b implements one bounded reconstruction
-path with A10. I3c integrates repeatable development scenarios and stale-work
-handling. This page does not authorize a generic live-state migration framework.
-
-Use fixtures FI1-FI4 in [acceptance](fast-iteration-acceptance.md). Measure source
-read, changed-section preparation, candidate construction, activation, scenario
-reset and first observed behavior separately under M0. Safe publication and exact
-identity are not optional experiments; their physical implementation can change.
+- A reload that publishes one family at generation N+1 while another family
+  that changed still serves N.
+- A struct literal of `ContentBinding::Content`, or a default
+  `PeerContentIdentity` that stands in for an unstated one.
+- An ordinary construction road that can state two different generations.
+- An agreement guard with no disagreement arm.
+- A watcher event treated as ordered simulation input.
+- A failed candidate that falls back to a compiled table.

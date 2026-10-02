@@ -1,8 +1,7 @@
 # Fast content iteration and the engine extension model
 
-**State:** implementation design, not a delivered runtime. Source inspection:
-`d81a7ae1d2db1fc5caa49efc807a39ea6b1ca266`, 2026-09-11.
-**Authority:** this page owns the extension architecture. The
+**Scope:** the extension architecture for fast content and procedural
+iteration. **Authority:** this page. The
 [execution and state contract](extension-state-and-execution.md) supplies its
 protocol details. The [packet catalog](fast-iteration-implementation.md) supplies
 implementation steps. [Generation and reload](content-generation-and-reload.md)
@@ -11,6 +10,23 @@ owns procedural calls. [Acceptance fixtures](fast-iteration-acceptance.md) defin
 the behavioral evidence shared by packets. [Evidence and experiments](extension-iteration-evidence.md)
 separate source facts from outstanding measurements. Only [the queue](../queue.md)
 selects work. These pages do not create another queue or rollback backend.
+
+## Current shape
+
+- **Data tier:** content packs in data (`game/ambition_content/assets/pack.ron`
+  and the demo packs) are read off disk and reload in a running game through
+  `ambition_content::reload`
+  ([generation and reload](content-generation-and-reload.md)).
+- **Procedural tier:** `ambition_extension_sdk` (no dependencies),
+  `ambition_extension_host` (below the runtime composition root) and the
+  WebAssembly backend `ambition_extension_wasm` (wasmi). Modules are in
+  `game/ambition_content_modules`: every boss special, the wielded kit, the
+  sentry, the vortex and the FSM conductor. Modules run on the linked road and
+  on the loaded WASM road, and a loaded module hot-reloads through the
+  mechanical-edit protocol.
+- **Engine tier:** ordinary Bevy plugins.
+
+Packet state and witnesses are in the [packet catalog](fast-iteration-implementation.md).
 
 ## Intent and decision status
 
@@ -147,14 +163,15 @@ it must not edit a central match over all game mechanics.
 | Move values and pure builders | Existing `ambition_entity_catalog`; move only the pure helper closure from characters | Bevy, live character preparation, combat runtime |
 | Generic artifact pipeline | Existing `ambition_content_pack` and `ambition_registry_core` when genuinely reused | Installed handlers, game catalogs, runtime hydration |
 | Domain artifact schemas | Owning domain's pure value module; extract a leaf only where a real compiler import proves the need | Runtime/plugin dependency pulled in solely for schema discovery |
-| Procedural values/state/ports | Proposed `ambition_extension_sdk`, independently buildable | Bevy umbrella, bevy_ecs, runtime, render, audio, game crates |
-| Host adapter | Proposed `ambition_extension_host`; selected domain adapters install into it | Game-specific algorithms or an inventory of every extension's concrete state type |
+| Procedural values/state/ports | `ambition_extension_sdk`, independently buildable, no dependencies | Bevy umbrella, bevy_ecs, runtime, render, audio, game crates |
+| Domain port values | Dependency-light port crates (`ambition_boss_special_port`, `ambition_combat_port`, `ambition_projectile_spec`) | A central enum of all engine requests |
+| Host adapter | `ambition_extension_host`; selected domain adapters install into it | Game-specific algorithms or an inventory of every extension's concrete state type |
+| Executable backend | `ambition_extension_wasm`, which names only the host and the SDK | Any domain, runtime or game crate |
 | Static native integration | Separate Bevy-facing adapter or domain plugin, paired to the engine version | An optional SDK feature that makes portable authors inherit Bevy through feature unification |
 | Composition SDK | Existing `ambition_platformer2d` facade and supported profiles | Claim that its broad closure is the normal content author's SDK |
 
-The proposed crate names are design targets, not existing packages. Start with
-the existing pure move leaf. Do not extract all of `ambition_characters` or the
-actor SCC to obtain a builder. Keep pure implementations in one place; migrate
+Do not extract all of `ambition_characters` or the actor SCC to obtain a
+builder. Keep pure implementations in one place; migrate
 callers and remove internal compatibility reexports at the moved seam.
 
 A wire-level value can have a native wrapper with familiar Bevy math conversion.
@@ -215,13 +232,13 @@ cannot bypass ownership by writing health, body velocity, custody or progression
 components directly. Missing fundamental host functionality is implemented as a
 Bevy domain service, not exposed through an unrestricted mutation escape hatch.
 
-A static native reference binding establishes semantics first. It does not meet
-the no-host-relink procedural acceptance by itself. Compare a portable WASM
-binding with a narrowly specified trusted native ABI using the same fixture.
-WASM is the first portable prototype, not a promise that a particular runtime is
-fastest or supports every target. Lua and Rhai remain script-binding candidates;
-choose a human-facing language after the procedural contract and measurements.
-Do not ship several runtimes merely to avoid deciding which one meets the needs.
+A static native reference binding establishes semantics. It does not meet the
+no-host-relink procedural acceptance by itself. The loaded backend is wasmi
+(deterministic, fuel, a new instance per call). The comparison with a narrowly
+specified trusted native ABI on the same fixture is still open (M1). Lua and
+Rhai remain script-binding candidates; choose a human-facing language after the
+procedural contract and measurements. Do not ship several runtimes to avoid a
+decision.
 
 ## Generation, hot reload and packaging
 
@@ -246,12 +263,11 @@ not make old code and new code interchangeable during replay. A developer rebase
 inside the same session must preserve an existing unhealthy rollback diagnosis;
 use the existing session/timeline rules, not reload as a way to erase a desync.
 
-Last-good definitions are not an atomic-world-undo promise. Current raw-Commands
-construction can stop after destructive failure. That is a source limit, not the
-finished development-loop target. I3/A10 now require a bounded safe reconstruction
-path for the migrated scenario. Typed candidate data is prepared and verified
-before active state retires. Arbitrary native plugin failure still has no generic
-undo guarantee. Report unchanged, recovered and stopped as distinct outcomes.
+Last-good definitions are not an atomic-world-undo promise. Room construction
+for a reload builds every root as a hidden candidate, verifies it and publishes
+or drops it ([construction](construction-and-reconstitution.md)). Arbitrary
+native plugin failure has no generic undo guarantee. Report unchanged,
+recovered and stopped as distinct outcomes.
 
 [Generation and reload](content-generation-and-reload.md) specifies complete
 artifacts, dependency-aware preparation, stale-work seals, lifecycle barriers,
@@ -299,8 +315,8 @@ path, not arbitrary world undo. Full streaming and background simulation remain
 separate work. One-instance and multi-instance profiles must converge on one
 implementation, not retain a singleton fallback.
 
-Remove the old requirement to wait for a modding customer before designing
-runtime extensions. Retire migrated compile-time content tables as authoritative
+Runtime extensions do not wait for a modding customer. Retire migrated
+compile-time content tables as authoritative
 inputs, ad hoc script rollback implementations, and whole-host linking for those
 content edits. Keep domain compilers, asset tools, LDtk and ordinary Bevy plugins.
 Do not combine all authored media into one universal compiler.

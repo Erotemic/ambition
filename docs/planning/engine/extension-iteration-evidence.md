@@ -1,243 +1,52 @@
 # Extension iteration: evidence, measurements and decisions
 
-**Inspection baseline:** `d81a7ae1d2db1fc5caa49efc807a39ea6b1ca266`, 2026-09-11.
-**Owner:** [extension model](extension-model.md). This page records evidence and
-experiments, not another work queue. [Packets](fast-iteration-implementation.md)
-consume the results. Recheck locators on a newer head.
+**Scope:** the measurement program M0-M3 for fast iteration, the results it
+has, and the choices that measurements still decide. **Owner:**
+[extension model](extension-model.md). [Packets](fast-iteration-implementation.md)
+consume the results. This page is not a work queue.
 
-## What was and was not established
+The DO decisions are exact identity, separation of dependency and lifetime, one
+domain owner and explicit visibility. M0-M3 choose encoding, caching, storage,
+batching and backend details. Safe reload and instance isolation need
+behavioral evidence; a faster benchmark does not waive them.
 
-The investigation read the uploaded source, manifests, relevant planning and
-repository checks. A temporary Python manifest traversal ran outside the source
-tree. It found 79 workspace members. There was no cargo or rustc executable in
-the investigation environment. No Cargo resolution, Rust compilation, linking,
-hot reload, runtime profile or rollback acceptance test ran here.
+If the toolchain or a representative machine is not available, record that,
+continue DO work and leave the performance claim open.
 
-Existing timing results in Cargo comments and the build plan remain historical
-results from their stated machines. They are not new measurements. Historical
-commit receipts in other plans are inherited from their original documents, not
-newly recovered here. Missing old commits in this epoch-limited snapshot are not
-evidence of lost history; use [repository history](../repository-history.md) for
-cold-store reconstruction when a historical decision needs rechecking. The user
-reports severe iteration latency; the source establishes several coupling paths,
-but it does not identify today's dominant wall-clock cost.
+## M0 - edit-to-observable-result baseline and comparison
 
-### Source map
+Owner: B7 in [build and distribution](project-build-and-distribution.md). Use
+the normal developer machine and the real host and profile. Record the commit
+and dirty diff; toolchain, target, CPU, memory, filesystem and free disk;
+features, profile, jobs, linker, flags, cache state and asset prerequisites. Do
+not clean the shared target or change profiles between a before and after
+pair.
 
-| ID | Source and locator | Established fact | Architectural consequence |
-| --- | --- | --- | --- |
-| E01 | `Cargo.toml`, workspace members and profiles; `.cargo/config.toml` | Broad workspace; deliberate per-package dev settings, incremental builds and Linux clang/mold configuration | Do not treat a generic linker/profile recommendation as a new discovery |
-| E02 | `crates/ambition_entity_catalog/Cargo.toml`; `crates/ambition_entity_catalog/src/lib.rs`, MoveSpec, TechniqueFlow, EffectRef | Move values already live in a Bevy-free serde/RON crate | Start authoring extraction here, not at the engine facade |
-| E03 | `crates/ambition_entity_catalog/src/authoring.rs`, imports and helper functions | ✅ **DONE 2026-09-11 (I1).** The inventory found NO pure/impure split to make: `bevy` appeared zero times in all 1,846 lines and the only outside reach was two `&str` VFX constants, which moved with it | The whole module moved to the Bevy-free value owner; witness is `fixtures/content_builder`, whose resolved closure is 12 crates and no Bevy |
-| E04 | `game/ambition_demo_smash/src/moveset.rs`, imports; `game/ambition_content/src/authored/` | Authored Rust move data is built under game providers; Smash helpers import through the facade | A builder fixture must prove an independent compilation path |
-| E05 | `crates/ambition_content_pack/src/prepared.rs`, PreparedContentPack and lowered | Lowered sections contain Arc of type-erased Any values | Current prepared packs are in-process objects, not a portable executable/content ABI |
-| E06 | `game/ambition_content/src/pack.rs`, PACK_MANIFEST_RON, embedded_sources, compile_pack, prepared | Several inputs use include_str; prepared pack is process-global OnceLock; some generated inputs have disk/embed selection | Disk source support is not coordinated last-good generation reload |
-| E07 | `crates/ambition_content_cli/Cargo.toml` | Offline CLI directly composes several owning domain schemas | Its name alone does not establish a small compilation closure |
-| E08 | `crates/ambition_characters/src/prepared.rs`, stage_character_revision, activate_staged_revision, RevisionOutcome | Candidate cast validation can retain last-good definitions and generation on refusal | Reuse this path; expand coordination to the complete admitted bundle |
-| E09 | `crates/ambition_combat/src/technique.rs`, InstalledTechniques; `crates/ambition_platformer2d_runtime/src/combat_schedule.rs` | Installed technique support and the preparation barrier exist | Remove the old extension plan's claim that production validation is wholly absent |
-| E10 | `crates/ambition_entity_catalog/src/lib.rs`, TechniqueOffer, NestedReferences, TechniqueSupport | Installed offer data includes executable validators/reference callbacks | Do not serialize those function tables as artifact data |
-| E11 | `crates/ambition_platformer2d_runtime/src/content_identity.rs`, PreparedContentBuilder, PreparedContentIdentity, ContentEpochSequence | Versioned BLAKE3 sections and App-local activation epochs already exist | Add module/state/profile identity sections; do not create a third content identity authority |
-| E12 | `crates/ambition_platformer2d_core/src/snapshot.rs`, RollbackRegistrar; `crates/ambition_platformer2d_rollback_ggrs/src/registrar.rs` | Domain registration uses concrete generic types and existing backend installation | A dynamic schema store needs concrete registered storage, not only metadata |
-| E13 | `crates/ambition_platformer2d_runtime/src/rollback/registry.rs`, RollbackRegistrationDescriptor, RollbackRegistry | Registry describes installed state and checksum/restore obligations | Descriptors do not themselves snapshot arbitrary new schemas |
-| E14 | `game/ambition_content/src/bosses/specials/rollback.rs` | Content-owned boss state has repeated handwritten canonical codecs and registrations | Real candidate customer for generic schema-backed extension state |
-| E15 | `crates/ambition_platformer2d_shared_tangle/src/sim_id.rs`; `crates/ambition_platformer2d_shared_tangle/src/lifecycle/session.rs` | Semantic identity, per-spawner counters and session ownership already have homes | Preserve their semantics when extracting portable values |
-| E16 | `crates/ambition_platformer2d_runtime/src/session_world.rs`; `crates/ambition_platformer2d_runtime/src/rollback/authority.rs` | Prepared source is distinct from live world; rebase/session health semantics are explicit | Do not promise arbitrary world undo or clear unhealthy diagnosis during reload |
-| E17 | `crates/ambition_asset_manager/src/lib.rs`; `docs/planning/engine/asset-preparation-and-residency.md` | Asset handling and target-specific source/residency policy already exist | Load content through that source boundary, not a second asset manager |
-| E18 | `AGENTS.md`; `docs/recipes/cheapest-sufficient-check.md`; `scripts/check_absence_contracts.py` | Narrow checks and dependency/profile guards already exist | Extend these mechanisms instead of adding a competing all-tests launcher |
+Run these edit classes separately:
 
-### Deeper review: source and design deltas
-
-The follow-up review inspected the source again after applying the first planning
-overlay. It did not execute Rust, load an extension or measure runtime/compile
-latency. The following additions explain why the plans changed; they are not
-implementation receipts.
-
-| ID | Source checked | Established fact and selected response |
+| Loop | Specimen | Required observation |
 | --- | --- | --- |
-| E19 | Shared `construction/mod.rs`, ConstructionExecCtx; runtime room transition | Raw Commands and post-commit verification remain the source limit. I3b/A10 now target typed candidate data for a bounded safe reload, not arbitrary undo |
-| E20 | World `rooms/room_graph.rs`, RoomSet | `active: usize` remains one live-room selection. The future-game requirement releases A8's indefinite customer hold; OW1/FI9 will prove two instances |
-| E21 | Runtime `room_transition/prefetch.rs`, PrefetchIdentity | A plan's producer carries epoch/session/source-room identity. Extend this discipline to candidate dependencies and stale asynchronous work, not new global revision guesses |
-| E22 | Actor monolith `session/checkpoint.rs`; shared `lifecycle/horizon.rs` and `continuity.rs` | AcceptedCheckpointRestore and explicit checkpoint inputs exist. Remove the stale active diagnosis that raw reset is still the selected restoration input; preserve A1's own witness limits |
-| E23 | Core snapshot trait and GGRS `registrar.rs`, rollback_resource_clone_checksum | Concrete Clone storage plus value checksum is supported. This does not prescribe whole-world/per-callback copies or make dormant mutable facts safe to omit from rewind |
-| E24 | Runtime `external_effects.rs`, record/take_confirmed | Empty speculative batches replace prior output; confirmation releases it. Module retirement and result tests must use this existing road, not add another event journal |
-| E25 | `ambition_load/src/coordinator.rs`, apply and change reporting | Plan-change emission is centralized in current source. Remove the older seven-independent-sites investigation from the active world plan |
-| E26 | Characters `prepared.rs`, PreparedCharacterDefinition and stage/activate revision | Pure definition, prepared evidence, policy and materialization remain distinct responsibilities. The field census guides selected extraction rather than wholesale serialization |
-
-The current world/construction owner pages were rewritten rather than followed by
-another layer of corrections. Historical successful repairs are short receipts;
-source facts are marked as inspected, and unbuilt behavior remains a specification.
-The new artifact graph, domain call cards and FI1-FI10 fixtures are design choices
-from the maintainer's goals, not claims that those APIs already exist.
-
-The code paths above were read, not executed. Source-backed reuse is not a
-passing acceptance report. Some old focused plans contain historical baseline
-paragraphs followed by closure corrections. Follow the current code and the
-local correction; do not resurrect closed A11/A12 work from the older paragraph.
-
-### Manifest-only dependency observations
-
-Method: traverse top-level normal, nonoptional internal path dependencies.
-Exclude the root package from each count. Exclude dev/build/target-specific
-sections and all feature activation. This is not a Cargo-resolved graph and is
-not a proxy for milliseconds, code size or installed systems.
-
-| Root | Other required internal packages under this method |
-| --- | ---: |
-| ambition_entity_catalog | 0 |
-| ambition_registry_core | 0 |
-| ambition_content_pack | 0 |
-| ambition_characters | 4 |
-| ambition_combat | 18 |
-| ambition_content_cli | 25 |
-| ambition_platformer2d | 48 |
-| ambition_platformer2d_runtime | 43 |
-| ambition_content | 54 |
-| ambition_demo_smash | 49 |
-
-Examples of inspected paths: content directly depends on render; Smash depends
-on the facade and therefore the host; content_cli reaches audio. The old mandatory
-facade -> host -> render path was already removed from the inspected normal
-nonoptional closure. Do not cite the older 51-package/render claim as current.
-
-A content edit may rebuild its provider and relink a dependent executable without
-recompiling unchanged Bevy dependencies. Conversely, a feature, flags or profile
-change can invalidate much more. M0 must distinguish these cases. A graph walk
-cannot say which one currently dominates the user's loop.
-
-Reproduce the static count without fetching dependencies:
-
-```bash
-python3 - <<'PY'
-from pathlib import Path
-import tomllib
-root = Path('.')
-w = tomllib.loads((root / 'Cargo.toml').read_text())['workspace']
-graph = {}
-for member in w['members']:
-    d = tomllib.loads((root / member / 'Cargo.toml').read_text())
-    graph[d['package']['name']] = {
-        spec.get('package', key)
-        for key, spec in d.get('dependencies', {}).items()
-        if isinstance(spec, dict) and 'path' in spec
-        and not spec.get('optional', False)
-    }
-for start in ('ambition_entity_catalog', 'ambition_registry_core',
-              'ambition_content_pack', 'ambition_characters',
-              'ambition_combat', 'ambition_content_cli',
-              'ambition_platformer2d', 'ambition_platformer2d_runtime',
-              'ambition_content', 'ambition_demo_smash'):
-    seen, todo = set(), list(graph[start])
-    while todo:
-        name = todo.pop()
-        if name not in seen:
-            seen.add(name)
-            todo.extend(graph.get(name, ()))
-    print(start, len(seen - {start}))
-print('members', len(graph))
-PY
-```
-
-Use actual Cargo metadata/tree for the resolved guard. Treat command failure or
-an empty unexpected graph as a failed measurement, never as zero dependencies.
-Do not rewrite the existing feature-resolved absence guard into this simpler walk.
-
-## Measurement program
-
-M0 can run beside I1. Only backend/layout/profile decisions wait on measurements.
-If the toolchain or representative machine is unavailable, record that blocker,
-continue DO work, and leave performance claims open.
-
-### M0 - edit-to-observable-result baseline and comparison
-
-Owner: B7 in [build and distribution](project-build-and-distribution.md).
-Use the normal developer machine and the real selected host/profile. Record
-commit and dirty diff; toolchain, target, CPU, memory, filesystem and free disk;
-features, profile, jobs, linker, flags, cache state and asset prerequisites.
-Do not clean the shared target or change profiles between a before/after pair.
-Use a separately prepared cold-cache target only when measuring cold builds.
-
-Run these edit classes independently:
-
-| Loop | Current specimen | Required post-migration observation |
-| --- | --- | --- |
-| Move timing/damage | One scalar in the actual Smash moveset | Artifact validator and load only; changed value affects a controlled exchange |
-| Character configuration | One actual authored character field | Only the responsible schema/source compiler runs; new definition appears at supported activation boundary |
+| Move timing or damage | One scalar in a real moveset | Artifact validator and load only; the changed value affects a controlled exchange |
+| Character configuration | One authored character field | Only the responsible schema or source compiler runs; the new definition appears at a supported activation boundary |
 | Procedural mechanic | One boss special algorithm, then one new state field | Small module build and activation; no host linker invocation |
-| Presentation | A real loose asset edit with no mechanical effect | Existing source/asset path; simulation digest and replay unchanged |
-| Engine | A scoped runtime implementation edit | Normal heavyweight lane, measured separately |
-| Validation | Content tests versus module tests versus host tests | Correct selected lane; no implicit workspace suite |
+| Presentation | A loose asset edit with no mechanical effect | Existing asset path; simulation digest and replay unchanged |
+| Engine | A scoped runtime edit | Normal heavyweight lane, measured separately |
+| Validation | Content tests, module tests, host tests | Correct selected lane; no implicit workspace suite |
 
 For each specimen: warm the exact command, record an unchanged no-op, make a
-small semantically visible edit, build/prepare/admit, and wait for an automated
-host acknowledgment tied to the new generation and observed behavior. Undo the
-edit and repeat paired runs. Preserve before/after bytes and raw command logs.
-Use a small paired pilot, report all samples, median and range, and record competing
-machine load. Seven pairs can be a starting pilot, not evidence of a stable tail.
-Choose further sample count from observed variation and the uncertainty needed
-for the decision. Do not certify p95 merely because a fixed sample count was met.
+small visible edit, build, prepare and admit, and wait for a host
+acknowledgment tied to the new generation and the observed behavior. Undo the
+edit and repeat paired runs. Report all samples, median and range, and record
+competing machine load. Choose the sample count from observed variation. Do not
+certify a p95 because a fixed sample count was met.
 
-Split elapsed time into source compile/check, builder/module link, preparation,
-transfer/load, host admission, reconstruction, first simulation result and visual
-readiness. Use Cargo timings and verbose freshness reasons for compilation;
-observe actual linker process invocations with a matched tracing/wrapper setup.
-An unchanged executable hash does not prove the linker was never run. Capturing
-only cargo check omits codegen/linking and cannot close edit-to-play acceptance.
+Split elapsed time into compile or check, builder or module link, preparation,
+transfer or load, host admission, reconstruction, first simulation result and
+visual readiness. Observe linker process invocations with a matched trace. An
+unchanged executable hash does not prove that the linker did not run. A
+`cargo check` alone omits codegen and linking.
 
-#### M0 result: graph position costs ~2x, and the RATIO survived a change of machine
-
-The first B7 number measured twice on deliberately unlike hosts. Both arms edit
-one file and run `cargo check -p ambition_app`; only the edited crate's position
-in the dependency graph differs — `actor_monolith` (the crate most work touches)
-against `platformer2d_core` (the bottom of the graph, worst-case fan-out).
-
-| host | cores | `-j` cap | `check` | `check-leaf` | ratio |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| 30-core dev box | 30 | **2** | 17.15 s | 36.66 s | 2.14x |
-| calculex VM | 6 | uncapped | 11.10 s | 21.21 s | **1.91x** |
-
-⭐ **THE ABSOLUTE NUMBERS ARE NOT COMPARABLE AND THE RATIO NEARLY IS.** A
-30-core host throttled to two jobs and a 6-core host running free are different
-machines in every way the wall clock cares about, and the second is FASTER in
-absolute terms despite having a fifth of the cores — which is what a `-j2` cap
-does. The ratios differ by ~11%. ⇒ Consistent with the graph-position penalty
-being a property of the DEPENDENCY GRAPH rather than of the machine, which is
-what would make it worth optimising once instead of per-host.
-
-⚠ **STATED AS CONSISTENT-WITH, NOT ESTABLISHED.** Two reps per arm on the
-calculex side, one pair of scenarios, one edit class (`append-private-fn`), and
-the two hosts differ in cap AND core count together, so neither variable is
-isolated. It is a second regime agreeing, not a controlled experiment.
-
-⚠ **AND ONE `check` REP IS DISCARDED FROM THE RATIO.** Its `warm_noop` read
-7.25 s against a 0.73 s expectation because a merge landed between building the
-subject and measuring it. The ratio uses the clean rep of each arm. See
-`dev/compile_telemetry_schema.md` on why a `warm_noop` that is not warm
-invalidates every duration beside it.
-
-Reproduce: `python3 scripts/compile_cost.py --scenario check` and
-`--scenario check-leaf`, on a settled tree, and compare only rows whose
-`warm_noop_seconds` is at the machine's warm floor.
-
-Existing commands to start inspection on a configured developer machine:
-
-```bash
-scripts/setup/target_bindmount.sh --status
-python3 scripts/check_disk_headroom.py
-rustc -Vv
-cargo -V
-cargo metadata --locked --format-version 1 --no-deps > /tmp/ambition-metadata.json
-cargo tree -e normal --no-default-features -p ambition_platformer2d
-cargo tree -e normal -p ambition_content_cli
-cargo build --locked -p ambition_demo_smash_app --timings -vv
-```
-
-The last command is a representative existing build, not the benchmark harness
-or a required check for applying this documentation. Record the actual normal
-run command and features for the user workflow. Do not benchmark an unrelated
-minimal executable and present it as the full game's old cost.
-
-I0 adds a narrow measurement helper if current tools cannot record these phases.
-Its output contract includes:
+The output contract of an iteration recorder (I0):
 
 ```json
 {
@@ -261,117 +70,126 @@ Its output contract includes:
 }
 ```
 
-Null means unmeasured, not zero. A successful artifact publication must be
-correlated with the exact edited input and admitted digest. Include raw log paths,
-input traces and result checksums in the real output. A faster failure or loading
-the previous generation is not a faster iteration.
+Null means unmeasured, not zero. A faster failure, or a load of the previous
+generation, is not a faster iteration. Extend the record with changed and
+reused section counts and reasons, candidate peak bytes, scenario-restore time,
+stale or cancelled attempts and the active generation.
 
-### M1 - executable backend comparison
+### M0 results
 
-I6 uses the same I4/I5 mechanic, state schema, input sequence and request outputs
-for a static native reference, a separately built trusted native C ABI module,
-and a WASM prototype. Compare warm edit-build-load time, bootstrap/dependency
-cost, debugging/source maps, invocation/batch overhead, allocation behavior,
-reset cost, deterministic work limits, failure behavior and target feasibility.
-The reference is a correctness oracle for the specified fixture, not proof of
-universal native/WASM float equivalence.
+| Measurement | Result | Limits |
+| --- | --- | --- |
+| Graph position (`scripts/compile_cost.py --scenario check` against `--scenario check-leaf`: one file edited in `actor_monolith` or in `platformer2d_core`, then `cargo check -p ambition_app`) | about 2x: 2.14x on a 30-core host capped at `-j2`; 1.91x on a 6-core VM | Two hosts that differ in cap and core count; one edit class (`append-private-fn`); consistent with a property of the dependency graph, not established |
+| Module road (an edit to a loadable `.wasm` with `scripts/build_extension_modules.sh`) | 1.36 s for the first edit after a cold module build; 0.34 s for a warm one-constant edit | Agent machine |
+| The same constant in a technique still in `game/ambition_content` | 7.05 s to relink `ambition_app`, plus a restart | Agent machine |
+| A data source read off disk (`boss_profiles.ron`, `sfx_registry.ron`, a demo move table) | about 0.4-0.5 s, no crate compiled; the same files embedded cost 5.8-7.2 s | Agent machine, warm |
 
-Measure small frequent calls and batched entity processing separately. Include
-new algorithm code and new schema admission, not only replacing a constant.
-A backend that is quick to compile but dominates the fixed-tick budget fails the
-runtime criterion. A fast backend with unsupported reload on the required target
-needs an explicit target-specific deployment policy.
+Compare only rows whose `warm_noop_seconds` is at the machine's warm floor. A
+`warm_noop` that is not warm invalidates every duration beside it
+(`dev/compile_telemetry_schema.md`).
 
-Prefer one production procedural backend after this comparison. A native path
-must justify its ABI and unload maintenance cost. A WASM path must justify its
-runtime/target and marshaling costs. Do not require Lua and Rhai prototypes before
-delivering the data path. Evaluate those script bindings when a scripting syntax
-customer exists, using the same contract and hidden-state tests.
+## M1 - executable backend comparison
 
-### M2 - state, snapshots and scaling
+I6 uses the same I4/I5 mechanic, state schema, input sequence and request
+outputs for a static native reference, a trusted native C ABI module and a WASM
+module. Compare warm edit-build-load time, bootstrap cost, debugging and source
+maps, invocation and batch overhead, allocation, reset cost, deterministic work
+limits, failure behavior and target feasibility. The reference is a
+correctness oracle for the fixture, not proof of general native and WASM float
+equivalence.
 
-Run the actual GGRS save/restore/resimulation path with populated extension state.
-Compare safe row storage, chunked typed storage and dynamic Bevy columns only
-where supported. Compare full copies versus chunk COW/deltas only after obtaining
-the correct baseline. Keep canonical values and result traces identical.
+Measure small frequent calls and batched entity processing separately. A
+backend that compiles quickly but dominates the fixed-tick budget fails the
+runtime criterion. Evaluate script bindings (Lua, Rhai) only when a scripting
+customer exists, with the same contract and hidden-state tests.
+
+### M1 results (wasmi, release, agent machine)
+
+- One WASM call is about 30 us to instantiate plus the guest time. Guest time
+  fell from 31.8 to 7.8 us per call when `export_modules!(list: ...)` started to
+  build only the called module.
+- A call that does nothing burns about 86k fuel in the ABI glue.
+- Idle ticks: `IdlePolicy::ResetState` and `ResetStateExcept(keep)` reset
+  records without a call. With them, the loaded road's per-tick overhead with
+  one boss is within run-to-run noise (30-100 us).
+- A fresh instance per call is kept: it is what stops a guest static from
+  carrying state across a rewind.
+- Open: the per-call glue cost (instance reuse with a restored image; a lighter
+  input encoding) and the native shared-library arm.
+
+## M2 - state, snapshots and scaling
+
+Run the actual GGRS save, restore and resimulation path with populated
+extension state. Compare safe row storage, chunked typed storage and dynamic
+Bevy columns only where supported. Compare full copies with chunk COW or deltas
+only after the correct baseline exists. Keep canonical values and result traces
+identical.
 
 Fixtures include sparse and dense writes, variable-size graphs, entity churn,
 reference remapping, several independent modules, active-region records plus
-dormant persistent data, and repeated rollback over an appreciable history window.
-Record entity/record counts, live bytes, changed bytes per tick, snapshot retained
-bytes, allocations, checksum time, save time, restore time, resimulation CPU and
-the cost of generation reset. Exercise multiple sizes until the scaling curve,
-not just one average, is visible. Select sizes from actual game populations plus
-stated stress multipliers; do not present stress values as product requirements.
+dormant persistent data, and repeated rollback over a long history window.
+Record entity and record counts, live bytes, changed bytes per tick, retained
+snapshot bytes, allocations, checksum, save and restore time, resimulation CPU
+and generation-reset cost. Vary one population axis at a time until the
+scaling curve is visible. An unchanged dormant ledger adds no all-ledger
+traversal to a local active step; visit and allocation counts can prove the
+work set when timing is noisy.
 
-The safe full-copy reference store may prove too costly. That does not reopen whether
-authoritative state rewinds; it selects storage/snapshot optimization. Dirty-page
-experiments must report target support and write-barrier coverage. Host-managed
-schema state remains the default unless a concrete guest-state customer proves
-that an alternate complete-state model is necessary and affordable.
+A safe full-copy store that costs too much does not reopen whether
+authoritative state rewinds; it selects a storage optimization. Host-managed
+schema state stays the default unless a concrete customer proves that another
+complete-state model is necessary and affordable.
 
-### M3 - end-to-end developer and target validation
+## M3 - end-to-end developer and target validation
 
-Use a clean out-of-workspace consumer, separate lockfile and documented target.
-Do not make game/provider sources dependencies of the engine host merely to
-share fixtures. Verify normal data and procedural edits with no host build/link,
-plus raw Bevy engine plugin use in its heavy lane. Test local reload, rejected
-replacement, peer-generation mismatch and installed read-only packaging.
+Use a clean out-of-workspace consumer, a separate lockfile and a documented
+target. Do not make game sources dependencies of the engine host to share
+fixtures. Verify data and procedural edits with no host build or link, plus raw
+Bevy plugin use in its heavy lane. Test local reload, refused replacement,
+peer-generation mismatch and installed read-only packaging.
 
 Prove target support with that target's actual runtime and loader. A native
-Wasmtime host experiment does not establish a browser integration, mobile JIT
-permission, console support or parity between different numeric backends.
-One unsupported product target cannot be silently omitted from the report.
+host experiment does not establish browser integration, mobile JIT permission,
+console support or parity between numeric backends. Report each unsupported
+target.
 
 ## Choices that remain open
 
-| Question | Why still open | Cheapest resolving evidence | What it gates | Default while open |
-| --- | --- | --- | --- | --- |
-| Dominant current latency | No representative toolchain run here | M0 on move and procedural edits | Profile/link/cache optimizations and quantitative gain claim | Implement the independent artifact boundary |
-| Production executable backend | ABI/runtime/target tradeoffs unmeasured | M1 with one real stateful fixture | I7 backend commitment, not I1-I5 | Static semantic reference plus WASM-first portable prototype |
-| State physical layout | Copying/query/checksum curve unknown | M2 over real GGRS snapshots | I8 optimization | Safe schema-backed host storage |
-| Complete VM image fallback | No fixture yet needs persistent opaque heap | One algorithm failing host-managed-state ergonomics, then complete-image replay and cost | Optional alternate state profile only | Explicit host state; reset scratch |
-| Artifact encoding/compression | No package/load bottleneck measured | Small canonical roundtrip and M0 load breakdown | Encoding optimization, not ownership | Simple versioned canonical section encoding |
-| Parallel procedural scheduling | Access patterns and merge costs unknown | Serial reference versus declared-independent batches | Parallel optimization | Stable serial execution |
-| Public untrusted mod distribution | Product trust/installation policy undecided | Maintainer decision when shipping downloadable mods | Signing, permissions UX, distribution hardening | Trusted local native code; portable imports restricted, no sandbox marketing |
-| Cross-version save/code migration promise | Compatibility horizon is a product promise | Maintainer decision plus concrete old-save fixture | Public persistence compatibility commitment | Reject unsupported schema migration; keep old save intact |
-| Seamless state-preserving live reload | Repeated scenario reload is required; arbitrary mid-action migration is not specified | One owner-specific live-binding policy, migration fixture and measured benefit over safe reconstruction | Optional seamless path, not reliable I3 reconstruction | Bounded safe scenario reconstruction; reject unsupported state transfer; remote generations pinned. **2026-10-01: a module record's FIELD-LIST change is migrated by field tag at a local reload's publication (`StateSchema::migrate`); a changed attachment or save policy is still refused** |
+| Question | Cheapest resolving evidence | What it gates | Default while open |
+| --- | --- | --- | --- |
+| Dominant current latency | M0 on move and procedural edits | Profile, link and cache optimizations | Independent artifact boundary |
+| Production executable backend | M1 against the native shared-library arm | I7 commitment | wasmi, deterministic, fuel, a new instance per call |
+| State physical layout | M2 over real GGRS snapshots | I8 | Safe schema-backed host storage |
+| Complete VM image fallback | One algorithm that host-managed state serves badly | An optional alternate state profile | Explicit host state; reset scratch |
+| Artifact encoding and compression | Canonical roundtrip and M0 load breakdown | Encoding optimization | Simple versioned canonical section encoding |
+| Parallel procedural scheduling | Serial reference against declared-independent batches | Parallel optimization | Stable serial execution |
+| Public untrusted mod distribution | Maintainer decision when downloadable mods ship | Signing, permissions, distribution hardening | Trusted local native code; restricted portable imports; no sandbox claim |
+| Cross-version save and code migration | Maintainer decision plus an old-save fixture | Public persistence compatibility | Refuse unsupported schema migration; keep the old save |
+| State-preserving live reload | One owner-specific live-binding policy and a migration fixture | An optional seamless path | Scenario reconstruction; module records migrate by field tag (`StateSchema::migrate`); a changed attachment or save policy is refused; remote generations pinned |
 
-Do not send the first six questions to the maintainer as ordinary architecture
-choices. The implementer runs the specified experiment and records a decision.
-Product rows do not block local trusted authoring or the current data migration.
+The implementer runs the experiment for the first six rows and records a
+decision; they are not maintainer questions. Product rows do not block local
+trusted authoring.
 
-## External technical verification
+## Primary references
 
-The first planning pass recorded consultation of these primary sources on
-2026-09-11. This deeper source-only review retained those references and did not
-repeat their web verification. They concern narrow platform facts, not evidence
-that the proposed engine features work. Pin and verify actual dependency versions
-in each executable prototype.
+These concern narrow platform facts, not evidence that engine features work.
+Pin and verify dependency versions in each executable prototype.
 
-- [Bevy ECS 0.19.1 ComponentDescriptor](https://docs.rs/bevy_ecs/0.19.1/bevy_ecs/component/struct.ComponentDescriptor.html): components need not correspond to a Rust type; dynamic layout construction has explicit unsafe layout, drop and thread-safety requirements. This supports a possible host implementation, not an ABI or rollback guarantee.
-- [Rust Reference: type layout](https://doc.rust-lang.org/reference/type-layout.html): layout guarantees depend on representation, and an outer representation does not stabilize arbitrary nested Rust types. The native module recommendation therefore uses an explicit boundary rather than exporting Rust containers.
-- [Wasmtime: deterministic execution](https://docs.wasmtime.dev/examples-deterministic-wasm-execution.html): deterministic imports, NaN/SIMD policy, growth behavior and deterministic interruption need deliberate configuration. The proposed restricted execution profile follows those obligations rather than assuming all WASM execution is deterministic.
-- [Wasmtime: platform support](https://docs.wasmtime.dev/stability-platform-support.html): supported hosts and execution modes are runtime-specific. Check the chosen target, not just the portable module format.
-- [Lua 5.4 reference](https://www.lua.org/manual/5.4/manual.html): the language includes environments, mutable values, coroutines and garbage collection. A host-state binding must account for that mutable execution state rather than treating globals as automatically rewindable.
-- [Rhai engine options](https://rhai.rs/book/engine/options.html): operation, depth and collection limits are configurable; some restrictions are compile-time settings. A binding must apply a consistent configuration to compilation and execution and still supply its own rollback contract.
-
-## Work-set measurements for the revised design
-
-Extend M0 with changed/reused section counts and reasons, candidate peak bytes,
-scenario-restore time, stale/canceled attempts, active generation and first
-observed changed behavior. Report failures separately from successful latency.
-A no-op candidate cannot be counted as a fast changed-content result.
-
-Extend M1/M2 with invocation batch scope, boundary crossings, read projection
-bytes, changed-record count, write-set bytes, total active/dormant records,
-immutable metadata sharing, snapshot retained bytes and guest reset cost. Vary
-one population axis at a time. An unchanged dormant ledger should add no
-all-ledger traversal to a local active step; visits/allocations can prove the work
-set even when machine timing is noisy. Verify the ledger still affects its intended
-promotion/save scenario, so the measured absence of work is not absent behavior.
-
-The DO decisions are exact identity, dependency/lifetime separation, one domain
-owner and explicit visibility. M0-M3 choose encoding, caching, storage, batching
-and backend details. Safe reload/instance isolation require behavioral evidence;
-neither is waived by a faster benchmark or represented as an unmeasured success.
+- [Bevy ECS ComponentDescriptor](https://docs.rs/bevy_ecs/0.19.1/bevy_ecs/component/struct.ComponentDescriptor.html):
+  a component need not be a Rust type; dynamic layouts have explicit unsafe
+  layout, drop and thread-safety requirements.
+- [Rust Reference: type layout](https://doc.rust-lang.org/reference/type-layout.html):
+  an outer representation does not stabilize nested Rust types, so a native
+  module boundary uses explicit wire values, not Rust containers.
+- [Wasmtime: deterministic execution](https://docs.wasmtime.dev/examples-deterministic-wasm-execution.html):
+  deterministic imports, NaN and SIMD policy, growth and interruption need
+  deliberate configuration.
+- [Wasmtime: platform support](https://docs.wasmtime.dev/stability-platform-support.html):
+  supported hosts and execution modes are runtime-specific.
+- [Lua 5.4 reference](https://www.lua.org/manual/5.4/manual.html): environments,
+  mutable values, coroutines and garbage collection are execution state that a
+  binding must account for.
+- [Rhai engine options](https://rhai.rs/book/engine/options.html): operation,
+  depth and collection limits are configurable; a binding still supplies its own
+  rollback contract.

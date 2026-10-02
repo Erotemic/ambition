@@ -1,6 +1,7 @@
 # UI, localization and accessibility — Engine 1.0 program
 
-**State:** OPEN — multiplayer/view ownership is urgent; localization/accessibility depth can grow with product need.
+**State:** OPEN. Multiplayer/view ownership is urgent. Localization and
+accessibility depth grow with product need.
 
 ## Goal
 
@@ -69,82 +70,34 @@ requirement proves Bevy UI insufficient.
 - How should dialogue/UI text be scoped across shared and split views?
 - Which UI functionality is generic enough for an ecosystem crate?
 
-## ◐ The title screen's pointer road: what is VERIFIED, what is RULED OUT, and the one link a headless repo cannot reach (2026-09-06)
+## Testing menus: who else writes the component
 
-Jon reported the Settings tab unreachable by click or tap, then reported it still
-bugged after the first fix. This records the investigation so nobody repeats it.
+Before you drive a component in a test, ask who else writes it every frame.
+`Interaction`, `Visibility`, `Transform` and their kin are engine outputs.
 
-✔ **FIXED AND VERIFIED IN THE ASSEMBLED HOST** (`the_shipped_title_screen_is_wired_for_a_pointer`):
-* the strip is drawn as **two real `Button`s** carrying `BevyUiMenuTab`;
-* the **tab road is installed** — this was the actual defect:
-  `install_bevy_ui_menu_tabs` had exactly ONE caller in the workspace and it was
-  the kaleidoscope menu, so `publish_bevy_ui_menu_tabs` was never registered on
-  this screen and the buttons reached no system;
-* the shell **consumes** the renderer's `MenuTabActivated` and moves the strip.
+| Harness | Who writes `Interaction` | Writing it yourself |
+| --- | --- | --- |
+| Minimal crate app (`StatesPlugin` + systems under test) | nobody | the only way to produce the press edge |
+| Assembled host (`build_visible_app`) | Bevy's UI focus system, every frame, from live pointer state | overwritten with `None` before any consumer runs |
 
-⛔ **RULED OUT BY MEASUREMENT, each a plausible story that is false:**
-| hypothesis | measurement |
-|---|---|
-| the pointer system is not registered | `basic_shell_pointer` is added `.after(BevyUiMenuInteractionSet)` |
-| that set has a run condition that excludes the title screen | no `configure_sets`/`run_if` names it anywhere |
-| the shell composition never builds | `ambition_platformer2d/basic_shell_presentation` IS in `ambition_app`'s default feature closure |
-| a node occludes the tabs | menu root is `GlobalZIndex(1000)`, the shell's other node is 900 |
-| picking is blocked on the tab tree | the only `Pickable::IGNORE` in the renderer is a scrollbar thumb |
-| the UI picking BACKEND is absent | `bevy_ui_menu = ["bevy/ui_picking"]` and `ambition_platformer2d/bevy_ui_menu` is in the default closure |
-| **the fix is on the WRONG SURFACE** — the shipped title screen is the kaleidoscope menu, not the shell launcher | ⭐ the most dangerous of the six, and false: `rendered_app()` builds `ambition_app::app::build_visible_app(VisibleRenderMode::NoWindow, true)` — the SHIPPED visible-app builder, windowless. The fixture is the real composition, so the two tab buttons it finds are the ones a player sees |
-
-⚠ **THE ONE LINK THIS REPO CANNOT EXERCISE: the press EDGE.** Bevy's UI focus
-system **recomputes `Interaction` every frame from live pointer state**, so a
-headless test that writes `Interaction::Pressed` has it overwritten with `None`
-before any consumer runs — measured directly (`DIAG tab has Button=true
-Interaction=Some(None)`). ⇒ An earlier version of that test reported "the tab strip
-is drawn as buttons that nothing listens to" **while the shipped chain was fine**,
-and it took one `eprintln!` of the component being written to see it.
-⭐ **A test that writes a component the engine OWNS is asserting against its own
-write, not against the system under test.** Same family as a test that constructs
-its subject.
-
-⇒ **The next reader's cheapest discriminator is a HUMAN one**: does the Settings
-tab change appearance on hover? The active tab draws filled gold, inactive dark
-blue. Highlight-but-no-switch puts the fault downstream of the press edge, where
-this repo can test; no highlight at all puts it upstream, in picking, where it
-cannot.
-
-### ⭐⭐ WHY THE SAME TECHNIQUE IS SOUND AT CRATE LEVEL AND UNSOUND AT APP LEVEL — read this before writing a menu test
-
-`grid_backend/tests.rs` drives a tap by writing `Interaction::Pressed` then
-`Interaction::Hovered`, and it is **correct**. I wrote the identical thing against
-the assembled host and it was **wrong**. The difference is not the code — it is
-which harness is running.
-
-| harness | who writes `Interaction` | writing it yourself |
-|---|---|---|
-| minimal crate app (`StatesPlugin` + the systems under test) | nobody | ✔ the only way to produce the edge |
-| assembled host (`build_visible_app`) | **Bevy's UI focus system, every frame, from live pointer state** | ⛔ overwritten with `None` before any consumer runs |
-
-⇒ **So the two levels can only assert different things, and pretending otherwise
-produces a confident false negative.** Mine reported *"the tab strip is drawn as
-buttons that nothing listens to"* while the shipped chain was fine.
-
-* **Crate level** — exercise the HANDLER. A minimal app has no competing writer, so
-  a written `Interaction` is a real input and the system under test sees it.
-* **App level** — assert the WIRING. Is the road installed in this composition, do
-  the entities carry their markers, does the consumer move state when the message
-  arrives? These are the links that actually go missing: the shipped defect here
-  was an INSTALL with one caller in the whole workspace.
-
-⚠ **The general rule, worth more than the table: before driving a component in a
-test, ask who else writes it every frame.** `Interaction`, `Visibility`,
-`Transform` and their kin are engine outputs, not test inputs. Writing one tests
-your own assignment.
+- **Crate level:** exercise the handler (for example `grid_backend/tests.rs`).
+- **App level:** assert the wiring. Is the road installed in this composition,
+  do the entities carry their markers, and does the consumer move state when the
+  message arrives? `the_shipped_title_screen_is_wired_for_a_pointer` does this
+  for the title tab strip (two `Button`s with `BevyUiMenuTab`, the
+  `install_bevy_ui_menu_tabs` road, the shell consuming `MenuTabActivated`).
+- The press edge itself cannot be exercised headless in the assembled host. A
+  human check discriminates: if a tab highlights on hover but does not switch,
+  the fault is downstream of the press edge (testable here); if it does not
+  highlight, the fault is in picking.
 
 ## Profile and participant scope in the architecture review
 
 A9 in the [frontier](actor-monolith-work-frontier.md) requires a render/UI-absent
 simulation profile. UI can consume participant/view facts without owning control
 or requiring HUD state in simulation construction. Two participants, two views
-and two live worlds are distinct configurations; A8's repeated-room witness is
-needed before claiming the last one.
+and two live rooms are distinct configurations. Split views by live room exist;
+the HUD, banner and music follow the primary seat for now (Q150).
 
 Structure semantic labels, diagnostics and action descriptions so machine-facing
 authoring and human-facing localized presentation can consume the same supported

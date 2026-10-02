@@ -22,9 +22,6 @@ selects inputs and ordering rather than implementing body/item/world behavior.
 
 ## Current source and limits
 
-Baseline inspected: `d81a7ae1d2db1fc5caa49efc807a39ea6b1ca266`.
-No Rust or runtime acceptance was executed in this planning review.
-
 | Source | Established interface or responsibility |
 | --- | --- |
 | Shared `construction/mod.rs` | Typed `ConstructionDomain`, plans, receipts, relationships and roster verification |
@@ -113,7 +110,7 @@ all roads now use.
 
 ```text
 CANDIDATE SESSION                          CANDIDATE ROOM
-SessionRoot + InactiveCandidate            every root minted InactiveCandidate
+CandidateSessionRoot + InactiveCandidate   every root minted InactiveCandidate
   + SessionScopedEntity(scope) on every      and stamped with the lane
     entity spawned through                   TransactionId
     SessionSpawnScope::candidate(scope)
@@ -271,9 +268,7 @@ survive while attempt-local facts retract. Tests compare each owner's declared
 retention semantics and the later door/dialogue/combat observations that consume
 those facts, not only final entity counts.
 
-## Existing convergence receipts
-
-These describe earlier work recorded in the repository, not tests rerun here.
+## Convergence receipts
 
 | Row | Established direction and standing constraint |
 | --- | --- |
@@ -283,10 +278,10 @@ These describe earlier work recorded in the repository, not tests rerun here.
 | C4 | Eager/headless and confirmed rollback hosts consume the same prepared construction semantics |
 | C5 | External/P2P lifecycle coordination remains a real-transport task; do not substitute local sync testing for it |
 
-The earlier claim that raw `ResetToCheckpoint` remained the current restoration
-input is superseded by A1's accepted/pinned inputs in the inspected source. The
-[A1 matrix](checkpoint-restoration-protocol.md) owns its remaining witness limits.
-Do not infer that all construction failures became reversible when A1 landed.
+Checkpoint restoration reads A1's accepted, pinned inputs; the
+[A1 matrix](checkpoint-restoration-protocol.md) owns its witnesses. Only room and
+session construction are reversible; other domain application after the commit
+is fail-closed.
 
 ## Existing test entry points and new evidence
 
@@ -298,7 +293,6 @@ Useful controls include the nonempty population premise, room leave/return, same
 room replay, actually controlled body, carried object retention, relocated authored
 occurrence, replayed attempt residue, and session progress. Preserve
 `a_load_never_authors_the_occurrence_it_is_about_to_suppress` as the startup control.
-These names/locales must be checked on the implementation head before invocation.
 
 New FI4 adds supported candidate isolation and repeated reload. New FI9 adds duplicate
 room definitions, independent teardown and active/dormant work accounting. Poison

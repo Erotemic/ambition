@@ -1,7 +1,7 @@
 # Procedural extensions and domain contracts
 
-**State:** selected design. The [extension model](extension-model.md) owns the
-architecture. This page owns port, request and observation semantics. The
+**Scope:** port, request and observation semantics for procedural extensions.
+The [extension model](extension-model.md) owns the architecture. The
 [state contract](extension-state-and-execution.md) owns extension state. No generic
 replacement for Bevy, domain scheduling or combat arbitration is proposed.
 
@@ -71,22 +71,41 @@ Do not ship a row with `TBD` as an active callable offer. A missing port is
 unavailable, not a no-op. Optional integration is explicit at module admission;
 required mechanics cannot disappear behind `Option` or an empty resource.
 
-## The first source routes
+## Installed ports
 
-These are source locators, not claims that a portable port already exists.
+Each port's contract card is in the doc comment of its value type. The full
+list, with witnesses, is in I4 of the [packet catalog](fast-iteration-implementation.md).
+
+| Port values | Ports |
+| --- | --- |
+| `crates/ambition_boss_special_port` | `ambition.boss.special_cast`, `ambition.boss.summon`, `ambition.boss.conduct` and its requests |
+| `crates/ambition_combat_port` | `ambition.combat.damage_box`, `ambition.combat.held_damage_box`, `ambition.combat.riding_hitbox`, the wielded-use and module-entity ports |
+| `ambition_projectile_spec::ProjectileSpawnPort` | `ambition.projectiles.spawn` |
+
+Each port crate names only the SDK (workspace policies
+`engine.ambition_boss_special_port-portable`,
+`engine.ambition_combat_port-portable`,
+`engine.ambition_projectile_spec-portable`). The owning domain installs the
+adapter (`ambition_boss_encounter::extension`, `ambition_combat::extension`,
+`ambition_projectiles::extension`, `ambition_abilities::extension`).
+`extension_composition::install_ports` is the one list of offered ports. No
+production observation port exists yet; every module reads its trigger.
+
+## Source routes for further ports
 
 | Customer | Start from existing owners | Required preservation |
 | --- | --- | --- |
 | Move-invoked technique | `crates/ambition_combat/src/technique.rs`; `crates/ambition_combat/src/strike.rs`; runtime `combat_schedule.rs` | Installed delivery mode, invoking move occurrence, target and contact credit |
-| Body-control contribution | A4 and `accepted-control-writer-map.md`; shared `schedule.rs` | Accepted-control owner, body/proper-time units and one execution path |
-| Actor creation | `crates/ambition_platformer2d_actor_spawn/src/actor_spawn/mod.rs`, `SpawnActorRequest`; typed construction | Existing identity allocation, admission, scoped construction and actual spawn result |
-| Item acquisition/transfer | `item-custody-and-accounting.md`, A7 and the item writer inventory | One occurrence/custody/accounting transaction; no second bag of inventory |
-| World observation | `world-facts-observations-and-memory.md`; spatial query owner | Instance/coordinate scope, settled facts versus observer knowledge |
+| Body-control contribution | A4 in the [frontier](actor-monolith-work-frontier.md); shared `schedule.rs` | Accepted-control owner, body and proper-time units, one execution path |
+| Actor creation | `crates/ambition_platformer2d_actor_spawn/src/actor_spawn/mod.rs`, `SpawnActorRequest`; typed construction | Identity allocation, admission, scoped construction and the actual spawn result |
+| Item acquisition or transfer | `item-custody-and-accounting.md` and A7 | One occurrence, custody and accounting transaction; no second inventory |
+| World observation | `world-facts-observations-and-memory.md`; spatial query owner | Instance and coordinate scope; settled facts against observer knowledge |
 | External effects | Runtime `external_effects.rs` | Replace speculative frame output on replay; release only under matching confirmation |
 
-Read the actual consumer before freezing a port's schedule. Do not infer ordering
-from message names. Existing `CombatSet`, `PlayerInputSet`, effect execution and
-construction milestones are source vocabulary, not a universal portable schedule.
+Read the actual consumer before you freeze a port's schedule. Do not infer
+ordering from message names. `CombatSet`, `PlayerInputSet`, effect execution
+and construction milestones are source vocabulary, not a universal portable
+schedule.
 
 ## Stable invocation identity and batch scope
 
@@ -134,11 +153,13 @@ A valid request may lose to another request, an expired target or a gameplay rul
 Its result names the original occurrence. A module does not decrement success-based
 counters merely because it submitted an action.
 
-Entry failure discards its staged records and requests. That is a local write-set
-transaction. It does not roll back domains already executed earlier in the tick.
-A deterministic execution fault stops the speculative session under its existing
-fault policy; no peer silently disables the faulty module and continues. A native
-process crash remains an engine/process failure.
+Entry failure discards its staged records and requests. That is a local
+write-set transaction. It does not roll back domains already executed earlier
+in the tick. Today a fault is counted in `ExtensionFaults` and the session
+continues; the deterministic fault policy (whether a fault stops the
+speculative session) is open in I4. No peer silently disables a faulty module
+while another peer keeps it. A native process crash remains an engine or
+process failure.
 
 For the initial binding, validate bounded write sets without copying the entire
 store for each invocation. A reference implementation can use owned values for

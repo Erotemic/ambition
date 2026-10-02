@@ -224,8 +224,8 @@ debug = "line-tables-only"
 # redundancy the modal-CLI collapse already removed, and removed harder
 # (4.79 GB -> 0.50 GB). ⚠ It also invalidates the profile for EVERY crate: the
 # experiment recompiled 352, of which 342 were third-party, 7m24s against 2m53s.
-# ⇒ Revisit only if a crate ever has many binaries again. See
-# `docs/planning/modal-cli-binary-collapse.md`.
+# ⇒ Revisit only if a crate ever has many binaries again. See the binary rules
+# in `docs/planning/demos/super-smash-siblings.md`.
 
 # Incremental can make target/debug enormous.
 # Leave true if you strongly value fast edit-compile cycles;

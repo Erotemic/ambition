@@ -1,15 +1,13 @@
 # Small Manifesto: Frame Awareness
 
-> **Status: Jon's design position (2026-07-05), captured verbatim.** The third
+> **Status:** Jon's design position, captured verbatim. It is the third
 > binding manifesto, beside [`../../architecture/spatial-model.md`](../../architecture/spatial-model.md) (space) and
-> the relativity principle it generalizes. Adjudicated into working discipline
-> as **AJ13** in the 2026-07-05 plan (in Git history);
-> the live queue is [`../tracks.md`](../tracks.md). Like ADR 0020: do not
-> deviate without raising an explicit challenge Jon accepts.
+> the relativity principle it generalizes. Do not deviate without an explicit
+> challenge that Jon accepts. The live queue is [`../tracks.md`](../tracks.md).
 
-**Implementation state (checked 2026-09-17).** The frame vocabulary exists in
-`crates/ambition_geometry/src/reference_frame.rs`. No general frame graph
-exists, as this page asks.
+**Current shape.** The frame vocabulary is in
+`crates/ambition_geometry/src/reference_frame.rs`. There is no general frame
+graph, as this page asks.
 
 | manifesto phrase | type that carries it |
 |---|---|

@@ -1,28 +1,10 @@
 #!/usr/bin/env python3
 """ONE owner for *"how many workspace packages does the facade drag in?"*
 
-⛔⛤ **SIX PLANNING PAGES STATED THIS NUMBER AND THEY GAVE TWO ANSWERS.**
-MEASURED 2026-09-18 across `docs/planning`:
-
-    51   engine/architecture-reassessment.md
-    51   engine/project-build-and-distribution.md
-    51   engine/capability-and-runtime-composition.md
-    51   engine/architecture-review-coverage.md  — beside its OWN ⚠ note saying 48
-    48   engine/architecture-review-findings.md
-
-⇒ The re-measurement landed on 2026-09-10 and reached one page. The page that
-carried it kept its own stale 51 in the sentence above the correction, and the
-three other owners never heard. **A fact with six owners is a fact with no
-owner**, which is the whole thesis of the consolidation census, applied to the
-census's own corpus.
-
-⛔⛔ **AND THE SECOND HALF OF THE CLAIM IS NOW FALSE, NOT MERELY STALE.** Three
-pages say the mandatory closure *"includes facade -> host -> render"*. It does
-not: the host's manifest makes `ambition_render` OPTIONAL and the facade takes
-the host with `default-features = false`, so `ambition_render` is not in the
-normal graph at all. ⇒ That is the more dangerous of the two errors, because it
-describes an architectural property backwards — a reader planning a render
-decoupling would start from a path that is already cut.
+Planning pages may explain this number, but this script owns it. A page that
+restates it must agree with the measurement. `ambition_render` is not in the
+facade's normal dependency closure: the host takes it as an optional dependency,
+and the facade takes the host with `default-features = false`.
 
 # # The method, and why it is stated rather than assumed
 
@@ -46,15 +28,8 @@ a measure of weight.
    resolving edges reports a tiny closure and passes check 1 for the wrong
    reason.
 
-⛤ **IT USED TO FAIL ON ANY CHANGE TO THE NUMBER, AND A 2026-09-18 REVIEW WAS
-RIGHT THAT THAT IS BOOKKEEPING.** The docstring said in one breath that a
-falling closure is progress and that the check fails on it — a gate arguing with
-itself, and the kind that gets an exemption added rather than a page updated.
-⇒ The equality gate is gone and nothing it covered is lost: a fall that no page
-follows still fails check 2 (pages say 48, measurement says 40), a collapsed
-parser still fails check 3, and the architectural regression was never the
-number in the first place. `CLOSURE_LAST_READ` is now a reference point the run
-reports a delta against, which is what a census does.
+The number itself is not a gate. `CLOSURE_LAST_READ` is a reference point; the
+run reports a delta against it.
 """
 
 from __future__ import annotations

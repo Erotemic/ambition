@@ -29,18 +29,18 @@ PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools roundtrip \
   game/ambition_content/assets/worlds/sandbox.ldtk
 
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools area create \
-  tools/ambition_ldtk_tools/specs/goblin_encounter_area.yaml \
+  tools/ambition_ldtk_tools/specs/goblin_encounter_area.ron \
   --dry-run
 
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools entity add \
-  tools/ambition_ldtk_tools/specs/hub_lab_door.yaml \
+  tools/ambition_ldtk_tools/specs/companion_dog_central_hub_basement.yaml \
   --in-place
 ```
 
 ### Linking one entity to another (`EntityRef` fields)
 
-`entity set-field` understands `EntityRef` fields (added 2026-08-09 restoring the
-pirates' shark mounts). **The spec names the target's iid and nothing else:**
+`entity set-field` understands `EntityRef` fields. **The spec names the target's
+iid and nothing else:**
 
 ```yaml
 mounted_on: EnemySpawn-6806
@@ -52,9 +52,8 @@ object and hand-writing the other three is how you get a ref that resolves to
 nothing. It **refuses** an iid that resolves nowhere, **refuses** a prebuilt
 four-key object (with the reason), and takes `null` to clear a link.
 
-⛔ **the silent failure this exists to prevent: a dangling ref reads back as
-UNSET.** The rider simply spawns alone, no error, no warning — which is exactly
-how four shark mounts sat broken from 2026-07-06 until they were noticed in play.
+⛔ **A dangling ref reads back as UNSET.** The rider spawns alone, with no error
+and no warning. This is the failure the tool prevents.
 
 ⚠ **constraint**: it searches `project["levels"]` only, and takes the top-level
 `iid` for the world — matching every other command in the package. A multi-world
@@ -66,16 +65,13 @@ not always centred on its mount: GNU-ton rides his mount's *back*
 passes on the pirates, and reddens the one boss mount that was already working.
 
 
-## Moving-platform authoring direction
+## Moving platforms
 
-The runtime/backend already understands LDtk `MovingPlatform` and
-`KinematicPath` content. Current authored platform fields include size/position,
-speed, simple horizontal sweep, path linkage and vertical wrapping-elevator
-parameters. Do not create a parallel hard-coded platform format because the
-editor surface is imperfect.
-
-The next tooling work is tracked in
-[`../planning/engine/ldtk-authoring-and-world-tools.md`](../planning/engine/ldtk-authoring-and-world-tools.md): use the existing `EntityRef` support for typed path links, improve visible path/point authoring and provide semantic diagnostics/previews for motion mode and platform travel.
+The runtime understands LDtk `MovingPlatform` and `KinematicPath` content:
+size and position, speed, horizontal sweep, path linkage and vertical
+wrapping-elevator parameters. Do not create a parallel hard-coded platform
+format. Open tooling work is in
+[`../planning/engine/ldtk-authoring-and-world-tools.md`](../planning/engine/ldtk-authoring-and-world-tools.md).
 
 ## Agent rules
 
@@ -423,8 +419,7 @@ LDtk file mechanics and makes no-op/dry-run/writeback behavior easier to audit.
 
 ### Transaction and patch boundary
 
-The LDtk tool now has a small transaction/patch foundation under
-`ambition_ldtk_tools.ldtk`:
+`ambition_ldtk_tools.ldtk` has a transaction/patch foundation:
 
 - `patch.py`: composable dict-backed patch operations, currently including
   entity layer moves and tag-based layer rule metadata.
@@ -441,56 +436,30 @@ tx.apply(MoveEntitiesToLayer(...))
 tx.finish(noop_message="no matching entities; left file unchanged")
 ```
 
-This is the migration seam for future cleanups: area specs, camera edits,
-visual manifest writes, IntGrid paint commands, and layout writeback should all
-compile down to shared patch/transaction operations over time.
 
 ### Structured issue model
 
-LDtk diagnostics now have a shared `Issue` model under `ambition_ldtk_tools.ldtk`.
+LDtk diagnostics have a shared `Issue` model under `ambition_ldtk_tools.ldtk`.
 Use it for policy, validation, camera, visual-reference, and room-inspection
 findings. JSON CLI output should use `Issue.as_dict()`; text output should use
 `format_issue_lines(...)`. This gives agents stable fields such as `severity`,
 `code`, `level`, `layer`, `entity`, `entity_iid`, `fixable`, and `fix_hint`
 instead of forcing them to parse one-off prose.
 
-### Current refactor roadmap snapshot
+### Shared seams for new work
 
-- Done: shared LDtk core helpers own JSON load/write, lookup, path, field, UID, and layer mechanics.
-- Done: transaction/patch helpers own dry-run/no-op/writeback semantics for migrated mutating commands.
-- Done: shared `Issue` diagnostics now cover policy, camera, visual refs, validation adapter, and room notes.
-- Done: layout model, room issue checks, and area spec loading have package seams behind stable CLI entrypoints.
-- Next: split `validate.py` internals into rule modules that emit first-class `Issue` codes directly.
-- Next: move the remaining `world_layout.py` graph, strategy, SVG, and writeback functions into `edit/layout/*`.
-- Next: move room inspection/render/bundle code into `room_support/*` and keep `room.py` as a CLI adapter.
-- Next: compile area authoring specs to patch ops before mutating LDtk directly.
-- Later: relocate game content specs out of the reusable Python package tree.
+- `ambition_ldtk_tools.ldtk.*` owns low-level LDtk IO, queries, fields, patch
+  ops, transactions and issue objects.
+- `ambition_ldtk_tools.validate_rules.*` owns validation rule helpers and maps
+  messages to first-class issue codes.
+- `ambition_ldtk_tools.edit.layout.*` owns world layout graph building,
+  strategies, SVG previews and writeback.
+- `ambition_ldtk_tools.room_support.*` owns room inspection and debug bundles.
+- `ambition_ldtk_tools.area.*` owns area spec loading and `area.plan.AreaPatchPlan`,
+  which compiles a spec before it mutates a project.
+- `edit.postprocess.run_repair_and_validate` is the standard post-write repair
+  and validation.
 
-### Refactor architecture notes
-
-The LDtk tools are being split so correctness comes from shared seams instead of
-per-command JSON mutation logic:
-
-- `ambition_ldtk_tools.ldtk.*` owns low-level LDtk IO, queries, fields, patch ops, transactions, and shared issue objects.
-- `ambition_ldtk_tools.validate_rules.*` owns validation rule helpers and maps legacy messages to first-class issue codes.
-- `ambition_ldtk_tools.edit.layout.*` owns world layout graph building, strategies, SVG previews, and writeback/reporting.
-- `ambition_ldtk_tools.room_support.*` owns room inspection, rendering, and debug bundle construction.
-- `ambition_ldtk_tools.area.*` owns area spec loading and the new patch-plan seam used before mutating LDtk projects.
-
-The public CLI entrypoints remain stable while implementation files move behind
-these packages. If a later overlay turns a legacy `.py` entrypoint into a package
-or removes dead wrappers, include explicit `git rm` cleanup commands because ZIP
-overlays cannot delete files.
-
-### LDtk tool architecture notes
-
-The LDtk tools are being migrated away from command-local JSON mutation.
-Prefer these shared seams for new work:
-
-- `ldtk.transaction.LdtkTransaction` for load/mutate/writeback behavior.
-- `edit.postprocess.run_repair_and_validate` for standard post-write repair and validation.
-- `ldtk.issues.Issue` for structured diagnostics and JSON output.
-- `area.plan.AreaPatchPlan` for compiling authoring specs before mutating projects.
-
-This keeps correctness in common helpers instead of duplicating dry-run, backup,
-repair, and validation logic across every edit command.
+Public CLI entrypoints stay stable while implementation moves behind these
+packages. Open refactor work is in
+[`../planning/engine/ldtk-authoring-and-world-tools.md`](../planning/engine/ldtk-authoring-and-world-tools.md).

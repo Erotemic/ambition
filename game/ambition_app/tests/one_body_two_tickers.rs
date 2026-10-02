@@ -3,9 +3,9 @@
 //! after.
 //!
 //! `boot_budget::no_system_is_registered_twice_in_one_schedule` catches the same
-//! system registered twice. `accepted-control-writer-map.md:242` names the gap it
-//! leaves: *"it cannot see one BODY ticked by two different systems, which is the
-//! failure a control/execution regrouping would actually produce."*
+//! system registered twice. It cannot see one BODY ticked by two different
+//! systems, which is the failure a control/execution regrouping would produce
+//! (A4 in `docs/planning/engine/actor-monolith-work-frontier.md`).
 //!
 //! ⛔ **THE TIMING IS THE ARGUMENT.** A second writer measured now is a
 //! regression against a known baseline. Measured after the extraction it is

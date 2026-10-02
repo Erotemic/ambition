@@ -12,7 +12,7 @@ related_docs:
 
 `hall_of_characters` stages ~144 characters in one room. It is the most expensive
 room in the game and it will keep getting more expensive, because it is a **dual
-purpose stress test and exhibition** — Jon, 2026-07-30:
+purpose stress test and exhibition** (Jon):
 
 > *"I feel like you are treating the hall as special. It is not. It is a dual
 > purpose stress test and exhibition. Eventually we are going to give all those
@@ -48,7 +48,7 @@ level.** That is the only handling it needs.
 
 ## Where this has already bitten
 
-The 2026-07-30 launch-stutter investigation: the hub has 21 exits, so neighbour
-prefetch was covering 162 characters / 357 MP of sprite decode. The fix was to
-cap the prefetch fan-out (162 → 10) — an engine change that every room with many
-exits benefits from — not to exempt the Hall from prefetch.
+A launch stutter came from neighbour prefetch: the hub has many exits, so
+prefetch decoded the Hall's whole cast. The fix capped the prefetch fan-out, an
+engine change that every room with many exits benefits from. It did not exempt
+the Hall from prefetch.

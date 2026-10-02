@@ -9,9 +9,8 @@
 > to talk, then both characters should hover so they can have the dialog. A
 > broken dialog can have some bark to indicate that it was broken."
 
-This supersedes the shape D4 was recorded with. D4 decided that dialogue stops
-claiming to stop the world; this decides what has to exist because the world
-keeps running.
+D4 decided that dialogue does not stop the world. This page decides what must
+exist because the world keeps running.
 
 ## The reframe
 
@@ -40,7 +39,7 @@ and a grounded NPC talking to a hovering player is the same situation with the
 roles swapped. Any implementation that reads "can the PLAYER still talk" has
 already got it wrong.
 
-## Implementation (checked 2026-09-17)
+## Current shape
 
 The design is built in `crates/ambition_conversation`. `ActiveConversation` is
 the simulation authority; holds and UI are projections of it.
@@ -82,9 +81,8 @@ the simulation authority; holds and UI are projections of it.
 
 `RoomTransition` and `Cutscene` stay globally world-stopping. A room is loading,
 or a scripted beat owns the screen; neither is a conversation between actors.
-The per-experience opt-in to stop the world for dialogue also stays — Jon's
-2026-08-03 ruling made both expressible a requirement, and this decides the
-default.
+The per-experience opt-in to stop the world for dialogue also stays: both
+behaviors must be expressible, and this page sets the default.
 
 ## Ending rules for cutscenes and dialogue
 

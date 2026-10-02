@@ -1,10 +1,29 @@
 # Procedural extension execution, state and generations
 
-**State:** target protocol; not an implemented API. This page refines the
-[extension model](extension-model.md). [Packets](fast-iteration-implementation.md)
-name the source edits and tests. Existing domain protocols retain authority over
-combat, bodies, items, construction and persistence. Names in schematic examples
-below describe proposed protocol fields, not shipped Rust items.
+**Scope:** the execution, state and generation contract for procedural
+extensions. It refines the [extension model](extension-model.md).
+[Packets](fast-iteration-implementation.md) name the source edits and tests.
+Existing domain protocols keep authority over combat, bodies, items,
+construction and persistence. Names in schematic examples are protocol roles,
+not always Rust items.
+
+## Current shape
+
+| Contract part | Implementation |
+| --- | --- |
+| Descriptors, schemas, records, canonical digest, typed ports, `Invocation` | `ambition_extension_sdk` (no dependencies) |
+| Admission, serial order, staged writes, fault discard | `ambition_extension_host` (`admission`, `exec`) |
+| Body-attached state | `BodyRecords` (`extension.body_records`), retired with the body |
+| Session-attached state | `SessionRecords` (`extension.session_records`), a required component of `SessionRoot` |
+| Idle ticks | `IdlePolicy::{Invoke, ResetState, ResetStateExcept}` |
+| Schema evolution on reload | `StateSchema::migrate` by field tag; a changed attachment or save policy is refused |
+| Save eligibility | `SaveEligibility::{Checkpoint, Durable}` are declared but refused at admission |
+| Module identity in the generation | `extension.modules` section of the prepared content identity (`ExtensionGeneration`) |
+| Loaded code | `ambition_extension_wasm` (wasmi, deterministic, fuel, a new instance per call; an importing module is refused) |
+
+Open against this contract: the deterministic fault policy (today a fault is
+counted in `ExtensionFaults` and the session continues), save eligibility,
+durable references to unloaded entities and a production observation port.
 
 ## Contract boundary
 
@@ -258,8 +277,9 @@ Move-origin requests preserve the existing launch occurrence and verdict credit
 rules. No fallback to whichever move is playing now. Observers consume occurrence
 IDs/latches, not one bool that can accidentally count a prior event again.
 
-A deterministic work-limit trap faults the speculative session consistently;
-do not disable the module on just one peer and continue. A local development host
+Target: a deterministic work-limit trap faults the speculative session
+consistently; do not disable the module on just one peer and continue. Today a
+fault discards the invocation's output and is counted; the policy is open in I4. A local development host
 may then reconstruct under an explicitly chosen previous/next generation. Native
 process crashes or allocation failures are not recoverable gameplay results.
 Do not claim catch-unwind makes arbitrary native code safe or guarantees recovery.
@@ -292,7 +312,7 @@ statics cannot be sandboxed by a type alias. The portable runtime must enforce
 its import and reset rules. Stateless execution plus host-managed state is the
 initial default; do not advertise arbitrary persistent VM heaps as supported.
 
-For a WASM prototype, pin deterministic imports, NaN behavior, SIMD policy,
+For the WASM backend, pin deterministic imports, NaN behavior, SIMD policy,
 memory/table growth policy and fuel budget. Exclude thread/shared-memory and
 nondeterministic imports initially. Fixed admitted capacities avoid per-tick
 host-dependent growth results. Use deterministic work limits, not wall-clock

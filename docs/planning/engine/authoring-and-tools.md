@@ -1,6 +1,6 @@
 # Agent-native authoring and tools
 
-**State:** open; baseline `300004d601af1e633cfaee969f079cf9bb368ca8`.
+**State:** open.
 **Doctrine:** [agent-native authoring](../../concepts/agent-native-authoring.md).
 **Execution:** [the queue](../queue.md); technique admission/bounds packets A11/A12
 are in [the frontier](actor-monolith-work-frontier.md). The
@@ -28,27 +28,11 @@ public app builders. Use those surfaces rather than build another uniform CLI or
 serialization format. See the root README and `docs/tools/index.md` for tool and
 submodule ownership.
 
-`TechniqueFlow` is also implemented and used by a shipped authored moveset:
-`game/ambition_demo_smash/src/moveset.rs` assigns a flow to `read_and_seize`, and
-`crates/ambition_combat/src/moveset/mod.rs` interprets it. The old assertions that
-all flows are None and no interpreter exists are retired. Its contact signals
-are per-move-occurrence latches, not arbitrary per-beat event subscriptions.
-
-Finish does not terminate the move's recovery, and an unfinished flow does not
-extend playback; the enclosing move clock and normal teardown remain in control.
-The focused protocol preserves those semantics while introducing checked acyclic
-flows and installed-profile admission.
-
-✔ **BOTH PREPARATION GAPS RECORDED HERE ARE CLOSED — re-verified against HEAD
-2026-09-17, and this paragraph stated them in the present tense until then.** The
-parameter-schema registry with no production callers is replaced by
-`TechniqueSupport`, declared by whoever installs the handler and refused at the
-preparation barrier through `unsupported_authored_effects`; flow validation
-requires a FINITE timeout (`f32::INFINITY` passed the old positive test) and the
-node edges are the cursor's own `u16`, so the narrowing cast that could wrap a
-terminating flow into a loop no longer exists. `F7`/`F8` in
-[review findings](architecture-review-findings.md) carry the verification and the
-baseline evidence.
+`TechniqueFlow` is implemented: `game/ambition_demo_smash/src/moveset.rs`
+assigns a flow to `read_and_seize`, and `crates/ambition_combat/src/moveset/mod.rs`
+interprets it. Installed technique support (`TechniqueSupport`), the exhaustive
+effect-reference walk and checked acyclic flows are landed; the
+[authored technique protocol](authored-technique-admission.md) owns their rules.
 
 ## A1 - capability discovery
 
@@ -113,53 +97,18 @@ type. Compose existing diagnostics at the preparation boundary. Source spans are
 used where available; compiled Rust-authored content may need owner/definition/
 field provenance rather than an invented file offset.
 
-F4's requires_facing, collected and persistent fields require a real support
-contract. Q63 and the maintainer's Interact constraint still govern behavioral
-changes. A validator can diagnose unsupported nondefault use without choosing the
-gameplay policy or deleting authored data.
+Delete an authored field that nothing plans to read. Use an unsupported-field
+diagnostic only for a field the engine intends to support. Q63 and the
+maintainer's Interact constraint govern behavioral changes.
 
-### Installed technique support is one declaration
+### Technique admission and flow bounds
 
-A11 couples technique existence and parameter validation to the same capability
-offer that installs its runtime handler. Register known paramless techniques
-explicitly; absence of a validator must not mean both paramless and unknown.
-A technique known to the source tree but not installed for this profile also
-fails admission, with a different diagnostic from a misspelled key.
-
-One domain-owned effect-reference traversal covers flow emits, timeline events,
-sustained windows and applicable nested technique payloads. That traversal feeds
-validation, discovery and dependency inspection. Handler systems remain ordinary
-typed Bevy systems on their established schedule; the catalog must not become a
-dynamic gameplay dispatcher.
-
-Parameter checks include semantic limits/unknown fields where the schema requires
-them, not only successful serde hydration. Freeze installed support before
-publishing prepared content. Defensive runtime diagnostics remain for trusted
-callers that bypass preparation.
-
-Duplicate-key rejection does not require comparing function behavior. A key
-already present can be rejected even when its validator is a function pointer.
-Stable metadata supports provenance, not proof of executable equivalence. Use
-explicit same-owner/revision or replacement rules only when their lifecycle and
-invalidation semantics are defined. Last-write-wins is not forced by Rust's
-function-pointer comparison limitations.
-
-### Bound authored execution at preparation
-
-A12 aligns flow graph indices with the runtime cursor, requires finite positive
-waits, and specifies graph/work bounds. Existential reachability of Finish is not
-a proof that every execution terminates; bound cycles and keep enclosing move
-teardown explicit. Preserve proper-time semantics and existing per-occurrence
-contact latches. Per-beat confirmations need scoped contact-event identity before
-they can be advertised.
-
-Do not add arithmetic, arbitrary queries, variables or a universal blackboard to
-move-scoped flow as part of this work. Prepared programs should express existing
-domain operations with explicit execution/cancellation limits. The concrete
-compile/iteration requirement now belongs to the [extension model](extension-model.md):
-independent data artifacts first, then procedural modules through explicit state
-and domain ports. It does not wait for public mod distribution or expand this
-move-flow language into arbitrary code.
+The [authored technique protocol](authored-technique-admission.md) owns
+installed support, the effect-reference traversal and flow bounds. Handler
+systems stay ordinary typed Bevy systems; the catalog never becomes a dynamic
+gameplay dispatcher. Do not add arithmetic, arbitrary queries, variables or a
+blackboard to move-scoped flow. Arbitrary game algorithms belong to the
+procedural tier of the [extension model](extension-model.md).
 
 ## A5 - cross-domain content preflight
 
@@ -231,9 +180,9 @@ Trusted Rust plugins/providers have application privileges; registration does
 not sandbox them. Generated source receives ordinary review/build/tests, and
 external tool execution is subject to the host's real trust boundary.
 
-The construction executor's raw Commands cannot undo arbitrary mutation after a
-failed verifier. Keep preparation rejection, fail-closed publication and future
-isolated candidate activation distinct (F6/A10). Runtime model-backed characters
+Preparation rejection, verified hidden-candidate publication and recovery from
+unsafe native code are three different guarantees; only the first two are
+promised (see [construction](construction-and-reconstitution.md)). Runtime model-backed characters
 are remote intent participants with admission/deadline policy, not nondeterministic
 callbacks inside simulation.
 

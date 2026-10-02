@@ -2,7 +2,7 @@
 
 **State:** OPEN / LATER — architecture direction is useful now; implementation should wait for actor/navigation/world-fact foundations.
 
-## Current state (checked 2026-09-17)
+## Current state
 
 | layer | state |
 |---|---|

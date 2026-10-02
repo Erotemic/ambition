@@ -61,38 +61,31 @@ coordinator overrules any of this by naming a different `-j`.
   registry and ~40 tests fail for reasons unrelated to the change.
   `scripts/mirror_assets_for_worktree.py` symlinks them file by file so a
   regenerated sprite can land as a real file rather than in a shared directory.
-  ⛔⛔ **THE LINK ALONE DOES NOT PROTECT MAIN, AND THIS LINE USED TO SAY IT
-  DID** ("never touches main's copy"). An open-for-write FOLLOWS a symlink —
-  `Image.save`, `Path.write_text` and `shutil.copy2` all do — so until
-  2026-09-02 regenerating assets in a slot rewrote the checkout every other
-  session builds and gates from. Measured, not argued. The publishers now
-  unlink a symlinked destination first; a NEW publisher must do the same, and
-  `scripts/tests/test_asset_writes_do_not_follow_worktree_symlinks.py` is where
-  that is enforced.
+  ⛔ **The link alone does not protect main.** An open-for-write follows a
+  symlink (`Image.save`, `Path.write_text`, `shutil.copy2`), so a publisher
+  that writes through the link rewrites the main checkout. Publishers unlink a
+  symlinked destination first. A new publisher must do the same;
+  `scripts/tests/test_asset_writes_do_not_follow_worktree_symlinks.py` enforces
+  it.
 - **A warm target** — cold means an hour before the first useful result.
 
 ## Target directories
 
 Each slot's `target/` is bind-mounted to its own store under
 `~/.cache/ambition-targets/`, keyed by worktree path. Slots never share a target,
-so **concurrent builds in different slots are fine** — the old "do not build
-against the shared target" rule applied to unbound worktrees.
+so **concurrent builds in different slots are fine**. An unbound worktree must
+not build against the shared target.
 
 ⚠ **A bind mount does not survive a reboot.** Re-run `setup all` after one, or
 builds silently go to the shared virtiofs mount and everything gets slower.
 `list` prints `LOCAL` instead of `bound` when that has happened.
 
-⛔⛔ **A MOUNT CAN OUTLIVE ITS STORE, and `mountpoint` cannot see it.** Delete a
-store under a live mount — a cache sweep, a stale-slot cleanup, `rm -rf
-~/.cache/ambition-targets/<slot>` — and the mount stays up over an *unlinked*
-directory. `mountpoint -q` still says yes, so this used to read as `bound`
-everywhere while every create under `target/` returned ENOENT; a build or a seed
-then died on a bare `No such file or directory` naming a path that plainly
-exists. 2026-09-02 it had taken all three slot stores at once and nothing
-reported it. `list` now prints `BROKEN` (it probes a write, which is the only
-cheap check that sees this), `target_bindmount.sh --check` exits 2, and
-`--mount` rebinds instead of reporting `already bound`. **The artifacts are gone
-with the store — repair, then reseed.**
+⛔ **A mount can outlive its store, and `mountpoint` cannot see it.** If a store
+under `~/.cache/ambition-targets/` is deleted under a live mount, every create
+under `target/` returns ENOENT ("No such file or directory" on a path that
+exists). `list` prints `BROKEN` (it probes a write), `target_bindmount.sh --check`
+exits 2, and `--mount` rebinds. The artifacts are gone with the store: repair,
+then reseed.
 
 ## Seeding and clearing
 
@@ -107,8 +100,8 @@ with the store — repair, then reseed.**
 ⛔ Linking happens through the **backing stores** under
 `~/.cache/ambition-targets/`, never through the mounted `target/` paths: each
 slot's target is its own bind mount, and `link()` returns `EXDEV` across mount
-points even when both sit on one filesystem. Seeding slot 3 from a warm main
-this way moved 58 GB in 1.4s and consumed no disk.
+points even when both sit on one filesystem. Seeding this way takes seconds and
+no extra disk.
 
 `clear <n>` drops `incremental/` only — artifacts survive, so the next build
 relinks rather than recompiles. `clear <n> --all` goes cold; reseed afterwards.
@@ -124,17 +117,14 @@ needed. Dry-run by default.
 ## Merging back
 
 Merge `main` into your slot FIRST, get it green there, then merge to `main`. A
-branch that drifts becomes unmergeable in the places that matter — D192's
-predecessor sat 271 commits behind and its twelve conflicts were all in rollback
-schema, which is why it was re-done rather than rebased.
+branch that drifts far behind becomes unmergeable where it matters (for example
+rollback schema).
 
-⛔⛔ **A CLEAN TEXTUAL MERGE IS NOT A CLEAN SEMANTIC ONE.** 2026-08-25: main
-bumped `GGRS_ROLLBACK_SCHEMA_VERSION` 104 → 105 for one registration while a
-branch bumped 104 → 105 for a different one. Both sides wrote the same literal,
-so git merged the line without a conflict and the result claimed v105 while
-carrying BOTH — a version that named three different schemas, which is the exact
-thing it exists to prevent. After any merge that touches a shared COUNTER or
-VERSION, check what the number now means, not whether the file merged.
+⛔ **A clean textual merge is not a clean semantic one.** If both sides bump a
+shared counter or version (for example `GGRS_ROLLBACK_SCHEMA_VERSION`) to the
+same literal for different changes, git merges the line without a conflict and
+the number now names two schemas. After any merge that touches a shared counter
+or version, check what the number now means.
 
 ## Etiquette
 

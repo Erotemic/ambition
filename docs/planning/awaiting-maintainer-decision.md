@@ -1448,3 +1448,28 @@ are kept (OW3 third slice: the hub's dog, released in another room, is
 there when the player comes back), and it is rebuilt from its record with
 full health. So the remaining question is only its live state, and it
 blocks no row.
+
+## Q150 — while two players are in two rooms (split view), whose HUD, banner and music show?
+
+Decided for now, so it is not blocking: **the session keeps one HUD, one
+banner and one music stream, and they follow the primary seat's subject.**
+The view half (`docs/planning/engine/open-world-runtime-and-residency.md`,
+V1-V5) gives each player in a separate room a view of their own, and every
+world drawable is now drawn in its own room (V2a-V2l, V4a-V4c). Three
+surfaces are still one per session:
+
+- the gameplay HUD (`PlayerHudFacts`) shows the controlled subject's meters,
+  which is the primary seat's body. Bob's health is not on the screen;
+- the gameplay banner (`GameplayBanner`) is one resource, so a banner that
+  Bob's room raises shows across both views;
+- the music claims choose one track for the session. There is one audio
+  output, so two rooms' tracks cannot both play.
+
+The options: (a) keep one of each, following the primary seat (the current
+behaviour); (b) a HUD panel and a banner per view, each from its own seat,
+with one music stream that follows the primary seat or the most urgent
+claim (a fight outranks exploration); (c) per-view HUD and banner, and
+music that crossfades to the room of the view with focus. (b) needs a
+per-seat HUD fact and a banner keyed by room; the view half already has the
+per-view rectangles to place them in. This blocks only the "separate from
+another participant" row's last ◐ in `open-world-roadmap.md`.

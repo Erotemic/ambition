@@ -42,7 +42,13 @@ operations demonstrate a real reusable core.
 - terminal versus resettable occurrence/tombstone semantics;
 - stable identity required across a fresh process versus identity that may be
   deterministically regenerated;
-- persistent relocation of actors/items away from authored home placement;
+- ~~persistent relocation of actors/items away from authored home placement~~
+  — answered 2026-10-01 by Q38 and OW3 (slices 1-5 in
+  [`open-world-runtime-and-residency.md`](open-world-runtime-and-residency.md)):
+  an item or persistent character left in another room has a durable
+  `Placed { room, at }` row and is built there; a population body away from
+  home is held as carried while it lives, and its home builds the
+  replacement when its room retires;
 - world/per-owner uniqueness without conflating identity with definition;
 - how much provenance is product state versus diagnostics.
 

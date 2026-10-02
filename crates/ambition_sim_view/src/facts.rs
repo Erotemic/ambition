@@ -196,20 +196,25 @@ pub struct ControlledBodiesView(pub Vec<ControlledBodyFact>);
 pub struct ControlledBodyFact {
     pub center: ae::Vec2,
     pub size: ae::Vec2,
+    /// The live room of the body (`LiveRooms::of`). A view keeps labels off
+    /// only the bodies of the room it frames.
+    pub room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
 }
 
 pub fn rebuild_controlled_bodies_view(
     mut view: ResMut<ControlledBodiesView>,
-    bodies: Query<&BodyKinematics, With<ambition_characters::control::DrivingParticipant>>,
+    live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
+    bodies: Query<(Entity, &BodyKinematics), With<ambition_characters::control::DrivingParticipant>>,
 ) {
     // AMBITION_REVIEW(determinism): query order is not stable, and this Vec is
     // built in it. Safe: the only consumer asks "does any of these boxes
     // overlap mine", which is order-independent, and this is derived
     // presentation state that never enters a sim trajectory.
     view.0.clear();
-    view.0.extend(bodies.iter().map(|kin| ControlledBodyFact {
+    view.0.extend(bodies.iter().map(|(entity, kin)| ControlledBodyFact {
         center: kin.pos,
         size: kin.size,
+        room: live.of(entity),
     }));
 }
 

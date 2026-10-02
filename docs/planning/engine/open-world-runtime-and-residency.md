@@ -2059,7 +2059,7 @@ names its subject by body or seat (`ViewSubject`, `ViewParticipant`).
 | Cut | Work | State |
 | --- | --- | --- |
 | V1 | The camera resolve frames each view in the live room of its framed body | ✅ below |
-| V2 | Draw roads place each entity by the geometry of its own live room (`LiveRoomOf`), not the sole room | ◐ the camera apply (V2a), feature/actor sprites (V2b), items and projectiles (V2c), lock walls (V2d) and nameplates (V2e), fx, slashes and limb trails (V2f), the visuals that ride a body (V2g), gravity zones, shrines and attack stand-ins (V2h), the blink ring (V2i), broken-block visuals (V2j), and health bars and the gradient-lane telegraph (V2k), below; the unroomed fx producers (54 sites), debug overlays and the world labels are open |
+| V2 | Draw roads place each entity by the geometry of its own live room (`LiveRoomOf`), not the sole room | ◐ the camera apply (V2a), feature/actor sprites (V2b), items and projectiles (V2c), lock walls (V2d) and nameplates (V2e), fx, slashes and limb trails (V2f), the visuals that ride a body (V2g), gravity zones, shrines and attack stand-ins (V2h), the blink ring (V2i), broken-block visuals (V2j), health bars and the gradient-lane telegraph (V2k), and the world-label layout (V2l), below; the unroomed fx producers (54 sites) and the debug overlays are open |
 | V3 | A camera draws only the live room of its view: a room render band, as the view band does for projections | ✅ below |
 | V4 | Room visuals and the LDtk level are presented per live room, and retire with it | ✅ static room visuals (V4a), the LDtk level (V4b) and parallax (V4c), below |
 | V5 | Two seats in two live rooms get two views (the product rule: a split is mandatory in different rooms) | ✅ below |
@@ -2177,6 +2177,19 @@ second view) and `an_equivalent_world_reload_draws_its_room_once` (the
 shipped game; the room visual, marker, parallax and LDtk counts are the same
 10 frames after an equivalent reload; before the fix, 258 against 140).
 `SoleLiveRoomSpec` 25/21 -> 20/18, `SoleLiveRoom` 46/39 -> 45/38.
+
+✅ **V2l landed 2026-10-02: each view lays out its world labels in the room
+it frames.** `layout_world_labels` read the sole live room, so while two
+rooms were live it did not run and every label stayed at its anchor,
+overlapping. Each view now lays out with the geometry of the room it frames
+(`ResolvedCameraSnapshot::frame().room`, or the sole live room while it is
+not framed), and keeps labels off only the driven bodies of that room
+(`ControlledBodyFact` names the body's `room`). Witness:
+`each_view_lays_out_its_labels_in_the_room_it_frames` (two views aimed at
+one world point in rooms 600 and 4000 high: the flip puts one focus below
+the labels and one above, so the layouts are `[0, 15]` and `[20, 5]`;
+poison, every view laid out by the first room: both `[0, 15]`).
+`SoleLiveRoom` 30/23 -> 29/22.
 
 ✅ **V2k landed 2026-10-02: the health bars and a boss's gradient-lane
 telegraph are drawn in their body's live room.** Both read the sole live
@@ -2333,7 +2346,9 @@ seats in one room share one view),
 `a_second_view_opens_while_the_players_are_in_two_rooms_and_closes_when_they_meet`;
 the V1 witness now reads the view the split opened, and no fixture spawns it.
 ⚠ Open: A2's adaptive split inside one room, merge hysteresis, and the
-session-wide HUD, banner and music.
+session-wide HUD, banner and music (Q150: they follow the primary seat for
+now). The debug overlays stay single-view: they are immediate-mode gizmos
+with no entity to stamp, and `PresentedViewState` refuses with two views.
 
 ## Existing repairs and standing lessons
 

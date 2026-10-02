@@ -474,12 +474,18 @@ pub(crate) fn label_size(
 /// Do not use `NameplateIndex`'s `controlled` flag. That index has only
 /// `FeatureId` rows, and the home avatar has none, so the rule would protect
 /// every body except the one you normally play.
-fn controlled_body_boxes(view: Option<&ControlledBodiesView>, world: &ae::World) -> Vec<LabelBox> {
+fn controlled_body_boxes(
+    view: Option<&ControlledBodiesView>,
+    room: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
+    world: &ae::World,
+) -> Vec<LabelBox> {
     let Some(view) = view else {
         return Vec::new();
     };
     view.0
         .iter()
+        // A body in another live room is not on this view's screen.
+        .filter(|fact| fact.room == Some(room))
         .map(|fact| LabelBox {
             center: ae::config::world_to_bevy(world, fact.center, 0.0).truncate(),
             half: Vec2::new(fact.size.x * 0.5, fact.size.y * 0.5),
@@ -543,14 +549,23 @@ pub fn apply_world_label_fonts(
 /// share one set.
 #[allow(clippy::type_complexity)]
 pub fn layout_world_labels(
-    world: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<
+    // Each view lays out its labels in the live room it frames, by that
+    // room's geometry (view half, cut V2l).
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomOf<
         ambition_platformer2d_core::RoomGeometry,
     >,
     settings: Res<WorldLabelLayoutSettings>,
     time: Res<Time>,
     // A draw system draws every view. `PresentedViewState` resolves the one
     // view a single main camera shows and refuses when there are several.
-    views: Query<(Entity, &ambition_sim_view::CameraViewState), With<ambition_sim_view::LocalView>>,
+    views: Query<
+        (
+            Entity,
+            &ambition_sim_view::CameraViewState,
+            Option<&ambition_sim_view::camera_snapshot::ResolvedCameraSnapshot>,
+        ),
+        With<ambition_sim_view::LocalView>,
+    >,
     controlled_bodies: Option<Res<ControlledBodiesView>>,
     mut labels: Query<(
         &mut WorldLabel,
@@ -593,12 +608,21 @@ pub fn layout_world_labels(
     // unkeyed label belongs to the only view in a one-view composition (hand
     // probes, labels the mirror has not reached). With several views it is
     // refused.
-    let on_hand = ambition_sim_view::ViewsOnHand::survey(views.iter().map(|(view, _)| view));
+    let on_hand = ambition_sim_view::ViewsOnHand::survey(views.iter().map(|(view, ..)| view));
 
-    // View-independent: a driven body is driven in every view.
-    let subjects = controlled_body_boxes(controlled_bodies.as_deref(), &world.0);
-
-    for (view_entity, view_state) in &views {
+    for (view_entity, view_state, resolved) in &views {
+        // The room the view frames; a view not framed yet is in the sole live
+        // room (an unstamped entity's rule). With neither, there is no
+        // geometry to place by, so the view's labels keep their placement.
+        let Some((room, world)) = resolved
+            .and_then(|resolved| resolved.frame())
+            .map(|frame| frame.room)
+            .or_else(|| rooms.room_of(view_entity))
+            .and_then(|room| Some((room, rooms.in_room(room)?)))
+        else {
+            continue;
+        };
+        let subjects = controlled_body_boxes(controlled_bodies.as_deref(), room, &world.0);
         let focus_bevy =
             ae::config::world_to_bevy(&world.0, view_state.target_world, 0.0).truncate();
 
@@ -1254,6 +1278,56 @@ mod tests {
                 "swapping only the two camera targets must swap the two layouts. It \
                  did not, so placement is following iteration order and the \
                  assertion above was passing for the wrong reason"
+            );
+        }
+
+        /// Each view lays out its labels in the live room it frames (view
+        /// half, cut V2l). Both views aim at one world point, but view 0 frames
+        /// a room 600 high and view 1 a room 4000 high, so the flip puts the
+        /// first focus below the labels (`300 - 1300 = -1000`) and the second
+        /// above them (`2000 - 1300 = +700`). Before the cut, the pass read the
+        /// sole live room and did not run while two rooms were live, so every
+        /// label stayed at its anchor.
+        #[test]
+        fn each_view_lays_out_its_labels_in_the_room_it_frames() {
+            use ambition_platformer2d_shared_tangle::lifecycle::{insert_live_room_component, spawn_live_room, LiveRoomInstance};
+            let mut world = World::new();
+            insert_live_room_component(&mut world, room());
+            let tall = LiveRoomInstance::ACTIVATION.next();
+            spawn_live_room(
+                &mut world,
+                tall,
+                ae::RoomGeometry(ae::World::new("tall", ae::Vec2::new(800.0, 4000.0), ae::Vec2::new(50.0, 50.0), Vec::new())),
+            );
+            world.insert_resource(settings());
+            world.init_resource::<Time>();
+            let views = [(0, LiveRoomInstance::ACTIVATION), (1, tall)].map(|(id, room)| {
+                let view = spawn_view(&mut world, id, TARGET_BELOW);
+                world.entity_mut(view).insert(ambition_sim_view::camera_snapshot::ResolvedCameraSnapshot(Some(
+                    ambition_sim_view::camera_snapshot::ResolvedCameraFrame {
+                        snapshot: Default::default(),
+                        follow_world: Default::default(),
+                        room,
+                    },
+                )));
+                view
+            });
+            let entities = views.map(|view| {
+                [
+                    spawn_label(&mut world, "a", ANCHOR_A, view),
+                    spawn_label(&mut world, "b", ANCHOR_B, view),
+                ]
+            });
+            world
+                .run_system_once(layout_world_labels)
+                .expect("layout_world_labels reads only what the fixture spawns");
+            let placed = entities.map(|per_view| {
+                per_view.map(|entity| world.entity(entity).get::<Transform>().expect("a label keeps its transform").translation.y)
+            });
+            assert_eq!(
+                placed,
+                [[0.0, 15.0], [20.0, 5.0]],
+                "each view must lay out its labels against its focus in the room it frames"
             );
         }
 

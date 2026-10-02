@@ -406,6 +406,23 @@ fn a_wave_zooms_only_the_views_of_its_own_live_room() {
     }
     assert!(seen.1 > 1.0, "precondition: the goblin wave in #1 never asked for a zoom: {seen:?}");
     assert_eq!(seen.0, 1.0, "the wave in #1 zoomed the views of #0: {seen:?}");
+    // And each view's camera reads the zoom of the room it frames: the view
+    // of #1 zooms out (the control), the view of #0 does not.
+    for _ in 0..120 {
+        sim.step(base());
+    }
+    let world = sim.world_mut();
+    let mut frames: Vec<_> = world
+        .query::<&ambition_platformer2d::sim_view::camera_snapshot::ResolvedCameraSnapshot>()
+        .iter(world)
+        .filter_map(|resolved| resolved.0.as_ref().map(|frame| (frame.room, frame.snapshot.zoom_multiplier)))
+        .collect();
+    frames.sort_by_key(|(room, _)| *room);
+    assert_eq!(frames.len(), 2, "precondition: two views: {frames:?}");
+    assert!(
+        frames[0].0 == first && frames[1].0 == second && frames[1].1 > frames[0].1,
+        "(the view of #0, the view of #1) by (room, zoom): the view of #1 must zoom out past #0's: {frames:?}"
+    );
 }
 
 /// OW1 (customer 2): a gravity switch turns the ambient of its own live room.

@@ -241,26 +241,52 @@ pub struct ActorConstructionServices {
 #[derive(Clone, Debug)]
 pub struct PersistedFates {
     save: Option<ambition_persistence::save_data::AmbitionGameSaveData>,
+    /// The breakables still broken when this commit was requested (OW5): the
+    /// time each stays broken, by (room definition id, authored id).
+    broken_breakables: std::collections::BTreeMap<(String, String), f32>,
 }
 
 impl PersistedFates {
     pub fn from_save(save: &ambition_persistence::save_data::AmbitionGameSaveData) -> Self {
         Self {
             save: Some(save.clone()),
+            broken_breakables: Default::default(),
         }
     }
 
     /// A commit no durable record reaches: a summon, whose occurrence the save
     /// never names, or a fixture with no save installed.
     pub fn unrecorded() -> Self {
-        Self { save: None }
+        Self {
+            save: None,
+            broken_breakables: Default::default(),
+        }
     }
 
     /// Read off the world the commit is about to be applied to.
     pub fn of_world(world: &World) -> Self {
-        world
+        let mut fates = world
             .get_resource::<ambition_persistence::save::AmbitionGameSave>()
-            .map_or_else(Self::unrecorded, |save| Self::from_save(save.data()))
+            .map_or_else(Self::unrecorded, |save| Self::from_save(save.data()));
+        if let (Some(schedule), Some(now)) = (
+            world.get_resource::<crate::features::ecs::breakable_respawns::BreakableRespawnSchedule>(),
+            world.get_resource::<crate::features::GameplayElapsed>(),
+        ) {
+            fates.broken_breakables = schedule
+                .records()
+                .filter_map(|(key, due)| Some((key.clone(), Some(due - now.0).filter(|r| *r > 0.0)?)))
+                .collect();
+        }
+        fates
+    }
+
+    /// How long the breakable `id` of room `room` stays broken, when its
+    /// respawn was not yet due as this commit was requested (OW5); `None`
+    /// builds it whole.
+    pub fn breakable_remaining(&self, room: &str, id: &str) -> Option<f32> {
+        self.broken_breakables
+            .get(&(room.to_string(), id.to_string()))
+            .copied()
     }
 
     /// An authored enemy placement: dead iff its policy keeps a death record and

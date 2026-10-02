@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v295
+ggrs-rollback-schema-v296
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -145,6 +145,7 @@ derived.ability_contributions	derived	AbilityContributions	each source rewrites 
 derived.actor_decision_facts	derived	ActorDecisionFacts	rebuilt from authoritative body state before every autonomous decision phase
 derived.actor_decision_frames	derived	ActorDecisionFrames	rebuilt by autonomous decision and consumed by same-tick control publication
 derived.actor_steering	derived	ActorSteering	rebuilt from the authoritative actor population before movement
+derived.authored_room_commands	derived	AuthoredRoomCommands	each live room's prepared `while_live` line; recomputed from the room set and the command catalog
 derived.authored_switch_commands	derived	AuthoredSwitchCommands	authored switch verbs prepared for the active room; recomputed from the room set and LDtk project
 derived.away_from_authored_room	derived	AwayFromAuthoredRoom	rewritten every tick from the bodies' live rooms and provenance, immediately before the custody projection that reads it
 derived.body_contact_snapshot	derived	BodyContactSnapshot	cleared and refilled from authoritative BodyKinematics every tick, immediately before the movement phase that reads it
@@ -230,6 +231,7 @@ entity:world_item	required-rollback	WorldItem	component presence automatically i
 extension.body_records	component-clone-custom-checksum	BodyRecords	bevy_ggrs clone snapshot + every module record of the body: schema shape digest and canonical values
 extension.session_records	component-clone-custom-checksum	SessionRecords	bevy_ggrs clone snapshot + every session-attached module record: schema shape digest and canonical values
 feature.breakable	component-clone	BreakableFeature	bevy_ggrs clone snapshot; not in the session checksum
+feature.breakable_respawn_schedule	resource-clone-custom-checksum	BreakableRespawnSchedule	bevy_ggrs clone snapshot + the respawn due times of broken breakables on the session clock, kept when their room retires (OW5)
 feature.chest	component-clone	ChestFeature	bevy_ggrs clone snapshot; not in the session checksum
 feature.collected	component-clone	Collected	bevy_ggrs clone snapshot; not in the session checksum
 feature.damageable_volumes	component-clone	DamageableVolumes	bevy_ggrs clone snapshot; not in the session checksum

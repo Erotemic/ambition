@@ -194,6 +194,12 @@ where
         OWNER,
         "resource.gameplay_elapsed",
     );
+    registrar.rollback_resource_clone_checksum::<crate::features::ecs::breakable_respawns::BreakableRespawnSchedule>(
+        OWNER,
+        "feature.breakable_respawn_schedule",
+        "the respawn due times of broken breakables on the session clock, kept when their room retires (OW5)",
+        crate::features::ecs::breakable_respawns::BreakableRespawnSchedule::checksum,
+    );
     registrar
         .rollback_resource_canonical::<crate::session::lifecycle_commit::PendingLifecycleCommit>(
             OWNER,

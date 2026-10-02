@@ -540,18 +540,27 @@ pub(crate) fn lower_breakable_placement(
         aabb: record.aabb,
         payload: spec.clone(),
     };
-    spawn_breakable_into(&mut ctx.scope.reborrow(), &authored);
+    // OW5: a breakable left broken when its room retired is built broken for
+    // the time its respawn still needs.
+    let remaining = ctx.facts.breakable_remaining(ctx.room_id, &authored.id);
+    spawn_breakable_into(&mut ctx.scope.reborrow(), &authored, remaining);
 }
 
 /// Populate one breakable onto a root the construction executor allocated.
+/// `broken_for`: built broken, respawning after that many seconds (OW5).
 pub(crate) fn spawn_breakable_into(
     scope: &mut RootScope,
     authored: &ambition_platformer2d_world::rooms::Authored<
         ambition_platformer2d_world::rooms::BreakableSpec,
     >,
+    broken_for: Option<f32>,
 ) {
     let feature_aabb = CenteredAabb::from_aabb(authored.aabb);
-    let breakable = breakable_from_authored(authored);
+    let mut breakable = breakable_from_authored(authored);
+    if broken_for.is_some() {
+        let max = breakable.health.max;
+        let _broke = breakable.apply_damage(max);
+    }
     let breakable = &breakable;
     scope.insert_room_in_session((
             Name::new(format!("Feature breakable: {}", authored.name)),
@@ -566,6 +575,9 @@ pub(crate) fn spawn_breakable_into(
             PogoTargetVolumes::default(),
             StandTimer(0.0),
     ));
+    if let Some(seconds) = broken_for {
+        scope.insert(ambition_combat::components::RespawnTimer(seconds));
+    }
     if breakable.pogo_refresh
         || (breakable.collision.blocks_movement() && breakable.trigger.allows_stand())
     {

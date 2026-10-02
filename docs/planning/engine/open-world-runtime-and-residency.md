@@ -1723,7 +1723,13 @@ same `SimId`, and a fresh process booted from the save does both).
 Poisons: no row written (the hub rebuilt the dog at home); the foreign
 plan skipped (the neighbour had no dog). ⚠ Open: an enemy
 (`enemy_spawns`) is not reinstatable yet, and whether a persistent
-character's HP travels with its whereabouts is Q149. (A population body
+character's HP travels with its whereabouts is Q149. Measured 2026-10-01:
+no shipped enemy placement is persistent. An enemy that authors no policy
+gets `UNDESCRIBED_BODY_RESPAWN` (`OnRoomReenter`), and no `EnemySpawn` or
+level `enemy_respawn` in the eight shipped LDtk worlds says
+`DeadStaysDead`. So the gap has no customer yet, and it is not built: a
+persistent enemy carried to another room goes home, as a population body
+does. The first content that authors one is the customer. (A population body
 left in a room that stays live was built a second time by its home room:
 closed by the fourth slice below.)
 
@@ -2008,7 +2014,7 @@ names its subject by body or seat (`ViewSubject`, `ViewParticipant`).
 | V1 | The camera resolve frames each view in the live room of its framed body | ✅ below |
 | V2 | Draw roads place each entity by the geometry of its own live room (`LiveRoomOf`), not the sole room | ◐ the camera apply (V2a), feature/actor sprites (V2b), items and projectiles (V2c), lock walls (V2d) and nameplates (V2e), fx, slashes and limb trails (V2f), below; the unroomed fx producers (54 sites), the blink preview, health bars and debug overlays are open |
 | V3 | A camera draws only the live room of its view: a room render band, as the view band does for projections | ✅ below |
-| V4 | Room visuals and the LDtk level are presented per live room, and retire with it | ◐ static room visuals (V4a) and the LDtk level (V4b), below; parallax is open |
+| V4 | Room visuals and the LDtk level are presented per live room, and retire with it | ✅ static room visuals (V4a), the LDtk level (V4b) and parallax (V4c), below |
 | V5 | Two seats in two live rooms get two views (the product rule: a split is mandatory in different rooms) | ✅ below |
 
 ✅ **V1 landed 2026-10-01: each view frames its own player while two rooms
@@ -2094,6 +2100,36 @@ room only, the old rule): the second room had no bundle. ⚠ REASONED, not
 measured: `bevy_ecs_tilemap` 0.19 queues tiles from each view's
 `RenderVisibleEntities`, so the band reaches the tiles; no test here
 renders pixels. `SoleLiveRoomSpec` 27/22 -> 25/21.
+
+✅ **V4c landed 2026-10-01: each live room has its own parallax, and a
+developer reload draws its room once.** One set of parallax roots showed the
+sole live room: the crossing request, the session sync and the start-up spawn
+built it from `SoleLiveRoomSpec`, and the theme load read only that room. So
+while two rooms were live the second room had no sky. And V4a had left a
+defect that the new witness measured: a developer reload spawned the room's
+static visuals and parallax directly, and `present_live_room_visuals` drew the
+published room again (258 room visuals against 140 before the reload).
+`present_live_room_parallax` (`rendering/parallax.rs`) gives each live room
+its own parallax roots, stamped with the room, with a `PresentedRoomParallax`
+marker as the memo, as V4a does. `ensure_active_room_parallax_theme` loads
+the theme of every live room. `mirror_parallax_layers_per_view` gives a
+room's roots to the views that frame that room (the lowest view claims, the
+others get copies), and `sync_parallax_layers` hides a panel in a view that
+frames another room. A quality or asset change only despawns; the presenter
+builds again. Deleted: `respawn_room_visuals_on_request`,
+`sync_session_room_visuals`, `spawn_initial_room_visuals`, the
+`PresentedParallaxScope` memo, the developer reload's direct spawns, and
+`RespawnRoomVisualsRequested`: a crossing asks presentation for nothing, so
+the message had no reader (`test_messages_nothing_reads`), and it is gone
+with its rollback clear (schema 294 -> 295). Witnesses:
+`each_view_draws_only_the_sky_of_the_room_it_frames` (two views in two rooms:
+each draws its own room's panel, nothing is copied; control: both views in
+one room draw its panel and the unframed room's panel is hidden; poison, a
+mirror that ignores frames: the unframed room's panel was copied to the
+second view) and `an_equivalent_world_reload_draws_its_room_once` (the
+shipped game; the room visual, marker, parallax and LDtk counts are the same
+10 frames after an equivalent reload; before the fix, 258 against 140).
+`SoleLiveRoomSpec` 25/21 -> 20/18, `SoleLiveRoom` 46/39 -> 45/38.
 
 ✅ **V2b landed 2026-10-01: a feature or actor sprite is placed by its own
 room.** `DynamicFeatureFact` names the `room` of its body (`LiveRooms::of`).

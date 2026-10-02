@@ -123,6 +123,7 @@ pub use parallax::{
     // "never". See `ParallaxThemeAttempts`.
     ParallaxThemeAttempts,
     mirror_parallax_layers_per_view,
+    present_live_room_parallax,
     refresh_parallax_layers_on_quality_change,
     spawn_parallax_layers,
     sync_parallax_layers,
@@ -132,6 +133,8 @@ pub use parallax::{
     // The marker, so a consumer can ask whether a backdrop exists.
     // `fixtures/external_consumer` uses it.
     ParallaxLayerVisual,
+    // Each live room's parallax memo (V4c).
+    PresentedRoomParallax,
 };
 pub use primitives::{
     BlockArt, BlockVisual, FeatureVisual, HudText, LoadingZoneVisual, PlayerSpriteBaseline,
@@ -414,12 +417,6 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
         app.add_systems(
             Update,
             (
-                // Head of the chain: a crossing's parallax is rebuilt before
-                // `sync_visuals` runs. The edge also gets an auto-inserted
-                // `ApplyDeferred` (`Update` keeps default build settings), which makes
-                // the spawns visible, not only earlier. The room's static visuals
-                // are `present_live_room_visuals`'s (`SessionRoomVisualsPlugin`).
-                world::respawn_room_visuals_on_request,
                 // Spawn visuals for encounter-spawned enemies before `sync_visuals`
                 // reads them, and remove ones whose sim feature is gone (an expired
                 // drop), so a room does not collect invisible sprites.
@@ -535,9 +532,9 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                 .run_if(session_presentation_is_ready),
         );
 
-        // The room's static-visual respawn is the head of the chain above. The
-        // sim emits `RespawnRoomVisualsRequested`; the spawn is here so the sim
-        // never imports the render layer.
+        // A live room's static visuals and parallax are not respawned here:
+        // `present_live_room_visuals` and `present_live_room_parallax`
+        // (`SessionRoomVisualsPlugin`) give each live room its own.
     }
 }
 

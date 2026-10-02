@@ -10,8 +10,6 @@ use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::engine_core::RoomGeometry;
 use ambition_platformer2d::ldtk_map as ldtk_world;
 use ambition_platformer2d::platformer::developer_hotkeys::DeveloperAction;
-use ambition_platformer2d::render::rendering::spawn_room_visuals;
-use ambition_platformer2d::sim as physics;
 use ambition_platformer2d::world::world_manifest;
 
 /// Presentation-side debug hotkey reader.
@@ -92,11 +90,7 @@ pub(super) fn handle_ldtk_hot_reload(
         >,
     >,
     mut ldtk_reload: ResMut<ambition_platformer2d::dev_tools::WorldSourceHotReload>,
-    // Bundled to keep this system within Bevy's 16 top-level SystemParam limit.
-    tuning: (
-        Res<ambition_platformer2d::engine_core::ActiveMovementTuning>,
-        Res<physics::PhysicsSandboxSettings>,
-    ),
+    tuning: Res<ambition_platformer2d::engine_core::ActiveMovementTuning>,
     // RESIDENTS of the room being replaced — an object in a body's custody rides
     // the reload with its holder, exactly as it rides a room transition. See
     // `RoomResident`.
@@ -259,8 +253,7 @@ pub(super) fn handle_ldtk_hot_reload(
             room_set.spec(),
             live_room.as_deref().map(|live| **live),
             &mut clusters,
-            tuning.0 .0,
-            *tuning.1,
+            tuning.0,
             &room_visuals,
             &watch_path,
             &catalogs.0,
@@ -409,7 +402,6 @@ pub(super) fn reload_ldtk_world_from_disk(
     live_room: Option<world_rooms::LiveRoomInstance>,
     clusters: &mut ae::BodyClustersMut<'_>,
     tuning: ae::MovementTuning,
-    physics_settings: physics::PhysicsSandboxSettings,
     room_visuals: &Query<
         (
             Entity,
@@ -668,13 +660,12 @@ pub(super) fn reload_ldtk_world_from_disk(
     // spawned over it. The room's own last-good-world property was intact and the
     // OPERATION's was not.
     //
-    // ⚠ **PRESENTATION IS NOW A PROJECTION OF THE PUBLISHED ROOM**, not of the
-    // attempt. It still reads the PLAN rather than the live components — the plan
-    // IS the published room once the verdict says so — but it no longer runs when
-    // there is no published room to dress.
+    // ⚠ **PRESENTATION IS A PROJECTION OF THE PUBLISHED ROOM**, not of the
+    // attempt: this reload spawns no presentation. The per-live-room presenters
+    // dress the room after it publishes, and a refused candidate never becomes
+    // a live room, so nothing dresses it.
     let safe_player_pos = transaction.safe_player_pos;
     let air_jumps = tuning.air_jumps;
-    let published_spec = construction_plan.spec().clone();
     let rehome_and_dress = move |world: &mut bevy::prelude::World| {
         // The repaired placement is a discrete TRANSIT (ADR 0024 authority):
         // momentum kept for a same-spot reload, contacts/attachment reconciled
@@ -723,31 +714,11 @@ pub(super) fn reload_ldtk_world_from_disk(
             dev.preset_flash = 1.0;
         }
 
-        // ── presentation for the room that actually published ───────────────
-        let assets = world
-            .get_resource::<ambition_platformer2d::sprite_sheet::game_assets::GameAssets>()
-            .cloned();
-        let parallax_budget = world
-            .get_resource::<ambition_platformer2d::render::quality::ResolvedVisualQuality>()
-            .map(|quality| quality.budget.parallax.clone());
-        let mut queue = bevy::ecs::world::CommandQueue::default();
-        let mut commands = bevy::prelude::Commands::new(&mut queue, world);
-        ambition_platformer2d::render::rendering::spawn_parallax_layers(
-            &mut commands,
-            session_scope,
-            &published_spec.world,
-            &published_spec.metadata,
-            assets.as_ref(),
-            parallax_budget.as_ref(),
-        );
-        spawn_room_visuals(
-            &mut commands,
-            session_scope,
-            &published_spec,
-            physics_settings,
-            assets.as_ref(),
-        );
-        queue.apply(world);
+        // The room that published is a live room, so presentation gives it its
+        // static visuals, parallax and LDtk levels by itself
+        // (`present_live_room_visuals`, `present_live_room_parallax`,
+        // `present_ldtk_levels_per_live_room`). Spawning them here too drew the
+        // room twice.
     };
 
     // ⛔⛤ **AND THE DEVELOPER-FACING STATUS IS AN EFFECT LIKE ANY OTHER.** It is

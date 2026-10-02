@@ -27,7 +27,7 @@ use ambition_platformer2d_shared_tangle::lifecycle::{
     session_world_component_mut, LiveRoomInstance, SessionSpawnScope,
 };
 use ambition_platformer2d_world::platforms::MovingPlatformState;
-use ambition_platformer2d_world::rooms::{RespawnRoomVisualsRequested, RoomSet, RoomSpec};
+use ambition_platformer2d_world::rooms::{RoomSet, RoomSpec};
 
 /// Stable same-build identity for one prepared construction artifact.
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]

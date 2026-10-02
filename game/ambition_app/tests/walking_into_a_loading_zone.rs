@@ -270,14 +270,6 @@ fn arm_the_discriminators(sim: &mut Platformer2dSimHarness) {
     if let Ok(mut combat) = q.single_mut(world) {
         combat.hit_flash = 0.0;
     }
-    // The room-visual respawn request is the crossing's *"dress the destination"*
-    // message. Cleared before each step so what the step leaves is what the step
-    // wrote.
-    if let Some(mut messages) = world.get_resource_mut::<bevy::ecs::message::Messages<
-        ambition_platformer2d::world::rooms::RespawnRoomVisualsRequested,
-    >>() {
-        messages.clear();
-    }
 }
 
 /// Seat a live conversation, so the crossing's `ActiveConversation::close()`
@@ -328,15 +320,6 @@ fn conversation_is_live(sim: &mut Platformer2dSimHarness) -> bool {
     sim.world_mut()
         .get_resource::<ambition_platformer2d::conversation::ActiveConversation>()
         .is_some_and(ambition_platformer2d::conversation::ActiveConversation::is_live)
-}
-
-/// Did this frame ask for the destination room's visuals?
-fn asked_for_room_visuals(sim: &mut Platformer2dSimHarness) -> bool {
-    sim.world_mut()
-        .get_resource::<bevy::ecs::message::Messages<
-            ambition_platformer2d::world::rooms::RespawnRoomVisualsRequested,
-        >>()
-        .is_some_and(|messages| !messages.is_empty())
 }
 
 /// ⛔⛤ **A10, THROUGH THE SHIPPED APP: A ROOM THE TRANSACTION REFUSES COSTS THE
@@ -481,7 +464,7 @@ fn a_room_the_transaction_refuses_leaves_the_room_the_player_is_in_intact() {
     // about a crossing that did not.
     //
     // ⚠ Each discriminator was ARMED to a value the effect would overwrite (see
-    // `arm_the_discriminators`), so these are not three ways of reading a default.
+    // `arm_the_discriminators`), so these are not two ways of reading a default.
     assert_eq!(
         preset_flash(&mut sim),
         0.0,
@@ -495,11 +478,8 @@ fn a_room_the_transaction_refuses_leaves_the_room_the_player_is_in_intact() {
          it also called `BodyCombat::reset()` on a body that never arrived \
          anywhere"
     );
-    assert!(
-        !asked_for_room_visuals(&mut sim),
-        "⛔ A REFUSED CROSSING ASKED FOR THE DESTINATION ROOM'S VISUALS: the \
-         presentation would dress a room the session is not in"
-    );
+    // The crossing does not ask presentation for anything since view half V4c:
+    // presentation dresses each live room, and a refused room never becomes one.
 
     // ⛔ AND THE LIFECYCLE DID NOT REPORT A COMMIT. `apply()` returning `Ok` used
     // to BE the commit: the transaction advanced, the intent was consumed and the
@@ -539,12 +519,12 @@ fn a_room_the_transaction_refuses_leaves_the_room_the_player_is_in_intact() {
     );
 }
 
-/// ⛔⛤ **THE CONTROL FOR THE THREE DISCRIMINATORS ABOVE: A CROSSING THAT
+/// ⛔⛤ **THE CONTROL FOR THE TWO DISCRIMINATORS ABOVE: A CROSSING THAT
 /// PUBLISHES STILL DOES ALL OF IT.**
 ///
 /// ⚠ **WITHOUT THIS ARM THE REFUSAL ASSERTIONS COULD NOT FAIL AND NOBODY WOULD
-/// KNOW.** `preset_flash`, the body's arrival flash and the room-visual request
-/// are all armed to a value a committed crossing overwrites — but an arming that
+/// KNOW.** `preset_flash` and the body's arrival flash
+/// are both armed to a value a committed crossing overwrites — but an arming that
 /// some decay system returns to zero inside the same frame, or a message a reader
 /// drains before the assertion looks, reads exactly like *"the effect did not
 /// run"*. This walks a crossing that PUBLISHES and asserts each discriminator
@@ -599,12 +579,6 @@ fn a_crossing_that_publishes_does_every_transition_effect() {
         "a crossing PUBLISHED and the body carries no arrival flash: the combat \
          half of the crossing did not run, or the value decays inside the frame \
          and the refusal arm's assertion on it cannot fail"
-    );
-    assert!(
-        asked_for_room_visuals(&mut sim),
-        "a crossing PUBLISHED and nothing asked for the destination room's \
-         visuals: either presentation is no longer requested, or the message is \
-         drained before this arm reads it and the refusal assertion is vacuous"
     );
     assert_ne!(
         active_room(&mut sim),
@@ -721,7 +695,7 @@ fn the_shipped_apps_own_first_room_publishes() {
 /// ⛔ **AND THE PUBLISHED-CROSSING SIDE WOULD HAVE PASSED FOR THE SAME WRONG
 /// REASON.** An assertion that a published crossing leaves no conversation live
 /// is satisfied by this closer whether or not `apply_crossing` closes anything —
-/// a control that dies of success, which is the shape this file's other three
+/// a control that dies of success, which is the shape this file's other two
 /// discriminators each carry a note about.
 ///
 /// ⚠ What a real witness needs, recorded so the next attempt does not rediscover

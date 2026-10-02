@@ -973,7 +973,11 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// population occurrences living in a live room other than their own, an input
 /// of the custody projection (Q38, OW3 fourth slice). Declared derived, so no
 /// snapshot bytes change; the schema dump, and so the fingerprint, does.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 294;
+/// ⛔⛤ 294 -> 295: `message.respawn_room_visuals` is gone with its type
+/// `RespawnRoomVisualsRequested`: presentation dresses each live room by
+/// itself, so a crossing asks it for nothing (view half V4c). The message was
+/// cleared, not snapshotted, so no snapshot bytes change.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 295;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

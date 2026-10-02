@@ -248,14 +248,5 @@ pub fn register_engine_rollback_state(registrar: &mut impl RollbackRegistrar) {
     // giving it `ambition_platformer2d_core` to federate two rows would buy a
     // dependency edge with a declaration. So these stay here, owned by the
     // composition, and that is the answer rather than an omission.
-    .clear_message_on_rollback::<ambition_sfx::OwnedSfxMessage>(ENGINE, "message.owned_sfx")
-    // A same-tick handshake: the reset processor announces it, and the teardown
-    // systems chained after it read it. A cursor GGRS did not rewind would let
-    // that teardown fire for a reset the resimulation never committed to — the
-    // held items and portals of a session that was, on this timeline, never
-    // reset.
-    .clear_message_on_rollback::<ambition_platformer2d_world::rooms::RespawnRoomVisualsRequested>(
-        ENGINE,
-        "message.respawn_room_visuals",
-    );
+    .clear_message_on_rollback::<ambition_sfx::OwnedSfxMessage>(ENGINE, "message.owned_sfx");
 }

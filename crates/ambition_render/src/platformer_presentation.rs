@@ -10,31 +10,19 @@
 use bevy::prelude::*;
 
 use ambition_platformer2d_shared_tangle::camera_layers::MainCamera;
-use ambition_platformer2d_shared_tangle::lifecycle::{
-    ActiveSessionScope, SessionScopeId, SessionScopeSet, SessionSpawnScope,
-};
+use ambition_platformer2d_shared_tangle::lifecycle::SessionScopeSet;
 use ambition_platformer2d_shared_tangle::physics::PhysicsSandboxSettings;
-use ambition_sprite_sheet::game_assets::GameAssets;
 
-use crate::rendering::{
-    spawn_parallax_layers, PlayerVisualSchedulePlugin,
-    PresentationVisualAnimationPlugin,
-};
+use crate::rendering::{PlayerVisualSchedulePlugin, PresentationVisualAnimationPlugin};
 
 /// System set for this plugin's one-shot host-resident `Startup` work, so a game
 /// can order its own presentation setup against it.
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct PlatformerPresentationSetupSet;
 
-/// The parallax memo: the session whose backdrop is spawned. A backdrop can
-/// become available later than its room, and the room's static visuals do not
-/// wait for it (`present_live_room_visuals`). See `sync_session_room_visuals`.
-#[derive(Resource, Default)]
-struct PresentedParallaxScope(Option<SessionScopeId>);
-
 /// Per-session room presentation, independent of the provider. Each live room
-/// gets its static visuals, stamped with that room, and a new session scope
-/// gets the live room's parallax layers once, owned by that scope.
+/// gets its static visuals and its parallax, stamped with that room
+/// (`present_live_room_visuals`, `present_live_room_parallax`).
 ///
 /// `PlatformerPresentationPlugin` includes it. A host with its own camera and
 /// presentation stack (the Ambition shell host) adds only this plugin.
@@ -47,14 +35,12 @@ impl Plugin for SessionRoomVisualsPlugin {
         app.add_plugins(crate::rendering::WorldLabelLayoutPlugin);
         // Room/parallax passes consume the resolved quality budget; install its idempotent owner.
         app.add_plugins(crate::quality::VisualQualityPlugin);
-        app.init_resource::<PresentedParallaxScope>();
         app.init_resource::<PhysicsSandboxSettings>();
         // The loader's outcome, read by presentation: see `ParallaxThemeAttempts`.
         app.init_resource::<crate::rendering::ParallaxThemeAttempts>();
         app.add_systems(
             Update,
-            (crate::rendering::present_live_room_visuals, sync_session_room_visuals)
-                .in_set(SessionScopeSet::Presentation),
+            crate::rendering::present_live_room_visuals.in_set(SessionScopeSet::Presentation),
         );
         // The composition that spawns blocks also applies authored per-block art overrides.
         app.add_systems(Update, crate::rendering::apply_block_art);
@@ -102,6 +88,14 @@ impl Plugin for SessionRoomVisualsPlugin {
                 .chain()
                 .run_if(ambition_platformer2d_shared_tangle::lifecycle::session_world_exists),
         );
+        // Each live room's parallax, after the refresh has taken stale layers
+        // (the edge is also the flush that makes the despawn visible).
+        app.add_systems(
+            Update,
+            crate::rendering::present_live_room_parallax
+                .in_set(SessionScopeSet::Presentation)
+                .after(crate::rendering::refresh_parallax_layers_on_quality_change),
+        );
         // Each live view owns its own parallax layers because placement depends on that view's
         // camera and viewport. Chain mirror -> sync so spawned/re-keyed copies flush before sync,
         // and run after refresh so quality-driven respawns have settled. No session-world guard is
@@ -114,7 +108,7 @@ impl Plugin for SessionRoomVisualsPlugin {
             )
                 .chain()
                 .after(crate::rendering::camera_follow)
-                .after(crate::rendering::refresh_parallax_layers_on_quality_change),
+                .after(crate::rendering::present_live_room_parallax),
         );
     }
 }
@@ -128,9 +122,7 @@ impl Plugin for PlatformerPresentationPlugin {
         app.add_plugins(crate::quality::VisualQualityPlugin);
         app.add_systems(
             Startup,
-            (spawn_main_camera, spawn_initial_room_visuals)
-                .chain()
-                .in_set(PlatformerPresentationSetupSet),
+            spawn_main_camera.in_set(PlatformerPresentationSetupSet),
         );
         app.add_plugins(SessionRoomVisualsPlugin);
         // A camera for each view the live-room split opens (V5).
@@ -237,123 +229,10 @@ fn spawn_main_camera(
     ));
 }
 
-/// Spawn the active room's parallax once for legacy hosts that do not install
-/// the gameplay-session lifecycle. Shell hosts wait for a real session
-/// activation. The room's static visuals are `present_live_room_visuals`'s,
-/// for every host.
-fn spawn_initial_room_visuals(
-    mut commands: Commands,
-    room_set: Option<ambition_platformer2d_world::rooms::SoleLiveRoomSpec>,
-    assets: Option<Res<GameAssets>>,
-    quality: Option<Res<crate::quality::ResolvedVisualQuality>>,
-    active_session: Option<Res<ActiveSessionScope>>,
-) {
-    if active_session.is_some() {
-        return;
-    }
-    // No world installed (a minimal test app) → nothing to draw, and that is not
-    // an error: the same shape every optional-resource system in the engine uses.
-    let Some(room_set) = room_set else {
-        return;
-    };
-    let spec = room_set.spec();
-    spawn_parallax_layers(
-        &mut commands,
-        SessionSpawnScope::UNSCOPED,
-        &spec.world,
-        &spec.metadata,
-        assets.as_deref(),
-        quality.as_deref().map(|q| &q.budget.parallax),
-    );
-}
-
-/// Materialize the active session's parallax exactly once. The scope is
-/// captured before any spawn request, so route retirement owns every parallax
-/// entity created here. The room's static visuals are
-/// `present_live_room_visuals`'s.
-fn sync_session_room_visuals(
-    mut commands: Commands,
-    active_session: Option<Res<ActiveSessionScope>>,
-    mut parallax_presented: ResMut<PresentedParallaxScope>,
-    room_set: Option<ambition_platformer2d_world::rooms::SoleLiveRoomSpec>,
-    assets: Option<Res<GameAssets>>,
-    quality: Option<Res<crate::quality::ResolvedVisualQuality>>,
-    // What the theme loader has already tried and found empty — the difference
-    // between "not yet" and "never", which this system cannot derive alone.
-    attempts: Option<Res<crate::rendering::ParallaxThemeAttempts>>,
-) {
-    let Some(active_session) = active_session else {
-        return;
-    };
-    let current = active_session.current();
-    let Some(scope) = current else {
-        parallax_presented.0 = None;
-        return;
-    };
-    if parallax_presented.0 == Some(scope) {
-        return;
-    }
-    let Some(room_set) = room_set else {
-        // Keep the scope unpresented so a provider that publishes its world on a
-        // later frame is retried rather than permanently skipped.
-        return;
-    };
-    let spec = room_set.spec();
-
-    // The room and its backdrop become available at different times.
-    // `spawn_parallax_layers` returns early when `GameAssets` has no layers for
-    // the theme. `GameAssets` loads one theme at startup;
-    // `ensure_active_room_parallax_theme` lazy-loads the others. The room's
-    // static visuals are another system's, so they do not wait on the backdrop.
-    let spawn_scope = SessionSpawnScope::scoped(scope);
-
-    let wants_parallax = quality
-        .as_deref()
-        .map(|q| q.budget.parallax.enabled)
-        .unwrap_or(true);
-    if wants_parallax {
-        let theme =
-            ambition_sprite_sheet::game_assets::ParallaxTheme::from_room_metadata(&spec.metadata);
-        let theme_loaded = assets.as_deref().is_some_and(|a| {
-            ambition_sprite_sheet::game_assets::ParallaxLayerAsset::ALL
-                .iter()
-                .any(|layer| a.parallax_layers.get(theme, *layer).is_some())
-        });
-        if !theme_loaded {
-            // The loader closes a theme after it tries it, so "not loaded" is
-            // either "not yet" (retry next frame) or "resolved to nothing" (do not
-            // retry).
-            let nothing_is_coming = attempts
-                .as_deref()
-                .is_some_and(|attempts| attempts.attempted_without_art(theme));
-            if !nothing_is_coming {
-                // Leave only the parallax memo unset so the next frame retries.
-                // The room is already on screen.
-                return;
-            }
-            // Settled with no layers to spawn: this room's theme legitimately has
-            // no art on this asset profile.
-            parallax_presented.0 = Some(scope);
-            return;
-        }
-    }
-
-    // Settled either way: a tier that disables parallax, or a room whose theme
-    // legitimately has no art, is finished rather than retried every frame.
-    parallax_presented.0 = Some(scope);
-    spawn_parallax_layers(
-        &mut commands,
-        spawn_scope,
-        &spec.world,
-        &spec.metadata,
-        assets.as_deref(),
-        quality.as_deref().map(|q| &q.budget.parallax),
-    );
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ambition_platformer2d_shared_tangle::lifecycle::{ActiveSessionScope, SessionScopeId};
     use ambition_platformer2d_shared_tangle::lifecycle::SessionRoot;
     use ambition_platformer2d_world::rooms::RoomSet;
 
@@ -387,14 +266,21 @@ mod tests {
         query.iter(app.world()).count()
     }
 
+    /// How many live rooms have settled parallax (`PresentedRoomParallax`).
+    fn parallax_settled(app: &mut App) -> usize {
+        let mut query = app
+            .world_mut()
+            .query_filtered::<(), With<crate::rendering::PresentedRoomParallax>>();
+        query.iter(app.world()).count()
+    }
+
     fn app_with_an_active_session() -> (App, SessionScopeId) {
         let mut app = App::new();
         app.add_plugins(MinimalPlugins);
-        app.init_resource::<PresentedParallaxScope>();
         app.init_resource::<PhysicsSandboxSettings>();
         app.add_systems(
             Update,
-            (crate::rendering::present_live_room_visuals, sync_session_room_visuals),
+            (crate::rendering::present_live_room_visuals, crate::rendering::present_live_room_parallax),
         );
 
         let mut active = ActiveSessionScope::default();
@@ -424,8 +310,8 @@ mod tests {
         app.update();
 
         assert_eq!(
-            app.world().resource::<PresentedParallaxScope>().0,
-            None,
+            parallax_settled(&mut app),
+            0,
             "and parallax must stay unsettled so a later theme is still retried",
         );
         assert!(
@@ -536,7 +422,6 @@ mod tests {
 
         let mut app = App::new();
         app.add_plugins(MinimalPlugins);
-        app.init_resource::<PresentedParallaxScope>();
         app.init_resource::<PhysicsSandboxSettings>();
         app.init_resource::<crate::rendering::UnclaimedFeatureViews>();
         app.insert_resource(ambition_sim_view::FeatureViewIndex::from_rows([
@@ -547,7 +432,7 @@ mod tests {
             Update,
             (
                 crate::rendering::present_live_room_visuals,
-                sync_session_room_visuals,
+                crate::rendering::present_live_room_parallax,
                 crate::rendering::draw_unclaimed_feature_views,
             )
                 .chain(),
@@ -596,8 +481,8 @@ mod tests {
 
         assert!(room_visuals(&mut app) > 0, "the room is drawn");
         assert_eq!(
-            app.world().resource::<PresentedParallaxScope>().0,
-            None,
+            parallax_settled(&mut app),
+            0,
             "a missing theme must never settle the parallax memo",
         );
     }
@@ -615,7 +500,7 @@ mod tests {
     /// fail the other.
     #[test]
     fn a_theme_the_loader_resolved_to_nothing_settles_instead_of_retrying() {
-        let (mut app, scope) = app_with_an_active_session();
+        let (mut app, _) = app_with_an_active_session();
         let theme = ambition_sprite_sheet::game_assets::ParallaxTheme::from_room_metadata(
             &room_set_wanting_a_theme().activation_spec().metadata,
         );
@@ -628,8 +513,8 @@ mod tests {
 
         assert!(room_visuals(&mut app) > 0, "the room still presents");
         assert_eq!(
-            app.world().resource::<PresentedParallaxScope>().0,
-            Some(scope),
+            parallax_settled(&mut app),
+            1,
             "nothing is coming, so parallax is settled rather than re-asked every \
              frame for the life of the session",
         );
@@ -660,11 +545,10 @@ mod tests {
         let build = |rooms: usize| {
             let mut app = App::new();
             app.add_plugins(MinimalPlugins);
-            app.init_resource::<PresentedParallaxScope>();
-            app.init_resource::<PhysicsSandboxSettings>();
+                app.init_resource::<PhysicsSandboxSettings>();
             app.add_systems(
                 Update,
-                (crate::rendering::present_live_room_visuals, sync_session_room_visuals),
+                (crate::rendering::present_live_room_visuals, crate::rendering::present_live_room_parallax),
             );
             let mut active = ActiveSessionScope::default();
             let scope = active.begin();
@@ -733,7 +617,7 @@ mod tests {
     /// first test would pass for the wrong reason.
     #[test]
     fn a_tier_that_wants_no_parallax_settles_both_memos_at_once() {
-        let (mut app, scope) = app_with_an_active_session();
+        let (mut app, _) = app_with_an_active_session();
         let mut quality = crate::quality::ResolvedVisualQuality::default();
         quality.budget.parallax.enabled = false;
         app.insert_resource(quality);
@@ -741,8 +625,8 @@ mod tests {
 
         assert!(room_visuals(&mut app) > 0, "the room is drawn");
         assert_eq!(
-            app.world().resource::<PresentedParallaxScope>().0,
-            Some(scope),
+            parallax_settled(&mut app),
+            1,
             "nothing is coming, so parallax is finished rather than retried every frame",
         );
     }

@@ -27,7 +27,6 @@ use ambition_vfx::VfxWriter;
 pub struct RoomTransitionEffects<'w> {
     pub sfx: SfxWriter<'w>,
     pub vfx: VfxWriter<'w>,
-    pub respawn_room_visuals: MessageWriter<'w, world_rooms::RespawnRoomVisualsRequested>,
 }
 
 /// Sim state plus the clock-reset channel, so a system already at the parameter
@@ -726,19 +725,12 @@ impl RoomTransitionFinalize<'_, '_> {
             );
         }
 
-        // ── PRESENTATION: ASK, DON'T DRAW ────────────────────────────────────
-        // A room's parallax is rebuilt by
-        // `ambition_render::rendering::respawn_room_visuals_on_request`, which
-        // reads the active room out of `RoomSet` for itself. Its static visuals
-        // need no request: `present_live_room_visuals` gives every live room
-        // its visuals, and this crossing's room is a live room. Calling
-        // `spawn_room_visuals` here instead was what made a room transition name
-        // `ambition_platformer2d::render`, and therefore what kept the whole
-        // commit chain app-local and unreachable by a demo host. A headless build
-        // has no consumer and correctly skips the respawn.
-        self.effects
-            .respawn_room_visuals
-            .write(world_rooms::RespawnRoomVisualsRequested);
+        // ── PRESENTATION: NOTHING TO ASK ─────────────────────────────────────
+        // This crossing's room is a live room, so presentation gives it its
+        // static visuals, parallax and LDtk levels by itself
+        // (`present_live_room_visuals`, `present_live_room_parallax`,
+        // `present_ldtk_levels_per_live_room`). The commit names no render
+        // system and asks for nothing.
         // ⭐ EVERY EFFECT BELOW IS ABOUT A BODY ARRIVING SOMEWHERE, so a rebuild
         // with nobody in it emits none of them. Skipping is not a degradation:
         // there is no position to place a puff at and no landing to log, and the

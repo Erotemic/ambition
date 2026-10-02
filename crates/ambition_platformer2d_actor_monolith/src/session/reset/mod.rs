@@ -320,7 +320,6 @@ pub struct NewGameResetPlugin;
 
 impl Plugin for NewGameResetPlugin {
     fn build(&self, app: &mut App) {
-        app.add_message::<ambition_platformer2d_world::rooms::RespawnRoomVisualsRequested>();
         app.add_message::<RoomReplayRequested>();
         app.add_plugins(crate::session::host_intents::HostIntentPlugin::<NewGameRequested>::default());
         // After the item domain's restore, so the custody restore has emptied

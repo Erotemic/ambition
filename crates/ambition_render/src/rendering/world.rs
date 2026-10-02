@@ -27,40 +27,6 @@ use ambition_sprite_sheet::character::{
 };
 use ambition_sprite_sheet::game_assets::{self, entity_sprite, entity_sprite_or_color, GameAssets};
 
-/// Presentation consumer of [`ambition_platformer2d_world::rooms::RespawnRoomVisualsRequested`].
-///
-/// A crossing's commit emits the request after it changes the room. This
-/// system reads the live room and rebuilds its parallax. The room's static
-/// visuals are not rebuilt here: [`present_live_room_visuals`] gives each live
-/// room its visuals. A headless build does not run this system.
-pub fn respawn_room_visuals_on_request(
-    mut requests: MessageReader<ambition_platformer2d_world::rooms::RespawnRoomVisualsRequested>,
-    mut commands: Commands,
-    room_set: ambition_platformer2d_world::rooms::SoleLiveRoomSpec,
-    assets: Option<Res<GameAssets>>,
-    quality: Option<Res<crate::quality::ResolvedVisualQuality>>,
-    active_session: Option<Res<ActiveSessionScope>>,
-) {
-    if requests.is_empty() {
-        return;
-    }
-    requests.clear();
-    let spec = room_set.spec();
-    let Some(session_scope) =
-        SessionSpawnScope::for_optional_active_session(active_session.as_deref())
-    else {
-        return;
-    };
-    super::spawn_parallax_layers(
-        &mut commands,
-        session_scope,
-        &spec.world,
-        &spec.metadata,
-        assets.as_deref(),
-        quality.as_deref().map(|q| &q.budget.parallax),
-    );
-}
-
 /// Marks that one live room's static visuals are spawned. It is stamped with
 /// its room and is a [`RoomVisual`], so it retires with the room's other
 /// visuals.

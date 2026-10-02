@@ -1,8 +1,10 @@
 //! Room-scoped generated parallax with one panel set per local view.
 //!
-//! A panel's transform and travel depend on its observer's viewport, so additional
-//! views receive mirrored sets keyed by [`ambition_sim_view::PresentedForView`].
-//! Each set is re-derived from its owning view's camera viewport every frame.
+//! Each live room has its own panel set, stamped with the room (view half V4c),
+//! in its own room's theme. A panel's transform and travel depend on its
+//! observer's viewport, so each view that frames the room draws its own copy,
+//! keyed by [`ambition_sim_view::PresentedForView`]. Each set is re-derived
+//! from its owning view's camera viewport every frame.
 
 use ambition_platformer2d_core as ae;
 use bevy::camera::visibility::RenderLayers;
@@ -63,6 +65,13 @@ pub struct BoundParallaxLayer {
 pub struct MirroredParallaxLayer {
     pub root: Entity,
 }
+
+/// Marks that one live room's parallax is settled: its layers are spawned, or
+/// the tier wants none, or its theme resolved to no art. It is stamped with
+/// its room and is a [`RoomVisual`], so it retires with the room; a refresh
+/// takes it, so the room is presented again.
+#[derive(Component, Clone, Copy, Debug, Default)]
+pub struct PresentedRoomParallax;
 
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct PortalCaptureParallaxLayerVisual {
@@ -175,34 +184,29 @@ pub fn spawn_parallax_layers(
     }
 }
 
-/// The two session-world reads are optional. Some compositions have no room
-/// geometry on the root, and a `Single` that matches nothing panics at param
-/// validation. A world with no room geometry has no parallax to refresh.
+/// Take every panel and every room's parallax marker when the art or the
+/// quality changes, so [`present_live_room_parallax`] presents each live room
+/// again with the new art and budget.
 ///
-/// The despawn sweep takes roots and copies alike (every [`ParallaxLayerVisual`]
-/// that is not a portal capture copy): the backdrop is rebuilt, and a copy of a
-/// despawned root has no owner. [`mirror_parallax_layers_per_view`] rebuilds the
-/// per-view set from the new roots.
+/// The sweep takes a live room's roots and copies alike (every stamped
+/// [`ParallaxLayerVisual`] that is not a portal capture copy): a copy of a
+/// despawned root has no owner. A panel no room owns (one a host placed
+/// itself) is not the reconciler's, so it is not taken.
 pub fn refresh_parallax_layers_on_quality_change(
     mut commands: Commands,
-    active_session: Option<Res<ActiveSessionScope>>,
-    world: Option<
-        ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<
-            ambition_platformer2d_core::RoomGeometry,
-        >,
-    >,
-    room_set: Option<ambition_platformer2d_world::rooms::SoleLiveRoomSpec>,
     assets: Option<Res<GameAssets>>,
     quality: Option<Res<crate::quality::ResolvedVisualQuality>>,
     layers: Query<
         Entity,
         (
             With<ParallaxLayerVisual>,
+            With<ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
             Without<PortalCaptureParallaxLayerVisual>,
         ),
     >,
+    presented: Query<Entity, With<PresentedRoomParallax>>,
 ) {
-    let (Some(assets), Some(world), Some(room_set)) = (assets, world, room_set) else {
+    let Some(assets) = assets else {
         return;
     };
     let assets_changed = assets.is_changed();
@@ -210,22 +214,80 @@ pub fn refresh_parallax_layers_on_quality_change(
     if !assets_changed && !quality_changed {
         return;
     }
-    for entity in &layers {
-        commands.entity(entity).despawn();
+    for entity in layers.iter().chain(presented.iter()) {
+        commands.entity(entity).try_despawn();
     }
+}
+
+/// Give each live room its parallax, stamped with that room (view half V4c).
+///
+/// One panel set showed the sole live room, so while two rooms were live it
+/// showed one room's backdrop in both rooms' views, or none. Now each live
+/// room has its own set in its own theme, and the mirror draws it only in the
+/// views that frame that room.
+///
+/// The room and its backdrop become available at different times: the theme
+/// may load later than the room ([`ensure_active_room_parallax_theme`]), and
+/// the room's static visuals do not wait for it. So a room whose theme is not
+/// here yet is asked again on the next frame. A room is settled, and gets a
+/// [`PresentedRoomParallax`] marker, when its layers are spawned, when the
+/// tier wants no parallax, or when its theme was tried and has no art.
+#[allow(clippy::too_many_arguments)]
+pub fn present_live_room_parallax(
+    mut commands: Commands,
+    rooms: ambition_platformer2d_world::rooms::LiveRoomSpecs,
+    presented: Query<
+        &ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance,
+        With<PresentedRoomParallax>,
+    >,
+    assets: Option<Res<GameAssets>>,
+    quality: Option<Res<crate::quality::ResolvedVisualQuality>>,
+    // What the theme loader tried and found empty: "not yet" is not "never".
+    attempts: Option<Res<ParallaxThemeAttempts>>,
+    active_session: Option<Res<ActiveSessionScope>>,
+) {
     let Some(session_scope) =
         SessionSpawnScope::for_optional_active_session(active_session.as_deref())
     else {
         return;
     };
-    spawn_parallax_layers(
-        &mut commands,
-        session_scope,
-        &world.0,
-        &room_set.spec().metadata,
-        Some(assets.as_ref()),
-        quality.as_deref().map(|q| &q.budget.parallax),
-    );
+    let wants_parallax = quality
+        .as_deref()
+        .map(|q| q.budget.parallax.enabled)
+        .unwrap_or(true);
+    for (room, definition) in rooms.live_rooms() {
+        if presented.iter().any(|stamp| stamp.0 == room) {
+            continue;
+        }
+        let spec = rooms.rooms().spec(definition);
+        if wants_parallax {
+            let theme = ParallaxTheme::from_room_metadata(&spec.metadata);
+            let loaded = assets.as_deref().is_some_and(|assets| {
+                ParallaxLayerAsset::ALL
+                    .iter()
+                    .any(|layer| assets.parallax_layers.get(theme, *layer).is_some())
+            });
+            let nothing_is_coming = attempts
+                .as_deref()
+                .is_some_and(|attempts| attempts.attempted_without_art(theme));
+            if !loaded && !nothing_is_coming {
+                continue;
+            }
+        }
+        let scope = session_scope.in_room(Some(room));
+        spawn_parallax_layers(
+            &mut commands,
+            scope,
+            &spec.world,
+            &spec.metadata,
+            assets.as_deref(),
+            quality.as_deref().map(|q| &q.budget.parallax),
+        );
+        commands.spawn_session_scoped(
+            scope,
+            (PresentedRoomParallax, RoomVisual, Name::new("presented room parallax")),
+        );
+    }
 }
 
 /// The themes whose load produced no art.
@@ -257,21 +319,22 @@ impl ParallaxThemeAttempts {
     }
 }
 
-/// Load the active room's parallax theme when it is not resident.
+/// Load each live room's parallax theme when it is not resident.
 ///
-/// Loading mutates [`GameAssets`], which causes skipped layers to be rebuilt by
-/// [`refresh_parallax_layers_on_quality_change`]. A theme that produced no art
-/// is not retried, so it does not invalidate the layers every frame.
+/// Loading mutates [`GameAssets`], which makes
+/// [`refresh_parallax_layers_on_quality_change`] take the layers and
+/// [`present_live_room_parallax`] present them again. A theme that produced no
+/// art is not retried, so it does not invalidate the layers every frame.
 pub fn ensure_active_room_parallax_theme(
     assets: Option<ResMut<GameAssets>>,
     catalog: Option<Res<ambition_asset_manager::platformer_assets::Platformer2dAssetCatalog>>,
     asset_server: Option<Res<AssetServer>>,
     quality: Option<Res<crate::quality::ResolvedVisualQuality>>,
-    room_set: Option<ambition_platformer2d_world::rooms::SoleLiveRoomSpec>,
+    rooms: Option<ambition_platformer2d_world::rooms::LiveRoomSpecs>,
     attempts: Option<ResMut<ParallaxThemeAttempts>>,
 ) {
-    let (Some(mut assets), Some(catalog), Some(asset_server), Some(room_set), Some(mut attempts)) =
-        (assets, catalog, asset_server, room_set, attempts)
+    let (Some(mut assets), Some(catalog), Some(asset_server), Some(rooms), Some(mut attempts)) =
+        (assets, catalog, asset_server, rooms, attempts)
     else {
         return;
     };
@@ -279,48 +342,61 @@ pub fn ensure_active_room_parallax_theme(
     if assets.is_added() {
         attempts.without_art.clear();
     }
-    let metadata = room_set.spec().metadata.clone();
-    let theme = ParallaxTheme::from_room_metadata(&metadata);
-    if attempts.without_art.contains(&theme) {
-        return;
-    }
-    // Resident. Return without touching `GameAssets`: a mutable deref marks it
-    // changed, and the refresh system would respawn every layer.
-    if ParallaxLayerAsset::ALL
-        .iter()
-        .any(|layer| assets.parallax_layers.get(theme, *layer).is_some())
-    {
-        return;
-    }
-    ambition_sprite_sheet::game_assets::ensure_parallax_layers_for_room(
-        &mut assets,
-        &catalog,
-        &asset_server,
-        &metadata,
-        quality.as_deref().map(|q| &q.budget),
-    );
-    // Record the outcome, not the attempt. Only "nothing came" lets presentation
-    // stop waiting. A profile that refuses every candidate leaves zero handles,
-    // and no later frame adds one.
-    if !ParallaxLayerAsset::ALL
-        .iter()
-        .any(|layer| assets.parallax_layers.get(theme, *layer).is_some())
-    {
-        attempts.without_art.push(theme);
+    for (_, definition) in rooms.live_rooms() {
+        let metadata = rooms.rooms().spec(definition).metadata.clone();
+        let theme = ParallaxTheme::from_room_metadata(&metadata);
+        if attempts.without_art.contains(&theme) {
+            continue;
+        }
+        // Resident. Do not touch `GameAssets` mutably: a mutable deref marks it
+        // changed, and the refresh system would respawn every layer.
+        if ParallaxLayerAsset::ALL
+            .iter()
+            .any(|layer| assets.parallax_layers.get(theme, *layer).is_some())
+        {
+            continue;
+        }
+        ambition_sprite_sheet::game_assets::ensure_parallax_layers_for_room(
+            &mut assets,
+            &catalog,
+            &asset_server,
+            &metadata,
+            quality.as_deref().map(|q| &q.budget),
+        );
+        // Record the outcome, not the attempt. Only "nothing came" lets
+        // presentation stop waiting. A profile that refuses every candidate
+        // leaves zero handles, and no later frame adds one.
+        if !ParallaxLayerAsset::ALL
+            .iter()
+            .any(|layer| assets.parallax_layers.get(theme, *layer).is_some())
+        {
+            attempts.without_art.push(theme);
+        }
     }
 }
 
-/// Maintain one parallax panel set per live local view.
+/// Maintain one parallax panel set per local view, for the room it frames.
 ///
-/// The lowest `LocalViewId` deterministically claims each room-spawned root;
-/// additional views receive copies. Removed views despawn their copies, while a
-/// root is re-keyed to the lowest survivor. Never clear `PresentedForView` on a
-/// still-rendered sprite, because it would become an unscoped draw.
+/// A room's panels are drawn by the views that frame that room
+/// (`ResolvedCameraSnapshot::frame`), in `LocalViewId` order: the lowest claims
+/// each root and the others receive copies. A room no view frames keeps its
+/// roots claimed by the lowest view, and [`sync_parallax_layers`] hides them.
+/// An unstamped root (a host that spawns its own) is drawn by every view.
+/// A copy whose view no longer frames its root's room, or whose root is gone,
+/// is despawned. Never clear `PresentedForView` on a still-rendered sprite,
+/// because it would become an unscoped draw.
 #[allow(clippy::type_complexity)]
 pub fn mirror_parallax_layers_per_view(
     mut commands: Commands,
     active_session: Option<Res<ActiveSessionScope>>,
-    views: Query<(Entity, &ambition_sim_view::LocalViewId), With<ambition_sim_view::LocalView>>,
+    views: Query<
+        (
+            Entity,
+            &ambition_sim_view::LocalViewId,
+            Option<&ambition_sim_view::camera_snapshot::ResolvedCameraSnapshot>,
+        ),
+        With<ambition_sim_view::LocalView>,
+    >,
     roots: Query<
         (
             Entity,
@@ -328,6 +404,7 @@ pub fn mirror_parallax_layers_per_view(
             &ParallaxLayerVisual,
             Option<&BoundParallaxLayer>,
             Option<&ambition_sim_view::PresentedForView>,
+            Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
         ),
         (
             Without<MirroredParallaxLayer>,
@@ -349,24 +426,48 @@ pub fn mirror_parallax_layers_per_view(
         return;
     };
 
-    let mut ordered: Vec<(ambition_sim_view::LocalViewId, Entity)> =
-        views.iter().map(|(view, id)| (*id, view)).collect();
-    ordered.sort_by_key(|(id, _)| *id);
-    let Some((_, root_view)) = ordered.first().copied() else {
+    let mut ordered: Vec<(
+        ambition_sim_view::LocalViewId,
+        Entity,
+        Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+    )> = views
+        .iter()
+        .map(|(view, id, resolved)| {
+            (*id, view, resolved.and_then(|resolved| resolved.frame()).map(|frame| frame.room))
+        })
+        .collect();
+    ordered.sort_by_key(|(id, ..)| *id);
+    let Some((_, lowest, _)) = ordered.first().copied() else {
         // No observation seam, so nothing presents (see
         // `ambition_sim_view::ViewsOnHand`).
         return;
     };
+    // The views that draw a root of room `stamp`, the claimer first.
+    let drawers = |stamp: Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>| -> Vec<Entity> {
+        let Some(stamp) = stamp else {
+            return ordered.iter().map(|(_, view, _)| *view).collect();
+        };
+        let framing: Vec<Entity> = ordered
+            .iter()
+            .filter(|(_, _, frame)| *frame == Some(stamp.0))
+            .map(|(_, view, _)| *view)
+            .collect();
+        if framing.is_empty() {
+            vec![lowest]
+        } else {
+            framing
+        }
+    };
 
     // Retract before spawning, so a removed view takes its whole set with it.
-    let live: std::collections::HashSet<Entity> = ordered.iter().map(|(_, view)| *view).collect();
     let mut mirrored: std::collections::HashSet<(Entity, Entity)> =
         std::collections::HashSet::new();
     for (entity, copy, key) in &copies {
-        let root_is_gone = roots.get(copy.root).is_err();
-        // `key.0 == root_view` is the re-key case: the root now draws this view, so
-        // the copy is a duplicate.
-        if root_is_gone || !live.contains(&key.0) || key.0 == root_view {
+        let keep = roots
+            .get(copy.root)
+            .ok()
+            .is_some_and(|(.., stamp)| drawers(stamp).iter().skip(1).any(|view| *view == key.0));
+        if !keep {
             // A teardown can retire this copy in the same frame. Retraction is the
             // wanted outcome, so a missing target is success.
             commands.entity(entity).try_despawn();
@@ -375,16 +476,18 @@ pub fn mirror_parallax_layers_per_view(
         mirrored.insert((copy.root, key.0));
     }
 
-    for (root, sprite, layer, bound, key) in &roots {
-        if key.map(|key| key.0) != Some(root_view) {
+    for (root, sprite, layer, bound, key, stamp) in &roots {
+        let drawers = drawers(stamp);
+        let claimer = drawers[0];
+        if key.map(|key| key.0) != Some(claimer) {
             // Room replacement (including LDtk hot-reload) can queue this root's
             // destruction before Commands flush. The tag is presentation-only, so skip
             // the stale write instead of panicking.
             commands
                 .entity(root)
-                .try_insert(ambition_sim_view::PresentedForView(root_view));
+                .try_insert(ambition_sim_view::PresentedForView(claimer));
         }
-        for (_, view) in ordered.iter().skip(1) {
+        for view in drawers.iter().skip(1) {
             if mirrored.contains(&(root, *view)) {
                 continue;
             }
@@ -413,6 +516,10 @@ pub fn mirror_parallax_layers_per_view(
             );
             if let Some(bound) = bound {
                 copy.insert(*bound);
+            }
+            // The copy is its root's room's, and retires with it.
+            if let Some(stamp) = stamp {
+                copy.insert(*stamp);
             }
         }
     }
@@ -445,6 +552,7 @@ pub fn sync_parallax_layers(
         (
             Entity,
             Option<&ambition_sim_view::camera_snapshot::CameraViewport>,
+            Option<&ambition_sim_view::camera_snapshot::ResolvedCameraSnapshot>,
         ),
         With<ambition_sim_view::LocalView>,
     >,
@@ -465,23 +573,26 @@ pub fn sync_parallax_layers(
             &mut Visibility,
             &mut ParallaxLayerVisual,
             Option<&ambition_sim_view::PresentedForView>,
+            Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
         ),
         (Without<Camera>, Without<PortalCaptureParallaxLayerVisual>),
     >,
 ) {
-    let on_hand = ambition_sim_view::ViewsOnHand::survey(views.iter().map(|(view, _)| view));
+    let on_hand = ambition_sim_view::ViewsOnHand::survey(views.iter().map(|(view, ..)| view));
 
     // Where each view's camera stands, and how big that view's rectangle is.
     //
     // Two cameras on one view get the same framing from `camera_follow`, so
     // `or_insert` is order-independent. Two views give two rows.
-    let mut drawn_by: std::collections::HashMap<Entity, (Vec2, Vec2)> =
-        std::collections::HashMap::new();
+    let mut drawn_by: std::collections::HashMap<
+        Entity,
+        (Vec2, Vec2, Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>),
+    > = std::collections::HashMap::new();
     for (camera_transform, link) in &cameras {
         let Some(view) = on_hand.presented_by(link.copied()) else {
             continue;
         };
-        let Ok((_, viewport)) = views.get(view) else {
+        let Ok((_, viewport, resolved)) = views.get(view) else {
             bevy::log::error_once!("a camera presents view {view:?}, which is not a local view");
             continue;
         };
@@ -495,14 +606,24 @@ pub fn sync_parallax_layers(
         };
         drawn_by
             .entry(view)
-            .or_insert((camera_transform.translation.truncate(), viewport.px));
+            .or_insert((
+                camera_transform.translation.truncate(),
+                viewport.px,
+                resolved.and_then(|resolved| resolved.frame()).map(|frame| frame.room),
+            ));
     }
 
-    for (mut transform, mut sprite, mut visibility, mut layer, key) in &mut layers {
+    for (mut transform, mut sprite, mut visibility, mut layer, key, stamp) in &mut layers {
         let resolved = on_hand
             .drawn_for(key.copied())
-            .and_then(|view| drawn_by.get(&view).copied());
-        let Some((camera_xy, viewport_px)) = resolved else {
+            .and_then(|view| drawn_by.get(&view).copied())
+            // A room's panel is drawn only by a view that frames that room: a view
+            // of another live room declines it (V4c).
+            .filter(|(_, _, frame)| match (stamp, frame) {
+                (Some(stamp), Some(frame)) => stamp.0 == *frame,
+                _ => true,
+            });
+        let Some((camera_xy, viewport_px, _)) = resolved else {
             // No view claims this panel, or its view has no camera. Decline (see the
             // system doc).
             if *visibility != Visibility::Hidden {
@@ -1210,6 +1331,90 @@ mod two_views_one_backdrop_tests {
             "a retired view's copy is DESPAWNED, not left keyed to a view that is \
              gone — an orphan copy still draws while falling out of every query \
              that selects by view"
+        );
+    }
+
+    fn framing(world: &mut World, view: Entity, room: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance) {
+        world.entity_mut(view).insert(ambition_sim_view::camera_snapshot::ResolvedCameraSnapshot(Some(
+            ambition_sim_view::camera_snapshot::ResolvedCameraFrame {
+                snapshot: Default::default(),
+                follow_world: Default::default(),
+                room,
+            },
+        )));
+    }
+
+    /// The views each panel is drawn for, and whether it shows: `(room, view, shown)`.
+    fn drawn(world: &mut World) -> Vec<(u32, Entity, bool)> {
+        let mut panels = world.query::<(
+            &ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance,
+            &PresentedForView,
+            &Visibility,
+        )>();
+        let mut rows: Vec<_> = panels
+            .iter(world)
+            .map(|(stamp, key, visibility)| (stamp.0.ordinal(), key.0, *visibility != Visibility::Hidden))
+            .collect();
+        rows.sort();
+        rows
+    }
+
+    /// Two players in two live rooms: each view draws its own room's sky and
+    /// not the other's (V4c).
+    ///
+    /// Each live room presents its own panel, stamped with its room. View A
+    /// frames the first room and view B the second, so each panel has one
+    /// drawer and nothing is copied. The control is the same two panels with
+    /// both views in the first room: the first room's panel is drawn by both
+    /// (one copy), and the second room's panel, which no view frames, is
+    /// hidden.
+    #[test]
+    fn each_view_draws_only_the_sky_of_the_room_it_frames() {
+        use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance};
+        let first = LiveRoomInstance::ACTIVATION;
+        let second = first.next();
+        let mut world = World::new();
+        let a = spawn_view(&mut world, 0, viewport(800.0, 400.0));
+        let b = spawn_view(&mut world, 1, viewport(800.0, 400.0));
+        spawn_camera(&mut world, a, CAMERA_X);
+        spawn_camera(&mut world, b, FAR_CAMERA_X);
+        for room in [first, second] {
+            let panel = spawn_panel(&mut world, None);
+            world.entity_mut(panel).insert(InRoomInstance(room));
+        }
+        let settle = |world: &mut World| {
+            for _ in 0..2 {
+                world
+                    .run_system_once(mirror_parallax_layers_per_view)
+                    .expect("the mirror reads only components the fixture spawns");
+                world
+                    .run_system_once(sync_parallax_layers)
+                    .expect("the sync reads only components the fixture spawns");
+            }
+        };
+
+        // Control: both views in the first room.
+        framing(&mut world, a, first);
+        framing(&mut world, b, first);
+        settle(&mut world);
+        let mut expected = vec![(0, a, true), (0, b, true), (1, a, false)];
+        expected.sort();
+        assert_eq!(
+            drawn(&mut world),
+            expected,
+            "control: two views of one room both draw its sky, and the sky of a \
+             room nobody frames is hidden"
+        );
+
+        // Bob goes into the second room.
+        framing(&mut world, b, second);
+        settle(&mut world);
+        let mut expected = vec![(0, a, true), (1, b, true)];
+        expected.sort();
+        assert_eq!(
+            drawn(&mut world),
+            expected,
+            "each view must draw the sky of the room it frames, and only that one"
         );
     }
 }

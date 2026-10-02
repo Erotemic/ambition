@@ -56,8 +56,10 @@ See [`reactive-characters-and-dialogue.md`](reactive-characters-and-dialogue.md)
 Ambition should support solo, local couch co-op, online co-op and mixed
 local+remote parties through one body/control architecture. Presentation may be
 shared, fixed split or adaptively split/rejoined. When the rules allow independent
-exploration, participants may occupy different rooms/regions. Local players can
-already separate: each keeps a live room, and each view draws its own room.
+exploration, participants may occupy different rooms/regions. The engine
+already supports this: separated seats each keep a live room, and each view draws
+its own room. Ambition has no production road for a second player to join yet
+(Q151).
 
 See [`multiplayer.md`](multiplayer.md).
 

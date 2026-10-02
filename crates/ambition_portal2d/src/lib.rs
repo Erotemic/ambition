@@ -8,7 +8,7 @@
 //! TODO(compat-remove): move the Ambition portal-gun workflow out of this generic mechanic
 //! crate and delete the `gun_*` compatibility modules.
 //!
-//! Every entity with [`BodyKinematics`](ambition_platformer2d_shared_tangle::body::BodyKinematics)
+//! Every entity with [`BodyKinematics`](ambition_platformer2d_core::BodyKinematics)
 //! takes the generic [`portal_transit`] path, which derives how each body takes
 //! part from what it is. The crate depends only on `bevy`,
 //! `ambition_platformer2d_core`, and `ambition_platformer2d_shared_tangle`, so it stays

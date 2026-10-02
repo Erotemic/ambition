@@ -297,7 +297,7 @@ fn stand_in_a_door(sim: &mut Platformer2dSimHarness) -> Option<String> {
         .iter()
         .find(|z| z.activation == ambition_platformer2d::world::rooms::LoadingZoneActivation::Door)
         .cloned()?;
-    let mut player = world.query_filtered::<&mut ambition_platformer2d::platformer::body::BodyKinematics, PrimaryPlayerOnly>();
+    let mut player = world.query_filtered::<&mut ambition_platformer2d::actor::BodyKinematics, PrimaryPlayerOnly>();
     let mut kin = player.single_mut(world).ok()?;
     kin.pos = door.aabb.center();
     kin.vel = ambition_platformer2d::engine_core::Vec2::ZERO;

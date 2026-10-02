@@ -91,7 +91,7 @@ fn wear_oracle_armor(sim: &mut Platformer2dSimHarness) {
 /// a setup mutation folded into rollback frame zero by the rebase that follows.
 fn stage_player_on_arena_floor(sim: &mut Platformer2dSimHarness) {
     let world = sim.world_mut();
-    let mut q = world.query_filtered::<&mut ambition_platformer2d::platformer::body::BodyKinematics, With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>();
+    let mut q = world.query_filtered::<&mut ambition_platformer2d::actor::BodyKinematics, With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>();
     let mut kin = q
         .single_mut(world)
         .expect("the sim boots exactly one primary player");
@@ -268,7 +268,7 @@ fn observe(
 fn enemy_positions(sim: &mut Platformer2dSimHarness) -> Vec<(f32, f32)> {
     let world = sim.world_mut();
     let mut q = world.query_filtered::<(
-        &ambition_platformer2d::platformer::body::BodyKinematics,
+        &ambition_platformer2d::actor::BodyKinematics,
         &BodyHealth,
     ), Without<ambition_platformer2d::platformer::markers::PrimaryPlayer>>();
     q.iter(world)

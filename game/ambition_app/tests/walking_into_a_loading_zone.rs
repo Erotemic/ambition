@@ -26,7 +26,7 @@ fn active_room(sim: &mut Platformer2dSimHarness) -> String {
 /// Where the controlled body is right now.
 fn body_pos(sim: &mut Platformer2dSimHarness) -> ambition_platformer2d::engine_core::Vec2 {
     let world = sim.world_mut();
-    let mut q = world.query_filtered::<&ambition_platformer2d::platformer::body::BodyKinematics, With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>();
+    let mut q = world.query_filtered::<&ambition_platformer2d::actor::BodyKinematics, With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>();
     q.single(world)
         .expect("the session has a controlled body")
         .pos

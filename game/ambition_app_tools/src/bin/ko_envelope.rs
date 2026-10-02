@@ -721,7 +721,7 @@ impl KoProbe {
     fn pos(&self, body: bevy::prelude::Entity) -> ambition_platformer2d::engine_core::Vec2 {
         self.app
             .world()
-            .get::<ambition_platformer2d::platformer::body::BodyKinematics>(body)
+            .get::<ambition_platformer2d::actor::BodyKinematics>(body)
             .map(|k| k.pos)
             .unwrap_or_default()
     }
@@ -810,7 +810,7 @@ impl KoProbe {
             .map(|g| g.on_ground)
             .unwrap_or(false);
         let (pos, vel) = w
-            .get::<ambition_platformer2d::platformer::body::BodyKinematics>(v)
+            .get::<ambition_platformer2d::actor::BodyKinematics>(v)
             .map(|k| (k.pos, k.vel))
             .unwrap_or_default();
         let (hitlag, hitstun, hitstop) = w
@@ -1479,7 +1479,7 @@ impl KoProbe {
                     .get::<ambition_platformer2d::engine_core::BodyGroundState>(self.victim)
                     .is_some_and(|g| g.on_ground);
                 let slow = w
-                    .get::<ambition_platformer2d::platformer::body::BodyKinematics>(self.victim)
+                    .get::<ambition_platformer2d::actor::BodyKinematics>(self.victim)
                     .is_some_and(|k| k.vel.x.abs() < SLOW_PX_S && k.vel.y.abs() < SLOW_PX_S);
                 if !frozen && grounded && slow {
                     settled_for += 1;

@@ -16,7 +16,7 @@ use bevy::prelude::*;
 
 use ambition_platformer2d_core as ae;
 
-use ambition_platformer2d_shared_tangle::body::BodyKinematics;
+use ambition_platformer2d_core::BodyKinematics;
 use ambition_platformer2d_shared_tangle::lifecycle::LiveRooms;
 
 use crate::color::PortalChannel;

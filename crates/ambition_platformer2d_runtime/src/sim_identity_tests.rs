@@ -150,7 +150,7 @@ fn ensure_over(parts: impl Bundle) -> (World, Entity) {
     let mut world = World::new();
     let body = world
         .spawn((
-            ambition_platformer2d_shared_tangle::body::BodyKinematics::default(),
+            ambition_platformer2d_core::BodyKinematics::default(),
             parts,
         ))
         .id();

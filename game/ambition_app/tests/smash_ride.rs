@@ -1799,7 +1799,7 @@ fn two_admirals_ride_their_own_sharks_at_the_same_time() {
     // ⚠ Inside the blast lines on purpose: this is a fighter that needs to come
     // home, not one being killed.
     {
-        use ambition_platformer2d::platformer::body::BodyKinematics;
+        use ambition_platformer2d::actor::BodyKinematics;
         let mut kin = app
             .world_mut()
             .get_mut::<BodyKinematics>(cpu)

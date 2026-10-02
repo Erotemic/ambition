@@ -14,7 +14,7 @@ use ambition_sprite_sheet::ActorSpriteMetrics;
 use bevy::ecs::query::QueryData;
 use bevy::prelude::Component;
 
-use ambition_platformer2d_shared_tangle::body::BodyKinematics;
+use ambition_platformer2d_core::BodyKinematics;
 
 /// Authored configuration + identity for a boss actor. Also serves as
 /// the boss marker component (see module docs).

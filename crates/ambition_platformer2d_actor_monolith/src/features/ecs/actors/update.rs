@@ -1221,7 +1221,7 @@ pub fn snapshot_body_contact(
     mut snapshot: ResMut<ambition_platformer2d_shared_tangle::body::BodyContactSnapshot>,
     bodies: Query<(
         bevy::prelude::Entity,
-        &ambition_platformer2d_shared_tangle::body::BodyKinematics,
+        &ambition_platformer2d_core::BodyKinematics,
         &ae::BodyGroundState,
         &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
         &ambition_platformer2d_shared_tangle::body::BodyContact,

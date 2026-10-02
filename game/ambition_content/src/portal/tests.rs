@@ -615,7 +615,7 @@ fn roll_eases_back_to_gravity_upright_in_air() {
     let player = app
         .world_mut()
         .spawn((
-            ambition_platformer2d_shared_tangle::body::BodyKinematics {
+            ambition_platformer2d_core::BodyKinematics {
                 pos: Vec2::ZERO,
                 vel: Vec2::ZERO,
                 size: Vec2::new(24.0, 40.0),

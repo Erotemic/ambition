@@ -994,7 +994,7 @@ fn stand_in_an_overlap_transition(app: &mut App) -> String {
             })
     };
     let world = app.world_mut();
-    let mut bodies = world.query_filtered::<&mut ambition_platformer2d::platformer::body::BodyKinematics, With<PrimaryPlayer>>();
+    let mut bodies = world.query_filtered::<&mut ambition_platformer2d::actor::BodyKinematics, With<PrimaryPlayer>>();
     let mut kin = bodies
         .single_mut(world)
         .expect("the live session seats exactly one primary player");

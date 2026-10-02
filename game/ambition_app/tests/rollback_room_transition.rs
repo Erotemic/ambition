@@ -40,7 +40,7 @@ fn feature_roster(sim: &mut Platformer2dSimHarness) -> HashSet<Entity> {
 
 fn player_y(sim: &mut Platformer2dSimHarness) -> f32 {
     let world = sim.world_mut();
-    let mut q = world.query_filtered::<&ambition_platformer2d::platformer::body::BodyKinematics, With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>();
+    let mut q = world.query_filtered::<&ambition_platformer2d::actor::BodyKinematics, With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>();
     q.single(world).map(|k| k.pos.y).unwrap_or(0.0)
 }
 

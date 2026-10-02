@@ -1118,7 +1118,7 @@ fn ease_cast_edge(previous: f32, current: f32, alpha: f32, outward: f32, max_ste
 /// is a frame with a live fighter outside it. The camera has to move.
 fn frame_the_cast(
     cast: &[bevy::prelude::Entity],
-    bodies: &bevy::prelude::Query<&ambition_platformer2d_shared_tangle::body::BodyKinematics>,
+    bodies: &bevy::prelude::Query<&ambition_platformer2d_core::BodyKinematics>,
     last_seen: &mut Vec<(bevy::prelude::Entity, ae::Vec2)>,
 ) -> Option<CastFraming> {
     let mut anchor = None;
@@ -1226,7 +1226,7 @@ pub fn resolve_camera_observation(
     player: bevy::prelude::Query<
         (
             bevy::prelude::Entity,
-            &ambition_platformer2d_shared_tangle::body::BodyKinematics,
+            &ambition_platformer2d_core::BodyKinematics,
             &ae::BodyBaseSize,
             &ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState,
         ),
@@ -1243,7 +1243,7 @@ pub fn resolve_camera_observation(
     // the sprite must sample the same frame-clock position, or they disagree by
     // up to a tick of travel and the subject shudders — see `presented_pose`.
     followed_body: (
-        bevy::prelude::Query<&ambition_platformer2d_shared_tangle::body::BodyKinematics>,
+        bevy::prelude::Query<&ambition_platformer2d_core::BodyKinematics>,
         bevy::prelude::Query<&crate::presented_pose::PresentedPose>,
         // The frame the followed body resolved this tick (ADR 0024), for a
         // view that presents in its subject's frame rather than the world's. Read
@@ -3170,7 +3170,7 @@ mod resolved_snapshot_lifetime_tests {
 
     /// A body the cast can frame, at `at`.
     fn cast_member(app: &mut App, at: ae::Vec2) -> Entity {
-        let mut kin = ambition_platformer2d_shared_tangle::body::BodyKinematics::default();
+        let mut kin = ambition_platformer2d_core::BodyKinematics::default();
         kin.pos = at;
         kin.size = ae::Vec2::new(24.0, 40.0);
         app.world_mut().spawn(kin).id()
@@ -3233,7 +3233,7 @@ mod resolved_snapshot_lifetime_tests {
         // the ease is reset with the snapshot: a view that has published no
         // frame has nothing to interpolate FROM.
         let home = {
-            let mut kin = ambition_platformer2d_shared_tangle::body::BodyKinematics::default();
+            let mut kin = ambition_platformer2d_core::BodyKinematics::default();
             kin.pos = ae::Vec2::new(900.0, 0.0);
             kin.size = ae::Vec2::new(24.0, 40.0);
             app.world_mut()

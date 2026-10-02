@@ -81,7 +81,7 @@ fn stand_in_a_door(sim: &mut ambition_app::Platformer2dSimHarness) -> Option<Str
             .cloned()?
     };
     let world = sim.world_mut();
-    let mut player = world.query_filtered::<&mut ambition_platformer2d::platformer::body::BodyKinematics, With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>();
+    let mut player = world.query_filtered::<&mut ambition_platformer2d::actor::BodyKinematics, With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>();
     let mut kin = player.single_mut(world).ok()?;
     kin.pos = door.aabb.center();
     kin.vel = ambition_platformer2d::engine_core::Vec2::ZERO;
@@ -312,7 +312,7 @@ fn a_death_rebuilds_the_world_from_the_generation_not_the_app() {
     };
     let pos = {
         let world = sim.world_mut();
-        let mut query = world.query_filtered::<&ambition_platformer2d::platformer::body::BodyKinematics, With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>();
+        let mut query = world.query_filtered::<&ambition_platformer2d::actor::BodyKinematics, With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>();
         query.single(world).expect("the player body has kinematics").pos
     };
     sim.world_mut().write_message(

@@ -366,7 +366,7 @@ mod tests {
 pub fn speak_conversation_cut_barks(
     mut requests: bevy::prelude::MessageReader<ambition_conversation::ConversationCutBark>,
     speakers: bevy::prelude::Query<(
-        &ambition_platformer2d_shared_tangle::body::BodyKinematics,
+        &ambition_platformer2d_core::BodyKinematics,
         &ambition_combat::ActorInteraction,
     )>,
     character_catalog: bevy::prelude::Res<CharacterCatalog>,

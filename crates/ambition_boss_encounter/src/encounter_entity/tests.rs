@@ -170,7 +170,7 @@ fn the_wrap_persists_and_resets_when_its_member_leaves_the_world() {
 
 #[test]
 fn release_on_death_emits_payload_once_at_host_position() {
-    use ambition_platformer2d_shared_tangle::body::BodyKinematics;
+    use ambition_platformer2d_core::BodyKinematics;
     let mut app = App::new();
     app.add_message::<PayloadReleased>();
     app.add_systems(Update, release_payloads_on_death);

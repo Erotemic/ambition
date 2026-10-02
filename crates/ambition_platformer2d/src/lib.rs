@@ -715,7 +715,7 @@ pub mod actor {
     /// SDK gaps."* These three rows are those gaps, closed rather than waived.
     pub use ambition_platformer2d_core::BodyGroundState;
     pub use ambition_platformer2d_core::{BodyFlightState, BodyMode, BodyMotionFacts};
-    pub use ambition_platformer2d_shared_tangle::body::BodyKinematics;
+    pub use ambition_platformer2d_core::BodyKinematics;
     /// The body-local safe-position state used by reset/hazard observers.
     ///
     /// The implementation type still carries its historical player-centric name;

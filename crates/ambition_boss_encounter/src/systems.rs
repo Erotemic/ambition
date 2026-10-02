@@ -410,7 +410,7 @@ pub fn boss_phase_transition_feedback(
     // Boss geometry — the actor that emits the phase-transition shockwave.
     bosses: Query<
         (
-            &ambition_platformer2d_shared_tangle::body::BodyKinematics,
+            &ambition_platformer2d_core::BodyKinematics,
             &ambition_combat::CenteredAabb,
         ),
         With<crate::BossConfig>,
@@ -484,7 +484,7 @@ mod phase_feedback_tests {
     use crate::test_support::{test_boss_config, test_boss_status};
     use crate::BossEncounterPhase;
     use ambition_combat::{CenteredAabb, FeatureId};
-    use ambition_platformer2d_shared_tangle::body::BodyKinematics;
+    use ambition_platformer2d_core::BodyKinematics;
     use ambition_platformer2d_shared_tangle::camera_ease::CameraShakeRequest;
 
     fn spawn_boss(app: &mut App, phase: BossEncounterPhase) -> Entity {

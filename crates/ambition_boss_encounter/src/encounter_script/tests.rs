@@ -123,7 +123,7 @@ fn commanded_move_steers_the_boss_toward_target() {
     let boss = app
         .world_mut()
         .spawn((
-            ambition_platformer2d_shared_tangle::body::BodyKinematics {
+            ambition_platformer2d_core::BodyKinematics {
                 pos: ae::Vec2::ZERO,
                 vel: ae::Vec2::ZERO,
                 size: ae::Vec2::splat(40.0),
@@ -172,7 +172,7 @@ fn commanded_move_clears_the_attack_intent_not_the_projection() {
     let boss = app
         .world_mut()
         .spawn((
-            ambition_platformer2d_shared_tangle::body::BodyKinematics {
+            ambition_platformer2d_core::BodyKinematics {
                 pos: ae::Vec2::ZERO,
                 vel: ae::Vec2::ZERO,
                 size: ae::Vec2::splat(40.0),

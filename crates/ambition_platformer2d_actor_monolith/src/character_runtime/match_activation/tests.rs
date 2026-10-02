@@ -151,7 +151,7 @@ fn a_roster_of_two_cpu_participants_becomes_two_bodies_wearing_their_characters(
     let world = app.world_mut();
     let mut q = world.query::<(
         &ambition_characters::actor::WornCharacter,
-        &ambition_platformer2d_shared_tangle::body::BodyKinematics,
+        &ambition_platformer2d_core::BodyKinematics,
         &ambition_combat::components::ActorFaction,
         Option<&ambition_combat::targeting::MatchTeam>,
     )>();
@@ -373,7 +373,7 @@ fn a_match_builds_its_own_cast_and_leaves_other_bodies_alone() {
     );
     let kin = app
         .world()
-        .get::<ambition_platformer2d_shared_tangle::body::BodyKinematics>(bystander)
+        .get::<ambition_platformer2d_core::BodyKinematics>(bystander)
         .expect("the bystander survives");
     assert_eq!(
         kin.pos.x, 7.0,
@@ -2388,7 +2388,7 @@ fn a_seated_fighter_gets_the_body_box_its_definition_authors() {
     let world = app.world_mut();
     let mut bodies = world.query::<(
         &ambition_characters::actor::WornCharacter,
-        &ambition_platformer2d_shared_tangle::body::BodyKinematics,
+        &ambition_platformer2d_core::BodyKinematics,
     )>();
     let (_, kin) = bodies
         .iter(world)
@@ -2807,7 +2807,7 @@ mod activation_transaction {
             .expect("the player body has health");
         let kin = app
             .world()
-            .get::<ambition_platformer2d_shared_tangle::body::BodyKinematics>(body)
+            .get::<ambition_platformer2d_core::BodyKinematics>(body)
             .expect("the player body has kinematics");
         (
             health.current(),
@@ -2995,7 +2995,7 @@ fn one_character_definition_seats_two_independent_fighters() {
         Entity,
         &ambition_characters::actor::WornCharacter,
         &MatchSeat,
-        &ambition_platformer2d_shared_tangle::body::BodyKinematics,
+        &ambition_platformer2d_core::BodyKinematics,
     )>();
     let mut seated: Vec<(Entity, String, usize, f32)> = q
         .iter(world)

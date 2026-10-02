@@ -398,7 +398,7 @@ pub fn release_payloads_on_death(
         (
             Entity,
             &ambition_characters::actor::BodyHealth,
-            &ambition_platformer2d_shared_tangle::body::BodyKinematics,
+            &ambition_platformer2d_core::BodyKinematics,
         ),
         With<ReleaseOnDeath>,
     >,

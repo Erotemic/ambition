@@ -1306,7 +1306,7 @@ fn place_player_beside(
     others: Query<
         (
             &ambition_platformer2d::characters::actor::WornCharacter,
-            &ambition_platformer2d::platformer::body::BodyKinematics,
+            &ambition_platformer2d::actor::BodyKinematics,
         ),
         Without<ambition_platformer2d::platformer::markers::PrimaryPlayer>,
     >,
@@ -1362,7 +1362,7 @@ fn apply_capture_snapshot(
     // marker on an entity with no kinematics, so querying it would never
     // match and `player` focus would fall back to the origin.
     player_q: Query<
-        &ambition_platformer2d::platformer::body::BodyKinematics,
+        &ambition_platformer2d::actor::BodyKinematics,
         ambition_platformer2d::platformer::markers::PrimaryPlayerOnly,
     >,
     mut cameras: Query<(&mut Transform, &mut Projection), With<MainCamera>>,
@@ -1469,7 +1469,7 @@ const ROUTE_CAMERA_GRACE_FRAMES: u32 = 600;
 /// way or the other (§4.9).
 fn world_is_ready(
     player_q: &Query<
-        &ambition_platformer2d::platformer::body::BodyKinematics,
+        &ambition_platformer2d::actor::BodyKinematics,
         ambition_platformer2d::platformer::markers::PrimaryPlayerOnly,
     >,
     follow_player: bool,
@@ -1583,12 +1583,12 @@ fn request_capture(
     target: Option<Res<SceneCaptureTarget>>,
     mut runtime: ResMut<SceneCaptureRuntime>,
     player_q: Query<
-        &ambition_platformer2d::platformer::body::BodyKinematics,
+        &ambition_platformer2d::actor::BodyKinematics,
         ambition_platformer2d::platformer::markers::PrimaryPlayerOnly,
     >,
     seated_q: Query<(
         &ambition_platformer2d::actor::MatchSeat,
-        &ambition_platformer2d::platformer::body::BodyKinematics,
+        &ambition_platformer2d::actor::BodyKinematics,
     )>,
     art_demand: Option<Res<CharacterLoadDemand>>,
     art_states: Option<Res<CharacterLoadStates>>,

@@ -1371,22 +1371,23 @@ pub struct BlockFlinch {
 /// volumes (pogo targets, breakable ghosts) with `GeoId::anon()` and synthetic
 /// names that never appear in `removed_block_names`. Only the intersection of
 /// the two lists means "replaced".
+///
+/// Each block visual reads the overlay of its own live room (its stamp, or
+/// the sole live room), so a brick broken in one live room does not take the
+/// same-named brick of another (view half, cut V2j).
 pub fn sync_removed_block_visuals(
     mut commands: Commands,
-    overlay: Option<
-        ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<
-            ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay,
-        >,
+    overlays: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomOf<
+        ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay,
     >,
     blocks: Query<(Entity, &BlockVisual)>,
 ) {
-    let Some(overlay) = overlay else {
-        return;
-    };
-    if overlay.removed_block_names.is_empty() {
-        return;
-    }
     for (entity, visual) in &blocks {
+        // A block whose live room cannot be told, or whose room has no
+        // overlay, keeps its visual.
+        let Some(overlay) = overlays.of(entity) else {
+            continue;
+        };
         if !overlay
             .removed_block_names
             .iter()
@@ -1619,6 +1620,45 @@ mod lock_wall_visual_tests {
             "an ordinary subtraction still despawns: an added block under another \
              name does not rescue it",
         );
+    }
+
+    /// Each block visual reads its own live room's overlay (view half, cut
+    /// V2j). Two live instances of one room, each with a brick of the same
+    /// name: the brick broken in the second instance loses its visual, and
+    /// the same brick in the first instance keeps it. Before, the reconcile
+    /// read the sole live room, so while two rooms were live no broken brick
+    /// lost its visual.
+    #[test]
+    fn a_brick_broken_in_one_live_room_keeps_the_same_brick_of_another() {
+        use ambition_platformer2d_shared_tangle::lifecycle::{
+            insert_live_room_component, spawn_live_room, InRoomInstance, LiveRoomInstance,
+        };
+        let mut app = App::new();
+        insert_live_room_component(app.world_mut(), FeatureEcsWorldOverlay::default());
+        let second = LiveRoomInstance::ACTIVATION.next();
+        spawn_live_room(
+            app.world_mut(),
+            second,
+            FeatureEcsWorldOverlay {
+                removed_block_names: vec!["brick_1".to_string()],
+                ..Default::default()
+            },
+        );
+        let brick = |room| {
+            (
+                BlockVisual {
+                    block_name: "brick_1".to_string(),
+                    geo_id: ambition_platformer2d_core::GeoId::anon(),
+                },
+                InRoomInstance(room),
+            )
+        };
+        let kept = app.world_mut().spawn(brick(LiveRoomInstance::ACTIVATION)).id();
+        let broken = app.world_mut().spawn(brick(second)).id();
+        app.add_systems(Update, sync_removed_block_visuals);
+        app.update();
+        assert!(app.world().get_entity(broken).is_err(), "the brick broken in the second room kept its visual");
+        assert!(app.world().get_entity(kept).is_ok(), "the first room's brick lost its visual to the second room's break");
     }
 
     /// With no live room overlay (a minimal app), the reconcile is a graceful

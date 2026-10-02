@@ -52,7 +52,8 @@ Supported level fields:
 One more level field colours geometry, not the profile: `block_color`
 (`#RRGGBB` or `#RRGGBBAA`) is the colour of every block the level authors that
 has no colour of its own (`Block::art_color`). Conversion refuses a value that is
-not a colour. Mary-O's 1-2 cavern uses it.
+not a colour. Mary-O's 1-2 cavern uses it. One `Solid` can say its own colour
+with its `color` field, which wins over the level's (Mary-O's vault masonry).
 
 `ParallaxTheme::from_room_metadata` now checks `visual_profile.parallax_theme`
 first, then `visual_profile.id`, and only then falls back to the legacy loose

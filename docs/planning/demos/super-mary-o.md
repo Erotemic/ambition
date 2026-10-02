@@ -295,13 +295,14 @@ Remaining acceptance work
   LDtk (`worlds/mary_o.ldtk` in `ambition_map_assets`) and read through
   `authored_levels`. Since 2026-10-02 each level also says its game mode
   (`mode`) and 1-2 says the stone it is cut from (`block_color`, `#332B47`) as
-  level fields; before, `finish_authored_room` wrote both in Rust. What Rust
-  still says is the by-name dressing in `dress_authored_blocks` (pipes, the
-  pole, hidden blocks and 1-1's vault masonry are drawn other than their
-  kind's art), because a level field colours every block of a level and LDtk
-  authors no per-block colour. `test_course.rs` builds a synthetic room in
-  code on purpose. Do not grow the programmatic path — a missing authoring
-  concept goes into LDtk + the tooling;
+  level fields, and the vault's masonry in 1-1 and 1-3 says its stone with a
+  `Solid`'s own `color` field (`#3D334D`); before, `finish_authored_room` and
+  `dress_authored_blocks` wrote all three in Rust. What Rust still says is the
+  by-name look in `dress_authored_blocks`: pipes, the pole and hidden blocks
+  are drawn as nothing, because their look is a prop or a discovery, not a
+  colour. `test_course.rs` builds a synthetic room in code on purpose. Do not
+  grow the programmatic path — a missing authoring concept goes into LDtk +
+  the tooling;
 - the cutscene domain for presentation sequencing where appropriate;
 - `SimView` for HUD and programmatic observation.
 

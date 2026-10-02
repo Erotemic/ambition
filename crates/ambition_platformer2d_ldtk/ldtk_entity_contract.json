@@ -39,7 +39,18 @@
         32,
         16
       ],
-      "fields": []
+      "fields": [
+        {
+          "name": "color",
+          "presence": "optional",
+          "patterns": [
+            "^#[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?$"
+          ],
+          "on_invalid": "refused",
+          "sample": "#3D334D",
+          "note": "the colour of this one block, over the level's `block_color`; absent leaves the block to the level and its kind's art"
+        }
+      ]
     },
     {
       "identifier": "OneWayPlatform",

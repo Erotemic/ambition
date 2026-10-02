@@ -132,8 +132,6 @@ pub const BRICK_PREFIX: &str = "brick_";
 // Mary-O share rather than one a human has to type correctly.
 /// The flag: shaft, finial and banner, all the same width and column.
 pub const GOAL_POLE_PREFIX: &str = "goal_pole";
-/// The secret chamber's stone — `vault_floor` and `vault_wall_<n>`.
-pub const VAULT_MASONRY_PREFIX: &str = "vault_";
 
 // `LEVEL_WIDTH` / `LEVEL_HEIGHT` are GONE. Deleting them rather than leaving them "for reference"
 // is the point: a constant that still names the world is a second authority waiting to disagree
@@ -169,11 +167,6 @@ const VAULT_DEPTH_TILES: f32 = 9.0;
 /// is symmetric — needs nothing.
 const DESCENT_LINK: &str = "descent";
 const ASCENT_LINK: &str = "ascent";
-
-/// The stone the secret chamber is cut from. The LDtk file cannot say it: a
-/// level's `block_color` paints every block of the level, and the vault is only
-/// some of 1-1's blocks.
-const VAULT_STONE_COLOR: [f32; 4] = [0.24, 0.20, 0.30, 1.0];
 
 /// The vault's interior, in world coordinates.
 ///
@@ -601,10 +594,10 @@ pub fn authored_zone<'a>(
 
 /// Paint the authored blocks that wear something other than their kind's art.
 ///
-/// A level can author the colour of all its blocks (`block_color`), but not of
-/// one block, so the game says it here — BY NAME. That is the whole
-/// authored vocabulary at work: a warp pipe and the flagpole are collision only (their look comes
-/// from the props below, laid over them), and the vault's masonry is its own stone.
+/// The blocks whose look is not a colour, BY NAME: a warp pipe and the flagpole are collision
+/// only (their look comes from the props below, laid over them), and a hidden block is drawn as
+/// nothing. A colour is data: a level's `block_color`, or a block's own `color` (the vault's
+/// masonry).
 fn dress_authored_blocks(room: &mut RoomSpec) {
     for block in &mut room.world.blocks {
         // a HIDDEN block is drawn as nothing until it is struck. Same seam the pipes and the
@@ -618,8 +611,6 @@ fn dress_authored_blocks(room: &mut RoomSpec) {
             || block.name.starts_with(GOAL_POLE_PREFIX)
         {
             block.art_color = Some(scenery::TRANSPARENT);
-        } else if block.name.starts_with(VAULT_MASONRY_PREFIX) {
-            block.art_color = Some(VAULT_STONE_COLOR);
         }
     }
 }
@@ -2418,12 +2409,15 @@ mod tests {
     }
 
     /// Each authored area says its mode and its stone in the LDtk file (the
-    /// `mode` and `block_color` level fields), not in Rust. 1-2 is cut from one
-    /// stone; 1-1 and 1-3 author no level colour, so a block there that the game
-    /// does not dress has none.
+    /// `mode` and `block_color` level fields, and a block's own `color`), not
+    /// in Rust. 1-2 is cut from one stone; the vault's masonry in 1-1 and 1-3
+    /// is its own stone; any other block there that the game does not dress
+    /// has no colour.
     #[test]
     fn each_area_says_its_mode_and_its_stone_in_data() {
         let cavern_stone = [51.0 / 255.0, 43.0 / 255.0, 71.0 / 255.0, 1.0];
+        let vault_stone = [61.0 / 255.0, 51.0 / 255.0, 77.0 / 255.0, 1.0];
+        let mut vault_blocks = 0;
         for room in authored_levels() {
             assert_eq!(room.metadata.mode.as_deref(), Some(MARY_O_MODE), "{} claims no mode", room.id);
             let undressed: Vec<_> = room
@@ -2432,14 +2426,20 @@ mod tests {
                 .iter()
                 .filter(|block| ldtk_vocabulary::block_look_of(&block.name).is_none())
                 .filter(|block| ldtk_vocabulary::pipe_of(&block.name).is_none())
-                .filter(|block| !block.name.starts_with(GOAL_POLE_PREFIX) && !block.name.starts_with(VAULT_MASONRY_PREFIX))
+                .filter(|block| !block.name.starts_with(GOAL_POLE_PREFIX))
                 .collect();
             assert!(!undressed.is_empty(), "{} authors no plain block", room.id);
-            let expected = (room.id == level_1_2::LEVEL_1_2_ROOM_ID).then_some(cavern_stone);
             for block in undressed {
+                let expected = if block.name.starts_with("vault_") {
+                    vault_blocks += 1;
+                    Some(vault_stone)
+                } else {
+                    (room.id == level_1_2::LEVEL_1_2_ROOM_ID).then_some(cavern_stone)
+                };
                 assert_eq!(block.art_color, expected, "{} block `{}`", room.id, block.name);
             }
         }
+        assert_eq!(vault_blocks, 6, "1-1 and 1-3 each author a vault floor and two walls");
     }
 
     /// The level clock counts DOWN on the sim clock and clamps at zero. `hosted()`

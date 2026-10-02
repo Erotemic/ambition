@@ -16,11 +16,23 @@ pub(super) fn convert_player_start(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmissi
 /// `HazardBlock`, `PogoOrb`, `ReboundPad`, `BreakablePlatform`,
 /// `BreakablePogoOrb`) all share one typed parse → compile pipeline, so
 /// collision/contact systems consume a single runtime IR.
+///
+/// `color` (`#RRGGBB` or `#RRGGBBAA`) is the colour of this one surface. It
+/// wins over the level's `block_color`, so one room can say "this stone, and
+/// that wall in another stone". A value that is not a colour is refused.
 pub(super) fn convert_surface(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, String> {
     let (entity, name, min, size) = ctx.parts();
-    let spec = parse_surface_spec(entity, min, size, name)?;
+    let spec = parse_surface_spec(entity, min, size, name.clone())?;
     let compiled = compile_surface(&spec)?;
-    Ok(RoomEmission::from_compiled(compiled))
+    let mut emission = RoomEmission::from_compiled(compiled);
+    if let Some(text) = field_string(entity, "color").map(|text| text.trim().to_string()).filter(|text| !text.is_empty()) {
+        let color = parse_block_color(&text)
+            .ok_or_else(|| format!("'{name}' authors color `{text}`, which is not a colour (#RRGGBB or #RRGGBBAA)"))?;
+        for block in &mut emission.blocks {
+            block.art_color = Some(color);
+        }
+    }
+    Ok(emission)
 }
 
 /// `StitchedBoundary` is read by its own consumer off the raw `LdtkProject` and

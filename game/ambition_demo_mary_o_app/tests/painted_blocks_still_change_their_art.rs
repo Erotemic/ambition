@@ -22,6 +22,7 @@ use ambition_demo_mary_o::ldtk_vocabulary::{block_look_of, MaryOBlockLook};
 use ambition_demo_mary_o::level_1_2::{level_1_2, LEVEL_1_2_ROOM_ID};
 use ambition_demo_mary_o::powerups::SpentPowerBlocks;
 use ambition_demo_mary_o_app::{build_windowed_demo_app_entering, RenderMode};
+use ambition_platformer2d::combat::components::ActorFaction;
 use ambition_platformer2d::view::EntitySprite;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::engine_core::AabbExt;
@@ -311,6 +312,12 @@ fn jump_into_from_below(app: &mut App, block: &ae::world::Block) -> Strike {
         "nothing to stand on under the block at x={column}",
     );
 
+    // 1-2 authors a Solid Snake one tile from the hidden block. It sleeps until
+    // she is near (`MARY_O_WAKE_RADIUS`), so placing her below the block woke
+    // it, and it walked into her on the next frame. A dead body takes no
+    // input, and the probe reported a jump that never left the floor.
+    clear_the_hostile_bodies(app);
+
     let half_height = player_box(app).y * 0.5;
     place_player(app, Vec2::new(column, floor_top - half_height - 1.0));
 
@@ -328,6 +335,15 @@ fn jump_into_from_below(app: &mut App, block: &ae::world::Block) -> Strike {
          anything about it. floor top y={floor_top}, box {:?}, she ended at {:?}",
         player_box(app),
         player_pos(app),
+    );
+
+    let stood_at = player_pos(app);
+    assert!(
+        player_alive(app),
+        "she died before she could jump, so the probe cannot say anything \
+         about the block. She stood at {stood_at:?}; the hostile bodies near \
+         her: {:?}",
+        hostile_bodies_near(app, stood_at),
     );
 
     let launched_from = player_pos(app);
@@ -352,6 +368,52 @@ fn jump_into_from_below(app: &mut App, block: &ae::world::Block) -> Strike {
         purse_before,
         spent,
     }
+}
+
+/// Remove every hostile body from the room. These probes are about a block,
+/// and a hostile body that kills her stops the probe before it starts.
+fn clear_the_hostile_bodies(app: &mut App) {
+    let mut query = app
+        .world_mut()
+        .query_filtered::<(Entity, &ActorFaction), With<ae::BodyKinematics>>();
+    let hostile: Vec<Entity> = query
+        .iter(app.world())
+        .filter(|(_, faction)| **faction == ActorFaction::Enemy)
+        .map(|(entity, _)| entity)
+        .collect();
+    for entity in hostile {
+        app.world_mut().entity_mut(entity).despawn();
+    }
+}
+
+/// The name and position of each hostile body within three tiles of `pos`.
+fn hostile_bodies_near(app: &mut App, pos: Vec2) -> Vec<(String, Vec2)> {
+    let mut query = app
+        .world_mut()
+        .query::<(&ActorFaction, &ae::BodyKinematics, Option<&Name>)>();
+    query
+        .iter(app.world())
+        .filter(|(faction, kin, _)| {
+            **faction == ActorFaction::Enemy && (kin.pos - pos).length() < 96.0
+        })
+        .map(|(_, kin, name)| {
+            (
+                name.map(|name| name.to_string()).unwrap_or_default(),
+                kin.pos,
+            )
+        })
+        .collect()
+}
+
+fn player_alive(app: &mut App) -> bool {
+    let mut query = app.world_mut().query_filtered::<
+        &ambition_platformer2d::characters::actor::BodyHealth,
+        With<PrimaryPlayer>,
+    >();
+    query
+        .iter(app.world())
+        .next()
+        .is_some_and(|health| health.alive())
 }
 
 fn player_pos(app: &mut App) -> Vec2 {

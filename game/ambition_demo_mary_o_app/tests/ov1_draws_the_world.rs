@@ -361,17 +361,45 @@ fn visible_mary_o_presentation_retires_and_relaunches_with_the_session() {
 /// which travel the same subscriber.
 #[test]
 fn a_vfx_message_this_demo_writes_is_drawn_by_this_demo() {
+    const FRAME_SECONDS: f32 = 1.0 / 60.0;
     use ambition_platformer2d::render::fx::ParticleVisual;
     use ambition_platformer2d::vfx::{VfxInRoom, VfxMessage};
 
     let mut app = drawn_demo();
+    // One frame is one sixtieth of a second, whatever the machine is doing.
+    // The windowed demo steps on the wall clock, and a coin lives for less than
+    // a second: in the full suite, under load, five frames outlasted it, and
+    // the comparison below read "0 -> 0" for a coin that was drawn and gone.
+    app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
+        std::time::Duration::from_secs_f32(FRAME_SECONDS),
+    ));
     settle(&mut app);
 
     let particle_count = |app: &mut App| {
         let mut q = app.world_mut().query::<&ParticleVisual>();
         q.iter(app.world()).count()
     };
-    let before = particle_count(&mut app);
+    // The session's own arrival makes about a hundred particles that fade
+    // during its first second. A count taken while they fade goes DOWN across
+    // the write (measured: 102 before, 54 six frames after, with the coin
+    // drawn), and the comparison below then reports a drawn coin as "drew
+    // nothing". So the baseline is taken after the count holds for ten frames.
+    let mut before = particle_count(&mut app);
+    let mut held = 0;
+    for _ in 0..600 {
+        app.update();
+        let now = particle_count(&mut app);
+        held = if now == before { held + 1 } else { 0 };
+        before = now;
+        if held >= 10 {
+            break;
+        }
+    }
+    assert!(
+        held >= 10,
+        "the particle count never held for ten frames (last count {before}), so \
+         there is no baseline to compare the coin against"
+    );
 
     app.world_mut().write_message(VfxInRoom { room: None, vfx: VfxMessage::CoinPop {
         pos: ambition_platformer2d::engine_core::Vec2::new(64.0, 64.0),

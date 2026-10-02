@@ -2409,17 +2409,35 @@ fn a_lethal_hit_kills_without_speaking_a_hit_bark() {
         let mut app = App::new();
         app.insert_resource(ambition_boss_encounter::test_boss_catalog().clone());
         app.insert_resource(GameplayBanner::default());
-        app.insert_resource(
-            ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
-        );
+        // The struck body wears a character whose catalog row has hit lines.
+        app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::from_data(
+            ambition_characters::actor::character_catalog::parse_catalog(
+                r#"(
+                    brain_presets: { "stand_still": StandStill },
+                    action_set_presets: {
+                        "peaceful": (move_style: Walk, melee: None, ranged: None, special: None),
+                    },
+                    characters: {
+                        "kernel_guide": (
+                            display_name: "Kernel Guide",
+                            spritesheet: "sprites/kernel_guide_spritesheet.png",
+                            manifest: "sprites/kernel_guide_spritesheet.ron",
+                            tier: MainHall, body_kind: Standard, composition: None,
+                            default_brain: "stand_still", default_action_set: "peaceful",
+                            barks: (on_hit: ["ow!", "argh!", "stop!"]),
+                        ),
+                    },
+                )"#,
+            ),
+        ));
         app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
-        let mut banter = ambition_conversation::banter::CombatBanterRegistry::default();
-        banter.set_hit_barks("Kernel Guide", vec!["ow!", "argh!", "stop!"]);
-        app.insert_resource(banter);
         register_hit_pipeline_messages(&mut app);
         app.init_resource::<CapturedBubbles>();
         app.add_systems(Update, (apply_feature_hit_events, capture_bubbles).chain());
         let e = spawn_hostile_actor(&mut app);
+        app.world_mut()
+            .entity_mut(e)
+            .insert(ambition_characters::actor::WornCharacter::new("kernel_guide"));
         app.world_mut()
             .get_mut::<BodyHealth>(e)
             .unwrap()
@@ -2986,4 +3004,73 @@ fn a_struck_body_barks_as_the_character_it_is_wearing() {
         "a body that re-wore itself as `new_form` spoke the line of the form it \
          was spawned as"
     );
+}
+
+/// A struck boss speaks the `on_hit` barks of the character row its
+/// encounter names as `voice`, through the real hit road; the same boss with
+/// no voice is silent. GNU-ton's encounter names `npc_gnu_ton_boss`, whose
+/// first hit line is "Counterfeit.".
+#[test]
+fn a_struck_boss_speaks_the_hit_lines_of_its_voice() {
+    #[derive(bevy::prelude::Resource, Default)]
+    struct Said(Vec<String>);
+    fn capture_lines(mut reader: bevy::prelude::MessageReader<VfxInRoom>, mut said: bevy::prelude::ResMut<Said>) {
+        for message in reader.read() {
+            if let VfxMessage::SpeechBubble { text, .. } = &message.vfx {
+                said.0.push(text.clone());
+            }
+        }
+    }
+    fn strike_gnu_ton(voiced: bool) -> Vec<String> {
+        let mut app = App::new();
+        app.insert_resource(ambition_boss_encounter::test_boss_catalog().clone());
+        app.insert_resource(GameplayBanner::default());
+        app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::from_data(
+            ambition_characters::actor::character_catalog::parse_catalog(include_str!(
+                "../../../../../../game/ambition_content/assets/data/character_catalog.ron"
+            )),
+        ));
+        app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
+        register_hit_pipeline_messages(&mut app);
+        app.init_resource::<Said>();
+        app.add_systems(Update, (apply_feature_hit_events, capture_lines).chain());
+        let aabb = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(40.0, 60.0));
+        let mut boss = ambition_boss_encounter::BossClusterScratch::new(
+            ambition_boss_encounter::test_boss_catalog(),
+            "gnu_ton",
+            "GNU-ton",
+            aabb,
+            ambition_entity_catalog::placements::BossBrain::PhaseScript {
+                script_id: "gnu_ton_rider".to_string(),
+            },
+        );
+        if !voiced {
+            boss.config.seed.as_mut().expect("seeded").encounter.voice = None;
+        }
+        app.world_mut().spawn((
+            FeatureSimEntity,
+            FeatureId::new("gnu_ton"),
+            CenteredAabb::from_center_size(aabb.center(), aabb.half_size() * 2.0),
+            ambition_combat::components::DamageableVolumes::single(aabb),
+            ambition_characters::actor::BodyCombat::default(),
+            boss.into_components(),
+        ));
+        app.world_mut().write_message(HitEvent {
+            strike_sfx: None,
+            volume: aabb.into(),
+            damage: 1,
+            source: HitSource::Melee,
+            attacker: None,
+            room: None,
+            target: HitTarget::Volume,
+            mode: HitMode::Knockback,
+            knockback: None,
+            ignored_targets: Vec::new(),
+            attacker_move_instance: None,
+        });
+        app.update();
+        app.world().resource::<Said>().0.clone()
+    }
+    assert_eq!(strike_gnu_ton(true), vec!["Counterfeit.".to_string()], "the voiced boss's first hit line");
+    assert_eq!(strike_gnu_ton(false), Vec::<String>::new(), "a boss with no voice is silent");
 }

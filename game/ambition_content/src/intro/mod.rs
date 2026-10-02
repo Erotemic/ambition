@@ -11,7 +11,6 @@
 //! machinery stays in `ambition_platformer2d_actor_monolith`, while narrative content lives in the game
 //! content layer.
 
-pub mod banter;
 pub mod dialog;
 pub mod plugin;
 pub mod route_state;

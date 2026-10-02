@@ -33,6 +33,21 @@ pub struct BossConfig {
     pub seed: Option<BossSeed>,
 }
 
+impl BossConfig {
+    /// The line this boss says in `situation`: from the character row its
+    /// encounter names as `voice`, rotated by `rotation`. `None` for a boss
+    /// with no voice, a config with no resolved encounter, and an empty pool.
+    pub fn bark<'c>(
+        &self,
+        catalog: &'c ambition_characters::actor::character_catalog::CharacterCatalog,
+        situation: ambition_characters::actor::character_catalog::BarkSituation,
+        rotation: u32,
+    ) -> Option<&'c str> {
+        let voice = self.seed.as_ref()?.encounter.voice.as_deref()?;
+        catalog.bark_line(voice, situation, rotation)
+    }
+}
+
 /// The rest of a boss's profile, beside its behaviour: the encounter (HP,
 /// phase triggers, death outro, music) and the reward.
 ///
@@ -542,3 +557,6 @@ impl SnapshotCursor for BossEncounter {
         }
     }
 }
+
+#[cfg(test)]
+mod voice_tests;

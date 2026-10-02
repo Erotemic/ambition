@@ -1533,14 +1533,6 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "ambition_boss_encounter::registry::BossEncounterRegistry",
         "authored encounter registry",
     ),
-    (
-        // ⛔ THE PATH MOVED 2026-08-28 and this is a STRING, so nothing would have
-        // told us: `CombatBanterRegistry` left the actor monolith for
-        // `ambition_conversation`, and a waiver keyed on the old path answers a
-        // question about a type that no longer has that name.
-        "ambition_conversation::banter::CombatBanterRegistry",
-        "authored banter registry",
-    ),
     //  `CharacterRoster` and `CharacterRosterRegistry` WERE WAIVED HERE and
     // the types are DELETED (AC6.1). A waiver answers a checker's question
     // about something that exists; two entries naming nothing answered nothing,

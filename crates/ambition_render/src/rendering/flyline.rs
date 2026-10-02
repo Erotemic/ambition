@@ -113,7 +113,8 @@ pub fn build_flyline_sprite(mut commands: Commands, mut images: ResMut<Assets<Im
 /// length to the centre. A rope to the ankles would swing out of step.
 pub fn sync_flyline_visuals(
     mut commands: Commands,
-    world: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<
+    // Each drawable is placed by the geometry of its body's own live room.
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomOf<
         ambition_platformer2d_core::RoomGeometry,
     >,
     sprite: Option<Res<FlylineSprite>>,
@@ -166,6 +167,10 @@ pub fn sync_flyline_visuals(
             continue;
         };
         standing.insert(owner.body);
+        // A body whose live room cannot be told keeps its last placement.
+        let Some(world) = rooms.of(owner.body) else {
+            continue;
+        };
         place_wire(&world.0, &mut transform, &mut art, anchor, at);
     }
     let Some(sprite) = sprite else {
@@ -183,6 +188,9 @@ pub fn sync_flyline_visuals(
         if standing.contains(&body) {
             continue;
         }
+        let Some(world) = rooms.of(body) else {
+            continue;
+        };
         let mut transform = Transform::default();
         let mut art = Sprite {
             image: sprite.handle.clone(),

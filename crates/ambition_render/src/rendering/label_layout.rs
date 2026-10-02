@@ -795,6 +795,8 @@ impl Plugin for WorldLabelLayoutPlugin {
         app.add_systems(
             PostUpdate,
             (
+                // First, so the band pass reads this frame's stamps.
+                super::view_isolation::stamp_presentations_with_their_subject_s_room,
                 super::view_isolation::isolate_per_view_projections,
                 super::view_isolation::isolate_live_rooms,
             )

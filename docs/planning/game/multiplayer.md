@@ -162,7 +162,8 @@ room, room visuals and feature sprites are per room, and a second view opens
 while the players are in two rooms and closes when they meet
 (`a_second_view_opens_while_the_players_are_in_two_rooms_and_closes_when_they_meet`).
 Items, projectiles, lock walls and nameplates (V2c–V2e), effects (V2f) and
-the LDtk levels (V4b) and parallax (V4c) are each room's own too. ⚠ Not
+the LDtk levels (V4b), parallax (V4c) and the visuals that ride a body
+(V2g: shields, clocks, ropes, wielded items) are each room's own too. ⚠ Not
 done: health bars, debug overlays and the blink preview still read the sole
 live room; the banner, music and HUD are session-wide; a
 sync test is one peer, so what the crossing's rebase costs a remote

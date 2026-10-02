@@ -151,7 +151,8 @@ const DOOR_HEIGHT: f32 = 12.0;
 /// line is the surface; the centre would float the door half a body up.
 pub fn sync_trapdoor_visuals(
     mut commands: Commands,
-    world: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<
+    // Each drawable is placed by the geometry of its body's own live room.
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomOf<
         ambition_platformer2d_core::RoomGeometry,
     >,
     sprite: Option<Res<TrapdoorSprite>>,
@@ -208,6 +209,10 @@ pub fn sync_trapdoor_visuals(
             continue;
         };
         standing.insert(owner.body);
+        // A body whose live room cannot be told keeps its last placement.
+        let Some(world) = rooms.of(owner.body) else {
+            continue;
+        };
         place_door(&world.0, &mut transform, &mut art, at, size);
     }
     let Some(sprite) = sprite else {
@@ -225,6 +230,9 @@ pub fn sync_trapdoor_visuals(
         if standing.contains(&body) {
             continue;
         }
+        let Some(world) = rooms.of(body) else {
+            continue;
+        };
         let mut transform = Transform::default();
         let mut art = Sprite {
             image: sprite.handle.clone(),

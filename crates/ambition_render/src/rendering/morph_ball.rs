@@ -154,7 +154,8 @@ pub fn spawn_morph_ball_visual(
 /// a match or a possession has bodies that are not the home avatar.
 pub fn sync_morph_ball_visual(
     mut commands: Commands,
-    world: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<
+    // Each drawable is placed by the geometry of its body's own live room.
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomOf<
         ambition_platformer2d_core::RoomGeometry,
     >,
     mut bodies: Query<
@@ -182,6 +183,10 @@ pub fn sync_morph_ball_visual(
     for (ball, owner, mut transform, mut sprite, mut ball_visibility) in &mut balls {
         let Ok((pose, presented, _)) = bodies.get(owner.0) else {
             commands.entity(ball).despawn();
+            continue;
+        };
+        // A body whose live room cannot be told keeps its last placement.
+        let Some(world) = rooms.of(owner.0) else {
             continue;
         };
         if pose.morph_ball {

@@ -29,7 +29,8 @@ pub struct TetherVisual {
 /// Draw a line from each reaching body to where its grab actually reaches.
 pub fn sync_tether_visuals(
     mut commands: Commands,
-    world: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<
+    // Each drawable is placed by the geometry of its body's own live room.
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomOf<
         ambition_platformer2d_core::RoomGeometry,
     >,
     sprite: Option<Res<super::flyline::FlylineSprite>>,
@@ -89,6 +90,10 @@ pub fn sync_tether_visuals(
             continue;
         };
         standing.insert(owner.body);
+        // A body whose live room cannot be told keeps its last placement.
+        let Some(world) = rooms.of(owner.body) else {
+            continue;
+        };
         super::flyline::place_wire(&world.0, &mut transform, &mut art, to, from);
     }
 
@@ -104,6 +109,9 @@ pub fn sync_tether_visuals(
         if standing.contains(&body) {
             continue;
         }
+        let Some(world) = rooms.of(body) else {
+            continue;
+        };
         let mut transform = Transform::default();
         let mut art = Sprite::from_image(sprite.handle.clone());
         super::flyline::place_wire(&world.0, &mut transform, &mut art, to, from);

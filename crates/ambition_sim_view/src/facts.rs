@@ -314,18 +314,23 @@ pub fn rebuild_world_items_view(
         }));
 }
 
-/// Every player's dropped recall-mark position.
+/// Every player's dropped recall-mark position, with the live room of the
+/// player who dropped it: a mark is in its player's room.
 #[derive(Resource, Default, Clone, Debug)]
-pub struct MarkBeaconsView(pub Vec<ae::Vec2>);
+pub struct MarkBeaconsView(
+    pub Vec<(ae::Vec2, Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>)>,
+);
 
 pub fn rebuild_mark_beacons_view(
     mut view: ResMut<MarkBeaconsView>,
-    marks: Query<
+    live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
+    marks: Query<(
+        Entity,
         &ambition_abilities::traversal::mark_recall::PlayerMark,
-    >,
+    )>,
 ) {
     view.0.clear();
-    view.0.extend(marks.iter().filter_map(|mark| mark.pos));
+    view.0.extend(marks.iter().filter_map(|(entity, mark)| Some((mark.pos?, live.of(entity)))));
 }
 
 /// A countdown riding one body that the PLAYER must be able to read.
@@ -417,6 +422,9 @@ pub struct HostileWieldedItemFact {
     pub hand_world: ae::Vec2,
     pub aim_world: ae::Vec2,
     pub wielder_height: f32,
+    /// The live room of the thing this row draws (`LiveRooms::of`). The
+    /// visual is placed by that room's geometry and stamped with it.
+    pub room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
 }
 
 /// A WIELDER AIMS AT WHAT IT IS FIGHTING, not at "the player".
@@ -433,7 +441,9 @@ pub struct HostileWieldedItemFact {
 #[allow(clippy::type_complexity)]
 pub fn rebuild_hostile_wielded_items_view(
     mut view: ResMut<HostileWieldedItemsView>,
+    live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
     wielders: Query<(
+        Entity,
         &ambition_combat::components::ActorDisposition,
         &ambition_platformer2d_actor_monolith::features::HeldItem,
         Option<&BodyKinematics>,
@@ -454,7 +464,7 @@ pub fn rebuild_hostile_wielded_items_view(
         .and_then(|entity| bodies.get(entity).ok())
         .or_else(|| player_q.single().ok())
         .map(|kin| kin.pos);
-    for (disposition, held_item, kin, health, target) in &wielders {
+    for (entity, disposition, held_item, kin, health, target) in &wielders {
         let Some(kin) = kin else {
             continue;
         };
@@ -476,6 +486,7 @@ pub fn rebuild_hostile_wielded_items_view(
             hand_world: ambition_mount::rider_hand_world_pos(kin.pos, kin.facing, wielder_height),
             aim_world,
             wielder_height,
+            room: live.of(entity),
         });
     }
 }

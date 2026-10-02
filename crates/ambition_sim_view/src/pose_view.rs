@@ -600,6 +600,9 @@ pub struct ShieldRingFact {
     /// presentation that assumed screen axes would draw a wall-walker's guard
     /// lying on its side.
     pub gravity_dir: ambition_platformer2d_core::Vec2,
+    /// The live room of the thing this row draws (`LiveRooms::of`). The
+    /// visual is placed by that room's geometry and stamped with it.
+    pub room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
 }
 
 /// Every body (player AND brain-driven actor) whose shield is currently
@@ -610,7 +613,9 @@ pub struct ShieldRingsView(pub Vec<ShieldRingFact>);
 
 pub fn rebuild_shield_rings_view(
     mut view: ResMut<ShieldRingsView>,
+    live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
     bodies: Query<(
+        Entity,
         &ambition_platformer2d_core::BodyKinematics,
         &ambition_platformer2d_core::BodyShieldState,
         // Publish the presented pose because pooled shield rendering has no
@@ -628,8 +633,8 @@ pub fn rebuild_shield_rings_view(
     view.0.extend(
         bodies
             .iter()
-            .filter(|(_, shield, _, _, _)| shield.active)
-            .map(|(kin, shield, presented, model, frame)| {
+            .filter(|(_, _, shield, _, _, _)| shield.active)
+            .map(|(entity, kin, shield, presented, model, frame)| {
                 let down = body_down(frame);
                 ShieldRingFact {
                     pos: presented.map_or(kin.pos, |p| p.presented())
@@ -639,6 +644,7 @@ pub fn rebuild_shield_rings_view(
                     integrity: model.map_or(1.0, |m| shield.integrity_fraction(m.shield_tuning())),
                     stun_secs: shield.stun_timer,
                     gravity_dir: down,
+                    room: live.of(entity),
                 }
             }),
     );

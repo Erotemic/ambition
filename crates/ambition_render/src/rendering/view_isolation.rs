@@ -133,6 +133,53 @@ pub fn isolate_per_view_projections(
     }
 }
 
+/// Keep each drawable that presents a body (`PresentationOf`) in its body's
+/// live room (view half, cut V2g).
+///
+/// A shield bubble, a clock bar, a rope or a trapdoor is drawn where its body
+/// is. So it takes the body's `InRoomInstance`, and [`isolate_live_rooms`]
+/// draws it only in the views that frame the body's room. The body is the
+/// authority: when the body goes into another live room, the drawable goes
+/// with it on the same frame. A body with no stamp is in the sole live room,
+/// so its drawable carries no stamp either and every camera draws it.
+///
+/// A view's own projections (`PresentedForView`) are not changed here; they
+/// belong to the per-view pass.
+#[allow(clippy::type_complexity)]
+pub fn stamp_presentations_with_their_subject_s_room(
+    mut commands: Commands,
+    live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
+    drawables: Query<
+        (
+            Entity,
+            &ambition_platformer2d_shared_tangle::lifecycle::PresentationOf,
+            Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
+        ),
+        Without<ambition_sim_view::PresentedForView>,
+    >,
+) {
+    for (drawable, subject, stamp) in &drawables {
+        let wanted = live.stamped(subject.0);
+        if stamp.map(|stamp| stamp.0) == wanted {
+            continue;
+        }
+        // A teardown can despawn the drawable in this frame; then there is
+        // nothing to keep in a room.
+        match wanted {
+            Some(room) => {
+                commands
+                    .entity(drawable)
+                    .try_insert(ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance(room));
+            }
+            None => {
+                commands
+                    .entity(drawable)
+                    .try_remove::<ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>();
+            }
+        }
+    }
+}
+
 /// Give each camera only the live room its view frames (view half, cut V3).
 ///
 /// Live rooms use one coordinate space, so a camera that draws the world layer

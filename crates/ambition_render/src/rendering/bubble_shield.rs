@@ -238,20 +238,43 @@ pub fn sync_bubble_shield_visual(
     mut commands: Commands,
     sprite: Option<Res<BubbleShieldSprite>>,
     active_session: Option<Res<ActiveSessionScope>>,
-    world: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<
+    // Each drawable is placed by the geometry of its own live room.
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomOf<
         ambition_platformer2d_core::RoomGeometry,
     >,
     // Every raised shield, resolved sim-side into the pooled read model.
     active: Res<ambition_sim_view::ShieldRingsView>,
     // The danger flicker's phase. Sim-derived: see `DANGER_PERIOD_TICKS`.
     tick: Res<ambition_time::SimTick>,
-    mut bubbles: Query<(&mut Transform, &mut Sprite, &mut Visibility), With<BubbleShieldVisual>>,
+    mut bubbles: Query<
+        (
+            Entity,
+            &mut Transform,
+            &mut Sprite,
+            &mut Visibility,
+            Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
+        ),
+        With<BubbleShieldVisual>,
+    >,
 ) {
-    let active = &active.0;
+    // A guard whose live room cannot be told is not drawn: there is no
+    // geometry to place it by.
+    let active: Vec<_> = active
+        .0
+        .iter()
+        .filter_map(|guard| Some((*guard, guard.room?, rooms.in_room(guard.room?)?)))
+        .collect();
     let pool_size = bubbles.iter().count();
     let mut assigned = 0usize;
-    for (mut transform, mut sprite, mut vis) in &mut bubbles {
-        if let Some(guard) = active.get(assigned).copied() {
+    for (bubble, mut transform, mut sprite, mut vis, stamp) in &mut bubbles {
+        if let Some((guard, room, world)) = active.get(assigned).copied() {
+            // A pooled bubble draws a different guard from frame to frame, so it
+            // takes the room of the guard it draws now.
+            if stamp.map(|stamp| stamp.0) != Some(room) {
+                commands
+                    .entity(bubble)
+                    .try_insert(ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance(room));
+            }
             transform.translation =
                 ambition_platformer2d_core::config::world_to_bevy(&world.0, guard.pos, BUBBLE_Z);
             // The field is an ellipse that belongs to the body, so it rotates with
@@ -305,6 +328,68 @@ pub fn sync_bubble_shield_visual(
 
 #[cfg(test)]
 mod tests {
+    /// Each pooled bubble draws its guard in the guard's own live room (view
+    /// half, cut V2g). Two live rooms of different sizes, a raised guard in
+    /// each at one simulation position: each bubble is placed by its guard's
+    /// room and carries that room's stamp, so V3's band draws it only in the
+    /// views that frame that room. A guard whose room cannot be told is not
+    /// drawn.
+    #[test]
+    fn each_bubble_is_drawn_in_its_guard_s_own_live_room() {
+        use ambition_platformer2d_core as ae;
+        use ambition_platformer2d_shared_tangle::lifecycle::{
+            insert_live_room_component, spawn_live_room, InRoomInstance, LiveRoomInstance,
+        };
+        const AT: ae::Vec2 = ae::Vec2::new(100.0, 200.0);
+        let world_of = |size: ae::Vec2| ae::World::new("shield room", size, ae::Vec2::new(40.0, 40.0), Vec::new());
+        let (big, small) = (ae::Vec2::new(800.0, 600.0), ae::Vec2::new(400.0, 300.0));
+        let guard = |room| ambition_sim_view::ShieldRingFact {
+            pos: AT,
+            size: ae::Vec2::new(20.0, 40.0),
+            parrying: false,
+            integrity: 1.0,
+            stun_secs: 0.0,
+            gravity_dir: ae::Vec2::new(0.0, 1.0),
+            room,
+        };
+        let mut app = App::new();
+        insert_live_room_component(app.world_mut(), ae::RoomGeometry(world_of(big)));
+        let second = LiveRoomInstance::ACTIVATION.next();
+        spawn_live_room(app.world_mut(), second, ae::RoomGeometry(world_of(small)));
+        app.init_resource::<ambition_time::SimTick>();
+        app.insert_resource(ambition_sim_view::ShieldRingsView(vec![
+            guard(Some(LiveRoomInstance::ACTIVATION)),
+            guard(Some(second)),
+            guard(None),
+        ]));
+        for _ in 0..3 {
+            app.world_mut().spawn(new_bubble_sprite(Handle::default()));
+        }
+        app.add_systems(Update, sync_bubble_shield_visual);
+        app.update();
+        app.update();
+
+        let world = app.world_mut();
+        let mut q = world.query::<(&Transform, &Visibility, Option<&InRoomInstance>)>();
+        let mut drawn: Vec<(u32, (i32, i32))> = q
+            .iter(world)
+            .filter(|(_, visibility, _)| **visibility == Visibility::Visible)
+            .map(|(transform, _, stamp)| {
+                (
+                    stamp.map_or(u32::MAX, |stamp| stamp.0.ordinal()),
+                    (transform.translation.x as i32, transform.translation.y as i32),
+                )
+            })
+            .collect();
+        drawn.sort();
+        let flipped = |size: ae::Vec2| ((AT.x - size.x * 0.5) as i32, (size.y * 0.5 - AT.y) as i32);
+        assert_eq!(
+            drawn,
+            vec![(LiveRoomInstance::ACTIVATION.ordinal(), flipped(big)), (second.ordinal(), flipped(small))],
+            "(room, position) of each drawn bubble: each must be placed by its guard's live room and stamped with it"
+        );
+    }
+
     use super::*;
 
     fn alpha_at(img: &Image, x: usize, y: usize) -> u8 {

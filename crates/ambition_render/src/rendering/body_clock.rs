@@ -44,7 +44,8 @@ const COLOUR: Color = Color::srgb(1.0, 0.55, 0.1);
 /// the bar when the clock is gone.
 pub fn sync_body_clock_visuals(
     mut commands: Commands,
-    world: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<
+    // Each drawable is placed by the geometry of its body's own live room.
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomOf<
         ambition_platformer2d_core::RoomGeometry,
     >,
     active_session: Option<Res<ActiveSessionScope>>,
@@ -70,6 +71,10 @@ pub fn sync_body_clock_visuals(
             continue;
         };
         drawn.push(bar.body);
+        // A body whose live room cannot be told keeps its last placement.
+        let Some(world) = rooms.of(bar.body) else {
+            continue;
+        };
         sprite.custom_size = Some(bar_size(fact.remaining_fraction));
         transform.translation = bar_translation(&world.0, fact);
         // This system owns the bar's visibility every frame. The portal
@@ -82,6 +87,9 @@ pub fn sync_body_clock_visuals(
         }
     }
     for fact in clocks.0.iter().filter(|fact| !drawn.contains(&fact.body)) {
+        let Some(world) = rooms.of(fact.body) else {
+            continue;
+        };
         let mut sprite = Sprite::from_color(COLOUR, bar_size(fact.remaining_fraction));
         sprite.custom_size = Some(bar_size(fact.remaining_fraction));
         commands.spawn_session_scoped(
@@ -193,6 +201,50 @@ mod tests {
         assert!(
             bars(&mut app).is_empty(),
             "the clock is gone and the bar stayed"
+        );
+    }
+
+    /// Each body's clock is drawn in its body's own live room (view half,
+    /// cut V2g). Two live rooms of different sizes, a clocked body in each at
+    /// one simulation position: each bar is placed by its body's room and
+    /// carries that room's stamp, so V3's band draws it only in the views that
+    /// frame that room. Before the cut, a second live room stopped the clock
+    /// bars: the system read the sole live room and did not run.
+    #[test]
+    fn each_clock_is_placed_and_stamped_by_its_body_s_own_live_room() {
+        use ambition_platformer2d_shared_tangle::lifecycle::{spawn_live_room, InRoomInstance, LiveRoomInstance};
+        let small = ae::Vec2::new(400.0, 300.0);
+        let world_of = |size: ae::Vec2| {
+            ambition_platformer2d_core::World::new("body clock", size, ae::Vec2::new(size.x * 0.5, size.y * 0.5), Vec::new())
+        };
+        let mut app = app();
+        let second = LiveRoomInstance::ACTIVATION.next();
+        spawn_live_room(app.world_mut(), second, ambition_platformer2d_core::RoomGeometry(world_of(small)));
+        app.add_systems(
+            Update,
+            super::super::view_isolation::stamp_presentations_with_their_subject_s_room.after(sync_body_clock_visuals),
+        );
+        let home = app.world_mut().spawn(InRoomInstance(LiveRoomInstance::ACTIVATION)).id();
+        let away = app.world_mut().spawn(InRoomInstance(second)).id();
+        app.world_mut().resource_mut::<BodyClocksView>().0 = vec![fact(home, 1.0), fact(away, 1.0)];
+        app.update();
+        app.update();
+
+        let world = app.world_mut();
+        let mut q = world.query::<(&BodyClockVisual, &Transform, Option<&InRoomInstance>)>();
+        let mut drawn: Vec<(Entity, Option<u32>, Vec3)> = q
+            .iter(world)
+            .map(|(bar, transform, stamp)| (bar.body, stamp.map(|stamp| stamp.0.ordinal()), transform.translation))
+            .collect();
+        drawn.sort_by_key(|(body, ..)| *body);
+        let mut expected = vec![
+            (home, Some(LiveRoomInstance::ACTIVATION.ordinal()), bar_translation(&world_of(WORLD), &fact(home, 1.0))),
+            (away, Some(second.ordinal()), bar_translation(&world_of(small), &fact(away, 1.0))),
+        ];
+        expected.sort_by_key(|(body, ..)| *body);
+        assert_eq!(
+            drawn, expected,
+            "(body, room, position) of each bar: each must be placed by its body's live room and stamped with it"
         );
     }
 

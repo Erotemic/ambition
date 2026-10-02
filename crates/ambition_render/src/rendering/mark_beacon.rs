@@ -22,7 +22,8 @@ const BEACON_SIZE: ae::Vec2 = ae::Vec2::new(30.0, 70.0);
 /// cleared. Visible build only.
 pub fn sync_mark_beacon_visual(
     mut commands: Commands,
-    world: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<
+    // Each drawable is placed by the geometry of its own live room.
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomOf<
         ambition_platformer2d_core::RoomGeometry,
     >,
     asset_server: Res<AssetServer>,
@@ -38,7 +39,11 @@ pub fn sync_mark_beacon_visual(
     else {
         return;
     };
-    for &pos in &marks.0 {
+    for &(pos, room) in &marks.0 {
+        // A mark whose live room cannot be told is not drawn.
+        let Some((room, world)) = room.and_then(|room| Some((room, rooms.in_room(room)?))) else {
+            continue;
+        };
         // +Y is down in world space, so "up" (toward the ceiling) is -Y.
         let translation = ambition_platformer2d_core::config::world_to_bevy(
             &world.0,
@@ -48,7 +53,7 @@ pub fn sync_mark_beacon_visual(
         let mut sprite = Sprite::from_image(asset_server.load("sprites/props/mark_beacon.png"));
         sprite.custom_size = Some(BEACON_SIZE);
         commands.spawn_session_scoped(
-            session_scope,
+            session_scope.in_room(Some(room)),
             (
                 MarkBeaconVisual,
                 sprite,

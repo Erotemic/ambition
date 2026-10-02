@@ -2059,7 +2059,7 @@ names its subject by body or seat (`ViewSubject`, `ViewParticipant`).
 | Cut | Work | State |
 | --- | --- | --- |
 | V1 | The camera resolve frames each view in the live room of its framed body | ✅ below |
-| V2 | Draw roads place each entity by the geometry of its own live room (`LiveRoomOf`), not the sole room | ◐ the camera apply (V2a), feature/actor sprites (V2b), items and projectiles (V2c), lock walls (V2d) and nameplates (V2e), fx, slashes and limb trails (V2f), below; the unroomed fx producers (54 sites), the blink preview, health bars and debug overlays are open |
+| V2 | Draw roads place each entity by the geometry of its own live room (`LiveRoomOf`), not the sole room | ◐ the camera apply (V2a), feature/actor sprites (V2b), items and projectiles (V2c), lock walls (V2d) and nameplates (V2e), fx, slashes and limb trails (V2f), and the visuals that ride a body (V2g), below; the unroomed fx producers (54 sites), the blink preview, health bars, debug overlays and the room-feature visuals (gravity zones, shrines, labels, unauthored volumes) are open |
 | V3 | A camera draws only the live room of its view: a room render band, as the view band does for projections | ✅ below |
 | V4 | Room visuals and the LDtk level are presented per live room, and retire with it | ✅ static room visuals (V4a), the LDtk level (V4b) and parallax (V4c), below |
 | V5 | Two seats in two live rooms get two views (the product rule: a split is mandatory in different rooms) | ✅ below |
@@ -2177,6 +2177,31 @@ second view) and `an_equivalent_world_reload_draws_its_room_once` (the
 shipped game; the room visual, marker, parallax and LDtk counts are the same
 10 frames after an equivalent reload; before the fix, 258 against 140).
 `SoleLiveRoomSpec` 25/21 -> 20/18, `SoleLiveRoom` 46/39 -> 45/38.
+
+✅ **V2g landed 2026-10-01: the visuals that ride a body are drawn in the
+body's own live room.** The shield bubble, the body clock, the morph ball,
+the tether, the flyline, the trapdoor, the wielded items and the mark
+beacon read the sole live room, so while two rooms were live none of them
+was drawn (a `SoleLiveRoom` system does not run then). Each is now placed by
+the geometry of its body's room (`LiveRoomOf::of(body)`, or the `room` its
+read-model row now carries: `ShieldRingFact`, `HostileWieldedItemFact`,
+`MarkBeaconsView`). Each is stamped with that room, so V3's band draws it
+only in the views that frame it. A drawable that names its body
+(`PresentationOf`) is stamped by one rule,
+`stamp_presentations_with_their_subject_s_room` (`view_isolation.rs`, first
+in the band chain): it takes the body's stamp on the frame the body changes
+rooms. A pooled shield bubble takes the room of the guard it draws; a
+wielded item and a beacon, built again each frame, are spawned in their
+row's room. Witnesses: `each_clock_is_placed_and_stamped_by_its_body_s_own_live_room`
+(two live rooms of different sizes, a clocked body in each: each bar has
+its body's room and that room's position; poisons: the stamp rule doing
+nothing, every stamp `None`; every bar placed by the first room, the second
+bar at the first room's position) and
+`each_bubble_is_drawn_in_its_guard_s_own_live_room` (two guards in two
+rooms and one with no room: two bubbles, each stamped and placed by its
+room; poison, the bubble's stamp not written: no stamps). ⚠ The others
+(morph ball, tether, flyline, trapdoor, wielded items, beacon) take the
+same two calls with no witness of their own. `SoleLiveRoom` 45/38 -> 37/30.
 
 ✅ **V2b landed 2026-10-01: a feature or actor sprite is placed by its own
 room.** `DynamicFeatureFact` names the `room` of its body (`LiveRooms::of`).

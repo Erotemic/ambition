@@ -112,7 +112,8 @@ pub struct WieldedItemVisual;
 pub fn sync_wielded_item_visuals(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    world: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<
+    // Each drawable is placed by the geometry of its own live room.
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomOf<
         ambition_platformer2d_core::RoomGeometry,
     >,
     active_session: Option<Res<ActiveSessionScope>>,
@@ -132,6 +133,10 @@ pub fn sync_wielded_item_visuals(
 
     for fact in &wielded_items.0 {
         let Some(spec) = catalog.get(&fact.item_id) else {
+            continue;
+        };
+        // A wielder whose live room cannot be told is not drawn.
+        let Some((room, world)) = fact.room.and_then(|room| Some((room, rooms.in_room(room)?))) else {
             continue;
         };
         let texture = textures
@@ -163,7 +168,7 @@ pub fn sync_wielded_item_visuals(
         sprite.rect = Some(spec.source_rect.clone());
 
         commands.spawn_session_scoped(
-            session_scope,
+            session_scope.in_room(Some(room)),
             (
                 sprite,
                 Anchor(Vec2::new(anchor_x_norm, anchor_y_norm)),

@@ -265,19 +265,21 @@ impl PersistedFates {
 
     /// Read off the world the commit is about to be applied to.
     pub fn of_world(world: &World) -> Self {
-        let mut fates = world
+        world
             .get_resource::<ambition_persistence::save::AmbitionGameSave>()
-            .map_or_else(Self::unrecorded, |save| Self::from_save(save.data()));
-        if let (Some(schedule), Some(now)) = (
-            world.get_resource::<crate::features::ecs::breakable_respawns::BreakableRespawnSchedule>(),
-            world.get_resource::<crate::features::GameplayElapsed>(),
-        ) {
-            fates.broken_breakables = schedule
-                .records()
-                .filter_map(|(key, due)| Some((key.clone(), Some(due - now.0).filter(|r| *r > 0.0)?)))
-                .collect();
-        }
-        fates
+            .map_or_else(Self::unrecorded, |save| Self::from_save(save.data()))
+    }
+
+    /// These facts, with the breakables still broken as the commit is
+    /// requested (OW5). The caller supplies them: the respawn schedule and its
+    /// clock are the feature layer's, and construction does not name that
+    /// layer.
+    pub fn with_broken_breakables(
+        mut self,
+        remaining: std::collections::BTreeMap<(String, String), f32>,
+    ) -> Self {
+        self.broken_breakables = remaining;
+        self
     }
 
     /// How long the breakable `id` of room `room` stays broken, when its

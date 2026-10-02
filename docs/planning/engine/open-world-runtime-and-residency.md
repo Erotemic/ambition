@@ -2013,8 +2013,10 @@ due time by (room definition id, authored breakable id):
   `mirror_breakable_respawns` writes the record when a timer runs with no
   record and removes it when the breakable is whole again;
 * when the room retires, the record stays, and nothing ticks it;
-* the commit facts (`PersistedFates::of_world`) carry the time that
-  remains, and lowering builds a breakable that is not yet due broken,
+* the commit facts carry the time that remains (`stage.rs` reads
+  `remaining_breakable_respawns` and passes it to
+  `PersistedFates::with_broken_breakables`; construction does not name the
+  feature layer), and lowering builds a breakable that is not yet due broken,
   with `RespawnTimer(remaining)`; a due one is built whole.
 
 A replay is a fresh attempt: `forget_breakable_respawns_on_replay` (in

@@ -99,6 +99,24 @@ impl BreakableRespawnSchedule {
     }
 }
 
+/// The time each broken breakable stays broken as of now, by (room definition
+/// id, authored id): the records whose respawn is not yet due. A room commit
+/// reads it (`PersistedFates::with_broken_breakables`).
+pub fn remaining_breakable_respawns(world: &World) -> BTreeMap<(String, String), f32> {
+    let (Some(schedule), Some(now)) = (
+        world.get_resource::<BreakableRespawnSchedule>(),
+        world.get_resource::<GameplayElapsed>(),
+    ) else {
+        return BTreeMap::new();
+    };
+    schedule
+        .due
+        .iter()
+        .map(|(key, due)| (key.clone(), due - now.0))
+        .filter(|(_, remaining)| *remaining > 0.0)
+        .collect()
+}
+
 /// Keep each live breakable's record in step with its live timer: a broken
 /// breakable whose timer runs gets its due time when it has none, and a whole
 /// breakable loses its record. Writes only on those two edges.

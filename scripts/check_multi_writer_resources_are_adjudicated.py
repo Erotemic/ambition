@@ -411,6 +411,10 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_boss_encounter/src/systems.rs",
         "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
     ),
+    "BreakableRespawnSchedule": (
+        "crates/ambition_platformer2d_actor_monolith/src/features/ecs/breakable_respawns.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
+    ),
     "AuthoredOccurrences": (
         "crates/ambition_held_items/src/lib.rs",
         "crates/ambition_platformer2d_actor_monolith/src/body_whereabouts.rs",
@@ -1813,6 +1817,19 @@ ADJUDICATED: dict[str, str] = {
         "Every writer runs in the simulation schedule or the checkpoint apply, "
         "and the type is rollback state with a value checksum "
         "(`boss.defeats_since_checkpoint`)."
+    ),
+    "BreakableRespawnSchedule": (
+        "CORRECT — ONE RECORDER, THREE FORGETTERS, ONE TYPE (OW5, 2026-10-02). The "
+        "map is private (`features/ecs/breakable_respawns.rs`). "
+        "`mirror_breakable_respawns` is the only system that inserts a due time or "
+        "removes one record, from the live `RespawnTimer`. "
+        "`forget_breakable_respawns_on_replay` calls `forget_room` on an ADMITTED "
+        "replay, `forget_breakable_respawns_on_restore` calls `forget_all` in the "
+        "checkpoint apply, and `SessionScopedResources::reset` (`teardown.rs`) "
+        "calls `forget_all` at the session edge. Every writer but the teardown "
+        "runs in the simulation schedule or the checkpoint apply, and the type is "
+        "rollback state with a value checksum "
+        "(`feature.breakable_respawn_schedule`)."
     ),
     "AuthoredOccurrences": (
         "CORRECT — SIX WRITER FILES ONTO FIVE `&mut self` METHODS, AND THE ENTRY "

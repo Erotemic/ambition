@@ -1286,6 +1286,9 @@ mod tests {
         fn median_snapshot(ledger: &AuthoredOccurrences) -> std::time::Duration {
             let mut times: Vec<_> = (0..101)
                 .map(|_| {
+                    // AMBITION_REVIEW(determinism): wall clock, in a test. It
+                    // measures the cost of a snapshot, and no simulation code
+                    // reads it.
                     let start = std::time::Instant::now();
                     let snapshot = std::hint::black_box(ledger.clone());
                     std::hint::black_box(snapshot.peer_stable_checksum());

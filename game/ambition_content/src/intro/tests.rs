@@ -4,7 +4,6 @@
 //! fixture); they verify the data + dispatch contracts that keep the
 //! intro dialogue/cutscenes wired into the sandbox dialog runtime.
 
-use super::cutscene::install_intro_cutscenes;
 use super::dialog::intro_dialogue_ids;
 use ambition_cutscene::CutsceneLibrary;
 use ambition_dialog::DialogState;
@@ -124,8 +123,7 @@ fn each_intro_room_says_its_cutscene_in_data_and_the_library_has_it() {
         .to_room_set(&manifest, &LdtkVocabulary::engine())
         .expect("the shipped worlds compose")
         .rooms;
-    let mut lib = CutsceneLibrary::default();
-    install_intro_cutscenes(&mut lib);
+    let lib = crate::dialogue::cutscene_defaults::default_cutscene_library();
     for (room, cutscene) in [
         ("intro_wake_room", "intro_wake"),
         ("intro_raid_corridor", "intro_raid"),
@@ -140,7 +138,7 @@ fn each_intro_room_says_its_cutscene_in_data_and_the_library_has_it() {
             Some(cutscene),
             "`{room}` does not say it starts `{cutscene}`"
         );
-        assert!(lib.get(cutscene).is_some(), "`{cutscene}` is not in the intro library");
+        assert!(lib.get(cutscene).is_some(), "`{cutscene}` is not in the cutscene library");
     }
 }
 

@@ -110,19 +110,18 @@ the participant. ⚠ It does NOT answer it for progression: whether a participan
 carries anything across bodies is the other side of the gap above, and is still
 unrepresentable.
 
-⛔⛔ **AND THE CO-OP QUESTION BELOW IS NOW LIVE RATHER THAN HYPOTHETICAL —
-filed as `awaiting-maintainer-decision.md` #54.** The predicate falls back to an
-existential over every `DrivingParticipant` holder, so with two seats **a wall
-gated on `body.can wall_climb` opens when EITHER driver can climb**, and the seat
-that cannot walks through a wall its own body never satisfied. The code answers
-"the party", by default, today.
-⚠ The per-BODY answer is not a predicate change: `gate_solids` is one
-`Vec<Block>` on one overlay read by body collision, projectiles and rendering
-alike, so a wall that stands for one player and not another is a mechanism
-change. ⇒ Which makes this page's *"do not flatten all progression into the
-participant permanently owns ability X"* pressure concrete: the flattening
-already happened for co-op, in the direction of the PARTY, and it happened
-because nobody chose.
+✅ **The co-op case below was ruled 2026-10-01 (Q54): a gate is evaluated per
+actor, and GATE-PER-ACTOR built it. What follows is the state before that
+ruling.** The predicate fell back to an
+existential over every `DrivingParticipant` holder, so with two seats a wall
+gated on `body.can wall_climb` opened when EITHER driver could climb, and the
+seat that could not walked through a wall its own body never satisfied. The
+per-body answer was not a predicate change: `gate_solids` was one `Vec<Block>`
+read by body collision, projectiles and rendering alike, so a wall that stands
+for one player and not another needed a mechanism change, which
+GATE-PER-ACTOR made. The lesson for this page's *"do not flatten all
+progression into the participant permanently owns ability X"*: the flattening
+had happened for co-op, toward the PARTY, because nobody chose.
 
 ## Open design questions — deliberately unresolved
 
@@ -131,9 +130,13 @@ because nobody chose.
 - ◐ What survives leaving/dying/abandoning a possessed body? **Answered for
   ROUTES 2026-09-04 — nothing does; a route asks the driven body.** Open for
   progression.
-- ⛔ How should co-op handle asymmetric capabilities and temporary separation?
-  **LIVE, not hypothetical — filed as awaiting-maintainer-decision #54.** The
-  code answers "the party" today, by an existential nobody chose.
+- ◐ How should co-op handle asymmetric capabilities and temporary separation?
+  **Answered for GATES 2026-10-01 (Q54, `maintainer-decisions.md`;
+  GATE-PER-ACTOR in `queue.md`): a body/capability gate is evaluated per
+  actor**, open for the body that satisfies it and solid for the body beside
+  it that does not (`a_body_gate_is_open_only_for_the_bodies_that_satisfy_it`).
+  Temporary separation is the Alice/Bob work in `multiplayer.md`. Open for
+  progression (what a participant carries across bodies).
 - Can a physical item be required for traversal even after its underlying
   entitlement was discovered?
 - How much sequence breaking is desirable?

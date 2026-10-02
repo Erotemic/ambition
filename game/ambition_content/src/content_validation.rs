@@ -415,12 +415,7 @@ fn validate_cutscene_bindings(project: &LdtkProject, report: &mut ContentValidat
     // Both endpoints. `drain_cutscene_triggers` does
     // `let Some(script) = library.get(&id) else { continue; }`, so a binding to
     // a missing cutscene is silent at runtime.
-    //
-    // The library must be the assembled one. The intro installs five scripts
-    // (`install_intro_cutscenes`), and validating against the defaults alone
-    // would reject every intro binding.
-    let mut library = crate::dialogue::cutscene_defaults::default_cutscene_library();
-    crate::intro::cutscene::install_intro_cutscenes(&mut library);
+    let library = crate::dialogue::cutscene_defaults::default_cutscene_library();
 
     let bound = authored_entry_cutscenes(project);
     let rows: Vec<(&str, &str, &str)> = bound

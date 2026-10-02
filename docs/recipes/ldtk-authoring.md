@@ -60,10 +60,11 @@ IntGrid-derived block `"ldtk solid"` / `"ldtk one-way"`. The author's `name` is
 gone. The command reports `lowered N static-collision entities into M IntGrid
 cells`; it does not say a name went with them.
 
-That matters because **names are load-bearing**. Mary-O dresses its flagpole and
-its cellar masonry by name (`goal_pole`, `goal_pole_knob`, `goal_pole_banner`,
-`vault_*` in `game/ambition_demo_mary_o/src/lib.rs`) and `authored_pole` PANICS
-on a room with no `goal_pole` block. Author those in a **second pass** with
+That matters because **names are load-bearing**. Mary-O dresses its flagpole by
+name (`goal_pole`, `goal_pole_knob`, `goal_pole_banner` in
+`game/ambition_demo_mary_o/src/lib.rs`) and `authored_pole` PANICS on a room
+with no `goal_pole` block. (Its cellar masonry is no longer named: a `Solid`
+says its colour in its `color` field.) Author those in a **second pass** with
 `entity add`, which does not lower:
 
 ```bash
@@ -90,6 +91,11 @@ room becomes live. The script must be in the cutscene library, and its seen
 flag stops a second play. Only one level of an active area can set it: the area
 merge keeps the first value. Content validation refuses an unknown script and
 a second value in one area.
+
+The scripts are content too: Ambition's are in
+`game/ambition_content/assets/data/cutscenes/*.ron` (schema
+`cutscene_library`), which the content compiler checks and merges into one
+library.
 
 ```bash
 PYTHONPATH=tools/ambition_ldtk_tools python3 -m ambition_ldtk_tools level set-field \

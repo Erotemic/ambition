@@ -1,88 +1,62 @@
-//! Default Ambition cutscene library + room→cutscene bindings.
+//! Ambition's cutscene library, read from its content pack.
 
-use ambition_cutscene::{CutsceneBeat, CutsceneLibrary, CutsceneScript};
+use ambition_cutscene::CutsceneLibrary;
 
-/// Default sandbox cutscenes shipped with the sandbox.
+/// Every cutscene Ambition ships: the `cutscene_library` its pack lowered from
+/// `assets/data/cutscenes/*.ron`.
 pub fn default_cutscene_library() -> CutsceneLibrary {
-    let mut lib = CutsceneLibrary::default();
-    lib.insert(
-        CutsceneScript::new(
-            "test_intro",
-            vec![
-                CutsceneBeat::Banner {
-                    text: "// boot sequence".into(),
-                    seconds: 1.4,
-                },
-                // ⛔ THE FADE THAT USED TO SIT HERE IS GONE (`Q143`). It was
-                // the SECOND beat, after a visible banner, and it targeted
-                // clear — so once a fade actually draws, the only honest start
-                // alpha for it is the clear screen it already had, which makes
-                // it 0.8 s of nothing. The other two shipped fades open their
-                // scripts and mean "up from black"; this one never meant
-                // anything, and the ruling says these are not worth preserving
-                // effort. Deleted rather than given an invented intent.
-                CutsceneBeat::Dialogue {
-                    speaker: "WARDEN".into(),
-                    text: "Instance online. You'll know your purpose when you find it.".into(),
-                },
-                CutsceneBeat::SetFlag {
-                    id: "test_intro_seen".into(),
-                    on: true,
-                },
-            ],
-        )
-        .with_seen_flag("test_intro_seen"),
-    );
-    lib.insert(
-        CutsceneScript::new(
-            "cutscene_lab_intro",
-            vec![
-                CutsceneBeat::Banner {
-                    text: "// cutscene proof".into(),
-                    seconds: 1.0,
-                },
-                CutsceneBeat::Dialogue {
-                    speaker: "WARDEN".into(),
-                    text: "This is the cutscene-proof room. The seen-flag stops me from talking twice."
-                        .into(),
-                },
-                CutsceneBeat::Wait { seconds: 0.4 },
-                CutsceneBeat::Dialogue {
-                    speaker: "WARDEN".into(),
-                    text: "Hold Reset to skip cutscenes -- useful when you've heard a beat already."
-                        .into(),
-                },
-                CutsceneBeat::SetFlag {
-                    id: "cutscene_lab_intro_seen".into(),
-                    on: true,
-                },
-            ],
-        )
-        .with_seen_flag("cutscene_lab_intro_seen"),
-    );
-    lib.insert(
-        CutsceneScript::new(
-            "boss_intro_gradient_sentinel",
-            vec![
-                CutsceneBeat::Banner {
-                    text: "GRADIENT SENTINEL".into(),
-                    seconds: 1.6,
-                },
-                CutsceneBeat::Wait { seconds: 0.4 },
-                CutsceneBeat::Dialogue {
-                    speaker: "SENTINEL".into(),
-                    text: "Your loss surface is steep. I am its slope.".into(),
-                },
-            ],
-        )
-        .with_seen_flag("boss_intro_gradient_sentinel_seen"),
-    );
-    lib
+    let mut library = CutsceneLibrary::default();
+    for script in ambition_cutscene::content_schema::lowered_cutscenes(crate::pack::prepared())
+        .expect("Ambition's pack declares its cutscene_library files")
+    {
+        library.insert(script.clone());
+    }
+    library
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The cutscenes are content: a script appended to a cutscene file
+    /// reaches the lowered library through Ambition's own pack compile, and
+    /// one id in both files refuses the pack. The control is the unedited
+    /// compile, whose library is the one the game installs.
+    #[test]
+    fn a_cutscene_authored_in_the_pack_is_in_the_library() {
+        use ambition_cutscene::content_schema::lowered_cutscenes;
+        let ids = |pack: &ambition_content_pack::PreparedContentPack| -> Vec<String> {
+            lowered_cutscenes(pack)
+                .expect("the pack lowers a library")
+                .iter()
+                .map(|script| script.id.clone())
+                .collect()
+        };
+        let shipped = crate::pack::compile_pack().expect("the shipped pack compiles");
+        let mut shipped_ids = ids(&shipped);
+        shipped_ids.sort();
+        let installed: Vec<String> = default_cutscene_library().scripts.into_keys().collect();
+        assert_eq!(shipped_ids, installed);
+
+        let append = |file: &'static str, script: &'static str| {
+            move |path: &str, text: String| {
+                if path != file {
+                    return text;
+                }
+                let end = text.rfind(']').expect("the file is a list");
+                format!("{}, {script}\n]", text[..end].trim_end().trim_end_matches(','))
+            }
+        };
+        let probe = r#"(id: "pack_probe", beats: [Wait(seconds: 0.1)])"#;
+        let edited = crate::pack::compile_pack_with(append("data/cutscenes/intro.ron", probe))
+            .expect("one more script compiles");
+        assert!(ids(&edited).contains(&"pack_probe".to_string()));
+
+        let again = r#"(id: "test_intro", beats: [Wait(seconds: 0.1)])"#;
+        let doubled = crate::pack::compile_pack_with(append("data/cutscenes/intro.ron", again));
+        let failure = format!("{:?}", doubled.expect_err("an id in both files refuses the pack"));
+        assert!(failure.contains("DuplicateIdentity"), "{failure}");
+    }
 
     #[test]
     fn default_cutscene_library_includes_test_intro() {
@@ -96,3 +70,4 @@ mod tests {
         assert!(lib.get("boss_intro_gradient_sentinel").is_some());
     }
 }
+

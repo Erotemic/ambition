@@ -8,8 +8,14 @@ use std::collections::BTreeMap;
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
+#[cfg(feature = "content_pack")]
+pub mod content_schema;
+
 /// One beat in a cutscene script.
+// `deny_unknown_fields`: a pack authors beats, and a misspelt field must be
+// refused, not read as its default.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub enum CutsceneBeat {
     /// Hold the current presentation state for `seconds`. Used for
     /// pacing between beats.
@@ -176,6 +182,7 @@ impl CutsceneBeat {
 /// flag. Sandbox systems can skip a cutscene that's already been
 /// played by checking `AmbitionGameSaveData::flag(seen_flag)`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct CutsceneScript {
     pub id: String,
     pub beats: Vec<CutsceneBeat>,

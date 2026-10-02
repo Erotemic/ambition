@@ -78,7 +78,7 @@ ambition_encounter_features = { path = "../../crates/ambition_encounter_features
 # snapshot codecs (`SnapshotRegistry` is a resource). netcode.md: "each sim crate
 # registers its components' serialization."
 ambition_platformer2d_runtime = { path = "../../crates/ambition_platformer2d_runtime" }
-ambition_cutscene = { path = "../../crates/ambition_cutscene" }
+ambition_cutscene = { path = "../../crates/ambition_cutscene", features = ["content_pack"] }
 ambition_asset_manager = { path = "../../crates/ambition_asset_manager", features = ["bevy"] }
 ambition_sfx = { path = "../../crates/ambition_sfx" }
 ambition_vfx = { path = "../../crates/ambition_vfx" }

@@ -6,9 +6,10 @@
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
+| [`content_schema`](src/content_schema.rs) | The `cutscene_library` authored-content schema, owned by the cutscene capability. |
 | [`rollback_registration`](src/rollback_registration.rs) | Rollback declaration owned by `ambition_cutscene`. |
 
-_1 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_2 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

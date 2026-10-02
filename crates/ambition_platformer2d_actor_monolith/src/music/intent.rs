@@ -65,7 +65,7 @@ pub fn release_narrative_music_on_room_change(
 pub fn compute_music_intent(
     catalogs: Res<AdaptiveMusicCatalogRegistry>,
     director: Option<Res<MusicDirectorState>>,
-    encounters: Query<(&Encounter, &EncounterLifecycle, &EncounterWaves)>,
+    encounters: Query<(Entity, &Encounter, &EncounterLifecycle, &EncounterWaves)>,
     encounter_music: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
         EncounterMusicRequest,
     >,
@@ -86,10 +86,17 @@ pub fn compute_music_intent(
     // just an index, so the state is read from the entities directly). The
     // lifecycle supplies the generic phase; the wave policy supplies the
     // wave index/clock the adaptive states key on.
-    let states: HashMap<&str, (EncounterPhase, &EncounterWaves)> = encounters
-        .iter()
-        .map(|(enc, lifecycle, waves)| (enc.id.as_str(), (lifecycle.phase(), waves)))
-        .collect();
+    //
+    // Only the occurrences of the room the music plays for: an encounter is
+    // an occurrence in one live room, and the authored id names it only
+    // inside that room. Another room's fight does not drive the cue.
+    let heard = heard.get();
+    let states = heard_encounter_states(
+        heard,
+        encounters.iter().map(|(occurrence, enc, lifecycle, waves)| {
+            (rooms.live().of(occurrence), enc.id.as_str(), lifecycle.phase(), waves)
+        }),
+    );
     let active_catalog = audio_selection
         .provider_id()
         .and_then(|provider| catalogs.catalog_for(provider));
@@ -98,7 +105,6 @@ pub fn compute_music_intent(
         _ => None,
     };
 
-    let heard = heard.get();
     // No live room to hear: the music stays as it is, as it did when this
     // read could not run.
     let Some(definition) = rooms.definition_named(heard) else {
@@ -127,6 +133,29 @@ pub fn compute_music_intent(
         authority.authorize_cues(catalog.cue_ids().map(str::to_owned));
     }
     intent.authority = authority;
+}
+
+/// The adaptive resolver's `id -> (phase, waves)` lookup: the encounter
+/// occurrences of live room `heard` only. Within one live room an authored
+/// encounter id names one occurrence, so the id is a safe key here; across
+/// rooms it is not (two live instances of one room each run an occurrence of
+/// the same encounter).
+pub(super) fn heard_encounter_states<'a>(
+    heard: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+    occurrences: impl IntoIterator<
+        Item = (
+            Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+            &'a str,
+            EncounterPhase,
+            &'a EncounterWaves,
+        ),
+    >,
+) -> HashMap<&'a str, (EncounterPhase, &'a EncounterWaves)> {
+    occurrences
+        .into_iter()
+        .filter(|(room, ..)| *room == heard)
+        .map(|(_, id, phase, waves)| (id, (phase, waves)))
+        .collect()
 }
 
 /// Build the simple-track priority list. Priority, while a fight is on: the

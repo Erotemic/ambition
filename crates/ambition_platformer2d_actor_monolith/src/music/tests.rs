@@ -528,3 +528,41 @@ fn a_conversation_track_is_released_when_the_primary_seat_changes_room() {
         "(the track after a tick in chapel, after the primary seat went to the hall)"
     );
 }
+
+/// Adaptive music follows the occurrence in the room the music plays for,
+/// not the authored encounter id. Two live rooms each run an occurrence of
+/// `goblin_encounter`: #1 (heard) is starting, #2 has failed. The cue state
+/// is #1's (the control: the heard room's occurrence drives the cue), in
+/// both query orders. A third order with only #2's occurrence asks for no
+/// starting state. Poison: drop the room filter, and the id map keeps the
+/// last occurrence inserted, so the result depends on order.
+#[test]
+fn adaptive_music_follows_the_heard_rooms_occurrence_in_any_order() {
+    use ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance;
+    let heard = Some(LiveRoomInstance::ACTIVATION.next());
+    let other = heard.map(LiveRoomInstance::next);
+    let waves = waves_fixture(EncounterRun::default());
+    let director = director_with_active_cue(None);
+    let resolve = |order: Vec<(Option<LiveRoomInstance>, &'static str, EncounterPhase)>| {
+        let states = super::intent::heard_encounter_states(
+            heard,
+            order.into_iter().map(|(room, id, phase)| (room, id, phase, &waves)),
+        );
+        resolve_directive_for_binding(&binding("goblin_encounter", "goblin_cue"), &states, &director)
+    };
+    let heard_first = resolve(vec![
+        (heard, "goblin_encounter", EncounterPhase::Starting { remaining: 1.0 }),
+        (other, "goblin_encounter", EncounterPhase::Failed),
+    ]);
+    let heard_last = resolve(vec![
+        (other, "goblin_encounter", EncounterPhase::Failed),
+        (heard, "goblin_encounter", EncounterPhase::Starting { remaining: 1.0 }),
+    ]);
+    let only_other = resolve(vec![(other, "goblin_encounter", EncounterPhase::Starting { remaining: 1.0 })]);
+    assert_eq!(heard_first, heard_last, "the query order changed the cue");
+    assert!(
+        matches!(&heard_first, Some(AdaptiveCueDirective::Play { state_id, .. }) if state_id == "intro"),
+        "the heard room's starting occurrence drives the cue: {heard_first:?}"
+    );
+    assert_eq!(only_other, None, "another room's fight drove the cue: {only_other:?}");
+}

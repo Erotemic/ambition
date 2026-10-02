@@ -100,6 +100,8 @@ pub fn is_ai_slop_brain(brain: &CharacterBrain) -> bool {
 pub fn bounce_squash_ai_slop(
     mut commands: Commands,
     mut vfx: ambition_platformer2d::vfx::VfxWriter,
+    // The squash burst is drawn in the mob's own live room.
+    rooms: ambition_platformer2d::platformer::lifecycle::LiveRooms,
     mut sfx: ambition_platformer2d::sfx::BodySfxWriter,
     mut players: Query<(Entity, &mut ae::BodyKinematics), With<PrimaryPlayer>>,
     // Which bodies are AI Slop is their authored brain, read here rather
@@ -125,7 +127,7 @@ pub fn bounce_squash_ai_slop(
         ae::movement::set_jump_velocity(&mut player.vel, ae::DEFAULT_GRAVITY_DIR, BOUNCE_SPEED);
         // The squash pops a low, tan dust burst through the engine's shared particle
         // seam, so the mob leaves a mark instead of blinking out.
-        vfx.write(ambition_platformer2d::vfx::VfxMessage::Burst {
+        vfx.for_room(rooms.of(entity)).write(ambition_platformer2d::vfx::VfxMessage::Burst {
             pos: mob_kin.pos,
             count: 12,
             speed: 130.0,

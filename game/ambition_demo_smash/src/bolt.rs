@@ -163,6 +163,8 @@ pub fn steer_and_fly_bolts(
     )>,
     // The bolt's trail; see `SteeredBoltParams::trail_vfx`.
     mut cues: ambition_platformer2d::vfx::vfx::VfxWriter,
+    // The trail is drawn in the bolt's own live room.
+    rooms: ambition_platformer2d::platformer::lifecycle::LiveRooms,
 ) {
     let dt = time.sim_dt();
     if dt <= 0.0 {
@@ -231,7 +233,7 @@ pub fn steer_and_fly_bolts(
         bolt.trail_in_s -= dt;
         if bolt.trail_in_s <= 0.0 {
             bolt.trail_in_s = bolt.trail_every_s;
-            cues.write(ambition_platformer2d::vfx::vfx::VfxMessage::Effect {
+            cues.for_room(rooms.of(entity)).write(ambition_platformer2d::vfx::vfx::VfxMessage::Effect {
                 pos: bolt.pos,
                 fx: ambition_platformer2d::vfx::fx::FxId::new(&bolt.trail_vfx),
                 scale: 1.0,

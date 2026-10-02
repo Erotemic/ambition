@@ -28,7 +28,7 @@ use ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMo
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 use ambition_sfx::{SfxMessage, SfxWriter};
 use ambition_time::time_control::{ClockRequester, ClockResetRequest};
-use ambition_vfx::{VfxMessage, VfxWriter};
+use ambition_vfx::{VfxForRoom, VfxMessage, VfxWriter};
 
 /// Return a body to the room's spawn and clear its per-attempt state.
 ///
@@ -53,7 +53,8 @@ use ambition_vfx::{VfxMessage, VfxWriter};
 pub fn reset_sandbox(
     world: &ae::World,
     sfx: &mut SfxWriter,
-    vfx: &mut VfxWriter,
+    // Bound to the live room of the body that is reset.
+    vfx: &mut VfxForRoom<'_, '_>,
     motion_model: &mut ae::MotionModel,
     clusters: &mut ae::BodyClustersMut<'_>,
     // `None` while another live room stays: the sim clock is one clock for
@@ -328,7 +329,7 @@ pub fn return_the_replay_subject_to_spawn(
     reset_sandbox(
         &geometry.0,
         &mut sfx_writer,
-        &mut vfx_writer,
+        &mut vfx_writer.for_room(subject.room),
         &mut motion_model,
         &mut clusters,
         (live_rooms.iter().count() <= 1).then_some(&mut clock_resets),
@@ -502,7 +503,7 @@ mod tests {
             super::reset_sandbox(
                 &world,
                 &mut sfx,
-                &mut vfx,
+                &mut vfx.for_room(None),
                 &mut model,
                 &mut clusters,
                 Some(&mut clock_resets),

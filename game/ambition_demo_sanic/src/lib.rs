@@ -928,6 +928,8 @@ fn sync_super_form_traits(
     mut sparkle_accum: bevy::prelude::Local<f32>,
     mut sparkle_orbit: bevy::prelude::Local<f32>,
     mut vfx: ambition_platformer2d::vfx::VfxWriter,
+    // The sparkle is drawn in the live room of the body that wears the form.
+    rooms: ambition_platformer2d::platformer::lifecycle::LiveRooms,
     mut sfx: ambition_platformer2d::sfx::BodySfxWriter,
     mut commands: bevy::prelude::Commands,
     mut players: bevy::prelude::Query<
@@ -1007,7 +1009,7 @@ fn sync_super_form_traits(
         // keeps the falling motes around the torso.
         *sparkle_orbit += 2.399_963; // golden angle, radians
         let ring = ae::Vec2::new(sparkle_orbit.cos(), sparkle_orbit.sin()) * SUPER_SPARKLE_RADIUS;
-        vfx.write(ambition_platformer2d::vfx::VfxMessage::Burst {
+        vfx.for_room(body.and_then(|body| rooms.of(body))).write(ambition_platformer2d::vfx::VfxMessage::Burst {
             pos: pos + ring - ae::Vec2::new(0.0, SUPER_SPARKLE_RISE),
             count: 2,
             speed: 26.0,
@@ -1174,6 +1176,8 @@ pub fn scatter_rings_on_hit(
     >,
     mut spent: bevy::prelude::MessageReader<ambition_platformer2d::damage::WalletShieldSpent>,
     mut vfx: ambition_platformer2d::vfx::VfxWriter,
+    // The scatter is drawn in the live room of the struck body.
+    rooms: ambition_platformer2d::platformer::lifecycle::LiveRooms,
     mut sfx: ambition_platformer2d::sfx::BodySfxWriter,
     mut bodies: bevy::prelude::Query<
         (
@@ -1270,7 +1274,7 @@ pub fn scatter_rings_on_hit(
             ));
         }
 
-        vfx.write(ambition_platformer2d::vfx::VfxMessage::Burst {
+        vfx.for_room(rooms.of(event.victim)).write(ambition_platformer2d::vfx::VfxMessage::Burst {
             pos: event.pos,
             count: 24,
             // Matched to the rings' own launch speed, so the sparkle reads as the
@@ -1495,6 +1499,7 @@ fn take_the_controls_at_the_goal(
 pub fn clear_act_at_goal(
     player: bevy::prelude::Query<
         (
+            bevy::prelude::Entity,
             &ae::BodyKinematics,
             &ambition_platformer2d::characters::actor::BodyWallet,
         ),
@@ -1504,8 +1509,10 @@ pub fn clear_act_at_goal(
     rooms: ambition_platformer2d::world::rooms::SoleLiveRoomSpec,
     mut sfx: ambition_platformer2d::sfx::BodySfxWriter,
     mut vfx: ambition_platformer2d::vfx::VfxWriter,
+    // The clear burst is drawn in the live room of the runner.
+    live: ambition_platformer2d::platformer::lifecycle::LiveRooms,
 ) {
-    let Ok((kin, wallet)) = player.single() else {
+    let Ok((runner, kin, wallet)) = player.single() else {
         return;
     };
     let goal = goal_x_of(&rooms.spec().world);
@@ -1518,7 +1525,7 @@ pub fn clear_act_at_goal(
             rings: wallet.balance,
             dwell: ACT_CLEAR_DWELL,
         };
-        vfx.write(ambition_platformer2d::vfx::VfxMessage::Burst {
+        vfx.for_room(live.of(runner)).write(ambition_platformer2d::vfx::VfxMessage::Burst {
             pos: kin.pos,
             count: 40,
             speed: 320.0,

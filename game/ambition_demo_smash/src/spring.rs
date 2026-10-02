@@ -64,6 +64,8 @@ pub fn drop_authored_springs(
     bodies: Query<&ae::BodyKinematics>,
     // The plate's announcement; see `PlaceSpringParams::vfx`.
     mut cues: ambition_platformer2d::vfx::vfx::VfxWriter,
+    // A plate's effect is drawn in the live room of the body it is for.
+    rooms: ambition_platformer2d::platformer::lifecycle::LiveRooms,
     // The running match, so what this spawns dies with it (see
     // `ambition_platformer2d::versus_match::lifetime`).
     active_match: Option<Res<ambition_platformer2d::versus_match::ActiveMatch>>,
@@ -97,7 +99,7 @@ pub fn drop_authored_springs(
         // `PlaceSpringParams::vfx`.
         if !params.vfx.trim().is_empty() {
             let row = &params.vfx;
-            cues.write(ambition_platformer2d::vfx::vfx::VfxMessage::Effect {
+            cues.for_room(rooms.of(message.actor)).write(ambition_platformer2d::vfx::vfx::VfxMessage::Effect {
                 pos: at,
                 fx: ambition_platformer2d::vfx::fx::FxId::new(row),
                 scale: 1.0,
@@ -144,6 +146,8 @@ pub fn fire_and_expire_springs(
     )>,
     // The plate's announcement when it throws somebody.
     mut cues: ambition_platformer2d::vfx::vfx::VfxWriter,
+    // A plate's effect is drawn in the live room of the body it is for.
+    rooms: ambition_platformer2d::platformer::lifecycle::LiveRooms,
 ) {
     let dt = time.sim_dt();
     for (entity, mut spring) in &mut springs {
@@ -187,7 +191,7 @@ pub fn fire_and_expire_springs(
             // Announce the firing, so the launched player can attribute the
             // throw.
             if !spring.vfx.is_empty() {
-                cues.write(ambition_platformer2d::vfx::vfx::VfxMessage::Effect {
+                cues.for_room(rooms.of(entity)).write(ambition_platformer2d::vfx::vfx::VfxMessage::Effect {
                     pos: spring.pos,
                     fx: ambition_platformer2d::vfx::fx::FxId::new(&spring.vfx),
                     scale: 1.0,

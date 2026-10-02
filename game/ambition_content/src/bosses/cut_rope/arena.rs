@@ -117,6 +117,8 @@ pub fn detect_cut_rope_rope_cut(
         arena.awaiting_alignment = true;
         arena.rope_fx_timer = 0.0;
         arena.rope_fx_pulse = 0;
+        // The cut is drawn in the arena's own live room.
+        let mut vfx = vfx.for_room(Some(room));
         vfx.write(VfxMessage::Impact {
             pos: event.volume.center(),
         });
@@ -208,7 +210,7 @@ pub fn tick_cut_rope_flavor(
                 fireworks.write(death_show);
                 arena.death_fireworks_sent = true;
             }
-            vfx.write(VfxMessage::Burst {
+            vfx.for_room(Some(room)).write(VfxMessage::Burst {
                 pos: burst_pos,
                 count: 28,
                 speed: 260.0,

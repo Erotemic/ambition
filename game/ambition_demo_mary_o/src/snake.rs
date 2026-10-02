@@ -381,6 +381,8 @@ pub fn run_snake_shells(
     mut commands: Commands,
     world_time: Res<ambition_platformer2d::time::WorldTime>,
     mut vfx: ambition_platformer2d::vfx::VfxWriter,
+    // The squash burst is drawn in the snake's own live room.
+    rooms: ambition_platformer2d::platformer::lifecycle::LiveRooms,
     mut sfx: ambition_platformer2d::sfx::BodySfxWriter,
     mut hits: MessageWriter<HitEvent>,
     mut players: Query<(Entity, &mut ae::BodyKinematics), With<PrimaryPlayer>>,
@@ -434,7 +436,7 @@ pub fn run_snake_shells(
                 );
                 stomper = Some(player_entity);
             }
-            vfx.write(ambition_platformer2d::vfx::VfxMessage::Burst {
+            vfx.for_room(rooms.of(entity)).write(ambition_platformer2d::vfx::VfxMessage::Burst {
                 pos: kin.pos,
                 count: 12,
                 speed: 130.0,

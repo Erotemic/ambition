@@ -123,6 +123,8 @@ pub fn tick_gravity_grenade_fuses(
     )>,
     mut sfx: ambition_sfx::BodySfxWriter,
     mut vfx: ambition_vfx::vfx::VfxWriter,
+    // The burst is drawn in the grenade's own live room.
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
 ) {
     let dt = time.sim_dt();
     if dt <= 0.0 {
@@ -161,7 +163,7 @@ pub fn tick_gravity_grenade_fuses(
                 pos: ground.pos,
             },
         );
-        vfx.write(ambition_vfx::vfx::VfxMessage::Effect {
+        vfx.for_room(rooms.of(entity)).write(ambition_vfx::vfx::VfxMessage::Effect {
             pos: ground.pos,
             fx: ambition_vfx::fx::ids::CLASSIC_BURST,
             scale: 0.7,

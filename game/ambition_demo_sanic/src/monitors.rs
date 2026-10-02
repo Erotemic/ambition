@@ -93,9 +93,12 @@ pub fn break_monitor_boxes(
     mut spent: ResMut<SpentMonitors>,
     geometry: ambition_platformer2d::platformer::lifecycle::SoleLiveRoom<ae::RoomGeometry>,
     mut vfx: ambition_platformer2d::vfx::VfxWriter,
+    // A break is drawn in the live room of the body that breaks the box.
+    rooms: ambition_platformer2d::platformer::lifecycle::LiveRooms,
     mut sfx: ambition_platformer2d::sfx::BodySfxWriter,
     mut players: Query<
         (
+            Entity,
             &ae::BodyKinematics,
             &ambition_platformer2d::characters::actor::WornCharacter,
             &mut ae::MotionModel,
@@ -105,10 +108,11 @@ pub fn break_monitor_boxes(
         With<PrimaryPlayer>,
     >,
 ) {
-    let Ok((kin, worn, mut model, rolling, mut wallet)) = players.single_mut()
+    let Ok((player, kin, worn, mut model, rolling, mut wallet)) = players.single_mut()
     else {
         return;
     };
+    let mut vfx = vfx.for_room(rooms.of(player));
     let rolling = rolling.is_some();
     let falling = kin.vel.y > 0.0;
     if !rolling && !falling {

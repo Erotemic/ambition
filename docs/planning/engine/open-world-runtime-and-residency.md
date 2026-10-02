@@ -2132,7 +2132,7 @@ names its subject by body or seat (`ViewSubject`, `ViewParticipant`).
 | Cut | Work | State |
 | --- | --- | --- |
 | V1 | The camera resolve frames each view in the live room of its framed body | ✅ below |
-| V2 | Draw roads place each entity by the geometry of its own live room (`LiveRoomOf`), not the sole room | ◐ the camera apply (V2a), feature/actor sprites (V2b), items and projectiles (V2c), lock walls (V2d) and nameplates (V2e), fx, slashes and limb trails (V2f), the visuals that ride a body (V2g), gravity zones, shrines and attack stand-ins (V2h), the blink ring (V2i), broken-block visuals (V2j), health bars and the gradient-lane telegraph (V2k), and the world-label layout (V2l) and the portal visuals (V2m), below; and the through-portal window's capture (V2n), below; the unroomed fx producers (54 sites) and the debug overlays are open |
+| V2 | Draw roads place each entity by the geometry of its own live room (`LiveRoomOf`), not the sole room | ◐ the camera apply (V2a), feature/actor sprites (V2b), items and projectiles (V2c), lock walls (V2d) and nameplates (V2e), fx, slashes and limb trails (V2f), the visuals that ride a body (V2g), gravity zones, shrines and attack stand-ins (V2h), the blink ring (V2i), broken-block visuals (V2j), health bars and the gradient-lane telegraph (V2k), and the world-label layout (V2l) and the portal visuals (V2m), below; and the through-portal window's capture (V2n), below; the `FxRequest` and `FireworksRequest` producers, the 5 unroomed render producers (V2o) and the debug overlays are open |
 | V3 | A camera draws only the live room of its view: a room render band, as the view band does for projections | ✅ below |
 | V4 | Room visuals and the LDtk level are presented per live room, and retire with it | ✅ static room visuals (V4a), the LDtk level (V4b) and parallax (V4c), below |
 | V5 | Two seats in two live rooms get two views (the product rule: a split is mandatory in different rooms) | ✅ below |
@@ -2441,12 +2441,48 @@ room) and the NPC idle barks. Witnesses: `each_effect_is_drawn_in_its_own_live_r
 row in the first room; the particle clock placed by the first room; wisps
 not stamped; wisps placed by the first room; the player tick and the actor
 tick bound to no room. Each failed at the subject assertion.
-⚠ Open (named debt): 54 direct `write(VfxMessage::…)` sites in 36
-production files are unroomed (a lower bound: a write through a helper is
-not counted), and so are the `FxRequest` and `FireworksRequest` producers.
-`update_blink_preview` still reads the sole room, because
+⚠ Open (named debt): the `FxRequest` and `FireworksRequest` producers are
+unroomed. `update_blink_preview` still reads the sole room, because
 `BlinkPreviewFact` names no room. `follow_slash_owner` has no unit
 witness: `PresentedPose` cannot be built outside `ambition_sim_view`.
+
+✅ **V2f debt, the `VfxWriter` producers, landed 2026-10-02.** The count of
+54 above was a lower bound twice. The compiler census (a temporary
+`#[deprecated]` on `VfxWriter::write`, `cargo check --workspace --tests`,
+and the `visible` lane of each app) found 67 direct sites in 40 files. The
+helpers that take a writer were unroomed for every caller, and no census
+of `write` calls counts them: `emit_hit_feedback`, `emit_melee_slash`,
+`emit_breakable_destroyed` (`ambition_combat`), the player damage road
+(`handle_player_damage_events`, `safe_respawn_player`,
+`apply_player_knockback`), and `reset_sandbox`. So after V2f the impact of
+a hit on an actor, a boss or a player was still drawn in no room while two
+were live. Each helper now takes `&mut VfxForRoom`, so the type makes the
+caller name a room. Each producer names the room of its subject by the
+rule of `LiveRooms::of`: the struck body, the shot, the chest, the pickup,
+the switch, the speaker, the body that moves, the boss, the room of the
+arena. The census is 5, all in `ambition_render` (launch trail, knockout,
+dizzy stars: V2o). When those name their room, `VfxWriter::write` is
+deleted, and an unroomed row is spelled `write_in(None, …)`.
+Witnesses (app, Alice in the hub and Bob driven in the first room):
+`each_hit_s_effects_are_drawn_in_the_struck_body_s_own_live_room`,
+`the_arrival_effect_of_a_crossing_is_drawn_in_the_room_the_body_arrives_in`,
+`the_reset_effects_of_a_replay_are_drawn_in_the_players_own_live_room`.
+Poisons, each predicted before the run, each failed at its own row with
+`None`: the actor-hit helper call, the player damage caller, the crossing
+arrival effect, and the replay reset, each bound to no room.
+⚠ Measured, not fixed: a replay writes its from-to reset effect for the
+room it replays (#1, on the tick of the request), and on the next tick the
+replay replaces that room (#2). Not measured: whether the effect is
+retired with #1 after that one frame, and whether one live room does the
+same.
+⚠ Found, open (customer 2: live rooms share one coordinate space):
+`open_ecs_chests` does not compare the room of the body with the room of
+the chest, the NPC talk loop of `interact_ecs_actors_and_switches` does
+not compare the room of the body with the room of the NPC,
+`update_ecs_breakables` lets a player in one room collapse a
+stand-to-break block of another, `PlayerMark` records a position with no
+room, and a gravity grenade opens its well with a scope that names no
+room.
 
 ✅ **V5 landed 2026-10-01: two players in two rooms get two views.**
 `split_views_by_live_room` (`ambition_sim_view`, in the camera observation

@@ -197,7 +197,9 @@ pub fn blink_system(
                 pos: target,
             },
         );
-        // A wisp where you left, a flash where you arrive.
+        // A wisp where you left, a flash where you arrive, in the live room
+        // of the body.
+        let mut vfx = vfx.for_room(room.map(|stamp| stamp.0));
         vfx.write(ambition_vfx::vfx::VfxMessage::Effect {
             pos: from,
             fx: ambition_vfx::fx::ids::CLASSIC_BURST,

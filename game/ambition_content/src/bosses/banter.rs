@@ -135,11 +135,14 @@ pub fn tick_boss_idle_barks(
     world_time: Res<ambition_time::WorldTime>,
     registry: Option<Res<CombatBanterRegistry>>,
     ecs_bosses: Query<(
+        Entity,
         BossClusterRef,
         &ambition_characters::actor::BodyHealth,
         &ambition_characters::actor::BodyCombat,
     )>,
     mut vfx: VfxWriter,
+    // A bark is drawn in the boss's own live room.
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
     mut state: Local<BossIdleBarkState>,
 ) {
     let Some(registry) = registry else {
@@ -149,7 +152,7 @@ pub fn tick_boss_idle_barks(
     if dt <= 0.0 {
         return;
     }
-    for (feature, health, combat) in &ecs_bosses {
+    for (entity, feature, health, combat) in &ecs_bosses {
         let boss = feature.as_boss_ref();
         if !health.alive() {
             continue;
@@ -178,7 +181,7 @@ pub fn tick_boss_idle_barks(
         }
         let rotation_now = *state.rotations.entry(key.clone()).or_insert(0);
         if let Some(line) = registry.pick_idle_bark(&boss.config.name, rotation_now) {
-            vfx.write(VfxMessage::SpeechBubble {
+            vfx.for_room(rooms.of(entity)).write(VfxMessage::SpeechBubble {
                 pos: boss.bark_anchor(),
                 text: line.to_string(),
             });

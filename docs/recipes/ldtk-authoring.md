@@ -83,6 +83,20 @@ A level's `music_track` is what plays in it, and its `fight_music_track` is what
 plays while a fight is on in it. See [`room-music.md`](room-music.md) for the
 priority order and the command that sets either field.
 
+## Room entry cutscene
+
+A level's `entry_cutscene` names the cutscene that plays the first time its
+room becomes live. The script must be in the cutscene library, and its seen
+flag stops a second play. Only one level of an active area can set it: the area
+merge keeps the first value. Content validation refuses an unknown script and
+a second value in one area.
+
+```bash
+PYTHONPATH=tools/ambition_ldtk_tools python3 -m ambition_ldtk_tools level set-field \
+  --ldtk game/ambition_content/assets/worlds/sandbox.ldtk --in-place \
+  --level cutscene_lab --set entry_cutscene=cutscene_lab_intro
+```
+
 ## Safe manual edit loop
 
 ```bash

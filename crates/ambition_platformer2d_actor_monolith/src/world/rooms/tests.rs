@@ -476,6 +476,7 @@ fn active_metadata_returns_active_room_metadata() {
         rise_out_margin: None,
         next_room: None,
         title: None,
+        entry_cutscene: None,
     };
     let m2 = RoomMetadata {
         biome: Some("cave".into()),
@@ -492,6 +493,7 @@ fn active_metadata_returns_active_room_metadata() {
         rise_out_margin: None,
         next_room: None,
         title: None,
+        entry_cutscene: None,
     };
     let set = RoomSet::from_parts_or_panic(
         "first",
@@ -533,6 +535,7 @@ fn room_metadata_is_empty_false_when_any_field_set() {
         rise_out_margin: None,
         next_room: None,
         title: None,
+        entry_cutscene: None,
     };
     assert!(!m.is_empty());
 
@@ -546,6 +549,9 @@ fn room_metadata_is_empty_false_when_any_field_set() {
 
     let mut m = RoomMetadata::default();
     m.mode = Some("sanic".into());
+    assert!(!m.is_empty());
+    let mut m = RoomMetadata::default();
+    m.entry_cutscene = Some("intro".into());
     assert!(!m.is_empty());
 }
 
@@ -566,6 +572,7 @@ fn room_metadata_merge_preserves_existing_values() {
         rise_out_margin: None,
         next_room: None,
         title: None,
+        entry_cutscene: None,
     };
     let b = RoomMetadata {
         biome: Some("CONFLICT".into()),        // ignored — a.biome wins
@@ -592,8 +599,12 @@ fn room_metadata_merge_preserves_existing_values() {
         // takes effect — a.title was None. An area's title is its first member
         // level's.
         title: Some("CAVE 1".into()),
+        // takes effect — a had none. Content validation refuses a second
+        // value in one area, because this merge would drop it.
+        entry_cutscene: Some("cave_intro".into()),
     };
     a.merge(b);
+    assert_eq!(a.entry_cutscene.as_deref(), Some("cave_intro"));
     assert_eq!(a.title.as_deref(), Some("CAVE 1"));
     assert_eq!(a.biome.as_deref(), Some("hub"));
     assert!(a.gallery, "merge ORs the gallery flag from a member level");

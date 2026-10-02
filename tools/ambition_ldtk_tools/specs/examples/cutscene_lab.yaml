@@ -1,9 +1,10 @@
 # Cutscene lab — entry-trigger cutscene proof room.
 #
 # Demonstrates the `auto_trigger_room_cutscenes` mechanism in
-# `crate::cutscene`. The first time the player walks into this
-# room, the `cutscene_lab_intro` cutscene fires; the seen-flag
-# guards against re-runs. A held-Reset (Backspace/Select) skips
+# `crate::cutscene`. The room names its cutscene in the
+# `entry_cutscene` level field below. The first time the player walks
+# into this room, the `cutscene_lab_intro` cutscene fires; the
+# seen-flag guards against re-runs. A held-Reset (Backspace/Select) skips
 # the cutscene per the cutscene/skip-hold flow.
 #
 # Layout (768x384):
@@ -25,6 +26,7 @@ px_wid: 768
 px_hei: 384
 fill_collision: empty
 biome: lab
+entry_cutscene: cutscene_lab_intro
 connect_to:
   - target_room: central_hub_basement
     px: [920, 832]

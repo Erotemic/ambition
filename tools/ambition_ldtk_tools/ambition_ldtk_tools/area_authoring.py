@@ -370,6 +370,9 @@ OPTIONAL_LEVEL_FIELDS = (
     # all, which is what every platformer room wants and no fighting stage does.
     "side_out_margin",
     "rise_out_margin",
+    # The cutscene that plays the first time the room becomes live
+    # (`RoomMetadata::entry_cutscene`).
+    "entry_cutscene",
 )
 
 

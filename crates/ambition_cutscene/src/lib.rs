@@ -404,14 +404,6 @@ impl CutsceneLibrary {
     }
 }
 
-/// Mapping from room id → cutscene id to play the first time an actor enters
-/// that room. Drained by the runtime auto-trigger system. Content populates the
-/// pairs; this type carries no defaults of its own.
-#[derive(Resource, Default)]
-pub struct RoomCutsceneBindings {
-    pub bindings: Vec<(String, String)>,
-}
-
 /// The cutscene TRIGGER channel — a presentation-neutral request queue.
 ///
 /// Gameplay systems (a boss dying, a room entry, a dialogue node) decide *that*

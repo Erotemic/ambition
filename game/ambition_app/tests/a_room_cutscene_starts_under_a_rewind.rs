@@ -67,8 +67,8 @@ use ambition_app::{AgentAction, Platformer2dSimHarness, Platformer2dSimHarnessOp
 use ambition_app::AmbitionSim;
 use ambition_app::TimestepMode;
 
-/// The authored binding this arm drives: `INTRO_ROOM_CUTSCENE_BINDINGS`'s first
-/// row, installed unconditionally by `IntroPlugin`.
+/// The authored binding this arm drives: the `entry_cutscene` level field of
+/// `intro_wake_room` in `intro.ldtk`.
 const ROOM: &str = "intro_wake_room";
 const SCRIPT: &str = "intro_wake";
 
@@ -174,7 +174,7 @@ fn an_authored_room_cutscene_starts_with_and_without_a_rewind() {
 /// cutscene binding of its own, so nothing fires at boot — which is exactly what
 /// defeated the arm above.
 const BASEMENT: &str = "central_hub_complex";
-/// Bound to [`LAB_SCRIPT`] by `default_room_cutscene_bindings`, and reached only
+/// Names [`LAB_SCRIPT`] in its `entry_cutscene` level field, and is reached only
 /// through `cutscene_lab_door`.
 const LAB_ROOM: &str = "cutscene_lab";
 const LAB_SCRIPT: &str = "cutscene_lab_intro";

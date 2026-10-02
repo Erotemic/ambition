@@ -405,11 +405,11 @@ fn validate_quest_conditions(
     }
 }
 
-/// The content compiler also checks this, for pack-supplied content. No other
-/// validator reads `RoomCutsceneBindings` against the real room population,
-/// so a binding to an LDtk level id (for example `"central_hub_main"`)
-/// instead of a runtime room id would never fire and nothing would report it.
-/// This works like `validate_quest_conditions` above.
+/// A room names its entry cutscene in its world file (the `entry_cutscene`
+/// level field). The field is on the room, so the room half of the check holds
+/// by construction. The other two halves do not: a misspelled script id loads,
+/// and two levels of one active area can both set the field, where the area
+/// merge keeps the first and drops the other with no message.
 fn validate_cutscene_bindings(project: &LdtkProject, report: &mut ContentValidationReport) {
     let room_ids = active_area_ids(project);
     // Both endpoints. `drain_cutscene_triggers` does
@@ -422,19 +422,30 @@ fn validate_cutscene_bindings(project: &LdtkProject, report: &mut ContentValidat
     let mut library = crate::dialogue::cutscene_defaults::default_cutscene_library();
     crate::intro::cutscene::install_intro_cutscenes(&mut library);
 
-    let defaults = crate::dialogue::cutscene_defaults::default_room_cutscene_bindings();
-    let intro = crate::intro::cutscene::intro_room_cutscene_bindings();
-    let rows: Vec<(&str, &str, &str)> = defaults
-        .bindings
+    let bound = authored_entry_cutscenes(project);
+    let rows: Vec<(&str, &str, &str)> = bound
         .iter()
-        .map(|(room, cutscene)| ("cutscene binding", room.as_str(), cutscene.as_str()))
-        .chain(
-            intro
-                .iter()
-                .map(|(room, cutscene)| ("intro cutscene binding", *room, *cutscene)),
-        )
+        .map(|(what, room, cutscene)| (what.as_str(), room.as_str(), cutscene.as_str()))
         .collect();
     check_cutscene_bindings(&room_ids, &library, &rows, report);
+}
+
+/// One row per LEVEL that sets `entry_cutscene`, keyed by its active area. Rows
+/// are read before the area merge so that two levels of one area both appear
+/// and the one-per-room rule can see them.
+fn authored_entry_cutscenes(project: &LdtkProject) -> Vec<(String, String, String)> {
+    project
+        .levels
+        .iter()
+        .filter_map(|level| {
+            let cutscene = level.level_metadata().entry_cutscene?;
+            Some((
+                format!("entry_cutscene of level '{}'", level.identifier),
+                level.active_area(),
+                cutscene,
+            ))
+        })
+        .collect()
 }
 
 /// The rules take their inputs as arguments so a test can plant a violation.
@@ -448,7 +459,7 @@ fn check_cutscene_bindings(
     rows: &[(&str, &str, &str)],
     report: &mut ContentValidationReport,
 ) {
-    // room → how many cutscenes are bound to it, across BOTH tables.
+    // room → how many cutscenes are bound to it, across all its levels.
     let mut per_room: BTreeMap<&str, Vec<&str>> = BTreeMap::new();
 
     for &(what, room, cutscene) in rows {
@@ -467,18 +478,15 @@ fn check_cutscene_bindings(
         per_room.entry(room).or_default().push(cutscene);
     }
 
-    // One cutscene per room, because a second one does not queue.
-    // `auto_trigger_room_cutscenes` enqueues every matching row, but only when
-    // the room changes (the `LastCutsceneRoom` latch). `drain_cutscene_triggers`
-    // then `mem::take`s the whole queue and `break`s on the first admissible
-    // script, so the rest are dropped. The second binding would play only on a
-    // later visit, after the first sets its seen flag.
+    // One cutscene per room. The rows are levels, and the area merge
+    // (`RoomMetadata::merge`) keeps the first level's value, so a second
+    // value in the same area never reaches the trigger.
     for (room, bound) in &per_room {
         if bound.len() > 1 {
             report.push_error(format!(
-                "room '{room}' has {} cutscene bindings ({}) — the runtime starts only \
-                 the first admissible one and discards the queue, so the others play on a \
-                 later visit or never. Bind one cutscene per room",
+                "room '{room}' has {} cutscene bindings ({}) — the area merge keeps the \
+                 first level's `entry_cutscene` and drops the others, so they never play. \
+                 Set `entry_cutscene` on one level of the area",
                 bound.len(),
                 bound.join(", ")
             ));
@@ -808,36 +816,36 @@ mod tests {
         assert!(report.errors.is_empty(), "{:?}", report.errors);
     }
 
+    /// The shipped worlds name their room cutscenes in data, and the rows the
+    /// validator reads are those rows. A reader that finds no rows passes every
+    /// rule, so this also pins that the validator sees the six rooms.
     #[test]
-    fn cutscene_bindings_reference_rooms_that_exist() {
+    fn each_shipped_room_cutscene_is_read_from_its_world_file() {
         let project = LdtkProject::load_default_for_dev(&crate::worlds::world_manifest())
             .expect("embedded LDtk loads");
         let room_ids = active_area_ids(&project);
-        // Non-vacuity: an LDtk level id, not a runtime room id, must not resolve.
-        // This is the defect `validate_cutscene_bindings` catches
-        // (`central_hub_main` vs the runtime room `central_hub_complex`). If this
-        // starts passing, the level/room merge changed shape; re-check the
-        // assertions below.
-        assert!(
-            !room_ids.contains("central_hub_main"),
-            "central_hub_main is an LDtk level id, not a room id -- room_ids: {room_ids:?}"
-        );
-        for (room, cutscene) in
-            &crate::dialogue::cutscene_defaults::default_room_cutscene_bindings().bindings
-        {
-            assert!(
-                room_ids.contains(room.as_str()),
-                "cutscene binding for '{cutscene}' references unknown room '{room}'; \
-                 known rooms: {room_ids:?}"
-            );
+        let bound: BTreeSet<(String, String)> = authored_entry_cutscenes(&project)
+            .into_iter()
+            .map(|(_, room, cutscene)| (room, cutscene))
+            .collect();
+        let expected: BTreeSet<(String, String)> = [
+            ("central_hub_complex", "test_intro"),
+            ("basement_boss", "boss_intro_gradient_sentinel"),
+            ("cutscene_lab", "cutscene_lab_intro"),
+            ("intro_wake_room", "intro_wake"),
+            ("intro_raid_corridor", "intro_raid"),
+            ("drain_alley", "drain_market_arrival"),
+        ]
+        .iter()
+        .map(|(room, cutscene)| (room.to_string(), cutscene.to_string()))
+        .collect();
+        assert_eq!(bound, expected);
+        for (room, _) in &bound {
+            assert!(room_ids.contains(room), "{room} is not a room: {room_ids:?}");
         }
-        for (room, cutscene) in crate::intro::cutscene::intro_room_cutscene_bindings() {
-            assert!(
-                room_ids.contains(*room),
-                "intro cutscene binding for '{cutscene}' references unknown room '{room}'; \
-                 known rooms: {room_ids:?}"
-            );
-        }
+        let mut report = ContentValidationReport::default();
+        validate_cutscene_bindings(&project, &mut report);
+        assert!(report.errors.is_empty(), "{:?}", report.errors);
     }
 
     #[test]

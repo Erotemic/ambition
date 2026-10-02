@@ -1,6 +1,6 @@
 //! Default Ambition cutscene library + room→cutscene bindings.
 
-use ambition_cutscene::{CutsceneBeat, CutsceneLibrary, CutsceneScript, RoomCutsceneBindings};
+use ambition_cutscene::{CutsceneBeat, CutsceneLibrary, CutsceneScript};
 
 /// Default sandbox cutscenes shipped with the sandbox.
 pub fn default_cutscene_library() -> CutsceneLibrary {
@@ -80,35 +80,6 @@ pub fn default_cutscene_library() -> CutsceneLibrary {
     lib
 }
 
-/// Default room → cutscene bindings: which cutscene plays the first time the
-/// player enters a given room (the `seen_flag` guards replays).
-pub fn default_room_cutscene_bindings() -> RoomCutsceneBindings {
-    RoomCutsceneBindings {
-        bindings: vec![
-            // Plays the first time the player enters the hub.
-            //
-            // ⛔ `central_hub_main` (an LDtk LEVEL id) was named here until
-            // 2026-09-18: `auto_trigger_room_cutscenes` compares against the
-            // RUNTIME room id, `central_hub_main` and `central_hub_basement`
-            // both merge into `central_hub_complex` at LDtk conversion, and
-            // the row could never match — see `resources.rs`'s panic message
-            // for the same trap. Caught by inspection, not by a test; the
-            // guard for this is `room_cutscene_bindings_resolve.rs`.
-            ("central_hub_complex".into(), "test_intro".into()),
-            // Plays the first time the player enters the (existing)
-            // basement boss arena. The `seen_flag` guards against replays.
-            (
-                "basement_boss".into(),
-                "boss_intro_gradient_sentinel".into(),
-            ),
-            // Cutscene proof room reachable from the basement.
-            // Demonstrates the entry-trigger + seen-flag + skip flow on a
-            // non-default cutscene.
-            ("cutscene_lab".into(), "cutscene_lab_intro".into()),
-        ],
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -123,17 +94,5 @@ mod tests {
     fn default_cutscene_library_includes_boss_intro() {
         let lib = default_cutscene_library();
         assert!(lib.get("boss_intro_gradient_sentinel").is_some());
-    }
-
-    #[test]
-    fn default_room_cutscene_bindings_link_hub_to_test_intro() {
-        let bindings = default_room_cutscene_bindings();
-        // Hub plays the test_intro cutscene on first entry. `central_hub_complex`
-        // is the RUNTIME room id `auto_trigger_room_cutscenes` compares against
-        // -- not `central_hub_main`, which is only the LDtk level identifier.
-        assert!(bindings
-            .bindings
-            .iter()
-            .any(|(room, cs)| room == "central_hub_complex" && cs == "test_intro"));
     }
 }

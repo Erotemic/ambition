@@ -41,10 +41,6 @@ impl Plugin for AmbitionDialogueContentPlugin {
             .get_resource_or_init::<ambition_cutscene::CutsceneLibrary>()
             .scripts
             .extend(cutscene_defaults::default_cutscene_library().scripts);
-        world
-            .get_resource_or_init::<ambition_cutscene::RoomCutsceneBindings>()
-            .bindings
-            .extend(cutscene_defaults::default_room_cutscene_bindings().bindings);
         // Story-content lines for the `apply_feature_hit_events` hit handler.
         let mut banter = world.get_resource_or_init::<crate::banter::CombatBanterRegistry>();
         crate::bosses::install_boss_banter(&mut banter);

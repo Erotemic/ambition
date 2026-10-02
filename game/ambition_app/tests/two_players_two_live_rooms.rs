@@ -2100,13 +2100,14 @@ fn alice_leaves_bob_after(
 }
 
 /// OW1 Cut C: a room-entry cutscene plays when its room becomes live beside
-/// another. A test cutscene is bound to the hub. Alice crosses into the hub:
+/// another. A test cutscene is the hub's `entry_cutscene`. Alice crosses into the hub:
 /// with Bob driven (two rooms live) and with Bob undriven (the control: one
 /// room), the cutscene plays. Before, the trigger read the sole live room, so
 /// in the two-room arm it queued nothing.
 #[test]
 fn a_room_cutscene_plays_when_its_room_becomes_live_beside_another() {
-    use ambition_platformer2d::cutscene::{ActiveCutscene, CutsceneBeat, CutsceneLibrary, CutsceneScript, RoomCutsceneBindings};
+    use ambition_platformer2d::cutscene::{ActiveCutscene, CutsceneBeat, CutsceneLibrary, CutsceneScript};
+    use ambition_platformer2d::world::rooms::RoomSet;
     const CUTSCENE: &str = "ow1_hub_entry_probe";
     for (slot, rooms) in [(None, 1), (Some(ambition_platformer2d::characters::control::PlayerSlot(1)), 2)] {
         let (mut sim, _) = alice_leaves_bob_after(slot, |sim| {
@@ -2114,7 +2115,11 @@ fn a_room_cutscene_plays_when_its_room_becomes_live_beside_another() {
             world
                 .resource_mut::<CutsceneLibrary>()
                 .insert(CutsceneScript::new(CUTSCENE, vec![CutsceneBeat::Wait { seconds: 30.0 }]));
-            world.resource_mut::<RoomCutsceneBindings>().bindings.push((HUB.to_string(), CUTSCENE.to_string()));
+            // The room names its entry cutscene, as a world file does.
+            let mut sets = world.query::<&mut RoomSet>();
+            let mut set = sets.iter_mut(world).next().expect("a room set");
+            let hub = set.rooms.iter_mut().find(|spec| spec.id == HUB).expect("the hub is a room");
+            hub.metadata.entry_cutscene = Some(CUTSCENE.to_string());
         });
         assert_eq!(live_rooms(&mut sim).len(), rooms, "precondition ({slot:?}): the live room count");
         let playing = sim

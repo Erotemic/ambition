@@ -14,50 +14,49 @@
 
 use bevy::prelude::*;
 
-use ambition_cutscene::{
-    ActiveCutscene, CutsceneEvent, CutsceneLibrary, CutsceneRuntime,
-    RoomCutsceneBindings,
-};
+use ambition_cutscene::{ActiveCutscene, CutsceneEvent, CutsceneLibrary, CutsceneRuntime};
 
 use ambition_cutscene::CutsceneTriggerQueue;
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 
-/// Bevy system: when a room id becomes live, queue up each cutscene bound to
-/// it. `drain_cutscene_triggers` skips a cutscene that was seen.
+/// Bevy system: when a room id becomes live, queue up the cutscene the room
+/// says it starts (`RoomMetadata::entry_cutscene`, the LDtk level field
+/// `entry_cutscene`). `drain_cutscene_triggers` skips a cutscene that was seen.
 ///
 /// Every live room (OW1 Cut C): the sole live room was read, so while two
 /// rooms were live no room-entry cutscene was queued. A second live room of
 /// an id already live queues nothing. With no room live the memory is kept.
 pub fn auto_trigger_room_cutscenes(
-    bindings: Res<RoomCutsceneBindings>,
     rooms: ambition_platformer2d_world::rooms::LiveRoomSpecs,
     mut queue: ResMut<CutsceneTriggerQueue>,
     mut last_rooms: ResMut<ambition_cutscene::LastCutsceneRoom>,
 ) {
-    let mut live: Vec<String> = rooms
+    let mut live: Vec<(String, Option<String>)> = rooms
         .live_rooms()
-        .map(|(_, definition)| rooms.rooms().spec(definition).id.clone())
+        .map(|(_, definition)| {
+            let spec = rooms.rooms().spec(definition);
+            (spec.id.clone(), spec.metadata.entry_cutscene.clone())
+        })
         .collect();
     if live.is_empty() {
         return;
     }
     live.sort();
     live.dedup();
+    let ids: Vec<String> = live.iter().map(|(id, _)| id.clone()).collect();
     // Read through the immutable deref: on every frame but a change there is
     // nothing to write, and a `DerefMut` would mark the resource changed.
-    if last_rooms.0 == live {
+    if last_rooms.0 == ids {
         return;
     }
     // In sorted room order, so a resimulation queues the same cutscenes in
     // the same order.
-    for current in live.iter().filter(|room| !last_rooms.0.contains(room)) {
-        for (room_id, cutscene_id) in &bindings.bindings {
-            if room_id == current {
-                queue.request(cutscene_id);
-            }
+    for (_, cutscene) in live.iter().filter(|(id, _)| !last_rooms.0.contains(id)) {
+        if let Some(cutscene) = cutscene {
+            queue.request(cutscene);
         }
     }
-    last_rooms.0 = live;
+    last_rooms.0 = ids;
 }
 
 /// Drain the trigger queue: start the next cutscene if one isn't
@@ -226,11 +225,10 @@ pub struct CutsceneSchedulePlugin;
 impl Plugin for CutsceneSchedulePlugin {
     fn build(&self, app: &mut App) {
         let sim = app.sim_schedule();
-        // The cutscene state channels + empty library/bindings (anti-god
-        // rule 5: the domain plugin owns its init). Content POPULATES the
-        // library/bindings; a game that pre-inserts them wins (init never
-        // clobbers).
-        app.init_resource::<RoomCutsceneBindings>();
+        // The cutscene state channels + an empty library (anti-god rule 5:
+        // the domain plugin owns its init). Content POPULATES the library; a
+        // game that pre-inserts it wins (init never clobbers). Which room
+        // starts which cutscene is the room's own metadata.
         app.init_resource::<CutsceneLibrary>();
         app.init_resource::<CutsceneTriggerQueue>();
         app.init_resource::<ambition_cutscene::LastCutsceneRoom>();

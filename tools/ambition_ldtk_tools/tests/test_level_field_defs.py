@@ -38,6 +38,7 @@ ENGINE_READ_LEVEL_FIELDS = {
     "fall_out_margin",
     "side_out_margin",
     "rise_out_margin",
+    "entry_cutscene",
 }
 
 

@@ -4,7 +4,7 @@
 //! fixture); they verify the data + dispatch contracts that keep the
 //! intro dialogue/cutscenes wired into the sandbox dialog runtime.
 
-use super::cutscene::{install_intro_cutscenes, intro_room_cutscene_bindings};
+use super::cutscene::install_intro_cutscenes;
 use super::dialog::intro_dialogue_ids;
 use ambition_cutscene::CutsceneLibrary;
 use ambition_dialog::DialogState;
@@ -112,15 +112,35 @@ fn every_intro_npc_spawn_names_a_character_the_catalog_knows() {
     );
 }
 
+/// Each intro room says the cutscene it starts in `intro.ldtk` (its
+/// `entry_cutscene` level field), and the intro library has each script.
+/// The pairs were a Rust table until 2026-10-02.
 #[test]
-fn install_intro_cutscenes_registers_every_bound_script() {
+fn each_intro_room_says_its_cutscene_in_data_and_the_library_has_it() {
+    use ambition_platformer2d_ldtk::{LdtkProject, LdtkVocabulary};
+    let manifest = crate::worlds::world_manifest();
+    let rooms = LdtkProject::load_default_for_dev(&manifest)
+        .expect("the shipped worlds load")
+        .to_room_set(&manifest, &LdtkVocabulary::engine())
+        .expect("the shipped worlds compose")
+        .rooms;
     let mut lib = CutsceneLibrary::default();
     install_intro_cutscenes(&mut lib);
-    for (_room, cutscene_id) in intro_room_cutscene_bindings() {
-        assert!(
-            lib.get(cutscene_id).is_some(),
-            "cutscene '{cutscene_id}' bound to a room but not registered in the library"
+    for (room, cutscene) in [
+        ("intro_wake_room", "intro_wake"),
+        ("intro_raid_corridor", "intro_raid"),
+        ("drain_alley", "drain_market_arrival"),
+    ] {
+        let spec = rooms
+            .iter()
+            .find(|spec| spec.id == room)
+            .unwrap_or_else(|| panic!("`{room}` is a shipped intro room"));
+        assert_eq!(
+            spec.metadata.entry_cutscene.as_deref(),
+            Some(cutscene),
+            "`{room}` does not say it starts `{cutscene}`"
         );
+        assert!(lib.get(cutscene).is_some(), "`{cutscene}` is not in the intro library");
     }
 }
 
@@ -131,7 +151,6 @@ fn the_intro_rows_are_in_their_registries_before_the_first_tick() {
     // rows, and an install in a system would be missing until the first tick.
     // No `App::finish`: the sim harness drives `App::update` and never runs it.
     use crate::banter::CombatBanterRegistry;
-    use ambition_cutscene::RoomCutsceneBindings;
     use ambition_platformer2d::world::rooms::GatePortalRegistry;
     use bevy::prelude::*;
 
@@ -143,15 +162,10 @@ fn the_intro_rows_are_in_their_registries_before_the_first_tick() {
 
     let world = app.world();
     let library = world.resource::<CutsceneLibrary>();
-    let bindings = &world.resource::<RoomCutsceneBindings>().bindings;
-    for (room, cutscene) in intro_room_cutscene_bindings() {
+    for cutscene in ["intro_wake", "intro_raid", "drain_market_arrival"] {
         assert!(
             library.get(cutscene).is_some(),
             "the intro cutscene `{cutscene}` is not in the library"
-        );
-        assert!(
-            bindings.iter().any(|(r, c)| r == room && c == cutscene),
-            "the room `{room}` is not bound to the intro cutscene `{cutscene}`"
         );
     }
     let banter = world.resource::<CombatBanterRegistry>();

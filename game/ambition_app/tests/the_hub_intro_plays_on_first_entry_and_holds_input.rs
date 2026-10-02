@@ -111,10 +111,10 @@ fn the_hub_intro_plays_on_first_entry_and_captures_the_seat() {
         }
     }
     let started_at = started_at.expect(
-        "no cutscene played on first entry to central_hub_complex. The hub's intro is bound in \
-         default_room_cutscene_bindings(); a row naming a room that does not exist is caught \
-         earlier by content_validation, so the live suspicion here is a row repointed at some \
-         OTHER real room, or a trigger that no longer fires on room entry",
+        "no cutscene played on first entry to central_hub_complex. The hub's intro is the \
+         `entry_cutscene` level field of central_hub_main in sandbox.ldtk; a script id that does \
+         not exist is caught earlier by content_validation, so the live suspicion here is a \
+         field moved to some OTHER level, or a trigger that no longer fires on room entry",
     );
 
     // ⛔ THE CAPTURE IS THE POINT, not the playback. Four arms in three files

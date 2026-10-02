@@ -190,6 +190,14 @@ pub struct RoomMetadata {
     /// Authored as the LDtk level string field `title`, merged
     /// first-`Some`-wins like every other string field here.
     pub title: Option<String>,
+    /// The cutscene that plays when this room becomes live: the id of a
+    /// script in the cutscene library. The script's `seen_flag` keeps it from
+    /// playing twice. `None` means entering the room starts no cutscene.
+    ///
+    /// Authored as the LDtk level string field `entry_cutscene`, merged
+    /// first-`Some`-wins like every other string field here, so a field on
+    /// any level of an active area is the area's.
+    pub entry_cutscene: Option<String>,
 }
 
 impl RoomMetadata {
@@ -208,6 +216,7 @@ impl RoomMetadata {
             && self.rise_out_margin.is_none()
             && self.next_room.is_none()
             && self.title.is_none()
+            && self.entry_cutscene.is_none()
     }
 
     /// Fold `other` into `self`, preferring values already set.
@@ -246,6 +255,9 @@ impl RoomMetadata {
         }
         if self.title.is_none() {
             self.title = other.title;
+        }
+        if self.entry_cutscene.is_none() {
+            self.entry_cutscene = other.entry_cutscene;
         }
         // A multi-level area is a gallery if ANY member level marks it one.
         self.gallery = self.gallery || other.gallery;

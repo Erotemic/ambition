@@ -13,12 +13,12 @@ use bevy::prelude::*;
 // The unified dialog redirect system in the sandbox `dialog` module owns its
 // own scheduling.
 use crate::banter::CombatBanterRegistry;
-use ambition_cutscene::{CutsceneLibrary, RoomCutsceneBindings};
+use ambition_cutscene::CutsceneLibrary;
 use ambition_platformer2d::world::rooms::GatePortalRegistry;
 use ambition_platformer2d_actor_monolith::assets::game_assets::{PropSheetSource, PropSheetsAppExt};
 
 use super::banter::install_intro_banter;
-use super::cutscene::{install_intro_cutscenes, intro_room_cutscene_bindings};
+use super::cutscene::install_intro_cutscenes;
 use super::sprites::intro_prop_sprite_rows;
 
 /// Intro portal IDs. The gate stack room places:
@@ -106,14 +106,6 @@ impl Plugin for IntroPlugin {
         // the first tick whatever the plugin order.
         let world = app.world_mut();
         install_intro_cutscenes(&mut world.get_resource_or_init::<CutsceneLibrary>());
-        world
-            .get_resource_or_init::<RoomCutsceneBindings>()
-            .bindings
-            .extend(
-                intro_room_cutscene_bindings()
-                    .iter()
-                    .map(|(room, cutscene)| ((*room).to_string(), (*cutscene).to_string())),
-            );
         install_intro_banter(&mut world.get_resource_or_init::<CombatBanterRegistry>());
         // A refusal is a content bug: another portal already claimed this
         // loading zone. Logged, not panicked, because a missing portal leaves

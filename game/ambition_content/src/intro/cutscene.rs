@@ -1,28 +1,15 @@
-//! Intro cutscene scripts + room→cutscene bindings.
+//! Intro cutscene scripts.
 //!
-//! Inserted into the shared [`ambition_cutscene::CutsceneLibrary`] and
-//! [`ambition_cutscene::RoomCutsceneBindings`] by [`crate::intro::IntroPlugin`]
-//! when it builds, so they are there before the first tick.
+//! Inserted into the shared [`ambition_cutscene::CutsceneLibrary`] by
+//! [`crate::intro::IntroPlugin`] when it builds, so they are there before the
+//! first tick. Which room starts which of them is said by each intro room's
+//! `entry_cutscene` level field in `intro.ldtk`.
 //!
 //! Beats are intentionally short — the design doc is firm that the
 //! intro should not become a long cutscene wall. Each room gets at
 //! most a few banner/dialogue beats before control returns.
 
 use ambition_cutscene::CutsceneLibrary;
-
-/// Room → cutscene bindings for the intro slice. Mirrors the shape of
-/// [`ambition_cutscene::RoomCutsceneBindings::defaults`] — `(room_id,
-/// cutscene_id)` pairs walked once per room change in
-/// `auto_trigger_room_cutscenes`.
-pub const INTRO_ROOM_CUTSCENE_BINDINGS: &[(&str, &str)] = &[
-    ("intro_wake_room", "intro_wake"),
-    ("intro_raid_corridor", "intro_raid"),
-    ("drain_alley", "drain_market_arrival"),
-];
-
-pub fn intro_room_cutscene_bindings() -> &'static [(&'static str, &'static str)] {
-    INTRO_ROOM_CUTSCENE_BINDINGS
-}
 
 /// Insert every intro cutscene script into the shared library. Idempotent
 /// at the script-id level — re-running replaces existing scripts.

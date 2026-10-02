@@ -1402,6 +1402,19 @@ reader back on `SoleLiveRoomSpec`, each failure predicted before the run:
 each witness failed in its two-room arm, and its control arm passed.
 `SoleLiveRoomSpec` 33/27 -> 31/25.
 
+✅ **2026-10-02 (customer 3): a room names its entry cutscene in its world
+file.** The trigger read two Rust tables of `(room id, cutscene id)` rows
+(`default_room_cutscene_bindings`, `INTRO_ROOM_CUTSCENE_BINDINGS`), installed
+into the `RoomCutsceneBindings` resource. Both tables and the resource are
+deleted. The `entry_cutscene` level field is lowered to
+`RoomMetadata::entry_cutscene`, and the trigger reads it from each live
+room's spec. Because the field is on the level, a row cannot name a room
+that does not exist (the defect of 2026-09-18, a row keyed by a level id).
+Content validation reads the field per level, before the area merge, and
+refuses an unknown script or two values in one area. All eight shipped
+worlds declare the field; `sandbox.ldtk` sets it on three levels and
+`intro.ldtk` on three.
+
 ✅ **Cut 7q landed 2026-10-01: each live room keeps its own gated lock
 walls, and the gnu's back is ground in the giant's own room.** Two overlay
 contributors wrote to the sole live room. With two rooms live, both wrote

@@ -28,8 +28,8 @@ Do not read a run of authority slices as progress on decomposition. A landed sli
 says which axis it moved.
 
 The rule, the ordering, the absence criterion and the minimum-host tests live in
-[`engine/decomposition.md`](engine/decomposition.md) under "Decomposition has two
-dimensions", with the durable statement in
+[`engine/architecture.md`](engine/architecture.md#decomposition-doctrine) under
+"Two dimensions", with the durable statement in
 [`../architecture/package-and-capability-boundaries.md`](../architecture/package-and-capability-boundaries.md).
 They are not restated here.
 
@@ -137,21 +137,15 @@ Owners:
 
 ### P4 - ownership-based engine composition and supported public profiles
 
-Use the [architecture reassessment](engine/architecture-reassessment.md) and
-[bounded packets](engine/actor-monolith-work-frontier.md). The old mandatory
-projectile/shrine/placement SCC chain is retired. A1 establishes checkpoint
-restoration ownership; A2 first repairs contact semantics; A3 retains the valid
-placement bridge relocation. A4-A7 retain their packet-specific evidence gates.
-A8 now has the long-term game's two-instance proof, and A10 has I3b's bounded
-reconstruction customer. Neither is a blanket gate on pure authoring/artifact work.
-
-A11 and the frontier's A12 (flow bounds) make authored technique admission and
-flow bounds reliable. A11c, the end-to-end authoring route, and A12b's
-prepared-revision half remain; the frontier carries the sub-packet table. The
-frontier's A12 is not `queue.md`'s A12 (move-contact attribution). A9 proves
-compile/runtime optionality through real external profiles. These are independently
-staged work streams, not twelve sequential prerequisites for game development.
-The [queue](queue.md) selects current priority.
+Use [`engine/architecture.md`](engine/architecture.md) for the target authorities
+and the [bounded packets](engine/actor-monolith-work-frontier.md) for their state.
+Landed: A1 checkpoint restoration, A2 projectile contacts, A8 several live rooms,
+A10 candidate construction, A11a/A11b installed technique support. Open: A3
+acceptance, A4 body-execution regrouping, A5 destructibles, A6/A7 definition and
+item separation, A9 minimal profiles, A11c and A12b. These are independent work
+streams, not sequential prerequisites for game development. The frontier's A12
+(flow bounds) is not `queue.md`'s A12 (move-contact attribution). The
+[queue](queue.md) selects current priority.
 
 The outcome is a set of recognizable state/behavior/lifetime authorities and a
 public programmatic engine that can be used without accidental flagship

@@ -477,7 +477,7 @@ Rust move tables are migration scaffolding.
 **Open work:**
 
 - Converge the remaining reloadable registries on one prepare/admit/publish contract.
-- A boss's HP, phase triggers, death seconds, music and reward seed come from the App catalog, not the frozen generation.
+- A hand-built `BossConfig` with no `seed` still resolves its encounter from the App catalog. A built boss reads `BossConfig::seed` from the generation's catalog.
 - I4: save eligibility; ports for body motion so the remaining wielded items (dive, blink, grapple, mark/recall) can become modules; GNU-ton's conductor as a module.
 
 **Blocked by:** nothing.

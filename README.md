@@ -172,8 +172,8 @@ The most important consequences are:
   effects and can disappear in a headless composition.
 * **Content compiles outside Rust.** Content packs go through one
   compile path (`ambition_content_pack::compile`). Capability owners register
-  schemas. A content edit does not rebuild Rust, and a running game can reload
-  it.
+  schemas. A content edit does not rebuild Rust, and a running game reloads
+  most content families.
 * **Construction is transactional.** A candidate session or room is prepared
   and verified before one publication switch. A failed candidate leaves the
   live world unchanged.

@@ -282,8 +282,8 @@ impl bevy::ecs::entity::MapEntities for ItemCustody {
 /// world".
 ///
 /// ⛔⛔ **`#[non_exhaustive]` BECAUSE MINTING AN OCCURRENCE HAD SEVEN AUTHORITIES
-/// AND NO CONSTRUCTOR.** MEASURED 2026-09-10 (A7's writer inventory,
-/// `docs/planning/engine/item-writer-inventory.md`): seven struct-literal sites
+/// AND NO CONSTRUCTOR.** A7's writer census (now in
+/// `docs/planning/engine/item-custody-and-accounting.md`) found seven struct-literal sites
 /// across three crates each assembled a ground item, one of them a death-drop
 /// policy — which A7's own acceptance forbids, *"reward policy receives accepted
 /// outcomes; it does not become an alternative item minting path"*. It could

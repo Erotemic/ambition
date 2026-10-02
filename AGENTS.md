@@ -66,7 +66,7 @@ for intended direction.
 * Ambition is Bevy-native. Do not resurrect backend-neutral constraints unless a new ADR says so.
 * Prefer data-driven ECS flow: authored/generated data -> Bevy components/entities -> systems -> messages/effects.
 * LDtk owns world/level authoring. RON remains appropriate for tuning, save/settings, and other structured data.
-* Named content says it in data. Content packs compile through `ambition_content_pack::compile` against schemas that capability owners register, and a running game reloads them. A Rust table that duplicates authored content is migration scaffolding: move it to data, do not extend it.
+* Named content says it in data. Content packs compile through `ambition_content_pack::compile` against schemas that capability owners register, and a running game reloads most content families. A Rust table that duplicates authored content is migration scaffolding: move it to data, do not extend it.
 * Preserve desktop, web, Android/mobile/touch, controller, and Steam Deck paths. iOS is deferred for hardware, not excluded.
 * **Crate layering:** foundations and domain services feed the unified simulation heart; observation/presentation consume it; runtime/provider/host compose it; game providers own named content. Do not carve `ambition_platformer2d_actor_monolith` merely because it is large. See `docs/architecture/engine-architecture.md` and `docs/planning/tracks.md`.
 

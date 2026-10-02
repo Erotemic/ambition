@@ -77,7 +77,7 @@ component.
   `ResourceMeter` survives only as the value type of non-body meters (projectile
   ammo).
 
-Guards: `a_body_that_holds_no_mana_cannot_fire_the_beam`,
+Guards: `a_body_without_mana_cannot_spend_it`,
 `no_stated_rate_refills_nothing_and_no_pool_gains_mana`,
 `hud_facts_track_the_controlled_body`,
 `a_match_that_declares_no_limit_fills_nothing`,

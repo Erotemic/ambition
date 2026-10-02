@@ -9,7 +9,7 @@ related_docs:
   - docs/concepts/content-and-provider-boundaries.md
   - docs/architecture/package-and-capability-boundaries.md
   - docs/adr/0027-ggrs-is-the-sole-rollback-authority.md
-  - docs/planning/engine/engine-1.0-architecture-program.md
+  - docs/planning/engine/architecture.md
 ---
 
 # Engine architecture

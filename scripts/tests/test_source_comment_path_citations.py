@@ -6,8 +6,6 @@ mode resolved SYMBOLS in `.rs` files — so a doc comment naming a directory was
 checked by nobody. Censused that day: 234 such citations, seven of them live
 claims pointing at nothing, two telling a reader the simulation phase order is
 *"configured by `app/schedule.rs`"*, a file that does not exist.
-`docs/planning/triage/a-prose-path-inside-a-doc-comment-is-not-checked.md` is the
-row.
 
 ⚠ **AND IT IS A SEPARATE FLAG FROM `--comments` BECAUSE THE TWO CAN BE WRONG IN
 DIFFERENT WAYS.** A path either exists or it does not. A symbol citation can name

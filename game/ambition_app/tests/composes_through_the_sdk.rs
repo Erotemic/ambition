@@ -270,8 +270,8 @@ fn a_two_demo_host_publishes_exactly_the_cast_its_demos_register() {
 /// the composability doctrine could otherwise only argue about: can a consumer
 /// OMIT a named optional capability and still have an engine that runs?
 ///
-/// `docs/planning/engine/decomposition.md` names "a platformer without
-/// cutscenes" as one of the target compositions. Bevy's `PluginGroup` already
+/// The decomposition doctrine (`docs/planning/engine/architecture.md`) targets
+/// compositions such as a platformer without cutscenes. Bevy's `PluginGroup` already
 /// supplies the mechanism — `.disable::<P>()` — so the interesting part was
 /// never whether a consumer CAN omit a plugin; it is whether the rest of the
 /// engine still forms a coherent system when they do.

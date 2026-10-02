@@ -17,8 +17,8 @@ discharged it. Do not add a banner above it.
 fresh source/behavior preflight for every packet
     +-- A1 checkpoint restoration (closed; verification widening open)
     |       -> A7 item custody/accounting separation
-    +-- A2a geometry (landed) -> A2b obstruction (landed) / swept targets
-    |       -> A2c contact recipient -> A5 destructibles
+    +-- A2a geometry, A2b obstruction and swept targets, A2c contact
+    |   recipient (landed) -> A5 destructibles
     +-- A3 construction placement adapter (lowering moved; acceptance open)
     +-- A4 accepted control/body execution (regrouping open)
     +-- A6 definitions / materialization (field census delivered)
@@ -78,8 +78,12 @@ holds the live status. **Landed:** A2a (`apply_boss_hit` and the preflight read
 the published `DamageableVolumes`; a boss has no fallback hull) and A2b's
 obstruction half (both branches sweep the shot's box under its own
 `WorldHitPolicy`). Projectile roads no longer use family predicates or construct
-`UnresolvedFeatures`. **Open:** contact selection over the traveled segment with
-contact-time ordering (A2b's swept-target half) and A2c.
+`UnresolvedFeatures`. A2b's swept-target half and A2c have also landed: contacts
+over the traveled segment are ordered by time of impact, and a direct contact
+names its recipient (`HitTarget::Feature`). The protocol doc's "Current shape"
+table lists the witnesses. **Open:** only the optional move of pure flight helpers
+to `ambition_projectiles`; do it when it removes an authority or a dependency
+edge.
 
 **A2c:** a direct contact names its recipient once. Interception and terminal
 flight response happen during stepping; ordinary damage resolves in its later

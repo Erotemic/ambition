@@ -28,172 +28,12 @@ pub const PIRATE_TREASURE_REWARD: &[(Item, u32)] = &[
     (Item::DataChip, 1),
 ];
 
-/// Default quest specs the sandbox ships. The "First Steps" quest is
-/// a tutorial that walks the player through talking to a hub NPC,
-/// clearing the goblin encounter, and defeating the prototype boss — exactly
-/// the systems the rest of this build pass introduces.
+/// The quests Ambition ships: the `quest_book` its pack lowered from
+/// `assets/data/quests.ron`.
 pub fn default_quest_specs() -> Vec<ambition_persistence::quest::QuestSpec> {
-    vec![
-        ambition_persistence::quest::QuestSpec::new(
-            "first_steps",
-            "First Steps",
-            "Find your bearings as a new instance.",
-            vec![
-                ambition_persistence::quest::QuestStepSpec::new(
-                    "Speak with someone in the hub.",
-                    ambition_persistence::quest::QuestStepCondition::FlagSet(
-                        "met_any_hub_npc".into(),
-                    ),
-                ),
-                ambition_persistence::quest::QuestStepSpec::new(
-                    "Clear the goblin encounter.",
-                    ambition_persistence::quest::QuestStepCondition::EncounterCleared(
-                        "goblin_encounter".into(),
-                    ),
-                ),
-                ambition_persistence::quest::QuestStepSpec::new(
-                    "Defeat the clockwork warden.",
-                    ambition_persistence::quest::QuestStepCondition::BossDefeated(
-                        "clockwork_warden".into(),
-                    ),
-                ),
-            ],
-        )
-        .starting_at_boot(),
-        ambition_persistence::quest::QuestSpec::new(
-            "test_switch_quest",
-            "Test the Memory",
-            "Verify that the world remembers what you do.",
-            vec![ambition_persistence::quest::QuestStepSpec::new(
-                "Toggle the persistence test switch.",
-                ambition_persistence::quest::QuestStepCondition::FlagSet(
-                    "test_switch_toggled".into(),
-                ),
-            )],
-        ).starting_at_boot(),
-        // Quest lab proof: minimal RoomEntered-driven quest. Auto-
-        // starts at boot, advances when the player enters the
-        // quest_lab room, completes when they walk back to the
-        // basement.
-        ambition_persistence::quest::QuestSpec::new(
-            "quest_lab_visit",
-            "Visit the Quest Lab",
-            "Walk into the quest lab and back to verify quest progression.",
-            vec![
-                ambition_persistence::quest::QuestStepSpec::new(
-                    "Enter the quest lab from the basement door.",
-                    ambition_persistence::quest::QuestStepCondition::RoomEntered(
-                        "quest_lab".into(),
-                    ),
-                ),
-                ambition_persistence::quest::QuestStepSpec::new(
-                    "Return to the basement.",
-                    ambition_persistence::quest::QuestStepCondition::RoomEntered(
-                        "central_hub_complex".into(),
-                    ),
-                ),
-            ],
-        ).starting_at_boot(),
-        // Pirate cove bounty: the cove's hoard was stolen by a
-        // mockingbird. Auto-starts at boot so the player can take
-        // either path first — slay the bird or chat up the admiral.
-        // Step ordering encodes the *minimum* sequence: the chest has
-        // to actually exist (i.e. the bird must be dead) before
-        // returning it to the admiral can complete the quest. Talking
-        // to the admiral first is fine — the FlagSet event simply
-        // doesn't match step 0 and the quest stays put. The fallback
-        // path (kill the bird first, then walk in) lands the player
-        // at step 1 with no extra preamble required.
-        ambition_persistence::quest::QuestSpec::new(
-            "pirate_treasure",
-            "The Plundered Hoard",
-            "A mockingbird looted the pirate cove. Bring the chest back.",
-            vec![
-                ambition_persistence::quest::QuestStepSpec::new(
-                    "Hunt the mockingbird and reclaim the chest.",
-                    ambition_persistence::quest::QuestStepCondition::BossDefeated(
-                        "mockingbird".into(),
-                    ),
-                ),
-                ambition_persistence::quest::QuestStepSpec::new(
-                    "Return the treasure to the pirate admiral.",
-                    ambition_persistence::quest::QuestStepCondition::FlagSet(
-                        ambition_platformer2d::actors::features::npc_talked_flag("pirate_admiral"),
-                    ),
-                ),
-            ],
-        ).starting_at_boot(),
-        // Intro-v1 cartography route. Alice's sealed note → Bob's
-        // field survey → first system boss + P5 Route Memory. Steps
-        // are flag-set conditions wired to the PickupSpawn entities
-        // placed in alice_relay, bob_relay, and first_system_boss.
-        // Auto-starts at boot so the player sees the quest from the
-        // moment they leave the lab.
-        ambition_persistence::quest::QuestSpec::new(
-            "intro_cartography_route",
-            "Carry the Quiet Route",
-            "Alice trusts you with a sealed note. Bob owes her a survey.",
-            vec![
-                ambition_persistence::quest::QuestStepSpec::new(
-                    "Find Alice and accept her sealed route note.",
-                    ambition_persistence::quest::QuestStepCondition::FlagSet(
-                        "alice_route_note_carried".into(),
-                    ),
-                ),
-                ambition_persistence::quest::QuestStepSpec::new(
-                    "Reach Bob and pick up his field survey.",
-                    ambition_persistence::quest::QuestStepCondition::FlagSet(
-                        "bob_field_survey_received".into(),
-                    ),
-                ),
-                ambition_persistence::quest::QuestStepSpec::new(
-                    "Clear the first system encounter and bank route memory.",
-                    ambition_persistence::quest::QuestStepCondition::FlagSet(
-                        "intro_p5_route_memory_received".into(),
-                    ),
-                ),
-            ],
-        ).starting_at_boot(),
-        // Intro-v1 P1 Stabilizer beat. Oiler is the social anchor in
-        // Drain Market; talking to him plus picking up the stabilizer
-        // entity (drain_alley spec) closes the beat.
-        ambition_persistence::quest::QuestSpec::new(
-            "intro_p1_stabilizer",
-            "Stabilizer Drop",
-            "Oiler can stabilize the under-town descent.",
-            vec![
-                ambition_persistence::quest::QuestStepSpec::new(
-                    "Speak with Oiler in Drain Market.",
-                    ambition_persistence::quest::QuestStepCondition::FlagSet(
-                        ambition_platformer2d::actors::features::npc_talked_flag("oiler_intro"),
-                    ),
-                ),
-                ambition_persistence::quest::QuestStepSpec::new(
-                    "Pick up the stabilizer kit.",
-                    ambition_persistence::quest::QuestStepCondition::FlagSet(
-                        "p1_stabilizer_received".into(),
-                    ),
-                ),
-            ],
-        ).starting_at_boot(),
-        // Intro-v1 first system boss clear, tracked as a separate
-        // single-step quest gated by BossDefeated("clockwork_warden")
-        // (the boss profile the first_system_boss room reuses).
-        // Mirrors the existing pirate_treasure / first_steps boss
-        // hooks so the cartography quest stays flag-driven while the
-        // boss-kill itself produces a separate durable record.
-        ambition_persistence::quest::QuestSpec::new(
-            "intro_first_system_boss",
-            "Capstone: First System",
-            "Reach the system boss at the end of the gate stack and clear it.",
-            vec![ambition_persistence::quest::QuestStepSpec::new(
-                "Defeat the system boss (clockwork_warden brain).",
-                ambition_persistence::quest::QuestStepCondition::BossDefeated(
-                    "clockwork_warden".into(),
-                ),
-            )],
-        ).starting_at_boot(),
-    ]
+    ambition_persistence::quest::content_schema::lowered_quest_book(crate::pack::prepared())
+        .expect("Ambition's pack declares data/quests.ron as its quest_book")
+        .clone()
 }
 
 /// Startup system: register Ambition's authored specs and rehydrate
@@ -337,6 +177,47 @@ mod tests {
         assert!(banner.contains("TREASURE"));
     }
 
+    /// The quests are content: a quest added to `data/quests.ron` reaches the
+    /// lowered book through Ambition's own pack compile, and a book the schema
+    /// refuses refuses the whole pack. The control is the unedited compile,
+    /// whose book is the one the game registers.
+    #[test]
+    fn a_quest_authored_in_the_pack_is_the_quest_the_game_gets() {
+        use ambition_persistence::quest::content_schema::lowered_quest_book;
+        let shipped = crate::pack::compile_pack().expect("the shipped pack compiles");
+        assert_eq!(lowered_quest_book(&shipped).cloned(), Some(default_quest_specs()));
+
+        let added = r#"(id: "pack_probe", title: "Probe", summary: "S",
+            steps: [(description: "D", condition: FlagSet("probe_flag"))])"#;
+        let edited = crate::pack::compile_pack_with(|path, text| {
+            if path != "data/quests.ron" {
+                return text;
+            }
+            let end = text.rfind(']').expect("the book is a list");
+            format!("{}, {added}\n]", text[..end].trim_end().trim_end_matches(','))
+        })
+        .expect("a book with one more quest compiles");
+        let ids: Vec<String> = lowered_quest_book(&edited)
+            .expect("the edited pack lowers a book")
+            .iter()
+            .map(|quest| quest.id.clone())
+            .collect();
+        assert_eq!(ids.last().map(String::as_str), Some("pack_probe"), "{ids:?}");
+
+        let doubled = crate::pack::compile_pack_with(|path, text| {
+            if path != "data/quests.ron" {
+                return text;
+            }
+            let first = r#"(id: "first_steps", title: "Again", summary: "S",
+                steps: [(description: "D", condition: FlagSet("x"))])"#;
+            let end = text.rfind(']').expect("the book is a list");
+            format!("{}, {first}\n]", text[..end].trim_end().trim_end_matches(','))
+        });
+        assert!(
+            format!("{:?}", doubled.expect_err("a doubled id refuses the pack")).contains("two quests have the id"),
+        );
+    }
+
     // ⭐⭐ `auto_start_ids_all_exist_in_default_specs` WAS HERE AND IS DELETED
     // ON PURPOSE — it is no longer expressible. It checked that every id in a
     // separate `AUTO_START_QUESTS` list matched a shipped spec, because a typo
@@ -370,3 +251,4 @@ mod tests {
         assert_eq!(marked, expected);
     }
 }
+

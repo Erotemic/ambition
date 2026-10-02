@@ -47,6 +47,11 @@ hard-code a user directory.
 ## Progression flow
 
 Provider content registers named quest, encounter, dialogue, and reward data.
+A pack authors its quests as data: a `quest_book` source (schema owned by
+`ambition_persistence::quest::content_schema`), a RON list of quests with
+ordered steps and an `auto_start` flag. Ambition's is
+`game/ambition_content/assets/data/quests.ron`. The content compiler refuses a
+quest with no steps, a doubled quest id and a condition with an empty id.
 Reusable domain state machines emit typed completion/reward facts. Persistence
 records only the durable result. On load/reset/restore, canonical construction
 and reconciliation rebuild the live world from authored content plus saved

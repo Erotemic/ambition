@@ -1,0 +1,142 @@
+// Ambition's quests, schema `quest_book` (owned by the quest capability,
+// `ambition_persistence::quest::content_schema`).
+//
+// Each quest is an id (the save and the registry key it verbatim), a title and
+// a summary for the quest log, ordered steps, and `auto_start` (the quest
+// starts when the registry starts). A step advances on one event:
+// NpcTalked, ItemCollected, BossDefeated, EncounterCleared, FlagSet or
+// RoomEntered, each with the id it must match. An NPC conversation sets the
+// flag `npc_<dialogue id>_talked`.
+//
+// The compiler refuses a quest with no steps, two quests with one id, and a
+// condition with an empty id. Content validation checks the boss, encounter
+// and room ids against the shipped worlds.
+[
+    // A tutorial: talk to a hub NPC, clear the goblin encounter, defeat the prototype boss.
+    (
+        id: "first_steps",
+        title: "First Steps",
+        summary: "Find your bearings as a new instance.",
+        steps: [
+            (
+                description: "Speak with someone in the hub.",
+                condition: FlagSet("met_any_hub_npc"),
+            ),
+            (
+                description: "Clear the goblin encounter.",
+                condition: EncounterCleared("goblin_encounter"),
+            ),
+            (
+                description: "Defeat the clockwork warden.",
+                condition: BossDefeated("clockwork_warden"),
+            ),
+        ],
+        auto_start: true,
+    ),
+    // Proves the world remembers a switch the player toggled.
+    (
+        id: "test_switch_quest",
+        title: "Test the Memory",
+        summary: "Verify that the world remembers what you do.",
+        steps: [
+            (
+                description: "Toggle the persistence test switch.",
+                condition: FlagSet("test_switch_toggled"),
+            ),
+        ],
+        auto_start: true,
+    ),
+    // The quest lab proof: a RoomEntered quest. It advances when the player enters
+    // quest_lab and completes when they walk back to the basement.
+    (
+        id: "quest_lab_visit",
+        title: "Visit the Quest Lab",
+        summary: "Walk into the quest lab and back to verify quest progression.",
+        steps: [
+            (
+                description: "Enter the quest lab from the basement door.",
+                condition: RoomEntered("quest_lab"),
+            ),
+            (
+                description: "Return to the basement.",
+                condition: RoomEntered("central_hub_complex"),
+            ),
+        ],
+        auto_start: true,
+    ),
+    // The cove's hoard was stolen by a mockingbird. The step order is the minimum
+    // sequence: the chest exists only when the bird is dead, so returning it to
+    // the admiral cannot come first. Talking to the admiral first does not match
+    // step 0, and the quest stays where it is.
+    (
+        id: "pirate_treasure",
+        title: "The Plundered Hoard",
+        summary: "A mockingbird looted the pirate cove. Bring the chest back.",
+        steps: [
+            (
+                description: "Hunt the mockingbird and reclaim the chest.",
+                condition: BossDefeated("mockingbird"),
+            ),
+            (
+                description: "Return the treasure to the pirate admiral.",
+                condition: FlagSet("npc_pirate_admiral_talked"),
+            ),
+        ],
+        auto_start: true,
+    ),
+    // Intro v1: Alice's sealed note, then Bob's field survey, then the first system
+    // boss and P5 Route Memory. Each step is a flag that a PickupSpawn in
+    // alice_relay, bob_relay or first_system_boss sets.
+    (
+        id: "intro_cartography_route",
+        title: "Carry the Quiet Route",
+        summary: "Alice trusts you with a sealed note. Bob owes her a survey.",
+        steps: [
+            (
+                description: "Find Alice and accept her sealed route note.",
+                condition: FlagSet("alice_route_note_carried"),
+            ),
+            (
+                description: "Reach Bob and pick up his field survey.",
+                condition: FlagSet("bob_field_survey_received"),
+            ),
+            (
+                description: "Clear the first system encounter and bank route memory.",
+                condition: FlagSet("intro_p5_route_memory_received"),
+            ),
+        ],
+        auto_start: true,
+    ),
+    // Intro v1, the P1 stabilizer beat: talk to Oiler in Drain Market, then pick up
+    // the stabilizer kit (drain_alley).
+    (
+        id: "intro_p1_stabilizer",
+        title: "Stabilizer Drop",
+        summary: "Oiler can stabilize the under-town descent.",
+        steps: [
+            (
+                description: "Speak with Oiler in Drain Market.",
+                condition: FlagSet("npc_oiler_intro_talked"),
+            ),
+            (
+                description: "Pick up the stabilizer kit.",
+                condition: FlagSet("p1_stabilizer_received"),
+            ),
+        ],
+        auto_start: true,
+    ),
+    // Intro v1: the first system boss clear, a separate quest so the boss kill is
+    // its own durable record (the first_system_boss room reuses clockwork_warden).
+    (
+        id: "intro_first_system_boss",
+        title: "Capstone: First System",
+        summary: "Reach the system boss at the end of the gate stack and clear it.",
+        steps: [
+            (
+                description: "Defeat the system boss (clockwork_warden brain).",
+                condition: BossDefeated("clockwork_warden"),
+            ),
+        ],
+        auto_start: true,
+    ),
+]

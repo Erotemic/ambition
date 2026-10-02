@@ -25,7 +25,7 @@ three distinct flags, every one of them written.
 
     bob_field_survey_received   yarn set_flag + quest.rs        (also the one LDtk gate)
     kernel_guide_demo_flag      yarn set_flag, set and cleared
-    p1_stabilizer_received      quest.rs
+    p1_stabilizer_received      quest.rs (see below)
 
 So this lands green as a ratchet rather than as a repair.
 
@@ -38,6 +38,13 @@ exactly like a guard that does not work.** Confirm the breakage is present
 before reading the verdict; `grep -c` on the edited file costs one line.
 Repeated against the right file, it fails with
 `p1_stabilizer_recieved  (read in intro.yarn)`.
+
+⛔ 2026-10-02: THE `quest.rs` WRITER OF `p1_stabilizer_received` WAS A READER.
+The literal was a quest step's `FlagSet` CONDITION, and the loose rule counted
+it. When the quests moved to `data/quests.ron`, the literal left Rust and the
+flag read as unwritable. Its real writer is in a world file: the `PickupSpawn`
+in `drain_alley` with `kind: "flag:p1_stabilizer_received"` (a `StoryFlag`
+pickup, `parse_pickup_kind`). So a `flag:` pickup kind now counts as a writer.
 
 Poison-verified three ways: a misspelt flag in a dialogue read, a misspelt flag
 in an LDtk `gated_by`, and the floor with the read spelling removed.
@@ -90,6 +97,21 @@ def _writable() -> set[str]:
     names: set[str] = set()
     for path in sorted(DIALOGUE.rglob("*.yarn")):
         names.update(YARN_WRITE.findall(path.read_text(encoding="utf-8", errors="replace")))
+    # A `PickupSpawn` whose `kind` is `flag:<name>` sets that flag when it is
+    # collected (`PickupKind::StoryFlag`).
+    for path in sorted(WORLDS.glob("*.ldtk")):
+        world = json.loads(path.read_text(encoding="utf-8", errors="replace"))
+        for level in world.get("levels", []):
+            for layer in level.get("layerInstances") or []:
+                for entity in layer.get("entityInstances") or []:
+                    if entity.get("__identifier") != "PickupSpawn":
+                        continue
+                    for field in entity.get("fieldInstances", []):
+                        value = field.get("__value")
+                        if field.get("__identifier") == "kind" and isinstance(value, str):
+                            kind = value.strip()
+                            if kind.startswith("flag:") and kind[len("flag:"):]:
+                                names.add(kind[len("flag:"):])
     for root in ("crates", "game", "tests"):
         for path in (REPO / root).rglob("*.rs"):
             text = path.read_text(encoding="utf-8", errors="replace")

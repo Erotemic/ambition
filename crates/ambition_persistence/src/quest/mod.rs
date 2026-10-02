@@ -18,6 +18,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::save_data::PersistedQuestState;
 
+#[cfg(feature = "content_pack")]
+pub mod content_schema;
 pub mod registry;
 pub use registry::{apply_quest_advance_events, LastQuestRoom, QuestRegistry};
 
@@ -88,7 +90,10 @@ impl QuestStepCondition {
 
 /// One step in a quest. The `description` is shown in the quest log;
 /// `condition` decides when this step is satisfied.
+// `deny_unknown_fields`: a pack authors these, and a misspelt field must be
+// refused, not read as its default. Neither type is in the save.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct QuestStepSpec {
     pub description: String,
     pub condition: QuestStepCondition,
@@ -107,6 +112,7 @@ impl QuestStepSpec {
 /// steps. Quests advance one step at a time; once the last step's
 /// condition fires, the quest moves to `Completed`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct QuestSpec {
     pub id: String,
     pub title: String,

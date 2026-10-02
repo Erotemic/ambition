@@ -24,6 +24,7 @@ const PACK_MANIFEST_RON: &str = include_str!("../assets/pack.ron");
 /// A mismatch is caught by the compiler's "no source supplied" refusal, not
 /// by an empty family.
 const ITEMS_SOURCE_PATH: &str = "data/items.ron";
+const QUESTS_SOURCE_PATH: &str = "data/quests.ron";
 const FIGHTER_BRAIN_LADDER_SOURCE_PATH: &str = "data/fighter_brain_ladder.ron";
 const MUSIC_REGISTRY_SOURCE_PATH: &str = "audio/music_registry.ron";
 const SFX_REGISTRY_SOURCE_PATH: &str = "audio/sfx_registry.ron";
@@ -37,6 +38,12 @@ const ENCOUNTER_WAVES_SOURCE_PATH: &str = "data/encounters/goblin_encounter.ron"
 const ITEMS_RON_STATIC: Option<&'static str> = Some(include_str!("../assets/data/items.ron"));
 #[cfg(not(feature = "static_content"))]
 const ITEMS_RON_STATIC: Option<&'static str> = None;
+
+/// The authored quests, gated like the item grid.
+#[cfg(feature = "static_content")]
+const QUESTS_RON_STATIC: Option<&'static str> = Some(include_str!("../assets/data/quests.ron"));
+#[cfg(not(feature = "static_content"))]
+const QUESTS_RON_STATIC: Option<&'static str> = None;
 
 /// Every move table this provider authors, as content, not code.
 ///
@@ -233,6 +240,7 @@ fn embedded_sources() -> impl IntoIterator<Item = (String, String)> {
             crate::character_catalog::character_catalog_ron(),
         ),
         (ITEMS_SOURCE_PATH.to_string(), source_text(ITEMS_SOURCE_PATH, ITEMS_RON_STATIC)),
+        (QUESTS_SOURCE_PATH.to_string(), source_text(QUESTS_SOURCE_PATH, QUESTS_RON_STATIC)),
         (
             ENCOUNTER_WAVES_SOURCE_PATH.to_string(),
             source_text(ENCOUNTER_WAVES_SOURCE_PATH, crate::ENCOUNTER_WAVES_RON_STATIC),

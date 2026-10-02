@@ -149,6 +149,17 @@ fn run_with_trace_dump(max_ticks: u32, dump_dir: PathBuf, start_room: Option<Str
             life_q.single(sim.world()).copied().unwrap_or_default()
         };
 
+        // The toward-feet direction of the body's resolved movement frame:
+        // the trace says which platform supports the body's feet.
+        let feet_dir = {
+            let mut frame_q = sim
+                .world_mut()
+                .query_filtered::<&ambition_platformer2d::world::ResolvedMotionFrame, ambition_platformer2d::platformer::markers::PrimaryPlayerOnly>();
+            frame_q
+                .single(sim.world())
+                .map_or(ambition_platformer2d::engine_core::DEFAULT_GRAVITY_DIR, |frame| frame.down())
+        };
+
         // The movement policy + its published projection (ADR 0024): the
         // locomotion label reads the model; the trace flags read facts. Both
         // copied out before the mutable cluster borrow below.
@@ -197,6 +208,7 @@ fn run_with_trace_dump(max_ticks: u32, dump_dir: PathBuf, start_room: Option<Str
             &mode_label,
             &active_area,
             &moving_platforms,
+            feet_dir,
             locomotion_state.label(),
             body_mode_state.label(),
             // The headless driver runs the sim once per step and never rewinds.

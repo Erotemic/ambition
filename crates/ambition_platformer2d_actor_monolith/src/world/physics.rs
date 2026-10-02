@@ -61,13 +61,19 @@ use ambition_vfx::vfx::{DebrisBurstMessage, PhysicsDebrisCue};
 /// Presentation-side subscriber. Reads `DebrisBurstMessage`s and spawns
 /// Avian2D debris bodies via the existing `spawn_debris_burst` helper.
 /// Skipped in headless builds.
+///
+/// Each burst is placed by the geometry of the live room its message names,
+/// and each piece carries that room's stamp, so the room retires its own
+/// debris. A message that names no room is thrown in the sole live room, and
+/// is dropped while two rooms are live.
 #[cfg(feature = "physics_debris")]
 pub fn physics_spawn_debris_messages(
     mut commands: Commands,
     mut messages: MessageReader<DebrisBurstMessage>,
-    world: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<
+    geometry: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomOf<
         ambition_platformer2d_core::RoomGeometry,
     >,
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
     settings: Res<PhysicsSandboxSettings>,
     active_session: Option<Res<ActiveSessionScope>>,
 ) {
@@ -78,9 +84,15 @@ pub fn physics_spawn_debris_messages(
         return;
     };
     for message in messages.read() {
+        let Some(room) = message.room.or_else(|| rooms.sole()) else {
+            continue;
+        };
+        let Some(world) = geometry.in_room(room) else {
+            continue;
+        };
         spawn_debris_burst(
             &mut commands,
-            session_scope,
+            session_scope.in_room(Some(room)),
             &world.0,
             message.pos,
             message.cue,
@@ -466,6 +478,59 @@ mod tests {
         assert_ne!(
             PhysicsDebrisCue::EnemyRagdoll,
             PhysicsDebrisCue::BossRagdoll
+        );
+    }
+
+    /// Each debris burst is thrown in the live room its message names. Two
+    /// live rooms have geometry of two heights, and one burst is asked for in
+    /// each at one position. Each piece carries the stamp of its own room and
+    /// is placed by the geometry of that room. A third burst names no room,
+    /// and it is dropped while two rooms are live. When the reader took the
+    /// sole live room's geometry, it did not run while two rooms were live.
+    ///
+    /// ⚠ This witness is built only with the `physics_debris` feature, as
+    /// the reader is.
+    #[cfg(feature = "physics_debris")]
+    #[test]
+    fn each_debris_burst_is_thrown_in_the_live_room_its_message_names() {
+        use ambition_platformer2d_shared_tangle::lifecycle::{
+            InRoomInstance, LiveRoomInstance, RoomInstanceRoot,
+        };
+        let mut app = App::new();
+        app.insert_resource(PhysicsSandboxSettings::default());
+        app.add_message::<DebrisBurstMessage>();
+        app.add_systems(Update, physics_spawn_debris_messages);
+        let rooms = [LiveRoomInstance::ACTIVATION, LiveRoomInstance::ACTIVATION.next()];
+        for (room, height) in rooms.into_iter().zip([600.0, 1000.0]) {
+            app.world_mut().spawn((
+                RoomInstanceRoot,
+                room,
+                ambition_platformer2d_core::RoomGeometry(ae::World::new(
+                    "room",
+                    ae::Vec2::new(1000.0, height),
+                    ae::Vec2::ZERO,
+                    Vec::new(),
+                )),
+            ));
+        }
+        let pos = ae::Vec2::new(100.0, 100.0);
+        let cue = PhysicsDebrisCue::Impact;
+        for room in [Some(rooms[0]), Some(rooms[1]), None] {
+            app.world_mut().write_message(DebrisBurstMessage { room, pos, cue });
+        }
+        app.update();
+        let mut pieces = app
+            .world_mut()
+            .query_filtered::<(Option<&InRoomInstance>, &Transform), With<PhysicsDebris>>();
+        let thrown: std::collections::BTreeSet<_> = pieces
+            .iter(app.world())
+            .map(|(stamp, at)| (stamp.map(|stamp| stamp.0), at.translation.y as i32))
+            .collect();
+        assert_eq!(
+            thrown,
+            [(Some(rooms[0]), 200), (Some(rooms[1]), 400)].into_iter().collect(),
+            "(the room each debris piece is stamped for, its height on screen): one burst in each \
+             of two live rooms at one position, and one burst that names no room"
         );
     }
 }

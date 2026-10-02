@@ -211,6 +211,7 @@ fn record_frame_with_oob_pushes_event_and_requests_dump() {
         0,
         0,
         &[],
+        ae::DEFAULT_GRAVITY_DIR,
         "Airborne",
         "Standing",
     );
@@ -243,6 +244,7 @@ fn write_dump_writes_two_files() {
         0,
         0,
         &[],
+        ae::DEFAULT_GRAVITY_DIR,
         "Airborne",
         "Standing",
     );
@@ -509,6 +511,51 @@ fn reset_emits_event_and_suppresses_teleport_event() {
     );
 }
 
+/// The trace says a platform is ridden when it supports the body's feet in
+/// the body's own gravity frame. The body stands against the right face of a
+/// platform. With the feet toward the left, that face is under the feet, so
+/// the platform is ridden. With the feet down, it is beside the body, and it
+/// is not. When the trace always read down, a body in sideways gravity was
+/// never recorded as riding.
+#[test]
+fn a_platform_is_ridden_when_it_is_under_the_bodys_own_feet() {
+    let world = dummy_world();
+    let platform = dummy_moving_platform();
+    let right_face = platform.aabb().center().x + platform.aabb().half_size().x;
+    let riding = |feet_dir: ae::Vec2| {
+        let mut scratch = dummy_player(ae::Vec2::ZERO);
+        let half_width = scratch.kinematics.size.x * 0.5;
+        scratch.kinematics.pos = ae::Vec2::new(right_face + half_width, platform.aabb().center().y);
+        scratch.ground.on_ground = true;
+        let clusters = scratch.as_mut();
+        let frame = build_frame(
+            &clusters,
+            ae::BodyLifeStats::default(),
+            &ae::BodyMotionFacts::default(),
+            &ambition_characters::actor::BodyCombat::default(),
+            false,
+            &ambition_platformer2d_shared_tangle::safe_position::PlayerSafetyState::default(),
+            &world,
+            ControlFrame::default(),
+            &ambition_time::WorldTime { raw_dt: 0.016, scaled_dt: 0.016 },
+            "Playing",
+            "test",
+            0,
+            0,
+            std::slice::from_ref(&platform),
+            feet_dir,
+            "Grounded",
+            "Standing",
+        );
+        frame.moving_platforms[0].player_riding
+    };
+    assert_eq!(
+        (riding(ae::Vec2::new(-1.0, 0.0)), riding(ae::DEFAULT_GRAVITY_DIR)),
+        (true, false),
+        "(ridden with the feet toward the platform's face, ridden with the feet down)"
+    );
+}
+
 /// P3 — frame snapshots include a populated `moving_platforms` slot
 /// with the active sandbox platform.
 #[test]
@@ -532,6 +579,7 @@ fn frame_includes_moving_platform_state() {
         0,
         0,
         &[dummy_moving_platform()],
+        ae::DEFAULT_GRAVITY_DIR,
         "Grounded",
         "Standing",
     );
@@ -593,6 +641,7 @@ fn frame_at(sim_frame: Option<i32>, pos: ae::Vec2) -> GameplayTraceFrame {
         0,
         0,
         &[],
+        ae::DEFAULT_GRAVITY_DIR,
         "Airborne",
         "Standing",
     );

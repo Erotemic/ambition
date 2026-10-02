@@ -731,7 +731,7 @@ fn zero_length_launch_dir_falls_back_to_the_default_diagonal() {
 
 #[test]
 fn death_policy_gates_the_meter_kill() {
-    use ambition_combat::DeathPolicy;
+    use ambition_characters::actor::DeathPolicy;
     // HpDepleted (default) kills at the meter's max; Unbounded (smash
     // percent) never does — its death comes from the blast-zone gate.
     assert!(DeathPolicy::default().kills_at_max());
@@ -764,7 +764,7 @@ fn the_damage_meter_accumulates_past_the_pool_it_is_measured_against() {
 /// print `188%` cannot get it from there at any amount of damage.
 #[test]
 fn damage_percent_is_unclamped_so_a_hud_can_print_188() {
-    let mut h = test_health(50).with_policy(ambition_combat::DeathPolicy::Unbounded);
+    let mut h = test_health(50).with_policy(ambition_characters::actor::DeathPolicy::Unbounded);
     h.damage(94);
     assert!(
         (h.damage_percent() - 1.88).abs() < 1e-6,
@@ -787,7 +787,7 @@ fn damage_percent_is_unclamped_so_a_hud_can_print_188() {
 /// variant bought an immortal punching bag.
 #[test]
 fn an_unbounded_body_never_dies_to_the_meter_and_never_stops_feeling_it() {
-    let mut h = test_health(10).with_policy(ambition_combat::DeathPolicy::Unbounded);
+    let mut h = test_health(10).with_policy(ambition_characters::actor::DeathPolicy::Unbounded);
     for _ in 0..20 {
         assert!(
             !h.damage(10),

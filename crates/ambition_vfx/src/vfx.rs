@@ -45,8 +45,13 @@ pub enum PhysicsDebrisCue {
 /// Typed physics-debris message (the debris twin of [`VfxMessage`]).
 /// Bundled into the same `GameplayFeedbackWriters` SystemParam as `SfxMessage`
 /// and `VfxMessage` to stay within Bevy's 16-system-param budget.
+///
+/// `room` is the live room the debris is thrown in: the room of the body or
+/// the feature that broke. Two live rooms share one coordinate space, so the
+/// position does not say which room.
 #[derive(Message, Clone, Copy, Debug)]
 pub struct DebrisBurstMessage {
+    pub room: Option<LiveRoomInstance>,
     pub pos: ae::Vec2,
     pub cue: PhysicsDebrisCue,
 }
@@ -234,6 +239,12 @@ impl VfxForRoom<'_, '_> {
     /// Write `vfx` for this writer's room.
     pub fn write(&mut self, vfx: VfxMessage) {
         self.writer.write_in(self.room, vfx);
+    }
+
+    /// The live room this writer is bound to. A producer that also throws
+    /// debris or asks for another effect gives it the same room.
+    pub fn room(&self) -> Option<LiveRoomInstance> {
+        self.room
     }
 }
 

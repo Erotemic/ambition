@@ -280,23 +280,6 @@ pub fn probe_ledge_grab_in_frame(
     best
 }
 
-/// TODO(compat-remove): migrate callers to [`probe_ledge_grab_in_frame`] and delete this
-/// down-gravity wrapper.
-pub fn probe_ledge_grab(
-    player_pos: Vec2,
-    player_size: Vec2,
-    wall_normal_x: f32,
-    world: &World,
-) -> Option<LedgeContact> {
-    probe_ledge_grab_in_frame(
-        player_pos,
-        player_size,
-        wall_normal_x,
-        world,
-        Vec2::new(0.0, 1.0),
-    )
-}
-
 /// If the player is currently hanging/climbing, advance that state and return
 /// true to indicate that the normal movement integrator should not run this
 /// frame. Frame-explicit: the caller supplies the environment-resolved frame.
@@ -543,21 +526,6 @@ pub fn classify_ledge_grab_in_frame(
     }
 }
 
-/// TODO(compat-remove): migrate callers to [`classify_ledge_grab_in_frame`] and delete this
-/// down-gravity wrapper.
-pub fn classify_ledge_grab(
-    player_pos: Vec2,
-    player_size: Vec2,
-    contact: LedgeContact,
-) -> LedgeGrabQuality {
-    classify_ledge_grab_in_frame(player_pos, player_size, contact, Vec2::new(0.0, 1.0))
-}
-
-/// Convenience predicate for call sites/tests that only care about the
-/// precision reward gate.
-pub fn is_precise_ledge_grab(player_pos: Vec2, player_size: Vec2, contact: LedgeContact) -> bool {
-    classify_ledge_grab(player_pos, player_size, contact).is_precise()
-}
 
 /// Pick a side-face normal to probe for a ledge: the active wall-cling normal
 /// first (engagement from the axis maneuver state, face from the shared wall

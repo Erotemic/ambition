@@ -134,6 +134,10 @@ Each player sees their own live room:
   producer writes `write_in(room, …)`, and helpers take `&mut VfxForRoom`.
   `FxRequest::new(room, …)` and `FireworksRequest::around(room, …)` take the
   room. Each producer names the room of its subject by `LiveRooms::of`.
+- `DebrisBurstMessage` carries the room of its producer's effects. The debris
+  reader (`physics_spawn_debris_messages`, built only with `physics_debris`)
+  places each burst by that room's geometry and stamps each piece, so the
+  room retires its own debris.
 - Live rooms share one coordinate space, so interaction compares rooms: a body
   opens a chest, talks to an NPC, and collapses a breakable only in its own
   live room.
@@ -224,8 +228,10 @@ per-room rollback clocks are not part of this plan.
 
 | Item | Work | Acceptance |
 | --- | --- | --- |
-| Sole-room readers | Key the remaining `SoleLiveRoom*` readers by subject: governing rules fallback, checkpoint, trail render, match activation, LDtk systems, map UI, physics debris, debug overlays, `features.rs` | Each runs per room while two rooms are live; one-room control unchanged. `check_alias_census_agrees_with_source.py` holds the count |
+| Sole-room readers | Key the remaining `SoleLiveRoom*` readers by subject: governing rules fallback, checkpoint, trail render, match activation, LDtk systems, map UI, debug overlays, `features.rs` | Each runs per room while two rooms are live; one-room control unchanged. `check_alias_census_agrees_with_source.py` holds the count |
 | Remaining one-room state | `BrokenBricks` and `SpentMonitors` are keyed by block name with no room and write `RoomOverlays::sole()`. `mary_o_setup` and `sanic_setup` run at `Startup` with one room | Each runs or is keyed per room while two rooms are live |
+| Hit effects of a body with no `SimId` | `FeatureHitWriters::spawn_scope_from` reads the room in one query with `SimId`, so a stamped body with no `SimId` gets no room for its hit effects. That is not the rule of `LiveRooms::of`. Read from the code and met in a unit fixture; not measured in the shipped app | The hit road reads the room by `LiveRooms::of`, or a witness that every hittable shipped body has a `SimId` |
+| Debris physics | Avian has one space, so the debris of one live room can collide with the debris and the static colliders of another at the same position. The debris reader's witness is built only with `--features physics_debris` | Decide whether debris of two live rooms must be kept apart; a default-lane witness of the reader |
 | `PlayerMark` | A mark records a position with no room, and a crossing does not clear it | Decide: a crossing clears a mark, or a mark carries its room |
 | Replay reset effect | A replay writes its reset effect for the room it replays, then replaces that room on the next tick. Whether the effect retires with the old room is not measured | A witness that the effect retires with its room |
 | Join road | Ambition has no production road that seats a second player (Q151). A join road must stamp its body into the room it joins | A second seat's body keeps its room live in ordinary play |

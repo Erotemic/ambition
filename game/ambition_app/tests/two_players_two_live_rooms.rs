@@ -918,13 +918,14 @@ fn the_cut_rope_fight_runs_in_its_own_live_room() {
     let mut dropped = false;
     let mut dead = false;
     // The rooms the arena's effect requests name: the rope sparks and the
-    // blast (`FxRequest`), and the death fireworks.
+    // blast (`FxRequest`), the death fireworks, and the debris of the death.
     let mut fx_rooms = std::collections::BTreeSet::new();
     let mut firework_rooms = Vec::new();
+    let mut debris_rooms = std::collections::BTreeSet::new();
     for _ in 0..1800 {
         sim.step(base());
         let world = sim.world_mut();
-        effect_request_rooms(world, &mut fx_rooms, &mut firework_rooms);
+        effect_request_rooms(world, &mut fx_rooms, &mut firework_rooms, &mut debris_rooms);
         if let Some(gates) = world.get_resource::<bevy::ecs::message::Messages<EncounterGate>>() {
             for gate in gates.iter_current_update_messages() {
                 match gate.gate.as_str() {
@@ -965,7 +966,7 @@ fn the_cut_rope_fight_runs_in_its_own_live_room() {
     // blast and fireworks answer the impact gate on the tick after it.
     for _ in 0..300 {
         sim.step(base());
-        effect_request_rooms(sim.world_mut(), &mut fx_rooms, &mut firework_rooms);
+        effect_request_rooms(sim.world_mut(), &mut fx_rooms, &mut firework_rooms, &mut debris_rooms);
     }
     let world = sim.world_mut();
     let cleared = matches!(
@@ -995,6 +996,7 @@ fn the_cut_rope_fight_runs_in_its_own_live_room() {
             victory_npcs,
             fx_rooms.into_iter().collect::<Vec<_>>(),
             firework_rooms,
+            debris_rooms.into_iter().collect::<Vec<_>>(),
         ),
         (
             vec![Some(second)],
@@ -1008,11 +1010,12 @@ fn the_cut_rope_fight_runs_in_its_own_live_room() {
             vec![Some(second)],
             vec![Some(second)],
             vec![Some(second)],
+            vec![Some(second)],
         ),
         "the cut-rope road did not run whole in #1: (rope_cut rooms, lured to #1's anvil, \
          walked toward it, hazard rooms, it fell, impact rooms, the behemoth died, it is \
          recorded cleared, victory NPC rooms, the rooms its effect requests name, the rooms \
-         its fireworks name)"
+         its fireworks name, the rooms its debris names)"
     );
 }
 
@@ -1090,12 +1093,20 @@ fn the_cut_rope_music_claim_is_released_when_no_live_room_is_its_room() {
 }
 
 /// Add the rooms that this tick's `FxRequest` rows and `FireworksRequest` rows
-/// name to `fx` and `fireworks`.
+/// name to `fx` and `fireworks`, and the rooms that its debris rows name to
+/// `debris`.
 fn effect_request_rooms(
     world: &bevy::prelude::World,
     fx: &mut std::collections::BTreeSet<Option<LiveRoomInstance>>,
     fireworks: &mut Vec<Option<LiveRoomInstance>>,
+    debris: &mut std::collections::BTreeSet<Option<LiveRoomInstance>>,
 ) {
+    debris.extend(
+        world
+            .resource::<bevy::ecs::message::Messages<ambition_platformer2d::vfx::vfx::DebrisBurstMessage>>()
+            .iter_current_update_messages()
+            .map(|row| row.room),
+    );
     fx.extend(
         world
             .resource::<bevy::ecs::message::Messages<ambition_platformer2d::vfx::FxRequest>>()

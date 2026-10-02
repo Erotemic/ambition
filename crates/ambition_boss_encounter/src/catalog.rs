@@ -37,6 +37,8 @@ pub struct BossCatalog {
     sprite_filenames: BTreeMap<String, String>,
     special_anim_keys: BTreeMap<String, Vec<String>>,
     strike_anim_keys: BTreeMap<String, Vec<String>>,
+    strike_anims: BTreeMap<String, Option<ambition_sprite_sheet::boss::BossAnim>>,
+    hurtbox_sample_rows: BTreeMap<String, String>,
     fallback_boss_ids: BTreeMap<String, String>,
     fallback_sheet_keys: BTreeMap<String, String>,
     #[serde(skip)]
@@ -72,6 +74,8 @@ impl BossCatalog {
             && self.sprite_filenames.is_empty()
             && self.special_anim_keys.is_empty()
             && self.strike_anim_keys.is_empty()
+            && self.strike_anims.is_empty()
+            && self.hurtbox_sample_rows.is_empty()
             && self.fallback_boss_ids.is_empty()
             && self.fallback_sheet_keys.is_empty()
     }
@@ -218,6 +222,40 @@ impl BossCatalog {
             .map(Vec::as_slice)
             .unwrap_or(&[])
     }
+
+    /// The generic animation row an attack plays while it telegraphs and
+    /// while it is active. A provider authors the row of each geometry
+    /// strike, and `None` for a strike that plays none. A move with no
+    /// authored row (each content special, and a strike no provider names)
+    /// plays the spike-halo row, the closest generic cue: a ring of damage
+    /// around the boss.
+    pub fn attack_animation(
+        &self,
+        profile: &ambition_characters::brain::BossAttackProfile,
+    ) -> Option<ambition_sprite_sheet::boss::BossAnim> {
+        match self.strike_anims.get(profile.move_id().as_str()) {
+            Some(authored) => *authored,
+            None => Some(ambition_sprite_sheet::boss::BossAnim::SpikeHalo),
+        }
+    }
+
+    /// The sheet row the damageable box of an attack is sampled from: the
+    /// row a provider authors for the move, else the first row the move
+    /// claims. A provider authors it when the box must follow the row that
+    /// is drawn and the move's first row is a gameplay key of its own.
+    pub fn hurtbox_sample_row(
+        &self,
+        profile: &ambition_characters::brain::BossAttackProfile,
+    ) -> Option<String> {
+        self.hurtbox_sample_rows
+            .get(profile.move_id().as_str())
+            .cloned()
+            .or_else(|| {
+                crate::behavior::boss_animation_keys_for_profile(self, profile)
+                    .first()
+                    .cloned()
+            })
+    }
 }
 
 /// A provider's boss art keys, authored as one RON file beside its sheets.
@@ -234,6 +272,15 @@ pub struct BossArtKeys {
     /// row is the canonical runtime key; the others are row-name aliases.
     #[serde(default)]
     pub strike_animation_rows: BTreeMap<String, Vec<String>>,
+    /// The generic animation row each geometry strike plays, by strike key.
+    /// `None` is a strike that plays no row. A strike with no entry plays the
+    /// spike-halo row, as each special does.
+    #[serde(default)]
+    pub strike_animations: BTreeMap<String, Option<ambition_sprite_sheet::boss::BossAnim>>,
+    /// The sheet row the damageable box of a move is sampled from, by move
+    /// id, when it is not the first row the move claims.
+    #[serde(default)]
+    pub hurtbox_sample_rows: BTreeMap<String, String>,
 }
 
 impl BossArtKeys {
@@ -254,6 +301,8 @@ pub struct BossCatalogFragment {
     sprite_filenames: BTreeMap<String, String>,
     special_anim_keys: BTreeMap<String, Vec<String>>,
     strike_anim_keys: BTreeMap<String, Vec<String>>,
+    strike_anims: BTreeMap<String, Option<ambition_sprite_sheet::boss::BossAnim>>,
+    hurtbox_sample_rows: BTreeMap<String, String>,
     #[serde(skip)]
     birth_kits: BTreeMap<String, BossBirthKit>,
 }
@@ -334,6 +383,8 @@ impl BossCatalogFragment {
             sprite_filenames: art.sprite_filenames,
             special_anim_keys: art.special_animation_rows,
             strike_anim_keys: art.strike_animation_rows,
+            strike_anims: art.strike_animations,
+            hurtbox_sample_rows: art.hurtbox_sample_rows,
             birth_kits: BTreeMap::new(),
         };
         fragment.validate()?;
@@ -466,6 +517,18 @@ impl BossCatalogFragment {
                 });
             }
         }
+        let unnamed_strike = self.strike_anims.keys().find(|strike| strike.trim().is_empty());
+        let unnamed_sample = self
+            .hurtbox_sample_rows
+            .iter()
+            .find(|(move_id, row)| move_id.trim().is_empty() || row.trim().is_empty())
+            .map(|(move_id, _)| move_id);
+        if let Some(strike) = unnamed_strike.or(unnamed_sample) {
+            return Err(BossCatalogAssemblyError::InvalidStrikeAnimation {
+                provider_id: self.provider_id.clone(),
+                strike: strike.clone(),
+            });
+        }
         Ok(())
     }
 }
@@ -520,6 +583,8 @@ impl BossCatalogRegistry {
         let mut sprite_filenames = BTreeMap::new();
         let mut special_anim_keys = BTreeMap::new();
         let mut strike_anim_keys = BTreeMap::new();
+        let mut strike_anims = BTreeMap::new();
+        let mut hurtbox_sample_rows = BTreeMap::new();
         let mut strike_owners = BTreeMap::<String, String>::new();
         let mut behavior_owners = BTreeMap::<String, String>::new();
         let mut sheet_owners = BTreeMap::<String, String>::new();
@@ -596,6 +661,33 @@ impl BossCatalogRegistry {
                 strike_owners.insert(key.clone(), provider_id.clone());
                 strike_anim_keys.insert(key.clone(), rows.clone());
             }
+            // The two tables below are keyed by move id, as the strike rows
+            // are. One move has one author, so a second provider's entry for
+            // the same move is the same error.
+            let authored_twice = fragment
+                .strike_anims
+                .keys()
+                .find(|key| strike_anims.contains_key(*key))
+                .or_else(|| {
+                    fragment
+                        .hurtbox_sample_rows
+                        .keys()
+                        .find(|key| hurtbox_sample_rows.contains_key(*key))
+                });
+            if let Some(key) = authored_twice {
+                return Err(BossCatalogAssemblyError::DuplicateStrikeAnimation {
+                    strike: key.clone(),
+                    first_provider: "an earlier provider".to_string(),
+                    second_provider: provider_id.clone(),
+                });
+            }
+            strike_anims.extend(fragment.strike_anims.iter().map(|(key, anim)| (key.clone(), *anim)));
+            hurtbox_sample_rows.extend(
+                fragment
+                    .hurtbox_sample_rows
+                    .iter()
+                    .map(|(key, row)| (key.clone(), row.clone())),
+            );
             if let Some(boss_id) = fragment.fallback_boss_id.as_ref() {
                 fallback_boss_ids.insert(provider_id.clone(), boss_id.clone());
             }
@@ -611,6 +703,8 @@ impl BossCatalogRegistry {
             sprite_filenames,
             special_anim_keys,
             strike_anim_keys,
+            strike_anims,
+            hurtbox_sample_rows,
             fallback_boss_ids,
             fallback_sheet_keys,
             birth_kits,
@@ -932,6 +1026,8 @@ mod tests {
             sprite_filenames: BTreeMap::new(),
             special_anim_keys: BTreeMap::new(),
             strike_anim_keys: BTreeMap::new(),
+            strike_anims: BTreeMap::new(),
+            hurtbox_sample_rows: BTreeMap::new(),
             birth_kits: BTreeMap::new(),
         }
     }

@@ -502,6 +502,10 @@ impl BossFrameIndex {
 
 pub fn rebuild_boss_frame_index(
     mut index: ResMut<BossFrameIndex>,
+    // The row each attack plays is authored data in the boss catalog.
+    // REQUIRED, not optional: `engine.character-authority-is-app-local`
+    // forbids an optional boss authority and a substituted empty catalog.
+    catalog: bevy::prelude::Res<ambition_boss_encounter::BossCatalog>,
     bosses: Query<(
         &FeatureId,
         ambition_boss_encounter::BossClusterRef,
@@ -521,7 +525,7 @@ pub fn rebuild_boss_frame_index(
     index.begin_rebuild();
     for (id, feature, health, combat, attack_state, brain, anim_frame, pinned, frame) in &bosses {
         let boss = feature.as_boss_ref();
-        let anim = boss_anim_state_for(boss, health.alive(), attack_state, brain);
+        let anim = boss_anim_state_for(&catalog, boss, health.alive(), attack_state, brain);
         let (cursor_anim, cursor_frame) = anim_frame
             .map(|f| (f.current, f.frame))
             .unwrap_or((BossAnim::Rest, 0));

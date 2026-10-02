@@ -63,4 +63,31 @@
         "hand_sweep": ["gnu_hand_sweep", "hand_sweep"],
         "head_descent": ["gnu_head_descent", "head_down"],
     },
+    // The generic animation row each geometry strike plays while it
+    // telegraphs and while it is active. `None` is a strike that plays no row.
+    // A strike with no entry (`full_body_pulse`, `head_descent`) plays the
+    // spike-halo row, as each special does.
+    strike_animations: {
+        "floor_slam": Some(FloorSlam),
+        "hand_slam": Some(FloorSlam),
+        "converging_shockwave": Some(FloorSlam),
+        "side_sweep": Some(SideSweep),
+        "hand_sweep": Some(SideSweep),
+        "broadside": Some(SideSweep),
+        "hazard_column": Some(DashEcho),
+        "dive_lane": Some(DashEcho),
+        "wing_sweep": None,
+    },
+    // The sheet row the damageable box of a move is sampled from, when it is
+    // not the first row the move claims. GNU-ton's strikes claim a gameplay
+    // key first (`gnu_shockwave`), but his head and body box follows the row
+    // that is drawn, so the authored frames of that row are the source of the
+    // box. `apple_rain` claims no row and reads the head row for its box.
+    hurtbox_sample_rows: {
+        "hand_slam": "hand_slam",
+        "converging_shockwave": "hand_slam",
+        "hand_sweep": "hand_sweep",
+        "head_descent": "head_down",
+        "apple_rain": "head_down",
+    },
 )

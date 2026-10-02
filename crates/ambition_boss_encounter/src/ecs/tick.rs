@@ -385,7 +385,7 @@ pub fn drive_boss_animators(
         let dt = world_time.entity_dt(ambition_time::ProperTimeScale::or_default(scale));
         // Both helpers belong to `crate::anim`; call them there.
         let Some((_, state)) =
-            crate::anim::ecs_boss_anim_state_and_entity(feature_id.as_str(), &ecs_bosses)
+            crate::anim::ecs_boss_anim_state_and_entity(&boss_catalog, feature_id.as_str(), &ecs_bosses)
         else {
             continue;
         };

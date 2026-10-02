@@ -4,6 +4,8 @@ use ambition_combat::components::FeatureId;
 use bevy::prelude::*;
 
 pub fn boss_anim_state_for(
+    // The row each attack plays is authored data in the boss catalog.
+    catalog: &crate::BossCatalog,
     boss: crate::BossRef<'_>,
     // Liveness from the boss's shared body components. The damage flash is
     // not an input: this state drives the sim cursor that feeds boss
@@ -26,11 +28,11 @@ pub fn boss_anim_state_for(
         windup_anim: attack_state
             .telegraph_profile
             .as_ref()
-            .and_then(boss_anim_for_attack_profile),
+            .and_then(|profile| catalog.attack_animation(profile)),
         active_anim: attack_state
             .active_profile
             .as_ref()
-            .and_then(boss_anim_for_attack_profile),
+            .and_then(|profile| catalog.attack_animation(profile)),
         pattern_timer,
         // Drawn side, not facing: an `Unmirrored` boss is drawn toward +x.
         facing: boss.drawn_side(),
@@ -39,6 +41,7 @@ pub fn boss_anim_state_for(
 }
 
 pub fn ecs_boss_anim_state_and_entity(
+    catalog: &crate::BossCatalog,
     id: &str,
     bosses: &Query<(
         bevy::prelude::Entity,
@@ -60,6 +63,7 @@ pub fn ecs_boss_anim_state_and_entity(
             Some((
                 entity,
                 boss_anim_state_for(
+                    catalog,
                     boss.as_boss_ref(),
                     health.alive(),
                     attack_state,
@@ -102,11 +106,11 @@ pub fn ecs_boss_animation_frame_sample(
             let active_expected = attack_state
                 .active_profile
                 .as_ref()
-                .and_then(boss_anim_for_attack_profile);
+                .and_then(|profile| catalog.attack_animation(profile));
             let telegraph_expected = attack_state
                 .telegraph_profile
                 .as_ref()
-                .and_then(boss_anim_for_attack_profile);
+                .and_then(|profile| catalog.attack_animation(profile));
             let mut result = None;
             if let Some(profile) = attack_state.active_profile.as_ref() {
                 if active_expected == Some(anim) {
@@ -115,7 +119,7 @@ pub fn ecs_boss_animation_frame_sample(
                         crate::attack_geometry::BossAnimationFrameSample {
                             profile: Some(profile.clone()),
                             frame_index,
-                            animation_key: boss_animation_key_for_sample(catalog, profile, anim),
+                            animation_key: catalog.hurtbox_sample_row(profile),
                         },
                     ));
                 }
@@ -128,9 +132,7 @@ pub fn ecs_boss_animation_frame_sample(
                             crate::attack_geometry::BossAnimationFrameSample {
                                 profile: Some(profile.clone()),
                                 frame_index,
-                                animation_key: boss_animation_key_for_sample(
-                                    catalog, profile, anim,
-                                ),
+                                animation_key: catalog.hurtbox_sample_row(profile),
                             },
                         ));
                     }
@@ -156,6 +158,7 @@ pub fn ecs_boss_animation_frame_sample(
 }
 
 pub fn ecs_boss_anim_state(
+    catalog: &crate::BossCatalog,
     id: &str,
     bosses: &Query<(
         &FeatureId,
@@ -172,6 +175,7 @@ pub fn ecs_boss_anim_state(
                 return None;
             }
             Some(boss_anim_state_for(
+                catalog,
                 boss.as_boss_ref(),
                 health.alive(),
                 attack_state,
@@ -180,54 +184,15 @@ pub fn ecs_boss_anim_state(
         })
 }
 
-fn boss_anim_for_attack_profile(
-    profile: &ambition_characters::brain::BossAttackProfile,
-) -> Option<ambition_sprite_sheet::boss::BossAnim> {
-    use ambition_sprite_sheet::boss::BossAnim;
-    match profile.move_id().as_str() {
-        "floor_slam" | "hand_slam" | "converging_shockwave" => Some(BossAnim::FloorSlam),
-        "side_sweep" | "hand_sweep" | "broadside" => Some(BossAnim::SideSweep),
-        "hazard_column" | "dive_lane" => Some(BossAnim::DashEcho),
-        "wing_sweep" => None,
-        // `full_body_pulse`, `head_descent` and every content special fall
-        // back to the spike-halo telegraph anim (a ring of damage around the
-        // boss), the closest generic visual cue.
-        _ => Some(BossAnim::SpikeHalo),
-    }
-}
-
-fn boss_animation_key_for_sample(
-    catalog: &crate::BossCatalog,
-    profile: &ambition_characters::brain::BossAttackProfile,
-    anim: ambition_sprite_sheet::boss::BossAnim,
-) -> Option<String> {
-    use ambition_sprite_sheet::boss::BossAnim;
-    match (profile.move_id().as_str(), anim) {
-        // GNU-ton has profile-specific dangerous boxes (for example
-        // `gnu_shockwave`), but the damageable head/body box follows the
-        // rendered row. Keep the sample keyed to the visual row, so authored
-        // row frames are the source of truth for hurtboxes.
-        ("hand_slam" | "converging_shockwave", BossAnim::FloorSlam) => Some("hand_slam".into()),
-        ("hand_sweep", BossAnim::SideSweep) => Some("hand_sweep".into()),
-        ("head_descent", BossAnim::SpikeHalo) => Some("head_down".into()),
-        // GNU-ton's apple rain reads the head row for its damageable hurtbox.
-        ("apple_rain", BossAnim::SpikeHalo) => Some("head_down".into()),
-        _ => crate::behavior::boss_animation_keys_for_profile(catalog, profile)
-            .first()
-            .cloned(),
-    }
-}
-
 #[cfg(test)]
 mod sample_key_agrees_with_profile_keys_tests {
-    use super::*;
     use ambition_characters::brain::BossAttackProfile;
 
-    /// Hardcoded sample-key overrides must name a row claimed by the driving
-    /// attack profile. `apple_rain` is excluded because its special-profile row
-    /// list comes from the runtime `BossCatalog`.
+    /// The authored hurtbox sample row of a strike names a row the strike
+    /// claims. `apple_rain` is not in the list: it claims no row, and its
+    /// sample row is the head row.
     #[test]
-    fn every_hardcoded_sample_key_names_a_row_its_profile_claims() {
+    fn every_authored_sample_row_names_a_row_its_strike_claims() {
         let catalog = crate::test_boss_catalog();
         for move_id in [
             "head_descent",
@@ -236,9 +201,8 @@ mod sample_key_agrees_with_profile_keys_tests {
             "hand_sweep",
         ] {
             let profile = BossAttackProfile::Strike(move_id.to_string());
-            let anim = boss_anim_for_attack_profile(&profile)
-                .unwrap_or_else(|| panic!("{move_id} maps to a boss anim"));
-            let key = boss_animation_key_for_sample(catalog, &profile, anim)
+            let key = catalog
+                .hurtbox_sample_row(&profile)
                 .unwrap_or_else(|| panic!("{move_id} yields a sample key"));
             let claimed =
                 crate::behavior::boss_animation_keys_for_profile(catalog, &profile);

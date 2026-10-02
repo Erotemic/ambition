@@ -494,12 +494,11 @@ second authoring source.
 
 **Current state:** some authored facts have two readers:
 
-- Two boss animation maps are hand-written in Rust beside the published sheet
-  metadata, in `ambition_boss_encounter::anim`: the strike-to-`BossAnim` map
-  (`boss_anim_for_attack_profile`) and the hurtbox sample row of a strike
-  (`boss_animation_key_for_sample`, which names GNU-ton's rows). The sheet
-  rows each strike claims are authored in `boss_art_keys.ron`
-  (`strike_animation_rows`), beside the rows of the specials.
+- `ambition_sprite_sheet::boss::boss_ron_target` names two of GNU-ton's
+  texture suffixes in Rust (`_body`, `_hands`) to map both files to one baked
+  record. The rows, the animation row and the hurtbox sample row of each boss
+  attack are authored in `boss_art_keys.ron`; no other boss animation or sprite
+  map was searched for after those moved.
 - Yarn dialogue has its reader, and
   `game/ambition_content/src/content_validation.rs` checks dialogue references
   again.

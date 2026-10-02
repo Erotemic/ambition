@@ -467,13 +467,14 @@ mod apple_rain_animation_key_tests {
     /// `BossAnimationFrameSample` can drop `BossAttackProfile` and become
     /// character-generic. For every profile the ENGINE names, the sample writer's
     /// key still lands inside the profile's own key list, so the swap would be
-    /// safe (`every_hardcoded_sample_key_names_a_row_its_profile_claims`).
+    /// safe (`every_authored_sample_row_names_a_row_its_strike_claims`).
     ///
     /// `apple_rain` is the exception, and it is CONTENT, which is why the
     /// engine could not answer it. It is a `Special`, so its key list comes
     /// from this crate's `boss_art_keys.ron` — and it is not in that map.
-    /// The profile therefore claims NOTHING, while
-    /// `boss_animation_key_for_sample` emits `"head_down"` for it.
+    /// The profile therefore claims NOTHING, while its authored hurtbox
+    /// sample row (`hurtbox_sample_rows`, read by
+    /// `BossCatalog::hurtbox_sample_row`) is `"head_down"`.
     ///
     /// So today the hurtbox row is found only because the profile matched:
     /// `runtime_animation_keys` pushes the sample's own key into the list when
@@ -493,7 +494,7 @@ mod apple_rain_animation_key_tests {
         assert!(
             claimed.is_empty(),
             "`apple_rain` now claims {claimed:?}. If that list contains \
-             \"head_down\" — the key `boss_animation_key_for_sample` emits for it \
+             \"head_down\" — its authored hurtbox sample row \
              — then the last blocker on the boss-animator fold's first slice is \
              gone and the profile identity can be replaced by a key comparison. \
              Update the fold's row in the 72h queue rather than just this test"

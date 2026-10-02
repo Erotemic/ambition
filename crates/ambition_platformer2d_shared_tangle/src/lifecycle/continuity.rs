@@ -7,7 +7,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
-use bevy::prelude::{Query, ResMut, Resource, Vec2, With};
+use bevy::prelude::{Query, Res, ResMut, Resource, Vec2, With};
 
 use super::{InCustodyOf, RoomScopedEntity};
 use crate::sim_id::SimId;
@@ -327,6 +327,18 @@ impl AuthoredOccurrences {
     /// From the custody index, so the cost is the carried set, not every row.
     pub fn in_custody(&self) -> &BTreeSet<SimId> {
         &self.custody
+    }
+
+    /// This ledger with the custody rows of `released` taken off, as it will
+    /// be once their custody ends: for a construction prepared before that
+    /// happens (see `AwayFromAuthoredRoom`). An id with another row keeps it.
+    pub fn with_custody_released(&self, released: &BTreeSet<SimId>) -> Self {
+        let mut ledger = self.clone();
+        let carried: BTreeSet<SimId> = self.custody.difference(released).cloned().collect();
+        if carried.len() != self.custody.len() {
+            ledger.republish_custody(carried);
+        }
+        ledger
     }
 
     /// Republish the whole custody leg.
@@ -724,6 +736,32 @@ pub fn reduce_occurrences_to_baseline(
     }
 }
 
+/// The authored population occurrences that live in a live room other than
+/// the room that authored them, which the custody leg holds as carried (Q38).
+///
+/// The ruling: a respawning population occurrence stays where it is carried
+/// while it lives, and its replacement comes from its authored room. So while
+/// it lives elsewhere, its home room must not author it again, which is what
+/// an `InCustody` row says; and when it dies or its room retires, the row must
+/// go, which is what an `InCustody` row does (it is republished from live
+/// state every tick). The save keeps no such row, because no hand can be
+/// reconstructed for it, so a loaded world builds the occurrence at home.
+///
+/// A persistent character is not in this set: its whereabouts are durable
+/// (`Placed`), written by the body whereabouts producer.
+///
+/// A crossing's destination is prepared before the crossing commits, and the
+/// room the crossing retires takes its away occurrences with it, so that
+/// preparation reads the ledger with their custody released
+/// ([`AuthoredOccurrences::with_custody_released`]).
+///
+/// DERIVED, not rollback state: the actor domain writes it each tick from
+/// rollback state (the body's live room and its provenance), immediately
+/// before its one reader, this projection. Empty or absent in a composition
+/// with no actor domain.
+#[derive(bevy::prelude::Resource, Clone, Debug, Default, PartialEq)]
+pub struct AwayFromAuthoredRoom(pub BTreeSet<SimId>);
+
 /// Custody is the first thing that gives an occurrence a whereabouts.
 ///
 /// An occurrence a body is carrying is alive and is not in any room, so the room
@@ -761,12 +799,17 @@ pub fn reduce_occurrences_to_baseline(
 /// and that is recoverable today only by reading a filter two crates away.
 pub fn project_custody_onto_authored_occurrences(
     carried: Query<&SimId, (With<InCustodyOf>, With<RoomScopedEntity>)>,
+    away: Option<Res<AwayFromAuthoredRoom>>,
     occurrences: Option<ResMut<AuthoredOccurrences>>,
 ) {
     let Some(mut occurrences) = occurrences else {
         return;
     };
-    let alive: BTreeSet<SimId> = carried.iter().cloned().collect();
+    let alive: BTreeSet<SimId> = carried
+        .iter()
+        .chain(away.iter().flat_map(|away| away.0.iter()))
+        .cloned()
+        .collect();
     if *occurrences.in_custody() != alive {
         occurrences.republish_custody(alive);
     }

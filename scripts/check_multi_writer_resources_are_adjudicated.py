@@ -413,6 +413,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
     ),
     "AuthoredOccurrences": (
         "crates/ambition_held_items/src/lib.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/body_whereabouts.rs",
         "crates/ambition_platformer2d_actor_monolith/src/items/pickup/minted_horizon.rs",
         "crates/ambition_platformer2d_actor_monolith/src/session/durable_horizon.rs",
         "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
@@ -1832,7 +1833,13 @@ ADJUDICATED: dict[str, str] = {
         "rows of the mints of a boss defeat that a replay retracted, taken by "
         "`retract_mints_of_retracted_boss_defeats` (`items/pickup/"
         "minted_horizon.rs`). It removes rows and adds none, so the entry rule "
-        "below is unchanged.\n"
+        "below is unchanged. The sixth FILE, added 2026-10-01 (Q38, OW3), is "
+        "`record_placed_bodies` (`actor_monolith/src/body_whereabouts.rs`): it "
+        "takes `republish_placements` for a persistent authored body whose "
+        "custody just ended, the item producer's road under the same entry rule, "
+        "and adds no method. (The away population set of the same module, "
+        "`AwayFromAuthoredRoom`, is not a writer: it is an input of the custody "
+        "projection, which stays the one caller of `republish_custody`.)\n"
         "    ⭐ THE UPDATER CANNOT BECOME AN ENTRY, AND THE TYPE IS WHAT STOPS IT. "
         "`republish_placements` inserts only where the existing row is "
         "`InCustody` or `Placed`, collects every other id into a `BTreeSet` and "

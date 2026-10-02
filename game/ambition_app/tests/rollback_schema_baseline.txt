@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v293
+ggrs-rollback-schema-v294
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -146,6 +146,7 @@ derived.actor_decision_facts	derived	ActorDecisionFacts	rebuilt from authoritati
 derived.actor_decision_frames	derived	ActorDecisionFrames	rebuilt by autonomous decision and consumed by same-tick control publication
 derived.actor_steering	derived	ActorSteering	rebuilt from the authoritative actor population before movement
 derived.authored_switch_commands	derived	AuthoredSwitchCommands	authored switch verbs prepared for the active room; recomputed from the room set and LDtk project
+derived.away_from_authored_room	derived	AwayFromAuthoredRoom	rewritten every tick from the bodies' live rooms and provenance, immediately before the custody projection that reads it
 derived.body_contact_snapshot	derived	BodyContactSnapshot	cleared and refilled from authoritative BodyKinematics every tick, immediately before the movement phase that reads it
 derived.body_environment_contact	derived	BodyEnvironmentContact	rewritten every movement step from body geometry and the live world
 derived.body_motion_facts	derived	BodyMotionFacts	republished from MotionModel every movement step

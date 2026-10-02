@@ -157,7 +157,7 @@ fn alice_leaves_bob_by(
 
 /// [`alice_leaves_bob_by`], with Alice and Bob in `start` and Alice crossing
 /// to `target`.
-fn alice_leaves_bob_in(
+pub(crate) fn alice_leaves_bob_in(
     start: &str,
     target: &str,
     slot: Option<ambition_platformer2d::characters::control::PlayerSlot>,

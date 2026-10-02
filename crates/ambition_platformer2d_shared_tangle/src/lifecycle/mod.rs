@@ -23,7 +23,8 @@ pub use departure::{Departure, DepartureState, Destination, DEPARTURE_GIVE_UP_S}
 pub use mode_visit::{Arrival, ModeVisit};
 pub use continuity::{
     capture_occurrence_baseline, project_custody_onto_authored_occurrences,
-    restore_occurrence_baseline, AuthoredOccurrences, OccurrenceBaseline, OccurrenceDisposition,
+    restore_occurrence_baseline, AuthoredOccurrences, AwayFromAuthoredRoom, OccurrenceBaseline,
+    OccurrenceDisposition,
     OccurrenceWhereabouts, RoomOccurrenceOutlook,
 };
 pub use custody_horizon::{capture_custody_baseline, live_custody_rows, CustodyBaseline};

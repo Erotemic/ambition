@@ -2,7 +2,8 @@
 //!
 //! A live room stays live while a participant's driven body is in it. That is
 //! the rule a crossing uses to choose whether the room it leaves stays whole
-//! (`another_player_stays` in the room transition commit) or is retired. This
+//! ([`another_player_stays`], which the room transition commit asks) or is
+//! retired. This
 //! module holds that rule once, as [`claims_on`], and derives from it the
 //! read-only answer "which owners hold each live room" ([`live_room_claims`]),
 //! which the `[census] rooms` instrument prints.
@@ -40,6 +41,43 @@ pub fn claims_on(
         .into_iter()
         .filter(move |(_, _, stamped)| *stamped == Some(room))
         .map(|(body, slot, _)| RoomClaim { slot, body })
+}
+
+/// Whether a crossing by `subject`, participant `participant`'s, out of
+/// live room `departing` leaves another participant's body behind in it (OW1
+/// cut 6c). `drivers` are the driven bodies now: each entity, the slot that
+/// drives it and the live room it is in.
+///
+/// ⛔ `participant` IS THE ONE RECORDED ON THE INTENT, never the subject's
+/// current slot: control can move off the subject between detection and
+/// commit (see `RoomTransitionIntent::participant`). The other participants'
+/// rooms are read now.
+///
+/// ⛔ ANOTHER PARTICIPANT IS ANOTHER SLOT. The crossing participant's own slot
+/// may be on other bodies, and those do not keep a room live, so with one
+/// player the crossing always replaces the room it leaves, and the one-room
+/// profile never opens a second room.
+///
+/// ⛔ ONLY A PARTICIPANT'S CROSSING OPENS A ROOM. A crossing no slot drove (a
+/// body the session sends across) is not a player leaving another player:
+/// the session follows it and replaces the room.
+pub fn another_player_stays(
+    subject: Option<Entity>,
+    participant: Option<PlayerSlot>,
+    departing: LiveRoomInstance,
+    drivers: impl IntoIterator<
+        Item = (
+            Entity,
+            PlayerSlot,
+            Option<LiveRoomInstance>,
+        ),
+    >,
+) -> bool {
+    let Some(participant) = participant else {
+        return false;
+    };
+    claims_on(departing, drivers)
+        .any(|claim| Some(claim.body) != subject && claim.slot != participant)
 }
 
 /// Each live room in `rooms` and the claims on it, in room order, each list

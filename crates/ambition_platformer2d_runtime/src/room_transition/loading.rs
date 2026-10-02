@@ -656,9 +656,12 @@ pub fn begin_room_transition_load_system(
     mut load_events: MessageWriter<LoadEvent>,
     // PAIRED, and only because a Bevy system stops at sixteen params: the mode
     // a load may set, and the driven bodies that say whether it may set it.
-    (mut next_mode, drivers): (
+    // And, for the same reason, the occurrences whose custody this crossing
+    // ends (Q38): see `CustodyEndingAtCommit`.
+    (mut next_mode, drivers, custody_at_commit): (
         ResMut<NextState<ambition_platformer2d_shared_tangle::schedule::GameMode>>,
         bevy::prelude::Query<&ambition_characters::control::DrivingParticipant>,
+        ambition_platformer2d_actor_monolith::body_whereabouts::CustodyEndingAtCommit,
     ),
 ) {
     let (
@@ -1175,9 +1178,23 @@ pub fn begin_room_transition_load_system(
         // occurrence it remembers as carried, relocated or consumed. This is NOT
         // the mints' rule below: the mint baseline and its restore come from one
         // plugin, so a restore without them has no mints to rebuild.
+        // ⛔ AS IT WILL BE AT THE COMMIT. The live ledger is from before this
+        // crossing was recorded; an away occurrence in the room the crossing
+        // retires dies with that room, so its custody row is released here and
+        // its home room authors the replacement (Q38).
+        let released = custody_at_commit.released_by(intent);
+        let released_ledger = (!released.is_empty())
+            .then(|| {
+                construction_services
+                    .6
+                    .as_deref()
+                    .map(|live| live.with_custody_released(&released))
+            })
+            .flatten();
         let selected_ledger = selected_restore
             .and_then(|accepted| accepted.lifecycle.as_ref())
             .map(|lifecycle| lifecycle.occurrences.remembered())
+            .or(released_ledger.as_ref())
             .or(construction_services.6.as_deref());
         let door_minted = construction_services.7.as_deref().map(|save| {
             ambition_platformer2d_actor_monolith::items::pickup::minted_horizon::minted_baseline_from_save(

@@ -888,44 +888,9 @@ impl TransitBodies<'_, '_> {
     }
 }
 
-/// Whether a crossing by `subject`, participant `participant`'s, out of
-/// live room `departing` leaves another participant's body behind in it (OW1
-/// cut 6c). `drivers` are the driven bodies now: each entity, the slot that
-/// drives it and the live room it is in.
-///
-/// ⛔ `participant` IS THE ONE RECORDED ON THE INTENT, never the subject's
-/// current slot: control can move off the subject between detection and
-/// commit (see `RoomTransitionIntent::participant`). The other participants'
-/// rooms are read now.
-///
-/// ⛔ ANOTHER PARTICIPANT IS ANOTHER SLOT. The crossing participant's own slot
-/// may be on other bodies, and those do not keep a room live, so with one
-/// player the crossing always replaces the room it leaves, and the one-room
-/// profile never opens a second room.
-///
-/// ⛔ ONLY A PARTICIPANT'S CROSSING OPENS A ROOM. A crossing no slot drove (a
-/// body the session sends across) is not a player leaving another player:
-/// the session follows it and replaces the room.
-pub fn another_player_stays(
-    subject: Option<Entity>,
-    participant: Option<ambition_characters::control::PlayerSlot>,
-    departing: world_rooms::LiveRoomInstance,
-    drivers: impl IntoIterator<
-        Item = (
-            Entity,
-            ambition_characters::control::PlayerSlot,
-            Option<world_rooms::LiveRoomInstance>,
-        ),
-    >,
-) -> bool {
-    let Some(participant) = participant else {
-        return false;
-    };
-    // The claims on the room are the one rule (OW4): the same answer the
-    // `[census] rooms` instrument prints as the room's holders.
-    ambition_platformer2d_actor_monolith::rooms::claims_on(departing, drivers)
-        .any(|claim| Some(claim.body) != subject && claim.slot != participant)
-}
+// The rule lives beside the claims it reads; the commit and the away
+// population (`body_whereabouts`) ask the same question.
+pub use ambition_platformer2d_actor_monolith::rooms::another_player_stays;
 
 /// The live room a crossing by participant `participant` into room `target`
 /// joins (OW1 cut 6e): a live room of `target`, other than `departing`, that

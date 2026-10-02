@@ -634,6 +634,24 @@ pub enum HeldItemStep {
     Residency,
 }
 
+/// The ordered steps inside [`HeldItemStep::Residency`], so a producer of the
+/// whereabouts ledger that is not the item domain's (a body's whereabouts,
+/// Q38) says where it runs without naming the item domain's systems.
+///
+/// [`Follow`](Self::Follow) first: residency follows the custody just settled.
+/// [`Record`](Self::Record): each producer writes where a carried occurrence
+/// came to rest, and what lives away from its authored room. The producers
+/// write disjoint ids, and a placement is an upsert per id, so they need no
+/// order among themselves. [`Project`](Self::Project) last: the custody leg is
+/// republished, which retracts the `InCustody` row that is a producer's
+/// evidence that the occurrence was carried.
+#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
+pub enum ResidencyStep {
+    Follow,
+    Record,
+    Project,
+}
+
 /// Ordered authority boundaries for one autonomous actor decision, inside
 /// [`Platformer2dSimulationPhaseMonolith::WorldPrep`].
 ///

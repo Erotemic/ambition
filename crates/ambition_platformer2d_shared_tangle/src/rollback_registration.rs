@@ -180,6 +180,12 @@ where
         "cleared and refilled from authoritative BodyKinematics every tick, immediately \
          before the movement phase that reads it",
     );
+    registrar.declare_rollback_derived_resource::<crate::lifecycle::AwayFromAuthoredRoom>(
+        OWNER,
+        "derived.away_from_authored_room",
+        "rewritten every tick from the bodies' live rooms and provenance, immediately \
+         before the custody projection that reads it",
+    );
     registrar.rollback_component_clone_probed::<crate::body::BodyContact>(
         OWNER,
         "body.contact",

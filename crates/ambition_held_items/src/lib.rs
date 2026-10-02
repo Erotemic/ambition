@@ -78,6 +78,18 @@ impl Plugin for HeldItemSimulationPlugin {
         // shared_tangle vocabulary so a system that is not this domain's (the
         // kernel's shrine, gun and match spawn) can say where it runs without
         // naming a leaf function.
+        // The steps inside residency, which another domain's ledger producer
+        // names (see `ResidencyStep`).
+        app.configure_sets(
+            sim,
+            (
+                ambition_platformer2d_shared_tangle::schedule::ResidencyStep::Follow,
+                ambition_platformer2d_shared_tangle::schedule::ResidencyStep::Record,
+                ambition_platformer2d_shared_tangle::schedule::ResidencyStep::Project,
+            )
+                .chain()
+                .in_set(HeldItemStep::Residency),
+        );
         app.configure_sets(
             sim,
             (
@@ -139,9 +151,12 @@ impl Plugin for HeldItemSimulationPlugin {
                 // about items) and this is simply the chain whose last link
                 // produces its input.
                 (
-                    project_custody_onto_residency,
-                    record_placed_ground_items,
-                    ambition_platformer2d_shared_tangle::lifecycle::project_custody_onto_authored_occurrences,
+                    project_custody_onto_residency
+                        .in_set(ambition_platformer2d_shared_tangle::schedule::ResidencyStep::Follow),
+                    record_placed_ground_items
+                        .in_set(ambition_platformer2d_shared_tangle::schedule::ResidencyStep::Record),
+                    ambition_platformer2d_shared_tangle::lifecycle::project_custody_onto_authored_occurrences
+                        .in_set(ambition_platformer2d_shared_tangle::schedule::ResidencyStep::Project),
                 )
                     .chain()
                     .in_set(HeldItemStep::Residency),

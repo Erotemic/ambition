@@ -257,9 +257,16 @@ impl Plugin for PlayerSchedulePlugin {
         app.add_systems(
             sim,
             ambition_platformer2d_actor_monolith::body_whereabouts::record_placed_bodies
-                .in_set(ambition_platformer2d_shared_tangle::schedule::HeldItemStep::Residency)
-                .after(ambition_held_items::record_placed_ground_items)
-                .before(ambition_platformer2d_shared_tangle::lifecycle::project_custody_onto_authored_occurrences),
+                .in_set(ambition_platformer2d_shared_tangle::schedule::ResidencyStep::Record),
+        );
+        // And where a population occurrence lives away from the room that
+        // authored it (Q38): the custody projection holds it as carried, so
+        // its home room does not build it a second time while it lives.
+        app.init_resource::<ambition_platformer2d_shared_tangle::lifecycle::AwayFromAuthoredRoom>();
+        app.add_systems(
+            sim,
+            ambition_platformer2d_actor_monolith::body_whereabouts::record_bodies_away_from_home
+                .in_set(ambition_platformer2d_shared_tangle::schedule::ResidencyStep::Record),
         );
         // ⛔⛤ THE SETTINGS READ THAT USED TO BE INSIDE THE SIMULATION SCHEDULE.
         // `apply_player_hit_events`, `charge_projectile_input` and

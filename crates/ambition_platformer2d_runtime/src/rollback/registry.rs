@@ -969,7 +969,11 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// latch.
 /// ⛔⛤ 292 -> 293: `message.vfx` clears `VfxInRoom` (an effect and the live
 /// room it is drawn in, view half V2f) where it cleared `VfxMessage`.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 293;
+/// ⛔⛤ 293 -> 294: `derived.away_from_authored_room` is new: the authored
+/// population occurrences living in a live room other than their own, an input
+/// of the custody projection (Q38, OW3 fourth slice). Declared derived, so no
+/// snapshot bytes change; the schema dump, and so the fingerprint, does.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 294;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

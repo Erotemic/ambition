@@ -1,5 +1,6 @@
-//! Where a persistent character was left: the durable whereabouts of an
-//! authored body (Q38, OW3).
+//! Where an authored body is when it is not in the room that authored it
+//! (Q38, OW3): a persistent character's durable whereabouts, and the
+//! population occurrences that live away from home.
 //!
 //! The ruling: a persistent open-world character can be carried anywhere and
 //! stays there. Its authored room is not a tether. So the authored home, the
@@ -114,5 +115,142 @@ pub fn record_placed_bodies(
             refused.is_empty(),
             "the ledger refused bodies this producer should never have offered: {refused:?}"
         );
+    }
+}
+
+/// The authored population bodies that live in a live room other than the
+/// room that authored them, for the custody projection (Q38).
+///
+/// A respawning occurrence carried into another room and let go there has no
+/// durable row (it is not a persistent character), so without this its home
+/// room authored it again while it still lived in the other room: two bodies
+/// of one identity, when another player holds that room. In the set, the
+/// custody projection holds it as carried, so the home room does not author
+/// it. When it dies or its room retires, it leaves the set, and the home
+/// room authors the replacement.
+///
+/// A crossing's destination is prepared from the ledger as it stood before
+/// the crossing was recorded, so an away body in the room the crossing retires
+/// is released for that preparation by [`CustodyEndingAtCommit`], not here.
+///
+/// Written every tick from rollback state, before its one reader. A body in
+/// custody is already carried, and a persistent character has a durable row
+/// instead.
+#[allow(clippy::type_complexity)]
+pub fn record_bodies_away_from_home(
+    room_set: Option<ambition_platformer2d_world::rooms::LiveRoomSpecs>,
+    bodies: Query<
+        (
+            Entity,
+            &ambition_platformer2d_shared_tangle::sim_id::SimId,
+            &ambition_combat::actor_tuning::ActorConfig,
+            &ambition_platformer2d_shared_tangle::construction::SpawnOrigin,
+        ),
+        (
+            With<ambition_platformer2d_shared_tangle::lifecycle::RoomScopedEntity>,
+            Without<ambition_platformer2d_shared_tangle::lifecycle::InCustodyOf>,
+        ),
+    >,
+    away: Option<ResMut<ambition_platformer2d_shared_tangle::lifecycle::AwayFromAuthoredRoom>>,
+) {
+    let Some(mut away) = away else {
+        return;
+    };
+    let mut now = std::collections::BTreeSet::new();
+    if let Some(room_set) = room_set {
+        for (entity, sim_id, config, origin) in &bodies {
+            if config.tuning.respawn == ambition_entity_catalog::placements::RespawnPolicy::DeadStaysDead {
+                continue;
+            }
+            let ambition_platformer2d_shared_tangle::construction::SpawnOrigin::Authored { source, .. } = origin else {
+                continue;
+            };
+            let Some(definition) = room_set.definition_of(entity) else {
+                continue;
+            };
+            if &room_set.rooms().spec(definition).id != source {
+                now.insert(sim_id.clone());
+            }
+        }
+    }
+    // Compared first, so the reader's change detection stays quiet.
+    if away.0 != now {
+        away.0 = now;
+    }
+}
+
+/// The away occurrences whose custody a pending crossing ends at its commit
+/// (Q38).
+///
+/// A crossing's destination is prepared before its commit, from the ledger as
+/// it stood before the crossing was recorded. The room the crossing leaves is
+/// retired at the commit unless another player stays in it
+/// ([`crate::rooms::another_player_stays`], the commit's own rule), and an
+/// away population occurrence there dies with it. So the destination, when it
+/// is the occurrence's home, must author its replacement: the ledger it is
+/// prepared from has these custody rows released.
+#[derive(bevy::ecs::system::SystemParam)]
+pub struct CustodyEndingAtCommit<'w, 's> {
+    away: Option<Res<'w, ambition_platformer2d_shared_tangle::lifecycle::AwayFromAuthoredRoom>>,
+    bodies: Query<
+        'w,
+        's,
+        (
+            Entity,
+            &'static ambition_platformer2d_shared_tangle::sim_id::SimId,
+            Option<&'static ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
+        ),
+    >,
+    roots: Query<
+        'w,
+        's,
+        &'static ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
+        With<ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot>,
+    >,
+    drivers: Query<'w, 's, (Entity, &'static ambition_characters::control::DrivingParticipant)>,
+    live_bodies: ambition_platformer2d_shared_tangle::lifecycle::LiveBodies<'w, 's>,
+}
+
+impl CustodyEndingAtCommit<'_, '_> {
+    /// The away occurrences in the live room `intent` retires. Empty when the
+    /// intent is not a crossing, when another player stays in the room it
+    /// leaves, or when nothing lives away from home.
+    pub fn released_by(
+        &self,
+        intent: &crate::session::lifecycle_commit::LifecycleIntent,
+    ) -> std::collections::BTreeSet<ambition_platformer2d_shared_tangle::sim_id::SimId> {
+        let mut released = std::collections::BTreeSet::new();
+        let Some(away) = self.away.as_deref().filter(|away| !away.0.is_empty()) else {
+            return released;
+        };
+        let crate::session::lifecycle_commit::LifecycleIntent::Transition(intent) = intent else {
+            return released;
+        };
+        let stamp = |entity| {
+            self.bodies
+                .get(entity)
+                .ok()
+                .and_then(|(_, _, stamp)| stamp)
+                .map(|stamp| stamp.0)
+        };
+        let subject = self.live_bodies.entity_of(&intent.subject);
+        // The commit's own departing room: the subject's, else the sole one.
+        let Some(departing) = subject.and_then(stamp).or_else(|| self.roots.single().ok().copied()) else {
+            return released;
+        };
+        if crate::rooms::another_player_stays(
+            subject,
+            intent.participant,
+            departing,
+            self.drivers.iter().map(|(entity, driver)| (entity, driver.0, stamp(entity))),
+        ) {
+            return released;
+        }
+        for (_, sim_id, room) in &self.bodies {
+            if away.0.contains(sim_id) && room.map(|room| room.0) == Some(departing) {
+                released.insert(sim_id.clone());
+            }
+        }
+        released
     }
 }

@@ -242,7 +242,7 @@ These cuts refine A8 and existing owner work. They are not another global queue.
 | --- | --- | --- |
 | OW1 | Two instances of one room; audit selection/identity/query/teardown paths | Same local IDs, separate contacts/observations, no cross-despawn; one-instance profile remains one path. ⭐ **A LIVE ROOM HAS AN IDENTITY AS OF 2026-09-20**: `LiveRoomInstance` (`crates/ambition_platformer2d_world/src/rooms/instance.rs`), an ordinal of this session's room publications, minted by `apply_world_replacement` — the one road that seats a session in a published room — and rollback state (`root.live_room_instance`, schema v202). Witnessed on the shipped Mary-O lap: 1-1 → 1-2 → 1-3 → 1-1 returns to index 0 and reaches instance `#3`, so the room she comes back to is not the room she left. ⚠ It lives on the SESSION ROOT because that is where the one live room lives; two simultaneous instances move the carrier, not the ordinal. ⚠ And residency is still UNKEYED — `RoomScopedEntity` says an occurrence dies with *a* room, never with *which* — so the teardown sweep is the next thing OW1 has to key. ⭐ **OW1 HAS AN INSTRUMENT AS OF 2026-09-20**: `[census] rooms` prints every session root's `active` INDEX beside its authored id, plus the live crossing, so the moment an index stops identifying one live instance is visible rather than inferred. It is derived and read-only; it owns nothing. |
 | OW2 | Accepted body/custody transfer and prepare/publish between instances | Refused transfer retains state; successful transfer preserves identity and exactly one writer. ✅ **The accepted arm between live rooms is witnessed (2026-09-30)**: the crossing's publication re-stamps the crossing body and its custody closure (`InCustodyOf`: what it holds, rides or wears) into the room it enters, for an opened room and a join alike (`publish_pending_world_replacement`). `an_item_carried_out_of_a_room_another_player_holds_crosses_whole`: Bob holds `blink_run` (#0); Alice carries its authored item to `portal_bridge` (#1): one occurrence of its `SimId`, held, stamped #1, #0 still live; thrown down, it lies in #1; when Alice joins #0 again, it retires with #1 and #0 has no copy. Poison (only the body moves): the item stayed stamped #0, fell into #0's world, and outlived #1 as a stray in Bob's room. ✅ The refused arm with two live rooms (2026-09-30): `a_crossing_into_a_room_another_player_holds_joins_it` stages a join into a live room that is not there; it is refused as `StaleJoinedRoom`, both live rooms and their bodies stand, and nothing is minted (poison, the stale-join check removed: it published, and #0 was retired with both its bodies). The one-room refusal is `a_room_staged_for_a_stale_live_room_is_refused`. ⚠ Witnessed at the publication, not through a shipped crossing: the app has no road that makes a crossing stale while two rooms are live. |
-| OW3 | Dormant durable records and active-state handoff | Save/load and promotion preserve occurrences; active step excludes unrelated dormant records. ✅ **First slice (2026-10-01): a runtime mint left in a room that is not live is a dormant record**, kept by the save's minted rows while the occurrence ledger places it, and a mint enters the ledger when it is minted, not when it is first carried; see "OW3, first slice" and "second slice" below. ✅ **FI9 (2026-10-01): dormant records add no all-world walk to an idle tick**: the custody projection reads a custody index, and the two save mirrors walk the dormant rows only when an input changed; see "OW3 / FI9" below. ✅ **M2 cuts (B) and (C) (2026-10-01): a rollback frame no longer copies or hashes unchanged dormant rows**: the save's rows and the ledger are `Arc`-shared with checksums kept per allocation, and the save mirrors compare their inputs by allocation; see "M2 cut (B)" and "M2 cut (C)" below. Measured (2026-10-01): an enemy's death and an encounter's outcome persist (`RespawnPolicy` fate flags, `PersistedEncounterState`), and a living enemy's HP or an encounter's wave index does not, so a returned room is fresh. Whether a wounded enemy keeps its wounds is product policy, so it is filed as `Q149` (decided for now: fresh). Ruled 2026-10-01 (Q38): a persistent open-world character's whereabouts are durable and its authored room is not a tether; a respawning population occurrence stays where it is carried while it lives, and its replacement comes from its authored room. So authored population/home, durable whereabouts and the live room occurrence are three facts. ✅ **Third slice (2026-10-01): a persistent character keeps its whereabouts**: a `DeadStaysDead` authored body released in another room is not rebuilt at home and is rebuilt where it was left, across a save; see "OW3, third slice" below. |
+| OW3 | Dormant durable records and active-state handoff | Save/load and promotion preserve occurrences; active step excludes unrelated dormant records. ✅ **First slice (2026-10-01): a runtime mint left in a room that is not live is a dormant record**, kept by the save's minted rows while the occurrence ledger places it, and a mint enters the ledger when it is minted, not when it is first carried; see "OW3, first slice" and "second slice" below. ✅ **FI9 (2026-10-01): dormant records add no all-world walk to an idle tick**: the custody projection reads a custody index, and the two save mirrors walk the dormant rows only when an input changed; see "OW3 / FI9" below. ✅ **M2 cuts (B) and (C) (2026-10-01): a rollback frame no longer copies or hashes unchanged dormant rows**: the save's rows and the ledger are `Arc`-shared with checksums kept per allocation, and the save mirrors compare their inputs by allocation; see "M2 cut (B)" and "M2 cut (C)" below. Measured (2026-10-01): an enemy's death and an encounter's outcome persist (`RespawnPolicy` fate flags, `PersistedEncounterState`), and a living enemy's HP or an encounter's wave index does not, so a returned room is fresh. Whether a wounded enemy keeps its wounds is product policy, so it is filed as `Q149` (decided for now: fresh). Ruled 2026-10-01 (Q38): a persistent open-world character's whereabouts are durable and its authored room is not a tether; a respawning population occurrence stays where it is carried while it lives, and its replacement comes from its authored room. So authored population/home, durable whereabouts and the live room occurrence are three facts. ✅ **Third slice (2026-10-01): a persistent character keeps its whereabouts**: a `DeadStaysDead` authored body released in another room is not rebuilt at home and is rebuilt where it was left, across a save; see "OW3, third slice" below. ✅ **Fourth slice (2026-10-01): a population occurrence is not built twice**: while it lives in a room another player holds, its home room does not author it; when that room retires, its home authors the replacement; see "OW3, fourth slice" below. |
 | OW4 | Owner-scoped interest/budget accounting and diagnostics | Cancellation/re-entry release only the right claims; supported absence does not freeze unrelated work |
 | OW5 | One concrete background mechanism requiring logical time | Deterministic events/reconstruction under replay and room return; no camera/device dependence |
 
@@ -1721,11 +1721,46 @@ Witness: `a_character_released_in_another_room_is_there_when_you_come_back`
 (the hub builds no dog, the neighbour builds it where it was left as the
 same `SimId`, and a fresh process booted from the save does both).
 Poisons: no row written (the hub rebuilt the dog at home); the foreign
-plan skipped (the neighbour had no dog). ⚠ Open: a population body left in
-a room that stays live (another player holds it) is still built a second
-time by its home room; an enemy (`enemy_spawns`) is not reinstatable yet;
-and whether a persistent character's HP travels with its whereabouts is
-Q149.
+plan skipped (the neighbour had no dog). ⚠ Open: an enemy
+(`enemy_spawns`) is not reinstatable yet, and whether a persistent
+character's HP travels with its whereabouts is Q149. (A population body
+left in a room that stays live was built a second time by its home room:
+closed by the fourth slice below.)
+
+✅ **OW3, fourth slice, landed 2026-10-01: a population occurrence is not
+built twice while it lives in another player's room (Q38).** Measured
+before: Bob (slot 1) holds the hub; Alice carries an authored enemy of
+`vertical_shaft` (`OnRoomReenter`) into the hub, releases it, and goes
+back. `vertical_shaft` built it again, so one `SimId` had two live bodies
+(`[591v0, 571v0]`). A population occurrence has no durable row by Q38, so
+when its custody ended nothing told its home room that it was alive. Now
+`record_bodies_away_from_home` (`body_whereabouts.rs`) writes, every tick,
+the authored population bodies (not `DeadStaysDead`) that live in a live
+room other than the room that authored them, into `AwayFromAuthoredRoom`
+(derived, not rollback state). The custody projection holds them as
+carried: the home room reads `InCustody` and does not author them, and the
+row goes when the body dies or its room retires. The save keeps no such
+row (no hand can be reconstructed for it), so a loaded world builds the
+occurrence at home. ⛔ The crossing's own room: a destination is prepared
+from the ledger as it stood BEFORE the crossing was recorded (the residency
+step runs before `RoomTransitionSet::Detect`), so the first cut made the
+control fail: with nobody holding the hub it retired with the enemy, and
+`vertical_shaft`, prepared earlier, did not author the replacement (0
+bodies). `CustodyEndingAtCommit` gives the preparation the ledger as it will
+be at the commit: the away occurrences in the room the crossing retires are
+released (`AuthoredOccurrences::with_custody_released`). It asks the
+commit's own rule, `another_player_stays`, which moved beside `claims_on`
+in `rooms::residency` so the two ask one function. Witness:
+`a_population_body_left_in_a_room_another_player_holds_is_not_built_at_home`
+(control: Bob undriven, the hub retires and `vertical_shaft` builds one
+replacement; subject: Bob holds the hub, both rooms are live, and the enemy
+has one body). Poisons: the away set empty (subject red: two bodies);
+nothing released at the commit (control red: no replacement). Both body
+producers order by `ResidencyStep` (`Follow`, `Record`, `Project`, inside
+`HeldItemStep::Residency`, published by `shared_tangle::schedule`), not by
+naming the item domain's systems, which the third slice did (the
+foreign-ordering ratchet went 76 -> 78 and is back at 76). Rollback schema
+293 -> 294 (the derived declaration).
 
 ✅ **OW3 / FI9 landed 2026-10-01: dormant records add no all-world walk to
 an idle tick.** Three systems walked every ledger row or every saved

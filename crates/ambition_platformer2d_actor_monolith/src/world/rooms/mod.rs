@@ -29,7 +29,7 @@ mod tests;
 // What this module re-exports below is what it OWNS.
 pub use binding::RoomBindings;
 pub use reconstitution::retire_the_previous_attempt;
-pub use residency::{claims_on, live_room_claims, live_room_claims_in, RoomClaim};
+pub use residency::{another_player_stays, claims_on, live_room_claims, live_room_claims_in, RoomClaim};
 pub use stage::{
     LastRoomConstructionCommit, RoomConstructionError, RoomConstructionPlan, RoomConstructionPlanId,
 };

@@ -1570,25 +1570,49 @@ fn place_respawning_fighters(
 /// fighter has the grace, so the two cannot disagree. It is ordinary
 /// collision: anyone may stand on it, and anyone on it falls when it goes.
 fn hold_the_respawn_platforms(
-    // The one live room's platforms: a match is one room.
-    mut platforms: ambition_platformer2d::session::SoleLiveRoomMut<
-        ambition_platformer2d::world::collision::MovingPlatformSet,
+    // The platforms of each live room: a respawn platform is in the live room
+    // of the body it protects.
+    mut rooms: bevy::prelude::Query<
+        (
+            &ambition_platformer2d::platformer::lifecycle::LiveRoomInstance,
+            &mut ambition_platformer2d::world::collision::MovingPlatformSet,
+        ),
+        bevy::prelude::With<ambition_platformer2d::platformer::lifecycle::RoomInstanceRoot>,
     >,
+    live: ambition_platformer2d::platformer::lifecycle::LiveRooms,
     // `RespawnGrace` removes itself when it runs out, so the platform's
     // presence is the component's presence.
     protected: bevy::prelude::Query<
         (
+            bevy::prelude::Entity,
             &ambition_platformer2d::actor::MatchSeat,
             &ambition_platformer2d::engine_core::BodyKinematics,
         ),
         bevy::prelude::With<ambition_platformer2d::actor::RespawnGrace>,
     >,
 ) {
+    for (room, mut platforms) in &mut rooms {
+        hold_the_respawn_platforms_of_one_room(
+            &mut platforms,
+            protected
+                .iter()
+                .filter(|(body, _, _)| live.of(*body) == Some(*room))
+                .map(|(_, seat, kin)| (seat.0, kin.pos)),
+        );
+    }
+}
+
+/// [`hold_the_respawn_platforms`] for one live room: `protected` is the seat
+/// and the position of each protected body in that room.
+fn hold_the_respawn_platforms_of_one_room(
+    platforms: &mut ambition_platformer2d::world::collision::MovingPlatformSet,
+    protected: impl Iterator<Item = (usize, Vec2)>,
+) {
     let mut wanted: Vec<(String, Vec2)> = Vec::new();
-    for (seat, kin) in &protected {
+    for (seat, pos) in protected {
         wanted.push((
-            respawn_platform_id(seat.0),
-            Vec2::new(kin.pos.x, kin.pos.y + RESPAWN_PLATFORM_DROP_PX),
+            respawn_platform_id(seat),
+            Vec2::new(pos.x, pos.y + RESPAWN_PLATFORM_DROP_PX),
         ));
     }
     // Sort by id so the order depends only on which seats are protected. The
@@ -1655,7 +1679,8 @@ fn a_swing_spends_the_respawn_protection(
 /// it moves off the footprint.
 fn leaving_the_platform_spends_the_respawn_protection(
     mut commands: bevy::prelude::Commands,
-    platforms: ambition_platformer2d::session::SoleLiveRoom<
+    // The platforms of the live room each body is in.
+    platforms: ambition_platformer2d::platformer::lifecycle::LiveRoomOf<
         ambition_platformer2d::world::collision::MovingPlatformSet,
     >,
     standing: bevy::prelude::Query<
@@ -1669,7 +1694,10 @@ fn leaving_the_platform_spends_the_respawn_protection(
 ) {
     for (body, seat, kin) in &standing {
         let id = respawn_platform_id(seat.0);
-        let Some(platform) = platforms.0.iter().find(|platform| platform.id == id) else {
+        let Some(platform) = platforms
+            .of(body)
+            .and_then(|platforms| platforms.0.iter().find(|platform| platform.id == id))
+        else {
             // No platform for this seat yet: this is the grant's first tick.
             continue;
         };

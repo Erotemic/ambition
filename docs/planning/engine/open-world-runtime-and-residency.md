@@ -2545,6 +2545,42 @@ push leaked), the resolver given no body room.
 ⚠ Still session-wide: the ambient `BaseGravity` (one direction for every
 live room).
 
+✅ **The demo and cut-rope readers of the sole live room, landed 2026-10-02.**
+These systems read `SoleLiveRoom<T>` or `SoleLiveRoomSpec`, so each did not
+run while two rooms were live. Each now reads the live room of its own
+subject (`LiveRoomOf<T>::of`, and the new `LiveRoomSpecs::spec_of`), or
+every live room. Sanic: the scattered rings bounce off the floor of their
+own room, the monitor boxes and their effects, the milestone cue, the act
+clear. Mary-O: the bricks, the power blocks, the flag sequence, the secret
+pipes, the title card, and the discovered hidden blocks (each live room's
+own overlay, not `RoomOverlays::sole`). Smash: the respawn platforms are
+written in the platforms of each protected body's own room, so
+`SoleLiveRoomMut` had no user and is deleted. Cut-rope: the prop visuals
+are synced for each live arena, and the music release reads every live
+room. `SoleLiveRoom` 26/20 -> 20/16, `SoleLiveRoomSpec` 20/18 -> 13/12.
+Witnesses (two live rooms):
+`each_scattered_ring_bounces_off_the_floor_of_its_own_live_room`,
+`each_live_rooms_discovered_block_is_solid_in_its_own_overlay`,
+`each_respawn_platform_is_in_its_fighters_own_live_room`, and in the app
+`the_cut_rope_music_claim_is_released_when_no_live_room_is_its_room`.
+Poisons, each predicted before the run: the ring of the second room did
+not bounce; the two overlays were empty; each room held the two platforms;
+the release on the sole-room read kept the claim in the three arms, and
+the release with no room check dropped the claim beside the live arena.
+⚠ One prediction missed. The first music witness ran ticks in the arena
+arm and expected the probe track; the generic boss owner
+(`BOSS_MUSIC_OWNER`) takes the tier while the boss fights, so the arm did
+not measure this owner's claim. The witness now runs the release system
+alone in that arm.
+⚠ No two-room witness of its own (the one-room lanes cover them): the
+Sanic monitors, milestone cue and act clear; the Mary-O bricks, power
+blocks, flag, pipes and title card; the cut-rope prop visuals.
+⚠ Open: `BrokenBricks` and `SpentMonitors` are process resources keyed by
+block name with no room, and their contributors write
+`RoomOverlays::sole()`, so they write nothing while two rooms are live.
+The two demo setup systems (`mary_o_setup`, `sanic_setup`) run at
+`Startup` with one room and keep `SoleLiveRoom`.
+
 ✅ **V2o landed 2026-10-02: the launch trail, the dizzy stars and the
 knockout beat are drawn in their body's room.** `LaunchedBodyFact` and
 `GuardBreakFact` (`ambition_sim_view`) carry `room` (`LiveRooms::of` the

@@ -40,5 +40,5 @@ pub use ambition_platformer2d_shared_tangle::lifecycle::{
 /// root rather than on it (OW1 cut 3).
 pub use ambition_platformer2d_shared_tangle::lifecycle::{
     insert_live_room_component, sole_live_room_component, sole_live_room_component_mut,
-    RoomInstanceRoot, SoleLiveRoom, SoleLiveRoomMut,
+    RoomInstanceRoot, SoleLiveRoom,
 };

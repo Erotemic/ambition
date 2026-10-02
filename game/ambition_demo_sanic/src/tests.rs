@@ -1953,6 +1953,68 @@ fn a_scattered_ring_bounces_off_the_floor_it_lands_on() {
     );
 }
 
+/// Each scattered ring bounces off the floor of its own live room. Two rooms
+/// are live: the first has no floor, the second has one. A ring falls in each
+/// at one position. The ring of the second room comes back up off its floor,
+/// and the ring of the first room keeps falling. When the system read the
+/// sole live room, it had no geometry while two rooms were live, so no ring
+/// bounced.
+#[test]
+fn each_scattered_ring_bounces_off_the_floor_of_its_own_live_room() {
+    use ambition_platformer2d::platformer::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
+    let floor_y = 260.0;
+    let room = |blocks| {
+        ae::RoomGeometry(ae::World::new(
+            "ring-bounce",
+            ae::Vec2::new(800.0, 600.0),
+            ae::Vec2::new(64.0, 64.0),
+            blocks,
+        ))
+    };
+    let floor = ae::Block::solid("floor", ae::Vec2::new(0.0, floor_y), ae::Vec2::new(800.0, 40.0));
+    let rooms = [LiveRoomInstance::ACTIVATION, LiveRoomInstance::ACTIVATION.next()];
+
+    let mut app = App::new();
+    app.insert_resource(ambition_platformer2d::time::WorldTime {
+        scaled_dt: 1.0 / 60.0,
+        ..Default::default()
+    });
+    app.world_mut().spawn((RoomInstanceRoot, rooms[0], room(Vec::new())));
+    app.world_mut().spawn((RoomInstanceRoot, rooms[1], room(vec![floor])));
+    let rings = rooms.map(|room| {
+        app.world_mut()
+            .spawn((
+                crate::ScatteredRing {
+                    vel: ae::Vec2::new(0.0, 400.0),
+                    lock: crate::SCATTER_LOCK_S,
+                    life: crate::SCATTER_LIFE_S,
+                },
+                ae::CenteredAabb::from_center_size(
+                    ae::Vec2::new(400.0, floor_y - 40.0),
+                    ae::Vec2::splat(18.0),
+                ),
+                InRoomInstance(room),
+            ))
+            .id()
+    });
+    app.add_systems(bevy::prelude::Update, crate::arc_scattered_rings);
+
+    let mut rebounded = [false, false];
+    for _ in 0..30 {
+        app.update();
+        for (ring, rebounded) in rings.iter().zip(&mut rebounded) {
+            if app.world().get::<crate::ScatteredRing>(*ring).is_some_and(|ring| ring.vel.y < 0.0) {
+                *rebounded = true;
+            }
+        }
+    }
+    assert_eq!(
+        rebounded,
+        [false, true],
+        "(the ring of the room with no floor came back up, the ring of the room with a floor came back up)"
+    );
+}
+
 /// The whole chain in production order: the rings are not reclaimed the
 /// instant they spawn on top of the player.
 #[test]

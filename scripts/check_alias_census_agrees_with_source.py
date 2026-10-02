@@ -61,7 +61,6 @@ SPELLINGS = {
     # The live room's own root (OW1 cut 3). Not in the session-root total: it
     # is a different root, and geometry reads left the session aliases for it.
     "SoleLiveRoom": re.compile(r"\bSoleLiveRoom\s*<"),
-    "SoleLiveRoomMut": re.compile(r"\bSoleLiveRoomMut\s*<"),
     # The one-live-room read of a room's authored spec (OW1 cut 5e): the set on
     # the session root, the definition on the live room root. Counted as a
     # parameter TYPE, after a `:` or a `<`, so an import does not match.

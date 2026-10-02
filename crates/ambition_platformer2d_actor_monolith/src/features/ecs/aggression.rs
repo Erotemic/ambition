@@ -228,7 +228,7 @@ pub fn tick_pending_challenges(
     mut pending: Query<(Entity, &mut PendingChallenge)>,
     mut stimuli: MessageWriter<ActorStimulus>,
 ) {
-    let dt = world_time.scaled_dt;
+    let dt = world_time.sim_dt();
     for (entity, mut pc) in &mut pending {
         pc.grace -= dt;
         if pc.grace <= 0.0 {

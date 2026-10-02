@@ -1257,8 +1257,8 @@ fn a_possessing_player_slams_the_giants_hands_via_the_verb_map() {
     app.init_resource::<ambition_time::WorldTime>();
     {
         let mut wt = app.world_mut().resource_mut::<ambition_time::WorldTime>();
-        wt.scaled_dt = 0.05;
-        wt.raw_dt = 0.05;
+        wt.set_sim_dt(0.05);
+        wt.set_wall_dt(0.05);
     }
     ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(
         app.world_mut(),

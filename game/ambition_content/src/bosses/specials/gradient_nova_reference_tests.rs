@@ -150,8 +150,8 @@ mod tests {
         app.init_resource::<WorldTime>();
         {
             let mut wt = app.world_mut().resource_mut::<WorldTime>();
-            wt.scaled_dt = 1.0 / 60.0;
-            wt.raw_dt = 1.0 / 60.0;
+            wt.set_sim_dt(1.0 / 60.0);
+            wt.set_wall_dt(1.0 / 60.0);
         }
         module_road(&mut app);
         app.add_systems(
@@ -220,8 +220,8 @@ mod tests {
         app.init_resource::<WorldTime>();
         {
             let mut wt = app.world_mut().resource_mut::<WorldTime>();
-            wt.scaled_dt = 1.0 / 60.0;
-            wt.raw_dt = 1.0 / 60.0;
+            wt.set_sim_dt(1.0 / 60.0);
+            wt.set_wall_dt(1.0 / 60.0);
         }
         module_road(&mut app);
         app.add_systems(

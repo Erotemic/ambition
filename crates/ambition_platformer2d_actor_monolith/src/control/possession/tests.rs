@@ -15,10 +15,7 @@ fn trigger_app() -> App {
     app.init_resource::<ambition_characters::control::SlotControls>();
     // The seat's frame-mode policy, beside the seat table it interprets.
     app.init_resource::<ambition_characters::control::SeatControlFrameModes>();
-    app.insert_resource(ambition_time::WorldTime {
-        raw_dt: 1.0,
-        scaled_dt: 1.0,
-    });
+    app.insert_resource(ambition_time::WorldTime::new(1.0, 1.0));
     app.init_resource::<PossessionState>();
     //  the PROJECTION is part of the mechanic, not decoration. The custody
     // marker a driven body wears is derived from `PossessionState` every tick —

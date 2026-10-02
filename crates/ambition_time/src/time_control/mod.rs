@@ -221,7 +221,7 @@ fn reset_domain(target: &mut RequestedClockScale, clock: &mut ClockState, domain
 /// frame. Gameplay mode leaves scale control to the normal time-control pipeline.
 ///
 /// The host schedule runs this FIRST (under `run_if(gameplay_suspended)`), before
-/// `refresh_world_time` snapshots the scale — otherwise `WorldTime::scaled_dt`
+/// `refresh_world_time` snapshots the scale — otherwise `WorldTime::sim_dt`
 /// stays non-zero on the first suspended frame and presentation systems tick once
 /// after pause. The ordering lives in the app's
 /// `register_player_input_systems`; the logic is body-generic time control and

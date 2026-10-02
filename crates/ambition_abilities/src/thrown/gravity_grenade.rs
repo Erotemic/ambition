@@ -240,7 +240,7 @@ mod tests {
         app.add_message::<ambition_sfx::OwnedSfxMessage>();
         app.add_message::<ambition_vfx::vfx::VfxInRoom>();
         let mut wt = ambition_time::WorldTime::default();
-        wt.scaled_dt = GRAVITY_GRENADE_FUSE_SECS + 0.1;
+        wt.set_sim_dt(GRAVITY_GRENADE_FUSE_SECS + 0.1);
         app.insert_resource(wt);
         app.add_systems(Update, tick_gravity_grenade_fuses);
 
@@ -286,7 +286,7 @@ mod tests {
         app.add_message::<ambition_sfx::OwnedSfxMessage>();
         app.add_message::<ambition_vfx::vfx::VfxInRoom>();
         let mut wt = ambition_time::WorldTime::default();
-        wt.scaled_dt = GRAVITY_GRENADE_FUSE_SECS + 0.1;
+        wt.set_sim_dt(GRAVITY_GRENADE_FUSE_SECS + 0.1);
         app.insert_resource(wt);
         app.add_systems(Update, tick_gravity_grenade_fuses);
         let rooms = [LiveRoomInstance::ACTIVATION, LiveRoomInstance::ACTIVATION.next()];

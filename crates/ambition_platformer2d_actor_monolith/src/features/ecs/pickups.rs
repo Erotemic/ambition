@@ -112,7 +112,7 @@ pub fn magnetize_pickups(
         ),
     >,
 ) {
-    let dt = time.scaled_dt;
+    let dt = time.sim_dt();
     for (pickup, mut aabb, magnet) in &mut pickups {
         let room = rooms.of(pickup);
         // NEAREST collector, not the first one the query yields: iteration order

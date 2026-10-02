@@ -1086,11 +1086,7 @@ fn pressing_special_starts_the_real_players_folded_bubble_shield_move() {
 
     let mut app = App::new();
     // The buffer decays on the body's own clock, so the chain needs one.
-    app.insert_resource(ambition_time::WorldTime {
-        scaled_dt: 1.0 / 60.0,
-        raw_dt: 1.0 / 60.0,
-        ..Default::default()
-    });
+    app.insert_resource(ambition_time::WorldTime::new(1.0 / 60.0, 1.0 / 60.0));
     app.add_systems(
         Update,
         (

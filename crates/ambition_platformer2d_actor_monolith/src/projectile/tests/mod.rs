@@ -281,8 +281,8 @@ fn advance_time(app: &mut App, dt_seconds: f32) {
     // `refresh_world_time` step. Tests run at `time_scale = 1.0`,
     // so `sim_dt == wall_dt`.
     let mut world_time = app.world_mut().resource_mut::<ambition_time::WorldTime>();
-    world_time.raw_dt = dt_seconds;
-    world_time.scaled_dt = dt_seconds;
+    world_time.set_wall_dt(dt_seconds);
+    world_time.set_sim_dt(dt_seconds);
 }
 
 /// It stopped being the input bus when every seat gained a raw row of its own; it is a mirror

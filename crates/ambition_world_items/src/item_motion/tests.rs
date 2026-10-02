@@ -160,11 +160,7 @@ fn each_pickup_falls_onto_the_floor_of_its_own_live_room() {
     lower.blocks[0] = ae::Block::solid("floor", ae::Vec2::new(0.0, 700.0), ae::Vec2::new(1000.0, 100.0));
     let settled = |rooms: Vec<(LiveRoomInstance, ae::World)>| {
         let mut app = App::new();
-        app.insert_resource(ambition_time::WorldTime {
-            raw_dt: 1.0 / 60.0,
-            scaled_dt: 1.0 / 60.0,
-            ..Default::default()
-        });
+        app.insert_resource(ambition_time::WorldTime::new(1.0 / 60.0, 1.0 / 60.0));
         app.add_systems(Update, step_item_motion);
         let items: Vec<_> = rooms
             .into_iter()

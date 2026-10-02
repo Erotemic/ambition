@@ -263,7 +263,7 @@ pub struct SessionScopedResources<'w> {
     match_ordinal: ResMut<'w, ambition_match::seating::SessionMatchOrdinal>,
     /// ⛔⛤ **AN ABSOLUTE PER-APP ACCUMULATOR THAT WAS INSIDE THE PEER CHECKSUM,
     /// FOUND 2026-09-16 BY THE TWO-HOST PEER-VISIBLE CENSUS.** `GameplayElapsed`
-    /// has exactly one writer — `advance_gameplay_elapsed`, `+= scaled_dt` every
+    /// has exactly one writer — `advance_gameplay_elapsed`, `+= sim_dt` every
     /// frame — is `init_resource`'d once at App build, and was reset nowhere. It
     /// is registered `rollback_resource_canonical`, so its WHOLE value is
     /// compared between peers. Two hosts that reached the same route by different

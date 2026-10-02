@@ -5,10 +5,7 @@ use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
 #[test]
 fn a_possessed_body_cooldown_ticks_down_too() {
     let mut app = App::new();
-    app.insert_resource(ambition_time::WorldTime {
-        scaled_dt: 0.1,
-        ..Default::default()
-    });
+    app.insert_resource(ambition_time::WorldTime::new(0.0, 0.1));
     app.add_systems(Update, tick_ability_cooldown);
     // No `PlayerEntity` / `PrimaryPlayer`: an ordinary actor body, driven.
     let possessed = app
@@ -31,10 +28,7 @@ fn a_possessed_body_cooldown_ticks_down_too() {
 #[test]
 fn cooldown_ticks_down_to_ready() {
     let mut app = App::new();
-    app.insert_resource(ambition_time::WorldTime {
-        scaled_dt: 0.1,
-        ..Default::default()
-    });
+    app.insert_resource(ambition_time::WorldTime::new(0.0, 0.1));
     app.add_systems(Update, tick_ability_cooldown);
     let player = app
         .world_mut()

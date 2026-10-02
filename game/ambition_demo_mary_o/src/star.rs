@@ -138,10 +138,7 @@ mod tests {
 
     fn app_with_body() -> (App, Entity) {
         let mut app = App::new();
-        app.insert_resource(ambition_platformer2d::time::WorldTime {
-            scaled_dt: 1.0 / 60.0,
-            ..Default::default()
-        });
+        app.insert_resource(ambition_platformer2d::time::WorldTime::new(0.0, 1.0 / 60.0));
         let body = app
             .world_mut()
             .spawn((

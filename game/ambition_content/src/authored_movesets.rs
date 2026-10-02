@@ -308,8 +308,8 @@ mod flow_tests {
             app.init_resource::<ambition_combat::authored_volumes::AuthoredAttackVolumeResolver>();
             {
                 let mut time = app.world_mut().resource_mut::<ambition_time::WorldTime>();
-                time.scaled_dt = 1.0 / 60.0;
-                time.raw_dt = 1.0 / 60.0;
+                time.set_sim_dt(1.0 / 60.0);
+                time.set_wall_dt(1.0 / 60.0);
             }
             app.init_resource::<Seen>();
             app.add_systems(Update, (advance_move_playback, capture).chain());

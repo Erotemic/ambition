@@ -873,8 +873,8 @@ mod tests {
         app.add_message::<ambition_vfx::vfx::VfxInRoom>();
         app.add_message::<AttacksClanked>();
         app.init_resource::<ambition_time::WorldTime>();
-        app.world_mut().resource_mut::<ambition_time::WorldTime>().scaled_dt = 0.016;
-        app.world_mut().resource_mut::<ambition_time::WorldTime>().raw_dt = 0.016;
+        app.world_mut().resource_mut::<ambition_time::WorldTime>().set_sim_dt(0.016);
+        app.world_mut().resource_mut::<ambition_time::WorldTime>().set_wall_dt(0.016);
         app.insert_resource(ambition_combat::rules::ResolvedCombatTuning {
             clank_damage_window: 9.0,
             ..Default::default()

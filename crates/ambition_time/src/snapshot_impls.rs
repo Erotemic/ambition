@@ -23,14 +23,11 @@ impl SnapshotState for crate::SimTick {
 
 impl SnapshotState for crate::WorldTime {
     fn encode(&self, out: &mut Vec<u8>) {
-        put_f32(out, self.raw_dt);
-        put_f32(out, self.scaled_dt);
+        put_f32(out, self.wall_dt());
+        put_f32(out, self.sim_dt());
     }
     fn decode(r: &mut Reader<'_>) -> Option<Self> {
-        Some(crate::WorldTime {
-            raw_dt: r.f32()?,
-            scaled_dt: r.f32()?,
-        })
+        Some(crate::WorldTime::new(r.f32()?, r.f32()?))
     }
 }
 

@@ -163,10 +163,7 @@ fn a_pending_challenge_defers_the_flip_until_its_grace_elapses() {
     // until the grace (counted only in `Playing`, i.e. after the dialog box
     // closes) elapses — so the player isn't attacked point-blank mid-dialog.
     let mut app = App::new();
-    app.insert_resource(ambition_time::WorldTime {
-        scaled_dt: 1.0,
-        ..Default::default()
-    });
+    app.insert_resource(ambition_time::WorldTime::new(0.0, 1.0));
     app.add_message::<ActorStimulus>();
     app.add_message::<crate::features::NpcProvocationChanged>();
     app.add_systems(Update, tick_pending_challenges);

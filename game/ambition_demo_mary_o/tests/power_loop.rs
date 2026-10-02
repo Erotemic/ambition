@@ -65,10 +65,7 @@ struct Loop {
 impl Loop {
     fn new() -> Self {
         let mut app = App::new();
-        app.insert_resource(ambition_platformer2d::time::WorldTime {
-            scaled_dt: 1.0 / 60.0,
-            ..Default::default()
-        });
+        app.insert_resource(ambition_platformer2d::time::WorldTime::new(0.0, 1.0 / 60.0));
         app.init_resource::<SpentPowerBlocks>();
         // The transformation beat times itself against the ARRIVING form's
         // sheet, joined through the catalog. Without both resources every beat
@@ -656,10 +653,7 @@ fn her_spark_damages_a_snake_through_the_shared_hit_pipeline() {
     const SNAKE_POS: ae::Vec2 = ae::Vec2::new(400.0, 300.0);
 
     let mut app = App::new();
-    app.insert_resource(ambition_platformer2d::time::WorldTime {
-        scaled_dt: 1.0 / 60.0,
-        ..Default::default()
-    });
+    app.insert_resource(ambition_platformer2d::time::WorldTime::new(0.0, 1.0 / 60.0));
     ambition_platformer2d::platformer::lifecycle::insert_live_room_component(
         app.world_mut(),
         ae::RoomGeometry(ae::World::new(
@@ -828,10 +822,7 @@ fn a_stomp_shells_a_snake_alive_it_never_dies() {
     const SNAKE_POS: ae::Vec2 = ae::Vec2::new(400.0, 300.0);
 
     let mut app = App::new();
-    app.insert_resource(ambition_platformer2d::time::WorldTime {
-        scaled_dt: 1.0 / 60.0,
-        ..Default::default()
-    });
+    app.insert_resource(ambition_platformer2d::time::WorldTime::new(0.0, 1.0 / 60.0));
     ambition_platformer2d::platformer::lifecycle::insert_live_room_component(
         app.world_mut(),
         ae::RoomGeometry(ae::World::new(
@@ -1003,10 +994,7 @@ fn a_sliding_shell_emits_an_enemy_kill_and_a_side_hit_on_the_player() {
     const SNAKE_POS: ae::Vec2 = ae::Vec2::new(400.0, 300.0);
 
     let mut app = App::new();
-    app.insert_resource(ambition_platformer2d::time::WorldTime {
-        scaled_dt: 1.0 / 60.0,
-        ..Default::default()
-    });
+    app.insert_resource(ambition_platformer2d::time::WorldTime::new(0.0, 1.0 / 60.0));
     ambition_platformer2d::platformer::lifecycle::insert_live_room_component(
         app.world_mut(),
         ae::RoomGeometry(ae::World::new(
@@ -1140,10 +1128,7 @@ fn a_dead_snake_leaves_the_shell_machine_and_emits_no_hits() {
     const SNAKE_POS: ae::Vec2 = ae::Vec2::new(400.0, 300.0);
 
     let mut app = App::new();
-    app.insert_resource(ambition_platformer2d::time::WorldTime {
-        scaled_dt: 1.0 / 60.0,
-        ..Default::default()
-    });
+    app.insert_resource(ambition_platformer2d::time::WorldTime::new(0.0, 1.0 / 60.0));
     ambition_platformer2d::platformer::lifecycle::insert_live_room_component(
         app.world_mut(),
         ae::RoomGeometry(ae::World::new(
@@ -1281,10 +1266,7 @@ fn a_dead_snake_leaves_the_shell_machine_and_emits_no_hits() {
 /// test in three rooms.
 fn pipe_shell(room_id: &str) -> App {
     let mut app = App::new();
-    app.insert_resource(ambition_platformer2d::time::WorldTime {
-        scaled_dt: 1.0 / 60.0,
-        ..Default::default()
-    });
+    app.insert_resource(ambition_platformer2d::time::WorldTime::new(0.0, 1.0 / 60.0));
     app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
     app.add_message::<ambition_platformer2d::platformer::block_nudge::BlockStruck>();
     app.add_message::<ambition_platformer2d::vfx::VfxInRoom>();

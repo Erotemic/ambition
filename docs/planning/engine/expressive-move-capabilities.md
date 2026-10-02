@@ -303,7 +303,7 @@ lock machinery where the semantics match. Sleep has its own named cause.
 **Witch Time** is a completeness test: run it as a proper-time audit so that
 locomotion, animation, move playback, recovery clocks and status clocks agree
 about the victim's local time. First re-derive whether home-body movement still
-integrates with the world `scaled_dt` while combat timelines use
+integrates with the world `sim_dt` while combat timelines use
 `entity_dt(ProperTimeScale)`.
 
 **Resources** have a focused owner: [composable actor

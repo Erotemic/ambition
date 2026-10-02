@@ -195,7 +195,7 @@ pub fn run_pipe_transits(
         With<PlayerEntity>,
     >,
 ) {
-    let dt = world_time.scaled_dt;
+    let dt = world_time.sim_dt();
     for (entity, clusters, mut model, mut combat, mut transit) in &mut bodies {
         let fx = step_pipe_transit(*transit, dt);
         let mut item = clusters;

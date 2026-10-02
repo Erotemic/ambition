@@ -8,8 +8,8 @@ fn app() -> App {
     let mut time = app
         .world_mut()
         .resource_mut::<ambition_platformer2d::time::WorldTime>();
-    time.scaled_dt = 1.0 / 60.0;
-    time.raw_dt = 1.0 / 60.0;
+    time.set_sim_dt(1.0 / 60.0);
+    time.set_wall_dt(1.0 / 60.0);
     // The plugin's order: expire, then apply.
     app.add_systems(
         Update,
@@ -154,8 +154,8 @@ fn a_witch_time_stance_slows_the_attacker_across_the_frame_boundary() {
         let mut time = app
             .world_mut()
             .resource_mut::<ambition_platformer2d::time::WorldTime>();
-        time.scaled_dt = 1.0 / 60.0;
-        time.raw_dt = 1.0 / 60.0;
+        time.set_sim_dt(1.0 / 60.0);
+        time.set_wall_dt(1.0 / 60.0);
     }
     // The shipped order: the adapter first, the counter's answer second.
     app.add_systems(
@@ -240,8 +240,8 @@ fn tick_exactly(app: &mut App, dt: f32) {
     let mut time = app
         .world_mut()
         .resource_mut::<ambition_platformer2d::time::WorldTime>();
-    time.scaled_dt = dt;
-    time.raw_dt = dt;
+    time.set_sim_dt(dt);
+    time.set_wall_dt(dt);
 }
 
 /// A one-tick dilation is still in force when the next tick reads it.

@@ -111,10 +111,7 @@ mod breakable_tests {
     fn app() -> App {
         let mut app = App::new();
         app.insert_resource(GameplayBanner::default());
-        app.insert_resource(WorldTime {
-            raw_dt: 0.1,
-            scaled_dt: 0.1,
-        });
+        app.insert_resource(WorldTime::new(0.1, 0.1));
         app.add_message::<ambition_sfx::OwnedSfxMessage>();
         app.add_message::<VfxInRoom>();
         app.add_message::<DebrisBurstMessage>();

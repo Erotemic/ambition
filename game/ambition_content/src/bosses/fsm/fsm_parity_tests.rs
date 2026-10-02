@@ -126,7 +126,7 @@ fn world(road: Road, arm: Arm) -> (App, Entity, Entity) {
         .add_message::<ambition_vfx::vfx::VfxInRoom>()
         .add_message::<ambition_sfx::OwnedSfxMessage>()
         .init_resource::<ambition_time::SimTick>()
-        .insert_resource(ambition_time::WorldTime { raw_dt: DT, scaled_dt: DT });
+        .insert_resource(ambition_time::WorldTime::new(DT, DT));
     match road {
         Road::NativeSystem => {
             app.add_systems(Sim, (native::face_conducted_gods, native::conduct_fsm).chain());

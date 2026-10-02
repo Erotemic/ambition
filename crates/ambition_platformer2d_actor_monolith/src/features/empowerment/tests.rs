@@ -17,10 +17,7 @@ fn app_with_striker_and_victim(
     victim_faction: ActorFaction,
 ) -> (App, Entity, Entity) {
     let mut app = App::new();
-    app.insert_resource(ambition_time::WorldTime {
-        scaled_dt: 1.0 / 60.0,
-        ..Default::default()
-    });
+    app.insert_resource(ambition_time::WorldTime::new(0.0, 1.0 / 60.0));
     ambition_combat::hitbox::register_strike_outcome_messages(&mut app);
     let pos = ae::Vec2::new(100.0, 100.0);
     let size = ae::Vec2::new(30.0, 48.0);
@@ -246,10 +243,7 @@ fn removing_the_empowerment_releases_its_invulnerability_without_a_second_call()
 #[test]
 fn a_timed_empowerment_ends_in_a_composition_that_scheduled_nothing() {
     let mut app = App::new();
-    app.insert_resource(ambition_time::WorldTime {
-        scaled_dt: 1.0 / 60.0,
-        ..Default::default()
-    });
+    app.insert_resource(ambition_time::WorldTime::new(0.0, 1.0 / 60.0));
     // The ONLY thing this game does about empowerment.
     app.add_plugins(EmpowermentLifecyclePlugin);
     let body = app
@@ -313,10 +307,7 @@ fn a_worn_form_and_a_timed_grant_empower_a_body_independently() {
         );
     }
     let mut app = App::new();
-    app.insert_resource(ambition_time::WorldTime {
-        scaled_dt: 1.0 / 60.0,
-        ..Default::default()
-    });
+    app.insert_resource(ambition_time::WorldTime::new(0.0, 1.0 / 60.0));
     app.insert_resource(cast);
     app.add_plugins(EmpowermentLifecyclePlugin);
     let body = app

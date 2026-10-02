@@ -150,7 +150,7 @@ fn the_demos_own_rules_run_because_its_room_claims_its_mode() {
     // everything else.
     assert!(
         (start - end - 60.0 * TICK_DT).abs() < 1e-3,
-        "the level clock runs on `WorldTime::scaled_dt`: expected -{}, got -{}",
+        "the level clock runs on `WorldTime::sim_dt`: expected -{}, got -{}",
         60.0 * TICK_DT,
         start - end
     );

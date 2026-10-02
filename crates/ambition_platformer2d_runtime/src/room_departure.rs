@@ -111,7 +111,7 @@ pub fn drive_departures(
                 }
                 replay.write(RoomReplayRequested::manual());
                 departure.state = DepartureState::Replaying {
-                    asked: asked + time.scaled_dt,
+                    asked: asked + time.sim_dt(),
                 };
                 continue;
             }
@@ -136,7 +136,7 @@ pub fn drive_departures(
                 }
                 departure.state = DepartureState::Leaving {
                     target: target.clone(),
-                    asked: asked + time.scaled_dt,
+                    asked: asked + time.sim_dt(),
                 };
                 Some(target)
             }

@@ -341,6 +341,19 @@ impl AuthoredOccurrences {
         ledger
     }
 
+    /// This ledger with `held` added to its custody rows: for a construction
+    /// that rebuilds a room from an older ledger while those occurrences still
+    /// live in a room the construction does not rewind (see
+    /// `AwayFromAuthoredRoom`). An id with another row is held too: a live
+    /// body is the newer fact.
+    pub fn with_custody_held(&self, held: &BTreeSet<SimId>) -> Self {
+        let mut ledger = self.clone();
+        if !held.is_subset(&self.custody) {
+            ledger.republish_custody(self.custody.union(held).cloned().collect());
+        }
+        ledger
+    }
+
     /// Republish the whole custody leg.
     ///
     /// it touches ONLY custody rows. A `Placed` row is not a custody row
@@ -859,6 +872,30 @@ mod tests {
         check(&ledger, "rows adopted");
         assert_eq!(*ledger.in_custody(), [a].into_iter().collect::<BTreeSet<_>>());
         assert_eq!(steps, 6);
+    }
+
+    /// A checkpoint's older ledger, with the occurrences that still live in a
+    /// room the restore does not rewind held as carried (Q38). The ledger it
+    /// was made from is not changed, the rows it already carried stay
+    /// carried, and an id it had placed is now carried: the live body is the
+    /// newer fact.
+    #[test]
+    fn a_ledger_with_custody_held_carries_the_held_ids_and_keeps_its_own() {
+        let (kept, placed, away) = (SimId::placement("kept"), SimId::placement("placed"), SimId::placement("away"));
+        let mut checkpoint = AuthoredOccurrences::default();
+        checkpoint.republish_custody([kept.clone(), placed.clone()].into_iter().collect());
+        assert!(checkpoint
+            .republish_placements("room", [(placed.clone(), Vec2::new(1.0, 2.0))].into_iter().collect())
+            .is_empty());
+        let held = checkpoint.with_custody_held(&[placed.clone(), away.clone()].into_iter().collect());
+        assert_eq!(*held.in_custody(), [kept.clone(), placed.clone(), away.clone()].into_iter().collect::<BTreeSet<_>>());
+        assert_eq!(held.whereabouts(&placed), Some(&OccurrenceWhereabouts::InCustody));
+        assert_eq!(*checkpoint.in_custody(), [kept.clone()].into_iter().collect::<BTreeSet<_>>(), "the source ledger changed");
+        assert_eq!(
+            checkpoint.with_custody_held(&[kept.clone()].into_iter().collect()).rows().count(),
+            checkpoint.rows().count(),
+            "holding what is already carried changes nothing"
+        );
     }
 
     /// A mint with no row enters where it lies; an id that has a row keeps it.

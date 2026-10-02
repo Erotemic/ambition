@@ -1770,6 +1770,31 @@ naming the item domain's systems, which the third slice did (the
 foreign-ordering ratchet went 76 -> 78 and is back at 76). Rollback schema
 293 -> 294 (the derived declaration).
 
+✅ **OW3, fourth slice, review repair 2026-10-01: a checkpoint reset does not
+rebuild a body that lives in another player's room.** Found by review and
+measured: Alice carries the `vertical_shaft` enemy into the hub Bob holds,
+releases it and goes back, then resets to the checkpoint. The reset rebuilt
+`vertical_shaft` from the checkpoint's pinned ledger, which is older than
+the carry, so the enemy was authored at home while its body still lived in
+the hub (`[608v0, 571v0]`). A restore rewinds the room it rebuilds, not the
+rooms that stay live. So the preparation holds as carried, over the
+checkpoint's ledger, the away occurrences that live on after the commit
+(`CustodyEndingAtCommit::surviving`: the away set minus what the commit
+releases; `AuthoredOccurrences::with_custody_held`). An away occurrence in
+the room the reset retires is released, so it is rewound with that room.
+The commit still restores the pinned ledger. `AwayFromAuthoredRoom` stays
+the one authority for the reservations: it is derived from the live bodies,
+and the custody projection writes them again in the residency step of the
+next tick, which runs before `RoomTransitionSet::Detect`, so no room is
+prepared from the ledger in between. A pinned copy of the reservations in
+the restore would be a second authority for the same fact. Witnesses:
+`a_checkpoint_reset_does_not_rebuild_a_body_that_lives_in_another_players_room`
+(control: one body before the reset; after it, the hub is still live,
+`vertical_shaft` is rebuilt, the enemy has its one body, and the ledger
+holds it as carried again) and
+`a_ledger_with_custody_held_carries_the_held_ids_and_keeps_its_own`. The
+run before the repair is the poison (two bodies).
+
 ✅ **OW3, fifth slice, landed 2026-10-01: a persistent enemy is not built
 twice either.** Measured before: the fourth slice's fixture with the enemy
 made `DeadStaysDead` (the policy a content pack can author; no shipped

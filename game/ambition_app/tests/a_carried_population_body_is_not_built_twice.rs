@@ -88,6 +88,34 @@ fn carry_an_enemy_into_the_hub_and_go_back(
     bob: Option<PlayerSlot>,
     persistent: bool,
 ) -> (SimId, Vec<Entity>, Vec<String>) {
+    let (mut sim, id) = carry_an_enemy_into_the_hub_and_go_back_in(bob, persistent);
+    let found = occurrences(&mut sim, &id);
+    let rooms = live_room_ids(&mut sim);
+    (id, found, rooms)
+}
+
+/// The ids of the live rooms, sorted.
+fn live_room_ids(sim: &mut Platformer2dSimHarness) -> Vec<String> {
+    let world = sim.world_mut();
+    let definitions: Vec<_> = world
+        .query_filtered::<
+            &ambition_platformer2d::world::rooms::LiveRoomDefinition,
+            bevy::prelude::With<ambition_platformer2d::platformer::lifecycle::RoomInstanceRoot>,
+        >()
+        .iter(world)
+        .copied()
+        .collect();
+    let rooms = ambition_platformer2d::platformer::lifecycle::session_world_component::<
+        ambition_platformer2d::world::rooms::RoomSet,
+    >(world)
+    .expect("the session keeps its room set");
+    let mut named: Vec<String> = definitions.into_iter().map(|definition| rooms.spec(definition).id.clone()).collect();
+    named.sort();
+    named
+}
+
+/// [`carry_an_enemy_into_the_hub_and_go_back`], returning the running game.
+fn carry_an_enemy_into_the_hub_and_go_back_in(bob: Option<PlayerSlot>, persistent: bool) -> (Platformer2dSimHarness, SimId) {
     let (mut sim, _hub) = alice_leaves_bob_in(HUB, HOME, bob, walk_through_the_door_to);
     sim.step_n(base(), 20);
     let (enemy, id, respawn) = {
@@ -137,26 +165,7 @@ fn carry_an_enemy_into_the_hub_and_go_back(
 
     assert_eq!(walk_through_the_door_to(&mut sim, HOME), HOME, "setup: Alice did not go back");
     sim.step_n(base(), 30);
-    let found = occurrences(&mut sim, &id);
-    let rooms = {
-        let world = sim.world_mut();
-        let definitions: Vec<_> = world
-            .query_filtered::<
-                &ambition_platformer2d::world::rooms::LiveRoomDefinition,
-                bevy::prelude::With<ambition_platformer2d::platformer::lifecycle::RoomInstanceRoot>,
-            >()
-            .iter(world)
-            .copied()
-            .collect();
-        let rooms = ambition_platformer2d::platformer::lifecycle::session_world_component::<
-            ambition_platformer2d::world::rooms::RoomSet,
-        >(world)
-        .expect("the session keeps its room set");
-        let mut named: Vec<String> = definitions.into_iter().map(|definition| rooms.spec(definition).id.clone()).collect();
-        named.sort();
-        named
-    };
-    (id, found, rooms)
+    (sim, id)
 }
 
 /// Bob holds the hub, so the carried enemy lives on there. When Alice goes
@@ -209,5 +218,45 @@ fn a_persistent_enemy_left_in_a_room_another_player_holds_is_not_built_at_home()
         found.len(),
         1,
         "'{HOME}' authored a second body for the persistent {id} while the carried one lives in the hub Bob holds: {found:?}"
+    );
+}
+
+/// A checkpoint reset in Alice's room does not build a second body of an
+/// occurrence that lives in the room Bob holds. The reset rebuilds
+/// `vertical_shaft` from the checkpoint's occurrence ledger, which is older
+/// than the carry, so the ledger alone says "build it at home". But the hub
+/// is not rewound and the carried enemy still lives there. The control is
+/// the setup: one body before the reset.
+#[test]
+fn a_checkpoint_reset_does_not_rebuild_a_body_that_lives_in_another_players_room() {
+    let (mut sim, id) = carry_an_enemy_into_the_hub_and_go_back_in(Some(PlayerSlot(1)), false);
+    let before = occurrences(&mut sim, &id);
+    assert_eq!(before.len(), 1, "control: one body of {id} before the reset: {before:?}");
+    sim.world_mut().write_message(ambition_platformer2d::platformer::lifecycle::ResetToCheckpoint);
+    sim.step_n(base(), 30);
+    let owed = sim
+        .world_mut()
+        .resource::<ambition_platformer2d::actors::session::checkpoint::OutstandingCheckpointRequest>()
+        .0;
+    assert_eq!(owed, None, "setup: the session is still owed the checkpoint reset");
+    assert_eq!(
+        live_room_ids(&mut sim),
+        vec![HUB.to_string(), HOME.to_string()],
+        "setup: the reset must leave Bob's hub live and rebuild Alice's room"
+    );
+    let after = occurrences(&mut sim, &id);
+    assert_eq!(
+        after, before,
+        "the checkpoint reset of '{HOME}' built a second body of {id}, which lives in the hub Bob holds"
+    );
+    // The commit restored the checkpoint's ledger; the custody projection
+    // holds the carried body again.
+    assert_eq!(
+        sim.world_mut()
+            .resource::<ambition_platformer2d::platformer::lifecycle::AuthoredOccurrences>()
+            .whereabouts(&id)
+            .cloned(),
+        Some(ambition_platformer2d::platformer::lifecycle::OccurrenceWhereabouts::InCustody),
+        "after the reset the ledger does not hold {id} as carried"
     );
 }

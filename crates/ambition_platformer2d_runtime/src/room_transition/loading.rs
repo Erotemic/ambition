@@ -1191,9 +1191,24 @@ pub fn begin_room_transition_load_system(
                     .map(|live| live.with_custody_released(&released))
             })
             .flatten();
-        let selected_ledger = selected_restore
+        // ⛔ A RESTORE REWINDS THE ROOM IT REBUILDS, NOT THE ROOMS THAT STAY
+        // LIVE. The checkpoint's ledger is older than an occurrence carried
+        // into another player's room since then, so alone it says "author it
+        // at home" while its body still lives there (Q38). The away
+        // occurrences that live on after the commit are held as carried over
+        // the checkpoint's ledger. The commit restores the pinned ledger
+        // itself; the custody projection holds them again in the residency
+        // step of the next tick, before anything prepares a room.
+        let restored_ledger = selected_restore
             .and_then(|accepted| accepted.lifecycle.as_ref())
-            .map(|lifecycle| lifecycle.occurrences.remembered())
+            .map(|lifecycle| lifecycle.occurrences.remembered());
+        let restored_with_survivors = restored_ledger.and_then(|restored| {
+            let surviving = custody_at_commit.surviving(intent);
+            (!surviving.is_empty()).then(|| restored.with_custody_held(&surviving))
+        });
+        let selected_ledger = restored_with_survivors
+            .as_ref()
+            .or(restored_ledger)
             .or(released_ledger.as_ref())
             .or(construction_services.6.as_deref());
         let door_minted = construction_services.7.as_deref().map(|save| {

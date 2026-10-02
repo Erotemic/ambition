@@ -275,4 +275,19 @@ impl CustodyEndingAtCommit<'_, '_> {
         }
         released
     }
+
+    /// The away occurrences that live on after `intent` commits: every one
+    /// that [`Self::released_by`] does not release. A construction that
+    /// rebuilds a room from an older ledger (a checkpoint reset) holds these
+    /// as carried, because the rooms they live in are not rewound.
+    pub fn surviving(
+        &self,
+        intent: &crate::session::lifecycle_commit::LifecycleIntent,
+    ) -> std::collections::BTreeSet<ambition_platformer2d_shared_tangle::sim_id::SimId> {
+        let Some(away) = self.away.as_deref().filter(|away| !away.0.is_empty()) else {
+            return std::collections::BTreeSet::new();
+        };
+        let released = self.released_by(intent);
+        away.0.difference(&released).cloned().collect()
+    }
 }

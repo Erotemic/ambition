@@ -281,6 +281,60 @@ fn a_door_crossed_by_one_player_leaves_the_other_players_room_live() {
     assert_eq!(sim.observation().active_room, HUB, "the observation is not Alice's own room");
 }
 
+/// OW1 (customer 2): Alice holds the hub and Bob holds `switch_lab`. A
+/// gravity well (up) opens at the place Bob stands, stamped into Alice's
+/// room: Bob keeps falling down. Control: the same well stamped into Bob's
+/// own room turns him up. Before, `GravityZones` had no room and a body felt
+/// every live room's zones at its position.
+#[test]
+fn a_gravity_well_lifts_only_the_bodies_of_its_own_live_room() {
+    fn bobs_down_under_a_well_in_his_room(his_room: bool) -> ambition_platformer2d::engine_core::Vec2 {
+        let (mut sim, first) =
+            alice_leaves_bob(Some(ambition_platformer2d::characters::control::PlayerSlot(1)));
+        let (alice, bob) = where_they_are(&mut sim);
+        assert_eq!((alice, bob), (Some(first.next()), Some(Some(first))), "Alice in the hub, Bob in switch_lab");
+        let world = sim.world_mut();
+        let at = world
+            .query::<(&ambition_platformer2d::combat::components::FeatureId, &ambition_platformer2d::engine_core::BodyKinematics)>()
+            .iter(world)
+            .find(|(feature, _)| feature.0 == BOB)
+            .map(|(_, kinematics)| kinematics.pos)
+            .expect("Bob's body is in the world");
+        let room = if his_room { first } else { first.next() };
+        world.spawn((
+            ambition_platformer2d::world::GravityZone {
+                aabb: ambition_platformer2d::engine_core::Aabb::new(
+                    at,
+                    ambition_platformer2d::engine_core::Vec2::new(80.0, 80.0),
+                ),
+                dir: ambition_platformer2d::engine_core::Vec2::new(0.0, -1.0),
+            },
+            ambition_platformer2d::world::TemporaryZone { remaining: 5.0 },
+            InRoomInstance(room),
+        ));
+        for _ in 0..3 {
+            sim.step(base());
+        }
+        let world = sim.world_mut();
+        world
+            .query::<(&ambition_platformer2d::combat::components::FeatureId, &ambition_platformer2d::world::ResolvedMotionFrame)>()
+            .iter(world)
+            .find(|(feature, _)| feature.0 == BOB)
+            .map(|(_, frame)| frame.get().down())
+            .expect("Bob has a resolved frame")
+    }
+    assert_eq!(
+        bobs_down_under_a_well_in_his_room(true),
+        ambition_platformer2d::engine_core::Vec2::new(0.0, -1.0),
+        "control: a well in Bob's own room turns him"
+    );
+    assert_eq!(
+        bobs_down_under_a_well_in_his_room(false),
+        ambition_platformer2d::engine_core::Vec2::new(0.0, 1.0),
+        "a well in Alice's room turned Bob in his"
+    );
+}
+
 /// The Door from authored room `room` to `target`.
 fn door_of(sim: &mut Platformer2dSimHarness, room: &str, target: &str) -> ambition_platformer2d::world::rooms::LoadingZone {
     let world = sim.world_mut();

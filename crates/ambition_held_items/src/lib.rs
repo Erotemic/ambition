@@ -550,7 +550,7 @@ pub fn ground_item_physics(
         // Free bodies resolve gravity by the body-overlap rule, not the center
         // point (ADR 0024) — a zone grabs an item the item TOUCHES.
         let local = ambition_platformer2d_shared_tangle::gravity::GravityField {
-            dir: gravity.dir_for(ae::Aabb::new(item.pos, item.half_extent)),
+            dir: gravity.dir_for(room, ae::Aabb::new(item.pos, item.half_extent)),
         };
         ambition_platformer2d_shared_tangle::gravity::apply_world_forces(
             &mut item.vel,
@@ -1457,7 +1457,10 @@ pub fn throw_held_item_system(
         // gravity. The subsequent free-fall (`ground_item_physics`) is already
         // gravity-relative, so the whole toss now flips with the field.
         let frame =
-            ae::AccelerationFrame::new(gravity.dir_for(ae::Aabb::new(kin.pos, kin.size * 0.5)));
+            ae::AccelerationFrame::new(gravity.dir_for(
+                room.map(|stamp| stamp.0),
+                ae::Aabb::new(kin.pos, kin.size * 0.5),
+            ));
         let (throw_pos, throw_vel) = match release {
             // Forward + away-from-feet, in the local frame → world.
             Release::Throw => (

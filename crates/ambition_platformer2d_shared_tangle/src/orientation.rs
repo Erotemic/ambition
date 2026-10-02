@@ -63,20 +63,21 @@ const SURFACE_ROLL_TRACK_SPEED: f32 = 30.0;
 pub fn update_actor_roll(
     time: Res<SimDt>,
     gravity: GravityCtx,
-    mut rolls: Query<(&mut ActorRoll, &BodyKinematics, Option<&SurfaceUpright>)>,
+    live: crate::lifecycle::LiveRooms,
+    mut rolls: Query<(Entity, &mut ActorRoll, &BodyKinematics, Option<&SurfaceUpright>)>,
 ) {
     let dt = time.get();
     if dt <= 0.0 {
         return;
     }
-    for (mut roll, kin, surface) in &mut rolls {
+    for (entity, mut roll, kin, surface) in &mut rolls {
         // A riding body plants its feet on the ridden surface (fast tracking);
         // everything else rights toward the gravity of the column IT is
         // standing in (localized): resolve from its own position.
         let (target, rate) = match surface.and_then(|s| s.up) {
             Some(up) => (upright_angle_for_world_up(up), SURFACE_ROLL_TRACK_SPEED),
             None => (
-                gravity_upright_angle(gravity.dir_at(kin.pos)),
+                gravity_upright_angle(gravity.dir_at(live.of(entity), kin.pos)),
                 ACTOR_ROLL_SPEED,
             ),
         };

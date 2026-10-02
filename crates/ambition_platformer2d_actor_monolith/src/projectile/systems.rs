@@ -779,7 +779,7 @@ pub fn step_projectiles(
         // Expired trace event.
         // A projectile is a FREE body (not a kernel body): resolve its gravity
         // inline by the body-overlap rule, not the center point (ADR 0024).
-        let gravity_dir = gravity.dir_for(kin.aabb());
+        let gravity_dir = gravity.dir_for(shot_room, kin.aabb());
         // ⛔⛔ **A2b: THE LEG IS CAPTURED, NOT RECONSTRUCTED.** Two places below
         // used to derive this shot's travel segment as `kin.pos - kin.vel * dt`.
         // That is EXACT for today's integrator — `tick` accelerates and then

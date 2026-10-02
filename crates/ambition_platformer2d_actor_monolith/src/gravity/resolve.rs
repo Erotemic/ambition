@@ -37,9 +37,12 @@ use ambition_combat::actor_tuning::ActorConfig;
 /// [`CapturedBy`]: ambition_combat::capture::CapturedBy
 pub fn resolve_body_motion_frames(
     env: FrameEnv,
+    // A zone acts only on the bodies of its own live room.
+    live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
     tuning: Res<ambition_platformer2d_core::ActiveMovementTuning>,
     mut players: Query<
         (
+            Entity,
             &ambition_platformer2d_core::BodyKinematics,
             &mut ResolvedMotionFrame,
         ),
@@ -47,6 +50,7 @@ pub fn resolve_body_motion_frames(
     >,
     mut actors: Query<
         (
+            Entity,
             &ambition_platformer2d_core::BodyKinematics,
             &ActorConfig,
             &ActorSurfaceState,
@@ -78,16 +82,16 @@ pub fn resolve_body_motion_frames(
     // this measurement, dated, with the mechanism — not a green test that could
     // never go red.
     let player_response = tuning.gravity;
-    for (kin, mut resolved) in &mut players {
-        resolved.publish_resolved_frame(env.resolve(kin.aabb(), player_response));
+    for (entity, kin, mut resolved) in &mut players {
+        resolved.publish_resolved_frame(env.resolve(kin.aabb(), live.of(entity), player_response));
     }
-    for (kin, config, surface, posed, captive, mut resolved) in &mut actors {
+    for (entity, kin, config, surface, posed, captive, mut resolved) in &mut actors {
         let response = if posed || captive {
             0.0
         } else {
             config.tuning.movement.gravity * surface.gravity_scale
         };
-        resolved.publish_resolved_frame(env.resolve(kin.aabb(), response));
+        resolved.publish_resolved_frame(env.resolve(kin.aabb(), live.of(entity), response));
     }
 }
 
@@ -166,6 +170,44 @@ mod tests {
             ae::Vec2::new(0.0, -1.0),
             "the one published frame uses the body-overlap rule; a consumer \
              cannot see a different (center-point) frame because none exists"
+        );
+    }
+
+    /// OW1 (customer 2): two live rooms, and a sideways column in the first.
+    /// Alice in the first room and Bob in the second stand at the same place:
+    /// Alice is turned and Bob stands under the ambient. Control: with Bob's
+    /// room unknown (no stamp, two rooms live) he feels the column as before.
+    #[test]
+    fn a_gravity_zone_turns_only_the_bodies_of_its_own_live_room() {
+        use ambition_platformer2d_shared_tangle::lifecycle::{
+            InRoomInstance, LiveRoomInstance, RoomInstanceRoot,
+        };
+        let mut app = resolver_app();
+        let first = LiveRoomInstance::ACTIVATION;
+        let second = first.next();
+        for room in [first, second] {
+            app.world_mut().spawn((RoomInstanceRoot, room));
+        }
+        app.world_mut().spawn((
+            GravityZone {
+                aabb: ae::Aabb::new(ae::Vec2::new(300.0, 0.0), ae::Vec2::new(40.0, 120.0)),
+                dir: ae::Vec2::new(1.0, 0.0),
+            },
+            InRoomInstance(first),
+        ));
+        let here = ae::Vec2::new(300.0, 0.0);
+        let alice = spawn_player(&mut app, here);
+        app.world_mut().entity_mut(alice).insert(InRoomInstance(first));
+        let bob = spawn_player(&mut app, here);
+        app.world_mut().entity_mut(bob).insert(InRoomInstance(second));
+        let unknown = spawn_player(&mut app, here);
+        app.update();
+        assert_eq!(frame_of(&app, alice).down(), ae::Vec2::new(1.0, 0.0), "Alice, in the column's room");
+        assert_eq!(frame_of(&app, bob).down(), ae::Vec2::new(0.0, 1.0), "Bob, in the other live room");
+        assert_eq!(
+            frame_of(&app, unknown).down(),
+            ae::Vec2::new(1.0, 0.0),
+            "a body whose room cannot be told feels the column, as before"
         );
     }
 

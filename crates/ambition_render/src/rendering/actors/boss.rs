@@ -127,10 +127,6 @@ pub fn animate_bosses(
         ),
         Without<PlayerVisual>,
     >,
-    // Localized gravity, so a boss under flipped or sideways gravity flips
-    // like the player and enemies. It self-rights with `ActorRoll`, so its
-    // facing must be gravity-aware or the 180° roll mirrors it backwards.
-    gravity: ambition_platformer2d_shared_tangle::gravity::GravityCtx,
 ) {
     // ADR 0011: per-entity proper time. A boss with `ProperTimeScale > 1.0`
     // keeps animating while its `SimClock` request freezes the world
@@ -183,7 +179,11 @@ pub fn animate_bosses(
         let flip = ambition_sprite_sheet::art_is_mirrored(
             animator.spec.authored_faces_left,
             state.facing,
-            gravity.dir_at(state.pos),
+            // The boss's own resolved down, so a boss under flipped or
+            // sideways gravity flips like the player and enemies. It
+            // self-rights with `ActorRoll`, so its facing must be
+            // gravity-aware or the 180° roll mirrors it backwards.
+            view.gravity_dir,
         );
         sprite.flip_x = flip;
         // `render_of` is `None` for untrimmed sheets, which keep their spawn

@@ -104,7 +104,7 @@ pub use systems::{
 ///
 /// A consumer can omit this plugin (`.disable::<_>()`), for example to compose
 /// generic encounters without boss encounters
-/// (`docs/planning/engine/decomposition.md`).
+/// (the decomposition doctrine in `docs/planning/engine/architecture.md`).
 ///
 /// It names only published set vocabulary: `ProgressionSet::BossAdvance` and
 /// `BossHazards` live in `ambition_platformer2d_shared_tangle::schedule`. A

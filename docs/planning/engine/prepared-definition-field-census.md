@@ -40,8 +40,8 @@ member lists, not split totals.
 
 ## Who reads what (production)
 
-Last run: 216 sites across 27 `pub` fields, at `9cf7cec50` (`--workspace
---all-targets`, so tests are included). Production field counts per crate:
+Production field counts per crate (run the instrument for current numbers; it
+uses `--workspace --all-targets`, so tests are included):
 
 | crate | fields | role |
 |---|---:|---|
@@ -118,30 +118,12 @@ folded fields to `CharacterAuthorityConflict` would be a variant that cannot fai
 No generic resolver, no request bus, no new trait to unify registry and catalog,
 and no type moves.
 
-### Closed: what an unprepared id inherits at wear time
+### Closed: an unprepared id at wear time
 
-⭐ DECIDED 2026-09-25 (AP30): a catalog row IS a character, so the barrier
-prepares every row nobody authored as a bare definition, and the fold gives it
-its row and its provider's declarations. The shipped host now has no unprepared
-catalog id (147 of 147 prepared, where it was 58), and the read-time fold
-below is DELETED: the wear road reads the prepared cast only. The paragraph
-below is the measurement that led here.
-
-The fold is spelled twice: `avatar/starting_character.rs` re-performs it at read
-time for ids the registry does not hold. Measured in every composition (the
-shipped host through the launcher and directly, and all four demos), no catalog
-row that authors feel is orphaned, and in the demos the read-time fold is never
-reached. Deleting it anyway turned six tests red on the wear/re-wear road, one of
-which asserts that an unauthored character inherits its catalog row. So the
-deletion is a design decision, not a cleanup: rule on what an unprepared id should
-inherit at wear time. Until then the fold stays spelled twice, and
-`game/ambition_app/tests/authored_feel_reaches_the_prepared_cast.rs` keeps the
-orphan case from arising in real compositions.
-
-Three smash fighters author `Some(DEFAULT_TUNING)` against a silent catalog row
-where the character is constructed in `ambition_demo_smash`. That is the
-authoring road, not a disagreement; its comment files the remaining fighters'
-tuning for a later slice.
+Every catalog row is a character (AP30). The preparation barrier prepares each
+row nobody authored as a bare definition, and the fold gives it its row and its
+provider's declarations. The wear road reads the prepared cast only. There is no
+read-time fold.
 
 ### Open: the autonomous profile reference is not retained
 

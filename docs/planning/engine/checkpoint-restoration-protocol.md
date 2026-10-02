@@ -1,750 +1,189 @@
 # Checkpoint restoration: admission, preparation and commit
 
-**Status:** implemented through A1a-A1c/5 (2026-09-08); the receipts are inline
-below, packet by packet. What remains open is named in the queue and in
-subcommit 5's own note — verification is deliberately narrower than this
-document's ordering describes, and the terminal outcome has no presentation
-consumer.
-**Source baseline:** `300004d601af1e633cfaee969f079cf9bb368ca8` — the SOURCE
-FACTS and edit-site tables below describe that baseline, not the current tree.
-**Scope:** restoration of one session's checkpoint into its single active room.
-This does not choose multiplayer save ownership, add concurrent resident rooms,
-or define arbitrary ECS transactions. The [queue](../queue.md) owns priority.
-This page owns A1's execution and failure semantics; the
-[frontier](actor-monolith-work-frontier.md) owns packet dependencies.
+**Scope:** restoration of one session's checkpoint: admission, pinned inputs,
+preparation, commit, verification and the terminal outcome. It does not choose
+multiplayer save ownership or define arbitrary ECS transactions.
+**Packet:** A1 in the [packet catalog](actor-monolith-work-frontier.md)
+(closed). **Priority:** [the queue](../queue.md).
 
-## Decision and the invariant being repaired
+## The invariant
 
-Session lifecycle owns a restore operation from request through terminal outcome.
-A shrine owns interaction, healing and capture requests. Occurrence and item
-owners own their snapshot data and reducers. Runtime composition selects those
-domain contributions and orders their application; it does not implement them.
+**One accepted restore supplies the destination, construction continuity,
+subject restoration and item and occurrence restoration for the same
+operation. A refused request changes none of them.** Preparation reads the
+selected checkpoint; it never installs it into live resources in order to read
+it. Completion means the room and every participating domain passed
+verification and the host published the resulting baseline.
 
-**One accepted restore must supply the destination, construction continuity,
-subject restoration and item/occurrence restoration for the same operation.**
-A refused request changes none of them. Preparation may inspect a candidate
-checkpoint; it must not install that checkpoint into live resources in order to
-read it. Completion means the room and every participating domain have passed
-verification and the host has published the resulting simulation baseline.
+Session lifecycle owns the operation from request to terminal outcome. A shrine
+owns interaction, healing and the capture request only. Occurrence and item
+owners own their snapshot data and reducers. Runtime composition orders domain
+application; it does not implement it.
 
-This is stronger than checking admission in the room-routing function alone.
-The current raw reset message has independent mutation consumers. Giving only
-the routing function a better home would leave those consumers free to restore
-state for a request that did not get the lifecycle slot.
+## Current shape
 
-## Current source facts and concrete edit sites
+All code is in `crates/ambition_platformer2d_actor_monolith/src/session/checkpoint.rs`
+unless stated otherwise.
 
-| Current source | Actual responsibility and required direction |
+| Value | Role |
 | --- | --- |
-| `crates/ambition_platformer2d_actor_monolith/src/shrine.rs` | Healing/capture and unrelated startup/reset restoration share a file; move the latter, not the former |
-| `crates/ambition_platformer2d_actor_monolith/src/session/lifecycle_commit.rs` | Owns the first-admitted-wins slot, originating frame and subject-preserving room intent; keep that authority here |
-| `crates/ambition_platformer2d_actor_monolith/src/items/pickup/mod.rs` | Installs startup restoration; also restores custody directly from the raw reset message |
-| `crates/ambition_platformer2d_actor_monolith/src/items/pickup/minted_horizon.rs` | Owns minted descriptions and owned-item baselines; owned-item restoration reads the raw reset message |
-| `crates/ambition_platformer2d_shared_tangle/src/lifecycle/continuity.rs` | Restores occurrence state directly from the raw reset message |
-| `crates/ambition_platformer2d_shared_tangle/src/lifecycle/horizon.rs` | Domain horizon channels/sets and registrations; currently describes raw requests as sufficient restoration authority |
-| `crates/ambition_platformer2d_actor_monolith/src/session/durable_horizon.rs` | Adopts save data and emits a reset request; loading a save and restoring a live room must remain distinguishable |
-| `crates/ambition_platformer2d_runtime/src/checkpoint_horizon.rs` | Installs domain offers and shared phase edges; currently puts both request routing and domain restoration into the restore set |
-| `crates/ambition_platformer2d_runtime/src/room_transition/loading.rs` | Prepares construction against the live occurrence ledger; checkpoint preparation needs an explicitly selected candidate view |
-| `crates/ambition_platformer2d_runtime/src/room_transition/commit.rs` | Common room application and eager commit gate |
-| `crates/ambition_platformer2d_rollback_ggrs/src/lifecycle_commit.rs` | Confirmed-host gate, common application, baseline rebase; not a second checkpoint interpreter |
+| `OutstandingCheckpointRequest` | the owed request; a reset asked while another intent owns the slot is re-asked until it is admitted |
+| `CheckpointOperationKey` | session ownership stamp + a sequence minted by `SessionCheckpointOperations` that advances only on admission; rollback state; not reset at a rebase; refuses overflow before the slot is taken |
+| `AcceptedCheckpointRestore` | the accepted operation: its room intent, subject and the occurrence, minted, custody and owned-item snapshots pinned at admission; outlives its frame; retired when the slot gives up the intent |
+| `CheckpointDomainApply` | a schedule only a commit executor runs; the three domain reducers live here |
+| `CheckpointRestoreInputs` / `ItemCheckpointRestoreInputs` | inputs installed for the duration of the apply and removed on every path; a reducer without them does nothing |
+| `SessionCheckpointOutcomes` | exactly one terminal outcome per key; `RestoreFailure` is a closed set |
+| `SessionStartupResume` | startup state machine: `Routed(key)` becomes `Satisfied` only when that operation publishes its outcome |
 
-The startup function writes its routed latch before inspecting admission (F1).
-More importantly, occurrence, owned-item and custody consumers read
-`ResetToCheckpoint` independently of that admission result (F9). A system-set
-ordering edge cannot repair this: the consumers need accepted operation data,
-not a differently ordered read of the same unaccepted request.
+- The lifecycle slot (`session/lifecycle_commit.rs`) is the only admission
+  arbiter across checkpoint, door and replay requests. It stays with session,
+  not in `shared_tangle`.
+- Room loading derives both the prefetch cache key and the fresh plan's
+  `OccurrenceContinuity` from the accepted operation, matched by intent, so a
+  door recorded while a restore is outstanding is still prepared from live
+  state. A cached plan carries its `PrefetchIdentity`.
+- Both executors apply by key: the eager `commit_ready_room_transition_system`
+  path and the confirmed `commit_confirmed_lifecycle` tail (after the spawn
+  drain, before the rebase).
+- A room rebuild has no destructive phase: `RoomConstructionPlan::replace_live_world`
+  builds every root as a hidden candidate, verifies the projected roster and
+  publishes or drops. Custody, domain ledgers and session scope are applied by
+  the domain reducers.
+- A same-room startup placement is a small rollback-registered simulation
+  operation, not an accepted restore.
+- New Game (`NewGameRequested`) uses the same commit with `FreshRunRestore`
+  installed: each domain's fresh-run reducer runs and the pinned values become
+  the checkpoint. It outranks a reset asked on the same tick.
 
-Current room preparation computes an occurrence outlook from the live ledger and
-uses it for cached-plan promotion and fresh construction. Redirect **both** to the
-selected checkpoint view. Changing only fresh preparation would leave a prefetched
-plan capable of reconstructing the wrong occurrence population.
+## Request policy
 
-## Three values, three lifetimes
-
-The following names describe proposed types, not existing APIs.
-<!-- cite-ok: proposed API vocabulary throughout the following schema -->
-
-```text
-CheckpointRequest
-    why: StartupPlacement | Reset | ImportedSaveRestore
-    session owner
-    optional resolved primary subject
-
-AcceptedCheckpointRestore
-    operation key
-    originating simulation frame
-    existing structural room intent, when reconstruction is required
-    primary subject identity, when this profile requires a subject
-    pinned checkpoint revision and typed domain snapshots
-    expected source room and active content binding
-
-CheckpointRestoreOutcome
-    operation key
-    Committed | Cancelled(reason) | Failed(reason)
-```
-
-A request is not a second generic lifecycle queue. There is at most one
-outstanding checkpoint request per session; repeated requests coalesce while it
-is pending. The existing pending lifecycle slot remains the only admission
-arbiter across checkpoint, door and replay requests. It is not moved to
-`shared_tangle`, and no global lifecycle service is introduced.
-
-The accepted value belongs in the session's pending-operation state. Its domain
-snapshots are immutable values from their owners, not references to mutable
-baseline resources and not a clone of `World`. Keep the common room intent's
-subject-bearing versus bodyless distinction. Checkpoint continuity is an
-additional **selected reconstruction input**, not an optional subject that makes
-bodyless door crossings valid.
-
-A concrete session-owned aggregate of supported checkpoint domains is acceptable:
-this coordinator actually owns their consistency boundary. Use typed optional
-members for optional capabilities, with presence established by composition. Do
-not create a type-erased map of arbitrary snapshots, a save-every-component
-protocol, or a restore-callback registry. The generic host can carry the aggregate
-opaquely and invoke the session/domain operations through their existing typed
-offers; it need not import every item component.
-
-### Identity and idempotence
-
-Use the existing active-session ownership stamp plus a session-owned admitted
-operation sequence. If the current slot cannot distinguish repeated identical
-intents, add that sequence to the slot, incrementing it **only on admission**.
-Register the counter and accepted value for rollback. Do not reset the counter
-at every room rebase; reject overflow rather than recycling a live identifier.
-
-The operation key is not a replacement for payload validation. A host-side load
-must match the key **and** the accepted intent, checkpoint revision, content
-binding and source scope. Resimulation can reuse a sequence after rewinding its
-allocation; a stale load for a different payload must not become authorized merely
-because its integer matches. The host cache is derived, never the authority.
-
-A frame number alone is insufficient: a room rebase restarts a rollback timeline.
-Do not confuse rollback timeline generation, active session ownership, checkpoint
-revision and content revision. Reuse the corresponding existing values rather
-than spreading a new universal identifier through every crate.
-
-An explicit standalone test/profile without `ActiveSessionScope` remains possible.
-It has one declared lifetime and cannot retain loads across destruction/recreation.
-Production session code must not treat an absent required scope as a wildcard
-matching any scope, or use a missing subject as a request for bodyless replay.
-
-## Request resolution and policy table
-
-Resolve source data under one lifecycle owner before admission. A waiting request
-may lack a subject while construction completes. Once the subject is resolved,
-retain its SimId; do not re-resolve it from current control at commit time.
-
-Pin the checkpoint and source-room preconditions on **successful admission**.
-A busy slot can outlive a checkpoint capture; the request still waiting for
-admission has not acquired the earlier checkpoint. An admitted operation must
-not adopt a later checkpoint or newly controlled body while it waits for loading.
-
-| Request | Target policy | Completion policy |
+| Request | Target | Completion |
 | --- | --- | --- |
-| Startup, no checkpoint | Explicit no-op for this session | Mark startup satisfied; no room rebuild |
-| Startup, checkpoint in current room, no durable reconstruction needed | Place the primary body once using existing transit semantics and zero velocity | Complete after the required body/motion inputs exist and placement is applied |
-| Startup, valid checkpoint in another room | Existing subject-bearing transition to saved room/arrival | Complete only on matching committed outcome |
-| Startup, saved destination missing | Preserve current diagnostic-and-skip policy in A1 | Record a terminal skipped reason, not an admitted route |
-| Reset, valid checkpoint | Reconstitute from that checkpoint even when destination is the current room | Restore all installed domains in the same commit |
-| Reset, absent/invalid checkpoint destination | Existing current-room authored-start fallback | An explicit start-state snapshot, not a fabricated saved checkpoint |
-| Imported save requiring occurrence/item reconstruction | Adopt as candidate checkpoint data, then use the reset reconstruction road | Parsing/adopting a save is not successful live restoration |
-| Bodyless world profile | Use the existing bodyless reconstitution intent only when selected explicitly by that profile | No attempt to manufacture or pick a primary body |
-| New Game (`NewGameRequested`, since 2026-09-29) | The start room's authored spawn, with the fresh baseline pinned: no occurrences, no custody, no mints, the starter bag. Outranks a reset asked for on the same tick | Restore all installed domains in the same commit, with `FreshRunRestore` installed: each domain's fresh-run reducer runs and the pinned values become the checkpoint |
+| Startup, no checkpoint | explicit no-op | startup satisfied; no rebuild |
+| Startup, checkpoint in the current room, no reconstruction needed | place the primary body once through transit, zero velocity | complete when placement is applied |
+| Startup, checkpoint in another room | subject-bearing transition to the saved room | complete on the matching committed outcome |
+| Startup, saved destination missing | diagnostic and skip | a terminal skipped reason |
+| Reset, valid checkpoint | reconstitute from the checkpoint, even in the current room | all installed domains restore in one commit |
+| Reset, no or invalid checkpoint | current-room authored start | an explicit start-state snapshot |
+| Imported save needing reconstruction | adopt as candidate checkpoint data, then the reset road | parsing a save is not a live restore |
+| Bodyless world profile | the bodyless reconstitution intent, only when the profile selects it | never manufacture a body |
+| New Game | the start room's authored spawn with the fresh baseline | as reset, with `FreshRunRestore` |
 
-This packet preserves the primary-avatar restoration policy and all interacting-
-body healing behavior. It does not resolve the pending product choice about
-possession/save ownership. A checkpoint-only profile still has its declared
-primary body; it simply omits held-item behavior and shrine entities.
-
-Process imported-save readiness before startup placement resolution. A full
-restore request subsumes a placement-only startup request for the same session;
-there must not be both a local placement and a second room route for that save.
-Repeated full reset requests coalesce. A new request after a terminal failure is
-explicit; do not infer retry merely from an empty lifecycle slot.
+Pin the checkpoint and source-room preconditions on admission. A waiting request
+has not acquired an earlier capture; an admitted operation never adopts a later
+capture or a newly controlled body. Once the subject resolves, keep its `SimId`.
+The primary-avatar restore policy and healing of every interacting body are
+preserved.
 
 ## State machine and failure rules
 
-| State / event | Required action | Forbidden action |
+| State / event | Required | Forbidden |
 | --- | --- | --- |
-| Waiting / subject or save adoption incomplete | Retain request and retry on subsequent simulation progress | Mark routed/completed, consume it forever, or default to another body |
-| Waiting / another lifecycle intent owns slot | Preserve incumbent and checkpoint request; no restore writes | Restore ledgers/items before checking admission |
-| Waiting / admitted | Store immutable selected snapshot and intent with operation identity | Retarget an existing load by editing its payload |
-| Admitted / speculative rollback | Restore request/slot state from rollback; host cache remains derived | Treat host readiness as proof of confirmed admission |
-| Admitted / preparation pending | Wait; keep selected inputs fixed | Swap live ledgers temporarily to prepare the room |
-| Admitted / invalid preparation | Terminal failed outcome; discard candidate; retain current live state | Publish a partially prepared room or retry a permanent invalid definition every frame |
-| Admitted / source scope, content or subject invalidated | Cancel the matching operation with a reason | Clear an unrelated newer slot or substitute a different subject |
-| Commit authorized / transient precondition not ready | Retry without entering destructive application | Partially restore an item domain and return Retry |
-| Apply started / trusted reducer or recipe violates contract | Contain failure; block gameplay/publication; report operation and failing domain | Claim the old world is intact, rerun arbitrary writes, or clear the failure and continue |
-| Verified / published | Emit one terminal committed outcome and retire matching pending state | Publish before domain restoration or rebase before final verification |
+| Waiting, subject or save incomplete | keep the request; retry | mark complete, consume it, choose another body |
+| Waiting, slot owned by another intent | keep both; no restore writes | restore ledgers or items before admission |
+| Admitted | store immutable snapshots and intent under the key | retarget a load by editing its payload |
+| Admitted, speculative rollback | restore request and slot from rollback | treat host readiness as confirmed admission |
+| Admitted, preparation pending | wait with fixed inputs | swap live ledgers to prepare the room |
+| Admitted, preparation invalid | terminal failure once; discard candidate; keep live state | publish a partial room or retry every frame |
+| Admitted, scope, content or subject invalidated | cancel the matching operation | clear a newer slot or substitute a subject |
+| Commit authorized, transient precondition missing | retry before destructive application | partially restore a domain and return Retry |
+| Apply started, reducer or recipe violates contract | block gameplay; report operation and failing domain | claim the old world is intact |
+| Verified | one committed outcome; retire pending state | publish before domain restore or rebase before verification |
 
-Before destructive application, cancellation has no restoration side effects.
-After destructive application begins, this contract promises fail-closed
-publication, **not rollback of arbitrary Commands**. The stronger last-good-world
-guarantee is A10 and requires constrained inactive construction. Do not
-implement that larger project as an undocumented prerequisite to A1.
+The session coordinator is the only writer of request progress and outcome. The
+slot is the only admission writer. Domains are the only writers of their live
+data. A preparation failure is terminalized at a commit boundary on both hosts;
+`Update` only leaves a host-side note, because `PendingLifecycleCommit` is
+rollback state. The key is adopted when the transaction record is built, so
+early preflight failures carry it.
 
-✅ **A10'S ROOM SCOPE LANDED 2026-09-14, AND IT CHANGES WHAT "DESTRUCTIVE
-APPLICATION" MEANS FOR A ROOM.** A room rebuild no longer has a destructive phase:
-`RoomConstructionPlan::replace_live_world` stages the entire world replacement,
-builds every root as a hidden candidate, verifies a projected post-publication
-roster, and publishes or drops. A refused room leaves the live world
-byte-identical. ⚠ This contract's wording still holds for everything ELSE a
-checkpoint restore applies — custody, domain ledgers, the session scope — and for
-the room it is now stronger than fail-closed. See `docs/planning/queue.md`'s A10
-row.
-
-The session coordinator is the sole writer of request progress/terminal outcome.
-The lifecycle slot is the sole admission writer. Domains remain sole writers of
-their own live data. A restored item is not simultaneously rebuilt by a live-ledger
-path and a checkpoint candidate path.
-
-## Capturing and preparing a coherent checkpoint
-
-Checkpoint capture is an end-of-settlement operation. Keep healing and checkpoint
-selection where they are, but stamp the committed capture with one revision.
-Every installed domain contributes its snapshot under that revision. Capture
-finishes only after all required contributions have been produced; a single
-sequential schedule/barrier suffices. No general distributed consensus protocol
-is needed inside one App.
-
-Pin occurrence whereabouts, custody, owned-item counts and the minted definitions
-needed to reconstruct those custody rows together. The candidate does not invent
-persistence for dynamic objects that current policy does not preserve. Optional
-item capability absence means "not participating," not "erase the item domain"
-and not "install a dummy item provider."
-
-A1's preparation API supplies a read-only continuity selection:
-
-```text
-Live continuity     -> current ledgers, for an ordinary door transition
-Checkpoint continuity -> pinned restore snapshots, for a checkpoint reset
-```
-
-The same selection feeds occurrence outlook, cached-plan key/validation,
-construction lowering, minted lookup and custody preflight. Adapt the existing
-`OccurrenceContinuity` inputs; do not copy the room builder into a checkpoint
-builder. A cache hit is valid only for the selected continuity fingerprint and
-active content/scope constraints. A checkpoint change must invalidate a plan that
-would produce a different population even when target room ID is unchanged.
-
-Importing a save may populate candidate/baseline resources before any room is
-active. Once a live world exists, imported values must not overwrite live
-occurrence/custody state until its admitted restore commits. Distinguish
-save-data-ready from world-restored in the existing durable-horizon completion
-road; preserve its public load diagnostics rather than treating both as one flag.
-
-## Commit ordering and visibility
-
-Both hosts execute one shared restore application, with different authorization:
+## Commit ordering
 
 ```text
 collect/resume request in the simulation
-    -> lifecycle admission + immutable selected checkpoint
-    -> derived loading/preparation using selected continuity
-    -> eager authorization OR matching confirmed rollback authorization
-    -> revalidate source scope, content, subject and prepared plan
-    -> apply checkpoint domain state and canonical room reconstruction
-    -> flush declared construction work and reconcile restored relations
+    -> lifecycle admission + immutable pinned checkpoint
+    -> loading/preparation using selected continuity
+    -> eager authorization OR matching confirmed authorization
+    -> revalidate scope, content, subject and prepared plan
+    -> apply domain state and canonical room reconstruction
+    -> flush construction work; reconcile restored relations
     -> verify room + domain postconditions
-    -> publish readiness / install final frame-zero baseline
-    -> terminal outcome and presentation notification
+    -> publish readiness / install frame-zero baseline
+    -> terminal outcome
 ```
 
-For a reconstruction restore, only the prefix through admission belongs in
-ordinary speculative simulation. A same-room **startup placement only** remains
-a small rollback-registered simulation operation with no room rebuild or host
-rebase: the session owner runs it only when no conflicting lifecycle intent is
-pending, at the existing nongameplay-gated placement phase, and records completion
-after applying it. Do not manufacture a room-reconstruction intent just to move
-an already constructed body. This exception does not authorize checkpoint ledger
-or custody reconstruction from raw reset messages.
-Do not restore live ledgers, spawn missing held objects, clear portals or reset
-clocks merely because an unconfirmed reset was requested. The confirmed host
-must select the accepted restore from the same confirmed authority as the room
-intent, not combine a confirmed intent with a later speculative baseline resource.
+Only the prefix through admission runs in speculative simulation. Make restored
+occurrence and accounting values visible before construction consumers need
+them. Restore custody against stable subject and item identities after
+structural work, then verify. Keep the body carryover road; never spawn a second
+primary body. The rollback host rebases only after restore and verification, or
+its first restore undoes the checkpoint.
 
-At commit, make the selected occurrence/accounting values visible before the
-canonical construction consumers that need them. Restore/materialize custody
-against the resulting stable subject and item identities after queued structural
-work is applied, then verify it before publication. Preserve the current body
-carryover/One Body One Path route. Do not spawn a second primary body to avoid
-restoring an existing one's state.
+**Verification** compares the applied world with the snapshots the operation was
+accepted with, not live baselines. It checks ledgers, the bag, custody (naming
+the custodian and refusing a duplicate identity) and population completeness:
+every occurrence the pinned ledger places in the rebuilt room is live. Body
+placement, clocks and portals are deliberately not checked: placement has no
+postcondition from the transit authority, and clocks and portals have no
+accepted snapshot.
 
-Use a typed, temporary restore context around a dedicated domain restore schedule
-or direct typed domain operations in the existing common commit executor. Its
-inputs are prepared; it is not a persistent event queue. The executor installs
-and removes that context on every success, retry and error path. Domain systems
-must be impossible to invoke as an effective restore with no authorized context.
-There is no arbitrary callback registration by strings or TypeIds.
-
-Express the required deferred-command flushes in this common path. Tests must
-observe post-flush state, not just queued commands. Neither a Bevy set name nor a
-message emission establishes that newly constructed entities already exist.
-The rollback host rebases only after restoration and verification; otherwise its
-first restore would undo the just-restored checkpoint. Frame-zero restoration
-must reproduce occurrence, custody and body state, not only room geometry.
-
-### Existing replay consumers
-
-Audit the current `RoomReplayAdmitted` readers when moving the checkpoint branch:
-
-- `crates/ambition_platformer2d_runtime/src/sandbox_reset.rs`, especially
-  `return_the_replay_subject_to_spawn`;
-- `game/ambition_content/src/portal/reset_adapter.rs`;
-- `game/ambition_content/src/bosses/cut_rope/mod.rs` and
-  `game/ambition_content/src/bosses/cut_rope/arena.rs`.
-
-Admission notifications may describe admission. They cannot double as the
-checkpoint commit token. Move checkpoint-caused restore/clear/reset mutations
-into the committed domain application, or publish the corresponding committed
-fact for non-authoritative presentation afterward. Do not emit both old and new
-mutation triggers for one reset. The ordinary non-checkpoint replay road keeps
-its existing policy until separately migrated; reuse its reducers where correct,
-not its premature trigger. Do not locate content-specific algorithms in runtime.
-
-## Implementation sequence
-
-### A1a: repair the startup latch and establish the refusal witness — LANDED
-
-**Was wrong:** `restore_checkpoint_on_session_start` wrote `routed_for` before
-asking the slot and discarded the returned `Admission`, so a refused crossing
-still spent the session's one resume and the player stayed in whichever room the
-session opened in. **Fixed by** latching the generation only when
-`Admission::admitted()`. **Guards:**
-`a_refused_slot_leaves_the_checkpoint_resume_retryable` (poisoned
-2026-09-08: forcing the latch unconditionally reddens it) and
-`a_resume_with_no_constructed_subject_stays_pending_until_the_body_exists`;
-once-only routing stays pinned by the existing
-`a_checkpoint_in_another_room_of_this_world_routes_the_session_there`.
-
-**Standing prohibition:** nothing may write checkpoint-resume progress, or any
-other consequence of a lifecycle request, before the slot has said yes. The
-`#[must_use]` on `record` is the reminder, not the enforcement.
-
-F9 is not closed by A1a and cannot be — it was closed by A1c/1-2, below, and the
-arm that witnessed it was INVERTED rather than deleted.
-
-#### F9 — ✔ CLOSED by A1c/1-2; the arm now asserts the absence
-
-`game/ambition_app/tests/death_restores_the_checkpoint.rs::`
-`a_refused_reset_changes_no_domain_state_and_is_not_lost` is the same fixture
-with the opposite claim: one session banks a checkpoint, then acquires a
-stackable entitlement and picks up an authored ground item; an unrelated intent
-holds the lifecycle slot; a raw `ResetToCheckpoint` is written. **A refused reset
-now changes nothing** — and the second half is why this is not merely "refuse
-harder": the request is REMEMBERED in `OutstandingCheckpointRequest`, so when the
-incumbent releases the slot it is admitted and the restore lands in full. A reset
-that simply evaporated on refusal would satisfy the whole first half and lose the
-player's death.
-
-**What it measured before the repair, 2026-09-08**, on the single tick after the
-write, with the incumbent still in the slot and the active room unchanged:
-
-| Value | On a refused reset, BEFORE A1c | Today |
-| --- | --- | --- |
-| `OwnedItems` count of the stackable entitlement | rolled back to the banked count | unchanged |
-| The authored object acquired after the checkpoint | **zero live occurrences — destroyed, not returned** | still in the hand |
-| `PendingLifecycleCommit` | incumbent retained (correct then) | unchanged |
-| Active room | unchanged (correct then) | unchanged |
-
-⛔ **The entity loss was the sharpest finding and it was worse than a rolled-back
-ledger.** `restore_custody_to_checkpoint` took the object out of the hand because
-the banked custody relation did not have it there; the road that would put it
-back on its pedestal is the room reconstruction the reset asked for — and that is
-exactly what the slot refused. The two halves of one restore ran on opposite
-sides of an admission neither consulted, and the object survived in neither. A
-control arm in the same fixture ran the identical request with the slot free and
-got the object back, so the difference was the admission alone.
-
-⇒ That is why an ordering edge could not repair F9: the consumers did not need a
-differently ordered read of the same unaccepted request, they needed an ANSWER.
-`AdmittedCheckpointRestore` is that answer, written only by the session
-coordinator and only with an `Admission` in hand.
-
-### A1b: perform the ownership move without semantic changes — LANDED
-
-`CheckpointResumeProgress` <!-- cite-ok: A1b's record; the type was later DELETED by `f473f0d72`, which folded startup completion into the operation model -->, `restore_checkpoint_on_session_start`,
-`resume_at_checkpoint_on_reset` and their tests now live in
-`crates/ambition_platformer2d_actor_monolith/src/session/checkpoint.rs`, with the
-rollback registration following the type and its wire key
-(`resource.checkpoint_resume_progress`) unchanged.
-`ActorCheckpointHorizonPlugin` composes two named offers —
-`SessionCheckpointHorizonPlugin` and the existing item one — instead of
-installing the session's reset resume inline.
-
-**What was wrong:** `ItemPickupSimulationPlugin` initialized the resume state and
-installed the startup resume, so a composition's ability to return to its
-checkpoint depended on it having held items.
-`a_checkpoint_only_composition_resumes_without_the_item_domain` is the guard: it
-runs the real offer through the real sim schedule with no held-item plugin and no
-shrine entity.
-
-**Scheduling preserved verbatim, and the guard is explicit about it.** The resume
-kept `ItemPickupSet::CoreHeldItems`, `.after(heal_save_shrine_system)` and
-`.before(HeldItemStep::Release)`.
-`the_session_checkpoint_resume_keeps_the_edges_it_was_carved_from` composes both
-plugins and counts the attachments, because the item-only fixture beside it now
-correctly sees one. Poison-verified 2026-09-08: dropping the set membership
-reddens it.
-
-⚠ **THOSE EDGES ARE INHERITED, NOT DERIVED.** Nothing establishes that a body
-placement belongs among held-item steps; the resume's own doc says what it
-actually needs (the first tick a constructed session has a body, ungated by
-`gameplay_allowed`). `CoreHeldItems` is nested in `PlayerSimulation` by its
-owner, so dropping the membership would also move the phase. A1c re-derives the
-ordering as part of the accepted-restore road; until then the contract is "the
-move changed no order".
-
-**Channel ownership is unchanged and deliberate:** `ResetToCheckpoint` and
+**Replay consumers.** `RoomReplayAdmitted` readers
+(`ambition_platformer2d_runtime::sandbox_reset`, `game/ambition_content/src/portal/reset_adapter.rs`,
+`game/ambition_content/src/bosses/cut_rope/`) describe admission. An admission
+notification is never the checkpoint commit token. `ResetToCheckpoint` and
 `RoomReplayAdmitted` are registered by the host's `CheckpointHorizonPlugin`, not
-by a domain offer. A domain plugin that registered them would be a second owner
-of the channel.
+by a domain offer.
 
-### A1c: make the accepted restore the common commit input
+## Acceptance matrix
 
-This is a coherent behavior change, implemented in buildable subcommits:
-
-1. **LANDED 2026-09-08 — the admitted operation exists and is the only trigger.**
-   `AdmittedCheckpointRestore` (shared_tangle lifecycle vocabulary, written only
-   by the session coordinator) carries the accepted operation's frame and its
-   resolved subject. `CheckpointRestore` gained an ordered
-   `CheckpointRestoreStep::{Admit, Apply, Retire}` chain, owned by the session
-   offer because the session is the admission authority. `ResetToCheckpoint` is
-   now remembered in a session-owned `OutstandingCheckpointRequest` instead of
-   being drained and lost: a reset asked for while another intent owns the slot
-   is re-asked until it is admitted. Both are rollback state
-   (`GGRS_ROLLBACK_SCHEMA_VERSION` 167 -> 168, baseline + absence contract
-   updated in the same commit).
-
-   ⚠ **The pinned snapshot aggregate is deliberately NOT here yet.** Admit and
-   Apply run in one frame, so the live baselines *are* the pinned ones and an
-   aggregate would be a value with no consumer — the shape that produced the
-   four dead `LifecycleIntent` variants. It arrives in subcommit 3/4 with the
-   deferred application that makes "capture changes while load waits" a
-   reachable case, and that is the subcommit that owes the pinning test.
-
-   ⛔⛔ **AND IT DOES NOT GO IN THE SHARED TOKEN.**
-   `shared_tangle::AdmittedCheckpointRestore` is an authorization view: which
-   operation, and whose. The pinned snapshots belong to the session's own
-   accepted-operation state, because the session coordinator owns their
-   consistency boundary and may name item and occurrence types `shared_tangle`
-   must never depend on. Putting them in the shared token would make it the
-   checkpoint coordinator under a vocabulary type's name, and every domain would
-   then read the coordinator instead of its own owner's value. ⛔⛤ **AND THE SHARED TOKEN IS GONE — A1c/3b DELETED IT, AND THIS PARAGRAPH
-   OUTLIVED IT BY DESCRIBING ITS GUARDS IN THE PRESENT TENSE.** It cited two arms —
-   one asserting the token carried only which operation and whose, one recording
-   that it did not yet outlive its own frame — and named
-   `resource.admitted_checkpoint_restore` (schema v168) as live registered
-   state. **Measured 2026-09-15: no such type, no such arms, and no such row in
-   `rollback_schema_baseline.txt`.** ⚠ Their names are deliberately unquoted
-   here: `check_planning_test_citations.py` matches any backticked test-shaped
-   name, so citing a dead arm even to record its death re-raises the finding. `AcceptedCheckpointRestore` replaced it and
-   is the operation's DATA rather than an authorization token — the reducers
-   moved into `CheckpointDomainApply`, which only a commit executor runs, so
-   holding the values permits nothing and there is deliberately no token to
-   guard. See `AcceptedCheckpointRestore`'s own doc in `session/checkpoint.rs`.
-
-   ⚠ The paragraph above is kept because the REASONING still holds — pinned
-   snapshots belong to the session's own accepted-operation state, not to a
-   shared vocabulary type — and that is why `AcceptedCheckpointRestore` lives
-   where it does. Only its claim to be currently guarded was false.
-
-   Still open in this subcommit: the coarse startup routed/completed flags
-   (`CheckpointResumeProgress`) <!-- cite-ok: what was STILL OPEN in that subcommit; deleted by `f473f0d72` --> are untouched, and the same-room startup
-   placement is still its own road.
-2. **LANDED 2026-09-08 — no domain reads the raw request.**
-   `restore_occurrence_baseline`, `restore_custody_to_checkpoint` and
-   `restore_owned_items_to_checkpoint` read the admitted operation. The
-   occurrence and entitlement reducers are separated from their triggers
-   (`reduce_occurrences_to_baseline`, `reduce_owned_items_to_baseline`) so a
-   domain test can hand them a snapshot; the custody reducer stays a system
-   because it spawns and queries, and its domain test drives it through an
-   admitted operation rather than a fabricated message. There is no public
-   bypass around admission: the token has one writer.
-
-   The registration is guarded, not just the source:
-   `domain_restoration_is_registered_in_the_commit_schedule_and_not_in_the_simulation`
-   asks the SCHEDULE which set each reducer joined, and fails if anything sits in
-   `CheckpointRestore` outside the three steps — a fourth domain installing the
-   old way is caught there rather than by a player losing an item. ⚠ Its name
-   changed with `fb5afecae` (A1c/3b), which moved the restore off the simulation
-   schedule entirely; the population it asserts is the point, since naming the
-   three reducers would pass while a fourth quietly re-added itself.
-3. **LANDED 2026-09-08 (preparation half) — preparation reads the operation's
-   own population.** The session owns `AcceptedCheckpointRestore`: the accepted
-   operation, the room intent it was admitted for, and the occurrence/minted
-   inputs pinned when the slot said yes. It outlives its frame and is retired
-   when the slot gives up the intent. Room loading derives BOTH the prefetch
-   cache key and the fresh plan's `OccurrenceContinuity` from it, matched by
-   intent so a door recorded while a restore is outstanding is still prepared
-   from live state. Rollback-registered; wire format 168 -> 169.
-
-   ⛔⛔ **WHAT THIS REPLACED WAS A PHASE-ORDERING ACCIDENT, measured 2026-09-08.**
-   Preparation derived the destination outlook from the LIVE ledger. On a
-   checkpoint reset that was the right answer only because
-   `restore_occurrence_baseline` had overwritten the live ledger with the
-   checkpoint's earlier in the same frame: `CheckpointRestore` sits in
-   `PlayerInput`, room-transition readiness runs after `RoomTransitionSet::Detect`
-   in `RoomTransition`, and the phase order puts one before the other. The room
-   was prepared from a live resource swapped to the checkpoint value **in order
-   to be read** — the preparation shape this document forbids — and nothing
-   stated that ordering as a checkpoint requirement.
-
-   ⚠ **AND THE SWAP HAD BECOME THE ONLY WITNESS OF ITS OWN REDUCER — now
-   closed.** With `restore_occurrence_baseline`'s write disabled, no test in the
-   595-test `app_it` suite reddened: every observable consequence of that write
-   had run through room preparation, which no longer reads it. The first attempt
-   at a direct witness passed its own poison, because `AuthoredOccurrences` is
-   largely RE-DERIVED from live state
-   (`project_custody_onto_authored_occurrences`, `record_placed_ground_items`) —
-   any row the rebuilt room can regenerate comes back whether the reducer ran or
-   not.
-
-   ⭐ **The witness is a row about ANOTHER ROOM.**
-   `a_reset_restores_a_whereabouts_row_about_a_room_it_is_not_rebuilding` carries
-   an object next door, banks a checkpoint remembering it as
-   `Placed { room: <elsewhere> }`, fetches it home, then dies. Rebuilding the
-   checkpoint's room cannot republish a row about a room it is not rebuilding, so
-   restoring it is the reducer's alone. Poison-verified: disabling
-   `reduce_occurrences_to_baseline` reddens it. ⚠ Not `Consumed`, the other
-   unreproducible row — `continuity.rs` says its producer does not exist yet, so
-   a fixture on it would test fabricated state. Subcommit 4 moves this reducer to
-   the commit boundary and this is what will hold it.
-
-   Still open after 3a, closed in 3b below: the same selected input was not yet
-   integrated into eager/confirmed commit execution, and custody/entitlement
-   snapshots were still applied from live baselines in the restore set.
-4. **LANDED 2026-09-08 (3b) — destructive application runs from the commit, and
-   authorization is structural.** All three reducers moved out of the simulation
-   into `CheckpointDomainApply`, a schedule only a commit executor runs. Their
-   inputs are INSTALLED for its duration and removed on every path
-   (`CheckpointRestoreInputs` for the lifecycle layer, a sibling
-   `ItemCheckpointRestoreInputs` for the item domain), so a reducer that ran
-   without them does nothing — an accidental invocation is a no-op, not a restore
-   to an empty baseline. `AcceptedCheckpointRestore` now pins all four snapshots
-   at acceptance and both executors read the same one.
-
-   ⭐ **The transitional token is DELETED.** `AdmittedCheckpointRestore` existed
-   so three domains would stop reading the raw request; making application happen
-   only at the commit says the same thing out of WHEN they run, which no reducer
-   can forget to check. It left the wire format (schema 170 -> 171) rather than
-   growing a longer lifetime the earlier plan had predicted for it.
-
-   **Both executors, both witnessed** — this is the packet's eager/confirmed gate,
-   and neither half was covered before:
-   - eager: `commit_ready_room_transition_system` records the intent it landed
-     and a CHAINED exclusive runner applies it a system later, after the frame's
-     structural work. Poison-verified: disabling it reddens 7 tests across all
-     three domains.
-   - confirmed: `commit_confirmed_lifecycle` calls the same function in its
-     exclusive tail, after the spawn drain and BEFORE the rebase — otherwise its
-     first restore would undo the checkpoint it just restored. ⛔ Disabling it
-     left every rollback test green, because none asserted a domain value across
-     a reset: they assert enemy health, brick state and session health, all of
-     which the room rebuild restores by itself.
-     `a_confirmed_death_restores_the_entitlement_bag_the_checkpoint_banked` is
-     the witness, and the entitlement bag is the subject precisely because no
-     room rebuild can put a stored quantity back. Poison-verified.
-
-   ⭐ **AND THE OPERATION HAS AN IDENTITY, 2026-09-08.** `CheckpointOperationKey`
-   is the session's ownership stamp plus a sequence that advances ONLY on
-   admission, minted by `SessionCheckpointOperations`. It replaces intent
-   equality everywhere after the transaction opens: two crossings to one room
-   with one subject and one arrival compare EQUAL, so a transaction opened for
-   one operation could be served another's pinned population, and a frame number
-   cannot separate them either because a room rebase restarts the rollback
-   timeline at zero. The room-transition transaction carries the key from the
-   moment it opens; both commit executors apply BY KEY. The counter is rollback
-   state (a resimulated admission must mint the same key), is not reset at a
-   rebase, and refuses overflow rather than recycling a live identifier.
-
-5. **LANDED 2026-09-08 — verification, one terminal outcome, and startup on the
-   same mechanism.** After the flush, the commit checks the applied world against
-   the snapshots the operation was ACCEPTED with (not the live baselines, which
-   are written from live state and would verify a restore that applied nothing).
-   Failure is fail-closed in the only sense available after destructive
-   application: gameplay is blocked and the outcome names the operation and the
-   failing domain — it does not claim the old world is intact.
-   `SessionCheckpointOutcomes` publishes exactly one terminal outcome per key and
-   refuses a second.
-
-   ⭐ **And startup stopped keeping its own completion.**
-   `CheckpointResumeProgress::{routed_for, applied_for}` is deleted, not renamed:
-   a startup crossing and a death crossing are one operation asked twice, and two
-   ways of knowing one finished is how they drift. `SessionStartupResume` is a
-   state machine — `Routed(CheckpointOperationKey)` becomes `Satisfied` only when
-   THAT operation publishes its outcome, and an operation retracted without one
-   is owed again. A cross-room startup resume is now an accepted operation with
-   pinned inputs like any other; before this it recorded a bare transition and
-   its destination was prepared from whatever the live ledger happened to hold,
-   correct at session start only because the load had just written the file's
-   ledger into it. ⚠ The wire key MOVED with the meaning
-   (`resource.checkpoint_resume_progress` → `resource.session_startup_resume`),
-   the opposite of A1b's deliberate name preservation across a pure move: keeping
-   it would let two peers agree on a key whose contents mean different things.
-
-   ⚠ A same-room startup PLACEMENT deliberately does not become an operation: no
-   room rebuild, no host rebase, no accepted restore. It is the small
-   rollback-registered simulation operation this document already describes, and
-   manufacturing a reconstruction intent to move an already-constructed body
-   would be the opposite of what that row asks.
-
-   Schema 172 -> 173, then 174 for the corrected projections below.
-
-6. **LANDED 2026-09-08 — edge contracts made as strong as the comments claim.**
-   - **Overflow was fail-OPEN.** Both admission roads recorded the room intent
-     and spent the request BEFORE minting the key, so an exhausted counter left a
-     lifecycle transition admitted with no accepted operation behind it — the
-     room would have been rebuilt as an ordinary crossing with no pinned
-     continuity and no domain restore. Capacity is asked before the slot is
-     taken; the request stays owed. Poison-verified against `u64::MAX`, which
-     nothing in play will ever reach — the reason the path needed a test.
-   - **One canonical key projection.** Two resources spelled an optional scope as
-     `scope.0 | 1 << 63`, colliding a scope with its top bit set against the
-     absent case, while a third wrote a proper tag. `CheckpointOperationKey`
-     owns the encoding now and everything reuses it.
-   - **The terminal outcome is a closed set, not a string.** A free-form
-     diagnostic is not authoritative rollback state; `RestoreFailure` names which
-     contract broke and the sentence goes to the log. Two peers that agreed on
-     "failed" while blocking gameplay for different reasons no longer agree.
-   - **Publication is `pub(crate)`,** and the doc now says what the storage
-     actually guarantees: single-latest, so the refusal is a trip-wire on the
-     sole-writer property rather than the guarantee itself. When a terminal
-     notification is wanted it should be a message published at completion, not
-     a poll of this resource.
-   - **Custody verification names the custodian**, refuses a duplicate identity,
-     and checks the room and subject the operation claimed to produce. The
-     custodian arm is the one that mattered: "the reward is in a hand" was
-     passing where "the reward is back in the hand that banked it" is the
-     contract.
-
-   **Population completeness landed 2026-09-08** with a case that fails for it
-   alone: every occurrence the pinned ledger places IN THE ROOM BEING REBUILT
-   must be live. Ledger equality cannot see this — both ledgers agree while the
-   world is missing what they describe. Measured against the full suite before
-   keeping it, because this verification is fail-closed and a wrong check pauses
-   a working game.
-
-   ⛔ **BODY PLACEMENT, CLOCKS AND PORTALS ARE DELIBERATELY NOT CHECKED**, which
-   is a different answer from "not yet". Placement's only comparand is the
-   intent's arrival, and `transit_body` legitimately reconciles a body off it, so
-   a tight tolerance pauses a working game and a loose one measures nothing —
-   checking it needs a postcondition the transit authority states. Clocks and
-   portals have no accepted snapshot to compare against, so a check would first
-   have to invent one, which is a decision about what a checkpoint MEANS.
-
-   **Still open:** the terminal outcome has no presentation consumer. When one is
-   wanted it should be a message published at completion, not a poll of the
-   session's single-latest-outcome resource.
-5. Remove obsolete raw restore readers, redundant checkpoint mirrors, old item
-   installer aliases and unused progress paths. Refresh the graph as a diagnostic.
-
-Subcommits 2-4 may need one integration commit to remain buildable. Do not ship a
-mixed mode where some installed domains use the candidate and others still act
-on raw requests. This packet does not create a new crate, a universal checkpoint
-registry or a second room-construction algorithm.
-
-## Executable acceptance matrix
-
-Each row is a test obligation, not a claim that this review ran it. Prefer the
-existing production harnesses and domain test modules to a new test framework.
-
-| Fixture | Required observable assertions |
-| --- | --- |
-| Busy slot plus different live and saved ledgers | Incumbent slot unchanged; no occurrence, custody, owned count, entity, subject-position, clock or portal mutation from the refused reset. ⛔ The measured failure is entity ANNIHILATION, not merely a rolled-back ledger: assert the acquired object is still live and still held, not only that a count matches. Invert the A1a-era witness in `death_restores_the_checkpoint.rs` rather than writing a second fixture |
-| Busy slot released in same session | Waiting startup/reset can be admitted once; no false routed/completed latch |
-| Two raw reset requests in one tick | One accepted operation, one reconstruction, one set of consequences |
-| Missing primary during construction | Request remains pending; no bodyless fallback; later materialization satisfies it |
-| Control changes after admission | The original primary SimId remains the restore subject |
-| Capture changes while load waits | Admitted snapshot stays fixed; a later operation can use the newer capture |
-| Same room, different checkpoint occurrence outlook | Prefetched live plan cannot suppress/recreate the wrong item; candidate plan is used |
-| No checkpoint / invalid saved destination | Explicit current-start fallback for reset; documented startup skip behavior preserved |
-| Save adoption plus startup in one lifetime | No duplicate placement/route; data-ready and world-restored diagnostics are distinct |
-| Prepare failure / cancellation | Current live data unchanged; matching candidate retired, unrelated pending intent retained |
-| Trusted failure after destructive apply | No readiness publication or continued normal simulation; no claim of old-world retention |
-| Held item, thrown persistent item, minted carried item | One identity per restored occurrence, correct custody/counts and no double materialization |
-| Restore followed by frame-zero rollback | Same authoritative room, subject, ledgers and custody after restore |
-| Eager versus confirmed host | Equivalent final state for identical accepted snapshot, with no speculative destructive application |
-| Checkpoint-only composition | Startup and reset work without held-item plugin or shrine entity |
-| Domain-only reducer tests | Snapshot reduction works without session routing; production admission cannot be bypassed through that test entry |
-| Teardown and re-entry | Old request/load/context cannot act in the new session |
-
-### Audit, 2026-09-08 — which rows have a witness
-
-Run row by row against the tree, not inferred from the packets. ⛔ A row is
-"covered" only when a test FAILS for that row's property; several here are
-covered by a test written for something else, and that is recorded rather than
-counted as a pass.
+Every row has a witness that fails for that row's property.
 
 | Row | Witness |
 | --- | --- |
-| Busy slot plus different live and saved ledgers | `a_refused_reset_changes_no_domain_state_and_is_not_lost`, both halves poison-verified |
-| Busy slot released in same session | the same test's second half, and `a_refused_slot_leaves_the_checkpoint_resume_retryable` |
-| Two raw reset requests in one tick | `two_reset_requests_in_one_tick_become_one_operation` — asserts the operation COUNTER, because the earliest-sticky slot would hold one intent however many operations were minted |
-| Missing primary during construction | `a_resume_with_no_constructed_subject_stays_pending_until_the_body_exists` (startup road); the reset road retains its request through the same absence |
-| Control changes after admission | `an_admitted_operation_keeps_its_subject_and_its_snapshot_while_it_waits`, poison-verified, premise asserted |
-| Capture changes while load waits | the same test's second assertion |
-| Same room, different checkpoint occurrence outlook | `a_checkpoint_outlook_refuses_a_plan_prepared_without_one`, both arms poison-verified. It walks the shipped `begin_room_transition_load_system` twice into the SAME cached room, changing only whether an accepted operation pins a population, and reads the host's own `prefetch_hit`; the control arm is the anti-vacuity floor. ⛔⛔ **BUILDING IT FOUND THE CACHE HAD NEVER PROMOTED ANYTHING.** The identity a plan is keyed by — content epoch, session scope, source room — was kept twice: the host's asset-side prefetch state set its copy, and the engine's `RoomConstructionPlanPrefetch` was only ever set by `promote`, which set it by RESETTING the cache to it. So the plan cache sat at its default `(0, None, None)` for the life of a session and the first transition cleared every warm plan before looking one up. Measured: four cached neighbour plans, every promotion term satisfied, `prefetch_hit=false`. The identity now travels WITH the plan (`PrefetchIdentity`, required by `publish`), so a plan cannot be in the cache without the cache knowing what world it was prepared for, and there is no public reset. The structural argument (`every_prefetched_plan_carries_an_empty_occurrence_outlook`) stays as supporting evidence |
-| No checkpoint / invalid saved destination | `a_checkpoint_from_another_room_leaves_the_body_where_it_spawned` |
-| Save adoption plus startup in one lifetime | `canonical_reconstitution::a_save_with_a_checkpoint_and_an_occurrence_lands_both` |
-| Prepare failure / cancellation | `a_failed_preparation_ends_the_operation_once_and_does_not_retry_it` (poison-verified), `a_failed_ordinary_crossing_is_left_alone`, the two chain-membership counts, and — for the confirmed host, whose terminal road is an inline call no membership count can see — `a_failed_preparation_is_ended_by_the_confirmed_host_too`, poison-verified against the call itself; retraction keeps `a_startup_resume_whose_operation_is_retracted_asks_again`. ⛔ **I RECORDED THIS ROW CLOSED ON HALF AN ARGUMENT, 2026-09-08, and it was not.** "Nothing destructive runs before the commit" is true and proves *retain live state* — it says nothing about TERMINALIZATION or about permanent retry, and both were broken. ⛔⛔ **AND THE FIRST REPAIR WAS ALSO HALF OF ONE.** It ended the operation from `Update`, spending the rollback-registered `PendingLifecycleCommit` in a schedule that never rewinds — `check_rollback_mutators_run_in_sim` reddened, correctly. The retraction now happens at a commit boundary on both hosts and `Update` only leaves a host-side note. ⛔⛔ **AND THE END-TO-END FIXTURE THEN FOUND A THIRD HALF:** the operation key was adopted during construction preflight, so the failure modes that return BEFORE it — unknown destination, non-finite arrival, no session scope — carried no key and could never be terminalized. Measured: 597 transactions opened for one intent in 600 frames. The key is adopted when the transaction record is built |
-| Trusted failure after destructive apply | `a_restore_that_fails_verification_blocks_gameplay_and_publishes_one_failure`, poison-verified |
-| Held / thrown / minted carried item | the death suite, plus `custody_verification_names_the_custodian_and_refuses_a_duplicate` |
-| Restore followed by frame-zero rollback | the `rollback_lifecycle_reset` suite |
-| Eager versus confirmed host | both executors poison-verified — the eager runner reddens 7 tests, the confirmed call reddens `a_confirmed_death_restores_the_entitlement_bag_the_checkpoint_banked` |
+| Busy slot with different live and saved ledgers | `a_refused_reset_changes_no_domain_state_and_is_not_lost` (the acquired object stays live and held) |
+| Busy slot released in the same session | same test, second half; `a_refused_slot_leaves_the_checkpoint_resume_retryable` |
+| Two reset requests in one tick | `two_reset_requests_in_one_tick_become_one_operation` |
+| Missing primary during construction | `a_resume_with_no_constructed_subject_stays_pending_until_the_body_exists` |
+| Control or capture changes after admission | `an_admitted_operation_keeps_its_subject_and_its_snapshot_while_it_waits` |
+| Same room, different occurrence outlook | `a_checkpoint_outlook_refuses_a_plan_prepared_without_one`; `every_prefetched_plan_carries_an_empty_occurrence_outlook` |
+| No checkpoint or invalid destination | `a_checkpoint_from_another_room_leaves_the_body_where_it_spawned` |
+| Save adoption plus startup | `canonical_reconstitution::a_save_with_a_checkpoint_and_an_occurrence_lands_both` |
+| Prepare failure or cancellation | `a_failed_preparation_ends_the_operation_once_and_does_not_retry_it`, `a_failed_preparation_is_ended_by_the_confirmed_host_too`, `a_failed_ordinary_crossing_is_left_alone`, `a_startup_resume_whose_operation_is_retracted_asks_again` |
+| Failure after destructive apply | `a_restore_that_fails_verification_blocks_gameplay_and_publishes_one_failure` |
+| Held, thrown and minted carried items | the death suite; `custody_verification_names_the_custodian_and_refuses_a_duplicate` |
+| Restore then frame-zero rollback | the `rollback_lifecycle_reset` suite |
+| Eager and confirmed hosts | `a_confirmed_death_restores_the_entitlement_bag_the_checkpoint_banked` and the eager suite |
 | Checkpoint-only composition | `a_checkpoint_only_composition_resumes_without_the_item_domain` |
-| Domain-only reducer tests | the reducers are separated from their triggers; `the_commit_applies_the_operation_it_was_opened_for_and_always_removes_its_inputs` shows the inputs are the only entry |
+| Domain reducers only through inputs | `the_commit_applies_the_operation_it_was_opened_for_and_always_removes_its_inputs`; `domain_restoration_is_registered_in_the_commit_schedule_and_not_in_the_simulation` |
 | Teardown and re-entry | `a_key_from_a_retired_session_matches_nothing_in_the_next_one` |
+| A row about another room | `a_reset_restores_a_whereabouts_row_about_a_room_it_is_not_rebuilding` |
 
-⇒ **All seventeen rows have a witness that fails for that row's property.**
+Integration homes: `game/ambition_app/tests/canonical_reconstitution.rs`,
+`death_restores_the_checkpoint.rs`, `carried_item_crosses_rooms.rs`. A zero-test
+filter is not a pass.
 
-⛔ Two of them were recorded as closed on a structural argument at some point in
-this packet, and both arguments turned out to cover half a row. The prepare-failure
-row's "nothing destructive runs before the commit" proved *retain live state* and
-missed terminalization and permanent retry. The prefetched-plan row's "every cached
-plan carries the default outlook, and `promote` refuses a different one" was sound
-about the comparison and silent about whether the comparison was ever reached — it
-was not, for the life of every session, because the cache's identity had two keepers
-and only one of them set it. A structural argument is evidence; the row closes on a
-test that fails for it.
+## Open work
 
-### ⚠ SEPARATE FINDING, NOT AN A1 BLOCKER: one system prefetches neighbour assets *and* caches a construction plan
+- Widen post-apply verification: checkpoint replay consequences, deferred
+  flushes and the final rollback baseline.
+- The terminal outcome has no presentation consumer. When one is needed, publish
+  a message at completion; do not poll the single-latest outcome resource.
+- `prefetch_neighbor_room_preparation_system`
+  (`game/ambition_app/src/app/world_flow/room_transition_assets.rs`) braids a
+  construction-plan cache with neighbor asset residency, so headless
+  compositions hold no prefetched plans. Split the plan half from the asset
+  half in its own packet.
 
-Measured 2026-09-08 while trying to stage the row above.
-`prefetch_neighbor_room_preparation_system` is installed by
-`game/ambition_app/src/app/world_flow/room_transition_presentation.rs`, and the
-consequence is that the headless sim harness every checkpoint fixture uses holds
-**zero** prefetched plans — probed: the cache is empty after 180 settled frames.
-The promotion path A1c/3a redirected is therefore reachable only in the visible
-app, and an RL or headless composition re-prepares every room from scratch.
+## Forbidden regressions
 
-⚠ **IT IS A SPLIT, NOT A MOVE, and I checked before saying so.** The system's
-params are two jobs braided together: a construction plan (`PlacementLowering
-Registry`, `RoomContentStagingRegistry`, the catalogs, the recipes, the brain
-overrides, `RoomConstructionPlanPrefetch`) and the neighbour's ASSET residency
-(`GameAssets`, `AssetServer`, `Assets<Image>`, `RenderWorldPresent`,
-`AppGpuPreparedImages`, sprite layouts, character load states). The asset half
-belongs where it is. The plan half inherited that composition by being in the
-same function.
-
-⇒ Not a checkpoint defect, and A1 does not own it. It wants its own packet:
-separate the plan cache from the asset warm-up so a composition that does not
-draw still prepares the room it is about to enter.
-
-⛔ **AND IT IS NO LONGER A BLOCKER ON THE OUTLOOK ROW.** This section used to end
-"it is why the end-to-end arm of the outlook row cannot be staged from here",
-which was true of the HEADLESS harness and false of the packet: `build_visible_app`
-warms the cache, and `a_checkpoint_outlook_refuses_a_plan_prepared_without_one`
-stages the arm there. The split remains worth doing for the RL and headless
-compositions; it was never the reason the row was open.
-
-Existing integration witnesses include
-`game/ambition_app/tests/canonical_reconstitution.rs`,
-`game/ambition_app/tests/death_restores_the_checkpoint.rs` and
-`game/ambition_app/tests/carried_item_crosses_rooms.rs`. Use their actual registered
-integration target from the current harness; a zero-test filter is not a pass.
-Run the focused checkpoint/shrine tests, the corrected spawn-boundary check and
-the established rollback lifecycle suite before reporting A1 complete.
-
-A1 is complete when the code demonstrates **one selected restore, one commit
-boundary and domain-owned reducers**, not when the shrine/session edge disappears.
+- Nothing writes checkpoint-resume progress, or any consequence of a lifecycle
+  request, before the slot says yes.
+- No domain reads the raw `ResetToCheckpoint` request.
+- No ordering edge stands in for admission: consumers need an answer, not a
+  differently ordered read.
+- No type-erased snapshot map, save-every-component protocol or restore-callback
+  registry. No pinned snapshot in a shared vocabulary type.
+- No mixed mode where some domains use the accepted operation and others act on
+  raw requests.
+- A cached plan is promoted only for the outlook it was prepared with; do not
+  fill in the prefetch outlook to raise the hit rate.

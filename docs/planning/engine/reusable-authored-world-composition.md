@@ -2,31 +2,23 @@
 
 **State:** INCUBATING — do not implement a universal prefab system yet.
 
-**Hold evidence (checked 2026-09-17).** Both conditions for the hold are
-still true:
+**Hold evidence.** Both conditions for the hold are true:
 
 - No abstraction has emerged. No `*Assembly`, `*Prefab`, `*Composition` or
   `*Motif` type exists for authored world structure. `ShellComposition`
-  (`crates/ambition_platformer2d_provider/src/composition.rs`) holds an
-  experience id and two route ids; it is shell composition, not world
-  composition.
-- The authored unit is one placement. `PlacementKind` has six flat variants
+  (`crates/ambition_platformer2d_provider/src/composition.rs`) is shell
+  composition, not world composition.
+- The authored unit is one placement. `PlacementKind`
+  (`crates/ambition_entity_catalog/src/placements.rs`) has six flat variants
   (`Hazard`, `Interactable`, `Pickup`, `Chest`, `Breakable`, `Portal`), with no
   composite, no cross-placement reference and no grouping.
 
-Every predicted pressure has its own bespoke implementation. To compare over
-time, count files with `grep -rl <TERM> --include=*.rs crates game`
-(case-sensitive):
-
-| pressure | term | files, 2026-09-17 |
-|---|---|---:|
-| portal mechanisms | `Portal` | 182 |
-| moving machinery | `KinematicPath\|MovingPlatform` | 70 |
-| shrines | `Shrine` | 19 |
-| encounter assemblies | `EncounterSpec\|EncounterId\|EncounterDefinition` | 20 |
-| environmental hazards | `HazardSpec\|HazardRespawn` | 11 |
-
-A file count shows pressure, not a design.
+Each predicted pressure (portal mechanisms, moving machinery, shrines,
+encounter assemblies, environmental hazards) has its own implementation. To
+see the pressure, count files with `grep -rl <TERM> --include=*.rs crates game`
+for `Portal`, `KinematicPath\|MovingPlatform`, `Shrine`,
+`EncounterSpec\|EncounterId\|EncounterDefinition` and
+`HazardSpec\|HazardRespawn`. A file count shows pressure, not a design.
 
 ## Goal
 
@@ -47,7 +39,7 @@ scene clone, or one recursive `UniversalDefinition` enum.
 A real abstraction must emerge from at least two materially different Ambition
 uses.
 
-## ⚠ An emerging direction — recorded, not adopted
+## An emerging direction (recorded, not adopted)
 
 Once prepared authored rules exist
 ([`authored-gameplay-logic-and-orchestration.md`](authored-gameplay-logic-and-orchestration.md)),
@@ -69,14 +61,13 @@ reference bindings
 prepared power/control rules
 ```
 
-⭐ that would give scene-like compositional **power** without adopting a universal
+That would give scene-like compositional **power** without adopting a universal
 Node tree and without embedding arbitrary Rust plugins inside authored
 compositions — which is the shape this program has been looking for.
 
-⛔ **this does not raise the priority of composition and does not lower its
-evidence threshold.** The state above still reads INCUBATING. Do not move
-composition implementation ahead of its evidence merely because the direction is
-becoming clearer; the two-materially-different-uses rule stands.
+This does not raise the priority of composition or lower its evidence
+threshold. Do not move composition ahead of its evidence. The
+two-materially-different-uses rule stands.
 
 ## Questions an eventual model must answer
 
@@ -115,8 +106,9 @@ input separate from actor/catalog-specific construction lowering. A reusable roo
 composition should not import prepared character sheets merely to expose spatial
 placements. Typed domain lowering remains explicit at the integration boundary.
 
-A8 uses two copies of the same authored room as the future instance-isolation
-witness. Content identity can be shared while live entities, mutable overlays and
-occurrence histories remain scoped. Do not claim that different authored room IDs
-prove repeated-instance safety or require all identity types to share one new
-namespace. Single-active-room customers should retain the current simple path.
+Two live instances of one authored room are built and isolated
+([open-world residency](open-world-runtime-and-residency.md)): content identity is
+shared while live entities, mutable overlays and occurrence histories are scoped
+by live room. A composition must keep that property. Different authored room IDs
+do not prove repeated-instance safety. Do not require all identity types to share
+one new namespace.

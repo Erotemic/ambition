@@ -1,14 +1,14 @@
 # World facts, observations and memory — Engine 1.0 program
 
-**State:** OPEN — authoritative-world/AI-belief separation is settled; fact and memory representation is not.
+**State:** OPEN. The separation of authoritative world truth from AI belief is
+settled. The durable fact layer exists as typed save families. The general
+observation and memory representation is not decided.
 
 ## Goal
 
 Give systemic characters and agent tooling structured access to **what is true,
 what happened, and what a particular actor could know**, without making an LLM
 or dialogue generator authoritative over the simulation.
-
-The governing rule is:
 
 > The simulation determines what is true. AI decides what characters think,
 > want, say and try to do about it.
@@ -20,393 +20,91 @@ The governing rule is:
 Examples: door open, machine powered, item custody, actor alive/location,
 encounter outcome, persistent world mutation.
 
-⭐⭐⭐ **AND THAT OPEN QUESTION IS ANSWERED, MEASURED 2026-09-06: A RULE READS THE SAVE
-FOR FOUR FAMILIES AND LIVE STATE FOR EVERYTHING ELSE.** Every registered
-`ConditionId` in the tree, by what its evaluator actually reads:
+**Current shape.** The durable fact layer is `AmbitionGameSaveData`: typed fact
+families (flags, switches, items, wallet, occurrences, custody, minted items,
+encounters, bosses, quests, dialogue visits, checkpoint, inventory-saved), not a
+key-value map. Its fields are `pub(crate)` behind readers and named setters, so
+no other crate writes a durable fact by assignment. Paired setters keep one
+fact whole: `set_inventory` also sets `inventory_saved`, and
+`set_durable_horizon` writes occurrences with custody.
+`scripts/durable_fact_writers.py` lists who writes each family.
 
-| condition | reads |
-|---|---|
-| `boss.cleared` | **the save** — `data().boss(id)` |
-| `encounter.cleared` | **the save** — `data().encounter(id)` |
-| `world.flag_set` | **the save** — `data().flag(id)` |
-| `world.switch_on` | **the save** — `data().switch(id)` |
-| `body.can`, `body.fits` | live ECS |
-| `inventory.holds`, `custody.is_held` | live ECS — `try_query::<(&SimId, &ItemCustody)>()` |
-| `wallet.can_afford` | live ECS |
+Authored rules read facts through the condition catalog. Each domain publishes
+its own conditions beside the systems that write the fact:
 
-⇒ **The save is NOT the rule-readable surface; it is the durable MIRROR of one.** Four of
-the thirteen fact families are read by an authored rule directly
-(`boss_encounter/conditions.rs`, `encounter_features/conditions.rs`,
-`actor_monolith/world_facts.rs`); the other nine are reachable to a rule only through the
-live state they mirror. ⚠ That is a coherent design rather than a gap — a rule asking
-"does the player hold X" wants the LIVE hand, not what the last autosave believed — and
-the four that read the save are exactly the facts with no live representation between
-sessions (a cleared boss, a set flag).
+| Condition | Reads | Published by |
+| --- | --- | --- |
+| `world.flag_set`, `world.switch_on` | the save | `actor_monolith/world_facts.rs` |
+| `boss.cleared` | the save (keyed by authored encounter id) | `ambition_boss_encounter` |
+| `encounter.cleared` | the save | `ambition_encounter_features` |
+| `quest.active` | the save | `game/ambition_content` (the game publishes it) |
+| `inventory.holds` | live ECS | `actor_monolith/items` |
+| `custody.is_held` | live ECS | `ambition_held_items` |
+| `wallet.can_afford` | live `BodyWallet` | `actor_monolith/items/wallet_conditions.rs` |
+| `body.can`, `body.fits` | live ECS | `actor_monolith/body_conditions.rs` |
 
-▢ **SO THE REMAINING QUESTION IS NARROWER than the page has been asking:** when a fact
-has BOTH a live form and a durable row, which does a rule read, and is that choice
-recorded anywhere? Today it is implicit in each evaluator. `boss.cleared`'s docstring is
-the only one that argues its choice out loud.
+The save is the durable mirror of the rule-readable surface, not the surface
+itself. A rule asking "does the player hold X" wants the live hand. The facts
+read from the save are the ones with no live form between sessions (a cleared
+boss, a set flag). `scripts/authored_route_gates.py` counts which families
+conditions read.
 
-⭐ **THE OBVIOUS (B) ANSWER IS A `reads: FactSource` FIELD ON `ConditionDescriptor`** —
-28 construction sites, ~18 of them production — so E0063 would stop a new condition being
-added without choosing SAVE or LIVE. The defect it would prevent is named in decision 57:
-a gate that reads live world state instead of the durable row has an answer that depends
-on which room the player is standing in.
+`wallet.can_afford` reads the price through `ambition_items::shop::authored_price`,
+the same reading `<<buy_item>>` uses, so a price the guard refuses is a price the
+transaction refuses. A no-wallet composition answers `Unanswerable`, not `false`.
 
-⛔⛔ **NOT DONE, AND THE REASON IS THE WEEK'S OWN LESSON: NOTHING WOULD READ THE FIELD.**
-Five capabilities were found this week that are defined, installed and consumed by
-nobody — the EncounterScript music owner, the Limit meter, `MountedBrainCache`, the
-provider action road, the abandon seam. A field every author must fill and no code ever
-reads is the same shape, and adding it would be paying the cost of a constraint to get
-documentation.
+`dialog_visits`, `checkpoint`, `minted_items` and `inventory_saved` publish no
+condition. Do not publish one per field: `inventory_saved` and `minted_items`
+are restore mechanics no rule should ask about.
 
-▢ **ITS PRECONDITION IS A CONSUMER.** Any ONE of these makes it worth adding:
-* the condition catalog / inspector SHOWS the source, so an author picking a condition
-  can see whether it survives a session boundary;
-* a guard asserts every SAVE-reading condition is rollback-safe, or that no LIVE-reading
-  condition is used by a gate whose answer must be durable;
-* agent tooling filters conditions by source when composing authored logic.
+**The Yarn mirror.** `ambition_dialog::YarnStateMirrorData` holds only
+`visit_counts` (dialogue's own bookkeeping) and content `extras`. Every other
+Yarn function asks the catalog live or reads the live component
+(`wallet_balance()` reads `BodyWallet`). A new mirror field is a claim that the
+catalog cannot answer the question, and the burden is on the field. Enumerate
+the authored verbs bound over a field, not only the field.
 
-⇒ Until one of those exists, the honest form is this row plus `boss.cleared`'s docstring,
-which already argues the choice where it matters most.
+**Switch writers.** The save's switch family has two writing roads, disjoint
+by action kind: `drain_switch_activations` (`ambition_encounter/src/switches.rs`)
+and `apply_wave_encounter_effects` (`ambition_encounter_features/src/systems.rs`,
+which greens every switch of a completed encounter). The falling-sand spouts
+only read (`FallingSandSpoutState::from_save`). The activation queue is a
+cross-tick channel: the drain is ordered before `EncounterSimulation` by its
+consumers, and `apply_switch_effects` pushes in `GameplayEffects`, so an
+activation resolves on the next tick
+(`a_switch_activation_is_drained_on_the_tick_after_it_was_pushed`). Ordering the
+drain after the push would be a schedule cycle.
 
-⭐⭐ **MEASURED 2026-09-04: THIS LAYER IS NOT MISSING — IT IS `AmbitionGameSaveData`,
-and the open question was which of its rows a rule can READ.** The page's
-"Candidate crate" section says *"do not begin with a universal key-value fact
-database; prefer typed domain facts"*, and that is already what shipped: the save
-holds **thirteen** typed fact families, not a string map. ⚠ `AmbitionGameSaveData`
-has FOURTEEN fields; `version` is schema metadata rather than a fact, which
-is the one exclusion — said here so a recount reads as agreement instead of a
-correction.
-
-⭐⭐ **AND THE FIELDS ARE SEALED SINCE 2026-09-05: `pub(crate)` behind readers
-and named setters, so NO OTHER CRATE CAN WRITE A DURABLE FACT BY ASSIGNMENT.**
-Six families already had getter/setter pairs; seven (`items`, `wallet`,
-`inventory_saved`, `checkpoint`, `occurrences`, `custody`, `minted_items`) were
-reached by raw field access and now have them. ⇒ **this is why
-`scripts/durable_fact_writers.py` can answer its question at all.** The census
-exists to say who writes a durable fact; before the seal the honest answer was
-"anyone, by assignment, under any variable name", and the census was a
-best-effort grep. A write is now a named method call.
-⛔ The seal immediately caught a bypass a grep never would: a rollback test was
-doing `.flags.push(PersistedFlag::new(..))`, appending a raw row instead of
-`set_flag` — the one road that cannot duplicate an id.
-⚠ Two setters PAIR fields that are one fact and could not be paired as fields:
-`set_inventory` also sets `inventory_saved` (a save recording items without
-recording that it did reads as FRESH on the next load), and
-`set_durable_horizon` writes occurrences with custody (a custody row whose
-occurrence row is missing names nothing). **TEN published conditions read SEVEN of them** (⚠ this sentence has been
-re-measured three times in one day — six reading four, then nine reading six,
-now ten reading seven as `wallet.can_afford` landed. ⇒ Re-run
-`scripts/authored_route_gates.py` rather than quoting it; the counts here are
-dated, not live):
-
-| durable fact family | route-readable? |
-|---|---|
-| `flags` | ✔ `world.flag_set` |
-✅ **RESOLVED 2026-09-23 BY DELETING ONE WRITER, not by ordering them.**
-`capture_falling_sand_switch_interactions` and the room's `spouts` copy are gone;
-the drain's `ResetEncounter` toggle is the one press-time writer, the room reads
-`FallingSandSpoutState::from_save`, and `SwitchOn` is projected from the save by
-`sync_ecs_switches_from_save` alone (the interaction's latch and
-`sync_falling_sand_switch_visuals` were deleted with it). Pinned by
-`a_spout_switch_toggles_once_per_press_and_the_switch_shows_it`
-(`game/ambition_app/tests/falling_sand_room.rs`). The history below is kept for
-the order derivation, which still describes the queue's cross-tick latency.
-
-⛔⛔ **(HISTORY) TWO UNORDERED SYSTEMS WRITE THE SAME DURABLE SWITCH VALUE, and four
-shipped switches sit on it. Measured 2026-09-05.**
-
-`ambition_encounter::switches::drain_switch_activations` is
-`.in_set(SwitchActivationDrained)` — a set placed in **no simulation phase** —
-and `capture_falling_sand_switch_interactions` is
-`.in_set(Platformer2dSimulationPhaseMonolith::GameplayEffects)`. Both are
-downstream of one `SwitchActivated` from `features/ecs/interact.rs`, and both
-call `save.data_mut().set_switch(&activation.id, …)`.
-
-⇒ **They collide on the four falling-sand spouts**, which are authored
-`action: "ResetEncounter"` — exactly the arm the drain toggles — while the
-content road keys off the switch ID. The content road says in place that it means
-to win: *"without this write the save's switch flag stays whatever the encounter
-pipeline set it to"*. **Nothing makes it last.**
-⚠ A behavioural test passes either way, which is the same shape as the
-finishing-zoom edge the fighter lane found. ⇒ **The fix is an ordering edge, and
-placing it is a content/engine boundary decision** — the content road cannot name
-a set the engine owns without taking a dependency, and the engine cannot name
-content.
-
-⛔⛤ **BUT "THE EXECUTOR'S ORDER IS STABLE BUT ARBITRARY" IS WRONG, AND THE ORDER
-IS DERIVABLE — 2026-09-18.** `SwitchActivationDrained` is in no phase, so nothing
-orders it DIRECTLY; its position is pinned by its CONSUMERS.
-`drive_wave_encounters` is
-`.in_set(EncounterSimulation).after(SwitchActivationDrained)`
-(`ambition_encounter_features/src/lib.rs`), and the monolith phase chain is
-`... EncounterSimulation → Cutscene → GameplayEffects → Progression`
-(`actor_monolith/src/schedule/schedule.rs`). ⇒ **The drain is forced before
-`EncounterSimulation`, therefore before `GameplayEffects`, therefore before
-`capture_falling_sand_switch_interactions` — every frame, by construction.** The
-content road always writes last and always wins; the order cannot flip without
-somebody moving a phase, a set membership or that `.after` edge.
-
-⚠ **THAT IS DERIVED FROM THE EDGES, NOT OBSERVED BY AN ARM**, and the distinction
-is the point: it says the ORDER is determined, not that the resulting save value
-is the intended one. Two writers of one durable fact is still two authorities, and
-"the later one happens to be the one that means to win" is a coincidence of the
-phase chain rather than a stated contract. ⇒ What would settle it is a
-falling-sand spout fixture reading `data().switch(id)` after the frame in which
-both roads write — the shape
-`a_switch_activation_is_drained_on_the_tick_after_it_was_pushed`
-(`game/ambition_app/tests/symmetry_attunement.rs`) uses for the queue's own
-latency, which IS measured.
-
-⭐ **AND THE SAME EDGE TOPOLOGY MAKES THE ACTIVATION QUEUE A CROSS-TICK CHANNEL,
-which nothing said either.** `apply_switch_effects` pushes in `GameplayEffects`
-and the drain is forced two phases earlier, so an activation is always resolved on
-the FOLLOWING tick. Measured through the shipped composition: `(queued, resolved)`
-reads `(1, 0)` one step after a real `SwitchActivated` and `(0, 1)` the step after
-— a delay, not a loss, poison-verified by unregistering the drain (the second
-reading then stays `(1, 0)`). ⛔ The obvious repair is a schedule CYCLE: the drain
-cannot be `.after(apply_switch_effects)` and also before `drive_wave_encounters`.
-
-⛔ **AND I GOT THE ID FACT WRONG FIRST, so the correction is on the record.** I
-reported *"Switch: 14 placements, 0 authored, 14 iids"*. **False** — a `Switch`
-authors an `id` FIELD (`falling_sand_sand_switch`) and that is the save key; the
-`Switch-b0051394-…` iid is not. My scan looked for `encounter_id` (a *boss*
-field) and fell back to the iid, so it measured the wrong attribute. The real
-picture:
-
-```text
-  BossSpawn  11 placements — 1 authored (`cove.mockingbird`), 10 on LDtk iids
-  Switch     14 placements — 14 authored via their `id` field
-```
-
-⇒ **So the question-57 exposure is a BOSS problem, not a switch one.** Switches
-already carry a name an author can type, which is why `world.switch_on` would be
-authorable today if anyone wanted it.
-
-| durable family | the condition that publishes it |
-|---|---|
-| `switches` | ✔ `world.switch_on` — ⚠ but the durable fact has **two writing authorities**, re-measured 2026-09-24 (three on 2026-09-05): `ambition_encounter/src/switches.rs`'s `drain_switch_activations` (three arms of one `match &action`) and `ambition_encounter_features/src/systems.rs`'s `apply_wave_encounter_effects` (greens every switch of a completed encounter — ⚠ ALL of them, `switch_ids_for_encounter`, because arming is on ANY red link). The falling-sand spouts' own writer is gone: they are authored `ResetEncounter` switches that the drain toggles, and `FallingSandSpoutState::from_save` only reads. The roads look DISJOINT by action kind — the generic one states *"an unhandled action must not touch persisted state at all"* — so this reads as a hand-off rather than a fork, and no behaviour is known wrong. ✅ The comment that called the drain *"The persisted write, in its one place"* (true inside the function, false at tree scope) now says *"THIS ROAD'S persisted write"*. ⓘ Found only after repairing `durable_fact_writers.py`, which had been truncating each file at its first `#[cfg(test)]` and reporting two writers instead of five |
-| `items` | ✔ `inventory.holds` |
-| `occurrences` / `custody` | ✔ `custody.is_held` |
-| `encounters` | ✔ `encounter.cleared` (published 2026-09-04) |
-| `bosses` | ✔ `boss.cleared` published 2026-09-04, retiring a mirror slice; **REACHABLE since 2026-09-05** — its three executable authored callers spell `cove.mockingbird`, the AUTHORED encounter id the save is now keyed by ([question 57](../awaiting-maintainer-decision.md), ruled and implemented). ⛔ They could never be true before that: they passed the BEHAVIOUR id against a save keyed by the LDtk placement, and a missing key reads `Untouched`, so the gate stayed shut and looked like content nobody wrote. Two guards hold it now — a wrong id is a RED, and an end-to-end arm takes the id from the booted room and the question from the shipped dialogue |
-| `quests` | ✔ `quest.active` (published 2026-09-04, retiring a mirror slice — and the first condition published by the GAME) |
-| `wallet` | ✔ `wallet.can_afford` (published 2026-09-04, retiring the mirror's LARGEST customer — ten authored shop lines) |
-| `dialog_visits`, `checkpoint`, `minted_items`, `inventory_saved` | ⛔ nothing publishes a condition |
-
-⇒ **So the first slice of THIS program is not a representation decision, it is a
-publication gap**, and it is the same shape the capability-progression program
-turned out to have: the fact exists, the reader does not. ⚠ That does NOT mean
-publishing all eight — `inventory_saved` and `minted_items` are restore
-mechanics no rule should ask about, and a condition per field would be the
-key-value database this page refuses, wearing typed clothes. The ones with an
-obvious authored customer are `encounters` (*"has this arena been cleared"* —
-distinct from its switch, which is the mechanism's state rather than the
-outcome), `bosses` and `quests`.
-
-✔ **`encounter.cleared` is the first of those, and it ships from
-`ambition_encounter_features` rather than the actor monolith** — the fifth
-condition provider and the first to live beside the systems that WRITE the fact,
-which is what "a domain owns its own publication" has to mean once the domains
-stop sharing a crate. It is also the first condition over a NON-BOOLEAN durable
-fact, and it publishes one named state rather than a
-`state_is(encounter, state)` accessor: a generic reader would be exactly the
-key-value fact database this page refuses, arriving one enum at a time. A second
-state becomes a second named question when something wants it.
-
-⭐⭐ **AND THE PUBLICATION GAP IS NOT A GAP — IT IS A FORK WITH A PRECEDENT AND
-LIVE CUSTOMERS (measured 2026-09-04).** The remaining eight families are not
-merely unpublished; several are already ANSWERED, by a second mechanism, to
-authored content that ships.
-
-⚠ **RE-TENSED 2026-09-04 LATE, by this file's own carve.** As written this
-paragraph said the mirror *carries* the boss and quest slices; the two migrations
-below deleted both, so the present tense went stale within hours of the sentence
-being true. Kept as history rather than removed — the argument is what makes the
-migrations legible, and *"re-tense, do not delete"* is the queue's own routine
-for exactly this.
-
-`ambition_dialog::YarnStateMirrorData` (`crates/ambition_dialog/src/bindings.rs:16`)
-**carried** `bosses_cleared` and `quests_active` — both now gone — alongside
-`visit_counts` and `extras`, which remain. ⚠ **`wallet_balance` left too, on
-2026-09-05** — this sentence listed it as remaining. And
-`game/ambition_content/src/yarn_vocabulary.rs` **bound** `boss_cleared(id)`,
-`quest_active(id)`, `visit_count(id)`, `wallet_balance()` and `can_afford(price)`
-as bespoke Yarn functions over it; `boss_cleared`, `quest_active` and
-`can_afford` are registered systems asking the catalog now, `wallet_balance` is a
-registered system reading `BodyWallet` on the `PrimaryPlayer` DIRECTLY (it never
-needed the catalog), and only `visit_count` still reads the mirror. **Authored content called
-them then and calls them still, unchanged** — `cove.yarn:3`, `cove.yarn:220`,
-`kernel.yarn:271`, `kernel.yarn:293`.
-
-⇒ **So this is the "second authority" shape, and BOTH modules already say so at
-the site.** `authored_conditions.rs`: *"catalog-owned facts do not need a second
-`YarnStateMirror` copy. The mirror remains only for facts the catalog cannot
-answer."* ⛤ **THE FIRST SENTENCE OF THAT QUOTATION READ *"facts already exposed
-through the authored-condition catalog must be queried there rather than
-duplicated here"* UNTIL 2026-09-19, AND THE FILE DOES NOT SAY IT.** The second
-sentence is verbatim; the first was a paraphrase in quotation marks, and it
-carried the stronger claim the sentence around it needed — the module records
-that a second copy is UNNECESSARY, not that querying the catalog is REQUIRED.
-`yarn_vocabulary.rs:415`: *"Two mechanisms answering one question is exactly the
-second authority this project refuses elsewhere."*
-
-✔ **AND THE MIGRATION HAS ALREADY HAPPENED ONCE, which is what makes this a
-carve rather than a proposal.** The mirror's flag slice is GONE
-(`yarn_vocabulary.rs:107`): *"It existed so `flag(id)` could read a save flag
-synchronously; that question is the condition catalog's `world.flag_set`, asked
-live."* ⇒ Publishing a condition here **retires a mirror slice**; it does not add
-an unused verb.
-
-⛔⛔ **WHICH REVERSES THE OBVIOUS CAUTION, and the reversal is the point.**
-`capability-progression-and-world-gating.md` measures five of nine published
-conditions as authored NOWHERE, so "publish more conditions" reads as
-dormant-cluster growth. **It is the opposite here**: `boss.cleared` and
-`quest.active` have authored callers on day one — the callers exist, through the
-other door. The dormant-cluster risk applies to conditions with no customer, not
-to conditions whose customers are currently served by the fork.
-
-⚠ **AND `encounter.cleared` DOES NOT ALREADY COVER IT.** `encounters`
-(`PersistedEncounter`) and `bosses` (`PersistedBossDefeat`) are separate save
-fields (`save_data.rs:322`, `:317`), and the mirror reads `data.bosses`. Checked,
-because "the boss is an encounter" is the plausible assumption that would have
-made this look already-done.
-
-✔✔ **AND `boss.cleared` IS LANDED (`39a48d4fa`), which makes the argument above
-a receipt rather than a proposal.** `ambition_boss_encounter` publishes it — the
-SIXTH condition provider — `boss_cleared(id)` is now a registered system asking
-the catalog live rather than a closure over the mirror, and
-`YarnStateMirrorData`'s boss slice **and its refresh loop are deleted** <!-- cite-ok: the field this row records RETIRING; naming a deleted symbol is the receipt -->.
-Authored `.yarn` content keeps its spelling and gains the live answer, so no
-content migration was needed. Three tests, poison-verified; the whole workspace
-checks clean and the four affected suites are green.
-✔✔ **AND `quest.active` LANDED WITH IT (`03f31eee3`) — the sibling, and the
-FIRST CONDITION PUBLISHED BY THE GAME.** The engine has no quest domain: the
-roster is `ambition_content::quest::default_quest_specs` and the pump is
-registered by `AmbitionQuestContentPlugin`, both in `game/`. So *"a domain owns
-its own publication"* puts it there, and it shows the catalog is extensible by a
-GAME and not only by the engine — a composition without Ambition's quests never
-sees the question. `quests_active` and its refresh loop are deleted too: the
-mirror's THIRD slice to go, after `flag` and the boss slice.
-⇒ **The publication table above records both.**
-
-⛔ **THE MIRROR MIGRATION IS NOT FINISHED, AND THIS PARAGRAPH SAID IT WAS.**
-It read: *"the remaining fields are deliberately staying … `visit_counts` is
-dialogue's own bookkeeping rather than a world fact, and `wallet_balance` is a
-NUMBER, which the catalog's boolean-outcome shape cannot express."* Both halves
-of that are true and the conclusion does not follow, because the ruling
-enumerated the mirror's FIELDS and the fork is in its FUNCTIONS.
-
-⭐⭐ **MEASURED 2026-09-04. `can_afford(price)` IS A BOOLEAN OVER A DURABLE
-FACT, AND IT HAS MORE AUTHORED CALLERS THAN ANY PUBLISHED CONDITION.**
-
-```text
-can_afford(price)   10 authored calls   kernel.yarn (the whole shop menu)
-visit_count(id)      2 authored calls   (4 raw — 2 are spoken prose)
-wallet_balance()     0 authored calls
-```
-
-- `wallet` is a durable save field (`save_data.rs:340`) whose live authority is
-  `BodyWallet` on the `PrimaryPlayer`;
-- `can_afford` is registered as a closure over the mirror's per-frame snapshot,
-  so the boolean question *"can the player pay 25g"* has TWO authorities — the
-  snapshot and the component — which is the exact shape both call sites already
-  refuse in writing;
-- ⚠ and the catalog CAN express it: `ParamKind::Number` / `AuthoredArg::Number`
-  exist and `body.fits 32` already uses them. The "it is a number" exemption is
-  a claim about `wallet_balance()`, the value, and it does not reach
-  `can_afford(price)`, the predicate.
-
-⇒ **So the exemption stands for `wallet_balance` and `visit_count` and falls for
-`can_afford`.** Those two really are values the boolean catalog cannot return;
-this one is a question it answers natively. ⛔ **The lesson is the shape of the
-error, not the missing condition:** the ruling was written by listing the
-mirror's struct fields and asking which were expressible. The forks live in the
-FUNCTIONS bound over those fields, and one field can carry both a value verb and
-a predicate verb — `wallet_balance` is exempt while `can_afford`, reading the
-same `i32`, is not. **Enumerate the authored surface, not the storage.**
-
-✔ **CLOSED — both halves landed, and the second one overtook this row's own
-caveat.** Re-measured against HEAD 2026-09-05; the slice below was still written
-as "NEXT" long after it shipped.
-
-- `wallet.can_afford(price)` is published from
-  `crates/ambition_platformer2d_actor_monolith/src/items/wallet_conditions.rs`
-  (its OWN module rather than beside `inventory.holds` as planned) and registered
-  through `WalletConditionsPlugin` at
-  `crates/ambition_platformer2d_runtime/src/lib.rs:584`.
-- ⭐ It went further than the plan asked: the condition reads the price through
-  `ambition_items::shop::authored_price`, the same reading `<<buy_item>>` builds
-  its request from ⇒ a price the guard refuses is a price the transaction
-  refuses. The two had disagreed (`can_afford(25.7)` false while
-  `buy_item "x" 25.7` charged 25).
-- ⚠ A no-wallet composition answers `Unanswerable`, not `false` — it has no
-  notion of money, and "cannot afford" would be a confident claim about a world
-  with no currency.
-
-⛔⛔ **AND "THE MIRROR'S `wallet_balance` FIELD STAYS" IS NO LONGER TRUE. It left
-on 2026-09-05**, which is the more interesting half. This row justified keeping it
-because a NUMBER cannot pass through the catalog's boolean-outcome shape without
-inventing a comparison vocabulary. ⇒ That reasoning was **sound about the CATALOG
-and wrong about the MIRROR** — two different claims, and only the first was
-checked. `ask_wallet_balance` is now a registered system reading `BodyWallet` on
-the `PrimaryPlayer` directly; it never needed the catalog at all, so the mirror
-was holding a projection for a reason that did not apply to it.
-⭐ **The rule that generalises, now recorded at `YarnStateMirrorData` itself:**
-*"the catalog cannot answer this"* does NOT imply *"this field must exist"*. Ask
-what READS the field, not what the catalog can express. The type has now shrunk
-four times — `flag`, `bosses_cleared`, `quests_active`, `wallet_balance` — and
-what remains is `visit_counts`, dialogue's own bookkeeping.
-
-⚠ **`wallet_balance()` still has zero authored callers and is still not deleted.**
-A verb nothing calls yet is content breadth, not dead code, and its own comment
-names the use (*"a merchant node can show it"*). Recorded so the zero is not
-rediscovered as a finding.
-
-⇒ **An empty mirror is not the goal; one authority per question is.** A future
-field here is a claim that the catalog CANNOT answer the question, and the
-burden is on the field — which `YarnStateMirrorData`'s own doc now says at the
-type. ⚠ Read that burden as covering every VERB bound over the field, which is
-what this correction cost.
-
-⛔ **AND IT SAYS NOTHING ABOUT THE OTHER TWO LAYERS.** Observations and memory
-have no durable representation at all outside the tactical-belief slice below;
-the save is a snapshot of what is TRUE, with no record of what happened or who
-could have seen it. A reader should not take the table above as progress on
-those — it is progress on exactly one of three layers, which is the confusion
-this page's own three-layer split exists to prevent.
+**Open: which source a condition reads.** When a fact has both a live form and a
+durable row, the choice is implicit in each evaluator (`boss.cleared` argues
+its choice in its docstring). A `reads: FactSource` field on
+`ConditionDescriptor` would force the choice, but nothing would read it yet. Add
+it with its first consumer: the condition inspector showing the source, a guard
+that durable gates do not use live-reading conditions, or agent tooling that
+filters by source.
 
 ### Observations/events
 
 Structured facts that a character or system could have perceived: saw body X,
-heard event Y, received item Z, witnessed gate opening.
+heard event Y, received item Z, witnessed gate opening. No durable
+representation exists. The save records what is true, not what happened or who
+could have seen it.
 
 ### Memory/belief
 
-Actor-specific retained interpretation of observations. This may be incomplete,
+Actor-specific retained interpretation of observations. It may be incomplete,
 stale or wrong without changing world truth.
 
-⭐⭐ **THE TACTICAL SLICE OF THIS IS BUILT AND IT IS AN ENGINE FACT — worth naming
-because the open question above reads as if none of it existed.** `WorldMemory`
-(`crates/ambition_characters/src/perception.rs:785`) is *"the per-controller
-belief that outlives the viewport (invariant I6)"*: keyed by actor id, refreshed
-for what is seen, decayed for what has left view, forgotten below a confidence
-floor. Its `update` is pure, so it is replay-deterministic and assertable
-headless. ⇒ *"Should knowledge ever be an engine fact"* is answered YES for
-perception, by shipped code, in `ambition_characters` rather than in content.
+**Tactical belief is built.** `WorldMemory` (`ambition_characters::perception`)
+is the per-controller belief that outlives the viewport: keyed by actor id,
+refreshed for what is seen, decayed for what left view, forgotten below a
+confidence floor. Its `update` is pure. It is rollback state, and it records the
+live room it was formed in, so a body that changes live room forgets it. It is
+in no durable save family.
 
-⛔⛔ **AND IT CAN NEVER BECOME THE DURABLE ONE — that is structural, not a
-backlog item.** `WorldMemory` DECAYS BY CONSTRUCTION and forgets below a
-confidence floor. That is exactly right for sight and exactly wrong for a grudge:
-*"this NPC knows you stole the thing"* must not fade because the NPC looked away.
-⇒ So durable social knowledge is not "the same system, persisted" — extending
-`WorldMemory` to carry it would mean removing the decay that makes it correct for
-its own job. **They are two mechanisms that share a word**, and the word is why
-this looks half-solved whenever anyone checks.
-⚠ It is also in none of the fourteen durable save families, so nothing persists
-it today by accident either.
+Durable social knowledge ("this NPC knows you stole the thing") is a different
+mechanism. `WorldMemory` decays by construction, which is right for sight and
+wrong for a grudge. Do not extend `WorldMemory` to carry durable knowledge.
 
 ## Why this matters
 
@@ -423,11 +121,11 @@ will read world facts and observations as rule **conditions**, and will set or
 clear facts and publish observations as rule **effects** — through explicit
 semantic domain operations.
 
-⭐ that makes it a demanding early customer of whatever fact/observation
+That makes it a demanding early customer of whatever fact/observation
 representation this program picks: a fact that cannot be named in an authored
 condition, or whose change cannot be observed, is not usable by a rule.
 
-⛔ the governing rule above is unchanged by this. Authored rules alter
+The governing rule above is unchanged by this. Authored rules alter
 deterministic world state through semantic operations; **LLM character
 intelligence never becomes the authoritative rule engine.** Simulation determines
 reality; AI determines what characters think, infer, want, say, remember and
@@ -441,66 +139,41 @@ emerge only if several domains need the same retention/query semantics.
 
 An LLM adapter must sit above deterministic world state, not below it.
 
-## Open design questions — deliberately unresolved
+## Open design questions
 
-⭐ **THREE OF THESE HAVE SHIPPED ANSWERS FOR THE TACTICAL-BELIEF SLICE, and this
-page did not know (checked 2026-09-03).** They are NOT answers for the general
-fact/memory program — that is still open, and the layer below is one customer,
-not the design. But a reader re-deriving them from scratch would be redoing work
-that is already in the tree and already rollback-registered. See
-[`bounded-perception-and-attention.md`](bounded-perception-and-attention.md).
+Answered for the tactical-belief slice (see
+[`bounded-perception-and-attention.md`](bounded-perception-and-attention.md)),
+open for the general program:
 
-- *"How is observation permission determined: proximity, line-of-sight, room,
-  explicit communication, something else?"* — for a body perceiving other
-  BODIES it is **viewport containment**, and deliberately not line-of-sight:
-  `peer_is_visible_to_body` is
-  `perception.knows_bodies_anywhere() || viewport.contains(peer.pos)`. No
-  raycast, no room test. The omniscience escape is a policy, not a fallback.
-- *"What parts, if any, participate in deterministic rollback?"* — the actor's
-  remembered-actor set does. `WorldMemory` is rollback state with a
-  `from_snapshot` road in `snapshot_impls.rs`, which is why the attention
-  budget's ordering carries an id tiebreak: two peers at equal distance must be
-  kept in the same order on every host or the snapshot diverges.
-- *"How long should memories persist, and what is saved?"* — partially, and only
-  the second half: what is CARRIED each tick is bounded at
-  `TACTICAL_ATTENTION` (16), hostiles first and nearer first, with the remainder
-  kept as counts and one distance rather than dropped silently. ⚠ That bounds
-  the per-tick kept set, NOT retention over time, which is still open.
+- Observation permission for a body perceiving other bodies is viewport
+  containment within its own live room, not line-of-sight
+  (`peer_is_visible_to_body`). The omniscience escape is a policy.
+- The remembered-actor set is rollback state (`WorldMemory` has a
+  `from_snapshot` road), so attention ordering carries an id tiebreak.
+- The per-tick kept set is bounded at `TACTICAL_ATTENTION` (16), hostiles first
+  and nearer first, with the rest kept as counts. Retention over time is open.
 
-⛔ **THIS LIST USED TO REPEAT ALL EIGHT QUESTIONS UNCHANGED, three of them
-twenty lines under their own answers, beneath a sentence claiming the list was
-"untouched by that work" — corrected 2026-09-05.** The prose above and the list
-below stated the same fact (which questions are open) and disagreed, so a reader
-scanning the list counted eight and re-derived three that are already in the
-tree. The answered ones now say so where they are read.
+Open:
 
 - Typed facts/components versus an extensible fact registry?
 - Which events deserve durable history and which are ephemeral messages?
-- ⚠ *(tactical-belief slice ANSWERED above — viewport containment, not
-  line-of-sight; open for the general program)* How is observation permission
-  determined: proximity, line-of-sight, room, explicit communication, something
-  else?
-- ⚠ *(half-answered above — the per-tick kept set is bounded at 16; RETENTION
-  OVER TIME is still open)* How long should memories persist, and what is saved?
+- How is observation permission determined for the general program?
+- How long should memories persist, and what is saved?
 - Should beliefs support contradiction/uncertainty explicitly?
 - What facts are private to a participant in multiplayer?
 - How are summaries generated for LLM context without losing critical detail?
-- ⚠ *(tactical-belief slice ANSWERED above — the remembered-actor set is
-  rollback state; open for the general program)* What parts, if any, participate
-  in deterministic rollback?
 
 ## Knowledge reduction at the observation boundary
 
-The [reassessment](architecture-reassessment.md) requires a consumer of a published
-fact to need less knowledge of its producer. An observation view may expose a
+A consumer of a published fact needs less knowledge of its producer. An observation view may expose a
 stable, scoped consequence without handing its reader the producer's mutable
 resources, broad context or callback. Keep fact identity, observer memory and
 live simulation authority distinct.
 
 An agent response based on an observation needs subject/session and revision or
 expiry checks before normal action admission. Replaying accepted intentions must
-not rerun external observation/model queries. Multi-instance scope is introduced
-through A8's concrete repeated-room witness, not by a universal world-facts bus.
+not rerun external observation/model queries. Multi-instance scope comes from the live room
+(`InRoomInstance`), not from a universal world-facts bus.
 
 ## Procedural callers receive the appropriate knowledge contract
 

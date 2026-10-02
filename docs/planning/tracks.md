@@ -47,18 +47,19 @@ requirement.
 
 ## Engine architecture reservoir
 
-The [architecture reassessment](engine/architecture-reassessment.md) supplies the
-current ownership model. The
+[`engine/architecture.md`](engine/architecture.md) supplies the current
+ownership model. The
 [actor-monolith frontier](engine/actor-monolith-work-frontier.md) owns active
 architecture packet gates. Work already selected in `queue.md` is not repeated
 here.
 
 ### Persistent systemic world
 
-- ▢ **Open-world residency.** Preserve the distinction among world existence,
-  room residency, simulation activity and local visibility. Promote when actual
-  Ambition or multiplayer pressure requires a residency/background-simulation
-  policy. Owner:
+- ▢ **Open-world residency beyond live rooms.** Several live rooms exist.
+  Preserve the distinction among world existence, room residency, simulation
+  activity and local visibility. Promote background simulation of rooms that are
+  not live only when a real mechanic needs it; today the session clock covers
+  time that passes while a room is not live. Owner:
   [`engine/open-world-runtime-and-residency.md`](engine/open-world-runtime-and-residency.md).
 - ▢ **Persistent occurrence/reconstitution semantics.** Terminal versus resettable
   occurrences, foreign-room relocation, unloaded-room items and durable
@@ -95,9 +96,10 @@ here.
 
 ### Multiplayer and multiview
 
-- ▢ **N-view production composition.** Per-view projection foundations exist;
-  promote broader layout, HUD ownership and input routing when Ambition or
-  TwinTrack needs them. Owner:
+- ▢ **N-view production composition.** Each view frames its own player and
+  draws its own live room. Promote broader layout, HUD ownership, input routing
+  and an Ambition join road (`Q151`) when Ambition or TwinTrack needs them.
+  Owner:
   [`engine/multiplayer-and-multiview.md`](engine/multiplayer-and-multiview.md).
 - ▢ **Per-view camera/reference-frame policy.** Extend shared/split-view policy
   from real multiview requirements. Owner:

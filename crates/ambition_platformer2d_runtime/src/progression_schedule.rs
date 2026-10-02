@@ -60,7 +60,7 @@ impl Plugin for ProgressionSchedulePlugin {
         // `ProgressionSet::BossAdvance` / `BossHazards` — the vocabulary this
         // file still configures. The composition keeps the ORDERING; the
         // capability keeps its systems. See
-        // `docs/planning/engine/decomposition.md`.
+        // `docs/planning/engine/architecture.md` (decomposition doctrine).
         app.add_systems(
             sim,
             (

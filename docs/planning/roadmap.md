@@ -28,8 +28,8 @@ Do not read a run of authority slices as progress on decomposition. A landed sli
 says which axis it moved.
 
 The rule, the ordering, the absence criterion and the minimum-host tests live in
-[`engine/decomposition.md`](engine/decomposition.md) under "Decomposition has two
-dimensions", with the durable statement in
+[`engine/architecture.md`](engine/architecture.md#decomposition-doctrine) under
+"Two dimensions", with the durable statement in
 [`../architecture/package-and-capability-boundaries.md`](../architecture/package-and-capability-boundaries.md).
 They are not restated here.
 
@@ -49,28 +49,34 @@ Owner: [`engine/simulation-authority-and-determinism.md`](engine/simulation-auth
 
 ### P1 — canonical construction and reconstitution
 
-Fresh room construction, confirmed room transitions, same-room replay,
-checkpoint/save restoration, and persistent occurrence reconstruction should
-consume one semantic construction model rather than maintain independent reset
-or reconstruction ledgers.
-
-Fresh construction, transition, same-room replay and durable restore already run
-one constructor: a save load prepares its first room against the saved occurrence
-facts at the activation edge. This item is closed; the owner doc's C3 records the
-proof.
+**Converged.** Fresh construction, room transition, same-room replay, new-game
+reset and save restore run one constructor. A save load adopts its occurrence
+ledger at activation, before initial construction. Each new session or room is a
+hidden candidate that is verified before one publication switch; a failed
+candidate leaves the live world unchanged. The shape is stated in
+[`../architecture/engine-architecture.md`](../architecture/engine-architecture.md#content-and-construction).
+New reset or reconstruction roads must use this model, not a separate ledger.
 
 Owner: [`engine/construction-and-reconstitution.md`](engine/construction-and-reconstitution.md).
 
 ### Fast iteration - current cross-program priority
 
 The maintainer's edit-to-play latency is a current architecture requirement, not
-only the lower-priority profiling work below. After applicable correctness
-blockers, use the P1 fast-iteration row in [the queue](queue.md) and the
-[extension model](engine/extension-model.md). Start with pure move authoring and
-a runtime-loaded artifact, then add procedural modules with shared rollback state.
-Do not wait for a public mod marketplace, completion of every demo or a whole
-actor-monolith carve. Measurements choose implementation costs; single authority,
-last-good definitions and the no-host-relink content boundary are design work now.
+only the lower-priority profiling work below.
+
+Where it stands: content packs compile through one path
+(`ambition_content_pack::compile`) with no Rust rebuild. A development build
+reads content off disk, and a running game plays a saved edit to movement
+defaults, combat and time feel, boss tuning, dialogue, items, audio registries,
+fighter facets and the character catalog. A session reads the content generation
+it was prepared against. Named content keeps moving out of Rust tables into pack
+schemas (quests, cutscenes, music cues, room bindings).
+
+Remaining work: one prepare/admit/publish contract across every reloadable
+registry, and procedural modules with shared rollback state. The owners are the
+I2/I3 row in [the queue](queue.md) and the
+[extension model](engine/extension-model.md). Do not wait for a mod marketplace,
+every demo, or a whole actor-monolith carve.
 
 ### P2 — persistent systemic world foundation
 
@@ -102,9 +108,12 @@ Where P2 stands:
 - **Occurrence lifetime.** An occurrence enters the whereabouts ledger through
   custody, and the ledger enforces it, so a room unload cannot silently erase a
   persistent instance.
-- **World residency** is not built and stays so until a customer needs two
-  resident rooms. `RoomSet.active` is a `usize`, singular by type. With one
-  resident room every residency query has a trivial answer.
+- **World residency.** Several rooms can be live at once. Each live room is its
+  own root entity, entities carry an `InRoomInstance` stamp, and each view draws
+  the room it frames. Separated players each keep their room live. A room that
+  is not live does not simulate; a mechanic that must keep time uses the session
+  clock. Open work (the OW cuts and the remaining `SoleLiveRoom` readers) is in
+  [`engine/open-world-runtime-and-residency.md`](engine/open-world-runtime-and-residency.md).
 
 ### P3 — measured runtime quality and developer iteration
 
@@ -128,21 +137,15 @@ Owners:
 
 ### P4 - ownership-based engine composition and supported public profiles
 
-Use the [architecture reassessment](engine/architecture-reassessment.md) and
-[bounded packets](engine/actor-monolith-work-frontier.md). The old mandatory
-projectile/shrine/placement SCC chain is retired. A1 establishes checkpoint
-restoration ownership; A2 first repairs contact semantics; A3 retains the valid
-placement bridge relocation. A4-A7 retain their packet-specific evidence gates.
-A8 now has the long-term game's two-instance proof, and A10 has I3b's bounded
-reconstruction customer. Neither is a blanket gate on pure authoring/artifact work.
-
-A11 and the frontier's A12 (flow bounds) make authored technique admission and
-flow bounds reliable. A11c, the end-to-end authoring route, and A12b's
-prepared-revision half remain; the frontier carries the sub-packet table. The
-frontier's A12 is not `queue.md`'s A12 (move-contact attribution). A9 proves
-compile/runtime optionality through real external profiles. These are independently
-staged work streams, not twelve sequential prerequisites for game development.
-The [queue](queue.md) selects current priority.
+Use [`engine/architecture.md`](engine/architecture.md) for the target authorities
+and the [bounded packets](engine/actor-monolith-work-frontier.md) for their state.
+Landed: A1 checkpoint restoration, A2 projectile contacts, A8 several live rooms,
+A10 candidate construction, A11a/A11b installed technique support. Open: A3
+acceptance, A4 body-execution regrouping, A5 destructibles, A6/A7 definition and
+item separation, A9 minimal profiles, A11c and A12b. These are independent work
+streams, not sequential prerequisites for game development. The frontier's A12
+(flow bounds) is not `queue.md`'s A12 (move-contact attribution). The
+[queue](queue.md) selects current priority.
 
 The outcome is a set of recognizable state/behavior/lifetime authorities and a
 public programmatic engine that can be used without accidental flagship
@@ -153,8 +156,11 @@ count, zero foreign installs, zero SCCs or a cosmetically renamed runtime.
 ### P5 — multiplayer and multiview
 
 Apply the same participant, actor, lifetime, world-residency and presentation
-semantics to local, online and mixed participants, shared/fixed/adaptive split
-presentation and eventually different-room play.
+semantics to local, online and mixed participants and to shared/fixed/adaptive
+split presentation. Local different-room play exists in the engine: separated seats
+each keep a live room and each view draws its own room. Ambition has no
+production join road for a second seat yet (Q151). Online transport waits for a real
+customer.
 
 Owners: [`engine/multiplayer-and-multiview.md`](engine/multiplayer-and-multiview.md)
 and [`game/multiplayer.md`](game/multiplayer.md).

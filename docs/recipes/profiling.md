@@ -56,13 +56,11 @@ of zone statistics — per-Bevy-system timings an agent can rank.
 `heaptrack`, and Tracy built from source into `~/.local/bin` — plus the cargo
 analysis tools (`llvm-cov`, `modules`, `sweep`, `mark-sweep`, `nextest`).
 
-⚠ **It is opt-in, and it used to be the default.** A bare setup is the fast path
-to a running game and installs none of this: `hotspot` alone pulls the KDE
-Frameworks stack (~190 apt packages between them), and every cargo tool above is
-a source build. Nothing here is needed to run or test the game — `run_tests.py`
-falls back to plain `cargo test` when nextest is absent — so it is not on the
-zero-to-runnable path. Pass `--profile` when you intend to profile, or `--full`
-to add the sampled instrument libraries as well.
+It is opt-in. A bare setup installs none of this, because `hotspot` pulls the
+KDE Frameworks stack and every cargo tool above is a source build. Nothing here
+is needed to run or test the game (`run_tests.py` falls back to plain
+`cargo test` when nextest is absent). Pass `--profile` when you intend to
+profile, or `--full` to add the sampled instrument libraries as well.
 
 Tracy is built rather than installed because Ubuntu does not package it, and
 it is pinned to the version read out of the `tracy-client-sys` crate the game
@@ -82,59 +80,49 @@ Use #1 to answer "where did startup go" without any tooling. Use #2
 when a regression slips in or a frame spends time in places #1 can't
 see.
 
-## 00. "THE GAME FEELS SLOW" — CHECK THE MACHINE BEFORE YOU PROFILE
+## 00. "The game feels slow": check the machine before you profile
 
-⭐⭐ **MEASURED 2026-08-29, AND IT IS THE MOST COMMON WRONG TURN.** On a quiet host
-a 2-fighter Smash match runs a **4.31ms mean against the 16.67ms 60Hz budget** and
-**zero of 5,164 match frames exceeded that budget**. Put six busy loops on the same
-box and frames over 8ms go from **0.9% to 11.8% — 13x — while the median moves
-6.8%.** The tail is dominated by CONTENTION, not by the engine.
+This is the most common wrong turn. On a quiet host a 2-fighter Smash match runs
+well inside the 16.67 ms 60 Hz budget. Other load on the same machine inflates
+the frame-time tail many times more than the median. The tail is dominated by
+contention, not by the engine.
 
-⇒ before opening a profiler:
+Before you open a profiler:
 
 ```bash
 uptime            # load average: is anything else on this box?
 # and in-game: UserSettings::video::show_fps turns on the existing FPS overlay
 ```
 
-⛔ **A slow-feeling session with a compile, a test suite, or another agent running
-is a slow MACHINE, not a slow game** — several "dropped frame" readings recorded
-during the efficiency campaign turned out to be that campaign's own builds. Rule
-out load first; it costs one command and it was the answer.
+A slow-feeling session with a compile, a test suite, or another agent running is
+a slow MACHINE, not a slow game. Rule out load first.
 
-## 0a. WHAT A HEALTHY CENSUS RUN LOOKS LIKE — so you can spot a degraded one
+## 0a. What a healthy census run looks like
 
-`AMBITION_PROFILE_CENSUS=1 target/debug/smash_match_profile --ticks 3000` emits
-**22 row kinds**. Verified 2026-08-29:
+`AMBITION_PROFILE_CENSUS=1 target/debug/smash_match_profile --ticks 400` emits
+these row kinds:
 
 ```
 assets camera churn conditions config draws ecs frame ggrs_driver membership
-owners owners_in phases phases_trust populations portal render_pass_summary
-render_targets schedules sim_phases views
+owners owners_in phases phases_cpu phases_trust populations portal
+render_pass_summary render_targets rooms schedules sim_phases views
+visual_quality
 ```
 
-⭐ **RE-MEASURED 2026-09-20 AT A DIFFERENT TICK COUNT, WHICH IS PART OF THE
-NUMBER.** `--ticks 400` on the same binary emits **24**, adding `phases_cpu`,
-`visual_quality` and `rooms` to the list above. The tick count is stated
-because it bounds what a run can show: a surface sampled at 1 Hz needs the run
-to last, and a one-shot startup report needs it to have started.
+The tick count matters: a surface sampled at 1 Hz needs the run to last. The
+source can emit more kinds than one run shows. `render_pass` and
+`phases_warning` need a render backend, so a headless run does not produce them.
+A missing row is a degraded run only if this kind of run should produce it.
+`docs/planning/engine/inspection-diagnostics-and-workbench.md` carries the full
+list.
 
-⚠ **AND A RUN'S KINDS ARE A SUBSET OF THE SOURCE'S, SO A MISSING ROW IS TWO
-DIFFERENT FINDINGS.** The source can emit **26**
-(`engine/inspection-diagnostics-and-workbench.md` carries the list and the
-method). The two this run did not produce are `render_pass` and
-`phases_warning`, both of which are conditional on a render backend this
-headless run does not have — absent by construction, not degraded. ⇒ Compare
-a suspect run against the 24 above, and reach for the 26 only to ask whether a
-surface exists at all.
-
-⭐ **AND FOUR QUALIFIERS THAT MUST READ CORRECTLY BEFORE YOU BELIEVE ANYTHING:**
+Four qualifiers must read correctly before you believe anything:
 
 | token | healthy value here | what a wrong value means |
 |---|---|---|
 | `phases_trust` / `phases_warning` | **`phases_trust`** on a windowless run | `phases_warning` ⇒ a render backend exists and PHASE SPLITS ARE INVALID |
 | `measured_window_live_cast=` | **100%** at `--ticks 3000` | below 95% ⇒ the run outlived the match; means are dragged down and rates diluted |
-| `live=` beside `entities=` and `resources=` | tracks real population (~1300 in a match) | ⛔ `entities=` alone is ALLOCATED SLOTS and lands on powers of two — READ `live`. Since Bevy 0.19 a RESOURCE IS AN ENTITY too, so `resources=` is split out and `live=` excludes it; a pre-0.19 note quoting `live` includes the resource singletons |
+| `live=` beside `entities=` and `resources=` | tracks real population (~1300 in a match) | `entities=` alone is allocated slots and lands on powers of two; read `live`. In Bevy 0.19 a resource is also an entity, so `resources=` is split out and `live=` excludes it |
 | `ROSTER MISMATCH` / `POPULATION CHANGED` | **absent** | present ⇒ the roster is not what you asked for, or the cast changed mid-measurement; arms are not comparable |
 
 ⛔ `unavailable=<reason>` on any row means that instrument could not answer —
@@ -142,10 +130,10 @@ which is deliberate: **every census here prints a reason rather than a plausible
 zero**, because a zero from an instrument that never reports that category is not
 a measurement.
 
-## 0b. READING AN ASSET HITCH FROM A BUNDLE — the four rows that answer it
+## 0b. Reading an asset hitch from a bundle
 
-⭐ **"A frame spiked" and "an asset arrived" are the same event most of the time**,
-and the bundle now says so without Tracy. In order of what to look at:
+"A frame spiked" and "an asset arrived" are usually the same event. The bundle
+shows this without Tracy. Look at these in order:
 
 | file / row | the question it answers |
 |---|---|
@@ -154,36 +142,30 @@ and the bundle now says so without Tracy. In order of what to look at:
 | `image_decodes.csv` | WHICH asset, with its path and a `during_gameplay` flag |
 | `world_events.csv` | what the player was doing — `room-loaded`, `session-start` — with a game clock |
 
-⛔ **"DURING GAMEPLAY" IS NOT THE CONTRACT, AND ON ITS OWN IT FIRES ON EVERYTHING.**
-In a play-through gameplay is live almost always; the first version of that flag
-reported **53 of 53** decodes. `summary.md` classifies by PHASE instead, against
+`during_gameplay` alone fires on almost every decode, because gameplay is
+almost always live. `summary.md` classifies by PHASE instead, against
 `world_events.csv`:
 
 - **before the first `room-loaded`** — boot. Not a hitch.
 - **within ~3s of one** — a room still arriving. Expected.
-- **later than that** — SETTLED PLAY. **This is the violation**, and on the run
-  that found it, all 15 were the select screen's portraits reloading.
+- **later than that** — SETTLED PLAY. **This is the violation.**
 
-⚠ The 3s window is a measured plateau (1s/2s/3s/5s give the same split), not a
-guess — but check it if the answer looks marginal.
+The 3 s window is a measured plateau (1 s to 5 s give the same split). Check it
+if the answer looks marginal.
 
 ⭐ `[census] assets` also carries `hud_image_hits=` / `hud_image_loads=`: **loads
 climbing while hits stays flat** means a screen is being reopened and re-decoding
 what it already had. `unavailable` there means no declared HUD in this
 composition — not zero.
 
-⛔⛔ **NEVER QUOTE A TIMING FROM A TRACY-ON RUN.** Measured 13.5% and 18.7% of
-cycles in two runs of the same game. Tracy is for ATTRIBUTION (which zone, what
-share); the frame numbers come from a run without it.
+⛔ **Never quote a timing from a Tracy-on run.** Tracy costs a large and variable
+share of cycles. Use Tracy for ATTRIBUTION (which zone, what share). Take frame
+numbers from a run without it.
 
-## 0. MEASURE THE NOISE FLOOR FIRST — before designing any probe
+## 0. Measure the noise floor first
 
-⛔⛔ **DO THIS BEFORE YOU MEASURE ANYTHING YOU INTEND TO ACT ON.** The single
-costliest methodological error of the 2026-08-29 efficiency campaign was ASSUMING
-a noise floor. A "~15%" floor was assumed, used to derive a rule that no group of
-fewer than ~500 systems could produce a measurable win, and that rule was then
-used to dismiss work. **Measured, the floor was 4.4%** — and the real threshold
-was ~30 systems, off by more than an order of magnitude.
+Do this before you measure anything you intend to act on. Do not assume a noise
+floor; an assumed floor once dismissed real work by an order of magnitude.
 
 ```bash
 cargo build -q -p ambition_app_tools --bin smash_match_profile
@@ -194,28 +176,17 @@ for i in 1 2 3 4 5; do
 done
 ```
 
-Five back-to-back runs of the SAME binary. ⛔⛔ **AND DO NOT STOP AT ONE BLOCK —
-the first block on the campaign host said 4.4%, a second said 22.6%, a third said
-7.4%, all within an hour of each other on the same binary.** Typical spread is
-**4–7%**, but individual runs occasionally land **~20% above the median**, and a
-short block that catches one reports a floor four times too loose.
+Run five back-to-back runs of the same binary, and run more than one block.
+Typical spread is 4–7%, but single runs can land ~20% above the median.
 
-⇒ **use the MEDIAN of ≥5 reps, and budget ~7% (≈0.3ms here) as the smallest
-defensible single-arm win.**
-
-⛔⛔ **AND THE HAZARD THAT MATTERS MORE THAN THE FLOOR: THE BLOCK MEAN DRIFTS.**
-Two blocks minutes apart, nothing changed, gave means of **4.508ms and 4.305ms —
-4.7% apart**, which is as large as most effects worth finding. ⇒ **NEVER compare
-an arm measured in one block against an arm measured in another, even with reps
-each. INTERLEAVE them** — A, B, A, B — so the drift lands on both.
-
-⭐ **Then double it for an A/B.** Subtracting two noisy quantities amplifies
-relative error: a ±0.04ms wobble on a 0.53ms phase is 8%; on the 0.08ms DIFFERENCE
-of two such phases it is 50%. ⇒ **an absolute measurement needs one careful run; a
-DELTA needs at least three per arm.** A per-fighter cost measured once read 125us
-and read 240us on its second rep.
-
-⚠ The floor is a property of the HOST, not of the repo — re-measure it on yours.
+- Use the MEDIAN of at least 5 reps. Budget ~7% as the smallest defensible
+  single-arm win.
+- **The block mean drifts** by about as much as most effects worth finding. Do
+  not compare an arm measured in one block with an arm measured in another.
+  INTERLEAVE them (A, B, A, B).
+- A DELTA amplifies relative error. An absolute measurement needs one careful
+  run; a delta needs at least three reps per arm.
+- The floor is a property of the HOST. Re-measure it on yours.
 
 ## 1. Startup phase logger
 
@@ -230,33 +201,19 @@ tick and prints the per-phase deltas + total to stderr:
 [startup] total before first frame: 412.5ms
 ```
 
-⛔⛤ **THE SECOND LINE READ `after_setup_simulation` UNTIL 2026-09-19 AND NAMED
-A SYSTEM THAT NO LONGER EXISTS.** `setup_simulation_system` was deleted in <!-- cite-ok: recording the deleted name on purpose -->
-`d3135def0` — it had never been registered, so the `.after()` edge that
-appeared to order the app's Startup chain against it was a claim rather than a
-constraint. The mark outlived it, so a reader chasing the dominant startup cost
-went looking for a function the tree does not contain. ⚠ **AND THE +312.7ms IS
-FROM BEFORE THAT DELETION**: the interval now holds no named system at all in
-`ambition_app` — `SimulationSetupSet` is the slot, the demo fixtures fill it and
-this composition does not — so whatever it reports today is unordered `Startup`
-residue. Re-measure before acting on it.
+The example numbers are illustrative. In `ambition_app` the
+`after_simulation_setup_slot` interval brackets `SimulationSetupSet`, which the
+demo fixtures fill and this composition does not.
 
-Phase marks are inserted between Startup-chained systems via
-`profiling::phase_mark("name")`. The defaults today bracket
-`setup_host_presentation_system` (`before_setup_presentation` /
-`after_setup_presentation`), audio init, and the map-menu spawn.
+Phase marks are inserted between Startup-chained systems with
+`profiling::phase_mark("name")`. The defaults bracket the data-handle load and
+the simulation setup slot
+([`game/ambition_app/src/app/sim_resources.rs`](../../game/ambition_app/src/app/sim_resources.rs)),
+and host presentation setup (`before_setup_presentation` /
+`after_setup_presentation`), audio init and the map-menu spawn
+([`game/ambition_app/src/app/plugins.rs`](../../game/ambition_app/src/app/plugins.rs)).
 
-<!-- ⚠ REPOINTED 2026-09-06. This named `load_data_asset_handle` and
-`setup_simulation_system`; the latter was DELETED as dead — it was ordered  <!-- cite-ok: recording the deleted name on purpose -->
-against by an `.after(...)` and never registered, so removing that one false
-edge let rustc name it plus two `SystemParam` structs it had been keeping
-alive. ⇒ A recipe naming a system is a citation, and a dead system is exactly
-the kind that leaves no compiler error behind when the prose keeps mentioning
-it. -->
-
-Add more by
-chaining `phase_mark(...)` between Startup systems in
-[game/ambition_app/src/app/plugins.rs](../../game/ambition_app/src/app/plugins.rs):
+Add more by chaining `phase_mark(...)` between Startup systems:
 
 ```rust
 .add_systems(Startup, (
@@ -270,7 +227,7 @@ chaining `phase_mark(...)` between Startup systems in
 
 Code lives in
 [crates/ambition_dev_tools/src/profiling.rs](../../crates/ambition_dev_tools/src/profiling.rs)
-(re-exported on the historical `ambition_platformer2d_actor_monolith::dev::profiling` path).
+(the app reaches it as `ambition_platformer2d::dev_tools::profiling`).
 
 ## 1b. Steady-state censuses
 
@@ -359,16 +316,10 @@ time from the same instant joinable. Cadence is 1 Hz
 frame that is not a sample frame, and with the variable unset each is a single
 bool test.
 
-Measured cost, headless sandbox, 6000 ticks, three interleaved runs each
-(2026-08-28): 121.60e9 retired instructions with the census off against
-121.51e9 with it on — the enabled run is *lower* than the disabled one, so the
-difference is under the ~0.06% run-to-run spread and no overhead is
-attributable. Wall-clock on this VM was useless for the comparison: run-to-run
-variance from other load was several times any plausible signal, which is why
-the number above is instructions retired over a fixed tick count and not
-seconds. The one term that grows with the scene is the sprite pass in
-`report_draw_census`: one iteration over the sprite population per SAMPLE, so
-1 Hz, not per frame.
+Cost: measured as retired instructions over a fixed tick count, the census adds
+no overhead above run-to-run spread. The one term that grows with the scene is
+the sprite pass in `report_draw_census`: one iteration over the sprite population
+per SAMPLE (1 Hz), not per frame.
 
 Camera roles come from the markers the spawner already set (`MainCamera`,
 `FrontHudCamera`, `PortalViewRig`, `PresentsView`, an image render target), not
@@ -396,30 +347,23 @@ sudo sysctl kernel.perf_event_paranoid=1
 # Optional, restart-persistent: echo "kernel.perf_event_paranoid=1" | sudo tee /etc/sysctl.d/local-perf.conf
 ```
 
-Add this to `crates/ambition_platformer2d_actor_monolith/Cargo.toml` for symbol-rich
-release builds (already there if you've enabled it elsewhere; safe
-to keep on for normal `cargo run --release`):
-
-```toml
-[profile.release]
-debug = true  # keep DWARF for unmangled flamegraph frames
-```
+Use the workspace `profiling` cargo profile (release optimization with debug
+info, not stripped). Cargo reads profiles only from the workspace root
+`Cargo.toml`.
 
 ### Capture a startup flame graph
 
 ```bash
 # Build first so capture only times the run, not compilation.
-cargo build --release -p ambition_app --bin ambition_game_bin
+cargo build --profile profiling -p ambition_app --bin ambition_game_bin
 
 # BEVY_ASSET_ROOT is required: cargo-flamegraph runs the binary
 # directly (not via `cargo run`), so Bevy looks for assets relative
-# to the binary path (`target/release/assets/`) instead of the
-# package's `crates/ambition_platformer2d_actor_monolith/assets/`. Without this var, you
-# get `Path not found: target/release/assets/...` for every asset
-# and bevy_yarnspinner panics on the missing dialogue/ folder.
+# to the binary path instead of the package's
+# `crates/ambition_platformer2d_actor_monolith/assets/`.
 BEVY_ASSET_ROOT=$PWD/crates/ambition_platformer2d_actor_monolith \
 cargo flamegraph -p ambition_app --bin ambition_game_bin \
-    --release \
+    --profile profiling \
     --output flamegraph_startup.svg \
     -- --start-room=central_hub_complex
 # Close the game window after a few seconds to stop sampling.
@@ -431,16 +375,9 @@ function name.
 
 ### Capture a single problem area
 
-If you already know roughly where the time goes (per phase logger),
-add a sleep at the end of the suspect block, capture, then remove:
-
-```bash
-# Useful for "I want a flamegraph that's only the post-Startup
-# room-load tick" — make Startup short, hit a known idle frame.
-```
-
-For per-frame regressions during play, just run the game normally
-under `cargo flamegraph` and keep playing for ~30 seconds.
+For per-frame regressions during play, run the game under `cargo flamegraph`
+and keep playing for ~30 seconds. For a narrower window, prefer
+`scripts/profile_desktop.sh`, whose `timeline.md` slices perf by time.
 
 ## 2b. Bevy + Tracy per-system profiling
 
@@ -544,25 +481,20 @@ Unattended variants:
 ```
 
 ⛔ **`--smash` is not `-- smash`.** `run_game.sh smash` builds the standalone
-demo and opens it on CHARACTER SELECT, so profiling it profiles a menu — which
-is what every Smash "baseline" taken before 2026-08-29 actually measured.
+demo and opens it on CHARACTER SELECT, so profiling it profiles a menu.
 `--smash` launches `run_game.sh smash-match`, which builds the SHIPPED
 composition (rollback host and all), installs a roster, routes to the smash
 gameplay screen, and waits for the opening ceremony to release the cast before
 it reports that it is measuring anything. If the ceremony never releases it, the
 run aborts with exit code 3 rather than filing a menu under a match's name.
 
-⛔⛔ **AND ON A GPU MACHINE, DO NOT READ `[census] phases` OR THE PHASE SPLIT IN
-`summary.md`.** That census attributes WALL TIME between schedule markers, so
-when the render path blocks the main thread — submission, readback, a
-rasterizer — whichever phase happens to bracket that moment absorbs it. Measured
-2026-08-29 on the headless offscreen path: raising the render target from
-320x240 to 1280x960 took `StateTransition` from 0.169ms to **1.822ms**. A phase
-containing nothing but state machinery, scaling with PIXELS. An entire
-"StateTransition is 14% of a real room's frame" finding was built on that number
-and had to be retracted.
+⛔ **On a rendering run, do not read `[census] phases` or the phase split in
+`summary.md`.** That census attributes WALL TIME between schedule markers. When
+the render path blocks the main thread (submission, readback, a rasterizer), the
+phase that brackets that moment absorbs it, so a phase with only state machinery
+can scale with PIXELS.
 
-⚠ `fragment_shader_invocations = 0` does NOT make phase timings safe — submission
+`fragment_shader_invocations = 0` does NOT make phase timings safe: submission
 and upscaling cost real time even when the opaque pass shades nothing. The census
 now prints a `[census] phases_warning … untrustworthy=render_blocking` line
 whenever any camera is rendering; believe it. Phase splits are meaningful ONLY
@@ -578,9 +510,7 @@ What the bundle carries beyond an ordinary one:
 * `scenario_id=smash-match-2p` (or `-4p`) in `metadata.txt`, which becomes the
   history's `scenario.id`. ⛔ The roster size is part of the id because a
   four-fighter round is not a two-fighter round with noise on it, and the
-  comparability key refuses to subtract a Smash match from a sandbox run —
-  before this existed, every windowed bundle landed in one `windowed:default`
-  group;
+  comparability key refuses to subtract a Smash match from a sandbox run;
 * `camera_views.csv` / `view_totals.csv` — the camera census, which is where the
   question **"does Smash render the world more than once?"** is answered.
   `summary.md`'s *Cameras and views* section states the answer in a sentence:
@@ -647,10 +577,8 @@ says **SOFTWARE RENDERING** at the top and the symbol rankings below it are
 mostly the rasterizer's unsymbolized JIT'd shader code — that is a CPU emulating
 a GPU, and adapter selection is the bug to fix first.
 
-⭐ **BUT "NOT A GPU MEASUREMENT" IS NOT THE SAME AS "NOT A MEASUREMENT."** Jon,
-2026-08-29: *"I want to make sure the game runs smoothly without a GPU if we
-don't have one. It should not be required."* Running with no GPU is a TARGET
-CONFIGURATION for this game, not a broken run. When that is the question, a
+**"Not a GPU measurement" is not "not a measurement".** Running with no GPU is a
+target configuration for this game: it must run smoothly without one. When that is the question, a
 lavapipe run is the experiment and its total frame time is the answer.
 
 What stays true either way is narrower than it first reads: a lavapipe
@@ -725,9 +653,8 @@ keeps the DWARF stacks.
 Arguments after `--` go to `run_game.sh`; a second `--` reaches the game
 (`-- sandbox -- --start-room mary_o_level_1`).
 
-Attach modes look for the launched binary by name, then `ambition_game_bin`,
-and also accept the historical `ambition_platformer2d_actor_monolith` name for
-older local builds. They cannot see the game's stdio, so an attach bundle has
+Attach modes look for the launched binary by name, then `ambition_game_bin`.
+They cannot see the game's stdio, so an attach bundle has
 no census CSVs; it says so in `census.missing`.
 
 ### What is in the bundle

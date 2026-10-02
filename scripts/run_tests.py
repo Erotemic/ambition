@@ -583,8 +583,7 @@ def slow_python_checker_jobs() -> list[Job]:
         # behavioural test could hold. ⇒ The finding was worth landing, the
         # permanent gate was not, and the escape hatch it needed (`cite-ok`, for
         # a path named BECAUSE it is gone) is itself a sign of a check that has
-        # to argue with honest prose. `triage/a-prose-path-inside-a-doc-comment-
-        # is-not-checked.md` is the row it closes.
+        # to argue with honest prose.
         Job(
             "a path named in a source comment exists (reports, does not gate)",
             [

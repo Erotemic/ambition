@@ -6,7 +6,8 @@ documentation tree.
 ## Ten-minute orientation
 
 1. Read [`../README.md`](../README.md) and [`../AGENTS.md`](../AGENTS.md).
-2. Read [`.agent/README.md`](../.agent/README.md), then run:
+2. Read `.agent/README.md` (generated and git-ignored; build it with
+   `python scripts/generate_agent_index.py`), then run:
 
    ```bash
    python scripts/agent_query.py overview
@@ -78,9 +79,7 @@ System docs are intentionally fewer and shorter than the source. They explain a
 current cross-crate flow or authority boundary that cannot be discovered from a
 single module map. Exact symbol inventories belong in `.agent/`, not prose.
 
-- [`systems/camera-reference-frames.md`](systems/camera-reference-frames.md) — shipped world-fixed/subject-relative camera policy and per-view authority.
-
-See [`systems/index.md`](systems/index.md). If a system page reads like a
+Start with [`systems/index.md`](systems/index.md). If a system page reads like a
 migration ledger, future plan, or dated audit, DELETE it.
 
 ## Procedures and tools
@@ -111,15 +110,11 @@ dependencies, outputs, and whether it mutates checked-in content.
   agents do not write there.
 - [`vision/`](vision/index.md) contains auxiliary vision notes; binding direction
   lives in `planning/vision.md`.
-- ⛔ THERE IS NO `archive/` ANY MORE, and "move it to the archive" is no longer
-  an available answer. Jon removed the tree on 2026-09-05 — 221 files, 6.3 MB of
-  a checkout everyone clones — on the grounds that it already lives in the
-  history: *"It lives in the history it doesn't need to bloat our checkout."*
-  ⇒ Superseded reviews, migrations and handoffs are DELETED when they stop being
-  authority. `git log --diff-filter=D -- docs/archive` finds the removal, and
-  `git show <sha>^:<path>` reads any of it back.
-
-`docs/current/` and `docs/archive/` are retired and should not be recreated.
+- There is no archive. Delete superseded reviews, migrations and handoffs when
+  they stop being authority. Git history keeps them:
+  `git log --diff-filter=D --name-only -- docs` finds a deleted doc, and
+  `git show <sha>^:<path>` reads it. Do not recreate `docs/current/` or
+  `docs/archive/`.
 
 ## Freshness rule
 

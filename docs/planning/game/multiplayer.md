@@ -64,9 +64,9 @@ These are product questions, not reasons to block the engine architecture:
 - how dialogue choices work when participants are in different rooms;
 - whether critical quest transitions require party regrouping;
 - respawn/rejoin behavior when another participant remains alive elsewhere
-  (decided for now and filed as Q151, 2026-10-02: the dying player's room
-  resets to the checkpoint and the other player's room goes on; Ambition
-  has no road for a second player to join yet);
+  (Q151, decided for now: the dying player's room resets to the checkpoint and
+  the other player's room goes on). Ambition has no production road for a
+  second player to join; only Smash seats slot 1;
 - inventory transfer/trading rules between controlled bodies;
 - save ownership and join/leave policy for remote participants;
 - how far shared quest/world causality extends when players explore separately.
@@ -76,124 +76,63 @@ multiplayer narrative framework up front.
 
 ## Incremental acceptance path
 
+The engine side is owned by
+[`open-world-runtime-and-residency.md`](../engine/open-world-runtime-and-residency.md)
+(OW1 and the view cuts V1–V5). Witnesses for A1–A3 are in
+`game/ambition_app/tests/two_players_two_live_rooms.rs` unless stated.
+
 ### A1 — two local participants, same room, shared view
 
-Prove two independent input participants/control assignments in ordinary
-Ambition gameplay with one shared camera and body-owned HUD state.
+✅ Built. Two participants keep independent input, attacks, safety anchors and
+heal routing (`multiplayer_smoke_tests.rs`). Shrines heal every driven body;
+each body rests only at a shrine in its own live room; the checkpoint stays one
+fact, written by the first resting body in seat order
+(`two_driven_bodies_resting_at_a_shrine_both_heal_and_write_one_checkpoint` in
+`shrine/tests.rs`).
 
-> **Re-measured 2026-09-03 — the mechanism is covered; the audit surface is
-> `PrimaryPlayerOnly`.** Two independent participants with independent control
-> are not speculative: `multiplayer_smoke_tests.rs` holds **8** tests asserting
-> two player entities keep separate attacks, safety anchors, slot-owned input,
-> singleton queries and heal routing, joined by
-> `two_participants_of_one_character_do_not_share_a_stream`
-> (`crates/ambition_platformer2d_actor_spawn/src/actor_spawn/brain_builders.rs:479`) <!-- cite-test: a `#[cfg(test)]` line cited ON PURPOSE — the row's claim IS that this line is a test, so a production-role citation here would mean the opposite of what it says. Triaged individually 2026-09-12, not swept. -->
-> and `a_second_participant_does_not_silence_the_global_menu_frame`
-> (`crates/ambition_platformer2d_actor_monolith/src/schedule/input_systems.rs:2072`).
->
-> ⚠ **What A1 still has to audit has a name and a count.**
-> `PrimaryPlayerOnly` — `(With<PlayerEntity>, With<PrimaryPlayer>)`,
-> `crates/ambition_platformer2d_shared_tangle/src/markers.rs` — appears in
-> **35 production files** (and 28 test files). Its largest production sites are
-> the sim harness, the headless and capture-scene tools and the single-player
-> demos, where scoping to one player is correct BY CONSTRUCTION and no audit is
-> owed. The sites that matter for A1 are in shipped simulation: `shrine.rs` (4),
-> `morph_ball.rs` (3), `unified_melee.rs`, `unified_body_movement.rs`,
-> `boss_contact_iframes.rs`.
-> ⛔ **RE-COUNTED 2026-09-03 AND THAT LIST OF FIVE IS REALLY ONE.** The totals
-> above hold exactly — **35 production / 28 test files** (`git grep -l` over
-> `*.rs`, test = under `/tests/` or ending `tests.rs`/`_tests.rs`/`_test.rs`),
-> and `shrine.rs` (4) and `morph_ball.rs` (3) are exact. But of the five named
-> "shipped simulation" sites:
-> - `shrine.rs` — `crates/ambition_platformer2d_actor_monolith/src/shrine.rs`,
->   genuinely simulation, 4 refs. **The one real A1 question.**
-> - `morph_ball.rs` — `crates/ambition_render/src/rendering/morph_ball.rs`, which
->   is PRESENTATION, not simulation. A per-view question, not a per-participant
->   simulation-fact one.
-> - `unified_melee.rs`, `unified_body_movement.rs`, `boss_contact_iframes.rs` —
->   all three are `game/ambition_app/tests/*`, i.e. acceptance TESTS. They fall
->   under the exemption this row already grants ("scoping to one player is
->   correct by construction and no audit is owed"), so they were never A1 work.
-> ⇒ **A1's audit surface is smaller than the row promised, not larger** — which
-> is the good direction, and worth having right because this row's stated value
-> is that the remaining work "is enumerable today rather than discovered during
-> it". ⚠ The heaviest production users are `sim_harness/runtime.rs` (9),
-> `app_tools/bin/headless.rs` (5) and the demos, all already exempt by the same
-> rule.
-> ⇒ **This is not a defect list.** Each site is a question — *should this fact be
-> per-participant when two people share a camera?* — and for a checkpoint shrine
-> the answer may well stay "no". The value of the number is that A1's remaining
-> work is enumerable today rather than discovered during it.
->
-> ✅ **The shrine question is answered (re-measured 2026-10-02).** In
-> `heal_save_shrine_system` every driven body heals, and each rests only at a
-> shrine in its own live room (OW1 cut 7d). The checkpoint stays ONE fact: it is
-> written by the first resting body in the rewind-stable seat order, at the
-> place that body stood. `PrimaryPlayerOnly` is left only as the startup-frame
-> subject, before a seat is attached. Witnesses (`shrine/tests.rs`):
-> `two_driven_bodies_resting_at_a_shrine_both_heal_and_write_one_checkpoint`,
-> `the_checkpoint_records_where_the_resting_body_stood` and
-> `a_body_rests_only_at_a_shrine_in_its_own_live_room`. `morph_ball.rs` now
-> names `PrimaryPlayer` only in its test module. So A1 has no open
-> per-participant simulation question left in this list.
+`PrimaryPlayerOnly` (`(With<PlayerEntity>, With<PrimaryPlayer>)`) is still used
+in production. Most uses are in single-player tools, the sim harness and the
+demos, where one player is correct by construction. When you touch a shipped
+simulation site that uses it, ask whether the fact should be per participant.
 
 ### A2 — adaptive split in one room
 
-Separate the views when the two controlled subjects exceed framing policy and
-merge again when they regroup.
+▢ Separate the views when the two subjects exceed framing policy, and merge them
+with hysteresis when they regroup.
 
 ### A3 — two rooms resident
 
-Let the participants cross different loading zones and continue in distinct
-rooms without replacing one another's simulation state.
+◐ Simulation built; view mostly built.
 
-✅ **The simulation half landed with OW1 cuts 6 and 7 (2026-09-29/30)**, in
-[`open-world-runtime-and-residency.md`](../engine/open-world-runtime-and-residency.md).
-A door one player crosses opens a second live room and leaves the other
-player's room live and whole; a player who comes back joins the room the
-other holds; each room's encounters, bosses, switches, shrines, chests and
-items run in their own room; an item carried between the rooms crosses
-whole. Witnesses (`game/ambition_app/tests/two_players_two_live_rooms.rs`):
-`a_door_crossed_by_one_player_leaves_the_other_players_room_live`,
-`a_player_who_comes_back_joins_the_room_the_other_player_holds`,
-`a_wave_spawns_its_mobs_in_the_live_room_that_started_it`,
-`the_cut_rope_fight_runs_in_its_own_live_room`,
-`an_item_carried_out_of_a_room_another_player_holds_crosses_whole`, and
-under a GGRS sync test with two seats,
-`two_players_in_two_live_rooms_resimulate_to_the_same_world`.
-✅ Each seat crosses its own doors (OW1 cut 7s, 2026-10-01): before it, the
-door detector read only the primary seat, so only the first player could
-leave a room (`the_second_player_goes_through_a_door_of_his_own_room`).
-✅ One player's door load and one player's conversation no longer stop the
-other player's room (OW1 cuts 7t and 7u). Two players in ONE room still
-share a conversation's pause; that is the first question in "Game-state
-questions" above.
-◐ The view half is planned as cuts V1–V5 in "The view half" of
-[`open-world-runtime-and-residency.md`](../engine/open-world-runtime-and-residency.md).
-V1 (2026-10-01): each view frames its own player in that player's live
-room (`each_view_frames_its_own_player_while_two_rooms_are_live`). V2a,
-V2b, V3, V4a and V5: each camera is placed and draws only its own view's
-room, room visuals and feature sprites are per room, and a second view opens
-while the players are in two rooms and closes when they meet
-(`a_second_view_opens_while_the_players_are_in_two_rooms_and_closes_when_they_meet`).
-Items, projectiles, lock walls and nameplates (V2c–V2e), effects (V2f) and
-the LDtk levels (V4b), parallax (V4c) and the visuals that ride a body
-(V2g: shields, clocks, ropes, wielded items) and the portals (V2m) are
-each room's own too. ⚠ Not done: the debug overlays still read the sole live
-room; the through-portal window is made for the primary seat's eye, and only
-the primary view draws it (its capture sees that room's band since V2n); the banner, music and HUD are session-wide and follow the primary
-seat (Q150 in `awaiting-maintainer-decision.md`, decided for now); a
-sync test is one peer, so what the crossing's rebase costs a remote
-player's rollback window is A4.
+- Simulation: each seat crosses its own doors. A door one player crosses opens a
+  second live room (`LiveRooms`) and leaves the other player's room live. A
+  player who comes back joins the room the other holds. Encounters, bosses,
+  switches, shrines, chests and items run in their own room, and a carried item
+  crosses whole. One player's door load or conversation does not stop the other
+  player's room. A GGRS sync test with two seats resimulates to the same world
+  (`two_players_in_two_live_rooms_resimulate_to_the_same_world`).
+- View: each view frames its own player in that player's room; each camera
+  draws only its own room's visuals, sprites, items, projectiles, effects, LDtk
+  levels, parallax, body-riding visuals and portals. A second view opens while
+  the players are in two rooms and closes when they meet
+  (`a_second_view_opens_while_the_players_are_in_two_rooms_and_closes_when_they_meet`).
+- Not done: debug overlays read the sole live room; the through-portal window is
+  drawn for the primary seat's view only; banner, music and HUD are
+  session-wide and follow the primary seat (Q150 in
+  [`../awaiting-maintainer-decision.md`](../awaiting-maintainer-decision.md),
+  decided for now).
+- Two players in one room still share a conversation's pause (the first
+  game-state question above).
 
 ### A4 — online participant
 
-Feed a remote participant through the same intent/control seam. Keep local view
-layout client-local.
+▢ Feed a remote participant through the same intent/control seam. Keep the local
+view layout client-local. Measure what a room crossing's rebase costs a remote
+player's rollback window.
 
 ### A5 — mixed local + remote party
 
-Prove the architecture does not assume one input device per machine, one local
+▢ Prove the architecture does not assume one input device per machine, one local
 participant, or one view per participant.
 
 ## Relationship to other games

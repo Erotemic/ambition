@@ -30,8 +30,6 @@ convention this file already had, and the gate was green the day it landed.
 ⚠ It is a SEPARATE FLAG from `--comments` because that mode's SYMBOL half has
 standing advisory findings and cannot gate; one flag would have held the
 enforceable half hostage to the advisory one.
-`docs/planning/triage/a-prose-path-inside-a-doc-comment-is-not-checked.md` is the
-receipt, and it records the three instrument revisions the count went through.
 
 ⭐ THE POINT IS THE TRIAGE, NOT THE COUNT. Every finding here is one of:
 
@@ -1218,8 +1216,7 @@ def main() -> int:
                 # `--comments` judged SYMBOLS in Rust comments and nothing else,
                 # while `PATH_CITE` ran only over `docs/` — so a doc comment
                 # naming a directory was checked by no lane at all. That is the
-                # gap `triage/a-prose-path-inside-a-doc-comment-is-not-checked.md`
-                # is about, and it cost seven live citations on 2026-09-17: two
+                # gap this mode closes, and it cost seven live citations on 2026-09-17: two
                 # sent a reader to `app/schedule.rs`, a file that does not exist,
                 # and one claimed constants were "co-authored" with a deleted
                 # file.

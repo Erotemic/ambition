@@ -1,7 +1,7 @@
 # Authored gameplay logic and orchestration
 
-**State:** OPEN capability, narrowed 2026-08-30. The semantic condition/command
-and preparation substrate exists. A general rule/sequencing representation is
+**State:** OPEN capability. The semantic condition/command and preparation
+substrate exists. A general rule/sequencing representation is
 still deliberately unchosen.
 
 ## Goal
@@ -66,89 +66,30 @@ answers *what semantic question/request is being made*.
 
 ## Current work
 
-### O1 — adopt prepared conditions where a real per-tick parser still exists
+### O1 — validate authored flag names
 
-⚠ **THIS ROW'S PREMISE WAS STALE AND ITS PRESCRIPTION IMPOSSIBLE; both corrected
-2026-09-02 against the code.** It said `gated_lock_walls` "still assembles
-condition arguments at runtime rather than holding a prepared condition produced
-at content-preparation time". Two things wrong with that:
+Lock walls hold a prepared condition. The cache is keyed on
+`ConditionCatalog`'s change tick, so no road prepares a condition per tick. A
+condition that fails to prepare reports room, wall id, authored text and reason;
+the wall still stands. Preparation happens at room load, because a condition's
+evaluator is a function pointer published through `App::publish_condition` and
+content preparation (LDtk -> `RoomSpec`) has no `App`.
 
-- the per-tick re-mint was already fixed by `68d80d653` (2026-08-26, *"The lock
-  wall holds its question instead of re-minting it every frame"*); the row was
-  last edited 2026-08-30 by a bulk docs pass that did not re-verify it;
-- ⛔ **"produced at content-preparation time" CANNOT HAPPEN HERE.** Preparation
-  needs the `ConditionCatalog`, and a condition's evaluator is a Rust FUNCTION
-  POINTER published through `App::publish_condition`. Content preparation
-  (LDtk → `RoomSpec`) is a data transformation with no `App`, so the catalog
-  cannot exist there. The earliest point where the authored text and the catalog
-  coexist is room load — which is where preparation already happens.
+**Open:** a misspelled flag name prepares and then answers `false` forever.
+`world.flag_set` takes `ParamKind::Name`, and every string prepares as
+`AuthoredArg::Name`. `ParamKind::Reference` shows the shape of a fix: validate
+against a registry of authorable flag ids. Do not build that registry until a
+second consumer or a real authored mistake needs it.
 
-✔ **WHAT WAS ACTUALLY LEFT, AND IS NOW DONE** (acceptance clauses 6 and 7):
+### O2 — one authored-argument preparation road (closed)
 
-- the last per-tick preparation road is deleted. A per-frame `.or_else(prepare)`
-  retry existed to cover a provider publishing AFTER the first room was cached;
-  the cache is now keyed on `ConditionCatalog`'s change tick, so that case is
-  handled once on the edge instead of by re-preparing every wall every tick;
-- ⛔⛔ the silent soft-lock is gone. `prepare_question` ended in `.ok()`, throwing
-  away a `PreparationError` that carries the authored source AND the reason — its
-  own doc says it keeps the source because *"a diagnostic an author cannot act
-  on"* is useless. An unpublished condition therefore produced a wall standing
-  FOREVER, in a room the player cannot finish, with nothing written anywhere. It
-  now reports room, wall id, authored text and reason. Behaviour is unchanged —
-  the wall still stands — what changed is whether anyone can find out.
-
-▢ **WHAT REMAINS, and it is a design question rather than a slice.** Clause 2
-("preparation catches invalid ids/arity/types before runtime") is met for ids and
-arity but NOT for the authored flag name, and cannot be as things stand:
-`world.flag_set`'s only param is `ParamKind::Name`, whose `prepare_one` arm is
-`Ok(AuthoredArg::Name(text.to_string()))` — every string is valid. A MISSPELT
-flag prepares perfectly and then answers `false` forever, which is
-indistinguishable from a flag legitimately unset, and the wall stands with no
-diagnostic. `ParamKind::Reference` does validate (namespace, non-empty body,
-known namespace), so the shape of an answer exists — it needs a registry of
-authorable flag ids to validate against. ⛔ Do not build that registry
-speculatively; it wants a second consumer or a real authored mistake first.
-✔ **Premise re-verified against the code 2026-09-02 and it still holds exactly**:
-`prepared.rs`'s arm is `ParamKind::Name => Ok(AuthoredArg::Name(text.to_string()))`
-— unconditional — so every authored string still prepares. Nothing has quietly
-fixed this and the deferral is still the right call; recorded so the next reader
-does not have to re-derive it.
-
-### O2 — collapse duplicated authored-argument preparation — CLOSED 2026-09-17
-
-⛔⛤ **THE PREMISE WAS STALE AND THE REMAINING DUPLICATE WAS ONE SENTENCE, NOT A
-CONVERSION PATH.** This row said dialogue-authored commands *"still have their
-own text-to-`AuthoredArg` conversion path"*. They do not:
-`authored_commands::prepare_one` delegates to
-`ambition_platformer2d_shared_tangle::authored_logic::prepare_authored_arg` and
-keeps only a `ParamKind::Reference` refusal. And the CONDITIONS surface was never
-the same road — its input is a typed `YarnValue`, not text, so the shared
-helper's `(&str)` signature does not apply to it and its own doc explains why
-inferring the kind from the Yarn value is the lossy answer.
-
-✔ **What was actually duplicated: the refusal SENTENCE**, written as the same
-string literal in both surfaces — a sentence that can be improved in one place
-and stay stale in the other. One copy now, `dialog::reference_is_not_authorable_by_dialogue`.
-
-⭐⭐ **AND POISONING THAT REFUSAL FOUND A TEST THAT CANNOT SEE IT, WHICH IS THE
-MORE USEFUL HALF OF THIS CLOSURE.** Deleting the `ParamKind::Reference` arm from
-`prepare_argument` — the exact defect
-`a_reference_argument_is_refused_rather_than_coerced_from_a_quoted_string` is
-NAMED for — leaves `ambition_conversation` green, twice over:
-
-- the fixture evaluator answers `unanswerable` on a non-reference argument, so
-  the authored `<<else>>` prints *"Refused."* either way;
-- and even an evaluator that says YES to anything is never reached, because
-  `ConditionCatalog::evaluate` compares `arg.kind()` against the descriptor's
-  `ParamKind` and refuses the mismatch **before dispatching**.
-
-⇒ **THE CATALOG OWNS THE SAFETY; THE DIALOGUE SURFACE OWNS THE WORDING.** The
-surface arm is not a second guard, it is a better sentence written where the
-author's mistake is legible. A new arm
-(`a_reference_argument_never_reaches_the_evaluator_whatever_the_surface_does`)
-pins the load-bearing property with a counting evaluator that says yes to
-anything, and its docstring says outright that deleting the surface refusal does
-not redden it — a fact about where the guarantee lives, not a gap.
+Dialogue commands delegate to
+`ambition_platformer2d_shared_tangle::authored_logic::prepare_authored_arg`.
+The refusal sentence for a reference argument has one copy,
+`dialog::reference_is_not_authorable_by_dialogue`. `ConditionCatalog::evaluate`
+compares the argument kind with the descriptor before dispatch, so the catalog
+owns the safety and the dialogue surface owns the wording. Guard:
+`a_reference_argument_never_reaches_the_evaluator_whatever_the_surface_does`.
 
 ### O3 - keep sequencing with the domain that owns its occurrence
 

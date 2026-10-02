@@ -30,8 +30,7 @@ must name, boilerplate it must repeat, engine-core edits it must make, diagnosti
 it receives when content is invalid, and whether visible/headless hosts can share
 the same authored composition.
 
-Historical API work used source allowlists, absence scans, leak logs, and
-blind-agent trials to discover the first facade boundary. Those experiments are
-archived evidence, **not mandatory ceremony for every future API change**.
-Architecture should increasingly be enforced by crate dependencies, visibility,
-types, and the consumer itself.
+Source allowlists, absence scans, leak logs and blind-agent trials found the first
+facade boundary. They are **not mandatory ceremony for every API change**.
+Enforce architecture with crate dependencies, visibility, types and the consumer
+itself.

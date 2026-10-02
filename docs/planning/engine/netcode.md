@@ -45,565 +45,257 @@ diagnostic history is evidence only and cannot gate gameplay.
 ## What is already implemented
 
 - domain-owned rollback registration declarations;
-- GGRS backend extracted into `ambition_platformer2d_rollback_ggrs`;
+- the GGRS backend in its own crate, `ambition_platformer2d_rollback_ggrs`;
 - exact content/schema binding and invalidation;
-- real `SyncTestSession` rewind/resimulation over the actual `GgrsSchedule`;
-- multi-seat local input through rollback rather than replaying seat zero into
-  every handle;
+- real `SyncTestSession` rewind and resimulation over the actual `GgrsSchedule`
+  (`game/ambition_app/tests/desync_canary.rs`,
+  `gameplay_presentation_ggrs.rs`);
+- multi-seat local input through rollback, not seat zero replayed into every
+  handle;
 - runtime-created rollback entity recreation for covered families;
 - external/presentation effects quarantined to the confirmed host-side boundary
   where implemented;
-- confirmed room lifecycle transition waits for the authorized construction plan
-  and rebases to a new frame-zero baseline;
-- cross-game shell lifecycle acceptance proving one retired game's rollback
-  health cannot block another game's room transition.
-
-> **Re-checked against `8b0731706` (2026-09-03): the three load-bearing claims above
-> are ACCURATE, and one is stronger than written.**
->
-> - **"real `SyncTestSession` rewind/resimulation over the actual `GgrsSchedule`"**
->   — `game/ambition_app/tests/desync_canary.rs` and
->   `game/ambition_app/tests/gameplay_presentation_ggrs.rs:18` both drive one,
->   the latter explicitly "on a live `SyncTestSession` that genuinely rewinds".
-> - **"cross-game shell lifecycle acceptance"** — TWO tests, not one:
->   `a_smash_session_does_not_take_ambitions_doors_with_it`
->   (`game/ambition_app/tests/shell_host_lifecycle.rs`) and
->   `a_smash_session_does_not_take_ambitions_doors_even_when_retirement_is_misordered`.
->   The second covers the ordering case the prose does not mention, and the file
->   states the rule in place: "a value inherited from the retired Smash scope is
->   not B's to read".
-> - **"GGRS backend extracted"** — `crates/ambition_platformer2d_rollback_ggrs`
->   exists as its own crate.
->
-> ⚠ **A note on how this was checked, because the first attempt failed.** A grep
-> for `SyncTestSession` filtered with `grep -v 'tests.rs'` returned nothing and
-> would have supported "this claim is stale" — the filter dropped exactly the
-> files a sync-test session lives in. The pattern was fine; the exclusion was
-> not. See
-> [`../../recipes/re-measuring-a-planning-claim.md`](../../recipes/re-measuring-a-planning-claim.md).
+- a confirmed room transition waits for the authorized construction plan and
+  rebases to a new frame-zero baseline;
+- cross-game shell lifecycle acceptance: one retired game's rollback health
+  cannot block another game's room transition, including misordered retirement
+  (`shell_host_lifecycle.rs`);
+- two players in two live rooms resimulate to the same checksums under a GGRS
+  sync test (`two_players_in_two_live_rooms_resimulate_to_the_same_world`).
 
 ## Remaining netcode work
 
 ### N1 — finish deterministic/runtime-state correctness before transport
 
-Transport should not hide local deterministic defects. The simulation-authority
-program still owns the remaining deterministic selection/composition sites and
-scenario-populated dynamic-state coverage (non-rewinding authoritative memory
-closed 2026-09-02, S2).
+Transport should not hide local deterministic defects.
+[`simulation-authority-and-determinism.md`](simulation-authority-and-determinism.md)
+owns the remaining deterministic selection/composition sites and
+scenario-populated dynamic-state coverage.
 
-Use [`simulation-authority-and-determinism.md`](simulation-authority-and-determinism.md).
+One piece of N1 is netcode's own and needs a ruling:
+[`Q128`](../awaiting-maintainer-decision.md#q128--should-the-simulation-tick-be-rebased-when-peers-agree-to-start-or-stay-an-absolute-per-app-count).
+`ambition_time::SimTick` is `resource-canonical`, so its absolute value is in the
+peer checksum, and it counts every sim step this App has run, menu frames
+included. Two Apps that ran for different times disagree from the first compared
+frame. Excluding the tick from the projection would exclude the timeline. The
+fix is a session-relative tick rebased when peers agree to start, and that
+agreement comes from N2's transport.
 
-⛔ **AND ONE PIECE OF N1 IS NETCODE'S OWN AND CANNOT BE FINISHED WITHOUT A
-RULING — [`Q128`](../awaiting-maintainer-decision.md#q128--should-the-simulation-tick-be-rebased-when-peers-agree-to-start-or-stay-an-absolute-per-app-count).**
-`ambition_time::SimTick` is registered `resource-canonical`, so its ABSOLUTE
-value is inside the checksum two peers compare, and it counts every sim step this
-App has run including menu frames. Two Apps running for different lengths of time
-disagree from the first compared frame, before anything else matters. It is the
-one of ID-PEER's three open roads, and the only one engineering cannot close
-alone: a projection excluding the tick would exclude the TIMELINE, so what is
-needed is a session-relative tick rebased when peers agree to start — and where
-that agreement comes from is N2's transport, not a refactor. ⚠ This line read
-*"the LAST open road"* while two others were open beside it, one of them the
-25 float rows below; re-derive from that row's table rather than from here.
-
-⚠ **THE ORDERING BETWEEN N1 AND N2 IS THEREFORE NOT STRICT HERE.** This section's
-premise is that transport should not hide local deterministic defects, and that
-still holds for every road but this one. But this defect cannot be observed
-locally at all: the only sessions in use are `SyncTestSession`, one machine
-rewinding itself, and a canary comparing a machine against its own past is
-structurally incapable of catching a two-peer disagreement. So it will not
-announce itself before N2, and N2 is what supplies the agreement it needs.
+So N1 and N2 are not strictly ordered for this road: a `SyncTestSession` compares
+one machine with its own past and cannot see a two-peer disagreement.
 
 ### N2 — first real external/P2P session
 
-When Smash or Ambition has an actual online slice, install a real transport
-through the existing session seam. `bevy_matchbox` remains a likely candidate;
-transport choice must not change simulation/input ontology.
+When Smash or Ambition has an online slice, install a real transport through the
+existing session seam. `bevy_matchbox` is a likely candidate. Transport choice
+must not change simulation or input ontology. Do not build signaling or
+deployment infrastructure only to satisfy this plan.
 
-Do not build signaling/deployment infrastructure solely to satisfy this plan.
+N2 is the only instrument for two open questions:
 
-⛔⛤ **AND N2 NOW HAS A COUNTED POPULATION WAITING ON IT, NOT ONLY A DEFECT.**
-`simulation-authority-and-determinism.md`'s **S7** ranks the rollback rows that
-are outside the peer checksum, read every unfiltered tick, and float-bearing: 25
-rows, 12 of them mutably written in production — and eleven of those twelve,
-because one is registered for a component no shipped composition builds. ⚠ **The
-count of what has been MEASURED lives in S7 and in the ID-PEER row, not here**:
-this sentence carried "two have been measured clean" while both of those had
-moved. What does not move is the shape: a `SyncTestSession` can establish that a
-value is reproducible under a local resimulation, and a value nothing compares
-between peers is reproducible locally and divergent across peers at the same
-time. The second half is invisible from inside one App. ⇒ So N2 is not only what
-makes an online slice possible; it is the only thing that can ask the question
-those rows pose. S7 owns the list and this row owns the session; neither
-duplicates the other.
+- the unchecksummed float rows (S7 in
+  [`simulation-authority-and-determinism.md`](simulation-authority-and-determinism.md)),
+  which a local resimulation shows reproducible but nothing compares between
+  peers;
+- whether the session rebase at a room crossing fits a remote peer's rollback
+  window.
 
-⛔ **AND N2 INHERITS ONE CONCRETE OBLIGATION FROM 2026-09-17, stated here because
-it is invisible at the transport layer.** A P2P session that negotiates a start
-tick is declaring frame zero, so it must rebase the rollback carrier ordering the
-way `install_rebased_sync_test_session` does — see *What GGRS actually folds into
-the peer checksum* below. `install_session`, the seam a transport hands a session
-to, deliberately does NOT rebase, because a session continuing an agreed timeline
-must not have the ground moved under it. Choosing between those two is part of
-N2, not a detail of it.
+N2 also inherits one obligation. A P2P session that negotiates a start tick
+declares frame zero, so it must rebase the rollback carrier order as
+`install_rebased_sync_test_session` does (see "What GGRS actually folds into
+the peer checksum"). `install_session`, the seam a transport hands a session
+to, does not rebase, because a session continuing an agreed timeline must not
+have the ground moved under it. Choosing between the two is part of N2.
 
 ### N3 — content/schema negotiation
 
-Before external peers begin play, negotiate exact prepared-content identity and
-rollback schema fingerprint. A peer with mismatched simulation content must fail
-before speculative play rather than discovering incompatibility after divergence.
+Before external peers begin play, negotiate exact prepared-content identity,
+the rollback schema fingerprint, and the input payload identity. A peer with
+mismatched simulation content fails before speculative play.
 
-✔ **THE SCHEMA HAD TWO RECORDINGS CHECKED IN DIFFERENT LANES, THEY DID NOT
-AGREE, AND THE DUPLICATE IS NOW COLLAPSED** (the measurement and what replaced
-it are below; the negotiation this row is really about is still open).
-`game/ambition_app/tests/rollback_schema_baseline.txt`
-is read by the Rust lane and `scripts/baselines/rollback-schema-baseline.json` by
-`scripts/check_absence_contracts.py` in the repo-tooling lane. A single new
-registration owes both, and on 2026-09-10 one landed with only the first
-updated: the Rust lane was green, which is precisely what made the other
-invisible.
+**State identity.** The runtime dump (`schema_dump()`, recorded in
+`game/ambition_app/tests/rollback_schema_baseline.txt`) owns the schema. A
+source scan cannot own it, because a registration is a runtime call with no
+closed set of spellings.
 
-Measured 2026-09-16, the two are not copies that drifted — they are different
-instruments with different reach, and the smaller one is the peer-facing risk:
+- `the-peer-visible-schema-may-not-move-without-the-version`: if the set of rows
+  whose kind answers `feeds_peer_checksum()` changes, the version on the dump's
+  first line changes in the same commit. `detail` is kept where it
+  distinguishes rows of the same kind and dropped where the kind already implies
+  it.
+- `the_shipped_app_registers_the_same_schema_as_the_sandbox`: the baseline is
+  recorded from `Platformer2dSimHarness`, and the shipped `build_visible_app`
+  registers the same dump (with an anti-vacuity floor).
+- Determinism of the dump comes from its container (`entries` is a `BTreeMap`).
+  A `HashMap` there would make the fingerprint vary per process.
+- **A local instrument is not peer identity.** `RollbackEntryKind::MessageClearInstrument`
+  answers `in_peer_schema_identity() == false`, and `schema_dump()` filters on
+  it. The causal recorder's channels register through
+  `clear_instrument_message_on_rollback`, so `--features causal` and the default
+  build advertise one fingerprint. The instrument is still cleared on rewind.
+  `the_causal_instrument_is_registered_and_outside_the_peer_schema` first
+  requires the channels to be present in `deterministic_dump`.
+- Open (`Q122` ruled): the fingerprint hashes prose `detail`. Split each row's
+  `detail` into the mechanical facts the fingerprint hashes and the explanation
+  it does not. Do not just drop `detail`. Tracked as ID-PEER in
+  [`../queue.md`](../queue.md).
 
-- the `.txt` is the runtime dump: 493 rows of name/kind/detail from a live
-  registry, and the fingerprint (`ggrs-rollback-schema-v194`) is a hash of the
-  whole dump, `detail` prose included.
-- the `.json` was source-scanned: 423 `stable_schema_names` and 129
-  `encoded_types`. It recorded no fingerprint at all.
-- **73 of the 493 runtime rows were invisible to the source scan, and 21 of
-  those feed the peer checksum — 15% of the 144 checksum-feeding
-  registrations.**
-  (`feeds_peer_checksum`'s own TRUE arm, read from the source rather than from a
-  hand-kept list: 14 `component-canonical`, 6 `resource-clone-custom-checksum`,
-  1 `component-clone-cursor`.)
+**Input identity.** See "The input payload two peers exchange".
 
-Three causes, all structural rather than drift — and the first two are why the
-fix below is a collapse and not a wider regex:
+**Still owed:** no peer handshake reads the dump, its version, or the input
+shape. That waits on N2.
 
-1. **47 are registered under `game/`.** `rollback_schema_usage` globs
-   `crates/*/src/**/*.rs`. The function's own comments describe twice how
-   hand-listing registration FILES failed and was replaced by following the
-   `R: RollbackRegistrar` marker — but the marker is only followed inside a
-   hand-listed ROOT, and every demo and content crate lives outside it.
-2. **26 are colon-form** (`entity:*`, `root:room_set`) spelled as plain literals
-   in a file the scan does read and whose marker bound it matches
-   (`crates/ambition_platformer2d_actor_monolith/src/rollback_registration.rs`).
-   The name pattern is `"([a-z_]+\.[a-z_.]+)"`, which requires a dot, so a
-   colon-delimited name cannot match however well the file is reached.
-3. **The 3 names the JSON holds and the dump lacks are not stale** — the
-   `message.causal_*` trio is filtered out of the dump BY THE TEST, on both
-   sides of the comparison, so that compiling the causal recorder cannot move
-   the state-schema baseline: those channels carry no snapshot bytes. The
-   source scan has no such rule and records the literals. This one is a
-   deliberate divergence, and the surviving N3 question is where it should be
-   stated once rather than in each lane's own dialect.
+The [extension contract](extension-state-and-execution.md) extends this
+compatibility manifest with module code, port versions, extension schema digests
+and numeric/runtime execution policy. App-local epochs are stale-plan stamps,
+not peer identities. The content digest stays the mechanical root. Unknown or
+mismatched required inputs refuse before speculative play.
 
-⇒ Negotiating an identity the repo keeps twice is negotiating which copy, and
-here the copies answered differently about 15% of what peers actually compare.
-
-✔ **RESOLVED 2026-09-16 — the duplicate is collapsed and the runtime dump owns
-the names.** `stable_schema_names` is gone from the JSON and from
-`rollback_schema_usage`: a source scan cannot own this fact, because a
-registration is a runtime call and the four spellings above are not a closed
-set. What replaced it is the one question about the dump that the tree cannot
-answer alone, because the dump has no memory of its previous self:
-
-> **`the-peer-visible-schema-may-not-move-without-the-version`** — if the set of
-> rows whose kind answers `feeds_peer_checksum()` changes, the version on the
-> dump's first line must change in the same commit. 144 rows at
-> `ggrs-rollback-schema-v194`.
-
-⛔⛤ **AND THAT SLICE DROPPED `detail` AT FIRST AND WAS BLIND TO 48 OF THE 144.**
-Q122's own measurement on this page's neighbour caught it: a
-`resource-clone-custom-checksum` row's sentence records what its
-`fn(&T) -> u64` actually covers, and 22 of them say 22 different things, so
-NARROWING A PROJECTION MOVES NO NAME, NO KIND AND NO TYPE. The same is true of
-the 18 `resource-canonical` rows, where `rollback_resource_optional_canonical`
-adds a presence term to the checksum under an unchanged name/kind/type.
-
-⇒ The rule that fits both halves is the artifact's own, and it is the same SPLIT
-Q122 proposes, applied at the granularity the dump already has: **`detail` is
-kept exactly where it distinguishes rows of the same kind, and dropped where it
-does not.** A kind whose rows all carry one sentence has a `detail` the `kind`
-column already implies; a kind whose rows differ is using it to say something
-`kind` cannot. 48 of 144 rows carry theirs. The control and the positive differ
-only in their subject: rewording the 7 uniform `component-clone-cursor` rows
-stays green, rewording one of the 22 varying ones reddens.
-
-⚠ The honest cost: a genuine reword of a VARYING kind's sentence still reddens
-when the projection did not change. That is 48 rows of exposure instead of 493,
-and it fails in the safe direction.
-
-⭐ THE REPOSITORY ALREADY OBEYED THIS AND HAD NEVER SAID SO. Of the commits that
-touched the dump, 14 changed the checksum-feeding set and all 14 moved the
-version; 2 changed the wider row set and held it, and both added a single row of
-a kind nothing hashes — the case `ambition_mount`'s own registration documents
-as deliberate. So the guard was landed green against history rather than
-imposed on it, and a non-hashed registration still lands without a bump, which
-is what keeps the version from becoming a number people bump to pass a check.
-
-Also measured and fixed in the same pass: `encoded_types` had the same
-`crates/`-only root and was blind to nine `SnapshotState` sites in
-`ambition_content`'s boss specials — 129 types became 137. That widening is safe
-where the name census's was not, because it matches a plain `impl` beside the
-type rather than following a registration road.
-
-✔ **AND THE COMPOSITION QUESTION IS NOW MEASURED RATHER THAN ASSUMED.** The
-baseline is recorded from `Platformer2dSimHarness`; the player runs
-`build_visible_app`. Everything reading the baseline — the ratchet above, the
-fingerprint two peers would negotiate, the Rust lane's own byte-for-byte arm —
-was describing the sandbox, and the sandbox arm stays green precisely because it
-never asks the shipped app. `the_shipped_app_registers_the_same_schema_as_the_sandbox`
-now asks: **the two dumps are identical.** It carries the anti-vacuity floor that
-two empty registries are also identical, and both poisons fire on their own
-message path (a `deterministic_dump` on one side hits the diff; emptying a side
-hits the floor).
-
-⚠ Ordering is not a hazard here and this is why: `entries` is a `BTreeMap`, and
-`canonical_section` preserves iteration order rather than sorting — so the
-determinism comes from the container, and a future change to a `HashMap` would
-make the fingerprint vary per process with nothing watching.
-
-⛔⛤ **AND A LOCAL DEBUGGING INSTRUMENT IS AN INPUT TO THE PEER IDENTITY —
-MEASURED, NOT ARGUED.** The same sandbox harness, built twice:
-
-| build | dump lines | `message.causal_*` rows | `schema_fingerprint()` |
-|---|---|---|---|
-| default | 494 | 0 | `ssp1:7bc3233fdd0e73d8…` |
-| `--features causal` | 497 | 3 | `ssp1:b90539da551339d9…` |
-
-⇒ Two builds whose simulations are identical advertise different mechanical
-identities. They are identical because `message-clear` registrations carry no
-value of their own (`feeds_peer_checksum() == false`, and the causal channels
-feed a recorder, not the sim), so both peers would produce the same snapshots and
-the same checksums — and then refuse to play each other. That is a FALSE
-NEGATIVE in exactly the direction ID-PEER exists to prevent: host-local tooling
-reaching peer-stable identity.
-
-⭐ **THE REPOSITORY ALREADY DECIDED THIS AND THE DECISION IS NOT WHERE THE
-IDENTITY IS COMPUTED.** `rollback_schema_baseline.rs` filters `message.causal_*`
-from both sides of its comparison with the reason stated plainly — *"Causal
-recorder channels carry no snapshot bytes, so compiling the instrument must not
-change the state-schema baseline."* `compute_schema_fingerprint` hashes
-`schema_dump()` whole and never learned it. One fact, two owners, disagreeing —
-and the test's filter is what keeps the disagreement invisible, because it makes
-the lane green in both configurations.
-
-⛔⛤ **THE DURABLE POINT IS NOT "A FEATURE LEAKED" — IT IS THAT THE TWO OWNERS
-DISAGREED ABOUT WHAT COUNTS AS SCHEMA.** The fingerprint's answer was "every row
-in the dump"; the test's answer was "every row except these three, by name
-prefix". Both were written deliberately, neither was wrong on its own, and
-nothing compared them — so the disagreement could only surface as a build
-refusing a peer for no mechanical reason. And the test's filter is what kept it
-under the floorboards, because it made the lane green in BOTH configurations:
-the instrument could not be seen precisely where it could be present.
-
-✔ **FIXED 2026-09-16.** `RollbackEntryKind::MessageClearInstrument` answers
-`in_peer_schema_identity() == false`, `schema_dump()` filters on that predicate,
-the three causal registrations go through
-`clear_instrument_message_on_rollback`, and the test's name-prefix filter is
-DELETED as redundant — the comparison now needs no exception. Measured after,
-both configurations:
-
-| build | `schema_dump` | `deterministic_dump` | fingerprint |
-|---|---|---|---|
-| default | 494 | 494 | `ssp1:7bc3233fdd0e73d8…` |
-| `--features causal` | 494 | **497** | `ssp1:7bc3233fdd0e73d8…` |
-
-⭐ Identical to each other AND to the fingerprint before the change, so no
-version bump was owed and the baseline did not move — with the feature off no
-such row exists, and with it on the rows are recorded in `deterministic_dump`
-and excluded from the peer view. The instrument is still registered and still
-cleared on rewind: the exclusion is about peer IDENTITY, never about whether the
-rewind happens.
-
-⭐ **THE ARM CARRIES ITS OWN POSITIVE CONTROL**, which is the only reason it is
-worth running: `the_causal_instrument_is_registered_and_outside_the_peer_schema`
-is `#[cfg(feature = "causal")]` and first REQUIRES all three channels to be
-present in `deterministic_dump`. An arm asserting only "no causal row in
-`schema_dump`" would pass just as well if the feature had registered nothing, or
-if the `cfg` had been misspelled — the absence it checks is the same absence a
-broken feature produces.
-
-⛔⛤ **AND N3 NEGOTIATES TWO THINGS WHERE THE WIRE HAS THREE.** This row's opening
-names prepared-content identity and the rollback schema fingerprint. The third is
-the INPUT PAYLOAD, and it has no identity at all: `AmbitionGgrsConfig =
-GgrsConfig<ControlFrame>`, so `ControlFrame` is literally what crosses between
-peers. Measured 2026-09-16, every candidate that could version its shape covers
-something else:
-
-| candidate | covers `ControlFrame`'s shape? |
-|---|---|
-| `INPUT_STREAM_VERSION` | no — it versions RECORDED REPLAY FILES, and its own doc exempts added fields: *"an older stream loads with the new field neutral"* |
-| the rollback schema dump | no — one row, `derived.control_frame`, carrying the type NAME and not its fields |
-| `schema_fingerprint` | no — it hashes that dump, so it sees the name |
-| `scripts/tests/rollback_codec_shape.txt` | no — zero mentions; `ControlFrame` has no `SnapshotState` impl, being `derived` and rebuilt from the input stream rather than snapshotted |
-
-⇒ So the state half of the wire had an identity, a ratchet and an
-instrument-independence arm, all landed today, and the input half had none of the
-three. Found while verifying a price `SETTINGS-ROLLBACK` had quoted — the
-sentence it quoted is TRUE and is about the wrong ledger, which is the failure
-mode a correct-sounding citation produces.
-
-✔ **THE INPUT HALF NOW HAS TWO OF THE THREE.**
-`CONTROL_FRAME_WIRE_IDENTITY` names the shape and
-`the-peer-input-payload-may-not-move-without-its-identity` ratchets it over 42
-rows — 39 `ControlFrame` fields IN DECLARATION ORDER plus the 3
-`AttackStrengthHint` variants. Order is part of the shape because bincode encodes
-positionally and carries no field names, and the transitive boundary is asserted:
-a second non-primitive field type raises rather than reading green. The
-instrument-independence question has no analogue here, because no feature adds an
-input field today — the guard is what will notice the first one.
-
-What this does NOT settle, and N3 still owes: **no peer handshake reads the dump,
-its version, or the input payload's shape.** The invariant makes the state
-identity honest, the arm makes it the shipped one, and the instrument road makes
-it feature-independent; none of them makes anything EXCHANGED, which is this
-row's actual subject and waits on N2's absent P2P session.
-
-The [extension contract](extension-state-and-execution.md) extends this same
-compatibility manifest with module code, port versions, complete extension schema
-digests and numeric/runtime execution policy. App-local epochs are stale-plan
-stamps, not peer identities. The existing content digest remains the mechanical
-root. Unknown/mismatched required inputs refuse before speculative play.
-
-Initially a remote session pins its mechanical generation. Local authoring reload
-uses the existing supported reconstruction/rebase road and preserves unhealthy
-same-session diagnostics. It does not implement coordinated mid-session online
-code migration or a second snapshot timeline. Those require N4 plus an explicit
-migration requirement; they do not block local data iteration.
+A remote session pins its mechanical generation. Local authoring reload uses
+the supported reconstruction/rebase road and keeps unhealthy same-session
+diagnostics. Coordinated mid-session online code migration needs N4 and an
+explicit requirement; it does not block local data iteration.
 
 ### N4 — coordinated lifecycle barrier
 
-The local rollback host can commit a confirmed room transition and immediately
-rebase because there is no remote corrected-input frontier. A real external/P2P
-host needs a peer-coordinated barrier around the same construction/rebase seam.
+The local rollback host commits a confirmed room transition and rebases at once,
+because it has no remote corrected-input frontier. A real external host needs a
+peer-coordinated barrier around the same construction/rebase seam. The barrier
+answers:
 
-The barrier must answer:
-
-- which lifecycle intent/frame is being committed;
+- which lifecycle intent/frame is committed;
 - that every peer confirms the required input/content horizon;
-- that every peer has the same authorized construction plan/content identity;
-- how corrected input arriving before the barrier cancels/replaces a pending
+- that every peer has the same authorized construction plan and content identity;
+- how corrected input arriving before the barrier cancels or replaces a pending
   intent;
-- when the old rollback history can be discarded and the new frame-zero
-  baseline installed.
+- when old rollback history is discarded and the new frame-zero baseline
+  installed.
 
-This is an authorization protocol around canonical construction. It is not a
-second room constructor.
+This is an authorization protocol around canonical construction, not a second
+room constructor. With several live rooms, a crossing in one room rebases the
+whole session; the barrier must preserve other rooms' state under that
+baseline.
 
 ### N5 — disconnect/reconnect/spectator/deployment policy
 
 Defer until the first two-peer deterministic lifecycle path is green. These are
-product/network-service concerns and should not distort the simulation model in
-advance.
+product and network-service concerns.
 
 ## The input payload two peers exchange
 
-`AmbitionGgrsConfig = GgrsConfig<ControlFrame>`, so `ControlFrame` **is** the
-wire. The STATE half of the wire has both an identity and a ratchet; the INPUT
-half had neither until 2026-09-16, and every candidate that looked like it
-covered this was checked and covers something else — `INPUT_STREAM_VERSION`
-versions recorded replay files and exempts added fields by design, the rollback
-dump carries one row naming the TYPE (`derived.control_frame`) and not its
-fields, the fingerprint hashes that dump, and `rollback_codec_shape.txt` never
-mentions it because `ControlFrame` has no `SnapshotState` impl at all: it is
-`derived`, rebuilt from the input stream rather than snapshotted.
+`AmbitionGgrsConfig = GgrsConfig<ControlFrame>`, so `ControlFrame` is the wire.
+It is `derived` (rebuilt from the input stream, not snapshotted), so the
+rollback dump, the fingerprint and `rollback_codec_shape.txt` do not describe its
+fields. `INPUT_STREAM_VERSION` versions recorded replay files and exempts added
+fields by design; it does not cover the peer payload.
 
-⛔⛤ **A FIXED ENCODED WIDTH IS AMBITION'S CONTRACT, NOT A GGRS GUARANTEE — READ
-OUT OF THE PINNED `ggrs` `0.13.0` CHECKOUT (the `gschup/ggrs` commit
-`Cargo.lock` names, e97e3d2, unbackticked because it is a third-party sha this
-object store cannot resolve).** `InputBytes::from_inputs` concatenates every
-local player's ACTUAL encoding into one payload and writes no per-player length;
-`to_player_inputs` recovers the stride by dividing the received total by the
-player count, validating only that it divides. ⇒ Equal subdivision is correct
-only while every frame encodes to the same width, and that is a property of
-`Config::Input` — our type. A `String`, a `Vec`, an `Option` or a data-carrying
-enum variant makes one player's width depend on what they pressed, and player
-two's slice then begins mid-way through player one's frame with no checksum to
-notice. ⚠ **A SINGLE-PLAYER PAYLOAD IS IMMUNE**, the whole buffer being player
-zero's, which is why this could not wait for a witness: local multiplayer
-sharing one packet is where it would first appear.
-
-⭐⭐ **AND THE DISTINCTION ANY REPAIR HERE TURNS ON: A WIRE IDENTITY BUMP BUYS A
-DIFFERENT FIXED-WIDTH PROTOCOL, NOT A VARIABLE-WIDTH ONE.** `None` encoding
-shorter than `Some(false)` subdivides the packet in the wrong places however
-carefully the change was announced. So `refuse_variable_width` in
-`scripts/check_absence_contracts.py` applies at every level `ControlFrame`
-reaches, and refuses an UNRECOGNISED field type as well as a known-variable one:
-a guard that accepts what it cannot classify is the same hole in a politer
-costume.
-
-⚠ **WHAT IS HELD IS A RATCHET, NOT A NEGOTIATED VERSION, AND THAT IS THE HONEST
-DESCRIPTION.** `control_frame.rs`'s `the_bytes_two_peers_exchange` pins the exact
-bincode bytes of one deliberately legible frame — every bool alternating, the
-floats distinct, a non-default variant of both enums, because
-`bincode::serialize(&ControlFrame::default())` is sixty-eight ZERO bytes and
-pinning that would catch a length change and nothing else. A change to the peer
-input payload is now impossible to make SILENTLY. It cannot tell an author what
-to BUMP, because there is nothing to bump yet; a negotiated input version is
-absent and is not obviously owed while this page's own **N2** holds. If a P2P
-session is built, that half returns as new work.
-
-⚠ **AND WHAT THE BYTES CANNOT SEE, STATED SO THE NEXT READER DOES NOT TRUST THEM
-FOR IT.** `bool` and `u8` are both one byte in bincode and encode the same values
-identically, so a swap between them moves nothing. The FIELD TYPES are carried by
-the source-level census in `check_absence_contracts.py`, which records
-declaration order, each field's type and every nested enum's variants WITH its
-payload. The two are complements: one is the shape, the other is the transport
-actually producing bytes. ⛔ Neither duplicates the compiler, which was
-poison-checked: ADDING a field already fails to compile, because
-`ControlFrame::merge_sample` builds an exhaustive literal and a new field must
-declare whether it is a LEVEL or an EDGE — a good nudge about merge semantics
-that says nothing of the wire. What compiles cleanly and moves the bytes is a
-REORDER, a width change, or an enum gaining a variant ahead of an existing one.
-
-⛔⛤ **AND `#[serde(default)]` PROVIDES NOTHING HERE, WHICH IS THE ONE FACT MOST
-LIKELY TO BE QUOTED WRONG.** Bincode is non-self-describing: there are no field
-names on the wire, so a field is never "missing" and a default is never supplied.
-The attribute gives `INPUT_STREAM_VERSION` its replay-compatibility exemption
-honestly and gives the peer question nothing — the same attribute, load-bearing
-in one ledger and inert in the other. That is why the two ledgers now sit beside
-each other in one file, `CONTROL_FRAME_WIRE_IDENTITY` next to
-`INPUT_STREAM_VERSION`, each stating what the other does not cover.
-
-⚠ **WHAT IS NOT ESTABLISHED:** whether a mismatched field set fails loudly or
-decodes into garbage. It depends on bincode's trailing-byte behaviour and on
-which side is larger, and nothing here executes while the network path is
-P2P-only. What IS established is that no layer compares the two builds' input
-SHAPE, so whatever happens will not be a refusal that names the cause.
-
-⭐ **ORDER IS PART OF THE SHAPE**, because bincode encodes positionally; a census
-returning a set would not notice a reorder that changes what every byte after it
-means. Poison-verified: making the census return a sorted set reddens the
-ratchet. ⚠ **AND THE TRANSITIVE BOUNDARY IS ASSERTED, NOT ASSUMED** — a field
-whose type is not primitive can move the encoding without `ControlFrame`'s own
-text moving, so an unrecognised field type RAISES instead of reading green.
-
-⇒ **THE REMAINDER IS THE SAME AS THE STATE HALF'S:** the identity exists and is
-ratcheted, and nothing EXCHANGES it. That waits on **N2**. Landed
-`2bfa6e011`, `b1a380e63`, `224f65009`; the ID-PEER row in
-[`../queue.md`](../queue.md) keeps the receipt and this page owns the contract.
+- **Identity and ratchet.** `CONTROL_FRAME_WIRE_IDENTITY` names the shape.
+  `the-peer-input-payload-may-not-move-without-its-identity`
+  (`scripts/check_absence_contracts.py`) ratchets the field list in declaration
+  order plus nested enum variants with payloads. Order is part of the shape,
+  because bincode is positional. An unrecognized field type raises.
+- **Bytes.** `control_frame.rs`'s `the_bytes_two_peers_exchange` pins the exact
+  bincode bytes of a deliberately legible frame (a default frame is all zeros).
+  The bytes cannot see a `bool`/`u8` swap; the field census can. They
+  complement each other.
+- **Fixed width is Ambition's contract, not GGRS's.** `ggrs` 0.13
+  `InputBytes::from_inputs` concatenates each local player's encoding with no
+  per-player length, and `to_player_inputs` divides the total by the player
+  count. A `String`, `Vec`, `Option` or data-carrying enum makes one player's
+  width depend on what they pressed, and the next player's slice starts mid-frame.
+  A single-player payload is immune; local multiplayer sharing one packet is
+  where it would appear. `refuse_variable_width` refuses variable-width and
+  unrecognized types at every level `ControlFrame` reaches. A version bump buys a
+  different fixed-width protocol, not a variable-width one.
+- **`#[serde(default)]` does nothing on the wire.** Bincode carries no field
+  names, so a field is never missing. The attribute serves replay compatibility
+  only.
+- Adding a field already fails to compile (`ControlFrame::merge_sample` builds
+  an exhaustive literal and each field declares LEVEL or EDGE). A reorder, a
+  width change, or an enum gaining a variant ahead of an existing one compiles
+  and moves the bytes; the ratchet catches those.
+- Not established: whether a mismatched field set fails loudly or decodes into
+  garbage. No layer compares two builds' input shape yet. A negotiated input
+  version is not owed until N2.
 
 ## Identity rules
 
 - `RollbackId` is GGRS frame-history identity.
-- `SimId` is Ambition semantic simulation identity.
+- `SimId` is Ambition semantic simulation identity. With several live rooms, a
+  live occurrence is (`SimId`, live room).
 - `SessionScopeId` owns one gameplay activation.
 - `RollbackTimelineGeneration` distinguishes successive rollback timelines,
   including rebases, across the process.
 
-Do not use one of these as a substitute for another because all happen to be
-stable integers.
+Do not use one as a substitute for another.
 
-⛔⛤ **AND THE RULE ABOVE IS NOT ENOUGH, BECAUSE THE SUBSTITUTIONS THAT ACTUALLY
-HAPPENED WERE NOT SUBSTITUTIONS OF THE TYPE — THEY WERE OF ITS VALUE.** Nobody
-wrote `SessionScopeId` where `SimId` belonged. What happened ten times is that a
-host-local COUNT was read out of one of these and used to derive a canonical
-identity: the session root was minted `SimId::singleton("session",
-activation_id)`, a match item was `SimId::match_spawn(activation_tick, ..)`, and
-a settlement verdict was checksummed with the whole `MatchInstance` in it. Each
-one type-checks, reads correctly, and makes two hosts that agree completely about
-a session disagree about the world.
+**No host-local count in canonical identity.** A value that counts something
+this process did (activations, sessions, sim steps, load transactions, content
+epochs) may name a thing for cleanup, staleness rejection and correlation. It
+is never an input to authoritative RNG, deterministic construction provenance,
+rollback identity, contact/projectile identity, or a peer checksum. Acceptance:
+two Apps with different prior local history, entering the same peer-agreed
+session, reach the same canonical identities and rollback-visible state.
 
-⇒ **THE RULE THAT CATCHES THOSE:** a value that counts something THIS PROCESS did
-— activations, sessions, sim steps, load transactions, content epochs — may name
-a thing for cleanup, staleness rejection and correlation, and may never be an
-input to authoritative RNG, deterministic construction provenance, rollback
-identity, contact/projectile identity, or a peer checksum. The acceptance test
-is: two Apps with arbitrary different prior local history, entering the same
-peer-agreed session, must reach the same canonical mechanical identities and the
-same rollback-visible state.
-
-⚠ **NO TYPE CENSUS CAN SEE THIS CLASS**, which is why it is stated here rather
-than left to a guard. `game/ambition_app/tests/id_peer_audit.rs` reads the live
-rollback registry and asks whether a host-local TYPE is registered; the two
-worst instances were a canonical type whose PROVENANCE was local — a counter
-inside a constructor argument, and a counter inside a singleton's key.
-
-⛔⛤ **AND THIS PAGE SAID THOSE WERE HELD BY "value-level arms in the crate that
-MINTS each identity", WHICH WAS THE TRAP, NOT THE RULE.** Corrected 2026-09-16
-from `id_peer_audit.rs`'s own routing note, which was rewritten after a poison at
-the minting crate's helper did not move the census: the shipped fixture took a
-different road entirely. **The road, not the crate.** What holds each one is a
-value census over a BUILT WORLD across two local histories
-(`two_local_histories_name_every_simulated_entity_identically`, which asserts the
-local tokens DIFFER first so the comparison is controlled), or closure by SHAPE
-where no argument can carry a local term (`SimId::match_spawn`). ⇒ Ask which
-function the SHIPPED composition calls before writing either.
-
-⇒ The table and the arm holding each road are the ID-PEER row in
-[`../queue.md`](../queue.md), which is where the count is re-derived rather than
-copied. **TWO of the three open roads are netcode's own**, and neither waits on a
-refactor: the absolute `SimTick` (`Q128`, above) and the 25 unchecksummed float
-rows, which carry no host-local id at all — they are simply never compared
-between peers, so only N2 can observe them. The third is `Q122`, the snapshot
-schema fingerprint hashing prose.
+No type census sees this class, because the defect is in a value's provenance,
+not its type. Hold each road with a value census over a built world across two
+local histories (`two_local_histories_name_every_simulated_entity_identically`,
+which first asserts the local tokens differ), or by shape where no argument can
+carry a local term (`SimId::match_spawn`). Test the road the shipped composition
+calls, not the minting crate's helper. The road table is ID-PEER in
+[`../queue.md`](../queue.md); `game/ambition_app/tests/id_peer_audit.rs` holds
+the arms.
 
 ## What GGRS actually folds into the peer checksum
 
-⛔⛔ **TWO OF ITS THREE INPUTS ARE APP-LIFETIME COUNTS, AND AMBITION'S OWN
-CENSUS MODELS NEITHER.** Read from the pinned `bevy_ggrs` rev on 2026-09-17,
-because every peer-identity argument on this page rests on it:
+From the pinned `bevy_ggrs` rev:
 
 | plugin | what it folds |
-|---|---|
-| `ComponentChecksumPlugin<C>` | per carrier, `hash(RollbackOrdered.order(id), projection(value))`, XORed together, then hashed once more |
-| `ResourceChecksumPlugin<R>` | `hash(value)`. Nothing host-local |
-| `EntityChecksumPlugin` | `hash(active carrier count, RollbackOrdered.len())` — and that second term is *"the quantity of total spawned rollback entities"*, in upstream's own words |
+| --- | --- |
+| `ComponentChecksumPlugin<C>` | per carrier, `hash(RollbackOrdered.order(id), projection(value))`, XORed, then hashed once more |
+| `ResourceChecksumPlugin<R>` | `hash(value)` |
+| `EntityChecksumPlugin` | `hash(active carrier count, RollbackOrdered.len())` |
 
-`ChecksumPlugin` then XORs every `ChecksumPart` into one `Checksum`. ⚠ Upstream
-notes that XOR cancels a value that appears an even number of times; that blind
-spot is theirs and is recorded here so nobody re-derives it as a finding.
+`ChecksumPlugin` XORs every `ChecksumPart`. XOR cancels a value that appears an
+even number of times; that blind spot is upstream's.
 
-⇒ **`RollbackOrdered` is the host-local term, and it reaches the comparison
-twice.** It assigns each `RollbackId` an index the first time `Rollback` is
-added, keeps every index it ever handed out — despawned entities included — and
-is itself snapshotted. So a host on its third route enters a session with a
-higher base and a larger `len()` than a host on its first, and both are inside
-what two peers compare. **MEASURED 2026-09-17 on two hosts reaching the shipped
-Ambition route by different shell histories: `len()` 22 against 96, the same 22
-canonical identities at orders `0..21` against `74..95`, and 59 of 146
-`ChecksumPart`s disagreeing while every value agreed.**
+`RollbackOrdered` is host-local: it assigns each `RollbackId` an index on first
+`Rollback`, keeps every index ever handed out, and is snapshotted. So process
+history reaches the checksum twice. `rebase_rollback_carrier_order` runs where a
+session declares frame zero and re-orders the live population by
+(`SimId`, live room), so the order is a fact about the session.
 
-⇒ Closed by `rebase_rollback_carrier_order`, which runs where a session declares
-frame zero: the live population is re-ordered by canonical `SimId`, so the
-ordering is a fact about the session rather than about the process. 59 → 2, and
-both survivors are the two open roads above (`SimTick`, `AmbitionGameSave`).
-
-⚠ **AND A PROJECTION CENSUS CANNOT SEE ANY OF IT, WHICH IS THE READING RULE.**
-`RollbackChecksumProbes` folds `count` and a wrapping sum of each value's
-projection and deliberately ignores which entity carried it. It measures GGRS's
-PROJECTION; only an arm that reads `ChecksumPart` from a running session
-measures GGRS's CHECKSUM — that arm is
-`two_local_histories_compute_the_same_ggrs_component_checksums`. A clean census
-is not evidence about the checksum, and it said so for a day while 59 rows
-disagreed.
+A projection census (`RollbackChecksumProbes`) ignores which entity carried a
+value, so it cannot see this. Only an arm that reads `ChecksumPart` from a
+running session measures the checksum:
+`two_local_histories_compute_the_same_ggrs_component_checksums`.
 
 ## Confirmed effects
 
-Irreversible host effects must not be emitted merely because a speculative tick
-ran. Audio/VFX that are purely reconstructable presentation may replay from
-confirmed simulation state; persistence writes, analytics, network-side effects,
-file output and similar irreversible work require an explicit confirmation
-boundary.
+Irreversible host effects are not emitted because a speculative tick ran.
+Reconstructable audio/VFX may replay from confirmed simulation state. Persistence
+writes, analytics, network-side effects and file output require an explicit
+confirmation boundary. Developer tracing may keep historical-resimulation
+observations as diagnostics only when they cannot feed authoritative behavior.
 
-Developer tracing may retain historical-resimulation observations as diagnostics
-only when it cannot feed authoritative behavior.
+Confirmed in-process effect release is not a durable exactly-once protocol. When
+a real external transport or persistent side effect is added, name the
+idempotency scope, restart recovery, duplicate delivery and acknowledgement
+owner.
 
 ## Verification
 
 Before online transport is considered healthy:
 
-1. local `SyncTestSession` repeatedly rewinds/resimulates representative gameplay
-   without checksum divergence;
-2. multiple seats preserve independent input streams across rewind;
-3. runtime-created authoritative populations used by product play survive
-   recreation and deterministic composition;
+1. local `SyncTestSession` repeatedly rewinds/resimulates representative
+   gameplay without checksum divergence;
+2. multiple seats keep independent input streams across rewind;
+3. runtime-created authoritative populations used in play survive recreation
+   and deterministic composition;
 4. session retirement/startup cannot transfer rollback authority across
    `SessionScopeId`;
 5. content/schema mismatch refuses before play;
-6. a real two-peer host eventually proves corrected input, confirmation, and one
+6. a real two-peer host proves corrected input, confirmation, and one
    coordinated lifecycle/rebase.
 
 ## Non-goals
@@ -612,36 +304,17 @@ Before online transport is considered healthy:
 - persistence implemented as rollback snapshots;
 - multiplayer-specific actor/control ontology;
 - Matchbox/deployment work before a product customer exists;
-- treating a two-seat local sync-test session as proof of a two-peer network
-  protocol.
+- treating a two-seat local sync-test session as proof of a two-peer protocol;
+- independent per-room rollback clocks.
 
-## Decomposition and effect-delivery limits
+## Wire identity across refactors
 
-The current same-build rollback contract is retained by the
-[reassessment](architecture-reassessment.md). Moving a checkpoint progress type or
-installer must preserve its wire identity, baseline/reset lifetime and confirmed
-admission phase. A crate/module path is not an instruction to change the wire ID.
-A new serialization schema or executable build is a separate compatibility change.
+Moving a checkpoint progress type or installer keeps its wire identity,
+baseline/reset lifetime and confirmed admission phase. A crate or module path is
+not an instruction to change a wire ID. A new serialization schema or executable
+build is a separate compatibility change.
 
-Confirmed in-process effect release is not a durable exactly-once protocol.
-Packet A10 does not retrofit one through the construction interface. When a real
-external transport or persistent side effect is added, name the idempotency scope,
-restart recovery, duplicate delivery and acknowledgement owner explicitly.
-
-Room publication remains outside speculative execution with a new frame-zero
-baseline. Concurrent world residency, cross-room snapshots and two independent
-live matches are separate capabilities; A8 requires a real two-instance witness
-before generalizing every identity or rollback resource.
-
-## Generation activation and active population are separate network promises
-
-[generation/reload](content-generation-and-reload.md) is initially local development
-reconstruction with a fresh timeline; active remote sessions pin their generation.
-A code/schema match alone does not authorize old history to run under new content.
-Port/execution profiles and the host compatibility policy remain part of admission.
-
-Multi-instance membership changes preserve unaffected instance state under the
-session's accepted baseline/confirmation policy. Do not invent independent room
-rollback clocks or clear remote actors to reuse the single-room reset. A future
-real-transport barrier must coordinate those decisions; local GGRS sync tests are
-necessary controls, not proof of remote lifecycle coordination.
+[Generation/reload](content-generation-and-reload.md) is local development
+reconstruction with a fresh timeline; active remote sessions pin their
+generation. A code/schema match alone does not authorize old history to run under
+new content.

@@ -1,143 +1,109 @@
 # Boss system
 
-> **Architecture update (Jon Crall, 2026-07-10):** the optional encounter-wrapper
-> direction was correct but incomplete. Boss fights, ordinary wave encounters,
-> races, puzzles, escorts, and no-actor set pieces now converge on one generic
-> encounter authority. Boss-capable actors retain only actor-local capabilities
-> and phase/pattern state. The binding migration plan is
-> [`../../systems/boss-encounter-architecture.md`](../../systems/boss-encounter-architecture.md); where this document
-> describes boss-specific encounter entities, music, progress, or scripting, that
-> machinery is migration input rather than the final authority. Actor-local boss
-> behavior and fight-quality guidance remain valid.
+**Scope:** the engine mechanism for bosses: per-entity phase state, the
+optional encounter entity, scripted beats and the engine/content split.
+**Encounter authority:** [boss encounter architecture](../../systems/boss-encounter-architecture.md).
+Boss fights, wave encounters, races, puzzles, escorts and no-actor set pieces
+share one generic encounter authority; a boss-capable actor keeps only
+actor-local capabilities and phase and pattern state.
+**Fight quality:** [boss design pipeline](boss-design.md).
 
-## Decided
+## Current shape
 
-- `BossAnim` does not fold into `CharacterAnim` (2026-07-07, `cdf21e0b1`). Boss
-  rows name attack-geometry verbs (`floor_slam`, `side_sweep`, `spike_halo`,
-  `dash_echo`) that are also keys into hurtbox and hitbox metadata. Mapping them
-  onto character locomotion or melee rows would be an adapter, not
-  canonicalization. Reopen only if a boss sheet needs character locomotion rows.
+Bosses are actors (see [one body, one path](../../concepts/one-body-one-path.md))
+with entity-local phase state and an optional encounter wrapper.
 
-Bosses are not a special simulation path. They are actors (see
-[`../../concepts/one-body-one-path.md`](../../concepts/one-body-one-path.md)) with
-entity-local phase state and an optional encounter wrapper. The system is engine
-machinery; specific bosses are content.
+- Boss HP, liveness and hit flash are on the shared `BodyHealth` /
+  `BodyCombat`. `BossEncounter` is encounter state only.
+- Boss strikes run on the moveset runtime. `BossAttackState` is a projection of
+  the live `MovePlayback`.
+- GNU-ton is the ADR 0020 mounted pair with drivable limb actors and possession
+  verbs.
+- Boss profiles, encounters, the seed library and validator bands are
+  content-pack data (`boss_profiles`, `boss_encounter`, `boss_seed_library`,
+  `boss_validator_bands` in `game/ambition_content/assets/pack.ron`).
+- Every boss special is a procedural module in `game/ambition_content_modules`.
+  A conducted boss (the Flying Spaghetti Monster) has its conductor in a module.
 
-**Status.** The unification landed: boss HP, liveness and hit-flash are on the
-shared `BodyHealth`/`BodyCombat` (`BossEncounter` is encounter state only), boss
-strikes run on the moveset runtime (`BossAttackState` is a projection of the live
-`MovePlayback`), and GNU-ton is the ADR 0020 mounted pair with drivable limb
-actors and possession verbs. One item is open: retire `target_pos` in
-`crates/ambition_characters/src/brain/boss_pattern/mod.rs` (checked 2026-09-17).
-Fight quality is in [`boss-design.md`](boss-design.md). Git history has the
-multi-limb boss record.
+**Open:** retire `target_pos` in
+`crates/ambition_characters/src/brain/boss_pattern/mod.rs`.
 
----
+## Thesis
 
-## The thesis
+Spawn boss X (with tweaks Z) at position Y and it works: no global encounter
+registration, correct for gauntlets and several bosses at once, with phases as
+a trigger-driven property of the entity.
 
-> Spawn boss X (with tweaks Z) at position Y and it just works — no global encounter
-> registration, correct for gauntlets and multiple bosses at once, with phases as a
-> trigger-driven property of the entity (its own mechanism, parallel to hitstun).
+## Rules
 
-## The rules
-
-- **Per-entity keying, not archetype-string keying.** Live state (HP, current phase)
-  is a component on the entity (`BodyHealth` for HP; the encounter's phase-state on its
-  own entity), keyed by a unique **runtime id**, not the archetype `encounter_id`. This
-  is the core correctness win: keying by archetype string made two identical bosses
-  share HP/phase. (Watch the keying when you touch lifetimes — a pre-refactor bug set
-  boss music keyed by archetype id, so a second identical boss cleared the first's
-  music the same frame it woke. Everything keys by runtime id now.)
-- **Phases are intrinsic-but-OPTIONAL data, not a mode.** A boss carries a list of
-  phase triggers — possibly empty. Empty list → a plain tough enemy, no phase-up.
-  *Flipping a boss between "has phases" and "no phases" is editing its trigger DATA,
-  never a code change.* The phase vocabulary (Dormant → Intro → Phase1 → Transition →
-  Phase2 → Stagger → Enrage → Death) is intrinsic, but **forced Intro invulnerability
-  is now opt-in** (a `TimeInPhase` trigger), not imposed on every boss.
+- **Key live state per entity.** HP and phase are components on the entity,
+  keyed by runtime id, never by the archetype `encounter_id`. Two identical
+  bosses must not share HP, phase or music. Canary:
+  `two_same_archetype_bosses_have_independent_encounter_state`.
+- **Phases are optional data.** A boss carries a possibly empty list of phase
+  triggers; empty means a plain tough enemy. Adding or removing phases is a data
+  edit. The phase vocabulary is Dormant, Intro, Phase1, Transition, Phase2,
+  Stagger, Enrage, Death. Intro invulnerability is opt-in (a `TimeInPhase`
+  trigger).
 - **Triggers:** `HpBelow(frac)`, `TimeInPhase(s)`, `External(gate: String)`.
-- **Phase transition is its own parallel mechanism** (not shared with hitstun /
-  recoil). A trigger fires → a brief invulnerable "tell" beat (`transition_lock`) →
-  the brain's exposed phase swaps. **Ordering gotcha:** a system that reads the
-  entity's phase copy must be ordered **after** the mirror that writes it, or it sees a
-  one-frame-stale phase. Wire new phase readers `.after` the mirror.
-- **The encounter is an OPTIONAL first-class entity.** Split: HP + phase state →
-  the *boss* entity; thresholds-as-progress + per-phase music + lock-walls + HUD +
-  scripted timeline → the *encounter* entity. No encounter entity = no HUD, no walls —
-  just a tough enemy. "Cleared" is keyed by **encounter placement**, not archetype, so
-  reusing a boss elsewhere isn't pre-cleared.
-- **Reactions are message-driven, per-entity.** `BossPhaseEvent` (its `PhaseChanged` variant)
-  carries the entity; music / cutscene / reward subscribers never collide across
-  simultaneous bosses.
-- **⛔⛔ Spacing reasoning about BODIES uses body envelopes, never centres.** A
-  `BossPatternContext` carries the target's body box beside its position, and
-  `lateral_body_gap` is the separation between the two SURFACES. This is not
-  pedantry: the contact-chase closure test used to be
-  `centre_distance <= 4.0`, which a 208px-wide boss can only satisfy by standing
-  with its centre inside its target's. It never engaged, and with
-  `suppress_attacks_while_moving` it therefore never attacked — a defect whose
-  severity scaled with body size, so the biggest, most memorable boss in the game
-  was the one it silenced completely. Standoff RINGS (`too_close_distance`,
-  `engage_distance`) remain distance policy and stay centre-based on purpose;
-  only the predicate that claims *contact* was ever making a claim about bodies.
+- **Phase transition is its own mechanism**, separate from hitstun: a trigger
+  fires, a short invulnerable tell (`transition_lock`) runs, then the brain's
+  phase swaps. Order every reader of the entity's phase copy after the mirror
+  that writes it.
+- **The encounter is an optional entity.** HP and phase belong to the boss.
+  Thresholds as progress, per-phase music, lock walls, HUD and the scripted
+  timeline belong to the encounter. "Cleared" is keyed by encounter placement,
+  not archetype.
+- **Reactions are per-entity messages.** `BossPhaseEvent` carries the entity, so
+  music, cutscene and reward subscribers never collide.
+- **Spacing about bodies uses body envelopes, not centres.**
+  `BossPatternContext` carries the target's body box, and `lateral_body_gap` is
+  the gap between surfaces. A contact predicate on centre distance never engages
+  a wide boss. Standoff rings (`too_close_distance`, `engage_distance`) stay
+  centre-based on purpose.
+- **A replay that un-defeats a boss un-grants its consequences** for every
+  family (Q51/Q56, `retract_boss_defeats_on_replay`).
 
 ## Scripted encounters are data
 
-A bespoke set-piece (cut-the-rope, escort, "stand under the thing") is authored data,
-not new code: `EncounterScript { beats: [{ when: Trigger, then: [Effect] }] }` over a
-shared vocabulary —
+A set piece is authored data:
+`EncounterScript { beats: [{ when: Trigger, then: [Effect] }] }`.
 
 - **Triggers:** `RopeCut`, `MemberAtPosition`, `HazardImpact`, `MemberDied`,
   `AllMembersDead`, `Timer(s)`, `PlayerEntered`, `Gate(String)`.
-- **Effects:** `CommandMoveTo`, `DropHazard`, `ForceKill`, `SetLockWalls`, `SetMusic`,
-  `GrantReward`, `ReleasePayload`.
+- **Effects:** `CommandMoveTo`, `DropHazard`, `ForceKill`, `SetLockWalls`,
+  `SetMusic`, `GrantReward`, `ReleasePayload`.
 
-These resolve to reusable Bevy components an author can inspect: `CommandedMove {
-target, speed, arrive_tolerance }`, `FallingHazard { anchor, size, gravity, terminal,
-align_tolerance, target, impact_gate }`, `ReleaseOnDeath` + `PayloadReleased`. Add a
-new beat/effect to this vocabulary, not a new bespoke system.
+They resolve to inspectable components: `CommandedMove`, `FallingHazard`,
+`ReleaseOnDeath` + `PayloadReleased`. Add a beat or effect to this vocabulary,
+not a bespoke system.
 
-## Engine vs content
+## Engine and content
 
-The mechanism (phase triggers, the optional encounter entity, the scripted-beat VM,
-the event channel) is **engine**. A boss's stats, phase thresholds, music, placement,
-and signature effects are **content**. A second game gets the boss system for free and
-installs its own bosses as data (via the `BOSS_*` / `ENCOUNTER_WAVE_BOOK` install seams
-— see [`../../architecture/engine-architecture.md`](../../architecture/engine-architecture.md)).
+The mechanism (phase triggers, the optional encounter entity, the scripted-beat
+interpreter, the event channel) is engine. A boss's stats, thresholds, music,
+placement and signature specials are content, installed as pack data and
+modules.
+
+`BossAnim` stays separate from `CharacterAnim`: boss rows name attack-geometry
+verbs (`floor_slam`, `side_sweep`, `spike_halo`, `dash_echo`) that are also keys
+into hurtbox and hitbox metadata. Reopen only if a boss sheet needs character
+locomotion rows.
 
 ## Pointers
 
-`ambition_characters/src/boss_encounter.rs` (`ActorPhaseState`), HP on the body's
-`BodyHealth`, the `BossPattern` brain, `ambition_platformer2d_actor_monolith/src/features/ecs/damage/boss_hit.rs`
-(`apply_boss_hit` is the entry; it delegates HP and phase to
-`apply_entity_boss_damage`, which now takes its shield through
-`ambition_damage::WalletArmor`).
-The blast radius of a registry change is ~15 files across machinery / characters / app /
-content — run the boss lifecycle tests after.
+- `ambition_characters::boss_encounter::ActorPhaseState`.
+- `ambition_boss_encounter::pattern` (ticker, control flow, seeds, validator).
+- `features/ecs/damage/boss_hit.rs` in the actor monolith: `apply_boss_hit` is
+  the entry; it delegates HP and phase to `apply_entity_boss_damage`, which takes
+  its shield through `ambition_damage::WalletArmor`.
 
-## Status
+Run the boss lifecycle tests after a registry change.
 
-The structural refactor (entity-local state, optional encounter, generic scripted
-beats) has landed and is headless-green (the canary
-`two_same_archetype_bosses_have_independent_encounter_state` guards the keying win).
-What remains is **content** (authoring specific encounters, the cut-rope victory NPC)
-and **in-game feel** (boss pacing, music / lock-wall timing) — verified against the
-real sim and Jon's eye.
+## Architecture boundary
 
-## Boss boundary in the architecture reassessment
-
-Boss pattern/content selection, shared actor materialization, accepted combat
-reaction and encounter/reward lifecycle are distinct authorities. The existing
-boss crates are evidence of some separation, not permission to move every boss
-caller into one new capability. Preserve the current body construction road.
-
-A2 in the [frontier](actor-monolith-work-frontier.md) first aligns projectile boss
-admission and damage with published authored hurt geometry, including an explicit
-empty set. That fix precedes removal of feature-family dispatch. Boss health,
-invulnerability and reward policy remain with their existing semantic owners;
-The geometry repair does not answer the composition or replay questions, and
-both are now ruled (2026-10-01, [`maintainer-decisions.md`](../maintainer-decisions.md)).
-Q48: boss support as an independent capability is engineering; extract it if the
-seams are mature, and do not force it. Q51/Q56: a replay or rewind that
-un-defeats a boss un-grants the consequences of the defeat, for every family
-(queue row `BOSS-REPLAY-RETRACTION`).
+Boss pattern selection, shared actor materialization, accepted combat reaction
+and encounter and reward lifecycle are distinct authorities. Boss damage reads
+the published `DamageableVolumes`; a boss has no fallback hull. Boss support as
+an independent capability is engineering work (Q48): extract it when the seams
+are mature, and do not force it.

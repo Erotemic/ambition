@@ -1,13 +1,11 @@
 # Public SDK 1.0
 
-**State:** open; baseline `300004d601af1e633cfaee969f079cf9bb368ca8`.
-The supported product is an ergonomic programmatic engine API, with validated
+**State:** OPEN. The supported product is an ergonomic programmatic engine API, with validated
 agent-native authoring and an explicit build/package path. Internal crate names
 are not the public capability model.
 
 [The queue](../queue.md) chooses execution. The concrete profile packet is A9 in
-[the frontier](actor-monolith-work-frontier.md); current owners are in the
-[responsibility map](architecture-responsibility-map.md).
+[the frontier](actor-monolith-work-frontier.md).
 
 ## Current implementation and remaining gap
 

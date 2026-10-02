@@ -1,18 +1,18 @@
 ---
-status: built 2026-08-29; open for feel
+status: built; open for feel
 owner: game/ambition_content/src/performer_moveset.rs
 ---
 
 # The Performer's up-B is a wire, not a teleport
 
-**State.** Built 2026-08-29: `0dd64feea` (the kernel's wire), `f920e092c` (the
-move and the rope), `6dc8833f2` (`wire_probe`). The six clauses below are
-measured. Feel is open: nobody has played it, and `performer_moveset.rs` has not
-changed since (checked 2026-09-03). The tuning knobs are named in that file.
+**State.** Built: the kernel's wire (`crates/ambition_platformer2d_core/src/movement/`),
+the move and the rope (`performer_moveset.rs`, `movesets/performer.ron`), and
+the `wire_probe` instrument. The six clauses below are measured. Feel is open:
+nobody has played it. The tuning knobs are named in `performer_moveset.rs`.
 Under [`../decision-principles.md`](../decision-principles.md) this is tuning
-work for Jon; it blocks nothing.
+work for Jon. It blocks nothing.
 
-## Maintainer intent (Jon, 2026-08-29)
+## Maintainer intent
 
 > *"Now we need to fix her up-b. It is not a teleport and should not get the
 > teleport sound. It needs to be a rope or wire that reaches down from the sky
@@ -54,8 +54,7 @@ boards by t90, and a swing away drops her past the blast line.
 
 ## The proof bar
 
-Two earlier attempts at the Trap (her down-B) were declared done while broken in
-play. For a Smash move:
+A Smash move is not done until it works in play. For a Smash move:
 
 1. A moveset test proves the spec, not the move.
 2. The simulation is not the game. Observe visible behavior through a host with

@@ -90,7 +90,7 @@ other, and authority decomposition comes first.
 ⇒ **The doctrine — the two dimensions, the ordering, the absence criterion, the
 intended layering, the runtime and shared-schedule risks, the stronger meaning of
 "decomposed", and the minimum-host tests that would prove it — lives in
-[`../planning/engine/decomposition.md`](../planning/engine/decomposition.md).**
+[`../planning/engine/architecture.md`](../planning/engine/architecture.md).**
 It is not restated here, so that there is one home for it.
 
 ⚠ Read it beside the rest of this page rather than instead of it: this page's

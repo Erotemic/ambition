@@ -181,10 +181,9 @@ app with `cargo tree -p <app> | grep -c "ambition_relativity v"`; every other
 shipped app must report 0. (Enumerate apps with `find ... -name Cargo.toml`,
 not `ls | grep`, which can fail silently on colour escapes.)
 
-A cost contract of the form "games that do not opt in do not pay" is enforced by
-every aggregate feature that could contain the opt-in, not only by the feature
-flag itself. `relativity` was once listed in the facade's `all_capabilities`,
-which put both crates into the shipped game. The policy row
+A cost contract of the form "games that do not opt in do not pay" is enforced on
+every aggregate feature that could contain the opt-in, not only on the feature
+flag itself. The policy row
 `engine.facade-all-capabilities-omits-relativity` now forbids the quoted
 list-entry form `"relativity"` in `crates/ambition_platformer2d/Cargo.toml`, so
 the feature cannot enter a feature array there. TwinTrack names the capability
@@ -218,48 +217,26 @@ commitment to physical 2+1-dimensional gravity.
 - accelerated-target or curved-spacetime intercept solvers;
 - the future 3D Slower Light game.
 
-## SR-5 festival polish boundary
+## Presentation consumers (SR-5, SR-6)
 
-SR-5 adds no new relativistic law. It improves the game-facing consumers of the
-existing exact systems:
+These slices add no relativistic law. They make existing SR facts visible:
 
-- proper-time clocks drive world-space hands/readouts;
+- proper-time clocks drive world-space hands and readouts;
 - packet payloads drive presentation labels without changing signal authority;
 - continuous Doppler preview is derived from body state and the Minkowski
-  measurement helper rather than stored as canonical state;
-- multi-round assistance changes only presentation declarations; every hit still
-  uses the same exact null-intercept and swept receiver path;
-- TwinTrack raises the opt-in worldline/arrival history capacities for its own
-  replay, so other games retain zero runtime and allocation cost unless they
-  install and configure the relativity capability.
+  measurement helper, not stored as canonical state;
+- multi-round assistance changes only presentation declarations; every hit uses
+  the same exact null intercept and swept receiver path;
+- orbiting plaza characters show their paths, radial arms, speed as a fraction
+  of `c` and large proper-time clock faces;
+- the 3D teaching scene maps the two gameplay coordinates to X/Z and `ct` to
+  vertical Y, so circular motion is a helix and null propagation is a light
+  cone. One-second beads come from each track's `proper_time` samples. The
+  laboratory-now and observer-now planes are the flat-space simultaneity
+  slices of the selected event, not a second simulation clock;
+- an exact aberration reference ring in TwinTrack's optical presentation.
 
-
-## SR-6 classroom spectacle boundary
-
-SR-6 still adds no new relativistic law. It makes already-authoritative SR facts
-visually interpretable:
-
-- orbiting plaza characters expose their authored paths, radial arms, speed as a
-  percentage of `c`, and much larger proper-time clock faces;
-- the 3D teaching scene maps the two gameplay coordinates into X/Z and `ct` into
-  vertical Y, so circular motion becomes a helix and null propagation forms a
-  literal light cone;
-- one-second beads are derived from each track's existing `proper_time` samples,
-  making differential aging visible as bead density rather than another number;
-- the laboratory-now and observer-now planes are derived from the same selected
-  event and observer coordinate velocity. The observer plane is the flat-space
-  instantaneous simultaneity slice, not a second simulation clock;
-- the 3D camera, meshes, orbit guides, and all new labels are visible-feature
-  presentation. Headless games and games that do not select TwinTrack pay no
-  runtime cost.
-
-The exhibit is intentionally not the deferred 3D Slower Light game: it renders a
-3D graph of 2+1D data while the game world, collisions, optics, and controls remain
-2D.
-
-The SR-6 classroom spectacle slice remains presentation-only: a perspective 3D
-2+1D worldline exhibit consumes existing derived histories and signal views. It
-does not add a 3D gameplay world, a second simulation authority, or curved
-spacetime behavior. The same slice adds an exact aberration reference ring in
-TwinTrack's optical presentation from uniformly spaced laboratory-frame point
-sources.
+TwinTrack raises the opt-in worldline and arrival history capacities for its own
+replay. The 3D exhibit renders a 3D graph of 2+1D data. The game world,
+collisions, optics and controls stay 2D. It is not the deferred 3D Slower Light
+game, and games that do not select TwinTrack pay nothing.

@@ -1,31 +1,21 @@
 # Manual browser audio checklist
 
-> The agent that landed the audio port (this checklist's source) cannot
-> open a browser. Jon needs to walk through these steps and report back
-> what he saw — only then is the web audio path considered verified.
+A person with a browser runs this checklist and reports what they saw. The web
+audio path is verified only after that report.
 
-## What changed since the last attempt (Jon reported silent web)
+## How the web audio path works
 
-1. **JS AudioContext-unlock shim** in `game/ambition_app/web/index.html`.
-   Patches `window.AudioContext` to track every context cpal creates,
-   then calls `ctx.resume()` from a real DOM `pointerdown` / `keydown`
-   / `touchstart` / `click` handler. Without this, cpal's webaudio
-   backend creates the context at startup and Kira's later `play()`
-   calls (from Bevy's RAF loop, not from inside the gesture handler)
-   silently fail to resume the context. **This is the most likely
-   reason web audio was inaudible before.**
-2. **Deferred music startup.** `start_default_music_when_ready` (in
-   `crates/ambition_audio/src/library.rs:544` — this said `audio/runtime.rs` <!-- cite-ok: names the pre-carve path this correction replaces -->
-   until 2026-09-03, a path that has not existed since the audio domain became
-   its own crate) replaces the old Startup-time `play()` call.
-   It polls each Update for (a) `AudioUnlockState.unlocked` (first
-   user gesture observed) and (b) `asset_server.is_loaded(handle)`
-   for the default music track. The first `play()` only fires after
-   both are true.
-3. **Better diagnostics.** Every audio-pipeline event now logs under
-   target `ambition_platformer2d::audio`: plugin install, gesture observed,
-   waiting-for-asset, music play attempt, SFX bank async load,
-   SfxBankResource install, first SFX play attempt.
+1. **JS AudioContext-unlock shim** in `game/ambition_app/web/index.html`. It
+   patches `window.AudioContext` to track every context cpal creates, then calls
+   `ctx.resume()` from a real DOM `pointerdown` / `keydown` / `touchstart` /
+   `click` handler. Without it, Kira's `play()` calls from Bevy's RAF loop do not
+   resume the context.
+2. **Deferred music startup.** `start_default_music_when_ready`
+   (`crates/ambition_audio/src/library.rs`) polls each Update for
+   `AudioUnlockState.unlocked` (first user gesture observed) and for the default
+   music asset to finish loading. The first `play()` fires only after both.
+3. **Diagnostics.** Every audio-pipeline event logs under target
+   `ambition_platformer2d::audio` (`AUDIO_LOG_TARGET`).
 
 ## Setup
 
@@ -39,7 +29,7 @@
 it, `./build_for_web.sh --serve` produces a `web` (visual smoke)
 build that does NOT include `bevy_kira_audio` — the browser will
 boot silent regardless of the JS shim, because there's no audio
-backend in the wasm at all. The build script now warns about this:
+backend in the wasm at all. The build script warns about this:
 
 ```text
 [web-build] warning: audio: DISABLED in build. This is a visual-smoke build only.
@@ -108,7 +98,7 @@ Expected, in order:
 8. On first jump/dash/hit:
    `ambition audio: first SFX play attempt (cue=Some(Jump), bank_loaded=true)`
 
-## What Jon should report back
+## What to report back
 
 For each item: paste the literal log line, or note "missing" /
 "saw error: <text>".
@@ -162,11 +152,10 @@ For each item: paste the literal log line, or note "missing" /
 
 ## Underwater audio
 
-> ⚠️ **The underwater effect is NOT a real low-pass filter today.** It
-> is a volume duck (~8 dB on music, ~5 dB on SFX) that ramps over
-> ~350 ms. The mix gets quieter; the spectrum is unchanged. See
-> `docs/systems/audio-underwater.md` for the backend blocker and the
-> direct-Kira follow-up plan.
+> ⚠️ **The underwater effect is a volume duck, not a low-pass filter.**
+> It is ~8 dB on music and ~5 dB on SFX, ramped over ~350 ms. The mix
+> gets quieter; the spectrum is unchanged. See
+> [`../systems/audio-underwater.md`](../systems/audio-underwater.md).
 
 ### How to enter underwater state
 
@@ -178,7 +167,7 @@ For each item: paste the literal log line, or note "missing" /
    (`WaterContact.submersion >= 0.5`). Without the `swim` ability
    this triggers a reset, so toggle swim on in dev tools first.
 
-### What you should hear today (placeholder)
+### What you should hear
 
 - Within ~350 ms after submersion crosses the threshold, **music
   audibly drops in level** by roughly 8 dB and SFX by roughly 5 dB.
@@ -204,7 +193,7 @@ For each item: paste the literal log line, or note "missing" /
       likely **no** — the docs say the current backend can't do that.
       If somehow you do, that's surprising and worth a note.
 
-## Notes for the next iteration
+## Troubleshooting
 
 - If `[ambition-audio] AudioContext unlock hook installed` is missing
   from console, the JS shim was bypassed (cached `index.html`?). Hard
@@ -222,14 +211,3 @@ For each item: paste the literal log line, or note "missing" /
   caching issue. Force-reload with devtools "Disable cache" should
   fix it; if not, the `web/assets/` symlink may be stale (re-run
   `./build_for_web.sh --served`).
-
-## Future work (not part of this verification)
-
-- "Click to enable audio" banner in `web/index.html` (visible
-  affordance, not just JS console).
-- Real underwater muffle via direct-Kira backend — see
-  `docs/systems/audio-underwater.md` (Option A, recommended).
-- Per-room ambience and combat-stem layering on the web build (the
-  music director already supports it on desktop; the limiter is just
-  whether the layered assets are reachable through the catalog under
-  `WebServedAssets`).

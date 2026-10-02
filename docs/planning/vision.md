@@ -51,9 +51,9 @@ See [`game/open-world-roadmap.md`](game/open-world-roadmap.md),
 
 ## Engine 1.0
 
-The current program is
-[`engine/engine-1.0-architecture-program.md`](engine/engine-1.0-architecture-program.md),
-with execution order in [`roadmap.md`](roadmap.md). The competitive product bar is
+The program map is in
+[`engine/architecture.md`](engine/architecture.md#program-map), with execution
+order in [`roadmap.md`](roadmap.md). The competitive product bar is
 [`engine/godot-class-2d-capability.md`](engine/godot-class-2d-capability.md).
 
 A credible 1.0 has:
@@ -142,7 +142,7 @@ agents guess which details were settled.
 
 ## Architectural acceptance of the programmatic engine target
 
-The [reassessment](engine/architecture-reassessment.md) makes this target concrete:
+[`engine/architecture.md`](engine/architecture.md) makes this target concrete:
 independent headless/interactive/combat profiles plus an out-of-workspace game,
 explicit state and lifecycle ownership, and a discover/validate/plan/apply/verify
 authoring loop over supported semantic APIs. Each profile needs actual behavior

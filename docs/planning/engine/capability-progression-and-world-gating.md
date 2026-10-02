@@ -1,4 +1,4 @@
-# Capability progression and world gating — Engine 1.0 program
+# Capability progression and world gating
 
 **State:** OPEN. Route gating is established; the remaining work is capability
 ownership and new world facts, not another generic gate mechanism.
@@ -99,22 +99,22 @@ choice in [Q58](../awaiting-maintainer-decision.md#q58--does-the-body-gate-famil
 Do not silently change `body.fits` to standing size or to "can reach a fitting
 stance" before that decision.
 
-## Co-op gate subject
+## Gate subject: per actor (Q54)
 
-The current route road evaluates body conditions over driven bodies, which means
-one qualifying participant can satisfy the shared wall condition. Because the
-wall is one mechanical object used by collision, projectiles and rendering,
-per-player passability would require a different mechanism rather than a stricter
-query.
+A body or capability gate is evaluated per actor (Q54, see
+[`maintainer-decisions.md`](../maintainer-decisions.md)). A wall that needs worn
+Phase Boots is open for the actor who wears them and solid for one who does not.
+A party never opens one shared wall.
 
-✅ **Ruled 2026-10-01 (Q54, [`maintainer-decisions.md`](../maintainer-decisions.md)):
-the gate is evaluated per actor.** A wall that needs worn Phase Boots is
-intangible for the actor who wears them and solid for one who does not. So the
-shared-wall behaviour above is now a defect against the ruling: collision
-between a gated wall and an actor must read that actor's state. The work is
-the queue row `GATE-PER-ACTOR`, which landed the body steps: a wall gated on a
-body condition stands for every reader and is open (`GatePass`) for each body
-that satisfies it, and a body step reads `ComposedRooms::solids_for`.
+A condition can publish a subject form (`SubjectConditionEvaluator`,
+`ConditionCatalog::ask_for`); `body.can` and `body.fits` publish one. A wall
+with a subject form stands in its room's `gate_solids`, and the publisher writes
+a `GatePass` for each body that satisfies it. Body steps read
+`ComposedRooms::solids_for(collision, room, body)`. A projectile, a dropped item
+and any reader that names no body meet the wall as solid. A wall gated on a
+population fact (`world.flag_set`, `inventory.holds`) has one answer for every
+body. Open work (brain path decisions read the shared walls) is the queue row
+`GATE-PER-ACTOR`.
 
 ## World-mechanism facts
 
@@ -129,10 +129,9 @@ every transient object in order to make a gate expression possible.
 
 ## Item/equipment and progression
 
-Item possession can already be queried through the published item/custody facts.
-✅ Q45 is ruled (2026-10-01, [`maintainer-decisions.md`](../maintainer-decisions.md)):
-a unique capability item may behave as an entitlement during engine development.
-The game will distinguish an unlock from a physical item occurrence when the
+Item possession is queried through the published item and custody facts. A
+unique capability item may behave as an entitlement during engine development
+(Q45); the game distinguishes an unlock from a physical item occurrence when the
 item model is reworked.
 
 Permanent participant-level ability progression does not currently exist as a
@@ -176,24 +175,12 @@ published fact can serve them all.
 
 ## Open work
 
-1. **Resolve Q58** before authoring `body.fits`/body-state gates broadly.
-2. ✅ **Q54 ruled 2026-10-01: a body/capability gate is evaluated per actor.**
-   A phase wall that needs Phase Boots is intangible for the actor who wears
-   them and solid for one who does not. Collision between the wall and an
-   actor reads that actor's state; a party never opens one shared wall. So
-   the work is actor-specific traversal/collision, not a gate "opened" for
-   everybody.
-3. ✅ **Q45 ruled 2026-10-01: entitlement behaviour is acceptable for now.**
-   The demo inventory's capability items may stay entitlements; the item model
-   is reworked when real game development begins, and then an unlock and a
-   physical item occurrence are distinguished on purpose.
-4. When a second real temporary/permanent ability grant appears, design one
-   contribution/projection road with the falling-sand swim customer and remove
-   direct save/restore writes of the effective set.
-5. Add world-mechanism, social/knowledge or soft-pressure conditions only after
+1. **Resolve Q58** before authoring `body.fits` or body-state gates broadly.
+2. Brain path decisions read the per-body walls (queue `GATE-PER-ACTOR`).
+3. Add world-mechanism, social/knowledge or soft-pressure conditions only after
    the authoritative fact they read exists.
-6. Add compound route expressions only when a concrete authored gate cannot be
-   represented cleanly by one published fact.
+4. Add compound route expressions only when a concrete authored gate cannot be
+   represented by one published fact.
 
 ## Acceptance
 
@@ -202,7 +189,7 @@ published fact can serve them all.
 - `AbilityBase` remains intrinsic authority and `BodyAbilities` remains the
   effective projection consumed by gameplay;
 - new restrictions/grants cannot permanently erase intrinsic capability;
-- co-op subject semantics are explicit before content depends on them;
+- the gate subject is the actor (Q54);
 - durable progression facts have a named owner and lifetime;
 - route conditions do not become a second source of truth for the state they
   query.

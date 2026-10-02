@@ -62,14 +62,9 @@ cargo test -p ambition_asset_manager --features bevy
 cargo test -p ambition_platformer2d_actor_monolith --lib asset
 ```
 
-⛔ **`--features bevy` IS NOT OPTIONAL HERE, and this block omitted it until
-2026-09-03.** This crate's `default = []` keeps it Bevy-free so headless and CLI
-tooling can use the resolver layer with zero Bevy deps — a good default with one
-consequence the command has to carry: `image_stages` and **its 16 tests exist
-only under `--features bevy`**, and the crate's own
-`crates/ambition_asset_manager/src/lib.rs:52` says so in capitals. ⇒ A bare `cargo test -p ambition_asset_manager` compiles, passes, and
-skips the image stage ledger and the reveal-readiness guard without printing
-anything about it. A green run of the command this page used to recommend is not
-evidence that the demand → insert → GPU → first-draw boundaries hold.
+⛔ **`--features bevy` is required here.** The crate's `default = []` keeps it
+Bevy-free for headless and CLI tooling. `image_stages` and its tests (the image
+stage ledger and the reveal-readiness guard) exist only under `--features bevy`,
+so a bare `cargo test -p ambition_asset_manager` passes without running them.
 
 For platform changes, also run the relevant build recipe under `docs/recipes/`.

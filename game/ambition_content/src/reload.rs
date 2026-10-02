@@ -9,11 +9,11 @@
 //! to an App-scoped selection is fast-iteration I3 step 1 and is not done here.
 //!
 //! A reload publishes the selected pack together with every participating
-//! domain: see [`participates`] (the moveset schema plus
-//! [`PACK_DERIVED_FAMILIES`]). [`ReloadRequest`] refuses a candidate that
-//! changes any other domain (items, audio, character catalog),
-//! because the canonical identity would then name generation N+1 while that
-//! catalog still serves N. A family added later is refused by default.
+//! domain: see [`participates`] (the moveset, character catalog, Smash fighter,
+//! boss and audio domains, plus [`PACK_DERIVED_FAMILIES`]). [`ReloadRequest`]
+//! refuses a candidate that changes any other domain, because the canonical
+//! identity would then name generation N+1 while that domain still serves N. A
+//! family added later is refused by default.
 
 use ambition_characters::prepared::{stage_move_section, MovesetRevisionError};
 // Only tests use the combined admit-and-publish entry point. The production

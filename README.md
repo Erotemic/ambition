@@ -43,7 +43,8 @@ Start here, then route to the smallest relevant doc packet:
 * [`docs/tools/index.md`](docs/tools/index.md) — author-time tools.
 * [`dev/README.md`](dev/README.md) and [`dev/SEARCH.md`](dev/SEARCH.md) —
   engineering memory from real mistakes.
-* [`.agent/README.md`](.agent/README.md) — generated, commit-matched navigation and query protocol.
+* `.agent/README.md` — generated, commit-matched navigation and query protocol.
+  It is git-ignored. Build it with `python scripts/generate_agent_index.py`.
 
 `docs/planning/` is the source of truth for direction and tasking. ADRs,
 concept docs, system docs, recipes, and source code describe current facts and
@@ -51,9 +52,9 @@ may lag. If planning and an older doc disagree about direction, planning wins.
 If planning and code disagree about current reality, the code wins and the plan
 should be updated in the same commit that discovers the drift.
 
-`docs/current/` is retired. Historical notes live under `docs/archive/`.
-Brainstorms under `docs/brainstorms/` are design incubation space; agents
-do not write there.
+Superseded docs are deleted, not archived. Git history keeps them. Do not
+recreate `docs/current/` or `docs/archive/`. Brainstorms under
+`docs/brainstorms/` are design incubation space; agents do not write there.
 
 ## Project stance
 
@@ -169,8 +170,15 @@ The most important consequences are:
   quests, and game rules live above reusable engine crates.
 * **Simulation owns outcomes.** Presentation consumes read models and semantic
   effects and can disappear in a headless composition.
-* **Construction is transactional.** Provider/world content is prepared and
-  validated before one lifecycle-scoped session or room commit.
+* **Content compiles outside Rust.** Content packs go through one
+  compile path (`ambition_content_pack::compile`). Capability owners register
+  schemas. A content edit does not rebuild Rust, and a running game reloads
+  most content families.
+* **Construction is transactional.** A candidate session or room is prepared
+  and verified before one publication switch. A failed candidate leaves the
+  live world unchanged.
+* **Rooms are instances.** Several rooms can be live at the same time. Each
+  live room is its own root entity, and entities carry the room they are in.
 * **Stable identity is authored.** Bevy `Entity` values are allocator handles,
   not persisted/provider identity.
 * **The engine is executable without Ambition.** Demo providers are acceptance
@@ -333,7 +341,7 @@ Documentation routing:
 * author-time tools → `docs/tools/`
 * active plan and tasking → `docs/planning/`
 * Human-only incubation → `docs/brainstorms/`
-* historical/superseded notes → `docs/archive/`
+* superseded notes → delete them; Git history keeps them
 * engineering memory from bugs and traps → `dev/`
 
 Keep `AGENTS.md` short. Keep `docs/README.md` as the router. Do not turn either

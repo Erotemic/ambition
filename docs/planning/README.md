@@ -55,14 +55,10 @@ links to.
 - [`demos/README.md`](demos/README.md) — secondary games, the Smash inventory
   and moveset reviews.
 
-### Residual programs (root)
+### Other root documents
 
-- [`authoring-loop-program-2026-07-31.md`](authoring-loop-program-2026-07-31.md)
-  — duplicate content authorities, provider actions, external capability proof.
 - [`engine_rename_campaign.md`](engine_rename_campaign.md) — engine
-  restructuring candidates by difficulty.
-- [`modal-cli-binary-collapse.md`](modal-cli-binary-collapse.md) — combine the
-  probe binaries into one modal CLI.
+  restructuring candidates and their triggers.
 - [`moveset-inspector.md`](moveset-inspector.md) — combat inspection and the
   moveset observatory.
 
@@ -81,48 +77,24 @@ links to.
 - [`game/multiplayer.md`](game/multiplayer.md) — Ambition multiplayer product
   intent.
 
-### Engine: architecture frontier
+### Engine: architecture
 
-The source findings are tied to a named snapshot. Re-check them on a newer head.
-
-- [`engine/architecture.md`](engine/architecture.md) — entry point; workspace
-  policies cite it.
-- [`engine/architecture-reassessment.md`](engine/architecture-reassessment.md) —
-  target boundaries.
-- [`engine/architecture-responsibility-map.md`](engine/architecture-responsibility-map.md)
-  — current and target authorities.
+- [`engine/architecture.md`](engine/architecture.md) — the owner page: converged
+  shape, the rules workspace policies cite, decomposition doctrine, target
+  authorities, standing decisions and the Engine 1.0 program map.
 - [`engine/actor-monolith-work-frontier.md`](engine/actor-monolith-work-frontier.md)
-  — bounded ownership migration packets.
+  — bounded ownership packets A1–A12 and their state.
 - [`engine/actor-monolith-decomposition.md`](engine/actor-monolith-decomposition.md)
-  — durable decomposition rules for the actor kernel.
-- [`engine/actor-monolith-hard-core-edge-ledger.md`](engine/actor-monolith-hard-core-edge-ledger.md)
-  — decisions per kernel edge.
-- [`engine/decomposition.md`](engine/decomposition.md) — decomposition doctrine;
-  workspace policies cite it.
-- [`engine/architecture-review-findings.md`](engine/architecture-review-findings.md)
-  — review findings that need implementation evidence.
-- [`engine/architecture-review-coverage.md`](engine/architecture-review-coverage.md)
-  — 2026-09-08 review coverage record.
-- [`engine/engine-1.0-architecture-program.md`](engine/engine-1.0-architecture-program.md)
-  — Engine 1.0 program map.
-- [`engine/public-sdk-1.0.md`](engine/public-sdk-1.0.md) — public SDK scope.
+  — carve rules and edge dispositions for the actor kernel.
 - [`engine/controlled-character-actor-kernel.md`](engine/controlled-character-actor-kernel.md)
   — target contract for the actor kernel.
 - [`engine/capability-and-runtime-composition.md`](engine/capability-and-runtime-composition.md)
   — capability and plugin composition.
-
-### Engine: writer maps and censuses
-
-- [`engine/accepted-control-writer-map.md`](engine/accepted-control-writer-map.md)
-  — A4 control and body-execution writers.
-- [`engine/destructible-writer-inventory.md`](engine/destructible-writer-inventory.md)
-  — A5 destructible-state writers and the Q96 ruling.
-- [`engine/item-writer-inventory.md`](engine/item-writer-inventory.md) — A7 item
-  writers.
+- [`engine/public-sdk-1.0.md`](engine/public-sdk-1.0.md) — public SDK scope.
 - [`engine/prepared-definition-field-census.md`](engine/prepared-definition-field-census.md)
   — A6 per-field reader census.
-- [`engine/pickup-carve-checklist.md`](engine/pickup-carve-checklist.md) —
-  executed carve checklist; scripts read it.
+- [`engine/pickup-carve-checklist.md`](engine/pickup-carve-checklist.md) — crate
+  carve checklist.
 - [`engine/source-text-guard-exposure.md`](engine/source-text-guard-exposure.md)
   — source-text guards that can go blind.
 
@@ -209,10 +181,12 @@ The source findings are tied to a named snapshot. Re-check them on a newer head.
 - [`engine/render-animation-and-vfx.md`](engine/render-animation-and-vfx.md) —
   presentation ownership and body-owned drawables.
 - [`engine/sprite-renderer.md`](engine/sprite-renderer.md)
+- [`engine/runtime-rigged-sprite-animation.md`](engine/runtime-rigged-sprite-animation.md)
+  — rigged sprites (on in the shipped game).
 - [`engine/svg-component-character-migration.md`](engine/svg-component-character-migration.md)
 - [`engine/ui-localization-and-accessibility.md`](engine/ui-localization-and-accessibility.md)
 - [`engine/shell-vanity-sequence.md`](engine/shell-vanity-sequence.md) —
-  launcher fade-in (VC5).
+  title launcher fade-in (VC5).
 - [`engine/multiplayer-and-multiview.md`](engine/multiplayer-and-multiview.md)
 
 ### Engine: authoring, tools, build and performance

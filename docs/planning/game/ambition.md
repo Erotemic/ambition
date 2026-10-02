@@ -28,11 +28,15 @@ The most important Ambition-driven engine work is:
 
 1. finish the controlled-character actor kernel;
 2. make LDtk/kinematic world mechanics first-class;
-3. establish persistent world residency and instance/item accounting;
+3. persistent world residency and instance/item accounting (several rooms can be
+   live at once through `LiveRooms`; see
+   [`../engine/open-world-runtime-and-residency.md`](../engine/open-world-runtime-and-residency.md));
 4. make capability/item/world-state progression queryable;
 5. add platformer reachability/navigation;
 6. support persistent/spawned actor populations;
-7. support local/remote/mixed multiplayer and adaptive multiview;
+7. multiplayer and multiview: two local players in two live rooms with a view
+   each is built; adaptive split, online and mixed parties are not (see
+   [`multiplayer.md`](multiplayer.md));
 8. layer reactive character intelligence/dialogue over authoritative world facts.
 
 The current story arcs remain desired product work, but the world-first roadmap

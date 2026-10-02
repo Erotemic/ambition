@@ -1,6 +1,6 @@
 ---
 status: current
-last_verified: 2026-09-03
+last_verified: 2026-10-02
 related_docs:
   - docs/concepts/engine-mental-model.md
   - docs/concepts/content-and-provider-boundaries.md
@@ -71,99 +71,51 @@ completed migration ledger.
 ## Exact allowlists
 
 Allowlist files are exact reviewed inventories, not ceilings that can accumulate
-dead entries. For the room-feature raw-spawn gate:
+dead entries. The room-feature raw-spawn gate
+(`tests/ambition_workspace_policy/src/custom/lifecycle.rs`) reads:
 
 ```text
 docs/architecture/architecture-boundary-allowlist.txt
 ```
 
-Every scanned `spawn*.rs` file must appear exactly once and its recorded count
-must equal the current raw `commands.spawn(` count.
+The gate scans two roots: files under
+`crates/ambition_platformer2d_actor_monolith/src/features/ecs` whose path
+relative to that root starts with `spawn` (so `spawn_static.rs` and
+`spawn/portal_construction.rs` match one rule), and every file under
+`crates/ambition_platformer2d_actor_spawn/src/actor_spawn`. Every scanned file
+must appear exactly once, and its recorded count must equal its current raw
+`commands.spawn(` count.
 
-⛔ **AND "SCANNED" IS NARROWER THAN THIS SECTION READS — MEASURED 2026-09-03.**
-The gate (`tests/ambition_workspace_policy/src/custom/lifecycle.rs`) walks
-`features/ecs` recursively but keeps only files whose **FILE NAME** starts with
-`spawn`. Today that is exactly two: `spawn_actors.rs` and `spawn_static.rs`, both
-allowlisted at 0.
+- A removed file, a missing row, or an excess allowance is a failure.
+- Reduce counts by moving creation through the canonical scoped construction
+  seam.
+- Increase a count only when a raw spawn is intentional, cannot use that seam,
+  and the same patch explains why.
+- The gate asserts a scanned-file FLOOR, not `> 0`. Only a deletion should lower
+  it. A filter that stops matching is how a name-matching gate goes blind.
 
-⇒ **The directory named `features/ecs/spawn/` is therefore invisible to the gate
-that exists to govern room-feature spawns.** Its seven files — `mod.rs`,
-`portal_construction.rs`, `content_staging.rs`, `capability_lanes.rs`,
-`gravity_construction.rs`, `character_spawn_plan.rs`, `tests.rs` — are named for
-what they construct, so none begins with `spawn`. ⚠ **No production violation
-today**: all six production files are at 0 raw spawns, and the single
-`commands.spawn(` under that directory is in `tests.rs`. The gap is that a new
-raw spawn in any of them would fail nothing.
+### Adding or removing a crate touches files that name crates
 
-⭐ **AND IT CLOSED BY REFACTOR, NOT BY DECISION.** `cdd0a0a0d` (2026-06-14)
-split `features/ecs/spawn.rs` into `spawn/mod.rs` + `spawn/tests.rs`. Before that <!-- cite-ok: the pre-split filename, quoted to explain how the gate went blind -->
-commit the file was named `spawn.rs` and WAS scanned; after it, neither half
-matched, and the allowlist has not needed to mention them since. The commit's own
-subject is *"split 6 more test-heavy modules + fix source-scanner paths"* — so
-scanner paths were on its author's mind, and this one still went. ⇒ Nothing
-failed, because a name-matching gate cannot report the file it stopped matching.
+A dependency allowlist goes stale when a shared floor crate is extracted beneath
+it. Widen the allowlist when the new crate satisfies the policy's rationale (for
+example, a floor crate that depends only on `bevy` keeps a "host-free" crate
+host-free). Do not keep a private copy of a floor concept to avoid the edge.
 
-✔ **FIXED THE SAME DAY.** The filter now tests the path RELATIVE TO the scan
-root, so `spawn_actors.rs` and `spawn/portal_construction.rs` answer one rule and
-splitting a file into a directory cannot undo it again. The allowlist grew from
-two rows to nine — **coverage, not permission**: every production file added is
-at 0 and was already at 0, and the single allowed raw spawn is `spawn/tests.rs=1`,
-test scaffolding that builds a bare entity to drive this gate's own subject.
-The vacuity assertion is now a FLOOR (`scanned >= 9`) rather than `> 0`, because
-`> 0` was true throughout the three blind months and proved nothing.
-
-⭐ **The blindness was demonstrated, not argued.** With a raw `commands.spawn(`
-added to `spawn/portal_construction.rs`, the pre-fix gate — old filter, old
-allowlist — reports `test result: ok`. The same tree with the path filter reports
-*"1 raw commands.spawn calls; exact reviewed count is 0"*. ⇒ That pair is the
-evidence this gate was worth widening; a green run over a planted violation is
-the only proof a scanner's population was wrong. A removed file, missing row,
-or excess allowance is a failure. Reduce counts by moving creation through the
-canonical scoped construction seam. Increase a count only when a raw spawn is
-intentional, cannot use that seam, and the same patch explains why.
-
-### ⛔⛔ A DEPENDENCY ALLOWLIST GOES STALE THE MOMENT A SHARED FLOOR CRATE IS EXTRACTED BENEATH IT
-
-2026-09-04. `ambition_sprite_fx` was extracted as a render-floor crate and
-`ambition_portal2d_presentation` adopted it — `clip_material.rs` re-exports
-`SpriteFrameBasis`/`sprite_frame_basis`, which MOVED DOWN out of the portal
-crate, and `gun_visuals.rs` inserts `SpriteEffect::HueShift`. That crate's
-`dependency-allowlist` policy (`engine.ambition_portal2d_presentation-manifest-allow`,
-rationale *"must stay host-free"*) did not name it, so
-`cargo test -p ambition_workspace_policy --test policy` went RED — at DEFAULT
-features, in 4.6 seconds, on a clean checkout — and stayed that way for a day
-because nobody ran it.
-
-⭐ **The resolution was to WIDEN, and the argument is that the new crate
-satisfies the rationale rather than needing an exemption:** `ambition_sprite_fx`
-depends on `bevy` and nothing else — zero `ambition_*` edges — so it cannot pull
-in a host, a window, or any Ambition domain. Refusing the edge would have meant
-keeping a private copy of a floor concept in the portal crate, which is the
-defect the extraction removed.
-
-⇒ **THE HABIT IS BROADER THAN "CHECK THE ALLOWLIST", and YardratAmbition's
-framing is the one to keep: ADDING A CRATE TOUCHES FILES THAT NAME CRATES.**
-Three of them broke from one action that day — this allowlist, the sentinel's
-`fixtures/minimal_game/Cargo.lock`, and (through that lockfile)
-`check_absence_contracts.py`. None of the three is reachable from the change that
-broke them, and a memory of which files matter goes stale faster than the files
-do. ⭐ The list is DISCOVERABLE, so discover it instead of remembering it:
+Find every file that names crates instead of remembering them:
 
 ```bash
 git grep -l <an existing sibling crate name> -- '*.toml' '*.lock' '*.py'
 ```
 
-⇒ And run both gates after adding or removing a workspace crate:
+Then run both gates after you add or remove a workspace crate:
 
 ```bash
 cargo test -p ambition_workspace_policy --test policy   # read the per-policy lines
-python3 scripts/check_absence_contracts.py | tail -5    # confirm a verdict PER CONTRACT
+python3 scripts/check_absence_contracts.py | tail -5    # confirm a verdict per contract
 ```
 
-✔ The lockfile half is no longer silent: since 2026-09-04 a stale sentinel
-lockfile is reported as `capability-footprint-sentinel-lockfile-is-stale`, one
-RED among the others, instead of raising out of `check=True` and killing the
-script before most contracts ran.
+A stale sentinel lockfile (`fixtures/minimal_game/Cargo.lock`) is reported as
+`capability-footprint-sentinel-lockfile-is-stale`.
 
 ## Changing a boundary
 

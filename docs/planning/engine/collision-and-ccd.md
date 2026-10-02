@@ -1,10 +1,9 @@
 # Collision and continuous contact - remaining work
 
-The implemented movement contract remains in
-[movement and collision](../../concepts/movement-collision.md). This page tracks
-current contact/geometry work, not the completed CC1-CC8 campaign. The architecture
-review adds packet A2 in the [frontier](actor-monolith-work-frontier.md) and
-findings F2/F3 in [the source findings](architecture-review-findings.md).
+**Scope:** reusable geometry primitives and the remaining continuous-contact
+work. The implemented movement contract is in
+[movement and collision](../../concepts/movement-collision.md). Projectile
+contact is packet A2 in the [packet catalog](actor-monolith-work-frontier.md).
 
 ## Established foundation to preserve
 
@@ -22,13 +21,10 @@ room/seed/tick diagnostic. Do not replace these mechanisms merely to unify names
 Hazard contact already reads the current path, and the wrapper writes its sample
 before invoking the gate. `SimPhaseReach::Completed` preserves the original gate
 population; sample writing still occurs on zero-dt and early-return paths so a
-stale path is not reused. Missing samples retain the endpoint-only arm, which is
-permanent rather than compatibility: the fighter brain's recovery planner runs
-the kernel over a scratch body that is not an entity, so a sampleless mover
-always exists. What went instead were the ECS readers one layer up — hazard
-contact and room-transition entry — which rebuilt a segment from `vel * dt`,
-the second motion model the gate's own doc forbids. Moving the gate without preserving those populations would
-reopen a resolved defect. Source and regression home:
+stale path is not reused. A missing sample keeps the endpoint-only arm permanently: the fighter
+brain's recovery planner runs the kernel over a scratch body that is not an
+entity. No ECS reader rebuilds a segment from `vel * dt`; that is a second motion
+model. Preserve these populations when you move the gate. Source and regression home:
 `crates/ambition_platformer2d_core/src/movement/tests/hazard_sweep.rs`.
 
 ## A2: one contact decision through selection and reaction
@@ -37,9 +33,9 @@ The [projectile contact protocol](projectile-contact-protocol.md) is the detaile
 A2 owner. It specifies the source edits, response matrix and acceptance cases;
 this page owns reusable geometry primitives and the broader CCD program.
 
-A2a establishes one authored/fallback/empty target geometry. A2b sweeps the actual
-finite projectile through its actual travel legs and orders world/target contact
-under one collision policy. A solid destructible's own collider and hurt target
+A2a (landed) establishes one authored/fallback/empty target geometry. A2b sweeps
+the actual finite projectile through its actual travel legs and orders
+world/target contact under one collision policy; its obstruction half is landed. A solid destructible's own collider and hurt target
 can produce one compound contact, so world contributors need stable identity.
 A2c preserves immediate interception while delivering later damage to exactly the
 selected identity, without repeating broad feature queries.

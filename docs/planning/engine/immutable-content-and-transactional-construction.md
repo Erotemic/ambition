@@ -8,8 +8,8 @@ of their common vocabulary.
 ## Prepared content
 
 [Authored technique admission](authored-technique-admission.md) owns the checked
-move representation and installed profile rules. The 2026-09-11 source inspection
-finds installed checks and staged cast retention already implemented. The
+move representation and installed profile rules. Installed checks and staged cast
+retention are implemented. The
 [extension model](extension-model.md) extends that road to portable artifacts and
 coordinated code/data/schema generations; it does not create a second validator.
 
@@ -59,9 +59,9 @@ hydration can share a lifecycle coordinator without becoming one operation.
 Checkpoint restoration belongs with session; rest-point healing/capture remains
 content. [The checkpoint protocol](checkpoint-restoration-protocol.md) requires a
 pinned snapshot used by both preparation and commit; a raw reset broadcast is not
-sufficient authority for domain mutation. A rollback room transition waits for admitted confirmation and creates a
-new frame-zero baseline. Existing snapshots do not cross room boundaries.
-
+sufficient authority for domain mutation. A rollback room transition waits for
+admitted confirmation and creates a new frame-zero baseline. Existing snapshots do
+not cross room boundaries.
 
 ## Required reload guarantee and native failure limit
 

@@ -45,7 +45,7 @@ authored/generated data
 - One domain owns each noncommutative state machine. Multiple append-only
   registrations are fine; multiple mutable authorities are not.
 
-### Worked example: "multiple mutable authorities are not fine" (2026-09-03)
+### Worked example: "multiple mutable authorities are not fine"
 
 The rule above is easy to agree with and hard to spot, because the second
 authority is usually a POSITION rather than a second system. `SwitchActivationQueue`

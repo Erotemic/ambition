@@ -47,14 +47,9 @@ usually it names the closing brace of the construct the author meant -- so there
 is nothing to track and nothing to repoint. The report says so beside those rows,
 and the repair is to cite the symbol.
 
-⛔⛤ **AND `gone` IS NOT ALWAYS A DEFECT — LEARNED FROM THE FIRST SWEEP'S OWN
-RESULTS.** Seven of the sixteen `gone` findings were one table in
-`item-writer-inventory.md` listing the struct-literal `GroundItem { .. }` sites
-that a seal REPLACED with `GroundItem::at_rest`, kept deliberately as the record
-of what was sealed. The citation is a claim about a past tree and it is doing its
-job. This tool cannot tell that from a rotted coordinate, because both look like
-"the text is not there any more" — so `gone` is a READING LIST, and the question
-to ask of each is whether the sentence is written in the past tense.
+`gone` is not always a defect. A citation can be a deliberate claim about a past
+tree. This tool cannot tell that from a rotted coordinate, so `gone` is a reading
+list: ask of each one whether the sentence is written in the past tense.
 
 ⛔ **NOT A GATE BY DEFAULT.** The first run over `docs/planning` found 103 of 295
 citations no longer addressing their line. A check that fails on a third of the
@@ -330,7 +325,17 @@ def main(argv: list[str] | None = None) -> int:
 
     # ⛔ THE ANTI-VACUITY FLOOR. An import failure, a bad pathspec or a `git
     # blame` that returns nothing all produce an empty finding list, and "0
-    # drifted" reads exactly like a clean corpus.
+    # drifted" reads exactly like a clean corpus. A corpus that holds no
+    # `path:N` text at all is a clean corpus, so the floor applies only when the
+    # citation pattern matches somewhere.
+    cited = any(
+        corpus.cpc.FILE_LINE.search(line)
+        for doc in docs
+        for line in doc.read_text().splitlines()
+    )
+    if docs and not findings and not cited:
+        print(f"ok: no `path:N` citation in {len(docs)} document(s)")
+        return 0
     if not findings:
         print(
             f"no `path:N` citation was examined across {len(docs)} document(s). "

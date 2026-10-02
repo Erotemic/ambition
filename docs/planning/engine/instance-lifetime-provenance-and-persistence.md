@@ -1,8 +1,8 @@
 # Instance lifetime, provenance and persistence
 
-**State:** DISTILLED — the provenance/lifetime foundation is implemented; the
-remaining product semantics are owned by open-world, custody, and reconstitution
-plans.
+**State:** DISTILLED. The provenance and lifetime foundation is implemented.
+The open-world, custody and reconstitution plans own the remaining product
+semantics.
 
 ## Current model
 
@@ -42,70 +42,46 @@ operations demonstrate a real reusable core.
 - terminal versus resettable occurrence/tombstone semantics;
 - stable identity required across a fresh process versus identity that may be
   deterministically regenerated;
-- ~~persistent relocation of actors/items away from authored home placement~~
-  — answered 2026-10-01 by Q38 and OW3 (slices 1-5 in
-  [`open-world-runtime-and-residency.md`](open-world-runtime-and-residency.md)):
-  an item or persistent character left in another room has a durable
-  `Placed { room, at }` row and is built there; a population body away from
-  home is held as carried while it lives, and its home builds the
-  replacement when its room retires;
 - world/per-owner uniqueness without conflating identity with definition;
 - how much provenance is product state versus diagnostics.
 
-The implementation campaign and dated measurements that established this model
-remain recoverable through git history; they are no longer active planning.
+Persistent relocation is settled (Q38 and OW3 in
+[`open-world-runtime-and-residency.md`](open-world-runtime-and-residency.md)).
+An item or persistent character left in another room has a durable
+`Placed { room, at }` row and is built there. A population body away from home
+is held as carried while it lives, and its home builds the replacement when its
+room retires.
 
-## ⭐⭐⭐ A CLAIM RELEASED ONLY BY THE PATH THAT TOOK IT — three player-visible instances in one day (2026-09-06)
+## A claim is released on every frame nobody claims it
 
-Three subsystems, three owners, one shape, all three reported or found the same
-day. Every one had a `release` a reader would tick off as present.
+A shared claim (a music owner tier, a hidden-mesh latch) must be released by a
+system that can reach the "nobody claims" arm on every frame. A release that
+runs only inside the one-shot that took the claim, or only while a live script
+emits it, is never reached after a despawn or a death. An effect fires once. A
+despawn fires nothing.
 
-| owner | claimed by | release reachable when? |
-|---|---|---|
-| portal dependent hide | the body loop's hide | ⛔ never — no marker, no release branch at all |
-| `CUT_ROPE_MUSIC_OWNER` | `reset_cut_rope_attempt_on_replay` (a DEATH is a replay) | ⛔ only inside that same one-shot |
-| `SCRIPT_MUSIC_OWNER` | an `EncounterEffect::SetMusic` beat | ⛔ only while a live script emits `SetMusic(None)` |
-| `BOSS_MUSIC_OWNER` | the boss-music system | ✔ every frame — it says so in its own comment |
-| `DEATH_MUSIC_OWNER` | mary-o's death window | ✔ if/else over a live query |
+- Ask on which frames the release is reachable, not whether a release call
+  exists. A "every claim has a release" grep cannot catch this, so this is a
+  rule, not a checker.
+- The correct shape: a system with no run condition that reaches the "no owner"
+  arm on every frame (the boss-music owner is the pattern).
+- Release only the owner's own claim. Clearing the whole tier silences whoever
+  legitimately holds it.
 
-⇒ **AN EFFECT FIRES ONCE; A DESPAWN FIRES NOTHING.** The presence of a `release`
-call proves nothing. The question is **on which frames it is REACHABLE**, and
-specifically whether it is reachable on a frame where nobody claims.
-
-⛔ **WHAT MADE THEM PLAYER-VISIBLE RATHER THAN UNTIDY:** the portal one latched a
-hit-flash mesh hidden *for the rest of the session* (its update path states
-visibility "stays `Visible` permanently", so nothing ever put it back); the two
-music ones win over room music, because `EncounterMusicRequest::desired_track` puts
-the priority tier above it — so a stale claim does not linger quietly, it plays a
-boss's intro in every room the player visits.
-
-⭐ **THE CORRECT SHAPE WAS ALREADY WRITTEN IN THE SAME CRATE, for a different
-owner**: *"This system has no run condition, so it reaches the 'no boss is
-fighting' arm on every frame of every game."* ⇒ When one member of a family is
-right, read its comment and apply it to the others rather than re-deriving. Two of
-the three fixes are that sentence, moved.
-
-⚠ **A SYNTACTIC GUARD CANNOT CATCH THIS — checked before building one.** All five
-owners *have* a matching release; the defect is REACHABILITY, not presence, so a
-"every claim has a release" grep is green on all three bugs. That is why this is a
-recorded RULE and not a new checker.
-
-⚠ **And the release must be OWNER-SCOPED.** The obvious wrong fix — clearing the
-tier outright — silences whoever legitimately holds it, and that crate's comment
-records having shipped exactly that once: *"a demo with no bosses at all could not
-hold priority music for a single frame."*
+Stale music claims are player-visible, because `EncounterMusicRequest`
+priority tiers rank above room music.
 
 ## Qualify identity by the authority that interprets it
 
 Do not merge authored content IDs, live entity IDs, item occurrence IDs,
 construction-attempt IDs, session IDs and rollback wire IDs into one universal
-identity type. They have different equivalence and lifetime rules. The
-[responsibility map](architecture-responsibility-map.md) requires every state move
-to name its scope, accepted writers, restoration and retirement boundary.
+identity type. They have different equivalence and lifetime rules. Every state
+move must name its scope, accepted writers, restoration and retirement boundary.
 
 A1 keeps checkpoint restoration progress with session; item baselines remain
-item-owned under A7. A8 needs two copies of one authored room as a namespace
-witness before adding instance qualification. A10 cannot infer reversible global
+item-owned under A7. Two live instances of one authored room are qualified by
+their live room (`InRoomInstance`, `LiveBodyId`), not by a universal identity.
+A10 cannot infer reversible global
 mutation from a construction-attempt marker. Stale async preparation/agent
 responses must be rejected by the appropriate generation/revision owner.
 

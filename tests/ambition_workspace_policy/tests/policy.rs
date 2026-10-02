@@ -317,9 +317,7 @@ fn every_source_root_contributes_files() {
 ///
 /// ⭐ THE ANCHOR IS CHECKED TOO, and it is the half that rots. A policy row
 /// survives its doc being reorganised — the file is still there, the `#heading`
-/// it named is not — and 15 rows were repointed off dead
-/// `decomposition.md#…` anchors on 2026-09-02 for that reason. A file-only
-/// check would have called every one of them fine.
+/// it named is not. A file-only check would call such a row fine.
 ///
 /// ⚠ MEASURED WHEN ADDED: 239 rows, all resolving. This is a ratchet on a clean
 /// state, not a cleanup.

@@ -34,11 +34,9 @@ Rust module-boundary work includes splitting large facade files into private chi
 
 ## ⭐ Moving a module to ANOTHER CRATE adds four traps these invariants do not name
 
-Verified 2026-09-03 by carving `encounter/` out of the actor kernel into
-`ambition_encounter_features`. Every invariant above held and three of them bit —
-the `include_str!` path (one fewer `../` from the new depth), stranded test
-helpers, and sibling imports. These four are additional, and all four are
-mechanical:
+The invariants above still hold across a crate move (the `include_str!` depth,
+stranded test helpers and sibling imports all apply). These four are additional,
+and all four are mechanical:
 
 - **`pub(in crate::some::path)` is CRATE-relative and silently wrong after the
   move.** `pub(in crate::encounter)` compiled for years and became "could not

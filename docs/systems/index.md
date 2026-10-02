@@ -2,8 +2,8 @@
 
 System docs describe current cross-crate behavior. They are deliberately concise:
 exact file/symbol inventories belong in source, `MODULES.md`, and `.agent/`.
-Migration ledgers, dated audits, and future designs belong in `archive/` or
-`planning/`, not here.
+Future designs belong in `planning/`. Delete migration ledgers and dated
+audits; Git history keeps them.
 
 ## Core flows
 
@@ -38,7 +38,6 @@ Migration ledgers, dated audits, and future designs belong in `archive/` or
 | Factions | [`factions.md`](factions.md) |
 | Developer tools | [`developer-tools.md`](developer-tools.md) |
 | Underwater audio | [`audio-underwater.md`](audio-underwater.md) |
-| AI generation contract | [`ai-generation-contract.md`](ai-generation-contract.md) |
 
 Before trusting an exact path in a system doc, confirm it with:
 

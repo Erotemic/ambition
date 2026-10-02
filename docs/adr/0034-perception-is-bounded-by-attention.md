@@ -3,7 +3,8 @@
 ## Status
 
 Proposed (2026-09-01). Direction set by Jon; this ADR settles only the
-rollback/replay question that blocks the first increment. The design lives in
+rollback/replay question that blocks the first increment. The design and the
+implementation status of each increment live in
 `docs/planning/engine/bounded-perception-and-attention.md`.
 
 ## Context
@@ -121,18 +122,6 @@ written into it is a replay-compatibility change.**
    registered. Deriving it keeps the wire flat while the fidelity of the summary
    grows with density.
 
-## ⛔ The acceptance criterion for the NEXT increment was wrong
-
-Measured 2026-09-01: no fighter constructs a 129-actor view today.
-`Perception::Sighted`'s viewport already bounds the kept set at ~14 (max 21) and
-holds it there when the room doubles, so "130 brains must not each construct a
-129-actor view" passes on current code.
-
-The variable is not population, it is DENSITY. The room for increment 2 has to
-make `kept` track population — fighters inside one another's viewports — before a
-budget can be shown to bound it. See
-`bounded-perception-and-attention.md`.
-
 ## Consequences
 
 - The first increment is schedulable: it needs a baseline move, and the baseline
@@ -142,84 +131,6 @@ budget can be shown to bound it. See
 - A brain that declares `None` gets an empty belief store rather than one
   tracking peers it never reads. That is a visible change to a checksummed
   value, and it is intended.
-
-## Increment 1, part one: LANDED 2026-09-01 (the seam, not the gate)
-
-`PerceptionRequirement { None, TargetBelief, TacticalWorld }` and an exhaustive
-`StateMachineCfg::perception_requirement()`. **Nothing is wired**: no behaviour
-change, no state change, no phase cost moved. It exists so the second half has
-one authority to ask.
-
-```text
-None           StandStill, Wanderer, PlayerDemo
-TargetBelief   Patrol, MeleeBrute, Skirmisher, Sniper, ChargeCrash, Aerial,
-               BossPattern
-TacticalWorld  Smash, Fighter
-```
-
-⛔⛔ **THE MAPPING IS BY WHAT AN ARM READS, NOT BY ITS SIGNATURE.** `MeleeBrute`
-never sees a `WorldView` and never names `target_pos`; it steers through
-`to_character_ai_snapshot`, whose `player_pos` IS the target delta. A rule that
-classified on "does this tick function take `&WorldView`" would file it under
-`None` and stop every brute in the game being told where its foe is. `StandStill`
-is the opposite pole and its evidence is the strongest available:
-`tick_stand_still(out)` takes no snapshot at all.
-
-⭐ `TacticalWorld` needs the belief TOO — a fighter that loses sight of a foe
-pursues from the same memory a skirmisher does — so `needs_target_belief()` is
-true at both upper levels and only `needs_world_view()` separates them.
-
-### Part two: LANDED 2026-09-01, and measured
-
-The gate is wired and the schema baseline moved with it
-(`GGRS_ROLLBACK_SCHEMA_VERSION` 146 → 147, reason recorded beside the other 146).
-
-```text
-authored hall (None x129)   Decide 0.353 -> 0.026   -93%,  wall time -32%
-brutes (TargetBelief x129)  Decide 0.735 -> 0.748    +2%   (the control)
-```
-
-The control arm is what makes this a correctness result and not just a speed
-one: a cast that needs the belief still gets it and still pays for it.
-
-⚠ Only `None` skips the build. `believed_target` derives the belief FROM the
-view, so `TargetBelief` still constructs one — making THAT road cheap is a later
-increment, and it is where the attention work belongs.
-
-### ✔ THE WIRING LANDED — this section said "not started" and was wrong
-
-Re-verified against the code 2026-09-02: the gate IS in `actors/update.rs`
-(around `let perception_need = brain_ref.perception_requirement();`), and a
-brain that needs neither a world view nor a target belief gets no
-`build_world_view`. The checksummed-state change and its schema baseline move
-went with it.
-
-⚠ **AND THE `None` INVARIANT NEEDED ENFORCING, not just declaring** (found by
-review 2026-09-02, fixed the same day). This ADR's own text says a `None` brain
-keeps an empty belief state, and that was true only of a body that STARTED
-there. A LIVE brain can become `None` — `BrainCommand` swapping in a StandStill
-(`StateMachineCfg::StandStill => Need::None`) — and nothing on that road cleared
-`PerceptionMemory`. Since `believed_target` is the only thing that ages memory
-and the gate skips it, the belief FROZE: switch back later and the body
-resurrects a hostile that may have died or left the room. Deterministic, so not a
-desync — a cognition-lifecycle defect, which is harder to notice because it reads
-as the AI remembering something. Now enforced at the decision site
-(`enforce_empty_belief_for_none`) rather than on every brain-changing road, so a
-future road inherits it.
-
-⚠ **What is still open is the NEXT increment, not this one.** `believed_target`
-derives the belief FROM the view, so `TargetBelief` still constructs a full
-`WorldView`; making that road cheap is increment 2, along with a bounded
-`TacticalWorld` representation. Stating it as "the wiring is not started" sent a
-reader to build something that exists.
-
-Its acceptance is behavioural, not a millisecond count:
-
-```text
-None           neutral behaviour unchanged; PerceptionMemory stays empty
-TargetBelief   acquires a visible foe; keeps/decays a lost one per the contract
-TacticalWorld  Smash/Fighter behaviour and memory unchanged
-```
 
 ## Current implications for agents
 

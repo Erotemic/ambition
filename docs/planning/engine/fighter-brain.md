@@ -453,12 +453,9 @@ This plan can leave active architecture status when:
 6. remaining changes are ordinary fighter/product tuning rather than unresolved
    AI architecture.
 
-Use git history for the removed 2026-08-31 through 2026-09-04 matrices,
-statistical arms, rejected hypotheses and investigation chronology.
-
 ## Brain policy stays outside combat ownership
 
-The [responsibility map](architecture-responsibility-map.md) treats combat-adjacent
+The [target logical authorities](architecture.md#target-logical-authorities) treat combat-adjacent
 brain code as decision policy over an authored capability menu. A scoring function
 can consume combat/action facts without owning damage, capture or live actor
 mutation. Do not absorb the fighter brain into a generic combat context to reduce

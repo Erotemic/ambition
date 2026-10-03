@@ -80,7 +80,8 @@ impl Default for ClockState {
 }
 
 /// The canonical timeline (netcode N0.1): the index of the simulation step
-/// currently executing, counting from `0`.
+/// currently executing in this gameplay session. The first step is `1`; `0`
+/// names the moment before the first step.
 ///
 /// This is the clock that identifies a moment of simulation — not a wall-clock
 /// instant and not a rendered frame. N0.2 input streams are keyed by it, N0.4
@@ -88,6 +89,15 @@ impl Default for ClockState {
 ///
 /// It advances even while gameplay is suspended — a paused world still has a timeline; its
 /// `sim_dt` is simply zero.
+///
+/// ⛔ SESSION-RELATIVE (`Q128`, decided 2026-10-03). The session-scope
+/// activation sets it back to `0`, beside the other session-scoped resources
+/// (`session/teardown.rs`). It is canonical rollback state, so its whole value
+/// is in the peer checksum. An absolute per-App count made two hosts that
+/// reached one route by different shell histories disagree from the first
+/// compared frame. A resource that stores a tick to compare with this clock
+/// later must be session-scoped too, or a reset makes it wait for a tick from
+/// the previous session.
 #[derive(Resource, Default, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct SimTick(pub u64);
 
@@ -100,16 +110,14 @@ impl SimTick {
 
 /// Advance [`SimTick`] at the head of each sim step.
 ///
-/// The first executed step is tick `0`, so the counter names *the step now
-/// running* rather than the number of steps completed — that is the index a
-/// recorded input frame and a post-step state hash must agree on. `first_step`
-/// is what buys that off-by-one: the head of step 0 must not increment.
-pub fn advance_sim_tick(mut tick: ResMut<SimTick>, mut first_step: Local<bool>) {
-    if *first_step {
-        tick.0 = tick.0.wrapping_add(1);
-    } else {
-        *first_step = true;
-    }
+/// The value names *the step now running*. The tick before the first step is
+/// `0`, so the first step is `1`, and "the next step" is always `tick + 1`.
+/// The state is all in the resource: a reset to `0` restarts the count exactly,
+/// and a rewind restores it with the snapshot. (A `Local` that skipped the
+/// first increment did neither: a reset could not clear it, and a rewind to
+/// the first frame did not restore it.)
+pub fn advance_sim_tick(mut tick: ResMut<SimTick>) {
+    tick.0 = tick.0.wrapping_add(1);
 }
 
 /// ADR 0011 — per-entity proper-time scale. `1.0` means

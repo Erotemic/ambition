@@ -72,14 +72,11 @@ Transport should not hide local deterministic defects.
 owns the remaining deterministic selection/composition sites and
 scenario-populated dynamic-state coverage.
 
-One piece of N1 is netcode's own and needs a ruling:
-[`Q128`](../awaiting-maintainer-decision.md#q128--should-the-simulation-tick-be-rebased-when-peers-agree-to-start-or-stay-an-absolute-per-app-count).
-`ambition_time::SimTick` is `resource-canonical`, so its absolute value is in the
-peer checksum, and it counts every sim step this App has run, menu frames
-included. Two Apps that ran for different times disagree from the first compared
-frame. Excluding the tick from the projection would exclude the timeline. The
-fix is a session-relative tick rebased when peers agree to start, and that
-agreement comes from N2's transport.
+One piece of N1 was netcode's own: the canonical timeline. Decided 2026-10-03
+(`Q128`, option (a)): `ambition_time::SimTick` is session-relative. The
+session-scope activation sets it to `0`, so two Apps that ran for different
+times agree from their first compared frame. N2 must activate the session scope
+at the start the peers agree on; that activation is the rebase.
 
 So N1 and N2 are not strictly ordered for this road: a `SyncTestSession` compares
 one machine with its own past and cannot see a two-peer disagreement.

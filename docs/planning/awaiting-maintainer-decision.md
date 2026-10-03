@@ -32,12 +32,8 @@ block nothing.
 table row links a `Q` that has a section on this page with at least two
 options, written `* **(a) …`. Derive gates from the field, not from row prose.
 
-Two questions look like blockers and are not:
+One question looks like a blocker and is not:
 
-- [`Q128`](#q128--should-the-simulation-tick-be-rebased-when-peers-agree-to-start-or-stay-an-absolute-per-app-count)
-  is a coordination condition on `C03` and `C05`, not a gate. Its timeline half
-  waits on netcode `N2` (no P2P session exists), and the 2026-09-19 priority
-  ruling makes netplay a non-goal for this year.
 - `Q142` appears in `ID-PEER` only as history.
 
 ## Gameplay and content
@@ -455,31 +451,6 @@ collide with an already-live identity. This gates A8's two-instance proof.
 
 * **(a) Room-instance identity belongs in canonical `SimId` semantics.**
 * **(b) Room instance is a separate deterministic scope** beside `SimId`.
-
-## Q128 — should the simulation tick be rebased when peers agree to start, or stay an absolute per-App count?
-
-`ambition_time::SimTick` is registered `resource-canonical`, so its absolute
-value is in the peer checksum. It has one writer (`advance_sim_tick`), it is
-never rebased, and it counts menu frames. Two hosts that reach the same route by
-different shell histories differ on 2 of 146 GGRS `ChecksumPart`s: this one and
-`AmbitionGameSave` ([Q129](#q129--must-the-save-file-be-part-of-what-two-peers-agree-on)).
-`two_local_histories_compute_the_same_ggrs_component_checksums`
-(`game/ambition_app/tests/shell_host_lifecycle.rs`) asserts that both still
-differ. A projection cannot close this road: excluding the tick excludes the
-timeline. Nothing observes a two-peer disagreement today, because the workspace
-builds only `Session::SyncTest`.
-
-Owner: the canonical-timeline road of `ID-PEER` in [`queue.md`](queue.md).
-`C03` and `C05` coordinate with it if it starts.
-
-* **(a) Rebase the tick at an agreed session start.** First decide what
-  "agreed" is; netcode `N2` has no handshake yet.
-* **(b) Keep it absolute** and record that peer comparison waits for real P2P
-  sessions. The same wait also defers S7's unchecksummed float rows
-  ([simulation authority](engine/simulation-authority-and-determinism.md)) and
-  the policy resources of `SETTINGS-ROLLBACK`.
-* **(c) Project the tick out** and replace the timeline term with something
-  else. Nobody has proposed a shape.
 
 ## Q129 — must the save file be part of what two peers agree on?
 

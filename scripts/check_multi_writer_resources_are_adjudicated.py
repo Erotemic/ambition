@@ -415,7 +415,8 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_actor_monolith/src/features/ecs/breakable_respawns.rs",
         "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
     ),
-    "MintGrantsSinceCheckpoint": (
+    "RewardGrantsSinceCheckpoint": (
+        "crates/ambition_platformer2d_actor_monolith/src/features/ecs/chests.rs",
         "crates/ambition_platformer2d_actor_monolith/src/features/ecs/pickups.rs",
         "crates/ambition_platformer2d_actor_monolith/src/items/pickup/minted_horizon.rs",
         "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
@@ -1823,18 +1824,20 @@ ADJUDICATED: dict[str, str] = {
         "and the type is rollback state with a value checksum "
         "(`boss.defeats_since_checkpoint`)."
     ),
-    "MintGrantsSinceCheckpoint": (
-        "CORRECT — ONE RECORDER, ONE TAKER, THREE FORGETTERS, ONE TYPE "
-        "(BOSS-REPLAY-RETRACTION, 2026-10-02). The list is private "
-        "(`items/pickup/minted_horizon.rs`). `record` is called only by "
-        "`collect_ecs_pickups` (`features/ecs/pickups.rs`), for a collected mint. "
+    "RewardGrantsSinceCheckpoint": (
+        "CORRECT — TWO RECORDERS OF DISJOINT SOURCES, ONE TAKER, THREE FORGETTERS, "
+        "ONE TYPE (BOSS-REPLAY-RETRACTION, 2026-10-02). The list is private "
+        "(`items/pickup/minted_horizon.rs`) and append-only between forgets. "
+        "`record` is called by `collect_ecs_pickups` (`features/ecs/pickups.rs`) "
+        "for a collected mint and by `open_ecs_chests` (`features/ecs/chests.rs`) "
+        "for an opened boss reward chest; each grant names its own source. "
         "`take_for` is called only by `retract_mints_of_retracted_boss_defeats`, "
         "on an announced retraction. `forget_all` is called by the checkpoint "
         "commit and the checkpoint/fresh-run reducer (both in `minted_horizon.rs`) "
         "and by `SessionScopedResources::reset` (`teardown.rs`) at the session "
         "edge. Every writer but the teardown runs in the simulation schedule or "
         "the checkpoint apply, and the type is rollback state with a value "
-        "checksum (`resource.mint_grants_since_checkpoint`)."
+        "checksum (`resource.reward_grants_since_checkpoint`)."
     ),
     "BreakableRespawnSchedule": (
         "CORRECT — ONE RECORDER, THREE FORGETTERS, ONE TYPE (OW5, 2026-10-02). The "

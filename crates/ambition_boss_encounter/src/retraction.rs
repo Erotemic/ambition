@@ -13,7 +13,8 @@
 //! commit and a fresh run forget them all. A load starts with none, because
 //! the file a load reads IS the baseline. On an admitted replay,
 //! [`retract_boss_defeats_on_replay`] puts each entry of the replay's room back
-//! to `Untouched`, despawns the boss's unopened reward chest, and announces
+//! to `Untouched`, despawns the boss's reward chest and clears its looted flag,
+//! and announces
 //! [`BossDefeatRetracted`], so the domain that owns another consequence (the
 //! item domain owns the mints) retracts it.
 //!
@@ -165,8 +166,8 @@ pub fn forget_boss_defeats_on_a_fresh_run(
 /// The replay's room is its subject's live room, or the sole live room when
 /// it names no subject. Each retracted placement's save row goes back to
 /// `Untouched`, so the rebuild builds the boss alive and every gate that reads
-/// `boss.cleared` closes. Its unopened reward chest goes. A chest that was
-/// opened stays, with what it granted (a known issue, in the queue row).
+/// `boss.cleared` closes. Its reward chest goes, opened or not, and its looted
+/// flag is cleared.
 pub fn retract_boss_defeats_on_replay(
     mut commands: Commands,
     // The admitted replay, not the request: a request the lifecycle refuses
@@ -175,14 +176,7 @@ pub fn retract_boss_defeats_on_replay(
     rooms: ambition_platformer2d_world::rooms::LiveRoomSpecs,
     mut since: ResMut<BossDefeatsSinceCheckpoint>,
     mut save: ResMut<ambition_persistence::save::AmbitionGameSave>,
-    chests: Query<
-        (
-            Entity,
-            &ambition_combat::BossRewardChest,
-            Option<&ambition_combat::Opened>,
-        ),
-        With<ambition_combat::ChestFeature>,
-    >,
+    chests: Query<(Entity, &ambition_combat::BossRewardChest), With<ambition_combat::ChestFeature>>,
     mut retracted: MessageWriter<BossDefeatRetracted>,
 ) {
     for replay in replays.read() {
@@ -200,8 +194,14 @@ pub fn retract_boss_defeats_on_replay(
                     ambition_persistence::save_data::PersistedEncounterState::Untouched,
                 );
             }
-            for (chest, reward, opened) in &chests {
-                if reward.encounter_id == placement && opened.is_none() {
+            // The chest was not looted either: a defeat after the replay drops
+            // it closed. The item domain takes back what it gave.
+            let looted = ambition_encounter::encounter_reward_looted_flag(&placement);
+            if save.data().flag(&looted) {
+                save.data_mut().set_flag(looted, false);
+            }
+            for (chest, reward) in &chests {
+                if reward.encounter_id == placement {
                     commands.entity(chest).despawn();
                 }
             }

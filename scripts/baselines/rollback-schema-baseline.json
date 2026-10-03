@@ -1,6 +1,6 @@
 {
   "peer_checksum_schema": {
-    "version": "ggrs-rollback-schema-v298",
+    "version": "ggrs-rollback-schema-v299",
     "rows": [
       "actor.active_combatant\tcomponent-canonical\tActiveCombatant",
       "actor.aggression\tcomponent-clone-cursor\tActorAggression",
@@ -111,7 +111,6 @@
       "resource.gate_portal_phases\tresource-clone-custom-checksum\tGatePortalPhases\tbevy_ggrs clone snapshot + key-ordered phase/elapsed checksum projection",
       "resource.impact_hitstop\tresource-clone-custom-checksum\tImpactHitstop\tbevy_ggrs clone snapshot + the freeze's expiry tick, which decides the sim clock",
       "resource.live_match_ticks\tresource-canonical-custom-checksum\tLiveMatchTicks\tbevy_ggrs canonical codec snapshot + checksum over the elapsed micros, counted from the match's own start, and the peer match ordinal, excluding the host-local session and activation-tick stamps",
-      "resource.mint_grants_since_checkpoint\tresource-clone-custom-checksum\tMintGrantsSinceCheckpoint\tbevy_ggrs clone snapshot + the grants of the mints collected since the last checkpoint, which a retracted boss defeat takes back",
       "resource.minted_item_baseline\tresource-clone-custom-checksum\tMintedItemBaseline\tbevy_ggrs clone snapshot + entity-free minted-instance-description checksum projection",
       "resource.occurrence_baseline\tresource-clone-custom-checksum\tOccurrenceBaseline\tbevy_ggrs clone snapshot + entity-free remembered-whereabouts checksum projection",
       "resource.outstanding_checkpoint_request\tresource-clone-custom-checksum\tOutstandingCheckpointRequest\tbevy_ggrs clone snapshot + whether the session is still owed a checkpoint restore",
@@ -123,6 +122,7 @@
       "resource.quest_last_room\tresource-clone-custom-checksum\tLastQuestRoom\tbevy_ggrs clone snapshot + the room ids that were live when the RoomEntered producer last looked",
       "resource.quest_registry\tresource-clone-custom-checksum\tQuestRegistry\tbevy_ggrs clone snapshot + quest identity, progression and pending-advance checksum projection",
       "resource.requested_clock_scale\tresource-canonical\tRequestedClockScale\tbevy_ggrs canonical codec snapshot + identical canonical checksum projection",
+      "resource.reward_grants_since_checkpoint\tresource-clone-custom-checksum\tRewardGrantsSinceCheckpoint\tbevy_ggrs clone snapshot + the grants of the mints collected and the boss reward chests opened since the last checkpoint, which a retracted boss defeat takes back",
       "resource.sandbox_save\tresource-clone-custom-checksum\tAmbitionGameSave\tbevy_ggrs clone snapshot + serialized whole-save checksum projection, its dormant-record rows hashed once per Arc",
       "resource.sandbox_sim_state\tresource-canonical\tRoomTransitionCooldown\tbevy_ggrs canonical codec snapshot + identical canonical checksum projection",
       "resource.session_checkpoint_operations\tresource-clone-custom-checksum\tSessionCheckpointOperations\tbevy_ggrs clone snapshot + how many checkpoint restores this session has admitted",

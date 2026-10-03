@@ -52,6 +52,7 @@ pub fn open_ecs_chests(
             &ChestFeature,
             Option<&Opened>,
             Option<&FallingChest>,
+            Option<&ambition_combat::components::BossRewardChest>,
         ),
         With<FeatureSimEntity>,
     >,
@@ -66,6 +67,11 @@ pub fn open_ecs_chests(
     mut heals: MessageWriter<crate::avatar::PlayerHealRequested>,
     mut wallets: Query<&mut ambition_characters::actor::BodyWallet>,
     (mut owned, items): (Option<ResMut<ambition_items::OwnedItems>>, ambition_items::ItemCatalogRead),
+    // What a boss reward chest gave, which a retracted defeat takes back.
+    (sim_ids, mut reward_grants): (
+        Query<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
+        Option<ResMut<crate::items::pickup::RewardGrantsSinceCheckpoint>>,
+    ),
 ) {
     // Iterate every player so each player's own buffered interact
     // can open a chest the player is overlapping. Per-player interact
@@ -96,7 +102,7 @@ pub fn open_ecs_chests(
         };
         let reach_aabb = subject_kin.aabb();
         let subject_room = rooms.of(subject);
-        for (entity, id, name, aabb, chest, opened, falling) in &chests {
+        for (entity, id, name, aabb, chest, opened, falling, boss_reward) in &chests {
             if falling.is_some() || opened.is_some() || !aabb.aabb().strict_intersects(reach_aabb) {
                 continue;
             }
@@ -113,7 +119,7 @@ pub fn open_ecs_chests(
             // or a story flag. Teaching the chest a second copy would be four
             // payload kinds to keep in agreement forever.
             if let Some(reward) = chest.reward() {
-                super::pickups::grant_pickup(
+                let granted = super::pickups::grant_pickup(
                     reward,
                     subject,
                     &mut heals,
@@ -122,6 +128,17 @@ pub fn open_ecs_chests(
                     owned.as_deref_mut(),
                     items.get(),
                 );
+                if let (Some(boss_reward), Ok(collector), Some(reward_grants)) =
+                    (boss_reward, sim_ids.get(subject), reward_grants.as_deref_mut())
+                {
+                    reward_grants.record(crate::items::pickup::RewardGrant {
+                        source: crate::items::pickup::GrantSource::BossChest {
+                            placement: boss_reward.encounter_id.clone(),
+                        },
+                        collector: collector.clone(),
+                        granted,
+                    });
+                }
             }
             let pos = aabb.center;
             vfx.for_room(rooms.of(entity)).write(VfxMessage::Burst {

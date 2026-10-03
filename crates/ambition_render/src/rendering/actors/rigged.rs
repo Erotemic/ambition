@@ -360,6 +360,9 @@ pub struct RiggedPresentation {
     /// This frame's draws, tweened toward the next frame when the clip is
     /// (reused so a frame allocates nothing).
     pub drawn: Vec<PartDraw>,
+    /// What this body's cell of the atlas holds now: the draws its camera
+    /// last rendered there, and where. `None` until first rendered.
+    pub shown: Option<(Vec<PartDraw>, Vec3)>,
 }
 
 /// One reusable part sprite of a rigged presentation.
@@ -430,7 +433,8 @@ pub fn bind_rigged_presentations(
         by_sheet.clear();
         for sheet in assets.characters.ready_sheets() {
             if let Some(pages) = &sheet.rigged {
-                by_sheet.insert((sheet.spec.target().to_owned(), sheet.resolved_tier), pages.clone());
+                // By the sheet's key: a generator's sheets share a `target`.
+                by_sheet.insert((sheet.spec.base_sheet_key().to_owned(), sheet.resolved_tier), pages.clone());
             }
         }
     }
@@ -447,7 +451,7 @@ pub fn bind_rigged_presentations(
     });
     for (root, animator, bound, mut sprite) in &mut roots {
         let tier = bound.map_or(TextureResolutionScale::Full, |bound| bound.scale);
-        let wanted = by_sheet.get(&(animator.spec.target().to_owned(), tier));
+        let wanted = by_sheet.get(&(animator.spec.base_sheet_key().to_owned(), tier));
         let current = owners
             .0
             .get(&root)
@@ -460,7 +464,7 @@ pub fn bind_rigged_presentations(
         if same {
             continue;
         }
-        let target = animator.spec.target();
+        let target = animator.spec.base_sheet_key();
         let ready = wanted.is_some_and(|wanted| {
             pages_ready(asset_server.as_deref(), impostors.images.as_deref().unwrap(), wanted)
         });
@@ -703,6 +707,7 @@ fn spawn_presentation(
         slots,
         impostor: Impostor { class, page, cell, feet },
         drawn: Vec::new(),
+        shown: None,
     });
     Some(owner)
 }
@@ -726,10 +731,17 @@ pub fn drive_rigged_presentations(
     if atlases.0.iter().all(Vec::is_empty) {
         return;
     }
-    // Per page of each class: whether a body draws from it, and its cells'
-    // opacities.
+    // Per page of each class: whether a body draws from it, whether a cell of
+    // it changed, and its cells' opacities.
+    //
+    // ⛔ A page is rendered only on a frame where a cell of it CHANGES: its
+    // target keeps the pixels between renders. Rendered every frame, a hall of
+    // a few dozen bodies redrew every atlas — 4 targets up to 2304 x 2304, and
+    // their un-premultiplied twins — at 110 ms a frame on a software
+    // rasterizer against 9.6 ms baked (2026-10-03).
     let mut drawing: [Vec<bool>; IMPOSTOR_CELL_CLASSES.len()] =
         std::array::from_fn(|class| vec![false; atlases.0[class].len()]);
+    let mut changed = drawing.clone();
     let mut cells: [Vec<ImpostorCellOpacity>; IMPOSTOR_CELL_CLASSES.len()] = std::array::from_fn(|class| {
         atlases.0[class].iter().map(|atlas| ImpostorCellOpacity::opaque(atlas.side)).collect()
     });
@@ -765,6 +777,21 @@ pub fn drive_rigged_presentations(
         let place = atlas.cell_feet(presentation.impostor.cell, presentation.impostor.feet).extend(0.0);
         if owner_transform.translation != place {
             owner_transform.translation = place;
+        }
+        let same = presentation
+            .shown
+            .as_ref()
+            .is_some_and(|(shown, at)| *at == place && shown.as_slice() == draws);
+        if !same {
+            changed[class][page] = true;
+            match presentation.shown.as_mut() {
+                Some((shown, at)) => {
+                    shown.clear();
+                    shown.extend_from_slice(draws);
+                    *at = place;
+                }
+                None => presentation.shown = Some((draws.to_vec(), place)),
+            }
         }
         // ⛔ NOT GATED ON THE ROOT'S VISIBILITY. A root hidden by the portal
         // resolver is still drawn — as pieces cut from its image, the impostor
@@ -834,11 +861,13 @@ pub fn drive_rigged_presentations(
         presentation.drawn = drawn;
     }
     let mut materials = materials.map(|materials| materials.into_inner());
-    let pages = atlases.0.iter_mut().zip(cells).zip(&drawing).flat_map(|((pages, cells), drawing)| {
-        pages.iter_mut().zip(cells).zip(drawing.iter().copied())
-    });
-    for ((atlas, cells), drawing) in pages {
+    let pages = atlases.0.iter_mut().zip(cells).zip(drawing.iter().zip(&changed)).flat_map(
+        |((pages, cells), (drawing, changed))| pages.iter_mut().zip(cells).zip(drawing.iter().zip(changed)),
+    );
+    for ((atlas, cells), (drawing, changed)) in pages {
+        let mut changed = *changed;
         if atlas.cells != cells {
+            changed = true;
             if let Some(mut material) = atlas
                 .material
                 .as_ref()
@@ -848,12 +877,14 @@ pub fn drive_rigged_presentations(
             }
             atlas.cells = cells;
         }
-        // A page's cameras run while any body of the page draws from parts,
-        // and rest when none does.
+        // A page's cameras run on a frame where a body of the page drawn from
+        // parts changed its cell, and rest otherwise: the target keeps what
+        // they last rendered.
+        let run = *drawing && changed;
         for entity in &atlas.cameras {
             if let Ok(mut camera) = cameras.get_mut(*entity) {
-                if camera.is_active != drawing {
-                    camera.is_active = drawing;
+                if camera.is_active != run {
+                    camera.is_active = run;
                 }
             }
         }

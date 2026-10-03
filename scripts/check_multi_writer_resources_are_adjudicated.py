@@ -334,6 +334,10 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "game/ambition_app/src/menu/kaleidoscope_app.rs",
         "game/ambition_app_tools/src/bin/capture_scene.rs",
     ),
+    "RoomsOwedTheRestore": (
+        "crates/ambition_platformer2d_actor_monolith/src/session/checkpoint.rs",
+        "crates/ambition_platformer2d_runtime/src/sandbox_reset.rs",
+    ),
     "PendingLifecycleCommit": (
         "crates/ambition_platformer2d_actor_monolith/src/session/checkpoint.rs",
         "crates/ambition_platformer2d_actor_monolith/src/session/death.rs",
@@ -2336,6 +2340,20 @@ ADJUDICATED: dict[str, str] = {
         "`suspended_frame_zeros_world_time_scaled_dt` "
         "(`actor_monolith/src/time/time_control/tests.rs`), which is the arm that "
         "makes this a verdict rather than an opinion."
+    ),
+    "RoomsOwedTheRestore": (
+        "CORRECT — A PRODUCER AND A CONSUMER OF ONE QUEUE, IN ONE ORDER. "
+        "`resume_at_checkpoint_on_reset` (`CheckpointRestore`) fills it with every "
+        "live room when a restore is admitted, and "
+        "`replay_the_rooms_owed_the_restore` (`RoomReplayAdmission`, after "
+        "`CheckpointRestore`) removes a room when its replay is admitted or when "
+        "it is no longer live; `reset_checkpoint_coordinator_on_activation` "
+        "clears it at the session edge. A later restore replaces the list whole, "
+        "which is right: it owes every room live at that moment. "
+        "POISON-VERIFIED 2026-10-03: the consumer disabled reddens "
+        "`a_death_in_one_room_rebuilds_the_other_room_whose_boss_defeat_it_takes_back` "
+        "(`game/ambition_app/tests/boss_replay_retraction.rs`) with the save "
+        "`Untouched` and the dead boss standing."
     ),
     "PendingLifecycleCommit": (
         "CORRECT — ONE EARLIEST-STICKY SLOT WITH A STATED PRIORITY LADDER. Five "

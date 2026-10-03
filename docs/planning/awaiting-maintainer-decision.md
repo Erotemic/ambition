@@ -279,10 +279,27 @@ This blocks only the last ◐ of the "separate from another participant" row in
 
 ## Q151 — in Ambition, how does a second player join, and what does one player's death do while the other plays on?
 
-Current default, so this blocks nothing: **a death resets the dying player's
-own room to the checkpoint, and the other player's room goes on untouched.**
-Held by `a_death_in_one_room_restarts_that_player_and_leaves_the_other_players_room`
+Current default, so this blocks nothing: **a death restarts the dying player
+at the checkpoint, and every other live room is replayed for the player in
+it.** Held by `a_death_in_one_room_restarts_that_player_and_replays_the_other_players_room`
 (`game/ambition_app/tests/two_players_two_live_rooms.rs`).
+
+Changed 2026-10-03 from "the other player's room goes on untouched". That
+default disagreed with the rulings: the restore is session-wide (Q51: a
+rewind that un-defeats a boss also un-grants its reward; Q124: per object),
+so a boss the other player defeated after the checkpoint went back to
+`Untouched` in the save while their room kept the dead boss.
+`a_death_in_one_room_rebuilds_the_other_room_whose_boss_defeat_it_takes_back`
+(`game/ambition_app/tests/boss_replay_retraction.rs`) holds the agreement.
+The other player goes back to their room's spawn with full health, as any
+replay does. If one player's death should instead leave the other player's
+world as it is, the restore itself must become room-local (the occurrence
+ledger, the bag and the boss rows), which is option (d) below.
+
+⚠ In the two-player fixtures the second body is a placement of its room, so a
+replay of that room builds the body again, without its seat. A join road must
+give the seat's body a home that a rebuild of its room does not replace, as
+possession does through custody.
 
 Two facts under that answer are not decisions yet:
 
@@ -304,6 +321,9 @@ question. For the death rule:
   roster must count seat-driven bodies. Poor fit for players far apart.
 * **(c) The dead player restarts at the other player's room**, so the party
   regroups.
+* **(d) A death is room-local:** only the dying player's room goes back to
+  the checkpoint, and so do only the durable records written in it. This
+  needs the checkpoint baselines split by room.
 
 ## Q152 — which world mechanic should keep time while its room is not live?
 

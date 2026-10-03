@@ -172,10 +172,6 @@ pub fn admit_room_replay(
     boundary: Option<Res<ae::ConfirmedFrameBoundary>>,
     mut admitted: MessageWriter<RoomReplayAdmitted>,
 ) {
-    use ambition_platformer2d_actor_monolith::session::lifecycle_commit::{
-        LifecycleIntent, RoomReconstitutionIntent, RoomTransitionIntent,
-    };
-
     // Drained unconditionally: a request seen while no world exists must not be
     // re-read several frames later against a different one.
     // The first request's reason; a re-fight if any request asked for one.
@@ -193,9 +189,101 @@ pub fn admit_room_replay(
         .as_deref()
         .and_then(|controlled| controlled.0)
         .and_then(|entity| identities.id_of(entity));
+    if !admit_a_replay(subject.clone(), reason, rooms, &mut pending, boundary.as_deref()) {
+        return;
+    }
+    // An asked replay is of one room; only the checkpoint road restores the
+    // session to its baseline.
+    admitted.write(RoomReplayAdmitted {
+        reason,
+        subject,
+        refight,
+        to_checkpoint: false,
+    });
+}
+
+/// Replay each live room a checkpoint restore has not yet rebuilt, for the
+/// player in it ([`RoomsOwedTheRestore`]).
+///
+/// Q51 and Q124: a restore takes back what was gained since the checkpoint,
+/// wherever it was gained. The restore's own operation rebuilds only its
+/// subject's room. Without this, a boss Bob defeated in his room after the
+/// checkpoint was un-defeated by Alice's death in hers, while his room kept
+/// the dead boss and its chest.
+///
+/// One room per tick at most, because each replay takes the one lifecycle
+/// slot. A refused replay stays owed and is asked again on the next tick. A
+/// room that is no longer live, or that no player is in, is dropped: it
+/// retires, and is built from the restored state when a player enters it.
+///
+/// [`RoomsOwedTheRestore`]: ambition_platformer2d_actor_monolith::session::checkpoint::RoomsOwedTheRestore
+pub fn replay_the_rooms_owed_the_restore(
+    mut owed: ResMut<ambition_platformer2d_actor_monolith::session::checkpoint::RoomsOwedTheRestore>,
+    rooms: Option<ambition_platformer2d_world::rooms::LiveRoomSpecs>,
+    players: Query<(
+        bevy::prelude::Entity,
+        &ambition_characters::control::DrivingParticipant,
+    )>,
+    identities: ambition_platformer2d_shared_tangle::lifecycle::LiveBodies,
+    mut pending: ResMut<
+        ambition_platformer2d_actor_monolith::session::lifecycle_commit::PendingLifecycleCommit,
+    >,
+    boundary: Option<Res<ae::ConfirmedFrameBoundary>>,
+    mut admitted: MessageWriter<RoomReplayAdmitted>,
+) {
+    if owed.0.is_empty() {
+        return;
+    }
+    let Some(rooms) = rooms.as_ref() else {
+        return;
+    };
+    while let Some(&room) = owed.0.first() {
+        let live = rooms.definition_in(room).is_some();
+        // The player in the room, by the lowest seat so the choice does not
+        // depend on query order.
+        let occupant = players
+            .iter()
+            .filter_map(|(entity, driver)| Some((driver.0, identities.id_of(entity)?)))
+            .filter(|(_, id)| id.room == Some(room))
+            .min_by_key(|(slot, _)| slot.0)
+            .map(|(_, id)| id);
+        let Some(subject) = occupant.filter(|_| live) else {
+            owed.0.remove(0);
+            continue;
+        };
+        // A death's policy: the restore came from a death or a retry, and
+        // the player's placed gun portals survive it.
+        let reason = ambition_combat::RoomResetReason::PlayerDeath;
+        if admit_a_replay(Some(subject.clone()), reason, rooms, &mut pending, boundary.as_deref()) {
+            owed.0.remove(0);
+            admitted.write(RoomReplayAdmitted {
+                reason,
+                subject: Some(subject),
+                refight: false,
+                to_checkpoint: false,
+            });
+        }
+        return;
+    }
+}
+
+/// Take the lifecycle slot for a replay of `subject`'s own live room (with no
+/// subject, the sole live room's). `true` when the replay is admitted; the
+/// caller then writes `RoomReplayAdmitted`. Nothing is changed on a refusal.
+fn admit_a_replay(
+    subject: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId>,
+    reason: ambition_combat::RoomResetReason,
+    rooms: &ambition_platformer2d_world::rooms::LiveRoomSpecs,
+    pending: &mut ambition_platformer2d_actor_monolith::session::lifecycle_commit::PendingLifecycleCommit,
+    boundary: Option<&ae::ConfirmedFrameBoundary>,
+) -> bool {
+    use ambition_platformer2d_actor_monolith::session::lifecycle_commit::{
+        LifecycleIntent, RoomReconstitutionIntent, RoomTransitionIntent,
+    };
+
     // Its own live room; with no subject, the sole live room.
     let Some(definition) = rooms.definition_named(subject.as_ref().and_then(|subject| subject.room)) else {
-        return;
+        return false;
     };
     let active = rooms.rooms().spec(definition);
 
@@ -237,20 +325,13 @@ pub fn admit_room_replay(
             "room replay ({reason:?}) REFUSED: another lifecycle operation \
              already owns the pending slot. Nothing was reset."
         );
-        return;
+        return false;
     }
     ambition_platformer2d_shared_tangle::world_log::world_event(format_args!(
         "room-replay admitted reason={reason:?} room={}",
         active.id
     ));
-    // An asked replay is of one room; only the checkpoint road restores the
-    // session to its baseline.
-    admitted.write(RoomReplayAdmitted {
-        reason,
-        subject,
-        refight,
-        to_checkpoint: false,
-    });
+    true
 }
 
 /// Put the admitted replay's subject back at the room spawn.
@@ -365,10 +446,15 @@ pub struct RoomReplaySchedulePlugin;
 impl Plugin for RoomReplaySchedulePlugin {
     fn build(&self, app: &mut App) {
         let sim = app.sim_schedule();
+        // The checkpoint offer owns it; a host can omit that offer, and then
+        // nothing is ever owed (registration is idempotent).
+        app.init_resource::<ambition_platformer2d_actor_monolith::session::checkpoint::RoomsOwedTheRestore>();
         app.add_systems(
             sim,
             (
-                admit_room_replay.in_set(RoomReplayAdmission),
+                (admit_room_replay, replay_the_rooms_owed_the_restore)
+                    .chain()
+                    .in_set(RoomReplayAdmission),
                 return_the_replay_subject_to_spawn.in_set(RoomReplayConsequences),
             )
                 .chain()

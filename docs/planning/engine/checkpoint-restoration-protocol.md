@@ -28,6 +28,7 @@ unless stated otherwise.
 | Value | Role |
 | --- | --- |
 | `OutstandingCheckpointRequest` | the owed request; a reset asked while another intent owns the slot is re-asked until it is admitted |
+| `RoomsOwedTheRestore` | every room live when the restore was admitted; `runtime::sandbox_reset::replay_the_rooms_owed_the_restore` replays each one still live for the player in it, one per slot, so a room outside the subject's does not keep what the restore took back (Q51, Q124); rollback state |
 | `CheckpointOperationKey` | session ownership stamp + a sequence minted by `SessionCheckpointOperations` that advances only on admission; rollback state; not reset at a rebase; refuses overflow before the slot is taken |
 | `AcceptedCheckpointRestore` | the accepted operation: its room intent, subject and the occurrence, minted, custody and owned-item snapshots pinned at admission; outlives its frame; retired when the slot gives up the intent |
 | `CheckpointDomainApply` | a schedule only a commit executor runs; the three domain reducers live here |

@@ -540,7 +540,13 @@ second authoring source.
   was searched for after those moved.
 - Yarn dialogue has its reader, and
   `game/ambition_content/src/content_validation.rs` checks dialogue references
-  again.
+  again. ✅ 2026-10-03, the `__` root fold: `known_dialogue_ids` also accepted
+  the root of every `root__x` title. Four roots exist only as `__N` jump
+  targets, so the validator accepted NpcSpawn ids the runtime cannot start
+  (`a_spawn_naming_a_root_that_exists_only_as_variants_is_refused`). The ids
+  are exact titles now. Open: the ids still come from `yarn_title_ids`, a
+  `title:` line scan beside the Yarn compiler. The compiler is an optional
+  dependency (`ui`), so replacing the scan is a dependency decision.
 - LDtk/world cross-reference rules in `content_validation.rs` repeat rules that
   a world owner already checks. ✅ 2026-10-03, the LoadingZone target rule:
   `validate_ldtk_room_links` refused every zone without both targets, which

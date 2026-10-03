@@ -756,6 +756,46 @@ mod tests {
         );
     }
 
+    /// AN NPC MAY NAME ONLY A NODE THAT CAN START.
+    ///
+    /// `oiler_post_stabilizer` exists only as `oiler_post_stabilizer__1` and
+    /// `__2`, which another node reaches by `<<jump>>`. The runtime starts a
+    /// dialogue id exactly as named (`DialogueNodeIndex::entry_node`), so a spawn
+    /// that names the root warns and closes. The validator must refuse it.
+    #[test]
+    fn a_spawn_naming_a_root_that_exists_only_as_variants_is_refused() {
+        let music = crate::audio_registries::load_music_registry();
+        let character_catalog = crate::character_catalog::load_catalog();
+        let mut project = LdtkProject::load_default_for_dev(&crate::worlds::world_manifest())
+            .expect("embedded LDtk loads");
+        let spawn = project
+            .levels
+            .iter_mut()
+            .flat_map(|level| level.layer_instances.iter_mut())
+            .flat_map(|layer| layer.entity_instances.iter_mut())
+            .find(|entity| {
+                entity.identifier == "NpcSpawn"
+                    && field_string(entity, "dialogue_id").is_some_and(|id| !id.trim().is_empty())
+            })
+            .expect("the embedded world has an NPC with a dialogue");
+        let iid = spawn.iid.clone();
+        set_field(
+            &mut spawn.field_instances,
+            "dialogue_id",
+            serde_json::Value::String("oiler_post_stabilizer".into()),
+        );
+        let errors: Vec<String> = validate_content_graph(&music, &project, &character_catalog)
+            .errors
+            .into_iter()
+            .filter(|error| error.contains(&iid))
+            .collect();
+        assert_eq!(
+            errors.len(),
+            1,
+            "a dialogue id that no node is titled was accepted: {errors:?}"
+        );
+    }
+
     #[test]
     fn embedded_content_graph_validates() {
         let report = validate_embedded_content_graph();

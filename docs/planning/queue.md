@@ -379,7 +379,7 @@ open. Close with a fresh census rather than a checked list.
 
 ## P1 — ownership, composition and iteration
 
-### GATE-PER-ACTOR — a body/capability gate is solid or open for each actor
+### GATE-PER-ACTOR — a body/capability gate is solid or open for each actor — ✅ DONE 2026-10-03
 
 **Owner:** [`engine/capability-progression-and-world-gating.md`](engine/capability-progression-and-world-gating.md)
 jointly with the gated-wall road (`gated_lock_walls.rs`, the per-room collision
@@ -389,53 +389,34 @@ overlay).
 the gate is evaluated per actor. Alice in Phase Boots passes a phase wall; Bob
 without them collides with it.
 
-**Current state (landed 2026-10-01):** a condition can publish a subject form
-(`SubjectConditionEvaluator`, `ConditionCatalog::ask_for`); `body.can` and
-`body.fits` publish one. A gated wall with a subject form always stands in its
-room's `gate_solids`, and the publisher writes a `GatePass` for each body that
-satisfies it. Body steps read `ComposedRooms::solids_for(collision, room, body)`.
-A projectile, a dropped item and any reader that names no body meet the wall as
+**Done:** a condition can publish a subject form (`SubjectConditionEvaluator`,
+`ConditionCatalog::ask_for`); `body.can` and `body.fits` publish one. A gated
+wall with a subject form stands in its room's `gate_solids`, and the publisher
+writes a `GatePass` for each body that satisfies it. One rule,
+`RoomCollision::gates_open_for`, names the gates open for a body. Body steps
+read `ComposedRooms::solids_for`. The decide pass in `update.rs` gives the
+brain the same walls: `ground_ends_ahead` reads them (its ridden
+`SurfaceRef::Block(i)` is an index into them), and the floor queries
+(`floor_below`, `supporting_floor`, `ground_below`) pass through a gate open
+for the body (`PerceivedSolid::open_for_self`). A projectile, a dropped item,
+the brain's line of fire and any reader that names no body meet the wall as
 solid. An undriven body is asked as itself. The crouch/morph clearance check
 still meets the wall as solid. A wall gated on a population fact
-(`world.flag_set`, `inventory.holds`) has one answer for every body. Witnesses:
-`a_body_gate_is_open_only_for_the_bodies_that_satisfy_it` and
-`a_gate_open_for_one_body_is_missing_only_from_that_body_s_walls`.
+(`world.flag_set`, `inventory.holds`) has one answer for every body.
 
-**Brain walls (landed 2026-10-03):** one rule, `RoomCollision::gates_open_for`,
-names the gates open for a body; `solids_for` and the decide pass in
-`update.rs` both read it. A brain's floor queries (`WorldView::floor_below`,
-`supporting_floor`, `ground_below`) pass through a gate open for its body
-(`PerceivedSolid::open_for_self`), and `ground_ends_ahead` reads the same walls
-as its body. Its line of fire
-does not, because its projectile meets the gate as solid. Witnesses:
-`a_gate_open_for_self_is_no_floor_and_still_blocks_the_line_of_fire` and
-`the_view_marks_only_the_gates_open_for_this_body`, each poisoned.
+**Witnesses:** `a_body_gate_is_open_only_for_the_bodies_that_satisfy_it`,
+`a_gate_open_for_one_body_is_missing_only_from_that_body_s_walls`,
+`a_gate_open_for_self_is_no_floor_and_still_blocks_the_line_of_fire`,
+`the_view_marks_only_the_gates_open_for_this_body`, and two composed ones, each
+poisoned at its line in `update.rs`:
+`a_gate_open_for_a_badnik_does_not_change_the_ground_it_plans_on` (sanic; the
+paths diverge at frame 17 when `ground_ends_ahead` reads the shared walls) and
+`a_fighter_over_a_floor_open_for_it_plays_as_over_the_void` (smash; a CPU over
+a gate floor open for it plays exactly as over the bare void, and diverges at
+frame 25 when its view gets no open gates).
 
-**Composed witness (2026-10-03):** `ground_ends_ahead` reads only the surface
-the walker rides, `SurfaceRef::Block(i)`, an index into the walls. The body
-rides the walls without its open gates, so the index is valid only in those
-walls. In the sanic demo,
-`a_gate_open_for_a_badnik_does_not_change_the_ground_it_plans_on` puts a
-badnik on a gate bridge with an earlier gate open for it. It paces the bridge
-exactly as a badnik with that gate closed. Poisoned with the shared walls, its
-path diverges at frame 17. A gate solid past the end of the ridden surface does
-not change this query, so for a walker "plans through a gated floor" is the
-body's sweep, not the brain's.
-
-**Open:** the floor queries (`floor_below`, `supporting_floor`,
-`ground_below`) are read only by fighter brains (`ambition_combat`,
-`ambition_characters` situation). They have unit witnesses and no composed one.
-Awareness through an open gate (does the brain see a target behind it?) has no
-ruling; it stays on the shared walls, which is the conservative reading.
-
-**Next action:** a composed witness for a fighter: over a gate floor open for
-it, it reads no floor below; over the same gate closed, it reads one.
-
-**Acceptance:** in one live room, a body that satisfies a wall's body condition
-passes and a body that does not collides, in the same tick; a projectile and an
-undriven body follow the same per-actor rule stated for them; witnessed with
-two seats and with a control where both qualify; and an NPC that can pass a
-gated wall plans through it.
+**Not ruled:** awareness through an open gate (does the brain see a target
+behind it?). It stays on the shared walls, which is the conservative reading.
 
 ### BOSS-REPLAY-RETRACTION — a replay that un-defeats a boss un-defeats it for every family — ✅ DONE 2026-10-03
 

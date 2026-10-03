@@ -113,8 +113,9 @@ a `GatePass` for each body that satisfies it. Body steps read
 `ComposedRooms::solids_for(collision, room, body)`. A projectile, a dropped item
 and any reader that names no body meet the wall as solid. A wall gated on a
 population fact (`world.flag_set`, `inventory.holds`) has one answer for every
-body. Open work (brain path decisions read the shared walls) is the queue row
-`GATE-PER-ACTOR`.
+body. A brain asks its movement and floor queries of the same per-body walls as
+its body (queue `GATE-PER-ACTOR`, done 2026-10-03). Its line of fire and its
+awareness stay on the shared walls.
 
 ## World-mechanism facts
 
@@ -176,10 +177,9 @@ published fact can serve them all.
 ## Open work
 
 1. **Resolve Q58** before authoring `body.fits` or body-state gates broadly.
-2. Brain path decisions read the per-body walls (queue `GATE-PER-ACTOR`).
-3. Add world-mechanism, social/knowledge or soft-pressure conditions only after
+2. Add world-mechanism, social/knowledge or soft-pressure conditions only after
    the authoritative fact they read exists.
-4. Add compound route expressions only when a concrete authored gate cannot be
+3. Add compound route expressions only when a concrete authored gate cannot be
    represented by one published fact.
 
 ## Acceptance

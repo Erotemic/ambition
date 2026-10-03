@@ -2525,11 +2525,10 @@ fn a_proposed_roster_waits_and_the_same_roster_activated_seats() {
         2,
         "an ACTIVATED roster did not seat, so the refusal above proved nothing"
     );
-    let active = app
-        .world()
-        .get_resource::<ActiveMatch>()
-        .expect("an activated roster that seats fully must activate the match");
-    assert_eq!(active.seat_topology(), Some(7));
+    assert!(
+        app.world().get_resource::<ActiveMatch>().is_some(),
+        "an activated roster that seats fully must activate the match"
+    );
 }
 
 /// A roster that seats over several ticks — the ordinary case, since seating
@@ -2557,12 +2556,6 @@ fn activation_publishes_every_seated_body_in_seat_order() {
         active.seats(),
         2,
         "activation must count every seat, not merely report that seating ended"
-    );
-    assert_eq!(
-        active.seat_topology(),
-        Some(7),
-        "the activation records WHICH frozen topology decided its seating, or a \
-         later disagreement has nothing to compare against"
     );
 
     // Seat order, checked through the bodies themselves — which is now the ONLY

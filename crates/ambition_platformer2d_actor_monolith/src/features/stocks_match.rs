@@ -412,7 +412,7 @@ mod tests {
     use ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId;
 
     fn match_activated_on(tick: u64) -> ActiveMatch {
-        ActiveMatch::activated(2, None, Some(SessionScopeId(0)), Some(tick), None)
+        ActiveMatch::activated(2, Some(SessionScopeId(0)), Some(tick), None)
     }
 
     fn side(label: &str, stocks: u32, damage: i32) -> (String, u32, i32) {
@@ -756,39 +756,17 @@ mod tests {
     fn a_verdict_from_another_session_does_not_settle_this_match() {
         let mut settled = StocksMatchSettled::default();
         settled.settle(
-            &ActiveMatch::activated(2, None, Some(SessionScopeId(0)), Some(100), None),
+            &ActiveMatch::activated(2, Some(SessionScopeId(0)), Some(100), None),
             MatchVerdict::Draw,
         );
         assert!(
             !settled.settled(&ActiveMatch::activated(
                 2,
-                None,
                 Some(SessionScopeId(1)),
                 Some(100),
                 None,
             )),
             "a new session's match inherited the previous session's verdict"
-        );
-    }
-
-    /// A live activation may adopt a seat topology mid-match
-    /// ([`ActiveMatch::adopt_seat_topology`]), and that must not un-decide a
-    /// match that has already been announced.
-    ///
-    /// this is the reason the identity is the ACTIVATION's two facts rather
-    /// than the whole receipt: keying on a value with a mutable field in it
-    /// would put the winner card back on a live clock the moment anything
-    /// touched it.
-    #[test]
-    fn adopting_a_seat_topology_does_not_un_decide_the_match() {
-        let mut active = match_activated_on(100);
-        let mut settled = StocksMatchSettled::default();
-        settled.settle(&active, MatchVerdict::Draw);
-        active.adopt_seat_topology(7);
-        assert!(
-            settled.settled(&active),
-            "recording which topology decided this seating un-decided the match \
-             it had already announced"
         );
     }
 }

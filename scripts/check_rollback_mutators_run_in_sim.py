@@ -383,7 +383,11 @@ ACKNOWLEDGED: dict[str, str] = {
     # ✅ `sync_ldtk_level_set` left on 2026-09-29: the index it wrote an active
     # area into is prepared content with no rollback row now, and the sync
     # compares the bundles' `LevelSet` with the active room's levels.
-    "reconcile_roster_with_frozen_topology": "ROLLBACK-MUTATOR-POPULATION",
+    # ✅ `reconcile_roster_with_frozen_topology` left on 2026-10-03 because it
+    # was FIXED: it still runs (`game/ambition_app/src/app/versus.rs`), and now
+    # binds `ActiveMatch` as a `Res`. Its one rollback write was
+    # `ActiveMatch::adopt_seat_topology`, a copy of the roster's record that
+    # nothing read; the field and the method are deleted (schema 302).
 }
 
 

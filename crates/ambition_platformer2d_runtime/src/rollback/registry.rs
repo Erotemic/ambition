@@ -996,7 +996,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// ⛔⛤ 300 -> 301: `resource.quest_registry` also folds the cause of each
 /// pending advance and the quest steps each cause's latest event moved, which
 /// a retracted boss defeat puts back (BOSS-REPLAY-RETRACTION).
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 301;
+/// ⛔⛤ 301 -> 302: `resource.active_match` no longer carries the seat-topology
+/// stamp. The roster is the one record of which topology decided the seating,
+/// and nothing read the copy (ROLLBACK-MUTATOR-POPULATION).
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 302;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

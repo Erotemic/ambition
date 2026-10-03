@@ -606,7 +606,7 @@ fn announced_outcome(outcome: ambition_platformer2d::actor::MatchVerdict) -> Opt
 
     let mut app = App::new();
     app.init_resource::<ambition_platformer2d::presentation::HudReadouts>();
-    let active = ambition_platformer2d::versus_match::ActiveMatch::for_test(2, None);
+    let active = ambition_platformer2d::versus_match::ActiveMatch::for_test(2);
     let mut settled =
         ambition_platformer2d::versus_match::StocksMatchSettled::default();
     settled.settle(&active, outcome);

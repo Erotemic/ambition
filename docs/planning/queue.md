@@ -116,19 +116,21 @@ local counters differ.
 
 **Owner:** rollback scheduling (`scripts/check_rollback_mutators_run_in_sim.py`).
 
-**Current state (measured 2026-10-02):** the guard reads every rollback
+**Current state (measured 2026-10-03):** the guard reads every rollback
 registration in every supported parameter spelling, including writes in the
-body of an exclusive-world system. It reports 488 systems that mutate rollback
-state and 3 acknowledged offenders, all owed to this row:
+body of an exclusive-world system. It reports 490 systems that mutate rollback
+state and 2 acknowledged offenders, both owed to this row:
 
 - `adopt_occurrence_checkpoint_from_save` and `complete_durable_restore`: one-shot
   latches on `SaveRestored` in `Update`. They write only before a timeline
   starts, because the `Q135` gate refuses to start GGRS while durable hydration
   is pending (see DURABLE-HORIZON-CHECKSUM). Do not waive them on the activation
   argument: GGRS start and the restore chain wait on different facts.
-- `reconcile_roster_with_frozen_topology` (`game/ambition_app/src/app/versus.rs`,
-  in `Update`): writes the versus roster while rollback freezes the seat
-  topology.
+
+✅ `reconcile_roster_with_frozen_topology` left on 2026-10-03. Its one rollback
+write was `ActiveMatch::adopt_seat_topology`, a copy of the roster's record that
+nothing read. The copy is deleted (schema 302), and the reconciler reads
+`ActiveMatch` only.
 
 The exit code means "no new offender", not "clean". `ACKNOWLEDGED` names drift
 that is real and the row that owes it. `WAIVERS` carry an argument. A banked

@@ -19,18 +19,11 @@ impl SnapshotState for crate::MatchSeat {
 }
 
 /// The activation latch. Plain data with no identity (a seat count and the
-/// frozen topology), so it can be snapshotted. The bodies derive from
+/// activation's session, tick and ordinal), so it can be snapshotted. The bodies derive from
 /// `MatchSeat` and rewind on their own.
 impl SnapshotState for crate::ActiveMatch {
     fn encode(&self, out: &mut Vec<u8>) {
         put_u64(out, self.seats() as u64);
-        match self.seat_topology() {
-            None => put_bool(out, false),
-            Some(generation) => {
-                put_bool(out, true);
-                put_u64(out, generation);
-            }
-        }
         // The activation's identity travels with it, so a rewind restores
         // which match the receipt is for.
         match self.session() {
@@ -59,7 +52,6 @@ impl SnapshotState for crate::ActiveMatch {
     }
     fn decode(r: &mut Reader<'_>) -> Option<Self> {
         let seats = r.u64()? as usize;
-        let seat_topology = if r.bool()? { Some(r.u64()?) } else { None };
         let session = if r.bool()? {
             Some(ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId(r.u64()?))
         } else {
@@ -69,7 +61,6 @@ impl SnapshotState for crate::ActiveMatch {
         let ordinal = if r.bool()? { Some(r.u64()?) } else { None };
         Some(crate::ActiveMatch::from_snapshot(
             seats,
-            seat_topology,
             session,
             activated_on,
             ordinal,

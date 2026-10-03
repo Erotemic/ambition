@@ -4193,14 +4193,14 @@
       "owner": "ambition_platformer2d_actor_monolith::session::checkpoint",
       "status": "SOURCE_CONFIRMED",
       "complexity": "TRANSITIONAL_COMPLEXITY",
-      "current_truth": "SessionOwnedCheckpointState names seven App resources for one gameplay-session checkpoint coordinator and resets all seven at session activation.",
+      "current_truth": "SessionOwnedCheckpointState names six App resources for one gameplay-session checkpoint coordinator and resets all six at session activation.",
       "source_paths": [
         "crates/ambition_platformer2d_actor_monolith/src/session/checkpoint.rs"
       ],
       "evidence": [
         {
           "status": "SOURCE_CONFIRMED",
-          "claim": "SessionOwnedCheckpointState names seven App resources for one gameplay-session checkpoint coordinator and resets all seven at session activation.",
+          "claim": "SessionOwnedCheckpointState names six App resources for one gameplay-session checkpoint coordinator and resets all six at session activation.",
           "sources": [
             "crates/ambition_platformer2d_actor_monolith/src/session/checkpoint.rs"
           ]

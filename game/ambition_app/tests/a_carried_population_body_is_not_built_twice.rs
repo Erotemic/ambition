@@ -221,60 +221,42 @@ fn a_persistent_enemy_left_in_a_room_another_player_holds_is_not_built_at_home()
     );
 }
 
-/// A checkpoint reset in Alice's room never leaves two bodies of an
-/// occurrence carried into the room Bob holds, and never loses it.
-///
-/// The reset rebuilds `vertical_shaft` from the checkpoint's ledger, which
-/// is older than the carry. While the carried enemy lives in the hub, its
-/// home does not build it again. The restore is session-wide (Q51, Q124), so
-/// Bob's hub is then replayed for him, and the carried enemy retires with
-/// the hub instance it was in. Then Q38 applies: its replacement comes from
-/// its authored room, so the ledger stops holding it as carried, and the
-/// next build of `vertical_shaft` (here, a second reset) authors exactly one
-/// body. The control is the setup: one body before the reset.
+/// A checkpoint reset in Alice's room does not build a second body of an
+/// occurrence that lives in the room Bob holds. The reset rebuilds
+/// `vertical_shaft` from the checkpoint's occurrence ledger, which is older
+/// than the carry, so the ledger alone says "build it at home". But the hub
+/// is not rewound and the carried enemy still lives there. The control is
+/// the setup: one body before the reset.
 #[test]
 fn a_checkpoint_reset_does_not_rebuild_a_body_that_lives_in_another_players_room() {
     let (mut sim, id) = carry_an_enemy_into_the_hub_and_go_back_in(Some(PlayerSlot(1)), false);
     let before = occurrences(&mut sim, &id);
     assert_eq!(before.len(), 1, "control: one body of {id} before the reset: {before:?}");
-    let reset = |sim: &mut Platformer2dSimHarness| {
-        sim.world_mut().write_message(ambition_platformer2d::platformer::lifecycle::ResetToCheckpoint);
-        sim.step_n(base(), 60);
-        let owed = sim
-            .world_mut()
-            .resource::<ambition_platformer2d::actors::session::checkpoint::OutstandingCheckpointRequest>()
-            .0;
-        assert_eq!(owed, None, "setup: the session is still owed the checkpoint reset");
-        assert_eq!(
-            live_room_ids(sim),
-            vec![HUB.to_string(), HOME.to_string()],
-            "setup: the reset must leave Bob in a live hub and rebuild Alice's room"
-        );
-    };
-    reset(&mut sim);
+    sim.world_mut().write_message(ambition_platformer2d::platformer::lifecycle::ResetToCheckpoint);
+    sim.step_n(base(), 30);
+    let owed = sim
+        .world_mut()
+        .resource::<ambition_platformer2d::actors::session::checkpoint::OutstandingCheckpointRequest>()
+        .0;
+    assert_eq!(owed, None, "setup: the session is still owed the checkpoint reset");
+    assert_eq!(
+        live_room_ids(&mut sim),
+        vec![HUB.to_string(), HOME.to_string()],
+        "setup: the reset must leave Bob's hub live and rebuild Alice's room"
+    );
     let after = occurrences(&mut sim, &id);
-    assert!(
-        after.len() <= 1,
-        "the checkpoint reset left two bodies of {id}: {after:?}"
+    assert_eq!(
+        after, before,
+        "the checkpoint reset of '{HOME}' built a second body of {id}, which lives in the hub Bob holds"
     );
-    assert!(
-        !after.contains(&before[0]),
-        "the carried body of {id} survived the replay of the hub Bob holds"
-    );
-    assert_ne!(
+    // The commit restored the checkpoint's ledger; the custody projection
+    // holds the carried body again.
+    assert_eq!(
         sim.world_mut()
             .resource::<ambition_platformer2d::platformer::lifecycle::AuthoredOccurrences>()
             .whereabouts(&id)
             .cloned(),
         Some(ambition_platformer2d::platformer::lifecycle::OccurrenceWhereabouts::InCustody),
-        "the ledger still holds {id} as carried after its carried body retired, so its home \
-         would never author it again"
-    );
-    reset(&mut sim);
-    let rebuilt = occurrences(&mut sim, &id);
-    assert_eq!(
-        rebuilt.len(),
-        1,
-        "the next build of '{HOME}' did not author {id} exactly once: {rebuilt:?}"
+        "after the reset the ledger does not hold {id} as carried"
     );
 }

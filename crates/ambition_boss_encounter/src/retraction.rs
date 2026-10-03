@@ -103,10 +103,18 @@ impl BossDefeatsSinceCheckpoint {
             .collect()
     }
 
-    /// Take out every defeat: a checkpoint restore puts the whole session back
-    /// to the checkpoint, so no defeat since it stays, in any room.
-    pub fn take_all(&mut self) -> Vec<(String, BossDefeatSinceCheckpoint)> {
-        std::mem::take(&mut self.defeats).into_iter().collect()
+    /// Take out the defeats a checkpoint restore retracts: every defeat since
+    /// the checkpoint, except those that fell in a `spared` live room. A room
+    /// another participant holds keeps its defeats (Q151).
+    pub fn take_for_restore(
+        &mut self,
+        spared: &[LiveRoomInstance],
+    ) -> Vec<(String, BossDefeatSinceCheckpoint)> {
+        let (kept, taken): (BTreeMap<_, _>, BTreeMap<_, _>) = std::mem::take(&mut self.defeats)
+            .into_iter()
+            .partition(|(_, defeat)| defeat.room.is_some_and(|room| spared.contains(&room)));
+        self.defeats = kept;
+        taken.into_iter().collect()
     }
 
     /// Entity-free value projection: two peers that disagree about which
@@ -168,13 +176,15 @@ pub fn forget_boss_defeats_on_a_fresh_run(
 
 /// On an admitted replay, retract every boss defeat of the replay's live room
 /// recorded since the last checkpoint, for every boss family. A checkpoint
-/// restore (a death's resume) retracts every defeat since the checkpoint, in
-/// every room: it puts the bag back wherever the defeat's reward was taken, so
-/// a defeat it kept would keep the boss dead without its reward (Q124, Q51).
-/// The restore rebuilds only its subject's room; each other room live at its
-/// admission is then replayed for the player in it
-/// (`replay_the_rooms_owed_the_restore`), so a room that held a retracted
-/// defeat does not keep the dead boss.
+/// restore retracts every defeat since the checkpoint (Q124, Q51), except in
+/// the live rooms it spares: those another participant holds, because a death
+/// is local to its participant and room (Q151). A New Game spares nothing.
+///
+/// ⚠ The bag, custody and occurrence ledger still go back whole. In the
+/// shipped product only the primary participant picks up, carries and opens,
+/// so Bob's spared defeat keeps its chest and row; a reward Alice took from
+/// Bob's room goes back with her bag. Attribution per participant is the
+/// follow-up (queue row DEATH-IS-ROOM-LOCAL).
 ///
 /// The replay's room is its subject's live room, or the sole live room when
 /// it names no subject. Each retracted placement's save row goes back to
@@ -195,7 +205,7 @@ pub fn retract_boss_defeats_on_replay(
 ) {
     for replay in replays.read() {
         let taken = if replay.to_checkpoint {
-            since.take_all()
+            since.take_for_restore(&replay.spared)
         } else {
             let replayed = replay.subject.as_ref().and_then(|subject| subject.room);
             let Some(definition) = rooms.definition_named(replayed) else {
@@ -272,5 +282,31 @@ mod tests {
         assert_eq!(taken, vec!["earlier_visit".to_string(), "here".to_string()]);
         let kept: Vec<&String> = since.defeats().map(|(placement, _)| placement).collect();
         assert_eq!(kept, vec!["other_instance", "other_room"]);
+    }
+
+    /// A restore takes every defeat but those in a spared room, and a defeat
+    /// with no live room (a fixture world) is never spared. With nothing
+    /// spared (a New Game) it takes them all.
+    #[test]
+    fn a_restore_takes_every_defeat_but_those_in_a_spared_room() {
+        let mut since = BossDefeatsSinceCheckpoint::default();
+        since.record("alices", defeat(4, "arena"));
+        since.record("bobs", defeat(5, "hall"));
+        since.record("no_room", BossDefeatSinceCheckpoint {
+            room: None,
+            ..defeat(0, "arena")
+        });
+        let mut whole = since.clone();
+        let taken: Vec<String> = since
+            .take_for_restore(&[LiveRoomInstance::from_ordinal(5)])
+            .into_iter()
+            .map(|(placement, _)| placement)
+            .collect();
+        assert_eq!(taken, vec!["alices".to_string(), "no_room".to_string()]);
+        let kept: Vec<&String> = since.defeats().map(|(placement, _)| placement).collect();
+        assert_eq!(kept, vec!["bobs"]);
+        // Control: nothing spared takes Bob's defeat as well.
+        assert_eq!(whole.take_for_restore(&[]).len(), 3);
+        assert_eq!(whole.defeats().count(), 0);
     }
 }

@@ -399,6 +399,14 @@ pub fn resume_at_checkpoint_on_reset(
         ),
         ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
     >,
+    // Every driven body, to find the rooms other participants hold (Q151).
+    participants: Query<
+        (
+            Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
+            Option<&ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+        ),
+        bevy::prelude::With<ambition_characters::control::DrivingParticipant>,
+    >,
     mut accepted: ResMut<AcceptedCheckpointRestore>,
     mut operations: ResMut<SessionCheckpointOperations>,
     // WHOSE operation. Absent only in an explicit standalone profile, which has
@@ -415,7 +423,6 @@ pub fn resume_at_checkpoint_on_reset(
         ambition_items::ItemCatalogRead<'_>,
     ),
     mut admitted: bevy::prelude::MessageWriter<ambition_combat::events::RoomReplayAdmitted>,
-    mut owed_rooms: ResMut<RoomsOwedTheRestore>,
 ) {
     // ⭐ THE CHANNEL IS DRAINED EVERY FRAME AND THE REQUEST IS REMEMBERED, which
     // are two different things and used to be one. Draining alone meant a reset
@@ -570,11 +577,24 @@ pub fn resume_at_checkpoint_on_reset(
         item,
         fresh,
     });
-    // The restore is session-wide, and this operation rebuilds one room.
-    // Every room live now is rebuilt after it (see `RoomsOwedTheRestore`).
-    let mut live: Vec<_> = room_set.live_rooms().map(|(room, _)| room).collect();
-    live.sort();
-    owed_rooms.0 = live;
+    // ⭐ A DEATH IS LOCAL TO ITS PARTICIPANT AND ROOM (Q151). The rooms other
+    // participants hold keep what was won in them since the checkpoint. A New
+    // Game restarts the whole session, so it spares nothing. The subject's own
+    // room is never spared, also when another participant shares it: the
+    // restore rebuilds it.
+    let spared: Vec<_> = if fresh {
+        Vec::new()
+    } else {
+        participants
+            .iter()
+            .filter_map(|(stamp, root)| {
+                ambition_platformer2d_shared_tangle::lifecycle::live_room_of(stamp, root)
+            })
+            .filter(|room| Some(*room) != subject.room)
+            .collect::<std::collections::BTreeSet<_>>()
+            .into_iter()
+            .collect()
+    };
     admitted.write(
         ambition_combat::events::RoomReplayAdmitted::because(if fresh {
             // A new game is a deliberate restart, so the player's placed gun
@@ -587,7 +607,8 @@ pub fn resume_at_checkpoint_on_reset(
             ambition_combat::RoomResetReason::PlayerDeath
         })
         .for_subject(subject.clone())
-        .to_the_checkpoint(),
+        .to_the_checkpoint()
+        .sparing(spared),
     );
 }
 
@@ -1011,34 +1032,6 @@ impl OutstandingCheckpointRequest {
             Some(RestoreTo::LastCheckpoint) => 1,
             Some(RestoreTo::NewGame) => 2,
         }
-    }
-}
-
-/// The live rooms a checkpoint restore has not yet rebuilt.
-///
-/// A restore puts the durable state back everywhere: the occurrence ledger,
-/// the bag, the boss defeats and their rewards (Q51, Q124). The operation
-/// rebuilds only the subject's own room. Each other room that was live when
-/// it was admitted still shows what the restore took back (a dead boss, its
-/// chest, a taken pickup) until that room is rebuilt from the restored state.
-///
-/// So the admission records every live room here, and
-/// `runtime::sandbox_reset::replay_the_rooms_owed_the_restore` replays each
-/// one for its occupant as an ordinary replay, one at a time through the one
-/// lifecycle slot. A room that is no longer live when its turn comes (the
-/// subject's own room, which the restore retires) is dropped.
-///
-/// It is rollback state for the same reason as
-/// [`OutstandingCheckpointRequest`]: it outlives its frame.
-#[derive(bevy::prelude::Resource, Default, Clone, Debug, PartialEq, Eq)]
-pub struct RoomsOwedTheRestore(pub Vec<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>);
-
-impl RoomsOwedTheRestore {
-    /// The rooms in the value, in order. An empty list hashes to 0.
-    pub fn checksum(&self) -> u64 {
-        self.0.iter().fold(0, |hash, room| {
-            hash.rotate_left(7) ^ (u64::from(room.ordinal()) + 1)
-        })
     }
 }
 
@@ -1855,23 +1848,23 @@ pub struct SessionCheckpointHorizonPlugin;
 /// REST OF THE FAMILY still process-global — the same omission the central
 /// aggregate exists to prevent, one domain over.
 ///
-/// ⇒ **SIX OF THE SEVEN ARE CANONICAL ROLLBACK STATE, so their residue is inside
+/// ⇒ **FIVE OF THE SIX ARE CANONICAL ROLLBACK STATE, so their residue is inside
 /// B's checksum — MEASURED 2026-09-16 in `rollback_registration.rs`, not counted
-/// off the list below.** All six register as `resource-clone-custom-checksum`
+/// off the list below.** All five register as `resource-clone-custom-checksum`
 /// under the monolith's `OWNER`:
 /// `resource.session_checkpoint_operations`, `resource.session_checkpoint_outcomes`,
 /// `resource.accepted_checkpoint_restore`, `resource.outstanding_checkpoint_request`,
-/// `resource.session_startup_resume`, `resource.rooms_owed_the_restore`.
+/// `resource.session_startup_resume`.
 ///
-/// ⛔ **THE SEVENTH, `AbandonedCheckpointOperation`, IS DELIBERATELY NOT REGISTERED
+/// ⛔ **THE SIXTH, `AbandonedCheckpointOperation`, IS DELIBERATELY NOT REGISTERED
 /// ON EITHER ROAD, AND ITS ABSENCE IS THE DESIGN.** It is written from `Update`,
 /// which never rewinds, and it carries a VALUE-COMPLETE note — key, admitted
 /// frame and the accepted operation's checksum — precisely so a world that
 /// rewound past its branch DISCARDS it (`AbandonmentVerdict::Stale`) instead of
 /// cancelling a healthy replacement. Registering it would make a host-side
 /// preparation failure, which two peers need not agree about, into shared
-/// state. ⚠ So a reader auditing this family must not read "seven session-owned
-/// values" as "seven rollback values": the partition is 6 + 1, the 1 is reasoned,
+/// state. ⚠ So a reader auditing this family must not read "six session-owned
+/// values" as "six rollback values": the partition is 5 + 1, the 1 is reasoned,
 /// and `scripts/check_session_owner_census_matches_source.py` now checks it.
 ///
 ///
@@ -1905,7 +1898,6 @@ pub struct SessionOwnedCheckpointState<'w> {
     abandoned: ResMut<'w, AbandonedCheckpointOperation>,
     startup_resume: ResMut<'w, SessionStartupResume>,
     outstanding: ResMut<'w, OutstandingCheckpointRequest>,
-    owed_rooms: ResMut<'w, RoomsOwedTheRestore>,
 }
 
 /// Re-establish the checkpoint coordinator for a session about to be built.
@@ -1931,7 +1923,6 @@ pub fn reset_checkpoint_coordinator_on_activation(
         mut abandoned,
         mut startup_resume,
         mut outstanding,
-        mut owed_rooms,
     } = state;
     *operations = SessionCheckpointOperations::default();
     *outcomes = SessionCheckpointOutcomes::default();
@@ -1939,7 +1930,6 @@ pub fn reset_checkpoint_coordinator_on_activation(
     *abandoned = AbandonedCheckpointOperation::default();
     *startup_resume = SessionStartupResume::default();
     *outstanding = OutstandingCheckpointRequest::default();
-    *owed_rooms = RoomsOwedTheRestore::default();
 }
 
 impl Plugin for SessionCheckpointHorizonPlugin {
@@ -1951,7 +1941,6 @@ impl Plugin for SessionCheckpointHorizonPlugin {
         app.init_resource::<SessionCheckpointOutcomes>();
         app.init_resource::<SessionStartupResume>();
         app.init_resource::<OutstandingCheckpointRequest>();
-        app.init_resource::<RoomsOwedTheRestore>();
         app.init_resource::<AbandonedCheckpointOperation>();
         // ⛔⛔ THE CHANNEL BESIDE THE SYSTEM THAT READS IT. A `MessageReader` for
         // an unregistered message fails PARAMETER VALIDATION at runtime, not at

@@ -701,12 +701,6 @@ where
         "whether the session is still owed a checkpoint restore",
         crate::session::checkpoint::OutstandingCheckpointRequest::checksum,
     );
-    registrar.rollback_resource_clone_checksum::<crate::session::checkpoint::RoomsOwedTheRestore>(
-        OWNER,
-        "resource.rooms_owed_the_restore",
-        "which live rooms a checkpoint restore has not yet rebuilt",
-        crate::session::checkpoint::RoomsOwedTheRestore::checksum,
-    );
     // ⛔ THE KEY MOVED WITH THE MEANING, and that is deliberate. A1b kept
     // `resource.checkpoint_resume_progress` across a pure module move, because a
     // renamed key would have made a relocation look like a format change. This

@@ -271,11 +271,22 @@ machinery (`RoomsOwedTheRestore`, the replay of every other live room) is
 deleted (rollback schema 305). Witness:
 `a_death_in_one_room_leaves_the_boss_defeat_in_the_other_players_room`.
 
-**What is left:** the occurrence ledger, custody and the bag still go back
-whole. Next: measure whether an enemy Bob kills in his room after the
-checkpoint comes back when Alice dies (the ledger row reverts while his live
-room keeps the body dead), and what a reward Alice took from Bob's room does.
-Then spare those records by the same room set. Two known gaps stay until
+**Breakable respawns are served by the live room:** the restore forgets
+every respawn record, and `mirror_breakable_respawns` records Bob's again
+on the next tick from his platform's running timer, with the same due time
+(probe, 2026-10-03). Witness:
+`a_death_keeps_the_respawn_of_a_platform_in_another_players_room`.
+
+**Alice's custody across Bob's room is served:** an item Alice banked in
+hand and then put down in Bob's live room is back in her hand after her
+death, held once, with the ledger saying `InCustody`
+(`a_death_takes_back_what_was_put_down_in_another_players_room`). Every
+other ledger row of a live room is republished from live state while the
+room is loaded (`continuity.rs`), as the respawn record is.
+
+**What is left:** the bag goes back whole. Next: measure a reward Alice
+took from a chest in Bob's room after the checkpoint (the bag loses it; is
+the chest still looted?). Two known gaps stay until
 records carry their participant: Alice's actions inside Bob's room go back
 with her, and a defeat Bob won in a room he has already left is taken back.
 

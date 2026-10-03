@@ -38,6 +38,11 @@ fn platform(sim: &mut Platformer2dSimHarness) -> Option<(bool, Option<f32>)> {
 /// Break the platform as its own break road does: zero health, and the
 /// respawn timer its `AfterSeconds` asks for. Returns the clock at the break.
 fn break_the_platform(sim: &mut Platformer2dSimHarness) -> f32 {
+    break_the_platform_for(sim, RESPAWN_S)
+}
+
+/// [`break_the_platform`], with a respawn after `respawn_s` seconds.
+fn break_the_platform_for(sim: &mut Platformer2dSimHarness, respawn_s: f32) -> f32 {
     let world = sim.world_mut();
     let mut q = world.query::<(bevy::prelude::Entity, &FeatureName, &mut BreakableFeature)>();
     let entity = q
@@ -49,7 +54,7 @@ fn break_the_platform(sim: &mut Platformer2dSimHarness) -> f32 {
             entity
         })
         .expect("the room authors the respawning platform");
-    world.entity_mut(entity).insert(RespawnTimer(RESPAWN_S));
+    world.entity_mut(entity).insert(RespawnTimer(respawn_s));
     now(sim)
 }
 
@@ -163,3 +168,70 @@ fn a_replay_rebuilds_a_broken_platform_whole() {
         "the platform after a replay of its room"
     );
 }
+
+/// (broken, the schedule's records) after Alice banks a checkpoint, the
+/// platform is broken, and Alice dies. With `bob_holds_it`, Bob holds the
+/// platform's room and Alice is in the hub; else Alice is alone in it.
+fn platform_after_alices_death(bob_holds_it: bool) -> (bool, usize) {
+    // Longer than the death's interlude, so only the death can make it whole.
+    const LONG_S: f32 = 30.0;
+    let mut sim = if bob_holds_it {
+        crate::two_players_two_live_rooms::alice_leaves_bob_in(
+            ROOM,
+            HUB,
+            Some(ambition_platformer2d::characters::control::PlayerSlot(1)),
+            cross_to,
+        )
+        .0
+    } else {
+        let mut sim = fixed_60hz_room_sim(ROOM);
+        settle(&mut sim, 30);
+        sim
+    };
+    crate::death_restores_the_checkpoint::commit_a_checkpoint(&mut sim);
+    break_the_platform_for(&mut sim, LONG_S);
+    settle(&mut sim, 2);
+    let records = |sim: &Platformer2dSimHarness| {
+        sim.world()
+            .resource::<ambition_platformer2d::actors::features::ecs::breakable_respawns::BreakableRespawnSchedule>()
+            .records()
+            .count()
+    };
+    assert_eq!(
+        (platform(&mut sim).map(|(broken, _)| broken), records(&sim)),
+        (Some(true), 1),
+        "precondition: the platform is broken and its respawn is scheduled"
+    );
+    crate::death_restores_the_checkpoint::die(&mut sim);
+    let broken = platform(&mut sim).is_some_and(|(broken, _)| broken);
+    (broken, records(&sim))
+}
+
+/// Q151: a death is local to its participant and room. A platform Bob broke
+/// in his live room after the checkpoint stays broken when Alice dies in hers,
+/// and its respawn record stays, so a rebuild of his room after he leaves
+/// still builds it broken for the time that remains. The control is Alice
+/// alone in the room: her restore rebuilds it, so the platform is whole and
+/// the record is gone.
+///
+/// ⚠ THE LIVE TIMER SERVES THIS, NOT THE RESTORE. Measured 2026-10-03 with a
+/// probe: `forget_breakable_respawns_on_restore` does forget Bob's record, and
+/// on the next tick `mirror_breakable_respawns` records it again from his
+/// platform's running timer, with the same due time. While a room is live its
+/// timers are the authority and the schedule mirrors them. So the restore's
+/// forget reaches only rooms that are not live, and that includes a room Bob
+/// has already left (the known gap in queue row DEATH-IS-ROOM-LOCAL).
+#[test]
+fn a_death_keeps_the_respawn_of_a_platform_in_another_players_room() {
+    assert_eq!(
+        platform_after_alices_death(false),
+        (false, 0),
+        "control: a death in the platform's own room rebuilds it whole and forgets its respawn"
+    );
+    assert_eq!(
+        platform_after_alices_death(true),
+        (true, 1),
+        "Alice's death in the hub took back the respawn of the platform Bob broke in his live room"
+    );
+}
+

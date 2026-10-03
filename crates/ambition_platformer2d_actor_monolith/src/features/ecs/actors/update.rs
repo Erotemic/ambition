@@ -487,6 +487,13 @@ pub fn tick_actor_brains(
         let Some(feature_world) = composed.solids(&collision, stamp.as_ref()) else {
             continue;
         };
+        // GATE-PER-ACTOR (Q54): the gates open for THIS body. Its movement
+        // queries pass through them, as its integration does (`solids_for`);
+        // its line of fire does not, as its projectile does not.
+        let open_gates = collision
+            .room(stamp.as_ref())
+            .map(|room| room.gates_open_for(this_actor_entity))
+            .unwrap_or_default();
         let room = rooms.of(this_actor_entity);
         // Tactical memory is room-local (`WorldMemory::enter_room`). The key is
         // the body's own stamp, not `room`: an unstamped body is put in the
@@ -630,7 +637,10 @@ pub fn tick_actor_brains(
                     if body.policy.0.turns_at_ledges {
                         if let ae::MotionModel::SurfaceMomentum(momentum) = motion_model {
                             snapshot.ground_ends_ahead = ae::movement::ground_ends_ahead(
-                                feature_world,
+                                &ambition_platformer2d_world::collision::without_gates(
+                                    feature_world,
+                                    &open_gates,
+                                ),
                                 &momentum.state,
                                 resolved_frame.get(),
                                 body.kin.facing,
@@ -739,6 +749,7 @@ pub fn tick_actor_brains(
                             perceived.projectiles_in(room),
                             &[],
                             feature_world,
+                            &open_gates,
                             relations,
                             perception_policy,
                             sim_now,

@@ -334,10 +334,23 @@ still meets the wall as solid. A wall gated on a population fact
 `a_body_gate_is_open_only_for_the_bodies_that_satisfy_it` and
 `a_gate_open_for_one_body_is_missing_only_from_that_body_s_walls`.
 
-**Open:** perception and AI path decisions (the decide pass in `update.rs`) read
-the shared walls, so an NPC that can pass a wall does not yet plan through it.
+**Brain walls (landed 2026-10-03):** one rule, `RoomCollision::gates_open_for`,
+names the gates open for a body; `solids_for` and the decide pass in
+`update.rs` both read it. A brain's movement queries (`WorldView::floor_below`,
+`supporting_floor`, `ground_below`, and `ground_ends_ahead`) pass through a
+gate open for its body (`PerceivedSolid::open_for_self`). Its line of fire
+does not, because its projectile meets the gate as solid. Witnesses:
+`a_gate_open_for_self_is_no_floor_and_still_blocks_the_line_of_fire` and
+`the_view_marks_only_the_gates_open_for_this_body`, each poisoned.
 
-**Next action:** make the brain's path decisions read the walls for that body.
+**Open:** no composed witness yet of the decide pass passing the body's open
+gates (the wiring in `update.rs`); the existing gate fixture does not run
+the brain. Awareness through an open gate (does the brain see a target
+behind it?) has no ruling; it stays on the shared walls, which is the
+conservative reading.
+
+**Next action:** a composed witness: an NPC with a pass plans through a gated
+wall or floor, and one without stops at it.
 
 **Acceptance:** in one live room, a body that satisfies a wall's body condition
 passes and a body that does not collides, in the same tick; a projectile and an

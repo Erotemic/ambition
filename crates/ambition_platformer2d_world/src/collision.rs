@@ -168,25 +168,12 @@ impl<'a> ComposedRooms<'a> {
         room: Option<&InRoomInstance>,
         subject: bevy_ecs::entity::Entity,
     ) -> Option<Cow<'_, ae::World>> {
-        let open: Vec<&str> = collision
+        let open = collision
             .room(room)
-            .and_then(|room| room.overlay)
-            .map(|overlay| {
-                overlay
-                    .gate_passes
-                    .iter()
-                    .filter(|pass| pass.bodies.contains(&subject))
-                    .map(|pass| pass.block.as_str())
-                    .collect()
-            })
+            .map(|room| room.gates_open_for(subject))
             .unwrap_or_default();
         let walls = self.solids(collision, room)?;
-        if open.is_empty() {
-            return Some(Cow::Borrowed(walls));
-        }
-        let mut walls = walls.clone();
-        walls.blocks.retain(|block| !open.contains(&block.name.as_str()));
-        Some(Cow::Owned(walls))
+        Some(without_gates(walls, &open))
     }
 
     /// The walls of the live room `room` names, as [`CollisionWorld::room`]
@@ -217,7 +204,38 @@ pub struct RoomCollision<'a> {
     overlay: Option<&'a FeatureEcsWorldOverlay>,
 }
 
+/// `walls` without the gate solids named in `open`: the walls a body meets when
+/// those gates are open for it ([`RoomCollision::gates_open_for`]). With no open
+/// gate, which is the common case, these are `walls`, borrowed.
+pub fn without_gates<'w>(walls: &'w ae::World, open: &[&str]) -> Cow<'w, ae::World> {
+    if open.is_empty() {
+        return Cow::Borrowed(walls);
+    }
+    let mut walls = walls.clone();
+    walls.blocks.retain(|block| !open.contains(&block.name.as_str()));
+    Cow::Owned(walls)
+}
+
 impl<'a> RoomCollision<'a> {
+    /// The names of this room's gate solids that are open for `subject`: the
+    /// gates whose [`GatePass`] lists it (Q54). This is the one rule for which
+    /// gates a body passes. The integrator ([`ComposedRooms::solids_for`]) and
+    /// the brain's movement queries both read it.
+    ///
+    /// [`GatePass`]: ambition_platformer2d_shared_tangle::feature_overlay::GatePass
+    pub fn gates_open_for(&self, subject: bevy_ecs::entity::Entity) -> Vec<&'a str> {
+        self.overlay
+            .map(|overlay| {
+                overlay
+                    .gate_passes
+                    .iter()
+                    .filter(|pass| pass.bodies.contains(&subject))
+                    .map(|pass| pass.block.as_str())
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
     /// The full collision world: authored room + moving platforms + ECS solids,
     /// with portal apertures carved. This is what actor sweeps and traversal
     /// raycasts (grapple / blink / dive / body-mode clearance / dropped items)

@@ -26,6 +26,7 @@ fn shelf_stage(airborne_at: ae::Vec2) -> WorldView {
         terrain: vec![PerceivedSolid {
             aabb: ae::Aabb::new(ae::Vec2::new(400.0, 332.0), ae::Vec2::new(60.0, 16.0)),
             kind: SolidKind::Solid,
+            open_for_self: false,
         }],
         ..Default::default()
     }
@@ -302,6 +303,7 @@ fn distant_ledge_stage(airborne_at: ae::Vec2) -> WorldView {
         terrain: vec![PerceivedSolid {
             aabb: ae::Aabb::new(ae::Vec2::new(900.0, 516.0), ae::Vec2::new(250.0, 16.0)),
             kind: SolidKind::Solid,
+            open_for_self: false,
         }],
         ..Default::default()
     }

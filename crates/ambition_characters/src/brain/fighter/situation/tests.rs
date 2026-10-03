@@ -217,6 +217,7 @@ fn airborne_with_nothing_underneath_is_recovering_even_inside_the_room() {
         // x 110..530, top face at y=300.
         aabb: ae::Aabb::new(ae::Vec2::new(320.0, 316.0), ae::Vec2::new(210.0, 16.0)),
         kind: crate::perception::SolidKind::Solid,
+        open_for_self: false,
     };
     let airborne_at = |x: f32| {
         let mut me = me_at(x, 240.0);
@@ -268,6 +269,7 @@ fn cornering_scales_with_the_floor_a_body_stands_on() {
             ae::Vec2::new((max_x - min_x) / 2.0, 16.0),
         ),
         kind: SolidKind::Solid,
+        open_for_self: false,
     };
     // A body a quarter of the way in from the left edge of its floor, on a
     // narrow platform and on one four times wider.
@@ -314,6 +316,7 @@ fn standing_at_your_own_ledge_to_punish_a_hang_is_not_being_cornered() {
     let floor = PerceivedSolid {
         aabb: ae::Aabb::new(ae::Vec2::new(400.0, 370.0), ae::Vec2::new(300.0, 30.0)),
         kind: SolidKind::Solid,
+        open_for_self: false,
     };
     let hanging_right = PerceivedActor {
         on_ground: false,

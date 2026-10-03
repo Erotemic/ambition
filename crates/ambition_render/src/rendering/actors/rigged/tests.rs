@@ -93,6 +93,14 @@ fn animate(squash: Res<Squash>, mut roots: Query<(&mut Sprite, &mut CharacterAni
 }
 
 fn app_with(admit: bool, sheet: CharacterSpriteAsset) -> (App, Entity) {
+    let feet = Vec2::new(sheet.spec.feet_anchor_x, sheet.spec.feet_anchor_y);
+    app_anchored(admit, sheet, Anchor(feet))
+}
+
+/// [`app_with`], with the root built at `anchor`: the feet for an NPC,
+/// `Anchor::CENTER` for a player with a sheet-authored quad
+/// (`character_render_basis`).
+fn app_anchored(admit: bool, sheet: CharacterSpriteAsset, anchor: Anchor) -> (App, Entity) {
     let mut app = App::new();
     app.init_resource::<Assets<Image>>();
     app.init_resource::<Assets<TextureAtlasLayout>>();
@@ -107,8 +115,7 @@ fn app_with(admit: bool, sheet: CharacterSpriteAsset) -> (App, Entity) {
     assets.characters.publish("raider", sheet.clone());
     app.insert_resource(assets);
     let asset = sheet;
-    let feet = Vec2::new(asset.spec.feet_anchor_x, asset.spec.feet_anchor_y);
-    let (sprite, anchor, animator) = build_character_presentation_with_render_size(&asset, RENDER, Anchor(feet));
+    let (sprite, anchor, animator) = build_character_presentation_with_render_size(&asset, RENDER, anchor);
     let root = app
         .world_mut()
         .spawn((
@@ -624,4 +631,64 @@ fn a_tweened_clip_draws_between_its_frames() {
         moved += usize::from(target.at != draw.at);
     }
     assert!(moved > 0, "the walk's first two frames move no part, so this tests nothing");
+}
+
+/// The impostor lands where the baked frame would, whatever the root's anchor:
+/// a frame pixel is drawn at the same root-local point from the cell quad as
+/// from the baked FULL frame (`render_size` at the basis anchor), for a
+/// feet-anchored NPC and for a centre-anchored player (`character_render_basis`
+/// gives a body with a sheet-authored quad `Anchor::CENTER`), facing both ways.
+///
+/// ⛔ The first impostor assumed the feet and drew every centre-anchored body —
+/// Mary-O — half a body too high; every other test here built feet-anchored
+/// roots, so none could see it.
+#[test]
+fn the_impostor_lands_where_the_baked_frame_would_for_either_anchor() {
+    let flipbook = RiggedSpriteAsset::baked("mary_o_v2_tall").expect("a published flipbook");
+    let frame = flipbook.frame_size.as_vec2();
+    let spec = try_load_spec_for_character_id("mary_o_v2_tall").unwrap();
+    // Where a quad of `size` at `anchor` draws the point at `uv` of itself
+    // (0..1, +y down), mirrored about the origin when `flip`.
+    let local = |size: Vec2, anchor: Vec2, uv: Vec2, flip: bool| {
+        let mut at = (Vec2::new(uv.x - 0.5, 0.5 - uv.y) - anchor) * size;
+        if flip {
+            at.x = -at.x;
+        }
+        at
+    };
+    // The anchors the game builds bodies with, from the builder the game uses
+    // (`character_render_basis`): an NPC's (no authored quad) and a player's
+    // with a sheet-authored quad. Asked of the builder, not written here, so a
+    // third convention would be held too.
+    let collision = Vec2::new(21.0, 32.0);
+    let npc = crate::rendering::actors::character_render_basis(&spec, collision, None, None).1;
+    let player =
+        crate::rendering::actors::character_render_basis(&spec, collision, Some(Vec2::new(61.0, 73.0)), Some(Vec2::ZERO)).1;
+    assert_ne!(npc.0, player.0, "premise: the two conventions differ");
+    for built_at in [npc, player] {
+        for flip in [false, true] {
+            let (mut app, root) = app_anchored(true, sheet_with("mary_o_v2_tall", Some(flipbook.clone())), built_at);
+            app.world_mut().get_mut::<Sprite>(root).unwrap().flip_x = flip;
+            app.update();
+            let owner = owner(&app, root);
+            assert!(draws_impostor(&app, root, owner));
+            let size = app.world().get::<Sprite>(root).unwrap().custom_size.unwrap();
+            let mut anchor = app.world().get::<Anchor>(root).unwrap().0;
+            if flip {
+                // The drawn anchor is mirrored with the quad; unmirror it to
+                // read the quad in its own frame, as `local` mirrors after.
+                anchor.x = -anchor.x;
+            }
+            let basis = app.world().get::<CharacterAnimator>(root).unwrap().render_basis.unwrap();
+            let base_anchor = basis.feet_anchor;
+            for pixel in [flipbook.feet_pixel, Vec2::ZERO, frame, Vec2::new(frame.x, 0.0)] {
+                let baked = local(basis.render_size, base_anchor, pixel / frame, flip);
+                let cell = local(size, anchor, (pixel + Vec2::splat(IMPOSTOR_MARGIN)) / IMPOSTOR_CELL, flip);
+                assert!(
+                    close(cell, baked),
+                    "{built_at:?} flip {flip}: frame pixel {pixel} draws at {cell} from the impostor, {baked} baked"
+                );
+            }
+        }
+    }
 }

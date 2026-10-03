@@ -70,6 +70,10 @@ def main() -> int:
     parser.add_argument("--scale", type=float, default=1.0, help="drawn size over the frame size (1 = texel per pixel)")
     parser.add_argument("--both-facings", action="store_true")
     parser.add_argument(
+        "--centre-anchored", action="store_true",
+        help="build the root as a player with a sheet-authored quad (Anchor::CENTER), not at its feet",
+    )
+    parser.add_argument(
         "--phase", type=float, default=0.0,
         help="how far into each frame (0..1); above 0 a tweened clip is checked against its in-between",
     )
@@ -88,6 +92,8 @@ def main() -> int:
             command += ["--target", target]
         if args.both_facings:
             command.append("--both-facings")
+        if args.centre_anchored:
+            command.append("--centre-anchored")
         if args.phase:
             command += ["--phase", str(args.phase)]
         run = subprocess.run(command, cwd=REPO, capture_output=True, text=True)
@@ -118,6 +124,7 @@ def main() -> int:
         target, name, frame = row["target"], row["row"], int(row["frame"])
         flip = row["flip"] == "true"
         feet = (float(row["feet_x"]), float(row["feet_y"]))
+        root_x = float(row["root_x"])
         baked = _unpremultiplied(Image.open(row["baked"]).convert("RGBA"))
         parts = _unpremultiplied(Image.open(row["parts"]).convert("RGBA"))
         # ⛔ Premise: the harness drew something, and it drew the PINNED frame.
@@ -133,11 +140,11 @@ def main() -> int:
         # At a phase, the oracle is the published tween rule (`tween_draws`); a
         # clip that steps is its frame.
         draws = tween_draws(flipbooks[target], name, frame, args.phase)
-        flipbooks[target].draw_frame(oracle, name, frame, feet, flip, draws=draws)
+        flipbooks[target].draw_frame(oracle, name, frame, feet, flip, draws=draws, mirror_x=root_x)
         wrong, blob = parity(oracle, parts), largest_wrong_blob(oracle, parts)
         # For the record: the published FRAME there, and how the game's baked
         # road draws it.
-        published = _published_frame(sheets[target], flipbooks[target], name, frame, parts.size, feet, flip)
+        published = _published_frame(sheets[target], flipbooks[target], name, frame, parts.size, feet, flip, root_x)
         # ⚠ AN IN-BETWEEN IS REPORTED, NOT GATED. PIL rounds a tweened part to
         # whole pixels; the GPU draws it between pixels and does not. The
         # raster difference is that rounding (1-2%, blobs to 39 on Mary-O,
@@ -199,13 +206,14 @@ def _sheet(target):
     return {row["animation"]: row for row in sheet["rows"]}, atlas
 
 
-def _published_frame(sheet, flipbook, name, index, size, feet, flip):
+def _published_frame(sheet, flipbook, name, index, size, feet, flip, root_x):
     rows, atlas = sheet
     rect = rows[name]["rects"][index]
     frame = Image.new("RGBA", flipbook.frame_size, (0, 0, 0, 0))
     frame.paste(atlas.crop((rect["x"], rect["y"], rect["x"] + rect["w"], rect["y"] + rect["h"])), tuple(rect["off"]))
     canvas = Image.new("RGBA", size, (0, 0, 0, 0))
-    fx = feet[0] if not flip else size[0] - feet[0]
+    # Mirrored about the root's column, as `PartFlipbook.draw_frame` mirrors.
+    fx = feet[0] if not flip else size[0] - (2.0 * root_x - feet[0])
     canvas.alpha_composite(frame, (round(fx - flipbook.feet[0]), round(feet[1] - flipbook.feet[1])))
     return canvas.transpose(Image.FLIP_LEFT_RIGHT) if flip else canvas
 

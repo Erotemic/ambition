@@ -98,6 +98,23 @@ What P5a built and measured:
 - A frame larger than a cell (256 px with margins), or a full 36-cell atlas,
   keeps its baked sheet and warns once.
 
+⛔ P5a placed every centre-anchored body half a body too high. That is every
+player with a sheet-authored quad, Mary-O included: `character_render_basis`
+builds them at `Anchor::CENTER`, with the translation at the quad's centre. The
+impostor quad assumed the root's anchor is its feet. The tests and the harness
+built only feet-anchored roots, so nothing could see it (Jon saw it in the game,
+2026-10-03).
+
+Fixed by deriving the cell quad from the root's own basis (`cell_quad`), as the
+baked frame is derived. Guards:
+
+- `the_impostor_lands_where_the_baked_frame_would_for_either_anchor` asks the
+  game's builder for both conventions. The old formula fails it at the player's
+  feet: 0 vs −57 world units.
+- `measure_rigged_parity.py --centre-anchored` builds the root as a player is
+  built and mirrors the oracle about the root, not the feet. The old formula
+  reads 97.5% wrong; fixed, both conventions are inside the bounds.
+
 What P5b changed:
 
 - With the rigged sprites admitted, a sheet whose every row is a part clip is

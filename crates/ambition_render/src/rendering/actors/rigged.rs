@@ -619,15 +619,13 @@ pub fn drive_rigged_presentations(
         // hidden. The owner is on the private layer: no view draws it either way.
         owner_visibility.set_if_neq(Visibility::Inherited);
 
-        // The root's quad: its whole cell, its feet on the root's feet, at the
-        // size the baked frame would have per sheet pixel. The squash of a
-        // sheet with no compact row is read off the root as the animator drew
-        // it, before it is replaced.
+        // The root's quad: its whole cell, placed so the frame inside it lands
+        // exactly where the root's baked frame would (`cell_quad`). The squash
+        // of a sheet with no compact row is read off the root as the animator
+        // drew it, before it is replaced.
         let squash = stance_squash(animator, &root_sprite, Some(&root_anchor));
         let impostor = presentation.impostor;
-        let world_per_pixel = basis.render_size / flipbook.frame_size.as_vec2();
-        let mut size = Vec2::splat(IMPOSTOR_CELL) * world_per_pixel;
-        let mut anchor = Vec2::new(impostor.feet.x / IMPOSTOR_CELL - 0.5, 0.5 - impostor.feet.y / IMPOSTOR_CELL);
+        let (mut size, mut anchor) = cell_quad(basis, flipbook.frame_size.as_vec2());
         if let Some((ratio, held_y)) = squash {
             (size.y, anchor.y) = squashed_about(size.y, anchor.y, ratio, held_y);
         }
@@ -684,6 +682,31 @@ pub fn drive_rigged_presentations(
             }
         }
     }
+}
+
+/// The size and anchor of a body's cell quad: the cell drawn so that every
+/// pixel of the frame inside it (the frame's top left at `IMPOSTOR_MARGIN`)
+/// lands where the root's baked FULL frame puts that pixel — the frame of
+/// `basis.render_size` at `basis.feet_anchor`.
+///
+/// ⛔⛔ THE ROOT'S ANCHOR IS NOT ALWAYS ITS FEET. `basis.feet_anchor` is the
+/// anchor the root was BUILT with: the feet for an NPC
+/// (`feet_anchor_for_render_size`), but `Anchor::CENTER` for a player with a
+/// sheet-authored quad (`character_render_basis`), whose translation is the
+/// quad's centre. The first impostor put the frame's feet on the root's origin
+/// whatever the anchor, and every centre-anchored body — Mary-O, the player —
+/// drew half a body above its place (2026-10-02). Deriving the quad from the
+/// basis, as the baked frame is derived, leaves no convention to assume;
+/// `the_impostor_lands_where_the_baked_frame_would_for_either_anchor` holds
+/// both.
+pub fn cell_quad(basis: ambition_sprite_sheet::character::RenderBasis, frame_size: Vec2) -> (Vec2, Vec2) {
+    let world_per_pixel = basis.render_size / frame_size;
+    let size = Vec2::splat(IMPOSTOR_CELL) * world_per_pixel;
+    // The frame's centre in the cell, normalized (+y up), and the frame's
+    // anchor carried from frame units into cell units.
+    let centre = (Vec2::splat(IMPOSTOR_MARGIN) + frame_size * 0.5) / IMPOSTOR_CELL;
+    let anchor = Vec2::new(centre.x - 0.5, 0.5 - centre.y) + basis.feet_anchor * frame_size / IMPOSTOR_CELL;
+    (size, anchor)
 }
 
 /// A quad of height `height` and anchor `anchor_y` squashed by `ratio` about

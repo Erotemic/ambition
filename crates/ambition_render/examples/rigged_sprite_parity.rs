@@ -67,6 +67,7 @@ fn main() {
     let mut scale: f32 = 1.0;
     let mut flips = vec![false];
     let mut phase: f32 = 0.0;
+    let mut centre_anchored = false;
     let mut it = std::env::args().skip(1);
     while let Some(arg) = it.next() {
         match arg.as_str() {
@@ -75,6 +76,11 @@ fn main() {
             "--scale" => scale = it.next().expect("--scale S").parse().expect("--scale S"),
             "--both-facings" => flips = vec![false, true],
             "--phase" => phase = it.next().expect("--phase T").parse().expect("--phase T"),
+            // Build the root as a player with a sheet-authored quad is built:
+            // `Anchor::CENTER`, its translation the quad's centre
+            // (`character_render_basis`). Without it the root is built as an
+            // NPC is: anchored at its feet.
+            "--centre-anchored" => centre_anchored = true,
             other => {
                 eprintln!("rigged_sprite_parity: unknown argument {other}");
                 std::process::exit(2);
@@ -84,26 +90,27 @@ fn main() {
     if targets.is_empty() {
         targets = vec!["mary_o_v2".into(), "mary_o_v2_tall".into(), "mary_o_v2_fire".into()];
     }
-    let mut index = String::from("target\trow\tframe\tflip\tfeet_x\tfeet_y\tbaked\tparts\n");
+    let mut index = String::from("target\trow\tframe\tflip\tfeet_x\tfeet_y\troot_x\tbaked\tparts\n");
     for target in &targets {
         let dir = out.join(target);
         std::fs::create_dir_all(&dir).expect("create the output directory");
-        let baked = capture_all(target, false, scale, &flips, phase);
-        let parts = capture_all(target, true, scale, &flips, phase);
+        let baked = capture_all(target, false, scale, &flips, phase, centre_anchored);
+        let parts = capture_all(target, true, scale, &flips, phase, centre_anchored);
         assert_eq!(baked.len(), parts.len(), "`{target}`: the two runs pinned different frames");
-        for ((pin, size, feet, baked), (_pin, _size, _feet, parts)) in baked.into_iter().zip(parts) {
+        for ((pin, size, (feet, root_x), baked), (_pin, _size, _feet, parts)) in baked.into_iter().zip(parts) {
             let stem = format!("{}_{}{}", pin.row, pin.frame, if pin.flip { "_flip" } else { "" });
             let baked_path = dir.join(format!("{stem}_baked.png"));
             let parts_path = dir.join(format!("{stem}_parts.png"));
             save(&baked_path, size, &baked);
             save(&parts_path, size, &parts);
             index.push_str(&format!(
-                "{target}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n",
+                "{target}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n",
                 pin.row,
                 pin.frame,
                 pin.flip,
                 feet.x,
                 feet.y,
+                root_x,
                 baked_path.display(),
                 parts_path.display()
             ));
@@ -120,10 +127,19 @@ fn save(path: &std::path::Path, size: UVec2, pixels: &[u8]) {
         .expect("save the frame");
 }
 
-/// Every row and frame of `target`, drawn by one path: `(pin, size, feet
-/// pixel, RGBA)`. The feet pixel is where the root (the body's feet) lands in
-/// the image, +y down, so a reader can place the published frame there.
-fn capture_all(target: &str, rigged: bool, scale: f32, flips: &[bool], phase: f32) -> Vec<(Pin, UVec2, Vec2, Vec<u8>)> {
+/// Every row and frame of `target`, drawn by one path: `(pin, size, (feet
+/// pixel, root x), RGBA)`. The feet pixel is where the body's feet land in the
+/// image, +y down, so a reader can place the published frame there; the root x
+/// is the column a facing flip mirrors about (the root's origin: the feet for
+/// an NPC, the quad's centre for a centre-anchored player).
+fn capture_all(
+    target: &str,
+    rigged: bool,
+    scale: f32,
+    flips: &[bool],
+    phase: f32,
+    centre_anchored: bool,
+) -> Vec<(Pin, UVec2, (Vec2, f32), Vec<u8>)> {
     let spec = try_load_spec_for_character_id(target).expect("a baked sheet: run scripts/regen/sprites.sh");
     let frame = Vec2::new(spec.frame_width as f32, spec.frame_height as f32);
     let render = frame * scale;
@@ -148,12 +164,21 @@ fn capture_all(target: &str, rigged: bool, scale: f32, flips: &[bool], phase: f3
     assets.characters.publish("parity", asset.clone());
     app.insert_resource(assets);
     let feet = Vec2::new(asset.spec.feet_anchor_x, asset.spec.feet_anchor_y);
-    let (sprite, anchor, animator) = build_character_presentation_with_render_size(&asset, render, Anchor(feet));
-    // The feet land on a whole pixel, as they do wherever the frame is drawn
-    // 1:1, so neither path is resampled by a sub-pixel root.
-    let feet_px = Vec2::new((feet.x + 0.5) * render.x, (feet.y + 0.5) * render.y);
-    let at = (feet_px - render * 0.5).round();
-    let feet_pixel = Vec2::new(size.x as f32 * 0.5 + at.x, size.y as f32 * 0.5 - at.y);
+    let built_at = if centre_anchored { Anchor::CENTER } else { Anchor(feet) };
+    let (sprite, anchor, animator) = build_character_presentation_with_render_size(&asset, render, built_at);
+    // The root lands on a whole pixel, as it does wherever the frame is drawn
+    // 1:1, so neither path is resampled by a sub-pixel root. `feet_pixel` is
+    // where the feet land in the image (+y down), for the reader's oracle.
+    let (at, feet_pixel) = if centre_anchored {
+        // The root is the frame's centre: the image's centre.
+        let at = Vec2::ZERO;
+        let feet = Vec2::new(feet.x * render.x, -feet.y * render.y);
+        (at, (size.as_vec2() * 0.5 + feet).round())
+    } else {
+        let feet_px = Vec2::new((feet.x + 0.5) * render.x, (feet.y + 0.5) * render.y);
+        let at = (feet_px - render * 0.5).round();
+        (at, Vec2::new(size.x as f32 * 0.5 + at.x, size.y as f32 * 0.5 - at.y))
+    };
     app.world_mut().spawn((
         sprite,
         anchor,
@@ -185,7 +210,8 @@ fn capture_all(target: &str, rigged: bool, scale: f32, flips: &[bool], phase: f3
                 // Two updates: the pin and the drive land, then the frame draws.
                 app.update();
                 app.update();
-                out.push((pinned, size, feet_pixel, readback(&mut app, &image, &captured, size)));
+                let root_x = size.x as f32 * 0.5 + at.x;
+                out.push((pinned, size, (feet_pixel, root_x), readback(&mut app, &image, &captured, size)));
             }
         }
     }

@@ -523,11 +523,15 @@ second authoring source.
 
 **Current state:** some authored facts have two readers:
 
-- `ambition_sprite_sheet::boss::boss_ron_target` names two of GNU-ton's
-  texture suffixes in Rust (`_body`, `_hands`) to map both files to one baked
-  record. The rows, the animation row and the hurtbox sample row of each boss
-  attack are authored in `boss_art_keys.ron`; no other boss animation or sprite
-  map was searched for after those moved.
+- ✅ 2026-10-03: `boss_ron_target` no longer strips `_body`/`_hands` to map
+  two files to one record; the key is the file stem. A probe on the strip
+  fired 0 times over app_it (949 tests) and the content and boss lanes, with a
+  positive control that fired. The `tools` generator still writes
+  `gnu_ton_boss_{body,hands}` and `giant_gnu_{body,hands}` sheets into the
+  published (gitignored) `gnu_ton_boss/` folder, and nothing loads them.
+  The rows, the animation row and the hurtbox sample row of each boss attack
+  are authored in `boss_art_keys.ron`; no other boss animation or sprite map
+  was searched for after those moved.
 - Yarn dialogue has its reader, and
   `game/ambition_content/src/content_validation.rs` checks dialogue references
   again.

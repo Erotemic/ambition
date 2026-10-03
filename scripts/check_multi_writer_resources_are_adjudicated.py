@@ -226,6 +226,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_boss_encounter/src/systems.rs",
         "crates/ambition_encounter/src/switches.rs",
         "crates/ambition_encounter_features/src/systems.rs",
+        "crates/ambition_game_shell/src/session.rs",
         "crates/ambition_menu/src/map/systems.rs",
         "crates/ambition_persistence/src/quest/registry.rs",
         "crates/ambition_persistence/src/save.rs",
@@ -333,6 +334,14 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "game/ambition_app/src/menu/grid_backend.rs",
         "game/ambition_app/src/menu/kaleidoscope_app.rs",
         "game/ambition_app_tools/src/bin/capture_scene.rs",
+    ),
+    "LastPersistedSave": (
+        "crates/ambition_game_shell/src/session.rs",
+        "crates/ambition_persistence/src/save.rs",
+    ),
+    "SaveFileWritable": (
+        "crates/ambition_game_shell/src/session.rs",
+        "crates/ambition_persistence/src/save.rs",
     ),
     "RoomsOwedTheRestore": (
         "crates/ambition_platformer2d_actor_monolith/src/session/checkpoint.rs",
@@ -1832,8 +1841,8 @@ ADJUDICATED: dict[str, str] = {
         "bag (`Res<OwnedItems>`) and ask for a consumable through an "
         "`ItemUseRequested` host intent; `apply_item_uses` spends it inside the "
         "timeline.\n"
-        "    ⚠ AND THE LIVE BAG IS NOT PEER-COMPARED, which is a separate open "
-        "thing filed under Q129: `OwnedItems` is `rollback_resource_clone` — "
+        "    ⚠ AND THE LIVE BAG IS NOT PEER-COMPARED, which the Q129 ruling "
+        "(2026-10-03) now owns: `OwnedItems` is `rollback_resource_clone` — "
         "restored on a rewind, `feeds_peer_checksum() == false` — while "
         "`OwnedItemsBaseline(OwnedItems)` is `rollback_resource_clone_checksum` "
         "projecting `to_persisted()` rows. So a resimulation that diverges in the "
@@ -2061,8 +2070,10 @@ ADJUDICATED: dict[str, str] = {
         "value across that line. Nothing can observe it today because only "
         "`SyncTestSession` is ever constructed — one peer replaying itself, whose "
         "two save files are the same file. Routed to "
-        "`docs/planning/awaiting-maintainer-decision.md`'s Q129, which asks "
-        "exactly whether a save file belongs in what two peers agree on."
+        "Q129, decided 2026-10-03 (`docs/planning/maintainer-decisions.md`): "
+        "shared durable state is peer state, compared by its canonical semantic "
+        "form, so making the live bag and its baseline agree is "
+        "`DURABLE-HORIZON-CHECKSUM`'s engineering."
     ),
     "ClassBRemapLog": (
         "CORRECT — AND IT IS THE CASE WHERE MANY WRITERS ARE THE DESIGN, ENFORCED BY "
@@ -2260,7 +2271,12 @@ ADJUDICATED: dict[str, str] = {
         "is the shape of the question, not the answer. ⛔ Do NOT read this as "
         "settled because the checksum is quiet: 19 `ResMut<AmbitionGameSave>` "
         "parameters in 17 production files is the widest shared write in the "
-        "tree."
+        "tree.\n"
+        "    2026-10-03: `ambition_game_shell/src/session.rs` ARRIVED. "
+        "`hand_the_save_to_the_activating_experience` swaps the whole value at "
+        "`SessionScopeSet::Activate`, before any session of the new experience "
+        "exists, so it shares no frame with the sim writers (Q129 road 4 of "
+        "ID-PEER)."
     ),
     "ActiveConversation": (
         "CORRECT — ONE OPENER AND FOUR END CONDITIONS, each on a different event "
@@ -2340,6 +2356,21 @@ ADJUDICATED: dict[str, str] = {
         "`suspended_frame_zeros_world_time_scaled_dt` "
         "(`actor_monolith/src/time/time_control/tests.rs`), which is the arm that "
         "makes this a verdict rather than an opinion."
+    ),
+    "LastPersistedSave": (
+        "CORRECT — TWO WRITERS AT TWO MOMENTS OF ONE FILE STATE. The autosave and "
+        "the startup load (`save.rs`) record what the owner's file holds. "
+        "`hand_the_save_to_the_activating_experience` (`ambition_game_shell/src/"
+        "session.rs`) parks it with its save and installs the next owner's at "
+        "session activation, so the shadow always describes the live save's own "
+        "file. POISON-VERIFIED 2026-10-03: the handover skipped reddens both "
+        "two-host arms in `shell_host_lifecycle.rs` on `AmbitionGameSave`."
+    ),
+    "SaveFileWritable": (
+        "CORRECT — THE SAME PAIR AS `LastPersistedSave`, for the same reason: "
+        "the startup load sets it from the file it read, and the activation "
+        "handover sets it from the next owner's file (or keeps the value parked "
+        "with that owner's save). Each value describes the live save's own file."
     ),
     "RoomsOwedTheRestore": (
         "CORRECT — A PRODUCER AND A CONSUMER OF ONE QUEUE, IN ONE ORDER. "

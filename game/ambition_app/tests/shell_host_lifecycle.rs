@@ -1919,12 +1919,11 @@ fn the_peer_visible_surface_does_not_record_which_route_the_host_visited_first()
     /// reading, not a waiver: each names the owner that has it, so a NEW
     /// divergence cannot hide among them.
     const EXPECTED_TO_DIFFER: &[(&str, &str)] = &[
-        (
-            "ambition_persistence::save::AmbitionGameSave",
-            "Q129 — whether the save file is part of what two peers agree on is \
-             a maintainer question, and removing it from the checksum to make \
-             this arm green is explicitly the wrong repair",
-        ),
+        // ⛔ `AmbitionGameSave` WAS HERE (Q129) AND IS NOT NOW. It differed
+        // because the veteran's Sanic and Mary-O sessions wrote their room
+        // visits into the one process-wide save. The session activation now
+        // gives the save to its experience (`SaveOwner`), so both hosts reach
+        // Ambition with Ambition's save, and the save stays in the checksum.
         // ⛔⛤ **`TransactionId` WAS HERE AND IS NOT NOW, BECAUSE THE INSTRUMENT
         // WAS THE DEFECT.** The waiver read *"NOT A DIVERGENCE — the probe
         // measures `census_state` while the peer checksum is
@@ -2137,8 +2136,8 @@ fn the_peer_visible_surface_does_not_record_which_route_the_host_visited_first()
 /// retired — and **59 of 146 real `ChecksumPart`s disagreed**, `BodyHealth`,
 /// `ActorPose`, `Brain` and `WornCharacter` among them. After the rebase: **2**,
 /// `SimTick` (`Q128`) and `AmbitionGameSave` (`Q129`). After `Q128` was decided
-/// (2026-10-03, the tick is session-relative): **1**, the save, named below
-/// with its reading.
+/// (2026-10-03, the tick is session-relative): **1**, the save. After the
+/// save was given to its experience at activation (the same day): **0**.
 ///
 /// ⚠ **A VALUE CENSUS CANNOT SEE ANY OF THIS, WHICH IS THE LESSON.**
 /// `RollbackChecksumProbes` folds `count` and a wrapping sum of the per-value
@@ -2287,17 +2286,15 @@ fn two_local_histories_compute_the_same_ggrs_component_checksums() {
 
     let fresh_parts = parts(&mut fresh);
     let veteran_parts = parts(&mut veteran);
-    /// The row that still differs, with the OPEN question that owns it.
+    /// Rows that differ for a reason an OPEN question owns. None now.
     /// `SimTick` was here until `Q128` was decided (2026-10-03): the session
-    /// activation now starts it at `0`, so both hosts agree on it.
+    /// activation now starts it at `0`. `AmbitionGameSave` was here until the
+    /// same day: the veteran's Sanic and Mary-O sessions had written their
+    /// room visits into the one process-wide save, and the activation now
+    /// gives the save to its experience (`SaveOwner`).
     /// ⛔ A row here is a reading, not a waiver: it is an open road with a
     /// ruling in front of it, and it is not about carrier order.
-    const OWNED_ELSEWHERE: &[(&str, &str)] = &[
-        (
-            "ambition_persistence::save::AmbitionGameSave",
-            "`Q129` — whether a save FILE is part of what two peers agree on.              Thirteen of its nineteen writers are sim systems, so it is              simulation-adjacent in practice whatever it is in principle",
-        ),
-    ];
+    const OWNED_ELSEWHERE: &[(&str, &str)] = &[];
 
     let owned = |name: &str| {
         OWNED_ELSEWHERE

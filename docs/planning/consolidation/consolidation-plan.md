@@ -271,6 +271,15 @@ disabled menu state until a shell-less composition exists.
   `ActiveConversation`, `StocksMatchSettled`, `PendingLifecycleCommit`,
   `AcceptedCheckpointRestore`. This is the sharpest entry population, because
   each `None` arm reads past a declared session owner.
+  Triage so far (2026-10-03). Each `None` arm was probed over `app_it`, the five
+  `*_it` suites, every target of the demo crates, and the touched crates' lib
+  tests.
+  - `PendingLifecycleCommit` (`drive_departures`) and `AcceptedCheckpointRestore`
+    (the room loader) were never absent, so both reads are now required.
+  - `StocksMatchSettled` was absent only in a character fixture, so its reason is
+    stated at the read.
+  - The three `ActiveConversation` reads already state theirs.
+  - `BaseGravity` waits on Q136.
 - ✅ The fallback no `Option` scan could see is closed (2026-10-03):
   `insert_session_world_component` refuses in a session-gated composition
   with no root and no active scope. A direct host (no gate) builds its one root

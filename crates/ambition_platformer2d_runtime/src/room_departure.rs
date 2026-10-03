@@ -67,7 +67,10 @@ pub fn drive_departures(
         ),
         ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
     >,
-    mut pending: Option<ResMut<PendingLifecycleCommit>>,
+    // Required (C07): every composition that drives departures has the
+    // lifecycle-commit slot (measured 2026-10-03 over app_it, the demo suites
+    // and the lib tests), as `admit_room_replay` beside it already requires.
+    mut pending: ResMut<PendingLifecycleCommit>,
     boundary: Option<Res<ambition_platformer2d_core::ConfirmedFrameBoundary>>,
     mut replay: MessageWriter<RoomReplayRequested>,
     mut admitted: MessageReader<ambition_combat::RoomReplayAdmitted>,
@@ -170,9 +173,9 @@ pub fn drive_departures(
                 asked: 0.0,
             };
         }
-        // No body or no lifecycle commit this tick: keep the trip and ask next
-        // tick, until the give-up replays.
-        let (Some((subject, driver)), Some(pending)) = (subject.clone(), pending.as_deref_mut()) else {
+        // No body this tick: keep the trip and ask next tick, until the
+        // give-up replays.
+        let Some((subject, driver)) = subject.clone() else {
             continue;
         };
         let _ = pending.record(

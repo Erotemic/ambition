@@ -147,27 +147,37 @@ fn a_tier_keeps_every_part_size_and_samples_its_own_rects() {
     assert_eq!(full.for_tier(TextureResolutionScale::Full).unwrap().unwrap(), full);
 }
 
-/// Rig packet 9: Mary-O's flipbooks are hybrids. Her walk is drawn from parts,
-/// and every other row of her sheet is stated as baked, the transition clips
-/// with their effects among them. Each tier table is the same hybrid.
+/// Mary-O is drawn entirely from parts
+/// (`docs/planning/engine/mary-o-part-realization.md`): every row of every
+/// form, the transition clips with their effects among them, is a part clip
+/// with the sheet's frame count, at every tier.
 #[test]
-fn mary_os_flipbooks_draw_her_walk_from_parts_and_leave_the_rest_baked() {
+fn mary_os_flipbooks_draw_every_row_from_parts() {
     use ambition_persistence::settings::TextureResolutionScale;
     for target in ["mary_o_v2", "mary_o_v2_tall", "mary_o_v2_fire"] {
         let asset = RiggedSpriteAsset::baked(target).unwrap_or_else(|| {
             panic!("`{target}` publishes no part flipbook: run scripts/regen/sprites.sh --target {target}")
         });
         let record = crate::character::sheets::record_for_sheet_key(target).expect("a baked sheet");
-        let rows: Vec<&str> = record.rows.iter().map(|row| row.animation.as_str()).collect();
+        assert!(!record.rows.is_empty(), "`{target}` sheet has no rows");
         asset
-            .check_rows(rows.iter().copied())
+            .check_rows(record.rows.iter().map(|row| row.animation.as_str()))
             .unwrap_or_else(|error| panic!("`{target}` {error}"));
-        assert_eq!(asset.clip_names().collect::<Vec<_>>(), vec!["walk"], "`{target}`");
-        for row in rows.iter().filter(|row| **row != "walk") {
-            assert_eq!(asset.realization(row), Some(ClipRealization::Baked), "`{target}` `{row}`");
+        assert_eq!(asset.baked_clip_names().count(), 0, "`{target}` still leaves rows baked");
+        for row in &record.rows {
+            assert_eq!(
+                asset.realization(&row.animation),
+                Some(ClipRealization::Parts),
+                "`{target}` `{}`",
+                row.animation
+            );
+            assert_eq!(
+                asset.clip(&row.animation).unwrap().frame_count(),
+                row.frame_count as usize,
+                "`{target}` `{}`",
+                row.animation
+            );
         }
-        let walk = record.rows.iter().find(|row| row.animation == "walk").unwrap();
-        assert_eq!(asset.clip("walk").unwrap().frame_count(), walk.frame_count as usize, "`{target}`");
         for tier in [
             TextureResolutionScale::Half,
             TextureResolutionScale::Quarter,
@@ -177,7 +187,14 @@ fn mary_os_flipbooks_draw_her_walk_from_parts_and_leave_the_rest_baked() {
                 .for_tier(tier)
                 .unwrap_or_else(|| panic!("`{target}` has no {tier:?} table"))
                 .unwrap_or_else(|error| panic!("`{target}` {tier:?} {error}"));
-            assert_eq!(tiered.realization("idle"), Some(ClipRealization::Baked), "`{target}` {tier:?}");
+            for row in &record.rows {
+                assert_eq!(
+                    tiered.realization(&row.animation),
+                    Some(ClipRealization::Parts),
+                    "`{target}` {tier:?} `{}`",
+                    row.animation
+                );
+            }
         }
     }
 }

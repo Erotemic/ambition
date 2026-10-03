@@ -43,10 +43,10 @@ fn a_flipbook_that_names_what_it_does_not_have_is_refused() {
         RiggedSpriteAsset::from_published_ron(&bad_page),
         Err(RiggedSpriteError::MissingPage { part: 1, page: 3 })
     ));
-    let future = FIXTURE.replace("schema_version: 1", "schema_version: 3");
+    let future = FIXTURE.replace("schema_version: 1", "schema_version: 4");
     assert!(matches!(
         RiggedSpriteAsset::from_published_ron(&future),
-        Err(RiggedSpriteError::Schema { found: 3 })
+        Err(RiggedSpriteError::Schema { found: 4 })
     ));
 }
 
@@ -283,4 +283,46 @@ fn a_schema_one_flipbook_reads_as_untracked_steps() {
         RiggedSpriteAsset::from_published_ron(&bad),
         Err(RiggedSpriteError::MissingTrack { track: 3, .. })
     ));
+}
+
+/// Schema 3: the placement rule, a draw's own opacity, and the opacity of a
+/// frame that fades as one picture. An in-between moves a draw's opacity with
+/// its place; the frame opacity is the current frame's. An older file is
+/// snapped and opaque.
+#[test]
+fn a_schema_three_flipbook_carries_its_placement_and_opacities() {
+    let text = r#"(schema_version: 3, target: "toy", pages: ["p.png"], frame_size: (8, 8), feet_pixel: (4.0, 8.0),
+        placement: Continuous,
+        parts: [(name: "a", page: 0, rect: (0, 0, 2, 2), pivot: (1.0, 1.0))],
+        tracks: ["blade"],
+        clips: {
+            "swing": (frame_duration_s: 0.1, tween: Linear, frames: [
+                [(part: 0, at: (0.5, 0.25), rotation: 0.0, scale: (-1.0, 1.0), track: 0, opacity: 0.2)],
+                [(part: 0, at: (1.5, 0.25), rotation: 0.0, scale: (-1.0, 1.0), track: 0)],
+            ]),
+            "death": (frame_duration_s: 0.1, frame_opacity: [1.0, 0.5], frames: [
+                [(part: 0, at: (0.0, 0.0), rotation: 0.0, scale: (1.0, 1.0))],
+                [(part: 0, at: (0.0, 0.0), rotation: 0.0, scale: (1.0, 1.0))],
+            ]),
+        })"#;
+    let asset = RiggedSpriteAsset::from_published_ron(text).expect("a schema-3 flipbook");
+    assert_eq!(asset.placement, RigPlacement::Continuous);
+    let swing = asset.frame("swing", 0).unwrap()[0];
+    assert_eq!((swing.opacity, swing.scale), (0.2, Vec2::new(-1.0, 1.0)));
+    assert_eq!(asset.frame("swing", 1).unwrap()[0].opacity, 1.0, "an absent opacity is opaque");
+    let mut out = Vec::new();
+    asset.tween_into("swing", 0, 0.5, &mut out).unwrap();
+    assert!((out[0].opacity - 0.6).abs() < 1.0e-6, "{}", out[0].opacity);
+    assert_eq!(out[0].at, Vec2::new(1.0, 0.25));
+    assert_eq!(asset.frame_opacity("death", 1), 0.5);
+    assert_eq!(asset.frame_opacity("death", 9), 0.5, "past the end holds the last frame");
+    assert_eq!(asset.frame_opacity("swing", 0), 1.0);
+    let short = text.replace("frame_opacity: [1.0, 0.5]", "frame_opacity: [0.5]");
+    assert!(matches!(
+        RiggedSpriteAsset::from_published_ron(&short),
+        Err(RiggedSpriteError::FrameOpacityCount { opacities: 1, frames: 2, .. })
+    ));
+    let older = RiggedSpriteAsset::from_published_ron(FIXTURE).expect("a schema-1 flipbook");
+    assert_eq!(older.placement, RigPlacement::Snapped);
+    assert_eq!(older.frame("idle", 0).unwrap()[0].opacity, 1.0);
 }

@@ -553,7 +553,6 @@ fn a_rewear_drops_the_old_characters_parts_while_the_new_pages_load() {
 fn a_squashed_root_squashes_its_impostor_about_the_same_line() {
     let (mut app, root) = app(true);
     app.update();
-    let owner = owner(&app, root);
     let (h0, a0) = {
         let animator = app.world().get::<CharacterAnimator>(root).unwrap();
         let (size, anchor) = animator.current_render().unwrap();
@@ -691,4 +690,118 @@ fn the_impostor_lands_where_the_baked_frame_would_for_either_anchor() {
             }
         }
     }
+}
+
+/// The player robot's flipbook, published (`player_robot_v3.py`): every row
+/// from parts, placed between pixels.
+fn robot() -> (RiggedSpriteAsset, App, Entity) {
+    let flipbook = RiggedSpriteAsset::baked("player_robot_v3").expect("the robot publishes a flipbook");
+    let (mut app, root) = app_with(true, sheet_with("player_robot_v3", Some(flipbook.clone())));
+    app.update();
+    (flipbook, app, root)
+}
+
+/// Pin `root` to frame `frame` of the clip row `row`.
+fn pin_clip(app: &mut App, root: Entity, row: &str, frame: usize) {
+    let mut animator = app.world_mut().get_mut::<CharacterAnimator>(root).unwrap();
+    animator.request_clip([row], ambition_sprite_sheet::character::CharacterAnim::Idle);
+    animator.frame = frame;
+    animator.elapsed = 0.0;
+    let drawn = animator.spec.row_name(animator.drawn_row().unwrap()).unwrap().to_owned();
+    assert_eq!(drawn, row, "the pin did not reach the row");
+}
+
+/// A frame that fades AS ONE PICTURE (the robot's death) fades its body's
+/// cell, after the parts are composited (`ImpostorCellOpacity`): never its
+/// parts one by one, which would show them through each other. Every other
+/// cell stays opaque, and the cell is opaque again once the clip ends.
+#[test]
+fn a_frame_that_fades_as_one_picture_fades_its_cell() {
+    let (flipbook, mut app, root) = robot();
+    let owner = owner(&app, root);
+    let last = flipbook.clip("death").expect("a death clip").frame_count() - 1;
+    let fade = flipbook.frame_opacity("death", last);
+    assert!(fade < 0.6, "the death clip does not fade ({fade}), so this tests nothing");
+    pin_clip(&mut app, root, "death", last);
+    app.update();
+    let cell = app.world().get::<RiggedPresentation>(owner).unwrap().impostor.cell as usize;
+    let cells = atlas(&app).cells.clone();
+    assert_eq!(cells.opacity[cell / 4][cell % 4], fade);
+    let others = (0..IMPOSTOR_MAX_CELLS).filter(|other| *other != cell);
+    assert!(others.into_iter().all(|other| cells.opacity[other / 4][other % 4] == 1.0));
+    for slot in &app.world().get::<RiggedPresentation>(owner).unwrap().slots {
+        let alpha = app.world().get::<Sprite>(*slot).unwrap().color.alpha();
+        assert_eq!(alpha, 1.0, "a death frame's parts are drawn opaque; the cell fades");
+    }
+    pin_clip(&mut app, root, "idle", 0);
+    app.update();
+    assert_eq!(atlas(&app).cells.opacity[cell / 4][cell % 4], 1.0);
+}
+
+/// A body drawn from its other side draws its mirror row (`~mirrored`), whose
+/// draws are the same parts mirrored about their pivots (`scale.x == -1`):
+/// each slot carries the draw's scale in its transform.
+#[test]
+fn a_mirrored_draw_mirrors_its_slot() {
+    let (flipbook, mut app, root) = robot();
+    let owner = owner(&app, root);
+    {
+        let mut animator = app.world_mut().get_mut::<CharacterAnimator>(root).unwrap();
+        animator.request(ambition_sprite_sheet::character::CharacterAnim::Idle);
+        assert!(!animator.face(true), "the robot answers a flip with its mirror rows");
+    }
+    app.update();
+    let draws = flipbook.frame("idle~mirrored", 0).expect("a mirror row");
+    assert!(draws.iter().any(|draw| draw.scale.x < 0.0), "the mirror row has no mirrored draw");
+    let presentation = app.world().get::<RiggedPresentation>(owner).unwrap();
+    for (draw, slot) in draws.iter().zip(&presentation.slots) {
+        let scale = app.world().get::<Transform>(*slot).unwrap().scale;
+        assert_eq!(scale.truncate(), draw.scale);
+    }
+}
+
+/// A part that fades on its own (the robot's blade after a smash) draws its
+/// slot at the draw's opacity.
+#[test]
+fn a_faded_draw_tints_its_slot() {
+    let (flipbook, mut app, root) = robot();
+    let owner = owner(&app, root);
+    let frames = flipbook.clip("smash_forward").expect("a smash clip").frame_count();
+    let (frame, index, opacity) = (0..frames)
+        .flat_map(|frame| {
+            let draws = flipbook.frame("smash_forward", frame).unwrap();
+            draws.iter().enumerate().map(move |(index, draw)| (frame, index, draw.opacity))
+        })
+        .min_by(|a, b| a.2.total_cmp(&b.2))
+        .unwrap();
+    assert!(opacity < 0.5, "no draw of the smash fades ({opacity}), so this tests nothing");
+    pin_clip(&mut app, root, "smash_forward", frame);
+    app.update();
+    let slot = app.world().get::<RiggedPresentation>(owner).unwrap().slots[index];
+    let alpha = app.world().get::<Sprite>(slot).unwrap().color.alpha();
+    assert!((alpha - opacity).abs() < 1.0e-6, "{alpha} for {opacity}");
+}
+
+/// Every published flipbook's frame fits an impostor cell with its margins. A
+/// body whose frame does not keeps its baked sheet in game, with one warning
+/// in a log nobody reads — the robot's 256 px frame did not fit the old 256 px
+/// cell.
+#[test]
+fn every_published_flipbook_fits_an_impostor_cell() {
+    let mut checked = Vec::new();
+    for (key, _text) in ambition_sprite_sheet::baked_part_flipbooks::BAKED_PART_FLIPBOOKS {
+        // `<target>.<tier>` is a tier's table of the same frame.
+        if key.contains('.') {
+            continue;
+        }
+        let flipbook = RiggedSpriteAsset::baked(key).expect("a published flipbook parses");
+        let needed = flipbook.frame_size.as_vec2() + Vec2::splat(2.0 * IMPOSTOR_MARGIN);
+        assert!(
+            needed.max_element() <= IMPOSTOR_CELL,
+            "`{key}` needs a {needed} px cell; the cell is {IMPOSTOR_CELL} px"
+        );
+        checked.push(*key);
+    }
+    // Mary-O's three forms, the five pirates and the robot, at least.
+    assert!(checked.contains(&"player_robot_v3") && checked.len() >= 9, "{checked:?}");
 }

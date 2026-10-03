@@ -324,7 +324,7 @@ fn sheet(
         })
         .collect();
     let part_pages = flipbook.as_ref().map_or(Vec::new(), |flipbook| {
-        flipbook.pages.iter().map(|page| server.load(format!("sprites/{page}"))).collect()
+        flipbook.pages.iter().map(|page| ambition_sprite_sheet::game_assets::load_part_page(server, "character-parts", format!("sprites/{page}"))).collect()
     });
     CharacterSpriteAsset {
         texture: pages[0].texture.clone(),

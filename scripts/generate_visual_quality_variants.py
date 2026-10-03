@@ -1134,7 +1134,8 @@ def build_parts_variant(ron_src: Path, ron_dst: Path, variant: Variant) -> int:
     The factor is the sibling sheet's (`effective_scale`), so the parts and the
     sheet frames of one tier have one texel density; it is written as
     `texel_scale`. Only `parts` change: the draws stay in full-resolution sheet
-    pixels, which are gameplay coordinates and have no tier.
+    pixels, which are gameplay coordinates and have no tier, so a tier table
+    publishes none (its `clips` are empty).
     """
     sheet_ron = ron_src.with_name(ron_src.name.removesuffix("_parts.ron") + "_spritesheet.ron")
     if not sheet_ron.exists():
@@ -1172,6 +1173,15 @@ def build_parts_variant(ron_src: Path, ron_dst: Path, variant: Variant) -> int:
     _set_list_field(root, "pages", [Str(name) for name in names])
     root.fields = [(k, v) for k, v in root.fields if k != "texel_scale"]
     root.fields.insert(1, ("texel_scale", Num(repr(factor))))
+    # ⛔ THE DRAWS ARE NOT COPIED. They are sheet pixels and have no tier; the
+    # runtime takes them from the full-resolution table
+    # (`RiggedSpriteAsset::for_tier`), which reads only a tier's parts, pages
+    # and texel scale. Copied, each tier of the robot's table was 3 MB more RON
+    # baked into the build and parsed again for every realization at that tier
+    # (120 ms, 2026-10-03).
+    root.fields = [
+        (k, Map_([]) if k == "clips" else v) for k, v in root.fields if k not in ("tracks", "baked_clips")
+    ]
     ron_dst.parent.mkdir(parents=True, exist_ok=True)
     for image, name in zip(packed.pages, names):
         dst = ron_dst.parent / name

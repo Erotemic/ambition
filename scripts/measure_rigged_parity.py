@@ -53,14 +53,13 @@ from ambition_sprite2d_renderer.authoring.part_flipbook import (  # noqa: E402
 SPRITES = REPO / "crates" / "ambition_platformer2d_actor_monolith" / "assets" / "sprites"
 
 PARITY_BOUND = 0.01
-#: Wider than the offline gate's 6, and measured, not guessed. The GPU turns a
-#: part by bilinear sampling and PIL by premultiplied bicubic, so a turned
-#: part's outline can come out one shade apart along a one-pixel line: 9 pixels
-#: on Mary-O's fire `transform`[3] (a part turned 88 degrees, over the aura),
-#: on llvmpipe, 2026-10-02. Dropping any one VISIBLE draw from any Mary-O frame
-#: makes a blob of 12 or more (618 draws measured; the three that make 0 are
-#: wholly covered), so 10 still sees every missing part and effect.
-BLOB_BOUND = 10
+#: D6's bound. It was 10 while the impostor blended in linear light (a turned
+#: part's outline came out a shade apart along a line: 9 pixels on Mary-O).
+#: Blended in gamma space as the baked frame was (`load_part_page`), measured
+#: on llvmpipe 2026-10-03: Mary-O's three forms at most 6 in either facing and
+#: either anchor; robot v3's 1,888 frames at most 1. Dropping any one VISIBLE
+#: draw from any Mary-O frame makes a blob of 12 or more.
+BLOB_BOUND = 6
 DEFAULT_TARGETS = ("mary_o_v2", "mary_o_v2_tall", "mary_o_v2_fire")
 
 
@@ -112,9 +111,9 @@ def main() -> int:
         print("the published-draw oracle is drawn texel per pixel: run with --scale 1", file=sys.stderr)
         return 2
 
-    flipbooks = {
-        target: PartFlipbook.from_published(SPRITES / f"{target}_parts.ron", placement="snapped") for target in targets
-    }
+    # The placement is the file's (schema 3): snapped for a rig painted at
+    # frame resolution, continuous for a supersampled one (robot v3).
+    flipbooks = {target: PartFlipbook.from_published(SPRITES / f"{target}_parts.ron") for target in targets}
     sheets = {target: _sheet(target) for target in targets}
     worst = defaultdict(lambda: [0.0, 0, 0.0, 0])
     failures = []
@@ -153,7 +152,9 @@ def main() -> int:
         # and the runtime's `a_tweened_clip_draws_between_its_frames`.
         in_between = args.phase > 0.0 and bool(flipbooks[target].tweens.get(name))
         baked_wrong, baked_blob = parity(published, baked), largest_wrong_blob(published, baked)
-        lost = int((np.asarray(oracle)[..., 3] > 0).sum() - (np.asarray(published)[..., 3] > 0).sum())
+        # Art the frame cut off: pixels the draws plainly cover (not the faint
+        # fringe a continuous part's resampling adds) where the frame has none.
+        lost = int(((np.asarray(oracle)[..., 3] > 64) & (np.asarray(published)[..., 3] == 0)).sum())
         if lost > 0 and not in_between and f"{name}#{frame}" not in clipped[target]:
             clipped[target].append(f"{name}#{frame}")
         w = worst[(target, name)]

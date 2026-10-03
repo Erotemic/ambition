@@ -35,6 +35,13 @@
 //! second time. The second camera draws one quad that divides the colour back
 //! out ([`ImpostorUnpremultiply`]), and the root draws ITS target.
 //!
+//! ⛔ AND THE FIRST TARGET BLENDS IN GAMMA SPACE. The baked frame was
+//! composited from stored sRGB values (PIL), so a part's anti-aliased edge over
+//! another part is a gamma-space mix. The part pages are read raw
+//! (`game_assets::load_part_page`) into a plain `Rgba8Unorm` target, and the
+//! second pass decodes the result once. Blended in linear light, the robot's
+//! dark outlines over its white shell drew far lighter than the baked frame.
+//!
 //! Each rigged root gets one presentation OWNER whose children are the part
 //! slots. The owner is not a child of the root, because a player's root is its
 //! simulation body, and the body must not grow presentation children.
@@ -94,12 +101,13 @@ const SLOT_DEPTH_STEP: f32 = 1.0e-4;
 /// Transparent sheet pixels on each side of the frame in a body's cell.
 pub const IMPOSTOR_MARGIN: f32 = 16.0;
 
-/// One cell of the impostor atlas, in sheet pixels (one texel each). Mary-O's
-/// frame with its margins is 192 x 224; a pirate's is about 135 x 146.
-pub const IMPOSTOR_CELL: f32 = 256.0;
+/// One cell of the impostor atlas, in sheet pixels (one texel each). The
+/// player robot's published frame with its margins is 288 x 288; Mary-O's 192
+/// x 224; a pirate's about 135 x 146.
+pub const IMPOSTOR_CELL: f32 = 288.0;
 
 /// The most cells per side the atlas grows to: 6 x 6 = 36 bodies, two
-/// 1536-texel targets (about 19 MB). It starts at one cell, made for the first
+/// 1728-texel targets (about 24 MB). It starts at one cell, made for the first
 /// body that needs it, and grows a step when a body finds it full (1, 2, 4,
 /// 6 per side).
 ///
@@ -154,6 +162,10 @@ pub struct ImpostorAtlas {
     /// One frame per cell, cell `n` at index `n`.
     pub layout: Option<Handle<TextureAtlasLayout>>,
     pub cameras: Vec<Entity>,
+    /// The un-premultiplying material, where the app renders.
+    material: Option<Handle<ImpostorUnpremultiply>>,
+    /// The cell opacities the material was last given.
+    cells: ImpostorCellOpacity,
     /// The cameras, the quad: what a regrowth replaces.
     entities: Vec<Entity>,
     taken: Vec<bool>,
@@ -189,11 +201,46 @@ pub fn impostor_cell_feet(side: u32, cell: u32, feet: Vec2) -> Vec2 {
     top_left + Vec2::new(feet.x, -feet.y)
 }
 
-/// Divides a premultiplied impostor's colour back out (see the module docs).
+/// Divides a premultiplied impostor's colour back out (see the module docs),
+/// and fades each cell by its body's frame opacity.
 #[derive(Asset, AsBindGroup, TypePath, Debug, Clone)]
 pub struct ImpostorUnpremultiply {
     #[texture(0)]
     pub premultiplied: Handle<Image>,
+    #[uniform(1)]
+    pub cells: ImpostorCellOpacity,
+}
+
+/// The most cells the atlas has.
+const IMPOSTOR_MAX_CELLS: usize = (IMPOSTOR_MAX_CELLS_PER_SIDE * IMPOSTOR_MAX_CELLS_PER_SIDE) as usize;
+
+/// Each cell's frame opacity, four to a vector (a uniform array's stride).
+///
+/// ⭐ A FRAME THAT FADES AS ONE PICTURE FADES HERE, after its parts are
+/// composited (`RiggedSpriteAsset::frame_opacity`). Faded part by part, the
+/// parts would show through each other where they overlap — the robot's death
+/// fade drawn with the torso through its arm.
+#[derive(bevy::render::render_resource::ShaderType, Debug, Clone, PartialEq)]
+pub struct ImpostorCellOpacity {
+    pub opacity: [Vec4; IMPOSTOR_MAX_CELLS / 4],
+    /// Cells per side.
+    pub side: u32,
+}
+
+impl ImpostorCellOpacity {
+    fn opaque(side: u32) -> Self {
+        Self {
+            opacity: [Vec4::ONE; IMPOSTOR_MAX_CELLS / 4],
+            side,
+        }
+    }
+
+    fn set(&mut self, cell: u32, opacity: f32) {
+        let cell = cell as usize;
+        if cell < IMPOSTOR_MAX_CELLS {
+            self.opacity[cell / 4][cell % 4] = opacity;
+        }
+    }
 }
 
 impl Material2d for ImpostorUnpremultiply {
@@ -438,9 +485,12 @@ fn build_atlas(commands: &mut Commands, assets: &mut ImpostorAssets, cells: u32)
     let side = cells as f32 * IMPOSTOR_CELL;
     let texels = UVec2::splat(side as u32);
     let images = assets.images.as_deref_mut().expect("checked by the binder");
-    let mut target = || images.add(Image::new_target_texture(texels.x, texels.y, TextureFormat::Rgba8UnormSrgb, None));
-    let premultiplied = target();
-    let straight = target();
+    let mut target = |format| images.add(Image::new_target_texture(texels.x, texels.y, format, None));
+    // The parts blend in GAMMA space into a plain target, as the baked frame
+    // was composited (`game_assets::load_part_page`); the un-premultiplying
+    // pass decodes once into the sRGB target the roots sample.
+    let premultiplied = target(TextureFormat::Rgba8Unorm);
+    let straight = target(TextureFormat::Rgba8UnormSrgb);
     let layout = assets.layouts.as_deref_mut().map(|layouts| {
         layouts.add(TextureAtlasLayout::from_grid(UVec2::splat(IMPOSTOR_CELL as u32), cells, cells, None, None))
     });
@@ -449,17 +499,21 @@ fn build_atlas(commands: &mut Commands, assets: &mut ImpostorAssets, cells: u32)
         .spawn((Name::new("rigged impostor camera"), impostor_camera(&premultiplied, IMPOSTOR_CAMERA_ORDER, centre)))
         .id()];
     let mut entities = cameras.clone();
+    let mut material = None;
     // Where the app renders, the second camera divides the colour out; where it
     // does not, nothing is drawn and roots may as well name the first target.
     let image = match (assets.meshes.as_deref_mut(), assets.materials.as_deref_mut()) {
         (Some(meshes), Some(materials)) => {
             let quad = centre + IMPOSTOR_QUAD_OFFSET;
+            let handle = materials.add(ImpostorUnpremultiply {
+                premultiplied: premultiplied.clone(),
+                cells: ImpostorCellOpacity::opaque(cells),
+            });
+            material = Some(handle.clone());
             let quad_entity = commands.spawn((
                 Name::new("rigged impostor unpremultiply"),
                 Mesh2d(meshes.add(Rectangle::from_size(Vec2::splat(side)))),
-                MeshMaterial2d(materials.add(ImpostorUnpremultiply {
-                    premultiplied: premultiplied.clone(),
-                })),
+                MeshMaterial2d(handle),
                 Transform::from_translation(quad.extend(0.0)),
                 Visibility::Inherited,
                 RenderLayers::layer(RIGGED_IMPOSTOR_LAYER),
@@ -484,6 +538,8 @@ fn build_atlas(commands: &mut Commands, assets: &mut ImpostorAssets, cells: u32)
         premultiplied,
         layout,
         cameras,
+        material,
+        cells: ImpostorCellOpacity::opaque(cells),
         entities,
         taken: vec![false; (cells * cells) as usize],
         warned: false,
@@ -576,16 +632,21 @@ fn spawn_presentation(
 ///
 /// Runs after the animators, so it draws the frame they chose this frame.
 pub fn drive_rigged_presentations(
-    atlas: Option<Res<RiggedImpostorAtlas>>,
+    atlas: Option<ResMut<RiggedImpostorAtlas>>,
+    materials: Option<ResMut<Assets<ImpostorUnpremultiply>>>,
     mut owners: Query<(&mut RiggedPresentation, &mut Visibility, &mut Transform), Without<RiggedPartSlot>>,
     mut cameras: Query<&mut Camera, With<RiggedImpostorCamera>>,
     mut roots: Roots,
     mut slots: Slots,
 ) {
-    let Some(atlas) = atlas.as_deref().and_then(|atlas| atlas.0.as_ref()) else {
+    let Some(mut atlas) = atlas else {
+        return;
+    };
+    let Some(atlas) = atlas.0.as_mut() else {
         return;
     };
     let mut drawing = false;
+    let mut cells = ImpostorCellOpacity::opaque(atlas.side);
     for (mut presentation, mut owner_visibility, mut owner_transform) in &mut owners {
         let Ok((animator, mut root_sprite, root_anchor)) = roots.get_mut(presentation.root) else {
             continue;
@@ -595,10 +656,8 @@ pub fn drive_rigged_presentations(
         // sure that every other row has draws. A tweened clip draws the frame
         // `frame_phase` of the way to the next (the flipbook's published rule).
         let mut drawn = std::mem::take(&mut presentation.drawn);
-        let tweened = animator
-            .drawn_row()
-            .and_then(|row| animator.spec.row_name(row))
-            .and_then(|row| flipbook.tween_into(row, animator.frame, animator.frame_phase(), &mut drawn));
+        let row = animator.drawn_row().and_then(|row| animator.spec.row_name(row));
+        let tweened = row.and_then(|row| flipbook.tween_into(row, animator.frame, animator.frame_phase(), &mut drawn));
         let draws = tweened.map(|()| drawn.as_slice());
         let (Some(draws), Some(basis), Some(mut root_anchor)) = (draws, animator.render_basis, root_anchor) else {
             presentation.drawn = drawn;
@@ -608,6 +667,9 @@ pub fn drive_rigged_presentations(
             continue;
         };
         drawing = true;
+        if let Some(row) = row {
+            cells.set(presentation.impostor.cell, flipbook.frame_opacity(row, animator.frame));
+        }
         // Its cell's place, which a regrowth of the atlas moves.
         let place = atlas.cell_feet(presentation.impostor.cell, presentation.impostor.feet).extend(0.0);
         if owner_transform.translation != place {
@@ -665,13 +727,30 @@ pub fn drive_rigged_presentations(
                 part.rect.max.x as f32,
                 part.rect.max.y as f32,
             ));
-            sprite.custom_size = Some(part.size * draw.scale);
+            sprite.custom_size = Some(part.size);
+            let tint = Color::WHITE.with_alpha(draw.opacity);
+            if sprite.color != tint {
+                sprite.color = tint;
+            }
             slot_anchor.0 = part.anchor();
+            // The scale in the transform, not the quad: a mirrored draw
+            // (`scale.x < 0`) mirrors about its pivot, then turns.
             *transform = Transform::from_translation(local.extend(index as f32 * SLOT_DEPTH_STEP))
-                .with_rotation(Quat::from_rotation_z(-draw.rotation));
+                .with_rotation(Quat::from_rotation_z(-draw.rotation))
+                .with_scale(draw.scale.extend(1.0));
             visibility.set_if_neq(Visibility::Inherited);
         }
         presentation.drawn = drawn;
+    }
+    if atlas.cells != cells {
+        if let Some(mut material) = atlas
+            .material
+            .as_ref()
+            .and_then(|handle| materials.and_then(|materials| materials.into_inner().get_mut(handle)))
+        {
+            material.cells = cells.clone();
+        }
+        atlas.cells = cells;
     }
     // The atlas cameras run while any body draws from parts, and rest when
     // none does.

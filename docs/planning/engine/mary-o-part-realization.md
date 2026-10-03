@@ -17,6 +17,80 @@ every rig-document character follows the same road.
 | P5a body-riding effects on parts (D4) | DONE | shared impostor atlas: `actors::rigged` (`RiggedImpostorAtlas`, `ImpostorUnpremultiply`); `PortalPieceTint` removed |
 | P5b baked residency | DONE | parts-only realization (`NO_BAKED_IMAGE`, `CharacterSpriteAsset::parts_only`); the reveal barrier and the binders wait on the part pages |
 | P5c stop shipping the baked PNG | open | exclude a parts-only character's `_spritesheet.png` from packaging; keep it generated as the offline oracle |
+| P6a player robot v3 from parts | DONE | schema 3 (placement, draw and frame opacity); continuous placement for supersampled rigs; mirror rows; gamma-space impostor; renderer `tests/test_player_robot_v3_part_flipbook.py`; in engine all 1,888 frames ≤ 0.04%, blob ≤ 1 |
+| P6b noether, PCA, patent clerk | IN PROGRESS | recorded and replayed offline (all frames); runtime cell classes for their large frames next |
+
+### Every character, largest sheets first (Jon, 2026-10-03)
+
+Jon's goal since 2026-10-03: every character drawn from parts by default,
+faithfully, the largest sheets first. The order is by published sheet bytes,
+measured 2026-10-03. The polygon sizes in a plain directory listing include
+orphaned `.1`–`.5` pages from August; the live sheets are page 0 alone.
+
+| Character | Sheet | How it is drawn | State |
+| --- | --- | --- | --- |
+| noether | 48 MB, 7 pages, 875 frames at 496 × 528 | `RigDocument`, supersample 2 at render scale 2; a breathing blurred "hum" behind every frame | next: the hum needs a mechanism (a runtime glow of the composed alpha, or one overlay per frame), and a cell size class for its frame |
+| perfect_cellular_automaton | 26 MB, 7 pages, 913 frames at 654 × 846 | `RigDocument` at frame resolution (snapped); effects through `compose_rig_frame` | after noether: route `compose_rig_frame` through the seams; needs a large cell class |
+| player_robot_v3 | 9.1 MB, 1,888 frames at 256 × 256 | `RigDocument`, supersample 4 | DONE, below |
+| pointed / pugnacious / projectile polygon | about 5 MB each (live) | `RigDocument`, supersample 4; per-clip swing trails | the robot's road plus `swing_effects` through the seams, and blink fades through `faded_canvas` |
+| flying_spaghetti_monster_boss | 7 MB, 79 frames | procedural `ImageDraw`; tentacles are splines that deform every frame | stays baked: no rigid parts to record |
+
+### Player robot v3 from parts (2026-10-03)
+
+The second character, and the first that is supersampled, mirrored and faded.
+What it added, all of it general:
+
+- **Continuous placement.** A supersampled rig paints every part at 4x and
+  reduces the frame once, so no part lands on a whole frame pixel.
+  `rigdoc.downsampled_canvas` (the reduction, now a seam) hands each recorded
+  part a raster reduced on its own, by the same filter, placed where
+  `blit_rotated` put it on the 4x grid, divided by 4 (unrounded, a part was up
+  to a quarter pixel off: a blob of 7). Each reduced part keeps 2 transparent
+  texels round it (`PART_BORDER`): trimmed to its alpha box, its half-covered
+  edge row was smeared outward by the resampler (alpha 82 for 10). The
+  flipbook says `placement: Continuous` (schema 3).
+- **Mirrored rows** (`~mirrored`, the robot's other side) are recorded through
+  `rigdoc.mirrored_canvas`: the same parts, `scale.x = -1`, turned the other
+  way. The runtime puts the draw's scale in the slot's transform.
+- **A draw's opacity** (the smash blade fading out, the swap sets'
+  cross-fades) is published per draw and drawn as the slot sprite's alpha.
+- **A frame's opacity** (the death fade) fades the frame AS ONE PICTURE
+  (`rigdoc.faded_canvas`). The runtime fades the body's cell after its parts
+  are composited, in the un-premultiplying pass (`ImpostorCellOpacity`).
+  Faded part by part, the torso would show through the arm.
+- The blink's sliced body is one overlay per frame (`teleport_body`), and the
+  effect canvases go through `composite_layer`.
+- `IMPOSTOR_CELL` is 288 (the robot's 256 px frame plus margins);
+  `every_published_flipbook_fits_an_impostor_cell` holds every published
+  flipbook to it.
+
+The replay guard of a continuous flipbook forgives 64 levels and NO place
+(`CONTINUOUS_REPLAY_TOLERANCE`): the usual pixel of slack forgave the robot's
+head drawn a pixel off. Measured over all 1,888 frames: worst parity 0.15%,
+largest blob 6 (two frames, `ledge_getup`[3] and its mirror), at D6's bound. A
+visible part a pixel off makes a blob of 15 to 174.
+
+In engine (`scripts/measure_rigged_parity.py --target player_robot_v3
+--centre-anchored`, llvmpipe): every one of the 1,888 frames within 0.04% and a
+blob of 1. That needed one more fix, general to every character:
+
+- ⛔ **The impostor blends in gamma space.** The baked frame is composited from
+  stored sRGB values (PIL); the impostor's sRGB target blended the parts in
+  linear light, so every anti-aliased outline over another part came out
+  lighter (the robot's dark outline drew 102 where the frame has 1; 25 rows
+  failed, blobs to 68). Part pages are now read raw
+  (`game_assets::load_part_page`, the harness included) into a plain
+  `Rgba8Unorm` target, and the un-premultiplying pass decodes once. Mary-O
+  improved too: at most 0.14% and a blob of 6 in both facings and both anchors
+  (it was a blob of 9), so the harness bound is D6's 6 again.
+
+Size: one 549 KB part page (905,216 packed texels, 360 parts) against the 9.1
+MB sheet. The draw table is 3.8 MB of RON (38,418 draws), baked into the build.
+It took 60 ms to parse, and every realization paid it again, each tier twice:
+a tier table carried a copy of every draw (3 MB a tier). Now a flipbook is
+parsed once per process (`RiggedSpriteAsset::baked`), and a tier table carries
+its parts alone (30 KB; `generate_visual_quality_variants.py`). A compact
+encoding of the draws is a follow-up.
 
 Deviations from the recommendations, both reaching the same end:
 
@@ -95,7 +169,7 @@ What P5a built and measured:
 - In-engine parity through the impostor is unchanged: worst 0.20%, blob 9, both
   facings. The cell is the frame plus 16 px of margin, so the 2–8 px the baked
   frame cuts off are drawn.
-- A frame larger than a cell (256 px with margins), or a full 36-cell atlas,
+- A frame larger than a cell (288 px with margins since 2026-10-03; 256 before), or a full 36-cell atlas,
   keeps its baked sheet and warns once.
 
 ⛔ P5a placed every centre-anchored body half a body too high. That is every
@@ -132,7 +206,7 @@ What P5b changed:
   lookup). A decode forced back to baked fails it, naming
   `sprites/mary_o_v2_spritesheet.png`.
 - Resident texels (reasoned from the published pages): Mary-O's three forms hold
-  865,937 part texels plus one 256² atlas cell (shared, 2 × 65,536), against
+  865,937 part texels plus one atlas cell (shared; 256² when measured, 288² since the robot), against
   1,601,774 baked. Only the demanded forms are resident: the short form alone is
   179,200 against 318,166.
 

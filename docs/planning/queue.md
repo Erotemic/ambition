@@ -473,9 +473,15 @@ character catalog (`catalog`). The fighter ladder and the encounter waves are
 standing projections that converge after the commit, so they are not frozen.
 Guard: `the_candidate_is_built_before_the_router_advances_and_providers_only_adopts`.
 
-**Next action:** bring each remaining construction input that a candidate must
-see at N+1 into the channel. A boss's HP, phase triggers, death seconds, music
-and reward seed still come from the App catalog (see I2/I3).
+**Next action:** a boss's numbers already reach the candidate. Construction
+seeds each boss from the frozen N+1 catalog (`SessionMechanics::bosses`), and
+since 2026-10-03 `BossConfig::seed` is required, so no boss reads the App
+catalog at construction or on its first tick. Witness:
+`a_boss_tuning_saved_while_the_game_runs_is_played`. Still to measure: the
+other `SessionMechanics` inputs that preparation reads from the App
+(`sheets`, `forced_brains`, `population_cap`, `perception_extent`). For each
+one, does a reload publish it at N+1 before the commit? Each one that does
+needs the channel.
 
 ⛔ Not by an ordering edge and not by re-fingerprinting. Do not reopen A10.5's
 guarantee that a candidate that cannot be built never retires the live session.
@@ -512,7 +518,6 @@ Rust move tables are migration scaffolding.
 **Open work:**
 
 - Converge the remaining reloadable registries on one prepare/admit/publish contract.
-- A hand-built `BossConfig` with no `seed` still resolves its encounter from the App catalog. A built boss reads `BossConfig::seed` from the generation's catalog.
 - I4: save eligibility; ports for body motion so the remaining wielded items (dive, blink, grapple, mark/recall) can become modules; GNU-ton's conductor as a module.
 
 **Blocked by:** nothing.

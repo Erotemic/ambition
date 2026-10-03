@@ -2173,7 +2173,7 @@ fn a_heavy_attacker_is_read_off_the_attacker_not_the_hit_source() {
                         ambition_boss_encounter::test_boss_catalog(),
                         "heavy",
                     ),
-                    seed: None,
+                    seed: ambition_boss_encounter::BossSeed::resolved(ambition_boss_encounter::test_boss_catalog(), "heavy", "Heavy", 18),
                 })
                 .id()
         } else {
@@ -3103,7 +3103,7 @@ fn a_struck_boss_speaks_the_hit_lines_of_its_voice() {
             },
         );
         if !voiced {
-            boss.config.seed.as_mut().expect("seeded").encounter.voice = None;
+            boss.config.seed.encounter.voice = None;
         }
         app.world_mut().spawn((
             FeatureSimEntity,

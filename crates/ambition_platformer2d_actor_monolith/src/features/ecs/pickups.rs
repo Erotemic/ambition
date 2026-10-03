@@ -175,6 +175,7 @@ pub fn collect_ecs_pickups(
             &CenteredAabb,
             &PickupFeature,
             Option<&Collected>,
+            Option<&ambition_platformer2d_shared_tangle::construction::SpawnOrigin>,
         ),
         // A locked (mid-toss) pickup is not collectible yet, exactly as it is not
         // magnetizable — the two guards MUST agree or a ring the magnet ignores
@@ -193,12 +194,14 @@ pub fn collect_ecs_pickups(
     sim_ids: Query<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
     // A body collects only a pickup in its own live room (OW1 cut 4).
     rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
+    // What a collected mint gave, which a retracted boss defeat takes back.
+    mut mint_grants: Option<ResMut<crate::items::pickup::MintGrantsSinceCheckpoint>>,
 ) {
     // With a population expressed as a filter plus a value test it would no longer mean "nobody can
     // collect" — `TouchCollectorFilter` matches every autonomous actor — and a system-wide return
     // on a population guess is exactly the shape that has switched whole subsystems off in this
     // repo. The per-pickup `find` below already yields nothing when nobody qualifies.
-    for (entity, name, aabb, pickup, collected) in &pickups {
+    for (entity, name, aabb, pickup, collected, origin) in &pickups {
         if collected.is_some() {
             continue;
         }
@@ -228,7 +231,7 @@ pub fn collect_ecs_pickups(
         };
         commands.entity(entity).insert(Collected);
         banner.show(format!("picked up {}", name.0.as_str()), 2.6);
-        grant_pickup(
+        let granted = grant_pickup(
             &pickup.pickup.kind,
             collector_entity,
             &mut heals,
@@ -237,6 +240,18 @@ pub fn collect_ecs_pickups(
             owned.as_deref_mut(),
             items.get(),
         );
+        if let (
+            Some(ambition_platformer2d_shared_tangle::construction::SpawnOrigin::Dynamic { parent, .. }),
+            Ok(collector),
+            Some(mint_grants),
+        ) = (origin, sim_ids.get(collector_entity), mint_grants.as_deref_mut())
+        {
+            mint_grants.record(crate::items::pickup::MintGrant {
+                parent: parent.clone(),
+                collector: collector.clone(),
+                granted,
+            });
+        }
         let pos = aabb.center;
         vfx.for_room(rooms.of(entity)).write(VfxMessage::Burst {
             pos,
@@ -275,6 +290,10 @@ pub fn collect_ecs_pickups(
 ///
 /// grant only — no banner, no spark, no sound. Those belong to the road
 /// the reward arrived by, and a chest already has its own.
+///
+/// Returns what the grant added to the collector's wallet and to the bag,
+/// which a retraction takes back (BOSS-REPLAY-RETRACTION). A unique item the
+/// bag already holds adds nothing.
 pub fn grant_pickup(
     kind: &ambition_interaction::PickupKind,
     collector: bevy::prelude::Entity,
@@ -283,7 +302,8 @@ pub fn grant_pickup(
     set_flag: &mut MessageWriter<SetFlagRequested>,
     mut owned: Option<&mut ambition_items::OwnedItems>,
     items: &ambition_items::ItemCatalog,
-) {
+) -> crate::items::pickup::PickupGranted {
+    let mut granted = crate::items::pickup::PickupGranted::default();
     match kind {
         ambition_interaction::PickupKind::Health { amount } => {
             heals.write(crate::avatar::PlayerHealRequested::for_target(
@@ -293,7 +313,9 @@ pub fn grant_pickup(
         ambition_interaction::PickupKind::Currency { amount } => {
             // Credit the collecting player's wallet (HUD money meter).
             if let Ok(mut wallet) = wallets.get_mut(collector) {
+                let before = wallet.balance;
                 wallet.add(*amount);
+                granted.coins = wallet.balance - before;
             }
         }
         ambition_interaction::PickupKind::Ability { ability_id } => {
@@ -302,7 +324,9 @@ pub fn grant_pickup(
             // Metroidvania "learn a power from a boss" beat.
             if let Some(owned) = owned.as_deref_mut() {
                 if let Some(item) = items.item_by_dialog_id(ability_id) {
+                    let before = owned.count(item);
                     owned.grant(items, item, 1);
+                    granted.item = Some((item, owned.count(item) - before)).filter(|(_, n)| *n > 0);
                 }
             }
         }
@@ -333,6 +357,7 @@ pub fn grant_pickup(
             );
         }
     }
+    granted
 }
 
 #[cfg(test)]

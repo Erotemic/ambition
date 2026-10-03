@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v297
+ggrs-rollback-schema-v298
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -429,6 +429,7 @@ resource.gate_portal_phases	resource-clone-custom-checksum	GatePortalPhases	bevy
 resource.gravity_field	derived	GravityField	re-derived from the primary body's ResolvedMotionFrame in FrameResolveSet; read only by presentation
 resource.impact_hitstop	resource-clone-custom-checksum	ImpactHitstop	bevy_ggrs clone snapshot + the freeze's expiry tick, which decides the sim clock
 resource.live_match_ticks	resource-canonical-custom-checksum	LiveMatchTicks	bevy_ggrs canonical codec snapshot + checksum over the elapsed micros, counted from the match's own start, and the peer match ordinal, excluding the host-local session and activation-tick stamps
+resource.mint_grants_since_checkpoint	resource-clone-custom-checksum	MintGrantsSinceCheckpoint	bevy_ggrs clone snapshot + the grants of the mints collected since the last checkpoint, which a retracted boss defeat takes back
 resource.minted_item_baseline	resource-clone-custom-checksum	MintedItemBaseline	bevy_ggrs clone snapshot + entity-free minted-instance-description checksum projection
 resource.occurrence_baseline	resource-clone-custom-checksum	OccurrenceBaseline	bevy_ggrs clone snapshot + entity-free remembered-whereabouts checksum projection
 resource.outstanding_checkpoint_request	resource-clone-custom-checksum	OutstandingCheckpointRequest	bevy_ggrs clone snapshot + whether the session is still owed a checkpoint restore

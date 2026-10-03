@@ -3137,14 +3137,46 @@ fn note_the_frame_start(
 ///
 /// Measured 2026-10-03 over `app_it`: 226 rises, each on a frame that began
 /// with no session; 40 falls, each on a frame that also ended the session.
+///
+/// ⛔ A composition that declares [`TheBodyIsBornOnTheTimeline`] is counted,
+/// not refused. Its body does not exist until GGRS runs the simulation, so the
+/// session-start gate has nothing to wait for and the save is applied over the
+/// live timeline. That is the defect this check names; it is owed (queue row
+/// `BODY-BORN-ON-THE-TIMELINE`), and the count lets the composition measure it.
 fn refuse_a_restore_over_a_live_timeline(
     start: Res<FrameStart>,
     restored: Option<Res<ambition_platformer2d_actor_monolith::session::durable_horizon::SaveRestored>>,
+    known: Option<ResMut<TheBodyIsBornOnTheTimeline>>,
 ) {
     let now = restored.is_none_or(|restored| restored.0);
+    if !(start.live && !start.restored && now) {
+        return;
+    }
+    if let Some(mut known) = known {
+        known.restores_over_a_live_timeline += 1;
+        warn!(
+            "the save was applied over a live rollback timeline, in a composition \
+             whose body is born on the timeline (owed: BODY-BORN-ON-THE-TIMELINE)"
+        );
+        return;
+    }
     debug_assert!(
-        !(start.live && !start.restored && now),
+        false,
         "the save was applied over a live rollback timeline: the restore chain \
          wrote rollback state from `Update` while a session was running"
     );
+}
+
+/// A composition whose primary body is born on the rollback timeline: GGRS must
+/// run the simulation before the body exists. Today only test compositions
+/// (the Sanic and Mary-O rollback fixtures) do this; the shipped demos do not
+/// run GGRS.
+///
+/// For such a composition the save is applied from `Update` over the live
+/// timeline, and [`refuse_a_restore_over_a_live_timeline`] counts each
+/// application here instead of refusing it. A composition without this
+/// resource is refused.
+#[derive(Resource, Default, Debug)]
+pub struct TheBodyIsBornOnTheTimeline {
+    pub restores_over_a_live_timeline: u32,
 }

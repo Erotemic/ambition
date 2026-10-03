@@ -143,6 +143,11 @@ each on a frame that began with no session; 40 falls, each on a frame that also
 ended the session. The old waiver's "the latch has no `true -> false`
 transition" was false: teardown is one.
 
+⛔ The check was red on main for one commit (0ef79200b): the Sanic and Mary-O
+rollback fixtures apply the save over a live timeline, a road `app_it` does not
+have. Those compositions now declare it, and the check counts it there. See
+BODY-BORN-ON-THE-TIMELINE.
+
 ✅ `reconcile_roster_with_frozen_topology` left on 2026-10-03. Its one rollback
 write was `ActiveMatch::adopt_seat_topology`, a copy of the roster's record that
 nothing read. The copy is deleted (schema 302), and the reconciler reads
@@ -190,6 +195,40 @@ cites when you touch it.
   `test_a_shrinking_population_is_a_failure_not_a_clean_report`.
 The first, third and fourth were met by earlier work and mapped here, not
 re-poisoned. The known limits above stay open as limits, not as this row.
+
+### BODY-BORN-ON-THE-TIMELINE — a body born in the simulation gets its save from `Update`
+
+**Owner:** durable restore (`session/durable_horizon.rs`) with rollback session
+start (`rollback_ggrs/src/session.rs`).
+
+**Current state (measured 2026-10-03):** three test compositions start GGRS
+before their primary body exists: the Sanic rollback fixture and two Mary-O
+fixtures (`rollback_restore.rs`, `rollback_room_memory.rs`). Their sim is
+frozen until a session drives it, so the body is born on the timeline. The
+`Q135` gate (`durable_hydration_is_pending`) has no body to wait for and lets
+the session start. The restore chain then applies the save from `Update` over
+the live timeline: once in each fixture, counted by
+`TheBodyIsBornOnTheTimeline`. The fixtures assert that count is 1. A
+composition without the declaration is refused by
+`refuse_a_restore_over_a_live_timeline`. The shipped demos run no GGRS, and
+`app_it` has no such road (226 rises, all with no session).
+
+Why it is a defect and not a style point: `SaveRestored` is rollback state and
+the chain is not. A rewind that loads a snapshot from before the rise restores
+`false`, and the next `Update` applies the save again (read from source, not
+measured; the count above cannot see it, because that frame begins with the
+latch up). A save with content would then write the wallet and ask
+for a checkpoint resume again, from `Update`, at a frame two peers do not agree
+on. The fixtures stay healthy only because their saves are empty.
+
+**Next action:** apply the save on the timeline for this road. The obstacle is
+that `AmbitionGameSave` is not rollback state: the live-to-save mirrors write it
+in the sim after the rise, so a resimulated restore would read a newer file. The
+save read must become a frame input (or a snapshot taken at the rise) first.
+This meets `Q129` (is the save file part of what two peers agree on?).
+
+**Acceptance:** the three fixtures drop the declaration and stay green, and a
+fixture with a non-empty save resimulates checksum-identically across its rise.
 
 ### SETTINGS-ROLLBACK — finish the settings/mechanics admission boundary
 

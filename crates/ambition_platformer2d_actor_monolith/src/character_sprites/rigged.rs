@@ -31,6 +31,20 @@ use ambition_sprite_sheet::character::CharacterSpriteAsset;
 /// census counts part texels apart from sheet texels.
 pub const RIGGED_SPRITE_ROAD: &str = "character-parts";
 
+/// Mirror the composition's switch into the sheet table, where the decode
+/// reads it ([`ambition_sprite_sheet::character::CharacterSpriteAssets::parts_admitted`]).
+pub fn mirror_rigged_admission(
+    admission: Option<Res<RiggedSpriteAdmission>>,
+    assets: Option<ResMut<ambition_sprite_sheet::game_assets::GameAssets>>,
+) {
+    let admit = admission.is_some_and(|admission| admission.admit);
+    if let Some(mut assets) = assets {
+        if assets.characters.parts_admitted() != admit {
+            assets.bypass_change_detection().characters.set_parts_admitted(admit);
+        }
+    }
+}
+
 /// Load the flipbook pages of every ready sheet that publishes a flipbook for
 /// its resolved tier and does not carry them yet.
 ///
@@ -81,15 +95,27 @@ pub fn attach_rigged_sprite_pages(
 /// clip: the sheet and the flipbook are published together, so that is a
 /// stale or broken publish.
 pub fn rigged_pages_for(asset: &CharacterSpriteAsset, asset_server: &AssetServer) -> Option<RiggedSpritePages> {
-    let target = asset.spec.target();
-    let full = RiggedSpriteAsset::baked(target)?;
-    full.check_rows(asset.spec.row_names())
-        .unwrap_or_else(|error| panic!("the part flipbook of `{target}` {error}"));
-    let flipbook = full
-        .for_tier(asset.resolved_tier)?
-        .unwrap_or_else(|error| panic!("the part flipbook of `{target}` {error}"));
     let sheet_page = asset_server.get_path(asset.texture.id())?.to_string();
     let directory = sheet_page.rsplit_once('/').map_or("", |(directory, _)| directory);
+    rigged_pages_in(&asset.spec, asset.resolved_tier, directory, asset_server)
+}
+
+/// The flipbook pages of `spec`'s sheet at `tier`, loaded from `directory`
+/// (where that tier's sheet pages are), or `None` when that tier publishes no
+/// flipbook. Panics as [`rigged_pages_for`] does.
+pub fn rigged_pages_in(
+    spec: &ambition_sprite_sheet::character::CharacterSheetSpec,
+    tier: TextureResolutionScale,
+    directory: &str,
+    asset_server: &AssetServer,
+) -> Option<RiggedSpritePages> {
+    let target = spec.target();
+    let full = RiggedSpriteAsset::baked(target)?;
+    full.check_rows(spec.row_names())
+        .unwrap_or_else(|error| panic!("the part flipbook of `{target}` {error}"));
+    let flipbook = full
+        .for_tier(tier)?
+        .unwrap_or_else(|error| panic!("the part flipbook of `{target}` {error}"));
     let pages = flipbook
         .pages
         .iter()

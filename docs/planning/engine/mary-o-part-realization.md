@@ -10,12 +10,13 @@ every rig-document character follows the same road.
 | Phase | State | Receipt |
 | --- | --- | --- |
 | P0 offline gate | DONE | renderer `tests/test_mary_o_part_flipbook.py`: strict parity + `largest_wrong_blob`, census from the sheet's rows, four poisons |
-| P1 one composition rule | DONE, two deviations noted below | renderer `e2af3b2` |
-| P2 every row from parts | DONE | renderer `e2af3b2`; `mary_os_flipbooks_draw_every_row_from_parts` (Rust) |
+| P1 one composition rule | DONE, two deviations noted below | `a23d30620` (renderer bump) |
+| P2 every row from parts | DONE | `a23d30620`; `mary_os_flipbooks_draw_every_row_from_parts` (Rust) |
 | P3 in-engine parity | DONE | `scripts/measure_rigged_parity.py` + `crates/ambition_render/examples/rigged_sprite_parity.rs`; both facings inside A ≤ 1%, B ≤ 10 px |
 | P4 interpolation | DONE | schema 2 (tracks, per-clip `tween`); `RiggedSpriteAsset::tween_into` + `CharacterAnimator::frame_phase`; renderer `tween_draws` |
 | P5a body-riding effects on parts (D4) | DONE | shared impostor atlas: `actors::rigged` (`RiggedImpostorAtlas`, `ImpostorUnpremultiply`); `PortalPieceTint` removed |
-| P5b baked residency | next | stop loading the baked pages for a character whose every row is parts |
+| P5b baked residency | DONE | parts-only realization (`NO_BAKED_IMAGE`, `CharacterSpriteAsset::parts_only`); the reveal barrier and the binders wait on the part pages |
+| P5c stop shipping the baked PNG | open | exclude a parts-only character's `_spritesheet.png` from packaging; keep it generated as the offline oracle |
 
 Deviations from the recommendations, both reaching the same end:
 
@@ -96,6 +97,27 @@ What P5a built and measured:
   frame cuts off are drawn.
 - A frame larger than a cell (256 px with margins), or a full 36-cell atlas,
   keeps its baked sheet and warns once.
+
+What P5b changed:
+
+- With the rigged sprites admitted, a sheet whose every row is a part clip is
+  realized from its part pages alone. Its baked pages are never requested, so
+  they are never decoded or resident. The page slots keep their atlas layouts
+  and hold `NO_BAKED_IMAGE`, an id nothing loads or draws. This applies to
+  Mary-O's three forms and the five pirates.
+- The decode reads `CharacterSpriteAssets::parts_admitted`, which the character
+  runtime mirrors from `RiggedSpriteAdmission` before the materializer runs.
+- The actor and prop binders wait on `CharacterSpriteAsset::presentation_images`
+  (the part pages, for a parts-only realization). The room reveal manifests the
+  part pages for such a character.
+- Witness: in the drawn demo, `mary_o_is_realized_from_her_parts_with_no_baked_page_requested`.
+  It includes a control (a baked page the room does request is found by the same
+  lookup). A decode forced back to baked fails it, naming
+  `sprites/mary_o_v2_spritesheet.png`.
+- Resident texels (reasoned from the published pages): Mary-O's three forms hold
+  865,937 part texels plus one 256² atlas cell (shared, 2 × 65,536), against
+  1,601,774 baked. Only the demanded forms are resident: the short form alone is
+  179,200 against 318,166.
 
 Size after P2: packed part pages are 0.541 of the three sheets' texels
 (865,937 / 1,601,774). Fire `transform`'s aura overlays dominate.

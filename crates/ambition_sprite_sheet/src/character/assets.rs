@@ -97,6 +97,11 @@ pub struct CharacterSpriteAssets {
     /// This is a trace only. Nothing reads it to decide what to load. It is
     /// cleared when the token is resident again.
     retired: HashMap<String, TextureResolutionScale>,
+    /// Whether a realization of a sheet whose every row is a part clip is made
+    /// from its part pages alone, loading no baked page. The composition's
+    /// [`super::rigged::RiggedSpriteAdmission`], mirrored here by the character
+    /// runtime so the decode reads it where it already reads this table.
+    parts_admitted: bool,
 }
 
 impl CharacterSpriteAssets {
@@ -107,6 +112,17 @@ impl CharacterSpriteAssets {
             .insert(character_id.to_string(), character_id.to_string());
         self.declared
             .insert(display_name.to_string(), character_id.to_string());
+    }
+
+    /// See the field: set from the composition's `RiggedSpriteAdmission`.
+    pub fn set_parts_admitted(&mut self, admit: bool) {
+        self.parts_admitted = admit;
+    }
+
+    /// Whether a sheet drawn entirely from parts is realized without its baked
+    /// pages.
+    pub fn parts_admitted(&self) -> bool {
+        self.parts_admitted
     }
 
     /// Every ready sheet realization (once per declared token that holds it).

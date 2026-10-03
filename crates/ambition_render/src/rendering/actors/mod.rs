@@ -94,6 +94,20 @@ pub(crate) fn texture_is_ready(
     }
 }
 
+/// Whether every image a body drawn from `asset` needs is ready: its part
+/// pages when it is drawn from parts alone, else its baked page
+/// (`CharacterSpriteAsset::presentation_images`).
+pub(crate) fn realization_is_ready(
+    asset_server: &AssetServer,
+    images: &Assets<Image>,
+    asset: &ambition_sprite_sheet::character::CharacterSpriteAsset,
+) -> bool {
+    asset
+        .presentation_images()
+        .into_iter()
+        .all(|handle| texture_is_ready(asset_server, images, handle))
+}
+
 mod animation;
 pub mod rigged;
 mod boss;
@@ -769,7 +783,7 @@ pub fn upgrade_actor_sprites(
         // colored fallback with an atlas sprite until the texture is actually
         // present in Assets<Image>; otherwise a failed or delayed load renders
         // the NPC/enemy invisible.
-        if !texture_is_ready(&asset_server, &images, &character_asset.texture) {
+        if !realization_is_ready(&asset_server, &images, character_asset) {
             // Diagnostic: log the asset path of each texture that blocks a bind.
             // Compare it with the handles the room barrier waited on. If they
             // differ, the barrier must wait on the textures the resident sheets
@@ -895,7 +909,7 @@ pub fn refresh_player_sprites_for_resident_quality(
         if bound_quality.is_some_and(|q| q.scale == asset.resolved_tier) {
             continue;
         }
-        if !texture_is_ready(&asset_server, &images, &asset.texture) {
+        if !realization_is_ready(&asset_server, &images, asset) {
             continue;
         }
         let collision = BVec2::new(pose.base_size.x, pose.base_size.y);
@@ -955,7 +969,7 @@ pub fn refresh_prop_sprites_on_game_assets_change(
         if bound_quality.is_some_and(|q| q.scale == asset.resolved_tier) {
             continue;
         }
-        if !texture_is_ready(&asset_server, &images, &asset.texture) {
+        if !realization_is_ready(&asset_server, &images, asset) {
             continue;
         }
         let bundle =

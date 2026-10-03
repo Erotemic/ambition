@@ -422,7 +422,14 @@ fn current_sprite_frame(
     texture_layouts: &Assets<TextureAtlasLayout>,
     images: &Assets<Image>,
 ) -> Option<(Vec4, Vec2)> {
-    let atlas = sprite.texture_atlas.as_ref()?;
+    // A whole-image sprite: a part-drawn Mary-O draws her impostor texture,
+    // with no atlas (`ambition_render::rendering::actors::rigged`). The frame is
+    // the whole image.
+    let Some(atlas) = sprite.texture_atlas.as_ref() else {
+        let size = images.get(&sprite.image)?.texture_descriptor.size;
+        let texels = Vec2::new(size.width.max(1) as f32, size.height.max(1) as f32);
+        return Some((Vec4::new(0.0, 0.0, 1.0, 1.0), Vec2::ONE / texels));
+    };
     let layout = texture_layouts.get(&atlas.layout)?;
     let rect = layout.textures.get(atlas.index)?;
     let image = images.get(&sprite.image)?;

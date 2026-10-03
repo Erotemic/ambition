@@ -77,6 +77,29 @@ pub struct CharacterSpriteAsset {
     pub rigged: Option<rigged::RiggedSpritePages>,
 }
 
+/// The image a PART-DRAWN realization holds where a baked sheet's pages would
+/// be: an id no asset has, so nothing loads it, nothing keeps it resident and
+/// nothing draws it (`docs/planning/engine/mary-o-part-realization.md`, P5b).
+pub const NO_BAKED_IMAGE: Handle<Image> = bevy::asset::uuid_handle!("8a7b51f2-3c64-4e0d-9a1f-5d2c7e9b4a10");
+
+impl CharacterSpriteAsset {
+    /// Drawn from its part flipbook alone: the realization loaded no baked
+    /// page (every row of its sheet is a part clip).
+    pub fn parts_only(&self) -> bool {
+        self.texture == NO_BAKED_IMAGE
+    }
+
+    /// The images a body needs resident before it is drawn from this
+    /// realization: its part pages when it is drawn from parts alone, else its
+    /// baked page.
+    pub fn presentation_images(&self) -> Vec<&Handle<Image>> {
+        match (&self.rigged, self.parts_only()) {
+            (Some(rigged), true) => rigged.pages.iter().collect(),
+            _ => vec![&self.texture],
+        }
+    }
+}
+
 /// Build a character presentation that is valid on the same frame it becomes drawable.
 ///
 /// A packed or trimmed atlas stores only the opaque sub-rectangle of each

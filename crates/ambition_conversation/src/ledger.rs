@@ -261,7 +261,30 @@ impl<M: Message + Clone> Plugin for NarrativeInputPlugin<M> {
                     .after(ambition_platformer2d_shared_tangle::schedule::SimClockHead)
                     .before(Platformer2dSimulationPhaseMonolith::CoreSimulation),
             )
-            .add_systems(Update, prune_narrative_inputs::<M>);
+            .add_systems(Update, prune_narrative_inputs::<M>)
+            .add_systems(
+                Update,
+                forget_narrative_inputs_on_activation::<M>
+                    .in_set(ambition_platformer2d_shared_tangle::lifecycle::SessionScopeSet::Activate)
+                    .run_if(bevy::ecs::schedule::common_conditions::resource_exists::<
+                        Messages<ambition_platformer2d_shared_tangle::lifecycle::SessionScopeActivated>,
+                    >),
+            );
+    }
+}
+
+/// Forget every record when a gameplay session activates.
+///
+/// A record names its conversation by the tick it opened on, its node and its
+/// bodies, and the tick starts again at `0` in each session (`Q128`). So a
+/// record from the previous session can name a conversation of the new one,
+/// and its tick is far ahead of the new clock, so the prune does not reach it.
+fn forget_narrative_inputs_on_activation<M: Message + Clone>(
+    mut activated: MessageReader<ambition_platformer2d_shared_tangle::lifecycle::SessionScopeActivated>,
+    mut ledger: ResMut<NarrativeInputLedger<M>>,
+) {
+    if activated.read().count() > 0 {
+        ledger.records.clear();
     }
 }
 

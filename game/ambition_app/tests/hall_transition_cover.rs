@@ -975,6 +975,16 @@ fn settle_resident_pages(app: &mut App, what: &str) {
             let mut pages = 0;
             let mut loaded = 0;
             for (_, sheet) in assets.characters.resident_sheets() {
+                // Drawn from parts alone: its part pages are what it draws from.
+                if sheet.parts_only() {
+                    for page in sheet.presentation_images() {
+                        pages += 1;
+                        if server.is_loaded_with_dependencies(page.id()) {
+                            loaded += 1;
+                        }
+                    }
+                    continue;
+                }
                 // Only the pages a frame can draw from: `pages` is indexed by
                 // source page number and holds placeholder slots for a sparse
                 // pack's unused pages, whose textures nothing ever loads.

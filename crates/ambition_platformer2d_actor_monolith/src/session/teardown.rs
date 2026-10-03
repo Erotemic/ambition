@@ -276,13 +276,18 @@ pub struct SessionScopedResources<'w> {
     /// (`actors/update.rs` hands it to the brain as the reaction-latency
     /// lookback, which is its only consumer).
     ///
-    /// ⭐ **AND UNLIKE `SimTick` IT NEEDS NO RULING, WHICH IS THE WHOLE
-    /// DIFFERENCE.** `Q128` is open because a projection excluding the tick would
-    /// exclude the TIMELINE — the thing a rollback comparison is about. This is a
-    /// lookback clock: its consumer asks how long ago something was seen, which a
-    /// session-relative clock answers identically. So the repair is the one this
-    /// group already is, rather than a new authority or a maintainer decision.
+    /// Its consumer asks how long ago something was seen, which a
+    /// session-relative clock answers identically. `SimTick` (below) took the
+    /// same road when `Q128` was decided.
     gameplay_elapsed: ResMut<'w, crate::features::GameplayElapsed>,
+    /// The canonical timeline (`Q128`). A session starts at tick `0` on every
+    /// peer, whatever the App ran before it. `Option` because a composition
+    /// without the sim clock has none.
+    sim_tick: Option<ResMut<'w, ambition_time::SimTick>>,
+    /// The impact freeze holds an absolute expiry on [`ambition_time::SimTick`].
+    /// Kept across the reset of the tick, a freeze from the previous session
+    /// would hold the new one until that session's tick came round again.
+    impact_hitstop: Option<ResMut<'w, ambition_combat::impact_hitstop::ImpactHitstop>>,
 }
 
 /// Re-establish the session mirrors for a scope that is about to be built.
@@ -481,6 +486,8 @@ fn reset(resources: SessionScopedResources) {
         mut live_match_ticks,
         mut match_ordinal,
         mut gameplay_elapsed,
+        sim_tick,
+        impact_hitstop,
     } = resources;
     *possession = PossessionState::default();
     *controlled_subject = ControlledSubject::default();
@@ -520,6 +527,12 @@ fn reset(resources: SessionScopedResources) {
         crate::character_runtime::live_match_clock::LiveMatchTicks::default();
     *match_ordinal = ambition_match::seating::SessionMatchOrdinal::default();
     *gameplay_elapsed = crate::features::GameplayElapsed::default();
+    if let Some(mut tick) = sim_tick {
+        *tick = ambition_time::SimTick::default();
+    }
+    if let Some(mut hitstop) = impact_hitstop {
+        *hitstop = ambition_combat::impact_hitstop::ImpactHitstop::default();
+    }
 }
 
 /// Installs session-resource re-establishment at both edges of a session.

@@ -28,7 +28,10 @@ fn resident(app: &App) -> std::collections::BTreeMap<String, String> {
     let server = world.resource::<AssetServer>();
     let mut out = std::collections::BTreeMap::new();
     for (token, asset) in assets.characters.resident_sheets() {
-        if let Some(path) = server.get_path(&asset.texture) {
+        // A realization drawn from parts alone names no baked page: its first
+        // part page is the path it resolves to.
+        let named = asset.presentation_images().into_iter().next().unwrap_or(&asset.texture);
+        if let Some(path) = server.get_path(named) {
             let p = path.path().to_string_lossy().to_string();
             out.insert(token.to_string(), p);
         }
@@ -178,6 +181,12 @@ fn a_quality_round_trip_converges_back_with_every_page_loaded_and_nothing_orphan
                 let assets = app.world().resource::<GameAssets>();
                 let server = app.world().resource::<AssetServer>();
                 assets.characters.sheet(&worn).is_some_and(|sheet| {
+                    if sheet.parts_only() {
+                        return sheet
+                            .presentation_images()
+                            .into_iter()
+                            .all(|page| server.is_loaded_with_dependencies(page.id()));
+                    }
                     sheet
                         .pages
                         .iter()

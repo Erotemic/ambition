@@ -108,11 +108,11 @@ file grows case files again, compress it in place. Do not add an archive page.
 
 ### Scope and current authority
 
-Source explicitly groups **34** App resources as gameplay-session or
+Source explicitly groups **39** App resources as gameplay-session or
 activated-generation state:
 
-<!-- session-owner-census: SessionScopedResources=27 SessionOwnedCheckpointState=6 SessionMechanics=1 -->
-- `SessionScopedResources` (**27**) in `actor_monolith/src/session/teardown.rs`;
+<!-- session-owner-census: SessionScopedResources=32 SessionOwnedCheckpointState=6 SessionMechanics=1 -->
+- `SessionScopedResources` (**32**) in `actor_monolith/src/session/teardown.rs`;
 - `SessionOwnedCheckpointState` (6) in `actor_monolith/src/session/checkpoint.rs`;
 - `SessionMechanics` (1 resource with six fields; do not count its fields).
 
@@ -203,7 +203,7 @@ for lifecycle code that sees both sides of a handoff. Guards:
 
 ### Sequence
 
-Do not begin by moving all 34 values. Work owner by owner:
+Do not begin by moving all 39 values. Work owner by owner:
 
 1. Re-run `python3 scripts/architecture_census.py` and confirm the list.
 2. For each family, state whether the value must exist before `SessionRoot`, only
@@ -229,8 +229,9 @@ Do not begin by moving all 34 values. Work owner by owner:
   the rollback-mutator answer per value.
 - ⛔ Do not register `AbandonedCheckpointOperation`. It is a local preparation
   fact that two peers need not agree on.
-- Re-arm condition: if `Q128` (rebase the tick at activation) is ruled and started
-  while this migration runs, coordinate the two.
+- `Q128` landed 2026-10-03: `SimTick` and `ImpactHitstop` are members of
+  `SessionScopedResources`, reset at activation. A migration that moves the
+  tick moves the timeline's start; keep it reset on the activation edge.
 
 **Acceptance:** a reviewer can name one owner for each migrated fact, and session
 activation no longer overwrites a process-global copy to make the next session

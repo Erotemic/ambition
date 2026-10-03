@@ -44,6 +44,8 @@ changes the character's content fingerprint, which a rollback timeline compares.
 
 Flipbook publishers today: the five pirates (every row from parts) and Mary-O's
 three forms (walk from parts, every other row baked).
+Moving Mary-O to every row from parts (and lifting two non-goals below for
+her): [`mary-o-part-realization.md`](mary-o-part-realization.md).
 
 ### Body rig (gameplay)
 

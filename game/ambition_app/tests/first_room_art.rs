@@ -74,18 +74,21 @@ fn the_starting_characters_sheet_is_decoded_before_the_route_activates() {
              '{worn}' not realized — its sheet is decoded after the reveal"
         )
     });
-    let pending: Vec<String> = sheet
-        .pages
-        .iter()
-        .filter(|page| !server.is_loaded_with_dependencies(page.texture.id()))
-        .map(|page| {
+    // What the body draws from: its baked pages, or its part pages when it is
+    // drawn from parts alone (`CharacterSpriteAsset::presentation_images`).
+    let images: Vec<_> = if sheet.parts_only() {
+        sheet.presentation_images()
+    } else {
+        sheet.pages.iter().map(|page| &page.texture).collect()
+    };
+    let pending: Vec<String> = images
+        .into_iter()
+        .filter(|texture| !server.is_loaded_with_dependencies(texture.id()))
+        .map(|texture| {
             format!(
                 "{} ({:?})",
-                page.texture
-                    .path()
-                    .map(|path| path.to_string())
-                    .unwrap_or_default(),
-                server.get_load_state(page.texture.id())
+                texture.path().map(|path| path.to_string()).unwrap_or_default(),
+                server.get_load_state(texture.id())
             )
         })
         .collect();

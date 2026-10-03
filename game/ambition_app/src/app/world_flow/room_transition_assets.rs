@@ -252,6 +252,14 @@ fn add_image_handle(
 }
 
 fn add_character_asset(draft: &mut RoomManifestDraft, label: &str, asset: &CharacterSpriteAsset) {
+    // A realization drawn from its part pages alone loaded no baked page: the
+    // reveal waits on what it draws from.
+    if asset.parts_only() {
+        for (index, page) in asset.presentation_images().into_iter().enumerate() {
+            add_image_handle(draft, format!("{label}:parts:{index}"), page);
+        }
+        return;
+    }
     if asset.pages.is_empty() {
         add_image_handle(draft, format!("{label}:page:0"), &asset.texture);
         return;

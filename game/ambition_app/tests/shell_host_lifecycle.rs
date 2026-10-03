@@ -1920,12 +1920,6 @@ fn the_peer_visible_surface_does_not_record_which_route_the_host_visited_first()
     /// divergence cannot hide among them.
     const EXPECTED_TO_DIFFER: &[(&str, &str)] = &[
         (
-            "ambition_time::SimTick",
-            "ID-PEER's open `canonical timeline` road — an absolute per-App step \
-             count, registered `resource-canonical`. Blocked on Q128, and a \
-             projection excluding it would exclude the TIMELINE",
-        ),
-        (
             "ambition_persistence::save::AmbitionGameSave",
             "Q129 — whether the save file is part of what two peers agree on is \
              a maintainer question, and removing it from the checksum to make \
@@ -2142,8 +2136,9 @@ fn the_peer_visible_surface_does_not_record_which_route_the_host_visited_first()
 /// constant offset of 74, the rollback entities Sanic and Mary-O registered and
 /// retired — and **59 of 146 real `ChecksumPart`s disagreed**, `BodyHealth`,
 /// `ActorPose`, `Brain` and `WornCharacter` among them. After the rebase: **2**,
-/// and both are open roads somebody else owns (`SimTick`/`Q128`,
-/// `AmbitionGameSave`/`Q129`), each named below with its reading.
+/// `SimTick` (`Q128`) and `AmbitionGameSave` (`Q129`). After `Q128` was decided
+/// (2026-10-03, the tick is session-relative): **1**, the save, named below
+/// with its reading.
 ///
 /// ⚠ **A VALUE CENSUS CANNOT SEE ANY OF THIS, WHICH IS THE LESSON.**
 /// `RollbackChecksumProbes` folds `count` and a wrapping sum of the per-value
@@ -2292,14 +2287,12 @@ fn two_local_histories_compute_the_same_ggrs_component_checksums() {
 
     let fresh_parts = parts(&mut fresh);
     let veteran_parts = parts(&mut veteran);
-    /// The two rows that still differ, each with the OPEN question that owns it.
-    /// ⛔ A row here is a reading, not a waiver: both are already open roads with
-    /// a ruling in front of them, and neither is about carrier order.
+    /// The row that still differs, with the OPEN question that owns it.
+    /// `SimTick` was here until `Q128` was decided (2026-10-03): the session
+    /// activation now starts it at `0`, so both hosts agree on it.
+    /// ⛔ A row here is a reading, not a waiver: it is an open road with a
+    /// ruling in front of it, and it is not about carrier order.
     const OWNED_ELSEWHERE: &[(&str, &str)] = &[
-        (
-            "ambition_time::SimTick",
-            "`Q128` — the absolute tick is `resource-canonical`, so two Apps that              have run for different lengths of time disagree from the first              compared frame. A projection excluding it would exclude the TIMELINE",
-        ),
         (
             "ambition_persistence::save::AmbitionGameSave",
             "`Q129` — whether a save FILE is part of what two peers agree on.              Thirteen of its nineteen writers are sim systems, so it is              simulation-adjacent in practice whatever it is in principle",

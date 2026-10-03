@@ -327,7 +327,8 @@ using `strengthen_with` and
 `RollbackRestoreAudit::distinct_censuses_across_compared_frames_of::<T>()`). That
 clears a local restore defect, not the S7 question. `Session::SyncTest` is the only
 session this workspace constructs; no P2P session is built. For the timeline half,
-`Q128` and the missing P2P session are one blocker.
+the missing P2P session is the blocker (the tick itself is session-relative
+since `Q128` was decided, 2026-10-03).
 
 **Motion floor.** A window where the value never moves proves nothing: a census
 that takes one value across the window agrees with itself for free. An attack

@@ -1099,6 +1099,9 @@ impl Plugin for CharacterRuntimePlugin {
                     // §4.9's readiness barrier never sees a transient unsettled
                     // character that a quality change created.
                     converge_character_residency_to_active_quality,
+                    // Before the decode reads it: whether a sheet drawn wholly
+                    // from parts is realized without its baked pages.
+                    crate::character_sprites::rigged::mirror_rigged_admission,
                     materialize_demanded_character_sheets
                         .run_if(
                             bevy::ecs::schedule::common_conditions::resource_exists::<CharacterCatalog>,

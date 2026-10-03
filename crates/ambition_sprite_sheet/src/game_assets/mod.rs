@@ -51,6 +51,38 @@ pub fn load_sheet_image(
     handle
 }
 
+/// Load a part flipbook's atlas page (`rigged::RiggedSpritePages`): as
+/// [`load_sheet_image`], but its texels are read RAW, not decoded from sRGB.
+///
+/// ⛔ THE PARTS BLEND IN GAMMA SPACE, as the baked frame was composited (PIL
+/// blends stored sRGB values). The impostor composites them into a plain
+/// `Rgba8Unorm` target and its un-premultiplying pass decodes the result once.
+/// Decoded per page, the parts blended in linear light, and every
+/// anti-aliased outline over another part came out lighter: the robot's dark
+/// outline drew 102 where the baked frame has 1, blobs to 68 px (2026-10-03).
+/// Every reader of a part page loads it through here, the parity harness
+/// included, so the gate measures the road the game takes.
+pub fn load_part_page(
+    asset_server: &AssetServer,
+    source: &'static str,
+    path: impl Into<bevy::asset::AssetPath<'static>>,
+) -> Handle<Image> {
+    let path = path.into();
+    let label = path.to_string();
+    let render_world_only = images_render_world_only();
+    let handle = asset_server
+        .load_builder()
+        .with_settings(move |settings: &mut bevy::image::ImageLoaderSettings| {
+            settings.is_srgb = false;
+            if render_world_only {
+                settings.asset_usage = bevy::asset::RenderAssetUsages::RENDER_WORLD;
+            }
+        })
+        .load(path);
+    image_stages::note_demand(handle.id().untyped(), source, label);
+    handle
+}
+
 pub const IMAGES_RENDER_WORLD_ONLY_ENV: &str = "AMBITION_IMAGES_RENDER_WORLD_ONLY";
 
 /// Whether sheet images skip the main-world copy: on unless the environment

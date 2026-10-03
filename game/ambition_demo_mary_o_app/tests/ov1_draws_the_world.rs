@@ -265,17 +265,80 @@ fn the_presentation_plugin_adds_no_hud_and_no_menu() {
 fn the_windowed_demo_asset_root_is_the_engine_sprite_tree() {
     let root = ambition_platformer2d::asset_manager::actors_desktop_asset_root();
     // Shipped/override builds fall back to the relative "assets"; this dev-checkout
-    // test proves the resolved root actually holds the character sheets.
+    // test proves the resolved root actually holds the art Mary-O is drawn from:
+    // her part flipbook (`mary_o_part_realization`, P5b).
     if root != "assets" {
-        let sheet = std::path::Path::new(&root)
-            .join("sprites")
-            .join("mary_o_v2_spritesheet.png");
+        let pages = std::path::Path::new(&root).join("sprites").join("mary_o_v2_parts.png");
         assert!(
-            sheet.is_file(),
-            "the windowed demo's asset root {root} must contain the character \
-             sheets so standalone renders real sprites, not bare boxes"
+            pages.is_file(),
+            "the windowed demo's asset root {root} must contain Mary-O's part \
+             pages so standalone renders real sprites, not bare boxes"
         );
     }
+}
+
+/// P5b of `docs/planning/engine/mary-o-part-realization.md`: Mary-O is
+/// realized from her part pages alone. No page of her baked sheets is even
+/// requested, so none is decoded or resident; her part pages are requested
+/// instead.
+///
+/// ⚠ THE REQUEST, NOT THE LOAD. This composition runs the render graph with no
+/// wgpu backend, and no image finishes loading in it (measured 2026-10-02: her
+/// part page stayed `Loading` for 900 frames and 10 s). So this asks the asset
+/// server which paths have a live handle. That her body then draws its impostor
+/// cell is witnessed where images do load: `rendering::actors::rigged::tests`
+/// and `scripts/measure_rigged_parity.py`.
+#[test]
+fn mary_o_is_realized_from_her_parts_with_no_baked_page_requested() {
+    use ambition_platformer2d::characters::actor::WornCharacter;
+    use ambition_platformer2d::platformer::markers::PrimaryPlayer;
+    use ambition_platformer2d::sprite_sheet::game_assets::GameAssets;
+
+    let mut app = drawn_demo();
+    let mut worn = None;
+    for _ in 0..300 {
+        app.update();
+        let world = app.world_mut();
+        let mut players = world.query_filtered::<&WornCharacter, With<PrimaryPlayer>>();
+        let id = players.iter(world).next().map(|worn| worn.id().to_string());
+        if id.as_ref().is_some_and(|id| world.resource::<GameAssets>().characters.sheet(id).is_some()) {
+            worn = id;
+            break;
+        }
+    }
+    let worn = worn.expect("Mary-O's sheet was never realized");
+    let world = app.world();
+    let assets = world.resource::<GameAssets>();
+    let sheet = assets.characters.sheet(&worn).expect("her sheet");
+    assert!(sheet.parts_only(), "`{worn}` was realized with its baked pages");
+    let server = world.resource::<AssetServer>();
+    let parts: Vec<String> = sheet
+        .presentation_images()
+        .into_iter()
+        .filter_map(|page| server.get_path(page.id()).map(|path| path.to_string()))
+        .collect();
+    assert!(!parts.is_empty() && parts.iter().all(|path| path.contains("_parts")), "{parts:?}");
+    let requested = |path: &str| server.get_handle::<Image>(path.to_owned()).is_some();
+    // ⛔ A CONTROL FIRST: the lookup finds a baked page that IS requested — a
+    // character in this room drawn from its sheet — or a miss below means nothing.
+    let control = assets
+        .characters
+        .resident_sheets()
+        .find(|(_, sheet)| !sheet.parts_only())
+        .and_then(|(_, sheet)| server.get_path(sheet.texture.id()))
+        .map(|path| path.to_string())
+        .expect("no character in the room is drawn from a baked sheet");
+    assert!(requested(&control), "the path lookup cannot see the requested page {control}");
+    let mut baked = Vec::new();
+    for directory in ["sprites", "sprites_0_5x", "sprites_0_25x", "sprites_potato"] {
+        for form in ["mary_o_v2", "mary_o_v2_tall", "mary_o_v2_fire"] {
+            let path = format!("{directory}/{form}_spritesheet.png");
+            if requested(&path) {
+                baked.push(path);
+            }
+        }
+    }
+    assert!(baked.is_empty(), "baked Mary-O pages were requested: {baked:?}");
 }
 
 #[test]

@@ -81,6 +81,43 @@ Published part pages run 0.1 to 0.8 of the full frames' texels, typically
 under their trimmed sheets; puppy_slug (1.6) and ninja_shadow_oni_leader
 (1.23) cost more than their sheets.
 
+⛔ **Recorded shape by shape, a procedural painter is NOT a part character
+(census, 2026-10-03).** Faithful, yes; cheap, no: a limb drawn already turned
+into the frame is a new part at every angle, so 71 of 143 flipbooks held more
+texels than their own baked sheet or took over 64 draws a frame (the goblins
+140). Two answers, both landed:
+
+* **The road is a measured verdict.** `part_flipbook.realization_by_cost`
+  decides at publish: parts unless the packed part pages hold more texels than
+  the sheet's pages or a frame takes more than 64 draws. The flipbook records it
+  (`realize: parts | baked`); `rigged_pages_in` honours it. The capability and
+  the flipbook stay; only the road changes. Census and ledger:
+  `scripts/measure_part_flipbook_cost.py`,
+  `dev/ambition_dev_measurements/part_flipbook_cost.jsonl`.
+* **The old painters are rebuilt as rigs** (Jon: exact pixels not required for
+  the old characters, fix how they are constructed). `authoring/shape_rig.py`:
+  a piece is painted once in its own frame and placed by
+  `rigdoc.blit_rotated`, so the sheet is composed from pieces and the flipbook
+  stores each once. Goblins 631 parts / 140 draws -> 27 / 22; the shadow oni
+  leader 2307 / 139 -> 34 / 26; girdle 3489 / 59 -> 293 / 28; the toons ~300 ->
+  ~25 parts at 0.02-0.4x their sheets. Every rebuilt character replays its new
+  frames inside D6 and passes the cost rule (fsm_noodling excepted).
+
+Also: always-rigid neighbouring draws are composited into one part when that
+adds no texels (`_merge_rigid_neighbours`; noether -9% draws), and an impostor
+atlas renders only on a frame where one of its cells changed.
+
+⛔ **A flipbook is the SHEET's, keyed by the sheet's name.** A generator's sheets
+record the generator as their `target` (`robot_archivist`'s is "robot"); looked
+up by target, one sheet was handed another's flipbook and the hall panicked.
+`CharacterSheetSpec::base_sheet_key()` is the key everywhere a flipbook is found.
+
+⛔ **A tier table is derived, never recorded again.** Recorded at a tier's scale,
+a shape recording merged differently and 71 tier tables named another part
+count, which the game refuses. A tier render (`quality_tier_render()`) publishes
+no flipbook; `build_parts_variant` derives the table from the full one. Census:
+`every_published_flipbook_realizes_its_sheet_at_every_tier`.
+
 ⛔ **The pirates meet D6 now.** Their old flipbook transformed parts drawn at one
 scale and measured 5.5% and a blob of 69 against frames each fitted by its own
 LANCZOS scale. Recorded through `sheet_build.downsample`'s seams, each shape is

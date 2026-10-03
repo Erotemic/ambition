@@ -174,6 +174,14 @@ pub use plugin::AmbitionContentPlugin;
 /// Stable provider identity used by App-local content registries and the shell.
 pub const AMBITION_CONTENT_PROVIDER: &str = "ambition";
 
+/// The sandbox save file is Ambition's: the shell gives the live save to the
+/// experience with this id, so the two ids must be one.
+#[cfg(test)]
+#[test]
+fn ambition_owns_the_sandbox_save_file() {
+    assert_eq!(AMBITION_CONTENT_PROVIDER, ambition_persistence::save::SANDBOX_SAVE_OWNER);
+}
+
 // Character, hostile-archetype, and boss catalog machinery lives in reusable
 // engine crates; this provider contributes only its authored fragments. The
 // character entries live in `assets/data/character_catalog.ron`.

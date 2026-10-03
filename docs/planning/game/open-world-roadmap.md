@@ -82,10 +82,11 @@ first.
 | navigate enough that tooling can reason about routes | ▢ the navigation frontier |
 | separate from another participant into another room | ◐ simulation and most of the view are built; see A3 in [`multiplayer.md`](multiplayer.md) |
 
-Open content questions for the maintainer, in
+Open content question for the maintainer, in
 [`../awaiting-maintainer-decision.md`](../awaiting-maintainer-decision.md): Q55
-(should authored worlds use all five route-gate families?) and Q58 (does the body
-gate family ask what a body can do or what it is doing?). The milestone wording
+(should authored worlds use all five route-gate families?). Q58 is decided
+(2026-10-03): a body gate reads what a body can do or is (capabilities and
+properties), never its current action. The milestone wording
 "traversal/interaction" can mean "the player can acquire" or "the world gates on";
 Q55 decides which the world must exercise.
 

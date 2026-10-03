@@ -1,9 +1,7 @@
 """The pinned-renderer check must DISCRIMINATE, not merely run.
 
-⛔⛔ THIS TESTS THE INSTRUMENT, NOT THE PIN, and deliberately so. The pin does
-not satisfy the requirement today — that is a maintainer decision, recorded in
-`docs/planning/awaiting-maintainer-decision.md` Q95, and asserting it here would be a
-red nobody in CI can clear.
+⛔⛔ THIS TESTS THE INSTRUMENT, NOT THE PIN. The pin itself is gated by the
+script, which the maintenance lane runs (Q95 ruling, 2026-10-03).
 
 What CAN be asserted, and is the thing that would silently rot, is that the
 checker still tells a refusing tree from a non-refusing one. A check whose

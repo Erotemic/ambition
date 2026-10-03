@@ -321,9 +321,9 @@ pub fn apply_brain_commands(
         // does this body do" — and a dismount never reconciles them.
         // ⚠ Nothing resumes the recorded source when a mount-controlled ride
         // ends (a mount death rebuilds a solo brain from config); no production
-        // road constructs a `MountedBrainCache` yet (Q76), so the arm is kept
-        // for that composition rather than resumed through a pass that does not
-        // exist.
+        // road constructs a `MountedBrainCache` yet. Mount control stays a
+        // planned capability (Q76), so the arm is kept for that composition;
+        // the resume on dismount is queue row MOUNT-RIDER-CUSTOMER.
         //
         // A possessed body keeps its own brain now: the switch applies LIVE below, the human's
         // input still drives the body through its seat, and the release resumes the switched policy

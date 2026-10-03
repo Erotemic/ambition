@@ -69,7 +69,8 @@ pub fn compute_music_intent(
     encounter_music: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
         EncounterMusicRequest,
     >,
-    // ⭐ THE MUSIC PLAYS FOR THE PRIMARY SEAT'S ROOM (Q150 (a)). There is one
+    // ⭐ THE MUSIC PLAYS FOR THE PRIMARY SEAT'S ROOM (Q150; the ruling's
+    // authored-priority choice across participants is not built yet). There is one
     // audio output, so with two live rooms the session hears the room of the
     // primary seat's body: its room music and its fights. This read was the
     // sole live room, so while two rooms were live this system did not run

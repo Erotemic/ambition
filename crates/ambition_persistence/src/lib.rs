@@ -82,6 +82,7 @@ impl bevy::prelude::Plugin for PersistenceSchedulePlugin {
         app.init_resource::<PersistenceRoot>();
         app.init_resource::<save::SaveFileWritable>()
             .init_resource::<save::LastPersistedSave>()
+            .init_resource::<save::SaveOwner>()
             .init_resource::<settings::persistence::LastPersistedSettings>()
             .add_systems(
                 Startup,

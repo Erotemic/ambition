@@ -16,13 +16,10 @@ comment. Every link true, the chain false, because "the renderer" named two
 different commits. See
 `dev/benchmark-candidates/every-link-true-and-the-chain-false-2026-09-04.md`.
 
-⚠ REPORTS, DOES NOT GATE, and that is temporary rather than a design choice. The
-pin does not satisfy the requirement today; making this exit non-zero would paint
-CI red for a condition only a maintainer can clear (it needs a submodule
-fast-forward and a pointer bump — see
-`docs/planning/awaiting-maintainer-decision.md` Q95). ⇒ **Flip `GATES` to `True` in the
-same commit that lands the pointer**, and this becomes the guard that stops the
-requirement silently regressing again.
+⛔ GATES. The pin reached a durable commit that refuses (`302e46cc8`, on the
+renderer's `origin/main`), so the maintainer ruling (Q95, 2026-10-03) asks this
+check to stop a regression of the requirement. Repin the renderer only to a
+commit on a pushed branch, never to agent-local history.
 """
 
 from __future__ import annotations
@@ -34,8 +31,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SUBMODULE = "tools/ambition_music_renderer"
 
-#: Flip to True with the pointer bump. See the module docstring.
-GATES = False
+#: The pin satisfies the requirement, so a regression fails. See the module docstring.
+GATES = True
 
 #: What a refusing renderer must contain. Deliberately the ENV OVERRIDE and not
 #: the words "General MIDI": the prose appears in comments on both sides, and a
@@ -91,11 +88,9 @@ def main() -> int:
     print(f"⛔ THE PINNED MUSIC RENDERER DOES NOT REFUSE THE GM FALLBACK: {why}")
     print(
         "   A fresh clone renders General-MIDI stand-ins and reports success.\n"
-        "   The refusal exists on `agent/sfizz-source-fallback-and-cue-fanout`,\n"
-        "   which fast-forwards onto the submodule's main. The fix is that\n"
-        "   fast-forward plus a pointer bump — NOT re-pointing at the branch\n"
-        "   commit, which is deletable. See docs/planning/"
-        "awaiting-maintainer-decision.md Q95."
+        "   Repin to a refusing commit on a pushed branch of the renderer\n"
+        "   (its main), never to agent-local history. Maintainer ruling Q95\n"
+        "   (docs/planning/maintainer-decisions.md)."
     )
     return 1 if GATES else 0
 

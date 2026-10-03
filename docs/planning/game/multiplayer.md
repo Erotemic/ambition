@@ -63,11 +63,12 @@ These are product questions, not reasons to block the engine architecture:
 - which story interactions pause only one participant versus the whole party;
 - how dialogue choices work when participants are in different rooms;
 - whether critical quest transitions require party regrouping;
-- respawn/rejoin behavior when another participant remains alive elsewhere
-  (Q151, decided for now: the dying player restarts at the checkpoint, and
-  because the restore is session-wide (Q51, Q124) the other player's room is
-  replayed for them from the restored state). Ambition has no production road for a
-  second player to join; only Smash seats slot 1;
+- rejoin behavior when another participant remains alive elsewhere. Death is
+  decided (Q151, 2026-10-03): an ordinary death is local to the dying
+  participant and the affected room, and another participant's live room and
+  accomplishments stay; only an explicit whole-session reload rewinds
+  everything. Ambition has no production road for a second player to join
+  (Q153); only Smash seats slot 1;
 - inventory transfer/trading rules between controlled bodies;
 - save ownership and join/leave policy for remote participants;
 - how far shared quest/world causality extends when players explore separately.
@@ -119,9 +120,10 @@ with hysteresis when they regroup.
   (`a_second_view_opens_while_the_players_are_in_two_rooms_and_closes_when_they_meet`).
 - Not done: debug overlays read the sole live room; the through-portal window is
   drawn for the primary seat's view only; banner, music and HUD are
-  session-wide and follow the primary seat (Q150 in
-  [`../awaiting-maintainer-decision.md`](../awaiting-maintainer-decision.md),
-  decided for now).
+  session-wide and follow the primary seat. The Q150 ruling (2026-10-03, in
+  [`../maintainer-decisions.md`](../maintainer-decisions.md)) makes the HUD
+  per participant and the local music an authored-priority choice with the
+  primary participant as the tie-break; not built yet.
 - Two players in one room still share a conversation's pause (the first
   game-state question above).
 

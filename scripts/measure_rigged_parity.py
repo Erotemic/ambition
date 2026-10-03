@@ -118,8 +118,8 @@ def main() -> int:
         target, name, frame = row["target"], row["row"], int(row["frame"])
         flip = row["flip"] == "true"
         feet = (float(row["feet_x"]), float(row["feet_y"]))
-        baked = Image.open(row["baked"]).convert("RGBA")
-        parts = Image.open(row["parts"]).convert("RGBA")
+        baked = _unpremultiplied(Image.open(row["baked"]).convert("RGBA"))
+        parts = _unpremultiplied(Image.open(row["parts"]).convert("RGBA"))
         # ⛔ Premise: the harness drew something, and it drew the PINNED frame.
         # An empty capture agrees with an empty capture.
         if baked.getchannel("A").getbbox() is None or parts.getchannel("A").getbbox() is None:
@@ -177,6 +177,20 @@ def main() -> int:
         return 1
     print(f"ok: every part-drawn frame inside A <= {PARITY_BOUND:.0%} and B <= {BLOB_BOUND} px")
     return 0
+
+
+def _unpremultiplied(image):
+    """A capture as straight alpha.
+
+    ⛔ A CAMERA THAT CLEARS TO TRANSPARENT WRITES PREMULTIPLIED COLOUR. Sprites
+    blend `src * a + dst * (1 - a)`, so over a transparent clear a half-covered
+    pixel stores half its colour. Compared as if it were straight alpha, every
+    edge and every translucent effect reads too dark, and the measure goes
+    blind to exactly the pixels a premultiplication bug changes."""
+    array = np.asarray(image, dtype=np.float64)
+    alpha = array[..., 3:4]
+    rgb = np.where(alpha > 0, np.clip(array[..., :3] * 255.0 / np.maximum(alpha, 1.0), 0, 255), 0)
+    return Image.fromarray(np.concatenate([rgb, alpha], axis=-1).round().astype(np.uint8), "RGBA")
 
 
 def _sheet(target):

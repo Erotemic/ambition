@@ -100,7 +100,19 @@ fn an_admitted_admiral_is_drawn_from_its_parts() {
                 server.get_path(page.id())
             );
         }
-        assert_eq!(world.get::<Sprite>(root).unwrap().color.alpha(), 0.0);
+        // The root draws its cell of the impostor atlas its parts are
+        // composited into.
+        let atlas = world
+            .resource::<ambition_platformer2d::render::rendering::actors::rigged::RiggedImpostorAtlas>()
+            .0
+            .as_ref()
+            .expect("the impostor atlas");
+        let sprite = world.get::<Sprite>(root).unwrap();
+        assert!(
+            sprite.image == atlas.image
+                && sprite.texture_atlas.as_ref().map(|frame| frame.index) == Some(presentation.impostor.cell as usize),
+            "the root does not draw its impostor cell"
+        );
     }
     // Every slot belongs to a presentation: none leaked from a rebind.
     let mut owners = app.world_mut().query::<&RiggedPresentation>();
@@ -136,8 +148,8 @@ fn the_shipped_game_draws_the_admirals_from_their_parts() {
     assert!(slots.iter(app.world()).count() > 0, "the admirals' part slots exist");
 }
 
-/// Rig packet 7: a second local view draws the same parts. It does not make
-/// more of them.
+/// Rig packet 7, with the impostor (decision D4): a second local view draws the
+/// same body and makes no more parts.
 ///
 /// The second pane is made as TwinTrack makes its laboratory pane: a
 /// `LocalView` with its facts and a column placement, and a `MainCamera` on
@@ -145,12 +157,8 @@ fn the_shipped_game_draws_the_admirals_from_their_parts() {
 ///
 /// * the presentations and the very same slot entities stay as they were with
 ///   one view: the parts belong to the body, not to a view;
-/// * each main camera that draws a rigged root draws its parts (the render
-///   layers agree), so neither pane shows a body without its parts.
-///
-/// Today no actor root carries render layers, so the second check passes on
-/// defaults; `the_parts_are_drawn_by_each_camera_that_draws_their_root` (in
-/// `ambition_render`) is the one that fails when the slots stop following.
+/// * no main camera draws a part: the parts stand on the private impostor
+///   layer, and every view draws the ROOT, which draws the impostor.
 ///
 /// ⛔ Not each camera's `VisibleEntities`: without a window the host camera
 /// lists no sprite at all, so those lists cannot tell a missing part from a
@@ -205,17 +213,16 @@ fn a_second_view_draws_the_same_parts_and_makes_no_more() {
     let mut checked = 0;
     for presentation in presentations.iter(world) {
         let root = layers_of(world, presentation.root);
+        for camera in &cameras {
+            assert!(camera.intersects(&root), "a view on {camera:?} does not draw the root on {root:?}");
+        }
         for slot in &presentation.slots {
             if world.get::<Visibility>(*slot) == Some(&Visibility::Hidden) {
                 continue;
             }
             let part = layers_of(world, *slot);
             for camera in &cameras {
-                assert_eq!(
-                    camera.intersects(&root),
-                    camera.intersects(&part),
-                    "a camera on {camera:?} draws the root on {root:?} but not its part on {part:?}, or the reverse"
-                );
+                assert!(!camera.intersects(&part), "a view on {camera:?} draws a loose part on {part:?}");
             }
             checked += 1;
         }

@@ -42,7 +42,8 @@ use bevy::sprite::Anchor;
 
 use ambition_persistence::settings::TextureResolutionScale;
 use ambition_render::rendering::actors::rigged::{
-    bind_rigged_presentations, drive_rigged_presentations, RiggedPresentations,
+    add_rigged_impostor_material_plugin, bind_rigged_presentations, drive_rigged_presentations,
+    RiggedImpostorAtlas, RiggedPresentations,
 };
 use ambition_render::rendering::actors::BoundSpriteQuality;
 use ambition_sprite_sheet::character::rigged::{RiggedSpriteAdmission, RiggedSpriteAsset, RiggedSpritePages};
@@ -236,6 +237,7 @@ fn add_renderer(app: &mut App, views: usize, tiny: bool) {
             // No window and no display: `update` is called by hand.
             .disable::<bevy::winit::WinitPlugin>(),
     );
+    add_rigged_impostor_material_plugin(app);
     // This crate's Bevy features include no pipelined rendering, so the render
     // world runs inside `update` and the frame time includes it.
     app.finish();
@@ -279,6 +281,7 @@ fn run(target: &str, actors: usize, rigged: bool, frames: usize, views: Option<u
         add_renderer(&mut app, views, tiny);
     }
     app.init_resource::<RiggedPresentations>()
+        .init_resource::<RiggedImpostorAtlas>()
         .insert_resource(RiggedSpriteAdmission { admit: rigged })
         .add_systems(
             Update,

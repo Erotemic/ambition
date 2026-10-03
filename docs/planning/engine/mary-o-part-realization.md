@@ -14,7 +14,8 @@ every rig-document character follows the same road.
 | P2 every row from parts | DONE | renderer `e2af3b2`; `mary_os_flipbooks_draw_every_row_from_parts` (Rust) |
 | P3 in-engine parity | DONE | `scripts/measure_rigged_parity.py` + `crates/ambition_render/examples/rigged_sprite_parity.rs`; both facings inside A ≤ 1%, B ≤ 10 px |
 | P4 interpolation | DONE | schema 2 (tracks, per-clip `tween`); `RiggedSpriteAsset::tween_into` + `CharacterAnimator::frame_phase`; renderer `tween_draws` |
-| P5 baked retirement | next | |
+| P5a body-riding effects on parts (D4) | DONE | shared impostor atlas: `actors::rigged` (`RiggedImpostorAtlas`, `ImpostorUnpremultiply`); `PortalPieceTint` removed |
+| P5b baked residency | next | stop loading the baked pages for a character whose every row is parts |
 
 Deviations from the recommendations, both reaching the same end:
 
@@ -67,6 +68,34 @@ What P4 measured:
   reports them without gating them. PIL rounds a tweened part to whole pixels
   and the GPU does not, so their raster difference (1–2%) measures rounding,
   not the tween.
+
+What P5a built and measured:
+
+- **One quad per body, drawn from parts.** The parts are drawn by a private
+  camera into a cell of one shared impostor atlas. The ROOT draws its cell,
+  named as an atlas frame of the atlas layout, at its own size, feet, tint and
+  flip. The portal compositor, the hit flash and Mary-O's star-power overlay
+  all read the root's image and atlas frame, so they draw the parts' frame —
+  tweened in-betweens included — and none reads the baked sheet. The root is no
+  longer drawn at zero alpha, and `PortalPieceTint` (its only reason) is gone.
+- **Two cameras for every body, not two per body.** A camera pair per body cost
+  about 1.4 ms per actor on llvmpipe; the shared atlas costs one pass. The atlas
+  grows a step when full (1, 2, 4, 6 cells per side). At 6×6 from the start, the
+  per-frame clear and shade of the whole target cost a single body 13 ms on
+  llvmpipe; grown, one body adds 1.5 ms, 10 add 8 ms, 30 add 15 ms (llvmpipe; a
+  hardware GPU is the open measurement). Sprite batches: 2 for any number of
+  bodies (was 2 per body).
+- **The second camera un-premultiplies.** A sprite drawn over a transparent
+  clear stores premultiplied colour. Mary-O measured no difference without the
+  division (her only partial alpha is a one-pixel dark outline), but a
+  character with soft translucent effects would darken. The quad divides it out
+  (`impostor_unpremultiply.wgsl`). A poisoned shader fails the in-engine gate on
+  every frame (blob 522–882).
+- In-engine parity through the impostor is unchanged: worst 0.20%, blob 9, both
+  facings. The cell is the frame plus 16 px of margin, so the 2–8 px the baked
+  frame cuts off are drawn.
+- A frame larger than a cell (256 px with margins), or a full 36-cell atlas,
+  keeps its baked sheet and warns once.
 
 Size after P2: packed part pages are 0.541 of the three sheets' texels
 (865,937 / 1,601,774). Fire `transform`'s aura overlays dominate.

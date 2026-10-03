@@ -271,6 +271,12 @@ impl CharacterAnimator {
         self.clip_phase = self.clip_slot.and(phase);
     }
 
+    /// The flat atlas index of the frame drawn now, without advancing: what
+    /// [`Self::tick`] last returned.
+    pub fn atlas_index(&self) -> usize {
+        self.spec.flat_index_at(self.drawn_slot(), self.frame)
+    }
+
     /// How far the current frame has run toward the next, in `0..1`: the `t`
     /// an in-between is drawn at (`rigged::RiggedSpriteAsset::tween_into`).
     /// `0` while a clip holds its last frame, and for a row with no clock. A

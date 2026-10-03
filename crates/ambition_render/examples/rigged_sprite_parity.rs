@@ -30,7 +30,8 @@ use bevy::sprite::Anchor;
 use ambition_persistence::settings::TextureResolutionScale;
 use ambition_render::rendering::actors::draw_held_frame;
 use ambition_render::rendering::actors::rigged::{
-    bind_rigged_presentations, drive_rigged_presentations, RiggedPresentations,
+    add_rigged_impostor_material_plugin, bind_rigged_presentations, drive_rigged_presentations,
+    RiggedImpostorAtlas, RiggedPresentations,
 };
 use ambition_render::rendering::actors::BoundSpriteQuality;
 use ambition_sprite_sheet::character::rigged::{RiggedSpriteAdmission, RiggedSpriteAsset, RiggedSpritePages};
@@ -130,6 +131,7 @@ fn capture_all(target: &str, rigged: bool, scale: f32, flips: &[bool], phase: f3
     let (mut app, image) = renderer(size);
     let captured = Captured::default();
     app.init_resource::<RiggedPresentations>()
+        .init_resource::<RiggedImpostorAtlas>()
         .insert_resource(RiggedSpriteAdmission { admit: rigged })
         .insert_resource(Pin::default())
         .insert_resource(captured.clone())
@@ -246,6 +248,7 @@ fn renderer(size: UVec2) -> (App, Handle<Image>) {
             })
             .disable::<bevy::winit::WinitPlugin>(),
     );
+    add_rigged_impostor_material_plugin(&mut app);
     app.finish();
     app.cleanup();
     let image = {

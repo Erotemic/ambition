@@ -747,52 +747,6 @@ mod bridge_meets_compositor_tests {
         );
     }
 
-    /// A rigged body through a portal (rig packet 7). Its root draws its baked
-    /// frame at zero alpha and states an opaque piece tint, and its parts hang
-    /// off an owner that is `PresentationOf(root)` with no sprite.
-    ///
-    /// The root is the body's one candidate. Its pieces draw with the stated
-    /// tint, so the body does not vanish at the pane. The owner is hidden in
-    /// the same frame as the root, so parts and pieces never draw together.
-    #[test]
-    fn a_far_side_rigged_body_is_pieced_opaque_and_its_parts_hide_with_it() {
-        use ambition_platformer2d_shared_tangle::lifecycle::PresentationOf;
-        let mut app = app();
-        let root = far_side_body(
-            &mut app,
-            crate::rendering::primitives::FeatureVisual {
-                id: "rigged pirate".to_string(),
-            },
-        );
-        app.world_mut().get_mut::<Sprite>(root).unwrap().color = Color::srgba(1.0, 1.0, 1.0, 0.0);
-        app.world_mut()
-            .entity_mut(root)
-            .insert(ambition_portal2d_presentation::PortalPieceTint(Color::WHITE));
-        let owner = app
-            .world_mut()
-            .spawn((PresentationOf(root), Transform::default(), Visibility::Inherited))
-            .id();
-        app.update();
-        assert!(candidate(&app, owner).is_none(), "the parts' owner became a candidate");
-        assert_eq!(*app.world().get::<Visibility>(root).unwrap(), Visibility::Hidden);
-        assert_eq!(
-            *app.world().get::<Visibility>(owner).unwrap(),
-            Visibility::Hidden,
-            "the parts still draw over the pane while the pieces draw the body"
-        );
-        let world = app.world_mut();
-        let mut pieces = world.query_filtered::<
-            &MeshMaterial2d<ambition_portal2d_presentation::PortalClipMaterial>,
-            With<ambition_portal2d_presentation::PortalFarSidePiece>,
-        >();
-        let handles: Vec<_> = pieces.iter(world).map(|m| m.0.clone()).collect();
-        assert!(!handles.is_empty(), "the far-side rigged body got no pieces");
-        let materials = world.resource::<Assets<ambition_portal2d_presentation::PortalClipMaterial>>();
-        for handle in handles {
-            assert_eq!(materials.get(&handle).unwrap().tint.w, 1.0, "an invisible piece");
-        }
-    }
-
     fn candidate(
         app: &App,
         entity: Entity,

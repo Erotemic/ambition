@@ -108,7 +108,11 @@ budget is stored, because a budget with no consumer is not a policy.
   room with both players in it, and none of the 72 rooms has a door into
   itself. Instanced copies of a room need Q109 first.
 - A rollback frame does not copy or hash unchanged dormant rows. The save's
-  rows and the ledger are `Arc`-shared with checksums kept per allocation (M2).
+  rows, the ledger and `BreakableRespawnSchedule` are `Arc`-shared with
+  checksums kept per allocation (M2; the schedule 2026-10-02, measured 2.0 ms
+  per snapshot at 10,000 records before). Census of the readers that walk
+  dormant rows: the custody projection reads an index, the save mirror walks
+  only when its key changed, and the rest run at a commit or a restore.
 
 ### Logical time while a room is not live (OW5)
 

@@ -718,9 +718,8 @@ pub fn prepare_match(
         let seat_abilities = effective_abilities(definition.abilities, rules.abilities);
         // The kit this seat wears, from the same compiler as spawn and
         // re-wear, so a seated fighter and a room fighter agree.
-        let worn = ambition_combat::worn_kit::WornKit::resolve(
-            Some(registry),
-            participant.character.as_str(),
+        let worn = ambition_combat::worn_kit::WornKit::of(
+            definition,
             rules.seat_terms(participant.action_set.as_ref()),
         );
         // See `MatchRules::body_over`.

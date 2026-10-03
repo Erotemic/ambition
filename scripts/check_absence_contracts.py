@@ -975,7 +975,6 @@ ABSENCE_CONTRACTS: list[dict] = [
             # The exemption is the same ONE file it always was; only its address changed, and this
             # guard catching the move is the guard working.
             ":!crates/ambition_characters/src/prepared.rs",
-            ":!crates/ambition_combat/src/worn_kit.rs",
             ":!crates/ambition_characters/src/actor/character_catalog/mod.rs",
         ],
         "patterns": [r"\bbuild_default_action_set\b"],
@@ -997,8 +996,10 @@ ABSENCE_CONTRACTS: list[dict] = [
             "is the day this contract has stopped meaning anything, so read "
             "them together before adding a third. "
             "2026-09-03: the unregistered-id caller moved out of the actor kernel "
-            "with the worn-kit compiler (`ambition_combat::worn_kit::WornKit::resolve`); "
-            "the kernel no longer reads the catalog's default set at all."
+            "with the worn-kit compiler (`ambition_combat::worn_kit`); "
+            "the kernel no longer reads the catalog's default set at all. "
+            "2026-10-03: that caller is deleted. An id the cast does not hold "
+            "is not worn (Q103), so `worn_kit.rs` has no exemption."
         ),
     },
     {

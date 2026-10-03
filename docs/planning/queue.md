@@ -274,21 +274,41 @@ with the durable records it reads; a durable record written in Alice's room
 after the checkpoint goes back. The shared-room and whole-session-reload
 cases have their own arms.
 
-### WEAR-REFUSES-UNPREPARED — a character outside the prepared generation is never worn
+### WEAR-REFUSES-UNPREPARED — a character outside the prepared generation is never worn — ✅ DONE 2026-10-03 (two remainders)
 
-**Owner:** `ambition_combat::worn_kit::WornKit::resolve` and
+**Owner:** `ambition_combat::worn_kit::WornKit::of` and
 `avatar/starting_character.rs::wear_character`.
 
 **Ruling:** Q103 (2026-10-03): refuse. A character admitted into simulation was
 prepared for that generation; no engine-default kit, no App-global catalog read.
 
-**Current state:** the spawn road reads the prepared cast only, but the re-wear
-road still wears an unprepared id: `WornKit::resolve` logs an error, grants a
-peaceful kit and shows the id as the name.
+**Done:** the kit compiler takes a prepared definition (`WornKit::of`), not an
+id, so no road can ask for the kit of an id outside the cast. `WornKit::resolve`
+and `resolve_playable_action_set` (the peaceful kit) are deleted. This also
+closes the match-kit arm, which wore an unprepared id with a stage's borrowed
+set. `wear_character` answers `None` for such an id and writes nothing: no name
+made from the id, no identity. On a refusal `apply_worn_character_gameplay`
+consumes the request, reports it, and puts `WornCharacter` back to the character
+last applied (`PersonaBaseline::id`), so the body's id and its kit stay one
+answer.
 
-**Acceptance:** wearing an unprepared id changes nothing on the body and is
-reported; a witness asks for an id outside the cast and sees the previous
-identity kept.
+**Witnesses** (`avatar::starting_character::tests`):
+`a_rewear_to_an_unprepared_id_keeps_the_previous_character` (the id, the name,
+the pistol, the identity and the baseline are kept, and the request is consumed)
+and `an_unprepared_id_writes_nothing_on_the_body` (no cast, an empty cast, and a
+borrowed match kit). Poisons: the old fallback fails both; the refusal without
+the `WornCharacter` revert fails the first.
+
+**Remainders, not decided here:**
+
+- **A generation that drops a worn id.** When the cast changes and no longer
+  holds the id a live body wears, the body keeps its kit from the old
+  generation and the refusal is reported once. That mixes generation N and
+  N+1, which Q103 forbids. The repair is probably at admission (a generation
+  that drops a live body's character is not admitted), not at wear time.
+- **The home body of an unprepared starting id.** `session::setup` still builds
+  the home body (an empty kit, named after the id, reported). Refusing it is a
+  session-admission question: the session then has no body to drive.
 
 ### SETTINGS-ROLLBACK — finish the settings/mechanics admission boundary
 

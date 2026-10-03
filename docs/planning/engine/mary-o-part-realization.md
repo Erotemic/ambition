@@ -18,9 +18,9 @@ every rig-document character follows the same road.
 | P5b baked residency | DONE | parts-only realization (`NO_BAKED_IMAGE`, `CharacterSpriteAsset::parts_only`); the reveal barrier and the binders wait on the part pages |
 | P5c stop shipping the baked PNG | open | exclude a parts-only character's `_spritesheet.png` from packaging; keep it generated as the offline oracle |
 | P6a player robot v3 from parts | DONE | schema 3 (placement, draw and frame opacity); continuous placement for supersampled rigs; mirror rows; gamma-space impostor; renderer `tests/test_player_robot_v3_part_flipbook.py`; in engine all 1,888 frames ≤ 0.04%, blob ≤ 1 |
-| P6b the largest sheets: noether, PCA, patent clerk, the swing fighters | DONE | published from parts; `scripts/measure_published_flipbooks.py` redraws every published flipbook against its published sheet (all inside D6, pirates excepted, below); in engine noether and patent clerk blob ≤ 1, PCA inside D6 after snapped parts gained their border; runtime cell classes 288 / 576 / 896 |
+| P6b the largest sheets: noether, PCA, patent clerk, the swing fighters | DONE | published from parts; `scripts/measure_published_flipbooks.py` redraws every published flipbook against its published sheet (all inside D6); in engine noether and patent clerk blob ≤ 1, PCA inside D6 after snapped parts gained their border; runtime cell classes 288 / 576 / 896 |
 | P6b' the remaining rig characters: oiler, paradox_barber, data_lovelace, neil_ongras_turfson, hunny_horror_boss, companion_dog, m_leblanc, charley_beagle_svg | DONE | `publish_rig_flipbook`; every frame inside D6 offline and in engine; a continuous replay skips the frame's clipped edge band (`EDGE_BAND`) |
-| P6c procedural painters (about 25 characters, 1–2.6 MB) | open | no rigid parts to record: a per-shape recorder reproduces them (hypatia: ≤ 0.6%, blob 14) but saves little (0.71 of full frames) without rotation reuse; see below |
+| P6c procedural painters and every remaining character (about 120) | DONE offline, publishing | the shape recorder (`blending_draw` reports each ink op; `text` by its pixel change), reduction on the frame's own grid or sample positions, and stacked-edge merging; config generators publish through `publish_generator_flipbook`; every target's frames hash identical before and after its seams; every frame replays inside D6 (nearly all at 0 wrong pixels) |
 
 ### Every character, largest sheets first (Jon, 2026-10-03)
 
@@ -35,9 +35,9 @@ orphaned `.1`–`.5` pages from August; the live sheets are page 0 alone.
 | perfect_cellular_automaton | 26 MB, 7 pages, 913 frames at 654 × 846 | `RigDocument` at frame resolution (snapped, parts turned bilinear: `rotation_filter`); effects through `compose_rig_frame` | recorded: all 913 frames replay exactly; one 399 KB part page. Takes an 896 px cell |
 | player_robot_v3 | 9.1 MB, 1,888 frames at 256 × 256 | `RigDocument`, supersample 4 | DONE, below |
 | pointed / pugnacious / projectile polygon, carl_stargan, director, officer, performer, medic | 3.7 to 5.8 MB each (live pages) | `RigDocument`, supersample 2 to 4; authored strike effects (`swing_effects.composite_authored_effect`), drawn from the frames before them, so a clip renders at once and is cached | published: `composite_authored_effect` goes through the seams and each clip is recorded whole from the UNCACHED clip function (`render_clip`). All frames redraw their sheets at most 0.09%, blob 3 (`scripts/measure_published_flipbooks.py`). carl_stargan 564 KB of parts for 4.3 MB, director 161 KB for 4.4 MB, officer 185 KB for 4.0 MB |
-| niels_boar | 3.5 MB | procedural `ImageDraw` body, squashed and rotated as one raster | stays baked: no rigid parts to record |
+| niels_boar | 3.5 MB | procedural `ImageDraw` body, squashed and rotated as one raster | recorded (P6c): the turned or squashed body rides as one picture, the rest as shapes; 290 frames, worst blob 1 |
 | patent_clerk | 4.8 MB, 875 frames at 224 × 224 | `RigDocument`, supersample 4; effects through `compose_rig_frame` | recorded: all frames replay (≤ 0.02%, blob ≤ 1); one 341 KB part page |
-| flying_spaghetti_monster_boss | 7 MB, 79 frames | procedural `ImageDraw`; tentacles are splines that deform every frame | stays baked: no rigid parts to record |
+| flying_spaghetti_monster_boss | 7 MB, 79 frames | procedural `ImageDraw`; tentacles are splines that deform every frame | recorded (P6c): reduced 4.6x, so each shape is sampled where the frame's resize samples it; 79 frames at 0 wrong pixels, 0.22 of full-frame texels; the sauce reveal map stays a data sheet |
 
 ⛔ **A turned snapped part needs a transparent border too.** A part turned
 by `blit_rotated` fades a pixel outward past its raster, and the GPU draws a
@@ -46,19 +46,46 @@ part only inside its rect: PCA's turned outlines lost a one-pixel edge in game
 transparent texels; a snapped part's pivot stays whole, so the replay is the
 same picture. PCA then passed in engine, all 1,826 captures.
 
-**The procedural painters (P6c).** About 25 characters (vera_ruin, ramen_nujan,
-girdle, georg_canter, davy_hylbert, willson, hypatia_prime, …) are drawn by
-`ImageDraw` from joint positions every frame: their limbs are capsules between
-moving joints (lengths change), coats are free polygons. A recorder of every
-`blending_draw` op (each shape a part at its box at the supersample; an
-alpha-0 ink drawn directly cuts its coverage out of the shapes under it)
-reproduces hypatia_prime to 0.6% and a blob of 14 (measured 2026-10-03), but
-reuses only shapes that translate: 0.71 of full-frame texels, more than its
-trimmed sheet, at up to 109 draws a frame. Real savings need rotation reuse
-(raster-rotating 1–2 px lines that were drawn as vectors, a fidelity risk at
-128 px frames) or re-authoring each character as an SVG rig, as Mary-O and the
-robot were. That is an art decision for Jon. The recorder was measured and left out of
-the tree.
+**The procedural painters (P6c, 2026-10-03).** Most characters are drawn by
+`ImageDraw` from joint positions every frame: limbs are capsules between moving
+joints, coats free polygons, nothing rigid to name. They are recorded shape by
+shape: `blending_draw` reports every ink op to the recorder (an alpha-0 ink
+drawn directly cuts its coverage out of what is under it; `text`, which can
+replace pixels at any alpha, is recorded by the pixels it changed). The
+painter's last steps go through rigdoc's seams (`downsampled_canvas`,
+`composite_canvas`, `composite_layer`); a layer painted some other way (turned,
+blurred, rescaled) rides as one picture. Every converted target was hashed
+before and after: the frames are byte-identical.
+
+Three rules made the replay exact rather than close:
+
+* ⛔ **Reduce a shape where the frame reduces it.** A shape reduced from its own
+  corner lands between frame pixels and is resampled. Padded so its corner is
+  on the supersample grid, it reduces as that region of the frame and lands on
+  whole pixels. A frame resized by a factor that is not whole (the FSM's 4.6x,
+  a pirate's per-frame fit, stochastic_parrot_v2's 1.32x enlargement) samples
+  each shape over the frame pixels it reaches with PIL's `box`: the same sample
+  positions as the frame's own resize.
+* ⛔ **Two edges reduced apart do not stack as one.** A boot and its sole share
+  an edge; each half covered, stacked they are three quarters covered
+  (vera_ruin's sole at alpha 200 where the render has 65). Each raster is
+  checked where it lands against the canvas reduced whole; where they differ
+  by more than 32 levels it is merged with the rasters before it within the
+  filter's reach, one paint-order run at a time.
+* A track is named once a frame: a second layer of one name is numbered.
+
+The cost is honest, not small: a shape that only translates is reused, one
+that changes is a new part, and merging folds a body into fewer, larger parts
+(three AI-era bodies turned as one layer are a single picture a frame).
+Published part pages run 0.1 to 0.8 of the full frames' texels, typically
+under their trimmed sheets; puppy_slug (1.6) and ninja_shadow_oni_leader
+(1.23) cost more than their sheets.
+
+⛔ **The pirates meet D6 now.** Their old flipbook transformed parts drawn at one
+scale and measured 5.5% and a blob of 69 against frames each fitted by its own
+LANCZOS scale. Recorded through `sheet_build.downsample`'s seams, each shape is
+resized by its frame's own fit: every frame inside D6, at 1.00 to 1.07 of the
+sheet's texels (a shape scaled per frame is reused by no other frame).
 
 ⛔ **The harness put frames half a pixel off.** It rounded a feet-anchored
 root's FEET to a whole pixel; a sheet whose anchor is off its pixel grid
@@ -80,13 +107,6 @@ draw when it is outside D6 of the crisp published-draw oracle, and lists every
 such frame: the two roads a player sees are then the same picture. director's
 `punch`[1] is the case: parts and baked draws identical (0 wrong pixels), both
 softer than the oracle (a blob of 8).
-
-⛔ **The pirates do not meet D6.** Their flipbooks predate it: built by the
-fitted road (procedural part scopes, LANCZOS-fitted placements) and gated at
-2.5% with a pixel of slack. Against their published sheets
-(`measure_published_flipbooks.py`, 2026-10-03): up to 5.5% wrong and blobs to
-69 with no slack; 1.95% and 12 even with a pixel. Every character recorded by
-the rig road since meets D6. Moving the pirates onto it is open.
 
 ### Player robot v3 from parts (2026-10-03)
 

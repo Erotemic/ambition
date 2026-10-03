@@ -50,6 +50,23 @@ BLOB_BOUND = 6
 SNAPPED_TOLERANCE = {"threshold": 8, "radius": 0}
 
 
+def _sheet_rows(sheet: dict) -> list:
+    """The sheet's rows. A sparse module sheet (sandbag) lists its frames
+    under ``animations`` in ``animation_order`` instead, untrimmed."""
+    if "rows" in sheet:
+        return sheet["rows"]
+    return [
+        {
+            "animation": name,
+            "rects": [
+                {"x": f["x"], "y": f["y"], "w": f["w"], "h": f["h"], "off": [0, 0]}
+                for f in sheet["animations"][name]["frames"]
+            ],
+        }
+        for name in sheet["animation_order"]
+    ]
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--target", action="append", help="repeatable; default every published flipbook")
@@ -77,7 +94,7 @@ def main() -> int:
         tolerance = SNAPPED_TOLERANCE if flipbook.placement == PLACEMENT_SNAPPED else CONTINUOUS_REPLAY_TOLERANCE
         # The census is the SHEET's rows: a row the flipbook dropped is a
         # failure, not a frame skipped.
-        rows = {row["animation"]: row for row in sheet["rows"]}
+        rows = {row["animation"]: row for row in _sheet_rows(sheet)}
         missing = sorted(set(rows) - set(flipbook.clips) - set(flipbook.baked_clips))
         if missing:
             failures.append(f"{target}: rows the flipbook neither draws nor leaves baked: {missing}")
@@ -94,12 +111,13 @@ def main() -> int:
                 # A paged sheet names each frame's page `fpage`.
                 page = int(rect.get("fpage", row.get("page", 0)))
                 if page not in pages:
-                    names = sheet.get("images") or [sheet["image"]]
+                    # A generator manifest names no image: it is the sheet's own.
+                    names = sheet.get("images") or [sheet.get("image", f"{target}_spritesheet.png")]
                     pages[page] = Image.open(SPRITES / names[page]).convert("RGBA")
                 reference = Image.new("RGBA", size, (0, 0, 0, 0))
                 reference.paste(
                     pages[page].crop((rect["x"], rect["y"], rect["x"] + rect["w"], rect["y"] + rect["h"])),
-                    tuple(rect["off"]),
+                    tuple(rect.get("off", (0, 0))),
                 )
                 candidate = flipbook.recompose(name, index)
                 wrong = parity(reference, candidate, **tolerance)

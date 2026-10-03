@@ -1398,6 +1398,13 @@ for cue in "${review_cues[@]}"; do
             echo "  WARN: $src missing — skipped"
         fi
     done
+    # The part flipbook the generator published beside the sheet
+    # (`<cue>_parts.ron` and its pages), when it publishes one.
+    for src in "$review_scratch/${cue}"_parts*; do
+        [ -f "$src" ] || continue
+        cp "$src" "$sprites_dir/$(basename "$src")"
+        echo "  installed $(basename "$src")"
+    done
     for ext in png ron; do
         src="$review_scratch/${cue}_portraits.$ext"
         if [ -f "$src" ]; then
@@ -1427,6 +1434,13 @@ for cue in "${faction_cues[@]}"; do
         else
             echo "  WARN: $src missing — skipped"
         fi
+    done
+    # The part flipbook the generator published beside the sheet
+    # (`<cue>_parts.ron` and its pages), when it publishes one.
+    for src in "$factions_scratch/${cue}"_parts*; do
+        [ -f "$src" ] || continue
+        cp "$src" "$sprites_dir/$(basename "$src")"
+        echo "  installed $(basename "$src")"
     done
     for ext in png ron; do
         src="$factions_scratch/${cue}_portraits.$ext"

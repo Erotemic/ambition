@@ -315,3 +315,71 @@ fn a_replay_takes_back_the_ability_the_retracted_defeat_granted() {
         "((markrecall, blink) before, markrecall picked up, (markrecall, blink) after the replay)"
     );
 }
+
+/// The reward chest of placement `placement`: (opened, center).
+fn reward_chest(world: &mut World, placement: &str) -> Option<(bool, ambition_platformer2d::engine_core::Vec2)> {
+    use ambition_platformer2d::combat::components::{BossRewardChest, CenteredAabb, Opened};
+    world
+        .query::<(&BossRewardChest, &CenteredAabb, Option<&Opened>)>()
+        .iter(world)
+        .find(|(chest, _, _)| chest.encounter_id == placement)
+        .map(|(_, aabb, opened)| (opened.is_some(), aabb.center))
+}
+
+/// The opened reward chest goes with the defeat (Q51). A content pack's boss
+/// chest that grants 30 coins is opened by the player; a replay that retracts
+/// the defeat takes the coins back, the chest goes, and the save no longer
+/// says it was looted. Killed directly, so the boss drops no bounty.
+#[test]
+fn a_replay_takes_back_the_reward_chest_the_retracted_defeat_dropped() {
+    const BOSS: &str = "chest_giver";
+    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+    spawn_mockingbird(&mut sim, BOSS);
+    for _ in 0..15 {
+        sim.step(AgentAction::default());
+    }
+    force_kill_boss(&mut sim, BOSS);
+    until_cleared(&mut sim, BOSS);
+    for _ in 0..120 {
+        sim.step(AgentAction::default());
+    }
+    // The pack's reward, in place of mockingbird's `Custom` relic.
+    {
+        let world = sim.world_mut();
+        let mut chests = world.query::<(&ambition_platformer2d::combat::components::BossRewardChest, &mut ambition_platformer2d::combat::components::ChestFeature)>();
+        let (_, mut chest) = chests
+            .iter_mut(world)
+            .find(|(chest, _)| chest.encounter_id == BOSS)
+            .expect("precondition: the defeat dropped its reward chest");
+        chest.chest.reward = Some(ambition_platformer2d::entity_catalog::PickupKind::Currency { amount: 30 });
+    }
+    let looted = |sim: &mut Platformer2dSimHarness| {
+        sim.world()
+            .resource::<ambition_platformer2d::persistence::save::AmbitionGameSave>()
+            .data()
+            .flag(&ambition_platformer2d::encounter::encounter_reward_looted_flag(BOSS))
+    };
+    let before = balance(sim.world_mut());
+    for _ in 0..60 {
+        let Some((opened, at)) = reward_chest(sim.world_mut(), BOSS) else {
+            break;
+        };
+        if opened {
+            break;
+        }
+        sim.teleport_player((at.x, at.y));
+        sim.step(AgentAction { interact: true, interact_held: true, ..AgentAction::default() });
+        sim.step(AgentAction::default());
+    }
+    for _ in 0..5 {
+        sim.step(AgentAction::default());
+    }
+    let opened = (balance(sim.world_mut()) - before, reward_chest(sim.world_mut(), BOSS).map(|(opened, _)| opened), looted(&mut sim));
+    replay(&mut sim);
+    let after = (balance(sim.world_mut()) - before, reward_chest(sim.world_mut(), BOSS).map(|(opened, _)| opened), looted(&mut sim));
+    assert_eq!(
+        (opened, after),
+        ((30, Some(true), true), (0, None, false)),
+        "((coins, chest opened, looted flag) when opened, the same after the replay)"
+    );
+}

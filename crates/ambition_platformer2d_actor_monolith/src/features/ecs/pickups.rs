@@ -195,7 +195,7 @@ pub fn collect_ecs_pickups(
     // A body collects only a pickup in its own live room (OW1 cut 4).
     rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
     // What a collected mint gave, which a retracted boss defeat takes back.
-    mut mint_grants: Option<ResMut<crate::items::pickup::MintGrantsSinceCheckpoint>>,
+    mut reward_grants: Option<ResMut<crate::items::pickup::RewardGrantsSinceCheckpoint>>,
 ) {
     // With a population expressed as a filter plus a value test it would no longer mean "nobody can
     // collect" — `TouchCollectorFilter` matches every autonomous actor — and a system-wide return
@@ -243,11 +243,11 @@ pub fn collect_ecs_pickups(
         if let (
             Some(ambition_platformer2d_shared_tangle::construction::SpawnOrigin::Dynamic { parent, .. }),
             Ok(collector),
-            Some(mint_grants),
-        ) = (origin, sim_ids.get(collector_entity), mint_grants.as_deref_mut())
+            Some(reward_grants),
+        ) = (origin, sim_ids.get(collector_entity), reward_grants.as_deref_mut())
         {
-            mint_grants.record(crate::items::pickup::MintGrant {
-                parent: parent.clone(),
+            reward_grants.record(crate::items::pickup::RewardGrant {
+                source: crate::items::pickup::GrantSource::Mint { parent: parent.clone() },
                 collector: collector.clone(),
                 granted,
             });

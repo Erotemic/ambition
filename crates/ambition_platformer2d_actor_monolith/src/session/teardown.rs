@@ -131,9 +131,9 @@ pub struct SessionScopedResources<'w> {
     /// `OwnedItemsBaseline` is checksummed too — but the divergence it would
     /// carry is the two peers' SAVE FILES differing, which resetting at the
     /// session edge does not cure: the first `CheckpointCommitted` copies the
-    /// live bag straight back in. That belongs to
-    /// `awaiting-maintainer-decision.md`'s Q129 (must a save file be part of
-    /// what two peers agree on), not to this reset.
+    /// live bag straight back in. The Q129 ruling (`maintainer-decisions.md`,
+    /// 2026-10-03: shared durable state is peer state) owns that, through
+    /// `DURABLE-HORIZON-CHECKSUM`, not this reset.
     occurrence_baseline:
         ResMut<'w, ambition_platformer2d_shared_tangle::lifecycle::OccurrenceBaseline>,
     custody_baseline: ResMut<'w, ambition_platformer2d_shared_tangle::lifecycle::CustodyBaseline>,

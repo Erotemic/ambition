@@ -345,8 +345,9 @@ _SYSTEM_PARAM_STRUCT = re.compile(
 # HAVING TWO TABLES. A `WAIVERS` entry asserts *this system's drift across a
 # rewind does not matter*, and each one carries the argument for why. An entry
 # here asserts the OPPOSITE — the drift is real, it is owed, and it is owed to a
-# named row — so waiving these would be writing down something false while
-# Q129 and MENU-RESET-MIDSESSION are open.
+# named row — so waiving these would write down something false while that row
+# is open. (MENU-RESET-MIDSESSION closed 2026-09-19; Q129 was decided
+# 2026-10-03.)
 #
 # ⚠ WHY THE LIST EXISTS AT ALL: while the guard cannot go green, a THIRTEENTH
 # offender cannot change its verdict. A check that reports FAILED before and
@@ -478,6 +479,18 @@ WAIVERS: dict[str, str] = {
         "a composition cannot have a rollback timeline without having the decider. "
         "\u26d4 If that registration ever moves out of `install_session_bridge`, "
         "this entry is void."
+    ),
+    "hand_the_save_to_the_activating_experience": (
+        "\u2b50 THE SAME CHAIN ARGUMENT AS `reset_checkpoint_coordinator_on_"
+        "activation`: it is a member of `SessionScopeSet::Activate` "
+        "(`ambition_game_shell/src/session.rs`), between the bridge that announces "
+        "the activation and the providers that build the session, so no rollback "
+        "session exists for this scope while it writes `AmbitionGameSave`.\n"
+        "    \u26d4 IT IS NOT A HYGIENE WAIVER. The save is durable data admitted "
+        "into a session (Q132), and this is the admission: the activating "
+        "experience gets its own save. Without it, another experience's room "
+        "visits reached Ambition's save and the peer checksum (Q129, ID-PEER "
+        "road 4)."
     ),
     "reset_checkpoint_coordinator_on_activation": (
         "\u2b50 THE SAME CHAIN ARGUMENT AS `reset_session_scoped_resources_on_"

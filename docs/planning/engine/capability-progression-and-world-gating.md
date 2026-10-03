@@ -94,10 +94,11 @@ Currently reads the body's current `BodyKinematics.size`, so crouching or anothe
 posture change can change the answer on the next simulation tick. That is a
 posture/state question, not a capability question.
 
-Whether the route-facing body family should contain both meanings is a product
-choice in [Q58](../awaiting-maintainer-decision.md#q58--does-the-body-gate-family-ask-what-a-body-can-do-or-what-it-is-doing).
-Do not silently change `body.fits` to standing size or to "can reach a fitting
-stance" before that decision.
+The Q58 ruling (2026-10-03) decides that the body family reads capabilities and
+properties, not the current action. So `body.fits` as built answers the wrong
+question: a crouch is an action. Before an authored world uses it, change it to
+ask whether a stance the body can take fits, and give a gate that really means
+"is crouching now" the distinct action-predicate mechanism.
 
 ## Gate subject: per actor (Q54)
 
@@ -176,7 +177,11 @@ published fact can serve them all.
 
 ## Open work
 
-1. **Resolve Q58** before authoring `body.fits` or body-state gates broadly.
+1. Body gates read capabilities and properties only (Q58, 2026-10-03). Change
+   `body.fits` from the current size to "a stance this body can take fits"
+   before an authored world uses it. A predicate over the current action
+   (crouching, dashing, attacking) is a different mechanism; design it when a
+   gate needs one. Do not add a generic query over arbitrary actor state.
 2. Add world-mechanism, social/knowledge or soft-pressure conditions only after
    the authoritative fact they read exists.
 3. Add compound route expressions only when a concrete authored gate cannot be

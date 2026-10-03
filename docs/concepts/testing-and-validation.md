@@ -56,6 +56,31 @@ Unknown packages and empty selections are errors.
 Do not skip levels 1–4 merely because the visible binary is hard to automate.
 Improve the headless seam instead.
 
+## Validation states and cadence
+
+Maintainer ruling (2026-10-03, Q59). A gate has three outcomes, and evidence
+keeps them apart:
+
+```text
+PASS
+FAIL
+NOT RUN   — either "not required at this boundary" or "required before this
+            handoff/merge/release"
+```
+
+Never record a lane that did not run as PASS or as FAIL. `NOT RUN` does not mean
+"stop and run it now". Each lane has a cadence:
+
+- a cheap focused check for the current change: run it often;
+- the large workspace or integration suite: at a milestone, before handoff or
+  merge, or on a schedule;
+- expensive broad validation: nightly or scheduled; repair what it finds;
+- a gate that the current edit cannot affect: it may stay `NOT RUN`.
+
+A gate blocks only where its policy requires it at the current boundary. Do not
+run a long suite after each of N edits to keep every receipt green: that costs
+implementation time and buys no correctness.
+
 ## What to test
 
 Prefer invariants and properties over tuned values:

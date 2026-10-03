@@ -23,6 +23,20 @@ strong base.
 - localization/pluralization and eventual RTL/layout support when needed;
 - agent-native inspection of active UI/focus state.
 
+### Settings ownership (Q68, 2026-10-03)
+
+The evergreen shell owns how the player interfaces with the program, and every
+game inherits it: audio (master, music, SFX), display/window, input bindings,
+reusable accessibility, localization. Each game owns its game settings:
+difficulty, gameplay modifiers, combat behaviour, camera policy and
+mechanics-specific accessibility.
+
+Today the shell-level `UserSettings` (`ambition_persistence::settings`) also
+holds the game-owned group `gameplay` (difficulty, assist, player damage,
+portal facing). Move that group to the game when the settings admission work
+([SETTINGS-ROLLBACK](../queue.md#settings-rollback--finish-the-settingsmechanics-admission-boundary))
+is picked up.
+
 ## Triggered localization/accessibility backlog
 
 The broad presentation/shell audit is closed. Its surviving product gaps belong
@@ -97,7 +111,8 @@ A9 in the [frontier](actor-monolith-work-frontier.md) requires a render/UI-absen
 simulation profile. UI can consume participant/view facts without owning control
 or requiring HUD state in simulation construction. Two participants, two views
 and two live rooms are distinct configurations. Split views by live room exist;
-the HUD, banner and music follow the primary seat for now (Q150).
+the HUD, banner and music follow the primary seat until the Q150 ruling is
+built: a HUD per participant, and authored-priority music.
 
 Structure semantic labels, diagnostics and action descriptions so machine-facing
 authoring and human-facing localized presentation can consume the same supported

@@ -59,7 +59,7 @@ shared, fixed split or adaptively split/rejoined. When the rules allow independe
 exploration, participants may occupy different rooms/regions. The engine
 already supports this: separated seats each keep a live room, and each view draws
 its own room. Ambition has no production road for a second player to join yet
-(Q151).
+(Q153).
 
 See [`multiplayer.md`](multiplayer.md).
 

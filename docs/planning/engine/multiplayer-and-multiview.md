@@ -119,13 +119,16 @@ Acceptance should cover:
 Built for the simulation and the view (OW1, V1-V5 in
 [`open-world-runtime-and-residency.md`](open-world-runtime-and-residency.md)).
 Open: Ambition has no production join road for a second seat, and a seat-driven
-body's death takes the enemy road (Q151).
+body's death takes the enemy road (Q153). A participant's death is local to it
+and its room (Q151 ruling).
 
 ### M5 — view-scoped HUD/prompt/presentation ownership
 
 `ControlPrompt`, the gameplay HUD, the banner and music are one per session and
-follow the primary seat (Q150 decided for now). Independent split views may
-require participant- or view-scoped prompts and HUD facts.
+follow the primary seat. The Q150 ruling (2026-10-03) makes HUD state per
+participant, also when views merge onto one screen, so no "primary-player HUD"
+arbitration exists. Local music is chosen by authored priority across the
+participants, the primary participant breaking a tie.
 
 Resolve this with
 [`participant-action-system.md`](participant-action-system.md) from product/UI

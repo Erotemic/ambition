@@ -68,8 +68,10 @@ use ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance;
 ///
 /// ⭐ THE TIERS ARE KEPT PER LIVE ROOM (customer 2). A fight claims the tier of
 /// the room it is fought in, and the music intent reads the tier of the room
-/// it plays for (the primary seat's, Q150). So Bob's boss in `switch_lab` does
-/// not take the music from Alice in the hub. The `None` room is the world of a
+/// it plays for (the primary seat's). So Bob's boss in `switch_lab` does not
+/// take the music from Alice in the hub. The Q150 ruling (2026-10-03) will let
+/// a higher authored priority win from another participant's room; not built
+/// yet. The `None` room is the world of a
 /// composition with no live room (a fixture): its writers and its reader name
 /// no room, so they meet there. Only rooms with a claim are stored.
 #[derive(Component, Default, Debug, Clone)]

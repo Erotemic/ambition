@@ -43,6 +43,8 @@ Rules learned from the claim arbiter:
   controlled body are different facts; a seated fighter keeps driving itself.
 - `MountedBrainCache` has no production constructor, so no shipped body is
   mount-controlled today and `ControlClaimant::Mount` has no production writer.
+  Q76 (2026-10-03) keeps the capability: give it an early customer and restore
+  the mount's previous brain on dismount ([queue](../queue.md#mount-rider-customer--a-shipped-rider-controls-a-shipped-mount)).
   The erasure of a possession by a dying mount was still reachable, and is
   guarded.
 

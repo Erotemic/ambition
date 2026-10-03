@@ -180,8 +180,10 @@ cannot be encoded deterministically. Load order never resolves a conflict.
   the other's half. The prepared composition carries the resolved layout and
   bindings.
 
-A Smash game must not install one global Limit meaning on every fighter. Q67
-(stock-loss policy) is a product question; the pool supports either answer.
+A Smash game must not install one global Limit meaning on every fighter. The
+Limit resets on stock loss (Q67 ruling, 2026-10-03): the Smash Limit declares
+`ResourceStart::Empty`, which applies on spawn and on every respawn. A future
+game rule that carries the meter must say so explicitly.
 
 ## Preparation boundary
 

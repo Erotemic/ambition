@@ -56,9 +56,11 @@ provenance, `GameplayElapsed`, the startup-resume checksum, perception's
 `Entity`-index fallback, and the GGRS carrier order
 (`rebase_rollback_carrier_order`). The `ControlFrame` shape is pinned by a
 ratchet. The peer-identity checkpoint that C03 and C05 waited on is discharged.
-`two_local_histories_compute_the_same_ggrs_component_checksums` still shows one
-row that differs between hosts: `AmbitionGameSave` (`Q129`). `SimTick` agreed
-from 2026-10-03 (road 2).
+`two_local_histories_compute_the_same_ggrs_component_checksums` and
+`the_peer_visible_surface_does_not_record_which_route_the_host_visited_first`
+show no row that differs between a fresh host and a veteran one: `SimTick`
+agreed from 2026-10-03 (road 2), and `AmbitionGameSave` from the same day
+(road 4). The one open road (3) needs a real two-peer session (`N2`).
 
 **Open roads:**
 
@@ -76,7 +78,8 @@ from 2026-10-03 (road 2).
    not the words. Witness: `rewording_a_row_leaves_the_fingerprint_alone`.
    Control: `a_row_on_another_mechanism_moves_the_fingerprint`.
 2. ✅ **CLOSED 2026-10-03: the canonical timeline is session-relative**
-   (`Q128` decided by engineering as option (a), with the session-scope
+   (`Q128` decided by engineering as option (a) and confirmed by the
+   maintainer 2026-10-03, with the session-scope
    activation as the agreed start). `SimTick` is a `SessionScopedResources`
    member, so the activation sets it to `0` on every host, whatever the App ran
    before. `advance_sim_tick` lost the `Local` that skipped the first increment:
@@ -99,6 +102,20 @@ from 2026-10-03 (road 2).
    `two_local_histories_agree_about_the_sharp_unchecksummed_rows` compares the
    11 reachable sharp rows across two hosts at every tick of five walks. The
    timeline half needs a real two-peer session (`N2`).
+4. ✅ **CLOSED 2026-10-03: the save belongs to the experience that plays it**
+   (`Q129`, decided the same day: shared durable state is peer state). Measured: the save
+   differed in one field, `flags`. The veteran's Sanic and Mary-O sessions had
+   written their room-visit flags (`room_visited_<room>`) into the one
+   process-wide save, and the autosave wrote them into Ambition's
+   file. `SaveOwner` (`ambition_persistence::save`) records whose save is
+   live, and the shell gives it to the activating experience
+   (`hand_the_save_to_the_activating_experience`, `SessionScopeSet::Activate`,
+   before the providers build): the save it had earlier in the process, else
+   its own `<experience>/sandbox_save.ron`, else a new save. Ambition's file
+   path is unchanged. Witness: both two-host arms above, with the save's
+   waiver deleted. Poison (the handover skipped): both name
+   `AmbitionGameSave`. Unit arms: `each_experience_gets_its_own_save_back`,
+   `the_autosave_writes_the_owners_file`.
 
 A negotiated input version does not exist. It is not owed while netcode is at
 `N2`.
@@ -148,7 +165,7 @@ waivers are gone with the `Update` window. The old waiver's "the latch has no
 `true -> false` transition" was false: teardown is one.
 
 ✅ `reconcile_roster_with_frozen_topology` left on 2026-10-03. Its one rollback
-write was `ActiveMatch::adopt_seat_topology`, a copy of the roster's record that
+write was `ActiveMatch::adopt_seat_topology`, a copy of the roster's record that <!-- cite-ok: records a deleted method -->
 nothing read. The copy is deleted (schema 302), and the reconciler reads
 `ActiveMatch` only.
 
@@ -211,7 +228,7 @@ before the timeline started or by it.
 
 Removed with the `Update` window: the `Q135` session-start gate in
 `maintain_local_session` and `durable_hydration_is_pending`, the live-timeline
-check `refuse_a_restore_over_a_live_timeline`, the fixture declaration
+check `refuse_a_restore_over_a_live_timeline`, the fixture declaration <!-- cite-ok: records a deleted check -->
 `TheBodyIsBornOnTheTimeline`, and three mutator-guard waivers. The gate would
 deadlock now: under the rollback host the sim does not run until a session
 starts. `Q135` is reopened in the awaiting file with the evidence. Its
@@ -231,6 +248,47 @@ Witnesses:
 - `a_mid_session_load_does_not_reach_back_across_the_rewind`: a load's ledger
   write used to be lost (the `Update` write was rewound away). It lands now,
   and every replay of a tick agrees.
+
+### DEATH-IS-ROOM-LOCAL — a participant's death rewinds its own horizon, not the session's
+
+**Owner:** the death/checkpoint road (`session/checkpoint.rs`,
+`runtime/sandbox_reset.rs`) and
+[open-world runtime and residency](engine/open-world-runtime-and-residency.md).
+
+**Ruling:** Q151 (2026-10-03, [`maintainer-decisions.md`](maintainer-decisions.md)).
+An ordinary death is local to the dying participant and the affected room.
+Another participant's live room and its consequences (a boss defeat, its
+reward) stay. The live world and durable state share one rewind horizon. An
+explicit whole-session reload may rewind the whole session. No global durable
+rewind followed by reconciliation of surviving rooms.
+
+**Current state:** b1259df0c (GPT review finding 1) took the other answer: a
+death's restore is session-wide (`retract_boss_defeats_on_replay` takes every
+defeat since the checkpoint; the occurrence ledger and the bag go back), and
+`replay_the_rooms_owed_the_restore` then replays every other live room. That
+contradicts the ruling and is to be replaced.
+
+**Acceptance:** Alice dies while Bob's room holds a boss he defeated after the
+checkpoint: Bob's room, the boss row and its reward stay; Alice's room agrees
+with the durable records it reads; a durable record written in Alice's room
+after the checkpoint goes back. The shared-room and whole-session-reload
+cases have their own arms.
+
+### WEAR-REFUSES-UNPREPARED — a character outside the prepared generation is never worn
+
+**Owner:** `ambition_combat::worn_kit::WornKit::resolve` and
+`avatar/starting_character.rs::wear_character`.
+
+**Ruling:** Q103 (2026-10-03): refuse. A character admitted into simulation was
+prepared for that generation; no engine-default kit, no App-global catalog read.
+
+**Current state:** the spawn road reads the prepared cast only, but the re-wear
+road still wears an unprepared id: `WornKit::resolve` logs an error, grants a
+peaceful kit and shows the id as the name.
+
+**Acceptance:** wearing an unprepared id changes nothing on the body and is
+reported; a witness asks for an id outside the cast and sees the previous
+identity kept.
 
 ### SETTINGS-ROLLBACK — finish the settings/mechanics admission boundary
 
@@ -252,6 +310,11 @@ one-dimensional difficulty architecture. Difficulty is game policy expressed as
 presets. Participant handicaps and CPU brain levels are separate concepts from
 match policy. Spend no substantial effort here until the default game plays
 exceptionally well, and do not box the design in.
+
+**Ruling (`Q68`, 2026-10-03):** difficulty, gameplay modifiers and combat
+behaviour are game-owned settings; the shell owns audio, display, bindings,
+reusable accessibility and localization. `UserSettings.gameplay` is in the shell
+crate today.
 
 **Next action (when picked up):** use the `PortalTuning` precedent (the `Q120`
 admission protocol). The settings road writes a mirror and proposes in
@@ -726,7 +789,7 @@ before and after a change, on one binary, and report both columns.
 5. **A ranged move scores `launch: 0`.** A projectile hit writes a dimensionless `HitKnockbackMagnitude::FeelScale(0.85)`, not `LaunchSpeed`. Settle whether the feel reference belongs on `LaunchConditions`, whether `0.85` leaves the projectile stepper, and what `max_knockback` means for a launcher. A launcher also needs a hazard-coverage feature (its `reach_fit` is zero at every range).
 6. **A placed trap has a position, and `reach` is a radius.** Carry the dangerous region relative to the body at the resolved-offer seam, not another reach scalar.
 7. **A teleport's destination does not reach the brain** (`TeleportParams`: `behind_nearest_foe`, `behind_gap`, aim). It belongs in the same resolved offer.
-8. **The ladder's step per rung.** All shipped rungs author `rollout_depth: 0`, so `read_weight` is inert (`Q90`) and the L3 step the engine ladder takes at level 6 is missing. Measure `--rungs 3,4,6,7,8` to separate step size from one pair.
+8. **The ladder's step per rung.** All shipped rungs author `rollout_depth: 0`, so `read_weight` is inert (Q90 ruling: remove it, row CPU-LADDER) and the L3 step the engine ladder takes at level 6 is missing. Measure `--rungs 3,4,6,7,8` to separate step size from one pair.
 
 **Standing prohibitions:**
 
@@ -830,15 +893,167 @@ peer-stable checksum. The restore chain runs in the simulation schedule
 false, for exactly one primary body with a wallet, held by
 `a_population_the_restore_cannot_complete_on_is_written_to_by_nobody`.
 
-**What is left:** `Q129` (must the save file be part of what two peers agree
-on?). It is open and does not block this row. Whether that closes the row is a
-maintainer call.
+**Decided 2026-10-03:** Q129: shared durable world state is peer state, and the
+eventual peer protocol compares its canonical semantic form, not the save
+file's bytes; the netplay representation waits for active peer networking.
+Q134: dialogue visit counts are per participant, not shared world state.
 
-**Acceptance:** Q129 is answered and the three mirrors follow the ruling; ✅ the
+**What is left:** `dialog_visits` lives in the shared save and its checksum
+projection, which Q134 rules out. It moves to the participant with the
+reactive-character memory model (P6), not before. `OwnedItems` is
+`resource-clone` while `OwnedItemsBaseline` is hashed; under Q129 the bag is
+compared, so the two agree (engineering, `ROLLBACK-BAG-DESYNC`'s deferred
+split).
+
+**Acceptance:** ✅ Q129 is answered and the three mirrors follow the ruling (they
+run in the simulation, and the save stays in the checksum); ✅ the
 dialog increment has its own answer, which was not the mirrors'; ✅ the one-shot
 pair's ordering against GGRS start is characterised rather than assumed; and ✅
 the restore chain has its road: the simulation schedule (2026-10-03,
 BODY-BORN-ON-THE-TIMELINE), which replaced the `Q135` session-start gate.
+
+### MUSIC-CANDIDATES — music is chosen from scoped, prioritized candidates
+
+**Owner:** `ambition_encounter::music` (`EncounterMusicRequest`) and the music
+intent in `ambition_platformer2d_actor_monolith/src/music/intent.rs`.
+
+**Ruling:** Q72 and Q150 (2026-10-03). Each source contributes a candidate
+(scope, track/cue, priority) with ambient < encounter < boss. The highest
+authored priority wins; the primary participant breaks ties; the choice is
+deterministic. `EncounterEffect::SetMusic` may be removed; an encounter's
+ability to influence music stays.
+
+**Current state:** an encounter claims one of two tiers (`priority_track`,
+`base_track`) of its live room, and the intent reads only the primary seat's
+room. No shipped encounter authors `SetMusic`.
+
+**Acceptance:** Bob's boss candidate in his room outranks Alice's ambient room
+music; two candidates of equal priority resolve to the primary participant's;
+the result is the same on every peer and after a rewind.
+
+### MOUNT-RIDER-CUSTOMER — a shipped rider controls a shipped mount
+
+**Owner:** `features/brain_command.rs` (`MountedBrainCache`, the source-only
+arm) and the dismounted-rider road (`features/ecs/dismounted_rider.rs`).
+
+**Ruling:** Q76 (2026-10-03): keep mount/rider support and give it an early
+customer (a character riding the dog, or the robot commandeering a shark).
+
+**Current state:** `MountedBrainCache` has no production constructor, so
+`ControlClaimant::Mount` has no production writer. Nothing resumes the mount's
+recorded brain when a ride ends; a mount death rebuilds a solo brain from
+config.
+
+**Next action:** author the customer, then specify and repair, each with a
+witness: control transfer, the mount's previous brain, dismount and its
+restoration, body and room lifetime, damage and death, participant ownership,
+animation composition.
+
+**Acceptance:** the customer mounts, the mount obeys the rider, and on
+dismount the mount runs the brain it had before; the same after a rewind.
+
+### CAST-FRAMING-TARGET — framing asks for a composition, not only a floor
+
+**Owner:** `ambition_sim_view::camera_snapshot` (`CastFraming`).
+
+**Ruling:** Q86 (2026-10-03): framing expresses a bidirectional desired target.
+Desired framing/subject scale, hard zoom bounds, room constraints and smoothing
+stay separate; downstream stages clamp the target.
+
+**Current state:** the cast bounds set a minimum view size, so framing can
+only zoom out.
+
+**Acceptance:** two subjects that close in zoom the view in toward the desired
+subject scale, and a hard bound or room constraint still clamps that target.
+
+### AUTHORED-INTERACTABLE-STATE — facing gates, per-chest and per-pickup persistence
+
+**Owner:** `ambition_entity_catalog::placements` (`InteractableSpec`,
+`ChestSpec`, `PickupSpec`) and their consumers.
+
+**Ruling:** Q63 (2026-10-03). Wanted: a facing gate with authored semantics
+(not sprite geometry); per-chest persistence; persistence of a physical pickup
+(a different fact from a Q45 entitlement). The per-breakable debris cue is
+wanted, but deferred. Each capability adds its field and its consumer in one
+change. Q105 (2026-10-03): an authored world may start non-pristine (a chest
+already open, a pickup already absent, a door open); the authored state lowers
+into the same canonical state gameplay produces, such as the `Opened` marker.
+
+**Next action:** measure what a save → quit → load keeps today of an opened
+chest and a collected pickup, then add the missing durable fact.
+
+**Acceptance:** an opened chest and a taken pickup stay so across a reload; an
+interactable that requires facing refuses a body that faces away; a chest
+authored open is built with the same state as a chest the player opened.
+
+### REACH-VIEW — AI reads reach from the move's geometry
+
+**Owner:** the moveset; `ambition_entity_catalog::MoveFrameData::reach` for
+fighters and `ambition_characters::brain::action_set` (`reach_px`) for action
+sets.
+
+**Ruling:** Q35 (2026-10-03): the moveset/attack definition owns prospective
+mechanical reach, also during startup. AI reads a derived view of the move
+geometry, never sprite bounds. This extends Q107.
+
+**Next action:** find each AI read of reach, and make sure that each one comes
+from the move geometry by phase. `MoveFrameData::reach` is already derived from
+the Active volumes.
+
+**Acceptance:** a test changes a move's hitbox and sees the AI's reach change,
+with no sprite change.
+
+### BREAKABLE-SOLIDITY — a solid breakable is a barrier, not a blink wall
+
+**Owner:** `features/ecs/world_overlay.rs` (the breakable overlay) and the
+`ambition_platformer2d_core::BlockKind` vocabulary.
+
+**Ruling:** Q102 (2026-10-03): a solid breakable is not semantically a
+`BlinkWall { Hard }`. If both need the same collision property, extract or reuse
+a generic solidity/barrier semantic that both compose.
+
+**Current state:** `BreakableCollision::Solid` publishes
+`BlockKind::BlinkWall { tier: Hard }`. A hard blink wall is solid only until the
+body has the stronger blink upgrade, so that upgrade may also pass a breakable.
+
+**Acceptance:** a body with the hard blink upgrade cannot blink through an
+unbroken solid breakable, and still passes a hard blink wall; the breakable and
+the blink wall share one solidity mechanism.
+
+### CPU-LADDER — the brain owns the knobs, Smash owns the ladder
+
+**Owner:** `ambition_combat::brain::fighter` (mechanism) and the Smash
+rules/content (ladder tuning).
+
+**Ruling:** Q88 (2026-10-03): the generic fighter brain exposes reusable
+controls (reaction, tactics/aggression, prediction/evaluation, execution/error);
+Smash owns the mapping from "CPU level N" to them. Q90 (2026-10-03): remove the
+inert `read_weight`; a correctly named parameter returns with an implementation
+that gives it meaning.
+
+**Current state:** `fighter_brain_ladder.ron` is in
+`game/ambition_content/assets/data/`, and its schema is registered by
+`ambition_combat`. Every shipped rung sets the rollout fields to zero, so
+`read_weight` is read only behind `uses_rollouts()` and changes nothing.
+
+**Acceptance:** the ladder data and its level vocabulary live with the Smash
+rules/content; another game can build the brain with no ladder; no authored
+ladder field is inert.
+
+### BARK-CARDINALITY — a singular bark role has one owner
+
+**Owner:** the conversation/bark content schema (`ambition_conversation::rules`)
+and the content validator.
+
+**Ruling:** Q52 (2026-10-03): cardinality is explicit. Two providers that
+contribute the same singular bark role conflict; a plural, composable bark
+collection is modelled explicitly when content wants one.
+
+**Next action:** measure what happens today when two providers author a bark set
+for one role (replace, concatenate or conflict).
+
+**Acceptance:** a second contribution to a singular role is a reported
+conflict that names both providers.
 
 ### TEST-LANES — keep required test lanes executable
 
@@ -858,6 +1073,13 @@ reads cargo output to it.
 1. **The compile-cost ratchet fails the full gate** (`scripts/compile_ratchet.py`, measured 2026-09-18). Its baseline records commit `b3bd00a4a` (2026-09-05), which no ref reaches, and it disagrees with itself in three places. Over budget: `ambition_platformer2d_actor_monolith`'s largest unit (100,742 → 115,105 lines) and edit cost, and `ambition_geometry`'s worst edit cost (94.9% of the workspace). ⛔ Do not re-freeze to go green. Next: find which part of the monolith's largest unit belongs in its own crate, and repair the baseline's self-disagreement before any deliberate re-freeze. <!-- cite-ok: `b3bd00a4a` is quoted BECAUSE it resolves nowhere; it is `dev/compile_ratchet_baseline.json`'s own recorded `commit` field -->
 2. **An arm fails only in company** (see [the triage page](triage/a-composition-acceptance-that-only-fails-in-company.md)): `composes_through_the_sdk::a_host_that_omits_boss_encounters_still_builds_and_steps` failed once on 2026-09-10, and its assertion was never captured. Three other instances of the signature were per-arm measurements reading process-global state (`app_it` runs arms as threads of one process); they are fixed, and `scripts/a_test_static_is_a_channel_between_arms.py` guards the class. Next: capture this arm's assertion. The next candidate of the class is `hall_redecode_census.rs`, which asserts over a delta of a process-wide counter. ⛔ Do not add a retry.
 3. **One older session-root handoff failure** did not reproduce in four full runs, and its assertion was never captured. Both candidate arms (`the_shipped_app_never_holds_two_session_roots_across_a_handoff`, `a_candidate_session_replaced_while_pending_is_discarded`) assert their own premises, so a new failure carries its cause. The next step is not more runs.
+
+4. **`NOT RUN` is a first-class receipt state** (Q59 ruling, 2026-10-03). A
+   ledger or receipt must tell PASS, FAIL, "not run, not required now" and "not
+   run, required at this boundary" apart; a gate blocks only where its policy
+   requires it at the current boundary. Next: find the receipts that collapse a
+   lane that did not run into PASS or FAIL, and give each lane its cadence in
+   [testing and validation](../concepts/testing-and-validation.md#validation-states-and-cadence).
 
 The published-sheet floor in `ambition_sprite_sheet` (780 below a floor of 800
 on one checkout) is machine state. ⛔ Do not lower the floor.
@@ -912,14 +1134,16 @@ independent by default). Witnesses: `an_outcome_naming_another_occurrence_credit
 `a_move_occurrence_reaches_the_same_number_with_and_without_a_rewind`. ⛔ The
 frontier's `A12` (flow validation) is a different subject.
 
-### ROLLBACK-BAG-DESYNC — `AmbitionGameSave` disagrees with its own rollback replay — ✅ REPAIRED 2026-09-16, acceptance MET; the authority/representation split is DEFERRED and Q129 is open
+### ROLLBACK-BAG-DESYNC — `AmbitionGameSave` disagrees with its own rollback replay — ✅ REPAIRED 2026-09-16, acceptance MET; the authority/representation split is DEFERRED
 
 The three live→save mirrors ran in `Update` and wrote a hashed resource that a
 replay did not re-derive. They register through `app.sim_schedule()` now. Guards:
 `no_hashed_entry_disagrees_with_its_replay_when_the_bag_moves` and
 `the_saves_hashed_snapshot_tracks_the_frames_it_is_compared_at`. ⛔ Do not remove
 `AmbitionGameSave` from the checksum: most of its writers run inside rewinding
-schedules. Deferred: the authority/representation split. Open: `Q129`.
+schedules. Deferred: the authority/representation split. Q129 (decided
+2026-10-03) keeps shared durable state in what peers compare, by its canonical
+semantic form rather than the save's serialization.
 
 ### MENU-RESET-MIDSESSION — the menu writes rollback state from `Update` — CLOSED 2026-09-19
 

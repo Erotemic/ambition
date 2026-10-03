@@ -15,6 +15,11 @@
 //! [`RollbackObservatoryControl`] is deliberately input-agnostic. Android or a
 //! future developer-settings menu, authored switch, or debug item can request
 //! the same proof pulse without changing rollback machinery.
+//!
+//! The pulse is a developer affordance. It is not a product semantic and no
+//! maintainer workflow needs it (Q37 ruling, 2026-10-03). Its request is shell
+//! state: it needs no rollback and no meaning across a session change. Do not
+//! bend architecture to keep it; simplify or remove it if it stops being clean.
 
 use std::collections::BTreeMap;
 

@@ -1377,10 +1377,11 @@ fn count_a_visit_from_update(sim: &mut Platformer2dSimHarness) {
 /// `rollback_resource_clone` — snapshotted and restored, in NO peer checksum at
 /// all. A field outside the checksum still loses its `Update` write.
 ///
-/// ⇒ WHEN THIS ARM GOES RED THE DEFECT IS FIXED. Delete it, and close Q134 with
-/// whatever made the visit replayable.
+/// ⇒ WHEN THIS ARM GOES RED THE DEFECT IS FIXED. Delete it, and record what
+/// made the visit replayable. (Q134 is decided: a visit count is per
+/// participant, not shared world state.)
 ///
-/// [Q134]: ../../../docs/planning/awaiting-maintainer-decision.md
+/// [Q134]: ../../../docs/planning/maintainer-decisions.md
 #[test]
 fn a_dialogue_visit_counted_from_update_is_taken_back_by_the_rewind() {
     let mut sim = repro_sim();
@@ -1437,7 +1438,7 @@ fn a_dialogue_visit_counted_from_update_is_taken_back_by_the_rewind() {
         lost_at.is_some(),
         "the rewind no longer takes back a dialogue visit counted from \
          `Update` — that is the FIX this arm is waiting for, not a regression. \
-         Delete this arm and close Q134."
+         Delete this arm."
     );
     assert_eq!(
         visit_count(&sim),

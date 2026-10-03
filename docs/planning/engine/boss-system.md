@@ -72,7 +72,9 @@ A set piece is authored data:
 - **Triggers:** `RopeCut`, `MemberAtPosition`, `HazardImpact`, `MemberDied`,
   `AllMembersDead`, `Timer(s)`, `PlayerEntered`, `Gate(String)`.
 - **Effects:** `CommandMoveTo`, `DropHazard`, `ForceKill`, `SetLockWalls`,
-  `SetMusic`, `GrantReward`, `ReleasePayload`.
+  `SetMusic`, `GrantReward`, `ReleasePayload`. `SetMusic` has no shipped
+  author and may be removed (Q72); encounter music becomes a scoped candidate
+  (queue row MUSIC-CANDIDATES).
 
 They resolve to inspectable components: `CommandedMove`, `FallingHazard`,
 `ReleaseOnDeath` + `PayloadReleased`. Add a beat or effect to this vocabulary,

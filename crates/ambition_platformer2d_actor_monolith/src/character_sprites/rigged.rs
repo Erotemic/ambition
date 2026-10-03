@@ -67,7 +67,7 @@ pub fn attach_rigged_sprite_pages(
     let characters = &mut assets.bypass_change_detection().characters;
     let mut attached = false;
     characters.attach_rigged_pages(|asset| {
-        let key = (asset.spec.target().to_owned(), asset.resolved_tier);
+        let key = (asset.spec.base_sheet_key().to_owned(), asset.resolved_tier);
         if unpublished.contains(&key) {
             return None;
         }
@@ -109,10 +109,19 @@ pub fn rigged_pages_in(
     directory: &str,
     asset_server: &AssetServer,
 ) -> Option<RiggedSpritePages> {
-    let target = spec.target();
+    // ⛔ By the SHEET's key, never `spec.target()`: a generator sheet's target
+    // names its generator (`robot_archivist`'s is "robot"), so a target key
+    // gave one sheet another's flipbook and the hall panicked (2026-10-03).
+    // A flipbook is published per sheet, under the sheet's name.
+    let target = spec.base_sheet_key();
     let full = RiggedSpriteAsset::baked(target)?;
-    full.check_rows(spec.row_names())
-        .unwrap_or_else(|error| panic!("the part flipbook of `{target}` {error}"));
+    full.check_rows(spec.row_names()).unwrap_or_else(|error| {
+        panic!(
+            "the part flipbook of `{target}` {error} (the realized sheet's {} rows: {:?})",
+            spec.row_names().count(),
+            spec.row_names().collect::<Vec<_>>()
+        )
+    });
     let flipbook = full
         .for_tier(tier)?
         .unwrap_or_else(|error| panic!("the part flipbook of `{target}` {error}"));

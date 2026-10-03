@@ -1222,11 +1222,22 @@ def publish_source_quality_target(
     source_scale = effective_source_quality_scale(variant)
     if variant.suffix == "potato":
         source_scale = max(source_scale, POTATO_SOURCE_RENDER_FLOOR)
-    target.render_sheet(
-        out_dir,
-        quality_scale=source_scale,
-        downsample="nearest" if variant.suffix == "potato" else "lanczos",
-    )
+    from ambition_sprite2d_renderer.authoring.sheet_build import quality_tier_render
+
+    # ⛔ A tier render publishes no part flipbook: a tier table must name the
+    # FULL flipbook's parts, so it is derived from that one below
+    # (`build_parts_variant`). Recorded again at the tier's scale, a shape
+    # recording merged differently and 71 tier tables named another part
+    # count, which the game refuses (2026-10-03). A stale one from an older
+    # run must not be installed either.
+    for stale in out_dir.glob("*_parts*"):
+        stale.unlink()
+    with quality_tier_render():
+        target.render_sheet(
+            out_dir,
+            quality_scale=source_scale,
+            downsample="nearest" if variant.suffix == "potato" else "lanczos",
+        )
     if variant.suffix == "potato" and source_scale > variant.nominal_scale:
         ron_src = out_dir / f"{target.name}_spritesheet.ron"
         if not ron_src.exists():

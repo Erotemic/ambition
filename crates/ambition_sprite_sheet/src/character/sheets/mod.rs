@@ -133,6 +133,17 @@ impl CharacterSheetSpec {
         &self.record.key
     }
 
+    /// The sheet's key without a quality tier's marker (`robot.0_5x` is
+    /// `robot`): the name every published product of this sheet is keyed by,
+    /// its part flipbook included (a tier's table is found from it).
+    pub fn base_sheet_key(&self) -> &str {
+        let key = self.sheet_key();
+        ["0_5x", "0_25x", "potato"]
+            .into_iter()
+            .find_map(|marker| key.strip_suffix(marker).and_then(|rest| rest.strip_suffix('.')))
+            .unwrap_or(key)
+    }
+
     /// The renderer target this sheet was published for (`"pirate_raider"`),
     /// which keys its other published products (body rig, part flipbook).
     pub fn target(&self) -> &str {

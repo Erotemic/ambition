@@ -176,6 +176,8 @@ pub fn count_the_live_match_ticks(
     tick: Option<Res<ambition_time::SimTick>>,
     active: Option<Res<ActiveMatch>>,
     prepared: Option<Res<PreparedMatch>>,
+    // `Option`: a composition with no stocks rules (a character fixture) has
+    // no settle authority, so its match never settles and every tick counts.
     settled: Option<Res<StocksMatchSettled>>,
 ) {
     let Some(active) = active else {

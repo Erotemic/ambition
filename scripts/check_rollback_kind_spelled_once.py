@@ -61,7 +61,12 @@ def offenders(text: str) -> list[tuple[str, str]]:
 
 def main() -> int:
     table = (ROOT / TABLE).read_text(encoding="utf-8")
-    consts = set(re.findall(r"pub const (\w+): Spelling", table))
+    # The roads are declared through the `roads!` macro, one
+    # `NAME = (Kind, DETAIL, "token");` row each, so that `spelling::ALL` lists
+    # every one. A plain `pub const NAME: Spelling` is read too.
+    consts = set(re.findall(r"pub const (\w+): Spelling\b", table)) | set(
+        re.findall(r"^\s*(\w+) = \(\w+, \w+, \"[^\"]+\"\);", table, re.MULTILINE)
+    )
 
     # ⛔ ANTI-VACUITY, AND IT IS THE WHOLE POINT HERE. This check reports clean
     # when it finds no duplicated pair — which is also what it reports if a file

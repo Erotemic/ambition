@@ -19,6 +19,7 @@ every rig-document character follows the same road.
 | P5c stop shipping the baked PNG | open | exclude a parts-only character's `_spritesheet.png` from packaging; keep it generated as the offline oracle |
 | P6a player robot v3 from parts | DONE | schema 3 (placement, draw and frame opacity); continuous placement for supersampled rigs; mirror rows; gamma-space impostor; renderer `tests/test_player_robot_v3_part_flipbook.py`; in engine all 1,888 frames ≤ 0.04%, blob ≤ 1 |
 | P6b the largest sheets: noether, PCA, patent clerk, the swing fighters | DONE | published from parts; `scripts/measure_published_flipbooks.py` redraws every published flipbook against its published sheet (all inside D6, pirates excepted, below); in engine noether and patent clerk blob ≤ 1, PCA inside D6 after snapped parts gained their border; runtime cell classes 288 / 576 / 896 |
+| P6b' the remaining rig characters: oiler, paradox_barber, data_lovelace, neil_ongras_turfson, hunny_horror_boss, companion_dog, m_leblanc, charley_beagle_svg | DONE | `publish_rig_flipbook`; every frame inside D6 offline and in engine; a continuous replay skips the frame's clipped edge band (`EDGE_BAND`) |
 | P6c procedural painters (about 25 characters, 1–2.6 MB) | open | no rigid parts to record: a per-shape recorder reproduces them (hypatia: ≤ 0.6%, blob 14) but saves little (0.71 of full frames) without rotation reuse; see below |
 
 ### Every character, largest sheets first (Jon, 2026-10-03)
@@ -58,6 +59,12 @@ trimmed sheet, at up to 109 draws a frame. Real savings need rotation reuse
 128 px frames) or re-authoring each character as an SVG rig, as Mary-O and the
 robot were. That is an art decision for Jon. The recorder was measured and left out of
 the tree.
+
+⛔ **The harness put frames half a pixel off.** It rounded a feet-anchored
+root's FEET to a whole pixel; a sheet whose anchor is off its pixel grid
+(paradox_barber's feet are half a pixel off it) then drew every frame half a
+pixel off, and the GPU resampled the whole frame (a faint extra row under the
+shoes, blob 8). The example now lands the frame's top left on whole pixels.
 
 ⛔ **Three sheets state two different feet.** director, officer and medic
 publish a `feet_pixel` 8 to 26 px from the point their `feet_anchor_norm`

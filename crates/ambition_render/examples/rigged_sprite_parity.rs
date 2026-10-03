@@ -166,19 +166,25 @@ fn capture_all(
     let feet = Vec2::new(asset.spec.feet_anchor_x, asset.spec.feet_anchor_y);
     let built_at = if centre_anchored { Anchor::CENTER } else { Anchor(feet) };
     let (sprite, anchor, animator) = build_character_presentation_with_render_size(&asset, render, built_at);
-    // The root lands on a whole pixel, as it does wherever the frame is drawn
-    // 1:1, so neither path is resampled by a sub-pixel root. `feet_pixel` is
-    // where the feet land in the image (+y down), for the reader's oracle.
-    let (at, feet_pixel) = if centre_anchored {
-        // The root is the frame's centre: the image's centre.
-        let at = Vec2::ZERO;
-        let feet = Vec2::new(feet.x * render.x, -feet.y * render.y);
-        (at, (size.as_vec2() * 0.5 + feet).round())
+    // The frame lands on whole pixels, as it does wherever it is drawn 1:1, so
+    // neither path is resampled by a sub-pixel root. `feet_pixel` is where the
+    // feet land in the image (+y down), for the reader's oracle.
+    // ⛔ The FRAME lands on whole pixels, not the feet: a sheet whose anchor is
+    // not on its pixel grid (paradox_barber's feet are half a pixel off it)
+    // put every frame half a pixel off when the feet were rounded, and the GPU
+    // resampled the whole frame. `tl` is the frame's top left in the image
+    // (+y down); the root stands where the anchor puts it from there.
+    let half = size.as_vec2() * 0.5;
+    let tl = ((size.as_vec2() - render) * 0.5).floor();
+    let feet_in_frame = Vec2::new((feet.x + 0.5) * render.x, (0.5 - feet.y) * render.y);
+    let at = if centre_anchored {
+        // The root is the frame's centre.
+        Vec2::new(tl.x + render.x * 0.5 - half.x, half.y - tl.y - render.y * 0.5)
     } else {
-        let feet_px = Vec2::new((feet.x + 0.5) * render.x, (feet.y + 0.5) * render.y);
-        let at = (feet_px - render * 0.5).round();
-        (at, Vec2::new(size.x as f32 * 0.5 + at.x, size.y as f32 * 0.5 - at.y))
+        // The root is the frame's feet.
+        Vec2::new(tl.x + feet_in_frame.x - half.x, half.y - tl.y - feet_in_frame.y)
     };
+    let feet_pixel = tl + feet_in_frame;
     app.world_mut().spawn((
         sprite,
         anchor,

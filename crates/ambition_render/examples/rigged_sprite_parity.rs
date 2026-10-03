@@ -160,7 +160,7 @@ fn capture_all(
     };
     wait_for_pages(&mut app, &asset);
     let mut assets = GameAssets::default();
-    assets.characters.declare("parity", "Parity");
+    assets.characters.declare("parity");
     assets.characters.publish("parity", asset.clone());
     app.insert_resource(assets);
     let feet = Vec2::new(asset.spec.feet_anchor_x, asset.spec.feet_anchor_y);

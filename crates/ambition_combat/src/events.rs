@@ -165,11 +165,16 @@ pub struct RoomReplayAdmitted {
     /// that owns a re-fight (cut-rope's "try again") reads it here, and only
     /// here: a refused request leaves nothing behind.
     pub refight: bool,
-    /// The replay is a checkpoint restore (a death's resume, or a New Game):
-    /// the session goes back to that baseline everywhere, not only in the
-    /// subject's room. A consequence kept since the checkpoint goes back
-    /// wherever it happened, as the bag does.
+    /// The replay is a checkpoint restore (a death's resume, or a New Game).
+    /// A consequence kept since the checkpoint goes back wherever it happened,
+    /// as the bag does, except in the [`Self::spared`] rooms.
     pub to_checkpoint: bool,
+    /// The live rooms a checkpoint restore does not take back: those another
+    /// participant holds. A death is local to its participant and room (Q151),
+    /// so Bob's boss defeat in his live room stays when Alice dies in hers.
+    /// Empty for a New Game, which restarts the whole session, and for an
+    /// ordinary replay, which is of one room.
+    pub spared: Vec<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
 }
 
 /// "A fresh attempt at this room begins here" — the union of a room LOAD and an
@@ -256,6 +261,7 @@ impl RoomReplayAdmitted {
             subject: None,
             refight: false,
             to_checkpoint: false,
+            spared: Vec::new(),
         }
     }
 
@@ -263,6 +269,16 @@ impl RoomReplayAdmitted {
     #[must_use]
     pub fn to_the_checkpoint(mut self) -> Self {
         self.to_checkpoint = true;
+        self
+    }
+
+    /// A checkpoint restore that leaves these live rooms as they are.
+    #[must_use]
+    pub fn sparing(
+        mut self,
+        rooms: Vec<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+    ) -> Self {
+        self.spared = rooms;
         self
     }
 

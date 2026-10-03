@@ -343,6 +343,7 @@ mod tests {
                 subject: None,
                 refight: false,
                 to_checkpoint: false,
+                spared: Vec::new(),
             });
         app.update();
         assert!(

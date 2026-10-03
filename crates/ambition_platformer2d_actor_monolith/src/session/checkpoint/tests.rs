@@ -2316,7 +2316,6 @@ fn an_activating_session_starts_the_checkpoint_coordinator_from_zero() {
     app.init_resource::<AbandonedCheckpointOperation>();
     app.init_resource::<SessionStartupResume>();
     app.init_resource::<OutstandingCheckpointRequest>();
-    app.init_resource::<super::RoomsOwedTheRestore>();
     app.add_systems(
         bevy::prelude::Update,
         super::reset_checkpoint_coordinator_on_activation,
@@ -2330,9 +2329,6 @@ fn an_activating_session_starts_the_checkpoint_coordinator_from_zero() {
             operations.admit(Some(SessionScopeId(0))).expect("admits");
         }
         world.insert_resource(OutstandingCheckpointRequest(Some(super::RestoreTo::LastCheckpoint)));
-        world.insert_resource(super::RoomsOwedTheRestore(vec![
-            ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::from_ordinal(2),
-        ]));
     }
     let spent = app
         .world()
@@ -2366,10 +2362,6 @@ fn an_activating_session_starts_the_checkpoint_coordinator_from_zero() {
             .is_none(),
         "a restore owed to the RETIRED session survived into this one, which then \
          performs a checkpoint reset it never requested"
-    );
-    assert!(
-        app.world().resource::<super::RoomsOwedTheRestore>().0.is_empty(),
-        "a room replay owed by the RETIRED session's restore survived into this one"
     );
     // ⭐ AND THE CONSEQUENCE THE COUNTER EXISTS FOR: B's first operation is B's
     // first, not A's fourth.

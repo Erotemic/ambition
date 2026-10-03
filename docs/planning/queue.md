@@ -262,11 +262,22 @@ reward) stay. The live world and durable state share one rewind horizon. An
 explicit whole-session reload may rewind the whole session. No global durable
 rewind followed by reconciliation of surviving rooms.
 
-**Current state:** b1259df0c (GPT review finding 1) took the other answer: a
-death's restore is session-wide (`retract_boss_defeats_on_replay` takes every
-defeat since the checkpoint; the occurrence ledger and the bag go back), and
-`replay_the_rooms_owed_the_restore` then replays every other live room. That
-contradicts the ruling and is to be replaced.
+**Current state:** the boss half is done. The death's admission
+(`resume_at_checkpoint_on_reset`) names the live rooms that other participants
+hold (`RoomReplayAdmitted::spared`), and `retract_boss_defeats_on_replay`
+keeps the defeats in those rooms. A New Game spares nothing. The subject's own
+room is never spared, also when another participant shares it. The option-A
+machinery (`RoomsOwedTheRestore`, the replay of every other live room) is
+deleted (rollback schema 305). Witness:
+`a_death_in_one_room_leaves_the_boss_defeat_in_the_other_players_room`.
+
+**What is left:** the occurrence ledger, custody and the bag still go back
+whole. Next: measure whether an enemy Bob kills in his room after the
+checkpoint comes back when Alice dies (the ledger row reverts while his live
+room keeps the body dead), and what a reward Alice took from Bob's room does.
+Then spare those records by the same room set. Two known gaps stay until
+records carry their participant: Alice's actions inside Bob's room go back
+with her, and a defeat Bob won in a room he has already left is taken back.
 
 **Acceptance:** Alice dies while Bob's room holds a boss he defeated after the
 checkpoint: Bob's room, the boss row and its reward stay; Alice's room agrees

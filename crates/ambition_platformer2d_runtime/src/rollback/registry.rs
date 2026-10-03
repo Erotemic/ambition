@@ -1002,9 +1002,11 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// ⛔⛤ 302 -> 303: the fingerprint hashes `mechanical_dump()`, each row's
 /// mechanism token in place of its prose `detail` (`Q122`, ID-PEER road 1).
 /// The rows and `schema_dump()` are unchanged; the fingerprint value moves once.
-/// ⛔⛤ 303 -> 304: `resource.rooms_owed_the_restore`, the live rooms a
-/// checkpoint restore has not yet rebuilt (Q51 and Q124 across live rooms).
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 304;
+/// ⛔⛤ 303 -> 304: `resource.rooms_owed_the_restore` (a death's restore replayed
+/// every other live room). 304 -> 305: that row is deleted again, because a
+/// death is local to its participant and room (Q151): the restore spares the
+/// rooms other participants hold, so no room is owed a replay.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 305;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

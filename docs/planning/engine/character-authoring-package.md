@@ -106,11 +106,11 @@ size, render quad, quad offset); closing one of them looks like closing the seam
   measures the surplus that a correct migration takes to zero. It waits on the
   product question of how thin a stand-in is (Q89 in
   [`../awaiting-maintainer-decision.md`](../awaiting-maintainer-decision.md)).
-- **The display-name join.** `canonical_character_id`
-  (`character_runtime/mod.rs`) returns the token when the registry or the
-  catalog knows it, else falls through to `id_for_display_name`.
-  `game/ambition_content/src/duel_arena.rs` relies on it, and room and roster
-  tokens arrive as display names. Not a one-slice promotion; see A3.
+- **Two display-name keys remain.** `CharacterCatalog::id_for_authored_identity`
+  falls back to a display name; over `app_it` and the four demo test binaries
+  it was never taken (2026-10-03). The sprite table keys a sheet by its display
+  name as well as its id (`CharacterSpriteAssets::declare`). Delete each only
+  after measuring that nothing reads it.
 
 **Closed slices and their guards:**
 
@@ -123,6 +123,14 @@ size, render quad, quad offset); closing one of them looks like closing the seam
   (`a_sprite_authored_body_is_constructed_from_its_sheet`). `ActorClusterSeed`
   carries the resolved geometry and `render_size`; spawn sites no longer look a
   quad up by placement name (`a_skirmisher_is_drawn_at_the_quad_its_character_resolves`).
+- The display-name join of the character demand is deleted. Room staging
+  demands a character by the id its placement or request names
+  (`EnemySpawnSpec::character_id`, `SpawnActorKind::Enemy { character }`), not
+  by its placement name, and the demand's `canonical_character_id` fallback is
+  gone. Measured over `app_it` (2026-10-03): 28 demanded tokens reached it, and
+  21 of them were captions or placement ids that named no character; the demos
+  demanded none. Guard: `every_shipped_room_demands_its_characters_by_id`
+  (poison: demand `enemy.name`, and 38 (room, token) demands are named).
 - `Vitals::canonical_height` is deleted; height comes from the catalog's <!-- cite-ok: a deleted name -->
   standing height.
 
@@ -149,8 +157,8 @@ Legacy adapters may feed the same preparation boundary during migration, but
 there must be one published `PreparedCharacterDefinition` and no downstream
 re-derivation from parent/patch/name-search state.
 
-The second clause is a goal, not an invariant: the display-name join under A1
-is a known residual with no guard.
+The second clause is a goal, not an invariant: the display-name keys under A1
+are known residuals with no guard.
 
 A new serialized facet must define its schema/version and content compatibility
 behavior before it becomes a stable public format.

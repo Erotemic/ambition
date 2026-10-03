@@ -11,7 +11,7 @@ use bevy::prelude::Resource;
 
 /// Character tokens a session has staged and therefore needs art for.
 ///
-/// A token is a catalog id or an authored display name — whatever content wrote.
+/// A token is a character id. A placement's name or display name is not one.
 /// Requests accumulate until the materializer drains them, so a submitter never
 /// has to know whether the decode already happened.
 #[derive(Resource, Default, Debug, Clone)]

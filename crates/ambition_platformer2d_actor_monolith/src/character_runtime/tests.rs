@@ -137,8 +137,7 @@ fn an_unknown_demand_reaches_a_named_terminal_failure_not_silence() {
     for token in demand.take() {
         if matches!(sprites.sheet_state(&token), CharacterSheetState::Unknown) {
             states.record(
-                token.clone(),
-                &token,
+                token,
                 CharacterLoadOutcome::Failed(CharacterLoadFailure::UnknownCharacter),
             );
         }
@@ -318,7 +317,6 @@ fn a_staged_character_is_unsettled_until_it_reaches_a_terminal_state() {
     // no sheets — so the invariant forbids silence, not failure.
     states.record(
         "mary_o".to_string(),
-        "mary_o",
         CharacterLoadOutcome::Failed(CharacterLoadFailure::NoSheetResolved),
     );
     assert!(character_reveal_ready(&demand, &states));
@@ -507,7 +505,7 @@ fn the_decode_path_declares_a_registered_character_itself() {
         "the fixture must START in the racy state, or it proves nothing"
     );
 
-    declare_registered_character_into(&mut sprites, &registry, "mary_o", "mary_o");
+    declare_registered_character_into(&mut sprites, &registry, "mary_o");
 
     assert!(
         !sprites.sheet_state("mary_o").is_unknown(),
@@ -523,7 +521,7 @@ fn the_decode_path_declares_a_registered_character_itself() {
     // declaration path that declared everything it was asked about would turn
     // every misspelling into a silent placeholder.
     let mut sprites = CharacterSpriteAssets::default();
-    declare_registered_character_into(&mut sprites, &registry, "mary_oh", "mary_oh");
+    declare_registered_character_into(&mut sprites, &registry, "mary_oh");
     assert!(sprites.sheet_state("mary_oh").is_unknown());
 }
 
@@ -1595,7 +1593,7 @@ fn live_match_with_roster_outcome(outcome: Option<super::CharacterLoadOutcome>) 
 
     let mut states = super::CharacterLoadStates::default();
     if let Some(outcome) = outcome {
-        states.record("iron_mary".to_string(), "iron_mary", outcome);
+        states.record("iron_mary".to_string(), outcome);
     }
     app.insert_resource(states);
 

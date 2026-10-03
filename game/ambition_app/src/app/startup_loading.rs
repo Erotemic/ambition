@@ -113,8 +113,6 @@ struct StartupAssetInputs<'w, 's> {
     game_assets: ResMut<'w, GameAssets>,
     asset_catalog:
         Res<'w, ambition_platformer2d::asset_manager::platformer_assets::Platformer2dAssetCatalog>,
-    character_catalog:
-        Res<'w, ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog>,
     layouts: ResMut<'w, Assets<TextureAtlasLayout>>,
     quality: Res<'w, ambition_platformer2d::render::quality::ResolvedVisualQuality>,
     boss_catalog: Option<Res<'w, ambition_platformer2d::boss_encounter::BossCatalog>>,
@@ -458,7 +456,6 @@ fn build_startup_manifest(
         &staged_names,
         &mut inputs.game_assets,
         &inputs.asset_catalog,
-        &inputs.character_catalog,
         &inputs.asset_server,
         &mut inputs.layouts,
         &inputs.quality,

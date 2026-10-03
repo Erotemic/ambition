@@ -165,10 +165,10 @@ impl std::fmt::Display for CharacterAuthorityConflict {
                 f,
                 "`{character_id}` presents as `{registry_display_name}` according to the \
                  prepared registry and as `{catalog_display_name}` according to the \
-                 catalog. Both are read: content addresses characters by name through \
-                 the registry (`id_for_display_name`), while labels, barks and rosters \
-                 read the catalog row — so this character answers to one name and is \
-                 shown under the other. Author it once."
+                 catalog. Both are read: the sprite table keys this character's sheet \
+                 by the registry's name, while labels, barks and rosters read the \
+                 catalog row — so this character answers to one name and is shown \
+                 under the other. Author it once."
             ),
             Self::SheetDisagreement {
                 character_id,
@@ -486,8 +486,8 @@ mod authority_parity_tests {
     /// The test above asks whether one NAME belongs to several characters. This
     /// asks whether one CHARACTER has several names, and the audit could not
     /// answer it: both authorities author a display name, both are read — the
-    /// registry answers `id_for_display_name`, which is how content addresses a
-    /// character; the catalog answers the label on the pedestal — and nothing
+    /// registry's name keys the character's sheet in the sprite table; the
+    /// catalog answers the label on the pedestal — and nothing
     /// compared them. Rename in one place and the character answers to one name
     /// while being shown under the other.
     #[test]

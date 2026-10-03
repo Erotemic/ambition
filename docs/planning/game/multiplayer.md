@@ -64,8 +64,9 @@ These are product questions, not reasons to block the engine architecture:
 - how dialogue choices work when participants are in different rooms;
 - whether critical quest transitions require party regrouping;
 - respawn/rejoin behavior when another participant remains alive elsewhere
-  (Q151, decided for now: the dying player's room resets to the checkpoint and
-  the other player's room goes on). Ambition has no production road for a
+  (Q151, decided for now: the dying player restarts at the checkpoint, and
+  because the restore is session-wide (Q51, Q124) the other player's room is
+  replayed for them from the restored state). Ambition has no production road for a
   second player to join; only Smash seats slot 1;
 - inventory transfer/trading rules between controlled bodies;
 - save ownership and join/leave policy for remote participants;

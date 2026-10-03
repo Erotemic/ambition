@@ -108,12 +108,12 @@ file grows case files again, compress it in place. Do not add an archive page.
 
 ### Scope and current authority
 
-Source explicitly groups **39** App resources as gameplay-session or
+Source explicitly groups **40** App resources as gameplay-session or
 activated-generation state:
 
-<!-- session-owner-census: SessionScopedResources=32 SessionOwnedCheckpointState=6 SessionMechanics=1 -->
+<!-- session-owner-census: SessionScopedResources=32 SessionOwnedCheckpointState=7 SessionMechanics=1 -->
 - `SessionScopedResources` (**32**) in `actor_monolith/src/session/teardown.rs`;
-- `SessionOwnedCheckpointState` (6) in `actor_monolith/src/session/checkpoint.rs`;
+- `SessionOwnedCheckpointState` (7) in `actor_monolith/src/session/checkpoint.rs`;
 - `SessionMechanics` (1 resource with six fields; do not count its fields).
 
 The HTML comment above is the machine-readable copy.
@@ -203,7 +203,7 @@ for lifecycle code that sees both sides of a handoff. Guards:
 
 ### Sequence
 
-Do not begin by moving all 39 values. Work owner by owner:
+Do not begin by moving all 40 values. Work owner by owner:
 
 1. Re-run `python3 scripts/architecture_census.py` and confirm the list.
 2. For each family, state whether the value must exist before `SessionRoot`, only

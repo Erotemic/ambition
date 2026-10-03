@@ -597,7 +597,11 @@ pub fn begin_room_transition_load_system(
         // resource swapped to the checkpoint value IN ORDER TO BE READ, and its
         // correctness rested on a phase order nothing states as a checkpoint
         // requirement. The accepted operation carries its own population.
-        Option<Res<ambition_platformer2d_actor_monolith::session::checkpoint::AcceptedCheckpointRestore>>,
+        // Required (C07): every composition with this loader installs the
+        // checkpoint horizon, and "no accepted restore" is the resource's own
+        // `None` (measured 2026-10-03 over app_it, the demo suites and the lib
+        // tests).
+        Res<ambition_platformer2d_actor_monolith::session::checkpoint::AcceptedCheckpointRestore>,
     ),
     // `Option`, and absence is a legal answer: a composition with no registered characters is
     // the ordinary case, and an empty registry means "no character states a default" — which is
@@ -1007,8 +1011,7 @@ pub fn begin_room_transition_load_system(
             // return.
             checkpoint_operation: construction_services
                 .8
-                .as_deref()
-                .and_then(|accepted| accepted.inputs_for(&intent))
+                .inputs_for(&intent)
                 .map(|accepted| accepted.key),
             construction_preflight_duration: None,
             asset_manifest_duration: None,
@@ -1165,12 +1168,9 @@ pub fn begin_room_transition_load_system(
         // transaction record is built. Every later stage — this one included —
         // names the KEY rather than re-asking the accepted operation whether it
         // owns this intent.
-        let selected_restore = active.checkpoint_operation.and_then(|key| {
-            construction_services
-                .8
-                .as_deref()
-                .and_then(|accepted| accepted.inputs_for_key(key))
-        });
+        let selected_restore = active
+            .checkpoint_operation
+            .and_then(|key| construction_services.8.inputs_for_key(key));
         // ⛔ A RESTORE WITH NO LIFECYCLE HALF DID NOT REWIND THE LEDGER, so the
         // live ledger stays authoritative for it. The ledger is the held-item
         // domain's (`HeldItemSimulationPlugin`) and exists without the lifecycle

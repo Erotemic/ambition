@@ -2498,6 +2498,10 @@ fn sim_recording_the_latch_inside_the_schedule(
 /// unreachable by a human hand on the pad, reachable by a scripted or
 /// autostarted conversation, and reachable by any content that opens dialogue
 /// on room entry.
+/// The tick of a session's first simulation step. `SimTick` names the step
+/// now running, and `0` is the moment before the first one (`Q128`).
+const FIRST_TICK: u64 = 1;
+
 fn open_a_conversation_on_the_very_first_tick(
     tick: bevy::prelude::Res<ambition_platformer2d::time::SimTick>,
     mut conversation: bevy::prelude::ResMut<
@@ -2507,7 +2511,7 @@ fn open_a_conversation_on_the_very_first_tick(
     use ambition_platformer2d::conversation::{
         ConversationInputOwner, ConversationInstanceId, LiveConversation,
     };
-    if tick.0 != 0 {
+    if tick.0 != FIRST_TICK {
         return;
     }
     conversation.open(LiveConversation {
@@ -2576,7 +2580,7 @@ fn sim_opening_a_conversation_on_the_first_tick(
 /// [`probe_when_the_durable_restore_latch_flips_against_ggrs_start`] measured as
 /// moving under unrelated composition changes, so asserting on it would make
 /// this arm fail for the reason it is trying to REPORT. The tick number is the
-/// stable fact: tick 0 is the first tick whatever frame it runs on.
+/// stable fact: `FIRST_TICK` is the first tick whatever frame it runs on.
 fn ticks_simulated_unrestored(sim: &Platformer2dSimHarness) -> Vec<u64> {
     sim.world()
         .resource::<LatchInsideTheSchedule>()
@@ -2635,7 +2639,7 @@ fn a_conversation_on_the_first_tick_of_a_session_is_counted_exactly_once() {
     }
 
     for (name, sim) in [("without", &without), ("with", &with)] {
-        // PREMISE: the world simulated tick 0 at all. A visit count from a world
+        // PREMISE: the world simulated its first tick at all. A visit count from a world
         // whose schedule never ran says nothing about the counter — and it is
         // the failure this repair could plausibly CAUSE, since the gate can
         // refuse to start a session.
@@ -2644,8 +2648,8 @@ fn a_conversation_on_the_first_tick_of_a_session_is_counted_exactly_once() {
                 .resource::<LatchInsideTheSchedule>()
                 .0
                 .iter()
-                .any(|(_, tick, _)| *tick == 0),
-            "the {name}-sampler world never simulated tick 0. If the durable \
+                .any(|(_, tick, _)| *tick == FIRST_TICK),
+            "the {name}-sampler world never simulated its first tick. If the durable \
              hydration gate is now refusing to start a session at all, this is \
              where that shows up — a world that never simulates is not a world \
              that never loses a visit"
@@ -2661,7 +2665,7 @@ fn a_conversation_on_the_first_tick_of_a_session_is_counted_exactly_once() {
         assert_eq!(
             visit_count(sim),
             1,
-            "a conversation opened on tick 0 of the {name}-sampler world was not \
+            "a conversation opened on the first tick of the {name}-sampler world was not \
              counted exactly once. 0 is the pre-repair signature: the visit \
              reached a counter that was still gated on the latch. More than 1 \
              means the opening edge has become a level"

@@ -56,9 +56,9 @@ provenance, `GameplayElapsed`, the startup-resume checksum, perception's
 `Entity`-index fallback, and the GGRS carrier order
 (`rebase_rollback_carrier_order`). The `ControlFrame` shape is pinned by a
 ratchet. The peer-identity checkpoint that C03 and C05 waited on is discharged.
-`two_local_histories_compute_the_same_ggrs_component_checksums` still shows two
-rows that differ between hosts: `SimTick` (`Q128`) and `AmbitionGameSave`
-(`Q129`).
+`two_local_histories_compute_the_same_ggrs_component_checksums` still shows one
+row that differs between hosts: `AmbitionGameSave` (`Q129`). `SimTick` agreed
+from 2026-10-03 (road 2).
 
 **Open roads:**
 
@@ -75,13 +75,24 @@ rows that differ between hosts: `SimTick` (`Q128`) and `AmbitionGameSave`
    describe the projection code, and the schema version answers for that code,
    not the words. Witness: `rewording_a_row_leaves_the_fingerprint_alone`.
    Control: `a_row_on_another_mechanism_moves_the_fingerprint`.
-2. **The canonical timeline.** `SimTick` is an absolute per-App counter and is
-   registered `resource-canonical`, so two Apps that ran for different times
-   disagree from the first compared frame. It needs a session-relative tick,
-   rebased when peers agree to start. This waits on `Q128` and on netcode's
-   [`N2`](engine/netcode.md#n2--first-real-externalp2p-session), because no
-   P2P session exists. The rebase is an activation moment: if `Q128` starts
-   while a C03 or C05 migration is in flight, coordinate the two.
+2. ✅ **CLOSED 2026-10-03: the canonical timeline is session-relative**
+   (`Q128` decided by engineering as option (a), with the session-scope
+   activation as the agreed start). `SimTick` is a `SessionScopedResources`
+   member, so the activation sets it to `0` on every host, whatever the App ran
+   before. `advance_sim_tick` lost the `Local` that skipped the first increment:
+   a reset could not clear it, and a rewind to the first frame did not restore
+   it. Now the first step is tick `1`, and `0` names the moment before it. Two
+   process-wide stores held an absolute tick across a session and are scoped
+   with it: `ImpactHitstop` (session-scoped), and `NarrativeInputLedger`
+   (forgets its records on `SessionScopeActivated`, because a conversation's
+   instance id contains the tick it opened on). Host intents already filter by
+   scope. Witness: `two_local_histories_compute_the_same_ggrs_component_checksums`
+   and `the_peer_visible_surface_does_not_record_which_route_the_host_visited_first`
+   no longer excuse `SimTick`. Poison (the tick reset skipped): both name it.
+   Why not a rebase at frame zero: room crossings also declare frame zero, and
+   stored ticks outlive a crossing. Why not a projection: it would drop the
+   timeline. A P2P session (`N2`) must activate its session scope at the agreed
+   start, which is the same edge.
 3. **The 25 unchecksummed float rows** (S7 in
    [`engine/simulation-authority-and-determinism.md`](engine/simulation-authority-and-determinism.md)).
    The state half is covered:

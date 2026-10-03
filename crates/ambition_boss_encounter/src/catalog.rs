@@ -585,11 +585,15 @@ impl BossCatalogRegistry {
         let mut strike_anim_keys = BTreeMap::new();
         let mut strike_anims = BTreeMap::new();
         let mut hurtbox_sample_rows = BTreeMap::new();
-        let mut strike_owners = BTreeMap::<String, String>::new();
+        // One owner for each move id, across the four art tables a move id
+        // keys: its special rows, its strike rows, its animation row and its
+        // hurtbox sample row. `attack_animation` and `hurtbox_sample_row`
+        // read by move id for a strike and a special alike, so the four
+        // tables are one namespace.
+        let mut move_art_owners = BTreeMap::<String, String>::new();
         let mut behavior_owners = BTreeMap::<String, String>::new();
         let mut sheet_owners = BTreeMap::<String, String>::new();
         let mut sprite_owners = BTreeMap::<String, String>::new();
-        let mut special_owners = BTreeMap::<String, String>::new();
         let mut fallback_boss_ids = BTreeMap::new();
         let mut fallback_sheet_keys = BTreeMap::new();
         let mut birth_kits = BTreeMap::new();
@@ -639,48 +643,31 @@ impl BossCatalogRegistry {
                 sprite_owners.insert(key.clone(), provider_id.clone());
                 sprite_filenames.insert(key.clone(), filename.clone());
             }
-            for (key, rows) in &fragment.special_anim_keys {
-                if let Some(first_provider) = special_owners.get(key) {
-                    return Err(BossCatalogAssemblyError::DuplicateSpecialAnimation {
-                        special: key.clone(),
-                        first_provider: first_provider.clone(),
-                        second_provider: provider_id.clone(),
-                    });
-                }
-                special_owners.insert(key.clone(), provider_id.clone());
-                special_anim_keys.insert(key.clone(), rows.clone());
-            }
-            for (key, rows) in &fragment.strike_anim_keys {
-                if let Some(first_provider) = strike_owners.get(key) {
-                    return Err(BossCatalogAssemblyError::DuplicateStrikeAnimation {
-                        strike: key.clone(),
-                        first_provider: first_provider.clone(),
-                        second_provider: provider_id.clone(),
-                    });
-                }
-                strike_owners.insert(key.clone(), provider_id.clone());
-                strike_anim_keys.insert(key.clone(), rows.clone());
-            }
-            // The two tables below are keyed by move id, as the strike rows
-            // are. One move has one author, so a second provider's entry for
-            // the same move is the same error.
-            let authored_twice = fragment
-                .strike_anims
+            // A provider may author several art keys of its own move; a second
+            // provider may author none of them.
+            let move_ids = fragment
+                .special_anim_keys
                 .keys()
-                .find(|key| strike_anims.contains_key(*key))
-                .or_else(|| {
-                    fragment
-                        .hurtbox_sample_rows
-                        .keys()
-                        .find(|key| hurtbox_sample_rows.contains_key(*key))
-                });
-            if let Some(key) = authored_twice {
-                return Err(BossCatalogAssemblyError::DuplicateStrikeAnimation {
-                    strike: key.clone(),
-                    first_provider: "an earlier provider".to_string(),
-                    second_provider: provider_id.clone(),
-                });
+                .chain(fragment.strike_anim_keys.keys())
+                .chain(fragment.strike_anims.keys())
+                .chain(fragment.hurtbox_sample_rows.keys());
+            for move_id in move_ids {
+                match move_art_owners.get(move_id) {
+                    Some(first_provider) if first_provider != provider_id => {
+                        return Err(BossCatalogAssemblyError::DuplicateMoveArt {
+                            move_id: move_id.clone(),
+                            first_provider: first_provider.clone(),
+                            second_provider: provider_id.clone(),
+                        });
+                    }
+                    Some(_) => {}
+                    None => {
+                        move_art_owners.insert(move_id.clone(), provider_id.clone());
+                    }
+                }
             }
+            special_anim_keys.extend(fragment.special_anim_keys.iter().map(|(key, rows)| (key.clone(), rows.clone())));
+            strike_anim_keys.extend(fragment.strike_anim_keys.iter().map(|(key, rows)| (key.clone(), rows.clone())));
             strike_anims.extend(fragment.strike_anims.iter().map(|(key, anim)| (key.clone(), *anim)));
             hurtbox_sample_rows.extend(
                 fragment
@@ -797,13 +784,9 @@ pub enum BossCatalogAssemblyError {
         first_provider: String,
         second_provider: String,
     },
-    DuplicateSpecialAnimation {
-        special: String,
-        first_provider: String,
-        second_provider: String,
-    },
-    DuplicateStrikeAnimation {
-        strike: String,
+    /// Two providers author art keys of one move id.
+    DuplicateMoveArt {
+        move_id: String,
         first_provider: String,
         second_provider: String,
     },
@@ -890,13 +873,9 @@ impl fmt::Display for BossCatalogAssemblyError {
                 f,
                 "boss sprite asset key '{sheet_key}' is authored by both '{first_provider}' and '{second_provider}'"
             ),
-            Self::DuplicateSpecialAnimation { special, first_provider, second_provider } => write!(
+            Self::DuplicateMoveArt { move_id, first_provider, second_provider } => write!(
                 f,
-                "boss special animation '{special}' is authored by both '{first_provider}' and '{second_provider}'"
-            ),
-            Self::DuplicateStrikeAnimation { strike, first_provider, second_provider } => write!(
-                f,
-                "boss strike animation '{strike}' is authored by both '{first_provider}' and '{second_provider}'"
+                "boss move '{move_id}' has art keys from both '{first_provider}' and '{second_provider}'; one provider authors all the art keys of a move"
             ),
         }
     }
@@ -1193,5 +1172,76 @@ mod tests {
                 reverse.fallback_boss_id_for_provider(provider)
             );
         }
+    }
+
+    /// Two fragments, `a` and `b`, each with one boss and no art keys.
+    fn two_providers() -> (BossCatalogFragment, BossCatalogFragment) {
+        (renamed_single_boss_fragment("a", "boss_a"), renamed_single_boss_fragment("b", "boss_b"))
+    }
+
+    fn assemble_pair(
+        a: BossCatalogFragment,
+        b: BossCatalogFragment,
+    ) -> Result<BossCatalog, BossCatalogAssemblyError> {
+        let mut registry = BossCatalogRegistry::default();
+        registry.register(a).expect("fragment a registers");
+        registry.register(b).expect("fragment b registers");
+        registry.assemble()
+    }
+
+    /// The providers that an assembly error names as the two authors of one move.
+    fn named_authors(error: &BossCatalogAssemblyError) -> Option<(&str, &str)> {
+        match error {
+            BossCatalogAssemblyError::DuplicateMoveArt { first_provider, second_provider, .. } => {
+                Some((first_provider.as_str(), second_provider.as_str()))
+            }
+            _ => None,
+        }
+    }
+
+    /// One move has one author for all of its art keys. Provider `b` cannot
+    /// set the animation row of a strike whose sheet rows `a` authors.
+    #[test]
+    fn a_second_provider_cannot_set_the_animation_of_a_move_it_does_not_own() {
+        let (mut a, mut b) = two_providers();
+        a.strike_anim_keys.insert("floor_slam".into(), vec!["floor_slam".into()]);
+        b.strike_anims.insert("floor_slam".into(), None);
+        let error = assemble_pair(a, b).expect_err("b's animation row for a's move is refused");
+        assert_eq!(named_authors(&error), Some(("a", "b")), "the error names both authors: {error}");
+    }
+
+    /// Provider `b` cannot set the hurtbox sample row of a strike `a` authors.
+    #[test]
+    fn a_second_provider_cannot_set_the_hurtbox_row_of_a_move_it_does_not_own() {
+        let (mut a, mut b) = two_providers();
+        a.strike_anim_keys.insert("floor_slam".into(), vec!["floor_slam".into()]);
+        b.hurtbox_sample_rows.insert("floor_slam".into(), "floor_slam".into());
+        let error = assemble_pair(a, b).expect_err("b's hurtbox row for a's move is refused");
+        assert_eq!(named_authors(&error), Some(("a", "b")), "the error names both authors: {error}");
+    }
+
+    /// The hurtbox sample row is read by move id, so it reaches a special
+    /// too: `b` cannot set it for a special whose rows `a` authors.
+    #[test]
+    fn a_second_provider_cannot_set_the_hurtbox_row_of_a_special_it_does_not_own() {
+        let (mut a, mut b) = two_providers();
+        a.special_anim_keys.insert("apple_rain".into(), vec!["apple_rain".into()]);
+        b.hurtbox_sample_rows.insert("apple_rain".into(), "head_down".into());
+        let error = assemble_pair(a, b).expect_err("b's hurtbox row for a's special is refused");
+        assert_eq!(named_authors(&error), Some(("a", "b")), "the error names both authors: {error}");
+    }
+
+    /// One provider may author every art key of its own move.
+    #[test]
+    fn one_provider_authors_all_the_art_keys_of_its_move() {
+        let (mut a, b) = two_providers();
+        a.strike_anim_keys.insert("floor_slam".into(), vec!["floor_slam".into()]);
+        a.strike_anims.insert("floor_slam".into(), None);
+        a.hurtbox_sample_rows.insert("floor_slam".into(), "floor_slam".into());
+        let catalog = assemble_pair(a, b).expect("one author for every art key of a move assembles");
+        let profile = ambition_characters::brain::BossAttackProfile::Strike("floor_slam".into());
+        assert_eq!(catalog.strike_animation_keys("floor_slam"), ["floor_slam".to_string()]);
+        assert_eq!(catalog.attack_animation(&profile), None);
+        assert_eq!(catalog.hurtbox_sample_row(&profile).as_deref(), Some("floor_slam"));
     }
 }

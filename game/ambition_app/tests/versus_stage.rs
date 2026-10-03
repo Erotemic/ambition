@@ -2766,6 +2766,10 @@ struct FrameEndSample {
     /// indistinguishable at its end from one installed before the write.
     versus_match_changed: u32,
     session_added: Option<u32>,
+    /// The roster is versus's at the END of the frame. A frame that began
+    /// without it and ends with it is the frame the arm fired on: the arm runs
+    /// after the route activates, which can be the same frame.
+    mine: bool,
 }
 
 #[derive(Resource, Default)]
@@ -2822,10 +2826,16 @@ fn sample_the_order_the_frame_resolved_to(world: &mut World) {
     let session_added = world
         .get_resource_change_ticks::<ambition_platformer2d::rollback::AmbitionGgrsSession>()
         .map(|ticks| ticks.added.get());
+    let mine = world
+        .get_resource::<ambition_platformer2d::versus_match::MatchParticipantRoster>()
+        .is_some_and(|roster| {
+            roster.is_published_by(ambition_app::app::versus::VERSUS_EXPERIENCE)
+        });
     world.resource_mut::<FrameEndSamples>().0.push(FrameEndSample {
         frame,
         versus_match_changed,
         session_added,
+        mine,
     });
 }
 
@@ -2850,7 +2860,7 @@ fn report_roster_arm(app: &App, label: &str, from: usize) -> usize {
     );
     for sample in window
         .iter()
-        .filter(|sample| sample.on_versus && !sample.mine)
+        .filter(|sample| !sample.mine && ended_mine(app, sample.frame))
     {
         let end = app
             .world()
@@ -2870,9 +2880,18 @@ fn arm_fired(app: &App) -> Vec<RosterArmSample> {
         .resource::<RosterArmSamples>()
         .0
         .iter()
-        .filter(|sample| sample.on_versus && !sample.mine)
+        .filter(|sample| !sample.mine && ended_mine(app, sample.frame))
         .copied()
         .collect()
+}
+
+/// The roster was versus's at the end of `frame`.
+fn ended_mine(app: &App, frame: u64) -> bool {
+    app.world()
+        .resource::<FrameEndSamples>()
+        .0
+        .iter()
+        .any(|end| end.frame == frame && end.mine)
 }
 
 fn versus_roster_is_ours(app: &App) -> bool {

@@ -368,24 +368,19 @@ rewinding schedule, and its value actually differs at a frame compared twice.
 A latch that is put back before it is taken meets the first two and does not
 desync.
 
-**Closed: `CustodyBaseline` and `OccurrenceBaseline`.** Both
-desync when a load lowers the restore latch on a LIVE timeline, which
-`probe_what_a_mid_session_load_writes_outside_the_rewinding_schedule`
-(`game/ambition_app/tests/a_bag_changed_mid_window_reaches_the_save.rs`,
-`#[ignore]`) still shows. Production has no such road: a save file is read only
-at `Startup` (`load_save_at_startup`), `SaveRestored` is lowered only by session
-activation/retirement (`session/teardown.rs`), a retiring scope retires its
-rollback authority with it, and
-the [Q135 ruling](../maintainer-decisions.md) stops `maintain_local_session` from creating a session while
-hydration is pending. The production road is witnessed by
-`a_startup_load_hydrates_both_baselines_before_the_timeline_starts` in the same
-file: both halves seeded, 240 sync-test frames healthy, and no frame with a live
-GGRS session over an unrestored save. That arm witnesses the ORDER, not the
-gate (with the gate poisoned it stays green, because in that composition the
-chain completes first); the gate's guard is
-`a_conversation_on_the_first_tick_of_a_session_is_counted_exactly_once`. A
-future mid-session load (a load menu inside a live session) must end the
-timeline first, or it reopens this row. Earlier "clean" readings ran with empty
+**Closed: `CustodyBaseline` and `OccurrenceBaseline`.** Both desynced when
+the restore chain wrote them from `Update` over a live timeline. Since
+2026-10-03 the chain runs in the simulation schedule
+(BODY-BORN-ON-THE-TIMELINE in [`queue.md`](../queue.md)), so its writes are
+part of the tick that makes them. Witnessed by
+`a_startup_load_is_applied_on_the_timeline_and_resimulates_identically`
+(`game/ambition_app/tests/a_bag_changed_mid_window_reaches_the_save.rs`): both
+halves seeded, the session live before the save is applied, 240 sync-test
+frames healthy. In the same file,
+`a_mid_session_load_does_not_reach_back_across_the_rewind` shows a mid-session
+load's ledger write landing, with every replay of a tick agreeing. The ignored
+probe `probe_what_a_mid_session_load_writes_outside_the_rewinding_schedule` has
+not been re-read since the move. Earlier "clean" readings ran with empty
 baselines; seed both halves. `Q129` owns whether the save belongs in the peer
 contract at all.
 

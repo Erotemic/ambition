@@ -577,6 +577,7 @@ fn play_owned_sfx_from(
         .world()
         .resource::<ambition_platformer2d::audio::selection::ActiveAudioSelection>()
         .owner();
+    let wanted = source.clone();
     app.world_mut()
         .write_message(ambition_platformer2d::sfx::OwnedSfxMessage {
             owner,
@@ -608,15 +609,23 @@ fn play_owned_sfx_from(
         .resource::<ambition_platformer2d::audio::render::SfxPlaybackState>()
         .last_played
         .clone();
+    // ⛔ AND THE RECORD FROM THE SOURCE THIS CALL ASKED, FROM EVERY RECORD OF
+    // THE PASS — NOT THE LATCH. Gameplay plays its own cues in the same pass,
+    // and `last_played` keeps only the last. Measured 2026-10-03: once the
+    // session started a frame earlier, an Ambition gameplay cue was accepted
+    // after the crossover request in the same pass, and the latch read
+    // `presentation_source == "ambition"` for a request made from `sanic.cast`.
     for _ in 0..PLAYBACK_SETTLE_FRAMES {
         app.update();
-        let now = app
+        let state = app
             .world()
-            .resource::<ambition_platformer2d::audio::render::SfxPlaybackState>()
-            .last_played
-            .clone();
-        if now != before {
-            return now;
+            .resource::<ambition_platformer2d::audio::render::SfxPlaybackState>();
+        if let Some(record) = state
+            .played_this_pass
+            .iter()
+            .find(|record| record.presentation_source == wanted)
+        {
+            return Some(record.clone());
         }
     }
     // ⭐ THE BOUND EXISTS FOR THE OTHER ARM. This test also asserts that STALE

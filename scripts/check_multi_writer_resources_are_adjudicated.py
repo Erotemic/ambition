@@ -319,6 +319,10 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "game/ambition_app/src/app/world_flow/room_transition_assets.rs",
         "game/ambition_app/src/app/world_flow/room_transition_presentation.rs",
     ),
+    "SimTick": (
+        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
+        "crates/ambition_time/src/lib.rs",
+    ),
     "UserSettings": (
         "crates/ambition_game_shell/src/pause_menu.rs",
         "crates/ambition_game_shell/src/plugin.rs",
@@ -704,6 +708,10 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_actor_monolith/src/features/mod.rs",
         "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
     ),
+    "ImpactHitstop": (
+        "crates/ambition_combat/src/impact_hitstop/mod.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
+    ),
     "InventoryUiState": (
         "game/ambition_app/src/menu/grid_backend.rs",
         "game/ambition_app/src/menu/kaleidoscope_app.rs",
@@ -977,6 +985,15 @@ ADJUDICATED: dict[str, str] = {
         "unconditionally — deliberately not edge-triggered, per its own doc — "
         "which a `.min()` fold downstream makes order-free. Measured by "
         "CalculexAmbition, 2026-09-18."
+    ),
+    "SimTick": (
+        "CORRECT — ONE IN-SESSION OWNER PLUS THE SESSION BOUNDARY, the shape of "
+        "`GameplayElapsed`. `advance_sim_tick` (`ambition_time/src/lib.rs`) is the only system "
+        "that advances it; the other file is `SESSION_SCOPE_RESET`, where "
+        "`SessionScopedResources::reset` sets it to 0 at the session edge. That reset "
+        "is the Q128 decision (2026-10-03): the tick is session-relative, so two "
+        "hosts with different histories agree on it. ⇒ Nothing here is two owners "
+        "of one fact (read 2026-10-03)"
     ),
     "WorldSourceHotReload": (
         "A SINGLE-WRITER PATH FIELD AND A FREE-TEXT STATUS LINE NOTHING "
@@ -2107,6 +2124,16 @@ ADJUDICATED: dict[str, str] = {
         "per file: exactly one `ResMut`/`resource_mut` site in that file, in that "
         "one function, with comments and test modules stripped. ⇒ Nothing here is "
         "two owners of one fact."
+    ),
+    "ImpactHitstop": (
+        "CORRECT — ONE IN-SESSION OWNER PLUS THE SESSION BOUNDARY, the shape of "
+        "`GameplayElapsed`. The impact freeze is armed only by "
+        "`request_impact_hitstop_on_resolved_hits` (`impact_hitstop/mod.rs`, its one "
+        "`ResMut` site); the other file is `SESSION_SCOPE_RESET`, where "
+        "`SessionScopedResources::reset` clears it at the session edge. It holds an "
+        "absolute expiry on `SimTick`, which the same reset sets to 0 (Q128), so a "
+        "freeze kept across the edge would hold the new session until the old "
+        "tick came round. ⇒ Nothing here is two owners of one fact (read 2026-10-03)"
     ),
     "LastCutsceneRoom": (
         "CORRECT — ONE IN-SESSION OWNER PLUS THE SESSION BOUNDARY, and the second "

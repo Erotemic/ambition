@@ -359,9 +359,10 @@ _SYSTEM_PARAM_STRUCT = re.compile(
 # longer reports has been FIXED, and leaving it banked would silently absorb the
 # next system to take its place.
 ACKNOWLEDGED: dict[str, str] = {
-    # ✅ `adopt_occurrence_checkpoint_from_save` and `complete_durable_restore`
-    # left on 2026-10-03 for WAIVERS, on a measured argument held by a runtime
-    # check: see `restore_inventory_from_save` there.
+    # ✅ `adopt_occurrence_checkpoint_from_save`, `complete_durable_restore`
+    # and `restore_inventory_from_save` left on 2026-10-03, first for WAIVERS and
+    # then out of the scan: they run in the simulation schedule now
+    # (BODY-BORN-ON-THE-TIMELINE), so their writes rewind with the save they read.
     # ✅ `compute_music_intent` left because it was FIXED: it still runs, and
     # now binds `EncounterMusicRequest` as a `SessionWorldRef`. Its one write was
     # the `last_applied` mirror that AP12/W021 deleted (dbffb1a76).
@@ -597,63 +598,14 @@ WAIVERS: dict[str, str] = {
         "the arm fails. ⚠ TWO FACTS NOW HANG FROM AN EDGE WRITTEN FOR THE "
         "FIRST OF THEM — the seat count and a `rollback_resource_clone_checksum` "
         "row — so widening or dropping it reopens a peer-compared write inside "
-        "the rewind window."
-    ),
-    "adopt_occurrence_checkpoint_from_save": (
-        "⛔ WAIVED WITH ITS CHAIN, 2026-10-03: it writes `AuthoredOccurrences`, "
-        "`OccurrenceBaseline` and `CustodyBaseline` from `Update` only on the "
-        "frame `SaveRestored` rises. `refuse_a_restore_over_a_live_timeline` "
-        "(`rollback_ggrs/src/session.rs`) debug-asserts that this frame begins "
-        "with no session; witness `a_save_applied_over_a_live_timeline_is_refused`. "
-        "The full argument is under `restore_inventory_from_save`."
-    ),
-    "complete_durable_restore": (
-        "⛔ WAIVED WITH ITS CHAIN, 2026-10-03: it raises `SaveRestored` and asks "
-        "for a checkpoint resume, on the one frame the save is applied. "
-        "`refuse_a_restore_over_a_live_timeline` (`rollback_ggrs/src/session.rs`) "
-        "debug-asserts that this frame begins with no session; witness "
-        "`a_save_applied_over_a_live_timeline_is_refused`. The full argument is "
-        "under `restore_inventory_from_save`."
-    ),
-    "restore_inventory_from_save": (
-        "⚠ WAIVED BECAUSE NO TIMELINE IS RUNNING WHEN IT WRITES, AND A RUNTIME "
-        "CHECK HOLDS IT — 2026-10-03. It writes `BodyWallet` and `OwnedItems` "
-        "from `Update` while applying a save, and returns early once "
-        "`SaveRestored` is true. Its two chain partners take the same waiver. "
-        "`adopt_occurrence_checkpoint_from_save` writes the ledger and its two "
-        "baselines, and `complete_durable_restore` raises the latch. All three "
-        "ask the population `durable_hydration_is_pending` asks (one "
-        "`PrimaryPlayerOnly` body with a `BodyWallet`), so they write only on "
-        "the frame the latch rises. Two facts close the window. First, "
-        "`maintain_local_session` refuses to CREATE a session while hydration is "
-        "pending. Second, `refuse_a_restore_over_a_live_timeline` "
-        "(`rollback_ggrs/src/session.rs`) debug-asserts that the latch never "
-        "rises on a frame that began with a live session. Witness: "
-        "`a_save_applied_over_a_live_timeline_is_refused` (a teardown-style "
-        "reset under a live sync-test session is refused). Control: "
-        "`a_live_timeline_with_the_save_applied_runs_on`. Poisoning the assert "
-        "lets the write through silently: the sync test stayed healthy. "
-        "Measured over `app_it`: 226 rises, each on a frame that began with no "
-        "session; 40 falls, each on a frame that also ended the session.\n"
-        "⛔ ONE ROAD BREAKS THIS ARGUMENT, AND IT IS DECLARED: a composition whose "
-        "body is born only once GGRS runs the simulation. The gate has nothing to "
-        "wait for, so the save is applied over the live timeline. The Sanic and "
-        "Mary-O rollback fixtures (test-only; the shipped demos run no GGRS) "
-        "declare `TheBodyIsBornOnTheTimeline`, and the check counts the "
-        "application (1 in each) instead of refusing it. Owed: queue row "
-        "BODY-BORN-ON-THE-TIMELINE.\n"
-        "⛔⛤ THIS ENTRY SAID 'the latch has no `true -> false` transition left "
-        "anywhere' UNTIL 2026-10-03. Teardown resets it "
-        "(`SessionScopedResources::reset`), 40 times over `app_it`. What held was "
-        "that each reset came with the session ending; the runtime check now "
-        "says so instead of the prose.\n"
-        "⛔⛤ THIS ENTRY SAID 'THE OTHER CASE IS OPEN' UNTIL 2026-09-19 AND "
-        "QUOTED A COMMENT THAT NO LONGER EXISTS — 'THE `Update` ADOPTER STAYS. "
-        "A file can also arrive after activation (a mid-session load) ...' is "
-        "ZERO hits in the Rust tree on each of three fragments. The road it "
-        "described was removed when Q135 landed (2026-09-16), and the waiver "
-        "kept justifying itself with the deleted text. ⇒ A WAIVER THAT QUOTES "
-        "SOURCE IS A CLAIM ABOUT SOURCE, and nothing re-reads a quotation."
+        "the rewind window. ⛔⛤ AND ONE EDGE WAS NOT ENOUGH, FOUND 2026-10-03: "
+        "on the activation frame the arm ran BEFORE `advance_pending_route` made "
+        "the route active, read the old route, and did nothing, so the maintainer "
+        "started the session that frame and the write landed two frames later on "
+        "a live timeline. The durable-hydration gate hid this by holding the "
+        "session back; it went with BODY-BORN-ON-THE-TIMELINE. The chain is now "
+        "also `.after(AmbitionGameShellSet::Pending)`. Poison (that edge "
+        "removed): the test fails with the write on a frame that began live."
     ),
     "refresh_world_time": (
         "⛔ NOT installed by any composition. `ambition_time::TimePlugin` — the "

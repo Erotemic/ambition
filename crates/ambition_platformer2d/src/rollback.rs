@@ -22,7 +22,7 @@ pub use ambition_platformer2d_rollback_ggrs::session::{
     start_sync_test_session, stop_session, stop_session_deferred, ActiveRollbackAuthority,
     RollbackDiagnostic, RollbackDiagnosticHistory, RollbackExecutionStats,
     RollbackSessionOwnership, RollbackTimelineContract, RollbackTimelineGeneration,
-    RollbackTimelineStatus, SyncTestOwner, SyncTestSettings, TheBodyIsBornOnTheTimeline,
+    RollbackTimelineStatus, SyncTestOwner, SyncTestSettings,
 };
 pub use ambition_platformer2d_rollback_ggrs::{
     AdvanceWorld, AdvanceWorldSystems, AmbitionGgrsSession, AmbitionRollbackApp,

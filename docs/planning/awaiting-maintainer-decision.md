@@ -452,6 +452,36 @@ collide with an already-live identity. This gates A8's two-instance proof.
 * **(a) Room-instance identity belongs in canonical `SimId` semantics.**
 * **(b) Room instance is a separate deterministic scope** beside `SimId`.
 
+## Q135 — reopened 2026-10-03: the save is applied by the simulation, not before the timeline
+
+The 2026-09-16 ruling (`maintainer-decisions.md`, Q135) says GGRS does not start
+before the durable restore finishes, and `maintain_local_session` refused to
+create a session while hydration was pending. On 2026-10-03 the restore chain
+moved into the simulation schedule and the gate was removed
+(BODY-BORN-ON-THE-TIMELINE in [`queue.md`](queue.md)). New evidence:
+
+- Three compositions build their primary body on the timeline (the Sanic and
+  Mary-O rollback fixtures). The gate has no body to wait for, so the save was
+  applied from `Update` over a live timeline there.
+- `AmbitionGameSave`, `SaveRestored` and every value the chain writes are
+  rollback state, so a restore inside the simulation is deterministic: a rewind
+  past it applies it again on the same tick.
+- With the chain in the simulation the gate would deadlock: under the rollback
+  host the simulation does not run until a session starts.
+
+Whether the save belongs in what two peers agree on stays with
+[Q129](#q129--must-the-save-file-be-part-of-what-two-peers-agree-on).
+
+The ruling's guarantee holds: no tick is simulated over an unapplied save. The
+restore runs at the head of the first tick that has the body, before the core
+step. `a_conversation_on_the_first_tick_of_a_session_is_counted_exactly_once`,
+the test the ruling names, passes without the gate.
+
+* **(a) Keep the restore in the simulation** (current). One road for every
+  composition; the session may start before the save is applied.
+* **(b) Restore the gate and the `Update` chain**, and give compositions whose
+  body is born on the timeline another road. That is two roads for one fact.
+
 ## Q129 — must the save file be part of what two peers agree on?
 
 `AmbitionGameSave` is registered `resource-clone-custom-checksum`, and its

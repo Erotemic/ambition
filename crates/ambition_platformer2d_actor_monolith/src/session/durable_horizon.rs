@@ -50,23 +50,12 @@ pub fn adopt_occurrence_checkpoint_from_save(
     custody_baseline: Option<ResMut<CustodyBaseline>>,
 ) {
     // ⛔ THE POPULATION IS "EXACTLY ONE", NOT "AT LEAST ONE", AND THE SPELLING
-    // IS `complete_durable_restore`'S ON PURPOSE. This system is the only member
-    // of the restore chain that WRITES rollback state; the other two and the
-    // session-start gate (`durable_hydration_is_pending`) all ask for the
-    // singleton body. A wider guard here adopts the ledger on a population where
-    // the latch can never rise — so the write repeats from `Update` every frame,
-    // over a timeline the gate has already allowed to start.
-    //
-    // ⛔⛤ **AND THE SENTENCE ABOVE WAS A SPECIFICATION, NOT A READING, UNTIL
-    // 2026-09-19.** It said the spelling was the same and it was not: this
-    // query asked for `()` while the gate and the completer ask for
-    // `&BodyWallet`. "One primary player" and "one primary player carrying a
-    // wallet" are different populations, so a world with the first and not the
-    // second let this system write its checkpoint state while the gate it is
-    // supposed to agree with said there was no hydration to do. No shipped
-    // construction road produces that world — the player bundle supplies the
-    // wallet — so there is no witness to point at, which is exactly why a
-    // comment claiming the invariant was the only thing holding it.
+    // IS `complete_durable_restore`'S ON PURPOSE. The completer raises the
+    // latch only for one primary body with a wallet. A wider guard here adopts
+    // the ledger on a population where the latch can never rise, so the write
+    // repeats on every tick and overwrites the baselines the checkpoint commit
+    // keeps. Held by
+    // `a_population_the_restore_cannot_complete_on_is_written_to_by_nobody`.
     if restored.0 || bodies.single().is_err() {
         return;
     }
@@ -251,50 +240,6 @@ fn adopt_the_ledger(
 /// touch only their own state; this system states that every adopter in the
 /// chain has had its turn. Keeping the request here prevents an item or lifecycle
 /// domain from becoming the coordinator for its siblings.
-/// Is a durable restore IN FLIGHT in this world — as opposed to finished, or
-/// never applicable here?
-///
-/// ⛔⛤ **THREE-VALUED ON PURPOSE, AND A BOOLEAN LATCH IS THE TRAP.**
-/// [`SaveRestored`] answers "has the adventure's save been applied", and the
-/// obvious reading of `false` — "not yet, wait" — is wrong for any composition
-/// that will never apply one. [`complete_durable_restore`] below needs exactly
-/// one `PrimaryPlayerOnly` body carrying a `BodyWallet`; a smash match never has
-/// that singleton, so its latch reads `false` for the whole process. Measured:
-/// gating GGRS session start on the bare latch failed 66 app tests with *"the
-/// match seats a first fighter"* and *"the opening ceremony never released the
-/// cast"* — every smash composition hung at session start, because "nothing to
-/// hydrate" and "hydration pending" are the same bit.
-///
-/// ⇒ So the question a session-start gate must ask is PENDING, not `!restored`:
-/// the save is unapplied AND this world has the body that lets it be applied.
-///
-/// ⭐ ONE FACT, ONE OWNER. `maintain_local_session` in
-/// `ambition_platformer2d_rollback_ggrs` calls this rather than mirroring a
-/// readiness flag into a lower layer — the latch is read where it lives, over a
-/// dependency edge that already exists.
-///
-/// ⚠ **THE BODY CONDITION RESTATES `complete_durable_restore`'S OWN, AND THE
-/// DRIFT IS GUARDED BY THOSE 66 TESTS.** If this predicate ever says "pending"
-/// where the system says "cannot complete", every smash fixture in `app_it`
-/// hangs again and says so by name. Keep the two in step; do not narrow this one
-/// without narrowing that one.
-pub fn durable_hydration_is_pending(world: &mut World) -> bool {
-    if world
-        .get_resource::<SaveRestored>()
-        .is_none_or(|restored| restored.0)
-    {
-        return false;
-    }
-    world
-        .query_filtered::<
-            &ambition_characters::actor::BodyWallet,
-            ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
-        >()
-        .iter(world)
-        .count()
-        == 1
-}
-
 pub fn complete_durable_restore(
     mut restored: ResMut<SaveRestored>,
     save: Res<AmbitionGameSave>,
@@ -328,7 +273,7 @@ pub enum DurableHorizonSet {
     SessionMirror,
 }
 
-/// Where a loaded file is applied, in top-level `Update`.
+/// Where a loaded file is applied, in the simulation schedule.
 #[derive(SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum DurableRestoreSet {
     /// The lifecycle/occurrence baseline, which the domains' restores build on.
@@ -395,47 +340,48 @@ pub fn install_durable_save_horizon(app: &mut App) {
             .chain()
             .in_set(DurableHorizonSet::SessionMirror),
     );
+    // ⭐ THE SAVE IS APPLIED BY THE SIMULATION (BODY-BORN-ON-THE-TIMELINE,
+    // 2026-10-03). The save, the latch and every value the chain writes are
+    // rollback state, so a step that applies the file is an ordinary
+    // deterministic step: a rewind past it restores the unapplied save and the
+    // resimulation applies it again, on the same tick, to the same values. Two
+    // peers with the same file apply it on the same tick, whether the body was
+    // built before the timeline started or by it.
+    //
+    // ⛔ IT USED TO RUN IN `Update`, and that needed three guards to be safe:
+    // a session-start gate (`Q135`) that waited for hydration, a check that no
+    // save was applied over a live timeline, and a declared exception for the
+    // compositions whose body is born on the timeline (where the gate had
+    // nothing to wait for). All three are gone with the window.
+    //
+    // ⚠ AT THE HEAD OF THE GAMEPLAY ROOT, after the clock names the tick and
+    // before the core step, so a conversation that opens on the first tick a
+    // body exists finds the save applied (the visit counter's `!restored` guard
+    // has nothing to drop).
     app.init_resource::<SaveRestored>()
-        // ⭐ `Update` IS A WINDOW HERE, NOT A WAIVER, AND THE ARGUMENT HAS
-        // THREE PARTS BECAUSE ANY ONE OF THEM ALONE IS INSUFFICIENT. The three
-        // restores (one per `DurableRestoreSet` slot, the item domain's among
-        // them) write only while `SaveRestored` is false; the latch rises once and
-        // has no `true -> false` transition left in the workspace (a New Game
-        // restores through the checkpoint commit and does not touch it); and `maintain_local_session` refuses to start a
-        // rollback session while `durable_hydration_is_pending`. ⇒ These three
-        // run strictly before frame zero of any session, so the rewind they
-        // would otherwise lose their writes to does not exist yet.
-        //
-        // ⛔ THAT HOLDS ONLY WHILE THE GATE AND THESE GUARDS ASK FOR THE SAME
-        // POPULATION. They did not until 2026-09-19: the gate wanted exactly
-        // one primary body and the adopter accepted any non-empty set, so two
-        // primary bodies let the session start over a chain that could never
-        // finish. Do not widen one of the four without widening all of them.
         .configure_sets(
-            Update,
+            sim,
             (
                 DurableRestoreSet::Lifecycle,
                 DurableRestoreSet::Domains,
                 DurableRestoreSet::Complete,
             )
-                .chain(),
+                .chain()
+                .in_set(ambition_platformer2d_shared_tangle::schedule::GameplaySimulationRoot)
+                .after(ambition_platformer2d_shared_tangle::schedule::SimClockHead)
+                .before(
+                    ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::CoreSimulation,
+                ),
         )
         .add_systems(
-            Update,
+            sim,
             (
                 // Lifecycle state first: the room/custody baseline must be present
                 // before the load asks the ordinary checkpoint-resume road to act.
                 adopt_occurrence_checkpoint_from_save.in_set(DurableRestoreSet::Lifecycle),
-                // The host-level completion point comes last: only now is the file
-                // fully applied, and only now may a checkpoint resume be requested.
+                // The completion point comes last: only now is the file fully
+                // applied, and only now may a checkpoint resume be requested.
                 complete_durable_restore.in_set(DurableRestoreSet::Complete),
-                // ⚠ THE MIRRORS USED TO CHAIN HERE AND ARE NOW IN THE SIM SCHEDULE
-                // ABOVE. Their "only after the latch is true" guard is unchanged and
-                // still theirs: each returns early on `!restored.0`. What changed is
-                // that the latch is now read from a schedule that runs BEFORE this
-                // one in the frame, so on the single frame the latch flips they
-                // mirror one frame later. They are value-compared and idempotent, so
-                // that costs a frame of freshness and nothing else.
             )
                 .chain(),
         );

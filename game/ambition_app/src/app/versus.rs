@@ -813,7 +813,16 @@ pub fn compose_versus_experience(app: &mut App) {
             // frame this route opens sized the whole match from what was
             // plugged in. Same schedule, so this is a real edge; a cross-
             // schedule `.after` would be silently vacuous.
-            .before(ambition_platformer2d::rollback::local_session::LocalSessionSet::Maintain),
+            .before(ambition_platformer2d::rollback::local_session::LocalSessionSet::Maintain)
+            // AND AFTER THE ROUTE IS ACTIVE. `advance_pending_route` sets the
+            // router's active route in `Pending`; before it, this arm reads the
+            // previous route and does nothing, and the maintainer can start the
+            // session on the activation frame sized from devices. That gap was
+            // hidden by the durable-hydration gate, which held the session back
+            // a frame, until the gate was removed (2026-10-03,
+            // BODY-BORN-ON-THE-TIMELINE). Measured then: the session was live
+            // when this arm wrote `VersusMatch`.
+            .after(ambition_platformer2d::game_shell::AmbitionGameShellSet::Pending),
     );
 
     declare_versus_experience_scope(app);

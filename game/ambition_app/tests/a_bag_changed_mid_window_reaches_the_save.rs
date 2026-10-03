@@ -1852,24 +1852,13 @@ fn record_the_census_of_every_pass(world: &mut bevy::prelude::World) {
 /// ticks 37-39 read `(0,0)` on every pass where they used to read `(1,1)` on the
 /// later ones.
 ///
-/// ⛔⛤ **WHAT REPLACED IT IS A LOST WRITE, NOT A CLEAN LOAD.**
-/// `adopt_occurrence_checkpoint_from_save` runs in top-level `Update`, so now
-/// that the ledger rewinds, its write is restored away exactly like any other
-/// `Update` write to rollback state: the save holds the row from tick 40 on
-/// (`saved = 1`, consistently, in every pass) and the ledger holds none
-/// (`authored = 0`, in every pass). ⇒ **A divergence became a deterministic
-/// loss.** That is the honest trade and it is an improvement — two peers now
-/// agree — but the durable restore does not reach the ledger under a rollback
-/// host, and that is [Q135]'s lifecycle half rather than its checksum half.
-///
-/// ⚠ NO BEHAVIOUR THAT WORKED WAS TAKEN AWAY. This road previously desynced the
-/// sync test at the frames of the load, so there was no run in which it worked.
-/// A fixed-tick host has no restore and is unaffected.
-///
-/// ⇒ WHEN THE `authored = 0` HALF CHANGES the lifecycle repair has landed:
-/// re-read [Q135] rather than editing the number.
-///
-/// [Q135]: ../../../docs/planning/awaiting-maintainer-decision.md
+/// ⭐ AND THE LOAD NOW LANDS (2026-10-03). Until then the adopter ran in
+/// top-level `Update`, so once the ledger rewound its write was restored away:
+/// the save held the row from tick 40 on and the ledger held none, in every
+/// pass. A divergence had become a deterministic loss. The restore chain runs
+/// in the simulation now (BODY-BORN-ON-THE-TIMELINE), so the write is part of
+/// the tick that makes it: the ledger holds the row after the load, and every
+/// replay of a tick agrees.
 #[test]
 fn a_mid_session_load_does_not_reach_back_across_the_rewind() {
     use ambition_platformer2d::sim::SimScheduleExt;
@@ -2006,25 +1995,34 @@ fn a_mid_session_load_does_not_reach_back_across_the_rewind() {
          `declare_rollback_derived_*`."
     );
 
-    // ── SUBJECT TWO: and the load's ledger write is LOST, which is the state
-    // this arm now documents rather than the divergence.
-    let ledger_after_the_load: Vec<usize> = by_pass
+    // ── SUBJECT TWO: and the load's ledger write LANDS, and every replay of a
+    // tick agrees about it. Until 2026-10-03 the write was LOST: the adopter ran
+    // in `Update`, and a rewind put the ledger back. It runs in the simulation
+    // now (BODY-BORN-ON-THE-TIMELINE), so the write is part of the tick that
+    // makes it, and that tick's replays make it again.
+    let after_the_load: Vec<(u64, Vec<usize>)> = by_pass
         .1
         .iter()
         .filter(|(tick, _)| **tick >= 40)
-        .flat_map(|(_, passes)| passes.iter().map(|(authored, _)| *authored))
+        .map(|(tick, passes)| (*tick, passes.iter().map(|(authored, _)| *authored).collect()))
         .collect();
     assert!(
-        ledger_after_the_load.iter().all(|rows| *rows == 0),
-        "the ledger now holds rows after the load ({}). If \
-         `adopt_occurrence_checkpoint_from_save` moved inside the rewinding \
-         schedule, or session admission now hydrates before GGRS starts, that is \
-         Q135's lifecycle half LANDING — re-read it and invert this half rather \
-         than editing the number.",
-        ledger_after_the_load
+        after_the_load
             .iter()
-            .filter(|rows| **rows > 0)
-            .count()
+            .any(|(_, rows)| rows.iter().any(|rows| *rows > 0)),
+        "the load's ledger write never landed after tick 40, so the restore \
+         chain is not applying the save from the simulation"
+    );
+    let replays_disagree: Vec<u64> = after_the_load
+        .iter()
+        .filter(|(_, rows)| rows.windows(2).any(|pair| pair[0] != pair[1]))
+        .map(|(tick, _)| *tick)
+        .collect();
+    assert!(
+        replays_disagree.is_empty(),
+        "the passes of ticks {replays_disagree:?} disagree about the ledger after \
+         the load: a replay of the tick that applies the save did not apply it \
+         the same way"
     );
 
     // ── SUBJECT THREE, AND THE WIDEST: NOTHING at all disagrees between two
@@ -3933,31 +3931,24 @@ fn separating_the_gate_from_the_derivation_shape() {
 }
 
 /// ⭐ THE SHIPPED LOAD UNDER A ROLLBACK HOST, WITH BOTH HALVES OF THE DURABLE
-/// HORIZON SEEDED.
+/// HORIZON SEEDED, APPLIED BY THE SIMULATION ON A LIVE TIMELINE.
 ///
-/// A save file is read once, at `Startup`, and each session hydrates it before
-/// its timeline may start (the Q135 gate in `maintain_local_session`). So the
-/// hydration chain's `Update` writes to the hashed `OccurrenceBaseline` and
-/// `CustodyBaseline` must land before frame zero, where no rewind can compare
-/// them. The mid-session probe above drives a road production does not have
-/// (it lowers the latch on a live timeline); this is the road it does have.
+/// A save file is read once, at `Startup`. The simulation applies it
+/// (`DurableRestoreSet`, in the sim schedule) from rollback state, so the
+/// writes to the hashed `OccurrenceBaseline` and `CustodyBaseline` are an
+/// ordinary step: a rewind past it applies the file again on the same tick.
+/// This is BODY-BORN-ON-THE-TIMELINE's acceptance: a non-empty save crosses
+/// the rise on a live sync-test timeline and every frame stays healthy.
 ///
 /// The seeded rows are what make it a measurement: an empty horizon hydrates to
 /// the value the baselines already hold, so nothing would move either way.
 ///
-/// ⚠ IT ASSERTS THE ORDER, NOT `RollbackRestoreAudit`. Enabled before the
-/// timeline exists, the audit files all of world construction as "written
-/// outside the rewinding schedule" (measured: about a hundred types), so it
-/// cannot answer this. The contract the gate states is an order: no frame has a
-/// live GGRS session over an unrestored save.
-///
-/// ⚠ THIS WITNESSES THE ORDER; IT DOES NOT GUARD THE GATE. With the Q135 gate
-/// poisoned (the pending check skipped) this stays green: in this composition
-/// the chain completes before the maintainer's first chance to start a session,
-/// which Q135 measured is decided by `Update` membership. The gate's guard is
-/// `a_conversation_on_the_first_tick_of_a_session_is_counted_exactly_once`.
+/// ⚠ THE PREMISE IS THAT THE RISE IS ON THE TIMELINE: frames with a live
+/// session and an unapplied save must exist. Before 2026-10-03 this test
+/// asserted the opposite (no such frame), because the restore ran in `Update`
+/// and a `Q135` gate held the session back until it had run.
 #[test]
-fn a_startup_load_hydrates_both_baselines_before_the_timeline_starts() {
+fn a_startup_load_is_applied_on_the_timeline_and_resimulates_identically() {
     use ambition_platformer2d::persistence::save_data::{
         PersistedCustody, PersistedOccurrence, PersistedWhereabouts,
     };
@@ -4014,11 +4005,10 @@ fn a_startup_load_hydrates_both_baselines_before_the_timeline_starts() {
     );
     let order = sim.world().resource::<LiveBeforeRestored>();
     assert!(order.live > 0, "the GGRS session was never live, so no order was observed");
-    assert_eq!(
-        order.unrestored, 0,
-        "a GGRS session was live on {} frame(s) before the save was restored: the \
-         hydration chain's hashed baseline writes landed on a timeline",
-        order.unrestored
+    assert!(
+        order.unrestored > 0,
+        "the save was applied before the session went live, so the rise never \
+         crossed the timeline and the health checks above say nothing about it"
     );
 }
 

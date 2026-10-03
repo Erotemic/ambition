@@ -13,11 +13,6 @@ fn build_rollback_demo_app() -> App {
     let mut app = App::new();
     ambition_platformer2d::engine::add_headless_foundation(&mut app);
     app.add_plugins(ambition_platformer2d::rollback::RollbackEnginePlugin);
-    // This body is born only once GGRS runs the simulation, so the save is
-    // applied over the live timeline. That is owed (`BODY-BORN-ON-THE-TIMELINE`
-    // in the queue). With this declaration the session counts each application
-    // instead of refusing it, and the fixture asserts the count.
-    app.init_resource::<ambition_platformer2d::rollback::TheBodyIsBornOnTheTimeline>();
     app.add_plugins(ambition_platformer2d::windowed_host::PlatformerHostPlugins);
     app.add_plugins(ambition_platformer2d::game_shell::MinimalShellPlugins);
     app.insert_resource(
@@ -98,13 +93,6 @@ fn start_gameplay_under_sync_test(app: &mut App) {
     assert!(
         owner_exists,
         "the act-state owner never spawned once GGRS started driving the sim"
-    );
-    assert_eq!(
-        app.world()
-            .resource::<ambition_platformer2d::rollback::TheBodyIsBornOnTheTimeline>()
-            .restores_over_a_live_timeline,
-        1,
-        "the declared road: the save is applied once, over the live timeline"
     );
 }
 
@@ -214,71 +202,65 @@ fn a_spin_dash_rolls_checksum_identical_under_resimulation() {
         .expect("a roll resimulates checksum-identical");
 }
 
-/// How many times `Update` applies the save over 60 frames of a sync-test
-/// session that rolls back 4 frames on every frame. `lower_at` lowers the latch
-/// once, in `Update` after the GGRS step, as a reload would. A write before the
-/// GGRS step is no test: the step loads a snapshot and puts the latch back.
-/// Counts each frame on which `SaveRestored` was down before the restore chain
-/// and up after it, whatever the frame began with.
-fn applications_of_the_save(lower_at: Option<u32>) -> u32 {
+/// Where the save is applied over 60 frames of a sync-test session that rolls
+/// back 4 frames on every frame: `(in the GGRS step, in Update)`.
+///
+/// `SaveRestored` is read at `First`, at the head of `Update` and at `Last`.
+/// GGRS steps the simulation in `PreUpdate`, so a rise between `First` and
+/// `Update` is the simulation's, and a rise between `Update` and `Last` is
+/// `Update`'s. The `Update` reader runs before `DurableRestoreSet`, so a chain
+/// moved back into `Update` is seen there.
+fn where_the_save_is_applied() -> (u32, u32) {
     use ambition_platformer2d::actors::session::durable_horizon::{
         DurableRestoreSet, SaveRestored,
     };
     #[derive(Resource, Default)]
     struct Seen {
-        frame: u32,
-        lower_at: Option<u32>,
-        before: bool,
-        rises: u32,
+        at_first: bool,
+        at_update: bool,
+        in_the_step: u32,
+        in_update: u32,
     }
     let mut app = build_rollback_demo_app();
-    app.insert_resource(Seen::default());
+    app.init_resource::<Seen>();
     app.add_systems(
-        Update,
-        (|mut restored: ResMut<SaveRestored>, mut seen: ResMut<Seen>| {
-            seen.frame += 1;
-            if seen.lower_at == Some(seen.frame) {
-                restored.0 = false;
-            }
-            seen.before = restored.0;
-        })
-        .before(DurableRestoreSet::Lifecycle),
+        First,
+        |restored: Res<SaveRestored>, mut seen: ResMut<Seen>| seen.at_first = restored.0,
     );
     app.add_systems(
         Update,
         (|restored: Res<SaveRestored>, mut seen: ResMut<Seen>| {
-            if !seen.before && restored.0 {
-                seen.rises += 1;
+            seen.at_update = restored.0;
+            if !seen.at_first && restored.0 {
+                seen.in_the_step += 1;
             }
         })
-        .after(DurableRestoreSet::Complete),
+        .before(DurableRestoreSet::Lifecycle),
+    );
+    app.add_systems(
+        Last,
+        |restored: Res<SaveRestored>, mut seen: ResMut<Seen>| {
+            if !seen.at_update && restored.0 {
+                seen.in_update += 1;
+            }
+        },
     );
     start_gameplay_under_sync_test(&mut app);
-    let started = app.world().resource::<Seen>().frame;
-    app.world_mut().resource_mut::<Seen>().lower_at = lower_at.map(|at| started + at);
     for _ in 0..60 {
         app.update();
     }
-    app.world().resource::<Seen>().rises
+    ambition_platformer2d::rollback::session_health(app.world())
+        .expect("the run stays checksum-identical across the save's application");
+    let seen = app.world().resource::<Seen>();
+    (seen.in_the_step, seen.in_update)
 }
 
-/// The save is applied once in this composition, though `SaveRestored` is
-/// rollback state and the restore chain runs in `Update`. A rewind to a
-/// snapshot from before the rise would put the latch down and let the chain run
-/// again. Traced 2026-10-03: the rise is on the first live frame, and no later
-/// GGRS step puts the latch back down. The probable reason is that only the
-/// frame-0 snapshot holds it down and this sync test does not load frame 0;
-/// that is inferred, not read in GGRS. A body born later on the timeline is not
-/// covered by this result. The declared count cannot see a second rise, because such a frame
-/// begins with the latch up.
+/// The save is applied by the simulation, once, and never by `Update`. This
+/// body is born only once GGRS runs the simulation, so the save is applied on
+/// the timeline; the restore chain runs in the simulation schedule, from
+/// rollback state, so a rewind past it applies it again on the same tick and the
+/// sync test stays healthy (BODY-BORN-ON-THE-TIMELINE).
 #[test]
-fn the_save_is_applied_once_on_the_first_live_frame() {
-    assert_eq!(applications_of_the_save(None), 1);
-}
-
-/// The control: the instrument sees a second application when the latch is
-/// lowered once after the GGRS step.
-#[test]
-fn a_lowered_latch_is_seen_as_a_second_application() {
-    assert_eq!(applications_of_the_save(Some(30)), 2);
+fn the_save_is_applied_by_the_simulation() {
+    assert_eq!(where_the_save_is_applied(), (1, 0));
 }

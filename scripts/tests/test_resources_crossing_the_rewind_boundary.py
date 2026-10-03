@@ -5,13 +5,14 @@ inside it:
 
     VersusMatch              `track_versus_roster` writes the opening from `Update`
                              (filed under MENU-RESET-MIDSESSION, `Q140`)
-    OwnedItems               `restore_inventory_from_save` loads the bag from `Update`
-                             before any timeline exists
 
-Three measured defects left this list because the code changed:
-`CutsceneAdvanceRequest` (the dismiss rides the seat's `ControlFrame`), and
+Four measured defects left this list because the code changed:
+`CutsceneAdvanceRequest` (the dismiss rides the seat's `ControlFrame`),
 `NewGameResetRequested` and the menu's `OwnedItems` writes (the menu writes
-host intents that the simulation applies on a stamped tick).
+host intents that the simulation applies on a stamped tick), and the save
+restore's `OwnedItems` write (`restore_inventory_from_save` runs in the
+simulation schedule since 2026-10-03, BODY-BORN-ON-THE-TIMELINE; it was the
+last `Update` writer, so the census no longer sees the type at all).
 
 ⛔ THESE ARE THIS CENSUS'S KNOWN ANSWERS, and they are the only defence
 against the failure mode a sweep like this actually has: reporting FEWER rows
@@ -44,7 +45,6 @@ SCRIPT = REPO / "scripts/resources_crossing_the_rewind_boundary.py"
 # vanished.
 MEASURED_DEFECTS = {
     "VersusMatch": "track_versus_roster",
-    "OwnedItems": "restore_inventory_from_save",
 }
 
 

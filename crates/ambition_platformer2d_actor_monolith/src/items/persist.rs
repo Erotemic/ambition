@@ -46,7 +46,7 @@ pub fn install_item_durable_horizon(app: &mut App) {
             .in_set(DurableHorizonSet::DomainMirror),
     );
     app.add_systems(
-        Update,
+        sim,
         restore_inventory_from_save.in_set(DurableRestoreSet::Domains),
     );
 }

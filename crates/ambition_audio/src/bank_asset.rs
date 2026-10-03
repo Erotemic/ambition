@@ -487,6 +487,7 @@ pub fn audio_play_sfx_messages(
     audio_catalogs: Option<Res<crate::catalog::AudioCatalogRegistry>>,
     mut first_play_logged: Local<bool>,
 ) {
+    playback.played_this_pass.clear();
     for owned in messages.read() {
         let request = owned.request;
         if !*first_play_logged {
@@ -574,13 +575,15 @@ pub fn audio_play_sfx_messages(
             sfx_channel.play(resolved.handle);
         }
         playback.accepted_playbacks = playback.accepted_playbacks.saturating_add(1);
-        playback.last_played = Some(SfxPlaybackRecord {
+        let record = SfxPlaybackRecord {
             owner,
             presentation_source: source.clone(),
             provider_id: provider_id.to_owned(),
             id,
             source: resolved.source,
-        });
+        };
+        playback.played_this_pass.push(record.clone());
+        playback.last_played = Some(record);
     }
 }
 

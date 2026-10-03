@@ -318,6 +318,13 @@ pub struct SfxPlaybackRecord {
 #[derive(Resource, Default, Clone, Debug)]
 pub struct SfxPlaybackState {
     pub last_played: Option<SfxPlaybackRecord>,
+    /// Every record the playback system accepted on its latest run, in order.
+    ///
+    /// `last_played` holds one record, and a live session plays its own cues:
+    /// a gameplay cue accepted after a request in the same run hides it there.
+    /// This keeps all of them, so a caller can find the record of its own
+    /// request. Cleared at the start of each run.
+    pub played_this_pass: Vec<SfxPlaybackRecord>,
     /// Number of requests accepted by the real playback decision path.
     ///
     /// Unlike `last_played`, not cleared on an audio-context transition, so a

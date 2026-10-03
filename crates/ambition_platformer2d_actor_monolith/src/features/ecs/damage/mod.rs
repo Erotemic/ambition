@@ -125,17 +125,12 @@ pub struct FeatureHitWriters<'w, 's> {
     /// (actor, boss, breakable) already take `writers`, and a coin, a heart and
     /// an ability pickup each have to state their parent's identity or no render
     /// family will claim them — see `damage_drops::dynamic_drop_origin`.
-    ///
-    /// With the live room the body is in: what falls out of a death lands in
-    /// the dead body's room (see [`Self::spawn_scope_from`]).
-    pub identities: Query<
-        'w,
-        's,
-        (
-            &'static ambition_platformer2d_shared_tangle::sim_id::SimId,
-            Option<&'static ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
-        ),
-    >,
+    pub identities: Query<'w, 's, &'static ambition_platformer2d_shared_tangle::sim_id::SimId>,
+    /// The live room each body is in, by its stamp: what falls out of a death
+    /// lands in the dead body's room (see [`Self::spawn_scope_from`]). Read
+    /// apart from `identities`, because a body's room does not depend on
+    /// whether it has an identity.
+    pub live_rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms<'w, 's>,
     /// Which character a struck body IS right now, by entity — the gameplay
     /// identity a bark speaks in, which a runtime re-wear changes.
     pub worn: Query<'w, 's, &'static ambition_characters::actor::WornCharacter>,
@@ -171,7 +166,7 @@ impl FeatureHitWriters<'_, '_> {
         &self,
         entity: bevy::prelude::Entity,
     ) -> Option<ambition_platformer2d_shared_tangle::sim_id::SimId> {
-        self.identities.get(entity).ok().map(|(id, _)| id.clone())
+        self.identities.get(entity).ok().cloned()
     }
 
     /// The spawn scope for work that falls out of `source` (loot, a blast, a
@@ -182,12 +177,7 @@ impl FeatureHitWriters<'_, '_> {
         &self,
         source: bevy::prelude::Entity,
     ) -> ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope {
-        let room = self
-            .identities
-            .get(source)
-            .ok()
-            .and_then(|(_, room)| room.map(|room| room.0));
-        self.session_spawn_scope().in_room(room)
+        self.session_spawn_scope().in_room(self.live_rooms.of(source))
     }
 }
 
@@ -848,7 +838,7 @@ pub fn apply_feature_hit_events(
                 // same answer or the bubble flickers on a rewind.
                 bark_draw.allows(
                     &resolved_rules,
-                    writers.identities.get(actor_entity).ok().map(|(id, _)| id),
+                    writers.identities.get(actor_entity).ok(),
                 ),
                 &mut writers,
             ) {

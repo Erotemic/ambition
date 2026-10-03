@@ -199,6 +199,12 @@ fn boss_ron_target_strips_the_sheet_suffix() {
         boss_ron_target("sprites/gnu_ton_boss/gnu_ton_rider_spritesheet.png"),
         Some("gnu_ton_rider")
     );
+    // A part sheet is its own record. No Rust rule folds a `_body` or `_hands`
+    // file into another sheet's record.
+    assert_eq!(
+        boss_ron_target("sprites/gnu_ton_boss/gnu_ton_boss_body_spritesheet.png"),
+        Some("gnu_ton_boss_body")
+    );
 }
 
 #[test]

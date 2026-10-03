@@ -366,19 +366,14 @@ pub fn load_boss_sprite_in(
 
 /// Derive the published sheet's RON record key (its file root) from the resolved
 /// PNG asset path, e.g. `sprites/flying_spaghetti_monster_boss_spritesheet.png`
-/// → `flying_spaghetti_monster_boss`, or `sprites/gnu_ton_boss/...png` →
-/// `gnu_ton_boss`. This is the key [`record_for_sheet_key`]
-/// indexes baked sheets by.
+/// → `flying_spaghetti_monster_boss`, or
+/// `sprites/gnu_ton_boss/giant_gnu_spritesheet.png` → `giant_gnu`. This is the
+/// key [`record_for_sheet_key`] indexes baked sheets by.
+///
+/// The key is the file stem and nothing else. Each sheet resolves to its own
+/// record; no Rust rule maps two files to one record.
 pub fn boss_ron_target(path: &str) -> Option<&str> {
-    let stem = path.rsplit('/').next()?.strip_suffix("_spritesheet.png")?;
-    // GNU-ton's body and hands textures share one packed atlas layout. Both
-    // filenames resolve to the `gnu_ton_boss` record, so both use the same flat
-    // index and trim.
-    Some(
-        stem.strip_suffix("_body")
-            .or_else(|| stem.strip_suffix("_hands"))
-            .unwrap_or(stem),
-    )
+    path.rsplit('/').next()?.strip_suffix("_spritesheet.png")
 }
 
 /// The baked record key for a resolved boss PNG path, carrying the quality

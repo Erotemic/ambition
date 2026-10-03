@@ -62,13 +62,19 @@ rows that differ between hosts: `SimTick` (`Q128`) and `AmbitionGameSave`
 
 **Open roads:**
 
-1. **The snapshot schema fingerprint hashes prose.** `compute_schema_fingerprint`
-   hashes all of `schema_dump()`, including each row's prose `detail`. Ruled
-   2026-09-19 (`Q122`): mechanical identity fingerprints mechanical facts, not
-   explanatory prose. Next: split each row's `detail` into the mechanical facts
-   the fingerprint hashes and the explanation it does not. ⛔ Do not just drop
-   `detail`. Most rows carry facts that `kind` does not encode (entity, set or
-   map remapping; the canonical checksum style; custom-checksum descriptions).
+1. ✅ **CLOSED 2026-10-03: the snapshot schema fingerprint hashes mechanical
+   facts, not prose** (`Q122`, schema v303). `compute_schema_fingerprint`
+   hashes `RollbackRegistry::mechanical_dump()`: each peer-schema row's name,
+   kind, wire type and mechanism token. A token names the road within the kind
+   (entity, set or map remapping; the canonical checksum style; probed or
+   unhashed). It is declared with the road's sentence in
+   `rollback_kind::spelling` and recorded in
+   `the_mechanism_tokens_are_recorded`. The prose stays in `schema_dump()` and
+   both baselines. A custom-checksum description, a derived row's reason and the
+   dynamic anchor's note (87 rows) map to the token `described`. Those 87 rows
+   describe the projection code, and the schema version answers for that code,
+   not the words. Witness: `rewording_a_row_leaves_the_fingerprint_alone`.
+   Control: `a_row_on_another_mechanism_moves_the_fingerprint`.
 2. **The canonical timeline.** `SimTick` is an absolute per-App counter and is
    registered `resource-canonical`, so two Apps that ran for different times
    disagree from the first compared frame. It needs a session-relative tick,

@@ -28,11 +28,17 @@ fn the_rollback_schema_matches_its_recorded_baseline() {
     // causal recorder channels carry no snapshot bytes, so compiling the
     // instrument must not change the state-schema baseline. But a decision
     // stated in a test is a decision the authority does not make:
-    // `compute_schema_fingerprint` hashes `schema_dump()` whole, so the
-    // instrument moved the peer identity while this filter kept the lane green
-    // in BOTH configurations — which is precisely what made it invisible.
-    // The rule now lives at the kind (`MessageClearInstrument`), `schema_dump`
-    // excludes it, and this comparison needs no exception.
+    // the fingerprint hashed `schema_dump()` whole, so the instrument moved
+    // the peer identity while this filter kept the lane green in BOTH
+    // configurations — which is precisely what made it invisible. The rule
+    // now lives at the kind (`MessageClearInstrument`), `schema_dump` excludes
+    // it, and this comparison needs no exception.
+    //
+    // The fingerprint now hashes `mechanical_dump()`: these rows, filtered the
+    // same way, with each row's mechanism token in place of its prose (`Q122`).
+    // The tokens are recorded in `rollback_kind`'s
+    // `the_mechanism_tokens_are_recorded`, so this baseline and that list
+    // together fix the fingerprint's input.
 
     if dump.trim() != BASELINE.trim() {
         let recorded: Vec<&str> = BASELINE.trim().lines().collect();

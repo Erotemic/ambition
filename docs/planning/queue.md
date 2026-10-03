@@ -651,28 +651,29 @@ One reads the desync and now stops at the refusal
 (`a_flag_requested_after_its_consumer_desyncs_the_timeline`). Two were
 measuring over a session that diverged at frame 2; see SAVE-DIVERGES-AFTER-RELEASE.
 
-### SAVE-DIVERGES-AFTER-RELEASE — a pickup and release in `blink_run` desyncs the sync test on the save
+### SAVE-DIVERGES-AFTER-RELEASE — a pickup and release in `blink_run` desyncs the sync test on the save — ✅ DONE 2026-10-02
 
 **Owner:** rollback determinism, with the item custody road.
 
 **Failure (measured 2026-10-02):** in
-`does_a_presence_probed_row_move_when_its_value_does`, the sync-test session
-is healthy after setup (tick 3). After the authored ground item is picked up
-and released (`release_the_authored_object`), `RollbackRestoreAudit` records one
-divergence: `AmbitionGameSave` at frame 2. The audit then compared only once more
-in the whole window. The two ground-item arms of that file passed on that one
-comparison. They are `#[ignore]`d until this row closes, because their subject
-needs a healthy session.
+`does_a_presence_probed_row_move_when_its_value_does`, after the authored ground
+item is picked up and released, the sync test diverged on `AmbitionGameSave` at
+frame 2. A value probe per save field named the field: `custody`, and no other.
 
-**Ruled out:** a missing rebase after `strengthen_and_audit` (adding one changes
-nothing; `teleport_player` already rebases), and a change-detection gate in
-`persist_inventory_to_save` or `persist_minted_item_horizon_to_save` (neither has
-one).
+**Cause:** the save's custody rows are read from `InCustodyOf`, which is derived
+rollback state. A load does not restore it; `project_custody_onto_residency`
+inserts it again through `Commands` each tick. `DurableHorizonSet` had no edge to
+the item residency chain, so the mirror could run before that projection and
+read the value the latest forward frame left, not the value of the frame being
+resimulated.
 
-**Next action:** find the save field that differs at frame 2 (compare the saved
-and restored `AmbitionGameSave` there), and its writer.
+**Done:** `DurableHorizonSet` runs after `ResidencyStep::Project`, which also
+flushes the projection's commands. The two arms run un-ignored over a healthy
+session. Poison: without the edge, both are refused at tick 7 with the original
+mismatch at frame 2.
 
-**Acceptance:** the two arms run un-ignored over a healthy session.
+**Not checked:** other readers of `InCustodyOf` that run before the projection in
+the same tick read the same stale value after a load.
 
 ### DURABLE-HORIZON-CHECKSUM — the save mirrors write hashed state from `Update`
 

@@ -371,9 +371,19 @@ pub fn install_durable_save_horizon(app: &mut App) {
     // it needs beyond theirs: it fires on the tick a conversation OPENED, so
     // running before the opening would mean the edge is gone by the next tick and
     // the visit is never counted at all.
+    //
+    // ⛔ AND AFTER THE ITEM RESIDENCY CHAIN. The custody rows are read from
+    // `InCustodyOf`, which is derived: a rollback load does not restore it, and
+    // `project_custody_onto_residency` inserts it again through `Commands` each
+    // tick. A mirror that ran before that projection read the value the latest
+    // forward frame left, not the value of the frame being resimulated, and the
+    // sync test saw the save's custody rows diverge after a release
+    // (SAVE-DIVERGES-AFTER-RELEASE). The edge also brings the command flush.
     app.configure_sets(
         sim,
-        (DurableHorizonSet::DomainMirror, DurableHorizonSet::SessionMirror).chain(),
+        (DurableHorizonSet::DomainMirror, DurableHorizonSet::SessionMirror)
+            .chain()
+            .after(ambition_platformer2d_shared_tangle::schedule::ResidencyStep::Project),
     );
     app.add_systems(
         sim,

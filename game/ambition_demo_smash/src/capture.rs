@@ -291,6 +291,132 @@ use ambition_platformer2d::engine_core as ae;
         );
     }
 
+    /// Three forward throws through the production chain, in one world with
+    /// `rules`. Returns the damage each throw dealt, the victim's launch speed
+    /// after each throw, and the captor's stale count for the throw at the end.
+    ///
+    /// The victim is put back before each grab: same place, still, no hitstun,
+    /// and a fresh meter, so each throw starts from the same state and only
+    /// the captor's stale queue differs between throws.
+    fn three_forward_throws(
+        rules: ambition_platformer2d::combat::rules::ResolvedCombatTuning,
+    ) -> (Vec<i32>, Vec<f32>, u32) {
+        let mut app = chain_app();
+        app.insert_resource(rules);
+        let (captor, victim) = stage(&mut app);
+        let (mut dealt, mut launched) = (Vec::new(), Vec::new());
+        for _ in 0..3 {
+            app.world_mut().entity_mut(victim).insert((
+                // Staged as `stage` spawns it: same place, still.
+                ambition_platformer2d::engine_core::BodyKinematics {
+                    pos: ambition_platformer2d::engine_core::Vec2::new(20.0, 0.0),
+                    facing: 1.0,
+                    size: ambition_platformer2d::engine_core::Vec2::new(16.0, 24.0),
+                    ..Default::default()
+                },
+                ambition_platformer2d::characters::actor::BodyCombat::default(),
+                ambition_platformer2d::characters::actor::BodyHealth::new(
+                    ambition_platformer2d::characters::actor::Health {
+                        current: 100,
+                        max: 100,
+                        invulnerable: Default::default(),
+                    },
+                ),
+                ambition_platformer2d::engine_core::BodyFlightState::default(),
+                ambition_platformer2d::engine_core::BodyGroundState {
+                    head_contact: false,
+                    on_ground: true,
+                    contact_initialized: true,
+                },
+            ));
+            press(&mut app, captor, |f| f.grab_pressed = true);
+            run_until(&mut app, captor, "the grab catches the victim", |app| {
+                app.world().get::<CapturedBy>(victim).is_some()
+            });
+            run_until(&mut app, captor, "the grab move finishes", |app| {
+                app.world().get::<MovePlayback>(captor).is_none()
+            });
+            press(&mut app, captor, |f| {
+                f.melee_pressed = true;
+                f.attack_axis = ambition_platformer2d::engine_core::LocalAxes::X;
+            });
+            run_until(&mut app, captor, "the throw's release frame", |app| {
+                app.world().get::<CapturedBy>(victim).is_none()
+            });
+            dealt.push(
+                app.world()
+                    .get::<ambition_platformer2d::characters::actor::BodyHealth>(victim)
+                    .unwrap()
+                    .damage_taken(),
+            );
+            launched.push(
+                app.world()
+                    .get::<ambition_platformer2d::engine_core::BodyKinematics>(victim)
+                    .unwrap()
+                    .vel
+                    .length(),
+            );
+            run_until(&mut app, captor, "the throw move finishes", |app| {
+                app.world().get::<MovePlayback>(captor).is_none()
+            });
+        }
+        let recorded = app
+            .world()
+            .get::<ambition_platformer2d::combat::stale::BodyStaleMoves>(captor)
+            .expect("a body with a moveset carries a stale queue")
+            .occurrences(ambition_platformer2d::combat::stale::stale_move_hash("george_fthrow"));
+        (dealt, launched, recorded)
+    }
+
+    /// A REPEATED THROW STALES, AS A REPEATED LANDING DOES (THROW-MODIFIERS).
+    ///
+    /// Q133: for the Smash-like game, follow Smash. A throw is a move, so each
+    /// use of it goes in the thrower's stale queue, and a stale throw deals less
+    /// damage and loses part of its percent term. The queue fills ONLY through
+    /// the chain here: three real grab-and-throw sequences on George's table.
+    ///
+    /// The neutral arm is the same three throws in a ruleset that declares no
+    /// staling. Each of its throws deals the authored 11. The queue still
+    /// records the three uses, because recording is not policy.
+    #[test]
+    fn a_repeated_throw_stales_and_a_neutral_ruleset_leaves_it_whole() {
+        use ambition_platformer2d::combat::rules::ResolvedCombatTuning;
+        let (stale_dealt, stale_launch, stale_recorded) = three_forward_throws(ResolvedCombatTuning {
+            stale_step: 0.1,
+            stale_floor: 0.5,
+            stale_knockback_influence: 1.0,
+            ..Default::default()
+        });
+        let (neutral_dealt, neutral_launch, neutral_recorded) =
+            three_forward_throws(ResolvedCombatTuning::default());
+
+        assert_eq!(
+            (stale_recorded, neutral_recorded),
+            (3, 3),
+            "the throw road did not record each throw as a use of the throw move"
+        );
+        assert_eq!(
+            neutral_dealt,
+            vec![11, 11, 11],
+            "a ruleset with no staling changed a throw's damage"
+        );
+        // 11, then 11 x 0.9 = 9.9 -> 10, then 11 x 0.8 = 8.8 -> 9.
+        assert_eq!(
+            stale_dealt,
+            vec![11, 10, 9],
+            "a repeated throw did not stale its damage"
+        );
+        assert_eq!(
+            stale_launch[0], neutral_launch[0],
+            "a fresh throw launched differently in the two rulesets"
+        );
+        assert!(
+            stale_launch[2] < neutral_launch[2],
+            "a stale throw launched as far as a fresh one: stale {stale_launch:?}, \
+             neutral {neutral_launch:?}"
+        );
+    }
+
     /// The adapter arm itself. Other carry guards start from a
     /// `CaptureCarryRequested`, so a typo'd key would leave the feature dead
     /// with a green suite.

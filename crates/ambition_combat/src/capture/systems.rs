@@ -2050,6 +2050,7 @@ mod tests {
             knockback: 100.0,
             knockback_growth: growth,
             launch_dir: ae::Vec2::new(1.0, -1.0),
+            move_instance: None,
         }
     }
 
@@ -2196,6 +2197,111 @@ mod tests {
             "the ruleset's percent scale never reached the throw path: flat \
              {flat_when_hurt}, steep {steep_when_hurt}"
         );
+    }
+
+    /// Three throws through `apply_capture_throws`, each one a new use of one
+    /// throw move (`MovePlayback::instance` 1, 2, 3). The victim is held again
+    /// before each throw, still and with a fresh meter, so only the captor's
+    /// stale queue differs between throws. `claims` says whether each request
+    /// names the playing use. Returns the damage each throw dealt, the launch
+    /// speed after each, and the queue's count for the move at the end.
+    fn three_throws_of_one_move(
+        rules: crate::rules::ResolvedCombatTuning,
+        growth: f32,
+        claims: bool,
+    ) -> (Vec<i32>, Vec<f32>, u32) {
+        let (mut app, captor, victim) = throw_app();
+        app.insert_resource(rules);
+        let mut spec = ambition_characters::moveset_prefabs::simple_melee(&Default::default());
+        spec.id = "throw".to_string();
+        let spec = std::sync::Arc::new(spec);
+        app.world_mut()
+            .entity_mut(captor)
+            .insert(crate::stale::BodyStaleMoves::default());
+        let (mut dealt, mut launched) = (Vec::new(), Vec::new());
+        for instance in 1..=3u32 {
+            let mut playback = crate::moveset::MovePlayback::new(spec.clone(), 1.0);
+            playback.instance = instance;
+            app.world_mut().entity_mut(captor).insert(playback);
+            let mut entity = app.world_mut().entity_mut(victim);
+            entity.insert((
+                CapturedBy {
+                    captor,
+                    hold_offset_local: ae::Vec2::new(16.0, 0.0),
+                },
+                fresh_hold(),
+                ambition_characters::actor::BodyCombat::default(),
+                ae::BodyFlightState::default(),
+                ambition_characters::actor::BodyHealth::new(ambition_characters::actor::Health {
+                    current: 100,
+                    max: 100,
+                    invulnerable: Default::default(),
+                }),
+            ));
+            entity.get_mut::<ae::BodyKinematics>().unwrap().vel = ae::Vec2::ZERO;
+            app.world_mut()
+                .write_message(crate::capture::CaptureThrowRequested {
+                    move_instance: claims.then_some(instance),
+                    ..throw(captor, growth)
+                });
+            app.update();
+            dealt.push(
+                app.world()
+                    .get::<ambition_characters::actor::BodyHealth>(victim)
+                    .unwrap()
+                    .damage_taken(),
+            );
+            launched.push(app.world().get::<ae::BodyKinematics>(victim).unwrap().vel.length());
+        }
+        let recorded = app
+            .world()
+            .get::<crate::stale::BodyStaleMoves>(captor)
+            .unwrap()
+            .occurrences(crate::stale::stale_move_hash("throw"));
+        (dealt, launched, recorded)
+    }
+
+    fn staling() -> crate::rules::ResolvedCombatTuning {
+        crate::rules::ResolvedCombatTuning {
+            stale_step: 0.1,
+            stale_floor: 0.5,
+            stale_knockback_influence: 1.0,
+            ..Default::default()
+        }
+    }
+
+    /// A SET THROW STALES ITS DAMAGE AND NOT ITS LAUNCH.
+    ///
+    /// Q133: set knockback keeps set-knockback semantics. Staling reaches a
+    /// launch only through the percent term, and a set throw (growth `0.0`)
+    /// has none. Its damage still stales: 9, then 9 x 0.9 = 8.1 -> 8, then
+    /// 9 x 0.8 = 7.2 -> 7.
+    #[test]
+    fn a_set_throw_stales_its_damage_and_not_its_launch() {
+        let (stale_dealt, stale_launch, recorded) = three_throws_of_one_move(staling(), 0.0, true);
+        let (neutral_dealt, neutral_launch, _) =
+            three_throws_of_one_move(Default::default(), 0.0, true);
+        assert_eq!(recorded, 3, "the throw road did not record each use");
+        assert_eq!(neutral_dealt, vec![9, 9, 9]);
+        assert_eq!(stale_dealt, vec![9, 8, 7], "a repeated set throw did not stale its damage");
+        assert!(neutral_launch[0] > 0.0, "the fixture threw nobody");
+        assert_eq!(
+            stale_launch, neutral_launch,
+            "staling moved a SET throw's launch, which no percent term can reach"
+        );
+    }
+
+    /// A THROW THAT NO PLAYING USE CLAIMS IS NOT STALED AND NOT RECORDED.
+    ///
+    /// The control for the claim. A request without a `move_instance` (a throw
+    /// no move authored) must not be charged to the move that happens to be
+    /// playing: that re-read is the defect `ActorActionMessage::move_instance`
+    /// exists to prevent.
+    #[test]
+    fn a_throw_that_no_playing_use_claims_is_not_staled_or_recorded() {
+        let (dealt, _, recorded) = three_throws_of_one_move(staling(), 4.0, false);
+        assert_eq!(recorded, 0, "an unclaimed throw was recorded against the playing move");
+        assert_eq!(dealt, vec![9, 9, 9], "an unclaimed throw was staled");
     }
 
     /// A HURT CAPTOR THROWS FARTHER, AND A SET THROW IS IMMUNE TO IT.
@@ -2703,10 +2809,15 @@ pub fn apply_capture_throws(
     // game whose attacker is not reachable from a hitbox entity, so the health
     // it rages from has to be queried beside the facing it throws along.
     // Optional because a composition can throw without a health pool.
-    captors: Query<
+    //
+    // The captor's playing move and its stale queue, for STALING: the throw
+    // stales the throw move, as a landing stales the move that landed.
+    mut captors: Query<
         (
             &ae::BodyKinematics,
             Option<&ambition_characters::actor::BodyHealth>,
+            Option<&mut crate::moveset::MovePlayback>,
+            Option<&mut crate::stale::BodyStaleMoves>,
         ),
         Without<CapturedBy>,
     >,
@@ -2764,13 +2875,36 @@ pub fn apply_capture_throws(
         else {
             continue;
         };
-        let Ok((captor_kin, captor_health)) = captors.get(request.captor) else {
+        let Ok((captor_kin, captor_health, playback, queue)) = captors.get_mut(request.captor) else {
             continue;
         };
+        let captor_kin = *captor_kin;
+        let captor_damage_taken = captor_health.map(|h| h.damage_taken()).unwrap_or(0);
+
+        // 0. STALING. The throw is a use of the move that asked for it, so it
+        //    reads and records that move's stale count, by the same law and on
+        //    the same edge as a landing on the hitbox road. The playback must
+        //    still be the use that asked (`move_instance`); a throw that no
+        //    move authored, or whose move has ended, stales nothing.
+        let mut stale = 1.0;
+        if let (Some(mut pb), Some(instance)) = (playback, request.move_instance) {
+            if pb.instance == instance {
+                let hash = crate::stale::stale_move_hash(&pb.spec.id);
+                if let Some(mut queue) = queue {
+                    stale = rules.stale_scale(queue.occurrences(hash));
+                    if !pb.landed_hit {
+                        queue.record(hash);
+                    }
+                }
+                // A throw that executes is a use that connected.
+                pb.landed_hit = true;
+            }
+        }
+        let damage = crate::hitbox::staled_damage(request.damage, stale);
 
         // 1. Damage first: the meter this throw adds counts toward its own
         //    launch, which is what makes a throw at high percent a kill move.
-        health.damage(request.damage);
+        health.damage(damage);
 
         // 2. The hold ends. Through the ONE release, so gravity and the control
         //    projection come back with it.
@@ -2815,12 +2949,14 @@ pub fn apply_capture_throws(
             ambition_entity_catalog::launch::LaunchConditions {
                 victim_damage: health.damage_taken(),
                 victim_weight: weight,
-                growth_scale: percent_scale,
+                // A stale throw keeps its base and loses part of its percent
+                // term, as a stale landing does on the hitbox road.
+                growth_scale: percent_scale * rules.knockback_stale_scale(stale),
                 growth_base: ambition_entity_catalog::launch::GrowthBaseCurve::IDENTITY,
                 // Unreachable for the same reason: the fallback only applies
                 // to an authoring that declines to state a growth.
                 ruleset_growth: 0.0,
-                rage: rules.rage_scale(captor_health.map(|h| h.damage_taken()).unwrap_or(0)),
+                rage: rules.rage_scale(captor_damage_taken),
             },
         );
         let knockback = ae::hit_response::HitKnockback {
@@ -2852,7 +2988,7 @@ pub fn apply_capture_throws(
             Some(&knockback),
             // The throw's own damage, which is the term the freeze is computed
             // from — the same value applied to the meter above.
-            request.damage,
+            damage,
             //  no DI on a throw's release frame: the captive had no control to
             // hold. Smash DI on throws is a real mechanic and it belongs with
             // the escape work, where a captive's restricted input channel exists.
@@ -2986,6 +3122,7 @@ pub fn translate_authored_capture_effects(
                         knockback: p.knockback,
                         knockback_growth: p.knockback_growth,
                         launch_dir: ambition_platformer2d_core::Vec2::new(p.launch_dir.0, p.launch_dir.1),
+                        move_instance: message.move_instance,
                     });
                 }
                 Err(err) => warn!("smash throw params did not hydrate: {err}"),

@@ -399,7 +399,7 @@ deleted into it, the minted reward retracted with it, a witness per family shape
 and a control. Open: every consequence in the known-issues list is retracted or
 explicitly ruled out of scope.
 
-### MENU-OVER-DIALOGUE — an overlay opened during a conversation must not end it
+### MENU-OVER-DIALOGUE — an overlay opened during a conversation must not end it — ✅ DONE 2026-10-02
 
 **Owner:** `crates/ambition_dialog/src/systems.rs` (dialogue input) jointly
 with the menu input owner (`crates/ambition_input/src/menu.rs`,
@@ -410,18 +410,42 @@ pause, map and inventory may open during dialogue. The dialogue stays live
 underneath without navigation input. Map and inventory are mutually exclusive
 primary overlays.
 
-**Current state (re-checked 2026-10-02):** `apply_dialog_menu_input` closes the
-conversation on `menu.back || menu.start`, so the Start press that opens the
-pause menu also ends the dialogue. The readers of `MenuControlFrame`
-(`dialog_input`, the map's `input.rs`, the grid and kaleidoscope menus) have no
-ordering or focus between them, so one press can reach the dialogue and an
-overlay in the same frame.
+**Done:**
 
-**Acceptance:** a Start press during a conversation opens the pause menu and the
-conversation is still live, at the same line, when the menu closes; while an
-overlay is open, the dialogue reads no navigation; opening the map while the
-inventory is open (and the reverse) is refused or swaps, by one stated rule,
-with a witness for each.
+- Start no longer ends a conversation: `apply_dialog_menu_input` closes on
+  `back` alone. The pause, map and inventory keys may open the primary overlay
+  in `Dialogue` mode (`menu::model::primary_overlay_may_open`). The overlay
+  records that it opened from a conversation
+  (`InventoryUiState::opened_from_dialogue`), and its close puts `GameMode`
+  back to `Dialogue`, not `Playing` (`mode_on_overlay_open` and
+  `mode_on_overlay_close`, for both backends).
+- The dialogue reads no input while the overlay is open. The open overlay
+  declares `INVENTORY_CONTEXT`, now at priority 160, above `DIALOGUE` (150).
+  `dialog_input` and `dialog_pointer_input` return when a claim above
+  `DIALOGUE` captures the seat (`dialogue_input_is_captured`), and both
+  run after `InputSet::ResolveContext`.
+- ONE RULE for map and inventory: they are two faces of the one primary
+  overlay, so they cannot both be open. While the overlay is open, the map key
+  or the inventory key turns it to that face. If the overlay already shows that
+  face, the key closes it (`menu::model::open_overlay_key`).
+
+**Witnesses:** in `ambition_dialog`,
+`start_never_ends_a_conversation_and_back_alone_does` and
+`an_overlay_above_the_conversation_captures_its_input`. For each backend,
+`start_during_a_conversation_opens_the_{menu,cube}_and_closes_back_to_it` and
+`a_face_key_turns_the_open_{menu,cube}_to_its_{tab,face}_and_closes_it_from_there`.
+In the composed app, `update_schedule_census::the_conversation_reads_its_input_after_the_inventory_claims_it`.
+Two edges order that pair today, and either one is sufficient: the direct
+`.after(ResolveContext)`, and an indirect edge through a `Route` member that
+runs `.before(CoreSimulation)`. Each edge was removed to show this.
+
+**Residual (read from source, not measured):** under the Grid backend,
+`menu.map` also toggles the standalone map panel
+(`ambition_menu::map::input::handle_map_menu_hotkeys`). That panel declares no
+input context, so if it opens over a conversation, it does not capture the
+conversation's input. The web build always uses the Grid backend
+(`KALEIDOSCOPE_MENU_BACKEND_ENABLED` is false on wasm). Under the Cube backend,
+the native default, the panel does not open on `menu.map`.
 
 ### CANDIDATE-GENERATION-ORDER — a candidate session is prepared from the generation before its own activation
 

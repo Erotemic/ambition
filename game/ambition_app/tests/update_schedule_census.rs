@@ -489,8 +489,11 @@ fn menu_frame_readers_are_ordered_against_each_other_in_the_shipped_app() {
     // ⇒ Do NOT read four unnamed pairs as four unknown systems: the population is
     // enumerable from source even where it is not nameable from a test.
     //
-    // Whether these matter is `awaiting-maintainer-decision.md` Q75 -- it turns on
-    // whether two of those surfaces can be live in one frame, which is Jon's to say.
+    // Q75 is ruled (2026-10-02): a menu can be live above a conversation in one
+    // frame. The `dialog_input` pairs do not decide a press for that case, because
+    // `dialog_input` reads nothing while a claim above `DIALOGUE` captures the
+    // seat. The witness for that order is
+    // `the_conversation_reads_its_input_after_the_inventory_claims_it`.
     const KNOWN_UNORDERED_MENU_PAIRS: usize = 8;
     assert!(
         on_menu_frame <= KNOWN_UNORDERED_MENU_PAIRS,
@@ -581,6 +584,98 @@ fn name_the_menu_frame_conflicts() {
         "no conflicting pair could be attributed to a named system — the \
          SystemTypeSet lookup stopped working, so this diagnostic is reporting \
          nothing while appearing to pass"
+    );
+}
+
+/// The conversation reads its input AFTER the inventory declares its claim.
+///
+/// Q75 (ruled 2026-10-02): the pause menu, the map and the inventory can open
+/// during a conversation, and the conversation stays live below them without
+/// input. `dialog_input` gets that rule from the seat's resolved contexts: it
+/// reads nothing while a claim above `DIALOGUE` captures the seat. The claim
+/// is written in `InputSet::ResolveContext`. If the reader is not ordered after
+/// that set, Bevy can run it first, and on the frame the menu opens a press
+/// reaches both the menu and the conversation.
+///
+/// Both systems touch `ParticipantContexts` (one writes, one reads), so Bevy
+/// reports them as a conflicting pair unless an edge orders them.
+///
+/// ⚠ TWO EDGES order the pair today, and either one is sufficient (measured
+/// 2026-10-02 by removing each). The direct one is `.after(ResolveContext)`.
+/// The other is indirect: `ResolveContext` -> `Route` -> a `Route` member that
+/// runs `.before(CoreSimulation)` -> `dialog_input`, which runs
+/// `.after(CoreSimulation)`. Do not remove the direct edge because the indirect
+/// one exists: the indirect one stops when that `Route` member moves.
+#[test]
+fn the_conversation_reads_its_input_after_the_inventory_claims_it() {
+    use bevy::ecs::schedule::IntoSystemSet;
+    let mut app =
+        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+    for _ in 0..4 {
+        app.update();
+    }
+    let contexts_id = app
+        .world()
+        .components()
+        .component_id::<ambition_platformer2d::input::participant::ParticipantContexts>()
+        .expect("the shipped app registers ParticipantContexts");
+    let label = bevy::app::Update.intern();
+    let (reader, writer, unordered, reader_at, writer_at) = app
+        .world_mut()
+        .resource_scope(|world, mut schedules: Mut<Schedules>| {
+            let schedule = schedules.get_mut(label).expect("Update exists");
+            let _ = schedule.initialize(world);
+            let graph = schedule.graph();
+            let reader = set_members(
+                graph,
+                ambition_platformer2d::dialog::dialog_input.into_system_set(),
+            );
+            let writer = set_members(
+                graph,
+                ambition_platformer2d::inventory_ui::declare_inventory_input_context
+                    .into_system_set(),
+            );
+            let unordered = graph
+                .conflicting_systems()
+                .0
+                .iter()
+                .filter(|(a, b, ids)| {
+                    ids.contains(&contexts_id)
+                        && ((reader.contains(a) && writer.contains(b))
+                            || (reader.contains(b) && writer.contains(a)))
+                })
+                .count();
+            let mut reader_at = Vec::new();
+            let mut writer_at = Vec::new();
+            for (position, (key, _)) in schedule
+                .systems()
+                .expect("an initialized schedule reports its systems")
+                .enumerate()
+            {
+                if reader.contains(&key) {
+                    reader_at.push(position);
+                }
+                if writer.contains(&key) {
+                    writer_at.push(position);
+                }
+            }
+            (reader.len(), writer.len(), unordered, reader_at, writer_at)
+        });
+
+    // ANTI-VACUITY: a lookup that stopped resolving finds no systems, and then
+    // "no unordered pair" is true for the wrong reason.
+    assert_eq!(
+        (reader, writer),
+        (1, 1),
+        "expected one `dialog_input` and one `declare_inventory_input_context` in Update"
+    );
+    assert_eq!(
+        unordered, 0,
+        "`dialog_input` and the inventory claim are unordered on ParticipantContexts"
+    );
+    assert!(
+        reader_at[0] > writer_at[0],
+        "`dialog_input` (at {reader_at:?}) runs before the inventory claim (at {writer_at:?})"
     );
 }
 

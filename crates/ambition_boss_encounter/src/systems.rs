@@ -294,10 +294,13 @@ pub fn update_boss_encounters(
                         },
                     );
                 }
-                quests.push_event(
+                // Caused by the placement, so a replay that retracts this
+                // defeat retracts the quest step it advanced.
+                quests.push_event_caused_by(
                     ambition_persistence::quest::QuestAdvanceEvent::BossDefeated(
                         archetype_id.clone(),
                     ),
+                    runtime_id.clone(),
                 );
             }
         }

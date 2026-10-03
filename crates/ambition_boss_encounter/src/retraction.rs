@@ -13,8 +13,8 @@
 //! commit and a fresh run forget them all. A load starts with none, because
 //! the file a load reads IS the baseline. On an admitted replay,
 //! [`retract_boss_defeats_on_replay`] puts each entry of the replay's room back
-//! to `Untouched`, despawns the boss's reward chest and clears its looted flag,
-//! and announces
+//! to `Untouched`, despawns the boss's reward chest, clears its looted flag,
+//! puts back the quest steps its defeat advanced, and announces
 //! [`BossDefeatRetracted`], so the domain that owns another consequence (the
 //! item domain owns the mints) retracts it.
 //!
@@ -166,8 +166,8 @@ pub fn forget_boss_defeats_on_a_fresh_run(
 /// The replay's room is its subject's live room, or the sole live room when
 /// it names no subject. Each retracted placement's save row goes back to
 /// `Untouched`, so the rebuild builds the boss alive and every gate that reads
-/// `boss.cleared` closes. Its reward chest goes, opened or not, and its looted
-/// flag is cleared.
+/// `boss.cleared` closes. Its reward chest goes, opened or not, its looted
+/// flag is cleared, and the quest steps its defeat advanced go back.
 pub fn retract_boss_defeats_on_replay(
     mut commands: Commands,
     // The admitted replay, not the request: a request the lifecycle refuses
@@ -176,6 +176,7 @@ pub fn retract_boss_defeats_on_replay(
     rooms: ambition_platformer2d_world::rooms::LiveRoomSpecs,
     mut since: ResMut<BossDefeatsSinceCheckpoint>,
     mut save: ResMut<ambition_persistence::save::AmbitionGameSave>,
+    mut quests: ResMut<ambition_persistence::quest::QuestRegistry>,
     chests: Query<(Entity, &ambition_combat::BossRewardChest), With<ambition_combat::ChestFeature>>,
     mut retracted: MessageWriter<BossDefeatRetracted>,
 ) {
@@ -199,6 +200,14 @@ pub fn retract_boss_defeats_on_replay(
             let looted = ambition_encounter::encounter_reward_looted_flag(&placement);
             if save.data().flag(&looted) {
                 save.data_mut().set_flag(looted, false);
+            }
+            // The quest step the defeat advanced goes back, in the registry
+            // and in the save row that mirrors it.
+            for quest in quests.retract_caused_by(&placement) {
+                if let Some(state) = quests.get(&quest) {
+                    save.data_mut()
+                        .set_quest(&quest, state.progression, state.step);
+                }
             }
             for (chest, reward) in &chests {
                 if reward.encounter_id == placement {

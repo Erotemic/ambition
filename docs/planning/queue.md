@@ -381,13 +381,17 @@ spent) and the granted item out of the bag. `reset_cut_rope_attempt_on_replay`
 is now only the "try again" re-fight road, keyed by the replay's live room. The
 re-fight travels with the request (`RoomReplayRequested::refight`) to
 `RoomReplayAdmitted::refight`, so a refused "try again" leaves nothing latched
-(2026-10-02).
+(2026-10-02). The quest step a defeat advanced goes back (2026-10-03): the boss
+road queues `BossDefeated` caused by its placement
+(`QuestRegistry::push_event_caused_by`), the quest drain records each step that
+event moved, and the retraction calls `QuestRegistry::retract_caused_by`, which
+puts the step back in the registry and the save.
 Witnesses are in `game/ambition_app/tests/boss_replay_retraction.rs`.
 
 **Known issues (open under the `Q51` ruling):**
 
 - A checkpoint restore forgets the reward grants, because it puts the bag back. It does not put the wallet back, so if a later replay retracts a defeat recorded before that restore, the bounty coins stay. Not measured whether a death leaves such a defeat to retract.
-- `QuestAdvanceEvent::BossDefeated` progress stays: quest progress is keyed by archetype and has no baseline.
+- A quest that moved on after the retracted defeat stays where it is, and so does what its later steps paid. Example: the mockingbird is retracted after the admiral was told, so `pirate_treasure` stays complete and the payout stays. The retraction puts a step back only while the quest stands where the defeat left it.
 - A death in a room other than the boss's retracts nothing in the boss's room until that room is replayed.
 
 **Next action:** take the known issues in order, each with a witness and a

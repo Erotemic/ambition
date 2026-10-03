@@ -156,6 +156,17 @@ pub(crate) fn alice_leaves_bob_for_a_replay() -> (Platformer2dSimHarness, LiveRo
     alice_leaves_bob(Some(ambition_platformer2d::characters::control::PlayerSlot(1)))
 }
 
+/// Alice and Bob, driven by slot 1, together in `switch_lab`, for another
+/// module's arm. Returns their live room.
+pub(crate) fn alice_beside_bob() -> (Platformer2dSimHarness, LiveRoomInstance) {
+    let mut sim = Platformer2dSimHarness::new_with_options(
+        fixed_60hz_room_options(ROOM).with_save(a_save_that_has_seen_the_hub_intro()),
+    )
+    .unwrap_or_else(|error| panic!("{ROOM} boots: {error:?}"));
+    let first = bob_beside_alice(&mut sim, ROOM, Some(ambition_platformer2d::characters::control::PlayerSlot(1)));
+    (sim, first)
+}
+
 /// [`alice_leaves_bob`], with Alice crossing by `cross`.
 fn alice_leaves_bob_by(
     slot: Option<ambition_platformer2d::characters::control::PlayerSlot>,
@@ -2320,9 +2331,10 @@ fn a_replay_beside_another_live_room_replays_the_players_own_room() {
 
 /// OW1 Cut A: a checkpoint reset while two rooms are live is served in the
 /// live room of the player who died. With no checkpoint saved, Alice comes
-/// back at her own room's spawn (the hub's), Bob's room stays live, and the
-/// session is no longer owed the reset. Before, the resume read the sole
-/// live room, so while two rooms were live the reset was owed forever.
+/// back at her own room's spawn (the hub's), Bob is in a live room again
+/// (his own, replayed by the session-wide restore), and the session is no
+/// longer owed the reset. Before, the resume read the sole live room, so
+/// while two rooms were live the reset was owed forever.
 #[test]
 fn a_checkpoint_reset_beside_another_live_room_is_served_in_the_players_own_room() {
     let (mut sim, first) = alice_leaves_bob(Some(ambition_platformer2d::characters::control::PlayerSlot(1)));
@@ -2338,7 +2350,7 @@ fn a_checkpoint_reset_beside_another_live_room_is_served_in_the_players_own_room
     assert_eq!(owed, None, "the session is still owed the checkpoint reset");
     let (pos, _, _, _) = alice_and_spawn_of(&mut sim, HUB);
     let rooms = live_rooms(&mut sim);
-    assert!(rooms.iter().any(|(room, id)| *room == first && id == ROOM), "Bob's room did not stay live: {rooms:?}");
+    assert!(rooms.iter().any(|(room, id)| *room != first && id == ROOM), "Bob's room is not a new live {ROOM}: {rooms:?}");
     assert!(pos.distance(spawn) < 40.0, "Alice did not come back at the hub spawn: {pos} vs {spawn}");
 }
 
@@ -3494,11 +3506,15 @@ fn the_reset_effects_of_a_replay_are_drawn_in_the_players_own_live_room() {
 /// Alice dies in the hub while Bob, driven by slot 1, plays on in
 /// `switch_lab`. Bob's body is not a `PlayerEntity`, so the roster finds
 /// nobody left in play and the death resets to the checkpoint: Alice starts
-/// again in a NEW instance of the hub, and Bob's room is the same live room
-/// with the same body in it. One player's death does not take the other
-/// player's room. Whether Alice should instead wait for Bob is Q151.
+/// again in a NEW instance of the hub. The restore is session-wide (Q51,
+/// Q124), so Bob's room is replayed for him too: he is in a NEW instance of
+/// `switch_lab`, and it is live beside Alice's hub. Whether Alice should
+/// instead wait for Bob is Q151.
+///
+/// Bob is found by his identity: in this fixture he is a placement of
+/// `switch_lab`, so the rebuild of that room builds his body again.
 #[test]
-fn a_death_in_one_room_restarts_that_player_and_leaves_the_other_players_room() {
+fn a_death_in_one_room_restarts_that_player_and_replays_the_other_players_room() {
     let (mut sim, first) = alice_leaves_bob(Some(ambition_platformer2d::characters::control::PlayerSlot(1)));
     let rooms_before = live_rooms(&mut sim);
     let alice_room = where_they_are(&mut sim).0.expect("Alice is in a live room");
@@ -3507,15 +3523,6 @@ fn a_death_in_one_room_restarts_that_player_and_leaves_the_other_players_room() 
         vec![(first, ROOM.to_string()), (alice_room, HUB.to_string())],
         "precondition: Bob holds {ROOM} and Alice the hub"
     );
-    let bob_body = |sim: &mut Platformer2dSimHarness| {
-        let world = sim.world_mut();
-        world
-            .query::<(bevy::prelude::Entity, &ambition_platformer2d::combat::components::FeatureId)>()
-            .iter(world)
-            .find(|(_, feature)| feature.0 == BOB)
-            .map(|(entity, _)| entity)
-    };
-    let bob = bob_body(&mut sim).expect("Bob's body is in the world");
     let alice = {
         let world = sim.world_mut();
         world
@@ -3536,18 +3543,19 @@ fn a_death_in_one_room_restarts_that_player_and_leaves_the_other_players_room() 
         sim.world().get::<ambition_platformer2d::combat::death_rules::OutOfPlay>(alice).is_some(),
         "precondition: the death took Alice out of play"
     );
-    // The interlude, then the reset and the rebuild it asks for.
+    // The interlude, then the reset and the rebuilds it asks for.
     sim.step_n(base(), 240);
     let rooms_after = live_rooms(&mut sim);
     let (alice_now, bob_now) = where_they_are(&mut sim);
-    assert_eq!(bob_body(&mut sim), Some(bob), "Bob's body was rebuilt or removed by Alice's death");
-    assert_eq!(bob_now, Some(Some(first)), "Bob left his live room when Alice died");
     let alice_now = alice_now.expect("Alice is in a live room again");
+    let bob_now = bob_now.flatten().expect("Bob is in a live room again");
     assert_ne!(alice_now, alice_room, "Alice did not start again: her hub is the instance she died in");
+    assert_ne!(bob_now, first, "Bob's room was not replayed: it is the instance the restore took back");
+    let mut expected = vec![(bob_now, ROOM.to_string()), (alice_now, HUB.to_string())];
+    expected.sort();
     assert_eq!(
-        rooms_after,
-        vec![(first, ROOM.to_string()), (alice_now, HUB.to_string())],
-        "Bob's room must stay the same live room, and Alice's must be a new hub"
+        rooms_after, expected,
+        "Bob's room must be a new {ROOM} with Bob in it, and Alice's a new hub"
     );
     let alice_again = {
         let world = sim.world_mut();

@@ -42,7 +42,7 @@ These single-owner shapes hold now. Code against them.
 
 Open pressure:
 
-- **39** process/App resources are explicitly documented by source as session- or
+- **40** process/App resources are explicitly documented by source as session- or
   generation-owned and are still App resources (section 3; campaign C03).
 - Some optional reads of required authorities still mean both "capability not
   installed" and "authority went missing" (section 8; campaign C07).
@@ -198,12 +198,12 @@ gameplay session owns them:
 
 `PossessionState, ControlledSubject, EncounterView, BossEncounterRegistry, QuestRegistry, RoomTransitionCooldown, SlotInteractionState, SwitchActivationQueue, SaveRestored, AuthoredOccurrences, OccurrenceBaseline, CustodyBaseline, MintedItemBaseline, LastQuestRoom, LastCutsceneRoom, ProjectileSeqCounter, PendingLifecycleCommit, BaseGravity, ActiveCutscene, CutsceneTriggerQueue, ActiveConversation, CutsceneSkipHold, StocksMatchSettled, SuddenDeathEntered, LiveMatchTicks, SessionMatchOrdinal, GameplayElapsed, BossDefeatsSinceCheckpoint, BreakableRespawnSchedule, RewardGrantsSinceCheckpoint, SimTick, ImpactHitstop`.
 
-`SessionOwnedCheckpointState` adds **6** checkpoint-coordinator resources:
+`SessionOwnedCheckpointState` adds **7** checkpoint-coordinator resources:
 
-`SessionCheckpointOperations, SessionCheckpointOutcomes, AcceptedCheckpointRestore, AbandonedCheckpointOperation, SessionStartupResume, OutstandingCheckpointRequest`.
+`SessionCheckpointOperations, SessionCheckpointOutcomes, AcceptedCheckpointRestore, AbandonedCheckpointOperation, SessionStartupResume, OutstandingCheckpointRequest, RoomsOwedTheRestore`.
 
 `SessionMechanics` is one more App resource whose semantic owner is the activated
-content generation. The unique total is **39** — the three lists are disjoint, so
+content generation. The unique total is **40** — the three lists are disjoint, so
 it is their sum. `scripts/check_session_owner_census_matches_source.py` checks
 both name lists and every restated count against source.
 

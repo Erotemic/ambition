@@ -705,3 +705,136 @@ fn a_payout_before_the_checkpoint_survives_a_replay() {
         "(pirate_treasure, health cells gained, reward flag) after the hand-in, then after the replay"
     );
 }
+
+/// What Bob's boss leaves standing, and where Bob is.
+#[derive(Debug, PartialEq, Eq)]
+struct BobsBoss {
+    /// The save records the boss defeated.
+    cleared: bool,
+    /// A dead body of the boss is in the world. Counted over every body: the
+    /// placement is also authored in the hub, where it stands alive.
+    dead_body: bool,
+    /// Reward chests in the world.
+    chests: usize,
+    /// Bob is in the live room he was in when the checkpoint was banked.
+    bob_in_his_first_room: bool,
+    /// Bob is in a live room.
+    bob_in_a_live_room: bool,
+}
+
+/// A post-checkpoint boss defeat in Bob's live room, and then, if `die`,
+/// Alice's death in hers.
+///
+/// Alice (hub) banks a checkpoint; then a boss in Bob's room (`switch_lab`)
+/// is defeated, and only then does Alice die. Bob stays in his room the whole
+/// time, so it cannot get away from the disagreement by retiring first.
+///
+/// Bob is found by his identity, not by his seat: in this fixture he is a
+/// placement of `switch_lab`, so a rebuild of that room builds him again
+/// (see Q151 in the awaiting file).
+fn bobs_boss_after_alices_death(die: bool, together: bool) -> BobsBoss {
+    use crate::death_restores_the_checkpoint::commit_a_checkpoint;
+    use ambition_platformer2d::platformer::lifecycle::{LiveRoomInstance, RoomInstanceRoot};
+    const BOSS: &str = "bobs_boss";
+    let (mut sim, first) = if together {
+        crate::two_players_two_live_rooms::alice_beside_bob()
+    } else {
+        crate::two_players_two_live_rooms::alice_leaves_bob_for_a_replay()
+    };
+    commit_a_checkpoint(&mut sim);
+    spawn_mockingbird(&mut sim, BOSS);
+    sim.step(crate::common::base());
+    {
+        let world = sim.world_mut();
+        let boss = world
+            .query::<(bevy::prelude::Entity, &BossConfig)>()
+            .iter(world)
+            .find(|(_, config)| config.id == BOSS)
+            .map(|(entity, _)| entity)
+            .expect("the boss reached the world");
+        world.entity_mut(boss).insert(InRoomInstance(first));
+    }
+    for _ in 0..15 {
+        sim.step(crate::common::base());
+    }
+    force_kill_boss(&mut sim, BOSS);
+    until_cleared(&mut sim, BOSS);
+    for _ in 0..200 {
+        sim.step(crate::common::base());
+    }
+    if die {
+        crate::death_restores_the_checkpoint::die(&mut sim);
+    }
+    let world = sim.world_mut();
+    let chests = world
+        .query_filtered::<(), bevy::prelude::With<ambition_platformer2d::combat::components::BossRewardChest>>()
+        .iter(world)
+        .count();
+    let live: Vec<LiveRoomInstance> = world
+        .query_filtered::<&LiveRoomInstance, bevy::prelude::With<RoomInstanceRoot>>()
+        .iter(world)
+        .copied()
+        .collect();
+    let bobs_room = world
+        .query::<(&ambition_platformer2d::combat::components::FeatureId, Option<&InRoomInstance>)>()
+        .iter(world)
+        .find(|(feature, _)| feature.0 == "ow1_bob")
+        .and_then(|(_, room)| room.map(|room| room.0));
+    let dead_body = world
+        .query::<(&BossConfig, &ambition_platformer2d::characters::actor::BodyHealth)>()
+        .iter(world)
+        .any(|(config, health)| config.id == BOSS && !health.alive());
+    BobsBoss {
+        cleared: boss_cleared(&sim, BOSS),
+        dead_body,
+        chests,
+        bob_in_his_first_room: bobs_room == Some(first),
+        bob_in_a_live_room: bobs_room.is_some_and(|room| live.contains(&room)),
+    }
+}
+
+/// Q51 and Q124 across two live rooms: a checkpoint restore takes back a boss
+/// defeat wherever it happened, so the room it happened in is rebuilt too.
+///
+/// Bob defeats a boss in his room after Alice banks a checkpoint in hers, and
+/// then Alice dies. The save then says the boss is not defeated, so Bob's
+/// room must not keep the dead boss: it is replayed for Bob from the restored
+/// state, and he is in the new live room.
+///
+/// Before, the death took back the defeat and rebuilt only Alice's room: the
+/// save said `Untouched` while Bob's room kept the dead boss. The control is
+/// the same run without the death.
+#[test]
+fn a_death_in_one_room_rebuilds_the_other_room_whose_boss_defeat_it_takes_back() {
+    assert_eq!(
+        bobs_boss_after_alices_death(false, false),
+        BobsBoss { cleared: true, dead_body: true, chests: 1, bob_in_his_first_room: true, bob_in_a_live_room: true },
+        "control: before any death the defeat stands in the save and in Bob's room"
+    );
+    assert_eq!(
+        bobs_boss_after_alices_death(true, false),
+        BobsBoss { cleared: false, dead_body: false, chests: 0, bob_in_his_first_room: false, bob_in_a_live_room: true },
+        "after Alice's death the save and Bob's room must agree: the defeat is taken back in both, \
+         and Bob is in a new live room"
+    );
+}
+
+/// The same defeat when Alice and Bob share the room and the checkpoint: the
+/// save and the room still agree after Alice dies.
+///
+/// ⚠ A different layer holds this case. With the owed replays disabled it is
+/// still green: Alice's own restore rebuilds the room they share. It is kept
+/// so the composition stays checked whichever layer serves it.
+#[test]
+fn a_death_in_a_shared_room_takes_back_the_defeat_in_the_room_both_stand_in() {
+    assert_eq!(
+        bobs_boss_after_alices_death(false, true),
+        BobsBoss { cleared: true, dead_body: true, chests: 1, bob_in_his_first_room: true, bob_in_a_live_room: true },
+        "control: before any death the defeat stands in the save and in the shared room"
+    );
+    assert_eq!(
+        bobs_boss_after_alices_death(true, true),
+        BobsBoss { cleared: false, dead_body: false, chests: 0, bob_in_his_first_room: false, bob_in_a_live_room: true },
+        "after Alice's death the save and the shared room must agree"
+    );
+}

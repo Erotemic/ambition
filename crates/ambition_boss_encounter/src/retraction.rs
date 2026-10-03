@@ -171,6 +171,10 @@ pub fn forget_boss_defeats_on_a_fresh_run(
 /// restore (a death's resume) retracts every defeat since the checkpoint, in
 /// every room: it puts the bag back wherever the defeat's reward was taken, so
 /// a defeat it kept would keep the boss dead without its reward (Q124, Q51).
+/// The restore rebuilds only its subject's room; each other room live at its
+/// admission is then replayed for the player in it
+/// (`replay_the_rooms_owed_the_restore`), so a room that held a retracted
+/// defeat does not keep the dead boss.
 ///
 /// The replay's room is its subject's live room, or the sole live room when
 /// it names no subject. Each retracted placement's save row goes back to

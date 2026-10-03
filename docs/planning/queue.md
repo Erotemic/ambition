@@ -672,8 +672,13 @@ flushes the projection's commands. The two arms run un-ignored over a healthy
 session. Poison: without the edge, both are refused at tick 7 with the original
 mismatch at frame 2.
 
-**Not checked:** other readers of `InCustodyOf` that run before the projection in
-the same tick read the same stale value after a load.
+**Guard:** `every_reader_of_in_custody_of_runs_after_both_derivers` asks the
+shipped sim schedule. It finds the value readers by a probe that writes
+`InCustodyOf` (today: the save mirror and `capture_custody_baseline`), and
+asserts each is ordered after both derivers. Without the edge above it names the
+save mirror. A query that only filters on `InCustodyOf` (`RoomResident`,
+`Without<InCustodyOf>`) is not in its population; those readers are in
+`ResidencyStep::Record` or run at a commit or a restore.
 
 ### DURABLE-HORIZON-CHECKSUM — the save mirrors write hashed state from `Update`
 

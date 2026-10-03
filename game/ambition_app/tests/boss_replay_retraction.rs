@@ -212,3 +212,106 @@ fn a_replay_in_one_live_room_keeps_a_boss_defeat_in_another() {
         "a replay of Alice's room retracted the defeat in Bob's room"
     );
 }
+
+/// The primary player's wallet balance.
+fn balance(world: &mut World) -> i32 {
+    world
+        .query_filtered::<&ambition_platformer2d::characters::actor::BodyWallet, bevy::prelude::With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>()
+        .single(world)
+        .expect("the player has a wallet")
+        .balance
+}
+
+/// The coins go with the defeat (Q51). The player holds 7 coins from before
+/// the fight; the boss's bounty, collected, adds to them; a replay that
+/// retracts the defeat takes the bounty back and leaves the 7.
+#[test]
+fn a_replay_takes_back_the_bounty_the_retracted_defeat_paid() {
+    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+    spawn_mockingbird(&mut sim, "bounty_payer");
+    {
+        let world = sim.world_mut();
+        world
+            .query_filtered::<&mut ambition_platformer2d::characters::actor::BodyWallet, bevy::prelude::With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>()
+            .single_mut(world)
+            .expect("the player has a wallet")
+            .balance = 7;
+    }
+    sim.rebase_rollback_history().expect("the rollback history rebases over the wallet");
+    kill_boss_with_a_real_hit(&mut sim, "bounty_payer", 600);
+    until_cleared(&mut sim, "bounty_payer");
+    let mut paid = balance(sim.world_mut());
+    for _ in 0..240 {
+        if paid > 7 {
+            break;
+        }
+        sim.step(AgentAction::default());
+        paid = balance(sim.world_mut());
+    }
+    replay(&mut sim);
+    assert_eq!(
+        (paid, balance(sim.world_mut())),
+        (7 + 50, 7),
+        "(balance with the bounty collected, balance after the replay)"
+    );
+}
+
+/// How many of `item` the bag holds.
+fn owns(world: &mut World, item: ambition_platformer2d::items::Item) -> u32 {
+    world.resource::<ambition_platformer2d::items::OwnedItems>().count(item)
+}
+
+/// The ability goes with the defeat (Q51). The clockwork warden drops
+/// `markrecall`, which the player picks up into the bag; a replay that
+/// retracts the defeat takes it out again. `blink`, which the player held
+/// before the fight, stays.
+#[test]
+fn a_replay_takes_back_the_ability_the_retracted_defeat_granted() {
+    use ambition_platformer2d::items::Item;
+    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+    let (px, py) = {
+        let world = sim.world_mut();
+        let kin = world
+            .query_filtered::<&ambition_platformer2d::engine_core::BodyKinematics, bevy::prelude::With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>()
+            .single(world)
+            .expect("the player has a body");
+        (kin.pos.x, kin.pos.y)
+    };
+    sim.spawn_boss_at(
+        "ability_giver",
+        "clockwork_warden",
+        (px, py),
+        (40.0, 40.0),
+        ambition_platformer2d::entity_catalog::placements::BossBrain::PhaseScript {
+            script_id: "clockwork_warden".to_string(),
+        },
+    );
+    let before = (owns(sim.world_mut(), Item::MarkRecall), owns(sim.world_mut(), Item::Blink));
+    kill_boss_with_a_real_hit(&mut sim, "ability_giver", 600);
+    until_cleared(&mut sim, "ability_giver");
+    let mut granted = 0;
+    for _ in 0..240 {
+        let at = {
+            let world = sim.world_mut();
+            world
+                .query::<(&ambition_platformer2d::combat::components::PickupFeature, &ambition_platformer2d::combat::components::CenteredAabb)>()
+                .iter(world)
+                .find(|(pickup, _)| matches!(&pickup.pickup.kind, ambition_platformer2d::entity_catalog::PickupKind::Ability { ability_id } if ability_id == "markrecall"))
+                .map(|(_, aabb)| aabb.center)
+        };
+        if let Some(at) = at {
+            sim.teleport_player((at.x, at.y));
+        }
+        sim.step(AgentAction::default());
+        granted = owns(sim.world_mut(), Item::MarkRecall);
+        if granted > 0 {
+            break;
+        }
+    }
+    replay(&mut sim);
+    assert_eq!(
+        (before, granted, (owns(sim.world_mut(), Item::MarkRecall), owns(sim.world_mut(), Item::Blink))),
+        ((0, 1), 1, (0, 1)),
+        "((markrecall, blink) before, markrecall picked up, (markrecall, blink) after the replay)"
+    );
+}

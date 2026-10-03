@@ -985,7 +985,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// ⛔⛤ 296 -> 297: `resource.base_gravity` is one ambient per live room: a
 /// count, then each turned room and its direction, where it was one `Vec2`
 /// for the whole world (customer 2).
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 297;
+/// ⛔⛤ 297 -> 298: `resource.mint_grants_since_checkpoint` is new: what the
+/// mints collected since the last checkpoint gave, which a retracted boss
+/// defeat takes back (BOSS-REPLAY-RETRACTION).
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 298;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

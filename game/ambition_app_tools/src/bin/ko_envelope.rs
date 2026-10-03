@@ -1336,6 +1336,9 @@ impl KoProbe {
                         knockback: params.knockback,
                         knockback_growth: params.knockback_growth,
                         launch_dir: EVec2::new(params.launch_dir.0, params.launch_dir.1),
+                        // No move asked for this throw, so it is a fresh,
+                        // unstaled throw: the envelope measures fresh moves.
+                        move_instance: None,
                     },
                 );
                 None
@@ -2035,6 +2038,7 @@ fn run_throw_diag() {
             knockback: 100.0,
             knockback_growth: 0.0,
             launch_dir: EVec2::new(1.0, -1.0),
+            move_instance: None,
         },
     );
 

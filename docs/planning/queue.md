@@ -197,7 +197,7 @@ that timeline, not whatever the settings UI contains now; the settings-to-policy
 projection remains witnessed end to end; and no `sim`-schedule system takes
 either policy resource as a parameter.
 
-### THROW-MODIFIERS — route throws through rage and staleness policy
+### THROW-MODIFIERS — route throws through rage and staleness policy — ✅ DONE 2026-10-03
 
 **Owner:** Smash combat/knockback policy.
 
@@ -205,25 +205,29 @@ either policy resource as a parameter.
 scaling throws obey rage, and set knockback keeps its set-knockback semantics.
 Rage is game-level combat policy that the engine must be able to express.
 
-**Current state:** the rage half is landed. `ambition_entity_catalog::launch::launch_speed`
+**Done:** rage, as before: `ambition_entity_catalog::launch::launch_speed`
 owns the rule that a set launch declines rage, and the throw road calls it
-(`a_hurt_captor_throws_farther_and_a_set_throw_is_immune`). The CPU duel tapers
-with raging throws; its `A_REAL_FIGHT` floor was recalibrated to `0.125` as a
-"did a fight happen" check.
+(`a_hurt_captor_throws_farther_and_a_set_throw_is_immune`).
 
-The staleness half is open. `apply_capture_throws` applies throw damage directly
-and never writes `LandedBodyHit`, and wear is recorded only in
-`mark_move_playback_landed_hits` from `LandedBodyHit`. So a throw never records
-its own use, and a throw-only move's `occurrences` is always 0. Routing staleness
-into the throw's launch alone changes nothing.
+Staleness, following Smash: a throw stales the THROW, which is its own move.
+`CaptureThrowRequested` carries the emitting use's `move_instance`, and
+`apply_capture_throws` claims the captor's playback only when it is that use.
+The throw reads the move's stale count and records the use on the playback's
+landed edge, as `mark_move_playback_landed_hits` does for a landing.
+Damage stales through `hitbox::staled_damage`, the one law both roads use.
+The percent term stales through `knockback_stale_scale`. A set throw
+stales its damage and not its launch. A throw that no use claims is not
+staled and not recorded. Shipped throw moves author no hit volumes, so a
+throw is recorded once.
 
-**Next action:** decide the mechanic (does a throw stale the throw, or the
-grab?). Then record the throw's use on the throw road, then route the read.
-⛔ A witness that seeds `BodyStaleMoves` by hand proves the arithmetic only.
-
-**Acceptance:** a controlled throw witness shows the intended rage/staleness
-change through the shipped throw road, and a neutral arm proves base authored
-throw behavior is unchanged when both modifiers are neutral.
+**Witnesses:** `ambition_demo_smash` `capture::a_repeated_throw_stales_and_a_neutral_ruleset_leaves_it_whole`
+(three grab-and-throw sequences on George's table through the production
+chain: 11/10/9 against the neutral 11/11/11, three uses recorded in each arm,
+and the third stale throw launches slower). `ambition_combat`
+`a_set_throw_stales_its_damage_and_not_its_launch` and
+`a_throw_that_no_playing_use_claims_is_not_staled_or_recorded`. Poisoned:
+dropping the record, blinding the read, and dropping the claim check each
+fail the predicted assertion.
 
 ### DUEL-GUARD-RUNG — the CPU duel guard fails at rung 5 on main today
 

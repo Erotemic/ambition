@@ -245,18 +245,6 @@ ADJUDICATED: dict[str, str] = {
         "component or resource again, this entry is void: an `ActorBarkGesture` "
         "timer on the body did exactly that until 2026-09-25 (read 2026-09-25)"
     ),
-    # ── A ONCE-PER-APP LATCH no rewind or rebase recreates ──────────────────
-    "advance_sim_tick": (
-        "⭐ A ONCE-PER-APP LATCH, AND THE INTERESTING ONE, because a session REBASE "
-        "looks like it recreates the condition and does not. `first_step` buys the "
-        "off-by-one its doc describes: *\"the head of step 0 must not increment\"*. "
-        "Measured 2026-09-18: `SimTick` is `rollback_resource_canonical` AND nothing "
-        "in the workspace resets it on a session edge — it is absent from "
-        "`reset_session_scoped_resources_on_activation`'s exhaustive destructure — so "
-        "the counter is monotonic across sessions and step 0 happens exactly once in "
-        "an App's life. ⛔ If anything ever zeroes `SimTick` on activation, the new "
-        "session's step 0 would increment and this entry is void (read 2026-09-18)"
-    ),
     # ── A CACHED QUERY: storage, not state ──────────────────────────────────
     "sync_authored_gated_lock_walls": (
         "A CACHED QUERY. `Local<Option<RoomSetQuery>>` holds a lazily built "

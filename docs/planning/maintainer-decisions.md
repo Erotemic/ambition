@@ -213,7 +213,7 @@ and `scripts/check_host_produced_sim_consumed_requests.py` checks
 update the marker in the same change and name what moved in the commit message.
 
 <!-- crossing-census: both_side_resources=55 rollback_registered=34 adjudicated_harmless=18 session_edge_only=3 filed=0 unclassified=0 -->
-<!-- ingress-census: spent_resources=54 resource_crossings=1 written_messages=93 message_crossings=2 unlocated=43 unlocated_types=15 -->
+<!-- ingress-census: spent_resources=52 resource_crossings=1 written_messages=93 message_crossings=1 unlocated=47 unlocated_types=15 -->
 
 ## Maintenance rule
 

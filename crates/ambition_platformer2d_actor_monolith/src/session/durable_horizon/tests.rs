@@ -334,16 +334,6 @@ fn a_population_the_restore_cannot_complete_on_is_written_to_by_nobody() {
     app.world_mut()
         .spawn((PlayerEntity, PrimaryPlayer, BodyWallet { balance: 0 }));
 
-    // ⭐ THE PREMISE IS HALF THE TEST. The session-start gate reads this same
-    // population and reports NOT pending, so a rollback session is free to
-    // start here — which is what makes an `Update` write to rollback state on
-    // this road a live-timeline write rather than a pre-timeline one.
-    assert!(
-        !durable_hydration_is_pending(app.world_mut()),
-        "the gate must let this population through, or the arm is measuring a \
-         world that never starts a timeline",
-    );
-
     install_horizon(&mut app);
     app.update();
 
@@ -354,8 +344,8 @@ fn a_population_the_restore_cannot_complete_on_is_written_to_by_nobody() {
             .whereabouts(&SimId::placement("carried")),
         None,
         "the occurrence baseline is rollback-registered and checksummed; \
-         adopting it here writes it from `Update` on every frame of a live \
-         timeline, because the latch that would stop the repeat never rises",
+         adopting it here writes it on every tick, because the latch that would \
+         stop the repeat never rises",
     );
     assert_eq!(
         app.world()

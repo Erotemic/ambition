@@ -138,26 +138,14 @@ registration in every supported parameter spelling, including writes in the
 body of an exclusive-world system. It reports 490 systems that mutate rollback
 state and 0 acknowledged offenders.
 
-✅ `adopt_occurrence_checkpoint_from_save` and `complete_durable_restore` moved to
-`WAIVERS` on 2026-10-03, beside `restore_inventory_from_save`. The argument is
-measured and held by a runtime check. All three write only on the frame
-`SaveRestored` rises, because they ask the population `durable_hydration_is_pending`
-asks. The `Q135` gate refuses to START a session while hydration is pending. The
-other half was the gap: teardown resets the latch, so a session that stayed live
-would see it rise again. `refuse_a_restore_over_a_live_timeline`
-(`rollback_ggrs/src/session.rs`) now debug-asserts that the latch never rises on
-a frame that began with a live session. Witness:
-`a_save_applied_over_a_live_timeline_is_refused`. Control:
-`a_live_timeline_with_the_save_applied_runs_on`. Poisoning the assert lets the
-write through, and the sync test stays healthy. Measured over `app_it`: 226 rises,
-each on a frame that began with no session; 40 falls, each on a frame that also
-ended the session. The old waiver's "the latch has no `true -> false`
-transition" was false: teardown is one.
-
-⛔ The check was red on main for one commit (0ef79200b): the Sanic and Mary-O
-rollback fixtures apply the save over a live timeline, a road `app_it` does not
-have. Those compositions now declare it, and the check counts it there. See
-BODY-BORN-ON-THE-TIMELINE.
+✅ `adopt_occurrence_checkpoint_from_save`, `complete_durable_restore` and
+`restore_inventory_from_save` left the scan on 2026-10-03: they run in the
+simulation schedule (BODY-BORN-ON-THE-TIMELINE). For one day before that they
+were `WAIVERS`, held by a runtime check that no save was applied over a live
+timeline. That check was red on main for one commit (0ef79200b): the Sanic and
+Mary-O rollback fixtures build their body on the timeline. The check and its
+waivers are gone with the `Update` window. The old waiver's "the latch has no
+`true -> false` transition" was false: teardown is one.
 
 ✅ `reconcile_roster_with_frozen_topology` left on 2026-10-03. Its one rollback
 write was `ActiveMatch::adopt_seat_topology`, a copy of the roster's record that
@@ -207,45 +195,42 @@ cites when you touch it.
 The first, third and fourth were met by earlier work and mapped here, not
 re-poisoned. The known limits above stay open as limits, not as this row.
 
-### BODY-BORN-ON-THE-TIMELINE — a body born in the simulation gets its save from `Update`
+### BODY-BORN-ON-THE-TIMELINE — the simulation applies the save — ✅ DONE 2026-10-03
 
-**Owner:** durable restore (`session/durable_horizon.rs`) with rollback session
-start (`rollback_ggrs/src/session.rs`).
+**Owner:** durable restore (`session/durable_horizon.rs`).
 
-**Current state (measured 2026-10-03):** three test compositions start GGRS
-before their primary body exists: the Sanic rollback fixture and two Mary-O
-fixtures (`rollback_restore.rs`, `rollback_room_memory.rs`). Their sim is
-frozen until a session drives it, so the body is born on the timeline. The
-`Q135` gate (`durable_hydration_is_pending`) has no body to wait for and lets
-the session start. The restore chain then applies the save from `Update` over
-the live timeline: once in each fixture, counted by
-`TheBodyIsBornOnTheTimeline`. The fixtures assert that count is 1. A
-composition without the declaration is refused by
-`refuse_a_restore_over_a_live_timeline`. The shipped demos run no GGRS, and
-`app_it` has no such road (226 rises, all with no session).
+**Result:** the restore chain (`adopt_occurrence_checkpoint_from_save`,
+`restore_inventory_from_save`, `complete_durable_restore`) runs in the
+simulation schedule, at the head of the gameplay root, after the clock and
+before the core step. The save, the latch and every value the chain writes are
+rollback state (`AmbitionGameSave` is `resource-clone-custom-checksum`;
+this row said otherwise for a day, from a search of one crate's registration
+file). So applying the file is an ordinary deterministic step: a rewind past it
+applies it again on the same tick. It does not matter whether the body was built
+before the timeline started or by it.
 
-Why it is a defect and not a style point: `SaveRestored` is rollback state and
-the chain is not. A rewind that loads a snapshot from before the rise would
-restore `false`, and the next `Update` would apply the save again. Measured
-2026-10-03 in the Sanic fixture: it does not happen there. The save is applied
-once in 60 frames (`the_save_is_applied_once_on_the_first_live_frame`; control
-`a_lowered_latch_is_seen_as_a_second_application` counts 2). The rise is on the
-first live frame and no later GGRS step lowers the latch. Probably only the
-frame-0 snapshot holds it down and the sync test does not load frame 0
-(inferred). A body born later on the timeline has no such result. The first
-attempt at the control lowered the latch before `app.update()`, and the GGRS
-load put it back: a write from outside the frame is no control. A save with content would then write the wallet and ask
-for a checkpoint resume again, from `Update`, at a frame two peers do not agree
-on. The fixtures stay healthy only because their saves are empty.
+Removed with the `Update` window: the `Q135` session-start gate in
+`maintain_local_session` and `durable_hydration_is_pending`, the live-timeline
+check `refuse_a_restore_over_a_live_timeline`, the fixture declaration
+`TheBodyIsBornOnTheTimeline`, and three mutator-guard waivers. The gate would
+deadlock now: under the rollback host the sim does not run until a session
+starts. `Q135` is reopened in the awaiting file with the evidence. Its
+guarantee holds: no tick is simulated over an unapplied save
+(`a_conversation_on_the_first_tick_of_a_session_is_counted_exactly_once` passes
+without the gate).
 
-**Next action:** apply the save on the timeline for this road. The obstacle is
-that `AmbitionGameSave` is not rollback state: the live-to-save mirrors write it
-in the sim after the rise, so a resimulated restore would read a newer file. The
-save read must become a frame input (or a snapshot taken at the rise) first.
-This meets `Q129` (is the save file part of what two peers agree on?).
-
-**Acceptance:** the three fixtures drop the declaration and stay green, and a
-fixture with a non-empty save resimulates checksum-identically across its rise.
+Witnesses:
+- `the_save_is_applied_by_the_simulation` (Sanic fixture, body born on the
+  timeline): `(in the GGRS step, in Update) == (1, 0)`, healthy. Poison (the
+  chain back in `Update`): `(0, 1)`.
+- `a_startup_load_is_applied_on_the_timeline_and_resimulates_identically`
+  (shipped composition, seeded occurrence and custody rows): the session is
+  live before the save is applied, and every one of 240 frames is healthy. This
+  is the acceptance's "a non-empty save resimulates checksum-identically across
+  its rise".
+- `a_mid_session_load_does_not_reach_back_across_the_rewind`: a load's ledger
+  write used to be lost (the `Update` write was rewound away). It lands now,
+  and every replay of a tick agrees.
 
 ### SETTINGS-ROLLBACK — finish the settings/mechanics admission boundary
 
@@ -840,16 +825,10 @@ schedule: the three `persist_*_to_save` mirrors and
 `count_the_dialogue_visit_when_a_conversation_opens`.
 `resources_crossing_the_rewind_boundary.py` reports that `AmbitionGameSave` does
 not cross the rewind boundary. `AuthoredOccurrences` is rollback state with a
-peer-stable checksum. The restore chain's three `Update` residents
-(`adopt_occurrence_checkpoint_from_save`, `restore_inventory_from_save`,
-`complete_durable_restore`) write only while `SaveRestored` is false, and the
-`Q135` gate keeps GGRS from starting while `durable_hydration_is_pending`. The
-gate and the chain ask one population question (`bodies.single().is_err()`),
-held by `a_population_the_restore_cannot_complete_on_is_written_to_by_nobody`.
-The chain's three `Update` residents are waived in the mutator guard, held by
-`refuse_a_restore_over_a_live_timeline` (see ROLLBACK-MUTATOR-POPULATION),
-except on one declared road where the save is applied over a live timeline
-(BODY-BORN-ON-THE-TIMELINE).
+peer-stable checksum. The restore chain runs in the simulation schedule
+(BODY-BORN-ON-THE-TIMELINE, 2026-10-03) and writes only while `SaveRestored` is
+false, for exactly one primary body with a wallet, held by
+`a_population_the_restore_cannot_complete_on_is_written_to_by_nobody`.
 
 **What is left:** `Q129` (must the save file be part of what two peers agree
 on?). It is open and does not block this row. Whether that closes the row is a
@@ -858,9 +837,8 @@ maintainer call.
 **Acceptance:** Q129 is answered and the three mirrors follow the ruling; ✅ the
 dialog increment has its own answer, which was not the mirrors'; ✅ the one-shot
 pair's ordering against GGRS start is characterised rather than assumed; and ✅
-Q135 is answered and the restore chain's three `Update` residents have their
-road — the session-start gate, plus the population fix that makes the gate's
-promise hold for every population.
+the restore chain has its road: the simulation schedule (2026-10-03,
+BODY-BORN-ON-THE-TIMELINE), which replaced the `Q135` session-start gate.
 
 ### TEST-LANES — keep required test lanes executable
 

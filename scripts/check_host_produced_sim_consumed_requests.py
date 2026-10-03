@@ -957,20 +957,12 @@ MESSAGE_ADJUDICATED: dict[str, str] = {
         "not reached there, so a flat zero from it would have meant only \"no "
         "reader here\" (read 2026-09-18, witnessed 2026-09-18)"
     ),
-    "ResetToCheckpoint": (
-        "✅ BENIGN, OUTSIDE THE TIMELINE — BY AN ORDERING THE ROLLBACK LAYER "
-        "ENFORCES ON PURPOSE. "
-        "`maintain_local_session` returns without starting a session while "
-        "`durable_hydration_is_pending` "
-        "(`crates/ambition_platformer2d_rollback_ggrs/src/local_session.rs:334-340`), "
-        "so `complete_durable_restore` has already run and its message has "
-        "already been consumed before any timeline exists. ⚠ THE ARGUMENT IS THE "
-        "ORDERING, NOT THE LATCH: `SaveRestored` is rollback-registered, and the "
-        "same file records at `:321-326` that it *\"is not a latch that always "
-        "rises\"* at a measured cost of 66 tests — so \"the rewind re-arms the "
-        "latch and it re-raises\" is reasoning from the wrong fact "
-        "(read 2026-09-18)"
-    ),
+    # ✅ `ResetToCheckpoint` IS NO LONGER A CROSSING, 2026-10-03, AND ITS ROW IS
+    # GONE. Its host writer was `complete_durable_restore`, which now runs in
+    # the simulation schedule with the rest of the restore chain
+    # (BODY-BORN-ON-THE-TIMELINE). The row's argument was an ordering — the
+    # `Q135` gate held the session back until the message was spent — and the
+    # gate went with the `Update` window.
     # ✅ `SetFlagRequested` IS REPAIRED AND ITS ROW IS GONE, 2026-09-18 — the
     # first use of the RE-DERIVED IN THE SIM escape this table named and had no
     # instance of. `emit_intro_flag_chains` moved from `Update` to

@@ -410,9 +410,9 @@ ACKNOWLEDGED: dict[str, str] = {
 #     an honest repair that took the system out of this guard's
 #     SIGNATURE-KEYED population, but the write it causes is still there, in the
 #     staged closure inside `reload_ldtk_world_from_disk` -- a HELPER, which
-#     `collect` cannot attribute a schedule to. `BLIND_SPOTS` below says so, and
-#     is exactly the argument that must be re-read rather than deleted when the
-#     scan goes quiet.
+#     `collect` could not attribute a schedule to until `inherited_mutations`
+#     (one hop, 2026-10-03). It sat in `BLIND_SPOTS` until then: the argument
+#     that must be re-read rather than deleted when the scan goes quiet.
 #
 # ⇒ Two of the four were good news that no instrument was reporting, one was a
 #   deletion, and one was the trap.
@@ -433,33 +433,9 @@ ACKNOWLEDGED: dict[str, str] = {
 # owners, and the one with the exit code had neither half.
 #: name → (file that defines it, why the waiver survives the scan losing it)
 BLIND_SPOTS: dict[str, tuple[str, str]] = {
-    "handle_ldtk_hot_reload": (
-        "game/ambition_app/src/app/dev_runtime.rs",
-        "⛔⛤ THE SCANNER LOST IT, THE TREE DID NOT — and the thing that hid it "
-        "was an honest repair. Until 2026-09-18 this system carried "
-        "`SessionWorldMut<RoomSet>` and `SessionWorldMut<LdtkRuntimeIndex>` on "
-        "two parameters it only READS, kept mutable so a session-world writer "
-        "census would not undercount. Demoting them to `SessionWorldRef` was "
-        "right, and it took the system out of THIS guard's signature-keyed "
-        "population in the same stroke: the write it still causes happens in a "
-        "staged closure inside `reload_ldtk_world_from_disk`, which the "
-        "exclusive-world spelling added the same day DOES see "
-        "(`RoomTransitionCooldown`; `LdtkRuntimeIndex` too until it left the "
-        "schema on 2026-09-29) — but that function is a "
-        "HELPER, and `collect` attributes a schedule by finding a name inside an "
-        "`add_systems` body.\n"
-        "    ⚠ SO THE WAIVER STAYS AND THE ENTRY SAYS WHY. Deleting it because "
-        "the scan went quiet is the exact move this table exists to refuse: the "
-        "next system to take this name would inherit an argument nobody re-read.\n"
-        "    ⇒ THE INSTRUMENT THAT WOULD CLOSE IT IS NAMED AND MEASURED: one hop "
-        "of caller attribution — a registered system inherits what the helpers it "
-        "calls mutate. MEASURED 2026-09-18 by bare-name matching: 19 pairs, of "
-        "which 8 are already banked or waived (this one among them) and 11 are "
-        "FALSE, because the helpers are called `tick`, `apply` and `install` and a "
-        "`\\bname\\s*\\(` search cannot tell `adopt_the_ledger(world)` from "
-        "`self.timer.tick(dt)`. ⛔ So the hop needs real call resolution, not a "
-        "name match — which is why it is not in this commit."
-    ),
+    # ✅ `handle_ldtk_hot_reload` left on 2026-10-03: `inherited_mutations`
+    # attributes the write in its helper `reload_ldtk_world_from_disk` to it,
+    # so the scan sees it again and its waiver has a subject.
 }
 
 
@@ -1057,7 +1033,63 @@ def mutating_systems(repo: Path = REPO) -> dict[str, list[str]]:
             hits = sorted(types.intersection(mutated))
             if hits:
                 found.setdefault(match.group(1), hits)
+    for name, hits in inherited_mutations(repo, found).items():
+        found.setdefault(name, hits)
     return found
+
+
+#: A free-function call: a name not preceded by `.` or a word character, with
+#: an optional `path::` prefix and turbofish. A method call (`self.timer.tick(..)`)
+#: is not one, which is what made the bare-name match of 2026-09-18 report 11
+#: false pairs.
+_FREE_CALL = re.compile(
+    r"(?<![.\w])(?:[A-Za-z_][A-Za-z0-9_]*::)*([a-z_][a-z0-9_]*)\s*(?:::<[^>]*>)?\s*\("
+)
+_FN_DEF = re.compile(r"\bfn\s+([a-z_][a-z0-9_]*)\s*(?:<[^>{]*>)?\s*\(")
+
+
+def inherited_mutations(
+    repo: Path, direct: dict[str, list[str]]
+) -> dict[str, list[str]]:
+    """registered system name → the rollback types it mutates through ONE
+    helper call.
+
+    A system that calls a helper which writes rollback state writes it too
+    (`handle_ldtk_hot_reload` → `reload_ldtk_world_from_disk`). One hop, and
+    only a call this can resolve: a free-function call (not a method) to a name
+    defined once in production sources, or once in the caller's own file. A
+    name defined in several places (`tick`, `install`) is not attributed: which
+    one the call reaches needs real name resolution.
+    """
+    sources = _production_sources(repo)
+    # Only a REGISTERED system can be a finding, so only those bodies are read;
+    # reading every function's body tripled this guard's run time.
+    registered: set[str] = set()
+    for _src, text in sources:
+        for body in add_systems_bodies(text):
+            registered.update(re.findall(r"\b([a-z_][a-z0-9_]*)\b", body))
+    places: dict[str, list[Path]] = {}
+    callers: list[tuple[str, Path, str, int]] = []
+    for src, text in sources:
+        for match in _FN_DEF.finditer(text):
+            name = match.group(1)
+            places.setdefault(name, []).append(src)
+            if name in registered and name not in direct:
+                callers.append((name, src, text, match.end()))
+    inherited: dict[str, set[str]] = {}
+    for name, src, text, end in callers:
+        brace = text.find("{", end)
+        semi = text.find(";", end)
+        if brace < 0 or 0 <= semi < brace:
+            continue
+        for call in _FREE_CALL.finditer(_braced(text, brace)):
+            callee = call.group(1)
+            if callee == name or callee not in direct:
+                continue
+            where = places.get(callee, [])
+            if len(where) == 1 or where.count(src) == 1:
+                inherited.setdefault(name, set()).update(direct[callee])
+    return {name: sorted(hits) for name, hits in inherited.items()}
 
 
 def collect(

@@ -118,7 +118,7 @@ activations can enter the same deterministic match and produce the same
 canonical mechanical identity/checksum. The witness must first assert that their
 local counters differ.
 
-### ROLLBACK-MUTATOR-POPULATION — the mutator guard sees a quarter of rollback state
+### ROLLBACK-MUTATOR-POPULATION — the mutator guard sees a quarter of rollback state — ✅ DONE 2026-10-03
 
 **Owner:** rollback scheduling (`scripts/check_rollback_mutators_run_in_sim.py`).
 
@@ -152,17 +152,21 @@ The exit code means "no new offender", not "clean". `ACKNOWLEDGED` names drift
 that is real and the row that owes it. `WAIVERS` carry an argument. A banked
 name that the scan stops reporting is fatal.
 
-**Next action:** the acceptance items below. No offender is acknowledged.
+**Next action:** none. No offender is acknowledged.
 
 **Known limits of the guard:**
 
 - `Transform` writes are excluded by name. Ruled 2026-09-19 (`Q139`): do not
   grow architecture to satisfy this census. A green says nothing about
   `Transform`.
-- A write inside a helper is not attributed to the registered system that calls
-  it (for example `reload_ldtk_world_from_disk` under `handle_ldtk_hot_reload`).
-  One hop of attribution needs real call resolution. A bare-name match imports
-  false pairs, because helper names collapse to `tick`, `apply` and `install`.
+- A write inside a helper is attributed to the registered system that calls it,
+  for ONE hop only (`inherited_mutations`, 2026-10-03). A call is attributed only
+  when it is a free-function call (not a method) to a name defined once in
+  production sources, or once in the caller's file. A helper name defined in
+  several places (`tick`, `install`) is not attributed, and neither is a write
+  two calls deep. The hop added 4 registered systems (490 to 494) and no new
+  offender. `handle_ldtk_hot_reload` is seen again through
+  `reload_ldtk_world_from_disk`, and its waiver now has a subject.
 - A run condition is not a reachability proof.
 
 ⛔ Do not demote `derived`-documented clone registrations on a keyword match. A
@@ -172,10 +176,20 @@ cites when you touch it.
 
 **Blocked by:** nothing.
 
-**Acceptance:** the population is every rollback registration, not one
-registration spelling; `handle_ldtk_hot_reload` is visible without its waiver
-being deleted; a poison that respells a write in any supported param form still
-reddens the guard; and the population floor fails when a spelling stops matching.
+**Acceptance:** ✅ met 2026-10-03. Each item and its test in
+`scripts/tests/test_rollback_mutators_run_in_sim.py`:
+- The population is every rollback registration, not one registration
+  spelling: `test_the_scan_covers_the_whole_registration_surface_not_one_file`.
+- `handle_ldtk_hot_reload` is visible without its waiver being deleted:
+  `test_the_hot_reload_is_seen_through_its_helper`. Poisoned three ways (method
+  calls counted, uniqueness dropped, inheritance dropped); each fails its arm.
+- A poison that respells a write in a supported param form still reddens the
+  guard: the bundle-field, exclusive-world, session-world-helper and
+  qualified-spelling arms.
+- The population floor fails when a spelling stops matching:
+  `test_a_shrinking_population_is_a_failure_not_a_clean_report`.
+The first, third and fourth were met by earlier work and mapped here, not
+re-poisoned. The known limits above stay open as limits, not as this row.
 
 ### SETTINGS-ROLLBACK — finish the settings/mechanics admission boundary
 

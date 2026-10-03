@@ -306,6 +306,15 @@ impl Platformer2dSimHarness {
         self.step_frame(frame)
     }
 
+    /// [`Self::step`], with the refusal of an unhealthy rollback session
+    /// returned instead of a panic (see [`Self::step_frame`]). `Err` means
+    /// nothing stepped.
+    pub fn try_step(&mut self, action: AgentAction) -> Result<AgentObservation, String> {
+        let mut frame: ControlFrame = action.into();
+        frame.control_frame_modes = self.seat_frame_modes();
+        self.try_step_frame(frame)
+    }
+
     /// The frame policy this harness's settings resolve to — what a real
     /// capture stage would stamp on the seat's frame.
     ///
@@ -339,14 +348,6 @@ impl Platformer2dSimHarness {
         }
     }
 
-    /// Step one tick driven by a raw [`ControlFrame`] — the unit an
-    /// [`InputStream`](ambition_platformer2d::sim::InputStream) records (netcode
-    /// N0.2).
-    ///
-    /// `step` is this plus an `AgentAction → ControlFrame` conversion. A REPLAY
-    /// drives this directly: the recorded stream already IS control frames, and
-    /// routing them back through `AgentAction` would silently drop every field
-    /// that type does not carry.
     /// Author a SECONDARY seat's input for the next step.
     ///
     /// Seat zero is `step`/`step_frame`; this is every other pad. Call it before
@@ -366,7 +367,50 @@ impl Platformer2dSimHarness {
         );
     }
 
+    /// Step one tick driven by a raw [`ControlFrame`] — the unit an
+    /// [`InputStream`](ambition_platformer2d::sim::InputStream) records (netcode
+    /// N0.2).
+    ///
+    /// `step` is this plus an `AgentAction → ControlFrame` conversion. A REPLAY
+    /// drives this directly: the recorded stream already IS control frames, and
+    /// routing them back through `AgentAction` would silently drop every field
+    /// that type does not carry.
+    ///
+    /// ⛔ It REFUSES an unhealthy rollback session (`Q138`): it panics with the
+    /// session's error and does not step. A sync-test session that diverged or
+    /// was invalidated still accepted a step and returned an observation, and
+    /// every later assertion read a world the timeline no longer vouched for (it
+    /// can stop advancing `SimTick` entirely). An arm that tests what happens
+    /// UNDER an unhealthy session says so with
+    /// [`Self::step_over_an_unhealthy_session`]; [`Self::try_step_frame`] returns
+    /// the refusal instead of panicking.
     pub fn step_frame(&mut self, frame: ControlFrame) -> AgentObservation {
+        self.try_step_frame(frame).unwrap_or_else(|refusal| panic!("{refusal}"))
+    }
+
+    /// [`Self::step_frame`], with the refusal returned instead of a panic.
+    /// `Err` means nothing stepped: the tick count and the world are unchanged.
+    pub fn try_step_frame(&mut self, frame: ControlFrame) -> Result<AgentObservation, String> {
+        self.rollback_health().map_err(|error| {
+            format!(
+                "the harness refuses to step an unhealthy rollback session (tick {}): {error}",
+                self.tick
+            )
+        })?;
+        Ok(self.advance(frame))
+    }
+
+    /// Step seat zero over a rollback session that is ALREADY unhealthy, for an
+    /// arm whose subject is what the game does under one (for example, that a
+    /// commit refuses to rebase a diverged session). Every other arm uses
+    /// [`Self::step`], which refuses.
+    pub fn step_over_an_unhealthy_session(&mut self, action: AgentAction) -> AgentObservation {
+        let mut frame: ControlFrame = action.into();
+        frame.control_frame_modes = self.seat_frame_modes();
+        self.advance(frame)
+    }
+
+    fn advance(&mut self, frame: ControlFrame) -> AgentObservation {
         // ONE seam, whichever host this harness was built with.
         ambition_platformer2d::rollback::drive_control_frame(self.app.world_mut(), frame);
         self.app.update();

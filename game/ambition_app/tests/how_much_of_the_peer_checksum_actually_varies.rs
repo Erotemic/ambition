@@ -206,8 +206,11 @@ fn run_with_a_writer_outside_the_schedule() -> Platformer2dSimHarness {
     sim.world_mut()
         .insert_resource(ambition_platformer2d::rollback::RollbackRestoreAudit::enabled());
     let mut action = playing();
+    // The writer outside the schedule desyncs the sync test (measured: frames
+    // 3 and 4). That writer is this fixture's subject, so it steps on over
+    // the unhealthy session.
     for _ in 0..240 {
-        sim.step(action());
+        sim.step_over_an_unhealthy_session(action());
     }
     sim
 }

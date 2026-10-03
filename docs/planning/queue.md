@@ -629,37 +629,48 @@ admitted prepared value. Prefer deleting the second truth to synchronizing it.
 each migrated fact, and production consumers cannot bypass its preparation or
 projection boundary.
 
-### ROLLBACK-DEAD-SESSION — an invalidated GGRS session stops the clock in silence
-
-**Owner:** the simulation harness (`crates/ambition_sim_harness/src/runtime.rs`).
-
-**Failure:** a sync-test session that invalidates keeps accepting `sim.step()`
-and stops advancing `SimTick`. Nothing panics, and every later assertion runs
-over a frozen world. The usual cause is a system that writes a
-rollback-registered resource outside its sanctioned road, which desyncs the sync
-test.
+### ROLLBACK-DEAD-SESSION — an invalidated GGRS session stops the clock in silence — ✅ DONE 2026-10-02
 
 **Ruling (`Q138`, 2026-09-19):** an invalidated harness must refuse or fail
 rather than silently produce frozen observations.
 
-**Current state (re-checked 2026-10-02):** `Platformer2dSimHarness::step` does
-not consult `rollback_health()` yet. Meanwhile
-`scripts/a_rollback_arm_must_refuse_a_frozen_world.py` (a `--maintenance` job)
-requires each sync-test arm to read the health API or to state what a frozen
-world breaks in it. It prints the current census. The example
-`game/ambition_app/examples/hall_bench.rs` consumes a frozen world silently; it
-is a benchmark, not a test.
+**Done:** `Platformer2dSimHarness::step` and `step_frame` refuse an unhealthy
+session: they panic with the session's error and do not step. `try_step` and
+`try_step_frame` return the refusal. An arm whose subject is behaviour under an
+unhealthy session says so with `step_over_an_unhealthy_session`. Witness:
+`rollback_room_transition::the_harness_refuses_to_step_an_unhealthy_session`
+(a mismatch and an invalidation, each refused with the session's error, and
+nothing advances).
 
-**Next action:** make the harness step methods consult `rollback_health()` and
-refuse on an invalidated session.
+The refusal found five arms that stepped a diverged session. Two step over it
+by design (`a_confirmed_commit_refuses_to_rebase_over_a_diverged_session`, and
+the `Update`-writer fixture of `how_much_of_the_peer_checksum_actually_varies`).
+One reads the desync and now stops at the refusal
+(`a_flag_requested_after_its_consumer_desyncs_the_timeline`). Two were
+measuring over a session that diverged at frame 2; see SAVE-DIVERGES-AFTER-RELEASE.
 
-⛔ Do not add `rollback_health()` to an arm whose own assertions already fail on
-a frozen world, only to raise a count.
+### SAVE-DIVERGES-AFTER-RELEASE — a pickup and release in `blink_run` desyncs the sync test on the save
 
-**Blocked by:** nothing.
+**Owner:** rollback determinism, with the item custody road.
 
-**Acceptance:** stepping an invalidated session fails with the session's error,
-witnessed by an arm that invalidates a session on purpose.
+**Failure (measured 2026-10-02):** in
+`does_a_presence_probed_row_move_when_its_value_does`, the sync-test session
+is healthy after setup (tick 3). After the authored ground item is picked up
+and released (`release_the_authored_object`), `RollbackRestoreAudit` records one
+divergence: `AmbitionGameSave` at frame 2. The audit then compared only once more
+in the whole window. The two ground-item arms of that file passed on that one
+comparison. They are `#[ignore]`d until this row closes, because their subject
+needs a healthy session.
+
+**Ruled out:** a missing rebase after `strengthen_and_audit` (adding one changes
+nothing; `teleport_player` already rebases), and a change-detection gate in
+`persist_inventory_to_save` or `persist_minted_item_horizon_to_save` (neither has
+one).
+
+**Next action:** find the save field that differs at frame 2 (compare the saved
+and restored `AmbitionGameSave` there), and its writer.
+
+**Acceptance:** the two arms run un-ignored over a healthy session.
 
 ### DURABLE-HORIZON-CHECKSUM — the save mirrors write hashed state from `Update`
 

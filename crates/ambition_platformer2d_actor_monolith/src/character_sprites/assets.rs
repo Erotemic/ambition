@@ -376,7 +376,7 @@ pub fn load_character_sprites_in(
     let mut total = 0usize;
     let mut declared = 0usize;
     let mut skipped_no_spec: Vec<&str> = Vec::new();
-    for (cid, entry) in character_catalog.iter() {
+    for (cid, _) in character_catalog.iter() {
         total += 1;
         if sheet_for_character_id_in(authored, character_catalog, cid).is_none() {
             // Neither a hardcoded const nor a manifest in `assets/sprites/`
@@ -386,7 +386,7 @@ pub fn load_character_sprites_in(
             continue;
         }
         declared += 1;
-        out.declare(cid, &entry.display_name);
+        out.declare(cid);
     }
     bevy::log::info!(
         target: "ambition_platformer2d::character_sprites",

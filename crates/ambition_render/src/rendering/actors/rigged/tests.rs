@@ -70,7 +70,7 @@ fn app_with(admit: bool, sheet: CharacterSpriteAsset) -> (App, Entity) {
         .insert_resource(RiggedSpriteAdmission { admit })
         .add_systems(Update, (bind_rigged_presentations, drive_rigged_presentations).chain());
     let mut assets = GameAssets::default();
-    assets.characters.declare("raider", "Raider");
+    assets.characters.declare("raider");
     assets.characters.publish("raider", sheet.clone());
     app.insert_resource(assets);
     let asset = sheet;

@@ -1742,25 +1742,18 @@ mod tests {
     #[test]
     fn a_declared_but_unrealized_character_is_pending_and_an_unknown_one_is_not() {
         let mut assets = GameAssets::default();
-        assets.characters.declare("npc_busy_beaver", "Busy Beaver");
+        assets.characters.declare("npc_busy_beaver");
         let tokens = vec![
             "npc_busy_beaver".to_string(),
-            "Busy Beaver".to_string(),
             "nobody_declares_this".to_string(),
         ];
         let mut readiness = RoomAssetReadiness::default();
         inspect_demanded_characters(&tokens, &assets, None, &mut readiness);
-        assert_eq!(
-            readiness.total, 2,
-            "both tokens of the declared character count"
-        );
+        assert_eq!(readiness.total, 1, "the declared character counts");
         assert_eq!(readiness.settled, 0);
         assert_eq!(
             readiness.pending,
-            vec![
-                "character:npc_busy_beaver (not yet decoded)".to_string(),
-                "character:Busy Beaver (not yet decoded)".to_string(),
-            ]
+            vec!["character:npc_busy_beaver (not yet decoded)".to_string()]
         );
         assert!(
             !readiness.is_ready(),
@@ -1859,7 +1852,7 @@ mod tests {
             rigged: None,
         };
         let mut assets = GameAssets::default();
-        assets.characters.declare("d153_fighter", "D153 Fighter");
+        assets.characters.declare("d153_fighter");
         assets.characters.publish("d153_fighter", asset);
 
         let world = AuthoredWorld::new(

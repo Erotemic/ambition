@@ -106,11 +106,6 @@ size, render quad, quad offset); closing one of them looks like closing the seam
   measures the surplus that a correct migration takes to zero. It waits on the
   product question of how thin a stand-in is (Q89 in
   [`../awaiting-maintainer-decision.md`](../awaiting-maintainer-decision.md)).
-- **Two display-name keys remain.** `CharacterCatalog::id_for_authored_identity`
-  falls back to a display name; over `app_it` and the four demo test binaries
-  it was never taken (2026-10-03). The sprite table keys a sheet by its display
-  name as well as its id (`CharacterSpriteAssets::declare`). Delete each only
-  after measuring that nothing reads it.
 
 **Closed slices and their guards:**
 
@@ -131,6 +126,18 @@ size, render quad, quad offset); closing one of them looks like closing the seam
   21 of them were captions or placement ids that named no character; the demos
   demanded none. Guard: `every_shipped_room_demands_its_characters_by_id`
   (poison: demand `enemy.name`, and 38 (room, token) demands are named).
+- The sprite table keys a sheet by its character id only
+  (`CharacterSpriteAssets::declare(id)`), and the actor binder asks only the
+  body's worn character id. Measured before the deletion (2026-10-03) with a
+  probe on every token lookup and a positive control: over `app_it`, the four
+  demo test binaries and `capture_scene` in five rooms, no lookup went through
+  a display-name key, and the binder's name fallback was never taken.
+  `CharacterCatalog::id_for_authored_identity` (no caller) and its display-name <!-- cite-ok: deleted names -->
+  lookup are deleted, and so is `publish_under` (a test was its one caller). <!-- cite-ok: a deleted name -->
+  Guards: `a_declared_character_is_a_different_answer_from_an_unknown_one`
+  ("Mary-O" is unknown) and
+  `an_actor_without_a_character_id_does_not_bind_by_its_display_name`
+  (poison: the binder asks the name, and it binds).
 - `Vitals::canonical_height` is deleted; height comes from the catalog's <!-- cite-ok: a deleted name -->
   standing height.
 
@@ -157,8 +164,8 @@ Legacy adapters may feed the same preparation boundary during migration, but
 there must be one published `PreparedCharacterDefinition` and no downstream
 re-derivation from parent/patch/name-search state.
 
-The second clause is a goal, not an invariant: the display-name keys under A1
-are known residuals with no guard.
+The second clause holds for the character demand and the sprite table: both
+name a character by its id (A1, closed slices).
 
 A new serialized facet must define its schema/version and content compatibility
 behavior before it becomes a stable public format.

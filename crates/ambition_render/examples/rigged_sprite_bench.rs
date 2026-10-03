@@ -307,7 +307,7 @@ fn run(target: &str, actors: usize, rigged: bool, frames: usize, views: Option<u
         wait_for_pages(&mut app, &asset);
     }
     let mut assets = GameAssets::default();
-    assets.characters.declare("bench", "Bench");
+    assets.characters.declare("bench");
     assets.characters.publish("bench", asset.clone());
     app.insert_resource(assets);
     let feet = Vec2::new(asset.spec.feet_anchor_x, asset.spec.feet_anchor_y);

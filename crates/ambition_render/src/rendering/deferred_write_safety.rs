@@ -473,7 +473,7 @@ mod character_sprite_passes {
         app.insert_resource(assets);
 
         let identity = || ambition_sim_view::ActorRenderView {
-            sprite_character_id: None,
+            sprite_character_id: Some(ACTOR_NAME.to_string()),
             name: ACTOR_NAME.to_string(),
             is_sandbag: false,
             render_size: None,

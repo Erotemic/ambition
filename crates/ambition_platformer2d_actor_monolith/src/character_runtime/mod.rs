@@ -396,7 +396,7 @@ pub fn declare_registered_character_into(
         return;
     }
     if let Some(prepared) = registry.get(character_id) {
-        sprites.declare(prepared.id.as_str(), &prepared.display_name);
+        sprites.declare(prepared.id.as_str());
     }
 }
 
@@ -568,11 +568,7 @@ pub fn declare_registered_characters(
     let sprites = &mut assets.characters;
     for id in registry.ids() {
         if matches!(sprites.sheet_state(id), CharacterSheetState::Unknown) {
-            let display_name = registry
-                .get(id)
-                .map(|p| p.display_name.as_str())
-                .unwrap_or(id);
-            sprites.declare(id, display_name);
+            sprites.declare(id);
         }
     }
 }

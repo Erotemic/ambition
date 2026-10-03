@@ -542,7 +542,13 @@ second authoring source.
   `game/ambition_content/src/content_validation.rs` checks dialogue references
   again.
 - LDtk/world cross-reference rules in `content_validation.rs` repeat rules that
-  a world owner already checks.
+  a world owner already checks. ✅ 2026-10-03, the LoadingZone target rule:
+  `validate_ldtk_room_links` refused every zone without both targets, which
+  refused a landing pad that `LdtkProject::validate` allows and reported half a
+  target twice. It now checks only that a complete target names a room and a
+  zone that exist (`a_landing_pad_is_allowed_and_half_a_target_is_refused_once`).
+  The other cross-reference checks in the file were not compared against an
+  owner in that pass.
 
 **Open work:**
 

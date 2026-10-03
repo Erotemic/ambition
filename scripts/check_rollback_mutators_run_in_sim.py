@@ -359,8 +359,9 @@ _SYSTEM_PARAM_STRUCT = re.compile(
 # longer reports has been FIXED, and leaving it banked would silently absorb the
 # next system to take its place.
 ACKNOWLEDGED: dict[str, str] = {
-    "adopt_occurrence_checkpoint_from_save": "ROLLBACK-MUTATOR-POPULATION",
-    "complete_durable_restore": "ROLLBACK-MUTATOR-POPULATION",
+    # ✅ `adopt_occurrence_checkpoint_from_save` and `complete_durable_restore`
+    # left on 2026-10-03 for WAIVERS, on a measured argument held by a runtime
+    # check: see `restore_inventory_from_save` there.
     # ✅ `compute_music_intent` left because it was FIXED: it still runs, and
     # now binds `EncounterMusicRequest` as a `SessionWorldRef`. Its one write was
     # the `last_applied` mirror that AP12/W021 deleted (dbffb1a76).
@@ -622,17 +623,47 @@ WAIVERS: dict[str, str] = {
         "row — so widening or dropping it reopens a peer-compared write inside "
         "the rewind window."
     ),
+    "adopt_occurrence_checkpoint_from_save": (
+        "⛔ WAIVED WITH ITS CHAIN, 2026-10-03: it writes `AuthoredOccurrences`, "
+        "`OccurrenceBaseline` and `CustodyBaseline` from `Update` only on the "
+        "frame `SaveRestored` rises. `refuse_a_restore_over_a_live_timeline` "
+        "(`rollback_ggrs/src/session.rs`) debug-asserts that this frame begins "
+        "with no session; witness `a_save_applied_over_a_live_timeline_is_refused`. "
+        "The full argument is under `restore_inventory_from_save`."
+    ),
+    "complete_durable_restore": (
+        "⛔ WAIVED WITH ITS CHAIN, 2026-10-03: it raises `SaveRestored` and asks "
+        "for a checkpoint resume, on the one frame the save is applied. "
+        "`refuse_a_restore_over_a_live_timeline` (`rollback_ggrs/src/session.rs`) "
+        "debug-asserts that this frame begins with no session; witness "
+        "`a_save_applied_over_a_live_timeline_is_refused`. The full argument is "
+        "under `restore_inventory_from_save`."
+    ),
     "restore_inventory_from_save": (
-        "⚠ WAIVED BECAUSE NO TIMELINE CAN BE RUNNING WHEN IT WRITES, WHICH IS "
-        "NOW PROVABLE FROM THE CODE. It writes `BodyWallet` and `OwnedItems` "
+        "⚠ WAIVED BECAUSE NO TIMELINE IS RUNNING WHEN IT WRITES, AND A RUNTIME "
+        "CHECK HOLDS IT — 2026-10-03. It writes `BodyWallet` and `OwnedItems` "
         "from `Update` while applying a save, and returns early once "
-        "`SaveRestored` is true. Three facts close the window: "
-        "`maintain_local_session` refuses to CREATE a rollback session while "
-        "`durable_hydration_is_pending`; the latch has no `true -> false` "
-        "transition left anywhere (held by `debug_assert!(restored.0)` in "
-        "`reset_inventory_on_new_game`); and all four sites agree on the "
-        "population, since `adopt_occurrence_checkpoint_from_save` stopped "
-        "asking for a merely NON-EMPTY one on 2026-09-19.\n"
+        "`SaveRestored` is true. Its two chain partners take the same waiver. "
+        "`adopt_occurrence_checkpoint_from_save` writes the ledger and its two "
+        "baselines, and `complete_durable_restore` raises the latch. All three "
+        "ask the population `durable_hydration_is_pending` asks (one "
+        "`PrimaryPlayerOnly` body with a `BodyWallet`), so they write only on "
+        "the frame the latch rises. Two facts close the window. First, "
+        "`maintain_local_session` refuses to CREATE a session while hydration is "
+        "pending. Second, `refuse_a_restore_over_a_live_timeline` "
+        "(`rollback_ggrs/src/session.rs`) debug-asserts that the latch never "
+        "rises on a frame that began with a live session. Witness: "
+        "`a_save_applied_over_a_live_timeline_is_refused` (a teardown-style "
+        "reset under a live sync-test session is refused). Control: "
+        "`a_live_timeline_with_the_save_applied_runs_on`. Poisoning the assert "
+        "lets the write through silently: the sync test stayed healthy. "
+        "Measured over `app_it`: 226 rises, each on a frame that began with no "
+        "session; 40 falls, each on a frame that also ended the session.\n"
+        "⛔⛤ THIS ENTRY SAID 'the latch has no `true -> false` transition left "
+        "anywhere' UNTIL 2026-10-03. Teardown resets it "
+        "(`SessionScopedResources::reset`), 40 times over `app_it`. What held was "
+        "that each reset came with the session ending; the runtime check now "
+        "says so instead of the prose.\n"
         "⛔⛤ THIS ENTRY SAID 'THE OTHER CASE IS OPEN' UNTIL 2026-09-19 AND "
         "QUOTED A COMMENT THAT NO LONGER EXISTS — 'THE `Update` ADOPTER STAYS. "
         "A file can also arrive after activation (a mid-session load) ...' is "

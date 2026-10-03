@@ -213,3 +213,72 @@ fn a_spin_dash_rolls_checksum_identical_under_resimulation() {
     ambition_platformer2d::rollback::session_health(app.world())
         .expect("a roll resimulates checksum-identical");
 }
+
+/// How many times `Update` applies the save over 60 frames of a sync-test
+/// session that rolls back 4 frames on every frame. `lower_at` lowers the latch
+/// once, in `Update` after the GGRS step, as a reload would. A write before the
+/// GGRS step is no test: the step loads a snapshot and puts the latch back.
+/// Counts each frame on which `SaveRestored` was down before the restore chain
+/// and up after it, whatever the frame began with.
+fn applications_of_the_save(lower_at: Option<u32>) -> u32 {
+    use ambition_platformer2d::actors::session::durable_horizon::{
+        DurableRestoreSet, SaveRestored,
+    };
+    #[derive(Resource, Default)]
+    struct Seen {
+        frame: u32,
+        lower_at: Option<u32>,
+        before: bool,
+        rises: u32,
+    }
+    let mut app = build_rollback_demo_app();
+    app.insert_resource(Seen::default());
+    app.add_systems(
+        Update,
+        (|mut restored: ResMut<SaveRestored>, mut seen: ResMut<Seen>| {
+            seen.frame += 1;
+            if seen.lower_at == Some(seen.frame) {
+                restored.0 = false;
+            }
+            seen.before = restored.0;
+        })
+        .before(DurableRestoreSet::Lifecycle),
+    );
+    app.add_systems(
+        Update,
+        (|restored: Res<SaveRestored>, mut seen: ResMut<Seen>| {
+            if !seen.before && restored.0 {
+                seen.rises += 1;
+            }
+        })
+        .after(DurableRestoreSet::Complete),
+    );
+    start_gameplay_under_sync_test(&mut app);
+    let started = app.world().resource::<Seen>().frame;
+    app.world_mut().resource_mut::<Seen>().lower_at = lower_at.map(|at| started + at);
+    for _ in 0..60 {
+        app.update();
+    }
+    app.world().resource::<Seen>().rises
+}
+
+/// The save is applied once in this composition, though `SaveRestored` is
+/// rollback state and the restore chain runs in `Update`. A rewind to a
+/// snapshot from before the rise would put the latch down and let the chain run
+/// again. Traced 2026-10-03: the rise is on the first live frame, and no later
+/// GGRS step puts the latch back down. The probable reason is that only the
+/// frame-0 snapshot holds it down and this sync test does not load frame 0;
+/// that is inferred, not read in GGRS. A body born later on the timeline is not
+/// covered by this result. The declared count cannot see a second rise, because such a frame
+/// begins with the latch up.
+#[test]
+fn the_save_is_applied_once_on_the_first_live_frame() {
+    assert_eq!(applications_of_the_save(None), 1);
+}
+
+/// The control: the instrument sees a second application when the latch is
+/// lowered once after the GGRS step.
+#[test]
+fn a_lowered_latch_is_seen_as_a_second_application() {
+    assert_eq!(applications_of_the_save(Some(30)), 2);
+}

@@ -214,10 +214,16 @@ composition without the declaration is refused by
 `app_it` has no such road (226 rises, all with no session).
 
 Why it is a defect and not a style point: `SaveRestored` is rollback state and
-the chain is not. A rewind that loads a snapshot from before the rise restores
-`false`, and the next `Update` applies the save again (read from source, not
-measured; the count above cannot see it, because that frame begins with the
-latch up). A save with content would then write the wallet and ask
+the chain is not. A rewind that loads a snapshot from before the rise would
+restore `false`, and the next `Update` would apply the save again. Measured
+2026-10-03 in the Sanic fixture: it does not happen there. The save is applied
+once in 60 frames (`the_save_is_applied_once_on_the_first_live_frame`; control
+`a_lowered_latch_is_seen_as_a_second_application` counts 2). The rise is on the
+first live frame and no later GGRS step lowers the latch. Probably only the
+frame-0 snapshot holds it down and the sync test does not load frame 0
+(inferred). A body born later on the timeline has no such result. The first
+attempt at the control lowered the latch before `app.update()`, and the GGRS
+load put it back: a write from outside the frame is no control. A save with content would then write the wallet and ask
 for a checkpoint resume again, from `Update`, at a frame two peers do not agree
 on. The fixtures stay healthy only because their saves are empty.
 
@@ -849,7 +855,9 @@ peer-stable checksum. The restore chain's three `Update` residents
 gate and the chain ask one population question (`bodies.single().is_err()`),
 held by `a_population_the_restore_cannot_complete_on_is_written_to_by_nobody`.
 The chain's three `Update` residents are waived in the mutator guard, held by
-`refuse_a_restore_over_a_live_timeline` (see ROLLBACK-MUTATOR-POPULATION).
+`refuse_a_restore_over_a_live_timeline` (see ROLLBACK-MUTATOR-POPULATION),
+except on one declared road where the save is applied over a live timeline
+(BODY-BORN-ON-THE-TIMELINE).
 
 **What is left:** `Q129` (must the save file be part of what two peers agree
 on?). It is open and does not block this row. Whether that closes the row is a

@@ -378,7 +378,10 @@ mint or the opened reward chest gave (2026-10-02): `RewardGrantsSinceCheckpoint`
 records each grant by its source (a mint's parent, or a chest's placement), and
 the retraction takes the coins out of the collector's wallet (down to zero if
 spent) and the granted item out of the bag. `reset_cut_rope_attempt_on_replay`
-is now only the "try again" re-fight road, keyed by the replay's live room.
+is now only the "try again" re-fight road, keyed by the replay's live room. The
+re-fight travels with the request (`RoomReplayRequested::refight`) to
+`RoomReplayAdmitted::refight`, so a refused "try again" leaves nothing latched
+(2026-10-02).
 Witnesses are in `game/ambition_app/tests/boss_replay_retraction.rs`.
 
 **Known issues (open under the `Q51` ruling):**
@@ -386,7 +389,6 @@ Witnesses are in `game/ambition_app/tests/boss_replay_retraction.rs`.
 - A checkpoint restore forgets the reward grants, because it puts the bag back. It does not put the wallet back, so if a later replay retracts a defeat recorded before that restore, the bounty coins stay. Not measured whether a death leaves such a defeat to retract.
 - `QuestAdvanceEvent::BossDefeated` progress stays: quest progress is keyed by archetype and has no baseline.
 - A death in a room other than the boss's retracts nothing in the boss's room until that room is replayed.
-- A "try again" that the lifecycle refuses leaves the re-fight latched until the next admitted replay of that room.
 
 **Next action:** take the known issues in order, each with a witness and a
 control (a consequence from before the baseline survives the replay).

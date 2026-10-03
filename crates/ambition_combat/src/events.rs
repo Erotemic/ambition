@@ -161,6 +161,10 @@ pub struct RoomReplayAdmitted {
     /// the wait. `None` only where a composition genuinely has no controlled
     /// body and the replay is a room rebuild with nobody in it.
     pub subject: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId>,
+    /// An admitted request asked for a re-fight of the room's bosses. Content
+    /// that owns a re-fight (cut-rope's "try again") reads it here, and only
+    /// here: a refused request leaves nothing behind.
+    pub refight: bool,
 }
 
 /// "A fresh attempt at this room begins here" — the union of a room LOAD and an
@@ -245,6 +249,7 @@ impl RoomReplayAdmitted {
         Self {
             reason,
             subject: None,
+            refight: false,
         }
     }
 

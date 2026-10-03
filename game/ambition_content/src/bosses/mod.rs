@@ -251,8 +251,8 @@ pub fn register_rollback_state(
         .rollback_resource_clone_checksum_with_schema_detail::<PendingCutRopeRoomReplay>(
             "ambition_content::bosses",
             "content.pending_cut_rope_room_replay",
-            "the dialogue-authored room replay, latched until the conversation ends, and the re-fight, latched until its replay is admitted",
-            |pending| u64::from(pending.requested) | (u64::from(pending.refight) << 1),
+            "the dialogue-authored room replay, latched until the conversation ends",
+            |pending| u64::from(pending.requested),
         )
         .clear_message_on_rollback::<CutRopeRoomReplayRequested>(
             "ambition_content::bosses",

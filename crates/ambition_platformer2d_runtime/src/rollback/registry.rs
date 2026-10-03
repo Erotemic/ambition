@@ -990,7 +990,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// defeat takes back (BOSS-REPLAY-RETRACTION).
 /// ⛔⛤ 298 -> 299: that row is `resource.reward_grants_since_checkpoint`,
 /// and it also records what an opened boss reward chest gave.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 299;
+/// ⛔⛤ 299 -> 300: `content.pending_cut_rope_room_replay` folds only the
+/// conversation latch. The re-fight travels with the replay request
+/// (`RoomReplayRequested::refight`), so a refused request leaves no latch.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 300;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

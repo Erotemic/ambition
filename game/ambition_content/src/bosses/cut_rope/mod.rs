@@ -63,12 +63,9 @@ pub struct CutRopeRoomReplayRequested;
 
 /// Latched once the player chooses the replay option. The room reset waits
 /// until the conversation is over, so the final NPC line stays visible until
-/// the player dismisses it.
-///
-/// `refight` is latched when the replay is requested and taken by the next
-/// admitted replay of the cut-rope room: the re-fight the player asked for.
-/// ⚠ A request the lifecycle refuses leaves it latched for the next admitted
-/// replay of that room.
+/// the player dismisses it. The re-fight is not latched here: it travels with
+/// the replay request (`RoomReplayRequested::refight`), so a request the
+/// lifecycle refuses takes it with it.
 ///
 /// This is rollback state because it spans ticks: the choice is made while the
 /// last line is on screen, and the reset happens an unbounded number of ticks
@@ -77,7 +74,6 @@ pub struct CutRopeRoomReplayRequested;
 #[derive(Resource, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct PendingCutRopeRoomReplay {
     pub requested: bool,
-    pub refight: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -169,9 +165,8 @@ pub fn emit_cut_rope_room_replay_after_the_conversation_ends(
         return;
     }
     pending.requested = false;
-    pending.refight = true;
     replay_requests
-        .write(ambition_platformer2d_actor_monolith::session::reset::RoomReplayRequested::manual());
+        .write(ambition_platformer2d_actor_monolith::session::reset::RoomReplayRequested::refight());
 }
 
 /// Reset the Smirking Behemoth encounter so the room can be replayed in-place.
@@ -279,7 +274,6 @@ pub fn reset_cut_rope_attempt_on_replay(
     // for a replay that never happens.
     mut replays: MessageReader<ambition_combat::events::RoomReplayAdmitted>,
     rooms: ambition_platformer2d::world::rooms::LiveRoomSpecs,
-    mut pending: ResMut<PendingCutRopeRoomReplay>,
     registry: Res<BossEncounterRegistry>,
     mut save: Option<ResMut<ambition_persistence::save::AmbitionGameSave>>,
     mut music: Option<
@@ -298,7 +292,7 @@ pub fn reset_cut_rope_attempt_on_replay(
             continue;
         }
         let replayed = replayed.or_else(|| rooms.live().sole());
-        let placements: Vec<String> = if std::mem::take(&mut pending.refight) {
+        let placements: Vec<String> = if replay.refight {
             bosses
                 .iter()
                 .filter(|(entity, config)| {

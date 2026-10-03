@@ -383,3 +383,84 @@ fn a_replay_takes_back_the_reward_chest_the_retracted_defeat_dropped() {
         "((coins, chest opened, looted flag) when opened, the same after the replay)"
     );
 }
+
+/// Cut-rope's boss, defeated before the checkpoint; then the pending slot is
+/// taken by another lifecycle operation, and while it is, the player chooses
+/// "try again" when `try_again` is set. Later a plain replay of the room.
+/// Returns (cleared after the refused request, cleared after the plain replay).
+fn cut_rope_after_a_refused_request(try_again: bool) -> (bool, bool) {
+    cut_rope_after_a_request(true, try_again)
+}
+
+/// [`cut_rope_after_a_refused_request`], with the pending slot taken only when
+/// `slot_taken` is set.
+fn cut_rope_after_a_request(slot_taken: bool, try_again: bool) -> (bool, bool) {
+    use ambition_platformer2d::actors::session::lifecycle_commit::{
+        LifecycleIntent, PendingLifecycleCommit, RoomReconstitutionIntent,
+    };
+    const ROOM: &str = "you_have_to_cut_the_rope";
+    let mut sim = crate::common::fixed_60hz_room_sim(ROOM);
+    for _ in 0..30 {
+        sim.step(AgentAction::default());
+    }
+    let boss = {
+        let world = sim.world_mut();
+        let mut q = world.query::<&BossConfig>();
+        q.iter(world)
+            .find(|config| ambition_content::bosses::is_cut_rope_boss(&config.behavior.id))
+            .map(|config| config.id.clone())
+            .expect("the arena authors the cut-rope boss")
+    };
+    force_kill_boss(&mut sim, &boss);
+    until_cleared(&mut sim, &boss);
+    sim.world_mut()
+        .write_message(ambition_platformer2d::platformer::lifecycle::CheckpointCommitted);
+    for _ in 0..5 {
+        sim.step(AgentAction::default());
+    }
+    if slot_taken {
+        let _ = sim.world_mut().resource_mut::<PendingLifecycleCommit>().record(
+            0,
+            LifecycleIntent::ReconstituteRoom(RoomReconstitutionIntent { target_room: ROOM.to_string() }),
+        );
+    }
+    if try_again {
+        sim.world_mut().write_message(ambition_content::bosses::CutRopeRoomReplayRequested);
+    }
+    sim.step(AgentAction::default());
+    for _ in 0..30 {
+        sim.step(AgentAction::default());
+    }
+    let after_the_request = boss_cleared(&sim, &boss);
+    replay(&mut sim);
+    (after_the_request, boss_cleared(&sim, &boss))
+}
+
+/// A "try again" the lifecycle refuses is not a re-fight. Cut-rope's boss is
+/// defeated before the checkpoint, so only the re-fight road can put it back.
+/// The player chooses "try again" while another lifecycle operation owns the
+/// pending slot, so the replay is refused; later a plain replay of the room is
+/// admitted. The plain replay is not a re-fight: the defeat stays, as it does
+/// in the control, where nobody chose "try again". When the re-fight was a
+/// latch the refused request left set, the plain replay took it.
+#[test]
+fn a_refused_try_again_does_not_make_a_later_replay_a_refight() {
+    assert_eq!(
+        (cut_rope_after_a_refused_request(false), cut_rope_after_a_refused_request(true)),
+        ((true, true), (true, true)),
+        "((cleared after the refused request, cleared after a later plain replay) with no \
+         try-again, the same with a refused try-again)"
+    );
+}
+
+/// The re-fight road itself: an admitted "try again" puts cut-rope's boss back
+/// to `Untouched`, though its defeat fell before the checkpoint. A later plain
+/// replay leaves it so.
+#[test]
+fn an_admitted_try_again_re_fights_a_defeat_from_before_the_checkpoint() {
+    assert_eq!(
+        cut_rope_after_a_request(false, true),
+        (false, false),
+        "(cleared after the admitted try-again, cleared after a later plain replay)"
+    );
+}

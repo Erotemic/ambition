@@ -150,6 +150,10 @@ pub fn install_attempt_scoped<T: AttemptScoped + FromWorld, M>(
 #[derive(Message, Clone, Debug, Default, PartialEq, Eq)]
 pub struct RoomReplayRequested {
     pub reason: ambition_combat::RoomResetReason,
+    /// The player asked to fight this room's bosses again (a "try again"
+    /// beat). It travels with the request, so a request the lifecycle refuses
+    /// takes it with it. See [`RoomReplayAdmitted::refight`](ambition_combat::events::RoomReplayAdmitted::refight).
+    pub refight: bool,
 }
 
 impl RoomReplayRequested {
@@ -157,6 +161,15 @@ impl RoomReplayRequested {
     pub fn manual() -> Self {
         Self {
             reason: ambition_combat::RoomResetReason::Manual,
+            refight: false,
+        }
+    }
+
+    /// A deliberate retry that is also a re-fight of the room's bosses.
+    pub fn refight() -> Self {
+        Self {
+            refight: true,
+            ..Self::manual()
         }
     }
 
@@ -164,6 +177,7 @@ impl RoomReplayRequested {
     pub fn player_death() -> Self {
         Self {
             reason: ambition_combat::RoomResetReason::PlayerDeath,
+            refight: false,
         }
     }
 }

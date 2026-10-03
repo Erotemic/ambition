@@ -178,9 +178,13 @@ pub fn admit_room_replay(
 
     // Drained unconditionally: a request seen while no world exists must not be
     // re-read several frames later against a different one.
-    let Some(reason) = requests.read().map(|request| request.reason).next() else {
+    // The first request's reason; a re-fight if any request asked for one.
+    let mut asked = requests.read();
+    let Some(first) = asked.next() else {
         return;
     };
+    let reason = first.reason;
+    let refight = first.refight || asked.any(|request| request.refight);
     let Some(rooms) = rooms.as_ref() else {
         return;
     };
@@ -239,7 +243,7 @@ pub fn admit_room_replay(
         "room-replay admitted reason={reason:?} room={}",
         active.id
     ));
-    admitted.write(RoomReplayAdmitted { reason, subject });
+    admitted.write(RoomReplayAdmitted { reason, subject, refight });
 }
 
 /// Put the admitted replay's subject back at the room spawn.

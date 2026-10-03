@@ -42,7 +42,18 @@ ambition_python_exists() {
     fi
 }
 
+# Print the interpreter for a tool. Arguments: the tool's project dir, its
+# override variable name ("" for none), and whether the generic `PYTHON` counts
+# (default 1).
 ambition_select_tool_python() {
+    ambition_resolve_tool_python "$@"
+    printf '%s\n' "$AMBITION_RESOLVED_PYTHON"
+}
+
+# The resolution itself: sets `AMBITION_RESOLVED_PYTHON` and, in words,
+# `AMBITION_RESOLVED_FROM` — which road chose it. The preflight names that road
+# when the interpreter is unfit, so a user learns WHY it was picked.
+ambition_resolve_tool_python() {
     local project_dir="$1"
     local override_name="$2"
     local allow_generic_python="${3:-1}"
@@ -86,19 +97,26 @@ ambition_select_tool_python() {
     fi
 
     if [[ -n "$override_value" ]]; then
-        printf '%s\n' "$override_value"
+        AMBITION_RESOLVED_PYTHON="$override_value"
+        AMBITION_RESOLVED_FROM="$override_name"
     elif [[ -n "${AMBITION_PYTHON:-}" ]]; then
-        printf '%s\n' "$AMBITION_PYTHON"
+        AMBITION_RESOLVED_PYTHON="$AMBITION_PYTHON"
+        AMBITION_RESOLVED_FROM="AMBITION_PYTHON"
     elif [[ "$allow_generic_python" == "1" && -n "${PYTHON:-}" ]]; then
-        printf '%s\n' "$PYTHON"
+        AMBITION_RESOLVED_PYTHON="$PYTHON"
+        AMBITION_RESOLVED_FROM="PYTHON"
     elif [[ -x "$tool_venv" ]]; then
-        printf '%s\n' "$tool_venv"
+        AMBITION_RESOLVED_PYTHON="$tool_venv"
+        AMBITION_RESOLVED_FROM="this machine's tool venv (AMBITION_PYTHON unset)"
     elif [[ -x "$project_dir/.venv/bin/python" ]]; then
-        printf '%s\n' "$project_dir/.venv/bin/python"
+        AMBITION_RESOLVED_PYTHON="$project_dir/.venv/bin/python"
+        AMBITION_RESOLVED_FROM="the tool's in-repo .venv (AMBITION_PYTHON unset, no machine tool venv)"
     elif command -v python3 >/dev/null 2>&1; then
-        printf '%s\n' python3
+        AMBITION_RESOLVED_PYTHON=python3
+        AMBITION_RESOLVED_FROM="python3 on PATH (no AMBITION_PYTHON, no tool venv)"
     else
-        printf '%s\n' python
+        AMBITION_RESOLVED_PYTHON=python
+        AMBITION_RESOLVED_FROM="python on PATH (no AMBITION_PYTHON, no tool venv)"
     fi
 }
 
@@ -117,4 +135,147 @@ ambition_require_python_module() {
         printf '%s\n' "$setup_hint" >&2
         return 1
     fi
+}
+
+# Check, before any work, that each tool's interpreter has what the tool
+# DECLARES, and when one does not, say which interpreter was picked and why,
+# what it lacks, and whether the environment the user already has active would
+# do — with the command to use it.
+#
+#   ambition_preflight_tool_pythons <rerun-command> \
+#       <project_dir> <override_name> <allow_generic_python> [...more triples]
+#
+# Returns 0 when every tool is fit. Writes only to stderr.
+#
+# ⛔ IT SUGGESTS, IT DOES NOT SWITCH. An active venv is ambient state, and a
+# pipeline that quietly picked whatever was activated would publish from a
+# different interpreter depending on the terminal. The fix it names is
+# `AMBITION_PYTHON`, which the user sets on purpose.
+ambition_preflight_tool_pythons() {
+    local rerun="$1"
+    shift
+    local checker
+    checker="$(dirname -- "${BASH_SOURCE[0]}")/tool_requirements.py"
+
+    local -a projects=() overrides=() chosen=()
+    local failed=0 report="" project override allow out
+    while [[ "$#" -ge 3 ]]; do
+        project="$1" override="$2" allow="$3"
+        shift 3
+        projects+=("$project")
+        overrides+=("$override")
+        ambition_resolve_tool_python "$project" "$override" "$allow"
+        chosen+=("$AMBITION_RESOLVED_PYTHON")
+        local label="${project#"$PWD"/}"
+        if ! ambition_python_exists "$AMBITION_RESOLVED_PYTHON"; then
+            report+="  tool        : $label"$'\n'
+            report+="  interpreter : $AMBITION_RESOLVED_PYTHON — not found"$'\n'
+            report+="  chosen by   : $AMBITION_RESOLVED_FROM"$'\n\n'
+            failed=1
+            continue
+        fi
+        if out="$("$AMBITION_RESOLVED_PYTHON" "$checker" "$project" 2>&1)"; then
+            continue
+        fi
+        report+="  tool        : $label"$'\n'
+        report+="  interpreter : $AMBITION_RESOLVED_PYTHON"$'\n'
+        report+="  chosen by   : $AMBITION_RESOLVED_FROM"$'\n'
+        report+="  lacks       : $(ambition_summarize_requirement_problems "$out")"$'\n\n'
+        failed=1
+    done
+    [[ "$failed" -eq 0 ]] && return 0
+
+    printf '⛔ Python preflight failed — nothing was run.\n\n%s' "$report" >&2
+
+    # Candidates the user already has: the active venv first.
+    local -a candidates=()
+    local cand seen c
+    for cand in \
+        "${VIRTUAL_ENV:+$VIRTUAL_ENV/bin/python}" \
+        "${CONDA_PREFIX:+$CONDA_PREFIX/bin/python}" \
+        "$(command -v python3 2>/dev/null)" \
+        "$(command -v python 2>/dev/null)"; do
+        [[ -n "$cand" && -x "$cand" ]] || continue
+        seen=0
+        for c in "${candidates[@]}" "${chosen[@]}"; do
+            [[ "$c" == "$cand" ]] && seen=1
+        done
+        [[ "$seen" -eq 0 ]] && candidates+=("$cand")
+    done
+
+    local -a rel_projects=()
+    for project in "${projects[@]}"; do
+        rel_projects+=("${project#"$PWD"/}")
+    done
+
+    local first_unfit="" first_unfit_out=""
+    for cand in "${candidates[@]}"; do
+        # ⚠ Captured this way so a caller under `set -e` survives a non-zero.
+        local status=0
+        out="$("$cand" "$checker" "${projects[@]}" 2>&1)" || status=$?
+        local prefix="AMBITION_PYTHON=$cand" v
+        for v in "${overrides[@]}"; do
+            [[ -n "$v" && -n "${!v:-}" ]] && prefix+=" $v=$cand"
+        done
+        if [[ "$status" -eq 0 ]]; then
+            printf 'Your environment at %s has everything these tools need. Run:\n\n' "$cand" >&2
+            printf '    %s %s\n\n' "$prefix" "$rerun" >&2
+            printf 'To make it the default here, put this in your shell profile:\n\n' >&2
+            printf '    export AMBITION_PYTHON=%s\n' "$cand" >&2
+            return 1
+        fi
+        if [[ "$status" -eq 1 ]] && ! grep -qv '^uninstalled' <<<"$out"; then
+            local install
+            if command -v uv >/dev/null 2>&1; then
+                install="uv pip install --python $cand"
+            else
+                install="$cand -m pip install"
+            fi
+            for project in "${rel_projects[@]}"; do
+                install+=" -e $project"
+            done
+            printf 'Your environment at %s has every dependency, but not the tools themselves.\n' "$cand" >&2
+            printf 'Install them (editable; nothing else changes), then rerun with it:\n\n' >&2
+            printf '    %s\n' "$install" >&2
+            printf '    %s %s\n\n' "$prefix" "$rerun" >&2
+            printf 'To make it the default here, put this in your shell profile:\n\n' >&2
+            printf '    export AMBITION_PYTHON=%s\n' "$cand" >&2
+            return 1
+        fi
+        if [[ -z "$first_unfit" ]]; then
+            first_unfit="$cand"
+            first_unfit_out="$out"
+        fi
+    done
+
+    printf 'Fix: run ./run_developer_setup.sh to provision the tool venvs' >&2
+    if [[ -n "$first_unfit" ]]; then
+        printf '.\n\nYour environment at %s would not do as it is; it lacks:\n    %s\n' \
+            "$first_unfit" "$(ambition_summarize_requirement_problems "$first_unfit_out")" >&2
+        printf 'To install every tool and its dependencies into it instead:\n\n' >&2
+        printf '    AMBITION_PYTHON=%s ./scripts/setup/python_tools.sh\n' "$first_unfit" >&2
+    else
+        printf ', or install every tool into one interpreter with\n' >&2
+        printf '    AMBITION_PYTHON=<python> ./scripts/setup/python_tools.sh\n' >&2
+    fi
+    return 1
+}
+
+# One line from `tool_requirements.py` output: "numpy>=1.24, Pillow>=9, …".
+ambition_summarize_requirement_problems() {
+    local out="$1" line kind detail summary=""
+    while IFS= read -r line; do
+        [[ -n "$line" ]] || continue
+        if [[ "$line" == *$'\t'*$'\t'* ]]; then
+            kind="${line%%$'\t'*}"
+            detail="${line##*$'\t'}"
+            case "$kind" in
+                uninstalled) detail="the $detail package itself" ;;
+            esac
+        else
+            detail="$line"
+        fi
+        summary+="${summary:+, }$detail"
+    done <<<"$out"
+    printf '%s' "$summary"
 }

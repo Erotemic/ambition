@@ -103,6 +103,12 @@ impl BossDefeatsSinceCheckpoint {
             .collect()
     }
 
+    /// Take out every defeat: a checkpoint restore puts the whole session back
+    /// to the checkpoint, so no defeat since it stays, in any room.
+    pub fn take_all(&mut self) -> Vec<(String, BossDefeatSinceCheckpoint)> {
+        std::mem::take(&mut self.defeats).into_iter().collect()
+    }
+
     /// Entity-free value projection: two peers that disagree about which
     /// defeats a replay would retract have diverged.
     pub fn checksum(&self) -> u64 {
@@ -161,7 +167,10 @@ pub fn forget_boss_defeats_on_a_fresh_run(
 }
 
 /// On an admitted replay, retract every boss defeat of the replay's live room
-/// recorded since the last checkpoint, for every boss family.
+/// recorded since the last checkpoint, for every boss family. A checkpoint
+/// restore (a death's resume) retracts every defeat since the checkpoint, in
+/// every room: it puts the bag back wherever the defeat's reward was taken, so
+/// a defeat it kept would keep the boss dead without its reward (Q124, Q51).
 ///
 /// The replay's room is its subject's live room, or the sole live room when
 /// it names no subject. Each retracted placement's save row goes back to
@@ -181,14 +190,19 @@ pub fn retract_boss_defeats_on_replay(
     mut retracted: MessageWriter<BossDefeatRetracted>,
 ) {
     for replay in replays.read() {
-        let replayed = replay.subject.as_ref().and_then(|subject| subject.room);
-        let Some(definition) = rooms.definition_named(replayed) else {
-            continue;
+        let taken = if replay.to_checkpoint {
+            since.take_all()
+        } else {
+            let replayed = replay.subject.as_ref().and_then(|subject| subject.room);
+            let Some(definition) = rooms.definition_named(replayed) else {
+                continue;
+            };
+            let definition_id = rooms.rooms().spec(definition).id.clone();
+            let live: Vec<LiveRoomInstance> = rooms.live_rooms().map(|(room, _)| room).collect();
+            let replayed = replayed.or_else(|| (live.len() == 1).then(|| live[0]));
+            since.take_for_replay(replayed, &definition_id, &live)
         };
-        let definition_id = rooms.rooms().spec(definition).id.clone();
-        let live: Vec<LiveRoomInstance> = rooms.live_rooms().map(|(room, _)| room).collect();
-        let replayed = replayed.or_else(|| (live.len() == 1).then(|| live[0]));
-        for (placement, defeat) in since.take_for_replay(replayed, &definition_id, &live) {
+        for (placement, defeat) in taken {
             if crate::placement_is_cleared(save.data(), &placement) {
                 save.data_mut().set_boss(
                     &placement,

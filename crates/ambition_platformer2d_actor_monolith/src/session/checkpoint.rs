@@ -580,7 +580,8 @@ pub fn resume_at_checkpoint_on_reset(
             // survive, where a deliberate retry clears them.
             ambition_combat::RoomResetReason::PlayerDeath
         })
-        .for_subject(subject.clone()),
+        .for_subject(subject.clone())
+        .to_the_checkpoint(),
     );
 }
 

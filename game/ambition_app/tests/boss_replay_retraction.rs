@@ -538,3 +538,100 @@ fn a_quest_step_from_a_defeat_before_the_checkpoint_survives_a_replay() {
         "pirate_treasure (registry, save) before the fight, after the defeat, after the replay"
     );
 }
+
+/// Spawn a clockwork warden at the player, defeat it, and pick up the
+/// `markrecall` it drops.
+fn defeat_a_warden_and_take_its_ability(sim: &mut Platformer2dSimHarness, placement: &str) {
+    use ambition_platformer2d::items::Item;
+    let (px, py) = {
+        let world = sim.world_mut();
+        let kin = world
+            .query_filtered::<&ambition_platformer2d::engine_core::BodyKinematics, bevy::prelude::With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>()
+            .single(world)
+            .expect("the player has a body");
+        (kin.pos.x, kin.pos.y)
+    };
+    sim.spawn_boss_at(
+        placement,
+        "clockwork_warden",
+        (px, py),
+        (40.0, 40.0),
+        ambition_platformer2d::entity_catalog::placements::BossBrain::PhaseScript {
+            script_id: "clockwork_warden".to_string(),
+        },
+    );
+    kill_boss_with_a_real_hit(sim, placement, 600);
+    until_cleared(sim, placement);
+    for _ in 0..240 {
+        let at = {
+            let world = sim.world_mut();
+            world
+                .query::<(&ambition_platformer2d::combat::components::PickupFeature, &ambition_platformer2d::combat::components::CenteredAabb)>()
+                .iter(world)
+                .find(|(pickup, _)| matches!(&pickup.pickup.kind, ambition_platformer2d::entity_catalog::PickupKind::Ability { ability_id } if ability_id == "markrecall"))
+                .map(|(_, aabb)| aabb.center)
+        };
+        if let Some(at) = at {
+            sim.teleport_player((at.x, at.y));
+        }
+        sim.step(AgentAction::default());
+        if owns(sim.world_mut(), Item::MarkRecall) > 0 {
+            return;
+        }
+    }
+    panic!("precondition: the warden's markrecall was never picked up");
+}
+
+/// What a warden defeated in the hub leaves after a death: (boss cleared,
+/// markrecall owned, intro_first_system_boss in the registry, the wallet's
+/// change since before the fight). `banked` commits the checkpoint after the
+/// defeat instead of before it; `elsewhere` walks into the neighbour room
+/// before dying.
+fn a_warden_defeat_across_a_death(banked: bool, elsewhere: bool) -> (bool, u32, (String, u8), i32) {
+    use crate::death_restores_the_checkpoint::{commit_a_checkpoint, die, walk_to, NEIGHBOUR, ROOM};
+    let mut sim = crate::common::fixed_60hz_room_sim(ROOM);
+    let before = balance(sim.world_mut());
+    if !banked {
+        commit_a_checkpoint(&mut sim);
+    }
+    defeat_a_warden_and_take_its_ability(&mut sim, "warden");
+    if banked {
+        commit_a_checkpoint(&mut sim);
+    }
+    if elsewhere {
+        walk_to(&mut sim, NEIGHBOUR);
+    }
+    die(&mut sim);
+    (
+        boss_cleared(&sim, "warden"),
+        owns(sim.world_mut(), ambition_platformer2d::items::Item::MarkRecall),
+        quest(sim.world_mut(), "intro_first_system_boss").0,
+        balance(sim.world_mut()) - before,
+    )
+}
+
+/// A death goes back to the checkpoint everywhere, so it retracts a boss
+/// defeat since the checkpoint wherever the player dies. It took the ability
+/// out of the bag before, and left the boss dead and the quest complete, in
+/// the other room.
+#[test]
+fn a_death_in_another_room_retracts_a_defeat_since_the_checkpoint() {
+    let undefeated = (false, 0, ("InProgress".to_string(), 0), 0);
+    assert_eq!(
+        (a_warden_defeat_across_a_death(false, false), a_warden_defeat_across_a_death(false, true)),
+        (undefeated.clone(), undefeated),
+        "(cleared, markrecall, quest, wallet change) after a death in the boss's room, then in another room"
+    );
+}
+
+/// The control: a defeat the checkpoint holds survives a death in another
+/// room, with its ability, its quest step and its bounty.
+#[test]
+fn a_defeat_before_the_checkpoint_survives_a_death_in_another_room() {
+    assert_eq!(
+        a_warden_defeat_across_a_death(true, true),
+        (true, 1, ("Completed".to_string(), 0), 50),
+        "(cleared, markrecall, quest, wallet change) after a death in another room: \
+         the warden's 50-coin bounty stays with it"
+    );
+}

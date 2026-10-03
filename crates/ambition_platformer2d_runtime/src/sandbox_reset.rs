@@ -243,7 +243,14 @@ pub fn admit_room_replay(
         "room-replay admitted reason={reason:?} room={}",
         active.id
     ));
-    admitted.write(RoomReplayAdmitted { reason, subject, refight });
+    // An asked replay is of one room; only the checkpoint road restores the
+    // session to its baseline.
+    admitted.write(RoomReplayAdmitted {
+        reason,
+        subject,
+        refight,
+        to_checkpoint: false,
+    });
 }
 
 /// Put the admitted replay's subject back at the room spawn.

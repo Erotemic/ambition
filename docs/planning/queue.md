@@ -365,16 +365,25 @@ road queues `BossDefeated` caused by its placement
 (`QuestRegistry::push_event_caused_by`), the quest drain records each step that
 event moved, and the retraction calls `QuestRegistry::retract_caused_by`, which
 puts the step back in the registry and the save.
+A death retracts every defeat since the checkpoint, in every room (2026-10-03).
+The death road is the checkpoint restore, which puts the bag back everywhere,
+and its admitted replay was keyed by the death room only. So a death in another
+room took the boss's ability out of the bag but left the boss dead and its quest
+complete. `RoomReplayAdmitted::to_checkpoint` marks the checkpoint road, and the
+retraction then takes every defeat since the checkpoint
+(`BossDefeatsSinceCheckpoint::take_all`). The retraction runs at the
+restore's admission, before the restore forgets the reward grants, so it takes
+the bounty out of the wallet too, and no defeat from before a restore is left
+for a later replay to retract.
 Witnesses are in `game/ambition_app/tests/boss_replay_retraction.rs`.
 
 **Known issues (open under the `Q51` ruling):**
 
-- A checkpoint restore forgets the reward grants, because it puts the bag back. It does not put the wallet back, so if a later replay retracts a defeat recorded before that restore, the bounty coins stay. Not measured whether a death leaves such a defeat to retract.
 - A quest that moved on after the retracted defeat stays where it is, and so does what its later steps paid. Example: the mockingbird is retracted after the admiral was told, so `pirate_treasure` stays complete and the payout stays. The retraction puts a step back only while the quest stands where the defeat left it.
-- A death in a room other than the boss's retracts nothing in the boss's room until that room is replayed.
 
-**Next action:** take the known issues in order, each with a witness and a
-control (a consequence from before the baseline survives the replay).
+**Next action:** the quest that moved on: retract the later steps that
+depended on the retracted defeat, with a witness and a control (a consequence
+from before the baseline survives the replay).
 
 **Acceptance:** ✅ one generic retraction on `RoomReplayAdmitted`, keyed by the
 replay's live room, for every boss family, with the cut-rope special case

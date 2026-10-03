@@ -477,11 +477,23 @@ Guard: `the_candidate_is_built_before_the_router_advances_and_providers_only_ado
 seeds each boss from the frozen N+1 catalog (`SessionMechanics::bosses`), and
 since 2026-10-03 `BossConfig::seed` is required, so no boss reads the App
 catalog at construction or on its first tick. Witness:
-`a_boss_tuning_saved_while_the_game_runs_is_played`. Still to measure: the
-other `SessionMechanics` inputs that preparation reads from the App
-(`sheets`, `forced_brains`, `population_cap`, `perception_extent`). For each
-one, does a reload publish it at N+1 before the commit? Each one that does
-needs the channel.
+`a_boss_tuning_saved_while_the_game_runs_is_played`. Read from source
+2026-10-03, not measured by a test: the other inputs preparation reads from the
+App cannot differ between N and N+1.
+- `ReloadRequest` refuses a change to `sheets` (`AuthoredSheets`), and its
+  only writer is `register_character_sheet_ron` at plugin build.
+- `forced_brains`, `population_cap` and `perception_extent` are immutable
+  developer knobs, read once at build.
+- Audio is the exception. Its domains take part in a reload, and the
+  transaction holds the N+1 `AudioCatalogRegistry` until the commit, while
+  preparation reads the App's (N). Preparation reads it only for provider
+  presence: `validate`'s `has_provider`, and `music_ready` /
+  `procedural_sfx_ready`, which ask whether a fragment exists. A reload
+  replaces a provider's fragment, so N and N+1 agree, except for a reload that
+  drops a provider's whole music or SFX fragment. That case is unmeasured, and
+  it is the next thing to measure: a witness that drops the music fragment, and
+  then either the channel carries `audio`, or preparation reads the pending
+  audio by its `load_id`.
 
 ⛔ Not by an ordering edge and not by re-fingerprinting. Do not reopen A10.5's
 guarantee that a candidate that cannot be built never retires the live session.

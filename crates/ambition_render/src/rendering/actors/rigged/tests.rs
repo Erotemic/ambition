@@ -409,6 +409,24 @@ fn a_class_with_every_cell_taken_opens_a_page() {
     for camera in &pages[1].cameras {
         assert!(app.world().get::<Camera>(*camera).unwrap().is_active, "the second page rests");
     }
+
+    // Each page renders for its own cells only: a frame with no change rests
+    // both, and a new frame of the body on the second page runs the second
+    // page's cameras and not the first's.
+    let active = |app: &App, page: usize| {
+        let cameras = &app.world().resource::<RiggedImpostorAtlas>().0[0][page].cameras;
+        cameras.iter().map(|camera| app.world().get::<Camera>(*camera).unwrap().is_active).collect::<Vec<_>>()
+    };
+    app.update();
+    assert!(!active(&app, 0).contains(&true) && !active(&app, 1).contains(&true), "a page renders with no change");
+    let on_second = *roots
+        .iter()
+        .find(|root| app.world().get::<RiggedPresentation>(owner(&app, **root)).unwrap().impostor.page == 1)
+        .unwrap();
+    app.world_mut().get_mut::<CharacterAnimator>(on_second).unwrap().frame = 3;
+    app.update();
+    assert!(!active(&app, 1).contains(&false), "the second page rests while its body changes");
+    assert!(!active(&app, 0).contains(&true), "the first page renders for a body of the second");
 }
 
 /// The raider's published flipbook with `row` left to the baked sheet: its

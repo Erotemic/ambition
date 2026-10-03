@@ -277,7 +277,13 @@ What P5a built and measured:
   has no baked page, so it drew `NO_BAKED_IMAGE`, which is nothing: the 37th
   small body of a room was invisible. Witness:
   `a_class_with_every_cell_taken_opens_a_page` (37 parts-only raiders, two
-  pages, each body draws its own cell).
+  pages, each body draws its own cell, and each page renders for its own cells
+  only). Measured in `hall_of_characters` with every published flipbook
+  realized from parts (the publish of renderer `dff162f`, before the cost
+  verdict): 79 bodies of the first class had no cell and drew nothing; with
+  pages, none, and the first class holds its 115 bodies in 4 pages. Not
+  measured: the count at the shipped cost verdict, and what four pages cost a
+  frame.
 - **The second camera un-premultiplies.** A sprite drawn over a transparent
   clear stores premultiplied colour. Mary-O measured no difference without the
   division (her only partial alpha is a one-pixel dark outline), but a

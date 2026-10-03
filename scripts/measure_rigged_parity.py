@@ -263,7 +263,7 @@ def _unpremultiplied(image):
 
 def _sheet(target):
     sheet = yaml.safe_load((SPRITES / f"{target}_spritesheet.yaml").read_text())
-    pages = [Image.open(SPRITES / name).convert("RGBA") for name in (sheet.get("images") or [sheet["image"]])]
+    pages = [Image.open(SPRITES / name).convert("RGBA") for name in (sheet.get("images") or [sheet.get("image", f"{target}_spritesheet.png")])]
     # ⛔ Where the GAME puts the frame: by the sheet's feet ANCHOR, which is
     # not always its `feet_pixel` (director, officer and medic disagree by 8 to
     # 26 px, 2026-10-03). The harness root is built at the anchor, so the

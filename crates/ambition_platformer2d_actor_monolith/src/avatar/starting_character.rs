@@ -17,8 +17,7 @@
 //! the reusable `ambition_render` binder installs the sprite from the same
 //! identity. Presentation reads the same session-owned identity rather than process state.
 
-use bevy::ecs::change_detection::Ref;
-use bevy::ecs::system::{Commands, Query};
+use bevy::ecs::system::{Commands, Local, Query};
 use bevy::prelude::{Component, Entity, Has, Name, Res, With};
 
 use ambition_characters::actor::WornCharacter;
@@ -199,9 +198,8 @@ impl InitialBodyPolicy {
 // a spelling `prepared.rs` deleted once the enum turned out to hold one variant
 // and to be answering catalog MEMBERSHIP all along. An instruction nobody can
 // carry out is worse than a missing one, because it reads as a supported route.
-// A body is rebuilt from its persisted `AbilitySet` exactly when the catalog
-// does not know its id; `resolve_playable_action_set` owns that rule and is the
-// only place that should state it.
+// An id the prepared cast does not hold has no kit and is not worn (Q103): see
+// `wear_character`.
 
 /// The movement policy for `character_id`: its prepared definition's.
 ///
@@ -270,10 +268,12 @@ fn sync_worn_motion_model_preserving_state(
 /// This is the single resolver used by both spawn and runtime re-wear. Every
 /// field it writes is a deterministic function of the identity (and, for a
 /// seat, the match's kit) — never of the body's abilities or its prior kit.
-/// See [`WornKit::resolve`] for the arms.
+/// See [`WornKit::of`] for the arms.
 ///
 /// Returns HOW the resolved persona fires ([`RangedExecution`]); the ECS derive
 /// system synchronizes the charge marker and its mutable state from that.
+/// `None` when the cast does not hold `character_id`: nothing is written (see
+/// [`wear_character`]).
 pub fn apply_worn_character_overlay(
     registry: Option<&ambition_characters::prepared::PreparedCharacterRegistry>,
     name: &mut Name,
@@ -282,8 +282,8 @@ pub fn apply_worn_character_overlay(
     identity: &mut ambition_characters::brain::action_set::IdentityKit,
     character_id: &str,
     terms: ambition_combat::worn_kit::SeatTerms<'_>,
-) -> RangedExecution {
-    let execution = wear_character(registry, name, identity, character_id, terms);
+) -> Option<RangedExecution> {
+    let execution = wear_character(registry, name, identity, character_id, terms)?;
     // Construction: nothing is worn or held yet, so the live pair is the
     // identity's own fold, published with it.
     let live = ambition_characters::repertoire::effective_repertoire(
@@ -293,7 +293,7 @@ pub fn apply_worn_character_overlay(
     );
     *action_set = live.action_set;
     *moveset = ActorMoveset(live.moveset);
-    execution
+    Some(execution)
 }
 
 /// Put `character_id` on a body: its display name and its identity baseline.
@@ -302,24 +302,23 @@ pub fn apply_worn_character_overlay(
 /// `reconcile_effective_repertoire`'s to derive from this baseline together
 /// with worn equipment and the hand, so a body re-wearing a character while
 /// holding something is never published empty-handed.
+///
+/// ⛔ `None` WHEN THE CAST DOES NOT HOLD `character_id` (Q103): nothing is
+/// written, and the caller reports the refusal. A character admitted into
+/// simulation was prepared for that generation; there is no default kit and
+/// no name made from the id.
 pub fn wear_character(
     registry: Option<&ambition_characters::prepared::PreparedCharacterRegistry>,
     name: &mut Name,
     identity: &mut ambition_characters::brain::action_set::IdentityKit,
     character_id: &str,
     terms: ambition_combat::worn_kit::SeatTerms<'_>,
-) -> RangedExecution {
-    let kit = WornKit::resolve(registry, character_id, terms);
-    // The prepared name, else the id itself, so an unknown id is shown as the
-    // id and the problem stays visible.
-    *name = Name::new(
-        registry
-            .and_then(|registry| registry.get(character_id))
-            .map_or(character_id, |prepared| prepared.display_name.as_str())
-            .to_string(),
-    );
+) -> Option<RangedExecution> {
+    let prepared = registry?.get(character_id)?;
+    let kit = WornKit::of(prepared, terms);
+    *name = Name::new(prepared.display_name.clone());
     *identity = kit.identity;
-    kit.execution
+    Some(kit.execution)
 }
 
 /// What the match says about the kit this seat wears, or the terms of a body
@@ -379,12 +378,18 @@ pub fn apply_worn_character_gameplay(
     // degraded one.
     roster: Option<Res<ambition_match::MatchParticipantRoster>>,
     mut commands: Commands,
+    // The refusals already reported for a body that stays stale: such a body
+    // is asked again every tick, and it is reported once for each generation.
+    // Only the log reads this.
+    mut reported: Local<std::collections::HashSet<(Entity, ambition_characters::prepared::CharacterCatalogGeneration)>>,
     // The repertoire-bearing bodies: the live pair this system does not write
     // is the fold's, and a body without it has nothing for the fold to publish.
     mut worn: Query<
         (
         Entity,
-        Ref<WornCharacter>,
+        // Written only to put back the previous character when a wear is
+        // refused.
+        &mut WornCharacter,
         &mut Name,
         &mut ambition_characters::brain::action_set::IdentityKit,
         // The one transition seam (`switch_motion_model`): a cross-model
@@ -419,7 +424,7 @@ pub fn apply_worn_character_gameplay(
     let registry = cast.get();
     for (
         entity,
-        character,
+        mut character,
         mut name,
         mut identity,
         mut motion_model,
@@ -454,7 +459,7 @@ pub fn apply_worn_character_gameplay(
                 .try_remove::<ambition_characters::actor::RecharacterizeBody>();
         }
         if recharacterize || stale_cast {
-            let execution = wear_character(
+            let Some(execution) = wear_character(
                 registry,
                 &mut name,
                 &mut identity,
@@ -464,7 +469,28 @@ pub fn apply_worn_character_gameplay(
                 // no `MatchSeat` is not in a match and keeps its authored
                 // persona, which is every other body in every game.
                 seat_terms_for(roster.as_deref(), seat),
-            );
+            ) else {
+                // ⛔ REFUSED (Q103): the cast this session was prepared with
+                // does not hold the id. Nothing of the body changes, and it
+                // wears again the character last applied to it
+                // (`PersonaBaseline::id`), so its id and its kit stay one
+                // answer. A body with no baseline keeps the id it was built
+                // with, and is asked again when a cast holds it.
+                let previous = baseline
+                    .map(|baseline| baseline.id.as_str())
+                    .filter(|previous| *previous != id);
+                if recharacterize || reported.insert((entity, generation)) {
+                    bevy::log::error!(
+                        "body {entity:?} does not wear '{id}': it is not a character of the \
+                         prepared cast; it keeps {}",
+                        previous.map_or_else(|| "what it has".to_string(), |previous| format!("'{previous}'")),
+                    );
+                }
+                if let Some(previous) = previous {
+                    *character = WornCharacter::new(previous);
+                }
+                continue;
+            };
             sync_charge_projectile_capability(
                 &mut commands,
                 entity,

@@ -8436,7 +8436,7 @@ fn pause_row_index(app: &mut App, label: &str) -> usize {
 ///
 /// ⛔ AND A RE-WEAR IN THE MATCH KEEPS THE STAGE'S DAMAGE. A seated body that
 /// re-wears its character (`RecharacterizeBody`, a content reload) resolves its
-/// kit again through `WornKit::resolve`. The damage source is one of that
+/// kit again through `WornKit::of`. The damage source is one of that
 /// resolver's inputs for this reason: applied only at seating, a re-wear would
 /// silently put the robot back on its home damage.
 #[test]

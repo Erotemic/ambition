@@ -584,8 +584,10 @@ fn cross_model_rewear_preserves_shared_state_and_initializes_axis_private_state(
         .unwrap()
         .charges_available = 2;
 
+    // A character of the cast whose row authors the axis policy. An id outside
+    // the cast is refused and leaves the body on the momentum policy (Q103).
     app.world_mut().entity_mut(entity).insert((
-        WornCharacter::new("player"),
+        WornCharacter::new("player_robot_v3"),
         ambition_characters::actor::RecharacterizeBody,
     ));
     app.update();

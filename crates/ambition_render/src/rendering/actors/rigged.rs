@@ -398,7 +398,8 @@ pub fn bind_rigged_presentations(
         by_sheet.clear();
         for sheet in assets.characters.ready_sheets() {
             if let Some(pages) = &sheet.rigged {
-                by_sheet.insert((sheet.spec.target().to_owned(), sheet.resolved_tier), pages.clone());
+                // By the sheet's key: a generator's sheets share a `target`.
+                by_sheet.insert((sheet.spec.base_sheet_key().to_owned(), sheet.resolved_tier), pages.clone());
             }
         }
     }
@@ -417,7 +418,7 @@ pub fn bind_rigged_presentations(
     });
     for (root, animator, bound, mut sprite) in &mut roots {
         let tier = bound.map_or(TextureResolutionScale::Full, |bound| bound.scale);
-        let wanted = by_sheet.get(&(animator.spec.target().to_owned(), tier));
+        let wanted = by_sheet.get(&(animator.spec.base_sheet_key().to_owned(), tier));
         let current = owners
             .0
             .get(&root)
@@ -430,7 +431,7 @@ pub fn bind_rigged_presentations(
         if same {
             continue;
         }
-        let target = animator.spec.target();
+        let target = animator.spec.base_sheet_key();
         let ready = wanted.is_some_and(|wanted| {
             pages_ready(asset_server.as_deref(), impostors.images.as_deref().unwrap(), wanted)
         });

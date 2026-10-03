@@ -14,3 +14,11 @@ pub fn baked_part_flipbook(key: &str) -> Option<&'static str> {
         .ok()
         .map(|index| BAKED_PART_FLIPBOOKS[index].1)
 }
+
+/// Every target that publishes a full-resolution part flipbook.
+pub fn baked_part_flipbook_targets() -> impl Iterator<Item = &'static str> {
+    BAKED_PART_FLIPBOOKS
+        .iter()
+        .map(|(name, _)| *name)
+        .filter(|name| !name.contains('.'))
+}

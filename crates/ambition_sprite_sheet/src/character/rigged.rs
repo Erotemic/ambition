@@ -130,6 +130,8 @@ pub struct RiggedSpriteAsset {
     pub frame_size: UVec2,
     pub feet_pixel: Vec2,
     pub placement: RigPlacement,
+    /// The road the game draws this character by (see [`Realize`]).
+    pub realize: Realize,
     pub parts: Vec<RigPart>,
     clips: BTreeMap<String, RigSpriteClip>,
     /// The rows that this flipbook leaves to the baked sheet.
@@ -224,6 +226,21 @@ struct Published {
     /// Absent in a flipbook that realizes every row from parts.
     #[serde(default)]
     baked_clips: Vec<String>,
+    /// Which road the game draws this character by, decided at publish from
+    /// the measured cost (`part_flipbook.realization_by_cost`). Absent: parts.
+    #[serde(default)]
+    realize: Realize,
+}
+
+/// The road a published character is drawn by. The flipbook is published
+/// either way (the capability, and the offline proof that it redraws the
+/// sheet); `Baked` is a measured verdict that parts cost more than the sheet.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Realize {
+    #[default]
+    Parts,
+    Baked,
 }
 
 fn full_resolution() -> f32 {
@@ -367,6 +384,7 @@ impl RiggedSpriteAsset {
             frame_size: UVec2::new(published.frame_size.0, published.frame_size.1),
             feet_pixel: Vec2::new(published.feet_pixel.0, published.feet_pixel.1),
             placement: published.placement,
+            realize: published.realize,
             parts,
             clips,
             baked_clips,

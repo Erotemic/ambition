@@ -109,18 +109,18 @@ where
         OWNER,
         "projectile.allegiance",
     );
-    // ⛔ THE RECEIPT IS SNAPSHOTTED WHOLE AND CHECKSUMMED IN PART. THREE of its
+    // ⛔ THE RECEIPT IS SNAPSHOTTED WHOLE AND CHECKSUMMED IN PART. TWO of its
     // four fields count something local: `session` counts this App's
-    // activations, `seat_topology` its device-topology generations, and
-    // `activated_on` its sim steps (menus included — see
-    // `MatchInstance::activation_tick`). All three must survive a rewind and none
-    // is a fact two peers can agree on, so only the agreed seat count is
-    // compared. `ActiveMatch::peer_stable_checksum` decides which half is which.
+    // activations, and `activated_on` its sim steps (menus included — see
+    // `MatchInstance::activation_tick`). Both must survive a rewind and neither
+    // is a fact two peers can agree on, so only the agreed seat count and the
+    // peer match ordinal are compared. `ActiveMatch::peer_stable_checksum`
+    // decides which half is which.
     registrar.rollback_resource_optional_canonical_checksum::<ambition_match::ActiveMatch>(
         OWNER,
         "resource.active_match",
         "bevy_ggrs canonical codec snapshot + checksum over the agreed seat count and the peer match \
-         ordinal, excluding the host-local session, seat-topology and activation-tick stamps",
+         ordinal, excluding the host-local session and activation-tick stamps",
         ambition_match::ActiveMatch::peer_stable_checksum,
     );
     // Which match each stamped object belongs to, so the sweep never sees a

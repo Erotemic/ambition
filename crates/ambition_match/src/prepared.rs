@@ -350,10 +350,6 @@ pub struct PreparedMatch {
     /// Activation never re-resolves against a newer generation; that would put
     /// a live authority back inside activation.
     cast_generation: ambition_characters::prepared::CharacterCatalogGeneration,
-    /// The frozen seat topology the roster was agreed under, carried so the
-    /// activation can cite it. Reading the world at activation would give the
-    /// current topology, not the one this plan was built from.
-    seat_topology: Option<u64>,
     /// The first `SimTick` this plan may build on.
     ///
     /// When a decision takes effect is part of the decision. The plan is not
@@ -426,12 +422,6 @@ impl PreparedMatch {
         self.cast_generation != live
     }
 
-    /// The frozen seat topology this plan was agreed under, if anything had an
-    /// opinion when the roster was built.
-    pub fn seat_topology(&self) -> Option<u64> {
-        self.seat_topology
-    }
-
     /// Whether this plan was built from `experience_id`'s roster.
     ///
     /// An unowned plan answers `false` to everyone. That leaks instead of
@@ -449,7 +439,6 @@ impl PreparedMatch {
             seats: Vec::new(),
             rules: MatchRules::default(),
             cast_generation: ambition_characters::prepared::CharacterCatalogGeneration::default(),
-            seat_topology: None,
             // Tick zero is reached by every clock, and no session matches a
             // bare test world.
             effective_from: 0,
@@ -780,7 +769,6 @@ pub fn prepare_match(
         seats,
         rules,
         cast_generation: registry.generation(),
-        seat_topology: roster.seat_topology(),
         effective_from,
         session,
         published_by: roster.published_by.clone(),

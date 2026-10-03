@@ -202,7 +202,9 @@ fn reconcile_roster_with_frozen_topology(
     mut commands: Commands,
     topology: Option<Res<ambition_platformer2d::input::LocalSeatTopology>>,
     roster: Option<ResMut<MatchParticipantRoster>>,
-    active_match: Option<ResMut<ambition_platformer2d::versus_match::ActiveMatch>>,
+    // READ ONLY. The live activation is rollback state, and this system runs in
+    // `Update`, so it may ask whether a match is live but must not write it.
+    active_match: Option<Res<ambition_platformer2d::versus_match::ActiveMatch>>,
     mut demand: ResMut<ambition_platformer2d::characters::load_demand::CharacterLoadDemand>,
     // Bodies that are ALREADY seated, latch or no latch. This is the fact the
     // `ActiveMatch` check was standing in for, and the two are not the same fact.
@@ -286,7 +288,7 @@ fn reconcile_roster_with_frozen_topology(
         topology.players(),
         RosterSeating::activated_at(topology.generation()),
     );
-    if let Some(mut active) = active_match {
+    if let Some(active) = active_match {
         // The match is LIVE and these are its bodies. Reseating them underneath
         // the round is worse than the disagreement — so the question is whether
         // there IS one.
@@ -314,8 +316,11 @@ fn reconcile_roster_with_frozen_topology(
             // rather than deciding a match, and re-validating what is already on
             // the stage would be asking a question whose answer cannot change
             // anything.
+            //
+            // The roster is the one record of which topology decided the
+            // seating. The activation keeps no copy of it, so the repair
+            // writes no rollback state.
             roster.activate(Some(topology.generation()));
-            active.adopt_seat_topology(topology.generation());
             return;
         }
         bevy::log::warn_once!(
@@ -984,7 +989,7 @@ mod stage_rule_tests {
                 VERSUS_EXPERIENCE,
             )));
         app.world_mut()
-            .insert_resource(ActiveMatch::for_test(2, None));
+            .insert_resource(ActiveMatch::for_test(2));
 
         leave_versus(&mut app);
 
@@ -1017,7 +1022,7 @@ mod stage_rule_tests {
         app.world_mut()
             .insert_resource(PreparedMatch::for_test_published_by(Some("smash")));
         app.world_mut()
-            .insert_resource(ActiveMatch::for_test(4, None));
+            .insert_resource(ActiveMatch::for_test(4));
 
         leave_versus(&mut app);
 
@@ -1180,7 +1185,7 @@ mod roster_topology_tests {
         if active {
             // An ACTIVE match: seating published it, so its bodies are on the
             // stage and rebuilding the roster would reseat underneath them.
-            app.insert_resource(ActiveMatch::for_test(0, None));
+            app.insert_resource(ActiveMatch::for_test(0));
         }
         app.init_resource::<CharacterLoadDemand>();
         app.add_systems(Update, reconcile_roster_with_frozen_topology);
@@ -1451,12 +1456,6 @@ mod roster_topology_tests {
             "the roster and the session agree about the fighters and the roster \
              still records no topology, so the reconciler warns about a stage \
              where nothing is wrong — every tick, forever"
-        );
-        assert_eq!(
-            app.world().resource::<ActiveMatch>().seat_topology(),
-            Some(generation),
-            "the ACTIVATION kept the stale stamp, so the next comparison asks \
-             the same question again and the repair has to be redone"
         );
     }
 

@@ -1604,7 +1604,6 @@ fn live_match_with_roster_outcome(outcome: Option<super::CharacterLoadOutcome>) 
     app.insert_resource(ambition_match::seating::ActiveMatch::activated(
         1,
         None,
-        None,
         Some(0),
         None,
     ));

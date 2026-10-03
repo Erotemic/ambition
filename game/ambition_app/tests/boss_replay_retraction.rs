@@ -706,6 +706,40 @@ fn a_payout_before_the_checkpoint_survives_a_replay() {
     );
 }
 
+/// Spawn mockingbird `id` where Bob stands, in Bob's live room `room`. A boss
+/// spawned at Alice's hub position and moved into Bob's room stands at hub
+/// coordinates there, outside its geometry, and its chest falls out of the
+/// world.
+fn spawn_mockingbird_beside_bob(sim: &mut Platformer2dSimHarness, id: &str, room: ambition_platformer2d::platformer::lifecycle::LiveRoomInstance) {
+    let at = {
+        let world = sim.world_mut();
+        world
+            .query::<(&ambition_platformer2d::combat::components::FeatureId, &ambition_platformer2d::engine_core::BodyKinematics)>()
+            .iter(world)
+            .find(|(feature, _)| feature.0 == "ow1_bob")
+            .map(|(_, kin)| (kin.pos.x, kin.pos.y))
+            .expect("Bob is in the world")
+    };
+    sim.spawn_boss_at(
+        id,
+        "mockingbird",
+        at,
+        (30.0, 30.0),
+        ambition_platformer2d::entity_catalog::placements::BossBrain::PhaseScript {
+            script_id: "mockingbird".to_string(),
+        },
+    );
+    sim.step(crate::common::base());
+    let world = sim.world_mut();
+    let entity = world
+        .query::<(bevy::prelude::Entity, &BossConfig)>()
+        .iter(world)
+        .find(|(_, config)| config.id == id)
+        .map(|(entity, _)| entity)
+        .expect("the boss reached the world");
+    world.entity_mut(entity).insert(InRoomInstance(room));
+}
+
 /// What Alice's and Bob's bosses leave standing, and where Bob is.
 #[derive(Debug, PartialEq, Eq)]
 struct BobsBoss {
@@ -735,6 +769,21 @@ struct BobsBoss {
 /// placement of `switch_lab`, so a rebuild of that room builds him again
 /// (Q153: a seat's body needs a home a rebuild does not replace).
 fn bobs_boss_after_alices_death(die: bool, together: bool) -> BobsBoss {
+    bobs_boss_after(if die { Ending::Death } else { Ending::Nothing }, together)
+}
+
+/// What ends the run in [`bobs_boss_after`].
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Ending {
+    Nothing,
+    /// Alice dies in her room.
+    Death,
+    /// An explicit whole-session restart.
+    NewGame,
+}
+
+/// [`bobs_boss_after_alices_death`], ended by `ending`.
+fn bobs_boss_after(ending: Ending, together: bool) -> BobsBoss {
     use crate::death_restores_the_checkpoint::commit_a_checkpoint;
     use ambition_platformer2d::platformer::lifecycle::{LiveRoomInstance, RoomInstanceRoot};
     const BOSS: &str = "bobs_boss";
@@ -754,18 +803,19 @@ fn bobs_boss_after_alices_death(die: bool, together: bool) -> BobsBoss {
             .0
     };
     assert_eq!(together, alices_room == first, "precondition: Alice is in Bob's room only when together");
-    for (boss, room) in [(ALICES_BOSS, alices_room), (BOSS, first)] {
-        spawn_mockingbird(&mut sim, boss);
-        sim.step(crate::common::base());
+    spawn_mockingbird(&mut sim, ALICES_BOSS);
+    sim.step(crate::common::base());
+    {
         let world = sim.world_mut();
         let entity = world
             .query::<(bevy::prelude::Entity, &BossConfig)>()
             .iter(world)
-            .find(|(_, config)| config.id == boss)
+            .find(|(_, config)| config.id == ALICES_BOSS)
             .map(|(entity, _)| entity)
             .expect("the boss reached the world");
-        world.entity_mut(entity).insert(InRoomInstance(room));
+        world.entity_mut(entity).insert(InRoomInstance(alices_room));
     }
+    spawn_mockingbird_beside_bob(&mut sim, BOSS, first);
     for _ in 0..15 {
         sim.step(crate::common::base());
     }
@@ -776,8 +826,16 @@ fn bobs_boss_after_alices_death(die: bool, together: bool) -> BobsBoss {
     for _ in 0..200 {
         sim.step(crate::common::base());
     }
-    if die {
-        crate::death_restores_the_checkpoint::die(&mut sim);
+    match ending {
+        Ending::Nothing => {}
+        Ending::Death => crate::death_restores_the_checkpoint::die(&mut sim),
+        Ending::NewGame => {
+            sim.world_mut()
+                .write_message(ambition_platformer2d::actors::session::reset::NewGameRequested);
+            for _ in 0..240 {
+                sim.step(crate::common::base());
+            }
+        }
     }
     let world = sim.world_mut();
     let chests = world
@@ -871,5 +929,108 @@ fn a_death_in_a_shared_room_takes_back_the_defeat_in_the_room_both_stand_in() {
             bob_in_a_live_room: true,
         },
         "after Alice's death the save and the shared room must agree"
+    );
+}
+
+/// (coins Alice gained, Bob's chest opened, looted flag, Bob's boss cleared)
+/// when Alice has opened the chest of Bob's boss in his room after the
+/// checkpoint, and then again after Alice dies in the hub.
+fn alice_loots_bobs_chest_then_dies() -> [(i32, Option<bool>, bool, bool); 2] {
+    use crate::death_restores_the_checkpoint::commit_a_checkpoint;
+    const BOSS: &str = "bobs_boss";
+    let (mut sim, first) = crate::two_players_two_live_rooms::alice_leaves_bob_for_a_replay();
+    commit_a_checkpoint(&mut sim);
+    spawn_mockingbird_beside_bob(&mut sim, BOSS, first);
+    for _ in 0..15 {
+        sim.step(crate::common::base());
+    }
+    force_kill_boss(&mut sim, BOSS);
+    until_cleared(&mut sim, BOSS);
+    for _ in 0..120 {
+        sim.step(crate::common::base());
+    }
+    {
+        let world = sim.world_mut();
+        let mut chests = world.query::<(&ambition_platformer2d::combat::components::BossRewardChest, &mut ambition_platformer2d::combat::components::ChestFeature)>();
+        let (_, mut chest) = chests
+            .iter_mut(world)
+            .find(|(chest, _)| chest.encounter_id == BOSS)
+            .expect("precondition: the defeat dropped its reward chest");
+        chest.chest.reward = Some(ambition_platformer2d::entity_catalog::PickupKind::Currency { amount: 30 });
+    }
+    let before = balance(sim.world_mut());
+    assert_eq!(crate::common::walk_through_the_door_to(&mut sim, "switch_lab"), "switch_lab");
+    for _ in 0..60 {
+        let Some((opened, at)) = reward_chest(sim.world_mut(), BOSS) else {
+            break;
+        };
+        if opened {
+            break;
+        }
+        sim.teleport_player((at.x, at.y));
+        sim.step(AgentAction { interact: true, interact_held: true, ..AgentAction::default() });
+        sim.step(AgentAction::default());
+    }
+    for _ in 0..5 {
+        sim.step(AgentAction::default());
+    }
+    let looted = |sim: &mut Platformer2dSimHarness| {
+        sim.world()
+            .resource::<ambition_platformer2d::persistence::save::AmbitionGameSave>()
+            .data()
+            .flag(&ambition_platformer2d::encounter::encounter_reward_looted_flag(BOSS))
+    };
+    let seen = |sim: &mut Platformer2dSimHarness| {
+        (
+            balance(sim.world_mut()) - before,
+            reward_chest(sim.world_mut(), BOSS).map(|(opened, _)| opened),
+            looted(sim),
+            boss_cleared(sim, BOSS),
+        )
+    };
+    let opened = seen(&mut sim);
+    // Opening the chest holds Interact, which also crosses a door Alice stands in.
+    if sim.observation().active_room != "central_hub_complex" {
+        assert_eq!(crate::common::walk_through_the_door_to(&mut sim, "central_hub_complex"), "central_hub_complex");
+    }
+    crate::death_restores_the_checkpoint::die(&mut sim);
+    [opened, seen(&mut sim)]
+}
+
+/// Q151: Bob's boss defeat and its reward stay when Alice dies, also when
+/// Alice took the reward. She opens the chest of Bob's boss in his room after
+/// the checkpoint (30 coins), goes back to the hub and dies: she keeps the
+/// coins, the chest stays opened and looted, and the boss stays cleared. So
+/// the reward is neither lost nor in the world twice. The control is the
+/// first reading, taken when the chest is opened.
+#[test]
+fn a_death_keeps_the_reward_taken_from_the_other_players_boss() {
+    let looted = (30, Some(true), true, true);
+    assert_eq!(
+        alice_loots_bobs_chest_then_dies(),
+        [looted, looted],
+        "(coins gained, chest opened, looted flag, boss cleared) when Alice opened the chest, then after her death"
+    );
+}
+
+/// Q151: an explicit whole-session restart may rewind the whole session, and
+/// its boundary must be coherent: a room that stays live must not keep what
+/// the restart took back.
+///
+/// ⛔ RED TODAY, so ignored. Measured 2026-10-03: after a New Game beside
+/// Bob's live room, the save says Bob's boss is not defeated and its chest is
+/// gone, while his room stays the same instance with the dead boss in it
+/// (`cleared: false, dead_body: true, chests: 0, bob_in_his_first_room:
+/// true`). The restart commit rebuilds only the start room. The fix belongs in
+/// that commit (it retires or rebuilds every live room), not in a replay
+/// after it. Queue row DEATH-IS-ROOM-LOCAL.
+#[test]
+#[ignore = "a New Game does not yet retire the other live rooms (DEATH-IS-ROOM-LOCAL)"]
+fn a_new_game_leaves_no_live_room_holding_what_it_took_back() {
+    let after = bobs_boss_after(Ending::NewGame, false);
+    assert_eq!(
+        (after.cleared, after.dead_body, after.chests, after.bob_in_his_first_room),
+        (false, false, 0, false),
+        "(Bob's boss cleared, its dead body, chests, Bob still in the room the restart did not touch): {after:?}"
     );
 }

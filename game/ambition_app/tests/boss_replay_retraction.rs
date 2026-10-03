@@ -464,3 +464,77 @@ fn an_admitted_try_again_re_fights_a_defeat_from_before_the_checkpoint() {
         "(cleared after the admitted try-again, cleared after a later plain replay)"
     );
 }
+
+/// Where quest `id` stands: (progression, step) in the registry, then in the
+/// save row that mirrors it.
+fn quest(world: &mut World, id: &str) -> ((String, u8), (String, u8)) {
+    let state = world
+        .resource::<ambition_content::quest::QuestRegistry>()
+        .get(id)
+        .map(|state| (format!("{:?}", state.progression), state.step))
+        .expect("the quest is authored");
+    let (saved, step) = world
+        .resource::<ambition_platformer2d::persistence::save::AmbitionGameSave>()
+        .data()
+        .quest(id);
+    (state, (format!("{saved:?}"), step))
+}
+
+/// A quest the registry starts at boot is in progress at its first step,
+/// and the save has no row for it until it first advances.
+fn started_at_boot() -> ((String, u8), (String, u8)) {
+    (("InProgress".to_string(), 0), ("NotStarted".to_string(), 0))
+}
+
+/// The mockingbird's defeat advances `pirate_treasure` past its first step.
+/// Returns where the quest stands (before the fight, after the defeat, after
+/// a replay); `checkpoint` commits a checkpoint between the defeat and the
+/// replay.
+fn pirate_treasure_across_a_replay(checkpoint: bool) -> Vec<((String, u8), (String, u8))> {
+    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+    let mut stands = vec![quest(sim.world_mut(), "pirate_treasure")];
+    spawn_mockingbird(&mut sim, "quest_giver");
+    for _ in 0..15 {
+        sim.step(AgentAction::default());
+    }
+    force_kill_boss(&mut sim, "quest_giver");
+    until_cleared(&mut sim, "quest_giver");
+    for _ in 0..5 {
+        sim.step(AgentAction::default());
+    }
+    stands.push(quest(sim.world_mut(), "pirate_treasure"));
+    if checkpoint {
+        sim.world_mut()
+            .write_message(ambition_platformer2d::platformer::lifecycle::CheckpointCommitted);
+        for _ in 0..5 {
+            sim.step(AgentAction::default());
+        }
+    }
+    replay(&mut sim);
+    stands.push(quest(sim.world_mut(), "pirate_treasure"));
+    stands
+}
+
+/// The quest step goes with the defeat: a replay that retracts the
+/// mockingbird's defeat puts `pirate_treasure` back on "hunt the
+/// mockingbird", in the registry and in the save.
+#[test]
+fn a_replay_takes_back_the_quest_step_the_retracted_defeat_advanced() {
+    let at = |step: u8| (("InProgress".to_string(), step), ("InProgress".to_string(), step));
+    assert_eq!(
+        pirate_treasure_across_a_replay(false),
+        vec![started_at_boot(), at(1), at(0)],
+        "pirate_treasure (registry, save) before the fight, after the defeat, after the replay"
+    );
+}
+
+/// The control: a defeat the checkpoint holds keeps the step it advanced.
+#[test]
+fn a_quest_step_from_a_defeat_before_the_checkpoint_survives_a_replay() {
+    let at = |step: u8| (("InProgress".to_string(), step), ("InProgress".to_string(), step));
+    assert_eq!(
+        pirate_treasure_across_a_replay(true),
+        vec![started_at_boot(), at(1), at(1)],
+        "pirate_treasure (registry, save) before the fight, after the defeat, after the replay"
+    );
+}

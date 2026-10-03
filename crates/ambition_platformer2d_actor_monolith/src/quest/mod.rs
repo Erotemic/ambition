@@ -88,7 +88,6 @@ mod tests {
         app.world()
             .resource::<QuestRegistry>()
             .pending_events()
-            .iter()
             .filter(|event| matches!(event, QuestAdvanceEvent::RoomEntered(_)))
             .count()
     }
@@ -151,7 +150,6 @@ mod tests {
             app.world()
                 .resource::<QuestRegistry>()
                 .pending_events()
-                .iter()
                 .filter_map(|event| match event {
                     QuestAdvanceEvent::RoomEntered(room) => Some(room.clone()),
                     _ => None,

@@ -993,7 +993,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// ⛔⛤ 299 -> 300: `content.pending_cut_rope_room_replay` folds only the
 /// conversation latch. The re-fight travels with the replay request
 /// (`RoomReplayRequested::refight`), so a refused request leaves no latch.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 300;
+/// ⛔⛤ 300 -> 301: `resource.quest_registry` also folds the cause of each
+/// pending advance and the quest steps each cause's latest event moved, which
+/// a retracted boss defeat puts back (BOSS-REPLAY-RETRACTION).
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 301;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

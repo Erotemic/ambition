@@ -1,6 +1,6 @@
 {
   "peer_checksum_schema": {
-    "version": "ggrs-rollback-schema-v300",
+    "version": "ggrs-rollback-schema-v301",
     "rows": [
       "actor.active_combatant\tcomponent-canonical\tActiveCombatant",
       "actor.aggression\tcomponent-clone-cursor\tActorAggression",
@@ -120,7 +120,7 @@
       "resource.placement_continuity\tresource-clone-custom-checksum\tAuthoredOccurrences\tbevy_ggrs clone snapshot + authoritative occurrence whereabouts; domain-separated fold over (SimId, whereabouts)",
       "resource.projectile_seq_counter\tresource-canonical\tProjectileSeqCounter\tbevy_ggrs canonical codec snapshot + identical canonical checksum projection",
       "resource.quest_last_room\tresource-clone-custom-checksum\tLastQuestRoom\tbevy_ggrs clone snapshot + the room ids that were live when the RoomEntered producer last looked",
-      "resource.quest_registry\tresource-clone-custom-checksum\tQuestRegistry\tbevy_ggrs clone snapshot + quest identity, progression and pending-advance checksum projection",
+      "resource.quest_registry\tresource-clone-custom-checksum\tQuestRegistry\tbevy_ggrs clone snapshot + quest identity, progression, pending-advance and caused-advance checksum projection",
       "resource.requested_clock_scale\tresource-canonical\tRequestedClockScale\tbevy_ggrs canonical codec snapshot + identical canonical checksum projection",
       "resource.reward_grants_since_checkpoint\tresource-clone-custom-checksum\tRewardGrantsSinceCheckpoint\tbevy_ggrs clone snapshot + the grants of the mints collected and the boss reward chests opened since the last checkpoint, which a retracted boss defeat takes back",
       "resource.sandbox_save\tresource-clone-custom-checksum\tAmbitionGameSave\tbevy_ggrs clone snapshot + serialized whole-save checksum projection, its dormant-record rows hashed once per Arc",

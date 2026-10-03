@@ -337,7 +337,7 @@ undriven body follow the same per-actor rule stated for them; witnessed with
 two seats and with a control where both qualify; and an NPC that can pass a
 gated wall plans through it.
 
-### BOSS-REPLAY-RETRACTION — a replay that un-defeats a boss un-defeats it for every family
+### BOSS-REPLAY-RETRACTION — a replay that un-defeats a boss un-defeats it for every family — ✅ DONE 2026-10-03
 
 **Owner:** the generic boss-progress road (`crates/ambition_boss_encounter`)
 jointly with the save's replay policy
@@ -379,21 +379,25 @@ retraction then takes every defeat since the checkpoint
 restore's admission, before the restore forgets the reward grants, so it takes
 the bounty out of the wallet too, and no defeat from before a restore is left
 for a later replay to retract.
+A quest that moved on after the defeat goes back with it (2026-10-03): its
+steps are ordered, so `retract_caused_by` puts back a quest that stands at or
+past where the defeat left it. The pirate-treasure payout follows the quest
+(`grant_quest_completion_rewards` takes it back when the quest is no longer
+complete). A flag that a later conversation set stays: it records the
+conversation, not the defeat. The admiral's `npc_pirate_admiral_talked` is
+one such flag. The boss road writes no other consequence: it writes the boss
+row, the defeat record and the quest event, and the cut-rope dialogue sets no
+flag.
 Witnesses are in `game/ambition_app/tests/boss_replay_retraction.rs`.
 
-**Known issues (open under the `Q51` ruling):**
-
-- A quest that moved on after the retracted defeat stays where it is, and so does what its later steps paid. Example: the mockingbird is retracted after the admiral was told, so `pirate_treasure` stays complete and the payout stays. The retraction puts a step back only while the quest stands where the defeat left it.
-
-**Next action:** the quest that moved on: retract the later steps that
-depended on the retracted defeat, with a witness and a control (a consequence
-from before the baseline survives the replay).
+**Known issues:** none open.
 
 **Acceptance:** ✅ one generic retraction on `RoomReplayAdmitted`, keyed by the
 replay's live room, for every boss family, with the cut-rope special case
 deleted into it, the minted reward retracted with it, a witness per family shape
-and a control. Open: every consequence in the known-issues list is retracted or
-explicitly ruled out of scope.
+and a control. ✅ Every consequence in the known-issues list is retracted: the
+mints, the bounty, the reward chest, the quest steps and their payout, and a
+defeat in another room on the death road.
 
 ### MENU-OVER-DIALOGUE — an overlay opened during a conversation must not end it — ✅ DONE 2026-10-02
 

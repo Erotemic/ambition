@@ -635,3 +635,73 @@ fn a_defeat_before_the_checkpoint_survives_a_death_in_another_room() {
          the warden's 50-coin bounty stays with it"
     );
 }
+
+/// The mockingbird's defeat, then the hand-in to the admiral, which completes
+/// `pirate_treasure` and pays out. Returns (pirate_treasure in the registry,
+/// health cells gained, reward flag) after the hand-in and after a replay;
+/// `banked` commits a checkpoint between the hand-in and the replay.
+fn a_handed_in_treasure_across_a_replay(banked: bool) -> Vec<((String, u8), i64, bool)> {
+    use ambition_platformer2d::items::Item;
+    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+    let cells = |sim: &mut Platformer2dSimHarness| i64::from(owns(sim.world_mut(), Item::HealthCell));
+    let before = cells(&mut sim);
+    let stands = |sim: &mut Platformer2dSimHarness| {
+        let flag = sim
+            .world()
+            .resource::<ambition_platformer2d::persistence::save::AmbitionGameSave>()
+            .data()
+            .flag(ambition_content::quest::PIRATE_TREASURE_REWARD_FLAG);
+        (quest(sim.world_mut(), "pirate_treasure").0, cells(sim) - before, flag)
+    };
+    spawn_mockingbird(&mut sim, "hoard_thief");
+    for _ in 0..15 {
+        sim.step(AgentAction::default());
+    }
+    force_kill_boss(&mut sim, "hoard_thief");
+    until_cleared(&mut sim, "hoard_thief");
+    // The admiral's conversation sets this flag and queues it, as
+    // `effect_bus::write_flag` does.
+    sim.world_mut()
+        .resource_mut::<ambition_content::quest::QuestRegistry>()
+        .push_event(ambition_platformer2d::persistence::quest::QuestAdvanceEvent::FlagSet(
+            "npc_pirate_admiral_talked".into(),
+        ));
+    for _ in 0..5 {
+        sim.step(AgentAction::default());
+    }
+    let mut seen = vec![stands(&mut sim)];
+    if banked {
+        sim.world_mut()
+            .write_message(ambition_platformer2d::platformer::lifecycle::CheckpointCommitted);
+        for _ in 0..5 {
+            sim.step(AgentAction::default());
+        }
+    }
+    replay(&mut sim);
+    seen.push(stands(&mut sim));
+    seen
+}
+
+/// A quest that moved on after the retracted defeat goes back with it: the
+/// hand-in could only follow the hunt, so the replay puts `pirate_treasure`
+/// back on its first step, and the admiral's payout goes with it.
+#[test]
+fn a_replay_takes_back_the_quest_steps_and_payout_that_followed_the_defeat() {
+    assert_eq!(
+        a_handed_in_treasure_across_a_replay(false),
+        vec![(("Completed".to_string(), 1), 3, true), (("InProgress".to_string(), 0), 0, false)],
+        "(pirate_treasure, health cells gained, reward flag) after the hand-in, then after the replay"
+    );
+}
+
+/// The control: a hand-in the checkpoint holds survives a replay, with its
+/// payout.
+#[test]
+fn a_payout_before_the_checkpoint_survives_a_replay() {
+    let paid = (("Completed".to_string(), 1), 3, true);
+    assert_eq!(
+        a_handed_in_treasure_across_a_replay(true),
+        vec![paid.clone(), paid],
+        "(pirate_treasure, health cells gained, reward flag) after the hand-in, then after the replay"
+    );
+}

@@ -189,12 +189,13 @@ impl QuestRegistry {
     }
 
     /// Retract what `cause` did: drop its events that are not drained yet,
-    /// and put each quest step its latest drained event moved back where it
-    /// stood. Returns the ids of the quests it put back.
+    /// and put each quest its latest drained event moved back where it stood.
+    /// Returns the ids of the quests it put back.
     ///
-    /// A quest that moved on after that event (a later step completed it) is
-    /// not where the event left it, so it stays: the later progress has its
-    /// own cause, and this cannot tell what it depends on.
+    /// A quest that moved on after that event goes back too: its steps are
+    /// ordered, so a later step was reachable only through this one. A quest
+    /// that stands before where the event left it (something else already put
+    /// it back) stays.
     pub fn retract_caused_by(&mut self, cause: &str) -> Vec<String> {
         self.pending_events
             .retain(|pending| pending.cause.as_deref() != Some(cause));
@@ -207,7 +208,7 @@ impl QuestRegistry {
             let Some(state) = self.quests.get_mut(&advance.quest) else {
                 continue;
             };
-            if (state.progression, state.step) != advance.after {
+            if !reached((state.progression, state.step), advance.after) {
                 continue;
             }
             (state.progression, state.step) = advance.before;
@@ -230,6 +231,21 @@ impl QuestRegistry {
             .find(|q| q.is_active())
             .map(|q| q.hud_summary())
     }
+}
+
+/// Whether a quest standing at `at` has reached `mark`: as far along, or
+/// further. A finished quest (completed or failed) is past every step.
+fn reached(
+    at: (crate::save_data::PersistedQuestState, u8),
+    mark: (crate::save_data::PersistedQuestState, u8),
+) -> bool {
+    use crate::save_data::PersistedQuestState as State;
+    let rank = |(state, step): (State, u8)| match state {
+        State::NotStarted => (0, 0),
+        State::InProgress => (1, step),
+        State::Completed | State::Failed => (2, 0),
+    };
+    rank(at) >= rank(mark)
 }
 
 /// Drain pending advance events into the registry and write quest
@@ -363,10 +379,10 @@ mod tests {
         registry.get("q").expect("authored").step
     }
 
-    /// A retraction puts back the step its cause moved; a quest that moved on
-    /// after it stays, and an event that is not drained yet is dropped.
+    /// A retraction puts back the step its cause moved, and the steps that
+    /// followed it; an event that is not drained yet is dropped.
     #[test]
-    fn a_retraction_puts_back_only_the_step_its_cause_left() {
+    fn a_retraction_puts_back_the_step_its_cause_moved_and_what_followed() {
         use crate::quest::QuestAdvanceEvent;
         let defeat = || QuestAdvanceEvent::BossDefeated("boss".into());
 
@@ -390,15 +406,15 @@ mod tests {
         assert_eq!(
             (
                 (after_defeat, put_back, step(&retracted)),
-                (moved_on_put_back, moved_on.get("q").map(|q| q.is_complete())),
+                (moved_on_put_back, step(&moved_on), moved_on.get("q").map(|q| q.is_complete())),
                 (queued_put_back, step(&queued)),
             ),
             (
                 (1, vec!["q".to_string()], 0),
-                (Vec::new(), Some(true)),
+                (vec!["q".to_string()], 0, Some(false)),
                 (Vec::new(), 0),
             ),
-            "((step after the defeat, put back, step after), (moved on: put back, complete), \
+            "((step after the defeat, put back, step after), (moved on: put back, step, complete), \
              (queued: put back, step after the drain))"
         );
     }

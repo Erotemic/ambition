@@ -1152,3 +1152,63 @@ fn grid_scrollbar_drag_fraction_sets_window_start_proportionally() {
         "a scrollbar drag does not move the selection cursor"
     );
 }
+
+/// `Q75`: Start during a conversation opens the menu on the System tab and
+/// pauses the world; closing returns to the conversation, not to gameplay.
+#[test]
+fn start_during_a_conversation_opens_the_menu_and_closes_back_to_it() {
+    let mut app = grid_app();
+    app.world_mut()
+        .resource_mut::<NextState<GameMode>>()
+        .set(GameMode::Dialogue);
+    app.update();
+    set_frame(&mut app, |f| f.start = true);
+    app.update();
+    set_frame(&mut app, |_| {});
+    app.update();
+    assert!(is_open(&app), "Start opens the menu over the conversation");
+    assert_eq!(active_tab(&app), MenuPage::System);
+    assert_eq!(
+        *app.world().resource::<State<GameMode>>().get(),
+        GameMode::Paused,
+        "the menu pauses the world, which a conversation need not stop"
+    );
+    set_frame(&mut app, |f| f.start = true);
+    app.update();
+    set_frame(&mut app, |_| {});
+    app.update();
+    assert!(!is_open(&app), "Start closes the menu");
+    assert_eq!(
+        *app.world().resource::<State<GameMode>>().get(),
+        GameMode::Dialogue,
+        "closing returns to the conversation"
+    );
+}
+
+/// `Q75`: the map and the inventory are faces of one menu. A face key turns the
+/// open menu to its own tab; pressed on its own tab, it closes the menu.
+#[test]
+fn a_face_key_turns_the_open_menu_to_its_tab_and_closes_it_from_there() {
+    let mut app = grid_app();
+    let press = |app: &mut App, f: fn(&mut MenuControlFrame)| {
+        set_frame(app, f);
+        app.update();
+        set_frame(app, |_| {});
+        app.update();
+    };
+    press(&mut app, |f| f.inventory = true);
+    assert!(is_open(&app));
+    assert_eq!(active_tab(&app), MenuPage::Items);
+    press(&mut app, |f| f.map = true);
+    assert!(is_open(&app), "the map key over the inventory turns, it does not close");
+    assert_eq!(active_tab(&app), MenuPage::Map);
+    press(&mut app, |f| f.inventory = true);
+    assert!(is_open(&app), "the inventory key over the map turns, it does not close");
+    assert_eq!(active_tab(&app), MenuPage::Items);
+    press(&mut app, |f| f.inventory = true);
+    assert!(!is_open(&app), "the inventory key on its own tab closes the menu");
+    press(&mut app, |f| f.map = true);
+    assert_eq!(active_tab(&app), MenuPage::Map);
+    press(&mut app, |f| f.map = true);
+    assert!(!is_open(&app), "the map key on its own tab closes the menu");
+}

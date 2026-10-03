@@ -174,6 +174,74 @@ impl MenuPage {
     ];
 }
 
+/// Whether a primary overlay (the System face that Start opens, the inventory,
+/// the map) may open in `mode`.
+///
+/// ⭐ `Q75` (2026-10-01): it may open during a conversation. The conversation
+/// stays live under it and reads no navigation while the overlay is open,
+/// because the overlay's input context captures above the dialogue's
+/// (`context_priority::INVENTORY`). It does not open over a cutscene or a room
+/// transition.
+pub(crate) fn primary_overlay_may_open(
+    mode: ambition_platformer2d::platformer::schedule::GameMode,
+) -> bool {
+    use ambition_platformer2d::platformer::schedule::GameMode;
+    matches!(mode, GameMode::Playing | GameMode::Paused | GameMode::Dialogue)
+}
+
+/// Record what the overlay opens over, and return the mode to request.
+///
+/// Opened over gameplay or over a conversation, the world pauses: a
+/// conversation does not have to stop the world (`DialogueStopsTheWorld`).
+/// Opened from a pause, the mode stays `Paused`.
+pub(crate) fn mode_on_overlay_open(
+    overlay: &mut ambition_platformer2d::inventory_ui::InventoryUiState,
+    mode: ambition_platformer2d::platformer::schedule::GameMode,
+) -> Option<ambition_platformer2d::platformer::schedule::GameMode> {
+    use ambition_platformer2d::platformer::schedule::GameMode;
+    overlay.opened_from_pause = matches!(mode, GameMode::Paused);
+    overlay.opened_from_dialogue = matches!(mode, GameMode::Dialogue);
+    matches!(mode, GameMode::Playing | GameMode::Dialogue).then_some(GameMode::Paused)
+}
+
+/// The mode to request when the overlay closes: the mode it opened over. An
+/// overlay opened from a pause leaves the mode as it is.
+pub(crate) fn mode_on_overlay_close(
+    overlay: &ambition_platformer2d::inventory_ui::InventoryUiState,
+    mode: ambition_platformer2d::platformer::schedule::GameMode,
+) -> Option<ambition_platformer2d::platformer::schedule::GameMode> {
+    use ambition_platformer2d::platformer::schedule::GameMode;
+    if overlay.opened_from_pause || !matches!(mode, GameMode::Paused) {
+        return None;
+    }
+    Some(if overlay.opened_from_dialogue {
+        GameMode::Dialogue
+    } else {
+        GameMode::Playing
+    })
+}
+
+/// What the inventory key or the map key does while the overlay is open.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum OpenOverlayKey {
+    /// Turn the overlay to this face.
+    TurnTo(MenuPage),
+    /// Close the overlay.
+    Close,
+}
+
+/// ⭐ The map and the inventory are mutually exclusive faces of one overlay
+/// (`Q75`). Pressed while the overlay shows another face, a face key turns the
+/// overlay to its own face. Pressed on its own face, it closes the overlay.
+/// Both backends obey this one rule.
+pub(crate) fn open_overlay_key(target: MenuPage, face: Option<MenuPage>) -> OpenOverlayKey {
+    if face == Some(target) {
+        OpenOverlayKey::Close
+    } else {
+        OpenOverlayKey::TurnTo(target)
+    }
+}
+
 /// The cursor's logical position on the items page: either an item slot or one of
 /// the flanking edge (page-turn) buttons. This is the game-side equivalent of the
 /// demo's `MockAction`-as-selection, and the unit of [`crate::menu::kaleidoscope_app`]'s

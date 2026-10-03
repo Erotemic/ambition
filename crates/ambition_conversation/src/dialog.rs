@@ -52,6 +52,9 @@ impl Plugin for YarnBindingsPlugin {
                 .after(
                     ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::CoreSimulation,
                 )
+                // After this frame's claims are declared, so an overlay opened
+                // over the conversation captures its input from the next frame on.
+                .after(ambition_input::InputSet::ResolveContext)
                 .run_if(ambition_platformer2d_shared_tangle::lifecycle::session_world_exists),
         );
         // no GAME installer is pushed from here any more. A game's

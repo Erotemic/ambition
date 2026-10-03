@@ -71,7 +71,21 @@ def reduce_log(text: str) -> dict:
         at = float(match["at"])
         last_character = at if last_character is None else max(last_character, at)
         live += int(match["live"])
+    # ⛔ `[image]` prints only the big decodes: the complete record is the last
+    # `[image-census]` line's "resident by road" (count x megapixels per road).
+    census = [line for line in text.splitlines() if line.startswith("[image-census]")]
+    resident = {}
+    if census:
+        tail = census[-1].split("resident by road:", 1)[-1]
+        for road, count, mp in re.findall(r"([\w-]+)(?:\([^)]*\))? (\d+)×([\d.]+)MP", tail):
+            resident[road] = {"images": int(count), "megapixels": float(mp)}
+        total = re.search(r"total (\d+) images, ([\d.]+)MP, ([\d.]+)MB resident", census[-1])
     spikes = [float(m[1]) for line in text.splitlines() if (m := SPIKE.match(line))]
+    frames = [
+        (float(m[1]), float(m[2]))
+        for line in text.splitlines()
+        if (m := re.match(r"^\[frame-census\].*? p50=([\d.]+)ms p95=([\d.]+)ms", line))
+    ]
     wall = re.search(r"Elapsed \(wall clock\) time.*: (?:(\d+):)?(\d+):([\d.]+)", text)
     rss = re.search(r"Maximum resident set size \(kbytes\): (\d+)", text)
     return {
@@ -81,6 +95,12 @@ def reduce_log(text: str) -> dict:
         "character_decode_ms": sum(r["decode_ms"] for r in roads.values()),
         "last_character_insert_s": last_character,
         "decoded_during_gameplay": live,
+        "resident_by_road": resident,
+        "character_resident_megapixels": round(sum(v["megapixels"] for k, v in resident.items() if k.startswith("character")), 1),
+        "resident_mb": float(total[3]) if census and total else None,
+        # Steady state: the median of the frame-census windows' p50 after the first.
+        "frame_p50_ms": statistics.median([p50 for p50, _ in frames[1:]]) if len(frames) > 1 else None,
+        "frame_p95_ms": statistics.median([p95 for _, p95 in frames[1:]]) if len(frames) > 1 else None,
         "frame_spikes": len(spikes),
         "worst_spike_ms": max(spikes, default=None),
         "wall_s": (int(wall[1] or 0) * 3600 + int(wall[2]) * 60 + float(wall[3])) if wall else None,
@@ -122,8 +142,9 @@ def main() -> int:
             reduced = reduce_log(result.stdout + result.stderr)
             reduced.update({"rep": rep, "exit": result.returncode, "log": str(log.relative_to(REPO))})
             runs[arm].append(reduced)
-            print(f"rep {rep} {arm:5}: exit {result.returncode}, {reduced['character_images']} character images "
-                  f"{reduced['character_megapixels']} MP, decode {reduced['character_decode_ms']} ms, last insert "
+            print(f"rep {rep} {arm:5}: exit {result.returncode}, character resident {reduced['character_resident_megapixels']} MP "
+                  f"({reduced['resident_mb']} MB all), frame p50 {reduced['frame_p50_ms']} ms p95 {reduced['frame_p95_ms']} ms, "
+                  f"big decodes {reduced['character_images']}, decode {reduced['character_decode_ms']} ms, last insert "
                   f"{reduced['last_character_insert_s']}s, live {reduced['decoded_during_gameplay']}, spikes "
                   f"{reduced['frame_spikes']} (worst {reduced['worst_spike_ms']}), wall {reduced['wall_s']}s, rss {reduced['max_rss_mb']} MB",
                   flush=True)
@@ -144,7 +165,8 @@ def main() -> int:
             "room": args.room,
             "reps": reps,
             "median_of_reps": "2..N" if len(reps) > 1 else "1",
-            "median": {key: median(key) for key in ("character_images", "character_megapixels", "character_decode_ms",
+            "median": {key: median(key) for key in ("character_resident_megapixels", "resident_mb", "frame_p50_ms",
+                                                    "frame_p95_ms", "character_images", "character_megapixels", "character_decode_ms",
                                                     "last_character_insert_s", "decoded_during_gameplay",
                                                     "frame_spikes", "worst_spike_ms", "wall_s", "max_rss_mb")},
             "host": host,

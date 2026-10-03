@@ -328,6 +328,9 @@ pub struct RiggedPresentation {
     /// This frame's draws, tweened toward the next frame when the clip is
     /// (reused so a frame allocates nothing).
     pub drawn: Vec<PartDraw>,
+    /// What this body's cell of the atlas holds now: the draws its camera
+    /// last rendered there, and where. `None` until first rendered.
+    pub shown: Option<(Vec<PartDraw>, Vec3)>,
 }
 
 /// One reusable part sprite of a rigged presentation.
@@ -672,6 +675,7 @@ fn spawn_presentation(
         slots,
         impostor: Impostor { class, cell, feet },
         drawn: Vec::new(),
+        shown: None,
     });
     Some(owner)
 }
@@ -696,6 +700,12 @@ pub fn drive_rigged_presentations(
         return;
     }
     let mut drawing = [false; IMPOSTOR_CELL_CLASSES.len()];
+    // ⛔ An atlas is rendered only on a frame where a cell of it CHANGES: its
+    // target keeps the pixels between renders. Rendered every frame, a hall of
+    // a few dozen bodies redrew every atlas — 4 targets up to 2304 x 2304, and
+    // their un-premultiplied twins — at 110 ms a frame on a software
+    // rasterizer against 9.6 ms baked (2026-10-03).
+    let mut changed = [false; IMPOSTOR_CELL_CLASSES.len()];
     let mut cells: [ImpostorCellOpacity; IMPOSTOR_CELL_CLASSES.len()] = std::array::from_fn(|class| {
         ImpostorCellOpacity::opaque(atlases.0[class].as_ref().map_or(1, |atlas| atlas.side))
     });
@@ -731,6 +741,21 @@ pub fn drive_rigged_presentations(
         let place = atlas.cell_feet(presentation.impostor.cell, presentation.impostor.feet).extend(0.0);
         if owner_transform.translation != place {
             owner_transform.translation = place;
+        }
+        let same = presentation
+            .shown
+            .as_ref()
+            .is_some_and(|(shown, at)| *at == place && shown.as_slice() == draws);
+        if !same {
+            changed[class] = true;
+            match presentation.shown.as_mut() {
+                Some((shown, at)) => {
+                    shown.clear();
+                    shown.extend_from_slice(draws);
+                    *at = place;
+                }
+                None => presentation.shown = Some((draws.to_vec(), place)),
+            }
         }
         // ⛔ NOT GATED ON THE ROOT'S VISIBILITY. A root hidden by the portal
         // resolver is still drawn — as pieces cut from its image, the impostor
@@ -805,6 +830,7 @@ pub fn drive_rigged_presentations(
             continue;
         };
         if atlas.cells != cells {
+            changed[class] = true;
             if let Some(mut material) = atlas
                 .material
                 .as_ref()
@@ -814,12 +840,14 @@ pub fn drive_rigged_presentations(
             }
             atlas.cells = cells;
         }
-        // An atlas's cameras run while any body of its class draws from
-        // parts, and rest when none does.
+        // An atlas's cameras run on a frame where a body of its class drawn
+        // from parts changed its cell, and rest otherwise: the target keeps
+        // what they last rendered.
+        let run = drawing[class] && changed[class];
         for entity in &atlas.cameras {
             if let Ok(mut camera) = cameras.get_mut(*entity) {
-                if camera.is_active != drawing[class] {
-                    camera.is_active = drawing[class];
+                if camera.is_active != run {
+                    camera.is_active = run;
                 }
             }
         }

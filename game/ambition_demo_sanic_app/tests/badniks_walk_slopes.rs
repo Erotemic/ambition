@@ -118,3 +118,115 @@ fn a_badnik_turns_back_at_the_pit_lip() {
         last.x
     );
 }
+
+/// The badnik a test's marker gate is open for, if any.
+#[derive(Resource, Default)]
+struct MarkerPass(Option<Entity>);
+
+/// A small gate solid far from the pit. Its name sorts before [`BRIDGE`], so
+/// in the composed walls it comes just before the bridge.
+const MARKER: &str = "gate:a_marker";
+/// A gate solid that bridges the pit. It is never open for a badnik.
+const BRIDGE: &str = "gate:b_bridge";
+
+/// The two gate solids, put into the room's overlay every frame after the
+/// overlay rebuild, with a pass through the marker for the badnik that
+/// [`MarkerPass`] names.
+fn gate_the_pit(
+    pass: Res<MarkerPass>,
+    mut overlays: Query<&mut ambition_platformer2d::world::FeatureEcsWorldOverlay>,
+) {
+    for mut overlay in &mut overlays {
+        overlay.gate_solids.push(ae::Block::solid(
+            MARKER,
+            Vec2::new(PIT_LEFT_X - 1200.0, 100.0),
+            Vec2::splat(16.0),
+        ));
+        overlay.gate_solids.push(ae::Block::solid(
+            BRIDGE,
+            Vec2::new(PIT_LEFT_X, FLOOR_TOP),
+            Vec2::new(ambition_demo_sanic::PIT_RIGHT_X - PIT_LEFT_X, 32.0),
+        ));
+        if let Some(badnik) = pass.0 {
+            overlay.gate_passes.push(ambition_platformer2d::world::GatePass {
+                block: MARKER.to_string(),
+                bodies: vec![badnik],
+            });
+        }
+    }
+}
+
+/// The path of a badnik put down on the middle of the bridge, with the marker
+/// gate open for it or not.
+fn walk_the_bridge(marker_open_for_the_badnik: bool) -> Vec<Vec2> {
+    use ambition_platformer2d::sim::{
+        FeatureWorldOverlayContributions, Platformer2dSimulationPhaseMonolith, SimScheduleExt,
+    };
+    let mut app = boot();
+    let badnik = badniks(&mut app)[0];
+    app.insert_resource(MarkerPass(marker_open_for_the_badnik.then_some(badnik)));
+    let sim = app.sim_schedule();
+    app.add_systems(
+        sim,
+        gate_the_pit
+            .in_set(FeatureWorldOverlayContributions)
+            .in_set(Platformer2dSimulationPhaseMonolith::WorldPrep),
+    );
+    {
+        let world = app.world_mut();
+        let mut q = world.query::<(
+            ae::BodyClusterQueryData,
+            &mut ambition_platformer2d::actor::MotionModel,
+        )>();
+        let (mut clusters, mut model) = q.get_mut(world, badnik).expect("a badnik body");
+        let mut clusters = clusters.as_clusters_mut();
+        ae::movement::transit_body(
+            &mut model,
+            &mut clusters,
+            Vec2::new((PIT_LEFT_X + ambition_demo_sanic::PIT_RIGHT_X) / 2.0, 600.0),
+            ae::movement::TransitVelocity::Zero,
+        );
+    }
+    (0..400)
+        .map(|_| {
+            app.update();
+            app.world()
+                .get::<ae::BodyKinematics>(badnik)
+                .map(|kin| kin.pos)
+                .unwrap_or(Vec2::splat(f32::NAN))
+        })
+        .collect()
+}
+
+/// GATE-PER-ACTOR (Q54): A BADNIK PLANS ON THE WALLS ITS OWN BODY MEETS.
+///
+/// The body rides the walls without the gates open for it, so the block it
+/// rides is an index into those walls. Here a marker gate, open for the badnik,
+/// comes just before the bridge it rides. If the brain asked the shared walls
+/// whether its ground ends ahead, that index would name the marker and not the
+/// bridge. A badnik with the marker open must pace the bridge exactly as one
+/// with it closed.
+#[test]
+fn a_gate_open_for_a_badnik_does_not_change_the_ground_it_plans_on() {
+    let closed = walk_the_bridge(false);
+    let start = (PIT_LEFT_X + ambition_demo_sanic::PIT_RIGHT_X) / 2.0;
+    let left = closed.iter().map(|p| p.x).fold(f32::MAX, f32::min);
+    let right = closed.iter().map(|p| p.x).fold(f32::MIN, f32::max);
+    let lowest = closed.iter().map(|p| p.y).fold(f32::MIN, f32::max);
+    assert!(
+        left >= PIT_LEFT_X
+            && right <= ambition_demo_sanic::PIT_RIGHT_X
+            && left < start - 40.0
+            && right > start + 40.0
+            && lowest < FLOOR_TOP,
+        "control: the badnik paces the bridge, turning at both ends \
+         (x {left:.0}..{right:.0}, lowest centre y {lowest:.0})"
+    );
+
+    let open = walk_the_bridge(true);
+    let first_difference = closed.iter().zip(&open).position(|(c, o)| c != o);
+    assert_eq!(
+        first_difference, None,
+        "a gate open for the badnik elsewhere changed the bridge it plans on"
+    );
+}

@@ -18,7 +18,8 @@ every rig-document character follows the same road.
 | P5b baked residency | DONE | parts-only realization (`NO_BAKED_IMAGE`, `CharacterSpriteAsset::parts_only`); the reveal barrier and the binders wait on the part pages |
 | P5c stop shipping the baked PNG | open | exclude a parts-only character's `_spritesheet.png` from packaging; keep it generated as the offline oracle |
 | P6a player robot v3 from parts | DONE | schema 3 (placement, draw and frame opacity); continuous placement for supersampled rigs; mirror rows; gamma-space impostor; renderer `tests/test_player_robot_v3_part_flipbook.py`; in engine all 1,888 frames ≤ 0.04%, blob ≤ 1 |
-| P6b noether, PCA, patent clerk | IN PROGRESS | recorded and replayed offline (all frames); runtime cell classes for their large frames next |
+| P6b the largest sheets: noether, PCA, patent clerk, the swing fighters | DONE | published from parts; `scripts/measure_published_flipbooks.py` redraws every published flipbook against its published sheet (all inside D6, pirates excepted, below); in engine noether and patent clerk blob ≤ 1, PCA inside D6 after snapped parts gained their border; runtime cell classes 288 / 576 / 896 |
+| P6c procedural painters (about 25 characters, 1–2.6 MB) | open | no rigid parts to record: a per-shape recorder reproduces them (hypatia: ≤ 0.6%, blob 14) but saves little (0.71 of full frames) without rotation reuse; see below |
 
 ### Every character, largest sheets first (Jon, 2026-10-03)
 
@@ -29,11 +30,56 @@ orphaned `.1`–`.5` pages from August; the live sheets are page 0 alone.
 
 | Character | Sheet | How it is drawn | State |
 | --- | --- | --- | --- |
-| noether | 48 MB, 7 pages, 875 frames at 496 × 528 | `RigDocument`, supersample 2 at render scale 2; a breathing blurred "hum" behind every frame | next: the hum needs a mechanism (a runtime glow of the composed alpha, or one overlay per frame), and a cell size class for its frame |
-| perfect_cellular_automaton | 26 MB, 7 pages, 913 frames at 654 × 846 | `RigDocument` at frame resolution (snapped); effects through `compose_rig_frame` | after noether: route `compose_rig_frame` through the seams; needs a large cell class |
+| noether | 48 MB, 7 pages, 875 frames at 496 × 528 | `RigDocument`, supersample 2 at render scale 2; a breathing blurred "hum" behind every frame | recorded: all 875 frames replay with 0 wrong pixels. The hum is painted at 1/8 resolution and drawn enlarged (`composite_scaled_layer`, a draw's `scale`): against the full-resolution hum no pixel moves more than 16 levels. One 5.1 MB part page at 1/4 (smaller at 1/8). Takes a 576 px cell (cell classes) |
+| perfect_cellular_automaton | 26 MB, 7 pages, 913 frames at 654 × 846 | `RigDocument` at frame resolution (snapped, parts turned bilinear: `rotation_filter`); effects through `compose_rig_frame` | recorded: all 913 frames replay exactly; one 399 KB part page. Takes an 896 px cell |
 | player_robot_v3 | 9.1 MB, 1,888 frames at 256 × 256 | `RigDocument`, supersample 4 | DONE, below |
-| pointed / pugnacious / projectile polygon | about 5 MB each (live) | `RigDocument`, supersample 4; per-clip swing trails | the robot's road plus `swing_effects` through the seams, and blink fades through `faded_canvas` |
+| pointed / pugnacious / projectile polygon, carl_stargan, director, officer, performer, medic | 3.7 to 5.8 MB each (live pages) | `RigDocument`, supersample 2 to 4; authored strike effects (`swing_effects.composite_authored_effect`), drawn from the frames before them, so a clip renders at once and is cached | published: `composite_authored_effect` goes through the seams and each clip is recorded whole from the UNCACHED clip function (`render_clip`). All frames redraw their sheets at most 0.09%, blob 3 (`scripts/measure_published_flipbooks.py`). carl_stargan 564 KB of parts for 4.3 MB, director 161 KB for 4.4 MB, officer 185 KB for 4.0 MB |
+| niels_boar | 3.5 MB | procedural `ImageDraw` body, squashed and rotated as one raster | stays baked: no rigid parts to record |
+| patent_clerk | 4.8 MB, 875 frames at 224 × 224 | `RigDocument`, supersample 4; effects through `compose_rig_frame` | recorded: all frames replay (≤ 0.02%, blob ≤ 1); one 341 KB part page |
 | flying_spaghetti_monster_boss | 7 MB, 79 frames | procedural `ImageDraw`; tentacles are splines that deform every frame | stays baked: no rigid parts to record |
+
+⛔ **A turned snapped part needs a transparent border too.** A part turned
+by `blit_rotated` fades a pixel outward past its raster, and the GPU draws a
+part only inside its rect: PCA's turned outlines lost a one-pixel edge in game
+(blobs of 7–8 on ten frames). Every published part now carries `PART_BORDER`
+transparent texels; a snapped part's pivot stays whole, so the replay is the
+same picture. PCA then passed in engine, all 1,826 captures.
+
+**The procedural painters (P6c).** About 25 characters (vera_ruin, ramen_nujan,
+girdle, georg_canter, davy_hylbert, willson, hypatia_prime, …) are drawn by
+`ImageDraw` from joint positions every frame: their limbs are capsules between
+moving joints (lengths change), coats are free polygons. A recorder of every
+`blending_draw` op (each shape a part at its box at the supersample; an
+alpha-0 ink drawn directly cuts its coverage out of the shapes under it)
+reproduces hypatia_prime to 0.6% and a blob of 14 (measured 2026-10-03), but
+reuses only shapes that translate: 0.71 of full-frame texels, more than its
+trimmed sheet, at up to 109 draws a frame. Real savings need rotation reuse
+(raster-rotating 1–2 px lines that were drawn as vectors, a fidelity risk at
+128 px frames) or re-authoring each character as an SVG rig, as Mary-O and the
+robot were. That is an art decision for Jon. The recorder was measured and left out of
+the tree.
+
+⛔ **Three sheets state two different feet.** director, officer and medic
+publish a `feet_pixel` 8 to 26 px from the point their `feet_anchor_norm`
+names (officer's `feet_pixel` lies below its 171 px frame; found 2026-10-03).
+The game places a body by the anchor, and a flipbook's draws are relative to
+its own `feet_pixel`, so both roads put every frame pixel in the same place;
+only a reader that mixes the two is wrong. The parity harness did (every frame
+of the three, baked and parts alike, 10 px low) and now places its oracle by
+the anchor. The sheets' metadata disagreement itself is open.
+
+The in-engine harness also accepts a frame inside D6 of the game's OWN baked
+draw when it is outside D6 of the crisp published-draw oracle, and lists every
+such frame: the two roads a player sees are then the same picture. director's
+`punch`[1] is the case: parts and baked draws identical (0 wrong pixels), both
+softer than the oracle (a blob of 8).
+
+⛔ **The pirates do not meet D6.** Their flipbooks predate it: built by the
+fitted road (procedural part scopes, LANCZOS-fitted placements) and gated at
+2.5% with a pixel of slack. Against their published sheets
+(`measure_published_flipbooks.py`, 2026-10-03): up to 5.5% wrong and blobs to
+69 with no slack; 1.95% and 12 even with a pixel. Every character recorded by
+the rig road since meets D6. Moving the pirates onto it is open.
 
 ### Player robot v3 from parts (2026-10-03)
 

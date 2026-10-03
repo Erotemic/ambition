@@ -670,15 +670,19 @@ mod live_quality_apply {
             .collect()
     }
 
+    /// The image a character's pixels come from: its baked page, or for a
+    /// character drawn from parts alone, its first part page (it has no baked
+    /// page to name, `CharacterSpriteAsset::presentation_images`).
     fn resident_image_path(app: &App, token: &str) -> Option<String> {
         let asset = app
             .world()
             .resource::<GameAssets>()
             .characters
             .sheet(token)?;
+        let image = asset.presentation_images().into_iter().next()?;
         app.world()
             .resource::<AssetServer>()
-            .get_path(asset.texture.id())
+            .get_path(image.id())
             .map(|path| path.to_string())
     }
 

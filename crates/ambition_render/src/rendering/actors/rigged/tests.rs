@@ -173,8 +173,9 @@ fn close(a: Vec2, b: Vec2) -> bool {
     (a - b).abs().max_element() < 1.0e-3
 }
 
+/// The first class's atlas: the one every body of these tests takes.
 fn atlas(app: &App) -> &ImpostorAtlas {
-    app.world().resource::<RiggedImpostorAtlas>().0.as_ref().expect("the impostor atlas was built")
+    app.world().resource::<RiggedImpostorAtlas>().0[0].as_ref().expect("the impostor atlas was built")
 }
 
 /// Whether the root draws its impostor: its cell of the shared atlas.
@@ -195,8 +196,9 @@ fn draws_baked(app: &App, root: Entity) -> bool {
         .world()
         .resource::<RiggedImpostorAtlas>()
         .0
-        .as_ref()
-        .is_some_and(|atlas| sprite.image == atlas.image);
+        .iter()
+        .flatten()
+        .any(|atlas| sprite.image == atlas.image);
     sprite.texture_atlas.is_some() && !on_atlas
 }
 
@@ -782,10 +784,10 @@ fn a_faded_draw_tints_its_slot() {
     assert!((alpha - opacity).abs() < 1.0e-6, "{alpha} for {opacity}");
 }
 
-/// Every published flipbook's frame fits an impostor cell with its margins. A
-/// body whose frame does not keeps its baked sheet in game, with one warning
-/// in a log nobody reads — the robot's 256 px frame did not fit the old 256 px
-/// cell.
+/// Every published flipbook's frame fits an impostor cell class with its
+/// margins. A body whose frame fits none keeps its baked sheet in game, with
+/// one warning in a log nobody reads — the robot's 256 px frame did not fit the
+/// old single 256 px cell.
 #[test]
 fn every_published_flipbook_fits_an_impostor_cell() {
     let mut checked = Vec::new();
@@ -795,13 +797,40 @@ fn every_published_flipbook_fits_an_impostor_cell() {
             continue;
         }
         let flipbook = RiggedSpriteAsset::baked(key).expect("a published flipbook parses");
-        let needed = flipbook.frame_size.as_vec2() + Vec2::splat(2.0 * IMPOSTOR_MARGIN);
         assert!(
-            needed.max_element() <= IMPOSTOR_CELL,
-            "`{key}` needs a {needed} px cell; the cell is {IMPOSTOR_CELL} px"
+            impostor_cell_class(flipbook.frame_size.as_vec2()).is_some(),
+            "`{key}`'s {} px frame fits no impostor cell ({IMPOSTOR_CELL_CLASSES:?})",
+            flipbook.frame_size
         );
         checked.push(*key);
     }
     // Mary-O's three forms, the five pirates and the robot, at least.
     assert!(checked.contains(&"player_robot_v3") && checked.len() >= 9, "{checked:?}");
+}
+
+/// A body takes the smallest cell its frame fits: Noether's 496 x 528 frame a
+/// 576 px cell of the second atlas, which the root then draws; the first
+/// atlas is never built for her.
+#[test]
+fn a_large_frame_takes_a_cell_of_its_size() {
+    let flipbook = RiggedSpriteAsset::baked("noether").expect("noether publishes a flipbook");
+    assert_eq!(impostor_cell_class(flipbook.frame_size.as_vec2()), Some(1));
+    assert_eq!(impostor_cell_class(Vec2::new(256.0, 256.0)), Some(0));
+    assert_eq!(impostor_cell_class(Vec2::new(2000.0, 10.0)), None);
+    let (mut app, root) = app_with(true, sheet_with("noether", Some(flipbook.clone())));
+    app.update();
+    app.update();
+    let owner = owner(&app, root);
+    let impostor = app.world().get::<RiggedPresentation>(owner).unwrap().impostor;
+    assert_eq!(impostor.class, 1);
+    let atlases = &app.world().resource::<RiggedImpostorAtlas>().0;
+    assert!(atlases[0].is_none(), "the first atlas was built for a body that does not fit it");
+    let atlas = atlases[1].as_ref().expect("the second atlas");
+    assert_eq!(atlas.cell_size(), 576.0);
+    let sprite = app.world().get::<Sprite>(root).unwrap();
+    assert!(sprite.image == atlas.image, "the root does not draw the second atlas");
+    // Its cell's place is the second grid's: no camera of the first sees it.
+    let place = app.world().get::<Transform>(owner).unwrap().translation.truncate();
+    assert_eq!(place, impostor_cell_feet(1, atlas.side, impostor.cell, impostor.feet));
+    assert!(place.y > IMPOSTOR_ORIGIN.y, "{place}");
 }

@@ -12,8 +12,8 @@ every rig-document character follows the same road.
 | P0 offline gate | DONE | renderer `tests/test_mary_o_part_flipbook.py`: strict parity + `largest_wrong_blob`, census from the sheet's rows, four poisons |
 | P1 one composition rule | DONE, two deviations noted below | renderer `e2af3b2` |
 | P2 every row from parts | DONE | renderer `e2af3b2`; `mary_os_flipbooks_draw_every_row_from_parts` (Rust) |
-| P3 in-engine parity | next | |
-| P4 interpolation | | |
+| P3 in-engine parity | DONE | `scripts/measure_rigged_parity.py` + `crates/ambition_render/examples/rigged_sprite_parity.rs`; both facings inside A ≤ 1%, B ≤ 10 px |
+| P4 interpolation | next | |
 | P5 baked retirement | | |
 
 Deviations from the recommendations, both reaching the same end:
@@ -29,6 +29,29 @@ Deviations from the recommendations, both reaching the same end:
   rotated thin features: resampling moved the sleeve stripes off the exact
   palette values, so they stayed red. Baked transition frames changed by up to
   3.46%, and that change is the fix.
+
+What P3 measured (llvmpipe, texel per pixel, 2026-10-02):
+
+- **The game draws the published draws.** Mary-O's parts drawn by Bevy match
+  the published draws, drawn the baked road's way and unclipped, at worst 0.19%
+  of pixels and a 9-pixel blob, in both facings. The gate's blob bound is 10, not
+  6: the GPU turns a part by bilinear sampling and PIL by bicubic, so a turned
+  outline can differ along a one-pixel line. Dropping any visible draw makes a
+  blob of 12 or more (618 draws measured). A cut 6×6 hole fails the gate (blob
+  36, 0.38%).
+- **The game's BAKED draw is the less faithful one.** Drawn by Bevy, the baked
+  frame is 0.9–4.3% off its own published frame, with blobs up to 109, on every
+  frame. Cause not measured; trim and anchor rounding giving a half-pixel
+  bilinear blur is the suspect. This affects every character drawn baked. Filed
+  as a finding, not fixed here.
+- **The baked frame cuts off art that the parts draw.** On 28 of 87 frames
+  (mostly the shrink clips, plus skid, crouch-walk and death), feet or the cap
+  run 2–8 px past the 160×192 frame. The baked sheet loses those pixels; the
+  parts keep them. This is the renderer's existing "DRAWING RUNS OFF THE
+  LOGICAL FRAME" defect. Parts fix it. To make baked match, the frame would
+  need overscan.
+- Three draws are entirely covered (a sparkle layer, a hidden leg). Culling them
+  at publish is a small saving.
 
 Size after P2: packed part pages are 0.541 of the three sheets' texels
 (865,937 / 1,601,774). Fire `transform`'s aura overlays dominate.

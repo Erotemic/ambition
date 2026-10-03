@@ -15,6 +15,7 @@
 //! games reach the domain through the facade's `held_items`.
 
 pub mod minted_horizon;
+pub use minted_horizon::{GrantSource, PickupGranted, RewardGrant, RewardGrantsSinceCheckpoint};
 
 use bevy::prelude::*;
 

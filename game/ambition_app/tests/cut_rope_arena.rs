@@ -370,13 +370,11 @@ fn the_encounter_script_clock_reaches_the_same_value_with_and_without_a_rewind()
     let rollback_ticks = sim_ticks(&mut rewinding) as i64;
 
     // ⛔⛔ THE LIVENESS FLOOR, AND WITHOUT IT THE COMPARISON BELOW IS VACUOUS.
-    // A sync-test session that invalidates keeps ACCEPTING `sim.step()` and
-    // stops advancing `SimTick` — nothing panics and nothing prints. A frozen
-    // rollback world would freeze the beat clock too, so both deltas would move
-    // together and the assertion would agree with itself forever. This is the
-    // mechanism `a_rollback_arm_must_refuse_a_frozen_world.py` routes every
-    // sync-test arm through, and it is load-bearing rather than a health call
-    // bolted on the end.
+    // A frozen rollback world would freeze the beat clock too, so both deltas
+    // would move together and the assertion would agree with itself forever.
+    // The harness refuses to step an invalidated session, which stopped one
+    // cause of a frozen world; this floor is the arm's own check that the
+    // world moved.
     assert!(
         rollback_ticks >= FRAMES_OF_WAITING as i64,
         "the rollback world ran {rollback_ticks} ticks for {FRAMES_OF_WAITING} \

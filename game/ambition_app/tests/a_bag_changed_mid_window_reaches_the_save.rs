@@ -3706,6 +3706,17 @@ fn drive(sim: &mut Platformer2dSimHarness, frames: usize) {
     }
 }
 
+/// Step `frames` frames, or until the harness refuses a step because the
+/// timeline desynced. For an arm whose subject is the desync: it reads the
+/// verdict, and the world as it was when the timeline diverged.
+fn drive_until_refused(sim: &mut Platformer2dSimHarness, frames: usize) {
+    for _ in 0..frames {
+        if sim.try_step(AgentAction::default()).is_err() {
+            return;
+        }
+    }
+}
+
 /// ⛔ THE PREMISE ARM. Everything below reads "the flag is not set" as evidence
 /// about a rewind, and that reading is only available if this composition can
 /// set the flag AT ALL. No rollback session, producer ordered BEFORE its
@@ -3779,7 +3790,7 @@ fn a_flag_requested_before_its_consumer_survives_the_rewind() {
 #[test]
 fn a_flag_requested_after_its_consumer_desyncs_the_timeline() {
     let mut sim = witness_sim(true, true);
-    drive(&mut sim, 240);
+    drive_until_refused(&mut sim, 240);
 
     let verdict = health(&sim);
     let Err(report) = verdict else {

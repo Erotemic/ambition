@@ -76,6 +76,10 @@ pub struct SessionScopedResources<'w> {
     /// are built whole.
     breakable_respawns:
         Option<ResMut<'w, crate::features::ecs::breakable_respawns::BreakableRespawnSchedule>>,
+    /// The grants of the mints collected since the last checkpoint. The next
+    /// session's file is its baseline, so a retraction there must take back
+    /// none of this session's.
+    reward_grants: Option<ResMut<'w, crate::items::pickup::RewardGrantsSinceCheckpoint>>,
     /// Quest progress; the next activation reloads it from the session save.
     quest_registry: ResMut<'w, QuestRegistry>,
     /// Transient per-room bookkeeping (room-transition cooldown, etc.).
@@ -453,6 +457,7 @@ fn reset(resources: SessionScopedResources) {
         mut boss_registry,
         boss_defeats_since_checkpoint,
         breakable_respawns,
+        reward_grants,
         mut quest_registry,
         mut sim_state,
         mut slot_interactions,
@@ -486,6 +491,9 @@ fn reset(resources: SessionScopedResources) {
     }
     if let Some(mut schedule) = breakable_respawns {
         schedule.forget_all();
+    }
+    if let Some(mut grants) = reward_grants {
+        grants.forget_all();
     }
     *quest_registry = QuestRegistry::default();
     *sim_state = RoomTransitionCooldown::default();

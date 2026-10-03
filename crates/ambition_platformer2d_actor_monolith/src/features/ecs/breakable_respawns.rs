@@ -29,11 +29,11 @@
 //! holds no broken breakable.
 //!
 //! ⚠ Keyed by room DEFINITION, because a record must outlive the instance it
-//! was made in. Two live instances of one definition would share a key; the
-//! shipped crossing joins a room another player holds instead of opening a
-//! second instance of it.
+//! was made in. A room has at most one live room (`DefinitionAlreadyLive`), so
+//! two live rooms never share a key.
 
 use std::collections::BTreeMap;
+use std::sync::Arc;
 
 use bevy::prelude::*;
 
@@ -47,9 +47,25 @@ use crate::features::GameplayElapsed;
 ///
 /// Rollback state: a break and a respawn write it on a tick, and a rewind
 /// across that tick must take the record back with the breakable.
-#[derive(Resource, Clone, Debug, Default, PartialEq)]
+///
+/// The records are SHARED, NOT COPIED (OW3, as M2 for the occurrence ledger).
+/// The rollback host clones, hashes and compares this every frame, and the
+/// records of every room that is not live stay here. A clone copies a pointer,
+/// a write copies the records only when a snapshot shares them, and the
+/// checksum is kept with the allocation it was computed from.
+#[derive(Resource, Clone, Debug, Default)]
 pub struct BreakableRespawnSchedule {
-    due: BTreeMap<(String, String), f32>,
+    due: Arc<Records>,
+}
+
+type Records = BTreeMap<(String, String), f32>;
+
+/// Equal records, with the same allocation first: a snapshot and the live
+/// schedule share their records while nothing changed.
+impl PartialEq for BreakableRespawnSchedule {
+    fn eq(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.due, &other.due) || self.due == other.due
+    }
 }
 
 impl BreakableRespawnSchedule {
@@ -76,21 +92,46 @@ impl BreakableRespawnSchedule {
 
     /// Forget every record of room `room`.
     pub fn forget_room(&mut self, room: &str) {
-        self.due.retain(|(record_room, _), _| record_room != room);
+        if self.due.keys().any(|(record_room, _)| record_room == room) {
+            Arc::make_mut(&mut self.due).retain(|(record_room, _), _| record_room != room);
+        }
     }
 
     /// Forget every record.
     pub fn forget_all(&mut self) {
-        self.due.clear();
+        if !self.due.is_empty() {
+            self.due = Arc::default();
+        }
     }
 
     /// Entity-free value projection: two peers that disagree about when a
     /// breakable respawns have diverged.
+    ///
+    /// The fold of the records, kept with the `Arc` it was computed from. The
+    /// slot holds a clone of that `Arc`, so the allocation cannot be written in
+    /// place, and the same allocation holds the same records. Any other
+    /// allocation is folded again, so two peers agree whatever their slots hold.
     pub fn checksum(&self) -> u64 {
+        static KEPT: std::sync::Mutex<Option<(Arc<Records>, u64)>> = std::sync::Mutex::new(None);
+        if self.due.is_empty() {
+            return self.fold();
+        }
+        let mut kept = KEPT.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        if let Some((held, sum)) = kept.as_ref() {
+            if Arc::ptr_eq(held, &self.due) {
+                return *sum;
+            }
+        }
+        let sum = self.fold();
+        *kept = Some((self.due.clone(), sum));
+        sum
+    }
+
+    fn fold(&self) -> u64 {
         use ambition_platformer2d_core::snapshot::{checksum_bytes, put_str, put_u64};
         let mut bytes = Vec::new();
         put_u64(&mut bytes, self.due.len() as u64);
-        for ((room, feature), due) in &self.due {
+        for ((room, feature), due) in self.due.iter() {
             put_str(&mut bytes, room);
             put_str(&mut bytes, feature);
             put_u64(&mut bytes, u64::from(due.to_bits()));
@@ -143,12 +184,12 @@ pub fn mirror_breakable_respawns(
         match (breakable.broken(), timer) {
             (true, Some(timer)) => {
                 if !schedule.due.contains_key(&key) {
-                    schedule.due.insert(key, elapsed.0 + timer.0);
+                    Arc::make_mut(&mut schedule.due).insert(key, elapsed.0 + timer.0);
                 }
             }
             (false, _) => {
                 if schedule.due.contains_key(&key) {
-                    schedule.due.remove(&key);
+                    Arc::make_mut(&mut schedule.due).remove(&key);
                 }
             }
             // Broken for good (`Never`, `OnRoomReload`): no respawn to schedule.
@@ -197,13 +238,7 @@ pub fn forget_breakable_respawns_on_replay(
             }
         }
         let room = rooms.rooms().spec(definition).id.clone();
-        if schedule
-            .due
-            .keys()
-            .any(|(record_room, _)| *record_room == room)
-        {
-            schedule.forget_room(&room);
-        }
+        schedule.forget_room(&room);
     }
 }
 
@@ -214,9 +249,7 @@ pub fn forget_breakable_respawns_on_restore(
     schedule: Option<ResMut<BreakableRespawnSchedule>>,
 ) {
     if let (Some(_), Some(mut schedule)) = (inputs, schedule) {
-        if !schedule.due.is_empty() {
-            schedule.forget_all();
-        }
+        schedule.forget_all();
     }
 }
 
@@ -229,9 +262,7 @@ mod tests {
     #[test]
     fn a_record_says_how_long_a_breakable_stays_broken() {
         let mut schedule = BreakableRespawnSchedule::default();
-        schedule
-            .due
-            .insert(("basement".into(), "platform".into()), 10.0);
+        Arc::make_mut(&mut schedule.due).insert(("basement".into(), "platform".into()), 10.0);
         assert_eq!(
             [7.5, 10.0, 12.0].map(|now| schedule.remaining("basement", "platform", now)),
             [Some(2.5), None, None]
@@ -239,5 +270,54 @@ mod tests {
         assert_eq!(schedule.remaining("hub", "platform", 7.5), None);
         schedule.forget_room("basement");
         assert_eq!(schedule.due("basement", "platform"), None);
+    }
+
+    /// A schedule of `n` dormant records, in rooms that are not live.
+    fn dormant_schedule(n: usize) -> BreakableRespawnSchedule {
+        let records = (0..n).map(|i| ((format!("room_{:03}", i / 100), format!("platform_{i:05}")), i as f32));
+        BreakableRespawnSchedule { due: Arc::new(records.collect()) }
+    }
+
+    /// The kept checksum is the fold it stands for: for the first records,
+    /// after a record changes, and after the schedule goes back to the first.
+    #[test]
+    fn a_kept_checksum_is_the_fold_of_the_records_it_was_kept_for() {
+        let first = dormant_schedule(3);
+        let mut second = first.clone();
+        second.forget_room("room_000");
+        Arc::make_mut(&mut second.due).insert(("room_000".into(), "platform_00001".into()), 9.0);
+        for (step, schedule) in [("first", &first), ("second", &second), ("first again", &first)] {
+            assert_eq!(schedule.checksum(), schedule.fold(), "the kept checksum is not the fold ({step})");
+        }
+        assert_ne!(first.checksum(), second.checksum(), "a changed record did not move the checksum");
+    }
+
+    /// OW3: a rollback frame clones the schedule, hashes it and compares it
+    /// with the live one. With 10,000 dormant records that costs little more
+    /// than with none, as for the occurrence ledger (M2).
+    #[test]
+    fn dormant_records_add_little_to_a_snapshot_of_the_schedule() {
+        fn median_snapshot(schedule: &BreakableRespawnSchedule) -> std::time::Duration {
+            let mut times: Vec<_> = (0..101)
+                .map(|_| {
+                    // AMBITION_REVIEW(determinism): wall clock, in a test. It
+                    // measures the cost of a snapshot, and no simulation code
+                    // reads it.
+                    let start = std::time::Instant::now();
+                    let snapshot = std::hint::black_box(schedule.clone());
+                    std::hint::black_box(snapshot.checksum());
+                    std::hint::black_box(snapshot == *schedule);
+                    start.elapsed()
+                })
+                .collect();
+            times.sort();
+            times[50]
+        }
+        let (empty, full) = (dormant_schedule(0), dormant_schedule(10_000));
+        let (empty, full) = (median_snapshot(&empty), median_snapshot(&full));
+        assert!(
+            full < empty * 5 + std::time::Duration::from_micros(20),
+            "a snapshot of 10,000 dormant records took {full:?}, against {empty:?} with none"
+        );
     }
 }

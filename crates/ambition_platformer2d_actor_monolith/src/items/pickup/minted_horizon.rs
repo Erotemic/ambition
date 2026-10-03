@@ -298,6 +298,142 @@ pub fn start_the_item_domain_fresh(
     }
 }
 
+/// What one granted pickup added: coins to its collector's wallet, and items
+/// to the bag. Returned by `grant_pickup`.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct PickupGranted {
+    pub coins: i32,
+    pub item: Option<(ambition_items::Item, u32)>,
+}
+
+impl PickupGranted {
+    pub fn is_empty(&self) -> bool {
+        self.coins == 0 && self.item.is_none()
+    }
+}
+
+/// Where a granted reward came from, as a retracted boss defeat names it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum GrantSource {
+    /// A collected mint, by the occurrence it fell out of
+    /// (`SpawnOrigin::Dynamic { parent }`).
+    Mint { parent: SimId },
+    /// An opened boss reward chest, by its boss placement.
+    BossChest { placement: String },
+}
+
+/// One grant of a collected mint or an opened boss reward chest.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct RewardGrant {
+    pub source: GrantSource,
+    /// The body that collected it.
+    pub collector: SimId,
+    pub granted: PickupGranted,
+}
+
+/// The grants of the mints collected and the boss reward chests opened since
+/// the last committed checkpoint (BOSS-REPLAY-RETRACTION). A collected mint is
+/// gone and an opened chest grants nothing again, so this is the only record of
+/// what they gave, and a retracted boss defeat takes back the grants of its
+/// mints and its chest.
+///
+/// Rollback state with a real value: a collection writes it on a tick.
+#[derive(Resource, Clone, Debug, Default, PartialEq, Eq)]
+pub struct RewardGrantsSinceCheckpoint {
+    grants: Vec<RewardGrant>,
+}
+
+impl RewardGrantsSinceCheckpoint {
+    /// Record a grant. A grant that added nothing is not recorded.
+    pub fn record(&mut self, grant: RewardGrant) {
+        if !grant.granted.is_empty() {
+            self.grants.push(grant);
+        }
+    }
+
+    /// Take out the grants of the mints of `bosses` and of the reward chests
+    /// of `placements`, in the order they were made.
+    pub fn take_for(
+        &mut self,
+        bosses: &std::collections::BTreeSet<SimId>,
+        placements: &std::collections::BTreeSet<String>,
+    ) -> Vec<RewardGrant> {
+        let retracted = |grant: &RewardGrant| match &grant.source {
+            GrantSource::Mint { parent } => bosses.contains(parent),
+            GrantSource::BossChest { placement } => placements.contains(placement),
+        };
+        if !self.grants.iter().any(retracted) {
+            return Vec::new();
+        }
+        let (taken, kept) = std::mem::take(&mut self.grants).into_iter().partition(retracted);
+        self.grants = kept;
+        taken
+    }
+
+    /// Forget every grant: a checkpoint commit makes them part of the
+    /// baseline, and a checkpoint restore or a fresh run puts the bag back.
+    pub fn forget_all(&mut self) {
+        if !self.grants.is_empty() {
+            self.grants.clear();
+        }
+    }
+
+    /// Entity-free value projection: two peers that disagree about what a
+    /// retraction would take back have diverged.
+    pub fn checksum(&self) -> u64 {
+        use ambition_platformer2d_core::snapshot::{checksum_bytes, put_str, put_u64};
+        let mut bytes = Vec::new();
+        put_u64(&mut bytes, self.grants.len() as u64);
+        for grant in &self.grants {
+            match &grant.source {
+                GrantSource::Mint { parent } => {
+                    put_u64(&mut bytes, 0);
+                    put_str(&mut bytes, parent.as_str());
+                }
+                GrantSource::BossChest { placement } => {
+                    put_u64(&mut bytes, 1);
+                    put_str(&mut bytes, placement);
+                }
+            }
+            put_str(&mut bytes, grant.collector.as_str());
+            put_u64(&mut bytes, u64::from(grant.granted.coins as u32));
+            match grant.granted.item {
+                Some((item, n)) => {
+                    put_u64(&mut bytes, item.index() as u64 + 1);
+                    put_u64(&mut bytes, u64::from(n));
+                }
+                None => put_u64(&mut bytes, 0),
+            }
+        }
+        checksum_bytes(&bytes)
+    }
+}
+
+/// A committed checkpoint makes every grant since the last one part of the
+/// baseline.
+pub fn forget_reward_grants_at_checkpoint(
+    mut commits: MessageReader<CheckpointCommitted>,
+    mut grants: ResMut<RewardGrantsSinceCheckpoint>,
+) {
+    // Drained unconditionally, like every other reader of this channel.
+    if commits.read().count() > 0 {
+        grants.forget_all();
+    }
+}
+
+/// A checkpoint restore and a fresh run put the bag back, so no grant since
+/// the checkpoint is left to take back from it. A restore does not put the
+/// wallet back, so its coins are not taken back after one (a known issue in
+/// the queue row). (checkpoint reducer, in `CheckpointDomainApply`)
+pub fn forget_reward_grants_on_restore(
+    inputs: Option<Res<ItemCheckpointRestoreInputs>>,
+    grants: Option<ResMut<RewardGrantsSinceCheckpoint>>,
+) {
+    if let (Some(_), Some(mut grants)) = (inputs, grants) {
+        grants.forget_all();
+    }
+}
+
 /// BOSS-REPLAY-RETRACTION (Q51): the mints of a boss defeat that a replay
 /// retracted go with it. "If you roll back to before the defeat, you do not
 /// have the item."
@@ -308,8 +444,11 @@ pub fn start_the_item_domain_fresh(
 /// dormant mints the save describes in a room that is not live, are retracted,
 /// so no room build puts one back and the save mirrors drop their rows.
 ///
-/// ⚠ What a mint already became is not taken back here: coins already in a
-/// wallet, a granted ability. Those are known issues in the queue row.
+/// What a collected mint or the opened reward chest gave is taken back too:
+/// its coins leave the wallet of the body that collected them (down to zero,
+/// if they were spent), and its item leaves the bag
+/// ([`RewardGrantsSinceCheckpoint`]).
+#[allow(clippy::too_many_arguments)]
 pub fn retract_mints_of_retracted_boss_defeats(
     mut commands: Commands,
     mut retracted: bevy::prelude::MessageReader<ambition_boss_encounter::BossDefeatRetracted>,
@@ -317,11 +456,28 @@ pub fn retract_mints_of_retracted_boss_defeats(
     mut hands: Query<ambition_combat::hand::RepertoireQuery>,
     save: Option<Res<AmbitionGameSave>>,
     occurrences: Option<ResMut<ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences>>,
+    grants: Option<ResMut<RewardGrantsSinceCheckpoint>>,
+    mut wallets: Query<(&SimId, &mut ambition_characters::actor::BodyWallet)>,
+    owned: Option<ResMut<ambition_items::OwnedItems>>,
 ) {
-    let bosses: std::collections::BTreeSet<SimId> =
-        retracted.read().filter_map(|retracted| retracted.boss.clone()).collect();
-    if bosses.is_empty() {
+    let (mut bosses, mut placements) = (std::collections::BTreeSet::new(), std::collections::BTreeSet::new());
+    for retracted in retracted.read() {
+        bosses.extend(retracted.boss.clone());
+        placements.insert(retracted.placement.clone());
+    }
+    if placements.is_empty() {
         return;
+    }
+    let mut owned = owned;
+    for grant in grants.map(|mut grants| grants.take_for(&bosses, &placements)).unwrap_or_default() {
+        if grant.granted.coins != 0 {
+            if let Some((_, mut wallet)) = wallets.iter_mut().find(|(id, _)| **id == grant.collector) {
+                wallet.add(-grant.granted.coins);
+            }
+        }
+        if let (Some((item, n)), Some(owned)) = (grant.granted.item, owned.as_deref_mut()) {
+            owned.take(item, n);
+        }
     }
     let fell_out_of_a_retracted_boss =
         |origin: &SpawnOrigin| matches!(origin, SpawnOrigin::Dynamic { parent, .. } if bosses.contains(parent));
@@ -391,6 +547,8 @@ impl Plugin for ItemCheckpointHorizonPlugin {
                 .in_set(crate::session::reset::ContentRoomReplayResetSet)
                 .after(ambition_boss_encounter::BossDefeatRetraction),
         )
+        .init_resource::<RewardGrantsSinceCheckpoint>()
+        .add_systems(sim, forget_reward_grants_at_checkpoint)
         // ⭐ INTO THE COMMIT EXECUTOR'S SCHEDULE, not the simulation. Custody
         // materializes and despawns; doing that on a speculative frame for an
         // unconfirmed request is what the confirmed-frame lifecycle exists to
@@ -402,6 +560,7 @@ impl Plugin for ItemCheckpointHorizonPlugin {
                 restore_owned_items_to_checkpoint,
                 super::restore_custody_to_checkpoint,
                 start_the_item_domain_fresh,
+                forget_reward_grants_on_restore,
             )
                 .chain(),
         );
@@ -574,6 +733,14 @@ where
         "resource.owned_items_baseline",
         "entity-free stored-quantity checksum projection",
         OwnedItemsBaseline::checksum,
+    );
+    // A collection writes it on a tick, so a rewind across that tick takes
+    // the grant back out of the record with the coins out of the wallet.
+    registrar.rollback_resource_clone_checksum::<RewardGrantsSinceCheckpoint>(
+        OWNER,
+        "resource.reward_grants_since_checkpoint",
+        "the grants of the mints collected and the boss reward chests opened since the last checkpoint, which a retracted boss defeat takes back",
+        RewardGrantsSinceCheckpoint::checksum,
     );
 }
 

@@ -238,6 +238,50 @@ fn an_edge_exit_transition_preserves_the_body_momentum() {
     assert!(committed, "the edge-exit transition committed");
 }
 
+/// The harness refuses to step an unhealthy session (`Q138`): a step fails
+/// with the session's own error, and nothing advances.
+///
+/// ⛔ A sync-test session that diverged or was invalidated accepted every
+/// step and returned an observation, so the assertions after it read a world
+/// the timeline no longer vouched for, in silence.
+#[test]
+fn the_harness_refuses_to_step_an_unhealthy_session() {
+    type Authority = ambition_platformer2d::rollback::ActiveRollbackAuthority;
+    let poisons: [(&str, fn(&mut Authority), &str); 2] = [
+        ("a checksum mismatch", |authority| authority.record_mismatch([-999]), "[-999]"),
+        (
+            "an invalidation",
+            |authority| authority.invalidate("poisoned on purpose".to_string()),
+            "poisoned on purpose",
+        ),
+    ];
+    for (poison, apply, error) in poisons {
+        let mut sim = repro_sim();
+        for _ in 0..10 {
+            sim.step(AgentAction::default());
+        }
+        sim.rollback_health()
+            .unwrap_or_else(|e| panic!("the premise: the session is healthy before {poison}: {e}"));
+        apply(&mut sim.world_mut().resource_mut::<Authority>());
+        let sim_tick = |sim: &Platformer2dSimHarness| sim.world().resource::<ambition_platformer2d::time::SimTick>().0;
+        let (steps, tick) = (sim.tick_count(), sim_tick(&sim));
+
+        let refusal = sim
+            .try_step(AgentAction::default())
+            .expect_err("a step over an unhealthy session is refused");
+        assert!(refusal.contains(error), "after {poison}, the refusal carries the session's error: {refusal}");
+        assert_eq!(
+            (sim.tick_count(), sim_tick(&sim)),
+            (steps, tick),
+            "after {poison}, a refused step advances nothing"
+        );
+        let stepped = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            sim.step(AgentAction::default());
+        }));
+        assert!(stepped.is_err(), "after {poison}, `step` fails rather than returning an observation");
+    }
+}
+
 /// The committer must instead REFUSE to rebase over an unhealthy session, so the diagnostic
 /// survives, no discontinuity is claimed, and the intent stays pending.
 #[test]
@@ -270,7 +314,7 @@ fn a_confirmed_commit_refuses_to_rebase_over_a_diverged_session() {
     // Step past the confirmation horizon: the committer sees the unhealthy
     // session and must NOT rebase (a rebase would erase the mismatch).
     for _ in 0..40 {
-        let _ = sim.step(AgentAction::default());
+        let _ = sim.step_over_an_unhealthy_session(AgentAction::default());
     }
 
     assert!(

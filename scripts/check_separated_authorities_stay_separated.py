@@ -36,7 +36,8 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "scripts"))
 
-import a_rollback_arm_must_refuse_a_frozen_world as frozen  # noqa: E402
+sys.path.insert(0, str(REPO / "scripts" / "lib"))
+from rust_source import code_only  # noqa: E402
 import check_collapsed_authorities_stay_collapsed as collapsed  # noqa: E402
 
 sys.path.insert(0, str(REPO / "scripts" / "lib"))
@@ -150,7 +151,7 @@ def production_sources() -> list[tuple[str, str]]:
             continue
         if is_test_path(path) or file_is_test_only(raw):
             continue
-        out.append((rel, frozen.code_only(strip_test_modules(raw))))
+        out.append((rel, code_only(strip_test_modules(raw))))
     return out
 
 

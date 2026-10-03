@@ -46,7 +46,7 @@ def test_a_comment_naming_the_type_is_not_a_return():
     counted the string would have been red on its first run and would have been
     deleted as broken, taking the real ratchet with it.
     """
-    stripped = GUARD.frozen.code_only(
+    stripped = GUARD.code_only(
         "// GameplaySessionLinks held the scope\n"
         "/* and CandidateState was the second road */\n"
         'let s = "SpawnPlayerCloneRequest";\n'
@@ -58,7 +58,7 @@ def test_a_comment_naming_the_type_is_not_a_return():
 
 def test_a_real_declaration_is_a_return():
     """The other direction: code the stripper must NOT blank."""
-    stripped = GUARD.frozen.code_only("pub struct GameplaySessionLinks { a: u8 }\n")
+    stripped = GUARD.code_only("pub struct GameplaySessionLinks { a: u8 }\n")
     assert "GameplaySessionLinks" in stripped
 
 

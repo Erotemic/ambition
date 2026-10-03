@@ -2394,11 +2394,12 @@ mod tests {
     /// joins #1 from #0 as the candidate. When it retires #0 (nobody stays),
     /// #1 is the one live room, with `held` in it, and the candidate's
     /// occupant is not built. When it keeps #0 (a player stays), #0 and its
-    /// bodies stand beside #1. Nothing is minted either way. The control
-    /// opens a room from #0 as the candidate: that builds a second live room
-    /// of `candidate`, #2, which is what every crossing into a held room did
-    /// before this cut. A crossing staged to join a room that is not there is
-    /// refused.
+    /// bodies stand beside #1. Nothing is minted either way. A publication
+    /// that opens or replaces into `candidate` instead would build a second
+    /// live room of it, #2, which is what every crossing into a held room did
+    /// before this cut: it is refused (`DefinitionAlreadyLive`), and both live
+    /// rooms stand as they were. A crossing staged to join a room that is not
+    /// there is refused.
     #[test]
     fn a_crossing_into_a_room_another_player_holds_joins_it() {
         use ambition_platformer2d_shared_tangle::lifecycle::{
@@ -2408,14 +2409,6 @@ mod tests {
         use super::transaction::LiveRoomSuccession;
         let first = LiveRoomInstance::ACTIVATION;
         let (second, third) = (first.next(), first.next().next());
-        let occupant = candidate_plan()
-            .features
-            .planned_sim_ids()
-            .into_iter()
-            .find(|id| id.as_str().contains("occupant"))
-            .expect("the candidate authors its occupant")
-            .as_str()
-            .to_string();
         let claims_after = std::cell::Cell::new(Vec::new());
         let after_publication = |succession: LiveRoomSuccession| {
             let platform = MovingPlatformState::from_authored(
@@ -2486,17 +2479,35 @@ mod tests {
             ]
         };
 
-        let (verification, rooms, bodies, next) = after_publication(LiveRoomSuccession::opening(first, third));
-        assert!(verification.published, "control: {:?}", verification.staged_violations);
-        assert_eq!(
-            (rooms, bodies, next),
-            (
-                vec![(first, "n".to_string()), (second, "candidate".to_string()), (third, "candidate".to_string())],
-                [vec![held(second)], n_bodies(first), vec![(occupant.clone(), Some(third))]].concat(),
-                third.next(),
-            ),
-            "control: opening a room did not build a second live room of `candidate`"
-        );
+        // One live room per room. With a player staying, the publication
+        // opens; with nobody staying, it replaces #0.
+        for (succession, outgoing_bodies) in [
+            (LiveRoomSuccession::opening(first, third), n_bodies(first)),
+            (LiveRoomSuccession::replacing(first, third), n_bodies(first)),
+        ] {
+            let (verification, rooms, bodies, next) = after_publication(succession);
+            assert_eq!(
+                (
+                    verification.published,
+                    verification
+                        .staged_violations
+                        .contains(&super::transaction::StagedWorldViolation::DefinitionAlreadyLive { live: second }),
+                    rooms,
+                    bodies,
+                    next,
+                ),
+                (
+                    false,
+                    true,
+                    vec![(first, "n".to_string()), (second, "candidate".to_string())],
+                    [vec![held(second)], outgoing_bodies].concat(),
+                    third,
+                ),
+                "{succession:?} built a second live room of `candidate` beside #1, or did not keep both \
+                 rooms whole: (published, refused, rooms, bodies, next): {:?}",
+                verification.staged_violations
+            );
+        }
 
         let (verification, rooms, bodies, next) = after_publication(LiveRoomSuccession::joining(first, second, true));
         assert!(verification.published, "{:?}", verification.staged_violations);

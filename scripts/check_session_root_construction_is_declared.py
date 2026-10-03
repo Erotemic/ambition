@@ -41,7 +41,7 @@ sys.path.insert(0, str(REPO / "scripts"))
 
 from test_paths import file_is_test_only, is_test_path, strip_test_modules  # noqa: E402
 
-from a_rollback_arm_must_refuse_a_frozen_world import code_only  # noqa: E402
+from rust_source import code_only  # noqa: E402
 
 #: Every production file allowed to construct a `SessionRoot`, and why.
 #: RE-MEASURED 2026-09-21. A new entry is a decision about `Q132`'s invariant and

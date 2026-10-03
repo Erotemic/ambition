@@ -231,8 +231,8 @@ bodies; item absence does not suppress session restoration.
 [engine architecture](architecture.md#converged-shape) and
 [open-world planning](open-world-runtime-and-residency.md), OW1).
 `SimId::placement(id)` is `"placement:{id}"` with no room or instance scope; a
-second live instance of one prepared room is refused by the construction
-planner with `IdentityAlreadyLive`. `GeoSource::TileLayer { layer }` is
+second live instance of one prepared room is refused at publication
+(`DefinitionAlreadyLive`, OW3). `GeoSource::TileLayer { layer }` is
 level-scoped only by a string convention. Run
 `scripts/measure_identity_instance_scope.py` for the per-constructor table.
 

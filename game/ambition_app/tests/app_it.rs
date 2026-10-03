@@ -36,6 +36,7 @@ mod a_hostile_body_is_drawn_at_its_built_quad;
 mod a_recharacterize_request_crosses_a_rewind;
 mod a_room_cutscene_starts_under_a_rewind;
 mod which_hashed_entry_moves_when_the_bag_does;
+mod derived_custody_is_read_after_it_is_derived;
 mod does_a_presence_probed_row_move_when_its_value_does;
 mod how_much_of_the_peer_checksum_actually_varies;
 mod a_ron_game_installs_no_ldtk_world;

@@ -310,7 +310,6 @@ AP101, AP102, AP104, AP108, AP109, AP128, AP133, AP137, AP140, AP146–AP148.
 |---|---|---|
 | AP9 | Stale architecture docs (continuous) | Remove closed wart rows as items land. Keep a one-line receipt only where another row depends on it. |
 | AP14 | Semantic actor-monolith SCC decomposition (continuous, Jon 2026-09-24) | The residual kernel is the 6-module SCC. Its legs were walked and judged genuine; the one misplaced leg, `abilities→features` (the puppy-slug gun asks the actor domain to spawn a minion), is not inverted only for the graph. Open question: is the runtime-mint description in `session→items` (`MintedItemBaseline`, `OwnedItemsBaseline`, `ItemCheckpointRestoreInputs`) item knowledge or occurrence-lifecycle knowledge? When an owner is clear, move state, behavior and installation together and delete the old edge (no callbacks, no compatibility re-exports). After each migration run `python3 scripts/measure_kernel_module_graph.py --scc --cuts --edges 80`. See [`actor-monolith-decomposition.md`](engine/actor-monolith-decomposition.md) and [`actor-monolith-work-frontier.md`](engine/actor-monolith-work-frontier.md). |
-| AP147 | A hold writes the held body's `gravity_scale` and restores a copy | Mount and capture halves are done: the frame resolver gives a body with `PoseOwnedExternally` or `CapturedBy` zero pull, and the saved copies are deleted. Handoff: the Gnu-ton conductor's fists (`game/ambition_content/src/bosses/gnu_ton/conductor.rs`) still write `0.0` while posed and `1.0` on release. Before you move them onto `PoseOwnedExternally`, measure whether fists take tumbling launches, because the kernel stages a tumbling launch until the hold ends. |
 
 `WorldTime` is recomputed from `Time.delta` × `ClockState.time_scale` at the
 head of each step. That is the canonical clock, not a defect.
@@ -372,17 +371,19 @@ boundary that does not yet enforce this is a known issue, not an open question.
 `boss.defeats_since_checkpoint`) records each placement cleared since the last
 committed checkpoint. `retract_boss_defeats_on_replay` takes the entries of the
 replay's live room, puts each placement back to `Untouched`, despawns its
-unopened reward chest and announces `BossDefeatRetracted`. The item domain
+reward chest, clears its looted flag and announces `BossDefeatRetracted`. The item domain
 (`retract_mints_of_retracted_boss_defeats`) despawns the mints whose parent is
-that boss and retracts their ledger rows. `reset_cut_rope_attempt_on_replay`
+that boss and retracts their ledger rows, and takes back what a collected
+mint or the opened reward chest gave (2026-10-02): `RewardGrantsSinceCheckpoint`
+records each grant by its source (a mint's parent, or a chest's placement), and
+the retraction takes the coins out of the collector's wallet (down to zero if
+spent) and the granted item out of the bag. `reset_cut_rope_attempt_on_replay`
 is now only the "try again" re-fight road, keyed by the replay's live room.
 Witnesses are in `game/ambition_app/tests/boss_replay_retraction.rs`.
 
 **Known issues (open under the `Q51` ruling):**
 
-- A replay does not take back coins the defeat put in `BodyWallet`.
-- An ability or item the defeat granted into `OwnedItems` stays after a manual replay (a death restores the bag; "try again" and a reset-key replay do not).
-- An opened reward chest stays opened.
+- A checkpoint restore forgets the reward grants, because it puts the bag back. It does not put the wallet back, so if a later replay retracts a defeat recorded before that restore, the bounty coins stay. Not measured whether a death leaves such a defeat to retract.
 - `QuestAdvanceEvent::BossDefeated` progress stays: quest progress is keyed by archetype and has no baseline.
 - A death in a room other than the boss's retracts nothing in the boss's room until that room is replayed.
 - A "try again" that the lifecycle refuses leaves the re-fight latched until the next admitted replay of that room.
@@ -630,37 +631,54 @@ admitted prepared value. Prefer deleting the second truth to synchronizing it.
 each migrated fact, and production consumers cannot bypass its preparation or
 projection boundary.
 
-### ROLLBACK-DEAD-SESSION — an invalidated GGRS session stops the clock in silence
-
-**Owner:** the simulation harness (`crates/ambition_sim_harness/src/runtime.rs`).
-
-**Failure:** a sync-test session that invalidates keeps accepting `sim.step()`
-and stops advancing `SimTick`. Nothing panics, and every later assertion runs
-over a frozen world. The usual cause is a system that writes a
-rollback-registered resource outside its sanctioned road, which desyncs the sync
-test.
+### ROLLBACK-DEAD-SESSION — an invalidated GGRS session stops the clock in silence — ✅ DONE 2026-10-02
 
 **Ruling (`Q138`, 2026-09-19):** an invalidated harness must refuse or fail
 rather than silently produce frozen observations.
 
-**Current state (re-checked 2026-10-02):** `Platformer2dSimHarness::step` does
-not consult `rollback_health()` yet. Meanwhile
-`scripts/a_rollback_arm_must_refuse_a_frozen_world.py` (a `--maintenance` job)
-requires each sync-test arm to read the health API or to state what a frozen
-world breaks in it. It prints the current census. The example
-`game/ambition_app/examples/hall_bench.rs` consumes a frozen world silently; it
-is a benchmark, not a test.
+**Done:** `Platformer2dSimHarness::step` and `step_frame` refuse an unhealthy
+session: they panic with the session's error and do not step. `try_step` and
+`try_step_frame` return the refusal. An arm whose subject is behaviour under an
+unhealthy session says so with `step_over_an_unhealthy_session`. Witness:
+`rollback_room_transition::the_harness_refuses_to_step_an_unhealthy_session`
+(a mismatch and an invalidation, each refused with the session's error, and
+nothing advances).
 
-**Next action:** make the harness step methods consult `rollback_health()` and
-refuse on an invalidated session.
+The refusal found five arms that stepped a diverged session. Two step over it
+by design (`a_confirmed_commit_refuses_to_rebase_over_a_diverged_session`, and
+the `Update`-writer fixture of `how_much_of_the_peer_checksum_actually_varies`).
+One reads the desync and now stops at the refusal
+(`a_flag_requested_after_its_consumer_desyncs_the_timeline`). Two were
+measuring over a session that diverged at frame 2; see SAVE-DIVERGES-AFTER-RELEASE.
 
-⛔ Do not add `rollback_health()` to an arm whose own assertions already fail on
-a frozen world, only to raise a count.
+### SAVE-DIVERGES-AFTER-RELEASE — a pickup and release in `blink_run` desyncs the sync test on the save — ✅ DONE 2026-10-02
 
-**Blocked by:** nothing.
+**Owner:** rollback determinism, with the item custody road.
 
-**Acceptance:** stepping an invalidated session fails with the session's error,
-witnessed by an arm that invalidates a session on purpose.
+**Failure (measured 2026-10-02):** in
+`does_a_presence_probed_row_move_when_its_value_does`, after the authored ground
+item is picked up and released, the sync test diverged on `AmbitionGameSave` at
+frame 2. A value probe per save field named the field: `custody`, and no other.
+
+**Cause:** the save's custody rows are read from `InCustodyOf`, which is derived
+rollback state. A load does not restore it; `project_custody_onto_residency`
+inserts it again through `Commands` each tick. `DurableHorizonSet` had no edge to
+the item residency chain, so the mirror could run before that projection and
+read the value the latest forward frame left, not the value of the frame being
+resimulated.
+
+**Done:** `DurableHorizonSet` runs after `ResidencyStep::Project`, which also
+flushes the projection's commands. The two arms run un-ignored over a healthy
+session. Poison: without the edge, both are refused at tick 7 with the original
+mismatch at frame 2.
+
+**Guard:** `every_reader_of_in_custody_of_runs_after_both_derivers` asks the
+shipped sim schedule. It finds the value readers by a probe that writes
+`InCustodyOf` (today: the save mirror and `capture_custody_baseline`), and
+asserts each is ordered after both derivers. Without the edge above it names the
+save mirror. A query that only filters on `InCustodyOf` (`RoomResident`,
+`Without<InCustodyOf>`) is not in its population; those readers are in
+`ResidencyStep::Record` or run at a commit or a restore.
 
 ### DURABLE-HORIZON-CHECKSUM — the save mirrors write hashed state from `Update`
 

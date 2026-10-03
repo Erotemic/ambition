@@ -442,7 +442,7 @@ fn candidates_with_two_rooms(
     app.world().resource::<ambition_audio::music::MusicIntent>().simple_track_candidates.clone()
 }
 
-/// Q150 (a): the music plays for the primary seat's room. Two live rooms;
+/// The current Q150 rule: the music plays for the primary seat's room. Two live rooms;
 /// the primary body is in `chapel`. The intent offers chapel's music and not
 /// the hall's, and a fight is heard only when it is in chapel (the fight in
 /// chapel is the control). Before, the intent read the sole live room, so

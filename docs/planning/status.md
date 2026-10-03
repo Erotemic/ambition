@@ -32,7 +32,7 @@ These are settled. Code against them; do not reopen them without a new ruling.
   until it is published (`Q132`).
 - **Several live rooms.** Each live room is a root entity; entities carry an
   `InRoomInstance` stamp; each view draws the room it frames. Ambition has no
-  production join road for a second seat yet (`Q151`). Owner:
+  production join road for a second seat yet (`Q153`). Owner:
   [`engine/open-world-runtime-and-residency.md`](engine/open-world-runtime-and-residency.md).
 - **Content is data, and it reloads.** Content packs compile through
   `ambition_content_pack::compile`. A running session reads the content

@@ -98,8 +98,12 @@ used where available; compiled Rust-authored content may need owner/definition/
 field provenance rather than an invented file offset.
 
 Delete an authored field that nothing plans to read. Use an unsupported-field
-diagnostic only for a field the engine intends to support. Q63 and the
-maintainer's Interact constraint govern behavioral changes.
+diagnostic only for a field the engine intends to support. The Q63 ruling
+(2026-10-03) wants a facing gate, per-chest persistence and physical-pickup
+persistence, and defers the breakable debris cue; each comes back as a field
+and its consumer in one change (queue row
+[AUTHORED-INTERACTABLE-STATE](../queue.md#authored-interactable-state--facing-gates-per-chest-and-per-pickup-persistence)).
+The maintainer's Interact constraint governs behavioral changes.
 
 ### Technique admission and flow bounds
 

@@ -3,7 +3,7 @@
 **State:** OPEN. A session can hold more than one live room, and the shipped
 app simulates and draws each one. Two live rooms exist when two seats' driven
 bodies are in different rooms. Ambition has no production join road for a
-second seat yet (Q151). The customers are the maintainer's persistent systemic platformer and
+second seat yet (Q153). The customers are the maintainer's persistent systemic platformer and
 separated multiplayer (Alice and Bob in different rooms). [The
 queue](../queue.md) selects execution. This page owns residency and activity
 semantics. Construction, custody, spatial facts and rollback keep their owners.
@@ -39,7 +39,7 @@ A session holds one or more **live rooms**. Each live room is one entity.
 | The rule "which room is this entity in" | `LiveRooms::of` (its stamp, else the sole live room); `live_room_of` for identity (its stamp only) |
 | Per-room reads | `LiveRoomOf<T>`, `LiveRoomSpecs` (`definition_in`, `left_by`), `CollisionWorld::room(..)`, `RulesOf<T>` |
 | Ambient gravity | `BaseGravity`: the turned live rooms only, keyed by `Option<LiveRoomInstance>`. A switch turns its own room; a body reads its own room's (else the sole room's); a replay forgets its room; a crossing that leaves a room standing forgets the room left when it retires. Gravity and force zones carry their room too (`zone_acts_in`) |
-| Music | `EncounterMusicRequest` keeps its two tiers per live room: a boss, a script, a wave, the cut-rope intro and Mary-O's beats claim the tier of their own room. `compute_music_intent` plays for `PrimaryLiveRoom` (the primary body's room, else the sole room; Q150 (a)): that room's music and its fight, and a conversation's track is released when that room changes to another authored room. The developer's gravity cycle turns the same room |
+| Music | `EncounterMusicRequest` keeps its two tiers per live room: a boss, a script, a wave, the cut-rope intro and Mary-O's beats claim the tier of their own room. `compute_music_intent` plays for `PrimaryLiveRoom` (the primary body's room, else the sole room): that room's music and its fight, and a conversation's track is released when that room changes to another authored room. The developer's gravity cycle turns the same room. The Q150 ruling (2026-10-03) replaces the primary-room rule with authored priority across the local participants, the primary participant breaking a tie; that is [open work](#open-work) |
 | A recall mark | `PlayerMark` keeps the live room it was dropped in: a recall from any other room does nothing, and its beacon is drawn in its own room. Decided 2026-10-02 (a position names a place only with its room); before, a recall after a crossing moved the body to the old coordinates in the new room |
 | Encounter camera zoom | `EncounterView` keeps the zoom per live room (`set_camera_zooms`, `camera_zoom_in`); each view reads the zoom of the room it frames |
 | The one-live-room read (named debt) | `SoleLiveRoom<T>`, `SoleLiveRoomSpec`, `RoomOverlays::sole()` (`SoleLiveRoomMut` is deleted) |
@@ -95,7 +95,9 @@ budget is stored, because a budget with no consumer is not a policy.
   (`keeps_durable_whereabouts`). Its replacement comes from its authored room
   (Q38 ruling).
 - An enemy death and an encounter outcome persist. A living enemy's HP and an
-  encounter's wave index do not, so a returned room is fresh (Q149).
+  encounter's wave index do not, so a returned room is fresh. Q149 (2026-10-03):
+  keeping wounds is an opt-in actor policy for actors whose continuity
+  matters; an ordinary respawning enemy is rebuilt fresh. No actor opts in yet.
 - Dormant records add no all-world walk to an idle tick: the custody projection
   reads a custody index, and the save mirrors walk dormant rows only when an
   input changed (FI9).
@@ -106,7 +108,10 @@ budget is stored, because a budget with no consumer is not a policy.
   refusal: no shipped road reached it. A crossing into a held room joins it,
   a replay or a checkpoint reset beside another player rebuilds the one live
   room with both players in it, and none of the 72 rooms has a door into
-  itself. Instanced copies of a room need Q109 first.
+  itself. Q109 (2026-10-03): the room occurrence is a scope beside `SimId`,
+  never part of it, so an instanced copy of a room names its bodies by
+  `(LiveRoomInstance, SimId)`; lifting `DefinitionAlreadyLive` also needs the
+  durable rows above to stop naming a place by room id alone.
 - A rollback frame does not copy or hash unchanged dormant rows. The save's
   rows, the ledger and `BreakableRespawnSchedule` are `Arc`-shared with
   checksums kept per allocation (M2; the schedule 2026-10-02, measured 2.0 ms
@@ -123,7 +128,8 @@ the authority and `mirror_breakable_respawns` keeps the record. When the room
 retires, the record stays and nothing ticks it. Construction builds a
 breakable that is not yet due as broken, with the time that remains. A replay,
 a checkpoint restore and session teardown forget the records. No other
-mechanism keeps time while its room is not live (Q152).
+mechanism keeps time while its room is not live yet. Q152 (2026-10-03) sets
+the order: regrowth/restocking next, then scheduled persistent characters.
 
 ### The view half
 
@@ -165,8 +171,11 @@ Each player sees their own live room:
   respawn platforms; the cut-rope props and music release) read their own
   subject's live room or every live room.
 
-The HUD, the banner and the music stay one per session and follow the primary
-seat (Q150).
+The HUD, the banner and the music are still one per session and follow the
+primary seat. The Q150 ruling (2026-10-03) makes the HUD per participant, also
+on one merged screen, and the music an authored-priority choice across local
+participants with the primary participant as the tie-break: see the open work
+below.
 
 ## Ownership table
 
@@ -246,12 +255,15 @@ per-room rollback clocks are not part of this plan.
 | Remaining one-room state | `BrokenBricks` and `SpentMonitors` are keyed by block name with no room and write `RoomOverlays::sole()`. `mary_o_setup` and `sanic_setup` run at `Startup` with one room | Each runs or is keyed per room while two rooms are live |
 | Debris physics | Avian has one space, so the debris of one live room can collide with the debris and the static colliders of another at the same position. The debris reader's witness is built only with `--features physics_debris` | Decide whether debris of two live rooms must be kept apart; a default-lane witness of the reader |
 | Replay reset effect | Measured 2026-10-02 (a one-off probe of `VfxInRoom`, Alice's manual replay in the hub, with one live room and with Bob's room live beside it): `ResetEffects` is written twice, on the admission tick for the room being replaced (#1) and on the next tick for the new instance (#2), where she stands. They are two effects from two writers: #1 is the replay's from→to trail (`sandbox_reset::reset_sandbox`, `for_room(subject.room)`, in the old room's coordinates), and #2 is the crossing commit's arrival effect (`room_transition/commit.rs`, `for_room(arrival_room)`, `from == to`). So the player sees the arrival effect in her room, and the trail goes to the room being replaced. The #1 write goes to a room that retires a tick later; whether its particles are despawned with that room is not measured (needs a rendered composition) | A rendered witness that the #1 particles retire with their room, or the admission write removed if the #2 write is the one that should stand |
-| Join road | Ambition has no production road that seats a second player (Q151). A join road must stamp its body into the room it joins. A checkpoint restore replays every other live room for its player (`replay_the_rooms_owed_the_restore`), and a rebuild replaces a seat's body that is a placement of that room, as the fixtures' Bob is. So the join road must also give the body a home that a rebuild of its room does not replace (possession uses custody) | A second seat's body keeps its room live in ordinary play |
+| Join road | Ambition has no production road that seats a second player (Q153). A join road must stamp its body into the room it joins. A rebuild of a room replaces a seat's body that is a placement of that room, as the fixtures' Bob is, so the join road must also give the body a home that a rebuild does not replace (possession uses custody) | A second seat's body keeps its room live in ordinary play |
+| Death horizon (Q151) | A participant's ordinary death rewinds that participant and the affected room, and only the durable records that horizon covers; another participant's live room and its consequences (a boss defeat, its reward) stay. An explicit whole-session reload may rewind the whole session. b1259df0c shipped the opposite (a session-wide restore, then a replay of every other live room) and is being reworked; no reconciliation of surviving rooms | Alice's death beside Bob's boss defeat leaves Bob's room, the boss row and its reward as they were, and Alice's room agrees with the durable records it reads |
+| Per-participant HUD and music priority (Q150, Q72) | One HUD per participant/view, also on a merged screen. Local music: each participant's candidate, the higher authored priority wins (ambient < encounter < boss), the primary participant wins a tie. Priority is an authored property; an encounter contributes a scoped candidate (queue row MUSIC-CANDIDATES) | Bob's boss music outranks Alice's town music; two equal tracks play Alice's |
+| Regrowth/restock (Q152) | The second world-time customer: a harvested resource or a shop stock refills after world time passes while its room is not live | Harvest, leave, wait, return: it has regrown |
 | Root identity | Two live room roots wear one `session:room_instance` identity. A join works around it with a one-room transaction world | Per-instance root identity, with the checksum change |
 | OW4 budgets | Views and pending transitions as claim holders; admission/eviction with a consumer | Cancellation and re-entry release only their own claims |
 | Multi-room hot reload | Hot reload is gated to one live room. `LiveRoomDefinition` is an index into the current `RoomSet`, not a generation-stable identity | Removing the gate re-prepares every resident root with the set, or makes the root name its generation. An old index never takes a new generation's meaning |
 | Remote peers | Rebase cost at a crossing for a remote peer's rollback window is not measured (sync test has one peer) | A two-peer measurement |
-| Product policy | Q149 (wounds), Q150 (HUD/banner/music), Q151 (join and death), Q152 (world clock across a save) | Rulings in `maintainer-decisions.md` |
+| Product policy | Q153 (join road). Still open: whether a world clock survives a save | Rulings in `maintainer-decisions.md` |
 
 ## Forbidden regressions
 

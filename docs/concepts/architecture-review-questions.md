@@ -104,6 +104,24 @@ contract until the provenance model is explicit.
 Use an external consumer as evidence before declaring an unstable internal seam
 part of the SDK.
 
+## Keep, redesign or delete
+
+Current usage is not a deletion criterion (maintainer ruling, 2026-10-03, Q74):
+`unused ≠ bad`, `used ≠ good`. A grep that finds zero callers tells you about
+test coverage and maturity, not about architectural worth. Ask instead:
+
+- Is the concept semantically coherent?
+- Does it create a duplicate authority?
+- Does it encode the wrong abstraction, or add indirection that buys nothing?
+- Is it more complicated than the concept it represents?
+- Does another abstraction express the same semantics more cleanly?
+- Does it model something Ambition or a plausible future game wants to express?
+- Is its maintenance cost justified by that plausible expressive value?
+
+Delete, simplify or redesign for one of these reasons. A heavily used concept
+with bad semantics can deserve deletion; an elegant concept with no customer
+can deserve to stay.
+
 ## Navigation discipline
 
 Before inventing a new abstraction:

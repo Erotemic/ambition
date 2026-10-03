@@ -118,12 +118,14 @@ folded fields to `CharacterAuthorityConflict` would be a variant that cannot fai
 No generic resolver, no request bus, no new trait to unify registry and catalog,
 and no type moves.
 
-### Closed: an unprepared id at wear time
+### An unprepared id at wear time (Q103: refuse)
 
 Every catalog row is a character (AP30). The preparation barrier prepares each
 row nobody authored as a bare definition, and the fold gives it its row and its
 provider's declarations. The wear road reads the prepared cast only. There is no
-read-time fold.
+read-time fold. One fallback is left: for an id outside the cast,
+`WornKit::resolve` wears a peaceful kit and shows the id as the name. The Q103
+ruling (2026-10-03) is to refuse such a wear (queue `WEAR-REFUSES-UNPREPARED`).
 
 ### Open: the autonomous profile reference is not retained
 

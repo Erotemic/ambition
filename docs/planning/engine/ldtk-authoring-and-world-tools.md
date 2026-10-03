@@ -196,8 +196,10 @@ continue producing typed world input; generic world geometry must not depend on
 character sheets and prepared actors merely because they share a placement file.
 
 The carried-but-unconsumed fields (`requires_facing`, pickup `collected`, chest `persistent`, breakable
-`debris_cue`) are deleted. Product meaning for those features stays on Q63. An
-authored field that reaches a runtime representation must have a consumer.
+`debris_cue`) are deleted. The Q63 ruling (2026-10-03) wants the facing gate,
+per-chest persistence and physical-pickup persistence, and defers the debris
+cue. Each returns with its consumer in one change. An authored field that
+reaches a runtime representation must have a consumer.
 
 Importer diagnostics should retain provider, source entity/field and normalized
 semantic path so an authoring agent can fix the actual source. One shared

@@ -381,8 +381,9 @@ frames healthy. In the same file,
 load's ledger write landing, with every replay of a tick agreeing. The ignored
 probe `probe_what_a_mid_session_load_writes_outside_the_rewinding_schedule` has
 not been re-read since the move. Earlier "clean" readings ran with empty
-baselines; seed both halves. `Q129` owns whether the save belongs in the peer
-contract at all.
+baselines; seed both halves. Q129 (decided 2026-10-03): shared durable world
+state belongs in the peer contract, compared by its canonical semantic form
+rather than the save file's bytes.
 
 The probe and the GGRS aggregate for a `rollback_resource_clone_checksum` entry
 are installed from the same `checksum` argument in

@@ -331,8 +331,9 @@ fn no_hashed_entry_disagrees_with_its_replay_when_the_bag_moves() {
 /// ONE, the snapshot is pinned and the desync window is where that happens to
 /// matter.
 ///
-/// ⛔ Print-only, because the number it produces is the input to somebody else's
-/// open question (`Q129`) and not an assertion this file is entitled to make.
+/// ⛔ Print-only, because the number it produces is an input to the peer
+/// representation the `Q129` ruling leaves for netplay work, not an assertion
+/// this file is entitled to make.
 #[test]
 #[ignore = "PROBE, print-only: does the save's snapshot track its frame once the first ticks are past"]
 fn probe_whether_the_saves_snapshot_tracks_its_frame_after_the_window() {
@@ -422,9 +423,9 @@ fn probe_whether_the_saves_snapshot_tracks_its_frame_after_the_window() {
 ///
 /// ⇒ So the save is in the peer contract by registration and out of it in
 /// effect. A clean divergence report about it is not evidence it is compared
-/// correctly; it is evidence that what is compared is frozen. `Q129` is where
-/// the ruling goes and it is CalculexAmbition's row; this arm exists so the
-/// measurement cannot quietly stop being true.
+/// correctly; it is evidence that what is compared is frozen. `Q129` is decided
+/// (2026-10-03): the peer protocol compares the canonical semantic durable
+/// state. This arm exists so the measurement cannot quietly stop being true.
 ///
 /// ⚠ **THE NUMBER THIS ARM PINS IS THE IDLE ONE, AND SAYING SO IS NOT A HEDGE.**
 /// It steps with `AgentAction::default()`. Re-measured with an ACTING agent over

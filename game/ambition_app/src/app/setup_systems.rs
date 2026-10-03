@@ -188,7 +188,7 @@ pub(crate) fn setup_host_presentation_system(
 /// stale and nothing re-demands anything.
 ///
 /// and it took two other things with it that nobody ever put back: the per-`Prop.kind` sheets
-/// and the realizations a host published itself (`publish_under`, the intro's NPCs).
+/// and the realizations a host published itself without declaring them.
 pub(crate) fn reload_visual_quality_assets_on_scale_change(
     quality: Res<ambition_platformer2d::render::quality::ResolvedVisualQuality>,
     asset_config: Res<GameAssetConfig>,

@@ -825,6 +825,12 @@ pub(crate) fn install_session_bridge(app: &mut App) {
             super::local_session::maintain_local_session
                 .in_set(super::local_session::LocalSessionSet::Maintain),
         )
+        // The durable-restore chain writes rollback state from `Update`, and
+        // only on the frame the save is applied. It is safe only while no
+        // timeline is running, so that frame must begin with no session.
+        .init_resource::<FrameStart>()
+        .add_systems(First, note_the_frame_start)
+        .add_systems(Last, refuse_a_restore_over_a_live_timeline)
         // Both run in `Update`. Without these edges, which authority sizes the
         // GGRS session is a race. The seating a route or roster states this
         // frame is what the session is built from. The edges are real because
@@ -3096,4 +3102,81 @@ pub fn mechanical_mutation_boundary(world: &World) -> MechanicalMutationBoundary
             }
         }
     }
+}
+
+/// Whether this frame began with a rollback session, and whether the save had
+/// been applied then.
+#[derive(Resource, Default)]
+struct FrameStart {
+    live: bool,
+    restored: bool,
+}
+
+fn note_the_frame_start(
+    session: Option<Res<AmbitionGgrsSession>>,
+    restored: Option<Res<ambition_platformer2d_actor_monolith::session::durable_horizon::SaveRestored>>,
+    mut start: ResMut<FrameStart>,
+) {
+    *start = FrameStart {
+        live: session.is_some(),
+        restored: restored.is_none_or(|restored| restored.0),
+    };
+}
+
+/// The save is applied only on a frame that began with no rollback session.
+///
+/// The restore chain (`adopt_occurrence_checkpoint_from_save`,
+/// `restore_inventory_from_save`, `complete_durable_restore`) writes rollback
+/// state from `Update`, and only on the frame `SaveRestored` rises: all three
+/// ask the population `durable_hydration_is_pending` asks, and the last one
+/// raises the latch. A rewind does not replay `Update`, so a write over a live
+/// timeline is a write a resimulation does not repeat. `maintain_local_session`
+/// refuses to START a session while hydration is pending; this holds the other
+/// half: the latch does not fall (teardown resets it) under a session that
+/// stays live and then rise again over it.
+///
+/// Measured 2026-10-03 over `app_it`: 226 rises, each on a frame that began
+/// with no session; 40 falls, each on a frame that also ended the session.
+///
+/// ⛔ A composition that declares [`TheBodyIsBornOnTheTimeline`] is counted,
+/// not refused. Its body does not exist until GGRS runs the simulation, so the
+/// session-start gate has nothing to wait for and the save is applied over the
+/// live timeline. That is the defect this check names; it is owed (queue row
+/// `BODY-BORN-ON-THE-TIMELINE`), and the count lets the composition measure it.
+fn refuse_a_restore_over_a_live_timeline(
+    start: Res<FrameStart>,
+    restored: Option<Res<ambition_platformer2d_actor_monolith::session::durable_horizon::SaveRestored>>,
+    known: Option<ResMut<TheBodyIsBornOnTheTimeline>>,
+) {
+    let now = restored.is_none_or(|restored| restored.0);
+    if !(start.live && !start.restored && now) {
+        return;
+    }
+    if let Some(mut known) = known {
+        known.restores_over_a_live_timeline += 1;
+        warn!(
+            "the save was applied over a live rollback timeline, in a composition \
+             whose body is born on the timeline (owed: BODY-BORN-ON-THE-TIMELINE)"
+        );
+        return;
+    }
+    debug_assert!(
+        false,
+        "the save was applied over a live rollback timeline: the restore chain \
+         wrote rollback state from `Update` while a session was running"
+    );
+}
+
+/// A composition whose primary body is born on the rollback timeline: GGRS must
+/// run the simulation before the body exists. Today only test compositions
+/// (the Sanic and Mary-O rollback fixtures) do this; the shipped demos do not
+/// run GGRS.
+///
+/// For such a composition the save is applied from `Update` over the live
+/// timeline, and [`refuse_a_restore_over_a_live_timeline`] counts each
+/// application here instead of refusing it. A composition without this
+/// resource is refused.
+#[derive(Resource, Default, Debug)]
+pub struct TheBodyIsBornOnTheTimeline {
+    pub restores_over_a_live_timeline: u32,
 }

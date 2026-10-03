@@ -373,36 +373,10 @@ impl CharacterLoadStates {
     ///
     /// One method for both writes, because a token that reached a terminal state
     /// without joining the cast is a character who loaded and then made no sound.
-    fn record(&mut self, token: String, character_id: &str, outcome: CharacterLoadOutcome) {
-        self.cast.stage(character_id);
-        self.by_token.insert(token, outcome);
+    fn record(&mut self, character_id: String, outcome: CharacterLoadOutcome) {
+        self.cast.stage(&character_id);
+        self.by_token.insert(character_id, outcome);
     }
-}
-
-/// The canonical character id a demand token names.
-///
-/// Rooms, LDtk entities and roster entries all legitimately submit display names (`"Mary-O"`),
-/// while every provider map — the prepared registry, the assembled catalog's owners — is keyed
-/// by stable id (`"mary_o"`).
-///
-/// Deliberately NOT resolved through the sprite table, which is the other place a
-/// token → id alias exists. The table answers about ART, and the cast is a roster
-/// that has to be right for a character whose art never resolves at all — a
-/// composition with no asset pipeline has an empty sheet table and a full cast.
-/// (Its declarations do now outlive the decode, so it COULD answer; that makes it
-/// a convenience, not an authority.)
-pub fn canonical_character_id<'a>(
-    registry: &'a PreparedCharacterRegistry,
-    catalog: &'a CharacterCatalog,
-    token: &'a str,
-) -> &'a str {
-    if registry.get(token).is_some() || catalog.get(token).is_some() {
-        return token;
-    }
-    registry
-        .id_for_display_name(token)
-        .or_else(|| catalog.id_for_display_name(token))
-        .unwrap_or(token)
 }
 
 /// Marker that the engine character-materialization service is installed.
@@ -416,14 +390,13 @@ pub struct CharacterMaterializationService;
 pub fn declare_registered_character_into(
     sprites: &mut CharacterSpriteAssets,
     registry: &PreparedCharacterRegistry,
-    token: &str,
     character_id: &str,
 ) {
-    if !sprites.sheet_state(token).is_unknown() {
+    if !sprites.sheet_state(character_id).is_unknown() {
         return;
     }
     if let Some(prepared) = registry.get(character_id) {
-        sprites.declare(prepared.id.as_str(), &prepared.display_name);
+        sprites.declare(prepared.id.as_str());
     }
 }
 
@@ -444,7 +417,6 @@ pub fn materialize_character_demand(
     // follows the character, behind the same cover, instead of being resident
     // in every room from boot.
     fx: &mut ambition_sprite_sheet::game_assets::FxSheetAssets,
-    character_catalog: &CharacterCatalog,
     // Sheets this app's PROVIDERS authored. A source of sheet
     // metadata that is not the engine's baked table, which is what lets a game
     // outside this workspace ship a character of its own.
@@ -481,9 +453,8 @@ pub fn materialize_character_demand(
     // reveal and 434 MP arrived in the open. Fixed in the host's
     // `room_transition_assets`: the remainder is forwarded to the global
     // demand and `inspect_demanded_characters` holds the reveal.
-    for token in demand.pending().map(str::to_string).collect::<Vec<_>>() {
-        let character_id = canonical_character_id(registry, character_catalog, &token).to_string();
-        declare_registered_character_into(sprites, registry, &token, &character_id);
+    for character_id in demand.pending().map(str::to_string).collect::<Vec<_>>() {
+        declare_registered_character_into(sprites, registry, &character_id);
         states.cast_mut().stage(&character_id);
     }
 
@@ -491,19 +462,16 @@ pub fn materialize_character_demand(
     // several in one frame is what produced a 516ms frame on hardware. Anything
     // not taken stays pending and is taken next frame.
     let tier = crate::character_sprites::character_sprite_tier(quality);
-    for token in
+    for character_id in
         demand.take_within_budget(MATERIALIZATION_UNITS_PER_FRAME, materialization_units(tier))
     {
-        // Whose cues this character will emit under, resolved BEFORE any decode:
-        // the cast is a roster, not a report on the art, and it must be right for a
-        // character whose sheet never resolves.
-        let character_id = canonical_character_id(registry, character_catalog, &token).to_string();
-        declare_registered_character_into(sprites, registry, &token, &character_id);
+        // Declared BEFORE any decode: the cast is a roster, not a report on the
+        // art, and it must be right for a character whose sheet never resolves.
+        declare_registered_character_into(sprites, registry, &character_id);
         // They are different bugs.
-        if matches!(sprites.sheet_state(&token), CharacterSheetState::Unknown) {
+        if matches!(sprites.sheet_state(&character_id), CharacterSheetState::Unknown) {
             states.record(
-                token,
-                &character_id,
+                character_id,
                 CharacterLoadOutcome::Failed(CharacterLoadFailure::UnknownCharacter),
             );
             continue;
@@ -516,7 +484,7 @@ pub fn materialize_character_demand(
             asset_server,
             layouts,
             quality,
-            &token,
+            &character_id,
         );
         let outcome = if materialization.is_ready() {
             let owed = crate::character_sprites::demand_character_fx_sheets(
@@ -551,7 +519,7 @@ pub fn materialize_character_demand(
                 }
             })
         };
-        states.record(token, &character_id, outcome);
+        states.record(character_id, outcome);
     }
 }
 
@@ -600,11 +568,7 @@ pub fn declare_registered_characters(
     let sprites = &mut assets.characters;
     for id in registry.ids() {
         if matches!(sprites.sheet_state(id), CharacterSheetState::Unknown) {
-            let display_name = registry
-                .get(id)
-                .map(|p| p.display_name.as_str())
-                .unwrap_or(id);
-            sprites.declare(id, display_name);
+            sprites.declare(id);
         }
     }
 }
@@ -821,13 +785,6 @@ pub fn materialize_demanded_character_sheets(
     demand: Option<ResMut<CharacterLoadDemand>>,
     states: Option<ResMut<CharacterLoadStates>>,
     assets: Option<ResMut<ambition_sprite_sheet::game_assets::GameAssets>>,
-    // NOT `Option<Res<..>>`. The character catalog is REQUIRED authority
-    // (`engine.character-authority-is-app-local`): making it optional is how a
-    // missing catalog silently becomes an empty one, and then every character
-    // "has no sheet" for a reason nobody can see. The system is gated on the
-    // resource existing instead, and a composition that reaches staging without
-    // one is NAMED by the capability audit rather than quietly doing nothing.
-    character_catalog: Res<CharacterCatalog>,
     // Sheets this app's providers authored. REQUIRED like the catalog and for
     // the same reason: it is authority, and `Option<Res<..>>` on authority is
     // how a missing registration turns into a silent placeholder instead of a
@@ -866,17 +823,12 @@ pub fn materialize_demanded_character_sheets(
         // shell). SETTLE the demand with a NAMED terminal state rather than leaving
         // it pending: §4.9 forbids silence, and a reveal barrier waiting forever on
         // art that was never going to exist is that silence with extra steps.
-        for token in demand.take() {
-            // Canonicalized here too. An art-free composition still emits cues, and
-            // authorization is deliberately not gated on the asset pipeline — so a
-            // headless session that staged `"Mary-O"` must still authorize
-            // `mary_o_demo`, or the one build where nothing is visible is also the
-            // one where nothing is audible.
-            let character_id =
-                canonical_character_id(registry, &character_catalog, &token).to_string();
+        for character_id in demand.take() {
+            // An art-free composition still emits cues, and authorization is
+            // deliberately not gated on the asset pipeline, so the cast is staged
+            // here too.
             states.record(
-                token,
-                &character_id,
+                character_id,
                 CharacterLoadOutcome::Failed(CharacterLoadFailure::NoAssetPipeline),
             );
         }
@@ -897,7 +849,6 @@ pub fn materialize_demanded_character_sheets(
         &mut states,
         &mut assets.characters,
         &mut assets.fx,
-        &character_catalog,
         &authored_sheets,
         registry,
         &asset_catalog,

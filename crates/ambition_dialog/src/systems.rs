@@ -13,7 +13,9 @@ use bevy::prelude::*;
 use crate::runtime::DialogState;
 use crate::speech_sfx::{should_play_talk_blip, talk_blip_id_for_speaker, DialogueVoiceCatalog};
 #[cfg(feature = "input")]
-use ambition_input::{ActiveDevice, MenuControlFrame, SeatActiveDevices};
+use ambition_input::{ActiveDevice, MenuControlFrame, SeatActiveDevices, DIALOGUE_CONTEXT};
+#[cfg(feature = "input")]
+use ambition_input::{participant::ParticipantContexts, InputParticipant};
 #[cfg(feature = "input")]
 use ambition_persistence::settings::{MenuTapMode, UserSettings};
 use ambition_sfx::{SfxMessage, SfxWriter};
@@ -82,6 +84,7 @@ pub fn dialog_reveal_tick(
 #[cfg(feature = "input")]
 pub fn dialog_pointer_input(
     mut dialogue: ResMut<DialogState>,
+    participants: Query<&ParticipantContexts, With<InputParticipant>>,
     windows: Query<&Window, With<PrimaryWindow>>,
     choices: Query<(&Interaction, &DialogChoiceSlot), Changed<Interaction>>,
     settings: Option<Res<UserSettings>>,
@@ -89,7 +92,7 @@ pub fn dialog_pointer_input(
     touches: Option<Res<Touches>>,
     mouse_buttons: Option<Res<ButtonInput<MouseButton>>>,
 ) {
-    if !dialogue.active() {
+    if !dialogue.active() || dialogue_input_is_captured(participants.iter()) {
         return;
     }
     let cursor_position = windows.single().ok().and_then(Window::cursor_position);
@@ -313,8 +316,31 @@ fn effective_dialog_tap_mode(
 }
 
 #[cfg(feature = "input")]
-pub fn dialog_input(menu: Res<MenuControlFrame>, mut dialogue: ResMut<DialogState>) {
+pub fn dialog_input(
+    menu: Res<MenuControlFrame>,
+    participants: Query<&ParticipantContexts, With<InputParticipant>>,
+    mut dialogue: ResMut<DialogState>,
+) {
+    if dialogue_input_is_captured(participants.iter()) {
+        return;
+    }
     apply_dialog_menu_input(&menu, &mut dialogue);
+}
+
+/// Whether an overlay holds the conversation's input: a participant declares the
+/// dialogue's claim, and a higher capturing claim cuts it off.
+///
+/// ⭐ `Q75` (2026-10-01): the pause menu, the map and the inventory may open
+/// during a conversation, and the conversation stays live under them without
+/// navigation input. It is read from the claims, so neither side names the
+/// other. A composition that never declares `DIALOGUE_CONTEXT` is not captured.
+#[cfg(feature = "input")]
+fn dialogue_input_is_captured<'a>(
+    participants: impl IntoIterator<Item = &'a ParticipantContexts>,
+) -> bool {
+    participants.into_iter().any(|contexts| {
+        contexts.is_declared(DIALOGUE_CONTEXT) && !contexts.resolved().contains(&DIALOGUE_CONTEXT)
+    })
 }
 
 #[cfg(feature = "input")]
@@ -322,7 +348,11 @@ fn apply_dialog_menu_input(menu: &MenuControlFrame, dialogue: &mut DialogState) 
     if !dialogue.active() {
         return;
     }
-    if menu.back || menu.start {
+    // ⛔ START NEVER ENDS A CONVERSATION. Start opens the pause menu over it
+    // (`Q75`), and the conversation is still live, at the same line, when the
+    // menu closes. Esc binds both Start and Back, so a Back that comes with
+    // Start is that same pause press.
+    if menu.back && !menu.start {
         // Back-button close: the dispatch system tells the runner to stop.
         // `close()` flips `DialogState.active` this same frame so every
         // presentation/input backend observes the same immediate closure.
@@ -666,6 +696,64 @@ mod tests {
             .interaction(2, Interaction::None)
             .step();
         assert_eq!(rows.chosen(), None);
+    }
+
+    /// `Q75`: Start opens the pause menu over a conversation and never ends it.
+    /// Esc sets Start and Back together, so that is the same pause press. Back
+    /// alone still ends the conversation.
+    #[test]
+    fn start_never_ends_a_conversation_and_back_alone_does() {
+        let mut dialogue = dialogue_with_options(2);
+        apply_dialog_menu_input(
+            &MenuControlFrame {
+                start: true,
+                ..default()
+            },
+            &mut dialogue,
+        );
+        assert!(dialogue.active(), "Start does not end the conversation");
+        apply_dialog_menu_input(
+            &MenuControlFrame {
+                start: true,
+                back: true,
+                ..default()
+            },
+            &mut dialogue,
+        );
+        assert!(dialogue.active(), "Esc (Start with Back) does not end the conversation");
+        apply_dialog_menu_input(
+            &MenuControlFrame {
+                back: true,
+                ..default()
+            },
+            &mut dialogue,
+        );
+        assert!(!dialogue.active(), "Back alone ends the conversation");
+    }
+
+    /// `Q75`: an overlay whose claim outranks the conversation's captures its
+    /// input; a composition that declares no dialogue claim is never captured.
+    #[test]
+    fn an_overlay_above_the_conversation_captures_its_input() {
+        use ambition_input::participant::{context_priority, ContextClaim};
+        let mut talking = ParticipantContexts::default();
+        talking.declare(ContextClaim::capturing(DIALOGUE_CONTEXT, context_priority::DIALOGUE));
+        assert!(!dialogue_input_is_captured([&talking]), "the conversation alone holds its input");
+        for (overlay, priority) in [
+            (ambition_input::INVENTORY_CONTEXT, context_priority::INVENTORY),
+            (ambition_input::PAUSE_CONTEXT, context_priority::PAUSE),
+        ] {
+            let mut under = talking.clone();
+            under.declare(ContextClaim::capturing(overlay, priority));
+            assert!(
+                dialogue_input_is_captured([&under]),
+                "{overlay:?} over the conversation captures its input"
+            );
+        }
+        assert!(
+            !dialogue_input_is_captured([&ParticipantContexts::default()]),
+            "no dialogue claim, no capture"
+        );
     }
 
     fn dialogue_with_options(count: usize) -> DialogState {

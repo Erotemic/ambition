@@ -851,8 +851,9 @@ pub mod sim {
     /// The dev-only physics overrides a sandbox host may install.
     pub use ambition_platformer2d_shared_tangle::physics::PhysicsSandboxSettings;
     pub use ambition_platformer2d_shared_tangle::schedule::{
-        BossSteerSlot, GameMode, Platformer2dSimulationPhaseMonolith, PresentationSetupSet,
-        SimSchedule, SimScheduleExt, SimulationSetupSet, WorldItemSet,
+        BossSteerSlot, FeatureWorldOverlayContributions, GameMode,
+        Platformer2dSimulationPhaseMonolith, PresentationSetupSet, SimSchedule, SimScheduleExt,
+        SimulationSetupSet, WorldItemSet,
     };
 
     /// How device/screen/body axes are interpreted by scripted or participant input.
@@ -1042,7 +1043,9 @@ pub mod world {
     /// Named here for the same reason `ResolvedMotionFrame` is: it is a world
     /// fact, and reaching it through the actor crate is how a census mistakes it
     /// for that crate's coupling.
-    pub use ambition_platformer2d_shared_tangle::feature_overlay::{FeatureEcsWorldOverlay, RoomOverlays};
+    pub use ambition_platformer2d_shared_tangle::feature_overlay::{
+        FeatureEcsWorldOverlay, GatePass, RoomOverlays,
+    };
     /// The per-tick motion environment a body is stepped in. Named here rather
     /// than through the actor crate: it is a world-physics fact, and routing it
     /// through a domain crate's re-export is how a census mistakes it for that

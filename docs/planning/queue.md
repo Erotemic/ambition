@@ -36,27 +36,6 @@ awk '/^### /{if(n)printf "%s %s\n", c, n; n=$2; c=0} {c++} END{printf "%s %s\n",
 
 ## P0 — architecture and correctness
 
-### SYNC-POINT-SENSITIVE-RESIM — a command sync point moves the death-reset replay
-
-**Owner:** rollback determinism.
-
-**Current state:** a lead, not a reproduced defect. On 2026-09-22 one added
-schedule edge (`ensure_sim_id → mint_spawned_sim_ids → heal_projectile_owners`
-ordered `.before(SimClockHead)`) made two `rollback_lifecycle_reset` death tests
-fail with a GGRS sync-test mismatch. The edge touches no clock state; it only
-moves where Bevy applies that chain's `Commands`. Re-measured 2026-09-23, the
-same edge passes all five tests. Part of the first reading was an audit defect
-(frame-keyed history compared across a lifecycle rebase), fixed and held by
-`a_rebased_timeline_is_not_compared_against_the_one_it_replaced`. Nobody knows
-whether later schedule changes fixed the sensitivity or only moved it.
-
-**Next action:** probe with an edge that moves a sync point on the death →
-checkpoint road, under `RollbackRestoreAudit`.
-
-**Acceptance:** a probe either reproduces a mismatch and names the system that
-reads unrestored state (then fix it), or the probes find none and the row is
-deleted.
-
 ### ID-PEER — remove host-local lineage from peer-stable mechanical identity
 
 **Owner:** deterministic identity / rollback architecture. The identity map is
@@ -83,13 +62,19 @@ rows that differ between hosts: `SimTick` (`Q128`) and `AmbitionGameSave`
 
 **Open roads:**
 
-1. **The snapshot schema fingerprint hashes prose.** `compute_schema_fingerprint`
-   hashes all of `schema_dump()`, including each row's prose `detail`. Ruled
-   2026-09-19 (`Q122`): mechanical identity fingerprints mechanical facts, not
-   explanatory prose. Next: split each row's `detail` into the mechanical facts
-   the fingerprint hashes and the explanation it does not. ⛔ Do not just drop
-   `detail`. Most rows carry facts that `kind` does not encode (entity, set or
-   map remapping; the canonical checksum style; custom-checksum descriptions).
+1. ✅ **CLOSED 2026-10-03: the snapshot schema fingerprint hashes mechanical
+   facts, not prose** (`Q122`, schema v303). `compute_schema_fingerprint`
+   hashes `RollbackRegistry::mechanical_dump()`: each peer-schema row's name,
+   kind, wire type and mechanism token. A token names the road within the kind
+   (entity, set or map remapping; the canonical checksum style; probed or
+   unhashed). It is declared with the road's sentence in
+   `rollback_kind::spelling` and recorded in
+   `the_mechanism_tokens_are_recorded`. The prose stays in `schema_dump()` and
+   both baselines. A custom-checksum description, a derived row's reason and the
+   dynamic anchor's note (87 rows) map to the token `described`. Those 87 rows
+   describe the projection code, and the schema version answers for that code,
+   not the words. Witness: `rewording_a_row_leaves_the_fingerprint_alone`.
+   Control: `a_row_on_another_mechanism_moves_the_fingerprint`.
 2. **The canonical timeline.** `SimTick` is an absolute per-App counter and is
    registered `resource-canonical`, so two Apps that ran for different times
    disagree from the first compared frame. It needs a session-relative tick,
@@ -133,41 +118,60 @@ activations can enter the same deterministic match and produce the same
 canonical mechanical identity/checksum. The witness must first assert that their
 local counters differ.
 
-### ROLLBACK-MUTATOR-POPULATION — the mutator guard sees a quarter of rollback state
+### ROLLBACK-MUTATOR-POPULATION — the mutator guard sees a quarter of rollback state — ✅ DONE 2026-10-03
 
 **Owner:** rollback scheduling (`scripts/check_rollback_mutators_run_in_sim.py`).
 
-**Current state (measured 2026-10-02):** the guard reads every rollback
+**Current state (measured 2026-10-03):** the guard reads every rollback
 registration in every supported parameter spelling, including writes in the
-body of an exclusive-world system. It reports 488 systems that mutate rollback
-state and 3 acknowledged offenders, all owed to this row:
+body of an exclusive-world system. It reports 490 systems that mutate rollback
+state and 0 acknowledged offenders.
 
-- `adopt_occurrence_checkpoint_from_save` and `complete_durable_restore`: one-shot
-  latches on `SaveRestored` in `Update`. They write only before a timeline
-  starts, because the `Q135` gate refuses to start GGRS while durable hydration
-  is pending (see DURABLE-HORIZON-CHECKSUM). Do not waive them on the activation
-  argument: GGRS start and the restore chain wait on different facts.
-- `reconcile_roster_with_frozen_topology` (`game/ambition_app/src/app/versus.rs`,
-  in `Update`): writes the versus roster while rollback freezes the seat
-  topology.
+✅ `adopt_occurrence_checkpoint_from_save` and `complete_durable_restore` moved to
+`WAIVERS` on 2026-10-03, beside `restore_inventory_from_save`. The argument is
+measured and held by a runtime check. All three write only on the frame
+`SaveRestored` rises, because they ask the population `durable_hydration_is_pending`
+asks. The `Q135` gate refuses to START a session while hydration is pending. The
+other half was the gap: teardown resets the latch, so a session that stayed live
+would see it rise again. `refuse_a_restore_over_a_live_timeline`
+(`rollback_ggrs/src/session.rs`) now debug-asserts that the latch never rises on
+a frame that began with a live session. Witness:
+`a_save_applied_over_a_live_timeline_is_refused`. Control:
+`a_live_timeline_with_the_save_applied_runs_on`. Poisoning the assert lets the
+write through, and the sync test stays healthy. Measured over `app_it`: 226 rises,
+each on a frame that began with no session; 40 falls, each on a frame that also
+ended the session. The old waiver's "the latch has no `true -> false`
+transition" was false: teardown is one.
+
+⛔ The check was red on main for one commit (0ef79200b): the Sanic and Mary-O
+rollback fixtures apply the save over a live timeline, a road `app_it` does not
+have. Those compositions now declare it, and the check counts it there. See
+BODY-BORN-ON-THE-TIMELINE.
+
+✅ `reconcile_roster_with_frozen_topology` left on 2026-10-03. Its one rollback
+write was `ActiveMatch::adopt_seat_topology`, a copy of the roster's record that
+nothing read. The copy is deleted (schema 302), and the reconciler reads
+`ActiveMatch` only.
 
 The exit code means "no new offender", not "clean". `ACKNOWLEDGED` names drift
 that is real and the row that owes it. `WAIVERS` carry an argument. A banked
 name that the scan stops reporting is fatal.
 
-**Next action:** for each acknowledged offender, either move the write onto the
-rewinding schedule (or onto a host intent), or record a measured argument and
-move it to `WAIVERS`.
+**Next action:** none. No offender is acknowledged.
 
 **Known limits of the guard:**
 
 - `Transform` writes are excluded by name. Ruled 2026-09-19 (`Q139`): do not
   grow architecture to satisfy this census. A green says nothing about
   `Transform`.
-- A write inside a helper is not attributed to the registered system that calls
-  it (for example `reload_ldtk_world_from_disk` under `handle_ldtk_hot_reload`).
-  One hop of attribution needs real call resolution. A bare-name match imports
-  false pairs, because helper names collapse to `tick`, `apply` and `install`.
+- A write inside a helper is attributed to the registered system that calls it,
+  for ONE hop only (`inherited_mutations`, 2026-10-03). A call is attributed only
+  when it is a free-function call (not a method) to a name defined once in
+  production sources, or once in the caller's file. A helper name defined in
+  several places (`tick`, `install`) is not attributed, and neither is a write
+  two calls deep. The hop added 4 registered systems (490 to 494) and no new
+  offender. `handle_ldtk_hot_reload` is seen again through
+  `reload_ldtk_world_from_disk`, and its waiver now has a subject.
 - A run condition is not a reachability proof.
 
 ⛔ Do not demote `derived`-documented clone registrations on a keyword match. A
@@ -177,10 +181,60 @@ cites when you touch it.
 
 **Blocked by:** nothing.
 
-**Acceptance:** the population is every rollback registration, not one
-registration spelling; `handle_ldtk_hot_reload` is visible without its waiver
-being deleted; a poison that respells a write in any supported param form still
-reddens the guard; and the population floor fails when a spelling stops matching.
+**Acceptance:** ✅ met 2026-10-03. Each item and its test in
+`scripts/tests/test_rollback_mutators_run_in_sim.py`:
+- The population is every rollback registration, not one registration
+  spelling: `test_the_scan_covers_the_whole_registration_surface_not_one_file`.
+- `handle_ldtk_hot_reload` is visible without its waiver being deleted:
+  `test_the_hot_reload_is_seen_through_its_helper`. Poisoned three ways (method
+  calls counted, uniqueness dropped, inheritance dropped); each fails its arm.
+- A poison that respells a write in a supported param form still reddens the
+  guard: the bundle-field, exclusive-world, session-world-helper and
+  qualified-spelling arms.
+- The population floor fails when a spelling stops matching:
+  `test_a_shrinking_population_is_a_failure_not_a_clean_report`.
+The first, third and fourth were met by earlier work and mapped here, not
+re-poisoned. The known limits above stay open as limits, not as this row.
+
+### BODY-BORN-ON-THE-TIMELINE — a body born in the simulation gets its save from `Update`
+
+**Owner:** durable restore (`session/durable_horizon.rs`) with rollback session
+start (`rollback_ggrs/src/session.rs`).
+
+**Current state (measured 2026-10-03):** three test compositions start GGRS
+before their primary body exists: the Sanic rollback fixture and two Mary-O
+fixtures (`rollback_restore.rs`, `rollback_room_memory.rs`). Their sim is
+frozen until a session drives it, so the body is born on the timeline. The
+`Q135` gate (`durable_hydration_is_pending`) has no body to wait for and lets
+the session start. The restore chain then applies the save from `Update` over
+the live timeline: once in each fixture, counted by
+`TheBodyIsBornOnTheTimeline`. The fixtures assert that count is 1. A
+composition without the declaration is refused by
+`refuse_a_restore_over_a_live_timeline`. The shipped demos run no GGRS, and
+`app_it` has no such road (226 rises, all with no session).
+
+Why it is a defect and not a style point: `SaveRestored` is rollback state and
+the chain is not. A rewind that loads a snapshot from before the rise would
+restore `false`, and the next `Update` would apply the save again. Measured
+2026-10-03 in the Sanic fixture: it does not happen there. The save is applied
+once in 60 frames (`the_save_is_applied_once_on_the_first_live_frame`; control
+`a_lowered_latch_is_seen_as_a_second_application` counts 2). The rise is on the
+first live frame and no later GGRS step lowers the latch. Probably only the
+frame-0 snapshot holds it down and the sync test does not load frame 0
+(inferred). A body born later on the timeline has no such result. The first
+attempt at the control lowered the latch before `app.update()`, and the GGRS
+load put it back: a write from outside the frame is no control. A save with content would then write the wallet and ask
+for a checkpoint resume again, from `Update`, at a frame two peers do not agree
+on. The fixtures stay healthy only because their saves are empty.
+
+**Next action:** apply the save on the timeline for this road. The obstacle is
+that `AmbitionGameSave` is not rollback state: the live-to-save mirrors write it
+in the sim after the rise, so a resimulated restore would read a newer file. The
+save read must become a frame input (or a snapshot taken at the rise) first.
+This meets `Q129` (is the save file part of what two peers agree on?).
+
+**Acceptance:** the three fixtures drop the declaration and stay green, and a
+fixture with a non-empty save resimulates checksum-identically across its rise.
 
 ### SETTINGS-ROLLBACK — finish the settings/mechanics admission boundary
 
@@ -218,7 +272,7 @@ that timeline, not whatever the settings UI contains now; the settings-to-policy
 projection remains witnessed end to end; and no `sim`-schedule system takes
 either policy resource as a parameter.
 
-### THROW-MODIFIERS — route throws through rage and staleness policy
+### THROW-MODIFIERS — route throws through rage and staleness policy — ✅ DONE 2026-10-03
 
 **Owner:** Smash combat/knockback policy.
 
@@ -226,25 +280,29 @@ either policy resource as a parameter.
 scaling throws obey rage, and set knockback keeps its set-knockback semantics.
 Rage is game-level combat policy that the engine must be able to express.
 
-**Current state:** the rage half is landed. `ambition_entity_catalog::launch::launch_speed`
+**Done:** rage, as before: `ambition_entity_catalog::launch::launch_speed`
 owns the rule that a set launch declines rage, and the throw road calls it
-(`a_hurt_captor_throws_farther_and_a_set_throw_is_immune`). The CPU duel tapers
-with raging throws; its `A_REAL_FIGHT` floor was recalibrated to `0.125` as a
-"did a fight happen" check.
+(`a_hurt_captor_throws_farther_and_a_set_throw_is_immune`).
 
-The staleness half is open. `apply_capture_throws` applies throw damage directly
-and never writes `LandedBodyHit`, and wear is recorded only in
-`mark_move_playback_landed_hits` from `LandedBodyHit`. So a throw never records
-its own use, and a throw-only move's `occurrences` is always 0. Routing staleness
-into the throw's launch alone changes nothing.
+Staleness, following Smash: a throw stales the THROW, which is its own move.
+`CaptureThrowRequested` carries the emitting use's `move_instance`, and
+`apply_capture_throws` claims the captor's playback only when it is that use.
+The throw reads the move's stale count and records the use on the playback's
+landed edge, as `mark_move_playback_landed_hits` does for a landing.
+Damage stales through `hitbox::staled_damage`, the one law both roads use.
+The percent term stales through `knockback_stale_scale`. A set throw
+stales its damage and not its launch. A throw that no use claims is not
+staled and not recorded. Shipped throw moves author no hit volumes, so a
+throw is recorded once.
 
-**Next action:** decide the mechanic (does a throw stale the throw, or the
-grab?). Then record the throw's use on the throw road, then route the read.
-⛔ A witness that seeds `BodyStaleMoves` by hand proves the arithmetic only.
-
-**Acceptance:** a controlled throw witness shows the intended rage/staleness
-change through the shipped throw road, and a neutral arm proves base authored
-throw behavior is unchanged when both modifiers are neutral.
+**Witnesses:** `ambition_demo_smash` `capture::a_repeated_throw_stales_and_a_neutral_ruleset_leaves_it_whole`
+(three grab-and-throw sequences on George's table through the production
+chain: 11/10/9 against the neutral 11/11/11, three uses recorded in each arm,
+and the third stale throw launches slower). `ambition_combat`
+`a_set_throw_stales_its_damage_and_not_its_launch` and
+`a_throw_that_no_playing_use_claims_is_not_staled_or_recorded`. Poisoned:
+dropping the record, blinding the read, and dropping the claim check each
+fail the predicted assertion.
 
 ### DUEL-GUARD-RUNG — the CPU duel guard fails at rung 5 on main today
 
@@ -321,7 +379,7 @@ open. Close with a fresh census rather than a checked list.
 
 ## P1 — ownership, composition and iteration
 
-### GATE-PER-ACTOR — a body/capability gate is solid or open for each actor
+### GATE-PER-ACTOR — a body/capability gate is solid or open for each actor — ✅ DONE 2026-10-03
 
 **Owner:** [`engine/capability-progression-and-world-gating.md`](engine/capability-progression-and-world-gating.md)
 jointly with the gated-wall road (`gated_lock_walls.rs`, the per-room collision
@@ -331,30 +389,36 @@ overlay).
 the gate is evaluated per actor. Alice in Phase Boots passes a phase wall; Bob
 without them collides with it.
 
-**Current state (landed 2026-10-01):** a condition can publish a subject form
-(`SubjectConditionEvaluator`, `ConditionCatalog::ask_for`); `body.can` and
-`body.fits` publish one. A gated wall with a subject form always stands in its
-room's `gate_solids`, and the publisher writes a `GatePass` for each body that
-satisfies it. Body steps read `ComposedRooms::solids_for(collision, room, body)`.
-A projectile, a dropped item and any reader that names no body meet the wall as
+**Done:** a condition can publish a subject form (`SubjectConditionEvaluator`,
+`ConditionCatalog::ask_for`); `body.can` and `body.fits` publish one. A gated
+wall with a subject form stands in its room's `gate_solids`, and the publisher
+writes a `GatePass` for each body that satisfies it. One rule,
+`RoomCollision::gates_open_for`, names the gates open for a body. Body steps
+read `ComposedRooms::solids_for`. The decide pass in `update.rs` gives the
+brain the same walls: `ground_ends_ahead` reads them (its ridden
+`SurfaceRef::Block(i)` is an index into them), and the floor queries
+(`floor_below`, `supporting_floor`, `ground_below`) pass through a gate open
+for the body (`PerceivedSolid::open_for_self`). A projectile, a dropped item,
+the brain's line of fire and any reader that names no body meet the wall as
 solid. An undriven body is asked as itself. The crouch/morph clearance check
 still meets the wall as solid. A wall gated on a population fact
-(`world.flag_set`, `inventory.holds`) has one answer for every body. Witnesses:
-`a_body_gate_is_open_only_for_the_bodies_that_satisfy_it` and
-`a_gate_open_for_one_body_is_missing_only_from_that_body_s_walls`.
+(`world.flag_set`, `inventory.holds`) has one answer for every body.
 
-**Open:** perception and AI path decisions (the decide pass in `update.rs`) read
-the shared walls, so an NPC that can pass a wall does not yet plan through it.
+**Witnesses:** `a_body_gate_is_open_only_for_the_bodies_that_satisfy_it`,
+`a_gate_open_for_one_body_is_missing_only_from_that_body_s_walls`,
+`a_gate_open_for_self_is_no_floor_and_still_blocks_the_line_of_fire`,
+`the_view_marks_only_the_gates_open_for_this_body`, and two composed ones, each
+poisoned at its line in `update.rs`:
+`a_gate_open_for_a_badnik_does_not_change_the_ground_it_plans_on` (sanic; the
+paths diverge at frame 17 when `ground_ends_ahead` reads the shared walls) and
+`a_fighter_over_a_floor_open_for_it_plays_as_over_the_void` (smash; a CPU over
+a gate floor open for it plays exactly as over the bare void, and diverges at
+frame 25 when its view gets no open gates).
 
-**Next action:** make the brain's path decisions read the walls for that body.
+**Not ruled:** awareness through an open gate (does the brain see a target
+behind it?). It stays on the shared walls, which is the conservative reading.
 
-**Acceptance:** in one live room, a body that satisfies a wall's body condition
-passes and a body that does not collides, in the same tick; a projectile and an
-undriven body follow the same per-actor rule stated for them; witnessed with
-two seats and with a control where both qualify; and an NPC that can pass a
-gated wall plans through it.
-
-### BOSS-REPLAY-RETRACTION — a replay that un-defeats a boss un-defeats it for every family
+### BOSS-REPLAY-RETRACTION — a replay that un-defeats a boss un-defeats it for every family — ✅ DONE 2026-10-03
 
 **Owner:** the generic boss-progress road (`crates/ambition_boss_encounter`)
 jointly with the save's replay policy
@@ -378,26 +442,45 @@ mint or the opened reward chest gave (2026-10-02): `RewardGrantsSinceCheckpoint`
 records each grant by its source (a mint's parent, or a chest's placement), and
 the retraction takes the coins out of the collector's wallet (down to zero if
 spent) and the granted item out of the bag. `reset_cut_rope_attempt_on_replay`
-is now only the "try again" re-fight road, keyed by the replay's live room.
+is now only the "try again" re-fight road, keyed by the replay's live room. The
+re-fight travels with the request (`RoomReplayRequested::refight`) to
+`RoomReplayAdmitted::refight`, so a refused "try again" leaves nothing latched
+(2026-10-02). The quest step a defeat advanced goes back (2026-10-03): the boss
+road queues `BossDefeated` caused by its placement
+(`QuestRegistry::push_event_caused_by`), the quest drain records each step that
+event moved, and the retraction calls `QuestRegistry::retract_caused_by`, which
+puts the step back in the registry and the save.
+A death retracts every defeat since the checkpoint, in every room (2026-10-03).
+The death road is the checkpoint restore, which puts the bag back everywhere,
+and its admitted replay was keyed by the death room only. So a death in another
+room took the boss's ability out of the bag but left the boss dead and its quest
+complete. `RoomReplayAdmitted::to_checkpoint` marks the checkpoint road, and the
+retraction then takes every defeat since the checkpoint
+(`BossDefeatsSinceCheckpoint::take_all`). The retraction runs at the
+restore's admission, before the restore forgets the reward grants, so it takes
+the bounty out of the wallet too, and no defeat from before a restore is left
+for a later replay to retract.
+A quest that moved on after the defeat goes back with it (2026-10-03): its
+steps are ordered, so `retract_caused_by` puts back a quest that stands at or
+past where the defeat left it. The pirate-treasure payout follows the quest
+(`grant_quest_completion_rewards` takes it back when the quest is no longer
+complete). A flag that a later conversation set stays: it records the
+conversation, not the defeat. The admiral's `npc_pirate_admiral_talked` is
+one such flag. The boss road writes no other consequence: it writes the boss
+row, the defeat record and the quest event, and the cut-rope dialogue sets no
+flag.
 Witnesses are in `game/ambition_app/tests/boss_replay_retraction.rs`.
 
-**Known issues (open under the `Q51` ruling):**
-
-- A checkpoint restore forgets the reward grants, because it puts the bag back. It does not put the wallet back, so if a later replay retracts a defeat recorded before that restore, the bounty coins stay. Not measured whether a death leaves such a defeat to retract.
-- `QuestAdvanceEvent::BossDefeated` progress stays: quest progress is keyed by archetype and has no baseline.
-- A death in a room other than the boss's retracts nothing in the boss's room until that room is replayed.
-- A "try again" that the lifecycle refuses leaves the re-fight latched until the next admitted replay of that room.
-
-**Next action:** take the known issues in order, each with a witness and a
-control (a consequence from before the baseline survives the replay).
+**Known issues:** none open.
 
 **Acceptance:** ✅ one generic retraction on `RoomReplayAdmitted`, keyed by the
 replay's live room, for every boss family, with the cut-rope special case
 deleted into it, the minted reward retracted with it, a witness per family shape
-and a control. Open: every consequence in the known-issues list is retracted or
-explicitly ruled out of scope.
+and a control. ✅ Every consequence in the known-issues list is retracted: the
+mints, the bounty, the reward chest, the quest steps and their payout, and a
+defeat in another room on the death road.
 
-### MENU-OVER-DIALOGUE — an overlay opened during a conversation must not end it
+### MENU-OVER-DIALOGUE — an overlay opened during a conversation must not end it — ✅ DONE 2026-10-02
 
 **Owner:** `crates/ambition_dialog/src/systems.rs` (dialogue input) jointly
 with the menu input owner (`crates/ambition_input/src/menu.rs`,
@@ -408,18 +491,42 @@ pause, map and inventory may open during dialogue. The dialogue stays live
 underneath without navigation input. Map and inventory are mutually exclusive
 primary overlays.
 
-**Current state (re-checked 2026-10-02):** `apply_dialog_menu_input` closes the
-conversation on `menu.back || menu.start`, so the Start press that opens the
-pause menu also ends the dialogue. The readers of `MenuControlFrame`
-(`dialog_input`, the map's `input.rs`, the grid and kaleidoscope menus) have no
-ordering or focus between them, so one press can reach the dialogue and an
-overlay in the same frame.
+**Done:**
 
-**Acceptance:** a Start press during a conversation opens the pause menu and the
-conversation is still live, at the same line, when the menu closes; while an
-overlay is open, the dialogue reads no navigation; opening the map while the
-inventory is open (and the reverse) is refused or swaps, by one stated rule,
-with a witness for each.
+- Start no longer ends a conversation: `apply_dialog_menu_input` closes on
+  `back` alone. The pause, map and inventory keys may open the primary overlay
+  in `Dialogue` mode (`menu::model::primary_overlay_may_open`). The overlay
+  records that it opened from a conversation
+  (`InventoryUiState::opened_from_dialogue`), and its close puts `GameMode`
+  back to `Dialogue`, not `Playing` (`mode_on_overlay_open` and
+  `mode_on_overlay_close`, for both backends).
+- The dialogue reads no input while the overlay is open. The open overlay
+  declares `INVENTORY_CONTEXT`, now at priority 160, above `DIALOGUE` (150).
+  `dialog_input` and `dialog_pointer_input` return when a claim above
+  `DIALOGUE` captures the seat (`dialogue_input_is_captured`), and both
+  run after `InputSet::ResolveContext`.
+- ONE RULE for map and inventory: they are two faces of the one primary
+  overlay, so they cannot both be open. While the overlay is open, the map key
+  or the inventory key turns it to that face. If the overlay already shows that
+  face, the key closes it (`menu::model::open_overlay_key`).
+
+**Witnesses:** in `ambition_dialog`,
+`start_never_ends_a_conversation_and_back_alone_does` and
+`an_overlay_above_the_conversation_captures_its_input`. For each backend,
+`start_during_a_conversation_opens_the_{menu,cube}_and_closes_back_to_it` and
+`a_face_key_turns_the_open_{menu,cube}_to_its_{tab,face}_and_closes_it_from_there`.
+In the composed app, `update_schedule_census::the_conversation_reads_its_input_after_the_inventory_claims_it`.
+Two edges order that pair today, and either one is sufficient: the direct
+`.after(ResolveContext)`, and an indirect edge through a `Route` member that
+runs `.before(CoreSimulation)`. Each edge was removed to show this.
+
+**Residual (read from source, not measured):** under the Grid backend,
+`menu.map` also toggles the standalone map panel
+(`ambition_menu::map::input::handle_map_menu_hotkeys`). That panel declares no
+input context, so if it opens over a conversation, it does not capture the
+conversation's input. The web build always uses the Grid backend
+(`KALEIDOSCOPE_MENU_BACKEND_ENABLED` is false on wasm). Under the Cube backend,
+the native default, the panel does not open on `menu.map`.
 
 ### CANDIDATE-GENERATION-ORDER — a candidate session is prepared from the generation before its own activation
 
@@ -439,9 +546,27 @@ character catalog (`catalog`). The fighter ladder and the encounter waves are
 standing projections that converge after the commit, so they are not frozen.
 Guard: `the_candidate_is_built_before_the_router_advances_and_providers_only_adopts`.
 
-**Next action:** bring each remaining construction input that a candidate must
-see at N+1 into the channel. A boss's HP, phase triggers, death seconds, music
-and reward seed still come from the App catalog (see I2/I3).
+**Next action:** a boss's numbers already reach the candidate. Construction
+seeds each boss from the frozen N+1 catalog (`SessionMechanics::bosses`), and
+since 2026-10-03 `BossConfig::seed` is required, so no boss reads the App
+catalog at construction or on its first tick. Witness:
+`a_boss_tuning_saved_while_the_game_runs_is_played`. Read from source
+2026-10-03, not measured by a test: the other inputs preparation reads from the
+App cannot differ between N and N+1.
+- `ReloadRequest` refuses a change to `sheets` (`AuthoredSheets`), and its
+  only writer is `register_character_sheet_ron` at plugin build.
+- `forced_brains`, `population_cap` and `perception_extent` are immutable
+  developer knobs, read once at build.
+- Audio is the exception. Its domains take part in a reload, and the
+  transaction holds the N+1 `AudioCatalogRegistry` until the commit, while
+  preparation reads the App's (N). Preparation reads it only for provider
+  presence: `validate`'s `has_provider`, and `music_ready` /
+  `procedural_sfx_ready`, which ask whether a fragment exists. A reload
+  replaces a provider's fragment, so N and N+1 agree, except for a reload that
+  drops a provider's whole music or SFX fragment. That case is unmeasured, and
+  it is the next thing to measure: a witness that drops the music fragment, and
+  then either the channel carries `audio`, or preparation reads the pending
+  audio by its `load_id`.
 
 ⛔ Not by an ordering edge and not by re-fingerprinting. Do not reopen A10.5's
 guarantee that a candidate that cannot be built never retires the live session.
@@ -478,7 +603,6 @@ Rust move tables are migration scaffolding.
 **Open work:**
 
 - Converge the remaining reloadable registries on one prepare/admit/publish contract.
-- A hand-built `BossConfig` with no `seed` still resolves its encounter from the App catalog. A built boss reads `BossConfig::seed` from the generation's catalog.
 - I4: save eligibility; ports for body motion so the remaining wielded items (dive, blink, grapple, mark/recall) can become modules; GNU-ton's conductor as a module.
 
 **Blocked by:** nothing.
@@ -495,16 +619,32 @@ second authoring source.
 
 **Current state:** some authored facts have two readers:
 
-- `ambition_sprite_sheet::boss::boss_ron_target` names two of GNU-ton's
-  texture suffixes in Rust (`_body`, `_hands`) to map both files to one baked
-  record. The rows, the animation row and the hurtbox sample row of each boss
-  attack are authored in `boss_art_keys.ron`; no other boss animation or sprite
-  map was searched for after those moved.
+- ✅ 2026-10-03: `boss_ron_target` no longer strips `_body`/`_hands` to map
+  two files to one record; the key is the file stem. A probe on the strip
+  fired 0 times over app_it (949 tests) and the content and boss lanes, with a
+  positive control that fired. The `tools` generator still writes
+  `gnu_ton_boss_{body,hands}` and `giant_gnu_{body,hands}` sheets into the
+  published (gitignored) `gnu_ton_boss/` folder, and nothing loads them.
+  The rows, the animation row and the hurtbox sample row of each boss attack
+  are authored in `boss_art_keys.ron`; no other boss animation or sprite map
+  was searched for after those moved.
 - Yarn dialogue has its reader, and
   `game/ambition_content/src/content_validation.rs` checks dialogue references
-  again.
+  again. ✅ 2026-10-03, the `__` root fold: `known_dialogue_ids` also accepted
+  the root of every `root__x` title. Four roots exist only as `__N` jump
+  targets, so the validator accepted NpcSpawn ids the runtime cannot start
+  (`a_spawn_naming_a_root_that_exists_only_as_variants_is_refused`). The ids
+  are exact titles now. Open: the ids still come from `yarn_title_ids`, a
+  `title:` line scan beside the Yarn compiler. The compiler is an optional
+  dependency (`ui`), so replacing the scan is a dependency decision.
 - LDtk/world cross-reference rules in `content_validation.rs` repeat rules that
-  a world owner already checks.
+  a world owner already checks. ✅ 2026-10-03, the LoadingZone target rule:
+  `validate_ldtk_room_links` refused every zone without both targets, which
+  refused a landing pad that `LdtkProject::validate` allows and reported half a
+  target twice. It now checks only that a complete target names a room and a
+  zone that exist (`a_landing_pad_is_allowed_and_half_a_target_is_refused_once`).
+  The other cross-reference checks in the file were not compared against an
+  owner in that pass.
 
 **Open work:**
 
@@ -695,7 +835,10 @@ peer-stable checksum. The restore chain's three `Update` residents
 `Q135` gate keeps GGRS from starting while `durable_hydration_is_pending`. The
 gate and the chain ask one population question (`bodies.single().is_err()`),
 held by `a_population_the_restore_cannot_complete_on_is_written_to_by_nobody`.
-The chain's two offenders stay acknowledged in ROLLBACK-MUTATOR-POPULATION.
+The chain's three `Update` residents are waived in the mutator guard, held by
+`refuse_a_restore_over_a_live_timeline` (see ROLLBACK-MUTATOR-POPULATION),
+except on one declared road where the save is applied over a live timeline
+(BODY-BORN-ON-THE-TIMELINE).
 
 **What is left:** `Q129` (must the save file be part of what two peers agree
 on?). It is open and does not block this row. Whether that closes the row is a

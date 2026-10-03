@@ -298,6 +298,7 @@ fn ranged_shot_suppressed_when_line_of_fire_blocked() {
     let blocked = view_with_terrain(vec![PerceivedSolid {
         aabb: ae::Aabb::new(ae::Vec2::new(150.0, 0.0), ae::Vec2::new(8.0, 60.0)),
         kind: SolidKind::Solid,
+        open_for_self: false,
     }]);
     let mut state = SmashState::default();
     let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();

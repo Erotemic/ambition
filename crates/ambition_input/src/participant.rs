@@ -118,8 +118,11 @@ pub mod context_priority {
     /// `DEBUG`, so a pause cannot hide the inspector.
     pub const PAUSE: i32 = 190;
     pub const CUTSCENE: i32 = 180;
+    /// Above dialogue (`Q75`): the inventory, the map and Ambition's pause
+    /// cube (one overlay, which declares this claim) may open during a
+    /// conversation, and the conversation reads no navigation under them.
+    pub const INVENTORY: i32 = 160;
     pub const DIALOGUE: i32 = 150;
-    pub const INVENTORY: i32 = 140;
     pub const SELECT: i32 = 130;
     pub const GAMEPLAY: i32 = 100;
 }

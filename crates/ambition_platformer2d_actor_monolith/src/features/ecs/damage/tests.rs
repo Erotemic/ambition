@@ -696,6 +696,23 @@ fn a_broadcast_hit_does_not_reach_a_body_in_another_live_room() {
 /// thrown in no room.
 #[test]
 fn the_debris_of_a_killed_body_is_thrown_in_its_own_live_room() {
+    assert_eq!(
+        (debris_rooms_of_a_kill_in_the_second_room(true), debris_rooms_of_a_kill_in_the_second_room(false)),
+        {
+            let second = ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::ACTIVATION.next();
+            (vec![Some(second)], vec![Some(second)])
+        },
+        "the rooms the ragdoll debris of the killed enemy names (the enemy is in the second room), \
+         with a `SimId` and without one"
+    );
+}
+
+/// The rooms the ragdoll debris of an enemy killed in the second of two live
+/// rooms names. `identified` gives the enemy a `SimId`. A body's room is its
+/// stamp (`LiveRooms::of`), whether or not it has an identity.
+fn debris_rooms_of_a_kill_in_the_second_room(
+    identified: bool,
+) -> Vec<Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>> {
     use ambition_platformer2d_shared_tangle::lifecycle::{
         InRoomInstance, LiveRoomInstance, RoomInstanceRoot,
     };
@@ -713,12 +730,12 @@ fn the_debris_of_a_killed_body_is_thrown_in_its_own_live_room() {
     }
     let attacker = app.world_mut().spawn(InRoomInstance(rooms[1])).id();
     let enemy = spawn_hostile_actor(&mut app); // HP 5
-    // The room of a hit's effects is read with the body's identity
-    // (`FeatureHitWriters::spawn_scope_from`), as a shipped body has one.
-    app.world_mut().entity_mut(enemy).insert((
-        InRoomInstance(rooms[1]),
-        ambition_platformer2d_shared_tangle::sim_id::SimId::placement("kernel_guide"),
-    ));
+    app.world_mut().entity_mut(enemy).insert(InRoomInstance(rooms[1]));
+    if identified {
+        app.world_mut()
+            .entity_mut(enemy)
+            .insert(ambition_platformer2d_shared_tangle::sim_id::SimId::placement("kernel_guide"));
+    }
     app.world_mut().write_message(HitEvent {
         strike_sfx: None,
         volume: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0)).into(),
@@ -733,18 +750,12 @@ fn the_debris_of_a_killed_body_is_thrown_in_its_own_live_room() {
         attacker_move_instance: None,
     });
     app.update();
-    let ragdoll_rooms: Vec<_> = app
-        .world()
+    app.world()
         .resource::<bevy::ecs::message::Messages<DebrisBurstMessage>>()
         .iter_current_update_messages()
         .filter(|row| row.cue == PhysicsDebrisCue::EnemyRagdoll)
         .map(|row| row.room)
-        .collect();
-    assert_eq!(
-        ragdoll_rooms,
-        vec![Some(rooms[1])],
-        "the rooms the ragdoll debris of the killed enemy names (the enemy is in the second room)"
-    );
+        .collect()
 }
 
 /// OW1 cut 4b: a blast with no attacker hits only the bodies of the live
@@ -2173,7 +2184,7 @@ fn a_heavy_attacker_is_read_off_the_attacker_not_the_hit_source() {
                         ambition_boss_encounter::test_boss_catalog(),
                         "heavy",
                     ),
-                    seed: None,
+                    seed: ambition_boss_encounter::BossSeed::resolved(ambition_boss_encounter::test_boss_catalog(), "heavy", "Heavy", 18),
                 })
                 .id()
         } else {
@@ -3103,7 +3114,7 @@ fn a_struck_boss_speaks_the_hit_lines_of_its_voice() {
             },
         );
         if !voiced {
-            boss.config.seed.as_mut().expect("seeded").encounter.voice = None;
+            boss.config.seed.encounter.voice = None;
         }
         app.world_mut().spawn((
             FeatureSimEntity,

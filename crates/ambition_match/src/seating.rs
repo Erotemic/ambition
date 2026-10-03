@@ -30,9 +30,6 @@ pub struct ActiveMatch {
     /// How many seats this match activated with. Compare it against
     /// [`match_participants`] to ask whether the cast is still whole.
     seats: usize,
-    /// The frozen seat topology this match was activated against, copied from
-    /// the roster so the two can be compared.
-    seat_topology: Option<u64>,
     /// Whose plan this is a receipt for. `None` in a composition with no
     /// session lifecycle, the same value `PreparedMatch` stamps there.
     session: Option<ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId>,
@@ -226,50 +223,42 @@ mod match_context_tests {
     /// The projection makes `ActiveMatch` peer-safe. The registration kind
     /// only says a projection exists; this test says what it excludes.
     #[test]
-    fn the_peer_stable_checksum_ignores_session_and_seat_topology() {
+    fn the_peer_stable_checksum_ignores_the_session() {
         use ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId;
 
-        // The ordinal is fixed at match 3 while the local halves vary: two
-        // peers describing one match of one session.
-        let receipt = |session: u64, topology: Option<u64>| {
-            ActiveMatch::activated(
-                2,
-                topology,
-                Some(SessionScopeId(session)),
-                Some(4_200),
-                Some(3),
-            )
+        // The ordinal is fixed at match 3 while the local session count
+        // varies: two peers describing one match of one session.
+        let receipt = |session: u64| {
+            ActiveMatch::activated(2, Some(SessionScopeId(session)), Some(4_200), Some(3))
         };
-        // Two hosts: different prior session counts, different local device
-        // topology generations, same match.
+        // Two hosts with different prior session counts, same match.
         assert_eq!(
-            receipt(1, Some(7)).peer_stable_checksum(),
-            receipt(9, Some(31)).peer_stable_checksum(),
-            "the receipt's checksum moves with the host's session count or its \
-             local seat-topology generation, so two peers running one match \
-             would disagree"
+            receipt(1).peer_stable_checksum(),
+            receipt(9).peer_stable_checksum(),
+            "the receipt's checksum moves with the host's session count, so two \
+             peers running one match would disagree"
         );
         // It must see which match of the session: seat count alone is
         // peer-stable but not identifying.
         assert_ne!(
-            receipt(1, None).peer_stable_checksum(),
-            ActiveMatch::activated(2, None, Some(SessionScopeId(1)), Some(4_200), Some(4))
+            receipt(1).peer_stable_checksum(),
+            ActiveMatch::activated(2, Some(SessionScopeId(1)), Some(4_200), Some(4))
                 .peer_stable_checksum(),
             "a receipt for match 3 and one for match 4 with the same seating \
              share one checksum"
         );
         // An absent ordinal is not match zero.
         assert_ne!(
-            ActiveMatch::activated(2, None, Some(SessionScopeId(1)), Some(4_200), Some(0))
+            ActiveMatch::activated(2, Some(SessionScopeId(1)), Some(4_200), Some(0))
                 .peer_stable_checksum(),
-            ActiveMatch::activated(2, None, Some(SessionScopeId(1)), Some(4_200), None)
+            ActiveMatch::activated(2, Some(SessionScopeId(1)), Some(4_200), None)
                 .peer_stable_checksum(),
             "an absent ordinal projects as ordinal 0"
         );
         // It must still see mechanical facts, or a constant would pass.
         assert_ne!(
-            receipt(1, None).peer_stable_checksum(),
-            ActiveMatch::activated(3, None, Some(SessionScopeId(1)), Some(4_200), Some(3))
+            receipt(1).peer_stable_checksum(),
+            ActiveMatch::activated(3, Some(SessionScopeId(1)), Some(4_200), Some(3))
                 .peer_stable_checksum(),
             "a two-seat and a three-seat match share one checksum, so the seat \
              count is not reaching the projection"
@@ -277,8 +266,8 @@ mod match_context_tests {
         // The activation tick must not reach the projection: it counts this
         // App's sim steps, menus included, so hosts on different routes differ.
         assert_eq!(
-            receipt(1, None).peer_stable_checksum(),
-            ActiveMatch::activated(2, None, Some(SessionScopeId(1)), Some(9_900), Some(3))
+            receipt(1).peer_stable_checksum(),
+            ActiveMatch::activated(2, Some(SessionScopeId(1)), Some(9_900), Some(3))
                 .peer_stable_checksum(),
             "the receipt's checksum moves with the ABSOLUTE sim tick the match \
              activated on"
@@ -416,8 +405,8 @@ mod match_context_tests {
     fn two_activations_are_two_draw_contexts() {
         // Built the way activation builds them, not by hand: consecutive matches
         // in one session take consecutive ordinals.
-        let first = ActiveMatch::activated(2, None, Some(SessionScopeId(0)), Some(100), Some(0));
-        let second = ActiveMatch::activated(2, None, Some(SessionScopeId(0)), Some(900), Some(1));
+        let first = ActiveMatch::activated(2, Some(SessionScopeId(0)), Some(100), Some(0));
+        let second = ActiveMatch::activated(2, Some(SessionScopeId(0)), Some(900), Some(1));
 
         let a = first.random_context();
         let b = second.random_context();
@@ -450,7 +439,7 @@ mod match_context_tests {
         // variety between sessions is given up for this (see
         // `random_context`).
         let next_session =
-            ActiveMatch::activated(2, None, Some(SessionScopeId(1)), Some(100), Some(0));
+            ActiveMatch::activated(2, Some(SessionScopeId(1)), Some(100), Some(0));
         assert_eq!(
             a,
             next_session.random_context(),
@@ -477,13 +466,13 @@ mod match_context_tests {
         );
 
         // A match with no identity has no context and says so.
-        let bare = ActiveMatch::activated(2, None, None, None, None);
+        let bare = ActiveMatch::activated(2, None, None, None);
         assert_eq!(bare.random_context(), CONTEXT_UNSEEDED);
 
         // The activation tick must not reach the draw: it counts this App's
         // sim steps, menus included.
         let same_match_later_host =
-            ActiveMatch::activated(2, None, Some(SessionScopeId(0)), Some(999_999), Some(0));
+            ActiveMatch::activated(2, Some(SessionScopeId(0)), Some(999_999), Some(0));
         assert_eq!(
             a,
             same_match_later_host.random_context(),
@@ -501,21 +490,21 @@ mod match_context_tests {
     /// the previous session's objects. `MatchScoped::belongs_to` checks both.
     #[test]
     fn match_scoped_identity_is_session_and_tick_together() {
-        let here = ActiveMatch::activated(2, None, Some(SessionScopeId(0)), Some(100), None);
+        let here = ActiveMatch::activated(2, Some(SessionScopeId(0)), Some(100), None);
         let same = MatchScoped(here.instance());
         assert!(
             same.belongs_to(Some(&here)),
             "an object stamped by the running match did not belong to it"
         );
 
-        let elsewhere = ActiveMatch::activated(2, None, Some(SessionScopeId(1)), Some(100), None);
+        let elsewhere = ActiveMatch::activated(2, Some(SessionScopeId(1)), Some(100), None);
         assert!(
             !same.belongs_to(Some(&elsewhere)),
             "an object from another SESSION belonged to this match because the \
              activation ticks matched"
         );
 
-        let later = ActiveMatch::activated(2, None, Some(SessionScopeId(0)), Some(900), None);
+        let later = ActiveMatch::activated(2, Some(SessionScopeId(0)), Some(900), None);
         assert!(
             !same.belongs_to(Some(&later)),
             "an object from an earlier match in the SAME session belonged to the \
@@ -534,14 +523,12 @@ impl ActiveMatch {
     /// Publish the receipt after the full cast has been activated.
     pub fn activated(
         seats: usize,
-        seat_topology: Option<u64>,
         session: Option<ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId>,
         activated_on: Option<u64>,
         ordinal: Option<u64>,
     ) -> Self {
         Self {
             seats,
-            seat_topology,
             session,
             activated_on,
             ordinal,
@@ -598,10 +585,9 @@ impl ActiveMatch {
     /// What two peers may compare about this receipt: the agreed seat count and
     /// which match of the agreed session it is.
     ///
-    /// `session` is a per-App count, and `seat_topology` is a local device
-    /// generation that moves when a host re-captures the same seats. Neither
-    /// is mechanical identity, so neither enters a checksum. The seat count
-    /// alone is not identifying; the match digest is required.
+    /// `session` is a per-App count, so it is not mechanical identity and does
+    /// not enter a checksum. The seat count alone is not identifying; the
+    /// match digest is required.
     pub fn peer_stable_checksum(&self) -> u64 {
         ambition_platformer2d_core::snapshot::PeerDigest::in_domain("match.active_receipt")
             .u64(self.seats as u64)
@@ -609,23 +595,11 @@ impl ActiveMatch {
             .finish()
     }
 
-    /// Which frozen topology decided this match's seating, if a session had
-    /// frozen one when the roster was built.
-    pub fn seat_topology(&self) -> Option<u64> {
-        self.seat_topology
-    }
-
-    /// Record the frozen topology that already agrees with this unchanged seating.
-    pub fn adopt_seat_topology(&mut self, generation: u64) {
-        self.seat_topology = Some(generation);
-    }
-
     /// Test-only constructor for a live match without preparation.
     #[doc(hidden)]
-    pub fn for_test(seats: usize, seat_topology: Option<u64>) -> Self {
+    pub fn for_test(seats: usize) -> Self {
         Self {
             seats,
-            seat_topology,
             session: None,
             // No clock means no opening-ceremony hold.
             activated_on: None,
@@ -647,14 +621,12 @@ impl ActiveMatch {
     #[doc(hidden)]
     pub fn from_snapshot(
         seats: usize,
-        seat_topology: Option<u64>,
         session: Option<ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId>,
         activated_on: Option<u64>,
         ordinal: Option<u64>,
     ) -> Self {
         Self {
             seats,
-            seat_topology,
             session,
             activated_on,
             ordinal,

@@ -264,11 +264,11 @@ impl RollbackEntryKind {
 /// recorder) and `rollback_ggrs`'s installing registrar each wrote their own
 /// copy of every string. They agreed — measured 2026-09-16, byte for byte — but
 /// only because nobody had reworded one. A drift in either copy would move
-/// `RollbackRegistry::schema_fingerprint` (unlinked on purpose: it lives in
+/// `RollbackRegistry::schema_dump` (unlinked on purpose: it lives in
 /// `ambition_platformer2d_runtime`, which sits ABOVE this crate and is not a
-/// dependency of it), which is the snapshot schema's identity, and the two
-/// roads would name the same
-/// registration differently depending on which registrar ran.
+/// dependency of it), and the two roads would name the same
+/// registration differently depending on which registrar ran. (Since v303 the
+/// schema fingerprint hashes each road's `mechanism` token, not its sentence.)
 ///
 /// ⇒ One sentence, one owner. Both registrars reference these; neither spells
 /// one. The `rollback_schema_baseline` test is the proof the collapse was
@@ -381,103 +381,126 @@ pub mod detail {
 pub struct Spelling {
     pub kind: RollbackEntryKind,
     pub detail: &'static str,
+    /// The mechanical fact `detail` explains, as a stable token: which road
+    /// within `kind` the row takes. The schema fingerprint hashes this and not
+    /// `detail` (`Q122`), so rewording the sentence leaves peer identity alone
+    /// and moving a row to another road changes it.
+    pub mechanism: &'static str,
 }
+
+/// The mechanism token of a row: its road's token when `(kind, detail)` is one
+/// of the [`spelling::ALL`] pairs, else [`DESCRIBED`]. A row whose `detail` a
+/// caller wrote (a custom checksum's description, a derived row's reason) has
+/// no road beyond its kind, and its prose is not a mechanical fact.
+pub fn mechanism_of(kind: RollbackEntryKind, detail: &str) -> &'static str {
+    spelling::ALL
+        .iter()
+        .find(|road| road.kind == kind && road.detail == detail)
+        .map_or(DESCRIBED, |road| road.mechanism)
+}
+
+/// The mechanism token of a row whose `detail` its caller wrote.
+pub const DESCRIBED: &str = "described";
 
 pub mod spelling {
     use super::{RollbackEntryKind, Spelling};
 
-    pub const COMPONENT_CANONICAL_IDENTICAL_CHECKSUM: Spelling = Spelling {
-        kind: RollbackEntryKind::ComponentCanonical,
-        detail: super::detail::CANONICAL_IDENTICAL_CHECKSUM,
-    };
+    /// Declares each road once and lists it in [`ALL`], so a road cannot be
+    /// spelled and left out of the lookup the fingerprint uses.
+    macro_rules! roads {
+        ($($name:ident = ($kind:ident, $detail:ident, $mechanism:literal);)*) => {
+            $(
+                pub const $name: Spelling = Spelling {
+                    kind: RollbackEntryKind::$kind,
+                    detail: super::detail::$detail,
+                    mechanism: $mechanism,
+                };
+            )*
+            /// Every road, in declaration order.
+            pub const ALL: &[Spelling] = &[$($name),*];
+        };
+    }
 
-    pub const COMPONENT_CLONE_CURSOR: Spelling = Spelling {
-        kind: RollbackEntryKind::ComponentCloneCursor,
-        detail: super::detail::CLONE_CURSOR_CHECKSUM,
-    };
+    roads! {
+        COMPONENT_CANONICAL_IDENTICAL_CHECKSUM = (ComponentCanonical, CANONICAL_IDENTICAL_CHECKSUM, "canonical-identical-checksum");
+        COMPONENT_CLONE_CURSOR = (ComponentCloneCursor, CLONE_CURSOR_CHECKSUM, "cursor-checksum");
+        COMPONENT_CLONE_RESOLVED = (ComponentCloneResolved, CLONE_RESOLVED_CHECKSUM, "resolved-reference-checksum");
+        COMPONENT_CLONE_UNHASHED = (ComponentClone, CLONE_UNHASHED, "unhashed");
+        COMPONENT_CLONE_ENTITY_REF_REMAPPED = (ComponentClone, CLONE_ENTITY_REF_REMAPPED, "entity-ref-remapped-probed");
+        COMPONENT_CLONE_ENTITY_SET_REMAPPED = (ComponentClone, CLONE_ENTITY_SET_REMAPPED, "entity-set-remapped-probed");
+        COMPONENT_CLONE_ENTITY_MAP_REMAPPED = (ComponentClone, CLONE_ENTITY_MAP_REMAPPED, "entity-map-remapped-probed");
+        COMPONENT_CLONE_PROBED_FOR_LOCALIZATION = (ComponentClone, CLONE_PROBED_FOR_LOCALIZATION, "value-probed-unhashed");
+        COMPONENT_CLONE_CANONICAL_CHECKSUM_REMAPPED = (ComponentCloneCanonicalChecksum, CLONE_CANONICAL_CHECKSUM_REMAPPED, "canonical-checksum-remapped");
+        RESOURCE_CANONICAL_IDENTICAL_CHECKSUM = (ResourceCanonical, CANONICAL_IDENTICAL_CHECKSUM, "canonical-identical-checksum");
+        RESOURCE_CANONICAL_PRESENCE_AWARE_CHECKSUM = (ResourceCanonical, CANONICAL_PRESENCE_AWARE_CHECKSUM, "canonical-presence-aware-checksum");
+        RESOURCE_CLONE_UNHASHED = (ResourceClone, CLONE_UNHASHED, "unhashed");
+        RESOURCE_CLONE_ENTITY_SET_REMAPPED = (ResourceClone, CLONE_ENTITY_SET_REMAPPED, "entity-set-remapped-probed");
+        RESOURCE_CLONE_ENTITY_SET_REMAPPED_AND_VALUE_PROBED = (ResourceClone, CLONE_ENTITY_SET_REMAPPED_AND_VALUE_PROBED, "entity-set-remapped-and-value-probed");
+        ENTITY_MAPPING = (EntityMapping, ENTITY_MAPPING, "entity-reference-remapping");
+        RESOURCE_ENTITY_MAPPING = (ResourceEntityMapping, RESOURCE_ENTITY_MAPPING, "resource-entity-reference-remapping");
+        REQUIRED_ROLLBACK = (RequiredRollback, REQUIRED_ROLLBACK, "rollback-marker-on-presence");
+        MESSAGE_CLEAR = (MessageClear, MESSAGE_CLEAR, "clear-on-load");
+        MESSAGE_CLEAR_INSTRUMENT = (MessageClearInstrument, MESSAGE_CLEAR_INSTRUMENT, "clear-on-load-instrument");
+    }
+}
 
-    pub const COMPONENT_CLONE_RESOLVED: Spelling = Spelling {
-        kind: RollbackEntryKind::ComponentCloneResolved,
-        detail: super::detail::CLONE_RESOLVED_CHECKSUM,
-    };
+#[cfg(test)]
+mod tests {
+    use super::{mechanism_of, spelling, DESCRIBED};
 
-    pub const COMPONENT_CLONE_UNHASHED: Spelling = Spelling {
-        kind: RollbackEntryKind::ComponentClone,
-        detail: super::detail::CLONE_UNHASHED,
-    };
+    /// Each road is one pair, and within a kind each road has its own token,
+    /// or the fingerprint could not tell two roads of one kind apart.
+    #[test]
+    fn each_road_has_its_own_pair_and_token() {
+        for (at, road) in spelling::ALL.iter().enumerate() {
+            for other in &spelling::ALL[at + 1..] {
+                assert!(
+                    (road.kind, road.detail) != (other.kind, other.detail),
+                    "two roads share a pair: {road:?}"
+                );
+                assert!(
+                    (road.kind, road.mechanism) != (other.kind, other.mechanism),
+                    "two roads of one kind share a token: {road:?} {other:?}"
+                );
+            }
+            assert_ne!(road.mechanism, DESCRIBED, "a road uses the described token");
+            assert_eq!(mechanism_of(road.kind, road.detail), road.mechanism);
+        }
+    }
 
-    pub const COMPONENT_CLONE_ENTITY_REF_REMAPPED: Spelling = Spelling {
-        kind: RollbackEntryKind::ComponentClone,
-        detail: super::detail::CLONE_ENTITY_REF_REMAPPED,
-    };
-
-    pub const COMPONENT_CLONE_ENTITY_SET_REMAPPED: Spelling = Spelling {
-        kind: RollbackEntryKind::ComponentClone,
-        detail: super::detail::CLONE_ENTITY_SET_REMAPPED,
-    };
-
-    pub const COMPONENT_CLONE_ENTITY_MAP_REMAPPED: Spelling = Spelling {
-        kind: RollbackEntryKind::ComponentClone,
-        detail: super::detail::CLONE_ENTITY_MAP_REMAPPED,
-    };
-
-    pub const COMPONENT_CLONE_PROBED_FOR_LOCALIZATION: Spelling = Spelling {
-        kind: RollbackEntryKind::ComponentClone,
-        detail: super::detail::CLONE_PROBED_FOR_LOCALIZATION,
-    };
-
-    pub const COMPONENT_CLONE_CANONICAL_CHECKSUM_REMAPPED: Spelling = Spelling {
-        kind: RollbackEntryKind::ComponentCloneCanonicalChecksum,
-        detail: super::detail::CLONE_CANONICAL_CHECKSUM_REMAPPED,
-    };
-
-    pub const RESOURCE_CANONICAL_IDENTICAL_CHECKSUM: Spelling = Spelling {
-        kind: RollbackEntryKind::ResourceCanonical,
-        detail: super::detail::CANONICAL_IDENTICAL_CHECKSUM,
-    };
-
-    pub const RESOURCE_CANONICAL_PRESENCE_AWARE_CHECKSUM: Spelling = Spelling {
-        kind: RollbackEntryKind::ResourceCanonical,
-        detail: super::detail::CANONICAL_PRESENCE_AWARE_CHECKSUM,
-    };
-
-    pub const RESOURCE_CLONE_UNHASHED: Spelling = Spelling {
-        kind: RollbackEntryKind::ResourceClone,
-        detail: super::detail::CLONE_UNHASHED,
-    };
-
-    pub const RESOURCE_CLONE_ENTITY_SET_REMAPPED: Spelling = Spelling {
-        kind: RollbackEntryKind::ResourceClone,
-        detail: super::detail::CLONE_ENTITY_SET_REMAPPED,
-    };
-
-    pub const RESOURCE_CLONE_ENTITY_SET_REMAPPED_AND_VALUE_PROBED: Spelling = Spelling {
-        kind: RollbackEntryKind::ResourceClone,
-        detail: super::detail::CLONE_ENTITY_SET_REMAPPED_AND_VALUE_PROBED,
-    };
-
-    pub const ENTITY_MAPPING: Spelling = Spelling {
-        kind: RollbackEntryKind::EntityMapping,
-        detail: super::detail::ENTITY_MAPPING,
-    };
-
-    pub const RESOURCE_ENTITY_MAPPING: Spelling = Spelling {
-        kind: RollbackEntryKind::ResourceEntityMapping,
-        detail: super::detail::RESOURCE_ENTITY_MAPPING,
-    };
-
-    pub const REQUIRED_ROLLBACK: Spelling = Spelling {
-        kind: RollbackEntryKind::RequiredRollback,
-        detail: super::detail::REQUIRED_ROLLBACK,
-    };
-
-    pub const MESSAGE_CLEAR: Spelling = Spelling {
-        kind: RollbackEntryKind::MessageClear,
-        detail: super::detail::MESSAGE_CLEAR,
-    };
-
-    pub const MESSAGE_CLEAR_INSTRUMENT: Spelling = Spelling {
-        kind: RollbackEntryKind::MessageClearInstrument,
-        detail: super::detail::MESSAGE_CLEAR_INSTRUMENT,
-    };
+    /// ⛔ THE TOKENS ARE PEER IDENTITY. The schema fingerprint hashes them, and
+    /// no baseline row shows them, so this list is their record: a renamed
+    /// token, or a road moved to another one, moves the fingerprint. If you
+    /// change this list, bump `GGRS_ROLLBACK_SCHEMA_VERSION` and say why.
+    #[test]
+    fn the_mechanism_tokens_are_recorded() {
+        let live: Vec<(&str, &str)> = spelling::ALL
+            .iter()
+            .map(|road| (road.kind.canonical_name(), road.mechanism))
+            .collect();
+        assert_eq!(
+            live,
+            [
+                ("component-canonical", "canonical-identical-checksum"),
+                ("component-clone-cursor", "cursor-checksum"),
+                ("component-clone-resolved", "resolved-reference-checksum"),
+                ("component-clone", "unhashed"),
+                ("component-clone", "entity-ref-remapped-probed"),
+                ("component-clone", "entity-set-remapped-probed"),
+                ("component-clone", "entity-map-remapped-probed"),
+                ("component-clone", "value-probed-unhashed"),
+                ("component-clone-canonical-checksum", "canonical-checksum-remapped"),
+                ("resource-canonical", "canonical-identical-checksum"),
+                ("resource-canonical", "canonical-presence-aware-checksum"),
+                ("resource-clone", "unhashed"),
+                ("resource-clone", "entity-set-remapped-probed"),
+                ("resource-clone", "entity-set-remapped-and-value-probed"),
+                ("entity-mapping", "entity-reference-remapping"),
+                ("resource-entity-mapping", "resource-entity-reference-remapping"),
+                ("required-rollback", "rollback-marker-on-presence"),
+                ("message-clear", "clear-on-load"),
+                ("message-clear-instrument", "clear-on-load-instrument"),
+            ]
+        );
+    }
 }

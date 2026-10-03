@@ -125,38 +125,6 @@ fn a_registered_only_character_still_names_its_provider() {
         .is_sfx_source_authorized(&PresentationSourceId::new("sanic_demo")),);
 }
 
-/// A room stages a display name, and the right provider is authorized.
-///
-/// Rooms author characters by the name a designer typed — `demand_room_character_sheets` pushes
-/// `enemy.name` and an interactable's `character_id` straight through — while every provider
-/// map is keyed by stable id.
-#[test]
-fn staging_a_character_by_display_name_authorizes_its_provider() {
-    let mut app = session_app();
-    app.register_character(CharacterDefinition::new("mary_o", "Mary-O", "mary_o_demo"));
-    stage(&mut app, "Mary-O");
-    finalize_and_update(&mut app);
-
-    assert!(
-        is_authorized(&app, "mary_o_demo"),
-        "a demand spelled with the DISPLAY name must still authorize the provider \
-         of `mary_o`: rooms author display names, and a cast keyed by demand \
-         spelling matches nothing in either provider map"
-    );
-    let states = app
-        .world()
-        .resource::<crate::character_runtime::CharacterLoadStates>();
-    assert!(
-        states.cast().contains("mary_o"),
-        "the cast holds canonical ids"
-    );
-    assert!(
-        states.staged_tokens().any(|token| token == "Mary-O"),
-        "and the ledger still reports the spelling that was demanded, which is the \
-         whole reason the two are separate"
-    );
-}
-
 /// A later session does not authorize the previous session's cast.
 ///
 /// The load ledger is append-only across rooms AND across sessions, so reading the

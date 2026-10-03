@@ -5,7 +5,7 @@ crates/ambition_combat/src/extension.rs	4	a6f9c44535332e26
 crates/ambition_combat/src/snapshot_impls.rs	76	a91cb34ae9aea31d
 crates/ambition_cutscene/src/lib.rs	37	22979ceed6e33108
 crates/ambition_encounter/src/snapshot_impls.rs	35	bb87c343bf3d9ffd
-crates/ambition_match/src/snapshot_impls.rs	73	404bea2e04819684
+crates/ambition_match/src/snapshot_impls.rs	68	a54821fda28ccf04
 crates/ambition_platformer2d_actor_monolith/src/session/lifecycle_commit.rs	13	13980368cec88793
 crates/ambition_platformer2d_actor_monolith/src/snapshot_impls.rs	57	69fabd6cb48689e4
 crates/ambition_platformer2d_core/src/motion_codec.rs	460	fb4eddf6ab77a5bf

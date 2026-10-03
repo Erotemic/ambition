@@ -161,6 +161,15 @@ pub struct RoomReplayAdmitted {
     /// the wait. `None` only where a composition genuinely has no controlled
     /// body and the replay is a room rebuild with nobody in it.
     pub subject: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId>,
+    /// An admitted request asked for a re-fight of the room's bosses. Content
+    /// that owns a re-fight (cut-rope's "try again") reads it here, and only
+    /// here: a refused request leaves nothing behind.
+    pub refight: bool,
+    /// The replay is a checkpoint restore (a death's resume, or a New Game):
+    /// the session goes back to that baseline everywhere, not only in the
+    /// subject's room. A consequence kept since the checkpoint goes back
+    /// wherever it happened, as the bag does.
+    pub to_checkpoint: bool,
 }
 
 /// "A fresh attempt at this room begins here" — the union of a room LOAD and an
@@ -245,7 +254,16 @@ impl RoomReplayAdmitted {
         Self {
             reason,
             subject: None,
+            refight: false,
+            to_checkpoint: false,
         }
+    }
+
+    /// Mark this replay as a checkpoint restore ([`Self::to_checkpoint`]).
+    #[must_use]
+    pub fn to_the_checkpoint(mut self) -> Self {
+        self.to_checkpoint = true;
+        self
     }
 
     /// A deliberate retry with no named subject.

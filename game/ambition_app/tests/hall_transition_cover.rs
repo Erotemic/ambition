@@ -731,34 +731,17 @@ fn leaving_the_gallery_keeps_the_shared_cast_and_retires_the_rest() {
     // not for nobody. Found the first time this fixture decoded real images:
     // `basement_enemies` spawns an "Ai Slop".
     let neighbour_ids: std::collections::BTreeSet<String> = {
-        let neighbour_tokens: Vec<String> = {
-            let live_definition = ambition_platformer2d::world::rooms::sole_live_room_definition(app.world())
-                .expect("the session has a live room");
-            let mut query = app
-                .world_mut()
-                .query::<&ambition_platformer2d::world::rooms::RoomSet>();
-            let room_set = query.iter(app.world()).next().expect("a session room set");
-            assert_eq!(room_set.spec(live_definition).id, HUB, "premise: the hub is active");
-            room_set
-                .neighboring_room_indices_of(live_definition.index())
-                .into_iter()
-                .flat_map(|index| room_placed_character_tokens(&room_set.rooms[index]))
-                .collect()
-        };
-        let registry = app
-            .world()
-            .resource::<ambition_platformer2d::character::PreparedCharacterRegistry>();
-        let catalog = app
-            .world()
-            .resource::<ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog>();
-        neighbour_tokens
-            .iter()
-            .map(|token| {
-                ambition_platformer2d::actors::character_runtime::canonical_character_id(
-                    registry, catalog, token,
-                )
-                .to_string()
-            })
+        let live_definition = ambition_platformer2d::world::rooms::sole_live_room_definition(app.world())
+            .expect("the session has a live room");
+        let mut query = app
+            .world_mut()
+            .query::<&ambition_platformer2d::world::rooms::RoomSet>();
+        let room_set = query.iter(app.world()).next().expect("a session room set");
+        assert_eq!(room_set.spec(live_definition).id, HUB, "premise: the hub is active");
+        room_set
+            .neighboring_room_indices_of(live_definition.index())
+            .into_iter()
+            .flat_map(|index| room_placed_character_ids(&room_set.rooms[index]))
             .collect()
     };
     let promoted_for_nobody: Vec<String> = promoted_for_nobody
@@ -800,9 +783,9 @@ fn leaving_the_gallery_keeps_the_shared_cast_and_retires_the_rest() {
     );
 }
 
-/// The characters a room places by name: NPC interactables and authored enemy
-/// spawns, the two roads `room_character_tokens` demands from.
-fn room_placed_character_tokens(
+/// The characters a room places, by character id: NPC interactables and
+/// authored enemy spawns, the two roads `room_character_tokens` demands from.
+fn room_placed_character_ids(
     room: &ambition_platformer2d::world::rooms::RoomSpec,
 ) -> Vec<String> {
     use ambition_platformer2d::entity_catalog::placements::{InteractionKindSpec, PlacementSchema};
@@ -820,7 +803,11 @@ fn room_placed_character_tokens(
             _ => None,
         })
         .collect();
-    tokens.extend(room.enemy_spawns.iter().map(|enemy| enemy.name.clone()));
+    tokens.extend(
+        room.enemy_spawns
+            .iter()
+            .map(|enemy| enemy.payload.character_id.to_string()),
+    );
     tokens
 }
 

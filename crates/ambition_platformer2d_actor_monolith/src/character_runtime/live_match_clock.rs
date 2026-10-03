@@ -349,7 +349,7 @@ mod tests {
     use bevy::prelude::*;
 
     fn match_activated_on(tick: u64) -> ActiveMatch {
-        ActiveMatch::activated(2, None, Some(SessionScopeId(0)), Some(tick), None)
+        ActiveMatch::activated(2, Some(SessionScopeId(0)), Some(tick), None)
     }
 
     /// A moving world with a live match and NO prepared plan.

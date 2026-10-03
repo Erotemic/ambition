@@ -65,7 +65,7 @@ fn composed_app() -> App {
     // A LIVE match. `decide_stocks_match` refuses to end a match that is not
     // running, which is what stops it deciding against a half-seated cast.
     app.world_mut()
-        .insert_resource(ActiveMatch::for_test(2, None));
+        .insert_resource(ActiveMatch::for_test(2));
     app
 }
 
@@ -276,7 +276,7 @@ fn a_stop_request_ends_the_match_it_names_and_no_other() {
     let live = app.world().resource::<ActiveMatch>().clone();
     // A DIFFERENT match: same seats, a different activation tick. The identity
     // is `(session, activated_on)`, so that is what has to differ.
-    let other = ActiveMatch::activated(2, None, None, Some(999), None);
+    let other = ActiveMatch::activated(2, None, Some(999), None);
     assert_ne!(
         other.instance(),
         live.instance(),

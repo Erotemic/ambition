@@ -18,7 +18,7 @@ use crate::common::{base, fixed_60hz_room_sim};
 /// that is beat 7's whole requirement and no other authored room can meet it —
 /// a one-item room can show an object reverting and an object persisting, but
 /// never both at once, which is the shape an item-kind rule cannot produce.
-const ROOM: &str = "central_hub_complex";
+pub(crate) const ROOM: &str = "central_hub_complex";
 
 /// The object the player BANKS: acquired, then a checkpoint committed over it.
 const REWARD: &str = "ground_gun_sword";
@@ -173,7 +173,7 @@ pub(crate) fn commit_a_checkpoint(sim: &mut Platformer2dSimHarness) {
 
 /// Kill the primary body through the ordinary death report and run out the
 /// interlude, so the consequence the roster decides actually fires.
-fn die(sim: &mut Platformer2dSimHarness) {
+pub(crate) fn die(sim: &mut Platformer2dSimHarness) {
     let victim = body(sim);
     let (x, y) = body_pos(sim);
     sim.world_mut().write_message(
@@ -286,7 +286,7 @@ fn a_death_returns_what_was_not_banked_and_keeps_what_was() {
 }
 
 /// The room next door, used only to take an object somewhere and leave it there.
-const NEIGHBOUR: &str = "duel_arena";
+pub(crate) const NEIGHBOUR: &str = "duel_arena";
 
 /// Stand in the `Door` zone of the active room that leads to `target` and hold
 /// Interact until the room actually changes.
@@ -294,7 +294,7 @@ const NEIGHBOUR: &str = "duel_arena";
 /// The door is chosen by asking the room graph where each zone GOES —
 /// `transition_for_player` is the same resolver the crossing itself uses —
 /// because this room authors eighteen of them and "the first one" is a coin flip.
-fn walk_to(sim: &mut Platformer2dSimHarness, target: &str) {
+pub(crate) fn walk_to(sim: &mut Platformer2dSimHarness, target: &str) {
     let before = sim.observation().active_room.clone();
     let zone = {
         let world = sim.world_mut();

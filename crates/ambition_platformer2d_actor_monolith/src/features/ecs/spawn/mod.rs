@@ -1128,9 +1128,9 @@ impl RoomFeatureConstructionPlan {
         &self.expected_authoritative_ids
     }
 
-    /// Every character this room stages, by the token `CharacterLoadDemand`
-    /// accepts — the provider-owned content requests AND the actors the
-    /// placement lowering planned (`NpcSpawn`, programmatic enemies).
+    /// The character id of every character this room stages: the
+    /// provider-owned content requests AND the actors the placement lowering
+    /// planned (`NpcSpawn`, programmatic enemies).
     ///
     /// The second half was added 2026-09-02 while chasing the hall's 111
     /// placeholder rectangles. ⚠ It was NOT that bug's cause — the room's own
@@ -1139,23 +1139,23 @@ impl RoomFeatureConstructionPlan {
     /// `demand_room_character_sheets`). It stays because a plan-staged actor
     /// that is not an authored placement (a programmatic spawn) had no other
     /// road into the reveal barrier's demand.
+    ///
+    /// A request's `name` is a label (a display name, a gallery caption, a
+    /// placement id), not an identity, so it is not given. An enemy names its
+    /// character in its kind. A boss is not given: its art is a boss sheet,
+    /// which the room's boss road demands.
     pub fn content_staged_names(&self) -> Vec<String> {
-        let mut names: Vec<String> = self
-            .content_requests
-            .iter()
-            .map(|request| request.name.clone())
-            .collect();
+        let character_of = |request: &ambition_platformer2d_actor_spawn::SpawnActorRequest| match &request.kind {
+            ambition_platformer2d_actor_spawn::SpawnActorKind::Enemy { character, .. } => {
+                Some(character.to_string())
+            }
+            ambition_platformer2d_actor_spawn::SpawnActorKind::Boss { .. } => None,
+        };
+        let mut names: Vec<String> = self.content_requests.iter().filter_map(character_of).collect();
         for entity in self.construction.entities() {
             match entity.parameters() {
                 crate::construction::ActorConstructionParams::StagedActor(request) => {
-                    names.push(request.name.clone());
-                    // The kind may carry the catalog id the display name is not.
-                    if let ambition_platformer2d_actor_spawn::SpawnActorKind::Enemy {
-                        character, ..
-                    } = &request.kind
-                    {
-                        names.push(character.to_string());
-                    }
+                    names.extend(character_of(request));
                 }
                 // A giant's hands are planned from the giant, not placed, so no
                 // authored list names their character: until this arm their

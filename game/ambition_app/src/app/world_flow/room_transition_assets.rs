@@ -152,9 +152,6 @@ pub(crate) struct RoomPreparationPrefetchState {
 pub(crate) struct RoomTransitionAssetContext<'w, 's> {
     pub(crate) assets: Option<ResMut<'w, GameAssets>>,
     pub(crate) catalog: Option<Res<'w, Platformer2dAssetCatalog>>,
-    pub(crate) character_catalog: Option<
-        Res<'w, ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog>,
-    >,
     pub(crate) asset_server: Option<Res<'w, AssetServer>>,
     /// Whether THIS App has a render world, so the GPU-upload readiness term
     /// asks about a GPU that exists. ⛔ Absent means no render world: the
@@ -332,9 +329,10 @@ pub(crate) fn room_character_tokens(room: &RoomSpec, staged_actor_names: &[Strin
         }
     }
     // Authored enemies too: a sheet that is still only DECLARED is invisible
-    // to the manifest's by-name lookup, so the enemy must be demanded here.
+    // to the manifest's lookup, so the enemy must be demanded here, by the
+    // character it instantiates (not by its placement name).
     for enemy in &room.enemy_spawns {
-        names.push(enemy.name.clone());
+        names.push(enemy.payload.character_id.to_string());
     }
     names.sort();
     names.dedup();
@@ -409,7 +407,6 @@ pub(crate) fn demand_room_character_sheets(
     staged_actor_names: &[String],
     assets: &mut GameAssets,
     catalog: &Platformer2dAssetCatalog,
-    character_catalog: &ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog,
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
     quality: &ResolvedVisualQuality,
@@ -456,18 +453,8 @@ pub(crate) fn demand_room_character_sheets(
     // quality change between two commits can leave one at the wrong tier);
     // everything else stays retired: their actors left with the room, and the
     // next room that places one demands it then.
-    let wanted: std::collections::BTreeSet<String> = names
-        .iter()
-        .chain(worn.iter())
-        .map(|token| {
-            ambition_platformer2d::actors::character_runtime::canonical_character_id(
-                registry,
-                character_catalog,
-                token,
-            )
-            .to_string()
-        })
-        .collect();
+    let wanted: std::collections::BTreeSet<String> =
+        names.iter().chain(worn.iter()).cloned().collect();
     let retired_but_wanted: Vec<String> = retired
         .into_iter()
         .filter(|id| wanted.contains(id))
@@ -478,7 +465,6 @@ pub(crate) fn demand_room_character_sheets(
         states,
         &mut assets.characters,
         &mut assets.fx,
-        character_catalog,
         authored_sheets,
         registry,
         catalog,
@@ -541,8 +527,6 @@ impl RoomResidencyOwners {
         staged_actor_names: &[String],
         worn: &[String],
         claimed: impl IntoIterator<Item = &'a str>,
-        registry: &ambition_platformer2d::characters::prepared::PreparedCharacterRegistry,
-        character_catalog: &ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog,
     ) -> Self {
         let mut tokens: Vec<String> = match room_set.rooms.get(room_index) {
             Some(room) => room_character_tokens(room, staged_actor_names),
@@ -553,19 +537,7 @@ impl RoomResidencyOwners {
         for index in room_set.neighboring_room_indices_of(room_index) {
             tokens.extend(room_character_tokens(&room_set.rooms[index], &[]));
         }
-        Self(
-            tokens
-                .iter()
-                .map(|token| {
-                    ambition_platformer2d::actors::character_runtime::canonical_character_id(
-                        registry,
-                        character_catalog,
-                        token,
-                    )
-                    .to_string()
-                })
-                .collect(),
-        )
+        Self(tokens.into_iter().collect())
     }
 }
 
@@ -645,13 +617,10 @@ fn add_room_specific_sprites(
         }
     }
 
-    // Legacy typed enemy rows and content-staged actors still identify their
-    // presentation through the authored display name. The character loader
-    // double-keys NPC sheets by catalog id and display name, so this lookup is
-    // exact when the content supplied a dedicated sheet and safely falls back
-    // otherwise.
+    // Authored enemies and content-staged actors, by the character id they
+    // instantiate. The character loader keys a sheet by its catalog id.
     for enemy in &room.enemy_spawns {
-        add_named_character(draft, assets, &enemy.name);
+        add_named_character(draft, assets, enemy.payload.character_id.as_str());
     }
     // Staged actors' own sheets join the barrier: with startup deferral these
     // are materialized just before this walk, so the reveal now waits on them
@@ -691,7 +660,6 @@ pub(crate) fn build_room_asset_manifest(
     staged_actor_names: &[String],
     assets: &mut GameAssets,
     catalog: &Platformer2dAssetCatalog,
-    character_catalog: &ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog,
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
     quality: &ResolvedVisualQuality,
@@ -735,7 +703,6 @@ pub(crate) fn build_room_asset_manifest(
         staged_actor_names,
         assets,
         catalog,
-        character_catalog,
         asset_server,
         layouts,
         quality,
@@ -1003,7 +970,6 @@ pub(crate) fn contribute_room_transition_assets_system(
     let (
         Some(assets),
         Some(catalog),
-        Some(character_catalog),
         Some(asset_server),
         Some(layouts),
         Some(quality),
@@ -1011,7 +977,6 @@ pub(crate) fn contribute_room_transition_assets_system(
     ) = (
         context.assets.as_deref_mut(),
         context.catalog.as_deref(),
-        context.character_catalog.as_deref(),
         context.asset_server.as_deref(),
         context.layouts.as_deref_mut(),
         context.quality.as_deref(),
@@ -1055,15 +1020,12 @@ pub(crate) fn contribute_room_transition_assets_system(
         &active.staged_actor_names,
         &worn,
         claimed.iter().map(String::as_str),
-        &prepared_characters,
-        character_catalog,
     );
     let (manifest, remainder) = build_room_asset_manifest(
         target_spec,
         &active.staged_actor_names,
         assets,
         catalog,
-        character_catalog,
         asset_server,
         layouts,
         quality,
@@ -1637,7 +1599,6 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
             &staged_names,
             &mut assets,
             &catalog,
-            &character_catalog,
             &asset_server,
             &mut layouts,
             &quality,
@@ -1692,6 +1653,53 @@ mod tests {
     use bevy::asset::AssetApp;
     use bevy::prelude::App;
 
+    /// D166: every shipped room demands its cast by character id. An enemy's
+    /// placement `name` is a caption or an id (`"gallery: goblin + striker"`,
+    /// `"pg_brute"`) or a display name (`"Ai Slop"`). Demanded, it named no
+    /// character, or reached one only through a display-name join that has
+    /// been deleted. Poison: demand `enemy.name` and 28 tokens are named.
+    #[test]
+    fn every_shipped_room_demands_its_characters_by_id() {
+        let manifest = ambition_content::worlds::world_manifest();
+        let room_set = ambition_platformer2d::ldtk_map::LdtkProject::load_default_for_dev(&manifest)
+            .expect("the shipped LDtk project loads")
+            .to_room_set(&manifest, &crate::composed_ldtk_vocabulary())
+            .expect("the shipped rooms build");
+        // The composed host's two authorities, as the materializer reads them.
+        // ONE frame first: the prepared registry is filled by a `Startup` system.
+        let mut app = crate::app::build_visible_app(crate::app::VisibleRenderMode::NoWindow, true);
+        app.update();
+        let catalog = app
+            .world()
+            .resource::<ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog>();
+        let registry = app
+            .world()
+            .resource::<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>();
+        let tokens: Vec<(String, String)> = room_set
+            .rooms
+            .iter()
+            .flat_map(|room| {
+                room_character_tokens(room, &[])
+                    .into_iter()
+                    .map(|token| (room.id.clone(), token))
+            })
+            .collect();
+        assert!(
+            tokens.len() > 100,
+            "premise: the shipped rooms demand only {} characters",
+            tokens.len()
+        );
+        let unknown: Vec<&(String, String)> = tokens
+            .iter()
+            .filter(|(_, token)| catalog.get(token).is_none() && registry.get(token).is_none())
+            .collect();
+        assert!(
+            unknown.is_empty(),
+            "{} (room, token) demands name no character: {unknown:?}",
+            unknown.len()
+        );
+    }
+
     /// A room commit keeps what the ROSTER and a live actor's swapped sprite
     /// name, not only what the room places and a body wears: the Smash arena
     /// places nobody, and its two fighters are demanded by the roster before
@@ -1710,13 +1718,6 @@ mod tests {
         );
         let room_set =
             RoomSet::from_parts_or_panic("arena", vec![RoomSpec::new("arena", world)], Vec::new());
-        let registry = Default::default();
-        let catalog =
-            ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog::from_data(
-                ambition_platformer2d::characters::actor::character_catalog::parse_catalog(
-                    &ambition_content::character_catalog::character_catalog_ron(),
-                ),
-            );
         let mut roster = ambition_platformer2d::actor::MatchParticipantRoster::default();
         roster
             .participants
@@ -1731,8 +1732,6 @@ mod tests {
             &[],
             &["worn_one".to_string()],
             claims.iter().map(String::as_str),
-            &registry,
-            &catalog,
         );
         for id in ["npc_pirate_admiral", "worn_one"] {
             assert!(
@@ -1751,25 +1750,18 @@ mod tests {
     #[test]
     fn a_declared_but_unrealized_character_is_pending_and_an_unknown_one_is_not() {
         let mut assets = GameAssets::default();
-        assets.characters.declare("npc_busy_beaver", "Busy Beaver");
+        assets.characters.declare("npc_busy_beaver");
         let tokens = vec![
             "npc_busy_beaver".to_string(),
-            "Busy Beaver".to_string(),
             "nobody_declares_this".to_string(),
         ];
         let mut readiness = RoomAssetReadiness::default();
         inspect_demanded_characters(&tokens, &assets, None, &mut readiness);
-        assert_eq!(
-            readiness.total, 2,
-            "both tokens of the declared character count"
-        );
+        assert_eq!(readiness.total, 1, "the declared character counts");
         assert_eq!(readiness.settled, 0);
         assert_eq!(
             readiness.pending,
-            vec![
-                "character:npc_busy_beaver (not yet decoded)".to_string(),
-                "character:Busy Beaver (not yet decoded)".to_string(),
-            ]
+            vec!["character:npc_busy_beaver (not yet decoded)".to_string()]
         );
         assert!(
             !readiness.is_ready(),
@@ -1868,7 +1860,7 @@ mod tests {
             rigged: None,
         };
         let mut assets = GameAssets::default();
-        assets.characters.declare("d153_fighter", "D153 Fighter");
+        assets.characters.declare("d153_fighter");
         assets.characters.publish("d153_fighter", asset);
 
         let world = AuthoredWorld::new(

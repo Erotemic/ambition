@@ -86,7 +86,6 @@ pub(crate) fn prepare_first_room_art_system(
     let (
         Some(assets),
         Some(catalog),
-        Some(character_catalog),
         Some(asset_server),
         Some(layouts),
         Some(quality),
@@ -94,7 +93,6 @@ pub(crate) fn prepare_first_room_art_system(
     ) = (
         context.assets.as_deref_mut(),
         context.catalog.as_deref(),
-        context.character_catalog.as_deref(),
         context.asset_server.as_deref(),
         context.layouts.as_deref_mut(),
         context.quality.as_deref(),
@@ -176,15 +174,12 @@ pub(crate) fn prepare_first_room_art_system(
                     &staged_actor_names,
                     &worn,
                     claimed.iter().map(String::as_str),
-                    registry,
-                    character_catalog,
                 );
                 let (manifest, remainder) = build_room_asset_manifest(
                     room,
                     &staged_actor_names,
                     assets,
                     catalog,
-                    character_catalog,
                     asset_server,
                     layouts,
                     quality,

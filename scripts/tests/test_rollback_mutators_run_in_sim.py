@@ -708,3 +708,61 @@ def test_the_load_bearing_schedule_exemptions_are_measured():
             "nothing — either its systems moved, in which case say so here, or "
             "the scan stopped seeing them"
         )
+
+
+# ── one hop through a helper (2026-10-03) ─────────────────────────────────
+
+
+def test_a_system_that_calls_a_mutating_helper_is_found(tmp_path):
+    """The write is in the helper; the registered system inherits it."""
+    root = _tree(tmp_path, {
+        "crates/ambition_x/src/lib.rs": "\n".join([
+            "fn drain(world: &mut World) { world.resource_mut::<BodyMana>(); }",
+            "pub fn reload(world: &mut World) { let n = 1; drain(world); }",
+            "fn build(app: &mut App) { app.add_systems(Update, reload); }",
+        ]),
+    })
+    names = [name for name, *_ in guard.collect(root)]
+    assert "reload" in names, f"the helper's write was not attributed: {names}"
+
+
+def test_a_method_call_is_not_a_helper_call(tmp_path):
+    """⛔ The false pairs of 2026-09-18: `self.timer.tick(dt)` is a method on
+    some value, not the free function `tick` that writes rollback state."""
+    root = _tree(tmp_path, {
+        "crates/ambition_x/src/lib.rs": "\n".join([
+            "fn tick(mut m: Query<&mut BodyMana>) {}",
+            "pub fn advance(t: Res<Timer>) { t.timer.tick(1.0); }",
+            "fn build(app: &mut App) { app.add_systems(Update, advance); }",
+        ]),
+    })
+    assert "advance" not in guard.mutating_systems(root)
+
+
+def test_a_helper_name_defined_twice_elsewhere_is_not_attributed(tmp_path):
+    """Which of two `install`s a call reaches needs name resolution; the scan
+    does not guess. Defined once in the caller's own file, it resolves."""
+    files = {
+        "crates/ambition_a/src/lib.rs": "fn install(mut m: Query<&mut BodyMana>) {}",
+        "crates/ambition_b/src/lib.rs": "fn install(app: &mut App) {}",
+        "crates/ambition_c/src/lib.rs": "\n".join([
+            "pub fn wire(app: Res<X>) { install(app); }",
+            "fn build(app: &mut App) { app.add_systems(Update, wire); }",
+        ]),
+    }
+    assert "wire" not in guard.mutating_systems(_tree(tmp_path / "far", files))
+    files["crates/ambition_c/src/lib.rs"] = "\n".join([
+        "fn install(mut m: Query<&mut BodyMana>) {}",
+        "pub fn wire(app: Res<X>) { install(app); }",
+        "fn build(app: &mut App) { app.add_systems(Update, wire); }",
+    ])
+    assert "wire" in guard.mutating_systems(_tree(tmp_path / "near", files))
+
+
+def test_the_hot_reload_is_seen_through_its_helper():
+    """The acceptance's specimen: `handle_ldtk_hot_reload` writes through
+    `reload_ldtk_world_from_disk`, a helper, and the scan sees it, so its
+    waiver has a subject and needs no blind-spot entry."""
+    hits = guard.mutating_systems().get("handle_ldtk_hot_reload")
+    assert hits and "RoomTransitionCooldown" in hits, hits
+    assert "handle_ldtk_hot_reload" not in guard.BLIND_SPOTS

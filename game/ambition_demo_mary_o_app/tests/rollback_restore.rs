@@ -22,6 +22,11 @@ fn build_rollback_demo_app() -> App {
     let mut app = App::new();
     ambition_platformer2d::engine::add_headless_foundation(&mut app);
     app.add_plugins(ambition_platformer2d::rollback::RollbackEnginePlugin);
+    // This body is born only once GGRS runs the simulation, so the save is
+    // applied over the live timeline. That is owed (`BODY-BORN-ON-THE-TIMELINE`
+    // in the queue). With this declaration the session counts each application
+    // instead of refusing it, and the fixture asserts the count.
+    app.init_resource::<ambition_platformer2d::rollback::TheBodyIsBornOnTheTimeline>();
     app.add_plugins(ambition_platformer2d::windowed_host::PlatformerHostPlugins);
     app.add_plugins(ambition_platformer2d::game_shell::MinimalShellPlugins);
     app.insert_resource(
@@ -106,6 +111,13 @@ fn a_dirty_level_state_mutation_is_rolled_back_by_restore() {
     assert!(
         owner_exists,
         "the mode owner never spawned once GGRS started driving the sim"
+    );
+    assert_eq!(
+        app.world()
+            .resource::<ambition_platformer2d::rollback::TheBodyIsBornOnTheTimeline>()
+            .restores_over_a_live_timeline,
+        1,
+        "the declared road: the save is applied once, over the live timeline"
     );
 
     // The sim advances under GGRS: the level clock ticks.

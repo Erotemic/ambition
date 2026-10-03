@@ -463,11 +463,9 @@ pub struct GameAssets {
     /// (rest/floor_slam/side_sweep/spike_halo/dash_echo/hit/death) that don't fit
     /// `CharacterAnim`. `None` falls back to the static `EntitySprite::BossCore`.
     pub boss: Option<BossSpriteAsset>,
-    /// Dedicated per-boss spritesheets, keyed by the boss's lowercased behavior id (`boss_key`)
-    /// — the renderer looks up `boss_sprites.get(&boss_key)` and falls back to `boss`.
-    ///
-    /// Multi-part bosses store their pieces under suffixed keys: GNU-ton's split
-    /// body/hands render reads `"gnu_ton_body"` / `"gnu_ton_hands"`.
+    /// Dedicated per-boss spritesheets, keyed by the boss catalog's sheet key
+    /// (`BossCatalog::sprite_filenames`) — the renderer looks up
+    /// `boss_sprites.get(&boss_key)` and falls back to `boss`.
     pub boss_sprites: HashMap<String, BossSpriteAsset>,
     /// Optional generated biome sky/background/parallax layers. Missing PNGs
     /// are fine: room rendering simply skips the extra layers and keeps the
@@ -530,9 +528,9 @@ impl FxSheetAssets {
 }
 
 impl GameAssets {
-    /// Dedicated boss spritesheet for `key` (the lowercased boss behavior id, or
-    /// a multi-part suffix like `"gnu_ton_hands"`), if one was loaded. The render
-    /// layer falls back to [`Self::boss`] when this is `None`.
+    /// Dedicated boss spritesheet for `key` (a boss catalog sheet key), if one
+    /// was loaded. The render layer falls back to [`Self::boss`] when this is
+    /// `None`.
     pub fn boss_sprite(&self, key: &str) -> Option<&BossSpriteAsset> {
         self.boss_sprites.get(key)
     }

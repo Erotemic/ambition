@@ -266,43 +266,6 @@ impl CharacterCatalog {
         Some(self.get(character_id)?.fallback_dialogue.as_slice())
     }
 
-    /// Resolve an authored display name to its stable character id.
-    ///
-    /// Catalog validation rejects duplicate display names across the assembled
-    /// App, so this authoring-boundary conversion is deterministic. Runtime
-    /// components carry the returned id; presentation never remains keyed by the
-    /// display label.
-    pub fn id_for_display_name(&self, display_name: &str) -> Option<&str> {
-        self.iter()
-            .find(|(_, entry)| entry.display_name == display_name)
-            .map(|(id, _)| id.as_str())
-    }
-
-    /// The character an AUTHORED PLACEMENT names — id first, display name
-    /// second.
-    ///
-    /// an authored enemy's art identity is a display-name string.
-    /// `ActorClusterSeed` resolves an enemy's sprite by scanning for a matching
-    /// `display_name`, so RENAMING a character silently un-arts every level that
-    /// placed it — and two demos carry the same hand-written workaround (a brain
-    /// → display-name map applied after conversion) to feed this lookup the
-    /// string it wants.
-    ///
-    /// preferring the id is the seam, and it is purely additive: a
-    /// placement carrying a display name keeps resolving through the fallback,
-    /// while one naming a `character_id` — which `NpcSpawn` has always been able
-    /// to author — resolves directly and survives a rename. Identity over
-    /// presentation, the rule this repo has twice paid to learn.
-    pub fn id_for_authored_identity(&self, authored: &str) -> Option<&str> {
-        if self.get(authored).is_some() {
-            return self
-                .iter()
-                .find(|(id, _)| id.as_str() == authored)
-                .map(|(id, _)| id.as_str());
-        }
-        self.id_for_display_name(authored)
-    }
-
     /// THE bark authority: what this character says in `situation`. Resolves
     /// through [`CharacterCatalogEntry::bark`], so a character with no pool for
     /// this situation still speaks its own `fallback_dialogue` rather than the

@@ -40,31 +40,27 @@ fn any_baked_sheet() -> ambition_sprite_sheet::character::CharacterSpriteAsset {
     }
 }
 
-fn declared_sprites(entries: &[(&str, &str)]) -> CharacterSpriteAssets {
+fn declared_sprites(ids: &[&str]) -> CharacterSpriteAssets {
     let mut sprites = CharacterSpriteAssets::default();
-    for (id, display) in entries {
-        sprites.declare(id, display);
+    for id in ids {
+        sprites.declare(id);
     }
     sprites
 }
 
 #[test]
 fn a_declared_character_is_a_different_answer_from_an_unknown_one() {
-    let sprites = declared_sprites(&[("mary_o", "Mary-O")]);
+    let sprites = declared_sprites(&["mary_o"]);
 
-    // Both keys reach the same declaration...
+    // The id reaches the declaration...
     assert!(matches!(
         sprites.sheet_state("mary_o"),
         CharacterSheetState::Declared {
             character_id: "mary_o"
         }
     ));
-    assert!(matches!(
-        sprites.sheet_state("Mary-O"),
-        CharacterSheetState::Declared {
-            character_id: "mary_o"
-        }
-    ));
+    // ...a display name is not a key (D166): nothing names a sheet by one...
+    assert!(sprites.sheet_state("Mary-O").is_unknown());
     // ...and a typo is UNKNOWN, not "declared but pending". Collapsing these two
     // into `None` is what made a misspelled id and an undecoded sheet look
     // identical for the lifetime of a playtest.
@@ -74,7 +70,7 @@ fn a_declared_character_is_a_different_answer_from_an_unknown_one() {
 
 #[test]
 fn no_character_id_is_privileged_by_the_sheet_table() {
-    let sprites = declared_sprites(&[("sanic", "Sanic")]);
+    let sprites = declared_sprites(&["sanic"]);
     for privileged in ["player", "robot", "goblin", "sandbag"] {
         assert!(
             sprites.sheet_state(privileged).is_unknown(),
@@ -88,23 +84,20 @@ fn no_character_id_is_privileged_by_the_sheet_table() {
 }
 
 #[test]
-fn publishing_a_sheet_reaches_every_token_that_declared_it() {
-    let mut sprites = declared_sprites(&[("mary_o", "Mary-O")]);
+fn publishing_a_sheet_makes_its_declaration_ready() {
+    let mut sprites = declared_sprites(&["mary_o"]);
     sprites.publish("mary_o", any_baked_sheet());
 
-    // Both the id and the display name now resolve to the realization, and
-    // neither reads as still-awaiting-a-decode. (The DECLARATION outlives the
-    // publish — it is the recipe a quality transition needs to remake the
-    // realization — but `Ready` wins the lookup, so a later demand short-circuits
-    // instead of re-decoding.)
+    // The id now resolves to the realization, and does not read as
+    // still-awaiting-a-decode. (The DECLARATION outlives the publish — it is
+    // the recipe a quality transition needs to remake the realization — but
+    // `Ready` wins the lookup, so a later demand short-circuits instead of
+    // re-decoding.)
     assert!(matches!(
         sprites.sheet_state("mary_o"),
         CharacterSheetState::Ready(_)
     ));
-    assert!(matches!(
-        sprites.sheet_state("Mary-O"),
-        CharacterSheetState::Ready(_)
-    ));
+    assert!(sprites.sheet_state("Mary-O").is_unknown());
     assert!(!sprites.is_declared("mary_o"));
     assert!(sprites.declared_character_ids().is_empty());
 }
@@ -129,7 +122,7 @@ fn an_unknown_demand_reaches_a_named_terminal_failure_not_silence() {
     // "Nothing happened and nobody said anything" is the state this forbids.
     let mut demand = CharacterLoadDemand::default();
     let mut states = CharacterLoadStates::default();
-    let mut sprites = declared_sprites(&[("mary_o", "Mary-O")]);
+    let mut sprites = declared_sprites(&["mary_o"]);
     demand.request("mary_oh");
 
     // Drive only the unknown-token branch, which needs no asset pipeline at all —
@@ -137,8 +130,7 @@ fn an_unknown_demand_reaches_a_named_terminal_failure_not_silence() {
     for token in demand.take() {
         if matches!(sprites.sheet_state(&token), CharacterSheetState::Unknown) {
             states.record(
-                token.clone(),
-                &token,
+                token,
                 CharacterLoadOutcome::Failed(CharacterLoadFailure::UnknownCharacter),
             );
         }
@@ -318,7 +310,6 @@ fn a_staged_character_is_unsettled_until_it_reaches_a_terminal_state() {
     // no sheets — so the invariant forbids silence, not failure.
     states.record(
         "mary_o".to_string(),
-        "mary_o",
         CharacterLoadOutcome::Failed(CharacterLoadFailure::NoSheetResolved),
     );
     assert!(character_reveal_ready(&demand, &states));
@@ -449,10 +440,6 @@ fn a_character_registered_only_through_register_character_gets_art() {
         "a registered character must be DECLARED to the sheet table; `Unknown` \
          tells every caller this id does not exist"
     );
-    assert!(
-        !sprites.sheet_state("Mary-O").is_unknown(),
-        "and under its display name, since content names characters both ways"
-    );
 
     // Now stage her, the way a session does, and check the ledger's verdict is not
     // the "no such character" one.
@@ -507,15 +494,11 @@ fn the_decode_path_declares_a_registered_character_itself() {
         "the fixture must START in the racy state, or it proves nothing"
     );
 
-    declare_registered_character_into(&mut sprites, &registry, "mary_o", "mary_o");
+    declare_registered_character_into(&mut sprites, &registry, "mary_o");
 
     assert!(
         !sprites.sheet_state("mary_o").is_unknown(),
         "the decode path must not need another system to have run first"
-    );
-    assert!(
-        !sprites.sheet_state("Mary-O").is_unknown(),
-        "and the display-name alias comes with it, since rooms stage by name"
     );
 
     // A token no provider registered stays unknown. This is the half that must
@@ -523,7 +506,7 @@ fn the_decode_path_declares_a_registered_character_itself() {
     // declaration path that declared everything it was asked about would turn
     // every misspelling into a silent placeholder.
     let mut sprites = CharacterSpriteAssets::default();
-    declare_registered_character_into(&mut sprites, &registry, "mary_oh", "mary_oh");
+    declare_registered_character_into(&mut sprites, &registry, "mary_oh");
     assert!(sprites.sheet_state("mary_oh").is_unknown());
 }
 
@@ -762,19 +745,7 @@ mod live_quality_apply {
         );
 
         // LOGICAL IDENTITY IS UNTOUCHED. The realization moved; the character
-        // did not. Both tokens still reach it, and the cast still names the id.
-        let display = crate::character_roster::catalog()
-            .get(&cid)
-            .map(|entry| entry.display_name.clone())
-            .expect("the fixture character has a catalog row");
-        assert!(
-            app.world()
-                .resource::<GameAssets>()
-                .characters
-                .sheet_state(&display)
-                .is_ready(),
-            "`{display}` (the display-name token) must resolve to the NEW realization too"
-        );
+        // did not, and the cast still names the id.
         assert!(
             app.world()
                 .resource::<CharacterLoadStates>()
@@ -1268,8 +1239,8 @@ mod live_quality_apply {
 
     /// Art the engine did not build is not the engine's to delete.
     ///
-    /// A host that publishes its own realization
-    /// ([`CharacterSpriteAssets::publish_under`]) leaves no declaration behind,
+    /// A host that publishes its own realization without declaring it
+    /// ([`CharacterSpriteAssets::publish`]) leaves no declaration behind,
     /// so there is no recipe to remake it. Retiring it on a quality change would
     /// be a one-way deletion — the intro's NPCs would lose their faces the first
     /// time anybody touched the quality slider.
@@ -1279,7 +1250,7 @@ mod live_quality_apply {
         app.world_mut()
             .resource_mut::<GameAssets>()
             .characters
-            .publish_under("A Bespoke Extra", any_baked_sheet());
+            .publish("a_bespoke_extra", any_baked_sheet());
         finalize_and_update(&mut app);
 
         apply(&mut app, VisualQualityProfile::Potato);
@@ -1288,7 +1259,7 @@ mod live_quality_apply {
             app.world()
                 .resource::<GameAssets>()
                 .characters
-                .sheet("A Bespoke Extra")
+                .sheet("a_bespoke_extra")
                 .is_some(),
             "a realization the engine cannot remake must not be retired"
         );
@@ -1599,7 +1570,7 @@ fn live_match_with_roster_outcome(outcome: Option<super::CharacterLoadOutcome>) 
 
     let mut states = super::CharacterLoadStates::default();
     if let Some(outcome) = outcome {
-        states.record("iron_mary".to_string(), "iron_mary", outcome);
+        states.record("iron_mary".to_string(), outcome);
     }
     app.insert_resource(states);
 
@@ -1607,7 +1578,6 @@ fn live_match_with_roster_outcome(outcome: Option<super::CharacterLoadOutcome>) 
     // countdown puts the match past its opening on the first observed frame.
     app.insert_resource(ambition_match::seating::ActiveMatch::activated(
         1,
-        None,
         None,
         Some(0),
         None,

@@ -328,9 +328,11 @@ pub fn maintain_local_session(world: &mut World) {
     //
     // ⚠ AND IT GATES THE START ONLY. A live session is never torn down or left
     // stopped by this: the condition is `!session_live`, so the one transition
-    // it can refuse is "no session -> session". `SaveRestored` has no
-    // mid-session `true -> false` transition left to create a stall: a New
-    // Game restores through the checkpoint commit and does not touch it.
+    // it can refuse is "no session -> session". A New Game restores through
+    // the checkpoint commit and does not touch `SaveRestored`. Teardown resets
+    // it, and so far always on a frame that also ends the session (40 of 40
+    // over `app_it`, 2026-10-03). `refuse_a_restore_over_a_live_timeline` holds
+    // that the latch never rises again under a session that stayed live.
     if !session_live
         && ambition_platformer2d_actor_monolith::session::durable_horizon::durable_hydration_is_pending(
             world,

@@ -6,10 +6,12 @@
 
 /// Dialogue identifiers consumed by the LDtk `NpcSpawn.dialogue_id`
 /// field for intro-room NPCs. Returned to the validator via
-/// [`intro_dialogue_ids`]; matches the keys in
-/// `assets/data/dialogue/registry.ron`. Used by `intro/tests.rs` as <!-- cite-ok: an asset path relative to the content assets root, not a repo path -->
-/// the canonical "intro module owns these ids" list against which
-/// the data registry is validated.
+/// [`intro_dialogue_ids`]. Used by `intro/tests.rs` as the canonical "intro
+/// module owns these ids" list, which the validator's known ids must contain.
+///
+/// An id here is one an NPC can START. `oiler_post_stabilizer` and
+/// `alice_after_bob_survey` are not here: they exist only as `__1`/`__2`
+/// nodes that another node reaches by `<<jump>>`.
 #[allow(
     dead_code,
     reason = "test-only ownership list; production code reads ids from the data registry"
@@ -27,8 +29,6 @@ pub const INTRO_DIALOGUE_IDS: &[&str] = &[
     "manifest_kiosk_wrong_list",
     "alice_intro_stub",
     "bob_intro_stub",
-    "oiler_post_stabilizer",
-    "alice_after_bob_survey",
 ];
 
 #[allow(dead_code, reason = "test-only accessor for the ownership list")]

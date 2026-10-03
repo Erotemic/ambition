@@ -341,6 +341,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_runtime/src/sandbox_reset.rs",
     ),
     "QuestRegistry": (
+        "crates/ambition_boss_encounter/src/retraction.rs",
         "crates/ambition_boss_encounter/src/systems.rs",
         "crates/ambition_encounter_features/src/systems.rs",
         "crates/ambition_persistence/src/quest/registry.rs",
@@ -1765,7 +1766,22 @@ ADJUDICATED: dict[str, str] = {
         "read-mostly map rather than an append-only channel, so encapsulating it "
         "buys much less and costs accessors on every reader. ⇒ Recorded rather "
         "than done; the queue was the half where a second writer could reorder or "
-        "drop somebody else's event."
+        "drop somebody else's event.\n"
+        "    ⛤ A SECOND WRITER OF PROGRESSION, AND IT CAN ONLY UNDO THE DRAIN — "
+        "2026-10-03. `retract_boss_defeats_on_replay` (`ambition_boss_encounter/"
+        "src/retraction.rs`) calls `retract_caused_by(placement)`, the one road "
+        "back. It drops that placement's undrained events and puts each quest step "
+        "the drain RECORDED for that placement's latest event back to the "
+        "recorded `before`, and only while the quest stands at or past the "
+        "recorded `after` (its steps are ordered, so a later step was reachable "
+        "only through that one). So it writes no value the drain did not write "
+        "first. Fields stay private: "
+        "`caused_advances` is written by the drain and taken by this method only. "
+        "Poison-verified: pushing the boss event without a cause, or dropping the "
+        "guard on `after`, each reddens its own witness "
+        "(`boss_replay_retraction.rs`, `registry.rs` tests). The content payout "
+        "(`grant_quest_completion_rewards`) follows the quest back, through "
+        "`OwnedItems::take`."
     ),
     "OwnedItems": (
         "ROUTED — TEN WRITER FILES COLLAPSE TO A HANDFUL OF IMPLEMENTATIONS, AND "

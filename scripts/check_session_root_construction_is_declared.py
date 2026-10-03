@@ -68,10 +68,10 @@ DECLARED: dict[str, str] = {
     "crates/ambition_platformer2d_shared_tangle/src/lifecycle/session.rs": (
         "`insert_session_world_component`'s fallback, *\"for small direct hosts "
         "and focused tests that intentionally assemble the same root one "
-        "component at a time\"*. ⚠ It mints `active_scope.unwrap_or(SessionScopeId(0))` "
-        "— an anonymous default identity when no session is active, which is the "
-        "shape `Q132`'s scoping rule names. ONE production caller today: "
-        "`game/ambition_app/src/app/dev_runtime.rs:626`"
+        "component at a time\"*. With no root and no active scope it builds the "
+        "direct host's one root at `DIRECT_HOST_SESSION_SCOPE`, and in a "
+        "session-gated composition it refuses instead (C07, 2026-10-03), so a "
+        "shell-hosted session never carries an identity no shell gave it"
     ),
     "crates/ambition_platformer2d_provider/src/lifecycle.rs": (
         "`install_direct_session_root`, the one road for a direct-entry demo "

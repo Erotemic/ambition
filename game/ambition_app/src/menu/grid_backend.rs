@@ -338,7 +338,6 @@ pub(crate) fn grid_menu_open_routing(
     mut sfx: SfxWriter,
     mut last_start: Local<bool>,
 ) {
-    use ambition_platformer2d::platformer::schedule::GameMode;
 
     // Esc / Start: rising-edge toggle (debounced like the cube to avoid the
     // close-then-reopen on a multi-frame `just_pressed`).
@@ -360,7 +359,7 @@ pub(crate) fn grid_menu_open_routing(
                 play_ui(&mut sfx, grid_sfx::CLOSE);
                 close_grid_unified_menu(&mut overlay, mode.get(), &mut next_mode);
             }
-        } else if matches!(mode.get(), GameMode::Playing | GameMode::Paused) {
+        } else if crate::menu::model::primary_overlay_may_open(*mode.get()) {
             // Esc/Start opens on the System face (the shared entry→tab mapping),
             // NOT the remembered tab — the pause button targets System.
             play_ui(&mut sfx, grid_sfx::OPEN);
@@ -378,12 +377,22 @@ pub(crate) fn grid_menu_open_routing(
         return;
     }
 
-    // Inventory key: open ON the Inventory tab (the shared entry→tab mapping), or close.
+    // Inventory key: open ON the Inventory tab (the shared entry→tab mapping). While
+    // open, it turns to that tab, or closes from it (`open_overlay_key`).
     if menu.inventory {
         if overlay.visible {
-            play_ui(&mut sfx, grid_sfx::CLOSE);
-            close_grid_unified_menu(&mut overlay, mode.get(), &mut next_mode);
-        } else if matches!(mode.get(), GameMode::Playing | GameMode::Paused) {
+            overlay_face_key(
+                pause_entry_target(PauseEntrySource::Inventory),
+                &mut overlay,
+                mode.get(),
+                &mut next_mode,
+                &mut pages,
+                &mut tab_state,
+                &mut cursor,
+                &mut system_nav,
+                &mut sfx,
+            );
+        } else if crate::menu::model::primary_overlay_may_open(*mode.get()) {
             play_ui(&mut sfx, grid_sfx::OPEN);
             pages.active = Some(pause_entry_target(PauseEntrySource::Inventory));
             tab_state.focus_zone = GridFocusZone::Body;
@@ -399,8 +408,21 @@ pub(crate) fn grid_menu_open_routing(
         return;
     }
 
-    // Map key: open on the Map tab (the shared entry→tab mapping).
-    if menu.map && matches!(mode.get(), GameMode::Playing | GameMode::Paused) && !overlay.visible {
+    // Map key: open on the Map tab (the shared entry→tab mapping). While open, it
+    // turns to that tab, or closes from it (`open_overlay_key`).
+    if menu.map && overlay.visible {
+        overlay_face_key(
+            pause_entry_target(PauseEntrySource::Map),
+            &mut overlay,
+            mode.get(),
+            &mut next_mode,
+            &mut pages,
+            &mut tab_state,
+            &mut cursor,
+            &mut system_nav,
+            &mut sfx,
+        );
+    } else if menu.map && crate::menu::model::primary_overlay_may_open(*mode.get()) {
         play_ui(&mut sfx, grid_sfx::OPEN);
         pages.active = Some(pause_entry_target(PauseEntrySource::Map));
         tab_state.focus_zone = GridFocusZone::Body;
@@ -412,6 +434,35 @@ pub(crate) fn grid_menu_open_routing(
             &mut cursor,
             &mut system_nav,
         );
+    }
+}
+
+/// A face key (inventory or map) pressed while the unified menu is open: turn to
+/// its tab, or close from it (`open_overlay_key`, the rule the cube obeys).
+#[cfg(feature = "input")]
+#[allow(clippy::too_many_arguments)]
+fn overlay_face_key(
+    target: MenuPage,
+    overlay: &mut ambition_platformer2d::inventory_ui::InventoryUiState,
+    mode: &ambition_platformer2d::platformer::schedule::GameMode,
+    next_mode: &mut NextState<ambition_platformer2d::platformer::schedule::GameMode>,
+    pages: &mut ActiveMenuPages<MenuPage, MenuPageAction>,
+    tab_state: &mut GridMenuTabState,
+    cursor: &mut KaleidoscopeCursor,
+    system_nav: &mut KaleidoscopeSystemNav,
+    sfx: &mut SfxWriter,
+) {
+    match crate::menu::model::open_overlay_key(target, pages.active) {
+        crate::menu::model::OpenOverlayKey::Close => {
+            play_ui(sfx, grid_sfx::CLOSE);
+            close_grid_unified_menu(overlay, mode, next_mode);
+        }
+        crate::menu::model::OpenOverlayKey::TurnTo(page) => {
+            pages.active = Some(page);
+            system_nav.open_entry = None;
+            tab_state.focus_zone = GridFocusZone::Body;
+            seed_cursor_for_tab(active_tab_index(pages), cursor);
+        }
     }
 }
 
@@ -427,17 +478,13 @@ fn open_grid_unified_menu(
     cursor: &mut KaleidoscopeCursor,
     system_nav: &mut KaleidoscopeSystemNav,
 ) {
-    use ambition_platformer2d::platformer::schedule::GameMode;
     overlay.visible = true;
-    overlay.opened_from_pause = matches!(mode, GameMode::Paused);
+    let request = crate::menu::model::mode_on_overlay_open(overlay, *mode);
     system_nav.open_entry = None;
     seed_cursor_for_tab(active_tab, cursor);
-    if matches!(mode, GameMode::Playing) {
-        ambition_platformer2d::platformer::world_log::note_game_mode_request(
-            GameMode::Paused,
-            "menu_grid_open",
-        );
-        next_mode.set(GameMode::Paused);
+    if let Some(request) = request {
+        ambition_platformer2d::platformer::world_log::note_game_mode_request(request, "menu_grid_open");
+        next_mode.set(request);
     }
 }
 
@@ -458,15 +505,10 @@ pub(crate) fn close_grid_unified_menu(
     mode: &ambition_platformer2d::platformer::schedule::GameMode,
     next_mode: &mut NextState<ambition_platformer2d::platformer::schedule::GameMode>,
 ) {
-    use ambition_platformer2d::platformer::schedule::GameMode;
-    let opened_from_pause = overlay.opened_from_pause;
     overlay.visible = false;
-    if !opened_from_pause && matches!(mode, GameMode::Paused) {
-        ambition_platformer2d::platformer::world_log::note_game_mode_request(
-            GameMode::Playing,
-            "menu_grid_close",
-        );
-        next_mode.set(GameMode::Playing);
+    if let Some(request) = crate::menu::model::mode_on_overlay_close(overlay, *mode) {
+        ambition_platformer2d::platformer::world_log::note_game_mode_request(request, "menu_grid_close");
+        next_mode.set(request);
     }
 }
 

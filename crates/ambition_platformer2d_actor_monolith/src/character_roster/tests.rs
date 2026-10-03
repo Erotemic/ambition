@@ -126,26 +126,6 @@ fn display_name_resolves_for_every_catalog_entry() {
 }
 
 #[test]
-fn character_id_round_trips_through_display_name() {
-    // The unified actor sprite identity is resolved from the display name
-    // (every actor carries one) back to the catalog id. Catalog validation
-    // rejects duplicate display names, so every entry must round-trip
-    // id → name → id.
-    for (id, entry) in &catalog().data().characters {
-        assert_eq!(
-            catalog().id_for_display_name(&entry.display_name),
-            Some(id.as_str()),
-            "'{}' should round-trip back to id '{id}'",
-            entry.display_name,
-        );
-    }
-    assert_eq!(
-        catalog().id_for_display_name("Definitely Not A Character"),
-        None
-    );
-}
-
-#[test]
 fn exemplar_barks_resolve_from_catalog() {
     use ambition_characters::actor::character_catalog::BarkSituation;
     // The Pirate Admiral scaffold exemplar carries an on_hit + provoked +

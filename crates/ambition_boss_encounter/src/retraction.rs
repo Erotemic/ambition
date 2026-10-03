@@ -13,8 +13,8 @@
 //! commit and a fresh run forget them all. A load starts with none, because
 //! the file a load reads IS the baseline. On an admitted replay,
 //! [`retract_boss_defeats_on_replay`] puts each entry of the replay's room back
-//! to `Untouched`, despawns the boss's reward chest and clears its looted flag,
-//! and announces
+//! to `Untouched`, despawns the boss's reward chest, clears its looted flag,
+//! puts back the quest steps its defeat advanced, and announces
 //! [`BossDefeatRetracted`], so the domain that owns another consequence (the
 //! item domain owns the mints) retracts it.
 //!
@@ -103,6 +103,12 @@ impl BossDefeatsSinceCheckpoint {
             .collect()
     }
 
+    /// Take out every defeat: a checkpoint restore puts the whole session back
+    /// to the checkpoint, so no defeat since it stays, in any room.
+    pub fn take_all(&mut self) -> Vec<(String, BossDefeatSinceCheckpoint)> {
+        std::mem::take(&mut self.defeats).into_iter().collect()
+    }
+
     /// Entity-free value projection: two peers that disagree about which
     /// defeats a replay would retract have diverged.
     pub fn checksum(&self) -> u64 {
@@ -161,13 +167,16 @@ pub fn forget_boss_defeats_on_a_fresh_run(
 }
 
 /// On an admitted replay, retract every boss defeat of the replay's live room
-/// recorded since the last checkpoint, for every boss family.
+/// recorded since the last checkpoint, for every boss family. A checkpoint
+/// restore (a death's resume) retracts every defeat since the checkpoint, in
+/// every room: it puts the bag back wherever the defeat's reward was taken, so
+/// a defeat it kept would keep the boss dead without its reward (Q124, Q51).
 ///
 /// The replay's room is its subject's live room, or the sole live room when
 /// it names no subject. Each retracted placement's save row goes back to
 /// `Untouched`, so the rebuild builds the boss alive and every gate that reads
-/// `boss.cleared` closes. Its reward chest goes, opened or not, and its looted
-/// flag is cleared.
+/// `boss.cleared` closes. Its reward chest goes, opened or not, its looted
+/// flag is cleared, and the quest steps its defeat advanced go back.
 pub fn retract_boss_defeats_on_replay(
     mut commands: Commands,
     // The admitted replay, not the request: a request the lifecycle refuses
@@ -176,18 +185,24 @@ pub fn retract_boss_defeats_on_replay(
     rooms: ambition_platformer2d_world::rooms::LiveRoomSpecs,
     mut since: ResMut<BossDefeatsSinceCheckpoint>,
     mut save: ResMut<ambition_persistence::save::AmbitionGameSave>,
+    mut quests: ResMut<ambition_persistence::quest::QuestRegistry>,
     chests: Query<(Entity, &ambition_combat::BossRewardChest), With<ambition_combat::ChestFeature>>,
     mut retracted: MessageWriter<BossDefeatRetracted>,
 ) {
     for replay in replays.read() {
-        let replayed = replay.subject.as_ref().and_then(|subject| subject.room);
-        let Some(definition) = rooms.definition_named(replayed) else {
-            continue;
+        let taken = if replay.to_checkpoint {
+            since.take_all()
+        } else {
+            let replayed = replay.subject.as_ref().and_then(|subject| subject.room);
+            let Some(definition) = rooms.definition_named(replayed) else {
+                continue;
+            };
+            let definition_id = rooms.rooms().spec(definition).id.clone();
+            let live: Vec<LiveRoomInstance> = rooms.live_rooms().map(|(room, _)| room).collect();
+            let replayed = replayed.or_else(|| (live.len() == 1).then(|| live[0]));
+            since.take_for_replay(replayed, &definition_id, &live)
         };
-        let definition_id = rooms.rooms().spec(definition).id.clone();
-        let live: Vec<LiveRoomInstance> = rooms.live_rooms().map(|(room, _)| room).collect();
-        let replayed = replayed.or_else(|| (live.len() == 1).then(|| live[0]));
-        for (placement, defeat) in since.take_for_replay(replayed, &definition_id, &live) {
+        for (placement, defeat) in taken {
             if crate::placement_is_cleared(save.data(), &placement) {
                 save.data_mut().set_boss(
                     &placement,
@@ -199,6 +214,14 @@ pub fn retract_boss_defeats_on_replay(
             let looted = ambition_encounter::encounter_reward_looted_flag(&placement);
             if save.data().flag(&looted) {
                 save.data_mut().set_flag(looted, false);
+            }
+            // The quest step the defeat advanced goes back, in the registry
+            // and in the save row that mirrors it.
+            for quest in quests.retract_caused_by(&placement) {
+                if let Some(state) = quests.get(&quest) {
+                    save.data_mut()
+                        .set_quest(&quest, state.progression, state.step);
+                }
             }
             for (chest, reward) in &chests {
                 if reward.encounter_id == placement {

@@ -65,9 +65,9 @@ impl std::fmt::Debug for CharacterSheetState<'_> {
 
 /// Holds resident spritesheet realizations plus the declarations behind them.
 ///
-/// Both maps are double-keyed by catalog id AND authored display name, so
-/// presentation can resolve either a stable id or a legacy display label through
-/// one lookup without depending on the actor roster module.
+/// Both maps are keyed by character id. A display name is not a key: the
+/// demand, the room manifest and the actor binding all name a character by
+/// its id (D166).
 ///
 /// ## Declarations and realizations have different lifetimes
 ///
@@ -76,7 +76,7 @@ impl std::fmt::Debug for CharacterSheetState<'_> {
 /// with an owner and an end.
 #[derive(Resource, Default, Clone)]
 pub struct CharacterSpriteAssets {
-    /// Resident realizations. Double-keyed (see above).
+    /// Resident realizations, by character id.
     sheets: HashMap<String, CharacterSpriteAsset>,
     /// Per-prop sprite sheets keyed by the LDtk `Prop.kind` field.
     pub props: HashMap<String, CharacterSpriteAsset>,
@@ -105,13 +105,11 @@ pub struct CharacterSpriteAssets {
 }
 
 impl CharacterSpriteAssets {
-    /// Declare a character's sheet without decoding it, under every token that
-    /// should resolve to it (its catalog id and its display name).
-    pub fn declare(&mut self, character_id: &str, display_name: &str) {
+    /// Declare a character's sheet without decoding it. A sheet is keyed by
+    /// its character id only; a display name is not a key (D166).
+    pub fn declare(&mut self, character_id: &str) {
         self.declared
             .insert(character_id.to_string(), character_id.to_string());
-        self.declared
-            .insert(display_name.to_string(), character_id.to_string());
     }
 
     /// See the field: set from the composition's `RiggedSpriteAdmission`.
@@ -125,7 +123,7 @@ impl CharacterSpriteAssets {
         self.parts_admitted
     }
 
-    /// Every ready sheet realization (once per declared token that holds it).
+    /// Every ready sheet realization.
     pub fn ready_sheets(&self) -> impl Iterator<Item = &CharacterSpriteAsset> {
         self.sheets.values()
     }
@@ -133,9 +131,8 @@ impl CharacterSpriteAssets {
     /// Give every ready sheet without a transform flipbook the one `realize`
     /// builds for it (see [`super::rigged::RiggedSpritePages`]).
     ///
-    /// A sheet is stored once per declared token, so `realize` may be asked
-    /// for the same sheet more than once; a republished sheet (a new tier)
-    /// starts without one and is asked again.
+    /// A republished sheet (a new tier) starts without one and is asked
+    /// again.
     pub fn attach_rigged_pages(
         &mut self,
         mut realize: impl FnMut(&CharacterSpriteAsset) -> Option<super::rigged::RiggedSpritePages>,
@@ -147,39 +144,13 @@ impl CharacterSpriteAssets {
         }
     }
 
-    /// Publish a realization under every token declared for `character_id`,
-    /// plus the id itself. The declarations stay: see the type docs.
+    /// Publish a realization under its character id. The declaration stays:
+    /// see the type docs. A character published without ever being declared
+    /// (a test fixture, or a host inserting a sheet directly) still resolves
+    /// by its id.
     pub fn publish(&mut self, character_id: &str, asset: CharacterSpriteAsset) {
-        let tokens: Vec<String> = self
-            .declared
-            .iter()
-            .filter(|(_, declared_id)| declared_id.as_str() == character_id)
-            .map(|(token, _)| token.clone())
-            .collect();
-        for token in tokens {
-            self.retired.remove(&token);
-            self.sheets.insert(token, asset.clone());
-        }
-        // A character published without ever being declared (a test fixture, or
-        // a host inserting a sheet directly) still resolves by its own id.
         self.retired.remove(character_id);
         self.sheets.insert(character_id.to_string(), asset);
-    }
-
-    /// Publish a realization under ONE explicit token.
-    ///
-    /// For content that builds its own sheet outside the catalog-declared path
-    /// (an intro NPC, a demo enemy) and knows which tokens resolve to it.
-    /// Prefer [`Self::publish`] for a declared character, so every declared
-    /// token is covered.
-    ///
-    /// This does not create a declaration. That keeps the realization out of the
-    /// quality transition: the engine has no recipe for art it did not build, so
-    /// it cannot draw it again after retirement. See
-    /// [`Self::retire_realizations`].
-    pub fn publish_under(&mut self, token: &str, asset: CharacterSpriteAsset) {
-        self.retired.remove(token);
-        self.sheets.insert(token.to_string(), asset);
     }
 
     /// Every declared catalog id with no resident realization, deduplicated.
@@ -194,11 +165,6 @@ impl CharacterSpriteAssets {
     /// True when `character_id` is declared and has no resident realization.
     pub fn is_declared(&self, character_id: &str) -> bool {
         self.declared.contains_key(character_id) && !self.sheets.contains_key(character_id)
-    }
-
-    /// The catalog id a token names, declared or resident.
-    pub fn character_id_for(&self, token: &str) -> Option<&str> {
-        self.declared.get(token).map(String::as_str)
     }
 
     /// The tier a token's realization was retired from, if any.
@@ -306,8 +272,7 @@ impl CharacterSpriteAssets {
         ids
     }
 
-    /// The main lookup. `token` is a stable catalog id or an authored display
-    /// name; the table is double-keyed so both reach the same sheet.
+    /// The main lookup, by character id.
     pub fn sheet(&self, token: &str) -> Option<&CharacterSpriteAsset> {
         self.sheets.get(token)
     }

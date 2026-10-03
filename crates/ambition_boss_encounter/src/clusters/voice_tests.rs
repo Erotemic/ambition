@@ -35,8 +35,9 @@ fn a_boss_speaks_the_barks_of_the_character_its_encounter_names() {
     let voice = boss
         .config
         .seed
-        .as_ref()
-        .and_then(|seed| seed.encounter.voice.clone())
+        .encounter
+        .voice
+        .clone()
         .expect("gnu_ton_rider.ron names a voice");
     for situation in [BarkSituation::OnHit, BarkSituation::Idle] {
         let pool = characters.get(&voice).expect("the voice is a row").barks.pool(situation);
@@ -52,6 +53,6 @@ fn a_boss_speaks_the_barks_of_the_character_its_encounter_names() {
     assert_eq!(boss.config.bark(&characters, BarkSituation::OnHit, 0), Some("Counterfeit."));
 
     let mut silent = gnu_ton();
-    silent.config.seed.as_mut().expect("seeded").encounter.voice = None;
+    silent.config.seed.encounter.voice = None;
     assert_eq!(silent.config.bark(&characters, BarkSituation::OnHit, 0), None);
 }

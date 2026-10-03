@@ -15,7 +15,7 @@ use ambition_cutscene::CutsceneTriggerQueue;
 use ambition_persistence::quest::QuestRegistry;
 
 use super::{
-    default_boss_profiles, events::publish_events, BossCatalog, BossEncounterRegistry, BossProfile,
+    default_boss_profiles, events::publish_events, BossCatalog, BossEncounterRegistry,
 };
 
 /// This system's claim on the encounter layer's priority music tier.
@@ -54,15 +54,13 @@ pub fn populate_boss_encounter_registry(
     registry.specs_loaded = true;
 }
 
-/// Drive every boss's entity-local phase mechanism: seed from the profile
-/// catalog, wake, tick the `ActorPhaseState`, resolve death (save + quest), keep
+/// Drive every boss's entity-local phase mechanism: seed from the encounter
+/// the boss was built with (`BossConfig::seed`), wake, tick the `ActorPhaseState`, resolve death (save + quest), keep
 /// the adaptive-music request live, and sync reward chests.
 /// The body's `BodyHealth` and `BossEncounter.encounter` are the source of truth.
 pub fn update_boss_encounters(
     mut commands: Commands,
-    catalog: Res<BossCatalog>,
     world_time: Res<ambition_time::WorldTime>,
-    registry: Res<BossEncounterRegistry>,
     mut banner: ResMut<ambition_combat::GameplayBanner>,
     mut save: ResMut<ambition_persistence::save::AmbitionGameSave>,
     mut music_request: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<
@@ -143,31 +141,13 @@ pub fn update_boss_encounters(
     for (boss_entity, _feature_id, mut feature, mut health, mut combat, overrides, boss_sim_id) in &mut bosses {
         let archetype_id = feature.config.behavior.id.clone();
         let runtime_id = feature.config.id.clone();
-        let boss_name = feature.config.name.clone();
 
         // The encounter this boss was built with (`BossConfig::seed`, from the
-        // generation's catalog). Only a hand-built config has none; it is
-        // resolved here from the App's catalog (or a generic stub), by the
-        // canonical archetype id resolved at spawn.
-        let (spec, reward) = match &feature.config.seed {
-            Some(seed) => (seed.encounter.clone(), seed.reward.clone()),
-            None => {
-                let profile = registry
-                    .profiles
-                    .get(&archetype_id)
-                    .cloned()
-                    .or_else(|| BossProfile::for_encounter_id_or_name(&catalog, &archetype_id))
-                    .unwrap_or_else(|| {
-                        BossProfile::generic(
-                            &catalog,
-                            archetype_id.clone(),
-                            boss_name.clone(),
-                            health.max(),
-                        )
-                    });
-                (profile.encounter, profile.reward)
-            }
-        };
+        // generation's catalog).
+        let (spec, reward) = (
+            feature.config.seed.encounter.clone(),
+            feature.config.seed.reward.clone(),
+        );
 
         // Seed entity-local state once from the profile (phase triggers, HP),
         // so two of the same boss have independent state. The per-spawn
@@ -294,10 +274,13 @@ pub fn update_boss_encounters(
                         },
                     );
                 }
-                quests.push_event(
+                // Caused by the placement, so a replay that retracts this
+                // defeat retracts the quest step it advanced.
+                quests.push_event_caused_by(
                     ambition_persistence::quest::QuestAdvanceEvent::BossDefeated(
                         archetype_id.clone(),
                     ),
+                    runtime_id.clone(),
                 );
             }
         }

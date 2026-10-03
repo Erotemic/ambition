@@ -612,6 +612,7 @@ fn on_a_ledge(me_x: f32) -> WorldView {
     view.terrain = vec![ambition_characters::perception::PerceivedSolid {
         aabb: ae::Aabb::new(ae::Vec2::new(me_x, 316.0), ae::Vec2::new(10.0, 16.0)),
         kind: ambition_characters::perception::SolidKind::Solid,
+        open_for_self: false,
     }];
     view
 }
@@ -664,6 +665,7 @@ fn the_same_brain_on_solid_ground_still_walks() {
     view.terrain = vec![ambition_characters::perception::PerceivedSolid {
         aabb: ae::Aabb::new(ae::Vec2::new(400.0, 316.0), ae::Vec2::new(400.0, 16.0)),
         kind: ambition_characters::perception::SolidKind::Solid,
+        open_for_self: false,
     }];
 
     let snapshot = BrainSnapshot::idle();
@@ -742,6 +744,7 @@ fn the_jump_button_does_not_stay_held_after_the_jump() {
     view.terrain = vec![ambition_characters::perception::PerceivedSolid {
         aabb: ae::Aabb::new(ae::Vec2::new(400.0, 316.0), ae::Vec2::new(400.0, 16.0)),
         kind: ambition_characters::perception::SolidKind::Solid,
+        open_for_self: false,
     }];
 
     let mut out = ActorControlFrame::neutral();

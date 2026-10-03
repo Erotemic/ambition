@@ -152,7 +152,6 @@ fn validate_ldtk_room_links(project: &LdtkProject, report: &mut ContentValidatio
                 ));
             }
             links.push((
-                level.identifier.clone(),
                 area.clone(),
                 zone_id,
                 field_string(entity, "target_room"),
@@ -161,35 +160,33 @@ fn validate_ldtk_room_links(project: &LdtkProject, report: &mut ContentValidatio
         }
     }
 
-    for (level_id, area, zone_id, target_room, target_zone) in links {
-        let target_room = target_room
-            .and_then(authored_optional);
-        let target_zone = target_zone
-            .and_then(authored_optional);
-        match (target_room, target_zone) {
-            (Some(room), Some(zone)) => {
-                if !area_level_count.contains_key(&room) {
-                    report.push_error(format!(
-                        "LoadingZone '{}:{}' targets unknown room '{}'",
-                        area, zone_id, room
-                    ));
-                    continue;
-                }
-                if !zones_by_area
-                    .get(&room)
-                    .map(|zones| zones.contains(&zone))
-                    .unwrap_or(false)
-                {
-                    report.push_error(format!(
-                        "LoadingZone '{}:{}' targets missing zone '{}:{}'",
-                        area, zone_id, room, zone
-                    ));
-                }
-            }
-            _ => report.push_error(format!(
-                "level '{}' LoadingZone '{}:{}' must author both target_room and target_zone",
-                level_id, area, zone_id
-            )),
+    // ONE JUDGE PER RULE. A zone with no target (a landing pad) and a zone with
+    // half a target are judged by `LdtkProject::validate`, whose report
+    // `validate_content_graph` already folds in. This check asks only what the
+    // owner does not: does a complete target name a room and a zone that exist?
+    for (area, zone_id, target_room, target_zone) in links {
+        let (Some(room), Some(zone)) = (
+            target_room.and_then(authored_optional),
+            target_zone.and_then(authored_optional),
+        ) else {
+            continue;
+        };
+        if !area_level_count.contains_key(&room) {
+            report.push_error(format!(
+                "LoadingZone '{}:{}' targets unknown room '{}'",
+                area, zone_id, room
+            ));
+            continue;
+        }
+        if !zones_by_area
+            .get(&room)
+            .map(|zones| zones.contains(&zone))
+            .unwrap_or(false)
+        {
+            report.push_error(format!(
+                "LoadingZone '{}:{}' targets missing zone '{}:{}'",
+                area, zone_id, room, zone
+            ));
         }
     }
 }
@@ -663,6 +660,142 @@ mod tests {
 
     use super::*;
 
+    /// The embedded project, with one zone that another zone arrives through
+    /// re-authored by `edit`. Returns the content report's errors about that
+    /// zone, by its iid or its `area:id` name.
+    fn errors_about_an_arrival_zone_after(
+        edit: impl Fn(&mut Vec<ambition_platformer2d_ldtk::LdtkFieldInstance>),
+    ) -> Vec<String> {
+        let music = crate::audio_registries::load_music_registry();
+        let character_catalog = crate::character_catalog::load_catalog();
+        let mut project = LdtkProject::load_default_for_dev(&crate::worlds::world_manifest())
+            .expect("embedded LDtk loads");
+        // A zone that some exit targets: it has an arrival, so the LDtk owner
+        // accepts it as a landing pad once its own targets are cleared.
+        let targets: BTreeSet<(String, String)> = project
+            .levels
+            .iter()
+            .flat_map(|level| level.all_entity_instances())
+            .filter(|entity| entity.identifier == "LoadingZone")
+            .filter_map(|entity| {
+                Some((
+                    field_string(entity, "target_room").and_then(authored_optional)?,
+                    field_string(entity, "target_zone").and_then(authored_optional)?,
+                ))
+            })
+            .collect();
+        let (iid, name) = project
+            .levels
+            .iter()
+            .find_map(|level| {
+                let area = level.active_area();
+                level.all_entity_instances().find_map(|entity| {
+                    let id = field_string(entity, "id")?;
+                    (entity.identifier == "LoadingZone"
+                        && targets.contains(&(area.clone(), id.clone())))
+                    .then(|| (entity.iid.clone(), format!("{area}:{id}")))
+                })
+            })
+            .expect("the embedded world has a zone that an exit arrives through");
+        let fields = project
+            .levels
+            .iter_mut()
+            .flat_map(|level| level.layer_instances.iter_mut())
+            .flat_map(|layer| layer.entity_instances.iter_mut())
+            .find(|entity| entity.iid == iid)
+            .map(|entity| &mut entity.field_instances)
+            .expect("the zone is still there");
+        edit(fields);
+        validate_content_graph(&music, &project, &character_catalog)
+            .errors
+            .into_iter()
+            .filter(|error| error.contains(&iid) || error.contains(&name))
+            .collect()
+    }
+
+    fn set_field(
+        fields: &mut [ambition_platformer2d_ldtk::LdtkFieldInstance],
+        name: &str,
+        value: serde_json::Value,
+    ) {
+        fields
+            .iter_mut()
+            .find(|field| field.identifier == name)
+            .expect("a LoadingZone carries every declared field")
+            .value = value;
+    }
+
+    /// A LANDING PAD AND HALF A TARGET HAVE ONE JUDGE: THE LDtk OWNER.
+    ///
+    /// `LdtkProject::validate` allows a zone with no target when an exit
+    /// arrives through it, and refuses a zone with half a target. This
+    /// validator folds that report in, so it must not judge either case
+    /// again. It used to refuse every zone without both targets, which
+    /// refused a landing pad the owner allows and reported half a target
+    /// twice.
+    #[test]
+    fn a_landing_pad_is_allowed_and_half_a_target_is_refused_once() {
+        let pad = errors_about_an_arrival_zone_after(|fields| {
+            set_field(fields, "target_room", serde_json::Value::Null);
+            set_field(fields, "target_zone", serde_json::Value::Null);
+        });
+        assert!(pad.is_empty(), "a landing pad that an exit arrives through was refused: {pad:?}");
+
+        let half = errors_about_an_arrival_zone_after(|fields| {
+            set_field(fields, "target_zone", serde_json::Value::Null);
+        });
+        assert_eq!(half.len(), 1, "half a target is reported once, by the owner: {half:?}");
+
+        // Control: a target that names no room is this validator's own check.
+        let unknown = errors_about_an_arrival_zone_after(|fields| {
+            set_field(fields, "target_room", serde_json::Value::String("no_such_room".into()));
+        });
+        assert!(
+            unknown.iter().any(|error| error.contains("targets unknown room 'no_such_room'")),
+            "a target naming no room was not refused: {unknown:?}"
+        );
+    }
+
+    /// AN NPC MAY NAME ONLY A NODE THAT CAN START.
+    ///
+    /// `oiler_post_stabilizer` exists only as `oiler_post_stabilizer__1` and
+    /// `__2`, which another node reaches by `<<jump>>`. The runtime starts a
+    /// dialogue id exactly as named (`DialogueNodeIndex::entry_node`), so a spawn
+    /// that names the root warns and closes. The validator must refuse it.
+    #[test]
+    fn a_spawn_naming_a_root_that_exists_only_as_variants_is_refused() {
+        let music = crate::audio_registries::load_music_registry();
+        let character_catalog = crate::character_catalog::load_catalog();
+        let mut project = LdtkProject::load_default_for_dev(&crate::worlds::world_manifest())
+            .expect("embedded LDtk loads");
+        let spawn = project
+            .levels
+            .iter_mut()
+            .flat_map(|level| level.layer_instances.iter_mut())
+            .flat_map(|layer| layer.entity_instances.iter_mut())
+            .find(|entity| {
+                entity.identifier == "NpcSpawn"
+                    && field_string(entity, "dialogue_id").is_some_and(|id| !id.trim().is_empty())
+            })
+            .expect("the embedded world has an NPC with a dialogue");
+        let iid = spawn.iid.clone();
+        set_field(
+            &mut spawn.field_instances,
+            "dialogue_id",
+            serde_json::Value::String("oiler_post_stabilizer".into()),
+        );
+        let errors: Vec<String> = validate_content_graph(&music, &project, &character_catalog)
+            .errors
+            .into_iter()
+            .filter(|error| error.contains(&iid))
+            .collect();
+        assert_eq!(
+            errors.len(),
+            1,
+            "a dialogue id that no node is titled was accepted: {errors:?}"
+        );
+    }
+
     #[test]
     fn embedded_content_graph_validates() {
         let report = validate_embedded_content_graph();
@@ -677,7 +810,7 @@ mod tests {
         let music = crate::audio_registries::load_music_registry();
         let mut project = LdtkProject::load_default_for_dev(&crate::worlds::world_manifest())
             .expect("embedded LDtk loads");
-        let mut set_fight_track = |project: &mut LdtkProject, track: &str| {
+        let set_fight_track = |project: &mut LdtkProject, track: &str| {
             let level = project
                 .levels
                 .iter_mut()

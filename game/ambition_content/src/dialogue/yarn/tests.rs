@@ -9,7 +9,10 @@ fn catalog() -> ambition_characters::actor::character_catalog::CharacterCatalog 
 fn known_dialogue_ids_are_derived_from_yarn_titles() {
     let ids = known_dialogue_ids(&catalog());
     assert!(ids.iter().any(|id| id == "creator_intro"));
-    assert!(ids.iter().any(|id| id == "oiler_post_stabilizer"));
+    // A root that exists only as `__1`/`__2` jump targets cannot start, so it is
+    // not an id; its variants are.
+    assert!(!ids.iter().any(|id| id == "oiler_post_stabilizer"));
+    assert!(ids.iter().any(|id| id == "oiler_post_stabilizer__1"));
     assert!(ids.iter().any(|id| id == "hub_guide__test_sfx"));
     assert!(ids.iter().any(|id| id == "hall_player"));
     assert_eq!(ids.windows(2).filter(|pair| pair[0] == pair[1]).count(), 0);

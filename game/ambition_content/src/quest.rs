@@ -79,9 +79,11 @@ pub fn grant_pirate_treasure_reward(
     "TREASURE RETURNED — Admiral pays out the hoard".to_string()
 }
 
-/// Detect newly-completed quests with payouts and grant their rewards
-/// once. Today only the pirate-treasure quest has a payout; new
-/// quests that need rewards on completion can extend the match.
+/// The payout follows the quest: granted once when the quest completes, and
+/// taken back if a replay retracts the boss defeat it depended on and the
+/// quest is no longer complete (BOSS-REPLAY-RETRACTION). Today only the
+/// pirate-treasure quest has a payout; new quests that need rewards on
+/// completion can extend the match.
 pub fn grant_quest_completion_rewards(
     registry: Res<QuestRegistry>,
     mut save: ResMut<ambition_persistence::save::AmbitionGameSave>,
@@ -92,10 +94,17 @@ pub fn grant_quest_completion_rewards(
     let Some(state) = registry.quests.get("pirate_treasure") else {
         return;
     };
+    let paid = save.data().flag(PIRATE_TREASURE_REWARD_FLAG);
     if !state.is_complete() {
+        if paid {
+            for (item, count) in PIRATE_TREASURE_REWARD {
+                inventory.take(*item, *count);
+            }
+            save.data_mut().set_flag(PIRATE_TREASURE_REWARD_FLAG, false);
+        }
         return;
     }
-    if save.data().flag(PIRATE_TREASURE_REWARD_FLAG) {
+    if paid {
         return;
     }
     let banner = grant_pirate_treasure_reward(&mut inventory, items.get());

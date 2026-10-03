@@ -341,6 +341,8 @@ mod tests {
                 // No controlled body in a rules-only harness; the re-arm is a
                 // room-wide restock and does not read the subject.
                 subject: None,
+                refight: false,
+                to_checkpoint: false,
             });
         app.update();
         assert!(

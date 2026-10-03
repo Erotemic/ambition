@@ -28,9 +28,9 @@ pub struct BossConfig {
     pub behavior: BossBehaviorProfile,
     /// What the encounter is seeded from and read against: resolved at
     /// construction from the catalog the construction carries, which is the
-    /// session's frozen generation. `None` only for a hand-built config (a
-    /// fixture); `update_boss_encounters` then resolves from the App's catalog.
-    pub seed: Option<BossSeed>,
+    /// session's frozen generation. Required, so no road resolves a boss from
+    /// a second catalog (I2/I3).
+    pub seed: BossSeed,
 }
 
 impl BossConfig {
@@ -43,7 +43,7 @@ impl BossConfig {
         situation: ambition_characters::actor::character_catalog::BarkSituation,
         rotation: u32,
     ) -> Option<&'c str> {
-        let voice = self.seed.as_ref()?.encounter.voice.as_deref()?;
+        let voice = self.seed.encounter.voice.as_deref()?;
         catalog.bark_line(voice, situation, rotation)
     }
 }
@@ -58,6 +58,21 @@ impl BossConfig {
 pub struct BossSeed {
     pub encounter: crate::BossEncounterSpec,
     pub reward: crate::BossRewardProfile,
+}
+
+impl BossSeed {
+    /// The seed of a boss whose behaviour is `archetype`, from `catalog`: its
+    /// encounter by that id, else a generic encounter named `name` at
+    /// `max_hp`.
+    pub fn resolved(catalog: &super::BossCatalog, archetype: &str, name: &str, max_hp: i32) -> Self {
+        let profile = crate::BossProfile::for_encounter_id_or_name(catalog, archetype).unwrap_or_else(|| {
+            crate::BossProfile::generic(catalog, archetype.to_string(), name.to_string(), max_hp)
+        });
+        Self {
+            encounter: profile.encounter,
+            reward: profile.reward,
+        }
+    }
 }
 
 /// Mutable encounter-only boss state. Health, liveness, and hit flash live on
@@ -326,6 +341,10 @@ impl BossClusterScratch {
         // sweeps the right box. See `resolve_sheet_body` for its source.
         let render_basis = aabb.half_size() * 2.0;
         let collision_size = behavior.combat_size.unwrap_or(render_basis);
+        let health = ambition_characters::actor::Health::new(18);
+        // From this catalog: by the behaviour's id, else a generic profile at
+        // the body's health.
+        let seed = BossSeed::resolved(boss_catalog, &behavior.id, &name, health.max);
         let mut boss = Self {
             kin: BodyKinematics {
                 pos: center,
@@ -341,30 +360,16 @@ impl BossClusterScratch {
                 spawn: center,
                 brain,
                 behavior,
-                seed: None,
+                seed,
             },
             status: BossEncounter {
                 sprite_metrics: None,
                 encounter: None,
                 render_size: render_basis,
             },
-            health: ambition_characters::actor::BodyHealth::new(
-                ambition_characters::actor::Health::new(18),
-            ),
+            health: ambition_characters::actor::BodyHealth::new(health),
         };
         boss.resolve_sheet_body(boss_catalog);
-        // The same resolution `update_boss_encounters` made on the first tick,
-        // from this catalog: by the behaviour's id, else a generic profile at
-        // the body's health.
-        let archetype = boss.config.behavior.id.clone();
-        let profile = crate::BossProfile::for_encounter_id_or_name(boss_catalog, &archetype)
-            .unwrap_or_else(|| {
-                crate::BossProfile::generic(boss_catalog, archetype, boss.config.name.clone(), boss.health.max())
-            });
-        boss.config.seed = Some(BossSeed {
-            encounter: profile.encounter,
-            reward: profile.reward,
-        });
         boss
     }
 
@@ -523,18 +528,18 @@ pub mod test_support {
         name: impl Into<String>,
         script_id: &str,
     ) -> BossConfig {
+        let catalog = super::super::test_boss_catalog();
+        let name = name.into();
+        let behavior = BossBehaviorProfile::for_authored_boss(catalog, script_id);
         BossConfig {
             id: id.into(),
-            name: name.into(),
+            seed: BossSeed::resolved(catalog, &behavior.id, &name, 18),
+            name,
             spawn: ae::Vec2::ZERO,
             brain: ambition_entity_catalog::placements::BossBrain::PhaseScript {
                 script_id: script_id.to_string(),
             },
-            behavior: BossBehaviorProfile::for_authored_boss(
-                super::super::test_boss_catalog(),
-                script_id,
-            ),
-            seed: None,
+            behavior,
         }
     }
 }

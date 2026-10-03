@@ -9,7 +9,7 @@ fn app() -> App {
 /// Session is `None` here: `seating`'s tests own the identity (session and
 /// tick together). These tests own the sweep.
 fn seated(seats: usize, tick: u64) -> ActiveMatch {
-    ActiveMatch::activated(seats, None, None, Some(tick), None)
+    ActiveMatch::activated(seats, None, Some(tick), None)
 }
 
 /// An object outlives its move but not its match.

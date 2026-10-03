@@ -23,6 +23,8 @@ use crate::rendering::primitives::{FeatureVisual, PlayerVisual};
 
 const ACTOR_ID: &str = "probe_actor";
 const ACTOR_NAME: &str = "Probe Actor";
+/// The character the probe actor wears: its sheet's one key.
+const ACTOR_CHARACTER: &str = "probe_character";
 const PLAYER_ID: &str = "player_robot_v3";
 
 fn asset_app() -> App {
@@ -127,7 +129,7 @@ fn an_actor_body_converges_to_the_new_tier_and_the_old_image_dies() {
     the_image_lands(&mut app, &half);
     let half_image = half.texture.id();
     let mut assets = GameAssets::default();
-    assets.characters.publish(ACTOR_NAME, half);
+    assets.characters.publish(ACTOR_CHARACTER, half);
     app.insert_resource(assets);
 
     app.insert_resource(ambition_sim_view::FeatureViewIndex::from_rows([(
@@ -137,7 +139,7 @@ fn an_actor_body_converges_to_the_new_tier_and_the_old_image_dies() {
     app.insert_resource(ambition_sim_view::ActorRenderIndex::from_rows([(
         ACTOR_ID.to_string(),
         ambition_sim_view::ActorRenderView {
-            sprite_character_id: None,
+            sprite_character_id: Some(ACTOR_CHARACTER.to_string()),
             name: ACTOR_NAME.to_string(),
             is_sandbag: false,
             render_size: None,
@@ -167,7 +169,7 @@ fn an_actor_body_converges_to_the_new_tier_and_the_old_image_dies() {
     app.world_mut()
         .resource_mut::<GameAssets>()
         .characters
-        .publish(ACTOR_NAME, full.clone());
+        .publish(ACTOR_CHARACTER, full.clone());
     app.update();
 
     // `GameAssets` changed a frame ago; the decode finishes now. A binder
@@ -374,10 +376,12 @@ fn an_actor_binds_the_sheet_of_its_character_id_not_its_display_name() {
     );
 }
 
-/// An actor with no `sprite_character_id` (every authored spawn today) still
-/// resolves by its display name.
+/// An actor with no `sprite_character_id` draws the placeholder, even when a
+/// sheet is published under its display name. A display name is not a key
+/// (D166): the binder asked it as a fallback, and over `app_it` and five
+/// rendered rooms that fallback was never taken (2026-10-03).
 #[test]
-fn an_actor_without_a_character_id_still_resolves_by_its_display_name() {
+fn an_actor_without_a_character_id_does_not_bind_by_its_display_name() {
     let mut app = asset_app();
     app.insert_resource(quality(VisualQualityProfile::Low));
     let mut assets = GameAssets::default();
@@ -413,10 +417,10 @@ fn an_actor_without_a_character_id_still_resolves_by_its_display_name() {
         .id();
     app.update();
 
-    assert_eq!(
+    assert_ne!(
         app.world().get::<Sprite>(body).map(|s| s.image.id()),
         Some(art_image),
-        "an actor with no character_id must still resolve by name"
+        "an actor with no character_id was bound the sheet under its display name"
     );
 }
 
@@ -560,10 +564,10 @@ fn a_retired_realization_is_told_apart_from_one_that_never_existed() {
     let mut app = asset_app();
     let full = a_pending_realization(&mut app, TextureResolutionScale::Full);
     let mut assets = GameAssets::default();
-    assets.characters.declare(ACTOR_ID, ACTOR_NAME);
+    assets.characters.declare(ACTOR_ID);
     // A second declared character that is never published, so the test cannot
     // pass if everything reports a retirement.
-    assets.characters.declare(PLAYER_ID, "Never Realized");
+    assets.characters.declare(PLAYER_ID);
 
     assets.characters.publish(ACTOR_ID, full);
     assert!(
@@ -626,7 +630,7 @@ fn a_re_realized_character_no_longer_reports_a_retirement() {
     let full = a_pending_realization(&mut app, TextureResolutionScale::Full);
     let quarter = a_pending_realization(&mut app, TextureResolutionScale::Quarter);
     let mut assets = GameAssets::default();
-    assets.characters.declare(ACTOR_ID, ACTOR_NAME);
+    assets.characters.declare(ACTOR_ID);
 
     assets.characters.publish(ACTOR_ID, full);
     assets
@@ -644,14 +648,6 @@ fn a_re_realized_character_no_longer_reports_a_retirement() {
         assets.characters.retired_tier(ACTOR_ID),
         None,
         "re-realizing clears the trace"
-    );
-    // The display name too. The table is double-keyed, retirement is recorded
-    // per token, and `publish` clears every token the character is declared
-    // under.
-    assert_eq!(
-        assets.characters.retired_tier(ACTOR_NAME),
-        None,
-        "the display name is a token too, and it was retired alongside the id"
     );
 }
 
@@ -679,7 +675,7 @@ fn an_actor_bind_is_one_shot_so_its_geometry_must_be_complete_before_it() {
         let art = a_pending_realization(&mut app, TextureResolutionScale::Full);
         the_image_lands(&mut app, &art);
         let mut assets = GameAssets::default();
-        assets.characters.publish(ACTOR_NAME, art);
+        assets.characters.publish(ACTOR_CHARACTER, art);
         app.insert_resource(assets);
 
         // The snake's numbers: collision already final, render still the
@@ -693,7 +689,7 @@ fn an_actor_bind_is_one_shot_so_its_geometry_must_be_complete_before_it() {
             ..a_feature_view()
         };
         let actor_view = |render_size| ambition_sim_view::ActorRenderView {
-            sprite_character_id: None,
+            sprite_character_id: Some(ACTOR_CHARACTER.to_string()),
             name: ACTOR_NAME.to_string(),
             is_sandbag: false,
             render_size: Some(render_size),
@@ -880,7 +876,7 @@ fn an_actor_waits_for_its_declared_art_rather_than_binding_its_names() {
     let name_image = by_name.texture.id();
     let mut assets = GameAssets::default();
     assets.characters.publish(ACTOR_NAME, by_name);
-    assets.characters.declare(OWN_ART, OWN_ART);
+    assets.characters.declare(OWN_ART);
     app.insert_resource(assets);
     app.insert_resource(ambition_sim_view::FeatureViewIndex::from_rows([(
         ACTOR_ID.to_string(),
@@ -940,7 +936,7 @@ fn an_actor_is_not_bound_its_art_from_a_body_whose_geometry_is_pending() {
     the_image_lands(&mut app, &own);
     let own_image = own.texture.id();
     let mut assets = GameAssets::default();
-    assets.characters.publish(ACTOR_NAME, own);
+    assets.characters.publish(ACTOR_CHARACTER, own);
     app.insert_resource(assets);
     app.insert_resource(ambition_sim_view::FeatureViewIndex::from_rows([(
         ACTOR_ID.to_string(),
@@ -950,7 +946,7 @@ fn an_actor_is_not_bound_its_art_from_a_body_whose_geometry_is_pending() {
         ambition_sim_view::ActorRenderIndex::from_rows([(
             ACTOR_ID.to_string(),
             ambition_sim_view::ActorRenderView {
-                sprite_character_id: Some(ACTOR_NAME.to_string()),
+                sprite_character_id: Some(ACTOR_CHARACTER.to_string()),
                 name: ACTOR_NAME.to_string(),
                 is_sandbag: false,
                 render_size: None,

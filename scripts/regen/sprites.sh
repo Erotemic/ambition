@@ -8,6 +8,7 @@
 #   ./scripts/regen/sprites.sh --force
 #   ./scripts/regen/sprites.sh --list
 #   ./scripts/regen/sprites.sh --target <name>   # repeatable
+#   ./scripts/regen/sprites.sh --check           # list missing outputs; render nothing
 #
 # Environment:
 #   AMBITION_SPRITE_PYTHON=/path/to/python
@@ -21,6 +22,12 @@
 #
 # The renderer/config fingerprint plus expected published outputs form the
 # incremental cache. --force bypasses it.
+#
+# --check answers "is anything not generated yet?" in about a second: it derives
+# the same runtime-required file list the cache and the postcondition use, and
+# reports which files are absent, grouped by the target that produces them.
+# Existence only — it does not validate contents or staleness, and does not
+# look at the reduced-resolution tiers. Exit 0 when complete, 1 when not.
 set -euo pipefail
 
 # ⚠ TWO LEVELS UP: this script lives in `scripts/regen/`, not the repo root.
@@ -49,9 +56,14 @@ print_help() {
     ' "$0"
 }
 
+# For the preflight's "rerun with" line: the command exactly as typed.
+rerun_command="$(printf '%q ' "$0" "$@")"
+rerun_command="${rerun_command% }"
+
 force_regen=0
 list_targets=0
 check_toolchain_only=0
+check_only=0
 # `--target` ACCUMULATES.
 target_names=()
 make_gifs=0
@@ -79,12 +91,19 @@ while [ "$#" -gt 0 ]; do
             shift
             ;;
         --check-toolchain) check_toolchain_only=1; shift ;;
+        --check) check_only=1; shift ;;
         *) echo "unknown arg: $1" >&2; exit 2 ;;
     esac
 done
 
 if [ "$list_targets" -eq 1 ] && [ "${#target_names[@]}" -gt 0 ]; then
     echo "--list and --target are mutually exclusive" >&2
+    exit 2
+fi
+
+if [ "$check_only" -eq 1 ] && { [ "$list_targets" -eq 1 ] || [ "$force_regen" -eq 1 ] \
+    || [ "$make_gifs" -eq 1 ] || [ "${#target_names[@]}" -gt 0 ]; }; then
+    echo "--check takes no other options" >&2
     exit 2
 fi
 
@@ -160,15 +179,21 @@ if [ "$check_toolchain_only" -eq 1 ]; then
     exit $?
 fi
 ldtk_python="$(ambition_select_tool_python "$ldtk_tools_dir" AMBITION_LDTK_PYTHON 0)"
-ambition_require_python_module \
-    "$python_bin" ambition_sprite2d_renderer \
-    "run ./run_developer_setup.sh or set AMBITION_SPRITE_PYTHON=/path/to/python"
-ambition_require_python_module \
-    "$ldtk_python" ambition_ldtk_tools \
-    "run ./run_developer_setup.sh or set AMBITION_LDTK_PYTHON=/path/to/python"
-ambition_require_python_module \
-    "$ldtk_python" PIL \
-    "run ./run_developer_setup.sh so the LDtk tool installs its Pillow dependency"
+# ⭐ EVERY DECLARED DEPENDENCY, not one import. Importing only the tool's own
+# package let a venv without numpy through, and the run then died on the first
+# pirate as "publish roster names an unregistered target". On failure this names
+# the interpreter, why it was chosen, and whether the user's active env would do.
+# `--check` only asks the renderer what it installs; it needs no LDtk tools.
+if [ "$check_only" -eq 1 ]; then
+    ambition_preflight_tool_pythons "$rerun_command" \
+        "$renderer_dir" AMBITION_SPRITE_PYTHON 1 \
+        || exit 1
+else
+    ambition_preflight_tool_pythons "$rerun_command" \
+        "$renderer_dir" AMBITION_SPRITE_PYTHON 1 \
+        "$ldtk_tools_dir" AMBITION_LDTK_PYTHON 0 \
+        || exit 1
+fi
 
 shell_value_is_true() {
     case "${1,,}" in
@@ -753,8 +778,10 @@ publish_targets=(
     mockingbird_boss
 )
 
-# The runtime-required file list. Consumed twice: by the cache fast-path below
-# (a deleted asset re-triggers a render) and by the postcondition at the end.
+# The runtime-required file list. Consumed three times: by `--check`, by the
+# cache fast-path below (a deleted asset re-triggers a render) and by the
+# postcondition at the end. Each line is `<target>\t<file>`: the target is only
+# for reporting which render owns a missing file.
 #
 # diagnostics are excluded because `sweep_runtime_diagnostics.py` MOVES them
 # out of the runtime root at the end of every run — requiring them would make
@@ -762,6 +789,13 @@ publish_targets=(
 # `*_actor.ron` and the tileset/manifest `.ron` sidecars are excluded because
 # the installer copies them opportunistically: 21 registered targets declare one
 # and do not ship it.
+# `*_parts.png` is excluded for the same reason: `install_companions` claims a
+# transform flipbook (`_parts.ron` + `_parts.png`) for EVERY sheet, and only the
+# pirates and Mary-O publish one. The `.ron` half was already dropped by the
+# rule above; the `.png` half slipped through as a PNG, so from 2026-09-30 every
+# other character "missed" one and a full run could never pass its
+# postcondition or cache its fingerprint. Which targets publish a flipbook is
+# not declared anywhere, so it cannot be required; `--check` reports the pairs.
 declare_expected_files() {
     (
         cd "$renderer_dir"
@@ -787,6 +821,8 @@ DIAGNOSTIC_SUFFIXES = (
 def runtime_required(rel: str) -> bool:
     name = Path(rel).name
     if name == "canonicals_contact_sheet.png" or name.endswith(DIAGNOSTIC_SUFFIXES):
+        return False
+    if name.endswith("_parts.png"):
         return False
     if rel.endswith(".ron") and not (
         rel.endswith("_spritesheet.ron") or rel.endswith("_portraits.ron")
@@ -822,23 +858,32 @@ for name in names:
     for rel in report.targets[name].claimed_install_names():
         if runtime_required(rel) and rel not in seen:
             seen.add(rel)
-            emitted.append(rel)
+            emitted.append(f"{name}\t{rel}")
 print("\n".join(emitted))
 DECLARE_EXPECTED
     )
 }
 
 expected_list="$(declare_expected_files "${publish_targets[@]}")"
-mapfile -t expected_files <<< "$expected_list"
+mapfile -t expected_rows <<< "$expected_list"
+# `expected_owners[i]` produces `expected_files[i]`.
+expected_files=()
+expected_owners=()
+for row in "${expected_rows[@]}"; do
+    expected_owners+=("${row%%$'\t'*}")
+    expected_files+=("${row#*$'\t'}")
+done
 # Products this script copies by hand rather than installing through a target.
 for cue in "${faction_cues[@]}"; do
-    expected_files+=(
-        "${cue}_spritesheet.png" "${cue}_spritesheet.yaml" "${cue}_spritesheet.ron"
-        "${cue}_portraits.png" "${cue}_portraits.ron"
-    )
+    for rel in "${cue}_spritesheet.png" "${cue}_spritesheet.yaml" "${cue}_spritesheet.ron" \
+        "${cue}_portraits.png" "${cue}_portraits.ron"; do
+        expected_files+=("$rel")
+        expected_owners+=("draw-factions ($cue)")
+    done
 done
 for pair in "${held_prop_map[@]}" "${construction_prop_map[@]}"; do
     expected_files+=("props/${pair##*:}.png")
+    expected_owners+=("${pair%%:*}")
 done
 
 # The roster has published 800+ files for a year; anything under half that means the helper broke,
@@ -846,6 +891,50 @@ done
 if [ "${#expected_files[@]}" -lt 400 ]; then
     echo "expected-file derivation produced only ${#expected_files[@]} entries" >&2
     echo "— the roster or the renderer registry is broken; refusing to run" >&2
+    exit 1
+fi
+
+if [ "$check_only" -eq 1 ]; then
+    missing_owners=()
+    declare -A missing_by_owner=()
+    missing_count=0
+    for i in "${!expected_files[@]}"; do
+        [ -f "$sprites_dir/${expected_files[$i]}" ] && continue
+        owner="${expected_owners[$i]}"
+        [ -n "${missing_by_owner[$owner]+set}" ] || missing_owners+=("$owner")
+        missing_by_owner[$owner]+="${missing_by_owner[$owner]:+ }${expected_files[$i]}"
+        missing_count=$((missing_count + 1))
+    done
+    # Transform flipbooks are optional per target (see `declare_expected_files`),
+    # so they are reported rather than required — except a draw table without
+    # its atlas page, which the game would wait on forever and draw baked.
+    flipbooks=()
+    for table in "$sprites_dir"/*_parts.ron; do
+        [ -f "$table" ] || continue
+        stem="$(basename "$table" _parts.ron)"
+        flipbooks+=("$stem")
+        if [ ! -f "$sprites_dir/${stem}_parts.png" ]; then
+            owner="$stem (part flipbook)"
+            missing_owners+=("$owner")
+            missing_by_owner[$owner]="${stem}_parts.png"
+            missing_count=$((missing_count + 1))
+        fi
+    done
+    echo "part flipbooks: ${#flipbooks[@]} published${flipbooks[*]:+ (${flipbooks[*]})}"
+    if [ "$missing_count" -eq 0 ]; then
+        echo "ok: all ${#expected_files[@]} runtime-required sprite files present in ${sprites_dir#"$repo_root"/}"
+        exit 0
+    fi
+    echo "missing ${missing_count} of ${#expected_files[@]} runtime-required sprite files" \
+        "(${#missing_owners[@]} target(s)) in ${sprites_dir#"$repo_root"/}:"
+    for owner in "${missing_owners[@]}"; do
+        echo "  $owner"
+        for rel in ${missing_by_owner[$owner]}; do
+            echo "      $rel"
+        done
+    done
+    echo ""
+    echo "Generate them with: ./scripts/regen/sprites.sh  (current sheets are reused from the per-sheet cache)"
     exit 1
 fi
 

@@ -270,9 +270,14 @@ disabled menu state until a shell-less composition exists.
   `ActiveConversation`, `StocksMatchSettled`, `PendingLifecycleCommit`,
   `AcceptedCheckpointRestore`. This is the sharpest entry population, because
   each `None` arm reads past a declared session owner.
-- A known fallback that no `Option` scan can see:
-  `insert_session_world_component` mints `active_scope.unwrap_or(SessionScopeId(0))`,
-  an anonymous default identity.
+- ✅ The fallback no `Option` scan could see is closed (2026-10-03):
+  `insert_session_world_component` refuses in a session-gated composition
+  with no root and no active scope. A direct host (no gate) builds its one root
+  at the named `DIRECT_HOST_SESSION_SCOPE`. Measured first: the branch was
+  reached only by ungated lib-test fixtures, never by `app_it` or the demo
+  suites. Witness:
+  `a_gated_composition_with_no_active_scope_refuses_to_mint_a_session_root`
+  (poison: drop the assert).
 
 ### Work
 

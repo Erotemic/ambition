@@ -233,6 +233,14 @@ What P5a built and measured:
   llvmpipe; grown, one body adds 1.5 ms, 10 add 8 ms, 30 add 15 ms (llvmpipe; a
   hardware GPU is the open measurement). Sprite batches: 2 for any number of
   bodies (was 2 per body).
+- **A class is never full (2026-10-03).** When the last page of a cell class is
+  full at its most size, the class opens one more page: another atlas of that
+  size, with its own targets and cameras, to the right of the last. Before, a
+  body that found its class full kept its baked sheet. A parts-only body (P5b)
+  has no baked page, so it drew `NO_BAKED_IMAGE`, which is nothing: the 37th
+  small body of a room was invisible. Witness:
+  `a_class_with_every_cell_taken_opens_a_page` (37 parts-only raiders, two
+  pages, each body draws its own cell).
 - **The second camera un-premultiplies.** A sprite drawn over a transparent
   clear stores premultiplied colour. Mary-O measured no difference without the
   division (her only partial alpha is a one-pixel dark outline), but a

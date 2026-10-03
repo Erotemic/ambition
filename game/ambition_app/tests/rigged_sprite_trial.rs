@@ -104,9 +104,8 @@ fn an_admitted_admiral_is_drawn_from_its_parts() {
         // composited into.
         let atlas = world
             .resource::<ambition_platformer2d::render::rendering::actors::rigged::RiggedImpostorAtlas>()
-            .0[0]
-            .as_ref()
-            .expect("the impostor atlas");
+            .page(&presentation.impostor)
+            .expect("the impostor atlas page");
         let sprite = world.get::<Sprite>(root).unwrap();
         assert!(
             sprite.image == atlas.image

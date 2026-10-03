@@ -27,6 +27,12 @@
 //! frame (the atlas layout's index), so every reader that understands an atlas
 //! frame understands the impostor.
 //!
+//! ⛔ AN ATLAS IS NEVER FULL. When every cell of a class is taken at its most
+//! size, the class opens one more PAGE (another atlas of that size, with its
+//! own targets and cameras). A body drawn from parts alone has no baked page
+//! to fall back to (`CharacterSpriteAsset::parts_only`): with one page per
+//! class, the 37th small body of a room drew nothing.
+//!
 //! The private camera draws [`RIGGED_IMPOSTOR_LAYER`], and the cells stand far
 //! below any world ([`impostor_cell_feet`]), so no view sees loose parts.
 //!
@@ -72,8 +78,8 @@
 //!
 //! A cell is the frame plus [`IMPOSTOR_MARGIN`] sheet pixels each side, so art
 //! that runs past the baked frame (Mary-O's feet, up to 8 px) is drawn, not
-//! cut. A body whose frame does not fit a cell, or that finds the atlas full,
-//! keeps its baked sheet (and says so once).
+//! cut. A body whose frame does not fit a cell keeps its baked sheet (and says
+//! so).
 //!
 //! ⛔ Nothing here runs unless [`RiggedSpriteAdmission`] admits the flipbooks
 //! (on by default since 2026-10-01). The crouch squash of a sheet without a
@@ -110,11 +116,12 @@ pub const IMPOSTOR_MARGIN: f32 = 16.0;
 /// pirate's about 135 x 146 take the first; Noether's 528 x 560 the second;
 /// the Perfect Cellular Automaton's 686 x 878 the third.
 ///
-/// The first grows to 6 x 6 = 36 bodies (two 1728-texel targets, about 24 MB);
-/// the larger ones to 4 x 4 (2304 and 3584 texels a side), for the few large
-/// bodies a room has. Each starts at one cell, made for the first body that
-/// needs it, and grows a step when a body finds it full (1, 2, 4, then its
-/// most).
+/// A page of the first grows to 6 x 6 = 36 bodies (two 1728-texel targets,
+/// about 24 MB); a page of a larger one to 4 x 4 (2304 and 3584 texels a
+/// side), for the few large bodies a room has. Each page starts at one cell,
+/// made for the first body that needs it, and grows a step when a body finds
+/// it full (1, 2, 4, then its most). When the last page is full at its most,
+/// the class opens a new page.
 ///
 /// ⛔ GROWN, NOT SIZED FOR THE MOST. Every frame the cameras clear and the
 /// un-premultiplying quad shades the whole target: at 6 x 6 that cost a single
@@ -135,26 +142,33 @@ pub fn impostor_cell_class(frame_size: Vec2) -> Option<usize> {
     IMPOSTOR_CELL_CLASSES.iter().position(|(cell, _)| needed <= *cell)
 }
 
-/// The next atlas size after `side` cells per side, or `None` at `most`.
-fn grown(side: u32, most: u32) -> Option<u32> {
+/// The next page size after `side` cells per side, for a page below its
+/// `most`.
+fn grown(side: u32, most: u32) -> u32 {
     match side {
-        0 => Some(1),
-        1 => Some(2),
-        2 => Some(4.min(most)),
-        side if side < most => Some(most),
-        _ => None,
+        0 => 1,
+        1 => 2,
+        2 => 4.min(most),
+        _ => most,
     }
 }
 
-/// The top left of the first atlas's cell grid, far below any world. Small
+/// The top left of the first page's cell grid, far below any world. Small
 /// enough that `f32` keeps sub-pixel positions there (its step at 65,536 is
 /// 1/256 px), so a tweened part moves smoothly. Each larger class's grid
-/// stands [`IMPOSTOR_CLASS_STEP`] higher.
+/// stands [`IMPOSTOR_CLASS_STEP`] higher, and each next page of a class
+/// [`IMPOSTOR_PAGE_STEP`] to the right.
 const IMPOSTOR_ORIGIN: Vec2 = Vec2::new(0.0, -65_536.0);
 
 /// Between two classes' grids: more than the largest atlas (3584 texels), so
 /// no camera sees another class's cells.
 const IMPOSTOR_CLASS_STEP: f32 = 8192.0;
+
+/// Between two pages of a class: more than a page and its un-premultiplying
+/// quad ([`IMPOSTOR_QUAD_OFFSET`] plus 3584 texels), so no camera sees another
+/// page's cells. The sixteenth page stands at x = 245,760, where the `f32`
+/// step is 1/64 px.
+const IMPOSTOR_PAGE_STEP: f32 = 16_384.0;
 
 /// Where the un-premultiplying quad stands: beside the grid, out of its
 /// camera's view.
@@ -168,16 +182,33 @@ const IMPOSTOR_CAMERA_ORDER: isize = -100_000;
 #[derive(Resource, Default, Debug)]
 pub struct RiggedPresentations(pub HashMap<Entity, Entity>);
 
-/// The shared impostor atlases, one per cell class
+/// The shared impostor atlases, the pages of each cell class
 /// ([`IMPOSTOR_CELL_CLASSES`]): two targets each, their cameras, and which
-/// cells are taken. `None` until the first rigged body of its class binds.
+/// cells are taken. A class has no page until the first rigged body of its
+/// class binds.
 #[derive(Resource, Default, Debug)]
-pub struct RiggedImpostorAtlas(pub [Option<ImpostorAtlas>; IMPOSTOR_CELL_CLASSES.len()]);
+pub struct RiggedImpostorAtlas(pub [Vec<ImpostorAtlas>; IMPOSTOR_CELL_CLASSES.len()]);
 
+impl RiggedImpostorAtlas {
+    /// The page `impostor` names.
+    pub fn page(&self, impostor: &Impostor) -> Option<&ImpostorAtlas> {
+        self.0[impostor.class].get(impostor.page)
+    }
+
+    fn give(&mut self, impostor: &Impostor) {
+        if let Some(page) = self.0[impostor.class].get_mut(impostor.page) {
+            page.give(impostor.cell);
+        }
+    }
+}
+
+/// One page of a class: one atlas.
 #[derive(Debug)]
 pub struct ImpostorAtlas {
     /// Its index in [`IMPOSTOR_CELL_CLASSES`].
     pub class: usize,
+    /// Its index in its class's pages.
+    pub page: usize,
     /// Cells per side.
     pub side: u32,
     /// What roots draw: straight alpha.
@@ -195,7 +226,6 @@ pub struct ImpostorAtlas {
     /// The cameras, the quad: what a regrowth replaces.
     entities: Vec<Entity>,
     taken: Vec<bool>,
-    warned: bool,
 }
 
 impl ImpostorAtlas {
@@ -207,7 +237,7 @@ impl ImpostorAtlas {
 
     /// Where a body in cell `cell` stands its feet (see [`impostor_cell_feet`]).
     pub fn cell_feet(&self, cell: u32, feet: Vec2) -> Vec2 {
-        impostor_cell_feet(self.class, self.side, cell, feet)
+        impostor_cell_feet(self.class, self.page, self.side, cell, feet)
     }
 
     /// Its cells' size in sheet pixels.
@@ -222,20 +252,20 @@ impl ImpostorAtlas {
     }
 }
 
-/// Where a body in cell `cell` of the class-`class` atlas `side` cells wide
-/// stands its feet, so that its frame (with margins) fills the cell from its
-/// top left: `feet` is the feet pixel in the cell, +y down.
-pub fn impostor_cell_feet(class: usize, side: u32, cell: u32, feet: Vec2) -> Vec2 {
+/// Where a body in cell `cell` of page `page` of the class-`class` atlas,
+/// `side` cells wide, stands its feet, so that its frame (with margins) fills
+/// the cell from its top left: `feet` is the feet pixel in the cell, +y down.
+pub fn impostor_cell_feet(class: usize, page: usize, side: u32, cell: u32, feet: Vec2) -> Vec2 {
     let side = side.max(1);
     let (column, row) = (cell % side, cell / side);
     let size = IMPOSTOR_CELL_CLASSES[class].0;
-    let top_left = impostor_grid_origin(class) + Vec2::new(column as f32, -(row as f32)) * size;
+    let top_left = impostor_grid_origin(class, page) + Vec2::new(column as f32, -(row as f32)) * size;
     top_left + Vec2::new(feet.x, -feet.y)
 }
 
-/// The top left of the class-`class` atlas's cell grid.
-fn impostor_grid_origin(class: usize) -> Vec2 {
-    IMPOSTOR_ORIGIN + Vec2::new(0.0, class as f32 * IMPOSTOR_CLASS_STEP)
+/// The top left of the cell grid of page `page` of the class-`class` atlas.
+fn impostor_grid_origin(class: usize, page: usize) -> Vec2 {
+    IMPOSTOR_ORIGIN + Vec2::new(page as f32 * IMPOSTOR_PAGE_STEP, class as f32 * IMPOSTOR_CLASS_STEP)
 }
 
 /// Divides a premultiplied impostor's colour back out (see the module docs),
@@ -310,6 +340,8 @@ pub fn add_rigged_impostor_material_plugin(app: &mut App) {
 pub struct Impostor {
     /// The atlas: its index in [`IMPOSTOR_CELL_CLASSES`].
     pub class: usize,
+    /// The page of that class's atlas.
+    pub page: usize,
     pub cell: u32,
     /// The feet in the cell: sheet pixels from its top left, +y down.
     pub feet: Vec2,
@@ -408,9 +440,7 @@ pub fn bind_rigged_presentations(
             return true;
         }
         if let Ok(presentation) = presentations.get(*owner) {
-            if let Some(atlas) = impostors.atlas.0[presentation.impostor.class].as_mut() {
-                atlas.give(presentation.impostor.cell);
-            }
+            impostors.atlas.give(&presentation.impostor);
         }
         commands.entity(*owner).try_despawn();
         false
@@ -470,9 +500,7 @@ fn drop_presentation(
 ) {
     if let Some(owner) = owners.0.remove(&root) {
         if let Ok(presentation) = presentations.get(owner) {
-            if let Some(atlas) = atlas.0[presentation.impostor.class].as_mut() {
-                atlas.give(presentation.impostor.cell);
-            }
+            atlas.give(&presentation.impostor);
         }
         commands.entity(owner).try_despawn();
     }
@@ -522,9 +550,9 @@ fn impostor_camera(target: &Handle<Image>, order: isize, at: Vec2) -> impl Bundl
     )
 }
 
-/// Build the class-`class` atlas `cells` per side: its two targets, its
-/// layout, its cameras and its un-premultiplying quad.
-fn build_atlas(commands: &mut Commands, assets: &mut ImpostorAssets, class: usize, cells: u32) -> ImpostorAtlas {
+/// Build page `page` of the class-`class` atlas `cells` per side: its two
+/// targets, its layout, its cameras and its un-premultiplying quad.
+fn build_atlas(commands: &mut Commands, assets: &mut ImpostorAssets, class: usize, page: usize, cells: u32) -> ImpostorAtlas {
     let cell = IMPOSTOR_CELL_CLASSES[class].0;
     let side = cells as f32 * cell;
     let texels = UVec2::splat(side as u32);
@@ -538,7 +566,7 @@ fn build_atlas(commands: &mut Commands, assets: &mut ImpostorAssets, class: usiz
     let layout = assets.layouts.as_deref_mut().map(|layouts| {
         layouts.add(TextureAtlasLayout::from_grid(UVec2::splat(cell as u32), cells, cells, None, None))
     });
-    let centre = impostor_grid_origin(class) + Vec2::new(side * 0.5, -side * 0.5);
+    let centre = impostor_grid_origin(class, page) + Vec2::new(side * 0.5, -side * 0.5);
     let mut cameras = vec![commands
         .spawn((Name::new("rigged impostor camera"), impostor_camera(&premultiplied, IMPOSTOR_CAMERA_ORDER, centre)))
         .id()];
@@ -578,6 +606,7 @@ fn build_atlas(commands: &mut Commands, assets: &mut ImpostorAssets, class: usiz
     entities.extend(cameras.iter().skip(1).copied());
     ImpostorAtlas {
         class,
+        page,
         side: cells,
         image,
         premultiplied,
@@ -587,35 +616,43 @@ fn build_atlas(commands: &mut Commands, assets: &mut ImpostorAssets, class: usiz
         cells: ImpostorCellOpacity::opaque(cells),
         entities,
         taken: vec![false; (cells * cells) as usize],
-        warned: false,
     }
 }
 
-/// A cell of class `class` for a new body, growing its atlas a step when it is
-/// full. A body already drawn keeps its cell number; the next frame stands its
-/// parts where that number now is (`drive_rigged_presentations` places them
-/// every frame).
-fn take_cell(commands: &mut Commands, assets: &mut ImpostorAssets, class: usize) -> Option<u32> {
-    if let Some(cell) = assets.atlas.0[class].as_mut().and_then(ImpostorAtlas::take) {
-        return Some(cell);
+/// A cell of class `class` for a new body, as `(page, cell)`: a free cell of
+/// any page, else a cell of the last page grown a step, else a cell of a new
+/// page. A body already drawn keeps its page and cell number; the next frame
+/// stands its parts where that number now is (`drive_rigged_presentations`
+/// places them every frame).
+fn take_cell(commands: &mut Commands, assets: &mut ImpostorAssets, class: usize) -> (usize, u32) {
+    let pages = &mut assets.atlas.0[class];
+    if let Some(taken) = pages.iter_mut().enumerate().find_map(|(page, atlas)| atlas.take().map(|cell| (page, cell))) {
+        return taken;
     }
-    let side = assets.atlas.0[class].as_ref().map_or(0, |atlas| atlas.side);
-    let next = grown(side, IMPOSTOR_CELL_CLASSES[class].1)?;
-    let mut atlas = build_atlas(commands, assets, class, next);
-    if let Some(old) = assets.atlas.0[class].take() {
-        for entity in old.entities {
-            commands.entity(entity).try_despawn();
+    let most = IMPOSTOR_CELL_CLASSES[class].1;
+    let (page, side) = match pages.last() {
+        Some(last) if last.side < most => (pages.len() - 1, last.side),
+        _ => (pages.len(), 0),
+    };
+    let mut atlas = build_atlas(commands, assets, class, page, grown(side, most));
+    let pages = &mut assets.atlas.0[class];
+    if let Some(old) = pages.get(page) {
+        for entity in &old.entities {
+            commands.entity(*entity).try_despawn();
         }
         atlas.taken[..old.taken.len()].copy_from_slice(&old.taken);
-        atlas.warned = old.warned;
     }
-    let cell = atlas.take();
-    assets.atlas.0[class] = Some(atlas);
-    cell
+    let cell = atlas.take().expect("a grown page has a free cell");
+    if page < pages.len() {
+        pages[page] = atlas;
+    } else {
+        pages.push(atlas);
+    }
+    (page, cell)
 }
 
-/// A presentation for `root`, or `None` when its frame does not fit a cell or
-/// the atlas is full: the root then keeps its baked sheet.
+/// A presentation for `root`, or `None` when its frame does not fit a cell:
+/// the root then keeps its baked sheet.
 fn spawn_presentation(
     commands: &mut Commands,
     assets: &mut ImpostorAssets,
@@ -625,27 +662,22 @@ fn spawn_presentation(
 ) -> Option<Entity> {
     let flipbook = pages.flipbook.clone();
     let class = impostor_cell_class(flipbook.frame_size.as_vec2());
-    let cell = class.and_then(|class| take_cell(commands, assets, class));
-    let (Some(class), Some(cell)) = (class, cell) else {
-        let warned = class
-            .and_then(|class| assets.atlas.0[class].as_mut())
-            .map(|atlas| std::mem::replace(&mut atlas.warned, true));
-        if warned != Some(true) {
-            warn!(
-                "rigged sprites: `{target}` keeps its baked sheet — its {} px frame fits no impostor cell \
-                 (the largest is {} px with {IMPOSTOR_MARGIN} px margins), or every cell of its size is taken",
-                flipbook.frame_size,
-                IMPOSTOR_CELL_CLASSES[IMPOSTOR_CELL_CLASSES.len() - 1].0,
-            );
-        }
+    let Some(class) = class else {
+        warn!(
+            "rigged sprites: `{target}` keeps its baked sheet — its {} px frame fits no impostor cell \
+             (the largest is {} px with {IMPOSTOR_MARGIN} px margins)",
+            flipbook.frame_size,
+            IMPOSTOR_CELL_CLASSES[IMPOSTOR_CELL_CLASSES.len() - 1].0,
+        );
         return None;
     };
-    let side = assets.atlas.0[class].as_ref().map_or(1, |atlas| atlas.side);
+    let (page, cell) = take_cell(commands, assets, class);
+    let side = assets.atlas.0[class][page].side;
     let feet = flipbook.feet_pixel + Vec2::splat(IMPOSTOR_MARGIN);
     let owner = commands
         .spawn((
             Name::new("rigged presentation"),
-            Transform::from_translation(impostor_cell_feet(class, side, cell, feet).extend(0.0)),
+            Transform::from_translation(impostor_cell_feet(class, page, side, cell, feet).extend(0.0)),
             Visibility::Hidden,
         ))
         .id();
@@ -669,7 +701,7 @@ fn spawn_presentation(
         target: target.to_owned(),
         pages,
         slots,
-        impostor: Impostor { class, cell, feet },
+        impostor: Impostor { class, page, cell, feet },
         drawn: Vec::new(),
     });
     Some(owner)
@@ -691,12 +723,15 @@ pub fn drive_rigged_presentations(
     let Some(mut atlases) = atlas else {
         return;
     };
-    if atlases.0.iter().all(Option::is_none) {
+    if atlases.0.iter().all(Vec::is_empty) {
         return;
     }
-    let mut drawing = [false; IMPOSTOR_CELL_CLASSES.len()];
-    let mut cells: [ImpostorCellOpacity; IMPOSTOR_CELL_CLASSES.len()] = std::array::from_fn(|class| {
-        ImpostorCellOpacity::opaque(atlases.0[class].as_ref().map_or(1, |atlas| atlas.side))
+    // Per page of each class: whether a body draws from it, and its cells'
+    // opacities.
+    let mut drawing: [Vec<bool>; IMPOSTOR_CELL_CLASSES.len()] =
+        std::array::from_fn(|class| vec![false; atlases.0[class].len()]);
+    let mut cells: [Vec<ImpostorCellOpacity>; IMPOSTOR_CELL_CLASSES.len()] = std::array::from_fn(|class| {
+        atlases.0[class].iter().map(|atlas| ImpostorCellOpacity::opaque(atlas.side)).collect()
     });
     for (mut presentation, mut owner_visibility, mut owner_transform) in &mut owners {
         let Ok((animator, mut root_sprite, root_anchor)) = roots.get_mut(presentation.root) else {
@@ -717,14 +752,14 @@ pub fn drive_rigged_presentations(
             owner_visibility.set_if_neq(Visibility::Hidden);
             continue;
         };
-        let class = presentation.impostor.class;
-        let Some(atlas) = atlases.0[class].as_ref() else {
+        let (class, page) = (presentation.impostor.class, presentation.impostor.page);
+        let Some(atlas) = atlases.page(&presentation.impostor) else {
             presentation.drawn = drawn;
             continue;
         };
-        drawing[class] = true;
+        drawing[class][page] = true;
         if let Some(row) = row {
-            cells[class].set(presentation.impostor.cell, flipbook.frame_opacity(row, animator.frame));
+            cells[class][page].set(presentation.impostor.cell, flipbook.frame_opacity(row, animator.frame));
         }
         // Its cell's place, which a regrowth of the atlas moves.
         let place = atlas.cell_feet(presentation.impostor.cell, presentation.impostor.feet).extend(0.0);
@@ -799,10 +834,10 @@ pub fn drive_rigged_presentations(
         presentation.drawn = drawn;
     }
     let mut materials = materials.map(|materials| materials.into_inner());
-    for (class, cells) in cells.into_iter().enumerate() {
-        let Some(atlas) = atlases.0[class].as_mut() else {
-            continue;
-        };
+    let pages = atlases.0.iter_mut().zip(cells).zip(&drawing).flat_map(|((pages, cells), drawing)| {
+        pages.iter_mut().zip(cells).zip(drawing.iter().copied())
+    });
+    for ((atlas, cells), drawing) in pages {
         if atlas.cells != cells {
             if let Some(mut material) = atlas
                 .material
@@ -813,12 +848,12 @@ pub fn drive_rigged_presentations(
             }
             atlas.cells = cells;
         }
-        // An atlas's cameras run while any body of its class draws from
-        // parts, and rest when none does.
+        // A page's cameras run while any body of the page draws from parts,
+        // and rest when none does.
         for entity in &atlas.cameras {
             if let Ok(mut camera) = cameras.get_mut(*entity) {
-                if camera.is_active != drawing[class] {
-                    camera.is_active = drawing[class];
+                if camera.is_active != drawing {
+                    camera.is_active = drawing;
                 }
             }
         }

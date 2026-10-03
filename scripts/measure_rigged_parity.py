@@ -47,6 +47,7 @@ from ambition_sprite2d_renderer.authoring.part_flipbook import (  # noqa: E402
     PartFlipbook,
     largest_wrong_blob,
     parity,
+    tween_draws,
 )
 
 SPRITES = REPO / "crates" / "ambition_platformer2d_actor_monolith" / "assets" / "sprites"
@@ -68,6 +69,10 @@ def main() -> int:
     parser.add_argument("--target", action="append", help="repeatable; default Mary-O's three forms")
     parser.add_argument("--scale", type=float, default=1.0, help="drawn size over the frame size (1 = texel per pixel)")
     parser.add_argument("--both-facings", action="store_true")
+    parser.add_argument(
+        "--phase", type=float, default=0.0,
+        help="how far into each frame (0..1); above 0 a tweened clip is checked against its in-between",
+    )
     parser.add_argument("--out", type=Path, default=REPO / "target" / "rig_parity")
     parser.add_argument("--no-build", action="store_true", help="reuse the last captures in --out")
     args = parser.parse_args()
@@ -83,6 +88,8 @@ def main() -> int:
             command += ["--target", target]
         if args.both_facings:
             command.append("--both-facings")
+        if args.phase:
+            command += ["--phase", str(args.phase)]
         run = subprocess.run(command, cwd=REPO, capture_output=True, text=True)
         if run.returncode != 0:
             print(run.stdout + run.stderr, file=sys.stderr)
@@ -123,18 +130,28 @@ def main() -> int:
         # baked road's way (PIL), unclipped. The offline gate already proves
         # those draws are the baked frame inside the frame.
         oracle = Image.new("RGBA", parts.size, (0, 0, 0, 0))
-        flipbooks[target].draw_frame(oracle, name, frame, feet, flip)
+        # At a phase, the oracle is the published tween rule (`tween_draws`); a
+        # clip that steps is its frame.
+        draws = tween_draws(flipbooks[target], name, frame, args.phase)
+        flipbooks[target].draw_frame(oracle, name, frame, feet, flip, draws=draws)
         wrong, blob = parity(oracle, parts), largest_wrong_blob(oracle, parts)
         # For the record: the published FRAME there, and how the game's baked
         # road draws it.
         published = _published_frame(sheets[target], flipbooks[target], name, frame, parts.size, feet, flip)
+        # ⚠ AN IN-BETWEEN IS REPORTED, NOT GATED. PIL rounds a tweened part to
+        # whole pixels; the GPU draws it between pixels and does not. The
+        # raster difference is that rounding (1-2%, blobs to 39 on Mary-O,
+        # 2026-10-02). The tween's PLACES are gated where they are exact: the
+        # renderer's `test_a_tweened_clip_places_each_part_where_the_in_between_pose_does`
+        # and the runtime's `a_tweened_clip_draws_between_its_frames`.
+        in_between = args.phase > 0.0 and bool(flipbooks[target].tweens.get(name))
         baked_wrong, baked_blob = parity(published, baked), largest_wrong_blob(published, baked)
         lost = int((np.asarray(oracle)[..., 3] > 0).sum() - (np.asarray(published)[..., 3] > 0).sum())
-        if lost > 0:
+        if lost > 0 and not in_between and f"{name}#{frame}" not in clipped[target]:
             clipped[target].append(f"{name}#{frame}")
         w = worst[(target, name)]
         worst[(target, name)] = [max(w[0], wrong), max(w[1], blob), max(w[2], baked_wrong), max(w[3], baked_blob)]
-        if wrong > PARITY_BOUND or blob > BLOB_BOUND:
+        if not in_between and (wrong > PARITY_BOUND or blob > BLOB_BOUND):
             failures.append(f"{target} {name}[{frame}] flip={flip}: {wrong:.4f}, blob {blob}")
     for target in targets:
         frames = sum(1 for row in rows if row["target"] == target)
@@ -146,9 +163,10 @@ def main() -> int:
     print(f"{len(rows)} frames. Columns: the game's PART draw against the published draws (the gate),")
     print("then the game's BAKED draw against the published frame (for the record).")
     for (target, name), (wrong, blob, baked_wrong, baked_blob) in sorted(worst.items()):
+        note = "  (in-between: reported, not gated)" if args.phase > 0.0 and flipbooks[target].tweens.get(name) else ""
         print(
             f"  {target:16} {name:12} parts {wrong * 100:5.2f}% blob {blob:3d}"
-            f"   | baked {baked_wrong * 100:5.2f}% blob {baked_blob:3d}"
+            f"   | baked {baked_wrong * 100:5.2f}% blob {baked_blob:3d}{note}"
         )
     for target, frames in clipped.items():
         print(f"  {target}: the baked frame cuts off art the parts draw, on {len(frames)} frame(s): {', '.join(frames)}")

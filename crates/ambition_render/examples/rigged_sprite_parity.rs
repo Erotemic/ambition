@@ -50,6 +50,10 @@ struct Pin {
     row: String,
     frame: usize,
     flip: bool,
+    /// How far into the frame (0..1): above 0, a tweened clip draws an
+    /// in-between.
+    phase: f32,
+    duration: f32,
 }
 
 /// The last readback, filled by the observer.
@@ -61,6 +65,7 @@ fn main() {
     let mut out = PathBuf::from("target/rig_parity");
     let mut scale: f32 = 1.0;
     let mut flips = vec![false];
+    let mut phase: f32 = 0.0;
     let mut it = std::env::args().skip(1);
     while let Some(arg) = it.next() {
         match arg.as_str() {
@@ -68,6 +73,7 @@ fn main() {
             "--out" => out = PathBuf::from(it.next().expect("--out DIR")),
             "--scale" => scale = it.next().expect("--scale S").parse().expect("--scale S"),
             "--both-facings" => flips = vec![false, true],
+            "--phase" => phase = it.next().expect("--phase T").parse().expect("--phase T"),
             other => {
                 eprintln!("rigged_sprite_parity: unknown argument {other}");
                 std::process::exit(2);
@@ -81,8 +87,8 @@ fn main() {
     for target in &targets {
         let dir = out.join(target);
         std::fs::create_dir_all(&dir).expect("create the output directory");
-        let baked = capture_all(target, false, scale, &flips);
-        let parts = capture_all(target, true, scale, &flips);
+        let baked = capture_all(target, false, scale, &flips, phase);
+        let parts = capture_all(target, true, scale, &flips, phase);
         assert_eq!(baked.len(), parts.len(), "`{target}`: the two runs pinned different frames");
         for ((pin, size, feet, baked), (_pin, _size, _feet, parts)) in baked.into_iter().zip(parts) {
             let stem = format!("{}_{}{}", pin.row, pin.frame, if pin.flip { "_flip" } else { "" });
@@ -116,7 +122,7 @@ fn save(path: &std::path::Path, size: UVec2, pixels: &[u8]) {
 /// Every row and frame of `target`, drawn by one path: `(pin, size, feet
 /// pixel, RGBA)`. The feet pixel is where the root (the body's feet) lands in
 /// the image, +y down, so a reader can place the published frame there.
-fn capture_all(target: &str, rigged: bool, scale: f32, flips: &[bool]) -> Vec<(Pin, UVec2, Vec2, Vec<u8>)> {
+fn capture_all(target: &str, rigged: bool, scale: f32, flips: &[bool], phase: f32) -> Vec<(Pin, UVec2, Vec2, Vec<u8>)> {
     let spec = try_load_spec_for_character_id(target).expect("a baked sheet: run scripts/regen/sprites.sh");
     let frame = Vec2::new(spec.frame_width as f32, spec.frame_height as f32);
     let render = frame * scale;
@@ -156,17 +162,23 @@ fn capture_all(target: &str, rigged: bool, scale: f32, flips: &[bool]) -> Vec<(P
             scale: TextureResolutionScale::Full,
         },
     ));
-    let rows: Vec<(String, usize)> = ambition_sprite_sheet::character::sheets::record_for_sheet_key(target)
+    let rows: Vec<(String, usize, f32)> = ambition_sprite_sheet::character::sheets::record_for_sheet_key(target)
         .expect("a baked sheet record")
         .rows
         .iter()
-        .map(|row| (row.animation.clone(), row.frame_count as usize))
+        .map(|row| (row.animation.clone(), row.frame_count as usize, row.duration_secs))
         .collect();
     let mut out = Vec::new();
     for &flip in flips {
-        for (row, count) in &rows {
+        for (row, count, duration) in &rows {
             for frame in 0..*count {
-                let pinned = Pin { row: row.clone(), frame, flip };
+                let pinned = Pin {
+                    row: row.clone(),
+                    frame,
+                    flip,
+                    phase,
+                    duration: *duration,
+                };
                 *app.world_mut().resource_mut::<Pin>() = pinned.clone();
                 // Two updates: the pin and the drive land, then the frame draws.
                 app.update();
@@ -183,8 +195,10 @@ fn pin(pin: Res<Pin>, mut roots: Query<(&mut Sprite, &mut CharacterAnimator, &mu
     for (mut sprite, mut animator, mut anchor) in &mut roots {
         animator.request_clip([pin.row.as_str()], CharacterAnim::Idle);
         animator.frame = pin.frame;
-        animator.elapsed = 0.0;
-        animator.clip_held = true;
+        // Held at the frame, or `phase` of the way into it. The frame is drawn
+        // with no time passing either way, so it never advances.
+        animator.elapsed = pin.phase * pin.duration;
+        animator.clip_held = pin.phase <= 0.0;
         let flip = animator.face(pin.flip);
         draw_held_frame(&mut sprite, &mut animator, &mut anchor, flip);
         sprite.color = Color::WHITE;

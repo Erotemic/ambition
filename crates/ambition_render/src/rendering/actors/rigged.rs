@@ -61,7 +61,7 @@ use bevy::prelude::*;
 use bevy::sprite::Anchor;
 
 use ambition_persistence::settings::TextureResolutionScale;
-use ambition_sprite_sheet::character::rigged::{RiggedSpriteAdmission, RiggedSpritePages};
+use ambition_sprite_sheet::character::rigged::{PartDraw, RiggedSpriteAdmission, RiggedSpritePages};
 use ambition_sprite_sheet::character::CharacterAnimator;
 use ambition_sprite_sheet::game_assets::GameAssets;
 
@@ -89,6 +89,9 @@ pub struct RiggedPresentation {
     pub tint: Color,
     /// The tint last stated on the root as its portal piece tint.
     pub stated_tint: Option<Color>,
+    /// This frame's draws, tweened toward the next frame when the clip is
+    /// (reused so a frame allocates nothing).
+    pub drawn: Vec<PartDraw>,
 }
 
 /// One reusable part sprite of a rigged presentation.
@@ -264,6 +267,7 @@ fn spawn_presentation(commands: &mut Commands, root: Entity, target: &str, pages
         slots,
         tint,
         stated_tint: None,
+        drawn: Vec::new(),
     });
     owner
 }
@@ -312,14 +316,18 @@ pub fn drive_rigged_presentations(
                 .entity(presentation.root)
                 .try_insert(ambition_portal2d_presentation::PortalPieceTint(presentation.tint));
         }
-        let flipbook = &presentation.pages.flipbook;
+        let flipbook = presentation.pages.flipbook.clone();
         // `None` for a baked clip of a hybrid: `check_rows` at attach makes
-        // sure that every other row has draws.
-        let draws = animator
+        // sure that every other row has draws. A tweened clip draws the frame
+        // `frame_phase` of the way to the next (the flipbook's published rule).
+        let mut drawn = std::mem::take(&mut presentation.drawn);
+        let tweened = animator
             .drawn_row()
             .and_then(|row| animator.spec.row_name(row))
-            .and_then(|row| flipbook.frame(row, animator.frame));
+            .and_then(|row| flipbook.tween_into(row, animator.frame, animator.frame_phase(), &mut drawn));
+        let draws = tweened.map(|()| drawn.as_slice());
         let (Some(draws), Some(basis)) = (draws, animator.render_basis) else {
+            presentation.drawn = drawn;
             // The baked frame draws the body.
             root_sprite.color = presentation.tint;
             hide(&presentation.slots, &mut slots);
@@ -376,6 +384,7 @@ pub fn drive_rigged_presentations(
                 .with_rotation(Quat::from_rotation_z(rotation));
             visibility.set_if_neq(Visibility::Inherited);
         }
+        presentation.drawn = drawn;
     }
 }
 

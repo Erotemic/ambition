@@ -271,6 +271,28 @@ impl CharacterAnimator {
         self.clip_phase = self.clip_slot.and(phase);
     }
 
+    /// How far the current frame has run toward the next, in `0..1`: the `t`
+    /// an in-between is drawn at (`rigged::RiggedSpriteAsset::tween_into`).
+    /// `0` while a clip holds its last frame, and for a row with no clock. A
+    /// clip slaved to a move takes the fraction of the move's progress inside
+    /// the frame it selects.
+    pub fn frame_phase(&self) -> f32 {
+        if self.clip_held {
+            return 0.0;
+        }
+        let row = match self.clip_slot {
+            Some(slot) => self.spec.row_at(slot),
+            None => self.spec.row(self.current),
+        };
+        if let (Some(_), Some(phase)) = (self.clip_slot, self.clip_phase) {
+            return (phase.clamp(0.0, 1.0) * row.frame_count as f32).fract();
+        }
+        if row.duration_secs <= 0.0 {
+            return 0.0;
+        }
+        (self.elapsed / row.duration_secs).clamp(0.0, 1.0)
+    }
+
     /// Advance the animation. Returns the flat atlas index for the current frame.
     pub fn tick(&mut self, dt: f32) -> usize {
         self.advance(dt);

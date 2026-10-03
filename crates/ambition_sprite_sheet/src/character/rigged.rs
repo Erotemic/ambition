@@ -26,8 +26,10 @@ use std::collections::{BTreeMap, BTreeSet};
 use bevy::math::{URect, UVec2, Vec2};
 use serde::Deserialize;
 
-/// The `<target>_parts.ron` schema this build reads.
-pub const PART_FLIPBOOK_SCHEMA_VERSION: u32 = 1;
+/// The `<target>_parts.ron` schema this build writes and reads. Schema 2 adds
+/// the track table (each draw's identity across frames) and the per-clip
+/// tween policy; a schema-1 file reads as untracked clips that step.
+pub const PART_FLIPBOOK_SCHEMA_VERSION: u32 = 2;
 
 /// One part raster on an atlas page.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -60,12 +62,28 @@ pub struct PartDraw {
     /// Radians, clockwise (+y down).
     pub rotation: f32,
     pub part: u16,
+    /// The draw's identity across frames (an index into the flipbook's
+    /// tracks): what a tween pairs. `None` in an untracked flipbook.
+    pub track: Option<u16>,
+}
+
+/// How a clip draws between two of its frames. Published per clip; the
+/// runtime never chooses it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize)]
+pub enum ClipTween {
+    /// Each frame whole until the next.
+    #[default]
+    Step,
+    /// Each track moves from its place in one frame to its place in the next
+    /// ([`RiggedSpriteAsset::tween_into`]).
+    Linear,
 }
 
 /// One row's frames: the timing and each frame's slice of the draw list.
 #[derive(Debug, Clone, PartialEq)]
 pub struct RigSpriteClip {
     pub frame_duration_s: f32,
+    pub tween: ClipTween,
     frames: Vec<(u32, u32)>,
 }
 
@@ -103,6 +121,7 @@ pub enum RiggedSpriteError {
     Schema { found: u32 },
     MissingPage { part: usize, page: u16 },
     MissingPart { clip: String, frame: usize, part: u16 },
+    MissingTrack { clip: String, frame: usize, track: u16 },
     EmptyClip(String),
     TierMismatch {
         tier: &'static str,
@@ -133,11 +152,14 @@ impl std::fmt::Display for RiggedSpriteError {
             Self::Parse(error) => write!(f, "does not parse: {error}"),
             Self::Schema { found } => write!(
                 f,
-                "is schema {found}; this build reads schema {PART_FLIPBOOK_SCHEMA_VERSION}"
+                "is schema {found}; this build reads schemas 1 to {PART_FLIPBOOK_SCHEMA_VERSION}"
             ),
             Self::MissingPage { part, page } => write!(f, "part {part} is on page {page}, which it does not list"),
             Self::MissingPart { clip, frame, part } => {
                 write!(f, "`{clip}` frame {frame} draws part {part}, which it does not have")
+            }
+            Self::MissingTrack { clip, frame, track } => {
+                write!(f, "`{clip}` frame {frame} names track {track}, which it does not list")
             }
             Self::EmptyClip(clip) => write!(f, "`{clip}` has no frames"),
             Self::TierMismatch { tier, parts, expected } => write!(
@@ -163,6 +185,9 @@ struct Published {
     frame_size: (u32, u32),
     feet_pixel: (f32, f32),
     parts: Vec<PublishedPart>,
+    /// Schema 2: the track names a draw's `track` indexes.
+    #[serde(default)]
+    tracks: Vec<String>,
     clips: BTreeMap<String, PublishedClip>,
     /// Absent in a flipbook that realizes every row from parts.
     #[serde(default)]
@@ -185,6 +210,8 @@ struct PublishedPart {
 #[derive(Deserialize)]
 struct PublishedClip {
     frame_duration_s: f32,
+    #[serde(default)]
+    tween: ClipTween,
     frames: Vec<Vec<PublishedDraw>>,
 }
 
@@ -194,14 +221,19 @@ struct PublishedDraw {
     at: (f32, f32),
     rotation: f32,
     scale: (f32, f32),
+    #[serde(default)]
+    track: Option<u16>,
 }
 
 impl RiggedSpriteAsset {
     /// Parse and check a published `<target>_parts.ron`.
     pub fn from_published_ron(text: &str) -> Result<Self, RiggedSpriteError> {
-        let published: Published =
-            ron::from_str(text).map_err(|error| RiggedSpriteError::Parse(error.to_string()))?;
-        if published.schema_version != PART_FLIPBOOK_SCHEMA_VERSION {
+        // A schema-2 draw writes `track: 3`, not `track: Some(3)`.
+        let published: Published = ron::Options::default()
+            .with_default_extension(ron::extensions::Extensions::IMPLICIT_SOME)
+            .from_str(text)
+            .map_err(|error| RiggedSpriteError::Parse(error.to_string()))?;
+        if !(1..=PART_FLIPBOOK_SCHEMA_VERSION).contains(&published.schema_version) {
             return Err(RiggedSpriteError::Schema {
                 found: published.schema_version,
             });
@@ -250,11 +282,19 @@ impl RiggedSpriteAsset {
                             part: draw.part,
                         });
                     }
+                    if let Some(track) = draw.track.filter(|track| usize::from(*track) >= published.tracks.len()) {
+                        return Err(RiggedSpriteError::MissingTrack {
+                            clip: name,
+                            frame: frame_index,
+                            track,
+                        });
+                    }
                     draws.push(PartDraw {
                         at: Vec2::new(draw.at.0, draw.at.1),
                         scale: Vec2::new(draw.scale.0, draw.scale.1),
                         rotation: draw.rotation,
                         part: draw.part,
+                        track: draw.track,
                     });
                 }
                 max_draws = max_draws.max(frame.len());
@@ -264,6 +304,7 @@ impl RiggedSpriteAsset {
                 name,
                 RigSpriteClip {
                     frame_duration_s: clip.frame_duration_s,
+                    tween: clip.tween,
                     frames,
                 },
             );
@@ -385,6 +426,43 @@ impl RiggedSpriteAsset {
         let clip = self.clips.get(row)?;
         let (start, len) = clip.frames[index.min(clip.frames.len() - 1)];
         Some(&self.draws[start as usize..(start + len) as usize])
+    }
+
+    /// Frame `index` of `row` drawn `t` (0..1) of the way to the next frame,
+    /// into `out`. `None` when `row` is not a part clip.
+    ///
+    /// THE RULE (the renderer's `part_flipbook.tween_draws` is its oracle and
+    /// states it the same way): a clip that steps, or `t <= 0`, is the frame
+    /// itself. Otherwise the current frame's draws, in its order; a draw whose
+    /// track is in the next frame (the first after the last: a tweened clip
+    /// loops) WITH THE SAME PART moves linearly to it, turning the shorter way;
+    /// any other draw holds still.
+    pub fn tween_into(&self, row: &str, index: usize, t: f32, out: &mut Vec<PartDraw>) -> Option<()> {
+        let clip = self.clips.get(row)?;
+        let current = self.frame(row, index)?;
+        out.clear();
+        out.extend_from_slice(current);
+        if clip.tween == ClipTween::Step || t <= 0.0 {
+            return Some(());
+        }
+        let index = index.min(clip.frames.len() - 1);
+        let following = self.frame(row, (index + 1) % clip.frames.len())?;
+        let t = t.min(1.0);
+        for draw in out.iter_mut() {
+            let Some(track) = draw.track else { continue };
+            let Some(target) = following.iter().find(|next| next.track == Some(track)) else {
+                continue;
+            };
+            if target.part != draw.part {
+                continue;
+            }
+            let turn = (target.rotation - draw.rotation + std::f32::consts::PI).rem_euclid(std::f32::consts::TAU)
+                - std::f32::consts::PI;
+            draw.at = draw.at.lerp(target.at, t);
+            draw.scale = draw.scale.lerp(target.scale, t);
+            draw.rotation += turn * t;
+        }
+        Some(())
     }
 
     /// The most draws any frame makes: the number of reusable slots a player

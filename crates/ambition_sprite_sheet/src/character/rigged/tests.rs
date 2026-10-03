@@ -43,10 +43,10 @@ fn a_flipbook_that_names_what_it_does_not_have_is_refused() {
         RiggedSpriteAsset::from_published_ron(&bad_page),
         Err(RiggedSpriteError::MissingPage { part: 1, page: 3 })
     ));
-    let future = FIXTURE.replace("schema_version: 1", "schema_version: 2");
+    let future = FIXTURE.replace("schema_version: 1", "schema_version: 3");
     assert!(matches!(
         RiggedSpriteAsset::from_published_ron(&future),
-        Err(RiggedSpriteError::Schema { found: 2 })
+        Err(RiggedSpriteError::Schema { found: 3 })
     ));
 }
 
@@ -164,6 +164,15 @@ fn mary_os_flipbooks_draw_every_row_from_parts() {
             .check_rows(record.rows.iter().map(|row| row.animation.as_str()))
             .unwrap_or_else(|error| panic!("`{target}` {error}"));
         assert_eq!(asset.baked_clip_names().count(), 0, "`{target}` still leaves rows baked");
+        // Her locomotion loops tween; transitions and one-frame rows step (D3).
+        for row in &record.rows {
+            let expected = if ["walk", "crouch_walk", "climb", "swim"].contains(&row.animation.as_str()) {
+                ClipTween::Linear
+            } else {
+                ClipTween::Step
+            };
+            assert_eq!(asset.clip(&row.animation).unwrap().tween, expected, "`{target}` `{}`", row.animation);
+        }
         for row in &record.rows {
             assert_eq!(
                 asset.realization(&row.animation),
@@ -210,4 +219,68 @@ fn the_flipbooks_are_on_unless_the_environment_turns_them_off() {
         "admitted for: unset, 1, on, empty, 0, Off, false, no"
     );
     assert_eq!(RiggedSpriteAdmission::default(), RiggedSpriteAdmission::ADMIT);
+}
+
+/// Schema 2's tween rule (`RiggedSpriteAsset::tween_into`): a tracked draw
+/// with the same part in the next frame moves linearly and turns the shorter
+/// way; a draw whose part changes, or that has no track, holds; a clip that
+/// steps is the frame itself; the last frame tweens to the first.
+#[test]
+fn a_tweened_clip_moves_each_track_to_its_next_place() {
+    let text = r#"(
+        schema_version: 2,
+        target: "toy",
+        pages: ["toy_parts.png"],
+        frame_size: (64, 64),
+        feet_pixel: (32.0, 60.0),
+        parts: [
+            (name: "a", page: 0, rect: (0, 0, 4, 4), pivot: (2.0, 2.0)),
+            (name: "b", page: 0, rect: (4, 0, 4, 4), pivot: (2.0, 2.0)),
+            (name: "c", page: 0, rect: (8, 0, 4, 4), pivot: (2.0, 2.0)),
+        ],
+        tracks: ["arm", "head"],
+        clips: {
+            "walk": (frame_duration_s: 0.1, tween: Linear, frames: [
+                [(part: 0, at: (0.0, 0.0), rotation: 3.0, scale: (1.0, 1.0), track: 0),
+                 (part: 1, at: (5.0, 5.0), rotation: 0.0, scale: (1.0, 1.0), track: 1),
+                 (part: 2, at: (7.0, 7.0), rotation: 0.0, scale: (1.0, 1.0))],
+                [(part: 0, at: (10.0, -4.0), rotation: -3.0, scale: (1.0, 1.0), track: 0),
+                 (part: 2, at: (9.0, 9.0), rotation: 0.0, scale: (1.0, 1.0), track: 1)],
+            ]),
+            "idle": (frame_duration_s: 0.1, frames: [
+                [(part: 0, at: (0.0, 0.0), rotation: 0.0, scale: (1.0, 1.0), track: 0)],
+                [(part: 0, at: (4.0, 0.0), rotation: 0.0, scale: (1.0, 1.0), track: 0)],
+            ]),
+        },
+    )"#;
+    let asset = RiggedSpriteAsset::from_published_ron(text).expect("a schema-2 flipbook");
+    let mut out = Vec::new();
+    asset.tween_into("walk", 0, 0.5, &mut out).unwrap();
+    assert_eq!(out[0].at, Vec2::new(5.0, -2.0));
+    // 3.0 to -3.0 is 0.28 rad the short way, through pi; not 6 rad back.
+    let turned = 3.0 + (std::f32::consts::TAU - 6.0) * 0.5;
+    assert!((out[0].rotation - turned).abs() < 1.0e-5, "{}", out[0].rotation);
+    assert_eq!(out[1].at, Vec2::new(5.0, 5.0), "a track whose part changes holds");
+    assert_eq!(out[2].at, Vec2::new(7.0, 7.0), "an untracked draw holds");
+    asset.tween_into("walk", 1, 0.5, &mut out).unwrap();
+    assert_eq!(out[0].at, Vec2::new(5.0, -2.0), "the last frame tweens to the first");
+    asset.tween_into("idle", 0, 0.5, &mut out).unwrap();
+    assert_eq!(out[0].at, Vec2::ZERO, "a clip that steps holds its frame");
+    assert_eq!(asset.clip("idle").unwrap().tween, ClipTween::Step);
+}
+
+/// A schema-1 file still reads: untracked clips that step.
+#[test]
+fn a_schema_one_flipbook_reads_as_untracked_steps() {
+    let text = r#"(schema_version: 1, target: "toy", pages: ["p.png"], frame_size: (8, 8), feet_pixel: (4.0, 8.0),
+        parts: [(name: "a", page: 0, rect: (0, 0, 2, 2), pivot: (1.0, 1.0))],
+        clips: {"idle": (frame_duration_s: 0.1, frames: [[(part: 0, at: (0.0, 0.0), rotation: 0.0, scale: (1.0, 1.0))]])})"#;
+    let asset = RiggedSpriteAsset::from_published_ron(text).expect("a schema-1 flipbook");
+    assert_eq!(asset.clip("idle").unwrap().tween, ClipTween::Step);
+    assert_eq!(asset.frame("idle", 0).unwrap()[0].track, None);
+    let bad = text.replace("scale: (1.0, 1.0))", "scale: (1.0, 1.0), track: 3)");
+    assert!(matches!(
+        RiggedSpriteAsset::from_published_ron(&bad),
+        Err(RiggedSpriteError::MissingTrack { track: 3, .. })
+    ));
 }

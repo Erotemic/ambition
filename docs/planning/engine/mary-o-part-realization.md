@@ -13,8 +13,8 @@ every rig-document character follows the same road.
 | P1 one composition rule | DONE, two deviations noted below | renderer `e2af3b2` |
 | P2 every row from parts | DONE | renderer `e2af3b2`; `mary_os_flipbooks_draw_every_row_from_parts` (Rust) |
 | P3 in-engine parity | DONE | `scripts/measure_rigged_parity.py` + `crates/ambition_render/examples/rigged_sprite_parity.rs`; both facings inside A ≤ 1%, B ≤ 10 px |
-| P4 interpolation | next | |
-| P5 baked retirement | | |
+| P4 interpolation | DONE | schema 2 (tracks, per-clip `tween`); `RiggedSpriteAsset::tween_into` + `CharacterAnimator::frame_phase`; renderer `tween_draws` |
+| P5 baked retirement | next | |
 
 Deviations from the recommendations, both reaching the same end:
 
@@ -52,6 +52,21 @@ What P3 measured (llvmpipe, texel per pixel, 2026-10-02):
   need overscan.
 - Three draws are entirely covered (a sparkle layer, a hidden leg). Culling them
   at publish is a small saving.
+
+What P4 measured:
+
+- Mary-O's `walk`, `crouch_walk`, `climb` and `swim` publish `tween: Linear`.
+  Everything else steps (D3).
+- Every tweened part, at t = 1/4, 1/2 and 3/4 of every tweened frame, sits
+  within 0.80 px and 0.00000° of where the renderer places it in the lerped
+  pose. The 0.80 px is the keyframes' whole-pixel rounding.
+- In-engine, a slot half-way through a walk frame sits exactly half-way between
+  its two keyframe places (`a_tweened_clip_draws_between_its_frames`). A runtime
+  that does not lerp fails it.
+- `measure_rigged_parity.py --phase T` draws in-betweens through the GPU and
+  reports them without gating them. PIL rounds a tweened part to whole pixels
+  and the GPU does not, so their raster difference (1–2%) measures rounding,
+  not the tween.
 
 Size after P2: packed part pages are 0.541 of the three sheets' texels
 (865,937 / 1,601,774). Fire `transform`'s aura overlays dominate.

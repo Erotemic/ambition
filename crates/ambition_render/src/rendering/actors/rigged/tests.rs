@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use ambition_sprite_sheet::character::rigged::{RiggedSpriteAsset, RiggedSpritePages};
+use ambition_sprite_sheet::character::rigged::{ClipTween, RiggedSpriteAsset, RiggedSpritePages};
 use ambition_sprite_sheet::character::{
     build_character_presentation_with_render_size, try_load_spec_for_character_id, CharacterSpriteAsset,
 };
@@ -450,4 +450,48 @@ fn a_squashed_root_squashes_its_parts_about_the_same_line() {
     // A part point on the foot edge (local y = `foot`) stays where it was.
     let held = squashed.translation.y + squashed.scale.y * foot;
     assert!((held - (at.y + foot)).abs() < 1.0e-3, "the foot edge moved from {} to {held}", at.y + foot);
+}
+
+/// A tweened clip (Mary-O's walk) draws `frame_phase` of the way to the next
+/// frame: half-way through a frame, each slot sits half-way between its place
+/// in this frame and in the next (`RiggedSpriteAsset::tween_into`).
+#[test]
+fn a_tweened_clip_draws_between_its_frames() {
+    let flipbook = RiggedSpriteAsset::baked("mary_o_v2_tall").expect("a published flipbook");
+    assert_eq!(flipbook.clip("walk").unwrap().tween, ClipTween::Linear);
+    let (mut app, root) = app_with(true, sheet_with("mary_o_v2_tall", Some(flipbook.clone())));
+    app.update();
+    let owner = owner(&app, root);
+    let duration = {
+        let mut animator = app.world_mut().get_mut::<CharacterAnimator>(root).unwrap();
+        animator.request(ambition_sprite_sheet::character::CharacterAnim::Walk);
+        animator.frame = 0;
+        animator.elapsed = 0.0;
+        let row = animator.spec.row_name(animator.drawn_row().unwrap()).unwrap().to_owned();
+        assert_eq!(row, "walk");
+        ambition_sprite_sheet::character::sheets::record_for_sheet_key("mary_o_v2_tall")
+            .unwrap()
+            .rows
+            .iter()
+            .find(|sheet_row| sheet_row.animation == row)
+            .unwrap()
+            .duration_secs
+    };
+    app.update();
+    let at_frame = slots(&app, owner);
+    app.world_mut().get_mut::<CharacterAnimator>(root).unwrap().elapsed = duration * 0.5;
+    app.update();
+    let halfway = slots(&app, owner);
+    let scale = RENDER / flipbook.frame_size.as_vec2();
+    let (this, next) = (flipbook.frame("walk", 0).unwrap(), flipbook.frame("walk", 1).unwrap());
+    let mut moved = 0;
+    for (index, draw) in this.iter().enumerate() {
+        let Some(target) = next.iter().find(|next| next.track == draw.track && next.part == draw.part) else {
+            continue;
+        };
+        let expected = at_frame[index].0 + Vec2::new(target.at.x - draw.at.x, -(target.at.y - draw.at.y)) * scale * 0.5;
+        assert!(close(halfway[index].0, expected), "slot {index}: {:?}, expected {expected:?}", halfway[index].0);
+        moved += usize::from(target.at != draw.at);
+    }
+    assert!(moved > 0, "the walk's first two frames move no part, so this tests nothing");
 }

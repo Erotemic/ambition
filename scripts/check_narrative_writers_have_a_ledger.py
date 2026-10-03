@@ -86,7 +86,7 @@ from test_paths import (  # noqa: E402
 sys.path.insert(0, str(REPO / "scripts"))
 # ⚠ IMPORTED, NOT RESPELLED. One owner for "what is code and what is prose",
 # which handles nested `/* */` and every raw-string form.
-from a_rollback_arm_must_refuse_a_frozen_world import code_only  # noqa: E402
+from rust_source import code_only  # noqa: E402
 
 #: The generic argument, across line breaks — every shipped spelling wraps.
 WRITER = re.compile(r"NarrativeInputWriter\s*<\s*([^,>]+?)\s*(?:,|>)", re.DOTALL)

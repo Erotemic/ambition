@@ -1607,23 +1607,16 @@ def build_maintenance_jobs() -> list[Job]:
             [sys.executable, "scripts/check_rollback_mutators_run_in_sim.py"],
         ),
         # ⛔⛤ **AND THE CENSUS THAT FOUND THOSE TWO USED `check_*.py` AS ITS
-        # POPULATION, SO IT COULD NOT SEE THESE THREE.** Two of them are named
-        # for the sentence they assert rather than for the verb `check`, and the
-        # third is a `check_` that simply was not listed. A scan root is a
-        # citation: a member outside it reads as absent rather than as unlooked-
-        # at — which is the exact defect
-        # `a_rollback_arm_must_refuse_a_frozen_world.py` records in its own
-        # docstring about `crates/` and `game/`, committed here by the instrument
-        # hunting it. Re-derived 2026-09-18 over every `scripts/*.py` ending in
-        # `raise SystemExit(main())`, not over a name prefix.
+        # POPULATION, SO IT COULD NOT SEE THE NEXT TWO.** One is named for the
+        # sentence it asserts rather than for the verb `check`, and the other is
+        # a `check_` that simply was not listed. A scan root is a citation: a
+        # member outside it reads as absent rather than as unlooked-at.
+        # Re-derived 2026-09-18 over every `scripts/*.py` ending in
+        # `raise SystemExit(main())`, not over a name prefix. (A third, the
+        # sync-test frozen-world census, was deleted on 2026-10-02: the harness
+        # refuses to step an unhealthy session, so no arm can read a frozen
+        # world.)
         #
-        # This one holds the sync-test frozen-world accounting: the 31-fixture
-        # population, the 12 `ADJUDICATED` readings and the 2 exemptions, plus
-        # the stale-row checks either side. 12 seconds.
-        Job(
-            "a rollback arm must refuse a frozen world",
-            [sys.executable, "scripts/a_rollback_arm_must_refuse_a_frozen_world.py"],
-        ),
         # The 10 interior-mutable test statics and their adjudications. 3 seconds.
         Job(
             "a test static is a channel between arms",

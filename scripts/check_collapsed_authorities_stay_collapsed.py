@@ -17,7 +17,7 @@ crate-wide string count would have failed immediately, which is the same trap
 into: writing the finding down falsifies the evidence for it. ⇒ This strips
 comments and string literals first and asks only about CODE.
 
-⭐ The stripper is [`a_rollback_arm_must_refuse_a_frozen_world.code_only`],
+⭐ The stripper is [`rust_source.code_only`] (`scripts/lib`),
 imported rather than rewritten: it is the one in this tree that handles nested
 `/* */` and every Rust string form including raw strings with an arbitrary `#`
 count, and it got that way by being poisoned through by a review.
@@ -39,7 +39,8 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "scripts"))
 
-import a_rollback_arm_must_refuse_a_frozen_world as frozen  # noqa: E402
+sys.path.insert(0, str(REPO / "scripts" / "lib"))
+from rust_source import code_only  # noqa: E402
 
 #: symbol → (census family, what its return would re-open).
 #:
@@ -106,7 +107,7 @@ def code_occurrences(repo: Path = REPO) -> dict[str, list[tuple[str, int]]]:
         # Cheap reject before the scanner, which is the expensive part.
         if not any(name in text for name in COLLAPSED):
             continue
-        code = frozen.code_only(text)
+        code = code_only(text)
         for name, pattern in patterns.items():
             for match in pattern.finditer(code):
                 found[name].append((rel, code.count("\n", 0, match.start()) + 1))

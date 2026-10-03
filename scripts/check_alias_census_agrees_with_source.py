@@ -45,7 +45,7 @@ from test_paths import (  # noqa: E402
     strip_test_modules,
 )
 
-from a_rollback_arm_must_refuse_a_frozen_world import code_only  # noqa: E402
+from rust_source import code_only  # noqa: E402
 
 CENSUS = REPO / "docs/planning/consolidation/architecture-census.md"
 PLAN = REPO / "docs/planning/consolidation/consolidation-plan.md"

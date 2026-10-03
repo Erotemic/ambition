@@ -131,6 +131,7 @@ def static_rows(run_id: str, label: str) -> list[dict]:
             per_frame = [len(draws) for _ms, frames_ in flipbook.clips.values() for draws in frames_]
             row["parts"] = {
                 "placement": flipbook.placement,
+                "realize": flipbook.realize,
                 "parts": len(flipbook.parts),
                 "tight_texels": flipbook.tight_texels(),
                 "clips": len(flipbook.clips),
@@ -269,16 +270,19 @@ def summarise(rows: list[dict]) -> str:
                 sb = sum(s["png_bytes"] for s, _ in pairs)
                 pb = sum(p["png_bytes"] for _, p in pairs)
                 lines.append(f"- Tier `{tier}` ({len(pairs)} characters with both): sheet {sb / 2**20:.1f} MiB, parts {pb / 2**20:.1f} MiB (**{_ratio(pb, sb)}x**).")
+        baked = sorted(row["target"] for row in drawn if row["parts"].get("realize") == "baked")
+        lines.append(f"- Drawn by the game from parts: **{len(drawn) - len(baked)}**; measured costlier than their sheet and "
+                     f"drawn baked (`realize: baked`): **{len(baked)}** — " + ", ".join(baked) + ".")
         per_frame = [row["parts"]["draws_per_frame"]["max"] or 0 for row in drawn]
         lines.append(f"- Draws per frame: median of characters' max **{statistics.median(per_frame)}**, worst **{max(per_frame)}** "
                      f"({max(drawn, key=lambda r: r['parts']['draws_per_frame']['max'] or 0)['target']}).")
         lines.append("")
-        lines.append("| character | frames | sheet MiB | parts MiB | bytes x | texels x | parts | draws/frame mean / max |")
-        lines.append("| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |")
+        lines.append("| character | road | frames | sheet MiB | parts MiB | bytes x | texels x | parts | draws/frame mean / max |")
+        lines.append("| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |")
         for row in sorted(drawn, key=lambda r: -r["sheet"]["full"]["png_bytes"]):
             s, p = row["sheet"]["full"], row["parts"]["full"]
             lines.append(
-                f"| {row['target']} | {row['frames']} | {s['png_bytes'] / 2**20:.2f} | {p['png_bytes'] / 2**20:.2f} | "
+                f"| {row['target']} | {row['parts'].get('realize', 'parts')} | {row['frames']} | {s['png_bytes'] / 2**20:.2f} | {p['png_bytes'] / 2**20:.2f} | "
                 f"{_ratio(p['png_bytes'], s['png_bytes'])} | {_ratio(p['texels'], s['texels'])} | {row['parts']['parts']} | "
                 f"{row['parts']['draws_per_frame']['mean']} / {row['parts']['draws_per_frame']['max']} |"
             )

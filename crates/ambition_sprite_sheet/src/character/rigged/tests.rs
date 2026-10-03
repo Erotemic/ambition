@@ -152,6 +152,20 @@ fn every_published_flipbook_realizes_its_sheet_at_every_tier() {
     assert!(failures.is_empty(), "{} flipbook(s) the game would refuse:\n{}", failures.len(), failures.join("\n"));
 }
 
+/// The road a flipbook is drawn by is the publish's measured verdict: absent
+/// means parts; `realize: baked` (parts costlier than the sheet) is read back.
+#[test]
+fn a_flipbook_states_the_road_it_is_drawn_by() {
+    let parts = crate::baked_part_flipbooks::baked_part_flipbook_targets()
+        .filter_map(|target| RiggedSpriteAsset::baked(target))
+        .partition::<Vec<_>, _>(|asset| asset.realize == Realize::Parts);
+    assert!(!parts.0.is_empty() && !parts.1.is_empty(), "both roads are published: {} parts, {} baked", parts.0.len(), parts.1.len());
+    let text = crate::baked_part_flipbooks::baked_part_flipbook("director").expect("published");
+    let baked = text.replacen("    placement:", "    realize: baked,\n    placement:", 1);
+    assert_eq!(RiggedSpriteAsset::from_published_ron(&baked).unwrap().realize, Realize::Baked);
+    assert_eq!(RiggedSpriteAsset::from_published_ron(text).unwrap().realize, Realize::Parts);
+}
+
 /// A tier draws the same parts at the same size from its own smaller rects.
 #[test]
 fn a_tier_keeps_every_part_size_and_samples_its_own_rects() {

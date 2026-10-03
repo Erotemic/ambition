@@ -115,6 +115,11 @@ pub fn rigged_pages_in(
     // A flipbook is published per sheet, under the sheet's name.
     let target = spec.base_sheet_key();
     let full = RiggedSpriteAsset::baked(target)?;
+    // A measured verdict at publish: this character's parts cost more than
+    // its sheet, so it is drawn baked (the flipbook stays published).
+    if full.realize == ambition_sprite_sheet::character::rigged::Realize::Baked {
+        return None;
+    }
     full.check_rows(spec.row_names()).unwrap_or_else(|error| {
         panic!(
             "the part flipbook of `{target}` {error} (the realized sheet's {} rows: {:?})",

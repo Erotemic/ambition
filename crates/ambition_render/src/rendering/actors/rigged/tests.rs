@@ -173,9 +173,10 @@ fn close(a: Vec2, b: Vec2) -> bool {
     (a - b).abs().max_element() < 1.0e-3
 }
 
-/// The first class's atlas: the one every body of these tests takes.
+/// The first page of the first class's atlas: the one every body of these
+/// tests takes.
 fn atlas(app: &App) -> &ImpostorAtlas {
-    app.world().resource::<RiggedImpostorAtlas>().0[0].as_ref().expect("the impostor atlas was built")
+    app.world().resource::<RiggedImpostorAtlas>().0[0].first().expect("the impostor atlas was built")
 }
 
 /// Whether the root draws its impostor: its cell of the shared atlas.
@@ -352,6 +353,80 @@ fn each_body_has_its_own_cell() {
     };
     app.update();
     assert_eq!(cell(&app, third), a, "the freed cell was not reused");
+}
+
+/// More bodies drawn from parts alone than one page of their class holds:
+/// each draws its own cell, the class opens a second page for the 37th, and no
+/// body draws [`NO_BAKED_IMAGE`], which is what a body with no cell falls back
+/// to.
+#[test]
+fn a_class_with_every_cell_taken_opens_a_page() {
+    use ambition_sprite_sheet::character::NO_BAKED_IMAGE;
+    let mut sheet = raider(true);
+    sheet.texture = NO_BAKED_IMAGE;
+    for page in &mut sheet.pages {
+        page.texture = NO_BAKED_IMAGE;
+    }
+    assert!(sheet.parts_only(), "the sheet is not drawn from parts alone, so this tests nothing");
+    let (mut app, first) = app_with(true, sheet.clone());
+    let most = (IMPOSTOR_CELL_CLASSES[0].1 * IMPOSTOR_CELL_CLASSES[0].1) as usize;
+    let mut roots = vec![first];
+    let feet = Vec2::new(sheet.spec.feet_anchor_x, sheet.spec.feet_anchor_y);
+    for _ in 0..most {
+        let (sprite, anchor, animator) = build_character_presentation_with_render_size(&sheet, RENDER, Anchor(feet));
+        roots.push(
+            app.world_mut()
+                .spawn((sprite, anchor, animator, Transform::default(), Visibility::Inherited))
+                .id(),
+        );
+    }
+    app.update();
+    let pages = &app.world().resource::<RiggedImpostorAtlas>().0[0];
+    assert_eq!(pages.len(), 2, "{} bodies in one page of {most} cells", roots.len());
+    assert_ne!(pages[0].image, pages[1].image, "two pages share one target");
+    let mut per_page = [0; 2];
+    for root in &roots {
+        let sprite = app.world().get::<Sprite>(*root).unwrap();
+        assert!(sprite.image != NO_BAKED_IMAGE, "a body drawn from parts alone draws no image");
+        let owner = owner(&app, *root);
+        let impostor = app.world().get::<RiggedPresentation>(owner).unwrap().impostor;
+        let page = &app.world().resource::<RiggedImpostorAtlas>().0[0][impostor.page];
+        assert!(
+            sprite.image == page.image
+                && sprite.texture_atlas.as_ref().map(|frame| frame.index) == Some(impostor.cell as usize),
+            "a body does not draw its cell of page {}",
+            impostor.page
+        );
+        let place = app.world().get::<Transform>(owner).unwrap().translation.truncate();
+        assert_eq!(place, impostor_cell_feet(0, impostor.page, page.side, impostor.cell, impostor.feet));
+        per_page[impostor.page] += 1;
+    }
+    assert_eq!(per_page, [most, 1]);
+    // The second page stands to the right of the first and its quad, and its
+    // cameras run for the body it holds.
+    let pages = &app.world().resource::<RiggedImpostorAtlas>().0[0];
+    assert!(pages[1].cell_feet(0, Vec2::ZERO).x >= IMPOSTOR_PAGE_STEP);
+    for camera in &pages[1].cameras {
+        assert!(app.world().get::<Camera>(*camera).unwrap().is_active, "the second page rests");
+    }
+
+    // Each page renders for its own cells only: a frame with no change rests
+    // both, and a new frame of the body on the second page runs the second
+    // page's cameras and not the first's.
+    let active = |app: &App, page: usize| {
+        let cameras = &app.world().resource::<RiggedImpostorAtlas>().0[0][page].cameras;
+        cameras.iter().map(|camera| app.world().get::<Camera>(*camera).unwrap().is_active).collect::<Vec<_>>()
+    };
+    app.update();
+    assert!(!active(&app, 0).contains(&true) && !active(&app, 1).contains(&true), "a page renders with no change");
+    let on_second = *roots
+        .iter()
+        .find(|root| app.world().get::<RiggedPresentation>(owner(&app, **root)).unwrap().impostor.page == 1)
+        .unwrap();
+    app.world_mut().get_mut::<CharacterAnimator>(on_second).unwrap().frame = 3;
+    app.update();
+    assert!(!active(&app, 1).contains(&false), "the second page rests while its body changes");
+    assert!(!active(&app, 0).contains(&true), "the first page renders for a body of the second");
 }
 
 /// The raider's published flipbook with `row` left to the baked sheet: its
@@ -824,13 +899,13 @@ fn a_large_frame_takes_a_cell_of_its_size() {
     let impostor = app.world().get::<RiggedPresentation>(owner).unwrap().impostor;
     assert_eq!(impostor.class, 1);
     let atlases = &app.world().resource::<RiggedImpostorAtlas>().0;
-    assert!(atlases[0].is_none(), "the first atlas was built for a body that does not fit it");
-    let atlas = atlases[1].as_ref().expect("the second atlas");
+    assert!(atlases[0].is_empty(), "the first atlas was built for a body that does not fit it");
+    let atlas = atlases[1].first().expect("the second atlas");
     assert_eq!(atlas.cell_size(), 576.0);
     let sprite = app.world().get::<Sprite>(root).unwrap();
     assert!(sprite.image == atlas.image, "the root does not draw the second atlas");
     // Its cell's place is the second grid's: no camera of the first sees it.
     let place = app.world().get::<Transform>(owner).unwrap().translation.truncate();
-    assert_eq!(place, impostor_cell_feet(1, atlas.side, impostor.cell, impostor.feet));
+    assert_eq!(place, impostor_cell_feet(1, 0, atlas.side, impostor.cell, impostor.feet));
     assert!(place.y > IMPOSTOR_ORIGIN.y, "{place}");
 }

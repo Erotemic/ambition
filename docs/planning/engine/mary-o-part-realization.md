@@ -81,6 +81,43 @@ Published part pages run 0.1 to 0.8 of the full frames' texels, typically
 under their trimmed sheets; puppy_slug (1.6) and ninja_shadow_oni_leader
 (1.23) cost more than their sheets.
 
+⛔ **Recorded shape by shape, a procedural painter is NOT a part character
+(census, 2026-10-03).** Faithful, yes; cheap, no: a limb drawn already turned
+into the frame is a new part at every angle, so 71 of 143 flipbooks held more
+texels than their own baked sheet or took over 64 draws a frame (the goblins
+140). Two answers, both landed:
+
+* **The road is a measured verdict.** `part_flipbook.realization_by_cost`
+  decides at publish: parts unless the packed part pages hold more texels than
+  the sheet's pages or a frame takes more than 64 draws. The flipbook records it
+  (`realize: parts | baked`); `rigged_pages_in` honours it. The capability and
+  the flipbook stay; only the road changes. Census and ledger:
+  `scripts/measure_part_flipbook_cost.py`,
+  `dev/ambition_dev_measurements/part_flipbook_cost.jsonl`.
+* **The old painters are rebuilt as rigs** (Jon: exact pixels not required for
+  the old characters, fix how they are constructed). `authoring/shape_rig.py`:
+  a piece is painted once in its own frame and placed by
+  `rigdoc.blit_rotated`, so the sheet is composed from pieces and the flipbook
+  stores each once. Goblins 631 parts / 140 draws -> 27 / 22; the shadow oni
+  leader 2307 / 139 -> 34 / 26; girdle 3489 / 59 -> 293 / 28; the toons ~300 ->
+  ~25 parts at 0.02-0.4x their sheets. Every rebuilt character replays its new
+  frames inside D6 and passes the cost rule (fsm_noodling excepted).
+
+Also: always-rigid neighbouring draws are composited into one part when that
+adds no texels (`_merge_rigid_neighbours`; noether -9% draws), and an impostor
+atlas renders only on a frame where one of its cells changed.
+
+⛔ **A flipbook is the SHEET's, keyed by the sheet's name.** A generator's sheets
+record the generator as their `target` (`robot_archivist`'s is "robot"); looked
+up by target, one sheet was handed another's flipbook and the hall panicked.
+`CharacterSheetSpec::base_sheet_key()` is the key everywhere a flipbook is found.
+
+⛔ **A tier table is derived, never recorded again.** Recorded at a tier's scale,
+a shape recording merged differently and 71 tier tables named another part
+count, which the game refuses. A tier render (`quality_tier_render()`) publishes
+no flipbook; `build_parts_variant` derives the table from the full one. Census:
+`every_published_flipbook_realizes_its_sheet_at_every_tier`.
+
 ⛔ **The pirates meet D6 now.** Their old flipbook transformed parts drawn at one
 scale and measured 5.5% and a blob of 69 against frames each fitted by its own
 LANCZOS scale. Recorded through `sheet_build.downsample`'s seams, each shape is
@@ -233,6 +270,20 @@ What P5a built and measured:
   llvmpipe; grown, one body adds 1.5 ms, 10 add 8 ms, 30 add 15 ms (llvmpipe; a
   hardware GPU is the open measurement). Sprite batches: 2 for any number of
   bodies (was 2 per body).
+- **A class is never full (2026-10-03).** When the last page of a cell class is
+  full at its most size, the class opens one more page: another atlas of that
+  size, with its own targets and cameras, to the right of the last. Before, a
+  body that found its class full kept its baked sheet. A parts-only body (P5b)
+  has no baked page, so it drew `NO_BAKED_IMAGE`, which is nothing: the 37th
+  small body of a room was invisible. Witness:
+  `a_class_with_every_cell_taken_opens_a_page` (37 parts-only raiders, two
+  pages, each body draws its own cell, and each page renders for its own cells
+  only). Measured in `hall_of_characters` with every published flipbook
+  realized from parts (the publish of renderer `dff162f`, before the cost
+  verdict): 79 bodies of the first class had no cell and drew nothing; with
+  pages, none, and the first class holds its 115 bodies in 4 pages. Not
+  measured: the count at the shipped cost verdict, and what four pages cost a
+  frame.
 - **The second camera un-premultiplies.** A sprite drawn over a transparent
   clear stores premultiplied colour. Mary-O measured no difference without the
   division (her only partial alpha is a one-pixel dark outline), but a

@@ -131,7 +131,6 @@ pub fn sync_portal_body_pieces(
             &Sprite,
             Option<&Anchor>,
             &Transform,
-            Option<&crate::PortalPieceTint>,
         ),
         With<PortalSceneBody>,
     >,
@@ -145,7 +144,7 @@ pub fn sync_portal_body_pieces(
     for entity in &pieces {
         commands.entity(entity).despawn();
     }
-    let Ok((source_body, kin, transit, roll, sprite, source_anchor, source_transform, stated_tint)) =
+    let Ok((source_body, kin, transit, roll, sprite, source_anchor, source_transform)) =
         body_visual.single()
     else {
         return;
@@ -228,7 +227,7 @@ pub fn sync_portal_body_pieces(
             let mesh = unit_mesh
                 .get_or_insert_with(|| meshes.add(Rectangle::default()))
                 .clone();
-            let tint = crate::piece_tint(sprite, stated_tint);
+            let tint = crate::piece_tint(sprite);
             let flip_flag = |flip: bool| Vec4::new(if flip { 1.0 } else { 0.0 }, 0.0, 0.0, 0.0);
 
             // `here`: the real pose, keeping only what is still in front of

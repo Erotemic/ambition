@@ -11,6 +11,12 @@ pub const FRONT_HUD_LAYER: usize = 1;
 /// camera never draws another view's camera-relative backdrop.
 pub const PARALLAX_BACKGROUND_LAYER: usize = 2;
 
+/// Render layer of the private cameras that composite a part-drawn body into
+/// its impostor texture (`ambition_render::rendering::actors::rigged`). Only
+/// those cameras draw it, so no view sees a body's loose parts; each body's
+/// parts stand in a cell of their own far below any world.
+pub const RIGGED_IMPOSTOR_LAYER: usize = 6;
+
 /// Base of the render-layer band reserved for isolated local-view projections.
 ///
 /// Lower ranges are reserved for world/HUD/parallax/portal/overlay layers. The

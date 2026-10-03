@@ -153,6 +153,19 @@ pub(crate) fn draw_animator_frame(
     }
 }
 
+/// Draw `animator`'s current frame on `sprite` without advancing it: the
+/// page, atlas index, facing flip and trimmed size and anchor, exactly as the
+/// game draws a frame. For a harness that pins a row and frame and compares
+/// realizations (`examples/rigged_sprite_parity.rs`).
+pub fn draw_held_frame(
+    sprite: &mut Sprite,
+    animator: &mut CharacterAnimator,
+    anchor: &mut bevy::sprite::Anchor,
+    flip: bool,
+) {
+    draw_animator_frame(sprite, animator, Some(anchor), 0.0, flip, StanceSquash::NONE);
+}
+
 /// Drive the player sprite's animation state, atlas index, and facing flip.
 /// Runs every frame; no-op on color-rectangle fallbacks (no `CharacterAnimator`).
 ///

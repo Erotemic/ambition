@@ -36,27 +36,6 @@ awk '/^### /{if(n)printf "%s %s\n", c, n; n=$2; c=0} {c++} END{printf "%s %s\n",
 
 ## P0 — architecture and correctness
 
-### SYNC-POINT-SENSITIVE-RESIM — a command sync point moves the death-reset replay
-
-**Owner:** rollback determinism.
-
-**Current state:** a lead, not a reproduced defect. On 2026-09-22 one added
-schedule edge (`ensure_sim_id → mint_spawned_sim_ids → heal_projectile_owners`
-ordered `.before(SimClockHead)`) made two `rollback_lifecycle_reset` death tests
-fail with a GGRS sync-test mismatch. The edge touches no clock state; it only
-moves where Bevy applies that chain's `Commands`. Re-measured 2026-09-23, the
-same edge passes all five tests. Part of the first reading was an audit defect
-(frame-keyed history compared across a lifecycle rebase), fixed and held by
-`a_rebased_timeline_is_not_compared_against_the_one_it_replaced`. Nobody knows
-whether later schedule changes fixed the sensitivity or only moved it.
-
-**Next action:** probe with an edge that moves a sync point on the death →
-checkpoint road, under `RollbackRestoreAudit`.
-
-**Acceptance:** a probe either reproduces a mismatch and names the system that
-reads unrestored state (then fix it), or the probes find none and the row is
-deleted.
-
 ### ID-PEER — remove host-local lineage from peer-stable mechanical identity
 
 **Owner:** deterministic identity / rollback architecture. The identity map is

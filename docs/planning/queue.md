@@ -125,13 +125,23 @@ local counters differ.
 **Current state (measured 2026-10-03):** the guard reads every rollback
 registration in every supported parameter spelling, including writes in the
 body of an exclusive-world system. It reports 490 systems that mutate rollback
-state and 2 acknowledged offenders, both owed to this row:
+state and 0 acknowledged offenders.
 
-- `adopt_occurrence_checkpoint_from_save` and `complete_durable_restore`: one-shot
-  latches on `SaveRestored` in `Update`. They write only before a timeline
-  starts, because the `Q135` gate refuses to start GGRS while durable hydration
-  is pending (see DURABLE-HORIZON-CHECKSUM). Do not waive them on the activation
-  argument: GGRS start and the restore chain wait on different facts.
+✅ `adopt_occurrence_checkpoint_from_save` and `complete_durable_restore` moved to
+`WAIVERS` on 2026-10-03, beside `restore_inventory_from_save`. The argument is
+measured and held by a runtime check. All three write only on the frame
+`SaveRestored` rises, because they ask the population `durable_hydration_is_pending`
+asks. The `Q135` gate refuses to START a session while hydration is pending. The
+other half was the gap: teardown resets the latch, so a session that stayed live
+would see it rise again. `refuse_a_restore_over_a_live_timeline`
+(`rollback_ggrs/src/session.rs`) now debug-asserts that the latch never rises on
+a frame that began with a live session. Witness:
+`a_save_applied_over_a_live_timeline_is_refused`. Control:
+`a_live_timeline_with_the_save_applied_runs_on`. Poisoning the assert lets the
+write through, and the sync test stays healthy. Measured over `app_it`: 226 rises,
+each on a frame that began with no session; 40 falls, each on a frame that also
+ended the session. The old waiver's "the latch has no `true -> false`
+transition" was false: teardown is one.
 
 ✅ `reconcile_roster_with_frozen_topology` left on 2026-10-03. Its one rollback
 write was `ActiveMatch::adopt_seat_topology`, a copy of the roster's record that
@@ -142,9 +152,7 @@ The exit code means "no new offender", not "clean". `ACKNOWLEDGED` names drift
 that is real and the row that owes it. `WAIVERS` carry an argument. A banked
 name that the scan stops reporting is fatal.
 
-**Next action:** for each acknowledged offender, either move the write onto the
-rewinding schedule (or onto a host intent), or record a measured argument and
-move it to `WAIVERS`.
+**Next action:** the acceptance items below. No offender is acknowledged.
 
 **Known limits of the guard:**
 
@@ -775,7 +783,8 @@ peer-stable checksum. The restore chain's three `Update` residents
 `Q135` gate keeps GGRS from starting while `durable_hydration_is_pending`. The
 gate and the chain ask one population question (`bodies.single().is_err()`),
 held by `a_population_the_restore_cannot_complete_on_is_written_to_by_nobody`.
-The chain's two offenders stay acknowledged in ROLLBACK-MUTATOR-POPULATION.
+The chain's three `Update` residents are waived in the mutator guard, held by
+`refuse_a_restore_over_a_live_timeline` (see ROLLBACK-MUTATOR-POPULATION).
 
 **What is left:** `Q129` (must the save file be part of what two peers agree
 on?). It is open and does not block this row. Whether that closes the row is a

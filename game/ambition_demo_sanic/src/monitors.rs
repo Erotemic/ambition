@@ -24,7 +24,9 @@
 
 use bevy::prelude::*;
 
+use ambition_platformer2d::actors::session::reset::PerLiveRoom;
 use ambition_platformer2d::engine_core as ae;
+use ambition_platformer2d::platformer::lifecycle::LiveRoomInstance;
 use ambition_platformer2d::platformer::markers::PrimaryPlayer;
 
 use crate::SUPER_SANIC_CHARACTER_ID;
@@ -60,8 +62,11 @@ const STOMP_BAND: f32 = 16.0;
 /// `Clone` because it is rollback state: the overlay subtracts these names
 /// from collision every frame, so a rewind that does not restore the set
 /// disagrees with the world about which monitors are solid.
+///
+/// Keyed by live room: two live rooms can author a monitor with one name (two
+/// instances of one act), and a monitor broken in one is whole in the other.
 #[derive(Resource, Default, Clone)]
-pub struct SpentMonitors(pub Vec<String>);
+pub struct SpentMonitors(PerLiveRoom<Vec<String>>);
 
 impl SpentMonitors {
     /// A checksum over which monitors are spent.
@@ -69,18 +74,34 @@ impl SpentMonitors {
     /// Order-independent even though this is a `Vec`: peers running the same
     /// simulation break monitors in the same order, so XORing per-name hashes
     /// loses nothing a desync check needs, and it would survive a switch to a
-    /// set.
+    /// set. Each name is hashed with its room.
     pub fn checksum(&self) -> u64 {
         use std::hash::{Hash, Hasher};
-        self.0.iter().fold(0u64, |acc, name| {
-            let mut hasher = std::collections::hash_map::DefaultHasher::new();
-            name.hash(&mut hasher);
-            acc ^ hasher.finish()
+        self.0.iter().fold(0u64, |acc, (room, names)| {
+            names.iter().fold(acc, |acc, name| {
+                let mut hasher = std::collections::hash_map::DefaultHasher::new();
+                room.ordinal().hash(&mut hasher);
+                name.hash(&mut hasher);
+                acc ^ hasher.finish()
+            })
         })
     }
 
-    fn is_broken(&self, name: &str) -> bool {
-        self.0.iter().any(|broken| broken == name)
+    /// Whether this monitor (or breakable wall) of `room` is broken.
+    pub fn is_broken(&self, room: LiveRoomInstance, name: &str) -> bool {
+        self.spent_in(room).iter().any(|broken| broken == name)
+    }
+
+    /// The broken names of `room`, in the order they broke.
+    pub fn spent_in(&self, room: LiveRoomInstance) -> &[String] {
+        self.0.in_room(room).map_or(&[], Vec::as_slice)
+    }
+
+    /// Break this monitor of `room`. Idempotent.
+    pub fn spend(&mut self, room: LiveRoomInstance, name: &str) {
+        if !self.is_broken(room, name) {
+            self.0.in_room_mut(room).push(name.to_string());
+        }
     }
 }
 
@@ -112,10 +133,10 @@ pub fn break_monitor_boxes(
     else {
         return;
     };
-    let Some(room_geometry) = geometry.of(player) else {
+    let (Some(room), Some(room_geometry)) = (geometry.room_of(player), geometry.of(player)) else {
         return;
     };
-    let mut vfx = vfx.for_room(geometry.room_of(player));
+    let mut vfx = vfx.for_room(Some(room));
     let rolling = rolling.is_some();
     let falling = kin.vel.y > 0.0;
     if !rolling && !falling {
@@ -125,14 +146,14 @@ pub fn break_monitor_boxes(
     // Where a rolling body will be by next tick, plus a little: see `BREAK_REACH`.
     let reach = kin.vel.abs() * time.sim_dt() * 2.0 + ae::Vec2::splat(BREAK_REACH);
     for block in &room_geometry.0.blocks {
-        if block.name.starts_with(BREAKABLE_WALL) && !spent.is_broken(&block.name) {
+        if block.name.starts_with(BREAKABLE_WALL) && !spent.is_broken(room, &block.name) {
             let b = block.aabb;
             let near = p.min.x - reach.x < b.max.x
                 && p.max.x + reach.x > b.min.x
                 && p.min.y - reach.y < b.max.y
                 && p.max.y + reach.y > b.min.y;
             if rolling && near {
-                spent.0.push(block.name.clone());
+                spent.spend(room, &block.name);
                 let center = (b.min + b.max) * 0.5;
                 vfx.write(ambition_platformer2d::vfx::VfxMessage::Burst {
                     pos: center,
@@ -151,7 +172,7 @@ pub fn break_monitor_boxes(
             }
             continue;
         }
-        if !block.name.starts_with(MONITOR_PREFIX) || spent.is_broken(&block.name) {
+        if !block.name.starts_with(MONITOR_PREFIX) || spent.is_broken(room, &block.name) {
             continue;
         }
         let b = block.aabb;
@@ -164,7 +185,7 @@ pub fn break_monitor_boxes(
         if !(stomp || roll) {
             continue;
         }
-        spent.0.push(block.name.clone());
+        spent.spend(room, &block.name);
         let center = (b.min + b.max) * 0.5;
         vfx.write(ambition_platformer2d::vfx::VfxMessage::Burst {
             pos: center,
@@ -225,11 +246,14 @@ pub fn contribute_broken_monitors_to_overlay(
     spent: Res<SpentMonitors>,
     mut overlays: ambition_platformer2d::world::RoomOverlays,
 ) {
-    // The sole live room's overlay: this content is one room.
-    let Some(mut overlay) = overlays.sole() else {
-        return;
-    };
-    overlay.removed_block_names.extend(spent.0.iter().cloned());
+    // Each room's monitors go into that room's own overlay.
+    for (room, names) in spent.0.iter() {
+        let stamp = ambition_platformer2d::platformer::lifecycle::InRoomInstance(room);
+        let Some(mut overlay) = overlays.for_room(Some(&stamp)) else {
+            continue;
+        };
+        overlay.removed_block_names.extend(names.iter().cloned());
+    }
 }
 
 /// Spent monitors are per-attempt: the next life starts with a full set of
@@ -237,14 +261,17 @@ pub fn contribute_broken_monitors_to_overlay(
 ///
 /// Sanic declares `DeathRules::replay_level_after(0.0)`, so a pit death
 /// replays the room in place, and an in-place replay does not emit
-/// `RoomLoaded`. `AttemptScoped` re-arms on both signals; an implementor
-/// names what to re-arm, not which signal counts.
+/// `RoomLoaded`. It does seat a new live room, and the state of the room it
+/// replaces goes with that room.
 impl ambition_platformer2d::actors::session::reset::AttemptScoped for SpentMonitors {
-    /// Any room: both acts author monitors, and you stand in one at a time.
-    const ROOM: Option<&'static str> = None;
+    type Attempt = Vec<String>;
 
-    fn rearm(&mut self) {
-        self.0.clear();
+    fn attempts(&self) -> &PerLiveRoom<Self::Attempt> {
+        &self.0
+    }
+
+    fn attempts_mut(&mut self) -> &mut PerLiveRoom<Self::Attempt> {
+        &mut self.0
     }
 }
 
@@ -252,14 +279,19 @@ impl ambition_platformer2d::actors::session::reset::AttemptScoped for SpentMonit
 mod tests {
     use super::*;
     use ambition_platformer2d::world::FeatureEcsWorldOverlay;
-    use crate::SPEEDWAY_ROOM_ID;
-    use ambition_platformer2d::world::rooms::RoomLoaded;
+    use ambition_platformer2d::platformer::lifecycle::spawn_live_room;
+
+    fn spent(room: LiveRoomInstance, name: &str) -> SpentMonitors {
+        let mut spent = SpentMonitors::default();
+        spent.spend(room, name);
+        spent
+    }
 
     #[test]
     fn a_broken_monitor_is_subtracted_from_the_collision_overlay() {
         let mut app = App::new();
         ambition_platformer2d::session::insert_live_room_component(app.world_mut(), FeatureEcsWorldOverlay::default());
-        app.insert_resource(SpentMonitors(vec![SPEED_MONITOR.to_string()]));
+        app.insert_resource(spent(LiveRoomInstance::ACTIVATION, SPEED_MONITOR));
         app.add_systems(Update, contribute_broken_monitors_to_overlay);
         app.update();
         let removed = &ambition_platformer2d::session::sole_live_room_component::<FeatureEcsWorldOverlay>(app
@@ -271,105 +303,74 @@ mod tests {
         );
     }
 
+    /// Two live rooms: the monitor broken in Bob's room is subtracted from
+    /// Bob's overlay only. Before, the contribution wrote the sole live room's
+    /// overlay, so while two rooms were live no broken monitor left the
+    /// collision world.
     #[test]
-    fn a_reload_rearms_the_monitors() {
+    fn each_live_room_subtracts_only_its_own_broken_monitors() {
         let mut app = App::new();
-        app.insert_resource(SpentMonitors(vec![SPEED_MONITOR.to_string()]));
-        app.add_message::<RoomLoaded>();
-        // Required even though this arm never writes it. A system that reads
-        // an unregistered message fails parameter validation and is dropped
-        // silently, so the test would pass or fail for an unrelated reason.
-        app.add_message::<ambition_platformer2d::combat::events::RoomReplayAdmitted>();
-        app.add_systems(
-            Update,
-            ambition_platformer2d::actors::session::reset::rearm_attempt_scoped::<SpentMonitors>,
+        let alices = ambition_platformer2d::session::insert_live_room_component(
+            app.world_mut(),
+            FeatureEcsWorldOverlay::default(),
         );
-        app.world_mut()
-            .resource_mut::<bevy::ecs::message::Messages<RoomLoaded>>()
-            .write(RoomLoaded {
-                room_id: SPEEDWAY_ROOM_ID.to_string(),
-            });
+        let bob = LiveRoomInstance::ACTIVATION.next();
+        let bobs = spawn_live_room(app.world_mut(), bob, FeatureEcsWorldOverlay::default());
+        app.insert_resource(spent(bob, SPEED_MONITOR));
+        app.add_systems(Update, contribute_broken_monitors_to_overlay);
         app.update();
-        assert!(
-            app.world().resource::<SpentMonitors>().0.is_empty(),
-            "a level (re)load restocks the monitors"
+        let removed = |root| {
+            app.world()
+                .get::<FeatureEcsWorldOverlay>(root)
+                .expect("each live room has an overlay")
+                .removed_block_names
+                .clone()
+        };
+        assert_eq!(
+            (removed(alices), removed(bobs)),
+            (Vec::<String>::new(), vec![SPEED_MONITOR.to_string()]),
+            "(Alice's room, Bob's room): each room subtracts its own broken monitors"
         );
     }
 
-    /// Each act authors monitors. An arrival starts with whole boxes.
-    #[test]
-    fn arriving_in_the_other_act_restocks_the_monitors() {
-        let mut app = App::new();
-        app.insert_resource(SpentMonitors(vec![SPEED_MONITOR.to_string()]));
-        app.add_message::<RoomLoaded>();
-        app.add_message::<ambition_platformer2d::combat::events::RoomReplayAdmitted>();
-        app.add_systems(
-            Update,
-            ambition_platformer2d::actors::session::reset::rearm_attempt_scoped::<SpentMonitors>,
-        );
-        app.world_mut()
-            .resource_mut::<bevy::ecs::message::Messages<RoomLoaded>>()
-            .write(RoomLoaded {
-                room_id: crate::HIGHWAY_ROOM_ID.to_string(),
-            });
-        app.update();
-        assert!(
-            app.world().resource::<SpentMonitors>().0.is_empty(),
-            "Act 2's load restocks the monitors Act 1 spent"
-        );
-    }
-
-    /// A pit death replays the room in place and never emits `RoomLoaded`
-    /// (`DeathRules::replay_level_after(0.0)`), so the replay must re-arm the
-    /// monitors. A reload test does not cover this; the two messages differ.
-    #[test]
-    fn a_death_replay_rearms_the_monitors() {
-        let mut app = App::new();
-        app.insert_resource(SpentMonitors(vec![SPEED_MONITOR.to_string()]));
-        app.add_message::<RoomLoaded>();
-        app.add_message::<ambition_platformer2d::combat::events::RoomReplayAdmitted>();
-        app.add_systems(
-            Update,
-            ambition_platformer2d::actors::session::reset::rearm_attempt_scoped::<SpentMonitors>,
-        );
-        app.world_mut()
-            .resource_mut::<bevy::ecs::message::Messages<
-                ambition_platformer2d::combat::events::RoomReplayAdmitted,
-            >>()
-            .write(ambition_platformer2d::combat::events::RoomReplayAdmitted {
-                reason: ambition_platformer2d::combat::events::RoomResetReason::PlayerDeath,
-                // No controlled body in a rules-only harness; the re-arm is a
-                // room-wide restock and does not read the subject.
-                subject: None,
-                refight: false,
-                to_checkpoint: false,
-                spared: Vec::new(),
-            });
-        app.update();
-        assert!(
-            app.world().resource::<SpentMonitors>().0.is_empty(),
-            "a death replay must restock the monitors; only a room LOAD did"
-        );
-    }
-
-    /// Nothing re-arms them when neither signal fires. Otherwise the arms
-    /// above would pass on a system that clears every frame, which would give
+    /// A death replay or a load seats a new live room, so the replaced room's
+    /// monitors go with it, and the new room has a full set. Bob's room keeps
+    /// its own. A quiet frame (no room replaced) restocks nothing: otherwise
+    /// this would pass on a system that cleared every frame, which would give
     /// an infinite supply mid-run.
     #[test]
-    fn a_quiet_frame_leaves_broken_monitors_broken() {
+    fn a_replaced_room_takes_its_spent_monitors_with_it() {
         let mut app = App::new();
-        app.insert_resource(SpentMonitors(vec![SPEED_MONITOR.to_string()]));
-        app.add_message::<RoomLoaded>();
-        app.add_message::<ambition_platformer2d::combat::events::RoomReplayAdmitted>();
+        let alices = ambition_platformer2d::session::insert_live_room_component(
+            app.world_mut(),
+            FeatureEcsWorldOverlay::default(),
+        );
+        let bob = LiveRoomInstance::ACTIVATION.next();
+        spawn_live_room(app.world_mut(), bob, FeatureEcsWorldOverlay::default());
+        let mut both = spent(LiveRoomInstance::ACTIVATION, SPEED_MONITOR);
+        both.spend(bob, SPEED_MONITOR);
+        app.insert_resource(both);
         app.add_systems(
             Update,
             ambition_platformer2d::actors::session::reset::rearm_attempt_scoped::<SpentMonitors>,
         );
         app.update();
+        assert!(
+            app.world().resource::<SpentMonitors>().is_broken(LiveRoomInstance::ACTIVATION, SPEED_MONITOR),
+            "a quiet frame restocked a live room's monitors"
+        );
+        let replayed = bob.next();
+        app.world_mut().entity_mut(alices).insert(replayed);
+        app.update();
+        let spent = app.world().resource::<SpentMonitors>();
         assert_eq!(
-            app.world().resource::<SpentMonitors>().0.len(),
-            1,
-            "a broken monitor must stay broken until the room reloads or replays"
+            (
+                spent.is_broken(LiveRoomInstance::ACTIVATION, SPEED_MONITOR),
+                spent.is_broken(replayed, SPEED_MONITOR),
+                spent.is_broken(bob, SPEED_MONITOR),
+            ),
+            (false, false, true),
+            "(the replaced room, its replay, Bob's room): the replay has a full set and Bob's monitor stays broken"
         );
     }
 }

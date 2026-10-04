@@ -185,10 +185,7 @@ impl Loop {
             .events
             .contacts
             .clear();
-        self.app
-            .world_mut()
-            .resource_mut::<SpentPowerBlocks>()
-            .rearm_all();
+        *self.app.world_mut().resource_mut::<SpentPowerBlocks>() = SpentPowerBlocks::default();
     }
 
     /// Walk onto whatever the block popped, so the shared touch-to-collect equips

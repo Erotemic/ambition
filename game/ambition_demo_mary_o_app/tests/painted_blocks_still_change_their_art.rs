@@ -133,8 +133,10 @@ fn a_question_block_in_the_painted_cavern_wears_its_own_art() {
          it and the paint took its art away",
     );
 
+    let live = live_room(app.world());
     app.world_mut()
         .resource_mut::<SpentPowerBlocks>()
+        .in_room_mut(live)
         .spend(block.id.clone());
     for _ in 0..4 {
         app.update();
@@ -258,7 +260,7 @@ fn a_discovered_hidden_block_reveals_itself() {
     assert!(
         app.world()
             .resource::<SpentPowerBlocks>()
-            .is_spent(&hidden.id),
+            .is_spent(live_room(app.world()), &hidden.id),
         "the block un-spent itself during the wait — something re-armed it, and \
          this probe is no longer looking at a discovered block",
     );
@@ -356,7 +358,7 @@ fn jump_into_from_below(app: &mut App, block: &ae::world::Block) -> Strike {
         if app
             .world()
             .resource::<SpentPowerBlocks>()
-            .is_spent(&block.id)
+            .is_spent(live_room(app.world()), &block.id)
         {
             spent = true;
             break;
@@ -480,4 +482,10 @@ fn place_player(app: &mut App, pos: Vec2) {
         pos,
         ae::movement::TransitVelocity::Zero,
     );
+}
+
+/// The live room the course is in: this fixture is one room, and a block is
+/// spent in its own live room.
+fn live_room(world: &World) -> ambition_platformer2d::platformer::lifecycle::LiveRoomInstance {
+    *ambition_platformer2d::session::sole_live_room_component(world).expect("the course is one live room")
 }

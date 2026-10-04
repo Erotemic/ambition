@@ -60,7 +60,9 @@ import sys
 
 REPO = pathlib.Path(__file__).resolve().parent.parent
 TRAIT = "AttemptScoped"
-COLLECTION = re.compile(r"\b(Vec|HashSet|BTreeSet|HashMap|BTreeMap|VecDeque)\s*<")
+#: `PerLiveRoom` is the per-live-room map every `AttemptScoped` resource holds
+#: (a `BTreeMap` inside); a resource that holds only it is a collection too.
+COLLECTION = re.compile(r"\b(Vec|HashSet|BTreeSet|HashMap|BTreeMap|VecDeque|PerLiveRoom)\s*<")
 #: ⭐ The three that ARE per-attempt, each verified by a test that a death
 #: re-arms it. Named here so a rename or a dropped impl is loud.
 KNOWN_PER_ATTEMPT = {"BrokenBricks", "SpentPowerBlocks", "SpentMonitors"}

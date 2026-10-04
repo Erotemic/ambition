@@ -52,50 +52,107 @@ pub struct ContentRoomReplayResetSet;
 /// Sanic's `SpentMonitors` re-armed on `RoomLoaded` only, and Sanic declares
 /// `DeathRules::replay_level_after(0.0)`: a pit death replays the room IN PLACE
 /// and never emits a load. A monitor broken before the death stayed broken after
-/// the respawn and its grant was unreachable for the rest of the run. ⇒ this
-/// trait names WHAT to re-arm and WHICH ROOM it belongs to, and leaves the
-/// SIGNAL to [`rearm_attempt_scoped`], which asks
-/// [`FreshAttempt`](ambition_combat::events::FreshAttempt). An implementor has
-/// no way to spell "the load only", which is the whole defect.
+/// the respawn and its grant was unreachable for the rest of the run.
+///
+/// ⇒ An attempt is a live room. Every publication mints a new
+/// `LiveRoomInstance`, a replay of the room the body is in included, so the
+/// state of an attempt is keyed by that instance ([`PerLiveRoom`]) and it goes
+/// when its instance stops being live. No signal says "a fresh attempt began":
+/// a new instance has no entry, so it starts whole. Two live rooms (Alice's and
+/// Bob's) each keep their own state, and a replay of one leaves the other's
+/// state as it was (Q151).
 pub trait AttemptScoped: Resource<Mutability = bevy::ecs::component::Mutable> {
-    /// The room whose fresh attempt re-arms this, or `None` when ANY fresh
-    /// attempt does.
-    ///
-    /// `None` is the right answer for state that is per-attempt but not
-    /// per-room: you can only stand in one room, so any boundary re-arms
-    /// everything. Name a room when the state is authored in that room alone.
-    ///
-    /// ⚠ It filters the LOAD leg only. A replay is always in the room you are
-    /// in, so it re-arms whatever the constant says.
-    const ROOM: Option<&'static str> = None;
+    /// What one attempt holds.
+    type Attempt;
 
-    /// Return to the state a fresh attempt starts from.
-    fn rearm(&mut self);
+    /// The state of each live room. An implementor has no way to hold state
+    /// that is not keyed by a room, which was the whole defect while two rooms
+    /// were live: any boundary re-armed every room.
+    fn attempts(&self) -> &PerLiveRoom<Self::Attempt>;
+
+    fn attempts_mut(&mut self) -> &mut PerLiveRoom<Self::Attempt>;
 }
 
-/// Re-arm one [`AttemptScoped`] resource when a fresh attempt begins.
+/// Per-attempt state, one value for each live room. See [`AttemptScoped`].
+///
+/// A `BTreeMap`, so that each reader that iterates it (an overlay contribution,
+/// a checksum) does so in one order on every peer.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PerLiveRoom<T>(
+    std::collections::BTreeMap<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance, T>,
+);
+
+impl<T> Default for PerLiveRoom<T> {
+    fn default() -> Self {
+        Self(Default::default())
+    }
+}
+
+impl<T> PerLiveRoom<T> {
+    /// The state of `room`, or `None` when nothing happened there yet.
+    pub fn in_room(
+        &self,
+        room: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
+    ) -> Option<&T> {
+        self.0.get(&room)
+    }
+
+    /// The state of `room`, made at its fresh value on the first write.
+    pub fn in_room_mut(
+        &mut self,
+        room: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
+    ) -> &mut T
+    where
+        T: Default,
+    {
+        self.0.entry(room).or_default()
+    }
+
+    /// Each room's state, in room order.
+    pub fn iter(
+        &self,
+    ) -> impl Iterator<Item = (ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance, &T)> + '_
+    {
+        self.0.iter().map(|(room, attempt)| (*room, attempt))
+    }
+
+    /// Drop the state of each room that `live` does not hold. `true` when one
+    /// was dropped.
+    pub fn retain_live(
+        &mut self,
+        live: &[ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance],
+    ) -> bool {
+        let before = self.0.len();
+        self.0.retain(|room, _| live.contains(room));
+        self.0.len() != before
+    }
+}
+
+/// Drop the [`AttemptScoped`] state of each room that is no longer live.
 ///
 /// ⚠ PREFER [`install_attempt_scoped`], which registers this in
 /// [`ContentRoomReplayResetSet`] and creates the resource in one statement. Reach
 /// for this function directly only when the resource is already in the world for
 /// another reason — and then the set membership is yours to get right.
 ///
-/// The host anchors that set BEFORE its generic replay consumer, so the re-arm
-/// lands the same frame the request does. The set is the slot; this function is
-/// what goes in it. Content still chooses the SCHEDULE and any mode gate, because
-/// those genuinely differ per demo — what must not differ is which signal counts
-/// as a fresh attempt.
+/// It reads no message. A replay or a load seats a new instance, so the room
+/// that is replaced is not live on the next run of this system, and its state
+/// goes then. Until then no reader asks for it: each reader asks for the state
+/// of a live room.
 pub fn rearm_attempt_scoped<T: AttemptScoped>(
-    mut attempt: ambition_combat::events::FreshAttempt,
+    live: Query<
+        &ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
+        With<ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot>,
+    >,
     mut state: ResMut<T>,
 ) {
-    let began = match T::ROOM {
-        Some(room) => attempt.began_in(room),
-        None => attempt.began(),
-    };
-    if began {
-        state.rearm();
+    let live: Vec<_> = live.iter().copied().collect();
+    if state.attempts().iter().all(|(room, _)| live.contains(&room)) {
+        // Nothing to drop. Not borrowed mutably, so the resource is not marked
+        // changed on each tick.
+        return;
     }
+    state.attempts_mut().retain_live(&live);
 }
 
 /// Put an [`AttemptScoped`] resource in the world AND on the retraction slot, in
@@ -105,16 +162,14 @@ pub fn rearm_attempt_scoped<T: AttemptScoped>(
 /// per-attempt" TWICE — once by `init_resource::<T>()` and once by an
 /// `add_systems(rearm_attempt_scoped::<T>.in_set(ContentRoomReplayResetSet))`
 /// two hundred lines away — and only the second one was load-bearing. A resource
-/// with the impl and without the registration is exactly the shipped Sanic bug
-/// ([`AttemptScoped`]'s own header): the state exists, nothing takes it back,
-/// and the grant behind it is unreachable for the rest of the run. Through this
-/// function that state is not expressible — you cannot get the resource without
-/// the re-arm.
+/// with the impl and without the registration keeps the state of each room that
+/// was ever live, and grows for the rest of the run. Through this function that
+/// state is not expressible — you cannot get the resource without the re-arm.
 ///
 /// ⚠ THE CONDITION IS THE CALLER'S because it genuinely differs: a hosted demo
 /// gates its systems on its mode, a rules-only harness runs unconditionally.
 /// Pass `|| true` for the ungated case. What must NOT differ, and is therefore
-/// not a parameter, is the SET and the SIGNAL.
+/// not a parameter, is the SET.
 pub fn install_attempt_scoped<T: AttemptScoped + FromWorld, M>(
     app: &mut App,
     schedule: impl bevy::ecs::schedule::ScheduleLabel,

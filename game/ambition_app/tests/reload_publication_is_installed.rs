@@ -450,14 +450,14 @@ fn nothing_orders_the_rollback_session_start_against_the_generation_commit() {
 /// ⚠ **IT WAS INVISIBLE BECAUSE IT COST ALMOST NOTHING, AND THIS PARAGRAPH
 /// OVERSTATED THE "ALMOST" — CORRECTED 2026-09-14.** It read *"that message has
 /// no production reader"*, quoting `content_staging.rs`'s *"notification-only"*.
-/// MEASURED: `RoomLoaded` has THREE production readers, all through
-/// `ambition_combat::events::FreshAttempt` —
-/// `void_pending_player_hits_at_lifecycle_boundaries` (`ambition_damage`), and
-/// `rearm_attempt_scoped` for Sanic's `SpentMonitors` and Mary-O's
-/// `BrokenBricks`. A refusal therefore also leaves staged hits unvoided and
-/// per-attempt state un-re-armed. ⭐ Both are the RIGHT outcome — no attempt
-/// began, because no room arrived — which is why nobody noticed; "harmless" was
-/// the correct verdict reached by the wrong reasoning.
+/// `RoomLoaded` has a production reader, through
+/// `ambition_combat::events::FreshAttempt`:
+/// `void_pending_player_hits_at_lifecycle_boundaries` (`ambition_damage`). A
+/// refusal therefore also leaves staged hits unvoided. ⭐ That is the RIGHT
+/// outcome — no attempt began, because no room arrived — which is why nobody
+/// noticed; "harmless" was the correct verdict reached by the wrong reasoning.
+/// (Per-attempt resources are keyed by live room and read no message; a
+/// refused room seats no new room, so they keep their state too.)
 ///
 /// ✅ **AND THE BIGGER HALF IS CLOSED.** Under A10's candidate bracket the same
 /// refusal drops the whole room, which is why the flag was unflippable — the

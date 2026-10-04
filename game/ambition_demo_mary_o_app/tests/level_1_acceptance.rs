@@ -578,7 +578,7 @@ fn she_plays_level_one_from_spawn_to_the_pole_and_it_replays() {
     assert!(
         app.world()
             .get_resource::<ambition_demo_mary_o::powerups::SpentPowerBlocks>()
-            .is_some_and(|spent| spent.is_spent(&first_power_block().id)),
+            .is_some_and(|spent| spent.is_spent(live_room(app.world()), &first_power_block().id)),
         "she never struck the first ?-block, so no reward was ever spawned — the \
          wand she is later asked to wear was never made. Her head reached \
          {head_under_block:.1} while under it, and the underside is at {:.1}",
@@ -613,7 +613,7 @@ fn she_plays_level_one_from_spawn_to_the_pole_and_it_replays() {
         "after bonk, block0 SPENT = {:?}",
         app.world()
             .get_resource::<ambition_demo_mary_o::powerups::SpentPowerBlocks>()
-            .map(|spent| spent.is_spent(&first_power_block().id))
+            .map(|spent| spent.is_spent(live_room(app.world()), &first_power_block().id))
     );
 
     // Back off left so she can mount the block from beside it.
@@ -1144,7 +1144,7 @@ fn ladder_blocks() -> Vec<ae::world::Block> {
 fn is_spent(app: &App, block: &ae::world::Block) -> bool {
     app.world()
         .get_resource::<ambition_demo_mary_o::powerups::SpentPowerBlocks>()
-        .is_some_and(|spent| spent.is_spent(&block.id))
+        .is_some_and(|spent| spent.is_spent(live_room(app.world()), &block.id))
 }
 
 /// Where the item wearing this sprite is, if one is in the world.
@@ -1437,4 +1437,10 @@ fn a_grown_mary_o_bonks_a_question_block_and_wears_the_fire_flower() {
         "and the fire form is the same height as the grown one — the beacon is a \
          step up the ladder, never a step off it"
     );
+}
+
+/// The live room the course is in: this fixture is one room, and a block is
+/// spent in its own live room.
+fn live_room(world: &World) -> ambition_platformer2d::platformer::lifecycle::LiveRoomInstance {
+    *ambition_platformer2d::session::sole_live_room_component(world).expect("the course is one live room")
 }

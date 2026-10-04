@@ -165,10 +165,12 @@ pub struct PickupSpec {
 }
 
 impl PickupSpec {
+    /// A pickup that is back when its room is built again: the policy of a
+    /// pickup that authors none (Q154). `Never` is an authored choice.
     pub fn new(kind: PickupKind) -> Self {
         Self {
             kind,
-            respawn: HazardRespawn::Never,
+            respawn: HazardRespawn::OnRoomReload,
             sprite: None,
         }
     }

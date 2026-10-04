@@ -193,8 +193,8 @@ pub enum PersistedWhereabouts {
     Placed { room: String, x: i32, y: i32 },
     /// Gone for good, and the world is supposed to remember that.
     ///
-    /// The live variant has no producer yet, but the format must express it:
-    /// otherwise a save silently undoes a terminal disposition.
+    /// Written for a taken pickup authored `Never` (Q154). The format must
+    /// express it: otherwise a save silently undoes a terminal disposition.
     /// `a_consumed_occurrence_is_not_resurrected_by_a_load` guards this.
     Consumed,
 }

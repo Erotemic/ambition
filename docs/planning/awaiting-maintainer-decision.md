@@ -199,6 +199,34 @@ Owner: the join road row in
 * **(c) Join at the start room** of the current save, independent of where
   the primary player is.
 
+## Q154 — should a pickup that authors no policy be gone for the run once taken?
+
+Filed 2026-10-04. Blocks nothing: the engine reads the default as
+`OnRoomReload` today and serves an authored `Never` (open-world "Regrowth/restock").
+
+`HazardRespawn`'s documented default is `Never` ("never respawn inside the
+current run/session"), but until 2026-10-04 no pickup kept any record once
+taken, so every pickup came back when its room was built again. Now a pickup
+authored `Never` is remembered `Consumed` in the occurrence ledger (and in the
+save); a death brings back only one taken after the checkpoint. A pickup that
+authors nothing reads `OnRoomReload`, which keeps today's behaviour: of the
+521 shipped `PickupSpawn`s (intro 9, sandbox 29, Mary-O 25, three Sanic
+worlds 458; counted 2026-10-04 by parsing the `.ldtk` files), only the two
+`basement_breakables` hearts author a policy, and `PickupSpec::new` /
+`Pickup::new` now say `OnRoomReload`.
+
+Owner: the regrowth/restock row in
+[open-world runtime and residency](engine/open-world-runtime-and-residency.md).
+
+* **(a) Keep `OnRoomReload` as the pickup default (current).** Hearts and coins
+  come back on every visit; a designer writes `Never` for a one-time pickup.
+* **(b) Make `Never` the default for authored pickups.** The persistent world
+  remembers every pickup taken. Mary-O's level loop and Sanic's act cycle
+  would then need `OnRoomReload` on their coins and rings (or a replay that
+  restores them), or a second lap finds them gone.
+* **(c) Per-world default:** a world declares its pickup default (Ambition
+  `Never`, the arcade demos `OnRoomReload`).
+
 ## Architecture and engine policy
 
 ## Q62 — keep or discard the epoch-captured 4,741-line `mary_o.ldtk` delta?

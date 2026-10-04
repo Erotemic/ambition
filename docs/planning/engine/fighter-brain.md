@@ -400,8 +400,9 @@ They lack the special-kit shape present in authored fighters. Rig conclusions
 about match pace or move use must state whether the compared fighters have real
 kits.
 
-The actual Robot special identities are a maintainer/content decision, not an AI
-architecture question.
+A stand-in may keep an incomplete kit on purpose (Q89, 2026-10-04); do not
+add specials to fill input slots. The real Robot's moves are authored when it
+becomes game content. Neither is an AI architecture question.
 
 ## Current work
 
@@ -433,8 +434,9 @@ reader.
 For product calibration, use fighters whose kits represent the game being
 shipped. If stand-ins remain useful as controls, label them as controls.
 
-Once Robot kits are decided, add them to the representative ladder matrix rather
-than retroactively treating old stand-in tables as roster evidence.
+Stand-ins may keep incomplete kits (Q89), so they stay controls. When the real
+Robot is authored as game content, add it to the representative ladder matrix;
+do not treat old stand-in tables as roster evidence.
 
 ### F4 — finish the utility progression decision
 

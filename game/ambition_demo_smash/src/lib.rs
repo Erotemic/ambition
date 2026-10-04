@@ -554,8 +554,9 @@ const SOFT_PLATFORM_SPREAD: f32 = 148.0;
 /// Known issue: the top tier (y 180–196, x 236–404) is 10px under the respawn
 /// platforms (`respawn_placement` puts a body at y 140 with its platform near
 /// y 170). A fighter whose respawn platform expires lands on the tier, not the
-/// stage. It is not adjusted yet because the flat-versus-platforms comparison
-/// in `fighter-brain.md` used this geometry. Change the geometry and the
+/// stage. Q87 rules that the authored layout changes (the tier or the respawn
+/// point), not the runtime spawn logic. The flat-versus-platforms comparison
+/// in `fighter-brain.md` used this geometry, so change the geometry and the
 /// measurement together.
 pub fn smash_platform_stage() -> RoomSpec {
     let centre_x = STAGE_SIZE.x / 2.0;

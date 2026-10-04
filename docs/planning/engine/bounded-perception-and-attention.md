@@ -134,6 +134,15 @@ near 14, so a sparse room cannot show why attention is needed. In a dense room
 - A 200-body sparse room does not count: it keeps about 14 per viewer and
   proves nothing.
 
+The room for the empirical clause is a deliberate dense-melee development room
+(Q93, 2026-10-04; queue row DENSE-MELEE-ROOM). Dense melee is a capability the
+engine must support, not a customer made up to justify this architecture. The
+room is a development/stress room, not polished game content. It exercises
+crowd interaction, targeting, collision, AI, VFX, camera framing, presentation
+capacity, rig/impostor scaling and combat readability, so each owner can
+measure there. `scripts/measure_perception_density.sh` widens the viewport over
+the Hall instead; keep it as a control, not as the dense room.
+
 ## Forbidden regressions
 
 - Do not answer cost with `if StandStill { continue }` or with dormancy. Distant

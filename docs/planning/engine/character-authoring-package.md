@@ -108,9 +108,9 @@ size, render quad, quad offset); closing one of them looks like closing the seam
   verb list in `game/ambition_demo_smash/src/moveset.rs`; the target owner is
   `SmashRepertoire` -> `into_contract()`, with `borrows:` as the established
   derive. `the_stand_in_is_george_s_genre_shape_with_the_special_button_removed`
-  measures the surplus that a correct migration takes to zero. It waits on the
-  product question of how thin a stand-in is (Q89 in
-  [`../awaiting-maintainer-decision.md`](../awaiting-maintainer-decision.md)).
+  measures the surplus. Q89 (2026-10-04, [`../maintainer-decisions.md`](../maintainer-decisions.md))
+  allows a stand-in an incomplete kit, so the migration must allow a partial
+  kit (for example, `Option` slots) rather than make the surplus zero.
 
 **Closed slices and their guards:**
 

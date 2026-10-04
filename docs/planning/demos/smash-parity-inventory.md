@@ -300,7 +300,7 @@ Implement each through a real fighter, not as an unused framework.
 | Pogo-on-hit attack | ✔ | — | — | |
 | Self-damage/recoil move | ▢ | S | E1 | A second on-hit key; wants a customer. |
 | Heal/lifesteal on hit | ▢ | S/M | E1 | `S0.9`. |
-| Fighter resource meter | ▢ | M/C | E1 | Build for one fighter; no global meter manager. |
+| Fighter resource meter | ▢ | M/C | E1 | Build for one fighter; no global meter manager. The Smash Limit meter (`ambition_demo_smash/src/limit.rs`, fill policy `LimitMeterFill::JONS_BASELINE`) awards `on_block: 1.0` for a successful block. Q71 (2026-10-04): 1.0 is the starting balance value; playtesting may tune it without reopening the policy. `guarding_is_the_safe_option` keeps it below `on_damage_taken`. |
 | Transformation/stance | ▢ | C | WAIT | George's TRUE/FALSE state is the concrete fighter (see "George Booul TRUE/FALSE vocabulary (Q81)"). Design it from his concept before you build. |
 
 ## 8. Items
@@ -356,7 +356,7 @@ stage beside the others rather than editing one, and keep the shared envelope
 | Moving-platform / hazard stage | ▢ | S/M | — | Existing mechanics; author a stage. |
 | Hazards on/off knob | ▢ | M | E1 | Hazards read match rules. |
 | Standardized stage forms | ▢ | M | — | Authored variants first. |
-| Per-stage blast/respawn/camera tuning | ◐ | M | E1 | Stage-owned facts. |
+| Per-stage blast/respawn/camera tuning | ◐ | M | E1 | Stage-owned facts. Q87 (2026-10-04): on `smash_platform_stage` the respawn platforms (y 164–176) sit 4 px above the top tier (y 180–196), so a fighter whose respawn platform expires lands on the tier. Fix the authored layout (move the tier or the respawn point, whichever looks better) until the spawn is clearly valid; do not add runtime spawn avoidance. Re-take the flat-versus-platforms measurement in `fighter-brain.md` in the same change. |
 | Training-grid stage | ▢ | S/M | — | |
 
 ## 11. Match rules, modes, and ceremony
@@ -494,12 +494,16 @@ moves and are not wired: `black_powder_flash`, `grapeshot_cloud`,
 The standalone demo seats George plus two stand-ins that share one contract
 (`smash_duelist_a.ron`). That contract hand-builds its attack verbs instead of
 using `SmashRepertoire`, whose nineteen non-`Option` fields make a partial kit
-impossible. The stand-in answers no special press except `special_forward`
-(`lunge_grab`); guard
-`the_stand_in_is_george_s_genre_shape_with_the_special_button_removed`. What each
-stand-in special should be is Q89 in
-[`../awaiting-maintainer-decision.md`](../awaiting-maintainer-decision.md). The
-composed app's selectable fighters all have complete kits
+impossible. The stand-in binds four specials (`read_and_seize`, `riposte`,
+`lunge_grab`, `slip_upward`) and leaves two special presses unanswered that
+George answers; guard
+`the_stand_in_is_george_s_genre_shape_with_the_special_button_removed`. Q89
+(2026-10-04, [`../maintainer-decisions.md`](../maintainer-decisions.md)): a
+thin test stand-in may keep an incomplete kit on purpose. Do not invent
+specials to fill each input slot. The ruling covers stand-ins and proof
+characters only; when the real Robot becomes game content, its move vocabulary
+is authored deliberately. The composed app's selectable fighters all have
+complete kits
 (`report_the_smash_kit_every_selectable_fighter_has`).
 
 ## 15. Engine primitives

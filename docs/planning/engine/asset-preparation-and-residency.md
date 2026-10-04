@@ -99,6 +99,85 @@ When eviction becomes necessary, the policy must name:
 - re-demand behavior;
 - minimum representation/readability requirements.
 
+### Products are laid out by what they are (Q82, Q83)
+
+Rulings 2026-10-04 ([`../maintainer-decisions.md`](../maintainer-decisions.md)):
+the directory and product layout says what an asset is (source/editor
+artifact, runtime product, quality tier, generated intermediate), so a
+packager works over meaningful roots instead of a long exclusion list. An
+editor-only product that the runtime never consumes is not packaged or
+resident, and it does not live where it can be taken for a shipping product.
+Requesting one runtime product does not admit hundreds of MB of unrelated
+products unless they are one runtime unit; this is a dependency/residency
+rule, not a "one consumer" rule. A large shared SOURCE pack may stay; the
+runtime boundary is what splits.
+
+**Measured 2026-10-04 (queue row ASSET-PRODUCT-LAYOUT).**
+
+- Tier layout is not symmetric. Under
+  `crates/ambition_platformer2d_actor_monolith/assets/`, full quality is the
+  bare root `sprites/` (300 MB) and the lower tiers are suffixed sibling roots
+  `sprites_0_5x/`, `sprites_0_25x/`, `sprites_potato/`. Parallax does the same
+  (`backgrounds/parallax_layers{,_0_5x,_0_25x,_potato}`). Only the ultrapack
+  names every tier: `sprite_packs/{full,half,quarter,potato}/`. The code
+  vocabulary is `TextureResolutionScale {Full, Half, Quarter, Potato}`
+  (`ambition_persistence/src/settings/video/quality.rs`, `folder_suffix` is
+  `""` for `Full`) and the pack tier names `full/half/quarter/potato`
+  (`ambition_sprite_sheet/src/sprite_packs.rs`). Target: one runtime root with
+  `full/`, `half/`, `quarter/`, `potato/` children for each product family.
+  Path builders to move together: `scaled_logical_asset_path`
+  (`ambition_asset_manager/src/platformer_assets/mod.rs`),
+  `RUNTIME_SPRITE_ROOTS` (`asset_publish/mod.rs`), `builders/visuals.rs`,
+  `ambition_sprite_sheet/build.rs` and `src/boss.rs`, `entity_sprite.rs`,
+  `character_sprites/assets.rs` (`resolve_variant_pair`,
+  `character_sprite_tier`), `scripts/generate_visual_quality_variants.py`,
+  `scripts/regen/sprites.sh`, `scripts/package_asset_guard.py`. Audit each
+  consumer before you move a file.
+- No source/editor root exists inside the asset tree;
+  `package_asset_guard.py` ships every regular file except dotfiles, `*.ipfs`
+  and `fonts/local/**`. The LDtk preview case is narrower than its question
+  said: the player tileset `sprite_player_robot_v3` (used only by the
+  `PlayerStart` entity's editor tile in seven worlds) is the player's runtime
+  sheet, so the file ships anyway; the waste is the extra full-resolution
+  decode `bevy_ecs_ldtk` does at boot (`[image-unrouted]`,
+  `ambition_platformer2d_host/src/portal.rs`).
+  `dev/patches/ldtk-player-tileset-retarget-20260902.patch` retargets that
+  editor tile to `sprites_0_25x/`; it puts an editor reference into a runtime
+  tier, so prefer an editor product under an editor root. Mary-O's
+  `ldtk_editor_art_mary_o.png` feeds auto-layers and may draw at runtime
+  (unverified); classify it before you move it.
+- The ultrapack (`sprite_packs/`, 449 MB over four tiers, 183 targets) has one
+  reader (`intro_cart`, `game/ambition_content/src/intro/sprites.rs`), and
+  `scripts/measure_pack_reachability.py` finds 444 MB (98.8%) unreachable.
+  The runtime already loads only the pages a target's frames use
+  (`load_sprite_pages`, `used_pages`); it is the PACKAGE that carries all of
+  it, because the packager ships every file. Split the runtime product by
+  runtime unit (pages per target or target group), not the source pack.
+
+### Quality is a presentation policy (Q84)
+
+Ruling Q84 (2026-10-04): portraits take part in quality scaling like other
+presentation assets. Each quality level provides the cheapest product that
+still does the semantic UI job acceptably. That is a different bar from Q69,
+which lets a potato sprite be humorously small: a portrait's job is to be read
+in a dialogue box, so its reduced tiers are sized from its draw size
+(`DialogLayoutProfile`, `game/ambition_content/src/presentation/dialog.rs`:
+56×62, 82×94 or 104×120 px), not from the 1/16 sprite rule.
+
+Today the reduced portrait tiers are generated and shipped but never loaded:
+`bake_portrait_manifests` (`ambition_sprite_sheet/build.rs`) reads only
+`sprites/`. `dev/patches/portrait-tiers-are-never-baked-20260902.patch`
+implements the opposite answer (full resolution only) and is superseded by
+Q84. Work: queue row PORTRAIT-TIERS.
+
+The broader rule: a quality mode may in time choose a cheaper implementation
+of any presentation-only system (textures, particles, animation detail,
+decorative populations, lighting, post-processing), not only a smaller
+texture. Simulation and deterministic gameplay must not depend on the
+highest-fidelity presentation; a test that passes at `Full` and fails at
+`Potato` on a gameplay fact is a defect in the gameplay side. This is a design
+constraint, not a plan to build each of those now.
+
 ## Current measured conclusions
 
 These are the conclusions still used for architecture decisions.

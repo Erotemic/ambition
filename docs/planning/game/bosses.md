@@ -55,3 +55,17 @@ wears the PCA's move table. Whether it is a boss is an open design call.
 
 Each is authored as content on the engine boss system. None needs a bespoke
 simulation path.
+
+## Mode Collapse music (Q148)
+
+Mode Collapse (`boss_encounters/mode_collapse_boss.ron`, a summoner that floods
+the arena with identical copies) fights to `crooked_ascent_boss` in all four
+phases. Ruling Q148 (2026-10-04): the final product wants a bespoke
+"Mode Collapse" track, a loop that degenerates. `crooked_ascent_boss` is an
+acceptable temporary authored fallback until it exists.
+
+- Current: `crooked_ascent_boss`.
+- Wanted: a bespoke degenerating loop.
+- Status: art/content follow-up. It blocks no engine or gameplay work. When the
+  track exists, register it and set the four `music_*` fields
+  ([room music recipe](../../recipes/room-music.md)).

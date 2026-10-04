@@ -108,7 +108,7 @@ engine-wide single-camera rule.
 | # | checkpoint | status |
 |---|---|---|
 | 1 | **Core fight:** attacks, shield, grab, dodge, movement, launch, recovery, ledges, tech, stocks, respawn and feedback support a fun short match. | ◐ The basic loop works. The `S0.*` interaction gate is open. |
-| 2 | **Roster depth:** several fighters exercise distinct reusable move semantics without character-ID engine branches. | ✔ Roster depth holds. Roster reach in the standalone demo is thinner: two stand-ins share one contract with no specials except a command grab (Q89). |
+| 2 | **Roster depth:** several fighters exercise distinct reusable move semantics without character-ID engine branches. | ✔ Roster depth holds. Roster reach in the standalone demo is thinner: two stand-ins share one contract with four specials and two unanswered special presses. A stand-in may stay incomplete (Q89 ruling, 2026-10-04). |
 | 3 | **Local play:** two or more humans join, select fighters and finish matches with CPUs. | ✔ `smash_tool select-walkthrough` drives the real select screen headlessly and prints what it shows. |
 | 4 | **Stage breadth:** several stages change spacing and recovery decisions, including one kinematic-platform customer. | ◐ Three stages (flat, platforms, narrow) differ on two axes. No kinematic-platform stage yet. |
 | 5 | **Match completeness:** stage select, rule selection, results/rematch, training/tuning. | ✔ Stage and stock cycles on the select screen, rematch, and the `smash_tool` probes. |

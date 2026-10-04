@@ -4,8 +4,9 @@
 //
 // Behaviour (movement + attack schedule) lives in `assets/data/boss_profiles.ron`.
 //
-// Music: `crooked_ascent_boss` in every phase, wherever this boss is fought. A
-// room can override it for the fights in that room with its LDtk level field
+// Music: `crooked_ascent_boss` in every phase, wherever this boss is fought. It
+// is a temporary fallback: the wanted track is a bespoke degenerating loop
+// (Q148, docs/planning/game/bosses.md). A room can override it for the fights in that room with its LDtk level field
 // `fight_music_track` (see docs/recipes/room-music.md).
 (
     id: "mode_collapse_boss",

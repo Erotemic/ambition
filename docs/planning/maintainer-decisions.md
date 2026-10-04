@@ -194,6 +194,18 @@ Open questions belong in
 | 2026-10-04 | Do not prune art because it is unreferenced (Q74). Delete an art row or asset only when it is obsolete, duplicated, wrong or otherwise undesirable. George Booul's TRUE/FALSE (negative, sign-flipped) art is evidence of intended character vocabulary: use it for meaningful Smash gameplay where an elegant mechanic fits George's concept, without inventing mechanics only to consume every asset. The same principle applies to Pirate Admiral's bespoke FX. Owner: [`demos/smash-parity-inventory.md`](demos/smash-parity-inventory.md#george-booul-truefalse-vocabulary-q81). (Q81) | High |
 | 2026-10-04 | Hall-of-Characters actors may be non-interactive and lack dialogue for now. The Hall is also a visual showcase, a population/stress test, an asset/residency test, an animation/rig test and an AI/body/profile composition test. Adding dialogue where appropriate is expected future content work, not a blocker for the Hall architecture. The Hall's stationary policy must hold for every showcase actor through one population policy (queue row HALL-STILL). (Q85) | High |
 | 2026-10-04 | Keep Smash's 10× opening countdown as a developer/debug affordance; it need not be ordinary product gameplay. Do not delete it because it is not in normal game flow or not used often. Re-evaluate it only if it becomes an architectural burden. (Q91) | High |
+| 2026-10-04 | Keep the bespoke gauntlet fireball look; do not collapse it to the catalog energy ball. A character- or weapon-specific projectile look is legitimate authored vocabulary. It still uses the ordinary projectile and presentation road: bespoke art never earns bespoke simulation. Owner: [`engine/render-animation-and-vfx.md`](engine/render-animation-and-vfx.md). (Q42) | High |
+| 2026-10-04 | Mary-O 1-1 gets a fourth reachable `?` block over solid ground so the fire-beacon interaction can be played naturally (the third ladder block stands over a pit). This is a level-content fix; the engine does not compensate for an awkward layout. Owner: [`demos/super-mary-o.md`](demos/super-mary-o.md). (Q46) | High |
+| 2026-10-04 | A successful block awards 1.0 Limit (`LimitMeterFill::JONS_BASELINE.on_block`). This is the starting balance value, not a fixed constant: playtesting may tune it without reopening the policy. (Q71) | High |
+| 2026-10-04 | Prefer clear authored spawn placement. Where a stage platform overlaps or ambiguously meets a respawn point, move the authored element that looks better (the platform or the spawn) until the spawn is clearly valid; do not teach generic runtime spawn logic to compensate. Today: `smash_platform_stage`, owner [`demos/smash-parity-inventory.md`](demos/smash-parity-inventory.md) §10. (Q87) | High |
+| 2026-10-04 | Thin testing/proof stand-ins (the Robot stand-ins) may keep intentionally incomplete move kits. Do not invent specials to fill each input slot. This covers stand-ins only: when a character becomes real game content (the eventual Robot), its move vocabulary is authored deliberately. (Q89) | High |
+| 2026-10-04 | Keep or create a deliberate dense-melee development/stress room. Dense melee is a capability the engine must support (crowd interaction, targeting, collision, AI, VFX, camera, presentation capacity, rig/impostor scaling, combat readability), not a customer made up to justify architecture. It need not be polished game content. Queue row DENSE-MELEE-ROOM. (Q93) | High |
+| 2026-10-04 | Editor/source-only products (for example LDtk editor-preview assets) that runtime gameplay does not consume are not packaged or resident. More broadly, the layout makes source/editor products and runtime products structurally distinct, and every quality tier, the highest too, is a named directory using the repository's tier vocabulary (`full`, `half`, `quarter`, `potato`). Packagers select meaningful roots instead of keeping exclusion lists. Audit consumers before moving anything. Queue row ASSET-PRODUCT-LAYOUT. (Q82) | High |
+| 2026-10-04 | Requesting one runtime product must not admit hundreds of MB of unrelated runtime products into dependency or residency closure unless they are one runtime unit. Split the runtime packaging boundary of the ~442 MB shared sprite pack accordingly. The shared SOURCE pack may stay. The reason is dependency/residency semantics, not the number of current consumers. (Q83) | High |
+| 2026-10-04 | Portraits take part in quality scaling like other presentation assets. Each quality level provides the cheapest portrait product that still does its UI job acceptably; this is not permission for unreadable potato portraits (a portrait is held to its UI job, not to the Q69 sprite rule). The proposed "full resolution only" patch is superseded. Queue row PORTRAIT-TIERS. (Q84) | High |
+| 2026-10-04 | The final game wants a bespoke, degenerating "Mode Collapse" music loop. `crooked_ascent_boss` stays as the temporary authored fallback until it exists. This is an art/content follow-up and blocks no engine or gameplay work. Owner: [`game/bosses.md`](game/bosses.md). (Q148) | High |
+| 2026-10-04 | Q62 (the 4,741-line `mary_o.ldtk` delta) is not a maintainer yes/no question: no one can judge an LDtk delta by line count. It is an engineering task: a domain-aware LDtk comparison that separates authored changes from serializer/editor churn, plus an investigation of why LDtk files still rewrite. Decide whether a change belongs only on that evidence. The map-assets submodule stays (it keeps churn out of the main history), but it does not replace understanding a diff. Queue row LDTK-SEMANTIC-DIFF. (Q62) | High |
+| 2026-10-04 | Q78 (divergent sprite-renderer submodule history) is a git/content-forensics task, not a choice by recency or diff size: list each line's unique commits, say what source change each is, separate source from regenerated artifacts (with domain-aware diffs), find the semantic superset, keep unique work, push it, then repin the parent. Never "take the newest" or "run `submodule update` and accept the result". Shares tooling with Q62. Owner: [`engine/authoring-and-tools.md`](engine/authoring-and-tools.md#content-diffs-need-domain-aware-comparison-q62-q78). (Q78) | High |
 
 ## Consequences that need more than one row
 
@@ -278,6 +290,28 @@ Open questions belong in
   on rig admission. Owners:
   [`engine/runtime-rigged-sprite-animation.md`](engine/runtime-rigged-sprite-animation.md#semantic-landmarks-q41)
   and [`engine/character-authoring-package.md`](engine/character-authoring-package.md).
+
+- **2026-10-04, asset layout expresses asset semantics (Q82, Q83):** do not
+  rely only on packager exclusions to tell source/editor, runtime, quality
+  tier and generated intermediate apart when a directory or product topology
+  can say it; the layout should make the common mistakes hard. Owners:
+  [`engine/asset-preparation-and-residency.md`](engine/asset-preparation-and-residency.md#products-are-laid-out-by-what-they-are-q82-q83)
+  and [`../concepts/asset-management.md`](../concepts/asset-management.md).
+- **2026-10-04, quality is a presentation policy (Q84):** a quality level may
+  in time select a different implementation of a presentation-only system
+  (textures, particles, animation detail, decorative populations, lighting,
+  post-processing), not only a smaller texture. Simulation correctness and
+  deterministic gameplay stay the same across fidelity choices. Not a
+  directive to build those now. Owner:
+  [`engine/asset-preparation-and-residency.md`](engine/asset-preparation-and-residency.md#quality-is-a-presentation-policy-q84).
+- **2026-10-04, editor-format diffs need domain-aware reading (Q62, Q78):**
+  for LDtk and similar formats a large textual diff is not a large semantic
+  change; reviewers prefer the semantic comparison when generated ids,
+  ordering or serializer behaviour make noise. The workflow is: domain-aware
+  comparison → real changes versus churn → intended semantic history → durable
+  lineage → repin the parent. Owner:
+  [`engine/authoring-and-tools.md`](engine/authoring-and-tools.md#content-diffs-need-domain-aware-comparison-q62-q78);
+  also in `AGENTS.md` (patch discipline).
 
 ### The census numbers the 2026-09-19 ingress rulings were sized against
 

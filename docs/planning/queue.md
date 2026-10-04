@@ -964,9 +964,9 @@ turn this queue row back into a chronological parity diary.
 implement it on the production path, update that inventory row and add the
 production acceptance witness.
 
-**Blocked where applicable by:** [Q62](awaiting-maintainer-decision.md#q62--keep-or-discard-the-epoch-captured-4741-line-mary_oldtk-delta),
-[Q89](awaiting-maintainer-decision.md#q89--what-special-should-each-robot-stand-in-have),
-and other product rows named by the inventory.
+**Blocked where applicable by:** product rows named by the inventory. (Q62
+and Q89 were ruled on 2026-10-04: Q62 is the LDTK-SEMANTIC-DIFF task, and a
+stand-in may keep an incomplete kit.)
 
 ### D166 — make character authoring boundaries load-bearing
 
@@ -1567,6 +1567,80 @@ is the only content change.
 
 **Acceptance:** a hovered, unselected, unfocused tab draws a hover style, and
 the selected and focused styles are unchanged.
+
+### DENSE-MELEE-ROOM — author the dense-melee development room
+
+**Owner:** content; first measured customer
+[`engine/bounded-perception-and-attention.md`](engine/bounded-perception-and-attention.md#acceptance-for-the-open-increment).
+
+**Ruling:** Q93 (2026-10-04): keep or create a deliberate dense-melee
+development/stress room. It is a real scenario, not polished content.
+
+**Current state:** no such room; the density script fakes density by widening
+the viewport over the Hall's `stand_still` cast.
+
+**Next action:** after the P1 correctness rows above, author one room (LDtk or
+a generated spec) with many tactical-brain fighters in close melee, reachable
+by an ordinary route and by `measure_perception_density.sh`.
+
+**Acceptance:** in the room `kept` tracks population until the budget caps it,
+and the census, frame time and camera framing are readable from one run.
+
+### LDTK-SEMANTIC-DIFF — review content diffs by meaning, and find the rewrite
+
+**Owner:** `tools/ambition_ldtk_tools` (`edit/semantic_diff.py`). Plan:
+[`engine/authoring-and-tools.md`](engine/authoring-and-tools.md#content-diffs-need-domain-aware-comparison-q62-q78).
+
+**Ruling:** Q62 and Q78 (2026-10-04) are engineering and evidence tasks, not
+maintainer choices.
+
+**Current state:** `semantic_diff` compares two files and finds an entity
+move; it has no git input, no churn report and no answer for changed
+auto-layer output. LDtk files still rewrite far beyond their edits after
+`54d99e7fb` and `2e69e81b9`; the writer is not identified.
+
+**Next action:** add `REV:PATH` input and the churn section; then run each
+LDtk writer twice on an unchanged input to find which one rewrites.
+
+**Acceptance:** the tool prints the per-level summary for
+`48f8e26 → cb7062a` (one editor-visual change, auto-layer churn) and for one
+post-fix rewrite commit; a second run of each writer on its own output changes
+no byte.
+
+### ASSET-PRODUCT-LAYOUT — runtime roots by tier; editor products apart
+
+**Owner:** `ambition_asset_manager` path builders, `ambition_sprite_sheet`,
+the publish scripts. Plan:
+[`engine/asset-preparation-and-residency.md`](engine/asset-preparation-and-residency.md#products-are-laid-out-by-what-they-are-q82-q83).
+
+**Ruling:** Q82, Q83 (2026-10-04).
+
+**Current state:** full quality is the bare `sprites/` root and the reduced
+tiers are suffixed siblings; the packager ships every file, including the
+98.8% of the 449 MB ultrapack that no runtime road reaches.
+
+**Next action:** audit the listed path builders, then move to
+`<root>/{full,half,quarter,potato}/` in one change; then cut the ultrapack's
+runtime product by runtime unit.
+
+**Acceptance:** every tier is a named directory; the packager selects roots
+and has no new exclusion; the packaged ultrapack holds only reachable pages;
+the game draws the same at each tier.
+
+### PORTRAIT-TIERS — portraits scale with quality and stay usable
+
+**Owner:** `ambition_sprite_sheet` (`bake_portrait_manifests`) and the dialog
+portrait consumer. Plan:
+[`engine/asset-preparation-and-residency.md`](engine/asset-preparation-and-residency.md#quality-is-a-presentation-policy-q84).
+
+**Ruling:** Q84 (2026-10-04).
+
+**Current state:** reduced portrait tiers are generated and shipped, and
+nothing loads them.
+
+**Acceptance:** each quality tier loads its own portrait product, sized from
+the dialog draw size; potato portraits are smaller than full and still fill
+their box.
 
 ### TEST-LANES — keep required test lanes executable
 

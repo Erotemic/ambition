@@ -46,72 +46,10 @@ One question looks like a blocker and is not:
 The engine has a canonical-height contract; these remaining authored characters
 need product values rather than inferred sprite dimensions.
 
-## Q42 — should the gauntlet fireball keep bespoke art or use the catalog energy ball?
-
-Product/art choice. The runtime should consume one authored presentation identity
-once chosen.
-
-## Q46 — does Mary-O 1-1 want a fourth question block over floor?
-
-Content-layout choice needed to make the floor-refusal behavior of the fire form
-meaningfully playable.
-
-## Q71 — how much Limit should a successful block award?
-
-Generic meter policy now permits a block source. Choose the Smash balance value;
-keep it out of generic validation.
-
 ## Q79 — how far may the camera zoom out before the fight stops being legible?
 
 Choose the product legibility floor. Camera policy can then clamp against a named
 limit rather than an arbitrary tuning value.
-
-## Q87 — should the top platform and respawn point continue to overlap?
-
-Stage-layout/product decision. If not, move one authored placement rather than
-adding runtime avoidance.
-
-## Q89 — what special should each Robot stand-in have?
-
-The stand-ins currently lack the button vocabulary expected by their match role.
-Choose authored moves or explicitly accept the omission.
-
-## Q93 — should the demo author a dense melee room?
-
-Product/content call. Do not add engine behavior merely to manufacture a stress
-scene unless the room itself is wanted.
-
-## Q82 — should LDtk editor-preview tilesets remain runtime-packaged when the runtime never draws them?
-
-Confirm whether another tool/runtime consumer needs them before excluding them
-from runtime residency/packaging. A concrete proposed retarget is preserved as
-`dev/patches/ldtk-player-tileset-retarget-20260902.patch`; it changes the map-assets
-submodule and therefore needs an explicit content/pointer decision.
-
-## Q83 — should the 442 MB shared sprite pack remain when one prop is the only current reader?
-
-Choose whether this is intentional shared infrastructure or a packaging mistake
-that should be split/deferred.
-
-## Q84 — should portraits have independently authored readable low-resolution tiers?
-
-Current generated tiers preserve existence but not necessarily readability.
-Choose the product quality requirement before adding portrait-specific generation.
-`dev/patches/portrait-tiers-are-never-baked-20260902.patch` is the existing proposed
-implementation for the "full-resolution only" answer. Related: the Q69 ruling
-(2026-10-01) says readability is not an acceptance criterion for the potato
-tier.
-
-## Q148 — which track should Mode Collapse fight to?
-
-Current default, so this blocks nothing: `crooked_ascent_boss`, an authored boss
-track that nothing else uses. The spec's note wants a bespoke "mode collapse"
-track (a loop that degenerates); that is an art handoff.
-
-* **(a) Keep `crooked_ascent_boss`.** No change.
-* **(b) Commission the bespoke track.** Edit the four `music_*` fields of
-  `mode_collapse_boss.ron` when it exists. To change one room only, set that
-  room's `fight_music_track` ([room music recipe](../recipes/room-music.md)).
 
 ## Q153 — how does a second player join Ambition?
 
@@ -166,17 +104,6 @@ Owner: the regrowth/restock row in
   `Never`, the arcade demos `OnRoomReload`).
 
 ## Architecture and engine policy
-
-## Q62 — keep or discard the epoch-captured 4,741-line `mary_o.ldtk` delta?
-
-This is the explicit history/content decision. Do not modify the retained LDtk
-files until the ruling is made.
-
-## Q78 — how should the divergent/unpushed sprite-renderer submodule state be reconciled?
-
-Before any blind `git submodule update`, decide which line/commit must be kept and
-pushed. Tooling warnings should cite this question until the submodule state is
-settled.
 
 ## Q94 — what residency-memory limit should the runtime target?
 

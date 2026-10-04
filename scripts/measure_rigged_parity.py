@@ -45,6 +45,9 @@ import numpy as np  # noqa: E402
 import yaml  # noqa: E402
 from PIL import Image  # noqa: E402
 
+sys.path.insert(0, str(REPO / "scripts"))
+from measure_published_flipbooks import _sheet_rows  # noqa: E402
+
 from ambition_sprite2d_renderer.authoring.part_flipbook import (  # noqa: E402
     PartFlipbook,
     largest_wrong_blob,
@@ -80,7 +83,7 @@ def main() -> int:
     )
     parser.add_argument("--out", type=Path, default=REPO / "target" / "rig_parity")
     parser.add_argument("--no-build", action="store_true", help="reuse the last captures in --out")
-    parser.add_argument("--jobs", type=int, default=os.cpu_count(), help="processes scoring the captures")
+    parser.add_argument("--jobs", type=int, default=min(4, os.cpu_count() or 1), help="processes scoring the captures")
     args = parser.parse_args()
     targets = args.target or list(DEFAULT_TARGETS)
 
@@ -112,6 +115,20 @@ def main() -> int:
         return 2
     if args.scale != 1.0:
         print("the published-draw oracle is drawn texel per pixel: run with --scale 1", file=sys.stderr)
+        return 2
+
+    # ⛔ Every target's inputs are read HERE before a capture is scored: read
+    # lazily in the workers, one sheet without a block the reader expected
+    # threw away 90 minutes of scoring (2026-10-04).
+    unreadable = []
+    for target in sorted({row["target"] for row in rows}):
+        try:
+            _flipbook(target)
+            _sheet(target)
+        except Exception as error:  # noqa: BLE001 - reported, then refused
+            unreadable.append(f"{target}: {type(error).__name__}: {error}")
+    if unreadable:
+        print("inputs the scorer cannot read:\n  " + "\n  ".join(unreadable), file=sys.stderr)
         return 2
 
     worst = defaultdict(lambda: [0.0, 0, 0.0, 0])
@@ -219,7 +236,7 @@ def _score(row, phase):
     draws = tween_draws(flipbook, name, frame, phase)
     # The frame's top left is where the game put it (the anchor's feet at
     # `feet`); the flipbook draws from its own feet within the frame.
-    feet_frame = _SHEETS[target][2]
+    feet_frame = _feet_in_frame(row, parts.size, flipbook.frame_size)
     at = (feet[0] - feet_frame[0] + flipbook.feet[0], feet[1] - feet_frame[1] + flipbook.feet[1])
     flipbook.draw_frame(oracle, name, frame, at, flip, draws=draws, mirror_x=root_x)
     # ⛔ Clipped to the body's impostor cell (mirrored with it): the part road
@@ -231,7 +248,7 @@ def _score(row, phase):
         inside = Image.new("L", oracle.size, 0)
         inside.paste(255, (max(0, cell[0]), max(0, cell[1]), min(oracle.width, cell[2]), min(oracle.height, cell[3])))
         oracle = Image.composite(oracle, Image.new("RGBA", oracle.size, (0, 0, 0, 0)), inside)
-    published = _published_frame(_SHEETS[target], flipbook, name, frame, parts.size, feet, flip, root_x)
+    published = _published_frame(_SHEETS[target], feet_frame, flipbook, name, frame, parts.size, feet, flip, root_x)
     # ⚠ AN IN-BETWEEN IS REPORTED, NOT GATED. PIL rounds a tweened part to
     # whole pixels; the GPU draws it between pixels and does not. The raster
     # difference is that rounding (1-2%, blobs to 39 on Mary-O, 2026-10-02).
@@ -277,14 +294,32 @@ def _sheet(target):
     # not always its `feet_pixel` (director, officer and medic disagree by 8 to
     # 26 px, 2026-10-03). The harness root is built at the anchor, so the
     # oracle is placed by it too.
-    anchor = sheet["body_metrics"]["feet_anchor_norm"]
-    fw, fh = sheet["frame_width"], sheet["frame_height"]
-    feet_frame = ((anchor["x"] + 0.5) * fw, (0.5 - anchor["y"]) * fh)
-    return {row["animation"]: row for row in sheet["rows"]}, pages, feet_frame
+    return {row["animation"]: row for row in _sheet_rows(sheet)}, pages
 
 
-def _published_frame(sheet, flipbook, name, index, size, feet, flip, root_x):
-    rows, pages, feet_frame = sheet
+def _feet_in_frame(row, image_size, frame_size):
+    """Where the game put the feet within the frame: the capture's feet pixel
+    less the frame's top left in the image.
+
+    ⛔ ASKED OF THE CAPTURE, NOT THE SHEET. The game places the frame by its
+    feet ANCHOR, which is not always the sheet's `feet_pixel` (director,
+    officer and medic disagree by 8 to 26 px), falls back to the bottom centre
+    when a sheet has no `body_metrics` (weird_hermit), and can be overridden
+    in code (`feet_anchor_y_override`). Read off the YAML, the oracle restated
+    the first rule, missed the other two, and a sheet without the block
+    crashed a 90-minute scoring run (2026-10-04). The capture writes the
+    frame's top left (`frame_x0`, `frame_y0`); an older index is read by the
+    capture's own rule, the frame centred and floored in the image.
+    """
+    if "frame_x0" in row:
+        x0, y0 = float(row["frame_x0"]), float(row["frame_y0"])
+    else:
+        x0, y0 = ((image_size[0] - frame_size[0]) // 2, (image_size[1] - frame_size[1]) // 2)
+    return float(row["feet_x"]) - x0, float(row["feet_y"]) - y0
+
+
+def _published_frame(sheet, feet_frame, flipbook, name, index, size, feet, flip, root_x):
+    rows, pages = sheet
     rect = rows[name]["rects"][index]
     # A paged sheet names each frame's page `fpage`.
     atlas = pages[int(rect.get("fpage", rows[name].get("page", 0)))]

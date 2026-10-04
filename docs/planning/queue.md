@@ -1149,9 +1149,28 @@ block has no tile and no fill: the crate draws itself.
 core blink. The control is a hard blink wall of the same rectangle, which the
 same body passes. The arm failed before the change.
 
-**Not changed:** a moving platform is still composed as `BlinkWall { Soft }`
-(`ambition_platformer2d_world::platforms`), so the soft blink upgrade passes
-one. Whether that is intended was not asked.
+**Follow-up, the moving platform (2026-10-03, decided on Q102's rule; no
+maintainer question).** A moving platform is composed as `BlinkWall { Soft }`
+(`ambition_platformer2d_world::platforms`). Q102's question is: is it a solid
+that only shares the blink-wall shape, or a blink wall?
+
+- Measured, in the world that collision composes: a body with no
+  through-upgrade stops at the platform (it lands at x = 214 before a platform
+  at 229..251). A body with the soft upgrade passes it (x = 340). A body with
+  only the hard upgrade stops (x = 214).
+- `as_collision_block` states this as its purpose: a moving platform is
+  "deliberately not" a hard blink blocker, and the soft upgrade passes it "just
+  like a soft blink membrane". The solid breakable was different: it was a
+  hard blink wall only to get full collision, and the pass was a defect.
+- No other reader gives a moving platform a different result from a solid.
+  Perception, the fighter's recovery and the projectile response each put
+  `BlinkWall` in the same arm as `Solid`. The tile sprite, the fill colour and
+  the debug colour do draw a blink wall differently, but they read the room's
+  authored blocks and not the composed collision world.
+
+So the platform is a blink wall in the one sense that matters, and it stays
+one. `the_soft_blink_upgrade_passes_a_moving_platform` pins the behaviour, and
+it fails if the platform becomes a `Barrier`.
 
 ### CPU-LADDER — the brain owns the knobs, Smash owns the ladder
 

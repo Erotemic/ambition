@@ -190,7 +190,8 @@ struct RoomLabel {
 pub fn sync_map_menu(
     mut commands: Commands,
     map: Res<MapMenuState>,
-    room_set: ambition_platformer2d_world::rooms::SoleLiveRoomSpec,
+    room: ambition_platformer2d_world::rooms::PrimaryLiveRoomSpec,
+    mut shown: Local<String>,
     mut roots: Query<&mut Visibility, (With<MapMenuRoot>, Without<MinimapRoot>)>,
     mut minimap_roots: Query<&mut Visibility, (With<MinimapRoot>, Without<MapMenuRoot>)>,
     canvases: Query<Entity, With<MapMenuCanvas>>,
@@ -206,6 +207,11 @@ pub fn sync_map_menu(
     )>,
     mut labels: Query<(&mut Text, &mut TextFont), (With<MapRoomLabel>, Without<MapMenuStatus>)>,
 ) {
+    // The map shows one room as active: the room of the primary seat. With
+    // two live rooms there is no sole room, and the map must not go still.
+    let Some(active_id) = room.spec().map(|spec| spec.id.clone()) else {
+        return;
+    };
     if let Ok(mut visibility) = roots.single_mut() {
         *visibility = if map.open {
             Visibility::Visible
@@ -225,7 +231,7 @@ pub fn sync_map_menu(
             "{} of {} rooms visited — {} active   |   zoom {:.2}x   (+ / − adjust, 0 reset)",
             map.visited.len(),
             map.rooms.len(),
-            room_set.spec().id,
+            active_id,
             map.zoom,
         );
     }
@@ -245,11 +251,12 @@ pub fn sync_map_menu(
     // Skip the reconciliation pass when nothing material changed this
     // frame. Visibility / status text above stay unconditional because
     // they're cheap and depend on inputs not all covered by `is_changed`.
-    if !map.is_changed() && !room_set.is_changed() {
+    // The active room changes when the primary body crosses, which changes
+    // no resource here, so the last active room is kept.
+    if !map.is_changed() && !room.is_changed() && *shown == active_id {
         return;
     }
-
-    let active_id = room_set.spec().id.clone();
+    shown.clone_from(&active_id);
 
     // Compute desired (kind, room_id) → RoomVisual for every enabled canvas.
     let mut desired: HashMap<(MapRoomBoxKind, String), RoomVisual> = HashMap::new();

@@ -66,9 +66,15 @@ pub(crate) use ambition_platformer2d::render::rendering::debug_viz::{
 /// clears the labels on the next frame exactly as before.
 pub(crate) fn render_debug_overlay_labels(
     mut gizmos: Gizmos,
-    world: ambition_platformer2d::platformer::lifecycle::SoleLiveRoom<RoomGeometry>,
+    worlds: ambition_platformer2d::platformer::lifecycle::LiveRoomOf<RoomGeometry>,
+    room: ambition_platformer2d::platformer::lifecycle::PrimaryLiveRoom,
     mut labels: ResMut<DebugOverlayLabels>,
 ) {
+    // The labels are in the room that `draw_debug_overlay` drew: the room of
+    // the primary seat.
+    let Some(world) = room.get().and_then(|live| worlds.in_room(live)) else {
+        return;
+    };
     for label in labels.0.drain(..) {
         // ⛔ THE Z IS DISCARDED, AND NOTHING IS LOST. Until the 0.19 move off
         // `Text2d` these labels were entities at Z=200, picked to clear
@@ -101,18 +107,16 @@ pub(crate) fn draw_debug_overlay() {}
 #[cfg(feature = "input")]
 pub(crate) fn draw_debug_overlay(
     mut gizmos: Gizmos,
-    world: ambition_platformer2d::platformer::lifecycle::SoleLiveRoom<RoomGeometry>,
+    worlds: ambition_platformer2d::platformer::lifecycle::LiveRoomOf<RoomGeometry>,
     dev_state: Res<DeveloperRuntimeState>,
-    platform_set: Option<
-        ambition_platformer2d::platformer::lifecycle::SoleLiveRoom<
-            ambition_platformer2d::world::collision::MovingPlatformSet,
-        >,
+    platform_sets: ambition_platformer2d::platformer::lifecycle::LiveRoomOf<
+        ambition_platformer2d::world::collision::MovingPlatformSet,
     >,
     // The ONE collision read-API, for the blink preview — the same composition
     // `step_motion` collides against. See `draw_player_debug`'s `blink_world`.
     collision: ambition_platformer2d::world::collision::CollisionWorld,
     developer_tools: Res<DeveloperTools>,
-    room_set: ambition_platformer2d::world::rooms::SoleLiveRoomSpec,
+    room: ambition_platformer2d::world::rooms::PrimaryLiveRoomSpec,
     ldtk_spine_index: Res<ambition_platformer2d::ldtk_map::LdtkRuntimeSpineIndex>,
     // Was `Res<CameraViewState>`, a process-global describing "the" gameplay view — which is
     // the one thing a debug overlay must not assume once a split layout draws two.
@@ -163,6 +167,15 @@ pub(crate) fn draw_debug_overlay(
     // drains it after this system runs.
     overlay_labels.0.clear();
 
+    // The overlay draws the room of the primary seat, whose player it draws.
+    // With two live rooms there is no sole room, and the overlay must not go
+    // dark.
+    let Some(live) = room.room() else {
+        return;
+    };
+    let (Some(world), Some(room_spec)) = (worlds.in_room(live), room.spec()) else {
+        return;
+    };
     let world = &world.0;
     // Mirror the gameplay input gate used by the player tick. Raw Leafwing
     // action state still records button presses while paused so pause/menu
@@ -196,7 +209,7 @@ pub(crate) fn draw_debug_overlay(
         }
     }
     if developer_tools.show_loading_zones {
-        draw_loading_zones(&mut gizmos, world, &room_set.spec().loading_zones);
+        draw_loading_zones(&mut gizmos, world, &room_spec.loading_zones);
         draw_ldtk_runtime_spine(&mut gizmos, world, &ldtk_spine_index);
     }
     if developer_tools.show_rebound_vectors {
@@ -206,7 +219,7 @@ pub(crate) fn draw_debug_overlay(
         draw_moving_platform_debug(
             &mut gizmos,
             world,
-            platform_set.as_ref().map_or(&[][..], |platforms| &platforms.0[..]),
+            platform_sets.in_room(live).map_or(&[][..], |platforms| &platforms.0[..]),
         );
     }
     draw_combat_geometry_view(
@@ -280,5 +293,137 @@ pub(crate) fn draw_debug_overlay(
         );
         #[cfg(feature = "portal")]
         draw_portals(&mut gizmos, world, portals.iter());
+    }
+}
+
+#[cfg(all(test, feature = "input"))]
+mod two_live_rooms_tests {
+    use bevy::prelude::*;
+
+    use ambition_platformer2d::dev_tools::dev_tools::DeveloperTools;
+    use ambition_platformer2d::dev_tools::DeveloperRuntimeState;
+    use ambition_platformer2d::game_shell::{ShellCommand, ShellRouteId};
+    use ambition_platformer2d::platformer::lifecycle::{InRoomInstance, LiveRoomInstance};
+    use ambition_platformer2d::world::rooms::{LiveRoomDefinition, RoomSet};
+
+    /// The labels that the overlay drew on the last frame, and how many of
+    /// them the renderer left. The renderer drains them in the same frame, so
+    /// one probe reads them between the two and one after the renderer.
+    #[derive(Resource, Default)]
+    struct DrawnLabels(Vec<String>, usize);
+
+    fn record_drawn_labels(labels: Res<super::DebugOverlayLabels>, mut drawn: ResMut<DrawnLabels>) {
+        drawn.0 = labels.0.iter().map(|label| label.text.clone()).collect();
+    }
+
+    fn record_undrawn_labels(labels: Res<super::DebugOverlayLabels>, mut drawn: ResMut<DrawnLabels>) {
+        drawn.1 = labels.0.len();
+    }
+
+    /// The labels the overlay drew, how many the renderer did not draw, and
+    /// the developer HUD's text.
+    fn shown(app: &mut App) -> (Vec<String>, usize, String) {
+        app.update();
+        let hud = app
+            .world_mut()
+            .query_filtered::<&Text, With<ambition_platformer2d::render::rendering::HudText>>()
+            .single(app.world())
+            .expect("one developer HUD")
+            .0
+            .clone();
+        let drawn = app.world().resource::<DrawnLabels>();
+        (drawn.0.clone(), drawn.1, hud)
+    }
+
+    /// OW1: with two live rooms, the developer overlay and the developer HUD
+    /// show the room of the primary body. Before, each read the sole live room
+    /// and did not run while two rooms were live: the overlay drew no label
+    /// and the HUD stood still on the room it showed last. The control is the
+    /// same app with one live room.
+    #[test]
+    fn the_developer_overlay_and_hud_show_the_primary_bodys_room_while_two_rooms_are_live() {
+        let mut app = crate::app::build_visible_app(crate::app::VisibleRenderMode::NoWindow, true);
+        app.init_resource::<DrawnLabels>();
+        app.add_systems(
+            Update,
+            record_drawn_labels
+                .after(super::draw_debug_overlay)
+                .before(super::render_debug_overlay_labels),
+        );
+        app.add_systems(Update, record_undrawn_labels.after(super::render_debug_overlay_labels));
+        app.finish();
+        app.update();
+        app.world_mut().write_message(ShellCommand::ReplaceWith {
+            route: ShellRouteId::new("ambition_gameplay"),
+            request: None,
+        });
+        for _ in 0..240 {
+            app.update();
+        }
+        app.world_mut().resource_mut::<DeveloperRuntimeState>().debug = true;
+        {
+            let mut tools = app.world_mut().resource_mut::<DeveloperTools>();
+            tools.gizmos_enabled = true;
+            tools.show_player_hitbox = true;
+            tools.show_hud = true;
+            tools.compact_hud = false;
+        }
+        app.world_mut()
+            .resource_mut::<ambition_platformer2d::persistence::settings::UserSettings>()
+            .gameplay
+            .debug_hud_visible = true;
+
+        let (labels, undrawn, hud) = shown(&mut app);
+        assert!(labels.iter().any(|label| label == "player"), "control: one live room: {labels:?}");
+        assert_eq!(undrawn, 0, "control: one live room: the renderer drew every label");
+        let (definition, geometry) = {
+            let world = app.world_mut();
+            let mut roots = world.query_filtered::<(
+                &LiveRoomDefinition,
+                &ambition_platformer2d::engine_core::RoomGeometry,
+            ), With<ambition_platformer2d::session::RoomInstanceRoot>>();
+            let (definition, geometry) = roots.single(world).expect("the session has one live room");
+            (*definition, geometry.clone())
+        };
+        assert!(
+            hud.starts_with(&format!("{}  ", geometry.0.name)),
+            "control: the HUD names the one live room: {hud:?}"
+        );
+
+        // A second live room, of another definition and a geometry with its
+        // own name. The primary body stands in it.
+        let other = {
+            let rooms = ambition_platformer2d::platformer::lifecycle::session_world_component::<RoomSet>(
+                app.world(),
+            )
+            .expect("the session has a room set");
+            let id = &rooms
+                .rooms
+                .iter()
+                .find(|spec| rooms.definition_by_id(&spec.id) != Some(definition))
+                .expect("the shipped game has two rooms")
+                .id;
+            rooms.definition_by_id(id).unwrap()
+        };
+        let mut second_geometry = geometry.clone();
+        second_geometry.0.name = "the second live room".to_string();
+        let second_room = LiveRoomInstance::from_ordinal(1_000);
+        let second = ambition_platformer2d::platformer::lifecycle::spawn_live_room(app.world_mut(), second_room, other);
+        app.world_mut().entity_mut(second).insert(second_geometry);
+        let primary = app
+            .world_mut()
+            .query_filtered::<Entity, With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>()
+            .single(app.world())
+            .expect("one primary player, whose bundle holds the primary body");
+        app.world_mut().entity_mut(primary).insert(InRoomInstance(second_room));
+
+        let (labels, undrawn, hud) = shown(&mut app);
+        assert!(labels.iter().any(|label| label == "player"), "two live rooms: {labels:?}");
+        assert_eq!(undrawn, 0, "two live rooms: the renderer did not draw the labels");
+        assert!(
+            hud.starts_with("the second live room  ")
+                && hud.contains(&format!(" room {}/", other.index() + 1)),
+            "two live rooms: the HUD names the primary body's room: {hud:?}"
+        );
     }
 }

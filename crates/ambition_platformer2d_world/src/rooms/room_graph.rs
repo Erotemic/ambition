@@ -487,6 +487,50 @@ impl LiveRoomSpecs<'_, '_> {
     }
 }
 
+/// The live room of the primary seat and the definition it instantiates: the
+/// reader for presentation that has one viewer, such as the map and the
+/// developer HUD.
+///
+/// The room is [`PrimaryLiveRoom`]: the room of the primary body, and with no
+/// primary body, the sole live room. So two live rooms answer with the
+/// primary body's room, where [`SoleLiveRoomSpec`] answers with none.
+///
+/// [`PrimaryLiveRoom`]: ambition_platformer2d_shared_tangle::lifecycle::PrimaryLiveRoom
+#[derive(bevy_ecs::system::SystemParam)]
+pub struct PrimaryLiveRoomSpec<'w, 's> {
+    specs: LiveRoomSpecs<'w, 's>,
+    primary: ambition_platformer2d_shared_tangle::lifecycle::PrimaryLiveRoom<'w, 's>,
+}
+
+impl PrimaryLiveRoomSpec<'_, '_> {
+    /// The live room of the primary seat. `None` when no room can be told.
+    pub fn room(&self) -> Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance> {
+        self.primary.get()
+    }
+
+    /// The definition the primary seat's live room instantiates.
+    pub fn definition(&self) -> Option<LiveRoomDefinition> {
+        self.room().and_then(|room| self.specs.definition_in(room))
+    }
+
+    /// The authored spec of the primary seat's live room.
+    pub fn spec(&self) -> Option<&RoomSpec> {
+        self.definition().map(|definition| self.specs.rooms().spec(definition))
+    }
+
+    /// The session's room set.
+    pub fn rooms(&self) -> &RoomSet {
+        self.specs.rooms()
+    }
+
+    /// Whether the room set was replaced since this system last ran. A
+    /// crossing of the primary body changes no resource, so a reader that
+    /// skips work keeps the room it last showed.
+    pub fn is_changed(&self) -> bool {
+        self.specs.is_changed()
+    }
+}
+
 /// [`LiveRoomSpecs::left_by`] at an exclusive-world boundary: the definition
 /// of the live room a crossing by `subject` leaves.
 pub fn live_room_definition_left_by(

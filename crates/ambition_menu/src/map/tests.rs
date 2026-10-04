@@ -318,3 +318,114 @@ fn a_new_game_records_the_room_the_player_is_already_standing_in() {
     );
     assert_eq!(visited(&app), vec!["hall"]);
 }
+
+/// Two rooms side by side, `hall` live at the activation room. With `lab_live`,
+/// `lab` is live beside it as a second room. The primary body stands in
+/// `body_in`. The map is open over both rooms.
+fn map_over_two_rooms(lab_live: bool, body_in: &str) -> bevy::prelude::App {
+    use ambition_platformer2d_shared_tangle::lifecycle::{
+        spawn_live_room, ActiveSessionScope, InRoomInstance, LiveRoomInstance,
+    };
+    use ambition_platformer2d_world::rooms::{insert_room_set, RoomSet, RoomSpec};
+    use bevy::prelude::*;
+
+    let mut app = App::new();
+    app.init_resource::<ActiveSessionScope>();
+    app.world_mut().resource_mut::<ActiveSessionScope>().begin();
+    let room = |id: &str| {
+        let world = ambition_platformer2d_world::prelude::AuthoredWorld::new(
+            id,
+            Vec2::new(640.0, 480.0),
+            Vec2::new(32.0, 400.0),
+            Vec::new(),
+        );
+        RoomSpec::new(id, world)
+    };
+    let rooms = RoomSet::from_parts_or_panic("hall", vec![room("hall"), room("lab")], Vec::new());
+    let lab = rooms.definition_by_id("lab").expect("lab is authored");
+    insert_room_set(app.world_mut(), rooms);
+    let lab_room = LiveRoomInstance::from_ordinal(1);
+    if lab_live {
+        spawn_live_room(app.world_mut(), lab_room, lab);
+    }
+    let body_room = if body_in == "lab" { lab_room } else { LiveRoomInstance::ACTIVATION };
+    app.world_mut().spawn((
+        ambition_platformer2d_shared_tangle::body::PrimaryBody,
+        InRoomInstance(body_room),
+    ));
+    app.insert_resource(super::MapMenuState {
+        open: true,
+        rooms: ["hall", "lab"]
+            .iter()
+            .enumerate()
+            .map(|(i, id)| super::MapRoomNode {
+                id: id.to_string(),
+                world_min: Vec2::new(640.0 * i as f32, 0.0),
+                world_size: Vec2::new(640.0, 480.0),
+            })
+            .collect(),
+        ..Default::default()
+    });
+    app.world_mut().spawn(super::ui::MapMenuCanvas);
+    app.world_mut().spawn((super::ui::MapMenuStatus, Text::default()));
+    app.add_systems(Update, super::sync_map_menu);
+    app.update();
+    app
+}
+
+/// The status line of the map, and the room whose box has the active colour.
+fn shown_active(app: &mut bevy::prelude::App) -> (String, Vec<String>) {
+    use bevy::prelude::*;
+    let status = app
+        .world_mut()
+        .query_filtered::<&Text, With<super::ui::MapMenuStatus>>()
+        .single(app.world())
+        .expect("one status line")
+        .0
+        .clone();
+    let active = Color::srgba(0.55, 0.92, 0.62, 0.95);
+    let mut boxes: Vec<String> = app
+        .world_mut()
+        .query::<(&super::ui::MapRoomBox, &BackgroundColor)>()
+        .iter(app.world())
+        .filter(|(_, colour)| colour.0 == active)
+        .map(|(room_box, _)| room_box.room_id.clone())
+        .collect();
+    boxes.sort();
+    (status, boxes)
+}
+
+/// OW1: with two live rooms the map shows the primary body's room as active,
+/// and a crossing between the two live rooms moves it. Before, the map read
+/// the sole live room, so while two rooms were live it did not run. The
+/// control is one live room, which shows the room the body stands in.
+#[test]
+fn the_map_shows_the_primary_bodys_room_while_two_rooms_are_live() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance};
+    use bevy::prelude::*;
+
+    let mut one = map_over_two_rooms(false, "hall");
+    let (status, boxes) = shown_active(&mut one);
+    assert!(status.contains("hall active"), "control: one live room: {status}");
+    assert_eq!(boxes, vec!["hall"], "control: one live room");
+
+    let mut two = map_over_two_rooms(true, "lab");
+    let (status, boxes) = shown_active(&mut two);
+    assert!(status.contains("lab active"), "two live rooms: {status}");
+    assert_eq!(boxes, vec!["lab"], "two live rooms");
+
+    // The body crosses back into the hall, which is still live. No resource
+    // changes, so only the room the map last showed tells the map to redraw.
+    let body = two
+        .world_mut()
+        .query_filtered::<Entity, With<ambition_platformer2d_shared_tangle::body::PrimaryBody>>()
+        .single(two.world())
+        .unwrap();
+    two.world_mut()
+        .entity_mut(body)
+        .insert(InRoomInstance(LiveRoomInstance::ACTIVATION));
+    two.update();
+    let (status, boxes) = shown_active(&mut two);
+    assert!(status.contains("hall active"), "after the crossing: {status}");
+    assert_eq!(boxes, vec!["hall"], "after the crossing, the boxes were not redrawn");
+}

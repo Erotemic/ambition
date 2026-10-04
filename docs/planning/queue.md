@@ -775,8 +775,32 @@ second authoring source.
   refused a landing pad that `LdtkProject::validate` allows and reported half a
   target twice. It now checks only that a complete target names a room and a
   zone that exist (`a_landing_pad_is_allowed_and_half_a_target_is_refused_once`).
-  The other cross-reference checks in the file were not compared against an
-  owner in that pass.
+  ✅ 2026-10-03, the rest of the LoadingZone rules, compared with their owners:
+  - Measured first: the validator had its own scan of the `LoadingZone`
+    fields, and it trimmed a target that the converter did not trim. With
+    `target_room = "scroll_lab "` the validator reported nothing and the room
+    set dropped the link: a dead door that validation accepted.
+  - The LDtk owner has the one text rule now (`field_text`: trimmed, blank is
+    absent). `LdtkProject::validate` and `collect_room_links` both use it.
+  - A blank zone id and a second zone with one id in an area are the LDtk
+    owner's errors now. `validate` gates each room set, so each LDtk game gets
+    them, not only this validator's game.
+  - `rooms::unresolved_links` is the one judge of "this link names a room and
+    a zone that exist". `RoomSet::try_from_parts` warns of an unknown room and
+    `layout_warnings` of an unknown zone, both from it. A room set cannot
+    refuse such a link: measured, a partial set keeps the exits of its rooms
+    (one room alone, and the engine's 59-room world, whose 4 links name rooms
+    that only the full game adds).
+  - The validator holds the complete game, so there each unresolved link is
+    an error. It reads the rooms and links that the runtime builds
+    (`to_room_parts`), and its own scan is deleted.
+  Open, same class, not changed: `validate_npc_brain_overrides` reads
+  `character_id` and `brain_override` with `field_text`, and the NpcSpawn
+  converter reads them with `field_string` (no trim). The quest checks
+  (`authored_encounter_ids`, `authored_flag_ids`, the pickup and NPC iids)
+  each scan the LDtk entities again beside a converter; none was compared.
+  `scripts/check_world_graph_is_navigable.py` is a third reader of the zone
+  targets (it does not trim, so it is stricter than the engine).
 
 **Open work:**
 

@@ -90,7 +90,7 @@ pub(super) fn convert_loading_zone(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmissi
         )
     })?;
     Ok(RoomEmission::zone(LoadingZone {
-        id: field_string(entity, "id").unwrap_or_else(|| entity.iid.clone()),
+        id: loading_zone_id(entity),
         name,
         activation,
         aabb: object_aabb(min, size),

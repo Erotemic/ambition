@@ -108,9 +108,15 @@ published flipbooks draw from parts and only fsm_noodling is drawn baked. Their
 part pages hold 58.0 MTexel against the sheets' 532.1 (0.109x; 26.2 against
 262.7 MiB), and the tiers come to about 0.11x. The median character's worst
 frame takes 21 draws, and the worst character (georg_canter) 50. Every
-flipbook redraws its sheet inside D6 (`scripts/measure_published_flipbooks.py`),
-and in-engine parity over ten rebuilt characters in both facings (3554 frames)
-stays under 0.15%. ⚠ The draw tables are now the larger download: 42.4 MiB of
+flipbook redraws its sheet inside D6 (`scripts/measure_published_flipbooks.py`).
+In-engine parity covered all 142 part-drawn characters in both facings
+(45,516 frames, `scripts/measure_rigged_parity.py`). It found one game defect:
+the impostor ignored a mirror row's mirrored feet anchor, so the player robot
+drew 3 to 5 px off in all 944 of its left-facing frames. That is fixed, and the
+robot's 3,776 frames now pass. One residual is explained and not gated:
+ninja_shadow_duelist's headband tail, a 1 px diagonal line placed at a
+quarter pixel. The GPU samples it between texels, which costs about 30% of
+its alpha against PIL's rounding: 14 frames, 0.07%, blob 12. ⚠ The draw tables are now the larger download: 42.4 MiB of
 RON against 26.2 MiB of part pages.
 
 Also: always-rigid neighbouring draws are composited into one part when that

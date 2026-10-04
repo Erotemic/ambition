@@ -227,8 +227,13 @@ What it added, all of it general:
   (`rigdoc.faded_canvas`). The runtime fades the body's cell after its parts
   are composited, in the un-premultiplying pass (`ImpostorCellOpacity`).
   Faded part by part, the torso would show through the arm.
-- The blink's sliced body is one overlay per frame (`teleport_body`), and the
-  effect canvases go through `composite_layer`.
+- The blink (2026-10-04) is the body's own pieces, each drifting and fading
+  (`robot_side._teleport_warp`), plus portal-ring, sliver and scan-line pieces.
+  It was one sliced-body overlay per frame (`teleport_body`). Faded piece by
+  piece, the parts show through each other mid-blink, which reads as part of
+  the glitch; a whole-frame fade would also dim the portal rings. Every other
+  effect (jets, shield quarters, line blade, orb, beam) is a piece too. Effects
+  went from 475k to 32k texels, and the body is unchanged.
 - `IMPOSTOR_CELL` is 288 (the robot's 256 px frame plus margins);
   `every_published_flipbook_fits_an_impostor_cell` holds every published
   flipbook to it.

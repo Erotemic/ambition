@@ -1423,21 +1423,25 @@ fn verify_restored_domains(
     // BEFORE the destructive application and ask whether the commit may proceed;
     // this runs after and asks what it actually did. A restore that rebuilt some
     // other room put every domain value back against the wrong world.
-    {
-        // The one-live-room read: a restore rebuilds the session's live room.
-        if let Some(room) = ambition_platformer2d_world::rooms::sole_live_room_spec(world) {
-            let standing = &room.id;
-            if standing != accepted.intent.target_room() {
-                return Err(RestoreVerificationFailure {
-                    failure: RestoreFailure::Room,
-                    detail: format!(
-                        "the operation reconstructs '{}' and the session is standing \
-                         in '{standing}'",
-                        accepted.intent.target_room()
-                    ),
-                });
-            }
-        }
+    //
+    // Keyed by the target room, not by "the" live room: another participant's
+    // live room can stand beside the rebuilt one (Q151), and a room has at most
+    // one live room (`DefinitionAlreadyLive`). With no live room at all there
+    // is nothing to stand in, and nothing to check.
+    let produced = ambition_platformer2d_world::rooms::live_room_standing_in(
+        world,
+        accepted.intent.target_room(),
+    );
+    let live = ambition_platformer2d_world::rooms::live_room_ids(world);
+    if produced.is_none() && !live.is_empty() {
+        return Err(RestoreVerificationFailure {
+            failure: RestoreFailure::Room,
+            detail: format!(
+                "the operation reconstructs '{}' and no live room stands in it \
+                 (live: {live:?})",
+                accepted.intent.target_room()
+            ),
+        });
     }
 
     // ── THE BODY THE OPERATION IS ABOUT ──────────────────────────────────────
@@ -1451,14 +1455,12 @@ fn verify_restored_domains(
     // ⛔ IN THE ROOM THE OPERATION PRODUCED, NOT THE ROOM IT RECORDED. The
     // subject's recorded live room is the room it left: the commit carried it
     // into the live room it published. So a subject that was in a live room is
-    // looked for in the produced one (the one-live-room read, like the room
-    // check above). A subject in no live room stays in none.
+    // looked for in the produced one, the room the check above found standing
+    // in the target. A subject in no live room stays in none.
     if let Some(subject) = accepted.intent.subject() {
         use ambition_platformer2d_shared_tangle::lifecycle::{
-            sole_live_room_entity, InRoomInstance, LiveBodyId, LiveRoomInstance,
+            InRoomInstance, LiveBodyId, LiveRoomInstance,
         };
-        let produced = sole_live_room_entity(world)
-            .and_then(|root| world.get::<LiveRoomInstance>(root).copied());
         let mut bodies = world.query::<(
             &ambition_platformer2d_shared_tangle::sim_id::SimId,
             Option<&InRoomInstance>,

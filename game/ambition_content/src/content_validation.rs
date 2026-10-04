@@ -257,11 +257,6 @@ fn validate_quest_conditions(
     music: &MusicRegistry,
     report: &mut ContentValidationReport,
 ) {
-    let room_ids = active_area_ids(project);
-    let encounter_ids = authored_encounter_ids(project);
-    let boss_ids = authored_boss_encounter_ids(project);
-    let item_ids = authored_pickup_ids(project);
-    let known_flags = authored_flag_ids(project);
     let valid_tracks = music
         .tracks
         .iter()
@@ -282,7 +277,7 @@ fn validate_quest_conditions(
             &ambition_persistence::save_data::AmbitionGameSaveData::default(),
             waves.as_ref(),
         );
-    for (id, spec, _) in loaded_encounters {
+    for (id, spec, _) in &loaded_encounters {
         // Exactly-empty, matching `encounter/systems.rs`'s own
         // `!spec.music_track.is_empty()` gate, for the same reason as boss phases.
         if !spec.music_track.is_empty() && !valid_tracks.contains(spec.music_track.as_str()) {
@@ -293,62 +288,89 @@ fn validate_quest_conditions(
         }
     }
 
-    for spec in crate::quest::default_quest_specs() {
+    let boss_catalog = crate::bosses::authored_boss_catalog();
+    let ids = QuestTargets {
+        rooms: active_area_ids(project),
+        // The encounters that the loader builds, by the id it gives each one.
+        encounters: loaded_encounters
+            .iter()
+            .map(|(id, _, _)| id.clone())
+            .collect(),
+        bosses: boss_defeat_ids(rooms, &boss_catalog),
+        items: authored_pickup_ids(project),
+        npcs: authored_npc_ids(project),
+        flags: authored_flag_ids(project, rooms, &loaded_encounters),
+    };
+    check_quest_steps(&crate::quest::default_quest_specs(), &ids, report);
+}
+
+/// What a quest step may name, each set read from the owner of its id.
+struct QuestTargets {
+    rooms: BTreeSet<String>,
+    encounters: BTreeSet<String>,
+    bosses: BTreeSet<String>,
+    items: BTreeSet<String>,
+    npcs: BTreeSet<String>,
+    flags: BTreeSet<String>,
+}
+
+/// The id that each authored boss reports when it is defeated
+/// (`QuestAdvanceEvent::BossDefeated`): the id of the behaviour that the boss
+/// owner resolves for its placement.
+///
+/// This validator used to slug the display name of each `BossSpawn`. Measured
+/// on the shipped world, that id was not the reported one for 9 of the 11
+/// bosses (`system_boss` against `clockwork_warden`, `t_rex` against
+/// `trex_boss`). A quest that named the reported id was refused, and a quest
+/// that named the slug was accepted and could not complete.
+fn boss_defeat_ids(
+    rooms: &[ambition_platformer2d::world::rooms::RoomSpec],
+    boss_catalog: &ambition_boss_encounter::BossCatalog,
+) -> BTreeSet<String> {
+    rooms
+        .iter()
+        .flat_map(|room| &room.boss_spawns)
+        .map(|boss| {
+            ambition_boss_encounter::behavior::authored_boss_behavior(
+                boss_catalog,
+                &boss.name,
+                &boss.payload,
+            )
+            .id
+        })
+        .collect()
+}
+
+/// The rules take their inputs as arguments so a test can plant a step. See
+/// `check_cutscene_bindings`.
+fn check_quest_steps(
+    specs: &[ambition_persistence::quest::QuestSpec],
+    ids: &QuestTargets,
+    report: &mut ContentValidationReport,
+) {
+    use ambition_persistence::quest::QuestStepCondition as Condition;
+    for spec in specs {
         if spec.steps.is_empty() {
             report.push_error(format!("quest '{}' has no steps", spec.id));
         }
         for (index, step) in spec.steps.iter().enumerate() {
-            match &step.condition {
-                ambition_persistence::quest::QuestStepCondition::RoomEntered(room) => {
-                    if !room_ids.contains(room.as_str()) {
-                        report.push_error(format!(
-                            "quest '{}'/step {} references unknown room '{}'",
-                            spec.id, index, room
-                        ));
-                    }
+            let (known, what, id) = match &step.condition {
+                Condition::RoomEntered(room) => (&ids.rooms, "room", room),
+                Condition::EncounterCleared(encounter) => (&ids.encounters, "encounter", encounter),
+                Condition::BossDefeated(boss) => {
+                    (&ids.bosses, "authored boss encounter", boss)
                 }
-                ambition_persistence::quest::QuestStepCondition::EncounterCleared(encounter) => {
-                    if !encounter_ids.contains(encounter.as_str()) {
-                        report.push_error(format!(
-                            "quest '{}'/step {} references unknown encounter '{}'",
-                            spec.id, index, encounter
-                        ));
-                    }
-                }
-                ambition_persistence::quest::QuestStepCondition::BossDefeated(boss) => {
-                    if !boss_ids.contains(boss.as_str()) {
-                        report.push_error(format!(
-                            "quest '{}'/step {} references unknown authored boss encounter '{}'",
-                            spec.id, index, boss
-                        ));
-                    }
-                }
-                ambition_persistence::quest::QuestStepCondition::FlagSet(flag) => {
-                    if !known_flags.contains(flag.as_str()) {
-                        report.push_error(format!(
-                            "quest '{}'/step {} references unknown authored flag '{}'",
-                            spec.id, index, flag
-                        ));
-                    }
-                }
-                ambition_persistence::quest::QuestStepCondition::ItemCollected(item) => {
-                    if !item_ids.contains(item.as_str()) {
-                        report.push_error(format!(
-                            "quest '{}'/step {} references unknown pickup/item id '{}'",
-                            spec.id, index, item
-                        ));
-                    }
-                }
-                ambition_persistence::quest::QuestStepCondition::NpcTalked(npc) => {
-                    // Gameplay emits the runtime NPC object id for NpcTalked. Most quests use
-                    // flags, but future ones may use this.
-                    if !authored_npc_ids(project).contains(npc.as_str()) {
-                        report.push_error(format!(
-                            "quest '{}'/step {} references unknown NPC id '{}'",
-                            spec.id, index, npc
-                        ));
-                    }
-                }
+                Condition::FlagSet(flag) => (&ids.flags, "authored flag", flag),
+                Condition::ItemCollected(item) => (&ids.items, "pickup/item id", item),
+                // Gameplay emits the runtime NPC object id for NpcTalked. Most
+                // quests use flags, but future ones may use this.
+                Condition::NpcTalked(npc) => (&ids.npcs, "NPC id", npc),
+            };
+            if !known.contains(id.as_str()) {
+                report.push_error(format!(
+                    "quest '{}'/step {} references unknown {what} '{id}'",
+                    spec.id, index
+                ));
             }
         }
     }
@@ -483,44 +505,6 @@ fn active_area_ids(project: &LdtkProject) -> BTreeSet<String> {
         .collect()
 }
 
-fn authored_encounter_ids(project: &LdtkProject) -> BTreeSet<String> {
-    let mut ids = BTreeSet::new();
-    for level in &project.levels {
-        let area = level.active_area();
-        for entity in level.all_entity_instances() {
-            if entity.identifier == "EncounterTrigger" {
-                ids.insert(
-                    field_string(entity, "id")
-                        .map(|id| id.trim().to_string())
-                        .filter(|id| !id.is_empty())
-                        .unwrap_or_else(|| area.clone()),
-                );
-            }
-        }
-    }
-    ids
-}
-
-fn authored_boss_encounter_ids(project: &LdtkProject) -> BTreeSet<String> {
-    let mut ids = BTreeSet::new();
-    for level in &project.levels {
-        for entity in level.all_entity_instances() {
-            if entity.identifier == "BossSpawn" {
-                let name = field_string(entity, "name")
-                    .map(|name| name.trim().to_string())
-                    .filter(|name| !name.is_empty())
-                    .unwrap_or_else(|| entity.iid.clone());
-                ids.insert(
-                    ambition_boss_encounter::encounter_id_from_name(
-                        &name,
-                    ),
-                );
-            }
-        }
-    }
-    ids
-}
-
 fn authored_npc_ids(project: &LdtkProject) -> BTreeSet<String> {
     authored_entity_iids(project, "NpcSpawn")
 }
@@ -541,7 +525,15 @@ fn authored_entity_iids(project: &LdtkProject, identifier: &str) -> BTreeSet<Str
     ids
 }
 
-fn authored_flag_ids(project: &LdtkProject) -> BTreeSet<String> {
+fn authored_flag_ids(
+    project: &LdtkProject,
+    rooms: &[ambition_platformer2d::world::rooms::RoomSpec],
+    loaded_encounters: &[(
+        String,
+        ambition_encounter::EncounterSpec,
+        ambition_persistence::save_data::PersistedEncounterState,
+    )],
+) -> BTreeSet<String> {
     let mut flags = BTreeSet::from([
         "met_any_hub_npc".to_string(),
         "test_switch_toggled".to_string(),
@@ -555,13 +547,6 @@ fn authored_flag_ids(project: &LdtkProject) -> BTreeSet<String> {
                         &dialogue_id,
                     ));
                 }
-            }
-            if entity.identifier == "EncounterTrigger" {
-                let encounter_id = field_string(entity, "id")
-                    .map(|id| id.trim().to_string())
-                    .filter(|id| !id.is_empty())
-                    .unwrap_or_else(|| level.active_area());
-                flags.insert(encounter_reward_looted_flag(&encounter_id));
             }
             if entity.identifier == "Switch" {
                 if let Some(id) = field_string(entity, "id") {
@@ -586,8 +571,15 @@ fn authored_flag_ids(project: &LdtkProject) -> BTreeSet<String> {
             }
         }
     }
-    for boss in authored_boss_encounter_ids(project) {
-        flags.insert(encounter_reward_looted_flag(&boss));
+    // The reward chest of an encounter is keyed by the id that the loader gives
+    // the encounter.
+    for (encounter_id, _, _) in loaded_encounters {
+        flags.insert(encounter_reward_looted_flag(encounter_id));
+    }
+    // The reward chest of a boss is keyed by its PLACEMENT id
+    // (`ambition_boss_encounter::rewards`), not by its display name.
+    for boss in rooms.iter().flat_map(|room| &room.boss_spawns) {
+        flags.insert(encounter_reward_looted_flag(&boss.id));
     }
     flags
 }
@@ -982,26 +974,133 @@ mod tests {
         assert!(report.errors.is_empty(), "{:?}", report.errors);
     }
 
-    #[test]
-    fn quest_boss_conditions_point_at_authored_bosses() {
+    /// The composed rooms, the boss catalog and the quest targets of the
+    /// shipped world.
+    fn shipped_quest_targets() -> (
+        Vec<ambition_platformer2d::world::rooms::RoomSpec>,
+        ambition_boss_encounter::BossCatalog,
+        QuestTargets,
+    ) {
         let project = LdtkProject::load_default_for_dev(&crate::worlds::world_manifest())
             .expect("embedded LDtk loads");
-        let boss_ids = authored_boss_encounter_ids(&project);
-        assert!(boss_ids.contains("clockwork_warden"));
-        for spec in crate::quest::default_quest_specs() {
-            for step in &spec.steps {
-                if let ambition_persistence::quest::QuestStepCondition::BossDefeated(id) =
-                    &step.condition
-                {
-                    assert!(
-                        boss_ids.contains(id.as_str()),
-                        "quest '{}' references boss '{}' not authored in LDtk; authored bosses: {:?}",
-                        spec.id,
-                        id,
-                        boss_ids
-                    );
-                }
-            }
+        let (rooms, _) = project
+            .to_room_parts(
+                &crate::worlds::world_manifest(),
+                &ambition_platformer2d_ldtk::LdtkVocabulary::engine(),
+            )
+            .expect("the embedded world composes");
+        let boss_catalog = crate::bosses::authored_boss_catalog();
+        let loaded = ambition_encounter_features::load_encounter_specs_from_rooms(
+            &rooms,
+            &ambition_persistence::save_data::AmbitionGameSaveData::default(),
+            None,
+        );
+        let ids = QuestTargets {
+            rooms: active_area_ids(&project),
+            encounters: loaded.iter().map(|(id, _, _)| id.clone()).collect(),
+            bosses: boss_defeat_ids(&rooms, &boss_catalog),
+            items: authored_pickup_ids(&project),
+            npcs: authored_npc_ids(&project),
+            flags: authored_flag_ids(&project, &rooms, &loaded),
+        };
+        (rooms, boss_catalog, ids)
+    }
+
+    fn errors_for_a_quest_that_wants(
+        ids: &QuestTargets,
+        condition: ambition_persistence::quest::QuestStepCondition,
+    ) -> Vec<String> {
+        let quest = ambition_persistence::quest::QuestSpec::new(
+            "planted",
+            "Planted",
+            "A quest with one planted step.",
+            vec![ambition_persistence::quest::QuestStepSpec::new("Do it.", condition)],
+        );
+        let mut report = ContentValidationReport::default();
+        check_quest_steps(&[quest], ids, &mut report);
+        report.errors
+    }
+
+    /// A QUEST NAMES A BOSS BY THE ID THAT ITS DEFEAT REPORTS.
+    ///
+    /// The validator's id of each shipped boss is the id of the behaviour
+    /// that the production constructor gives it, which is the id in
+    /// `QuestAdvanceEvent::BossDefeated`. The validator used to slug the
+    /// display name: `System Boss` gave `system_boss`, and the boss reports
+    /// `clockwork_warden`.
+    #[test]
+    fn a_quest_names_a_boss_by_the_id_its_defeat_reports() {
+        use ambition_persistence::quest::QuestStepCondition as Condition;
+        let (rooms, boss_catalog, ids) = shipped_quest_targets();
+
+        let mut bosses = 0;
+        for boss in rooms.iter().flat_map(|room| &room.boss_spawns) {
+            bosses += 1;
+            let built = ambition_boss_encounter::BossClusterScratch::new(
+                &boss_catalog,
+                boss.id.clone(),
+                boss.name.clone(),
+                boss.aabb,
+                boss.payload.clone(),
+            );
+            assert!(
+                ids.bosses.contains(&built.config.behavior.id),
+                "the boss '{}' reports '{}' when defeated, and the validator does not know that id: {:?}",
+                boss.name,
+                built.config.behavior.id,
+                ids.bosses
+            );
         }
+        assert!(bosses >= 10, "the shipped world has its bosses: {bosses}");
+
+        // `System Boss` is driven by `PhaseScript:clockwork_warden`. The slug
+        // of its name is an id that no defeat reports.
+        assert!(
+            errors_for_a_quest_that_wants(&ids, Condition::BossDefeated("overflow_boss".into()))
+                .is_empty(),
+            "a quest that names the id the Overflow boss reports was refused"
+        );
+        assert_eq!(
+            errors_for_a_quest_that_wants(&ids, Condition::BossDefeated("system_boss".into())).len(),
+            1,
+            "a quest that names the slug of a display name was accepted, and no defeat reports it"
+        );
+
+        // The shipped quests.
+        let mut report = ContentValidationReport::default();
+        check_quest_steps(&crate::quest::default_quest_specs(), &ids, &mut report);
+        assert!(report.errors.is_empty(), "{:?}", report.errors);
+    }
+
+    /// The reward chest of a boss is keyed by its placement id, so that is
+    /// the looted flag a quest may name. The slug of the display name keys
+    /// no chest.
+    #[test]
+    fn a_boss_looted_flag_is_keyed_by_its_placement() {
+        use ambition_persistence::quest::QuestStepCondition as Condition;
+        let (rooms, _, ids) = shipped_quest_targets();
+        let boss = rooms
+            .iter()
+            .flat_map(|room| &room.boss_spawns)
+            .find(|boss| boss.name == "Overflow")
+            .expect("the shipped world has the Overflow boss");
+        assert!(
+            errors_for_a_quest_that_wants(
+                &ids,
+                Condition::FlagSet(encounter_reward_looted_flag(&boss.id))
+            )
+            .is_empty(),
+            "the looted flag of the placement '{}' is not a known flag",
+            boss.id
+        );
+        assert_eq!(
+            errors_for_a_quest_that_wants(
+                &ids,
+                Condition::FlagSet(encounter_reward_looted_flag("overflow"))
+            )
+            .len(),
+            1,
+            "the looted flag of a display-name slug keys no chest"
+        );
     }
 }

@@ -183,6 +183,25 @@ pub fn canonical_boss_id_from(
     }
 }
 
+/// The behaviour that an authored boss placement gets.
+///
+/// This is the one resolution from a placement's display name and brain to
+/// its behaviour: the canonical id ([`canonical_boss_id_from`]), then the
+/// catalog, with a renamed id and the generic profile as that lookup decides.
+/// The id of the result is the id that the boss reports when it is defeated
+/// (`QuestAdvanceEvent::BossDefeated`), so a reader that must know that id
+/// (a quest validator) asks here. It must not slug the display name.
+pub fn authored_boss_behavior(
+    catalog: &super::BossCatalog,
+    name: &str,
+    brain: &ambition_entity_catalog::placements::BossBrain,
+) -> BossBehaviorProfile {
+    <BossBehaviorProfile as BossBehaviorProfileExt>::for_authored_boss(
+        catalog,
+        &canonical_boss_id_from(name, brain),
+    )
+}
+
 
 /// Ordered sprite-metadata keys that may describe a boss attack profile's
 /// gameplay geometry. The first key is the canonical runtime key; later keys

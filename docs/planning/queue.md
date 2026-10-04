@@ -801,9 +801,30 @@ second authoring source.
   identity, and an unknown preset is a panic when the room loads. The
   converter reads the three with `field_text` now
   (`an_npc_spawn_carries_its_trimmed_ids`).
-  Open, not compared: the quest checks (`authored_encounter_ids`,
-  `authored_flag_ids`, the pickup and NPC iids) each scan the LDtk entities
-  again beside a converter.
+  ✅ 2026-10-04, the quest checks' boss and encounter ids. Measured on the
+  shipped world: the validator slugged the display name of each `BossSpawn`,
+  and for 9 of the 11 bosses that is not the id that the boss reports when it
+  is defeated (`system_boss` against `clockwork_warden`, `t_rex` against
+  `trex_boss`). A quest that named the reported id was refused, and a quest
+  that named the slug was accepted and could not complete. The two shipped
+  boss quests name the only two bosses for which the ids agree.
+  - `ambition_boss_encounter::behavior::authored_boss_behavior` is the one
+    resolution from a placement to its behaviour. The boss constructor, the
+    room boss-art keys and the validator use it.
+  - The boss looted flag is keyed by the placement id, as
+    `ambition_boss_encounter::rewards` keys the chest. The validator derived
+    it from the slug.
+  - The encounter ids and their looted flags are those of the loader
+    (`load_encounter_specs_from_rooms`), which builds only the first trigger
+    of a room. The validator's scan named each trigger.
+  - Witnesses: `a_quest_names_a_boss_by_the_id_its_defeat_reports`,
+    `a_boss_looted_flag_is_keyed_by_its_placement`. `check_quest_steps` takes
+    the quests as an argument, so a test can plant a step.
+  Open, not compared: the flags of NPC talk, switches and `flag:` pickups in
+  `authored_flag_ids`, and the pickup and NPC ids, each scan the LDtk entities
+  beside a converter. `QuestStepCondition::ItemCollected` has no producer of
+  its event in the tree (a search for `ItemCollected` over `.rs`, `.ron` and
+  `.yarn`), and no shipped quest uses it.
   `scripts/check_world_graph_is_navigable.py` is a third reader of the zone
   targets (it does not trim, so it is stricter than the engine).
 

@@ -5,7 +5,7 @@
 //! kinematics use the same shared body components as other actors. Mutable boss
 //! queries stay disjoint from other actor archetypes through the marker.
 
-use super::behavior::{canonical_boss_id_from, BossBehaviorProfile, BossBehaviorProfileExt};
+use super::behavior::{authored_boss_behavior, BossBehaviorProfile};
 use super::BossEncounterPhase;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::snapshot::{put_bool, put_f32, SnapshotCursor, SnapshotState};
@@ -333,9 +333,8 @@ impl BossClusterScratch {
         // display name, so a "System Boss" room whose brain is
         // `PhaseScript:clockwork_warden` resolves to the clockwork_warden
         // profile.
-        let canonical_id = canonical_boss_id_from(&name, &brain);
         let center = aabb.center();
-        let behavior = BossBehaviorProfile::for_authored_boss(boss_catalog, &canonical_id);
+        let behavior = authored_boss_behavior(boss_catalog, &name, &brain);
         // The LDtk spawn box is the sprite render basis (`render_size`).
         // `kin.size` holds the collision body, so the shared movement seam
         // sweeps the right box. See `resolve_sheet_body` for its source.
@@ -530,7 +529,7 @@ pub mod test_support {
     ) -> BossConfig {
         let catalog = super::super::test_boss_catalog();
         let name = name.into();
-        let behavior = BossBehaviorProfile::for_authored_boss(catalog, script_id);
+        let behavior = <BossBehaviorProfile as crate::behavior::BossBehaviorProfileExt>::for_authored_boss(catalog, script_id);
         BossConfig {
             id: id.into(),
             seed: BossSeed::resolved(catalog, &behavior.id, &name, 18),

@@ -1106,20 +1106,28 @@ that gives it meaning.
 rules/content; another game can build the brain with no ladder; no authored
 ladder field is inert.
 
-### BARK-CARDINALITY — a singular bark role has one owner
-
-**Owner:** the conversation/bark content schema (`ambition_conversation::rules`)
-and the content validator.
+### BARK-CARDINALITY — a singular bark role has one owner — ✅ DONE 2026-10-03
 
 **Ruling:** Q52 (2026-10-03): cardinality is explicit. Two providers that
 contribute the same singular bark role conflict; a plural, composable bark
 collection is modelled explicitly when content wants one.
 
-**Next action:** measure what happens today when two providers author a bark set
-for one role (replace, concatenate or conflict).
+**Measured (2026-10-03):** the question was asked of `CombatBanterRegistry`, a
+name-keyed registry that three installers filled and where a second set
+replaced the first. That registry was deleted on 2026-10-02 (`957961618`). A
+character's barks are now only the `barks` field of its catalog row
+(`CharacterBarks`, one pool for each `BarkSituation`), and a boss names a row as
+its `voice`. One provider authors a row: catalog assembly refuses a second
+provider's row for the same character id with `DuplicateCharacter`, whose
+report names both providers, and the earlier assembly stays as it was. So today
+a second contribution conflicts; it does not replace and does not concatenate.
 
-**Acceptance:** a second contribution to a singular role is a reported
-conflict that names both providers.
+**Witness:** `a_second_provider_cannot_author_the_barks_of_one_character`
+(`ambition_characters`, catalog registry). Poison: with the duplicate check off,
+the second provider is accepted and the arm fails.
+
+**Not checked:** one provider that writes the same character id twice in one
+catalog file. No plural bark collection exists, because no content asks for one.
 
 ### TEST-LANES — keep required test lanes executable
 

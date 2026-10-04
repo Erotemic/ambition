@@ -2571,6 +2571,119 @@ mod tests {
         );
     }
 
+    /// A publication that brings its own room set (a hot reload) carries each
+    /// live room it keeps into that set by the room's id. Alice reloads her
+    /// room `n` (#0) while Bob holds `candidate` (#1), and the reloaded set
+    /// orders the rooms another way: `[other, n, candidate]`. The reload
+    /// publishes #2, and Bob's room is still `candidate`, where the index he
+    /// had (1) is `n` in the new set. A set without `candidate` is refused,
+    /// and both rooms stand. A reload whose room is the room Bob holds is
+    /// refused as a second live room of it.
+    #[test]
+    fn a_reload_that_brings_a_room_set_keeps_the_other_live_rooms_rooms() {
+        use ambition_platformer2d_shared_tangle::lifecycle::{
+            activation_room_root, session_world_component, session_world_component_mut, InRoomInstance,
+            SessionRoot,
+        };
+        use super::transaction::{LiveRoomSuccession, StagedWorldViolation};
+        let first = LiveRoomInstance::ACTIVATION;
+        let (second, third) = (first.next(), first.next().next());
+        let plan_of = |index: usize, spec: RoomSpec| {
+            let recipes = crate::construction::engine_construction_registry();
+            let catalog = ambition_characters::actor::character_catalog::CharacterCatalog::empty();
+            let sheets = ambition_sprite_sheet::character::sheets::AuthoredSheets::default();
+            RoomConstructionPlan::prepare_spec(
+                index,
+                spec,
+                &PlacementLoweringRegistry::default(),
+                &features::RoomContentStagingRegistry::default(),
+                &ambition_boss_encounter::BossCatalog::default(),
+                SessionSpawnScope::UNSCOPED,
+                features::ActorConstructionContext::new(&recipes, &catalog, &sheets, ContentBinding::content_unstated(Default::default()))
+                    .with_prepared(fixture_cast()),
+            )
+            .expect("the reloaded room plans")
+        };
+        let reload = |next: Vec<RoomSpec>, room: &str| {
+            let platform = MovingPlatformState::from_authored(
+                ae::Vec2::new(10.0, 20.0),
+                ae::Vec2::new(32.0, 8.0),
+                64.0,
+                10.0,
+            );
+            let (mut app, outgoing) = last_good_world(platform);
+            for body in &outgoing {
+                app.world_mut().entity_mut(*body).insert(InRoomInstance(first));
+            }
+            let scope = session_world_component::<SessionRoot>(app.world())
+                .expect("the fixture has a session root")
+                .0;
+            assert!(
+                session_world_component_mut::<RoomSet>(app.world_mut())
+                    .expect("the fixture has a room set")
+                    .mint_live_room(second),
+                "a fresh session mints #1 first"
+            );
+            let candidate = session_world_component::<RoomSet>(app.world())
+                .and_then(|rooms| rooms.definition_by_id("candidate"))
+                .expect("the fixture's set has room `candidate`");
+            app.world_mut()
+                .spawn((
+                    activation_room_root(scope),
+                    ambition_platformer2d_core::RoomGeometry(candidate_spec().world.clone()),
+                ))
+                .insert((second, candidate));
+            let next = RoomSet::from_parts_or_panic(room, next, Vec::new());
+            let index = next.definition_by_id(room).expect("the reloaded set has the room").index();
+            let plan = plan_of(index, next.spec(next.definition_by_id(room).expect("it is there")).clone());
+            bevy::ecs::system::RunSystemOnce::run_system_once(app.world_mut(), move |mut commands: Commands| {
+                plan.replace_live_world(
+                    &mut commands,
+                    outgoing.iter().map(|entity| (*entity, false)),
+                    None,
+                    Some(next.clone()),
+                    None,
+                    Some(LiveRoomSuccession::replacing(first, third)),
+                    Vec::new(),
+                );
+            })
+            .expect("the staging system runs");
+            let verification = app
+                .world()
+                .resource::<crate::world::rooms::LastConstructionVerification>()
+                .clone();
+            (verification.published, verification.staged_violations, live_room_definitions(&mut app))
+        };
+
+        let (published, violations, rooms) =
+            reload(vec![empty_spec("other"), empty_spec("n"), candidate_spec()], "n");
+        assert!(published, "the reload of Alice's room was refused: {violations:?}");
+        assert_eq!(
+            rooms,
+            vec![(second, "candidate".to_string()), (third, "n".to_string())],
+            "Bob's room did not keep its room across the new set, or Alice's reload did not publish"
+        );
+
+        let (published, violations, rooms) = reload(vec![empty_spec("other"), empty_spec("n")], "n");
+        assert_eq!(
+            (published, violations, rooms),
+            (
+                false,
+                vec![StagedWorldViolation::LiveRoomNotInNextSet { live: second, room: "candidate".to_string() }],
+                vec![(first, "n".to_string()), (second, "candidate".to_string())],
+            ),
+            "a set that deletes Bob's room: (published, violations, rooms)"
+        );
+
+        let (published, violations, rooms) =
+            reload(vec![candidate_spec(), empty_spec("n")], "candidate");
+        assert_eq!(
+            (published, violations.contains(&StagedWorldViolation::DefinitionAlreadyLive { live: second }), rooms),
+            (false, true, vec![(first, "n".to_string()), (second, "candidate".to_string())]),
+            "a reload into the room Bob holds: (published, refused as a second live room, rooms)"
+        );
+    }
+
     /// A room staged for a live room another publication has already minted is
     /// refused before anything is torn down: its occupants would belong to a
     /// room the session is not in.

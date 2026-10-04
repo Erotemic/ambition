@@ -727,6 +727,15 @@ pub enum StagedWorldViolation {
     DefinitionAlreadyLive {
         live: ambition_platformer2d_world::rooms::LiveRoomInstance,
     },
+    /// The publication brings a room set that has no room for a live room it
+    /// does not replace or retire. That room's definition is an index into
+    /// the set, so after the replacement it would name no room, or another
+    /// room. A hot reload that deletes the room another player is in gets
+    /// here.
+    LiveRoomNotInNextSet {
+        live: ambition_platformer2d_world::rooms::LiveRoomInstance,
+        room: String,
+    },
 }
 
 impl std::fmt::Display for StagedWorldViolation {
@@ -778,6 +787,12 @@ impl std::fmt::Display for StagedWorldViolation {
                 "this publication builds a second live room of the room that \
                  live room {live} already is, and the durable rows name a place \
                  by its room id, so the two would share them"
+            ),
+            Self::LiveRoomNotInNextSet { live, room } => write!(
+                f,
+                "this publication replaces the room set with one that has no \
+                 room `{room}`, and live room {live} is that room and stays live, \
+                 so it would be left in a room that is not in the set"
             ),
             Self::StaleMint { mints, next } => write!(
                 f,
@@ -856,7 +871,7 @@ pub(crate) fn verify_staged_world(
                 Some(LiveRoomSuccession::Replace { replaces, .. }) => Some(Some(replaces)),
                 _ => None,
             };
-            let target = world.get::<RoomSet>(root).and_then(|rooms| rooms.definition(pending.target_index));
+            let target = world.get::<RoomSet>(root).and_then(|rooms| target_in_live_set(rooms, pending));
             if let (Some(replaces), Some(target), Some(scope)) = (built, target, scope_of_root(world, root)) {
                 // A room this publication retires beside the replaced one does
                 // not stay live, so it does not hold the definition.
@@ -864,6 +879,25 @@ pub(crate) fn verify_staged_world(
                     .filter(|live| !pending.retires_beside.contains(live))
                 {
                     violations.push(StagedWorldViolation::DefinitionAlreadyLive { live });
+                }
+            }
+            // A live room that this publication keeps must have its room in
+            // the set the publication brings: see `LiveRoomNotInNextSet`.
+            if let (Some(next), Some(rooms), Some(scope)) =
+                (pending.next_rooms.as_ref(), world.get::<RoomSet>(root), scope_of_root(world, root))
+            {
+                let replaced = match pending.succession {
+                    Some(LiveRoomSuccession::Replace { replaces, .. }) => Some(replaces),
+                    _ => None,
+                };
+                for (_, live, definition) in live_rooms_of_scope(world, scope) {
+                    if Some(live) == replaced || pending.retires_beside.contains(&live) {
+                        continue;
+                    }
+                    let room = &rooms.spec(definition).id;
+                    if next.definition_by_id(room).is_none() {
+                        violations.push(StagedWorldViolation::LiveRoomNotInNextSet { live, room: room.clone() });
+                    }
                 }
             }
             // The geometry's sink is the root of the live room this replaces,
@@ -876,7 +910,7 @@ pub(crate) fn verify_staged_world(
                 (Some(LiveRoomSuccession::Join { joins, .. }), Some(scope)) => {
                     let target = world
                         .get::<RoomSet>(root)
-                        .and_then(|rooms| rooms.definition(pending.target_index));
+                        .and_then(|rooms| target_in_live_set(rooms, pending));
                     let joined = live_room_root_for(world, scope, joins).and_then(|room_root| {
                         world.get::<ambition_platformer2d_world::rooms::LiveRoomDefinition>(room_root)
                     });
@@ -1069,6 +1103,17 @@ pub(crate) fn apply_world_replacement(
     };
     use ambition_platformer2d_shared_tangle::lifecycle::session_world_component_mut_at;
     if let Some(mut next) = pending.next_rooms.take() {
+        // Each live room's room, by id. A definition is an index into the
+        // set, and the same room can have another index in the next one, so
+        // the index is carried across the replacement by the id.
+        let carried: Vec<(bevy::ecs::entity::Entity, String)> =
+            match (world.get::<ambition_platformer2d_world::rooms::RoomSet>(root), scope_of_root(world, root)) {
+                (Some(rooms), Some(scope)) => live_rooms_of_scope(world, scope)
+                    .into_iter()
+                    .map(|(entity, _, definition)| (entity, rooms.spec(definition).id.clone()))
+                    .collect(),
+                _ => Vec::new(),
+            };
         match session_world_component_mut_at::<ambition_platformer2d_world::rooms::RoomSet>(world, root) {
             Some(mut rooms) => {
                 next.inherit_live_room_counter(&rooms);
@@ -1078,6 +1123,23 @@ pub(crate) fn apply_world_replacement(
                 target: "ambition_platformer2d::construction",
                 "publication target {root:?} carries no `RoomSet` at application,                  though its preflight found one"
             ),
+        }
+        let remapped: Vec<_> = match world.get::<ambition_platformer2d_world::rooms::RoomSet>(root) {
+            // The verifier refused a set that has no room for a live room
+            // this publication keeps. The room it replaces gets its
+            // definition below, and a room it retires goes.
+            Some(rooms) => carried
+                .into_iter()
+                .filter_map(|(entity, room)| Some((entity, rooms.definition_by_id(&room)?)))
+                .collect(),
+            None => Vec::new(),
+        };
+        for (entity, definition) in remapped {
+            if let Some(mut live) = world.get_mut::<ambition_platformer2d_world::rooms::LiveRoomDefinition>(entity) {
+                if *live != definition {
+                    *live = definition;
+                }
+            }
         }
     }
     // Which definition the published room is, resolved against the set the
@@ -1297,6 +1359,47 @@ fn live_room_of_definition(
         .collect();
     live.sort();
     live.into_iter().next()
+}
+
+/// The publication's target in the set the session holds now, which is the
+/// set that each live room's definition indexes. A publication that brings
+/// its own set names the target in that set, and the same room has the same
+/// id in both.
+fn target_in_live_set(
+    rooms: &ambition_platformer2d_world::rooms::RoomSet,
+    pending: &PendingWorldReplacement,
+) -> Option<ambition_platformer2d_world::rooms::LiveRoomDefinition> {
+    match &pending.next_rooms {
+        Some(next) => rooms.definition_by_id(&next.rooms.get(pending.target_index)?.id),
+        None => rooms.definition(pending.target_index),
+    }
+}
+
+/// Each live room root of `scope`, in instance order.
+fn live_rooms_of_scope(
+    world: &World,
+    scope: ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId,
+) -> Vec<(
+    bevy::ecs::entity::Entity,
+    ambition_platformer2d_world::rooms::LiveRoomInstance,
+    ambition_platformer2d_world::rooms::LiveRoomDefinition,
+)> {
+    use ambition_platformer2d_shared_tangle::lifecycle::{RoomInstanceRoot, SessionScopedEntity};
+    let Some(mut roots) = world.try_query_filtered::<(
+        bevy::ecs::entity::Entity,
+        &ambition_platformer2d_world::rooms::LiveRoomInstance,
+        &ambition_platformer2d_world::rooms::LiveRoomDefinition,
+        Option<&SessionScopedEntity>,
+    ), bevy::prelude::With<RoomInstanceRoot>>() else {
+        return Vec::new();
+    };
+    let mut live: Vec<_> = roots
+        .iter(world)
+        .filter(|(.., owner)| owner.is_none_or(|owner| owner.0 == scope))
+        .map(|(entity, instance, definition, _)| (entity, *instance, *definition))
+        .collect();
+    live.sort_by_key(|(_, instance, _)| *instance);
+    live
 }
 
 fn scope_of_root(

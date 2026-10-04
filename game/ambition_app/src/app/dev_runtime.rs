@@ -78,14 +78,17 @@ pub(super) fn handle_ldtk_hot_reload(
     // component and a second entry in the multi-writer census for a system that
     // writes nothing. A comment saying "not a write target" beside a `&mut` is
     // the weakest form that statement can take.
-    _room_geometry: ambition_platformer2d::platformer::lifecycle::SoleLiveRoom<RoomGeometry>,
+    _room_geometry: Option<ambition_platformer2d::platformer::lifecycle::SoleLiveRoom<RoomGeometry>>,
     // ⛤ A SHARED BORROW SINCE 2026-09-18, and the TYPE no longer claims a
     // mutable reach either. It is only READ here; the reload's writes land in
     // the staged closure on the publication's own verdict. See the note at the
     // `reload_ldtk_world_from_disk` call for what had to change first.
     // The set and which room of it the live room is (OW1 cut 5e): the
-    // one-live-room read, because a reload replaces the live room.
-    room_set: world_rooms::SoleLiveRoomSpec,
+    // one-live-room read, because a reload replaces the live room. `Option`,
+    // so that a reload asked for while two rooms are live is told why it
+    // waits; before, this system did not run and the press was lost.
+    room_set: Option<world_rooms::SoleLiveRoomSpec>,
+    live_rooms: Query<(), With<ambition_platformer2d::session::RoomInstanceRoot>>,
     // The live room the reload replaces. The rebuilt room is the next one.
     live_room: Option<
         ambition_platformer2d::platformer::lifecycle::SoleLiveRoom<
@@ -195,6 +198,22 @@ pub(super) fn handle_ldtk_hot_reload(
              does not support filesystem watching"
         );
         ldtk_reload.pending = false;
+        return;
+    };
+
+    // ⛔ ONE LIVE ROOM. A reload replaces the room set and rebuilds one live
+    // room. Another live room would keep the content of the old generation
+    // under the new set's definition of its room, and its root names the old
+    // generation. Until a reload re-prepares every live room, it waits.
+    // `pending` stays, so auto-apply applies it when one room is live.
+    let live = live_rooms.iter().count();
+    if live > 1 {
+        ldtk_reload.mark_deferred(format!(
+            "{live} rooms are live and a reload rebuilds one; it applies when one room is live"
+        ));
+        return;
+    }
+    let (Some(_), Some(room_set)) = (_room_geometry, room_set) else {
         return;
     };
 

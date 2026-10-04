@@ -1421,6 +1421,16 @@ def build_maintenance_jobs() -> list[Job]:
                 "scripts/check_multi_writer_resources_are_adjudicated.py",
             ],
         ),
+        # A rollback-registered resource that is host configuration is not in
+        # the session reset, so a value written inside a session stays for the
+        # next one. This fails when the first such writer arrives.
+        Job(
+            "no production code writes a host-configuration resource",
+            [
+                sys.executable,
+                "scripts/check_host_configuration_has_no_session_writer.py",
+            ],
+        ),
         # A request drained inside the rewinding schedule and written from
         # outside it is lost on every rewind. `CutsceneTriggerQueue` is safe by
         # COINCIDENCE — every producer happens to be in the sim schedule — and

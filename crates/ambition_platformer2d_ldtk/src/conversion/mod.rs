@@ -1983,6 +1983,70 @@ mod tests {
         );
     }
 
+    /// The ids that an `NpcSpawn` carries are read by the one text rule
+    /// (`field_text`). The content validator judges the trimmed ids. A
+    /// converter that kept a space would give the runtime a character, a brain
+    /// preset or a dialogue that the validator never looked up: an unknown
+    /// character is a body with no identity, and an unknown preset is a panic
+    /// when the room loads.
+    #[test]
+    fn an_npc_spawn_carries_its_trimmed_ids() {
+        use ambition_platformer2d_world::rooms::InteractionKindSpec;
+        use ambition_entity_catalog::placements::PlacementSchema;
+        let npc = |fields: &[(&str, Value)]| {
+            let entity = entity_at("NpcSpawn", [96, 400], [16, 32], fields);
+            let no_paths = BTreeMap::new();
+            let ctx = LdtkEntityCtx {
+                entity: &entity,
+                name: "NpcSpawn".to_string(),
+                min: ae::Vec2::new(96.0, 400.0),
+                size: ae::Vec2::new(16.0, 32.0),
+                offset: ae::Vec2::ZERO,
+                kinematic_path_ids: &no_paths,
+            };
+            let record = super::entity_converters::convert_npc_spawn(&ctx)
+                .expect("an NpcSpawn converts")
+                .placements
+                .remove(0);
+            let PlacementSchema::Interactable(interactable) = record.schema else {
+                panic!("an NpcSpawn is an interactable placement");
+            };
+            let InteractionKindSpec::Npc {
+                character_id,
+                dialogue_id,
+                brain_override,
+                ..
+            } = interactable.kind
+            else {
+                panic!("an NpcSpawn is an NPC interaction");
+            };
+            (character_id, dialogue_id, brain_override)
+        };
+
+        assert_eq!(
+            npc(&[
+                ("character_id", text("npc_ai_slop ")),
+                ("dialogue_id", text(" slop_intro")),
+                ("brain_override", text(" guard ")),
+            ]),
+            (
+                Some("npc_ai_slop".to_string()),
+                Some("slop_intro".to_string()),
+                Some("guard".to_string()),
+            ),
+            "each id is its trimmed value"
+        );
+        assert_eq!(
+            npc(&[
+                ("character_id", text("  ")),
+                ("dialogue_id", text("")),
+                ("brain_override", text("   ")),
+            ]),
+            (None, None, None),
+            "a blank id is no id"
+        );
+    }
+
     /// A link is built by the rule that `validate` judges a target by: a blank
     /// target is no target, and a target is its trimmed value. A converter
     /// that kept the space would build a link to a room that does not exist,

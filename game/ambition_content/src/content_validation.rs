@@ -186,13 +186,11 @@ fn validate_npc_dialogue_ids(
             if entity.identifier != "NpcSpawn" {
                 continue;
             }
-            let Some(dialogue_id) = field_string(entity, "dialogue_id") else {
+            // `field_text`, the rule the converter reads this id by.
+            let Some(dialogue_id) = field_text(entity, "dialogue_id") else {
                 continue;
             };
-            let dialogue_id = dialogue_id.trim();
-            if dialogue_id.is_empty() {
-                continue;
-            }
+            let dialogue_id = dialogue_id.as_str();
             if !known.contains(dialogue_id) {
                 report.push_error(format!(
                     "level '{}' NpcSpawn '{}' references unknown dialogue_id '{}'",
@@ -552,13 +550,10 @@ fn authored_flag_ids(project: &LdtkProject) -> BTreeSet<String> {
     for level in &project.levels {
         for entity in level.all_entity_instances() {
             if entity.identifier == "NpcSpawn" {
-                if let Some(dialogue_id) = field_string(entity, "dialogue_id") {
-                    let dialogue_id = dialogue_id.trim();
-                    if !dialogue_id.is_empty() {
-                        flags.insert(ambition_platformer2d::actors::features::npc_talked_flag(
-                            dialogue_id,
-                        ));
-                    }
+                if let Some(dialogue_id) = field_text(entity, "dialogue_id") {
+                    flags.insert(ambition_platformer2d::actors::features::npc_talked_flag(
+                        &dialogue_id,
+                    ));
                 }
             }
             if entity.identifier == "EncounterTrigger" {

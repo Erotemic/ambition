@@ -271,13 +271,36 @@ machinery (`RoomsOwedTheRestore`, the replay of every other live room) is
 deleted (rollback schema 305). Witness:
 `a_death_in_one_room_leaves_the_boss_defeat_in_the_other_players_room`.
 
-**What is left:** the occurrence ledger, custody and the bag still go back
-whole. Next: measure whether an enemy Bob kills in his room after the
-checkpoint comes back when Alice dies (the ledger row reverts while his live
-room keeps the body dead), and what a reward Alice took from Bob's room does.
-Then spare those records by the same room set. Two known gaps stay until
-records carry their participant: Alice's actions inside Bob's room go back
-with her, and a defeat Bob won in a room he has already left is taken back.
+**Breakable respawns are served by the live room:** the restore forgets
+every respawn record, and `mirror_breakable_respawns` records Bob's again
+on the next tick from his platform's running timer, with the same due time
+(probe, 2026-10-03). Witness:
+`a_death_keeps_the_respawn_of_a_platform_in_another_players_room`.
+
+**Alice's custody across Bob's room is served:** an item Alice banked in
+hand and then put down in Bob's live room is back in her hand after her
+death, held once, with the ledger saying `InCustody`
+(`a_death_takes_back_what_was_put_down_in_another_players_room`). Every
+other ledger row of a live room is republished from live state while the
+room is loaded (`continuity.rs`), as the respawn record is.
+
+**A reward taken from Bob's boss stays:** Alice opens the chest of Bob's
+boss in his room after the checkpoint and dies in the hub. She keeps the
+coins, and the chest stays looted with the boss cleared
+(`a_death_keeps_the_reward_taken_from_the_other_players_boss`).
+
+**What is left: the whole-session restart.** Measured 2026-10-03: a New
+Game beside Bob's live room takes back his boss defeat in the save and its
+chest, while his room stays the same instance with the dead boss in it.
+The restart commit rebuilds only the start room. Next: the New Game commit
+retires or rebuilds every live room in the same operation (not a replay
+after it, which Q151 forbids). Where a seated participant's body goes on a
+restart is part of the join road (Q153). Acceptance (ignored until then):
+`a_new_game_leaves_no_live_room_holding_what_it_took_back`.
+
+**Known gap, until records carry their participant:** a defeat Bob won in a
+room he has already left is taken back with Alice's death, because only live
+rooms are spared.
 
 **Acceptance:** Alice dies while Bob's room holds a boss he defeated after the
 checkpoint: Bob's room, the boss row and its reward stay; Alice's room agrees

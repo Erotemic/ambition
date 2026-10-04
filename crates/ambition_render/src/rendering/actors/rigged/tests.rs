@@ -503,6 +503,52 @@ fn a_hybrid_body_crosses_between_part_and_baked_clips_in_place() {
     assert_eq!(*app.world().get::<Transform>(root).unwrap(), placed);
 }
 
+/// ⛔ A page render clears the WHOLE page. A body drawn baked meanwhile (a
+/// hybrid on its baked clip: its parts hidden) loses its cell's pixels when
+/// another body's change renders the page, so on its return to the very same
+/// part frame its cell is stale and must be redrawn — not judged unchanged by
+/// its own last draws (GPT review, 2026-10-03: the body vanished until
+/// something else dirtied the page).
+#[test]
+fn a_cell_cleared_while_its_body_drew_baked_is_redrawn_when_it_returns() {
+    use ambition_sprite_sheet::character::CharacterAnim;
+
+    let (mut app, a) = app_with(true, raider_with(Some(hybrid_raider("slash"))));
+    let b = {
+        let asset = raider_with(Some(hybrid_raider("slash")));
+        let feet = Vec2::new(asset.spec.feet_anchor_x, asset.spec.feet_anchor_y);
+        let (sprite, anchor, animator) = build_character_presentation_with_render_size(&asset, RENDER, Anchor(feet));
+        app.world_mut()
+            .spawn((sprite, anchor, animator, Transform::default(), Visibility::Inherited))
+            .id()
+    };
+    pin_clip(&mut app, a, "idle", 0);
+    pin_clip(&mut app, b, "idle", 0);
+    app.update();
+    app.update();
+    let presentation = |app: &App, root| app.world().get::<RiggedPresentation>(owner(app, root)).unwrap().impostor;
+    let (pa, pb) = (presentation(&app, a), presentation(&app, b));
+    assert_eq!((pa.class, pa.page), (pb.class, pb.page), "the premise: both bodies share a page");
+    let generation = |app: &App| app.world().resource::<RiggedImpostorAtlas>().0[pa.class][pa.page].generation;
+    let settled = generation(&app);
+    app.update();
+    assert_eq!(generation(&app), settled, "nothing changed: the page does not render");
+
+    // A goes baked; B changes, so the page renders (and clears) without A.
+    app.world_mut().get_mut::<CharacterAnimator>(a).unwrap().request(CharacterAnim::Slash);
+    pin_clip(&mut app, b, "idle", 1);
+    app.update();
+    assert!(draws_baked(&app, a), "the premise: A draws its baked frame");
+    assert_eq!(generation(&app), settled + 1, "B's change renders the page");
+
+    // A returns to exactly the part frame its cell held before the clear.
+    pin_clip(&mut app, a, "idle", 0);
+    app.update();
+    assert_eq!(generation(&app), settled + 2, "A's cleared cell is redrawn on its return");
+    app.update();
+    assert_eq!(generation(&app), settled + 2, "and then rests");
+}
+
 /// The root draws its baked frame until every part page is ready, and the
 /// impostor takes over in one frame when they are.
 #[test]

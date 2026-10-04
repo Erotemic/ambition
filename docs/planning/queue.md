@@ -794,11 +794,16 @@ second authoring source.
   - The validator holds the complete game, so there each unresolved link is
     an error. It reads the rooms and links that the runtime builds
     (`to_room_parts`), and its own scan is deleted.
-  Open, same class, not changed: `validate_npc_brain_overrides` reads
-  `character_id` and `brain_override` with `field_text`, and the NpcSpawn
-  converter reads them with `field_string` (no trim). The quest checks
-  (`authored_encounter_ids`, `authored_flag_ids`, the pickup and NPC iids)
-  each scan the LDtk entities again beside a converter; none was compared.
+  ✅ 2026-10-03, the NpcSpawn ids, same class. The validator judged
+  `character_id`, `brain_override` and `dialogue_id` trimmed, and
+  `convert_npc_spawn` gave the runtime the raw values (measured:
+  `"npc_ai_slop "`, `" guard "`). An unknown character is a body with no
+  identity, and an unknown preset is a panic when the room loads. The
+  converter reads the three with `field_text` now
+  (`an_npc_spawn_carries_its_trimmed_ids`).
+  Open, not compared: the quest checks (`authored_encounter_ids`,
+  `authored_flag_ids`, the pickup and NPC iids) each scan the LDtk entities
+  again beside a converter.
   `scripts/check_world_graph_is_navigable.py` is a third reader of the zone
   targets (it does not trim, so it is stricter than the engine).
 

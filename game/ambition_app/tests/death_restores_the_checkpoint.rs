@@ -1656,3 +1656,47 @@ fn a_death_takes_back_what_was_put_down_in_another_players_room() {
         "the ledger after the death"
     );
 }
+
+/// The bag after a New Game in the room fixture, when the composition's
+/// starting bag is `starting` (the App's own when `None`), and the App's own
+/// starting bag.
+fn the_bag_after_a_new_game(
+    starting: Option<ambition_platformer2d::items::OwnedItems>,
+) -> (ambition_platformer2d::items::OwnedItems, ambition_platformer2d::items::OwnedItems) {
+    use ambition_platformer2d::actors::items::starting_bag::StartingBag;
+    let mut sim = fixed_60hz_room_sim(ROOM);
+    sim.step_n(base(), 10);
+    let own = sim.world().resource::<StartingBag>().bag().clone();
+    if let Some(bag) = starting {
+        sim.world_mut().insert_resource(StartingBag::of(bag));
+    }
+    sim.world_mut()
+        .write_message(ambition_platformer2d::actors::session::reset::NewGameRequested);
+    sim.step_n(base(), 240);
+    let outcome = format!(
+        "{:?}",
+        sim.world()
+            .resource::<ambition_platformer2d::actors::session::checkpoint::SessionCheckpointOutcomes>()
+            .latest()
+    );
+    assert!(outcome.starts_with("Some(Committed"), "precondition: the New Game committed: {outcome}");
+    (sim.world().resource::<ambition_platformer2d::items::OwnedItems>().clone(), own)
+}
+
+/// A New Game gives the bag the composition began with (`StartingBag`).
+/// It gave the Ambition starter set, so a composition that begins with an
+/// empty bag got Ambition's starter items. Here a composition that begins
+/// with an empty bag is stood in for by an empty `StartingBag`. The control
+/// is the App's own starting bag, which the New Game gives back.
+#[test]
+fn a_new_game_gives_the_bag_the_composition_began_with() {
+    let (control, own) = the_bag_after_a_new_game(None);
+    assert_ne!(own, Default::default(), "precondition: the App's starting bag is not empty, so the arm can tell");
+    assert_eq!(control, own, "control: a New Game gave another bag than the App's own starting bag");
+    let (empty, _) = the_bag_after_a_new_game(Some(Default::default()));
+    assert_eq!(
+        empty,
+        ambition_platformer2d::items::OwnedItems::default(),
+        "a New Game in a composition that begins with an empty bag gave it items"
+    );
+}

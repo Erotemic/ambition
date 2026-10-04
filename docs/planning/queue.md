@@ -1707,10 +1707,12 @@ Poisons: the reset not registered (the three arms above); the record runs in
 
 - ⚠ A fixture prediction missed: a bomb is a unique item, so a grant of three
   gives one.
-- ⚠ Open, not repaired: the New Game restore (`session/checkpoint.rs`) states
-  the starting bag a second time, as `OwnedItems::starter(catalog)`. In a
-  composition that begins with an empty bag, that is not the bag the process
-  began with. It can read `StartingBag`.
+- ✅ 2026-10-04: the New Game restore (`session/checkpoint.rs`) stated the
+  starting bag a second time, as `OwnedItems::starter(catalog)`. It now pins
+  `StartingBag`. Witness: `a_new_game_gives_the_bag_the_composition_began_with`
+  (an empty `StartingBag`, set with `StartingBag::of`, stands in for a
+  composition that begins with an empty bag; control: the App's own bag).
+  Poison: the starter set again; the empty-bag arm gets the starter items.
 - ⚠ Recorded, not a defect of the edge: on a fresh host the first Sanic
   session has the Ambition starter set (10 items in its save), because the
   shell host is one composition with one bag.

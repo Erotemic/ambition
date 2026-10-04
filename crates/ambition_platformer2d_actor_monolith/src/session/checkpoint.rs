@@ -428,6 +428,8 @@ pub fn resume_at_checkpoint_on_reset(
         // came from: the restore keeps those of a defeat it keeps (Q151).
         Option<Res<crate::items::pickup::RewardGrantsSinceCheckpoint>>,
         Option<Res<ambition_boss_encounter::BossDefeatsSinceCheckpoint>>,
+        // The bag this composition begins with: what a New Game gives.
+        Option<Res<crate::items::starting_bag::StartingBag>>,
     ),
     mut admitted: bevy::prelude::MessageWriter<ambition_combat::events::RoomReplayAdmitted>,
 ) {
@@ -548,7 +550,7 @@ pub fn resume_at_checkpoint_on_reset(
         );
         return;
     };
-    let (occurrences, custody, minted, owned, items, consumed, grants, defeats) = baselines;
+    let (occurrences, custody, minted, owned, items, consumed, grants, defeats, starting) = baselines;
     let fresh = restore_to == RestoreTo::NewGame;
     // ⭐ A DEATH IS LOCAL TO ITS PARTICIPANT AND ROOM (Q151). The rooms other
     // participants hold keep what was won in them since the checkpoint. A New
@@ -594,8 +596,11 @@ pub fn resume_at_checkpoint_on_reset(
             }),
             minted.zip(owned).map(|_| {
                 let mut owned = crate::items::pickup::minted_horizon::OwnedItemsBaseline::default();
-                // A new game begins with the bag a new process begins with.
-                owned.adopt(ambition_items::OwnedItems::starter(items.get()));
+                // A new game begins with the bag this composition began with
+                // (`StartingBag`). It was the Ambition starter set, which a
+                // composition that begins with an empty bag does not have. A
+                // composition with no starting bag has an empty one.
+                owned.adopt(starting.as_ref().map(|starting| starting.bag().clone()).unwrap_or_default());
                 crate::items::pickup::minted_horizon::ItemCheckpointRestoreInputs {
                     minted: Default::default(),
                     owned,

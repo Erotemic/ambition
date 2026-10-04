@@ -37,6 +37,12 @@ use ambition_platformer2d_shared_tangle::lifecycle::{SessionScopeActivated, Sess
 pub struct StartingBag(OwnedItems);
 
 impl StartingBag {
+    /// The starting bag `bag`, for a host or a test that stands in for a
+    /// composition whose bag differs from the one this App built.
+    pub fn of(bag: OwnedItems) -> Self {
+        Self(bag)
+    }
+
     pub fn bag(&self) -> &OwnedItems {
         &self.0
     }
